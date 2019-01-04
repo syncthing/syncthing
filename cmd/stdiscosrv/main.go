@@ -121,7 +121,7 @@ func main() {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		log.Println("Failed to load keypair. Generating one, this might take a while...")
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv", 0)
+		cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv")
 		if err != nil {
 			log.Fatalln("Failed to generate X509 key pair:", err)
 		}
@@ -164,7 +164,9 @@ func main() {
 	}
 
 	// Root of the service tree.
-	main := suture.NewSimple("main")
+	main := suture.New("main", suture.Spec{
+		PassThroughPanics: true,
+	})
 
 	// Start the database.
 	db, err := newLevelDBStore(dir)

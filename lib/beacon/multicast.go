@@ -36,6 +36,7 @@ func NewMulticast(addr string) *Multicast {
 			Log: func(line string) {
 				l.Debugln(line)
 			},
+			PassThroughPanics: true,
 		}),
 		inbox:  make(chan []byte),
 		outbox: make(chan recv, 16),

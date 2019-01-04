@@ -7,6 +7,7 @@
 package unix
 
 //sys	EpollWait(epfd int, events []EpollEvent, msec int) (n int, err error)
+//sys	Fadvise(fd int, offset int64, length int64, advice int) (err error) = SYS_FADVISE64
 //sys	Dup2(oldfd int, newfd int) (err error)
 //sys	Fchown(fd int, uid int, gid int) (err error)
 //sys	Fstat(fd int, stat *Stat_t) (err error)
@@ -67,6 +68,7 @@ func Iopl(level int) (err error) {
 	return ENOSYS
 }
 
+//sys	futimesat(dirfd int, path string, times *[2]Timeval) (err error)
 //sysnb	Gettimeofday(tv *Timeval) (err error)
 
 func Time(t *Time_t) (tt Time_t, err error) {
@@ -82,6 +84,7 @@ func Time(t *Time_t) (tt Time_t, err error) {
 }
 
 //sys	Utime(path string, buf *Utimbuf) (err error)
+//sys	utimes(path string, times *[2]Timeval) (err error)
 
 func setTimespec(sec, nsec int64) Timespec {
 	return Timespec{Sec: sec, Nsec: nsec}

@@ -391,6 +391,28 @@ func BenchmarkBlockSize(b *testing.B) {
 	}
 }
 
+func TestLocalFlagBits(t *testing.T) {
+	var f FileInfo
+	if f.IsIgnored() || f.MustRescan() || f.IsInvalid() {
+		t.Error("file should have no weird bits set by default")
+	}
+
+	f.SetIgnored(42)
+	if !f.IsIgnored() || f.MustRescan() || !f.IsInvalid() {
+		t.Error("file should be ignored and invalid")
+	}
+
+	f.SetMustRescan(42)
+	if f.IsIgnored() || !f.MustRescan() || !f.IsInvalid() {
+		t.Error("file should be must-rescan and invalid")
+	}
+
+	f.SetUnsupported(42)
+	if f.IsIgnored() || f.MustRescan() || !f.IsInvalid() {
+		t.Error("file should be invalid")
+	}
+}
+
 func TestIsEquivalent(t *testing.T) {
 	b := func(v bool) *bool {
 		return &v
@@ -401,6 +423,7 @@ func TestIsEquivalent(t *testing.T) {
 		b         FileInfo
 		ignPerms  *bool // nil means should not matter, we'll test both variants
 		ignBlocks *bool
+		ignFlags  uint32
 		eq        bool
 	}
 	cases := []testCase{
@@ -430,8 +453,8 @@ func TestIsEquivalent(t *testing.T) {
 			eq: false,
 		},
 		{
-			a:  FileInfo{Invalid: false},
-			b:  FileInfo{Invalid: true},
+			a:  FileInfo{RawInvalid: false},
+			b:  FileInfo{RawInvalid: true},
 			eq: false,
 		},
 		{
@@ -443,6 +466,42 @@ func TestIsEquivalent(t *testing.T) {
 			a:  FileInfo{ModifiedNs: 1234},
 			b:  FileInfo{ModifiedNs: 2345},
 			eq: false,
+		},
+
+		// Special handling of local flags and invalidity. "MustRescan"
+		// files are never equivalent to each other. Otherwise, equivalence
+		// is based just on whether the file becomes IsInvalid() or not, not
+		// the specific reason or flag bits.
+		{
+			a:  FileInfo{LocalFlags: FlagLocalMustRescan},
+			b:  FileInfo{LocalFlags: FlagLocalMustRescan},
+			eq: false,
+		},
+		{
+			a:  FileInfo{RawInvalid: true},
+			b:  FileInfo{RawInvalid: true},
+			eq: true,
+		},
+		{
+			a:  FileInfo{LocalFlags: FlagLocalUnsupported},
+			b:  FileInfo{LocalFlags: FlagLocalUnsupported},
+			eq: true,
+		},
+		{
+			a:  FileInfo{RawInvalid: true},
+			b:  FileInfo{LocalFlags: FlagLocalUnsupported},
+			eq: true,
+		},
+		{
+			a:  FileInfo{LocalFlags: 0},
+			b:  FileInfo{LocalFlags: FlagLocalReceiveOnly},
+			eq: false,
+		},
+		{
+			a:        FileInfo{LocalFlags: 0},
+			b:        FileInfo{LocalFlags: FlagLocalReceiveOnly},
+			ignFlags: FlagLocalReceiveOnly,
+			eq:       true,
 		},
 
 		// Difference in blocks is not OK
@@ -541,10 +600,10 @@ func TestIsEquivalent(t *testing.T) {
 					continue
 				}
 
-				if res := tc.a.IsEquivalent(tc.b, ignPerms, ignBlocks); res != tc.eq {
+				if res := tc.a.isEquivalent(tc.b, ignPerms, ignBlocks, tc.ignFlags); res != tc.eq {
 					t.Errorf("Case %d:\na: %v\nb: %v\na.IsEquivalent(b, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
 				}
-				if res := tc.b.IsEquivalent(tc.a, ignPerms, ignBlocks); res != tc.eq {
+				if res := tc.b.isEquivalent(tc.a, ignPerms, ignBlocks, tc.ignFlags); res != tc.eq {
 					t.Errorf("Case %d:\na: %v\nb: %v\nb.IsEquivalent(a, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
 				}
 			}

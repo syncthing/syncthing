@@ -109,5 +109,15 @@ func init() {
 		databaseKeys, databaseStatisticsSeconds,
 		databaseOperations, databaseOperationSeconds)
 
-	prometheus.MustRegister(prometheus.NewProcessCollector(os.Getpid(), "syncthing_discovery"))
+	processCollectorOpts := prometheus.ProcessCollectorOpts{
+		Namespace: "syncthing_discovery",
+		PidFn: func() (int, error) {
+			return os.Getpid(), nil
+		},
+	}
+
+	prometheus.MustRegister(
+		prometheus.NewProcessCollector(processCollectorOpts),
+	)
+
 }

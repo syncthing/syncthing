@@ -64,14 +64,14 @@ func HashFile(ctx context.Context, fs fs.Filesystem, path string, blockSize int,
 type parallelHasher struct {
 	fs      fs.Filesystem
 	workers int
-	outbox  chan<- protocol.FileInfo
+	outbox  chan<- ScanResult
 	inbox   <-chan protocol.FileInfo
 	counter Counter
 	done    chan<- struct{}
 	wg      sync.WaitGroup
 }
 
-func newParallelHasher(ctx context.Context, fs fs.Filesystem, workers int, outbox chan<- protocol.FileInfo, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}) {
+func newParallelHasher(ctx context.Context, fs fs.Filesystem, workers int, outbox chan<- ScanResult, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}) {
 	ph := &parallelHasher{
 		fs:      fs,
 		workers: workers,
@@ -122,7 +122,7 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 			}
 
 			select {
-			case ph.outbox <- f:
+			case ph.outbox <- ScanResult{File: f}:
 			case <-ctx.Done():
 				return
 			}

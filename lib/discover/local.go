@@ -5,7 +5,7 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //go:generate go run ../../script/protofmt.go local.proto
-//go:generate protoc -I ../../vendor/ -I ../../vendor/github.com/gogo/protobuf/protobuf -I . --gogofast_out=. local.proto
+//go:generate protoc -I ../../ -I . --gogofast_out=. local.proto
 
 package discover
 
@@ -48,7 +48,9 @@ const (
 
 func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (FinderService, error) {
 	c := &localClient{
-		Supervisor:      suture.NewSimple("local"),
+		Supervisor: suture.New("local", suture.Spec{
+			PassThroughPanics: true,
+		}),
 		myID:            id,
 		addrList:        addrList,
 		localBcastTick:  time.NewTicker(BroadcastInterval).C,

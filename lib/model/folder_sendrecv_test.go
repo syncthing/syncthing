@@ -74,12 +74,12 @@ func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
 	}
 }
 
-func setUpModel(file protocol.FileInfo) *Model {
+func setUpModel(files ...protocol.FileInfo) *Model {
 	db := db.OpenMemory()
 	model := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	model.AddFolder(defaultFolderConfig)
 	// Update index
-	model.updateLocalsFromScanning("default", []protocol.FileInfo{file})
+	model.updateLocalsFromScanning("default", files)
 	return model
 }
 
@@ -91,15 +91,17 @@ func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
 			initialScanFinished: make(chan struct{}),
 			ctx:                 context.TODO(),
 			FolderConfiguration: config.FolderConfiguration{
+				FilesystemType:      fs.FilesystemTypeBasic,
+				Path:                "testdata",
 				PullerMaxPendingKiB: defaultPullerPendingKiB,
 			},
 		},
 
-		fs:        fs.NewMtimeFS(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), db.NewNamespacedKV(model.db, "mtime")),
-		queue:     newJobQueue(),
-		errors:    make(map[string]string),
-		errorsMut: sync.NewMutex(),
+		queue:         newJobQueue(),
+		pullErrors:    make(map[string]string),
+		pullErrorsMut: sync.NewMutex(),
 	}
+	f.fs = fs.NewMtimeFS(f.Filesystem(), db.NewNamespacedKV(model.db, "mtime"))
 
 	// Folders are never actually started, so no initial scan will be done
 	close(f.initialScanFinished)
@@ -444,6 +446,9 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
+	// Set up our evet subscription early
+	s := events.Default.Subscribe(events.ItemFinished)
+
 	f := setUpSendReceiveFolder(m)
 
 	// queue.Done should be called by the finisher routine
@@ -468,15 +473,16 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	// Receive a block at puller, to indicate that at least a single copier
 	// loop has been performed.
 	toPull := <-pullChan
-	// Wait until copier is trying to pass something down to the puller again
-	time.Sleep(100 * time.Millisecond)
-	// Close the file
-	toPull.sharedPullerState.fail("test", os.ErrNotExist)
-	// Unblock copier
-	<-pullChan
 
-	s := events.Default.Subscribe(events.ItemFinished)
-	timeout = time.Second
+	// Close the file, causing errors on further access
+	toPull.sharedPullerState.fail("test", os.ErrNotExist)
+
+	// Unblock copier
+	go func() {
+		for range pullChan {
+		}
+	}()
+
 	select {
 	case state := <-finisherBufferChan:
 		// At this point the file should still be registered with both the job
@@ -488,12 +494,13 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		// Pass the file down the real finisher, and give it time to consume
 		finisherChan <- state
 
-		if ev, err := s.Poll(timeout); err != nil {
+		t0 := time.Now()
+		if ev, err := s.Poll(time.Minute); err != nil {
 			t.Fatal("Got error waiting for ItemFinished event:", err)
 		} else if n := ev.Data.(map[string]interface{})["item"]; n != state.file.Name {
 			t.Fatal("Got ItemFinished event for wrong file:", n)
 		}
-		time.Sleep(100 * time.Millisecond)
+		t.Log("event took", time.Since(t0))
 
 		state.mut.Lock()
 		stateFd := state.fd
@@ -508,11 +515,15 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 		// Doing it again should have no effect
 		finisherChan <- state
-		time.Sleep(100 * time.Millisecond)
+
+		if _, err := s.Poll(time.Second); err != events.ErrTimeout {
+			t.Fatal("Expected timeout, not another event", err)
+		}
 
 		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
 			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
 		}
+
 	case <-time.After(time.Second):
 		t.Fatal("Didn't get anything to the finisher")
 	}
@@ -525,6 +536,9 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	db := db.OpenMemory()
 	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
+
+	// Set up our evet subscription early
+	s := events.Default.Subscribe(events.ItemFinished)
 
 	f := setUpSendReceiveFolder(m)
 
@@ -550,7 +564,6 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 	// Receive at finisher, we should error out as puller has nowhere to pull
 	// from.
-	s := events.Default.Subscribe(events.ItemFinished)
 	timeout = time.Second
 	select {
 	case state := <-finisherBufferChan:
@@ -563,12 +576,13 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		// Pass the file down the real finisher, and give it time to consume
 		finisherChan <- state
 
-		if ev, err := s.Poll(timeout); err != nil {
+		t0 := time.Now()
+		if ev, err := s.Poll(time.Minute); err != nil {
 			t.Fatal("Got error waiting for ItemFinished event:", err)
 		} else if n := ev.Data.(map[string]interface{})["item"]; n != state.file.Name {
 			t.Fatal("Got ItemFinished event for wrong file:", n)
 		}
-		time.Sleep(100 * time.Millisecond)
+		t.Log("event took", time.Since(t0))
 
 		state.mut.Lock()
 		stateFd := state.fd
@@ -583,7 +597,10 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 		// Doing it again should have no effect
 		finisherChan <- state
-		time.Sleep(100 * time.Millisecond)
+
+		if _, err := s.Poll(time.Second); err != events.ErrTimeout {
+			t.Fatal("Expected timeout, not another event", err)
+		}
 
 		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
 			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
@@ -682,5 +699,47 @@ func TestDiffEmpty(t *testing.T) {
 		if len(n) != emptyCase.need {
 			t.Errorf("incorrect have: %d != %d", len(h), emptyCase.have)
 		}
+	}
+}
+
+// TestDeleteIgnorePerms checks, that a file gets deleted when the IgnorePerms
+// option is true and the permissions do not match between the file on disk and
+// in the db.
+func TestDeleteIgnorePerms(t *testing.T) {
+	m := setUpModel(protocol.FileInfo{})
+	f := setUpSendReceiveFolder(m)
+	f.IgnorePerms = true
+
+	ffs := f.Filesystem()
+	name := "deleteIgnorePerms"
+	file, err := ffs.Create(name)
+	if err != nil {
+		t.Error(err)
+	}
+	defer ffs.Remove(name)
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fi, err := scanner.CreateFileInfo(stat, name, ffs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ffs.Chmod(name, 0600)
+	scanChan := make(chan string)
+	finished := make(chan struct{})
+	go func() {
+		err = f.checkToBeDeleted(fi, scanChan)
+		close(finished)
+	}()
+	select {
+	case <-scanChan:
+		<-finished
+	case <-finished:
+	}
+	if err != nil {
+		t.Fatal(err)
 	}
 }

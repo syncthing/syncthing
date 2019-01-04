@@ -1,0 +1,24 @@
+language: go
+
+go:
+ - 1.4
+ - 1.5
+ - 1.6
+ - 1.7
+ - 1.8
+ - tip
+
+matrix:
+  allow_failures:
+    - go: tip
+
+before_install:
+  - "if [[ $TRAVIS_GO_VERSION == 1.8 ]]; then go get -v github.com/golang/lint/golint; fi"
+
+script:
+  - go test -race -cpu 1,4 -v
+  - go test -race -v -tags appengine
+  - "if [[ $TRAVIS_GO_VERSION == 1.8 ]]; then go vet ./...; fi"
+  - "if [[ $TRAVIS_GO_VERSION == 1.8 ]]; then golint .; fi"
+
+sudo: false

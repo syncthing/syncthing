@@ -79,6 +79,9 @@ func (t *tcpListener) Serve() {
 	t.mapping = mapping
 	t.mut.Unlock()
 
+	acceptFailures := 0
+	const maxAcceptFailures = 10
+
 	for {
 		listener.SetDeadline(time.Now().Add(time.Second))
 		conn, err := listener.Accept()
@@ -96,10 +99,21 @@ func (t *tcpListener) Serve() {
 		if err != nil {
 			if err, ok := err.(*net.OpError); !ok || !err.Timeout() {
 				l.Warnln("Listen (BEP/tcp): Accepting connection:", err)
+
+				acceptFailures++
+				if acceptFailures > maxAcceptFailures {
+					// Return to restart the listener, because something
+					// seems permanently damaged.
+					return
+				}
+
+				// Slightly increased delay for each failure.
+				time.Sleep(time.Duration(acceptFailures) * time.Second)
 			}
 			continue
 		}
 
+		acceptFailures = 0
 		l.Debugln("Listen (BEP/tcp): connect from", conn.RemoteAddr())
 
 		if err := dialer.SetTCPOptions(conn); err != nil {

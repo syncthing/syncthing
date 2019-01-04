@@ -8,7 +8,6 @@ package model
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -18,8 +17,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"sort"
 	"strings"
+	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -57,15 +56,15 @@ const (
 type service interface {
 	BringToFront(string)
 	Override(*db.FileSet, func([]protocol.FileInfo))
+	Revert(*db.FileSet, func([]protocol.FileInfo))
 	DelayScan(d time.Duration)
-	IgnoresUpdated()            // ignore matcher was updated notification
 	SchedulePull()              // something relevant changed, we should try a pull
 	Jobs() ([]string, []string) // In progress, Queued
 	Scan(subs []string) error
 	Serve()
 	Stop()
 	CheckHealth() error
-	PullErrors() []FileError
+	Errors() []FileError
 	WatchError() error
 
 	getState() (folderState, time.Time, error)
@@ -82,7 +81,7 @@ type Model struct {
 	*suture.Supervisor
 
 	cfg               *config.Wrapper
-	db                *db.Instance
+	db                *db.Lowlevel
 	finder            *db.BlockFinder
 	progressEmitter   *ProgressEmitter
 	id                protocol.DeviceID
@@ -93,6 +92,7 @@ type Model struct {
 	clientName    string
 	clientVersion string
 
+	fmut               sync.RWMutex                                           // protects the below
 	folderCfgs         map[string]config.FolderConfiguration                  // folder -> cfg
 	folderFiles        map[string]*db.FileSet                                 // folder -> files
 	deviceStatRefs     map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
@@ -100,14 +100,17 @@ type Model struct {
 	folderRunners      map[string]service                                     // folder -> puller or scanner
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
-	fmut               sync.RWMutex                                           // protects the above
+	folderRestartMuts  syncMutexMap                                           // folder -> restart mutex
 
+	pmut                sync.RWMutex // protects the below
 	conn                map[protocol.DeviceID]connections.Connection
+	connRequestLimiters map[protocol.DeviceID]*byteSemaphore
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.HelloResult
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
 	remotePausedFolders map[protocol.DeviceID][]string // deviceID -> folders
-	pmut                sync.RWMutex                   // protects the above
+
+	foldersRunning int32 // for testing only
 }
 
 type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
@@ -129,12 +132,13 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Instance, protectedFiles []string) *Model {
+func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) *Model {
 	m := &Model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
 				l.Debugln(line)
 			},
+			PassThroughPanics: true,
 		}),
 		cfg:                 cfg,
 		db:                  ldb,
@@ -154,6 +158,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		folderRunnerTokens:  make(map[string][]suture.ServiceToken),
 		folderStatRefs:      make(map[string]*stats.FolderStatisticsReference),
 		conn:                make(map[protocol.DeviceID]connections.Connection),
+		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.HelloResult),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
@@ -164,6 +169,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
 	}
+	scanLimiter.setCapacity(cfg.Options().MaxConcurrentScans)
 	cfg.Subscribe(m)
 
 	return m
@@ -231,13 +237,10 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		// if these things don't work, we still want to start the folder and
 		// it'll show up as errored later.
 
-		// Directory permission bits. Will be filtered down to something
-		// sane by umask on Unixes.
-
-		cfg.CreateRoot()
-
-		if err := cfg.CreateMarker(); err != nil {
-			l.Warnln("Creating folder marker:", err)
+		if err := cfg.CreateRoot(); err != nil {
+			l.Warnln("Failed to create folder root directory", err)
+		} else if err = cfg.CreateMarker(); err != nil {
+			l.Warnln("Failed to create folder marker:", err)
 		}
 	}
 
@@ -285,7 +288,7 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 	var filesAtRisk []string
 	for _, protectedFilePath := range m.protectedFiles {
 		// check if file is synced in this folder
-		if !strings.HasPrefix(protectedFilePath, folderLocation) {
+		if protectedFilePath != folderLocation && !fs.IsParent(protectedFilePath, folderLocation) {
 			continue
 		}
 
@@ -344,17 +347,23 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 }
 
 func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
-	// Stop the services running for this folder
-	for _, id := range m.folderRunnerTokens[cfg.ID] {
-		m.Remove(id)
+	// Close connections to affected devices
+	// Must happen before stopping the folder service to abort ongoing
+	// transmissions and thus allow timely service termination.
+	for _, dev := range cfg.Devices {
+		m.closeLocked(dev.DeviceID)
 	}
 
-	// Close connections to affected devices
-	for _, dev := range cfg.Devices {
-		if conn, ok := m.conn[dev.DeviceID]; ok {
-			closeRawConn(conn)
-		}
+	// Stop the services running for this folder and wait for them to finish
+	// stopping to prevent races on restart.
+	tokens := m.folderRunnerTokens[cfg.ID]
+	m.pmut.Unlock()
+	m.fmut.Unlock()
+	for _, id := range tokens {
+		m.RemoveAndWait(id, 0)
 	}
+	m.fmut.Lock()
+	m.pmut.Lock()
 
 	// Clean up our config maps
 	delete(m.folderCfgs, cfg.ID)
@@ -367,11 +376,26 @@ func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
 
 func (m *Model) RestartFolder(from, to config.FolderConfiguration) {
 	if len(to.ID) == 0 {
-		panic("cannot add empty folder id")
+		panic("bug: cannot restart empty folder ID")
 	}
+	if to.ID != from.ID {
+		panic(fmt.Sprintf("bug: folder restart cannot change ID %q -> %q", from.ID, to.ID))
+	}
+
+	// This mutex protects the entirety of the restart operation, preventing
+	// there from being more than one folder restart operation in progress
+	// at any given time. The usual fmut/pmut stuff doesn't cover this,
+	// because those locks are released while we are waiting for the folder
+	// to shut down (and must be so because the folder might need them as
+	// part of its operations before shutting down).
+	restartMut := m.folderRestartMuts.Get(to.ID)
+	restartMut.Lock()
+	defer restartMut.Unlock()
 
 	m.fmut.Lock()
 	m.pmut.Lock()
+	defer m.fmut.Unlock()
+	defer m.pmut.Unlock()
 
 	m.tearDownFolderLocked(from)
 	if to.Paused {
@@ -381,9 +405,6 @@ func (m *Model) RestartFolder(from, to config.FolderConfiguration) {
 		folderType := m.startFolderLocked(to.ID)
 		l.Infoln("Restarted folder", to.Description(), fmt.Sprintf("(%s)", folderType))
 	}
-
-	m.pmut.Unlock()
-	m.fmut.Unlock()
 }
 
 func (m *Model) UsageReportingStats(version int, preview bool) map[string]interface{} {
@@ -685,6 +706,18 @@ func (m *Model) LocalSize(folder string) db.Counts {
 	return db.Counts{}
 }
 
+// ReceiveOnlyChangedSize returns the number of files, deleted files and
+// total bytes for all files that have changed locally in a receieve only
+// folder.
+func (m *Model) ReceiveOnlyChangedSize(folder string) db.Counts {
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+	if rf, ok := m.folderFiles[folder]; ok {
+		return rf.ReceiveOnlyChangedSize()
+	}
+	return db.Counts{}
+}
+
 // NeedSize returns the number and total size of currently needed files.
 func (m *Model) NeedSize(folder string) db.Counts {
 	m.fmut.RLock()
@@ -763,17 +796,56 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 			skip--
 			return true
 		}
-		if get > 0 {
-			ft := f.(db.FileInfoTruncated)
-			if _, ok := seen[ft.Name]; !ok {
-				rest = append(rest, ft)
-				get--
-			}
+		ft := f.(db.FileInfoTruncated)
+		if _, ok := seen[ft.Name]; !ok {
+			rest = append(rest, ft)
+			get--
 		}
 		return get > 0
 	})
 
 	return progress, queued, rest
+}
+
+// LocalChangedFiles returns a paginated list of currently needed files in
+// progress, queued, and to be queued on next puller iteration, as well as the
+// total number of files currently needed.
+func (m *Model) LocalChangedFiles(folder string, page, perpage int) []db.FileInfoTruncated {
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+
+	rf, ok := m.folderFiles[folder]
+	if !ok {
+		return nil
+	}
+	fcfg := m.folderCfgs[folder]
+	if fcfg.Type != config.FolderTypeReceiveOnly {
+		return nil
+	}
+	if rf.ReceiveOnlyChangedSize().TotalItems() == 0 {
+		return nil
+	}
+
+	files := make([]db.FileInfoTruncated, 0, perpage)
+
+	skip := (page - 1) * perpage
+	get := perpage
+
+	rf.WithHaveTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+		if !f.IsReceiveOnlyChanged() {
+			return true
+		}
+		if skip > 0 {
+			skip--
+			return true
+		}
+		ft := f.(db.FileInfoTruncated)
+		files = append(files, ft)
+		get--
+		return get > 0
+	})
+
+	return files
 }
 
 // RemoteNeedFolderFiles returns paginated list of currently needed files in
@@ -799,10 +871,8 @@ func (m *Model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, p
 			skip--
 			return true
 		}
-		if get > 0 {
-			files = append(files, f.(db.FileInfoTruncated))
-			get--
-		}
+		files = append(files, f.(db.FileInfoTruncated))
+		get--
 		return get > 0
 	})
 
@@ -861,6 +931,11 @@ func (m *Model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	if !update {
 		files.Drop(deviceID)
 	}
+	for i := range fs {
+		// The local flags should never be transmitted over the wire. Make
+		// sure they look like they weren't.
+		fs[i].LocalFlags = 0
+	}
 	files.Update(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -911,10 +986,11 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	for _, folder := range cm.Folders {
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if !ok || !cfg.SharedWith(deviceID) {
-			if m.cfg.IgnoredFolder(folder.ID) {
+			if deviceCfg.IgnoredFolder(folder.ID) {
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
+			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
 			events.Default.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -930,12 +1006,17 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		if cfg.Paused {
 			continue
 		}
+		fs, ok := m.folderFiles[folder.ID]
+		if !ok {
+			// Shouldn't happen because !cfg.Paused, but might happen
+			// if the folder is about to be unpaused, but not yet.
+			continue
+		}
 
 		if !folder.DisableTempIndexes {
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
 		}
 
-		fs := m.folderFiles[folder.ID]
 		myIndexID := fs.IndexID(protocol.LocalDeviceID)
 		mySequence := fs.Sequence(protocol.LocalDeviceID)
 		var startSequence int64
@@ -1239,6 +1320,7 @@ func (m *Model) Closed(conn protocol.Connection, err error) {
 		m.progressEmitter.temporaryIndexUnsubscribe(conn)
 	}
 	delete(m.conn, device)
+	delete(m.connRequestLimiters, device)
 	delete(m.helloMessages, device)
 	delete(m.deviceDownloads, device)
 	delete(m.remotePausedFolders, device)
@@ -1272,54 +1354,113 @@ func (m *Model) closeLocked(device protocol.DeviceID) {
 	closeRawConn(conn)
 }
 
+// Implements protocol.RequestResponse
+type requestResponse struct {
+	data   []byte
+	closed chan struct{}
+	once   stdsync.Once
+}
+
+func newRequestResponse(size int) *requestResponse {
+	return &requestResponse{
+		data:   protocol.BufferPool.Get(size),
+		closed: make(chan struct{}),
+	}
+}
+
+func (r *requestResponse) Data() []byte {
+	return r.data
+}
+
+func (r *requestResponse) Close() {
+	r.once.Do(func() {
+		protocol.BufferPool.Put(r.data)
+		close(r.closed)
+	})
+}
+
+func (r *requestResponse) Wait() {
+	<-r.closed
+}
+
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, weakHash uint32, fromTemporary bool, buf []byte) error {
-	if offset < 0 {
-		return protocol.ErrInvalid
+func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
+	if size < 0 || offset < 0 {
+		return nil, protocol.ErrInvalid
 	}
 
 	m.fmut.RLock()
-
-	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
-		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
-		return protocol.ErrNoSuchFile
-	} else if cfg.Paused {
-		l.Debugf("Request from %s for file %s in paused folder %q", deviceID, name, folder)
-		return protocol.ErrInvalid
+	folderCfg, ok := m.folderCfgs[folder]
+	folderIgnores := m.folderIgnores[folder]
+	m.fmut.RUnlock()
+	if !ok {
+		// The folder might be already unpaused in the config, but not yet
+		// in the model.
+		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID, name, folder)
+		return nil, protocol.ErrInvalid
 	}
 
-	folderCfg := m.folderCfgs[folder]
-	folderIgnores := m.folderIgnores[folder]
-
-	m.fmut.RUnlock()
+	if !folderCfg.SharedWith(deviceID) {
+		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
+		return nil, protocol.ErrNoSuchFile
+	}
+	if folderCfg.Paused {
+		l.Debugf("Request from %s for file %s in paused folder %q", deviceID, name, folder)
+		return nil, protocol.ErrInvalid
+	}
 
 	// Make sure the path is valid and in canonical form
-	var err error
 	if name, err = fs.Canonicalize(name); err != nil {
 		l.Debugf("Request from %s in folder %q for invalid filename %s", deviceID, folder, name)
-		return protocol.ErrInvalid
+		return nil, protocol.ErrInvalid
 	}
 
 	if deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, len(buf), fromTemporary)
+		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, size, fromTemporary)
+	}
+
+	if fs.IsInternal(name) {
+		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrNoSuchFile
+	}
+
+	if folderIgnores.Match(name).IsIgnored() {
+		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrNoSuchFile
 	}
 
 	folderFs := folderCfg.Filesystem()
 
-	if fs.IsInternal(name) {
-		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
-		return protocol.ErrNoSuchFile
-	}
-
-	if folderIgnores.Match(name).IsIgnored() {
-		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
-		return protocol.ErrNoSuchFile
-	}
-
 	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
-		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, len(buf))
-		return protocol.ErrNoSuchFile
+		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrNoSuchFile
+	}
+
+	// Restrict parallel requests by connection/device
+
+	m.pmut.RLock()
+	limiter := m.connRequestLimiters[deviceID]
+	m.pmut.RUnlock()
+
+	if limiter != nil {
+		limiter.take(int(size))
+	}
+
+	// The requestResponse releases the bytes to the limiter when its Close method is called.
+	res := newRequestResponse(int(size))
+	defer func() {
+		// Close it ourselves if it isn't returned due to an error
+		if err != nil {
+			res.Close()
+		}
+	}()
+
+	if limiter != nil {
+		go func() {
+			res.Wait()
+			limiter.give(int(size))
+		}()
 	}
 
 	// Only check temp files if the flag is set, and if we are set to advertise
@@ -1330,11 +1471,12 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
 			// Reject reads for anything that doesn't exist or is something
 			// other than a regular file.
-			return protocol.ErrNoSuchFile
+			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+			return nil, protocol.ErrNoSuchFile
 		}
-		err := readOffsetIntoBuf(folderFs, tempFn, offset, buf)
-		if err == nil && scanner.Validate(buf, hash, weakHash) {
-			return nil
+		err := readOffsetIntoBuf(folderFs, tempFn, offset, res.data)
+		if err == nil && scanner.Validate(res.data, hash, weakHash) {
+			return res, nil
 		}
 		// Fall through to reading from a non-temp file, just incase the temp
 		// file has finished downloading.
@@ -1343,21 +1485,25 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	if info, err := folderFs.Lstat(name); err != nil || !info.IsRegular() {
 		// Reject reads for anything that doesn't exist or is something
 		// other than a regular file.
-		return protocol.ErrNoSuchFile
+		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrNoSuchFile
 	}
 
-	if err = readOffsetIntoBuf(folderFs, name, offset, buf); fs.IsNotExist(err) {
-		return protocol.ErrNoSuchFile
+	if err := readOffsetIntoBuf(folderFs, name, offset, res.data); fs.IsNotExist(err) {
+		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrNoSuchFile
 	} else if err != nil {
-		return protocol.ErrGeneric
+		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrGeneric
 	}
 
-	if !scanner.Validate(buf, hash, weakHash) {
-		m.recheckFile(deviceID, folderFs, folder, name, int(offset)/len(buf), hash)
-		return protocol.ErrNoSuchFile
+	if !scanner.Validate(res.data, hash, weakHash) {
+		m.recheckFile(deviceID, folderFs, folder, name, int(offset)/int(size), hash)
+		l.Debugf("%v REQ(in) failed validating data (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrNoSuchFile
 	}
 
-	return nil
+	return res, nil
 }
 
 func (m *Model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, folder, name string, blockIndex int, hash []byte) {
@@ -1372,7 +1518,7 @@ func (m *Model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 		return
 	}
 
-	if blockIndex > len(cf.Blocks) {
+	if blockIndex >= len(cf.Blocks) {
 		l.Debugf("%v recheckFile: %s: %q / %q i=%d: block index too far", m, deviceID, folder, name, blockIndex)
 		return
 	}
@@ -1388,7 +1534,7 @@ func (m *Model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 	// The hashes provided part of the request match what we expect to find according
 	// to what we have in the database, yet the content we've read off the filesystem doesn't
 	// Something is fishy, invalidate the file and rescan it.
-	cf.Invalidate(m.shortID)
+	cf.SetMustRescan(m.shortID)
 
 	// Update the index and tell others
 	// The file will temporarily become invalid, which is ok as the content is messed up.
@@ -1512,6 +1658,7 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 
 	cfg, ok := m.cfg.Device(remoteID)
 	if !ok {
+		m.cfg.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String())
 		events.Default.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),
@@ -1551,6 +1698,11 @@ func (m *Model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 // folder changes.
 func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloResult) {
 	deviceID := conn.ID()
+	device, ok := m.cfg.Device(deviceID)
+	if !ok {
+		l.Infoln("Trying to add connection to unknown device")
+		return
+	}
 
 	m.pmut.Lock()
 	if oldConn, ok := m.conn[deviceID]; ok {
@@ -1570,6 +1722,13 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	m.conn[deviceID] = conn
 	m.closed[deviceID] = make(chan struct{})
 	m.deviceDownloads[deviceID] = newDeviceDownloadState()
+	// 0: default, <0: no limiting
+	switch {
+	case device.MaxRequestKiB > 0:
+		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * device.MaxRequestKiB)
+	case device.MaxRequestKiB == 0:
+		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * defaultPullerPendingKiB)
+	}
 
 	m.helloMessages[deviceID] = hello
 
@@ -1597,8 +1756,7 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	cm := m.generateClusterConfig(deviceID)
 	conn.ClusterConfig(cm)
 
-	device, ok := m.cfg.Devices()[deviceID]
-	if ok && (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
+	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
 		device.Name = hello.DeviceName
 		m.cfg.SetDevice(device)
 		m.cfg.Save()
@@ -1612,7 +1770,7 @@ func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, update
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	if !ok || cfg.Type == config.FolderTypeSendOnly || cfg.DisableTempIndexes || !cfg.SharedWith(device) {
+	if !ok || cfg.DisableTempIndexes || !cfg.SharedWith(device) {
 		return
 	}
 
@@ -1705,35 +1863,53 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 // returns the highest sent sequence number.
 func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string, dropSymlinks bool) (int64, error) {
 	deviceID := conn.ID()
-	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
-	batchSizeBytes := 0
 	initial := prevSequence == 0
-	var err error
-	var f protocol.FileInfo
-	debugMsg := func(t string) string {
-		return fmt.Sprintf("Sending indexes for %s to %s at %s: %d files (<%d bytes) (%s)", folder, deviceID, conn, len(batch), batchSizeBytes, t)
+	batch := newFileInfoBatch(nil)
+	batch.flushFn = func(fs []protocol.FileInfo) error {
+		l.Debugf("Sending indexes for %s to %s at %s: %d files (<%d bytes)", folder, deviceID, conn, len(batch.infos), batch.size)
+		if initial {
+			initial = false
+			return conn.Index(folder, fs)
+		}
+		return conn.IndexUpdate(folder, fs)
 	}
 
+	var err error
+	var f protocol.FileInfo
 	fs.WithHaveSequence(prevSequence+1, func(fi db.FileIntf) bool {
-		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			if initial {
-				if err = conn.Index(folder, batch); err != nil {
-					return false
-				}
-				l.Debugln(debugMsg("initial index"))
-				initial = false
-			} else {
-				if err = conn.IndexUpdate(folder, batch); err != nil {
-					return false
-				}
-				l.Debugln(debugMsg("batched update"))
-			}
+		if err = batch.flushIfFull(); err != nil {
+			return false
+		}
 
-			batch = make([]protocol.FileInfo, 0, maxBatchSizeFiles)
-			batchSizeBytes = 0
+		if shouldDebug() {
+			if fi.SequenceNo() < prevSequence+1 {
+				panic(fmt.Sprintln("sequence lower than requested, got:", fi.SequenceNo(), ", asked to start at:", prevSequence+1))
+			}
+			if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
+				panic(fmt.Sprintln("non-increasing sequence, current:", fi.SequenceNo(), "<= previous:", f.Sequence))
+			}
+		}
+
+		if shouldDebug() {
+			if fi.SequenceNo() < prevSequence+1 {
+				panic(fmt.Sprintln("sequence lower than requested, got:", fi.SequenceNo(), ", asked to start at:", prevSequence+1))
+			}
+			if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
+				panic(fmt.Sprintln("non-increasing sequence, current:", fi.SequenceNo(), "<= previous:", f.Sequence))
+			}
 		}
 
 		f = fi.(protocol.FileInfo)
+
+		// Mark the file as invalid if any of the local bad stuff flags are set.
+		f.RawInvalid = f.IsInvalid()
+		// If the file is marked LocalReceive (i.e., changed locally on a
+		// receive only folder) we do not want it to ever become the
+		// globally best version, invalid or not.
+		if f.IsReceiveOnlyChanged() {
+			f.Version = protocol.Vector{}
+		}
+		f.LocalFlags = 0 // never sent externally
 
 		if dropSymlinks && f.IsSymlink() {
 			// Do not send index entries with symlinks to clients that can't
@@ -1743,26 +1919,14 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 			return true
 		}
 
-		batch = append(batch, f)
-		batchSizeBytes += f.ProtoSize()
+		batch.append(f)
 		return true
 	})
-
 	if err != nil {
 		return prevSequence, err
 	}
 
-	if initial {
-		err = conn.Index(folder, batch)
-		if err == nil {
-			l.Debugln(debugMsg("small initial index"))
-		}
-	} else if len(batch) > 0 {
-		err = conn.IndexUpdate(folder, batch)
-		if err == nil {
-			l.Debugln(debugMsg("last batch"))
-		}
-	}
+	err = batch.flush()
 
 	// True if there was nothing to be sent
 	if f.Sequence == 0 {
@@ -1926,207 +2090,6 @@ func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 	return runner.Scan(subs)
 }
 
-func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, subDirs []string) error {
-	m.fmut.RLock()
-	if err := m.checkFolderRunningLocked(folder); err != nil {
-		m.fmut.RUnlock()
-		return err
-	}
-	fset := m.folderFiles[folder]
-	folderCfg := m.folderCfgs[folder]
-	ignores := m.folderIgnores[folder]
-	runner := m.folderRunners[folder]
-	m.fmut.RUnlock()
-	mtimefs := fset.MtimeFS()
-
-	for i := range subDirs {
-		sub := osutil.NativeFilename(subDirs[i])
-
-		if sub == "" {
-			// A blank subdirs means to scan the entire folder. We can trim
-			// the subDirs list and go on our way.
-			subDirs = nil
-			break
-		}
-
-		subDirs[i] = sub
-	}
-
-	// Check if the ignore patterns changed as part of scanning this folder.
-	// If they did we should schedule a pull of the folder so that we
-	// request things we might have suddenly become unignored and so on.
-	oldHash := ignores.Hash()
-	defer func() {
-		if ignores.Hash() != oldHash {
-			l.Debugln("Folder", folder, "ignore patterns changed; triggering puller")
-			runner.IgnoresUpdated()
-		}
-	}()
-
-	if err := runner.CheckHealth(); err != nil {
-		return err
-	}
-
-	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		err = fmt.Errorf("loading ignores: %v", err)
-		runner.setError(err)
-		return err
-	}
-
-	// Clean the list of subitems to ensure that we start at a known
-	// directory, and don't scan subdirectories of things we've already
-	// scanned.
-	subDirs = unifySubs(subDirs, func(f string) bool {
-		_, ok := fset.Get(protocol.LocalDeviceID, f)
-		return ok
-	})
-
-	runner.setState(FolderScanning)
-
-	fchan := scanner.Walk(ctx, scanner.Config{
-		Folder:                folderCfg.ID,
-		Subs:                  subDirs,
-		Matcher:               ignores,
-		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          cFiler{m, folder},
-		Filesystem:            mtimefs,
-		IgnorePerms:           folderCfg.IgnorePerms,
-		AutoNormalize:         folderCfg.AutoNormalize,
-		Hashers:               m.numHashers(folder),
-		ShortID:               m.shortID,
-		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
-		UseLargeBlocks:        folderCfg.UseLargeBlocks,
-	})
-
-	if err := runner.CheckHealth(); err != nil {
-		return err
-	}
-
-	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
-	batchSizeBytes := 0
-	changes := 0
-
-	// Schedule a pull after scanning, but only if we actually detected any
-	// changes.
-	defer func() {
-		if changes > 0 {
-			runner.SchedulePull()
-		}
-	}()
-
-	for f := range fchan {
-		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			if err := runner.CheckHealth(); err != nil {
-				l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
-				return err
-			}
-			m.updateLocalsFromScanning(folder, batch)
-			batch = batch[:0]
-			batchSizeBytes = 0
-		}
-
-		batch = append(batch, f)
-		batchSizeBytes += f.ProtoSize()
-		changes++
-	}
-
-	if err := runner.CheckHealth(); err != nil {
-		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
-		return err
-	} else if len(batch) > 0 {
-		m.updateLocalsFromScanning(folder, batch)
-	}
-
-	if len(subDirs) == 0 {
-		// If we have no specific subdirectories to traverse, set it to one
-		// empty prefix so we traverse the entire folder contents once.
-		subDirs = []string{""}
-	}
-
-	// Do a scan of the database for each prefix, to check for deleted and
-	// ignored files.
-	batch = batch[:0]
-	batchSizeBytes = 0
-	for _, sub := range subDirs {
-		var iterError error
-
-		fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
-			f := fi.(db.FileInfoTruncated)
-			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-				if err := runner.CheckHealth(); err != nil {
-					iterError = err
-					return false
-				}
-				m.updateLocalsFromScanning(folder, batch)
-				batch = batch[:0]
-				batchSizeBytes = 0
-			}
-
-			switch {
-			case !f.IsInvalid() && ignores.Match(f.Name).IsIgnored():
-				// File was valid at last pass but has been ignored. Set invalid bit.
-				l.Debugln("setting invalid bit on ignored", f)
-				nf := f.ConvertToInvalidFileInfo(m.id.Short())
-				batch = append(batch, nf)
-				batchSizeBytes += nf.ProtoSize()
-				changes++
-
-			case f.IsInvalid() && !ignores.Match(f.Name).IsIgnored():
-				// Successfully scanned items are already un-ignored during
-				// the scan, so check whether it is deleted.
-				fallthrough
-			case !f.IsInvalid() && !f.IsDeleted():
-				// The file is valid and not deleted. Lets check if it's
-				// still here.
-				// Simply stating it wont do as there are tons of corner
-				// cases (e.g. parent dir->simlink, missing permissions)
-				if !osutil.IsDeleted(mtimefs, f.Name) {
-					return true
-				}
-				nf := protocol.FileInfo{
-					Name:       f.Name,
-					Type:       f.Type,
-					Size:       0,
-					ModifiedS:  f.ModifiedS,
-					ModifiedNs: f.ModifiedNs,
-					ModifiedBy: m.id.Short(),
-					Deleted:    true,
-					Version:    f.Version.Update(m.shortID),
-				}
-				// We do not want to override the global version
-				// with the deleted file. Keeping only our local
-				// counter makes sure we are in conflict with any
-				// other existing versions, which will be resolved
-				// by the normal pulling mechanisms.
-				if f.IsInvalid() {
-					nf.Version = nf.Version.DropOthers(m.shortID)
-				}
-
-				batch = append(batch, nf)
-				batchSizeBytes += nf.ProtoSize()
-				changes++
-			}
-			return true
-		})
-
-		if iterError != nil {
-			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), iterError)
-			return iterError
-		}
-	}
-
-	if err := runner.CheckHealth(); err != nil {
-		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
-		return err
-	} else if len(batch) > 0 {
-		m.updateLocalsFromScanning(folder, batch)
-	}
-
-	m.folderStatRef(folder).ScanCompleted()
-	runner.setState(FolderIdle)
-	return nil
-}
-
 func (m *Model) DelayScan(folder string, next time.Duration) {
 	m.fmut.Lock()
 	runner, ok := m.folderRunners[folder]
@@ -2239,13 +2202,13 @@ func (m *Model) State(folder string) (string, time.Time, error) {
 	return state.String(), changed, err
 }
 
-func (m *Model) PullErrors(folder string) ([]FileError, error) {
+func (m *Model) FolderErrors(folder string) ([]FileError, error) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if err := m.checkFolderRunningLocked(folder); err != nil {
 		return nil, err
 	}
-	return m.folderRunners[folder].PullErrors(), nil
+	return m.folderRunners[folder].Errors(), nil
 }
 
 func (m *Model) WatchError(folder string) error {
@@ -2271,6 +2234,24 @@ func (m *Model) Override(folder string) {
 	// Run the override, taking updates as if they came from scanning.
 
 	runner.Override(fs, func(files []protocol.FileInfo) {
+		m.updateLocalsFromScanning(folder, files)
+	})
+}
+
+func (m *Model) Revert(folder string) {
+	// Grab the runner and the file set.
+
+	m.fmut.RLock()
+	fs, fsOK := m.folderFiles[folder]
+	runner, runnerOK := m.folderRunners[folder]
+	m.fmut.RUnlock()
+	if !fsOK || !runnerOK {
+		return
+	}
+
+	// Run the revert, taking updates as if they came from scanning.
+
+	runner.Revert(fs, func(files []protocol.FileInfo) {
 		m.updateLocalsFromScanning(folder, files)
 	})
 }
@@ -2628,6 +2609,11 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
+		// Ignored folder was removed, reconnect to retrigger the prompt.
+		if len(fromCfg.IgnoredFolders) > len(toCfg.IgnoredFolders) {
+			m.close(deviceID)
+		}
+
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
 			m.close(deviceID)
@@ -2636,6 +2622,8 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
+
+	scanLimiter.setCapacity(to.Options.MaxConcurrentScans)
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves. Compare the options structs containing only the
@@ -2761,40 +2749,6 @@ func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) 
 	return err
 }
 
-// The exists function is expected to return true for all known paths
-// (excluding "" and ".")
-func unifySubs(dirs []string, exists func(dir string) bool) []string {
-	if len(dirs) == 0 {
-		return nil
-	}
-	sort.Strings(dirs)
-	if dirs[0] == "" || dirs[0] == "." || dirs[0] == string(fs.PathSeparator) {
-		return nil
-	}
-	prev := "./" // Anything that can't be parent of a clean path
-	for i := 0; i < len(dirs); {
-		dir, err := fs.Canonicalize(dirs[i])
-		if err != nil {
-			l.Debugf("Skipping %v for scan: %s", dirs[i], err)
-			dirs = append(dirs[:i], dirs[i+1:]...)
-			continue
-		}
-		if dir == prev || strings.HasPrefix(dir, prev+string(fs.PathSeparator)) {
-			dirs = append(dirs[:i], dirs[i+1:]...)
-			continue
-		}
-		parent := filepath.Dir(dir)
-		for parent != "." && parent != string(fs.PathSeparator) && !exists(parent) {
-			dir = parent
-			parent = filepath.Dir(dir)
-		}
-		dirs[i] = dir
-		prev = dir
-		i++
-	}
-	return dirs
-}
-
 // makeForgetUpdate takes an index update and constructs a download progress update
 // causing to forget any progress for files which we've just been sent.
 func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgressUpdate {
@@ -2839,4 +2793,55 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 		}
 	}
 	return false
+}
+
+type fileInfoBatch struct {
+	infos   []protocol.FileInfo
+	size    int
+	flushFn func([]protocol.FileInfo) error
+}
+
+func newFileInfoBatch(fn func([]protocol.FileInfo) error) *fileInfoBatch {
+	return &fileInfoBatch{
+		infos:   make([]protocol.FileInfo, 0, maxBatchSizeFiles),
+		flushFn: fn,
+	}
+}
+
+func (b *fileInfoBatch) append(f protocol.FileInfo) {
+	b.infos = append(b.infos, f)
+	b.size += f.ProtoSize()
+}
+
+func (b *fileInfoBatch) flushIfFull() error {
+	if len(b.infos) == maxBatchSizeFiles || b.size > maxBatchSizeBytes {
+		return b.flush()
+	}
+	return nil
+}
+
+func (b *fileInfoBatch) flush() error {
+	if len(b.infos) == 0 {
+		return nil
+	}
+	if err := b.flushFn(b.infos); err != nil {
+		return err
+	}
+	b.reset()
+	return nil
+}
+
+func (b *fileInfoBatch) reset() {
+	b.infos = b.infos[:0]
+	b.size = 0
+}
+
+// syncMutexMap is a type safe wrapper for a sync.Map that holds mutexes
+type syncMutexMap struct {
+	inner stdsync.Map
+}
+
+func (m *syncMutexMap) Get(key string) sync.Mutex {
+	v, _ := m.inner.LoadOrStore(key, sync.NewMutex())
+	return v.(sync.Mutex)
 }

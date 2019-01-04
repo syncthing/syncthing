@@ -7,9 +7,9 @@ angular.module('syncthing.core')
             }
             // Hard limit at two decimals
             if (input < 0.1) {
-                return input.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%';
+                return input.toLocaleString(undefined, { maximumFractionDigits: 2 }) + '%';
             }
             // "Soft" limit at two significant digits (e.g. 1.2%, not 1.27%)
-            return input.toLocaleString(undefined, {maximumSignificantDigits: 2}) + '%';
+            return input.toLocaleString(undefined, { maximumSignificantDigits: 2 }) + '%';
         };
     });

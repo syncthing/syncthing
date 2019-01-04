@@ -1,1 +1,0 @@
-package jsonpb_gogo

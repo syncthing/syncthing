@@ -190,9 +190,7 @@ func (f *FolderConfiguration) CreateRoot() (err error) {
 	filesystem := f.Filesystem()
 
 	if _, err = filesystem.Stat("."); fs.IsNotExist(err) {
-		if err = filesystem.MkdirAll(".", permBits); err != nil {
-			l.Warnf("Creating directory for %v: %v", f.Description(), err)
-		}
+		err = filesystem.MkdirAll(".", permBits)
 	}
 
 	return err
@@ -270,34 +268,21 @@ func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
 	return false
 }
 
-type FolderDeviceConfigurationList []FolderDeviceConfiguration
-
-func (l FolderDeviceConfigurationList) Less(a, b int) bool {
-	return l[a].DeviceID.Compare(l[b].DeviceID) == -1
-}
-
-func (l FolderDeviceConfigurationList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
-}
-
-func (l FolderDeviceConfigurationList) Len() int {
-	return len(l)
-}
-
-func (f *FolderConfiguration) CheckFreeSpace() (err error) {
-	return checkFreeSpace(f.MinDiskFree, f.Filesystem())
-}
-
-type FolderConfigurationList []FolderConfiguration
-
-func (l FolderConfigurationList) Len() int {
-	return len(l)
-}
-
-func (l FolderConfigurationList) Less(a, b int) bool {
-	return l[a].ID < l[b].ID
-}
-
-func (l FolderConfigurationList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
+func (f *FolderConfiguration) CheckAvailableSpace(req int64) error {
+	val := f.MinDiskFree.BaseValue()
+	if val <= 0 {
+		return nil
+	}
+	fs := f.Filesystem()
+	usage, err := fs.Usage(".")
+	if err != nil {
+		return nil
+	}
+	usage.Free -= req
+	if usage.Free > 0 {
+		if err := checkFreeSpace(f.MinDiskFree, usage); err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("insufficient space in %v %v", fs.Type(), fs.URI())
 }

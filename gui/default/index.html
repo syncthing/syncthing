@@ -21,7 +21,8 @@
   <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet"/>
   <link href="vendor/daterangepicker/daterangepicker.css" rel="stylesheet"/>
   <link href="assets/font/raleway.css" rel="stylesheet"/>
-  <link href="vendor/font-awesome/css/fontawesome-all.css" rel="stylesheet"/>
+  <link href="vendor/fork-awesome/css/fork-awesome.css" rel="stylesheet"/>
+  <link href="vendor/fork-awesome/css/v5-compat.css" rel="stylesheet"/>
   <link href="assets/css/overrides.css" rel="stylesheet"/>
   <link href="assets/css/theme.css" rel="stylesheet"/>
   <link href="vendor/fancytree/css/ui.fancytree.css" rel="stylesheet"/>
@@ -70,7 +71,7 @@
             <li><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
             <li class="divider" aria-hidden="true"></li>
             <li><a href="" ng-click="shutdown()"><span class="fas fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
-            <li><a href="" ng-click="restart()"><span class="fas fa-fw fa-sync"></span>&nbsp;<span translate>Restart</span></a></li>
+            <li><a href="" ng-click="restart()"><span class="fas fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
             <li class="divider" aria-hidden="true"></li>
             <li class="visible-xs">
               <a href="https://docs.syncthing.net/intro/gui.html" target="_blank">
@@ -81,6 +82,8 @@
             <li class="divider" aria-hidden="true"></li>
             <li><a href="" ng-click="advanced()"><span class="fas fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
             <li><a href="" ng-click="logging.show()"><span class="far fa-fw fa-file-alt"></span>&nbsp;<span translate>Logs</span></a></li>
+            <li class="divider" aria-hidden="true" ng-if="config.gui.debugging"></li>
+            <li><a href="/rest/debug/support" target="_blank" ng-if="config.gui.debugging"><span class="fa fa-user-md"></span>&nbsp;<span translate>Support Bundle</span></a></li>
           </ul>
         </li>
       </ul>
@@ -137,7 +140,7 @@
           </div>
           <div class="panel-footer">
             <button type="button" class="btn btn-sm btn-default pull-right" ng-click="restart()">
-              <span class="fas fa-sync"></span>&nbsp;<span translate>Restart</span>
+              <span class="fas fa-refresh"></span>&nbsp;<span translate>Restart</span>
             </button>
             <div class="clearfix"></div>
           </div>
@@ -145,87 +148,90 @@
       </div>
     </div>
 
-    <!-- Panel: New Device -->
+    <div ng-if="config">
 
-    <div ng-repeat="(device, event) in deviceRejections" class="row">
-      <div class="col-md-12">
-        <div class="panel panel-warning">
-          <div class="panel-heading">
-            <h3 class="panel-title">
-              <identicon class="panel-icon" data-value="device"></identicon>
-              <span translate>New Device</span>
-              <span class="pull-right">{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
-            </h3>
-          </div>
-          <div class="panel-body">
-            <p>
-              <span translate translate-value-device="{{ device }}" translate-value-address="{{ event.data.address }}" translate-value-name="{{ event.data.name }}">
-                Device "{%name%}" ({%device%} at {%address%}) wants to connect. Add new device?
-              </span>
-            </p>
-          </div>
-          <div class="panel-footer clearfix">
-            <div class="pull-right">
-              <button type="button" class="btn btn-sm btn-success" ng-click="addDevice(device, event.data.name)">
-                <span class="fas fa-plus"></span>&nbsp;<span translate>Add Device</span>
-              </button>
-              <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreRejectedDevice(device)">
-                <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
-              </button>
-              <button type="button" class="btn btn-sm btn-default" ng-click="dismissDeviceRejection(device)">
-                <span class="far fa-clock"></span>&nbsp;<span translate>Later</span>
-              </button>
+      <!-- Panel: Notifications -->
+
+      <div ng-if="config.options && config.options.unackedNotificationIDs" ng-include="'syncthing/core/notifications.html'"></div>
+
+      <!-- Panel: New Device -->
+
+      <div ng-repeat="pendingDevice in config.pendingDevices" class="row">
+        <div class="col-md-12">
+          <div class="panel panel-warning">
+            <div class="panel-heading">
+              <h3 class="panel-title">
+                <identicon class="panel-icon" data-value="device"></identicon>
+                <span translate>New Device</span>
+                <span class="pull-right">{{ pendingDevice.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
+              </h3>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Panel: New Folder -->
-
-    <div ng-repeat="(key, event) in folderRejections" class="row reject">
-      <div class="col-md-12">
-        <div class="panel panel-warning">
-          <div class="panel-heading">
-            <h3 class="panel-title">
-              <div class="panel-icon">
-                <span class="fas fa-folder"></span>
+            <div class="panel-body">
+              <p>
+                <span translate translate-value-device="{{ pendingDevice.deviceID }}" translate-value-address="{{ pendingDevice.address }}" translate-value-name="{{ pendingDevice.name }}">
+                  Device "{%name%}" ({%device%} at {%address%}) wants to connect. Add new device?
+                </span>
+              </p>
+            </div>
+            <div class="panel-footer clearfix">
+              <div class="pull-right">
+                <button type="button" class="btn btn-sm btn-success" ng-click="addDevice(pendingDevice.deviceID, pendingDevice.name)">
+                  <span class="fas fa-plus"></span>&nbsp;<span translate>Add Device</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreDevice(pendingDevice)">
+                  <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
+                </button>
               </div>
-              <span translate ng-if="!folders[event.data.folder]">New Folder</span>
-              <span translate ng-if="folders[event.data.folder]">Share Folder</span>
-              <span class="pull-right">{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
-            </h3>
-          </div>
-          <div class="panel-body">
-            <p>
-              <span ng-if="event.data.folderLabel.length == 0" translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}">
-                {%device%} wants to share folder "{%folder%}".
-              </span>
-              <span ng-if="event.data.folderLabel.length != 0" translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}" translate-value-folderlabel="{{ event.data.folderLabel }}">
-                {%device%} wants to share folder "{%folderlabel%}" ({%folder%}).
-              </span>
-              <span translate ng-if="folders[event.data.folder]">Share this folder?</span>
-              <span translate ng-if="!folders[event.data.folder]">Add new folder?</span>
-            </p>
-          </div>
-          <div class="panel-footer clearfix">
-            <div class="pull-right">
-              <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(event.data.folder, event.data.folderLabel, event.data.device)" ng-if="!folders[event.data.folder]">
-                <span class="fas fa-check"></span>&nbsp;<span translate>Add</span>
-              </button>
-              <button type="button" class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(event.data.folder, event.data.device)" ng-if="folders[event.data.folder]">
-                <span class="fas fa-check"></span>&nbsp;<span translate>Share</span>
-              </button>
-              <button type="button" class="btn btn-sm btn-default" ng-click="dismissFolderRejection(event.data.folder, event.data.device)">
-                <span class="far fa-clock"></span>&nbsp;<span translate>Later</span>
-              </button>
-              <button type="button" class="btn btn-sm btn-default" ng-click="ignoreRejectedFolder(event.data.folder, event.data.device)">
-                <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
-              </button>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- Panel: New Folder -->
+      <div ng-repeat="device in config.devices">
+        <div ng-repeat="pendingFolder in device.pendingFolders" class="row reject">
+          <div class="col-md-12">
+            <div class="panel panel-warning">
+              <div class="panel-heading">
+                <h3 class="panel-title">
+                  <div class="panel-icon">
+                    <span class="fas fa-folder"></span>
+                  </div>
+                  <span translate ng-if="!folders[pendingFolder.id]">New Folder</span>
+                  <span translate ng-if="folders[pendingFolder.id]">Share Folder</span>
+                  <span class="pull-right">{{ pendingFolder.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
+                </h3>
+              </div>
+              <div class="panel-body">
+                <p>
+                  <span ng-if="pendingFolder.label.length == 0" translate translate-value-device="{{ deviceName(findDevice(device.deviceID)) }}" translate-value-folder="{{ pendingFolder.id }}">
+                    {%device%} wants to share folder "{%folder%}".
+                  </span>
+                  <span ng-if="pendingFolder.label.length != 0" translate translate-value-device="{{ deviceName(findDevice(device.deviceID)) }}" translate-value-folder="{{ pendingFolder.id }}" translate-value-folderlabel="{{ pendingFolder.label }}">
+                    {%device%} wants to share folder "{%folderlabel%}" ({%folder%}).
+                  </span>
+                  <span translate ng-if="folders[pendingFolder.id]">Share this folder?</span>
+                  <span translate ng-if="!folders[pendingFolder.id]">Add new folder?</span>
+                </p>
+              </div>
+              <div class="panel-footer clearfix">
+                <div class="pull-right">
+                  <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(pendingFolder.id, pendingFolder.label, device.deviceID)" ng-if="!folders[pendingFolder.id]">
+                    <span class="fas fa-check"></span>&nbsp;<span translate>Add</span>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(pendingFolder.id, device.deviceID)" ng-if="folders[pendingFolder.id]">
+                    <span class="fas fa-check"></span>&nbsp;<span translate>Share</span>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreFolder(device.deviceID, pendingFolder)">
+                    <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Panel: Notice -->
@@ -257,7 +263,32 @@
       </div>
     </div>
 
-    <div ng-if="config && config.options && config.options.unackedNotificationIDs" ng-include="'syncthing/core/notifications.html'"></div>
+    <!-- Panel: FS watcher errors -->
+
+    <div ng-if="sizeOf(fsWatcherErrorMap()) > 0" class="row">
+      <div class="col-md-12">
+        <div class="panel panel-warning">
+          <div class="panel-heading">
+            <h3 class="panel-title">
+              <div class="panel-icon">
+                <span class="fas fa-exclamation-circle"></span>
+              </div>
+              <span translate>Filesystem Watcher Errors</span>
+            </h3>
+          </div>
+          <div class="panel-body">
+            <p>
+              <span translate>For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.</span>&emsp;<a href="https://forum.syncthing.net" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Support</span></a>
+            </p>
+            <table>
+              <tr ng-repeat="(id, err) in fsWatcherErrorMap()">
+                <td>{{folderLabel(id)}}</td><td>{{err}}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- First regular row -->
 
@@ -274,26 +305,29 @@
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id) | percent}}"></div>
               <h4 class="panel-title">
                 <div class="panel-icon hidden-xs">
-                  <span ng-class="[folder.type == 'sendonly' ? 'fas fa-fw fa-lock' : 'fas fa-fw fa-folder']"></span>
+                  <span ng-if="folder.type == 'sendreceive'" class="fas fa-fw fa-folder"></span>
+                  <span ng-if="folder.type == 'sendonly'" class="fas fa-fw fa-upload"></span>
+                  <span ng-if="folder.type == 'receiveonly'" class="fas fa-fw fa-download"></span>
                 </div>
                 <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
-                  <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
+                  <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs" aria-label="{{'Unknown' | translate}}"><i class="fas fa-fw fa-question-circle"></i></span></span>
+                  <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs" aria-label="{{'Unshared' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
+                  <span ng-switch-when="scan-waiting"><span class="hidden-xs" translate>Waiting to scan</span><span class="visible-xs" aria-label="{{'Waiting to scan' | translate}}"><i class="fas fa-fw fa-hourglass-half"></i></span></span>
+                  <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs" aria-label="{{'Stopped' | translate}}"><i class="fas fa-fw fa-stop"></i></span></span>
                   <span ng-switch-when="scanning">
                     <span class="hidden-xs" translate>Scanning</span>
                     <span class="hidden-xs" ng-if="scanPercentage(folder.id) != undefined">
                       ({{scanPercentage(folder.id) | percent}})
                     </span>
-                    <span class="visible-xs">&#9724;</span>
+                    <span class="visible-xs" aria-label="{{'Scanning' | translate}}"><i class="fas fa-fw fa-search"></i></span>
                   </span>
-                  <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span>
                     <span ng-show="syncRemaining(folder.id)">({{syncPercentage(folder.id) | percent}}, {{syncRemaining(folder.id) | binary}}B)</span>
                   </span>
-                  <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs" aria-label="{{'Out of Sync' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
                 </div>
                 <div class="panel-title-text">
                   <span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folder.label.length != 0 ? folder.label : folder.id}}</span>
@@ -305,7 +339,7 @@
                 <table class="table table-condensed table-striped">
                   <tbody>
                     <tr ng-show="folder.label != undefined && folder.label.length > 0">
-                      <th><span class="fas fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder ID</span></th>
+                      <th><span class="fas fa-fw fa-info-circle"></span>&nbsp;<span translate>Folder ID</span></th>
                       <td class="text-right no-overflow-ellipse">{{folder.id}}</td>
                     </tr>
                     <tr>
@@ -339,10 +373,10 @@
                         </span>
                       </td>
                     </tr>
-                    <tr ng-if="neededItems(folder.id) > 0">
+                    <tr ng-if="model[folder.id].needTotalItems > 0">
                       <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                       <td class="text-right">
-                        <a href="" ng-click="showNeed(folder.id)">{{neededItems(folder.id) | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
+                        <a href="" ng-click="showNeed(folder.id)">{{model[folder.id].needTotalItems | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr ng-if="folderStatus(folder) === 'scanning' && scanRate(folder.id) > 0">
@@ -358,10 +392,17 @@
                         <a href="" ng-click="showFailed(folder.id)">{{model[folder.id].pullErrors | alwaysNumber | localeNumber}}&nbsp;<span translate>items</span></a>
                       </td>
                     </tr>
+                    <tr ng-if="folder.type == 'receiveonly' && canRevert(folder.id)">
+                      <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Locally Changed Items</span></th>
+                      <td class="text-right">
+                        <a href="" ng-click="showLocalChanged(folder.id)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyBytes | binary}}B</a>
+                      </td>
+                    </tr>
                     <tr ng-if="folder.type != 'sendreceive'">
-                      <th><span class="fas fa-fw fa-lock"></span>&nbsp;<span translate>Folder Type</span></th>
+                      <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folder Type</span></th>
                       <td class="text-right">
                         <span ng-if="folder.type == 'sendonly'" translate>Send Only</span>
+                        <span ng-if="folder.type == 'receiveonly'" translate>Receive Only</span>
                       </td>
                     </tr>
                     <tr ng-if="folder.ignorePerms">
@@ -371,18 +412,18 @@
                       </td>
                     </tr>
                     <tr>
-                      <th><span class="fas fa-fw fa-sync"></span>&nbsp;<span translate>Rescans</span></th>
+                      <th><span class="fas fa-fw fa-refresh"></span>&nbsp;<span translate>Rescans</span></th>
                       <td class="text-right">
                         <div ng-if="folder.rescanIntervalS > 0">
                           <span ng-if="!folder.fsWatcherEnabled" tooltip data-original-title="{{'Periodic scanning at given interval and disabled watching for changes' | translate}}">
                             <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
                             <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
                           </span>
-                          <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused)" tooltip data-original-title="{{'Periodic scanning at given interval and enabled watching for changes' | translate}}">
+                          <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused || folderStatus(folder) === 'stopped')" tooltip data-original-title="{{'Periodic scanning at given interval and enabled watching for changes' | translate}}">
                             <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
                             <span class="fas fa-eye"></span>&nbsp;<span translate>Enabled</span>
                           </span>
-                          <span ng-if="folder.fsWatcherEnabled && !folder.paused && model[folder.id].watchError" tooltip data-original-title="{{'Periodic scanning at given interval and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
+                          <span ng-if="folder.fsWatcherEnabled && !folder.paused && folderStatus(folder) !== 'stopped' && model[folder.id].watchError" tooltip data-original-title="{{'Periodic scanning at given interval and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
                             <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
                             <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
                           </span>
@@ -392,11 +433,11 @@
                             <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
                             <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
                           </span>
-                          <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused)" tooltip data-original-title="{{'Disabled periodic scanning and enabled watching for changes' | translate}}">
+                          <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused || folderStatus(folder) === 'stopped')" tooltip data-original-title="{{'Disabled periodic scanning and enabled watching for changes' | translate}}">
                             <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
                             <span class="fas fa-eye"></span>&nbsp;<span translate>Enabled</span>
                           </span>
-                          <span ng-if="folder.fsWatcherEnabled && !folder.paused && model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
+                          <span ng-if="folder.fsWatcherEnabled && !folder.paused && folderStatus(folder) !== 'stopped' && model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
                             <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
                             <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
                           </span>
@@ -451,6 +492,9 @@
                 <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="override(folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'sendonly'">
                   <span class="fas fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
                 </button>
+                <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revert(folder.id)" ng-if="canRevert(folder.id)">
+                  <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Revert Local Changes</span>
+                </button>
                 <span class="pull-right">
                   <button ng-if="!folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, true)">
                     <span class="fas fa-pause"></span>&nbsp;<span translate>Pause</span>
@@ -462,7 +506,7 @@
                     <span class="fas fa-undo"></span>&nbsp;<span translate>Versions</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync'].indexOf(folderStatus(folder)) < 0">
-                    <span class="fas fa-sync"></span>&nbsp;<span translate>Rescan</span>
+                    <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="editFolder(folder)">
                     <span class="fas fa-pencil-alt"></span>&nbsp;<span translate>Edit</span>
@@ -481,7 +525,7 @@
             <span class="fas fa-play"></span>&nbsp;<span translate>Resume All</span>
           </button>
           <button type="button" class="btn btn-sm btn-default" ng-click="rescanAllFolders()">
-            <span class="fas fa-sync"></span>&nbsp;<span translate>Rescan All</span>
+            <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan All</span>
           </button>
           <button type="button" class="btn btn-sm btn-default" ng-click="addFolder()">
             <span class="fas fa-plus"></span>&nbsp;<span translate>Add Folder</span>
@@ -514,7 +558,13 @@
                       <a href="#" class="toggler" ng-click="toggleUnits()">
                         <span ng-if="!metricRates">{{connectionsTotal.inbps | binary}}B/s</span>
                         <span ng-if="metricRates">{{connectionsTotal.inbps*8 | metric}}bps</span>
-                        ({{connectionsTotal.inBytesTotal | binary}}B)</span>
+                        ({{connectionsTotal.inBytesTotal | binary}}B)
+                        <small ng-if="config.options.maxRecvKbps > 0"><br/>
+                          <i class="text-muted"><span translate>Limit</span>:
+                            <span ng-if="!metricRates">{{config.options.maxRecvKbps*1024 | binary}}B/s</span>
+                            <span ng-if="metricRates">{{config.options.maxRecvKbps*1024*8 | metric}}bps</span>
+                          </i>
+                        </small>
                       </a>
                     </td>
                   </tr>
@@ -525,6 +575,12 @@
                         <span ng-if="!metricRates">{{connectionsTotal.outbps | binary}}B/s</span>
                         <span ng-if="metricRates">{{connectionsTotal.outbps*8 | metric}}bps</span>
                         ({{connectionsTotal.outBytesTotal | binary}}B)
+                        <small ng-if="config.options.maxSendKbps > 0"><br/>
+                          <i class="text-muted"><span translate>Limit</span>:
+                            <span ng-if="!metricRates">{{config.options.maxSendKbps*1024 | binary}}B/s</span>
+                            <span ng-if="metricRates">{{config.options.maxSendKbps*1024*8 | metric}}bps</span>
+                          </i>
+                        </small>
                       </a>
                     </td>
                   </tr>
@@ -532,9 +588,10 @@
                     <th><span class="fas fa-fw fa-home"></span>&nbsp;<span translate>Local State (Total)</span></th>
                     <td class="text-right">
                         <span tooltip data-original-title="{{localStateTotal.files | alwaysNumber | localeNumber}} {{'files' | translate}}, {{ localStateTotal.directories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{ localStateTotal.bytes | binary}}B">
-                        <span class="far fa-copy"></span>&nbsp;{{localStateTotal.files | alwaysNumber | localeNumber}}&ensp;
-                        <span class="far fa-folder"></span>&nbsp;{{localStateTotal.directories| alwaysNumber | localeNumber}}&ensp;
-                        <span class="far fa-hdd"></span>&nbsp;~{{localStateTotal.bytes | binary}}B
+                          <span class="far fa-copy"></span>&nbsp;{{localStateTotal.files | alwaysNumber | localeNumber}}&ensp;
+                          <span class="far fa-folder"></span>&nbsp;{{localStateTotal.directories| alwaysNumber | localeNumber}}&ensp;
+                          <span class="far fa-hdd"></span>&nbsp;~{{localStateTotal.bytes | binary}}B
+                        </span>
                     </td>
                   </tr>
                   <tr>
@@ -596,13 +653,13 @@
               <h4 class="panel-title">
                 <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
                 <span ng-switch="deviceStatus(deviceCfg)" class="pull-right text-{{deviceClass(deviceCfg)}}">
-                  <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)
                   </span>
-                  <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="unused"><span class="hidden-xs" translate>Unused</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
+                  <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs" aria-label="{{'Disconnected' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
+                  <span ng-switch-when="unused"><span class="hidden-xs" translate>Unused</span><span class="visible-xs" aria-label="{{'Unused' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                 </span>
                 <span>{{deviceName(deviceCfg)}}</span>
               </h4>
@@ -617,7 +674,13 @@
                         <a href="#" class="toggler" ng-click="toggleUnits()">
                           <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].inbps | binary}}B/s</span>
                           <span ng-if="metricRates">{{connections[deviceCfg.deviceID].inbps*8 | metric}}bps</span>
-                          ({{connections[deviceCfg.deviceID].inBytesTotal | binary}}B)</span>
+                          ({{connections[deviceCfg.deviceID].inBytesTotal | binary}}B)
+                          <small ng-if="deviceCfg.maxRecvKbps > 0"><br/>
+                            <i class="text-muted"><span translate>Limit</span>:
+                              <span ng-if="!metricRates">{{deviceCfg.maxRecvKbps*1024 | binary}}B/s</span>
+                              <span ng-if="metricRates">{{deviceCfg.maxRecvKbps*1024*8 | metric}}bps</span>
+                            </i>
+                          </small>
                         </a>
                       </td>
                     </tr>
@@ -627,7 +690,13 @@
                         <a href="#" class="toggler" ng-click="toggleUnits()">
                           <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].outbps | binary}}B/s</span>
                           <span ng-if="metricRates">{{connections[deviceCfg.deviceID].outbps*8 | metric}}bps</span>
-                          ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</span>
+                          ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)
+                          <small ng-if="deviceCfg.maxSendKbps > 0"><br/>
+                            <i class="text-muted"><span translate>Limit</span>:
+                              <span ng-if="!metricRates">{{deviceCfg.maxSendKbps*1024 | binary}}B/s</span>
+                              <span ng-if="metricRates">{{deviceCfg.maxSendKbps*1024*8 | metric}}bps</span>
+                            </i>
+                          </small>
                         </a>
                       </td>
                     </tr>
@@ -753,11 +822,13 @@
   <ng-include src="'syncthing/folder/restoreVersionsConfirmation.html'"></ng-include>
   <ng-include src="'syncthing/settings/settingsModalView.html'"></ng-include>
   <ng-include src="'syncthing/settings/advancedSettingsModalView.html'"></ng-include>
+  <ng-include src="'syncthing/settings/discardChangesConfirmation.html'"></ng-include>
   <ng-include src="'syncthing/usagereport/usageReportModalView.html'"></ng-include>
   <ng-include src="'syncthing/usagereport/usageReportPreviewModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/neededFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/failedFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/remoteNeededFilesModalView.html'"></ng-include>
+  <ng-include src="'syncthing/transfer/localChangedFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>

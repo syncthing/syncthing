@@ -496,7 +496,7 @@ func handleRelayTest(request request) {
 
 	mut.Lock()
 	if stats != nil {
-		updateMetrics(request.relay.uri.Host, stats, location)
+		updateMetrics(request.relay.uri.Host, *stats, location)
 	}
 	request.relay.Stats = stats
 	request.relay.StatsRetrieved = time.Now()
@@ -636,7 +636,7 @@ func createTestCertificate() tls.Certificate {
 	}
 
 	certFile, keyFile := filepath.Join(tmpDir, "cert.pem"), filepath.Join(tmpDir, "key.pem")
-	cert, err := tlsutil.NewCertificate(certFile, keyFile, "relaypoolsrv", 3072)
+	cert, err := tlsutil.NewCertificate(certFile, keyFile, "relaypoolsrv")
 	if err != nil {
 		log.Fatalln("Failed to create test X509 key pair:", err)
 	}

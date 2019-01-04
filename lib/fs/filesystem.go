@@ -79,6 +79,10 @@ type FileInfo interface {
 // FileMode is similar to os.FileMode
 type FileMode uint32
 
+func (fm FileMode) String() string {
+	return os.FileMode(fm).String()
+}
+
 // Usage represents filesystem space usage
 type Usage struct {
 	Free  int64
@@ -167,6 +171,8 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 	switch fsType {
 	case FilesystemTypeBasic:
 		fs = newBasicFilesystem(uri)
+	case FilesystemTypeFake:
+		fs = newFakeFilesystem(uri)
 	default:
 		l.Debugln("Unknown filesystem", fsType, uri)
 		fs = &errorFilesystem{
@@ -193,12 +199,11 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 func IsInternal(file string) bool {
 	// fs cannot import config, so we hard code .stfolder here (config.DefaultMarkerName)
 	internals := []string{".stfolder", ".stignore", ".stversions"}
-	pathSep := string(PathSeparator)
 	for _, internal := range internals {
 		if file == internal {
 			return true
 		}
-		if strings.HasPrefix(file, internal+pathSep) {
+		if IsParent(file, internal) {
 			return true
 		}
 	}

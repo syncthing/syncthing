@@ -9,8 +9,8 @@ func TestWinsConflict(t *testing.T) {
 		// The first should always win over the second
 		{{ModifiedS: 42}, {ModifiedS: 41}},
 		{{ModifiedS: 41}, {ModifiedS: 42, Deleted: true}},
-		{{Deleted: true}, {ModifiedS: 10, Invalid: true}},
-		{{ModifiedS: 41, Version: Vector{[]Counter{{42, 2}, {43, 1}}}}, {ModifiedS: 41, Version: Vector{[]Counter{{42, 1}, {43, 2}}}}},
+		{{Deleted: true}, {ModifiedS: 10, RawInvalid: true}},
+		{{ModifiedS: 41, Version: Vector{Counters: []Counter{{ID: 42, Value: 2}, {ID: 43, Value: 1}}}}, {ModifiedS: 41, Version: Vector{Counters: []Counter{{ID: 42, Value: 1}, {ID: 43, Value: 2}}}}},
 	}
 
 	for _, tc := range testcases {

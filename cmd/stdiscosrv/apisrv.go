@@ -335,7 +335,21 @@ func fixupAddresses(remote net.IP, addresses []string) []string {
 		}
 
 		ip := net.ParseIP(host)
+
+		// Some classes of IP are no-go.
+		if ip.IsLoopback() || ip.IsMulticast() {
+			continue
+		}
+
 		if host == "" || ip.IsUnspecified() {
+			// Replace the unspecified IP with the request source.
+
+			// ... unless the request source is the loopback address or
+			// multicast/unspecified (can't happen, really).
+			if remote.IsLoopback() || remote.IsMulticast() || remote.IsUnspecified() {
+				continue
+			}
+
 			// Do not use IPv6 remote address if requested scheme is ...4
 			// (i.e., tcp4, etc.)
 			if strings.HasSuffix(uri.Scheme, "4") && remote.To4() == nil {

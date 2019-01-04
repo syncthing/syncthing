@@ -15,6 +15,10 @@ package prometheus
 
 import (
 	"errors"
+	"math"
+	"sync/atomic"
+
+	dto "github.com/prometheus/client_model/go"
 )
 
 // Counter is a Metric that represents a single numerical value that only ever
@@ -42,6 +46,14 @@ type Counter interface {
 type CounterOpts Opts
 
 // NewCounter creates a new Counter based on the provided CounterOpts.
+//
+// The returned implementation tracks the counter value in two separate
+// variables, a float64 and a uint64. The latter is used to track calls of the
+// Inc method and calls of the Add method with a value that can be represented
+// as a uint64. This allows atomic increments of the counter with optimal
+// performance. (It is common to have an Inc call in very hot execution paths.)
+// Both internal tracking values are added up in the Write method. This has to
+// be taken into account when it comes to precision and overflow behavior.
 func NewCounter(opts CounterOpts) Counter {
 	desc := NewDesc(
 		BuildFQName(opts.Namespace, opts.Subsystem, opts.Name),
@@ -49,20 +61,58 @@ func NewCounter(opts CounterOpts) Counter {
 		nil,
 		opts.ConstLabels,
 	)
-	result := &counter{value: value{desc: desc, valType: CounterValue, labelPairs: desc.constLabelPairs}}
+	result := &counter{desc: desc, labelPairs: desc.constLabelPairs}
 	result.init(result) // Init self-collection.
 	return result
 }
 
 type counter struct {
-	value
+	// valBits contains the bits of the represented float64 value, while
+	// valInt stores values that are exact integers. Both have to go first
+	// in the struct to guarantee alignment for atomic operations.
+	// http://golang.org/pkg/sync/atomic/#pkg-note-BUG
+	valBits uint64
+	valInt  uint64
+
+	selfCollector
+	desc *Desc
+
+	labelPairs []*dto.LabelPair
+}
+
+func (c *counter) Desc() *Desc {
+	return c.desc
 }
 
 func (c *counter) Add(v float64) {
 	if v < 0 {
 		panic(errors.New("counter cannot decrease in value"))
 	}
-	c.value.Add(v)
+	ival := uint64(v)
+	if float64(ival) == v {
+		atomic.AddUint64(&c.valInt, ival)
+		return
+	}
+
+	for {
+		oldBits := atomic.LoadUint64(&c.valBits)
+		newBits := math.Float64bits(math.Float64frombits(oldBits) + v)
+		if atomic.CompareAndSwapUint64(&c.valBits, oldBits, newBits) {
+			return
+		}
+	}
+}
+
+func (c *counter) Inc() {
+	atomic.AddUint64(&c.valInt, 1)
+}
+
+func (c *counter) Write(out *dto.Metric) error {
+	fval := math.Float64frombits(atomic.LoadUint64(&c.valBits))
+	ival := atomic.LoadUint64(&c.valInt)
+	val := fval + float64(ival)
+
+	return populateMetric(CounterValue, val, c.labelPairs, out)
 }
 
 // CounterVec is a Collector that bundles a set of Counters that all share the
@@ -85,11 +135,10 @@ func NewCounterVec(opts CounterOpts, labelNames []string) *CounterVec {
 	)
 	return &CounterVec{
 		metricVec: newMetricVec(desc, func(lvs ...string) Metric {
-			result := &counter{value: value{
-				desc:       desc,
-				valType:    CounterValue,
-				labelPairs: makeLabelPairs(desc, lvs),
-			}}
+			if len(lvs) != len(desc.variableLabels) {
+				panic(errInconsistentCardinality)
+			}
+			result := &counter{desc: desc, labelPairs: makeLabelPairs(desc, lvs)}
 			result.init(result) // Init self-collection.
 			return result
 		}),

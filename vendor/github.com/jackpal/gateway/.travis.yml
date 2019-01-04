@@ -1,0 +1,13 @@
+language: go
+
+go:
+  - 1.6.2
+  - tip
+
+allowed_failures:
+  - go: tip
+
+install:
+  - go get -d -v ./... && go install -race -v ./...
+
+script: go test -race -v ./...

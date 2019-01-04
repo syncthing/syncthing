@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "STDISCOSRV" "1" "Jun 05, 2018" "v0.14" "Syncthing"
+.TH "STDISCOSRV" "1" "Jan 02, 2019" "v1" "Syncthing"
 .SH NAME
 stdiscosrv \- Syncthing Discovery Server
 .
@@ -103,6 +103,10 @@ Global Discovery Server and add stdiscosrv’s host address to the comma\-separa
 list, e.g. \fBhttps://disco.example.com:8443/\fP\&. Note that stdiscosrv uses port
 8443 by default. For stdiscosrv to be available over the internet with a dynamic
 IP address, you will need a dynamic DNS service.
+.sp
+Deprecated since version v0.14.44: Prior versions need \fB/v2/\fP appended to the discovery
+server address, e.g. \fBhttps://disco.example.com:8443/v2/\fP\&.
+
 .sp
 If you wish to use \fIonly\fP your own discovery server, remove the \fBdefault\fP
 entry from the list.

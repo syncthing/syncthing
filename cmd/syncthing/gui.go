@@ -7,9 +7,11 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -85,8 +87,10 @@ type modelIntf interface {
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
 	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
 	Override(folder string)
+	Revert(folder string)
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated)
 	RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error)
+	LocalChangedFiles(folder string, page, perpage int) []db.FileInfoTruncated
 	NeedSize(folder string) db.Counts
 	ConnectionStats() map[string]interface{}
 	DeviceStatistics() map[string]stats.DeviceStatistics
@@ -107,16 +111,18 @@ type modelIntf interface {
 	Connection(deviceID protocol.DeviceID) (connections.Connection, bool)
 	GlobalSize(folder string) db.Counts
 	LocalSize(folder string) db.Counts
+	ReceiveOnlyChangedSize(folder string) db.Counts
 	CurrentSequence(folder string) (int64, bool)
 	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
 	UsageReportingStats(version int, preview bool) map[string]interface{}
-	PullErrors(folder string) ([]model.FileError, error)
+	FolderErrors(folder string) ([]model.FileError, error)
 	WatchError(folder string) error
 }
 
 type configIntf interface {
 	GUI() config.GUIConfiguration
+	LDAP() config.LDAPConfiguration
 	RawCopy() config.Configuration
 	Options() config.OptionsConfiguration
 	Replace(cfg config.Configuration) (config.Waiter, error)
@@ -180,30 +186,21 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 			name = tlsDefaultCommonName
 		}
 
-		cert, err = tlsutil.NewCertificate(s.httpsCertFile, s.httpsKeyFile, name, httpsRSABits)
+		cert, err = tlsutil.NewCertificate(s.httpsCertFile, s.httpsKeyFile, name)
 	}
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS10, // No SSLv3
-		CipherSuites: []uint16{
-			// No RC4
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_RSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
-			tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
-		},
-	}
+	tlsCfg := tlsutil.SecureDefault()
+	tlsCfg.Certificates = []tls.Certificate{cert}
 
-	rawListener, err := net.Listen("tcp", guiCfg.Address())
+	if guiCfg.Network() == "unix" {
+		// When listening on a UNIX socket we should unlink before bind,
+		// lest we get a "bind: address already in use". We don't
+		// particularly care if this succeeds or not.
+		os.Remove(guiCfg.Address())
+	}
+	rawListener, err := net.Listen(guiCfg.Network(), guiCfg.Address())
 	if err != nil {
 		return nil, err
 	}
@@ -262,10 +259,12 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/remoteneed", s.getDBRemoteNeed)              // device folder [perpage] [page]
+	getRestMux.HandleFunc("/rest/db/localchanged", s.getDBLocalChanged)          // folder
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
 	getRestMux.HandleFunc("/rest/folder/versions", s.getFolderVersions)          // folder
-	getRestMux.HandleFunc("/rest/folder/pullerrors", s.getPullErrors)            // folder
+	getRestMux.HandleFunc("/rest/folder/errors", s.getFolderErrors)              // folder
+	getRestMux.HandleFunc("/rest/folder/pullerrors", s.getFolderErrors)          // folder (deprecated)
 	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout] [events]
 	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // [since] [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
@@ -293,6 +292,7 @@ func (s *apiService) Serve() {
 	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
 	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                    // folder
 	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)                  // folder
+	postRestMux.HandleFunc("/rest/db/revert", s.postDBRevert)                      // folder
 	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                          // folder [sub...] [delay]
 	postRestMux.HandleFunc("/rest/folder/versions", s.postFolderVersionsRestore)   // folder <body>
 	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)              // <body>
@@ -313,6 +313,7 @@ func (s *apiService) Serve() {
 	debugMux.HandleFunc("/rest/debug/httpmetrics", s.getSystemHTTPMetrics)
 	debugMux.HandleFunc("/rest/debug/cpuprof", s.getCPUProf) // duration
 	debugMux.HandleFunc("/rest/debug/heapprof", s.getHeapProf)
+	debugMux.HandleFunc("/rest/debug/support", s.getSupportBundle)
 	getRestMux.Handle("/rest/debug/", s.whenDebugging(debugMux))
 
 	// A handler that splits requests between the two above and disables
@@ -340,8 +341,8 @@ func (s *apiService) Serve() {
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in basic auth, if user/password is set.
-	if len(guiCfg.User) > 0 && len(guiCfg.Password) > 0 {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, handler)
+	if guiCfg.IsAuthEnabled() {
+		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler)
 	}
 
 	// Redirect to HTTPS if we are supposed to
@@ -416,6 +417,9 @@ func (s *apiService) String() string {
 }
 
 func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
+	if to.GUI.Network() != "tcp" {
+		return nil
+	}
 	_, err := net.ResolveTCPAddr("tcp", to.GUI.Address())
 	return err
 }
@@ -588,7 +592,7 @@ func (s *apiService) whenDebugging(h http.Handler) http.Handler {
 			return
 		}
 
-		http.Error(w, "Debugging disabled", http.StatusBadRequest)
+		http.Error(w, "Debugging disabled", http.StatusForbidden)
 	})
 }
 
@@ -694,23 +698,36 @@ func (s *apiService) getDBStatus(w http.ResponseWriter, r *http.Request) {
 func folderSummary(cfg configIntf, m modelIntf, folder string) (map[string]interface{}, error) {
 	var res = make(map[string]interface{})
 
-	pullErrors, err := m.PullErrors(folder)
+	errors, err := m.FolderErrors(folder)
 	if err != nil && err != model.ErrFolderPaused {
 		// Stats from the db can still be obtained if the folder is just paused
 		return nil, err
 	}
-	res["pullErrors"] = len(pullErrors)
+	res["errors"] = len(errors)
+	res["pullErrors"] = len(errors) // deprecated
 
 	res["invalid"] = "" // Deprecated, retains external API for now
 
 	global := m.GlobalSize(folder)
-	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes
+	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"], res["globalTotalItems"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
 
 	local := m.LocalSize(folder)
-	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes
+	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"], res["localTotalItems"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
 
 	need := m.NeedSize(folder)
-	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes
+	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
+
+	if cfg.Folders()[folder].Type == config.FolderTypeReceiveOnly {
+		// Add statistics for things that have changed locally in a receive
+		// only folder.
+		ro := m.ReceiveOnlyChangedSize(folder)
+		res["receiveOnlyChangedFiles"] = ro.Files
+		res["receiveOnlyChangedDirectories"] = ro.Directories
+		res["receiveOnlyChangedSymlinks"] = ro.Symlinks
+		res["receiveOnlyChangedDeletes"] = ro.Deleted
+		res["receiveOnlyChangedBytes"] = ro.Bytes
+		res["receiveOnlyTotalItems"] = ro.TotalItems()
+	}
 
 	res["inSyncFiles"], res["inSyncBytes"] = global.Files-need.Files, global.Bytes-need.Bytes
 
@@ -748,6 +765,12 @@ func (s *apiService) postDBOverride(w http.ResponseWriter, r *http.Request) {
 	go s.model.Override(folder)
 }
 
+func (s *apiService) postDBRevert(w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var folder = qs.Get("folder")
+	go s.model.Revert(folder)
+}
+
 func getPagingParams(qs url.Values) (int, int) {
 	page, err := strconv.Atoi(qs.Get("page"))
 	if err != nil || page < 1 {
@@ -771,9 +794,9 @@ func (s *apiService) getDBNeed(w http.ResponseWriter, r *http.Request) {
 
 	// Convert the struct to a more loose structure, and inject the size.
 	sendJSON(w, map[string]interface{}{
-		"progress": toNeedSlice(progress),
-		"queued":   toNeedSlice(queued),
-		"rest":     toNeedSlice(rest),
+		"progress": toJsonFileInfoSlice(progress),
+		"queued":   toJsonFileInfoSlice(queued),
+		"rest":     toJsonFileInfoSlice(rest),
 		"page":     page,
 		"perpage":  perpage,
 	})
@@ -796,11 +819,27 @@ func (s *apiService) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	} else {
 		sendJSON(w, map[string]interface{}{
-			"files":   toNeedSlice(files),
+			"files":   toJsonFileInfoSlice(files),
 			"page":    page,
 			"perpage": perpage,
 		})
 	}
+}
+
+func (s *apiService) getDBLocalChanged(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	folder := qs.Get("folder")
+
+	page, perpage := getPagingParams(qs)
+
+	files := s.model.LocalChangedFiles(folder, page, perpage)
+
+	sendJSON(w, map[string]interface{}{
+		"files":   toJsonFileInfoSlice(files),
+		"page":    page,
+		"perpage": perpage,
+	})
 }
 
 func (s *apiService) getSystemConnections(w http.ResponseWriter, r *http.Request) {
@@ -865,12 +904,15 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Activate and save
+	// Activate and save. Wait for the configuration to become active before
+	// completing the request.
 
-	if _, err := s.cfg.Replace(to); err != nil {
+	if wg, err := s.cfg.Replace(to); err != nil {
 		l.Warnln("Replacing config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	} else {
+		wg.Wait()
 	}
 
 	if err := s.cfg.Save(); err != nil {
@@ -959,6 +1001,7 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["urVersionMax"] = usageReportVersion
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
+	res["guiAddressOverridden"] = s.cfg.GUI().IsOverridden()
 
 	sendJSON(w, res)
 }
@@ -1001,6 +1044,111 @@ func (s *apiService) getSystemLogTxt(w http.ResponseWriter, r *http.Request) {
 	for _, line := range s.systemLog.Since(since) {
 		fmt.Fprintf(w, "%s: %s\n", line.When.Format(time.RFC3339), line.Message)
 	}
+}
+
+type fileEntry struct {
+	name string
+	data []byte
+}
+
+func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
+	var files []fileEntry
+
+	// Redacted configuration as a JSON
+	if jsonConfig, err := json.MarshalIndent(getRedactedConfig(s), "", "  "); err == nil {
+		files = append(files, fileEntry{name: "config.json.txt", data: jsonConfig})
+	} else {
+		l.Warnln("Support bundle: failed to create config.json:", err)
+	}
+
+	// Log as a text
+	var buflog bytes.Buffer
+	for _, line := range s.systemLog.Since(time.Time{}) {
+		fmt.Fprintf(&buflog, "%s: %s\n", line.When.Format(time.RFC3339), line.Message)
+	}
+	files = append(files, fileEntry{name: "log-inmemory.txt", data: buflog.Bytes()})
+
+	// Errors as a JSON
+	if errs := s.guiErrors.Since(time.Time{}); len(errs) > 0 {
+		if jsonError, err := json.MarshalIndent(errs, "", "  "); err != nil {
+			files = append(files, fileEntry{name: "errors.json.txt", data: jsonError})
+		} else {
+			l.Warnln("Support bundle: failed to create errors.json:", err)
+		}
+	}
+
+	// Panic files
+	if panicFiles, err := filepath.Glob(filepath.Join(baseDirs["config"], "panic*")); err == nil {
+		for _, f := range panicFiles {
+			if panicFile, err := ioutil.ReadFile(f); err != nil {
+				l.Warnf("Support bundle: failed to load %s: %s", filepath.Base(f), err)
+			} else {
+				files = append(files, fileEntry{name: filepath.Base(f), data: panicFile})
+			}
+		}
+	}
+
+	// Archived log (default on Windows)
+	if logFile, err := ioutil.ReadFile(locations[locLogFile]); err == nil {
+		files = append(files, fileEntry{name: "log-ondisk.txt", data: logFile})
+	}
+
+	// Version and platform information as a JSON
+	if versionPlatform, err := json.MarshalIndent(map[string]string{
+		"now":         time.Now().Format(time.RFC3339),
+		"version":     Version,
+		"codename":    Codename,
+		"longVersion": LongVersion,
+		"os":          runtime.GOOS,
+		"arch":        runtime.GOARCH,
+	}, "", "  "); err == nil {
+		files = append(files, fileEntry{name: "version-platform.json.txt", data: versionPlatform})
+	} else {
+		l.Warnln("Failed to create versionPlatform.json: ", err)
+	}
+
+	// Report Data as a JSON
+	if usageReportingData, err := json.MarshalIndent(reportData(s.cfg, s.model, s.connectionsService, usageReportVersion, true), "", "  "); err != nil {
+		l.Warnln("Support bundle: failed to create versionPlatform.json:", err)
+	} else {
+		files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
+	}
+
+	// Heap and CPU Proofs as a pprof extension
+	var heapBuffer, cpuBuffer bytes.Buffer
+	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, Version, time.Now().Format("150405")) // hhmmss
+	runtime.GC()
+	pprof.WriteHeapProfile(&heapBuffer)
+	files = append(files, fileEntry{name: filename, data: heapBuffer.Bytes()})
+
+	const duration = 4 * time.Second
+	filename = fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, Version, time.Now().Format("150405")) // hhmmss
+	pprof.StartCPUProfile(&cpuBuffer)
+	time.Sleep(duration)
+	pprof.StopCPUProfile()
+	files = append(files, fileEntry{name: filename, data: cpuBuffer.Bytes()})
+
+	// Add buffer files to buffer zip
+	var zipFilesBuffer bytes.Buffer
+	if err := writeZip(&zipFilesBuffer, files); err != nil {
+		l.Warnln("Support bundle: failed to create support bundle zip:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Set zip file name and path
+	zipFileName := fmt.Sprintf("support-bundle-%s-%s.zip", s.id.Short().String(), time.Now().Format("2006-01-02T150405"))
+	zipFilePath := filepath.Join(baseDirs["config"], zipFileName)
+
+	// Write buffer zip to local zip file (back up)
+	if err := ioutil.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0600); err != nil {
+		l.Warnln("Support bundle: support bundle zip could not be created:", err)
+	}
+
+	// Serve the buffer zip to client for download
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", "attachment; filename="+zipFileName)
+	io.Copy(w, &zipFilesBuffer)
 }
 
 func (s *apiService) getSystemHTTPMetrics(w http.ResponseWriter, r *http.Request) {
@@ -1374,12 +1522,12 @@ func (s *apiService) postFolderVersionsRestore(w http.ResponseWriter, r *http.Re
 	sendJSON(w, ferr)
 }
 
-func (s *apiService) getPullErrors(w http.ResponseWriter, r *http.Request) {
+func (s *apiService) getFolderErrors(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	page, perpage := getPagingParams(qs)
 
-	errors, err := s.model.PullErrors(folder)
+	errors, err := s.model.FolderErrors(folder)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -1415,6 +1563,24 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, browseFiles(current, fsType))
 }
 
+const (
+	matchExact int = iota
+	matchCaseIns
+	noMatch
+)
+
+func checkPrefixMatch(s, prefix string) int {
+	if strings.HasPrefix(s, prefix) {
+		return matchExact
+	}
+
+	if strings.HasPrefix(strings.ToLower(s), strings.ToLower(prefix)) {
+		return matchCaseIns
+	}
+
+	return noMatch
+}
+
 func browseFiles(current string, fsType fs.FilesystemType) []string {
 	if current == "" {
 		filesystem := fs.NewFilesystem(fsType, "")
@@ -1440,16 +1606,29 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 
 	fs := fs.NewFilesystem(fsType, searchDir)
 
-	subdirectories, _ := fs.Glob(searchFile + "*")
+	subdirectories, _ := fs.DirNames(".")
 
-	ret := make([]string, 0, len(subdirectories))
+	exactMatches := make([]string, 0, len(subdirectories))
+	caseInsMatches := make([]string, 0, len(subdirectories))
+
 	for _, subdirectory := range subdirectories {
 		info, err := fs.Stat(subdirectory)
-		if err == nil && info.IsDir() {
-			ret = append(ret, filepath.Join(searchDir, subdirectory)+pathSeparator)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+
+		switch checkPrefixMatch(subdirectory, searchFile) {
+		case matchExact:
+			exactMatches = append(exactMatches, filepath.Join(searchDir, subdirectory)+pathSeparator)
+		case matchCaseIns:
+			caseInsMatches = append(caseInsMatches, filepath.Join(searchDir, subdirectory)+pathSeparator)
 		}
 	}
-	return ret
+
+	// sort to return matches in deterministic order (don't depend on file system order)
+	sort.Strings(exactMatches)
+	sort.Strings(caseInsMatches)
+	return append(exactMatches, caseInsMatches...)
 }
 
 func (s *apiService) getCPUProf(w http.ResponseWriter, r *http.Request) {
@@ -1478,7 +1657,7 @@ func (s *apiService) getHeapProf(w http.ResponseWriter, r *http.Request) {
 	pprof.WriteHeapProfile(w)
 }
 
-func toNeedSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
+func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
 	res := make([]jsonDBFileInfo, len(fs))
 	for i, f := range fs {
 		res[i] = jsonDBFileInfo(f)
@@ -1497,13 +1676,16 @@ func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
 		"size":          f.Size,
 		"permissions":   fmt.Sprintf("%#o", f.Permissions),
 		"deleted":       f.Deleted,
-		"invalid":       f.Invalid,
+		"invalid":       protocol.FileInfo(f).IsInvalid(),
+		"ignored":       protocol.FileInfo(f).IsIgnored(),
+		"mustRescan":    protocol.FileInfo(f).MustRescan(),
 		"noPermissions": f.NoPermissions,
 		"modified":      protocol.FileInfo(f).ModTime(),
 		"modifiedBy":    f.ModifiedBy.String(),
 		"sequence":      f.Sequence,
 		"numBlocks":     len(f.Blocks),
 		"version":       jsonVersionVector(f.Version),
+		"localFlags":    f.LocalFlags,
 	})
 }
 
@@ -1516,11 +1698,16 @@ func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
 		"size":          f.Size,
 		"permissions":   fmt.Sprintf("%#o", f.Permissions),
 		"deleted":       f.Deleted,
-		"invalid":       f.Invalid,
+		"invalid":       db.FileInfoTruncated(f).IsInvalid(),
+		"ignored":       db.FileInfoTruncated(f).IsIgnored(),
+		"mustRescan":    db.FileInfoTruncated(f).MustRescan(),
 		"noPermissions": f.NoPermissions,
 		"modified":      db.FileInfoTruncated(f).ModTime(),
 		"modifiedBy":    f.ModifiedBy.String(),
 		"sequence":      f.Sequence,
+		"numBlocks":     nil, // explicitly unknown
+		"version":       jsonVersionVector(f.Version),
+		"localFlags":    f.LocalFlags,
 	})
 }
 

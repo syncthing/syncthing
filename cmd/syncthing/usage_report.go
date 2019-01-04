@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -81,6 +82,7 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 	folderUses := map[string]int{
 		"sendonly":            0,
 		"sendreceive":         0,
+		"receiveonly":         0,
 		"ignorePerms":         0,
 		"ignoreDelete":        0,
 		"autoNormalize":       0,
@@ -97,6 +99,8 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 			folderUses["sendonly"]++
 		case config.FolderTypeSendReceive:
 			folderUses["sendreceive"]++
+		case config.FolderTypeReceiveOnly:
+			folderUses["receiveonly"]++
 		}
 		if cfg.IgnorePerms {
 			folderUses["ignorePerms"]++
@@ -323,6 +327,8 @@ type usageReportingService struct {
 	connectionsService *connections.Service
 	forceRun           chan struct{}
 	stop               chan struct{}
+	stopped            chan struct{}
+	stopMut            sync.RWMutex
 }
 
 func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectionsService *connections.Service) *usageReportingService {
@@ -332,7 +338,9 @@ func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectio
 		connectionsService: connectionsService,
 		forceRun:           make(chan struct{}),
 		stop:               make(chan struct{}),
+		stopped:            make(chan struct{}),
 	}
+	close(svc.stopped) // Not yet running, dont block on Stop()
 	cfg.Subscribe(svc)
 	return svc
 }
@@ -356,8 +364,16 @@ func (s *usageReportingService) sendUsageReport() error {
 }
 
 func (s *usageReportingService) Serve() {
+	s.stopMut.Lock()
 	s.stop = make(chan struct{})
+	s.stopped = make(chan struct{})
+	s.stopMut.Unlock()
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
+	s.stopMut.RLock()
+	defer func() {
+		close(s.stopped)
+		s.stopMut.RUnlock()
+	}()
 	for {
 		select {
 		case <-s.stop:
@@ -384,14 +400,21 @@ func (s *usageReportingService) VerifyConfiguration(from, to config.Configuratio
 
 func (s *usageReportingService) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
-		s.forceRun <- struct{}{}
+		s.stopMut.RLock()
+		select {
+		case s.forceRun <- struct{}{}:
+		case <-s.stop:
+		}
+		s.stopMut.RUnlock()
 	}
 	return true
 }
 
 func (s *usageReportingService) Stop() {
+	s.stopMut.RLock()
 	close(s.stop)
-	close(s.forceRun)
+	<-s.stopped
+	s.stopMut.RUnlock()
 }
 
 func (usageReportingService) String() string {

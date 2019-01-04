@@ -77,7 +77,9 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	srv := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil, nil, nil, nil)
 	srv.started = make(chan string)
 
-	sup := suture.NewSimple("test")
+	sup := suture.New("test", suture.Spec{
+		PassThroughPanics: true,
+	})
 	sup.Add(srv)
 	sup.ServeBackground()
 
@@ -487,7 +489,9 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	svc.started = addrChan
 
 	// Actually start the API service
-	supervisor := suture.NewSimple("API test")
+	supervisor := suture.New("API test", suture.Spec{
+		PassThroughPanics: true,
+	})
 	supervisor.Add(svc)
 	supervisor.ServeBackground()
 
@@ -984,10 +988,14 @@ func TestBrowse(t *testing.T) {
 	if err := ioutil.WriteFile(filepath.Join(tmpDir, "file"), []byte("hello"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Mkdir(filepath.Join(tmpDir, "MiXEDCase"), 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	// We expect completion to return the full path to the completed
 	// directory, with an ending slash.
 	dirPath := filepath.Join(tmpDir, "dir") + pathSep
+	mixedCaseDirPath := filepath.Join(tmpDir, "MiXEDCase") + pathSep
 
 	cases := []struct {
 		current string
@@ -998,19 +1006,41 @@ func TestBrowse(t *testing.T) {
 		// With slash it's completed to its contents.
 		// Dirs are given pathSeps.
 		// Files are not returned.
-		{tmpDir + pathSep, []string{dirPath}},
+		{tmpDir + pathSep, []string{mixedCaseDirPath, dirPath}},
 		// Globbing is automatic based on prefix.
 		{tmpDir + pathSep + "d", []string{dirPath}},
 		{tmpDir + pathSep + "di", []string{dirPath}},
 		{tmpDir + pathSep + "dir", []string{dirPath}},
 		{tmpDir + pathSep + "f", nil},
 		{tmpDir + pathSep + "q", nil},
+		// Globbing is case-insensitve
+		{tmpDir + pathSep + "mixed", []string{mixedCaseDirPath}},
 	}
 
 	for _, tc := range cases {
 		ret := browseFiles(tc.current, fs.FilesystemTypeBasic)
 		if !equalStrings(ret, tc.returns) {
 			t.Errorf("browseFiles(%q) => %q, expected %q", tc.current, ret, tc.returns)
+		}
+	}
+}
+
+func TestPrefixMatch(t *testing.T) {
+	cases := []struct {
+		s        string
+		prefix   string
+		expected int
+	}{
+		{"aaaA", "aaa", matchExact},
+		{"AAAX", "BBB", noMatch},
+		{"AAAX", "aAa", matchCaseIns},
+		{"äÜX", "äü", matchCaseIns},
+	}
+
+	for _, tc := range cases {
+		ret := checkPrefixMatch(tc.s, tc.prefix)
+		if ret != tc.expected {
+			t.Errorf("checkPrefixMatch(%q, %q) => %v, expected %v", tc.s, tc.prefix, ret, tc.expected)
 		}
 	}
 }

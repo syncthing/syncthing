@@ -136,10 +136,13 @@ func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg *conf
 	a.notifyTimer = time.NewTimer(a.notifyDelay)
 	defer a.notifyTimer.Stop()
 
-	inProgress := make(map[string]struct{})
 	inProgressItemSubscription := events.Default.Subscribe(events.ItemStarted | events.ItemFinished)
+	defer events.Default.Unsubscribe(inProgressItemSubscription)
 
 	cfg.Subscribe(a)
+	defer cfg.Unsubscribe(a)
+
+	inProgress := make(map[string]struct{})
 
 	for {
 		select {
@@ -154,7 +157,6 @@ func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg *conf
 		case folderCfg := <-a.folderCfgUpdate:
 			a.updateConfig(folderCfg)
 		case <-a.ctx.Done():
-			cfg.Unsubscribe(a)
 			l.Debugln(a, "Stopped")
 			return
 		}
@@ -308,8 +310,8 @@ func (a *aggregator) actOnTimer(out chan<- []string) {
 	}
 	oldEvents := make(map[string]*aggregatedEvent, c)
 	a.popOldEventsTo(oldEvents, a.root, ".", time.Now(), true)
-	if a.notifyDelay != a.notifyTimeout && a.counts[fs.NonRemove]+a.counts[fs.Mixed] == 0 && a.counts[fs.Remove] != 0 {
-		// Only deletion events remaining, no need to delay them additionally
+	if a.notifyDelay != a.notifyTimeout && a.counts[fs.NonRemove] == 0 && a.counts[fs.Remove]+a.counts[fs.Mixed] != 0 {
+		// Only delayed events remaining, no need to delay them additionally
 		a.popOldEventsTo(oldEvents, a.root, ".", time.Now(), false)
 	}
 	if len(oldEvents) == 0 {

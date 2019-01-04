@@ -54,7 +54,7 @@ import (
 
 var (
 	Version           = "unknown-dev"
-	Codename          = "Dysprosium Dragonfly"
+	Codename          = "Erbium Earthworm"
 	BuildStamp        = "0"
 	BuildDate         time.Time
 	BuildHost         = "unknown"
@@ -78,8 +78,6 @@ const (
 const (
 	bepProtocolName      = "bep/1.0"
 	tlsDefaultCommonName = "syncthing"
-	httpsRSABits         = 2048
-	bepRSABits           = 0 // 384 bit ECDSA used instead
 	defaultEventTimeout  = time.Minute
 	maxSystemErrors      = 5
 	initialSystemLog     = 10
@@ -252,6 +250,7 @@ type RuntimeOptions struct {
 	cpuProfile     bool
 	stRestarting   bool
 	logFlags       int
+	showHelp       bool
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -295,6 +294,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&options.showVersion, "version", false, "Show version")
+	flag.BoolVar(&options.showHelp, "help", false, "Show this help")
 	flag.BoolVar(&options.showPaths, "paths", false, "Show configuration paths")
 	flag.BoolVar(&options.showDeviceId, "device-id", false, "Show the device ID")
 	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
@@ -381,6 +381,11 @@ func main() {
 		return
 	}
 
+	if options.showHelp {
+		flag.Usage()
+		return
+	}
+
 	if options.showPaths {
 		showPaths(options)
 		return
@@ -464,7 +469,7 @@ func generate(generateDir string) {
 		l.Warnln("Key exists; will not overwrite.")
 		l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 	} else {
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, bepRSABits)
+		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName)
 		if err != nil {
 			l.Fatalln("Create certificate:", err)
 		}
@@ -594,6 +599,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		Log: func(line string) {
 			l.Debugln(line)
 		},
+		PassThroughPanics: true,
 	})
 	mainService.ServeBackground()
 
@@ -631,7 +637,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
 		l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
-		cert, err = tlsutil.NewCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName, bepRSABits)
+		cert, err = tlsutil.NewCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName)
 		if err != nil {
 			l.Fatalln(err)
 		}
@@ -672,43 +678,21 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}()
 	}
 
-	// The TLS configuration is used for both the listening socket and outgoing
-	// connections.
-
-	tlsCfg := &tls.Config{
-		Certificates:           []tls.Certificate{cert},
-		NextProtos:             []string{bepProtocolName},
-		ClientAuth:             tls.RequestClientCert,
-		SessionTicketsDisabled: true,
-		InsecureSkipVerify:     true,
-		MinVersion:             tls.VersionTLS12,
-		CipherSuites: []uint16{
-			0xCCA8, // TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305, Go 1.8
-			0xCCA9, // TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, Go 1.8
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-		},
-	}
-
 	perf := cpuBench(3, 150*time.Millisecond, true)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	dbFile := locations[locDatabase]
 	ldb, err := db.Open(dbFile)
 	if err != nil {
-		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
+		l.Fatalln("Error opening database:", err)
+	}
+	if err := db.UpdateSchema(ldb); err != nil {
+		l.Fatalln("Database schema:", err)
 	}
 
 	if runtimeOptions.resetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
-		ldb.DropLocalDeltaIndexIDs()
-		ldb.DropRemoteDeltaIndexIDs()
+		db.DropDeltaIndexIDs(ldb)
 	}
 
 	protectedFiles := []string{
@@ -729,7 +713,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Grab the previously running version string from the database.
 
-	miscDB := db.NewNamespacedKV(ldb, string(db.KeyTypeMiscData))
+	miscDB := db.NewMiscDataNamespace(ldb)
 	prevVersion, _ := miscDB.String("prevVersion")
 
 	// Strip away prerelease/beta stuff and just compare the release
@@ -745,7 +729,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 		// Drop delta indexes in case we've changed random stuff we
 		// shouldn't have. We will resend our index on next connect.
-		ldb.DropLocalDeltaIndexIDs()
+		db.DropDeltaIndexIDs(ldb)
 
 		// Remember the new version.
 		miscDB.PutString("prevVersion", Version)
@@ -783,6 +767,16 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	cachedDiscovery := discover.NewCachingMux()
 	mainService.Add(cachedDiscovery)
+
+	// The TLS configuration is used for both the listening socket and outgoing
+	// connections.
+
+	tlsCfg := tlsutil.SecureDefault()
+	tlsCfg.Certificates = []tls.Certificate{cert}
+	tlsCfg.NextProtos = []string{bepProtocolName}
+	tlsCfg.ClientAuth = tls.RequestClientCert
+	tlsCfg.SessionTicketsDisabled = true
+	tlsCfg.InsecureSkipVerify = true
 
 	// Start connection management
 
@@ -834,9 +828,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		pprof.StartCPUProfile(f)
 	}
 
+	myDev, _ := cfg.Device(myID)
+	l.Infof(`My name is "%v"`, myDev.Name)
 	for _, device := range cfg.Devices() {
-		if len(device.Name) > 0 {
-			l.Infof("Device %s is %q at %v", device.DeviceID, device.Name, device.Addresses)
+		if device.DeviceID != myID {
+			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
 		}
 	}
 
@@ -844,13 +840,16 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if opts := cfg.Options(); IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
-		opts.URAccepted = usageReportVersion
-		cfg.SetOptions(opts)
-		cfg.Save()
-		// Unique ID will be set and config saved below if necessary.
+		if opts.URAccepted != usageReportVersion {
+			opts.URAccepted = usageReportVersion
+			cfg.SetOptions(opts)
+			cfg.Save()
+			// Unique ID will be set and config saved below if necessary.
+		}
 	}
 
-	if opts := cfg.Options(); opts.URUniqueID == "" {
+	// If we are going to do usage reporting, ensure we have a valid unique ID.
+	if opts := cfg.Options(); opts.URAccepted > 0 && opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
 		cfg.SetOptions(opts)
 		cfg.Save()
@@ -1253,6 +1252,7 @@ func cleanConfigDirectory() {
 		"*.idx.gz":           30 * 24 * time.Hour, // these should for sure no longer exist
 		"backup-of-v0.8":     30 * 24 * time.Hour, // these neither
 		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
+		"support-bundle-*":   30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
 	}
 
 	for pat, dur := range patterns {

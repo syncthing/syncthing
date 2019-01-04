@@ -36,6 +36,7 @@ func NewBroadcast(port int) *Broadcast {
 			Log: func(line string) {
 				l.Debugln(line)
 			},
+			PassThroughPanics: true,
 		}),
 		port:   port,
 		inbox:  make(chan []byte),

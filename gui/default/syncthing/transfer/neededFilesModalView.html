@@ -1,7 +1,7 @@
 <modal id="needed" status="info" icon="fas fa-cloud-download-alt" heading="{{'Out of Sync Items' | translate}}" large="yes" closeable="yes">
 
   <div class="modal-body">
-  
+
     <div class="progress">
       <div class="progress-bar progress-bar-success" style="width: 20%"><span translate class="show">Reused</span></div>
       <div class="progress-bar" style="width: 20%"><span translate class="show">Copied from original</span></div>
@@ -10,11 +10,11 @@
       <div class="progress-bar progress-bar-danger progress-bar-striped active" style="width: 20%"><span translate class="show">Downloading</span></div>
     </div>
 
-    <hr/>
+    <hr />
 
     <table class="table table-striped table-condensed">
 
-      <tr dir-paginate="f in needed | itemsPerPage: neededPageSize" current-page="neededCurrentPage" total-items="neededItems(neededFolder)" pagination-id="needed">
+      <tr dir-paginate="f in needed | itemsPerPage: neededPageSize" current-page="neededCurrentPage" total-items="model[neededFolder].needTotalItems" pagination-id="needed">
 
         <!-- Icon -->
         <td class="small-data col-xs-2">

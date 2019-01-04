@@ -39,10 +39,10 @@ var (
 	goos          string
 	noupgrade     bool
 	version       string
+	goCmd         string
 	goVersion     float64
 	race          bool
 	debug         = os.Getenv("BUILDDEBUG") != ""
-	noBuildGopath bool
 	extraTags     string
 	installSuffix string
 	pkgdir        string
@@ -111,6 +111,14 @@ var targets = map[string]target{
 			{src: "etc/linux-systemd/system/syncthing-resume.service", dst: "deb/lib/systemd/system/syncthing-resume.service", perm: 0644},
 			{src: "etc/linux-systemd/user/syncthing.service", dst: "deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
 			{src: "etc/firewall-ufw/syncthing", dst: "deb/etc/ufw/applications.d/syncthing", perm: 0644},
+			{src: "etc/linux-desktop/syncthing-start.desktop", dst: "deb/usr/share/applications/syncthing-start.desktop", perm: 0644},
+			{src: "etc/linux-desktop/syncthing-ui.desktop", dst: "deb/usr/share/applications/syncthing-ui.desktop", perm: 0644},
+			{src: "assets/logo-32.png", dst: "deb/usr/share/icons/hicolor/32x32/apps/syncthing.png", perm: 0644},
+			{src: "assets/logo-64.png", dst: "deb/usr/share/icons/hicolor/64x64/apps/syncthing.png", perm: 0644},
+			{src: "assets/logo-128.png", dst: "deb/usr/share/icons/hicolor/128x128/apps/syncthing.png", perm: 0644},
+			{src: "assets/logo-256.png", dst: "deb/usr/share/icons/hicolor/256x256/apps/syncthing.png", perm: 0644},
+			{src: "assets/logo-512.png", dst: "deb/usr/share/icons/hicolor/512x512/apps/syncthing.png", perm: 0644},
+			{src: "assets/logo-only.svg", dst: "deb/usr/share/icons/hicolor/scalable/apps/syncthing.svg", perm: 0644},
 		},
 	},
 	"stdiscosrv": {
@@ -129,7 +137,7 @@ var targets = map[string]target{
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/syncthing-discosrv/README.txt", perm: 0644},
-			{src: "cmd/stdiscosrv/LICENSE", dst: "deb/usr/share/doc/syncthing-discosrv/LICENSE.txt", perm: 0644},
+			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-discosrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-discosrv/AUTHORS.txt", perm: 0644},
 			{src: "man/stdiscosrv.1", dst: "deb/usr/share/man/man1/stdiscosrv.1", perm: 0644},
 		},
@@ -146,12 +154,14 @@ var targets = map[string]target{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "README.txt", perm: 0644},
 			{src: "cmd/strelaysrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
+			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/syncthing-relaysrv/README.txt", perm: 0644},
 			{src: "cmd/strelaysrv/LICENSE", dst: "deb/usr/share/doc/syncthing-relaysrv/LICENSE.txt", perm: 0644},
+			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-relaysrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaysrv/AUTHORS.txt", perm: 0644},
 			{src: "man/strelaysrv.1", dst: "deb/usr/share/man/man1/strelaysrv.1", perm: 0644},
 		},
@@ -176,6 +186,19 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/AUTHORS.txt", perm: 0644},
 		},
 	},
+}
+
+// These are repos we need to clone to run "go generate"
+
+type dependencyRepo struct {
+	path   string
+	repo   string
+	commit string
+}
+
+var dependencyRepos = []dependencyRepo{
+	{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: "v1.0.0"},
+	{path: "xdr", repo: "https://github.com/calmh/xdr.git", commit: "08e072f9cb16"},
 }
 
 func init() {
@@ -206,41 +229,6 @@ func main() {
 		}()
 	}
 
-	if gopath := gopath(); gopath == "" {
-		gopath, err := temporaryBuildDir()
-		if err != nil {
-			log.Fatal(err)
-		}
-		if !noBuildGopath {
-			lazyRebuildAssets()
-			if err := buildGOPATH(gopath); err != nil {
-				log.Fatal(err)
-			}
-		}
-		os.Setenv("GOPATH", gopath)
-		log.Println("GOPATH is", gopath)
-	} else {
-		inside := false
-		wd, _ := os.Getwd()
-		wd, _ = filepath.EvalSymlinks(wd)
-		for _, p := range filepath.SplitList(gopath) {
-			p, _ = filepath.EvalSymlinks(p)
-			if filepath.Join(p, "src/github.com/syncthing/syncthing") == wd {
-				inside = true
-				break
-			}
-		}
-		if !inside {
-			fmt.Println("You seem to have GOPATH set but the Syncthing source not placed correctly within it, which may cause problems.")
-		}
-	}
-
-	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
-	// might have installed during "build.go setup".
-	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
-
-	checkArchitecture()
-
 	// Invoking build.go with no parameters at all builds everything (incrementally),
 	// which is what you want for maximum error checking during development.
 	if flag.NArg() == 0 {
@@ -259,15 +247,6 @@ func main() {
 		}
 
 		runCommand(flag.Arg(0), target)
-	}
-}
-
-func checkArchitecture() {
-	switch goarch {
-	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le", "mips", "mipsle":
-		break
-	default:
-		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
 	}
 }
 
@@ -323,9 +302,6 @@ func runCommand(cmd string, target target) {
 	case "snap":
 		buildSnap(target)
 
-	case "clean":
-		clean()
-
 	case "vet":
 		metalintShort()
 
@@ -338,13 +314,6 @@ func runCommand(cmd string, target target) {
 	case "version":
 		fmt.Println(getVersion())
 
-	case "gopath":
-		gopath, err := temporaryBuildDir()
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(gopath)
-
 	default:
 		log.Fatalf("Unknown command %q", cmd)
 	}
@@ -353,10 +322,10 @@ func runCommand(cmd string, target target) {
 func parseFlags() {
 	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
 	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
+	flag.StringVar(&goCmd, "gocmd", "go", "Specify `go` command")
 	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
 	flag.BoolVar(&race, "race", race, "Use race detector")
-	flag.BoolVar(&noBuildGopath, "no-build-gopath", noBuildGopath, "Don't build GOPATH, assume it's OK")
 	flag.StringVar(&extraTags, "tags", extraTags, "Extra tags, space separated")
 	flag.StringVar(&installSuffix, "installsuffix", installSuffix, "Install suffix, optional")
 	flag.StringVar(&pkgdir, "pkgdir", "", "Set -pkgdir parameter for `go build`")
@@ -370,7 +339,7 @@ func setup() {
 		"github.com/AlekSi/gocov-xml",
 		"github.com/axw/gocov/gocov",
 		"github.com/FiloSottile/gvt",
-		"github.com/golang/lint/golint",
+		"golang.org/x/lint/golint",
 		"github.com/gordonklaus/ineffassign",
 		"github.com/mdempsky/unconvert",
 		"github.com/mitchellh/go-wordwrap",
@@ -385,10 +354,10 @@ func setup() {
 	}
 	for _, pkg := range packages {
 		fmt.Println(pkg)
-		runPrint("go", "get", "-u", pkg)
+		runPrint(goCmd, "get", "-u", pkg)
 	}
 
-	runPrint("go", "install", "-v", "github.com/syncthing/syncthing/vendor/github.com/gogo/protobuf/protoc-gen-gogofast")
+	runPrint(goCmd, "install", "-v", "github.com/syncthing/syncthing/vendor/github.com/gogo/protobuf/protoc-gen-gogofast")
 }
 
 func test(pkgs ...string) {
@@ -402,15 +371,15 @@ func test(pkgs ...string) {
 	}
 
 	if useRace {
-		runPrint("go", append([]string{"test", "-short", "-race", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
+		runPrint(goCmd, append([]string{"test", "-short", "-race", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
 	} else {
-		runPrint("go", append([]string{"test", "-short", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
+		runPrint(goCmd, append([]string{"test", "-short", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
 	}
 }
 
 func bench(pkgs ...string) {
 	lazyRebuildAssets()
-	runPrint("go", append([]string{"test", "-run", "NONE", "-bench", "."}, pkgs...)...)
+	runPrint(goCmd, append([]string{"test", "-run", "NONE", "-bench", "."}, pkgs...)...)
 }
 
 func install(target target, tags []string) {
@@ -441,7 +410,7 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	runPrint("go", args...)
+	runPrint(goCmd, args...)
 }
 
 func build(target target, tags []string) {
@@ -451,7 +420,7 @@ func build(target target, tags []string) {
 
 	rmr(target.BinaryName())
 
-	args := []string{"build", "-i", "-v"}
+	args := []string{"build", "-v"}
 	args = appendParameters(args, tags, target)
 
 	os.Setenv("GOOS", goos)
@@ -472,7 +441,7 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	runPrint("go", args...)
+	runPrint(goCmd, args...)
 }
 
 func appendParameters(args []string, tags []string, target target) []string {
@@ -629,6 +598,8 @@ func buildSnap(target target) {
 	snaparch := goarch
 	if snaparch == "armhf" {
 		goarch = "arm"
+	} else if snaparch == "i386" {
+		goarch = "386"
 	}
 	snapver := version
 	if strings.HasPrefix(snapver, "v") {
@@ -639,9 +610,10 @@ func buildSnap(target target) {
 		snapgrade = "stable"
 	}
 	err = tmpl.Execute(f, map[string]string{
-		"Version":      snapver,
-		"Architecture": snaparch,
-		"Grade":        snapgrade,
+		"Version":            snapver,
+		"HostArchitecture":   runtime.GOARCH,
+		"TargetArchitecture": snaparch,
+		"Grade":              snapgrade,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -749,12 +721,11 @@ func listFiles(dir string) []string {
 
 func rebuildAssets() {
 	os.Setenv("SOURCE_DATE_EPOCH", fmt.Sprint(buildStamp()))
-	runPipe("lib/auto/gui.files.go", "go", "run", "script/genassets.go", "gui")
-	runPipe("cmd/strelaypoolsrv/auto/gui.go", "go", "run", "script/genassets.go", "cmd/strelaypoolsrv/gui")
+	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/auto", "github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto")
 }
 
 func lazyRebuildAssets() {
-	if shouldRebuildAssets("lib/auto/gui.files.go", "gui") || shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.go", "cmd/strelaypoolsrv/auto/gui") {
+	if shouldRebuildAssets("lib/auto/gui.files.go", "gui") || shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.files.go", "cmd/strelaypoolsrv/auto/gui") {
 		rebuildAssets()
 	}
 }
@@ -786,12 +757,20 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func proto() {
-	runPrint("go", "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
+	os.MkdirAll("repos", 0755)
+	for _, dep := range dependencyRepos {
+		path := filepath.Join("repos", dep.path)
+		if _, err := os.Stat(path); err != nil {
+			runPrintInDir("repos", "git", "clone", dep.repo, dep.path)
+			runPrintInDir(path, "git", "checkout", dep.commit)
+		}
+	}
+	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 }
 
 func translate() {
 	os.Chdir("gui/default/assets/lang")
-	runPipe("lang-en-new.json", "go", "run", "../../../../script/translate.go", "lang-en.json", "../../../")
+	runPipe("lang-en-new.json", goCmd, "run", "../../../../script/translate.go", "lang-en.json", "../../../")
 	os.Remove("lang-en.json")
 	err := os.Rename("lang-en-new.json", "lang-en.json")
 	if err != nil {
@@ -802,12 +781,7 @@ func translate() {
 
 func transifex() {
 	os.Chdir("gui/default/assets/lang")
-	runPrint("go", "run", "../../../../script/transifexdl.go")
-}
-
-func clean() {
-	rmr("bin")
-	rmr(filepath.Join(os.Getenv("GOPATH"), fmt.Sprintf("pkg/%s_%s/github.com/syncthing", goos, goarch)))
+	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
 }
 
 func ldflags() string {
@@ -981,7 +955,7 @@ func buildHost() string {
 func buildArch() string {
 	os := goos
 	if os == "darwin" {
-		os = "macosx"
+		os = "macos"
 	}
 	return fmt.Sprintf("%s-%s", os, goarch)
 }
@@ -1004,6 +978,10 @@ func runError(cmd string, args ...string) ([]byte, error) {
 }
 
 func runPrint(cmd string, args ...string) {
+	runPrintInDir(".", cmd, args...)
+}
+
+func runPrintInDir(dir string, cmd string, args ...string) {
 	if debug {
 		t0 := time.Now()
 		log.Println("runPrint:", cmd, strings.Join(args, " "))
@@ -1014,6 +992,7 @@ func runPrint(cmd string, args ...string) {
 	ecmd := exec.Command(cmd, args...)
 	ecmd.Stdout = os.Stdout
 	ecmd.Stderr = os.Stderr
+	ecmd.Dir = dir
 	err := ecmd.Run()
 	if err != nil {
 		log.Fatal(err)
@@ -1233,12 +1212,12 @@ func windowsCodesign(file string) {
 
 func metalint() {
 	lazyRebuildAssets()
-	runPrint("go", "test", "-run", "Metalint", "./meta")
+	runPrint(goCmd, "test", "-run", "Metalint", "./meta")
 }
 
 func metalintShort() {
 	lazyRebuildAssets()
-	runPrint("go", "test", "-short", "-run", "Metalint", "./meta")
+	runPrint(goCmd, "test", "-short", "-run", "Metalint", "./meta")
 }
 
 func temporaryBuildDir() (string, error) {
@@ -1265,90 +1244,6 @@ func temporaryBuildDir() (string, error) {
 	}
 
 	return filepath.Join(tmpDir, base), nil
-}
-
-func buildGOPATH(gopath string) error {
-	pkg := filepath.Join(gopath, "src/github.com/syncthing/syncthing")
-	dirs := []string{"cmd", "lib", "meta", "script", "test", "vendor"}
-
-	if debug {
-		t0 := time.Now()
-		log.Println("build temporary GOPATH in", gopath)
-		defer func() {
-			log.Println("... in", time.Since(t0))
-		}()
-	}
-
-	// Walk the sources and copy the files into the temporary GOPATH.
-	// Remember which files are supposed to be present so we can clean
-	// out everything else in the next step. The copyFile() step will
-	// only actually copy the file if it doesn't exist or the contents
-	// differ.
-
-	exists := map[string]struct{}{}
-	for _, dir := range dirs {
-		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.IsDir() {
-				return nil
-			}
-
-			dst := filepath.Join(pkg, path)
-			exists[dst] = struct{}{}
-
-			if err := copyFile(path, dst, info.Mode()); err != nil {
-				return err
-			}
-
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	// Walk the temporary GOPATH and remove any files that we wouldn't
-	// have copied there in the previous step.
-
-	filepath.Walk(pkg, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if _, ok := exists[path]; !ok {
-			os.Remove(path)
-		}
-		return nil
-	})
-
-	return nil
-}
-
-func gopath() string {
-	if gopath := os.Getenv("GOPATH"); gopath != "" {
-		// The env var is set, use that.
-		return gopath
-	}
-
-	// Ask Go what it thinks.
-	bs, err := runError("go", "env", "GOPATH")
-	if err != nil {
-		return ""
-	}
-
-	// We got something. Check if we are in fact available in that location.
-	gopath := string(bs)
-	if _, err := os.Stat(filepath.Join(gopath, "src/github.com/syncthing/syncthing/build.go")); err == nil {
-		// That seems to be the gopath.
-		return gopath
-	}
-
-	// The gopath is not valid.
-	return ""
 }
 
 func (t target) BinaryName() string {

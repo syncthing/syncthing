@@ -1020,3 +1020,36 @@ func TestIssue4901(t *testing.T) {
 		t.Fatalf("unexpected error: %s", err.Error())
 	}
 }
+
+// TestIssue5009 checks that ignored dirs are only skipped if there are no include patterns.
+// https://github.com/syncthing/syncthing/issues/5009 (rc-only bug)
+func TestIssue5009(t *testing.T) {
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+
+	stignore := `
+	ign1
+	i*2
+	`
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if !pats.skipIgnoredDirs {
+		t.Error("skipIgnoredDirs should be true without includes")
+	}
+
+	stignore = `
+	!iex2
+	!ign1/ex
+	ign1
+	i*2
+	!ign2
+	`
+
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+
+	if pats.skipIgnoredDirs {
+		t.Error("skipIgnoredDirs should not be true with includes")
+	}
+}

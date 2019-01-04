@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# This ensures all executables build and all tests pass before a commit
+# goes through.
+
+set -v
+set -e
+
+CWD=`pwd`
+
+go test
+./gml .
+
+echo Build succeeds.
+exit 0
+
+

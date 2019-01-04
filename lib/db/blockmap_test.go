@@ -48,14 +48,14 @@ func init() {
 	}
 }
 
-func setup() (*Instance, *BlockFinder) {
+func setup() (*Lowlevel, *BlockFinder) {
 	// Setup
 
 	db := OpenMemory()
 	return db, NewBlockFinder(db)
 }
 
-func dbEmpty(db *Instance) bool {
+func dbEmpty(db *Lowlevel) bool {
 	iter := db.NewIterator(util.BytesPrefix([]byte{KeyTypeBlock}), nil)
 	defer iter.Release()
 	return !iter.Next()
@@ -68,7 +68,7 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 		t.Fatal("db not empty")
 	}
 
-	m := NewBlockMap(db, db.folderIdx.ID([]byte("folder1")))
+	m := NewBlockMap(db, "folder1")
 
 	f3.Type = protocol.FileInfoTypeDirectory
 
@@ -96,11 +96,8 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 		return true
 	})
 
-	f3.Permissions = f1.Permissions
-	f3.Deleted = f1.Deleted
-	f3.Invalid = f1.Invalid
 	f1.Deleted = true
-	f2.Invalid = true
+	f2.LocalFlags = protocol.FlagLocalMustRescan // one of the invalid markers
 
 	// Should remove
 	err = m.Update([]protocol.FileInfo{f1, f2, f3})
@@ -145,21 +142,18 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 	}
 
 	f1.Deleted = false
-	f1.Invalid = false
-	f1.Permissions = 0
+	f1.LocalFlags = 0
 	f2.Deleted = false
-	f2.Invalid = false
-	f2.Permissions = 0
+	f2.LocalFlags = 0
 	f3.Deleted = false
-	f3.Invalid = false
-	f3.Permissions = 0
+	f3.LocalFlags = 0
 }
 
 func TestBlockFinderLookup(t *testing.T) {
 	db, f := setup()
 
-	m1 := NewBlockMap(db, db.folderIdx.ID([]byte("folder1")))
-	m2 := NewBlockMap(db, db.folderIdx.ID([]byte("folder2")))
+	m1 := NewBlockMap(db, "folder1")
+	m2 := NewBlockMap(db, "folder2")
 
 	err := m1.Add([]protocol.FileInfo{f1})
 	if err != nil {
