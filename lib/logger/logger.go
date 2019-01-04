@@ -6,6 +6,7 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -69,6 +70,10 @@ type logger struct {
 var DefaultLogger = New()
 
 func New() Logger {
+	return newLogger(os.Stdout)
+}
+
+func newLogger(w io.Writer) Logger {
 	res := &logger{
 		facilities: make(map[string]string),
 		debug:      make(map[string]struct{}),
@@ -78,7 +83,7 @@ func New() Logger {
 		res.logger = log.New(ioutil.Discard, "", 0)
 		return res
 	}
-	res.logger = log.New(os.Stdout, "", DefaultFlags)
+	res.logger = log.New(w, "", DefaultFlags)
 	return res
 }
 
