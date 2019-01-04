@@ -159,14 +159,16 @@ func TestControlStripper(t *testing.T) {
 
 	l.SetFlags(log.Lshortfile)
 	l.Infoln("testing\x07testing\ntesting")
+	res := b.String()
 
-	if !strings.Contains(b.String(), "logger_test.go:") {
+	if !strings.Contains(res, "logger_test.go:") {
+		t.Log(res)
 		t.Error("Should identify this file as the source (bad level?)")
 	}
-	if !strings.Contains(b.String(), "testing testing\ntesting") {
+	if !strings.Contains(res, "testing testing\ntesting") {
 		t.Error("Control character should become space")
 	}
-	if strings.Contains(b.String(), "\x07") {
+	if strings.Contains(res, "\x07") {
 		t.Error("Control character should be removed")
 	}
 }
