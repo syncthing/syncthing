@@ -4,7 +4,9 @@
 package logger
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 	"strings"
 	"testing"
 	"time"
@@ -149,5 +151,18 @@ func TestRecorder(t *testing.T) {
 	if lines[0].Message != "hah" {
 		t.Errorf("incorrect line: %s", lines[0].Message)
 	}
+}
 
+func TestStackLevel(t *testing.T) {
+	b := new(bytes.Buffer)
+	l := newLogger(b)
+
+	l.SetFlags(log.Lshortfile)
+	l.Infoln("testing")
+	res := b.String()
+
+	if !strings.Contains(res, "logger_test.go:") {
+		t.Logf("%q", res)
+		t.Error("Should identify this file as the source (bad level?)")
+	}
 }
