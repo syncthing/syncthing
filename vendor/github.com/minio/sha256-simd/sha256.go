@@ -18,6 +18,7 @@ package sha256
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"hash"
 	"runtime"
 )
@@ -29,7 +30,7 @@ const Size = 32
 const BlockSize = 64
 
 const (
-	chunk = 64
+	chunk = BlockSize
 	init0 = 0x6A09E667
 	init1 = 0xBB67AE85
 	init2 = 0x3C6EF372
@@ -62,29 +63,60 @@ func (d *digest) Reset() {
 	d.len = 0
 }
 
+type blockfuncType int
+
+const (
+	blockfuncGeneric blockfuncType = iota
+	blockfuncAvx512  blockfuncType = iota
+	blockfuncAvx2    blockfuncType = iota
+	blockfuncAvx     blockfuncType = iota
+	blockfuncSsse    blockfuncType = iota
+	blockfuncSha     blockfuncType = iota
+	blockfuncArm     blockfuncType = iota
+)
+
+var blockfunc blockfuncType
+
 func block(dig *digest, p []byte) {
-	is386bit := runtime.GOARCH == "386"
-	isARM := runtime.GOARCH == "arm"
-	if is386bit || isARM {
+	if blockfunc == blockfuncSha {
+		blockShaGo(dig, p)
+	} else if blockfunc == blockfuncAvx2 {
+		blockAvx2Go(dig, p)
+	} else if blockfunc == blockfuncAvx {
+		blockAvxGo(dig, p)
+	} else if blockfunc == blockfuncSsse {
+		blockSsseGo(dig, p)
+	} else if blockfunc == blockfuncArm {
+		blockArmGo(dig, p)
+	} else if blockfunc == blockfuncGeneric {
 		blockGeneric(dig, p)
 	}
-	switch !is386bit && !isARM {
+}
+
+func init() {
+	is386bit := runtime.GOARCH == "386"
+	isARM := runtime.GOARCH == "arm"
+	switch {
+	case is386bit || isARM:
+		blockfunc = blockfuncGeneric
+	case sha && ssse3 && sse41:
+		blockfunc = blockfuncSha
 	case avx2:
-		blockAvx2Go(dig, p)
+		blockfunc = blockfuncAvx2
 	case avx:
-		blockAvxGo(dig, p)
+		blockfunc = blockfuncAvx
 	case ssse3:
-		blockSsseGo(dig, p)
+		blockfunc = blockfuncSsse
 	case armSha:
-		blockArmGo(dig, p)
+		blockfunc = blockfuncArm
 	default:
-		blockGeneric(dig, p)
+		blockfunc = blockfuncGeneric
 	}
 }
 
 // New returns a new hash.Hash computing the SHA256 checksum.
 func New() hash.Hash {
-	if avx2 || avx || ssse3 || armSha {
+	if blockfunc != blockfuncGeneric {
 		d := new(digest)
 		d.Reset()
 		return d
@@ -95,11 +127,12 @@ func New() hash.Hash {
 }
 
 // Sum256 - single caller sha256 helper
-func Sum256(data []byte) [Size]byte {
+func Sum256(data []byte) (result [Size]byte) {
 	var d digest
 	d.Reset()
 	d.Write(data)
-	return d.checkSum()
+	result = d.checkSum()
+	return
 }
 
 // Return size of checksum
@@ -141,37 +174,119 @@ func (d *digest) Sum(in []byte) []byte {
 }
 
 // Intermediate checksum function
-func (d *digest) checkSum() [Size]byte {
-	len := d.len
-	// Padding.  Add a 1 bit and 0 bits until 56 bytes mod 64.
-	var tmp [64]byte
-	tmp[0] = 0x80
-	if len%64 < 56 {
-		d.Write(tmp[0 : 56-len%64])
-	} else {
-		d.Write(tmp[0 : 64+56-len%64])
+func (d *digest) checkSum() (digest [Size]byte) {
+	n := d.nx
+
+	var k [64]byte
+	copy(k[:], d.x[:n])
+
+	k[n] = 0x80
+
+	if n >= 56 {
+		block(d, k[:])
+
+		// clear block buffer - go compiles this to optimal 1x xorps + 4x movups
+		// unfortunately expressing this more succinctly results in much worse code
+		k[0] = 0
+		k[1] = 0
+		k[2] = 0
+		k[3] = 0
+		k[4] = 0
+		k[5] = 0
+		k[6] = 0
+		k[7] = 0
+		k[8] = 0
+		k[9] = 0
+		k[10] = 0
+		k[11] = 0
+		k[12] = 0
+		k[13] = 0
+		k[14] = 0
+		k[15] = 0
+		k[16] = 0
+		k[17] = 0
+		k[18] = 0
+		k[19] = 0
+		k[20] = 0
+		k[21] = 0
+		k[22] = 0
+		k[23] = 0
+		k[24] = 0
+		k[25] = 0
+		k[26] = 0
+		k[27] = 0
+		k[28] = 0
+		k[29] = 0
+		k[30] = 0
+		k[31] = 0
+		k[32] = 0
+		k[33] = 0
+		k[34] = 0
+		k[35] = 0
+		k[36] = 0
+		k[37] = 0
+		k[38] = 0
+		k[39] = 0
+		k[40] = 0
+		k[41] = 0
+		k[42] = 0
+		k[43] = 0
+		k[44] = 0
+		k[45] = 0
+		k[46] = 0
+		k[47] = 0
+		k[48] = 0
+		k[49] = 0
+		k[50] = 0
+		k[51] = 0
+		k[52] = 0
+		k[53] = 0
+		k[54] = 0
+		k[55] = 0
+		k[56] = 0
+		k[57] = 0
+		k[58] = 0
+		k[59] = 0
+		k[60] = 0
+		k[61] = 0
+		k[62] = 0
+		k[63] = 0
+	}
+	binary.BigEndian.PutUint64(k[56:64], uint64(d.len)<<3)
+	block(d, k[:])
+
+	{
+		const i = 0
+		binary.BigEndian.PutUint32(digest[i*4:i*4+4], d.h[i])
+	}
+	{
+		const i = 1
+		binary.BigEndian.PutUint32(digest[i*4:i*4+4], d.h[i])
+	}
+	{
+		const i = 2
+		binary.BigEndian.PutUint32(digest[i*4:i*4+4], d.h[i])
+	}
+	{
+		const i = 3
+		binary.BigEndian.PutUint32(digest[i*4:i*4+4], d.h[i])
+	}
+	{
+		const i = 4
+		binary.BigEndian.PutUint32(digest[i*4:i*4+4], d.h[i])
+	}
+	{
+		const i = 5
+		binary.BigEndian.PutUint32(digest[i*4:i*4+4], d.h[i])
+	}
+	{
+		const i = 6
+		binary.BigEndian.PutUint32(digest[i*4:i*4+4], d.h[i])
+	}
+	{
+		const i = 7
+		binary.BigEndian.PutUint32(digest[i*4:i*4+4], d.h[i])
 	}
 
-	// Length in bits.
-	len <<= 3
-	for i := uint(0); i < 8; i++ {
-		tmp[i] = byte(len >> (56 - 8*i))
-	}
-	d.Write(tmp[0:8])
-
-	if d.nx != 0 {
-		panic("d.nx != 0")
-	}
-
-	h := d.h[:]
-
-	var digest [Size]byte
-	for i, s := range h {
-		digest[i*4] = byte(s >> 24)
-		digest[i*4+1] = byte(s >> 16)
-		digest[i*4+2] = byte(s >> 8)
-		digest[i*4+3] = byte(s)
-	}
-
-	return digest
+	return
 }
