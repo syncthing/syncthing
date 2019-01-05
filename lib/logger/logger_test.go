@@ -205,5 +205,5 @@ func benchmarkLogger(b *testing.B, l Logger) {
 	}
 
 	b.ReportAllocs()
-	b.SetBytes(1)
+	b.SetBytes(2) // log entries per iteration
 }

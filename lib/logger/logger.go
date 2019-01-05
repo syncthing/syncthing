@@ -390,6 +390,7 @@ func (s controlStripper) Write(data []byte) (int, error) {
 			continue
 		}
 		if b < 32 {
+			// Characters below 32 are control characters
 			data[i] = ' '
 		}
 	}
