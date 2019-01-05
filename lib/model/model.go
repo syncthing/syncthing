@@ -2855,16 +2855,16 @@ func (m *syncMutexMap) Get(key string) sync.Mutex {
 // characters and makes a valid, similar, path name out of it.
 //
 // Spans of invalid characters are replaced by a single space. Invalid
-// characters are control characterns, the things not allowed in file names
+// characters are control characters, the things not allowed in file names
 // in Windows, and common shell metacharacters. Even if asterisks and pipes
 // and stuff are allowed on Unixes in general they might not be allowed by
 // the filesystem and may surprise the user and cause shell oddness. This
 // function is intended for file names we generate on behalf of the user,
-// and surprising them with odd shell characters in file names is unknind.
+// and surprising them with odd shell characters in file names is unkind.
 //
 // We include whitespace in the invalid characters so that multiple
 // whitespace is collapsed to a single space. Additionally, whitespace at
-// the ends is removed.
+// either end is removed.
 func sanitizePath(path string) string {
 	invalid := regexp.MustCompile(`([[:cntrl:]]|[<>:"'/\\|?*\n\r\t \[\]\{\};:!@$%&^#])+`)
 	return strings.TrimSpace(invalid.ReplaceAllString(path, " "))
