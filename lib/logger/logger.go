@@ -70,7 +70,7 @@ type logger struct {
 var DefaultLogger = New()
 
 func New() Logger {
-	return newLogger(os.Stdout)
+	return newLogger(controlStripper{os.Stdout})
 }
 
 func newLogger(w io.Writer) Logger {
@@ -375,4 +375,24 @@ func (r *recorder) append(l LogLevel, msg string) {
 	if len(r.lines) == r.initial {
 		r.lines = append(r.lines, Line{time.Now(), "...", l})
 	}
+}
+
+// controlStripper is a Writer that replaces control characters
+// with spaces.
+type controlStripper struct {
+	io.Writer
+}
+
+func (s controlStripper) Write(data []byte) (int, error) {
+	for i, b := range data {
+		if b == '\n' || b == '\r' {
+			// Newlines are OK
+			continue
+		}
+		if b < 32 {
+			// Characters below 32 are control characters
+			data[i] = ' '
+		}
+	}
+	return s.Writer.Write(data)
 }

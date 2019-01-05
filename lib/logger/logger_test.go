@@ -6,6 +6,7 @@ package logger
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"strings"
 	"testing"
@@ -165,4 +166,44 @@ func TestStackLevel(t *testing.T) {
 		t.Logf("%q", res)
 		t.Error("Should identify this file as the source (bad level?)")
 	}
+}
+
+func TestControlStripper(t *testing.T) {
+	b := new(bytes.Buffer)
+	l := newLogger(controlStripper{b})
+
+	l.Infoln("testing\x07testing\ntesting")
+	res := b.String()
+
+	if !strings.Contains(res, "testing testing\ntesting") {
+		t.Logf("%q", res)
+		t.Error("Control character should become space")
+	}
+	if strings.Contains(res, "\x07") {
+		t.Logf("%q", res)
+		t.Error("Control character should be removed")
+	}
+}
+
+func BenchmarkLog(b *testing.B) {
+	l := newLogger(controlStripper{ioutil.Discard})
+	benchmarkLogger(b, l)
+}
+
+func BenchmarkLogNoStripper(b *testing.B) {
+	l := newLogger(ioutil.Discard)
+	benchmarkLogger(b, l)
+}
+
+func benchmarkLogger(b *testing.B, l Logger) {
+	l.SetFlags(log.Lshortfile | log.Lmicroseconds)
+	l.SetPrefix("ABCDEFG")
+
+	for i := 0; i < b.N; i++ {
+		l.Infoln("This is a somewhat representative log line")
+		l.Infof("This is a log line with a couple of formatted things: %d %q", 42, "a file name maybe, who knows?")
+	}
+
+	b.ReportAllocs()
+	b.SetBytes(2) // log entries per iteration
 }
