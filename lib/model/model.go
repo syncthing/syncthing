@@ -16,6 +16,7 @@ import (
 	"net"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	stdsync "sync"
@@ -1244,7 +1245,11 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
-		for _, path := range []string{folder.Label, folder.ID} {
+		pathAlternatives := []string{
+			sanitizePath(folder.Label),
+			sanitizePath(folder.ID),
+		}
+		for _, path := range pathAlternatives {
 			if _, err := defaultPathFs.Lstat(path); !fs.IsNotExist(err) {
 				continue
 			}
@@ -2844,4 +2849,23 @@ type syncMutexMap struct {
 func (m *syncMutexMap) Get(key string) sync.Mutex {
 	v, _ := m.inner.LoadOrStore(key, sync.NewMutex())
 	return v.(sync.Mutex)
+}
+
+// sanitizePath takes a string that might contain all kinds of special
+// characters and makes a valid, similar, path name out of it.
+//
+// Spans of invalid characters are replaced by a single space. Invalid
+// characters are control characters, the things not allowed in file names
+// in Windows, and common shell metacharacters. Even if asterisks and pipes
+// and stuff are allowed on Unixes in general they might not be allowed by
+// the filesystem and may surprise the user and cause shell oddness. This
+// function is intended for file names we generate on behalf of the user,
+// and surprising them with odd shell characters in file names is unkind.
+//
+// We include whitespace in the invalid characters so that multiple
+// whitespace is collapsed to a single space. Additionally, whitespace at
+// either end is removed.
+func sanitizePath(path string) string {
+	invalid := regexp.MustCompile(`([[:cntrl:]]|[<>:"'/\\|?*\n\r\t \[\]\{\};:!@$%&^#])+`)
+	return strings.TrimSpace(invalid.ReplaceAllString(path, " "))
 }

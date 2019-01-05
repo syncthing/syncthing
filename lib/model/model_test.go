@@ -3799,3 +3799,22 @@ func TestRequestLimit(t *testing.T) {
 		t.Fatalf("Second request did not return after first was done")
 	}
 }
+
+func TestSanitizePath(t *testing.T) {
+	cases := [][2]string{
+		{"", ""},
+		{"foo", "foo"},
+		{`\*/foo\?/bar[{!@$%^&*#()}]`, "foo bar ()"},
+		{"Räksmörgås", "Räksmörgås"},
+		{`Räk \/ smörgås`, "Räk smörgås"},
+		{"هذا هو *\x07?اسم الملف", "هذا هو اسم الملف"},
+		{`../foo.txt`, `.. foo.txt`},
+	}
+
+	for _, tc := range cases {
+		res := sanitizePath(tc[0])
+		if res != tc[1] {
+			t.Errorf("sanitizePath(%q) => %q, expected %q", tc[0], res, tc[1])
+		}
+	}
+}
