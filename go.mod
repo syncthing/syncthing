@@ -20,7 +20,7 @@ require (
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.0.0
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
-	github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da
+	github.com/minio/sha256-simd v0.0.0-20190104231041-e529fa194128
 	github.com/onsi/ginkgo v0.0.0-20171221013426-6c46eb8334b3 // indirect
 	github.com/onsi/gomega v0.0.0-20171227184521-ba3724c94e4d // indirect
 	github.com/oschwald/geoip2-golang v1.1.0

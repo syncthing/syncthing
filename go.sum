@@ -41,6 +41,8 @@ github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0j
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da h1:tazA5y1hWYJO8VSYbU36yBhXeIvruLXMUKu6WBtcJck=
 github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da/go.mod h1:2FMWW+8GMoPweT6+pI63m9YE3Lmw4J71hV56Chs1E/U=
+github.com/minio/sha256-simd v0.0.0-20190104231041-e529fa194128 h1:hEDK0Zao06IGlO1ada0FLT2g3KEot2vCqFp8gdvJqzM=
+github.com/minio/sha256-simd v0.0.0-20190104231041-e529fa194128/go.mod h1:2FMWW+8GMoPweT6+pI63m9YE3Lmw4J71hV56Chs1E/U=
 github.com/onsi/ginkgo v0.0.0-20171221013426-6c46eb8334b3 h1:ZN7kHmC0iunA+4UPmERwsuMQan4lUnntO6WX6H1jOO8=
 github.com/onsi/ginkgo v0.0.0-20171221013426-6c46eb8334b3/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/gomega v0.0.0-20171227184521-ba3724c94e4d h1:r351oUAFgdsydkt/g+XR/iJWRwyxVpy6nkNdEl/QdAs=
