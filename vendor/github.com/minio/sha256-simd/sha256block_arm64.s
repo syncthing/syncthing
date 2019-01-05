@@ -154,7 +154,6 @@ loop:
 complete:
 	RET
 
-
 // Constants table
 DATA ·constants+0x0(SB)/8, $0x71374491428a2f98
 DATA ·constants+0x8(SB)/8, $0xe9b5dba5b5c0fbcf
