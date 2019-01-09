@@ -56,7 +56,7 @@ func TestClose(t *testing.T) {
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
 
-	c0.close(errors.New("manual close"))
+	c0.internalClose(errors.New("manual close"))
 
 	<-c0.closed
 	if err := m0.closedError(); err == nil || !strings.Contains(err.Error(), "manual close") {

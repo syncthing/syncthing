@@ -413,12 +413,12 @@ func (m *Model) RestartFolder(from, to config.FolderConfiguration) {
 		errMsg = "restarting"
 	}
 
-	m.tearDownFolderLocked(from, fmt.Errorf(errMsg+" folder %v", to.Description()))
+	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
 	if !to.Paused {
 		m.addFolderLocked(to)
 		m.startFolderLocked(to.ID)
 	}
-	l.Infof(infoMsg+" folder %v (%v)", to.Description(), to.Type)
+	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
 }
 
 func (m *Model) UsageReportingStats(version int, preview bool) map[string]interface{} {

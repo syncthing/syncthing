@@ -337,7 +337,7 @@ func (c *rawConnection) ping() bool {
 
 func (c *rawConnection) readerLoop() (err error) {
 	defer func() {
-		c.close(err)
+		c.internalClose(err)
 	}()
 
 	fourByteBuf := make([]byte, 4)
@@ -639,7 +639,7 @@ func (c *rawConnection) writerLoop() {
 				close(hm.done)
 			}
 			if err != nil {
-				c.close(err)
+				c.internalClose(err)
 				return
 			}
 
@@ -818,12 +818,15 @@ func (c *rawConnection) Close(err error) {
 		c.sendClose <- asyncMessage{&Close{err.Error()}, done}
 		<-done
 
+		// No more sends are necessary, therefore closing the underlying
+		// connection can happen at the same time as the internal cleanup.
+		// And this prevents a potential deadlock due to calling c.receiver.Closed
 		go c.commonClose(err)
 	})
 }
 
-// close is called if there is an unexpected error during normal operation.
-func (c *rawConnection) close(err error) {
+// internalClose is called if there is an unexpected error during normal operation.
+func (c *rawConnection) internalClose(err error) {
 	c.once.Do(func() {
 		c.commonClose(err)
 	})
@@ -887,7 +890,7 @@ func (c *rawConnection) pingReceiver() {
 			d := time.Since(c.cr.Last())
 			if d > ReceiveTimeout {
 				l.Debugln(c.id, "ping timeout", d)
-				c.close(ErrTimeout)
+				c.internalClose(ErrTimeout)
 			}
 
 			l.Debugln(c.id, "last read within", d)
