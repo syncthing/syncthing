@@ -8,11 +8,9 @@ package model
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"path/filepath"
 	"reflect"
@@ -128,6 +126,9 @@ var (
 	errFolderNotRunning  = errors.New("folder is not running")
 	errFolderMissing     = errors.New("no such folder")
 	errNetworkNotAllowed = errors.New("network not allowed")
+	// errors about why a connection is closed
+	errIgnoredFolderRemoved = errors.New("folder no longer ignored")
+	errReplacingConnection  = errors.New("replacing connection")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -226,7 +227,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 
 	// Close connections to affected devices
 	for _, id := range cfg.DeviceIDs() {
-		m.closeLocked(id)
+		m.closeLocked(id, fmt.Errorf("started folder %v", cfg.Description()))
 	}
 
 	v, ok := fs.Sequence(protocol.LocalDeviceID), true
@@ -339,7 +340,7 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 	// Delete syncthing specific files
 	cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
 
-	m.tearDownFolderLocked(cfg)
+	m.tearDownFolderLocked(cfg, fmt.Errorf("removing folder %v", cfg.Description()))
 	// Remove it from the database
 	db.DropFolder(m.db, cfg.ID)
 
@@ -347,12 +348,12 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Unlock()
 }
 
-func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
+func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) {
 	// Close connections to affected devices
 	// Must happen before stopping the folder service to abort ongoing
 	// transmissions and thus allow timely service termination.
 	for _, dev := range cfg.Devices {
-		m.closeLocked(dev.DeviceID)
+		m.closeLocked(dev.DeviceID, err)
 	}
 
 	// Stop the services running for this folder and wait for them to finish
@@ -398,14 +399,26 @@ func (m *Model) RestartFolder(from, to config.FolderConfiguration) {
 	defer m.fmut.Unlock()
 	defer m.pmut.Unlock()
 
-	m.tearDownFolderLocked(from)
-	if to.Paused {
-		l.Infoln("Paused folder", to.Description())
-	} else {
-		m.addFolderLocked(to)
-		folderType := m.startFolderLocked(to.ID)
-		l.Infoln("Restarted folder", to.Description(), fmt.Sprintf("(%s)", folderType))
+	var infoMsg string
+	var errMsg string
+	switch {
+	case to.Paused:
+		infoMsg = "Paused"
+		errMsg = "pausing"
+	case from.Paused:
+		infoMsg = "Unpaused"
+		errMsg = "unpausing"
+	default:
+		infoMsg = "Restarted"
+		errMsg = "restarting"
 	}
+
+	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
+	if !to.Paused {
+		m.addFolderLocked(to)
+		m.startFolderLocked(to.ID)
+	}
+	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
 }
 
 func (m *Model) UsageReportingStats(version int, preview bool) map[string]interface{} {
@@ -1342,21 +1355,21 @@ func (m *Model) Closed(conn protocol.Connection, err error) {
 }
 
 // close will close the underlying connection for a given device
-func (m *Model) close(device protocol.DeviceID) {
+func (m *Model) close(device protocol.DeviceID, err error) {
 	m.pmut.Lock()
-	m.closeLocked(device)
+	m.closeLocked(device, err)
 	m.pmut.Unlock()
 }
 
 // closeLocked will close the underlying connection for a given device
-func (m *Model) closeLocked(device protocol.DeviceID) {
+func (m *Model) closeLocked(device protocol.DeviceID, err error) {
 	conn, ok := m.conn[device]
 	if !ok {
 		// There is no connection to close
 		return
 	}
 
-	closeRawConn(conn)
+	conn.Close(err)
 }
 
 // Implements protocol.RequestResponse
@@ -1719,7 +1732,7 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 		// back into Closed() for the cleanup.
 		closed := m.closed[deviceID]
 		m.pmut.Unlock()
-		closeRawConn(oldConn)
+		oldConn.Close(errReplacingConnection)
 		<-closed
 		m.pmut.Lock()
 	}
@@ -2582,6 +2595,10 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
+		if fromCfg.Paused && toCfg.Paused {
+			continue
+		}
+
 		// This folder exists on both sides. Settings might have changed.
 		// Check if anything differs that requires a restart.
 		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) {
@@ -2616,12 +2633,12 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 
 		// Ignored folder was removed, reconnect to retrigger the prompt.
 		if len(fromCfg.IgnoredFolders) > len(toCfg.IgnoredFolders) {
-			m.close(deviceID)
+			m.close(deviceID, errIgnoredFolderRemoved)
 		}
 
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
-			m.close(deviceID)
+			m.close(deviceID, errDevicePaused)
 			events.Default.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
 			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
@@ -2715,17 +2732,6 @@ func getChunk(data []string, skip, get int) ([]string, int, int) {
 		return data[skip:l], 0, get - (l - skip)
 	}
 	return data[skip : skip+get], 0, 0
-}
-
-func closeRawConn(conn io.Closer) error {
-	if conn, ok := conn.(*tls.Conn); ok {
-		// If the underlying connection is a *tls.Conn, Close() does more
-		// than it says on the tin. Specifically, it sends a TLS alert
-		// message, which might block forever if the connection is dead
-		// and we don't have a deadline set.
-		conn.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
-	}
-	return conn.Close()
 }
 
 func stringSliceWithout(ss []string, s string) []string {

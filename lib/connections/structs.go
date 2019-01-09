@@ -9,7 +9,6 @@ package connections
 import (
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net"
 	"net/url"
 	"time"
@@ -23,7 +22,6 @@ import (
 // that can be closed and has some metadata.
 type Connection interface {
 	protocol.Connection
-	io.Closer
 	Type() string
 	Transport() string
 	RemoteAddr() net.Addr
@@ -37,6 +35,11 @@ type Connection interface {
 type completeConn struct {
 	internalConn
 	protocol.Connection
+}
+
+func (c completeConn) Close(err error) {
+	c.Connection.Close(err)
+	c.internalConn.Close()
 }
 
 // internalConn is the raw TLS connection plus some metadata on where it
@@ -80,6 +83,14 @@ func (t connType) Transport() string {
 	default:
 		return "unknown"
 	}
+}
+
+func (c internalConn) Close() {
+	// *tls.Conn.Close() does more than it says on the tin. Specifically, it
+	// sends a TLS alert message, which might block forever if the
+	// connection is dead and we don't have a deadline set.
+	c.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
+	c.Conn.Close()
 }
 
 func (c internalConn) Type() string {

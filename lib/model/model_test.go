@@ -316,11 +316,10 @@ type fakeConnection struct {
 	mut                      sync.Mutex
 }
 
-func (f *fakeConnection) Close() error {
+func (f *fakeConnection) Close(_ error) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 	f.closed = true
-	return nil
 }
 
 func (f *fakeConnection) Start() {
