@@ -1211,11 +1211,14 @@ angular.module('syncthing.core')
                 }
             };
             $http.post(urlbase + '/system/config', cfg, opts).success(function () {
+                refreshConfig();
                 if (cb) {
                     cb();
                 }
-            }).error($scope.emitHTTPError);
-            refreshConfig();
+            }).error(function (data, status, headers, config) {
+                refreshConfig();
+                $scope.emitHTTPError(data, status, headers, config);
+            });
         };
 
         $scope.urVersions = function () {
