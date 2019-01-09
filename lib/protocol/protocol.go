@@ -817,8 +817,8 @@ func (c *rawConnection) Close(err error) {
 		}
 	})
 
-	// No more sends are necessary, therefore closing the underlying
-	// connection can happen at the same time as the internal cleanup.
+	// No more sends are necessary, therefore further steps to close the
+	// connection outside of this package can proceed immediately.
 	// And this prevents a potential deadlock due to calling c.receiver.Closed
 	go c.internalClose(err)
 }
