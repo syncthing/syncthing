@@ -143,6 +143,7 @@ type RequestResponse interface {
 
 type Connection interface {
 	Start()
+	Close(err error)
 	ID() DeviceID
 	Name() string
 	Index(folder string, files []FileInfo) error
@@ -171,6 +172,7 @@ type rawConnection struct {
 	nextIDMut sync.Mutex
 
 	outbox      chan asyncMessage
+	sendClose   chan asyncMessage
 	closed      chan struct{}
 	once        sync.Once
 	compression Compression
@@ -214,6 +216,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		cw:          cw,
 		awaiting:    make(map[int32]chan asyncResult),
 		outbox:      make(chan asyncMessage),
+		sendClose:   make(chan asyncMessage),
 		closed:      make(chan struct{}),
 		compression: compress,
 	}
@@ -640,6 +643,11 @@ func (c *rawConnection) writerLoop() {
 				return
 			}
 
+		case m := <-c.sendClose:
+			c.writeMessage(m)
+			close(m.done)
+			return // No message must be sent after the Close message.
+
 		case <-c.closed:
 			return
 		}
@@ -801,22 +809,42 @@ func (c *rawConnection) shouldCompressMessage(msg message) bool {
 	}
 }
 
+// Close is called when the connection is regularely closed and thus the Close
+// BEP message is sent before terminating the actual connection. The error
+// argument specifies the reason for closing the connection.
+func (c *rawConnection) Close(err error) {
+	c.once.Do(func() {
+		done := make(chan struct{})
+		c.sendClose <- asyncMessage{&Close{err.Error()}, done}
+		<-done
+
+		go c.commonClose(err)
+	})
+}
+
+// close is called if there is an unexpected error during normal operation.
 func (c *rawConnection) close(err error) {
 	c.once.Do(func() {
-		l.Debugln("close due to", err)
-		close(c.closed)
-
-		c.awaitingMut.Lock()
-		for i, ch := range c.awaiting {
-			if ch != nil {
-				close(ch)
-				delete(c.awaiting, i)
-			}
-		}
-		c.awaitingMut.Unlock()
-
-		c.receiver.Closed(c, err)
+		c.commonClose(err)
 	})
+}
+
+// commonClose is a utility function that must only be called from within
+// rawConnection.once.Do (i.e. in Close and close).
+func (c *rawConnection) commonClose(err error) {
+	l.Debugln("close due to", err)
+	close(c.closed)
+
+	c.awaitingMut.Lock()
+	for i, ch := range c.awaiting {
+		if ch != nil {
+			close(ch)
+			delete(c.awaiting, i)
+		}
+	}
+	c.awaitingMut.Unlock()
+
+	c.receiver.Closed(c, err)
 }
 
 // The pingSender makes sure that we've sent a message within the last
