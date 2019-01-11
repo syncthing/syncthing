@@ -56,7 +56,6 @@ func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, boo
 		l.Debugln("surprise error:", err)
 		return nil, false
 	}
-
 	f, err := unmarshalTrunc(bs, trunc)
 	if err != nil {
 		l.Debugln("unmarshal error:", err)
@@ -65,25 +64,25 @@ func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, boo
 	return f, true
 }
 
-func (t readOnlyTransaction) getGlobalInto(gk, dk, folder, file []byte, truncate bool) ([]byte, []byte, FileIntf, bool) {
-	gk = t.db.keyer.GenerateGlobalVersionKey(gk, folder, file)
+func (t readOnlyTransaction) getGlobal(buf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool) {
+	buf = t.db.keyer.GenerateGlobalVersionKey(buf, folder, file)
 
-	bs, err := t.Get(gk, nil)
+	bs, err := t.Get(buf, nil)
 	if err != nil {
-		return gk, dk, nil, false
+		return buf, nil, false
 	}
 
 	vl, ok := unmarshalVersionList(bs)
 	if !ok {
-		return gk, dk, nil, false
+		return buf, nil, false
 	}
 
-	dk = t.db.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, file)
-	if fi, ok := t.getFileTrunc(dk, truncate); ok {
-		return gk, dk, fi, true
+	buf = t.db.keyer.GenerateDeviceFileKey(buf, folder, vl.Versions[0].Device, file)
+	if fi, ok := t.getFileTrunc(buf, truncate); ok {
+		return buf, fi, true
 	}
 
-	return gk, dk, nil, false
+	return buf, nil, false
 }
 
 // A readWriteTransaction is a readOnlyTransaction plus a batch for writes.
@@ -129,7 +128,7 @@ func (t readWriteTransaction) insertFile(fk, folder, device []byte, file protoco
 // updateGlobal adds this device+version to the version list for the given
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
-func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) bool {
+func (t readWriteTransaction) updateGlobal(gk, buf, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) ([]byte, bool) {
 	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.IsInvalid())
 
 	var fl VersionList
@@ -139,7 +138,7 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 	fl, removedFV, removedAt, insertedAt := fl.update(folder, device, file, t.readOnlyTransaction)
 	if insertedAt == -1 {
 		l.Debugln("update global; same version, global unchanged")
-		return false
+		return buf, false
 	}
 
 	name := []byte(file.Name)
@@ -148,19 +147,22 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 	if insertedAt == 0 {
 		// Inserted a new newest version
 		global = file
-	} else if new, ok := t.getFile(folder, fl.Versions[0].Device, name); ok {
-		global = new
 	} else {
-		panic("This file must exist in the db")
+		buf = t.db.keyer.GenerateDeviceFileKey(buf, folder, fl.Versions[0].Device, name)
+		if new, ok := t.getFileByKey(buf); ok {
+			global = new
+		} else {
+			panic("This file must exist in the db")
+		}
 	}
 
 	// Fixup the list of files we need.
-	t.updateLocalNeed(folder, name, fl, global)
+	buf = t.updateLocalNeed(buf, folder, name, fl, global)
 
 	if removedAt != 0 && insertedAt != 0 {
 		l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
 		t.Put(gk, mustMarshal(&fl))
-		return true
+		return buf, true
 	}
 
 	// Remove the old global from the global size counter
@@ -171,7 +173,8 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 		// The previous newest version is now at index 1
 		oldGlobalFV = fl.Versions[1]
 	}
-	if oldFile, ok := t.getFile(folder, oldGlobalFV.Device, name); ok {
+	buf = t.db.keyer.GenerateDeviceFileKey(buf, folder, oldGlobalFV.Device, name)
+	if oldFile, ok := t.getFileByKey(buf); ok {
 		// A failure to get the file here is surprising and our
 		// global size data will be incorrect until a restart...
 		meta.removeFile(protocol.GlobalDeviceID, oldFile)
@@ -183,24 +186,25 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 	l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
 	t.Put(gk, mustMarshal(&fl))
 
-	return true
+	return buf, true
 }
 
-// updateLocalNeeds checks whether the given file is still needed on the local
+// updateLocalNeed checks whether the given file is still needed on the local
 // device according to the version list and global FileInfo given and updates
 // the db accordingly.
-func (t readWriteTransaction) updateLocalNeed(folder, name []byte, fl VersionList, global protocol.FileInfo) {
-	nk := t.db.keyer.GenerateNeedFileKey(nil, folder, name)
-	hasNeeded, _ := t.db.Has(nk, nil)
+func (t readWriteTransaction) updateLocalNeed(buf, folder, name []byte, fl VersionList, global protocol.FileInfo) []byte {
+	buf = t.db.keyer.GenerateNeedFileKey(buf, folder, name)
+	hasNeeded, _ := t.Has(buf, nil)
 	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(global, haveLocalFV, localFV.Version) {
 		if !hasNeeded {
 			l.Debugf("local need insert; folder=%q, name=%q", folder, name)
-			t.Put(nk, nil)
+			t.Put(buf, nil)
 		}
 	} else if hasNeeded {
 		l.Debugf("local need delete; folder=%q, name=%q", folder, name)
-		t.Delete(nk)
+		t.Delete(buf)
 	}
+	return buf
 }
 
 func need(global FileIntf, haveLocal bool, localVersion protocol.Vector) bool {
@@ -222,54 +226,59 @@ func need(global FileIntf, haveLocal bool, localVersion protocol.Vector) bool {
 // removeFromGlobal removes the device from the global version list for the
 // given file. If the version list is empty after this, the file entry is
 // removed entirely.
-func (t readWriteTransaction) removeFromGlobal(gk, folder, device, file []byte, meta *metadataTracker) {
+func (t readWriteTransaction) removeFromGlobal(gk, buf, folder, device []byte, file []byte, meta *metadataTracker) []byte {
 	l.Debugf("remove from global; folder=%q device=%v file=%q", folder, protocol.DeviceIDFromBytes(device), file)
 
 	svl, err := t.Get(gk, nil)
 	if err != nil {
 		// We might be called to "remove" a global version that doesn't exist
 		// if the first update for the file is already marked invalid.
-		return
+		return buf
 	}
 
 	var fl VersionList
 	err = fl.Unmarshal(svl)
 	if err != nil {
 		l.Debugln("unmarshal error:", err)
-		return
+		return buf
 	}
 
 	fl, _, removedAt := fl.pop(device)
 	if removedAt == -1 {
 		// There is no version for the given device
-		return
+		return buf
 	}
 
 	if removedAt == 0 {
 		// A failure to get the file here is surprising and our
 		// global size data will be incorrect until a restart...
-		if f, ok := t.getFile(folder, device, file); ok {
+		buf = t.db.keyer.GenerateDeviceFileKey(buf, folder, device, file)
+		if f, ok := t.getFileByKey(buf); ok {
 			meta.removeFile(protocol.GlobalDeviceID, f)
 		}
 	}
 
 	if len(fl.Versions) == 0 {
-		t.Delete(t.db.keyer.GenerateNeedFileKey(nil, folder, file))
+		buf = t.db.keyer.GenerateNeedFileKey(buf, folder, file)
+		t.Delete(buf)
 		t.Delete(gk)
-		return
+		return buf
 	}
 
 	if removedAt == 0 {
-		global, ok := t.getFile(folder, fl.Versions[0].Device, file)
+		buf = t.db.keyer.GenerateDeviceFileKey(buf, folder, fl.Versions[0].Device, file)
+		global, ok := t.getFileByKey(buf)
 		if !ok {
 			panic("This file must exist in the db")
 		}
-		t.updateLocalNeed(folder, file, fl, global)
+		buf = t.updateLocalNeed(buf, folder, file, fl, global)
 		meta.addFile(protocol.GlobalDeviceID, global)
 	}
 
 	l.Debugf("new global after remove: %v", fl)
 	t.Put(gk, mustMarshal(&fl))
+
+	return buf
 }
 
 func (t readWriteTransaction) deleteKeyPrefix(prefix []byte) {
