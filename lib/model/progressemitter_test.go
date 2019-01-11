@@ -8,7 +8,6 @@ package model
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -52,10 +51,12 @@ func expectTimeout(w *events.Subscription, t *testing.T) {
 }
 
 func TestProgressEmitter(t *testing.T) {
+	testOs := &fatalOs{t}
+
 	w := events.Default.Subscribe(events.DownloadProgress)
 
 	c := createTmpWrapper(config.Configuration{})
-	defer os.Remove(c.ConfigPath())
+	defer testOs.Remove(c.ConfigPath())
 	c.SetOptions(config.OptionsConfiguration{
 		ProgressUpdateIntervalS: 0,
 	})
@@ -103,8 +104,10 @@ func TestProgressEmitter(t *testing.T) {
 }
 
 func TestSendDownloadProgressMessages(t *testing.T) {
+	testOs := &fatalOs{t}
+
 	c := createTmpWrapper(config.Configuration{})
-	defer os.Remove(c.ConfigPath())
+	defer testOs.Remove(c.ConfigPath())
 	c.SetOptions(config.OptionsConfiguration{
 		ProgressUpdateIntervalS: 0,
 		TempIndexMinBlocks:      10,
