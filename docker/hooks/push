@@ -1,23 +1,23 @@
 #!/bin/bash
 
 # push individual tags
-docker push $(echo $IMAGE_NAME | sed "s/:latest/:i386-latest/")
-docker push $(echo $IMAGE_NAME | sed "s/:latest/:amd64-latest/")
-docker push $(echo $IMAGE_NAME | sed "s/:latest/:arm-latest/")
-docker push $(echo $IMAGE_NAME | sed "s/:latest/:aarch64-latest/")
-docker push $(echo $IMAGE_NAME | sed "s/:latest/:ppc64le-latest/")
-docker push $(echo $IMAGE_NAME | sed "s/:latest/:s390x-latest/")
+docker push "${IMAGE_NAME/:latest/:i386-latest}"
+docker push "${IMAGE_NAME/:latest/:amd64-latest}"
+docker push "${IMAGE_NAME/:latest/:arm-latest}"
+docker push "${IMAGE_NAME/:latest/:aarch64-latest}"
+docker push "${IMAGE_NAME/:latest/:ppc64le-latest}"
+docker push "${IMAGE_NAME/:latest/:s390x-latest}"
 
 # create manifest
-docker manifest create $IMAGE_NAME $(echo $IMAGE_NAME | sed "s/:latest/:i386-latest/") $(echo $IMAGE_NAME | sed "s/:latest/:amd64-latest/") $(echo $IMAGE_NAME | sed "s/:latest/:arm-latest/") $(echo $IMAGE_NAME | sed "s/:latest/:aarch64-latest/") $(echo $IMAGE_NAME | sed "s/:latest/:ppc64le-latest/") $(echo $IMAGE_NAME | sed "s/:latest/:s390x-latest/")
+docker manifest create $IMAGE_NAME "${IMAGE_NAME/:latest/:i386-latest}" "${IMAGE_NAME/:latest/:amd64-latest}" "${IMAGE_NAME/:latest/:arm-latest}" "${IMAGE_NAME/:latest/:aarch64-latest}" "${IMAGE_NAME/:latest/:ppc64le-latest}" "${IMAGE_NAME/:latest/:s390x-latest}"
 
 # annotate manifest
-docker manifest annotate $IMAGE_NAME $(echo $IMAGE_NAME | sed "s/:latest/:i386-latest/") --os linux --arch 386
-docker manifest annotate $IMAGE_NAME $(echo $IMAGE_NAME | sed "s/:latest/:amd64-latest/") --os linux --arch amd64
-docker manifest annotate $IMAGE_NAME $(echo $IMAGE_NAME | sed "s/:latest/:arm-latest/") --os linux --arch arm
-docker manifest annotate $IMAGE_NAME $(echo $IMAGE_NAME | sed "s/:latest/:aarch64-latest/") --os linux --arch arm64 --variant armv8
-docker manifest annotate $IMAGE_NAME $(echo $IMAGE_NAME | sed "s/:latest/:ppc64le-latest/") --os linux --arch ppc64le
-docker manifest annotate $IMAGE_NAME $(echo $IMAGE_NAME | sed "s/:latest/:s390x-latest/") --os linux --arch s390x
+docker manifest annotate $IMAGE_NAME "${IMAGE_NAME/:latest/:i386-latest}" --os linux --arch 386
+docker manifest annotate $IMAGE_NAME "${IMAGE_NAME/:latest/:amd64-latest}" --os linux --arch amd64
+docker manifest annotate $IMAGE_NAME "${IMAGE_NAME/:latest/:arm-latest}" --os linux --arch arm
+docker manifest annotate $IMAGE_NAME "${IMAGE_NAME/:latest/:aarch64-latest}" --os linux --arch arm64 --variant armv8
+docker manifest annotate $IMAGE_NAME "${IMAGE_NAME/:latest/:ppc64le-latest}" --os linux --arch ppc64le
+docker manifest annotate $IMAGE_NAME "${IMAGE_NAME/:latest/:s390x-latest}" --os linux --arch s390x
 
 # push manifest
 docker manifest push $IMAGE_NAME
