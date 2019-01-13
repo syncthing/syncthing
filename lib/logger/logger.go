@@ -70,21 +70,20 @@ type logger struct {
 var DefaultLogger = New()
 
 func New() Logger {
+	if os.Getenv("LOGGER_DISCARD") != "" {
+		// Hack to completely disable logging, for example when running
+		// benchmarks.
+		return newLogger(ioutil.Discard)
+	}
 	return newLogger(controlStripper{os.Stdout})
 }
 
 func newLogger(w io.Writer) Logger {
-	res := &logger{
+	return &logger{
+		logger:     log.New(w, "", DefaultFlags),
 		facilities: make(map[string]string),
 		debug:      make(map[string]struct{}),
 	}
-	if os.Getenv("LOGGER_DISCARD") != "" {
-		// Hack to completely disable logging, for example when running benchmarks.
-		res.logger = log.New(ioutil.Discard, "", 0)
-		return res
-	}
-	res.logger = log.New(w, "", DefaultFlags)
-	return res
 }
 
 // AddHandler registers a new MessageHandler to receive messages with the
