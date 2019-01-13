@@ -187,44 +187,37 @@ func (f *sendReceiveFolder) pull() bool {
 		f.setState(FolderIdle)
 	}()
 
-	var changed int
-	tries := 0
-
-	for {
-		tries++
-
-		changed = f.pullerIteration(ignores, folderFiles, scanChan)
-
+	for tries := 0; tries < maxPullerIterations; tries++ {
 		select {
 		case <-f.ctx.Done():
 			return false
 		default:
 		}
 
-		l.Debugln(f, "changed", changed)
+		changed := f.pullerIteration(ignores, folderFiles, scanChan)
+
+		l.Debugln(f, "changed", changed, "on try", tries)
 
 		if changed == 0 {
 			// No files were changed by the puller, so we are in
-			// sync.
-			break
-		}
-
-		if tries == maxPullerIterations {
-			// We've tried a bunch of times to get in sync, but
-			// we're not making it. Probably there are write
-			// errors preventing us. Flag this with a warning and
-			// wait a bit longer before retrying.
-			if errors := f.Errors(); len(errors) > 0 {
-				events.Default.Log(events.FolderErrors, map[string]interface{}{
-					"folder": f.folderID,
-					"errors": errors,
-				})
-			}
-			break
+			// sync. Any errors were just transitional.
+			f.clearPullErrors()
+			return true
 		}
 	}
 
-	return changed == 0
+	// We've tried a bunch of times to get in sync, but
+	// we're not making it. Probably there are write
+	// errors preventing us. Flag this with a warning and
+	// wait a bit longer before retrying.
+	if errors := f.Errors(); len(errors) > 0 {
+		events.Default.Log(events.FolderErrors, map[string]interface{}{
+			"folder": f.folderID,
+			"errors": errors,
+		})
+	}
+
+	return false
 }
 
 // pullerIteration runs a single puller iteration for the given folder and
