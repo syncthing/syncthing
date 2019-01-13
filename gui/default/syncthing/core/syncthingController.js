@@ -1211,13 +1211,14 @@ angular.module('syncthing.core')
                 }
             };
             $http.post(urlbase + '/system/config', cfg, opts).success(function () {
-                $http.get(urlbase + '/system/config/insync').success(function (data) {
-                    $scope.configInSync = data.configInSync;
-                    if (cb) {
-                        cb();
-                    }
-                });
-            }).error($scope.emitHTTPError);
+                refreshConfig();
+                if (cb) {
+                    cb();
+                }
+            }).error(function (data, status, headers, config) {
+                refreshConfig();
+                $scope.emitHTTPError(data, status, headers, config);
+            });
         };
 
         $scope.urVersions = function () {
