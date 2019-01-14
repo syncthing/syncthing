@@ -28,17 +28,20 @@ github.com/gobwas/glob/syntax/ast
 github.com/gobwas/glob/util/runes
 github.com/gobwas/glob/syntax/lexer
 github.com/gobwas/glob/util/strings
-# github.com/gogo/protobuf v1.0.0
+# github.com/gogo/protobuf v1.2.0
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
-github.com/gogo/protobuf/protoc-gen-gogo/descriptor
+github.com/gogo/protobuf/conformance/internal/conformance_proto
+github.com/gogo/protobuf/jsonpb
 github.com/gogo/protobuf/types
+github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/gogo/protobuf/plugin/testgen
 github.com/gogo/protobuf/protoc-gen-gogo/generator
 github.com/gogo/protobuf/vanity
-github.com/gogo/protobuf/proto/testdata
+github.com/gogo/protobuf/proto/test_proto
 github.com/gogo/protobuf/version
 github.com/gogo/protobuf/vanity/command
+github.com/gogo/protobuf/protoc-gen-gogo/generator/internal/remap
 github.com/gogo/protobuf/protoc-gen-gogo/plugin
 github.com/gogo/protobuf/plugin/gostring
 github.com/gogo/protobuf/sortkeys
@@ -46,11 +49,11 @@ github.com/gogo/protobuf/test/custom
 github.com/gogo/protobuf/test/custom-dash-type
 github.com/gogo/protobuf/test/casttype
 github.com/gogo/protobuf/test
+github.com/gogo/protobuf/test/importcustom-issue389/imported
 github.com/gogo/protobuf/test/importdedup/subpkg
 github.com/gogo/protobuf/test/importduplicate/proto
 github.com/gogo/protobuf/test/importduplicate/sortkeys
 github.com/gogo/protobuf/test/indeximport-issue72/index
-github.com/gogo/protobuf/jsonpb
 github.com/gogo/protobuf/test/issue312
 github.com/gogo/protobuf/test/example
 github.com/gogo/protobuf/test/combos/both
@@ -73,6 +76,7 @@ github.com/gogo/protobuf/protoc-gen-gogo/grpc
 github.com/gogo/protobuf/io
 github.com/gogo/protobuf/jsonpb/jsonpb_test_proto
 github.com/gogo/protobuf/proto/proto3_proto
+github.com/gogo/protobuf/test/issue411
 github.com/gogo/protobuf/vanity/test/fast
 github.com/gogo/protobuf/vanity/test/faster
 github.com/gogo/protobuf/vanity/test/slick
@@ -91,7 +95,7 @@ github.com/lib/pq
 github.com/lib/pq/oid
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/minio/sha256-simd v0.0.0-20171213220625-ad98a36ba0da
+# github.com/minio/sha256-simd v0.0.0-20190104231041-e529fa194128
 github.com/minio/sha256-simd
 # github.com/oschwald/geoip2-golang v1.1.0
 github.com/oschwald/geoip2-golang

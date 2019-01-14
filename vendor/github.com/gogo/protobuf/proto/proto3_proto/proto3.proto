@@ -32,7 +32,7 @@
 syntax = "proto3";
 
 import "google/protobuf/any.proto";
-import "testdata/test.proto";
+import "test_proto/test.proto";
 
 package proto3_proto;
 
@@ -58,14 +58,16 @@ message Message {
   repeated Humour r_funny = 16;
 
   map<string, Nested> terrain = 10;
-  testdata.SubDefaults proto2_field = 11;
-  map<string, testdata.SubDefaults> proto2_value = 13;
+  test_proto.SubDefaults proto2_field = 11;
+  map<string, test_proto.SubDefaults> proto2_value = 13;
 
   google.protobuf.Any anything = 14;
   repeated google.protobuf.Any many_things = 15;
 
   Message submessage = 17;
   repeated Message children = 18;
+
+  map<string, string> string_map = 20;
 }
 
 message Nested {
@@ -84,4 +86,12 @@ message IntMap {
 
 message IntMaps {
   repeated IntMap maps = 1;
+}
+
+message TestUTF8 {
+  string scalar = 1;
+  repeated string vector = 2;
+  oneof oneof { string field = 3; }
+  map<string, int64> map_key = 4;
+  map<int64, string> map_value = 5;
 }

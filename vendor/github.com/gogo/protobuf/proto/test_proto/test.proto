@@ -33,7 +33,9 @@
 
 syntax = "proto2";
 
-package testdata;
+package test_proto;
+
+option go_package = "github.com/gogo/protobuf/proto/test_proto";
 
 enum FOO { FOO1 = 1; };
 
@@ -96,6 +98,8 @@ message GoTest {
   required bytes F_Bytes_required = 101;
   required sint32 F_Sint32_required = 102;
   required sint64 F_Sint64_required = 103;
+  required sfixed32 F_Sfixed32_required = 104;
+  required sfixed64 F_Sfixed64_required = 105;
 
   // Repeated fields of all basic types
   repeated bool F_Bool_repeated = 20;
@@ -111,6 +115,8 @@ message GoTest {
   repeated bytes F_Bytes_repeated = 201;
   repeated sint32 F_Sint32_repeated = 202;
   repeated sint64 F_Sint64_repeated = 203;
+  repeated sfixed32 F_Sfixed32_repeated = 204;
+  repeated sfixed64 F_Sfixed64_repeated = 205;
 
   // Optional fields of all basic types
   optional bool F_Bool_optional = 30;
@@ -126,6 +132,8 @@ message GoTest {
   optional bytes F_Bytes_optional = 301;
   optional sint32 F_Sint32_optional = 302;
   optional sint64 F_Sint64_optional = 303;
+  optional sfixed32 F_Sfixed32_optional = 304;
+  optional sfixed64 F_Sfixed64_optional = 305;
 
   // Default-valued fields of all basic types
   optional bool F_Bool_defaulted = 40 [default=true];
@@ -141,6 +149,8 @@ message GoTest {
   optional bytes F_Bytes_defaulted = 401 [default="Bignose"];
   optional sint32 F_Sint32_defaulted = 402 [default = -32];
   optional sint64 F_Sint64_defaulted = 403 [default = -64];
+  optional sfixed32 F_Sfixed32_defaulted = 404 [default = -32];
+  optional sfixed64 F_Sfixed64_defaulted = 405 [default = -64];
 
   // Packed repeated fields (no string or bytes).
   repeated bool F_Bool_repeated_packed = 50 [packed=true];
@@ -154,6 +164,8 @@ message GoTest {
   repeated double F_Double_repeated_packed = 58 [packed=true];
   repeated sint32 F_Sint32_repeated_packed = 502 [packed=true];
   repeated sint64 F_Sint64_repeated_packed = 503 [packed=true];
+  repeated sfixed32 F_Sfixed32_repeated_packed = 504 [packed=true];
+  repeated sfixed64 F_Sfixed64_repeated_packed = 505 [packed=true];
 
   // Required, repeated, and optional groups.
   required group RequiredGroup = 70 {
@@ -285,10 +297,12 @@ message Ext {
   }
 
   optional string data = 1;
+  map<int32, int32> map_field = 2;
 }
 
 extend MyMessage {
   repeated string greeting = 106;
+  // leave field 200 unregistered for testing
 }
 
 message ComplexExtension {
@@ -342,7 +356,7 @@ extend DefaultsMessage {
   optional sfixed32 default_sfixed32 = 211 [default = 50];
   optional sfixed64 default_sfixed64 = 212 [default = 51];
   optional bool default_bool = 213 [default = true];
-  optional string default_string = 214 [default = "Hello, string"];
+  optional string default_string = 214 [default = "Hello, string,def=foo"];
   optional bytes default_bytes = 215 [default = "Hello, bytes"];
   optional DefaultsMessage.DefaultsEnum default_enum = 216 [default = ONE];
 }
@@ -545,4 +559,12 @@ message Communique {
     MyMessage.Color col = 9;
     Strings msg = 10;
   }
+}
+
+message TestUTF8 {
+  optional string scalar = 1;
+  repeated string vector = 2;
+  oneof oneof { string field = 3; }
+  map<string, int64> map_key = 4;
+  map<int64, string> map_value = 5;
 }

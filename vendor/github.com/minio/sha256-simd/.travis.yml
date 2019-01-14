@@ -1,0 +1,23 @@
+sudo: required
+dist: trusty
+language: go
+
+os:
+- linux
+
+go:
+- tip
+- 1.11.x
+
+env:
+- ARCH=x86_64
+- ARCH=i686
+
+matrix:
+  fast_finish: true
+  allow_failures:
+  - go: tip
+
+script:
+- diff -au <(gofmt -d .) <(printf "")
+- go test -race -v ./...

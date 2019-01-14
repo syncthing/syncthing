@@ -40,7 +40,7 @@ func Get() string {
 	version := strings.TrimSpace(string(versionBytes))
 	versions := strings.Split(version, " ")
 	if len(versions) != 2 {
-		panic("version string returned from protoc is seperated with a space: " + version)
+		panic("version string returned from protoc is separated with a space: " + version)
 	}
 	return versions[1]
 }
@@ -48,7 +48,7 @@ func Get() string {
 func parseVersion(version string) (int, error) {
 	versions := strings.Split(version, ".")
 	if len(versions) != 3 {
-		return 0, fmt.Errorf("version does not have 3 numbers seperated by dots: %s", version)
+		return 0, fmt.Errorf("version does not have 3 numbers separated by dots: %s", version)
 	}
 	n := 0
 	for _, v := range versions {
