@@ -7,7 +7,6 @@ Documentation=man:strelaysrv(1)
 WorkingDirectory=/var/lib/syncthing-relaysrv
 EnvironmentFile=/etc/default/syncthing-relaysrv
 ExecStart=/usr/bin/strelaysrv -nat=${NAT} $RELAYSRV_OPTS
-Nice=15
 
 # Hardening
 User=syncthing-relaysrv
