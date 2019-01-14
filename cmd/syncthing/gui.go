@@ -609,12 +609,15 @@ func (s *apiService) getJSMetadata(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiService) getSystemVersion(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, map[string]string{
+	sendJSON(w, map[string]interface{}{
 		"version":     Version,
 		"codename":    Codename,
 		"longVersion": LongVersion,
 		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
+		"isBeta":      IsBeta,
+		"isCandidate": IsCandidate,
+		"isRelease":   IsRelease,
 	})
 }
 
