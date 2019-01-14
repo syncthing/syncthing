@@ -34,21 +34,22 @@ import (
 )
 
 var (
-	versionRe     = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
-	goarch        string
-	goos          string
-	noupgrade     bool
-	version       string
-	goCmd         string
-	goVersion     float64
-	race          bool
-	debug         = os.Getenv("BUILDDEBUG") != ""
-	extraTags     string
-	installSuffix string
-	pkgdir        string
-	cc            string
-	debugBinary   bool
-	timeout       = "120s"
+	versionRe        = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
+	goarch           string
+	goos             string
+	noupgrade        bool
+	version          string
+	goCmd            string
+	goVersion        float64
+	race             bool
+	debug            = os.Getenv("BUILDDEBUG") != ""
+	extraTags        string
+	installSuffix    string
+	pkgdir           string
+	cc               string
+	debugBinary      bool
+	timeout          = "120s"
+	gogoProtoVersion = "v1.2.0"
 )
 
 type target struct {
@@ -198,7 +199,7 @@ type dependencyRepo struct {
 }
 
 var dependencyRepos = []dependencyRepo{
-	{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: "v1.2.0"},
+	{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: gogoProtoVersion},
 	{path: "xdr", repo: "https://github.com/calmh/xdr.git", commit: "08e072f9cb16"},
 }
 
@@ -253,9 +254,6 @@ func main() {
 
 func runCommand(cmd string, target target) {
 	switch cmd {
-	case "setup":
-		setup()
-
 	case "install":
 		var tags []string
 		if noupgrade {
@@ -333,33 +331,6 @@ func parseFlags() {
 	flag.StringVar(&cc, "cc", os.Getenv("CC"), "Set CC environment variable for `go build`")
 	flag.BoolVar(&debugBinary, "debug-binary", debugBinary, "Create unoptimized binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
 	flag.Parse()
-}
-
-func setup() {
-	packages := []string{
-		"github.com/alecthomas/gometalinter",
-		"github.com/AlekSi/gocov-xml",
-		"github.com/axw/gocov/gocov",
-		"github.com/FiloSottile/gvt",
-		"golang.org/x/lint/golint",
-		"github.com/gordonklaus/ineffassign",
-		"github.com/mdempsky/unconvert",
-		"github.com/mitchellh/go-wordwrap",
-		"github.com/opennota/check/cmd/...",
-		"github.com/tsenart/deadcode",
-		"golang.org/x/net/html",
-		"golang.org/x/tools/cmd/cover",
-		"honnef.co/go/tools/cmd/gosimple",
-		"honnef.co/go/tools/cmd/staticcheck",
-		"honnef.co/go/tools/cmd/unused",
-		"github.com/josephspurrier/goversioninfo",
-	}
-	for _, pkg := range packages {
-		fmt.Println(pkg)
-		runPrint(goCmd, "get", "-u", pkg)
-	}
-
-	runPrint(goCmd, "install", "-v", "github.com/syncthing/syncthing/vendor/github.com/gogo/protobuf/protoc-gen-gogofast")
 }
 
 func test(pkgs ...string) {
@@ -761,6 +732,7 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func proto() {
+	runPrint(goCmd, "get", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", gogoProtoVersion))
 	os.MkdirAll("repos", 0755)
 	for _, dep := range dependencyRepos {
 		path := filepath.Join("repos", dep.path)
