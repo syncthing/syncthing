@@ -11,7 +11,7 @@ ExecStart=/usr/bin/strelaysrv -nat=${NAT} $RELAYSRV_OPTS
 # Hardening
 User=syncthing-relaysrv
 Group=syncthing
-ReadOnlyPaths=/
+ProtectSystem=strict
 ReadWritePaths=/var/lib/syncthing-relaysrv
 NoNewPrivileges=true
 PrivateTmp=true
