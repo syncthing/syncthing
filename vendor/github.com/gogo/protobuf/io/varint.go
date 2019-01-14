@@ -42,7 +42,7 @@ var (
 )
 
 func NewDelimitedWriter(w io.Writer) WriteCloser {
-	return &varintWriter{w, make([]byte, 10), nil}
+	return &varintWriter{w, make([]byte, binary.MaxVarintLen64), nil}
 }
 
 type varintWriter struct {
@@ -55,25 +55,24 @@ func (this *varintWriter) WriteMsg(msg proto.Message) (err error) {
 	var data []byte
 	if m, ok := msg.(marshaler); ok {
 		n, ok := getSize(m)
-		if !ok {
-			data, err = proto.Marshal(msg)
+		if ok {
+			if n+binary.MaxVarintLen64 >= len(this.buffer) {
+				this.buffer = make([]byte, n+binary.MaxVarintLen64)
+			}
+			lenOff := binary.PutUvarint(this.buffer, uint64(n))
+			_, err = m.MarshalTo(this.buffer[lenOff:])
 			if err != nil {
 				return err
 			}
-		}
-		if n >= len(this.buffer) {
-			this.buffer = make([]byte, n)
-		}
-		_, err = m.MarshalTo(this.buffer)
-		if err != nil {
+			_, err = this.w.Write(this.buffer[:lenOff+n])
 			return err
 		}
-		data = this.buffer[:n]
-	} else {
-		data, err = proto.Marshal(msg)
-		if err != nil {
-			return err
-		}
+	}
+
+	// fallback
+	data, err = proto.Marshal(msg)
+	if err != nil {
+		return err
 	}
 	length := uint64(len(data))
 	n := binary.PutUvarint(this.lenBuf, length)

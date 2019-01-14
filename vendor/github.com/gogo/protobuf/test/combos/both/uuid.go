@@ -47,6 +47,10 @@ func PutLittleEndianUint64(b []byte, offset int, v uint64) {
 
 type Uuid []byte
 
+func (uuid Uuid) Bytes() []byte {
+	return uuid
+}
+
 func (uuid Uuid) Marshal() ([]byte, error) {
 	if len(uuid) == 0 {
 		return nil, nil

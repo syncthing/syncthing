@@ -45,16 +45,24 @@ import weak "gogoproto/gogo.proto";
 message Simple {
   optional bool o_bool = 1;
   optional int32 o_int32 = 2;
-  optional int64 o_int64 = 3;
-  optional uint32 o_uint32 = 4;
-  optional uint64 o_uint64 = 5;
-  optional sint32 o_sint32 = 6;
-  optional sint64 o_sint64 = 7;
-  optional float o_float = 8;
-  optional double o_double = 9;
-  optional string o_string = 10;
-  optional bytes o_bytes = 11;
-  optional bytes o_cast_bytes = 12 [(gogoproto.casttype) = "Bytes"];
+  optional int32 o_int32_str = 3;
+  optional int64 o_int64 = 4;
+  optional int64 o_int64_str = 5;
+  optional uint32 o_uint32 = 6;
+  optional uint32 o_uint32_str = 7;
+  optional uint64 o_uint64 = 8;
+  optional uint64 o_uint64_str = 9;
+  optional sint32 o_sint32 = 10;
+  optional sint32 o_sint32_str = 11;
+  optional sint64 o_sint64 = 12;
+  optional sint64 o_sint64_str = 13;
+  optional float o_float = 14;
+  optional float o_float_str = 15;
+  optional double o_double = 16;
+  optional double o_double_str = 17;
+  optional string o_string = 18;
+  optional bytes o_bytes = 19;
+  optional bytes o_cast_bytes = 20 [(gogoproto.casttype) = "Bytes"];
 }
 
 // Test message for holding special non-finites primitives.
@@ -111,6 +119,7 @@ message MsgWithOneof {
     int64 salary = 2;
     string Country = 3;
     string home_address = 4;
+    MsgWithRequired msg_with_required = 5;
   }
 }
 
@@ -148,4 +157,27 @@ message KnownTypes {
   optional google.protobuf.BoolValue bool = 9;
   optional google.protobuf.StringValue str = 10;
   optional google.protobuf.BytesValue bytes = 11;
+}
+
+// Test messages for marshaling/unmarshaling required fields.
+message MsgWithRequired {
+  required string str = 1;
+}
+
+message MsgWithIndirectRequired {
+  optional MsgWithRequired subm = 1;
+  map<string, MsgWithRequired> map_field = 2;
+  repeated MsgWithRequired slice_field = 3;
+}
+
+message MsgWithRequiredBytes {
+  required bytes byts = 1;
+}
+
+message MsgWithRequiredWKT {
+  required google.protobuf.StringValue str = 1;
+}
+
+extend Real {
+  optional MsgWithRequired extm = 125;
 }

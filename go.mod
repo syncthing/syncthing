@@ -11,7 +11,7 @@ require (
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gobwas/glob v0.0.0-20170212200151-51eb1ee00b6d
-	github.com/gogo/protobuf v1.0.0
+	github.com/gogo/protobuf v1.2.0
 	github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4
 	github.com/golang/protobuf v0.0.0-20171113180720-1e59b77b52bf // indirect
 	github.com/golang/snappy v0.0.0-20170215233205-553a64147049 // indirect
