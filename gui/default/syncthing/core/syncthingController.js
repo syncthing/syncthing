@@ -124,6 +124,7 @@ angular.module('syncthing.core')
             refreshThemes();
 
             $http.get(urlbase + '/system/version').success(function (data) {
+                console.log("version", data);
                 if ($scope.version.version && $scope.version.version !== data.version) {
                     // We already have a version response, but it differs from
                     // the new one. Reload the full GUI in case it's changed.
@@ -131,7 +132,6 @@ angular.module('syncthing.core')
                 }
 
                 $scope.version = data;
-                $scope.version.isDevelopmentVersion = data.version.indexOf('-') > 0;
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/svc/report').success(function (data) {
