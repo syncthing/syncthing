@@ -27,7 +27,7 @@ type HelloResult struct {
 
 var (
 	// ErrTooOldVersion is returned by ExchangeHello when the other side
-	// speaks the older, incompatible version 0.12 of the protocol.
+	// speaks an older, incompatible version of the protocol.
 	ErrTooOldVersion = errors.New("the remote device speaks an older version of the protocol not compatible with this version")
 	// ErrUnknownMagic is returned by ExchangeHellow when the other side
 	// speaks something entirely unknown.
