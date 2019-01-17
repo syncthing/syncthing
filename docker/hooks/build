@@ -17,19 +17,23 @@ MULTIARCH_DOCKERFILE_PATH="${DOCKERFILE_PATH/Dockerfile/multiarch.Dockerfile}"
 # register qemu modules
 docker run --rm --privileged multiarch/qemu-user-static:register
 
-# remove MULTIARCH line and build default image
-sed "/__MULTIARCH_/d" "$MULTIARCH_DOCKERFILE_PATH" > "$DOCKERFILE_PATH"
-docker build --build-arg BUILD_GOOS="linux" --build-arg BUILD_GOARCH="amd64" --build-arg SERVE_U="amd64" --build-arg SERVE_R="alpine" --build-arg QEMUARCH="amd64" -f "$DOCKERFILE_PATH" -t "${IMAGE_NAME/:latest/:amd64-latest}" .
+# BUILD_GOARCH:SERVE_U:SERVE_R:QEMUARCH
+archs=( 386:i386:alpine:i386 amd64:amd64:alpine:amd64 arm:arm32v6:alpine:arm arm64:arm64v8:alpine:aarch64 ppc64le:ppc64le:alpine:ppc64le s390x:s390x:alpine:s390x )
 
-# enable MULTIARCH line and build multiarch images
-sed "s/__MULTIARCH_//g" "$MULTIARCH_DOCKERFILE_PATH" > "$DOCKERFILE_PATH"
-curl -L "https://github.com/multiarch/qemu-user-static/releases/download/v3.1.0-2/x86_64_qemu-i386-static.tar.gz" | tar xz
-docker build --build-arg BUILD_GOOS="linux" --build-arg BUILD_GOARCH="386" --build-arg SERVE_U="i386" --build-arg SERVE_R="alpine" --build-arg QEMUARCH="i386" -f "$DOCKERFILE_PATH" -t "${IMAGE_NAME/:latest/:i386-latest}" .
-curl -L "https://github.com/multiarch/qemu-user-static/releases/download/v3.1.0-2/x86_64_qemu-arm-static.tar.gz" | tar xz
-docker build --build-arg BUILD_GOOS="linux" --build-arg BUILD_GOARCH="arm" --build-arg SERVE_U="arm32v6" --build-arg SERVE_R="alpine" --build-arg QEMUARCH="arm" -f "$DOCKERFILE_PATH" -t "${IMAGE_NAME/:latest/:arm-latest}" .
-curl -L "https://github.com/multiarch/qemu-user-static/releases/download/v3.1.0-2/x86_64_qemu-aarch64-static.tar.gz" | tar xz
-docker build --build-arg BUILD_GOOS="linux" --build-arg BUILD_GOARCH="arm64" --build-arg SERVE_U="arm64v8" --build-arg SERVE_R="alpine" --build-arg QEMUARCH="aarch64" -f "$DOCKERFILE_PATH" -t "${IMAGE_NAME/:latest/:aarch64-latest}" .
-curl -L "https://github.com/multiarch/qemu-user-static/releases/download/v3.1.0-2/x86_64_qemu-ppc64le-static.tar.gz" | tar xz
-docker build --build-arg BUILD_GOOS="linux" --build-arg BUILD_GOARCH="ppc64le" --build-arg SERVE_U="ppc64le" --build-arg SERVE_R="alpine" --build-arg QEMUARCH="ppc64le" -f "$DOCKERFILE_PATH" -t "${IMAGE_NAME/:latest/:ppc64le-latest}" .
-curl -L "https://github.com/multiarch/qemu-user-static/releases/download/v3.1.0-2/x86_64_qemu-s390x-static.tar.gz" | tar xz
-docker build --build-arg BUILD_GOOS="linux" --build-arg BUILD_GOARCH="s390x" --build-arg SERVE_U="s390x" --build-arg SERVE_R="alpine" --build-arg QEMUARCH="s390x" -f "$DOCKERFILE_PATH" -t "${IMAGE_NAME/:latest/:s390x-latest}" .
+# push individual tags
+for arch in "${archs[@]}"
+do
+  parts=( ${arch//:/ } )
+
+  if [ "${parts[0]}" == "amd" ]
+  then
+    # remove MULTIARCH line and build default image
+    sed "/__MULTIARCH_/d" "$MULTIARCH_DOCKERFILE_PATH" > "$DOCKERFILE_PATH"
+  else
+    # enable MULTIARCH line and build multiarch images
+    curl -L "https://github.com/multiarch/qemu-user-static/releases/download/v3.1.0-2/x86_64_qemu-${parts[3]}-static.tar.gz" | tar xz
+    sed "s/__MULTIARCH_//g" "$MULTIARCH_DOCKERFILE_PATH" > "$DOCKERFILE_PATH"
+  fi
+
+  docker build --build-arg BUILD_GOOS="linux" --build-arg BUILD_GOARCH="${parts[0]}" --build-arg SERVE_U="${parts[1]}" --build-arg SERVE_R="${parts[2]}" --build-arg QEMUARCH="${parts[3]}" -f "$DOCKERFILE_PATH" -t "${IMAGE_NAME/:/:${parts[3]}-}" .
+done
