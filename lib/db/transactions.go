@@ -65,6 +65,27 @@ func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, boo
 	return f, true
 }
 
+func (t readOnlyTransaction) getGlobalInto(gk, dk, folder, file []byte, truncate bool) ([]byte, []byte, FileIntf, bool) {
+	gk = t.db.keyer.GenerateGlobalVersionKey(gk, folder, file)
+
+	bs, err := t.Get(gk, nil)
+	if err != nil {
+		return gk, dk, nil, false
+	}
+
+	vl, ok := unmarshalVersionList(bs)
+	if !ok {
+		return gk, dk, nil, false
+	}
+
+	dk = t.db.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, file)
+	if fi, ok := t.getFileTrunc(dk, truncate); ok {
+		return gk, dk, fi, true
+	}
+
+	return gk, dk, nil, false
+}
+
 // A readWriteTransaction is a readOnlyTransaction plus a batch for writes.
 // The batch will be committed on close() or by checkFlush() if it exceeds the
 // batch size.
