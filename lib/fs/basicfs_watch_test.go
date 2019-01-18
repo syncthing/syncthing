@@ -57,7 +57,8 @@ func TestMain(m *testing.M) {
 }
 
 const (
-	testDir = "testdata"
+	testDir        = "testdata"
+	failsOnOpenBSD = "Fails on OpenBSD. See https://github.com/rjeczalik/notify/issues/172"
 )
 
 var (
@@ -66,6 +67,9 @@ var (
 )
 
 func TestWatchIgnore(t *testing.T) {
+	if runtime.GOOS == "openbsd" {
+		t.Skip(failsOnOpenBSD)
+	}
 	name := "ignore"
 
 	file := "file"
@@ -87,6 +91,9 @@ func TestWatchIgnore(t *testing.T) {
 }
 
 func TestWatchInclude(t *testing.T) {
+	if runtime.GOOS == "openbsd" {
+		t.Skip(failsOnOpenBSD)
+	}
 	name := "include"
 
 	file := "file"
@@ -111,6 +118,9 @@ func TestWatchInclude(t *testing.T) {
 }
 
 func TestWatchRename(t *testing.T) {
+	if runtime.GOOS == "openbsd" {
+		t.Skip(failsOnOpenBSD)
+	}
 	name := "rename"
 
 	old := createTestFile(name, "oldfile")
@@ -203,6 +213,9 @@ func TestWatchSubpath(t *testing.T) {
 
 // TestWatchOverflow checks that an event at the root is sent when maxFiles is reached
 func TestWatchOverflow(t *testing.T) {
+	if runtime.GOOS == "openbsd" {
+		t.Skip(failsOnOpenBSD)
+	}
 	name := "overflow"
 
 	expectedEvents := []Event{
