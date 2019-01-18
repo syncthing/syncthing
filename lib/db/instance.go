@@ -99,6 +99,9 @@ func (db *instance) removeSequences(folder []byte, fs []protocol.FileInfo) {
 }
 
 func (db *instance) withHave(folder, device, prefix []byte, truncate bool, fn Iterator) {
+	t := db.newReadOnlyTransaction()
+	defer t.close()
+
 	if len(prefix) > 0 {
 		unslashedPrefix := prefix
 		if bytes.HasSuffix(prefix, []byte{'/'}) {
@@ -107,13 +110,10 @@ func (db *instance) withHave(folder, device, prefix []byte, truncate bool, fn It
 			prefix = append(prefix, '/')
 		}
 
-		if f, ok := db.getFileTrunc(db.keyer.GenerateDeviceFileKey(nil, folder, device, unslashedPrefix), true); ok && !fn(f) {
+		if f, ok := t.getFileTrunc(db.keyer.GenerateDeviceFileKey(nil, folder, device, unslashedPrefix), true); ok && !fn(f) {
 			return
 		}
 	}
-
-	t := db.newReadOnlyTransaction()
-	defer t.close()
 
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateDeviceFileKey(nil, folder, device, prefix)), nil)
 	defer dbi.Release()
@@ -124,11 +124,7 @@ func (db *instance) withHave(folder, device, prefix []byte, truncate bool, fn It
 			return
 		}
 
-		// The iterator function may keep a reference to the unmarshalled
-		// struct, which in turn references the buffer it was unmarshalled
-		// from. dbi.Value() just returns an internal slice that it reuses, so
-		// we need to copy it.
-		f, err := unmarshalTrunc(append([]byte{}, dbi.Value()...), truncate)
+		f, err := unmarshalTrunc(dbi.Value(), truncate)
 		if err != nil {
 			l.Debugln("unmarshal error:", err)
 			continue
@@ -147,7 +143,7 @@ func (db *instance) withHaveSequence(folder []byte, startSeq int64, fn Iterator)
 	defer dbi.Release()
 
 	for dbi.Next() {
-		f, ok := db.getFile(dbi.Value())
+		f, ok := t.getFileByKey(dbi.Value())
 		if !ok {
 			l.Debugln("missing file for sequence number", db.keyer.SequenceFromSequenceKey(dbi.Key()))
 			continue
@@ -209,27 +205,21 @@ func (db *instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 	}
 }
 
-func (db *instance) getFile(key []byte) (protocol.FileInfo, bool) {
-	if f, ok := db.getFileTrunc(key, false); ok {
-		return f.(protocol.FileInfo), true
-	}
-	return protocol.FileInfo{}, false
-}
-
-func (db *instance) getFileTrunc(key []byte, trunc bool) (FileIntf, bool) {
+func (db *instance) getFileDirty(folder, device, file []byte) (protocol.FileInfo, bool) {
+	key := db.keyer.GenerateDeviceFileKey(nil, folder, device, file)
 	bs, err := db.Get(key, nil)
 	if err == leveldb.ErrNotFound {
-		return nil, false
+		return protocol.FileInfo{}, false
 	}
 	if err != nil {
 		l.Debugln("surprise error:", err)
-		return nil, false
+		return protocol.FileInfo{}, false
 	}
 
-	f, err := unmarshalTrunc(bs, trunc)
-	if err != nil {
+	var f protocol.FileInfo
+	if err := f.Unmarshal(bs); err != nil {
 		l.Debugln("unmarshal error:", err)
-		return nil, false
+		return protocol.FileInfo{}, false
 	}
 	return f, true
 }
@@ -256,7 +246,7 @@ func (db *instance) getGlobalInto(t readOnlyTransaction, gk, dk, folder, file []
 	}
 
 	dk = db.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, file)
-	if fi, ok := db.getFileTrunc(dk, truncate); ok {
+	if fi, ok := t.getFileTrunc(dk, truncate); ok {
 		return gk, dk, fi, true
 	}
 
@@ -264,6 +254,9 @@ func (db *instance) getGlobalInto(t readOnlyTransaction, gk, dk, folder, file []
 }
 
 func (db *instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator) {
+	t := db.newReadOnlyTransaction()
+	defer t.close()
+
 	if len(prefix) > 0 {
 		unslashedPrefix := prefix
 		if bytes.HasSuffix(prefix, []byte{'/'}) {
@@ -272,13 +265,10 @@ func (db *instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 			prefix = append(prefix, '/')
 		}
 
-		if f, ok := db.getGlobal(folder, unslashedPrefix, truncate); ok && !fn(f) {
+		if _, _, f, ok := db.getGlobalInto(t, nil, nil, folder, unslashedPrefix, truncate); ok && !fn(f) {
 			return
 		}
 	}
-
-	t := db.newReadOnlyTransaction()
-	defer t.close()
 
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateGlobalVersionKey(nil, folder, prefix)), nil)
 	defer dbi.Release()
@@ -297,7 +287,7 @@ func (db *instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 
 		fk = db.keyer.GenerateDeviceFileKey(fk, folder, vl.Versions[0].Device, name)
 
-		f, ok := db.getFileTrunc(fk, truncate)
+		f, ok := t.getFileTrunc(fk, truncate)
 		if !ok {
 			continue
 		}
@@ -504,7 +494,7 @@ func (db *instance) checkGlobals(folder []byte, meta *metadataTracker) {
 			newVL.Versions = append(newVL.Versions, version)
 
 			if i == 0 {
-				if fi, ok := db.getFile(fk); ok {
+				if fi, ok := t.getFileByKey(fk); ok {
 					meta.addFile(protocol.GlobalDeviceID, fi)
 				}
 			}

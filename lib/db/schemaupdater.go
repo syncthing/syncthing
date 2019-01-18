@@ -203,7 +203,7 @@ func (db *schemaUpdater) updateSchema2to3() {
 			name := []byte(f.FileName())
 			dk = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], name)
 			var v protocol.Vector
-			haveFile, ok := db.getFileTrunc(dk, true)
+			haveFile, ok := t.getFileTrunc(dk, true)
 			if ok {
 				v = haveFile.FileVersion()
 			}
