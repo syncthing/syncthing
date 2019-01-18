@@ -48,9 +48,7 @@ func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 			err = ef.Unmarshal(bs)
 		}
 
-		// Local flags or the invalid bit might change without the version
-		// being bumped. The IsInvalid() method handles both.
-		if err == nil && ef.Version.Equal(f.Version) && ef.IsInvalid() == f.IsInvalid() {
+		if err == nil && unchanged(f, ef) {
 			continue
 		}
 
@@ -562,4 +560,11 @@ type errorSuggestion struct {
 
 func (e errorSuggestion) Error() string {
 	return fmt.Sprintf("%s (%s)", e.inner.Error(), e.suggestion)
+}
+
+// unchanged checks if two files are the same and thus don't need to be updated.
+// Local flags or the invalid bit might change without the version
+// being bumped. The IsInvalid() method handles both.
+func unchanged(nf, ef FileIntf) bool {
+	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid()
 }
