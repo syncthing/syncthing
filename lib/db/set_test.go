@@ -1401,7 +1401,6 @@ func TestSequenceIndex(t *testing.T) {
 			}
 
 			for i := range local {
-				local[i].Blocks = genBlocks(10)
 				local[i].Version = local[i].Version.Update(42)
 			}
 			s.Update(protocol.LocalDeviceID, local)

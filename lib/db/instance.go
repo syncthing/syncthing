@@ -206,30 +206,20 @@ func (db *instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 }
 
 func (db *instance) getFileDirty(folder, device, file []byte) (protocol.FileInfo, bool) {
-	return db.getFileDirtyByKey(db.keyer.GenerateDeviceFileKey(nil, folder, device, file))
-}
-
-func (db *instance) getFileDirtyByKey(key []byte) (protocol.FileInfo, bool) {
-	if f, ok := db.getFileDirtyTrunc(key, false); ok {
-		return f.(protocol.FileInfo), true
-	}
-	return protocol.FileInfo{}, false
-}
-
-func (db *instance) getFileDirtyTrunc(key []byte, trunc bool) (FileIntf, bool) {
+	key := db.keyer.GenerateDeviceFileKey(nil, folder, device, file)
 	bs, err := db.Get(key, nil)
 	if err == leveldb.ErrNotFound {
-		return nil, false
+		return protocol.FileInfo{}, false
 	}
 	if err != nil {
 		l.Debugln("surprise error:", err)
-		return nil, false
+		return protocol.FileInfo{}, false
 	}
 
-	f, err := unmarshalTrunc(bs, trunc)
-	if err != nil {
+	var f protocol.FileInfo
+	if err := f.Unmarshal(bs); err != nil {
 		l.Debugln("unmarshal error:", err)
-		return nil, false
+		return protocol.FileInfo{}, false
 	}
 	return f, true
 }
