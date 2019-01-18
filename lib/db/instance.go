@@ -224,33 +224,12 @@ func (db *instance) getFileDirty(folder, device, file []byte) (protocol.FileInfo
 	return f, true
 }
 
-func (db *instance) getGlobal(folder, file []byte, truncate bool) (FileIntf, bool) {
+func (db *instance) getGlobalDirty(folder, file []byte, truncate bool) (FileIntf, bool) {
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
-	_, _, f, ok := db.getGlobalInto(t, nil, nil, folder, file, truncate)
+	_, _, f, ok := t.getGlobalInto(nil, nil, folder, file, truncate)
 	return f, ok
-}
-
-func (db *instance) getGlobalInto(t readOnlyTransaction, gk, dk, folder, file []byte, truncate bool) ([]byte, []byte, FileIntf, bool) {
-	gk = db.keyer.GenerateGlobalVersionKey(gk, folder, file)
-
-	bs, err := t.Get(gk, nil)
-	if err != nil {
-		return gk, dk, nil, false
-	}
-
-	vl, ok := unmarshalVersionList(bs)
-	if !ok {
-		return gk, dk, nil, false
-	}
-
-	dk = db.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, file)
-	if fi, ok := t.getFileTrunc(dk, truncate); ok {
-		return gk, dk, fi, true
-	}
-
-	return gk, dk, nil, false
 }
 
 func (db *instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator) {
@@ -265,7 +244,7 @@ func (db *instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 			prefix = append(prefix, '/')
 		}
 
-		if _, _, f, ok := db.getGlobalInto(t, nil, nil, folder, unslashedPrefix, truncate); ok && !fn(f) {
+		if _, _, f, ok := t.getGlobalInto(nil, nil, folder, unslashedPrefix, truncate); ok && !fn(f) {
 			return
 		}
 	}
@@ -413,7 +392,7 @@ func (db *instance) withNeedLocal(folder []byte, truncate bool, fn Iterator) {
 	var f FileIntf
 	var ok bool
 	for dbi.Next() {
-		gk, dk, f, ok = db.getGlobalInto(t, gk, dk, folder, db.keyer.NameFromGlobalVersionKey(dbi.Key()), truncate)
+		gk, dk, f, ok = t.getGlobalInto(gk, dk, folder, db.keyer.NameFromGlobalVersionKey(dbi.Key()), truncate)
 		if !ok {
 			continue
 		}
