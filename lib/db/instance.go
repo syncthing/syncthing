@@ -99,6 +99,9 @@ func (db *instance) removeSequences(folder []byte, fs []protocol.FileInfo) {
 }
 
 func (db *instance) withHave(folder, device, prefix []byte, truncate bool, fn Iterator) {
+	t := db.newReadOnlyTransaction()
+	defer t.close()
+
 	if len(prefix) > 0 {
 		unslashedPrefix := prefix
 		if bytes.HasSuffix(prefix, []byte{'/'}) {
@@ -107,13 +110,10 @@ func (db *instance) withHave(folder, device, prefix []byte, truncate bool, fn It
 			prefix = append(prefix, '/')
 		}
 
-		if f, ok := db.getFileDirtyTrunc(db.keyer.GenerateDeviceFileKey(nil, folder, device, unslashedPrefix), true); ok && !fn(f) {
+		if f, ok := t.getFileTrunc(db.keyer.GenerateDeviceFileKey(nil, folder, device, unslashedPrefix), true); ok && !fn(f) {
 			return
 		}
 	}
-
-	t := db.newReadOnlyTransaction()
-	defer t.close()
 
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateDeviceFileKey(nil, folder, device, prefix)), nil)
 	defer dbi.Release()
