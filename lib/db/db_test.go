@@ -185,7 +185,7 @@ func TestUpdate0to3(t *testing.T) {
 		haveUpdate0to3[remoteDevice1][0].Name: haveUpdate0to3[remoteDevice1][0],
 		haveUpdate0to3[remoteDevice0][2].Name: haveUpdate0to3[remoteDevice0][2],
 	}
-	db.withNeed(folder, protocol.LocalDeviceID[:], false, func(fi FileIntf) bool {
+	db.withNeed(folder, protocol.LocalDeviceID, false, func(fi FileIntf) bool {
 		e, ok := need[fi.FileName()]
 		if !ok {
 			t.Error("Got unexpected needed file:", fi.FileName())

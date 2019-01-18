@@ -113,7 +113,7 @@ func (s *FileSet) Drop(device protocol.DeviceID) {
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
 
-	s.db.dropDeviceFolder(device[:], []byte(s.folder), s.meta)
+	s.db.dropDeviceFolder(device, []byte(s.folder), s.meta)
 
 	if device == protocol.LocalDeviceID {
 		s.blockmap.Drop()
@@ -149,7 +149,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 	if device != protocol.LocalDeviceID {
 		// Easy case, just update the files and we're done.
-		s.db.updateFiles([]byte(s.folder), device[:], fs, s.meta)
+		s.db.updateFiles([]byte(s.folder), device, fs, s.meta)
 		return
 	}
 
@@ -190,19 +190,19 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 	s.blockmap.Discard(discards)
 	s.db.removeSequences(folder, discards)
-	s.db.updateFiles([]byte(s.folder), device[:], fs, s.meta)
+	s.db.updateFiles([]byte(s.folder), device, fs, s.meta)
 	s.db.addSequences(folder, updates)
 	s.blockmap.Update(updates)
 }
 
 func (s *FileSet) WithNeed(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithNeed(%v)", s.folder, device)
-	s.db.withNeed([]byte(s.folder), device[:], false, nativeFileIterator(fn))
+	s.db.withNeed([]byte(s.folder), device, false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithNeedTruncated(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithNeedTruncated(%v)", s.folder, device)
-	s.db.withNeed([]byte(s.folder), device[:], true, nativeFileIterator(fn))
+	s.db.withNeed([]byte(s.folder), device, true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithHave(device protocol.DeviceID, fn Iterator) {

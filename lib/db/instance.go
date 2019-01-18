@@ -30,7 +30,7 @@ func newInstance(ll *Lowlevel) *instance {
 	}
 }
 
-func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) {
+func (db *instance) updateFiles(folder []byte, devID protocol.DeviceID, fs []protocol.FileInfo, meta *metadataTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
@@ -38,7 +38,7 @@ func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 	var gk []byte
 	for _, f := range fs {
 		name := []byte(f.Name)
-		fk = db.keyer.GenerateDeviceFileKey(fk, folder, device, name)
+		fk = db.keyer.GenerateDeviceFileKey(fk, folder, devID[:], name)
 
 		// Get and unmarshal the file entry. If it doesn't exist or can't be
 		// unmarshalled we'll add it as a new entry.
@@ -54,16 +54,15 @@ func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 			continue
 		}
 
-		devID := protocol.DeviceIDFromBytes(device)
 		if err == nil {
 			meta.removeFile(devID, ef)
 		}
 		meta.addFile(devID, f)
 
-		t.insertFile(fk, folder, device, f)
+		t.insertFile(fk, folder, devID, f)
 
 		gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-		t.updateGlobal(gk, folder, device, f, meta)
+		t.updateGlobal(gk, folder, devID, f, meta)
 
 		// Write out and reuse the batch every few records, to avoid the batch
 		// growing too large and thus allocating unnecessarily much memory.
@@ -193,7 +192,7 @@ func (db *instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 			l.Infof("Dropping invalid filename %q from database", f.Name)
 			name := []byte(f.Name)
 			gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-			t.removeFromGlobal(gk, folder, device, name, nil)
+			t.removeFromGlobal(gk, folder, protocol.DeviceIDFromBytes(device), name, nil)
 			t.Delete(dbi.Key())
 			t.checkFlush()
 			continue
@@ -308,8 +307,8 @@ func (db *instance) availability(folder, file []byte) []protocol.DeviceID {
 	return devices
 }
 
-func (db *instance) withNeed(folder, device []byte, truncate bool, fn Iterator) {
-	if bytes.Equal(device, protocol.LocalDeviceID[:]) {
+func (db *instance) withNeed(folder []byte, devID protocol.DeviceID, truncate bool, fn Iterator) {
+	if devID == protocol.LocalDeviceID {
 		db.withNeedLocal(folder, truncate, fn)
 		return
 	}
@@ -321,13 +320,14 @@ func (db *instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 	defer dbi.Release()
 
 	var fk []byte
+	var needDevice protocol.DeviceID
 	for dbi.Next() {
 		vl, ok := unmarshalVersionList(dbi.Value())
 		if !ok {
 			continue
 		}
 
-		haveFV, have := vl.Get(device)
+		haveFV, have := vl.Get(devID[:])
 		// XXX: This marks Concurrent (i.e. conflicting) changes as
 		// needs. Maybe we should do that, but it needs special
 		// handling in the puller.
@@ -337,7 +337,7 @@ func (db *instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 
 		name := db.keyer.NameFromGlobalVersionKey(dbi.Key())
 		needVersion := vl.Versions[0].Version
-		needDevice := protocol.DeviceIDFromBytes(vl.Versions[0].Device)
+		copy(needDevice[:], vl.Versions[0].Device)
 
 		for i := range vl.Versions {
 			if !vl.Versions[i].Version.Equal(needVersion) {
@@ -368,7 +368,7 @@ func (db *instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 				break
 			}
 
-			l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, protocol.DeviceIDFromBytes(device), name, have, haveFV.Invalid, haveFV.Version, needVersion, needDevice)
+			l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.Invalid, haveFV.Version, needVersion, needDevice)
 
 			if !fn(gf) {
 				return
@@ -420,11 +420,11 @@ func (db *instance) dropFolder(folder []byte) {
 	}
 }
 
-func (db *instance) dropDeviceFolder(device, folder []byte, meta *metadataTracker) {
+func (db *instance) dropDeviceFolder(devID protocol.DeviceID, folder []byte, meta *metadataTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateDeviceFileKey(nil, folder, device, nil)), nil)
+	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateDeviceFileKey(nil, folder, devID[:], nil)), nil)
 	defer dbi.Release()
 
 	var gk []byte
@@ -433,7 +433,7 @@ func (db *instance) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 		key := dbi.Key()
 		name := db.keyer.NameFromDeviceFileKey(key)
 		gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-		t.removeFromGlobal(gk, folder, device, name, meta)
+		t.removeFromGlobal(gk, folder, devID, name, meta)
 		t.Delete(key)
 		t.checkFlush()
 	}
