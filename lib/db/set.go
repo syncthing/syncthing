@@ -164,7 +164,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	folder := []byte(s.folder)
 	for _, nf := range oldFs {
 		ef, ok := s.db.getFileDirty(folder, device[:], []byte(osutil.NormalizedFilename(nf.Name)))
-		if ok && ef.Version.Equal(nf.Version) && ef.IsInvalid() == nf.IsInvalid() {
+		if unchanged(nf, ef, ok) {
 			continue
 		}
 
