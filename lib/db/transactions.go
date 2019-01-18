@@ -37,7 +37,32 @@ func (t readOnlyTransaction) close() {
 }
 
 func (t readOnlyTransaction) getFile(folder, device, file []byte) (protocol.FileInfo, bool) {
-	return t.db.getFile(t.db.keyer.GenerateDeviceFileKey(nil, folder, device, file))
+	return t.getFileByKey(t.db.keyer.GenerateDeviceFileKey(nil, folder, device, file))
+}
+
+func (t readOnlyTransaction) getFileByKey(key []byte) (protocol.FileInfo, bool) {
+	if f, ok := t.getFileTrunc(key, false); ok {
+		return f.(protocol.FileInfo), true
+	}
+	return protocol.FileInfo{}, false
+}
+
+func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, bool) {
+	bs, err := t.Get(key, nil)
+	if err == leveldb.ErrNotFound {
+		return nil, false
+	}
+	if err != nil {
+		l.Debugln("surprise error:", err)
+		return nil, false
+	}
+
+	f, err := unmarshalTrunc(bs, trunc)
+	if err != nil {
+		l.Debugln("unmarshal error:", err)
+		return nil, false
+	}
+	return f, true
 }
 
 // A readWriteTransaction is a readOnlyTransaction plus a batch for writes.
@@ -90,7 +115,7 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 	if svl, err := t.Get(gk, nil); err == nil {
 		fl.Unmarshal(svl) // Ignore error, continue with empty fl
 	}
-	fl, removedFV, removedAt, insertedAt := fl.update(folder, device, file, t.db)
+	fl, removedFV, removedAt, insertedAt := fl.update(folder, device, file, t.readOnlyTransaction)
 	if insertedAt == -1 {
 		l.Debugln("update global; same version, global unchanged")
 		return false
