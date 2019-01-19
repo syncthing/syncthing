@@ -120,23 +120,15 @@ func (t readWriteTransaction) flush() {
 	}
 }
 
-func (t readWriteTransaction) insertFile(fk, folder []byte, devID protocol.DeviceID, file protocol.FileInfo) {
-	l.Debugf("insert; folder=%q device=%v %v", folder, devID, file)
-
-	t.Put(fk, mustMarshal(&file))
-}
-
 // updateGlobal adds this device+version to the version list for the given
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
-func (t readWriteTransaction) updateGlobal(gk, folder []byte, devID protocol.DeviceID, file protocol.FileInfo, meta *metadataTracker) bool {
-	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, devID, file.Name, file.Version, file.IsInvalid())
-
+func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) bool {
 	var fl VersionList
 	if svl, err := t.Get(gk, nil); err == nil {
 		fl.Unmarshal(svl) // Ignore error, continue with empty fl
 	}
-	fl, removedFV, removedAt, insertedAt := fl.update(folder, devID[:], file, t.readOnlyTransaction)
+	fl, removedFV, removedAt, insertedAt := fl.update(folder, device, file, t.readOnlyTransaction)
 	if insertedAt == -1 {
 		l.Debugln("update global; same version, global unchanged")
 		return false
@@ -222,9 +214,7 @@ func need(global FileIntf, haveLocal bool, localVersion protocol.Vector) bool {
 // removeFromGlobal removes the device from the global version list for the
 // given file. If the version list is empty after this, the file entry is
 // removed entirely.
-func (t readWriteTransaction) removeFromGlobal(gk, folder []byte, devID protocol.DeviceID, file []byte, meta *metadataTracker) {
-	l.Debugf("remove from global; folder=%q device=%v file=%q", folder, devID, file)
-
+func (t readWriteTransaction) removeFromGlobal(gk, folder, device, file []byte, meta *metadataTracker) {
 	svl, err := t.Get(gk, nil)
 	if err != nil {
 		// We might be called to "remove" a global version that doesn't exist
@@ -239,7 +229,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, folder []byte, devID protocol
 		return
 	}
 
-	fl, _, removedAt := fl.pop(devID[:])
+	fl, _, removedAt := fl.pop(device)
 	if removedAt == -1 {
 		// There is no version for the given device
 		return
@@ -248,7 +238,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, folder []byte, devID protocol
 	if removedAt == 0 {
 		// A failure to get the file here is surprising and our
 		// global size data will be incorrect until a restart...
-		if f, ok := t.getFile(folder, devID[:], file); ok {
+		if f, ok := t.getFile(folder, device, file); ok {
 			meta.removeFile(protocol.GlobalDeviceID, f)
 		}
 	}
