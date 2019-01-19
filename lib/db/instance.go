@@ -40,19 +40,12 @@ func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 		name := []byte(f.Name)
 		dk = db.keyer.GenerateDeviceFileKey(dk, folder, device, name)
 
-		// Get and unmarshal the file entry. If it doesn't exist or can't be
-		// unmarshalled we'll add it as a new entry.
-		bs, err := t.Get(dk, nil)
-		var ef FileInfoTruncated
-		if err == nil {
-			err = ef.Unmarshal(bs)
-		}
-
-		if err == nil && unchanged(f, ef) {
+		ef, ok := t.getFileTrunc(dk, true)
+		if ok && unchanged(f, ef) {
 			continue
 		}
 
-		if err == nil {
+		if ok {
 			meta.removeFile(devID, ef)
 		}
 		meta.addFile(devID, f)
@@ -201,22 +194,9 @@ func (db *instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 }
 
 func (db *instance) getFileDirty(folder, device, file []byte) (protocol.FileInfo, bool) {
-	key := db.keyer.GenerateDeviceFileKey(nil, folder, device, file)
-	bs, err := db.Get(key, nil)
-	if err == leveldb.ErrNotFound {
-		return protocol.FileInfo{}, false
-	}
-	if err != nil {
-		l.Debugln("surprise error:", err)
-		return protocol.FileInfo{}, false
-	}
-
-	var f protocol.FileInfo
-	if err := f.Unmarshal(bs); err != nil {
-		l.Debugln("unmarshal error:", err)
-		return protocol.FileInfo{}, false
-	}
-	return f, true
+	t := db.newReadOnlyTransaction()
+	defer t.close()
+	return t.getFile(folder, device, file)
 }
 
 func (db *instance) getGlobalDirty(folder, file []byte, truncate bool) (FileIntf, bool) {
