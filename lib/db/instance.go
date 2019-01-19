@@ -53,7 +53,7 @@ func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 		t.insertFile(dk, folder, device, f)
 
 		gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-		t.updateGlobal(gk, keyBuf, folder, device, f, meta)
+		keyBuf, _ = t.updateGlobal(gk, keyBuf, folder, device, f, meta)
 
 		// Write out and reuse the batch every few records, to avoid the batch
 		// growing too large and thus allocating unnecessarily much memory.
