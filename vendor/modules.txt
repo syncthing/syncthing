@@ -95,7 +95,7 @@ github.com/lib/pq
 github.com/lib/pq/oid
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/minio/sha256-simd v0.0.0-20190104231041-e529fa194128
+# github.com/minio/sha256-simd v0.0.0-20190117184323-cc1980cb0338
 github.com/minio/sha256-simd
 # github.com/oschwald/geoip2-golang v1.1.0
 github.com/oschwald/geoip2-golang

@@ -2,7 +2,7 @@ TEXT ·sha256X16Avx512(SB), 7, $0
 	MOVQ  digests+0(FP), DI
 	MOVQ  scratch+8(FP), R12
 	MOVQ  mask_len+32(FP), SI
-	MOVQ  r14+24(FP), R13
+	MOVQ  mask_base+24(FP), R13
 	MOVQ  (R13), R14
 	LONG  $0x92fbc1c4; BYTE $0xce
 	LEAQ  inputs+48(FP), AX

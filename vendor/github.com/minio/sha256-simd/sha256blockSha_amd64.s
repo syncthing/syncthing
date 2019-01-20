@@ -2,7 +2,7 @@
 
 // SHA intrinsic version of SHA256
 
-// Minio Cloud Storage, (C) 2018 Minio, Inc.
+// Kristofer Peterson, (C) 2018.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.

@@ -232,15 +232,15 @@
 	ADDL R13, h                // h = h + S1 + CH + k + w + S0 + MAJ
 
 // func blockAvx(h []uint32, message []uint8, reserved0, reserved1, reserved2, reserved3 uint64)
-TEXT ·blockAvx(SB), 7, $0
+TEXT ·blockAvx(SB), 7, $0-80
 
-	MOVQ h+0(FP), SI           // SI: &h
-	MOVQ message+24(FP), R8    // &message
-	MOVQ lenmessage+32(FP), R9 // length of message
+	MOVQ h+0(FP), SI             // SI: &h
+	MOVQ message_base+24(FP), R8 // &message
+	MOVQ message_len+32(FP), R9  // length of message
 	CMPQ R9, $0
 	JEQ  done_hash
 	ADDQ R8, R9
-	MOVQ R9, _inp_end+64(FP)   // store end of message
+	MOVQ R9, reserved2+64(FP)    // store end of message
 
 	// Register definition
 	//  a -->  eax
@@ -269,7 +269,7 @@ TEXT ·blockAvx(SB), 7, $0
 	MOVOU shuf00BA<>(SB), X10  // shuffle xBxA -> 00BA
 	MOVOU shufDC00<>(SB), X12  // shuffle xDxC -> DC00
 
-	MOVQ message+24(FP), SI // SI: &message
+	MOVQ message_base+24(FP), SI // SI: &message
 
 loop0:
 	LEAQ constants<>(SB), BP
@@ -284,25 +284,25 @@ loop0:
 	MOVOU 3*16(SI), X7
 	LONG  $0x0041c2c4; BYTE $0xfd // VPSHUFB XMM7, XMM7, XMM13
 
-	MOVQ SI, _inp+72(FP)
+	MOVQ SI, reserved3+72(FP)
 	MOVD $0x3, DI
 
 	// schedule 48 input dwords, by doing 3 rounds of 16 each
 loop1:
 	LONG  $0x4dfe59c5; BYTE $0x00 // VPADDD XMM9, XMM4, 0[RBP]   /* Add 1st constant to first part of message */
-	MOVOU X9, _xfer+48(FP)
+	MOVOU X9, reserved0+48(FP)
 	FOUR_ROUNDS_AND_SCHED(AX, BX,  CX,  R8, DX, R9, R10, R11)
 
 	LONG  $0x4dfe59c5; BYTE $0x10 // VPADDD XMM9, XMM4, 16[RBP]   /* Add 2nd constant to message */
-	MOVOU X9, _xfer+48(FP)
+	MOVOU X9, reserved0+48(FP)
 	FOUR_ROUNDS_AND_SCHED(DX, R9, R10, R11, AX, BX,  CX,  R8)
 
 	LONG  $0x4dfe59c5; BYTE $0x20 // VPADDD XMM9, XMM4, 32[RBP]   /* Add 3rd constant to message */
-	MOVOU X9, _xfer+48(FP)
+	MOVOU X9, reserved0+48(FP)
 	FOUR_ROUNDS_AND_SCHED(AX, BX,  CX,  R8, DX, R9, R10, R11)
 
 	LONG  $0x4dfe59c5; BYTE $0x30 // VPADDD XMM9, XMM4, 48[RBP]   /* Add 4th constant to message */
-	MOVOU X9, _xfer+48(FP)
+	MOVOU X9, reserved0+48(FP)
 	ADDQ  $64, BP
 	FOUR_ROUNDS_AND_SCHED(DX, R9, R10, R11, AX, BX,  CX,  R8)
 
@@ -313,14 +313,14 @@ loop1:
 
 loop2:
 	LONG  $0x4dfe59c5; BYTE $0x00 // VPADDD XMM9, XMM4, 0[RBP]   /* Add 1st constant to first part of message */
-	MOVOU X9, _xfer+48(FP)
+	MOVOU X9, reserved0+48(FP)
 	DO_ROUND( AX,  BX,  CX,  R8,  DX,  R9, R10, R11, 48)
 	DO_ROUND(R11,  AX,  BX,  CX,  R8,  DX,  R9, R10, 52)
 	DO_ROUND(R10, R11,  AX,  BX,  CX,  R8,  DX,  R9, 56)
 	DO_ROUND( R9, R10, R11,  AX,  BX,  CX,  R8,  DX, 60)
 
 	LONG  $0x4dfe51c5; BYTE $0x10 // VPADDD XMM9, XMM5, 16[RBP]   /* Add 2nd constant to message */
-	MOVOU X9, _xfer+48(FP)
+	MOVOU X9, reserved0+48(FP)
 	ADDQ  $32, BP
 	DO_ROUND( DX,  R9, R10, R11,  AX,  BX,  CX,  R8, 48)
 	DO_ROUND( R8,  DX,  R9, R10, R11,  AX,  BX,  CX, 52)
@@ -351,9 +351,9 @@ loop2:
 	ADDL (7*4)(SI), R11 // H7 = h + H7
 	MOVL R11, (7*4)(SI)
 
-	MOVQ _inp+72(FP), SI
+	MOVQ reserved3+72(FP), SI
 	ADDQ $64, SI
-	CMPQ _inp_end+64(FP), SI
+	CMPQ reserved2+64(FP), SI
 	JNE  loop0
 
 done_hash:

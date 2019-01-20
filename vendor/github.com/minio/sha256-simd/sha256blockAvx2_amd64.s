@@ -32,8 +32,6 @@
 // equivalents
 //
 
-#include "textflag.h"
-
 DATA K256<>+0x000(SB)/8, $0x71374491428a2f98
 DATA K256<>+0x008(SB)/8, $0xe9b5dba5b5c0fbcf
 DATA K256<>+0x010(SB)/8, $0x71374491428a2f98
@@ -114,16 +112,25 @@ DATA K256<>+0x258(SB)/8, $0x0b0a090803020100
 
 GLOBL K256<>(SB), 8, $608
 
-// func blockAvx2(h []uint32, message []uint8)
-TEXT ·blockAvx2(SB), 7, $0
+// We need 0x220 stack space aligned on a 512 boundary, so for the
+// worstcase-aligned SP we need twice this amount, being 1088 (=0x440)
+//
+// SP        aligned   end-aligned  stacksize
+// 100013d0  10001400  10001620     592
+// 100013d8  10001400  10001620     584
+// 100013e0  10001600  10001820     1088
+// 100013e8  10001600  10001820     1080
 
-	MOVQ ctx+0(FP), DI           // DI: &h
-	MOVQ inp+24(FP), SI          // SI: &message
-	MOVQ inplength+32(FP), DX    // len(message)
+// func blockAvx2(h []uint32, message []uint8)
+TEXT ·blockAvx2(SB),$1088-48
+
+	MOVQ h+0(FP), DI             // DI: &h
+	MOVQ message_base+24(FP), SI // SI: &message
+	MOVQ message_len+32(FP), DX  // len(message)
 	ADDQ SI, DX                  // end pointer of input
 	MOVQ SP, R11                 // copy stack pointer
-	SUBQ $0x220, SP              // sp -= 0x220
-	ANDQ $0xfffffffffffffc00, SP // align stack frame
+	ADDQ $0x220, SP              // sp += 0x220
+	ANDQ $0xfffffffffffffe00, SP // align stack frame
 	ADDQ $0x1c0, SP
 	MOVQ DI, 0x40(SP)            // save ctx
 	MOVQ SI, 0x48(SP)            // save input
@@ -1435,7 +1442,7 @@ loop2:
 
 done:
 	MOVQ BP, SP
-	MOVQ 0x58(SP), SP
+	MOVQ 0x58(SP), SP        // restore saved stack pointer
 	WORD $0xf8c5; BYTE $0x77 // vzeroupper
 
 	RET
