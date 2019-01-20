@@ -34,7 +34,7 @@ func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	var dk, gk []byte
+	var dk, gk, keyBuf []byte
 	devID := protocol.DeviceIDFromBytes(device)
 	for _, f := range fs {
 		name := []byte(f.Name)
@@ -53,7 +53,7 @@ func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 		t.insertFile(dk, folder, device, f)
 
 		gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-		t.updateGlobal(gk, folder, device, f, meta)
+		keyBuf, _ = t.updateGlobal(gk, keyBuf, folder, device, f, meta)
 
 		// Write out and reuse the batch every few records, to avoid the batch
 		// growing too large and thus allocating unnecessarily much memory.
@@ -156,7 +156,7 @@ func (db *instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateDeviceFileKey(nil, folder, nil, nil).WithoutNameAndDevice()), nil)
 	defer dbi.Release()
 
-	var gk []byte
+	var gk, buf []byte
 	for dbi.Next() {
 		device, ok := db.keyer.DeviceFromDeviceFileKey(dbi.Key())
 		if !ok {
@@ -181,7 +181,7 @@ func (db *instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 			l.Infof("Dropping invalid filename %q from database", f.Name)
 			name := []byte(f.Name)
 			gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-			t.removeFromGlobal(gk, folder, device, name, nil)
+			buf = t.removeFromGlobal(gk, buf, folder, device, name, nil)
 			t.Delete(dbi.Key())
 			t.checkFlush()
 			continue
@@ -202,8 +202,7 @@ func (db *instance) getFileDirty(folder, device, file []byte) (protocol.FileInfo
 func (db *instance) getGlobalDirty(folder, file []byte, truncate bool) (FileIntf, bool) {
 	t := db.newReadOnlyTransaction()
 	defer t.close()
-
-	_, _, f, ok := t.getGlobalInto(nil, nil, folder, file, truncate)
+	_, f, ok := t.getGlobal(nil, folder, file, truncate)
 	return f, ok
 }
 
@@ -219,7 +218,7 @@ func (db *instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 			prefix = append(prefix, '/')
 		}
 
-		if _, _, f, ok := t.getGlobalInto(nil, nil, folder, unslashedPrefix, truncate); ok && !fn(f) {
+		if _, f, ok := t.getGlobal(nil, folder, unslashedPrefix, truncate); ok && !fn(f) {
 			return
 		}
 	}
@@ -363,11 +362,11 @@ func (db *instance) withNeedLocal(folder []byte, truncate bool, fn Iterator) {
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateNeedFileKey(nil, folder, nil).WithoutName()), nil)
 	defer dbi.Release()
 
-	var gk, dk []byte
+	var buf []byte
 	var f FileIntf
 	var ok bool
 	for dbi.Next() {
-		gk, dk, f, ok = t.getGlobalInto(gk, dk, folder, db.keyer.NameFromGlobalVersionKey(dbi.Key()), truncate)
+		buf, f, ok = t.getGlobal(buf, folder, db.keyer.NameFromGlobalVersionKey(dbi.Key()), truncate)
 		if !ok {
 			continue
 		}
@@ -402,13 +401,12 @@ func (db *instance) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateDeviceFileKey(nil, folder, device, nil)), nil)
 	defer dbi.Release()
 
-	var gk []byte
+	var gk, buf []byte
 	for dbi.Next() {
-		key := dbi.Key()
-		name := db.keyer.NameFromDeviceFileKey(key)
+		name := db.keyer.NameFromDeviceFileKey(dbi.Key())
 		gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-		t.removeFromGlobal(gk, folder, device, name, meta)
-		t.Delete(key)
+		buf = t.removeFromGlobal(gk, buf, folder, device, name, meta)
+		t.Delete(dbi.Key())
 		t.checkFlush()
 	}
 }
