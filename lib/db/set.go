@@ -163,12 +163,12 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	fs = fs[:0]
 	folder := []byte(s.folder)
 	for _, nf := range oldFs {
-		ef, ok := s.db.getFileDirty(folder, device[:], []byte(osutil.NormalizedFilename(nf.Name)))
+		ef, ok := s.db.getFileDirty(folder, device[:], []byte(nf.Name))
 		if ok && unchanged(nf, ef) {
 			continue
 		}
 
-		nf.Sequence = s.meta.nextSeq(protocol.LocalDeviceID)
+		nf.Sequence = s.meta.nextLocalSeq()
 		fs = append(fs, nf)
 
 		if ok {
