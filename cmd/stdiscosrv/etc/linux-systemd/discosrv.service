@@ -1,0 +1,25 @@
+[Unit]
+Description=Syncthing Discovery Server
+After=network.target
+Documentation=man:stdiscosrv(1)
+
+[Service]
+WorkingDirectory=/var/lib/syncthing-stdiscosrv
+EnvironmentFile=/etc/default/syncthing-stdiscosrv
+ExecStart=/usr/bin/strelaysrv $DISCOSRV_OPTS
+
+# Hardening
+User=syncthing-stdiscosrv
+Group=syncthing
+ProtectSystem=strict
+ReadWritePaths=/var/lib/syncthing-stdiscosrv
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target
+Alias=syncthing-discosrv.service
