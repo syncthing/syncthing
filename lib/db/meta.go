@@ -272,12 +272,12 @@ func (m *metadataTracker) Counts(dev protocol.DeviceID, flag uint32) Counts {
 	return m.counts.Counts[idx]
 }
 
-// nextSeq allocates a new sequence number for the given device
-func (m *metadataTracker) nextSeq(dev protocol.DeviceID) int64 {
+// nextLocalSeq allocates a new local sequence number
+func (m *metadataTracker) nextLocalSeq() int64 {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	c := m.countsPtr(dev, 0)
+	c := m.countsPtr(protocol.LocalDeviceID, 0)
 	c.Sequence++
 	return c.Sequence
 }

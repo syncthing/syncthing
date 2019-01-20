@@ -119,12 +119,6 @@ func (t readWriteTransaction) flush() {
 	}
 }
 
-func (t readWriteTransaction) insertFile(fk, folder, device []byte, file protocol.FileInfo) {
-	l.Debugf("insert; folder=%q device=%v %v", folder, protocol.DeviceIDFromBytes(device), file)
-
-	t.Put(fk, mustMarshal(&file))
-}
-
 // updateGlobal adds this device+version to the version list for the given
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
