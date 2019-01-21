@@ -41,22 +41,23 @@ func (f *BlockFinder) String() string {
 // reason. The iterator finally returns the result, whether or not a
 // satisfying block was eventually found.
 func (f *BlockFinder) Iterate(folders []string, hash []byte, iterFn func(string, string, int32) bool) bool {
+	t := f.db.newReadOnlyTransaction()
+	defer t.close()
+
 	var key []byte
 	for _, folder := range folders {
-		t := f.db.newReadOnlyTransaction()
-		defer t.close()
-
 		key = f.db.keyer.GenerateBlockMapKey(key, []byte(folder), hash, nil)
 		iter := t.NewIterator(util.BytesPrefix(key), nil)
-		defer iter.Release()
 
 		for iter.Next() && iter.Error() == nil {
 			file := string(f.db.keyer.NameFromBlockMapKey(iter.Key()))
 			index := int32(binary.BigEndian.Uint32(iter.Value()))
 			if iterFn(folder, osutil.NativeFilename(file), index) {
+				iter.Release()
 				return true
 			}
 		}
+		iter.Release()
 	}
 	return false
 }
