@@ -1,32 +1,52 @@
 #!/bin/bash
 
-archs=( i386:386: amd64:amd64: arm:arm: aarch64:arm64:armv8 ppc64le:ppc64le: s390x:s390x: )
-manifests=()
+# get this script's directory
+THIS=$(dirname $(readlink -f "$0"))
 
-# push individual tags
-for arch in "${archs[@]}"
+# load build variable combinations
+archs=()
+readarray -t archs < "$THIS/archs.csv"
+all_manifests=()
+
+# push individual architecture tags
+for arch in "${archs[@]:1}"
 do
   parts=( ${arch//:/ } )
 
-  docker push "${IMAGE_NAME/:/:${parts[0]}-}"
-  manifests+=("${IMAGE_NAME/:/:${parts[0]}-}")
-done
+  BUILD_GOOS="${parts[0]}"
+  BUILD_GOARCH="${parts[1]}"
+  SERVE_U="${parts[2]}"
+  SERVE_R="${parts[3]}"
+  QEMUARCH="${parts[4]}"
+  VARIANT="${parts[5]}"
 
-# create manifest
-docker manifest create $IMAGE_NAME $manifests
-
-# annotate manifest
-for arch in "${archs[@]}"
-do
-  parts=( ${arch//:/ } )
-
-  if [ "${parts[2]}" == "" ]
+  # skip empty lines that someone will surely commit one day
+  if [ "$BUILD_GOOS" == "" ]
   then
-    docker manifest annotate $IMAGE_NAME "${IMAGE_NAME/:/:${parts[0]}-}" --os linux --arch ${parts[1]}
-  else
-    docker manifest annotate $IMAGE_NAME "${IMAGE_NAME/:/:${parts[0]}-}" --os linux --arch ${parts[1]} --variant ${parts[2]}
+    break
   fi
+
+  image_name_full="${IMAGE_NAME/:/:$QEMUARCH-}"
+  all_manifests+=("$image_name_full")
+  annotate_parameters=("--os $BUILD_GOOS --arch $BUILD_GOARCH")
+
+  if [ "$VARIANT" != "" ]
+  then
+    annotate_parameters+=("--variant $VARIANT")
+  fi
+
+  # push manifest for individual architecture tag
+  docker push "$image_name_full"
+  docker manifest create "$image_name_full" "$image_name_full"
+  docker manifest annotate "$image_name_full" "$image_name_full" ${annotate_parameters[@]}
+
+  # update global manifest
+  docker manifest create $IMAGE_NAME ${all_manifests[@]} -a
+  docker manifest annotate $IMAGE_NAME "$image_name_full" ${annotate_parameters[@]}
+  
+  docker manifest push "$image_name_full"
 done
 
-# push manifest
+# push global manifest
 docker manifest push $IMAGE_NAME
+

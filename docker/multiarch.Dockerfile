@@ -24,7 +24,7 @@ VOLUME ["/var/syncthing"]
 
 __MULTIARCH_COPY qemu-${QEMUARCH}-static /usr/bin/
 RUN apk add --update --no-cache ca-certificates su-exec
-RUN rm /usr/bin/qemu-${QEMUARCH}-static
+__MULTIARCH_RUN rm /usr/bin/qemu-${QEMUARCH}-static
 COPY --from=builder /go/src/github.com/syncthing/syncthing/syncthing /bin/syncthing
 
 HEALTHCHECK --interval=1m --timeout=10s \
