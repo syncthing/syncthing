@@ -1,0 +1,7 @@
+BUILD_GOOS:BUILD_GOARCH:SERVE_U:SERVE_R:QEMUARCH:VARIANT
+linux:386:i386:alpine:i386:
+linux:amd64:amd64:alpine:amd64:
+linux:arm:arm32v6:alpine:arm:v6
+linux:arm64:arm64v8:alpine:aarch64:v8
+linux:ppc64le:ppc64le:alpine:ppc64le:
+linux:s390x:s390x:alpine:s390x:
