@@ -8,6 +8,7 @@ package db
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -30,7 +31,9 @@ func newInstance(ll *Lowlevel) *instance {
 	}
 }
 
-func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) {
+// updateRemoteFiles adds a list of fileinfos to the database and updates the
+// global versionlist and metadata.
+func (db *instance) updateRemoteFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
@@ -56,34 +59,65 @@ func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 		gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
 		keyBuf, _ = t.updateGlobal(gk, keyBuf, folder, device, f, meta)
 
-		// Write out and reuse the batch every few records, to avoid the batch
-		// growing too large and thus allocating unnecessarily much memory.
 		t.checkFlush()
 	}
 }
 
-func (db *instance) addSequences(folder []byte, fs []protocol.FileInfo) {
+// updateLocalFiles adds fileinfos to the db, and updates the global versionlist,
+// metadata, sequence and blockmap buckets.
+func (db *instance) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta *metadataTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	var dk, sk []byte
+	var dk, gk, keyBuf []byte
+	blockBuf := make([]byte, 4)
 	for _, f := range fs {
-		sk = db.keyer.GenerateSequenceKey(sk, folder, f.Sequence)
-		dk = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], []byte(f.Name))
-		t.Put(sk, dk)
+		name := []byte(f.Name)
+		dk = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], name)
+
+		ef, ok := t.getFileByKey(dk)
+		if ok && unchanged(f, ef) {
+			continue
+		}
+
+		if ok {
+			if !ef.IsDirectory() && !ef.IsDeleted() && !ef.IsInvalid() {
+				for _, block := range ef.Blocks {
+					keyBuf = t.db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
+					t.Delete(keyBuf)
+				}
+			}
+
+			keyBuf = db.keyer.GenerateSequenceKey(keyBuf, folder, ef.SequenceNo())
+			t.Delete(keyBuf)
+			l.Debugf("removing sequence; folder=%q sequence=%v %v", folder, ef.SequenceNo(), ef.FileName())
+		}
+
+		f.Sequence = meta.nextLocalSeq()
+
+		if ok {
+			meta.removeFile(protocol.LocalDeviceID, ef)
+		}
+		meta.addFile(protocol.LocalDeviceID, f)
+
+		l.Debugf("insert (local); folder=%q %v", folder, f)
+		t.Put(dk, mustMarshal(&f))
+
+		gk = t.db.keyer.GenerateGlobalVersionKey(gk, folder, []byte(f.Name))
+		keyBuf, _ = t.updateGlobal(gk, keyBuf, folder, protocol.LocalDeviceID[:], f, meta)
+
+		keyBuf = db.keyer.GenerateSequenceKey(keyBuf, folder, f.Sequence)
+		t.Put(keyBuf, dk)
 		l.Debugf("adding sequence; folder=%q sequence=%v %v", folder, f.Sequence, f.Name)
-		t.checkFlush()
-	}
-}
 
-func (db *instance) removeSequences(folder []byte, fs []protocol.FileInfo) {
-	t := db.newReadWriteTransaction()
-	defer t.close()
+		if !f.IsDirectory() && !f.IsDeleted() && !f.IsInvalid() {
+			for i, block := range f.Blocks {
+				binary.BigEndian.PutUint32(blockBuf, uint32(i))
+				keyBuf = t.db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
+				t.Put(keyBuf, blockBuf)
+			}
+		}
 
-	var sk []byte
-	for _, f := range fs {
-		t.Delete(db.keyer.GenerateSequenceKey(sk, folder, f.Sequence))
-		l.Debugf("removing sequence; folder=%q sequence=%v %v", folder, f.Sequence, f.Name)
 		t.checkFlush()
 	}
 }
@@ -383,6 +417,8 @@ func (db *instance) dropFolder(folder []byte) {
 		db.keyer.GenerateGlobalVersionKey(nil, folder, nil).WithoutName(),
 		// Remove all needs related to the folder
 		db.keyer.GenerateNeedFileKey(nil, folder, nil).WithoutName(),
+		// Remove the blockmap of the folder
+		db.keyer.GenerateBlockMapKey(nil, folder, nil, nil).WithoutHashAndName(),
 	} {
 		t.deleteKeyPrefix(key)
 	}
@@ -402,6 +438,9 @@ func (db *instance) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 		keyBuf = t.removeFromGlobal(gk, keyBuf, folder, device, name, meta)
 		t.Delete(dbi.Key())
 		t.checkFlush()
+	}
+	if bytes.Equal(device, protocol.LocalDeviceID[:]) {
+		t.deleteKeyPrefix(db.keyer.GenerateBlockMapKey(nil, folder, nil, nil).WithoutHashAndName())
 	}
 }
 
