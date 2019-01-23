@@ -34,6 +34,7 @@
     "Auto Accept": "自动接受",
     "Automatic upgrade now offers the choice between stable releases and release candidates.": "自动升级现在提供了稳定版本和发布候选版之间的选择。",
     "Automatic upgrades": "自动升级",
+    "Automatic upgrades are always enabled for candidate releases.": "候选版本会一直启用自动升级。",
     "Automatically create or share folders that this device advertises at the default path.": "自动地创建或共享这个设备在默认路径通告的文件夹。",
     "Available debug logging facilities:": "可用的调试日志功能：",
     "Be careful!": "小心！",

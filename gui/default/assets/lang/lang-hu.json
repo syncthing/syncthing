@@ -34,6 +34,7 @@
     "Auto Accept": "Automatikus elfogadás",
     "Automatic upgrade now offers the choice between stable releases and release candidates.": "Az automatikus frissítés most lehetőséget kínál a stabil és az előzetes kiadások közötti választásra.",
     "Automatic upgrades": "Automatikus frissítések",
+    "Automatic upgrades are always enabled for candidate releases.": "Az előzetes kiadásokban az automatikus frissítések mindig engedélyezettek.",
     "Automatically create or share folders that this device advertises at the default path.": "Az eszköz alapértelmezett útvonalon hirdetett mappáinak automatikus létrehozása vagy megosztása",
     "Available debug logging facilities:": "Elérhető hibakeresésnaplózási képességek:",
     "Be careful!": "Óvatosan!",

@@ -34,6 +34,7 @@
     "Auto Accept": "Hyväksy automaattisesti",
     "Automatic upgrade now offers the choice between stable releases and release candidates.": "Automaattinen päivitys sallii valita vakaiden- ja kehitysversioiden välillä.",
     "Automatic upgrades": "Automaattiset päivitykset",
+    "Automatic upgrades are always enabled for candidate releases.": "Automatic upgrades are always enabled for candidate releases.",
     "Automatically create or share folders that this device advertises at the default path.": "Hyväksy automaattisesti kansioiden luonti tai jakaminen, jotka tämä laite ehdottaa oletuspolussa.",
     "Available debug logging facilities:": "Saatavilla olevat debug-luokat:",
     "Be careful!": "Ole varovainen!",
