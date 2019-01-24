@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -706,7 +707,7 @@ func TestDiffEmpty(t *testing.T) {
 // option is true and the permissions do not match between the file on disk and
 // in the db.
 func TestDeleteIgnorePerms(t *testing.T) {
-	m := setUpModel(protocol.FileInfo{})
+	m := setUpModel()
 	f := setUpSendReceiveFolder(m)
 	f.IgnorePerms = true
 
@@ -741,5 +742,121 @@ func TestDeleteIgnorePerms(t *testing.T) {
 	}
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCopyOwner(t *testing.T) {
+	// Verifies that owner and group are copied from the parent, for both
+	// files and directories.
+
+	if runtime.GOOS == "windows" {
+		t.Skip("copying owner not supported on Windows")
+	}
+
+	const (
+		expOwner = 1234
+		expGroup = 5678
+	)
+
+	// Set up a folder with the CopyParentOwner bit and backed by a fake
+	// filesystem.
+
+	m := setUpModel()
+	f := &sendReceiveFolder{
+		folder: folder{
+			stateTracker:        newStateTracker("default"),
+			model:               m,
+			initialScanFinished: make(chan struct{}),
+			ctx:                 context.TODO(),
+			FolderConfiguration: config.FolderConfiguration{
+				FilesystemType:          fs.FilesystemTypeFake,
+				Path:                    "/TestCopyOwner",
+				CopyOwnershipFromParent: true,
+			},
+		},
+
+		queue:         newJobQueue(),
+		pullErrors:    make(map[string]string),
+		pullErrorsMut: sync.NewMutex(),
+	}
+
+	f.fs = f.Filesystem()
+
+	// Create a parent dir with a certain owner/group.
+
+	f.fs.Mkdir("foo", 0755)
+	f.fs.Lchown("foo", expOwner, expGroup)
+
+	dir := protocol.FileInfo{
+		Name:        "foo/bar",
+		Type:        protocol.FileInfoTypeDirectory,
+		Permissions: 0755,
+	}
+
+	// Have the folder create a subdirectory, verify that it's the correct
+	// owner/group.
+
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+	defer close(dbUpdateChan)
+	f.handleDir(dir, dbUpdateChan)
+	<-dbUpdateChan // empty the channel for later
+
+	info, err := f.fs.Lstat("foo/bar")
+	if err != nil {
+		t.Fatal("Unexpected error (dir):", err)
+	}
+	if info.Owner() != expOwner || info.Group() != expGroup {
+		t.Fatalf("Expected dir owner/group to be %d/%d, not %d/%d", expOwner, expGroup, info.Owner(), info.Group())
+	}
+
+	// Have the folder create a file, verify it's the correct owner/group.
+	// File is zero sized to avoid having to handle copies/pulls.
+
+	file := protocol.FileInfo{
+		Name:        "foo/bar/baz",
+		Type:        protocol.FileInfoTypeFile,
+		Permissions: 0644,
+	}
+
+	// Wire some stuff. The flow here is handleFile() -[copierChan]->
+	// copierRoutine() -[finisherChan]-> finisherRoutine() -[dbUpdateChan]->
+	// back to us and we're done. The copier routine doesn't do anything,
+	// but it's the way data is passed around. When the database update
+	// comes the finisher is done.
+
+	finisherChan := make(chan *sharedPullerState)
+	defer close(finisherChan)
+	copierChan := make(chan copyBlocksState)
+	defer close(copierChan)
+	go f.copierRoutine(copierChan, nil, finisherChan)
+	go f.finisherRoutine(nil, finisherChan, dbUpdateChan, nil)
+	f.handleFile(file, copierChan, nil, nil)
+	<-dbUpdateChan
+
+	info, err = f.fs.Lstat("foo/bar/baz")
+	if err != nil {
+		t.Fatal("Unexpected error (file):", err)
+	}
+	if info.Owner() != expOwner || info.Group() != expGroup {
+		t.Fatalf("Expected file owner/group to be %d/%d, not %d/%d", expOwner, expGroup, info.Owner(), info.Group())
+	}
+
+	// Have the folder create a symlink. Verify it accordingly.
+	symlink := protocol.FileInfo{
+		Name:          "foo/bar/sym",
+		Type:          protocol.FileInfoTypeSymlink,
+		Permissions:   0644,
+		SymlinkTarget: "over the rainbow",
+	}
+
+	f.handleSymlink(symlink, dbUpdateChan)
+	<-dbUpdateChan
+
+	info, err = f.fs.Lstat("foo/bar/sym")
+	if err != nil {
+		t.Fatal("Unexpected error (file):", err)
+	}
+	if info.Owner() != expOwner || info.Group() != expGroup {
+		t.Fatalf("Expected symlink owner/group to be %d/%d, not %d/%d", expOwner, expGroup, info.Owner(), info.Group())
 	}
 }

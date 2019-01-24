@@ -101,6 +101,26 @@ func TestFakeFS(t *testing.T) {
 	if !bytes.Equal(bs0, bs1[1:]) {
 		t.Error("wrong data")
 	}
+
+	// Create symlink
+	if err := fs.CreateSymlink("foo", "dira/dirb/symlink"); err != nil {
+		t.Fatal(err)
+	}
+	if str, err := fs.ReadSymlink("dira/dirb/symlink"); err != nil {
+		t.Fatal(err)
+	} else if str != "foo" {
+		t.Error("Wrong symlink destination", str)
+	}
+
+	// Chown
+	if err := fs.Lchown("dira", 1234, 5678); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := fs.Lstat("dira"); err != nil {
+		t.Fatal(err)
+	} else if info.Owner() != 1234 || info.Group() != 5678 {
+		t.Error("Wrong owner/group")
+	}
 }
 
 func TestFakeFSRead(t *testing.T) {
