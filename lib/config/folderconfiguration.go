@@ -26,33 +26,34 @@ var (
 const DefaultMarkerName = ".stfolder"
 
 type FolderConfiguration struct {
-	ID                    string                      `xml:"id,attr" json:"id"`
-	Label                 string                      `xml:"label,attr" json:"label" restart:"false"`
-	FilesystemType        fs.FilesystemType           `xml:"filesystemType" json:"filesystemType"`
-	Path                  string                      `xml:"path,attr" json:"path"`
-	Type                  FolderType                  `xml:"type,attr" json:"type"`
-	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
-	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
-	FSWatcherEnabled      bool                        `xml:"fsWatcherEnabled,attr" json:"fsWatcherEnabled"`
-	FSWatcherDelayS       int                         `xml:"fsWatcherDelayS,attr" json:"fsWatcherDelayS"`
-	IgnorePerms           bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
-	AutoNormalize         bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
-	MinDiskFree           Size                        `xml:"minDiskFree" json:"minDiskFree"`
-	Versioning            VersioningConfiguration     `xml:"versioning" json:"versioning"`
-	Copiers               int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
-	PullerMaxPendingKiB   int                         `xml:"pullerMaxPendingKiB" json:"pullerMaxPendingKiB"`
-	Hashers               int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
-	Order                 PullOrder                   `xml:"order" json:"order"`
-	IgnoreDelete          bool                        `xml:"ignoreDelete" json:"ignoreDelete"`
-	ScanProgressIntervalS int                         `xml:"scanProgressIntervalS" json:"scanProgressIntervalS"` // Set to a negative value to disable. Value of 0 will get replaced with value of 2 (default value)
-	PullerPauseS          int                         `xml:"pullerPauseS" json:"pullerPauseS"`
-	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
-	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
-	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
-	Paused                bool                        `xml:"paused" json:"paused"`
-	WeakHashThresholdPct  int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
-	MarkerName            string                      `xml:"markerName" json:"markerName"`
-	UseLargeBlocks        bool                        `xml:"useLargeBlocks" json:"useLargeBlocks"`
+	ID                      string                      `xml:"id,attr" json:"id"`
+	Label                   string                      `xml:"label,attr" json:"label" restart:"false"`
+	FilesystemType          fs.FilesystemType           `xml:"filesystemType" json:"filesystemType"`
+	Path                    string                      `xml:"path,attr" json:"path"`
+	Type                    FolderType                  `xml:"type,attr" json:"type"`
+	Devices                 []FolderDeviceConfiguration `xml:"device" json:"devices"`
+	RescanIntervalS         int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
+	FSWatcherEnabled        bool                        `xml:"fsWatcherEnabled,attr" json:"fsWatcherEnabled"`
+	FSWatcherDelayS         int                         `xml:"fsWatcherDelayS,attr" json:"fsWatcherDelayS"`
+	IgnorePerms             bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
+	AutoNormalize           bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
+	MinDiskFree             Size                        `xml:"minDiskFree" json:"minDiskFree"`
+	Versioning              VersioningConfiguration     `xml:"versioning" json:"versioning"`
+	Copiers                 int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
+	PullerMaxPendingKiB     int                         `xml:"pullerMaxPendingKiB" json:"pullerMaxPendingKiB"`
+	Hashers                 int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
+	Order                   PullOrder                   `xml:"order" json:"order"`
+	IgnoreDelete            bool                        `xml:"ignoreDelete" json:"ignoreDelete"`
+	ScanProgressIntervalS   int                         `xml:"scanProgressIntervalS" json:"scanProgressIntervalS"` // Set to a negative value to disable. Value of 0 will get replaced with value of 2 (default value)
+	PullerPauseS            int                         `xml:"pullerPauseS" json:"pullerPauseS"`
+	MaxConflicts            int                         `xml:"maxConflicts" json:"maxConflicts"`
+	DisableSparseFiles      bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
+	DisableTempIndexes      bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
+	Paused                  bool                        `xml:"paused" json:"paused"`
+	WeakHashThresholdPct    int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
+	MarkerName              string                      `xml:"markerName" json:"markerName"`
+	UseLargeBlocks          bool                        `xml:"useLargeBlocks" json:"useLargeBlocks"`
+	CopyOwnershipFromParent bool                        `xml:"copyOwnershipFromParent" json:"copyOwnershipFromParent"`
 
 	cachedFilesystem fs.Filesystem
 

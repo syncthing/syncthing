@@ -8,7 +8,6 @@ package model
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"math/rand"
 	"path/filepath"
@@ -16,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -587,6 +588,11 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 				return err
 			}
 
+			// Copy the parent owner and group, if we are supposed to do that.
+			if err := f.maybeCopyOwner(path); err != nil {
+				return err
+			}
+
 			// Stat the directory so we can check its permissions.
 			info, err := f.fs.Lstat(path)
 			if err != nil {
@@ -707,7 +713,10 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	// We declare a function that acts on only the path name, so
 	// we can pass it to InWritableDir.
 	createLink := func(path string) error {
-		return f.fs.CreateSymlink(file.SymlinkTarget, path)
+		if err := f.fs.CreateSymlink(file.SymlinkTarget, path); err != nil {
+			return err
+		}
+		return f.maybeCopyOwner(path)
 	}
 
 	if err = osutil.InWritableDir(createLink, f.fs, file.Name); err == nil {
@@ -1433,6 +1442,11 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, file, curFile
 		}
 	}
 
+	// Copy the parent owner and group, if we are supposed to do that.
+	if err := f.maybeCopyOwner(tempName); err != nil {
+		return err
+	}
+
 	if stat, err := f.fs.Lstat(file.Name); err == nil {
 		// There is an old file or directory already in place. We need to
 		// handle that.
@@ -1884,6 +1898,26 @@ func (f *sendReceiveFolder) checkToBeDeleted(cur protocol.FileInfo, scanChan cha
 		// File changed
 		scanChan <- cur.Name
 		return errModified
+	}
+	return nil
+}
+
+func (f *sendReceiveFolder) maybeCopyOwner(path string) error {
+	if !f.CopyOwnershipFromParent {
+		// Not supposed to do anything.
+		return nil
+	}
+	if runtime.GOOS == "windows" {
+		// Can't do anything.
+		return nil
+	}
+
+	info, err := f.fs.Lstat(filepath.Dir(path))
+	if err != nil {
+		return errors.Wrap(err, "copy owner from parent")
+	}
+	if err := f.fs.Lchown(path, info.Owner(), info.Group()); err != nil {
+		return errors.Wrap(err, "copy owner from parent")
 	}
 	return nil
 }
