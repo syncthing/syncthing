@@ -34,6 +34,7 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -1081,7 +1082,7 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Panic files
-	if panicFiles, err := filepath.Glob(filepath.Join(baseDirs["config"], "panic*")); err == nil {
+	if panicFiles, err := filepath.Glob(filepath.Join(locations.GetBaseDir(locations.ConfigBaseDir), "panic*")); err == nil {
 		for _, f := range panicFiles {
 			if panicFile, err := ioutil.ReadFile(f); err != nil {
 				l.Warnf("Support bundle: failed to load %s: %s", filepath.Base(f), err)
@@ -1092,7 +1093,7 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Archived log (default on Windows)
-	if logFile, err := ioutil.ReadFile(locations[locLogFile]); err == nil {
+	if logFile, err := ioutil.ReadFile(locations.GetLocation(locations.LogFileLocation)); err == nil {
 		files = append(files, fileEntry{name: "log-ondisk.txt", data: logFile})
 	}
 
@@ -1141,7 +1142,7 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 
 	// Set zip file name and path
 	zipFileName := fmt.Sprintf("support-bundle-%s-%s.zip", s.id.Short().String(), time.Now().Format("2006-01-02T150405"))
-	zipFilePath := filepath.Join(baseDirs["config"], zipFileName)
+	zipFilePath := filepath.Join(locations.GetBaseDir(locations.ConfigBaseDir), zipFileName)
 
 	// Write buffer zip to local zip file (back up)
 	if err := ioutil.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0600); err != nil {

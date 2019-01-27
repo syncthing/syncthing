@@ -17,6 +17,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	_ "net/http/pprof" // Need to import this to support STPROFILER.
 	"net/url"
 	"os"
 	"os/signal"
@@ -38,6 +39,7 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -48,8 +50,6 @@ import (
 	"github.com/syncthing/syncthing/lib/upgrade"
 
 	"github.com/thejerf/suture"
-
-	_ "net/http/pprof" // Need to import this to support STPROFILER.
 )
 
 var (
@@ -357,23 +357,21 @@ func main() {
 				l.Fatalln(err)
 			}
 		}
-		baseDirs["config"] = options.confDir
-	}
-
-	if err := expandLocations(); err != nil {
-		l.Fatalln(err)
+		if err := locations.SetBaseDir(locations.ConfigBaseDir, options.confDir); err != nil {
+			l.Fatalln(err)
+		}
 	}
 
 	if options.logFile == "" {
 		// Blank means use the default logfile location. We must set this
 		// *after* expandLocations above.
-		options.logFile = locations[locLogFile]
+		options.logFile = locations.GetLocation(locations.LogFileLocation)
 	}
 
 	if options.assetDir == "" {
 		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
 		// should look for extra assets in the default place.
-		options.assetDir = locations[locGUIAssets]
+		options.assetDir = locations.GetLocation(locations.GUIAssetsLocation)
 	}
 
 	if options.showVersion {
@@ -392,7 +390,10 @@ func main() {
 	}
 
 	if options.showDeviceId {
-		cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
+		cert, err := tls.LoadX509KeyPair(
+			locations.GetLocation(locations.CertFileLocation),
+			locations.GetLocation(locations.KeyFileLocation),
+		)
 		if err != nil {
 			l.Fatalln("Error reading device ID:", err)
 		}
@@ -413,7 +414,7 @@ func main() {
 	}
 
 	// Ensure that our home directory exists.
-	ensureDir(baseDirs["config"], 0700)
+	ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700)
 
 	if options.upgradeTo != "" {
 		err := upgrade.ToURL(options.upgradeTo)
@@ -536,7 +537,7 @@ func checkUpgrade() upgrade.Release {
 
 func performUpgrade(release upgrade.Release) {
 	// Use leveldb database locks to protect against concurrent upgrades
-	_, err := db.Open(locations[locDatabase])
+	_, err := db.Open(locations.GetLocation(locations.DatabaseLocation))
 	if err == nil {
 		err = upgrade.To(release)
 		if err != nil {
@@ -634,10 +635,17 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	osutil.MaximizeOpenFileLimit()
 
 	// Ensure that we have a certificate and key.
-	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
+	cert, err := tls.LoadX509KeyPair(
+		locations.GetLocation(locations.CertFileLocation),
+		locations.GetLocation(locations.KeyFileLocation),
+	)
 	if err != nil {
 		l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
-		cert, err = tlsutil.NewCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName)
+		cert, err = tlsutil.NewCertificate(
+			locations.GetLocation(locations.CertFileLocation),
+			locations.GetLocation(locations.KeyFileLocation),
+			tlsDefaultCommonName,
+		)
 		if err != nil {
 			l.Fatalln(err)
 		}
@@ -657,7 +665,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Emit the Starting event, now that we know who we are.
 
 	events.Default.Log(events.Starting, map[string]string{
-		"home": baseDirs["config"],
+		"home": locations.GetBaseDir(locations.ConfigBaseDir),
 		"myID": myID.String(),
 	})
 
@@ -681,7 +689,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	perf := cpuBench(3, 150*time.Millisecond, true)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
-	dbFile := locations[locDatabase]
+	dbFile := locations.GetLocation(locations.DatabaseLocation)
 	ldb, err := db.Open(dbFile)
 	if err != nil {
 		l.Fatalln("Error opening database:", err)
@@ -696,10 +704,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	protectedFiles := []string{
-		locations[locDatabase],
-		locations[locConfigFile],
-		locations[locCertFile],
-		locations[locKeyFile],
+		locations.GetLocation(locations.DatabaseLocation),
+		locations.GetLocation(locations.ConfigFileLocation),
+		locations.GetLocation(locations.CertFileLocation),
+		locations.GetLocation(locations.KeyFileLocation),
 	}
 
 	// Remove database entries for folders that no longer exist in the config
@@ -939,7 +947,7 @@ func setupSignalHandling() {
 }
 
 func loadOrDefaultConfig() (*config.Wrapper, error) {
-	cfgFile := locations[locConfigFile]
+	cfgFile := locations.GetLocation(locations.ConfigFileLocation)
 	cfg, err := config.Load(cfgFile, myID)
 
 	if err != nil {
@@ -950,7 +958,7 @@ func loadOrDefaultConfig() (*config.Wrapper, error) {
 }
 
 func loadConfigAtStartup() *config.Wrapper {
-	cfgFile := locations[locConfigFile]
+	cfgFile :=locations.GetLocation(locations.ConfigFileLocation)
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
 		cfg = defaultConfig(cfgFile)
@@ -1014,7 +1022,7 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 		auditDest = "stderr"
 	} else {
 		if auditFile == "" {
-			auditFile = timestampedLoc(locAuditLog)
+			auditFile = locations.GetTimestampedLocation(locations.AuditLogLocation)
 			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_EXCL
 		} else {
 			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_APPEND
@@ -1050,7 +1058,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	cpu := newCPUService()
 	mainService.Add(cpu)
 
-	api := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu)
+	api := newAPIService(myID, cfg, locations.GetLocation(locations.HTTPSCertFileLocation), locations.GetLocation(locations.HTTPSKeyFileLocation), runtimeOptions.assetDir, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu)
 	cfg.Subscribe(api)
 	mainService.Add(api)
 
@@ -1069,7 +1077,7 @@ func defaultConfig(cfgFile string) *config.Wrapper {
 
 	if !noDefaultFolder {
 		l.Infoln("Default folder created and/or linked to new config")
-		defaultFolder = config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations[locDefFolder])
+		defaultFolder = config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations.GetLocation(locations.DefFolderLocation))
 	} else {
 		l.Infoln("We will skip creation of a default folder on first start since the proper envvar is set")
 	}
@@ -1106,7 +1114,7 @@ func defaultConfig(cfgFile string) *config.Wrapper {
 }
 
 func resetDB() error {
-	return os.RemoveAll(locations[locDatabase])
+	return os.RemoveAll(locations.GetLocation(locations.DatabaseLocation))
 }
 
 func restart() {
@@ -1256,7 +1264,7 @@ func cleanConfigDirectory() {
 	}
 
 	for pat, dur := range patterns {
-		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, baseDirs["config"])
+		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, locations.GetBaseDir(locations.ConfigBaseDir))
 		files, err := fs.Glob(pat)
 		if err != nil {
 			l.Infoln("Cleaning:", err)
@@ -1297,13 +1305,13 @@ func checkShortIDs(cfg *config.Wrapper) error {
 }
 
 func showPaths(options RuntimeOptions) {
-	fmt.Printf("Configuration file:\n\t%s\n\n", locations[locConfigFile])
-	fmt.Printf("Database directory:\n\t%s\n\n", locations[locDatabase])
-	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations[locKeyFile], locations[locCertFile])
-	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations[locHTTPSKeyFile], locations[locHTTPSCertFile])
+	fmt.Printf("Configuration file:\n\t%s\n\n",locations.GetLocation(locations.ConfigFileLocation))
+	fmt.Printf("Database directory:\n\t%s\n\n", locations.GetLocation(locations.DatabaseLocation))
+	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations.GetLocation(locations.KeyFileLocation), locations.GetLocation(locations.CertFileLocation))
+	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations.GetLocation(locations.HTTPSKeyFileLocation), locations.GetLocation(locations.HTTPSCertFileLocation))
 	fmt.Printf("Log file:\n\t%s\n\n", options.logFile)
 	fmt.Printf("GUI override directory:\n\t%s\n\n", options.assetDir)
-	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations[locDefFolder])
+	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations.GetLocation(locations.DefFolderLocation))
 }
 
 func setPauseState(cfg *config.Wrapper, paused bool) {

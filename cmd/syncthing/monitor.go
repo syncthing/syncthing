@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -198,7 +199,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 			}
 
 			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
-				panicFd, err = os.Create(timestampedLoc(locPanicLog))
+				panicFd, err = os.Create(locations.GetTimestampedLocation(locations.PanicLogLocation))
 				if err != nil {
 					l.Warnln("Create panic log:", err)
 					continue
