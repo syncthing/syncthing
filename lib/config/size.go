@@ -72,8 +72,13 @@ func (s Size) String() string {
 	return fmt.Sprintf("%v %s", s.Value, s.Unit)
 }
 
-func (Size) ParseDefault(s string) (interface{}, error) {
-	return ParseSize(s)
+func (s *Size) UnmarshalText(text []byte) error {
+	sz, err := ParseSize(string(text))
+	if err != nil {
+		return err
+	}
+	*s = sz
+	return nil
 }
 
 func checkFreeSpace(req Size, usage fs.Usage) error {

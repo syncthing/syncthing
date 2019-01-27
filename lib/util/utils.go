@@ -7,6 +7,7 @@
 package util
 
 import (
+	"encoding"
 	"fmt"
 	"net/url"
 	"reflect"
@@ -26,18 +27,16 @@ func SetDefaults(data interface{}) error {
 
 		v := tag.Get("default")
 		if len(v) > 0 {
-			if parser, ok := f.Interface().(interface {
-				ParseDefault(string) (interface{}, error)
-			}); ok {
-				val, err := parser.ParseDefault(v)
-				if err != nil {
-					panic(err)
+			if f.CanInterface() && f.CanAddr() {
+				if m, ok := f.Addr().Interface().(encoding.TextUnmarshaler); ok {
+					return m.UnmarshalText([]byte(v))
 				}
-				f.Set(reflect.ValueOf(val))
-				continue
 			}
 
-			switch f.Interface().(type) {
+			switch m := f.Interface().(type) {
+			case encoding.TextUnmarshaler:
+				return m.UnmarshalText([]byte(v))
+
 			case string:
 				f.SetString(v)
 
