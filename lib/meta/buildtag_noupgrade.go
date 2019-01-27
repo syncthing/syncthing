@@ -4,10 +4,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//+build race
+//+build noupgrade
 
-package main
+package meta
 
 func init() {
-	BuildTags = append(BuildTags, "race")
+	BuildTags = append(BuildTags, "noupgrade")
 }

@@ -23,7 +23,6 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"runtime/pprof"
 	"sort"
@@ -41,6 +40,7 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
+	"github.com/syncthing/syncthing/lib/meta"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -50,21 +50,6 @@ import (
 	"github.com/syncthing/syncthing/lib/upgrade"
 
 	"github.com/thejerf/suture"
-)
-
-var (
-	Version           = "unknown-dev"
-	Codename          = "Erbium Earthworm"
-	BuildStamp        = "0"
-	BuildDate         time.Time
-	BuildHost         = "unknown"
-	BuildUser         = "unknown"
-	IsRelease         bool
-	IsCandidate       bool
-	IsBeta            bool
-	LongVersion       string
-	BuildTags         []string
-	allowedVersionExp = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\.\d+)*(\+\d+-g[0-9a-f]+)?(-[^\s]+)?$`)
 )
 
 const (
@@ -83,46 +68,6 @@ const (
 	initialSystemLog     = 10
 	maxSystemLog         = 250
 )
-
-func init() {
-	if Version != "unknown-dev" {
-		// If not a generic dev build, version string should come from git describe
-		if !allowedVersionExp.MatchString(Version) {
-			l.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, allowedVersionExp)
-		}
-	}
-}
-
-func setBuildMetadata() {
-	// Check for a clean release build. A release is something like
-	// "v0.1.2", with an optional suffix of letters and dot separated
-	// numbers like "-beta3.47". If there's more stuff, like a plus sign and
-	// a commit hash and so on, then it's not a release. If it has a dash in
-	// it, it's some sort of beta, release candidate or special build. If it
-	// has "-rc." in it, like "v0.14.35-rc.42", then it's a candidate build.
-	//
-	// So, every build that is not a stable release build has IsBeta = true.
-	// This is used to enable some extra debugging (the deadlock detector).
-	//
-	// Release candidate builds are also "betas" from this point of view and
-	// will have that debugging enabled. In addition, some features are
-	// forced for release candidates - auto upgrade, and usage reporting.
-
-	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z]+[\d\.]+)?$`)
-	IsRelease = exp.MatchString(Version)
-	IsCandidate = strings.Contains(Version, "-rc.")
-	IsBeta = strings.Contains(Version, "-")
-
-	stamp, _ := strconv.Atoi(BuildStamp)
-	BuildDate = time.Unix(int64(stamp), 0)
-
-	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
-	LongVersion = fmt.Sprintf(`syncthing %s "%s" (%s %s-%s) %s@%s %s`, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
-
-	if len(BuildTags) > 0 {
-		LongVersion = fmt.Sprintf("%s [%s]", LongVersion, strings.Join(BuildTags, ", "))
-	}
-}
 
 var (
 	myID protocol.DeviceID
@@ -322,8 +267,6 @@ func parseCommandLineOptions() RuntimeOptions {
 }
 
 func main() {
-	setBuildMetadata()
-
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
 
@@ -375,7 +318,7 @@ func main() {
 	}
 
 	if options.showVersion {
-		fmt.Println(LongVersion)
+		fmt.Println(meta.LongVersion)
 		return
 	}
 
@@ -520,18 +463,18 @@ func debugFacilities() string {
 func checkUpgrade() upgrade.Release {
 	cfg, _ := loadOrDefaultConfig()
 	opts := cfg.Options()
-	release, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
+	release, err := upgrade.LatestRelease(opts.ReleasesURL, meta.Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		l.Fatalln("Upgrade:", err)
 	}
 
-	if upgrade.CompareVersions(release.Tag, Version) <= 0 {
+	if upgrade.CompareVersions(release.Tag, meta.Version) <= 0 {
 		noUpgradeMessage := "No upgrade available (current %q >= latest %q)."
-		l.Infof(noUpgradeMessage, Version, release.Tag)
+		l.Infof(noUpgradeMessage, meta.Version, release.Tag)
 		os.Exit(exitNoUpgradeAvailable)
 	}
 
-	l.Infof("Upgrade available (current %q < latest %q)", Version, release.Tag)
+	l.Infof("Upgrade available (current %q < latest %q)", meta.Version, release.Tag)
 	return release
 }
 
@@ -654,7 +597,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	myID = protocol.NewDeviceID(cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", myID.String()[:5]))
 
-	l.Infoln(LongVersion)
+	l.Infoln(meta.LongVersion)
 	l.Infoln("My ID:", myID)
 
 	// Select SHA256 implementation and report. Affected by the
@@ -729,10 +672,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// 0.14.45-pineapple is not.
 
 	prevParts := strings.Split(prevVersion, "-")
-	curParts := strings.Split(Version, "-")
+	curParts := strings.Split(meta.Version, "-")
 	if prevParts[0] != curParts[0] {
 		if prevVersion != "" {
-			l.Infoln("Detected upgrade from", prevVersion, "to", Version)
+			l.Infoln("Detected upgrade from", prevVersion, "to", meta.Version)
 		}
 
 		// Drop delta indexes in case we've changed random stuff we
@@ -740,16 +683,16 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		db.DropDeltaIndexIDs(ldb)
 
 		// Remember the new version.
-		miscDB.PutString("prevVersion", Version)
+		miscDB.PutString("prevVersion", meta.Version)
 	}
 
-	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
+	m := model.NewModel(cfg, myID, "syncthing", meta.Version, ldb, protectedFiles)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
 		if secs, _ := strconv.Atoi(t); secs > 0 {
 			m.StartDeadlockDetector(time.Duration(secs) * time.Second)
 		}
-	} else if !IsRelease || IsBeta {
+	} else if !meta.IsRelease || meta.IsBeta {
 		m.StartDeadlockDetector(20 * time.Minute)
 	}
 
@@ -846,7 +789,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Candidate builds always run with usage reporting.
 
-	if opts := cfg.Options(); IsCandidate {
+	if opts := cfg.Options(); meta.IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
 		if opts.URAccepted != usageReportVersion {
 			opts.URAccepted = usageReportVersion
@@ -874,7 +817,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// unless we are in a build where it's disabled or the STNOUPGRADE
 	// environment variable is set.
 
-	if IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
+	if meta.IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
 		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
 		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
 			opts.AutoUpgradeIntervalH = 12
@@ -958,7 +901,7 @@ func loadOrDefaultConfig() (*config.Wrapper, error) {
 }
 
 func loadConfigAtStartup() *config.Wrapper {
-	cfgFile :=locations.GetLocation(locations.ConfigFileLocation)
+	cfgFile := locations.GetLocation(locations.ConfigFileLocation)
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
 		cfg = defaultConfig(cfgFile)
@@ -1197,10 +1140,10 @@ func autoUpgrade(cfg *config.Wrapper) {
 		select {
 		case event := <-sub.C():
 			data, ok := event.Data.(map[string]string)
-			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], Version) != upgrade.Newer {
+			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], meta.Version) != upgrade.Newer {
 				continue
 			}
-			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], Version, data["clientVersion"])
+			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], meta.Version, data["clientVersion"])
 		case <-timer.C:
 		}
 
@@ -1212,7 +1155,7 @@ func autoUpgrade(cfg *config.Wrapper) {
 			checkInterval = time.Hour
 		}
 
-		rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
+		rel, err := upgrade.LatestRelease(opts.ReleasesURL, meta.Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return
@@ -1225,13 +1168,13 @@ func autoUpgrade(cfg *config.Wrapper) {
 			continue
 		}
 
-		if upgrade.CompareVersions(rel.Tag, Version) != upgrade.Newer {
+		if upgrade.CompareVersions(rel.Tag, meta.Version) != upgrade.Newer {
 			// Skip equal, older or majorly newer (incompatible) versions
 			timer.Reset(checkInterval)
 			continue
 		}
 
-		l.Infof("Automatic upgrade (current %q < latest %q)", Version, rel.Tag)
+		l.Infof("Automatic upgrade (current %q < latest %q)", meta.Version, rel.Tag)
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("Automatic upgrade:", err)
@@ -1305,7 +1248,7 @@ func checkShortIDs(cfg *config.Wrapper) error {
 }
 
 func showPaths(options RuntimeOptions) {
-	fmt.Printf("Configuration file:\n\t%s\n\n",locations.GetLocation(locations.ConfigFileLocation))
+	fmt.Printf("Configuration file:\n\t%s\n\n", locations.GetLocation(locations.ConfigFileLocation))
 	fmt.Printf("Database directory:\n\t%s\n\n", locations.GetLocation(locations.DatabaseLocation))
 	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations.GetLocation(locations.KeyFileLocation), locations.GetLocation(locations.CertFileLocation))
 	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations.GetLocation(locations.HTTPSKeyFileLocation), locations.GetLocation(locations.HTTPSCertFileLocation))
