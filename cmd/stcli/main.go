@@ -140,7 +140,6 @@ func main() {
 		},
 		showCommand,
 		operationCommand,
-		reportCommand,
 		errorsCommand,
 	}
 
