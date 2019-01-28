@@ -172,17 +172,14 @@ func main() {
 	}
 
 	if !reflect.DeepEqual(cfg, original) {
-		fmt.Println("UPDATE")
 		body, err := json.MarshalIndent(cfg, "", "  ")
 		if err != nil {
 			log.Fatalln(err)
 		}
-		fmt.Println(string(body))
 		resp, err := client.Post("system/config", string(body))
 		if err != nil {
 			log.Fatalln(err)
 		}
-		fmt.Println(resp.Status)
 		s, _ := responseToBArray(resp)
 		fmt.Println(string(s))
 	}
