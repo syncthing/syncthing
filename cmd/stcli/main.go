@@ -149,7 +149,6 @@ func main() {
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
 			input, err := shlex.Split(scanner.Text())
-			fmt.Println("READ", input)
 			if err != nil {
 				log.Fatalln(errors.Wrap(err, "parsing input"))
 			}
