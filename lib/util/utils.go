@@ -15,6 +15,10 @@ import (
 	"strings"
 )
 
+type defaultParser interface {
+	ParseDefault(string) error
+}
+
 // SetDefaults sets default values on a struct, based on the default annotation.
 func SetDefaults(data interface{}) error {
 	s := reflect.ValueOf(data).Elem()
@@ -26,15 +30,22 @@ func SetDefaults(data interface{}) error {
 
 		v := tag.Get("default")
 		if len(v) > 0 {
-			if parser, ok := f.Interface().(interface {
-				ParseDefault(string) (interface{}, error)
-			}); ok {
-				val, err := parser.ParseDefault(v)
-				if err != nil {
-					panic(err)
+			if f.CanInterface() {
+				if parser, ok := f.Interface().(defaultParser); ok {
+					if err := parser.ParseDefault(v); err != nil {
+						panic(err)
+					}
+					continue
 				}
-				f.Set(reflect.ValueOf(val))
-				continue
+			}
+
+			if f.CanAddr() && f.Addr().CanInterface() {
+				if parser, ok := f.Addr().Interface().(defaultParser); ok {
+					if err := parser.ParseDefault(v); err != nil {
+						panic(err)
+					}
+					continue
+				}
 			}
 
 			switch f.Interface().(type) {
