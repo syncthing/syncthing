@@ -298,9 +298,6 @@ func (cfg *Configuration) clean() error {
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
 	for _, device := range cfg.Devices {
-		if device.DeviceID == protocol.EmptyDeviceID {
-			return fmt.Errorf("device with empty ID in configuration")
-		}
 		existingDevices[device.DeviceID] = true
 	}
 
