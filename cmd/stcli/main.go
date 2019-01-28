@@ -11,7 +11,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"reflect"
@@ -176,11 +175,9 @@ func main() {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		resp, err := client.Post("system/config", string(body))
+		_, err = client.Post("system/config", string(body))
 		if err != nil {
 			log.Fatalln(err)
 		}
-		s, _ := responseToBArray(resp)
-		fmt.Println(string(s))
 	}
 }
