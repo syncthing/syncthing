@@ -50,6 +50,7 @@ func init() {
 
 	defaultFolderConfig = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, "testdata")
 	defaultFolderConfig.Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
+	defaultFolderConfig.FSWatcherEnabled = false
 	defaultCfg = config.Configuration{
 		Version: config.CurrentVersion,
 		Folders: []config.FolderConfiguration{defaultFolderConfig},
