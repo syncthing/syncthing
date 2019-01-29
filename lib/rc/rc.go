@@ -126,12 +126,10 @@ func (p *Process) wait() {
 // AwaitStartup waits for the Syncthing process to start and perform initial
 // scans of all folders.
 func (p *Process) AwaitStartup() {
-	fmt.Println("awaiting startup")
 	select {
 	case <-p.startComplete:
 	case <-p.stopped:
 	}
-	fmt.Println("awaited startup")
 }
 
 // Stop stops the running Syncthing process. If the process was logging to a
@@ -320,6 +318,7 @@ func InSync(folder string, ps ...*Process) bool {
 		// If our latest FolderSummary didn't report 100%, then we are not done.
 
 		if !ps[i].done[folder] {
+			l.Debugf("done = ps[%d].done[%q] = false", i, folder)
 			return false
 		}
 
