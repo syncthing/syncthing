@@ -2,6 +2,8 @@ github.com/AudriusButkevicius/cli v0.0.0-20140727204646-7f561c78b5a4 h1:Cy4N5Bdz
 github.com/AudriusButkevicius/cli v0.0.0-20140727204646-7f561c78b5a4/go.mod h1:mK5FQv1k6rd64lZeDQ+JgG5hSERyVEYeC3qXrbN+2nw=
 github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362 h1:l4qGIzSY0WhdXdR74XMYAtfc0Ri/RJVM4p6x/E/+WkA=
 github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362/go.mod h1:CEaBhA5lh1spxbPOELh5wNLKGsVQoahjUhVrJViVK8s=
+github.com/AudriusButkevicius/recli v0.0.3 h1:Nh6Tv6rxSQV6S/j4yrVA/oLL6WHR3NanPHniHf1GUWQ=
+github.com/AudriusButkevicius/recli v0.0.3/go.mod h1:Q2E26yc6RvWWEz/TJ/goUp6yXvipYdJI096hpoaqsNs=
 github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a h1:BtpsbiV638WQZwhA98cEZw2BsbnQJrbd0BI7tsy0W1c=
 github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e h1:2augTYh6E+XoNrrivZJBadpThP/dsvYKj0nzqfQ8tM4=
@@ -55,6 +57,8 @@ github.com/petermattis/goid v0.0.0-20170816195418-3db12ebb2a59 h1:2pHcLyJYXivxVv
 github.com/petermattis/goid v0.0.0-20170816195418-3db12ebb2a59/go.mod h1:jvVRKCrJTQWu0XVbaOlby/2lO20uSCHEMzzplHXte1o=
 github.com/pkg/errors v0.0.0-20171216070316-e881fd58d78e h1:+RHxT/gm0O3UF7nLJbdNzAmULvCFt4XfXHWzh3XI/zs=
 github.com/pkg/errors v0.0.0-20171216070316-e881fd58d78e/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
+github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
+github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prometheus/client_golang v0.9.0 h1:tXuTFVHC03mW0D+Ua1Q2d1EAVqLTuggX50V0VLICCzY=
@@ -77,6 +81,8 @@ github.com/syndtr/goleveldb v0.0.0-20171214120811-34011bf325bc h1:yhWARKbbDg8UBR
 github.com/syndtr/goleveldb v0.0.0-20171214120811-34011bf325bc/go.mod h1:Z4AUp2Km+PwemOoO/VB5AOx9XSsIItzFjoJlOSiYmn0=
 github.com/thejerf/suture v0.0.0-20180907184608-bf6ee6a0b047 h1:TRlvuQjC13jRLqqJTp8rbb5SjRTYCP/8sCIYRdEaJrg=
 github.com/thejerf/suture v0.0.0-20180907184608-bf6ee6a0b047/go.mod h1:ibKwrVj+Uzf3XZdAiNWUouPaAbSoemxOHLmJmwheEMc=
+github.com/urfave/cli v1.20.0 h1:fDqGv3UG/4jbVl/QkFwEdddtEDjh/5Ov6X+0B/3bPaw=
+github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0 h1:okhMind4q9H1OxF44gNegWkiP4H/gsTFLalHFa4OOUI=
 github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0/go.mod h1:TTbGUfE+cXXceWtbTHq6lqcTvYPBKLNejBEbnUsQJtU=
 golang.org/x/crypto v0.0.0-20171231215028-0fcca4842a8d h1:GrqEEc3+MtHKTsZrdIGVoYDgLpbSRzW1EF+nLu0PcHE=

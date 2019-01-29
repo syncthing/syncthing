@@ -3,6 +3,7 @@ module github.com/syncthing/syncthing
 require (
 	github.com/AudriusButkevicius/cli v0.0.0-20140727204646-7f561c78b5a4
 	github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362
+	github.com/AudriusButkevicius/recli v0.0.3 // indirect
 	github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a // indirect
 	github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e
 	github.com/calmh/du v1.0.1
@@ -26,7 +27,7 @@ require (
 	github.com/oschwald/geoip2-golang v1.1.0
 	github.com/oschwald/maxminddb-golang v0.0.0-20170901134056-26fe5ace1c70 // indirect
 	github.com/petermattis/goid v0.0.0-20170816195418-3db12ebb2a59 // indirect
-	github.com/pkg/errors v0.0.0-20171216070316-e881fd58d78e
+	github.com/pkg/errors v0.8.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v0.9.0
 	github.com/prometheus/client_model v0.0.0-20171117100541-99fa1f4be8e5 // indirect
