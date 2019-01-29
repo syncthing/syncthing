@@ -5,6 +5,8 @@ ENV CGO_ENABLED=0
 ENV BUILD_HOST=syncthing.net
 ENV BUILD_USER=docker
 
+RUN apk add --no-cache git
+
 WORKDIR /go/src/github.com/syncthing/syncthing
 COPY . .
 RUN go run build.go -no-upgrade build
