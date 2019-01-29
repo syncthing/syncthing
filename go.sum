@@ -1,5 +1,3 @@
-github.com/AudriusButkevicius/cli v0.0.0-20140727204646-7f561c78b5a4 h1:Cy4N5BdzSyWRnkNyzkIMKPSuzENT4AGxC+YFo0OOcCI=
-github.com/AudriusButkevicius/cli v0.0.0-20140727204646-7f561c78b5a4/go.mod h1:mK5FQv1k6rd64lZeDQ+JgG5hSERyVEYeC3qXrbN+2nw=
 github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362 h1:l4qGIzSY0WhdXdR74XMYAtfc0Ri/RJVM4p6x/E/+WkA=
 github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362/go.mod h1:CEaBhA5lh1spxbPOELh5wNLKGsVQoahjUhVrJViVK8s=
 github.com/AudriusButkevicius/recli v0.0.3 h1:Nh6Tv6rxSQV6S/j4yrVA/oLL6WHR3NanPHniHf1GUWQ=
@@ -18,6 +16,8 @@ github.com/d4l3k/messagediff v1.2.1 h1:ZcAIMYsUg0EAp9X+tt8/enBE/Q8Yd5kzPynLyKptt
 github.com/d4l3k/messagediff v1.2.1/go.mod h1:Oozbb1TVXFac9FtSIxHBMnBCq2qeH/2KkEQxENCrlLo=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568 h1:BMXYYRWTLOJKlh+lOBt6nUQgXAfB7oVIQt5cNreqSLI=
+github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:rZfgFAXFS/z/lEd6LJmf9HVZ1LkgYiHx5pHhV5DR16M=
 github.com/gobwas/glob v0.0.0-20170212200151-51eb1ee00b6d h1:IngNQgbqr5ZOU0exk395Szrvkzes9Ilk1fmJfkw7d+M=
 github.com/gobwas/glob v0.0.0-20170212200151-51eb1ee00b6d/go.mod h1:d3Ez4x06l9bZtSvzIay5+Yzi0fmZzPgnTbPcKjJAkT8=
 github.com/gogo/protobuf v1.2.0 h1:xU6/SpYbvkNYiptHJYEDRseDLvYE7wSqhYYNy0QSUzI=
@@ -39,10 +39,10 @@ github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/lib/pq v1.0.0 h1:X5PMW56eZitiTeO7tKzZxFCSpbFZJtkMMooicw2us9A=
 github.com/lib/pq v1.0.0/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
+github.com/mattn/go-isatty v0.0.4 h1:bnP0vzxcAdeI1zdubAl5PjU6zsERjGZb7raWodagDYs=
+github.com/mattn/go-isatty v0.0.4/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNxMWT7Zi4=
 github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0jegS5sx/RkqARlsWZ6pIwiU=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
-github.com/minio/sha256-simd v0.0.0-20190104231041-e529fa194128 h1:hEDK0Zao06IGlO1ada0FLT2g3KEot2vCqFp8gdvJqzM=
-github.com/minio/sha256-simd v0.0.0-20190104231041-e529fa194128/go.mod h1:2FMWW+8GMoPweT6+pI63m9YE3Lmw4J71hV56Chs1E/U=
 github.com/minio/sha256-simd v0.0.0-20190117184323-cc1980cb0338 h1:USW1+zAUkUSvk097CAX/i8KR3r6f+DHNhk6Xe025Oyw=
 github.com/minio/sha256-simd v0.0.0-20190117184323-cc1980cb0338/go.mod h1:2FMWW+8GMoPweT6+pI63m9YE3Lmw4J71hV56Chs1E/U=
 github.com/onsi/ginkgo v0.0.0-20171221013426-6c46eb8334b3 h1:ZN7kHmC0iunA+4UPmERwsuMQan4lUnntO6WX6H1jOO8=
@@ -55,8 +55,6 @@ github.com/oschwald/maxminddb-golang v0.0.0-20170901134056-26fe5ace1c70 h1:XGLYU
 github.com/oschwald/maxminddb-golang v0.0.0-20170901134056-26fe5ace1c70/go.mod h1:3jhIUymTJ5VREKyIhWm66LJiQt04F0UCDdodShpjWsY=
 github.com/petermattis/goid v0.0.0-20170816195418-3db12ebb2a59 h1:2pHcLyJYXivxVvpoCc29uo3GDU1qFfJ1ggXKGYMrM0E=
 github.com/petermattis/goid v0.0.0-20170816195418-3db12ebb2a59/go.mod h1:jvVRKCrJTQWu0XVbaOlby/2lO20uSCHEMzzplHXte1o=
-github.com/pkg/errors v0.0.0-20171216070316-e881fd58d78e h1:+RHxT/gm0O3UF7nLJbdNzAmULvCFt4XfXHWzh3XI/zs=
-github.com/pkg/errors v0.0.0-20171216070316-e881fd58d78e/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
