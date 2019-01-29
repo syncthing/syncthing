@@ -175,9 +175,16 @@ func main() {
 		if err != nil {
 			log.Fatalln(err)
 		}
-		_, err = client.Post("system/config", string(body))
+		resp, err := client.Post("system/config", string(body))
 		if err != nil {
 			log.Fatalln(err)
+		}
+		if resp.StatusCode != 200 {
+			body, err := responseToBArray(resp)
+			if err != nil {
+				log.Fatalln(err)
+			}
+			log.Fatalln(string(body))
 		}
 	}
 }
