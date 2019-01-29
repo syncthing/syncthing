@@ -68,7 +68,6 @@ func getConfig(c *APIClient) (config.Configuration, error) {
 	return cfg, nil
 }
 
-
 func expects(n int, actionFunc cli.ActionFunc) cli.ActionFunc {
 	return func(ctx *cli.Context) error {
 		if ctx.NArg() != n {
