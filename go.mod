@@ -14,7 +14,6 @@ require (
 	github.com/gobwas/glob v0.0.0-20170212200151-51eb1ee00b6d
 	github.com/gogo/protobuf v1.2.0
 	github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4
-	github.com/golang/protobuf v0.0.0-20171113180720-1e59b77b52bf // indirect
 	github.com/golang/snappy v0.0.0-20170215233205-553a64147049 // indirect
 	github.com/jackpal/gateway v0.0.0-20161225004348-5795ac81146e
 	github.com/kballard/go-shellquote v0.0.0-20170619183022-cd60e84ee657
@@ -30,21 +29,17 @@ require (
 	github.com/petermattis/goid v0.0.0-20170816195418-3db12ebb2a59 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v0.9.0
-	github.com/prometheus/client_model v0.0.0-20171117100541-99fa1f4be8e5 // indirect
-	github.com/prometheus/common v0.0.0-20171117163051-2e54d0b93cba // indirect
-	github.com/prometheus/procfs v0.0.0-20171226183907-b15cd069a834 // indirect
+	github.com/prometheus/client_golang v0.9.2
 	github.com/rcrowley/go-metrics v0.0.0-20171128170426-e181e095bae9
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/stretchr/testify v1.2.2 // indirect
 	github.com/syncthing/notify v0.0.0-20181107104724-4e389ea6c0d8
 	github.com/syndtr/goleveldb v0.0.0-20171214120811-34011bf325bc
-	github.com/thejerf/suture v0.0.0-20180907184608-bf6ee6a0b047
+	github.com/thejerf/suture v3.0.2+incompatible
 	github.com/urfave/cli v1.20.0
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20171231215028-0fcca4842a8d
-	golang.org/x/net v0.0.0-20171212005608-d866cfc389ce
-	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f // indirect
+	golang.org/x/net v0.0.0-20181201002055-351d144fa1fc
 	golang.org/x/sys v0.0.0-20181213200352-4d1cda033e06 // indirect
 	golang.org/x/text v0.0.0-20171227012246-e19ae1496984
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b

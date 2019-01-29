@@ -58,7 +58,7 @@ type OptionsConfiguration struct {
 	DeprecatedUPnPRenewalM       int      `xml:"upnpRenewalMinutes,omitempty" json:"-"`
 	DeprecatedUPnPTimeoutS       int      `xml:"upnpTimeoutSeconds,omitempty" json:"-"`
 	DeprecatedRelayServers       []string `xml:"relayServer,omitempty" json:"-"`
-	DeprecatedMinHomeDiskFreePct float64  `xml:"minHomeDiskFreePct" json:"-"`
+	DeprecatedMinHomeDiskFreePct float64  `xml:"minHomeDiskFreePct,omitempty" json:"-"`
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {
