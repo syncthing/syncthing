@@ -199,7 +199,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 			}
 
 			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
-				panicFd, err = os.Create(locations.GetTimestampedLocation(locations.PanicLogLocation))
+				panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
 				if err != nil {
 					l.Warnln("Create panic log:", err)
 					continue

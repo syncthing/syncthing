@@ -75,8 +75,8 @@ func main() {
 
 		// Load the certs and get the ID
 		cert, err := tls.LoadX509KeyPair(
-			locations.GetLocation(locations.CertFileLocation),
-			locations.GetLocation(locations.KeyFileLocation),
+			locations.Get(locations.CertFile),
+			locations.Get(locations.KeyFile),
 		)
 		if err != nil {
 			log.Fatal(errors.Wrap(err, "reading device ID"))
@@ -85,7 +85,7 @@ func main() {
 		myID := protocol.NewDeviceID(cert.Certificate[0])
 
 		// Load the config
-		cfg, err := config.Load(locations.GetLocation(locations.ConfigFileLocation), myID)
+		cfg, err := config.Load(locations.Get(locations.ConfigFile), myID)
 		if err != nil {
 			log.Fatalln(errors.Wrap(err, "loading config"))
 		}

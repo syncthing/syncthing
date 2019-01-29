@@ -17,23 +17,23 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
-type LocationationEnum string
+type LocationEnum string
 
 // Use strings as keys to make printout and serialization of the locations map
 // more meaningful.
 const (
-	ConfigFileLocation    LocationationEnum = "config"
-	CertFileLocation                        = "certFile"
-	KeyFileLocation                         = "keyFile"
-	HTTPSCertFileLocation                   = "httpsCertFile"
-	HTTPSKeyFileLocation                    = "httpsKeyFile"
-	DatabaseLocation                        = "database"
-	LogFileLocation                         = "logFile"
-	CsrfTokensLocation                      = "csrfTokens"
-	PanicLogLocation                        = "panicLog"
-	AuditLogLocation                        = "auditLog"
-	GUIAssetsLocation                       = "GUIAssets"
-	DefFolderLocation                       = "defFolder"
+	ConfigFile    LocationEnum = "config"
+	CertFile                   = "certFile"
+	KeyFile                    = "keyFile"
+	HTTPSCertFile              = "httpsCertFile"
+	HTTPSKeyFile               = "httpsKeyFile"
+	Database                   = "database"
+	LogFile                    = "logFile"
+	CsrfTokens                 = "csrfTokens"
+	PanicLog                   = "panicLog"
+	AuditLog                   = "auditLog"
+	GUIAssets                  = "GUIAssets"
+	DefFolder                  = "defFolder"
 )
 
 type BaseDirEnum string
@@ -59,7 +59,7 @@ func SetBaseDir(baseDirName BaseDirEnum, path string) error {
 	return expandLocations()
 }
 
-func GetLocation(location LocationationEnum) string {
+func Get(location LocationEnum) string {
 	return locations[location]
 }
 
@@ -74,19 +74,19 @@ var baseDirs = map[BaseDirEnum]string{
 }
 
 // Use the variables from baseDirs here
-var locations = map[LocationationEnum]string{
-	ConfigFileLocation:    "${config}/config.xml",
-	CertFileLocation:      "${config}/cert.pem",
-	KeyFileLocation:       "${config}/key.pem",
-	HTTPSCertFileLocation: "${config}/https-cert.pem",
-	HTTPSKeyFileLocation:  "${config}/https-key.pem",
-	DatabaseLocation:      "${config}/index-v0.14.0.db",
-	LogFileLocation:       "${config}/syncthing.log", // -logfile on Windows
-	CsrfTokensLocation:    "${config}/csrftokens.txt",
-	PanicLogLocation:      "${config}/panic-${timestamp}.log",
-	AuditLogLocation:      "${config}/audit-${timestamp}.log",
-	GUIAssetsLocation:     "${config}/gui",
-	DefFolderLocation:     "${home}/Sync",
+var locations = map[LocationEnum]string{
+	ConfigFile:    "${config}/config.xml",
+	CertFile:      "${config}/cert.pem",
+	KeyFile:       "${config}/key.pem",
+	HTTPSCertFile: "${config}/https-cert.pem",
+	HTTPSKeyFile:  "${config}/https-key.pem",
+	Database:      "${config}/index-v0.14.0.db",
+	LogFile:       "${config}/syncthing.log", // -logfile on Windows
+	CsrfTokens:    "${config}/csrftokens.txt",
+	PanicLog:      "${config}/panic-${timestamp}.log",
+	AuditLog:      "${config}/audit-${timestamp}.log",
+	GUIAssets:     "${config}/gui",
+	DefFolder:     "${home}/Sync",
 }
 
 // expandLocations replaces the variables in the locations map with actual
@@ -112,7 +112,7 @@ func expandLocations() error {
 func defaultConfigDir() string {
 	switch runtime.GOOS {
 	case "windows":
-		if p := os.Getenv("LocationalAppData"); p != "" {
+		if p := os.Getenv("LocalAppData"); p != "" {
 			return filepath.Join(p, "Syncthing")
 		}
 		return filepath.Join(os.Getenv("AppData"), "Syncthing")
@@ -145,7 +145,7 @@ func homeDir() string {
 	return home
 }
 
-func GetTimestampedLocation(key LocationationEnum) string {
+func GetTimestamped(key LocationEnum) string {
 	// We take the roundtrip via "${timestamp}" instead of passing the path
 	// directly through time.Format() to avoid issues when the path we are
 	// expanding contains numbers; otherwise for example
