@@ -20,9 +20,9 @@ import (
 	"github.com/flynn-archive/go-shlex"
 	"github.com/mattn/go-isatty"
 	"github.com/pkg/errors"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/meta"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/urfave/cli"
 )
@@ -125,7 +125,7 @@ func main() {
 	app.HelpName = app.Name
 	app.Author = "The Syncthing Authors"
 	app.Usage = "Syncthing command line interface"
-	app.Version = strings.Replace(meta.LongVersion, "syncthing", app.Name, 1)
+	app.Version = strings.Replace(build.LongVersion, "syncthing", app.Name, 1)
 	app.Flags = fakeFlags
 	app.Metadata = map[string]interface{}{
 		"client": client,

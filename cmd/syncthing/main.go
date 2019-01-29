@@ -31,6 +31,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
@@ -40,7 +41,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
-	"github.com/syncthing/syncthing/lib/meta"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -318,7 +318,7 @@ func main() {
 	}
 
 	if options.showVersion {
-		fmt.Println(meta.LongVersion)
+		fmt.Println(build.LongVersion)
 		return
 	}
 
@@ -463,18 +463,18 @@ func debugFacilities() string {
 func checkUpgrade() upgrade.Release {
 	cfg, _ := loadOrDefaultConfig()
 	opts := cfg.Options()
-	release, err := upgrade.LatestRelease(opts.ReleasesURL, meta.Version, opts.UpgradeToPreReleases)
+	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		l.Fatalln("Upgrade:", err)
 	}
 
-	if upgrade.CompareVersions(release.Tag, meta.Version) <= 0 {
+	if upgrade.CompareVersions(release.Tag, build.Version) <= 0 {
 		noUpgradeMessage := "No upgrade available (current %q >= latest %q)."
-		l.Infof(noUpgradeMessage, meta.Version, release.Tag)
+		l.Infof(noUpgradeMessage, build.Version, release.Tag)
 		os.Exit(exitNoUpgradeAvailable)
 	}
 
-	l.Infof("Upgrade available (current %q < latest %q)", meta.Version, release.Tag)
+	l.Infof("Upgrade available (current %q < latest %q)", build.Version, release.Tag)
 	return release
 }
 
@@ -597,7 +597,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	myID = protocol.NewDeviceID(cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", myID.String()[:5]))
 
-	l.Infoln(meta.LongVersion)
+	l.Infoln(build.LongVersion)
 	l.Infoln("My ID:", myID)
 
 	// Select SHA256 implementation and report. Affected by the
@@ -672,10 +672,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// 0.14.45-pineapple is not.
 
 	prevParts := strings.Split(prevVersion, "-")
-	curParts := strings.Split(meta.Version, "-")
+	curParts := strings.Split(build.Version, "-")
 	if prevParts[0] != curParts[0] {
 		if prevVersion != "" {
-			l.Infoln("Detected upgrade from", prevVersion, "to", meta.Version)
+			l.Infoln("Detected upgrade from", prevVersion, "to", build.Version)
 		}
 
 		// Drop delta indexes in case we've changed random stuff we
@@ -683,16 +683,16 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		db.DropDeltaIndexIDs(ldb)
 
 		// Remember the new version.
-		miscDB.PutString("prevVersion", meta.Version)
+		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	m := model.NewModel(cfg, myID, "syncthing", meta.Version, ldb, protectedFiles)
+	m := model.NewModel(cfg, myID, "syncthing", build.Version, ldb, protectedFiles)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
 		if secs, _ := strconv.Atoi(t); secs > 0 {
 			m.StartDeadlockDetector(time.Duration(secs) * time.Second)
 		}
-	} else if !meta.IsRelease || meta.IsBeta {
+	} else if !build.IsRelease || build.IsBeta {
 		m.StartDeadlockDetector(20 * time.Minute)
 	}
 
@@ -789,7 +789,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Candidate builds always run with usage reporting.
 
-	if opts := cfg.Options(); meta.IsCandidate {
+	if opts := cfg.Options(); build.IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
 		if opts.URAccepted != usageReportVersion {
 			opts.URAccepted = usageReportVersion
@@ -817,7 +817,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// unless we are in a build where it's disabled or the STNOUPGRADE
 	// environment variable is set.
 
-	if meta.IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
+	if build.IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
 		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
 		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
 			opts.AutoUpgradeIntervalH = 12
@@ -1140,10 +1140,10 @@ func autoUpgrade(cfg *config.Wrapper) {
 		select {
 		case event := <-sub.C():
 			data, ok := event.Data.(map[string]string)
-			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], meta.Version) != upgrade.Newer {
+			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], build.Version) != upgrade.Newer {
 				continue
 			}
-			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], meta.Version, data["clientVersion"])
+			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], build.Version, data["clientVersion"])
 		case <-timer.C:
 		}
 
@@ -1155,7 +1155,7 @@ func autoUpgrade(cfg *config.Wrapper) {
 			checkInterval = time.Hour
 		}
 
-		rel, err := upgrade.LatestRelease(opts.ReleasesURL, meta.Version, opts.UpgradeToPreReleases)
+		rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return
@@ -1168,13 +1168,13 @@ func autoUpgrade(cfg *config.Wrapper) {
 			continue
 		}
 
-		if upgrade.CompareVersions(rel.Tag, meta.Version) != upgrade.Newer {
+		if upgrade.CompareVersions(rel.Tag, build.Version) != upgrade.Newer {
 			// Skip equal, older or majorly newer (incompatible) versions
 			timer.Reset(checkInterval)
 			continue
 		}
 
-		l.Infof("Automatic upgrade (current %q < latest %q)", meta.Version, rel.Tag)
+		l.Infof("Automatic upgrade (current %q < latest %q)", build.Version, rel.Tag)
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("Automatic upgrade:", err)

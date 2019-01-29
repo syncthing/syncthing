@@ -6,8 +6,8 @@
 
 //+build race
 
-package meta
+package build
 
 func init() {
-	BuildTags = append(BuildTags, "race")
+	Tags = append(Tags, "race")
 }

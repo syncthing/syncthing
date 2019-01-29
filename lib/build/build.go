@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package meta
+package build
 
 import (
 	"fmt"
@@ -18,23 +18,23 @@ import (
 
 var (
 	// Injected by build script
-	Version    = "unknown-dev"
-	BuildHost  = "unknown" // Set by build script
-	BuildUser  = "unknown" // Set by build script
-	BuildStamp = "0"       // Set by build script
+	Version = "unknown-dev"
+	Host    = "unknown" // Set by build script
+	User    = "unknown" // Set by build script
+	Stamp   = "0"       // Set by build script
 
 	// Static
 	Codename = "Erbium Earthworm"
 
 	// Set by init()
-	BuildDate   time.Time
+	Date        time.Time
 	IsRelease   bool
 	IsCandidate bool
 	IsBeta      bool
 	LongVersion string
 
 	// Set by Go build tags
-	BuildTags []string
+	Tags []string
 
 	allowedVersionExp = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\.\d+)*(\+\d+-g[0-9a-f]+)?(-[^\s]+)?$`)
 )
@@ -46,10 +46,10 @@ func init() {
 			log.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, allowedVersionExp)
 		}
 	}
-	setBuildMetadata()
+	setBuildData()
 }
 
-func setBuildMetadata() {
+func setBuildData() {
 	// Check for a clean release build. A release is something like
 	// "v0.1.2", with an optional suffix of letters and dot separated
 	// numbers like "-beta3.47". If there's more stuff, like a plus sign and
@@ -69,13 +69,13 @@ func setBuildMetadata() {
 	IsCandidate = strings.Contains(Version, "-rc.")
 	IsBeta = strings.Contains(Version, "-")
 
-	stamp, _ := strconv.Atoi(BuildStamp)
-	BuildDate = time.Unix(int64(stamp), 0)
+	stamp, _ := strconv.Atoi(Stamp)
+	Date = time.Unix(int64(stamp), 0)
 
-	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
-	LongVersion = fmt.Sprintf(`syncthing %s "%s" (%s %s-%s) %s@%s %s`, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
+	date := Date.UTC().Format("2006-01-02 15:04:05 MST")
+	LongVersion = fmt.Sprintf(`syncthing %s "%s" (%s %s-%s) %s@%s %s`, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, User, Host, date)
 
-	if len(BuildTags) > 0 {
-		LongVersion = fmt.Sprintf("%s [%s]", LongVersion, strings.Join(BuildTags, ", "))
+	if len(Tags) > 0 {
+		LongVersion = fmt.Sprintf("%s [%s]", LongVersion, strings.Join(Tags, ", "))
 	}
 }

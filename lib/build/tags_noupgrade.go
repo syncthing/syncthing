@@ -6,8 +6,8 @@
 
 //+build noupgrade
 
-package meta
+package build
 
 func init() {
-	BuildTags = append(BuildTags, "noupgrade")
+	Tags = append(Tags, "noupgrade")
 }

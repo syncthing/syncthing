@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/rcrowley/go-metrics"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
@@ -36,7 +37,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
-	"github.com/syncthing/syncthing/lib/meta"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -570,7 +570,7 @@ func noCacheMiddleware(h http.Handler) http.Handler {
 
 func withDetailsMiddleware(id protocol.DeviceID, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-Syncthing-Version", meta.Version)
+		w.Header().Set("X-Syncthing-Version", build.Version)
 		w.Header().Set("X-Syncthing-ID", id.String())
 		h.ServeHTTP(w, r)
 	})
@@ -612,14 +612,14 @@ func (s *apiService) getJSMetadata(w http.ResponseWriter, r *http.Request) {
 
 func (s *apiService) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, map[string]interface{}{
-		"version":     meta.Version,
-		"codename":    meta.Codename,
-		"longVersion": meta.LongVersion,
+		"version":     build.Version,
+		"codename":    build.Codename,
+		"longVersion": build.LongVersion,
 		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
-		"isBeta":      meta.IsBeta,
-		"isCandidate": meta.IsCandidate,
-		"isRelease":   meta.IsRelease,
+		"isBeta":      build.IsBeta,
+		"isCandidate": build.IsCandidate,
+		"isRelease":   build.IsRelease,
 	})
 }
 
@@ -1101,9 +1101,9 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	// Version and platform information as a JSON
 	if versionPlatform, err := json.MarshalIndent(map[string]string{
 		"now":         time.Now().Format(time.RFC3339),
-		"version":     meta.Version,
-		"codename":    meta.Codename,
-		"longVersion": meta.LongVersion,
+		"version":     build.Version,
+		"codename":    build.Codename,
+		"longVersion": build.LongVersion,
 		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
 	}, "", "  "); err == nil {
@@ -1121,13 +1121,13 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 
 	// Heap and CPU Proofs as a pprof extension
 	var heapBuffer, cpuBuffer bytes.Buffer
-	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, meta.Version, time.Now().Format("150405")) // hhmmss
+	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 	runtime.GC()
 	pprof.WriteHeapProfile(&heapBuffer)
 	files = append(files, fileEntry{name: filename, data: heapBuffer.Bytes()})
 
 	const duration = 4 * time.Second
-	filename = fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, meta.Version, time.Now().Format("150405")) // hhmmss
+	filename = fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 	pprof.StartCPUProfile(&cpuBuffer)
 	time.Sleep(duration)
 	pprof.StopCPUProfile()
@@ -1324,16 +1324,16 @@ func (s *apiService) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	opts := s.cfg.Options()
-	rel, err := upgrade.LatestRelease(opts.ReleasesURL, meta.Version, opts.UpgradeToPreReleases)
+	rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	res := make(map[string]interface{})
-	res["running"] = meta.Version
+	res["running"] = build.Version
 	res["latest"] = rel.Tag
-	res["newer"] = upgrade.CompareVersions(rel.Tag, meta.Version) == upgrade.Newer
-	res["majorNewer"] = upgrade.CompareVersions(rel.Tag, meta.Version) == upgrade.MajorNewer
+	res["newer"] = upgrade.CompareVersions(rel.Tag, build.Version) == upgrade.Newer
+	res["majorNewer"] = upgrade.CompareVersions(rel.Tag, build.Version) == upgrade.MajorNewer
 
 	sendJSON(w, res)
 }
@@ -1366,14 +1366,14 @@ func (s *apiService) getLang(w http.ResponseWriter, r *http.Request) {
 
 func (s *apiService) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 	opts := s.cfg.Options()
-	rel, err := upgrade.LatestRelease(opts.ReleasesURL, meta.Version, opts.UpgradeToPreReleases)
+	rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		l.Warnln("getting latest release:", err)
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	if upgrade.CompareVersions(rel.Tag, meta.Version) > upgrade.Equal {
+	if upgrade.CompareVersions(rel.Tag, build.Version) > upgrade.Equal {
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("upgrading:", err)
@@ -1642,7 +1642,7 @@ func (s *apiService) getCPUProf(w http.ResponseWriter, r *http.Request) {
 		duration = 30 * time.Second
 	}
 
-	filename := fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, meta.Version, time.Now().Format("150405")) // hhmmss
+	filename := fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
@@ -1653,7 +1653,7 @@ func (s *apiService) getCPUProf(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiService) getHeapProf(w http.ResponseWriter, r *http.Request) {
-	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, meta.Version, time.Now().Format("150405")) // hhmmss
+	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, build.Version, time.Now().Format("150405")) // hhmmss
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
