@@ -1063,45 +1063,15 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 }
 
 func defaultConfig(cfgFile string) *config.Wrapper {
-	myName, _ := os.Hostname()
+	newCfg := config.NewWithFreePorts(myID)
 
-	var defaultFolder config.FolderConfiguration
-
-	if !noDefaultFolder {
-		l.Infoln("Default folder created and/or linked to new config")
-		defaultFolder = config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations[locDefFolder])
-	} else {
+	if noDefaultFolder {
 		l.Infoln("We will skip creation of a default folder on first start since the proper envvar is set")
+		return config.Wrap(cfgFile, newCfg)
 	}
 
-	thisDevice := config.NewDeviceConfiguration(myID, myName)
-	thisDevice.Addresses = []string{"dynamic"}
-
-	newCfg := config.New(myID)
-	if !noDefaultFolder {
-		newCfg.Folders = []config.FolderConfiguration{defaultFolder}
-	}
-	newCfg.Devices = []config.DeviceConfiguration{thisDevice}
-
-	port, err := getFreePort("127.0.0.1", 8384)
-	if err != nil {
-		l.Fatalln("get free port (GUI):", err)
-	}
-	newCfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
-
-	port, err = getFreePort("0.0.0.0", 22000)
-	if err != nil {
-		l.Fatalln("get free port (BEP):", err)
-	}
-	if port == 22000 {
-		newCfg.Options.ListenAddresses = []string{"default"}
-	} else {
-		newCfg.Options.ListenAddresses = []string{
-			fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
-			"dynamic+https://relays.syncthing.net/endpoint",
-		}
-	}
-
+	newCfg.Folders = append(newCfg.Folders, config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations[locDefFolder]))
+	l.Infoln("Default folder created and/or linked to new config")
 	return config.Wrap(cfgFile, newCfg)
 }
 
@@ -1139,27 +1109,6 @@ func ensureDir(dir string, mode fs.FileMode) {
 			}
 		}
 	}
-}
-
-// getFreePort returns a free TCP port fort listening on. The ports given are
-// tried in succession and the first to succeed is returned. If none succeed,
-// a random high port is returned.
-func getFreePort(host string, ports ...int) (int, error) {
-	for _, port := range ports {
-		c, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
-		if err == nil {
-			c.Close()
-			return port, nil
-		}
-	}
-
-	c, err := net.Listen("tcp", host+":0")
-	if err != nil {
-		return 0, err
-	}
-	addr := c.Addr().(*net.TCPAddr)
-	c.Close()
-	return addr.Port, nil
 }
 
 func standbyMonitor() {
