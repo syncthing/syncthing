@@ -132,7 +132,7 @@ func main() {
 	}
 	app.Commands = []cli.Command{
 		{
-			Name:        "modify",
+			Name:        "config",
 			HideHelp:    true,
 			Usage:       "Configuration modification command group",
 			Subcommands: commands,
