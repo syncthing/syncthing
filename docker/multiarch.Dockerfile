@@ -24,7 +24,7 @@ ENV PUID=1000 PGID=1000
 EXPOSE 8384 22000 21027/udp
 VOLUME ["/var/syncthing"]
 
-__MULTIARCH_COPY qemu-${QEMUARCH}-static /usr/bin/
+__MULTIARCH_COPY docker/build/qemu-${QEMUARCH}-static /usr/bin/
 RUN apk add --update --no-cache ca-certificates su-exec
 __MULTIARCH_RUN rm /usr/bin/qemu-${QEMUARCH}-static
 COPY --from=builder /go/src/github.com/syncthing/syncthing/syncthing /bin/syncthing

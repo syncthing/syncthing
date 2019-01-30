@@ -1,11 +1,18 @@
 #!/bin/bash
 
-# get this script's directory and the multiarch Dockerfile path
+# get this script's directory and the multiarch Dockerfile (template) path
 THIS=$(dirname $(readlink -f "$0"))
-MULTIARCH_DOCKERFILE_PATH="${DOCKERFILE_PATH/Dockerfile/multiarch.Dockerfile}"
+MULTIARCH_DOCKERFILE_TEMPLATE_PATH="${DOCKERFILE_PATH/Dockerfile/Dockerfile-multiarch.template}"
+MULTIARCH_DOCKERFILE_PATH="${MULTIARCH_DOCKERFILE_TEMPLATE_PATH/Dockerfile-multiarch.template/build\/Dockerfile}"
+
+# create gitignored build directory
+mkdir build
 
 # navigate from Dockerfile folder to project root
 cd ..
+
+# disable git filemode change detection for hook-files that are made executable on DockerHub
+git config core.filemode false
 
 ###   temporary hack that upgrades DockerHub's build machine Docker version to 18 (supports manifests)   ###
 # display current Docker version
@@ -49,12 +56,12 @@ do
   if [ "${parts[1]}" == "amd64" ] # default architecture
   then
     # remove MULTIARCH line to build the default image
-    sed "/__MULTIARCH_/d" "$MULTIARCH_DOCKERFILE_PATH" > "$DOCKERFILE_PATH"
+    sed "/__MULTIARCH_/d" "$MULTIARCH_DOCKERFILE_TEMPLATE_PATH" > "$MULTIARCH_DOCKERFILE_PATH"
   else
     # enable MULTIARCH line to build multiarch images
     curl -L "https://github.com/multiarch/qemu-user-static/releases/download/v3.1.0-2/x86_64_qemu-$QEMUARCH-static.tar.gz" \
-      | tar xz
-    sed "s/__MULTIARCH_//g" "$MULTIARCH_DOCKERFILE_PATH" > "$DOCKERFILE_PATH"
+      | tar xz -C "docker/build/"
+    sed "s/__MULTIARCH_//g" "$MULTIARCH_DOCKERFILE_TEMPLATE_PATH" > "$MULTIARCH_DOCKERFILE_PATH"
   fi
 
   # build it!
@@ -64,7 +71,7 @@ do
     --build-arg SERVE_U="$SERVE_U" \
     --build-arg SERVE_R="$SERVE_R" \
     --build-arg QEMUARCH="$QEMUARCH" \
-    -f "$DOCKERFILE_PATH" \
+    -f "$MULTIARCH_DOCKERFILE_PATH" \
     -t "${IMAGE_NAME/:/:$QEMUARCH-}" \
     .
 done
