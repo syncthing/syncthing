@@ -1,6 +1,6 @@
 FROM golang:1.11 AS builder
 
-WORKDIR /go/src/github.com/syncthing/syncthing
+WORKDIR /src
 COPY . .
 
 ENV CGO_ENABLED=0
@@ -16,7 +16,7 @@ VOLUME ["/var/syncthing"]
 
 RUN apk add --no-cache ca-certificates su-exec
 
-COPY --from=builder /go/src/github.com/syncthing/syncthing/syncthing /bin/syncthing
+COPY --from=builder /src/syncthing /bin/syncthing
 
 ENV PUID=1000 PGID=1000
 
