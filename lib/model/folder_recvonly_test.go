@@ -310,7 +310,7 @@ func setupKnownFiles(t *testing.T, data []byte) []protocol.FileInfo {
 	t0 := time.Now().Add(-1 * time.Minute)
 	testOs.Chtimes("_recvonly/knownDir/knownFile", t0, t0)
 
-	fi, _ := testOs.Stat("_recvonly/knownDir/knownFile")
+	fi := testOs.Stat("_recvonly/knownDir/knownFile")
 	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), protocol.BlockSize(int64(len(data))), int64(len(data)), nil, true)
 	knownFiles := []protocol.FileInfo{
 		{
