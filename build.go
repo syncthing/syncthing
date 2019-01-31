@@ -35,6 +35,7 @@ import (
 
 var (
 	versionRe     = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
+	goarm         string
 	goarch        string
 	goos          string
 	noupgrade     bool
@@ -321,6 +322,7 @@ func runCommand(cmd string, target target) {
 }
 
 func parseFlags() {
+	flag.StringVar(&goarm, "goarm", os.Getenv("GOARM"), "GOARM")
 	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
 	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
 	flag.StringVar(&goCmd, "gocmd", "go", "Specify `go` command")
@@ -400,6 +402,7 @@ func install(target target, tags []string) {
 
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
+	os.Setenv("GOARM", goarm)
 	os.Setenv("CC", cc)
 
 	// On Windows generate a special file which the Go compiler will
@@ -428,6 +431,7 @@ func build(target target, tags []string) {
 
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
+	os.Setenv("GOARM", goarm)
 	os.Setenv("CC", cc)
 
 	// On Windows generate a special file which the Go compiler will
@@ -961,6 +965,11 @@ func buildArch() string {
 	if os == "darwin" {
 		os = "macos"
 	}
+
+	if "arm" == goarch && "" != goarm {
+		return fmt.Sprintf("%s-%s-%s", os, goarch, goarm)
+	}
+
 	return fmt.Sprintf("%s-%s", os, goarch)
 }
 

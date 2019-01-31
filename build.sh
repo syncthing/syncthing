@@ -68,24 +68,39 @@ case "${1:-default}" in
 		;;
 
 	all)
-		platforms=(
+		platforms=( # format: GOOS-GOARCH[-GOARM]
+			# Amd64 architecture
 			darwin-amd64 dragonfly-amd64 freebsd-amd64 linux-amd64 netbsd-amd64 openbsd-amd64 solaris-amd64 windows-amd64
+
+			# 386 architecture
 			freebsd-386 linux-386 netbsd-386 openbsd-386 windows-386
-			linux-arm linux-arm64 linux-ppc64 linux-ppc64le
+
+			# ARM architecture
+			linux-arm linux-arm-5 linux-arm-6 linux-arm-7 linux-arm64
+
+			# PPC64 Architecture
+			linux-ppc64 linux-ppc64le
 		)
 
 		for plat in "${platforms[@]}"; do
 			echo Building "$plat"
 
-			goos="${plat%-*}"
-			goarch="${plat#*-}"
-			dist="tar"
+			goos="${plat%%-*}"
+			goarm="${plat#$goos-}"
+			goarch="${goarm%%-*}"
+			goarm="${goarm#$goarch-}"
+			build_params="-goos $goos -goarch $goarch"
 
+			if [[ $goarch == "arm" && $goarm != "arm" ]]; then
+				build_params="$build_params -goarm $goarm"
+			fi
+
+			dist="tar"
 			if [[ $goos == "windows" ]]; then
 				dist="zip"
 			fi
 
-			build -goos "$goos" -goarch "$goarch" "$dist"
+			build "$build_params" "$dist"
 			echo
 		done
 		;;
