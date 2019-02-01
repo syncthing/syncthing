@@ -62,7 +62,7 @@ func main() {
 
 	// Do not print usage of these flags, and ignore errors as this can't understand plenty of things
 	flags.Usage = func() {}
-	_ = flags.Parse(os.Args)
+	_ = flags.Parse(os.Args[1:])
 
 	// Now if the API key and address is not provided (we are not connecting to a remote instance),
 	// try to rip it out of the config.
@@ -91,6 +91,8 @@ func main() {
 		}
 
 		guiCfg = cfg.GUI()
+	} else if guiCfg.Address() == "" || guiCfg.APIKey == "" {
+		log.Fatalln("Both -gui-address and -gui-apikey should be specified")
 	}
 
 	if guiCfg.Address() == "" {
