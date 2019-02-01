@@ -1124,10 +1124,8 @@ func TestIssue4897(t *testing.T) {
 // PR-comments: https://github.com/syncthing/syncthing/pull/5069/files#r203146546
 // Issue: https://github.com/syncthing/syncthing/pull/5509
 func TestIssue5063(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	wcfg, m := newState(defaultAutoAcceptCfg)
-	defer testOs.Remove(wcfg.ConfigPath())
+	defer os.Remove(wcfg.ConfigPath())
 
 	wg := sync.WaitGroup{}
 
@@ -1155,7 +1153,7 @@ func TestIssue5063(t *testing.T) {
 	}
 	defer func() {
 		for _, id := range ids {
-			testOs.RemoveAll(id)
+			os.RemoveAll(id)
 		}
 	}()
 	defer m.Stop()
@@ -1319,7 +1317,6 @@ func TestAutoAcceptNewFolderPremutationsNoPanic(t *testing.T) {
 						cfg.Folders = append(cfg.Folders, fcfg)
 					}
 					wcfg, m := newState(cfg)
-					defer testOs.Remove(wcfg.ConfigPath())
 					m.ClusterConfig(device1, protocol.ClusterConfig{
 						Folders: []protocol.Folder{dev1folder},
 					})
@@ -1329,6 +1326,7 @@ func TestAutoAcceptNewFolderPremutationsNoPanic(t *testing.T) {
 					m.Stop()
 					testOs.RemoveAll(id)
 					testOs.RemoveAll(label)
+					os.Remove(wcfg.ConfigPath())
 				}
 			}
 		}
@@ -1345,6 +1343,7 @@ func TestAutoAcceptMultipleFolders(t *testing.T) {
 	defer testOs.RemoveAll(id1)
 	id2 := srand.String(8)
 	defer testOs.RemoveAll(id2)
+	defer m.Stop()
 	m.ClusterConfig(device1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
@@ -1383,6 +1382,7 @@ func TestAutoAcceptExistingFolder(t *testing.T) {
 	}
 	wcfg, m := newState(tcfg)
 	defer testOs.Remove(wcfg.ConfigPath())
+	defer m.Stop()
 	if fcfg, ok := wcfg.Folder(id); !ok || fcfg.SharedWith(device1) {
 		t.Error("missing folder, or shared", id)
 	}
@@ -1418,6 +1418,7 @@ func TestAutoAcceptNewAndExistingFolder(t *testing.T) {
 	}
 	wcfg, m := newState(tcfg)
 	defer testOs.Remove(wcfg.ConfigPath())
+	defer m.Stop()
 	if fcfg, ok := wcfg.Folder(id1); !ok || fcfg.SharedWith(device1) {
 		t.Error("missing folder, or shared", id1)
 	}
@@ -1461,6 +1462,7 @@ func TestAutoAcceptAlreadyShared(t *testing.T) {
 	}
 	wcfg, m := newState(tcfg)
 	defer testOs.Remove(wcfg.ConfigPath())
+	defer m.Stop()
 	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
@@ -1489,6 +1491,7 @@ func TestAutoAcceptNameConflict(t *testing.T) {
 	defer testOs.RemoveAll(label)
 	wcfg, m := newState(defaultAutoAcceptCfg)
 	defer testOs.Remove(wcfg.ConfigPath())
+	defer m.Stop()
 	m.ClusterConfig(device1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
@@ -1512,6 +1515,7 @@ func TestAutoAcceptPrefersLabel(t *testing.T) {
 	label := srand.String(8)
 	defer testOs.RemoveAll(id)
 	defer testOs.RemoveAll(label)
+	defer m.Stop()
 	m.ClusterConfig(device1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
@@ -1537,6 +1541,7 @@ func TestAutoAcceptFallsBackToID(t *testing.T) {
 	testOs.MkdirAll(label, 0777)
 	defer testOs.RemoveAll(label)
 	defer testOs.RemoveAll(id)
+	defer m.Stop()
 	m.ClusterConfig(device1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
@@ -1571,6 +1576,7 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 	tcfg.Folders = []config.FolderConfiguration{fcfg}
 	wcfg, m := newState(tcfg)
 	defer testOs.Remove(wcfg.ConfigPath())
+	defer m.Stop()
 	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
@@ -1630,6 +1636,7 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 	tcfg.Folders = []config.FolderConfiguration{fcfg}
 	wcfg, m := newState(tcfg)
 	defer testOs.Remove(wcfg.ConfigPath())
+	defer m.Stop()
 	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
@@ -3728,12 +3735,12 @@ func TestRequestLimit(t *testing.T) {
 	testOs := &fatalOs{t}
 
 	wrapper := createTmpWrapper(defaultCfg.Copy())
+	defer testOs.Remove(wrapper.ConfigPath())
 	dev, _ := wrapper.Device(device1)
 	dev.MaxRequestKiB = 1
 	wrapper.SetDevice(dev)
 	m, _ := setupModelWithConnectionFromWrapper(wrapper)
 	defer m.Stop()
-	defer testOs.Remove(wrapper.ConfigPath())
 
 	file := "tmpfile"
 	befReq := time.Now()

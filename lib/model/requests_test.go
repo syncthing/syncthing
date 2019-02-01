@@ -737,7 +737,7 @@ func setupModelWithConnectionFromWrapper(w *config.Wrapper) (*Model, *fakeConnec
 }
 
 func createTmpDir() string {
-	tmpDir, err := ioutil.TempDir("", "_request-")
+	tmpDir, err := ioutil.TempDir("", "syncthing_testFolder-")
 	if err != nil {
 		panic("Failed to create temporary testing dir")
 	}
