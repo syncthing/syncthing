@@ -418,10 +418,10 @@ func (f *autoclosedFile) closerLoop() {
 func childEnv() []string {
 	var env []string
 	for _, str := range os.Environ() {
-		if strings.HasPrefix("STNORESTART=", str) {
+		if strings.HasPrefix(str, "STNORESTART=") {
 			continue
 		}
-		if strings.HasPrefix("STMONITORED=", str) {
+		if strings.HasPrefix(str, "STMONITORED=") {
 			continue
 		}
 		env = append(env, str)
