@@ -231,9 +231,7 @@ func TestNoDelay(t *testing.T) {
 func getEventPaths(dir *eventDir, dirPath string, a *aggregator) []string {
 	var paths []string
 	for childName, childDir := range dir.dirs {
-		for _, path := range getEventPaths(childDir, filepath.Join(dirPath, childName), a) {
-			paths = append(paths, path)
-		}
+		paths = append(paths, getEventPaths(childDir, filepath.Join(dirPath, childName), a)...)
 	}
 	for name := range dir.events {
 		paths = append(paths, filepath.Join(dirPath, name))
@@ -264,9 +262,7 @@ func compareBatchToExpected(batch []string, expectedPaths []string) (missing []s
 			missing = append(missing, expected)
 		}
 	}
-	for _, received := range batch {
-		unexpected = append(unexpected, received)
-	}
+	unexpected = append(unexpected, batch...)
 	return missing, unexpected
 }
 

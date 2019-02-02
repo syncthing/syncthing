@@ -167,8 +167,8 @@ func idxck(ldb *db.Lowlevel) (success bool) {
 		if needsLocally(vl) {
 			_, ok := needs[gk]
 			if !ok {
-				dev, _ := deviceToIDs[string(vl.Versions[0].Device)]
-				fi, _ := fileInfos[fileInfoKey{gk.folder, dev, gk.name}]
+				dev := deviceToIDs[string(vl.Versions[0].Device)]
+				fi := fileInfos[fileInfoKey{gk.folder, dev, gk.name}]
 				if !fi.IsDeleted() && !fi.IsIgnored() {
 					fmt.Printf("Missing need entry for needed file %q, folder %q\n", gk.name, folder)
 				}

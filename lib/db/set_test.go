@@ -418,10 +418,7 @@ func TestUpdateToInvalid(t *testing.T) {
 	})
 
 	if !f.Iterate([]string{folder}, localHave[4].Blocks[0].Hash, func(folder, file string, index int32) bool {
-		if file == localHave[4].Name {
-			return true
-		}
-		return false
+		return file == localHave[4].Name
 	}) {
 		t.Errorf("First block of un-invalidated file is missing from blockmap")
 	}

@@ -190,7 +190,7 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
 
 	if version >= 3 {
-		res["uptime"] = int(time.Now().Sub(startTime).Seconds())
+		res["uptime"] = int(time.Since(startTime).Seconds())
 		res["natType"] = connectionsService.NATType()
 		res["alwaysLocalNets"] = len(opts.AlwaysLocalNets) > 0
 		res["cacheIgnoredFiles"] = opts.CacheIgnoredFiles

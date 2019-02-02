@@ -82,7 +82,7 @@ func TestChownFile(t *testing.T) {
 	}
 	fd.Close()
 
-	info, err := fs.Lstat("file")
+	_, err = fs.Lstat("file")
 	if err != nil {
 		t.Error("Unexpected error:", err)
 	}
@@ -94,7 +94,7 @@ func TestChownFile(t *testing.T) {
 		t.Error("Unexpected error:", err)
 	}
 
-	info, err = fs.Lstat("file")
+	info, err := fs.Lstat("file")
 	if err != nil {
 		t.Error("Unexpected error:", err)
 	}

@@ -115,7 +115,7 @@ type Model struct {
 type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
 
 var (
-	folderFactories = make(map[config.FolderType]folderFactory, 0)
+	folderFactories = make(map[config.FolderType]folderFactory)
 )
 
 var (
@@ -489,12 +489,8 @@ func (m *Model) UsageReportingStats(version int, preview bool) map[string]interf
 				}
 
 				// Noops, remove
-				if strings.HasSuffix(line, "**") {
-					line = line[:len(line)-2]
-				}
-				if strings.HasPrefix(line, "**/") {
-					line = line[3:]
-				}
+				line = strings.TrimSuffix(line, "**")
+				line = strings.TrimPrefix(line, "**/")
 
 				if strings.HasPrefix(line, "/") {
 					ignoreStats["rooted"] += 1
@@ -508,7 +504,7 @@ func (m *Model) UsageReportingStats(version int, preview bool) map[string]interf
 				if strings.Contains(line, "**") {
 					ignoreStats["doubleStars"] += 1
 					// Remove not to trip up star checks.
-					strings.Replace(line, "**", "", -1)
+					line = strings.Replace(line, "**", "", -1)
 				}
 
 				if strings.Contains(line, "*") {
@@ -2390,6 +2386,11 @@ func (m *Model) GetFolderVersions(folder string) (map[string][]versioner.FileVer
 		// Skip root (which is ok to be a symlink)
 		if path == ".stversions" {
 			return nil
+		}
+
+		// Skip walking if we cannot walk...
+		if err != nil {
+			return err
 		}
 
 		// Ignore symlinks

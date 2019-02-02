@@ -35,8 +35,8 @@ import (
 )
 
 var (
-	dialers   = make(map[string]dialerFactory, 0)
-	listeners = make(map[string]listenerFactory, 0)
+	dialers   = make(map[string]dialerFactory)
+	listeners = make(map[string]listenerFactory)
 )
 
 var (

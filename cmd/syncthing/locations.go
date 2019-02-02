@@ -22,17 +22,17 @@ type locationEnum string
 // more meaningful.
 const (
 	locConfigFile    locationEnum = "config"
-	locCertFile                   = "certFile"
-	locKeyFile                    = "keyFile"
-	locHTTPSCertFile              = "httpsCertFile"
-	locHTTPSKeyFile               = "httpsKeyFile"
-	locDatabase                   = "database"
-	locLogFile                    = "logFile"
-	locCsrfTokens                 = "csrfTokens"
-	locPanicLog                   = "panicLog"
-	locAuditLog                   = "auditLog"
-	locGUIAssets                  = "GUIAssets"
-	locDefFolder                  = "defFolder"
+	locCertFile      locationEnum = "certFile"
+	locKeyFile       locationEnum = "keyFile"
+	locHTTPSCertFile locationEnum = "httpsCertFile"
+	locHTTPSKeyFile  locationEnum = "httpsKeyFile"
+	locDatabase      locationEnum = "database"
+	locLogFile       locationEnum = "logFile"
+	locCsrfTokens    locationEnum = "csrfTokens"
+	locPanicLog      locationEnum = "panicLog"
+	locAuditLog      locationEnum = "auditLog"
+	locGUIAssets     locationEnum = "GUIAssets"
+	locDefFolder     locationEnum = "defFolder"
 )
 
 // Platform dependent directories

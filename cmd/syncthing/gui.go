@@ -531,7 +531,6 @@ func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 
 		// For everything else, pass to the next handler
 		next.ServeHTTP(w, r)
-		return
 	})
 }
 
