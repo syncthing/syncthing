@@ -114,13 +114,13 @@ func TestAssetsDir(t *testing.T) {
 	// The asset map contains compressed assets, so create a couple of gzip compressed assets here.
 	buf := new(bytes.Buffer)
 	gw := gzip.NewWriter(buf)
-	gw.Write([]byte("default"))
+	_, _ = gw.Write([]byte("default"))
 	gw.Close()
 	def := buf.Bytes()
 
 	buf = new(bytes.Buffer)
 	gw = gzip.NewWriter(buf)
-	gw.Write([]byte("foo"))
+	_, _ = gw.Write([]byte("foo"))
 	gw.Close()
 	foo := buf.Bytes()
 

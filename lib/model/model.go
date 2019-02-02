@@ -258,9 +258,9 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	ffs := fs.MtimeFS()
 
 	// These are our metadata files, and they should always be hidden.
-	ffs.Hide(config.DefaultMarkerName)
-	ffs.Hide(".stversions")
-	ffs.Hide(".stignore")
+	_ = ffs.Hide(config.DefaultMarkerName)
+	_ = ffs.Hide(".stversions")
+	_ = ffs.Hide(".stignore")
 
 	p := folderFactory(m, cfg, ver, ffs)
 
@@ -338,7 +338,7 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
 	m.pmut.Lock()
 	// Delete syncthing specific files
-	cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
+	_ = cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
 
 	m.tearDownFolderLocked(cfg, fmt.Errorf("removing folder %v", cfg.Description()))
 	// Remove it from the database
@@ -362,7 +362,7 @@ func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) 
 	m.pmut.Unlock()
 	m.fmut.Unlock()
 	for _, id := range tokens {
-		m.RemoveAndWait(id, 0)
+		_ = m.RemoveAndWait(id, 0)
 	}
 	m.fmut.Lock()
 	m.pmut.Lock()
@@ -1189,7 +1189,7 @@ func (m *Model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 		}
 
 		if changed {
-			m.cfg.SetFolder(fcfg)
+			_, _ = m.cfg.SetFolder(fcfg)
 		}
 	}
 
@@ -1246,7 +1246,7 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 		cfg := m.cfg.RawCopy()
 		cfg.Folders = folders
 		cfg.Devices = devices
-		m.cfg.Replace(cfg)
+		_, _ = m.cfg.Replace(cfg)
 	}
 
 	return changed
@@ -1325,7 +1325,7 @@ func (m *Model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 		newDeviceCfg.SkipIntroductionRemovals = device.SkipIntroductionRemovals
 	}
 
-	m.cfg.SetDevice(newDeviceCfg)
+	_, _ = m.cfg.SetDevice(newDeviceCfg)
 }
 
 // Closed is called when a connection has been closed
@@ -1776,8 +1776,8 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
 		device.Name = hello.DeviceName
-		m.cfg.SetDevice(device)
-		m.cfg.Save()
+		_, _ = m.cfg.SetDevice(device)
+		_ = m.cfg.Save()
 	}
 
 	m.deviceWasSeen(deviceID)
@@ -1864,7 +1864,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 		// local index may update for other folders than the one we are
 		// sending for.
 		if fs.Sequence(protocol.LocalDeviceID) <= prevSequence {
-			sub.Poll(time.Minute)
+			_, _ = sub.Poll(time.Minute)
 			continue
 		}
 
@@ -2484,7 +2484,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 			}
 		}
 
-		filesystem.MkdirAll(filepath.Dir(target), 0755)
+		_ = filesystem.MkdirAll(filepath.Dir(target), 0755)
 		if err == nil {
 			err = osutil.Copy(filesystem, source, target)
 		}
@@ -2732,17 +2732,6 @@ func getChunk(data []string, skip, get int) ([]string, int, int) {
 		return data[skip:l], 0, get - (l - skip)
 	}
 	return data[skip : skip+get], 0, 0
-}
-
-func stringSliceWithout(ss []string, s string) []string {
-	for i := range ss {
-		if ss[i] == s {
-			copy(ss[i:], ss[i+1:])
-			ss = ss[:len(ss)-1]
-			return ss
-		}
-	}
-	return ss
 }
 
 func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) error {

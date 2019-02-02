@@ -83,10 +83,10 @@ type Relation int
 
 const (
 	MajorOlder Relation = -2 // Older by a major version (x in x.y.z or 0.x.y).
-	Older               = -1 // Older by a minor version (y or z in x.y.z, or y in 0.x.y)
-	Equal               = 0  // Versions are semantically equal
-	Newer               = 1  // Newer by a minor version (y or z in x.y.z, or y in 0.x.y)
-	MajorNewer          = 2  // Newer by a major version (x in x.y.z or 0.x.y).
+	Older      Relation = -1 // Older by a minor version (y or z in x.y.z, or y in 0.x.y)
+	Equal      Relation = 0  // Versions are semantically equal
+	Newer      Relation = 1  // Newer by a minor version (y or z in x.y.z, or y in 0.x.y)
+	MajorNewer Relation = 2  // Newer by a major version (x in x.y.z or 0.x.y).
 )
 
 // CompareVersions returns a relation describing how a compares to b.

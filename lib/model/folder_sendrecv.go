@@ -60,14 +60,13 @@ type copyBlocksState struct {
 const retainBits = fs.ModeSetgid | fs.ModeSetuid | fs.ModeSticky
 
 var (
-	activity               = newDeviceActivity()
-	errNoDevice            = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
-	errSymlinksUnsupported = errors.New("symlinks not supported")
-	errDirHasToBeScanned   = errors.New("directory contains unexpected files, scheduling scan")
-	errDirHasIgnored       = errors.New("directory contains ignored files (see ignore documentation for (?d) prefix)")
-	errDirNotEmpty         = errors.New("directory is not empty; files within are probably ignored on connected devices only")
-	errNotAvailable        = errors.New("no connected device has the required version of this file")
-	errModified            = errors.New("file modified but not rescanned; will try again later")
+	activity             = newDeviceActivity()
+	errNoDevice          = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
+	errDirHasToBeScanned = errors.New("directory contains unexpected files, scheduling scan")
+	errDirHasIgnored     = errors.New("directory contains ignored files (see ignore documentation for (?d) prefix)")
+	errDirNotEmpty       = errors.New("directory is not empty; files within are probably ignored on connected devices only")
+	errNotAvailable      = errors.New("no connected device has the required version of this file")
+	errModified          = errors.New("file modified but not rescanned; will try again later")
 )
 
 const (
@@ -882,7 +881,8 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, ig
 		scanChan <- target.Name
 		err = errModified
 	default:
-		if fi, err := scanner.CreateFileInfo(stat, target.Name, f.fs); err == nil {
+		var fi protocol.FileInfo
+		if fi, err = scanner.CreateFileInfo(stat, target.Name, f.fs); err == nil {
 			if !fi.IsEquivalentOptional(curTarget, f.IgnorePerms, true, protocol.LocalAllFlags) {
 				// Target changed
 				scanChan <- target.Name
@@ -1016,7 +1016,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 			// Otherwise, discard the file ourselves in order for the
 			// sharedpuller not to panic when it fails to exclusively create a
 			// file which already exists
-			osutil.InWritableDir(f.fs.Remove, f.fs, tempName)
+			_ = osutil.InWritableDir(f.fs.Remove, f.fs, tempName)
 		}
 	} else {
 		// Copy the blocks, as we don't want to shuffle them on the FileInfo
@@ -1142,7 +1142,7 @@ func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpda
 		}
 	}
 
-	f.fs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
+	_ = f.fs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
 
 	// This may have been a conflict. We should merge the version vectors so
 	// that our clock doesn't move backwards.
@@ -1536,7 +1536,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, file, curFile
 	}
 
 	// Set the correct timestamp on the new file
-	f.fs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
+	_ = f.fs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
 
 	// Record the updated file in the index
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleFile}
@@ -1706,7 +1706,7 @@ func (f *sendReceiveFolder) pullScannerRoutine(scanChan <-chan string) {
 			l.Debugln(f, "scheduling scan after pulling for", path)
 			scanList = append(scanList, path)
 		}
-		f.Scan(scanList)
+		_ = f.Scan(scanList)
 	}
 }
 
@@ -1858,7 +1858,7 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 	}
 
 	for _, del := range toBeDeleted {
-		f.fs.RemoveAll(del)
+		_ = f.fs.RemoveAll(del)
 	}
 
 	err := osutil.InWritableDir(f.fs.Remove, f.fs, dir)

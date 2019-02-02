@@ -348,7 +348,9 @@ func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectio
 func (s *usageReportingService) sendUsageReport() error {
 	d := reportData(s.cfg, s.model, s.connectionsService, s.cfg.Options().URAccepted, false)
 	var b bytes.Buffer
-	json.NewEncoder(&b).Encode(d)
+	if err := json.NewEncoder(&b).Encode(d); err != nil {
+		return err
+	}
 
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -417,7 +419,7 @@ func (s *usageReportingService) Stop() {
 	s.stopMut.RUnlock()
 }
 
-func (usageReportingService) String() string {
+func (*usageReportingService) String() string {
 	return "usageReportingService"
 }
 
@@ -425,7 +427,7 @@ func (usageReportingService) String() string {
 func cpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 {
 	dataSize := 16 * protocol.MinBlockSize
 	bs := make([]byte, dataSize)
-	rand.Reader.Read(bs)
+	_, _ = rand.Reader.Read(bs)
 
 	var perf float64
 	for i := 0; i < iterations; i++ {

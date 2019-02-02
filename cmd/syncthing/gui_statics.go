@@ -160,7 +160,7 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
 
-	w.Write(bs)
+	_, _ = w.Write(bs)
 }
 
 func (s *staticsServer) serveThemes(w http.ResponseWriter, r *http.Request) {

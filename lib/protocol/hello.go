@@ -77,12 +77,7 @@ func readHello(c io.Reader) (HelloResult, error) {
 		if err := hello.Unmarshal(buf); err != nil {
 			return HelloResult{}, err
 		}
-		res := HelloResult{
-			DeviceName:    hello.DeviceName,
-			ClientName:    hello.ClientName,
-			ClientVersion: hello.ClientVersion,
-		}
-		return res, nil
+		return HelloResult(hello), nil
 
 	case 0x00010001, 0x00010000, Version13HelloMagic:
 		// This is the first word of an older cluster config message or an
