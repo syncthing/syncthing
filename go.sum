@@ -1,7 +1,7 @@
 github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362 h1:l4qGIzSY0WhdXdR74XMYAtfc0Ri/RJVM4p6x/E/+WkA=
 github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362/go.mod h1:CEaBhA5lh1spxbPOELh5wNLKGsVQoahjUhVrJViVK8s=
-github.com/AudriusButkevicius/recli v0.0.3 h1:Nh6Tv6rxSQV6S/j4yrVA/oLL6WHR3NanPHniHf1GUWQ=
-github.com/AudriusButkevicius/recli v0.0.3/go.mod h1:Q2E26yc6RvWWEz/TJ/goUp6yXvipYdJI096hpoaqsNs=
+github.com/AudriusButkevicius/recli v0.0.4 h1:9fPGC0CF7pnyYBiBIHIPdnh3VOJvkPqaXi4scFMX5u8=
+github.com/AudriusButkevicius/recli v0.0.4/go.mod h1:Q2E26yc6RvWWEz/TJ/goUp6yXvipYdJI096hpoaqsNs=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 h1:xJ4a3vCFaGF/jqvzLMYoU8P317H5OQ+Via4RmuPwCS0=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e h1:2augTYh6E+XoNrrivZJBadpThP/dsvYKj0nzqfQ8tM4=

@@ -2,8 +2,7 @@ module github.com/syncthing/syncthing
 
 require (
 	github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362
-	github.com/AudriusButkevicius/recli v0.0.3
-	github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a // indirect
+	github.com/AudriusButkevicius/recli v0.0.4
 	github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e
 	github.com/calmh/du v1.0.1
 	github.com/calmh/xdr v1.1.0
@@ -20,7 +19,6 @@ require (
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.0.0
 	github.com/mattn/go-isatty v0.0.4
-	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/minio/sha256-simd v0.0.0-20190117184323-cc1980cb0338
 	github.com/onsi/ginkgo v0.0.0-20171221013426-6c46eb8334b3 // indirect
 	github.com/onsi/gomega v0.0.0-20171227184521-ba3724c94e4d // indirect
