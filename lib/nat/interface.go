@@ -15,7 +15,7 @@ type Protocol string
 
 const (
 	TCP Protocol = "TCP"
-	UDP          = "UDP"
+	UDP Protocol = "UDP"
 )
 
 type Device interface {

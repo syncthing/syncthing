@@ -128,13 +128,13 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 		select {
 		case s := <-stopSign:
 			l.Infof("Signal %d received; exiting", s)
-			cmd.Process.Kill()
+			_ = cmd.Process.Signal(sigTerm)
 			<-exit
 			return
 
 		case s := <-restartSign:
 			l.Infof("Signal %d received; restarting", s)
-			cmd.Process.Signal(sigHup)
+			_ = cmd.Process.Signal(sigHup)
 			err = <-exit
 
 		case err = <-exit:
@@ -180,7 +180,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 		}
 
 		if panicFd == nil {
-			dst.Write([]byte(line))
+			_, _ = dst.Write([]byte(line))
 
 			if strings.Contains(line, "SIGILL") {
 				l.Warnln(`
@@ -227,20 +227,20 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 
 				stdoutMut.Lock()
 				for _, line := range stdoutFirstLines {
-					panicFd.WriteString(line)
+					_, _ = panicFd.WriteString(line)
 				}
-				panicFd.WriteString("...\n")
+				_, _ = panicFd.WriteString("...\n")
 				for _, line := range stdoutLastLines {
-					panicFd.WriteString(line)
+					_, _ = panicFd.WriteString(line)
 				}
 				stdoutMut.Unlock()
 			}
 
-			panicFd.WriteString("Panic at " + time.Now().Format(time.RFC3339) + "\n")
+			_, _ = panicFd.WriteString("Panic at " + time.Now().Format(time.RFC3339) + "\n")
 		}
 
 		if panicFd != nil {
-			panicFd.WriteString(line)
+			_, _ = panicFd.WriteString(line)
 		}
 	}
 }
@@ -264,7 +264,7 @@ func copyStdout(stdout io.Reader, dst io.Writer) {
 		}
 		stdoutMut.Unlock()
 
-		dst.Write([]byte(line))
+		_, _ = dst.Write([]byte(line))
 	}
 }
 

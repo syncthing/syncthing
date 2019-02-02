@@ -92,7 +92,7 @@ func (s *Service) process() int {
 			toRenew = append(toRenew, mapping)
 		} else {
 			toUpdate = append(toUpdate, mapping)
-			mappingRenewIn := mapping.expires.Sub(time.Now())
+			mappingRenewIn := time.Until(mapping.expires)
 			if mappingRenewIn < renewIn {
 				renewIn = mappingRenewIn
 			}
@@ -328,6 +328,6 @@ findIP:
 
 func hash(input string) int64 {
 	h := fnv.New64a()
-	h.Write([]byte(input))
+	_, _ = h.Write([]byte(input))
 	return int64(h.Sum64())
 }
