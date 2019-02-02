@@ -19,6 +19,7 @@ import (
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
 	Chmod(name string, mode FileMode) error
+	Lchown(name string, uid, gid int) error
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	Create(name string) (File, error)
 	CreateSymlink(target, name string) error
@@ -74,6 +75,8 @@ type FileInfo interface {
 	// Extensions
 	IsRegular() bool
 	IsSymlink() bool
+	Owner() int
+	Group() int
 }
 
 // FileMode is similar to os.FileMode

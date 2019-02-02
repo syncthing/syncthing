@@ -77,7 +77,7 @@ func TestGlobalOverHTTP(t *testing.T) {
 	s := new(fakeDiscoveryServer)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handler)
-	go http.Serve(list, mux)
+	go func() { _ = http.Serve(list, mux) }()
 
 	// This should succeed
 	addresses, err := testLookup("http://" + list.Addr().String() + "?insecure&noannounce")
@@ -125,7 +125,7 @@ func TestGlobalOverHTTPS(t *testing.T) {
 	s := new(fakeDiscoveryServer)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handler)
-	go http.Serve(list, mux)
+	go func() { _ = http.Serve(list, mux) }()
 
 	// With default options the lookup code expects the server certificate to
 	// check out according to the usual CA chains etc. That won't be the case
@@ -190,7 +190,7 @@ func TestGlobalAnnounce(t *testing.T) {
 	s := new(fakeDiscoveryServer)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handler)
-	go http.Serve(list, mux)
+	go func() { _ = http.Serve(list, mux) }()
 
 	url := "https://" + list.Addr().String() + "?insecure"
 	disco, err := NewGlobal(url, cert, new(fakeAddressLister))

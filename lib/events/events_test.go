@@ -164,7 +164,7 @@ func TestGlobalIDs(t *testing.T) {
 	s := l.Subscribe(AllEvents)
 	defer l.Unsubscribe(s)
 	l.Log(DeviceConnected, "foo")
-	_ = l.Subscribe(AllEvents)
+	l.Subscribe(AllEvents)
 	l.Log(DeviceConnected, "bar")
 
 	ev, err := s.Poll(timeout)

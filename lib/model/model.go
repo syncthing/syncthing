@@ -8,14 +8,13 @@ package model
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	stdsync "sync"
@@ -58,7 +57,6 @@ type service interface {
 	Override(*db.FileSet, func([]protocol.FileInfo))
 	Revert(*db.FileSet, func([]protocol.FileInfo))
 	DelayScan(d time.Duration)
-	IgnoresUpdated()            // ignore matcher was updated notification
 	SchedulePull()              // something relevant changed, we should try a pull
 	Jobs() ([]string, []string) // In progress, Queued
 	Scan(subs []string) error
@@ -117,7 +115,7 @@ type Model struct {
 type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
 
 var (
-	folderFactories = make(map[config.FolderType]folderFactory, 0)
+	folderFactories = make(map[config.FolderType]folderFactory)
 )
 
 var (
@@ -128,6 +126,9 @@ var (
 	errFolderNotRunning  = errors.New("folder is not running")
 	errFolderMissing     = errors.New("no such folder")
 	errNetworkNotAllowed = errors.New("network not allowed")
+	// errors about why a connection is closed
+	errIgnoredFolderRemoved = errors.New("folder no longer ignored")
+	errReplacingConnection  = errors.New("replacing connection")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -226,7 +227,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 
 	// Close connections to affected devices
 	for _, id := range cfg.DeviceIDs() {
-		m.closeLocked(id)
+		m.closeLocked(id, fmt.Errorf("started folder %v", cfg.Description()))
 	}
 
 	v, ok := fs.Sequence(protocol.LocalDeviceID), true
@@ -339,7 +340,7 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 	// Delete syncthing specific files
 	cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
 
-	m.tearDownFolderLocked(cfg)
+	m.tearDownFolderLocked(cfg, fmt.Errorf("removing folder %v", cfg.Description()))
 	// Remove it from the database
 	db.DropFolder(m.db, cfg.ID)
 
@@ -347,12 +348,12 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Unlock()
 }
 
-func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
+func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) {
 	// Close connections to affected devices
 	// Must happen before stopping the folder service to abort ongoing
 	// transmissions and thus allow timely service termination.
 	for _, dev := range cfg.Devices {
-		m.closeLocked(dev.DeviceID)
+		m.closeLocked(dev.DeviceID, err)
 	}
 
 	// Stop the services running for this folder and wait for them to finish
@@ -398,14 +399,26 @@ func (m *Model) RestartFolder(from, to config.FolderConfiguration) {
 	defer m.fmut.Unlock()
 	defer m.pmut.Unlock()
 
-	m.tearDownFolderLocked(from)
-	if to.Paused {
-		l.Infoln("Paused folder", to.Description())
-	} else {
-		m.addFolderLocked(to)
-		folderType := m.startFolderLocked(to.ID)
-		l.Infoln("Restarted folder", to.Description(), fmt.Sprintf("(%s)", folderType))
+	var infoMsg string
+	var errMsg string
+	switch {
+	case to.Paused:
+		infoMsg = "Paused"
+		errMsg = "pausing"
+	case from.Paused:
+		infoMsg = "Unpaused"
+		errMsg = "unpausing"
+	default:
+		infoMsg = "Restarted"
+		errMsg = "restarting"
 	}
+
+	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
+	if !to.Paused {
+		m.addFolderLocked(to)
+		m.startFolderLocked(to.ID)
+	}
+	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
 }
 
 func (m *Model) UsageReportingStats(version int, preview bool) map[string]interface{} {
@@ -476,12 +489,8 @@ func (m *Model) UsageReportingStats(version int, preview bool) map[string]interf
 				}
 
 				// Noops, remove
-				if strings.HasSuffix(line, "**") {
-					line = line[:len(line)-2]
-				}
-				if strings.HasPrefix(line, "**/") {
-					line = line[3:]
-				}
+				line = strings.TrimSuffix(line, "**")
+				line = strings.TrimPrefix(line, "**/")
 
 				if strings.HasPrefix(line, "/") {
 					ignoreStats["rooted"] += 1
@@ -495,7 +504,7 @@ func (m *Model) UsageReportingStats(version int, preview bool) map[string]interf
 				if strings.Contains(line, "**") {
 					ignoreStats["doubleStars"] += 1
 					// Remove not to trip up star checks.
-					strings.Replace(line, "**", "", -1)
+					line = strings.Replace(line, "**", "", -1)
 				}
 
 				if strings.Contains(line, "*") {
@@ -1245,7 +1254,11 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
-		for _, path := range []string{folder.Label, folder.ID} {
+		pathAlternatives := []string{
+			sanitizePath(folder.Label),
+			sanitizePath(folder.ID),
+		}
+		for _, path := range pathAlternatives {
 			if _, err := defaultPathFs.Lstat(path); !fs.IsNotExist(err) {
 				continue
 			}
@@ -1338,21 +1351,21 @@ func (m *Model) Closed(conn protocol.Connection, err error) {
 }
 
 // close will close the underlying connection for a given device
-func (m *Model) close(device protocol.DeviceID) {
+func (m *Model) close(device protocol.DeviceID, err error) {
 	m.pmut.Lock()
-	m.closeLocked(device)
+	m.closeLocked(device, err)
 	m.pmut.Unlock()
 }
 
 // closeLocked will close the underlying connection for a given device
-func (m *Model) closeLocked(device protocol.DeviceID) {
+func (m *Model) closeLocked(device protocol.DeviceID, err error) {
 	conn, ok := m.conn[device]
 	if !ok {
 		// There is no connection to close
 		return
 	}
 
-	closeRawConn(conn)
+	conn.Close(err)
 }
 
 // Implements protocol.RequestResponse
@@ -1715,7 +1728,7 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 		// back into Closed() for the cleanup.
 		closed := m.closed[deviceID]
 		m.pmut.Unlock()
-		closeRawConn(oldConn)
+		oldConn.Close(errReplacingConnection)
 		<-closed
 		m.pmut.Lock()
 	}
@@ -2375,6 +2388,11 @@ func (m *Model) GetFolderVersions(folder string) (map[string][]versioner.FileVer
 			return nil
 		}
 
+		// Skip walking if we cannot walk...
+		if err != nil {
+			return err
+		}
+
 		// Ignore symlinks
 		if f.IsSymlink() {
 			return fs.SkipDir
@@ -2578,6 +2596,10 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
+		if fromCfg.Paused && toCfg.Paused {
+			continue
+		}
+
 		// This folder exists on both sides. Settings might have changed.
 		// Check if anything differs that requires a restart.
 		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) {
@@ -2612,12 +2634,12 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 
 		// Ignored folder was removed, reconnect to retrigger the prompt.
 		if len(fromCfg.IgnoredFolders) > len(toCfg.IgnoredFolders) {
-			m.close(deviceID)
+			m.close(deviceID, errIgnoredFolderRemoved)
 		}
 
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
-			m.close(deviceID)
+			m.close(deviceID, errDevicePaused)
 			events.Default.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
 			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
@@ -2711,28 +2733,6 @@ func getChunk(data []string, skip, get int) ([]string, int, int) {
 		return data[skip:l], 0, get - (l - skip)
 	}
 	return data[skip : skip+get], 0, 0
-}
-
-func closeRawConn(conn io.Closer) error {
-	if conn, ok := conn.(*tls.Conn); ok {
-		// If the underlying connection is a *tls.Conn, Close() does more
-		// than it says on the tin. Specifically, it sends a TLS alert
-		// message, which might block forever if the connection is dead
-		// and we don't have a deadline set.
-		conn.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
-	}
-	return conn.Close()
-}
-
-func stringSliceWithout(ss []string, s string) []string {
-	for i := range ss {
-		if ss[i] == s {
-			copy(ss[i:], ss[i+1:])
-			ss = ss[:len(ss)-1]
-			return ss
-		}
-	}
-	return ss
 }
 
 func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) error {
@@ -2845,4 +2845,23 @@ type syncMutexMap struct {
 func (m *syncMutexMap) Get(key string) sync.Mutex {
 	v, _ := m.inner.LoadOrStore(key, sync.NewMutex())
 	return v.(sync.Mutex)
+}
+
+// sanitizePath takes a string that might contain all kinds of special
+// characters and makes a valid, similar, path name out of it.
+//
+// Spans of invalid characters are replaced by a single space. Invalid
+// characters are control characters, the things not allowed in file names
+// in Windows, and common shell metacharacters. Even if asterisks and pipes
+// and stuff are allowed on Unixes in general they might not be allowed by
+// the filesystem and may surprise the user and cause shell oddness. This
+// function is intended for file names we generate on behalf of the user,
+// and surprising them with odd shell characters in file names is unkind.
+//
+// We include whitespace in the invalid characters so that multiple
+// whitespace is collapsed to a single space. Additionally, whitespace at
+// either end is removed.
+func sanitizePath(path string) string {
+	invalid := regexp.MustCompile(`([[:cntrl:]]|[<>:"'/\\|?*\n\r\t \[\]\{\};:!@$%&^#])+`)
+	return strings.TrimSpace(invalid.ReplaceAllString(path, " "))
 }

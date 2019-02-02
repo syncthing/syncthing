@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Dec 17, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Jan 26, 2019" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -175,7 +175,7 @@ The following shows an example of the default configuration file (IDs will diffe
     <gui></gui>
     <options></options>
     <ignoredDevice>5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU</ignoredDevice>
-    <ignoredFolder>bd7q3\-zskm5</ignoredDevice>
+    <ignoredFolder>bd7q3\-zskm5</ignoredFolder>
 </configuration>
 .ft P
 .fi
@@ -613,6 +613,67 @@ without authorization. A warning will displayed about this setting on startup.
 .TP
 .B theme
 The name of the theme to use.
+.TP
+.B authMode
+Authentication mode to use. If not present authentication mode (static)
+is controlled by presence of user/passward fields for backward compatibility.
+.INDENT 7.0
+.TP
+.B static
+Authentication using user and password.
+.TP
+.B ldap
+LDAP authentication. Requires ldap top level config section to be present.
+.UNINDENT
+.UNINDENT
+.SH LDAP ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<ldap>
+    <address>localhost:389</address>
+    <bindDN>cn=%s,ou=users,dc=syncthing,dc=net</bindDN>
+    <transport>nontls</transport>
+    <insecureSkipVerify>false</insecureSkipVerify>
+</ldap>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The \fBldap\fP element contains LDAP configuration options.
+.INDENT 0.0
+.TP
+.B address
+LDAP server address (server:port).
+.TP
+.B bindDN
+BindDN for user authentication.
+Special %s variable shoild be used to pass username to LDAP.
+.UNINDENT
+.sp
+transport
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B nontls
+Non secure connection.
+.TP
+.B tls
+TLS secured connection.
+.TP
+.B starttls
+StartTLS connection mode.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B insecureSkipVerify
+Skip verification (true or false).
 .UNINDENT
 .SH OPTIONS ELEMENT
 .INDENT 0.0

@@ -8,7 +8,6 @@ package model
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"math/rand"
 	"path/filepath"
@@ -16,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -59,14 +60,13 @@ type copyBlocksState struct {
 const retainBits = fs.ModeSetgid | fs.ModeSetuid | fs.ModeSticky
 
 var (
-	activity               = newDeviceActivity()
-	errNoDevice            = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
-	errSymlinksUnsupported = errors.New("symlinks not supported")
-	errDirHasToBeScanned   = errors.New("directory contains unexpected files, scheduling scan")
-	errDirHasIgnored       = errors.New("directory contains ignored files (see ignore documentation for (?d) prefix)")
-	errDirNotEmpty         = errors.New("directory is not empty")
-	errNotAvailable        = errors.New("no connected device has the required version of this file")
-	errModified            = errors.New("file modified but not rescanned; will try again later")
+	activity             = newDeviceActivity()
+	errNoDevice          = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
+	errDirHasToBeScanned = errors.New("directory contains unexpected files, scheduling scan")
+	errDirHasIgnored     = errors.New("directory contains ignored files (see ignore documentation for (?d) prefix)")
+	errDirNotEmpty       = errors.New("directory is not empty; files within are probably ignored on connected devices only")
+	errNotAvailable      = errors.New("no connected device has the required version of this file")
+	errModified          = errors.New("file modified but not rescanned; will try again later")
 )
 
 const (
@@ -95,9 +95,8 @@ type dbUpdateJob struct {
 type sendReceiveFolder struct {
 	folder
 
-	prevIgnoreHash string
-	fs             fs.Filesystem
-	versioner      versioner.Versioner
+	fs        fs.Filesystem
+	versioner versioner.Versioner
 
 	queue *jobQueue
 
@@ -132,6 +131,8 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 	return f
 }
 
+// pull returns true if it manages to get all needed items from peers, i.e. get
+// the device in sync with the global state.
 func (f *sendReceiveFolder) pull() bool {
 	select {
 	case <-f.initialScanFinished:
@@ -141,7 +142,7 @@ func (f *sendReceiveFolder) pull() bool {
 	}
 
 	f.model.fmut.RLock()
-	curIgnores := f.model.folderIgnores[f.folderID]
+	ignores := f.model.folderIgnores[f.folderID]
 	folderFiles := f.model.folderFiles[f.folderID]
 	f.model.fmut.RUnlock()
 
@@ -157,13 +158,23 @@ func (f *sendReceiveFolder) pull() bool {
 
 	if err := f.CheckHealth(); err != nil {
 		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-		return true
+		return false
 	}
 
-	curIgnoreHash := curIgnores.Hash()
-	ignoresChanged := curIgnoreHash != f.prevIgnoreHash
+	// Check if the ignore patterns changed.
+	oldHash := ignores.Hash()
+	defer func() {
+		if ignores.Hash() != oldHash {
+			f.ignoresUpdated()
+		}
+	}()
+	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+		err = fmt.Errorf("loading ignores: %v", err)
+		f.setError(err)
+		return false
+	}
 
-	l.Debugf("%v pulling (ignoresChanged=%v)", f, ignoresChanged)
+	l.Debugf("%v pulling", f)
 
 	f.setState(FolderSyncing)
 	f.clearPullErrors()
@@ -176,46 +187,34 @@ func (f *sendReceiveFolder) pull() bool {
 		f.setState(FolderIdle)
 	}()
 
-	var changed int
-	tries := 0
-
-	for {
-		tries++
-
-		changed = f.pullerIteration(curIgnores, folderFiles, ignoresChanged, scanChan)
-
+	for tries := 0; tries < maxPullerIterations; tries++ {
 		select {
 		case <-f.ctx.Done():
 			return false
 		default:
 		}
 
-		l.Debugln(f, "changed", changed)
+		changed := f.pullerIteration(ignores, folderFiles, scanChan)
+
+		l.Debugln(f, "changed", changed, "on try", tries)
 
 		if changed == 0 {
 			// No files were changed by the puller, so we are in
-			// sync.
-			break
-		}
-
-		if tries == maxPullerIterations {
-			// We've tried a bunch of times to get in sync, but
-			// we're not making it. Probably there are write
-			// errors preventing us. Flag this with a warning and
-			// wait a bit longer before retrying.
-			if errors := f.Errors(); len(errors) > 0 {
-				events.Default.Log(events.FolderErrors, map[string]interface{}{
-					"folder": f.folderID,
-					"errors": errors,
-				})
-			}
-			break
+			// sync. Any errors were just transitional.
+			f.clearPullErrors()
+			return true
 		}
 	}
 
-	if changed == 0 {
-		f.prevIgnoreHash = curIgnoreHash
-		return true
+	// We've tried a bunch of times to get in sync, but
+	// we're not making it. Probably there are write
+	// errors preventing us. Flag this with a warning and
+	// wait a bit longer before retrying.
+	if errors := f.Errors(); len(errors) > 0 {
+		events.Default.Log(events.FolderErrors, map[string]interface{}{
+			"folder": f.folderID,
+			"errors": errors,
+		})
 	}
 
 	return false
@@ -225,7 +224,7 @@ func (f *sendReceiveFolder) pull() bool {
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, folderFiles *db.FileSet, ignoresChanged bool, scanChan chan<- string) int {
+func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, folderFiles *db.FileSet, scanChan chan<- string) int {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -588,6 +587,11 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 				return err
 			}
 
+			// Copy the parent owner and group, if we are supposed to do that.
+			if err := f.maybeCopyOwner(path); err != nil {
+				return err
+			}
+
 			// Stat the directory so we can check its permissions.
 			info, err := f.fs.Lstat(path)
 			if err != nil {
@@ -708,7 +712,10 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	// We declare a function that acts on only the path name, so
 	// we can pass it to InWritableDir.
 	createLink := func(path string) error {
-		return f.fs.CreateSymlink(file.SymlinkTarget, path)
+		if err := f.fs.CreateSymlink(file.SymlinkTarget, path); err != nil {
+			return err
+		}
+		return f.maybeCopyOwner(path)
 	}
 
 	if err = osutil.InWritableDir(createLink, f.fs, file.Name); err == nil {
@@ -874,7 +881,8 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, ig
 		scanChan <- target.Name
 		err = errModified
 	default:
-		if fi, err := scanner.CreateFileInfo(stat, target.Name, f.fs); err == nil {
+		var fi protocol.FileInfo
+		if fi, err = scanner.CreateFileInfo(stat, target.Name, f.fs); err == nil {
 			if !fi.IsEquivalentOptional(curTarget, f.IgnorePerms, true, protocol.LocalAllFlags) {
 				// Target changed
 				scanChan <- target.Name
@@ -1398,7 +1406,8 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 		// Fetch the block, while marking the selected device as in use so that
 		// leastBusy can select another device when someone else asks.
 		activity.using(selected)
-		buf, lastError := f.model.requestGlobal(selected.ID, f.folderID, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
+		var buf []byte
+		buf, lastError = f.model.requestGlobal(selected.ID, f.folderID, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
 		activity.done(selected)
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)
@@ -1431,6 +1440,11 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, file, curFile
 		if err := f.fs.Chmod(tempName, fs.FileMode(file.Permissions&0777)); err != nil {
 			return err
 		}
+	}
+
+	// Copy the parent owner and group, if we are supposed to do that.
+	if err := f.maybeCopyOwner(tempName); err != nil {
+		return err
 	}
 
 	if stat, err := f.fs.Lstat(file.Name); err == nil {
@@ -1884,6 +1898,26 @@ func (f *sendReceiveFolder) checkToBeDeleted(cur protocol.FileInfo, scanChan cha
 		// File changed
 		scanChan <- cur.Name
 		return errModified
+	}
+	return nil
+}
+
+func (f *sendReceiveFolder) maybeCopyOwner(path string) error {
+	if !f.CopyOwnershipFromParent {
+		// Not supposed to do anything.
+		return nil
+	}
+	if runtime.GOOS == "windows" {
+		// Can't do anything.
+		return nil
+	}
+
+	info, err := f.fs.Lstat(filepath.Dir(path))
+	if err != nil {
+		return errors.Wrap(err, "copy owner from parent")
+	}
+	if err := f.fs.Lchown(path, info.Owner(), info.Group()); err != nil {
+		return errors.Wrap(err, "copy owner from parent")
 	}
 	return nil
 }

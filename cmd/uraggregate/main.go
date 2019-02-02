@@ -181,7 +181,7 @@ func aggregateVersionSummary(db *sql.DB, since time.Time) (int64, error) {
 		WHERE
 			DATE_TRUNC('day', Received) > $1
 			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
-			AND Version like 'v0.%'
+			AND Version like 'v_.%'
 		GROUP BY Day, Ver
 		);
 	`, since)
@@ -199,7 +199,7 @@ func aggregateUserMovement(db *sql.DB) (int64, error) {
 		FROM Reports
 		WHERE
 			DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
-			AND Version like 'v0.%'
+			AND Version like 'v_.%'
 		ORDER BY Day
 	`)
 	if err != nil {
@@ -285,7 +285,7 @@ func aggregatePerformance(db *sql.DB, since time.Time) (int64, error) {
 		WHERE
 			DATE_TRUNC('day', Received) > $1
 			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
-			AND Version like 'v0.%'
+			AND Version like 'v_.%'
 		GROUP BY Day
 		);
 	`, since)
@@ -315,7 +315,7 @@ func aggregateBlockStats(db *sql.DB, since time.Time) (int64, error) {
 			DATE_TRUNC('day', Received) > $1
 			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
 			AND ReportVersion = 3
-			AND Version LIKE 'v0.%'
+			AND Version like 'v_.%'
 			AND Version NOT LIKE 'v0.14.40%'
 			AND Version NOT LIKE 'v0.14.39%'
 			AND Version NOT LIKE 'v0.14.38%'

@@ -64,7 +64,6 @@ type Wrapper struct {
 
 	deviceMap map[protocol.DeviceID]DeviceConfiguration
 	folderMap map[string]FolderConfiguration
-	replaces  chan Configuration
 	subs      []Committer
 	mut       sync.Mutex
 
@@ -79,7 +78,6 @@ func Wrap(path string, cfg Configuration) *Wrapper {
 		path: path,
 		mut:  sync.NewMutex(),
 	}
-	w.replaces = make(chan Configuration)
 	return w
 }
 
@@ -102,12 +100,6 @@ func Load(path string, myID protocol.DeviceID) (*Wrapper, error) {
 
 func (w *Wrapper) ConfigPath() string {
 	return w.path
-}
-
-// Stop stops the Serve() loop. Set and Replace operations will panic after a
-// Stop.
-func (w *Wrapper) Stop() {
-	close(w.replaces)
 }
 
 // Subscribe registers the given handler to be called on any future

@@ -22,7 +22,7 @@ import (
 var (
 	sessionMut      = sync.RWMutex{}
 	activeSessions  = make([]*session, 0)
-	pendingSessions = make(map[string]*session, 0)
+	pendingSessions = make(map[string]*session)
 	numProxies      int64
 	bytesProxied    int64
 )

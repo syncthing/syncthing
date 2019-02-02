@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 func setup(t *testing.T) (*BasicFilesystem, string) {
@@ -53,6 +55,54 @@ func TestChmodFile(t *testing.T) {
 
 	if stat, err := os.Stat(path); err != nil || stat.Mode()&os.ModePerm != 0444 {
 		t.Errorf("wrong perm: %t %#o", err == nil, stat.Mode()&os.ModePerm)
+	}
+}
+
+func TestChownFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Not supported on Windows")
+		return
+	}
+	if os.Getuid() != 0 {
+		// We are not root. No expectation of being able to chown. Our tests
+		// typically don't run with CAP_FOWNER.
+		t.Skip("Test not possible")
+		return
+	}
+
+	fs, dir := setup(t)
+	path := filepath.Join(dir, "file")
+	defer os.RemoveAll(dir)
+
+	defer os.Chmod(path, 0666)
+
+	fd, err := os.Create(path)
+	if err != nil {
+		t.Error("Unexpected error:", err)
+	}
+	fd.Close()
+
+	_, err = fs.Lstat("file")
+	if err != nil {
+		t.Error("Unexpected error:", err)
+	}
+
+	newUID := 1000 + rand.Intn(30000)
+	newGID := 1000 + rand.Intn(30000)
+
+	if err := fs.Lchown("file", newUID, newGID); err != nil {
+		t.Error("Unexpected error:", err)
+	}
+
+	info, err := fs.Lstat("file")
+	if err != nil {
+		t.Error("Unexpected error:", err)
+	}
+	if info.Owner() != newUID {
+		t.Errorf("Incorrect owner, expected %d but got %d", newUID, info.Owner())
+	}
+	if info.Group() != newGID {
+		t.Errorf("Incorrect group, expected %d but got %d", newGID, info.Group())
 	}
 }
 

@@ -101,7 +101,7 @@ func (db *schemaUpdater) updateSchema0to1() {
 	changedFolders := make(map[string]struct{})
 	ignAdded := 0
 	meta := newMetadataTracker() // dummy metadata tracker
-	var gk []byte
+	var gk, buf []byte
 
 	for dbi.Next() {
 		folder, ok := db.keyer.FolderFromDeviceFileKey(dbi.Key())
@@ -126,7 +126,7 @@ func (db *schemaUpdater) updateSchema0to1() {
 				changedFolders[string(folder)] = struct{}{}
 			}
 			gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-			t.removeFromGlobal(gk, folder, device, nil, nil)
+			buf = t.removeFromGlobal(gk, buf, folder, device, nil, nil)
 			t.Delete(dbi.Key())
 			t.checkFlush()
 			continue
@@ -156,8 +156,8 @@ func (db *schemaUpdater) updateSchema0to1() {
 		// Add invalid files to global list
 		if f.IsInvalid() {
 			gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-			if t.updateGlobal(gk, folder, device, f, meta) {
-				if _, ok := changedFolders[string(folder)]; !ok {
+			if buf, ok = t.updateGlobal(gk, buf, folder, device, f, meta); ok {
+				if _, ok = changedFolders[string(folder)]; !ok {
 					changedFolders[string(folder)] = struct{}{}
 				}
 				ignAdded++
@@ -203,7 +203,7 @@ func (db *schemaUpdater) updateSchema2to3() {
 			name := []byte(f.FileName())
 			dk = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], name)
 			var v protocol.Vector
-			haveFile, ok := db.getFileTrunc(dk, true)
+			haveFile, ok := t.getFileTrunc(dk, true)
 			if ok {
 				v = haveFile.FileVersion()
 			}
