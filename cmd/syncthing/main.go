@@ -943,7 +943,7 @@ func setupSignalHandling() {
 }
 
 func loadOrDefaultConfig() (*config.Wrapper, error) {
-	setConfigKey() // can fail if we don't have a secret key, but doesn't matter.
+	_ = setConfigKey() // can fail if we don't have a secret key, but doesn't matter.
 
 	cfgFile := locations[locConfigFile]
 	cfg, err := config.Load(cfgFile, myID)

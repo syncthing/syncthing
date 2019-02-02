@@ -1117,7 +1117,9 @@ func TestObfuscationInSerialization(t *testing.T) {
 	cfg.LDAP.BindPassword.Set(original)
 
 	var buf bytes.Buffer
-	cfg.WriteXML(&buf)
+	if err := cfg.WriteXML(&buf); err != nil {
+		t.Fatal("Unexpected error:", err)
+	}
 	if strings.Contains(buf.String(), original) {
 		t.Error("XML serialization should not contain unobfuscated string")
 	}
