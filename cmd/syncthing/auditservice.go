@@ -44,7 +44,7 @@ func (s *auditService) Serve() {
 	for {
 		select {
 		case ev := <-sub.C():
-			enc.Encode(ev)
+			_ = enc.Encode(ev)
 		case <-s.stop:
 			return
 		}

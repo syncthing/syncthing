@@ -127,7 +127,6 @@ func setBuildMetadata() {
 var (
 	myID protocol.DeviceID
 	stop = make(chan int)
-	lans []*net.IPNet
 )
 
 const (
@@ -436,7 +435,9 @@ func main() {
 	}
 
 	if options.resetDatabase {
-		resetDB()
+		if err := resetDB(); err != nil {
+			l.Fatalln("Resetting database:", err)
+		}
 		return
 	}
 
@@ -450,7 +451,9 @@ func main() {
 func openGUI() {
 	cfg, _ := loadOrDefaultConfig()
 	if cfg.GUI().Enabled {
-		openURL(cfg.GUI().URL())
+		if err := openURL(cfg.GUI().URL()); err != nil {
+			l.Fatalln("Open URL:", err)
+		}
 	} else {
 		l.Warnln("Browser: GUI is currently disabled")
 	}
@@ -631,7 +634,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Attempt to increase the limit on number of open files to the maximum
 	// allowed, in case we have many peers. We don't really care enough to
 	// report the error if there is one.
-	osutil.MaximizeOpenFileLimit()
+	_, _ = osutil.MaximizeOpenFileLimit()
 
 	// Ensure that we have a certificate and key.
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
@@ -754,7 +757,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Add and start folders
 	for _, folderCfg := range cfg.Folders() {
 		if folderCfg.Paused {
-			folderCfg.CreateRoot()
+			_ = folderCfg.CreateRoot()
 			continue
 		}
 		m.AddFolder(folderCfg)
@@ -823,9 +826,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
-			log.Fatal(err)
+			l.Fatalln("Creating profile:", err)
 		}
-		pprof.StartCPUProfile(f)
+		if err := pprof.StartCPUProfile(f); err != nil {
+			l.Fatalln("Starting profile:", err)
+		}
 	}
 
 	myDev, _ := cfg.Device(myID)
@@ -842,8 +847,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
 		if opts.URAccepted != usageReportVersion {
 			opts.URAccepted = usageReportVersion
-			cfg.SetOptions(opts)
-			cfg.Save()
+			_, _ = cfg.SetOptions(opts)
+			_ = cfg.Save()
 			// Unique ID will be set and config saved below if necessary.
 		}
 	}
@@ -851,8 +856,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// If we are going to do usage reporting, ensure we have a valid unique ID.
 	if opts := cfg.Options(); opts.URAccepted > 0 && opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
-		cfg.SetOptions(opts)
-		cfg.Save()
+		_, _ = cfg.SetOptions(opts)
+		_ = cfg.Save()
 	}
 
 	usageReportingSvc := newUsageReportingService(cfg, m, connectionsService)
@@ -872,8 +877,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			opts.AutoUpgradeIntervalH = 12
 			// Set the option into the config as well, as the auto upgrade
 			// loop expects to read a valid interval from there.
-			cfg.SetOptions(opts)
-			cfg.Save()
+			_, _ = cfg.SetOptions(opts)
+			_ = cfg.Save()
 		}
 		// We don't tweak the user's choice of upgrading to pre-releases or
 		// not, as otherwise they cannot step off the candidate channel.
@@ -954,7 +959,7 @@ func loadConfigAtStartup() *config.Wrapper {
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
 		cfg = defaultConfig(cfgFile)
-		cfg.Save()
+		_ = cfg.Save()
 		l.Infof("Default config saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
 	} else if err == io.EOF {
 		l.Fatalln("Failed to load config: unexpected end of file. Truncated or empty configuration?")
@@ -1058,7 +1063,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
 		<-api.startedOnce
-		go openURL(guiCfg.URL())
+		go func() { _ = openURL(guiCfg.URL()) }()
 	}
 }
 

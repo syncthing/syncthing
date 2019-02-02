@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rcrowley/go-metrics"
+	metrics "github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
@@ -966,7 +966,7 @@ func (s *apiService) postSystemShutdown(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *apiService) flushResponse(resp string, w http.ResponseWriter) {
-	w.Write([]byte(resp + "\n"))
+	_, _ = w.Write([]byte(resp + "\n"))
 	f := w.(http.Flusher)
 	f.Flush()
 }
@@ -1121,15 +1121,17 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	var heapBuffer, cpuBuffer bytes.Buffer
 	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, Version, time.Now().Format("150405")) // hhmmss
 	runtime.GC()
-	pprof.WriteHeapProfile(&heapBuffer)
-	files = append(files, fileEntry{name: filename, data: heapBuffer.Bytes()})
+	if err := pprof.WriteHeapProfile(&heapBuffer); err == nil {
+		files = append(files, fileEntry{name: filename, data: heapBuffer.Bytes()})
+	}
 
 	const duration = 4 * time.Second
 	filename = fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, Version, time.Now().Format("150405")) // hhmmss
-	pprof.StartCPUProfile(&cpuBuffer)
-	time.Sleep(duration)
-	pprof.StopCPUProfile()
-	files = append(files, fileEntry{name: filename, data: cpuBuffer.Bytes()})
+	if err := pprof.StartCPUProfile(&cpuBuffer); err == nil {
+		time.Sleep(duration)
+		pprof.StopCPUProfile()
+		files = append(files, fileEntry{name: filename, data: cpuBuffer.Bytes()})
+	}
 
 	// Add buffer files to buffer zip
 	var zipFilesBuffer bytes.Buffer
@@ -1151,7 +1153,7 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	// Serve the buffer zip to client for download
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename="+zipFileName)
-	io.Copy(w, &zipFilesBuffer)
+	_, _ = io.Copy(w, &zipFilesBuffer)
 }
 
 func (s *apiService) getSystemHTTPMetrics(w http.ResponseWriter, r *http.Request) {
@@ -1171,7 +1173,7 @@ func (s *apiService) getSystemHTTPMetrics(w http.ResponseWriter, r *http.Request
 		}
 	})
 	bs, _ := json.MarshalIndent(stats, "", "  ")
-	w.Write(bs)
+	_, _ = w.Write(bs)
 }
 
 func (s *apiService) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
@@ -1463,7 +1465,7 @@ func (s *apiService) getQR(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "image/png")
-	w.Write(code.PNG())
+	_, _ = w.Write(code.PNG())
 }
 
 func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
@@ -1561,7 +1563,7 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 
 	// Default value or in case of error unmarshalling ends up being basic fs.
 	var fsType fs.FilesystemType
-	fsType.UnmarshalText([]byte(qs.Get("filesystem")))
+	_ = fsType.UnmarshalText([]byte(qs.Get("filesystem")))
 
 	sendJSON(w, browseFiles(current, fsType))
 }
@@ -1645,9 +1647,10 @@ func (s *apiService) getCPUProf(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 
-	pprof.StartCPUProfile(w)
-	time.Sleep(duration)
-	pprof.StopCPUProfile()
+	if err := pprof.StartCPUProfile(w); err == nil {
+		time.Sleep(duration)
+		pprof.StopCPUProfile()
+	}
 }
 
 func (s *apiService) getHeapProf(w http.ResponseWriter, r *http.Request) {
@@ -1657,7 +1660,7 @@ func (s *apiService) getHeapProf(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 
 	runtime.GC()
-	pprof.WriteHeapProfile(w)
+	_ = pprof.WriteHeapProfile(w)
 }
 
 func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
