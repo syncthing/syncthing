@@ -202,7 +202,7 @@ func upgradeToURL(archiveName, binary string, url string) error {
 		return err
 	}
 	if err := os.Rename(fname, binary); err != nil {
-		_ = os.Rename(old, binary)
+		os.Rename(old, binary)
 		return err
 	}
 	return nil

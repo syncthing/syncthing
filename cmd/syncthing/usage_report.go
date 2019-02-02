@@ -427,7 +427,7 @@ func (*usageReportingService) String() string {
 func cpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 {
 	dataSize := 16 * protocol.MinBlockSize
 	bs := make([]byte, dataSize)
-	_, _ = rand.Reader.Read(bs)
+	rand.Reader.Read(bs)
 
 	var perf float64
 	for i := 0; i < iterations; i++ {

@@ -190,7 +190,7 @@ next:
 			continue
 		}
 
-		_ = c.SetDeadline(time.Now().Add(20 * time.Second))
+		c.SetDeadline(time.Now().Add(20 * time.Second))
 		hello, err := protocol.ExchangeHello(c, s.model.GetHello(remoteID))
 		if err != nil {
 			if protocol.IsVersionMismatch(err) {
@@ -214,7 +214,7 @@ next:
 			c.Close()
 			continue
 		}
-		_ = c.SetDeadline(time.Time{})
+		c.SetDeadline(time.Time{})
 
 		// The Model will return an error for devices that we don't want to
 		// have a connection with for whatever reason, for example unknown devices.
@@ -569,7 +569,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	for addr, listener := range s.listeners {
 		if _, ok := seen[addr]; !ok || listener.Factory().Valid(to) != nil {
 			l.Debugln("Stopping listener", addr)
-			_ = s.listenerSupervisor.Remove(s.listenerTokens[addr])
+			s.listenerSupervisor.Remove(s.listenerTokens[addr])
 			delete(s.listenerTokens, addr)
 			delete(s.listeners, addr)
 		}
@@ -582,7 +582,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 		s.natServiceToken = &token
 	} else if !to.Options.NATEnabled && s.natServiceToken != nil {
 		l.Debugln("Stopping NAT service")
-		_ = s.Remove(*s.natServiceToken)
+		s.Remove(*s.natServiceToken)
 		s.natServiceToken = nil
 	}
 
@@ -717,8 +717,8 @@ func warningFor(dev protocol.DeviceID, msg string) {
 }
 
 func tlsTimedHandshake(tc *tls.Conn) error {
-	_ = tc.SetDeadline(time.Now().Add(tlsHandshakeTimeout))
-	defer func() { _ = tc.SetDeadline(time.Time{}) }()
+	tc.SetDeadline(time.Now().Add(tlsHandshakeTimeout))
+	defer tc.SetDeadline(time.Time{})
 	return tc.Handshake()
 }
 

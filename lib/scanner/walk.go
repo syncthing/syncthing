@@ -108,10 +108,10 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	go func() {
 		hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
 		if len(w.Subs) == 0 {
-			_ = w.Filesystem.Walk(".", hashFiles)
+			w.Filesystem.Walk(".", hashFiles)
 		} else {
 			for _, sub := range w.Subs {
-				_ = w.Filesystem.Walk(sub, hashFiles)
+				w.Filesystem.Walk(sub, hashFiles)
 			}
 		}
 		close(toHashChan)
@@ -223,7 +223,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		if fs.IsTemporary(path) {
 			l.Debugln("temporary:", path, "err:", err)
 			if err == nil && info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
-				_ = w.Filesystem.Remove(path)
+				w.Filesystem.Remove(path)
 				l.Debugln("removing temporary:", path, info.ModTime())
 			}
 			return nil

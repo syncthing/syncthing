@@ -60,7 +60,7 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 	}
 	sort.Strings(delete)
 
-	_ = os.MkdirAll("testdata/.stversions", 0755)
+	os.MkdirAll("testdata/.stversions", 0755)
 	defer os.RemoveAll("testdata")
 
 	v := NewStaggered("", fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), map[string]string{"maxAge": strconv.Itoa(365 * 86400)}).(*Staggered)

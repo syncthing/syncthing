@@ -242,7 +242,7 @@ func (s *fakeDiscoveryServer) handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204)
 	} else {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"addresses":["tcp://192.0.2.42::22000"], "relays":[{"url": "relay://192.0.2.43:443", "latency": 42}]}`))
+		w.Write([]byte(`{"addresses":["tcp://192.0.2.42::22000"], "relays":[{"url": "relay://192.0.2.43:443", "latency": 42}]}`))
 	}
 }
 

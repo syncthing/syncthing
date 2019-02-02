@@ -1016,7 +1016,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 			// Otherwise, discard the file ourselves in order for the
 			// sharedpuller not to panic when it fails to exclusively create a
 			// file which already exists
-			_ = osutil.InWritableDir(f.fs.Remove, f.fs, tempName)
+			osutil.InWritableDir(f.fs.Remove, f.fs, tempName)
 		}
 	} else {
 		// Copy the blocks, as we don't want to shuffle them on the FileInfo
@@ -1142,7 +1142,7 @@ func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpda
 		}
 	}
 
-	_ = f.fs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
+	f.fs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
 
 	// This may have been a conflict. We should merge the version vectors so
 	// that our clock doesn't move backwards.
@@ -1536,7 +1536,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, file, curFile
 	}
 
 	// Set the correct timestamp on the new file
-	_ = f.fs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
+	f.fs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
 
 	// Record the updated file in the index
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleFile}
@@ -1706,7 +1706,7 @@ func (f *sendReceiveFolder) pullScannerRoutine(scanChan <-chan string) {
 			l.Debugln(f, "scheduling scan after pulling for", path)
 			scanList = append(scanList, path)
 		}
-		_ = f.Scan(scanList)
+		f.Scan(scanList)
 	}
 }
 
@@ -1858,7 +1858,7 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 	}
 
 	for _, del := range toBeDeleted {
-		_ = f.fs.RemoveAll(del)
+		f.fs.RemoveAll(del)
 	}
 
 	err := osutil.InWritableDir(f.fs.Remove, f.fs, dir)

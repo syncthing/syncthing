@@ -23,7 +23,7 @@ func writeJSONS(w io.Writer, db *leveldb.DB) {
 	defer it.Release()
 	enc := json.NewEncoder(w)
 	for it.Next() {
-		_ = enc.Encode(map[string][]byte{
+		enc.Encode(map[string][]byte{
 			"k": it.Key(),
 			"v": it.Value(),
 		})
@@ -54,7 +54,7 @@ func openJSONS(file string) (*leveldb.DB, error) {
 			return nil, err
 		}
 
-		_ = db.Put(row["k"], row["v"], nil)
+		db.Put(row["k"], row["v"], nil)
 	}
 
 	return db, nil

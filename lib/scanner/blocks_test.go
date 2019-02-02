@@ -112,10 +112,10 @@ func TestAdler32Variants(t *testing.T) {
 	hf2 := rollingAdler32.New()
 
 	checkFn := func(data []byte) bool {
-		_, _ = hf1.Write(data)
+		hf1.Write(data)
 		sum1 := hf1.Sum32()
 
-		_, _ = hf2.Write(data)
+		hf2.Write(data)
 		sum2 := hf2.Sum32()
 
 		hf1.Reset()
@@ -127,7 +127,7 @@ func TestAdler32Variants(t *testing.T) {
 	// protocol block sized data
 	data := make([]byte, protocol.MinBlockSize)
 	for i := 0; i < 5; i++ {
-		_, _ = rand.Read(data)
+		rand.Read(data)
 		if !checkFn(data) {
 			t.Errorf("Hash mismatch on block sized data")
 		}
@@ -145,13 +145,13 @@ func TestAdler32Variants(t *testing.T) {
 	windowSize := 128
 
 	hf3 := rollingAdler32.New()
-	_, _ = hf3.Write(data[:windowSize])
+	hf3.Write(data[:windowSize])
 
 	for i := windowSize; i < len(data); i++ {
 		if i%windowSize == 0 {
 			// let the reference function catch up
 			hf2.Reset()
-			_, _ = hf2.Write(data[i-windowSize : i])
+			hf2.Write(data[i-windowSize : i])
 
 			// verify that they are in sync with the rolling function
 			sum2 := hf2.Sum32()

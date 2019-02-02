@@ -53,7 +53,7 @@ func (f *MtimeFS) Chtimes(name string, atime, mtime time.Time) error {
 	}
 
 	// Do a normal Chtimes call, don't care if it succeeds or not.
-	_ = f.chtimes(name, atime, mtime)
+	f.chtimes(name, atime, mtime)
 
 	// Stat the file to see what happened. Here we *do* return an error,
 	// because it might be "does not exist" or similar.

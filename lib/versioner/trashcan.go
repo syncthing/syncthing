@@ -65,7 +65,7 @@ func (t *Trashcan) Archive(filePath string) error {
 		if err := t.fs.MkdirAll(versionsDir, 0777); err != nil {
 			return err
 		}
-		_ = t.fs.Hide(versionsDir)
+		t.fs.Hide(versionsDir)
 	}
 
 	l.Debugln("archiving", filePath)
@@ -84,7 +84,7 @@ func (t *Trashcan) Archive(filePath string) error {
 	// Set the mtime to the time the file was deleted. This is used by the
 	// cleanout routine. If this fails things won't work optimally but there's
 	// not much we can do about it so we ignore the error.
-	_ = t.fs.Chtimes(archivedPath, time.Now(), time.Now())
+	t.fs.Chtimes(archivedPath, time.Now(), time.Now())
 
 	return nil
 }
@@ -144,7 +144,7 @@ func (t *Trashcan) cleanoutArchive() error {
 
 		if info.ModTime().Before(cutoff) {
 			// The file is too old; remove it.
-			_ = t.fs.Remove(path)
+			t.fs.Remove(path)
 		} else {
 			// Keep this file, and remember it so we don't unnecessarily try
 			// to remove this directory.

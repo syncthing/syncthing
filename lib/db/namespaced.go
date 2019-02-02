@@ -61,7 +61,7 @@ func (n *NamespacedKV) Reset() {
 func (n *NamespacedKV) PutInt64(key string, val int64) {
 	var valBs [8]byte
 	binary.BigEndian.PutUint64(valBs[:], uint64(val))
-	_ = n.db.Put(n.prefixedKey(key), valBs[:], nil)
+	n.db.Put(n.prefixedKey(key), valBs[:], nil)
 }
 
 // Int64 returns the stored value interpreted as an int64 and a boolean that
@@ -79,7 +79,7 @@ func (n *NamespacedKV) Int64(key string) (int64, bool) {
 // type) is overwritten.
 func (n *NamespacedKV) PutTime(key string, val time.Time) {
 	valBs, _ := val.MarshalBinary() // never returns an error
-	_ = n.db.Put(n.prefixedKey(key), valBs, nil)
+	n.db.Put(n.prefixedKey(key), valBs, nil)
 }
 
 // Time returns the stored value interpreted as a time.Time and a boolean
@@ -97,7 +97,7 @@ func (n NamespacedKV) Time(key string) (time.Time, bool) {
 // PutString stores a new string. Any existing value (even if of another type)
 // is overwritten.
 func (n *NamespacedKV) PutString(key, val string) {
-	_ = n.db.Put(n.prefixedKey(key), []byte(val), nil)
+	n.db.Put(n.prefixedKey(key), []byte(val), nil)
 }
 
 // String returns the stored value interpreted as a string and a boolean that
@@ -113,7 +113,7 @@ func (n NamespacedKV) String(key string) (string, bool) {
 // PutBytes stores a new byte slice. Any existing value (even if of another type)
 // is overwritten.
 func (n *NamespacedKV) PutBytes(key string, val []byte) {
-	_ = n.db.Put(n.prefixedKey(key), val, nil)
+	n.db.Put(n.prefixedKey(key), val, nil)
 }
 
 // Bytes returns the stored value as a raw byte slice and a boolean that
@@ -130,9 +130,9 @@ func (n NamespacedKV) Bytes(key string) ([]byte, bool) {
 // is overwritten.
 func (n *NamespacedKV) PutBool(key string, val bool) {
 	if val {
-		_ = n.db.Put(n.prefixedKey(key), []byte{0x0}, nil)
+		n.db.Put(n.prefixedKey(key), []byte{0x0}, nil)
 	} else {
-		_ = n.db.Put(n.prefixedKey(key), []byte{0x1}, nil)
+		n.db.Put(n.prefixedKey(key), []byte{0x1}, nil)
 	}
 }
 
@@ -149,7 +149,7 @@ func (n NamespacedKV) Bool(key string) (bool, bool) {
 // Delete deletes the specified key. It is allowed to delete a nonexistent
 // key.
 func (n NamespacedKV) Delete(key string) {
-	_ = n.db.Delete(n.prefixedKey(key), nil)
+	n.db.Delete(n.prefixedKey(key), nil)
 }
 
 func (n NamespacedKV) prefixedKey(key string) []byte {

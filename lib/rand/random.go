@@ -67,7 +67,7 @@ func Intn(n int) int {
 // suitable for use a predictable random seed.
 func SeedFromBytes(bs []byte) int64 {
 	h := md5.New()
-	_, _ = h.Write(bs)
+	h.Write(bs)
 	s := h.Sum(nil)
 	// The MD5 hash of the byte slice is 16 bytes long. We interpret it as two
 	// uint64s and XOR them together.

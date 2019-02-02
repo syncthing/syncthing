@@ -96,7 +96,7 @@ func TestCacheSlowLookup(t *testing.T) {
 	// Start a lookup, which will take at least a second
 
 	t0 := time.Now()
-	go func() { _, _ = c.Lookup(protocol.LocalDeviceID) }()
+	go c.Lookup(protocol.LocalDeviceID)
 	<-started // The slow lookup method has been called so we're inside the lock
 
 	// It should be possible to get ChildErrors while it's running

@@ -51,7 +51,7 @@ func TempNameWithPrefix(name, prefix string) string {
 	tbase := filepath.Base(name)
 	if len(tbase) > maxFilenameLength {
 		hash := md5.New()
-		_, _ = hash.Write([]byte(name))
+		hash.Write([]byte(name))
 		tbase = fmt.Sprintf("%x", hash.Sum(nil))
 	}
 	tname := fmt.Sprintf("%s%s.tmp", prefix, tbase)

@@ -328,6 +328,6 @@ findIP:
 
 func hash(input string) int64 {
 	h := fnv.New64a()
-	_, _ = h.Write([]byte(input))
+	h.Write([]byte(input))
 	return int64(h.Sum64())
 }

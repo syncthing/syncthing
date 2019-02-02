@@ -42,7 +42,7 @@ func TryRename(filesystem fs.Filesystem, from, to string) error {
 func Rename(filesystem fs.Filesystem, from, to string) error {
 	// Don't leave a dangling temp file in case of rename error
 	if !(runtime.GOOS == "windows" && strings.EqualFold(from, to)) {
-		defer func() { _ = filesystem.Remove(from) }()
+		defer filesystem.Remove(from)
 	}
 	return TryRename(filesystem, from, to)
 }
@@ -94,13 +94,13 @@ func withPreparedTarget(filesystem fs.Filesystem, from, to string, f func() erro
 	// Make sure the destination directory is writeable
 	toDir := filepath.Dir(to)
 	if info, err := filesystem.Stat(toDir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
-		_ = filesystem.Chmod(toDir, 0755)
-		defer func() { _ = filesystem.Chmod(toDir, info.Mode()) }()
+		filesystem.Chmod(toDir, 0755)
+		defer filesystem.Chmod(toDir, info.Mode())
 	}
 
 	// On Windows, make sure the destination file is writeable (or we can't delete it)
 	if runtime.GOOS == "windows" {
-		_ = filesystem.Chmod(to, 0666)
+		filesystem.Chmod(to, 0666)
 		if !strings.EqualFold(from, to) {
 			err := filesystem.Remove(to)
 			if err != nil && !fs.IsNotExist(err) {

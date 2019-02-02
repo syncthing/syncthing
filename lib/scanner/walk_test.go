@@ -216,7 +216,7 @@ func TestNormalization(t *testing.T) {
 			if fd, err := testFs.OpenFile(filepath.Join("normalization", s1, s2), os.O_CREATE|os.O_EXCL, 0644); err != nil {
 				t.Fatal(err)
 			} else {
-				_, _ = fd.Write([]byte("test"))
+				fd.Write([]byte("test"))
 				fd.Close()
 			}
 		}
@@ -257,7 +257,7 @@ func TestIssue1507(t *testing.T) {
 	f := make(chan ScanResult, 100)
 	fn := w.walkAndHashFiles(context.TODO(), h, f)
 
-	_ = fn("", nil, protocol.ErrClosed)
+	fn("", nil, protocol.ErrClosed)
 }
 
 func TestWalkSymlinkUnix(t *testing.T) {
@@ -268,9 +268,9 @@ func TestWalkSymlinkUnix(t *testing.T) {
 
 	// Create a folder with a symlink in it
 	os.RemoveAll("_symlinks")
-	_ = os.Mkdir("_symlinks", 0755)
+	os.Mkdir("_symlinks", 0755)
 	defer os.RemoveAll("_symlinks")
-	_ = os.Symlink("../testdata", "_symlinks/link")
+	os.Symlink("../testdata", "_symlinks/link")
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks")
 	for _, path := range []string{".", "link"} {
@@ -298,7 +298,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 	// Create a folder with a symlink in it
 	name := "_symlinks-win"
 	os.RemoveAll(name)
-	_ = os.Mkdir(name, 0755)
+	os.Mkdir(name, 0755)
 	defer os.RemoveAll(name)
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, name)
 	if err := osutil.DebugSymlinkForTestsOnly("../testdata", "_symlinks/link"); err != nil {

@@ -89,8 +89,8 @@ func (c internalConn) Close() {
 	// *tls.Conn.Close() does more than it says on the tin. Specifically, it
 	// sends a TLS alert message, which might block forever if the
 	// connection is dead and we don't have a deadline set.
-	_ = c.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
-	_ = c.Conn.Close()
+	c.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
+	c.Conn.Close()
 }
 
 func (c internalConn) Type() string {

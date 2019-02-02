@@ -548,7 +548,7 @@ func TestPrepare(t *testing.T) {
 		t.Error("Expected nil")
 	}
 
-	_ = cfg.prepare(device1)
+	cfg.prepare(device1)
 
 	if cfg.Folders == nil || cfg.Devices == nil || cfg.Options.ListenAddresses == nil {
 		t.Error("Unexpected nil")
@@ -627,7 +627,7 @@ func TestPullOrder(t *testing.T) {
 
 	buf := new(bytes.Buffer)
 	cfg := wrapper.RawCopy()
-	_ = cfg.WriteXML(buf)
+	cfg.WriteXML(buf)
 
 	t.Logf("%s", buf.Bytes())
 
@@ -1080,7 +1080,7 @@ func TestDeviceConfigObservedNotNil(t *testing.T) {
 		},
 	}
 
-	_ = cfg.prepare(device1)
+	cfg.prepare(device1)
 
 	for _, dev := range cfg.Devices {
 		if dev.IgnoredFolders == nil {

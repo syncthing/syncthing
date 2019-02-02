@@ -27,7 +27,7 @@ func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs [
 	}
 
 	conn := tls.Client(rconn, configForCerts(certs))
-	_ = conn.SetDeadline(time.Now().Add(timeout))
+	conn.SetDeadline(time.Now().Add(timeout))
 
 	if err := performHandshakeAndValidation(conn, uri); err != nil {
 		return protocol.SessionInvitation{}, err
@@ -75,7 +75,7 @@ func JoinSession(invitation protocol.SessionInvitation) (net.Conn, error) {
 		Key: invitation.Key,
 	}
 
-	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
+	conn.SetDeadline(time.Now().Add(10 * time.Second))
 	err = protocol.WriteMessage(conn, request)
 	if err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func JoinSession(invitation protocol.SessionInvitation) (net.Conn, error) {
 		return nil, err
 	}
 
-	_ = conn.SetDeadline(time.Time{})
+	conn.SetDeadline(time.Time{})
 
 	switch msg := message.(type) {
 	case protocol.Response:

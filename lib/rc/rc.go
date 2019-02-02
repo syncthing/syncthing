@@ -114,7 +114,7 @@ func (p *Process) Start(bin string, args ...string) error {
 }
 
 func (p *Process) wait() {
-	_ = p.cmd.Wait()
+	p.cmd.Wait()
 
 	if p.logfd != nil {
 		p.stopErr = p.checkForProblems(p.logfd)

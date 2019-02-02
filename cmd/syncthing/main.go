@@ -634,7 +634,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Attempt to increase the limit on number of open files to the maximum
 	// allowed, in case we have many peers. We don't really care enough to
 	// report the error if there is one.
-	_, _ = osutil.MaximizeOpenFileLimit()
+	osutil.MaximizeOpenFileLimit()
 
 	// Ensure that we have a certificate and key.
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
@@ -757,7 +757,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Add and start folders
 	for _, folderCfg := range cfg.Folders() {
 		if folderCfg.Paused {
-			_ = folderCfg.CreateRoot()
+			folderCfg.CreateRoot()
 			continue
 		}
 		m.AddFolder(folderCfg)
@@ -847,8 +847,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
 		if opts.URAccepted != usageReportVersion {
 			opts.URAccepted = usageReportVersion
-			_, _ = cfg.SetOptions(opts)
-			_ = cfg.Save()
+			cfg.SetOptions(opts)
+			cfg.Save()
 			// Unique ID will be set and config saved below if necessary.
 		}
 	}
@@ -856,8 +856,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// If we are going to do usage reporting, ensure we have a valid unique ID.
 	if opts := cfg.Options(); opts.URAccepted > 0 && opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
-		_, _ = cfg.SetOptions(opts)
-		_ = cfg.Save()
+		cfg.SetOptions(opts)
+		cfg.Save()
 	}
 
 	usageReportingSvc := newUsageReportingService(cfg, m, connectionsService)
@@ -877,8 +877,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			opts.AutoUpgradeIntervalH = 12
 			// Set the option into the config as well, as the auto upgrade
 			// loop expects to read a valid interval from there.
-			_, _ = cfg.SetOptions(opts)
-			_ = cfg.Save()
+			cfg.SetOptions(opts)
+			cfg.Save()
 		}
 		// We don't tweak the user's choice of upgrading to pre-releases or
 		// not, as otherwise they cannot step off the candidate channel.
@@ -959,7 +959,7 @@ func loadConfigAtStartup() *config.Wrapper {
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
 		cfg = defaultConfig(cfgFile)
-		_ = cfg.Save()
+		cfg.Save()
 		l.Infof("Default config saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
 	} else if err == io.EOF {
 		l.Fatalln("Failed to load config: unexpected end of file. Truncated or empty configuration?")

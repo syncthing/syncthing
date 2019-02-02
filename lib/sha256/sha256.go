@@ -115,12 +115,12 @@ func cpuBenchOnce(duration time.Duration, newFn func() hash.Hash) float64 {
 	chunkSize := 100 * 1 << 10
 	h := newFn()
 	bs := make([]byte, chunkSize)
-	_, _ = rand.Reader.Read(bs)
+	rand.Reader.Read(bs)
 
 	t0 := time.Now()
 	b := 0
 	for time.Since(t0) < duration {
-		_, _ = h.Write(bs)
+		h.Write(bs)
 		b += chunkSize
 	}
 	h.Sum(nil)
@@ -146,7 +146,7 @@ func verifyCorrectness() {
 	input := "Syncthing Magic Testing Value\n"
 
 	h := New()
-	_, _ = h.Write([]byte(input))
+	h.Write([]byte(input))
 	sum := hex.EncodeToString(h.Sum(nil))
 	if sum != correct {
 		panic("sha256 is broken")

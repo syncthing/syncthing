@@ -13,6 +13,6 @@ import "time"
 
 func cpuUsage() time.Duration {
 	var rusage syscall.Rusage
-	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &rusage)
+	syscall.Getrusage(syscall.RUSAGE_SELF, &rusage)
 	return time.Duration(rusage.Utime.Nano() + rusage.Stime.Nano())
 }

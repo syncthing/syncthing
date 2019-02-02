@@ -247,15 +247,15 @@ func TestCaching(t *testing.T) {
 
 	defer fd1.Close()
 	defer fd2.Close()
-	defer func() { _ = fs.Remove(fd1.Name()) }()
-	defer func() { _ = fs.Remove(fd2.Name()) }()
+	defer fs.Remove(fd1.Name())
+	defer fs.Remove(fd2.Name())
 
 	_, err = fd1.Write([]byte("/x/\n#include " + filepath.Base(fd2.Name()) + "\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, _ = fd2.Write([]byte("/y/\n"))
+	fd2.Write([]byte("/y/\n"))
 
 	pats := New(fs, WithCache(true))
 	err = pats.Load(fd1.Name())
@@ -290,10 +290,10 @@ func TestCaching(t *testing.T) {
 	// Modify the include file, expect empty cache. Ensure the timestamp on
 	// the file changes.
 
-	_, _ = fd2.Write([]byte("/z/\n"))
-	_ = fd2.Sync()
+	fd2.Write([]byte("/z/\n"))
+	fd2.Sync()
 	fakeTime := time.Now().Add(5 * time.Second)
-	_ = fs.Chtimes(fd2.Name(), fakeTime, fakeTime)
+	fs.Chtimes(fd2.Name(), fakeTime, fakeTime)
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
@@ -322,10 +322,10 @@ func TestCaching(t *testing.T) {
 
 	// Modify the root file, expect cache to be invalidated
 
-	_, _ = fd1.Write([]byte("/a/\n"))
-	_ = fd1.Sync()
+	fd1.Write([]byte("/a/\n"))
+	fd1.Sync()
 	fakeTime = time.Now().Add(5 * time.Second)
-	_ = fs.Chtimes(fd1.Name(), fakeTime, fakeTime)
+	fs.Chtimes(fd1.Name(), fakeTime, fakeTime)
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
@@ -435,7 +435,7 @@ flamingo
 
 	_, err = fd.Write([]byte(stignore))
 	defer fd.Close()
-	defer func() { _ = fs.Remove(fd.Name()) }()
+	defer fs.Remove(fd.Name())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -475,7 +475,7 @@ func TestCacheReload(t *testing.T) {
 	}
 
 	defer fd.Close()
-	defer func() { _ = fs.Remove(fd.Name()) }()
+	defer fs.Remove(fd.Name())
 
 	// Ignore file matches f1 and f2
 
@@ -516,9 +516,9 @@ func TestCacheReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = fd.Sync()
+	fd.Sync()
 	fakeTime := time.Now().Add(5 * time.Second)
-	_ = fs.Chtimes(fd.Name(), fakeTime, fakeTime)
+	fs.Chtimes(fd.Name(), fakeTime, fakeTime)
 
 	err = pats.Load(fd.Name())
 	if err != nil {
@@ -606,7 +606,7 @@ func TestHashOfEmpty(t *testing.T) {
 	// recalculate the hash. d41d8cd98f00b204e9800998ecf8427e is the md5 of
 	// nothing.
 
-	_ = p1.Load("file/does/not/exist")
+	p1.Load("file/does/not/exist")
 	secondHash := p1.Hash()
 
 	if firstHash == secondHash {

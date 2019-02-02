@@ -101,7 +101,7 @@ func (s *FileSet) recalcCounts() {
 	})
 
 	s.meta.SetCreated()
-	_ = s.meta.toDB(s.db, []byte(s.folder))
+	s.meta.toDB(s.db, []byte(s.folder))
 }
 
 func (s *FileSet) Drop(device protocol.DeviceID) {
@@ -127,7 +127,7 @@ func (s *FileSet) Drop(device protocol.DeviceID) {
 		s.meta.resetAll(device)
 	}
 
-	_ = s.meta.toDB(s.db, []byte(s.folder))
+	s.meta.toDB(s.db, []byte(s.folder))
 }
 
 func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
@@ -141,7 +141,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
 
-	defer func() { _ = s.meta.toDB(s.db, []byte(s.folder)) }()
+	defer s.meta.toDB(s.db, []byte(s.folder))
 
 	if device == protocol.LocalDeviceID {
 		// For the local device we have a bunch of metadata to track.
@@ -295,7 +295,7 @@ func DropDeltaIndexIDs(db *Lowlevel) {
 	dbi := db.NewIterator(util.BytesPrefix([]byte{KeyTypeIndexID}), nil)
 	defer dbi.Release()
 	for dbi.Next() {
-		_ = db.Delete(dbi.Key(), nil)
+		db.Delete(dbi.Key(), nil)
 	}
 }
 

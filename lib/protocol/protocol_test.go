@@ -69,8 +69,8 @@ func TestClose(t *testing.T) {
 		t.Error("Ping should not return true")
 	}
 
-	_ = c0.Index("default", nil)
-	_ = c0.Index("default", nil)
+	c0.Index("default", nil)
+	c0.Index("default", nil)
 
 	if _, err := c0.Request("default", "foo", 0, 0, nil, 0, false); err == nil {
 		t.Error("Request should return an error")
@@ -225,8 +225,8 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 	bs1, _ := json.MarshalIndent(m1, "", "  ")
 	bs2, _ := json.MarshalIndent(m2, "", "  ")
 	if !bytes.Equal(bs1, bs2) {
-		_ = ioutil.WriteFile(prefix+"-1.txt", bs1, 0644)
-		_ = ioutil.WriteFile(prefix+"-2.txt", bs2, 0644)
+		ioutil.WriteFile(prefix+"-1.txt", bs1, 0644)
+		ioutil.WriteFile(prefix+"-2.txt", bs2, 0644)
 		return false
 	}
 

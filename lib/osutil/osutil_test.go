@@ -26,9 +26,9 @@ func TestInWriteableDir(t *testing.T) {
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
 
-	_ = os.Mkdir("testdata", 0700)
-	_ = os.Mkdir("testdata/rw", 0700)
-	_ = os.Mkdir("testdata/ro", 0500)
+	os.Mkdir("testdata", 0700)
+	os.Mkdir("testdata/rw", 0700)
+	os.Mkdir("testdata/ro", 0500)
 
 	create := func(name string) error {
 		fd, err := os.Create(name)
@@ -87,7 +87,7 @@ func TestInWritableDirWindowsRemove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chmod("testdata/windows/ro/readonlynew", 0700) }()
+	defer os.Chmod("testdata/windows/ro/readonlynew", 0700)
 	defer os.RemoveAll("testdata")
 
 	create := func(name string) error {
@@ -99,12 +99,12 @@ func TestInWritableDirWindowsRemove(t *testing.T) {
 		return nil
 	}
 
-	_ = os.Mkdir("testdata", 0700)
+	os.Mkdir("testdata", 0700)
 
-	_ = os.Mkdir("testdata/windows", 0500)
-	_ = os.Mkdir("testdata/windows/ro", 0500)
-	_ = create("testdata/windows/ro/readonly")
-	_ = os.Chmod("testdata/windows/ro/readonly", 0500)
+	os.Mkdir("testdata/windows", 0500)
+	os.Mkdir("testdata/windows/ro", 0500)
+	create("testdata/windows/ro/readonly")
+	os.Chmod("testdata/windows/ro/readonly", 0500)
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
 
@@ -128,8 +128,8 @@ func TestInWritableDirWindowsRemoveAll(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chmod("testdata/windows/ro/readonlynew", 0700) }()
-	defer func() { _ = os.RemoveAll("testdata") }()
+	defer os.Chmod("testdata/windows/ro/readonlynew", 0700)
+	defer os.RemoveAll("testdata")
 
 	create := func(name string) error {
 		fd, err := os.Create(name)
@@ -140,12 +140,12 @@ func TestInWritableDirWindowsRemoveAll(t *testing.T) {
 		return nil
 	}
 
-	_ = os.Mkdir("testdata", 0700)
+	os.Mkdir("testdata", 0700)
 
-	_ = os.Mkdir("testdata/windows", 0500)
-	_ = os.Mkdir("testdata/windows/ro", 0500)
-	_ = create("testdata/windows/ro/readonly")
-	_ = os.Chmod("testdata/windows/ro/readonly", 0500)
+	os.Mkdir("testdata/windows", 0500)
+	os.Mkdir("testdata/windows/ro", 0500)
+	create("testdata/windows/ro/readonly")
+	os.Chmod("testdata/windows/ro/readonly", 0500)
 
 	if err := os.RemoveAll("testdata/windows"); err != nil {
 		t.Errorf("Unexpected error: %s", err)
@@ -162,8 +162,8 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Chmod("testdata/windows/ro/readonlynew", 0700) }()
-	defer func() { _ = os.RemoveAll("testdata") }()
+	defer os.Chmod("testdata/windows/ro/readonlynew", 0700)
+	defer os.RemoveAll("testdata")
 
 	create := func(name string) error {
 		fd, err := os.Create(name)
@@ -174,12 +174,12 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 		return nil
 	}
 
-	_ = os.Mkdir("testdata", 0700)
+	os.Mkdir("testdata", 0700)
 
-	_ = os.Mkdir("testdata/windows", 0500)
-	_ = os.Mkdir("testdata/windows/ro", 0500)
-	_ = create("testdata/windows/ro/readonly")
-	_ = os.Chmod("testdata/windows/ro/readonly", 0500)
+	os.Mkdir("testdata/windows", 0500)
+	os.Mkdir("testdata/windows/ro", 0500)
+	create("testdata/windows/ro/readonly")
+	os.Chmod("testdata/windows/ro/readonly", 0500)
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
 
@@ -232,7 +232,7 @@ func TestIsDeleted(t *testing.T) {
 
 	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
 
-	_ = testFs.MkdirAll("dir", 0777)
+	testFs.MkdirAll("dir", 0777)
 	for _, f := range []string{"file", "del.file", "dir.file", "dir/file"} {
 		fd, err := testFs.Create(f)
 		if err != nil {
@@ -242,7 +242,7 @@ func TestIsDeleted(t *testing.T) {
 	}
 	if runtime.GOOS != "windows" {
 		// Can't create unreadable dir on windows
-		_ = testFs.MkdirAll("inacc", 0777)
+		testFs.MkdirAll("inacc", 0777)
 		if err := testFs.Chmod("inacc", 0000); err == nil {
 			if _, err := testFs.Lstat("inacc/file"); fs.IsPermission(err) {
 				// May fail e.g. if tests are run as root -> just skip
@@ -265,6 +265,6 @@ func TestIsDeleted(t *testing.T) {
 		}
 	}
 
-	_ = testFs.Chmod("inacc", 0777)
+	testFs.Chmod("inacc", 0777)
 	os.RemoveAll("testdata")
 }

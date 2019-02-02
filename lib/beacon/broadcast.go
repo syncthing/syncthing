@@ -126,9 +126,9 @@ func (w *broadcastWriter) Serve() {
 		for _, ip := range dsts {
 			dst := &net.UDPAddr{IP: ip, Port: w.port}
 
-			_ = conn.SetWriteDeadline(time.Now().Add(time.Second))
+			conn.SetWriteDeadline(time.Now().Add(time.Second))
 			_, err := conn.WriteTo(bs, dst)
-			_ = conn.SetWriteDeadline(time.Time{})
+			conn.SetWriteDeadline(time.Time{})
 
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				// Write timeouts should not happen. We treat it as a fatal

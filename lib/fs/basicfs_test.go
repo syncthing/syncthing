@@ -33,7 +33,7 @@ func TestChmodFile(t *testing.T) {
 	path := filepath.Join(dir, "file")
 	defer os.RemoveAll(dir)
 
-	defer func() { _ = os.Chmod(path, 0666) }()
+	defer os.Chmod(path, 0666)
 
 	fd, err := os.Create(path)
 	if err != nil {
@@ -74,7 +74,7 @@ func TestChownFile(t *testing.T) {
 	path := filepath.Join(dir, "file")
 	defer os.RemoveAll(dir)
 
-	defer func() { _ = os.Chmod(path, 0666) }()
+	defer os.Chmod(path, 0666)
 
 	fd, err := os.Create(path)
 	if err != nil {
@@ -116,7 +116,7 @@ func TestChmodDir(t *testing.T) {
 		mode = os.FileMode(0777)
 	}
 
-	defer func() { _ = os.Chmod(path, mode) }()
+	defer os.Chmod(path, mode)
 
 	if err := os.Mkdir(path, mode); err != nil {
 		t.Error(err)
@@ -147,7 +147,7 @@ func TestChtimes(t *testing.T) {
 
 	mtime := time.Now().Add(-time.Hour)
 
-	_ = fs.Chtimes("file", mtime, mtime)
+	fs.Chtimes("file", mtime, mtime)
 
 	stat, err := os.Stat(path)
 	if err != nil {

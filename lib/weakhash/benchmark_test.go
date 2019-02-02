@@ -42,17 +42,17 @@ func BenchmarkWeakHashAdler32(b *testing.B) {
 	hf := adler32.New()
 
 	for i := 0; i < b.N; i++ {
-		_, _ = hf.Write(data)
+		hf.Write(data)
 	}
 
-	_ = hf.Sum32()
+	hf.Sum32()
 	b.SetBytes(size)
 }
 
 func BenchmarkWeakHashAdler32Roll(b *testing.B) {
 	data := make([]byte, size)
 	hf := adler32.New()
-	_, _ = hf.Write(data)
+	hf.Write(data)
 
 	b.ResetTimer()
 
@@ -70,10 +70,10 @@ func BenchmarkWeakHashRabinKarp64(b *testing.B) {
 	hf := rabinkarp64.New()
 
 	for i := 0; i < b.N; i++ {
-		_, _ = hf.Write(data)
+		hf.Write(data)
 	}
 
-	_ = hf.Sum64()
+	hf.Sum64()
 	b.SetBytes(size)
 }
 
@@ -101,7 +101,7 @@ func BenchmarkWeakHashBozo32(b *testing.B) {
 		hf.Write(data)
 	}
 
-	_ = hf.Sum32()
+	hf.Sum32()
 	b.SetBytes(size)
 }
 
@@ -129,7 +129,7 @@ func BenchmarkWeakHashBuzhash32(b *testing.B) {
 		hf.Write(data)
 	}
 
-	_ = hf.Sum32()
+	hf.Sum32()
 	b.SetBytes(size)
 }
 
@@ -157,7 +157,7 @@ func BenchmarkWeakHashBuzhash64(b *testing.B) {
 		hf.Write(data)
 	}
 
-	_ = hf.Sum64()
+	hf.Sum64()
 	b.SetBytes(size)
 }
 

@@ -120,7 +120,7 @@ func (l *logger) debugln(level int, vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	_ = l.logger.Output(level, "DEBUG: "+s)
+	l.logger.Output(level, "DEBUG: "+s)
 	l.callHandlers(LevelDebug, s)
 }
 
@@ -132,7 +132,7 @@ func (l *logger) debugf(level int, format string, vals ...interface{}) {
 	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	_ = l.logger.Output(level, "DEBUG: "+s)
+	l.logger.Output(level, "DEBUG: "+s)
 	l.callHandlers(LevelDebug, s)
 }
 
@@ -141,7 +141,7 @@ func (l *logger) Verboseln(vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	_ = l.logger.Output(2, "VERBOSE: "+s)
+	l.logger.Output(2, "VERBOSE: "+s)
 	l.callHandlers(LevelVerbose, s)
 }
 
@@ -150,7 +150,7 @@ func (l *logger) Verbosef(format string, vals ...interface{}) {
 	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	_ = l.logger.Output(2, "VERBOSE: "+s)
+	l.logger.Output(2, "VERBOSE: "+s)
 	l.callHandlers(LevelVerbose, s)
 }
 
@@ -159,7 +159,7 @@ func (l *logger) Infoln(vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	_ = l.logger.Output(2, "INFO: "+s)
+	l.logger.Output(2, "INFO: "+s)
 	l.callHandlers(LevelInfo, s)
 }
 
@@ -168,7 +168,7 @@ func (l *logger) Infof(format string, vals ...interface{}) {
 	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	_ = l.logger.Output(2, "INFO: "+s)
+	l.logger.Output(2, "INFO: "+s)
 	l.callHandlers(LevelInfo, s)
 }
 
@@ -177,7 +177,7 @@ func (l *logger) Warnln(vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	_ = l.logger.Output(2, "WARNING: "+s)
+	l.logger.Output(2, "WARNING: "+s)
 	l.callHandlers(LevelWarn, s)
 }
 
@@ -186,7 +186,7 @@ func (l *logger) Warnf(format string, vals ...interface{}) {
 	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	_ = l.logger.Output(2, "WARNING: "+s)
+	l.logger.Output(2, "WARNING: "+s)
 	l.callHandlers(LevelWarn, s)
 }
 
@@ -196,7 +196,7 @@ func (l *logger) Fatalln(vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	_ = l.logger.Output(2, "FATAL: "+s)
+	l.logger.Output(2, "FATAL: "+s)
 	l.callHandlers(LevelFatal, s)
 	os.Exit(1)
 }
@@ -207,7 +207,7 @@ func (l *logger) Fatalf(format string, vals ...interface{}) {
 	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	_ = l.logger.Output(2, "FATAL: "+s)
+	l.logger.Output(2, "FATAL: "+s)
 	l.callHandlers(LevelFatal, s)
 	os.Exit(1)
 }

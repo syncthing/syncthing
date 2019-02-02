@@ -59,8 +59,8 @@ func (v Simple) Archive(filePath string) error {
 	if err != nil {
 		if fs.IsNotExist(err) {
 			l.Debugln("creating versions dir .stversions")
-			_ = v.fs.Mkdir(versionsDir, 0755)
-			_ = v.fs.Hide(versionsDir)
+			v.fs.Mkdir(versionsDir, 0755)
+			v.fs.Hide(versionsDir)
 		} else {
 			return err
 		}

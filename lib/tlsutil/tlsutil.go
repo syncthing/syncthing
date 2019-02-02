@@ -186,9 +186,9 @@ func (l *DowngradingListener) AcceptNoWrapTLS() (net.Conn, bool, error) {
 	}
 
 	var first [1]byte
-	_ = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
+	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	n, err := conn.Read(first[:])
-	_ = conn.SetReadDeadline(time.Time{})
+	conn.SetReadDeadline(time.Time{})
 	if err != nil || n == 0 {
 		// We hit a read error here, but the Accept() call succeeded so we must not return an error.
 		// We return the connection as is with a special error which handles this
@@ -308,7 +308,7 @@ JpJcUNtrf1XK49IlpWW1Ds8seQsSg7/9BQ==
 
 	c := tls.Client(c0, clientCfg)
 	go func() {
-		_ = c.Handshake()
+		c.Handshake()
 	}()
 
 	s := tls.Server(c1, serverCfg)

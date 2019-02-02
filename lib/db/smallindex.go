@@ -82,7 +82,7 @@ func (i *smallIndex) ID(val []byte) uint32 {
 	key := make([]byte, len(i.prefix)+8) // prefix plus uint32 id
 	copy(key, i.prefix)
 	binary.BigEndian.PutUint32(key[len(i.prefix):], id)
-	_ = i.db.Put(key, val, nil)
+	i.db.Put(key, val, nil)
 
 	i.mut.Unlock()
 	return id
@@ -115,7 +115,7 @@ func (i *smallIndex) Delete(val []byte) {
 		// Put an empty value into the database. This indicates that the
 		// entry does not exist any more and prevents the ID from being
 		// reused in the future.
-		_ = i.db.Put(key, []byte{}, nil)
+		i.db.Put(key, []byte{}, nil)
 
 		// Delete reverse mapping.
 		delete(i.id2val, id)
