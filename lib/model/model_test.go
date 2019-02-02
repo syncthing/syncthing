@@ -2572,7 +2572,7 @@ func TestIssue2782(t *testing.T) {
 	}
 
 	m.fmut.Lock()
-	runner, _ := m.folderRunners["default"]
+	runner := m.folderRunners["default"]
 	m.fmut.Unlock()
 	if err := runner.CheckHealth(); err != nil {
 		t.Error("health check error:", err)

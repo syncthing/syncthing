@@ -584,7 +584,6 @@ func TestParentDeletion(t *testing.T) {
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		received <- fs
-		return
 	}
 	fc.mut.Unlock()
 	fc.sendIndexUpdate()

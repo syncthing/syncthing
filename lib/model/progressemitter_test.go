@@ -193,7 +193,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	v2 := (protocol.Vector{}).Update(1)
 
 	// Requires more than 10 blocks to work.
-	blocks := make([]protocol.BlockInfo, 11, 11)
+	blocks := make([]protocol.BlockInfo, 11)
 
 	state1 := &sharedPullerState{
 		folder: "folder",

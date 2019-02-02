@@ -126,7 +126,7 @@ func refreshStats() {
 		go func(rel *relay) {
 			t0 := time.Now()
 			stats := fetchStats(rel)
-			duration := time.Now().Sub(t0).Seconds()
+			duration := time.Since(t0).Seconds()
 			result := "success"
 			if stats == nil {
 				result = "failed"
