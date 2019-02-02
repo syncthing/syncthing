@@ -64,9 +64,13 @@ func TestMarshallingDeviceID(t *testing.T) {
 	n2 := DeviceID{}
 
 	bs, _ := n0.MarshalText()
-	n1.UnmarshalText(bs)
+	if err := n1.UnmarshalText(bs); err != nil {
+		t.Fatal(err)
+	}
 	bs, _ = n1.MarshalText()
-	n2.UnmarshalText(bs)
+	if err := n2.UnmarshalText(bs); err != nil {
+		t.Fatal(err)
+	}
 
 	if n2.String() != n0.String() {
 		t.Errorf("String marshalling error; %q != %q", n2.String(), n0.String())

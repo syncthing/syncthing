@@ -175,7 +175,6 @@ type rawConnection struct {
 	closed        chan struct{}
 	closeOnce     sync.Once
 	sendCloseOnce sync.Once
-	writerExited  chan struct{}
 	compression   Compression
 }
 
@@ -227,7 +226,10 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
-	go c.readerLoop()
+	go func() {
+		err := c.readerLoop()
+		c.internalClose(err)
+	}()
 	go c.writerLoop()
 	go c.pingSender()
 	go c.pingReceiver()
@@ -336,10 +338,6 @@ func (c *rawConnection) ping() bool {
 }
 
 func (c *rawConnection) readerLoop() (err error) {
-	defer func() {
-		c.internalClose(err)
-	}()
-
 	fourByteBuf := make([]byte, 4)
 	state := stateInitial
 	for {

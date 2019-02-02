@@ -35,7 +35,7 @@ func repeatedDeviceID(v byte) (d DeviceID) {
 func NewDeviceID(rawCert []byte) DeviceID {
 	var n DeviceID
 	hf := sha256.New()
-	hf.Write(rawCert)
+	_, _ = hf.Write(rawCert)
 	hf.Sum(n[:0])
 	return n
 }

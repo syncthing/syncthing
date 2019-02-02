@@ -116,7 +116,7 @@ func Validate(buf, hash []byte, weakHash uint32) bool {
 			return true
 		}
 		// Copy error or mismatch, go to next algo.
-		rd.Seek(0, io.SeekStart)
+		_, _ = rd.Seek(0, io.SeekStart)
 	}
 
 	if len(hash) > 0 {

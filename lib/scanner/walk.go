@@ -17,7 +17,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/rcrowley/go-metrics"
+	metrics "github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -108,10 +108,10 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	go func() {
 		hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
 		if len(w.Subs) == 0 {
-			w.Filesystem.Walk(".", hashFiles)
+			_ = w.Filesystem.Walk(".", hashFiles)
 		} else {
 			for _, sub := range w.Subs {
-				w.Filesystem.Walk(sub, hashFiles)
+				_ = w.Filesystem.Walk(sub, hashFiles)
 			}
 		}
 		close(toHashChan)
@@ -223,7 +223,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		if fs.IsTemporary(path) {
 			l.Debugln("temporary:", path, "err:", err)
 			if err == nil && info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
-				w.Filesystem.Remove(path)
+				_ = w.Filesystem.Remove(path)
 				l.Debugln("removing temporary:", path, info.ModTime())
 			}
 			return nil
