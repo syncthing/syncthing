@@ -98,7 +98,7 @@ func TestWatchInclude(t *testing.T) {
 
 	file := "file"
 	ignored := "ignored"
-	testFs.MkdirAll(filepath.Join(name, ignored), 0777)
+	_ = testFs.MkdirAll(filepath.Join(name, ignored), 0777)
 	included := filepath.Join(ignored, "included")
 
 	testCase := func() {
@@ -274,7 +274,7 @@ func TestWatchSymlinkedRoot(t *testing.T) {
 	if err := testFs.MkdirAll(name, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create directory %s: %s", name, err))
 	}
-	defer testFs.RemoveAll(name)
+	defer func() { _ = testFs.RemoveAll(name) }()
 
 	root := filepath.Join(name, "root")
 	if err := testFs.MkdirAll(root, 0777); err != nil {
@@ -376,7 +376,7 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents, al
 	if err := testFs.MkdirAll(name, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create directory %s: %s", name, err))
 	}
-	defer testFs.RemoveAll(name)
+	defer func() { _ = testFs.RemoveAll(name) }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

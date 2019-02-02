@@ -127,7 +127,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 
 	var fl VersionList
 	if svl, err := t.Get(gk, nil); err == nil {
-		fl.Unmarshal(svl) // Ignore error, continue with empty fl
+		_ = fl.Unmarshal(svl) // Ignore error, continue with empty fl
 	}
 	fl, removedFV, removedAt, insertedAt := fl.update(folder, device, file, t.readOnlyTransaction)
 	if insertedAt == -1 {

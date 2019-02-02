@@ -77,7 +77,7 @@ func TestGlobalOverHTTP(t *testing.T) {
 	s := new(fakeDiscoveryServer)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handler)
-	go http.Serve(list, mux)
+	go func() { _ = http.Serve(list, mux) }()
 
 	// This should succeed
 	addresses, err := testLookup("http://" + list.Addr().String() + "?insecure&noannounce")
@@ -125,7 +125,7 @@ func TestGlobalOverHTTPS(t *testing.T) {
 	s := new(fakeDiscoveryServer)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handler)
-	go http.Serve(list, mux)
+	go func() { _ = http.Serve(list, mux) }()
 
 	// With default options the lookup code expects the server certificate to
 	// check out according to the usual CA chains etc. That won't be the case
@@ -190,7 +190,7 @@ func TestGlobalAnnounce(t *testing.T) {
 	s := new(fakeDiscoveryServer)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handler)
-	go http.Serve(list, mux)
+	go func() { _ = http.Serve(list, mux) }()
 
 	url := "https://" + list.Addr().String() + "?insecure"
 	disco, err := NewGlobal(url, cert, new(fakeAddressLister))
@@ -242,7 +242,7 @@ func (s *fakeDiscoveryServer) handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204)
 	} else {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"addresses":["tcp://192.0.2.42::22000"], "relays":[{"url": "relay://192.0.2.43:443", "latency": 42}]}`))
+		_, _ = w.Write([]byte(`{"addresses":["tcp://192.0.2.42::22000"], "relays":[{"url": "relay://192.0.2.43:443", "latency": 42}]}`))
 	}
 }
 

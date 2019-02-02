@@ -83,7 +83,7 @@ func (t *tcpListener) Serve() {
 	const maxAcceptFailures = 10
 
 	for {
-		listener.SetDeadline(time.Now().Add(time.Second))
+		_ = listener.SetDeadline(time.Now().Add(time.Second))
 		conn, err := listener.Accept()
 		select {
 		case <-t.stop:

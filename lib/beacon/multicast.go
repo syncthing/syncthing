@@ -117,9 +117,9 @@ func (w *multicastWriter) Serve() {
 		success := 0
 		for _, intf := range intfs {
 			wcm.IfIndex = intf.Index
-			pconn.SetWriteDeadline(time.Now().Add(time.Second))
+			_ = pconn.SetWriteDeadline(time.Now().Add(time.Second))
 			_, err = pconn.WriteTo(bs, wcm, gaddr)
-			pconn.SetWriteDeadline(time.Time{})
+			_ = pconn.SetWriteDeadline(time.Time{})
 
 			if err != nil {
 				l.Debugln(err, "on write to", gaddr, intf.Name)

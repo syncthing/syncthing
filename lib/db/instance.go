@@ -13,11 +13,8 @@ import (
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
-
-type deletionHandler func(t readWriteTransaction, folder, device, name []byte, dbi iterator.Iterator)
 
 type instance struct {
 	*Lowlevel

@@ -257,17 +257,17 @@ func take(waiter waiter, tokens int) {
 	if tokens < limiterBurstSize {
 		// This is the by far more common case so we get it out of the way
 		// early.
-		waiter.WaitN(context.TODO(), tokens)
+		_ = waiter.WaitN(context.TODO(), tokens)
 		return
 	}
 
 	for tokens > 0 {
 		// Consume limiterBurstSize tokens at a time until we're done.
 		if tokens > limiterBurstSize {
-			waiter.WaitN(context.TODO(), limiterBurstSize)
+			_ = waiter.WaitN(context.TODO(), limiterBurstSize)
 			tokens -= limiterBurstSize
 		} else {
-			waiter.WaitN(context.TODO(), tokens)
+			_ = waiter.WaitN(context.TODO(), tokens)
 			tokens = 0
 		}
 	}
