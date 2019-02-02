@@ -11,6 +11,9 @@ package main;
 import "repos/protobuf/gogoproto/gogo.proto";
 
 option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.goproto_unkeyed_all) = false;
+option (gogoproto.goproto_unrecognized_all) = false;
+option (gogoproto.goproto_sizecache_all) = false;
 
 message DatabaseRecord {
     repeated DatabaseAddress addresses = 1 [(gogoproto.nullable) = false];

@@ -29,7 +29,7 @@ import (
 	"unicode"
 
 	"github.com/lib/pq"
-	"github.com/oschwald/geoip2-golang"
+	geoip2 "github.com/oschwald/geoip2-golang"
 )
 
 var (
@@ -816,6 +816,11 @@ func newDataHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := insertReport(db, rep); err != nil {
+		if err.Error() == `pq: duplicate key value violates unique constraint "uniqueidindex"` {
+			// We already have a report today for the same unique ID; drop
+			// this one without complaining.
+			return
+		}
 		log.Println("insert:", err)
 		if debug {
 			log.Printf("%#v", rep)
@@ -1501,7 +1506,7 @@ func getSummary(db *sql.DB) (summary, error) {
 		}
 
 		// SUPER UGLY HACK to avoid having to do sorting properly
-		if len(ver) == 4 { // v0.x
+		if len(ver) == 4 && strings.HasPrefix(ver, "v0.") { // v0.x
 			ver = ver[:3] + "0" + ver[3:] // now v0.0x
 		}
 

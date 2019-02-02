@@ -190,7 +190,7 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
 
 	if version >= 3 {
-		res["uptime"] = int(time.Now().Sub(startTime).Seconds())
+		res["uptime"] = int(time.Since(startTime).Seconds())
 		res["natType"] = connectionsService.NATType()
 		res["alwaysLocalNets"] = len(opts.AlwaysLocalNets) > 0
 		res["cacheIgnoredFiles"] = opts.CacheIgnoredFiles
@@ -348,7 +348,9 @@ func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectio
 func (s *usageReportingService) sendUsageReport() error {
 	d := reportData(s.cfg, s.model, s.connectionsService, s.cfg.Options().URAccepted, false)
 	var b bytes.Buffer
-	json.NewEncoder(&b).Encode(d)
+	if err := json.NewEncoder(&b).Encode(d); err != nil {
+		return err
+	}
 
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -417,7 +419,7 @@ func (s *usageReportingService) Stop() {
 	s.stopMut.RUnlock()
 }
 
-func (usageReportingService) String() string {
+func (*usageReportingService) String() string {
 	return "usageReportingService"
 }
 

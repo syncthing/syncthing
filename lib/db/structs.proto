@@ -8,6 +8,9 @@ import "lib/protocol/bep.proto";
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.sizer_all) = false;
 option (gogoproto.protosizer_all) = true;
+option (gogoproto.goproto_unkeyed_all) = false;
+option (gogoproto.goproto_unrecognized_all) = false;
+option (gogoproto.goproto_sizecache_all) = false;
 
 message FileVersion {
     protocol.Vector version = 1 [(gogoproto.nullable) = false];

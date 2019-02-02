@@ -65,46 +65,71 @@ func TestAggregate(t *testing.T) {
 
 	folderCfg := defaultFolderCfg.Copy()
 	folderCfg.ID = "Aggregate"
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	a := newAggregator(folderCfg, ctx)
 
 	// checks whether maxFilesPerDir events in one dir are kept as is
 	for i := 0; i < maxFilesPerDir; i++ {
-		a.newEvent(fs.Event{filepath.Join("parent", strconv.Itoa(i)), fs.NonRemove}, inProgress)
+		a.newEvent(fs.Event{
+			Name: filepath.Join("parent", strconv.Itoa(i)),
+			Type: fs.NonRemove,
+		}, inProgress)
 	}
 	if l := len(getEventPaths(a.root, ".", a)); l != maxFilesPerDir {
 		t.Errorf("Unexpected number of events stored, got %v, expected %v", l, maxFilesPerDir)
 	}
 
 	// checks whether maxFilesPerDir+1 events in one dir are aggregated to parent dir
-	a.newEvent(fs.Event{filepath.Join("parent", "new"), fs.NonRemove}, inProgress)
+	a.newEvent(fs.Event{
+		Name: filepath.Join("parent", "new"),
+		Type: fs.NonRemove,
+	}, inProgress)
 	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"parent"})
 
 	// checks that adding an event below "parent" does not change anything
-	a.newEvent(fs.Event{filepath.Join("parent", "extra"), fs.NonRemove}, inProgress)
+	a.newEvent(fs.Event{
+		Name: filepath.Join("parent", "extra"),
+		Type: fs.NonRemove,
+	}, inProgress)
 	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"parent"})
 
 	// again test aggregation in "parent" but with event in subdirs
 	a = newAggregator(folderCfg, ctx)
 	for i := 0; i < maxFilesPerDir; i++ {
-		a.newEvent(fs.Event{filepath.Join("parent", strconv.Itoa(i)), fs.NonRemove}, inProgress)
+		a.newEvent(fs.Event{
+			Name: filepath.Join("parent", strconv.Itoa(i)),
+			Type: fs.NonRemove,
+		}, inProgress)
 	}
-	a.newEvent(fs.Event{filepath.Join("parent", "sub", "new"), fs.NonRemove}, inProgress)
+	a.newEvent(fs.Event{
+		Name: filepath.Join("parent", "sub", "new"),
+		Type: fs.NonRemove,
+	}, inProgress)
 	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"parent"})
 
 	// test aggregation in root
 	a = newAggregator(folderCfg, ctx)
 	for i := 0; i < maxFiles; i++ {
-		a.newEvent(fs.Event{strconv.Itoa(i), fs.NonRemove}, inProgress)
+		a.newEvent(fs.Event{
+			Name: strconv.Itoa(i),
+			Type: fs.NonRemove,
+		}, inProgress)
 	}
 	if len(getEventPaths(a.root, ".", a)) != maxFiles {
 		t.Errorf("Unexpected number of events stored in root")
 	}
-	a.newEvent(fs.Event{filepath.Join("parent", "sub", "new"), fs.NonRemove}, inProgress)
+	a.newEvent(fs.Event{
+		Name: filepath.Join("parent", "sub", "new"),
+		Type: fs.NonRemove,
+	}, inProgress)
 	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"."})
 
 	// checks that adding an event when "." is already stored is a noop
-	a.newEvent(fs.Event{"anythingelse", fs.NonRemove}, inProgress)
+	a.newEvent(fs.Event{
+		Name: "anythingelse",
+		Type: fs.NonRemove,
+	}, inProgress)
 	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"."})
 
 	a = newAggregator(folderCfg, ctx)
@@ -115,7 +140,10 @@ func TestAggregate(t *testing.T) {
 	}
 	for _, dir := range dirs {
 		for i := 0; i < filesPerDir; i++ {
-			a.newEvent(fs.Event{filepath.Join(dir, strconv.Itoa(i)), fs.NonRemove}, inProgress)
+			a.newEvent(fs.Event{
+				Name: filepath.Join(dir, strconv.Itoa(i)),
+				Type: fs.NonRemove,
+			}, inProgress)
 		}
 	}
 	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"."})
@@ -203,9 +231,7 @@ func TestNoDelay(t *testing.T) {
 func getEventPaths(dir *eventDir, dirPath string, a *aggregator) []string {
 	var paths []string
 	for childName, childDir := range dir.dirs {
-		for _, path := range getEventPaths(childDir, filepath.Join(dirPath, childName), a) {
-			paths = append(paths, path)
-		}
+		paths = append(paths, getEventPaths(childDir, filepath.Join(dirPath, childName), a)...)
 	}
 	for name := range dir.events {
 		paths = append(paths, filepath.Join(dirPath, name))
@@ -236,9 +262,7 @@ func compareBatchToExpected(batch []string, expectedPaths []string) (missing []s
 			missing = append(missing, expected)
 		}
 	}
-	for _, received := range batch {
-		unexpected = append(unexpected, received)
-	}
+	unexpected = append(unexpected, batch...)
 	return missing, unexpected
 }
 

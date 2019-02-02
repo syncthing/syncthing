@@ -28,8 +28,8 @@ func TestOverride(t *testing.T) {
 	fld := cfg.Folders()["default"]
 	fld.Type = config.FolderTypeSendOnly
 	cfg.SetFolder(fld)
-	t.Log(os.Rename("h1/config.xml", "h1/config.xml.orig"))
-	defer t.Log(os.Rename("h1/config.xml.orig", "h1/config.xml"))
+	os.Rename("h1/config.xml", "h1/config.xml.orig")
+	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
 	cfg.Save()
 
 	log.Println("Cleaning...")

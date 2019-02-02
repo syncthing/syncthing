@@ -124,6 +124,7 @@ angular.module('syncthing.core')
             refreshThemes();
 
             $http.get(urlbase + '/system/version').success(function (data) {
+                console.log("version", data);
                 if ($scope.version.version && $scope.version.version !== data.version) {
                     // We already have a version response, but it differs from
                     // the new one. Reload the full GUI in case it's changed.
@@ -131,7 +132,6 @@ angular.module('syncthing.core')
                 }
 
                 $scope.version = data;
-                $scope.version.isDevelopmentVersion = data.version.indexOf('-') > 0;
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/svc/report').success(function (data) {
@@ -1211,13 +1211,14 @@ angular.module('syncthing.core')
                 }
             };
             $http.post(urlbase + '/system/config', cfg, opts).success(function () {
-                $http.get(urlbase + '/system/config/insync').success(function (data) {
-                    $scope.configInSync = data.configInSync;
-                    if (cb) {
-                        cb();
-                    }
-                });
-            }).error($scope.emitHTTPError);
+                refreshConfig();
+                if (cb) {
+                    cb();
+                }
+            }).error(function (data, status, headers, config) {
+                refreshConfig();
+                $scope.emitHTTPError(data, status, headers, config);
+            });
         };
 
         $scope.urVersions = function () {

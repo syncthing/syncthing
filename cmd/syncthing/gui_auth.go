@@ -80,11 +80,10 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			return
 		}
 
-		authOk := false
 		username := string(fields[0])
 		password := string(fields[1])
 
-		authOk = auth(username, password, guiCfg, ldapCfg)
+		authOk := auth(username, password, guiCfg, ldapCfg)
 		if !authOk {
 			usernameIso := string(iso88591ToUTF8([]byte(username)))
 			passwordIso := string(iso88591ToUTF8([]byte(password)))

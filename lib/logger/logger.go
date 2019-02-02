@@ -6,6 +6,7 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -69,17 +70,20 @@ type logger struct {
 var DefaultLogger = New()
 
 func New() Logger {
-	res := &logger{
+	if os.Getenv("LOGGER_DISCARD") != "" {
+		// Hack to completely disable logging, for example when running
+		// benchmarks.
+		return newLogger(ioutil.Discard)
+	}
+	return newLogger(controlStripper{os.Stdout})
+}
+
+func newLogger(w io.Writer) Logger {
+	return &logger{
+		logger:     log.New(w, "", DefaultFlags),
 		facilities: make(map[string]string),
 		debug:      make(map[string]struct{}),
 	}
-	if os.Getenv("LOGGER_DISCARD") != "" {
-		// Hack to completely disable logging, for example when running benchmarks.
-		res.logger = log.New(ioutil.Discard, "", 0)
-		return res
-	}
-	res.logger = log.New(os.Stdout, "", DefaultFlags)
-	return res
 }
 
 // AddHandler registers a new MessageHandler to receive messages with the
@@ -370,4 +374,24 @@ func (r *recorder) append(l LogLevel, msg string) {
 	if len(r.lines) == r.initial {
 		r.lines = append(r.lines, Line{time.Now(), "...", l})
 	}
+}
+
+// controlStripper is a Writer that replaces control characters
+// with spaces.
+type controlStripper struct {
+	io.Writer
+}
+
+func (s controlStripper) Write(data []byte) (int, error) {
+	for i, b := range data {
+		if b == '\n' || b == '\r' {
+			// Newlines are OK
+			continue
+		}
+		if b < 32 {
+			// Characters below 32 are control characters
+			data[i] = ' '
+		}
+	}
+	return s.Writer.Write(data)
 }

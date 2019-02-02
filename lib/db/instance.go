@@ -8,15 +8,13 @@ package db
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
-
-type deletionHandler func(t readWriteTransaction, folder, device, name []byte, dbi iterator.Iterator)
 
 type instance struct {
 	*Lowlevel
@@ -30,75 +28,101 @@ func newInstance(ll *Lowlevel) *instance {
 	}
 }
 
-func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) {
+// updateRemoteFiles adds a list of fileinfos to the database and updates the
+// global versionlist and metadata.
+func (db *instance) updateRemoteFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	var fk []byte
-	var gk []byte
+	var dk, gk, keyBuf []byte
+	devID := protocol.DeviceIDFromBytes(device)
 	for _, f := range fs {
 		name := []byte(f.Name)
-		fk = db.keyer.GenerateDeviceFileKey(fk, folder, device, name)
+		dk = db.keyer.GenerateDeviceFileKey(dk, folder, device, name)
 
-		// Get and unmarshal the file entry. If it doesn't exist or can't be
-		// unmarshalled we'll add it as a new entry.
-		bs, err := t.Get(fk, nil)
-		var ef FileInfoTruncated
-		if err == nil {
-			err = ef.Unmarshal(bs)
-		}
-
-		// Local flags or the invalid bit might change without the version
-		// being bumped. The IsInvalid() method handles both.
-		if err == nil && ef.Version.Equal(f.Version) && ef.IsInvalid() == f.IsInvalid() {
+		ef, ok := t.getFileTrunc(dk, true)
+		if ok && unchanged(f, ef) {
 			continue
 		}
 
-		devID := protocol.DeviceIDFromBytes(device)
-		if err == nil {
+		if ok {
 			meta.removeFile(devID, ef)
 		}
 		meta.addFile(devID, f)
 
-		t.insertFile(fk, folder, device, f)
+		l.Debugf("insert; folder=%q device=%v %v", folder, devID, f)
+		t.Put(dk, mustMarshal(&f))
 
 		gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-		t.updateGlobal(gk, folder, device, f, meta)
+		keyBuf, _ = t.updateGlobal(gk, keyBuf, folder, device, f, meta)
 
-		// Write out and reuse the batch every few records, to avoid the batch
-		// growing too large and thus allocating unnecessarily much memory.
 		t.checkFlush()
 	}
 }
 
-func (db *instance) addSequences(folder []byte, fs []protocol.FileInfo) {
+// updateLocalFiles adds fileinfos to the db, and updates the global versionlist,
+// metadata, sequence and blockmap buckets.
+func (db *instance) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta *metadataTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	var sk []byte
-	var dk []byte
+	var dk, gk, keyBuf []byte
+	blockBuf := make([]byte, 4)
 	for _, f := range fs {
-		sk = db.keyer.GenerateSequenceKey(sk, folder, f.Sequence)
-		dk = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], []byte(f.Name))
-		t.Put(sk, dk)
+		name := []byte(f.Name)
+		dk = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], name)
+
+		ef, ok := t.getFileByKey(dk)
+		if ok && unchanged(f, ef) {
+			continue
+		}
+
+		if ok {
+			if !ef.IsDirectory() && !ef.IsDeleted() && !ef.IsInvalid() {
+				for _, block := range ef.Blocks {
+					keyBuf = t.db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
+					t.Delete(keyBuf)
+				}
+			}
+
+			keyBuf = db.keyer.GenerateSequenceKey(keyBuf, folder, ef.SequenceNo())
+			t.Delete(keyBuf)
+			l.Debugf("removing sequence; folder=%q sequence=%v %v", folder, ef.SequenceNo(), ef.FileName())
+		}
+
+		f.Sequence = meta.nextLocalSeq()
+
+		if ok {
+			meta.removeFile(protocol.LocalDeviceID, ef)
+		}
+		meta.addFile(protocol.LocalDeviceID, f)
+
+		l.Debugf("insert (local); folder=%q %v", folder, f)
+		t.Put(dk, mustMarshal(&f))
+
+		gk = t.db.keyer.GenerateGlobalVersionKey(gk, folder, []byte(f.Name))
+		keyBuf, _ = t.updateGlobal(gk, keyBuf, folder, protocol.LocalDeviceID[:], f, meta)
+
+		keyBuf = db.keyer.GenerateSequenceKey(keyBuf, folder, f.Sequence)
+		t.Put(keyBuf, dk)
 		l.Debugf("adding sequence; folder=%q sequence=%v %v", folder, f.Sequence, f.Name)
-		t.checkFlush()
-	}
-}
 
-func (db *instance) removeSequences(folder []byte, fs []protocol.FileInfo) {
-	t := db.newReadWriteTransaction()
-	defer t.close()
+		if !f.IsDirectory() && !f.IsDeleted() && !f.IsInvalid() {
+			for i, block := range f.Blocks {
+				binary.BigEndian.PutUint32(blockBuf, uint32(i))
+				keyBuf = t.db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
+				t.Put(keyBuf, blockBuf)
+			}
+		}
 
-	var sk []byte
-	for _, f := range fs {
-		t.Delete(db.keyer.GenerateSequenceKey(sk, folder, f.Sequence))
-		l.Debugf("removing sequence; folder=%q sequence=%v %v", folder, f.Sequence, f.Name)
 		t.checkFlush()
 	}
 }
 
 func (db *instance) withHave(folder, device, prefix []byte, truncate bool, fn Iterator) {
+	t := db.newReadOnlyTransaction()
+	defer t.close()
+
 	if len(prefix) > 0 {
 		unslashedPrefix := prefix
 		if bytes.HasSuffix(prefix, []byte{'/'}) {
@@ -107,13 +131,10 @@ func (db *instance) withHave(folder, device, prefix []byte, truncate bool, fn It
 			prefix = append(prefix, '/')
 		}
 
-		if f, ok := db.getFileTrunc(db.keyer.GenerateDeviceFileKey(nil, folder, device, unslashedPrefix), true); ok && !fn(f) {
+		if f, ok := t.getFileTrunc(db.keyer.GenerateDeviceFileKey(nil, folder, device, unslashedPrefix), true); ok && !fn(f) {
 			return
 		}
 	}
-
-	t := db.newReadOnlyTransaction()
-	defer t.close()
 
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateDeviceFileKey(nil, folder, device, prefix)), nil)
 	defer dbi.Release()
@@ -124,11 +145,7 @@ func (db *instance) withHave(folder, device, prefix []byte, truncate bool, fn It
 			return
 		}
 
-		// The iterator function may keep a reference to the unmarshalled
-		// struct, which in turn references the buffer it was unmarshalled
-		// from. dbi.Value() just returns an internal slice that it reuses, so
-		// we need to copy it.
-		f, err := unmarshalTrunc(append([]byte{}, dbi.Value()...), truncate)
+		f, err := unmarshalTrunc(dbi.Value(), truncate)
 		if err != nil {
 			l.Debugln("unmarshal error:", err)
 			continue
@@ -147,7 +164,7 @@ func (db *instance) withHaveSequence(folder []byte, startSeq int64, fn Iterator)
 	defer dbi.Release()
 
 	for dbi.Next() {
-		f, ok := db.getFile(dbi.Value())
+		f, ok := t.getFileByKey(dbi.Value())
 		if !ok {
 			l.Debugln("missing file for sequence number", db.keyer.SequenceFromSequenceKey(dbi.Key()))
 			continue
@@ -171,8 +188,7 @@ func (db *instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateDeviceFileKey(nil, folder, nil, nil).WithoutNameAndDevice()), nil)
 	defer dbi.Release()
 
-	var gk []byte
-
+	var gk, keyBuf []byte
 	for dbi.Next() {
 		device, ok := db.keyer.DeviceFromDeviceFileKey(dbi.Key())
 		if !ok {
@@ -197,7 +213,7 @@ func (db *instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 			l.Infof("Dropping invalid filename %q from database", f.Name)
 			name := []byte(f.Name)
 			gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-			t.removeFromGlobal(gk, folder, device, name, nil)
+			keyBuf = t.removeFromGlobal(gk, keyBuf, folder, device, name, nil)
 			t.Delete(dbi.Key())
 			t.checkFlush()
 			continue
@@ -209,61 +225,23 @@ func (db *instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 	}
 }
 
-func (db *instance) getFile(key []byte) (protocol.FileInfo, bool) {
-	if f, ok := db.getFileTrunc(key, false); ok {
-		return f.(protocol.FileInfo), true
-	}
-	return protocol.FileInfo{}, false
-}
-
-func (db *instance) getFileTrunc(key []byte, trunc bool) (FileIntf, bool) {
-	bs, err := db.Get(key, nil)
-	if err == leveldb.ErrNotFound {
-		return nil, false
-	}
-	if err != nil {
-		l.Debugln("surprise error:", err)
-		return nil, false
-	}
-
-	f, err := unmarshalTrunc(bs, trunc)
-	if err != nil {
-		l.Debugln("unmarshal error:", err)
-		return nil, false
-	}
-	return f, true
-}
-
-func (db *instance) getGlobal(folder, file []byte, truncate bool) (FileIntf, bool) {
+func (db *instance) getFileDirty(folder, device, file []byte) (protocol.FileInfo, bool) {
 	t := db.newReadOnlyTransaction()
 	defer t.close()
+	return t.getFile(folder, device, file)
+}
 
-	_, _, f, ok := db.getGlobalInto(t, nil, nil, folder, file, truncate)
+func (db *instance) getGlobalDirty(folder, file []byte, truncate bool) (FileIntf, bool) {
+	t := db.newReadOnlyTransaction()
+	defer t.close()
+	_, f, ok := t.getGlobal(nil, folder, file, truncate)
 	return f, ok
 }
 
-func (db *instance) getGlobalInto(t readOnlyTransaction, gk, dk, folder, file []byte, truncate bool) ([]byte, []byte, FileIntf, bool) {
-	gk = db.keyer.GenerateGlobalVersionKey(gk, folder, file)
-
-	bs, err := t.Get(gk, nil)
-	if err != nil {
-		return gk, dk, nil, false
-	}
-
-	vl, ok := unmarshalVersionList(bs)
-	if !ok {
-		return gk, dk, nil, false
-	}
-
-	dk = db.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, file)
-	if fi, ok := db.getFileTrunc(dk, truncate); ok {
-		return gk, dk, fi, true
-	}
-
-	return gk, dk, nil, false
-}
-
 func (db *instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator) {
+	t := db.newReadOnlyTransaction()
+	defer t.close()
+
 	if len(prefix) > 0 {
 		unslashedPrefix := prefix
 		if bytes.HasSuffix(prefix, []byte{'/'}) {
@@ -272,18 +250,15 @@ func (db *instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 			prefix = append(prefix, '/')
 		}
 
-		if f, ok := db.getGlobal(folder, unslashedPrefix, truncate); ok && !fn(f) {
+		if _, f, ok := t.getGlobal(nil, folder, unslashedPrefix, truncate); ok && !fn(f) {
 			return
 		}
 	}
 
-	t := db.newReadOnlyTransaction()
-	defer t.close()
-
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateGlobalVersionKey(nil, folder, prefix)), nil)
 	defer dbi.Release()
 
-	var fk []byte
+	var dk []byte
 	for dbi.Next() {
 		name := db.keyer.NameFromGlobalVersionKey(dbi.Key())
 		if len(prefix) > 0 && !bytes.HasPrefix(name, prefix) {
@@ -295,9 +270,9 @@ func (db *instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 			continue
 		}
 
-		fk = db.keyer.GenerateDeviceFileKey(fk, folder, vl.Versions[0].Device, name)
+		dk = db.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, name)
 
-		f, ok := db.getFileTrunc(fk, truncate)
+		f, ok := t.getFileTrunc(dk, truncate)
 		if !ok {
 			continue
 		}
@@ -351,7 +326,8 @@ func (db *instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateGlobalVersionKey(nil, folder, nil).WithoutName()), nil)
 	defer dbi.Release()
 
-	var fk []byte
+	var dk []byte
+	devID := protocol.DeviceIDFromBytes(device)
 	for dbi.Next() {
 		vl, ok := unmarshalVersionList(dbi.Value())
 		if !ok {
@@ -381,16 +357,9 @@ func (db *instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 				continue
 			}
 
-			fk = db.keyer.GenerateDeviceFileKey(fk, folder, vl.Versions[i].Device, name)
-			bs, err := t.Get(fk, nil)
-			if err != nil {
-				l.Debugln("surprise error:", err)
-				continue
-			}
-
-			gf, err := unmarshalTrunc(bs, truncate)
-			if err != nil {
-				l.Debugln("unmarshal error:", err)
+			dk = db.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[i].Device, name)
+			gf, ok := t.getFileTrunc(dk, truncate)
+			if !ok {
 				continue
 			}
 
@@ -399,7 +368,7 @@ func (db *instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 				break
 			}
 
-			l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, protocol.DeviceIDFromBytes(device), name, have, haveFV.Invalid, haveFV.Version, needVersion, needDevice)
+			l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.Invalid, haveFV.Version, needVersion, needDevice)
 
 			if !fn(gf) {
 				return
@@ -418,12 +387,11 @@ func (db *instance) withNeedLocal(folder []byte, truncate bool, fn Iterator) {
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateNeedFileKey(nil, folder, nil).WithoutName()), nil)
 	defer dbi.Release()
 
-	var dk []byte
-	var gk []byte
+	var keyBuf []byte
 	var f FileIntf
 	var ok bool
 	for dbi.Next() {
-		gk, dk, f, ok = db.getGlobalInto(t, gk, dk, folder, db.keyer.NameFromGlobalVersionKey(dbi.Key()), truncate)
+		keyBuf, f, ok = t.getGlobal(keyBuf, folder, db.keyer.NameFromGlobalVersionKey(dbi.Key()), truncate)
 		if !ok {
 			continue
 		}
@@ -446,6 +414,8 @@ func (db *instance) dropFolder(folder []byte) {
 		db.keyer.GenerateGlobalVersionKey(nil, folder, nil).WithoutName(),
 		// Remove all needs related to the folder
 		db.keyer.GenerateNeedFileKey(nil, folder, nil).WithoutName(),
+		// Remove the blockmap of the folder
+		db.keyer.GenerateBlockMapKey(nil, folder, nil, nil).WithoutHashAndName(),
 	} {
 		t.deleteKeyPrefix(key)
 	}
@@ -458,15 +428,16 @@ func (db *instance) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateDeviceFileKey(nil, folder, device, nil)), nil)
 	defer dbi.Release()
 
-	var gk []byte
-
+	var gk, keyBuf []byte
 	for dbi.Next() {
-		key := dbi.Key()
-		name := db.keyer.NameFromDeviceFileKey(key)
+		name := db.keyer.NameFromDeviceFileKey(dbi.Key())
 		gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-		t.removeFromGlobal(gk, folder, device, name, meta)
-		t.Delete(key)
+		keyBuf = t.removeFromGlobal(gk, keyBuf, folder, device, name, meta)
+		t.Delete(dbi.Key())
 		t.checkFlush()
+	}
+	if bytes.Equal(device, protocol.LocalDeviceID[:]) {
+		t.deleteKeyPrefix(db.keyer.GenerateBlockMapKey(nil, folder, nil, nil).WithoutHashAndName())
 	}
 }
 
@@ -477,7 +448,7 @@ func (db *instance) checkGlobals(folder []byte, meta *metadataTracker) {
 	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateGlobalVersionKey(nil, folder, nil).WithoutName()), nil)
 	defer dbi.Release()
 
-	var fk []byte
+	var dk []byte
 	for dbi.Next() {
 		vl, ok := unmarshalVersionList(dbi.Value())
 		if !ok {
@@ -492,8 +463,8 @@ func (db *instance) checkGlobals(folder []byte, meta *metadataTracker) {
 		name := db.keyer.NameFromGlobalVersionKey(dbi.Key())
 		var newVL VersionList
 		for i, version := range vl.Versions {
-			fk = db.keyer.GenerateDeviceFileKey(fk, folder, version.Device, name)
-			_, err := t.Get(fk, nil)
+			dk = db.keyer.GenerateDeviceFileKey(dk, folder, version.Device, name)
+			_, err := t.Get(dk, nil)
 			if err == leveldb.ErrNotFound {
 				continue
 			}
@@ -504,7 +475,7 @@ func (db *instance) checkGlobals(folder []byte, meta *metadataTracker) {
 			newVL.Versions = append(newVL.Versions, version)
 
 			if i == 0 {
-				if fi, ok := db.getFile(fk); ok {
+				if fi, ok := t.getFileByKey(dk); ok {
 					meta.addFile(protocol.GlobalDeviceID, fi)
 				}
 			}
@@ -519,8 +490,7 @@ func (db *instance) checkGlobals(folder []byte, meta *metadataTracker) {
 }
 
 func (db *instance) getIndexID(device, folder []byte) protocol.IndexID {
-	key := db.keyer.GenerateIndexIDKey(nil, device, folder)
-	cur, err := db.Get(key, nil)
+	cur, err := db.Get(db.keyer.GenerateIndexIDKey(nil, device, folder), nil)
 	if err != nil {
 		return 0
 	}
@@ -534,9 +504,8 @@ func (db *instance) getIndexID(device, folder []byte) protocol.IndexID {
 }
 
 func (db *instance) setIndexID(device, folder []byte, id protocol.IndexID) {
-	key := db.keyer.GenerateIndexIDKey(nil, device, folder)
 	bs, _ := id.Marshal() // marshalling can't fail
-	if err := db.Put(key, bs, nil); err != nil {
+	if err := db.Put(db.keyer.GenerateIndexIDKey(nil, device, folder), bs, nil); err != nil {
 		panic("storing index ID: " + err.Error())
 	}
 }
@@ -553,12 +522,7 @@ func (db *instance) dropPrefix(prefix []byte) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(util.BytesPrefix(prefix), nil)
-	defer dbi.Release()
-
-	for dbi.Next() {
-		t.Delete(dbi.Key())
-	}
+	t.deleteKeyPrefix(prefix)
 }
 
 func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
@@ -593,4 +557,11 @@ type errorSuggestion struct {
 
 func (e errorSuggestion) Error() string {
 	return fmt.Sprintf("%s (%s)", e.inner.Error(), e.suggestion)
+}
+
+// unchanged checks if two files are the same and thus don't need to be updated.
+// Local flags or the invalid bit might change without the version
+// being bumped. The IsInvalid() method handles both.
+func unchanged(nf, ef FileIntf) bool {
+	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid()
 }

@@ -30,7 +30,7 @@
 
 <body>
   <script type="text/javascript" src="syncthing/development/logbar.js"></script>
-  <div ng-if="version.isDevelopmentVersion" ng-include="'syncthing/development/logbar.html'"></div>
+  <div ng-if="version.isBeta" ng-include="'syncthing/development/logbar.html'"></div>
   <!-- Top bar -->
 
   <nav class="navbar navbar-top navbar-default" role="navigation">
@@ -310,24 +310,24 @@
                   <span ng-if="folder.type == 'receiveonly'" class="fas fa-fw fa-download"></span>
                 </div>
                 <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
-                  <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="scan-waiting"><span class="hidden-xs" translate>Waiting to scan</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
+                  <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs" aria-label="{{'Unknown' | translate}}"><i class="fas fa-fw fa-question-circle"></i></span></span>
+                  <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs" aria-label="{{'Unshared' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
+                  <span ng-switch-when="scan-waiting"><span class="hidden-xs" translate>Waiting to scan</span><span class="visible-xs" aria-label="{{'Waiting to scan' | translate}}"><i class="fas fa-fw fa-hourglass-half"></i></span></span>
+                  <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs" aria-label="{{'Stopped' | translate}}"><i class="fas fa-fw fa-stop"></i></span></span>
                   <span ng-switch-when="scanning">
                     <span class="hidden-xs" translate>Scanning</span>
                     <span class="hidden-xs" ng-if="scanPercentage(folder.id) != undefined">
                       ({{scanPercentage(folder.id) | percent}})
                     </span>
-                    <span class="visible-xs">&#9724;</span>
+                    <span class="visible-xs" aria-label="{{'Scanning' | translate}}"><i class="fas fa-fw fa-search"></i></span>
                   </span>
-                  <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span>
                     <span ng-show="syncRemaining(folder.id)">({{syncPercentage(folder.id) | percent}}, {{syncRemaining(folder.id) | binary}}B)</span>
                   </span>
-                  <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs" aria-label="{{'Out of Sync' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
                 </div>
                 <div class="panel-title-text">
                   <span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folder.label.length != 0 ? folder.label : folder.id}}</span>
@@ -653,13 +653,13 @@
               <h4 class="panel-title">
                 <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
                 <span ng-switch="deviceStatus(deviceCfg)" class="pull-right text-{{deviceClass(deviceCfg)}}">
-                  <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)
                   </span>
-                  <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs">&#9724;</span></span>
-                  <span ng-switch-when="unused"><span class="hidden-xs" translate>Unused</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
+                  <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs" aria-label="{{'Disconnected' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
+                  <span ng-switch-when="unused"><span class="hidden-xs" translate>Unused</span><span class="visible-xs" aria-label="{{'Unused' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                 </span>
                 <span>{{deviceName(deviceCfg)}}</span>
               </h4>
@@ -800,7 +800,7 @@
         <li><a class="navbar-link" href="https://syncthing.net/" target="_blank"><span class="fas fa-home"></span>&nbsp;<span translate>Home page</span></a></li>
         <li><a class="navbar-link" href="https://docs.syncthing.net/" target="_blank"><span class="fas fa-book"></span>&nbsp;<span translate>Documentation</span></a></li>
         <li><a class="navbar-link" href="https://forum.syncthing.net" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Support</span></a></li>
-        <li><a class="navbar-link" href="https://data.syncthing.net/" target="_blank"><span class="fas fa-chart-bar"></span>&nbsp;<span translate>Statistics</span></a></li>
+        <li><a class="navbar-link" href="https://data.syncthing.net/" target="_blank"><span class="fas fa-bar-chart"></span>&nbsp;<span translate>Statistics</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/releases" target="_blank"><span class="far fa-file-alt"></span>&nbsp;<span translate>Changelog</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/issues" target="_blank"><span class="fas fa-bug"></span>&nbsp;<span translate>Bugs</span></a></li>
         <li><a class="navbar-link" href="https://github.com/syncthing/syncthing" target="_blank"><span class="fas fa-wrench"></span>&nbsp;<span translate>Source Code</span></a></li>

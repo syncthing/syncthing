@@ -92,7 +92,7 @@ func (s *Service) process() int {
 			toRenew = append(toRenew, mapping)
 		} else {
 			toUpdate = append(toUpdate, mapping)
-			mappingRenewIn := mapping.expires.Sub(time.Now())
+			mappingRenewIn := time.Until(mapping.expires)
 			if mappingRenewIn < renewIn {
 				renewIn = mappingRenewIn
 			}
