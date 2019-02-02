@@ -115,7 +115,7 @@ type Model struct {
 type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
 
 var (
-	folderFactories = make(map[config.FolderType]folderFactory, 0)
+	folderFactories = make(map[config.FolderType]folderFactory)
 )
 
 var (
@@ -258,9 +258,9 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	ffs := fs.MtimeFS()
 
 	// These are our metadata files, and they should always be hidden.
-	_ = ffs.Hide(config.DefaultMarkerName)
-	_ = ffs.Hide(".stversions")
-	_ = ffs.Hide(".stignore")
+	ffs.Hide(config.DefaultMarkerName)
+	ffs.Hide(".stversions")
+	ffs.Hide(".stignore")
 
 	p := folderFactory(m, cfg, ver, ffs)
 
@@ -338,7 +338,7 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
 	m.pmut.Lock()
 	// Delete syncthing specific files
-	_ = cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
+	cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
 
 	m.tearDownFolderLocked(cfg, fmt.Errorf("removing folder %v", cfg.Description()))
 	// Remove it from the database
@@ -362,7 +362,7 @@ func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) 
 	m.pmut.Unlock()
 	m.fmut.Unlock()
 	for _, id := range tokens {
-		_ = m.RemoveAndWait(id, 0)
+		m.RemoveAndWait(id, 0)
 	}
 	m.fmut.Lock()
 	m.pmut.Lock()
@@ -489,12 +489,8 @@ func (m *Model) UsageReportingStats(version int, preview bool) map[string]interf
 				}
 
 				// Noops, remove
-				if strings.HasSuffix(line, "**") {
-					line = line[:len(line)-2]
-				}
-				if strings.HasPrefix(line, "**/") {
-					line = line[3:]
-				}
+				line = strings.TrimSuffix(line, "**")
+				line = strings.TrimPrefix(line, "**/")
 
 				if strings.HasPrefix(line, "/") {
 					ignoreStats["rooted"] += 1
@@ -508,7 +504,7 @@ func (m *Model) UsageReportingStats(version int, preview bool) map[string]interf
 				if strings.Contains(line, "**") {
 					ignoreStats["doubleStars"] += 1
 					// Remove not to trip up star checks.
-					strings.Replace(line, "**", "", -1)
+					line = strings.Replace(line, "**", "", -1)
 				}
 
 				if strings.Contains(line, "*") {
@@ -1189,7 +1185,7 @@ func (m *Model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 		}
 
 		if changed {
-			_, _ = m.cfg.SetFolder(fcfg)
+			m.cfg.SetFolder(fcfg)
 		}
 	}
 
@@ -1246,7 +1242,7 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 		cfg := m.cfg.RawCopy()
 		cfg.Folders = folders
 		cfg.Devices = devices
-		_, _ = m.cfg.Replace(cfg)
+		m.cfg.Replace(cfg)
 	}
 
 	return changed
@@ -1325,7 +1321,7 @@ func (m *Model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 		newDeviceCfg.SkipIntroductionRemovals = device.SkipIntroductionRemovals
 	}
 
-	_, _ = m.cfg.SetDevice(newDeviceCfg)
+	m.cfg.SetDevice(newDeviceCfg)
 }
 
 // Closed is called when a connection has been closed
@@ -1776,8 +1772,8 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
 		device.Name = hello.DeviceName
-		_, _ = m.cfg.SetDevice(device)
-		_ = m.cfg.Save()
+		m.cfg.SetDevice(device)
+		m.cfg.Save()
 	}
 
 	m.deviceWasSeen(deviceID)
@@ -1864,7 +1860,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 		// local index may update for other folders than the one we are
 		// sending for.
 		if fs.Sequence(protocol.LocalDeviceID) <= prevSequence {
-			_, _ = sub.Poll(time.Minute)
+			sub.Poll(time.Minute)
 			continue
 		}
 
@@ -2392,6 +2388,11 @@ func (m *Model) GetFolderVersions(folder string) (map[string][]versioner.FileVer
 			return nil
 		}
 
+		// Skip walking if we cannot walk...
+		if err != nil {
+			return err
+		}
+
 		// Ignore symlinks
 		if f.IsSymlink() {
 			return fs.SkipDir
@@ -2484,7 +2485,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 			}
 		}
 
-		_ = filesystem.MkdirAll(filepath.Dir(target), 0755)
+		filesystem.MkdirAll(filepath.Dir(target), 0755)
 		if err == nil {
 			err = osutil.Copy(filesystem, source, target)
 		}

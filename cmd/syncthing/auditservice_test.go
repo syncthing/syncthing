@@ -37,7 +37,7 @@ func TestAuditService(t *testing.T) {
 	// This event should not be logged, since we have stopped.
 	events.Default.Log(events.ConfigSaved, "the third event")
 
-	result := string(buf.Bytes())
+	result := buf.String()
 	t.Log(result)
 
 	if strings.Contains(result, "first event") {

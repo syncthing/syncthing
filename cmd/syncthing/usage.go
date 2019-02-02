@@ -19,11 +19,11 @@ func optionTable(w io.Writer, rows [][]string) {
 	for _, row := range rows {
 		for i, cell := range row {
 			if i > 0 {
-				_, _ = tw.Write([]byte("\t"))
+				tw.Write([]byte("\t"))
 			}
-			_, _ = tw.Write([]byte(cell))
+			tw.Write([]byte(cell))
 		}
-		_, _ = tw.Write([]byte("\n"))
+		tw.Write([]byte("\n"))
 	}
 	tw.Flush()
 }

@@ -45,7 +45,7 @@ func BenchmarkWeakHashAdler32(b *testing.B) {
 		hf.Write(data)
 	}
 
-	_ = hf.Sum32()
+	hf.Sum32()
 	b.SetBytes(size)
 }
 
@@ -73,7 +73,7 @@ func BenchmarkWeakHashRabinKarp64(b *testing.B) {
 		hf.Write(data)
 	}
 
-	_ = hf.Sum64()
+	hf.Sum64()
 	b.SetBytes(size)
 }
 
@@ -101,7 +101,7 @@ func BenchmarkWeakHashBozo32(b *testing.B) {
 		hf.Write(data)
 	}
 
-	_ = hf.Sum32()
+	hf.Sum32()
 	b.SetBytes(size)
 }
 
@@ -129,7 +129,7 @@ func BenchmarkWeakHashBuzhash32(b *testing.B) {
 		hf.Write(data)
 	}
 
-	_ = hf.Sum32()
+	hf.Sum32()
 	b.SetBytes(size)
 }
 
@@ -157,7 +157,7 @@ func BenchmarkWeakHashBuzhash64(b *testing.B) {
 		hf.Write(data)
 	}
 
-	_ = hf.Sum64()
+	hf.Sum64()
 	b.SetBytes(size)
 }
 

@@ -533,7 +533,6 @@ func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 
 		// For everything else, pass to the next handler
 		next.ServeHTTP(w, r)
-		return
 	})
 }
 
@@ -968,7 +967,7 @@ func (s *apiService) postSystemShutdown(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *apiService) flushResponse(resp string, w http.ResponseWriter) {
-	_, _ = w.Write([]byte(resp + "\n"))
+	w.Write([]byte(resp + "\n"))
 	f := w.(http.Flusher)
 	f.Flush()
 }
@@ -1155,7 +1154,7 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	// Serve the buffer zip to client for download
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename="+zipFileName)
-	_, _ = io.Copy(w, &zipFilesBuffer)
+	io.Copy(w, &zipFilesBuffer)
 }
 
 func (s *apiService) getSystemHTTPMetrics(w http.ResponseWriter, r *http.Request) {
@@ -1175,7 +1174,7 @@ func (s *apiService) getSystemHTTPMetrics(w http.ResponseWriter, r *http.Request
 		}
 	})
 	bs, _ := json.MarshalIndent(stats, "", "  ")
-	_, _ = w.Write(bs)
+	w.Write(bs)
 }
 
 func (s *apiService) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
@@ -1467,7 +1466,7 @@ func (s *apiService) getQR(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "image/png")
-	_, _ = w.Write(code.PNG())
+	w.Write(code.PNG())
 }
 
 func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
@@ -1565,7 +1564,7 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 
 	// Default value or in case of error unmarshalling ends up being basic fs.
 	var fsType fs.FilesystemType
-	_ = fsType.UnmarshalText([]byte(qs.Get("filesystem")))
+	fsType.UnmarshalText([]byte(qs.Get("filesystem")))
 
 	sendJSON(w, browseFiles(current, fsType))
 }
@@ -1662,7 +1661,7 @@ func (s *apiService) getHeapProf(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 
 	runtime.GC()
-	_ = pprof.WriteHeapProfile(w)
+	pprof.WriteHeapProfile(w)
 }
 
 func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {

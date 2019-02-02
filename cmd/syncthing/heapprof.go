@@ -49,7 +49,7 @@ func saveHeapProfiles(rate int) {
 				panic(err)
 			}
 
-			_ = os.Remove(name) // Error deliberately ignored
+			os.Remove(name) // Error deliberately ignored
 			err = os.Rename(name+".tmp", name)
 			if err != nil {
 				panic(err)

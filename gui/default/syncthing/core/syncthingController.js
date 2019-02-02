@@ -77,7 +77,8 @@ angular.module('syncthing.core')
             staggeredVersionsPath: "",
             externalCommand: "",
             autoNormalize: true,
-            path: ""
+            path: "",
+            useLargeBlocks: true,
         };
 
         $scope.localStateTotal = {

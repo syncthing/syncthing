@@ -150,76 +150,78 @@
             <div class="col-md-12">
               <label translate>Scanning</label>
               &nbsp;<a href="https://docs.syncthing.net/users/syncing.html#scanning" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a></br>
+
               <div class="row">
                 <div class="col-md-6">
                   <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="fsWatcherToggled()" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
+                  <p translate class="help-block">Watching for changes discovers most changes without periodic scanning.</p>
+                  <input type="checkbox" ng-model="currentFolder.useLargeBlocks"> <span translate>Variable Size Blocks</span>
+                  <p translate class="help-block">Variable size blocks (also "large blocks") are more efficient for large files.</p>
                 </div>
                 <div class="col-md-6">
-                  <div class="row">
-                    <span class="col-md-8" translate>Full Rescan Interval (s)</span>
-                    <div class="col-md-4">
-                      <input name="rescanIntervalS" id="rescanIntervalS" class="form-control" type="number" ng-model="currentFolder.rescanIntervalS" required="" aria-required="true" min="0" />
-                    </div>
-                  </div>
+                  <label for="rescanIntervalS" translate>Full Rescan Interval (s)</label>
+                  <input name="rescanIntervalS" id="rescanIntervalS" class="form-control" type="number" ng-model="currentFolder.rescanIntervalS" required="" aria-required="true" min="0" />
                   <p class="help-block" ng-if="!folderEditor.rescanIntervalS.$valid && folderEditor.rescanIntervalS.$dirty" translate>
                     The rescan interval must be a non-negative number of seconds.
                   </p>
                 </div>
               </div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-md-6 form-group">
-              <label translate>Folder Type</label>
-              &nbsp;<a href="https://docs.syncthing.net/users/foldertypes.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
-              <select class="form-control" ng-model="currentFolder.type">
-                <option value="sendreceive" translate>Send &amp; Receive</option>
-                <option value="sendonly" translate>Send Only</option>
-                <option value="receiveonly" translate>Receive Only</option>
-              </select>
-              <p ng-if="currentFolder.type == 'sendonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
-              <p ng-if="currentFolder.type == 'receiveonly'" translate class="help-block">Files are synchronized from the cluster, but any changes made locally will not be sent to other devices.</p>
-            </div>
-            <div class="col-md-6 form-group">
-              <label translate>File Pull Order</label>
-              <select class="form-control" ng-model="currentFolder.order">
-                <option value="random" translate>Random</option>
-                <option value="alphabetic" translate>Alphabetic</option>
-                <option value="smallestFirst" translate>Smallest First</option>
-                <option value="largestFirst" translate>Largest First</option>
-                <option value="oldestFirst" translate>Oldest First</option>
-                <option value="newestFirst" translate>Newest First</option>
-              </select>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-md-6 form-horizontal form-group" ng-class="{'has-error': folderEditor.minDiskFree.$invalid && folderEditor.minDiskFree.$dirty}">
-              <label for="minDiskFree" translate>Minimum Free Disk Space</label><br />
+
               <div class="row">
-                <div class="col-md-9">
-                  <input name="minDiskFree" id="minDiskFree" class="form-control" type="number" ng-model="currentFolder.minDiskFree.value" required="" aria-required="true" min="0" step="0.01" />
+                <div class="col-md-6 form-group">
+                  <label translate>Folder Type</label>
+                  &nbsp;<a href="https://docs.syncthing.net/users/foldertypes.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+                  <select class="form-control" ng-model="currentFolder.type">
+                    <option value="sendreceive" translate>Send &amp; Receive</option>
+                    <option value="sendonly" translate>Send Only</option>
+                    <option value="receiveonly" translate>Receive Only</option>
+                  </select>
+                  <p ng-if="currentFolder.type == 'sendonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
+                  <p ng-if="currentFolder.type == 'receiveonly'" translate class="help-block">Files are synchronized from the cluster, but any changes made locally will not be sent to other devices.</p>
                 </div>
-                <div class="col-md-3">
-                  <select class="form-control" ng-model="currentFolder.minDiskFree.unit">
-                    <option value="%">%</option>
-                    <option value="kB">kB</option>
-                    <option value="MB">MB</option>
-                    <option value="GB">GB</option>
-                    <option value="TB">TB</option>
+                <div class="col-md-6 form-group">
+                  <label translate>File Pull Order</label>
+                  <select class="form-control" ng-model="currentFolder.order">
+                    <option value="random" translate>Random</option>
+                    <option value="alphabetic" translate>Alphabetic</option>
+                    <option value="smallestFirst" translate>Smallest First</option>
+                    <option value="largestFirst" translate>Largest First</option>
+                    <option value="oldestFirst" translate>Oldest First</option>
+                    <option value="newestFirst" translate>Newest First</option>
                   </select>
                 </div>
               </div>
-              <p class="help-block" ng-show="folderEditor.minDiskFree.$invalid" translate>
-                Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.
-              </p>
-            </div>
-            <div class="col-md-6 form-group">
-              <label translate>Permissions</label><br />
-              <input type="checkbox" ng-model="currentFolder.ignorePerms" /> <span translate>Ignore</span>
-              <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT file systems.</p>
-              <p class="col-xs-12 help-block" ng-show="folderEditor.minDiskFree.$invalid">
-                <span translate>Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.</span>
-              </p>
+
+              <div class="row">
+                <div class="col-md-6 form-horizontal form-group" ng-class="{'has-error': folderEditor.minDiskFree.$invalid && folderEditor.minDiskFree.$dirty}">
+                  <label for="minDiskFree" translate>Minimum Free Disk Space</label><br />
+                  <div class="row">
+                    <div class="col-md-9">
+                      <input name="minDiskFree" id="minDiskFree" class="form-control" type="number" ng-model="currentFolder.minDiskFree.value" required="" aria-required="true" min="0" step="0.01" />
+                    </div>
+                    <div class="col-md-3">
+                      <select class="form-control" ng-model="currentFolder.minDiskFree.unit">
+                        <option value="%">%</option>
+                        <option value="kB">kB</option>
+                        <option value="MB">MB</option>
+                        <option value="GB">GB</option>
+                        <option value="TB">TB</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p class="help-block" ng-show="folderEditor.minDiskFree.$invalid" translate>
+                    Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.
+                  </p>
+                </div>
+                <div class="col-md-6 form-group">
+                  <label translate>Permissions</label><br />
+                  <input type="checkbox" ng-model="currentFolder.ignorePerms" /> <span translate>Ignore</span>
+                  <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT file systems.</p>
+                  <p class="col-xs-12 help-block" ng-show="folderEditor.minDiskFree.$invalid">
+                    <span translate>Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.</span>
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

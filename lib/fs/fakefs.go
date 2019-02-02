@@ -500,7 +500,7 @@ func (fs *fakefs) URI() string {
 }
 
 func (fs *fakefs) SameFile(fi1, fi2 FileInfo) bool {
-	return fi1.Name() == fi1.Name()
+	return fi1.Name() == fi2.Name()
 }
 
 // fakeFile is the representation of an open file. We don't care if it's

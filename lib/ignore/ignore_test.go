@@ -9,6 +9,7 @@ package ignore
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -507,7 +508,7 @@ func TestCacheReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fd.Seek(0, os.SEEK_SET)
+	_, err = fd.Seek(0, io.SeekStart)
 	if err != nil {
 		t.Fatal(err)
 	}

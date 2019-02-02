@@ -88,11 +88,6 @@ var (
 )
 
 func main() {
-	const (
-		cleanIntv = 1 * time.Hour
-		statsIntv = 5 * time.Minute
-	)
-
 	var listen string
 	var dir string
 	var metricsListen string

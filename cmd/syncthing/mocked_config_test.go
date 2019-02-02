@@ -30,7 +30,7 @@ func (c *mockedConfig) LDAP() config.LDAPConfiguration {
 
 func (c *mockedConfig) RawCopy() config.Configuration {
 	cfg := config.Configuration{}
-	_ = util.SetDefaults(&cfg.Options)
+	util.SetDefaults(&cfg.Options)
 	return cfg
 }
 

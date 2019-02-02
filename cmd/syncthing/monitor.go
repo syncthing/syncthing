@@ -128,13 +128,13 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 		select {
 		case s := <-stopSign:
 			l.Infof("Signal %d received; exiting", s)
-			_ = cmd.Process.Signal(sigTerm)
+			cmd.Process.Signal(sigTerm)
 			<-exit
 			return
 
 		case s := <-restartSign:
 			l.Infof("Signal %d received; restarting", s)
-			_ = cmd.Process.Signal(sigHup)
+			cmd.Process.Signal(sigHup)
 			err = <-exit
 
 		case err = <-exit:
@@ -180,7 +180,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 		}
 
 		if panicFd == nil {
-			_, _ = dst.Write([]byte(line))
+			dst.Write([]byte(line))
 
 			if strings.Contains(line, "SIGILL") {
 				l.Warnln(`
@@ -227,20 +227,20 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 
 				stdoutMut.Lock()
 				for _, line := range stdoutFirstLines {
-					_, _ = panicFd.WriteString(line)
+					panicFd.WriteString(line)
 				}
-				_, _ = panicFd.WriteString("...\n")
+				panicFd.WriteString("...\n")
 				for _, line := range stdoutLastLines {
-					_, _ = panicFd.WriteString(line)
+					panicFd.WriteString(line)
 				}
 				stdoutMut.Unlock()
 			}
 
-			_, _ = panicFd.WriteString("Panic at " + time.Now().Format(time.RFC3339) + "\n")
+			panicFd.WriteString("Panic at " + time.Now().Format(time.RFC3339) + "\n")
 		}
 
 		if panicFd != nil {
-			_, _ = panicFd.WriteString(line)
+			panicFd.WriteString(line)
 		}
 	}
 }
@@ -264,7 +264,7 @@ func copyStdout(stdout io.Reader, dst io.Writer) {
 		}
 		stdoutMut.Unlock()
 
-		_, _ = dst.Write([]byte(line))
+		dst.Write([]byte(line))
 	}
 }
 
@@ -419,10 +419,10 @@ func (f *autoclosedFile) closerLoop() {
 func childEnv() []string {
 	var env []string
 	for _, str := range os.Environ() {
-		if strings.HasPrefix("STNORESTART=", str) {
+		if strings.HasPrefix(str, "STNORESTART=") {
 			continue
 		}
-		if strings.HasPrefix("STMONITORED=", str) {
+		if strings.HasPrefix(str, "STMONITORED=") {
 			continue
 		}
 		env = append(env, str)

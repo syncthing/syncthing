@@ -7,11 +7,8 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"io"
-	"regexp"
 	"testing"
 )
-
-var spaceRe = regexp.MustCompile(`\s`)
 
 func TestVersion14Hello(t *testing.T) {
 	// Tests that we can send and receive a version 0.14 hello message.

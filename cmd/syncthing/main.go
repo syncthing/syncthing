@@ -15,7 +15,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	_ "net/http/pprof" // Need to import this to support STPROFILER.
 	"net/url"
@@ -578,7 +577,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Attempt to increase the limit on number of open files to the maximum
 	// allowed, in case we have many peers. We don't really care enough to
 	// report the error if there is one.
-	_, _ = osutil.MaximizeOpenFileLimit()
+	osutil.MaximizeOpenFileLimit()
 
 	// Ensure that we have a certificate and key.
 	cert, err := tls.LoadX509KeyPair(
@@ -708,7 +707,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Add and start folders
 	for _, folderCfg := range cfg.Folders() {
 		if folderCfg.Paused {
-			_ = folderCfg.CreateRoot()
+			folderCfg.CreateRoot()
 			continue
 		}
 		m.AddFolder(folderCfg)
@@ -798,8 +797,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
 		if opts.URAccepted != usageReportVersion {
 			opts.URAccepted = usageReportVersion
-			_, _ = cfg.SetOptions(opts)
-			_ = cfg.Save()
+			cfg.SetOptions(opts)
+			cfg.Save()
 			// Unique ID will be set and config saved below if necessary.
 		}
 	}
@@ -807,8 +806,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// If we are going to do usage reporting, ensure we have a valid unique ID.
 	if opts := cfg.Options(); opts.URAccepted > 0 && opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
-		_, _ = cfg.SetOptions(opts)
-		_ = cfg.Save()
+		cfg.SetOptions(opts)
+		cfg.Save()
 	}
 
 	usageReportingSvc := newUsageReportingService(cfg, m, connectionsService)
@@ -828,8 +827,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			opts.AutoUpgradeIntervalH = 12
 			// Set the option into the config as well, as the auto upgrade
 			// loop expects to read a valid interval from there.
-			_, _ = cfg.SetOptions(opts)
-			_ = cfg.Save()
+			cfg.SetOptions(opts)
+			cfg.Save()
 		}
 		// We don't tweak the user's choice of upgrading to pre-releases or
 		// not, as otherwise they cannot step off the candidate channel.
@@ -910,7 +909,7 @@ func loadConfigAtStartup() *config.Wrapper {
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
 		cfg = defaultConfig(cfgFile)
-		_ = cfg.Save()
+		cfg.Save()
 		l.Infof("Default config saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
 	} else if err == io.EOF {
 		l.Fatalln("Failed to load config: unexpected end of file. Truncated or empty configuration?")
@@ -1019,45 +1018,15 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 }
 
 func defaultConfig(cfgFile string) *config.Wrapper {
-	myName, _ := os.Hostname()
+	newCfg := config.NewWithFreePorts(myID)
 
-	var defaultFolder config.FolderConfiguration
-
-	if !noDefaultFolder {
-		l.Infoln("Default folder created and/or linked to new config")
-		defaultFolder = config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations.Get(locations.DefFolder))
-	} else {
+	if noDefaultFolder {
 		l.Infoln("We will skip creation of a default folder on first start since the proper envvar is set")
+		return config.Wrap(cfgFile, newCfg)
 	}
 
-	thisDevice := config.NewDeviceConfiguration(myID, myName)
-	thisDevice.Addresses = []string{"dynamic"}
-
-	newCfg := config.New(myID)
-	if !noDefaultFolder {
-		newCfg.Folders = []config.FolderConfiguration{defaultFolder}
-	}
-	newCfg.Devices = []config.DeviceConfiguration{thisDevice}
-
-	port, err := getFreePort("127.0.0.1", 8384)
-	if err != nil {
-		l.Fatalln("get free port (GUI):", err)
-	}
-	newCfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
-
-	port, err = getFreePort("0.0.0.0", 22000)
-	if err != nil {
-		l.Fatalln("get free port (BEP):", err)
-	}
-	if port == 22000 {
-		newCfg.Options.ListenAddresses = []string{"default"}
-	} else {
-		newCfg.Options.ListenAddresses = []string{
-			fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
-			"dynamic+https://relays.syncthing.net/endpoint",
-		}
-	}
-
+	newCfg.Folders = append(newCfg.Folders, config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations[locDefFolder]))
+	l.Infoln("Default folder created and/or linked to new config")
 	return config.Wrap(cfgFile, newCfg)
 }
 
@@ -1095,27 +1064,6 @@ func ensureDir(dir string, mode fs.FileMode) {
 			}
 		}
 	}
-}
-
-// getFreePort returns a free TCP port fort listening on. The ports given are
-// tried in succession and the first to succeed is returned. If none succeed,
-// a random high port is returned.
-func getFreePort(host string, ports ...int) (int, error) {
-	for _, port := range ports {
-		c, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
-		if err == nil {
-			c.Close()
-			return port, nil
-		}
-	}
-
-	c, err := net.Listen("tcp", host+":0")
-	if err != nil {
-		return 0, err
-	}
-	addr := c.Addr().(*net.TCPAddr)
-	c.Close()
-	return addr.Port, nil
 }
 
 func standbyMonitor() {

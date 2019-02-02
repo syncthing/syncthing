@@ -47,6 +47,7 @@ var (
 		util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
 		"dynamic+https://relays.syncthing.net/endpoint",
 	}
+	DefaultGUIPort = 8384
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
 	DefaultDiscoveryServersV4 = []string{
@@ -78,6 +79,31 @@ func New(myID protocol.DeviceID) Configuration {
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
 		panic("bug: error in preparing new folder: " + err.Error())
+	}
+
+	return cfg
+}
+
+func NewWithFreePorts(myID protocol.DeviceID) Configuration {
+	cfg := New(myID)
+
+	port, err := getFreePort("127.0.0.1", DefaultGUIPort)
+	if err != nil {
+		l.Fatalln("get free port (GUI):", err)
+	}
+	cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
+
+	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
+	if err != nil {
+		l.Fatalln("get free port (BEP):", err)
+	}
+	if port == DefaultTCPPort {
+		cfg.Options.ListenAddresses = []string{"default"}
+	} else {
+		cfg.Options.ListenAddresses = []string{
+			fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
+			"dynamic+https://relays.syncthing.net/endpoint",
+		}
 	}
 
 	return cfg
@@ -839,4 +865,24 @@ func filterURLSchemePrefix(addrs []string, prefix string) []string {
 		}
 	}
 	return addrs
+}
+
+// tried in succession and the first to succeed is returned. If none succeed,
+// a random high port is returned.
+func getFreePort(host string, ports ...int) (int, error) {
+	for _, port := range ports {
+		c, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+		if err == nil {
+			c.Close()
+			return port, nil
+		}
+	}
+
+	c, err := net.Listen("tcp", host+":0")
+	if err != nil {
+		return 0, err
+	}
+	addr := c.Addr().(*net.TCPAddr)
+	c.Close()
+	return addr.Port, nil
 }

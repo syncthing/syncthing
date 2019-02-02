@@ -918,7 +918,7 @@ func TestIssue4219(t *testing.T) {
 		],
 		"folders": [
 			{
-				"id": "abcd123", 
+				"id": "abcd123",
 				"devices":[
 					{"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"}
 				]
