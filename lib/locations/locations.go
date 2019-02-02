@@ -23,24 +23,24 @@ type LocationEnum string
 // more meaningful.
 const (
 	ConfigFile    LocationEnum = "config"
-	CertFile                   = "certFile"
-	KeyFile                    = "keyFile"
-	HTTPSCertFile              = "httpsCertFile"
-	HTTPSKeyFile               = "httpsKeyFile"
-	Database                   = "database"
-	LogFile                    = "logFile"
-	CsrfTokens                 = "csrfTokens"
-	PanicLog                   = "panicLog"
-	AuditLog                   = "auditLog"
-	GUIAssets                  = "GUIAssets"
-	DefFolder                  = "defFolder"
+	CertFile      LocationEnum = "certFile"
+	KeyFile       LocationEnum = "keyFile"
+	HTTPSCertFile LocationEnum = "httpsCertFile"
+	HTTPSKeyFile  LocationEnum = "httpsKeyFile"
+	Database      LocationEnum = "database"
+	LogFile       LocationEnum = "logFile"
+	CsrfTokens    LocationEnum = "csrfTokens"
+	PanicLog      LocationEnum = "panicLog"
+	AuditLog      LocationEnum = "auditLog"
+	GUIAssets     LocationEnum = "GUIAssets"
+	DefFolder     LocationEnum = "defFolder"
 )
 
 type BaseDirEnum string
 
 const (
 	ConfigBaseDir BaseDirEnum = "config"
-	HomeBaseDir               = "home"
+	HomeBaseDir   BaseDirEnum = "home"
 )
 
 func init() {

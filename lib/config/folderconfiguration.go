@@ -75,7 +75,11 @@ func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.
 		FilesystemType: fsType,
 		Path:           path,
 	}
-	util.SetDefaults(&f)
+
+	if err := util.SetDefaults(&f); err != nil {
+		panic(err.Error())
+	}
+
 	f.prepare()
 	return f
 }

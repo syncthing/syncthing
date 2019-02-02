@@ -37,7 +37,11 @@ func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfigurati
 		DeviceID: id,
 		Name:     name,
 	}
-	util.SetDefaults(&d)
+
+	if err := util.SetDefaults(&d); err != nil {
+		panic(err.Error())
+	}
+
 	d.prepare(nil)
 	return d
 }
