@@ -471,7 +471,6 @@ func TestIssue4841(t *testing.T) {
 			t.Fatalf(`Sent index with file %v, should be "foo"`, fs[0].Name)
 		}
 		received <- fs[0]
-		return
 	}
 	fc.mut.Unlock()
 
@@ -521,7 +520,6 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 			t.Fatalf(`Sent index with file %v, should be "foo"`, fs[0].Name)
 		}
 		received <- fs[0]
-		return
 	}
 	fc.mut.Unlock()
 
@@ -551,7 +549,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err = m.Request(device2, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	_, err = m.Request(device2, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err == nil {
 		t.Fatalf("expected failure")
 	}

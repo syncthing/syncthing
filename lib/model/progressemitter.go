@@ -167,13 +167,14 @@ func (t *ProgressEmitter) sendDownloadProgressMessages() {
 			// If we fail to find that folder, we tell the state to forget about it
 			// and return us a list of updates which would clean up the state
 			// on the remote end.
-			updates := state.cleanup(folder)
-			if len(updates) > 0 {
-				// XXX: Don't send this now, as the only way we've unshared a folder
-				// is by breaking the connection and reconnecting, hence sending
-				// forget messages for some random folder currently makes no sense.
-				// deviceConns[id].DownloadProgress(folder, updates, 0, nil)
-			}
+			state.cleanup(folder)
+			// updates := state.cleanup(folder)
+			// if len(updates) > 0 {
+			// XXX: Don't send this now, as the only way we've unshared a folder
+			// is by breaking the connection and reconnecting, hence sending
+			// forget messages for some random folder currently makes no sense.
+			// deviceConns[id].DownloadProgress(folder, updates, 0, nil)
+			// }
 		}
 	}
 }
