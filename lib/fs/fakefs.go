@@ -105,22 +105,22 @@ func newFakeFilesystem(root string) *fakefs {
 		for (files == 0 || createdFiles < files) && (maxsize == 0 || writtenData>>20 < int64(maxsize)) {
 			dir := filepath.Join(fmt.Sprintf("%02x", rng.Intn(255)), fmt.Sprintf("%02x", rng.Intn(255)))
 			file := fmt.Sprintf("%016x", rng.Int63())
-			fs.MkdirAll(dir, 0755)
+			_ = fs.MkdirAll(dir, 0755)
 
 			fd, _ := fs.Create(filepath.Join(dir, file))
 			createdFiles++
 
 			fsize := int64(sizeavg/2 + rng.Intn(sizeavg))
-			fd.Truncate(fsize)
+			_ = fd.Truncate(fsize)
 			writtenData += fsize
 
 			ftime := time.Unix(1000000000+rng.Int63n(10*365*86400), 0)
-			fs.Chtimes(filepath.Join(dir, file), ftime, ftime)
+			_ = fs.Chtimes(filepath.Join(dir, file), ftime, ftime)
 		}
 	}
 
 	// Also create a default folder marker for good measure
-	fs.Mkdir(".stfolder", 0700)
+	_ = fs.Mkdir(".stfolder", 0700)
 
 	fakefsFs[root] = fs
 	return fs
@@ -583,7 +583,7 @@ func (f *fakeFile) readShortAt(p []byte, offs int64) (int, error) {
 	// name.
 	if f.seed == 0 {
 		hf := fnv.New64()
-		hf.Write([]byte(f.name))
+		_, _ = hf.Write([]byte(f.name))
 		f.seed = int64(hf.Sum64())
 	}
 
@@ -601,7 +601,7 @@ func (f *fakeFile) readShortAt(p []byte, offs int64) (int, error) {
 		diff := offs - minOffs
 		if diff > 0 {
 			lr := io.LimitReader(f.rng, diff)
-			io.Copy(ioutil.Discard, lr)
+			_, _ = io.Copy(ioutil.Discard, lr)
 		}
 
 		f.offset = offs

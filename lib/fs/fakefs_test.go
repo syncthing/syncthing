@@ -130,10 +130,10 @@ func TestFakeFSRead(t *testing.T) {
 
 	// Create
 	fd, _ := fs.Create("test")
-	fd.Truncate(3 * 1 << randomBlockShift)
+	_ = fd.Truncate(3 * 1 << randomBlockShift)
 
 	// Read
-	fd.Seek(0, 0)
+	_, _ = fd.Seek(0, 0)
 	bs0, err := ioutil.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
@@ -143,7 +143,7 @@ func TestFakeFSRead(t *testing.T) {
 	}
 
 	// Read again, starting at an odd offset
-	fd.Seek(0, 0)
+	_, _ = fd.Seek(0, 0)
 	buf0 := make([]byte, 12345)
 	n, _ := fd.Read(buf0)
 	if n != len(buf0) {

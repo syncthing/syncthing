@@ -18,10 +18,10 @@ import (
 func TestMtimeFS(t *testing.T) {
 	os.RemoveAll("testdata")
 	defer os.RemoveAll("testdata")
-	os.Mkdir("testdata", 0755)
-	ioutil.WriteFile("testdata/exists0", []byte("hello"), 0644)
-	ioutil.WriteFile("testdata/exists1", []byte("hello"), 0644)
-	ioutil.WriteFile("testdata/exists2", []byte("hello"), 0644)
+	_ = os.Mkdir("testdata", 0755)
+	_ = ioutil.WriteFile("testdata/exists0", []byte("hello"), 0644)
+	_ = ioutil.WriteFile("testdata/exists1", []byte("hello"), 0644)
+	_ = ioutil.WriteFile("testdata/exists2", []byte("hello"), 0644)
 
 	// a random time with nanosecond precision
 	testTime := time.Unix(1234567890, 123456789)
@@ -73,7 +73,7 @@ func TestMtimeFS(t *testing.T) {
 	// filesystems.
 
 	testTime = time.Now().Add(5 * time.Hour).Truncate(time.Minute)
-	os.Chtimes("testdata/exists0", testTime, testTime)
+	_ = os.Chtimes("testdata/exists0", testTime, testTime)
 	if info, err := mtimefs.Lstat("testdata/exists0"); err != nil {
 		t.Error("Lstat shouldn't fail:", err)
 	} else if !info.ModTime().Equal(testTime) {
@@ -93,8 +93,8 @@ func TestMtimeFSInsensitive(t *testing.T) {
 	theTest := func(t *testing.T, fs *MtimeFS, shouldSucceed bool) {
 		os.RemoveAll("testdata")
 		defer os.RemoveAll("testdata")
-		os.Mkdir("testdata", 0755)
-		ioutil.WriteFile("testdata/FiLe", []byte("hello"), 0644)
+		_ = os.Mkdir("testdata", 0755)
+		_ = ioutil.WriteFile("testdata/FiLe", []byte("hello"), 0644)
 
 		// a random time with nanosecond precision
 		testTime := time.Unix(1234567890, 123456789)

@@ -142,7 +142,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 	} else if err := dir.Sync(); err != nil {
 		l.Debugln("folder marker: fsync . failed:", err)
 	}
-	fs.Hide(DefaultMarkerName)
+	_ = fs.Hide(DefaultMarkerName)
 
 	return nil
 }

@@ -23,12 +23,16 @@ func writeJSONS(w io.Writer, db *leveldb.DB) {
 	defer it.Release()
 	enc := json.NewEncoder(w)
 	for it.Next() {
-		enc.Encode(map[string][]byte{
+		_ = enc.Encode(map[string][]byte{
 			"k": it.Key(),
 			"v": it.Value(),
 		})
 	}
 }
+
+// we know this function isn't generally used, nonetheless we want it in
+// here and the linter to not complain.
+var _ = writeJSONS
 
 // openJSONS reads a JSON stream file into a leveldb.DB
 func openJSONS(file string) (*leveldb.DB, error) {
@@ -50,7 +54,7 @@ func openJSONS(file string) (*leveldb.DB, error) {
 			return nil, err
 		}
 
-		db.Put(row["k"], row["v"], nil)
+		_ = db.Put(row["k"], row["v"], nil)
 	}
 
 	return db, nil

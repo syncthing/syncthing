@@ -136,7 +136,7 @@ func (m *Matcher) Load(file string) error {
 
 	fd, info, err := loadIgnoreFile(m.fs, file, m.changeDetector)
 	if err != nil {
-		m.parseLocked(&bytes.Buffer{}, file)
+		_ = m.parseLocked(&bytes.Buffer{}, file)
 		return err
 	}
 	defer fd.Close()
@@ -310,8 +310,8 @@ func (m *Matcher) SkipIgnoredDirs() bool {
 func hashPatterns(patterns []Pattern) string {
 	h := md5.New()
 	for _, pat := range patterns {
-		h.Write([]byte(pat.String()))
-		h.Write([]byte("\n"))
+		_, _ = h.Write([]byte(pat.String()))
+		_, _ = h.Write([]byte("\n"))
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
@@ -505,7 +505,7 @@ func WriteIgnores(filesystem fs.Filesystem, path string, content []string) error
 	if err := fd.Close(); err != nil {
 		return err
 	}
-	filesystem.Hide(path)
+	_ = filesystem.Hide(path)
 
 	return nil
 }

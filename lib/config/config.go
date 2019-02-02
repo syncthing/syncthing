@@ -71,9 +71,9 @@ func New(myID protocol.DeviceID) Configuration {
 	cfg.Version = CurrentVersion
 	cfg.OriginalVersion = CurrentVersion
 
-	util.SetDefaults(&cfg)
-	util.SetDefaults(&cfg.Options)
-	util.SetDefaults(&cfg.GUI)
+	_ = util.SetDefaults(&cfg)
+	_ = util.SetDefaults(&cfg.Options)
+	_ = util.SetDefaults(&cfg.GUI)
 
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
@@ -86,9 +86,9 @@ func New(myID protocol.DeviceID) Configuration {
 func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	var cfg Configuration
 
-	util.SetDefaults(&cfg)
-	util.SetDefaults(&cfg.Options)
-	util.SetDefaults(&cfg.GUI)
+	_ = util.SetDefaults(&cfg)
+	_ = util.SetDefaults(&cfg.Options)
+	_ = util.SetDefaults(&cfg.GUI)
 
 	if err := xml.NewDecoder(r).Decode(&cfg); err != nil {
 		return Configuration{}, err
@@ -104,9 +104,9 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	var cfg Configuration
 
-	util.SetDefaults(&cfg)
-	util.SetDefaults(&cfg.Options)
-	util.SetDefaults(&cfg.GUI)
+	_ = util.SetDefaults(&cfg)
+	_ = util.SetDefaults(&cfg.Options)
+	_ = util.SetDefaults(&cfg.GUI)
 
 	bs, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -211,7 +211,7 @@ found:
 }
 
 func (cfg *Configuration) clean() error {
-	util.FillNilSlices(&cfg.Options)
+	_ = util.FillNilSlices(&cfg.Options)
 
 	// Prepare folders and check for duplicates. Duplicates are bad and
 	// dangerous, can't currently be resolved in the GUI, and shouldn't
@@ -477,7 +477,7 @@ func convertV22V23(cfg *Configuration) {
 			err = fs.Remove(DefaultMarkerName)
 			if err == nil {
 				err = fs.Mkdir(DefaultMarkerName, permBits)
-				fs.Hide(DefaultMarkerName) // ignore error
+				_ = fs.Hide(DefaultMarkerName) // ignore error
 			}
 			if err != nil {
 				l.Infoln("Failed to upgrade folder marker:", err)
@@ -810,13 +810,13 @@ func cleanSymlinks(filesystem fs.Filesystem, dir string) {
 		// should leave alone. Deduplicated files, for example.
 		return
 	}
-	filesystem.Walk(dir, func(path string, info fs.FileInfo, err error) error {
+	_ = filesystem.Walk(dir, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if info.IsSymlink() {
 			l.Infoln("Removing incorrectly versioned symlink", path)
-			filesystem.Remove(path)
+			_ = filesystem.Remove(path)
 			return fs.SkipDir
 		}
 		return nil

@@ -19,7 +19,7 @@ func TestIgnoredFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	db := NewLowlevel(ldb, "<memory>")
-	UpdateSchema(db)
+	_ = UpdateSchema(db)
 
 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 
@@ -204,7 +204,7 @@ func TestUpdate0to3(t *testing.T) {
 
 func TestDowngrade(t *testing.T) {
 	db := OpenMemory()
-	UpdateSchema(db) // sets the min version etc
+	_ = UpdateSchema(db) // sets the min version etc
 
 	// Bump the database version to something newer than we actually support
 	miscDB := NewMiscDataNamespace(db)
