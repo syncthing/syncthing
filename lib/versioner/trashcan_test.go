@@ -42,7 +42,7 @@ func TestTrashcanCleanout(t *testing.T) {
 
 	oldTime := time.Now().Add(-8 * 24 * time.Hour)
 	for _, tc := range testcases {
-		os.MkdirAll(filepath.Dir(tc.file), 0777)
+		_ = os.MkdirAll(filepath.Dir(tc.file), 0777)
 		if err := ioutil.WriteFile(tc.file, []byte("data"), 0644); err != nil {
 			t.Fatal(err)
 		}

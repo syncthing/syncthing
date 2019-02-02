@@ -239,8 +239,8 @@ func (v *Staggered) Archive(filePath string) error {
 	if _, err := v.versionsFs.Stat("."); err != nil {
 		if fs.IsNotExist(err) {
 			l.Debugln("creating versions dir", v.versionsFs)
-			v.versionsFs.MkdirAll(".", 0755)
-			v.versionsFs.Hide(".")
+			_ = v.versionsFs.MkdirAll(".", 0755)
+			_ = v.versionsFs.Hide(".")
 		} else {
 			return err
 		}

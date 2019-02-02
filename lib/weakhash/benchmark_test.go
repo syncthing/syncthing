@@ -42,7 +42,7 @@ func BenchmarkWeakHashAdler32(b *testing.B) {
 	hf := adler32.New()
 
 	for i := 0; i < b.N; i++ {
-		hf.Write(data)
+		_, _ = hf.Write(data)
 	}
 
 	_ = hf.Sum32()
@@ -52,7 +52,7 @@ func BenchmarkWeakHashAdler32(b *testing.B) {
 func BenchmarkWeakHashAdler32Roll(b *testing.B) {
 	data := make([]byte, size)
 	hf := adler32.New()
-	hf.Write(data)
+	_, _ = hf.Write(data)
 
 	b.ResetTimer()
 
@@ -70,7 +70,7 @@ func BenchmarkWeakHashRabinKarp64(b *testing.B) {
 	hf := rabinkarp64.New()
 
 	for i := 0; i < b.N; i++ {
-		hf.Write(data)
+		_, _ = hf.Write(data)
 	}
 
 	_ = hf.Sum64()

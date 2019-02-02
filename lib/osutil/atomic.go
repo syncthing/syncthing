@@ -81,7 +81,7 @@ func (w *AtomicWriter) Close() error {
 	}
 
 	// Try to not leave temp file around, but ignore error.
-	defer w.fs.Remove(w.next.Name())
+	defer func() { _ = w.fs.Remove(w.next.Name()) }()
 
 	if err := w.next.Sync(); err != nil {
 		w.err = err
@@ -110,7 +110,7 @@ func (w *AtomicWriter) Close() error {
 
 	// fsync the directory too
 	if fd, err := w.fs.Open(filepath.Dir(w.next.Name())); err == nil {
-		fd.Sync()
+		_ = fd.Sync()
 		fd.Close()
 	}
 

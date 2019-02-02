@@ -25,7 +25,7 @@ func TestTraversesSymlink(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
-	fs.MkdirAll("a/b/c", 0755)
+	_ = fs.MkdirAll("a/b/c", 0755)
 	if err = osutil.DebugSymlinkForTestsOnly(filepath.Join(fs.URI(), "a", "b"), filepath.Join(fs.URI(), "a", "l")); err != nil {
 		if runtime.GOOS == "windows" {
 			t.Skip("Symlinks aren't working")
@@ -78,7 +78,7 @@ func TestIssue4875(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
-	testFs.MkdirAll("a/b/c", 0755)
+	_ = testFs.MkdirAll("a/b/c", 0755)
 	if err = osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "a", "b"), filepath.Join(testFs.URI(), "a", "l")); err != nil {
 		if runtime.GOOS == "windows" {
 			t.Skip("Symlinks aren't working")
@@ -107,7 +107,7 @@ func BenchmarkTraversesSymlink(b *testing.B) {
 	os.RemoveAll("testdata")
 	defer os.RemoveAll("testdata")
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
-	fs.MkdirAll("a/b/c", 0755)
+	_ = fs.MkdirAll("a/b/c", 0755)
 
 	for i := 0; i < b.N; i++ {
 		traversesSymlinkResult = osutil.TraversesSymlink(fs, "a/b/c")
