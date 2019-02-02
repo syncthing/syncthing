@@ -1025,7 +1025,7 @@ func defaultConfig(cfgFile string) *config.Wrapper {
 		return config.Wrap(cfgFile, newCfg)
 	}
 
-	newCfg.Folders = append(newCfg.Folders, config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations[locDefFolder]))
+	newCfg.Folders = append(newCfg.Folders, config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations.Get(locations.DefFolder)))
 	l.Infoln("Default folder created and/or linked to new config")
 	return config.Wrap(cfgFile, newCfg)
 }
