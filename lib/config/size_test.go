@@ -18,10 +18,9 @@ type TestStruct struct {
 
 func TestSizeDefaults(t *testing.T) {
 	x := &TestStruct{}
-	err := util.SetDefaults(x)
-	if err != nil {
-		t.Error(err)
-	}
+
+	util.SetDefaults(x)
+
 	if !x.Size.Percentage() {
 		t.Error("not percentage")
 	}
