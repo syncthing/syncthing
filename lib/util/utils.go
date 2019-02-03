@@ -20,7 +20,7 @@ type defaultParser interface {
 }
 
 // SetDefaults sets default values on a struct, based on the default annotation.
-func SetDefaults(data interface{}) error {
+func SetDefaults(data interface{}) {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
 
@@ -55,14 +55,14 @@ func SetDefaults(data interface{}) error {
 			case int:
 				i, err := strconv.ParseInt(v, 10, 64)
 				if err != nil {
-					return err
+					panic(err)
 				}
 				f.SetInt(i)
 
 			case float64:
 				i, err := strconv.ParseFloat(v, 64)
 				if err != nil {
-					return err
+					panic(err)
 				}
 				f.SetFloat(i)
 
@@ -79,7 +79,6 @@ func SetDefaults(data interface{}) error {
 			}
 		}
 	}
-	return nil
 }
 
 // CopyMatchingTag copies fields tagged tag:"value" from "from" struct onto "to" struct.
