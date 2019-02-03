@@ -38,9 +38,7 @@ func TestSetDefaults(t *testing.T) {
 		t.Errorf("defaulter failed")
 	}
 
-	if err := SetDefaults(x); err != nil {
-		t.Error(err)
-	}
+	SetDefaults(x)
 
 	if x.A != "string" {
 		t.Error("string failed")
@@ -52,7 +50,7 @@ func TestSetDefaults(t *testing.T) {
 		t.Errorf("bool failed")
 	} else if x.E.Value != "defaulter" {
 		t.Errorf("defaulter failed")
-	}
+	}     
 }
 
 func TestUniqueStrings(t *testing.T) {
