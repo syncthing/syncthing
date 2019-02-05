@@ -1117,6 +1117,11 @@ func TestIssue4897(t *testing.T) {
 	}
 }
 
+// TestIssue5063 is about a panic in connection with modifying config in quick
+// succession, related with auto accepted folders. It's unclear what exactly, a
+// relevant bit seems to be here:
+// PR-comments: https://github.com/syncthing/syncthing/pull/5069/files#r203146546
+// Issue: https://github.com/syncthing/syncthing/pull/5509
 func TestIssue5063(t *testing.T) {
 	testOs := &fatalOs{t}
 
