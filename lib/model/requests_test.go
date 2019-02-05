@@ -812,17 +812,6 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	fc.sendIndexUpdate()
 	select {
 	case <-done:
-		done = make(chan struct{})
-		fc.mut.Lock()
-		fc.indexFn = func(folder string, fs []protocol.FileInfo) {
-			select {
-			case <-done:
-				t.Fatalf("More than one index update sent")
-			default:
-			}
-			close(done)
-		}
-		fc.mut.Unlock()
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out")
 	}
@@ -832,6 +821,42 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+
+	var gotA, gotB, gotConfl bool
+	done = make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		select {
+		case <-done:
+			t.Fatalf("Received more index updates than expected")
+		default:
+		}
+		for _, f := range fs {
+			switch {
+			case f.Name == a:
+				if gotA {
+					t.Error("Got more than one index update for", f.Name)
+				}
+				gotA = true
+			case f.Name == b:
+				if gotB {
+					t.Error("Got more than one index update for", f.Name)
+				}
+				gotB = true
+			case strings.HasPrefix(f.Name, "b.sync-conflict-"):
+				if gotConfl {
+					t.Error("Got more than one index update for conflicts of", f.Name)
+				}
+				gotConfl = true
+			default:
+				t.Error("Got unexpected file in index update", f.Name)
+			}
+		}
+		if gotA && gotB && gotConfl {
+			close(done)
+		}
+	}
+	fc.mut.Unlock()
 
 	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0644)
 	if err != nil {
@@ -846,11 +871,20 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	// rename
 	fc.deleteFile(a)
 	fc.updateFile(b, 0644, protocol.FileInfoTypeFile, data[a])
+	// Make sure the remote file for b is newer and thus stays global -> local conflict
+	fc.mut.Lock()
+	for i := range fc.files {
+		if fc.files[i].Name == b {
+			fc.files[i].ModifiedS += 100
+			break
+		}
+	}
+	fc.mut.Unlock()
 	fc.sendIndexUpdate()
 	select {
 	case <-done:
 	case <-time.After(10 * time.Second):
-		t.Fatal("timed out")
+		t.Errorf("timed out without receiving all expected index updates")
 	}
 
 	// Check outcome
@@ -859,9 +893,16 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 		case path == a:
 			t.Errorf(`File "a" was not removed`)
 		case path == b:
-			if err := equalContents(filepath.Join(tmpDir, b), otherData); err != nil {
-				t.Errorf(`Modified file "b" was overwritten`)
+			if err := equalContents(filepath.Join(tmpDir, b), data[a]); err != nil {
+				t.Error(`File "b" has unexpected content (renamed from a on remote)`)
 			}
+		case strings.HasPrefix(path, b+".sync-conflict-"):
+			if err := equalContents(filepath.Join(tmpDir, path), otherData); err != nil {
+				t.Error(`Sync conflict of "b" has unexptected content`)
+			}
+		case path == "." || strings.HasPrefix(path, ".stfolder"):
+		default:
+			t.Error("Found unexpected file", path)
 		}
 		return nil
 	})
