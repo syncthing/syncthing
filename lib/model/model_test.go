@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"sync"
@@ -1116,14 +1117,20 @@ func TestIssue4897(t *testing.T) {
 	}
 }
 
+// TestIssue5063 is about a panic in connection with modifying config in quick
+// succession, related with auto accepted folders. It's unclear what exactly, a
+// relevant bit seems to be here:
+// PR-comments: https://github.com/syncthing/syncthing/pull/5069/files#r203146546
+// Issue: https://github.com/syncthing/syncthing/pull/5509
 func TestIssue5063(t *testing.T) {
 	testOs := &fatalOs{t}
 
 	wcfg, m := newState(defaultAutoAcceptCfg)
 	defer testOs.Remove(wcfg.ConfigPath())
 
-	addAndVerify := func(wg *sync.WaitGroup) {
-		id := srand.String(8)
+	wg := sync.WaitGroup{}
+
+	addAndVerify := func(id string) {
 		m.ClusterConfig(device1, protocol.ClusterConfig{
 			Folders: []protocol.Folder{
 				{
@@ -1132,20 +1139,37 @@ func TestIssue5063(t *testing.T) {
 				},
 			},
 		})
-		testOs.RemoveAll(id)
-		wg.Done()
 		if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 			t.Error("expected shared", id)
 		}
+		wg.Done()
 	}
 
-	wg := &sync.WaitGroup{}
-	for i := 0; i <= 10; i++ {
+	reps := 10
+	ids := make([]string, reps)
+	for i := 0; i < reps; i++ {
 		wg.Add(1)
-		go addAndVerify(wg)
+		ids[i] = srand.String(8)
+		go addAndVerify(ids[i])
 	}
+	defer func() {
+		for _, id := range ids {
+			testOs.RemoveAll(id)
+		}
+	}()
+	defer m.Stop()
 
-	wg.Wait()
+	finished := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(finished)
+	}()
+	select {
+	case <-finished:
+	case <-time.After(10 * time.Second):
+		pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+		t.Fatal("Timed out before all devices were added")
+	}
 }
 
 func TestAutoAcceptRejected(t *testing.T) {
