@@ -293,7 +293,7 @@ func TestWeakHash(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	f, _ := testOs.Create("testdata/weakhash")
+	f := testOs.Create("testdata/weakhash")
 	defer f.Close()
 	_, err := io.CopyN(f, rand.Reader, size)
 	if err != nil {
