@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -231,8 +230,6 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 }
 
 func TestRequestVersioningSymlinkAttack(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	if runtime.GOOS == "windows" {
 		t.Skip("no symlink support on Windows")
 	}
@@ -240,32 +237,18 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	// Sets up a folder with trashcan versioning and tries to use a
 	// deleted symlink to escape
 
-	tmpDir := createTmpDir()
-	defer testOs.RemoveAll(tmpDir)
+	w, tmpDir := tmpDefaultWrapper()
+	defer func() {
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
-	cfg := defaultCfgWrapper.RawCopy()
-	cfg.Folders[0] = config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
-	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
-		{DeviceID: myID},
-		{DeviceID: device1},
-	}
-	cfg.Folders[0].Versioning = config.VersioningConfiguration{
-		Type: "trashcan",
-	}
-	w := createTmpWrapper(cfg)
-	defer testOs.Remove(w.ConfigPath())
+	fcfg := w.FolderList()[0]
+	fcfg.Versioning = config.VersioningConfiguration{Type: "trashcan"}
+	w.SetFolder(fcfg)
 
-	db := db.OpenMemory()
-	m := NewModel(w, myID, "syncthing", "dev", db, nil)
-	m.AddFolder(cfg.Folders[0])
-	m.ServeBackground()
-	m.StartFolder("default")
+	m, fc := setupModelWithConnectionFromWrapper(w)
 	defer m.Stop()
-
-	defer testOs.RemoveAll(tmpDir)
-
-	fc := addFakeConn(m, device1)
-	fc.folder = "default"
 
 	// Create a temporary directory that we will use as target to see if
 	// we can escape to it
@@ -656,13 +639,11 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		t.Skip("windows specific test")
 	}
 
-	testOs := &fatalOs{t}
-
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
-		testOs.RemoveAll(tmpDir)
-		testOs.Remove(w.ConfigPath())
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
 	}()
 
 	done := make(chan struct{})
@@ -719,6 +700,13 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	}
 }
 
+func tmpDefaultWrapper() (*config.Wrapper, string) {
+	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
+	fcfg, tmpDir := testFolderConfigTmp()
+	w.SetFolder(fcfg)
+	return w, tmpDir
+}
+
 func testFolderConfigTmp() (config.FolderConfiguration, string) {
 	tmpDir := createTmpDir()
 	return testFolderConfig(tmpDir), tmpDir
@@ -732,9 +720,7 @@ func testFolderConfig(path string) config.FolderConfiguration {
 }
 
 func setupModelWithConnection() (*Model, *fakeConnection, string, *config.Wrapper) {
-	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
-	fcfg, tmpDir := testFolderConfigTmp()
-	w.SetFolder(fcfg)
+	w, tmpDir := tmpDefaultWrapper()
 	m, fc := setupModelWithConnectionFromWrapper(w)
 	return m, fc, tmpDir, w
 }
