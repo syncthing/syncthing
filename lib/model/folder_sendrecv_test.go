@@ -77,7 +77,7 @@ func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
 
 func setUpModel(files ...protocol.FileInfo) *Model {
 	db := db.OpenMemory()
-	model := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	model := NewModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	model.AddFolder(defaultFolderConfig)
 	// Update index
 	model.updateLocalsFromScanning("default", files)
@@ -408,7 +408,7 @@ func TestCopierCleanup(t *testing.T) {
 	m := setUpModel(file)
 
 	file.Blocks = []protocol.BlockInfo{blocks[1]}
-	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
+	file.Version = file.Version.Update(myID.Short())
 	// Update index (removing old blocks)
 	m.updateLocalsFromScanning("default", []protocol.FileInfo{file})
 
@@ -421,7 +421,7 @@ func TestCopierCleanup(t *testing.T) {
 	}
 
 	file.Blocks = []protocol.BlockInfo{blocks[0]}
-	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
+	file.Version = file.Version.Update(myID.Short())
 	// Update index (removing old blocks)
 	m.updateLocalsFromScanning("default", []protocol.FileInfo{file})
 
@@ -442,7 +442,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 	db := db.OpenMemory()
 
-	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m := NewModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
 	// Set up our evet subscription early
@@ -535,7 +535,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	defer testOs.Remove("testdata/" + fs.TempName("filex"))
 
 	db := db.OpenMemory()
-	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m := NewModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
 	// Set up our evet subscription early
