@@ -292,13 +292,11 @@ func TestRenameOrCopy(t *testing.T) {
 			src: mustTempDir(),
 			dst: mustTempDir(),
 		},
-		/*
 		// Manual test
-		{
-			src: `c:\temp`,
-			dst: `e:\temp`,
-		},
-		*/
+		// {
+		// 	src: `c:\temp`,
+		// 	dst: `e:\temp`,
+		// },
 	}
 
 	for _, test := range tests {
