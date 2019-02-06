@@ -7,7 +7,6 @@
 package versioner
 
 import (
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -225,53 +224,12 @@ func (v *Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	info, err := v.folderFs.Lstat(filePath)
-	if fs.IsNotExist(err) {
-		l.Debugln("not archiving nonexistent file", filePath)
-		return nil
-	} else if err != nil {
+	if err := archiveFile(v.folderFs, v.versionsFs, ".", filePath); err != nil {
 		return err
 	}
-	if info.IsSymlink() {
-		panic("bug: attempting to version a symlink")
-	}
-
-	if _, err := v.versionsFs.Stat("."); err != nil {
-		if fs.IsNotExist(err) {
-			l.Debugln("creating versions dir", v.versionsFs)
-			v.versionsFs.MkdirAll(".", 0755)
-			v.versionsFs.Hide(".")
-		} else {
-			return err
-		}
-	}
-
-	l.Debugln("archiving", filePath)
 
 	file := filepath.Base(filePath)
 	inFolderPath := filepath.Dir(filePath)
-	if err != nil {
-		return err
-	}
-
-	err = v.versionsFs.MkdirAll(inFolderPath, 0755)
-	if err != nil && !fs.IsExist(err) {
-		return err
-	}
-
-	ver := TagFilename(file, time.Now().Format(TimeFormat))
-	dst := filepath.Join(inFolderPath, ver)
-	l.Debugln("moving to", dst)
-
-	/// TODO: Fix this when we have an alternative filesystem implementation
-	if v.versionsFs.Type() != fs.FilesystemTypeBasic {
-		panic("bug: staggered versioner used with unsupported filesystem")
-	}
-
-	err = os.Rename(filepath.Join(v.folderFs.URI(), filePath), filepath.Join(v.versionsFs.URI(), dst))
-	if err != nil {
-		return err
-	}
 
 	// Glob according to the new file~timestamp.ext pattern.
 	pattern := filepath.Join(inFolderPath, TagFilename(file, TimeGlob))
@@ -294,4 +252,12 @@ func (v *Staggered) Archive(filePath string) error {
 	v.expire(util.UniqueStrings(versions))
 
 	return nil
+}
+
+func (v *Staggered) GetVersions() (map[string][]FileVersion, error) {
+	return retrieveVersions(v.versionsFs, ".")
+}
+
+func (v *Staggered) Restore(filepath string, versionTime time.Time) error {
+	return restoreFile(v.versionsFs, v.folderFs, ".", filepath, versionTime)
 }

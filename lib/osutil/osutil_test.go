@@ -7,6 +7,7 @@
 package osutil_test
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -192,7 +193,7 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 	}
 
 	rename := func(path string) error {
-		return osutil.Rename(fs, path, path+"new")
+		return osutil.RenameOrCopy(fs, fs, path, path+"new")
 	}
 
 	for _, path := range []string{"testdata/windows/ro/readonly", "testdata/windows/ro", "testdata/windows"} {
@@ -267,4 +268,64 @@ func TestIsDeleted(t *testing.T) {
 
 	testFs.Chmod("inacc", 0777)
 	os.RemoveAll("testdata")
+}
+
+func TestRenameOrCopy(t *testing.T) {
+	mustTempDir := func() string {
+		t.Helper()
+		tmpDir, err := ioutil.TempDir("", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tmpDir
+	}
+	sameDir := mustTempDir()
+	tests := []struct {
+		src string
+		dst string
+	}{
+		{
+			src: sameDir,
+			dst: sameDir,
+		},
+		{
+			src: mustTempDir(),
+			dst: mustTempDir(),
+		},
+		/*
+		// Manual test
+		{
+			src: `c:\temp`,
+			dst: `e:\temp`,
+		},
+		*/
+	}
+
+	for _, test := range tests {
+		src := fs.NewFilesystem(fs.FilesystemTypeBasic, test.src)
+		dst := fs.NewFilesystem(fs.FilesystemTypeBasic, test.dst)
+		if fd, err := src.Create("file"); err != nil {
+			t.Fatal(err)
+		} else {
+			if _, err := fd.Write([]byte(test.src)); err != nil {
+				t.Fatal(err)
+			}
+			_ = fd.Close()
+		}
+
+		err := osutil.RenameOrCopy(src, dst, "file", "file-new")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if fd, err := dst.Open("file-new"); err != nil {
+			t.Fatal(err)
+		} else {
+			if buf, err := ioutil.ReadAll(fd); err != nil {
+				t.Fatal(err)
+			} else if string(buf) != test.src {
+				t.Fatalf("expected %s got %s", test.src, string(buf))
+			}
+		}
+	}
 }
