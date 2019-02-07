@@ -54,7 +54,7 @@ func init() {
 	defaultFolderConfig = testFolderConfig("testdata")
 
 	defaultCfgWrapper = createTmpWrapper(config.New(myID))
-	defaultCfgWrapper.SetDevice(config.DeviceConfiguration{DeviceID: device1})
+	defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
 	defaultCfgWrapper.SetFolder(defaultFolderConfig)
 	opts := defaultCfgWrapper.Options()
 	opts.KeepTemporariesH = 1
