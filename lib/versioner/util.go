@@ -71,12 +71,12 @@ func UntagFilename(path string) (string, string) {
 	return name, versionTag
 }
 
-func retrieveVersions(fileSystem fs.Filesystem, versionsDir string) (map[string][]FileVersion, error) {
+func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error) {
 	files := make(map[string][]FileVersion)
 
-	err := fileSystem.Walk(versionsDir, func(path string, f fs.FileInfo, err error) error {
+	err := fileSystem.Walk(".", func(path string, f fs.FileInfo, err error) error {
 		// Skip root (which is ok to be a symlink)
-		if path == versionsDir {
+		if path == "." {
 			return nil
 		}
 
@@ -96,7 +96,7 @@ func retrieveVersions(fileSystem fs.Filesystem, versionsDir string) (map[string]
 		}
 
 		// Strip prefix.
-		path = strings.TrimPrefix(path, versionsDir+string(fs.PathSeparator))
+		path = strings.TrimPrefix(path, string(fs.PathSeparator))
 		path = osutil.NormalizedFilename(path)
 
 		name, tag := UntagFilename(path)
@@ -135,7 +135,9 @@ func retrieveVersions(fileSystem fs.Filesystem, versionsDir string) (map[string]
 	return files, nil
 }
 
-func archiveFile(srcFs, dstFs fs.Filesystem, versionsDir, filePath string) error {
+type fileTagger func(string, string) string
+
+func archiveFile(srcFs, dstFs fs.Filesystem, filePath string, tagger fileTagger) error {
 	filePath = osutil.NativeFilename(filePath)
 	info, err := srcFs.Lstat(filePath)
 	if fs.IsNotExist(err) {
@@ -148,15 +150,15 @@ func archiveFile(srcFs, dstFs fs.Filesystem, versionsDir, filePath string) error
 		panic("bug: attempting to version a symlink")
 	}
 
-	_, err = dstFs.Stat(versionsDir)
+	_, err = dstFs.Stat(".")
 	if err != nil {
 		if fs.IsNotExist(err) {
-			l.Debugln("creating versions dir " + versionsDir)
-			err := dstFs.Mkdir(versionsDir, 0755)
+			l.Debugln("creating versions dir")
+			err := dstFs.Mkdir(".", 0755)
 			if err != nil {
 				return err
 			}
-			_ = dstFs.Hide(versionsDir)
+			_ = dstFs.Hide(".")
 		} else {
 			return err
 		}
@@ -167,14 +169,13 @@ func archiveFile(srcFs, dstFs fs.Filesystem, versionsDir, filePath string) error
 	file := filepath.Base(filePath)
 	inFolderPath := filepath.Dir(filePath)
 
-	dir := filepath.Join(versionsDir, inFolderPath)
-	err = dstFs.MkdirAll(dir, 0755)
+	err = dstFs.MkdirAll(inFolderPath, 0755)
 	if err != nil && !fs.IsExist(err) {
 		return err
 	}
 
-	ver := TagFilename(file, info.ModTime().Format(TimeFormat))
-	dst := filepath.Join(dir, ver)
+	ver := tagger(file, info.ModTime().Format(TimeFormat))
+	dst := filepath.Join(inFolderPath, ver)
 	l.Debugln("moving to", dst)
 	err = osutil.RenameOrCopy(srcFs, dstFs, filePath, dst)
 
@@ -186,13 +187,13 @@ func archiveFile(srcFs, dstFs fs.Filesystem, versionsDir, filePath string) error
 	return err
 }
 
-func restoreFile(src, dst fs.Filesystem, versionsDir, filePath string, versionTime time.Time) error {
+func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time, tagger fileTagger) error {
 	// If the something already exists where we are restoring to, archive existing file for versioning
 	// Or fail if it's not a file
 	if info, err := dst.Lstat(filePath); err == nil {
 		if !info.IsRegular() {
 			return errors.Wrap(errNotAFile, "archiving existing file")
-		} else if err := archiveFile(dst, src, versionsDir, filePath); err != nil {
+		} else if err := archiveFile(dst, src, filePath, tagger); err != nil {
 			return errors.Wrap(err, "archiving existing file")
 		}
 	} else if !fs.IsNotExist(err) {
@@ -202,9 +203,9 @@ func restoreFile(src, dst fs.Filesystem, versionsDir, filePath string, versionTi
 	filePath = osutil.NativeFilename(filePath)
 	tag := versionTime.In(locationLocal).Truncate(time.Second).Format(TimeFormat)
 
-	taggedFilename := filepath.Join(versionsDir, TagFilename(filePath, tag))
-	oldTaggedFilename := filepath.Join(versionsDir, filePath+tag)
-	untaggedFileName := filepath.Join(versionsDir, filePath)
+	taggedFilename := TagFilename(filePath, tag)
+	oldTaggedFilename := filePath + tag
+	untaggedFileName := filePath
 
 	// Check that the thing we've been asked to restore is actually a file
 	// and that it exists.
@@ -238,4 +239,25 @@ func restoreFile(src, dst fs.Filesystem, versionsDir, filePath string, versionTi
 
 	_ = dst.MkdirAll(filepath.Dir(filePath), 0755)
 	return osutil.RenameOrCopy(src, dst, sourceFile, filePath)
+}
+
+func fsFromParams(folderFs fs.Filesystem, params map[string]string) (versionsFs fs.Filesystem) {
+	if params["fsType"] == "" && params["fsPath"] == "" {
+		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), ".stversions"))
+
+	} else if params["fsType"] == "" {
+		uri := params["fsPath"]
+		// We only know how to deal with relative folders for basic filesystems, as that's the only one we know
+		// how to check if it's absolute or relative.
+		if folderFs.Type() == fs.FilesystemTypeBasic && !filepath.IsAbs(params["fsPath"]) {
+			uri = filepath.Join(folderFs.URI(), params["fsPath"])
+		}
+		versionsFs = fs.NewFilesystem(folderFs.Type(), uri)
+	} else {
+		var fsType fs.FilesystemType
+		_ = fsType.UnmarshalText([]byte(params["fsType"]))
+		versionsFs = fs.NewFilesystem(fsType, params["fsPath"])
+	}
+	l.Debugln("%s (%s) folder using %s (%s) versioner dir", folderFs.URI(), folderFs.Type(), versionsFs.URI(), versionsFs.Type())
+	return
 }

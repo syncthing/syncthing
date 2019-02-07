@@ -20,17 +20,19 @@ func init() {
 }
 
 type Trashcan struct {
-	fs           fs.Filesystem
+	folderFs     fs.Filesystem
+	versionsFs   fs.Filesystem
 	cleanoutDays int
 	stop         chan struct{}
 }
 
-func NewTrashcan(folderID string, fs fs.Filesystem, params map[string]string) Versioner {
+func NewTrashcan(folderID string, folderFs fs.Filesystem, params map[string]string) Versioner {
 	cleanoutDays, _ := strconv.Atoi(params["cleanoutDays"])
 	// On error we default to 0, "do not clean out the trash can"
 
 	s := &Trashcan{
-		fs:           fs,
+		folderFs:     folderFs,
+		versionsFs:   fsFromParams(folderFs, params),
 		cleanoutDays: cleanoutDays,
 		stop:         make(chan struct{}),
 	}
@@ -42,7 +44,9 @@ func NewTrashcan(folderID string, fs fs.Filesystem, params map[string]string) Ve
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (t *Trashcan) Archive(filePath string) error {
-	return archiveFile(t.fs, t.fs, ".stversions", filePath)
+	return archiveFile(t.folderFs, t.versionsFs, filePath, func(name, tag string) string {
+		return name
+	})
 }
 
 func (t *Trashcan) Serve() {
@@ -80,8 +84,7 @@ func (t *Trashcan) String() string {
 }
 
 func (t *Trashcan) cleanoutArchive() error {
-	versionsDir := ".stversions"
-	if _, err := t.fs.Lstat(versionsDir); fs.IsNotExist(err) {
+	if _, err := t.versionsFs.Lstat("."); fs.IsNotExist(err) {
 		return nil
 	}
 
@@ -100,7 +103,7 @@ func (t *Trashcan) cleanoutArchive() error {
 
 		if info.ModTime().Before(cutoff) {
 			// The file is too old; remove it.
-			t.fs.Remove(path)
+			t.versionsFs.Remove(path)
 		} else {
 			// Keep this file, and remember it so we don't unnecessarily try
 			// to remove this directory.
@@ -109,19 +112,35 @@ func (t *Trashcan) cleanoutArchive() error {
 		return nil
 	}
 
-	if err := t.fs.Walk(versionsDir, walkFn); err != nil {
+	if err := t.versionsFs.Walk(".", walkFn); err != nil {
 		return err
 	}
 
-	dirTracker.deleteEmptyDirs(t.fs)
+	dirTracker.deleteEmptyDirs(t.versionsFs)
 
 	return nil
 }
 
 func (t *Trashcan) GetVersions() (map[string][]FileVersion, error) {
-	return retrieveVersions(t.fs, ".stversions")
+	return retrieveVersions(t.versionsFs)
 }
 
 func (t *Trashcan) Restore(filepath string, versionTime time.Time) error {
-	return restoreFile(t.fs, t.fs, ".stversions", filepath, versionTime)
+	// If we have an untagged file A and want to restore it on top of existing file A, we can't first archive the
+	// existing A as we'd overwrite the old A version, therefore when we archive existing file, we archive it with a
+	// tag but when the restoration is finished, we rename it (untag it). This is only important if when restoring A,
+	// there already exists a file at the same location
+
+	taggedName := ""
+	tagger := func(name, tag string) string {
+		taggedName = TagFilename(name, tag)
+		return taggedName
+	}
+
+	err := restoreFile(t.versionsFs, t.folderFs, filepath, versionTime, tagger)
+	if taggedName == "" {
+		return err
+	}
+
+	return t.versionsFs.Rename(taggedName, filepath)
 }

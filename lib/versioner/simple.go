@@ -21,19 +21,21 @@ func init() {
 }
 
 type Simple struct {
-	keep int
-	fs   fs.Filesystem
+	keep       int
+	folderFs   fs.Filesystem
+	versionsFs fs.Filesystem
 }
 
-func NewSimple(folderID string, fs fs.Filesystem, params map[string]string) Versioner {
+func NewSimple(folderID string, folderFs fs.Filesystem, params map[string]string) Versioner {
 	keep, err := strconv.Atoi(params["keep"])
 	if err != nil {
 		keep = 5 // A reasonable default
 	}
 
 	s := Simple{
-		keep: keep,
-		fs:   fs,
+		keep:       keep,
+		folderFs:   folderFs,
+		versionsFs: fsFromParams(folderFs, params),
 	}
 
 	l.Debugf("instantiated %#v", s)
@@ -43,17 +45,17 @@ func NewSimple(folderID string, fs fs.Filesystem, params map[string]string) Vers
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (v Simple) Archive(filePath string) error {
-	err := archiveFile(v.fs, v.fs, ".stversions", filePath)
+	err := archiveFile(v.folderFs, v.versionsFs, filePath, TagFilename)
 	if err != nil {
 		return err
 	}
 
 	file := filepath.Base(filePath)
-	dir := filepath.Join(".stversions", filepath.Dir(filePath))
+	dir := filepath.Dir(filePath)
 
 	// Glob according to the new file~timestamp.ext pattern.
 	pattern := filepath.Join(dir, TagFilename(file, TimeGlob))
-	newVersions, err := v.fs.Glob(pattern)
+	newVersions, err := v.versionsFs.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
 		return nil
@@ -61,7 +63,7 @@ func (v Simple) Archive(filePath string) error {
 
 	// Also according to the old file.ext~timestamp pattern.
 	pattern = filepath.Join(dir, file+"~"+TimeGlob)
-	oldVersions, err := v.fs.Glob(pattern)
+	oldVersions, err := v.versionsFs.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
 		return nil
@@ -74,7 +76,7 @@ func (v Simple) Archive(filePath string) error {
 	if len(versions) > v.keep {
 		for _, toRemove := range versions[:len(versions)-v.keep] {
 			l.Debugln("cleaning out", toRemove)
-			err = v.fs.Remove(toRemove)
+			err = v.versionsFs.Remove(toRemove)
 			if err != nil {
 				l.Warnln("removing old version:", err)
 			}
@@ -85,9 +87,9 @@ func (v Simple) Archive(filePath string) error {
 }
 
 func (v Simple) GetVersions() (map[string][]FileVersion, error) {
-	return retrieveVersions(v.fs, ".stversions")
+	return retrieveVersions(v.versionsFs)
 }
 
 func (v Simple) Restore(filepath string, versionTime time.Time) error {
-	return restoreFile(v.fs, v.fs, ".stversions", filepath, versionTime)
+	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }

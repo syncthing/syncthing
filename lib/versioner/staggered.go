@@ -47,16 +47,9 @@ func NewStaggered(folderID string, folderFs fs.Filesystem, params map[string]str
 		cleanInterval = 3600 // Default: clean once per hour
 	}
 
-	// Use custom path if set, otherwise .stversions in folderPath
-	var versionsFs fs.Filesystem
-	if params["versionsPath"] == "" {
-		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), ".stversions"))
-	} else if filepath.IsAbs(params["versionsPath"]) {
-		versionsFs = fs.NewFilesystem(folderFs.Type(), params["versionsPath"])
-	} else {
-		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), params["versionsPath"]))
-	}
-	l.Debugln("%s folder using %s (%s) staggered versioner dir", folderID, versionsFs.URI(), versionsFs.Type())
+	// Backwards compatibility
+	params["fsPath"] = params["versionsPath"]
+	versionsFs := fsFromParams(folderFs, params)
 
 	s := &Staggered{
 		cleanInterval: cleanInterval,
@@ -224,7 +217,7 @@ func (v *Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	if err := archiveFile(v.folderFs, v.versionsFs, ".", filePath); err != nil {
+	if err := archiveFile(v.folderFs, v.versionsFs, filePath, TagFilename); err != nil {
 		return err
 	}
 
@@ -255,9 +248,9 @@ func (v *Staggered) Archive(filePath string) error {
 }
 
 func (v *Staggered) GetVersions() (map[string][]FileVersion, error) {
-	return retrieveVersions(v.versionsFs, ".")
+	return retrieveVersions(v.versionsFs)
 }
 
 func (v *Staggered) Restore(filepath string, versionTime time.Time) error {
-	return restoreFile(v.versionsFs, v.folderFs, ".", filepath, versionTime)
+	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }

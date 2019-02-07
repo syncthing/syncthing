@@ -281,48 +281,77 @@ func TestRenameOrCopy(t *testing.T) {
 	}
 	sameDir := mustTempDir()
 	tests := []struct {
-		src string
-		dst string
+		srcType fs.FilesystemType
+		src     string
+		dstType fs.FilesystemType
+		dst     string
+		file    string
 	}{
 		{
-			src: sameDir,
-			dst: sameDir,
+			srcType: fs.FilesystemTypeBasic,
+			src:     sameDir,
+			dstType: fs.FilesystemTypeBasic,
+			dst:     sameDir,
+			file:    "file",
 		},
 		{
-			src: mustTempDir(),
-			dst: mustTempDir(),
+			srcType: fs.FilesystemTypeBasic,
+			src:     mustTempDir(),
+			dstType: fs.FilesystemTypeBasic,
+			dst:     mustTempDir(),
+			file:    "file",
 		},
-		// Manual test
-		// {
-		// 	src: `c:\temp`,
-		// 	dst: `e:\temp`,
-		// },
+		{
+			srcType: fs.FilesystemTypeFake,
+			src:     `fake://fake/?files=1&seed=42`,
+			dstType: fs.FilesystemTypeBasic,
+			dst:     mustTempDir(),
+			file:    `05\7a\4d52f284145b9fe8`,
+		},
 	}
 
 	for _, test := range tests {
-		src := fs.NewFilesystem(fs.FilesystemTypeBasic, test.src)
-		dst := fs.NewFilesystem(fs.FilesystemTypeBasic, test.dst)
-		if fd, err := src.Create("file"); err != nil {
-			t.Fatal(err)
+		src := fs.NewFilesystem(test.srcType, test.src)
+		dst := fs.NewFilesystem(test.dstType, test.dst)
+
+		content := test.src
+		if _, err := src.Lstat(test.file); err != nil {
+			if !fs.IsNotExist(err) {
+				t.Fatal(err)
+			}
+			if fd, err := src.Create(test.file); err != nil {
+				t.Fatal(err)
+			} else {
+				if _, err := fd.Write([]byte(test.src)); err != nil {
+					t.Fatal(err)
+				}
+				_ = fd.Close()
+			}
 		} else {
-			if _, err := fd.Write([]byte(test.src)); err != nil {
+			fd, err := src.Open(test.file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			buf, err := ioutil.ReadAll(fd)
+			if err != nil {
 				t.Fatal(err)
 			}
 			_ = fd.Close()
+			content = string(buf)
 		}
 
-		err := osutil.RenameOrCopy(src, dst, "file", "file-new")
+		err := osutil.RenameOrCopy(src, dst, test.file, "new")
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if fd, err := dst.Open("file-new"); err != nil {
+		if fd, err := dst.Open("new"); err != nil {
 			t.Fatal(err)
 		} else {
 			if buf, err := ioutil.ReadAll(fd); err != nil {
 				t.Fatal(err)
-			} else if string(buf) != test.src {
-				t.Fatalf("expected %s got %s", test.src, string(buf))
+			} else if string(buf) != content {
+				t.Fatalf("expected %s got %s", content, string(buf))
 			}
 		}
 	}
