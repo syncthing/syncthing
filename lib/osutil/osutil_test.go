@@ -306,7 +306,7 @@ func TestRenameOrCopy(t *testing.T) {
 			src:     `fake://fake/?files=1&seed=42`,
 			dstType: fs.FilesystemTypeBasic,
 			dst:     mustTempDir(),
-			file:    `05\7a\4d52f284145b9fe8`,
+			file:    osutil.NativeFilename(`05/7a/4d52f284145b9fe8`),
 		},
 	}
 
