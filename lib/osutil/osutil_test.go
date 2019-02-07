@@ -279,56 +279,45 @@ func TestRenameOrCopy(t *testing.T) {
 		}
 		return tmpDir
 	}
-	sameDir := mustTempDir()
+	sameFs := fs.NewFilesystem(fs.FilesystemTypeBasic, mustTempDir())
 	tests := []struct {
-		srcType fs.FilesystemType
-		src     string
-		dstType fs.FilesystemType
-		dst     string
-		file    string
+		src  fs.Filesystem
+		dst  fs.Filesystem
+		file string
 	}{
 		{
-			srcType: fs.FilesystemTypeBasic,
-			src:     sameDir,
-			dstType: fs.FilesystemTypeBasic,
-			dst:     sameDir,
-			file:    "file",
+			src:  sameFs,
+			dst:  sameFs,
+			file: "file",
 		},
 		{
-			srcType: fs.FilesystemTypeBasic,
-			src:     mustTempDir(),
-			dstType: fs.FilesystemTypeBasic,
-			dst:     mustTempDir(),
-			file:    "file",
+			src:  fs.NewFilesystem(fs.FilesystemTypeBasic,, mustTempDir()),
+			dst:  fs.NewFilesystem(fs.FilesystemTypeBasic,, mustTempDir()),
+			file: "file",
 		},
 		{
-			srcType: fs.FilesystemTypeFake,
-			src:     `fake://fake/?files=1&seed=42`,
-			dstType: fs.FilesystemTypeBasic,
-			dst:     mustTempDir(),
-			file:    osutil.NativeFilename(`05/7a/4d52f284145b9fe8`),
+			src:  fs.NewFilesystem(fs.FilesystemTypeFake, `fake://fake/?files=1&seed=42`),
+			dst:  fs.NewFilesystem(fs.FilesystemTypeBasic,, mustTempDir()),
+			file: osutil.NativeFilename(`05/7a/4d52f284145b9fe8`),
 		},
 	}
 
 	for _, test := range tests {
-		src := fs.NewFilesystem(test.srcType, test.src)
-		dst := fs.NewFilesystem(test.dstType, test.dst)
-
-		content := test.src
-		if _, err := src.Lstat(test.file); err != nil {
+		content := test.src.URI()
+		if _, err := test.src.Lstat(test.file); err != nil {
 			if !fs.IsNotExist(err) {
 				t.Fatal(err)
 			}
-			if fd, err := src.Create(test.file); err != nil {
+			if fd, err := test.src.Create(test.file); err != nil {
 				t.Fatal(err)
 			} else {
-				if _, err := fd.Write([]byte(test.src)); err != nil {
+				if _, err := fd.Write([]byte(test.src.URI())); err != nil {
 					t.Fatal(err)
 				}
 				_ = fd.Close()
 			}
 		} else {
-			fd, err := src.Open(test.file)
+			fd, err := test.src.Open(test.file)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -340,12 +329,12 @@ func TestRenameOrCopy(t *testing.T) {
 			content = string(buf)
 		}
 
-		err := osutil.RenameOrCopy(src, dst, test.file, "new")
+		err := osutil.RenameOrCopy(test.src, test.dst, test.file, "new")
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if fd, err := dst.Open("new"); err != nil {
+		if fd, err := test.dst.Open("new"); err != nil {
 			t.Fatal(err)
 		} else {
 			if buf, err := ioutil.ReadAll(fd); err != nil {

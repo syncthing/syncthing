@@ -103,13 +103,13 @@ func (t *Trashcan) cleanoutArchive() error {
 
 		if info.ModTime().Before(cutoff) {
 			// The file is too old; remove it.
-			return t.versionsFs.Remove(path)
+			err = t.versionsFs.Remove(path)
 		} else {
 			// Keep this file, and remember it so we don't unnecessarily try
 			// to remove this directory.
 			dirTracker.addFile(path)
 		}
-		return nil
+		return err
 	}
 
 	if err := t.versionsFs.Walk(".", walkFn); err != nil {
