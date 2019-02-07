@@ -133,7 +133,8 @@ func (t *Trashcan) Restore(filepath string, versionTime time.Time) error {
 
 	taggedName := ""
 	tagger := func(name, tag string) string {
-		taggedName = TagFilename(name, tag)
+		// We can't use TagFilename here, as restoreFii would discover that as a valid version and restore that instead.
+		taggedName = fs.TempName(name)
 		return taggedName
 	}
 
