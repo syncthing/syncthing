@@ -349,6 +349,7 @@
    "Uptime": "Uptime",
    "Usage reporting is always enabled for candidate releases.": "Usage reporting is always enabled for candidate releases.",
    "Use HTTPS for GUI": "Use HTTPS for GUI",
+   "Use notifications from the filesystem to detect changed items.": "Use notifications from the filesystem to detect changed items.",
    "Variable Size Blocks": "Variable Size Blocks",
    "Variable size blocks (also \"large blocks\") are more efficient for large files.": "Variable size blocks (also \"large blocks\") are more efficient for large files.",
    "Version": "Version",
