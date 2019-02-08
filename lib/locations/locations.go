@@ -73,8 +73,9 @@ var baseDirs = map[BaseDirEnum]string{
 	HomeBaseDir:   homeDir(),          // User's home directory, *not* -home flag
 }
 
+
 // Use the variables from baseDirs here
-var locations = map[LocationEnum]string{
+var locationTemplates = map[LocationEnum]string{
 	ConfigFile:    "${config}/config.xml",
 	CertFile:      "${config}/cert.pem",
 	KeyFile:       "${config}/key.pem",
@@ -89,10 +90,13 @@ var locations = map[LocationEnum]string{
 	DefFolder:     "${home}/Sync",
 }
 
+var locations = make(map[LocationEnum]string)
+
 // expandLocations replaces the variables in the locations map with actual
 // directory locations.
 func expandLocations() error {
-	for key, dir := range locations {
+	newLocations := make(map[LocationEnum]string)
+	for key, dir := range locationTemplates {
 		for varName, value := range baseDirs {
 			dir = strings.Replace(dir, "${"+string(varName)+"}", value, -1)
 		}
@@ -101,8 +105,9 @@ func expandLocations() error {
 		if err != nil {
 			return err
 		}
-		locations[key] = dir
+		newLocations[key] = dir
 	}
+	locations = newLocations
 	return nil
 }
 
