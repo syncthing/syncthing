@@ -73,7 +73,6 @@ var baseDirs = map[BaseDirEnum]string{
 	HomeBaseDir:   homeDir(),          // User's home directory, *not* -home flag
 }
 
-
 // Use the variables from baseDirs here
 var locationTemplates = map[LocationEnum]string{
 	ConfigFile:    "${config}/config.xml",
