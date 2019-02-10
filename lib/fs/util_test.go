@@ -26,7 +26,7 @@ func TestCommonPrefix(t *testing.T) {
 		test(`c:\Audrius-a\Downloads`, `c:\Audrius-b\Docs`, `c:\`)
 	} else {
 		test(`/Audrius/Downloads`, `/Audrius/Docs`, `/Audrius/`)
-		test(`/Audrius\Downloads`, `/audrius\Docs`, `/`)
-		test(`/Audrius-a/Downloads`, `/Audrius-b/Docs`, `/`)
+		test(`/Audrius\Downloads`, `/audrius\Docs`, ``)
+		test(`/Audrius-a/Downloads`, `/Audrius-b/Docs`, ``)
 	}
 }
