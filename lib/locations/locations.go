@@ -55,7 +55,7 @@ func SetBaseDir(baseDirName BaseDirEnum, path string) error {
 	if !ok {
 		return fmt.Errorf("unknown base dir: %s", baseDirName)
 	}
-	baseDirs[baseDirName] = path
+	baseDirs[baseDirName] = filepath.Clean(path)
 	return expandLocations()
 }
 
@@ -104,7 +104,7 @@ func expandLocations() error {
 		if err != nil {
 			return err
 		}
-		newLocations[key] = dir
+		newLocations[key] = filepath.Clean(dir)
 	}
 	locations = newLocations
 	return nil
