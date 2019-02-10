@@ -39,28 +39,13 @@ func RenameOrCopy(src, dst fs.Filesystem, from, to string) error {
 		// Try to find a common prefix between the two filesystems, use that as the base for the new one
 		// and try a rename.
 		if src.Type() == dst.Type() {
-			srcURI := []byte(src.URI())
-			dstURI := []byte(dst.URI())
-			smaller := len(srcURI)
-			if len(srcURI) > len(dstURI) {
-				smaller = len(dstURI)
-			}
+			commonPrefix := fs.CommonPrefix(src.URI(), dst.URI())
 
-			commonBytes := make([]byte, 0, smaller)
-
-			for i := 0; i < smaller; i++ {
-				if srcURI[i] != dstURI[i] {
-					break
-				}
-				commonBytes = append(commonBytes, srcURI[i])
-			}
-
-			if len(commonBytes) > 0 {
-				common := string(commonBytes)
-				commonFs := fs.NewFilesystem(src.Type(), common)
+			if len(commonPrefix) > 0 {
+				commonFs := fs.NewFilesystem(src.Type(), commonPrefix)
 				err := commonFs.Rename(
-					filepath.Join(strings.TrimPrefix(src.URI(), common), from),
-					filepath.Join(strings.TrimPrefix(dst.URI(), common), to),
+					filepath.Join(strings.TrimPrefix(src.URI(), commonPrefix), from),
+					filepath.Join(strings.TrimPrefix(dst.URI(), commonPrefix), to),
 				)
 				if err == nil {
 					return nil
