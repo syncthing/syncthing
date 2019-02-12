@@ -278,7 +278,7 @@ func (f *FolderConfiguration) CheckAvailableSpace(req int64) error {
 	}
 	usage.Free -= req
 	if usage.Free > 0 {
-		if err := checkFreeSpace(f.MinDiskFree, usage); err == nil {
+		if err := CheckFreeSpace(f.MinDiskFree, usage); err == nil {
 			return nil
 		}
 	}
