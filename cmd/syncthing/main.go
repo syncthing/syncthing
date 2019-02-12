@@ -16,12 +16,12 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	_ "net/http/pprof" // Need to import this to support STPROFILER.
 	"net/url"
 	"os"
 	"os/signal"
 	"path"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"runtime/pprof"
 	"sort"
@@ -30,6 +30,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
@@ -37,6 +38,7 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -47,23 +49,6 @@ import (
 	"github.com/syncthing/syncthing/lib/upgrade"
 
 	"github.com/thejerf/suture"
-
-	_ "net/http/pprof" // Need to import this to support STPROFILER.
-)
-
-var (
-	Version           = "unknown-dev"
-	Codename          = "Erbium Earthworm"
-	BuildStamp        = "0"
-	BuildDate         time.Time
-	BuildHost         = "unknown"
-	BuildUser         = "unknown"
-	IsRelease         bool
-	IsCandidate       bool
-	IsBeta            bool
-	LongVersion       string
-	BuildTags         []string
-	allowedVersionExp = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\.\d+)*(\+\d+-g[0-9a-f]+)?(-[^\s]+)?$`)
 )
 
 const (
@@ -82,46 +67,6 @@ const (
 	initialSystemLog     = 10
 	maxSystemLog         = 250
 )
-
-func init() {
-	if Version != "unknown-dev" {
-		// If not a generic dev build, version string should come from git describe
-		if !allowedVersionExp.MatchString(Version) {
-			l.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, allowedVersionExp)
-		}
-	}
-}
-
-func setBuildMetadata() {
-	// Check for a clean release build. A release is something like
-	// "v0.1.2", with an optional suffix of letters and dot separated
-	// numbers like "-beta3.47". If there's more stuff, like a plus sign and
-	// a commit hash and so on, then it's not a release. If it has a dash in
-	// it, it's some sort of beta, release candidate or special build. If it
-	// has "-rc." in it, like "v0.14.35-rc.42", then it's a candidate build.
-	//
-	// So, every build that is not a stable release build has IsBeta = true.
-	// This is used to enable some extra debugging (the deadlock detector).
-	//
-	// Release candidate builds are also "betas" from this point of view and
-	// will have that debugging enabled. In addition, some features are
-	// forced for release candidates - auto upgrade, and usage reporting.
-
-	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z]+[\d\.]+)?$`)
-	IsRelease = exp.MatchString(Version)
-	IsCandidate = strings.Contains(Version, "-rc.")
-	IsBeta = strings.Contains(Version, "-")
-
-	stamp, _ := strconv.Atoi(BuildStamp)
-	BuildDate = time.Unix(int64(stamp), 0)
-
-	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
-	LongVersion = fmt.Sprintf(`syncthing %s "%s" (%s %s-%s) %s@%s %s`, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
-
-	if len(BuildTags) > 0 {
-		LongVersion = fmt.Sprintf("%s [%s]", LongVersion, strings.Join(BuildTags, ", "))
-	}
-}
 
 var (
 	myID protocol.DeviceID
@@ -320,8 +265,6 @@ func parseCommandLineOptions() RuntimeOptions {
 }
 
 func main() {
-	setBuildMetadata()
-
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
 
@@ -355,27 +298,25 @@ func main() {
 				l.Fatalln(err)
 			}
 		}
-		baseDirs["config"] = options.confDir
-	}
-
-	if err := expandLocations(); err != nil {
-		l.Fatalln(err)
+		if err := locations.SetBaseDir(locations.ConfigBaseDir, options.confDir); err != nil {
+			l.Fatalln(err)
+		}
 	}
 
 	if options.logFile == "" {
 		// Blank means use the default logfile location. We must set this
 		// *after* expandLocations above.
-		options.logFile = locations[locLogFile]
+		options.logFile = locations.Get(locations.LogFile)
 	}
 
 	if options.assetDir == "" {
 		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
 		// should look for extra assets in the default place.
-		options.assetDir = locations[locGUIAssets]
+		options.assetDir = locations.Get(locations.GUIAssets)
 	}
 
 	if options.showVersion {
-		fmt.Println(LongVersion)
+		fmt.Println(build.LongVersion)
 		return
 	}
 
@@ -390,7 +331,10 @@ func main() {
 	}
 
 	if options.showDeviceId {
-		cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
+		cert, err := tls.LoadX509KeyPair(
+			locations.Get(locations.CertFile),
+			locations.Get(locations.KeyFile),
+		)
 		if err != nil {
 			l.Fatalln("Error reading device ID:", err)
 		}
@@ -411,7 +355,7 @@ func main() {
 	}
 
 	// Ensure that our home directory exists.
-	ensureDir(baseDirs["config"], 0700)
+	ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700)
 
 	if options.upgradeTo != "" {
 		err := upgrade.ToURL(options.upgradeTo)
@@ -521,24 +465,24 @@ func debugFacilities() string {
 func checkUpgrade() upgrade.Release {
 	cfg, _ := loadOrDefaultConfig()
 	opts := cfg.Options()
-	release, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
+	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		l.Fatalln("Upgrade:", err)
 	}
 
-	if upgrade.CompareVersions(release.Tag, Version) <= 0 {
+	if upgrade.CompareVersions(release.Tag, build.Version) <= 0 {
 		noUpgradeMessage := "No upgrade available (current %q >= latest %q)."
-		l.Infof(noUpgradeMessage, Version, release.Tag)
+		l.Infof(noUpgradeMessage, build.Version, release.Tag)
 		os.Exit(exitNoUpgradeAvailable)
 	}
 
-	l.Infof("Upgrade available (current %q < latest %q)", Version, release.Tag)
+	l.Infof("Upgrade available (current %q < latest %q)", build.Version, release.Tag)
 	return release
 }
 
 func performUpgrade(release upgrade.Release) {
 	// Use leveldb database locks to protect against concurrent upgrades
-	_, err := db.Open(locations[locDatabase])
+	_, err := db.Open(locations.Get(locations.Database))
 	if err == nil {
 		err = upgrade.To(release)
 		if err != nil {
@@ -636,10 +580,17 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	osutil.MaximizeOpenFileLimit()
 
 	// Ensure that we have a certificate and key.
-	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
+	cert, err := tls.LoadX509KeyPair(
+		locations.Get(locations.CertFile),
+		locations.Get(locations.KeyFile),
+	)
 	if err != nil {
 		l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
-		cert, err = tlsutil.NewCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName)
+		cert, err = tlsutil.NewCertificate(
+			locations.Get(locations.CertFile),
+			locations.Get(locations.KeyFile),
+			tlsDefaultCommonName,
+		)
 		if err != nil {
 			l.Fatalln(err)
 		}
@@ -648,7 +599,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	myID = protocol.NewDeviceID(cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", myID.String()[:5]))
 
-	l.Infoln(LongVersion)
+	l.Infoln(build.LongVersion)
 	l.Infoln("My ID:", myID)
 
 	// Select SHA256 implementation and report. Affected by the
@@ -659,7 +610,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Emit the Starting event, now that we know who we are.
 
 	events.Default.Log(events.Starting, map[string]string{
-		"home": baseDirs["config"],
+		"home": locations.GetBaseDir(locations.ConfigBaseDir),
 		"myID": myID.String(),
 	})
 
@@ -683,7 +634,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	perf := cpuBench(3, 150*time.Millisecond, true)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
-	dbFile := locations[locDatabase]
+	dbFile := locations.Get(locations.Database)
 	ldb, err := db.Open(dbFile)
 	if err != nil {
 		l.Fatalln("Error opening database:", err)
@@ -698,10 +649,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	protectedFiles := []string{
-		locations[locDatabase],
-		locations[locConfigFile],
-		locations[locCertFile],
-		locations[locKeyFile],
+		locations.Get(locations.Database),
+		locations.Get(locations.ConfigFile),
+		locations.Get(locations.CertFile),
+		locations.Get(locations.KeyFile),
 	}
 
 	// Remove database entries for folders that no longer exist in the config
@@ -723,10 +674,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// 0.14.45-pineapple is not.
 
 	prevParts := strings.Split(prevVersion, "-")
-	curParts := strings.Split(Version, "-")
+	curParts := strings.Split(build.Version, "-")
 	if prevParts[0] != curParts[0] {
 		if prevVersion != "" {
-			l.Infoln("Detected upgrade from", prevVersion, "to", Version)
+			l.Infoln("Detected upgrade from", prevVersion, "to", build.Version)
 		}
 
 		// Drop delta indexes in case we've changed random stuff we
@@ -734,16 +685,16 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		db.DropDeltaIndexIDs(ldb)
 
 		// Remember the new version.
-		miscDB.PutString("prevVersion", Version)
+		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
+	m := model.NewModel(cfg, myID, "syncthing", build.Version, ldb, protectedFiles)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
 		if secs, _ := strconv.Atoi(t); secs > 0 {
 			m.StartDeadlockDetector(time.Duration(secs) * time.Second)
 		}
-	} else if !IsRelease || IsBeta {
+	} else if !build.IsRelease || build.IsBeta {
 		m.StartDeadlockDetector(20 * time.Minute)
 	}
 
@@ -842,7 +793,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Candidate builds always run with usage reporting.
 
-	if opts := cfg.Options(); IsCandidate {
+	if opts := cfg.Options(); build.IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
 		if opts.URAccepted != usageReportVersion {
 			opts.URAccepted = usageReportVersion
@@ -870,7 +821,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// unless we are in a build where it's disabled or the STNOUPGRADE
 	// environment variable is set.
 
-	if IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
+	if build.IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
 		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
 		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
 			opts.AutoUpgradeIntervalH = 12
@@ -943,7 +894,7 @@ func setupSignalHandling() {
 }
 
 func loadOrDefaultConfig() (*config.Wrapper, error) {
-	cfgFile := locations[locConfigFile]
+	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 
 	if err != nil {
@@ -954,7 +905,7 @@ func loadOrDefaultConfig() (*config.Wrapper, error) {
 }
 
 func loadConfigAtStartup() *config.Wrapper {
-	cfgFile := locations[locConfigFile]
+	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
 		cfg = defaultConfig(cfgFile)
@@ -1018,7 +969,7 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 		auditDest = "stderr"
 	} else {
 		if auditFile == "" {
-			auditFile = timestampedLoc(locAuditLog)
+			auditFile = locations.GetTimestamped(locations.AuditLog)
 			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_EXCL
 		} else {
 			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_APPEND
@@ -1054,7 +1005,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	cpu := newCPUService()
 	mainService.Add(cpu)
 
-	api := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu)
+	api := newAPIService(myID, cfg, locations.Get(locations.HTTPSCertFile), locations.Get(locations.HTTPSKeyFile), runtimeOptions.assetDir, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu)
 	cfg.Subscribe(api)
 	mainService.Add(api)
 
@@ -1074,13 +1025,13 @@ func defaultConfig(cfgFile string) *config.Wrapper {
 		return config.Wrap(cfgFile, newCfg)
 	}
 
-	newCfg.Folders = append(newCfg.Folders, config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations[locDefFolder]))
+	newCfg.Folders = append(newCfg.Folders, config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations.Get(locations.DefFolder)))
 	l.Infoln("Default folder created and/or linked to new config")
 	return config.Wrap(cfgFile, newCfg)
 }
 
 func resetDB() error {
-	return os.RemoveAll(locations[locDatabase])
+	return os.RemoveAll(locations.Get(locations.Database))
 }
 
 func restart() {
@@ -1142,10 +1093,10 @@ func autoUpgrade(cfg *config.Wrapper) {
 		select {
 		case event := <-sub.C():
 			data, ok := event.Data.(map[string]string)
-			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], Version) != upgrade.Newer {
+			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], build.Version) != upgrade.Newer {
 				continue
 			}
-			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], Version, data["clientVersion"])
+			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], build.Version, data["clientVersion"])
 		case <-timer.C:
 		}
 
@@ -1157,7 +1108,7 @@ func autoUpgrade(cfg *config.Wrapper) {
 			checkInterval = time.Hour
 		}
 
-		rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
+		rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return
@@ -1170,13 +1121,13 @@ func autoUpgrade(cfg *config.Wrapper) {
 			continue
 		}
 
-		if upgrade.CompareVersions(rel.Tag, Version) != upgrade.Newer {
+		if upgrade.CompareVersions(rel.Tag, build.Version) != upgrade.Newer {
 			// Skip equal, older or majorly newer (incompatible) versions
 			timer.Reset(checkInterval)
 			continue
 		}
 
-		l.Infof("Automatic upgrade (current %q < latest %q)", Version, rel.Tag)
+		l.Infof("Automatic upgrade (current %q < latest %q)", build.Version, rel.Tag)
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("Automatic upgrade:", err)
@@ -1209,7 +1160,7 @@ func cleanConfigDirectory() {
 	}
 
 	for pat, dur := range patterns {
-		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, baseDirs["config"])
+		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, locations.GetBaseDir(locations.ConfigBaseDir))
 		files, err := fs.Glob(pat)
 		if err != nil {
 			l.Infoln("Cleaning:", err)
@@ -1250,13 +1201,13 @@ func checkShortIDs(cfg *config.Wrapper) error {
 }
 
 func showPaths(options RuntimeOptions) {
-	fmt.Printf("Configuration file:\n\t%s\n\n", locations[locConfigFile])
-	fmt.Printf("Database directory:\n\t%s\n\n", locations[locDatabase])
-	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations[locKeyFile], locations[locCertFile])
-	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations[locHTTPSKeyFile], locations[locHTTPSCertFile])
+	fmt.Printf("Configuration file:\n\t%s\n\n", locations.Get(locations.ConfigFile))
+	fmt.Printf("Database directory:\n\t%s\n\n", locations.Get(locations.Database))
+	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.KeyFile), locations.Get(locations.CertFile))
+	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.HTTPSKeyFile), locations.Get(locations.HTTPSCertFile))
 	fmt.Printf("Log file:\n\t%s\n\n", options.logFile)
 	fmt.Printf("GUI override directory:\n\t%s\n\n", options.assetDir)
-	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations[locDefFolder])
+	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations.Get(locations.DefFolder))
 }
 
 func setPauseState(cfg *config.Wrapper, paused bool) {
