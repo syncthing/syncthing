@@ -78,7 +78,7 @@ func (s *Size) ParseDefault(str string) error {
 	return err
 }
 
-func checkFreeSpace(req Size, usage fs.Usage) error {
+func CheckFreeSpace(req Size, usage fs.Usage) error {
 	val := req.BaseValue()
 	if val <= 0 {
 		return nil

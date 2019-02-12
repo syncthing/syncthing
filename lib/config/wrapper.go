@@ -7,14 +7,11 @@
 package config
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
 	"sync/atomic"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -487,16 +484,4 @@ func (w *Wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.Dev
 	}
 
 	panic("bug: adding pending folder for non-existing device")
-}
-
-// CheckHomeFreeSpace returns nil if the home disk has the required amount of
-// free space, or if home disk free space checking is disabled.
-func (w *Wrapper) CheckHomeFreeSpace() error {
-	path := filepath.Dir(w.ConfigPath())
-	if usage, err := fs.NewFilesystem(fs.FilesystemTypeBasic, path).Usage("."); err == nil {
-		if err = checkFreeSpace(w.Options().MinHomeDiskFree, usage); err != nil {
-			return fmt.Errorf("insufficient space on home disk (%v): %v", path, err)
-		}
-	}
-	return nil
 }
