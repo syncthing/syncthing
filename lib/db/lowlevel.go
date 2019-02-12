@@ -82,11 +82,6 @@ func OpenMemory() *Lowlevel {
 	return NewLowlevel(db, "<memory>")
 }
 
-// Location returns the filesystem path where the database is stored
-func (db *Lowlevel) Location() string {
-	return db.location
-}
-
 // ListFolders returns the list of folders currently in the database
 func (db *Lowlevel) ListFolders() []string {
 	return db.folderIdx.Values()

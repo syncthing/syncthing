@@ -338,7 +338,7 @@ func test(pkgs ...string) {
 
 	useRace := runtime.GOARCH == "amd64"
 	switch runtime.GOOS {
-	case "darwin", "linux", "freebsd", "windows":
+	case "darwin", "linux", "freebsd": // , "windows": # See https://github.com/golang/go/issues/27089
 	default:
 		useRace = false
 	}

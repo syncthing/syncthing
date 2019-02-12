@@ -310,7 +310,7 @@ func setupKnownFiles(t *testing.T, data []byte) []protocol.FileInfo {
 	t0 := time.Now().Add(-1 * time.Minute)
 	testOs.Chtimes("_recvonly/knownDir/knownFile", t0, t0)
 
-	fi, _ := testOs.Stat("_recvonly/knownDir/knownFile")
+	fi := testOs.Stat("_recvonly/knownDir/knownFile")
 	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), protocol.BlockSize(int64(len(data))), int64(len(data)), nil, true)
 	knownFiles := []protocol.FileInfo{
 		{
@@ -337,7 +337,7 @@ func setupKnownFiles(t *testing.T, data []byte) []protocol.FileInfo {
 }
 
 func setupROFolder() *Model {
-	fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, "ro", "receive only test", fs.FilesystemTypeBasic, "_recvonly")
+	fcfg := config.NewFolderConfiguration(myID, "ro", "receive only test", fs.FilesystemTypeBasic, "_recvonly")
 	fcfg.Type = config.FolderTypeReceiveOnly
 	fcfg.Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
 	fcfg.FSWatcherEnabled = false
@@ -349,7 +349,7 @@ func setupROFolder() *Model {
 	wrp := config.Wrap("/dev/null", cfg)
 
 	db := db.OpenMemory()
-	m := NewModel(wrp, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m := NewModel(wrp, myID, "syncthing", "dev", db, nil)
 
 	m.ServeBackground()
 	m.AddFolder(fcfg)
