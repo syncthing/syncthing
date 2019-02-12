@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -123,12 +124,8 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	tmpName := fs.TempName("file")
-	if err := osutil.Copy(defaultFs, "tmpfile", tmpName); err != nil {
-		panic(err)
-	}
-	future := time.Now().Add(time.Hour)
-	if err := os.Chtimes(filepath.Join("testdata", tmpName), future, future); err != nil {
+	tmpName, err := prepareTmpFile(defaultFs)
+	if err != nil {
 		panic(err)
 	}
 
@@ -140,6 +137,28 @@ func TestMain(m *testing.M) {
 	defaultFs.RemoveAll(tmpLocation)
 
 	os.Exit(exitCode)
+}
+
+func prepareTmpFile(to fs.Filesystem) (string, error) {
+	tmpName := fs.TempName("file")
+	in, err := defaultFs.Open("tmpfile")
+	if err != nil {
+		return "", err
+	}
+	defer in.Close()
+	out, err := to.Create(tmpName)
+	if err != nil {
+		return "", err
+	}
+	defer out.Close()
+	if _, err = io.Copy(out, in); err != nil {
+		return "", err
+	}
+	future := time.Now().Add(time.Hour)
+	if err := os.Chtimes(filepath.Join("testdata", tmpName), future, future); err != nil {
+		return "", err
+	}
+	return tmpName, nil
 }
 
 func createTmpWrapper(cfg config.Configuration) *config.Wrapper {
@@ -2879,15 +2898,13 @@ func TestIssue2571(t *testing.T) {
 		t.Skip("Scanning symlinks isn't supported on windows")
 	}
 
-	err := defaultFs.MkdirAll("replaceDir", 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
+	w, tmpDir := tmpDefaultWrapper()
 	defer func() {
-		defaultFs.RemoveAll("replaceDir")
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
 	}()
 
-	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Join(defaultFs.URI(), "replaceDir"))
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 
 	for _, dir := range []string{"toLink", "linkTarget"} {
 		err := testFs.MkdirAll(dir, 0775)
@@ -2901,9 +2918,9 @@ func TestIssue2571(t *testing.T) {
 		fd.Close()
 	}
 
-	m := setupModel(defaultCfgWrapper)
+	m := setupModel(w)
 
-	if err = testFs.RemoveAll("toLink"); err != nil {
+	if err := testFs.RemoveAll("toLink"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -2913,12 +2930,12 @@ func TestIssue2571(t *testing.T) {
 
 	m.ScanFolder("default")
 
-	if dir, ok := m.CurrentFolderFile("default", filepath.Join("replaceDir", "toLink")); !ok {
+	if dir, ok := m.CurrentFolderFile("default", "toLink"); !ok {
 		t.Fatalf("Dir missing in db")
 	} else if !dir.IsSymlink() {
 		t.Errorf("Dir wasn't changed to symlink")
 	}
-	if file, ok := m.CurrentFolderFile("default", filepath.Join("replaceDir", "toLink", "a")); !ok {
+	if file, ok := m.CurrentFolderFile("default", filepath.Join("toLink", "a")); !ok {
 		t.Fatalf("File missing in db")
 	} else if !file.Deleted {
 		t.Errorf("File below symlink has not been marked as deleted")
@@ -2931,25 +2948,30 @@ func TestIssue4573(t *testing.T) {
 		t.Skip("Can't make the dir inaccessible on windows")
 	}
 
-	err := defaultFs.MkdirAll("inaccessible", 0755)
+	w, tmpDir := tmpDefaultWrapper()
+	defer func() {
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
+
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+
+	err := testFs.MkdirAll("inaccessible", 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		defaultFs.Chmod("inaccessible", 0777)
-		defaultFs.RemoveAll("inaccessible")
-	}()
+	defer testFs.Chmod("inaccessible", 0777)
 
 	file := filepath.Join("inaccessible", "a")
-	fd, err := defaultFs.Create(file)
+	fd, err := testFs.Create(file)
 	if err != nil {
 		t.Fatal(err)
 	}
 	fd.Close()
 
-	m := setupModel(defaultCfgWrapper)
+	m := setupModel(w)
 
-	err = defaultFs.Chmod("inaccessible", 0000)
+	err = testFs.Chmod("inaccessible", 0000)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2966,15 +2988,13 @@ func TestIssue4573(t *testing.T) {
 // TestInternalScan checks whether various fs operations are correctly represented
 // in the db after scanning.
 func TestInternalScan(t *testing.T) {
-	err := defaultFs.MkdirAll("internalScan", 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
+	w, tmpDir := tmpDefaultWrapper()
 	defer func() {
-		defaultFs.RemoveAll("internalScan")
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
 	}()
 
-	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Join(defaultFs.URI(), "internalScan"))
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 
 	testCases := map[string]func(protocol.FileInfo) bool{
 		"removeDir": func(f protocol.FileInfo) bool {
@@ -3010,10 +3030,10 @@ func TestInternalScan(t *testing.T) {
 		}
 	}
 
-	m := setupModel(defaultCfgWrapper)
+	m := setupModel(w)
 
 	for _, dir := range baseDirs {
-		if err = testFs.RemoveAll(dir); err != nil {
+		if err := testFs.RemoveAll(dir); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -3027,7 +3047,7 @@ func TestInternalScan(t *testing.T) {
 	m.ScanFolder("default")
 
 	for path, cond := range testCases {
-		if f, ok := m.CurrentFolderFile("default", filepath.Join("internalScan", path)); !ok {
+		if f, ok := m.CurrentFolderFile("default", path); !ok {
 			t.Fatalf("%v missing in db", path)
 		} else if cond(f) {
 			t.Errorf("Incorrect db entry for %v", path)
@@ -3166,31 +3186,32 @@ func TestRemoveDirWithContent(t *testing.T) {
 }
 
 func TestIssue4475(t *testing.T) {
+	m, conn, tmpDir, w := setupModelWithConnection()
 	defer func() {
-		defaultFs.RemoveAll("delDir")
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
 	}()
 
-	err := defaultFs.MkdirAll("delDir", 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	m := setupModel(defaultCfgWrapper)
-	defer m.Stop()
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 
 	// Scenario: Dir is deleted locally and before syncing/index exchange
 	// happens, a file is create in that dir on the remote.
 	// This should result in the directory being recreated and added to the
 	// db locally.
 
-	if err = defaultFs.RemoveAll("delDir"); err != nil {
+	err := testFs.MkdirAll("delDir", 0755)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	m.ScanFolder("default")
 
-	conn := addFakeConn(m, device1)
-	conn.folder = "default"
+	if err = testFs.RemoveAll("delDir"); err != nil {
+		t.Fatal(err)
+	}
+
+	m.ScanFolder("default")
 
 	if fcfg, ok := m.cfg.Folder("default"); !ok || !fcfg.SharedWith(device1) {
 		t.Fatal("not shared with device1")

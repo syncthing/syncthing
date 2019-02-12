@@ -75,27 +75,24 @@ func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
 	}
 }
 
-func setUpModel(files ...protocol.FileInfo) *Model {
-	db := db.OpenMemory()
-	model := NewModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	model.AddFolder(defaultFolderConfig)
-	// Update index
-	model.updateLocalsFromScanning("default", files)
-	return model
-}
+func setupSendReceiveFolder(files ...protocol.FileInfo) (*Model, *sendReceiveFolder, string) {
+	w := createTmpWrapper(defaultCfg)
+	model := NewModel(w, myID, "syncthing", "dev", db.OpenMemory(), nil)
+	fcfg, tmpDir := testFolderConfigTmp()
+	model.AddFolder(fcfg)
 
-func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
+	// Update index
+	if files != nil {
+		model.updateLocalsFromScanning("default", files)
+	}
+
 	f := &sendReceiveFolder{
 		folder: folder{
 			stateTracker:        newStateTracker("default"),
 			model:               model,
 			initialScanFinished: make(chan struct{}),
 			ctx:                 context.TODO(),
-			FolderConfiguration: config.FolderConfiguration{
-				FilesystemType:      fs.FilesystemTypeBasic,
-				Path:                "testdata",
-				PullerMaxPendingKiB: defaultPullerPendingKiB,
-			},
+			FolderConfiguration: fcfg,
 		},
 
 		queue:         newJobQueue(),
@@ -107,7 +104,7 @@ func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
 	// Folders are never actually started, so no initial scan will be done
 	close(f.initialScanFinished)
 
-	return f
+	return model, f, tmpDir
 }
 
 // Layout of the files: (indexes from the above array)
@@ -125,8 +122,12 @@ func TestHandleFile(t *testing.T) {
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 
-	m := setUpModel(existingFile)
-	f := setUpSendReceiveFolder(m)
+	m, f, tmpDir := setupSendReceiveFolder(existingFile)
+	defer func() {
+		os.Remove(m.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
+
 	copyChan := make(chan copyBlocksState, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
@@ -167,8 +168,16 @@ func TestHandleFileWithTemp(t *testing.T) {
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 
-	m := setUpModel(existingFile)
-	f := setUpSendReceiveFolder(m)
+	m, f, tmpDir := setupSendReceiveFolder(existingFile)
+	defer func() {
+		os.Remove(m.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
+
+	if _, err := prepareTmpFile(f.Filesystem()); err != nil {
+		t.Fatal(err)
+	}
+
 	copyChan := make(chan copyBlocksState, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
@@ -197,8 +206,6 @@ func TestHandleFileWithTemp(t *testing.T) {
 }
 
 func TestCopierFinder(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	// After diff between required and existing we should:
 	// Copy: 1, 2, 3, 4, 6, 7, 8
 	// Since there is no existing file, nor a temp file
@@ -206,9 +213,7 @@ func TestCopierFinder(t *testing.T) {
 	// After dropping out blocks found locally:
 	// Pull: 1, 5, 6, 8
 
-	tempFile := filepath.Join("testdata", fs.TempName("file2"))
-	testOs.Remove(tempFile)
-	defer testOs.Remove(tempFile)
+	tempFile := fs.TempName("file2")
 
 	existingBlocks := []int{0, 2, 3, 4, 0, 0, 7, 0}
 	existingFile := setUpFile(fs.TempName("file"), existingBlocks)
@@ -216,8 +221,16 @@ func TestCopierFinder(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 	requiredFile.Name = "file2"
 
-	m := setUpModel(existingFile)
-	f := setUpSendReceiveFolder(m)
+	m, f, tmpDir := setupSendReceiveFolder(existingFile)
+	defer func() {
+		os.Remove(m.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
+
+	if _, err := prepareTmpFile(f.Filesystem()); err != nil {
+		t.Fatal(err)
+	}
+
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, 4)
 	finisherChan := make(chan *sharedPullerState, 1)
@@ -259,7 +272,7 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(context.TODO(), fs.NewFilesystem(fs.FilesystemTypeBasic, "."), tempFile, protocol.MinBlockSize, nil, false)
+	blks, err := scanner.HashFile(context.TODO(), f.Filesystem(), tempFile, protocol.MinBlockSize, nil, false)
 	if err != nil {
 		t.Log(err)
 	}
@@ -273,9 +286,15 @@ func TestCopierFinder(t *testing.T) {
 }
 
 func TestWeakHash(t *testing.T) {
-	testOs := &fatalOs{t}
+	// Setup the model/pull environment
+	model, fo, tmpDir := setupSendReceiveFolder()
+	defer func() {
+		os.Remove(model.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
+	ffs := fo.Filesystem()
 
-	tempFile := filepath.Join("testdata", fs.TempName("weakhash"))
+	tempFile := fs.TempName("weakhash")
 	var shift int64 = 10
 	var size int64 = 1 << 20
 	expectBlocks := int(size / protocol.MinBlockSize)
@@ -284,18 +303,12 @@ func TestWeakHash(t *testing.T) {
 		expectPulls++
 	}
 
-	cleanup := func() {
-		for _, path := range []string{tempFile, "testdata/weakhash"} {
-			testOs.Remove(path)
-		}
+	f, err := ffs.Create("weakhash")
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	cleanup()
-	defer cleanup()
-
-	f := testOs.Create("testdata/weakhash")
 	defer f.Close()
-	_, err := io.CopyN(f, rand.Reader, size)
+	_, err = io.CopyN(f, rand.Reader, size)
 	if err != nil {
 		t.Error(err)
 	}
@@ -337,9 +350,8 @@ func TestWeakHash(t *testing.T) {
 		ModifiedS: info.ModTime().Unix() + 1,
 	}
 
-	// Setup the model/pull environment
-	m := setUpModel(existingFile)
-	fo := setUpSendReceiveFolder(m)
+	model.updateLocalsFromScanning("default", []protocol.FileInfo{existingFile})
+
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, expectBlocks)
 	finisherChan := make(chan *sharedPullerState, 1)
@@ -372,7 +384,9 @@ func TestWeakHash(t *testing.T) {
 	}
 
 	finish.fd.Close()
-	testOs.Remove(tempFile)
+	if err := ffs.Remove(tempFile); err != nil {
+		t.Fatal(err)
+	}
 
 	// Test 2 - using weak hash, expectPulls blocks pulled.
 	fo.WeakHashThresholdPct = -1
@@ -405,7 +419,11 @@ func TestCopierCleanup(t *testing.T) {
 
 	// Create a file
 	file := setUpFile("test", []int{0})
-	m := setUpModel(file)
+	m, _, tmpDir := setupSendReceiveFolder(file)
+	defer func() {
+		os.Remove(m.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
 
 	file.Blocks = []protocol.BlockInfo{blocks[1]}
 	file.Version = file.Version.Update(myID.Short())
@@ -435,20 +453,16 @@ func TestCopierCleanup(t *testing.T) {
 }
 
 func TestDeregisterOnFailInCopy(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
-	defer testOs.Remove("testdata/" + fs.TempName("filex"))
 
-	db := db.OpenMemory()
-
-	m := NewModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
+	m, f, tmpDir := setupSendReceiveFolder()
+	defer func() {
+		os.Remove(m.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
 
 	// Set up our evet subscription early
 	s := events.Default.Subscribe(events.ItemFinished)
-
-	f := setUpSendReceiveFolder(m)
 
 	// queue.Done should be called by the finisher routine
 	f.queue.Push("filex", 0, time.Time{})
@@ -529,19 +543,16 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 }
 
 func TestDeregisterOnFailInPull(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
-	defer testOs.Remove("testdata/" + fs.TempName("filex"))
 
-	db := db.OpenMemory()
-	m := NewModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
+	m, f, tmpDir := setupSendReceiveFolder()
+	defer func() {
+		os.Remove(m.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
 
 	// Set up our evet subscription early
 	s := events.Default.Subscribe(events.ItemFinished)
-
-	f := setUpSendReceiveFolder(m)
 
 	// queue.Done should be called by the finisher routine
 	f.queue.Push("filex", 0, time.Time{})
@@ -612,26 +623,30 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 }
 
 func TestIssue3164(t *testing.T) {
-	m := setUpModel(protocol.FileInfo{})
-	f := setUpSendReceiveFolder(m)
+	m, f, tmpDir := setupSendReceiveFolder()
+	defer func() {
+		os.Remove(m.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
 
-	defaultFs.RemoveAll("issue3164")
-	defer defaultFs.RemoveAll("issue3164")
+	ffs := f.Filesystem()
 
-	if err := defaultFs.MkdirAll("issue3164/oktodelete/foobar", 0777); err != nil {
+	ignDir := filepath.Join("issue3164", "oktodelete")
+	subDir := filepath.Join(ignDir, "foobar")
+	if err := ffs.MkdirAll(subDir, 0777); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile("testdata/issue3164/oktodelete/foobar/file", []byte("Hello"), 0644); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(tmpDir, subDir, "file"), []byte("Hello"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile("testdata/issue3164/oktodelete/file", []byte("Hello"), 0644); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(tmpDir, ignDir, "file"), []byte("Hello"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	file := protocol.FileInfo{
 		Name: "issue3164",
 	}
 
-	matcher := ignore.New(defaultFs)
+	matcher := ignore.New(ffs)
 	if err := matcher.Parse(bytes.NewBufferString("(?d)oktodelete"), ""); err != nil {
 		t.Fatal(err)
 	}
@@ -640,7 +655,7 @@ func TestIssue3164(t *testing.T) {
 
 	f.handleDeleteDir(file, matcher, dbUpdateChan, make(chan string))
 
-	if _, err := defaultFs.Stat("testdata/issue3164"); !fs.IsNotExist(err) {
+	if _, err := ffs.Stat("issue3164"); !fs.IsNotExist(err) {
 		t.Fatal(err)
 	}
 }
@@ -707,8 +722,11 @@ func TestDiffEmpty(t *testing.T) {
 // option is true and the permissions do not match between the file on disk and
 // in the db.
 func TestDeleteIgnorePerms(t *testing.T) {
-	m := setUpModel()
-	f := setUpSendReceiveFolder(m)
+	m, f, tmpDir := setupSendReceiveFolder()
+	defer func() {
+		os.Remove(m.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
 	f.IgnorePerms = true
 
 	ffs := f.Filesystem()
@@ -717,7 +735,6 @@ func TestDeleteIgnorePerms(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer ffs.Remove(name)
 	defer file.Close()
 
 	stat, err := file.Stat()
@@ -761,24 +778,10 @@ func TestCopyOwner(t *testing.T) {
 	// Set up a folder with the CopyParentOwner bit and backed by a fake
 	// filesystem.
 
-	m := setUpModel()
-	f := &sendReceiveFolder{
-		folder: folder{
-			stateTracker:        newStateTracker("default"),
-			model:               m,
-			initialScanFinished: make(chan struct{}),
-			ctx:                 context.TODO(),
-			FolderConfiguration: config.FolderConfiguration{
-				FilesystemType:          fs.FilesystemTypeFake,
-				Path:                    "/TestCopyOwner",
-				CopyOwnershipFromParent: true,
-			},
-		},
-
-		queue:         newJobQueue(),
-		pullErrors:    make(map[string]string),
-		pullErrorsMut: sync.NewMutex(),
-	}
+	m, f, _ := setupSendReceiveFolder()
+	defer os.Remove(m.cfg.ConfigPath())
+	f.folder.FolderConfiguration = config.NewFolderConfiguration(m.id, f.ID, f.Label, fs.FilesystemTypeFake, "/TestCopyOwner")
+	f.folder.FolderConfiguration.CopyOwnershipFromParent = true
 
 	f.fs = f.Filesystem()
 
