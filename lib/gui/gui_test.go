@@ -27,6 +27,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/thejerf/suture"
@@ -74,7 +75,8 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg)
 
-	srv := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil, nil, nil, nil)
+	locations.SetBaseDir(locations.ConfigBaseDir, "../../test/h1")
+	srv := NewAPIService(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, nil, nil, nil, nil, nil, nil, false).(*apiService)
 	srv.started = make(chan string)
 
 	sup := suture.New("test", suture.Spec{
@@ -471,8 +473,6 @@ func TestHTTPLogin(t *testing.T) {
 
 func startHTTP(cfg *mockedConfig) (string, error) {
 	model := new(mockedModel)
-	httpsCertFile := "../../test/h1/https-cert.pem"
-	httpsKeyFile := "../../test/h1/https-key.pem"
 	assetDir := "../../gui"
 	eventSub := new(mockedEventSub)
 	diskEventSub := new(mockedEventSub)
@@ -484,8 +484,8 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	addrChan := make(chan string)
 
 	// Instantiate the API service
-	svc := newAPIService(protocol.LocalDeviceID, cfg, httpsCertFile, httpsKeyFile, assetDir, model,
-		eventSub, diskEventSub, discoverer, connections, errorLog, systemLog, cpu)
+	locations.SetBaseDir(locations.ConfigBaseDir, "../../test/h1")
+	svc := NewAPIService(protocol.LocalDeviceID, cfg, assetDir, "syncthing", model, eventSub, diskEventSub, discoverer, connections, errorLog, systemLog, cpu, nil, false).(*apiService)
 	svc.started = addrChan
 
 	// Actually start the API service
@@ -946,10 +946,11 @@ func TestEventMasks(t *testing.T) {
 	cfg := new(mockedConfig)
 	defSub := new(mockedEventSub)
 	diskSub := new(mockedEventSub)
-	svc := newAPIService(protocol.LocalDeviceID, cfg, "", "", "", nil, defSub, diskSub, nil, nil, nil, nil, nil)
+	locations.SetBaseDir(locations.ConfigBaseDir, "../../test/h1")
+	svc := NewAPIService(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, nil, nil, nil, nil, nil, nil, false).(*apiService)
 
-	if mask := svc.getEventMask(""); mask != defaultEventMask {
-		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(defaultEventMask))
+	if mask := svc.getEventMask(""); mask != DefaultEventMask {
+		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(DefaultEventMask))
 	}
 
 	expected := events.FolderSummary | events.LocalChangeDetected
@@ -962,10 +963,10 @@ func TestEventMasks(t *testing.T) {
 		t.Errorf("incorrect parsed mask %x != %x", int64(mask), int64(expected))
 	}
 
-	if res := svc.getEventSub(defaultEventMask); res != defSub {
+	if res := svc.getEventSub(DefaultEventMask); res != defSub {
 		t.Errorf("should have returned the given default event sub")
 	}
-	if res := svc.getEventSub(diskEventMask); res != diskSub {
+	if res := svc.getEventSub(DiskEventMask); res != diskSub {
 		t.Errorf("should have returned the given disk event sub")
 	}
 	if res := svc.getEventSub(events.LocalIndexUpdated); res == nil || res == defSub || res == diskSub {
