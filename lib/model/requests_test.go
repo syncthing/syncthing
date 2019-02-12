@@ -330,15 +330,11 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 
 	testOs := &fatalOs{t}
 
-	tmpDir := createTmpDir()
-	cfg := defaultCfgWrapper.RawCopy()
-	cfg.Folders[0] = config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
-	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
-		{DeviceID: myID},
-		{DeviceID: device1},
-	}
-	cfg.Folders[0].Type = ft
-	m, fc, w := setupModelWithConnectionManual(cfg)
+	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
+	fcfg, tmpDir := testFolderConfigTmp()
+	fcfg.Type = ft
+	w.SetFolder(fcfg)
+	m, fc := setupModelWithConnectionFromWrapper(w)
 	defer func() {
 		m.Stop()
 		testOs.RemoveAll(tmpDir)
@@ -350,7 +346,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	// because we might be changing the files on disk often enough that the
 	// mtimes will be unreliable to determine change status.
 	m.fmut.Lock()
-	m.folderIgnores["default"] = ignore.New(cfg.Folders[0].Filesystem(), ignore.WithChangeDetector(newAlwaysChanged()))
+	m.folderIgnores["default"] = ignore.New(fcfg.Filesystem(), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Unlock()
 
 	if err := m.SetIgnores("default", []string{"*ignored*"}); err != nil {
@@ -723,25 +719,30 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	}
 }
 
-func setupModelWithConnection() (*Model, *fakeConnection, string, *config.Wrapper) {
+func testFolderConfigTmp() (config.FolderConfiguration, string) {
 	tmpDir := createTmpDir()
-	cfg := defaultCfgWrapper.RawCopy()
-	cfg.Folders[0] = config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
-	cfg.Folders[0].FSWatcherEnabled = false
-	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
-		{DeviceID: myID},
-		{DeviceID: device1},
-	}
-	m, fc, w := setupModelWithConnectionManual(cfg)
+	return testFolderConfig(tmpDir), tmpDir
+}
+
+func testFolderConfig(path string) config.FolderConfiguration {
+	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, path)
+	cfg.FSWatcherEnabled = false
+	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
+	return cfg
+}
+
+func setupModelWithConnection() (*Model, *fakeConnection, string, *config.Wrapper) {
+	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
+	fcfg, tmpDir := testFolderConfigTmp()
+	w.SetFolder(fcfg)
+	m, fc := setupModelWithConnectionFromWrapper(w)
 	return m, fc, tmpDir, w
 }
 
-func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConnection, *config.Wrapper) {
-	w := createTmpWrapper(cfg)
-
+func setupModelWithConnectionFromWrapper(w *config.Wrapper) (*Model, *fakeConnection) {
 	db := db.OpenMemory()
 	m := NewModel(w, myID, "syncthing", "dev", db, nil)
-	m.AddFolder(cfg.Folders[0])
+	m.AddFolder(w.FolderList()[0])
 	m.ServeBackground()
 	m.StartFolder("default")
 
@@ -750,7 +751,7 @@ func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConn
 
 	m.ScanFolder("default")
 
-	return m, fc, w
+	return m, fc
 }
 
 func createTmpDir() string {

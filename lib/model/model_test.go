@@ -51,24 +51,17 @@ func init() {
 
 	defaultFs = fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
 
-	defaultFolderConfig = config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, "testdata")
-	defaultFolderConfig.Devices = []config.FolderDeviceConfiguration{
-		{DeviceID: myID},
-		{DeviceID: device1},
-	}
-	defaultFolderConfig.FSWatcherEnabled = false
-	defaultCfg = config.Configuration{
-		Version: config.CurrentVersion,
-		Folders: []config.FolderConfiguration{defaultFolderConfig},
-		Devices: []config.DeviceConfiguration{
-			config.NewDeviceConfiguration(myID, "myID"),
-			config.NewDeviceConfiguration(device1, "device1"),
-		},
-		Options: config.OptionsConfiguration{
-			// Don't remove temporaries directly on startup
-			KeepTemporariesH: 1,
-		},
-	}
+	defaultFolderConfig = testFolderConfig("testdata")
+
+	defaultCfgWrapper = createTmpWrapper(config.New(myID))
+	defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
+	defaultCfgWrapper.SetFolder(defaultFolderConfig)
+	opts := defaultCfgWrapper.Options()
+	opts.KeepTemporariesH = 1
+	defaultCfgWrapper.SetOptions(opts)
+
+	defaultCfg = defaultCfgWrapper.RawCopy()
+
 	defaultAutoAcceptCfg = config.Configuration{
 		Devices: []config.DeviceConfiguration{
 			{
@@ -138,8 +131,6 @@ func TestMain(m *testing.M) {
 	if err := os.Chtimes(filepath.Join("testdata", tmpName), future, future); err != nil {
 		panic(err)
 	}
-
-	defaultCfgWrapper = createTmpWrapper(defaultCfg)
 
 	exitCode := m.Run()
 
@@ -2591,7 +2582,7 @@ func TestIssue2782(t *testing.T) {
 
 	db := db.OpenMemory()
 	m := NewModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.AddFolder(config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, "~/"+testName+"/synclink/"))
+	m.AddFolder(testFolderConfig("~/" + testName + "/synclink/"))
 	m.StartFolder("default")
 	m.ServeBackground()
 	defer m.Stop()
@@ -3826,7 +3817,7 @@ func TestRequestLimit(t *testing.T) {
 	dev, _ := wrapper.Device(device1)
 	dev.MaxRequestKiB = 1
 	wrapper.SetDevice(dev)
-	m, _, wrapper := setupModelWithConnectionManual(wrapper.RawCopy())
+	m, _ := setupModelWithConnectionFromWrapper(wrapper)
 	defer m.Stop()
 	defer testOs.Remove(wrapper.ConfigPath())
 

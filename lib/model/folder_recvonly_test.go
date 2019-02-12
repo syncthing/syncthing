@@ -346,7 +346,7 @@ func setupROFolder() *Model {
 	cfg := defaultCfg.Copy()
 	cfg.Folders = append(cfg.Folders, fcfg)
 
-	wrp := config.Wrap("/dev/null", cfg)
+	wrp := createTmpWrapper(cfg)
 
 	db := db.OpenMemory()
 	m := NewModel(wrp, myID, "syncthing", "dev", db, nil)
