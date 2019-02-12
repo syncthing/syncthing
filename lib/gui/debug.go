@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package gui
 
 import (
 	"os"
@@ -14,9 +14,13 @@ import (
 )
 
 var (
-	l = logger.DefaultLogger.NewFacility("main", "Main package")
+	l = logger.DefaultLogger.NewFacility("http", "REST API")
 )
 
+func shouldDebugHTTP() bool {
+	return l.ShouldDebug("http")
+}
+
 func init() {
-	l.SetDebug("main", strings.Contains(os.Getenv("STTRACE"), "main") || os.Getenv("STTRACE") == "all")
+	l.SetDebug("http", strings.Contains(os.Getenv("STTRACE"), "http") || os.Getenv("STTRACE") == "all")
 }

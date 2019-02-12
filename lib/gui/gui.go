@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package gui
 
 import (
 	"bytes"
@@ -45,6 +45,7 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/versioner"
+	"github.com/thejerf/suture"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -57,29 +58,31 @@ var (
 )
 
 const (
-	defaultEventMask   = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
-	diskEventMask      = events.LocalChangeDetected | events.RemoteChangeDetected
-	eventSubBufferSize = 1000
+	DefaultEventMask    = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
+	DiskEventMask       = events.LocalChangeDetected | events.RemoteChangeDetected
+	EventSubBufferSize  = 1000
+	defaultEventTimeout = time.Minute
 )
 
 type apiService struct {
-	id                 protocol.DeviceID
-	cfg                configIntf
-	httpsCertFile      string
-	httpsKeyFile       string
-	statics            *staticsServer
-	model              modelIntf
-	eventSubs          map[events.EventType]events.BufferedSubscription
-	eventSubsMut       sync.Mutex
-	discoverer         discover.CachingMux
-	connectionsService connectionsIntf
-	fss                *folderSummaryService
-	systemConfigMut    sync.Mutex    // serializes posts to /rest/system/config
-	stop               chan struct{} // signals intentional stop
-	configChanged      chan struct{} // signals intentional listener close due to config change
-	started            chan string   // signals startup complete by sending the listener address, for testing only
-	startedOnce        chan struct{} // the service has started successfully at least once
-	cpu                rater
+	id                   protocol.DeviceID
+	cfg                  configIntf
+	statics              *staticsServer
+	model                modelIntf
+	eventSubs            map[events.EventType]events.BufferedSubscription
+	eventSubsMut         sync.Mutex
+	discoverer           discover.CachingMux
+	connectionsService   connectionsIntf
+	fss                  *folderSummaryService
+	systemConfigMut      sync.Mutex // serializes posts to /rest/system/config
+	cpu                  rater
+	main                 main
+	noUpgrade            bool
+	tlsDefaultCommonName string
+	stop                 chan struct{} // signals intentional stop
+	configChanged        chan struct{} // signals intentional listener close due to config change
+	started              chan string   // signals startup complete by sending the listener address, for testing only
+	startedOnce          chan struct{} // the service has started successfully at least once
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -147,35 +150,54 @@ type rater interface {
 	Rate() float64
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder, cpu rater) *apiService {
+type main interface {
+	ExitUpgrading()
+	Restart()
+	Shutdown()
+}
+
+type ApiService interface {
+	suture.Service
+	config.Committer
+	WaitForStart()
+}
+
+func NewAPIService(id protocol.DeviceID, cfg configIntf, assetDir, tlsDefaultCommonName string, m modelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder, cpu rater, main main, noUpgrade bool) ApiService {
 	service := &apiService{
-		id:            id,
-		cfg:           cfg,
-		httpsCertFile: httpsCertFile,
-		httpsKeyFile:  httpsKeyFile,
-		statics:       newStaticsServer(cfg.GUI().Theme, assetDir),
-		model:         m,
+		id:      id,
+		cfg:     cfg,
+		statics: newStaticsServer(cfg.GUI().Theme, assetDir),
+		model:   m,
 		eventSubs: map[events.EventType]events.BufferedSubscription{
-			defaultEventMask: defaultSub,
-			diskEventMask:    diskSub,
+			DefaultEventMask: defaultSub,
+			DiskEventMask:    diskSub,
 		},
-		eventSubsMut:       sync.NewMutex(),
-		discoverer:         discoverer,
-		connectionsService: connectionsService,
-		systemConfigMut:    sync.NewMutex(),
-		stop:               make(chan struct{}),
-		configChanged:      make(chan struct{}),
-		startedOnce:        make(chan struct{}),
-		guiErrors:          errors,
-		systemLog:          systemLog,
-		cpu:                cpu,
+		eventSubsMut:         sync.NewMutex(),
+		discoverer:           discoverer,
+		connectionsService:   connectionsService,
+		systemConfigMut:      sync.NewMutex(),
+		guiErrors:            errors,
+		systemLog:            systemLog,
+		cpu:                  cpu,
+		main:                 main,
+		noUpgrade:            noUpgrade,
+		tlsDefaultCommonName: tlsDefaultCommonName,
+		stop:                 make(chan struct{}),
+		configChanged:        make(chan struct{}),
+		startedOnce:          make(chan struct{}),
 	}
 
 	return service
 }
 
+func (s *apiService) WaitForStart() {
+	<-s.startedOnce
+}
+
 func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, error) {
-	cert, err := tls.LoadX509KeyPair(s.httpsCertFile, s.httpsKeyFile)
+	httpsCertFile := locations.Get(locations.HTTPSCertFile)
+	httpsKeyFile := locations.Get(locations.HTTPSKeyFile)
+	cert, err := tls.LoadX509KeyPair(httpsCertFile, httpsKeyFile)
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
 		l.Infoln("Creating new HTTPS certificate")
@@ -185,10 +207,10 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 		var name string
 		name, err = os.Hostname()
 		if err != nil {
-			name = tlsDefaultCommonName
+			name = s.tlsDefaultCommonName
 		}
 
-		cert, err = tlsutil.NewCertificate(s.httpsCertFile, s.httpsKeyFile, name)
+		cert, err = tlsutil.NewCertificate(httpsCertFile, httpsKeyFile, name)
 	}
 	if err != nil {
 		return nil, err
@@ -369,7 +391,7 @@ func (s *apiService) Serve() {
 		ReadTimeout: 15 * time.Second,
 	}
 
-	s.fss = newFolderSummaryService(s.cfg, s.model)
+	s.fss = newFolderSummaryService(s.cfg, s.model, s.id)
 	defer s.fss.Stop()
 	s.fss.ServeBackground()
 
@@ -478,7 +500,7 @@ func debugMiddleware(h http.Handler) http.Handler {
 					written = rf.Int()
 				}
 			}
-			httpl.Debugf("http: %s %q: status %d, %d bytes in %.02f ms", r.Method, r.URL.String(), status, written, ms)
+			l.Debugf("http: %s %q: status %d, %d bytes in %.02f ms", r.Method, r.URL.String(), status, written, ms)
 		}
 	})
 }
@@ -887,7 +909,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	s.systemConfigMut.Lock()
 	defer s.systemConfigMut.Unlock()
 
-	to, err := config.ReadJSON(r.Body, myID)
+	to, err := config.ReadJSON(r.Body, s.id)
 	r.Body.Close()
 	if err != nil {
 		l.Warnln("Decoding posted config:", err)
@@ -932,7 +954,7 @@ func (s *apiService) getSystemConfigInsync(w http.ResponseWriter, r *http.Reques
 
 func (s *apiService) postSystemRestart(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "restarting"}`, w)
-	go restart()
+	go s.main.Restart()
 }
 
 func (s *apiService) postSystemReset(w http.ResponseWriter, r *http.Request) {
@@ -958,12 +980,12 @@ func (s *apiService) postSystemReset(w http.ResponseWriter, r *http.Request) {
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
 
-	go restart()
+	go s.main.Restart()
 }
 
 func (s *apiService) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "shutting down"}`, w)
-	go shutdown()
+	go s.main.Shutdown()
 }
 
 func (s *apiService) flushResponse(resp string, w http.ResponseWriter) {
@@ -978,7 +1000,7 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 
 	tilde, _ := fs.ExpandTilde("~")
 	res := make(map[string]interface{})
-	res["myID"] = myID.String()
+	res["myID"] = s.id.String()
 	res["goroutines"] = runtime.NumGoroutine()
 	res["alloc"] = m.Alloc
 	res["sys"] = m.Sys - m.HeapReleased
@@ -1002,7 +1024,7 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	// gives us percent
 	res["cpuPercent"] = s.cpu.Rate() / 10 / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
-	res["urVersionMax"] = usageReportVersion
+	res["urVersionMax"] = UsageReportVersion
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
 	res["guiAddressOverridden"] = s.cfg.GUI().IsOverridden()
@@ -1112,7 +1134,7 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Report Data as a JSON
-	if usageReportingData, err := json.MarshalIndent(reportData(s.cfg, s.model, s.connectionsService, usageReportVersion, true), "", "  "); err != nil {
+	if usageReportingData, err := json.MarshalIndent(reportData(s.cfg, s.model, s.connectionsService, UsageReportVersion, true, s.noUpgrade), "", "  "); err != nil {
 		l.Warnln("Support bundle: failed to create versionPlatform.json:", err)
 	} else {
 		files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
@@ -1193,11 +1215,11 @@ func (s *apiService) getSystemDiscovery(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *apiService) getReport(w http.ResponseWriter, r *http.Request) {
-	version := usageReportVersion
+	version := UsageReportVersion
 	if val, _ := strconv.Atoi(r.URL.Query().Get("version")); val > 0 {
 		version = val
 	}
-	sendJSON(w, reportData(s.cfg, s.model, s.connectionsService, version, true))
+	sendJSON(w, reportData(s.cfg, s.model, s.connectionsService, version, true, s.noUpgrade))
 }
 
 func (s *apiService) getRandomString(w http.ResponseWriter, r *http.Request) {
@@ -1261,7 +1283,7 @@ func (s *apiService) getIndexEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiService) getDiskEvents(w http.ResponseWriter, r *http.Request) {
-	sub := s.getEventSub(diskEventMask)
+	sub := s.getEventSub(DiskEventMask)
 	s.getEvents(w, r, sub)
 }
 
@@ -1295,7 +1317,7 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub 
 }
 
 func (s *apiService) getEventMask(evs string) events.EventType {
-	eventMask := defaultEventMask
+	eventMask := DefaultEventMask
 	if evs != "" {
 		eventList := strings.Split(evs, ",")
 		eventMask = 0
@@ -1311,7 +1333,7 @@ func (s *apiService) getEventSub(mask events.EventType) events.BufferedSubscript
 	bufsub, ok := s.eventSubs[mask]
 	if !ok {
 		evsub := events.Default.Subscribe(mask)
-		bufsub = events.NewBufferedSubscription(evsub, eventSubBufferSize)
+		bufsub = events.NewBufferedSubscription(evsub, EventSubBufferSize)
 		s.eventSubs[mask] = bufsub
 	}
 	s.eventSubsMut.Unlock()
@@ -1320,7 +1342,7 @@ func (s *apiService) getEventSub(mask events.EventType) events.BufferedSubscript
 }
 
 func (s *apiService) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
-	if noUpgradeFromEnv {
+	if s.noUpgrade {
 		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
 		return
 	}
@@ -1384,7 +1406,7 @@ func (s *apiService) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 
 		s.flushResponse(`{"ok": "restarting"}`, w)
 		l.Infoln("Upgrading")
-		stop <- exitUpgrading
+		s.main.ExitUpgrading()
 	}
 }
 

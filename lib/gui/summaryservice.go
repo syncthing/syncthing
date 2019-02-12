@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package gui
 
 import (
 	"time"
@@ -22,6 +22,7 @@ type folderSummaryService struct {
 
 	cfg       configIntf
 	model     modelIntf
+	id        protocol.DeviceID
 	stop      chan struct{}
 	immediate chan string
 
@@ -34,7 +35,7 @@ type folderSummaryService struct {
 	lastEventReqMut sync.Mutex
 }
 
-func newFolderSummaryService(cfg configIntf, m modelIntf) *folderSummaryService {
+func newFolderSummaryService(cfg configIntf, m modelIntf, id protocol.DeviceID) *folderSummaryService {
 	service := &folderSummaryService{
 		Supervisor: suture.New("folderSummaryService", suture.Spec{
 			PassThroughPanics: true,
@@ -199,7 +200,7 @@ func (c *folderSummaryService) sendSummary(folder string) {
 	})
 
 	for _, devCfg := range c.cfg.Folders()[folder].Devices {
-		if devCfg.DeviceID.Equals(myID) {
+		if devCfg.DeviceID.Equals(c.id) {
 			// We already know about ourselves.
 			continue
 		}

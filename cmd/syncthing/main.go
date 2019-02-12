@@ -38,6 +38,7 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/gui"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
@@ -62,7 +63,6 @@ const (
 const (
 	bepProtocolName      = "bep/1.0"
 	tlsDefaultCommonName = "syncthing"
-	defaultEventTimeout  = time.Minute
 	maxSystemErrors      = 5
 	initialSystemLog     = 10
 	maxSystemLog         = 250
@@ -263,6 +263,24 @@ func parseCommandLineOptions() RuntimeOptions {
 
 	return options
 }
+
+type exiter struct{}
+
+func (e *exiter) Restart() {
+	l.Infoln("Restarting")
+	stop <- exitRestarting
+}
+
+func (e *exiter) Shutdown() {
+	l.Infoln("Shutting down")
+	stop <- exitSuccess
+}
+
+func (e *exiter) ExitUpgrading() {
+	stop <- exitUpgrading
+}
+
+var exit = exiter{}
 
 func main() {
 	options := parseCommandLineOptions()
@@ -567,8 +585,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Event subscription for the API; must start early to catch the early
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
-	defaultSub := events.NewBufferedSubscription(events.Default.Subscribe(defaultEventMask), eventSubBufferSize)
-	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(diskEventMask), eventSubBufferSize)
+	defaultSub := events.NewBufferedSubscription(events.Default.Subscribe(gui.DefaultEventMask), gui.EventSubBufferSize)
+	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(gui.DiskEventMask), gui.EventSubBufferSize)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -631,7 +649,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}()
 	}
 
-	perf := cpuBench(3, 150*time.Millisecond, true)
+	perf := gui.CpuBench(3, 150*time.Millisecond, true)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	dbFile := locations.Get(locations.Database)
@@ -795,8 +813,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if opts := cfg.Options(); build.IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
-		if opts.URAccepted != usageReportVersion {
-			opts.URAccepted = usageReportVersion
+		if opts.URAccepted != gui.UsageReportVersion {
+			opts.URAccepted = gui.UsageReportVersion
 			cfg.SetOptions(opts)
 			cfg.Save()
 			// Unique ID will be set and config saved below if necessary.
@@ -810,7 +828,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		cfg.Save()
 	}
 
-	usageReportingSvc := newUsageReportingService(cfg, m, connectionsService)
+	usageReportingSvc := gui.NewUsageReportingService(cfg, m, connectionsService, noUpgradeFromEnv)
 	mainService.Add(usageReportingSvc)
 
 	if opts := cfg.Options(); opts.RestartOnWakeup {
@@ -1005,14 +1023,14 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	cpu := newCPUService()
 	mainService.Add(cpu)
 
-	api := newAPIService(myID, cfg, locations.Get(locations.HTTPSCertFile), locations.Get(locations.HTTPSKeyFile), runtimeOptions.assetDir, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu)
+	api := gui.NewAPIService(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu, &exiter{}, noUpgradeFromEnv)
 	cfg.Subscribe(api)
 	mainService.Add(api)
 
 	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
-		<-api.startedOnce
+		api.WaitForStart()
 		go func() { _ = openURL(guiCfg.URL()) }()
 	}
 }
@@ -1032,16 +1050,6 @@ func defaultConfig(cfgFile string) *config.Wrapper {
 
 func resetDB() error {
 	return os.RemoveAll(locations.Get(locations.Database))
-}
-
-func restart() {
-	l.Infoln("Restarting")
-	stop <- exitRestarting
-}
-
-func shutdown() {
-	l.Infoln("Shutting down")
-	stop <- exitSuccess
 }
 
 func ensureDir(dir string, mode fs.FileMode) {
@@ -1079,7 +1087,7 @@ func standbyMonitor() {
 			// things a moment to stabilize.
 			time.Sleep(restartDelay)
 
-			restart()
+			exit.Restart()
 			return
 		}
 		now = time.Now()

@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package gui
 
 import (
 	"bytes"
@@ -33,11 +33,11 @@ import (
 // Current version number of the usage report, for acceptance purposes. If
 // fields are added or changed this integer must be incremented so that users
 // are prompted for acceptance of the new report.
-const usageReportVersion = 3
+const UsageReportVersion = 3
 
 // reportData returns the data to be sent in a usage report. It's used in
 // various places, so not part of the usageReportingManager object.
-func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf, version int, preview bool) map[string]interface{} {
+func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf, version int, preview, noUpgrade bool) map[string]interface{} {
 	opts := cfg.Options()
 	res := make(map[string]interface{})
 	res["urVersion"] = version
@@ -70,8 +70,8 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 	res["memoryUsageMiB"] = (mem.Sys - mem.HeapReleased) / 1024 / 1024
-	res["sha256Perf"] = cpuBench(5, 125*time.Millisecond, false)
-	res["hashPerf"] = cpuBench(5, 125*time.Millisecond, true)
+	res["sha256Perf"] = CpuBench(5, 125*time.Millisecond, false)
+	res["hashPerf"] = CpuBench(5, 125*time.Millisecond, true)
 
 	bytes, err := memorySize()
 	if err == nil {
@@ -186,9 +186,9 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 
 	res["usesRateLimit"] = opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0
 
-	res["upgradeAllowedManual"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv)
-	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0
-	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
+	res["upgradeAllowedManual"] = !(upgrade.DisabledByCompilation || noUpgrade)
+	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || noUpgrade) && opts.AutoUpgradeIntervalH > 0
+	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || noUpgrade) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
 
 	if version >= 3 {
 		res["uptime"] = int(time.Since(startTime).Seconds())
@@ -326,17 +326,19 @@ type usageReportingService struct {
 	cfg                *config.Wrapper
 	model              *model.Model
 	connectionsService *connections.Service
+	noUpgrade          bool
 	forceRun           chan struct{}
 	stop               chan struct{}
 	stopped            chan struct{}
 	stopMut            sync.RWMutex
 }
 
-func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectionsService *connections.Service) *usageReportingService {
+func NewUsageReportingService(cfg *config.Wrapper, model *model.Model, connectionsService *connections.Service, noUpgrade bool) *usageReportingService {
 	svc := &usageReportingService{
 		cfg:                cfg,
 		model:              model,
 		connectionsService: connectionsService,
+		noUpgrade:          noUpgrade,
 		forceRun:           make(chan struct{}),
 		stop:               make(chan struct{}),
 		stopped:            make(chan struct{}),
@@ -347,7 +349,7 @@ func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectio
 }
 
 func (s *usageReportingService) sendUsageReport() error {
-	d := reportData(s.cfg, s.model, s.connectionsService, s.cfg.Options().URAccepted, false)
+	d := reportData(s.cfg, s.model, s.connectionsService, s.cfg.Options().URAccepted, false, s.noUpgrade)
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(d); err != nil {
 		return err
@@ -424,8 +426,8 @@ func (*usageReportingService) String() string {
 	return "usageReportingService"
 }
 
-// cpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
-func cpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 {
+// CpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
+func CpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 {
 	dataSize := 16 * protocol.MinBlockSize
 	bs := make([]byte, dataSize)
 	rand.Reader.Read(bs)
