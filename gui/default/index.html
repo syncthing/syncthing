@@ -376,7 +376,7 @@
                     <tr ng-if="model[folder.id].needTotalItems > 0">
                       <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                       <td class="text-right">
-                        <a href="" ng-click="showNeed(folder.id)">{{model[folder.id].needTotalItems | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
+                        <a href="" ng-click="showNeed(folder.id)">{{model[folder.id].needTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr ng-if="folderStatus(folder) === 'scanning' && scanRate(folder.id) > 0">
@@ -395,7 +395,7 @@
                     <tr ng-if="folder.type == 'receiveonly' && canRevert(folder.id)">
                       <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Locally Changed Items</span></th>
                       <td class="text-right">
-                        <a href="" ng-click="showLocalChanged(folder.id)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyBytes | binary}}B</a>
+                        <a href="" ng-click="showLocalChanged(folder.id)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'sendreceive'">
