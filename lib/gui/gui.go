@@ -76,7 +76,7 @@ type apiService struct {
 	fss                  *folderSummaryService
 	systemConfigMut      sync.Mutex // serializes posts to /rest/system/config
 	cpu                  rater
-	main                 main
+	main                 mainIntf
 	noUpgrade            bool
 	tlsDefaultCommonName string
 	stop                 chan struct{} // signals intentional stop
@@ -150,7 +150,7 @@ type rater interface {
 	Rate() float64
 }
 
-type main interface {
+type mainIntf interface {
 	ExitUpgrading()
 	Restart()
 	Shutdown()
@@ -162,7 +162,7 @@ type ApiService interface {
 	WaitForStart()
 }
 
-func NewAPIService(id protocol.DeviceID, cfg configIntf, assetDir, tlsDefaultCommonName string, m modelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder, cpu rater, main main, noUpgrade bool) ApiService {
+func NewAPIService(id protocol.DeviceID, cfg configIntf, assetDir, tlsDefaultCommonName string, m modelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder, cpu rater, main mainIntf, noUpgrade bool) ApiService {
 	service := &apiService{
 		id:      id,
 		cfg:     cfg,
