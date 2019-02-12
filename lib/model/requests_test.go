@@ -740,11 +740,7 @@ func setupModelWithConnection() (*Model, *fakeConnection, string, *config.Wrappe
 }
 
 func setupModelWithConnectionFromWrapper(w *config.Wrapper) (*Model, *fakeConnection) {
-	db := db.OpenMemory()
-	m := NewModel(w, myID, "syncthing", "dev", db, nil)
-	m.AddFolder(w.FolderList()[0])
-	m.ServeBackground()
-	m.StartFolder("default")
+	m := setupModel(w)
 
 	fc := addFakeConn(m, device1)
 	fc.folder = "default"
