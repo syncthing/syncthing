@@ -30,6 +30,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/api"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -38,7 +39,6 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/gui"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
@@ -585,8 +585,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Event subscription for the API; must start early to catch the early
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
-	defaultSub := events.NewBufferedSubscription(events.Default.Subscribe(gui.DefaultEventMask), gui.EventSubBufferSize)
-	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(gui.DiskEventMask), gui.EventSubBufferSize)
+	defaultSub := events.NewBufferedSubscription(events.Default.Subscribe(api.DefaultEventMask), api.EventSubBufferSize)
+	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(api.DiskEventMask), api.EventSubBufferSize)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -649,7 +649,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}()
 	}
 
-	perf := gui.CpuBench(3, 150*time.Millisecond, true)
+	perf := api.CpuBench(3, 150*time.Millisecond, true)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	dbFile := locations.Get(locations.Database)
@@ -813,8 +813,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if opts := cfg.Options(); build.IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
-		if opts.URAccepted != gui.UsageReportVersion {
-			opts.URAccepted = gui.UsageReportVersion
+		if opts.URAccepted != api.UsageReportVersion {
+			opts.URAccepted = api.UsageReportVersion
 			cfg.SetOptions(opts)
 			cfg.Save()
 			// Unique ID will be set and config saved below if necessary.
@@ -828,7 +828,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		cfg.Save()
 	}
 
-	usageReportingSvc := gui.NewUsageReportingService(cfg, m, connectionsService, noUpgradeFromEnv)
+	usageReportingSvc := api.NewUsageReportingService(cfg, m, connectionsService, noUpgradeFromEnv)
 	mainService.Add(usageReportingSvc)
 
 	if opts := cfg.Options(); opts.RestartOnWakeup {
@@ -1023,14 +1023,14 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	cpu := newCPUService()
 	mainService.Add(cpu)
 
-	api := gui.NewAPIService(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu, &exiter{}, noUpgradeFromEnv)
-	cfg.Subscribe(api)
-	mainService.Add(api)
+	apiSvc := api.NewAPIService(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu, &exiter{}, noUpgradeFromEnv)
+	cfg.Subscribe(apiSvc)
+	mainService.Add(apiSvc)
 
 	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
-		api.WaitForStart()
+		apiSvc.WaitForStart()
 		go func() { _ = openURL(guiCfg.URL()) }()
 	}
 }

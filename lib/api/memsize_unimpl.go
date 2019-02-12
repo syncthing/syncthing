@@ -1,13 +1,15 @@
-// Copyright (C) 2017 The Syncthing Authors.
+// Copyright (C) 2014 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package gui
+// +build freebsd openbsd dragonfly
 
-type mockedCPUService struct{}
+package api
 
-func (*mockedCPUService) Rate() float64 {
-	return 42
+import "errors"
+
+func memorySize() (int64, error) {
+	return 0, errors.New("not implemented")
 }

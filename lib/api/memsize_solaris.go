@@ -4,12 +4,25 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// +build freebsd openbsd dragonfly
+// +build solaris
 
-package gui
+package api
 
-import "errors"
+import (
+	"os/exec"
+	"strconv"
+)
 
 func memorySize() (int64, error) {
-	return 0, errors.New("not implemented")
+	cmd := exec.Command("prtconf", "-m")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return 0, err
+	}
+
+	mb, err := strconv.ParseInt(string(out), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return mb * 1024 * 1024, nil
 }
