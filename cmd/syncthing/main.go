@@ -9,7 +9,6 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -48,6 +47,7 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 
+	"github.com/pkg/errors"
 	"github.com/thejerf/suture"
 )
 
@@ -373,7 +373,10 @@ func main() {
 	}
 
 	if options.generateDir != "" {
-		generate(options.generateDir)
+		if err := generate(options.generateDir); err != nil {
+			l.Warnln("Failed to generate config and keys:", err)
+			os.Exit(exitError)
+		}
 		return
 	}
 
@@ -425,10 +428,10 @@ func openGUI() {
 	}
 }
 
-func generate(generateDir string) {
+func generate(generateDir string) error {
 	dir, err := fs.ExpandTilde(generateDir)
 	if err != nil {
-		l.Fatalln("generate:", err)
+		return err
 	}
 	ensureDir(dir, 0700)
 
@@ -440,11 +443,11 @@ func generate(generateDir string) {
 	} else {
 		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName)
 		if err != nil {
-			l.Fatalln("Create certificate:", err)
+			return errors.Wrap(err, "Create certificate")
 		}
 		myID = protocol.NewDeviceID(cert.Certificate[0])
 		if err != nil {
-			l.Fatalln("Load certificate:", err)
+			return errors.Wrap(err, "Load certificate")
 		}
 		if err == nil {
 			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
@@ -454,13 +457,17 @@ func generate(generateDir string) {
 	cfgFile := filepath.Join(dir, "config.xml")
 	if _, err := os.Stat(cfgFile); err == nil {
 		l.Warnln("Config exists; will not overwrite.")
-		return
+		return nil
 	}
-	var cfg = defaultConfig(cfgFile)
+	cfg, err := defaultConfig(cfgFile)
+	if err != nil {
+		return err
+	}
 	err = cfg.Save()
 	if err != nil {
-		l.Warnln("Failed to save config", err)
+		return errors.Wrap(err, "Save config")
 	}
+	return nil
 }
 
 func debugFacilities() string {
@@ -637,7 +644,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"myID": myID.String(),
 	})
 
-	cfg := loadConfigAtStartup()
+	cfg, err := loadConfigAtStartup()
+	if err != nil {
+		l.Warnln("Failed to initialize config:", err)
+		os.Exit(exitError)
+	}
 
 	if err := checkShortIDs(cfg); err != nil {
 		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
@@ -921,33 +932,39 @@ func loadOrDefaultConfig() (*config.Wrapper, error) {
 	cfg, err := config.Load(cfgFile, myID)
 
 	if err != nil {
-		cfg = defaultConfig(cfgFile)
+		cfg, err = defaultConfig(cfgFile)
 	}
 
 	return cfg, err
 }
 
-func loadConfigAtStartup() *config.Wrapper {
+func loadConfigAtStartup() (*config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
-		cfg = defaultConfig(cfgFile)
-		cfg.Save()
-		l.Infof("Default config saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
+		cfg, err = defaultConfig(cfgFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to generate default config")
+		}
+		err = cfg.Save()
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to save default config")
+		}
+		l.Infof("Default config saved. Edit %s to taste (with Syncthing stopped) or use the GUI", cfg.ConfigPath())
 	} else if err == io.EOF {
-		l.Fatalln("Failed to load config: unexpected end of file. Truncated or empty configuration?")
+		return nil, errors.New("Failed to load config: unexpected end of file. Truncated or empty configuration?")
 	} else if err != nil {
-		l.Fatalln("Failed to load config:", err)
+		return nil, errors.Wrap(err, "Failed to load config")
 	}
 
 	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
 		err = archiveAndSaveConfig(cfg)
 		if err != nil {
-			l.Fatalln("Config archive:", err)
+			return nil, errors.Wrap(err, "Config archive")
 		}
 	}
 
-	return cfg
+	return cfg, nil
 }
 
 func archiveAndSaveConfig(cfg *config.Wrapper) error {
@@ -1040,17 +1057,20 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	}
 }
 
-func defaultConfig(cfgFile string) *config.Wrapper {
-	newCfg := config.NewWithFreePorts(myID)
+func defaultConfig(cfgFile string) (*config.Wrapper, error) {
+	newCfg, err := config.NewWithFreePorts(myID)
+	if err != nil {
+		return nil, err
+	}
 
 	if noDefaultFolder {
 		l.Infoln("We will skip creation of a default folder on first start since the proper envvar is set")
-		return config.Wrap(cfgFile, newCfg)
+		return config.Wrap(cfgFile, newCfg), nil
 	}
 
 	newCfg.Folders = append(newCfg.Folders, config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations.Get(locations.DefFolder)))
 	l.Infoln("Default folder created and/or linked to new config")
-	return config.Wrap(cfgFile, newCfg)
+	return config.Wrap(cfgFile, newCfg), nil
 }
 
 func resetDB() error {
