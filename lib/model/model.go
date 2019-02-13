@@ -2864,3 +2864,13 @@ func sanitizePath(path string) string {
 	invalid := regexp.MustCompile(`([[:cntrl:]]|[<>:"'/\\|?*\n\r\t \[\]\{\};:!@$%&^#])+`)
 	return strings.TrimSpace(invalid.ReplaceAllString(path, " "))
 }
+
+func JsonCompletion(comp FolderCompletion) map[string]interface{} {
+	return map[string]interface{}{
+		"completion":  comp.CompletionPct,
+		"needBytes":   comp.NeedBytes,
+		"needItems":   comp.NeedItems,
+		"globalBytes": comp.GlobalBytes,
+		"needDeletes": comp.NeedDeletes,
+	}
+}

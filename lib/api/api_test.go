@@ -26,10 +26,12 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/foldersummary"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/ur"
 	"github.com/thejerf/suture"
 )
 
@@ -86,7 +88,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg)
 
-	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
 	srv.started = make(chan string)
 
 	sup := suture.New("test", suture.Spec{
@@ -494,7 +496,9 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	addrChan := make(chan string)
 
 	// Instantiate the API service
-	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", model, eventSub, diskEventSub, discoverer, connections, errorLog, systemLog, cpu, nil, false).(*service)
+	urService := ur.New(cfg, model, connections, false)
+	summaryService := foldersummary.New(cfg, model, protocol.LocalDeviceID)
+	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", model, eventSub, diskEventSub, discoverer, connections, urService, summaryService, errorLog, systemLog, cpu, nil, false).(*service)
 	svc.started = addrChan
 
 	// Actually start the API service
@@ -955,7 +959,7 @@ func TestEventMasks(t *testing.T) {
 	cfg := new(mockedConfig)
 	defSub := new(mockedEventSub)
 	diskSub := new(mockedEventSub)
-	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, nil, nil, nil, nil, nil, nil, false).(*service)
+	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
 		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(DefaultEventMask))

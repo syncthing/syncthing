@@ -23,11 +23,14 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/versioner"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
@@ -38,9 +41,9 @@ const UsageReportVersion = 3
 var StartTime = time.Now()
 
 type Service struct {
-	cfg                *config.Wrapper
-	model              *model.Model
-	connectionsService *connections.Service
+	cfg                ConfigIntf
+	model              ModelIntf
+	connectionsService ConnectionsIntf
 	noUpgrade          bool
 	forceRun           chan struct{}
 	stop               chan struct{}
@@ -48,7 +51,7 @@ type Service struct {
 	stopMut            sync.RWMutex
 }
 
-func New(cfg *config.Wrapper, model *model.Model, connectionsService *connections.Service, noUpgrade bool) *Service {
+func New(cfg ConfigIntf, model ModelIntf, connectionsService ConnectionsIntf, noUpgrade bool) *Service {
 	svc := &Service{
 		cfg:                cfg,
 		model:              model,
@@ -470,4 +473,63 @@ func cpuBenchOnce(duration time.Duration, useWeakHash bool, bs []byte) float64 {
 	}
 	d := time.Since(t0)
 	return float64(int(float64(b)/d.Seconds()/(1<<20)*100)) / 100
+}
+
+type ModelIntf interface {
+	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
+	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
+	Override(folder string)
+	Revert(folder string)
+	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated)
+	RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error)
+	LocalChangedFiles(folder string, page, perpage int) []db.FileInfoTruncated
+	NeedSize(folder string) db.Counts
+	ConnectionStats() map[string]interface{}
+	DeviceStatistics() map[string]stats.DeviceStatistics
+	FolderStatistics() map[string]stats.FolderStatistics
+	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool)
+	CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool)
+	ResetFolder(folder string)
+	Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []model.Availability
+	GetIgnores(folder string) ([]string, []string, error)
+	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
+	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error)
+	SetIgnores(folder string, content []string) error
+	DelayScan(folder string, next time.Duration)
+	ScanFolder(folder string) error
+	ScanFolders() map[string]error
+	ScanFolderSubdirs(folder string, subs []string) error
+	BringToFront(folder, file string)
+	Connection(deviceID protocol.DeviceID) (connections.Connection, bool)
+	GlobalSize(folder string) db.Counts
+	LocalSize(folder string) db.Counts
+	ReceiveOnlyChangedSize(folder string) db.Counts
+	CurrentSequence(folder string) (int64, bool)
+	RemoteSequence(folder string) (int64, bool)
+	State(folder string) (string, time.Time, error)
+	UsageReportingStats(version int, preview bool) map[string]interface{}
+	FolderErrors(folder string) ([]model.FileError, error)
+	WatchError(folder string) error
+}
+
+type ConfigIntf interface {
+	GUI() config.GUIConfiguration
+	LDAP() config.LDAPConfiguration
+	RawCopy() config.Configuration
+	Options() config.OptionsConfiguration
+	Replace(cfg config.Configuration) (config.Waiter, error)
+	Subscribe(c config.Committer)
+	Unsubscribe(c config.Committer)
+	Folders() map[string]config.FolderConfiguration
+	Devices() map[protocol.DeviceID]config.DeviceConfiguration
+	SetDevice(config.DeviceConfiguration) (config.Waiter, error)
+	SetDevices([]config.DeviceConfiguration) (config.Waiter, error)
+	Save() error
+	ListenAddresses() []string
+	RequiresRestart() bool
+}
+
+type ConnectionsIntf interface {
+	Status() map[string]interface{}
+	NATType() string
 }

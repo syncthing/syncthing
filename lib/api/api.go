@@ -30,22 +30,20 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/foldersummary"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/thejerf/suture"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
@@ -55,22 +53,21 @@ import (
 var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 
 const (
-	DefaultEventMask    = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
-	DiskEventMask       = events.LocalChangeDetected | events.RemoteChangeDetected
-	EventSubBufferSize  = 1000
-	defaultEventTimeout = time.Minute
+	DefaultEventMask   = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
+	DiskEventMask      = events.LocalChangeDetected | events.RemoteChangeDetected
+	EventSubBufferSize = 1000
 )
 
 type service struct {
 	id                   protocol.DeviceID
-	cfg                  ConfigIntf
+	cfg                  ur.ConfigIntf
 	statics              *staticsServer
-	model                ModelIntf
+	model                ur.ModelIntf
 	eventSubs            map[events.EventType]events.BufferedSubscription
 	eventSubsMut         sync.Mutex
 	discoverer           discover.CachingMux
-	connectionsService   ConnectionsIntf
-	fss                  *folderSummaryService
+	connectionsService   ur.ConnectionsIntf
+	fss                  foldersummary.Service
 	urService            *ur.Service
 	systemConfigMut      sync.Mutex // serializes posts to /rest/system/config
 	cpu                  Rater
@@ -84,65 +81,6 @@ type service struct {
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
-}
-
-type ModelIntf interface {
-	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
-	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
-	Override(folder string)
-	Revert(folder string)
-	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated)
-	RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error)
-	LocalChangedFiles(folder string, page, perpage int) []db.FileInfoTruncated
-	NeedSize(folder string) db.Counts
-	ConnectionStats() map[string]interface{}
-	DeviceStatistics() map[string]stats.DeviceStatistics
-	FolderStatistics() map[string]stats.FolderStatistics
-	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool)
-	CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool)
-	ResetFolder(folder string)
-	Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []model.Availability
-	GetIgnores(folder string) ([]string, []string, error)
-	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
-	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error)
-	SetIgnores(folder string, content []string) error
-	DelayScan(folder string, next time.Duration)
-	ScanFolder(folder string) error
-	ScanFolders() map[string]error
-	ScanFolderSubdirs(folder string, subs []string) error
-	BringToFront(folder, file string)
-	Connection(deviceID protocol.DeviceID) (connections.Connection, bool)
-	GlobalSize(folder string) db.Counts
-	LocalSize(folder string) db.Counts
-	ReceiveOnlyChangedSize(folder string) db.Counts
-	CurrentSequence(folder string) (int64, bool)
-	RemoteSequence(folder string) (int64, bool)
-	State(folder string) (string, time.Time, error)
-	UsageReportingStats(version int, preview bool) map[string]interface{}
-	FolderErrors(folder string) ([]model.FileError, error)
-	WatchError(folder string) error
-}
-
-type ConfigIntf interface {
-	GUI() config.GUIConfiguration
-	LDAP() config.LDAPConfiguration
-	RawCopy() config.Configuration
-	Options() config.OptionsConfiguration
-	Replace(cfg config.Configuration) (config.Waiter, error)
-	Subscribe(c config.Committer)
-	Unsubscribe(c config.Committer)
-	Folders() map[string]config.FolderConfiguration
-	Devices() map[protocol.DeviceID]config.DeviceConfiguration
-	SetDevice(config.DeviceConfiguration) (config.Waiter, error)
-	SetDevices([]config.DeviceConfiguration) (config.Waiter, error)
-	Save() error
-	ListenAddresses() []string
-	RequiresRestart() bool
-}
-
-type ConnectionsIntf interface {
-	Status() map[string]interface{}
-	NATType() string
 }
 
 type Rater interface {
@@ -161,8 +99,8 @@ type Service interface {
 	WaitForStart()
 }
 
-func New(id protocol.DeviceID, cfg ConfigIntf, assetDir, tlsDefaultCommonName string, m ModelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService ConnectionsIntf, urService *ur.Service, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
-	service := &service{
+func New(id protocol.DeviceID, cfg ur.ConfigIntf, assetDir, tlsDefaultCommonName string, m ur.ModelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService ur.ConnectionsIntf, urService *ur.Service, fss foldersummary.Service, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
+	return &service{
 		id:      id,
 		cfg:     cfg,
 		statics: newStaticsServer(cfg.GUI().Theme, assetDir),
@@ -174,6 +112,7 @@ func New(id protocol.DeviceID, cfg ConfigIntf, assetDir, tlsDefaultCommonName st
 		eventSubsMut:         sync.NewMutex(),
 		discoverer:           discoverer,
 		connectionsService:   connectionsService,
+		fss:                  fss,
 		urService:            urService,
 		systemConfigMut:      sync.NewMutex(),
 		guiErrors:            errors,
@@ -186,8 +125,6 @@ func New(id protocol.DeviceID, cfg ConfigIntf, assetDir, tlsDefaultCommonName st
 		configChanged:        make(chan struct{}),
 		startedOnce:          make(chan struct{}),
 	}
-
-	return service
 }
 
 func (s *service) WaitForStart() {
@@ -393,10 +330,6 @@ func (s *service) Serve() {
 		// interval to avoid HTTP keepalive/GUI refresh race.
 		ReadTimeout: 15 * time.Second,
 	}
-
-	s.fss = newFolderSummaryService(s.cfg, s.model, s.id)
-	defer s.fss.Stop()
-	s.fss.ServeBackground()
 
 	l.Infoln("GUI and API listening on", listener.Addr())
 	l.Infoln("Access the GUI via the following URL:", guiCfg.URL())
@@ -701,91 +634,17 @@ func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendJSON(w, jsonCompletion(s.model.Completion(device, folder)))
-}
-
-func jsonCompletion(comp model.FolderCompletion) map[string]interface{} {
-	return map[string]interface{}{
-		"completion":  comp.CompletionPct,
-		"needBytes":   comp.NeedBytes,
-		"needItems":   comp.NeedItems,
-		"globalBytes": comp.GlobalBytes,
-		"needDeletes": comp.NeedDeletes,
-	}
+	sendJSON(w, model.JsonCompletion(s.model.Completion(device, folder)))
 }
 
 func (s *service) getDBStatus(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
-	if sum, err := folderSummary(s.cfg, s.model, folder); err != nil {
+	if sum, err := s.fss.FolderSummary(folder); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	} else {
 		sendJSON(w, sum)
 	}
-}
-
-func folderSummary(cfg ConfigIntf, m ModelIntf, folder string) (map[string]interface{}, error) {
-	var res = make(map[string]interface{})
-
-	errors, err := m.FolderErrors(folder)
-	if err != nil && err != model.ErrFolderPaused {
-		// Stats from the db can still be obtained if the folder is just paused
-		return nil, err
-	}
-	res["errors"] = len(errors)
-	res["pullErrors"] = len(errors) // deprecated
-
-	res["invalid"] = "" // Deprecated, retains external API for now
-
-	global := m.GlobalSize(folder)
-	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"], res["globalTotalItems"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
-
-	local := m.LocalSize(folder)
-	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"], res["localTotalItems"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
-
-	need := m.NeedSize(folder)
-	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
-
-	if cfg.Folders()[folder].Type == config.FolderTypeReceiveOnly {
-		// Add statistics for things that have changed locally in a receive
-		// only folder.
-		ro := m.ReceiveOnlyChangedSize(folder)
-		res["receiveOnlyChangedFiles"] = ro.Files
-		res["receiveOnlyChangedDirectories"] = ro.Directories
-		res["receiveOnlyChangedSymlinks"] = ro.Symlinks
-		res["receiveOnlyChangedDeletes"] = ro.Deleted
-		res["receiveOnlyChangedBytes"] = ro.Bytes
-		res["receiveOnlyTotalItems"] = ro.TotalItems()
-	}
-
-	res["inSyncFiles"], res["inSyncBytes"] = global.Files-need.Files, global.Bytes-need.Bytes
-
-	res["state"], res["stateChanged"], err = m.State(folder)
-	if err != nil {
-		res["error"] = err.Error()
-	}
-
-	ourSeq, _ := m.CurrentSequence(folder)
-	remoteSeq, _ := m.RemoteSequence(folder)
-
-	res["version"] = ourSeq + remoteSeq  // legacy
-	res["sequence"] = ourSeq + remoteSeq // new name
-
-	ignorePatterns, _, _ := m.GetIgnores(folder)
-	res["ignorePatterns"] = false
-	for _, line := range ignorePatterns {
-		if len(line) > 0 && !strings.HasPrefix(line, "//") {
-			res["ignorePatterns"] = true
-			break
-		}
-	}
-
-	err = m.WatchError(folder)
-	if err != nil {
-		res["watchError"] = err.Error()
-	}
-
-	return res, nil
 }
 
 func (s *service) postDBOverride(w http.ResponseWriter, r *http.Request) {
@@ -1279,7 +1138,7 @@ func (s *service) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getIndexEvents(w http.ResponseWriter, r *http.Request) {
-	s.fss.gotEventRequest()
+	s.fss.GotEventRequest()
 	mask := s.getEventMask(r.URL.Query().Get("events"))
 	sub := s.getEventSub(mask)
 	s.getEvents(w, r, sub)
@@ -1298,7 +1157,7 @@ func (s *service) getEvents(w http.ResponseWriter, r *http.Request, eventSub eve
 	since, _ := strconv.Atoi(sinceStr)
 	limit, _ := strconv.Atoi(limitStr)
 
-	timeout := defaultEventTimeout
+	timeout := foldersummary.DefaultEventTimeout
 	if timeoutSec, timeoutErr := strconv.Atoi(timeoutStr); timeoutErr == nil && timeoutSec >= 0 { // 0 is a valid timeout
 		timeout = time.Duration(timeoutSec) * time.Second
 	}
