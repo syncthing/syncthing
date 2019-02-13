@@ -14,7 +14,7 @@ import (
 )
 
 // getRedactedConfig redacting some parts of config
-func getRedactedConfig(s *apiService) config.Configuration {
+func getRedactedConfig(s *service) config.Configuration {
 	rawConf := s.cfg.RawCopy()
 	rawConf.GUI.APIKey = "REDACTED"
 	if rawConf.GUI.Password != "" {

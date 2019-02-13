@@ -264,23 +264,22 @@ func parseCommandLineOptions() RuntimeOptions {
 	return options
 }
 
-type exiter struct{}
+// controller implements api.Controller
+type controller struct{}
 
-func (e *exiter) Restart() {
+func (_ *controller) Restart() {
 	l.Infoln("Restarting")
 	stop <- exitRestarting
 }
 
-func (e *exiter) Shutdown() {
+func (_ *controller) Shutdown() {
 	l.Infoln("Shutting down")
 	stop <- exitSuccess
 }
 
-func (e *exiter) ExitUpgrading() {
+func (_ *controller) ExitUpgrading() {
 	stop <- exitUpgrading
 }
-
-var exit = exiter{}
 
 func main() {
 	options := parseCommandLineOptions()
@@ -1023,7 +1022,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	cpu := newCPUService()
 	mainService.Add(cpu)
 
-	apiSvc := api.NewAPIService(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu, &exiter{}, noUpgradeFromEnv)
+	apiSvc := api.New(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu, &controller{}, noUpgradeFromEnv)
 	mainService.Add(apiSvc)
 
 	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
@@ -1086,7 +1085,8 @@ func standbyMonitor() {
 			// things a moment to stabilize.
 			time.Sleep(restartDelay)
 
-			exit.Restart()
+			l.Infoln("Restarting")
+			stop <- exitRestarting
 			return
 		}
 		now = time.Now()

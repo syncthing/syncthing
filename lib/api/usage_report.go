@@ -37,7 +37,7 @@ const UsageReportVersion = 3
 
 // reportData returns the data to be sent in a usage report. It's used in
 // various places, so not part of the usageReportingManager object.
-func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf, version int, preview, noUpgrade bool) map[string]interface{} {
+func reportData(cfg ConfigIntf, m ModelIntf, connectionsService ConnectionsIntf, version int, preview, noUpgrade bool) map[string]interface{} {
 	opts := cfg.Options()
 	res := make(map[string]interface{})
 	res["urVersion"] = version
