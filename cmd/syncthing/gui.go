@@ -932,7 +932,7 @@ func (s *apiService) getSystemConfigInsync(w http.ResponseWriter, r *http.Reques
 
 func (s *apiService) postSystemRestart(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "restarting"}`, w)
-	go restart()
+	go exit.Restart()
 }
 
 func (s *apiService) postSystemReset(w http.ResponseWriter, r *http.Request) {
@@ -958,12 +958,12 @@ func (s *apiService) postSystemReset(w http.ResponseWriter, r *http.Request) {
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
 
-	go restart()
+	go exit.Restart()
 }
 
 func (s *apiService) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "shutting down"}`, w)
-	go shutdown()
+	go exit.Shutdown()
 }
 
 func (s *apiService) flushResponse(resp string, w http.ResponseWriter) {
@@ -1383,8 +1383,7 @@ func (s *apiService) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.flushResponse(`{"ok": "restarting"}`, w)
-		l.Infoln("Upgrading")
-		stop <- exitUpgrading
+		exit.ExitUpgrading()
 	}
 }
 
