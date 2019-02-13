@@ -1138,7 +1138,7 @@ func (s *service) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getIndexEvents(w http.ResponseWriter, r *http.Request) {
-	s.fss.GotEventRequest()
+	s.fss.OnEventRequest()
 	mask := s.getEventMask(r.URL.Query().Get("events"))
 	sub := s.getEventSub(mask)
 	s.getEvents(w, r, sub)

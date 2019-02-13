@@ -74,14 +74,14 @@ func (s *Service) ReportData() map[string]interface{} {
 
 // ReportDataPreview returns a preview of the data to be sent in a usage report
 // with the given version.
-func (s *Service) ReportDataPreview(urversion int) map[string]interface{} {
-	return s.reportData(urversion, true)
+func (s *Service) ReportDataPreview(urVersion int) map[string]interface{} {
+	return s.reportData(urVersion, true)
 }
 
-func (s *Service) reportData(urversion int, preview bool) map[string]interface{} {
+func (s *Service) reportData(urVersion int, preview bool) map[string]interface{} {
 	opts := s.cfg.Options()
 	res := make(map[string]interface{})
-	res["urVersion"] = urversion
+	res["urVersion"] = urVersion
 	res["uniqueID"] = opts.URUniqueID
 	res["version"] = build.Version
 	res["longVersion"] = build.LongVersion
@@ -231,7 +231,7 @@ func (s *Service) reportData(urversion int, preview bool) map[string]interface{}
 	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || s.noUpgrade) && opts.AutoUpgradeIntervalH > 0
 	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || s.noUpgrade) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
 
-	if urversion >= 3 {
+	if urVersion >= 3 {
 		res["uptime"] = s.UptimeS()
 		res["natType"] = s.connectionsService.NATType()
 		res["alwaysLocalNets"] = len(opts.AlwaysLocalNets) > 0
@@ -356,7 +356,7 @@ func (s *Service) reportData(urversion int, preview bool) map[string]interface{}
 		res["guiStats"] = guiStatsInterface
 	}
 
-	for key, value := range s.model.UsageReportingStats(urversion, preview) {
+	for key, value := range s.model.UsageReportingStats(urVersion, preview) {
 		res[key] = value
 	}
 

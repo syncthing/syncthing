@@ -25,7 +25,7 @@ const DefaultEventTimeout = time.Minute
 type Service interface {
 	suture.Service
 	FolderSummary(folder string) (map[string]interface{}, error)
-	GotEventRequest()
+	OnEventRequest()
 }
 
 // The folderSummaryService adds summary information events (FolderSummary and
@@ -141,7 +141,7 @@ func (c *service) FolderSummary(folder string) (map[string]interface{}, error) {
 	return res, nil
 }
 
-func (c *service) GotEventRequest() {
+func (c *service) OnEventRequest() {
 	c.lastEventReqMut.Lock()
 	c.lastEventReq = time.Now()
 	c.lastEventReqMut.Unlock()
