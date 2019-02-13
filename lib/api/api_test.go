@@ -33,6 +33,17 @@ import (
 	"github.com/thejerf/suture"
 )
 
+func TestMain(m *testing.M) {
+	orig := locations.GetBaseDir(locations.ConfigBaseDir)
+	locations.SetBaseDir(locations.ConfigBaseDir, "testdata/config")
+
+	exitCode := m.Run()
+
+	locations.SetBaseDir(locations.ConfigBaseDir, orig)
+
+	os.Exit(exitCode)
+}
+
 func TestCSRFToken(t *testing.T) {
 	t1 := newCsrfToken()
 	t2 := newCsrfToken()
@@ -75,7 +86,6 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg)
 
-	locations.SetBaseDir(locations.ConfigBaseDir, "../../test/h1")
 	srv := NewAPIService(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, nil, nil, nil, nil, nil, nil, false).(*apiService)
 	srv.started = make(chan string)
 
@@ -182,7 +192,7 @@ func expectURLToContain(t *testing.T, url, exp string) {
 
 func TestDirNames(t *testing.T) {
 	names := dirNames("testdata")
-	expected := []string{"default", "foo", "testfolder"}
+	expected := []string{"config", "default", "foo", "testfolder"}
 	if diff, equal := messagediff.PrettyDiff(expected, names); !equal {
 		t.Errorf("Unexpected dirNames return: %#v\n%s", names, diff)
 	}
@@ -484,7 +494,6 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	addrChan := make(chan string)
 
 	// Instantiate the API service
-	locations.SetBaseDir(locations.ConfigBaseDir, "../../test/h1")
 	svc := NewAPIService(protocol.LocalDeviceID, cfg, assetDir, "syncthing", model, eventSub, diskEventSub, discoverer, connections, errorLog, systemLog, cpu, nil, false).(*apiService)
 	svc.started = addrChan
 
@@ -946,7 +955,6 @@ func TestEventMasks(t *testing.T) {
 	cfg := new(mockedConfig)
 	defSub := new(mockedEventSub)
 	diskSub := new(mockedEventSub)
-	locations.SetBaseDir(locations.ConfigBaseDir, "../../test/h1")
 	svc := NewAPIService(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, nil, nil, nil, nil, nil, nil, false).(*apiService)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
