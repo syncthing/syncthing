@@ -36,7 +36,7 @@ import (
 // Current version number of the usage report, for acceptance purposes. If
 // fields are added or changed this integer must be incremented so that users
 // are prompted for acceptance of the new report.
-const UsageReportVersion = 3
+const Version = 3
 
 var StartTime = time.Now()
 
@@ -69,7 +69,7 @@ func New(cfg ConfigIntf, model ModelIntf, connectionsService ConnectionsIntf, no
 // ReportData returns the data to be sent in a usage report with the currently
 // configured usage reporting version.
 func (s *Service) ReportData() map[string]interface{} {
-	return s.reportData(UsageReportVersion, false)
+	return s.reportData(Version, false)
 }
 
 // ReportDataPreview returns a preview of the data to be sent in a usage report

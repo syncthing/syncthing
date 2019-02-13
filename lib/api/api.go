@@ -886,7 +886,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	// gives us percent
 	res["cpuPercent"] = s.cpu.Rate() / 10 / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
-	res["urVersionMax"] = ur.UsageReportVersion
+	res["urVersionMax"] = ur.Version
 	res["uptime"] = s.urService.UptimeS()
 	res["startTime"] = ur.StartTime
 	res["guiAddressOverridden"] = s.cfg.GUI().IsOverridden()
@@ -1077,7 +1077,7 @@ func (s *service) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getReport(w http.ResponseWriter, r *http.Request) {
-	version := ur.UsageReportVersion
+	version := ur.Version
 	if val, _ := strconv.Atoi(r.URL.Query().Get("version")); val > 0 {
 		version = val
 	}

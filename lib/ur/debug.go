@@ -18,5 +18,5 @@ var (
 )
 
 func init() {
-	l.SetDebug("http", strings.Contains(os.Getenv("STTRACE"), "http") || os.Getenv("STTRACE") == "all")
+	l.SetDebug("ur", strings.Contains(os.Getenv("STTRACE"), "ur") || os.Getenv("STTRACE") == "all")
 }

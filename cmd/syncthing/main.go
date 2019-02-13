@@ -802,8 +802,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if opts := cfg.Options(); build.IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
-		if opts.URAccepted != ur.UsageReportVersion {
-			opts.URAccepted = ur.UsageReportVersion
+		if opts.URAccepted != ur.Version {
+			opts.URAccepted = ur.Version
 			cfg.SetOptions(opts)
 			cfg.Save()
 			// Unique ID will be set and config saved below if necessary.
