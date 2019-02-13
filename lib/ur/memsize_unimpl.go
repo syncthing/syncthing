@@ -6,7 +6,7 @@
 
 // +build freebsd openbsd dragonfly
 
-package api
+package ur
 
 import "errors"
 

@@ -48,6 +48,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/ur"
 
 	"github.com/thejerf/suture"
 )
@@ -648,7 +649,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}()
 	}
 
-	perf := api.CpuBench(3, 150*time.Millisecond, true)
+	perf := ur.CpuBench(3, 150*time.Millisecond, true)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	dbFile := locations.Get(locations.Database)
@@ -786,10 +787,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	// GUI
-
-	setupGUI(mainService, cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, errors, systemLog, runtimeOptions)
-
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
@@ -800,20 +797,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	myDev, _ := cfg.Device(myID)
-	l.Infof(`My name is "%v"`, myDev.Name)
-	for _, device := range cfg.Devices() {
-		if device.DeviceID != myID {
-			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
-		}
-	}
-
 	// Candidate builds always run with usage reporting.
 
 	if opts := cfg.Options(); build.IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
-		if opts.URAccepted != api.UsageReportVersion {
-			opts.URAccepted = api.UsageReportVersion
+		if opts.URAccepted != ur.UsageReportVersion {
+			opts.URAccepted = ur.UsageReportVersion
 			cfg.SetOptions(opts)
 			cfg.Save()
 			// Unique ID will be set and config saved below if necessary.
@@ -827,8 +816,20 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		cfg.Save()
 	}
 
-	usageReportingSvc := api.NewUsageReportingService(cfg, m, connectionsService, noUpgradeFromEnv)
+	usageReportingSvc := ur.New(cfg, m, connectionsService, noUpgradeFromEnv)
 	mainService.Add(usageReportingSvc)
+
+	// GUI
+
+	setupGUI(mainService, cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog, runtimeOptions)
+
+	myDev, _ := cfg.Device(myID)
+	l.Infof(`My name is "%v"`, myDev.Name)
+	for _, device := range cfg.Devices() {
+		if device.DeviceID != myID {
+			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
+		}
+	}
 
 	if opts := cfg.Options(); opts.RestartOnWakeup {
 		go standbyMonitor()
@@ -1008,7 +1009,7 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 	l.Infoln("Audit log in", auditDest)
 }
 
-func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
+func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
 	guiCfg := cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -1022,7 +1023,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	cpu := newCPUService()
 	mainService.Add(cpu)
 
-	apiSvc := api.New(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu, &controller{}, noUpgradeFromEnv)
+	apiSvc := api.New(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, urService, errors, systemLog, cpu, &controller{}, noUpgradeFromEnv)
 	mainService.Add(apiSvc)
 
 	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {

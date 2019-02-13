@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package api
+package ur
 
 import (
 	"bytes"
@@ -35,23 +35,61 @@ import (
 // are prompted for acceptance of the new report.
 const UsageReportVersion = 3
 
-// reportData returns the data to be sent in a usage report. It's used in
-// various places, so not part of the usageReportingManager object.
-func reportData(cfg ConfigIntf, m ModelIntf, connectionsService ConnectionsIntf, version int, preview, noUpgrade bool) map[string]interface{} {
-	opts := cfg.Options()
+var StartTime = time.Now()
+
+type Service struct {
+	cfg                *config.Wrapper
+	model              *model.Model
+	connectionsService *connections.Service
+	noUpgrade          bool
+	forceRun           chan struct{}
+	stop               chan struct{}
+	stopped            chan struct{}
+	stopMut            sync.RWMutex
+}
+
+func New(cfg *config.Wrapper, model *model.Model, connectionsService *connections.Service, noUpgrade bool) *Service {
+	svc := &Service{
+		cfg:                cfg,
+		model:              model,
+		connectionsService: connectionsService,
+		noUpgrade:          noUpgrade,
+		forceRun:           make(chan struct{}),
+		stop:               make(chan struct{}),
+		stopped:            make(chan struct{}),
+	}
+	close(svc.stopped) // Not yet running, dont block on Stop()
+	cfg.Subscribe(svc)
+	return svc
+}
+
+// ReportData returns the data to be sent in a usage report with the currently
+// configured usage reporting version.
+func (s *Service) ReportData() map[string]interface{} {
+	return s.reportData(UsageReportVersion, false)
+}
+
+// ReportDataPreview returns a preview of the data to be sent in a usage report
+// with the given version.
+func (s *Service) ReportDataPreview(urversion int) map[string]interface{} {
+	return s.reportData(urversion, true)
+}
+
+func (s *Service) reportData(urversion int, preview bool) map[string]interface{} {
+	opts := s.cfg.Options()
 	res := make(map[string]interface{})
-	res["urVersion"] = version
+	res["urVersion"] = urversion
 	res["uniqueID"] = opts.URUniqueID
 	res["version"] = build.Version
 	res["longVersion"] = build.LongVersion
 	res["platform"] = runtime.GOOS + "-" + runtime.GOARCH
-	res["numFolders"] = len(cfg.Folders())
-	res["numDevices"] = len(cfg.Devices())
+	res["numFolders"] = len(s.cfg.Folders())
+	res["numDevices"] = len(s.cfg.Devices())
 
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
-	for folderID := range cfg.Folders() {
-		global := m.GlobalSize(folderID)
+	for folderID := range s.cfg.Folders() {
+		global := s.model.GlobalSize(folderID)
 		totFiles += int(global.Files)
 		totBytes += global.Bytes
 		if int(global.Files) > maxFiles {
@@ -92,7 +130,7 @@ func reportData(cfg ConfigIntf, m ModelIntf, connectionsService ConnectionsIntf,
 		"staggeredVersioning": 0,
 		"trashcanVersioning":  0,
 	}
-	for _, cfg := range cfg.Folders() {
+	for _, cfg := range s.cfg.Folders() {
 		rescanIntvs = append(rescanIntvs, cfg.RescanIntervalS)
 
 		switch cfg.Type {
@@ -129,7 +167,7 @@ func reportData(cfg ConfigIntf, m ModelIntf, connectionsService ConnectionsIntf,
 		"dynamicAddr":      0,
 		"staticAddr":       0,
 	}
-	for _, cfg := range cfg.Devices() {
+	for _, cfg := range s.cfg.Devices() {
 		if cfg.Introducer {
 			deviceUses["introducer"]++
 		}
@@ -170,7 +208,7 @@ func reportData(cfg ConfigIntf, m ModelIntf, connectionsService ConnectionsIntf,
 	}
 
 	defaultRelayServers, otherRelayServers := 0, 0
-	for _, addr := range cfg.ListenAddresses() {
+	for _, addr := range s.cfg.ListenAddresses() {
 		switch {
 		case addr == "dynamic+https://relays.syncthing.net/endpoint":
 			defaultRelayServers++
@@ -186,13 +224,13 @@ func reportData(cfg ConfigIntf, m ModelIntf, connectionsService ConnectionsIntf,
 
 	res["usesRateLimit"] = opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0
 
-	res["upgradeAllowedManual"] = !(upgrade.DisabledByCompilation || noUpgrade)
-	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || noUpgrade) && opts.AutoUpgradeIntervalH > 0
-	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || noUpgrade) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
+	res["upgradeAllowedManual"] = !(upgrade.DisabledByCompilation || s.noUpgrade)
+	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || s.noUpgrade) && opts.AutoUpgradeIntervalH > 0
+	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || s.noUpgrade) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
 
-	if version >= 3 {
-		res["uptime"] = int(time.Since(startTime).Seconds())
-		res["natType"] = connectionsService.NATType()
+	if urversion >= 3 {
+		res["uptime"] = s.UptimeS()
+		res["natType"] = s.connectionsService.NATType()
 		res["alwaysLocalNets"] = len(opts.AlwaysLocalNets) > 0
 		res["cacheIgnoredFiles"] = opts.CacheIgnoredFiles
 		res["overwriteRemoteDeviceNames"] = opts.OverwriteRemoteDevNames
@@ -220,7 +258,7 @@ func reportData(cfg ConfigIntf, m ModelIntf, connectionsService ConnectionsIntf,
 		pullOrder := make(map[string]int)
 		filesystemType := make(map[string]int)
 		var fsWatcherDelays []int
-		for _, cfg := range cfg.Folders() {
+		for _, cfg := range s.cfg.Folders() {
 			if cfg.ScanProgressIntervalS < 0 {
 				folderUsesV3["scanProgressDisabled"]++
 			}
@@ -260,7 +298,7 @@ func reportData(cfg ConfigIntf, m ModelIntf, connectionsService ConnectionsIntf,
 		}
 		res["folderUsesV3"] = folderUsesV3Interface
 
-		guiCfg := cfg.GUI()
+		guiCfg := s.cfg.GUI()
 		// Anticipate multiple GUI configs in the future, hence store counts.
 		guiStats := map[string]int{
 			"enabled":                   0,
@@ -315,41 +353,19 @@ func reportData(cfg ConfigIntf, m ModelIntf, connectionsService ConnectionsIntf,
 		res["guiStats"] = guiStatsInterface
 	}
 
-	for key, value := range m.UsageReportingStats(version, preview) {
+	for key, value := range s.model.UsageReportingStats(urversion, preview) {
 		res[key] = value
 	}
 
 	return res
 }
 
-type usageReportingService struct {
-	cfg                *config.Wrapper
-	model              *model.Model
-	connectionsService *connections.Service
-	noUpgrade          bool
-	forceRun           chan struct{}
-	stop               chan struct{}
-	stopped            chan struct{}
-	stopMut            sync.RWMutex
+func (s *Service) UptimeS() int {
+	return int(time.Since(StartTime).Seconds())
 }
 
-func NewUsageReportingService(cfg *config.Wrapper, model *model.Model, connectionsService *connections.Service, noUpgrade bool) *usageReportingService {
-	svc := &usageReportingService{
-		cfg:                cfg,
-		model:              model,
-		connectionsService: connectionsService,
-		noUpgrade:          noUpgrade,
-		forceRun:           make(chan struct{}),
-		stop:               make(chan struct{}),
-		stopped:            make(chan struct{}),
-	}
-	close(svc.stopped) // Not yet running, dont block on Stop()
-	cfg.Subscribe(svc)
-	return svc
-}
-
-func (s *usageReportingService) sendUsageReport() error {
-	d := reportData(s.cfg, s.model, s.connectionsService, s.cfg.Options().URAccepted, false, s.noUpgrade)
+func (s *Service) sendUsageReport() error {
+	d := s.ReportData()
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(d); err != nil {
 		return err
@@ -368,7 +384,7 @@ func (s *usageReportingService) sendUsageReport() error {
 	return err
 }
 
-func (s *usageReportingService) Serve() {
+func (s *Service) Serve() {
 	s.stopMut.Lock()
 	s.stop = make(chan struct{})
 	s.stopped = make(chan struct{})
@@ -399,11 +415,11 @@ func (s *usageReportingService) Serve() {
 	}
 }
 
-func (s *usageReportingService) VerifyConfiguration(from, to config.Configuration) error {
+func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
 
-func (s *usageReportingService) CommitConfiguration(from, to config.Configuration) bool {
+func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
 		s.stopMut.RLock()
 		select {
@@ -415,15 +431,15 @@ func (s *usageReportingService) CommitConfiguration(from, to config.Configuratio
 	return true
 }
 
-func (s *usageReportingService) Stop() {
+func (s *Service) Stop() {
 	s.stopMut.RLock()
 	close(s.stop)
 	<-s.stopped
 	s.stopMut.RUnlock()
 }
 
-func (*usageReportingService) String() string {
-	return "usageReportingService"
+func (*Service) String() string {
+	return "ur.Service"
 }
 
 // CpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s

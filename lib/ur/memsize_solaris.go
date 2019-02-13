@@ -4,36 +4,25 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package api
+// +build solaris
+
+package ur
 
 import (
-	"bufio"
-	"errors"
-	"os"
+	"os/exec"
 	"strconv"
-	"strings"
 )
 
 func memorySize() (int64, error) {
-	f, err := os.Open("/proc/meminfo")
+	cmd := exec.Command("prtconf", "-m")
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return 0, err
 	}
 
-	s := bufio.NewScanner(f)
-	if !s.Scan() {
-		return 0, errors.New("/proc/meminfo parse error 1")
-	}
-
-	l := s.Text()
-	fs := strings.Fields(l)
-	if len(fs) != 3 || fs[2] != "kB" {
-		return 0, errors.New("/proc/meminfo parse error 2")
-	}
-
-	kb, err := strconv.ParseInt(fs[1], 10, 64)
+	mb, err := strconv.ParseInt(string(out), 10, 64)
 	if err != nil {
 		return 0, err
 	}
-	return kb * 1024, nil
+	return mb * 1024 * 1024, nil
 }

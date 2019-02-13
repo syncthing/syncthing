@@ -44,18 +44,15 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/ur"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/thejerf/suture"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var (
-	startTime = time.Now()
-
-	// matches a bcrypt hash and not too much else
-	bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
-)
+// matches a bcrypt hash and not too much else
+var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 
 const (
 	DefaultEventMask    = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
@@ -74,6 +71,7 @@ type service struct {
 	discoverer           discover.CachingMux
 	connectionsService   ConnectionsIntf
 	fss                  *folderSummaryService
+	urService            *ur.Service
 	systemConfigMut      sync.Mutex // serializes posts to /rest/system/config
 	cpu                  Rater
 	contr                Controller
@@ -163,7 +161,7 @@ type Service interface {
 	WaitForStart()
 }
 
-func New(id protocol.DeviceID, cfg ConfigIntf, assetDir, tlsDefaultCommonName string, m ModelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService ConnectionsIntf, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
+func New(id protocol.DeviceID, cfg ConfigIntf, assetDir, tlsDefaultCommonName string, m ModelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService ConnectionsIntf, urService *ur.Service, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
 	service := &service{
 		id:      id,
 		cfg:     cfg,
@@ -176,6 +174,7 @@ func New(id protocol.DeviceID, cfg ConfigIntf, assetDir, tlsDefaultCommonName st
 		eventSubsMut:         sync.NewMutex(),
 		discoverer:           discoverer,
 		connectionsService:   connectionsService,
+		urService:            urService,
 		systemConfigMut:      sync.NewMutex(),
 		guiErrors:            errors,
 		systemLog:            systemLog,
@@ -1028,9 +1027,9 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	// gives us percent
 	res["cpuPercent"] = s.cpu.Rate() / 10 / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
-	res["urVersionMax"] = UsageReportVersion
-	res["uptime"] = int(time.Since(startTime).Seconds())
-	res["startTime"] = startTime
+	res["urVersionMax"] = ur.UsageReportVersion
+	res["uptime"] = s.urService.UptimeS()
+	res["startTime"] = ur.StartTime
 	res["guiAddressOverridden"] = s.cfg.GUI().IsOverridden()
 
 	sendJSON(w, res)
@@ -1138,7 +1137,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Report Data as a JSON
-	if usageReportingData, err := json.MarshalIndent(reportData(s.cfg, s.model, s.connectionsService, UsageReportVersion, true, s.noUpgrade), "", "  "); err != nil {
+	if usageReportingData, err := json.MarshalIndent(s.urService.ReportData(), "", "  "); err != nil {
 		l.Warnln("Support bundle: failed to create versionPlatform.json:", err)
 	} else {
 		files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
@@ -1219,11 +1218,11 @@ func (s *service) getSystemDiscovery(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getReport(w http.ResponseWriter, r *http.Request) {
-	version := UsageReportVersion
+	version := ur.UsageReportVersion
 	if val, _ := strconv.Atoi(r.URL.Query().Get("version")); val > 0 {
 		version = val
 	}
-	sendJSON(w, reportData(s.cfg, s.model, s.connectionsService, version, true, s.noUpgrade))
+	sendJSON(w, s.urService.ReportDataPreview(version))
 }
 
 func (s *service) getRandomString(w http.ResponseWriter, r *http.Request) {
