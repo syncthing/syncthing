@@ -40,14 +40,15 @@ func RenameOrCopy(src, dst fs.Filesystem, from, to string) error {
 		// and try a rename.
 		if src.Type() == dst.Type() {
 			commonPrefix := fs.CommonPrefix(src.URI(), dst.URI())
-
-			commonFs := fs.NewFilesystem(src.Type(), commonPrefix)
-			err := commonFs.Rename(
-				filepath.Join(strings.TrimPrefix(src.URI(), commonPrefix), from),
-				filepath.Join(strings.TrimPrefix(dst.URI(), commonPrefix), to),
-			)
-			if err == nil {
-				return nil
+			if len(commonPrefix) > 0 {
+				commonFs := fs.NewFilesystem(src.Type(), commonPrefix)
+				err := commonFs.Rename(
+					filepath.Join(strings.TrimPrefix(src.URI(), commonPrefix), from),
+					filepath.Join(strings.TrimPrefix(dst.URI(), commonPrefix), to),
+				)
+				if err == nil {
+					return nil
+				}
 			}
 		}
 

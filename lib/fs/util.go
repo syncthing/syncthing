@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -91,62 +90,42 @@ func IsParent(path, parent string) bool {
 	return strings.HasPrefix(path, parent)
 }
 
-// https://www.rosettacode.org/wiki/Find_common_directory_path#Go
-func CommonPrefix(paths ...string) string {
-	// Handle special cases.
-	switch len(paths) {
-	case 0:
-		return ""
-	case 1:
-		return path.Clean(paths[0])
+func CommonPrefix(first, second string) string {
+	firstParts := strings.Split(filepath.Clean(first), string(PathSeparator))
+	secondParts := strings.Split(filepath.Clean(second), string(PathSeparator))
+
+	count := len(firstParts)
+	if len(secondParts) < len(firstParts) {
+		count = len(secondParts)
 	}
 
-	// Note, we treat string as []byte, not []rune as is often
-	// done in Go. (And sep as byte, not rune). This is because
-	// most/all supported OS' treat paths as string of non-zero
-	// bytes. A filename may be displayed as a sequence of Unicode
-	// runes (typically encoded as UTF-8) but paths are
-	// not required to be valid UTF-8 or in any normalized form
-	// (e.g. "é" (U+00C9) and "é" (U+0065,U+0301) are different
-	// file names.
-	c := []byte(path.Clean(paths[0]))
-
-	// We add a trailing sep to handle the case where the
-	// common prefix directory is included in the path list
-	// (e.g. /home/user1, /home/user1/foo, /home/user1/bar).
-	// path.Clean will have cleaned off trailing / separators with
-	// the exception of the root directory, "/" (in which case we
-	// make it "//", but this will get fixed up to "/" bellow).
-	c = append(c, PathSeparator)
-
-	// Ignore the first path since it's already in c
-	for _, v := range paths[1:] {
-		// Clean up each path before testing it
-		v = path.Clean(v) + string(PathSeparator)
-
-		// Find the first non-common byte and truncate c
-		if len(v) < len(c) {
-			c = c[:len(v)]
-		}
-		for i := 0; i < len(c); i++ {
-			if v[i] != c[i] {
-				c = c[:i]
-				break
-			}
-		}
-	}
-
-	// Remove trailing non-separator characters and the final separator
-	for i := len(c) - 1; i >= 0; i-- {
-		if c[i] == PathSeparator {
-			c = c[:i]
+	common := make([]string, 0, count)
+	for i := 0; i < count; i++ {
+		if firstParts[i] != secondParts[i] {
 			break
 		}
+		common = append(common, firstParts[i])
 	}
 
-	if len(c) > 0 {
-		c = append(c, PathSeparator)
+	if len(common) == 0 {
+		if runtime.GOOS != "windows" && filepath.IsAbs(first) && filepath.IsAbs(second) {
+			return "/"
+		}
+		return ""
 	}
 
-	return string(c)
+	result := filepath.Clean(strings.Join(common, string(PathSeparator)))
+
+	if runtime.GOOS == "windows" {
+		if len(result) == 3 && strings.HasSuffix(result, ":.") {
+			// filepath.Clean("C:\") return "C:.", fix that up.
+			bytes := []byte(result)
+			bytes[len(bytes)-1 ] = PathSeparator
+			result = string(bytes)
+		} else if len(result) == 6 && strings.HasPrefix(result, `\\?\`) {
+			// filepath.Clean("\\?\C:\") return "\\?\C:", fix that up.
+			result += string(PathSeparator)
+		}
+	}
+	return result
 }

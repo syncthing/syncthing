@@ -12,21 +12,27 @@ import (
 )
 
 func TestCommonPrefix(t *testing.T) {
-	test := func(paths ...string) {
-		res := CommonPrefix(paths[:len(paths)-1]...)
-		expect := paths[len(paths)-1]
+	test := func(first, second, expect string) {
+		t.Helper()
+		res := CommonPrefix(first, second)
 		if res != expect {
 			t.Errorf("Expected %s got %s", expect, res)
 		}
 	}
 
 	if runtime.GOOS == "windows" {
-		test(`c:\Audrius\Downloads`, `c:\Audrius\Docs`, `c:\Audrius\`)
+		test(`c:\Audrius\Downloads`, `c:\Audrius\Docs`, `c:\Audrius`)
 		test(`c:\Audrius\Downloads`, `C:\Audrius\Docs`, ``) // Case differences :(
-		test(`c:\Audrius-a\Downloads`, `c:\Audrius-b\Docs`, `c:\`)
+		test(`C:\Audrius-a\Downloads`, `C:\Audrius-b\Docs`, `C:\`)
+		test(`\\?\C:\Audrius-a\Downloads`, `\\?\C:\Audrius-b\Docs`, `\\?\C:\`)
+		test(`\\?\C:\Audrius\Downloads`, `\\?\C:\Audrius\Docs`, `\\?\C:\Audrius`)
+		test(`Audrius-a\Downloads`, `Audrius-b\Docs`, ``)
+		test(`Audrius\Downloads`, `Audrius\Docs`, `Audrius`)
 	} else {
-		test(`/Audrius/Downloads`, `/Audrius/Docs`, `/Audrius/`)
-		test(`/Audrius\Downloads`, `/audrius\Docs`, ``)
-		test(`/Audrius-a/Downloads`, `/Audrius-b/Docs`, ``)
+		test(`/Audrius/Downloads`, `/Audrius/Docs`, `/Audrius`)
+		test(`/Audrius\Downloads`, `/Audrius\Docs`, ``)
+		test(`/Audrius-a/Downloads`, `/Audrius-b/Docs`, `/`)
+		test(`Audrius\Downloads`, `Audrius\Docs`, `Audrius`)
+		test(`Audrius-a\Downloads`, `Audrius-b\Docs`, ``)
 	}
 }
