@@ -68,10 +68,7 @@ const (
 	maxSystemLog         = 250
 )
 
-var (
-	myID protocol.DeviceID
-	stop = make(chan int)
-)
+var myID protocol.DeviceID
 
 const (
 	usage      = "syncthing [options]"
@@ -263,6 +260,32 @@ func parseCommandLineOptions() RuntimeOptions {
 
 	return options
 }
+
+type exiter struct {
+	stop chan int
+}
+
+func (e *exiter) Restart() {
+	l.Infoln("Restarting")
+	e.stop <- exitRestarting
+}
+
+func (e *exiter) Shutdown() {
+	l.Infoln("Shutting down")
+	e.stop <- exitSuccess
+}
+
+func (e *exiter) ExitUpgrading() {
+	l.Infoln("Shutting down after upgrade")
+	e.stop <- exitUpgrading
+}
+
+// waitForExit must be called synchronously.
+func (e *exiter) waitForExit() int {
+	return <-e.stop
+}
+
+var exit = exiter{make(chan int)}
 
 func main() {
 	options := parseCommandLineOptions()
@@ -858,7 +881,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	code := <-stop
+	code := exit.waitForExit()
 
 	mainService.Stop()
 
@@ -879,7 +902,7 @@ func setupSignalHandling() {
 	signal.Notify(restartSign, sigHup)
 	go func() {
 		<-restartSign
-		stop <- exitRestarting
+		exit.Restart()
 	}()
 
 	// Exit with "success" code (no restart) on INT/TERM
@@ -889,7 +912,7 @@ func setupSignalHandling() {
 	signal.Notify(stopSign, os.Interrupt, sigTerm)
 	go func() {
 		<-stopSign
-		stop <- exitSuccess
+		exit.Shutdown()
 	}()
 }
 
@@ -1034,16 +1057,6 @@ func resetDB() error {
 	return os.RemoveAll(locations.Get(locations.Database))
 }
 
-func restart() {
-	l.Infoln("Restarting")
-	stop <- exitRestarting
-}
-
-func shutdown() {
-	l.Infoln("Shutting down")
-	stop <- exitSuccess
-}
-
 func ensureDir(dir string, mode fs.FileMode) {
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 	err := fs.MkdirAll(".", mode)
@@ -1079,7 +1092,7 @@ func standbyMonitor() {
 			// things a moment to stabilize.
 			time.Sleep(restartDelay)
 
-			restart()
+			exit.Restart()
 			return
 		}
 		now = time.Now()
@@ -1137,7 +1150,7 @@ func autoUpgrade(cfg *config.Wrapper) {
 		events.Default.Unsubscribe(sub)
 		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
 		time.Sleep(time.Minute)
-		stop <- exitUpgrading
+		exit.ExitUpgrading()
 		return
 	}
 }
