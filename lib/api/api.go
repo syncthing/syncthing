@@ -1267,7 +1267,6 @@ func (s *service) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.flushResponse(`{"ok": "restarting"}`, w)
-		l.Infoln("Upgrading")
 		s.contr.ExitUpgrading()
 	}
 }

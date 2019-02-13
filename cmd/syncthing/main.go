@@ -70,10 +70,7 @@ const (
 	maxSystemLog         = 250
 )
 
-var (
-	myID protocol.DeviceID
-	stop = make(chan int)
-)
+var myID protocol.DeviceID
 
 const (
 	usage      = "syncthing [options]"
@@ -266,22 +263,32 @@ func parseCommandLineOptions() RuntimeOptions {
 	return options
 }
 
-// controller implements api.Controller
-type controller struct{}
+// exiter implements api.Controller
+type exiter struct {
+	stop chan int
+}
 
-func (_ *controller) Restart() {
+func (e *exiter) Restart() {
 	l.Infoln("Restarting")
-	stop <- exitRestarting
+	e.stop <- exitRestarting
 }
 
-func (_ *controller) Shutdown() {
+func (e *exiter) Shutdown() {
 	l.Infoln("Shutting down")
-	stop <- exitSuccess
+	e.stop <- exitSuccess
 }
 
-func (_ *controller) ExitUpgrading() {
-	stop <- exitUpgrading
+func (e *exiter) ExitUpgrading() {
+	l.Infoln("Shutting down after upgrade")
+	e.stop <- exitUpgrading
 }
+
+// waitForExit must be called synchronously.
+func (e *exiter) waitForExit() int {
+	return <-e.stop
+}
+
+var exit = &exiter{make(chan int)}
 
 func main() {
 	options := parseCommandLineOptions()
@@ -877,7 +884,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	code := <-stop
+	code := exit.waitForExit()
 
 	mainService.Stop()
 
@@ -898,7 +905,7 @@ func setupSignalHandling() {
 	signal.Notify(restartSign, sigHup)
 	go func() {
 		<-restartSign
-		stop <- exitRestarting
+		exit.Restart()
 	}()
 
 	// Exit with "success" code (no restart) on INT/TERM
@@ -908,7 +915,7 @@ func setupSignalHandling() {
 	signal.Notify(stopSign, os.Interrupt, sigTerm)
 	go func() {
 		<-stopSign
-		stop <- exitSuccess
+		exit.Shutdown()
 	}()
 }
 
@@ -1027,7 +1034,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	summaryService := foldersummary.New(cfg, m, myID)
 	mainService.Add(summaryService)
 
-	apiSvc := api.New(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, &controller{}, noUpgradeFromEnv)
+	apiSvc := api.New(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, exit, noUpgradeFromEnv)
 	mainService.Add(apiSvc)
 
 	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
@@ -1090,8 +1097,7 @@ func standbyMonitor() {
 			// things a moment to stabilize.
 			time.Sleep(restartDelay)
 
-			l.Infoln("Restarting")
-			stop <- exitRestarting
+			exit.Restart()
 			return
 		}
 		now = time.Now()
@@ -1149,7 +1155,7 @@ func autoUpgrade(cfg *config.Wrapper) {
 		events.Default.Unsubscribe(sub)
 		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
 		time.Sleep(time.Minute)
-		stop <- exitUpgrading
+		exit.ExitUpgrading()
 		return
 	}
 }
