@@ -44,6 +44,8 @@ func (c *mockedConfig) Replace(cfg config.Configuration) (config.Waiter, error) 
 
 func (c *mockedConfig) Subscribe(cm config.Committer) {}
 
+func (c *mockedConfig) Unsubscribe(cm config.Committer) {}
+
 func (c *mockedConfig) Folders() map[string]config.FolderConfiguration {
 	return nil
 }

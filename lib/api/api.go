@@ -132,6 +132,7 @@ type configIntf interface {
 	Options() config.OptionsConfiguration
 	Replace(cfg config.Configuration) (config.Waiter, error)
 	Subscribe(c config.Committer)
+	Unsubscribe(c config.Committer)
 	Folders() map[string]config.FolderConfiguration
 	Devices() map[protocol.DeviceID]config.DeviceConfiguration
 	SetDevice(config.DeviceConfiguration) (config.Waiter, error)
@@ -275,6 +276,9 @@ func (s *apiService) Serve() {
 	}
 
 	defer listener.Close()
+
+	s.cfg.Subscribe(s)
+	defer s.cfg.Unsubscribe(s)
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()

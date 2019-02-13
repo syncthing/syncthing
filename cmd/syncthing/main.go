@@ -1024,7 +1024,6 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	mainService.Add(cpu)
 
 	apiSvc := api.NewAPIService(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu, &exiter{}, noUpgradeFromEnv)
-	cfg.Subscribe(apiSvc)
 	mainService.Add(apiSvc)
 
 	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
