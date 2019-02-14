@@ -78,6 +78,7 @@ type service struct {
 	configChanged        chan struct{} // signals intentional listener close due to config change
 	started              chan string   // signals startup complete by sending the listener address, for testing only
 	startedOnce          chan struct{} // the service has started successfully at least once
+	startupErr           error
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -96,7 +97,7 @@ type Controller interface {
 type Service interface {
 	suture.Service
 	config.Committer
-	WaitForStart()
+	WaitForStart() error
 }
 
 func New(id protocol.DeviceID, cfg ur.ConfigIntf, assetDir, tlsDefaultCommonName string, m ur.ModelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService ur.ConnectionsIntf, urService *ur.Service, fss foldersummary.Service, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
@@ -127,8 +128,9 @@ func New(id protocol.DeviceID, cfg ur.ConfigIntf, assetDir, tlsDefaultCommonName
 	}
 }
 
-func (s *service) WaitForStart() {
+func (s *service) WaitForStart() error {
 	<-s.startedOnce
+	return s.startupErr
 }
 
 func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, error) {
@@ -195,14 +197,15 @@ func (s *service) Serve() {
 			// We let this be a loud user-visible warning as it may be the only
 			// indication they get that the GUI won't be available.
 			l.Warnln("Starting API/GUI:", err)
-			return
 
 		default:
 			// This is during initialization. A failure here should be fatal
 			// as there will be no way for the user to communicate with us
 			// otherwise anyway.
-			l.Fatalln("Starting API/GUI:", err)
+			s.startupErr = err
+			close(s.startedOnce)
 		}
+		return
 	}
 
 	if listener == nil {
@@ -366,6 +369,19 @@ func (s *service) Serve() {
 		// Restart due to listen/serve failure
 		l.Warnln("GUI/API:", err, "(restarting)")
 	}
+}
+
+// Complete implements suture.IsCompletable, which signifies to the supervisor
+// whether to stop restarting the service.
+func (s *service) Complete() bool {
+	select {
+	case <-s.startedOnce:
+		return s.startupErr != nil
+	case <-s.stop:
+		return true
+	default:
+	}
+	return false
 }
 
 func (s *service) Stop() {

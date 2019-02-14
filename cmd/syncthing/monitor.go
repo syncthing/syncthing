@@ -85,18 +85,18 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 		stderr, err := cmd.StderrPipe()
 		if err != nil {
-			l.Fatalln("stderr:", err)
+			panic(err)
 		}
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
-			l.Fatalln("stdout:", err)
+			panic(err)
 		}
 
 		l.Infoln("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
-			l.Fatalln(err)
+			panic(err)
 		}
 
 		stdoutMut.Lock()

@@ -106,7 +106,7 @@ func (f FolderConfiguration) Versioner() versioner.Versioner {
 	}
 	versionerFactory, ok := versioner.Factories[f.Versioning.Type]
 	if !ok {
-		l.Fatalf("Requested versioning type %q that does not exist", f.Versioning.Type)
+		panic(fmt.Sprintf("Requested versioning type %q that does not exist", f.Versioning.Type))
 	}
 
 	return versionerFactory(f.ID, f.Filesystem(), f.Versioning.Params)

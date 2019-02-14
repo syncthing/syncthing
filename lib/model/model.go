@@ -923,7 +923,7 @@ func (m *Model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	m.fmut.RUnlock()
 
 	if !existing {
-		l.Fatalf("%v for nonexistent folder %q", op, folder)
+		panic(fmt.Sprintf("%v for nonexistent folder %q", op, folder))
 	}
 
 	if running {
@@ -931,7 +931,7 @@ func (m *Model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	} else if update {
 		// Runner may legitimately not be set if this is the "cleanup" Index
 		// message at startup.
-		l.Fatalf("%v for not running folder %q", op, folder)
+		panic(fmt.Sprintf("%v for not running folder %q", op, folder))
 	}
 
 	m.pmut.RLock()
