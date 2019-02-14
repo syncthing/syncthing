@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -41,8 +42,8 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 	res := make(map[string]interface{})
 	res["urVersion"] = version
 	res["uniqueID"] = opts.URUniqueID
-	res["version"] = Version
-	res["longVersion"] = LongVersion
+	res["version"] = build.Version
+	res["longVersion"] = build.LongVersion
 	res["platform"] = runtime.GOOS + "-" + runtime.GOARCH
 	res["numFolders"] = len(cfg.Folders())
 	res["numDevices"] = len(cfg.Devices())

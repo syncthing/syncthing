@@ -6,4 +6,5 @@ Exec=/usr/bin/syncthing -browser-only
 Icon=syncthing
 Terminal=false
 Type=Application
+Keywords=synchronization;interface;
 Categories=Network;FileTransfer;P2P

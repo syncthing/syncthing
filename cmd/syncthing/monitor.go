@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -84,18 +85,18 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 		stderr, err := cmd.StderrPipe()
 		if err != nil {
-			l.Fatalln("stderr:", err)
+			panic(err)
 		}
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
-			l.Fatalln("stdout:", err)
+			panic(err)
 		}
 
 		l.Infoln("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
-			l.Fatalln(err)
+			panic(err)
 		}
 
 		stdoutMut.Lock()
@@ -198,7 +199,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 			}
 
 			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
-				panicFd, err = os.Create(timestampedLoc(locPanicLog))
+				panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
 				if err != nil {
 					l.Warnln("Create panic log:", err)
 					continue

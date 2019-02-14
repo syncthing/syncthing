@@ -84,18 +84,18 @@ func New(myID protocol.DeviceID) Configuration {
 	return cfg
 }
 
-func NewWithFreePorts(myID protocol.DeviceID) Configuration {
+func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
 	cfg := New(myID)
 
 	port, err := getFreePort("127.0.0.1", DefaultGUIPort)
 	if err != nil {
-		l.Fatalln("get free port (GUI):", err)
+		return Configuration{}, fmt.Errorf("get free port (GUI): %v", err)
 	}
 	cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
 
 	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
 	if err != nil {
-		l.Fatalln("get free port (BEP):", err)
+		return Configuration{}, fmt.Errorf("get free port (BEP): %v", err)
 	}
 	if port == DefaultTCPPort {
 		cfg.Options.ListenAddresses = []string{"default"}
@@ -106,7 +106,7 @@ func NewWithFreePorts(myID protocol.DeviceID) Configuration {
 		}
 	}
 
-	return cfg
+	return cfg, nil
 }
 
 func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {

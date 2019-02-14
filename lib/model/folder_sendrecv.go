@@ -196,7 +196,7 @@ func (f *sendReceiveFolder) pull() bool {
 
 		changed := f.pullerIteration(ignores, folderFiles, scanChan)
 
-		l.Debugln(f, "changed", changed, "on try", tries)
+		l.Debugln(f, "changed", changed, "on try", tries+1)
 
 		if changed == 0 {
 			// No files were changed by the puller, so we are in
@@ -795,7 +795,7 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- s
 		// we have resolved the conflict.
 		file.Version = file.Version.Merge(cur.Version)
 		err = osutil.InWritableDir(func(name string) error {
-			return f.moveForConflict(name, file.ModifiedBy.String())
+			return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 		}, f.fs, file.Name)
 	} else if f.versioner != nil && !cur.IsSymlink() {
 		err = osutil.InWritableDir(f.versioner.Archive, f.fs, file.Name)
@@ -1512,7 +1512,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, file, curFile
 
 			file.Version = file.Version.Merge(curFile.Version)
 			err = osutil.InWritableDir(func(name string) error {
-				return f.moveForConflict(name, file.ModifiedBy.String())
+				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, f.fs, file.Name)
 			if err != nil {
 				return err
@@ -1736,7 +1736,7 @@ func removeAvailability(availabilities []Availability, availability Availability
 	return availabilities
 }
 
-func (f *sendReceiveFolder) moveForConflict(name string, lastModBy string) error {
+func (f *sendReceiveFolder) moveForConflict(name string, lastModBy string, scanChan chan<- string) error {
 	if strings.Contains(filepath.Base(name), ".sync-conflict-") {
 		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
 		if err := f.fs.Remove(name); err != nil && !fs.IsNotExist(err) {
@@ -1776,6 +1776,9 @@ func (f *sendReceiveFolder) moveForConflict(name string, lastModBy string) error
 		} else if gerr != nil {
 			l.Debugln(f, "globbing for conflicts", gerr)
 		}
+	}
+	if err == nil {
+		scanChan <- newName
 	}
 	return err
 }

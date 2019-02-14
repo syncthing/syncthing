@@ -48,6 +48,7 @@ var (
 	pkgdir           string
 	cc               string
 	debugBinary      bool
+	coverage         bool
 	timeout          = "120s"
 	gogoProtoVersion = "v1.2.0"
 )
@@ -330,24 +331,27 @@ func parseFlags() {
 	flag.StringVar(&pkgdir, "pkgdir", "", "Set -pkgdir parameter for `go build`")
 	flag.StringVar(&cc, "cc", os.Getenv("CC"), "Set CC environment variable for `go build`")
 	flag.BoolVar(&debugBinary, "debug-binary", debugBinary, "Create unoptimized binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
+	flag.BoolVar(&coverage, "coverage", coverage, "Write coverage profile of tests to coverage.txt")
 	flag.Parse()
 }
 
 func test(pkgs ...string) {
 	lazyRebuildAssets()
 
-	useRace := runtime.GOARCH == "amd64"
-	switch runtime.GOOS {
-	case "darwin", "linux", "freebsd": // , "windows": # See https://github.com/golang/go/issues/27089
-	default:
-		useRace = false
+	args := []string{"test", "-short", "-timeout", timeout, "-tags", "purego"}
+
+	if runtime.GOARCH == "amd64" {
+		switch runtime.GOOS {
+		case "darwin", "linux", "freebsd": // , "windows": # See https://github.com/golang/go/issues/27089
+			args = append(args, "-race")
+		}
 	}
 
-	if useRace {
-		runPrint(goCmd, append([]string{"test", "-short", "-race", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
-	} else {
-		runPrint(goCmd, append([]string{"test", "-short", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
+	if coverage {
+		args = append(args, "-covermode", "atomic", "-coverprofile", "coverage.txt")
 	}
+
+	runPrint(goCmd, append(args, pkgs...)...)
 }
 
 func bench(pkgs ...string) {
@@ -768,10 +772,10 @@ func ldflags() string {
 
 	b := new(bytes.Buffer)
 	b.WriteString("-w")
-	fmt.Fprintf(b, " -X main.Version%c%s", sep, version)
-	fmt.Fprintf(b, " -X main.BuildStamp%c%d", sep, buildStamp())
-	fmt.Fprintf(b, " -X main.BuildUser%c%s", sep, buildUser())
-	fmt.Fprintf(b, " -X main.BuildHost%c%s", sep, buildHost())
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version%c%s", sep, version)
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp%c%d", sep, buildStamp())
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User%c%s", sep, buildUser())
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host%c%s", sep, buildHost())
 	return b.String()
 }
 

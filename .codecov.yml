@@ -1,0 +1,5 @@
+coverage:
+  range: "40...100"
+
+ignore:
+  - "**.pb.go"
