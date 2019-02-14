@@ -10,6 +10,7 @@ package main
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -21,6 +22,10 @@ import (
 
 var trans = make(map[string]string)
 var attrRe = regexp.MustCompile(`\{\{'([^']+)'\s+\|\s+translate\}\}`)
+
+// .desktop entries that can be localestrings
+var groupRe = regexp.MustCompile(`^\[Desktop Entry\]$`)
+var locRe = regexp.MustCompile(`^(Name|GenericName|Comment|Keywords)=.*\S*.*`)
 
 // exceptions to the untranslated text warning
 var noStringRe = regexp.MustCompile(
@@ -88,6 +93,59 @@ func inTranslate(n *html.Node, filename string) {
 	}
 }
 
+func parseDesktop(filename string) {
+	fd, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer fd.Close()
+
+	bs, err := ioutil.ReadAll(fd)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	lines := strings.Split(string(bs), "\n")
+
+	in := false
+
+	for _, line := range lines {
+		if groupRe.MatchString(line) {
+			in = true
+			continue
+		}
+
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			in = false
+			continue
+		}
+
+		if !in {
+			continue
+		}
+
+		if !(locRe.MatchString(line)) {
+			continue
+		}
+
+		switch value := strings.SplitN(line, "=", 2); value[0] {
+			case "Name", "GenericName", "Comment":
+				if len(value[1]) == 0 {
+					continue
+				}
+				translation(value[1])
+			case "Keywords":
+				words := strings.Split(value[1], ";")
+				for _, word := range words {
+					if len(word) == 0 {
+						continue
+					}
+					translation(word)
+				}
+		}
+	}
+}
+
 func translation(v string) {
 	v = strings.TrimSpace(v)
 	if _, ok := trans[v]; !ok {
@@ -116,6 +174,10 @@ func walkerFor(basePath string) filepath.WalkFunc {
 			generalNode(doc, filepath.Base(name))
 		}
 
+		if filepath.Ext(name) == ".desktop" && info.Mode().IsRegular() {
+			parseDesktop(filepath.Clean(name))
+		}
+
 		return nil
 	}
 }
@@ -134,6 +196,9 @@ func main() {
 	var guiDir = os.Args[2]
 
 	filepath.Walk(guiDir, walkerFor(guiDir))
+
+	var desktopDir = guiDir + "../etc/linux-desktop"
+	filepath.Walk(desktopDir, walkerFor(desktopDir))
 
 	bs, err := json.MarshalIndent(trans, "", "   ")
 	if err != nil {
