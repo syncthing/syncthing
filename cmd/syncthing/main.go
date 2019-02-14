@@ -305,7 +305,8 @@ func main() {
 	// to complain if they set -logfile explicitly, not if it's set to its
 	// default location
 	if options.noRestart && (options.logFile != "" && options.logFile != "-") {
-		l.Fatalln("-logfile may not be used with -no-restart or STNORESTART")
+		l.Warnln("-logfile may not be used with -no-restart or STNORESTART")
+		os.Exit(exitError)
 	}
 
 	if options.hideConsole {
@@ -318,11 +319,13 @@ func main() {
 			var err error
 			options.confDir, err = filepath.Abs(options.confDir)
 			if err != nil {
-				l.Fatalln(err)
+				l.Warnln("Failed to make options path absolute:", err)
+				os.Exit(exitError)
 			}
 		}
 		if err := locations.SetBaseDir(locations.ConfigBaseDir, options.confDir); err != nil {
-			l.Fatalln(err)
+			l.Warnln(err)
+			os.Exit(exitError)
 		}
 	}
 
@@ -359,7 +362,8 @@ func main() {
 			locations.Get(locations.KeyFile),
 		)
 		if err != nil {
-			l.Fatalln("Error reading device ID:", err)
+			l.Warnln("Error reading device ID:", err)
+			os.Exit(exitError)
 		}
 
 		myID = protocol.NewDeviceID(cert.Certificate[0])
@@ -368,7 +372,10 @@ func main() {
 	}
 
 	if options.browserOnly {
-		openGUI()
+		if err := openGUI(); err != nil {
+			l.Warnln("Failed to open web UI:", err)
+			os.Exit(exitError)
+		}
 		return
 	}
 
@@ -381,12 +388,16 @@ func main() {
 	}
 
 	// Ensure that our home directory exists.
-	ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700)
+	if err := ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
+		l.Warnln("Failure on home directory:", err)
+		os.Exit(exitError)
+	}
 
 	if options.upgradeTo != "" {
 		err := upgrade.ToURL(options.upgradeTo)
 		if err != nil {
-			l.Fatalln("Upgrade:", err) // exits 1
+			l.Warnln("Error while Upgrading:", err)
+			os.Exit(exitError)
 		}
 		l.Infoln("Upgraded from", options.upgradeTo)
 		return
@@ -405,7 +416,8 @@ func main() {
 
 	if options.resetDatabase {
 		if err := resetDB(); err != nil {
-			l.Fatalln("Resetting database:", err)
+			l.Warnln("Resetting database:", err)
+			os.Exit(exitError)
 		}
 		return
 	}
@@ -417,15 +429,19 @@ func main() {
 	}
 }
 
-func openGUI() {
-	cfg, _ := loadOrDefaultConfig()
+func openGUI() error {
+	cfg, err := loadOrDefaultConfig()
+	if err != nil {
+		return err
+	}
 	if cfg.GUI().Enabled {
 		if err := openURL(cfg.GUI().URL()); err != nil {
-			l.Fatalln("Open URL:", err)
+			return err
 		}
 	} else {
 		l.Warnln("Browser: GUI is currently disabled")
 	}
+	return nil
 }
 
 func generate(generateDir string) error {
@@ -433,7 +449,10 @@ func generate(generateDir string) error {
 	if err != nil {
 		return err
 	}
-	ensureDir(dir, 0700)
+
+	if err := ensureDir(dir, 0700); err != nil {
+		return err
+	}
 
 	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
@@ -497,7 +516,8 @@ func checkUpgrade() upgrade.Release {
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
-		l.Fatalln("Upgrade:", err)
+		l.Warnln("Upgrade:", err)
+		os.Exit(exitError)
 	}
 
 	if upgrade.CompareVersions(release.Tag, build.Version) <= 0 {
@@ -516,14 +536,16 @@ func performUpgrade(release upgrade.Release) {
 	if err == nil {
 		err = upgrade.To(release)
 		if err != nil {
-			l.Fatalln("Upgrade:", err)
+			l.Warnln("Upgrade:", err)
+			os.Exit(exitError)
 		}
 		l.Infof("Upgraded to %q", release.Tag)
 	} else {
 		l.Infoln("Attempting upgrade through running Syncthing...")
 		err = upgradeViaRest()
 		if err != nil {
-			l.Fatalln("Upgrade:", err)
+			l.Warnln("Upgrade:", err)
+			os.Exit(exitError)
 		}
 		l.Infoln("Syncthing upgrading")
 		os.Exit(exitUpgrading)
@@ -622,7 +644,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			tlsDefaultCommonName,
 		)
 		if err != nil {
-			l.Fatalln(err)
+			l.Infoln("Failed to generate certificate:", err)
+			os.Exit(exitError)
 		}
 	}
 
@@ -651,7 +674,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	if err := checkShortIDs(cfg); err != nil {
-		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
+		l.Warnln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
+		os.Exit(exitError)
 	}
 
 	if len(runtimeOptions.profiler) > 0 {
@@ -660,7 +684,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			runtime.SetBlockProfileRate(1)
 			err := http.ListenAndServe(runtimeOptions.profiler, nil)
 			if err != nil {
-				l.Fatalln(err)
+				l.Warnln(err)
+				os.Exit(exitError)
 			}
 		}()
 	}
@@ -671,10 +696,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	dbFile := locations.Get(locations.Database)
 	ldb, err := db.Open(dbFile)
 	if err != nil {
-		l.Fatalln("Error opening database:", err)
+		l.Warnln("Error opening database:", err)
+		os.Exit(exitError)
 	}
 	if err := db.UpdateSchema(ldb); err != nil {
-		l.Fatalln("Database schema:", err)
+		l.Warnln("Database schema:", err)
+		os.Exit(exitError)
 	}
 
 	if runtimeOptions.resetDeltaIdxs {
@@ -810,10 +837,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
-			l.Fatalln("Creating profile:", err)
+			l.Warnln("Creating profile:", err)
+			os.Exit(exitError)
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
-			l.Fatalln("Starting profile:", err)
+			l.Warnln("Starting profile:", err)
+			os.Exit(exitError)
 		}
 	}
 
@@ -1016,7 +1045,8 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 		}
 		fd, err = os.OpenFile(auditFile, auditFlags, 0600)
 		if err != nil {
-			l.Fatalln("Audit:", err)
+			l.Warnln("Audit:", err)
+			os.Exit(exitError)
 		}
 		auditDest = auditFile
 	}
@@ -1077,11 +1107,11 @@ func resetDB() error {
 	return os.RemoveAll(locations.Get(locations.Database))
 }
 
-func ensureDir(dir string, mode fs.FileMode) {
+func ensureDir(dir string, mode fs.FileMode) error {
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 	err := fs.MkdirAll(".", mode)
 	if err != nil {
-		l.Fatalln(err)
+		return err
 	}
 
 	if fi, err := fs.Stat("."); err == nil {
@@ -1097,6 +1127,7 @@ func ensureDir(dir string, mode fs.FileMode) {
 			}
 		}
 	}
+	return nil
 }
 
 func standbyMonitor() {
@@ -1252,6 +1283,7 @@ func setPauseState(cfg *config.Wrapper, paused bool) {
 		raw.Folders[i].Paused = paused
 	}
 	if _, err := cfg.Replace(raw); err != nil {
-		l.Fatalln("Cannot adjust paused state:", err)
+		l.Warnln("Cannot adjust paused state:", err)
+		os.Exit(exitError)
 	}
 }
