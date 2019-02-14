@@ -19,7 +19,8 @@ import (
 
 const (
 	dbMaxOpenFiles = 100
-	dbWriteBuffer  = 4 << 20
+	dbWriteBuffer  = 16 << 20
+	dbFlushBatch   = dbWriteBuffer / 4 // Some leeway for any leveldb in-memory optimizations
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
@@ -126,4 +127,30 @@ func leveldbIsCorrupted(err error) bool {
 	}
 
 	return false
+}
+
+type batch struct {
+	*leveldb.Batch
+	db *Lowlevel
+}
+
+func (db *Lowlevel) newBatch() *batch {
+	return &batch{
+		Batch: new(leveldb.Batch),
+		db:    db,
+	}
+}
+
+// checkFlush flushes and resets the batch if its size exceeds dbFlushBatch.
+func (b *batch) checkFlush() {
+	if len(b.Dump()) > dbFlushBatch {
+		b.flush()
+		b.Reset()
+	}
+}
+
+func (b *batch) flush() {
+	if err := b.db.Write(b.Batch, nil); err != nil {
+		panic(err)
+	}
 }
