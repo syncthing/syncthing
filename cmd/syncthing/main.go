@@ -9,7 +9,6 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -48,6 +47,7 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 
+	"github.com/pkg/errors"
 	"github.com/thejerf/suture"
 )
 
@@ -305,7 +305,8 @@ func main() {
 	// to complain if they set -logfile explicitly, not if it's set to its
 	// default location
 	if options.noRestart && (options.logFile != "" && options.logFile != "-") {
-		l.Fatalln("-logfile may not be used with -no-restart or STNORESTART")
+		l.Warnln("-logfile may not be used with -no-restart or STNORESTART")
+		os.Exit(exitError)
 	}
 
 	if options.hideConsole {
@@ -318,11 +319,13 @@ func main() {
 			var err error
 			options.confDir, err = filepath.Abs(options.confDir)
 			if err != nil {
-				l.Fatalln(err)
+				l.Warnln("Failed to make options path absolute:", err)
+				os.Exit(exitError)
 			}
 		}
 		if err := locations.SetBaseDir(locations.ConfigBaseDir, options.confDir); err != nil {
-			l.Fatalln(err)
+			l.Warnln(err)
+			os.Exit(exitError)
 		}
 	}
 
@@ -359,7 +362,8 @@ func main() {
 			locations.Get(locations.KeyFile),
 		)
 		if err != nil {
-			l.Fatalln("Error reading device ID:", err)
+			l.Warnln("Error reading device ID:", err)
+			os.Exit(exitError)
 		}
 
 		myID = protocol.NewDeviceID(cert.Certificate[0])
@@ -368,22 +372,32 @@ func main() {
 	}
 
 	if options.browserOnly {
-		openGUI()
+		if err := openGUI(); err != nil {
+			l.Warnln("Failed to open web UI:", err)
+			os.Exit(exitError)
+		}
 		return
 	}
 
 	if options.generateDir != "" {
-		generate(options.generateDir)
+		if err := generate(options.generateDir); err != nil {
+			l.Warnln("Failed to generate config and keys:", err)
+			os.Exit(exitError)
+		}
 		return
 	}
 
 	// Ensure that our home directory exists.
-	ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700)
+	if err := ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
+		l.Warnln("Failure on home directory:", err)
+		os.Exit(exitError)
+	}
 
 	if options.upgradeTo != "" {
 		err := upgrade.ToURL(options.upgradeTo)
 		if err != nil {
-			l.Fatalln("Upgrade:", err) // exits 1
+			l.Warnln("Error while Upgrading:", err)
+			os.Exit(exitError)
 		}
 		l.Infoln("Upgraded from", options.upgradeTo)
 		return
@@ -402,7 +416,8 @@ func main() {
 
 	if options.resetDatabase {
 		if err := resetDB(); err != nil {
-			l.Fatalln("Resetting database:", err)
+			l.Warnln("Resetting database:", err)
+			os.Exit(exitError)
 		}
 		return
 	}
@@ -414,23 +429,30 @@ func main() {
 	}
 }
 
-func openGUI() {
-	cfg, _ := loadOrDefaultConfig()
+func openGUI() error {
+	cfg, err := loadOrDefaultConfig()
+	if err != nil {
+		return err
+	}
 	if cfg.GUI().Enabled {
 		if err := openURL(cfg.GUI().URL()); err != nil {
-			l.Fatalln("Open URL:", err)
+			return err
 		}
 	} else {
 		l.Warnln("Browser: GUI is currently disabled")
 	}
+	return nil
 }
 
-func generate(generateDir string) {
+func generate(generateDir string) error {
 	dir, err := fs.ExpandTilde(generateDir)
 	if err != nil {
-		l.Fatalln("generate:", err)
+		return err
 	}
-	ensureDir(dir, 0700)
+
+	if err := ensureDir(dir, 0700); err != nil {
+		return err
+	}
 
 	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
@@ -440,11 +462,11 @@ func generate(generateDir string) {
 	} else {
 		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName)
 		if err != nil {
-			l.Fatalln("Create certificate:", err)
+			return errors.Wrap(err, "create certificate")
 		}
 		myID = protocol.NewDeviceID(cert.Certificate[0])
 		if err != nil {
-			l.Fatalln("Load certificate:", err)
+			return errors.Wrap(err, "load certificate")
 		}
 		if err == nil {
 			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
@@ -454,13 +476,17 @@ func generate(generateDir string) {
 	cfgFile := filepath.Join(dir, "config.xml")
 	if _, err := os.Stat(cfgFile); err == nil {
 		l.Warnln("Config exists; will not overwrite.")
-		return
+		return nil
 	}
-	var cfg = defaultConfig(cfgFile)
+	cfg, err := defaultConfig(cfgFile)
+	if err != nil {
+		return err
+	}
 	err = cfg.Save()
 	if err != nil {
-		l.Warnln("Failed to save config", err)
+		return errors.Wrap(err, "save config")
 	}
+	return nil
 }
 
 func debugFacilities() string {
@@ -490,7 +516,8 @@ func checkUpgrade() upgrade.Release {
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
-		l.Fatalln("Upgrade:", err)
+		l.Warnln("Upgrade:", err)
+		os.Exit(exitError)
 	}
 
 	if upgrade.CompareVersions(release.Tag, build.Version) <= 0 {
@@ -509,14 +536,16 @@ func performUpgrade(release upgrade.Release) {
 	if err == nil {
 		err = upgrade.To(release)
 		if err != nil {
-			l.Fatalln("Upgrade:", err)
+			l.Warnln("Upgrade:", err)
+			os.Exit(exitError)
 		}
 		l.Infof("Upgraded to %q", release.Tag)
 	} else {
 		l.Infoln("Attempting upgrade through running Syncthing...")
 		err = upgradeViaRest()
 		if err != nil {
-			l.Fatalln("Upgrade:", err)
+			l.Warnln("Upgrade:", err)
+			os.Exit(exitError)
 		}
 		l.Infoln("Syncthing upgrading")
 		os.Exit(exitUpgrading)
@@ -615,7 +644,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			tlsDefaultCommonName,
 		)
 		if err != nil {
-			l.Fatalln(err)
+			l.Infoln("Failed to generate certificate:", err)
+			os.Exit(exitError)
 		}
 	}
 
@@ -637,10 +667,15 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"myID": myID.String(),
 	})
 
-	cfg := loadConfigAtStartup()
+	cfg, err := loadConfigAtStartup()
+	if err != nil {
+		l.Warnln("Failed to initialize config:", err)
+		os.Exit(exitError)
+	}
 
 	if err := checkShortIDs(cfg); err != nil {
-		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
+		l.Warnln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
+		os.Exit(exitError)
 	}
 
 	if len(runtimeOptions.profiler) > 0 {
@@ -649,7 +684,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			runtime.SetBlockProfileRate(1)
 			err := http.ListenAndServe(runtimeOptions.profiler, nil)
 			if err != nil {
-				l.Fatalln(err)
+				l.Warnln(err)
+				os.Exit(exitError)
 			}
 		}()
 	}
@@ -660,10 +696,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	dbFile := locations.Get(locations.Database)
 	ldb, err := db.Open(dbFile)
 	if err != nil {
-		l.Fatalln("Error opening database:", err)
+		l.Warnln("Error opening database:", err)
+		os.Exit(exitError)
 	}
 	if err := db.UpdateSchema(ldb); err != nil {
-		l.Fatalln("Database schema:", err)
+		l.Warnln("Database schema:", err)
+		os.Exit(exitError)
 	}
 
 	if runtimeOptions.resetDeltaIdxs {
@@ -799,10 +837,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
-			l.Fatalln("Creating profile:", err)
+			l.Warnln("Creating profile:", err)
+			os.Exit(exitError)
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
-			l.Fatalln("Starting profile:", err)
+			l.Warnln("Starting profile:", err)
+			os.Exit(exitError)
 		}
 	}
 
@@ -921,33 +961,39 @@ func loadOrDefaultConfig() (*config.Wrapper, error) {
 	cfg, err := config.Load(cfgFile, myID)
 
 	if err != nil {
-		cfg = defaultConfig(cfgFile)
+		cfg, err = defaultConfig(cfgFile)
 	}
 
 	return cfg, err
 }
 
-func loadConfigAtStartup() *config.Wrapper {
+func loadConfigAtStartup() (*config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
-		cfg = defaultConfig(cfgFile)
-		cfg.Save()
-		l.Infof("Default config saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
+		cfg, err = defaultConfig(cfgFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to generate default config")
+		}
+		err = cfg.Save()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to save default config")
+		}
+		l.Infof("Default config saved. Edit %s to taste (with Syncthing stopped) or use the GUI", cfg.ConfigPath())
 	} else if err == io.EOF {
-		l.Fatalln("Failed to load config: unexpected end of file. Truncated or empty configuration?")
+		return nil, errors.New("Failed to load config: unexpected end of file. Truncated or empty configuration?")
 	} else if err != nil {
-		l.Fatalln("Failed to load config:", err)
+		return nil, errors.Wrap(err, "failed to load config")
 	}
 
 	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
 		err = archiveAndSaveConfig(cfg)
 		if err != nil {
-			l.Fatalln("Config archive:", err)
+			return nil, errors.Wrap(err, "config archive")
 		}
 	}
 
-	return cfg
+	return cfg, nil
 }
 
 func archiveAndSaveConfig(cfg *config.Wrapper) error {
@@ -999,7 +1045,8 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 		}
 		fd, err = os.OpenFile(auditFile, auditFlags, 0600)
 		if err != nil {
-			l.Fatalln("Audit:", err)
+			l.Warnln("Audit:", err)
+			os.Exit(exitError)
 		}
 		auditDest = auditFile
 	}
@@ -1032,36 +1079,43 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	cfg.Subscribe(api)
 	mainService.Add(api)
 
+	if err := api.WaitForStart(); err != nil {
+		l.Warnln("Failed starting API:", err)
+		os.Exit(exitError)
+	}
+
 	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
-		<-api.startedOnce
 		go func() { _ = openURL(guiCfg.URL()) }()
 	}
 }
 
-func defaultConfig(cfgFile string) *config.Wrapper {
-	newCfg := config.NewWithFreePorts(myID)
+func defaultConfig(cfgFile string) (*config.Wrapper, error) {
+	newCfg, err := config.NewWithFreePorts(myID)
+	if err != nil {
+		return nil, err
+	}
 
 	if noDefaultFolder {
 		l.Infoln("We will skip creation of a default folder on first start since the proper envvar is set")
-		return config.Wrap(cfgFile, newCfg)
+		return config.Wrap(cfgFile, newCfg), nil
 	}
 
 	newCfg.Folders = append(newCfg.Folders, config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations.Get(locations.DefFolder)))
 	l.Infoln("Default folder created and/or linked to new config")
-	return config.Wrap(cfgFile, newCfg)
+	return config.Wrap(cfgFile, newCfg), nil
 }
 
 func resetDB() error {
 	return os.RemoveAll(locations.Get(locations.Database))
 }
 
-func ensureDir(dir string, mode fs.FileMode) {
+func ensureDir(dir string, mode fs.FileMode) error {
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 	err := fs.MkdirAll(".", mode)
 	if err != nil {
-		l.Fatalln(err)
+		return err
 	}
 
 	if fi, err := fs.Stat("."); err == nil {
@@ -1077,6 +1131,7 @@ func ensureDir(dir string, mode fs.FileMode) {
 			}
 		}
 	}
+	return nil
 }
 
 func standbyMonitor() {
@@ -1232,6 +1287,7 @@ func setPauseState(cfg *config.Wrapper, paused bool) {
 		raw.Folders[i].Paused = paused
 	}
 	if _, err := cfg.Replace(raw); err != nil {
-		l.Fatalln("Cannot adjust paused state:", err)
+		l.Warnln("Cannot adjust paused state:", err)
+		os.Exit(exitError)
 	}
 }

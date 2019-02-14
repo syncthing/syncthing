@@ -25,7 +25,6 @@ const (
 	LevelVerbose
 	LevelInfo
 	LevelWarn
-	LevelFatal
 	NumLevels
 )
 
@@ -49,8 +48,6 @@ type Logger interface {
 	Infof(format string, vals ...interface{})
 	Warnln(vals ...interface{})
 	Warnf(format string, vals ...interface{})
-	Fatalln(vals ...interface{})
-	Fatalf(format string, vals ...interface{})
 	ShouldDebug(facility string) bool
 	SetDebug(facility string, enabled bool)
 	Facilities() map[string]string
@@ -188,28 +185,6 @@ func (l *logger) Warnf(format string, vals ...interface{}) {
 	defer l.mut.Unlock()
 	l.logger.Output(2, "WARNING: "+s)
 	l.callHandlers(LevelWarn, s)
-}
-
-// Fatalln logs a line with a FATAL prefix and exits the process with exit
-// code 1.
-func (l *logger) Fatalln(vals ...interface{}) {
-	s := fmt.Sprintln(vals...)
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	l.logger.Output(2, "FATAL: "+s)
-	l.callHandlers(LevelFatal, s)
-	os.Exit(1)
-}
-
-// Fatalf logs a formatted line with a FATAL prefix and exits the process with
-// exit code 1.
-func (l *logger) Fatalf(format string, vals ...interface{}) {
-	s := fmt.Sprintf(format, vals...)
-	l.mut.Lock()
-	defer l.mut.Unlock()
-	l.logger.Output(2, "FATAL: "+s)
-	l.callHandlers(LevelFatal, s)
-	os.Exit(1)
 }
 
 // ShouldDebug returns true if the given facility has debugging enabled.
