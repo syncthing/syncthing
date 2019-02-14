@@ -99,23 +99,24 @@ func CommonPrefix(first, second string) string {
 		count = len(secondParts)
 	}
 
-	common := make([]string, 0, count)
-	for i := 0; i < count; i++ {
+	i := 0
+	for ; i < count; i++ {
 		if firstParts[i] != secondParts[i] {
 			break
 		}
-		common = append(common, firstParts[i])
 	}
 
-	if len(common) == 0 {
+	if i == 0 {
 		if runtime.GOOS != "windows" && filepath.IsAbs(first) && filepath.IsAbs(second) {
+			fmt.Println("returning slash")
 			return "/"
 		}
+		fmt.Println("returning other")
 		return ""
 	}
-
-	result := filepath.Clean(strings.Join(common, string(PathSeparator)))
-
+	fmt.Println("pre clean", firstParts[:i])
+	result := filepath.Clean(strings.Join(firstParts[:i], string(PathSeparator)))
+	fmt.Println("post clean", result)
 	if runtime.GOOS == "windows" {
 		if len(result) == 3 && strings.HasSuffix(result, ":.") {
 			// filepath.Clean("C:\") return "C:.", fix that up.
