@@ -79,6 +79,8 @@ type apiService struct {
 	configChanged      chan struct{} // signals intentional listener close due to config change
 	started            chan string   // signals startup complete by sending the listener address, for testing only
 	startedOnce        chan struct{} // the service has started successfully at least once
+	firstStartupFailed chan struct{} // the service failed to start successfully even once
+	firstStartupErr    error
 	cpu                rater
 
 	guiErrors logger.Recorder
@@ -166,12 +168,22 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		stop:               make(chan struct{}),
 		configChanged:      make(chan struct{}),
 		startedOnce:        make(chan struct{}),
+		firstStartupFailed: make(chan struct{}),
 		guiErrors:          errors,
 		systemLog:          systemLog,
 		cpu:                cpu,
 	}
 
 	return service
+}
+
+func (s *apiService) WaitForStart() error {
+	select {
+	case <-s.startedOnce:
+	case <-s.firstStartupFailed:
+		return s.firstStartupErr
+	}
+	return nil
 }
 
 func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, error) {
@@ -236,14 +248,17 @@ func (s *apiService) Serve() {
 			// We let this be a loud user-visible warning as it may be the only
 			// indication they get that the GUI won't be available.
 			l.Warnln("Starting API/GUI:", err)
-			return
+
+		case <-s.firstStartupFailed:
 
 		default:
 			// This is during initialization. A failure here should be fatal
 			// as there will be no way for the user to communicate with us
 			// otherwise anyway.
-			l.Fatalln("Starting API/GUI:", err)
+			s.firstStartupErr = err
+			close(s.firstStartupFailed)
 		}
+		return
 	}
 
 	if listener == nil {
@@ -408,6 +423,17 @@ func (s *apiService) Serve() {
 		// Restart due to listen/serve failure
 		l.Warnln("GUI/API:", err, "(restarting)")
 	}
+}
+
+// Complete implements suture.IsCompletable, which signifies to the supervisor
+// whether to stop restarting the service.
+func (s *apiService) Complete() bool {
+	select {
+	case <-s.firstStartupFailed:
+		return true
+	default:
+	}
+	return false
 }
 
 func (s *apiService) Stop() {

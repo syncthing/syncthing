@@ -1079,10 +1079,14 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	cfg.Subscribe(api)
 	mainService.Add(api)
 
+	if err := api.WaitForStart(); err != nil {
+		l.Warnln("Failed starting API:", err)
+		os.Exit(exitError)
+	}
+
 	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
-		<-api.startedOnce
 		go func() { _ = openURL(guiCfg.URL()) }()
 	}
 }
