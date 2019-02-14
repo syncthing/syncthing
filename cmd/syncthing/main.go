@@ -462,11 +462,11 @@ func generate(generateDir string) error {
 	} else {
 		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName)
 		if err != nil {
-			return errors.Wrap(err, "Create certificate")
+			return errors.Wrap(err, "create certificate")
 		}
 		myID = protocol.NewDeviceID(cert.Certificate[0])
 		if err != nil {
-			return errors.Wrap(err, "Load certificate")
+			return errors.Wrap(err, "load certificate")
 		}
 		if err == nil {
 			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
@@ -484,7 +484,7 @@ func generate(generateDir string) error {
 	}
 	err = cfg.Save()
 	if err != nil {
-		return errors.Wrap(err, "Save config")
+		return errors.Wrap(err, "save config")
 	}
 	return nil
 }
@@ -973,23 +973,23 @@ func loadConfigAtStartup() (*config.Wrapper, error) {
 	if os.IsNotExist(err) {
 		cfg, err = defaultConfig(cfgFile)
 		if err != nil {
-			return nil, errors.Wrap(err, "Failed to generate default config")
+			return nil, errors.Wrap(err, "failed to generate default config")
 		}
 		err = cfg.Save()
 		if err != nil {
-			return nil, errors.Wrap(err, "Failed to save default config")
+			return nil, errors.Wrap(err, "failed to save default config")
 		}
 		l.Infof("Default config saved. Edit %s to taste (with Syncthing stopped) or use the GUI", cfg.ConfigPath())
 	} else if err == io.EOF {
 		return nil, errors.New("Failed to load config: unexpected end of file. Truncated or empty configuration?")
 	} else if err != nil {
-		return nil, errors.Wrap(err, "Failed to load config")
+		return nil, errors.Wrap(err, "failed to load config")
 	}
 
 	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
 		err = archiveAndSaveConfig(cfg)
 		if err != nil {
-			return nil, errors.Wrap(err, "Config archive")
+			return nil, errors.Wrap(err, "config archive")
 		}
 	}
 
