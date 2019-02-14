@@ -78,9 +78,8 @@ type apiService struct {
 	stop               chan struct{} // signals intentional stop
 	configChanged      chan struct{} // signals intentional listener close due to config change
 	started            chan string   // signals startup complete by sending the listener address, for testing only
-	startedOnce        chan struct{} // the service has started successfully at least once
-	firstStartupFailed chan struct{} // the service failed to start successfully even once
-	firstStartupErr    error
+	startedOnce        chan struct{} // the service has started at least once
+	startupErr         error
 	cpu                rater
 
 	guiErrors logger.Recorder
@@ -168,7 +167,6 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		stop:               make(chan struct{}),
 		configChanged:      make(chan struct{}),
 		startedOnce:        make(chan struct{}),
-		firstStartupFailed: make(chan struct{}),
 		guiErrors:          errors,
 		systemLog:          systemLog,
 		cpu:                cpu,
@@ -178,12 +176,8 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 }
 
 func (s *apiService) WaitForStart() error {
-	select {
-	case <-s.startedOnce:
-	case <-s.firstStartupFailed:
-		return s.firstStartupErr
-	}
-	return nil
+	<-s.startedOnce
+	return s.startupErr
 }
 
 func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, error) {
@@ -249,14 +243,12 @@ func (s *apiService) Serve() {
 			// indication they get that the GUI won't be available.
 			l.Warnln("Starting API/GUI:", err)
 
-		case <-s.firstStartupFailed:
-
 		default:
 			// This is during initialization. A failure here should be fatal
 			// as there will be no way for the user to communicate with us
 			// otherwise anyway.
-			s.firstStartupErr = err
-			close(s.firstStartupFailed)
+			s.startupErr = err
+			close(s.startedOnce)
 		}
 		return
 	}
@@ -429,7 +421,9 @@ func (s *apiService) Serve() {
 // whether to stop restarting the service.
 func (s *apiService) Complete() bool {
 	select {
-	case <-s.firstStartupFailed:
+	case <-s.startedOnce:
+		return s.startupErr != nil
+	case <-s.stop:
 		return true
 	default:
 	}
