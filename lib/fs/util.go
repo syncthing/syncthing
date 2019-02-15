@@ -91,18 +91,15 @@ func IsParent(path, parent string) bool {
 }
 
 func CommonPrefix(first, second string) string {
+	if filepath.IsAbs(first) != filepath.IsAbs(second) {
+		// Whatever
+		return ""
+	}
+
 	firstParts := strings.Split(filepath.Clean(first), string(PathSeparator))
 	secondParts := strings.Split(filepath.Clean(second), string(PathSeparator))
 
-	if runtime.GOOS != "windows" {
-		// strings.Split("/foo") = ["", "foo"]
-		if len(firstParts) > 0 && firstParts[0] == "" {
-			firstParts = firstParts[1:]
-		}
-		if len(secondParts) > 0 && secondParts[0] == "" {
-			secondParts = secondParts[1:]
-		}
-	}
+	isAbs := filepath.IsAbs(first) && filepath.IsAbs(second)
 
 	count := len(firstParts)
 	if len(secondParts) < len(firstParts) {
@@ -116,16 +113,24 @@ func CommonPrefix(first, second string) string {
 		}
 	}
 
+	// If isAbs on Linux, first element in both first and second is "", hence joining that returns nothing.
+	if i == 1 && isAbs && runtime.GOOS != "windows" {
+		fmt.Println("Returning one")
+		return string(PathSeparator)
+	}
+
+	// This should only be true on Windows when drive letters are different or when paths are relative.
+	// In case of UNC paths we should end up with more than a single element hence joining is fine
 	if i == 0 {
-		if runtime.GOOS != "windows" && filepath.IsAbs(first) && filepath.IsAbs(second) {
-			fmt.Println("returning slash")
-			return "/"
-		}
-		fmt.Println("returning other")
+		fmt.Println("returning zero")
 		return ""
 	}
-	fmt.Println("pre clean", i, firstParts[:i])
-	result := filepath.Clean(strings.Join(firstParts[:i], string(PathSeparator)))
+
+	fmt.Println("pre join", i, firstParts[:i])
+	// This has to be strings.Join, because joining ["", "", "?", "C:", "Audrius"] returns garbage
+	result := strings.Join(firstParts[:i], string(PathSeparator))
+	fmt.Println("pre clean", result)
+	result = filepath.Clean(result)
 	fmt.Println("post clean", result)
 	if runtime.GOOS == "windows" {
 		if len(result) == 3 && strings.HasSuffix(result, ":.") {
