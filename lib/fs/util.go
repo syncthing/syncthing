@@ -105,45 +105,40 @@ func CommonPrefix(first, second string) string {
 	if len(secondParts) < len(firstParts) {
 		count = len(secondParts)
 	}
-	fmt.Println("input", first, second, isAbs)
-	i := 0
-	for ; i < count; i++ {
+
+	common := make([]string, 0, count)
+	for i := 0; i < count; i++ {
 		if firstParts[i] != secondParts[i] {
 			break
 		}
+		common = append(common, firstParts[i])
 	}
 
-	fmt.Println("got", firstParts[:i])
-
-	// If isAbs on Linux, first element in both first and second is "", hence joining that returns nothing.
-	if i == 1 && isAbs && runtime.GOOS != "windows" {
-		fmt.Println("Returning one")
+	if runtime.GOOS == "windows" && isAbs && (
+		// UNC vs non-UNC
+		(len(common) == 1 && strings.HasSuffix(common[0], ":")) ||
+			(len(common) == 4 && strings.HasSuffix(common[3], ":"))) {
+		// Because strings.Split strips out path separators, if we're at the volume name, we end up without a separator
+		// Wedge an empty element to be joined with.
+		common = append(common, "")
+	} else if len(common) == 1 && isAbs {
+		// If isAbs on non Windows, first element in both first and second is "", hence joining that returns nothing.
 		return string(PathSeparator)
+	}
+
+	if len(common) == 1 && isAbs {
+		if runtime.GOOS != "windows" {
+			return string(PathSeparator)
+		}
 	}
 
 	// This should only be true on Windows when drive letters are different or when paths are relative.
 	// In case of UNC paths we should end up with more than a single element hence joining is fine
-	if i == 0 {
-		fmt.Println("returning zero")
+	if len(common) == 0 {
 		return ""
 	}
 
-	fmt.Println("pre join", i, firstParts[:i])
-	// This has to be strings.Join, because joining ["", "", "?", "C:", "Audrius"] returns garbage
-	result := strings.Join(firstParts[:i], string(PathSeparator))
-	fmt.Println("pre clean", result)
-	result = filepath.Clean(result)
-	fmt.Println("post clean", result)
-	if runtime.GOOS == "windows" {
-		if len(result) == 3 && strings.HasSuffix(result, ":.") {
-			// filepath.Clean("C:\") return "C:.", fix that up.
-			bytes := []byte(result)
-			bytes[len(bytes)-1 ] = PathSeparator
-			result = string(bytes)
-		} else if len(result) == 6 && strings.HasPrefix(result, `\\?\`) {
-			// filepath.Clean("\\?\C:\") return "\\?\C:", fix that up.
-			result += string(PathSeparator)
-		}
-	}
-	return result
+	// This has to be strings.Join, because filepath.Join([]string{"", "", "?", "C:", "Audrius"}...) returns garbage
+	result := strings.Join(common, string(PathSeparator))
+	return filepath.Clean(result)
 }
