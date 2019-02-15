@@ -2404,7 +2404,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 
 	// Trigger scan
 	if !fcfg.FSWatcherEnabled {
-		go m.ScanFolder(folder)
+		go func() { _ = m.ScanFolder(folder) }()
 	}
 
 	return restoreErrors, nil
