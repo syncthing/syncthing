@@ -94,6 +94,16 @@ func CommonPrefix(first, second string) string {
 	firstParts := strings.Split(filepath.Clean(first), string(PathSeparator))
 	secondParts := strings.Split(filepath.Clean(second), string(PathSeparator))
 
+	if runtime.GOOS != "windows" {
+		// strings.Split("/foo") = ["", "foo"]
+		if len(firstParts) > 0 && firstParts[0] == "" {
+			firstParts = firstParts[1:]
+		}
+		if len(secondParts) > 0 && secondParts[0] == "" {
+			secondParts = secondParts[1:]
+		}
+	}
+
 	count := len(firstParts)
 	if len(secondParts) < len(firstParts) {
 		count = len(secondParts)
