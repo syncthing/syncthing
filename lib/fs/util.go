@@ -114,7 +114,7 @@ func CommonPrefix(first, second string) string {
 		fmt.Println("returning other")
 		return ""
 	}
-	fmt.Println("pre clean", firstParts[:i])
+	fmt.Println("pre clean", i, firstParts[:i])
 	result := filepath.Clean(strings.Join(firstParts[:i], string(PathSeparator)))
 	fmt.Println("post clean", result)
 	if runtime.GOOS == "windows" {
