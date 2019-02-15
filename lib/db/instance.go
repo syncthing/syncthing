@@ -80,7 +80,7 @@ func (db *instance) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		if ok {
 			if !ef.IsDirectory() && !ef.IsDeleted() && !ef.IsInvalid() {
 				for _, block := range ef.Blocks {
-					keyBuf = t.db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
+					keyBuf = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
 					t.Delete(keyBuf)
 				}
 			}
@@ -100,7 +100,7 @@ func (db *instance) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		l.Debugf("insert (local); folder=%q %v", folder, f)
 		t.Put(dk, mustMarshal(&f))
 
-		gk = t.db.keyer.GenerateGlobalVersionKey(gk, folder, []byte(f.Name))
+		gk = db.keyer.GenerateGlobalVersionKey(gk, folder, []byte(f.Name))
 		keyBuf, _ = t.updateGlobal(gk, keyBuf, folder, protocol.LocalDeviceID[:], f, meta)
 
 		keyBuf = db.keyer.GenerateSequenceKey(keyBuf, folder, f.Sequence)
@@ -110,7 +110,7 @@ func (db *instance) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		if !f.IsDirectory() && !f.IsDeleted() && !f.IsInvalid() {
 			for i, block := range f.Blocks {
 				binary.BigEndian.PutUint32(blockBuf, uint32(i))
-				keyBuf = t.db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
+				keyBuf = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
 				t.Put(keyBuf, blockBuf)
 			}
 		}

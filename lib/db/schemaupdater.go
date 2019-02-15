@@ -104,18 +104,18 @@ func (db *schemaUpdater) updateSchema0to1() {
 	var gk, buf []byte
 
 	for dbi.Next() {
+		t.checkFlush()
+
 		folder, ok := db.keyer.FolderFromDeviceFileKey(dbi.Key())
 		if !ok {
 			// not having the folder in the index is bad; delete and continue
 			t.Delete(dbi.Key())
-			t.checkFlush()
 			continue
 		}
 		device, ok := db.keyer.DeviceFromDeviceFileKey(dbi.Key())
 		if !ok {
 			// not having the device in the index is bad; delete and continue
 			t.Delete(dbi.Key())
-			t.checkFlush()
 			continue
 		}
 		name := db.keyer.NameFromDeviceFileKey(dbi.Key())
@@ -128,7 +128,6 @@ func (db *schemaUpdater) updateSchema0to1() {
 			gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
 			buf = t.removeFromGlobal(gk, buf, folder, device, nil, nil)
 			t.Delete(dbi.Key())
-			t.checkFlush()
 			continue
 		}
 
@@ -149,7 +148,6 @@ func (db *schemaUpdater) updateSchema0to1() {
 				panic("can't happen: " + err.Error())
 			}
 			t.Put(dbi.Key(), bs)
-			t.checkFlush()
 			symlinkConv++
 		}
 
@@ -210,7 +208,7 @@ func (db *schemaUpdater) updateSchema2to3() {
 			if !need(f, ok, v) {
 				return true
 			}
-			nk = t.db.keyer.GenerateNeedFileKey(nk, folder, []byte(f.FileName()))
+			nk = t.keyer.GenerateNeedFileKey(nk, folder, []byte(f.FileName()))
 			t.Put(nk, nil)
 			t.checkFlush()
 			return true
@@ -282,7 +280,7 @@ func (db *schemaUpdater) updateSchema6to7() {
 			svl, err := t.Get(gk, nil)
 			if err != nil {
 				// If there is no global list, we hardly need it.
-				t.Delete(t.db.keyer.GenerateNeedFileKey(nk, folder, name))
+				t.Delete(t.keyer.GenerateNeedFileKey(nk, folder, name))
 				return true
 			}
 			var fl VersionList
@@ -293,7 +291,7 @@ func (db *schemaUpdater) updateSchema6to7() {
 				return true
 			}
 			if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); !need(global, haveLocalFV, localFV.Version) {
-				t.Delete(t.db.keyer.GenerateNeedFileKey(nk, folder, name))
+				t.Delete(t.keyer.GenerateNeedFileKey(nk, folder, name))
 			}
 			return true
 		})

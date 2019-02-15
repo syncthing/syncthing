@@ -12,13 +12,10 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-// Flush batches to disk when they contain this many records.
-const batchFlushSize = 64
-
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
 	*leveldb.Snapshot
-	db *instance
+	keyer keyer
 }
 
 func (db *instance) newReadOnlyTransaction() readOnlyTransaction {
@@ -28,7 +25,7 @@ func (db *instance) newReadOnlyTransaction() readOnlyTransaction {
 	}
 	return readOnlyTransaction{
 		Snapshot: snap,
-		db:       db,
+		keyer:    db.keyer,
 	}
 }
 
@@ -37,7 +34,7 @@ func (t readOnlyTransaction) close() {
 }
 
 func (t readOnlyTransaction) getFile(folder, device, file []byte) (protocol.FileInfo, bool) {
-	return t.getFileByKey(t.db.keyer.GenerateDeviceFileKey(nil, folder, device, file))
+	return t.getFileByKey(t.keyer.GenerateDeviceFileKey(nil, folder, device, file))
 }
 
 func (t readOnlyTransaction) getFileByKey(key []byte) (protocol.FileInfo, bool) {
@@ -65,7 +62,7 @@ func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, boo
 }
 
 func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool) {
-	keyBuf = t.db.keyer.GenerateGlobalVersionKey(keyBuf, folder, file)
+	keyBuf = t.keyer.GenerateGlobalVersionKey(keyBuf, folder, file)
 
 	bs, err := t.Get(keyBuf, nil)
 	if err != nil {
@@ -77,7 +74,7 @@ func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate boo
 		return keyBuf, nil, false
 	}
 
-	keyBuf = t.db.keyer.GenerateDeviceFileKey(keyBuf, folder, vl.Versions[0].Device, file)
+	keyBuf = t.keyer.GenerateDeviceFileKey(keyBuf, folder, vl.Versions[0].Device, file)
 	if fi, ok := t.getFileTrunc(keyBuf, truncate); ok {
 		return keyBuf, fi, true
 	}
@@ -90,33 +87,19 @@ func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate boo
 // batch size.
 type readWriteTransaction struct {
 	readOnlyTransaction
-	*leveldb.Batch
+	*batch
 }
 
 func (db *instance) newReadWriteTransaction() readWriteTransaction {
-	t := db.newReadOnlyTransaction()
 	return readWriteTransaction{
-		readOnlyTransaction: t,
-		Batch:               new(leveldb.Batch),
+		readOnlyTransaction: db.newReadOnlyTransaction(),
+		batch:               db.newBatch(),
 	}
 }
 
 func (t readWriteTransaction) close() {
 	t.flush()
 	t.readOnlyTransaction.close()
-}
-
-func (t readWriteTransaction) checkFlush() {
-	if t.Batch.Len() > batchFlushSize {
-		t.flush()
-		t.Batch.Reset()
-	}
-}
-
-func (t readWriteTransaction) flush() {
-	if err := t.db.Write(t.Batch, nil); err != nil {
-		panic(err)
-	}
 }
 
 // updateGlobal adds this device+version to the version list for the given
@@ -142,7 +125,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 		// Inserted a new newest version
 		global = file
 	} else {
-		keyBuf = t.db.keyer.GenerateDeviceFileKey(keyBuf, folder, fl.Versions[0].Device, name)
+		keyBuf = t.keyer.GenerateDeviceFileKey(keyBuf, folder, fl.Versions[0].Device, name)
 		if new, ok := t.getFileByKey(keyBuf); ok {
 			global = new
 		} else {
@@ -167,7 +150,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 		// The previous newest version is now at index 1
 		oldGlobalFV = fl.Versions[1]
 	}
-	keyBuf = t.db.keyer.GenerateDeviceFileKey(keyBuf, folder, oldGlobalFV.Device, name)
+	keyBuf = t.keyer.GenerateDeviceFileKey(keyBuf, folder, oldGlobalFV.Device, name)
 	if oldFile, ok := t.getFileByKey(keyBuf); ok {
 		// A failure to get the file here is surprising and our
 		// global size data will be incorrect until a restart...
@@ -187,7 +170,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 // device according to the version list and global FileInfo given and updates
 // the db accordingly.
 func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, fl VersionList, global protocol.FileInfo) []byte {
-	keyBuf = t.db.keyer.GenerateNeedFileKey(keyBuf, folder, name)
+	keyBuf = t.keyer.GenerateNeedFileKey(keyBuf, folder, name)
 	hasNeeded, _ := t.Has(keyBuf, nil)
 	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(global, haveLocalFV, localFV.Version) {
 		if !hasNeeded {
@@ -246,21 +229,21 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 	if removedAt == 0 {
 		// A failure to get the file here is surprising and our
 		// global size data will be incorrect until a restart...
-		keyBuf = t.db.keyer.GenerateDeviceFileKey(keyBuf, folder, device, file)
+		keyBuf = t.keyer.GenerateDeviceFileKey(keyBuf, folder, device, file)
 		if f, ok := t.getFileByKey(keyBuf); ok {
 			meta.removeFile(protocol.GlobalDeviceID, f)
 		}
 	}
 
 	if len(fl.Versions) == 0 {
-		keyBuf = t.db.keyer.GenerateNeedFileKey(keyBuf, folder, file)
+		keyBuf = t.keyer.GenerateNeedFileKey(keyBuf, folder, file)
 		t.Delete(keyBuf)
 		t.Delete(gk)
 		return keyBuf
 	}
 
 	if removedAt == 0 {
-		keyBuf = t.db.keyer.GenerateDeviceFileKey(keyBuf, folder, fl.Versions[0].Device, file)
+		keyBuf = t.keyer.GenerateDeviceFileKey(keyBuf, folder, fl.Versions[0].Device, file)
 		global, ok := t.getFileByKey(keyBuf)
 		if !ok {
 			panic("This file must exist in the db")

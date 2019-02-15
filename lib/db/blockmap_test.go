@@ -73,7 +73,7 @@ func addToBlockMap(db *instance, folder []byte, fs []protocol.FileInfo) {
 			name := []byte(f.Name)
 			for i, block := range f.Blocks {
 				binary.BigEndian.PutUint32(blockBuf, uint32(i))
-				keyBuf = t.db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
+				keyBuf = t.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
 				t.Put(keyBuf, blockBuf)
 			}
 		}
@@ -89,7 +89,7 @@ func discardFromBlockMap(db *instance, folder []byte, fs []protocol.FileInfo) {
 		if !ef.IsDirectory() && !ef.IsDeleted() && !ef.IsInvalid() {
 			name := []byte(ef.Name)
 			for _, block := range ef.Blocks {
-				keyBuf = t.db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
+				keyBuf = t.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
 				t.Delete(keyBuf)
 			}
 		}
