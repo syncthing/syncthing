@@ -105,13 +105,15 @@ func CommonPrefix(first, second string) string {
 	if len(secondParts) < len(firstParts) {
 		count = len(secondParts)
 	}
-
+	fmt.Println("input", first, second, isAbs)
 	i := 0
 	for ; i < count; i++ {
 		if firstParts[i] != secondParts[i] {
 			break
 		}
 	}
+
+	fmt.Println("got", firstParts[:i])
 
 	// If isAbs on Linux, first element in both first and second is "", hence joining that returns nothing.
 	if i == 1 && isAbs && runtime.GOOS != "windows" {
