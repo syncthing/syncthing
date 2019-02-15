@@ -28,11 +28,14 @@ func TestCommonPrefix(t *testing.T) {
 		test(`\\?\C:\Audrius\Downloads`, `\\?\C:\Audrius\Docs`, `\\?\C:\Audrius`)
 		test(`Audrius-a\Downloads`, `Audrius-b\Docs`, ``)
 		test(`Audrius\Downloads`, `Audrius\Docs`, `Audrius`)
+		test(`c:\Audrius\Downloads`, `Audrius\Docs`, ``)
 	} else {
 		test(`/Audrius/Downloads`, `/Audrius/Docs`, `/Audrius`)
 		test(`/Audrius\Downloads`, `/Audrius\Docs`, `/`)
 		test(`/Audrius-a/Downloads`, `/Audrius-b/Docs`, `/`)
-		test(`Audrius\Downloads`, `Audrius\Docs`, `Audrius`)
+		test(`Audrius\Downloads`, `Audrius\Docs`, ``) // Windows separators
+		test(`Audrius/Downloads`, `Audrius/Docs`, `Audrius`)
 		test(`Audrius-a\Downloads`, `Audrius-b\Docs`, ``)
+		test(`/Audrius/Downloads`, `Audrius/Docs`, ``)
 	}
 }
