@@ -125,12 +125,6 @@ func CommonPrefix(first, second string) string {
 		return string(PathSeparator)
 	}
 
-	if len(common) == 1 && isAbs {
-		if runtime.GOOS != "windows" {
-			return string(PathSeparator)
-		}
-	}
-
 	// This should only be true on Windows when drive letters are different or when paths are relative.
 	// In case of UNC paths we should end up with more than a single element hence joining is fine
 	if len(common) == 0 {
