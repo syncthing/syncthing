@@ -114,9 +114,8 @@ func CommonPrefix(first, second string) string {
 		common = append(common, firstParts[i])
 	}
 
-	if runtime.GOOS == "windows" && isAbs && (
-		// UNC vs non-UNC
-		(len(common) == 1 && strings.HasSuffix(common[0], ":")) ||
+	if runtime.GOOS == "windows" && isAbs &&
+		((len(common) == 1 && strings.HasSuffix(common[0], ":")) ||
 			(len(common) == 4 && strings.HasSuffix(common[3], ":"))) {
 		// Because strings.Split strips out path separators, if we're at the volume name, we end up without a separator
 		// Wedge an empty element to be joined with.
