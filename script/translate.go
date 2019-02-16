@@ -129,19 +129,19 @@ func parseDesktop(filename string) {
 		}
 
 		switch value := strings.SplitN(line, "=", 2); value[0] {
-			case "Name", "GenericName", "Comment":
-				if len(value[1]) == 0 {
+		case "Name", "GenericName", "Comment":
+			if len(value[1]) == 0 {
+				continue
+			}
+			translation(value[1])
+		case "Keywords":
+			words := strings.Split(value[1], ";")
+			for _, word := range words {
+				if len(word) == 0 {
 					continue
 				}
-				translation(value[1])
-			case "Keywords":
-				words := strings.Split(value[1], ";")
-				for _, word := range words {
-					if len(word) == 0 {
-						continue
-					}
-					translation(word)
-				}
+				translation(word)
+			}
 		}
 	}
 }

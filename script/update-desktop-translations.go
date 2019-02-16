@@ -24,7 +24,7 @@ var transRe = regexp.MustCompile(`^(Name|GenericName|Comment|Keywords)\[[a-z]{2}
 var validLangRe = regexp.MustCompile(`^[a-z]{2}[a-z]?(_[A-Z]{2})?(\..+)?(@\w+)?$`)
 var badRe = regexp.MustCompile(`\n`)
 
-var langs = make([]string,0)
+var langs = make([]string, 0)
 
 func main() {
 	err := filepath.Walk(os.Args[2], walkerLanguages)
@@ -94,15 +94,15 @@ func walkerDesktop(file string, info os.FileInfo, err error) error {
 
 			linesNew = append(linesNew, line)
 
-		if groupRe.MatchString(line) {
-			in = true
-			continue
-		}
+			if groupRe.MatchString(line) {
+				in = true
+				continue
+			}
 
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			in = false
-			continue
-		}
+			if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+				in = false
+				continue
+			}
 
 			if in && locRe.MatchString(line) {
 				trans := translate(line)
@@ -129,7 +129,7 @@ func walkerDesktop(file string, info os.FileInfo, err error) error {
 
 	}
 
-	return(nil)
+	return (nil)
 }
 
 func translate(line string) []string {
