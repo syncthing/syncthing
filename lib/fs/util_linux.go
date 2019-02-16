@@ -14,7 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func copyRangeOptimised(src, dst *fsFile, srcOffset, dstOffset, size int64) error {
+func copyRangeOptimised(src, dst fsFile, srcOffset, dstOffset, size int64) error {
 	for _, opt := range copyOptimisations {
 		switch opt {
 		case "ioctl":
@@ -34,7 +34,7 @@ func copyRangeOptimised(src, dst *fsFile, srcOffset, dstOffset, size int64) erro
 	return syscall.ENOTSUP
 }
 
-func copyRangeCopyFileRange(srcFd, dstFd *fsFile, srcOffset, dstOffset, size int64) error {
+func copyRangeCopyFileRange(srcFd, dstFd fsFile, srcOffset, dstOffset, size int64) error {
 	for size > 0 {
 		n, err := unix.CopyFileRange(int(srcFd.Fd()), &srcOffset, int(dstFd.Fd()), &dstOffset, int(size), 0)
 		if err != nil && err != syscall.EAGAIN {

@@ -96,8 +96,8 @@ func IsParent(path, parent string) bool {
 }
 
 func CopyRange(src, dst File, srcOffset, dstOffset, size int64) error {
-	srcFile, srcOk := src.(*fsFile)
-	dstFile, dstOk := dst.(*fsFile)
+	srcFile, srcOk := src.(fsFile)
+	dstFile, dstOk := dst.(fsFile)
 	if srcOk && dstOk {
 		if err := copyRangeOptimised(srcFile, dstFile, srcOffset, dstOffset, size); err == nil {
 			return nil

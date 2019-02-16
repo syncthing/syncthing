@@ -22,15 +22,16 @@ type copyRangeTestScenario struct {
 }
 
 type copyFuncGeneric func(src, dst File, srcOffset, dstOffset, size int64) error
-type copyFuncOptimised func(src, dst *fsFile, srcOffset, dstOffset, size int64) error
+type copyFuncOptimised func(src, dst fsFile, srcOffset, dstOffset, size int64) error
 
 func wrapOptimised(fn copyFuncOptimised) copyFuncGeneric {
 	return func(src, dst File, srcOffset, dstOffset, size int64) error {
-		srcFile, srcOk := src.(*fsFile)
-		dstFile, dstOk := dst.(*fsFile)
+		srcFile, srcOk := src.(fsFile)
+		dstFile, dstOk := dst.(fsFile)
 		if srcOk && dstOk {
 			return fn(srcFile, dstFile, srcOffset, dstOffset, size)
 		}
+		fmt.Printf("%#v", src)
 		panic("unexpected types")
 	}
 }
