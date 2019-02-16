@@ -762,6 +762,7 @@ func translate() {
 func transifex() {
 	os.Chdir("gui/default/assets/lang")
 	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
+	runPrint(goCmd, "run", "../../../../script/update-desktop-translations.go", "../../../../etc/linux-desktop/", "./")
 }
 
 func ldflags() string {
