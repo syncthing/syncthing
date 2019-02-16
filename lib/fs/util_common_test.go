@@ -104,7 +104,7 @@ var (
 
 func TestCopyRange(ttt *testing.T) {
 	srcBuf := make([]byte, generationSize)
-	dstBuf := make([]byte, generationSize+copySize)
+	dstBuf := make([]byte, generationSize*3)
 	randSrc := rand.New(rand.NewSource(rand.Int63()))
 	for _, testFunc := range copyRangeTests {
 		ttt.Run(testFunc.name, func(tt *testing.T) {
