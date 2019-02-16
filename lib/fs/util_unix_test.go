@@ -8,7 +8,20 @@
 
 package fs
 
-var additionalCopyTests = map[string]copyFunc{
-	"ioctl":    copyRangeIoctl,
-	"sendfile": copyFileSendFile,
+var copyRangeTests = []testScenario{
+	{
+		name:        "generic",
+		copyFn:      copyRangeGeneric,
+		mustSucceed: true,
+	},
+	{
+		name:        "ioctl",
+		copyFn:      wrapOptimised(copyRangeIoctl),
+		mustSucceed: false,
+	},
+	{
+		name:        "sendfile",
+		copyFn:      wrapOptimised(copyFileSendFile),
+		mustSucceed: false,
+	},
 }

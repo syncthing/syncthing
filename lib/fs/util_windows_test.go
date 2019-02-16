@@ -8,4 +8,10 @@
 
 package fs
 
-var additionalCopyTests = map[string]copyFunc{}
+var copyRangeTests = []testScenario{
+	{
+		name:        "generic",
+		copyFn:      copyRangeGeneric,
+		mustSucceed: true,
+	},
+}

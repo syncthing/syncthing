@@ -15,7 +15,25 @@ import (
 	"testing"
 )
 
-type copyFunc func(src, dst *fsFile, srcOffset, dstOffset, size int64) error
+type testScenario struct {
+	name        string
+	copyFn      copyFuncGeneric
+	mustSucceed bool
+}
+
+type copyFuncGeneric func(src, dst File, srcOffset, dstOffset, size int64) error
+type copyFuncOptimised func(src, dst *fsFile, srcOffset, dstOffset, size int64) error
+
+func wrapOptimised(fn copyFuncOptimised) copyFuncGeneric {
+	return func(src, dst File, srcOffset, dstOffset, size int64) error {
+		srcFile, srcOk := src.(*fsFile)
+		dstFile, dstOk := dst.(*fsFile)
+		if srcOk && dstOk {
+			return fn(srcFile, dstFile, srcOffset, dstOffset, size)
+		}
+		panic("unexpected types")
+	}
+}
 
 var (
 	generationSize = 4 << 20
@@ -84,119 +102,12 @@ var (
 	}
 )
 
-func TestGenericCopyRange(tt *testing.T) {
-	srcBuf := make([]byte, generationSize)
-	dstBuf := make([]byte, generationSize*3)
-	randSrc := rand.New(rand.NewSource(rand.Int63()))
-	for _, testCase := range testCases {
-		name := fmt.Sprintf("%d_%d_%d_%d_%d_%d",
-			testCase.srcOffset/copySize,
-			testCase.dstOffset/copySize,
-			testCase.srcPos/copySize,
-			testCase.dstPos/copySize,
-			testCase.expectedDstPos/copySize,
-			testCase.expectedDstSize/copySize,
-		)
-		tt.Run(name, func(t *testing.T) {
-			td, err := ioutil.TempDir("", "")
-			if err != nil {
-				t.Fatal(err)
-			}
-			fs := NewFilesystem(FilesystemTypeBasic, td)
-
-			if _, err := io.ReadFull(randSrc, srcBuf); err != nil {
-				t.Fatal(err)
-			}
-
-			if _, err := io.ReadFull(randSrc, dstBuf[:generationSize]); err != nil {
-				t.Fatal(err)
-			}
-
-			src, err := fs.Create("src")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() { _ = src.Close() }()
-
-			dst, err := fs.Create("dst")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() { _ = dst.Close() }()
-
-			// Write some data
-
-			if err := writeFull(src, srcBuf); err != nil {
-				t.Fatal(err)
-			}
-
-			if err := writeFull(dst, dstBuf[:generationSize]); err != nil {
-				t.Fatal(err)
-			}
-
-			// Set the offsets
-
-			if _, err := src.Seek(int64(testCase.srcPos), io.SeekStart); err != nil {
-				t.Fatal(err)
-			}
-
-			if _, err := dst.Seek(int64(testCase.dstPos), io.SeekStart); err != nil {
-				t.Fatal(err)
-			}
-
-			// Copy the data
-
-			if err := copyRangeGeneric(src, dst, int64(testCase.srcOffset), int64(testCase.dstOffset), int64(copySize)); err != nil {
-				t.Fatal(err)
-			}
-
-			// Check offsets where we expect them
-
-			if srcCurPos, err := src.Seek(0, io.SeekCurrent); err != nil {
-				t.Fatal(err)
-			} else if srcCurPos != int64(testCase.srcPos) {
-				t.Errorf("src pos expected %d got %d", testCase.srcPos, srcCurPos)
-			}
-
-			if dstCurPos, err := dst.Seek(0, io.SeekCurrent); err != nil {
-				t.Fatal(err)
-			} else if dstCurPos != int64(testCase.expectedDstPos) {
-				t.Errorf("dst pos expected %d got %d", testCase.expectedDstPos, dstCurPos)
-			}
-
-			// Check the data is as expected
-
-			if _, err := dst.Seek(0, io.SeekStart); err != nil {
-				t.Fatal(err)
-			}
-
-			dstBuf = dstBuf[:testCase.expectedDstSize]
-
-			if _, err := io.ReadFull(dst, dstBuf); err != nil {
-				t.Fatal(err)
-			}
-
-			if !bytes.Equal(srcBuf[testCase.srcOffset:testCase.srcOffset+copySize], dstBuf[testCase.dstOffset:testCase.dstOffset+copySize]) {
-				t.Errorf("Not equal")
-			}
-
-			// Check dst size
-
-			if fi, err := dst.Stat(); err != nil {
-				t.Fatal(err)
-			} else if fi.Size() != int64(testCase.expectedDstSize) {
-				t.Errorf("expected %d size, got %d", testCase.expectedDstSize, fi.Size())
-			}
-		})
-	}
-}
-
-func TestOptimisedCopyRange(ttt *testing.T) {
+func TestCopyRange(ttt *testing.T) {
 	srcBuf := make([]byte, generationSize)
 	dstBuf := make([]byte, generationSize+copySize)
 	randSrc := rand.New(rand.NewSource(rand.Int63()))
-	for name, copyFn := range additionalCopyTests {
-		ttt.Run(name, func(tt *testing.T) {
+	for _, testFunc := range copyRangeTests {
+		ttt.Run(testFunc.name, func(tt *testing.T) {
 			for _, testCase := range testCases {
 				name := fmt.Sprintf("%d_%d_%d_%d_%d_%d",
 					testCase.srcOffset/copySize,
@@ -233,14 +144,6 @@ func TestOptimisedCopyRange(ttt *testing.T) {
 					}
 					defer func() { _ = dst.Close() }()
 
-					// Convert types
-
-					srcFile, srcOk := src.(*fsFile)
-					dstFile, dstOk := dst.(*fsFile)
-					if !srcOk || dstOk {
-						t.Fatal("Failed to get types")
-					}
-
 					// Write some data
 
 					if err := writeFull(src, srcBuf); err != nil {
@@ -263,8 +166,13 @@ func TestOptimisedCopyRange(ttt *testing.T) {
 
 					// Copy the data
 
-					if err := copyFn(srcFile, dstFile, int64(testCase.srcOffset), int64(testCase.dstOffset), int64(copySize)); err != nil {
-						t.Fatal(err)
+					if err := testFunc.copyFn(src, dst, int64(testCase.srcOffset), int64(testCase.dstOffset), int64(copySize)); err != nil {
+						if testFunc.mustSucceed {
+							t.Fatal(err)
+						} else {
+							// It might be an unsupported syscall, skip.
+							t.Skip(err.Error())
+						}
 					}
 
 					// Check offsets where we expect them
