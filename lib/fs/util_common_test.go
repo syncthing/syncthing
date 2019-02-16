@@ -235,8 +235,8 @@ func TestOptimisedCopyRange(ttt *testing.T) {
 
 					// Convert types
 
-					srcFile, srcOk := src.(fsFile)
-					dstFile, dstOk := dst.(fsFile)
+					srcFile, srcOk := src.(*fsFile)
+					dstFile, dstOk := dst.(*fsFile)
 					if !srcOk || dstOk {
 						t.Fatal("Failed to get types")
 					}
