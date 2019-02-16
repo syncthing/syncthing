@@ -34,34 +34,34 @@ type fileCloneRange struct {
 	dstOffset uint64
 }
 
-func copyRangeIoctl(srcFd, dstFd fsFile, srcOffset, dstOffset, size int64) error {
+func copyRangeIoctl(src, dst fsFile, srcOffset, dstOffset, size int64) error {
 	params := &fileCloneRange{
-		srcFd:     int64(srcFd.Fd()),
+		srcFd:     int64(src.Fd()),
 		srcOffset: uint64(srcOffset),
 		srcLength: uint64(size),
 		dstOffset: uint64(dstOffset),
 	}
-	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, dstFd.Fd(), FICLONERANGE, uintptr(unsafe.Pointer(params)))
+	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, dst.Fd(), FICLONERANGE, uintptr(unsafe.Pointer(params)))
 	runtime.KeepAlive(params)
 	return err
 }
 
-func copyFileSendFile(srcFd, dstFd fsFile, srcOffset, dstOffset, size int64) error {
-	oldOffset, err := srcFd.Seek(0, io.SeekCurrent)
+func copyFileSendFile(src, dst fsFile, srcOffset, dstOffset, size int64) error {
+	oldOffset, err := src.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
 	}
 
 	for size > 0 {
-		n, err := syscall.Sendfile(int(dstFd.Fd()), int(srcFd.Fd()), &dstOffset, int(size))
+		n, err := syscall.Sendfile(int(dst.Fd()), int(src.Fd()), &dstOffset, int(size))
 		if err != nil && err != syscall.EAGAIN {
-			_, _ = srcFd.Seek(oldOffset, io.SeekStart)
+			_, _ = src.Seek(oldOffset, io.SeekStart)
 			return err
 		}
 		srcOffset += int64(n)
 		dstOffset += int64(n)
 		size -= int64(n)
 	}
-	_, err = srcFd.Seek(oldOffset, io.SeekStart)
+	_, err = src.Seek(oldOffset, io.SeekStart)
 	return err
 }

@@ -34,9 +34,9 @@ func copyRangeOptimised(src, dst fsFile, srcOffset, dstOffset, size int64) error
 	return syscall.ENOTSUP
 }
 
-func copyRangeCopyFileRange(srcFd, dstFd fsFile, srcOffset, dstOffset, size int64) error {
+func copyRangeCopyFileRange(src, dst fsFile, srcOffset, dstOffset, size int64) error {
 	for size > 0 {
-		n, err := unix.CopyFileRange(int(srcFd.Fd()), &srcOffset, int(dstFd.Fd()), &dstOffset, int(size), 0)
+		n, err := unix.CopyFileRange(int(src.Fd()), &srcOffset, int(dst.Fd()), &dstOffset, int(size), 0)
 		if err != nil && err != syscall.EAGAIN {
 			return err
 		}

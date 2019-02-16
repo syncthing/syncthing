@@ -16,11 +16,11 @@ func copyRangeOptimised(src, dst fsFile, srcOffset, dstOffset, size int64) error
 	for _, opt := range copyOptimisations {
 		switch opt {
 		case "ioctl":
-			if err := copyRangeIoctl(srcFile, dstFile, srcOffset, dstOffset, size); err == nil {
+			if err := copyRangeIoctl(src, dst, srcOffset, dstOffset, size); err == nil {
 				return nil
 			}
 		case "sendfile":
-			if err := copyFileSendFile(srcFile, dstFile, srcOffset, dstOffset, size); err == nil {
+			if err := copyFileSendFile(src, dst, srcOffset, dstOffset, size); err == nil {
 				return nil
 			}
 		}
