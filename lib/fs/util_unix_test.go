@@ -8,7 +8,7 @@
 
 package fs
 
-var copyRangeTests = []testScenario{
+var copyRangeTests = []copyRangeTestScenario{
 	{
 		name:        "generic",
 		copyFn:      copyRangeGeneric,

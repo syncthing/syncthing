@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-type testScenario struct {
+type copyRangeTestScenario struct {
 	name        string
 	copyFn      copyFuncGeneric
 	mustSucceed bool
