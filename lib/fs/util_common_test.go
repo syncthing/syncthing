@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-type copyFunc func(src, dst fsFile, srcOffset, dstOffset, size int64) error
+type copyFunc func(src, dst *fsFile, srcOffset, dstOffset, size int64) error
 
 var (
 	generationSize = 4 << 20
