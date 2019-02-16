@@ -9,13 +9,18 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 )
 
-var errNoHome = errors.New("no home directory found - set $HOME (or the platform equivalent)")
+var (
+	errNoHome = errors.New("no home directory found - set $HOME (or the platform equivalent)")
+	// Apparently BTRFS wants ioctl, XFS/NFS wants copy_file_range, so make this adjustable
+	copyOptimisations = getCopyOptimisations()
+)
 
 func ExpandTilde(path string) (string, error) {
 	if path == "~" {
@@ -88,4 +93,75 @@ func IsParent(path, parent string) bool {
 		parent += string(PathSeparator)
 	}
 	return strings.HasPrefix(path, parent)
+}
+
+func CopyRange(src, dst File, srcOffset, dstOffset, size int64) error {
+	srcFile, srcOk := src.(fsFile)
+	dstFile, dstOk := dst.(fsFile)
+	if srcOk && dstOk {
+		if err := copyRangeOptimised(srcFile, dstFile, srcOffset, dstOffset, size); err == nil {
+			return nil
+		}
+	}
+
+	return copyRangeGeneric(src, dst, srcOffset, dstOffset, size)
+}
+
+func copyRangeGeneric(src, dst File, srcOffset, dstOffset, size int64) error {
+	oldOffset, err := src.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil
+	}
+
+	// Check that the source file has the data in question
+	if fi, err := src.Stat(); err != nil {
+		return err
+	} else if fi.Size() < srcOffset+size {
+		return io.ErrUnexpectedEOF
+	}
+
+	// Check that the destination file has sufficient space
+	if fi, err := dst.Stat(); err != nil {
+		return err
+	} else if fi.Size() < dstOffset+size {
+		if err := dst.Truncate(dstOffset + size); err != nil {
+			return err
+		}
+	}
+
+	if n, err := src.Seek(srcOffset, io.SeekStart); err != nil {
+		return err
+	} else if n != srcOffset {
+		return io.ErrUnexpectedEOF
+	}
+
+	if n, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
+		return err
+	} else if n != dstOffset {
+		return io.ErrUnexpectedEOF
+	}
+
+	for size > 0 {
+		n, err := io.CopyN(dst, src, size)
+		if err != nil {
+			_, _ = src.Seek(oldOffset, io.SeekStart)
+			return err
+		}
+		size -= n
+	}
+
+	if n, err := src.Seek(oldOffset, io.SeekStart); err != nil {
+		return err
+	} else if n != oldOffset {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+
+func getCopyOptimisations() []string {
+	opt := os.Getenv("STCOPYOPTIMISATIONS")
+	if opt == "" {
+		opt = "ioctl,copy_file_range,sendfile"
+	}
+	return strings.Split(opt, ",")
 }

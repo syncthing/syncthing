@@ -14,6 +14,7 @@ require (
 	github.com/gogo/protobuf v1.2.0
 	github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4
 	github.com/golang/snappy v0.0.0-20170215233205-553a64147049 // indirect
+	github.com/golang/sys v0.0.0-20190215142949-d0b11bdaac8a
 	github.com/jackpal/gateway v0.0.0-20161225004348-5795ac81146e
 	github.com/kballard/go-shellquote v0.0.0-20170619183022-cd60e84ee657
 	github.com/kr/pretty v0.1.0 // indirect
