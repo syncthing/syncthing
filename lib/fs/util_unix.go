@@ -12,7 +12,7 @@ import (
 	"syscall"
 )
 
-func copyRangeOptimised(src, dst File, srcOffset, dstOffset int64, size int) error {
+func copyRangeOptimised(src, dst File, srcOffset, dstOffset, size int64) error {
 	for _, opt := range copyOptimisations {
 		switch opt {
 		case "ioctl":
