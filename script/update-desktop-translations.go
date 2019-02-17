@@ -18,13 +18,23 @@ import (
 	"strings"
 )
 
-var groupRe = regexp.MustCompile(`^\[Desktop Entry\]$`)
-var locRe = regexp.MustCompile(`^(Name|GenericName|Comment|Keywords)=.*\S*.*`)
-var transRe = regexp.MustCompile(`^(Name|GenericName|Comment|Keywords)\[[a-z]{2}[a-z]?(_[A-Z]{2})?(\..+)?(@\w+)?\]=`)
-var validLangRe = regexp.MustCompile(`^[a-z]{2}[a-z]?(_[A-Z]{2})?(\..+)?(@\w+)?$`)
-var badRe = regexp.MustCompile(`\n`)
+var (
+	specLocalestrings = `(Name|GenericName|Comment|Keywords)` // only these and Icon are allowed per spec, and icons have nothing to do with Transifex anyway
 
-var langs = make([]string, 0)
+	specLan       = `[a-z]{2}[a-z]?`                      // language is 2 or 3 lowercase letters: ISO-639 code (en, arb)
+	specCou       = `(_[A-Z]{2})?`                        // _COUNTRY is 2 uppercase letters: ISO 3166-1 code (FR, CN) - optional
+	specEnc       = `(\.\S+)?`                            // .encoding can be anything non-whitespace (utf8, MACCYRILLIC, iso-8859-15) - optional and ignored upon parsing per spec
+	specMod       = `(@\S+)?`                             // @modifier can be anything non-whitespace (euro, valencia, saaho) - optional
+	specLanguages = specLan + specCou + specEnc + specMod // language_COUNTRY.encoding@modifier (per spec)
+
+	locRe       = regexp.MustCompile(`^` + specLocalestrings + `=.*\S*.*`)                   // these lines are to be translated
+	transRe     = regexp.MustCompile(`^` + specLocalestrings + `\[` + specLanguages + `\]=`) // these are translated lines, we ditch them and regenerate
+	validLangRe = regexp.MustCompile(`^` + specLanguages + `$`)                              // these are valid language codes
+	groupRe     = regexp.MustCompile(`^\[Desktop Entry\]$`)                                  // we only process [Desktop Entry] section, all others are to be preserved verbatim
+	badRe       = regexp.MustCompile(`\n`)                                                   // we don't want newlines in our translated string
+
+	langs = make([]string, 0)
+)
 
 func main() {
 	err := filepath.Walk(os.Args[2], walkerLanguages)
