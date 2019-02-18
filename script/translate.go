@@ -93,6 +93,7 @@ func inTranslate(n *html.Node, filename string) {
 	}
 }
 
+// parseDesktop gets lines for translation from a .desktop file
 func parseDesktop(filename string) {
 	fd, err := os.Open(filename)
 	if err != nil {
@@ -105,36 +106,41 @@ func parseDesktop(filename string) {
 		log.Fatal(err)
 	}
 
-	lines := strings.Split(string(bs), "\n")
+	lines := strings.Split(string(bs), "\n") // this is .desktop file line by line
 
-	in := false
+	in := false // will only look in [Desktop Entry] section
 
 	for _, line := range lines {
+
+		// this line starts [Desktop Entry] section, will process the lines below
 		if groupRe.MatchString(line) {
 			in = true
 			continue
 		}
 
+		// this line starts some other section, will not process the lines below
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
 			in = false
 			continue
 		}
 
+		// this line is not inside [Desktop Entry], will disregard it
 		if !in {
 			continue
 		}
 
+		// this line is not one of localestrings, will disregard it
 		if !(locRe.MatchString(line)) {
 			continue
 		}
 
 		switch value := strings.SplitN(line, "=", 2); value[0] {
-		case "Name", "GenericName", "Comment":
+		case "Name", "GenericName", "Comment": // these are submitted for translation
 			if len(value[1]) == 0 {
 				continue
 			}
 			translation(value[1])
-		case "Keywords":
+		case "Keywords": // this line is submitted value by value
 			words := strings.Split(value[1], ";")
 			for _, word := range words {
 				if len(word) == 0 {
