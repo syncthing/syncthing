@@ -122,7 +122,7 @@ func (c internalConn) String() string {
 }
 
 type dialerFactory interface {
-	New(*config.Wrapper, *tls.Config) genericDialer
+	New(config.Wrapper, *tls.Config) genericDialer
 	Priority() int
 	AlwaysWAN() bool
 	Valid(config.Configuration) error
@@ -135,7 +135,7 @@ type genericDialer interface {
 }
 
 type listenerFactory interface {
-	New(*url.URL, *config.Wrapper, *tls.Config, chan internalConn, *nat.Service) genericListener
+	New(*url.URL, config.Wrapper, *tls.Config, chan internalConn, *nat.Service) genericListener
 	Valid(config.Configuration) error
 }
 

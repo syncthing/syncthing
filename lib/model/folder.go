@@ -39,7 +39,7 @@ type folder struct {
 	config.FolderConfiguration
 	localFlags uint32
 
-	model   *Model
+	model   *model
 	shortID protocol.ShortID
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -73,7 +73,7 @@ type puller interface {
 	pull() bool // true when successfull and should not be retried
 }
 
-func newFolder(model *Model, cfg config.FolderConfiguration) folder {
+func newFolder(model *model, cfg config.FolderConfiguration) folder {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return folder{

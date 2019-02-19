@@ -75,9 +75,9 @@ func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
 	}
 }
 
-func setupSendReceiveFolder(files ...protocol.FileInfo) (*Model, *sendReceiveFolder, string) {
+func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFolder, string) {
 	w := createTmpWrapper(defaultCfg)
-	model := NewModel(w, myID, "syncthing", "dev", db.OpenMemory(), nil)
+	model := newModel(w, myID, "syncthing", "dev", db.OpenMemory(), nil)
 	fcfg, tmpDir := testFolderConfigTmp()
 	model.AddFolder(fcfg)
 

@@ -49,7 +49,6 @@ func init() {
 		panic(err)
 	}
 }
-
 func SetBaseDir(baseDirName BaseDirEnum, path string) error {
 	_, ok := baseDirs[baseDirName]
 	if !ok {
