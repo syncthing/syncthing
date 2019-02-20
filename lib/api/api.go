@@ -37,7 +37,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
-	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -650,7 +649,7 @@ func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendJSON(w, model.JsonCompletion(s.model.Completion(device, folder)))
+	sendJSON(w, s.model.Completion(device, folder).Map())
 }
 
 func (s *service) getDBStatus(w http.ResponseWriter, r *http.Request) {
