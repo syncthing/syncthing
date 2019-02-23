@@ -134,10 +134,10 @@ func BenchmarkRoll(b *testing.B) {
 					data := make([]byte, testSize)
 
 					if _, err := test.hash.Write(data); err != nil {
-						bb.Error(err)
+						bbb.Error(err)
 					}
 
-					b.ResetTimer()
+					bbb.ResetTimer()
 
 					for i := 0; i < bbb.N; i++ {
 						for j := int64(0); j <= testSize; j++ {
