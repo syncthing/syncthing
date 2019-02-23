@@ -71,12 +71,12 @@ func BenchmarkBlock(b *testing.B) {
 
 	sizes := []int64{128 << 10, 16 << 20}
 
-	buf := make([]byte, 10 << 20)
+	buf := make([]byte, 10<<20)
 	rand.Read(buf)
 
 	for _, testSize := range sizes {
 		for _, test := range tests {
-			b.Run(test.name + "-" + fmt.Sprint(testSize), func(bb *testing.B) {
+			b.Run(test.name+"-"+fmt.Sprint(testSize), func(bb *testing.B) {
 				bb.Run("", func(bbb *testing.B) {
 					bbb.ResetTimer()
 					for i := 0; i < bbb.N; i++ {
@@ -95,7 +95,6 @@ func BenchmarkBlock(b *testing.B) {
 							test.hash.Reset()
 						}
 					}
-
 
 					bbb.SetBytes(int64(len(buf)))
 					bbb.ReportAllocs()
@@ -129,7 +128,7 @@ func BenchmarkRoll(b *testing.B) {
 
 	for _, testSize := range sizes {
 		for _, test := range tests {
-			b.Run(test.name + "-" + fmt.Sprint(testSize), func(bb *testing.B) {
+			b.Run(test.name+"-"+fmt.Sprint(testSize), func(bb *testing.B) {
 				bb.Run("", func(bbb *testing.B) {
 					data := make([]byte, testSize)
 
