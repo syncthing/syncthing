@@ -71,7 +71,7 @@ func BenchmarkBlock(b *testing.B) {
 
 	sizes := []int64{128 << 10, 16 << 20}
 
-	buf := make([]byte, 10<<20)
+	buf := make([]byte, 16<<20)
 	rand.Read(buf)
 
 	for _, testSize := range sizes {
@@ -80,20 +80,17 @@ func BenchmarkBlock(b *testing.B) {
 				bb.Run("", func(bbb *testing.B) {
 					bbb.ResetTimer()
 					for i := 0; i < bbb.N; i++ {
-						lr := io.LimitReader(bytes.NewReader(buf), testSize).(*io.LimitedReader)
-						for {
-							lr.N = testSize
-							n, err := io.Copy(test.hash, lr)
-							if err != nil {
-								bbb.Error(err)
-							}
-
-							if n == 0 {
-								break
-							}
-							test.hash.Sum(nil)
-							test.hash.Reset()
+						lr := io.LimitReader(bytes.NewReader(buf), testSize)
+						n, err := io.Copy(test.hash, lr)
+						if err != nil {
+							bbb.Error(err)
 						}
+						if n != testSize {
+							bbb.Errorf("%d != %d", n, testSize)
+						}
+
+						test.hash.Sum(nil)
+						test.hash.Reset()
 					}
 
 					bbb.SetBytes(int64(len(buf)))
@@ -141,7 +138,6 @@ func BenchmarkRoll(b *testing.B) {
 					for i := 0; i < bbb.N; i++ {
 						for j := int64(0); j <= testSize; j++ {
 							test.hash.Roll('a')
-							test.hash.Size()
 						}
 					}
 
