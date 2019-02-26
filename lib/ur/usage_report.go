@@ -51,10 +51,10 @@ type Service struct {
 	stopMut            sync.RWMutex
 }
 
-func New(cfg ConfigIntf, model ModelIntf, connectionsService ConnectionsIntf, noUpgrade bool) *Service {
+func New(cfg config.Wrapper, m model.Model, connectionsService connections.Service, noUpgrade bool) *Service {
 	svc := &Service{
 		cfg:                cfg,
-		model:              model,
+		model:              m,
 		connectionsService: connectionsService,
 		noUpgrade:          noUpgrade,
 		forceRun:           make(chan struct{}),

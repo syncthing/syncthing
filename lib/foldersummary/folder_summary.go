@@ -16,7 +16,6 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/ur"
 	"github.com/thejerf/suture"
 )
 
@@ -33,8 +32,8 @@ type Service interface {
 type service struct {
 	*suture.Supervisor
 
-	cfg       ur.ConfigIntf
-	model     ur.ModelIntf
+	cfg       config.Wrapper
+	model     model.Model
 	id        protocol.DeviceID
 	stop      chan struct{}
 	immediate chan string
@@ -48,7 +47,7 @@ type service struct {
 	lastEventReqMut sync.Mutex
 }
 
-func New(cfg ur.ConfigIntf, m ur.ModelIntf, id protocol.DeviceID) Service {
+func New(cfg config.Wrapper, m model.Model, id protocol.DeviceID) Service {
 	service := &service{
 		Supervisor: suture.New("folderSummaryService", suture.Spec{
 			PassThroughPanics: true,

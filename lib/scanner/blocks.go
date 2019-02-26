@@ -10,9 +10,9 @@ import (
 	"bytes"
 	"context"
 	"hash"
+	"hash/adler32"
 	"io"
 
-	"github.com/chmduquesne/rollinghash/adler32"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sha256"
 )

@@ -30,7 +30,7 @@ func isWindowsExecutable(path string) bool {
 	return execExts[strings.ToLower(filepath.Ext(path))]
 }
 
-func (e fsFileInfo) Mode() FileMode {
+func (e basicFileInfo) Mode() FileMode {
 	m := e.FileInfo.Mode()
 	if m&os.ModeSymlink != 0 && e.Size() > 0 {
 		// "Symlinks" with nonzero size are in fact "hard" links, such as
@@ -47,4 +47,12 @@ func (e fsFileInfo) Mode() FileMode {
 	// unexpected world-writable files on other platforms.
 	m &^= 0022
 	return FileMode(m)
+}
+
+func (e basicFileInfo) Owner() int {
+	return -1
+}
+
+func (e basicFileInfo) Group() int {
+	return -1
 }

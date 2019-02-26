@@ -38,7 +38,7 @@ import (
 )
 
 var myID, device1, device2 protocol.DeviceID
-var defaultCfgWrapper *config.Wrapper
+var defaultCfgWrapper config.Wrapper
 var defaultFolderConfig config.FolderConfiguration
 var defaultFs fs.Filesystem
 var defaultCfg config.Configuration
@@ -161,7 +161,7 @@ func prepareTmpFile(to fs.Filesystem) (string, error) {
 	return tmpName, nil
 }
 
-func createTmpWrapper(cfg config.Configuration) *config.Wrapper {
+func createTmpWrapper(cfg config.Configuration) config.Wrapper {
 	tmpFile, err := ioutil.TempFile(tmpLocation, "syncthing-testConfig-")
 	if err != nil {
 		panic(err)
@@ -171,7 +171,11 @@ func createTmpWrapper(cfg config.Configuration) *config.Wrapper {
 	return wrapper
 }
 
-func newState(cfg config.Configuration) (*config.Wrapper, *Model) {
+func newModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) *model {
+	return NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles).(*model)
+}
+
+func newState(cfg config.Configuration) (config.Wrapper, *model) {
 	wcfg := createTmpWrapper(cfg)
 
 	m := setupModel(wcfg)
@@ -183,9 +187,9 @@ func newState(cfg config.Configuration) (*config.Wrapper, *Model) {
 	return wcfg, m
 }
 
-func setupModel(w *config.Wrapper) *Model {
+func setupModel(w config.Wrapper) *model {
 	db := db.OpenMemory()
-	m := NewModel(w, myID, "syncthing", "dev", db, nil)
+	m := newModel(w, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
 	for id, cfg := range w.Folders() {
 		if !cfg.Paused {
@@ -322,7 +326,7 @@ type fakeConnection struct {
 	files                    []protocol.FileInfo
 	fileData                 map[string][]byte
 	folder                   string
-	model                    *Model
+	model                    *model
 	indexFn                  func(string, []protocol.FileInfo)
 	requestFn                func(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
 	mut                      sync.Mutex
@@ -563,7 +567,7 @@ func TestDeviceRename(t *testing.T) {
 	cfg := config.Wrap("testdata/tmpconfig.xml", rawCfg)
 
 	db := db.OpenMemory()
-	m := NewModel(cfg, myID, "syncthing", "dev", db, nil)
+	m := newModel(cfg, myID, "syncthing", "dev", db, nil)
 
 	if cfg.Devices()[device1].Name != "" {
 		t.Errorf("Device already has a name")
@@ -662,7 +666,7 @@ func TestClusterConfig(t *testing.T) {
 
 	wrapper := createTmpWrapper(cfg)
 	defer os.Remove(wrapper.ConfigPath())
-	m := NewModel(wrapper, myID, "syncthing", "dev", db, nil)
+	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
 	m.AddFolder(cfg.Folders[0])
 	m.AddFolder(cfg.Folders[1])
 	m.ServeBackground()
@@ -1644,7 +1648,7 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 	}
 }
 
-func changeIgnores(t *testing.T, m *Model, expected []string) {
+func changeIgnores(t *testing.T, m *model, expected []string) {
 	arrEqual := func(a, b []string) bool {
 		if len(a) != len(b) {
 			return false
@@ -1796,7 +1800,7 @@ func TestROScanRecovery(t *testing.T) {
 
 	testOs.RemoveAll(fcfg.Path)
 
-	m := NewModel(cfg, myID, "syncthing", "dev", ldb, nil)
+	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
 	m.StartFolder("default")
 	m.ServeBackground()
@@ -1883,7 +1887,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 	testOs.RemoveAll(fcfg.Path)
 
-	m := NewModel(cfg, myID, "syncthing", "dev", ldb, nil)
+	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
 	m.StartFolder("default")
 	m.ServeBackground()
@@ -1941,7 +1945,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 func TestGlobalDirectoryTree(t *testing.T) {
 	db := db.OpenMemory()
-	m := NewModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
+	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
 	defer m.Stop()
@@ -2193,7 +2197,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 
 func TestGlobalDirectorySelfFixing(t *testing.T) {
 	db := db.OpenMemory()
-	m := NewModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
+	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
 
@@ -2368,7 +2372,7 @@ func BenchmarkTree_100_10(b *testing.B) {
 
 func benchmarkTree(b *testing.B, n1, n2 int) {
 	db := db.OpenMemory()
-	m := NewModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
+	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
 
@@ -2438,7 +2442,7 @@ func TestIssue4357(t *testing.T) {
 	// Create a separate wrapper not to pollute other tests.
 	wrapper := createTmpWrapper(config.Configuration{})
 	defer os.Remove(wrapper.ConfigPath())
-	m := NewModel(wrapper, myID, "syncthing", "dev", db, nil)
+	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
 	defer m.Stop()
 
@@ -2568,7 +2572,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 		t.Error("expected two devices")
 	}
 
-	m := NewModel(defaultCfgWrapper, myID, "syncthing", "dev", dbi, nil)
+	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", dbi, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 
@@ -3055,7 +3059,7 @@ func TestCustomMarkerName(t *testing.T) {
 	testOs.RemoveAll(fcfg.Path)
 	defer testOs.RemoveAll(fcfg.Path)
 
-	m := NewModel(cfg, myID, "syncthing", "dev", ldb, nil)
+	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
 	m.StartFolder("default")
 	m.ServeBackground()
@@ -3466,7 +3470,7 @@ func TestIssue4094(t *testing.T) {
 	// Create a separate wrapper not to pollute other tests.
 	wrapper := createTmpWrapper(config.Configuration{})
 	defer os.Remove(wrapper.ConfigPath())
-	m := NewModel(wrapper, myID, "syncthing", "dev", db, nil)
+	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
 	defer m.Stop()
 
@@ -3505,7 +3509,7 @@ func TestIssue4903(t *testing.T) {
 	// Create a separate wrapper not to pollute other tests.
 	wrapper := createTmpWrapper(config.Configuration{})
 	defer os.Remove(wrapper.ConfigPath())
-	m := NewModel(wrapper, myID, "syncthing", "dev", db, nil)
+	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
 	defer m.Stop()
 
@@ -3575,7 +3579,7 @@ func TestParentOfUnignored(t *testing.T) {
 	}
 }
 
-func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
+func addFakeConn(m *model, dev protocol.DeviceID) *fakeConnection {
 	fc := &fakeConnection{id: dev, model: m}
 	m.AddConnection(fc, protocol.HelloResult{})
 

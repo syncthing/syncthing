@@ -959,7 +959,7 @@ func setupSignalHandling() {
 	}()
 }
 
-func loadOrDefaultConfig() (*config.Wrapper, error) {
+func loadOrDefaultConfig() (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 
@@ -970,7 +970,7 @@ func loadOrDefaultConfig() (*config.Wrapper, error) {
 	return cfg, err
 }
 
-func loadConfigAtStartup() (*config.Wrapper, error) {
+func loadConfigAtStartup() (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
@@ -999,7 +999,7 @@ func loadConfigAtStartup() (*config.Wrapper, error) {
 	return cfg, nil
 }
 
-func archiveAndSaveConfig(cfg *config.Wrapper) error {
+func archiveAndSaveConfig(cfg config.Wrapper) error {
 	// Copy the existing config to an archive copy
 	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.RawCopy().OriginalVersion)
 	l.Infoln("Archiving a copy of old config file format at:", archivePath)
@@ -1064,7 +1064,7 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 	l.Infoln("Audit log in", auditDest)
 }
 
-func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
+func setupGUI(mainService *suture.Supervisor, cfg config.Wrapper, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
 	guiCfg := cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -1096,7 +1096,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	}
 }
 
-func defaultConfig(cfgFile string) (*config.Wrapper, error) {
+func defaultConfig(cfgFile string) (config.Wrapper, error) {
 	newCfg, err := config.NewWithFreePorts(myID)
 	if err != nil {
 		return nil, err
@@ -1159,7 +1159,7 @@ func standbyMonitor() {
 	}
 }
 
-func autoUpgrade(cfg *config.Wrapper) {
+func autoUpgrade(cfg config.Wrapper) {
 	timer := time.NewTimer(0)
 	sub := events.Default.Subscribe(events.DeviceConnected)
 	for {
@@ -1261,7 +1261,7 @@ func cleanConfigDirectory() {
 // checkShortIDs verifies that the configuration won't result in duplicate
 // short ID:s; that is, that the devices in the cluster all have unique
 // initial 64 bits.
-func checkShortIDs(cfg *config.Wrapper) error {
+func checkShortIDs(cfg config.Wrapper) error {
 	exists := make(map[protocol.ShortID]protocol.DeviceID)
 	for deviceID := range cfg.Devices() {
 		shortID := deviceID.Short()
@@ -1283,7 +1283,7 @@ func showPaths(options RuntimeOptions) {
 	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations.Get(locations.DefFolder))
 }
 
-func setPauseState(cfg *config.Wrapper, paused bool) {
+func setPauseState(cfg config.Wrapper, paused bool) {
 	raw := cfg.RawCopy()
 	for i := range raw.Devices {
 		raw.Devices[i].Paused = paused

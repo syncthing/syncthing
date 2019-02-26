@@ -10,7 +10,6 @@ import (
 	"encoding/binary"
 	"time"
 
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -39,21 +38,12 @@ func NewNamespacedKV(db *Lowlevel, prefix string) *NamespacedKV {
 func (n *NamespacedKV) Reset() {
 	it := n.db.NewIterator(util.BytesPrefix(n.prefix), nil)
 	defer it.Release()
-	batch := new(leveldb.Batch)
+	batch := n.db.newBatch()
 	for it.Next() {
 		batch.Delete(it.Key())
-		if batch.Len() > batchFlushSize {
-			if err := n.db.Write(batch, nil); err != nil {
-				panic(err)
-			}
-			batch.Reset()
-		}
+		batch.checkFlush()
 	}
-	if batch.Len() > 0 {
-		if err := n.db.Write(batch, nil); err != nil {
-			panic(err)
-		}
-	}
+	batch.flush()
 }
 
 // PutInt64 stores a new int64. Any existing value (even if of another type)

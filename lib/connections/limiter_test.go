@@ -24,7 +24,7 @@ func init() {
 	device4, _ = protocol.DeviceIDFromString("P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2")
 }
 
-func initConfig() *config.Wrapper {
+func initConfig() config.Wrapper {
 	cfg := config.Wrap("/dev/null", config.New(device1))
 	dev1Conf = config.NewDeviceConfiguration(device1, "device1")
 	dev2Conf = config.NewDeviceConfiguration(device2, "device2")

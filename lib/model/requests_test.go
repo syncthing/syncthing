@@ -684,7 +684,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	}
 }
 
-func tmpDefaultWrapper() (*config.Wrapper, string) {
+func tmpDefaultWrapper() (config.Wrapper, string) {
 	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
 	fcfg, tmpDir := testFolderConfigTmp()
 	w.SetFolder(fcfg)
@@ -703,13 +703,13 @@ func testFolderConfig(path string) config.FolderConfiguration {
 	return cfg
 }
 
-func setupModelWithConnection() (*Model, *fakeConnection, string, *config.Wrapper) {
+func setupModelWithConnection() (*model, *fakeConnection, string, config.Wrapper) {
 	w, tmpDir := tmpDefaultWrapper()
 	m, fc := setupModelWithConnectionFromWrapper(w)
 	return m, fc, tmpDir, w
 }
 
-func setupModelWithConnectionFromWrapper(w *config.Wrapper) (*Model, *fakeConnection) {
+func setupModelWithConnectionFromWrapper(w config.Wrapper) (*model, *fakeConnection) {
 	m := setupModel(w)
 
 	fc := addFakeConn(m, device1)

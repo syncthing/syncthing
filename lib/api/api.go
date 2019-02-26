@@ -30,6 +30,7 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
@@ -37,6 +38,7 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
+	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -59,13 +61,13 @@ const (
 
 type service struct {
 	id                   protocol.DeviceID
-	cfg                  ur.ConfigIntf
+	cfg                  config.Wrapper
 	statics              *staticsServer
-	model                ur.ModelIntf
+	model                model.Model
 	eventSubs            map[events.EventType]events.BufferedSubscription
 	eventSubsMut         sync.Mutex
 	discoverer           discover.CachingMux
-	connectionsService   ur.ConnectionsIntf
+	connectionsService   connections.Service
 	fss                  foldersummary.Service
 	urService            *ur.Service
 	systemConfigMut      sync.Mutex // serializes posts to /rest/system/config
@@ -99,7 +101,7 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg ur.ConfigIntf, assetDir, tlsDefaultCommonName string, m ur.ModelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService ur.ConnectionsIntf, urService *ur.Service, fss foldersummary.Service, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss foldersummary.Service, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
 	return &service{
 		id:      id,
 		cfg:     cfg,
