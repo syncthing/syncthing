@@ -72,7 +72,7 @@ func init() {
 	cipherSuites = buildCipherSuites()
 	if build.IsBeta {
 		// Append "tls13=1" to GODEBUG before starting TLS, to enable TLS
-		// 1.3 in Go 1.2.
+		// 1.3 in Go 1.12.
 		os.Setenv("GODEBUG", os.Getenv("GODEBUG")+",tls13=1")
 	}
 }
