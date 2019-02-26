@@ -336,7 +336,7 @@ func setupKnownFiles(t *testing.T, data []byte) []protocol.FileInfo {
 	return knownFiles
 }
 
-func setupROFolder() *Model {
+func setupROFolder() *model {
 	fcfg := config.NewFolderConfiguration(myID, "ro", "receive only test", fs.FilesystemTypeBasic, "_recvonly")
 	fcfg.Type = config.FolderTypeReceiveOnly
 	fcfg.Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
@@ -349,7 +349,7 @@ func setupROFolder() *Model {
 	wrp := createTmpWrapper(cfg)
 
 	db := db.OpenMemory()
-	m := NewModel(wrp, myID, "syncthing", "dev", db, nil)
+	m := newModel(wrp, myID, "syncthing", "dev", db, nil)
 
 	m.ServeBackground()
 	m.AddFolder(fcfg)

@@ -24,7 +24,7 @@ func init() {
 }
 
 type tcpDialer struct {
-	cfg    *config.Wrapper
+	cfg    config.Wrapper
 	tlsCfg *tls.Config
 }
 
@@ -62,7 +62,7 @@ func (d *tcpDialer) RedialFrequency() time.Duration {
 
 type tcpDialerFactory struct{}
 
-func (tcpDialerFactory) New(cfg *config.Wrapper, tlsCfg *tls.Config) genericDialer {
+func (tcpDialerFactory) New(cfg config.Wrapper, tlsCfg *tls.Config) genericDialer {
 	return &tcpDialer{
 		cfg:    cfg,
 		tlsCfg: tlsCfg,

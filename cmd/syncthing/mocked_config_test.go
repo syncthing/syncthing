@@ -44,6 +44,8 @@ func (c *mockedConfig) Replace(cfg config.Configuration) (config.Waiter, error) 
 
 func (c *mockedConfig) Subscribe(cm config.Committer) {}
 
+func (c *mockedConfig) Unsubscribe(cm config.Committer) {}
+
 func (c *mockedConfig) Folders() map[string]config.FolderConfiguration {
 	return nil
 }
@@ -66,6 +68,58 @@ func (c *mockedConfig) Save() error {
 
 func (c *mockedConfig) RequiresRestart() bool {
 	return false
+}
+
+func (c *mockedConfig) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {}
+
+func (c *mockedConfig) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {}
+
+func (m *mockedConfig) MyName() string {
+	return ""
+}
+
+func (m *mockedConfig) ConfigPath() string {
+	return ""
+}
+
+func (m *mockedConfig) SetGUI(gui config.GUIConfiguration) (config.Waiter, error) {
+	return noopWaiter{}, nil
+}
+
+func (m *mockedConfig) SetOptions(opts config.OptionsConfiguration) (config.Waiter, error) {
+	return noopWaiter{}, nil
+}
+
+func (m *mockedConfig) Folder(id string) (config.FolderConfiguration, bool) {
+	return config.FolderConfiguration{}, false
+}
+
+func (m *mockedConfig) FolderList() []config.FolderConfiguration {
+	return nil
+}
+
+func (m *mockedConfig) SetFolder(fld config.FolderConfiguration) (config.Waiter, error) {
+	return noopWaiter{}, nil
+}
+
+func (m *mockedConfig) Device(id protocol.DeviceID) (config.DeviceConfiguration, bool) {
+	return config.DeviceConfiguration{}, false
+}
+
+func (m *mockedConfig) RemoveDevice(id protocol.DeviceID) (config.Waiter, error) {
+	return noopWaiter{}, nil
+}
+
+func (m *mockedConfig) IgnoredDevice(id protocol.DeviceID) bool {
+	return false
+}
+
+func (m *mockedConfig) IgnoredFolder(device protocol.DeviceID, folder string) bool {
+	return false
+}
+
+func (m *mockedConfig) GlobalDiscoveryServers() []string {
+	return nil
 }
 
 type noopWaiter struct{}

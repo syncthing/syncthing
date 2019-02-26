@@ -77,9 +77,15 @@ var tlsCipherSuiteNames = map[uint16]string{
 
 // Service listens and dials all configured unconnected devices, via supported
 // dialers. Successful connections are handed to the model.
-type Service struct {
+type Service interface {
+	suture.Service
+	Status() map[string]interface{}
+	NATType() string
+}
+
+type service struct {
 	*suture.Supervisor
-	cfg                  *config.Wrapper
+	cfg                  config.Wrapper
 	myID                 protocol.DeviceID
 	model                Model
 	tlsCfg               *tls.Config
@@ -97,10 +103,10 @@ type Service struct {
 	listenerSupervisor *suture.Supervisor
 }
 
-func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
-	bepProtocolName string, tlsDefaultCommonName string) *Service {
+func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
+	bepProtocolName string, tlsDefaultCommonName string) *service {
 
-	service := &Service{
+	service := &service{
 		Supervisor: suture.New("connections.Service", suture.Spec{
 			Log: func(line string) {
 				l.Infoln(line)
@@ -156,7 +162,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	return service
 }
 
-func (s *Service) handle() {
+func (s *service) handle() {
 next:
 	for c := range s.conns {
 		cs := c.ConnectionState()
@@ -282,7 +288,7 @@ next:
 	}
 }
 
-func (s *Service) connect() {
+func (s *service) connect() {
 	nextDial := make(map[string]time.Time)
 
 	// Used as delay for the first few connection attempts, increases
@@ -433,7 +439,7 @@ func (s *Service) connect() {
 	}
 }
 
-func (s *Service) isLANHost(host string) bool {
+func (s *service) isLANHost(host string) bool {
 	// Probably we are called with an ip:port combo which we can resolve as
 	// a TCP address.
 	if addr, err := net.ResolveTCPAddr("tcp", host); err == nil {
@@ -447,7 +453,7 @@ func (s *Service) isLANHost(host string) bool {
 	return false
 }
 
-func (s *Service) isLAN(addr net.Addr) bool {
+func (s *service) isLAN(addr net.Addr) bool {
 	var ip net.IP
 
 	switch addr := addr.(type) {
@@ -488,7 +494,7 @@ func (s *Service) isLAN(addr net.Addr) bool {
 	return false
 }
 
-func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {
+func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 	// must be called with listenerMut held
 
 	l.Debugln("Starting listener", uri)
@@ -500,7 +506,7 @@ func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {
 	return true
 }
 
-func (s *Service) logListenAddressesChangedEvent(l genericListener) {
+func (s *service) logListenAddressesChangedEvent(l genericListener) {
 	events.Default.Log(events.ListenAddressesChanged, map[string]interface{}{
 		"address": l.URI(),
 		"lan":     l.LANAddresses(),
@@ -508,11 +514,11 @@ func (s *Service) logListenAddressesChangedEvent(l genericListener) {
 	})
 }
 
-func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
+func (s *service) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
 
-func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
+func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	newDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
 	for _, dev := range to.Devices {
 		newDevices[dev.DeviceID] = true
@@ -589,7 +595,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (s *Service) AllAddresses() []string {
+func (s *service) AllAddresses() []string {
 	s.listenersMut.RLock()
 	var addrs []string
 	for _, listener := range s.listeners {
@@ -604,7 +610,7 @@ func (s *Service) AllAddresses() []string {
 	return util.UniqueStrings(addrs)
 }
 
-func (s *Service) ExternalAddresses() []string {
+func (s *service) ExternalAddresses() []string {
 	s.listenersMut.RLock()
 	var addrs []string
 	for _, listener := range s.listeners {
@@ -616,7 +622,7 @@ func (s *Service) ExternalAddresses() []string {
 	return util.UniqueStrings(addrs)
 }
 
-func (s *Service) Status() map[string]interface{} {
+func (s *service) Status() map[string]interface{} {
 	s.listenersMut.RLock()
 	result := make(map[string]interface{})
 	for addr, listener := range s.listeners {
@@ -636,7 +642,7 @@ func (s *Service) Status() map[string]interface{} {
 	return result
 }
 
-func (s *Service) NATType() string {
+func (s *service) NATType() string {
 	s.listenersMut.RLock()
 	defer s.listenersMut.RUnlock()
 	for _, listener := range s.listeners {

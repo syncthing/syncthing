@@ -56,7 +56,7 @@ type receiveOnlyFolder struct {
 	*sendReceiveFolder
 }
 
-func newReceiveOnlyFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem) service {
+func newReceiveOnlyFolder(model *model, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem) service {
 	sr := newSendReceiveFolder(model, cfg, ver, fs).(*sendReceiveFolder)
 	sr.localFlags = protocol.FlagLocalReceiveOnly // gets propagated to the scanner, and set on locally changed files
 	return &receiveOnlyFolder{sr}

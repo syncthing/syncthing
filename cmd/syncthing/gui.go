@@ -40,11 +40,9 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -64,15 +62,15 @@ const (
 
 type apiService struct {
 	id                 protocol.DeviceID
-	cfg                configIntf
+	cfg                config.Wrapper
 	httpsCertFile      string
 	httpsKeyFile       string
 	statics            *staticsServer
-	model              modelIntf
+	model              model.Model
 	eventSubs          map[events.EventType]events.BufferedSubscription
 	eventSubsMut       sync.Mutex
 	discoverer         discover.CachingMux
-	connectionsService connectionsIntf
+	connectionsService connections.Service
 	fss                *folderSummaryService
 	systemConfigMut    sync.Mutex    // serializes posts to /rest/system/config
 	stop               chan struct{} // signals intentional stop
@@ -86,69 +84,11 @@ type apiService struct {
 	systemLog logger.Recorder
 }
 
-type modelIntf interface {
-	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
-	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
-	Override(folder string)
-	Revert(folder string)
-	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated)
-	RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error)
-	LocalChangedFiles(folder string, page, perpage int) []db.FileInfoTruncated
-	NeedSize(folder string) db.Counts
-	ConnectionStats() map[string]interface{}
-	DeviceStatistics() map[string]stats.DeviceStatistics
-	FolderStatistics() map[string]stats.FolderStatistics
-	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool)
-	CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool)
-	ResetFolder(folder string)
-	Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []model.Availability
-	GetIgnores(folder string) ([]string, []string, error)
-	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
-	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error)
-	SetIgnores(folder string, content []string) error
-	DelayScan(folder string, next time.Duration)
-	ScanFolder(folder string) error
-	ScanFolders() map[string]error
-	ScanFolderSubdirs(folder string, subs []string) error
-	BringToFront(folder, file string)
-	Connection(deviceID protocol.DeviceID) (connections.Connection, bool)
-	GlobalSize(folder string) db.Counts
-	LocalSize(folder string) db.Counts
-	ReceiveOnlyChangedSize(folder string) db.Counts
-	CurrentSequence(folder string) (int64, bool)
-	RemoteSequence(folder string) (int64, bool)
-	State(folder string) (string, time.Time, error)
-	UsageReportingStats(version int, preview bool) map[string]interface{}
-	FolderErrors(folder string) ([]model.FileError, error)
-	WatchError(folder string) error
-}
-
-type configIntf interface {
-	GUI() config.GUIConfiguration
-	LDAP() config.LDAPConfiguration
-	RawCopy() config.Configuration
-	Options() config.OptionsConfiguration
-	Replace(cfg config.Configuration) (config.Waiter, error)
-	Subscribe(c config.Committer)
-	Folders() map[string]config.FolderConfiguration
-	Devices() map[protocol.DeviceID]config.DeviceConfiguration
-	SetDevice(config.DeviceConfiguration) (config.Waiter, error)
-	SetDevices([]config.DeviceConfiguration) (config.Waiter, error)
-	Save() error
-	ListenAddresses() []string
-	RequiresRestart() bool
-}
-
-type connectionsIntf interface {
-	Status() map[string]interface{}
-	NATType() string
-}
-
 type rater interface {
 	Rate() float64
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder, cpu rater) *apiService {
+func newAPIService(id protocol.DeviceID, cfg config.Wrapper, httpsCertFile, httpsKeyFile, assetDir string, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, errors, systemLog logger.Recorder, cpu rater) *apiService {
 	service := &apiService{
 		id:            id,
 		cfg:           cfg,
@@ -719,7 +659,7 @@ func (s *apiService) getDBStatus(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func folderSummary(cfg configIntf, m modelIntf, folder string) (map[string]interface{}, error) {
+func folderSummary(cfg config.Wrapper, m model.Model, folder string) (map[string]interface{}, error) {
 	var res = make(map[string]interface{})
 
 	errors, err := m.FolderErrors(folder)
