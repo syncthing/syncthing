@@ -14,13 +14,15 @@ import (
 )
 
 var (
-	l = logger.DefaultLogger.NewFacility("http", "REST API")
+	l = logger.DefaultLogger.NewFacility("api", "REST API")
 )
 
 func shouldDebugHTTP() bool {
-	return l.ShouldDebug("http")
+	return l.ShouldDebug("api")
 }
 
 func init() {
-	l.SetDebug("http", strings.Contains(os.Getenv("STTRACE"), "http") || os.Getenv("STTRACE") == "all")
+	// The debug facility was originally named "http", changed in:
+	// https://github.com/syncthing/syncthing/pull/5548
+	l.SetDebug("api", strings.Contains(os.Getenv("STTRACE"), "api") || strings.Contains(os.Getenv("STTRACE"), "http") || os.Getenv("STTRACE") == "all")
 }
