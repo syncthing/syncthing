@@ -672,7 +672,7 @@ func TestIssue3164(t *testing.T) {
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.handleDeleteDir(file, matcher, dbUpdateChan, make(chan string))
+	f.deleteDir(file, matcher, dbUpdateChan, make(chan string))
 
 	if _, err := ffs.Stat("issue3164"); !fs.IsNotExist(err) {
 		t.Fatal(err)
@@ -820,7 +820,7 @@ func TestCopyOwner(t *testing.T) {
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	defer close(dbUpdateChan)
-	f.handleDir(dir, dbUpdateChan)
+	f.handleDir(dir, ignore.New(f.fs), dbUpdateChan, nil)
 	<-dbUpdateChan // empty the channel for later
 
 	info, err := f.fs.Lstat("foo/bar")
@@ -871,7 +871,7 @@ func TestCopyOwner(t *testing.T) {
 		SymlinkTarget: "over the rainbow",
 	}
 
-	f.handleSymlink(symlink, dbUpdateChan)
+	f.handleSymlink(symlink, ignore.New(f.fs), dbUpdateChan, nil)
 	<-dbUpdateChan
 
 	info, err = f.fs.Lstat("foo/bar/sym")
@@ -907,11 +907,14 @@ func TestSRConflictReplaceFileByDir(t *testing.T) {
 	file.ModifiedBy = rem
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
+	scanChan := make(chan string, 1)
 
-	f.handleDir(file, dbUpdateChan)
+	f.handleDir(file, ignore.New(f.fs), dbUpdateChan, scanChan)
 
 	if confls := existingConflicts(name, ffs); len(confls) != 1 {
-		t.Fatal("Expected one conflict, got", confls)
+		t.Fatal("Expected one conflict, got", len(confls))
+	} else if scan := <-scanChan; confls[0] != scan {
+		t.Fatal("Expected request to scan", confls[0], "got", scan)
 	}
 }
 
@@ -934,15 +937,19 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 
 	// Simulate remote creating a symlink with the same name
 	file.Type = protocol.FileInfoTypeSymlink
+	file.SymlinkTarget = "bar"
 	rem := device1.Short()
 	file.Version = protocol.Vector{}.Update(rem)
 	file.ModifiedBy = rem
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
+	scanChan := make(chan string, 1)
 
-	f.handleSymlink(file, dbUpdateChan)
+	f.handleSymlink(file, ignore.New(f.fs), dbUpdateChan, scanChan)
 
 	if confls := existingConflicts(name, ffs); len(confls) != 1 {
-		t.Fatal("Expected one conflict, got", confls)
+		t.Fatal("Expected one conflict, got", len(confls))
+	} else if scan := <-scanChan; confls[0] != scan {
+		t.Fatal("Expected request to scan", confls[0], "got", scan)
 	}
 }

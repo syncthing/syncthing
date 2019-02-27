@@ -76,7 +76,7 @@ func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.File
 	defer close(scanChan)
 
 	delQueue := &deleteQueue{
-		handler:  f, // for the deleteFile and deleteDir methods
+		handler:  f, // for the deleteItemOnDisk and deleteDirOnDisk methods
 		ignores:  ignores,
 		scanChan: scanChan,
 	}
@@ -171,8 +171,8 @@ func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.File
 // directories for last.
 type deleteQueue struct {
 	handler interface {
-		deleteFile(file protocol.FileInfo, scanChan chan<- string) (dbUpdateJob, error)
-		deleteDir(dir string, ignores *ignore.Matcher, scanChan chan<- string) error
+		deleteItemOnDisk(item protocol.FileInfo, ignores *ignore.Matcher, scanChan chan<- string) error
+		deleteDirOnDisk(dir string, ignores *ignore.Matcher, scanChan chan<- string) error
 	}
 	ignores  *ignore.Matcher
 	dirs     []string
@@ -193,7 +193,7 @@ func (q *deleteQueue) handle(fi protocol.FileInfo) (bool, error) {
 	}
 
 	// Kill it.
-	_, err := q.handler.deleteFile(fi, q.scanChan)
+	err := q.handler.deleteItemOnDisk(fi, q.ignores, q.scanChan)
 	return true, err
 }
 
@@ -205,7 +205,7 @@ func (q *deleteQueue) flush() ([]string, error) {
 	var deleted []string
 
 	for _, dir := range q.dirs {
-		if err := q.handler.deleteDir(dir, q.ignores, q.scanChan); err == nil {
+		if err := q.handler.deleteDirOnDisk(dir, q.ignores, q.scanChan); err == nil {
 			deleted = append(deleted, dir)
 		} else if err != nil && firstError == nil {
 			firstError = err
