@@ -669,8 +669,8 @@
                 <table class="table table-condensed table-striped">
                   <tbody>
                     <tr ng-if="connections[deviceCfg.deviceID].connected">
-                      <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Download Rate</span></th>
-                      <td class="text-right">
+                      <th class="col-xs-2"><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Download Rate</span></th>
+                      <td class="text-right col-xs-10">
                         <a href="#" class="toggler" ng-click="toggleUnits()">
                           <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].inbps | binary}}B/s</span>
                           <span ng-if="metricRates">{{connections[deviceCfg.deviceID].inbps*8 | metric}}bps</span>
@@ -685,8 +685,8 @@
                       </td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].connected">
-                      <th><span class="fas fa-fw fa-cloud-upload-alt"></span>&nbsp;<span translate>Upload Rate</span></th>
-                      <td class="text-right">
+                      <th class="col-xs-2"><span class="fas fa-fw fa-cloud-upload-alt"></span>&nbsp;<span translate>Upload Rate</span></th>
+                      <td class="text-right col-xs-10">
                         <a href="#" class="toggler" ng-click="toggleUnits()">
                           <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].outbps | binary}}B/s</span>
                           <span ng-if="metricRates">{{connections[deviceCfg.deviceID].outbps*8 | metric}}bps</span>
@@ -701,60 +701,60 @@
                       </td>
                     </tr>
                     <tr ng-if="deviceStatus(deviceCfg) == 'syncing'">
-                      <th><span class="fas fa-fw fa-exchange-alt"></span>&nbsp;<span translate>Out of Sync Items</span></th>
-                      <td class="text-right">
+                      <th class="col-xs-2"><span class="fas fa-fw fa-exchange-alt"></span>&nbsp;<span translate>Out of Sync Items</span></th>
+                      <td class="text-right col-xs-10">
                         <a href="" ng-click="showRemoteNeed(deviceCfg)">{{completion[deviceCfg.deviceID]._needItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{completion[deviceCfg.deviceID]._needBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr>
-                      <th><span class="fas fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
-                      <td ng-if="connections[deviceCfg.deviceID].connected" class="text-right">
+                      <th class="col-xs-2"><span class="fas fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
+                      <td ng-if="connections[deviceCfg.deviceID].connected" class="text-right col-xs-10">
                         <span tooltip data-original-title="{{ connections[deviceCfg.deviceID].type.indexOf('Relay') > -1 ? '' : connections[deviceCfg.deviceID].type }} {{ connections[deviceCfg.deviceID].crypto }}>
                           {{deviceAddr(deviceCfg)}}
                         </span>
                       </td>
-                      <td ng-if="!connections[deviceCfg.deviceID].connected" class="text-right">
+                      <td ng-if="!connections[deviceCfg.deviceID].connected" class="text-right col-xs-10">
                         <span ng-repeat="addr in deviceCfg.addresses"><span tooltip data-original-title="{{'Configured' | translate}}">{{addr}}</span><br></span>
                         <span ng-repeat="addr in discoveryCache[deviceCfg.deviceID].addresses"><span tooltip data-original-title="{{'Discovered' | translate}}">{{addr}}</span><br></span>
                       </td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].connected && connections[deviceCfg.deviceID].type.indexOf('Relay') > -1" tooltip data-original-title="Connections via relays might be rate limited by the relay">
-                      <th><span class="fas fa-fw fa-exclamation-triangle text-danger"></span>&nbsp;<span translate>Connection Type</span></th>
-                      <td class="text-right">{{connections[deviceCfg.deviceID].type}}</td>
+                      <th class="col-xs-2"><span class="fas fa-fw fa-exclamation-triangle text-danger"></span>&nbsp;<span translate>Connection Type</span></th>
+                      <td class="text-right col-xs-10">{{connections[deviceCfg.deviceID].type}}</td>
                     </tr>
                     <tr ng-if="deviceCfg.allowedNetworks.length > 0">
-                      <th><span class="fas fa-fw fa-filter"></span>&nbsp;<span translate>Allowed Networks</span></th>
-                      <td class="text-right">
+                      <th class="col-xs-2"><span class="fas fa-fw fa-filter"></span>&nbsp;<span translate>Allowed Networks</span></th>
+                      <td class="text-right col-xs-10">
                         <span>{{deviceCfg.allowedNetworks.join(", ")}}</span>
                       </td>
                     </tr>
                     <tr ng-if="deviceCfg.compression != 'metadata'">
-                      <th><span class="fas fa-fw fa-compress"></span>&nbsp;<span translate>Compression</span></th>
-                      <td class="text-right">
+                      <th class="col-xs-2"><span class="fas fa-fw fa-compress"></span>&nbsp;<span translate>Compression</span></th>
+                      <td class="text-right col-xs-10">
                         <span ng-if="deviceCfg.compression == 'always'" translate>All Data</span>
                         <span ng-if="deviceCfg.compression == 'never'" translate>Off</span>
                       </td>
                     </tr>
                     <tr ng-if="deviceCfg.introducer">
-                      <th><span class="far fa-fw fa-thumbs-up"></span>&nbsp;<span translate>Introducer</span></th>
-                      <td translate class="text-right">Yes</td>
+                      <th class="col-xs-2"><span class="far fa-fw fa-thumbs-up"></span>&nbsp;<span translate>Introducer</span></th>
+                      <td translate class="text-right col-xs-10">Yes</td>
                     </tr>
                     <tr ng-if="deviceCfg.introducedBy">
-                      <th><span class="far fa-fw fa-handshake-o"></span>&nbsp;<span translate>Introduced By</span></th>
-                      <td class="text-right">{{ deviceName(findDevice(deviceCfg.introducedBy)) || deviceCfg.introducedBy.substring(0, 5) }}</td>
+                      <th class="col-xs-2"><span class="far fa-fw fa-meh"></span>&nbsp;<span translate>Introduced By</span></th>
+                      <td class="text-right col-xs-10">{{ deviceName(findDevice(deviceCfg.introducedBy)) || deviceCfg.introducedBy.substring(0, 5) }}</td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].clientVersion">
-                      <th><span class="fas fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
-                      <td class="text-right">{{connections[deviceCfg.deviceID].clientVersion}}</td>
+                      <th class="col-xs-2"><span class="fas fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
+                      <td class="text-right col-xs-10">{{connections[deviceCfg.deviceID].clientVersion}}</td>
                     </tr>
                     <tr ng-if="!connections[deviceCfg.deviceID].connected">
-                      <th><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
-                      <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right">Never</td>
-                      <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
+                      <th class="col-xs-2"><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
+                      <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right col-xs-10">Never</td>
+                      <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right col-xs-10">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
                     </tr>
                     <tr ng-if="deviceFolders(deviceCfg).length > 0">
-                      <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
-                      <td class="text-right" ng-attr-title="{{deviceFolders(deviceCfg).map(folderLabel).join(', ')}}">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
+                      <th class="col-xs-2"><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
+                      <td class="text-right col-xs-10" ng-attr-title="{{deviceFolders(deviceCfg).map(folderLabel).join(', ')}}">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
                     </tr>
                   </tbody>
                 </table>
