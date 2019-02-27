@@ -62,7 +62,7 @@ var diffTestData = []struct {
 	{"cont", "contents", 3, []protocol.BlockInfo{{Offset: 3, Size: 3}, {Offset: 6, Size: 2}}},
 }
 
-func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
+func setupFile(filename string, blockNumbers []int) protocol.FileInfo {
 	// Create existing file
 	existingBlocks := make([]protocol.BlockInfo, len(blockNumbers))
 	for i := range blockNumbers {
@@ -73,6 +73,25 @@ func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
 		Name:   filename,
 		Blocks: existingBlocks,
 	}
+}
+
+func createFile(t *testing.T, name string, fs fs.Filesystem) protocol.FileInfo {
+	t.Helper()
+
+	f, err := fs.Create(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	fi, err := fs.Stat(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := scanner.CreateFileInfo(fi, name, fs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return file
 }
 
 func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFolder, string) {
@@ -118,7 +137,7 @@ func TestHandleFile(t *testing.T) {
 	// Pull: 1, 3, 4, 6, 7
 
 	existingBlocks := []int{0, 2, 0, 0, 5, 0, 0, 8}
-	existingFile := setUpFile("filex", existingBlocks)
+	existingFile := setupFile("filex", existingBlocks)
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 
@@ -164,7 +183,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	// Pull: 1, 6
 
 	existingBlocks := []int{0, 2, 0, 0, 5, 0, 0, 8}
-	existingFile := setUpFile("file", existingBlocks)
+	existingFile := setupFile("file", existingBlocks)
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 
@@ -216,7 +235,7 @@ func TestCopierFinder(t *testing.T) {
 	tempFile := fs.TempName("file2")
 
 	existingBlocks := []int{0, 2, 3, 4, 0, 0, 7, 0}
-	existingFile := setUpFile(fs.TempName("file"), existingBlocks)
+	existingFile := setupFile(fs.TempName("file"), existingBlocks)
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 	requiredFile.Name = "file2"
@@ -418,7 +437,7 @@ func TestCopierCleanup(t *testing.T) {
 	}
 
 	// Create a file
-	file := setUpFile("test", []int{0})
+	file := setupFile("test", []int{0})
 	m, _, tmpDir := setupSendReceiveFolder(file)
 	defer func() {
 		os.Remove(m.cfg.ConfigPath())
@@ -453,7 +472,7 @@ func TestCopierCleanup(t *testing.T) {
 }
 
 func TestDeregisterOnFailInCopy(t *testing.T) {
-	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
+	file := setupFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
 
 	m, f, tmpDir := setupSendReceiveFolder()
 	defer func() {
@@ -543,7 +562,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 }
 
 func TestDeregisterOnFailInPull(t *testing.T) {
-	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
+	file := setupFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
 
 	m, f, tmpDir := setupSendReceiveFolder()
 	defer func() {
@@ -861,5 +880,69 @@ func TestCopyOwner(t *testing.T) {
 	}
 	if info.Owner() != expOwner || info.Group() != expGroup {
 		t.Fatalf("Expected symlink owner/group to be %d/%d, not %d/%d", expOwner, expGroup, info.Owner(), info.Group())
+	}
+}
+
+// TestSRConflictReplaceFileByDir checks that a conflict is created when an existing file
+// is replaced with a directory and versions are conflicting
+func TestSRConflictReplaceFileByDir(t *testing.T) {
+	m, f, tmpDir := setupSendReceiveFolder()
+	defer func() {
+		os.Remove(m.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
+
+	ffs := f.Filesystem()
+	name := "foo"
+
+	// create local file
+	file := createFile(t, name, ffs)
+	file.Version = protocol.Vector{}.Update(myID.Short())
+	m.updateLocalsFromScanning(f.ID, []protocol.FileInfo{file})
+
+	// Simulate remote creating a dir with the same name
+	file.Type = protocol.FileInfoTypeDirectory
+	rem := device1.Short()
+	file.Version = protocol.Vector{}.Update(rem)
+	file.ModifiedBy = rem
+
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+
+	f.handleDir(file, dbUpdateChan)
+
+	if confls := existingConflicts(name, ffs); len(confls) != 1 {
+		t.Fatal("Expected one conflict, got", confls)
+	}
+}
+
+// TestSRConflictReplaceFileByLink checks that a conflict is created when an existing file
+// is replaced with a directory and versions are conflicting
+func TestSRConflictReplaceFileByLink(t *testing.T) {
+	m, f, tmpDir := setupSendReceiveFolder()
+	defer func() {
+		os.Remove(m.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
+
+	ffs := f.Filesystem()
+	name := "foo"
+
+	// create local file
+	file := createFile(t, name, ffs)
+	file.Version = protocol.Vector{}.Update(myID.Short())
+	m.updateLocalsFromScanning(f.ID, []protocol.FileInfo{file})
+
+	// Simulate remote creating a symlink with the same name
+	file.Type = protocol.FileInfoTypeSymlink
+	rem := device1.Short()
+	file.Version = protocol.Vector{}.Update(rem)
+	file.ModifiedBy = rem
+
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+
+	f.handleSymlink(file, dbUpdateChan)
+
+	if confls := existingConflicts(name, ffs); len(confls) != 1 {
+		t.Fatal("Expected one conflict, got", confls)
 	}
 }
