@@ -31,8 +31,6 @@ func TestCommonPrefix(t *testing.T) {
 		test(`c:\Audrius\Downloads`, `Audrius\Docs`, ``)
 		test(`c:\`, `c:\`, `c:\`)
 		test(`\\?\c:\`, `\\?\c:\`, `\\?\c:\`)
-		test(`Audrius`, `Audrius`, `Audrius`)
-		test(`.`, `.`, `.`)
 	} else {
 		test(`/Audrius/Downloads`, `/Audrius/Docs`, `/Audrius`)
 		test(`/Audrius\Downloads`, `/Audrius\Docs`, `/`)
@@ -42,7 +40,7 @@ func TestCommonPrefix(t *testing.T) {
 		test(`Audrius-a\Downloads`, `Audrius-b\Docs`, ``)
 		test(`/Audrius/Downloads`, `Audrius/Docs`, ``)
 		test(`/`, `/`, `/`)
-		test(`Audrius`, `Audrius`, `Audrius`)
-		test(`.`, `.`, `.`)
 	}
+	test(`Audrius`, `Audrius`, `Audrius`)
+	test(`.`, `.`, `.`)
 }

@@ -114,15 +114,15 @@ func CommonPrefix(first, second string) string {
 		common = append(common, firstParts[i])
 	}
 
-	if runtime.GOOS == "windows" && isAbs &&
-		((len(common) == 1 && strings.HasSuffix(common[0], ":")) ||
-			(len(common) == 4 && strings.HasSuffix(common[3], ":"))) {
-		// Because strings.Split strips out path separators, if we're at the volume name, we end up without a separator
-		// Wedge an empty element to be joined with.
-		common = append(common, "")
-	} else if len(common) == 1 && isAbs {
-		// If isAbs on non Windows, first element in both first and second is "", hence joining that returns nothing.
-		return string(PathSeparator)
+	if isAbs {
+		if runtime.GOOS == "windows" && isVolumeNameOnly(common) {
+			// Because strings.Split strips out path separators, if we're at the volume name, we end up without a separator
+			// Wedge an empty element to be joined with.
+			common = append(common, "")
+		} else if len(common) == 1 {
+			// If isAbs on non Windows, first element in both first and second is "", hence joining that returns nothing.
+			return string(PathSeparator)
+		}
 	}
 
 	// This should only be true on Windows when drive letters are different or when paths are relative.
@@ -134,4 +134,10 @@ func CommonPrefix(first, second string) string {
 	// This has to be strings.Join, because filepath.Join([]string{"", "", "?", "C:", "Audrius"}...) returns garbage
 	result := strings.Join(common, string(PathSeparator))
 	return filepath.Clean(result)
+}
+
+func isVolumeNameOnly(parts []string) bool {
+	isNormalVolumeName := len(parts) == 1 && strings.HasSuffix(parts[0], ":")
+	isUNCVolumeName := len(parts) == 4 && strings.HasSuffix(parts[3], ":")
+	return isNormalVolumeName || isUNCVolumeName
 }
