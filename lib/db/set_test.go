@@ -418,10 +418,7 @@ func TestUpdateToInvalid(t *testing.T) {
 	})
 
 	if !f.Iterate([]string{folder}, localHave[4].Blocks[0].Hash, func(folder, file string, index int32) bool {
-		if file == localHave[4].Name {
-			return true
-		}
-		return false
+		return file == localHave[4].Name
 	}) {
 		t.Errorf("First block of un-invalidated file is missing from blockmap")
 	}
@@ -1360,6 +1357,108 @@ func TestCaseSensitive(t *testing.T) {
 			t.Errorf("Incorrect  filename;\n%q !=\n%q",
 				gf[i].Name, local[i].Name)
 		}
+	}
+}
+
+func TestSequenceIndex(t *testing.T) {
+	// This test attempts to verify correct operation of the sequence index.
+
+	// It's a stress test and needs to run for a long time, but we don't
+	// really have time for that in normal builds.
+	runtime := time.Minute
+	if testing.Short() {
+		runtime = time.Second
+	}
+
+	// Set up a db and a few files that we will manipulate.
+
+	ldb := db.OpenMemory()
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	local := []protocol.FileInfo{
+		{Name: filepath.FromSlash("banana"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: filepath.FromSlash("pineapple"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: filepath.FromSlash("orange"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: filepath.FromSlash("apple"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: filepath.FromSlash("jackfruit"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+	}
+
+	// Start a  background routine that makes updates to these files as fast
+	// as it can. We always update the same files in the same order.
+
+	done := make(chan struct{})
+	defer close(done)
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			default:
+			}
+
+			for i := range local {
+				local[i].Version = local[i].Version.Update(42)
+			}
+			s.Update(protocol.LocalDeviceID, local)
+		}
+	}()
+
+	// Start a routine to walk the sequence index and inspect the result.
+
+	seen := make(map[string]db.FileIntf)
+	latest := make([]db.FileIntf, 0, len(local))
+	var seq int64
+	t0 := time.Now()
+
+	for time.Since(t0) < runtime {
+		// Walk the changes since our last iteration. This should give is
+		// one instance each of the files that are changed all the time, or
+		// a subset of those files if we manage to run before a complete
+		// update has happened since our last iteration.
+		latest = latest[:0]
+		s.WithHaveSequence(seq+1, func(f db.FileIntf) bool {
+			seen[f.FileName()] = f
+			latest = append(latest, f)
+			seq = f.SequenceNo()
+			return true
+		})
+
+		// Calculate the spread in sequence number.
+		var max, min int64
+		for _, v := range seen {
+			s := v.SequenceNo()
+			if max == 0 || max < s {
+				max = s
+			}
+			if min == 0 || min > s {
+				min = s
+			}
+		}
+
+		// We shouldn't see a spread larger than the number of files, as
+		// that would mean we have missed updates. For example, if we were
+		// to see the following:
+		//
+		// banana    N
+		// pineapple N+1
+		// orange    N+2
+		// apple     N+10
+		// jackfruit N+11
+		//
+		// that would mean that there have been updates to banana, pineapple
+		// and orange that we didn't see in this pass. If those files aren't
+		// updated again, those updates are permanently lost.
+		if max-min > int64(len(local)) {
+			for _, v := range seen {
+				t.Log("seen", v.FileName(), v.SequenceNo())
+			}
+			for _, v := range latest {
+				t.Log("latest", v.FileName(), v.SequenceNo())
+			}
+			t.Fatal("large spread")
+		}
+		time.Sleep(time.Millisecond)
 	}
 }
 

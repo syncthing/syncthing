@@ -8,8 +8,8 @@ package fs
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
-	"os"
 	"testing"
 )
 
@@ -23,7 +23,7 @@ func TestFakeFS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	info, err := fs.Stat("dira/dirb")
+	_, err = fs.Stat("dira/dirb")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestFakeFS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	info, err = fs.Stat("dira/dirb/dirc")
+	_, err = fs.Stat("dira/dirb/dirc")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestFakeFS(t *testing.T) {
 	}
 
 	// Stat on fd
-	info, err = fd.Stat()
+	info, err := fd.Stat()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestFakeFS(t *testing.T) {
 	}
 
 	// Seek
-	_, err = fd.Seek(1, os.SEEK_SET)
+	_, err = fd.Seek(1, io.SeekStart)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestFakeFS(t *testing.T) {
 	}
 
 	// Read again, same data hopefully
-	_, err = fd.Seek(0, os.SEEK_SET)
+	_, err = fd.Seek(0, io.SeekStart)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,6 +100,26 @@ func TestFakeFS(t *testing.T) {
 	}
 	if !bytes.Equal(bs0, bs1[1:]) {
 		t.Error("wrong data")
+	}
+
+	// Create symlink
+	if err := fs.CreateSymlink("foo", "dira/dirb/symlink"); err != nil {
+		t.Fatal(err)
+	}
+	if str, err := fs.ReadSymlink("dira/dirb/symlink"); err != nil {
+		t.Fatal(err)
+	} else if str != "foo" {
+		t.Error("Wrong symlink destination", str)
+	}
+
+	// Chown
+	if err := fs.Lchown("dira", 1234, 5678); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := fs.Lstat("dira"); err != nil {
+		t.Fatal(err)
+	} else if info.Owner() != 1234 || info.Group() != 5678 {
+		t.Error("Wrong owner/group")
 	}
 }
 
@@ -113,7 +133,7 @@ func TestFakeFSRead(t *testing.T) {
 	fd.Truncate(3 * 1 << randomBlockShift)
 
 	// Read
-	fd.Seek(0, 0)
+	fd.Seek(0, io.SeekStart)
 	bs0, err := ioutil.ReadAll(fd)
 	if err != nil {
 		t.Fatal(err)
@@ -123,7 +143,7 @@ func TestFakeFSRead(t *testing.T) {
 	}
 
 	// Read again, starting at an odd offset
-	fd.Seek(0, 0)
+	fd.Seek(0, io.SeekStart)
 	buf0 := make([]byte, 12345)
 	n, _ := fd.Read(buf0)
 	if n != len(buf0) {

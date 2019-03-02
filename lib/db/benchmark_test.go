@@ -8,9 +8,6 @@ package db_test
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/db"
@@ -39,30 +36,15 @@ func lazyInitBenchFileSet() {
 	secondHalf = files[middle:]
 	oneFile = firstHalf[middle-1 : middle]
 
-	ldb, _ := tempDB()
+	ldb := db.OpenMemory()
 	benchS = db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	replace(benchS, remoteDevice0, files)
 	replace(benchS, protocol.LocalDeviceID, firstHalf)
 }
 
-func tempDB() (*db.Lowlevel, string) {
-	dir, err := ioutil.TempDir("", "syncthing")
-	if err != nil {
-		panic(err)
-	}
-	dbi, err := db.Open(filepath.Join(dir, "db"))
-	if err != nil {
-		panic(err)
-	}
-	return dbi, dir
-}
-
 func BenchmarkReplaceAll(b *testing.B) {
-	ldb, dir := tempDB()
-	defer func() {
-		ldb.Close()
-		os.RemoveAll(dir)
-	}()
+	ldb := db.OpenMemory()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -78,15 +60,56 @@ func BenchmarkUpdateOneChanged(b *testing.B) {
 
 	changed := make([]protocol.FileInfo, 1)
 	changed[0] = oneFile[0]
-	changed[0].Version = changed[0].Version.Update(myID)
-	changed[0].Blocks = genBlocks(len(changed[0].Blocks))
+	changed[0].Version = changed[0].Version.Copy().Update(myID)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if i%1 == 0 {
+		if i%2 == 0 {
 			benchS.Update(protocol.LocalDeviceID, changed)
 		} else {
 			benchS.Update(protocol.LocalDeviceID, oneFile)
+		}
+	}
+
+	b.ReportAllocs()
+}
+
+func BenchmarkUpdate100Changed(b *testing.B) {
+	lazyInitBenchFileSet()
+
+	unchanged := files[100:200]
+	changed := append([]protocol.FileInfo{}, unchanged...)
+	for i := range changed {
+		changed[i].Version = changed[i].Version.Copy().Update(myID)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if i%2 == 0 {
+			benchS.Update(protocol.LocalDeviceID, changed)
+		} else {
+			benchS.Update(protocol.LocalDeviceID, unchanged)
+		}
+	}
+
+	b.ReportAllocs()
+}
+
+func BenchmarkUpdate100ChangedRemote(b *testing.B) {
+	lazyInitBenchFileSet()
+
+	unchanged := files[100:200]
+	changed := append([]protocol.FileInfo{}, unchanged...)
+	for i := range changed {
+		changed[i].Version = changed[i].Version.Copy().Update(myID)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if i%2 == 0 {
+			benchS.Update(remoteDevice0, changed)
+		} else {
+			benchS.Update(remoteDevice0, unchanged)
 		}
 	}
 
@@ -111,6 +134,30 @@ func BenchmarkNeedHalf(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		benchS.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+			count++
+			return true
+		})
+		if count != len(secondHalf) {
+			b.Errorf("wrong length %d != %d", count, len(secondHalf))
+		}
+	}
+
+	b.ReportAllocs()
+}
+
+func BenchmarkNeedHalfRemote(b *testing.B) {
+	lazyInitBenchFileSet()
+
+	ldb := db.OpenMemory()
+	defer ldb.Close()
+	fset := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	replace(fset, remoteDevice0, firstHalf)
+	replace(fset, protocol.LocalDeviceID, files)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		count := 0
+		fset.WithNeed(remoteDevice0, func(fi db.FileIntf) bool {
 			count++
 			return true
 		})

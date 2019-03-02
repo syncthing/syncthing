@@ -20,7 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/ldap.v2"
+	ldap "gopkg.in/ldap.v2"
 )
 
 var (
@@ -80,11 +80,10 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			return
 		}
 
-		authOk := false
 		username := string(fields[0])
 		password := string(fields[1])
 
-		authOk = auth(username, password, guiCfg, ldapCfg)
+		authOk := auth(username, password, guiCfg, ldapCfg)
 		if !authOk {
 			usernameIso := string(iso88591ToUTF8([]byte(username)))
 			passwordIso := string(iso88591ToUTF8([]byte(password)))

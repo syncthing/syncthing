@@ -12,7 +12,7 @@ ENV BUILD_USER=docker
 
 RUN apk add --no-cache git
 
-WORKDIR /go/src/github.com/syncthing/syncthing
+WORKDIR /src
 COPY . .
 RUN go run build.go -no-upgrade -goos=$BUILD_GOOS -goarch=$BUILD_GOARCH build
 
@@ -27,7 +27,7 @@ VOLUME ["/var/syncthing"]
 __MULTIARCH_COPY docker/build/qemu-${QEMUARCH}-static /usr/bin/
 RUN apk add --update --no-cache ca-certificates su-exec
 __MULTIARCH_RUN rm /usr/bin/qemu-${QEMUARCH}-static
-COPY --from=builder /go/src/github.com/syncthing/syncthing/syncthing /bin/syncthing
+COPY --from=builder /src/syncthing /bin/syncthing
 
 HEALTHCHECK --interval=1m --timeout=10s \
   CMD nc -z localhost 8384 || exit 1

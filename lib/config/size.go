@@ -72,11 +72,13 @@ func (s Size) String() string {
 	return fmt.Sprintf("%v %s", s.Value, s.Unit)
 }
 
-func (Size) ParseDefault(s string) (interface{}, error) {
-	return ParseSize(s)
+func (s *Size) ParseDefault(str string) error {
+	sz, err := ParseSize(str)
+	*s = sz
+	return err
 }
 
-func checkFreeSpace(req Size, usage fs.Usage) error {
+func CheckFreeSpace(req Size, usage fs.Usage) error {
 	val := req.BaseValue()
 	if val <= 0 {
 		return nil

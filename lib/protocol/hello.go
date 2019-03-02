@@ -26,12 +26,9 @@ type HelloResult struct {
 }
 
 var (
-	// ErrTooOldVersion12 is returned by ExchangeHello when the other side
-	// speaks the older, incompatible version 0.12 of the protocol.
-	ErrTooOldVersion12 = errors.New("the remote device speaks an older version of the protocol (v0.12) not compatible with this version")
-	// ErrTooOldVersion13 is returned by ExchangeHello when the other side
-	// speaks the older, incompatible version 0.12 of the protocol.
-	ErrTooOldVersion13 = errors.New("the remote device speaks an older version of the protocol (v0.13) not compatible with this version")
+	// ErrTooOldVersion is returned by ExchangeHello when the other side
+	// speaks an older, incompatible version of the protocol.
+	ErrTooOldVersion = errors.New("the remote device speaks an older version of the protocol not compatible with this version")
 	// ErrUnknownMagic is returned by ExchangeHellow when the other side
 	// speaks something entirely unknown.
 	ErrUnknownMagic = errors.New("the remote device speaks an unknown (newer?) version of the protocol")
@@ -48,7 +45,7 @@ func ExchangeHello(c io.ReadWriter, h HelloIntf) (HelloResult, error) {
 // version mismatch that we might want to alert the user about.
 func IsVersionMismatch(err error) bool {
 	switch err {
-	case ErrTooOldVersion12, ErrTooOldVersion13, ErrUnknownMagic:
+	case ErrTooOldVersion, ErrUnknownMagic:
 		return true
 	default:
 		return false
@@ -80,38 +77,13 @@ func readHello(c io.Reader) (HelloResult, error) {
 		if err := hello.Unmarshal(buf); err != nil {
 			return HelloResult{}, err
 		}
-		res := HelloResult{
-			DeviceName:    hello.DeviceName,
-			ClientName:    hello.ClientName,
-			ClientVersion: hello.ClientVersion,
-		}
-		return res, nil
+		return HelloResult(hello), nil
 
-	case Version13HelloMagic:
-		// This is a v0.13 Hello message in XDR format
-		if _, err := io.ReadFull(c, header[:4]); err != nil {
-			return HelloResult{}, err
-		}
-		msgSize := binary.BigEndian.Uint32(header[:4])
-		if msgSize > 1024 {
-			return HelloResult{}, fmt.Errorf("hello message too big")
-		}
-		buf := make([]byte, msgSize)
-		if _, err := io.ReadFull(c, buf); err != nil {
-			return HelloResult{}, err
-		}
-
-		var hello Version13HelloMessage
-		if err := hello.UnmarshalXDR(buf); err != nil {
-			return HelloResult{}, err
-		}
-		res := HelloResult(hello)
-		return res, ErrTooOldVersion13
-
-	case 0x00010001, 0x00010000:
-		// This is the first word of a v0.12 cluster config message.
-		// (Version 0, message ID 1, message type 0, compression enabled or disabled)
-		return HelloResult{}, ErrTooOldVersion12
+	case 0x00010001, 0x00010000, Version13HelloMagic:
+		// This is the first word of an older cluster config message or an
+		// old magic number. (Version 0, message ID 1, message type 0,
+		// compression enabled or disabled)
+		return HelloResult{}, ErrTooOldVersion
 	}
 
 	return HelloResult{}, ErrUnknownMagic

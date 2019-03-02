@@ -29,7 +29,7 @@ type relayListener struct {
 	onAddressesChangedNotifier
 
 	uri     *url.URL
-	cfg     *config.Wrapper
+	cfg     config.Wrapper
 	tlsCfg  *tls.Config
 	conns   chan internalConn
 	factory listenerFactory
@@ -180,7 +180,7 @@ func (t *relayListener) NATType() string {
 
 type relayListenerFactory struct{}
 
-func (f *relayListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
+func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	return &relayListener{
 		uri:     uri,
 		cfg:     cfg,

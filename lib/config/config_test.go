@@ -93,7 +93,7 @@ func TestDeviceConfig(t *testing.T) {
 			t.Fatal("Unexpected file")
 		}
 
-		cfg := wr.cfg
+		cfg := wr.(*wrapper).cfg
 
 		expectedFolders := []FolderConfiguration{
 			{
@@ -515,7 +515,7 @@ func TestNewSaveLoad(t *testing.T) {
 	cfg := Wrap(path, intCfg)
 
 	// To make the equality pass later
-	cfg.cfg.XMLName.Local = "configuration"
+	cfg.(*wrapper).cfg.XMLName.Local = "configuration"
 
 	if exists(path) {
 		t.Error(path, "exists")
@@ -827,7 +827,7 @@ func TestIgnoredFolders(t *testing.T) {
 
 	// 2 for folder2, 1 for folder1, as non-existing device and device the folder is shared with is removed.
 	expectedIgnoredFolders := 3
-	for _, dev := range wrapper.cfg.Devices {
+	for _, dev := range wrapper.Devices() {
 		expectedIgnoredFolders -= len(dev.IgnoredFolders)
 	}
 	if expectedIgnoredFolders != 0 {
@@ -918,7 +918,7 @@ func TestIssue4219(t *testing.T) {
 		],
 		"folders": [
 			{
-				"id": "abcd123", 
+				"id": "abcd123",
 				"devices":[
 					{"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"}
 				]

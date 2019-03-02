@@ -15,3 +15,7 @@ func (m *mockedConnections) Status() map[string]interface{} {
 func (m *mockedConnections) NATType() string {
 	return ""
 }
+
+func (m *mockedConnections) Serve() {}
+
+func (m *mockedConnections) Stop() {}

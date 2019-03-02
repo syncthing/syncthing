@@ -34,20 +34,23 @@ import (
 )
 
 var (
-	versionRe     = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
-	goarch        string
-	goos          string
-	noupgrade     bool
-	version       string
-	goCmd         string
-	goVersion     float64
-	race          bool
-	debug         = os.Getenv("BUILDDEBUG") != ""
-	extraTags     string
-	installSuffix string
-	pkgdir        string
-	debugBinary   bool
-	timeout       = "120s"
+	versionRe        = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
+	goarch           string
+	goos             string
+	noupgrade        bool
+	version          string
+	goCmd            string
+	goVersion        float64
+	race             bool
+	debug            = os.Getenv("BUILDDEBUG") != ""
+	extraTags        string
+	installSuffix    string
+	pkgdir           string
+	cc               string
+	debugBinary      bool
+	coverage         bool
+	timeout          = "120s"
+	gogoProtoVersion = "v1.2.0"
 )
 
 type target struct {
@@ -197,7 +200,7 @@ type dependencyRepo struct {
 }
 
 var dependencyRepos = []dependencyRepo{
-	{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: "v1.0.0"},
+	{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: gogoProtoVersion},
 	{path: "xdr", repo: "https://github.com/calmh/xdr.git", commit: "08e072f9cb16"},
 }
 
@@ -252,9 +255,6 @@ func main() {
 
 func runCommand(cmd string, target target) {
 	switch cmd {
-	case "setup":
-		setup()
-
 	case "install":
 		var tags []string
 		if noupgrade {
@@ -329,52 +329,29 @@ func parseFlags() {
 	flag.StringVar(&extraTags, "tags", extraTags, "Extra tags, space separated")
 	flag.StringVar(&installSuffix, "installsuffix", installSuffix, "Install suffix, optional")
 	flag.StringVar(&pkgdir, "pkgdir", "", "Set -pkgdir parameter for `go build`")
+	flag.StringVar(&cc, "cc", os.Getenv("CC"), "Set CC environment variable for `go build`")
 	flag.BoolVar(&debugBinary, "debug-binary", debugBinary, "Create unoptimized binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
+	flag.BoolVar(&coverage, "coverage", coverage, "Write coverage profile of tests to coverage.txt")
 	flag.Parse()
-}
-
-func setup() {
-	packages := []string{
-		"github.com/alecthomas/gometalinter",
-		"github.com/AlekSi/gocov-xml",
-		"github.com/axw/gocov/gocov",
-		"github.com/FiloSottile/gvt",
-		"golang.org/x/lint/golint",
-		"github.com/gordonklaus/ineffassign",
-		"github.com/mdempsky/unconvert",
-		"github.com/mitchellh/go-wordwrap",
-		"github.com/opennota/check/cmd/...",
-		"github.com/tsenart/deadcode",
-		"golang.org/x/net/html",
-		"golang.org/x/tools/cmd/cover",
-		"honnef.co/go/tools/cmd/gosimple",
-		"honnef.co/go/tools/cmd/staticcheck",
-		"honnef.co/go/tools/cmd/unused",
-		"github.com/josephspurrier/goversioninfo",
-	}
-	for _, pkg := range packages {
-		fmt.Println(pkg)
-		runPrint(goCmd, "get", "-u", pkg)
-	}
-
-	runPrint(goCmd, "install", "-v", "github.com/syncthing/syncthing/vendor/github.com/gogo/protobuf/protoc-gen-gogofast")
 }
 
 func test(pkgs ...string) {
 	lazyRebuildAssets()
 
-	useRace := runtime.GOARCH == "amd64"
-	switch runtime.GOOS {
-	case "darwin", "linux", "freebsd", "windows":
-	default:
-		useRace = false
+	args := []string{"test", "-short", "-timeout", timeout, "-tags", "purego"}
+
+	if runtime.GOARCH == "amd64" {
+		switch runtime.GOOS {
+		case "darwin", "linux", "freebsd": // , "windows": # See https://github.com/golang/go/issues/27089
+			args = append(args, "-race")
+		}
 	}
 
-	if useRace {
-		runPrint(goCmd, append([]string{"test", "-short", "-race", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
-	} else {
-		runPrint(goCmd, append([]string{"test", "-short", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
+	if coverage {
+		args = append(args, "-covermode", "atomic", "-coverprofile", "coverage.txt")
 	}
+
+	runPrint(goCmd, append(args, pkgs...)...)
 }
 
 func bench(pkgs ...string) {
@@ -398,6 +375,7 @@ func install(target target, tags []string) {
 
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
+	os.Setenv("CC", cc)
 
 	// On Windows generate a special file which the Go compiler will
 	// automatically use when generating Windows binaries to set things like
@@ -425,6 +403,7 @@ func build(target target, tags []string) {
 
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
+	os.Setenv("CC", cc)
 
 	// On Windows generate a special file which the Go compiler will
 	// automatically use when generating Windows binaries to set things like
@@ -757,6 +736,7 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func proto() {
+	runPrint(goCmd, "get", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", gogoProtoVersion))
 	os.MkdirAll("repos", 0755)
 	for _, dep := range dependencyRepos {
 		path := filepath.Join("repos", dep.path)
@@ -792,10 +772,10 @@ func ldflags() string {
 
 	b := new(bytes.Buffer)
 	b.WriteString("-w")
-	fmt.Fprintf(b, " -X main.Version%c%s", sep, version)
-	fmt.Fprintf(b, " -X main.BuildStamp%c%d", sep, buildStamp())
-	fmt.Fprintf(b, " -X main.BuildUser%c%s", sep, buildUser())
-	fmt.Fprintf(b, " -X main.BuildHost%c%s", sep, buildHost())
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version%c%s", sep, version)
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp%c%d", sep, buildStamp())
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User%c%s", sep, buildUser())
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host%c%s", sep, buildHost())
 	return b.String()
 }
 

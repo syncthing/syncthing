@@ -78,11 +78,11 @@ func newFakeFilesystem(root string) *fakefs {
 
 	fs := &fakefs{
 		root: &fakeEntry{
-			name:     "/",
-			isdir:    true,
-			mode:     0700,
-			mtime:    time.Now(),
-			children: make(map[string]*fakeEntry),
+			name:      "/",
+			entryType: fakeEntryTypeDir,
+			mode:      0700,
+			mtime:     time.Now(),
+			children:  make(map[string]*fakeEntry),
 		},
 	}
 
@@ -126,17 +126,30 @@ func newFakeFilesystem(root string) *fakefs {
 	return fs
 }
 
+type fakeEntryType int
+
+const (
+	fakeEntryTypeFile fakeEntryType = iota
+	fakeEntryTypeDir
+	fakeEntryTypeSymlink
+)
+
 // fakeEntry is an entry (file or directory) in the fake filesystem
 type fakeEntry struct {
-	name     string
-	isdir    bool
-	size     int64
-	mode     FileMode
-	mtime    time.Time
-	children map[string]*fakeEntry
+	name      string
+	entryType fakeEntryType
+	dest      string // for symlinks
+	size      int64
+	mode      FileMode
+	uid       int
+	gid       int
+	mtime     time.Time
+	children  map[string]*fakeEntry
 }
 
 func (fs *fakefs) entryForName(name string) *fakeEntry {
+	// bug: lookup doesn't work through symlinks.
+
 	name = filepath.ToSlash(name)
 	if name == "." || name == "/" {
 		return fs.root
@@ -146,6 +159,9 @@ func (fs *fakefs) entryForName(name string) *fakeEntry {
 	comps := strings.Split(name, "/")
 	entry := fs.root
 	for _, comp := range comps {
+		if entry.entryType != fakeEntryTypeDir {
+			return nil
+		}
 		var ok bool
 		entry, ok = entry.children[comp]
 		if !ok {
@@ -166,6 +182,18 @@ func (fs *fakefs) Chmod(name string, mode FileMode) error {
 	return nil
 }
 
+func (fs *fakefs) Lchown(name string, uid, gid int) error {
+	fs.mut.Lock()
+	defer fs.mut.Unlock()
+	entry := fs.entryForName(name)
+	if entry == nil {
+		return os.ErrNotExist
+	}
+	entry.uid = uid
+	entry.gid = gid
+	return nil
+}
+
 func (fs *fakefs) Chtimes(name string, atime time.Time, mtime time.Time) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
@@ -177,18 +205,20 @@ func (fs *fakefs) Chtimes(name string, atime time.Time, mtime time.Time) error {
 	return nil
 }
 
-func (fs *fakefs) Create(name string) (File, error) {
+func (fs *fakefs) create(name string) (*fakeEntry, error) {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
 
 	if entry := fs.entryForName(name); entry != nil {
-		if entry.isdir {
+		if entry.entryType == fakeEntryTypeDir {
 			return nil, os.ErrExist
+		} else if entry.entryType == fakeEntryTypeSymlink {
+			return nil, errors.New("following symlink not supported")
 		}
 		entry.size = 0
 		entry.mtime = time.Now()
 		entry.mode = 0666
-		return &fakeFile{fakeEntry: entry}, nil
+		return entry, nil
 	}
 
 	dir := filepath.Dir(name)
@@ -203,11 +233,25 @@ func (fs *fakefs) Create(name string) (File, error) {
 		mtime: time.Now(),
 	}
 	entry.children[base] = new
-	return &fakeFile{fakeEntry: new}, nil
+	return new, nil
+}
+
+func (fs *fakefs) Create(name string) (File, error) {
+	entry, err := fs.create(name)
+	if err != nil {
+		return nil, err
+	}
+	return &fakeFile{fakeEntry: entry}, nil
 }
 
 func (fs *fakefs) CreateSymlink(target, name string) error {
-	return errors.New("not implemented")
+	entry, err := fs.create(name)
+	if err != nil {
+		return err
+	}
+	entry.entryType = fakeEntryTypeSymlink
+	entry.dest = target
+	return nil
 }
 
 func (fs *fakefs) DirNames(name string) ([]string, error) {
@@ -248,16 +292,19 @@ func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 	if entry == nil {
 		return os.ErrNotExist
 	}
+	if entry.entryType != fakeEntryTypeDir {
+		return os.ErrExist
+	}
 	if _, ok := entry.children[base]; ok {
 		return os.ErrExist
 	}
 
 	entry.children[base] = &fakeEntry{
-		name:     base,
-		isdir:    true,
-		mode:     perm,
-		mtime:    time.Now(),
-		children: make(map[string]*fakeEntry),
+		name:      base,
+		entryType: fakeEntryTypeDir,
+		mode:      perm,
+		mtime:     time.Now(),
+		children:  make(map[string]*fakeEntry),
 	}
 	return nil
 }
@@ -272,15 +319,15 @@ func (fs *fakefs) MkdirAll(name string, perm FileMode) error {
 
 		if !ok {
 			new := &fakeEntry{
-				name:     comp,
-				isdir:    true,
-				mode:     perm,
-				mtime:    time.Now(),
-				children: make(map[string]*fakeEntry),
+				name:      comp,
+				entryType: fakeEntryTypeDir,
+				mode:      perm,
+				mtime:     time.Now(),
+				children:  make(map[string]*fakeEntry),
 			}
 			entry.children[comp] = new
 			next = new
-		} else if !next.isdir {
+		} else if next.entryType != fakeEntryTypeDir {
 			return errors.New("not a directory")
 		}
 
@@ -294,7 +341,7 @@ func (fs *fakefs) Open(name string) (File, error) {
 	defer fs.mut.Unlock()
 
 	entry := fs.entryForName(name)
-	if entry == nil {
+	if entry == nil || entry.entryType != fakeEntryTypeFile {
 		return nil, os.ErrNotExist
 	}
 	return &fakeFile{fakeEntry: entry}, nil
@@ -313,6 +360,8 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 	entry := fs.entryForName(dir)
 	if entry == nil {
 		return nil, os.ErrNotExist
+	} else if entry.entryType != fakeEntryTypeDir {
+		return nil, errors.New("not a directory")
 	}
 
 	if flags&os.O_EXCL != 0 {
@@ -332,7 +381,16 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 }
 
 func (fs *fakefs) ReadSymlink(name string) (string, error) {
-	return "", errors.New("not implemented")
+	fs.mut.Lock()
+	defer fs.mut.Unlock()
+
+	entry := fs.entryForName(name)
+	if entry == nil {
+		return "", os.ErrNotExist
+	} else if entry.entryType != fakeEntryTypeSymlink {
+		return "", errors.New("not a symlink")
+	}
+	return entry.dest, nil
 }
 
 func (fs *fakefs) Remove(name string) error {
@@ -387,7 +445,7 @@ func (fs *fakefs) Rename(oldname, newname string) error {
 	}
 
 	dst, ok := p1.children[filepath.Base(newname)]
-	if ok && dst.isdir {
+	if ok && dst.entryType == fakeEntryTypeDir {
 		return errors.New("is a directory")
 	}
 
@@ -442,7 +500,7 @@ func (fs *fakefs) URI() string {
 }
 
 func (fs *fakefs) SameFile(fi1, fi2 FileInfo) bool {
-	return fi1.Name() == fi1.Name()
+	return fi1.Name() == fi2.Name()
 }
 
 // fakeFile is the representation of an open file. We don't care if it's
@@ -513,7 +571,7 @@ func (f *fakeFile) readShortAt(p []byte, offs int64) (int, error) {
 	// start of the block to serve a given read. 128 KiB blocks fit
 	// reasonably well with the type of IO Syncthing tends to do.
 
-	if f.isdir {
+	if f.entryType == fakeEntryTypeDir {
 		return 0, errors.New("is a directory")
 	}
 
@@ -570,7 +628,7 @@ func (f *fakeFile) Seek(offset int64, whence int) (int64, error) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
-	if f.isdir {
+	if f.entryType == fakeEntryTypeDir {
 		return 0, errors.New("is a directory")
 	}
 
@@ -603,7 +661,7 @@ func (f *fakeFile) WriteAt(p []byte, off int64) (int, error) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
-	if f.isdir {
+	if f.entryType == fakeEntryTypeDir {
 		return 0, errors.New("is a directory")
 	}
 
@@ -661,13 +719,21 @@ func (f *fakeFileInfo) ModTime() time.Time {
 }
 
 func (f *fakeFileInfo) IsDir() bool {
-	return f.isdir
+	return f.entryType == fakeEntryTypeDir
 }
 
 func (f *fakeFileInfo) IsRegular() bool {
-	return !f.isdir
+	return f.entryType == fakeEntryTypeFile
 }
 
 func (f *fakeFileInfo) IsSymlink() bool {
-	return false
+	return f.entryType == fakeEntryTypeSymlink
+}
+
+func (f *fakeFileInfo) Owner() int {
+	return f.uid
+}
+
+func (f *fakeFileInfo) Group() int {
+	return f.gid
 }

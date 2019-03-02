@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	SyntheticDirectorySize = 128
-	HelloMessageMagic      = uint32(0x2EA7D90B)
+	SyntheticDirectorySize        = 128
+	HelloMessageMagic      uint32 = 0x2EA7D90B
+	Version13HelloMagic    uint32 = 0x9F79BC40 // old
 )
 
 func (m Hello) Magic() uint32 {

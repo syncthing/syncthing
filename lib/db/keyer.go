@@ -73,6 +73,10 @@ type keyer interface {
 	NameFromGlobalVersionKey(key []byte) []byte
 	FolderFromGlobalVersionKey(key []byte) ([]byte, bool)
 
+	// block map key stuff (former BlockMap)
+	GenerateBlockMapKey(key, folder, hash, name []byte) blockMapKey
+	NameFromBlockMapKey(key []byte) []byte
+
 	// file need index
 	GenerateNeedFileKey(key, folder, name []byte) needFileKey
 
@@ -152,6 +156,25 @@ func (k defaultKeyer) NameFromGlobalVersionKey(key []byte) []byte {
 
 func (k defaultKeyer) FolderFromGlobalVersionKey(key []byte) ([]byte, bool) {
 	return k.folderIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
+}
+
+type blockMapKey []byte
+
+func (k defaultKeyer) GenerateBlockMapKey(key, folder, hash, name []byte) blockMapKey {
+	key = resize(key, keyPrefixLen+keyFolderLen+keyHashLen+len(name))
+	key[0] = KeyTypeBlock
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], k.folderIdx.ID(folder))
+	copy(key[keyPrefixLen+keyFolderLen:], hash)
+	copy(key[keyPrefixLen+keyFolderLen+keyHashLen:], name)
+	return key
+}
+
+func (k defaultKeyer) NameFromBlockMapKey(key []byte) []byte {
+	return key[keyPrefixLen+keyFolderLen+keyHashLen:]
+}
+
+func (k blockMapKey) WithoutHashAndName() []byte {
+	return k[:keyPrefixLen+keyFolderLen]
 }
 
 type needFileKey []byte

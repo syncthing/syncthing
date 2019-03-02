@@ -21,6 +21,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -38,7 +39,7 @@ type folder struct {
 	config.FolderConfiguration
 	localFlags uint32
 
-	model   *Model
+	model   *model
 	shortID protocol.ShortID
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -72,7 +73,7 @@ type puller interface {
 	pull() bool // true when successfull and should not be retried
 }
 
-func newFolder(model *Model, cfg config.FolderConfiguration) folder {
+func newFolder(model *model, cfg config.FolderConfiguration) folder {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return folder{
@@ -269,8 +270,11 @@ func (f *folder) getHealthError() error {
 		return err
 	}
 
-	if err := f.model.cfg.CheckHomeFreeSpace(); err != nil {
-		return err
+	dbPath := locations.Get(locations.Database)
+	if usage, err := fs.NewFilesystem(fs.FilesystemTypeBasic, dbPath).Usage("."); err == nil {
+		if err = config.CheckFreeSpace(f.model.cfg.Options().MinHomeDiskFree, usage); err != nil {
+			return fmt.Errorf("insufficient space on disk for database (%v): %v", dbPath, err)
+		}
 	}
 
 	return nil

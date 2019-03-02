@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -115,7 +116,7 @@ func saveCsrfTokens() {
 	// We're ignoring errors in here. It's not super critical and there's
 	// nothing relevant we can do about them anyway...
 
-	name := locations[locCsrfTokens]
+	name := locations.Get(locations.CsrfTokens)
 	f, err := osutil.CreateAtomic(name)
 	if err != nil {
 		return
@@ -129,7 +130,7 @@ func saveCsrfTokens() {
 }
 
 func loadCsrfTokens() {
-	f, err := os.Open(locations[locCsrfTokens])
+	f, err := os.Open(locations.Get(locations.CsrfTokens))
 	if err != nil {
 		return
 	}

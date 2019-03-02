@@ -20,6 +20,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -69,6 +70,11 @@ var (
 func init() {
 	// Creates the list of ciper suites that SecureDefault uses.
 	cipherSuites = buildCipherSuites()
+	if build.IsBeta {
+		// Append "tls13=1" to GODEBUG before starting TLS, to enable TLS
+		// 1.3 in Go 1.12.
+		os.Setenv("GODEBUG", os.Getenv("GODEBUG")+",tls13=1")
+	}
 }
 
 // SecureDefault returns a tls.Config with reasonable, secure defaults set.
@@ -84,7 +90,7 @@ func SecureDefault() *tls.Config {
 		// secure (so the web tells me, don't ask me to explain the
 		// details).
 		CurvePreferences: []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
-		// The cipher suite lists built above.
+		// The cipher suite lists built above. These are ignored in TLS 1.3.
 		CipherSuites: cs,
 		// We've put some thought into this choice and would like it to
 		// matter.

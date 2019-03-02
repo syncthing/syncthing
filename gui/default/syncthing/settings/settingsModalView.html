@@ -70,7 +70,7 @@
             <div class="col-md-6">
               <div class="form-group">
                 <label translate for="urVersion">Anonymous Usage Reporting</label> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
-                <div ng-if="tmpOptions.upgrades != 'candidate'">
+                <div ng-if="tmpOptions.upgrades != 'candidate' && !version.isCandidate">
                   <select class="form-control" id="urVersion" ng-model="tmpOptions._urAcceptedStr">
                     <option ng-repeat="n in urVersions()" value="{{n}}">{{'Version' | translate}} {{n}}</option>
                     <!-- 1 does not exist, as we did not support incremental formats back then. -->
@@ -78,7 +78,7 @@
                     <option value="-1" translate>Disabled</option>
                   </select>
                 </div>
-                <p class="help-block" ng-if="tmpOptions.upgrades == 'candidate'">
+                <p class="help-block" ng-if="tmpOptions.upgrades == 'candidate' || version.isCandidate"">
                   <span translate>Usage reporting is always enabled for candidate releases.</span>
                 </p>
               </div>
@@ -87,12 +87,15 @@
               <div class="form-group">
                 <label translate>Automatic upgrades</label>&emsp;<a href="https://docs.syncthing.net/users/releases.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
                 <select class="form-control" ng-model="tmpOptions.upgrades" ng-if="upgradeInfo">
-                  <option value="none" translate>No upgrades</option>
+                  <option ng-if="!version.isCandidate" value="none" translate>No upgrades</option>
                   <option value="stable" translate>Stable releases only</option>
                   <option value="candidate" translate>Stable releases and release candidates</option>
                 </select>
                 <p class="help-block" ng-if="!upgradeInfo">
                   <span translate>Unavailable/Disabled by administrator or maintainer</span>
+                </p>
+                <p class="help-block" ng-if="version.isCandidate"">
+                  <span translate>Automatic upgrades are always enabled for candidate releases.</span>
                 </p>
               </div>
             </div>

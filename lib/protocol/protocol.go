@@ -171,11 +171,11 @@ type rawConnection struct {
 	nextID    int32
 	nextIDMut sync.Mutex
 
-	outbox      chan asyncMessage
-	sendClose   chan asyncMessage
-	closed      chan struct{}
-	once        sync.Once
-	compression Compression
+	outbox        chan asyncMessage
+	closed        chan struct{}
+	closeOnce     sync.Once
+	sendCloseOnce sync.Once
+	compression   Compression
 }
 
 type asyncResult struct {
@@ -216,7 +216,6 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		cw:          cw,
 		awaiting:    make(map[int32]chan asyncResult),
 		outbox:      make(chan asyncMessage),
-		sendClose:   make(chan asyncMessage),
 		closed:      make(chan struct{}),
 		compression: compress,
 	}
@@ -227,7 +226,10 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
-	go c.readerLoop()
+	go func() {
+		err := c.readerLoop()
+		c.internalClose(err)
+	}()
 	go c.writerLoop()
 	go c.pingSender()
 	go c.pingReceiver()
@@ -336,10 +338,6 @@ func (c *rawConnection) ping() bool {
 }
 
 func (c *rawConnection) readerLoop() (err error) {
-	defer func() {
-		c.internalClose(err)
-	}()
-
 	fourByteBuf := make([]byte, 4)
 	state := stateInitial
 	for {
@@ -643,11 +641,6 @@ func (c *rawConnection) writerLoop() {
 				return
 			}
 
-		case m := <-c.sendClose:
-			c.writeMessage(m)
-			close(m.done)
-			return // No message must be sent after the Close message.
-
 		case <-c.closed:
 			return
 		}
@@ -813,41 +806,38 @@ func (c *rawConnection) shouldCompressMessage(msg message) bool {
 // BEP message is sent before terminating the actual connection. The error
 // argument specifies the reason for closing the connection.
 func (c *rawConnection) Close(err error) {
-	c.once.Do(func() {
+	c.sendCloseOnce.Do(func() {
 		done := make(chan struct{})
-		c.sendClose <- asyncMessage{&Close{err.Error()}, done}
-		<-done
-
-		// No more sends are necessary, therefore closing the underlying
-		// connection can happen at the same time as the internal cleanup.
-		// And this prevents a potential deadlock due to calling c.receiver.Closed
-		go c.commonClose(err)
+		c.send(&Close{err.Error()}, done)
+		select {
+		case <-done:
+		case <-c.closed:
+		}
 	})
+
+	// No more sends are necessary, therefore further steps to close the
+	// connection outside of this package can proceed immediately.
+	// And this prevents a potential deadlock due to calling c.receiver.Closed
+	go c.internalClose(err)
 }
 
 // internalClose is called if there is an unexpected error during normal operation.
 func (c *rawConnection) internalClose(err error) {
-	c.once.Do(func() {
-		c.commonClose(err)
-	})
-}
+	c.closeOnce.Do(func() {
+		l.Debugln("close due to", err)
+		close(c.closed)
 
-// commonClose is a utility function that must only be called from within
-// rawConnection.once.Do (i.e. in Close and close).
-func (c *rawConnection) commonClose(err error) {
-	l.Debugln("close due to", err)
-	close(c.closed)
-
-	c.awaitingMut.Lock()
-	for i, ch := range c.awaiting {
-		if ch != nil {
-			close(ch)
-			delete(c.awaiting, i)
+		c.awaitingMut.Lock()
+		for i, ch := range c.awaiting {
+			if ch != nil {
+				close(ch)
+				delete(c.awaiting, i)
+			}
 		}
-	}
-	c.awaitingMut.Unlock()
+		c.awaitingMut.Unlock()
 
-	c.receiver.Closed(c, err)
+		c.receiver.Closed(c, err)
+	})
 }
 
 // The pingSender makes sure that we've sent a message within the last

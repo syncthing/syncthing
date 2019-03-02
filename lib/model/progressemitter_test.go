@@ -8,6 +8,7 @@ package model
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -51,12 +52,10 @@ func expectTimeout(w *events.Subscription, t *testing.T) {
 }
 
 func TestProgressEmitter(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	w := events.Default.Subscribe(events.DownloadProgress)
 
 	c := createTmpWrapper(config.Configuration{})
-	defer testOs.Remove(c.ConfigPath())
+	defer os.Remove(c.ConfigPath())
 	c.SetOptions(config.OptionsConfiguration{
 		ProgressUpdateIntervalS: 0,
 	})
@@ -104,10 +103,8 @@ func TestProgressEmitter(t *testing.T) {
 }
 
 func TestSendDownloadProgressMessages(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	c := createTmpWrapper(config.Configuration{})
-	defer testOs.Remove(c.ConfigPath())
+	defer os.Remove(c.ConfigPath())
 	c.SetOptions(config.OptionsConfiguration{
 		ProgressUpdateIntervalS: 0,
 		TempIndexMinBlocks:      10,
@@ -193,7 +190,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	v2 := (protocol.Vector{}).Update(1)
 
 	// Requires more than 10 blocks to work.
-	blocks := make([]protocol.BlockInfo, 11, 11)
+	blocks := make([]protocol.BlockInfo, 11)
 
 	state1 := &sharedPullerState{
 		folder: "folder",
