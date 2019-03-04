@@ -848,7 +848,6 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- s
 		// There is a conflict here, which shouldn't happen as deletions
 		// always lose. Merge the version vector of the file we have
 		// locally and commit it to db to resolve the conflict.
-		// of deleting.
 		cur.Version = cur.Version.Merge(file.Version)
 		return dbUpdateJob{cur, dbUpdateHandleFile}, nil
 	}

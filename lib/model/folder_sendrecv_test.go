@@ -919,7 +919,7 @@ func TestSRConflictReplaceFileByDir(t *testing.T) {
 }
 
 // TestSRConflictReplaceFileByLink checks that a conflict is created when an existing file
-// is replaced with a directory and versions are conflicting
+// is replaced with a link and versions are conflicting
 func TestSRConflictReplaceFileByLink(t *testing.T) {
 	m, f, tmpDir := setupSendReceiveFolder()
 	defer func() {
