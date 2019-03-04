@@ -709,7 +709,7 @@
                     <tr>
                       <th><span class="fas fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
                       <td ng-if="connections[deviceCfg.deviceID].connected" class="text-right">
-                        <span tooltip data-original-title="{{ connections[deviceCfg.deviceID].type.indexOf('Relay') > -1 ? '' : connections[deviceCfg.deviceID].type }}">
+                        <span tooltip data-original-title="{{ connections[deviceCfg.deviceID].type.indexOf('Relay') > -1 ? '' : connections[deviceCfg.deviceID].type }} {{ connections[deviceCfg.deviceID].crypto }}>
                           {{deviceAddr(deviceCfg)}}
                         </span>
                       </td>
@@ -740,7 +740,7 @@
                       <td translate class="text-right">Yes</td>
                     </tr>
                     <tr ng-if="deviceCfg.introducedBy">
-                      <th><span class="far fa-fw fa-meh"></span>&nbsp;<span translate>Introduced By</span></th>
+                      <th><span class="far fa-fw fa-handshake-o"></span>&nbsp;<span translate>Introduced By</span></th>
                       <td class="text-right">{{ deviceName(findDevice(deviceCfg.introducedBy)) || deviceCfg.introducedBy.substring(0, 5) }}</td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].clientVersion">

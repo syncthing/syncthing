@@ -574,6 +574,7 @@ type ConnectionInfo struct {
 	Address       string
 	ClientVersion string
 	Type          string
+	Crypto        string
 }
 
 func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
@@ -586,6 +587,7 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 		"address":       info.Address,
 		"clientVersion": info.ClientVersion,
 		"type":          info.Type,
+		"crypto":        info.Crypto,
 	})
 }
 
@@ -609,6 +611,7 @@ func (m *model) ConnectionStats() map[string]interface{} {
 		}
 		if conn, ok := m.conn[device]; ok {
 			ci.Type = conn.Type()
+			ci.Crypto = conn.Crypto()
 			ci.Connected = ok
 			ci.Statistics = conn.Statistics()
 			if addr := conn.RemoteAddr(); addr != nil {
