@@ -38,6 +38,6 @@ func TestReadOnlyDir(t *testing.T) {
 		t.Fatal("Unexpected nil fd")
 	}
 
-	s.fail("Test done", nil)
+	s.fail(nil)
 	s.finalClose()
 }

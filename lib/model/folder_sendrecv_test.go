@@ -488,7 +488,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	toPull := <-pullChan
 
 	// Close the file, causing errors on further access
-	toPull.sharedPullerState.fail("test", os.ErrNotExist)
+	toPull.sharedPullerState.fail(os.ErrNotExist)
 
 	// Unblock copier
 	go func() {

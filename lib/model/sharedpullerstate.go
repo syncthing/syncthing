@@ -7,10 +7,11 @@
 package model
 
 import (
-	"fmt"
 	"io"
 	"path/filepath"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -96,7 +97,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	// here.
 	dir := filepath.Dir(s.tempName)
 	if info, err := s.fs.Stat(dir); err != nil {
-		s.failLocked("dst stat dir", err)
+		s.failLocked(errors.Wrap(err, "ensuring parent dir is writeable"))
 		return nil, err
 	} else if info.Mode()&0200 == 0 {
 		err := s.fs.Chmod(dir, 0755)
@@ -139,13 +140,13 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		// what the umask dictates.
 
 		if err := s.fs.Chmod(s.tempName, mode); err != nil {
-			s.failLocked("dst create chmod", err)
+			s.failLocked(errors.Wrap(err, "setting perms on temp file"))
 			return nil, err
 		}
 	}
 	fd, err := s.fs.OpenFile(s.tempName, flags, mode)
 	if err != nil {
-		s.failLocked("dst create", err)
+		s.failLocked(errors.Wrap(err, "opening temp file"))
 		return nil, err
 	}
 
@@ -176,7 +177,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 					l.Debugln("failed to remove temporary file:", remErr)
 				}
 
-				s.failLocked("dst truncate", err)
+				s.failLocked(err)
 				return nil, err
 			}
 		}
@@ -190,19 +191,19 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 
 // fail sets the error on the puller state compose of error, and marks the
 // sharedPullerState as failed. Is a no-op when called on an already failed state.
-func (s *sharedPullerState) fail(context string, err error) {
+func (s *sharedPullerState) fail(err error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
-	s.failLocked(context, err)
+	s.failLocked(err)
 }
 
-func (s *sharedPullerState) failLocked(context string, err error) {
+func (s *sharedPullerState) failLocked(err error) {
 	if s.err != nil || err == nil {
 		return
 	}
 
-	s.err = fmt.Errorf("%s: %s", context, err.Error())
+	s.err = err
 }
 
 func (s *sharedPullerState) failed() error {
