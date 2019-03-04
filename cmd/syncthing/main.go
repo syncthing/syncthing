@@ -37,7 +37,6 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/foldersummary"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
@@ -1078,7 +1077,7 @@ func setupGUI(mainService *suture.Supervisor, cfg config.Wrapper, m model.Model,
 	cpu := newCPUService()
 	mainService.Add(cpu)
 
-	summaryService := foldersummary.New(cfg, m, myID)
+	summaryService := model.NewFolderSummaryService(cfg, m, myID)
 	mainService.Add(summaryService)
 
 	apiSvc := api.New(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, exit, noUpgradeFromEnv)

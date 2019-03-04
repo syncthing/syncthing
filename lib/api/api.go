@@ -34,7 +34,6 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/foldersummary"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
@@ -68,7 +67,7 @@ type service struct {
 	eventSubsMut         sync.Mutex
 	discoverer           discover.CachingMux
 	connectionsService   connections.Service
-	fss                  foldersummary.Service
+	fss                  model.FolderSummaryService
 	urService            *ur.Service
 	systemConfigMut      sync.Mutex // serializes posts to /rest/system/config
 	cpu                  Rater
@@ -101,7 +100,7 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss foldersummary.Service, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
 	return &service{
 		id:      id,
 		cfg:     cfg,
@@ -657,7 +656,7 @@ func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 func (s *service) getDBStatus(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
-	if sum, err := s.fss.FolderSummary(folder); err != nil {
+	if sum, err := s.fss.Summary(folder); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	} else {
 		sendJSON(w, sum)
@@ -1174,7 +1173,7 @@ func (s *service) getEvents(w http.ResponseWriter, r *http.Request, eventSub eve
 	since, _ := strconv.Atoi(sinceStr)
 	limit, _ := strconv.Atoi(limitStr)
 
-	timeout := foldersummary.DefaultEventTimeout
+	timeout := model.DefaultEventTimeout
 	if timeoutSec, timeoutErr := strconv.Atoi(timeoutStr); timeoutErr == nil && timeoutSec >= 0 { // 0 is a valid timeout
 		timeout = time.Duration(timeoutSec) * time.Second
 	}

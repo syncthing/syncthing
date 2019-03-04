@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package foldersummary
+package model
 
 import (
 	"fmt"
@@ -13,7 +13,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/thejerf/suture"
@@ -21,19 +20,19 @@ import (
 
 const DefaultEventTimeout = time.Minute
 
-type Service interface {
+type FolderSummaryService interface {
 	suture.Service
-	FolderSummary(folder string) (map[string]interface{}, error)
+	Summary(folder string) (map[string]interface{}, error)
 	OnEventRequest()
 }
 
 // The folderSummaryService adds summary information events (FolderSummary and
 // FolderCompletion) into the event stream at certain intervals.
-type service struct {
+type folderSummaryService struct {
 	*suture.Supervisor
 
 	cfg       config.Wrapper
-	model     model.Model
+	model     Model
 	id        protocol.DeviceID
 	stop      chan struct{}
 	immediate chan string
@@ -47,8 +46,8 @@ type service struct {
 	lastEventReqMut sync.Mutex
 }
 
-func New(cfg config.Wrapper, m model.Model, id protocol.DeviceID) Service {
-	service := &service{
+func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID) FolderSummaryService {
+	service := &folderSummaryService{
 		Supervisor: suture.New("folderSummaryService", suture.Spec{
 			PassThroughPanics: true,
 		}),
@@ -67,20 +66,20 @@ func New(cfg config.Wrapper, m model.Model, id protocol.DeviceID) Service {
 	return service
 }
 
-func (c *service) Stop() {
+func (c *folderSummaryService) Stop() {
 	c.Supervisor.Stop()
 	close(c.stop)
 }
 
-func (c *service) String() string {
-	return fmt.Sprintf("foldersummary.Service@%p", c)
+func (c *folderSummaryService) String() string {
+	return fmt.Sprintf("FolderSummaryService@%p", c)
 }
 
-func (c *service) FolderSummary(folder string) (map[string]interface{}, error) {
+func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, error) {
 	var res = make(map[string]interface{})
 
 	errors, err := c.model.FolderErrors(folder)
-	if err != nil && err != model.ErrFolderPaused {
+	if err != nil && err != ErrFolderPaused {
 		// Stats from the db can still be obtained if the folder is just paused
 		return nil, err
 	}
@@ -140,7 +139,7 @@ func (c *service) FolderSummary(folder string) (map[string]interface{}, error) {
 	return res, nil
 }
 
-func (c *service) OnEventRequest() {
+func (c *folderSummaryService) OnEventRequest() {
 	c.lastEventReqMut.Lock()
 	c.lastEventReq = time.Now()
 	c.lastEventReqMut.Unlock()
@@ -148,7 +147,7 @@ func (c *service) OnEventRequest() {
 
 // listenForUpdates subscribes to the event bus and makes note of folders that
 // need their data recalculated.
-func (c *service) listenForUpdates() {
+func (c *folderSummaryService) listenForUpdates() {
 	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged)
 	defer events.Default.Unsubscribe(sub)
 
@@ -221,7 +220,7 @@ func (c *service) listenForUpdates() {
 
 // calculateSummaries periodically recalculates folder summaries and
 // completion percentage, and sends the results on the event bus.
-func (c *service) calculateSummaries() {
+func (c *folderSummaryService) calculateSummaries() {
 	const pumpInterval = 2 * time.Second
 	pump := time.NewTimer(pumpInterval)
 
@@ -250,7 +249,7 @@ func (c *service) calculateSummaries() {
 
 // foldersToHandle returns the list of folders needing a summary update, and
 // clears the list.
-func (c *service) foldersToHandle() []string {
+func (c *folderSummaryService) foldersToHandle() []string {
 	// We only recalculate summaries if someone is listening to events
 	// (a request to /rest/events has been made within the last
 	// pingEventInterval).
@@ -273,10 +272,10 @@ func (c *service) foldersToHandle() []string {
 }
 
 // sendSummary send the summary events for a single folder
-func (c *service) sendSummary(folder string) {
+func (c *folderSummaryService) sendSummary(folder string) {
 	// The folder summary contains how many bytes, files etc
 	// are in the folder and how in sync we are.
-	data, err := c.FolderSummary(folder)
+	data, err := c.Summary(folder)
 	if err != nil {
 		return
 	}

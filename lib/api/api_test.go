@@ -26,9 +26,9 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/foldersummary"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
+	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur"
@@ -484,7 +484,7 @@ func TestHTTPLogin(t *testing.T) {
 }
 
 func startHTTP(cfg *mockedConfig) (string, error) {
-	model := new(mockedModel)
+	m := new(mockedModel)
 	assetDir := "../../gui"
 	eventSub := new(mockedEventSub)
 	diskEventSub := new(mockedEventSub)
@@ -496,9 +496,9 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	addrChan := make(chan string)
 
 	// Instantiate the API service
-	urService := ur.New(cfg, model, connections, false)
-	summaryService := foldersummary.New(cfg, model, protocol.LocalDeviceID)
-	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", model, eventSub, diskEventSub, discoverer, connections, urService, summaryService, errorLog, systemLog, cpu, nil, false).(*service)
+	urService := ur.New(cfg, m, connections, false)
+	summaryService := model.NewFolderSummaryService(cfg, m, protocol.LocalDeviceID)
+	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, discoverer, connections, urService, summaryService, errorLog, systemLog, cpu, nil, false).(*service)
 	svc.started = addrChan
 
 	// Actually start the API service
