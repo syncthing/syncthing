@@ -304,7 +304,7 @@ func (w *walker) handleItem(ctx context.Context, path string, toHashChan chan<- 
 
 	switch {
 	case info.IsSymlink():
-		if err := w.walkSymlink(ctx, path, finishedChan); err != nil {
+		if err := w.walkSymlink(ctx, path, info, finishedChan); err != nil {
 			return err
 		}
 		if info.IsDir() {
@@ -411,19 +411,14 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 
 // walkSymlink returns nil or an error, if the error is of the nature that
 // it should stop the entire walk.
-func (w *walker) walkSymlink(ctx context.Context, relPath string, finishedChan chan<- ScanResult) error {
+func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	// Symlinks are not supported on Windows. We ignore instead of returning
 	// an error.
 	if runtime.GOOS == "windows" {
 		return nil
 	}
 
-	// We always rehash symlinks as they have no modtime or
-	// permissions. We check if they point to the old target by
-	// checking that their existing blocks match with the blocks in
-	// the index.
-
-	target, err := w.Filesystem.ReadSymlink(relPath)
+	f, err := CreateFileInfo(info, relPath, w.Filesystem)
 	if err != nil {
 		w.handleError(ctx, "reading link:", relPath, err, finishedChan)
 		return nil
@@ -431,12 +426,6 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, finishedChan c
 
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
-	f := protocol.FileInfo{
-		Name:          relPath,
-		Type:          protocol.FileInfoTypeSymlink,
-		NoPermissions: true, // Symlinks don't have permissions of their own
-		SymlinkTarget: target,
-	}
 	f = w.updateFileInfo(f, curFile)
 
 	if hasCurFile {
@@ -613,6 +602,7 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (prot
 			return protocol.FileInfo{}, err
 		}
 		f.SymlinkTarget = target
+		f.NoPermissions = true // Symlinks don't have permissions of their own
 		return f, nil
 	}
 	f.Permissions = uint32(fi.Mode() & fs.ModePerm)
