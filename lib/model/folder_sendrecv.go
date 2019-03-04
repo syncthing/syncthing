@@ -1736,8 +1736,8 @@ func removeAvailability(availabilities []Availability, availability Availability
 	return availabilities
 }
 
-func (f *sendReceiveFolder) moveForConflict(name string, lastModBy string, scanChan chan<- string) error {
-	if strings.Contains(filepath.Base(name), ".sync-conflict-") {
+func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan chan<- string) error {
+	if isConflict(name) {
 		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
 		if err := f.fs.Remove(name); err != nil && !fs.IsNotExist(err) {
 			return err
@@ -1752,9 +1752,7 @@ func (f *sendReceiveFolder) moveForConflict(name string, lastModBy string, scanC
 		return nil
 	}
 
-	ext := filepath.Ext(name)
-	withoutExt := name[:len(name)-len(ext)]
-	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405-") + lastModBy + ext
+	newName := conflictName(name, lastModBy)
 	err := f.fs.Rename(name, newName)
 	if fs.IsNotExist(err) {
 		// We were supposed to move a file away but it does not exist. Either
@@ -1764,17 +1762,14 @@ func (f *sendReceiveFolder) moveForConflict(name string, lastModBy string, scanC
 		err = nil
 	}
 	if f.MaxConflicts > -1 {
-		matches, gerr := f.fs.Glob(withoutExt + ".sync-conflict-????????-??????*" + ext)
-		if gerr == nil && len(matches) > f.MaxConflicts {
+		matches := existingConflicts(name, f.fs)
+		if len(matches) > f.MaxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[f.MaxConflicts:] {
-				gerr = f.fs.Remove(match)
-				if gerr != nil {
+				if gerr := f.fs.Remove(match); gerr != nil {
 					l.Debugln(f, "removing extra conflict", gerr)
 				}
 			}
-		} else if gerr != nil {
-			l.Debugln(f, "globbing for conflicts", gerr)
 		}
 	}
 	if err == nil {
@@ -1969,4 +1964,22 @@ func componentCount(name string) int {
 		}
 	}
 	return count
+}
+
+func conflictName(name, lastModBy string) string {
+	ext := filepath.Ext(name)
+	return name[:len(name)-len(ext)] + time.Now().Format(".sync-conflict-20060102-150405-") + lastModBy + ext
+}
+
+func isConflict(name string) bool {
+	return strings.Contains(filepath.Base(name), ".sync-conflict-")
+}
+
+func existingConflicts(name string, fs fs.Filesystem) []string {
+	ext := filepath.Ext(name)
+	matches, err := fs.Glob(name[:len(name)-len(ext)] + ".sync-conflict-????????-??????*" + ext)
+	if err != nil {
+		l.Debugln("globbing for conflicts", err)
+	}
+	return matches
 }
