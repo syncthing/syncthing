@@ -2867,7 +2867,7 @@ func (b *fileInfoBatch) append(f protocol.FileInfo) {
 }
 
 func (b *fileInfoBatch) flushIfFull() error {
-	if len(b.infos) == maxBatchSizeFiles || b.size > maxBatchSizeBytes {
+	if len(b.infos) >= maxBatchSizeFiles || b.size >= maxBatchSizeBytes {
 		return b.flush()
 	}
 	return nil
