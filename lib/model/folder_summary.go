@@ -18,7 +18,7 @@ import (
 	"github.com/thejerf/suture"
 )
 
-const DefaultEventTimeout = time.Minute
+const minSummaryInterval = time.Minute
 
 type FolderSummaryService interface {
 	suture.Service
@@ -257,7 +257,7 @@ func (c *folderSummaryService) foldersToHandle() []string {
 	c.lastEventReqMut.Lock()
 	last := c.lastEventReq
 	c.lastEventReqMut.Unlock()
-	if time.Since(last) > DefaultEventTimeout {
+	if time.Since(last) > minSummaryInterval {
 		return nil
 	}
 

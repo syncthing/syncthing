@@ -53,9 +53,10 @@ import (
 var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 
 const (
-	DefaultEventMask   = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
-	DiskEventMask      = events.LocalChangeDetected | events.RemoteChangeDetected
-	EventSubBufferSize = 1000
+	DefaultEventMask    = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
+	DiskEventMask       = events.LocalChangeDetected | events.RemoteChangeDetected
+	EventSubBufferSize  = 1000
+	defaultEventTimeout = time.Minute
 )
 
 type service struct {
@@ -1173,7 +1174,7 @@ func (s *service) getEvents(w http.ResponseWriter, r *http.Request, eventSub eve
 	since, _ := strconv.Atoi(sinceStr)
 	limit, _ := strconv.Atoi(limitStr)
 
-	timeout := model.DefaultEventTimeout
+	timeout := defaultEventTimeout
 	if timeoutSec, timeoutErr := strconv.Atoi(timeoutStr); timeoutErr == nil && timeoutSec >= 0 { // 0 is a valid timeout
 		timeout = time.Duration(timeoutSec) * time.Second
 	}
