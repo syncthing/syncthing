@@ -1607,42 +1607,15 @@ func (f *sendReceiveFolder) Jobs() ([]string, []string) {
 func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 	const maxBatchTime = 2 * time.Second
 
-	batch := make([]dbUpdateJob, 0, maxBatchSizeFiles)
-	files := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+	batch := newFileInfoBatch(nil)
 	tick := time.NewTicker(maxBatchTime)
 	defer tick.Stop()
 
 	changedDirs := make(map[string]struct{})
+	found := false
+	var lastFile protocol.FileInfo
 
-	handleBatch := func() {
-		found := false
-		var lastFile protocol.FileInfo
-
-		for _, job := range batch {
-			files = append(files, job.file)
-
-			switch job.jobType {
-			case dbUpdateHandleFile, dbUpdateShortcutFile:
-				changedDirs[filepath.Dir(job.file.Name)] = struct{}{}
-			case dbUpdateHandleDir:
-				changedDirs[job.file.Name] = struct{}{}
-			case dbUpdateHandleSymlink, dbUpdateInvalidate:
-				// fsyncing symlinks is only supported by MacOS
-				// and invalidated files are db only changes -> no sync
-			}
-
-			if job.file.IsInvalid() || (job.file.IsDirectory() && !job.file.IsSymlink()) {
-				continue
-			}
-
-			if job.jobType&(dbUpdateHandleFile|dbUpdateDeleteFile) == 0 {
-				continue
-			}
-
-			found = true
-			lastFile = job.file
-		}
-
+	batch.flushFn = func(files []protocol.FileInfo) error {
 		// sync directories
 		for dir := range changedDirs {
 			delete(changedDirs, dir)
@@ -1663,13 +1636,12 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 
 		if found {
 			f.model.receivedFile(f.folderID, lastFile)
+			found = false
 		}
 
-		batch = batch[:0]
-		files = files[:0]
+		return nil
 	}
 
-	batchSizeBytes := 0
 loop:
 	for {
 		select {
@@ -1678,26 +1650,35 @@ loop:
 				break loop
 			}
 
-			job.file.Sequence = 0
-			batch = append(batch, job)
-
-			batchSizeBytes += job.file.ProtoSize()
-			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-				handleBatch()
-				batchSizeBytes = 0
+			switch job.jobType {
+			case dbUpdateHandleFile, dbUpdateShortcutFile:
+				changedDirs[filepath.Dir(job.file.Name)] = struct{}{}
+			case dbUpdateHandleDir:
+				changedDirs[job.file.Name] = struct{}{}
+			case dbUpdateHandleSymlink, dbUpdateInvalidate:
+				// fsyncing symlinks is only supported by MacOS
+				// and invalidated files are db only changes -> no sync
 			}
+
+			// For some reason we seem to care about file deletions and
+			// content modification, but not about metadata and dirs/symlinks.
+			if !job.file.IsInvalid() && job.jobType&(dbUpdateHandleFile|dbUpdateDeleteFile) != 0 {
+				found = true
+				lastFile = job.file
+			}
+
+			job.file.Sequence = 0
+
+			batch.append(job.file)
+
+			batch.flushIfFull()
 
 		case <-tick.C:
-			if len(batch) > 0 {
-				handleBatch()
-				batchSizeBytes = 0
-			}
+			batch.flush()
 		}
 	}
 
-	if len(batch) > 0 {
-		handleBatch()
-	}
+	batch.flush()
 }
 
 // pullScannerRoutine aggregates paths to be scanned after pulling. The scan is
