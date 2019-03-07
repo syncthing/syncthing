@@ -840,6 +840,8 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- s
 		return dbUpdateJob{}, err
 	}
 
+	// We are asked to delete a file, but what we have on disk and in db
+	// is a directory. Something is wrong here, should probably not happen.
 	if cur.IsDirectory() {
 		return dbUpdateJob{}, errUnexpectedDirOnFileDel
 	}
