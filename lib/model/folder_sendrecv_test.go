@@ -75,6 +75,25 @@ func setupFile(filename string, blockNumbers []int) protocol.FileInfo {
 	}
 }
 
+func createFile(t *testing.T, name string, fs fs.Filesystem) protocol.FileInfo {
+	t.Helper()
+
+	f, err := fs.Create(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	fi, err := fs.Stat(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := scanner.CreateFileInfo(fi, name, fs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return file
+}
+
 func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFolder, string) {
 	w := createTmpWrapper(defaultCfg)
 	model := newModel(w, myID, "syncthing", "dev", db.OpenMemory(), nil)
@@ -653,7 +672,7 @@ func TestIssue3164(t *testing.T) {
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.handleDeleteDir(file, matcher, dbUpdateChan, make(chan string))
+	f.deleteDir(file, matcher, dbUpdateChan, make(chan string))
 
 	if _, err := ffs.Stat("issue3164"); !fs.IsNotExist(err) {
 		t.Fatal(err)
@@ -801,7 +820,7 @@ func TestCopyOwner(t *testing.T) {
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	defer close(dbUpdateChan)
-	f.handleDir(dir, dbUpdateChan)
+	f.handleDir(dir, ignore.New(f.fs), dbUpdateChan, nil)
 	<-dbUpdateChan // empty the channel for later
 
 	info, err := f.fs.Lstat("foo/bar")
@@ -852,7 +871,7 @@ func TestCopyOwner(t *testing.T) {
 		SymlinkTarget: "over the rainbow",
 	}
 
-	f.handleSymlink(symlink, dbUpdateChan)
+	f.handleSymlink(symlink, ignore.New(f.fs), dbUpdateChan, nil)
 	<-dbUpdateChan
 
 	info, err = f.fs.Lstat("foo/bar/sym")
@@ -861,5 +880,76 @@ func TestCopyOwner(t *testing.T) {
 	}
 	if info.Owner() != expOwner || info.Group() != expGroup {
 		t.Fatalf("Expected symlink owner/group to be %d/%d, not %d/%d", expOwner, expGroup, info.Owner(), info.Group())
+	}
+}
+
+// TestSRConflictReplaceFileByDir checks that a conflict is created when an existing file
+// is replaced with a directory and versions are conflicting
+func TestSRConflictReplaceFileByDir(t *testing.T) {
+	m, f, tmpDir := setupSendReceiveFolder()
+	defer func() {
+		os.Remove(m.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
+
+	ffs := f.Filesystem()
+	name := "foo"
+
+	// create local file
+	file := createFile(t, name, ffs)
+	file.Version = protocol.Vector{}.Update(myID.Short())
+	m.updateLocalsFromScanning(f.ID, []protocol.FileInfo{file})
+
+	// Simulate remote creating a dir with the same name
+	file.Type = protocol.FileInfoTypeDirectory
+	rem := device1.Short()
+	file.Version = protocol.Vector{}.Update(rem)
+	file.ModifiedBy = rem
+
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+	scanChan := make(chan string, 1)
+
+	f.handleDir(file, ignore.New(f.fs), dbUpdateChan, scanChan)
+
+	if confls := existingConflicts(name, ffs); len(confls) != 1 {
+		t.Fatal("Expected one conflict, got", len(confls))
+	} else if scan := <-scanChan; confls[0] != scan {
+		t.Fatal("Expected request to scan", confls[0], "got", scan)
+	}
+}
+
+// TestSRConflictReplaceFileByLink checks that a conflict is created when an existing file
+// is replaced with a link and versions are conflicting
+func TestSRConflictReplaceFileByLink(t *testing.T) {
+	m, f, tmpDir := setupSendReceiveFolder()
+	defer func() {
+		os.Remove(m.cfg.ConfigPath())
+		os.Remove(tmpDir)
+	}()
+
+	ffs := f.Filesystem()
+	name := "foo"
+
+	// create local file
+	file := createFile(t, name, ffs)
+	file.Version = protocol.Vector{}.Update(myID.Short())
+	m.updateLocalsFromScanning(f.ID, []protocol.FileInfo{file})
+
+	// Simulate remote creating a symlink with the same name
+	file.Type = protocol.FileInfoTypeSymlink
+	file.SymlinkTarget = "bar"
+	rem := device1.Short()
+	file.Version = protocol.Vector{}.Update(rem)
+	file.ModifiedBy = rem
+
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+	scanChan := make(chan string, 1)
+
+	f.handleSymlink(file, ignore.New(f.fs), dbUpdateChan, scanChan)
+
+	if confls := existingConflicts(name, ffs); len(confls) != 1 {
+		t.Fatal("Expected one conflict, got", len(confls))
+	} else if scan := <-scanChan; confls[0] != scan {
+		t.Fatal("Expected request to scan", confls[0], "got", scan)
 	}
 }

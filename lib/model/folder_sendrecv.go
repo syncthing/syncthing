@@ -60,15 +60,16 @@ type copyBlocksState struct {
 const retainBits = fs.ModeSetgid | fs.ModeSetuid | fs.ModeSticky
 
 var (
-	activity               = newDeviceActivity()
-	errNoDevice            = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
-	errDirHasToBeScanned   = errors.New("directory contains unexpected files, scheduling scan")
-	errDirHasIgnored       = errors.New("directory contains ignored files (see ignore documentation for (?d) prefix)")
-	errDirNotEmpty         = errors.New("directory is not empty; files within are probably ignored on connected devices only")
-	errNotAvailable        = errors.New("no connected device has the required version of this file")
-	errModified            = errors.New("file modified but not rescanned; will try again later")
-	errIncompatibleSymlink = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
-	contextRemovingOldItem = "removing item to be replaced"
+	activity                  = newDeviceActivity()
+	errNoDevice               = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
+	errDirHasToBeScanned      = errors.New("directory contains unexpected files, scheduling scan")
+	errDirHasIgnored          = errors.New("directory contains ignored files (see ignore documentation for (?d) prefix)")
+	errDirNotEmpty            = errors.New("directory is not empty; files within are probably ignored on connected devices only")
+	errNotAvailable           = errors.New("no connected device has the required version of this file")
+	errModified               = errors.New("file modified but not rescanned; will try again later")
+	errUnexpectedDirOnFileDel = errors.New("encountered directory when trying to remove file/symlink")
+	errIncompatibleSymlink    = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
+	contextRemovingOldItem    = "removing item to be replaced"
 )
 
 const (
@@ -396,12 +397,11 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, folderFiles *
 		switch {
 		case fi.IsDirectory() && !fi.IsSymlink():
 			l.Debugln(f, "Handling directory", fi.Name)
-			f.handleDir(fi, dbUpdateChan)
+			f.handleDir(fi, ignores, dbUpdateChan, scanChan)
 
 		case fi.IsSymlink():
-			l.Debugln("Handling symlink", fi.Name)
 			l.Debugln(f, "Handling symlink", fi.Name)
-			f.handleSymlink(fi, dbUpdateChan)
+			f.handleSymlink(fi, ignores, dbUpdateChan, scanChan)
 
 		default:
 			l.Warnln(fi)
@@ -528,12 +528,12 @@ func (f *sendReceiveFolder) processDeletions(ignores *ignore.Matcher, fileDeleti
 
 		dir := dirDeletions[len(dirDeletions)-i-1]
 		l.Debugln(f, "Deleting dir", dir.Name)
-		f.handleDeleteDir(dir, ignores, dbUpdateChan, scanChan)
+		f.deleteDir(dir, ignores, dbUpdateChan, scanChan)
 	}
 }
 
 // handleDir creates or updates the given directory
-func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
+func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, ignores *ignore.Matcher, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -567,17 +567,39 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 
 	info, err := f.fs.Lstat(file.Name)
 	switch {
-	// !!!
-	// This is wrong: It deletes the file on disk regardless of
-	// what it is (e.g. got updated -> conflict)
-	// !!!
-	// There is already something under that name, but it's a file/link.
-	// Most likely a file/link is getting replaced with a directory.
-	// Remove the file/link and fall through to directory creation.
-	case err == nil && (!info.IsDir() || info.IsSymlink()):
-		err = osutil.InWritableDir(f.fs.Remove, f.fs, file.Name)
+	// There is already something under that name, we need to handle that.
+	// Unless it already is a directory, as we only track permissions,
+	// that don't result in a conflict.
+	case err == nil && !info.IsDir():
+		// Check that it is what we have in the database.
+		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
+		if changed, err := f.itemChanged(info, curFile, hasCurFile, scanChan); err != nil {
+			f.newPullError(file.Name, err)
+			return
+		} else if changed {
+			l.Debugln("item changed on disk compared to db; not replacing with dir:", file.Name)
+			scanChan <- curFile.Name
+			f.newPullError(file.Name, errModified)
+			return
+		}
+
+		// Remove it to replace with the dir.
+		if !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
+			// The new file has been changed in conflict with the existing one. We
+			// should file it away as a conflict instead of just removing or
+			// archiving. Also merge with the version vector we had, to indicate
+			// we have resolved the conflict.
+			// Symlinks aren't checked for conflicts.
+
+			file.Version = file.Version.Merge(curFile.Version)
+			err = osutil.InWritableDir(func(name string) error {
+				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
+			}, f.fs, curFile.Name)
+		} else {
+			err = f.deleteItemOnDisk(file, ignores, scanChan)
+		}
 		if err != nil {
-			f.newPullError(file.Name, errors.Wrap(err, "dir replace"))
+			f.newPullError(file.Name, err)
 			return
 		}
 		fallthrough
@@ -669,7 +691,7 @@ func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) boo
 }
 
 // handleSymlink creates or updates the given symlink
-func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
+func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, ignores *ignore.Matcher, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -703,15 +725,35 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 		return
 	}
 
-	if _, err = f.fs.Lstat(file.Name); err == nil {
-		// !!!
-		// This is wrong: It deletes the file on disk regardless of
-		// what it is (e.g. got updated -> conflict)
-		// !!!
-		// There is already something under that name. Remove it to replace
-		// with the symlink. This also handles the "change symlink type"
-		// path.
-		err = osutil.InWritableDir(f.fs.Remove, f.fs, file.Name)
+	// There is already something under that name, we need to handle that.
+	if info, err := f.fs.Lstat(file.Name); err == nil {
+		// Check that it is what we have in the database.
+		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
+		if changed, err := f.itemChanged(info, curFile, hasCurFile, scanChan); err != nil {
+			f.newPullError(file.Name, err)
+			return
+		} else if changed {
+			l.Debugln("item changed on disk compared to db; not replacing with symlink:", file.Name)
+			scanChan <- curFile.Name
+			f.newPullError(file.Name, errModified)
+			return
+		}
+		// Remove it to replace with the symlink. This also handles the
+		// "change symlink type" path.
+		if !curFile.IsDirectory() && !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
+			// The new file has been changed in conflict with the existing one. We
+			// should file it away as a conflict instead of just removing or
+			// archiving. Also merge with the version vector we had, to indicate
+			// we have resolved the conflict.
+			// Directories and symlinks aren't checked for conflicts.
+
+			file.Version = file.Version.Merge(curFile.Version)
+			err = osutil.InWritableDir(func(name string) error {
+				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
+			}, f.fs, curFile.Name)
+		} else {
+			err = f.deleteItemOnDisk(file, ignores, scanChan)
+		}
 		if err != nil {
 			f.newPullError(file.Name, errors.Wrap(err, "symlink remove"))
 			return
@@ -734,8 +776,8 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	}
 }
 
-// handleDeleteDir attempts to remove a directory that was deleted on a remote
-func (f *sendReceiveFolder) handleDeleteDir(file protocol.FileInfo, ignores *ignore.Matcher, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+// deleteDir attempts to remove a directory that was deleted on a remote
+func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, ignores *ignore.Matcher, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -757,7 +799,7 @@ func (f *sendReceiveFolder) handleDeleteDir(file protocol.FileInfo, ignores *ign
 		})
 	}()
 
-	if err = f.deleteDir(file.Name, ignores, scanChan); err != nil {
+	if err = f.deleteDirOnDisk(file.Name, ignores, scanChan); err != nil {
 		f.newPullError(file.Name, errors.Wrap(err, "delete dir"))
 		return
 	}
@@ -798,15 +840,21 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- s
 		return dbUpdateJob{}, err
 	}
 
+	// We are asked to delete a file, but what we have on disk and in db
+	// is a directory. Something is wrong here, should probably not happen.
+	if cur.IsDirectory() {
+		return dbUpdateJob{}, errUnexpectedDirOnFileDel
+	}
+
 	if f.inConflict(cur.Version, file.Version) {
-		// There is a conflict here. Move the file to a conflict copy instead
-		// of deleting. Also merge with the version vector we had, to indicate
-		// we have resolved the conflict.
-		file.Version = file.Version.Merge(cur.Version)
-		err = osutil.InWritableDir(func(name string) error {
-			return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
-		}, f.fs, file.Name)
-	} else if f.versioner != nil && !cur.IsSymlink() {
+		// There is a conflict here, which shouldn't happen as deletions
+		// always lose. Merge the version vector of the file we have
+		// locally and commit it to db to resolve the conflict.
+		cur.Version = cur.Version.Merge(file.Version)
+		return dbUpdateJob{cur, dbUpdateHandleFile}, nil
+	}
+
+	if f.versioner != nil && !cur.IsSymlink() {
 		err = osutil.InWritableDir(f.versioner.Archive, f.fs, file.Name)
 	} else {
 		err = osutil.InWritableDir(f.fs.Remove, f.fs, file.Name)
@@ -1460,81 +1508,30 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, file, curFile
 		// There is an old file or directory already in place. We need to
 		// handle that.
 
-		curMode := uint32(stat.Mode())
-
-		// Check that the file on disk is what we expect it to be according
-		// to the database. If there's a mismatch here, there might be local
-		// changes that we don't know about yet and we should scan before
-		// touching the file. There is also a case where we think the file
-		// should be there, but it was removed, which is a conflict, yet
-		// creations always wins when competing with a deletion, so no need
-		// to handle that specially.
-		changed := false
-		switch {
-		case !hasCurFile || curFile.Deleted:
-			// The file appeared from nowhere
-			l.Debugln("file exists on disk but not in db; not finishing:", file.Name)
-			changed = true
-
-		case stat.IsDir() != curFile.IsDirectory() || stat.IsSymlink() != curFile.IsSymlink():
-			// The file changed type. IsRegular is implicitly tested in the condition above
-			l.Debugln("file type changed but not rescanned; not finishing:", curFile.Name)
-			changed = true
-
-		case stat.IsRegular():
-			if !stat.ModTime().Equal(curFile.ModTime()) || stat.Size() != curFile.Size {
-				l.Debugln("file modified but not rescanned; not finishing:", curFile.Name)
-				changed = true
-				break
-			}
-			// check permissions
-			fallthrough
-
-		case stat.IsDir():
-			// Dirs only have perm, no modetime/size
-			if !f.IgnorePerms && !curFile.NoPermissions && curFile.HasPermissionBits() && !protocol.PermsEqual(curFile.Permissions, curMode) {
-				l.Debugln("file permission modified but not rescanned; not finishing:", curFile.Name)
-				changed = true
-			}
-		}
-
-		if changed {
+		if changed, err := f.itemChanged(stat, curFile, hasCurFile, scanChan); err != nil {
+			return err
+		} else if changed {
+			l.Debugln("file changed on disk compared to db; not finishing:", file.Name)
 			scanChan <- curFile.Name
 			return errModified
 		}
 
-		switch {
-		case stat.IsDir() || stat.IsSymlink():
-			// It's a directory or a symlink. These are not versioned or
-			// archived for conflicts, only removed (which of course fails for
-			// non-empty directories).
-
-			if err = f.deleteDir(file.Name, ignores, scanChan); err != nil {
-				return errors.Wrap(err, contextRemovingOldItem)
-			}
-
-		case f.inConflict(curFile.Version, file.Version):
+		if !curFile.IsDirectory() && !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
 			// The new file has been changed in conflict with the existing one. We
 			// should file it away as a conflict instead of just removing or
 			// archiving. Also merge with the version vector we had, to indicate
 			// we have resolved the conflict.
+			// Directories and symlinks aren't checked for conflicts.
 
 			file.Version = file.Version.Merge(curFile.Version)
 			err = osutil.InWritableDir(func(name string) error {
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
-			}, f.fs, file.Name)
-			if err != nil {
-				return err
-			}
-
-		case f.versioner != nil && !file.IsSymlink():
-			// If we should use versioning, let the versioner archive the old
-			// file before we replace it. Archiving a non-existent file is not
-			// an error.
-
-			if err = osutil.InWritableDir(f.versioner.Archive, f.fs, file.Name); err != nil {
-				return err
-			}
+			}, f.fs, curFile.Name)
+		} else {
+			err = f.deleteItemOnDisk(file, ignores, scanChan)
+		}
+		if err != nil {
+			return err
 		}
 	}
 
@@ -1806,9 +1803,33 @@ func (f *sendReceiveFolder) Errors() []FileError {
 	return errors
 }
 
-// deleteDir attempts to delete a directory. It checks for files/dirs inside
+// deleteItemOnDisk deletes the file represented by old that is about to be replaced by new.
+func (f *sendReceiveFolder) deleteItemOnDisk(item protocol.FileInfo, ignores *ignore.Matcher, scanChan chan<- string) (err error) {
+	defer func() {
+		err = errors.Wrap(err, contextRemovingOldItem)
+	}()
+
+	switch {
+	case item.IsDirectory():
+		// Directories aren't archived and need special treatment due
+		// to potential children.
+		return f.deleteDirOnDisk(item.Name, ignores, scanChan)
+
+	case !item.IsSymlink() && f.versioner != nil:
+		// If we should use versioning, let the versioner archive the
+		// file before we replace it. Archiving a non-existent file is not
+		// an error.
+		// Symlinks aren't archived.
+
+		return osutil.InWritableDir(f.versioner.Archive, f.fs, item.Name)
+	}
+
+	return osutil.InWritableDir(f.fs.Remove, f.fs, item.Name)
+}
+
+// deleteDirOnDisk attempts to delete a directory. It checks for files/dirs inside
 // the directory and removes them if possible or returns an error if it fails
-func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanChan chan<- string) error {
+func (f *sendReceiveFolder) deleteDirOnDisk(dir string, ignores *ignore.Matcher, scanChan chan<- string) error {
 	files, _ := f.fs.DirNames(dir)
 
 	toBeDeleted := make([]string, 0, len(files))
@@ -1870,8 +1891,35 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 	return err
 }
 
+// itemChanged returns true if the given disk file differs from the information
+// in the database and schedules that file for scanning
+func (f *sendReceiveFolder) itemChanged(stat fs.FileInfo, item protocol.FileInfo, hasItem bool, scanChan chan<- string) (changed bool, err error) {
+	defer func() {
+		if changed {
+			scanChan <- item.Name
+		}
+	}()
+
+	if !hasItem || item.Deleted {
+		// The item appeared from nowhere
+		return true, nil
+	}
+
+	// Check that the item on disk is what we expect it to be according
+	// to the database. If there's a mismatch here, there might be local
+	// changes that we don't know about yet and we should scan before
+	// touching the item.
+	statItem, err := scanner.CreateFileInfo(stat, item.Name, f.fs)
+	if err != nil {
+		return false, errors.Wrap(err, "comparing item on disk to db")
+	}
+
+	return !statItem.IsEquivalentOptional(item, f.IgnorePerms, true, protocol.LocalAllFlags), nil
+}
+
 // checkToBeDeleted makes sure the file on disk is compatible with what there is
 // in the DB before the caller proceeds with actually deleting it.
+// I.e. non-nil error status means "Do not delete!".
 func (f *sendReceiveFolder) checkToBeDeleted(cur protocol.FileInfo, scanChan chan<- string) error {
 	stat, err := f.fs.Lstat(cur.Name)
 	if err != nil {
@@ -1883,13 +1931,11 @@ func (f *sendReceiveFolder) checkToBeDeleted(cur protocol.FileInfo, scanChan cha
 		// do not delete.
 		return err
 	}
-	fi, err := scanner.CreateFileInfo(stat, cur.Name, f.fs)
+	changed, err := f.itemChanged(stat, cur, true, scanChan)
 	if err != nil {
 		return err
 	}
-	if !fi.IsEquivalentOptional(cur, f.IgnorePerms, true, protocol.LocalAllFlags) {
-		// File changed
-		scanChan <- cur.Name
+	if changed {
 		return errModified
 	}
 	return nil
