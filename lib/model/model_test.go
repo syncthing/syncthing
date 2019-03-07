@@ -43,7 +43,6 @@ var defaultFolderConfig config.FolderConfiguration
 var defaultFs fs.Filesystem
 var defaultCfg config.Configuration
 var defaultAutoAcceptCfg config.Configuration
-var tmpLocation string
 
 func init() {
 	myID, _ = protocol.DeviceIDFromString("ZNWFSWE-RWRV2BD-45BLMCV-LTDE2UR-4LJDW6J-R5BPWEB-TXD27XJ-IZF5RA4")
@@ -116,14 +115,6 @@ func init() {
 }
 
 func TestMain(m *testing.M) {
-	tmpLocation = "/tmp"
-	if runtime.GOOS == "windows" {
-		tmpLocation = "test-tmp"
-		if err := os.MkdirAll(tmpLocation, 0777); err != nil {
-			panic(err)
-		}
-	}
-
 	tmpName, err := prepareTmpFile(defaultFs)
 	if err != nil {
 		panic(err)
@@ -134,7 +125,6 @@ func TestMain(m *testing.M) {
 	os.Remove(defaultCfgWrapper.ConfigPath())
 	defaultFs.Remove(tmpName)
 	defaultFs.RemoveAll(config.DefaultMarkerName)
-	defaultFs.RemoveAll(tmpLocation)
 
 	os.Exit(exitCode)
 }
@@ -162,7 +152,7 @@ func prepareTmpFile(to fs.Filesystem) (string, error) {
 }
 
 func createTmpWrapper(cfg config.Configuration) config.Wrapper {
-	tmpFile, err := ioutil.TempFile(tmpLocation, "syncthing-testConfig-")
+	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
 	if err != nil {
 		panic(err)
 	}
