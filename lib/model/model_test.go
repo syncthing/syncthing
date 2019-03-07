@@ -2869,13 +2869,12 @@ func TestIssue2571(t *testing.T) {
 		t.Skip("Scanning symlinks isn't supported on windows")
 	}
 
-	w, tmpDir := tmpDefaultWrapper()
+	w, fcfg := tmpDefaultWrapper()
+	testFs := fcfg.Filesystem()
 	defer func() {
-		os.RemoveAll(tmpDir)
+		os.RemoveAll(testFs.URI())
 		os.Remove(w.ConfigPath())
 	}()
-
-	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 
 	for _, dir := range []string{"toLink", "linkTarget"} {
 		err := testFs.MkdirAll(dir, 0775)
@@ -2919,13 +2918,12 @@ func TestIssue4573(t *testing.T) {
 		t.Skip("Can't make the dir inaccessible on windows")
 	}
 
-	w, tmpDir := tmpDefaultWrapper()
+	w, fcfg := tmpDefaultWrapper()
+	testFs := fcfg.Filesystem()
 	defer func() {
-		os.RemoveAll(tmpDir)
+		os.RemoveAll(testFs.URI())
 		os.Remove(w.ConfigPath())
 	}()
-
-	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 
 	err := testFs.MkdirAll("inaccessible", 0755)
 	if err != nil {
@@ -2959,13 +2957,12 @@ func TestIssue4573(t *testing.T) {
 // TestInternalScan checks whether various fs operations are correctly represented
 // in the db after scanning.
 func TestInternalScan(t *testing.T) {
-	w, tmpDir := tmpDefaultWrapper()
+	w, fcfg := tmpDefaultWrapper()
+	testFs := fcfg.Filesystem()
 	defer func() {
-		os.RemoveAll(tmpDir)
+		os.RemoveAll(testFs.URI())
 		os.Remove(w.ConfigPath())
 	}()
-
-	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 
 	testCases := map[string]func(protocol.FileInfo) bool{
 		"removeDir": func(f protocol.FileInfo) bool {
@@ -3157,14 +3154,13 @@ func TestRemoveDirWithContent(t *testing.T) {
 }
 
 func TestIssue4475(t *testing.T) {
-	m, conn, tmpDir, w := setupModelWithConnection()
+	m, conn, fcfg, w := setupModelWithConnection()
+	testFs := fcfg.Filesystem()
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
+		os.RemoveAll(testFs.URI())
 		os.Remove(w.ConfigPath())
 	}()
-
-	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 
 	// Scenario: Dir is deleted locally and before syncing/index exchange
 	// happens, a file is create in that dir on the remote.
