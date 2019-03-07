@@ -35,15 +35,9 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	testOs.MkdirAll("_recvonly/.stfolder", 0755)
 	testOs.MkdirAll("_recvonly/ignDir", 0755)
 	testOs.MkdirAll("_recvonly/unknownDir", 0755)
-	if err := ioutil.WriteFile("_recvonly/ignDir/ignFile", []byte("hello\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile("_recvonly/unknownDir/unknownFile", []byte("hello\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile("_recvonly/.stignore", []byte("ignDir\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return ioutil.WriteFile("_recvonly/ignDir/ignFile", []byte("hello\n"), 0644) })
+	must(t, func() error { return ioutil.WriteFile("_recvonly/unknownDir/unknownFile", []byte("hello\n"), 0644) })
+	must(t, func() error { return ioutil.WriteFile("_recvonly/.stignore", []byte("ignDir\n"), 0644) })
 
 	knownFiles := setupKnownFiles(t, []byte("hello\n"))
 
@@ -166,15 +160,11 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	// Update the file.
 
 	newData := []byte("totally different data\n")
-	if err := ioutil.WriteFile("_recvonly/knownDir/knownFile", newData, 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return ioutil.WriteFile("_recvonly/knownDir/knownFile", newData, 0644) })
 
 	// Rescan.
 
-	if err := m.ScanFolder("ro"); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return m.ScanFolder("ro") })
 
 	// We now have a newer file than the rest of the cluster. Global state should reflect this.
 
@@ -268,13 +258,9 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	// Create a file and modify another
 
 	file := "_recvonly/foo"
-	if err := ioutil.WriteFile(file, []byte("hello\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return ioutil.WriteFile(file, []byte("hello\n"), 0644) })
 
-	if err := ioutil.WriteFile("_recvonly/knownDir/knownFile", []byte("bye\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return ioutil.WriteFile("_recvonly/knownDir/knownFile", []byte("bye\n"), 0644) })
 
 	m.ScanFolder("ro")
 
@@ -286,9 +272,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	// Remove the file again and undo the modification
 
 	testOs.Remove(file)
-	if err := ioutil.WriteFile("_recvonly/knownDir/knownFile", oldData, 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return ioutil.WriteFile("_recvonly/knownDir/knownFile", oldData, 0644) })
 	folderFs.Chtimes("knownDir/knownFile", knownFiles[1].ModTime(), knownFiles[1].ModTime())
 
 	m.ScanFolder("ro")
@@ -303,9 +287,7 @@ func setupKnownFiles(t *testing.T, data []byte) []protocol.FileInfo {
 	testOs := &fatalOs{t}
 
 	testOs.MkdirAll("_recvonly/knownDir", 0755)
-	if err := ioutil.WriteFile("_recvonly/knownDir/knownFile", data, 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return ioutil.WriteFile("_recvonly/knownDir/knownFile", data, 0644) })
 
 	t0 := time.Now().Add(-1 * time.Minute)
 	testOs.Chtimes("_recvonly/knownDir/knownFile", t0, t0)

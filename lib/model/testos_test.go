@@ -21,7 +21,7 @@ type fatalOs struct {
 	fatal
 }
 
-func (f *fatalOs) must(fn func() error) {
+func must(f fatal, fn func() error) {
 	f.Helper()
 	if err := fn(); err != nil {
 		f.Fatal(err)
@@ -30,12 +30,12 @@ func (f *fatalOs) must(fn func() error) {
 
 func (f *fatalOs) Chmod(name string, mode os.FileMode) {
 	f.Helper()
-	f.must(func() error { return os.Chmod(name, mode) })
+	must(f, func() error { return os.Chmod(name, mode) })
 }
 
 func (f *fatalOs) Chtimes(name string, atime time.Time, mtime time.Time) {
 	f.Helper()
-	f.must(func() error { return os.Chtimes(name, atime, mtime) })
+	must(f, func() error { return os.Chtimes(name, atime, mtime) })
 }
 
 func (f *fatalOs) Create(name string) *os.File {
@@ -49,12 +49,12 @@ func (f *fatalOs) Create(name string) *os.File {
 
 func (f *fatalOs) Mkdir(name string, perm os.FileMode) {
 	f.Helper()
-	f.must(func() error { return os.Mkdir(name, perm) })
+	must(f, func() error { return os.Mkdir(name, perm) })
 }
 
 func (f *fatalOs) MkdirAll(name string, perm os.FileMode) {
 	f.Helper()
-	f.must(func() error { return os.MkdirAll(name, perm) })
+	must(f, func() error { return os.MkdirAll(name, perm) })
 }
 
 func (f *fatalOs) Remove(name string) {
@@ -73,7 +73,7 @@ func (f *fatalOs) RemoveAll(name string) {
 
 func (f *fatalOs) Rename(oldname, newname string) {
 	f.Helper()
-	f.must(func() error { return os.Rename(oldname, newname) })
+	must(f, func() error { return os.Rename(oldname, newname) })
 }
 
 func (f *fatalOs) Stat(name string) os.FileInfo {

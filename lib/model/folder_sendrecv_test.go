@@ -652,23 +652,15 @@ func TestIssue3164(t *testing.T) {
 
 	ignDir := filepath.Join("issue3164", "oktodelete")
 	subDir := filepath.Join(ignDir, "foobar")
-	if err := ffs.MkdirAll(subDir, 0777); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile(filepath.Join(tmpDir, subDir, "file"), []byte("Hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile(filepath.Join(tmpDir, ignDir, "file"), []byte("Hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return ffs.MkdirAll(subDir, 0777) })
+	must(t, func() error { return ioutil.WriteFile(filepath.Join(tmpDir, subDir, "file"), []byte("Hello"), 0644) })
+	must(t, func() error { return ioutil.WriteFile(filepath.Join(tmpDir, ignDir, "file"), []byte("Hello"), 0644) })
 	file := protocol.FileInfo{
 		Name: "issue3164",
 	}
 
 	matcher := ignore.New(ffs)
-	if err := matcher.Parse(bytes.NewBufferString("(?d)oktodelete"), ""); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return matcher.Parse(bytes.NewBufferString("(?d)oktodelete"), "") })
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 

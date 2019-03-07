@@ -2343,13 +2343,9 @@ func TestIssue3028(t *testing.T) {
 
 	// Create two files that we'll delete, one with a name that is a prefix of the other.
 
-	if err := ioutil.WriteFile("testdata/testrm", []byte("Hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return ioutil.WriteFile("testdata/testrm", []byte("Hello"), 0644) })
 	defer testOs.Remove("testdata/testrm")
-	if err := ioutil.WriteFile("testdata/testrm2", []byte("Hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return ioutil.WriteFile("testdata/testrm2", []byte("Hello"), 0644) })
 	defer testOs.Remove("testdata/testrm2")
 
 	// Create a model and default folder
@@ -2831,10 +2827,7 @@ func TestIssue2571(t *testing.T) {
 	}()
 
 	for _, dir := range []string{"toLink", "linkTarget"} {
-		err := testFs.MkdirAll(dir, 0775)
-		if err != nil {
-			t.Fatal(err)
-		}
+		must(t, func() error { return testFs.MkdirAll(dir, 0775) })
 		fd, err := testFs.Create(filepath.Join(dir, "a"))
 		if err != nil {
 			t.Fatal(err)
@@ -2844,13 +2837,11 @@ func TestIssue2571(t *testing.T) {
 
 	m := setupModel(w)
 
-	if err := testFs.RemoveAll("toLink"); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return testFs.RemoveAll("toLink") })
 
-	if err := osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "linkTarget"), filepath.Join(testFs.URI(), "toLink")); err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error {
+		return osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "linkTarget"), filepath.Join(testFs.URI(), "toLink"))
+	})
 
 	m.ScanFolder("default")
 
@@ -2879,10 +2870,7 @@ func TestIssue4573(t *testing.T) {
 		os.Remove(w.ConfigPath())
 	}()
 
-	err := testFs.MkdirAll("inaccessible", 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return testFs.MkdirAll("inaccessible", 0755) })
 	defer testFs.Chmod("inaccessible", 0777)
 
 	file := filepath.Join("inaccessible", "a")
@@ -2894,10 +2882,7 @@ func TestIssue4573(t *testing.T) {
 
 	m := setupModel(w)
 
-	err = testFs.Chmod("inaccessible", 0000)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return testFs.Chmod("inaccessible", 0000) })
 
 	m.ScanFolder("default")
 
@@ -2931,8 +2916,7 @@ func TestInternalScan(t *testing.T) {
 	for _, dir := range baseDirs {
 		sub := filepath.Join(dir, "subDir")
 		for _, dir := range []string{dir, sub} {
-			err := testFs.MkdirAll(dir, 0775)
-			if err != nil {
+			if err := testFs.MkdirAll(dir, 0775); err != nil {
 				t.Fatalf("%v: %v", dir, err)
 			}
 		}
@@ -2955,9 +2939,7 @@ func TestInternalScan(t *testing.T) {
 	m := setupModel(w)
 
 	for _, dir := range baseDirs {
-		if err := testFs.RemoveAll(dir); err != nil {
-			t.Fatal(err)
-		}
+		must(t, func() error { return testFs.RemoveAll(dir) })
 	}
 
 	fd, err := testFs.Create("dirToFile")
@@ -3099,16 +3081,9 @@ func TestIssue4475(t *testing.T) {
 	// This should result in the directory being recreated and added to the
 	// db locally.
 
-	err := testFs.MkdirAll("delDir", 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, func() error { return testFs.MkdirAll("delDir", 0755) })
 
 	m.ScanFolder("default")
-
-	if err = testFs.RemoveAll("delDir"); err != nil {
-		t.Fatal(err)
-	}
 
 	m.ScanFolder("default")
 
