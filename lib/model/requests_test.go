@@ -482,7 +482,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 
 	payload := []byte("hello")
 
-	must(t, func() error { return ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777) })
+	must(t, ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777))
 
 	received := make(chan protocol.FileInfo)
 	fc.mut.Lock()
@@ -519,7 +519,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 	payload = []byte("bye")
 	buf = make([]byte, len(payload))
 
-	must(t, func() error { return ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777) })
+	must(t, ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777))
 
 	_, err = m.Request(device1, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err == nil {
@@ -569,7 +569,7 @@ func TestParentDeletion(t *testing.T) {
 	}
 
 	// Delete parent dir
-	must(t, func() error { return testFs.RemoveAll(parent) })
+	must(t, testFs.RemoveAll(parent))
 
 	// Scan only the child dir (not the parent)
 	if err := m.ScanFolderSubdirs("default", []string{child}); err != nil {
@@ -777,7 +777,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	}
 
 	for _, n := range [2]string{a, b} {
-		must(t, func() error { return equalContents(filepath.Join(tmpDir, n), data[n]) })
+		must(t, equalContents(filepath.Join(tmpDir, n), data[n]))
 	}
 
 	var gotA, gotB, gotConfl bool
@@ -904,7 +904,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 	}
 
 	for _, n := range [2]string{a, b} {
-		must(t, func() error { return equalContents(filepath.Join(tmpDir, n), data[n]) })
+		must(t, equalContents(filepath.Join(tmpDir, n), data[n]))
 	}
 
 	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0644)

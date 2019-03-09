@@ -79,18 +79,12 @@ func createFile(t *testing.T, name string, fs fs.Filesystem) protocol.FileInfo {
 	t.Helper()
 
 	f, err := fs.Create(name)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	f.Close()
 	fi, err := fs.Stat(name)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	file, err := scanner.CreateFileInfo(fi, name, fs)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	return file
 }
 
@@ -323,9 +317,7 @@ func TestWeakHash(t *testing.T) {
 	}
 
 	f, err := ffs.Create("weakhash")
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	defer f.Close()
 	_, err = io.CopyN(f, rand.Reader, size)
 	if err != nil {
@@ -652,15 +644,15 @@ func TestIssue3164(t *testing.T) {
 
 	ignDir := filepath.Join("issue3164", "oktodelete")
 	subDir := filepath.Join(ignDir, "foobar")
-	must(t, func() error { return ffs.MkdirAll(subDir, 0777) })
-	must(t, func() error { return ioutil.WriteFile(filepath.Join(tmpDir, subDir, "file"), []byte("Hello"), 0644) })
-	must(t, func() error { return ioutil.WriteFile(filepath.Join(tmpDir, ignDir, "file"), []byte("Hello"), 0644) })
+	must(t, ffs.MkdirAll(subDir, 0777))
+	must(t, ioutil.WriteFile(filepath.Join(tmpDir, subDir, "file"), []byte("Hello"), 0644))
+	must(t, ioutil.WriteFile(filepath.Join(tmpDir, ignDir, "file"), []byte("Hello"), 0644))
 	file := protocol.FileInfo{
 		Name: "issue3164",
 	}
 
 	matcher := ignore.New(ffs)
-	must(t, func() error { return matcher.Parse(bytes.NewBufferString("(?d)oktodelete"), "") })
+	must(t, matcher.Parse(bytes.NewBufferString("(?d)oktodelete"), ""))
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
@@ -749,13 +741,9 @@ func TestDeleteIgnorePerms(t *testing.T) {
 	defer file.Close()
 
 	stat, err := file.Stat()
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	fi, err := scanner.CreateFileInfo(stat, name, ffs)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	ffs.Chmod(name, 0600)
 	scanChan := make(chan string)
 	finished := make(chan struct{})
@@ -768,9 +756,7 @@ func TestDeleteIgnorePerms(t *testing.T) {
 		<-finished
 	case <-finished:
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 }
 
 func TestCopyOwner(t *testing.T) {

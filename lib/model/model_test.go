@@ -2343,9 +2343,9 @@ func TestIssue3028(t *testing.T) {
 
 	// Create two files that we'll delete, one with a name that is a prefix of the other.
 
-	must(t, func() error { return ioutil.WriteFile("testdata/testrm", []byte("Hello"), 0644) })
+	must(t, ioutil.WriteFile("testdata/testrm", []byte("Hello"), 0644))
 	defer testOs.Remove("testdata/testrm")
-	must(t, func() error { return ioutil.WriteFile("testdata/testrm2", []byte("Hello"), 0644) })
+	must(t, ioutil.WriteFile("testdata/testrm2", []byte("Hello"), 0644))
 	defer testOs.Remove("testdata/testrm2")
 
 	// Create a model and default folder
@@ -2827,21 +2827,17 @@ func TestIssue2571(t *testing.T) {
 	}()
 
 	for _, dir := range []string{"toLink", "linkTarget"} {
-		must(t, func() error { return testFs.MkdirAll(dir, 0775) })
+		must(t, testFs.MkdirAll(dir, 0775))
 		fd, err := testFs.Create(filepath.Join(dir, "a"))
-		if err != nil {
-			t.Fatal(err)
-		}
+		must(t, err)
 		fd.Close()
 	}
 
 	m := setupModel(w)
 
-	must(t, func() error { return testFs.RemoveAll("toLink") })
+	must(t, testFs.RemoveAll("toLink"))
 
-	must(t, func() error {
-		return osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "linkTarget"), filepath.Join(testFs.URI(), "toLink"))
-	})
+	must(t, osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "linkTarget"), filepath.Join(testFs.URI(), "toLink")))
 
 	m.ScanFolder("default")
 
@@ -2870,19 +2866,17 @@ func TestIssue4573(t *testing.T) {
 		os.Remove(w.ConfigPath())
 	}()
 
-	must(t, func() error { return testFs.MkdirAll("inaccessible", 0755) })
+	must(t, testFs.MkdirAll("inaccessible", 0755))
 	defer testFs.Chmod("inaccessible", 0777)
 
 	file := filepath.Join("inaccessible", "a")
 	fd, err := testFs.Create(file)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	fd.Close()
 
 	m := setupModel(w)
 
-	must(t, func() error { return testFs.Chmod("inaccessible", 0000) })
+	must(t, testFs.Chmod("inaccessible", 0000))
 
 	m.ScanFolder("default")
 
@@ -2926,9 +2920,7 @@ func TestInternalScan(t *testing.T) {
 		for _, dir := range []string{dir, sub} {
 			file := filepath.Join(dir, "a")
 			fd, err := testFs.Create(file)
-			if err != nil {
-				t.Fatal(err)
-			}
+			must(t, err)
 			fd.Close()
 			testCases[file] = func(f protocol.FileInfo) bool {
 				return !f.Deleted
@@ -2939,13 +2931,11 @@ func TestInternalScan(t *testing.T) {
 	m := setupModel(w)
 
 	for _, dir := range baseDirs {
-		must(t, func() error { return testFs.RemoveAll(dir) })
+		must(t, testFs.RemoveAll(dir))
 	}
 
 	fd, err := testFs.Create("dirToFile")
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	fd.Close()
 
 	m.ScanFolder("default")
@@ -3011,10 +3001,7 @@ func TestRemoveDirWithContent(t *testing.T) {
 	defaultFs.MkdirAll("dirwith", 0755)
 	content := filepath.Join("dirwith", "content")
 	fd, err := defaultFs.Create(content)
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
+	must(t, err)
 	fd.Close()
 
 	m := setupModel(defaultCfgWrapper)
@@ -3081,7 +3068,7 @@ func TestIssue4475(t *testing.T) {
 	// This should result in the directory being recreated and added to the
 	// db locally.
 
-	must(t, func() error { return testFs.MkdirAll("delDir", 0755) })
+	must(t, testFs.MkdirAll("delDir", 0755))
 
 	m.ScanFolder("default")
 
@@ -3133,9 +3120,7 @@ func TestVersionRestore(t *testing.T) {
 	// We verify that the content matches at the expected filenames
 	// after the restore operation.
 	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	defer os.RemoveAll(dir)
 
 	fcfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, dir)
@@ -3153,9 +3138,7 @@ func TestVersionRestore(t *testing.T) {
 	m.ScanFolder("default")
 
 	sentinel, err := time.ParseInLocation(versioner.TimeFormat, "20200101-010101", locationLocal)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	sentinelTag := sentinel.Format(versioner.TimeFormat)
 
 	for _, file := range []string{
@@ -3181,9 +3164,7 @@ func TestVersionRestore(t *testing.T) {
 			file = filepath.FromSlash(file)
 		}
 		dir := filepath.Dir(file)
-		if err := filesystem.MkdirAll(dir, 0755); err != nil {
-			t.Fatal(err)
-		}
+		must(t, filesystem.MkdirAll(dir, 0755))
 		if fd, err := filesystem.Create(file); err != nil {
 			t.Fatal(err)
 		} else if _, err := fd.Write([]byte(file)); err != nil {
@@ -3196,9 +3177,7 @@ func TestVersionRestore(t *testing.T) {
 	}
 
 	versions, err := m.GetFolderVersions("default")
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	expectedVersions := map[string]int{
 		"file.txt":               1,
 		"existing":               1,
@@ -3248,9 +3227,7 @@ func TestVersionRestore(t *testing.T) {
 	}
 
 	ferr, err := m.RestoreFolderVersions("default", restore)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 
 	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != "cannot replace a non-file" {
 		t.Fatalf("incorrect error or count: %d %s", len(ferr), ferr)
@@ -3302,9 +3279,7 @@ func TestVersionRestore(t *testing.T) {
 		taggedArchivedName := filepath.Join(".stversions", taggedName)
 
 		fd, err := filesystem.Open(taggedArchivedName)
-		if err != nil {
-			t.Fatal(err)
-		}
+		must(t, err)
 		defer fd.Close()
 
 		content, err := ioutil.ReadAll(fd)
@@ -3348,9 +3323,7 @@ func TestPausedFolders(t *testing.T) {
 	pausedConfig := wrapper.RawCopy()
 	pausedConfig.Folders[0].Paused = true
 	w, err := m.cfg.Replace(pausedConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	w.Wait()
 
 	if err := m.ScanFolder("default"); err != ErrFolderPaused {
@@ -3387,9 +3360,7 @@ func TestIssue4094(t *testing.T) {
 	}
 	cfg.Folders = []config.FolderConfiguration{fcfg}
 	p, err := wrapper.Replace(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	p.Wait()
 
 	if err := m.SetIgnores(fcfg.ID, []string{"foo"}); err != nil {
@@ -3426,9 +3397,7 @@ func TestIssue4903(t *testing.T) {
 	}
 	cfg.Folders = []config.FolderConfiguration{fcfg}
 	p, err := wrapper.Replace(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
+	must(t, err)
 	p.Wait()
 
 	if err := fcfg.CheckPath(); err != config.ErrPathMissing {
