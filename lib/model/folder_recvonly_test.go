@@ -37,19 +37,11 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	// Create some test data
 
 	for _, dir := range []string{".stfolder", "ignDir", "unknownDir"} {
-		if err := ffs.MkdirAll(dir, 0755); err != nil {
-			t.Fatal(err)
-		}
+		must(t, ffs.MkdirAll(dir, 0755))
 	}
-	if err := ioutil.WriteFile(filepath.Join(ffs.URI(), "ignDir/ignFile"), []byte("hello\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile(filepath.Join(ffs.URI(), "unknownDir/unknownFile"), []byte("hello\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile(filepath.Join(ffs.URI(), ".stignore"), []byte("ignDir\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "ignDir/ignFile"), []byte("hello\n"), 0644))
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "unknownDir/unknownFile"), []byte("hello\n"), 0644))
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), ".stignore"), []byte("ignDir\n"), 0644))
 
 	knownFiles := setupKnownFiles(t, ffs, []byte("hello\n"))
 
@@ -127,9 +119,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// Create some test data
 
-	if err := ffs.MkdirAll(".stfolder", 0755); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ffs.MkdirAll(".stfolder", 0755))
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, ffs, oldData)
 
@@ -165,15 +155,11 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	// Update the file.
 
 	newData := []byte("totally different data\n")
-	if err := ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), newData, 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), newData, 0644))
 
 	// Rescan.
 
-	if err := m.ScanFolder("ro"); err != nil {
-		t.Fatal(err)
-	}
+	must(t, m.ScanFolder("ro"))
 
 	// We now have a newer file than the rest of the cluster. Global state should reflect this.
 
@@ -218,22 +204,22 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Get us a model up and running
 
-	m, _ := setupROFolder()
-	m.fmut.Lock()
-	fset := m.folderFiles["ro"]
-	m.fmut.Unlock()
-	folderFs := fset.MtimeFS()
+	m, fcfg := setupROFolder()
+	ffs := fcfg.Filesystem()
 	defer os.Remove(m.cfg.ConfigPath())
-	defer os.Remove(folderFs.URI())
+	defer os.Remove(ffs.URI())
 	defer m.Stop()
 
 	// Create some test data
 
-	if err := folderFs.MkdirAll(".stfolder", 0755); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ffs.MkdirAll(".stfolder", 0755))
 	oldData := []byte("hello\n")
-	knownFiles := setupKnownFiles(t, folderFs, oldData)
+	knownFiles := setupKnownFiles(t, ffs, oldData)
+
+	m.fmut.Lock()
+	fset := m.folderFiles["ro"]
+	m.fmut.Unlock()
+	folderFs := fset.MtimeFS()
 
 	// Send and index update for the known stuff
 
@@ -266,14 +252,10 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Create a file and modify another
 
-	file := filepath.Join(folderFs.URI(), "foo")
-	if err := ioutil.WriteFile(file, []byte("hello\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	file := filepath.Join(ffs.URI(), "foo")
+	must(t, ioutil.WriteFile(file, []byte("hello\n"), 0644))
 
-	if err := ioutil.WriteFile(filepath.Join(folderFs.URI(), "knownDir/knownFile"), []byte("bye\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), []byte("bye\n"), 0644))
 
 	m.ScanFolder("ro")
 
@@ -285,9 +267,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	// Remove the file again and undo the modification
 
 	testOs.Remove(file)
-	if err := ioutil.WriteFile(filepath.Join(folderFs.URI(), "knownDir/knownFile"), oldData, 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), oldData, 0644))
 	folderFs.Chtimes("knownDir/knownFile", knownFiles[1].ModTime(), knownFiles[1].ModTime())
 
 	m.ScanFolder("ro")
@@ -301,17 +281,11 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.FileInfo {
 	t.Helper()
 
-	if err := ffs.MkdirAll("knownDir", 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), data, 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ffs.MkdirAll("knownDir", 0755))
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), data, 0644))
 
 	t0 := time.Now().Add(-1 * time.Minute)
-	if err := ffs.Chtimes("knownDir/knownFile", t0, t0); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ffs.Chtimes("knownDir/knownFile", t0, t0))
 
 	fi, err := ffs.Stat("knownDir/knownFile")
 	if err != nil {
