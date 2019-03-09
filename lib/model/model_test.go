@@ -1768,12 +1768,12 @@ func TestIgnores(t *testing.T) {
 	changeIgnores(t, m, []string{})
 }
 
-func waitForState(t *testing.T, m *model, status string) {
+func waitForState(t *testing.T, m *model, folder, status string) {
 	t.Helper()
 	timeout := time.Now().Add(2 * time.Second)
 	var err error
 	for !time.Now().After(timeout) {
-		_, _, err = m.State("default")
+		_, _, err = m.State(folder)
 		if err == nil && status == "" {
 			return
 		}
@@ -1819,24 +1819,24 @@ func TestROScanRecovery(t *testing.T) {
 	m.ServeBackground()
 	defer m.Stop()
 
-	waitForState(t, m, "folder path missing")
+	waitForState(t, m, "default", "folder path missing")
 
 	testOs.Mkdir(fcfg.Path, 0700)
 
-	waitForState(t, m, "folder marker missing")
+	waitForState(t, m, "default", "folder marker missing")
 
 	fd := testOs.Create(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 	fd.Close()
 
-	waitForState(t, m, "")
+	waitForState(t, m, "default", "")
 
 	testOs.Remove(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 
-	waitForState(t, m, "folder marker missing")
+	waitForState(t, m, "default", "folder marker missing")
 
 	testOs.Remove(fcfg.Path)
 
-	waitForState(t, m, "folder path missing")
+	waitForState(t, m, "default", "folder path missing")
 }
 
 func TestRWScanRecovery(t *testing.T) {
@@ -1873,24 +1873,24 @@ func TestRWScanRecovery(t *testing.T) {
 	m.ServeBackground()
 	defer m.Stop()
 
-	waitForState(t, m, "folder path missing")
+	waitForState(t, m, "default", "folder path missing")
 
 	testOs.Mkdir(fcfg.Path, 0700)
 
-	waitForState(t, m, "folder marker missing")
+	waitForState(t, m, "default", "folder marker missing")
 
 	fd := testOs.Create(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 	fd.Close()
 
-	waitForState(t, m, "")
+	waitForState(t, m, "default", "")
 
 	testOs.Remove(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 
-	waitForState(t, m, "folder marker missing")
+	waitForState(t, m, "default", "folder marker missing")
 
 	testOs.Remove(fcfg.Path)
 
-	waitForState(t, m, "folder path missing")
+	waitForState(t, m, "default", "folder path missing")
 }
 
 func TestGlobalDirectoryTree(t *testing.T) {
@@ -3012,13 +3012,13 @@ func TestCustomMarkerName(t *testing.T) {
 	m.ServeBackground()
 	defer m.Stop()
 
-	waitForState(t, m, "folder path missing")
+	waitForState(t, m, "default", "folder path missing")
 
 	testOs.Mkdir(fcfg.Path, 0700)
 	fd := testOs.Create(filepath.Join(fcfg.Path, "myfile"))
 	fd.Close()
 
-	waitForState(t, m, "")
+	waitForState(t, m, "default", "")
 }
 
 func TestRemoveDirWithContent(t *testing.T) {
