@@ -162,7 +162,7 @@ type model struct {
 	foldersRunning int32 // for testing only
 }
 
-type folderFactory func(*model, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
+type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory)
@@ -263,15 +263,15 @@ func (m *model) startFolderLocked(folder string) config.FolderType {
 		panic(fmt.Sprintf("unknown folder type 0x%x", cfg.Type))
 	}
 
-	fs := m.folderFiles[folder]
+	fset := m.folderFiles[folder]
 
 	// Find any devices for which we hold the index in the db, but the folder
 	// is not shared, and drop it.
 	expected := mapDevices(cfg.DeviceIDs())
-	for _, available := range fs.ListDevices() {
+	for _, available := range fset.ListDevices() {
 		if _, ok := expected[available]; !ok {
 			l.Debugln("dropping", folder, "state for", available)
-			fs.Drop(available)
+			fset.Drop(available)
 		}
 	}
 
@@ -280,7 +280,7 @@ func (m *model) startFolderLocked(folder string) config.FolderType {
 		m.closeLocked(id, fmt.Errorf("started folder %v", cfg.Description()))
 	}
 
-	v, ok := fs.Sequence(protocol.LocalDeviceID), true
+	v, ok := fset.Sequence(protocol.LocalDeviceID), true
 	indexHasFiles := ok && v > 0
 	if !indexHasFiles {
 		// It's a blank folder, so this may the first time we're looking at
@@ -305,14 +305,14 @@ func (m *model) startFolderLocked(folder string) config.FolderType {
 		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	}
 
-	ffs := fs.MtimeFS()
+	ffs := fset.MtimeFS()
 
 	// These are our metadata files, and they should always be hidden.
 	ffs.Hide(config.DefaultMarkerName)
 	ffs.Hide(".stversions")
 	ffs.Hide(".stignore")
 
-	p := folderFactory(m, cfg, ver, ffs)
+	p := folderFactory(m, fset, m.folderIgnores[folder], cfg, ver, ffs)
 
 	m.folderRunners[folder] = p
 

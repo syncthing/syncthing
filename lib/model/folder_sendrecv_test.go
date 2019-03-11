@@ -103,6 +103,7 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 		folder: folder{
 			stateTracker:        newStateTracker("default"),
 			model:               model,
+			fset:                model.folderFiles[fcfg.ID],
 			initialScanFinished: make(chan struct{}),
 			ctx:                 context.TODO(),
 			FolderConfiguration: fcfg,
@@ -490,7 +491,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
 	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
-	go f.finisherRoutine(ignore.New(defaultFs), finisherChan, dbUpdateChan, make(chan string))
+	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
 
 	f.handleFile(file, copyChan, finisherChan, dbUpdateChan)
 
@@ -581,7 +582,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
 	go f.pullerRoutine(pullChan, finisherBufferChan)
-	go f.finisherRoutine(ignore.New(defaultFs), finisherChan, dbUpdateChan, make(chan string))
+	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
 
 	f.handleFile(file, copyChan, finisherChan, dbUpdateChan)
 
@@ -653,10 +654,11 @@ func TestIssue3164(t *testing.T) {
 
 	matcher := ignore.New(ffs)
 	must(t, matcher.Parse(bytes.NewBufferString("(?d)oktodelete"), ""))
+	f.ignores = matcher
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.deleteDir(file, matcher, dbUpdateChan, make(chan string))
+	f.deleteDir(file, dbUpdateChan, make(chan string))
 
 	if _, err := ffs.Stat("issue3164"); !fs.IsNotExist(err) {
 		t.Fatal(err)
@@ -798,7 +800,7 @@ func TestCopyOwner(t *testing.T) {
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	defer close(dbUpdateChan)
-	f.handleDir(dir, ignore.New(f.fs), dbUpdateChan, nil)
+	f.handleDir(dir, dbUpdateChan, nil)
 	<-dbUpdateChan // empty the channel for later
 
 	info, err := f.fs.Lstat("foo/bar")
@@ -829,7 +831,7 @@ func TestCopyOwner(t *testing.T) {
 	copierChan := make(chan copyBlocksState)
 	defer close(copierChan)
 	go f.copierRoutine(copierChan, nil, finisherChan)
-	go f.finisherRoutine(nil, finisherChan, dbUpdateChan, nil)
+	go f.finisherRoutine(finisherChan, dbUpdateChan, nil)
 	f.handleFile(file, copierChan, nil, nil)
 	<-dbUpdateChan
 
@@ -849,7 +851,7 @@ func TestCopyOwner(t *testing.T) {
 		SymlinkTarget: "over the rainbow",
 	}
 
-	f.handleSymlink(symlink, ignore.New(f.fs), dbUpdateChan, nil)
+	f.handleSymlink(symlink, dbUpdateChan, nil)
 	<-dbUpdateChan
 
 	info, err = f.fs.Lstat("foo/bar/sym")
@@ -887,7 +889,7 @@ func TestSRConflictReplaceFileByDir(t *testing.T) {
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	scanChan := make(chan string, 1)
 
-	f.handleDir(file, ignore.New(f.fs), dbUpdateChan, scanChan)
+	f.handleDir(file, dbUpdateChan, scanChan)
 
 	if confls := existingConflicts(name, ffs); len(confls) != 1 {
 		t.Fatal("Expected one conflict, got", len(confls))
@@ -923,7 +925,7 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	scanChan := make(chan string, 1)
 
-	f.handleSymlink(file, ignore.New(f.fs), dbUpdateChan, scanChan)
+	f.handleSymlink(file, dbUpdateChan, scanChan)
 
 	if confls := existingConflicts(name, ffs); len(confls) != 1 {
 		t.Fatal("Expected one conflict, got", len(confls))
