@@ -65,6 +65,7 @@ type service interface {
 	CheckHealth() error
 	Errors() []FileError
 	WatchError() error
+	GetStatistics() stats.FolderStatistics
 
 	getState() (folderState, time.Time, error)
 	setState(state folderState)
@@ -148,7 +149,6 @@ type model struct {
 	folderIgnores      map[string]*ignore.Matcher                             // folder -> matcher object
 	folderRunners      map[string]service                                     // folder -> puller or scanner
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
-	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	folderRestartMuts  syncMutexMap                                           // folder -> restart mutex
 
 	pmut                sync.RWMutex // protects the below
@@ -208,7 +208,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		folderIgnores:       make(map[string]*ignore.Matcher),
 		folderRunners:       make(map[string]service),
 		folderRunnerTokens:  make(map[string][]suture.ServiceToken),
-		folderStatRefs:      make(map[string]*stats.FolderStatisticsReference),
 		conn:                make(map[protocol.DeviceID]connections.Connection),
 		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
@@ -423,7 +422,6 @@ func (m *model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) 
 	delete(m.folderIgnores, cfg.ID)
 	delete(m.folderRunners, cfg.ID)
 	delete(m.folderRunnerTokens, cfg.ID)
-	delete(m.folderStatRefs, cfg.ID)
 }
 
 func (m *model) RestartFolder(from, to config.FolderConfiguration) {
@@ -651,8 +649,10 @@ func (m *model) DeviceStatistics() map[string]stats.DeviceStatistics {
 // FolderStatistics returns statistics about each folder
 func (m *model) FolderStatistics() map[string]stats.FolderStatistics {
 	res := make(map[string]stats.FolderStatistics)
-	for id := range m.cfg.Folders() {
-		res[id] = m.folderStatRef(id).GetStatistics()
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+	for id, runner := range m.folderRunners {
+		res[id] = runner.GetStatistics()
 	}
 	return res
 }
@@ -1867,22 +1867,6 @@ func (m *model) deviceStatRef(deviceID protocol.DeviceID) *stats.DeviceStatistic
 
 func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 	m.deviceStatRef(deviceID).WasSeen()
-}
-
-func (m *model) folderStatRef(folder string) *stats.FolderStatisticsReference {
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
-
-	sr, ok := m.folderStatRefs[folder]
-	if !ok {
-		sr = stats.NewFolderStatisticsReference(m.db, folder)
-		m.folderStatRefs[folder] = sr
-	}
-	return sr
-}
-
-func (m *model) receivedFile(folder string, file protocol.FileInfo) {
-	m.folderStatRef(folder).ReceivedFile(file.Name, file.IsDeleted())
 }
 
 func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, prevSequence int64, dropSymlinks bool) {

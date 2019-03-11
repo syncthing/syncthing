@@ -1625,7 +1625,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 		f.model.updateLocalsFromPulling(f.folderID, files)
 
 		if found {
-			f.model.receivedFile(f.folderID, lastFile)
+			f.ReceivedFile(lastFile.Name, lastFile.IsDeleted())
 			found = false
 		}
 

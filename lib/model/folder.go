@@ -25,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
@@ -37,6 +38,8 @@ var errWatchNotStarted = errors.New("not started")
 type folder struct {
 	stateTracker
 	config.FolderConfiguration
+	*stats.FolderStatisticsReference
+
 	localFlags uint32
 
 	model   *model
@@ -79,8 +82,9 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return folder{
-		stateTracker:        newStateTracker(cfg.ID),
-		FolderConfiguration: cfg,
+		stateTracker:              newStateTracker(cfg.ID),
+		FolderConfiguration:       cfg,
+		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
 
 		model:   model,
 		shortID: model.shortID,
@@ -532,7 +536,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		return err
 	}
 
-	f.model.folderStatRef(f.ID).ScanCompleted()
+	f.ScanCompleted()
 	f.setState(FolderIdle)
 	return nil
 }
