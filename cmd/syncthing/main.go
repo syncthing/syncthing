@@ -191,6 +191,7 @@ type RuntimeOptions struct {
 	stRestarting   bool
 	logFlags       int
 	showHelp       bool
+	forceNewConfig bool
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -244,6 +245,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
+	flag.BoolVar(&options.forceNewConfig, "force-new-config", false, "Allow loading newer version of config file")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
 		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
@@ -667,7 +669,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"myID": myID.String(),
 	})
 
-	cfg, err := loadConfigAtStartup()
+	cfg, err := loadConfigAtStartup(runtimeOptions.forceNewConfig)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(exitError)
@@ -967,7 +969,7 @@ func loadOrDefaultConfig() (config.Wrapper, error) {
 	return cfg, err
 }
 
-func loadConfigAtStartup() (config.Wrapper, error) {
+func loadConfigAtStartup(forceNewConfig bool) (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
@@ -987,6 +989,9 @@ func loadConfigAtStartup() (config.Wrapper, error) {
 	}
 
 	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
+		if cfg.RawCopy().OriginalVersion > config.CurrentVersion && !forceNewConfig {
+			return nil, errors.New("Existing config version is newer than expected. Use -force-new-config to override.")
+		}
 		err = archiveAndSaveConfig(cfg)
 		if err != nil {
 			return nil, errors.Wrap(err, "config archive")
