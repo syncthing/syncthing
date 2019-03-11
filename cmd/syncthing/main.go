@@ -990,7 +990,7 @@ func loadConfigAtStartup(forceNewConfig bool) (config.Wrapper, error) {
 
 	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
 		if cfg.RawCopy().OriginalVersion > config.CurrentVersion && !forceNewConfig {
-			return nil, errors.New("Existing config version is newer than expected. Use -force-new-config to override.")
+			return nil, errors.New("Config file version (" + strconv.Itoa(cfg.RawCopy().OriginalVersion) + ") is newer than supported version (" + strconv.Itoa(config.CurrentVersion) + "). If this is expected, use -force-new-config to override.")
 		}
 		err = archiveAndSaveConfig(cfg)
 		if err != nil {
