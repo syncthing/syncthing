@@ -191,7 +191,7 @@ type RuntimeOptions struct {
 	stRestarting   bool
 	logFlags       int
 	showHelp       bool
-	forceNewConfig bool
+	allowNewConfig bool
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -245,7 +245,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
-	flag.BoolVar(&options.forceNewConfig, "force-new-config", false, "Allow loading newer version of config file")
+	flag.BoolVar(&options.allowNewConfig, "allow-new-config", false, "Allow loading newer version of config file")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
 		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
@@ -669,7 +669,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"myID": myID.String(),
 	})
 
-	cfg, err := loadConfigAtStartup(runtimeOptions.forceNewConfig)
+	cfg, err := loadConfigAtStartup(runtimeOptions.allowNewConfig)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(exitError)
@@ -969,7 +969,7 @@ func loadOrDefaultConfig() (config.Wrapper, error) {
 	return cfg, err
 }
 
-func loadConfigAtStartup(forceNewConfig bool) (config.Wrapper, error) {
+func loadConfigAtStartup(allowNewConfig bool) (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
@@ -989,8 +989,8 @@ func loadConfigAtStartup(forceNewConfig bool) (config.Wrapper, error) {
 	}
 
 	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
-		if cfg.RawCopy().OriginalVersion > config.CurrentVersion && !forceNewConfig {
-			return nil, errors.New("Config file version (" + strconv.Itoa(cfg.RawCopy().OriginalVersion) + ") is newer than supported version (" + strconv.Itoa(config.CurrentVersion) + "). If this is expected, use -force-new-config to override.")
+		if cfg.RawCopy().OriginalVersion > config.CurrentVersion && !allowNewConfig {
+			return nil, fmt.Errorf("Config file version (%d) is newer than supported version (%d). If this is expected, use -allow-new-config to override.", cfg.RawCopy().OriginalVersion, config.CurrentVersion)
 		}
 		err = archiveAndSaveConfig(cfg)
 		if err != nil {
