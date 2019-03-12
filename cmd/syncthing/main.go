@@ -989,6 +989,9 @@ func loadConfigAtStartup(allowNewerConfig bool) (config.Wrapper, error) {
 	}
 
 	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
+		if cfg.RawCopy().OriginalVersion == config.CurrentVersion+1101 {
+			l.Infof("Now, THAT's what we call a config from the future! Don't worry. As long as you hit that wire with the connecting hook at precisely eighty-eight miles per hour the instant the lightning strikes the tower... everything will be fine.")
+		}
 		if cfg.RawCopy().OriginalVersion > config.CurrentVersion && !allowNewerConfig {
 			return nil, fmt.Errorf("Config file version (%d) is newer than supported version (%d). If this is expected, use -allow-newer-config to override.", cfg.RawCopy().OriginalVersion, config.CurrentVersion)
 		}
