@@ -56,6 +56,7 @@
     "Copied from original": "Kopioitu alkuperäisestä lähteestä",
     "Copyright © 2014-2016 the following Contributors:": "Copyright © 2014-2016 seuraavat avustajat",
     "Copyright © 2014-2017 the following Contributors:": "Copyright © 2014-2017 seuraavat avustajat:",
+    "Copyright © 2014-2019 the following Contributors:": "Copyright © 2014-2019 the following Contributors:",
     "Creating ignore patterns, overwriting an existing file at {%path%}.": "Luodaan ohituslausekkeet. Ylikirjoitetaan tiedosto: {{path}}.",
     "Danger!": "Vaara!",
     "Debugging Facilities": "Debug -luokat",

@@ -56,6 +56,7 @@
     "Copied from original": "元ファイルからコピー済",
     "Copyright © 2014-2016 the following Contributors:": "Copyright © 2014-2016 the following Contributors:",
     "Copyright © 2014-2017 the following Contributors:": "Copyright © 2014-2017 the following Contributors:",
+    "Copyright © 2014-2019 the following Contributors:": "Copyright © 2014-2019 the following Contributors:",
     "Creating ignore patterns, overwriting an existing file at {%path%}.": "無視パターンを作成中。既存のファイルが {{path}} にある場合は上書きされます。",
     "Danger!": "危険！",
     "Debugging Facilities": "デバッグ機能",

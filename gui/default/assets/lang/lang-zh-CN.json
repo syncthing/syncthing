@@ -56,6 +56,7 @@
     "Copied from original": "从源复制",
     "Copyright © 2014-2016 the following Contributors:": "Copyright © 2014-2016 以下贡献者：",
     "Copyright © 2014-2017 the following Contributors:": "Copyright © 2014-2017 以下贡献者：",
+    "Copyright © 2014-2019 the following Contributors:": "版权所有 © 2014-2019 以下贡献者：",
     "Creating ignore patterns, overwriting an existing file at {%path%}.": "正在创建忽略模式，覆盖位于 {{path}} 的已有文件。",
     "Danger!": "危险！",
     "Debugging Facilities": "调试功能",
