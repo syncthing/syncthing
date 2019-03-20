@@ -28,8 +28,8 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	// Get us a model up and running
 
-	m, fcfg := setupROFolder()
-	ffs := fcfg.Filesystem()
+	m, f := setupROFolder()
+	ffs := f.Filesystem()
 	defer os.Remove(m.cfg.ConfigPath())
 	defer os.Remove(ffs.URI())
 	defer m.Stop()
@@ -48,7 +48,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	// Send and index update for the known stuff
 
 	m.Index(device1, "ro", knownFiles)
-	m.updateLocalsFromScanning("ro", knownFiles)
+	f.updateLocalsFromScanning(knownFiles)
 
 	size := m.GlobalSize("ro")
 	if size.Files != 1 || size.Directories != 1 {
@@ -111,8 +111,8 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// Get us a model up and running
 
-	m, fcfg := setupROFolder()
-	ffs := fcfg.Filesystem()
+	m, f := setupROFolder()
+	ffs := f.Filesystem()
 	defer os.Remove(m.cfg.ConfigPath())
 	defer os.Remove(ffs.URI())
 	defer m.Stop()
@@ -126,7 +126,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	// Send and index update for the known stuff
 
 	m.Index(device1, "ro", knownFiles)
-	m.updateLocalsFromScanning("ro", knownFiles)
+	f.updateLocalsFromScanning(knownFiles)
 
 	// Start the folder. This will cause a scan.
 
@@ -204,8 +204,8 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Get us a model up and running
 
-	m, fcfg := setupROFolder()
-	ffs := fcfg.Filesystem()
+	m, f := setupROFolder()
+	ffs := f.Filesystem()
 	defer os.Remove(m.cfg.ConfigPath())
 	defer os.Remove(ffs.URI())
 	defer m.Stop()
@@ -224,7 +224,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	// Send and index update for the known stuff
 
 	m.Index(device1, "ro", knownFiles)
-	m.updateLocalsFromScanning("ro", knownFiles)
+	f.updateLocalsFromScanning(knownFiles)
 
 	// Start the folder. This will cause a scan.
 
@@ -316,7 +316,7 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 	return knownFiles
 }
 
-func setupROFolder() (*model, config.FolderConfiguration) {
+func setupROFolder() (*model, *sendOnlyFolder) {
 	w := createTmpWrapper(defaultCfg)
 	fcfg := testFolderConfigTmp()
 	fcfg.ID = "ro"
@@ -324,9 +324,16 @@ func setupROFolder() (*model, config.FolderConfiguration) {
 	w.SetFolder(fcfg)
 
 	m := newModel(w, myID, "syncthing", "dev", db.OpenMemory(), nil)
-	m.ServeBackground()
 	m.AddFolder(fcfg)
 
-	return m, fcfg
+	f := &sendOnlyFolder{
+		folder: folder{
+			fset:                m.folderFiles[fcfg.ID],
+			FolderConfiguration: fcfg,
+		},
+	}
 
+	m.ServeBackground()
+
+	return m, f
 }

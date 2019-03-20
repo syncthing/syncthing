@@ -62,7 +62,7 @@ func newReceiveOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 	return &receiveOnlyFolder{sr}
 }
 
-func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.FileInfo)) {
+func (f *receiveOnlyFolder) Revert() {
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
 
@@ -78,7 +78,7 @@ func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.File
 
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
-	fs.WithHave(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+	f.fset.WithHave(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		fi := intf.(protocol.FileInfo)
 		if !fi.IsReceiveOnlyChanged() {
 			// We're only interested in files that have changed locally in
@@ -124,14 +124,14 @@ func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.File
 		batchSizeBytes += fi.ProtoSize()
 
 		if len(batch) >= maxBatchSizeFiles || batchSizeBytes >= maxBatchSizeBytes {
-			updateFn(batch)
+			f.updateLocalsFromScanning(batch)
 			batch = batch[:0]
 			batchSizeBytes = 0
 		}
 		return true
 	})
 	if len(batch) > 0 {
-		updateFn(batch)
+		f.updateLocalsFromScanning(batch)
 	}
 	batch = batch[:0]
 	batchSizeBytes = 0
@@ -153,7 +153,7 @@ func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.File
 		})
 	}
 	if len(batch) > 0 {
-		updateFn(batch)
+		f.updateLocalsFromScanning(batch)
 	}
 
 	// We will likely have changed our local index, but that won't trigger a

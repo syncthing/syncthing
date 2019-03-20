@@ -198,9 +198,9 @@ func (f *folder) Serve() {
 
 func (f *folder) BringToFront(string) {}
 
-func (f *folder) Override(fs *db.FileSet, updateFn func([]protocol.FileInfo)) {}
+func (f *folder) Override() {}
 
-func (f *folder) Revert(fs *db.FileSet, updateFn func([]protocol.FileInfo)) {}
+func (f *folder) Revert() {}
 
 func (f *folder) DelayScan(next time.Duration) {
 	f.Delay(next)
@@ -345,7 +345,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
 		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          cFiler{f.model, f.ID},
+		CurrentFiler:          cFiler{f.fset},
 		Filesystem:            mtimefs,
 		IgnorePerms:           f.IgnorePerms,
 		AutoNormalize:         f.AutoNormalize,
@@ -361,7 +361,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			l.Debugf("Stopping scan of folder %s due to: %s", f.Description(), err)
 			return err
 		}
-		f.model.updateLocalsFromScanning(f.ID, fs)
+		f.updateLocalsFromScanning(fs)
 		return nil
 	}
 	// Resolve items which are identical with the global state.
@@ -737,6 +737,86 @@ func (f *folder) Errors() []FileError {
 	return append([]FileError{}, f.scanErrors...)
 }
 
+// ForceRescan marks the file such that it gets rehashed on next scan and then
+// immediately executes that scan.
+func (f *folder) ForceRescan(file protocol.FileInfo) error {
+	file.SetMustRescan(f.shortID)
+	f.fset.Update(protocol.LocalDeviceID, []protocol.FileInfo{file})
+
+	return f.Scan([]string{file.Name})
+}
+
+func (f *folder) updateLocalsFromScanning(fs []protocol.FileInfo) {
+	f.updateLocals(fs)
+
+	f.emitDiskChangeEvents(fs, events.LocalChangeDetected)
+}
+
+func (f *folder) updateLocalsFromPulling(fs []protocol.FileInfo) {
+	f.updateLocals(fs)
+
+	f.emitDiskChangeEvents(fs, events.RemoteChangeDetected)
+}
+
+func (f *folder) updateLocals(fs []protocol.FileInfo) {
+	f.fset.Update(protocol.LocalDeviceID, fs)
+
+	filenames := make([]string, len(fs))
+	for i, file := range fs {
+		filenames[i] = file.Name
+	}
+
+	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
+		"folder":    f.ID,
+		"items":     len(fs),
+		"filenames": filenames,
+		"version":   f.fset.Sequence(protocol.LocalDeviceID),
+	})
+}
+
+func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events.EventType) {
+	for _, file := range fs {
+		if file.IsInvalid() {
+			continue
+		}
+
+		objType := "file"
+		action := "modified"
+
+		switch {
+		case file.IsDeleted():
+			action = "deleted"
+
+		// If our local vector is version 1 AND it is the only version
+		// vector so far seen for this file then it is a new file.  Else if
+		// it is > 1 it's not new, and if it is 1 but another shortId
+		// version vector exists then it is new for us but created elsewhere
+		// so the file is still not new but modified by us. Only if it is
+		// truly new do we change this to 'added', else we leave it as
+		// 'modified'.
+		case len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1:
+			action = "added"
+		}
+
+		if file.IsSymlink() {
+			objType = "symlink"
+		} else if file.IsDirectory() {
+			objType = "dir"
+		}
+
+		// Two different events can be fired here based on what EventType is passed into function
+		events.Default.Log(typeOfEvent, map[string]string{
+			"folder":     f.ID,
+			"folderID":   f.ID, // incorrect, deprecated, kept for historical compliance
+			"label":      f.Label,
+			"action":     action,
+			"type":       objType,
+			"path":       filepath.FromSlash(file.Name),
+			"modifiedBy": file.ModifiedBy.String(),
+		})
+	}
+}
+
 // The exists function is expected to return true for all known paths
 // (excluding "" and ".")
 func unifySubs(dirs []string, exists func(dir string) bool) []string {
@@ -769,4 +849,13 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 		i++
 	}
 	return dirs
+}
+
+type cFiler struct {
+	*db.FileSet
+}
+
+// Implements scanner.CurrentFiler
+func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
+	return cf.Get(protocol.LocalDeviceID, file)
 }
