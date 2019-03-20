@@ -53,6 +53,7 @@ func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID) 
 		}),
 		cfg:             cfg,
 		model:           m,
+		id:              id,
 		stop:            make(chan struct{}),
 		immediate:       make(chan string),
 		folders:         make(map[string]struct{}),
