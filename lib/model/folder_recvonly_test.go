@@ -11,6 +11,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -22,35 +23,27 @@ import (
 )
 
 func TestRecvOnlyRevertDeletes(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	// Make sure that we delete extraneous files and directories when we hit
 	// Revert.
 
-	testOs.RemoveAll("_recvonly")
-	defer testOs.RemoveAll("_recvonly")
+	// Get us a model up and running
+
+	m, fcfg := setupROFolder()
+	ffs := fcfg.Filesystem()
+	defer os.Remove(m.cfg.ConfigPath())
+	defer os.Remove(ffs.URI())
+	defer m.Stop()
 
 	// Create some test data
 
-	testOs.MkdirAll("_recvonly/.stfolder", 0755)
-	testOs.MkdirAll("_recvonly/ignDir", 0755)
-	testOs.MkdirAll("_recvonly/unknownDir", 0755)
-	if err := ioutil.WriteFile("_recvonly/ignDir/ignFile", []byte("hello\n"), 0644); err != nil {
-		t.Fatal(err)
+	for _, dir := range []string{".stfolder", "ignDir", "unknownDir"} {
+		must(t, ffs.MkdirAll(dir, 0755))
 	}
-	if err := ioutil.WriteFile("_recvonly/unknownDir/unknownFile", []byte("hello\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile("_recvonly/.stignore", []byte("ignDir\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "ignDir/ignFile"), []byte("hello\n"), 0644))
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "unknownDir/unknownFile"), []byte("hello\n"), 0644))
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), ".stignore"), []byte("ignDir\n"), 0644))
 
-	knownFiles := setupKnownFiles(t, []byte("hello\n"))
-
-	// Get us a model up and running
-
-	m := setupROFolder()
-	defer m.Stop()
+	knownFiles := setupKnownFiles(t, ffs, []byte("hello\n"))
 
 	// Send and index update for the known stuff
 
@@ -87,17 +80,15 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	m.Revert("ro")
 
 	// These should still exist
-	for _, p := range []string{"_recvonly/knownDir/knownFile", "_recvonly/ignDir/ignFile"} {
-		_, err := os.Stat(p)
-		if err != nil {
+	for _, p := range []string{"knownDir/knownFile", "ignDir/ignFile"} {
+		if _, err := ffs.Stat(p); err != nil {
 			t.Error("Unexpected error:", err)
 		}
 	}
 
 	// These should have been removed
-	for _, p := range []string{"_recvonly/unknownDir", "_recvonly/unknownDir/unknownFile"} {
-		_, err := os.Stat(p)
-		if !os.IsNotExist(err) {
+	for _, p := range []string{"unknownDir", "unknownDir/unknownFile"} {
+		if _, err := ffs.Stat(p); !fs.IsNotExist(err) {
 			t.Error("Unexpected existing thing:", p)
 		}
 	}
@@ -115,24 +106,22 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 }
 
 func TestRecvOnlyRevertNeeds(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	// Make sure that a new file gets picked up and considered latest, then
 	// gets considered old when we hit Revert.
 
-	testOs.RemoveAll("_recvonly")
-	defer testOs.RemoveAll("_recvonly")
+	// Get us a model up and running
+
+	m, fcfg := setupROFolder()
+	ffs := fcfg.Filesystem()
+	defer os.Remove(m.cfg.ConfigPath())
+	defer os.Remove(ffs.URI())
+	defer m.Stop()
 
 	// Create some test data
 
-	testOs.MkdirAll("_recvonly/.stfolder", 0755)
+	must(t, ffs.MkdirAll(".stfolder", 0755))
 	oldData := []byte("hello\n")
-	knownFiles := setupKnownFiles(t, oldData)
-
-	// Get us a model up and running
-
-	m := setupROFolder()
-	defer m.Stop()
+	knownFiles := setupKnownFiles(t, ffs, oldData)
 
 	// Send and index update for the known stuff
 
@@ -166,15 +155,11 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	// Update the file.
 
 	newData := []byte("totally different data\n")
-	if err := ioutil.WriteFile("_recvonly/knownDir/knownFile", newData, 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), newData, 0644))
 
 	// Rescan.
 
-	if err := m.ScanFolder("ro"); err != nil {
-		t.Fatal(err)
-	}
+	must(t, m.ScanFolder("ro"))
 
 	// We now have a newer file than the rest of the cluster. Global state should reflect this.
 
@@ -217,19 +202,19 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 func TestRecvOnlyUndoChanges(t *testing.T) {
 	testOs := &fatalOs{t}
 
-	testOs.RemoveAll("_recvonly")
-	defer testOs.RemoveAll("_recvonly")
+	// Get us a model up and running
+
+	m, fcfg := setupROFolder()
+	ffs := fcfg.Filesystem()
+	defer os.Remove(m.cfg.ConfigPath())
+	defer os.Remove(ffs.URI())
+	defer m.Stop()
 
 	// Create some test data
 
-	testOs.MkdirAll("_recvonly/.stfolder", 0755)
+	must(t, ffs.MkdirAll(".stfolder", 0755))
 	oldData := []byte("hello\n")
-	knownFiles := setupKnownFiles(t, oldData)
-
-	// Get us a model up and running
-
-	m := setupROFolder()
-	defer m.Stop()
+	knownFiles := setupKnownFiles(t, ffs, oldData)
 
 	m.fmut.Lock()
 	fset := m.folderFiles["ro"]
@@ -267,14 +252,10 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Create a file and modify another
 
-	file := "_recvonly/foo"
-	if err := ioutil.WriteFile(file, []byte("hello\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	file := filepath.Join(ffs.URI(), "foo")
+	must(t, ioutil.WriteFile(file, []byte("hello\n"), 0644))
 
-	if err := ioutil.WriteFile("_recvonly/knownDir/knownFile", []byte("bye\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), []byte("bye\n"), 0644))
 
 	m.ScanFolder("ro")
 
@@ -286,9 +267,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	// Remove the file again and undo the modification
 
 	testOs.Remove(file)
-	if err := ioutil.WriteFile("_recvonly/knownDir/knownFile", oldData, 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), oldData, 0644))
 	folderFs.Chtimes("knownDir/knownFile", knownFiles[1].ModTime(), knownFiles[1].ModTime())
 
 	m.ScanFolder("ro")
@@ -299,18 +278,19 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	}
 }
 
-func setupKnownFiles(t *testing.T, data []byte) []protocol.FileInfo {
-	testOs := &fatalOs{t}
+func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.FileInfo {
+	t.Helper()
 
-	testOs.MkdirAll("_recvonly/knownDir", 0755)
-	if err := ioutil.WriteFile("_recvonly/knownDir/knownFile", data, 0644); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ffs.MkdirAll("knownDir", 0755))
+	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), data, 0644))
 
 	t0 := time.Now().Add(-1 * time.Minute)
-	testOs.Chtimes("_recvonly/knownDir/knownFile", t0, t0)
+	must(t, ffs.Chtimes("knownDir/knownFile", t0, t0))
 
-	fi := testOs.Stat("_recvonly/knownDir/knownFile")
+	fi, err := ffs.Stat("knownDir/knownFile")
+	if err != nil {
+		t.Fatal(err)
+	}
 	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), protocol.BlockSize(int64(len(data))), int64(len(data)), nil, true)
 	knownFiles := []protocol.FileInfo{
 		{
@@ -336,23 +316,17 @@ func setupKnownFiles(t *testing.T, data []byte) []protocol.FileInfo {
 	return knownFiles
 }
 
-func setupROFolder() *model {
-	fcfg := config.NewFolderConfiguration(myID, "ro", "receive only test", fs.FilesystemTypeBasic, "_recvonly")
+func setupROFolder() (*model, config.FolderConfiguration) {
+	w := createTmpWrapper(defaultCfg)
+	fcfg := testFolderConfigTmp()
+	fcfg.ID = "ro"
 	fcfg.Type = config.FolderTypeReceiveOnly
-	fcfg.Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
-	fcfg.FSWatcherEnabled = false
-	fcfg.RescanIntervalS = 86400
+	w.SetFolder(fcfg)
 
-	cfg := defaultCfg.Copy()
-	cfg.Folders = append(cfg.Folders, fcfg)
-
-	wrp := createTmpWrapper(cfg)
-
-	db := db.OpenMemory()
-	m := newModel(wrp, myID, "syncthing", "dev", db, nil)
-
+	m := newModel(w, myID, "syncthing", "dev", db.OpenMemory(), nil)
 	m.ServeBackground()
 	m.AddFolder(fcfg)
 
-	return m
+	return m, fcfg
+
 }

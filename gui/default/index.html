@@ -709,7 +709,7 @@
                     <tr>
                       <th><span class="fas fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
                       <td ng-if="connections[deviceCfg.deviceID].connected" class="text-right">
-                        <span tooltip data-original-title="{{ connections[deviceCfg.deviceID].type.indexOf('Relay') > -1 ? '' : connections[deviceCfg.deviceID].type }} {{ connections[deviceCfg.deviceID].crypto }}>
+                        <span tooltip data-original-title="{{ connections[deviceCfg.deviceID].type.indexOf('Relay') > -1 ? '' : connections[deviceCfg.deviceID].type }} {{ connections[deviceCfg.deviceID].crypto }}">
                           {{deviceAddr(deviceCfg)}}
                         </span>
                       </td>

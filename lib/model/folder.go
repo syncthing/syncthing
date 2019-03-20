@@ -25,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
@@ -37,10 +38,14 @@ var errWatchNotStarted = errors.New("not started")
 type folder struct {
 	stateTracker
 	config.FolderConfiguration
+	*stats.FolderStatisticsReference
+
 	localFlags uint32
 
 	model   *model
 	shortID protocol.ShortID
+	fset    *db.FileSet
+	ignores *ignore.Matcher
 	ctx     context.Context
 	cancel  context.CancelFunc
 
@@ -73,15 +78,18 @@ type puller interface {
 	pull() bool // true when successfull and should not be retried
 }
 
-func newFolder(model *model, cfg config.FolderConfiguration) folder {
+func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration) folder {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return folder{
-		stateTracker:        newStateTracker(cfg.ID),
-		FolderConfiguration: cfg,
+		stateTracker:              newStateTracker(cfg.ID),
+		FolderConfiguration:       cfg,
+		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
 
 		model:   model,
 		shortID: model.shortID,
+		fset:    fset,
+		ignores: ignores,
 		ctx:     ctx,
 		cancel:  cancel,
 
@@ -285,11 +293,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		return err
 	}
 
-	f.model.fmut.RLock()
-	fset := f.model.folderFiles[f.ID]
-	ignores := f.model.folderIgnores[f.ID]
-	f.model.fmut.RUnlock()
-	mtimefs := fset.MtimeFS()
+	mtimefs := f.fset.MtimeFS()
 
 	f.setState(FolderScanWaiting)
 	scanLimiter.take(1)
@@ -311,16 +315,16 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// Check if the ignore patterns changed as part of scanning this folder.
 	// If they did we should schedule a pull of the folder so that we
 	// request things we might have suddenly become unignored and so on.
-	oldHash := ignores.Hash()
+	oldHash := f.ignores.Hash()
 	defer func() {
-		if ignores.Hash() != oldHash {
+		if f.ignores.Hash() != oldHash {
 			l.Debugln("Folder", f.Description(), "ignore patterns change detected while scanning; triggering puller")
 			f.ignoresUpdated()
 			f.SchedulePull()
 		}
 	}()
 
-	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+	if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 		err = fmt.Errorf("loading ignores: %v", err)
 		f.setError(err)
 		return err
@@ -329,8 +333,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// Clean the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
-	subDirs = unifySubs(subDirs, func(f string) bool {
-		_, ok := fset.Get(protocol.LocalDeviceID, f)
+	subDirs = unifySubs(subDirs, func(file string) bool {
+		_, ok := f.fset.Get(protocol.LocalDeviceID, file)
 		return ok
 	})
 
@@ -339,14 +343,14 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	fchan := scanner.Walk(f.ctx, scanner.Config{
 		Folder:                f.ID,
 		Subs:                  subDirs,
-		Matcher:               ignores,
+		Matcher:               f.ignores,
 		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:          cFiler{f.model, f.ID},
 		Filesystem:            mtimefs,
 		IgnorePerms:           f.IgnorePerms,
 		AutoNormalize:         f.AutoNormalize,
 		Hashers:               f.model.numHashers(f.ID),
-		ShortID:               f.model.shortID,
+		ShortID:               f.shortID,
 		ProgressTickIntervalS: f.ScanProgressIntervalS,
 		UseLargeBlocks:        f.UseLargeBlocks,
 		LocalFlags:            f.localFlags,
@@ -365,7 +369,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		oldBatchFn := batchFn // can't reference batchFn directly (recursion)
 		batchFn = func(fs []protocol.FileInfo) error {
 			for i := range fs {
-				switch gf, ok := fset.GetGlobal(fs[i].Name); {
+				switch gf, ok := f.fset.GetGlobal(fs[i].Name); {
 				case !ok:
 					continue
 				case gf.IsEquivalentOptional(fs[i], false, false, protocol.FlagLocalReceiveOnly):
@@ -425,7 +429,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	for _, sub := range subDirs {
 		var iterError error
 
-		fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
+		f.fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
 			file := fi.(db.FileInfoTruncated)
 
 			if err := batch.flushIfFull(); err != nil {
@@ -436,7 +440,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			if ignoredParent != "" && !fs.IsParent(file.Name, ignoredParent) {
 				for _, file := range toIgnore {
 					l.Debugln("marking file as ignored", file)
-					nf := file.ConvertToIgnoredFileInfo(f.model.id.Short())
+					nf := file.ConvertToIgnoredFileInfo(f.shortID)
 					batch.append(nf)
 					changes++
 					if err := batch.flushIfFull(); err != nil {
@@ -448,7 +452,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				ignoredParent = ""
 			}
 
-			switch ignored := ignores.Match(file.Name).IsIgnored(); {
+			switch ignored := f.ignores.Match(file.Name).IsIgnored(); {
 			case !file.IsIgnored() && ignored:
 				// File was not ignored at last pass but has been ignored.
 				if file.IsDirectory() {
@@ -463,7 +467,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				}
 
 				l.Debugln("marking file as ignored", f)
-				nf := file.ConvertToIgnoredFileInfo(f.model.id.Short())
+				nf := file.ConvertToIgnoredFileInfo(f.shortID)
 				batch.append(nf)
 				changes++
 
@@ -490,9 +494,9 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 					Size:       0,
 					ModifiedS:  file.ModifiedS,
 					ModifiedNs: file.ModifiedNs,
-					ModifiedBy: f.model.id.Short(),
+					ModifiedBy: f.shortID,
 					Deleted:    true,
-					Version:    file.Version.Update(f.model.shortID),
+					Version:    file.Version.Update(f.shortID),
 					LocalFlags: f.localFlags,
 				}
 				// We do not want to override the global version
@@ -501,7 +505,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				// other existing versions, which will be resolved
 				// by the normal pulling mechanisms.
 				if file.ShouldConflict() {
-					nf.Version = nf.Version.DropOthers(f.model.shortID)
+					nf.Version = nf.Version.DropOthers(f.shortID)
 				}
 
 				batch.append(nf)
@@ -513,7 +517,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		if iterError == nil && len(toIgnore) > 0 {
 			for _, file := range toIgnore {
 				l.Debugln("marking file as ignored", f)
-				nf := file.ConvertToIgnoredFileInfo(f.model.id.Short())
+				nf := file.ConvertToIgnoredFileInfo(f.shortID)
 				batch.append(nf)
 				changes++
 				if iterError = batch.flushIfFull(); iterError != nil {
@@ -532,7 +536,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		return err
 	}
 
-	f.model.folderStatRef(f.ID).ScanCompleted()
+	f.ScanCompleted()
 	f.setState(FolderIdle)
 	return nil
 }
@@ -603,24 +607,21 @@ func (f *folder) restartWatch() {
 // this asynchronously, you should probably use scheduleWatchRestart instead.
 func (f *folder) startWatch() {
 	ctx, cancel := context.WithCancel(f.ctx)
-	f.model.fmut.RLock()
-	ignores := f.model.folderIgnores[f.folderID]
-	f.model.fmut.RUnlock()
 	f.watchMut.Lock()
 	f.watchChan = make(chan []string)
 	f.watchCancel = cancel
 	f.watchMut.Unlock()
-	go f.startWatchAsync(ctx, ignores)
+	go f.startWatchAsync(ctx)
 }
 
 // startWatchAsync tries to start the filesystem watching and retries every minute on failure.
 // It is a convenience function that should not be used except in startWatch.
-func (f *folder) startWatchAsync(ctx context.Context, ignores *ignore.Matcher) {
+func (f *folder) startWatchAsync(ctx context.Context) {
 	timer := time.NewTimer(0)
 	for {
 		select {
 		case <-timer.C:
-			eventChan, err := f.Filesystem().Watch(".", ignores, ctx, f.IgnorePerms)
+			eventChan, err := f.Filesystem().Watch(".", f.ignores, ctx, f.IgnorePerms)
 			f.watchMut.Lock()
 			prevErr := f.watchErr
 			f.watchErr = err

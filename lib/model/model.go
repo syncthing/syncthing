@@ -65,6 +65,7 @@ type service interface {
 	CheckHealth() error
 	Errors() []FileError
 	WatchError() error
+	GetStatistics() stats.FolderStatistics
 
 	getState() (folderState, time.Time, error)
 	setState(state folderState)
@@ -148,7 +149,6 @@ type model struct {
 	folderIgnores      map[string]*ignore.Matcher                             // folder -> matcher object
 	folderRunners      map[string]service                                     // folder -> puller or scanner
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
-	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	folderRestartMuts  syncMutexMap                                           // folder -> restart mutex
 
 	pmut                sync.RWMutex // protects the below
@@ -162,7 +162,7 @@ type model struct {
 	foldersRunning int32 // for testing only
 }
 
-type folderFactory func(*model, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
+type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory)
@@ -208,7 +208,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		folderIgnores:       make(map[string]*ignore.Matcher),
 		folderRunners:       make(map[string]service),
 		folderRunnerTokens:  make(map[string][]suture.ServiceToken),
-		folderStatRefs:      make(map[string]*stats.FolderStatisticsReference),
 		conn:                make(map[protocol.DeviceID]connections.Connection),
 		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
@@ -263,15 +262,15 @@ func (m *model) startFolderLocked(folder string) config.FolderType {
 		panic(fmt.Sprintf("unknown folder type 0x%x", cfg.Type))
 	}
 
-	fs := m.folderFiles[folder]
+	fset := m.folderFiles[folder]
 
 	// Find any devices for which we hold the index in the db, but the folder
 	// is not shared, and drop it.
 	expected := mapDevices(cfg.DeviceIDs())
-	for _, available := range fs.ListDevices() {
+	for _, available := range fset.ListDevices() {
 		if _, ok := expected[available]; !ok {
 			l.Debugln("dropping", folder, "state for", available)
-			fs.Drop(available)
+			fset.Drop(available)
 		}
 	}
 
@@ -280,7 +279,7 @@ func (m *model) startFolderLocked(folder string) config.FolderType {
 		m.closeLocked(id, fmt.Errorf("started folder %v", cfg.Description()))
 	}
 
-	v, ok := fs.Sequence(protocol.LocalDeviceID), true
+	v, ok := fset.Sequence(protocol.LocalDeviceID), true
 	indexHasFiles := ok && v > 0
 	if !indexHasFiles {
 		// It's a blank folder, so this may the first time we're looking at
@@ -305,14 +304,14 @@ func (m *model) startFolderLocked(folder string) config.FolderType {
 		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	}
 
-	ffs := fs.MtimeFS()
+	ffs := fset.MtimeFS()
 
 	// These are our metadata files, and they should always be hidden.
 	ffs.Hide(config.DefaultMarkerName)
 	ffs.Hide(".stversions")
 	ffs.Hide(".stignore")
 
-	p := folderFactory(m, cfg, ver, ffs)
+	p := folderFactory(m, fset, m.folderIgnores[folder], cfg, ver, ffs)
 
 	m.folderRunners[folder] = p
 
@@ -423,7 +422,6 @@ func (m *model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) 
 	delete(m.folderIgnores, cfg.ID)
 	delete(m.folderRunners, cfg.ID)
 	delete(m.folderRunnerTokens, cfg.ID)
-	delete(m.folderStatRefs, cfg.ID)
 }
 
 func (m *model) RestartFolder(from, to config.FolderConfiguration) {
@@ -651,8 +649,10 @@ func (m *model) DeviceStatistics() map[string]stats.DeviceStatistics {
 // FolderStatistics returns statistics about each folder
 func (m *model) FolderStatistics() map[string]stats.FolderStatistics {
 	res := make(map[string]stats.FolderStatistics)
-	for id := range m.cfg.Folders() {
-		res[id] = m.folderStatRef(id).GetStatistics()
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+	for id, runner := range m.folderRunners {
+		res[id] = runner.GetStatistics()
 	}
 	return res
 }
@@ -1160,7 +1160,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 		}
 
-		go sendIndexes(conn, folder.ID, fs, m.folderIgnores[folder.ID], startSequence, dropSymlinks)
+		go sendIndexes(conn, folder.ID, fs, startSequence, dropSymlinks)
 	}
 
 	m.pmut.Lock()
@@ -1880,23 +1880,7 @@ func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 	m.deviceStatRef(deviceID).WasSeen()
 }
 
-func (m *model) folderStatRef(folder string) *stats.FolderStatisticsReference {
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
-
-	sr, ok := m.folderStatRefs[folder]
-	if !ok {
-		sr = stats.NewFolderStatisticsReference(m.db, folder)
-		m.folderStatRefs[folder] = sr
-	}
-	return sr
-}
-
-func (m *model) receivedFile(folder string, file protocol.FileInfo) {
-	m.folderStatRef(folder).ReceivedFile(file.Name, file.IsDeleted())
-}
-
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, prevSequence int64, dropSymlinks bool) {
+func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, prevSequence int64, dropSymlinks bool) {
 	deviceID := conn.ID()
 	var err error
 
@@ -1904,7 +1888,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	defer l.Debugf("Exiting sendIndexes for %s to %s at %s: %v", folder, deviceID, conn, err)
 
 	// We need to send one index, regardless of whether there is something to send or not
-	prevSequence, err = sendIndexTo(prevSequence, conn, folder, fs, ignores, dropSymlinks)
+	prevSequence, err = sendIndexTo(prevSequence, conn, folder, fs, dropSymlinks)
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
 	// DeviceDisconnected (it might be us who disconnected, so we should
@@ -1927,7 +1911,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 			continue
 		}
 
-		prevSequence, err = sendIndexTo(prevSequence, conn, folder, fs, ignores, dropSymlinks)
+		prevSequence, err = sendIndexTo(prevSequence, conn, folder, fs, dropSymlinks)
 
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
@@ -1938,7 +1922,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 
 // sendIndexTo sends file infos with a sequence number higher than prevSequence and
 // returns the highest sent sequence number.
-func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dropSymlinks bool) (int64, error) {
+func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, dropSymlinks bool) (int64, error) {
 	deviceID := conn.ID()
 	initial := prevSequence == 0
 	batch := newFileInfoBatch(nil)
@@ -2878,7 +2862,7 @@ func (b *fileInfoBatch) append(f protocol.FileInfo) {
 }
 
 func (b *fileInfoBatch) flushIfFull() error {
-	if len(b.infos) == maxBatchSizeFiles || b.size > maxBatchSizeBytes {
+	if len(b.infos) >= maxBatchSizeFiles || b.size >= maxBatchSizeBytes {
 		return b.flush()
 	}
 	return nil

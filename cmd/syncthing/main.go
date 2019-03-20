@@ -164,34 +164,35 @@ var (
 )
 
 type RuntimeOptions struct {
-	confDir        string
-	resetDatabase  bool
-	resetDeltaIdxs bool
-	showVersion    bool
-	showPaths      bool
-	showDeviceId   bool
-	doUpgrade      bool
-	doUpgradeCheck bool
-	upgradeTo      string
-	noBrowser      bool
-	browserOnly    bool
-	hideConsole    bool
-	logFile        string
-	auditEnabled   bool
-	auditFile      string
-	verbose        bool
-	paused         bool
-	unpaused       bool
-	guiAddress     string
-	guiAPIKey      string
-	generateDir    string
-	noRestart      bool
-	profiler       string
-	assetDir       string
-	cpuProfile     bool
-	stRestarting   bool
-	logFlags       int
-	showHelp       bool
+	confDir          string
+	resetDatabase    bool
+	resetDeltaIdxs   bool
+	showVersion      bool
+	showPaths        bool
+	showDeviceId     bool
+	doUpgrade        bool
+	doUpgradeCheck   bool
+	upgradeTo        string
+	noBrowser        bool
+	browserOnly      bool
+	hideConsole      bool
+	logFile          string
+	auditEnabled     bool
+	auditFile        string
+	verbose          bool
+	paused           bool
+	unpaused         bool
+	guiAddress       string
+	guiAPIKey        string
+	generateDir      string
+	noRestart        bool
+	profiler         string
+	assetDir         string
+	cpuProfile       bool
+	stRestarting     bool
+	logFlags         int
+	showHelp         bool
+	allowNewerConfig bool
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -245,6 +246,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
+	flag.BoolVar(&options.allowNewerConfig, "allow-newer-config", false, "Allow loading newer than current config version")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
 		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
@@ -669,7 +671,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"myID": myID.String(),
 	})
 
-	cfg, err := loadConfigAtStartup()
+	cfg, err := loadConfigAtStartup(runtimeOptions.allowNewerConfig)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(exitError)
@@ -969,7 +971,7 @@ func loadOrDefaultConfig() (config.Wrapper, error) {
 	return cfg, err
 }
 
-func loadConfigAtStartup() (config.Wrapper, error) {
+func loadConfigAtStartup(allowNewerConfig bool) (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
@@ -989,6 +991,12 @@ func loadConfigAtStartup() (config.Wrapper, error) {
 	}
 
 	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
+		if cfg.RawCopy().OriginalVersion == config.CurrentVersion+1101 {
+			l.Infof("Now, THAT's what we call a config from the future! Don't worry. As long as you hit that wire with the connecting hook at precisely eighty-eight miles per hour the instant the lightning strikes the tower... everything will be fine.")
+		}
+		if cfg.RawCopy().OriginalVersion > config.CurrentVersion && !allowNewerConfig {
+			return nil, fmt.Errorf("Config file version (%d) is newer than supported version (%d). If this is expected, use -allow-newer-config to override.", cfg.RawCopy().OriginalVersion, config.CurrentVersion)
+		}
 		err = archiveAndSaveConfig(cfg)
 		if err != nil {
 			return nil, errors.Wrap(err, "config archive")
