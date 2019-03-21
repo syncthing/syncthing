@@ -218,7 +218,33 @@ func evalSymlinks(in string) (string, error) {
 		out, err = filepath.EvalSymlinks(in[4:])
 	}
 	if err != nil {
-		return "", err
+		isSymlink, err_i := isUnderSymlink(in)
+		if err_i != nil || isSymlink {
+			return "", err
+		}
+		// Recover from the prior error from EvalSymlinks
+		// if the `in` path doesn't contain any symlink
+		out = in
 	}
 	return longFilenameSupport(out), nil
+}
+
+func isUnderSymlink(in string) (bool, error) {
+	separator := string(os.PathSeparator)
+	abspath := ""
+	for i, sec := range strings.Split(in, separator) {
+		if i == 0 {
+			abspath = sec
+			continue
+		}
+		abspath += separator + sec
+		fi, err := os.Lstat(abspath)
+		if err != nil {
+			return false, err
+		}
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
