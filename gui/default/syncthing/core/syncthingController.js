@@ -751,6 +751,9 @@ angular.module('syncthing.core')
             if (state === 'idle' && $scope.model[folderCfg.id].needTotalItems > 0) {
                 return 'outofsync';
             }
+            if ($scope.hasFailedFiles(folderCfg.id)) {
+                return 'faileditems';
+            }
             if (state === 'scanning') {
                 return state;
             }
@@ -777,7 +780,7 @@ angular.module('syncthing.core')
             if (status === 'unknown') {
                 return 'info';
             }
-            if (status === 'stopped' || status === 'outofsync' || status === 'error') {
+            if (status === 'stopped' || status === 'outofsync' || status === 'error' || status === 'faileditems') {
                 return 'danger';
             }
             if (status === 'unshared' || status === 'scan-waiting') {
