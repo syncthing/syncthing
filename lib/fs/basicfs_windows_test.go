@@ -152,7 +152,7 @@ func TestGetFinalPath(t *testing.T) {
 	for _, testCase := range testCases {
 		out, err := getFinalPathName(testCase.input)
 		if err != nil {
-			if testCase.ignoreMissing {
+			if testCase.ignoreMissing && os.IsNotExist(err) {
 				continue
 			}
 			t.Errorf("getFinalPathName failed at %q with error %s", testCase.input, err)

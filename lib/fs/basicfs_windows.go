@@ -224,9 +224,10 @@ func evalSymlinks(in string) (string, error) {
 		if err1 != nil {
 			return "", err // return the prior error
 		}
-		// Trim UNC prefix
+		// Trim UNC prefix, equivalent to
+		// https://github.com/golang/go/blob/2396101e0590cb7d77556924249c26af0ccd9eff/src/os/file_windows.go#L470
 		if strings.HasPrefix(out, `\\?\UNC\`) {
-			out = `\` + out[7:]
+			out = `\` + out[7:] // path like \\server\share\...
 		} else {
 			out = strings.TrimPrefix(out, `\\?\`)
 		}
@@ -244,6 +245,7 @@ func getFinalPathName(in string) (string, error) {
 		return "", err
 	}
 	GetFinalPathNameByHandleW, err := kernel32.FindProc("GetFinalPathNameByHandleW")
+	// https://github.com/golang/go/blob/ff048033e4304898245d843e79ed1a0897006c6d/src/internal/syscall/windows/syscall_windows.go#L303
 	if err != nil {
 		return "", err
 	}
@@ -251,23 +253,21 @@ func getFinalPathName(in string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	const FILE_FLAG_BACKUP_SEMANTICS uint32 = 0x02000000
-	var sa *syscall.SecurityAttributes
 	// Get a file handler
 	h, err := syscall.CreateFile(inPath,
 		syscall.GENERIC_READ,
 		syscall.FILE_SHARE_READ,
-		sa,
+		nil,
 		syscall.OPEN_EXISTING,
-		FILE_FLAG_BACKUP_SEMANTICS,
+		uint32(syscall.FILE_FLAG_BACKUP_SEMANTICS),
 		0)
 	if err != nil {
 		return "", err
 	}
+	defer syscall.CloseHandle(h)
 	// Call GetFinalPathNameByHandleW
-	var VOLUME_NAME_DOS uint32 = 0x0
-	var bufSize uint32 = syscall.MAX_LONG_PATH
+	var VOLUME_NAME_DOS uint32 = 0x0      // not yet defined in syscall
+	var bufSize uint32 = syscall.MAX_PATH // 260
 	for i := 0; i < 2; i++ {
 		buf := make([]uint16, bufSize)
 		var ret uintptr
