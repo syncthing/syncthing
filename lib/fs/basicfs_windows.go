@@ -218,33 +218,76 @@ func evalSymlinks(in string) (string, error) {
 		out, err = filepath.EvalSymlinks(in[4:])
 	}
 	if err != nil {
-		isSymlink, err_i := isUnderSymlink(in)
-		if err_i != nil || isSymlink {
-			return "", err
+		// Try to get a normalized path from Win-API
+		var err1 error
+		out, err1 = getFinalPathName(in)
+		if err1 != nil {
+			return "", err // return the prior error
 		}
-		// Recover from the prior error from EvalSymlinks
-		// if the `in` path doesn't contain any symlink
-		out = in
+		// Trim UNC prefix
+		if strings.HasPrefix(out, `\\?\UNC\`) {
+			out = `\` + out[7:]
+		} else {
+			out = strings.TrimPrefix(out, `\\?\`)
+		}
 	}
 	return longFilenameSupport(out), nil
 }
 
-func isUnderSymlink(in string) (bool, error) {
-	separator := string(os.PathSeparator)
-	abspath := ""
-	for i, sec := range strings.Split(in, separator) {
-		if i == 0 {
-			abspath = sec
-			continue
-		}
-		abspath += separator + sec
-		fi, err := os.Lstat(abspath)
-		if err != nil {
-			return false, err
-		}
-		if fi.Mode()&os.ModeSymlink != 0 {
-			return true, nil
-		}
+func getFinalPathName(in string) (string, error) {
+	// Return the normalized path
+	// Wrap the call to GetFinalPathNameByHandleW
+	// The string returned by this function uses the \?\ syntax
+	// Implies GetFullPathName + GetLongPathName
+	kernel32, err := syscall.LoadDLL("kernel32.dll")
+	if err != nil {
+		return "", err
 	}
-	return false, nil
+	GetFinalPathNameByHandleW, err := kernel32.FindProc("GetFinalPathNameByHandleW")
+	if err != nil {
+		return "", err
+	}
+	inPath, err := syscall.UTF16PtrFromString(in)
+	if err != nil {
+		return "", err
+	}
+
+	const FILE_FLAG_BACKUP_SEMANTICS uint32 = 0x02000000
+	var sa *syscall.SecurityAttributes
+	// Get a file handler
+	h, err := syscall.CreateFile(inPath,
+		syscall.GENERIC_READ,
+		syscall.FILE_SHARE_READ,
+		sa,
+		syscall.OPEN_EXISTING,
+		FILE_FLAG_BACKUP_SEMANTICS,
+		0)
+	if err != nil {
+		return "", err
+	}
+	// Call GetFinalPathNameByHandleW
+	var VOLUME_NAME_DOS uint32 = 0x0
+	var bufSize uint32 = syscall.MAX_LONG_PATH
+	for i := 0; i < 2; i++ {
+		buf := make([]uint16, bufSize)
+		var ret uintptr
+		ret, _, err = GetFinalPathNameByHandleW.Call(
+			uintptr(h),                       // HANDLE hFile
+			uintptr(unsafe.Pointer(&buf[0])), // LPWSTR lpszFilePath
+			uintptr(bufSize),                 // DWORD  cchFilePath
+			uintptr(VOLUME_NAME_DOS),         // DWORD  dwFlags
+		)
+		// The returned value is the actual length of the norm path
+		// After Win 10 build 1607, MAX_PATH limitations have been removed
+		// so it is necessary to check newBufSize
+		newBufSize := uint32(ret) + 1
+		if ret == 0 || newBufSize > bufSize*100 {
+			break
+		}
+		if newBufSize <= bufSize {
+			return syscall.UTF16ToString(buf), nil
+		}
+		bufSize = newBufSize
+	}
+	return "", err
 }
