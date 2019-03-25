@@ -1521,7 +1521,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, f.fs, curFile.Name)
 		} else {
-			err = f.deleteItemOnDisk(file, scanChan)
+			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
 		if err != nil {
 			return err
