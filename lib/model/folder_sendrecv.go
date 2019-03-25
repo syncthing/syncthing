@@ -265,7 +265,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 		doneWg.Done()
 	}()
 
-	changed, fileDeletions, dirDeletions, err := f.processNeeded(dbUpdateChan, copyChan, finisherChan, scanChan)
+	changed, fileDeletions, dirDeletions, err := f.processNeeded(dbUpdateChan, copyChan, scanChan)
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration. Wait for them to finish.
@@ -290,7 +290,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	return changed
 }
 
-func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
+func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
 	changed := 0
 	var processDirectly []protocol.FileInfo
 	var dirDeletions []protocol.FileInfo
@@ -488,7 +488,7 @@ nextFile:
 			if _, ok := f.model.Connection(dev); ok {
 				changed++
 				// Handle the file normally, by coping and pulling, etc.
-				f.handleFile(fi, copyChan, finisherChan, dbUpdateChan)
+				f.handleFile(fi, copyChan, dbUpdateChan)
 				continue nextFile
 			}
 		}
@@ -1017,7 +1017,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState, dbUpdateChan chan<- dbUpdateJob) {
+func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, dbUpdateChan chan<- dbUpdateJob) {
 	curFile, hasCurFile := f.fset.Get(protocol.LocalDeviceID, file.Name)
 
 	have, need := blockDiff(curFile.Blocks, file.Blocks)

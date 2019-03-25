@@ -145,7 +145,7 @@ func TestHandleFile(t *testing.T) {
 	copyChan := make(chan copyBlocksState, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.handleFile(requiredFile, copyChan, nil, dbUpdateChan)
+	f.handleFile(requiredFile, copyChan, dbUpdateChan)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -195,7 +195,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	copyChan := make(chan copyBlocksState, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.handleFile(requiredFile, copyChan, nil, dbUpdateChan)
+	f.handleFile(requiredFile, copyChan, dbUpdateChan)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -253,7 +253,7 @@ func TestCopierFinder(t *testing.T) {
 	// Run a single fetcher routine
 	go f.copierRoutine(copyChan, pullChan, finisherChan)
 
-	f.handleFile(requiredFile, copyChan, finisherChan, dbUpdateChan)
+	f.handleFile(requiredFile, copyChan, dbUpdateChan)
 
 	pulls := []pullBlockState{<-pullChan, <-pullChan, <-pullChan, <-pullChan}
 	finish := <-finisherChan
@@ -374,7 +374,7 @@ func TestWeakHash(t *testing.T) {
 
 	// Test 1 - no weak hashing, file gets fully repulled (`expectBlocks` pulls).
 	fo.WeakHashThresholdPct = 101
-	fo.handleFile(desiredFile, copyChan, finisherChan, dbUpdateChan)
+	fo.handleFile(desiredFile, copyChan, dbUpdateChan)
 
 	var pulls []pullBlockState
 	for len(pulls) < expectBlocks {
@@ -402,7 +402,7 @@ func TestWeakHash(t *testing.T) {
 
 	// Test 2 - using weak hash, expectPulls blocks pulled.
 	fo.WeakHashThresholdPct = -1
-	fo.handleFile(desiredFile, copyChan, finisherChan, dbUpdateChan)
+	fo.handleFile(desiredFile, copyChan, dbUpdateChan)
 
 	pulls = pulls[:0]
 	for len(pulls) < expectPulls {
@@ -493,7 +493,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
 	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
 
-	f.handleFile(file, copyChan, finisherChan, dbUpdateChan)
+	f.handleFile(file, copyChan, dbUpdateChan)
 
 	// Receive a block at puller, to indicate that at least a single copier
 	// loop has been performed.
@@ -584,7 +584,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	go f.pullerRoutine(pullChan, finisherBufferChan)
 	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
 
-	f.handleFile(file, copyChan, finisherChan, dbUpdateChan)
+	f.handleFile(file, copyChan, dbUpdateChan)
 
 	// Receive at finisher, we should error out as puller has nowhere to pull
 	// from.
@@ -832,7 +832,7 @@ func TestCopyOwner(t *testing.T) {
 	defer close(copierChan)
 	go f.copierRoutine(copierChan, nil, finisherChan)
 	go f.finisherRoutine(finisherChan, dbUpdateChan, nil)
-	f.handleFile(file, copierChan, nil, nil)
+	f.handleFile(file, copierChan, nil)
 	<-dbUpdateChan
 
 	info, err = f.fs.Lstat("foo/bar/baz")
