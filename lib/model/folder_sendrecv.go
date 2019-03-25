@@ -1568,6 +1568,10 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 				blockStatsMut.Unlock()
 			}
 
+			if f.model.progressEmitter != nil {
+				f.model.progressEmitter.Deregister(state)
+			}
+
 			events.Default.Log(events.ItemFinished, map[string]interface{}{
 				"folder": f.folderID,
 				"item":   state.file.Name,
@@ -1575,10 +1579,6 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 				"type":   "file",
 				"action": "update",
 			})
-
-			if f.model.progressEmitter != nil {
-				f.model.progressEmitter.Deregister(state)
-			}
 		}
 	}
 }
