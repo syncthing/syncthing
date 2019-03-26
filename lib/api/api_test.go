@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package api
 
 import (
 	"bytes"
@@ -27,10 +27,24 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/locations"
+	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/ur"
 	"github.com/thejerf/suture"
 )
+
+func TestMain(m *testing.M) {
+	orig := locations.GetBaseDir(locations.ConfigBaseDir)
+	locations.SetBaseDir(locations.ConfigBaseDir, "testdata/config")
+
+	exitCode := m.Run()
+
+	locations.SetBaseDir(locations.ConfigBaseDir, orig)
+
+	os.Exit(exitCode)
+}
 
 func TestCSRFToken(t *testing.T) {
 	t1 := newCsrfToken()
@@ -74,7 +88,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg)
 
-	srv := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil, nil, nil, nil)
+	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
 	srv.started = make(chan string)
 
 	sup := suture.New("test", suture.Spec{
@@ -180,7 +194,7 @@ func expectURLToContain(t *testing.T, url, exp string) {
 
 func TestDirNames(t *testing.T) {
 	names := dirNames("testdata")
-	expected := []string{"default", "foo", "testfolder"}
+	expected := []string{"config", "default", "foo", "testfolder"}
 	if diff, equal := messagediff.PrettyDiff(expected, names); !equal {
 		t.Errorf("Unexpected dirNames return: %#v\n%s", names, diff)
 	}
@@ -470,9 +484,7 @@ func TestHTTPLogin(t *testing.T) {
 }
 
 func startHTTP(cfg *mockedConfig) (string, error) {
-	model := new(mockedModel)
-	httpsCertFile := "../../test/h1/https-cert.pem"
-	httpsKeyFile := "../../test/h1/https-key.pem"
+	m := new(mockedModel)
 	assetDir := "../../gui"
 	eventSub := new(mockedEventSub)
 	diskEventSub := new(mockedEventSub)
@@ -484,8 +496,9 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	addrChan := make(chan string)
 
 	// Instantiate the API service
-	svc := newAPIService(protocol.LocalDeviceID, cfg, httpsCertFile, httpsKeyFile, assetDir, model,
-		eventSub, diskEventSub, discoverer, connections, errorLog, systemLog, cpu)
+	urService := ur.New(cfg, m, connections, false)
+	summaryService := model.NewFolderSummaryService(cfg, m, protocol.LocalDeviceID)
+	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, discoverer, connections, urService, summaryService, errorLog, systemLog, cpu, nil, false).(*service)
 	svc.started = addrChan
 
 	// Actually start the API service
@@ -946,10 +959,10 @@ func TestEventMasks(t *testing.T) {
 	cfg := new(mockedConfig)
 	defSub := new(mockedEventSub)
 	diskSub := new(mockedEventSub)
-	svc := newAPIService(protocol.LocalDeviceID, cfg, "", "", "", nil, defSub, diskSub, nil, nil, nil, nil, nil)
+	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
 
-	if mask := svc.getEventMask(""); mask != defaultEventMask {
-		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(defaultEventMask))
+	if mask := svc.getEventMask(""); mask != DefaultEventMask {
+		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(DefaultEventMask))
 	}
 
 	expected := events.FolderSummary | events.LocalChangeDetected
@@ -962,10 +975,10 @@ func TestEventMasks(t *testing.T) {
 		t.Errorf("incorrect parsed mask %x != %x", int64(mask), int64(expected))
 	}
 
-	if res := svc.getEventSub(defaultEventMask); res != defSub {
+	if res := svc.getEventSub(DefaultEventMask); res != defSub {
 		t.Errorf("should have returned the given default event sub")
 	}
-	if res := svc.getEventSub(diskEventMask); res != diskSub {
+	if res := svc.getEventSub(DiskEventMask); res != diskSub {
 		t.Errorf("should have returned the given disk event sub")
 	}
 	if res := svc.getEventSub(events.LocalIndexUpdated); res == nil || res == defSub || res == diskSub {

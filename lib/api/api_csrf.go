@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package api
 
 import (
 	"bufio"
@@ -57,7 +57,7 @@ func csrfMiddleware(unique string, prefix string, cfg config.GUIConfiguration, n
 		if !strings.HasPrefix(r.URL.Path, prefix) {
 			cookie, err := r.Cookie("CSRF-Token-" + unique)
 			if err != nil || !validCsrfToken(cookie.Value) {
-				httpl.Debugln("new CSRF cookie in response to request for", r.URL)
+				l.Debugln("new CSRF cookie in response to request for", r.URL)
 				cookie = &http.Cookie{
 					Name:  "CSRF-Token-" + unique,
 					Value: newCsrfToken(),

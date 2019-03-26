@@ -4,36 +4,28 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package ur
 
 import (
-	"bufio"
 	"errors"
-	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 )
 
 func memorySize() (int64, error) {
-	f, err := os.Open("/proc/meminfo")
+	cmd := exec.Command("sysctl", "hw.memsize")
+	out, err := cmd.Output()
 	if err != nil {
 		return 0, err
 	}
-
-	s := bufio.NewScanner(f)
-	if !s.Scan() {
-		return 0, errors.New("/proc/meminfo parse error 1")
+	fs := strings.Fields(string(out))
+	if len(fs) != 2 {
+		return 0, errors.New("sysctl parse error")
 	}
-
-	l := s.Text()
-	fs := strings.Fields(l)
-	if len(fs) != 3 || fs[2] != "kB" {
-		return 0, errors.New("/proc/meminfo parse error 2")
-	}
-
-	kb, err := strconv.ParseInt(fs[1], 10, 64)
+	bytes, err := strconv.ParseInt(fs[1], 10, 64)
 	if err != nil {
 		return 0, err
 	}
-	return kb * 1024, nil
+	return bytes, nil
 }

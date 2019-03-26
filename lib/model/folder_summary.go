@@ -4,18 +4,27 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package model
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/thejerf/suture"
 )
+
+const minSummaryInterval = time.Minute
+
+type FolderSummaryService interface {
+	suture.Service
+	Summary(folder string) (map[string]interface{}, error)
+	OnEventRequest()
+}
 
 // The folderSummaryService adds summary information events (FolderSummary and
 // FolderCompletion) into the event stream at certain intervals.
@@ -23,7 +32,8 @@ type folderSummaryService struct {
 	*suture.Supervisor
 
 	cfg       config.Wrapper
-	model     model.Model
+	model     Model
+	id        protocol.DeviceID
 	stop      chan struct{}
 	immediate chan string
 
@@ -36,13 +46,14 @@ type folderSummaryService struct {
 	lastEventReqMut sync.Mutex
 }
 
-func newFolderSummaryService(cfg config.Wrapper, m model.Model) *folderSummaryService {
+func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID) FolderSummaryService {
 	service := &folderSummaryService{
 		Supervisor: suture.New("folderSummaryService", suture.Spec{
 			PassThroughPanics: true,
 		}),
 		cfg:             cfg,
 		model:           m,
+		id:              id,
 		stop:            make(chan struct{}),
 		immediate:       make(chan string),
 		folders:         make(map[string]struct{}),
@@ -59,6 +70,80 @@ func newFolderSummaryService(cfg config.Wrapper, m model.Model) *folderSummarySe
 func (c *folderSummaryService) Stop() {
 	c.Supervisor.Stop()
 	close(c.stop)
+}
+
+func (c *folderSummaryService) String() string {
+	return fmt.Sprintf("FolderSummaryService@%p", c)
+}
+
+func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, error) {
+	var res = make(map[string]interface{})
+
+	errors, err := c.model.FolderErrors(folder)
+	if err != nil && err != ErrFolderPaused {
+		// Stats from the db can still be obtained if the folder is just paused
+		return nil, err
+	}
+	res["errors"] = len(errors)
+	res["pullErrors"] = len(errors) // deprecated
+
+	res["invalid"] = "" // Deprecated, retains external API for now
+
+	global := c.model.GlobalSize(folder)
+	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"], res["globalTotalItems"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
+
+	local := c.model.LocalSize(folder)
+	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"], res["localTotalItems"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
+
+	need := c.model.NeedSize(folder)
+	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
+
+	if c.cfg.Folders()[folder].Type == config.FolderTypeReceiveOnly {
+		// Add statistics for things that have changed locally in a receive
+		// only folder.
+		ro := c.model.ReceiveOnlyChangedSize(folder)
+		res["receiveOnlyChangedFiles"] = ro.Files
+		res["receiveOnlyChangedDirectories"] = ro.Directories
+		res["receiveOnlyChangedSymlinks"] = ro.Symlinks
+		res["receiveOnlyChangedDeletes"] = ro.Deleted
+		res["receiveOnlyChangedBytes"] = ro.Bytes
+		res["receiveOnlyTotalItems"] = ro.TotalItems()
+	}
+
+	res["inSyncFiles"], res["inSyncBytes"] = global.Files-need.Files, global.Bytes-need.Bytes
+
+	res["state"], res["stateChanged"], err = c.model.State(folder)
+	if err != nil {
+		res["error"] = err.Error()
+	}
+
+	ourSeq, _ := c.model.CurrentSequence(folder)
+	remoteSeq, _ := c.model.RemoteSequence(folder)
+
+	res["version"] = ourSeq + remoteSeq  // legacy
+	res["sequence"] = ourSeq + remoteSeq // new name
+
+	ignorePatterns, _, _ := c.model.GetIgnores(folder)
+	res["ignorePatterns"] = false
+	for _, line := range ignorePatterns {
+		if len(line) > 0 && !strings.HasPrefix(line, "//") {
+			res["ignorePatterns"] = true
+			break
+		}
+	}
+
+	err = c.model.WatchError(folder)
+	if err != nil {
+		res["watchError"] = err.Error()
+	}
+
+	return res, nil
+}
+
+func (c *folderSummaryService) OnEventRequest() {
+	c.lastEventReqMut.Lock()
+	c.lastEventReq = time.Now()
+	c.lastEventReqMut.Unlock()
 }
 
 // listenForUpdates subscribes to the event bus and makes note of folders that
@@ -173,7 +258,7 @@ func (c *folderSummaryService) foldersToHandle() []string {
 	c.lastEventReqMut.Lock()
 	last := c.lastEventReq
 	c.lastEventReqMut.Unlock()
-	if time.Since(last) > defaultEventTimeout {
+	if time.Since(last) > minSummaryInterval {
 		return nil
 	}
 
@@ -191,7 +276,7 @@ func (c *folderSummaryService) foldersToHandle() []string {
 func (c *folderSummaryService) sendSummary(folder string) {
 	// The folder summary contains how many bytes, files etc
 	// are in the folder and how in sync we are.
-	data, err := folderSummary(c.cfg, c.model, folder)
+	data, err := c.Summary(folder)
 	if err != nil {
 		return
 	}
@@ -201,7 +286,7 @@ func (c *folderSummaryService) sendSummary(folder string) {
 	})
 
 	for _, devCfg := range c.cfg.Folders()[folder].Devices {
-		if devCfg.DeviceID.Equals(myID) {
+		if devCfg.DeviceID.Equals(c.id) {
 			// We already know about ourselves.
 			continue
 		}
@@ -212,17 +297,11 @@ func (c *folderSummaryService) sendSummary(folder string) {
 
 		// Get completion percentage of this folder for the
 		// remote device.
-		comp := jsonCompletion(c.model.Completion(devCfg.DeviceID, folder))
+		comp := c.model.Completion(devCfg.DeviceID, folder).Map()
 		comp["folder"] = folder
 		comp["device"] = devCfg.DeviceID.String()
 		events.Default.Log(events.FolderCompletion, comp)
 	}
-}
-
-func (c *folderSummaryService) gotEventRequest() {
-	c.lastEventReqMut.Lock()
-	c.lastEventReq = time.Now()
-	c.lastEventReqMut.Unlock()
 }
 
 // serviceFunc wraps a function to create a suture.Service without stop

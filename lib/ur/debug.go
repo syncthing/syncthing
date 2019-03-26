@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package ur
 
 import (
 	"os"
@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	l = logger.DefaultLogger.NewFacility("main", "Main package")
+	l = logger.DefaultLogger.NewFacility("ur", "Usage reporting")
 )
 
 func init() {
-	l.SetDebug("main", strings.Contains(os.Getenv("STTRACE"), "main") || os.Getenv("STTRACE") == "all")
+	l.SetDebug("ur", strings.Contains(os.Getenv("STTRACE"), "ur") || os.Getenv("STTRACE") == "all")
 }

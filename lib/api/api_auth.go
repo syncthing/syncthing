@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package api
 
 import (
 	"bytes"
@@ -53,7 +53,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			}
 		}
 
-		httpl.Debugln("Sessionless HTTP request with authentication; this is expensive.")
+		l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
 
 		error := func() {
 			time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)

@@ -29,6 +29,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/api"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -46,6 +47,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/ur"
 
 	"github.com/pkg/errors"
 	"github.com/thejerf/suture"
@@ -62,7 +64,6 @@ const (
 const (
 	bepProtocolName      = "bep/1.0"
 	tlsDefaultCommonName = "syncthing"
-	defaultEventTimeout  = time.Minute
 	maxSystemErrors      = 5
 	initialSystemLog     = 10
 	maxSystemLog         = 250
@@ -263,6 +264,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	return options
 }
 
+// exiter implements api.Controller
 type exiter struct {
 	stop chan int
 }
@@ -287,7 +289,7 @@ func (e *exiter) waitForExit() int {
 	return <-e.stop
 }
 
-var exit = exiter{make(chan int)}
+var exit = &exiter{make(chan int)}
 
 func main() {
 	options := parseCommandLineOptions()
@@ -621,8 +623,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Event subscription for the API; must start early to catch the early
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
-	defaultSub := events.NewBufferedSubscription(events.Default.Subscribe(defaultEventMask), eventSubBufferSize)
-	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(diskEventMask), eventSubBufferSize)
+	defaultSub := events.NewBufferedSubscription(events.Default.Subscribe(api.DefaultEventMask), api.EventSubBufferSize)
+	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(api.DiskEventMask), api.EventSubBufferSize)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -692,7 +694,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}()
 	}
 
-	perf := cpuBench(3, 150*time.Millisecond, true)
+	perf := ur.CpuBench(3, 150*time.Millisecond, true)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	dbFile := locations.Get(locations.Database)
@@ -832,10 +834,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	// GUI
-
-	setupGUI(mainService, cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, errors, systemLog, runtimeOptions)
-
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
@@ -848,20 +846,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	myDev, _ := cfg.Device(myID)
-	l.Infof(`My name is "%v"`, myDev.Name)
-	for _, device := range cfg.Devices() {
-		if device.DeviceID != myID {
-			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
-		}
-	}
-
 	// Candidate builds always run with usage reporting.
 
 	if opts := cfg.Options(); build.IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
-		if opts.URAccepted != usageReportVersion {
-			opts.URAccepted = usageReportVersion
+		if opts.URAccepted != ur.Version {
+			opts.URAccepted = ur.Version
 			cfg.SetOptions(opts)
 			cfg.Save()
 			// Unique ID will be set and config saved below if necessary.
@@ -875,8 +865,20 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		cfg.Save()
 	}
 
-	usageReportingSvc := newUsageReportingService(cfg, m, connectionsService)
+	usageReportingSvc := ur.New(cfg, m, connectionsService, noUpgradeFromEnv)
 	mainService.Add(usageReportingSvc)
+
+	// GUI
+
+	setupGUI(mainService, cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog, runtimeOptions)
+
+	myDev, _ := cfg.Device(myID)
+	l.Infof(`My name is "%v"`, myDev.Name)
+	for _, device := range cfg.Devices() {
+		if device.DeviceID != myID {
+			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
+		}
+	}
 
 	if opts := cfg.Options(); opts.RestartOnWakeup {
 		go standbyMonitor()
@@ -1069,7 +1071,7 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 	l.Infoln("Audit log in", auditDest)
 }
 
-func setupGUI(mainService *suture.Supervisor, cfg config.Wrapper, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
+func setupGUI(mainService *suture.Supervisor, cfg config.Wrapper, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
 	guiCfg := cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -1083,11 +1085,13 @@ func setupGUI(mainService *suture.Supervisor, cfg config.Wrapper, m model.Model,
 	cpu := newCPUService()
 	mainService.Add(cpu)
 
-	api := newAPIService(myID, cfg, locations.Get(locations.HTTPSCertFile), locations.Get(locations.HTTPSKeyFile), runtimeOptions.assetDir, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu)
-	cfg.Subscribe(api)
-	mainService.Add(api)
+	summaryService := model.NewFolderSummaryService(cfg, m, myID)
+	mainService.Add(summaryService)
 
-	if err := api.WaitForStart(); err != nil {
+	apiSvc := api.New(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, exit, noUpgradeFromEnv)
+	mainService.Add(apiSvc)
+
+	if err := apiSvc.WaitForStart(); err != nil {
 		l.Warnln("Failed starting API:", err)
 		os.Exit(exitError)
 	}

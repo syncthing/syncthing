@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package api
 
 import (
 	"archive/zip"
@@ -14,7 +14,7 @@ import (
 )
 
 // getRedactedConfig redacting some parts of config
-func getRedactedConfig(s *apiService) config.Configuration {
+func getRedactedConfig(s *service) config.Configuration {
 	rawConf := s.cfg.RawCopy()
 	rawConf.GUI.APIKey = "REDACTED"
 	if rawConf.GUI.Password != "" {

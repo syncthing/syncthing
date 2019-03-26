@@ -665,6 +665,17 @@ type FolderCompletion struct {
 	NeedDeletes   int64
 }
 
+// Map returns the members as a map, e.g. used in api to serialize as Json.
+func (comp FolderCompletion) Map() map[string]interface{} {
+	return map[string]interface{}{
+		"completion":  comp.CompletionPct,
+		"needBytes":   comp.NeedBytes,
+		"needItems":   comp.NeedItems,
+		"globalBytes": comp.GlobalBytes,
+		"needDeletes": comp.NeedDeletes,
+	}
+}
+
 // Completion returns the completion status, in percent, for the given device
 // and folder.
 func (m *model) Completion(device protocol.DeviceID, folder string) FolderCompletion {

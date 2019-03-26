@@ -4,28 +4,25 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+// +build solaris
+
+package ur
 
 import (
-	"errors"
 	"os/exec"
 	"strconv"
-	"strings"
 )
 
 func memorySize() (int64, error) {
-	cmd := exec.Command("sysctl", "hw.memsize")
-	out, err := cmd.Output()
+	cmd := exec.Command("prtconf", "-m")
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return 0, err
 	}
-	fs := strings.Fields(string(out))
-	if len(fs) != 2 {
-		return 0, errors.New("sysctl parse error")
-	}
-	bytes, err := strconv.ParseInt(fs[1], 10, 64)
+
+	mb, err := strconv.ParseInt(string(out), 10, 64)
 	if err != nil {
 		return 0, err
 	}
-	return bytes, nil
+	return mb * 1024 * 1024, nil
 }
