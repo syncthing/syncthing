@@ -110,6 +110,13 @@ func (q *jobQueue) Shuffle() {
 	}
 }
 
+func (q *jobQueue) Reset() {
+	q.mut.Lock()
+	defer q.mut.Unlock()
+	q.progress = nil
+	q.queued = nil
+}
+
 func (q *jobQueue) lenQueued() int {
 	q.mut.Lock()
 	defer q.mut.Unlock()

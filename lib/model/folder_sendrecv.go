@@ -291,6 +291,8 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 }
 
 func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
+	defer f.queue.Reset()
+
 	changed := 0
 	var processDirectly []protocol.FileInfo
 	var dirDeletions []protocol.FileInfo
@@ -478,6 +480,7 @@ nextFile:
 				// Remove the pending deletion (as we performed it by renaming)
 				delete(fileDeletions, candidate.Name)
 
+				changed++
 				f.queue.Done(fileName)
 				continue nextFile
 			}
@@ -493,6 +496,7 @@ nextFile:
 			}
 		}
 		f.newPullError(fileName, errNotAvailable)
+		f.queue.Done(fileName)
 	}
 
 	return changed, fileDeletions, dirDeletions, nil
