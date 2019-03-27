@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-VERSIONING" "7" "Mar 05, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-VERSIONING" "7" "Mar 22, 2019" "v1" "Syncthing"
 .SH NAME
 syncthing-versioning \- Keep automatic backups of deleted files by other nodes
 .
@@ -32,13 +32,13 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .sp
 Syncthing supports archiving the old version of a file when it is deleted or
-replaced with a newer version from the cluster. This is called "file
-versioning" and uses one of the available \fIversioning strategies\fP described
+replaced with a newer version from the cluster. This is called “file
+versioning” and uses one of the available \fIversioning strategies\fP described
 below. File versioning is configured per folder, on a per\-device basis, and
-defaults to "no file versioning", i.e. no old copies of files are kept.
+defaults to “no file versioning”, i.e. no old copies of files are kept.
 .SH TRASH CAN FILE VERSIONING
 .sp
-This versioning strategy emulates the common "trash can" approach. When a file
+This versioning strategy emulates the common “trash can” approach. When a file
 is deleted or replaced due to a change on a remote device, it is a moved to
 the trash can in the \fB\&.stversions\fP folder. If a file with the same name was
 already in the trash can it is replaced.
@@ -50,26 +50,26 @@ this to zero prevents any files from being removed from the trash can
 automatically.
 .SH SIMPLE FILE VERSIONING
 .sp
-With "Simple File Versioning" files are moved to the \fB\&.stversions\fP folder
+With “Simple File Versioning” files are moved to the \fB\&.stversions\fP folder
 (inside your shared folder) when replaced or deleted on a remote device. This
-option also takes a value in an input titled "Keep Versions" which tells
+option also takes a value in an input titled “Keep Versions” which tells
 Syncthing how many old versions of the file it should keep. For example, if
 you set this value to 5, if a file is replaced 5 times on a remote device, you
-will see 5 time\-stamped versions on that file in the ".stversions" folder on
+will see 5 time\-stamped versions on that file in the “.stversions” folder on
 the other devices sharing the same folder.
 .SH STAGGERED FILE VERSIONING
 .sp
-With "Staggered File Versioning" files are also moved to a different folder
-when replaced or deleted on a remote device (just like "Simple File
-Versioning"), however, versions are automatically deleted if they are older
+With “Staggered File Versioning” files are also moved to a different folder
+when replaced or deleted on a remote device (just like “Simple File
+Versioning”), however, versions are automatically deleted if they are older
 than the maximum age or exceed the number of files allowed in an interval.
 .sp
-With this versioning method it\(aqs possible to specify where the versions are
+With this versioning method it’s possible to specify where the versions are
 stored, with the default being the \fB\&.stversions\fP folder inside the normal
-folder path. If you set a custom version path, please ensure that it\(aqs on the
+folder path. If you set a custom version path, please ensure that it’s on the
 same partition or filesystem as the regular folder path, as moving files there
 may otherwise fail. You can use an absolute path (this is recommended) or a
-relative path. Relative paths are interpreted relative to Syncthing\(aqs current
+relative path. Relative paths are interpreted relative to Syncthing’s current
 or startup directory.
 .sp
 The following intervals are used and they each have a maximum number of files
@@ -90,7 +90,7 @@ Until maximum age, the most recent version is kept every week.
 .TP
 .B Maximum Age
 The maximum time to keep a version in days. For example, to keep replaced or
-deleted files in the ".stversions" folder for an entire year, use 365. If
+deleted files in the “.stversions” folder for an entire year, use 365. If
 only for 10 days, use 10.
 \fBNote: Set to 0 to keep versions forever.\fP
 .UNINDENT
@@ -111,7 +111,7 @@ Path to the file within the folder
 .SS Example for Unixes
 .sp
 Lets say I want to keep the latest version of each file as they are replaced
-or removed; essentially I want a "trash can"\-like behavior. For this, I create
+or removed; essentially I want a “trash can”\-like behavior. For this, I create
 the following script and store it as \fB/Users/jb/bin/onlylatest.sh\fP (i.e. the
 \fBbin\fP directory in my home directory):
 .INDENT 0.0
@@ -142,7 +142,7 @@ mv \-f "$folderpath/$filepath" "$versionspath/$filepath"
 I must ensure that the script has execute permissions (\fBchmod 755
 onlylatest.sh\fP), then configure Syncthing with command \fB/Users/jb/bin/onlylatest.sh %FOLDER_PATH% %FILE_PATH%\fP
 .sp
-Lets assume I have a folder "default" in ~/Sync, and that within that folder
+Lets assume I have a folder “default” in ~/Sync, and that within that folder
 there is a file \fBdocs/letter.txt\fP that is being replaced or deleted. The
 script will be called as if I ran this from the command line:
 .INDENT 0.0
@@ -161,7 +161,7 @@ The script will then move the file in question to
 that may already have been there.
 .SS Example for Windows
 .sp
-On Windows we can use a batch script to perform the same "trash can"\-like
+On Windows we can use a batch script to perform the same “trash can”\-like
 behavior as mentioned above. I created the following script and saved it as
 \fBC:\eUsers\emfrnd\eScripts\eonlylatest.bat\fP\&.
 .INDENT 0.0

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-BEP" "7" "Mar 05, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "Mar 22, 2019" "v1" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .
@@ -46,8 +46,8 @@ File data is described and transferred in units of \fIblocks\fP, each being from
 block size may vary between files but is constant in any given file, except
 for the last block which may be smaller.
 .sp
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
-"SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”,
+“SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” in this
 document are to be interpreted as described in RFC 2119.
 .SH TRANSPORT AND AUTHENTICATION
 .sp
@@ -72,8 +72,8 @@ v             ...             v
 .UNINDENT
 .sp
 The encryption and authentication layer SHALL use TLS 1.2 or a higher
-revision. A strong cipher suite SHALL be used, with "strong cipher
-suite" being defined as being without known weaknesses and providing
+revision. A strong cipher suite SHALL be used, with “strong cipher
+suite” being defined as being without known weaknesses and providing
 Perfect Forward Secrecy (PFS). Examples of strong cipher suites are
 given at the end of this document. This is not to be taken as an
 exhaustive list of allowed cipher suites but represents best practices
@@ -85,7 +85,7 @@ connection. Possibilities include certificates signed by a common
 trusted CA, preshared certificates, preshared certificate fingerprints
 or certificate pinning combined with some out of band first
 verification. The reference implementation uses preshared certificate
-fingerprints (SHA\-256) referred to as "Device IDs".
+fingerprints (SHA\-256) referred to as “Device IDs”.
 .sp
 There is no required order or synchronization among BEP messages except
 as noted per message type \- any message type may be sent at any time and
@@ -94,9 +94,9 @@ another.
 .sp
 The underlying transport protocol MUST guarantee reliable packet delivery.
 .sp
-In this document, in diagrams and text, "bit 0" refers to the \fImost
-significant\fP bit of a word; "bit 15" is thus the least significant bit of a
-16 bit word (int16) and "bit 31" is the least significant bit of a 32 bit
+In this document, in diagrams and text, “bit 0” refers to the \fImost
+significant\fP bit of a word; “bit 15” is thus the least significant bit of a
+16 bit word (int16) and “bit 31” is the least significant bit of a 32 bit
 word (int32). Non protocol buffer integers are always represented in network
 byte order (i.e., big endian) and are signed unless stated otherwise, but
 when describing message lengths negative values do not make sense and the
@@ -109,7 +109,7 @@ message is \fIvalid\fP with all fields empty \- for example, an index entry for 
 file that does not have a name is not useful and MAY be rejected by the
 implementation. However the folder label is for human consumption only so an
 empty label should be accepted \- the implementation will have to choose some
-way to represent the folder, perhaps by using the ID in it\(aqs place or
+way to represent the folder, perhaps by using the ID in it’s place or
 automatically generating a label.
 .SH PRE-AUTHENTICATION MESSAGES
 .sp
@@ -171,7 +171,7 @@ name or host name, for the remote device.
 The \fBclient_name\fP and \fBclient_version\fP identifies the implementation. The
 values SHOULD  be simple strings identifying the implementation name, as a
 user would expect to see it, and the version string in the same manner. An
-example client name is "syncthing" and an example client version is "v0.7.2".
+example client name is “syncthing” and an example client version is “v0.7.2”.
 The client version field SHOULD follow the patterns laid out in the \fI\%Semantic
 Versioning\fP <\fBhttp://semver.org/\fP> standard.
 .sp
@@ -467,7 +467,7 @@ The \fBfiles\fP field is a list of files making up the index information.
 The \fBname\fP is the file name path relative to the folder root. Like all
 strings in BEP, the Name is always in UTF\-8 NFC regardless of operating
 system or file system specific conventions. The name field uses the slash
-character ("/") as path separator, regardless of the implementation\(aqs
+character (“/”) as path separator, regardless of the implementation’s
 operating system conventions. The combination of folder and name uniquely
 identifies each file in a cluster.
 .sp
@@ -532,7 +532,7 @@ symlink type. It is empty for all other entry types.
 .SS Request
 .sp
 The Request message expresses the desire to receive a data block
-corresponding to a part of a certain file in the peer\(aqs folder.
+corresponding to a part of a certain file in the peer’s folder.
 .SS Protocol Buffer Schema
 .INDENT 0.0
 .INDENT 3.5
@@ -569,7 +569,7 @@ requested hash. The other device MAY reuse a block from a different file and
 offset having the same size and hash, if one exists.
 .sp
 The \fBfrom temporary\fP field is set to indicate that the read should be
-performed from the temporary file (converting name to it\(aqs temporary form)
+performed from the temporary file (converting name to it’s temporary form)
 and falling back to the non temporary file if any error occurs. Knowledge of
 contents of temporary files comes from DownloadProgress messages.
 .SS Response
@@ -812,7 +812,7 @@ index data.
 For situations with large indexes or frequent reconnects this can be quite
 inefficient. A mechanism can then be used to retain index data between
 connections and only transmit any changes since that data on connection
-start. This is called "delta indexes". To enable this mechanism the
+start. This is called “delta indexes”. To enable this mechanism the
 \fBsequence\fP and \fBindex ID\fP fields are used.
 .INDENT 0.0
 .TP
@@ -861,7 +861,7 @@ Update messages rather than sending a very large Index message.
 The Syncthing implementation imposes a hard limit of 500,000,000 bytes on
 all messages. Attempting to send or receive a larger message will result in
 a connection close. This size was chosen to accommodate Index messages
-containing a large block list. It\(aqs intended that the limit may be further
+containing a large block list. It’s intended that the limit may be further
 reduced in a future protocol update supporting variable block sizes (and
 thus shorter block lists for large files).
 .SH SELECTION OF BLOCK SIZE
@@ -1049,7 +1049,7 @@ T}	T{
 T}
 _
 T{
-\&...
+…
 T}	T{
 T}	T{
 T}

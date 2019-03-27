@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-GLOBALDISCO" "7" "Mar 05, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-GLOBALDISCO" "7" "Mar 22, 2019" "v1" "Syncthing"
 .SH NAME
 syncthing-globaldisco \- Global Discovery Protocol v3
 .
@@ -34,7 +34,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .sp
 A device should announce itself at startup. It does this by an HTTPS POST to
 the announce server URL. Standard discovery currently requires the path to be
-"/v2/", yet this can be up to the discovery server. The POST has a JSON payload
+“/v2/”, yet this can be up to the discovery server. The POST has a JSON payload
 listing connection addresses (if any):
 .INDENT 0.0
 .INDENT 3.5
@@ -49,9 +49,9 @@ listing connection addresses (if any):
 .UNINDENT
 .UNINDENT
 .sp
-It\(aqs OK for the "addresses" field to be either the empty list (\fB[]\fP),
+It’s OK for the “addresses” field to be either the empty list (\fB[]\fP),
 \fBnull\fP, or missing entirely. An announcement with the field missing
-or empty is however not useful...
+or empty is however not useful…
 .sp
 Any empty or unspecified IP addresses (i.e. addresses like \fBtcp://:22000\fP,
 \fBtcp://0.0.0.0:22000\fP, \fBtcp://[::]:22000\fP) are interpreted as referring to
@@ -63,7 +63,7 @@ authentication. The device ID is deduced from the presented certificate.
 .sp
 The server response is empty, with code \fB204\fP (No Content) on success. If no
 certificate was presented, status \fB403\fP (Forbidden) is returned. If the
-posted data doesn\(aqt conform to the expected format, \fB400\fP (Bad Request) is
+posted data doesn’t conform to the expected format, \fB400\fP (Bad Request) is
 returned.
 .sp
 In successful responses, the server may return a \fBReannounce\-After\fP header
@@ -80,14 +80,14 @@ Many Requests).
 .SH QUERIES
 .sp
 Queries are performed as HTTPS GET requests to the announce server URL. The
-requested device ID is passed as the query parameter "device", in canonical
+requested device ID is passed as the query parameter “device”, in canonical
 string form, i.e. \fBhttps://discovery.syncthing.net/?device=ABC12345\-....\fP
 .sp
 Successful responses will have status code \fB200\fP (OK) and carry a JSON payload
 of the same format as the announcement above. The response will not contain
 empty or unspecified addresses.
 .sp
-If the "device" query parameter is missing or malformed, the status code 400
+If the “device” query parameter is missing or malformed, the status code 400
 (Bad Request) is returned.
 .sp
 If the device ID is of a valid format but not found in the registry, 404 (Not
@@ -109,9 +109,9 @@ signed certificate, Syncthing often runs in environments with outdated or
 simply nonexistent root CA bundles. Instead, Syncthing can verify the
 discovery server certificate fingerprint using the device ID mechanism. This
 is certificate pinning and conveyed in the Syncthing configuration as a
-synthetic "id" parameter on the discovery server URL:
-\fBhttps://discovery.syncthing.net/?id=...\fP\&. The "id" parameter is not, in
-fact, sent to the discovery server \- it\(aqs used by Syncthing itself to know
+synthetic “id” parameter on the discovery server URL:
+\fBhttps://discovery.syncthing.net/?id=...\fP\&. The “id” parameter is not, in
+fact, sent to the discovery server \- it’s used by Syncthing itself to know
 which certificate to expect on the server side.
 .sp
 The public discovery network uses this authentication mechanism instead of

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "STRELAYSRV" "1" "Mar 05, 2019" "v1" "Syncthing"
+.TH "STRELAYSRV" "1" "Mar 22, 2019" "v1" "Syncthing"
 .SH NAME
 strelaysrv \- Syncthing Relay Server
 .
@@ -72,12 +72,12 @@ Global rate limit, in bytes/s.
 .INDENT 0.0
 .TP
 .B \-keys=<dir>
-Directory where cert.pem and key.pem is stored (default ".").
+Directory where cert.pem and key.pem is stored (default “.”).
 .UNINDENT
 .INDENT 0.0
 .TP
 .B \-listen=<listen addr>
-Protocol listen address (default ":22067").
+Protocol listen address (default “:22067”).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -127,13 +127,13 @@ How often pings are sent (default 1m0s).
 .TP
 .B \-pools=<pool addresses>
 Comma separated list of relay pool addresses to join (default
-"\fI\%http://relays.syncthing.net/endpoint\fP"). Blank to disable announcement to
+“\fI\%http://relays.syncthing.net/endpoint\fP”). Blank to disable announcement to
 a pool, thereby remaining a private relay.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B \-protocol=<string>
-Protocol used for listening. \(aqtcp\(aq for IPv4 and IPv6, \(aqtcp4\(aq for IPv4, \(aqtcp6\(aq for IPv6 (default "tcp").
+Protocol used for listening. ‘tcp’ for IPv4 and IPv6, ‘tcp4’ for IPv4, ‘tcp6’ for IPv6 (default “tcp”).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -143,7 +143,7 @@ An optional description about who provides the relay.
 .INDENT 0.0
 .TP
 .B \-status\-srv=<listen addr>
-Listen address for status service (blank to disable) (default ":22070").
+Listen address for status service (blank to disable) (default “:22070”).
 Status service is used by the relay pool server UI for displaying stats (data transfered, number of clients, etc.)
 .UNINDENT
 .SH SETTING UP
@@ -191,7 +191,7 @@ relay://private\-relay\-1.example.com:443/?id=ITZRNXE\-YNROGBZ\-HXTH5P7\-VK5NYE5
 .UNINDENT
 .UNINDENT
 .sp
-The relay\(aqs device ID is output on start\-up.
+The relay’s device ID is output on start\-up.
 .SS Running on port 443 as an unprivileged user
 .sp
 It is recommended that you run the relay on port 443 (or another port which is
@@ -213,7 +213,7 @@ iptables \-t nat \-A PREROUTING \-i eth0 \-p tcp \-\-dport 443 \-j REDIRECT \-\-
 .UNINDENT
 .UNINDENT
 .sp
-Or, if you\(aqre using \fBufw\fP, add the following to \fB/etc/ufw/before.rules\fP:
+Or, if you’re using \fBufw\fP, add the following to \fB/etc/ufw/before.rules\fP:
 .INDENT 0.0
 .INDENT 3.5
 .sp

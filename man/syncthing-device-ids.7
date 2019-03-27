@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-DEVICE-IDS" "7" "Mar 05, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-DEVICE-IDS" "7" "Mar 22, 2019" "v1" "Syncthing"
 .SH NAME
 syncthing-device-ids \- Understanding Device IDs
 .
@@ -32,8 +32,8 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .sp
 Every device is identified by a device ID. The device ID is used for address
-resolution, authentication and authorization. The term "device ID" could
-interchangeably have been "key ID" since the device ID is a direct property of
+resolution, authentication and authorization. The term “device ID” could
+interchangeably have been “key ID” since the device ID is a direct property of
 the public key in use.
 .SH KEYS
 .sp
@@ -43,7 +43,7 @@ startup, Syncthing will create a public/private keypair.
 Currently this is a 384 bit ECDSA key (3072 bit RSA prior to v0.12.5,
 which is what is used as an example in this article). The keys are saved in
 the form of the private key (\fBkey.pem\fP) and a self signed certificate
-(\fBcert.pem\fP). The self signing part doesn\(aqt actually add any security or
+(\fBcert.pem\fP). The self signing part doesn’t actually add any security or
 functionality as far as Syncthing is concerned but it enables the use of the
 keys in a standard TLS exchange.
 .sp
@@ -94,7 +94,7 @@ Certificate:
 .sp
 We can see here that the certificate is little more than a container for the
 public key; the serial number is zero and the Issuer and Subject are both
-"syncthing" where a qualified name might otherwise be expected.
+“syncthing” where a qualified name might otherwise be expected.
 .sp
 An advanced user could replace the \fBkey.pem\fP and \fBcert.pem\fP files with a
 keypair generated directly by the \fBopenssl\fP utility or other mechanism.
@@ -138,7 +138,7 @@ MFZWI3D\-BONSGYC\-YLTMRWG\-C43ENR5\-QXGZDMM\-FZWI3DP\-BONSGYY\-LTMRWAD
 .UNINDENT
 .SS Connection Establishment
 .sp
-Now we know what device IDs are, here\(aqs how they are used in Syncthing. When
+Now we know what device IDs are, here’s how they are used in Syncthing. When
 you add a device ID to the configuration, Syncthing will attempt to
 connect to that device. The first thing we need to do is figure out the IP and
 port to connect to. There are three possibilities here:
@@ -150,13 +150,13 @@ dynamic DNS setup this might be a good option.
 .IP \(bu 2
 Using local discovery, if enabled. Every Syncthing instance on a LAN
 periodically broadcasts information about itself (device ID, address,
-port number). If we\(aqve seen one of these broadcasts for a given
-device ID that\(aqs where we try to connect.
+port number). If we’ve seen one of these broadcasts for a given
+device ID that’s where we try to connect.
 .IP \(bu 2
 Using global discovery, if enabled. Every Syncthing instance
 announces itself to the global discovery service (device ID and
 external port number \- the internal address is not announced to the
-global server). If we don\(aqt have a static address and haven\(aqt seen
+global server). If we don’t have a static address and haven’t seen
 any local announcements the global discovery server will be queried
 for an address.
 .UNINDENT
@@ -188,11 +188,11 @@ The SHA\-256 hash is cryptographically collision resistant. This means
 that there is no way that we know of to create two different messages
 with the same hash.
 .sp
-You can argue that of course there are collisions \- there\(aqs an infinite
+You can argue that of course there are collisions \- there’s an infinite
 amount of inputs and a finite amount of outputs \- so by definition there
 are infinitely many messages that result in the same hash.
 .sp
-I\(aqm going to quote \fI\%stack
+I’m going to quote \fI\%stack
 overflow\fP <\fBhttps://stackoverflow.com/questions/4014090/is-it-safe-to-ignore-the-possibility-of-sha-collisions-in-practice\fP>
 here:
 .INDENT 0.0
@@ -203,28 +203,28 @@ civilization\-as\-we\- know\-it, and killing off a few billion people ?
 It can be argued that any unlucky event with a probability lower
 than that is not actually very important.
 .sp
-If we have a "perfect" hash function with output size n, and we have
+If we have a “perfect” hash function with output size n, and we have
 p messages to hash (individual message length is not important),
 then probability of collision is about p2/2n+1 (this is an
-approximation which is valid for "small" p, i.e. substantially
+approximation which is valid for “small” p, i.e. substantially
 smaller than 2n/2). For instance, with SHA\-256 (n=256) and one
 billion messages (p=10^9) then the probability is about 4.3*10^\-60.
 .sp
 A mass\-murderer space rock happens about once every 30 million years
 on average. This leads to a probability of such an event occurring
-in the next second to about 10^\-15. That\(aqs 45 orders of magnitude
+in the next second to about 10^\-15. That’s 45 orders of magnitude
 more probable than the SHA\-256 collision. Briefly stated, if you
 find SHA\-256 collisions scary then your priorities are wrong.
 .UNINDENT
 .UNINDENT
 .sp
-It\(aqs also worth noting that the property of SHA\-256 that we are using is not
+It’s also worth noting that the property of SHA\-256 that we are using is not
 simply collision resistance but resistance to a preimage attack, i.e. even if
-you can find two messages that result in a hash collision that doesn\(aqt help you
+you can find two messages that result in a hash collision that doesn’t help you
 attack Syncthing (or TLS in general). You need to create a message that hashes
-to exactly the hash that my certificate already has or you won\(aqt get in.
+to exactly the hash that my certificate already has or you won’t get in.
 .sp
-Note also that it\(aqs not good enough to find a random blob of bits that happen to
+Note also that it’s not good enough to find a random blob of bits that happen to
 have the same hash as my certificate. You need to create a valid DER\-encoded,
 signed certificate that has the same hash as mine. The difficulty of this is
 staggeringly far beyond the already staggering difficulty of finding a SHA\-256
@@ -235,22 +235,22 @@ As far as I know, these are the issues or potential issues with the
 above mechanism.
 .SS Discovery Spoofing
 .sp
-Currently, the local discovery mechanism isn\(aqt protected by crypto. This
+Currently, the local discovery mechanism isn’t protected by crypto. This
 means that any device can in theory announce itself for any device ID and
 potentially receive connections for that device from the local network.
 .SS Long Device IDs are Painful
 .sp
-It\(aqs a mouthful to read over the phone, annoying to type into an SMS or even
+It’s a mouthful to read over the phone, annoying to type into an SMS or even
 into a computer. And it needs to be done twice, once for each side.
 .sp
-This isn\(aqt a vulnerability as such, but a user experience problem. There are
+This isn’t a vulnerability as such, but a user experience problem. There are
 various possible solutions:
 .INDENT 0.0
 .IP \(bu 2
-Use shorter device IDs with verification based on the full ID ("You
+Use shorter device IDs with verification based on the full ID (“You
 entered MFZWI3; I found and connected to a device with the ID
 MFZWI3\-DBONSG\-YYLTMR\-WGC43E\-NRQXGZ\-DMMFZW\-I3DBON\-SGYYLT\-MRWA, please
-confirm that this is correct").
+confirm that this is correct”).
 .IP \(bu 2
 Use shorter device IDs with an out of band authentication, a la
 Bluetooth pairing. You enter a one time PIN into Syncthing and give

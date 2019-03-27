@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "Mar 05, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Mar 22, 2019" "v1" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -38,10 +38,10 @@ machine will automatically be replicated to your other devices. We believe your
 data is your data alone and you deserve to choose where it is stored. Therefore
 Syncthing does not upload your data to the cloud but exchanges your data across
 your machines as soon as they are online at the same time.
-.SH IS IT "SYNCTHING", "SYNCTHING" OR "SYNCTHING"?
+.SH IS IT “SYNCTHING”, “SYNCTHING” OR “SYNCTHING”?
 .sp
-It\(aqs \fBSyncthing\fP, although the command and source repository is spelled
-\fBsyncthing\fP so it may be referred to in that way as well. It\(aqs definitely not
+It’s \fBSyncthing\fP, although the command and source repository is spelled
+\fBsyncthing\fP so it may be referred to in that way as well. It’s definitely not
 SyncThing, even though the abbreviation \fBst\fP is used in some
 circumstances and file names.
 .SH HOW DOES SYNCTHING DIFFER FROM BITTORRENT/RESILIO SYNC?
@@ -116,9 +116,9 @@ in the configuration file (24 hours by default).
 .sp
 When troubleshooting a slow sync, there are a number of things to check.
 .sp
-First of all, verify that you are not connected via a relay. In the "Remote
-Devices" list on the right side of the GUI, double check that you see
-"Address: <some address>" and \fInot\fP "Relay: <some address>".
+First of all, verify that you are not connected via a relay. In the “Remote
+Devices” list on the right side of the GUI, double check that you see
+“Address: <some address>” and \fInot\fP “Relay: <some address>”.
 [image]
 .sp
 If you are connected via a relay, this is because a direct connection could
@@ -151,8 +151,8 @@ There is a certain amount of housekeeping that must be done to track the
 current and available versions of each file in the index database.
 .IP 4. 3
 By default Syncthing uses periodic scanning every hour when watching for
-changes or every minute if that\(aqs disabled to detect
-file changes. This means checking every file\(aqs modification time and
+changes or every minute if that’s disabled to detect
+file changes. This means checking every file’s modification time and
 comparing it to the database. This can cause spikes of CPU usage for large
 folders.
 .UNINDENT
@@ -169,16 +169,16 @@ To further limit the amount of CPU used when syncing and scanning, set the
 environment variable \fBGOMAXPROCS\fP to the maximum number of CPU cores
 Syncthing should use at any given moment. For example, \fBGOMAXPROCS=2\fP on a
 machine with four cores will limit Syncthing to no more than half the
-system\(aqs CPU power.
+system’s CPU power.
 .SH SHOULD I KEEP MY DEVICE IDS SECRET?
 .sp
-No. The IDs are not sensitive. Given a device ID it\(aqs possible to find the IP
+No. The IDs are not sensitive. Given a device ID it’s possible to find the IP
 address for that device, if global discovery is enabled on it. Knowing the device
-ID doesn\(aqt help you actually establish a connection to that device or get a list
+ID doesn’t help you actually establish a connection to that device or get a list
 of files, etc.
 .sp
-For a connection to be established, both devices need to know about the other\(aqs
-device ID. It\(aqs not possible (in practice) to forge a device ID. (To forge a
+For a connection to be established, both devices need to know about the other’s
+device ID. It’s not possible (in practice) to forge a device ID. (To forge a
 device ID you need to create a TLS certificate with that specific SHA\-256 hash.
 If you can do that, you can spoof any TLS certificate. The world is your
 oyster!)
@@ -205,14 +205,14 @@ device where it was deleted.
 Beware that the \fB<filename>.sync\-conflict\-<date>\-<time>\-<modifiedBy>.<ext>\fP files are
 treated as normal files after they are created, so they are propagated between
 devices. We do this because the conflict is detected and resolved on one device,
-creating the \fBsync\-conflict\fP file, but it\(aqs just as much of a conflict
-everywhere else and we don\(aqt know which of the conflicting files is the "best"
+creating the \fBsync\-conflict\fP file, but it’s just as much of a conflict
+everywhere else and we don’t know which of the conflicting files is the “best”
 from the user point of view.
 .SH HOW DO I SERVE A FOLDER FROM A READ ONLY FILESYSTEM?
 .sp
-Syncthing requires a "folder marker" to indicate that the folder is present
+Syncthing requires a “folder marker” to indicate that the folder is present
 and healthy. By default this is a directory called \fB\&.stfolder\fP that is
-created by Syncthing when the folder is added. If this folder can\(aqt be
+created by Syncthing when the folder is added. If this folder can’t be
 created (you are serving files from a CD or something) you can instead set
 the advanced config \fBMarker Name\fP to the name of some file or folder that
 you know will always exist in the folder.
@@ -225,11 +225,11 @@ Sharing a folder that is within an already shared folder is possible, but it has
 its caveats. What you must absolutely avoid are circular shares. This is just
 one example, there may be other undesired effects. Nesting shared folders is not
 supported, recommended or coded for, but it can be done successfully when you
-know what you\(aqre doing \- you have been warned.
+know what you’re doing \- you have been warned.
 .SH HOW DO I RENAME/MOVE A SYNCED FOLDER?
 .sp
-Syncthing doesn\(aqt have a direct way to do this, as it\(aqs potentially
-dangerous to do so if you\(aqre not careful \- it may result in data loss if
+Syncthing doesn’t have a direct way to do this, as it’s potentially
+dangerous to do so if you’re not careful \- it may result in data loss if
 something goes wrong during the move and is synchronized to your other
 devices.
 .sp
@@ -237,8 +237,8 @@ The easy way to rename or move a synced folder on the local system is to
 remove the folder in the Syncthing UI, move it on disk, then re\-add it using
 the new path.
 .sp
-It\(aqs best to do this when the folder is already in sync between your
-devices, as it is otherwise unpredictable which changes will "win" after the
+It’s best to do this when the folder is already in sync between your
+devices, as it is otherwise unpredictable which changes will “win” after the
 move. Changes made on other devices may be overwritten, or changes made
 locally may be overwritten by those on other devices.
 .sp
@@ -252,7 +252,7 @@ to configure listening ports such that they do not overlap (see config).
 .SH DOES SYNCTHING SUPPORT SYNCING BETWEEN FOLDERS ON THE SAME SYSTEM?
 .sp
 No. Syncthing is not designed to sync locally and the overhead involved in
-doing so using Syncthing\(aqs method would be wasteful. There are better
+doing so using Syncthing’s method would be wasteful. There are better
 programs to achieve this such as rsync or Unison.
 .SH WHEN I DO HAVE TWO DISTINCT SYNCTHING-MANAGED FOLDERS ON TWO HOSTS, HOW DOES SYNCTHING HANDLE MOVING FILES BETWEEN THEM?
 .sp
@@ -289,7 +289,7 @@ The patterns in .stignore are glob patterns, where brackets are used to
 denote character ranges. That is, the pattern \fBq[abc]x\fP will match the
 files \fBqax\fP, \fBqbx\fP and \fBqcx\fP\&.
 .sp
-To match an actual file \fIcalled\fP \fBq[abc]x\fP the pattern needs to "escape"
+To match an actual file \fIcalled\fP \fBq[abc]x\fP the pattern needs to “escape”
 the brackets, like so: \fBq\e[abc\e]x\fP\&.
 .sp
 On Windows, escaping special characters is not supported as the \fB\e\fP
@@ -298,7 +298,7 @@ such as \fB[\fP and \fB?\fP are not allowed in file names on Windows.
 .SH WHY IS THE SETUP MORE COMPLICATED THAN BITTORRENT/RESILIO SYNC?
 .sp
 Security over convenience. In Syncthing you have to setup both sides to
-connect two devices. An attacker can\(aqt do much with a stolen device ID, because
+connect two devices. An attacker can’t do much with a stolen device ID, because
 you have to add the device on the other side too. You have better control
 where your files are transferred.
 .sp
@@ -354,7 +354,7 @@ $ ssh \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
 will log you into othercomputer.example.com, and present the \fIremote\fP
 Syncthing GUI on \fI\%http://localhost:9090\fP on your \fIlocal\fP computer.
 .sp
-If you only want to access the remote gui and don\(aqt want the terminal
+If you only want to access the remote gui and don’t want the terminal
 session, use this example,
 .INDENT 0.0
 .INDENT 3.5
@@ -379,7 +379,7 @@ Another Windows way to run ssh is to install gow.
 .sp
 The easiest way to install gow is with chocolatey.
 \fI\%https://chocolatey.org/\fP
-.SH WHY DO I GET "HOST CHECK ERROR" IN THE GUI/API?
+.SH WHY DO I GET “HOST CHECK ERROR” IN THE GUI/API?
 .sp
 Since version 0.14.6 Syncthing does an extra security check when the GUI/API
 is bound to localhost \- namely that the browser is talking to localhost.
@@ -404,8 +404,8 @@ Bind the GUI/API to a non\-localhost listen port.
 In all cases, username/password authentication and HTTPS should be used.
 .SH MY SYNCTHING DATABASE IS CORRUPT
 .sp
-This is almost always a result of bad RAM, storage device or other hardware. When the index database is found to be corrupt Syncthing cannot operate and will note this in the logs and exit. To overcome this delete the \fI\%database folder\fP <\fBhttps://docs.syncthing.net/users/config.html#description\fP> inside Syncthing\(aqs home directory and re\-start Syncthing. It will then need to perform a full re\-hashing of all shared folders. You should check your system in case the underlying cause is indeed faulty hardware which may put the system at risk of further data loss.
-.SH I DON'T LIKE THE GUI OR THE THEME. CAN IT BE CHANGED?
+This is almost always a result of bad RAM, storage device or other hardware. When the index database is found to be corrupt Syncthing cannot operate and will note this in the logs and exit. To overcome this delete the \fI\%database folder\fP <\fBhttps://docs.syncthing.net/users/config.html#description\fP> inside Syncthing’s home directory and re\-start Syncthing. It will then need to perform a full re\-hashing of all shared folders. You should check your system in case the underlying cause is indeed faulty hardware which may put the system at risk of further data loss.
+.SH I DON’T LIKE THE GUI OR THE THEME. CAN IT BE CHANGED?
 .sp
 You can change the theme in the settings. Syncthing ships with other themes
 than the default.
@@ -416,7 +416,7 @@ By default, Syncthing will look for a directory \fBgui\fP inside the Syncthing
 home folder. To change the directory to look for themes, you need to set the
 STGUIASSETS environment variable. To get the concrete directory, run
 syncthing with the \fB\-paths\fP parameter. It will print all the relevant paths,
-including the "GUI override directory".
+including the “GUI override directory”.
 .sp
 To add e.g. a red theme, you can create the file \fBred/assets/css/theme.css\fP
 inside the GUI override directory to override the default CSS styles.
@@ -433,7 +433,7 @@ crashes and other bugs.
 .SH WHERE DO SYNCTHING LOGS GO TO?
 .sp
 Syncthing logs to stdout by default. On Windows Syncthing by default also
-creates \fBsyncthing.log\fP in Syncthing\(aqs home directory (run \fBsyncthing
+creates \fBsyncthing.log\fP in Syncthing’s home directory (run \fBsyncthing
 \-paths\fP to see where that is). Command line option \fB\-logfile\fP can be used
 to specify a user\-defined logfile.
 .SH HOW CAN I VIEW THE HISTORY OF CHANGES?
@@ -460,7 +460,7 @@ it initiates the conflict resolution procedure, which in the end results in a co
 up\-to\-date state with all the neighbours.
 .SH HOW DO I UPGRADE SYNCTHING?
 .sp
-If you use a package manager such as Debian\(aqs apt\-get, you should upgrade
+If you use a package manager such as Debian’s apt\-get, you should upgrade
 using the package manager. If you use the binary packages linked from
 Syncthing.net, you can use Syncthing built in automatic upgrades.
 .INDENT 0.0
@@ -488,14 +488,14 @@ version. We suggest to use the GitHub API at
 the JSON response.
 .SH HOW DO I RUN SYNCTHING AS A DAEMON PROCESS ON LINUX?
 .sp
-If you\(aqre using systemd, runit, or upstart, we already ship examples, check
+If you’re using systemd, runit, or upstart, we already ship examples, check
 \fI\%https://github.com/syncthing/syncthing/tree/master/etc\fP for example
 configurations.
 .sp
-If however you\(aqre not using one of these tools, you have a couple of options.
-If your system has a tool called \fBstart\-stop\-daemon\fP installed (that\(aqs the name
+If however you’re not using one of these tools, you have a couple of options.
+If your system has a tool called \fBstart\-stop\-daemon\fP installed (that’s the name
 of the command, not the package), look into the local documentation for that, it
-will almost certainly cover 100% of what you want to do.  If you don\(aqt have
+will almost certainly cover 100% of what you want to do.  If you don’t have
 \fBstart\-stop\-daemon\fP, there are a bunch of other software packages you could use
 to do this.  The most well known is called daemontools, and can be found in the
 standard package repositories for  almost every modern Linux distribution.

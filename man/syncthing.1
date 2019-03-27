@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "Mar 05, 2019" "v1" "Syncthing"
+.TH "SYNCTHING" "1" "Mar 22, 2019" "v1" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -218,7 +218,7 @@ Syncthing can use a SOCKS, HTTP, or HTTPS proxy to talk to the outside
 world. The proxy is used for outgoing connections only \- it is not possible
 to accept incoming connections through the proxy. The proxy is configured
 through the environment variable \fBall_proxy\fP\&. Somewhat unusually, this
-variable must be named in lower case \- it is not "ALL_PROXY". For
+variable must be named in lower case \- it is not “ALL_PROXY”. For
 example:
 .INDENT 0.0
 .INDENT 3.5
@@ -232,7 +232,7 @@ $ export all_proxy=socks://192.0.2.42:8081
 .UNINDENT
 .SH DEVELOPMENT SETTINGS
 .sp
-The following environment variables modify Syncthing\(aqs behavior in ways that
+The following environment variables modify Syncthing’s behavior in ways that
 are mostly useful for developers. Use with care.
 If you start Syncthing from within service managers like systemd or supervisor,
 path expansion may not be supported.
@@ -354,7 +354,7 @@ developing webgui, commonly use \fBSTGUIASSETS=gui bin/syncthing\fP\&.
 .TP
 .B STHASHING
 Specify which hashing package to use. Defaults to automatic based on
-performance. Specify "minio" (compatibility) or "standard" for the default
+performance. Specify “minio” (compatibility) or “standard” for the default
 Go implementation.
 .TP
 .B STHEAPPROFILE
@@ -362,7 +362,7 @@ Write heap profiles to \fBheap\-$pid\-$timestamp.pprof\fP each time heap usage
 increases.
 .TP
 .B STNODEFAULTFOLDER
-Don\(aqt create a default folder when starting for the first time. This
+Don’t create a default folder when starting for the first time. This
 variable will be ignored anytime after the first run.
 .TP
 .B STNORESTART
@@ -374,7 +374,7 @@ crashes and also log file writing (stdout is still written).
 Disable automatic upgrades.
 .TP
 .B STPROFILER
-Set to a listen address such as "127.0.0.1:9090" to start the profiler with
+Set to a listen address such as “127.0.0.1:9090” to start the profiler with
 HTTP access, which then can be reached at
 \fI\%http://localhost:9090/debug/pprof\fP\&. See \fBgo tool pprof\fP for more
 information.
@@ -384,8 +384,8 @@ Write running performance statistics to \fBperf\-$pid.csv\fP\&. Not supported on
 Windows.
 .TP
 .B STRECHECKDBEVERY
-Time before folder statistics (file, dir, ... counts) are recalculated from
-scratch. The given duration must be parseable by GO\(aqs time.ParseDuration. If
+Time before folder statistics (file, dir, … counts) are recalculated from
+scratch. The given duration must be parseable by GO’s time.ParseDuration. If
 missing or not parseable, the default value of 1 month is used. To force
 recalculation on every startup, set it to \fB0\fP\&.
 .TP

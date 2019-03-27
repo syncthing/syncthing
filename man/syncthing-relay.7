@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-RELAY" "7" "Mar 05, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-RELAY" "7" "Mar 22, 2019" "v1" "Syncthing"
 .SH NAME
 syncthing-relay \- Relay Protocol v1
 .
@@ -37,7 +37,7 @@ connect to each other directly otherwise. This is usually due to both devices
 being behind a NAT and neither side being able to open a port which would
 be directly accessible from the internet.
 .sp
-A relay was designed to relay BEP protocol, hence the reliance on device ID\(aqs
+A relay was designed to relay BEP protocol, hence the reliance on device ID’s
 in the protocol spec, but at the same time it is general enough that could be
 reused by other protocols or applications, as the data transferred between two
 devices which use a relay is completely obscure and does not affect the
@@ -92,14 +92,14 @@ exists.
 After the client has joined, no more messages are exchanged apart from
 Ping/Pong messages for general connection keep alive checking.
 .sp
-From this point onwards, the client stand\-by\(aqs and waits for SessionInvitation
+From this point onwards, the client stand\-by’s and waits for SessionInvitation
 messages from the relay, which implies that some other device is trying to
 connect with you. SessionInvitation message contains the unique session key
 which then can be used to establish a connection in session mode.
 .sp
 If the client fails to send a JoinRelayRequest message within the first ping
 interval, the connection is terminated.
-If the client fails to send a message (even if it\(aqs a ping message) every minute
+If the client fails to send a message (even if it’s a ping message) every minute
 (by default), the connection is terminated.
 .SS Temporary protocol submode
 .sp
@@ -574,7 +574,7 @@ identify which session you are trying to connect to.
 .B : Address
 An optional IP address on which the relay server is expecting you to
 connect, in order to start a connection in session mode.
-Empty/all zero IP should be replaced with the relay\(aqs public IP address that
+Empty/all zero IP should be replaced with the relay’s public IP address that
 was used when establishing the protocol mode connection.
 .TP
 .B : Port
@@ -585,14 +585,14 @@ in order to start a connection in session mode.
 Because both sides connecting to the relay use the client side of the socket,
 and some protocols behave differently depending if the connection starts on
 the server side or the client side, this boolean indicates which side of the
-connection this client should assume it\(aqs getting. The value is inverted in
+connection this client should assume it’s getting. The value is inverted in
 the invitation which is sent to the other device, so that there is always
 one client socket, and one server socket.
 .UNINDENT
 .SH HOW SYNCTHING USES RELAYS, AND GENERAL SECURITY
 .sp
 In the case of Syncthing and BEP, when two devices connect via relay, they
-start their standard TLS connection encapsulated within the relay\(aqs plain\-text
+start their standard TLS connection encapsulated within the relay’s plain\-text
 session connection, effectively upgrading the plain\-text connection to a TLS
 connection.
 .sp

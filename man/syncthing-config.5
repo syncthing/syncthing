@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Mar 05, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Mar 22, 2019" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -58,7 +58,7 @@ directory the following files are located:
 The configuration file, in XML format.
 .TP
 .B \fBcert.pem\fP, \fBkey.pem\fP
-The device\(aqs RSA public and private key. These form the basis for the
+The device’s RSA public and private key. These form the basis for the
 device ID. The key must be kept private.
 .TP
 .B \fBhttps\-cert.pem\fP, \fBhttps\-key.pem\fP
@@ -257,17 +257,17 @@ Controls how the folder is handled by Syncthing. Possible values are:
 .TP
 .B sendreceive
 The folder is in default mode. Sending local and accepting remote changes.
-Note that this type was previously called "readwrite" which is deprecated
+Note that this type was previously called “readwrite” which is deprecated
 but still accepted in incoming configs.
 .TP
 .B sendonly
-The folder is in "send only" mode \-\- it will not be modified by
+The folder is in “send only” mode – it will not be modified by
 Syncthing on this device.
-Note that this type was previously called "readonly" which is deprecated
+Note that this type was previously called “readonly” which is deprecated
 but still accepted in incoming configs.
 .TP
 .B receiveonly
-The folder is in "receive only" mode \-\- it will not propagate
+The folder is in “receive only” mode – it will not propagate
 changes to other devices.
 .UNINDENT
 .TP
@@ -325,7 +325,7 @@ versioning
 .B copiers, pullers, hashers
 The number of copier, puller and hasher routines to use, or zero for the
 system determined optimum. These are low level performance options for
-advanced users only; do not change unless requested to or you\(aqve actually
+advanced users only; do not change unless requested to or you’ve actually
 read and understood the code yourself. :)
 .TP
 .B order
@@ -362,8 +362,8 @@ The interval with which scan progress information is sent to the GUI. Zero
 means the default value (two seconds).
 .TP
 .B pullerPauseS
-Tweak for rate limiting the puller when it retries pulling files. Don\(aqt
-change these unless you know what you\(aqre doing.
+Tweak for rate limiting the puller when it retries pulling files. Don’t
+change these unless you know what you’re doing.
 .TP
 .B maxConflicts
 The maximum number of conflict copies to keep around for any given file.
@@ -389,7 +389,7 @@ to \-1 to always use weak hash. Default value is 25.
 .TP
 .B markerName
 Name of a directory or file in the folder root to be used as
-marker\-faq\&. Default is ".stfolder".
+marker\-faq\&. Default is “.stfolder”.
 .TP
 .B fsync
 Deprecated since version v0.14.37.
@@ -402,8 +402,8 @@ committing the changes to the internal database.
 Deprecated since version v0.14.41.
 
 .sp
-Tweak for rate limiting the puller. Don\(aqt change these unless you know
-what you\(aqre doing.
+Tweak for rate limiting the puller. Don’t change these unless you know
+what you’re doing.
 .UNINDENT
 .SH DEVICE ELEMENT
 .INDENT 0.0
@@ -478,7 +478,7 @@ to even if the original introducer is no longer listing the remote device as kno
 Defines which device has introduced us to this device. Used only for following de\-introductions.
 .TP
 .B certName
-The device certificate common name, if it is not the default "syncthing".
+The device certificate common name, if it is not the default “syncthing”.
 .UNINDENT
 .sp
 From following child elements at least one \fBaddress\fP child must exist.
@@ -967,9 +967,9 @@ that the files you are backing up are in a folder\-sendonly to prevent other
 devices from overwriting the per device configuration. The folder on the remote
 device(s) should not be used as configuration for the remote devices.
 .sp
-If you\(aqd like to sync your home folder in non\-send only mode, you may add the
+If you’d like to sync your home folder in non\-send only mode, you may add the
 folder that stores the configuration files to the ignore list\&.
-If you\(aqd also like to backup your configuration files, add another folder in
+If you’d also like to backup your configuration files, add another folder in
 send only mode for just the configuration folder.
 .SH AUTHOR
 The Syncthing Authors

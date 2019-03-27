@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-SECURITY" "7" "Mar 05, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-SECURITY" "7" "Mar 22, 2019" "v1" "Syncthing"
 .SH NAME
 syncthing-security \- Security Principles
 .
@@ -92,7 +92,7 @@ Automatic upgrades default to \fBon\fP (unless Syncthing was compiled with
 upgrades disabled).
 .sp
 Even when automatic upgrades are disabled in the configuration, an upgrade check
-as above is done when the GUI is loaded, in order to show the "Upgrade to ..."
+as above is done when the GUI is loaded, in order to show the “Upgrade to …”
 button when necessary. This can be disabled only by compiling Syncthing with
 upgrades disabled.
 .sp
@@ -106,7 +106,7 @@ information about the user or device.
 When usage reporting is enabled, Syncthing reports usage data at startup and
 then every 24 hours. The report is sent as an HTTPS POST to the usage reporting
 server, currently hosted by \fI\%@calmh\fP <\fBhttps://github.com/calmh\fP>\&. The contents of the usage report can
-be seen behind the "Preview" link in settings. Usage reporting defaults to
+be seen behind the “Preview” link in settings. Usage reporting defaults to
 \fBoff\fP but the GUI will ask once about enabling it, shortly after the first
 install.
 .sp
@@ -130,13 +130,13 @@ case.
 .sp
 When relaying is enabled, Syncthing will look up the pool of public relays
 and establish a connection to one of them (the best, based on an internal
-heuristic). The selected relay server will learn the connecting device\(aqs
+heuristic). The selected relay server will learn the connecting device’s
 device ID. Relay servers can be run by \fBanyone in the general public\fP\&.
 Relaying defaults to \fBon\fP\&. Syncthing can be configured to disable
 relaying, or only use specific relays.
 .sp
 If a relay connections is required between two devices, the relay will learn
-the other device\(aqs device ID as well.
+the other device’s device ID as well.
 .sp
 Any data exchanged between the two devices is encrypted as usual and not
 subject to inspection by the relay.
@@ -161,7 +161,7 @@ synced files. Here are some general principles to protect your files:
 If a device of yours is lost, make sure to revoke its access from your other
 devices.
 .IP 2. 3
-If you\(aqre syncing confidential data on an encrypted disk to guard against
+If you’re syncing confidential data on an encrypted disk to guard against
 device theft, put the Syncthing config folder on the same encrypted disk to
 avoid leaking keys and metadata. Or, use whole disk encryption.
 .UNINDENT

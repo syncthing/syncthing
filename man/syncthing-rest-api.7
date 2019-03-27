@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Mar 05, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Mar 22, 2019" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -47,7 +47,7 @@ with \fBcurl\fP\&.
 .SS GET /rest/system/browse
 .sp
 Returns a list of directories matching the path given by the optional parameter
-\fBcurrent\fP\&. The path can use \fI\%patterns as described in Go\(aqs filepath package\fP <\fBhttps://golang.org/pkg/path/filepath/#Match\fP>\&. A \(aq*\(aq will always be appended
+\fBcurrent\fP\&. The path can use \fI\%patterns as described in Go’s filepath package\fP <\fBhttps://golang.org/pkg/path/filepath/#Match\fP>\&. A ‘*’ will always be appended
 to the given path (e.g. \fB/tmp/\fP matches all its subdirectories). If the option
 \fBcurrent\fP is not given, filesystem root paths are returned.
 .INDENT 0.0
@@ -904,8 +904,8 @@ curl \-X POST \-H X\-API\-Key:... http://127.0.0.1:8384/rest/db/revert?folder=de
 Request immediate scan. Takes the optional parameters \fBfolder\fP (folder ID),
 \fBsub\fP (path relative to the folder root) and \fBnext\fP (time in seconds). If
 \fBfolder\fP is omitted or empty all folders are scanned. If \fBsub\fP is given,
-only this path (and children, in case it\(aqs a directory) is scanned. The \fBnext\fP
-argument delays Syncthing\(aqs automated rescan interval for a given amount of
+only this path (and children, in case it’s a directory) is scanned. The \fBnext\fP
+argument delays Syncthing’s automated rescan interval for a given amount of
 seconds.
 .sp
 Requesting scan of a path that no longer exists, but previously did, is
@@ -980,7 +980,7 @@ Data in the cluster latest version.
 Data that is locally the same as the cluster latest version.
 .TP
 .B local*:
-Data that is locally present, regardless of whether it\(aqs the same or different version as the cluster latest version.
+Data that is locally present, regardless of whether it’s the same or different version as the cluster latest version.
 .TP
 .B need*:
 Data that is needed to become up to date with the cluster latest version (i.e., data that is out of sync).
@@ -1023,7 +1023,7 @@ only the desired event types, add a parameter
 \fBevents=EventTypeA,EventTypeB,...\fP where the event types are any of the event\-types\&.
 .sp
 The optional parameter \fBsince=<lastSeenID>\fP sets the ID of the last event
-you\(aqve already seen. Syncthing returns a JSON encoded array of event objects,
+you’ve already seen. Syncthing returns a JSON encoded array of event objects,
 starting at the event just after the one with this last seen ID. The default
 value is 0, which returns all events. There is a limit to the number of events
 buffered, so if the rate of events is high or the time between polling calls is
