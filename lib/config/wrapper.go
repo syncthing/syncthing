@@ -482,7 +482,7 @@ func (w *wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, addre
 
 	for i := range w.cfg.PendingDevices {
 		if w.cfg.PendingDevices[i].ID == device {
-			w.cfg.PendingDevices[i].Time = time.Now()
+			w.cfg.PendingDevices[i].Time = time.Now().Round(time.Second)
 			w.cfg.PendingDevices[i].Name = name
 			w.cfg.PendingDevices[i].Address = address
 			return
@@ -490,7 +490,7 @@ func (w *wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, addre
 	}
 
 	w.cfg.PendingDevices = append(w.cfg.PendingDevices, ObservedDevice{
-		Time:    time.Now(),
+		Time:    time.Now().Round(time.Second),
 		ID:      device,
 		Name:    name,
 		Address: address,
@@ -508,12 +508,12 @@ func (w *wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.Dev
 			for j := range w.cfg.Devices[i].PendingFolders {
 				if w.cfg.Devices[i].PendingFolders[j].ID == id {
 					w.cfg.Devices[i].PendingFolders[j].Label = label
-					w.cfg.Devices[i].PendingFolders[j].Time = time.Now()
+					w.cfg.Devices[i].PendingFolders[j].Time = time.Now().Round(time.Second)
 					return
 				}
 			}
 			w.cfg.Devices[i].PendingFolders = append(w.cfg.Devices[i].PendingFolders, ObservedFolder{
-				Time:  time.Now(),
+				Time:  time.Now().Round(time.Second),
 				ID:    id,
 				Label: label,
 			})
