@@ -4,6 +4,7 @@ package protocol
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -607,6 +608,16 @@ func TestIsEquivalent(t *testing.T) {
 					t.Errorf("Case %d:\na: %v\nb: %v\nb.IsEquivalent(a, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
 				}
 			}
+		}
+	}
+}
+
+func TestSha256OfEmptyBlock(t *testing.T) {
+	// every block size should have a correct entry in sha256OfEmptyBlock
+	for blockSize := MinBlockSize; blockSize <= MaxBlockSize; blockSize *= 2 {
+		expected := sha256.Sum256(make([]byte, blockSize))
+		if sha256OfEmptyBlock[blockSize] != expected {
+			t.Error("missing or wrong hash for block of size", blockSize)
 		}
 	}
 }
