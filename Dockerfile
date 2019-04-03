@@ -17,16 +17,11 @@ VOLUME ["/var/syncthing"]
 RUN apk add --no-cache ca-certificates su-exec
 
 COPY --from=builder /src/syncthing /bin/syncthing
+COPY --from=builder /src/script/docker-entrypoint.sh /bin/entrypoint.sh
 
 ENV PUID=1000 PGID=1000
 
 HEALTHCHECK --interval=1m --timeout=10s \
   CMD nc -z localhost 8384 || exit 1
 
-ENTRYPOINT \
-  chown "${PUID}:${PGID}" /var/syncthing \
-  && su-exec "${PUID}:${PGID}" \
-     env HOME=/var/syncthing \
-     /bin/syncthing \
-       -home /var/syncthing/config \
-       -gui-address 0.0.0.0:8384
+ENTRYPOINT ["/bin/entrypoint.sh", "-home", "/var/syncthing/config", "-gui-address", "0.0.0.0:8384"]
