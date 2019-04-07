@@ -94,11 +94,6 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 	fcfg := testFolderConfigTmp()
 	model.AddFolder(fcfg)
 
-	// Update index
-	if files != nil {
-		model.updateLocalsFromScanning("default", files)
-	}
-
 	f := &sendReceiveFolder{
 		folder: folder{
 			stateTracker:        newStateTracker("default"),
@@ -114,6 +109,11 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 		pullErrorsMut: sync.NewMutex(),
 	}
 	f.fs = fs.NewMtimeFS(f.Filesystem(), db.NewNamespacedKV(model.db, "mtime"))
+
+	// Update index
+	if files != nil {
+		f.updateLocalsFromScanning(files)
+	}
 
 	// Folders are never actually started, so no initial scan will be done
 	close(f.initialScanFinished)
@@ -362,7 +362,7 @@ func TestWeakHash(t *testing.T) {
 		ModifiedS: info.ModTime().Unix() + 1,
 	}
 
-	model.updateLocalsFromScanning("default", []protocol.FileInfo{existingFile})
+	fo.updateLocalsFromScanning([]protocol.FileInfo{existingFile})
 
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, expectBlocks)
@@ -440,7 +440,7 @@ func TestCopierCleanup(t *testing.T) {
 	file.Blocks = []protocol.BlockInfo{blocks[1]}
 	file.Version = file.Version.Update(myID.Short())
 	// Update index (removing old blocks)
-	m.updateLocalsFromScanning("default", []protocol.FileInfo{file})
+	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
 	if m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
@@ -453,7 +453,7 @@ func TestCopierCleanup(t *testing.T) {
 	file.Blocks = []protocol.BlockInfo{blocks[0]}
 	file.Version = file.Version.Update(myID.Short())
 	// Update index (removing old blocks)
-	m.updateLocalsFromScanning("default", []protocol.FileInfo{file})
+	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
 	if !m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
@@ -878,7 +878,7 @@ func TestSRConflictReplaceFileByDir(t *testing.T) {
 	// create local file
 	file := createFile(t, name, ffs)
 	file.Version = protocol.Vector{}.Update(myID.Short())
-	m.updateLocalsFromScanning(f.ID, []protocol.FileInfo{file})
+	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
 	// Simulate remote creating a dir with the same name
 	file.Type = protocol.FileInfoTypeDirectory
@@ -913,7 +913,7 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 	// create local file
 	file := createFile(t, name, ffs)
 	file.Version = protocol.Vector{}.Update(myID.Short())
-	m.updateLocalsFromScanning(f.ID, []protocol.FileInfo{file})
+	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
 	// Simulate remote creating a symlink with the same name
 	file.Type = protocol.FileInfoTypeSymlink

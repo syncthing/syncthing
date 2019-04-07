@@ -49,7 +49,7 @@ func (f *sendOnlyFolder) pull() bool {
 
 	f.fset.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			f.model.updateLocalsFromPulling(f.folderID, batch)
+			f.updateLocalsFromPulling(batch)
 			batch = batch[:0]
 			batchSizeBytes = 0
 		}
@@ -85,25 +85,25 @@ func (f *sendOnlyFolder) pull() bool {
 	})
 
 	if len(batch) > 0 {
-		f.model.updateLocalsFromPulling(f.folderID, batch)
+		f.updateLocalsFromPulling(batch)
 	}
 
 	return true
 }
 
-func (f *sendOnlyFolder) Override(fs *db.FileSet, updateFn func([]protocol.FileInfo)) {
+func (f *sendOnlyFolder) Override() {
 	f.setState(FolderScanning)
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
-	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+	f.fset.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			updateFn(batch)
+			f.updateLocalsFromScanning(batch)
 			batch = batch[:0]
 			batchSizeBytes = 0
 		}
 
-		have, ok := fs.Get(protocol.LocalDeviceID, need.Name)
+		have, ok := f.fset.Get(protocol.LocalDeviceID, need.Name)
 		// Don't override files that are in a bad state (ignored,
 		// unsupported, must rescan, ...).
 		if ok && have.IsInvalid() {
@@ -126,7 +126,7 @@ func (f *sendOnlyFolder) Override(fs *db.FileSet, updateFn func([]protocol.FileI
 		return true
 	})
 	if len(batch) > 0 {
-		updateFn(batch)
+		f.updateLocalsFromScanning(batch)
 	}
 	f.setState(FolderIdle)
 }

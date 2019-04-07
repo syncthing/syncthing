@@ -1604,7 +1604,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 
 		// All updates to file/folder objects that originated remotely
 		// (across the network) use this call to updateLocals
-		f.model.updateLocalsFromPulling(f.folderID, files)
+		f.updateLocalsFromPulling(files)
 
 		if found {
 			f.ReceivedFile(lastFile.Name, lastFile.IsDeleted())

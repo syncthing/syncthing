@@ -54,8 +54,8 @@ const (
 
 type service interface {
 	BringToFront(string)
-	Override(*db.FileSet, func([]protocol.FileInfo))
-	Revert(*db.FileSet, func([]protocol.FileInfo))
+	Override()
+	Revert()
 	DelayScan(d time.Duration)
 	SchedulePull()              // something relevant changed, we should try a pull
 	Jobs() ([]string, []string) // In progress, Queued
@@ -65,6 +65,7 @@ type service interface {
 	CheckHealth() error
 	Errors() []FileError
 	WatchError() error
+	ForceRescan(file protocol.FileInfo) error
 	GetStatistics() stats.FolderStatistics
 
 	getState() (folderState, time.Time, error)
@@ -1611,17 +1612,19 @@ func (m *model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 	// The hashes provided part of the request match what we expect to find according
 	// to what we have in the database, yet the content we've read off the filesystem doesn't
 	// Something is fishy, invalidate the file and rescan it.
-	cf.SetMustRescan(m.shortID)
-
-	// Update the index and tell others
 	// The file will temporarily become invalid, which is ok as the content is messed up.
-	m.updateLocalsFromScanning(folder, []protocol.FileInfo{cf})
-
-	if err := m.ScanFolderSubdirs(folder, []string{name}); err != nil {
-		l.Debugf("%v recheckFile: %s: %q / %q rescan: %s", m, deviceID, folder, name, err)
-	} else {
-		l.Debugf("%v recheckFile: %s: %q / %q", m, deviceID, folder, name)
+	m.fmut.Lock()
+	runner, ok := m.folderRunners[folder]
+	m.fmut.Unlock()
+	if !ok {
+		l.Debugf("%v recheckFile: %s: %q / %q: Folder stopped before rescan could be scheduled", m, deviceID, folder, name)
+		return
 	}
+	if err := runner.ForceRescan(cf); err != nil {
+		l.Debugf("%v recheckFile: %s: %q / %q rescan: %s", m, deviceID, folder, name, err)
+		return
+	}
+	l.Debugf("%v recheckFile: %s: %q / %q", m, deviceID, folder, name)
 }
 
 func (m *model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
@@ -1642,16 +1645,6 @@ func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 		return protocol.FileInfo{}, false
 	}
 	return fs.GetGlobal(file)
-}
-
-type cFiler struct {
-	m Model
-	r string
-}
-
-// Implements scanner.CurrentFiler
-func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
-	return cf.m.CurrentFolderFile(cf.r, file)
 }
 
 // Connection returns the current connection for device, and a boolean whether a connection was found.
@@ -1988,92 +1981,6 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 	return f.Sequence, err
 }
 
-func (m *model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
-	m.updateLocals(folder, fs)
-
-	m.fmut.RLock()
-	folderCfg := m.folderCfgs[folder]
-	m.fmut.RUnlock()
-
-	m.diskChangeDetected(folderCfg, fs, events.LocalChangeDetected)
-}
-
-func (m *model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
-	m.updateLocals(folder, fs)
-
-	m.fmut.RLock()
-	folderCfg := m.folderCfgs[folder]
-	m.fmut.RUnlock()
-
-	m.diskChangeDetected(folderCfg, fs, events.RemoteChangeDetected)
-}
-
-func (m *model) updateLocals(folder string, fs []protocol.FileInfo) {
-	m.fmut.RLock()
-	files := m.folderFiles[folder]
-	m.fmut.RUnlock()
-	if files == nil {
-		// The folder doesn't exist.
-		return
-	}
-	files.Update(protocol.LocalDeviceID, fs)
-
-	filenames := make([]string, len(fs))
-	for i, file := range fs {
-		filenames[i] = file.Name
-	}
-
-	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-		"folder":    folder,
-		"items":     len(fs),
-		"filenames": filenames,
-		"version":   files.Sequence(protocol.LocalDeviceID),
-	})
-}
-
-func (m *model) diskChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo, typeOfEvent events.EventType) {
-	for _, file := range files {
-		if file.IsInvalid() {
-			continue
-		}
-
-		objType := "file"
-		action := "modified"
-
-		switch {
-		case file.IsDeleted():
-			action = "deleted"
-
-		// If our local vector is version 1 AND it is the only version
-		// vector so far seen for this file then it is a new file.  Else if
-		// it is > 1 it's not new, and if it is 1 but another shortId
-		// version vector exists then it is new for us but created elsewhere
-		// so the file is still not new but modified by us. Only if it is
-		// truly new do we change this to 'added', else we leave it as
-		// 'modified'.
-		case len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1:
-			action = "added"
-		}
-
-		if file.IsSymlink() {
-			objType = "symlink"
-		} else if file.IsDirectory() {
-			objType = "dir"
-		}
-
-		// Two different events can be fired here based on what EventType is passed into function
-		events.Default.Log(typeOfEvent, map[string]string{
-			"folder":     folderCfg.ID,
-			"folderID":   folderCfg.ID, // incorrect, deprecated, kept for historical compliance
-			"label":      folderCfg.Label,
-			"action":     action,
-			"type":       objType,
-			"path":       filepath.FromSlash(file.Name),
-			"modifiedBy": file.ModifiedBy.String(),
-		})
-	}
-}
-
 func (m *model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.conn[deviceID]
@@ -2276,36 +2183,30 @@ func (m *model) Override(folder string) {
 	// Grab the runner and the file set.
 
 	m.fmut.RLock()
-	fs, fsOK := m.folderFiles[folder]
-	runner, runnerOK := m.folderRunners[folder]
+	runner, ok := m.folderRunners[folder]
 	m.fmut.RUnlock()
-	if !fsOK || !runnerOK {
+	if !ok {
 		return
 	}
 
 	// Run the override, taking updates as if they came from scanning.
 
-	runner.Override(fs, func(files []protocol.FileInfo) {
-		m.updateLocalsFromScanning(folder, files)
-	})
+	runner.Override()
 }
 
 func (m *model) Revert(folder string) {
 	// Grab the runner and the file set.
 
 	m.fmut.RLock()
-	fs, fsOK := m.folderFiles[folder]
-	runner, runnerOK := m.folderRunners[folder]
+	runner, ok := m.folderRunners[folder]
 	m.fmut.RUnlock()
-	if !fsOK || !runnerOK {
+	if !ok {
 		return
 	}
 
 	// Run the revert, taking updates as if they came from scanning.
 
-	runner.Revert(fs, func(files []protocol.FileInfo) {
-		m.updateLocalsFromScanning(folder, files)
-	})
+	runner.Revert()
 }
 
 // CurrentSequence returns the change version for the given folder.

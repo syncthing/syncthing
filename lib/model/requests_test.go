@@ -448,7 +448,8 @@ func TestIssue4841(t *testing.T) {
 	fc.mut.Unlock()
 
 	// Setup file from remote that was ignored locally
-	m.updateLocals(defaultFolderConfig.ID, []protocol.FileInfo{{
+	folder := m.folderRunners[defaultFolderConfig.ID].(*sendReceiveFolder)
+	folder.updateLocals([]protocol.FileInfo{{
 		Name:       "foo",
 		Type:       protocol.FileInfoTypeFile,
 		LocalFlags: protocol.FlagLocalIgnored,
