@@ -144,12 +144,14 @@ func (f *folder) Serve() {
 			default:
 			}
 
+			startTime := time.Now()
 			if !f.puller.pull() {
 				// Pulling failed, try again later.
-				pullFailTimer.Reset(pause)
+				pause = f.resetPullFailTimer(pullFailTimer, pause, time.Since(startTime))
 			}
 
 		case <-pullFailTimer.C:
+			startTime := time.Now()
 			if f.puller.pull() {
 				// We're good. Don't schedule another fail pull and reset
 				// the pause interval.
@@ -158,12 +160,7 @@ func (f *folder) Serve() {
 			}
 
 			// Pulling failed, try again later.
-			l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), pause)
-			pullFailTimer.Reset(pause)
-			// Back off from retrying to pull with an upper limit.
-			if pause < 60*f.basePause() {
-				pause *= 2
-			}
+			pause = f.resetPullFailTimer(pullFailTimer, pause, time.Since(startTime))
 
 		case <-initialCompleted:
 			// Initial scan has completed, we should do a pull
@@ -696,6 +693,22 @@ func (f *folder) basePause() time.Duration {
 		return defaultPullerPause
 	}
 	return time.Duration(f.PullerPauseS) * time.Second
+}
+
+// resetPullFailTimer reschedules pull retrying with increasingly longer pauses
+// between tries (with lower limit based on pull duration and fix upper limit).
+func (f *folder) resetPullFailTimer(timer *time.Timer, pause, pullDur time.Duration) time.Duration {
+	max := 60 * f.basePause()
+	// Pause at least as long as the time the previous (failed) pull took
+	for pullDur > pause && pause < max {
+		pause *= 2
+	}
+	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), pause)
+	timer.Reset(pause)
+	if pause > max {
+		return pause
+	}
+	return 2 * pause
 }
 
 func (f *folder) String() string {
