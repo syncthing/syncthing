@@ -566,3 +566,9 @@ func TestRel(t *testing.T) {
 		}
 	}
 }
+
+func TestBasicWalkSkipSymlink(t *testing.T) {
+	_, dir := setup(t)
+	defer os.RemoveAll(dir)
+	testWalkSkipSymlink(t, FilesystemTypeBasic, dir)
+}
