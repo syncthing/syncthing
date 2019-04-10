@@ -1476,22 +1476,22 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, size in
 		// The folder might be already unpaused in the config, but not yet
 		// in the model.
 		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID, name, folder)
-		return nil, protocol.ErrInvalid
+		return nil, protocol.ErrGeneric
 	}
 
 	if !folderCfg.SharedWith(deviceID) {
 		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
-		return nil, protocol.ErrNoSuchFile
+		return nil, protocol.ErrGeneric
 	}
 	if folderCfg.Paused {
 		l.Debugf("Request from %s for file %s in paused folder %q", deviceID, name, folder)
-		return nil, protocol.ErrInvalid
+		return nil, protocol.ErrGeneric
 	}
 
 	// Make sure the path is valid and in canonical form
 	if name, err = fs.Canonicalize(name); err != nil {
 		l.Debugf("Request from %s in folder %q for invalid filename %s", deviceID, folder, name)
-		return nil, protocol.ErrInvalid
+		return nil, protocol.ErrGeneric
 	}
 
 	if deviceID != protocol.LocalDeviceID {
@@ -1500,12 +1500,12 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, size in
 
 	if fs.IsInternal(name) {
 		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
-		return nil, protocol.ErrNoSuchFile
+		return nil, protocol.ErrInvalid
 	}
 
 	if folderIgnores.Match(name).IsIgnored() {
 		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
-		return nil, protocol.ErrNoSuchFile
+		return nil, protocol.ErrInvalid
 	}
 
 	folderFs := folderCfg.Filesystem()
