@@ -132,6 +132,23 @@ func (f *folder) Serve() {
 
 	initialCompleted := f.initialScanFinished
 
+	pull := func() {
+		startTime := time.Now()
+		if f.puller.pull() {
+			// We're good. Don't schedule another pull and reset
+			// the pause interval.
+			pause = f.basePause()
+			return
+		}
+		// Pulling failed, try again later.
+		delay := pause + time.Since(startTime)
+		l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), delay)
+		pullFailTimer.Reset(delay)
+		if pause < 60*f.basePause() {
+			pause *= 2
+		}
+	}
+
 	for {
 		select {
 		case <-f.ctx.Done():
@@ -143,27 +160,10 @@ func (f *folder) Serve() {
 			case <-pullFailTimer.C:
 			default:
 			}
-
-			if !f.puller.pull() {
-				// Pulling failed, try again later.
-				pullFailTimer.Reset(pause)
-			}
+			pull()
 
 		case <-pullFailTimer.C:
-			if f.puller.pull() {
-				// We're good. Don't schedule another fail pull and reset
-				// the pause interval.
-				pause = f.basePause()
-				continue
-			}
-
-			// Pulling failed, try again later.
-			l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), pause)
-			pullFailTimer.Reset(pause)
-			// Back off from retrying to pull with an upper limit.
-			if pause < 60*f.basePause() {
-				pause *= 2
-			}
+			pull()
 
 		case <-initialCompleted:
 			// Initial scan has completed, we should do a pull
