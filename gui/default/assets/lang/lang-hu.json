@@ -295,6 +295,7 @@
     "Syncing": "Szinkronizálás",
     "Syncthing has been shut down.": "Syncthing leállítva",
     "Syncthing includes the following software or portions thereof:": "A Syncthing a következő programokat, vagy komponenseket tartalmazza.",
+    "Syncthing is Free and Open Source Software licensed as MPL v2.0.": "A Syncthing szabad és nyílt forráskódú szoftver MPL v2.0 licenccel.",
     "Syncthing is restarting.": "Syncthing újraindul",
     "Syncthing is upgrading.": "Syncthing frissül",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Úgy tűnik, hogy a Syncthing nem működik, vagy valami probléma van a hálózati kapcsolattal. Újra próbálom...",

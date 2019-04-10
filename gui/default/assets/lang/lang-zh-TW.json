@@ -295,6 +295,7 @@
     "Syncing": "正在同步",
     "Syncthing has been shut down.": "Syncthing 已經關閉。",
     "Syncthing includes the following software or portions thereof:": "Syncthing 包括以下軟體或其中的一部分：",
+    "Syncthing is Free and Open Source Software licensed as MPL v2.0.": "Syncthing is Free and Open Source Software licensed as MPL v2.0.",
     "Syncthing is restarting.": "Syncthing 正在重新啟動。",
     "Syncthing is upgrading.": "Syncthing 正在進行升級。",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing 似乎離線了，或者您的網際網路連線出現問題。正在重試...",

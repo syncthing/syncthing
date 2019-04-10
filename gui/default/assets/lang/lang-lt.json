@@ -295,6 +295,7 @@
     "Syncing": "Sutapatinama",
     "Syncthing has been shut down.": "Syncthing išjungtas",
     "Syncthing includes the following software or portions thereof:": "Syncthing naudoja šias programas ar jų dalis:",
+    "Syncthing is Free and Open Source Software licensed as MPL v2.0.": "Syncthing yra laisva ir atvirojo kodo programinė įranga, licencijuota pagal MPL v2.0.",
     "Syncthing is restarting.": "Syncthing perleidžiamas",
     "Syncthing is upgrading.": "Syncthing atsinaujina.",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing  išjungta arba problemos su Interneto ryšių. Bandoma iš naujo...",

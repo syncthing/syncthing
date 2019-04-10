@@ -295,6 +295,7 @@
     "Syncing": "Synchronisation en cours",
     "Syncthing has been shut down.": "Syncthing a été arrêté.",
     "Syncthing includes the following software or portions thereof:": "Syncthing intègre les logiciels suivants (ou des éléments provenant de ces logiciels) :",
+    "Syncthing is Free and Open Source Software licensed as MPL v2.0.": "Syncthing est un logiciel Libre et Open Source sous licence MPL v2.0.",
     "Syncthing is restarting.": "Syncthing redémarre.",
     "Syncthing is upgrading.": "Syncthing se met à jour.",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing semble être arrêté, ou il y a un problème avec votre connexion Internet. Nouvelle tentative ...",
