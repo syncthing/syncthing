@@ -1747,7 +1747,7 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 		return
 	}
 
-	l.Infof("Puller (folder %s, file %q): %v", f.Description(), path, err)
+	l.Infof("Puller (folder %s, item %q): %v", f.Description(), path, err)
 
 	// Establish context to differentiate from errors while scanning.
 	// Use "syncing" as opposed to "pulling" as the latter might be used
