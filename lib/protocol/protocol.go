@@ -184,8 +184,9 @@ type rawConnection struct {
 
 	outbox        chan asyncMessage
 	closed        chan struct{}
+	readerStopped chan struct{}
+	writerStopped chan struct{}
 	closeOnce     sync.Once
-	sendCloseOnce sync.Once
 	compression   Compression
 }
 
@@ -220,15 +221,17 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	cw := &countingWriter{Writer: writer}
 
 	c := rawConnection{
-		id:          deviceID,
-		name:        name,
-		receiver:    nativeModel{receiver},
-		cr:          cr,
-		cw:          cw,
-		awaiting:    make(map[int32]chan asyncResult),
-		outbox:      make(chan asyncMessage),
-		closed:      make(chan struct{}),
-		compression: compress,
+		id:            deviceID,
+		name:          name,
+		receiver:      nativeModel{receiver},
+		cr:            cr,
+		cw:            cw,
+		awaiting:      make(map[int32]chan asyncResult),
+		outbox:        make(chan asyncMessage),
+		closed:        make(chan struct{}),
+		readerStopped: make(chan struct{}),
+		writerStopped: make(chan struct{}),
+		compression:   compress,
 	}
 
 	return wireFormatConnection{&c}
@@ -238,8 +241,9 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
 	go func() {
-		err := c.readerLoop()
-		c.internalClose(err)
+		if err := c.readerLoop(); err != ErrClosed {
+			c.Close(err)
+		}
 	}()
 	go c.writerLoop()
 	go c.pingSender()
@@ -349,6 +353,7 @@ func (c *rawConnection) ping() bool {
 }
 
 func (c *rawConnection) readerLoop() (err error) {
+	defer close(c.readerStopped)
 	fourByteBuf := make([]byte, 4)
 	state := stateInitial
 	for {
@@ -640,6 +645,7 @@ func (c *rawConnection) send(msg message, done chan struct{}) bool {
 }
 
 func (c *rawConnection) writerLoop() {
+	defer close(c.writerStopped)
 	for {
 		select {
 		case hm := <-c.outbox:
@@ -813,42 +819,48 @@ func (c *rawConnection) shouldCompressMessage(msg message) bool {
 	}
 }
 
-// Close is called when the connection is regularely closed and thus the Close
-// BEP message is sent before terminating the actual connection. The error
-// argument specifies the reason for closing the connection.
+// Close is called when the connection is closed while (presumably) still working
+// and thus the Close BEP message is sent before terminating the actual
+// connection. The error argument specifies the reason for closing the connection.
 func (c *rawConnection) Close(err error) {
-	c.sendCloseOnce.Do(func() {
-		done := make(chan struct{})
-		c.send(&Close{err.Error()}, done)
-		select {
-		case <-done:
-		case <-c.closed:
-		}
-	})
+	c.closeOnce.Do(func() {
+		c.stopAndCleanup(err)
 
-	// No more sends are necessary, therefore further steps to close the
-	// connection outside of this package can proceed immediately.
-	// And this prevents a potential deadlock due to calling c.receiver.Closed
-	go c.internalClose(err)
+		done := make(chan struct{})
+		c.writeMessage(asyncMessage{&Close{err.Error()}, done})
+		<-done
+
+		// No more sends are necessary, therefore further steps to close the
+		// connection outside of this package can proceed immediately.
+		// And this prevents a potential deadlock due to calling c.receiver.Closed
+		go c.receiver.Closed(c, err)
+	})
 }
 
-// internalClose is called if there is an unexpected error during normal operation.
+// internalClose is called if there is an error and sending doesn't work anymore
 func (c *rawConnection) internalClose(err error) {
 	c.closeOnce.Do(func() {
-		l.Debugln("close due to", err)
-		close(c.closed)
-
-		c.awaitingMut.Lock()
-		for i, ch := range c.awaiting {
-			if ch != nil {
-				close(ch)
-				delete(c.awaiting, i)
-			}
-		}
-		c.awaitingMut.Unlock()
+		c.stopAndCleanup(err)
 
 		c.receiver.Closed(c, err)
 	})
+}
+
+// stopAndCleanup must only be hold from within c.closeOnce
+func (c *rawConnection) stopAndCleanup(err error) {
+	l.Debugln("close due to", err)
+	close(c.closed)
+	<-c.readerStopped
+	<-c.writerStopped
+
+	c.awaitingMut.Lock()
+	for i, ch := range c.awaiting {
+		if ch != nil {
+			close(ch)
+			delete(c.awaiting, i)
+		}
+	}
+	c.awaitingMut.Unlock()
 }
 
 // The pingSender makes sure that we've sent a message within the last
