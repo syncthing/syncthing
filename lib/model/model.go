@@ -1774,7 +1774,12 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 		return
 	}
 
+	// Is needed while holding pmut, but acquires fmut, so has to be done
+	// outside of pmut.
+	cm := m.generateClusterConfig(deviceID)
+
 	m.pmut.Lock()
+	defer m.pmut.Unlock()
 	if oldConn, ok := m.conn[deviceID]; ok {
 		l.Infoln("Replacing old connection", oldConn, "with", conn, "for", deviceID)
 		// There is an existing connection to this device that we are
@@ -1820,10 +1825,7 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
 
 	conn.Start()
-	m.pmut.Unlock()
 
-	// Acquires fmut, so has to be done outside of pmut.
-	cm := m.generateClusterConfig(deviceID)
 	conn.ClusterConfig(cm)
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
