@@ -184,9 +184,9 @@ type rawConnection struct {
 
 	outbox        chan asyncMessage
 	closed        chan struct{}
+	closeMut      sync.Mutex
 	readerStopped chan struct{}
 	writerStopped chan struct{}
-	closeOnce     sync.Once
 	compression   Compression
 }
 
@@ -357,10 +357,8 @@ func (c *rawConnection) readerLoop() (err error) {
 	fourByteBuf := make([]byte, 4)
 	state := stateInitial
 	for {
-		select {
-		case <-c.closed:
+		if c.Closed() {
 			return ErrClosed
-		default:
 		}
 
 		msg, err := c.readMessage(fourByteBuf)
@@ -654,7 +652,7 @@ func (c *rawConnection) writerLoop() {
 				close(hm.done)
 			}
 			if err != nil {
-				c.internalClose(err)
+				c.closeWithoutSend(err)
 				return
 			}
 
@@ -823,33 +821,26 @@ func (c *rawConnection) shouldCompressMessage(msg message) bool {
 // and thus the Close BEP message is sent before terminating the actual
 // connection. The error argument specifies the reason for closing the connection.
 func (c *rawConnection) Close(err error) {
-	c.closeOnce.Do(func() {
-		c.stopAndCleanup(err)
-
-		done := make(chan struct{})
-		c.writeMessage(asyncMessage{&Close{err.Error()}, done})
-		<-done
-
-		// No more sends are necessary, therefore further steps to close the
-		// connection outside of this package can proceed immediately.
-		// And this prevents a potential deadlock due to calling c.receiver.Closed
-		go c.receiver.Closed(c, err)
-	})
+	c.close(err, true)
 }
 
-// internalClose is called if there is an error and sending doesn't work anymore
-func (c *rawConnection) internalClose(err error) {
-	c.closeOnce.Do(func() {
-		c.stopAndCleanup(err)
-
-		c.receiver.Closed(c, err)
-	})
+// closeWithoutSend is called if there is an error and sending doesn't work anymore.
+func (c *rawConnection) closeWithoutSend(err error) {
+	c.close(err, false)
 }
 
-// stopAndCleanup must only be hold from within c.closeOnce
-func (c *rawConnection) stopAndCleanup(err error) {
+// close should not be called directly, but through Close and closeWithoutSend.
+func (c *rawConnection) close(err error, send bool) {
+	c.closeMut.Lock()
+	select {
+	case <-c.closed:
+		c.closeMut.Unlock()
+		return
+	default:
+	}
 	l.Debugln("close due to", err)
 	close(c.closed)
+	c.closeMut.Unlock()
 	<-c.readerStopped
 	<-c.writerStopped
 
@@ -861,6 +852,17 @@ func (c *rawConnection) stopAndCleanup(err error) {
 		}
 	}
 	c.awaitingMut.Unlock()
+
+	if send {
+		done := make(chan struct{})
+		c.writeMessage(asyncMessage{&Close{err.Error()}, done})
+		<-done
+	}
+
+	// No more sends are necessary, therefore further steps to close the
+	// connection outside of this package can proceed immediately.
+	// And this prevents a potential deadlock due to calling c.receiver.Closed
+	go c.receiver.Closed(c, err)
 }
 
 // The pingSender makes sure that we've sent a message within the last
@@ -903,7 +905,7 @@ func (c *rawConnection) pingReceiver() {
 			d := time.Since(c.cr.Last())
 			if d > ReceiveTimeout {
 				l.Debugln(c.id, "ping timeout", d)
-				c.internalClose(ErrTimeout)
+				c.closeWithoutSend(ErrTimeout)
 			}
 
 			l.Debugln(c.id, "last read within", d)
