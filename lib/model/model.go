@@ -154,7 +154,7 @@ type model struct {
 
 	pmut                sync.RWMutex // protects the below
 	conn                map[protocol.DeviceID]connections.Connection
-	connReady           map[protocol.DeviceID]struct{} // Whether
+	connReady           map[protocol.DeviceID]struct{} // Whether cluster-config was sent and thus conn is ready for requests etc
 	connRequestLimiters map[protocol.DeviceID]*byteSemaphore
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.HelloResult
@@ -1846,7 +1846,6 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 		l.Debugf("Connection to %s at %s was closed while sending cluster-config, don't mark as active", deviceID, conn.Name())
 		return
 	}
-
 	m.connReady[deviceID] = struct{}{}
 }
 
@@ -2006,7 +2005,7 @@ func (m *model) requestGlobal(deviceID protocol.DeviceID, folder, name string, o
 		return nil, fmt.Errorf("requestGlobal: no such device: %s", deviceID)
 	}
 	if !ready {
-		return nil, fmt.Errorf("requestGlobal: connection to device not ready (outstanding cluster-config): %s", deviceID)
+		return nil, fmt.Errorf("requestGlobal: connection to device not ready (waiting for sent cluster-config): %s", deviceID)
 	}
 
 	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, offset, size, hash, weakHash, fromTemporary)
@@ -2652,7 +2651,7 @@ func (m *model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folde
 		return errors.New("device is not connected")
 	}
 	if _, ok := m.connReady[device]; !ok {
-		return errors.New("did not receive cluster-config from device")
+		return errors.New("did not yet send cluster-config to device")
 	}
 
 	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(device) {
