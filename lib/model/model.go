@@ -1766,6 +1766,7 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
+// Must not be called concurrently.
 func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloResult) {
 	deviceID := conn.ID()
 	device, ok := m.cfg.Device(deviceID)
@@ -1774,26 +1775,36 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 		return
 	}
 
-	// Is needed while holding pmut, but acquires fmut, so has to be done
-	// outside of pmut.
-	cm := m.generateClusterConfig(deviceID)
-
 	m.pmut.Lock()
-	defer m.pmut.Unlock()
-	if oldConn, ok := m.conn[deviceID]; ok {
+	oldConn, ok := m.conn[deviceID]
+	closed := m.closed[deviceID]
+	m.pmut.Unlock()
+	if ok {
 		l.Infoln("Replacing old connection", oldConn, "with", conn, "for", deviceID)
 		// There is an existing connection to this device that we are
 		// replacing. We must close the existing connection and wait for the
 		// close to complete before adding the new connection. We do the
 		// actual close without holding pmut as the connection will call
 		// back into Closed() for the cleanup.
-		closed := m.closed[deviceID]
-		m.pmut.Unlock()
 		oldConn.Close(errReplacingConnection)
 		<-closed
-		m.pmut.Lock()
 	}
 
+	conn.Start()
+
+	// Acquires fmut, so has to be done outside of pmut. Also must be done
+	// before making the connection available in model, to ensure
+	// cluster-config is the first message sent.
+	cm := m.generateClusterConfig(deviceID)
+	conn.ClusterConfig(cm)
+
+	if conn.Closed() {
+		l.Debugf("Connection to %s at %s was closed while adding it to the model, aborting.", deviceID, conn.Name())
+		return
+	}
+
+	m.pmut.Lock()
+	defer m.pmut.Unlock()
 	m.conn[deviceID] = conn
 	m.closed[deviceID] = make(chan struct{})
 	m.deviceDownloads[deviceID] = newDeviceDownloadState()
@@ -1823,10 +1834,6 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	events.Default.Log(events.DeviceConnected, event)
 
 	l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
-
-	conn.Start()
-
-	conn.ClusterConfig(cm)
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
 		device.Name = hello.DeviceName
