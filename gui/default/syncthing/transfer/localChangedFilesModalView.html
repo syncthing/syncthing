@@ -10,14 +10,14 @@
           <th translate>Size</th>
         </tr>
       </thead>
-      <tr dir-paginate="file in localChanged.files | itemsPerPage: localChanged.perpage" current-page="localChanged.page" total-items="model[localChanged.folder].receiveOnlyTotalItems" pagination-id="localChanged">
+      <tr dir-paginate="file in localChanged.files | itemsPerPage: localChanged.perpage" current-page="localChanged.page" total-items="model[localChangedFolder].receiveOnlyTotalItems" pagination-id="localChanged">
         <td>{{file.name}}</td>
         <td><span ng-hide="file.type == 'DIRECTORY'">{{file.size | binary}}B</span></td>
       </tr>
     </table>
     <dir-pagination-controls on-page-change="refreshLocalChanged(newPageNumber, localChanged.perpage)" pagination-id="localChanged"></dir-pagination-controls>
     <ul class="pagination pull-right">
-      <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: localChanged.page == option }">
+      <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: localChanged.perpage == option }">
         <a href="#" ng-click="refreshLocalChanged(localChanged.page, option)">{{option}}</a>
       </li>
     </ul>

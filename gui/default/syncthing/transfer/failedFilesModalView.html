@@ -12,7 +12,7 @@
     </table>
     <dir-pagination-controls on-page-change="refreshFailed(newPageNumber, failed.perpage)" pagination-id="failed"></dir-pagination-controls>
     <ul class="pagination pull-right">
-      <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: failed.page == option }">
+      <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: failed.perpage == option }">
         <a href="#" ng-click="refreshFailed(failed.page, option)">{{option}}</a>
       </li>
     </ul>
