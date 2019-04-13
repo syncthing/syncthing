@@ -218,9 +218,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		fmut:                sync.NewRWMutex(),
 		pmut:                sync.NewRWMutex(),
 	}
-	if cfg.Options().ProgressUpdateIntervalS > -1 {
-		m.Add(m.progressEmitter)
-	}
+	m.Add(m.progressEmitter)
 	scanLimiter.setCapacity(cfg.Options().MaxConcurrentScans)
 	cfg.Subscribe(m)
 

@@ -1201,9 +1201,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			continue
 		}
 
-		if f.model.progressEmitter != nil {
-			f.model.progressEmitter.Register(state.sharedPullerState)
-		}
+		f.model.progressEmitter.Register(state.sharedPullerState)
 
 		folderFilesystems := make(map[string]fs.Filesystem)
 		var folders []string
@@ -1550,9 +1548,7 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 				blockStatsMut.Unlock()
 			}
 
-			if f.model.progressEmitter != nil {
-				f.model.progressEmitter.Deregister(state)
-			}
+			f.model.progressEmitter.Deregister(state)
 
 			events.Default.Log(events.ItemFinished, map[string]interface{}{
 				"folder": f.folderID,
