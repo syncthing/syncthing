@@ -154,7 +154,6 @@ type model struct {
 
 	pmut                sync.RWMutex // protects the below
 	conn                map[protocol.DeviceID]connections.Connection
-	connReady           map[protocol.DeviceID]struct{} // Whether cluster-config was sent and thus conn is ready for requests etc
 	connRequestLimiters map[protocol.DeviceID]*byteSemaphore
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.HelloResult
@@ -211,7 +210,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		folderRunners:       make(map[string]service),
 		folderRunnerTokens:  make(map[string][]suture.ServiceToken),
 		conn:                make(map[protocol.DeviceID]connections.Connection),
-		connReady:           make(map[protocol.DeviceID]struct{}),
 		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.HelloResult),
@@ -1400,7 +1398,6 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 		m.progressEmitter.temporaryIndexUnsubscribe(conn)
 	}
 	delete(m.conn, device)
-	delete(m.connReady, device)
 	delete(m.connRequestLimiters, device)
 	delete(m.helloMessages, device)
 	delete(m.deviceDownloads, device)
@@ -1769,7 +1766,6 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
-// Must not be called concurrently.
 func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloResult) {
 	deviceID := conn.ID()
 	device, ok := m.cfg.Device(deviceID)
@@ -1779,21 +1775,20 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	}
 
 	m.pmut.Lock()
-	oldConn, ok := m.conn[deviceID]
-	closed := m.closed[deviceID]
-	m.pmut.Unlock()
-	if ok {
+	if oldConn, ok := m.conn[deviceID]; ok {
 		l.Infoln("Replacing old connection", oldConn, "with", conn, "for", deviceID)
 		// There is an existing connection to this device that we are
 		// replacing. We must close the existing connection and wait for the
 		// close to complete before adding the new connection. We do the
 		// actual close without holding pmut as the connection will call
 		// back into Closed() for the cleanup.
+		closed := m.closed[deviceID]
+		m.pmut.Unlock()
 		oldConn.Close(errReplacingConnection)
 		<-closed
+		m.pmut.Lock()
 	}
 
-	m.pmut.Lock()
 	m.conn[deviceID] = conn
 	m.closed[deviceID] = make(chan struct{})
 	m.deviceDownloads[deviceID] = newDeviceDownloadState()
@@ -1825,6 +1820,11 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
 
 	conn.Start()
+	m.pmut.Unlock()
+
+	// Acquires fmut, so has to be done outside of pmut.
+	cm := m.generateClusterConfig(deviceID)
+	conn.ClusterConfig(cm)
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
 		device.Name = hello.DeviceName
@@ -1833,20 +1833,6 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	}
 
 	m.deviceWasSeen(deviceID)
-
-	m.pmut.Unlock()
-
-	// Acquires fmut, so has to be done outside of pmut.
-	cm := m.generateClusterConfig(deviceID)
-	conn.ClusterConfig(cm)
-
-	m.pmut.Lock()
-	defer m.pmut.Unlock()
-	if conn.Closed() {
-		l.Debugf("Connection to %s at %s was closed while sending cluster-config, don't mark as active", deviceID, conn.Name())
-		return
-	}
-	m.connReady[deviceID] = struct{}{}
 }
 
 func (m *model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) {
@@ -1998,14 +1984,10 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 func (m *model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.conn[deviceID]
-	_, ready := m.connReady[deviceID]
 	m.pmut.RUnlock()
 
 	if !ok {
 		return nil, fmt.Errorf("requestGlobal: no such device: %s", deviceID)
-	}
-	if !ready {
-		return nil, fmt.Errorf("requestGlobal: connection to device not ready (waiting for sent cluster-config): %s", deviceID)
 	}
 
 	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, offset, size, hash, weakHash, fromTemporary)
@@ -2486,7 +2468,8 @@ next:
 				continue next
 			}
 		}
-		if _, ok := m.connReady[device]; ok {
+		_, ok := m.conn[device]
+		if ok {
 			availabilities = append(availabilities, Availability{ID: device, FromTemporary: false})
 		}
 	}
@@ -2649,9 +2632,6 @@ func (m *model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folde
 
 	if _, ok := m.conn[device]; !ok {
 		return errors.New("device is not connected")
-	}
-	if _, ok := m.connReady[device]; !ok {
-		return errors.New("did not yet send cluster-config to device")
 	}
 
 	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(device) {
