@@ -186,6 +186,8 @@ type rawConnection struct {
 	closed        chan struct{}
 	closeOnce     sync.Once
 	sendCloseOnce sync.Once
+	readerStopped chan struct{}
+	writerStopped chan struct{}
 	compression   Compression
 }
 
@@ -220,15 +222,17 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	cw := &countingWriter{Writer: writer}
 
 	c := rawConnection{
-		id:          deviceID,
-		name:        name,
-		receiver:    nativeModel{receiver},
-		cr:          cr,
-		cw:          cw,
-		awaiting:    make(map[int32]chan asyncResult),
-		outbox:      make(chan asyncMessage),
-		closed:      make(chan struct{}),
-		compression: compress,
+		id:            deviceID,
+		name:          name,
+		receiver:      nativeModel{receiver},
+		cr:            cr,
+		cw:            cw,
+		awaiting:      make(map[int32]chan asyncResult),
+		outbox:        make(chan asyncMessage),
+		closed:        make(chan struct{}),
+		readerStopped: make(chan struct{}),
+		writerStopped: make(chan struct{}),
+		compression:   compress,
 	}
 
 	return wireFormatConnection{&c}
@@ -349,13 +353,12 @@ func (c *rawConnection) ping() bool {
 }
 
 func (c *rawConnection) readerLoop() (err error) {
+	defer close(c.readerStopped)
 	fourByteBuf := make([]byte, 4)
 	state := stateInitial
 	for {
-		select {
-		case <-c.closed:
+		if c.Closed() {
 			return ErrClosed
-		default:
 		}
 
 		msg, err := c.readMessage(fourByteBuf)
@@ -640,6 +643,7 @@ func (c *rawConnection) send(msg message, done chan struct{}) bool {
 }
 
 func (c *rawConnection) writerLoop() {
+	defer close(c.writerStopped)
 	for {
 		select {
 		case hm := <-c.outbox:
@@ -826,10 +830,7 @@ func (c *rawConnection) Close(err error) {
 		}
 	})
 
-	// No more sends are necessary, therefore further steps to close the
-	// connection outside of this package can proceed immediately.
-	// And this prevents a potential deadlock due to calling c.receiver.Closed
-	go c.internalClose(err)
+	c.internalClose(err)
 }
 
 // internalClose is called if there is an unexpected error during normal operation.
@@ -847,7 +848,15 @@ func (c *rawConnection) internalClose(err error) {
 		}
 		c.awaitingMut.Unlock()
 
-		c.receiver.Closed(c, err)
+		// Wait for all our operations to terminate before signaling
+		// to the receiver that the connection was closed.
+		<-c.readerStopped
+		<-c.writerStopped
+
+		// No more sends are necessary, therefore further steps to close the
+		// connection outside of this package can proceed immediately.
+		// And this prevents a potential deadlock due to calling c.receiver.Closed
+		go c.receiver.Closed(c, err)
 	})
 }
 
