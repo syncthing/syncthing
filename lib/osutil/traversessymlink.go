@@ -35,19 +35,21 @@ func (e NotADirectoryError) Error() string {
 // TraversesSymlink returns an error if any path component of name (including name
 // itself) traverses a symlink.
 func TraversesSymlink(filesystem fs.Filesystem, name string) error {
-	var err error
-	name, err = fs.Canonicalize(name)
-	if err != nil {
-		return err
-	}
+	return TraversesSymlinkSegment(filesystem, name, ".")
+}
 
+// TraversesSymlinkSegment returns an error if any path component of name below
+// parent (including name itself) traverses a symlink. Expects
+// `fs.IsParent(name, parent) == true`, otherwise behaviour is undefined.
+func TraversesSymlinkSegment(filesystem fs.Filesystem, name, parent string) error {
 	if name == "." {
 		// The result of calling TraversesSymlink(filesystem, filepath.Dir("foo"))
 		return nil
 	}
 
 	var path string
-	for _, part := range strings.Split(name, string(fs.PathSeparator)) {
+	rel, _ := filepath.Rel(parent, name)
+	for _, part := range strings.Split(rel, string(fs.PathSeparator)) {
 		path = filepath.Join(path, part)
 		info, err := filesystem.Lstat(path)
 		if err != nil {
