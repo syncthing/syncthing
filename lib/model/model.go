@@ -238,28 +238,27 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 // StartFolder constructs the folder service and starts it.
 func (m *model) StartFolder(folder string) {
 	m.fmut.Lock()
-	m.pmut.Lock()
-	folderType := m.startFolderLocked(folder)
+	defer m.fmut.Unlock()
 	folderCfg := m.folderCfgs[folder]
-	m.pmut.Unlock()
-	m.fmut.Unlock()
+	m.startFolderLocked(folderCfg)
 
-	l.Infof("Ready to synchronize %s (%s)", folderCfg.Description(), folderType)
+	l.Infof("Ready to synchronize %s (%s)", folderCfg.Description(), folderCfg.Type)
 }
 
-func (m *model) startFolderLocked(folder string) config.FolderType {
-	if err := m.checkFolderRunningLocked(folder); err == errFolderMissing {
-		panic("cannot start nonexistent folder " + folder)
+// Need to hold (read) lock on m.fmut when calling this.
+func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
+	if err := m.checkFolderRunningLocked(cfg.ID); err == errFolderMissing {
+		panic("cannot start nonexistent folder " + cfg.Description())
 	} else if err == nil {
-		panic("cannot start already running folder " + folder)
+		panic("cannot start already running folder " + cfg.Description())
 	}
-
-	cfg := m.folderCfgs[folder]
 
 	folderFactory, ok := folderFactories[cfg.Type]
 	if !ok {
 		panic(fmt.Sprintf("unknown folder type 0x%x", cfg.Type))
 	}
+
+	folder := cfg.ID
 
 	fset := m.folderFiles[folder]
 
@@ -274,9 +273,9 @@ func (m *model) startFolderLocked(folder string) config.FolderType {
 	}
 
 	// Close connections to affected devices
-	for _, id := range cfg.DeviceIDs() {
-		m.closeLocked(id, fmt.Errorf("started folder %v", cfg.Description()))
-	}
+	m.fmut.Unlock()
+	m.closeConnToDevices(cfg, fmt.Errorf("started folder %v", cfg.Description()))
+	m.fmut.Lock()
 
 	v, ok := fset.Sequence(protocol.LocalDeviceID), true
 	indexHasFiles := ok && v > 0
@@ -318,8 +317,6 @@ func (m *model) startFolderLocked(folder string) config.FolderType {
 
 	token := m.Add(p)
 	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
-
-	return cfg.Type
 }
 
 func (m *model) warnAboutOverwritingProtectedFiles(folder string) {
@@ -384,36 +381,33 @@ func (m *model) addFolderLocked(cfg config.FolderConfiguration) {
 
 func (m *model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
-	m.pmut.Lock()
+	defer m.fmut.Unlock()
+
 	// Delete syncthing specific files
 	cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
 
 	m.tearDownFolderLocked(cfg, fmt.Errorf("removing folder %v", cfg.Description()))
 	// Remove it from the database
 	db.DropFolder(m.db, cfg.ID)
-
-	m.pmut.Unlock()
-	m.fmut.Unlock()
 }
 
 func (m *model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) {
-	// Close connections to affected devices
-	// Must happen before stopping the folder service to abort ongoing
-	// transmissions and thus allow timely service termination.
-	for _, dev := range cfg.Devices {
-		m.closeLocked(dev.DeviceID, err)
-	}
-
 	// Stop the services running for this folder and wait for them to finish
 	// stopping to prevent races on restart.
 	tokens := m.folderRunnerTokens[cfg.ID]
-	m.pmut.Unlock()
+
 	m.fmut.Unlock()
+
+	// Close connections to affected devices
+	// Must happen before stopping the folder service to abort ongoing
+	// transmissions and thus allow timely service termination.
+	m.closeConnToDevices(cfg, err)
+
 	for _, id := range tokens {
 		m.RemoveAndWait(id, 0)
 	}
+
 	m.fmut.Lock()
-	m.pmut.Lock()
 
 	// Clean up our config maps
 	delete(m.folderCfgs, cfg.ID)
@@ -441,11 +435,6 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 	restartMut.Lock()
 	defer restartMut.Unlock()
 
-	m.fmut.Lock()
-	m.pmut.Lock()
-	defer m.fmut.Unlock()
-	defer m.pmut.Unlock()
-
 	var infoMsg string
 	var errMsg string
 	switch {
@@ -460,10 +449,13 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 		errMsg = "restarting"
 	}
 
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
+
 	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
 	if !to.Paused {
 		m.addFolderLocked(to)
-		m.startFolderLocked(to.ID)
+		m.startFolderLocked(to)
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
 }
@@ -1415,19 +1407,19 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 // close will close the underlying connection for a given device
 func (m *model) close(device protocol.DeviceID, err error) {
 	m.pmut.Lock()
-	m.closeLocked(device, err)
-	m.pmut.Unlock()
-}
-
-// closeLocked will close the underlying connection for a given device
-func (m *model) closeLocked(device protocol.DeviceID, err error) {
 	conn, ok := m.conn[device]
+	m.pmut.Unlock()
 	if !ok {
 		// There is no connection to close
 		return
 	}
-
 	conn.Close(err)
+}
+
+func (m *model) closeConnToDevices(fcfg config.FolderConfiguration, err error) {
+	for _, dev := range fcfg.DeviceIDs() {
+		m.close(dev, err)
+	}
 }
 
 // Implements protocol.RequestResponse
