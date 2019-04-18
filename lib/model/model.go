@@ -245,7 +245,7 @@ func (m *model) StartFolder(folder string) {
 	l.Infof("Ready to synchronize %s (%s)", folderCfg.Description(), folderCfg.Type)
 }
 
-// Need to hold (read) lock on m.fmut when calling this.
+// Need to hold lock on m.fmut when calling this.
 func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	if err := m.checkFolderRunningLocked(cfg.ID); err == errFolderMissing {
 		panic("cannot start nonexistent folder " + cfg.Description())
@@ -391,6 +391,7 @@ func (m *model) RemoveFolder(cfg config.FolderConfiguration) {
 	db.DropFolder(m.db, cfg.ID)
 }
 
+// Need to hold lock on m.fmut when calling this.
 func (m *model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) {
 	// Stop the services running for this folder and wait for them to finish
 	// stopping to prevent races on restart.
