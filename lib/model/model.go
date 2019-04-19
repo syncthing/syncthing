@@ -239,27 +239,27 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 func (m *model) StartFolder(folder string) {
 	m.fmut.Lock()
 	m.pmut.Lock()
-	folderType := m.startFolderLocked(folder)
 	folderCfg := m.folderCfgs[folder]
+	m.startFolderLocked(folderCfg)
 	m.pmut.Unlock()
 	m.fmut.Unlock()
 
-	l.Infof("Ready to synchronize %s (%s)", folderCfg.Description(), folderType)
+	l.Infof("Ready to synchronize %s (%s)", folderCfg.Description(), folderCfg.Type)
 }
 
-func (m *model) startFolderLocked(folder string) config.FolderType {
-	if err := m.checkFolderRunningLocked(folder); err == errFolderMissing {
-		panic("cannot start nonexistent folder " + folder)
+func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
+	if err := m.checkFolderRunningLocked(cfg.ID); err == errFolderMissing {
+		panic("cannot start nonexistent folder " + cfg.Description())
 	} else if err == nil {
-		panic("cannot start already running folder " + folder)
+		panic("cannot start already running folder " + cfg.Description())
 	}
-
-	cfg := m.folderCfgs[folder]
 
 	folderFactory, ok := folderFactories[cfg.Type]
 	if !ok {
 		panic(fmt.Sprintf("unknown folder type 0x%x", cfg.Type))
 	}
+
+	folder := cfg.ID
 
 	fset := m.folderFiles[folder]
 
@@ -318,8 +318,6 @@ func (m *model) startFolderLocked(folder string) config.FolderType {
 
 	token := m.Add(p)
 	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
-
-	return cfg.Type
 }
 
 func (m *model) warnAboutOverwritingProtectedFiles(folder string) {
@@ -385,15 +383,15 @@ func (m *model) addFolderLocked(cfg config.FolderConfiguration) {
 func (m *model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
 	m.pmut.Lock()
+	defer m.fmut.Unlock()
+	defer m.pmut.Unlock()
+
 	// Delete syncthing specific files
 	cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
 
 	m.tearDownFolderLocked(cfg, fmt.Errorf("removing folder %v", cfg.Description()))
 	// Remove it from the database
 	db.DropFolder(m.db, cfg.ID)
-
-	m.pmut.Unlock()
-	m.fmut.Unlock()
 }
 
 func (m *model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) {
@@ -463,7 +461,7 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
 	if !to.Paused {
 		m.addFolderLocked(to)
-		m.startFolderLocked(to.ID)
+		m.startFolderLocked(to)
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
 }
@@ -484,12 +482,12 @@ func (m *model) UsageReportingStats(version int, preview bool) map[string]interf
 		stats["blockStats"] = copyBlockStats
 
 		// Transport stats
-		m.pmut.Lock()
+		m.pmut.RLock()
 		transportStats := make(map[string]int)
 		for _, conn := range m.conn {
 			transportStats[conn.Transport()]++
 		}
-		m.pmut.Unlock()
+		m.pmut.RUnlock()
 		stats["transportStats"] = transportStats
 
 		// Ignore stats
@@ -927,14 +925,13 @@ func (m *model) LocalChangedFiles(folder string, page, perpage int) []db.FileInf
 func (m *model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
 	m.fmut.RLock()
 	m.pmut.RLock()
-	if err := m.checkDeviceFolderConnectedLocked(device, folder); err != nil {
-		m.pmut.RUnlock()
-		m.fmut.RUnlock()
-		return nil, err
-	}
+	err := m.checkDeviceFolderConnectedLocked(device, folder)
 	rf := m.folderFiles[folder]
 	m.pmut.RUnlock()
 	m.fmut.RUnlock()
+	if err != nil {
+		return nil, err
+	}
 
 	files := make([]db.FileInfoTruncated, 0, perpage)
 	skip := (page - 1) * perpage
