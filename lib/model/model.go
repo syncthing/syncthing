@@ -477,12 +477,12 @@ func (m *model) UsageReportingStats(version int, preview bool) map[string]interf
 		stats["blockStats"] = copyBlockStats
 
 		// Transport stats
-		m.pmut.Lock()
+		m.pmut.RLock()
 		transportStats := make(map[string]int)
 		for _, conn := range m.conn {
 			transportStats[conn.Transport()]++
 		}
-		m.pmut.Unlock()
+		m.pmut.RUnlock()
 		stats["transportStats"] = transportStats
 
 		// Ignore stats
@@ -920,14 +920,13 @@ func (m *model) LocalChangedFiles(folder string, page, perpage int) []db.FileInf
 func (m *model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
 	m.fmut.RLock()
 	m.pmut.RLock()
-	if err := m.checkDeviceFolderConnectedLocked(device, folder); err != nil {
-		m.pmut.RUnlock()
-		m.fmut.RUnlock()
-		return nil, err
-	}
+	err := m.checkDeviceFolderConnectedLocked(device, folder)
 	rf := m.folderFiles[folder]
 	m.pmut.RUnlock()
 	m.fmut.RUnlock()
+	if err != nil {
+		return nil, err
+	}
 
 	files := make([]db.FileInfoTruncated, 0, perpage)
 	skip := (page - 1) * perpage

@@ -124,6 +124,18 @@ table.table-condensed td.no-overflow-ellipse {
     white-space: normal;
 }
 
+table.table-auto {
+	table-layout: auto;
+}
+
+table.table-auto th {
+	width: 1px;
+}
+
+table.table-auto td {
+    max-width: 0px;
+}
+
 .folder-advanced {
     padding: 1rem;
     margin-bottom: 15px;

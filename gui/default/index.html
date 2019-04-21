@@ -337,7 +337,7 @@
             </button>
             <div id="folder-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
-                <table class="table table-condensed table-striped">
+                <table class="table table-condensed table-striped table-auto">
                   <tbody>
                     <tr ng-show="folder.label != undefined && folder.label.length > 0">
                       <th><span class="fas fa-fw fa-info-circle"></span>&nbsp;<span translate>Folder ID</span></th>
@@ -551,7 +551,7 @@
           </button>
           <div id="device-this" class="panel-collapse collapse in">
             <div class="panel-body">
-              <table class="table table-condensed table-striped">
+              <table class="table table-condensed table-striped table-auto">
                 <tbody>
                   <tr>
                     <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Download Rate</span></th>
@@ -667,7 +667,7 @@
             </button>
             <div id="device-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
-                <table class="table table-condensed table-striped">
+                <table class="table table-condensed table-striped table-auto">
                   <tbody>
                     <tr ng-if="connections[deviceCfg.deviceID].connected">
                       <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Download Rate</span></th>
