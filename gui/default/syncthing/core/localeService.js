@@ -8,7 +8,6 @@ angular.module('syncthing.core')
                 var uid = new Date();
                 var storage = window.localStorage;
                 storage.setItem(uid, uid);
-                var success = storage.getItem(uid) == uid;
                 storage.removeItem(uid);
                 return storage;
             } catch (exception) {
