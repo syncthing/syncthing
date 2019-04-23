@@ -479,7 +479,7 @@ angular.module('syncthing.core')
                 $scope.completion[device]._needItems = 0;
             } else {
                 $scope.completion[device]._total = Math.floor(100 * (1 - needed / total));
-                $scope.completion[device]._needBytes = needed
+                $scope.completion[device]._needBytes = needed;
                 $scope.completion[device]._needItems = items + deletes;
             }
 
@@ -1172,7 +1172,7 @@ angular.module('syncthing.core')
                     }
                 });
             }
-        }
+        };
 
         $scope.editSettings = function () {
             // Make a working copy
@@ -1253,7 +1253,7 @@ angular.module('syncthing.core')
             var ignoredFoldersEquals = angular.equals($scope.config.devices, $scope.tmpDevices);
             console.log("settings equals - options: " + optionsEqual + " gui: " + guiEquals + " ignDev: " + ignoredDevicesEquals + " ignFol: " + ignoredFoldersEquals);
             return !optionsEqual || !guiEquals || !ignoredDevicesEquals || !ignoredFoldersEquals;
-        }
+        };
 
         $scope.saveSettings = function () {
             // Make sure something changed
@@ -1534,7 +1534,7 @@ angular.module('syncthing.core')
 
         $scope.thisDevice = function () {
             return $scope.thisDeviceIn($scope.devices);
-        }
+        };
 
         $scope.thisDeviceIn = function (l) {
             for (var i = 0; i < l.length; i++) {
@@ -1573,7 +1573,7 @@ angular.module('syncthing.core')
                 }
             });
             return errs;
-        }
+        };
 
         $scope.friendlyDevices = function (str) {
             for (var i = 0; i < $scope.devices.length; i++) {
@@ -1888,7 +1888,7 @@ angular.module('syncthing.core')
             }
             var label = $scope.folders[folderID].label;
             return label && label.length > 0 ? label : folderID;
-        }
+        };
 
         $scope.deleteFolder = function (id) {
             $('#editFolder').modal('hide');
