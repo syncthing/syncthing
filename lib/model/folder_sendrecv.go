@@ -581,7 +581,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, f.fs, curFile.Name)
 		} else {
-			err = f.deleteItemOnDisk(file, scanChan)
+			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
 		if err != nil {
 			f.newPullError(file.Name, err)
@@ -737,7 +737,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, f.fs, curFile.Name)
 		} else {
-			err = f.deleteItemOnDisk(file, scanChan)
+			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
 		if err != nil {
 			f.newPullError(file.Name, errors.Wrap(err, "symlink remove"))
