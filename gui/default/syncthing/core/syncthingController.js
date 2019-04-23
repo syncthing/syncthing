@@ -357,7 +357,7 @@ angular.module('syncthing.core')
                         recalcLocalStateTotal();
                         console.log("refreshFolder", folder, data);
                     }).error($scope.emitHTTPError);
-                }, 1000, true);
+                }, 1000);
             }
             debouncedFuncs[key]();
         }
