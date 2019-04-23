@@ -19,7 +19,7 @@ import (
 )
 
 var locationLocal *time.Location
-var errNotAFile = fmt.Errorf("not a file")
+var errDirectory = fmt.Errorf("cannot restore on top of a directory")
 var errNotFound = fmt.Errorf("version not found")
 var errFileAlreadyExists = fmt.Errorf("file already exists")
 
@@ -95,8 +95,6 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 			return nil
 		}
 
-		// Strip prefix.
-		path = strings.TrimPrefix(path, string(fs.PathSeparator))
 		path = osutil.NormalizedFilename(path)
 
 		name, tag := UntagFilename(path)
@@ -189,12 +187,22 @@ func archiveFile(srcFs, dstFs fs.Filesystem, filePath string, tagger fileTagger)
 
 func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time, tagger fileTagger) error {
 	// If the something already exists where we are restoring to, archive existing file for versioning
-	// Or fail if it's not a file
+	// remove if it's a symlink, or fail if it's a directory
 	if info, err := dst.Lstat(filePath); err == nil {
-		if !info.IsRegular() {
-			return errors.Wrap(errNotAFile, "archiving existing file")
-		} else if err := archiveFile(dst, src, filePath, tagger); err != nil {
-			return errors.Wrap(err, "archiving existing file")
+		switch {
+		case info.IsDir():
+			return errDirectory
+		case info.IsSymlink():
+			// Remove existing symlinks (as we don't want to archive them)
+			if err := dst.Remove(filePath); err != nil {
+				return errors.Wrap(err, "removing existing symlink")
+			}
+		case info.IsRegular():
+			if err := archiveFile(dst, src, filePath, tagger); err != nil {
+				return errors.Wrap(err, "archiving existing file")
+			}
+		default:
+			panic("bug: unknown item type")
 		}
 	} else if !fs.IsNotExist(err) {
 		return err
