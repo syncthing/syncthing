@@ -179,7 +179,7 @@ function buildTree(children) {
                     key: keySoFar.join('/'),
                     folder: true,
                     children: []
-                }
+                };
                 parent.children.push(child);
                 parent = child;
             }
@@ -209,7 +209,7 @@ function unitPrefixed(input, binary) {
     var i = '';
     if (binary) {
         factor = 1024;
-        i = 'i'
+        i = 'i';
     }
     if (input > factor * factor * factor * factor * 1000) {
         // Don't show any decimals for more than 4 digits
