@@ -3350,7 +3350,7 @@ func TestVersionRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != "archiving existing file: not a file" {
+	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != "cannot restore on top of a directory" {
 		t.Fatalf("incorrect error or count: %d %s", len(ferr), ferr)
 	}
 
