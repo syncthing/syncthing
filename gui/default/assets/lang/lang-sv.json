@@ -1,5 +1,5 @@
 {
-    "A device with that ID is already added.": "En enhet med det ID är redan tillagt.",
+    "A device with that ID is already added.": "En enhet med det ID:t är redan tillagt.",
     "A negative number of days doesn't make sense.": "Ett negativt antal dagar är inte rimligt.",
     "A new major version may not be compatible with previous versions.": "En ny huvudversion kan eventuellt vara inkompatibel med tidigare versioner.",
     "API Key": "API-nyckel",
@@ -55,7 +55,7 @@
     "Copied from elsewhere": "Kopierat från annanstans",
     "Copied from original": "Kopierat från original",
     "Copyright © 2014-2016 the following Contributors:": "Copyright © 2014-2016 följande bidragare:",
-    "Copyright © 2014-2017 the following Contributors:": "Copyright © 2014-2017 följande bidragande:",
+    "Copyright © 2014-2017 the following Contributors:": "Copyright © 2014-2017 följande bidragsgivare:",
     "Copyright © 2014-2019 the following Contributors:": "Copyright © 2014-2019 följande bidragsgivare:",
     "Creating ignore patterns, overwriting an existing file at {%path%}.": "Skapa ignorera mönster, skriver över en existerande fil på {{path}}.",
     "Danger!": "Fara!",
