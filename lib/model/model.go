@@ -274,7 +274,7 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 
 	// Close connections to affected devices
 	m.fmut.Unlock()
-	m.closeConnToDevices(cfg, fmt.Errorf("started folder %v", cfg.Description()))
+	m.closeConns(cfg.DeviceIDs(), fmt.Errorf("started folder %v", cfg.Description()))
 	m.fmut.Lock()
 
 	v, ok := fset.Sequence(protocol.LocalDeviceID), true
@@ -402,7 +402,7 @@ func (m *model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) 
 	// Close connections to affected devices
 	// Must happen before stopping the folder service to abort ongoing
 	// transmissions and thus allow timely service termination.
-	m.closeConnToDevices(cfg, err)
+	m.closeConns(cfg.DeviceIDs(), err)
 
 	for _, id := range tokens {
 		m.RemoveAndWait(id, 0)
@@ -1404,22 +1404,23 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	close(closed)
 }
 
-// close will close the underlying connection for a given device
-func (m *model) close(device protocol.DeviceID, err error) {
+// closeConns will close the underlying connection for given devices
+func (m *model) closeConns(devs []protocol.DeviceID, err error) {
+	conns := make([]connections.Connection, 0, len(devs))
 	m.pmut.Lock()
-	conn, ok := m.conn[device]
-	m.pmut.Unlock()
-	if !ok {
-		// There is no connection to close
-		return
+	for _, dev := range devs {
+		if conn, ok := m.conn[dev]; ok {
+			conns = append(conns, conn)
+		}
 	}
-	conn.Close(err)
+	m.pmut.Unlock()
+	for _, conn := range conns {
+		conn.Close(err)
+	}
 }
 
-func (m *model) closeConnToDevices(fcfg config.FolderConfiguration, err error) {
-	for _, dev := range fcfg.DeviceIDs() {
-		m.close(dev, err)
-	}
+func (m *model) closeConn(dev protocol.DeviceID, err error) {
+	m.closeConns([]protocol.DeviceID{dev}, err)
 }
 
 // Implements protocol.RequestResponse
@@ -2564,12 +2565,12 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 		// Ignored folder was removed, reconnect to retrigger the prompt.
 		if len(fromCfg.IgnoredFolders) > len(toCfg.IgnoredFolders) {
-			m.close(deviceID, errIgnoredFolderRemoved)
+			m.closeConn(deviceID, errIgnoredFolderRemoved)
 		}
 
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
-			m.close(deviceID, errDevicePaused)
+			m.closeConn(deviceID, errDevicePaused)
 			events.Default.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
 			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
