@@ -23,7 +23,6 @@ angular.module('syncthing.core')
 
                 svg.appendChild(rect);
             };
-            var rect;
             var row;
             var col;
             var middleCol;

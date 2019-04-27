@@ -530,7 +530,7 @@ func (w *walker) handleError(ctx context.Context, context, path string, err erro
 	if fs.IsNotExist(err) {
 		return
 	}
-	l.Infof("Scanner (folder %s, file %q): %s: %v", w.Folder, path, context, err)
+	l.Infof("Scanner (folder %s, item %q): %s: %v", w.Folder, path, context, err)
 	select {
 	case finishedChan <- ScanResult{
 		Err:  fmt.Errorf("%s: %s", context, err.Error()),

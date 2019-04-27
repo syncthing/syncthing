@@ -78,11 +78,25 @@ func WindowsInvalidFilename(name string) bool {
 	return strings.ContainsAny(name, windowsDisallowedCharacters)
 }
 
+// IsParent compares paths purely lexicographically, meaning it returns false
+// if path and parent aren't both absolute or relative.
 func IsParent(path, parent string) bool {
-	if len(parent) == 0 {
+	if parent == path {
+		// Twice the same root on windows would not be caught at the end.
+		return false
+	}
+	if filepath.IsAbs(path) != filepath.IsAbs(parent) {
+		return false
+	}
+	if parent == "" || parent == "." {
 		// The empty string is the parent of everything except the empty
-		// string. (Avoids panic in the next step.)
-		return len(path) > 0
+		// string and ".". (Avoids panic in the last step.)
+		return path != "" && path != "."
+	}
+	if parent == "/" {
+		// The root is the parent of everything except itself, which would
+		// not be caught below.
+		return path != "/"
 	}
 	if parent[len(parent)-1] != PathSeparator {
 		parent += string(PathSeparator)

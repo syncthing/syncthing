@@ -581,7 +581,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, f.fs, curFile.Name)
 		} else {
-			err = f.deleteItemOnDisk(file, scanChan)
+			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
 		if err != nil {
 			f.newPullError(file.Name, err)
@@ -737,7 +737,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, f.fs, curFile.Name)
 		} else {
-			err = f.deleteItemOnDisk(file, scanChan)
+			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
 		if err != nil {
 			f.newPullError(file.Name, errors.Wrap(err, "symlink remove"))
@@ -1747,7 +1747,7 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 		return
 	}
 
-	l.Infof("Puller (folder %s, file %q): %v", f.Description(), path, err)
+	l.Infof("Puller (folder %s, item %q): %v", f.Description(), path, err)
 
 	// Establish context to differentiate from errors while scanning.
 	// Use "syncing" as opposed to "pulling" as the latter might be used
