@@ -941,13 +941,13 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 	if f.versioner != nil {
 		err = f.CheckAvailableSpace(source.Size)
 		if err == nil {
-			err = osutil.Copy(f.fs, source.Name, tempName)
+			err = osutil.Copy(f.fs, f.fs, source.Name, tempName)
 			if err == nil {
 				err = osutil.InWritableDir(f.versioner.Archive, f.fs, source.Name)
 			}
 		}
 	} else {
-		err = osutil.TryRename(f.fs, source.Name, tempName)
+		err = osutil.RenameOrCopy(f.fs, f.fs, source.Name, tempName)
 	}
 	if err != nil {
 		return err
@@ -1510,7 +1510,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 
 	// Replace the original content with the new one. If it didn't work,
 	// leave the temp file in place for reuse.
-	if err := osutil.TryRename(f.fs, tempName, file.Name); err != nil {
+	if err := osutil.RenameOrCopy(f.fs, f.fs, tempName, file.Name); err != nil {
 		return err
 	}
 

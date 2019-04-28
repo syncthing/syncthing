@@ -103,3 +103,55 @@ func IsParent(path, parent string) bool {
 	}
 	return strings.HasPrefix(path, parent)
 }
+
+func CommonPrefix(first, second string) string {
+	if filepath.IsAbs(first) != filepath.IsAbs(second) {
+		// Whatever
+		return ""
+	}
+
+	firstParts := strings.Split(filepath.Clean(first), string(PathSeparator))
+	secondParts := strings.Split(filepath.Clean(second), string(PathSeparator))
+
+	isAbs := filepath.IsAbs(first) && filepath.IsAbs(second)
+
+	count := len(firstParts)
+	if len(secondParts) < len(firstParts) {
+		count = len(secondParts)
+	}
+
+	common := make([]string, 0, count)
+	for i := 0; i < count; i++ {
+		if firstParts[i] != secondParts[i] {
+			break
+		}
+		common = append(common, firstParts[i])
+	}
+
+	if isAbs {
+		if runtime.GOOS == "windows" && isVolumeNameOnly(common) {
+			// Because strings.Split strips out path separators, if we're at the volume name, we end up without a separator
+			// Wedge an empty element to be joined with.
+			common = append(common, "")
+		} else if len(common) == 1 {
+			// If isAbs on non Windows, first element in both first and second is "", hence joining that returns nothing.
+			return string(PathSeparator)
+		}
+	}
+
+	// This should only be true on Windows when drive letters are different or when paths are relative.
+	// In case of UNC paths we should end up with more than a single element hence joining is fine
+	if len(common) == 0 {
+		return ""
+	}
+
+	// This has to be strings.Join, because filepath.Join([]string{"", "", "?", "C:", "Audrius"}...) returns garbage
+	result := strings.Join(common, string(PathSeparator))
+	return filepath.Clean(result)
+}
+
+func isVolumeNameOnly(parts []string) bool {
+	isNormalVolumeName := len(parts) == 1 && strings.HasSuffix(parts[0], ":")
+	isUNCVolumeName := len(parts) == 4 && strings.HasSuffix(parts[3], ":")
+	return isNormalVolumeName || isUNCVolumeName
+}

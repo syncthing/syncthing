@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
 
@@ -102,4 +103,12 @@ func (v External) Archive(filePath string) error {
 		return nil
 	}
 	return errors.New("Versioner: file was not removed by external script")
+}
+
+func (v External) GetVersions() (map[string][]FileVersion, error) {
+	return nil, ErrRestorationNotSupported
+}
+
+func (v External) Restore(filePath string, versionTime time.Time) error {
+	return ErrRestorationNotSupported
 }

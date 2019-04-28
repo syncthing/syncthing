@@ -3151,8 +3151,8 @@ func TestVersionRestore(t *testing.T) {
 		".stversions/dir/file~20171210-040406.txt",
 		".stversions/very/very/deep/one~20171210-040406.txt", // lives deep down, no directory exists.
 		".stversions/dir/existing~20171210-040406.txt",       // exists, should expect to be archived.
-		".stversions/dir/file.txt~20171210-040405",           // incorrect tag format, ignored.
-		".stversions/dir/cat",                                // incorrect tag format, ignored.
+		".stversions/dir/file.txt~20171210-040405",           // old tag format, supported
+		".stversions/dir/cat",                                // untagged which was used by trashcan, supported
 
 		// "file.txt" will be restored
 		"existing",
@@ -3182,9 +3182,10 @@ func TestVersionRestore(t *testing.T) {
 		"file.txt":               1,
 		"existing":               1,
 		"something":              1,
-		"dir/file.txt":           3,
+		"dir/file.txt":           4,
 		"dir/existing.txt":       1,
 		"very/very/deep/one.txt": 1,
+		"dir/cat":                1,
 	}
 
 	for name, vers := range versions {
@@ -3229,7 +3230,7 @@ func TestVersionRestore(t *testing.T) {
 	ferr, err := m.RestoreFolderVersions("default", restore)
 	must(t, err)
 
-	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != "cannot replace a non-file" {
+	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != "cannot restore on top of a directory" {
 		t.Fatalf("incorrect error or count: %d %s", len(ferr), ferr)
 	}
 

@@ -75,3 +75,87 @@ func TestTrashcanCleanout(t *testing.T) {
 		t.Error("empty directory should have been removed")
 	}
 }
+
+func TestTrashcanArchiveRestoreSwitcharoo(t *testing.T) {
+	// This tests that trashcan versioner restoration correctly archives existing file, because trashcan versioner
+	// files are untagged, archiving existing file to replace with a restored version technically should collide in
+	// in names.
+	tmpDir1, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tmpDir2, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	folderFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir1)
+	versionsFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir2)
+
+	writeFile(t, folderFs, "file", "A")
+
+	versioner := NewTrashcan("", folderFs, map[string]string{
+		"fsType": "basic",
+		"fsPath": tmpDir2,
+	})
+
+	if err := versioner.Archive("file"); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := folderFs.Stat("file"); !fs.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	versionInfo, err := versionsFs.Stat("file")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if content := readFile(t, versionsFs, "file"); content != "A" {
+		t.Errorf("expected A got %s", content)
+	}
+
+	writeFile(t, folderFs, "file", "B")
+
+	if err := versioner.Restore("file", versionInfo.ModTime().Truncate(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+
+	if content := readFile(t, folderFs, "file"); content != "A" {
+		t.Errorf("expected A got %s", content)
+	}
+
+	if content := readFile(t, versionsFs, "file"); content != "B" {
+		t.Errorf("expected B got %s", content)
+	}
+}
+
+func readFile(t *testing.T, filesystem fs.Filesystem, name string) string {
+	fd, err := filesystem.Open(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fd.Close()
+	buf, err := ioutil.ReadAll(fd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(buf)
+}
+
+func writeFile(t *testing.T, filesystem fs.Filesystem, name, content string) {
+	fd, err := filesystem.OpenFile(name, fs.OptReadWrite|fs.OptCreate, 0777)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fd.Close()
+	if err := fd.Truncate(int64(len(content))); err != nil {
+		t.Fatal(err)
+	}
+
+	if n, err := fd.Write([]byte(content)); err != nil || n != len(content) {
+		t.Fatal(n, len(content), err)
+	}
+}

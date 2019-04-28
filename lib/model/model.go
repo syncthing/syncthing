@@ -2310,58 +2310,12 @@ func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVer
 		return nil, errFolderMissing
 	}
 
-	files := make(map[string][]versioner.FileVersion)
-
-	filesystem := fcfg.Filesystem()
-	err := filesystem.Walk(".stversions", func(path string, f fs.FileInfo, err error) error {
-		// Skip root (which is ok to be a symlink)
-		if path == ".stversions" {
-			return nil
-		}
-
-		// Skip walking if we cannot walk...
-		if err != nil {
-			return err
-		}
-
-		// Ignore symlinks
-		if f.IsSymlink() {
-			return fs.SkipDir
-		}
-
-		// No records for directories
-		if f.IsDir() {
-			return nil
-		}
-
-		// Strip .stversions prefix.
-		path = strings.TrimPrefix(path, ".stversions"+string(fs.PathSeparator))
-
-		name, tag := versioner.UntagFilename(path)
-		// Something invalid
-		if name == "" || tag == "" {
-			return nil
-		}
-
-		name = osutil.NormalizedFilename(name)
-
-		versionTime, err := time.ParseInLocation(versioner.TimeFormat, tag, locationLocal)
-		if err != nil {
-			return nil
-		}
-
-		files[name] = append(files[name], versioner.FileVersion{
-			VersionTime: versionTime.Truncate(time.Second),
-			ModTime:     f.ModTime().Truncate(time.Second),
-			Size:        f.Size(),
-		})
-		return nil
-	})
-	if err != nil {
-		return nil, err
+	ver := fcfg.Versioner()
+	if ver == nil {
+		return nil, errors.New("no versioner configured")
 	}
 
-	return files, nil
+	return ver.GetVersions()
 }
 
 func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error) {
@@ -2370,69 +2324,22 @@ func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 		return nil, errFolderMissing
 	}
 
-	filesystem := fcfg.Filesystem()
 	ver := fcfg.Versioner()
 
-	restore := make(map[string]string)
-	errors := make(map[string]string)
+	restoreErrors := make(map[string]string)
 
-	// Validation
 	for file, version := range versions {
-		file = osutil.NativeFilename(file)
-		tag := version.In(locationLocal).Truncate(time.Second).Format(versioner.TimeFormat)
-		versionedTaggedFilename := filepath.Join(".stversions", versioner.TagFilename(file, tag))
-		// Check that the thing we've been asked to restore is actually a file
-		// and that it exists.
-		if info, err := filesystem.Lstat(versionedTaggedFilename); err != nil {
-			errors[file] = err.Error()
-			continue
-		} else if !info.IsRegular() {
-			errors[file] = "not a file"
-			continue
-		}
-
-		// Check that the target location of where we are supposed to restore
-		// either does not exist, or is actually a file.
-		if info, err := filesystem.Lstat(file); err == nil && !info.IsRegular() {
-			errors[file] = "cannot replace a non-file"
-			continue
-		} else if err != nil && !fs.IsNotExist(err) {
-			errors[file] = err.Error()
-			continue
-		}
-
-		restore[file] = versionedTaggedFilename
-	}
-
-	// Execution
-	var err error
-	for target, source := range restore {
-		err = nil
-		if _, serr := filesystem.Lstat(target); serr == nil {
-			if ver != nil {
-				err = osutil.InWritableDir(ver.Archive, filesystem, target)
-			} else {
-				err = osutil.InWritableDir(filesystem.Remove, filesystem, target)
-			}
-		}
-
-		filesystem.MkdirAll(filepath.Dir(target), 0755)
-		if err == nil {
-			err = osutil.Copy(filesystem, source, target)
-		}
-
-		if err != nil {
-			errors[target] = err.Error()
-			continue
+		if err := ver.Restore(file, version); err != nil {
+			restoreErrors[file] = err.Error()
 		}
 	}
 
 	// Trigger scan
 	if !fcfg.FSWatcherEnabled {
-		m.ScanFolder(folder)
+		go func() { _ = m.ScanFolder(folder) }()
 	}
 
-	return errors, nil
+	return restoreErrors, nil
 }
 
 func (m *model) Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
