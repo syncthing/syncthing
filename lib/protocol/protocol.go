@@ -187,6 +187,7 @@ type rawConnection struct {
 	closed            chan struct{}
 	closeOnce         sync.Once
 	sendCloseOnce     sync.Once
+	wg                sync.WaitGroup
 	compression       Compression
 }
 
@@ -239,6 +240,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
+	c.wg.Add(4)
 	go func() {
 		err := c.readerLoop()
 		c.internalClose(err)
@@ -362,13 +364,12 @@ func (c *rawConnection) ping() bool {
 }
 
 func (c *rawConnection) readerLoop() (err error) {
+	defer c.wg.Done()
 	fourByteBuf := make([]byte, 4)
 	state := stateInitial
 	for {
-		select {
-		case <-c.closed:
+		if c.Closed() {
 			return ErrClosed
-		default:
 		}
 
 		msg, err := c.readMessage(fourByteBuf)
@@ -660,6 +661,7 @@ func (c *rawConnection) send(msg message, done chan struct{}) bool {
 }
 
 func (c *rawConnection) writerLoop() {
+	defer c.wg.Done()
 	for {
 		select {
 		case hm := <-c.outbox:
@@ -846,10 +848,7 @@ func (c *rawConnection) Close(err error) {
 		}
 	})
 
-	// No more sends are necessary, therefore further steps to close the
-	// connection outside of this package can proceed immediately.
-	// And this prevents a potential deadlock due to calling c.receiver.Closed
-	go c.internalClose(err)
+	c.internalClose(err)
 }
 
 // internalClose is called if there is an unexpected error during normal operation.
@@ -867,7 +866,14 @@ func (c *rawConnection) internalClose(err error) {
 		}
 		c.awaitingMut.Unlock()
 
-		c.receiver.Closed(c, err)
+		// Wait for all our operations to terminate before signaling
+		// to the receiver that the connection was closed.
+		c.wg.Wait()
+
+		// No more sends are necessary, therefore further steps to close the
+		// connection outside of this package can proceed immediately.
+		// And this prevents a potential deadlock.
+		go c.receiver.Closed(c, err)
 	})
 }
 
@@ -877,6 +883,8 @@ func (c *rawConnection) internalClose(err error) {
 // results in an effecting ping interval of somewhere between
 // PingSendInterval/2 and PingSendInterval.
 func (c *rawConnection) pingSender() {
+	defer c.wg.Done()
+
 	ticker := time.NewTicker(PingSendInterval / 2)
 	defer ticker.Stop()
 
@@ -902,6 +910,8 @@ func (c *rawConnection) pingSender() {
 // but we expect pings in the absence of other messages) within the last
 // ReceiveTimeout. If not, we close the connection with an ErrTimeout.
 func (c *rawConnection) pingReceiver() {
+	defer c.wg.Done()
+
 	ticker := time.NewTicker(ReceiveTimeout / 2)
 	defer ticker.Stop()
 

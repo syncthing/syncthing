@@ -238,15 +238,14 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 // StartFolder constructs the folder service and starts it.
 func (m *model) StartFolder(folder string) {
 	m.fmut.Lock()
-	m.pmut.Lock()
+	defer m.fmut.Unlock()
 	folderCfg := m.folderCfgs[folder]
 	m.startFolderLocked(folderCfg)
-	m.pmut.Unlock()
-	m.fmut.Unlock()
 
 	l.Infof("Ready to synchronize %s (%s)", folderCfg.Description(), folderCfg.Type)
 }
 
+// Need to hold lock on m.fmut when calling this.
 func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	if err := m.checkFolderRunningLocked(cfg.ID); err == errFolderMissing {
 		panic("cannot start nonexistent folder " + cfg.Description())
@@ -274,9 +273,9 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	}
 
 	// Close connections to affected devices
-	for _, id := range cfg.DeviceIDs() {
-		m.closeLocked(id, fmt.Errorf("started folder %v", cfg.Description()))
-	}
+	m.fmut.Unlock()
+	m.closeConns(cfg.DeviceIDs(), fmt.Errorf("started folder %v", cfg.Description()))
+	m.fmut.Lock()
 
 	v, ok := fset.Sequence(protocol.LocalDeviceID), true
 	indexHasFiles := ok && v > 0
@@ -382,9 +381,7 @@ func (m *model) addFolderLocked(cfg config.FolderConfiguration) {
 
 func (m *model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
-	m.pmut.Lock()
 	defer m.fmut.Unlock()
-	defer m.pmut.Unlock()
 
 	// Delete syncthing specific files
 	cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
@@ -394,24 +391,24 @@ func (m *model) RemoveFolder(cfg config.FolderConfiguration) {
 	db.DropFolder(m.db, cfg.ID)
 }
 
+// Need to hold lock on m.fmut when calling this.
 func (m *model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) {
-	// Close connections to affected devices
-	// Must happen before stopping the folder service to abort ongoing
-	// transmissions and thus allow timely service termination.
-	for _, dev := range cfg.Devices {
-		m.closeLocked(dev.DeviceID, err)
-	}
-
 	// Stop the services running for this folder and wait for them to finish
 	// stopping to prevent races on restart.
 	tokens := m.folderRunnerTokens[cfg.ID]
-	m.pmut.Unlock()
+
 	m.fmut.Unlock()
+
+	// Close connections to affected devices
+	// Must happen before stopping the folder service to abort ongoing
+	// transmissions and thus allow timely service termination.
+	m.closeConns(cfg.DeviceIDs(), err)
+
 	for _, id := range tokens {
 		m.RemoveAndWait(id, 0)
 	}
+
 	m.fmut.Lock()
-	m.pmut.Lock()
 
 	// Clean up our config maps
 	delete(m.folderCfgs, cfg.ID)
@@ -439,11 +436,6 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 	restartMut.Lock()
 	defer restartMut.Unlock()
 
-	m.fmut.Lock()
-	m.pmut.Lock()
-	defer m.fmut.Unlock()
-	defer m.pmut.Unlock()
-
 	var infoMsg string
 	var errMsg string
 	switch {
@@ -457,6 +449,9 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 		infoMsg = "Restarted"
 		errMsg = "restarting"
 	}
+
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
 
 	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
 	if !to.Paused {
@@ -1409,22 +1404,23 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	close(closed)
 }
 
-// close will close the underlying connection for a given device
-func (m *model) close(device protocol.DeviceID, err error) {
+// closeConns will close the underlying connection for given devices
+func (m *model) closeConns(devs []protocol.DeviceID, err error) {
+	conns := make([]connections.Connection, 0, len(devs))
 	m.pmut.Lock()
-	m.closeLocked(device, err)
+	for _, dev := range devs {
+		if conn, ok := m.conn[dev]; ok {
+			conns = append(conns, conn)
+		}
+	}
 	m.pmut.Unlock()
+	for _, conn := range conns {
+		conn.Close(err)
+	}
 }
 
-// closeLocked will close the underlying connection for a given device
-func (m *model) closeLocked(device protocol.DeviceID, err error) {
-	conn, ok := m.conn[device]
-	if !ok {
-		// There is no connection to close
-		return
-	}
-
-	conn.Close(err)
+func (m *model) closeConn(dev protocol.DeviceID, err error) {
+	m.closeConns([]protocol.DeviceID{dev}, err)
 }
 
 // Implements protocol.RequestResponse
@@ -2569,12 +2565,12 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 		// Ignored folder was removed, reconnect to retrigger the prompt.
 		if len(fromCfg.IgnoredFolders) > len(toCfg.IgnoredFolders) {
-			m.close(deviceID, errIgnoredFolderRemoved)
+			m.closeConn(deviceID, errIgnoredFolderRemoved)
 		}
 
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
-			m.close(deviceID, errDevicePaused)
+			m.closeConn(deviceID, errDevicePaused)
 			events.Default.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
 			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
