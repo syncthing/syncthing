@@ -186,7 +186,7 @@ func (b *batch) checkFlush() {
 }
 
 func (b *batch) flush() {
-	if err := b.db.Write(b.Batch, nil); err != nil {
+	if err := b.db.Write(b.Batch, nil); err != nil && err != leveldb.ErrClosed {
 		panic(err)
 	}
 }
