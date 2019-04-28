@@ -195,7 +195,10 @@ func setupModel(w config.Wrapper) *model {
 
 func TestRequest(t *testing.T) {
 	m := setupModel(defaultCfgWrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	// Existing, shared file
 	res, err := m.Request(device1, "default", "foo", 6, 0, nil, 0, false)
@@ -264,7 +267,10 @@ func BenchmarkIndex_100(b *testing.B) {
 
 func benchmarkIndex(b *testing.B, nfiles int) {
 	m := setupModel(defaultCfgWrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	files := genFiles(nfiles)
 	m.Index(device1, "default", files)
@@ -290,7 +296,10 @@ func BenchmarkIndexUpdate_10000_1(b *testing.B) {
 
 func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	m := setupModel(defaultCfgWrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	files := genFiles(nfiles)
 	ufiles := genFiles(nufiles)
@@ -498,7 +507,10 @@ func (f *fakeConnection) sendIndexUpdate() {
 
 func BenchmarkRequestOut(b *testing.B) {
 	m := setupModel(defaultCfgWrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	const n = 1000
 	files := genFiles(n)
@@ -574,7 +586,10 @@ func TestDeviceRename(t *testing.T) {
 	m.AddConnection(conn, hello)
 
 	m.ServeBackground()
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	if cfg.Devices()[device1].Name != "" {
 		t.Errorf("Device already has a name")
@@ -666,7 +681,10 @@ func TestClusterConfig(t *testing.T) {
 	m.AddFolder(cfg.Folders[0])
 	m.AddFolder(cfg.Folders[1])
 	m.ServeBackground()
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	cm := m.generateClusterConfig(device2)
 
@@ -1150,7 +1168,10 @@ func TestIssue5063(t *testing.T) {
 			os.RemoveAll(id)
 		}
 	}()
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	finished := make(chan struct{})
 	go func() {
@@ -1328,6 +1349,7 @@ func TestAutoAcceptMultipleFolders(t *testing.T) {
 	id2 := srand.String(8)
 	defer os.RemoveAll(id2)
 	defer m.Stop()
+	defer m.db.Close()
 	m.ClusterConfig(device1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
@@ -1365,6 +1387,7 @@ func TestAutoAcceptExistingFolder(t *testing.T) {
 	wcfg, m := newState(tcfg)
 	defer os.Remove(wcfg.ConfigPath())
 	defer m.Stop()
+	defer m.db.Close()
 	if fcfg, ok := wcfg.Folder(id); !ok || fcfg.SharedWith(device1) {
 		t.Error("missing folder, or shared", id)
 	}
@@ -1399,6 +1422,7 @@ func TestAutoAcceptNewAndExistingFolder(t *testing.T) {
 	wcfg, m := newState(tcfg)
 	defer os.Remove(wcfg.ConfigPath())
 	defer m.Stop()
+	defer m.db.Close()
 	if fcfg, ok := wcfg.Folder(id1); !ok || fcfg.SharedWith(device1) {
 		t.Error("missing folder, or shared", id1)
 	}
@@ -1441,6 +1465,7 @@ func TestAutoAcceptAlreadyShared(t *testing.T) {
 	wcfg, m := newState(tcfg)
 	defer os.Remove(wcfg.ConfigPath())
 	defer m.Stop()
+	defer m.db.Close()
 	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
@@ -1470,6 +1495,7 @@ func TestAutoAcceptNameConflict(t *testing.T) {
 	wcfg, m := newState(defaultAutoAcceptCfg)
 	defer os.Remove(wcfg.ConfigPath())
 	defer m.Stop()
+	defer m.db.Close()
 	m.ClusterConfig(device1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
@@ -1492,6 +1518,7 @@ func TestAutoAcceptPrefersLabel(t *testing.T) {
 	defer os.RemoveAll(id)
 	defer os.RemoveAll(label)
 	defer m.Stop()
+	defer m.db.Close()
 	m.ClusterConfig(device1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
@@ -1518,6 +1545,7 @@ func TestAutoAcceptFallsBackToID(t *testing.T) {
 	defer os.RemoveAll(label)
 	defer os.RemoveAll(id)
 	defer m.Stop()
+	defer m.db.Close()
 	m.ClusterConfig(device1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
@@ -1551,6 +1579,7 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 	wcfg, m := newState(tcfg)
 	defer os.Remove(wcfg.ConfigPath())
 	defer m.Stop()
+	defer m.db.Close()
 	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
@@ -1609,6 +1638,7 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 	wcfg, m := newState(tcfg)
 	defer os.Remove(wcfg.ConfigPath())
 	defer m.Stop()
+	defer m.db.Close()
 	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
@@ -1713,7 +1743,10 @@ func TestIgnores(t *testing.T) {
 	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
 
 	m := setupModel(defaultCfgWrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
@@ -1817,7 +1850,10 @@ func TestROScanRecovery(t *testing.T) {
 	m.AddFolder(fcfg)
 	m.StartFolder("default")
 	m.ServeBackground()
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	waitForState(t, m, "default", "folder path missing")
 
@@ -1871,7 +1907,10 @@ func TestRWScanRecovery(t *testing.T) {
 	m.AddFolder(fcfg)
 	m.StartFolder("default")
 	m.ServeBackground()
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	waitForState(t, m, "default", "folder path missing")
 
@@ -1898,7 +1937,10 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		typ := protocol.FileInfoTypeDirectory
@@ -2390,7 +2432,10 @@ func TestIssue4357(t *testing.T) {
 	defer os.Remove(wrapper.ConfigPath())
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	// Force the model to wire itself and add the folders
 	p, err := wrapper.Replace(cfg)
@@ -2539,7 +2584,10 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	defer os.Remove(wcfg.ConfigPath())
 
 	m := setupModel(wcfg)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	conn1 := &fakeConnection{id: device1}
 	m.AddConnection(conn1, protocol.HelloResult{})
@@ -2647,7 +2695,10 @@ func TestIssue3496(t *testing.T) {
 	// checks on the completion calculation stuff.
 
 	m := setupModel(defaultCfgWrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	m.ScanFolder("default")
 
@@ -2716,7 +2767,10 @@ func TestIssue3496(t *testing.T) {
 
 func TestIssue3804(t *testing.T) {
 	m := setupModel(defaultCfgWrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	// Subdirs ending in slash should be accepted
 
@@ -2727,7 +2781,10 @@ func TestIssue3804(t *testing.T) {
 
 func TestIssue3829(t *testing.T) {
 	m := setupModel(defaultCfgWrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	// Empty subdirs should be accepted
 
@@ -2747,7 +2804,10 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	defer os.Remove(wcfg.ConfigPath())
 
 	m := setupModel(wcfg)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	file := testDataExpected["foo"]
 	files := m.folderFiles["default"]
@@ -2982,7 +3042,10 @@ func TestCustomMarkerName(t *testing.T) {
 	m.AddFolder(fcfg)
 	m.StartFolder("default")
 	m.ServeBackground()
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	waitForState(t, m, "default", "folder path missing")
 
@@ -3005,7 +3068,10 @@ func TestRemoveDirWithContent(t *testing.T) {
 	fd.Close()
 
 	m := setupModel(defaultCfgWrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	dir, ok := m.CurrentFolderFile("default", "dirwith")
 	if !ok {
@@ -3314,7 +3380,10 @@ func TestPausedFolders(t *testing.T) {
 	defer os.Remove(wrapper.ConfigPath())
 
 	m := setupModel(wrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	if err := m.ScanFolder("default"); err != nil {
 		t.Error(err)
@@ -3344,7 +3413,10 @@ func TestIssue4094(t *testing.T) {
 	defer os.Remove(wrapper.ConfigPath())
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	// Force the model to wire itself and add the folders
 	folderPath := "nonexistent"
@@ -3381,7 +3453,10 @@ func TestIssue4903(t *testing.T) {
 	defer os.Remove(wrapper.ConfigPath())
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	// Force the model to wire itself and add the folders
 	folderPath := "nonexistent"
@@ -3413,7 +3488,10 @@ func TestIssue5002(t *testing.T) {
 	// recheckFile should not panic when given an index equal to the number of blocks
 
 	m := setupModel(defaultCfgWrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	if err := m.ScanFolder("default"); err != nil {
 		t.Error(err)
@@ -3476,7 +3554,10 @@ func TestFolderRestartZombies(t *testing.T) {
 	wrapper.SetFolder(folderCfg)
 
 	m := setupModel(wrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	// Make sure the folder is up and running, because we want to count it.
 	m.ScanFolder("default")
@@ -3566,7 +3647,10 @@ func TestRequestLimit(t *testing.T) {
 	dev.MaxRequestKiB = 1
 	wrapper.SetDevice(dev)
 	m, _ := setupModelWithConnectionFromWrapper(wrapper)
-	defer m.Stop()
+	defer func() {
+		m.Stop()
+		m.db.Close()
+	}()
 
 	file := "tmpfile"
 	befReq := time.Now()

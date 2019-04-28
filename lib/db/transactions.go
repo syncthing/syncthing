@@ -14,17 +14,13 @@ import (
 
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
-	*leveldb.Snapshot
+	snapshot
 	keyer keyer
 }
 
 func (db *instance) newReadOnlyTransaction() readOnlyTransaction {
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
 	return readOnlyTransaction{
-		Snapshot: snap,
+		snapshot: db.GetSnapshot(),
 		keyer:    db.keyer,
 	}
 }

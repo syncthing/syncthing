@@ -928,6 +928,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	code := exit.waitForExit()
 
 	mainService.Stop()
+	ldb.Close()
 
 	l.Infoln("Exiting")
 
