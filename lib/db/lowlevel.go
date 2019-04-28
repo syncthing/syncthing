@@ -37,8 +37,8 @@ type Lowlevel struct {
 	location  string
 	folderIdx *smallIndex
 	deviceIdx *smallIndex
+	closed    bool
 	closeMut  *sync.RWMutex
-	closed    chan struct{}
 }
 
 // Open attempts to open the database at the given location, and runs
@@ -111,10 +111,8 @@ func (db *Lowlevel) Delete(key []byte, wo *opt.WriteOptions) error {
 func (db *Lowlevel) NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator {
 	db.closeMut.RLock()
 	defer db.closeMut.RUnlock()
-	select {
-	case <-db.closed:
+	if db.closed {
 		return &closedIter{}
-	default:
 	}
 	return db.DB.NewIterator(slice, ro)
 }
@@ -133,12 +131,10 @@ func (db *Lowlevel) GetSnapshot() snapshot {
 func (db *Lowlevel) Close() {
 	db.closeMut.Lock()
 	defer db.closeMut.Unlock()
-	select {
-	case <-db.closed:
+	if db.closed {
 		return
-	default:
 	}
-	close(db.closed)
+	db.closed = true
 	db.DB.Close()
 }
 
@@ -150,7 +146,6 @@ func NewLowlevel(db *leveldb.DB, location string) *Lowlevel {
 		folderIdx: newSmallIndex(db, []byte{KeyTypeFolderIdx}),
 		deviceIdx: newSmallIndex(db, []byte{KeyTypeDeviceIdx}),
 		closeMut:  &sync.RWMutex{},
-		closed:    make(chan struct{}),
 	}
 }
 
