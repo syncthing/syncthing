@@ -641,9 +641,9 @@ func (c *rawConnection) handleResponse(resp Response) {
 	c.awaitingMut.Unlock()
 }
 
-func (c *rawConnection) send(msg message, done chan struct{}) bool {
+func (c *rawConnection) send(msg message, done chan struct{}) (sent bool) {
 	defer func() {
-		if done != nil {
+		if !sent && done != nil {
 			close(done)
 		}
 	}()
