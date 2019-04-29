@@ -34,7 +34,7 @@ type fileCloneRange struct {
 	dstOffset uint64
 }
 
-func copyRangeIoctl(src, dst fsFile, srcOffset, dstOffset, size int64) error {
+func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error {
 	params := &fileCloneRange{
 		srcFd:     int64(src.Fd()),
 		srcOffset: uint64(srcOffset),
@@ -46,7 +46,7 @@ func copyRangeIoctl(src, dst fsFile, srcOffset, dstOffset, size int64) error {
 	return err
 }
 
-func copyFileSendFile(src, dst fsFile, srcOffset, dstOffset, size int64) error {
+func copyFileSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) error {
 	oldOffset, err := src.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
