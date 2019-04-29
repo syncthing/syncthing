@@ -89,6 +89,7 @@ type memoryMap struct {
 }
 
 func (o *memoryMap) add(k string, v Value) {
+	o.size += v.Size()
 	o.values[k] = v
 }
 
