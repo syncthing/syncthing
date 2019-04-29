@@ -148,7 +148,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			filesToHash.Append(&diskoverflow.ValueFileInfo{file})
 		}
 
-		total := filesToHash.Size()
+		total := filesToHash.Bytes()
 		realToHashChan := make(chan protocol.FileInfo)
 		done := make(chan struct{})
 		progress := newByteCounter()

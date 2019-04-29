@@ -51,7 +51,7 @@ func NewSorted(location string, v SortValue) *Sorted {
 }
 
 func (o *Sorted) Add(v SortValue) {
-	if o.startSpilling(o.Size() + v.Size()) {
+	if o.startSpilling(o.Bytes() + v.Bytes()) {
 		newSorted := newDiskSorted(o.location, o.v)
 		it := o.NewIterator(false)
 		for it.Next() {
@@ -104,7 +104,7 @@ func (o *Sorted) released() {
 // memorySorted is basically a slice that keeps track of its size and supports
 // sorted iteration of its element.
 type memorySorted struct {
-	size     int64
+	bytes    int64
 	outgoing bool
 	values   sortSlice
 }
@@ -114,7 +114,7 @@ func (o *memorySorted) add(v SortValue) {
 		panic("Add/Append may never be called after PopFirst/PopLast")
 	}
 	o.values = append(o.values, v)
-	o.size += v.Size()
+	o.bytes += v.Bytes()
 }
 
 type memSortValueIterator struct {
@@ -140,14 +140,14 @@ func (o *memorySorted) newIterator(parent iteratorParent, reverse bool) SortValu
 	}
 }
 
-func (o *memorySorted) Size() int64 {
-	return o.size
+func (o *memorySorted) Bytes() int64 {
+	return o.bytes
 }
 
 func (o *memorySorted) Close() {
 }
 
-func (o *memorySorted) Length() int {
+func (o *memorySorted) Items() int {
 	return len(o.values)
 }
 
@@ -157,7 +157,7 @@ func (o *memorySorted) getFirst() (SortValue, bool) {
 		o.outgoing = true
 	}
 
-	if o.Length() == 0 {
+	if o.Items() == 0 {
 		return nil, false
 	}
 	return o.values[0], true
@@ -169,10 +169,10 @@ func (o *memorySorted) getLast() (SortValue, bool) {
 		o.outgoing = true
 	}
 
-	if o.Length() == 0 {
+	if o.Items() == 0 {
 		return nil, false
 	}
-	return o.values[o.Length()-1], true
+	return o.values[o.Items()-1], true
 }
 
 func (o *memorySorted) dropFirst(v SortValue) bool {
@@ -180,7 +180,7 @@ func (o *memorySorted) dropFirst(v SortValue) bool {
 		return false
 	}
 	o.values = o.values[1:]
-	o.size -= v.Size()
+	o.bytes -= v.Bytes()
 	return true
 }
 
@@ -189,7 +189,7 @@ func (o *memorySorted) dropLast(v SortValue) bool {
 		return false
 	}
 	o.values = o.values[:len(o.values)-1]
-	o.size -= v.Size()
+	o.bytes -= v.Bytes()
 	return true
 }
 
@@ -212,10 +212,10 @@ func (d *diskSorted) add(v SortValue) {
 	suffix := make([]byte, suffixLength)
 	binary.BigEndian.PutUint64(suffix[:], uint64(d.len))
 	d.diskMap.addBytes(append(v.Key(), suffix...), v)
-	d.bytes += v.Size()
+	d.bytes += v.Bytes()
 }
 
-func (d *diskSorted) Size() int64 {
+func (d *diskSorted) Bytes() int64 {
 	return d.bytes
 }
 
@@ -301,7 +301,7 @@ func (d *diskSorted) dropFirst(v SortValue) bool {
 		return false
 	}
 	d.db.Delete(it.Key(), nil)
-	d.bytes -= v.Size()
+	d.bytes -= v.Bytes()
 	d.len--
 	return true
 }
@@ -313,7 +313,7 @@ func (d *diskSorted) dropLast(v SortValue) bool {
 		return false
 	}
 	d.db.Delete(it.Key(), nil)
-	d.bytes -= v.Size()
+	d.bytes -= v.Bytes()
 	d.len--
 	return true
 }

@@ -1979,7 +1979,7 @@ func (s *valueFileInfoSlice) Append(f protocol.FileInfo) *valueFileInfoSlice {
 	return s
 }
 
-func (s *valueFileInfoSlice) Size() int64 {
+func (s *valueFileInfoSlice) Bytes() int64 {
 	return int64(s.ProtoSize())
 }
 

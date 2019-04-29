@@ -36,7 +36,7 @@ func (o *Slice) Append(v Value) {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}
-	if o.startSpilling(o.Size() + v.Size()) {
+	if o.startSpilling(o.Bytes() + v.Bytes()) {
 		ds := &diskSlice{newDiskSorted(o.location, &nonSortValue{Value: o.v})}
 		it := o.newIterator(o, false)
 		for it.Next() {
@@ -72,16 +72,16 @@ func (o *Slice) value() interface{} {
 
 type memorySlice struct {
 	values []Value
-	size   int64
+	bytes  int64
 }
 
 func (o *memorySlice) append(v Value) {
 	o.values = append(o.values, v)
-	o.size += v.Size()
+	o.bytes += v.Bytes()
 }
 
-func (o *memorySlice) Size() int64 {
-	return o.size
+func (o *memorySlice) Bytes() int64 {
+	return o.bytes
 }
 
 func (o *memorySlice) Close() {
@@ -107,7 +107,7 @@ func (si *memValueIterator) Value() Value {
 	return si.values[si.pos]
 }
 
-func (o *memorySlice) Length() int {
+func (o *memorySlice) Items() int {
 	return len(o.values)
 }
 

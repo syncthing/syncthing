@@ -62,7 +62,7 @@ func (q *jobQueue) Push(file string, size int64, modified time.Time) {
 	case config.OrderSmallestFirst, config.OrderLargestFirst:
 		v = &queueValueSmallest{
 			queueValue: &queueValue{file},
-			size:       uint64(size),
+			bytes:      uint64(size),
 		}
 	case config.OrderOldestFirst, config.OrderNewestFirst:
 		v = &queueValueOldest{
@@ -154,7 +154,7 @@ func (q *jobQueue) Jobs() ([]string, []string) {
 	progress := make([]string, len(q.progress))
 	copy(progress, q.progress)
 
-	queued := make([]string, 0, q.queued.Length())
+	queued := make([]string, 0, q.queued.Items())
 
 	atFront := make(map[string]struct{}, len(q.broughtToFront))
 	for _, f := range q.broughtToFront {
@@ -194,7 +194,7 @@ func (q *jobQueue) Reset() {
 func (q *jobQueue) lenQueued() int {
 	q.mut.Lock()
 	defer q.mut.Unlock()
-	return len(q.broughtToFront) + q.queued.Length()
+	return len(q.broughtToFront) + q.queued.Items()
 }
 
 func (q *jobQueue) lenProgress() int {
@@ -223,7 +223,7 @@ type queueValue struct {
 	string
 }
 
-func (q *queueValue) Size() int64 {
+func (q *queueValue) Bytes() int64 {
 	return int64(len(q.string))
 }
 
@@ -253,23 +253,23 @@ func (q *queueValueAlphabetic) UnmarshalWithKey(_, v []byte) diskoverflow.SortVa
 
 type queueValueSmallest struct {
 	*queueValue
-	size uint64
+	bytes uint64
 }
 
 func (q *queueValueSmallest) Key() []byte {
 	key := make([]byte, 8)
-	binary.BigEndian.PutUint64(key[:], uint64(q.size))
+	binary.BigEndian.PutUint64(key[:], uint64(q.bytes))
 	return key
 }
 
 func (q *queueValueSmallest) Less(other diskoverflow.SortValue) bool {
-	return q.size < other.(*queueValueSmallest).size
+	return q.bytes < other.(*queueValueSmallest).bytes
 }
 
 func (q *queueValueSmallest) UnmarshalWithKey(k, v []byte) diskoverflow.SortValue {
 	return &queueValueSmallest{
 		queueValue: q.queueValue.Unmarshal(v).(*queueValue),
-		size:       binary.BigEndian.Uint64(k),
+		bytes:      binary.BigEndian.Uint64(k),
 	}
 }
 

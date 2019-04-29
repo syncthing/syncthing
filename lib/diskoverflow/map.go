@@ -45,7 +45,7 @@ func (o *Map) Add(k string, v Value) {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}
-	if o.startSpilling(o.Size() + v.Size()) {
+	if o.startSpilling(o.Bytes() + v.Bytes()) {
 		newMap := newDiskMap(o.location, o.v)
 		it := o.newIterator(o)
 		for it.Next() {
@@ -85,16 +85,16 @@ func (o *Map) NewIterator() MapIterator {
 
 type memoryMap struct {
 	values map[string]Value
-	size   int64
+	bytes  int64
 }
 
 func (o *memoryMap) add(k string, v Value) {
-	o.size += v.Size()
+	o.bytes += v.Bytes()
 	o.values[k] = v
 }
 
-func (o *memoryMap) Size() int64 {
-	return o.size
+func (o *memoryMap) Bytes() int64 {
+	return o.bytes
 }
 
 func (o *memoryMap) Close() {
@@ -106,7 +106,7 @@ func (o *memoryMap) Get(key string) (Value, bool) {
 	return v, ok
 }
 
-func (o *memoryMap) Length() int {
+func (o *memoryMap) Items() int {
 	return len(o.values)
 }
 
@@ -116,7 +116,7 @@ func (o *memoryMap) Pop(key string) (Value, bool) {
 		return nil, false
 	}
 	delete(o.values, key)
-	o.size -= v.Size()
+	o.bytes -= v.Bytes()
 	return v, ok
 }
 
@@ -175,11 +175,11 @@ func (i *memMapIterator) Release() {
 }
 
 type diskMap struct {
-	db   *leveldb.DB
-	size int64
-	dir  string
-	len  int
-	v    Value
+	db    *leveldb.DB
+	bytes int64
+	dir   string
+	len   int
+	v     Value
 }
 
 func newDiskMap(location string, v Value) *diskMap {
@@ -204,7 +204,7 @@ func newDiskMap(location string, v Value) *diskMap {
 
 func (o *diskMap) add(k string, v Value) {
 	o.addBytes([]byte(k), v)
-	o.size += v.Size()
+	o.bytes += v.Bytes()
 }
 
 func (o *diskMap) addBytes(k []byte, v Value) {
@@ -219,8 +219,8 @@ func (o *diskMap) Close() {
 	os.RemoveAll(o.dir)
 }
 
-func (o *diskMap) Size() int64 {
-	return o.size
+func (o *diskMap) Bytes() int64 {
+	return o.bytes
 }
 
 func (o *diskMap) Get(k string) (Value, bool) {
@@ -231,7 +231,7 @@ func (o *diskMap) Get(k string) (Value, bool) {
 	return o.v.Unmarshal(data), true
 }
 
-func (o *diskMap) Length() int {
+func (o *diskMap) Items() int {
 	return o.len
 }
 

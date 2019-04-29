@@ -45,11 +45,11 @@ func testSlice(t *testing.T) {
 
 	for i, tv := range testValues {
 		if i%100 == 0 {
-			if l := slice.Length(); l != i {
-				t.Errorf("s.Length() == %v, expected %v", l, i)
+			if l := slice.Items(); l != i {
+				t.Errorf("s.Items() == %v, expected %v", l, i)
 			}
-			if s := slice.Size(); s != int64(i)*10 {
-				t.Errorf("s.Size() == %v, expected %v", s, i*10)
+			if s := slice.Bytes(); s != int64(i)*10 {
+				t.Errorf("s.Bytes() == %v, expected %v", s, i*10)
 			}
 		}
 		slice.Append(tv)
@@ -71,8 +71,8 @@ func testSlice(t *testing.T) {
 		t.Errorf("Received just %v files, expected %v", i, len(testValues))
 	}
 
-	if s := slice.Size(); s != int64(len(testValues))*10 {
-		t.Errorf("s.Size() == %v, expected %v", s, len(testValues)*10)
+	if s := slice.Bytes(); s != int64(len(testValues))*10 {
+		t.Errorf("s.Bytes() == %v, expected %v", s, len(testValues)*10)
 	}
 
 	it = slice.NewIterator(true)
@@ -125,7 +125,7 @@ func randomTestValues(length int) []SortValue {
 	return l
 }
 
-func (t *testValue) Size() int64 {
+func (t *testValue) Bytes() int64 {
 	return int64(len(t.string))
 }
 

@@ -37,11 +37,11 @@ func testSorted(t *testing.T) {
 
 	for i, tv := range testValues {
 		if i%100 == 0 {
-			if l := sorted.Length(); l != i {
-				t.Errorf("s.Length() == %v, expected %v", l, i)
+			if l := sorted.Items(); l != i {
+				t.Errorf("s.Items() == %v, expected %v", l, i)
 			}
-			if s := sorted.Size(); s != int64(i)*10 {
-				t.Errorf("s.Size() == %v, expected %v", s, i*10)
+			if s := sorted.Bytes(); s != int64(i)*10 {
+				t.Errorf("s.Bytes() == %v, expected %v", s, i*10)
 			}
 		}
 		sorted.Add(tv)
@@ -62,11 +62,11 @@ func testSorted(t *testing.T) {
 		t.Errorf("Received just %v files, expected %v", i, len(testValuesSorted))
 	}
 
-	if s := sorted.Size(); s != int64(len(testValues))*10 {
-		t.Errorf("s.Size() == %v, expected %v", s, len(testValues)*10)
+	if s := sorted.Bytes(); s != int64(len(testValues))*10 {
+		t.Errorf("s.Bytes() == %v, expected %v", s, len(testValues)*10)
 	}
-	if l := sorted.Length(); l != len(testValues) {
-		t.Errorf("s.Length() == %v, expected %v", l, len(testValues))
+	if l := sorted.Items(); l != len(testValues) {
+		t.Errorf("s.Items() == %v, expected %v", l, len(testValues))
 	}
 
 	v, ok := sorted.PopFirst()
@@ -77,11 +77,11 @@ func testSorted(t *testing.T) {
 	if exp := testValuesSorted[0].(*testValue).string; got != exp {
 		t.Errorf("PopFirst: %v != %v", got, exp)
 	}
-	if s := sorted.Size(); s != int64(len(testValues)-1)*10 {
-		t.Errorf("s.Size() == %v, expected %v", s, (len(testValues)-1)*10)
+	if s := sorted.Bytes(); s != int64(len(testValues)-1)*10 {
+		t.Errorf("s.Bytes() == %v, expected %v", s, (len(testValues)-1)*10)
 	}
-	if l := sorted.Length(); l != len(testValues)-1 {
-		t.Errorf("s.Length() == %v, expected %v", l, len(testValues)-1)
+	if l := sorted.Items(); l != len(testValues)-1 {
+		t.Errorf("s.Items() == %v, expected %v", l, len(testValues)-1)
 	}
 
 	v, ok = sorted.PopLast()
@@ -92,11 +92,11 @@ func testSorted(t *testing.T) {
 	if exp := testValuesSorted[len(testValuesSorted)-1].(*testValue).string; got != exp {
 		t.Errorf("PopLast: %v != %v", got, exp)
 	}
-	if s := sorted.Size(); s != int64(len(testValues)-2)*10 {
-		t.Errorf("s.Size() == %v, expected %v", s, (len(testValues)-2)*10)
+	if s := sorted.Bytes(); s != int64(len(testValues)-2)*10 {
+		t.Errorf("s.Bytes() == %v, expected %v", s, (len(testValues)-2)*10)
 	}
-	if l := sorted.Length(); l != len(testValues)-2 {
-		t.Errorf("s.Length() == %v, expected %v", l, len(testValues)-2)
+	if l := sorted.Items(); l != len(testValues)-2 {
+		t.Errorf("s.Items() == %v, expected %v", l, len(testValues)-2)
 	}
 
 	i = len(testValues) - 1

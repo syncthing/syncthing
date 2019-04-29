@@ -38,8 +38,8 @@ func testMap(t *testing.T) {
 
 	for i, tv := range testValueSlice {
 		if i%100 == 0 {
-			if l := Map.Length(); l != i {
-				t.Errorf("s.Length() == %v, expected %v", l, i)
+			if l := Map.Items(); l != i {
+				t.Errorf("s.Items() == %v, expected %v", l, i)
 			}
 		}
 		Map.Add(tv.(*testValue).string, tv)
@@ -66,8 +66,8 @@ func testMap(t *testing.T) {
 		t.Errorf("Received just %v files, expected %v", len(gotValues), len(testValues))
 	}
 
-	if l := Map.Length(); l != len(testValues) {
-		t.Errorf("s.Length() == %v, expected %v", l, len(testValues))
+	if l := Map.Items(); l != len(testValues) {
+		t.Errorf("s.Items() == %v, expected %v", l, len(testValues))
 	}
 
 	k := len(testValues) / 2
@@ -80,8 +80,8 @@ func testMap(t *testing.T) {
 	if got := v.(*testValue).string; got != exp {
 		t.Errorf("PopFirst: %v != %v", got, exp)
 	}
-	if l := Map.Length(); l != len(testValues) {
-		t.Errorf("s.Length() == %v, expected %v", l, len(testValues))
+	if l := Map.Items(); l != len(testValues) {
+		t.Errorf("s.Items() == %v, expected %v", l, len(testValues))
 	}
 
 	v, ok = Map.Pop(exp)
@@ -91,8 +91,8 @@ func testMap(t *testing.T) {
 	if got := v.(*testValue).string; got != exp {
 		t.Errorf("PopLast: %v != %v", got, exp)
 	}
-	if l := Map.Length(); l != len(testValues)-1 {
-		t.Errorf("s.Length() == %v, expected %v", l, len(testValues)-1)
+	if l := Map.Items(); l != len(testValues)-1 {
+		t.Errorf("s.Items() == %v, expected %v", l, len(testValues)-1)
 	}
 	testValueSlice = append(testValueSlice[:k], testValueSlice[k+1:]...)
 	delete(testValues, exp)

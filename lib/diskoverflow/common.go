@@ -45,7 +45,7 @@ func DefaultOverflowBytes() int64 {
 
 // Value must be implemented by every type that is to be stored in a disk spilling container.
 type Value interface {
-	Size() int64
+	Bytes() int64
 	Marshal() []byte
 	Unmarshal([]byte) Value // The returned Value must not be a reference to the receiver.
 }
@@ -53,7 +53,7 @@ type Value interface {
 // ValueFileInfo implements Value for protocol.FileInfo
 type ValueFileInfo struct{ protocol.FileInfo }
 
-func (s *ValueFileInfo) Size() int64 {
+func (s *ValueFileInfo) Bytes() int64 {
 	return int64(s.ProtoSize())
 }
 
@@ -74,8 +74,8 @@ func (s *ValueFileInfo) Unmarshal(v []byte) Value {
 }
 
 type common interface {
-	Size() int64
-	Length() int
+	Bytes() int64
+	Items() int
 	Close()
 }
 
