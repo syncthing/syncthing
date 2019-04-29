@@ -24,7 +24,6 @@ func TestJobQueue(t *testing.T) {
 
 	progress, queued := q.Jobs()
 	if len(progress) != 0 || len(queued) != 4 {
-		t.Log(progress, queued)
 		t.Fatal("Wrong length")
 	}
 
@@ -39,7 +38,6 @@ func TestJobQueue(t *testing.T) {
 		q.BringToFront(s)
 		progress, queued = q.Jobs()
 		if len(progress) != 4-i || len(queued) != i {
-			t.Log(progress, queued)
 			t.Fatal("Wrong length")
 		}
 
@@ -49,7 +47,6 @@ func TestJobQueue(t *testing.T) {
 		}
 		progress, queued = q.Jobs()
 		if len(progress) != 5-i || len(queued) != i-1 {
-			t.Log(i, progress, queued)
 			t.Fatal("Wrong length")
 		}
 
@@ -62,7 +59,6 @@ func TestJobQueue(t *testing.T) {
 
 	_, ok := q.Pop()
 	if len(q.progress) != 4 || ok {
-		t.Log(q.progress)
 		t.Fatal("Wrong length")
 	}
 
@@ -167,8 +163,6 @@ func TestSortBySize(t *testing.T) {
 	expected := []string{"f4", "f1", "f3", "f2"}
 
 	if diff, equal := messagediff.PrettyDiff(expected, actual); !equal {
-		l.Infoln(expected)
-		l.Infoln(actual)
 		t.Errorf("SortSmallestFirst() diff:\n%s", diff)
 	}
 
