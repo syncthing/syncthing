@@ -9,7 +9,6 @@ package fs
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -83,11 +82,25 @@ func WindowsInvalidFilename(name string) bool {
 	return strings.ContainsAny(name, windowsDisallowedCharacters)
 }
 
+// IsParent compares paths purely lexicographically, meaning it returns false
+// if path and parent aren't both absolute or relative.
 func IsParent(path, parent string) bool {
-	if len(parent) == 0 {
+	if parent == path {
+		// Twice the same root on windows would not be caught at the end.
+		return false
+	}
+	if filepath.IsAbs(path) != filepath.IsAbs(parent) {
+		return false
+	}
+	if parent == "" || parent == "." {
 		// The empty string is the parent of everything except the empty
-		// string. (Avoids panic in the next step.)
-		return len(path) > 0
+		// string and ".". (Avoids panic in the last step.)
+		return path != "" && path != "."
+	}
+	if parent == "/" {
+		// The root is the parent of everything except itself, which would
+		// not be caught below.
+		return path != "/"
 	}
 	if parent[len(parent)-1] != PathSeparator {
 		parent += string(PathSeparator)
@@ -95,73 +108,54 @@ func IsParent(path, parent string) bool {
 	return strings.HasPrefix(path, parent)
 }
 
-func CopyRange(src, dst File, srcOffset, dstOffset, size int64) error {
-	srcFile, srcOk := src.(fsFile)
-	dstFile, dstOk := dst.(fsFile)
-	if srcOk && dstOk {
-		if err := copyRangeOptimised(srcFile, dstFile, srcOffset, dstOffset, size); err == nil {
-			return nil
+func CommonPrefix(first, second string) string {
+	if filepath.IsAbs(first) != filepath.IsAbs(second) {
+		// Whatever
+		return ""
+	}
+
+	firstParts := strings.Split(filepath.Clean(first), string(PathSeparator))
+	secondParts := strings.Split(filepath.Clean(second), string(PathSeparator))
+
+	isAbs := filepath.IsAbs(first) && filepath.IsAbs(second)
+
+	count := len(firstParts)
+	if len(secondParts) < len(firstParts) {
+		count = len(secondParts)
+	}
+
+	common := make([]string, 0, count)
+	for i := 0; i < count; i++ {
+		if firstParts[i] != secondParts[i] {
+			break
+		}
+		common = append(common, firstParts[i])
+	}
+
+	if isAbs {
+		if runtime.GOOS == "windows" && isVolumeNameOnly(common) {
+			// Because strings.Split strips out path separators, if we're at the volume name, we end up without a separator
+			// Wedge an empty element to be joined with.
+			common = append(common, "")
+		} else if len(common) == 1 {
+			// If isAbs on non Windows, first element in both first and second is "", hence joining that returns nothing.
+			return string(PathSeparator)
 		}
 	}
 
-	return copyRangeGeneric(src, dst, srcOffset, dstOffset, size)
+	// This should only be true on Windows when drive letters are different or when paths are relative.
+	// In case of UNC paths we should end up with more than a single element hence joining is fine
+	if len(common) == 0 {
+		return ""
+	}
+
+	// This has to be strings.Join, because filepath.Join([]string{"", "", "?", "C:", "Audrius"}...) returns garbage
+	result := strings.Join(common, string(PathSeparator))
+	return filepath.Clean(result)
 }
 
-func copyRangeGeneric(src, dst File, srcOffset, dstOffset, size int64) error {
-	oldOffset, err := src.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return nil
-	}
-
-	// Check that the source file has the data in question
-	if fi, err := src.Stat(); err != nil {
-		return err
-	} else if fi.Size() < srcOffset+size {
-		return io.ErrUnexpectedEOF
-	}
-
-	// Check that the destination file has sufficient space
-	if fi, err := dst.Stat(); err != nil {
-		return err
-	} else if fi.Size() < dstOffset+size {
-		if err := dst.Truncate(dstOffset + size); err != nil {
-			return err
-		}
-	}
-
-	if n, err := src.Seek(srcOffset, io.SeekStart); err != nil {
-		return err
-	} else if n != srcOffset {
-		return io.ErrUnexpectedEOF
-	}
-
-	if n, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
-		return err
-	} else if n != dstOffset {
-		return io.ErrUnexpectedEOF
-	}
-
-	for size > 0 {
-		n, err := io.CopyN(dst, src, size)
-		if err != nil {
-			_, _ = src.Seek(oldOffset, io.SeekStart)
-			return err
-		}
-		size -= n
-	}
-
-	if n, err := src.Seek(oldOffset, io.SeekStart); err != nil {
-		return err
-	} else if n != oldOffset {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-
-func getCopyOptimisations() []string {
-	opt := os.Getenv("STCOPYOPTIMISATIONS")
-	if opt == "" {
-		opt = "ioctl,copy_file_range,sendfile"
-	}
-	return strings.Split(opt, ",")
+func isVolumeNameOnly(parts []string) bool {
+	isNormalVolumeName := len(parts) == 1 && strings.HasSuffix(parts[0], ":")
+	isUNCVolumeName := len(parts) == 4 && strings.HasSuffix(parts[3], ":")
+	return isNormalVolumeName || isUNCVolumeName
 }

@@ -36,7 +36,7 @@ func TestIsLANHost(t *testing.T) {
 			AlwaysLocalNets: []string{"10.20.30.0/24"},
 		},
 	})
-	s := &Service{cfg: cfg}
+	s := &service{cfg: cfg}
 
 	for _, tc := range cases {
 		res := s.isLANHost(tc.addr)

@@ -29,6 +29,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/api"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -46,6 +47,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/ur"
 
 	"github.com/pkg/errors"
 	"github.com/thejerf/suture"
@@ -62,7 +64,6 @@ const (
 const (
 	bepProtocolName      = "bep/1.0"
 	tlsDefaultCommonName = "syncthing"
-	defaultEventTimeout  = time.Minute
 	maxSystemErrors      = 5
 	initialSystemLog     = 10
 	maxSystemLog         = 250
@@ -163,34 +164,35 @@ var (
 )
 
 type RuntimeOptions struct {
-	confDir        string
-	resetDatabase  bool
-	resetDeltaIdxs bool
-	showVersion    bool
-	showPaths      bool
-	showDeviceId   bool
-	doUpgrade      bool
-	doUpgradeCheck bool
-	upgradeTo      string
-	noBrowser      bool
-	browserOnly    bool
-	hideConsole    bool
-	logFile        string
-	auditEnabled   bool
-	auditFile      string
-	verbose        bool
-	paused         bool
-	unpaused       bool
-	guiAddress     string
-	guiAPIKey      string
-	generateDir    string
-	noRestart      bool
-	profiler       string
-	assetDir       string
-	cpuProfile     bool
-	stRestarting   bool
-	logFlags       int
-	showHelp       bool
+	confDir          string
+	resetDatabase    bool
+	resetDeltaIdxs   bool
+	showVersion      bool
+	showPaths        bool
+	showDeviceId     bool
+	doUpgrade        bool
+	doUpgradeCheck   bool
+	upgradeTo        string
+	noBrowser        bool
+	browserOnly      bool
+	hideConsole      bool
+	logFile          string
+	auditEnabled     bool
+	auditFile        string
+	verbose          bool
+	paused           bool
+	unpaused         bool
+	guiAddress       string
+	guiAPIKey        string
+	generateDir      string
+	noRestart        bool
+	profiler         string
+	assetDir         string
+	cpuProfile       bool
+	stRestarting     bool
+	logFlags         int
+	showHelp         bool
+	allowNewerConfig bool
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -244,6 +246,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
+	flag.BoolVar(&options.allowNewerConfig, "allow-newer-config", false, "Allow loading newer than current config version")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
 		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
@@ -261,6 +264,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	return options
 }
 
+// exiter implements api.Controller
 type exiter struct {
 	stop chan int
 }
@@ -285,7 +289,7 @@ func (e *exiter) waitForExit() int {
 	return <-e.stop
 }
 
-var exit = exiter{make(chan int)}
+var exit = &exiter{make(chan int)}
 
 func main() {
 	options := parseCommandLineOptions()
@@ -619,8 +623,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Event subscription for the API; must start early to catch the early
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
-	defaultSub := events.NewBufferedSubscription(events.Default.Subscribe(defaultEventMask), eventSubBufferSize)
-	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(diskEventMask), eventSubBufferSize)
+	defaultSub := events.NewBufferedSubscription(events.Default.Subscribe(api.DefaultEventMask), api.EventSubBufferSize)
+	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(api.DiskEventMask), api.EventSubBufferSize)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -667,7 +671,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"myID": myID.String(),
 	})
 
-	cfg, err := loadConfigAtStartup()
+	cfg, err := loadConfigAtStartup(runtimeOptions.allowNewerConfig)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(exitError)
@@ -690,7 +694,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}()
 	}
 
-	perf := cpuBench(3, 150*time.Millisecond, true)
+	perf := ur.CpuBench(3, 150*time.Millisecond, true)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	dbFile := locations.Get(locations.Database)
@@ -830,10 +834,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	// GUI
-
-	setupGUI(mainService, cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, errors, systemLog, runtimeOptions)
-
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
@@ -846,20 +846,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	myDev, _ := cfg.Device(myID)
-	l.Infof(`My name is "%v"`, myDev.Name)
-	for _, device := range cfg.Devices() {
-		if device.DeviceID != myID {
-			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
-		}
-	}
-
 	// Candidate builds always run with usage reporting.
 
 	if opts := cfg.Options(); build.IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
-		if opts.URAccepted != usageReportVersion {
-			opts.URAccepted = usageReportVersion
+		if opts.URAccepted != ur.Version {
+			opts.URAccepted = ur.Version
 			cfg.SetOptions(opts)
 			cfg.Save()
 			// Unique ID will be set and config saved below if necessary.
@@ -873,8 +865,20 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		cfg.Save()
 	}
 
-	usageReportingSvc := newUsageReportingService(cfg, m, connectionsService)
+	usageReportingSvc := ur.New(cfg, m, connectionsService, noUpgradeFromEnv)
 	mainService.Add(usageReportingSvc)
+
+	// GUI
+
+	setupGUI(mainService, cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog, runtimeOptions)
+
+	myDev, _ := cfg.Device(myID)
+	l.Infof(`My name is "%v"`, myDev.Name)
+	for _, device := range cfg.Devices() {
+		if device.DeviceID != myID {
+			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
+		}
+	}
 
 	if opts := cfg.Options(); opts.RestartOnWakeup {
 		go standbyMonitor()
@@ -956,7 +960,7 @@ func setupSignalHandling() {
 	}()
 }
 
-func loadOrDefaultConfig() (*config.Wrapper, error) {
+func loadOrDefaultConfig() (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 
@@ -967,7 +971,7 @@ func loadOrDefaultConfig() (*config.Wrapper, error) {
 	return cfg, err
 }
 
-func loadConfigAtStartup() (*config.Wrapper, error) {
+func loadConfigAtStartup(allowNewerConfig bool) (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
@@ -987,6 +991,12 @@ func loadConfigAtStartup() (*config.Wrapper, error) {
 	}
 
 	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
+		if cfg.RawCopy().OriginalVersion == config.CurrentVersion+1101 {
+			l.Infof("Now, THAT's what we call a config from the future! Don't worry. As long as you hit that wire with the connecting hook at precisely eighty-eight miles per hour the instant the lightning strikes the tower... everything will be fine.")
+		}
+		if cfg.RawCopy().OriginalVersion > config.CurrentVersion && !allowNewerConfig {
+			return nil, fmt.Errorf("Config file version (%d) is newer than supported version (%d). If this is expected, use -allow-newer-config to override.", cfg.RawCopy().OriginalVersion, config.CurrentVersion)
+		}
 		err = archiveAndSaveConfig(cfg)
 		if err != nil {
 			return nil, errors.Wrap(err, "config archive")
@@ -996,7 +1006,7 @@ func loadConfigAtStartup() (*config.Wrapper, error) {
 	return cfg, nil
 }
 
-func archiveAndSaveConfig(cfg *config.Wrapper) error {
+func archiveAndSaveConfig(cfg config.Wrapper) error {
 	// Copy the existing config to an archive copy
 	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.RawCopy().OriginalVersion)
 	l.Infoln("Archiving a copy of old config file format at:", archivePath)
@@ -1061,7 +1071,7 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 	l.Infoln("Audit log in", auditDest)
 }
 
-func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
+func setupGUI(mainService *suture.Supervisor, cfg config.Wrapper, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
 	guiCfg := cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -1075,11 +1085,13 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	cpu := newCPUService()
 	mainService.Add(cpu)
 
-	api := newAPIService(myID, cfg, locations.Get(locations.HTTPSCertFile), locations.Get(locations.HTTPSKeyFile), runtimeOptions.assetDir, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu)
-	cfg.Subscribe(api)
-	mainService.Add(api)
+	summaryService := model.NewFolderSummaryService(cfg, m, myID)
+	mainService.Add(summaryService)
 
-	if err := api.WaitForStart(); err != nil {
+	apiSvc := api.New(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, exit, noUpgradeFromEnv)
+	mainService.Add(apiSvc)
+
+	if err := apiSvc.WaitForStart(); err != nil {
 		l.Warnln("Failed starting API:", err)
 		os.Exit(exitError)
 	}
@@ -1091,7 +1103,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	}
 }
 
-func defaultConfig(cfgFile string) (*config.Wrapper, error) {
+func defaultConfig(cfgFile string) (config.Wrapper, error) {
 	newCfg, err := config.NewWithFreePorts(myID)
 	if err != nil {
 		return nil, err
@@ -1154,7 +1166,7 @@ func standbyMonitor() {
 	}
 }
 
-func autoUpgrade(cfg *config.Wrapper) {
+func autoUpgrade(cfg config.Wrapper) {
 	timer := time.NewTimer(0)
 	sub := events.Default.Subscribe(events.DeviceConnected)
 	for {
@@ -1256,7 +1268,7 @@ func cleanConfigDirectory() {
 // checkShortIDs verifies that the configuration won't result in duplicate
 // short ID:s; that is, that the devices in the cluster all have unique
 // initial 64 bits.
-func checkShortIDs(cfg *config.Wrapper) error {
+func checkShortIDs(cfg config.Wrapper) error {
 	exists := make(map[protocol.ShortID]protocol.DeviceID)
 	for deviceID := range cfg.Devices() {
 		shortID := deviceID.Short()
@@ -1278,7 +1290,7 @@ func showPaths(options RuntimeOptions) {
 	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations.Get(locations.DefFolder))
 }
 
-func setPauseState(cfg *config.Wrapper, paused bool) {
+func setPauseState(cfg config.Wrapper, paused bool) {
 	raw := cfg.RawCopy()
 	for i := range raw.Devices {
 		raw.Devices[i].Paused = paused

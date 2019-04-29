@@ -56,34 +56,29 @@ type receiveOnlyFolder struct {
 	*sendReceiveFolder
 }
 
-func newReceiveOnlyFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem) service {
-	sr := newSendReceiveFolder(model, cfg, ver, fs).(*sendReceiveFolder)
+func newReceiveOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem) service {
+	sr := newSendReceiveFolder(model, fset, ignores, cfg, ver, fs).(*sendReceiveFolder)
 	sr.localFlags = protocol.FlagLocalReceiveOnly // gets propagated to the scanner, and set on locally changed files
 	return &receiveOnlyFolder{sr}
 }
 
-func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.FileInfo)) {
+func (f *receiveOnlyFolder) Revert() {
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
-
-	// XXX: This *really* should be given to us in the constructor...
-	f.model.fmut.RLock()
-	ignores := f.model.folderIgnores[f.folderID]
-	f.model.fmut.RUnlock()
 
 	scanChan := make(chan string)
 	go f.pullScannerRoutine(scanChan)
 	defer close(scanChan)
 
 	delQueue := &deleteQueue{
-		handler:  f, // for the deleteFile and deleteDir methods
-		ignores:  ignores,
+		handler:  f, // for the deleteItemOnDisk and deleteDirOnDisk methods
+		ignores:  f.ignores,
 		scanChan: scanChan,
 	}
 
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
-	fs.WithHave(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+	f.fset.WithHave(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		fi := intf.(protocol.FileInfo)
 		if !fi.IsReceiveOnlyChanged() {
 			// We're only interested in files that have changed locally in
@@ -129,14 +124,14 @@ func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.File
 		batchSizeBytes += fi.ProtoSize()
 
 		if len(batch) >= maxBatchSizeFiles || batchSizeBytes >= maxBatchSizeBytes {
-			updateFn(batch)
+			f.updateLocalsFromScanning(batch)
 			batch = batch[:0]
 			batchSizeBytes = 0
 		}
 		return true
 	})
 	if len(batch) > 0 {
-		updateFn(batch)
+		f.updateLocalsFromScanning(batch)
 	}
 	batch = batch[:0]
 	batchSizeBytes = 0
@@ -158,7 +153,7 @@ func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.File
 		})
 	}
 	if len(batch) > 0 {
-		updateFn(batch)
+		f.updateLocalsFromScanning(batch)
 	}
 
 	// We will likely have changed our local index, but that won't trigger a
@@ -171,8 +166,8 @@ func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.File
 // directories for last.
 type deleteQueue struct {
 	handler interface {
-		deleteFile(file protocol.FileInfo, scanChan chan<- string) (dbUpdateJob, error)
-		deleteDir(dir string, ignores *ignore.Matcher, scanChan chan<- string) error
+		deleteItemOnDisk(item protocol.FileInfo, scanChan chan<- string) error
+		deleteDirOnDisk(dir string, scanChan chan<- string) error
 	}
 	ignores  *ignore.Matcher
 	dirs     []string
@@ -193,7 +188,7 @@ func (q *deleteQueue) handle(fi protocol.FileInfo) (bool, error) {
 	}
 
 	// Kill it.
-	_, err := q.handler.deleteFile(fi, q.scanChan)
+	err := q.handler.deleteItemOnDisk(fi, q.scanChan)
 	return true, err
 }
 
@@ -205,7 +200,7 @@ func (q *deleteQueue) flush() ([]string, error) {
 	var deleted []string
 
 	for _, dir := range q.dirs {
-		if err := q.handler.deleteDir(dir, q.ignores, q.scanChan); err == nil {
+		if err := q.handler.deleteDirOnDisk(dir, q.scanChan); err == nil {
 			deleted = append(deleted, dir)
 		} else if err != nil && firstError == nil {
 			firstError = err

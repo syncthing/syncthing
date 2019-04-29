@@ -41,12 +41,23 @@ const (
 var BlockSizes []int
 
 // For each block size, the hash of a block of all zeroes
-var sha256OfEmptyBlock = make(map[int][sha256.Size]byte)
+var sha256OfEmptyBlock = map[int][sha256.Size]byte{
+	128 << KiB: {0xfa, 0x43, 0x23, 0x9b, 0xce, 0xe7, 0xb9, 0x7c, 0xa6, 0x2f, 0x0, 0x7c, 0xc6, 0x84, 0x87, 0x56, 0xa, 0x39, 0xe1, 0x9f, 0x74, 0xf3, 0xdd, 0xe7, 0x48, 0x6d, 0xb3, 0xf9, 0x8d, 0xf8, 0xe4, 0x71},
+	256 << KiB: {0x8a, 0x39, 0xd2, 0xab, 0xd3, 0x99, 0x9a, 0xb7, 0x3c, 0x34, 0xdb, 0x24, 0x76, 0x84, 0x9c, 0xdd, 0xf3, 0x3, 0xce, 0x38, 0x9b, 0x35, 0x82, 0x68, 0x50, 0xf9, 0xa7, 0x0, 0x58, 0x9b, 0x4a, 0x90},
+	512 << KiB: {0x7, 0x85, 0x4d, 0x2f, 0xef, 0x29, 0x7a, 0x6, 0xba, 0x81, 0x68, 0x5e, 0x66, 0xc, 0x33, 0x2d, 0xe3, 0x6d, 0x5d, 0x18, 0xd5, 0x46, 0x92, 0x7d, 0x30, 0xda, 0xad, 0x6d, 0x7f, 0xda, 0x15, 0x41},
+	1 << MiB:   {0x30, 0xe1, 0x49, 0x55, 0xeb, 0xf1, 0x35, 0x22, 0x66, 0xdc, 0x2f, 0xf8, 0x6, 0x7e, 0x68, 0x10, 0x46, 0x7, 0xe7, 0x50, 0xab, 0xb9, 0xd3, 0xb3, 0x65, 0x82, 0xb8, 0xaf, 0x90, 0x9f, 0xcb, 0x58},
+	2 << MiB:   {0x56, 0x47, 0xf0, 0x5e, 0xc1, 0x89, 0x58, 0x94, 0x7d, 0x32, 0x87, 0x4e, 0xeb, 0x78, 0x8f, 0xa3, 0x96, 0xa0, 0x5d, 0xb, 0xab, 0x7c, 0x1b, 0x71, 0xf1, 0x12, 0xce, 0xb7, 0xe9, 0xb3, 0x1e, 0xee},
+	4 << MiB:   {0xbb, 0x9f, 0x8d, 0xf6, 0x14, 0x74, 0xd2, 0x5e, 0x71, 0xfa, 0x0, 0x72, 0x23, 0x18, 0xcd, 0x38, 0x73, 0x96, 0xca, 0x17, 0x36, 0x60, 0x5e, 0x12, 0x48, 0x82, 0x1c, 0xc0, 0xde, 0x3d, 0x3a, 0xf8},
+	8 << MiB:   {0x2d, 0xae, 0xb1, 0xf3, 0x60, 0x95, 0xb4, 0x4b, 0x31, 0x84, 0x10, 0xb3, 0xf4, 0xe8, 0xb5, 0xd9, 0x89, 0xdc, 0xc7, 0xbb, 0x2, 0x3d, 0x14, 0x26, 0xc4, 0x92, 0xda, 0xb0, 0xa3, 0x5, 0x3e, 0x74},
+	16 << MiB:  {0x8, 0xa, 0xcf, 0x35, 0xa5, 0x7, 0xac, 0x98, 0x49, 0xcf, 0xcb, 0xa4, 0x7d, 0xc2, 0xad, 0x83, 0xe0, 0x1b, 0x75, 0x66, 0x3a, 0x51, 0x62, 0x79, 0xc8, 0xb9, 0xd2, 0x43, 0xb7, 0x19, 0x64, 0x3e},
+}
 
 func init() {
 	for blockSize := MinBlockSize; blockSize <= MaxBlockSize; blockSize *= 2 {
 		BlockSizes = append(BlockSizes, blockSize)
-		sha256OfEmptyBlock[blockSize] = sha256.Sum256(make([]byte, blockSize))
+		if _, ok := sha256OfEmptyBlock[blockSize]; !ok {
+			panic("missing hard coded value for sha256 of empty block")
+		}
 	}
 	BufferPool = newBufferPool()
 }
@@ -171,11 +182,13 @@ type rawConnection struct {
 	nextID    int32
 	nextIDMut sync.Mutex
 
-	outbox        chan asyncMessage
-	closed        chan struct{}
-	closeOnce     sync.Once
-	sendCloseOnce sync.Once
-	compression   Compression
+	sentClusterConfig chan struct{}
+	outbox            chan asyncMessage
+	closed            chan struct{}
+	closeOnce         sync.Once
+	sendCloseOnce     sync.Once
+	wg                sync.WaitGroup
+	compression       Compression
 }
 
 type asyncResult struct {
@@ -209,15 +222,16 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	cw := &countingWriter{Writer: writer}
 
 	c := rawConnection{
-		id:          deviceID,
-		name:        name,
-		receiver:    nativeModel{receiver},
-		cr:          cr,
-		cw:          cw,
-		awaiting:    make(map[int32]chan asyncResult),
-		outbox:      make(chan asyncMessage),
-		closed:      make(chan struct{}),
-		compression: compress,
+		id:                deviceID,
+		name:              name,
+		receiver:          nativeModel{receiver},
+		cr:                cr,
+		cw:                cw,
+		awaiting:          make(map[int32]chan asyncResult),
+		sentClusterConfig: make(chan struct{}),
+		outbox:            make(chan asyncMessage),
+		closed:            make(chan struct{}),
+		compression:       compress,
 	}
 
 	return wireFormatConnection{&c}
@@ -226,6 +240,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
+	c.wg.Add(4)
 	go func() {
 		err := c.readerLoop()
 		c.internalClose(err)
@@ -311,9 +326,20 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 	return res.val, res.err
 }
 
-// ClusterConfig send the cluster configuration message to the peer and returns any error
+// ClusterConfig sends the cluster configuration message to the peer.
+// It must be called just once (as per BEP).
 func (c *rawConnection) ClusterConfig(config ClusterConfig) {
-	c.send(&config, nil)
+	select {
+	case <-c.sentClusterConfig:
+		return
+	case <-c.closed:
+		return
+	default:
+	}
+	if err := c.writeMessage(asyncMessage{&config, nil}); err != nil {
+		c.internalClose(err)
+	}
+	close(c.sentClusterConfig)
 }
 
 func (c *rawConnection) Closed() bool {
@@ -338,13 +364,12 @@ func (c *rawConnection) ping() bool {
 }
 
 func (c *rawConnection) readerLoop() (err error) {
+	defer c.wg.Done()
 	fourByteBuf := make([]byte, 4)
 	state := stateInitial
 	for {
-		select {
-		case <-c.closed:
+		if c.Closed() {
 			return ErrClosed
-		default:
 		}
 
 		msg, err := c.readMessage(fourByteBuf)
@@ -616,19 +641,27 @@ func (c *rawConnection) handleResponse(resp Response) {
 	c.awaitingMut.Unlock()
 }
 
-func (c *rawConnection) send(msg message, done chan struct{}) bool {
+func (c *rawConnection) send(msg message, done chan struct{}) (sent bool) {
+	defer func() {
+		if !sent && done != nil {
+			close(done)
+		}
+	}()
+	select {
+	case <-c.sentClusterConfig:
+	case <-c.closed:
+		return false
+	}
 	select {
 	case c.outbox <- asyncMessage{msg, done}:
 		return true
 	case <-c.closed:
-		if done != nil {
-			close(done)
-		}
 		return false
 	}
 }
 
 func (c *rawConnection) writerLoop() {
+	defer c.wg.Done()
 	for {
 		select {
 		case hm := <-c.outbox:
@@ -815,10 +848,7 @@ func (c *rawConnection) Close(err error) {
 		}
 	})
 
-	// No more sends are necessary, therefore further steps to close the
-	// connection outside of this package can proceed immediately.
-	// And this prevents a potential deadlock due to calling c.receiver.Closed
-	go c.internalClose(err)
+	c.internalClose(err)
 }
 
 // internalClose is called if there is an unexpected error during normal operation.
@@ -836,7 +866,14 @@ func (c *rawConnection) internalClose(err error) {
 		}
 		c.awaitingMut.Unlock()
 
-		c.receiver.Closed(c, err)
+		// Wait for all our operations to terminate before signaling
+		// to the receiver that the connection was closed.
+		c.wg.Wait()
+
+		// No more sends are necessary, therefore further steps to close the
+		// connection outside of this package can proceed immediately.
+		// And this prevents a potential deadlock.
+		go c.receiver.Closed(c, err)
 	})
 }
 
@@ -846,6 +883,8 @@ func (c *rawConnection) internalClose(err error) {
 // results in an effecting ping interval of somewhere between
 // PingSendInterval/2 and PingSendInterval.
 func (c *rawConnection) pingSender() {
+	defer c.wg.Done()
+
 	ticker := time.NewTicker(PingSendInterval / 2)
 	defer ticker.Stop()
 
@@ -871,6 +910,8 @@ func (c *rawConnection) pingSender() {
 // but we expect pings in the absence of other messages) within the last
 // ReceiveTimeout. If not, we close the connection with an ErrTimeout.
 func (c *rawConnection) pingReceiver() {
+	defer c.wg.Done()
+
 	ticker := time.NewTicker(ReceiveTimeout / 2)
 	defer ticker.Stop()
 

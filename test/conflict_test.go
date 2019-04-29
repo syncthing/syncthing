@@ -133,8 +133,10 @@ func TestConflictsDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 1 {
-		t.Errorf("Expected 1 conflicted files instead of %d", len(files))
+	if len(files) != 2 {
+		t.Errorf("Expected 1 conflicted file on each side, instead of totally %d", len(files))
+	} else if filepath.Base(files[0]) != filepath.Base(files[1]) {
+		t.Errorf(`Expected same conflicted file on both sides, got "%v" and "%v"`, files[0], files[1])
 	}
 
 	log.Println("Introducing a conflict (edit plus delete)...")

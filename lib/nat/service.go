@@ -23,7 +23,7 @@ import (
 // setup/renewal of a port mapping.
 type Service struct {
 	id   protocol.DeviceID
-	cfg  *config.Wrapper
+	cfg  config.Wrapper
 	stop chan struct{}
 
 	mappings []*Mapping
@@ -31,7 +31,7 @@ type Service struct {
 	mut      sync.RWMutex
 }
 
-func NewService(id protocol.DeviceID, cfg *config.Wrapper) *Service {
+func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 	return &Service{
 		id:  id,
 		cfg: cfg,

@@ -9,6 +9,7 @@
 package versioner
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
@@ -16,6 +17,8 @@ import (
 
 type Versioner interface {
 	Archive(filePath string) error
+	GetVersions() (map[string][]FileVersion, error)
+	Restore(filePath string, versionTime time.Time) error
 }
 
 type FileVersion struct {
@@ -25,6 +28,7 @@ type FileVersion struct {
 }
 
 var Factories = map[string]func(folderID string, filesystem fs.Filesystem, params map[string]string) Versioner{}
+var ErrRestorationNotSupported = fmt.Errorf("version restoration not supported with the current versioner")
 
 const (
 	TimeFormat = "20060102-150405"

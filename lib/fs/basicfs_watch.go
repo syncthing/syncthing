@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"runtime"
 
 	"github.com/syncthing/notify"
 )
@@ -30,6 +31,12 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 	absName, err := rooted(name, evalRoot)
 	if err != nil {
 		return nil, err
+	}
+
+	// Remove `\\?\` prefix if the path is just a drive letter as a dirty
+	// fix for https://github.com/syncthing/syncthing/issues/5578
+	if runtime.GOOS == "windows" && len(absName) <= 7 && len(absName) > 4 && absName[:4] == `\\?\` {
+		absName = absName[4:]
 	}
 
 	outChan := make(chan Event)

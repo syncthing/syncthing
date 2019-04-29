@@ -12,6 +12,6 @@ import (
 	"syscall"
 )
 
-func copyRangeOptimised(src, dst fsFile, srcOffset, dstOffset, size int64) error {
+func copyRangeOptimised(src, dst basicFile, srcOffset, dstOffset, size int64) error {
 	return syscall.ENOTSUP
 }

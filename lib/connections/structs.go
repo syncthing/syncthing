@@ -27,6 +27,7 @@ type Connection interface {
 	RemoteAddr() net.Addr
 	Priority() int
 	String() string
+	Crypto() string
 }
 
 // completeConn is the aggregation of an internalConn and the
@@ -101,6 +102,11 @@ func (c internalConn) Priority() int {
 	return c.priority
 }
 
+func (c internalConn) Crypto() string {
+	cs := c.ConnectionState()
+	return fmt.Sprintf("%s-%s", tlsVersionNames[cs.Version], tlsCipherSuiteNames[cs.CipherSuite])
+}
+
 func (c internalConn) Transport() string {
 	transport := c.connType.Transport()
 	host, _, err := net.SplitHostPort(c.LocalAddr().String())
@@ -118,11 +124,11 @@ func (c internalConn) Transport() string {
 }
 
 func (c internalConn) String() string {
-	return fmt.Sprintf("%s-%s/%s", c.LocalAddr(), c.RemoteAddr(), c.Type())
+	return fmt.Sprintf("%s-%s/%s/%s", c.LocalAddr(), c.RemoteAddr(), c.Type(), c.Crypto())
 }
 
 type dialerFactory interface {
-	New(*config.Wrapper, *tls.Config) genericDialer
+	New(config.Wrapper, *tls.Config) genericDialer
 	Priority() int
 	AlwaysWAN() bool
 	Valid(config.Configuration) error
@@ -135,7 +141,7 @@ type genericDialer interface {
 }
 
 type listenerFactory interface {
-	New(*url.URL, *config.Wrapper, *tls.Config, chan internalConn, *nat.Service) genericListener
+	New(*url.URL, config.Wrapper, *tls.Config, chan internalConn, *nat.Service) genericListener
 	Valid(config.Configuration) error
 }
 

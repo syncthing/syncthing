@@ -9,9 +9,9 @@ package versioner
 import (
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/util"
 )
 
@@ -21,19 +21,21 @@ func init() {
 }
 
 type Simple struct {
-	keep int
-	fs   fs.Filesystem
+	keep       int
+	folderFs   fs.Filesystem
+	versionsFs fs.Filesystem
 }
 
-func NewSimple(folderID string, fs fs.Filesystem, params map[string]string) Versioner {
+func NewSimple(folderID string, folderFs fs.Filesystem, params map[string]string) Versioner {
 	keep, err := strconv.Atoi(params["keep"])
 	if err != nil {
 		keep = 5 // A reasonable default
 	}
 
 	s := Simple{
-		keep: keep,
-		fs:   fs,
+		keep:       keep,
+		folderFs:   folderFs,
+		versionsFs: fsFromParams(folderFs, params),
 	}
 
 	l.Debugf("instantiated %#v", s)
@@ -43,51 +45,17 @@ func NewSimple(folderID string, fs fs.Filesystem, params map[string]string) Vers
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (v Simple) Archive(filePath string) error {
-	info, err := v.fs.Lstat(filePath)
-	if fs.IsNotExist(err) {
-		l.Debugln("not archiving nonexistent file", filePath)
-		return nil
-	} else if err != nil {
+	err := archiveFile(v.folderFs, v.versionsFs, filePath, TagFilename)
+	if err != nil {
 		return err
 	}
-	if info.IsSymlink() {
-		panic("bug: attempting to version a symlink")
-	}
-
-	versionsDir := ".stversions"
-	_, err = v.fs.Stat(versionsDir)
-	if err != nil {
-		if fs.IsNotExist(err) {
-			l.Debugln("creating versions dir .stversions")
-			v.fs.Mkdir(versionsDir, 0755)
-			v.fs.Hide(versionsDir)
-		} else {
-			return err
-		}
-	}
-
-	l.Debugln("archiving", filePath)
 
 	file := filepath.Base(filePath)
-	inFolderPath := filepath.Dir(filePath)
-
-	dir := filepath.Join(versionsDir, inFolderPath)
-	err = v.fs.MkdirAll(dir, 0755)
-	if err != nil && !fs.IsExist(err) {
-		return err
-	}
-
-	ver := TagFilename(file, info.ModTime().Format(TimeFormat))
-	dst := filepath.Join(dir, ver)
-	l.Debugln("moving to", dst)
-	err = osutil.Rename(v.fs, filePath, dst)
-	if err != nil {
-		return err
-	}
+	dir := filepath.Dir(filePath)
 
 	// Glob according to the new file~timestamp.ext pattern.
 	pattern := filepath.Join(dir, TagFilename(file, TimeGlob))
-	newVersions, err := v.fs.Glob(pattern)
+	newVersions, err := v.versionsFs.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
 		return nil
@@ -95,7 +63,7 @@ func (v Simple) Archive(filePath string) error {
 
 	// Also according to the old file.ext~timestamp pattern.
 	pattern = filepath.Join(dir, file+"~"+TimeGlob)
-	oldVersions, err := v.fs.Glob(pattern)
+	oldVersions, err := v.versionsFs.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
 		return nil
@@ -108,7 +76,7 @@ func (v Simple) Archive(filePath string) error {
 	if len(versions) > v.keep {
 		for _, toRemove := range versions[:len(versions)-v.keep] {
 			l.Debugln("cleaning out", toRemove)
-			err = v.fs.Remove(toRemove)
+			err = v.versionsFs.Remove(toRemove)
 			if err != nil {
 				l.Warnln("removing old version:", err)
 			}
@@ -116,4 +84,12 @@ func (v Simple) Archive(filePath string) error {
 	}
 
 	return nil
+}
+
+func (v Simple) GetVersions() (map[string][]FileVersion, error) {
+	return retrieveVersions(v.versionsFs)
+}
+
+func (v Simple) Restore(filepath string, versionTime time.Time) error {
+	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }
