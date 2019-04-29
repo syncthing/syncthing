@@ -47,7 +47,7 @@ func DefaultOverflowBytes() int64 {
 type Value interface {
 	Bytes() int64
 	Marshal() []byte
-	Unmarshal([]byte) Value // The returned Value must not be a reference to the receiver.
+	Unmarshal([]byte)
 }
 
 // ValueFileInfo implements Value for protocol.FileInfo
@@ -65,12 +65,10 @@ func (s *ValueFileInfo) Marshal() []byte {
 	return data
 }
 
-func (s *ValueFileInfo) Unmarshal(v []byte) Value {
-	out := &ValueFileInfo{}
-	if err := out.FileInfo.Unmarshal(v); err != nil {
+func (s *ValueFileInfo) Unmarshal(v []byte) {
+	if err := s.FileInfo.Unmarshal(v); err != nil {
 		panic("unmarshal failed: " + err.Error())
 	}
-	return out
 }
 
 type common interface {
@@ -123,7 +121,6 @@ type SortValueIterator interface {
 
 type iteratorParent interface {
 	released()
-	value() interface{}
 }
 
 const (

@@ -1991,12 +1991,10 @@ func (s *valueFileInfoSlice) Marshal() []byte {
 	return data
 }
 
-func (s *valueFileInfoSlice) Unmarshal(v []byte) diskoverflow.Value {
-	out := &valueFileInfoSlice{}
-	if err := out.Index.Unmarshal(v); err != nil {
+func (s *valueFileInfoSlice) Unmarshal(v []byte) {
+	if err := s.Index.Unmarshal(v); err != nil {
 		panic("unmarshal failed: " + err.Error())
 	}
-	return out
 }
 
 func conflictName(name, lastModBy string) string {

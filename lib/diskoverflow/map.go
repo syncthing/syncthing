@@ -30,6 +30,8 @@ type commonMap interface {
 	newIterator(p iteratorParent) MapIterator
 }
 
+// NewSorted creates a map like container, spilling to disk at location.
+// All items added to this instance must be of the same type as v.
 func NewMap(location string, v Value) *Map {
 	o := &Map{
 		base: newBase(location),
@@ -65,10 +67,6 @@ func (o *Map) String() string {
 
 func (o *Map) released() {
 	o.iterating = false
-}
-
-func (o *Map) value() interface{} {
-	return o.v
 }
 
 type MapIterator interface {
@@ -228,7 +226,8 @@ func (o *diskMap) Get(k string) (Value, bool) {
 	if err != nil {
 		return nil, false
 	}
-	return o.v.Unmarshal(data), true
+	o.v.Unmarshal(data)
+	return o.v, true
 }
 
 func (o *diskMap) Items() int {
@@ -247,7 +246,7 @@ func (o *diskMap) Pop(k string) (Value, bool) {
 func (o *diskMap) newIterator(p iteratorParent) MapIterator {
 	return &diskMapIterator{
 		it:     o.db.NewIterator(nil, nil),
-		v:      p.value().(Value),
+		v:      o.v,
 		parent: p,
 	}
 }
@@ -263,7 +262,8 @@ func (i *diskMapIterator) Next() bool {
 }
 
 func (i *diskMapIterator) Value() Value {
-	return i.v.Unmarshal(i.it.Value())
+	i.v.Unmarshal(i.it.Value())
+	return i.v
 }
 
 func (i *diskMapIterator) Key() string {

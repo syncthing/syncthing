@@ -21,7 +21,7 @@ const suffixLength = 8
 // will happen according to bytes.Compare on the key.
 type SortValue interface {
 	Value
-	UnmarshalWithKey(key, value []byte) SortValue // The returned SortValue must not be a reference to the receiver.
+	UnmarshalWithKey(key, value []byte)
 	Key() []byte
 }
 
@@ -41,6 +41,9 @@ type commonSorted interface {
 	newIterator(p iteratorParent, reverse bool) SortValueIterator
 }
 
+// NewSorted creates a sorted container, spilling to disk at location and sorting
+// it's elements by the keys returned by the underlying type of v.
+// All items added to this instance must be of the same type as v.
 func NewSorted(location string, v SortValue) *Sorted {
 	o := &Sorted{
 		base: newBase(location),
@@ -91,10 +94,6 @@ func (o *Sorted) PopLast() (SortValue, bool) {
 
 func (o *Sorted) String() string {
 	return fmt.Sprintf("Sorted@%p", o)
-}
-
-func (o *Sorted) value() interface{} {
-	return o.v
 }
 
 func (o *Sorted) released() {
@@ -230,7 +229,8 @@ func (di *diskIterator) Value() SortValue {
 	if key == nil {
 		return nil
 	}
-	return di.v.UnmarshalWithKey(key[:len(key)-suffixLength], di.it.Value())
+	di.v.UnmarshalWithKey(key[:len(key)-suffixLength], di.it.Value())
+	return di.v
 }
 
 func (di *diskIterator) Release() {
@@ -281,7 +281,8 @@ func (d *diskSorted) getFirst() (SortValue, bool) {
 		return nil, false
 	}
 	key := it.Key()
-	return d.v.UnmarshalWithKey(key[:len(key)-suffixLength], it.Value()), true
+	d.v.UnmarshalWithKey(key[:len(key)-suffixLength], it.Value())
+	return d.v, true
 }
 
 func (d *diskSorted) getLast() (SortValue, bool) {
@@ -291,7 +292,8 @@ func (d *diskSorted) getLast() (SortValue, bool) {
 		return nil, false
 	}
 	key := it.Key()
-	return d.v.UnmarshalWithKey(key[:len(key)-suffixLength], it.Value()), true
+	d.v.UnmarshalWithKey(key[:len(key)-suffixLength], it.Value())
+	return d.v, true
 }
 
 func (d *diskSorted) dropFirst(v SortValue) bool {

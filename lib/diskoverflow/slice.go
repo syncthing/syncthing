@@ -23,6 +23,8 @@ type commonSlice interface {
 	newIterator(p iteratorParent, reverse bool) ValueIterator
 }
 
+// NewSorted creates a slice like container, spilling to disk at location.
+// All items added to this instance must be of the same type as v.
 func NewSlice(location string, v Value) *Slice {
 	o := &Slice{
 		base: newBase(location),
@@ -64,10 +66,6 @@ func (o *Slice) NewIterator(reverse bool) ValueIterator {
 
 func (o *Slice) String() string {
 	return fmt.Sprintf("Slice@%p", o)
-}
-
-func (o *Slice) value() interface{} {
-	return o.v
 }
 
 type memorySlice struct {
@@ -147,9 +145,7 @@ func (o *nonSortValue) Key() []byte {
 	return key
 }
 
-func (o *nonSortValue) UnmarshalWithKey(key, value []byte) SortValue {
-	return &nonSortValue{
-		Value: o.Value.Unmarshal(value),
-		index: binary.BigEndian.Uint64(key),
-	}
+func (o *nonSortValue) UnmarshalWithKey(key, value []byte) {
+	o.Value.Unmarshal(value)
+	o.index = binary.BigEndian.Uint64(key)
 }

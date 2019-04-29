@@ -231,8 +231,8 @@ func (q *queueValue) Marshal() []byte {
 	return []byte(q.string)
 }
 
-func (q *queueValue) Unmarshal(v []byte) diskoverflow.Value {
-	return &queueValue{string(v)}
+func (q *queueValue) Unmarshal(v []byte) {
+	q.string = string(v)
 }
 
 type queueValueAlphabetic struct {
@@ -247,8 +247,8 @@ func (q *queueValueAlphabetic) Less(other diskoverflow.SortValue) bool {
 	return q.queueValue.string < other.(*queueValueAlphabetic).queueValue.string
 }
 
-func (q *queueValueAlphabetic) UnmarshalWithKey(_, v []byte) diskoverflow.SortValue {
-	return &queueValueAlphabetic{q.queueValue.Unmarshal(v).(*queueValue)}
+func (q *queueValueAlphabetic) UnmarshalWithKey(_, v []byte) {
+	q.queueValue.Unmarshal(v)
 }
 
 type queueValueSmallest struct {
@@ -266,11 +266,9 @@ func (q *queueValueSmallest) Less(other diskoverflow.SortValue) bool {
 	return q.bytes < other.(*queueValueSmallest).bytes
 }
 
-func (q *queueValueSmallest) UnmarshalWithKey(k, v []byte) diskoverflow.SortValue {
-	return &queueValueSmallest{
-		queueValue: q.queueValue.Unmarshal(v).(*queueValue),
-		bytes:      binary.BigEndian.Uint64(k),
-	}
+func (q *queueValueSmallest) UnmarshalWithKey(k, v []byte) {
+	q.queueValue.Unmarshal(v)
+	q.bytes = binary.BigEndian.Uint64(k)
 }
 
 type queueValueOldest struct {
@@ -290,12 +288,9 @@ func (q *queueValueOldest) Less(other diskoverflow.SortValue) bool {
 	return q.time.Before(other.(*queueValueOldest).time)
 }
 
-func (q *queueValueOldest) UnmarshalWithKey(k, v []byte) diskoverflow.SortValue {
-	out := &queueValueOldest{
-		queueValue: q.queueValue.Unmarshal(v).(*queueValue),
-	}
-	out.time.UnmarshalText(k)
-	return out
+func (q *queueValueOldest) UnmarshalWithKey(k, v []byte) {
+	q.queueValue.Unmarshal(v)
+	q.time.UnmarshalText(k)
 }
 
 type queueValueShuffled struct {
@@ -309,11 +304,9 @@ func (q *queueValueShuffled) Key() []byte {
 	return key
 }
 
-func (q *queueValueShuffled) UnmarshalWithKey(k, v []byte) diskoverflow.SortValue {
-	return &queueValueShuffled{
-		queueValue: q.queueValue.Unmarshal(v).(*queueValue),
-		key:        binary.BigEndian.Uint64(k),
-	}
+func (q *queueValueShuffled) UnmarshalWithKey(k, v []byte) {
+	q.queueValue.Unmarshal(v)
+	q.key = binary.BigEndian.Uint64(k)
 }
 
 func (q *queueValueShuffled) Less(other diskoverflow.SortValue) bool {

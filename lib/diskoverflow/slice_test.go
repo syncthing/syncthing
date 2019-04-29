@@ -133,12 +133,12 @@ func (t *testValue) Marshal() []byte {
 	return []byte(t.string)
 }
 
-func (t *testValue) Unmarshal(v []byte) Value {
-	return &testValue{string(v)}
+func (t *testValue) Unmarshal(v []byte) {
+	t.string = string(v)
 }
 
-func (t *testValue) UnmarshalWithKey(_, v []byte) SortValue {
-	return t.Unmarshal(v).(SortValue)
+func (t *testValue) UnmarshalWithKey(_, v []byte) {
+	t.Unmarshal(v)
 }
 
 func (t *testValue) Key() []byte {
