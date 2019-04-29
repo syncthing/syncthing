@@ -104,7 +104,7 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 			FolderConfiguration: fcfg,
 		},
 
-		queue:         newJobQueue(),
+		queue:     newJobQueue(config.OrderAlphabetic, ""),
 		pullErrors:    make(map[string]string),
 		pullErrorsMut: sync.NewMutex(),
 	}
@@ -594,7 +594,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		// At this point the file should still be registered with both the job
 		// queue, and the progress emitter. Verify this.
 		if f.model.progressEmitter.lenRegistry() != 1 || f.queue.lenProgress() != 1 || f.queue.lenQueued() != 0 {
-			t.Fatal("Could not find file")
+			t.Fatal("Could not find file", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
 		}
 
 		// Pass the file down the real finisher, and give it time to consume

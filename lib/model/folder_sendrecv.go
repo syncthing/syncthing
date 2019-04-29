@@ -20,9 +20,11 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/diskoverflow"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -112,10 +114,12 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 		folder:        newFolder(model, fset, ignores, cfg),
 		fs:            fs,
 		versioner:     ver,
-		queue:         newJobQueue(),
 		pullErrorsMut: sync.NewMutex(),
 	}
+
 	f.folder.puller = f
+
+	f.queue = newJobQueue(f.Order, locations.Get(locations.Database))
 
 	if f.Copiers == 0 {
 		f.Copiers = defaultCopiers
@@ -287,16 +291,19 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	close(dbUpdateChan)
 	updateWg.Wait()
 
+	f.queue.Reset()
+
 	return changed
 }
 
-func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
+func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, *diskoverflow.Map, *diskoverflow.Slice, error) {
 	defer f.queue.Reset()
 
 	changed := 0
-	var dirDeletions []protocol.FileInfo
-	fileDeletions := map[string]protocol.FileInfo{}
-	buckets := map[string][]protocol.FileInfo{}
+	overflowLoc := locations.Get(locations.Database)
+	dirDeletions := diskoverflow.NewSlice(overflowLoc, &diskoverflow.ValueFileInfo{})
+	fileDeletions := diskoverflow.NewMap(overflowLoc, &diskoverflow.ValueFileInfo{})
+	buckets := diskoverflow.NewMap(overflowLoc, &valueFileInfoSlice{})
 
 	// Iterate the list of items that we need and sort them into piles.
 	// Regular files to pull goes into the file queue, everything else
@@ -330,9 +337,10 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			if file.IsDirectory() {
 				// Perform directory deletions at the end, as we may have
 				// files to delete inside them before we get to that point.
-				dirDeletions = append(dirDeletions, file)
+				l.Debugln("processing directly appending deleted dir", file.Name)
+				dirDeletions.Append(&diskoverflow.ValueFileInfo{file})
 			} else {
-				fileDeletions[file.Name] = file
+				fileDeletions.Add(file.Name, &diskoverflow.ValueFileInfo{file})
 				df, ok := f.fset.Get(protocol.LocalDeviceID, file.Name)
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
@@ -341,7 +349,13 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
 					// Put files into buckets per first hash
 					key := string(df.Blocks[0].Hash)
-					buckets[key] = append(buckets[key], df)
+					v, ok := buckets.Get(key)
+					if ok {
+						v = v.(*valueFileInfoSlice).Append(df)
+					} else {
+						v = newValueFileInfoSlice([]protocol.FileInfo{df})
+					}
+					buckets.Add(key, v)
 				}
 			}
 			changed++
@@ -392,25 +406,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 	default:
 	}
 
-	// Now do the file queue. Reorder it according to configuration.
-
-	switch f.Order {
-	case config.OrderRandom:
-		f.queue.Shuffle()
-	case config.OrderAlphabetic:
-	// The queue is already in alphabetic order.
-	case config.OrderSmallestFirst:
-		f.queue.SortSmallestFirst()
-	case config.OrderLargestFirst:
-		f.queue.SortLargestFirst()
-	case config.OrderOldestFirst:
-		f.queue.SortOldestFirst()
-	case config.OrderNewestFirst:
-		f.queue.SortNewestFirst()
-	}
-
 	// Process the file queue.
-
 nextFile:
 	for {
 		select {
@@ -446,17 +442,23 @@ nextFile:
 		// Check our list of files to be removed for a match, in which case
 		// we can just do a rename instead.
 		key := string(fi.Blocks[0].Hash)
-		for i, candidate := range buckets[key] {
+		var list []protocol.FileInfo
+		if v, ok := buckets.Get(key); ok {
+			list = v.(*valueFileInfoSlice).Files()
+		}
+		for i, candidate := range list {
 			if protocol.BlocksEqual(candidate.Blocks, fi.Blocks) {
 				// Remove the candidate from the bucket
-				lidx := len(buckets[key]) - 1
-				buckets[key][i] = buckets[key][lidx]
-				buckets[key] = buckets[key][:lidx]
+				lidx := len(list) - 1
+				list[i] = list[lidx]
+				list = list[:lidx]
+				buckets.Add(key, newValueFileInfoSlice(list))
 
 				// candidate is our current state of the file, where as the
 				// desired state with the delete bit set is in the deletion
 				// map.
-				desired := fileDeletions[candidate.Name]
+				v, _ := fileDeletions.Get(candidate.Name)
+				desired := v.(*diskoverflow.ValueFileInfo).FileInfo
 				if err := f.renameFile(candidate, desired, fi, dbUpdateChan, scanChan); err != nil {
 					// Failed to rename, try to handle files as separate
 					// deletions and updates.
@@ -464,7 +466,7 @@ nextFile:
 				}
 
 				// Remove the pending deletion (as we performed it by renaming)
-				delete(fileDeletions, candidate.Name)
+				fileDeletions.Pop(candidate.Name)
 
 				changed++
 				f.queue.Done(fileName)
@@ -484,18 +486,22 @@ nextFile:
 		f.newPullError(fileName, errNotAvailable)
 		f.queue.Done(fileName)
 	}
+	buckets.Close()
 
 	return changed, fileDeletions, dirDeletions, nil
 }
 
-func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
-	for _, file := range fileDeletions {
+func (f *sendReceiveFolder) processDeletions(fileDeletions *diskoverflow.Map, dirDeletions *diskoverflow.Slice, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+	// Do not return early due to necessary cleanup
+	fit := fileDeletions.NewIterator()
+	for fit.Next() {
 		select {
 		case <-f.ctx.Done():
-			return
+			break
 		default:
 		}
 
+		file := fit.Value().(*diskoverflow.ValueFileInfo).FileInfo
 		l.Debugln(f, "Deleting file", file.Name)
 		if update, err := f.deleteFile(file, scanChan); err != nil {
 			f.newPullError(file.Name, errors.Wrap(err, "delete file"))
@@ -503,18 +509,23 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.F
 			dbUpdateChan <- update
 		}
 	}
+	fit.Release()
+	fileDeletions.Close()
 
-	for i := range dirDeletions {
+	dit := dirDeletions.NewIterator(true)
+	for dit.Next() {
 		select {
 		case <-f.ctx.Done():
-			return
+			break
 		default:
 		}
 
-		dir := dirDeletions[len(dirDeletions)-i-1]
+		dir := dit.Value().(*diskoverflow.ValueFileInfo).FileInfo
 		l.Debugln(f, "Deleting dir", dir.Name)
 		f.deleteDir(dir, dbUpdateChan, scanChan)
 	}
+	dit.Release()
+	dirDeletions.Close()
 }
 
 // handleDir creates or updates the given directory
@@ -1950,6 +1961,42 @@ func (l fileErrorList) Less(a, b int) bool {
 
 func (l fileErrorList) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
+}
+
+// valueFileInfoSlice implements Value for []protocol.FileInfo by abusing protocol.Index
+type valueFileInfoSlice struct{ protocol.Index }
+
+func newValueFileInfoSlice(files []protocol.FileInfo) *valueFileInfoSlice {
+	return &valueFileInfoSlice{protocol.Index{Files: files}}
+}
+
+func (s *valueFileInfoSlice) Files() []protocol.FileInfo {
+	return s.Index.Files
+}
+
+func (s *valueFileInfoSlice) Append(f protocol.FileInfo) *valueFileInfoSlice {
+	s.Index.Files = append(s.Index.Files, f)
+	return s
+}
+
+func (s *valueFileInfoSlice) Size() int64 {
+	return int64(s.ProtoSize())
+}
+
+func (s *valueFileInfoSlice) Marshal() []byte {
+	data, err := s.Index.Marshal()
+	if err != nil {
+		panic("bug: marshalling FileInfo should never fail: " + err.Error())
+	}
+	return data
+}
+
+func (s *valueFileInfoSlice) Unmarshal(v []byte) diskoverflow.Value {
+	out := &valueFileInfoSlice{}
+	if err := out.Index.Unmarshal(v); err != nil {
+		panic("unmarshal failed: " + err.Error())
+	}
+	return out
 }
 
 func conflictName(name, lastModBy string) string {

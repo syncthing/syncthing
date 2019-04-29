@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/diskoverflow"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -2485,6 +2486,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	scanLimiter.setCapacity(to.Options.MaxConcurrentScans)
+
+	diskoverflow.SetDefaultOverflowBytes(to.Options.DiskOverflowBytes)
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves. Compare the options structs containing only the

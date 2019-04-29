@@ -52,6 +52,7 @@ type OptionsConfiguration struct {
 	DefaultFolderPath       string   `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 	SetLowPriority          bool     `xml:"setLowPriority" json:"setLowPriority" default:"true"`
 	MaxConcurrentScans      int      `xml:"maxConcurrentScans" json:"maxConcurrentScans"`
+	DiskOverflowBytes       int64    `xml:"diskOverflowBytes" json:"diskOverflowBytes"`
 
 	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM         int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`
