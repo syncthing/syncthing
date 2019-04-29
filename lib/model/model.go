@@ -2487,7 +2487,11 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	scanLimiter.setCapacity(to.Options.MaxConcurrentScans)
 
-	diskoverflow.SetDefaultOverflowBytes(to.Options.DiskOverflowBytes)
+	if o := to.Options.DiskOverflowBytes; o == 0 {
+		diskoverflow.SetDefaultOverflowBytes(diskoverflow.OrigDefaultOverflowBytes)
+	} else {
+		diskoverflow.SetDefaultOverflowBytes(o)
+	}
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves. Compare the options structs containing only the

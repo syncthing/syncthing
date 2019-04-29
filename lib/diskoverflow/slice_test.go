@@ -18,7 +18,7 @@ func withAdjustedMem(t *testing.T, mem int64, fn func(t *testing.T)) {
 
 	fn(t)
 
-	SetDefaultOverflowBytes(0)
+	SetDefaultOverflowBytes(OrigDefaultOverflowBytes)
 }
 
 func TestSliceReal(t *testing.T) {
