@@ -52,8 +52,6 @@ func testSlice(t *testing.T) {
 				t.Errorf("s.Size() == %v, expected %v", s, i*10)
 			}
 		}
-		if i == 0 {
-		}
 		slice.Append(tv)
 	}
 

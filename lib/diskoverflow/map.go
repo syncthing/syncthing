@@ -84,10 +84,8 @@ func (o *Map) NewIterator() MapIterator {
 }
 
 type memoryMap struct {
-	values    map[string]Value
-	key       int
-	size      int64
-	iterating bool
+	values map[string]Value
+	size   int64
 }
 
 func (o *memoryMap) add(k string, v Value) {

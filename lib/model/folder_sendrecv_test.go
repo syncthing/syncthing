@@ -104,7 +104,7 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 			FolderConfiguration: fcfg,
 		},
 
-		queue:     newJobQueue(config.OrderAlphabetic, ""),
+		queue:         newJobQueue(config.OrderAlphabetic, ""),
 		pullErrors:    make(map[string]string),
 		pullErrorsMut: sync.NewMutex(),
 	}

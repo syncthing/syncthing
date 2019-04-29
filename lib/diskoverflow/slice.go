@@ -71,7 +71,6 @@ func (o *Slice) value() interface{} {
 }
 
 type memorySlice struct {
-	key    int
 	values []Value
 	size   int64
 }
