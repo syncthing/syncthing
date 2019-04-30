@@ -245,7 +245,10 @@ func (c *rawConnection) Start() {
 		err := c.readerLoop()
 		c.internalClose(err)
 	}()
-	go c.writerLoop()
+	go func() {
+		err := c.writerLoop()
+		c.internalClose(err)
+	}()
 	go c.pingSender()
 	go c.pingReceiver()
 }
@@ -660,7 +663,7 @@ func (c *rawConnection) send(msg message, done chan struct{}) (sent bool) {
 	}
 }
 
-func (c *rawConnection) writerLoop() {
+func (c *rawConnection) writerLoop() error {
 	defer c.wg.Done()
 	for {
 		select {
@@ -670,12 +673,11 @@ func (c *rawConnection) writerLoop() {
 				close(hm.done)
 			}
 			if err != nil {
-				c.internalClose(err)
-				return
+				return err
 			}
 
 		case <-c.closed:
-			return
+			return ErrClosed
 		}
 	}
 }
