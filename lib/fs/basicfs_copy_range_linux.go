@@ -36,11 +36,16 @@ func copyRangeOptimised(src, dst basicFile, srcOffset, dstOffset, size int64) er
 
 func copyRangeCopyFileRange(src, dst basicFile, srcOffset, dstOffset, size int64) error {
 	for size > 0 {
+		// From MAN page
+		//
+		// If off_in is not NULL, then off_in must point to a buffer that
+		// specifies the starting offset where bytes from fd_in will be read.
+		//	The file offset of fd_in is not changed, but off_in is adjusted
+		// appropriately.
 		n, err := unix.CopyFileRange(int(src.Fd()), &srcOffset, int(dst.Fd()), &dstOffset, int(size), 0)
 		if err != nil && err != syscall.EAGAIN {
 			return err
 		}
-		srcOffset += int64(n)
 		dstOffset += int64(n)
 		size -= int64(n)
 	}

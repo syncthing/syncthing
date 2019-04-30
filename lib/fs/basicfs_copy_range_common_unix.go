@@ -50,6 +50,15 @@ func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error 
 }
 
 func copyFileSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) error {
+	// Check that the destination file has sufficient space
+	if fi, err := dst.Stat(); err != nil {
+		return err
+	} else if fi.Size() < dstOffset+size {
+		if err := dst.Truncate(dstOffset + size); err != nil {
+			return err
+		}
+	}
+
 	for size > 0 {
 		// From the MAN page:
 		//

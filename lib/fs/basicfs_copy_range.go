@@ -12,6 +12,12 @@ import (
 	"strings"
 )
 
+// CopyRange tries to use the most optimal way to copy data between two files.
+// Takes size bytes at offset srcOffset from the source file, and copies the data to destination file at offset
+// dstOffset. If required, adjusts the size of the destination file to fit that much data.
+//
+// On unix, uses ref-linking if the underlying copy-on-write filesystem supports it (tested on xfs and btrfs),
+// which referencing existing data in the source file, instead of making a copy and taking up additional space.
 func CopyRange(src, dst File, srcOffset, dstOffset, size int64) error {
 	srcFile, srcOk := src.(basicFile)
 	dstFile, dstOk := dst.(basicFile)
@@ -78,6 +84,9 @@ func copyRangeGeneric(src, dst File, srcOffset, dstOffset, size int64) error {
 func getCopyOptimisations() []string {
 	opt := os.Getenv("STCOPYOPTIMISATIONS")
 	if opt == "" {
+		// ioctl first because it's available on early kernels and works on btrfs
+		// copy_file_range is only available on linux 4.5+ and works on xfs and btrfs
+		// sendfile does not do any block reuse, but works since 2.6+ or so.
 		opt = "ioctl,copy_file_range,sendfile"
 	}
 	return strings.Split(opt, ",")
