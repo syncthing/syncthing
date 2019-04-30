@@ -59,6 +59,13 @@ func copyFileSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) erro
 		}
 	}
 
+	// Seek to the offset we expect to write
+	if n, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
+		return err
+	} else if n != dstOffset {
+		return io.ErrUnexpectedEOF
+	}
+
 	for size > 0 {
 		// From the MAN page:
 		//
@@ -68,13 +75,22 @@ func copyFileSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) erro
 		// file offset of in_fd; otherwise the current file offset is adjusted to reflect the number of bytes read from
 		// in_fd.
 		n, err := syscall.Sendfile(int(dst.Fd()), int(src.Fd()), &srcOffset, int(size))
+
+		if n == 0 && err == nil {
+			err = io.ErrShortWrite
+		}
+
 		if err != nil && err != syscall.EAGAIN {
+			_, _ = dst.Seek(dstOffset, io.SeekStart)
 			return err
 		}
-		if n == 0 && err == nil {
-			return io.EOF
-		}
+
 		size -= int64(n)
 	}
+
+	if _, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
+		return err
+	}
+
 	return nil
 }
