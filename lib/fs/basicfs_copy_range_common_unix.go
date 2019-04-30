@@ -10,7 +10,6 @@ package fs
 
 import (
 	"io"
-	"runtime"
 	"syscall"
 	"unsafe"
 )
@@ -42,7 +41,6 @@ func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error 
 		dstOffset: uint64(dstOffset),
 	}
 	_, _, e1 := syscall.Syscall(syscall.SYS_IOCTL, dst.Fd(), FICLONERANGE, uintptr(unsafe.Pointer(&params)))
-	runtime.KeepAlive(params)
 	if e1 != 0 {
 		return syscall.Errno(e1)
 	}
@@ -59,10 +57,17 @@ func copyFileSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) erro
 		}
 	}
 
+	// Record old dst offset.
+	oldDstOffset, err := dst.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil
+	}
+
 	// Seek to the offset we expect to write
 	if n, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
 		return err
 	} else if n != dstOffset {
+		_, _ = dst.Seek(oldDstOffset, io.SeekStart)
 		return io.ErrUnexpectedEOF
 	}
 
@@ -81,14 +86,14 @@ func copyFileSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) erro
 		}
 
 		if err != nil && err != syscall.EAGAIN {
-			_, _ = dst.Seek(dstOffset, io.SeekStart)
+			_, _ = dst.Seek(oldDstOffset, io.SeekStart)
 			return err
 		}
 
 		size -= int64(n)
 	}
 
-	if _, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
+	if _, err := dst.Seek(oldDstOffset, io.SeekStart); err != nil {
 		return err
 	}
 

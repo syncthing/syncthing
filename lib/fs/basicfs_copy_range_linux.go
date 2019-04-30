@@ -36,7 +36,7 @@ func copyRangeOptimised(src, dst basicFile, srcOffset, dstOffset, size int64) er
 
 func copyRangeCopyFileRange(src, dst basicFile, srcOffset, dstOffset, size int64) error {
 	for size > 0 {
-		// From MAN page
+		// From MAN page:
 		//
 		// If off_in is not NULL, then off_in must point to a buffer that
 		// specifies the starting offset where bytes from fd_in will be read.
