@@ -18,6 +18,8 @@ import (
 //
 // On unix, uses ref-linking if the underlying copy-on-write filesystem supports it (tested on xfs and btrfs),
 // which referencing existing data in the source file, instead of making a copy and taking up additional space.
+//
+// CopyRange does it best to have no effect on src and dst file offsets (copy operation should not affect it).
 func CopyRange(src, dst File, srcOffset, dstOffset, size int64) error {
 	srcFile, srcOk := src.(basicFile)
 	dstFile, dstOk := dst.(basicFile)
@@ -31,7 +33,11 @@ func CopyRange(src, dst File, srcOffset, dstOffset, size int64) error {
 }
 
 func copyRangeGeneric(src, dst File, srcOffset, dstOffset, size int64) error {
-	oldOffset, err := src.Seek(0, io.SeekCurrent)
+	oldSrcOffset, err := src.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil
+	}
+	oldDstOffset, err := dst.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return nil
 	}
@@ -67,17 +73,26 @@ func copyRangeGeneric(src, dst File, srcOffset, dstOffset, size int64) error {
 	for size > 0 {
 		n, err := io.CopyN(dst, src, size)
 		if err != nil {
-			_, _ = src.Seek(oldOffset, io.SeekStart)
+			_, _ = src.Seek(oldSrcOffset, io.SeekStart)
+			_, _ = dst.Seek(oldDstOffset, io.SeekStart)
 			return err
 		}
 		size -= n
 	}
 
-	if n, err := src.Seek(oldOffset, io.SeekStart); err != nil {
+	// Restore offsets
+	if n, err := src.Seek(oldSrcOffset, io.SeekStart); err != nil {
 		return err
-	} else if n != oldOffset {
+	} else if n != oldSrcOffset {
 		return io.ErrUnexpectedEOF
 	}
+
+	if n, err := dst.Seek(oldDstOffset, io.SeekStart); err != nil {
+		return err
+	} else if n != oldDstOffset {
+		return io.ErrUnexpectedEOF
+	}
+
 	return nil
 }
 

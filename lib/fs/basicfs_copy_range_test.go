@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"syscall"
 	"testing"
 )
 
@@ -48,8 +49,7 @@ var (
 		// Cursor position before the copy
 		srcPos int
 		dstPos int
-		// Expected cursor position after the copy
-		expectedDstPos  int
+		// Expected destination size
 		expectedDstSize int
 	}{
 		{
@@ -57,15 +57,13 @@ var (
 			dstOffset:       generationSize,
 			srcPos:          generationSize,
 			dstPos:          generationSize,
-			expectedDstPos:  generationSize + copySize,
 			expectedDstSize: generationSize + copySize,
 		},
 		{
 			srcOffset:       0,
 			dstOffset:       generationSize,
 			srcPos:          0, // We seek back to start, and expect src not to move after copy
-			dstPos:          0, // Seek back, but expect dst pos to change
-			expectedDstPos:  generationSize + copySize,
+			dstPos:          0, // Seek back, but expect dst pos to not change
 			expectedDstSize: generationSize + copySize,
 		},
 		{
@@ -73,7 +71,6 @@ var (
 			dstOffset:       generationSize,
 			srcPos:          generationSize,
 			dstPos:          generationSize,
-			expectedDstPos:  generationSize + copySize,
 			expectedDstSize: generationSize + copySize,
 		},
 		{
@@ -81,7 +78,6 @@ var (
 			dstOffset:       0,
 			srcPos:          generationSize,
 			dstPos:          generationSize,
-			expectedDstPos:  copySize,
 			expectedDstSize: generationSize,
 		},
 		{
@@ -89,7 +85,6 @@ var (
 			dstOffset:       0,
 			srcPos:          generationSize,
 			dstPos:          generationSize,
-			expectedDstPos:  copySize,
 			expectedDstSize: generationSize,
 		},
 		// Write way past the end of the file
@@ -98,7 +93,6 @@ var (
 			dstOffset:       generationSize * 2,
 			srcPos:          generationSize,
 			dstPos:          generationSize,
-			expectedDstPos:  generationSize*2 + copySize,
 			expectedDstSize: generationSize*2 + copySize,
 		},
 	}
@@ -108,22 +102,22 @@ func TestCopyRange(ttt *testing.T) {
 	srcBuf := make([]byte, generationSize)
 	dstBuf := make([]byte, generationSize*3)
 	randSrc := rand.New(rand.NewSource(rand.Int63()))
-	for _, testFunc := range copyRangeTests {
-		ttt.Run(testFunc.name, func(tt *testing.T) {
+	for _, testScenario := range copyRangeTests {
+		ttt.Run(testScenario.name, func(tt *testing.T) {
 			for _, testCase := range testCases {
-				name := fmt.Sprintf("%d_%d_%d_%d_%d_%d",
+				name := fmt.Sprintf("%d_%d_%d_%d_%d",
 					testCase.srcOffset/copySize,
 					testCase.dstOffset/copySize,
 					testCase.srcPos/copySize,
 					testCase.dstPos/copySize,
-					testCase.expectedDstPos/copySize,
 					testCase.expectedDstSize/copySize,
 				)
 				tt.Run(name, func(t *testing.T) {
-					td, err := ioutil.TempDir(os.Getenv("STFSTESTOATH"), "")
+					td, err := ioutil.TempDir(os.Getenv("STFSTESTPATH"), "")
 					if err != nil {
 						t.Fatal(err)
 					}
+					defer func() { _ = os.RemoveAll(td) }()
 					fs := NewFilesystem(FilesystemTypeBasic, td)
 
 					if _, err := io.ReadFull(randSrc, srcBuf); err != nil {
@@ -168,12 +162,13 @@ func TestCopyRange(ttt *testing.T) {
 
 					// Copy the data
 
-					if err := testFunc.copyFn(src, dst, int64(testCase.srcOffset), int64(testCase.dstOffset), int64(copySize)); err != nil {
-						if testFunc.mustSucceed {
+					if err := testScenario.copyFn(src, dst, int64(testCase.srcOffset), int64(testCase.dstOffset), int64(copySize)); err != nil {
+						if testScenario.mustSucceed && err != nil {
 							t.Fatal(err)
-						} else {
-							// It might be an unsupported syscall, skip.
-							t.Skip(err.Error())
+						}
+						if err == syscall.ENOTSUP {
+							// Test runner can adjust directory in which to run the tests, that allow broader tests.
+							t.Skip("Not supported on the current filesystem, set STFSTESTPATH env var.")
 						}
 					}
 
@@ -187,8 +182,8 @@ func TestCopyRange(ttt *testing.T) {
 
 					if dstCurPos, err := dst.Seek(0, io.SeekCurrent); err != nil {
 						t.Fatal(err)
-					} else if dstCurPos != int64(testCase.expectedDstPos) {
-						t.Errorf("dst pos expected %d got %d", testCase.expectedDstPos, dstCurPos)
+					} else if dstCurPos != int64(testCase.dstPos) {
+						t.Errorf("dst pos expected %d got %d", testCase.dstPos, dstCurPos)
 					}
 
 					// Check the data is as expected
