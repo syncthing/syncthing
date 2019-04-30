@@ -35,33 +35,37 @@ type fileCloneRange struct {
 }
 
 func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error {
-	params := &fileCloneRange{
+	params := fileCloneRange{
 		srcFd:     int64(src.Fd()),
 		srcOffset: uint64(srcOffset),
 		srcLength: uint64(size),
 		dstOffset: uint64(dstOffset),
 	}
-	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, dst.Fd(), FICLONERANGE, uintptr(unsafe.Pointer(params)))
+	_, _, e1 := syscall.Syscall(syscall.SYS_IOCTL, dst.Fd(), FICLONERANGE, uintptr(unsafe.Pointer(&params)))
 	runtime.KeepAlive(params)
-	return err
+	if e1 != 0 {
+		return syscall.Errno(e1)
+	}
+	return nil
 }
 
 func copyFileSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) error {
-	oldOffset, err := src.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return err
-	}
-
 	for size > 0 {
-		n, err := syscall.Sendfile(int(dst.Fd()), int(src.Fd()), &dstOffset, int(size))
+		// From the MAN page:
+		//
+		// If offset is not NULL, then it points to a variable holding the file offset from which sendfile() will start
+		// reading data from in_fd. When sendfile() returns, this variable will be set to the offset of the byte
+		// following the last byte that was read. If offset is not NULL, then sendfile() does not modify the current
+		// file offset of in_fd; otherwise the current file offset is adjusted to reflect the number of bytes read from
+		// in_fd.
+		n, err := syscall.Sendfile(int(dst.Fd()), int(src.Fd()), &srcOffset, int(size))
 		if err != nil && err != syscall.EAGAIN {
-			_, _ = src.Seek(oldOffset, io.SeekStart)
 			return err
 		}
-		srcOffset += int64(n)
-		dstOffset += int64(n)
+		if n == 0 && err == nil {
+			return io.EOF
+		}
 		size -= int64(n)
 	}
-	_, err = src.Seek(oldOffset, io.SeekStart)
-	return err
+	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"testing"
 )
 
@@ -119,7 +120,7 @@ func TestCopyRange(ttt *testing.T) {
 					testCase.expectedDstSize/copySize,
 				)
 				tt.Run(name, func(t *testing.T) {
-					td, err := ioutil.TempDir("", "")
+					td, err := ioutil.TempDir(os.Getenv("STFSTESTOATH"), "")
 					if err != nil {
 						t.Fatal(err)
 					}
