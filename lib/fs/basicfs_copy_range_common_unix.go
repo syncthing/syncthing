@@ -64,11 +64,13 @@ func copyFileSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) erro
 	}
 
 	// Seek to the offset we expect to write
-	if n, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
-		return err
-	} else if n != dstOffset {
-		_, _ = dst.Seek(oldDstOffset, io.SeekStart)
-		return io.ErrUnexpectedEOF
+	if oldDstOffset != dstOffset {
+		if n, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
+			return err
+		} else if n != dstOffset {
+			_, _ = dst.Seek(oldDstOffset, io.SeekStart)
+			return io.ErrUnexpectedEOF
+		}
 	}
 
 	for size > 0 {

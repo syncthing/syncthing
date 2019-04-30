@@ -58,16 +58,20 @@ func copyRangeGeneric(src, dst File, srcOffset, dstOffset, size int64) error {
 		}
 	}
 
-	if n, err := src.Seek(srcOffset, io.SeekStart); err != nil {
-		return err
-	} else if n != srcOffset {
-		return io.ErrUnexpectedEOF
+	if oldSrcOffset != srcOffset {
+		if n, err := src.Seek(srcOffset, io.SeekStart); err != nil {
+			return err
+		} else if n != srcOffset {
+			return io.ErrUnexpectedEOF
+		}
 	}
 
-	if n, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
-		return err
-	} else if n != dstOffset {
-		return io.ErrUnexpectedEOF
+	if oldDstOffset != dstOffset {
+		if n, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
+			return err
+		} else if n != dstOffset {
+			return io.ErrUnexpectedEOF
+		}
 	}
 
 	for size > 0 {
