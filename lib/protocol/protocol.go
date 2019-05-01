@@ -370,24 +370,44 @@ func (c *rawConnection) ping() bool {
 	return c.send(&Ping{}, nil)
 }
 
+type errorMessage struct {
+	msg message
+	err error
+}
+
 func (c *rawConnection) readerLoop() error {
 	fourByteBuf := make([]byte, 4)
+	inbox := make(chan errorMessage)
+
+	// Reading from the wire may block until the underlying connection is closed.
+	go func() {
+		for {
+			msg, err := c.readMessage(fourByteBuf)
+			select {
+			case inbox <- errorMessage{msg: msg, err: err}:
+			case <-c.closed:
+				return
+			}
+		}
+	}()
+
 	state := stateInitial
+	var errMsg errorMessage
 	for {
-		if c.Closed() {
+		select {
+		case errMsg = <-inbox:
+		case <-c.closed:
 			return ErrClosed
 		}
-
-		msg, err := c.readMessage(fourByteBuf)
-		if err == errUnknownMessage {
-			// Unknown message types are skipped, for future extensibility.
-			continue
-		}
-		if err != nil {
-			return err
+		if errMsg.err != nil {
+			if errMsg.err == errUnknownMessage {
+				// Unknown message types are skipped, for future extensibility.
+				continue
+			}
+			return errMsg.err
 		}
 
-		switch msg := msg.(type) {
+		switch msg := errMsg.msg.(type) {
 		case *ClusterConfig:
 			l.Debugln("read ClusterConfig message")
 			if state != stateInitial {
