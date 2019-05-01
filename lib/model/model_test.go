@@ -171,7 +171,7 @@ func newState(cfg config.Configuration) (config.Wrapper, *model) {
 	m := setupModel(wcfg)
 
 	for _, dev := range cfg.Devices {
-		m.AddConnection(&fakeConnection{id: dev.DeviceID}, protocol.HelloResult{})
+		m.AddConnection(&fakeConnection{id: dev.DeviceID, model: m}, protocol.HelloResult{})
 	}
 
 	return wcfg, m
@@ -322,10 +322,13 @@ type fakeConnection struct {
 	mut                      sync.Mutex
 }
 
+var fakeCloseErr = fmt.Errorf("fakeConnection was closed")
+
 func (f *fakeConnection) Close(_ error) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 	f.closed = true
+	f.model.Closed(f, fakeCloseErr)
 }
 
 func (f *fakeConnection) Start() {
@@ -2541,9 +2544,9 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	m := setupModel(wcfg)
 	defer m.Stop()
 
-	conn1 := &fakeConnection{id: device1}
+	conn1 := &fakeConnection{id: device1, model: m}
 	m.AddConnection(conn1, protocol.HelloResult{})
-	conn2 := &fakeConnection{id: device2}
+	conn2 := &fakeConnection{id: device2, model: m}
 	m.AddConnection(conn2, protocol.HelloResult{})
 
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -2611,20 +2614,6 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	if _, ok := wcfg.Devices()[device2]; ok {
 		t.Error("device still in config")
 	}
-
-	if _, ok := m.conn[device2]; !ok {
-		t.Error("conn missing early")
-	}
-
-	if _, ok := m.helloMessages[device2]; !ok {
-		t.Error("hello missing early")
-	}
-
-	if _, ok := m.deviceDownloads[device2]; !ok {
-		t.Error("downloads missing early")
-	}
-
-	m.Closed(conn2, fmt.Errorf("foo"))
 
 	if _, ok := m.conn[device2]; ok {
 		t.Error("conn not missing")
