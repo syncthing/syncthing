@@ -521,7 +521,7 @@ func BenchmarkRequestOut(b *testing.B) {
 	const n = 1000
 	files := genFiles(n)
 
-	fc := &fakeConnection{id: device1}
+	fc := &fakeConnection{id: device1, model: m}
 	for _, f := range files {
 		fc.addFile(f.Name, 0644, protocol.FileInfoTypeFile, []byte("some data to return"))
 	}
@@ -587,7 +587,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	conn := &fakeConnection{id: device1}
+	conn := &fakeConnection{id: device1, model: m}
 
 	m.AddConnection(conn, hello)
 
@@ -2851,8 +2851,8 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 		t.Errorf("should have two available")
 	}
 
-	m.Closed(&fakeConnection{id: device1}, errDeviceUnknown)
-	m.Closed(&fakeConnection{id: device2}, errDeviceUnknown)
+	m.Closed(&fakeConnection{id: device1, model: m}, errDeviceUnknown)
+	m.Closed(&fakeConnection{id: device2, model: m}, errDeviceUnknown)
 
 	avail = m.Availability("default", file, file.Blocks[0])
 	if len(avail) != 0 {
