@@ -186,8 +186,7 @@ type rawConnection struct {
 	outbox            chan asyncMessage
 	closed            chan struct{}
 	closeOnce         sync.Once
-	sendCloseOnce     sync.Once
-	wg                sync.WaitGroup
+	readerStopped     chan struct{}
 	compression       Compression
 }
 
@@ -231,6 +230,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		sentClusterConfig: make(chan struct{}),
 		outbox:            make(chan asyncMessage),
 		closed:            make(chan struct{}),
+		readerStopped:     make(chan struct{}),
 		compression:       compress,
 	}
 
@@ -240,21 +240,20 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
-	c.startGoroutine(c.readerLoop)
-	c.startGoroutine(c.writerLoop)
-	c.startGoroutine(c.pingSender)
-	c.startGoroutine(c.pingReceiver)
-}
-
-func (c *rawConnection) startGoroutine(loop func() error) {
-	c.wg.Add(1)
 	go func() {
-		err := loop()
-		c.wg.Done()
-		if err != nil && err != ErrClosed {
-			c.internalClose(err)
-		}
+		err := c.readerLoop()
+		close(c.readerStopped)
+		c.internalClose(err, true)
 	}()
+	go func() {
+		err := c.writerLoop()
+		c.internalClose(err, false)
+	}()
+	go func() {
+		err := c.pingReceiver()
+		c.internalClose(err, true)
+	}()
+	go c.pingSender()
 }
 
 func (c *rawConnection) ID() DeviceID {
@@ -344,7 +343,7 @@ func (c *rawConnection) ClusterConfig(config ClusterConfig) {
 	default:
 	}
 	if err := c.writeMessage(&config); err != nil {
-		c.internalClose(err)
+		c.internalClose(err, false)
 	}
 	close(c.sentClusterConfig)
 }
@@ -863,20 +862,13 @@ func (c *rawConnection) shouldCompressMessage(msg message) bool {
 // BEP message is sent before terminating the actual connection. The error
 // argument specifies the reason for closing the connection.
 func (c *rawConnection) Close(err error) {
-	c.sendCloseOnce.Do(func() {
-		done := make(chan struct{})
-		c.send(&Close{err.Error()}, done)
-		select {
-		case <-done:
-		case <-c.closed:
-		}
-	})
-
-	c.internalClose(err)
+	c.internalClose(err, true)
 }
 
-// internalClose is called if there is an unexpected error during normal operation.
-func (c *rawConnection) internalClose(err error) {
+// internalClose terminates and cleanes up operations, before signalling the
+// receiver that the connection was closed. If send is true, it tries to send a
+// close message first.
+func (c *rawConnection) internalClose(err error, send bool) {
 	c.closeOnce.Do(func() {
 		l.Debugln("close due to", err)
 		close(c.closed)
@@ -890,9 +882,23 @@ func (c *rawConnection) internalClose(err error) {
 		}
 		c.awaitingMut.Unlock()
 
-		// Wait for all our operations to terminate before signaling
-		// to the receiver that the connection was closed.
-		c.wg.Wait()
+		if send {
+			// If sending blocks, don't spend much time trying,
+			// the receiver will close by timeout eventually anyway.
+			timeout := time.After(time.Second)
+			done := make(chan struct{})
+			select {
+			case c.outbox <- asyncMessage{&Close{err.Error()}, done}:
+				select {
+				case <-done:
+				case <-timeout:
+				}
+			case <-timeout:
+			}
+		}
+
+		// Make sure we don't call the receiver anymore before calling Closed.
+		<-c.readerStopped
 
 		// No more sends are necessary, therefore further steps to close the
 		// connection outside of this package can proceed immediately.
@@ -906,7 +912,7 @@ func (c *rawConnection) internalClose(err error) {
 // PingSendInterval/2, we do nothing. Otherwise we send a ping message. This
 // results in an effecting ping interval of somewhere between
 // PingSendInterval/2 and PingSendInterval.
-func (c *rawConnection) pingSender() error {
+func (c *rawConnection) pingSender() {
 	ticker := time.NewTicker(PingSendInterval / 2)
 	defer ticker.Stop()
 
@@ -923,7 +929,7 @@ func (c *rawConnection) pingSender() error {
 			c.ping()
 
 		case <-c.closed:
-			return ErrClosed
+			return
 		}
 	}
 }
