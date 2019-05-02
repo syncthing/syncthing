@@ -2384,9 +2384,8 @@ next:
 
 // BringToFront bumps the given files priority in the job queue.
 func (m *model) BringToFront(folder, file string) {
-	m.pmut.RLock()
-	defer m.pmut.RUnlock()
-
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
 	runner, ok := m.folderRunners[folder]
 	if ok {
 		runner.BringToFront(file)
