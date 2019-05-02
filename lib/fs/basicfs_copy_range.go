@@ -7,10 +7,50 @@
 package fs
 
 import (
-	"io"
 	"os"
+	"sort"
 	"strings"
+	"syscall"
+
+	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 )
+
+var (
+	copyRangeImplementations []copyRangeImplementation
+	mut                      = sync.NewMutex()
+	implementationOrder      = getCopyOptimisations() // This runs before init
+)
+
+type copyRangeFuncGeneric func(src, dst File, srcOffset, dstOffset, size int64) error
+type copyRangeFuncOptimised func(src, dst basicFile, srcOffset, dstOffset, size int64) error
+
+type copyRangeImplementation struct {
+	name string
+	impl copyRangeFuncGeneric
+}
+
+func registerCopyRangeImplementation(impl copyRangeImplementation) {
+	mut.Lock()
+	defer mut.Unlock()
+
+	for _, implName := range implementationOrder {
+		if implName == impl.name {
+			l.Debugln("Registering " + impl.name + " copyRange implementation")
+			copyRangeImplementations = append(copyRangeImplementations, impl)
+
+			sort.Slice(copyRangeImplementations, func(i, j int) bool {
+				iidx := util.StringIndex(implementationOrder, copyRangeImplementations[i].name)
+				jidx := util.StringIndex(implementationOrder, copyRangeImplementations[j].name)
+				return iidx < jidx
+			})
+
+			return
+		}
+	}
+
+	l.Debugln("Discarding " + impl.name + " copyRange implementation")
+}
 
 // CopyRange tries to use the most optimal way to copy data between two files.
 // Takes size bytes at offset srcOffset from the source file, and copies the data to destination file at offset
@@ -21,92 +61,46 @@ import (
 //
 // CopyRange does it best to have no effect on src and dst file offsets (copy operation should not affect it).
 func CopyRange(src, dst File, srcOffset, dstOffset, size int64) error {
-	srcFile, srcOk := src.(basicFile)
-	dstFile, dstOk := dst.(basicFile)
-	if srcOk && dstOk {
-		if err := copyRangeOptimised(srcFile, dstFile, srcOffset, dstOffset, size); err == nil {
+	if len(copyRangeImplementations) == 0 {
+		panic("bug: no CopyRange implementations")
+	}
+
+	var err error
+	for _, copier := range copyRangeImplementations {
+		if err = copier.impl(src, dst, srcOffset, dstOffset, size); err == nil {
 			return nil
 		}
 	}
 
-	return copyRangeGeneric(src, dst, srcOffset, dstOffset, size)
-}
-
-func copyRangeGeneric(src, dst File, srcOffset, dstOffset, size int64) error {
-	oldSrcOffset, err := src.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return nil
-	}
-	oldDstOffset, err := dst.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return nil
-	}
-
-	// Check that the source file has the data in question
-	if fi, err := src.Stat(); err != nil {
-		return err
-	} else if fi.Size() < srcOffset+size {
-		return io.ErrUnexpectedEOF
-	}
-
-	// Check that the destination file has sufficient space
-	if fi, err := dst.Stat(); err != nil {
-		return err
-	} else if fi.Size() < dstOffset+size {
-		if err := dst.Truncate(dstOffset + size); err != nil {
-			return err
-		}
-	}
-
-	if oldSrcOffset != srcOffset {
-		if n, err := src.Seek(srcOffset, io.SeekStart); err != nil {
-			return err
-		} else if n != srcOffset {
-			return io.ErrUnexpectedEOF
-		}
-	}
-
-	if oldDstOffset != dstOffset {
-		if n, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
-			return err
-		} else if n != dstOffset {
-			return io.ErrUnexpectedEOF
-		}
-	}
-
-	for size > 0 {
-		n, err := io.CopyN(dst, src, size)
-		if err != nil {
-			_, _ = src.Seek(oldSrcOffset, io.SeekStart)
-			_, _ = dst.Seek(oldDstOffset, io.SeekStart)
-			return err
-		}
-		size -= n
-	}
-
-	// Restore offsets
-	if n, err := src.Seek(oldSrcOffset, io.SeekStart); err != nil {
-		return err
-	} else if n != oldSrcOffset {
-		return io.ErrUnexpectedEOF
-	}
-
-	if n, err := dst.Seek(oldDstOffset, io.SeekStart); err != nil {
-		return err
-	} else if n != oldDstOffset {
-		return io.ErrUnexpectedEOF
-	}
-
-	return nil
+	// Return the last error
+	return err
 }
 
 func getCopyOptimisations() []string {
-	opt := os.Getenv("STCOPYOPTIMISATIONS")
+	opt := strings.ToLower(os.Getenv("STCOPYOPTIMISATIONS"))
 	if opt == "" {
 		// ioctl first because it's available on early kernels and works on btrfs
 		// copy_file_range is only available on linux 4.5+ and works on xfs and btrfs
 		// sendfile does not do any block reuse, but works since 2.6+ or so.
-		opt = "ioctl,copy_file_range,sendfile"
+		opt = "ioctl,copy_file_range,sendfile,generic"
 	}
-	return strings.Split(opt, ",")
+
+	impls := strings.Split(opt, ",")
+
+	if util.StringIndex(impls, "generic") == -1 {
+		impls = append(impls, "generic")
+	}
+
+	return impls
+}
+
+func asGeneric(input copyRangeFuncOptimised) copyRangeFuncGeneric {
+	return func(src, dst File, srcOffset, dstOffset, size int64) error {
+		srcFile, srcOk := src.(basicFile)
+		dstFile, dstOk := dst.(basicFile)
+		if srcOk && dstOk {
+			return input(srcFile, dstFile, srcOffset, dstOffset, size)
+		}
+		return syscall.ENOTSUP
+	}
 }

@@ -14,24 +14,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func copyRangeOptimised(src, dst basicFile, srcOffset, dstOffset, size int64) error {
-	for _, opt := range copyOptimisations {
-		switch opt {
-		case "ioctl":
-			if err := copyRangeIoctl(src, dst, srcOffset, dstOffset, size); err == nil {
-				return nil
-			}
-		case "copy_file_range":
-			if err := copyRangeCopyFileRange(src, dst, srcOffset, dstOffset, size); err == nil {
-				return nil
-			}
-		case "sendfile":
-			if err := copyFileSendFile(src, dst, srcOffset, dstOffset, size); err == nil {
-				return nil
-			}
-		}
-	}
-	return syscall.ENOTSUP
+func init() {
+	registerCopyRangeImplementation(copyRangeImplementation{
+		name: "copy_file_range",
+		impl: asGeneric(copyRangeCopyFileRange),
+	})
 }
 
 func copyRangeCopyFileRange(src, dst basicFile, srcOffset, dstOffset, size int64) error {
@@ -40,7 +27,7 @@ func copyRangeCopyFileRange(src, dst basicFile, srcOffset, dstOffset, size int64
 		//
 		// If off_in is not NULL, then off_in must point to a buffer that
 		// specifies the starting offset where bytes from fd_in will be read.
-		//	The file offset of fd_in is not changed, but off_in is adjusted
+		// 	The file offset of fd_in is not changed, but off_in is adjusted
 		// appropriately.
 		n, err := unix.CopyFileRange(int(src.Fd()), &srcOffset, int(dst.Fd()), &dstOffset, int(size), 0)
 		if err != nil && err != syscall.EAGAIN {

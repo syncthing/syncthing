@@ -169,3 +169,12 @@ func Address(network, host string) string {
 	}
 	return u.String()
 }
+
+func StringIndex(slice []string, search string) int {
+	for i, item := range slice {
+		if item == search {
+			return i
+		}
+	}
+	return -1
+}

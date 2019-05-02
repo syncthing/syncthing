@@ -17,27 +17,6 @@ import (
 	"testing"
 )
 
-type copyRangeTestScenario struct {
-	name        string
-	copyFn      copyFuncGeneric
-	mustSucceed bool
-}
-
-type copyFuncGeneric func(src, dst File, srcOffset, dstOffset, size int64) error
-type copyFuncOptimised func(src, dst basicFile, srcOffset, dstOffset, size int64) error
-
-func wrapOptimised(fn copyFuncOptimised) copyFuncGeneric {
-	return func(src, dst File, srcOffset, dstOffset, size int64) error {
-		srcFile, srcOk := src.(basicFile)
-		dstFile, dstOk := dst.(basicFile)
-		if srcOk && dstOk {
-			return fn(srcFile, dstFile, srcOffset, dstOffset, size)
-		}
-		fmt.Printf("%#v", src)
-		panic("unexpected types")
-	}
-}
-
 var (
 	generationSize = 4 << 20
 	copySize       = 1 << 20
@@ -102,8 +81,8 @@ func TestCopyRange(ttt *testing.T) {
 	srcBuf := make([]byte, generationSize)
 	dstBuf := make([]byte, generationSize*3)
 	randSrc := rand.New(rand.NewSource(rand.Int63()))
-	for _, testScenario := range copyRangeTests {
-		ttt.Run(testScenario.name, func(tt *testing.T) {
+	for _, copyRangeImplementation := range copyRangeImplementations {
+		ttt.Run(copyRangeImplementation.name, func(tt *testing.T) {
 			for _, testCase := range testCases {
 				name := fmt.Sprintf("%d_%d_%d_%d_%d",
 					testCase.srcOffset/copySize,
@@ -162,14 +141,12 @@ func TestCopyRange(ttt *testing.T) {
 
 					// Copy the data
 
-					if err := testScenario.copyFn(src, dst, int64(testCase.srcOffset), int64(testCase.dstOffset), int64(copySize)); err != nil {
-						if testScenario.mustSucceed && err != nil {
-							t.Fatal(err)
-						}
+					if err := copyRangeImplementation.impl(src, dst, int64(testCase.srcOffset), int64(testCase.dstOffset), int64(copySize)); err != nil {
 						if err == syscall.ENOTSUP {
 							// Test runner can adjust directory in which to run the tests, that allow broader tests.
 							t.Skip("Not supported on the current filesystem, set STFSTESTPATH env var.")
 						}
+						t.Fatal(err)
 					}
 
 					// Check offsets where we expect them
