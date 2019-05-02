@@ -40,7 +40,8 @@ func TraversesSymlink(filesystem fs.Filesystem, name string) error {
 
 // TraversesSymlinkSegment returns an error if any path component of name below
 // parent (including name itself) traverses a symlink. Expects
-// `fs.IsParent(name, parent) == true`, otherwise behaviour is undefined.
+// `fs.IsParent(name, parent) == true`, otherwise behaviour is undefined (IsParent
+// does understand ".", thus `fs.IsParent("foo", ".") == true` holds).
 func TraversesSymlinkSegment(filesystem fs.Filesystem, name, parent string) error {
 	if name == "." {
 		// The result of calling TraversesSymlink(filesystem, filepath.Dir("foo"))
