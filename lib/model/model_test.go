@@ -1171,7 +1171,7 @@ func TestIssue5063(t *testing.T) {
 		wg.Done()
 	}
 
-	reps := 100
+	reps := 10
 	ids := make([]string, reps)
 	for i := 0; i < reps; i++ {
 		wg.Add(1)
