@@ -343,7 +343,7 @@ func (c *rawConnection) ClusterConfig(config ClusterConfig) {
 		return
 	default:
 	}
-	if err := c.writeMessage(asyncMessage{&config, nil}); err != nil {
+	if err := c.writeMessage(&config); err != nil {
 		c.internalClose(err)
 	}
 	close(c.sentClusterConfig)
@@ -690,7 +690,7 @@ func (c *rawConnection) writerLoop() error {
 	for {
 		select {
 		case hm := <-c.outbox:
-			err := c.writeMessage(hm)
+			err := c.writeMessage(hm.msg)
 			if hm.done != nil {
 				close(hm.done)
 			}
@@ -704,17 +704,17 @@ func (c *rawConnection) writerLoop() error {
 	}
 }
 
-func (c *rawConnection) writeMessage(hm asyncMessage) error {
-	if c.shouldCompressMessage(hm.msg) {
-		return c.writeCompressedMessage(hm)
+func (c *rawConnection) writeMessage(msg message) error {
+	if c.shouldCompressMessage(msg) {
+		return c.writeCompressedMessage(msg)
 	}
-	return c.writeUncompressedMessage(hm)
+	return c.writeUncompressedMessage(msg)
 }
 
-func (c *rawConnection) writeCompressedMessage(hm asyncMessage) error {
-	size := hm.msg.ProtoSize()
+func (c *rawConnection) writeCompressedMessage(msg message) error {
+	size := msg.ProtoSize()
 	buf := BufferPool.Get(size)
-	if _, err := hm.msg.MarshalTo(buf); err != nil {
+	if _, err := msg.MarshalTo(buf); err != nil {
 		return fmt.Errorf("marshalling message: %v", err)
 	}
 
@@ -724,7 +724,7 @@ func (c *rawConnection) writeCompressedMessage(hm asyncMessage) error {
 	}
 
 	hdr := Header{
-		Type:        c.typeOf(hm.msg),
+		Type:        c.typeOf(msg),
 		Compression: MessageCompressionLZ4,
 	}
 	hdrSize := hdr.ProtoSize()
@@ -757,11 +757,11 @@ func (c *rawConnection) writeCompressedMessage(hm asyncMessage) error {
 	return nil
 }
 
-func (c *rawConnection) writeUncompressedMessage(hm asyncMessage) error {
-	size := hm.msg.ProtoSize()
+func (c *rawConnection) writeUncompressedMessage(msg message) error {
+	size := msg.ProtoSize()
 
 	hdr := Header{
-		Type: c.typeOf(hm.msg),
+		Type: c.typeOf(msg),
 	}
 	hdrSize := hdr.ProtoSize()
 	if hdrSize > 1<<16-1 {
@@ -780,7 +780,7 @@ func (c *rawConnection) writeUncompressedMessage(hm asyncMessage) error {
 	// Message length
 	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(size))
 	// Message
-	if _, err := hm.msg.MarshalTo(buf[2+hdrSize+4:]); err != nil {
+	if _, err := msg.MarshalTo(buf[2+hdrSize+4:]); err != nil {
 		return fmt.Errorf("marshalling message: %v", err)
 	}
 
