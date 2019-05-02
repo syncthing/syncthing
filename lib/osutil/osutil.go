@@ -9,7 +9,6 @@ package osutil
 
 import (
 	"errors"
-	"io"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -156,7 +155,12 @@ func copyFileContents(srcFs, dstFs fs.Filesystem, src, dst string) (err error) {
 			err = cerr
 		}
 	}()
-	_, err = io.Copy(out, in)
+	stat, err := in.Stat()
+	if err != nil {
+		return err
+	}
+
+	err = fs.CopyRange(in, out, 0, 0, stat.Size())
 	return
 }
 

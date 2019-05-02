@@ -1289,13 +1289,14 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 			if !found {
 				found = f.model.finder.Iterate(folders, block.Hash, func(folder, path string, index int32) bool {
-					fs := folderFilesystems[folder]
-					fd, err := fs.Open(path)
+					ffs := folderFilesystems[folder]
+					fd, err := ffs.Open(path)
 					if err != nil {
 						return false
 					}
 
-					_, err = fd.ReadAt(buf, int64(state.file.BlockSize())*int64(index))
+					offset := int64(state.file.BlockSize())*int64(index)
+					_, err = fd.ReadAt(buf, offset)
 					fd.Close()
 					if err != nil {
 						return false
@@ -1306,7 +1307,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						return false
 					}
 
-					_, err = dstFd.WriteAt(buf, block.Offset)
+					dstFd.mut.Lock()
+					err = fs.CopyRange(fd, dstFd.file, offset, block.Offset, int64(state.file.BlockSize()))
+					dstFd.mut.Unlock()
 					if err != nil {
 						state.fail(errors.Wrap(err, "dst write"))
 					}

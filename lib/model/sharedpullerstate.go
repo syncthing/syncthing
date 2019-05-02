@@ -7,7 +7,6 @@
 package model
 
 import (
-	"io"
 	"path/filepath"
 	"time"
 
@@ -66,19 +65,19 @@ type pullerProgress struct {
 // A lockedWriterAt synchronizes WriteAt calls with an external mutex.
 // WriteAt() is goroutine safe by itself, but not against for example Close().
 type lockedWriterAt struct {
-	mut *sync.RWMutex
-	wr  io.WriterAt
+	mut  sync.RWMutex
+	file fs.File
 }
 
-func (w lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
-	(*w.mut).Lock()
-	defer (*w.mut).Unlock()
-	return w.wr.WriteAt(p, off)
+func (w *lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.file.WriteAt(p, off)
 }
 
 // tempFile returns the fd for the temporary file, reusing an open fd
 // or creating the file as necessary.
-func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
+func (s *sharedPullerState) tempFile() (*lockedWriterAt, error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
@@ -89,7 +88,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 
 	// If the temp file is already open, return the file descriptor
 	if s.fd != nil {
-		return lockedWriterAt{&s.mut, s.fd}, nil
+		return &lockedWriterAt{s.mut, s.fd}, nil
 	}
 
 	// Ensure that the parent directory is writable. This is
@@ -186,7 +185,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	// Same fd will be used by all writers
 	s.fd = fd
 
-	return lockedWriterAt{&s.mut, s.fd}, nil
+	return &lockedWriterAt{s.mut, s.fd}, nil
 }
 
 // fail sets the error on the puller state compose of error, and marks the
