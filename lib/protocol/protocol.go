@@ -392,22 +392,22 @@ func (c *rawConnection) readerLoop() error {
 	}()
 
 	state := stateInitial
-	var errMsg messageWithError
+	var msgWithErr messageWithError
 	for {
 		select {
-		case errMsg = <-inbox:
+		case msgWithErr = <-inbox:
 		case <-c.closed:
 			return ErrClosed
 		}
-		if errMsg.err != nil {
-			if errMsg.err == errUnknownMessage {
+		if msgWithErr.err != nil {
+			if msgWithErr.err == errUnknownMessage {
 				// Unknown message types are skipped, for future extensibility.
 				continue
 			}
-			return errMsg.err
+			return msgWithErr.err
 		}
 
-		switch msg := errMsg.msg.(type) {
+		switch msg := msgWithErr.msg.(type) {
 		case *ClusterConfig:
 			l.Debugln("read ClusterConfig message")
 			if state != stateInitial {
