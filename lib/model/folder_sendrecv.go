@@ -362,6 +362,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 					return true
 				}
 				f.deleteFileWithCurrent(file, curFile, hasCurFile, dbUpdateChan, scanChan)
+				changed++
 				return true
 			}
 			if _, need := blockDiff(curFile.Blocks, file.Blocks); hasCurFile && len(need) == 0 {
@@ -369,6 +370,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
 				f.shortcutFile(file, curFile, dbUpdateChan)
+				changed++
 				return true
 			}
 			// Queue files for processing after directories and symlinks.
@@ -387,6 +389,8 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			changed++
 			if file.IsDeleted() {
 				f.deleteFile(file, dbUpdateChan, scanChan)
+				changed++
+				return true
 			}
 			l.Debugln(f, "Handling symlink", file.Name)
 			f.handleSymlink(file, dbUpdateChan, scanChan)
