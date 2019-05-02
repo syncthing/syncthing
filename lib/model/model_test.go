@@ -171,7 +171,7 @@ func newState(cfg config.Configuration) (config.Wrapper, *model) {
 	m := setupModel(wcfg)
 
 	for _, dev := range cfg.Devices {
-		m.AddConnection(&fakeConnection{id: dev.DeviceID}, protocol.HelloResult{})
+		m.AddConnection(&fakeConnection{id: dev.DeviceID, model: m}, protocol.HelloResult{})
 	}
 
 	return wcfg, m
@@ -328,13 +328,19 @@ type fakeConnection struct {
 	model                    *model
 	indexFn                  func(string, []protocol.FileInfo)
 	requestFn                func(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
+	closeFn                  func(error)
 	mut                      sync.Mutex
 }
 
-func (f *fakeConnection) Close(_ error) {
+func (f *fakeConnection) Close(err error) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
+	if f.closeFn != nil {
+		f.closeFn(err)
+		return
+	}
 	f.closed = true
+	f.model.Closed(f, err)
 }
 
 func (f *fakeConnection) Start() {
@@ -515,7 +521,7 @@ func BenchmarkRequestOut(b *testing.B) {
 	const n = 1000
 	files := genFiles(n)
 
-	fc := &fakeConnection{id: device1}
+	fc := &fakeConnection{id: device1, model: m}
 	for _, f := range files {
 		fc.addFile(f.Name, 0644, protocol.FileInfoTypeFile, []byte("some data to return"))
 	}
@@ -581,7 +587,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	conn := &fakeConnection{id: device1}
+	conn := &fakeConnection{id: device1, model: m}
 
 	m.AddConnection(conn, hello)
 
@@ -1138,6 +1144,15 @@ func TestIssue4897(t *testing.T) {
 func TestIssue5063(t *testing.T) {
 	wcfg, m := newState(defaultAutoAcceptCfg)
 	defer os.Remove(wcfg.ConfigPath())
+
+	m.pmut.Lock()
+	for _, c := range m.conn {
+		conn := c.(*fakeConnection)
+		conn.mut.Lock()
+		conn.closeFn = func(_ error) {}
+		conn.mut.Unlock()
+	}
+	m.pmut.Unlock()
 
 	wg := sync.WaitGroup{}
 
@@ -2589,9 +2604,9 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		m.db.Close()
 	}()
 
-	conn1 := &fakeConnection{id: device1}
+	conn1 := &fakeConnection{id: device1, model: m}
 	m.AddConnection(conn1, protocol.HelloResult{})
-	conn2 := &fakeConnection{id: device2}
+	conn2 := &fakeConnection{id: device2, model: m}
 	m.AddConnection(conn2, protocol.HelloResult{})
 
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -2659,20 +2674,6 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	if _, ok := wcfg.Devices()[device2]; ok {
 		t.Error("device still in config")
 	}
-
-	if _, ok := m.conn[device2]; !ok {
-		t.Error("conn missing early")
-	}
-
-	if _, ok := m.helloMessages[device2]; !ok {
-		t.Error("hello missing early")
-	}
-
-	if _, ok := m.deviceDownloads[device2]; !ok {
-		t.Error("downloads missing early")
-	}
-
-	m.Closed(conn2, fmt.Errorf("foo"))
 
 	if _, ok := m.conn[device2]; ok {
 		t.Error("conn not missing")
@@ -2849,8 +2850,8 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 		t.Errorf("should have two available")
 	}
 
-	m.Closed(&fakeConnection{id: device1}, errDeviceUnknown)
-	m.Closed(&fakeConnection{id: device2}, errDeviceUnknown)
+	m.Closed(&fakeConnection{id: device1, model: m}, errDeviceUnknown)
+	m.Closed(&fakeConnection{id: device2, model: m}, errDeviceUnknown)
 
 	avail = m.Availability("default", file, file.Blocks[0])
 	if len(avail) != 0 {
