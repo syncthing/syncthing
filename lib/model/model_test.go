@@ -1146,11 +1146,10 @@ func TestIssue5063(t *testing.T) {
 	defer os.Remove(wcfg.ConfigPath())
 
 	m.pmut.Lock()
-	for id, c := range m.conn {
+	for _, c := range m.conn {
 		conn := c.(*fakeConnection)
 		conn.mut.Lock()
 		conn.closeFn = func(_ error) {}
-		m.conn[id] = conn
 		conn.mut.Unlock()
 	}
 	m.pmut.Unlock()
@@ -1172,7 +1171,7 @@ func TestIssue5063(t *testing.T) {
 		wg.Done()
 	}
 
-	reps := 10
+	reps := 100
 	ids := make([]string, reps)
 	for i := 0; i < reps; i++ {
 		wg.Add(1)
