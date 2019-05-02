@@ -370,21 +370,21 @@ func (c *rawConnection) ping() bool {
 	return c.send(&Ping{}, nil)
 }
 
-type errorMessage struct {
+type messageWithError struct {
 	msg message
 	err error
 }
 
 func (c *rawConnection) readerLoop() error {
 	fourByteBuf := make([]byte, 4)
-	inbox := make(chan errorMessage)
+	inbox := make(chan messageWithError)
 
 	// Reading from the wire may block until the underlying connection is closed.
 	go func() {
 		for {
 			msg, err := c.readMessage(fourByteBuf)
 			select {
-			case inbox <- errorMessage{msg: msg, err: err}:
+			case inbox <- messageWithError{msg: msg, err: err}:
 			case <-c.closed:
 				return
 			}
@@ -392,7 +392,7 @@ func (c *rawConnection) readerLoop() error {
 	}()
 
 	state := stateInitial
-	var errMsg errorMessage
+	var errMsg messageWithError
 	for {
 		select {
 		case errMsg = <-inbox:
