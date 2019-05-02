@@ -332,8 +332,6 @@ type fakeConnection struct {
 	mut                      sync.Mutex
 }
 
-var fakeCloseErr = fmt.Errorf("fakeConnection was closed")
-
 func (f *fakeConnection) Close(err error) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
