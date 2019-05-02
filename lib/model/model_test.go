@@ -328,16 +328,21 @@ type fakeConnection struct {
 	model                    *model
 	indexFn                  func(string, []protocol.FileInfo)
 	requestFn                func(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
+	closeFn                  func(error)
 	mut                      sync.Mutex
 }
 
 var fakeCloseErr = fmt.Errorf("fakeConnection was closed")
 
-func (f *fakeConnection) Close(_ error) {
+func (f *fakeConnection) Close(err error) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
+	if f.closeFn != nil {
+		f.closeFn(err)
+		return
+	}
 	f.closed = true
-	f.model.Closed(f, fakeCloseErr)
+	f.model.Closed(f, err)
 }
 
 func (f *fakeConnection) Start() {
@@ -1141,6 +1146,16 @@ func TestIssue4897(t *testing.T) {
 func TestIssue5063(t *testing.T) {
 	wcfg, m := newState(defaultAutoAcceptCfg)
 	defer os.Remove(wcfg.ConfigPath())
+
+	m.pmut.Lock()
+	for id, c := range m.conn {
+		conn := c.(*fakeConnection)
+		conn.mut.Lock()
+		conn.closeFn = func(_ error) {}
+		m.conn[id] = conn
+		conn.mut.Unlock()
+	}
+	m.pmut.Unlock()
 
 	wg := sync.WaitGroup{}
 
