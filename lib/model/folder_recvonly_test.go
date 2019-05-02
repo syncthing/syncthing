@@ -32,6 +32,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	ffs := f.Filesystem()
 	defer os.Remove(m.cfg.ConfigPath())
 	defer os.Remove(ffs.URI())
+	defer m.db.Close()
 	defer m.Stop()
 
 	// Create some test data
@@ -115,6 +116,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	ffs := f.Filesystem()
 	defer os.Remove(m.cfg.ConfigPath())
 	defer os.Remove(ffs.URI())
+	defer m.db.Close()
 	defer m.Stop()
 
 	// Create some test data
@@ -208,6 +210,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	ffs := f.Filesystem()
 	defer os.Remove(m.cfg.ConfigPath())
 	defer os.Remove(ffs.URI())
+	defer m.db.Close()
 	defer m.Stop()
 
 	// Create some test data
