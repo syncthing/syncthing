@@ -15,9 +15,7 @@ import (
 	"strings"
 )
 
-var (
-	errNoHome = errors.New("no home directory found - set $HOME (or the platform equivalent)")
-)
+var errNoHome = errors.New("no home directory found - set $HOME (or the platform equivalent)")
 
 func ExpandTilde(path string) (string, error) {
 	if path == "~" {
