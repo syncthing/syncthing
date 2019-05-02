@@ -17,8 +17,6 @@ import (
 
 var (
 	errNoHome = errors.New("no home directory found - set $HOME (or the platform equivalent)")
-	// Apparently BTRFS wants ioctl, XFS/NFS wants copy_file_range, so make this adjustable
-	copyOptimisations = getCopyOptimisations()
 )
 
 func ExpandTilde(path string) (string, error) {
