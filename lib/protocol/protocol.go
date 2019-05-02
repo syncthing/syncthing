@@ -891,9 +891,12 @@ func (c *rawConnection) internalClose(err error, send bool) {
 			case c.outbox <- asyncMessage{&Close{err.Error()}, done}:
 				select {
 				case <-done:
+					l.Debugln("sent close due to", err)
 				case <-timeout:
+					l.Debugln("timed out sending close due to", err)
 				}
 			case <-timeout:
+				l.Debugln("timed out sending close due to", err)
 			}
 		}
 

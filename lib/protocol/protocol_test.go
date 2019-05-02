@@ -11,9 +11,9 @@ import (
 	"io"
 	"io/ioutil"
 	"runtime"
-	"strings"
 	"testing"
 	"testing/quick"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -43,6 +43,8 @@ func TestPing(t *testing.T) {
 	}
 }
 
+var errManual = errors.New("manual close")
+
 func TestClose(t *testing.T) {
 	m0 := newTestModel()
 	m1 := newTestModel()
@@ -57,10 +59,10 @@ func TestClose(t *testing.T) {
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
 
-	c0.internalClose(errors.New("manual close"), false)
+	c0.internalClose(errManual, false)
 
 	<-c0.closed
-	if err := m0.closedError(); err == nil || !strings.Contains(err.Error(), "manual close") {
+	if err := m0.closedError(); err != errManual {
 		t.Fatal("Connection should be closed")
 	}
 
@@ -76,6 +78,43 @@ func TestClose(t *testing.T) {
 	if _, err := c0.Request("default", "foo", 0, 0, nil, 0, false); err == nil {
 		t.Error("Request should return an error")
 	}
+}
+
+func TestCloseWhileSendBlocks(t *testing.T) {
+	m := newTestModel()
+
+	rw := &blockingRW{}
+	c := NewConnection(c0ID, rw, rw, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c.Start()
+
+	done := make(chan struct{})
+	go func() {
+		c.Close(errManual)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close didn't return before timeout")
+	}
+
+	if err := m.closedError(); err != errManual {
+		t.Fatal("Connection should be closed")
+	}
+}
+
+// blockingRW implements io.Reader and Writer but never returns when called
+type blockingRW struct{ nilChan chan struct{} }
+
+func (w *blockingRW) Read(p []byte) (n int, err error) {
+	<-w.nilChan
+	return
+}
+
+func (w *blockingRW) Write(p []byte) (n int, err error) {
+	<-w.nilChan
+	return
 }
 
 func TestMarshalIndexMessage(t *testing.T) {
