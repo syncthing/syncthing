@@ -104,7 +104,7 @@ func TestAllowedNetworks(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		res := IsAllowedNetwork(tc.host, tc.allowed)
+		res := isAllowedNetwork(tc.host, tc.allowed)
 		if res != tc.ok {
 			t.Errorf("allowedNetwork(%q, %q) == %v, want %v", tc.host, tc.allowed, res, tc.ok)
 		}

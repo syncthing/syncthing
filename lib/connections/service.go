@@ -40,8 +40,9 @@ var (
 )
 
 var (
-	errDisabled   = errors.New("disabled by configuration")
-	errDeprecated = errors.New("deprecated protocol")
+	errDisabled          = errors.New("disabled by configuration")
+	errDeprecated        = errors.New("deprecated protocol")
+	errNetworkNotAllowed = errors.New("network not allowed")
 )
 
 const (
@@ -114,8 +115,7 @@ type service struct {
 	listenerSupervisor *suture.Supervisor
 }
 
-func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
-	bepProtocolName string, tlsDefaultCommonName string) *service {
+func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string) *service {
 
 	service := &service{
 		Supervisor: suture.New("connections.Service", suture.Spec{
@@ -207,6 +207,21 @@ next:
 			continue
 		}
 
+		deviceCfg, ok := s.cfg.Device(remoteID)
+		if !ok {
+			l.Infof("Device %s removed from config during connection attempt at %s", remoteID, c)
+			c.Close()
+			continue
+		}
+
+		if len(deviceCfg.AllowedNetworks) > 0 {
+			if !isAllowedNetwork(c.RemoteAddr().String(), deviceCfg.AllowedNetworks) {
+				l.Infof("Connection from %s at %s (%s) rejected: network not allowed", remoteID, c.RemoteAddr(), c.Type(), errNetworkNotAllowed)
+				c.Close()
+				continue
+			}
+		}
+
 		c.SetDeadline(time.Now().Add(20 * time.Second))
 		hello, err := protocol.ExchangeHello(c, s.model.GetHello(remoteID))
 		if err != nil {
@@ -256,13 +271,6 @@ next:
 			// in parallel we don't want to do that or we end up with no
 			// connections still established...
 			l.Infof("Connected to already connected device %s (existing: %s new: %s)", remoteID, ct, c)
-			c.Close()
-			continue
-		}
-
-		deviceCfg, ok := s.cfg.Device(remoteID)
-		if !ok {
-			l.Infof("Device %s removed from config during connection attempt at %s", remoteID, c)
 			c.Close()
 			continue
 		}
@@ -383,7 +391,7 @@ func (s *service) connect() {
 				}
 
 				if len(deviceCfg.AllowedNetworks) > 0 {
-					if !IsAllowedNetwork(uri.Host, deviceCfg.AllowedNetworks) {
+					if !isAllowedNetwork(uri.Host, deviceCfg.AllowedNetworks) {
 						l.Debugln("Network for", uri, "is disallowed")
 						continue
 					}
@@ -739,9 +747,9 @@ func tlsTimedHandshake(tc *tls.Conn) error {
 	return tc.Handshake()
 }
 
-// IsAllowedNetwork returns true if the given host (IP or resolvable
+// isAllowedNetwork returns true if the given host (IP or resolvable
 // hostname) is in the set of allowed networks (CIDR format only).
-func IsAllowedNetwork(host string, allowed []string) bool {
+func isAllowedNetwork(host string, allowed []string) bool {
 	if hostNoPort, _, err := net.SplitHostPort(host); err == nil {
 		host = hostNoPort
 	}

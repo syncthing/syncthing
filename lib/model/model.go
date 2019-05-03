@@ -170,13 +170,12 @@ var (
 )
 
 var (
-	errDeviceUnknown     = errors.New("unknown device")
-	errDevicePaused      = errors.New("device is paused")
-	errDeviceIgnored     = errors.New("device is ignored")
-	ErrFolderPaused      = errors.New("folder is paused")
-	errFolderNotRunning  = errors.New("folder is not running")
-	errFolderMissing     = errors.New("no such folder")
-	errNetworkNotAllowed = errors.New("network not allowed")
+	errDeviceUnknown    = errors.New("unknown device")
+	errDevicePaused     = errors.New("device is paused")
+	errDeviceIgnored    = errors.New("device is ignored")
+	ErrFolderPaused     = errors.New("folder is paused")
+	errFolderNotRunning = errors.New("folder is not running")
+	errFolderMissing    = errors.New("no such folder")
 	// errors about why a connection is closed
 	errIgnoredFolderRemoved = errors.New("folder no longer ignored")
 	errReplacingConnection  = errors.New("replacing connection")
@@ -1732,12 +1731,6 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 
 	if cfg.Paused {
 		return errDevicePaused
-	}
-
-	if len(cfg.AllowedNetworks) > 0 {
-		if !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
-			return errNetworkNotAllowed
-		}
 	}
 
 	return nil
