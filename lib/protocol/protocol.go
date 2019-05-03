@@ -182,11 +182,14 @@ type rawConnection struct {
 	nextID    int32
 	nextIDMut sync.Mutex
 
-	outbox        chan asyncMessage
-	closed        chan struct{}
-	closeOnce     sync.Once
-	sendCloseOnce sync.Once
-	compression   Compression
+	inbox               chan message
+	outbox              chan asyncMessage
+	clusterConfigBox    chan *ClusterConfig
+	receiverLoopStopped chan struct{}
+	closed              chan struct{}
+	closeOnce           sync.Once
+	sendCloseOnce       sync.Once
+	compression         Compression
 }
 
 type asyncResult struct {
@@ -220,15 +223,18 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	cw := &countingWriter{Writer: writer}
 
 	c := rawConnection{
-		id:          deviceID,
-		name:        name,
-		receiver:    nativeModel{receiver},
-		cr:          cr,
-		cw:          cw,
-		awaiting:    make(map[int32]chan asyncResult),
-		outbox:      make(chan asyncMessage),
-		closed:      make(chan struct{}),
-		compression: compress,
+		id:                  deviceID,
+		name:                name,
+		receiver:            nativeModel{receiver},
+		cr:                  cr,
+		cw:                  cw,
+		awaiting:            make(map[int32]chan asyncResult),
+		inbox:               make(chan message),
+		outbox:              make(chan asyncMessage),
+		clusterConfigBox:    make(chan *ClusterConfig),
+		receiverLoopStopped: make(chan struct{}),
+		closed:              make(chan struct{}),
+		compression:         compress,
 	}
 
 	return wireFormatConnection{&c}
@@ -237,8 +243,9 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
+	go c.readerLoop()
 	go func() {
-		err := c.readerLoop()
+		err := c.receiverLoop()
 		c.internalClose(err)
 	}()
 	go c.writerLoop()
@@ -348,25 +355,37 @@ func (c *rawConnection) ping() bool {
 	return c.send(&Ping{}, nil)
 }
 
-func (c *rawConnection) readerLoop() (err error) {
+func (c *rawConnection) readerLoop() {
 	fourByteBuf := make([]byte, 4)
+	for {
+		msg, err := c.readMessage(fourByteBuf)
+		if err != nil {
+			if err == errUnknownMessage {
+				// Unknown message types are skipped, for future extensibility.
+				continue
+			}
+			c.internalClose(err)
+			return
+		}
+		select {
+		case c.inbox <- msg:
+		case <-c.closed:
+			return
+		}
+
+	}
+}
+
+func (c *rawConnection) receiverLoop() (err error) {
+	defer close(c.receiverLoopStopped)
+	var msg message
 	state := stateInitial
 	for {
 		select {
+		case msg = <-c.inbox:
 		case <-c.closed:
 			return ErrClosed
-		default:
 		}
-
-		msg, err := c.readMessage(fourByteBuf)
-		if err == errUnknownMessage {
-			// Unknown message types are skipped, for future extensibility.
-			continue
-		}
-		if err != nil {
-			return err
-		}
-
 		switch msg := msg.(type) {
 		case *ClusterConfig:
 			l.Debugln("read ClusterConfig message")
@@ -846,6 +865,8 @@ func (c *rawConnection) internalClose(err error) {
 			}
 		}
 		c.awaitingMut.Unlock()
+
+		<-c.receiverLoopStopped
 
 		c.receiver.Closed(c, err)
 	})
