@@ -182,11 +182,12 @@ type rawConnection struct {
 	nextID    int32
 	nextIDMut sync.Mutex
 
-	outbox        chan asyncMessage
-	closed        chan struct{}
-	closeOnce     sync.Once
-	sendCloseOnce sync.Once
-	compression   Compression
+	outbox           chan asyncMessage
+	clusterConfigBox chan *ClusterConfig
+	closed           chan struct{}
+	closeOnce        sync.Once
+	sendCloseOnce    sync.Once
+	compression      Compression
 }
 
 type asyncResult struct {
@@ -220,15 +221,16 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	cw := &countingWriter{Writer: writer}
 
 	c := rawConnection{
-		id:          deviceID,
-		name:        name,
-		receiver:    nativeModel{receiver},
-		cr:          cr,
-		cw:          cw,
-		awaiting:    make(map[int32]chan asyncResult),
-		outbox:      make(chan asyncMessage),
-		closed:      make(chan struct{}),
-		compression: compress,
+		id:               deviceID,
+		name:             name,
+		receiver:         nativeModel{receiver},
+		cr:               cr,
+		cw:               cw,
+		awaiting:         make(map[int32]chan asyncResult),
+		outbox:           make(chan asyncMessage),
+		clusterConfigBox: make(chan *ClusterConfig),
+		closed:           make(chan struct{}),
+		compression:      compress,
 	}
 
 	return wireFormatConnection{&c}
@@ -322,9 +324,11 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 	return res.val, res.err
 }
 
-// ClusterConfig send the cluster configuration message to the peer and returns any error
+// ClusterConfig sends the cluster configuration message to the peer.
+// It must be called just once (as per BEP), otherwise it will panic.
 func (c *rawConnection) ClusterConfig(config ClusterConfig) {
-	c.send(&config, nil)
+	c.clusterConfigBox <- &config
+	close(c.clusterConfigBox)
 }
 
 func (c *rawConnection) Closed() bool {
@@ -640,6 +644,16 @@ func (c *rawConnection) send(msg message, done chan struct{}) bool {
 }
 
 func (c *rawConnection) writerLoop() {
+	select {
+	case cc := <-c.clusterConfigBox:
+		err := c.writeMessage(cc)
+		if err != nil {
+			c.internalClose(err)
+			return
+		}
+	case <-c.closed:
+		return
+	}
 	for {
 		select {
 		case hm := <-c.outbox:
