@@ -522,6 +522,7 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.F
 		}
 
 		dir := dirDeletions[len(dirDeletions)-i-1]
+		f.resetPullError(dir.Name)
 		l.Debugln(f, "Deleting dir", dir.Name)
 		f.deleteDir(dir, dbUpdateChan, scanChan)
 	}
