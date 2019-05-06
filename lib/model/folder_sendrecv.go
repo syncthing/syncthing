@@ -311,6 +311,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		}
 
 		if f.IgnoreDelete && intf.IsDeleted() {
+			f.resetPullError(intf.FileName())
 			l.Debugln(f, "ignore file deletion (config)", intf.FileName())
 			return true
 		}
@@ -318,6 +319,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		file := intf.(protocol.FileInfo)
 
 		if f.ignores.ShouldIgnore(file.Name) {
+			f.resetPullError(file.Name)
 			file.SetIgnored(f.shortID)
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
@@ -331,6 +333,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				return true
 			}
 			if file.IsSymlink() {
+				f.resetPullError(file.Name)
 				file.SetUnsupported(f.shortID)
 				l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
 				dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
@@ -361,6 +364,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 					buckets[key] = append(buckets[key], curFile)
 					return true
 				}
+				f.resetPullError(file.Name)
 				f.deleteFileWithCurrent(file, curFile, hasCurFile, dbUpdateChan, scanChan)
 				changed++
 				return true
@@ -369,6 +373,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
+				f.resetPullError(file.Name)
 				f.shortcutFile(file, curFile, dbUpdateChan)
 				changed++
 				return true
@@ -382,11 +387,13 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				dirDeletions = append(dirDeletions, file)
 				return true
 			}
+			f.resetPullError(file.Name)
 			l.Debugln(f, "Handling directory", file.Name)
 			f.handleDir(file, dbUpdateChan, scanChan)
 
 		case file.IsSymlink():
 			changed++
+			f.resetPullError(file.Name)
 			if file.IsDeleted() {
 				f.deleteFile(file, dbUpdateChan, scanChan)
 				changed++
@@ -440,6 +447,8 @@ nextFile:
 		if !ok {
 			break
 		}
+
+		f.resetPullError(fileName)
 
 		fi, ok := f.fset.GetGlobal(fileName)
 		if !ok {
@@ -508,17 +517,18 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.F
 		default:
 		}
 
+		f.resetPullError(file.Name)
 		f.deleteFile(file, dbUpdateChan, scanChan)
 	}
 
-	for i := range dirDeletions {
+	for _, dir := range dirDeletions {
 		select {
 		case <-f.ctx.Done():
 			return
 		default:
 		}
 
-		dir := dirDeletions[len(dirDeletions)-i-1]
+		f.resetPullError(dir.Name)
 		l.Debugln(f, "Deleting dir", dir.Name)
 		f.deleteDir(dir, dbUpdateChan, scanChan)
 	}
@@ -1775,6 +1785,14 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 	// Use "syncing" as opposed to "pulling" as the latter might be used
 	// for errors occurring specificly in the puller routine.
 	f.pullErrors[path] = fmt.Sprintln("syncing:", err)
+}
+
+// resetPullError removes the error at path in case there was an error on a
+// previous pull iteration.
+func (f *sendReceiveFolder) resetPullError(path string) {
+	f.pullErrorsMut.Lock()
+	delete(f.pullErrors, path)
+	f.pullErrorsMut.Unlock()
 }
 
 func (f *sendReceiveFolder) clearPullErrors() {

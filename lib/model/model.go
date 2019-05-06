@@ -363,8 +363,8 @@ func (m *model) AddFolder(cfg config.FolderConfiguration) {
 	}
 
 	m.fmut.Lock()
+	defer m.fmut.Unlock()
 	m.addFolderLocked(cfg)
-	m.fmut.Unlock()
 }
 
 func (m *model) addFolderLocked(cfg config.FolderConfiguration) {
@@ -585,6 +585,8 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 func (m *model) ConnectionStats() map[string]interface{} {
 	m.fmut.RLock()
 	m.pmut.RLock()
+	defer m.pmut.RUnlock()
+	defer m.fmut.RUnlock()
 
 	res := make(map[string]interface{})
 	devs := m.cfg.Devices()
@@ -613,9 +615,6 @@ func (m *model) ConnectionStats() map[string]interface{} {
 	}
 
 	res["connections"] = conns
-
-	m.pmut.RUnlock()
-	m.fmut.RUnlock()
 
 	in, out := protocol.TotalInOut()
 	res["total"] = ConnectionInfo{
@@ -787,11 +786,12 @@ func (m *model) ReceiveOnlyChangedSize(folder string) db.Counts {
 // NeedSize returns the number and total size of currently needed files.
 func (m *model) NeedSize(folder string) db.Counts {
 	m.fmut.RLock()
-	defer m.fmut.RUnlock()
+	rf, ok := m.folderFiles[folder]
+	cfg := m.folderCfgs[folder]
+	m.fmut.RUnlock()
 
 	var result db.Counts
-	if rf, ok := m.folderFiles[folder]; ok {
-		cfg := m.folderCfgs[folder]
+	if ok {
 		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
 			if cfg.IgnoreDelete && f.IsDeleted() {
 				return true
@@ -811,10 +811,12 @@ func (m *model) NeedSize(folder string) db.Counts {
 // total number of files currently needed.
 func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
 	m.fmut.RLock()
-	defer m.fmut.RUnlock()
+	rf, rfOk := m.folderFiles[folder]
+	runner, runnerOk := m.folderRunners[folder]
+	cfg := m.folderCfgs[folder]
+	m.fmut.RUnlock()
 
-	rf, ok := m.folderFiles[folder]
-	if !ok {
+	if !rfOk {
 		return nil, nil, nil
 	}
 
@@ -824,8 +826,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	skip := (page - 1) * perpage
 	get := perpage
 
-	runner, ok := m.folderRunners[folder]
-	if ok {
+	if runnerOk {
 		allProgressNames, allQueuedNames := runner.Jobs()
 
 		var progressNames, queuedNames []string
@@ -852,7 +853,6 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	}
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
-	cfg := m.folderCfgs[folder]
 	rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
 		if cfg.IgnoreDelete && f.IsDeleted() {
 			return true
@@ -878,13 +878,13 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 // total number of files currently needed.
 func (m *model) LocalChangedFiles(folder string, page, perpage int) []db.FileInfoTruncated {
 	m.fmut.RLock()
-	defer m.fmut.RUnlock()
-
 	rf, ok := m.folderFiles[folder]
+	fcfg := m.folderCfgs[folder]
+	m.fmut.RUnlock()
+
 	if !ok {
 		return nil
 	}
-	fcfg := m.folderCfgs[folder]
 	if fcfg.Type != config.FolderTypeReceiveOnly {
 		return nil
 	}
@@ -1046,6 +1046,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	m.fmut.Lock()
+	defer m.fmut.Unlock()
 	var paused []string
 	for _, folder := range cm.Folders {
 		cfg, ok := m.cfg.Folder(folder.ID)
@@ -1181,7 +1182,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			changed = true
 		}
 	}
-	m.fmut.Unlock()
 
 	if changed {
 		if err := m.cfg.Save(); err != nil {
@@ -1383,10 +1383,12 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	device := conn.ID()
 
 	m.pmut.Lock()
+	defer m.pmut.Unlock()
 	conn, ok := m.conn[device]
-	if ok {
-		m.progressEmitter.temporaryIndexUnsubscribe(conn)
+	if !ok {
+		return
 	}
+	m.progressEmitter.temporaryIndexUnsubscribe(conn)
 	delete(m.conn, device)
 	delete(m.connRequestLimiters, device)
 	delete(m.helloMessages, device)
@@ -1394,7 +1396,6 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	delete(m.remotePausedFolders, device)
 	closed := m.closed[device]
 	delete(m.closed, device)
-	m.pmut.Unlock()
 
 	l.Infof("Connection to %s at %s closed: %v", device, conn.Name(), err)
 	events.Default.Log(events.DeviceDisconnected, map[string]string{
@@ -1652,12 +1653,13 @@ func (m *model) Connection(deviceID protocol.DeviceID) (connections.Connection, 
 
 func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	m.fmut.RLock()
-	defer m.fmut.RUnlock()
+	cfg, cfgOk := m.folderCfgs[folder]
+	ignores, ignoresOk := m.folderIgnores[folder]
+	m.fmut.RUnlock()
 
-	cfg, ok := m.folderCfgs[folder]
-	if !ok {
-		cfg, ok = m.cfg.Folders()[folder]
-		if !ok {
+	if !cfgOk {
+		cfg, cfgOk = m.cfg.Folders()[folder]
+		if !cfgOk {
 			return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
 		}
 	}
@@ -1667,8 +1669,7 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 		return nil, nil, err
 	}
 
-	ignores, ok := m.folderIgnores[folder]
-	if !ok {
+	if !ignoresOk {
 		ignores = ignore.New(fs.NewFilesystem(cfg.FilesystemType, cfg.Path))
 	}
 
@@ -2031,12 +2032,13 @@ func (m *model) ScanFolder(folder string) error {
 
 func (m *model) ScanFolderSubdirs(folder string, subs []string) error {
 	m.fmut.RLock()
-	if err := m.checkFolderRunningLocked(folder); err != nil {
-		m.fmut.RUnlock()
-		return err
-	}
+	err := m.checkFolderRunningLocked(folder)
 	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
+
+	if err != nil {
+		return err
+	}
 
 	return runner.Scan(subs)
 }
@@ -2222,10 +2224,10 @@ func (m *model) CurrentSequence(folder string) (int64, bool) {
 // the remote or global folder has changed.
 func (m *model) RemoteSequence(folder string) (int64, bool) {
 	m.fmut.RLock()
-	defer m.fmut.RUnlock()
-
 	fs, ok := m.folderFiles[folder]
 	cfg := m.folderCfgs[folder]
+	m.fmut.RUnlock()
+
 	if !ok {
 		// The folder might not exist, since this can be called with a user
 		// specified folder name from the REST interface.
@@ -2384,10 +2386,10 @@ next:
 
 // BringToFront bumps the given files priority in the job queue.
 func (m *model) BringToFront(folder, file string) {
-	m.pmut.RLock()
-	defer m.pmut.RUnlock()
-
+	m.fmut.RLock()
 	runner, ok := m.folderRunners[folder]
+	m.fmut.RUnlock()
+
 	if ok {
 		runner.BringToFront(file)
 	}

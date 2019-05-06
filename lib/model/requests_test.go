@@ -32,6 +32,7 @@ func TestRequestSimple(t *testing.T) {
 	tfs := fcfg.Filesystem()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(tfs.URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -78,6 +79,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 	m, fc, fcfg, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(fcfg.Filesystem().URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -125,6 +127,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 	m, fc, fcfg, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(fcfg.Filesystem().URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -188,6 +191,7 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 	m, fc, fcfg, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(fcfg.Filesystem().URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -238,8 +242,8 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 
 	fcfg.Versioning = config.VersioningConfiguration{Type: "trashcan"}
 	w.SetFolder(fcfg)
-
 	m, fc := setupModelWithConnectionFromWrapper(w)
+	defer m.db.Close()
 	defer m.Stop()
 
 	// Create a temporary directory that we will use as target to see if
@@ -312,6 +316,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	m, fc := setupModelWithConnectionFromWrapper(w)
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(fss.URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -430,6 +435,7 @@ func TestIssue4841(t *testing.T) {
 	m, fc, fcfg, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(fcfg.Filesystem().URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -473,6 +479,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 	tmpDir := fcfg.Filesystem().URI()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(tmpDir)
 		os.Remove(w.ConfigPath())
 	}()
@@ -538,6 +545,7 @@ func TestParentDeletion(t *testing.T) {
 	testFs := fcfg.Filesystem()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(testFs.URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -620,6 +628,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	m, fc, fcfg, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(fcfg.Filesystem().URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -737,6 +746,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	tmpDir := tfs.URI()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(tmpDir)
 		os.Remove(w.ConfigPath())
 	}()
@@ -869,6 +879,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 	tmpDir := tfs.URI()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(tmpDir)
 		os.Remove(w.ConfigPath())
 	}()
@@ -963,6 +974,7 @@ func TestRequestDeleteChanged(t *testing.T) {
 	tfs := fcfg.Filesystem()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(tfs.URI())
 		os.Remove(w.ConfigPath())
 	}()
