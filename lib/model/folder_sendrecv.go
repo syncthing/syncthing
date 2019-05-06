@@ -513,14 +513,15 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.F
 		}
 	}
 
-	for _, dir := range dirDeletions {
+	// Process in reverse order to delete depth first
+	for i := range dirDeletions {
 		select {
 		case <-f.ctx.Done():
 			return
 		default:
 		}
 
-		f.resetPullError(dir.Name)
+		dir := dirDeletions[len(dirDeletions)-i-1]
 		l.Debugln(f, "Deleting dir", dir.Name)
 		f.deleteDir(dir, dbUpdateChan, scanChan)
 	}
