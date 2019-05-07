@@ -33,7 +33,7 @@ var (
 		// Custom copy size
 		copySize int
 		// Expected failure
-		expectedError error
+		expectedErrors []error
 	}{
 		{
 			srcOffset:       0,
@@ -42,7 +42,7 @@ var (
 			dstPos:          generationSize,
 			expectedDstSize: generationSize + defaultCopySize,
 			copySize:        defaultCopySize,
-			expectedError:   nil,
+			expectedErrors:  nil,
 		},
 		{
 			srcOffset:       0,
@@ -51,7 +51,7 @@ var (
 			dstPos:          0, // Seek back, but expect dst pos to not change
 			expectedDstSize: generationSize + defaultCopySize,
 			copySize:        defaultCopySize,
-			expectedError:   nil,
+			expectedErrors:  nil,
 		},
 		{
 			srcOffset:       defaultCopySize,
@@ -60,7 +60,7 @@ var (
 			dstPos:          generationSize,
 			expectedDstSize: generationSize + defaultCopySize,
 			copySize:        defaultCopySize,
-			expectedError:   nil,
+			expectedErrors:  nil,
 		},
 		{
 			srcOffset:       0,
@@ -69,7 +69,7 @@ var (
 			dstPos:          generationSize,
 			expectedDstSize: generationSize,
 			copySize:        defaultCopySize,
-			expectedError:   nil,
+			expectedErrors:  nil,
 		},
 		{
 			srcOffset:       defaultCopySize,
@@ -78,7 +78,7 @@ var (
 			dstPos:          generationSize,
 			expectedDstSize: generationSize,
 			copySize:        defaultCopySize,
-			expectedError:   nil,
+			expectedErrors:  nil,
 		},
 		// Write way past the end of the file
 		{
@@ -88,7 +88,7 @@ var (
 			dstPos:          generationSize,
 			expectedDstSize: generationSize*2 + defaultCopySize,
 			copySize:        defaultCopySize,
-			expectedError:   nil,
+			expectedErrors:  nil,
 		},
 		// Source file does not have enough bytes to copy in that range, should result in an unexpected eof.
 		{
@@ -96,9 +96,10 @@ var (
 			dstOffset:       0,
 			srcPos:          0,
 			dstPos:          0,
-			expectedDstSize: 1, // Does not matter, should fail.
+			expectedDstSize: -11, // Does not matter, should fail.
 			copySize:        defaultCopySize * 10,
-			expectedError:   io.ErrUnexpectedEOF,
+			// ioctl returns syscall.EINVAL, rest are wrapped
+			expectedErrors: []error{io.ErrUnexpectedEOF, syscall.EINVAL},
 		},
 	}
 )
@@ -117,7 +118,7 @@ func TestCopyRange(ttt *testing.T) {
 					testCase.dstPos/defaultCopySize,
 					testCase.expectedDstSize/defaultCopySize,
 					testCase.copySize/defaultCopySize,
-					testCase.expectedError == nil,
+					testCase.expectedErrors == nil,
 				)
 				tt.Run(name, func(t *testing.T) {
 					td, err := ioutil.TempDir(os.Getenv("STFSTESTPATH"), "")
@@ -172,11 +173,13 @@ func TestCopyRange(ttt *testing.T) {
 							// Test runner can adjust directory in which to run the tests, that allow broader tests.
 							t.Skip("Not supported on the current filesystem, set STFSTESTPATH env var.")
 						}
-						if err == testCase.expectedError {
-							return
+						for _, expectedErr := range testCase.expectedErrors {
+							if expectedErr == err {
+								return
+							}
 						}
 						t.Fatal(err)
-					} else if testCase.expectedError != nil {
+					} else if testCase.expectedErrors != nil {
 						t.Fatal("did not get expected error")
 					}
 
