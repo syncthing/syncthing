@@ -7,7 +7,6 @@
 package fs
 
 import (
-	"fmt"
 	"os"
 	"sort"
 	"strings"
@@ -62,26 +61,12 @@ func CopyRange(src, dst File, srcOffset, dstOffset, size int64) error {
 	if len(copyRangeImplementations) == 0 {
 		panic("bug: no CopyRange implementations")
 	}
-	ss, ser := src.Stat()
-	ds, der := dst.Stat()
-	if ser != nil {
-		l.Infoln("ser:" + ser.Error())
-	} else {
-		fmt.Print(ss.Size())
-	}
-	if der != nil {
-		l.Infoln("ser:" + der.Error())
-	} else {
-		fmt.Println(ds.Size())
-	}
-	l.Infof("copy range %s to %s (%d to %d, %d bytes)\n", src.Name(), dst.Name(), srcOffset, dstOffset, size)
+
 	var err error
 	for _, copier := range copyRangeImplementations {
 		if err = copier.impl(src, dst, srcOffset, dstOffset, size); err == nil {
-			l.Infof(copier.name + " succeeded")
 			return nil
 		}
-		l.Infoln("copy range " + copier.name + " err " + err.Error())
 	}
 
 	// Return the last error
