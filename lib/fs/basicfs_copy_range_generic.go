@@ -20,11 +20,11 @@ func init() {
 func copyRangeGeneric(src, dst File, srcOffset, dstOffset, size int64) error {
 	oldSrcOffset, err := src.Seek(0, io.SeekCurrent)
 	if err != nil {
-		return nil
+		return err
 	}
 	oldDstOffset, err := dst.Seek(0, io.SeekCurrent)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	// Check that the source file has the data in question
