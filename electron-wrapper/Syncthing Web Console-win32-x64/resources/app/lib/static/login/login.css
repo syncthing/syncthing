@@ -1,0 +1,57 @@
+label, input {
+  display: block;
+}
+
+* {
+  font-family: Verdana, sans-serif;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  -webkit-app-region: drag;
+}
+.login-form {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.login-form > div {
+  margin-bottom: 30px;
+}
+
+.login-form > div > label {
+  margin-bottom: 25px;
+  letter-spacing: 5px;
+  font-weight: 100;
+  text-transform: uppercase;
+  font-size: 18px;
+  text-align: center;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.login-form > div > input {
+  height: 30px;
+  width: 225px;
+  font-size: 16px;
+  -webkit-app-region: no-drag;
+}
+
+.login-form > div > button {
+  border: 0;
+  font-size: 15px;
+  font-weight: 100;
+  text-transform: uppercase;
+  height: 35px;
+  width: 225px;
+  background-color: #2196F3;
+  color: white;
+  -webkit-app-region: no-drag;
+}
+
+button:hover {
+  background-color: #0D47A1;
+}

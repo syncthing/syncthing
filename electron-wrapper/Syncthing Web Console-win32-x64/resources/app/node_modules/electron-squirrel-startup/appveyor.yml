@@ -1,0 +1,17 @@
+init:
+  - git config --global core.autocrlf input
+
+environment:
+  matrix:
+    - nodejs_version: 0.12
+
+install:
+  - ps: Update-NodeJsInstallation (Get-NodeJsLatestBuild $env:nodejs_version)
+  - npm install
+
+build: off
+
+test_script:
+  - node --version
+  - npm --version
+  - ps: npm run ci
