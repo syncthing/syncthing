@@ -1,0 +1,1 @@
+This is a directory made to house the Win32 (63-bit) Electron Wrapper to Syncthing.
