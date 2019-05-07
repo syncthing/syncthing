@@ -18,8 +18,8 @@ import (
 )
 
 var (
-	generationSize = 4 << 20
-	copySize       = 1 << 20
+	generationSize  = 4 << 20
+	defaultCopySize = 1 << 20
 
 	testCases = []struct {
 		// Offset from which to read
@@ -30,27 +30,37 @@ var (
 		dstPos int
 		// Expected destination size
 		expectedDstSize int
+		// Custom copy size
+		copySize int
+		// Expected failure
+		expectedError error
 	}{
 		{
 			srcOffset:       0,
 			dstOffset:       generationSize,
 			srcPos:          generationSize,
 			dstPos:          generationSize,
-			expectedDstSize: generationSize + copySize,
+			expectedDstSize: generationSize + defaultCopySize,
+			copySize:        defaultCopySize,
+			expectedError:   nil,
 		},
 		{
 			srcOffset:       0,
 			dstOffset:       generationSize,
 			srcPos:          0, // We seek back to start, and expect src not to move after copy
 			dstPos:          0, // Seek back, but expect dst pos to not change
-			expectedDstSize: generationSize + copySize,
+			expectedDstSize: generationSize + defaultCopySize,
+			copySize:        defaultCopySize,
+			expectedError:   nil,
 		},
 		{
-			srcOffset:       copySize,
+			srcOffset:       defaultCopySize,
 			dstOffset:       generationSize,
 			srcPos:          generationSize,
 			dstPos:          generationSize,
-			expectedDstSize: generationSize + copySize,
+			expectedDstSize: generationSize + defaultCopySize,
+			copySize:        defaultCopySize,
+			expectedError:   nil,
 		},
 		{
 			srcOffset:       0,
@@ -58,13 +68,17 @@ var (
 			srcPos:          generationSize,
 			dstPos:          generationSize,
 			expectedDstSize: generationSize,
+			copySize:        defaultCopySize,
+			expectedError:   nil,
 		},
 		{
-			srcOffset:       copySize,
+			srcOffset:       defaultCopySize,
 			dstOffset:       0,
 			srcPos:          generationSize,
 			dstPos:          generationSize,
 			expectedDstSize: generationSize,
+			copySize:        defaultCopySize,
+			expectedError:   nil,
 		},
 		// Write way past the end of the file
 		{
@@ -72,7 +86,19 @@ var (
 			dstOffset:       generationSize * 2,
 			srcPos:          generationSize,
 			dstPos:          generationSize,
-			expectedDstSize: generationSize*2 + copySize,
+			expectedDstSize: generationSize*2 + defaultCopySize,
+			copySize:        defaultCopySize,
+			expectedError:   nil,
+		},
+		// Source file does not have enough bytes to copy in that range, should result in an unexpected eof.
+		{
+			srcOffset:       0,
+			dstOffset:       0,
+			srcPos:          0,
+			dstPos:          0,
+			expectedDstSize: -1, // Does not matter, should fail.
+			copySize:        defaultCopySize * 10,
+			expectedError:   io.ErrUnexpectedEOF,
 		},
 	}
 )
@@ -84,12 +110,14 @@ func TestCopyRange(ttt *testing.T) {
 	for _, copyRangeImplementation := range copyRangeImplementations {
 		ttt.Run(copyRangeImplementation.name, func(tt *testing.T) {
 			for _, testCase := range testCases {
-				name := fmt.Sprintf("%d_%d_%d_%d_%d",
-					testCase.srcOffset/copySize,
-					testCase.dstOffset/copySize,
-					testCase.srcPos/copySize,
-					testCase.dstPos/copySize,
-					testCase.expectedDstSize/copySize,
+				name := fmt.Sprintf("%d_%d_%d_%d_%d_%d_%t",
+					testCase.srcOffset/defaultCopySize,
+					testCase.dstOffset/defaultCopySize,
+					testCase.srcPos/defaultCopySize,
+					testCase.dstPos/defaultCopySize,
+					testCase.expectedDstSize/defaultCopySize,
+					testCase.copySize/defaultCopySize,
+					testCase.expectedError == nil,
 				)
 				tt.Run(name, func(t *testing.T) {
 					td, err := ioutil.TempDir(os.Getenv("STFSTESTPATH"), "")
@@ -139,14 +167,17 @@ func TestCopyRange(ttt *testing.T) {
 						t.Fatal(err)
 					}
 
-					// Copy the data
-
-					if err := copyRangeImplementation.impl(src, dst, int64(testCase.srcOffset), int64(testCase.dstOffset), int64(copySize)); err != nil {
+					if err := copyRangeImplementation.impl(src, dst, int64(testCase.srcOffset), int64(testCase.dstOffset), int64(testCase.copySize)); err != nil {
 						if err == syscall.ENOTSUP {
 							// Test runner can adjust directory in which to run the tests, that allow broader tests.
 							t.Skip("Not supported on the current filesystem, set STFSTESTPATH env var.")
 						}
+						if err == testCase.expectedError {
+							return
+						}
 						t.Fatal(err)
+					} else if testCase.expectedError != nil {
+						t.Fatal("did not get expected error")
 					}
 
 					// Check offsets where we expect them
@@ -175,7 +206,7 @@ func TestCopyRange(ttt *testing.T) {
 						t.Fatal(err)
 					}
 
-					if !bytes.Equal(srcBuf[testCase.srcOffset:testCase.srcOffset+copySize], dstBuf[testCase.dstOffset:testCase.dstOffset+copySize]) {
+					if !bytes.Equal(srcBuf[testCase.srcOffset:testCase.srcOffset+testCase.copySize], dstBuf[testCase.dstOffset:testCase.dstOffset+testCase.copySize]) {
 						t.Errorf("Not equal")
 					}
 

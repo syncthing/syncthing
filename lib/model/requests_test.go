@@ -787,6 +787,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 		default:
 		}
 		for _, f := range fs {
+			l.Infoln(f)
 			switch {
 			case f.Name == a:
 				if gotA {

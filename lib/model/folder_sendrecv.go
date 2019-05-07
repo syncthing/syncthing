@@ -9,6 +9,7 @@ package model
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"math/rand"
 	"path/filepath"
 	"runtime"
@@ -1296,8 +1297,12 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					}
 					defer fd.Close()
 
+					// The files should be of the same block size, if the content was the same, so use the block size
+					// of the current file to figure out the offset.
 					offset := int64(state.file.BlockSize()) * int64(index)
-					_, err = fd.ReadAt(buf, offset)
+
+					// We know that the resulting block we expect to find should be of block.Size, so read that much.
+					_, err = io.ReadFull(io.NewSectionReader(fd, offset, int64(block.Size)), buf)
 					if err != nil {
 						return false
 					}
@@ -1308,7 +1313,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					}
 
 					dstFd.mut.Lock()
-					err = fs.CopyRange(fd, dstFd.file, offset, block.Offset, int64(state.file.BlockSize()))
+					err = fs.CopyRange(fd, dstFd.file, offset, block.Offset, int64(block.Size))
 					dstFd.mut.Unlock()
 					if err != nil {
 						state.fail(errors.Wrap(err, "dst write"))
