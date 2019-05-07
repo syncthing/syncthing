@@ -1,0 +1,3 @@
+This directory has been created to house an EXPIRIMENTAL web wrapper for Syncthing, written in Electron.
+
+Like-apps like the wrappers contained within can be easily created using Nativefier (https://github.com/jiahaog/nativefier) for Node.JS.
