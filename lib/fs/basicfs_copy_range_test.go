@@ -96,7 +96,7 @@ var (
 			dstOffset:       0,
 			srcPos:          0,
 			dstPos:          0,
-			expectedDstSize: 0, // Does not matter, should fail.
+			expectedDstSize: 1, // Does not matter, should fail.
 			copySize:        defaultCopySize * 10,
 			expectedError:   io.ErrUnexpectedEOF,
 		},
