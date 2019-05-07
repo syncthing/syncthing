@@ -7,8 +7,11 @@
 package fs
 
 import (
+	"errors"
 	"io"
 )
+
+var ErrSeekInconsistent = errors.New("did not seek to expected offset")
 
 func init() {
 	registerCopyRangeImplementation(copyRangeImplementation{
@@ -47,7 +50,7 @@ func copyRangeGeneric(src, dst File, srcOffset, dstOffset, size int64) error {
 		if n, err := src.Seek(srcOffset, io.SeekStart); err != nil {
 			return err
 		} else if n != srcOffset {
-			return io.ErrUnexpectedEOF
+			return ErrSeekInconsistent
 		}
 	}
 
@@ -55,7 +58,7 @@ func copyRangeGeneric(src, dst File, srcOffset, dstOffset, size int64) error {
 		if n, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
 			return err
 		} else if n != dstOffset {
-			return io.ErrUnexpectedEOF
+			return ErrSeekInconsistent
 		}
 	}
 
@@ -73,14 +76,15 @@ func copyRangeGeneric(src, dst File, srcOffset, dstOffset, size int64) error {
 	if n, err := src.Seek(oldSrcOffset, io.SeekStart); err != nil {
 		return err
 	} else if n != oldSrcOffset {
-		return io.ErrUnexpectedEOF
+		return ErrSeekInconsistent
 	}
 
 	if n, err := dst.Seek(oldDstOffset, io.SeekStart); err != nil {
 		return err
 	} else if n != oldDstOffset {
-		return io.ErrUnexpectedEOF
+		return ErrSeekInconsistent
 	}
 
 	return nil
 }
+git

@@ -35,22 +35,19 @@ func registerCopyRangeImplementation(impl copyRangeImplementation) {
 	mut.Lock()
 	defer mut.Unlock()
 
-	for _, implName := range implementationOrder {
-		if implName == impl.name {
-			l.Debugln("Registering " + impl.name + " copyRange implementation")
-			copyRangeImplementations = append(copyRangeImplementations, impl)
-
-			sort.Slice(copyRangeImplementations, func(i, j int) bool {
-				iidx := util.StringIndex(implementationOrder, copyRangeImplementations[i].name)
-				jidx := util.StringIndex(implementationOrder, copyRangeImplementations[j].name)
-				return iidx < jidx
-			})
-
-			return
-		}
+	if util.StringIndex(implementationOrder, impl.name) == -1 {
+		l.Debugln("Discarding " + impl.name + " copyRange implementation")
+		return
 	}
 
-	l.Debugln("Discarding " + impl.name + " copyRange implementation")
+	l.Debugln("Registering " + impl.name + " copyRange implementation")
+	copyRangeImplementations = append(copyRangeImplementations, impl)
+
+	sort.Slice(copyRangeImplementations, func(i, j int) bool {
+		iidx := util.StringIndex(implementationOrder, copyRangeImplementations[i].name)
+		jidx := util.StringIndex(implementationOrder, copyRangeImplementations[j].name)
+		return iidx < jidx
+	})
 }
 
 // CopyRange tries to use the most optimal way to copy data between two files.
