@@ -1,0 +1,1 @@
+'./syncthing/links' is a new subdirectory within the Synchthing Master branch containing useful links and URLs for end-users.
