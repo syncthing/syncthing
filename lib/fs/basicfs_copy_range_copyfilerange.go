@@ -9,6 +9,7 @@
 package fs
 
 import (
+	"io"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -30,6 +31,9 @@ func copyRangeCopyFileRange(src, dst basicFile, srcOffset, dstOffset, size int64
 		// 	The file offset of fd_in is not changed, but off_in is adjusted
 		// appropriately.
 		n, err := unix.CopyFileRange(int(src.Fd()), &srcOffset, int(dst.Fd()), &dstOffset, int(size), 0)
+		if n == 0 && err == nil {
+			return io.ErrUnexpectedEOF
+		}
 		if err != nil && err != syscall.EAGAIN {
 			return err
 		}

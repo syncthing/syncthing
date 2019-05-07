@@ -55,11 +55,9 @@ func copyRangeSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) err
 		// file offset of in_fd; otherwise the current file offset is adjusted to reflect the number of bytes read from
 		// in_fd.
 		n, err := syscall.Sendfile(int(dst.Fd()), int(src.Fd()), &srcOffset, int(size))
-
 		if n == 0 && err == nil {
-			err = io.ErrShortWrite
+			err = io.ErrUnexpectedEOF
 		}
-
 		if err != nil && err != syscall.EAGAIN {
 			_, _ = dst.Seek(oldDstOffset, io.SeekStart)
 			return err
