@@ -290,6 +290,7 @@ func TestCopierFinder(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
+	t.Log(blks)
 
 	for _, eq := range []int{2, 3, 4, 7} {
 		if string(blks[eq-1].Hash) != string(blocks[eq].Hash) {

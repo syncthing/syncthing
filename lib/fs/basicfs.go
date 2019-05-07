@@ -302,6 +302,11 @@ func (f basicFile) Name() string {
 	return f.name
 }
 
+func (f basicFile) Close() error {
+	//debug.PrintStack()
+	return f.File.Close()
+}
+
 func (f basicFile) Stat() (FileInfo, error) {
 	info, err := f.File.Stat()
 	if err != nil {

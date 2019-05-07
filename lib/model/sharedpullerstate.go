@@ -155,6 +155,7 @@ func (s *sharedPullerState) tempFile() (*lockedWriterAt, error) {
 	// Don't truncate symlink files, as that will mean that the path will
 	// contain a bunch of nulls.
 	if s.sparse && !s.file.IsSymlink() {
+		l.Infof("Truncating")
 		// Truncate sets the size of the file. This creates a sparse file or a
 		// space reservation, depending on the underlying filesystem.
 		if err := fd.Truncate(s.file.Size); err != nil {
@@ -180,6 +181,8 @@ func (s *sharedPullerState) tempFile() (*lockedWriterAt, error) {
 				return nil, err
 			}
 		}
+	} else {
+		l.Infof("Not truncating")
 	}
 
 	// Same fd will be used by all writers
