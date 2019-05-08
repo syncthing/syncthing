@@ -371,15 +371,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			return true
 		}
 
-		parent := filepath.Dir(file.Name)
-		if err := f.checkParent(parent, lastValidParent, scanChan); err != nil {
-			f.newPullError(file.Name, err)
-			return true
-		}
-		lastValidParent = parent
-
-		switch {
-		case file.Type == protocol.FileInfoTypeFile:
+		if file.Type == protocol.FileInfoTypeFile {
 			curFile, hasCurFile := f.fset.Get(protocol.LocalDeviceID, file.Name)
 			if _, need := blockDiff(curFile.Blocks, file.Blocks); hasCurFile && len(need) == 0 {
 				// We are supposed to copy the entire file, and then fetch nothing. We
@@ -392,17 +384,27 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			}
 			// Queue files for processing after directories and symlinks.
 			f.queue.Push(file.Name, file.Size, file.ModTime())
+			return true
+		}
 
+		parent := filepath.Dir(file.Name)
+		if err := f.checkParent(parent, lastValidParent, scanChan); err != nil {
+			f.newPullError(file.Name, err)
+			return true
+		}
+		lastValidParent = parent
+
+		switch {
 		case file.IsDirectory() && !file.IsSymlink():
 			changed++
-			f.resetPullError(file.Name)
 			l.Debugln(f, "Handling directory", file.Name)
+			f.resetPullError(file.Name)
 			f.handleDir(file, dbUpdateChan, scanChan)
 
 		case file.IsSymlink():
 			changed++
-			f.resetPullError(file.Name)
 			l.Debugln(f, "Handling symlink", file.Name)
+			f.resetPullError(file.Name)
 			f.handleSymlink(file, dbUpdateChan, scanChan)
 
 		default:
@@ -463,6 +465,12 @@ nextFile:
 		if fi.IsDeleted() || fi.IsInvalid() || fi.Type != protocol.FileInfoTypeFile {
 			// The item has changed type or status in the index while we
 			// were processing directories above.
+			f.queue.Done(fileName)
+			continue
+		}
+
+		if err := f.checkParent(filepath.Dir(fi.Name), ".", scanChan); err != nil {
+			f.newPullError(fi.Name, err)
 			f.queue.Done(fileName)
 			continue
 		}
