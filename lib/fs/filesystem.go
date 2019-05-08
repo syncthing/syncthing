@@ -22,7 +22,7 @@ type Filesystem interface {
 	Lchown(name string, uid, gid int) error
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	Create(name string) (File, error)
-	CreateSymlink(target, name string) error
+	CreateSymlink(target, name string) error // Creates a new symlink at name pointing at target.
 	DirNames(name string) ([]string, error)
 	Lstat(name string) (FileInfo, error)
 	Mkdir(name string, perm FileMode) error

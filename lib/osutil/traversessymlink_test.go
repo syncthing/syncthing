@@ -70,6 +70,59 @@ func TestTraversesSymlink(t *testing.T) {
 	}
 }
 
+func TestTraversesSymlinkSegment(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "Syncthing-TestTraversesSymlinkSegment-")
+	if err != nil {
+		panic("Failed to create temporary testing dir")
+	}
+	defer os.RemoveAll(tmpDir)
+
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+	fs.MkdirAll("a/b/c", 0755)
+	if err = osutil.DebugSymlinkForTestsOnly(filepath.Join(fs.URI(), "a", "b"), filepath.Join(fs.URI(), "a", "l")); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skip("Symlinks aren't working")
+		}
+		t.Fatal(err)
+	}
+
+	// a/l -> b, so a/l/c should resolve by normal stat
+	info, err := fs.Lstat("a/l/c")
+	if err != nil {
+		t.Fatal("unexpected error", err)
+	}
+	if !info.IsDir() {
+		t.Fatal("error in setup, a/l/c should be a directory")
+	}
+
+	cases := []struct {
+		name      string
+		parent    string
+		traverses bool
+	}{
+		// Exist
+		{"a/b", "a", false},
+		{"a/b/c", "a", false},
+		{"a/b/c", "a/b", false},
+		// Don't exist
+		{"a/x", "a", false},
+		{"a/b/x", "a", false},
+		{"a/b/x", "a/b", false},
+		{"a/x/c", "a", false},
+		// Symlink or behind symlink
+		{"a/l", "a", true},
+		{"a/l/c", "a", true},
+		// Non-existing behind a symlink
+		{"a/l/x", "a", true},
+	}
+
+	for _, tc := range cases {
+		if res := osutil.TraversesSymlinkSegment(fs, tc.name, tc.parent); tc.traverses == (res == nil) {
+			t.Errorf("TraversesSymlinkSegment(%v, %v) = %v, should be %v", tc.name, tc.parent, res, tc.traverses)
+		}
+	}
+}
+
 func TestIssue4875(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("", ".test-Issue4875-")
 	if err != nil {

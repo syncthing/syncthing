@@ -16,6 +16,7 @@ import (
 // hence the cumbersome name to make it obvious if this ever leaks. Its
 // reason for existence is the Windows version, which allows creating
 // symlinks when non-elevated.
+// The symlink is created at newname and points to its target at oldname.
 func DebugSymlinkForTestsOnly(oldname, newname string) error {
 	return os.Symlink(oldname, newname)
 }

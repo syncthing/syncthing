@@ -48,7 +48,7 @@ func TraversesSymlinkSegment(filesystem fs.Filesystem, name, parent string) erro
 		return nil
 	}
 
-	var path string
+	path := parent
 	rel, _ := filepath.Rel(parent, name)
 	for _, part := range strings.Split(rel, string(fs.PathSeparator)) {
 		path = filepath.Join(path, part)
