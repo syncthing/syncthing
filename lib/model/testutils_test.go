@@ -34,11 +34,11 @@ func init() {
 	defaultFolderConfig = testFolderConfig("testdata")
 
 	defaultCfgWrapper = createTmpWrapper(config.New(myID))
-	defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
-	defaultCfgWrapper.SetFolder(defaultFolderConfig)
+	_, _ = defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
+	_, _ = defaultCfgWrapper.SetFolder(defaultFolderConfig)
 	opts := defaultCfgWrapper.Options()
 	opts.KeepTemporariesH = 1
-	defaultCfgWrapper.SetOptions(opts)
+	_, _ = defaultCfgWrapper.SetOptions(opts)
 
 	defaultCfg = defaultCfgWrapper.RawCopy()
 
@@ -65,7 +65,7 @@ func init() {
 func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration) {
 	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
 	fcfg := testFolderConfigTmp()
-	w.SetFolder(fcfg)
+	_, _ = w.SetFolder(fcfg)
 	return w, fcfg
 }
 
@@ -93,7 +93,7 @@ func setupModelWithConnectionFromWrapper(w config.Wrapper) (*model, *fakeConnect
 	fc := addFakeConn(m, device1)
 	fc.folder = "default"
 
-	m.ScanFolder("default")
+	_ = m.ScanFolder("default")
 
 	return m, fc
 }
