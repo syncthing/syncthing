@@ -22,12 +22,9 @@ var (
 	implementationOrder      = getCopyOptimisations() // This runs before init
 )
 
-type copyRangeFuncGeneric func(src, dst File, srcOffset, dstOffset, size int64) error
-type copyRangeFuncOptimised func(src, dst basicFile, srcOffset, dstOffset, size int64) error
-
 type copyRangeImplementation struct {
 	name string
-	impl copyRangeFuncGeneric
+	impl func(src, dst basicFile, srcOffset, dstOffset, size int64) error
 }
 
 func registerCopyRangeImplementation(impl copyRangeImplementation) {
@@ -53,18 +50,27 @@ func registerCopyRangeImplementation(impl copyRangeImplementation) {
 // Takes size bytes at offset srcOffset from the source file, and copies the data to destination file at offset
 // dstOffset. If required, adjusts the size of the destination file to fit that much data.
 //
-// On unix, uses ref-linking if the underlying copy-on-write filesystem supports it (tested on xfs and btrfs),
-// which referencing existing data in the source file, instead of making a copy and taking up additional space.
+// On Linux/BSD it tries to use ioctl and copy_file_range system calls, which if the underlying filesystem supports it
+// tries referencing existing data in the source file, instead of making a copy and taking up additional space.
 //
-// CopyRange does it best to have no effect on src and dst file offsets (copy operation should not affect it).
+// If that is not possible, the data will be copied using an in-kernel copy (copy_file_range fallback, sendfile),
+// oppose to user space copy, if those system calls are available and supported for the source and target in question.
+//
+// CopyRange does it's best to have no effect on src and dst file offsets (copy operation should not affect it).
 func CopyRange(src, dst File, srcOffset, dstOffset, size int64) error {
 	if len(copyRangeImplementations) == 0 {
-		panic("bug: no CopyRange implementations")
+		return syscall.ENOTSUP
+	}
+
+	srcFile, srcOk := src.(basicFile)
+	dstFile, dstOk := dst.(basicFile)
+	if !srcOk || !dstOk {
+		return syscall.ENOTSUP
 	}
 
 	var err error
 	for _, copier := range copyRangeImplementations {
-		if err = copier.impl(src, dst, srcOffset, dstOffset, size); err == nil {
+		if err = copier.impl(srcFile, dstFile, srcOffset, dstOffset, size); err == nil {
 			return nil
 		}
 	}
@@ -78,26 +84,10 @@ func getCopyOptimisations() []string {
 	if opt == "" {
 		// ioctl first because it's available on early kernels and works on btrfs
 		// copy_file_range is only available on linux 4.5+ and works on xfs and btrfs
-		// sendfile does not do any block reuse, but works since 2.6+ or so.
-		opt = "ioctl,copy_file_range,sendfile,generic"
+		// sendfile does not do any block reuse on normal filesystems but might re, but works since 2.6+ or so, and having a in-kernel copy is more
+		// efficient for NFS/CIFS and large files.
+		opt = "ioctl,copy_file_range,sendfile"
 	}
 
-	impls := strings.Split(opt, ",")
-
-	if util.StringIndex(impls, "generic") == -1 {
-		impls = append(impls, "generic")
-	}
-
-	return impls
-}
-
-func asGeneric(input copyRangeFuncOptimised) copyRangeFuncGeneric {
-	return func(src, dst File, srcOffset, dstOffset, size int64) error {
-		srcFile, srcOk := src.(basicFile)
-		dstFile, dstOk := dst.(basicFile)
-		if srcOk && dstOk {
-			return input(srcFile, dstFile, srcOffset, dstOffset, size)
-		}
-		return syscall.ENOTSUP
-	}
+	return strings.Split(opt, ",")
 }

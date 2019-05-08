@@ -18,20 +18,20 @@ import (
 )
 
 var (
-	generationSize  = 4 << 20
-	defaultCopySize = 1 << 20
+	generationSize  int64 = 4 << 20
+	defaultCopySize int64 = 1 << 20
 
 	testCases = []struct {
 		// Offset from which to read
-		srcOffset int
-		dstOffset int
+		srcOffset int64
+		dstOffset int64
 		// Cursor position before the copy
-		srcPos int
-		dstPos int
+		srcPos int64
+		dstPos int64
 		// Expected destination size
-		expectedDstSize int
+		expectedDstSize int64
 		// Custom copy size
-		copySize int
+		copySize int64
 		// Expected failure
 		expectedErrors []error
 	}{
@@ -150,25 +150,25 @@ func TestCopyRange(ttt *testing.T) {
 
 					// Write some data
 
-					if err := writeFull(src, srcBuf); err != nil {
+					if _, err := src.Write(srcBuf); err != nil {
 						t.Fatal(err)
 					}
 
-					if err := writeFull(dst, dstBuf[:generationSize]); err != nil {
+					if _, err := dst.Write(dstBuf[:generationSize]); err != nil {
 						t.Fatal(err)
 					}
 
 					// Set the offsets
 
-					if _, err := src.Seek(int64(testCase.srcPos), io.SeekStart); err != nil {
+					if n, err := src.Seek(testCase.srcPos, io.SeekStart); err != nil || n != testCase.srcPos {
 						t.Fatal(err)
 					}
 
-					if _, err := dst.Seek(int64(testCase.dstPos), io.SeekStart); err != nil {
+					if n, err := dst.Seek(testCase.dstPos, io.SeekStart); err != nil || n != testCase.dstPos {
 						t.Fatal(err)
 					}
 
-					if err := copyRangeImplementation.impl(src, dst, int64(testCase.srcOffset), int64(testCase.dstOffset), int64(testCase.copySize)); err != nil {
+					if err := copyRangeImplementation.impl(src.(basicFile), dst.(basicFile), testCase.srcOffset, testCase.dstOffset, testCase.copySize); err != nil {
 						if err == syscall.ENOTSUP {
 							// Test runner can adjust directory in which to run the tests, that allow broader tests.
 							t.Skip("Not supported on the current filesystem, set STFSTESTPATH env var.")
@@ -187,13 +187,13 @@ func TestCopyRange(ttt *testing.T) {
 
 					if srcCurPos, err := src.Seek(0, io.SeekCurrent); err != nil {
 						t.Fatal(err)
-					} else if srcCurPos != int64(testCase.srcPos) {
+					} else if srcCurPos != testCase.srcPos {
 						t.Errorf("src pos expected %d got %d", testCase.srcPos, srcCurPos)
 					}
 
 					if dstCurPos, err := dst.Seek(0, io.SeekCurrent); err != nil {
 						t.Fatal(err)
-					} else if dstCurPos != int64(testCase.dstPos) {
+					} else if dstCurPos != testCase.dstPos {
 						t.Errorf("dst pos expected %d got %d", testCase.dstPos, dstCurPos)
 					}
 
@@ -217,22 +217,11 @@ func TestCopyRange(ttt *testing.T) {
 
 					if fi, err := dst.Stat(); err != nil {
 						t.Fatal(err)
-					} else if fi.Size() != int64(testCase.expectedDstSize) {
+					} else if fi.Size() != testCase.expectedDstSize {
 						t.Errorf("expected %d size, got %d", testCase.expectedDstSize, fi.Size())
 					}
 				})
 			}
 		})
 	}
-}
-
-func writeFull(w io.Writer, buf []byte) error {
-	for len(buf) > 0 {
-		m, err := w.Write(buf)
-		if err != nil {
-			return err
-		}
-		buf = buf[m:]
-	}
-	return nil
 }
