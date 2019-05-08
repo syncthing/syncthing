@@ -16,7 +16,7 @@ import (
 func init() {
 	registerCopyRangeImplementation(copyRangeImplementation{
 		name: "sendfile",
-		impl: asGeneric(copyRangeSendFile),
+		impl: copyRangeSendFile,
 	})
 }
 

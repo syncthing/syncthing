@@ -16,7 +16,7 @@ import (
 func init() {
 	registerCopyRangeImplementation(copyRangeImplementation{
 		name: "ioctl",
-		impl: asGeneric(copyRangeIoctl),
+		impl: copyRangeIoctl,
 	})
 }
 

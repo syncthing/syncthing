@@ -18,7 +18,7 @@ import (
 func init() {
 	registerCopyRangeImplementation(copyRangeImplementation{
 		name: "copy_file_range",
-		impl: asGeneric(copyRangeCopyFileRange),
+		impl: copyRangeCopyFileRange,
 	})
 }
 
