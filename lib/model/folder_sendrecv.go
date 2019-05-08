@@ -1315,6 +1315,10 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					dstFd.mut.Lock()
 					err = fs.CopyRange(fd, dstFd.file, offset, block.Offset, int64(block.Size))
 					dstFd.mut.Unlock()
+					// Fallback to user space write
+					if err != nil {
+						_, err = dstFd.WriteAt(buf, block.Offset)
+					}
 					if err != nil {
 						state.fail(errors.Wrap(err, "dst write"))
 					}
