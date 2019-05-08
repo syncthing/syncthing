@@ -342,6 +342,35 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			}
 		}
 
+		if file.IsDeleted() {
+			if file.IsDirectory() {
+				// Perform directory deletions at the end, as we may have
+				// files to delete inside them before we get to that point.
+				dirDeletions = append(dirDeletions, file)
+			} else if file.IsSymlink() {
+				f.resetPullError(file.Name)
+				f.deleteFile(file, dbUpdateChan, scanChan)
+				changed++
+			} else {
+				df, ok := f.fset.Get(protocol.LocalDeviceID, file.Name)
+				// Local file can be already deleted, but with a lower version
+				// number, hence the deletion coming in again as part of
+				// WithNeed, furthermore, the file can simply be of the wrong
+				// type if we haven't yet managed to pull it.
+				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
+					fileDeletions[file.Name] = file
+					// Put files into buckets per first hash
+					key := string(df.Blocks[0].Hash)
+					buckets[key] = append(buckets[key], df)
+				} else {
+					f.resetPullError(file.Name)
+					f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
+					changed++
+				}
+			}
+			return true
+		}
+
 		parent := filepath.Dir(file.Name)
 		if err := f.checkParent(parent, lastValidParent, scanChan); err != nil {
 			f.newPullError(file.Name, err)
@@ -352,23 +381,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		switch {
 		case file.Type == protocol.FileInfoTypeFile:
 			curFile, hasCurFile := f.fset.Get(protocol.LocalDeviceID, file.Name)
-			if file.IsDeleted() {
-				// Local file can be already deleted, but with a lower version
-				// number, hence the deletion coming in again as part of
-				// WithNeed, furthermore, the file can simply be of the wrong
-				// type if we haven't yet managed to pull it.
-				if hasCurFile && !curFile.IsDeleted() && !curFile.IsSymlink() && !curFile.IsDirectory() && !curFile.IsInvalid() {
-					fileDeletions[file.Name] = file
-					// Put files into buckets per first hash
-					key := string(curFile.Blocks[0].Hash)
-					buckets[key] = append(buckets[key], curFile)
-					return true
-				}
-				f.resetPullError(file.Name)
-				f.deleteFileWithCurrent(file, curFile, hasCurFile, dbUpdateChan, scanChan)
-				changed++
-				return true
-			}
 			if _, need := blockDiff(curFile.Blocks, file.Blocks); hasCurFile && len(need) == 0 {
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
@@ -383,10 +395,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 
 		case file.IsDirectory() && !file.IsSymlink():
 			changed++
-			if file.IsDeleted() {
-				dirDeletions = append(dirDeletions, file)
-				return true
-			}
 			f.resetPullError(file.Name)
 			l.Debugln(f, "Handling directory", file.Name)
 			f.handleDir(file, dbUpdateChan, scanChan)
@@ -394,11 +402,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		case file.IsSymlink():
 			changed++
 			f.resetPullError(file.Name)
-			if file.IsDeleted() {
-				f.deleteFile(file, dbUpdateChan, scanChan)
-				changed++
-				return true
-			}
 			l.Debugln(f, "Handling symlink", file.Name)
 			f.handleSymlink(file, dbUpdateChan, scanChan)
 
