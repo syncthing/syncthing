@@ -78,7 +78,9 @@ func TestTraversesSymlinkSegment(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
-	fs.MkdirAll("a/b/c", 0755)
+	if err := fs.MkdirAll("a/b/c", 0755); err != nil {
+		t.Fatal(err)
+	}
 	if err = osutil.DebugSymlinkForTestsOnly(filepath.Join(fs.URI(), "a", "b"), filepath.Join(fs.URI(), "a", "l")); err != nil {
 		if runtime.GOOS == "windows" {
 			t.Skip("Symlinks aren't working")
