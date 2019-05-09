@@ -149,6 +149,53 @@ func TestWatchRename(t *testing.T) {
 	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{})
 }
 
+// TestWatchWinRoot checks that a watch at a drive letter does not panic due to
+// out of root event on every event.
+// https://github.com/syncthing/syncthing/issues/5695
+func TestWatchWinRoot(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows specific test")
+	}
+
+	outChan := make(chan Event)
+	backendChan := make(chan notify.EventInfo, backendBuffer)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// testFs is Filesystem, but we need BasicFilesystem here
+	root := `D:\`
+	fs := newBasicFilesystem(root)
+	watch, root, err := fs.watchPaths(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Error(r)
+			}
+			cancel()
+		}()
+		fs.watchLoop(".", root, backendChan, outChan, fakeMatcher{}, ctx)
+	}()
+
+	// filepath.Dir as watch has a /... suffix
+	name := "foo"
+	backendChan <- fakeEventInfo(filepath.Join(filepath.Dir(watch), name))
+
+	select {
+	case <-time.After(10 * time.Second):
+		cancel()
+		t.Errorf("Timed out before receiving event")
+	case ev := <-outChan:
+		if ev.Name != name {
+			t.Errorf("Unexpected event %v, expected %v", ev.Name, name)
+		}
+	case <-ctx.Done():
+	}
+}
+
 // TestWatchOutside checks that no changes from outside the folder make it in
 func TestWatchOutside(t *testing.T) {
 	outChan := make(chan Event)
@@ -391,7 +438,7 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents, al
 	testCase()
 
 	select {
-	case <-time.After(time.Minute):
+	case <-time.After(10 * time.Second):
 		t.Errorf("Timed out before receiving all expected events")
 
 	case <-ctx.Done():

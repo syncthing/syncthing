@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"runtime"
 
 	"github.com/syncthing/notify"
 )
@@ -22,12 +23,7 @@ import (
 var backendBuffer = 500
 
 func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
-	evalRoot, err := evalSymlinks(f.root)
-	if err != nil {
-		return nil, err
-	}
-
-	absName, err := rooted(name, evalRoot)
+	watchPath, root, err := f.watchPaths(name)
 	if err != nil {
 		return nil, err
 	}
@@ -42,11 +38,11 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 
 	if ignore.SkipIgnoredDirs() {
 		absShouldIgnore := func(absPath string) bool {
-			return ignore.ShouldIgnore(f.unrootedChecked(absPath, evalRoot))
+			return ignore.ShouldIgnore(f.unrootedChecked(absPath, root))
 		}
-		err = notify.WatchWithFilter(filepath.Join(absName, "..."), backendChan, absShouldIgnore, eventMask)
+		err = notify.WatchWithFilter(watchPath, backendChan, absShouldIgnore, eventMask)
 	} else {
-		err = notify.Watch(filepath.Join(absName, "..."), backendChan, eventMask)
+		err = notify.Watch(watchPath, backendChan, eventMask)
 	}
 	if err != nil {
 		notify.Stop(backendChan)
@@ -56,9 +52,31 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		return nil, err
 	}
 
-	go f.watchLoop(name, evalRoot, backendChan, outChan, ignore, ctx)
+	go f.watchLoop(name, root, backendChan, outChan, ignore, ctx)
 
 	return outChan, nil
+}
+
+// watchPaths adjust the folder root for use with the notify backend and the
+// corresponding absolute path to be passed to notify to watch name.
+func (f *BasicFilesystem) watchPaths(name string) (string, string, error) {
+	root, err := evalSymlinks(f.root)
+	if err != nil {
+		return "", "", err
+	}
+
+	// Remove `\\?\` prefix if the path is just a drive letter as a dirty
+	// fix for https://github.com/syncthing/syncthing/issues/5578
+	if runtime.GOOS == "windows" && filepath.Clean(name) == "." && len(root) <= 7 && len(root) > 4 && root[:4] == `\\?\` {
+		root = root[4:]
+	}
+
+	absName, err := rooted(name, root)
+	if err != nil {
+		return "", "", err
+	}
+
+	return filepath.Join(absName, "..."), root, nil
 }
 
 func (f *BasicFilesystem) watchLoop(name, evalRoot string, backendChan chan notify.EventInfo, outChan chan<- Event, ignore Matcher, ctx context.Context) {
