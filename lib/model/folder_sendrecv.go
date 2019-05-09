@@ -315,7 +315,16 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			return true
 		}
 
+		if runtime.GOOS == "windows" && fs.WindowsInvalidFilename(intf.FileName()) {
+			f.newPullError(intf.FileName(), fs.ErrInvalidFilename)
+			return true
+		}
+
 		file := intf.(protocol.FileInfo)
+
+		// Do all checks that should not result in the pull being retried
+		// above this point.
+		changed++
 
 		switch {
 		case f.ignores.ShouldIgnore(file.Name):
@@ -323,10 +332,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			file.SetIgnored(f.shortID)
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
-			changed++
-
-		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name):
-			f.newPullError(file.Name, fs.ErrInvalidFilename)
 
 		case file.IsDeleted():
 			if file.IsDirectory() {
@@ -346,7 +351,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 					buckets[key] = append(buckets[key], df)
 				}
 			}
-			changed++
 
 		case file.Type == protocol.FileInfoTypeFile:
 			curFile, hasCurFile := f.fset.Get(protocol.LocalDeviceID, file.Name)
@@ -366,10 +370,8 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			file.SetUnsupported(f.shortID)
 			l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
-			changed++
 
 		case file.IsDirectory() && !file.IsSymlink():
-			changed++
 			l.Debugln(f, "Handling directory", file.Name)
 			f.resetPullError(file.Name)
 			if f.checkParent(file.Name, scanChan) {
@@ -377,7 +379,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			}
 
 		case file.IsSymlink():
-			changed++
 			l.Debugln(f, "Handling symlink", file.Name)
 			f.resetPullError(file.Name)
 			if f.checkParent(file.Name, scanChan) {
@@ -474,7 +475,6 @@ nextFile:
 				// Remove the pending deletion (as we performed it by renaming)
 				delete(fileDeletions, candidate.Name)
 
-				changed++
 				f.queue.Done(fileName)
 				continue nextFile
 			}
@@ -483,7 +483,6 @@ nextFile:
 		devices := f.fset.Availability(fileName)
 		for _, dev := range devices {
 			if _, ok := f.model.Connection(dev); ok {
-				changed++
 				// Handle the file normally, by coping and pulling, etc.
 				f.handleFile(fi, copyChan, dbUpdateChan)
 				continue nextFile
