@@ -350,6 +350,7 @@
    "Upgrading": "Upgrading",
    "Upload Rate": "Upload Rate",
    "Uptime": "Uptime",
+   "Usage reporting includes automatic reporting of crashes to the Syncthing developers.": "Usage reporting includes automatic reporting of crashes to the Syncthing developers.",
    "Usage reporting is always enabled for candidate releases.": "Usage reporting is always enabled for candidate releases.",
    "Use HTTPS for GUI": "Use HTTPS for GUI",
    "Use notifications from the filesystem to detect changed items.": "Use notifications from the filesystem to detect changed items.",
