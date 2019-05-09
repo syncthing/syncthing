@@ -1,4 +1,4 @@
-// Command stcrashreporter is a trivial HTTP server that allows two things:
+// Command stcrashreceiver is a trivial HTTP server that allows two things:
 //
 // - uploading files (crash reports) named like a SHA256 hash using a PUT request
 // - checking whether such file exists using a HEAD request
