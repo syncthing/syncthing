@@ -30,6 +30,8 @@ func copyRangeCopyFileRange(src, dst basicFile, srcOffset, dstOffset, size int64
 		// specifies the starting offset where bytes from fd_in will be read.
 		// 	The file offset of fd_in is not changed, but off_in is adjusted
 		// appropriately.
+		//
+		// Also, even if explicitly not stated, the same is true for dstOffset
 		n, err := unix.CopyFileRange(int(src.Fd()), &srcOffset, int(dst.Fd()), &dstOffset, int(size), 0)
 		if n == 0 && err == nil {
 			return io.ErrUnexpectedEOF
@@ -37,7 +39,6 @@ func copyRangeCopyFileRange(src, dst basicFile, srcOffset, dstOffset, size int64
 		if err != nil && err != syscall.EAGAIN {
 			return err
 		}
-		dstOffset += int64(n)
 		size -= int64(n)
 	}
 	return nil
