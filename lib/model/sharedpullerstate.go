@@ -280,13 +280,15 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	}
 
 	if s.fd != nil {
-		// This is our error if we weren't errored before. Otherwise we
-		// keep the earlier error.
-		if fsyncErr := s.fd.Sync(); fsyncErr != nil && s.err == nil {
-			s.err = fsyncErr
+		if err := s.fd.Sync(); err != nil {
+			// Sync() is nice if it works but not worth failing the
+			// operation over if it fails.
+			l.Debugf("fsync %q failed: %v", s.tempName, err)
 		}
-		if closeErr := s.fd.Close(); closeErr != nil && s.err == nil {
-			s.err = closeErr
+
+		if err := s.fd.Close(); err != nil && s.err == nil {
+			// This is our error as we weren't errored before.
+			s.err = err
 		}
 		s.fd = nil
 	}
