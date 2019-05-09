@@ -29,6 +29,7 @@
         <databaseBlockCacheMiB>42</databaseBlockCacheMiB>
         <minHomeDiskFreePct>5.2</minHomeDiskFreePct>
         <urURL>https://localhost/newdata</urURL>
+        <crURL>https://localhost/newcrash</crURL>
         <urInitialDelayS>800</urInitialDelayS>
         <urPostInsecurely>true</urPostInsecurely>
         <releasesURL>https://localhost/releases</releasesURL>
