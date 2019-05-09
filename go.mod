@@ -14,7 +14,6 @@ require (
 	github.com/gogo/protobuf v1.2.0
 	github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4
 	github.com/golang/snappy v0.0.0-20170215233205-553a64147049 // indirect
-	github.com/golang/sys v0.0.0-20190215142949-d0b11bdaac8a
 	github.com/jackpal/gateway v0.0.0-20161225004348-5795ac81146e
 	github.com/kballard/go-shellquote v0.0.0-20170619183022-cd60e84ee657
 	github.com/kr/pretty v0.1.0 // indirect
@@ -39,6 +38,7 @@ require (
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 	golang.org/x/net v0.0.0-20181201002055-351d144fa1fc
+	golang.org/x/sys v0.0.0-20190509141414-a5b02f93d862 // indirect
 	golang.org/x/text v0.0.0-20171227012246-e19ae1496984
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b
 	gopkg.in/asn1-ber.v1 v1.0.0-20170511165959-379148ca0225 // indirect
