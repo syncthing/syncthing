@@ -687,50 +687,6 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	}
 }
 
-func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration) {
-	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
-	fcfg := testFolderConfigTmp()
-	w.SetFolder(fcfg)
-	return w, fcfg
-}
-
-func testFolderConfigTmp() config.FolderConfiguration {
-	tmpDir := createTmpDir()
-	return testFolderConfig(tmpDir)
-}
-
-func testFolderConfig(path string) config.FolderConfiguration {
-	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, path)
-	cfg.FSWatcherEnabled = false
-	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
-	return cfg
-}
-
-func setupModelWithConnection() (*model, *fakeConnection, config.FolderConfiguration, config.Wrapper) {
-	w, fcfg := tmpDefaultWrapper()
-	m, fc := setupModelWithConnectionFromWrapper(w)
-	return m, fc, fcfg, w
-}
-
-func setupModelWithConnectionFromWrapper(w config.Wrapper) (*model, *fakeConnection) {
-	m := setupModel(w)
-
-	fc := addFakeConn(m, device1)
-	fc.folder = "default"
-
-	m.ScanFolder("default")
-
-	return m, fc
-}
-
-func createTmpDir() string {
-	tmpDir, err := ioutil.TempDir("", "syncthing_testFolder-")
-	if err != nil {
-		panic("Failed to create temporary testing dir")
-	}
-	return tmpDir
-}
-
 func equalContents(path string, contents []byte) error {
 	if bs, err := ioutil.ReadFile(path); err != nil {
 		return err

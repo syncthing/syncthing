@@ -8,13 +8,11 @@ package model
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -33,54 +31,8 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	srand "github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
-
-var myID, device1, device2 protocol.DeviceID
-var defaultCfgWrapper config.Wrapper
-var defaultFolderConfig config.FolderConfiguration
-var defaultFs fs.Filesystem
-var defaultCfg config.Configuration
-var defaultAutoAcceptCfg config.Configuration
-
-func init() {
-	myID, _ = protocol.DeviceIDFromString("ZNWFSWE-RWRV2BD-45BLMCV-LTDE2UR-4LJDW6J-R5BPWEB-TXD27XJ-IZF5RA4")
-	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
-	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
-
-	defaultFs = fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
-
-	defaultFolderConfig = testFolderConfig("testdata")
-
-	defaultCfgWrapper = createTmpWrapper(config.New(myID))
-	defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
-	defaultCfgWrapper.SetFolder(defaultFolderConfig)
-	opts := defaultCfgWrapper.Options()
-	opts.KeepTemporariesH = 1
-	defaultCfgWrapper.SetOptions(opts)
-
-	defaultCfg = defaultCfgWrapper.RawCopy()
-
-	defaultAutoAcceptCfg = config.Configuration{
-		Devices: []config.DeviceConfiguration{
-			{
-				DeviceID: myID, // self
-			},
-			{
-				DeviceID:          device1,
-				AutoAcceptFolders: true,
-			},
-			{
-				DeviceID:          device2,
-				AutoAcceptFolders: true,
-			},
-		},
-		Options: config.OptionsConfiguration{
-			DefaultFolderPath: ".",
-		},
-	}
-}
 
 var testDataExpected = map[string]protocol.FileInfo{
 	"foo": {
@@ -175,22 +127,6 @@ func newState(cfg config.Configuration) (config.Wrapper, *model) {
 	}
 
 	return wcfg, m
-}
-
-func setupModel(w config.Wrapper) *model {
-	db := db.OpenMemory()
-	m := newModel(w, myID, "syncthing", "dev", db, nil)
-	m.ServeBackground()
-	for id, cfg := range w.Folders() {
-		if !cfg.Paused {
-			m.AddFolder(cfg)
-			m.StartFolder(id)
-		}
-	}
-
-	m.ScanFolders()
-
-	return m
 }
 
 func TestRequest(t *testing.T) {
@@ -311,204 +247,6 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 		m.IndexUpdate(device1, "default", ufiles)
 	}
 	b.ReportAllocs()
-}
-
-type downloadProgressMessage struct {
-	folder  string
-	updates []protocol.FileDownloadProgressUpdate
-}
-
-type fakeConnection struct {
-	id                       protocol.DeviceID
-	downloadProgressMessages []downloadProgressMessage
-	closed                   bool
-	files                    []protocol.FileInfo
-	fileData                 map[string][]byte
-	folder                   string
-	model                    *model
-	indexFn                  func(string, []protocol.FileInfo)
-	requestFn                func(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
-	closeFn                  func(error)
-	mut                      sync.Mutex
-}
-
-func (f *fakeConnection) Close(err error) {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-	if f.closeFn != nil {
-		f.closeFn(err)
-		return
-	}
-	f.closed = true
-	f.model.Closed(f, err)
-}
-
-func (f *fakeConnection) Start() {
-}
-
-func (f *fakeConnection) ID() protocol.DeviceID {
-	return f.id
-}
-
-func (f *fakeConnection) Name() string {
-	return ""
-}
-
-func (f *fakeConnection) String() string {
-	return ""
-}
-
-func (f *fakeConnection) Option(string) string {
-	return ""
-}
-
-func (f *fakeConnection) Index(folder string, fs []protocol.FileInfo) error {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-	if f.indexFn != nil {
-		f.indexFn(folder, fs)
-	}
-	return nil
-}
-
-func (f *fakeConnection) IndexUpdate(folder string, fs []protocol.FileInfo) error {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-	if f.indexFn != nil {
-		f.indexFn(folder, fs)
-	}
-	return nil
-}
-
-func (f *fakeConnection) Request(folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-	if f.requestFn != nil {
-		return f.requestFn(folder, name, offset, size, hash, fromTemporary)
-	}
-	return f.fileData[name], nil
-}
-
-func (f *fakeConnection) ClusterConfig(protocol.ClusterConfig) {}
-
-func (f *fakeConnection) Ping() bool {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-	return f.closed
-}
-
-func (f *fakeConnection) Closed() bool {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-	return f.closed
-}
-
-func (f *fakeConnection) Statistics() protocol.Statistics {
-	return protocol.Statistics{}
-}
-
-func (f *fakeConnection) RemoteAddr() net.Addr {
-	return &fakeAddr{}
-}
-
-func (f *fakeConnection) Type() string {
-	return "fake"
-}
-
-func (f *fakeConnection) Crypto() string {
-	return "fake"
-}
-
-func (f *fakeConnection) Transport() string {
-	return "fake"
-}
-
-func (f *fakeConnection) Priority() int {
-	return 9000
-}
-
-func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate) {
-	f.downloadProgressMessages = append(f.downloadProgressMessages, downloadProgressMessage{
-		folder:  folder,
-		updates: updates,
-	})
-}
-
-func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol.FileInfoType, data []byte, version protocol.Vector) {
-	blockSize := protocol.BlockSize(int64(len(data)))
-	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), blockSize, int64(len(data)), nil, true)
-
-	if ftype == protocol.FileInfoTypeFile || ftype == protocol.FileInfoTypeDirectory {
-		f.files = append(f.files, protocol.FileInfo{
-			Name:         name,
-			Type:         ftype,
-			Size:         int64(len(data)),
-			ModifiedS:    time.Now().Unix(),
-			Permissions:  flags,
-			Version:      version,
-			Sequence:     time.Now().UnixNano(),
-			RawBlockSize: int32(blockSize),
-			Blocks:       blocks,
-		})
-	} else {
-		// Symlink
-		f.files = append(f.files, protocol.FileInfo{
-			Name:          name,
-			Type:          ftype,
-			Version:       version,
-			Sequence:      time.Now().UnixNano(),
-			SymlinkTarget: string(data),
-			NoPermissions: true,
-		})
-	}
-
-	if f.fileData == nil {
-		f.fileData = make(map[string][]byte)
-	}
-	f.fileData[name] = data
-}
-func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-
-	var version protocol.Vector
-	version = version.Update(f.id.Short())
-	f.addFileLocked(name, flags, ftype, data, version)
-}
-
-func (f *fakeConnection) updateFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-
-	for i, fi := range f.files {
-		if fi.Name == name {
-			f.files = append(f.files[:i], f.files[i+1:]...)
-			f.addFileLocked(name, flags, ftype, data, fi.Version.Update(f.id.Short()))
-			return
-		}
-	}
-}
-
-func (f *fakeConnection) deleteFile(name string) {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-
-	for i, fi := range f.files {
-		if fi.Name == name {
-			fi.Deleted = true
-			fi.ModifiedS = time.Now().Unix()
-			fi.Version = fi.Version.Update(f.id.Short())
-			fi.Sequence = time.Now().UnixNano()
-			fi.Blocks = nil
-
-			f.files = append(append(f.files[:i], f.files[i+1:]...), fi)
-			return
-		}
-	}
-}
-
-func (f *fakeConnection) sendIndexUpdate() {
-	f.model.IndexUpdate(f.id, f.folder, f.files)
 }
 
 func BenchmarkRequestOut(b *testing.B) {
@@ -3527,25 +3265,6 @@ func TestParentOfUnignored(t *testing.T) {
 	}
 }
 
-func addFakeConn(m *model, dev protocol.DeviceID) *fakeConnection {
-	fc := &fakeConnection{id: dev, model: m}
-	m.AddConnection(fc, protocol.HelloResult{})
-
-	m.ClusterConfig(dev, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID: "default",
-				Devices: []protocol.Device{
-					{ID: myID},
-					{ID: device1},
-				},
-			},
-		},
-	})
-
-	return fc
-}
-
 // TestFolderRestartZombies reproduces issue 5233, where multiple concurrent folder
 // restarts would leave more than one folder runner alive.
 func TestFolderRestartZombies(t *testing.T) {
@@ -3597,16 +3316,6 @@ func TestFolderRestartZombies(t *testing.T) {
 	if r := atomic.LoadInt32(&m.foldersRunning); r != 1 {
 		t.Error("Expected one running folder, not", r)
 	}
-}
-
-type fakeAddr struct{}
-
-func (fakeAddr) Network() string {
-	return "network"
-}
-
-func (fakeAddr) String() string {
-	return "address"
 }
 
 type alwaysChangedKey struct {
