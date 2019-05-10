@@ -31,6 +31,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	srand "github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/testutil"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -3409,5 +3410,40 @@ func TestSanitizePath(t *testing.T) {
 		if res != tc[1] {
 			t.Errorf("sanitizePath(%q) => %q, expected %q", tc[0], res, tc[1])
 		}
+	}
+}
+
+// TestConnCloseOnRestart checks that there is no deadlock when calling Close
+// on a protocol connection that has a blocking reader (blocking writer can't
+// be done as the test requires clusterconfigs to go through).
+func TestConnCloseOnRestart(t *testing.T) {
+	w, fcfg := tmpDefaultWrapper()
+	m := setupModel(w)
+	defer func() {
+		m.Stop()
+		m.db.Close()
+		os.RemoveAll(fcfg.Filesystem().URI())
+		os.Remove(w.ConfigPath())
+	}()
+
+	br := &testutil.BlockingRW{}
+	nw := &testutil.NoopRW{}
+	m.AddConnection(newFakeProtoConn(protocol.NewConnection(device1, br, nw, m, "testConn", protocol.CompressNever)), protocol.HelloResult{})
+
+	newFcfg := fcfg.Copy()
+	newFcfg.Paused = true
+	done := make(chan struct{})
+	go func() {
+		m.RestartFolder(fcfg, newFcfg)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out before folder restart returned")
+	}
+	m.pmut.RLock()
+	if len(m.conn) != 0 {
+		t.Errorf("Conn wasn't removed on restart (len(m.conn) == %v)", len(m.conn))
 	}
 }
