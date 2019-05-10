@@ -45,7 +45,7 @@ func TestWindowsPaths(t *testing.T) {
 func TestResolveWindows83(t *testing.T) {
 	fs, dir := setup(t)
 	if isMaybeWin83(dir) {
-		dir = resolveWin83(dir)
+		dir = fs.resolveWin83(dir)
 		fs = newBasicFilesystem(dir)
 	}
 	defer os.RemoveAll(dir)
@@ -76,7 +76,7 @@ func TestResolveWindows83(t *testing.T) {
 func TestIsWindows83(t *testing.T) {
 	fs, dir := setup(t)
 	if isMaybeWin83(dir) {
-		dir = resolveWin83(dir)
+		dir = fs.resolveWin83(dir)
 		fs = newBasicFilesystem(dir)
 	}
 	defer os.RemoveAll(dir)
