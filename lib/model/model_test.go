@@ -31,7 +31,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	srand "github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/testutil"
+	"github.com/syncthing/syncthing/lib/testutils"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -3426,8 +3426,8 @@ func TestConnCloseOnRestart(t *testing.T) {
 		os.Remove(w.ConfigPath())
 	}()
 
-	br := &testutil.BlockingRW{}
-	nw := &testutil.NoopRW{}
+	br := &testutils.BlockingRW{}
+	nw := &testutils.NoopRW{}
 	m.AddConnection(newFakeProtoConn(protocol.NewConnection(device1, br, nw, m, "testConn", protocol.CompressNever)), protocol.HelloResult{})
 
 	newFcfg := fcfg.Copy()
