@@ -22,7 +22,7 @@ require (
 	github.com/minio/sha256-simd v0.0.0-20190117184323-cc1980cb0338
 	github.com/onsi/ginkgo v0.0.0-20171221013426-6c46eb8334b3 // indirect
 	github.com/onsi/gomega v0.0.0-20171227184521-ba3724c94e4d // indirect
-	github.com/oschwald/geoip2-golang v1.1.0
+	github.com/oschwald/geoip2-golang v1.3.0
 	github.com/oschwald/maxminddb-golang v0.0.0-20170901134056-26fe5ace1c70 // indirect
 	github.com/petermattis/goid v0.0.0-20170816195418-3db12ebb2a59 // indirect
 	github.com/pkg/errors v0.8.1
