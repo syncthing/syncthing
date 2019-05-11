@@ -32,6 +32,7 @@ func TestRequestSimple(t *testing.T) {
 	tfs := fcfg.Filesystem()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(tfs.URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -78,6 +79,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 	m, fc, fcfg, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(fcfg.Filesystem().URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -125,6 +127,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 	m, fc, fcfg, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(fcfg.Filesystem().URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -188,6 +191,7 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 	m, fc, fcfg, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(fcfg.Filesystem().URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -238,8 +242,8 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 
 	fcfg.Versioning = config.VersioningConfiguration{Type: "trashcan"}
 	w.SetFolder(fcfg)
-
 	m, fc := setupModelWithConnectionFromWrapper(w)
+	defer m.db.Close()
 	defer m.Stop()
 
 	// Create a temporary directory that we will use as target to see if
@@ -324,6 +328,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	m, fc := setupModelWithConnectionFromWrapper(w)
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(fss.URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -442,6 +447,7 @@ func TestIssue4841(t *testing.T) {
 	m, fc, fcfg, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(fcfg.Filesystem().URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -485,6 +491,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 	tmpDir := fcfg.Filesystem().URI()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(tmpDir)
 		os.Remove(w.ConfigPath())
 	}()
@@ -550,6 +557,7 @@ func TestParentDeletion(t *testing.T) {
 	testFs := fcfg.Filesystem()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(testFs.URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -632,6 +640,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	m, fc, fcfg, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(fcfg.Filesystem().URI())
 		os.Remove(w.ConfigPath())
 	}()
@@ -690,50 +699,6 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	}
 }
 
-func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration) {
-	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
-	fcfg := testFolderConfigTmp()
-	w.SetFolder(fcfg)
-	return w, fcfg
-}
-
-func testFolderConfigTmp() config.FolderConfiguration {
-	tmpDir := createTmpDir()
-	return testFolderConfig(tmpDir)
-}
-
-func testFolderConfig(path string) config.FolderConfiguration {
-	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, path)
-	cfg.FSWatcherEnabled = false
-	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
-	return cfg
-}
-
-func setupModelWithConnection() (*model, *fakeConnection, config.FolderConfiguration, config.Wrapper) {
-	w, fcfg := tmpDefaultWrapper()
-	m, fc := setupModelWithConnectionFromWrapper(w)
-	return m, fc, fcfg, w
-}
-
-func setupModelWithConnectionFromWrapper(w config.Wrapper) (*model, *fakeConnection) {
-	m := setupModel(w)
-
-	fc := addFakeConn(m, device1)
-	fc.folder = "default"
-
-	m.ScanFolder("default")
-
-	return m, fc
-}
-
-func createTmpDir() string {
-	tmpDir, err := ioutil.TempDir("", "syncthing_testFolder-")
-	if err != nil {
-		panic("Failed to create temporary testing dir")
-	}
-	return tmpDir
-}
-
 func equalContents(path string, contents []byte) error {
 	if bs, err := ioutil.ReadFile(path); err != nil {
 		return err
@@ -749,6 +714,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	tmpDir := tfs.URI()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(tmpDir)
 		os.Remove(w.ConfigPath())
 	}()
@@ -881,6 +847,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 	tmpDir := tfs.URI()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(tmpDir)
 		os.Remove(w.ConfigPath())
 	}()
@@ -975,6 +942,7 @@ func TestRequestDeleteChanged(t *testing.T) {
 	tfs := fcfg.Filesystem()
 	defer func() {
 		m.Stop()
+		m.db.Close()
 		os.RemoveAll(tfs.URI())
 		os.Remove(w.ConfigPath())
 	}()

@@ -35,9 +35,14 @@ import (
 	"github.com/thejerf/suture"
 )
 
+var (
+	confDir = filepath.Join("testdata", "config")
+	token   = filepath.Join(confDir, "csrftokens.txt")
+)
+
 func TestMain(m *testing.M) {
 	orig := locations.GetBaseDir(locations.ConfigBaseDir)
-	locations.SetBaseDir(locations.ConfigBaseDir, "testdata/config")
+	locations.SetBaseDir(locations.ConfigBaseDir, confDir)
 
 	exitCode := m.Run()
 
@@ -47,6 +52,15 @@ func TestMain(m *testing.M) {
 }
 
 func TestCSRFToken(t *testing.T) {
+	defer os.Remove(token)
+
+	max := 250
+	int := 5
+	if testing.Short() {
+		max = 20
+		int = 2
+	}
+
 	t1 := newCsrfToken()
 	t2 := newCsrfToken()
 
@@ -55,8 +69,8 @@ func TestCSRFToken(t *testing.T) {
 		t.Fatal("t3 should be valid")
 	}
 
-	for i := 0; i < 250; i++ {
-		if i%5 == 0 {
+	for i := 0; i < max; i++ {
+		if i%int == 0 {
 			// t1 and t2 should remain valid by virtue of us checking them now
 			// and then.
 			if !validCsrfToken(t1) {
@@ -89,6 +103,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	w := config.Wrap("/dev/null", cfg)
 
 	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	defer os.Remove(token)
 	srv.started = make(chan string)
 
 	sup := suture.New("test", suture.Spec{
@@ -499,6 +514,7 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	urService := ur.New(cfg, m, connections, false)
 	summaryService := model.NewFolderSummaryService(cfg, m, protocol.LocalDeviceID)
 	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, discoverer, connections, urService, summaryService, errorLog, systemLog, cpu, nil, false).(*service)
+	defer os.Remove(token)
 	svc.started = addrChan
 
 	// Actually start the API service
@@ -960,6 +976,7 @@ func TestEventMasks(t *testing.T) {
 	defSub := new(mockedEventSub)
 	diskSub := new(mockedEventSub)
 	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	defer os.Remove(token)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
 		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(DefaultEventMask))

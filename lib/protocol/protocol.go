@@ -182,13 +182,11 @@ type rawConnection struct {
 	nextID    int32
 	nextIDMut sync.Mutex
 
-	sentClusterConfig chan struct{}
-	outbox            chan asyncMessage
-	closed            chan struct{}
-	closeOnce         sync.Once
-	sendCloseOnce     sync.Once
-	wg                sync.WaitGroup
-	compression       Compression
+	outbox        chan asyncMessage
+	closed        chan struct{}
+	closeOnce     sync.Once
+	sendCloseOnce sync.Once
+	compression   Compression
 }
 
 type asyncResult struct {
@@ -222,16 +220,15 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	cw := &countingWriter{Writer: writer}
 
 	c := rawConnection{
-		id:                deviceID,
-		name:              name,
-		receiver:          nativeModel{receiver},
-		cr:                cr,
-		cw:                cw,
-		awaiting:          make(map[int32]chan asyncResult),
-		sentClusterConfig: make(chan struct{}),
-		outbox:            make(chan asyncMessage),
-		closed:            make(chan struct{}),
-		compression:       compress,
+		id:          deviceID,
+		name:        name,
+		receiver:    nativeModel{receiver},
+		cr:          cr,
+		cw:          cw,
+		awaiting:    make(map[int32]chan asyncResult),
+		outbox:      make(chan asyncMessage),
+		closed:      make(chan struct{}),
+		compression: compress,
 	}
 
 	return wireFormatConnection{&c}
@@ -240,7 +237,6 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
-	c.wg.Add(4)
 	go func() {
 		err := c.readerLoop()
 		c.internalClose(err)
@@ -326,20 +322,9 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 	return res.val, res.err
 }
 
-// ClusterConfig sends the cluster configuration message to the peer.
-// It must be called just once (as per BEP).
+// ClusterConfig send the cluster configuration message to the peer and returns any error
 func (c *rawConnection) ClusterConfig(config ClusterConfig) {
-	select {
-	case <-c.sentClusterConfig:
-		return
-	case <-c.closed:
-		return
-	default:
-	}
-	if err := c.writeMessage(asyncMessage{&config, nil}); err != nil {
-		c.internalClose(err)
-	}
-	close(c.sentClusterConfig)
+	c.send(&config, nil)
 }
 
 func (c *rawConnection) Closed() bool {
@@ -364,12 +349,13 @@ func (c *rawConnection) ping() bool {
 }
 
 func (c *rawConnection) readerLoop() (err error) {
-	defer c.wg.Done()
 	fourByteBuf := make([]byte, 4)
 	state := stateInitial
 	for {
-		if c.Closed() {
+		select {
+		case <-c.closed:
 			return ErrClosed
+		default:
 		}
 
 		msg, err := c.readMessage(fourByteBuf)
@@ -642,30 +628,22 @@ func (c *rawConnection) handleResponse(resp Response) {
 }
 
 func (c *rawConnection) send(msg message, done chan struct{}) bool {
-	defer func() {
-		if done != nil {
-			close(done)
-		}
-	}()
-	select {
-	case <-c.sentClusterConfig:
-	case <-c.closed:
-		return false
-	}
 	select {
 	case c.outbox <- asyncMessage{msg, done}:
 		return true
 	case <-c.closed:
+		if done != nil {
+			close(done)
+		}
 		return false
 	}
 }
 
 func (c *rawConnection) writerLoop() {
-	defer c.wg.Done()
 	for {
 		select {
 		case hm := <-c.outbox:
-			err := c.writeMessage(hm)
+			err := c.writeMessage(hm.msg)
 			if hm.done != nil {
 				close(hm.done)
 			}
@@ -680,17 +658,17 @@ func (c *rawConnection) writerLoop() {
 	}
 }
 
-func (c *rawConnection) writeMessage(hm asyncMessage) error {
-	if c.shouldCompressMessage(hm.msg) {
-		return c.writeCompressedMessage(hm)
+func (c *rawConnection) writeMessage(msg message) error {
+	if c.shouldCompressMessage(msg) {
+		return c.writeCompressedMessage(msg)
 	}
-	return c.writeUncompressedMessage(hm)
+	return c.writeUncompressedMessage(msg)
 }
 
-func (c *rawConnection) writeCompressedMessage(hm asyncMessage) error {
-	size := hm.msg.ProtoSize()
+func (c *rawConnection) writeCompressedMessage(msg message) error {
+	size := msg.ProtoSize()
 	buf := BufferPool.Get(size)
-	if _, err := hm.msg.MarshalTo(buf); err != nil {
+	if _, err := msg.MarshalTo(buf); err != nil {
 		return fmt.Errorf("marshalling message: %v", err)
 	}
 
@@ -700,7 +678,7 @@ func (c *rawConnection) writeCompressedMessage(hm asyncMessage) error {
 	}
 
 	hdr := Header{
-		Type:        c.typeOf(hm.msg),
+		Type:        c.typeOf(msg),
 		Compression: MessageCompressionLZ4,
 	}
 	hdrSize := hdr.ProtoSize()
@@ -733,11 +711,11 @@ func (c *rawConnection) writeCompressedMessage(hm asyncMessage) error {
 	return nil
 }
 
-func (c *rawConnection) writeUncompressedMessage(hm asyncMessage) error {
-	size := hm.msg.ProtoSize()
+func (c *rawConnection) writeUncompressedMessage(msg message) error {
+	size := msg.ProtoSize()
 
 	hdr := Header{
-		Type: c.typeOf(hm.msg),
+		Type: c.typeOf(msg),
 	}
 	hdrSize := hdr.ProtoSize()
 	if hdrSize > 1<<16-1 {
@@ -756,7 +734,7 @@ func (c *rawConnection) writeUncompressedMessage(hm asyncMessage) error {
 	// Message length
 	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(size))
 	// Message
-	if _, err := hm.msg.MarshalTo(buf[2+hdrSize+4:]); err != nil {
+	if _, err := msg.MarshalTo(buf[2+hdrSize+4:]); err != nil {
 		return fmt.Errorf("marshalling message: %v", err)
 	}
 
@@ -848,7 +826,10 @@ func (c *rawConnection) Close(err error) {
 		}
 	})
 
-	c.internalClose(err)
+	// No more sends are necessary, therefore further steps to close the
+	// connection outside of this package can proceed immediately.
+	// And this prevents a potential deadlock due to calling c.receiver.Closed
+	go c.internalClose(err)
 }
 
 // internalClose is called if there is an unexpected error during normal operation.
@@ -866,14 +847,7 @@ func (c *rawConnection) internalClose(err error) {
 		}
 		c.awaitingMut.Unlock()
 
-		// Wait for all our operations to terminate before signaling
-		// to the receiver that the connection was closed.
-		c.wg.Wait()
-
-		// No more sends are necessary, therefore further steps to close the
-		// connection outside of this package can proceed immediately.
-		// And this prevents a potential deadlock.
-		go c.receiver.Closed(c, err)
+		c.receiver.Closed(c, err)
 	})
 }
 
@@ -883,8 +857,6 @@ func (c *rawConnection) internalClose(err error) {
 // results in an effecting ping interval of somewhere between
 // PingSendInterval/2 and PingSendInterval.
 func (c *rawConnection) pingSender() {
-	defer c.wg.Done()
-
 	ticker := time.NewTicker(PingSendInterval / 2)
 	defer ticker.Stop()
 
@@ -910,8 +882,6 @@ func (c *rawConnection) pingSender() {
 // but we expect pings in the absence of other messages) within the last
 // ReceiveTimeout. If not, we close the connection with an ErrTimeout.
 func (c *rawConnection) pingReceiver() {
-	defer c.wg.Done()
-
 	ticker := time.NewTicker(ReceiveTimeout / 2)
 	defer ticker.Stop()
 

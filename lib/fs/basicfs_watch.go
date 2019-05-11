@@ -11,8 +11,6 @@ package fs
 import (
 	"context"
 	"errors"
-	"path/filepath"
-	"runtime"
 
 	"github.com/syncthing/notify"
 )
@@ -23,20 +21,9 @@ import (
 var backendBuffer = 500
 
 func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
-	evalRoot, err := evalSymlinks(f.root)
+	watchPath, root, err := f.watchPaths(name)
 	if err != nil {
 		return nil, err
-	}
-
-	absName, err := rooted(name, evalRoot)
-	if err != nil {
-		return nil, err
-	}
-
-	// Remove `\\?\` prefix if the path is just a drive letter as a dirty
-	// fix for https://github.com/syncthing/syncthing/issues/5578
-	if runtime.GOOS == "windows" && len(absName) <= 7 && len(absName) > 4 && absName[:4] == `\\?\` {
-		absName = absName[4:]
 	}
 
 	outChan := make(chan Event)
@@ -49,11 +36,11 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 
 	if ignore.SkipIgnoredDirs() {
 		absShouldIgnore := func(absPath string) bool {
-			return ignore.ShouldIgnore(f.unrootedChecked(absPath, evalRoot))
+			return ignore.ShouldIgnore(f.unrootedChecked(absPath, root))
 		}
-		err = notify.WatchWithFilter(filepath.Join(absName, "..."), backendChan, absShouldIgnore, eventMask)
+		err = notify.WatchWithFilter(watchPath, backendChan, absShouldIgnore, eventMask)
 	} else {
-		err = notify.Watch(filepath.Join(absName, "..."), backendChan, eventMask)
+		err = notify.Watch(watchPath, backendChan, eventMask)
 	}
 	if err != nil {
 		notify.Stop(backendChan)
@@ -63,7 +50,7 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		return nil, err
 	}
 
-	go f.watchLoop(name, evalRoot, backendChan, outChan, ignore, ctx)
+	go f.watchLoop(name, root, backendChan, outChan, ignore, ctx)
 
 	return outChan, nil
 }

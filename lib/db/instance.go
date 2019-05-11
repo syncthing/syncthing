@@ -505,7 +505,7 @@ func (db *instance) getIndexID(device, folder []byte) protocol.IndexID {
 
 func (db *instance) setIndexID(device, folder []byte, id protocol.IndexID) {
 	bs, _ := id.Marshal() // marshalling can't fail
-	if err := db.Put(db.keyer.GenerateIndexIDKey(nil, device, folder), bs, nil); err != nil {
+	if err := db.Put(db.keyer.GenerateIndexIDKey(nil, device, folder), bs, nil); err != nil && err != leveldb.ErrClosed {
 		panic("storing index ID: " + err.Error())
 	}
 }

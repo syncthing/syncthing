@@ -1,7 +1,7 @@
 [Unit]
 Description=Syncthing - Open Source Continuous File Synchronization for %I
 Documentation=man:syncthing(1)
-After=multi-user.target network.target
+After=network.target
 
 [Service]
 User=%i

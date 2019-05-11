@@ -14,17 +14,13 @@ import (
 
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
-	*leveldb.Snapshot
+	snapshot
 	keyer keyer
 }
 
 func (db *instance) newReadOnlyTransaction() readOnlyTransaction {
-	snap, err := db.GetSnapshot()
-	if err != nil {
-		panic(err)
-	}
 	return readOnlyTransaction{
-		Snapshot: snap,
+		snapshot: db.GetSnapshot(),
 		keyer:    db.keyer,
 	}
 }
@@ -129,7 +125,10 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 		if new, ok := t.getFileByKey(keyBuf); ok {
 			global = new
 		} else {
-			panic("This file must exist in the db")
+			// This file must exist in the db, so this must be caused
+			// by the db being closed - bail out.
+			l.Debugln("File should exist:", name)
+			return keyBuf, false
 		}
 	}
 
@@ -246,7 +245,10 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 		keyBuf = t.keyer.GenerateDeviceFileKey(keyBuf, folder, fl.Versions[0].Device, file)
 		global, ok := t.getFileByKey(keyBuf)
 		if !ok {
-			panic("This file must exist in the db")
+			// This file must exist in the db, so this must be caused
+			// by the db being closed - bail out.
+			l.Debugln("File should exist:", file)
+			return keyBuf
 		}
 		keyBuf = t.updateLocalNeed(keyBuf, folder, file, fl, global)
 		meta.addFile(protocol.GlobalDeviceID, global)
