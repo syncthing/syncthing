@@ -1169,6 +1169,23 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 						defer runner.SchedulePull()
 					}
 				}
+			} else if knownDev, ok := m.cfg.Devices()[dev.ID]; ok {
+				// This device is known to us and shares this folder, but not
+				// directly with us. Remember it in order to possibly present a
+				// list of suggested devices for additional cluster
+				// connectivity.
+
+				//FIXME "category 2" devices, as per https://forum.syncthing.net/t/12212
+				l.Infof("Known device %v (%s) is not directly sharing common folder %s",
+					dev.ID, knownDev.Name, folder.Description())
+			} else {
+				// There is another device sharing this folder that we haven't
+				// heard of yet. Remember it in order to possibly present a list
+				// of suggested devices for additional cluster connectivity.
+
+				//FIXME "category 4" devices, as per https://forum.syncthing.net/t/12212
+				l.Infof("Unknown device %v (%s) is a candidate for indirectly shared folder %s",
+					dev.ID, dev.Name, folder.Description())
 			}
 		}
 
