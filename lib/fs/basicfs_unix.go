@@ -76,3 +76,19 @@ func rel(path, prefix string) string {
 }
 
 var evalSymlinks = filepath.EvalSymlinks
+
+// watchPaths adjust the folder root for use with the notify backend and the
+// corresponding absolute path to be passed to notify to watch name.
+func (f *BasicFilesystem) watchPaths(name string) (string, string, error) {
+	root, err := evalSymlinks(f.root)
+	if err != nil {
+		return "", "", err
+	}
+
+	absName, err := rooted(name, root)
+	if err != nil {
+		return "", "", err
+	}
+
+	return filepath.Join(absName, "..."), root, nil
+}
