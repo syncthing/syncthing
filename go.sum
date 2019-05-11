@@ -51,6 +51,8 @@ github.com/onsi/gomega v0.0.0-20171227184521-ba3724c94e4d h1:r351oUAFgdsydkt/g+X
 github.com/onsi/gomega v0.0.0-20171227184521-ba3724c94e4d/go.mod h1:C1qb7wdrVGGVU+Z6iS04AVkA3Q65CEZX59MT0QO5uiA=
 github.com/oschwald/geoip2-golang v1.1.0 h1:ACVPz5YqH4/jZkQdsp/PZc9shQVZmreCzAVNss5y3bo=
 github.com/oschwald/geoip2-golang v1.1.0/go.mod h1:0LTTzix/Ao1uMvOhAV4iLU0Lz7eCrP94qZWBTDKf0iE=
+github.com/oschwald/geoip2-golang v1.3.0 h1:D+Hsdos1NARPbzZ2aInUHZL+dApIzo8E0ErJVsWcku8=
+github.com/oschwald/geoip2-golang v1.3.0/go.mod h1:0LTTzix/Ao1uMvOhAV4iLU0Lz7eCrP94qZWBTDKf0iE=
 github.com/oschwald/maxminddb-golang v0.0.0-20170901134056-26fe5ace1c70 h1:XGLYUmodtNzThosQ8GkMvj9TiIB/uWsP8NfxKSa3aDc=
 github.com/oschwald/maxminddb-golang v0.0.0-20170901134056-26fe5ace1c70/go.mod h1:3jhIUymTJ5VREKyIhWm66LJiQt04F0UCDdodShpjWsY=
 github.com/petermattis/goid v0.0.0-20170816195418-3db12ebb2a59 h1:2pHcLyJYXivxVvpoCc29uo3GDU1qFfJ1ggXKGYMrM0E=
