@@ -11,7 +11,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/gobwas/glob v0.0.0-20170212200151-51eb1ee00b6d
-	github.com/gogo/protobuf v1.2.0
+	github.com/gogo/protobuf v1.2.1
 	github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4
 	github.com/golang/snappy v0.0.0-20170215233205-553a64147049 // indirect
 	github.com/jackpal/gateway v0.0.0-20161225004348-5795ac81146e
