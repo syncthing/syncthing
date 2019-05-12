@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -30,10 +29,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	m, f := setupROFolder()
 	ffs := f.Filesystem()
-	defer os.Remove(m.cfg.ConfigPath())
-	defer os.Remove(ffs.URI())
-	defer m.db.Close()
-	defer m.Stop()
+	defer stopModelAndRemoveDir(m, ffs.URI())
 
 	// Create some test data
 
@@ -114,10 +110,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	m, f := setupROFolder()
 	ffs := f.Filesystem()
-	defer os.Remove(m.cfg.ConfigPath())
-	defer os.Remove(ffs.URI())
-	defer m.db.Close()
-	defer m.Stop()
+	defer stopModelAndRemoveDir(m, ffs.URI())
 
 	// Create some test data
 
@@ -208,10 +201,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	m, f := setupROFolder()
 	ffs := f.Filesystem()
-	defer os.Remove(m.cfg.ConfigPath())
-	defer os.Remove(ffs.URI())
-	defer m.db.Close()
-	defer m.Stop()
+	defer stopModelAndRemoveDir(m, ffs.URI())
 
 	// Create some test data
 
