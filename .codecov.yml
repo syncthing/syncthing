@@ -1,5 +1,10 @@
+comment: off
+
 coverage:
   range: "40...100"
+  status:
+    project: off
+    patch: off
 
 ignore:
   - "**.pb.go"
