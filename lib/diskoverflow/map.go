@@ -265,7 +265,7 @@ func (o *diskMap) Pop(k string, v Value) bool {
 func (o *diskMap) Delete(k string) {
 	_, err := o.db.Get([]byte(k), nil)
 	if err == nil {
-		o.db.Delete([]byte(k), nil)
+		_ = o.db.Delete([]byte(k), nil)
 		o.len--
 	}
 }

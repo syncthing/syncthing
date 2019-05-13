@@ -259,7 +259,7 @@ func (d *diskSorted) dropFirst(bytes int) {
 	if !it.First() {
 		return
 	}
-	d.db.Delete(it.Key(), nil)
+	_ = d.db.Delete(it.Key(), nil)
 	d.bytes -= bytes
 	d.len--
 }
@@ -270,7 +270,7 @@ func (d *diskSorted) dropLast(bytes int) {
 	if !it.Last() {
 		return
 	}
-	d.db.Delete(it.Key(), nil)
+	_ = d.db.Delete(it.Key(), nil)
 	d.bytes -= bytes
 	d.len--
 }

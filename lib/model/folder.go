@@ -354,6 +354,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		ProgressTickIntervalS: f.ScanProgressIntervalS,
 		UseLargeBlocks:        f.UseLargeBlocks,
 		LocalFlags:            f.localFlags,
+		DiskOverflowLocation:  locations.Get(locations.Database),
 	})
 
 	batchFn := func(fs []protocol.FileInfo) error {

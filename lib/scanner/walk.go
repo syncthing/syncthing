@@ -58,7 +58,7 @@ type Config struct {
 	// Local flags to set on scanned files
 	LocalFlags uint32
 	// Absolute path to the location for disk overflow objects
-	diskOverflowLocation string
+	DiskOverflowLocation string
 }
 
 type CurrentFiler interface {
@@ -140,7 +140,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	// Parallel hasher is stopped by this routine when we close the channel over
 	// which it receives the files we ask it to hash.
 	go func() {
-		filesToHash := diskoverflow.NewSlice(w.diskOverflowLocation)
+		filesToHash := diskoverflow.NewSlice(w.DiskOverflowLocation)
 		defer filesToHash.Close()
 
 		for file := range toHashChan {
