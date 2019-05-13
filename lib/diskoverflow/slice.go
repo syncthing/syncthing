@@ -92,11 +92,6 @@ func (o *memorySlice) Close() {
 	o.values = nil
 }
 
-type memValueIterator struct {
-	*memIterator
-	values []Value
-}
-
 func (o *memorySlice) newIterator(p iteratorParent, reverse bool) ValueIterator {
 	return newMemIterator(o.values, p, reverse, len(o.values))
 }
