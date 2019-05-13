@@ -11,18 +11,18 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/gobwas/glob v0.0.0-20170212200151-51eb1ee00b6d
-	github.com/gogo/protobuf v1.2.0
+	github.com/gogo/protobuf v1.2.1
 	github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4
 	github.com/golang/snappy v0.0.0-20170215233205-553a64147049 // indirect
 	github.com/jackpal/gateway v0.0.0-20161225004348-5795ac81146e
 	github.com/kballard/go-shellquote v0.0.0-20170619183022-cd60e84ee657
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/lib/pq v1.0.0
-	github.com/mattn/go-isatty v0.0.4
+	github.com/lib/pq v1.1.1
+	github.com/mattn/go-isatty v0.0.7
 	github.com/minio/sha256-simd v0.0.0-20190117184323-cc1980cb0338
 	github.com/onsi/ginkgo v0.0.0-20171221013426-6c46eb8334b3 // indirect
 	github.com/onsi/gomega v0.0.0-20171227184521-ba3724c94e4d // indirect
-	github.com/oschwald/geoip2-golang v1.1.0
+	github.com/oschwald/geoip2-golang v1.3.0
 	github.com/oschwald/maxminddb-golang v0.0.0-20170901134056-26fe5ace1c70 // indirect
 	github.com/petermattis/goid v0.0.0-20170816195418-3db12ebb2a59 // indirect
 	github.com/pkg/errors v0.8.1
