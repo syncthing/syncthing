@@ -43,6 +43,8 @@ type githubSourceCodeLoader struct {
 }
 
 func (l *githubSourceCodeLoader) Load(filename string, line, context int) ([][]byte, int) {
+	l.mut.Lock()
+	defer l.mut.Unlock()
 	lines, ok := l.cache[filename]
 	if !ok {
 		// Cache whatever we managed to find (or nil if nothing, so we don't try again)
