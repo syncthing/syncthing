@@ -682,6 +682,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		sentry.Manager.SetDSN(cfg.Options.SentryDSN)
 		return true
 	}))
+	sentry.Manager.SetDSN(cfg.Options().SentryDSN)
 
 	var x []byte
 	println(x[2])
