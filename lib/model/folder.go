@@ -25,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
@@ -611,7 +612,7 @@ func (f *folder) startWatch() {
 	f.watchChan = make(chan []string)
 	f.watchCancel = cancel
 	f.watchMut.Unlock()
-	go f.startWatchAsync(ctx)
+	sentry.Go(func() { f.startWatchAsync(ctx) })
 }
 
 // startWatchAsync tries to start the filesystem watching and retries every minute on failure.

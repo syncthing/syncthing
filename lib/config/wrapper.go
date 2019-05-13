@@ -7,13 +7,16 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"runtime"
 	"sync/atomic"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 )
@@ -51,6 +54,31 @@ type Waiter interface {
 type noopWaiter struct{}
 
 func (noopWaiter) Wait() {}
+
+type currentValueSubscriber struct {
+	fn     func(configuration Configuration) bool
+	caller string
+}
+
+func (currentValueSubscriber) VerifyConfiguration(from, to Configuration) error {
+	return nil
+}
+
+func (s *currentValueSubscriber) CommitConfiguration(from, to Configuration) bool {
+	return s.fn(to)
+}
+
+func (s currentValueSubscriber) String() string {
+	return s.caller
+}
+
+func CurrentValueSubscriber(fn func(to Configuration) bool) Committer {
+	_, file, no, _ := runtime.Caller(1)
+	return &currentValueSubscriber{
+		fn:     fn,
+		caller: fmt.Sprintf("%s:%d", file, no),
+	}
+}
 
 // A Wrapper around a Configuration that manages loads, saves and published
 // notifications of changes to registered Handlers
@@ -200,10 +228,12 @@ func (w *wrapper) notifyListeners(from, to Configuration) Waiter {
 	wg := sync.NewWaitGroup()
 	wg.Add(len(w.subs))
 	for _, sub := range w.subs {
-		go func(commiter Committer) {
-			w.notifyListener(commiter, from, to)
-			wg.Done()
-		}(sub)
+		sentry.Go(func(commiter Committer) func() {
+			return func() {
+				w.notifyListener(commiter, from, to)
+				wg.Done()
+			}
+		}(sub))
 	}
 	return wg
 }

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/sentry"
 	"golang.org/x/net/proxy"
 
 	"github.com/syncthing/syncthing/lib/logger"
@@ -43,18 +44,18 @@ func init() {
 		}
 
 		// Defer this, so that logging gets setup.
-		go func() {
+		sentry.Go(func() {
 			time.Sleep(500 * time.Millisecond)
 			l.Infoln("Proxy settings detected")
 			if noFallback {
 				l.Infoln("Proxy fallback disabled")
 			}
-		}()
+		})
 	} else {
-		go func() {
+		sentry.Go(func() {
 			time.Sleep(500 * time.Millisecond)
 			l.Debugln("Dialer logging disabled, as no proxy was detected")
-		}()
+		})
 	}
 }
 

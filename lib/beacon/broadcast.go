@@ -11,12 +11,12 @@ import (
 	"net"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/thejerf/suture"
 )
 
 type Broadcast struct {
-	*suture.Supervisor
+	*sentry.Supervisor
 	port   int
 	inbox  chan []byte
 	outbox chan recv
@@ -26,7 +26,7 @@ type Broadcast struct {
 
 func NewBroadcast(port int) *Broadcast {
 	b := &Broadcast{
-		Supervisor: suture.New("broadcastBeacon", suture.Spec{
+		Supervisor: sentry.NewSupervisor("broadcastBeacon", sentry.Spec{
 			// Don't retry too frenetically: an error to open a socket or
 			// whatever is usually something that is either permanent or takes
 			// a while to get solved...

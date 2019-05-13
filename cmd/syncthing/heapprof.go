@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 func init() {
@@ -23,7 +25,7 @@ func init() {
 			rate = i
 		}
 		l.Debugln("Starting heap profiling")
-		go saveHeapProfiles(rate)
+		sentry.Go(func() { saveHeapProfiles(rate) })
 	}
 }
 

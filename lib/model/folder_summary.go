@@ -14,14 +14,14 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/thejerf/suture"
 )
 
 const minSummaryInterval = time.Minute
 
 type FolderSummaryService interface {
-	suture.Service
+	sentry.Service
 	Summary(folder string) (map[string]interface{}, error)
 	OnEventRequest()
 }
@@ -29,7 +29,7 @@ type FolderSummaryService interface {
 // The folderSummaryService adds summary information events (FolderSummary and
 // FolderCompletion) into the event stream at certain intervals.
 type folderSummaryService struct {
-	*suture.Supervisor
+	*sentry.Supervisor
 
 	cfg       config.Wrapper
 	model     Model
@@ -48,7 +48,7 @@ type folderSummaryService struct {
 
 func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID) FolderSummaryService {
 	service := &folderSummaryService{
-		Supervisor: suture.New("folderSummaryService", suture.Spec{
+		Supervisor: sentry.NewSupervisor("folderSummaryService", sentry.Spec{
 			PassThroughPanics: true,
 		}),
 		cfg:             cfg,
@@ -304,9 +304,11 @@ func (c *folderSummaryService) sendSummary(folder string) {
 	}
 }
 
-// serviceFunc wraps a function to create a suture.Service without stop
+// serviceFunc wraps a function to create a sentry.Service without stop
 // functionality.
 type serviceFunc func()
 
-func (f serviceFunc) Serve() { f() }
-func (f serviceFunc) Stop()  {}
+func (f serviceFunc) Serve() {
+	f()
+}
+func (f serviceFunc) Stop() {}

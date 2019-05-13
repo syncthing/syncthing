@@ -15,7 +15,7 @@ import (
 
 type mockedCachingMux struct{}
 
-// from suture.Service
+// from sentry.Service
 
 func (m *mockedCachingMux) Serve() {
 	select {}

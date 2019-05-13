@@ -20,6 +20,7 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -121,7 +122,7 @@ func New(fs fs.Filesystem, opts ...Option) *Matcher {
 		m.changeDetector = newModtimeChecker()
 	}
 	if m.withCache {
-		go m.clean(2 * time.Hour)
+		sentry.Go(func() { m.clean(2 * time.Hour) })
 	}
 	return m
 }

@@ -13,7 +13,8 @@ import (
 	"sync"
 	"time"
 
-	lz4 "github.com/bkaradzic/go-lz4"
+	"github.com/bkaradzic/go-lz4"
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 const (
@@ -237,13 +238,13 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
-	go func() {
+	sentry.Go(func() {
 		err := c.readerLoop()
 		c.internalClose(err)
-	}()
-	go c.writerLoop()
-	go c.pingSender()
-	go c.pingReceiver()
+	})
+	sentry.Go(c.writerLoop)
+	sentry.Go(c.pingSender)
+	sentry.Go(c.pingReceiver)
 }
 
 func (c *rawConnection) ID() DeviceID {
@@ -406,7 +407,7 @@ func (c *rawConnection) readerLoop() (err error) {
 			if err := checkFilename(msg.Name); err != nil {
 				return fmt.Errorf("protocol error: request: %q: %v", msg.Name, err)
 			}
-			go c.handleRequest(*msg)
+			sentry.Go(func() { c.handleRequest(*msg) })
 
 		case *Response:
 			l.Debugln("read Response message")
@@ -829,7 +830,7 @@ func (c *rawConnection) Close(err error) {
 	// No more sends are necessary, therefore further steps to close the
 	// connection outside of this package can proceed immediately.
 	// And this prevents a potential deadlock due to calling c.receiver.Closed
-	go c.internalClose(err)
+	sentry.Go(func() { c.internalClose(err) })
 }
 
 // internalClose is called if there is an unexpected error during normal operation.

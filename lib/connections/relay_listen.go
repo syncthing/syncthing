@@ -16,6 +16,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/relay/client"
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 func init() {
@@ -54,7 +55,7 @@ func (t *relayListener) Serve() {
 		return
 	}
 
-	go clnt.Serve()
+	sentry.Go(clnt.Serve)
 
 	t.mut.Lock()
 	t.client = clnt

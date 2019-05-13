@@ -49,6 +49,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 func init() {
@@ -104,17 +105,19 @@ func Discover(renewal, timeout time.Duration) []nat.Device {
 
 		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
 			wg.Add(1)
-			go func(intf net.Interface, deviceType string) {
-				discover(&intf, deviceType, timeout, resultChan)
-				wg.Done()
-			}(intf, deviceType)
+			sentry.Go(func(intf net.Interface, deviceType string) func() {
+				return func() {
+					discover(&intf, deviceType, timeout, resultChan)
+					wg.Done()
+				}
+			}(intf, deviceType))
 		}
 	}
 
-	go func() {
+	sentry.Go(func() {
 		wg.Wait()
 		close(resultChan)
-	}()
+	})
 
 	seenResults := make(map[string]bool)
 nextResult:
@@ -183,7 +186,7 @@ USER-AGENT: syncthing/1.0
 		n, _, err := socket.ReadFrom(resp)
 		if err != nil {
 			if e, ok := err.(net.Error); !ok || !e.Timeout() {
-				l.Infoln("UPnP read:", err) //legitimate error, not a timeout.
+				l.Infoln("UPnP read:", err) // legitimate error, not a timeout.
 			}
 			break
 		}

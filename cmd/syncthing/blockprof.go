@@ -13,6 +13,8 @@ import (
 	"runtime/pprof"
 	"syscall"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 func init() {
@@ -22,7 +24,7 @@ func init() {
 			panic("Couldn't find block profiler")
 		}
 		l.Debugln("Starting block profiling")
-		go saveBlockingProfiles(profiler)
+		sentry.Go(func() { saveBlockingProfiles(profiler) })
 	}
 }
 

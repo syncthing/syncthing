@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 type Holdable interface {
@@ -30,22 +32,22 @@ type deadlockDetector struct {
 
 func (d *deadlockDetector) Watch(name string, mut sync.Locker) {
 	d.lockers[name] = mut
-	go func() {
+	sentry.Go(func() {
 		for {
 			time.Sleep(d.timeout / 4)
 			ok := make(chan bool, 2)
 
-			go func() {
+			sentry.Go(func() {
 				mut.Lock()
 				_ = 1 // empty critical section
 				mut.Unlock()
 				ok <- true
-			}()
+			})
 
-			go func() {
+			sentry.Go(func() {
 				time.Sleep(d.timeout)
 				ok <- false
-			}()
+			})
 
 			if r := <-ok; !r {
 				msg := fmt.Sprintf("deadlock detected at %s", name)
@@ -57,5 +59,5 @@ func (d *deadlockDetector) Watch(name string, mut sync.Locker) {
 				panic(msg)
 			}
 		}
-	}()
+	})
 }

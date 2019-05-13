@@ -22,11 +22,11 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/thejerf/suture"
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 type localClient struct {
-	*suture.Supervisor
+	*sentry.Supervisor
 	myID     protocol.DeviceID
 	addrList AddressLister
 	name     string
@@ -48,7 +48,7 @@ const (
 
 func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (FinderService, error) {
 	c := &localClient{
-		Supervisor: suture.New("local", suture.Spec{
+		Supervisor: sentry.NewSupervisor("local", sentry.Spec{
 			PassThroughPanics: true,
 		}),
 		myID:            id,
@@ -78,7 +78,7 @@ func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (Finder
 		c.startLocalIPv6Multicasts(addr)
 	}
 
-	go c.sendLocalAnnouncements()
+	sentry.Go(c.sendLocalAnnouncements)
 
 	return c, nil
 }
@@ -86,13 +86,13 @@ func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (Finder
 func (c *localClient) startLocalIPv4Broadcasts(localPort int) {
 	c.beacon = beacon.NewBroadcast(localPort)
 	c.Add(c.beacon)
-	go c.recvAnnouncements(c.beacon)
+	sentry.Go(func() { c.recvAnnouncements(c.beacon) })
 }
 
 func (c *localClient) startLocalIPv6Multicasts(localMCAddr string) {
 	c.beacon = beacon.NewMulticast(localMCAddr)
 	c.Add(c.beacon)
-	go c.recvAnnouncements(c.beacon)
+	sentry.Go(func() { c.recvAnnouncements(c.beacon) })
 }
 
 // Lookup returns a list of addresses the device is available at.

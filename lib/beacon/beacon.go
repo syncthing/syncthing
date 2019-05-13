@@ -10,7 +10,7 @@ import (
 	"net"
 	stdsync "sync"
 
-	"github.com/thejerf/suture"
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 type recv struct {
@@ -19,7 +19,7 @@ type recv struct {
 }
 
 type Interface interface {
-	suture.Service
+	sentry.Service
 	Send(data []byte)
 	Recv() ([]byte, net.Addr)
 	Error() error

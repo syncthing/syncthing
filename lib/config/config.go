@@ -65,6 +65,8 @@ var (
 	DefaultDiscoveryServers = append(DefaultDiscoveryServersV4, DefaultDiscoveryServersV6...)
 	// DefaultTheme is the default and fallback theme for the web UI.
 	DefaultTheme = "default"
+	// DefaultSentyDSN is the default DSN used for sentry reporting
+	DefaultSentryDSN = "http://badeb4c1239b4b7281b2a37a7ca17560@sentry.syncthing.net:9000/3"
 )
 
 func New(myID protocol.DeviceID) Configuration {

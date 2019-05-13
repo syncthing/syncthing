@@ -17,11 +17,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	metrics "github.com/rcrowley/go-metrics"
+	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -105,7 +106,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 
 	// A routine which walks the filesystem tree, and sends files which have
 	// been modified to the counter routine.
-	go func() {
+	sentry.Go(func() {
 		hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
 		if len(w.Subs) == 0 {
 			w.Filesystem.Walk(".", hashFiles)
@@ -115,7 +116,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			}
 		}
 		close(toHashChan)
-	}()
+	})
 
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
@@ -138,7 +139,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	// until a stop signal is sent by the parallel hasher.
 	// Parallel hasher is stopped by this routine when we close the channel over
 	// which it receives the files we ask it to hash.
-	go func() {
+	sentry.Go(func() {
 		var filesToHash []protocol.FileInfo
 		var total int64 = 1
 
@@ -155,7 +156,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
-		go func() {
+		sentry.Go(func() {
 			defer progress.Close()
 
 			for {
@@ -179,7 +180,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 					return
 				}
 			}
-		}()
+		})
 
 	loop:
 		for _, file := range filesToHash {
@@ -191,7 +192,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			}
 		}
 		close(realToHashChan)
-	}()
+	})
 
 	return finishedChan
 }
@@ -553,7 +554,7 @@ func newByteCounter() *byteCounter {
 		EWMA: metrics.NewEWMA1(), // a one minute exponentially weighted moving average
 		stop: make(chan struct{}),
 	}
-	go c.ticker()
+	sentry.Go(c.ticker)
 	return c
 }
 

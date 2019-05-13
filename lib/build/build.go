@@ -18,10 +18,11 @@ import (
 
 var (
 	// Injected by build script
-	Version = "unknown-dev"
-	Host    = "unknown" // Set by build script
-	User    = "unknown" // Set by build script
-	Stamp   = "0"       // Set by build script
+	UnknownVersion = "unknown-dev"
+	Version        = UnknownVersion
+	Host           = "unknown" // Set by build script
+	User           = "unknown" // Set by build script
+	Stamp          = "0"       // Set by build script
 
 	// Static
 	Codename = "Erbium Earthworm"
@@ -40,7 +41,7 @@ var (
 )
 
 func init() {
-	if Version != "unknown-dev" {
+	if Version != UnknownVersion {
 		// If not a generic dev build, version string should come from git describe
 		if !allowedVersionExp.MatchString(Version) {
 			log.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, allowedVersionExp)

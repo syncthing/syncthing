@@ -44,13 +44,13 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
 
 	"github.com/pkg/errors"
-	"github.com/thejerf/suture"
 )
 
 const (
@@ -593,11 +593,12 @@ func upgradeViaRest() error {
 }
 
 func syncthingMain(runtimeOptions RuntimeOptions) {
+	defer sentry.ReportPanic()
 	setupSignalHandling()
 
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
-	mainService := suture.New("main", suture.Spec{
+	mainService := sentry.NewSupervisor("main", sentry.Spec{
 		Log: func(line string) {
 			l.Debugln(line)
 		},
@@ -677,13 +678,21 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		os.Exit(exitError)
 	}
 
+	cfg.Subscribe(config.CurrentValueSubscriber(func(cfg config.Configuration) bool {
+		sentry.Manager.SetDSN(cfg.Options.SentryDSN)
+		return true
+	}))
+
+	var x []byte
+	println(x[2])
+
 	if err := checkShortIDs(cfg); err != nil {
 		l.Warnln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
 		os.Exit(exitError)
 	}
 
 	if len(runtimeOptions.profiler) > 0 {
-		go func() {
+		sentry.Go(func() {
 			l.Debugln("Starting profiler on", runtimeOptions.profiler)
 			runtime.SetBlockProfileRate(1)
 			err := http.ListenAndServe(runtimeOptions.profiler, nil)
@@ -691,7 +700,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 				l.Warnln(err)
 				os.Exit(exitError)
 			}
-		}()
+		})
 	}
 
 	perf := ur.CpuBench(3, 150*time.Millisecond, true)
@@ -881,7 +890,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	if opts := cfg.Options(); opts.RestartOnWakeup {
-		go standbyMonitor()
+		sentry.Go(standbyMonitor)
 	}
 
 	// Candidate builds should auto upgrade. Make sure the option is set,
@@ -905,7 +914,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		if noUpgradeFromEnv {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		} else {
-			go autoUpgrade(cfg)
+			sentry.Go(func() { autoUpgrade(cfg) })
 		}
 	}
 
@@ -945,20 +954,20 @@ func setupSignalHandling() {
 	restartSign := make(chan os.Signal, 1)
 	sigHup := syscall.Signal(1)
 	signal.Notify(restartSign, sigHup)
-	go func() {
+	sentry.Go(func() {
 		<-restartSign
 		exit.Restart()
-	}()
+	})
 
 	// Exit with "success" code (no restart) on INT/TERM
 
 	stopSign := make(chan os.Signal, 1)
 	sigTerm := syscall.Signal(15)
 	signal.Notify(stopSign, os.Interrupt, sigTerm)
-	go func() {
+	sentry.Go(func() {
 		<-stopSign
 		exit.Shutdown()
-	}()
+	})
 }
 
 func loadOrDefaultConfig() (config.Wrapper, error) {
@@ -1034,7 +1043,7 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func startAuditing(mainService *suture.Supervisor, auditFile string) {
+func startAuditing(mainService *sentry.Supervisor, auditFile string) {
 
 	var fd io.Writer
 	var err error
@@ -1072,7 +1081,7 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 	l.Infoln("Audit log in", auditDest)
 }
 
-func setupGUI(mainService *suture.Supervisor, cfg config.Wrapper, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
+func setupGUI(mainService *sentry.Supervisor, cfg config.Wrapper, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
 	guiCfg := cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -1100,7 +1109,7 @@ func setupGUI(mainService *suture.Supervisor, cfg config.Wrapper, m model.Model,
 	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
-		go func() { _ = openURL(guiCfg.URL()) }()
+		sentry.Go(func() { _ = openURL(guiCfg.URL()) })
 	}
 }
 

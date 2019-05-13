@@ -27,6 +27,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -107,8 +108,8 @@ func (p *Process) Start(bin string, args ...string) error {
 	}
 
 	p.cmd = cmd
-	go p.eventLoop()
-	go p.wait()
+	sentry.Go(p.eventLoop)
+	sentry.Go(p.wait)
 
 	return nil
 }

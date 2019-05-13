@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -231,7 +232,7 @@ func init() {
 	// The default logger never stops. To ensure this we nil out the stop
 	// channel so any attempt to stop it will panic.
 	Default.stop = nil
-	go Default.Serve()
+	sentry.Go(Default.Serve)
 }
 
 var (
@@ -433,7 +434,7 @@ func NewBufferedSubscription(s *Subscription, size int) BufferedSubscription {
 		mut: sync.NewMutex(),
 	}
 	bs.cond = sync.NewTimeoutCond(bs.mut)
-	go bs.pollingLoop()
+	sentry.Go(bs.pollingLoop)
 	return bs
 }
 

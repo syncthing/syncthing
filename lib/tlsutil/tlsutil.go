@@ -22,6 +22,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 var (
@@ -313,9 +314,9 @@ JpJcUNtrf1XK49IlpWW1Ds8seQsSg7/9BQ==
 	c0, c1 := net.Pipe()
 
 	c := tls.Client(c0, clientCfg)
-	go func() {
-		c.Handshake()
-	}()
+	sentry.Go(func() {
+		_ = c.Handshake()
+	})
 
 	s := tls.Server(c1, serverCfg)
 	if err := s.Handshake(); err != nil {

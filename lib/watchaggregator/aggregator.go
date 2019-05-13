@@ -16,6 +16,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 // Not meant to be changed, but must be changeable for tests
@@ -129,7 +130,7 @@ func Aggregate(in <-chan fs.Event, out chan<- []string, folderCfg config.FolderC
 	a := newAggregator(folderCfg, ctx)
 
 	// Necessary for unit tests where the backend is mocked
-	go a.mainLoop(in, out, cfg)
+	sentry.Go(func() { a.mainLoop(in, out, cfg) })
 }
 
 func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg config.Wrapper) {
@@ -321,7 +322,7 @@ func (a *aggregator) actOnTimer(out chan<- []string) {
 	}
 	// Sending to channel might block for a long time, but we need to keep
 	// reading from notify backend channel to avoid overflow
-	go a.notify(oldEvents, out)
+	sentry.Go(func() { a.notify(oldEvents, out) })
 }
 
 // Schedule scan for given events dispatching deletes last and reset notification

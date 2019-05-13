@@ -13,6 +13,7 @@ import (
 	"errors"
 
 	"github.com/syncthing/notify"
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 // Notify does not block on sending to channel, so the channel must be buffered.
@@ -50,7 +51,7 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		return nil, err
 	}
 
-	go f.watchLoop(name, root, backendChan, outChan, ignore, ctx)
+	sentry.Go(func() { f.watchLoop(name, root, backendChan, outChan, ignore, ctx) })
 
 	return outChan, nil
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs []tls.Certificate, timeout time.Duration) (protocol.SessionInvitation, error) {
@@ -107,7 +108,7 @@ func TestRelay(uri *url.URL, certs []tls.Certificate, sleep, timeout time.Durati
 		close(invs)
 		return false
 	}
-	go c.Serve()
+	sentry.Go(c.Serve)
 	defer func() {
 		c.Stop()
 		close(invs)

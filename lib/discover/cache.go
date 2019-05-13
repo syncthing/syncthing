@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
-	"github.com/thejerf/suture"
 )
 
 // The CachingMux aggregates results from multiple Finders. Each Finder has
@@ -29,7 +29,7 @@ type CachingMux interface {
 }
 
 type cachingMux struct {
-	*suture.Supervisor
+	*sentry.Supervisor
 	finders []cachedFinder
 	caches  []*cache
 	mut     sync.RWMutex
@@ -51,7 +51,7 @@ type cachedError interface {
 
 func NewCachingMux() CachingMux {
 	return &cachingMux{
-		Supervisor: suture.New("discover.cachingMux", suture.Spec{
+		Supervisor: sentry.NewSupervisor("discover.cachingMux", sentry.Spec{
 			PassThroughPanics: true,
 		}),
 		mut: sync.NewRWMutex(),
@@ -65,7 +65,7 @@ func (m *cachingMux) Add(finder Finder, cacheTime, negCacheTime time.Duration) {
 	m.caches = append(m.caches, newCache())
 	m.mut.Unlock()
 
-	if service, ok := finder.(suture.Service); ok {
+	if service, ok := finder.(sentry.Service); ok {
 		m.Supervisor.Add(service)
 	}
 }

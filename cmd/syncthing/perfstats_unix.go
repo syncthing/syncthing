@@ -16,11 +16,12 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 func init() {
 	if innerProcess && os.Getenv("STPERFSTATS") != "" {
-		go savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid()))
+		sentry.Go(func() { savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid())) })
 	}
 }
 

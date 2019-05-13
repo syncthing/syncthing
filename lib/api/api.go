@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	metrics "github.com/rcrowley/go-metrics"
+	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -40,11 +40,11 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/thejerf/suture"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -96,7 +96,7 @@ type Controller interface {
 }
 
 type Service interface {
-	suture.Service
+	sentry.Service
 	config.Committer
 	WaitForStart() error
 }
@@ -353,9 +353,9 @@ func (s *service) Serve() {
 	// Serve in the background
 
 	serveError := make(chan error, 1)
-	go func() {
+	sentry.Go(func() {
 		serveError <- srv.Serve(listener)
-	}()
+	})
 
 	// Wait for stop, restart or error signals
 
@@ -667,13 +667,13 @@ func (s *service) getDBStatus(w http.ResponseWriter, r *http.Request) {
 func (s *service) postDBOverride(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
-	go s.model.Override(folder)
+	sentry.Go(func() { s.model.Override(folder) })
 }
 
 func (s *service) postDBRevert(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
-	go s.model.Revert(folder)
+	sentry.Go(func() { s.model.Revert(folder) })
 }
 
 func getPagingParams(qs url.Values) (int, int) {
@@ -833,7 +833,7 @@ func (s *service) getSystemConfigInsync(w http.ResponseWriter, r *http.Request) 
 
 func (s *service) postSystemRestart(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "restarting"}`, w)
-	go s.contr.Restart()
+	sentry.Go(s.contr.Restart)
 }
 
 func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
@@ -859,12 +859,12 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
 
-	go s.contr.Restart()
+	sentry.Go(s.contr.Restart)
 }
 
 func (s *service) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "shutting down"}`, w)
-	go s.contr.Shutdown()
+	sentry.Go(s.contr.Shutdown)
 }
 
 func (s *service) flushResponse(resp string, w http.ResponseWriter) {

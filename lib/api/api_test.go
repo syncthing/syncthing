@@ -30,9 +30,9 @@ import (
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/thejerf/suture"
 )
 
 var (
@@ -106,7 +106,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	defer os.Remove(token)
 	srv.started = make(chan string)
 
-	sup := suture.New("test", suture.Spec{
+	sup := sentry.NewSupervisor("test", sentry.Spec{
 		PassThroughPanics: true,
 	})
 	sup.Add(srv)
@@ -518,7 +518,7 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	svc.started = addrChan
 
 	// Actually start the API service
-	supervisor := suture.New("API test", suture.Spec{
+	supervisor := sentry.NewSupervisor("API test", sentry.Spec{
 		PassThroughPanics: true,
 	})
 	supervisor.Add(svc)

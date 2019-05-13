@@ -12,6 +12,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -106,7 +107,7 @@ func (c *staticClient) Serve() {
 	messages := make(chan interface{})
 	errors := make(chan error, 1)
 
-	go messageReader(c.conn, messages, errors)
+	sentry.Go(func() { messageReader(c.conn, messages, errors) })
 
 	timeout := time.NewTimer(c.messageTimeout)
 

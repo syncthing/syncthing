@@ -12,12 +12,12 @@ import (
 	"net"
 	"time"
 
-	"github.com/thejerf/suture"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"golang.org/x/net/ipv6"
 )
 
 type Multicast struct {
-	*suture.Supervisor
+	*sentry.Supervisor
 	inbox  chan []byte
 	outbox chan recv
 	mr     *multicastReader
@@ -26,7 +26,7 @@ type Multicast struct {
 
 func NewMulticast(addr string) *Multicast {
 	m := &Multicast{
-		Supervisor: suture.New("multicastBeacon", suture.Spec{
+		Supervisor: sentry.NewSupervisor("multicastBeacon", sentry.Spec{
 			// Don't retry too frenetically: an error to open a socket or
 			// whatever is usually something that is either permanent or takes
 			// a while to get solved...

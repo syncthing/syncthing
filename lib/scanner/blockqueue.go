@@ -12,6 +12,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -84,10 +85,10 @@ func newParallelHasher(ctx context.Context, fs fs.Filesystem, workers int, outbo
 
 	for i := 0; i < workers; i++ {
 		ph.wg.Add(1)
-		go ph.hashFiles(ctx)
+		sentry.Go(func() { ph.hashFiles(ctx) })
 	}
 
-	go ph.closeWhenDone()
+	sentry.Go(ph.closeWhenDone)
 }
 
 func (ph *parallelHasher) hashFiles(ctx context.Context) {

@@ -15,6 +15,7 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -67,7 +68,7 @@ func (f *receiveOnlyFolder) Revert() {
 	defer f.setState(FolderIdle)
 
 	scanChan := make(chan string)
-	go f.pullScannerRoutine(scanChan)
+	sentry.Go(func() { f.pullScannerRoutine(scanChan) })
 	defer close(scanChan)
 
 	delQueue := &deleteQueue{

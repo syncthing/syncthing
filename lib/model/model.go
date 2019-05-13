@@ -29,11 +29,11 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/versioner"
-	"github.com/thejerf/suture"
 )
 
 var locationLocal *time.Location
@@ -79,7 +79,7 @@ type Availability struct {
 }
 
 type Model interface {
-	suture.Service
+	sentry.Service
 
 	connections.Model
 
@@ -129,7 +129,7 @@ type Model interface {
 }
 
 type model struct {
-	*suture.Supervisor
+	*sentry.Supervisor
 
 	cfg               config.Wrapper
 	db                *db.Lowlevel
@@ -149,7 +149,7 @@ type model struct {
 	deviceStatRefs     map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
 	folderIgnores      map[string]*ignore.Matcher                             // folder -> matcher object
 	folderRunners      map[string]service                                     // folder -> puller or scanner
-	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
+	folderRunnerTokens map[string][]sentry.ServiceToken                       // folder -> tokens for puller or scanner
 	folderRestartMuts  syncMutexMap                                           // folder -> restart mutex
 
 	pmut                sync.RWMutex // protects the below
@@ -187,7 +187,7 @@ var (
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) Model {
 	m := &model{
-		Supervisor: suture.New("model", suture.Spec{
+		Supervisor: sentry.NewSupervisor("model", sentry.Spec{
 			Log: func(line string) {
 				l.Debugln(line)
 			},
@@ -208,7 +208,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		deviceStatRefs:      make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:       make(map[string]*ignore.Matcher),
 		folderRunners:       make(map[string]service),
-		folderRunnerTokens:  make(map[string][]suture.ServiceToken),
+		folderRunnerTokens:  make(map[string][]sentry.ServiceToken),
 		conn:                make(map[protocol.DeviceID]connections.Connection),
 		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
@@ -294,8 +294,8 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	}
 
 	ver := cfg.Versioner()
-	if service, ok := ver.(suture.Service); ok {
-		// The versioner implements the suture.Service interface, so
+	if service, ok := ver.(sentry.Service); ok {
+		// The versioner implements the sentry.Service interface, so
 		// expects to be run in the background in addition to being called
 		// when files are going to be archived.
 		token := m.Add(service)
@@ -1152,7 +1152,11 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 		}
 
-		go sendIndexes(conn, folder.ID, fs, startSequence, dropSymlinks)
+		sentry.Go(func(conn protocol.Connection, folder string, fs *db.FileSet, prevSequence int64, dropSymlinks bool) func() {
+			return func() {
+				sendIndexes(conn, folder, fs, startSequence, dropSymlinks)
+			}
+		}(conn, folder.ID, fs, startSequence, dropSymlinks))
 	}
 
 	m.pmut.Lock()
@@ -1527,10 +1531,10 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, size in
 	}()
 
 	if limiter != nil {
-		go func() {
+		sentry.Go(func() {
 			res.Wait()
 			limiter.give(int(size))
-		}()
+		})
 	}
 
 	// Only check temp files if the flag is set, and if we are set to advertise
@@ -2003,7 +2007,7 @@ func (m *model) ScanFolders() map[string]error {
 	wg.Add(len(folders))
 	for _, folder := range folders {
 		folder := folder
-		go func() {
+		sentry.Go(func() {
 			err := m.ScanFolder(folder)
 			if err != nil {
 				errorsMut.Lock()
@@ -2020,7 +2024,7 @@ func (m *model) ScanFolders() map[string]error {
 				srv.setError(err)
 			}
 			wg.Done()
-		}()
+		})
 	}
 	wg.Wait()
 	return errors
@@ -2338,7 +2342,7 @@ func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 
 	// Trigger scan
 	if !fcfg.FSWatcherEnabled {
-		go func() { _ = m.ScanFolder(folder) }()
+		sentry.Go(func() { _ = m.ScanFolder(folder) })
 	}
 
 	return restoreErrors, nil

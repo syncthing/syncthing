@@ -9,6 +9,8 @@ package nat
 import (
 	"sync"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/sentry"
 )
 
 type DiscoverFunc func(renewal, timeout time.Duration) []Device
@@ -27,22 +29,24 @@ func discoverAll(renewal, timeout time.Duration) map[string]Device {
 	done := make(chan struct{})
 
 	for _, discoverFunc := range providers {
-		go func(f DiscoverFunc) {
-			for _, dev := range f(renewal, timeout) {
-				c <- dev
+		sentry.Go(func(f DiscoverFunc) func() {
+			return func() {
+				for _, dev := range f(renewal, timeout) {
+					c <- dev
+				}
+				wg.Done()
 			}
-			wg.Done()
-		}(discoverFunc)
+		}(discoverFunc))
 	}
 
 	nats := make(map[string]Device)
 
-	go func() {
+	sentry.Go(func() {
 		for dev := range c {
 			nats[dev.ID()] = dev
 		}
 		close(done)
-	}()
+	})
 
 	wg.Wait()
 	close(c)

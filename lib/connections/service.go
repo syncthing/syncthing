@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sentry"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 
@@ -30,7 +31,6 @@ import (
 	_ "github.com/syncthing/syncthing/lib/pmp"
 	_ "github.com/syncthing/syncthing/lib/upnp"
 
-	"github.com/thejerf/suture"
 	"golang.org/x/time/rate"
 )
 
@@ -89,13 +89,13 @@ var tlsVersionNames = map[uint16]string{
 // Service listens and dials all configured unconnected devices, via supported
 // dialers. Successful connections are handed to the model.
 type Service interface {
-	suture.Service
+	sentry.Service
 	Status() map[string]interface{}
 	NATType() string
 }
 
 type service struct {
-	*suture.Supervisor
+	*sentry.Supervisor
 	cfg                  config.Wrapper
 	myID                 protocol.DeviceID
 	model                Model
@@ -106,19 +106,19 @@ type service struct {
 	tlsDefaultCommonName string
 	limiter              *limiter
 	natService           *nat.Service
-	natServiceToken      *suture.ServiceToken
+	natServiceToken      *sentry.ServiceToken
 
 	listenersMut       sync.RWMutex
 	listeners          map[string]genericListener
-	listenerTokens     map[string]suture.ServiceToken
-	listenerSupervisor *suture.Supervisor
+	listenerTokens     map[string]sentry.ServiceToken
+	listenerSupervisor *sentry.Supervisor
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
 	bepProtocolName string, tlsDefaultCommonName string) *service {
 
 	service := &service{
-		Supervisor: suture.New("connections.Service", suture.Spec{
+		Supervisor: sentry.NewSupervisor("connections.Service", sentry.Spec{
 			Log: func(line string) {
 				l.Infoln(line)
 			},
@@ -137,13 +137,13 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 
 		listenersMut:   sync.NewRWMutex(),
 		listeners:      make(map[string]genericListener),
-		listenerTokens: make(map[string]suture.ServiceToken),
+		listenerTokens: make(map[string]sentry.ServiceToken),
 
 		// A listener can fail twice, rapidly. Any more than that and it
 		// will be put on suspension for ten minutes. Restarts and changes
 		// due to config are done by removing and adding services, so are
 		// not subject to these limitations.
-		listenerSupervisor: suture.New("c.S.listenerSupervisor", suture.Spec{
+		listenerSupervisor: sentry.NewSupervisor("c.S.listenerSupervisor", sentry.Spec{
 			Log: func(line string) {
 				l.Infoln(line)
 			},
@@ -791,34 +791,38 @@ func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (interna
 		wg := stdsync.WaitGroup{}
 		for _, tgt := range tgts {
 			wg.Add(1)
-			go func(tgt dialTarget) {
-				conn, err := tgt.Dial()
-				if err == nil {
-					res <- conn
+			sentry.Go(func(tgt dialTarget) func() {
+				return func() {
+					conn, err := tgt.Dial()
+					if err == nil {
+						res <- conn
+					}
+					wg.Done()
 				}
-				wg.Done()
-			}(tgt)
+			}(tgt))
 		}
 
 		// Spawn a routine which will unblock main routine in case we fail
 		// to connect to anyone.
-		go func() {
+		sentry.Go(func() {
 			wg.Wait()
 			close(res)
-		}()
+		})
 
 		// Wait for the first connection, or for channel closure.
 		if conn, ok := <-res; ok {
 			// Got a connection, means more might come back, hence spawn a
 			// routine that will do the discarding.
 			l.Debugln("connected to", deviceID, prio, "using", conn, conn.priority)
-			go func(deviceID protocol.DeviceID, prio int) {
-				wg.Wait()
-				l.Debugln("discarding", len(res), "connections while connecting to", deviceID, prio)
-				for conn := range res {
-					conn.Close()
+			sentry.Go(func(deviceID protocol.DeviceID, prio int) func() {
+				return func() {
+					wg.Wait()
+					l.Debugln("discarding", len(res), "connections while connecting to", deviceID, prio)
+					for conn := range res {
+						conn.Close()
+					}
 				}
-			}(deviceID, prio)
+			}(deviceID, prio))
 			return conn, ok
 		}
 		// Failed to connect, report that fact.

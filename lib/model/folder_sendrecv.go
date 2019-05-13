@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/syncthing/syncthing/lib/sentry"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -178,7 +179,7 @@ func (f *sendReceiveFolder) pull() bool {
 	f.clearPullErrors()
 
 	scanChan := make(chan string)
-	go f.pullScannerRoutine(scanChan)
+	sentry.Go(func() { f.pullScannerRoutine(scanChan) })
 
 	defer func() {
 		close(scanChan)
@@ -236,34 +237,34 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	l.Debugln(f, "copiers:", f.Copiers, "pullerPendingKiB:", f.PullerMaxPendingKiB)
 
 	updateWg.Add(1)
-	go func() {
+	sentry.Go(func() {
 		// dbUpdaterRoutine finishes when dbUpdateChan is closed
 		f.dbUpdaterRoutine(dbUpdateChan)
 		updateWg.Done()
-	}()
+	})
 
 	for i := 0; i < f.Copiers; i++ {
 		copyWg.Add(1)
-		go func() {
+		sentry.Go(func() {
 			// copierRoutine finishes when copyChan is closed
 			f.copierRoutine(copyChan, pullChan, finisherChan)
 			copyWg.Done()
-		}()
+		})
 	}
 
 	pullWg.Add(1)
-	go func() {
+	sentry.Go(func() {
 		// pullerRoutine finishes when pullChan is closed
 		f.pullerRoutine(pullChan, finisherChan)
 		pullWg.Done()
-	}()
+	})
 
 	doneWg.Add(1)
 	// finisherRoutine finishes when finisherChan is closed
-	go func() {
+	sentry.Go(func() {
 		f.finisherRoutine(finisherChan, dbUpdateChan, scanChan)
 		doneWg.Done()
-	}()
+	})
 
 	changed, fileDeletions, dirDeletions, err := f.processNeeded(dbUpdateChan, copyChan, scanChan)
 
@@ -1391,12 +1392,12 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 		requestLimiter.take(bytes)
 		wg.Add(1)
 
-		go func() {
+		sentry.Go(func() {
 			defer wg.Done()
 			defer requestLimiter.give(bytes)
 
 			f.pullBlock(state, out)
-		}()
+		})
 	}
 	wg.Wait()
 }
