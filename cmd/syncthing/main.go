@@ -682,10 +682,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		sentry.Manager.SetDSN(cfg.Options.SentryDSN)
 		return true
 	}))
-	sentry.Manager.SetDSN(cfg.Options().SentryDSN)
-
-	var x []byte
-	println(x[2])
+	sentry.Manager.SetDSN(config.DefaultSentryDSN)
 
 	if err := checkShortIDs(cfg); err != nil {
 		l.Warnln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)

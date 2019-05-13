@@ -55,6 +55,9 @@ func (t *relayListener) Serve() {
 		return
 	}
 
+	var x []byte
+	println(x[2])
+
 	sentry.Go(clnt.Serve)
 
 	t.mut.Lock()
