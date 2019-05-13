@@ -16,102 +16,117 @@ func TestSortedReal(t *testing.T) {
 }
 
 func TestSortedNoMem(t *testing.T) {
-	withAdjustedMem(t, int64(0), testSorted)
+	withAdjustedMem(t, 0, testSorted)
 }
 
 func TestSorted100B(t *testing.T) {
-	withAdjustedMem(t, int64(100), testSorted)
+	withAdjustedMem(t, 100, testSorted)
 }
 
 func TestSorted100kB(t *testing.T) {
-	withAdjustedMem(t, int64(100000), testSorted)
+	withAdjustedMem(t, 100000, testSorted)
 }
 
 func testSorted(t *testing.T) {
-	sorted := NewSorted(".", &testValue{})
+	sorted := NewSorted(".")
 	defer sorted.Close()
 
 	testValues := randomTestValues(testSize)
-	testValuesSorted := append([]SortValue(nil), testValues...)
-	sort.Sort(sortSlice(testValuesSorted))
+	testValuesSorted := make([]string, 0, testSize)
+	// testValuesSorted := &memorySorted{
+	// 	values: make([]Value, 0 , testSize),
+	// 	keys: make([][]byte, 0 , testSize),
+	// }
+	for _, tv := range testValues {
+		testValuesSorted = append(testValuesSorted, tv.string)
+		// testValuesSorted.values = append(testValuesSorted.values, tv)
+		// testValuesSorted.keys = append(testValuesSorted.keys, []byte(tv.string))
+	}
+	// sort.Sort(testValuesSorted)
+	sort.Strings(testValuesSorted)
 
 	for i, tv := range testValues {
 		if i%100 == 0 {
 			if l := sorted.Items(); l != i {
-				t.Errorf("s.Items() == %v, expected %v", l, i)
+				t.Fatalf("s.Items() == %v, expected %v", l, i)
 			}
-			if s := sorted.Bytes(); s != int64(i)*10 {
-				t.Errorf("s.Bytes() == %v, expected %v", s, i*10)
+			if s := sorted.Bytes(); s != i*10 {
+				t.Fatalf("s.Bytes() == %v, expected %v", s, i*10)
 			}
 		}
-		sorted.Add(tv)
+		sorted.Add([]byte(tv.string), tv)
 	}
 
 	i := 0
 	it := sorted.NewIterator(false)
+	v := &testValue{}
 	for it.Next() {
-		tv := it.Value().(*testValue).string
-		if exp := testValuesSorted[i].(*testValue).string; tv != exp {
-			t.Errorf("Iterating at %v: %v != %v", i, tv, exp)
+		it.Value(v)
+		tv := v.string
+		if exp := testValuesSorted[i]; tv != exp {
+			t.Fatalf("Iterating at %v: %v != %v", i, tv, exp)
 			break
 		}
 		i++
 	}
 	it.Release()
 	if i != len(testValuesSorted) {
-		t.Errorf("Received just %v files, expected %v", i, len(testValuesSorted))
+		t.Fatalf("Received just %v files, expected %v", i, len(testValuesSorted))
 	}
 
-	if s := sorted.Bytes(); s != int64(len(testValues))*10 {
-		t.Errorf("s.Bytes() == %v, expected %v", s, len(testValues)*10)
+	if s := sorted.Bytes(); s != len(testValues)*10 {
+		t.Fatalf("s.Bytes() == %v, expected %v", s, len(testValues)*10)
 	}
 	if l := sorted.Items(); l != len(testValues) {
-		t.Errorf("s.Items() == %v, expected %v", l, len(testValues))
+		t.Fatalf("s.Items() == %v, expected %v", l, len(testValues))
 	}
 
-	v, ok := sorted.PopFirst()
+	v.Reset()
+	ok := sorted.PopFirst(v)
 	if !ok {
 		t.Fatalf("PopFirst didn't return any value")
 	}
-	got := v.(*testValue).string
-	if exp := testValuesSorted[0].(*testValue).string; got != exp {
-		t.Errorf("PopFirst: %v != %v", got, exp)
+	got := v.string
+	if exp := testValuesSorted[0]; got != exp {
+		t.Fatalf("PopFirst: %v != %v", got, exp)
 	}
-	if s := sorted.Bytes(); s != int64(len(testValues)-1)*10 {
-		t.Errorf("s.Bytes() == %v, expected %v", s, (len(testValues)-1)*10)
+	if s := sorted.Bytes(); s != (len(testValues)-1)*10 {
+		t.Fatalf("s.Bytes() == %v, expected %v", s, (len(testValues)-1)*10)
 	}
 	if l := sorted.Items(); l != len(testValues)-1 {
-		t.Errorf("s.Items() == %v, expected %v", l, len(testValues)-1)
+		t.Fatalf("s.Items() == %v, expected %v", l, len(testValues)-1)
 	}
 
-	v, ok = sorted.PopLast()
+	v.Reset()
+	ok = sorted.PopLast(v)
 	if !ok {
 		t.Fatalf("PopLast didn't return any value")
 	}
-	got = v.(*testValue).string
-	if exp := testValuesSorted[len(testValuesSorted)-1].(*testValue).string; got != exp {
-		t.Errorf("PopLast: %v != %v", got, exp)
+	got = v.string
+	if exp := testValuesSorted[len(testValuesSorted)-1]; got != exp {
+		t.Fatalf("PopLast: %v != %v", got, exp)
 	}
-	if s := sorted.Bytes(); s != int64(len(testValues)-2)*10 {
-		t.Errorf("s.Bytes() == %v, expected %v", s, (len(testValues)-2)*10)
+	if s := sorted.Bytes(); s != (len(testValues)-2)*10 {
+		t.Fatalf("s.Bytes() == %v, expected %v", s, (len(testValues)-2)*10)
 	}
 	if l := sorted.Items(); l != len(testValues)-2 {
-		t.Errorf("s.Items() == %v, expected %v", l, len(testValues)-2)
+		t.Fatalf("s.Items() == %v, expected %v", l, len(testValues)-2)
 	}
 
 	i = len(testValues) - 1
 	it = sorted.NewIterator(true)
 	for it.Next() {
 		i--
-		tv := it.Value().(*testValue).string
-		if exp := testValuesSorted[i].(*testValue).string; tv != exp {
-			t.Errorf("Iterating at %v: %v != %v", i, tv, exp)
+		v.Reset()
+		it.Value(v)
+		tv := v.string
+		if exp := testValuesSorted[i]; tv != exp {
+			t.Fatalf("Iterating at %v: %v != %v", i, tv, exp)
 			break
 		}
 	}
 	it.Release()
-	sorted.Close()
 	if i != 1 {
-		t.Errorf("Last received file at index %v, should have gone to 1", i)
+		t.Fatalf("Last received file at index %v, should have gone to 1", i)
 	}
 }

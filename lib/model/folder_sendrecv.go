@@ -301,9 +301,9 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 
 	changed := 0
 	overflowLoc := locations.Get(locations.Database)
-	dirDeletions := diskoverflow.NewSlice(overflowLoc, &diskoverflow.ValueFileInfo{})
-	fileDeletions := diskoverflow.NewMap(overflowLoc, &diskoverflow.ValueFileInfo{})
-	buckets := diskoverflow.NewMap(overflowLoc, &valueFileInfoSlice{})
+	dirDeletions := diskoverflow.NewSlice(overflowLoc)
+	fileDeletions := diskoverflow.NewMap(overflowLoc)
+	buckets := diskoverflow.NewMap(overflowLoc)
 
 	// Iterate the list of items that we need and sort them into piles.
 	// Regular files to pull goes into the file queue, everything else
@@ -351,9 +351,9 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
 					// Put files into buckets per first hash
 					key := string(df.Blocks[0].Hash)
-					v, ok := buckets.Get(key)
-					if ok {
-						v = v.(*valueFileInfoSlice).Append(df)
+					v := &valueFileInfoSlice{}
+					if ok := buckets.Get(key, v); ok {
+						v = v.Append(df)
 					} else {
 						v = newValueFileInfoSlice([]protocol.FileInfo{df})
 					}
@@ -451,8 +451,9 @@ nextFile:
 		// we can just do a rename instead.
 		key := string(fi.Blocks[0].Hash)
 		var list []protocol.FileInfo
-		if v, ok := buckets.Get(key); ok {
-			list = v.(*valueFileInfoSlice).Files()
+		v := &valueFileInfoSlice{}
+		if ok := buckets.Get(key, v); ok {
+			list = v.Files()
 		}
 		for i, candidate := range list {
 			if protocol.BlocksEqual(candidate.Blocks, fi.Blocks) {
@@ -465,8 +466,9 @@ nextFile:
 				// candidate is our current state of the file, where as the
 				// desired state with the delete bit set is in the deletion
 				// map.
-				v, _ := fileDeletions.Get(candidate.Name)
-				desired := v.(*diskoverflow.ValueFileInfo).FileInfo
+				v := &diskoverflow.ValueFileInfo{}
+				_ = fileDeletions.Get(candidate.Name, v)
+				desired := v.FileInfo
 				if err := f.renameFile(candidate, desired, fi, dbUpdateChan, scanChan); err != nil {
 					// Failed to rename, try to handle files as separate
 					// deletions and updates.
@@ -474,7 +476,7 @@ nextFile:
 				}
 
 				// Remove the pending deletion (as we performed it by renaming)
-				fileDeletions.Pop(candidate.Name)
+				fileDeletions.Delete(candidate.Name)
 
 				changed++
 				f.queue.Done(fileName)
@@ -502,6 +504,7 @@ nextFile:
 func (f *sendReceiveFolder) processDeletions(fileDeletions *diskoverflow.Map, dirDeletions *diskoverflow.Slice, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Do not return early due to necessary cleanup
 	fit := fileDeletions.NewIterator()
+	v := &diskoverflow.ValueFileInfo{}
 	for fit.Next() {
 		select {
 		case <-f.ctx.Done():
@@ -509,7 +512,9 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions *diskoverflow.Map, di
 		default:
 		}
 
-		file := fit.Value().(*diskoverflow.ValueFileInfo).FileInfo
+		v.Reset()
+		fit.Value(v)
+		file := v.FileInfo
 		l.Debugln(f, "Deleting file", file.Name)
 		f.resetPullError(file.Name)
 		if update, err := f.deleteFile(file, scanChan); err != nil {
@@ -529,7 +534,9 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions *diskoverflow.Map, di
 		default:
 		}
 
-		dir := dit.Value().(*diskoverflow.ValueFileInfo).FileInfo
+		v.Reset()
+		dit.Value(v)
+		dir := v.FileInfo
 		f.resetPullError(dir.Name)
 		l.Debugln(f, "Deleting dir", dir.Name)
 		f.deleteDir(dir, dbUpdateChan, scanChan)
@@ -1997,8 +2004,8 @@ func (s *valueFileInfoSlice) Append(f protocol.FileInfo) *valueFileInfoSlice {
 	return s
 }
 
-func (s *valueFileInfoSlice) Bytes() int64 {
-	return int64(s.ProtoSize())
+func (s *valueFileInfoSlice) Bytes() int {
+	return s.ProtoSize()
 }
 
 func (s *valueFileInfoSlice) Marshal() []byte {
@@ -2013,6 +2020,14 @@ func (s *valueFileInfoSlice) Unmarshal(v []byte) {
 	if err := s.Index.Unmarshal(v); err != nil {
 		panic("unmarshal failed: " + err.Error())
 	}
+}
+
+func (s *valueFileInfoSlice) Copy(v diskoverflow.Value) {
+	s.Index = v.(*valueFileInfoSlice).Index
+}
+
+func (s *valueFileInfoSlice) Reset() {
+	s.Index = protocol.Index{}
 }
 
 func conflictName(name, lastModBy string) string {

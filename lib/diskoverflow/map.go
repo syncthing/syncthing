@@ -19,24 +19,21 @@ import (
 type Map struct {
 	commonMap
 	base
-	v Value
 }
 
 type commonMap interface {
 	common
 	add(k string, v Value)
-	Get(k string) (Value, bool)
-	Pop(k string) (Value, bool)
+	Get(k string, v Value) bool
+	Pop(k string, v Value) bool
+	Delete(k string)
 	newIterator(p iteratorParent) MapIterator
 }
 
 // NewSorted creates a map like container, spilling to disk at location.
 // All items added to this instance must be of the same type as v.
-func NewMap(location string, v Value) *Map {
-	o := &Map{
-		base: newBase(location),
-		v:    v,
-	}
+func NewMap(location string) *Map {
+	o := &Map{base: newBase(location)}
 	o.commonMap = &memoryMap{
 		values: make(map[string]Value),
 	}
@@ -48,21 +45,32 @@ func (o *Map) Add(k string, v Value) {
 		panic(concurrencyMsg)
 	}
 	if o.startSpilling(o.Bytes() + v.Bytes()) {
-		newMap := newDiskMap(o.location, o.v)
+		d := v.Marshal()
+		newMap := newDiskMap(o.location)
 		it := o.newIterator(o)
 		for it.Next() {
-			newMap.add(it.Key(), it.Value())
+			v.Reset()
+			it.Value(v)
+			newMap.add(it.Key(), v)
 		}
 		it.Release()
 		o.commonMap.Close()
 		o.commonMap = newMap
 		o.spilling = true
+		v.Reset()
+		v.Unmarshal(d)
 	}
 	o.add(k, v)
 }
 
 func (o *Map) String() string {
 	return fmt.Sprintf("Map@%p", o)
+}
+
+// Close is just here to catch deferred calls to Close, such that the correct
+// method is called in case spilling happened.
+func (o *Map) Close() {
+	o.commonMap.Close()
 }
 
 func (o *Map) released() {
@@ -83,15 +91,15 @@ func (o *Map) NewIterator() MapIterator {
 
 type memoryMap struct {
 	values map[string]Value
-	bytes  int64
+	bytes  int
 }
 
 func (o *memoryMap) add(k string, v Value) {
-	o.bytes += v.Bytes()
 	o.values[k] = v
+	o.bytes += v.Bytes()
 }
 
-func (o *memoryMap) Bytes() int64 {
+func (o *memoryMap) Bytes() int {
 	return o.bytes
 }
 
@@ -99,23 +107,36 @@ func (o *memoryMap) Close() {
 	o.values = nil
 }
 
-func (o *memoryMap) Get(key string) (Value, bool) {
-	v, ok := o.values[key]
-	return v, ok
+func (o *memoryMap) Get(k string, v Value) bool {
+	nv, ok := o.values[k]
+	if !ok {
+		return false
+	}
+	v.Copy(nv)
+	return true
 }
 
 func (o *memoryMap) Items() int {
 	return len(o.values)
 }
 
-func (o *memoryMap) Pop(key string) (Value, bool) {
-	v, ok := o.values[key]
+func (o *memoryMap) Pop(k string, v Value) bool {
+	ok := o.Get(k, v)
 	if !ok {
-		return nil, false
+		return false
 	}
-	delete(o.values, key)
+	delete(o.values, k)
 	o.bytes -= v.Bytes()
-	return v, ok
+	return true
+}
+
+func (o *memoryMap) Delete(k string) {
+	v, ok := o.values[k]
+	if !ok {
+		return
+	}
+	delete(o.values, k)
+	o.bytes -= v.Bytes()
 }
 
 type iteratorValue struct {
@@ -157,8 +178,8 @@ func (i *memMapIterator) Key() string {
 	return i.current.k
 }
 
-func (i *memMapIterator) Value() Value {
-	return i.current.v
+func (i *memMapIterator) Value(v Value) {
+	v.Copy(i.current.v)
 }
 
 func (i *memMapIterator) Next() bool {
@@ -174,13 +195,12 @@ func (i *memMapIterator) Release() {
 
 type diskMap struct {
 	db    *leveldb.DB
-	bytes int64
+	bytes int
 	dir   string
 	len   int
-	v     Value
 }
 
-func newDiskMap(location string, v Value) *diskMap {
+func newDiskMap(location string) *diskMap {
 	// Use a temporary database directory.
 	tmp, err := ioutil.TempDir(location, "overflow-")
 	if err != nil {
@@ -196,7 +216,6 @@ func newDiskMap(location string, v Value) *diskMap {
 	return &diskMap{
 		db:  db,
 		dir: tmp,
-		v:   v,
 	}
 }
 
@@ -217,60 +236,69 @@ func (o *diskMap) Close() {
 	os.RemoveAll(o.dir)
 }
 
-func (o *diskMap) Bytes() int64 {
+func (o *diskMap) Bytes() int {
 	return o.bytes
 }
 
-func (o *diskMap) Get(k string) (Value, bool) {
-	data, err := o.db.Get([]byte(k), nil)
+func (o *diskMap) Get(k string, v Value) bool {
+	d, err := o.db.Get([]byte(k), nil)
 	if err != nil {
-		return nil, false
+		return false
 	}
-	o.v.Unmarshal(data)
-	return o.v, true
+	v.Unmarshal(d)
+	return true
 }
 
 func (o *diskMap) Items() int {
 	return o.len
 }
 
-func (o *diskMap) Pop(k string) (Value, bool) {
-	v, ok := o.Get(k)
+func (o *diskMap) Pop(k string, v Value) bool {
+	ok := o.Get(k, v)
 	if ok {
 		o.db.Delete([]byte(k), nil)
 		o.len--
 	}
-	return v, ok
+	return ok
+}
+
+func (o *diskMap) Delete(k string) {
+	_, err := o.db.Get([]byte(k), nil)
+	if err == nil {
+		o.db.Delete([]byte(k), nil)
+		o.len--
+	}
 }
 
 func (o *diskMap) newIterator(p iteratorParent) MapIterator {
-	return &diskMapIterator{
+	return &diskIterator{
 		it:     o.db.NewIterator(nil, nil),
-		v:      o.v,
 		parent: p,
 	}
 }
 
-type diskMapIterator struct {
+type diskIterator struct {
 	it     iterator.Iterator
-	v      Value
 	parent iteratorParent
 }
 
-func (i *diskMapIterator) Next() bool {
+func (i *diskIterator) Next() bool {
 	return i.it.Next()
 }
 
-func (i *diskMapIterator) Value() Value {
-	i.v.Unmarshal(i.it.Value())
-	return i.v
+func (i *diskIterator) Value(v Value) {
+	v.Unmarshal(i.it.Value())
 }
 
-func (i *diskMapIterator) Key() string {
-	return string(i.it.Key())
+func (i *diskIterator) key() []byte {
+	return i.it.Key()
 }
 
-func (i *diskMapIterator) Release() {
+func (i *diskIterator) Key() string {
+	return string(i.key())
+}
+
+func (i *diskIterator) Release() {
 	i.it.Release()
 	i.parent.released()
 }

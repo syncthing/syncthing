@@ -13,7 +13,7 @@ import (
 
 const testSize = 10000
 
-func withAdjustedMem(t *testing.T, mem int64, fn func(t *testing.T)) {
+func withAdjustedMem(t *testing.T, mem int, fn func(t *testing.T)) {
 	SetDefaultOverflowBytes(mem)
 
 	fn(t)
@@ -26,19 +26,19 @@ func TestSliceReal(t *testing.T) {
 }
 
 func TestSliceNoMem(t *testing.T) {
-	withAdjustedMem(t, int64(0), testSlice)
+	withAdjustedMem(t, 0, testSlice)
 }
 
 func TestSlice100B(t *testing.T) {
-	withAdjustedMem(t, int64(100), testSlice)
+	withAdjustedMem(t, 100, testSlice)
 }
 
 func TestSlice100kB(t *testing.T) {
-	withAdjustedMem(t, int64(100000), testSlice)
+	withAdjustedMem(t, 100000, testSlice)
 }
 
 func testSlice(t *testing.T) {
-	slice := NewSlice(".", &testValue{})
+	slice := NewSlice(".")
 	defer slice.Close()
 
 	testValues := randomTestValues(testSize)
@@ -46,10 +46,10 @@ func testSlice(t *testing.T) {
 	for i, tv := range testValues {
 		if i%100 == 0 {
 			if l := slice.Items(); l != i {
-				t.Errorf("s.Items() == %v, expected %v", l, i)
+				t.Fatalf("s.Items() == %v, expected %v", l, i)
 			}
-			if s := slice.Bytes(); s != int64(i)*10 {
-				t.Errorf("s.Bytes() == %v, expected %v", s, i*10)
+			if s := slice.Bytes(); s != i*10 {
+				t.Fatalf("s.Bytes() == %v, expected %v", s, i*10)
 			}
 		}
 		slice.Append(tv)
@@ -57,32 +57,36 @@ func testSlice(t *testing.T) {
 
 	i := 0
 	it := slice.NewIterator(false)
+	v := &testValue{}
 	for it.Next() {
-		tv := it.Value().(*testValue).string
-		if exp := testValues[i].(*testValue).string; tv != exp {
+		it.Value(v)
+		tv := v.string
+		if exp := testValues[i].string; tv != exp {
 
-			t.Errorf("Iterating at %v: got %v, expected %v", i, tv, exp)
+			t.Fatalf("Iterating at %v: got %v, expected %v", i, tv, exp)
 			break
 		}
 		i++
 	}
 	it.Release()
 	if i != len(testValues) {
-		t.Errorf("Received just %v files, expected %v", i, len(testValues))
+		t.Fatalf("Received just %v files, expected %v", i, len(testValues))
 	}
 
-	if s := slice.Bytes(); s != int64(len(testValues))*10 {
-		t.Errorf("s.Bytes() == %v, expected %v", s, len(testValues)*10)
+	if s := slice.Bytes(); s != len(testValues)*10 {
+		t.Fatalf("s.Bytes() == %v, expected %v", s, len(testValues)*10)
 	}
 
 	it = slice.NewIterator(true)
 
 	for it.Next() {
 		i--
-		tv := it.Value().(*testValue).string
-		exp := testValues[i].(*testValue).string
+		v.Reset()
+		it.Value(v)
+		tv := v.string
+		exp := testValues[i].string
 		if tv != exp {
-			t.Errorf("Iterating at %v: got %v, expected %v", i, tv, exp)
+			t.Fatalf("Iterating at %v: got %v, expected %v", i, tv, exp)
 			break
 		}
 	}
@@ -92,17 +96,18 @@ func testSlice(t *testing.T) {
 	it = slice.NewIterator(true)
 	for it.Next() {
 		i--
-		tv := it.Value().(*testValue).string
-		exp := testValues[i].(*testValue).string
+		v.Reset()
+		it.Value(v)
+		tv := v.string
+		exp := testValues[i].string
 		if tv != exp {
-			t.Errorf("Iterating at %v: got %v, expected %v", i, tv, exp)
+			t.Fatalf("Iterating at %v: got %v, expected %v", i, tv, exp)
 			break
 		}
 	}
 	it.Release()
-	slice.Close()
 	if i != 0 {
-		t.Errorf("Last received file at index %v, should have gone to 0", i)
+		t.Fatalf("Last received file at index %v, should have gone to 0", i)
 	}
 }
 
@@ -113,8 +118,8 @@ type testValue struct {
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 // https://stackoverflow.com/a/31832326/3864852
-func randomTestValues(length int) []SortValue {
-	l := make([]SortValue, length)
+func randomTestValues(length int) []*testValue {
+	l := make([]*testValue, length)
 	for k := 0; k < length; k++ {
 		b := make([]byte, 10)
 		for i := range b {
@@ -125,8 +130,8 @@ func randomTestValues(length int) []SortValue {
 	return l
 }
 
-func (t *testValue) Bytes() int64 {
-	return int64(len(t.string))
+func (t *testValue) Bytes() int {
+	return len(t.string)
 }
 
 func (t *testValue) Marshal() []byte {
@@ -137,8 +142,12 @@ func (t *testValue) Unmarshal(v []byte) {
 	t.string = string(v)
 }
 
-func (t *testValue) UnmarshalWithKey(_, v []byte) {
-	t.Unmarshal(v)
+func (t *testValue) Copy(v Value) {
+	t.string = v.(*testValue).string
+}
+
+func (t *testValue) Reset() {
+	t.string = ""
 }
 
 func (t *testValue) Key() []byte {

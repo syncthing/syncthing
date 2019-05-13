@@ -16,18 +16,20 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const OrigDefaultOverflowBytes int64 = 16 << protocol.MiB
+const concurrencyMsg = "iteration in progress - don't modify or start a new iteration concurrently"
+
+const OrigDefaultOverflowBytes = 16 << protocol.MiB
 
 var (
-	defaultOverflow    int64 = OrigDefaultOverflowBytes
-	defaultOverflowMut       = sync.Mutex{}
+	defaultOverflow    = OrigDefaultOverflowBytes
+	defaultOverflowMut = sync.Mutex{}
 )
 
 // Sets the default limit of when data is written to disks. Can be overruled
 // on individual instances via their SetOverflowBytes method.
 // Argument bytes < 0 means no disk spilling will ever happen and = 0 sets it to
 // OrigDefaultOverflowbytes.
-func SetDefaultOverflowBytes(bytes int64) {
+func SetDefaultOverflowBytes(bytes int) {
 	defaultOverflowMut.Lock()
 	if bytes == 0 {
 		defaultOverflow = OrigDefaultOverflowBytes
@@ -37,7 +39,7 @@ func SetDefaultOverflowBytes(bytes int64) {
 	defaultOverflowMut.Unlock()
 }
 
-func DefaultOverflowBytes() int64 {
+func DefaultOverflowBytes() int {
 	defaultOverflowMut.Lock()
 	defer defaultOverflowMut.Unlock()
 	return defaultOverflow
@@ -45,16 +47,18 @@ func DefaultOverflowBytes() int64 {
 
 // Value must be implemented by every type that is to be stored in a disk spilling container.
 type Value interface {
-	Bytes() int64
+	Bytes() int
 	Marshal() []byte
 	Unmarshal([]byte)
+	Reset() // To make an already populated Value ready for Unmarshal
+	Copy(Value)
 }
 
 // ValueFileInfo implements Value for protocol.FileInfo
 type ValueFileInfo struct{ protocol.FileInfo }
 
-func (s *ValueFileInfo) Bytes() int64 {
-	return int64(s.ProtoSize())
+func (s *ValueFileInfo) Bytes() int {
+	return s.ProtoSize()
 }
 
 func (s *ValueFileInfo) Marshal() []byte {
@@ -71,15 +75,23 @@ func (s *ValueFileInfo) Unmarshal(v []byte) {
 	}
 }
 
+func (s *ValueFileInfo) Copy(v Value) {
+	s.FileInfo = v.(*ValueFileInfo).FileInfo
+}
+
+func (s *ValueFileInfo) Reset() {
+	s.FileInfo = protocol.FileInfo{}
+}
+
 type common interface {
-	Bytes() int64
+	Bytes() int
 	Items() int
 	Close()
 }
 
 type base struct {
 	location      string
-	overflowBytes int64
+	overflowBytes int
 	spilling      bool
 	iterating     bool
 }
@@ -96,11 +108,11 @@ func newBase(location string) base {
 // SetOverflowBytes changes the limit of when contents are written to disk.
 // A change only takes effect if another element is added to the container.
 // A value of <= 0 means no disk spilling will ever happen.
-func (o *base) SetOverflowBytes(bytes int64) {
+func (o *base) SetOverflowBytes(bytes int) {
 	o.overflowBytes = bytes
 }
 
-func (o *base) startSpilling(size int64) bool {
+func (o *base) startSpilling(size int) bool {
 	return !o.spilling && o.overflowBytes > 0 && size > o.overflowBytes
 }
 
@@ -111,31 +123,24 @@ type Iterator interface {
 
 type ValueIterator interface {
 	Iterator
-	Value() Value
-}
-
-type SortValueIterator interface {
-	Iterator
-	Value() SortValue
+	Value(Value)
 }
 
 type iteratorParent interface {
 	released()
 }
 
-const (
-	concurrencyMsg = "iteration in progress - don't modify or start a new iteration concurrently"
-)
-
 type memIterator struct {
+	values  []Value
 	pos     int
 	len     int
 	reverse bool
 	parent  iteratorParent
 }
 
-func newMemIterator(p iteratorParent, reverse bool, len int) *memIterator {
+func newMemIterator(values []Value, p iteratorParent, reverse bool, len int) *memIterator {
 	it := &memIterator{
+		values:  values,
 		len:     len,
 		reverse: reverse,
 		parent:  p,
@@ -161,6 +166,12 @@ func (si *memIterator) Next() bool {
 	}
 	si.pos++
 	return true
+}
+
+func (si *memIterator) Value(v Value) {
+	if si.pos != si.len && si.pos != -1 {
+		v.Copy(si.values[si.pos])
+	}
 }
 
 func (si *memIterator) Release() {

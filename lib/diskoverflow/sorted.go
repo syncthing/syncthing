@@ -11,64 +11,64 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sort"
-
-	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
 const suffixLength = 8
 
-// SortValue must be implemented by every supported type for sorting. The sorting
-// will happen according to bytes.Compare on the key.
-type SortValue interface {
-	Value
-	UnmarshalWithKey(key, value []byte)
-	Key() []byte
-}
-
 type Sorted struct {
 	commonSorted
 	base
-	v SortValue
+}
+
+type keyValueIterator interface {
+	ValueIterator
+	key() []byte
 }
 
 type commonSorted interface {
 	common
-	add(v SortValue)
-	getFirst() (SortValue, bool)
-	getLast() (SortValue, bool)
-	dropFirst(v SortValue) bool
-	dropLast(v SortValue) bool
-	newIterator(p iteratorParent, reverse bool) SortValueIterator
+	add(k []byte, v Value)
+	getFirst(v Value) bool
+	getLast(v Value) bool
+	dropFirst(bytes int)
+	dropLast(bytes int)
+	newIterator(p iteratorParent, reverse bool) keyValueIterator
 }
 
 // NewSorted creates a sorted container, spilling to disk at location and sorting
 // it's elements by the keys returned by the underlying type of v.
 // All items added to this instance must be of the same type as v.
-func NewSorted(location string, v SortValue) *Sorted {
-	o := &Sorted{
-		base: newBase(location),
-		v:    v,
-	}
+func NewSorted(location string) *Sorted {
+	o := &Sorted{base: newBase(location)}
 	o.commonSorted = &memorySorted{}
 	return o
 }
 
-func (o *Sorted) Add(v SortValue) {
+func (o *Sorted) Add(k []byte, v Value) {
 	if o.startSpilling(o.Bytes() + v.Bytes()) {
-		newSorted := newDiskSorted(o.location, o.v)
-		it := o.NewIterator(false)
+		d := v.Marshal()
+		newSorted := newDiskSorted(o.location)
+		if o.iterating {
+			panic(concurrencyMsg)
+		}
+		o.iterating = true
+		it := o.newIterator(o, false)
 		for it.Next() {
-			newSorted.add(it.Value())
+			v.Reset()
+			it.Value(v)
+			newSorted.add(it.key(), v)
 		}
 		it.Release()
 		o.commonSorted.Close()
 		o.commonSorted = newSorted
 		o.spilling = true
+		v.Reset()
+		v.Unmarshal(d)
 	}
-	o.add(v)
+	o.add(k, v)
 }
 
-func (o *Sorted) NewIterator(reverse bool) SortValueIterator {
+func (o *Sorted) NewIterator(reverse bool) ValueIterator {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}
@@ -76,20 +76,28 @@ func (o *Sorted) NewIterator(reverse bool) SortValueIterator {
 	return o.newIterator(o, reverse)
 }
 
-func (o *Sorted) PopFirst() (SortValue, bool) {
-	v, ok := o.getFirst()
-	if ok {
-		o.dropFirst(v)
+func (o *Sorted) PopFirst(v Value) bool {
+	ok := o.getFirst(v)
+	if !ok {
+		return false
 	}
-	return v, ok
+	o.dropFirst(v.Bytes())
+	return true
 }
 
-func (o *Sorted) PopLast() (SortValue, bool) {
-	v, ok := o.getLast()
-	if ok {
-		o.dropLast(v)
+func (o *Sorted) PopLast(v Value) bool {
+	ok := o.getLast(v)
+	if !ok {
+		return false
 	}
-	return v, ok
+	o.dropLast(v.Bytes())
+	return true
+}
+
+// Close is just here to catch deferred calls to Close, such that the correct
+// method is called in case spilling happened.
+func (o *Sorted) Close() {
+	o.commonSorted.Close()
 }
 
 func (o *Sorted) String() string {
@@ -103,147 +111,186 @@ func (o *Sorted) released() {
 // memorySorted is basically a slice that keeps track of its size and supports
 // sorted iteration of its element.
 type memorySorted struct {
-	bytes    int64
+	bytes    int
 	outgoing bool
-	values   sortSlice
+	values   []Value
+	keys     [][]byte
 }
 
-func (o *memorySorted) add(v SortValue) {
+func (o *memorySorted) add(k []byte, v Value) {
 	if o.outgoing {
 		panic("Add/Append may never be called after PopFirst/PopLast")
 	}
 	o.values = append(o.values, v)
+	o.keys = append(o.keys, k)
 	o.bytes += v.Bytes()
 }
 
-type memSortValueIterator struct {
-	*memIterator
-	values []SortValue
+func (o *memorySorted) Len() int {
+	return len(o.values)
+}
+func (o *memorySorted) Swap(a, b int) {
+	o.values[a], o.values[b] = o.values[b], o.values[a]
+	o.keys[a], o.keys[b] = o.keys[b], o.keys[a]
+}
+func (o *memorySorted) Less(a, b int) bool {
+	return bytes.Compare(o.keys[a], o.keys[b]) == -1
 }
 
-func (si *memSortValueIterator) Value() SortValue {
-	if si.pos == si.len || si.pos == -1 {
-		return nil
-	}
-	return si.values[si.pos]
-}
-
-func (o *memorySorted) newIterator(parent iteratorParent, reverse bool) SortValueIterator {
-	if !o.outgoing {
-		sort.Sort(o.values)
-	}
-
-	return &memSortValueIterator{
-		memIterator: newMemIterator(parent, reverse, len(o.values)),
-		values:      o.values,
-	}
-}
-
-func (o *memorySorted) Bytes() int64 {
+func (o *memorySorted) Bytes() int {
 	return o.bytes
 }
 
-func (o *memorySorted) Close() {
-}
+func (o *memorySorted) Close() {}
 
 func (o *memorySorted) Items() int {
 	return len(o.values)
 }
 
-func (o *memorySorted) getFirst() (SortValue, bool) {
+func (o *memorySorted) getFirst(v Value) bool {
 	if !o.outgoing {
-		sort.Sort(o.values)
+		sort.Sort(o)
 		o.outgoing = true
 	}
-
 	if o.Items() == 0 {
-		return nil, false
-	}
-	return o.values[0], true
-}
-
-func (o *memorySorted) getLast() (SortValue, bool) {
-	if !o.outgoing {
-		sort.Sort(o.values)
-		o.outgoing = true
-	}
-
-	if o.Items() == 0 {
-		return nil, false
-	}
-	return o.values[o.Items()-1], true
-}
-
-func (o *memorySorted) dropFirst(v SortValue) bool {
-	if len(o.values) == 0 {
 		return false
+	}
+	v.Copy(o.values[0])
+	return true
+}
+
+func (o *memorySorted) getLast(v Value) bool {
+	if !o.outgoing {
+		sort.Sort(o)
+		o.outgoing = true
+	}
+	if o.Items() == 0 {
+		return false
+	}
+	v.Copy(o.values[o.Items()-1])
+	return true
+}
+
+func (o *memorySorted) dropFirst(bytes int) {
+	if len(o.values) == 0 {
+		return
 	}
 	o.values = o.values[1:]
-	o.bytes -= v.Bytes()
-	return true
+	o.keys = o.keys[1:]
+	o.bytes -= bytes
 }
 
-func (o *memorySorted) dropLast(v SortValue) bool {
+func (o *memorySorted) dropLast(bytes int) {
 	if len(o.values) == 0 {
-		return false
+		return
 	}
 	o.values = o.values[:len(o.values)-1]
-	o.bytes -= v.Bytes()
-	return true
+	o.keys = o.keys[:len(o.keys)-1]
+	o.bytes -= bytes
+}
+
+func (o *memorySorted) newIterator(parent iteratorParent, reverse bool) keyValueIterator {
+	if !o.outgoing {
+		sort.Sort(o)
+	}
+	return &memSortValueIterator{
+		memIterator: newMemIterator(o.values, parent, reverse, o.Items()),
+		keys:        o.keys,
+	}
+}
+
+type memSortValueIterator struct {
+	*memIterator
+	keys [][]byte
+}
+
+func (si *memSortValueIterator) key() []byte {
+	if si.pos == si.len || si.pos == -1 {
+		return nil
+	}
+	return si.keys[si.pos]
 }
 
 // diskSorted is backed by a LevelDB database in a temporary directory. It relies
 // on the fact that iterating over the database is done in key order.
 type diskSorted struct {
 	*diskMap
-	bytes int64
-	v     SortValue
+	bytes int
 }
 
-func newDiskSorted(loc string, v SortValue) *diskSorted {
-	return &diskSorted{
-		diskMap: newDiskMap(loc, v),
-		v:       v,
-	}
+func newDiskSorted(loc string) *diskSorted {
+	return &diskSorted{diskMap: newDiskMap(loc)}
 }
 
-func (d *diskSorted) add(v SortValue) {
+func (d *diskSorted) add(k []byte, v Value) {
 	suffix := make([]byte, suffixLength)
-	binary.BigEndian.PutUint64(suffix[:], uint64(d.len))
-	d.diskMap.addBytes(append(v.Key(), suffix...), v)
+	binary.BigEndian.PutUint64(suffix[:], uint64(d.Items()))
+	d.diskMap.addBytes(append(k, suffix...), v)
 	d.bytes += v.Bytes()
 }
 
-func (d *diskSorted) Bytes() int64 {
+func (d *diskSorted) Bytes() int {
 	return d.bytes
 }
 
-type diskIterator struct {
-	it     iterator.Iterator
-	v      SortValue
-	parent iteratorParent
-}
-
-func (di *diskIterator) Value() SortValue {
-	key := di.it.Key()
-	if key == nil {
-		return nil
+func (d *diskSorted) getFirst(v Value) bool {
+	it := d.db.NewIterator(nil, nil)
+	defer it.Release()
+	if !it.First() {
+		return false
 	}
-	di.v.UnmarshalWithKey(key[:len(key)-suffixLength], di.it.Value())
-	return di.v
+	v.Unmarshal(it.Value())
+	return true
 }
 
-func (di *diskIterator) Release() {
-	di.it.Release()
-	di.parent.released()
+func (d *diskSorted) getLast(v Value) bool {
+	it := d.db.NewIterator(nil, nil)
+	defer it.Release()
+	if !it.Last() {
+		return false
+	}
+	v.Unmarshal(it.Value())
+	return true
 }
 
-type diskForwardIterator struct {
-	*diskIterator
+func (d *diskSorted) dropFirst(bytes int) {
+	it := d.db.NewIterator(nil, nil)
+	defer it.Release()
+	if !it.First() {
+		return
+	}
+	d.db.Delete(it.Key(), nil)
+	d.bytes -= bytes
+	d.len--
 }
 
-func (i *diskForwardIterator) Next() bool {
-	return i.it.Next()
+func (d *diskSorted) dropLast(bytes int) {
+	it := d.db.NewIterator(nil, nil)
+	defer it.Release()
+	if !it.Last() {
+		return
+	}
+	d.db.Delete(it.Key(), nil)
+	d.bytes -= bytes
+	d.len--
+}
+
+func (d *diskSorted) newIterator(parent iteratorParent, reverse bool) keyValueIterator {
+	di := &diskIterator{
+		it:     d.db.NewIterator(nil, nil),
+		parent: parent,
+	}
+	if !reverse {
+		return di
+	}
+	ri := &diskReverseIterator{diskIterator: di}
+	ri.next = func(i *diskReverseIterator) bool {
+		i.next = func(j *diskReverseIterator) bool {
+			return j.it.Prev()
+		}
+		return i.it.Last()
+	}
+	return ri
 }
 
 type diskReverseIterator struct {
@@ -253,82 +300,4 @@ type diskReverseIterator struct {
 
 func (i *diskReverseIterator) Next() bool {
 	return i.next(i)
-}
-
-func (d *diskSorted) newIterator(parent iteratorParent, reverse bool) SortValueIterator {
-	di := &diskIterator{
-		it:     d.db.NewIterator(nil, nil),
-		v:      d.v,
-		parent: parent,
-	}
-	if reverse {
-		ri := &diskReverseIterator{diskIterator: di}
-		ri.next = func(i *diskReverseIterator) bool {
-			i.next = func(j *diskReverseIterator) bool {
-				return j.it.Prev()
-			}
-			return i.it.Last()
-		}
-		return ri
-	}
-	return &diskForwardIterator{di}
-}
-
-func (d *diskSorted) getFirst() (SortValue, bool) {
-	it := d.db.NewIterator(nil, nil)
-	defer it.Release()
-	if !it.First() {
-		return nil, false
-	}
-	key := it.Key()
-	d.v.UnmarshalWithKey(key[:len(key)-suffixLength], it.Value())
-	return d.v, true
-}
-
-func (d *diskSorted) getLast() (SortValue, bool) {
-	it := d.db.NewIterator(nil, nil)
-	defer it.Release()
-	if !it.Last() {
-		return nil, false
-	}
-	key := it.Key()
-	d.v.UnmarshalWithKey(key[:len(key)-suffixLength], it.Value())
-	return d.v, true
-}
-
-func (d *diskSorted) dropFirst(v SortValue) bool {
-	it := d.db.NewIterator(nil, nil)
-	defer it.Release()
-	if !it.First() {
-		return false
-	}
-	d.db.Delete(it.Key(), nil)
-	d.bytes -= v.Bytes()
-	d.len--
-	return true
-}
-
-func (d *diskSorted) dropLast(v SortValue) bool {
-	it := d.db.NewIterator(nil, nil)
-	defer it.Release()
-	if !it.Last() {
-		return false
-	}
-	d.db.Delete(it.Key(), nil)
-	d.bytes -= v.Bytes()
-	d.len--
-	return true
-}
-
-// sortSlice is a sortable slice of sortValues
-type sortSlice []SortValue
-
-func (s sortSlice) Len() int {
-	return len(s)
-}
-func (s sortSlice) Swap(a, b int) {
-	s[a], s[b] = s[b], s[a]
-}
-func (s sortSlice) Less(a, b int) bool {
-	return bytes.Compare(s[a].Key(), s[b].Key()) == -1
 }

@@ -132,8 +132,6 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		w.ProgressTickIntervalS = 2
 	}
 
-	ticker := time.NewTicker(time.Duration(w.ProgressTickIntervalS) * time.Second)
-
 	// We need to emit progress events, hence we create a routine which buffers
 	// the list of files to be hashed, counts the total number of
 	// bytes to hash, and once no more files need to be hashed (chan gets closed),
@@ -142,10 +140,16 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	// Parallel hasher is stopped by this routine when we close the channel over
 	// which it receives the files we ask it to hash.
 	go func() {
-		filesToHash := diskoverflow.NewSlice(w.diskOverflowLocation, &diskoverflow.ValueFileInfo{})
+		filesToHash := diskoverflow.NewSlice(w.diskOverflowLocation)
+		defer filesToHash.Close()
 
 		for file := range toHashChan {
 			filesToHash.Append(&diskoverflow.ValueFileInfo{file})
+		}
+
+		if filesToHash.Items() == 0 {
+			close(finishedChan)
+			return // nothing to do
 		}
 
 		total := filesToHash.Bytes()
@@ -158,18 +162,21 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
 		go func() {
-			defer progress.Close()
+			ticker := time.NewTicker(time.Duration(w.ProgressTickIntervalS) * time.Second)
+			defer func() {
+				ticker.Stop()
+				progress.Close()
+			}()
 
 			for {
 				select {
 				case <-done:
 					l.Debugln("Walk progress done", w.Folder, w.Subs, w.Matcher)
-					ticker.Stop()
 					return
 				case <-ticker.C:
 					current := progress.Total()
 					rate := progress.Rate()
-					l.Debugf("Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
+					l.Debugf("Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w.Folder, w.Subs, current, total, rate/1024/1024, current*100/int64(total))
 					events.Default.Log(events.FolderScanProgress, map[string]interface{}{
 						"folder":  w.Folder,
 						"current": current,
@@ -177,15 +184,16 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 						"rate":    rate, // bytes per second
 					})
 				case <-ctx.Done():
-					ticker.Stop()
 					return
 				}
 			}
 		}()
 
 		it := filesToHash.NewIterator(true)
+		v := &diskoverflow.ValueFileInfo{}
 		for it.Next() {
-			file := it.Value().(*diskoverflow.ValueFileInfo).FileInfo
+			it.Value(v)
+			file := v.FileInfo
 			l.Debugln("real to hash:", file.Name)
 			select {
 			case realToHashChan <- file:
@@ -194,7 +202,6 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			}
 		}
 		it.Release()
-		filesToHash.Close()
 		close(realToHashChan)
 	}()
 

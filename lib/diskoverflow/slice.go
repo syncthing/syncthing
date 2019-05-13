@@ -7,14 +7,12 @@
 package diskoverflow
 
 import (
-	"encoding/binary"
 	"fmt"
 )
 
 type Slice struct {
 	commonSlice
 	base
-	v Value
 }
 
 type commonSlice interface {
@@ -25,11 +23,8 @@ type commonSlice interface {
 
 // NewSorted creates a slice like container, spilling to disk at location.
 // All items added to this instance must be of the same type as v.
-func NewSlice(location string, v Value) *Slice {
-	o := &Slice{
-		base: newBase(location),
-		v:    v,
-	}
+func NewSlice(location string) *Slice {
+	o := &Slice{base: newBase(location)}
 	o.commonSlice = &memorySlice{}
 	return o
 }
@@ -39,15 +34,20 @@ func (o *Slice) Append(v Value) {
 		panic(concurrencyMsg)
 	}
 	if o.startSpilling(o.Bytes() + v.Bytes()) {
-		ds := &diskSlice{newDiskSorted(o.location, &nonSortValue{Value: o.v})}
+		d := v.Marshal()
+		ds := &diskSlice{newDiskSorted(o.location)}
 		it := o.newIterator(o, false)
 		for it.Next() {
-			ds.append(it.Value())
+			v.Reset()
+			it.Value(v)
+			ds.append(v)
 		}
 		it.Release()
 		o.commonSlice.Close()
 		o.commonSlice = ds
 		o.spilling = true
+		v.Reset()
+		v.Unmarshal(d)
 	}
 	o.append(v)
 }
@@ -64,13 +64,19 @@ func (o *Slice) NewIterator(reverse bool) ValueIterator {
 	return o.newIterator(o, reverse)
 }
 
+// Close is just here to catch deferred calls to Close, such that the correct
+// method is called in case spilling happened.
+func (o *Slice) Close() {
+	o.commonSlice.Close()
+}
+
 func (o *Slice) String() string {
 	return fmt.Sprintf("Slice@%p", o)
 }
 
 type memorySlice struct {
 	values []Value
-	bytes  int64
+	bytes  int
 }
 
 func (o *memorySlice) append(v Value) {
@@ -78,7 +84,7 @@ func (o *memorySlice) append(v Value) {
 	o.bytes += v.Bytes()
 }
 
-func (o *memorySlice) Bytes() int64 {
+func (o *memorySlice) Bytes() int {
 	return o.bytes
 }
 
@@ -92,17 +98,7 @@ type memValueIterator struct {
 }
 
 func (o *memorySlice) newIterator(p iteratorParent, reverse bool) ValueIterator {
-	return &memValueIterator{
-		memIterator: newMemIterator(p, reverse, len(o.values)),
-		values:      o.values,
-	}
-}
-
-func (si *memValueIterator) Value() Value {
-	if si.pos == si.len || si.pos == -1 {
-		return nil
-	}
-	return si.values[si.pos]
+	return newMemIterator(o.values, p, reverse, len(o.values))
 }
 
 func (o *memorySlice) Items() int {
@@ -114,38 +110,9 @@ type diskSlice struct {
 }
 
 func (o *diskSlice) append(v Value) {
-	o.diskSorted.add(&nonSortValue{v, uint64(o.len)})
-}
-
-type diskSliceIterator struct {
-	SortValueIterator
-}
-
-func (i *diskSliceIterator) Value() Value {
-	sv := i.SortValueIterator.Value()
-	if sv == nil {
-		return nil
-	}
-	return sv.(*nonSortValue).Value
+	o.diskSorted.add(nil, v)
 }
 
 func (o *diskSlice) newIterator(p iteratorParent, reverse bool) ValueIterator {
-	return &diskSliceIterator{o.diskSorted.newIterator(p, reverse)}
-}
-
-// nonSortValue implements the SortValue interface, to be "sorted" by insertion order.
-type nonSortValue struct {
-	Value
-	index uint64
-}
-
-func (o *nonSortValue) Key() []byte {
-	key := make([]byte, 8)
-	binary.BigEndian.PutUint64(key[:], uint64(o.index))
-	return key
-}
-
-func (o *nonSortValue) UnmarshalWithKey(key, value []byte) {
-	o.Value.Unmarshal(value)
-	o.index = binary.BigEndian.Uint64(key)
+	return o.diskSorted.newIterator(p, reverse)
 }

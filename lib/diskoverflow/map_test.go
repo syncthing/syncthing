@@ -15,46 +15,48 @@ func TestMapReal(t *testing.T) {
 }
 
 func TestMapNoMem(t *testing.T) {
-	withAdjustedMem(t, int64(0), testMap)
+	withAdjustedMem(t, 0, testMap)
 }
 
 func TestMap100B(t *testing.T) {
-	withAdjustedMem(t, int64(100), testMap)
+	withAdjustedMem(t, 100, testMap)
 }
 
 func TestMap100kB(t *testing.T) {
-	withAdjustedMem(t, int64(100000), testMap)
+	withAdjustedMem(t, 100000, testMap)
 }
 
 func testMap(t *testing.T) {
-	Map := NewMap(".", &testValue{})
+	Map := NewMap(".")
 	defer Map.Close()
 
 	testValueSlice := randomTestValues(testSize)
 	testValues := make(map[string]Value, len(testValueSlice))
 	for _, v := range testValueSlice {
-		testValues[v.(*testValue).string] = v
+		testValues[v.string] = v
 	}
 
 	for i, tv := range testValueSlice {
 		if i%100 == 0 {
 			if l := Map.Items(); l != i {
-				t.Errorf("s.Items() == %v, expected %v", l, i)
+				t.Fatalf("s.Items() == %v, expected %v", l, i)
 			}
 		}
-		Map.Add(tv.(*testValue).string, tv)
+		Map.Add(tv.string, tv)
 	}
 
 	gotValues := make(map[string]struct{}, len(testValueSlice))
 	it := Map.NewIterator()
+	v := &testValue{}
 	for it.Next() {
 		k := it.Key()
-		got := it.Value().(*testValue).string
 		if _, ok := gotValues[k]; ok {
 			t.Fatalf("Iterating; got %v more than once", k)
 		}
-		if k != got {
-			t.Fatalf("Iterating; key, value: %v != %v", k, got)
+		v.Reset()
+		it.Value(v)
+		if k != v.string {
+			t.Fatalf("Iterating; key, value: %v != %v", k, v.string)
 		}
 		if _, ok := testValues[k]; !ok {
 			t.Fatalf("Iterating; got unexpected %v", k)
@@ -63,36 +65,38 @@ func testMap(t *testing.T) {
 	}
 	it.Release()
 	if len(gotValues) != len(testValues) {
-		t.Errorf("Received just %v files, expected %v", len(gotValues), len(testValues))
+		t.Fatalf("Received just %v files, expected %v", len(gotValues), len(testValues))
 	}
 
 	if l := Map.Items(); l != len(testValues) {
-		t.Errorf("s.Items() == %v, expected %v", l, len(testValues))
+		t.Fatalf("s.Items() == %v, expected %v", l, len(testValues))
 	}
 
 	k := len(testValues) / 2
-	exp := testValueSlice[k].(*testValue).string
+	exp := testValueSlice[k].string
 
-	v, ok := Map.Get(exp)
+	v.Reset()
+	ok := Map.Get(exp, v)
 	if !ok {
-		t.Fatalf("PopFirst didn't return any value")
+		t.Fatalf("Get didn't return any value")
 	}
-	if got := v.(*testValue).string; got != exp {
-		t.Errorf("PopFirst: %v != %v", got, exp)
+	if got := v.string; got != exp {
+		t.Fatalf("Get: %v != %v", got, exp)
 	}
 	if l := Map.Items(); l != len(testValues) {
-		t.Errorf("s.Items() == %v, expected %v", l, len(testValues))
+		t.Fatalf("s.Items() == %v, expected %v", l, len(testValues))
 	}
 
-	v, ok = Map.Pop(exp)
+	v.Reset()
+	ok = Map.Pop(exp, v)
 	if !ok {
-		t.Fatalf("PopLast didn't return any value")
+		t.Fatalf("Pop didn't return any value")
 	}
-	if got := v.(*testValue).string; got != exp {
-		t.Errorf("PopLast: %v != %v", got, exp)
+	if got := v.string; got != exp {
+		t.Fatalf("Pop %v != %v", got, exp)
 	}
 	if l := Map.Items(); l != len(testValues)-1 {
-		t.Errorf("s.Items() == %v, expected %v", l, len(testValues)-1)
+		t.Fatalf("s.Items() == %v, expected %v", l, len(testValues)-1)
 	}
 	testValueSlice = append(testValueSlice[:k], testValueSlice[k+1:]...)
 	delete(testValues, exp)
@@ -101,23 +105,20 @@ func testMap(t *testing.T) {
 	it = Map.NewIterator()
 	for it.Next() {
 		k := it.Key()
-		got := it.Value().(*testValue).string
 		if _, ok := gotValues[k]; ok {
 			t.Fatalf("Iterating; got %v more than once", k)
 		}
-		if k != got {
-			t.Fatalf("Iterating; key, value: %v != %v", k, got)
+		it.Value(v)
+		if k != v.string {
+			t.Fatalf("Iterating; key, value: %v != %v", k, v.string)
 		}
 		if _, ok := testValues[k]; !ok {
 			t.Fatalf("Iterating; got unexpected %v", k)
 		}
 		gotValues[k] = struct{}{}
 	}
-	if v := it.Value(); v != nil && v.(*testValue).string != "" {
-		t.Fatalf("it.Next() returned false, didn't expect non-nil/non-empty value %v from it.Value()", v)
-	}
 	it.Release()
 	if len(gotValues) != len(testValues) {
-		t.Errorf("Received just %v files, expected %v", len(gotValues), len(testValues))
+		t.Fatalf("Received just %v files, expected %v", len(gotValues), len(testValues))
 	}
 }
