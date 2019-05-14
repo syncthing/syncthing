@@ -1169,7 +1169,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 						defer runner.SchedulePull()
 					}
 				}
-			} else if knownDev, ok := m.cfg.Devices()[dev.ID]; ok {
+			} else if knownDev, ok := m.cfg.Device(dev.ID); ok {
 				// This device is known to us and shares this folder, but not
 				// directly with us. Remember it in order to possibly present a
 				// list of suggested devices for additional cluster
@@ -1256,7 +1256,7 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 
 			foldersDevices.set(device.ID, folder.ID)
 
-			if _, ok := m.cfg.Devices()[device.ID]; !ok {
+			if _, ok := m.cfg.Device(device.ID); !ok {
 				// The device is currently unknown. Add it to the config.
 				m.introduceDevice(device, introducerCfg)
 			} else if fcfg.SharedWith(device.ID) {
@@ -1695,7 +1695,7 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	m.fmut.RUnlock()
 
 	if !cfgOk {
-		cfg, cfgOk = m.cfg.Folders()[folder]
+		cfg, cfgOk = m.cfg.Folder(folder)
 		if !cfgOk {
 			return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
 		}
@@ -1718,7 +1718,7 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 }
 
 func (m *model) SetIgnores(folder string, content []string) error {
-	cfg, ok := m.cfg.Folders()[folder]
+	cfg, ok := m.cfg.Folder(folder)
 	if !ok {
 		return fmt.Errorf("folder %s does not exist", cfg.Description())
 	}
