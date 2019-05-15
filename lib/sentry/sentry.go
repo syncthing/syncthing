@@ -132,6 +132,9 @@ func ReportPanic() {
 			for _, routine := range ctx.Goroutines {
 				isCurrentRoutine := routine.ID == currentGid
 				calls := routine.Stack.Calls
+				if isCurrentRoutine {
+					calls = calls[2:]
+				}
 				currentFrame := calls[0]
 				thread := Thread{
 					ID:      fmt.Sprintf("%d [%s]", routine.ID, routine.State),
@@ -191,8 +194,6 @@ func ReportPanic() {
 			Version:  "1.2.0",
 			Packages: packages,
 		})
-		data, _ := packet.JSON()
-		fmt.Println(string(data))
 		eventID, ch := raven.Capture(packet, nil)
 		if eventID != "" {
 			if sendErr, ok := <-ch; ok && sendErr == nil {
