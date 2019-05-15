@@ -7,11 +7,17 @@
 package sentry
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
+	"reflect"
 	"runtime"
-	"strings"
+	"runtime/debug"
+	"strconv"
+	"time"
 
 	"github.com/getsentry/raven-go"
+	"github.com/maruel/panicparse/stack"
 	"github.com/pkg/errors"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/logger"
@@ -43,7 +49,7 @@ func init() {
 		"buildHost":        build.Host,
 		"buildStamp":       build.Date.String(),
 		"buildCodename":    build.Codename,
-		"buildTags":        strings.Join(build.Tags, ","),
+		"buildTags":        fmt.Sprintf("%s", build.Tags),
 		"buildIsRelease":   fmt.Sprintf("%t", build.IsRelease),
 		"buildIsBeta":      fmt.Sprintf("%t", build.IsBeta),
 		"buildIsCandidate": fmt.Sprintf("%t", build.IsCandidate),
@@ -99,10 +105,94 @@ func ReportPanic() {
 			cause = errors.New(message)
 		}
 
-		stacktrace := raven.GetOrNewStacktrace(cause, 3, 3, raven.IncludePaths())
-		exception := raven.NewException(cause, stacktrace)
+		currentGid := getGID()
+		expectedThreadId := fmt.Sprintf("%d [%s]", currentGid, "running")
 
-		packet := raven.NewPacketWithExtra(message, extra, exception)
+		// Construct an exception
+		stacktrace := raven.GetOrNewStacktrace(cause, 3, 3, raven.IncludePaths())
+		exception := &ExceptionWithThreadId{
+			Exception: raven.Exception{
+				Value:      cause.Error(),
+				Type:       reflect.TypeOf(cause).String(),
+				Module:     reflect.TypeOf(cause).PkgPath(),
+				Stacktrace: stacktrace,
+			},
+			ThreadId: expectedThreadId,
+		}
+
+		// Get all stacktraces
+		var threads []Thread
+		buf := make([]byte, 4<<20)
+		n := runtime.Stack(buf, true)
+		buf = buf[:n]
+		reader := bytes.NewReader(buf)
+		ctx, err := stack.ParseDump(reader, ioutil.Discard, false)
+		if err == nil {
+			threads = make([]Thread, 0, len(ctx.Goroutines))
+			for _, routine := range ctx.Goroutines {
+				isCurrentRoutine := routine.ID == currentGid
+				calls := routine.Stack.Calls
+				currentFrame := calls[0]
+				thread := Thread{
+					ID:      fmt.Sprintf("%d [%s]", routine.ID, routine.State),
+					Name:    currentFrame.FullSrcLine(),
+					Crashed: isCurrentRoutine,
+					Current: isCurrentRoutine,
+				}
+
+				// No need to capture stack for current routine, as it uses the stack from the exception.
+				if !isCurrentRoutine {
+					stackSize := len(routine.Stack.Calls)
+					frames := make([]*raven.StacktraceFrame, stackSize)
+					for i, call := range routine.Stack.Calls {
+						frame := raven.NewStacktraceFrame(0, call.Func.Name(), call.SrcPath, call.Line, 3, raven.IncludePaths())
+						frames[stackSize-1-i] = frame
+					}
+					thread.Stacktrace = &raven.Stacktrace{
+						Frames: frames,
+					}
+				}
+
+				threads = append(threads, thread)
+			}
+		}
+
+		// Capture log lines
+		lines := logger.DefaultRecorder.Since(time.Time{})
+		breadcrumbs := make([]Breadcrumb, 0, len(lines))
+		for _, line := range lines {
+			breadcrumbs = append(breadcrumbs, Breadcrumb{
+				Timestamp: line.When,
+				Type:      "default",
+				Message:   line.Message,
+				Level:     line.Level.String(),
+				Category:  line.Facility,
+			})
+		}
+
+		// Capture package information
+		var packages []Package
+		if buildInfo, ok := debug.ReadBuildInfo(); ok {
+			packages = make([]Package, 0, len(buildInfo.Deps))
+			for _, mod := range buildInfo.Deps {
+				version := mod.Version
+				if len(version) > 0 && version[0] == 'v' {
+					version = version[1:]
+				}
+				packages = append(packages, Package{
+					Name:    "git:https://" + mod.Path,
+					Version: version,
+				})
+			}
+		}
+
+		packet := raven.NewPacketWithExtra(message, extra, exception, &Threads{threads}, &Breadcrumbs{breadcrumbs}, &SDK{
+			Name:     "syncthing-raven-go",
+			Version:  "1.2.0",
+			Packages: packages,
+		})
+		data, _ := packet.JSON()
+		fmt.Println(string(data))
 		eventID, ch := raven.Capture(packet, nil)
 		if eventID != "" {
 			if sendErr, ok := <-ch; ok && sendErr == nil {
@@ -142,4 +232,13 @@ func setExtraDefaults(extra raven.Extra) {
 	extra["runtime.NumGoroutine"] = runtime.NumGoroutine()
 	extra["runtime.GOOS"] = runtime.GOOS
 	extra["runtime.GOARCH"] = runtime.GOARCH
+}
+
+func getGID() int {
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return int(n)
 }

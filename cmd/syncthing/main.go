@@ -65,8 +65,6 @@ const (
 	bepProtocolName      = "bep/1.0"
 	tlsDefaultCommonName = "syncthing"
 	maxSystemErrors      = 5
-	initialSystemLog     = 10
-	maxSystemLog         = 250
 )
 
 var myID protocol.DeviceID
@@ -619,7 +617,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	errors := logger.NewRecorder(l, logger.LevelWarn, maxSystemErrors, 0)
-	systemLog := logger.NewRecorder(l, logger.LevelDebug, maxSystemLog, initialSystemLog)
 
 	// Event subscription for the API; must start early to catch the early
 	// events. The LocalChangeDetected event might overwhelm the event
@@ -877,7 +874,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// GUI
 
-	setupGUI(mainService, cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog, runtimeOptions)
+	setupGUI(mainService, cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, logger.DefaultRecorder, runtimeOptions)
 
 	myDev, _ := cfg.Device(myID)
 	l.Infof(`My name is "%v"`, myDev.Name)
