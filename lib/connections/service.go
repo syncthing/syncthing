@@ -658,13 +658,12 @@ func (s *service) ExternalAddresses() []string {
 }
 
 func (s *service) ListenerStatus() map[string]ListenerStatusEntry {
-	s.listenersMut.RLock()
 	result := make(map[string]ListenerStatusEntry)
+	s.listenersMut.RLock()
 	for addr, listener := range s.listeners {
 		var status ListenerStatusEntry
 
-		err := listener.Error()
-		if err != nil {
+		if err := listener.Error(); err != nil {
 			errStr := err.Error()
 			status.Error = &errStr
 		}
@@ -676,12 +675,11 @@ func (s *service) ListenerStatus() map[string]ListenerStatusEntry {
 	}
 	s.listenersMut.RUnlock()
 	return result
-
 }
 
 func (s *service) ConnectionStatus() map[string]ConnectionStatusEntry {
-	s.connectionStatusMut.RLock()
 	result := make(map[string]ConnectionStatusEntry)
+	s.connectionStatusMut.RLock()
 	for k, v := range s.connectionStatus {
 		result[k] = v
 	}
@@ -690,12 +688,13 @@ func (s *service) ConnectionStatus() map[string]ConnectionStatusEntry {
 }
 
 func (s *service) setConnectionStatus(address string, err error) {
-	s.connectionStatusMut.Lock()
 	status := ConnectionStatusEntry{When: time.Now().UTC().Truncate(time.Second)}
 	if err != nil {
 		errStr := err.Error()
 		status.Error = &errStr
 	}
+
+	s.connectionStatusMut.Lock()
 	s.connectionStatus[address] = status
 	s.connectionStatusMut.Unlock()
 }
