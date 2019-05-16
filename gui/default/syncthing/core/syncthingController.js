@@ -2412,8 +2412,8 @@ angular.module('syncthing.core')
             if (!status || !status.error) {
                 return null;
             }
-            var date = $filter('date')(status.when, "HH:mm:ss")
+            var time = $filter('date')(status.when, "HH:mm:ss")
             var err = status.error.replace(/.+: /, '');
-            return date + ": " + err;
+            return err + " (" + time + ")";
         }
     });
