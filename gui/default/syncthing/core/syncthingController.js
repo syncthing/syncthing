@@ -2406,4 +2406,14 @@ angular.module('syncthing.core')
                 $scope.saveConfig();
             }
         };
+
+        $scope.abbreviatedError = function (addr) {
+            var status = $scope.system.lastDialStatus[addr];
+            if (!status || !status.error) {
+                return null;
+            }
+            var date = $filter('date')(status.when, "HH:mm:ss")
+            var err = status.error.replace(/.+: /, '');
+            return date + ": " + err;
+        }
     });

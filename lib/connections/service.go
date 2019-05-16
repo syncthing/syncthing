@@ -96,16 +96,14 @@ type Service interface {
 }
 
 type ListenerStatusEntry struct {
-	Error        string   `json:"error,omitempty"`
-	OK           bool     `json:"ok,omitempty"`
+	Error        *string  `json:"error"`
 	LANAddresses []string `json:"lanAddresses"`
 	WANAddresses []string `json:"wanAddresses"`
 }
 
 type ConnectionStatusEntry struct {
 	When  time.Time `json:"when"`
-	Error string    `json:"error,omitempty"`
-	OK    bool      `json:"ok,omitempty"`
+	Error *string   `json:"error"`
 }
 
 type service struct {
@@ -667,9 +665,8 @@ func (s *service) ListenerStatus() map[string]ListenerStatusEntry {
 
 		err := listener.Error()
 		if err != nil {
-			status.Error = err.Error()
-		} else {
-			status.OK = true
+			errStr := err.Error()
+			status.Error = &errStr
 		}
 
 		status.LANAddresses = urlsToStrings(listener.LANAddresses())
@@ -696,9 +693,8 @@ func (s *service) setConnectionStatus(address string, err error) {
 	s.connectionStatusMut.Lock()
 	status := ConnectionStatusEntry{When: time.Now().UTC().Truncate(time.Second)}
 	if err != nil {
-		status.Error = err.Error()
-	} else {
-		status.OK = true
+		errStr := err.Error()
+		status.Error = &errStr
 	}
 	s.connectionStatus[address] = status
 	s.connectionStatusMut.Unlock()
