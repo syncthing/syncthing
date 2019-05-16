@@ -195,6 +195,7 @@ func (o *onAddressesChangedNotifier) notifyAddressesChanged(l genericListener) {
 }
 
 type dialTarget struct {
+	addr     string
 	dialer   genericDialer
 	priority int
 	uri      *url.URL
