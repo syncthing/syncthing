@@ -53,7 +53,12 @@ var (
 		{regexp.MustCompile("deb@build.syncthing.net"), "APT"},
 		{regexp.MustCompile("docker@syncthing.net"), "Docker Hub"},
 		{regexp.MustCompile("jenkins@build.syncthing.net"), "GitHub"},
-		{regexp.MustCompile("snap@build.syncthing.net"), "Snappy"},
+		{regexp.MustCompile("snap@build.syncthing.net"), "Snapcraft"},
+		{regexp.MustCompile("android-.*vagrant@basebox-stretch64"), "F-Droid"},
+		{regexp.MustCompile("builduser@svetlemodry"), "Arch (3rd party)"},
+		{regexp.MustCompile("@debian"), "Debian (3rd party)"},
+		{regexp.MustCompile("@fedora"), "Fedora (3rd party)"},
+		{regexp.MustCompile(`\bbrew@`), "Homebrew (3rd party)"},
 		{regexp.MustCompile("."), "Others"},
 	}
 )
