@@ -334,7 +334,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				// files to delete inside them before we get to that point.
 				dirDeletions = append(dirDeletions, file)
 			} else if file.IsSymlink() {
-				f.resetPullError(file.Name)
 				f.deleteFile(file, dbUpdateChan, scanChan)
 			} else {
 				df, ok := f.fset.Get(protocol.LocalDeviceID, file.Name)
@@ -348,7 +347,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 					key := string(df.Blocks[0].Hash)
 					buckets[key] = append(buckets[key], df)
 				} else {
-					f.resetPullError(file.Name)
 					f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
 				}
 			}
@@ -360,7 +358,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
-				f.resetPullError(file.Name)
 				f.shortcutFile(file, curFile, dbUpdateChan)
 			} else {
 				// Queue files for processing after directories and symlinks.
@@ -377,7 +374,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		case file.IsDirectory() && !file.IsSymlink():
 			changed++
 			l.Debugln(f, "Handling directory", file.Name)
-			f.resetPullError(file.Name)
 			if f.checkParent(file.Name, scanChan) {
 				f.handleDir(file, dbUpdateChan, scanChan)
 			}
@@ -385,7 +381,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		case file.IsSymlink():
 			changed++
 			l.Debugln(f, "Handling symlink", file.Name)
-			f.resetPullError(file.Name)
 			if f.checkParent(file.Name, scanChan) {
 				f.handleSymlink(file, dbUpdateChan, scanChan)
 			}
@@ -534,6 +529,8 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
+
+	f.resetPullError(file.Name)
 
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
@@ -693,6 +690,8 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	// care not declare another err.
 	var err error
 
+	f.resetPullError(file.Name)
+
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
@@ -816,6 +815,8 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 	var err error
 
 	l.Debugln(f, "Deleting file", file.Name)
+
+	f.resetPullError(file.Name)
 
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
@@ -1173,6 +1174,8 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 // thing that has changed.
 func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	l.Debugln(f, "taking shortcut on", file.Name)
+
+	f.resetPullError(file.Name)
 
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
