@@ -10,7 +10,16 @@ import (
 	"fmt"
 )
 
-type Slice struct {
+type Slice interface {
+	Append(v Value)
+	NewIterator(reverse bool) Iterator
+	Bytes() int
+	Items() int
+	SetOverflowBytes(bytes int)
+	Close()
+}
+
+type slice struct {
 	commonSlice
 	base
 }
@@ -18,18 +27,18 @@ type Slice struct {
 type commonSlice interface {
 	common
 	append(v Value)
-	newIterator(p iteratorParent, reverse bool) ValueIterator
+	newIterator(p iteratorParent, reverse bool) Iterator
 }
 
 // NewSorted creates a slice like container, spilling to disk at location.
 // All items added to this instance must be of the same type as v.
-func NewSlice(location string) *Slice {
-	o := &Slice{base: newBase(location)}
+func NewSlice(location string) Slice {
+	o := &slice{base: newBase(location)}
 	o.commonSlice = &memorySlice{}
 	return o
 }
 
-func (o *Slice) Append(v Value) {
+func (o *slice) Append(v Value) {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}
@@ -52,11 +61,11 @@ func (o *Slice) Append(v Value) {
 	o.append(v)
 }
 
-func (o *Slice) released() {
+func (o *slice) released() {
 	o.iterating = false
 }
 
-func (o *Slice) NewIterator(reverse bool) ValueIterator {
+func (o *slice) NewIterator(reverse bool) Iterator {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}
@@ -66,11 +75,11 @@ func (o *Slice) NewIterator(reverse bool) ValueIterator {
 
 // Close is just here to catch deferred calls to Close, such that the correct
 // method is called in case spilling happened.
-func (o *Slice) Close() {
+func (o *slice) Close() {
 	o.commonSlice.Close()
 }
 
-func (o *Slice) String() string {
+func (o *slice) String() string {
 	return fmt.Sprintf("Slice@%p", o)
 }
 
@@ -92,7 +101,7 @@ func (o *memorySlice) Close() {
 	o.values = nil
 }
 
-func (o *memorySlice) newIterator(p iteratorParent, reverse bool) ValueIterator {
+func (o *memorySlice) newIterator(p iteratorParent, reverse bool) Iterator {
 	return newMemIterator(o.values, p, reverse, len(o.values))
 }
 
@@ -108,6 +117,6 @@ func (o *diskSlice) append(v Value) {
 	o.diskSorted.add(nil, v)
 }
 
-func (o *diskSlice) newIterator(p iteratorParent, reverse bool) ValueIterator {
+func (o *diskSlice) newIterator(p iteratorParent, reverse bool) Iterator {
 	return o.diskSorted.newIterator(p, reverse)
 }

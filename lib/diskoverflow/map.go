@@ -16,7 +16,19 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
-type Map struct {
+type Map interface {
+	Add(k string, v Value)
+	Get(k string, v Value) bool
+	Pop(k string, v Value) bool
+	Delete(k string)
+	NewIterator() MapIterator
+	Bytes() int
+	Items() int
+	SetOverflowBytes(bytes int)
+	Close()
+}
+
+type omap struct {
 	commonMap
 	base
 }
@@ -30,17 +42,16 @@ type commonMap interface {
 	newIterator(p iteratorParent) MapIterator
 }
 
-// NewSorted creates a map like container, spilling to disk at location.
-// All items added to this instance must be of the same type as v.
-func NewMap(location string) *Map {
-	o := &Map{base: newBase(location)}
+// NewMap returns an implementaiton of Map, spilling to disk at location.
+func NewMap(location string) Map {
+	o := &omap{base: newBase(location)}
 	o.commonMap = &memoryMap{
 		values: make(map[string]Value),
 	}
 	return o
 }
 
-func (o *Map) Add(k string, v Value) {
+func (o *omap) Add(k string, v Value) {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}
@@ -63,26 +74,26 @@ func (o *Map) Add(k string, v Value) {
 	o.add(k, v)
 }
 
-func (o *Map) String() string {
+func (o *omap) String() string {
 	return fmt.Sprintf("Map@%p", o)
 }
 
 // Close is just here to catch deferred calls to Close, such that the correct
 // method is called in case spilling happened.
-func (o *Map) Close() {
+func (o *omap) Close() {
 	o.commonMap.Close()
 }
 
-func (o *Map) released() {
+func (o *omap) released() {
 	o.iterating = false
 }
 
 type MapIterator interface {
-	ValueIterator
+	Iterator
 	Key() string
 }
 
-func (o *Map) NewIterator() MapIterator {
+func (o *omap) NewIterator() MapIterator {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}

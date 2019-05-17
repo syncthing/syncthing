@@ -27,15 +27,10 @@ var (
 
 // Sets the default limit of when data is written to disks. Can be overruled
 // on individual instances via their SetOverflowBytes method.
-// Argument bytes < 0 means no disk spilling will ever happen and = 0 sets it to
-// OrigDefaultOverflowbytes.
+// A value of bytes =< 0 means no disk spilling will ever happen.
 func SetDefaultOverflowBytes(bytes int) {
 	defaultOverflowMut.Lock()
-	if bytes == 0 {
-		defaultOverflow = OrigDefaultOverflowBytes
-	} else {
-		defaultOverflow = bytes
-	}
+	defaultOverflow = bytes
 	defaultOverflowMut.Unlock()
 }
 
@@ -105,9 +100,6 @@ func newBase(location string) base {
 	}
 }
 
-// SetOverflowBytes changes the limit of when contents are written to disk.
-// A change only takes effect if another element is added to the container.
-// A value of <= 0 means no disk spilling will ever happen.
 func (o *base) SetOverflowBytes(bytes int) {
 	o.overflowBytes = bytes
 }
@@ -119,10 +111,6 @@ func (o *base) startSpilling(size int) bool {
 type Iterator interface {
 	Release()
 	Next() bool
-}
-
-type ValueIterator interface {
-	Iterator
 	Value(Value)
 }
 

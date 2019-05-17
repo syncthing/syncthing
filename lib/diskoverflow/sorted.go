@@ -15,13 +15,27 @@ import (
 
 const suffixLength = 8
 
-type Sorted struct {
+// Sorted is a disk-spilling container, that sorts added values by the
+// accompanying keys.
+// You must not add new values after calling PopFirst/-Last.
+type Sorted interface {
+	Add(k []byte, v Value)
+	PopFirst(v Value) bool
+	PopLast(v Value) bool
+	NewIterator(reverse bool) Iterator
+	Bytes() int
+	Items() int
+	SetOverflowBytes(bytes int)
+	Close()
+}
+
+type sorted struct {
 	commonSorted
 	base
 }
 
-type keyValueIterator interface {
-	ValueIterator
+type keyIterator interface {
+	Iterator
 	key() []byte
 }
 
@@ -32,19 +46,17 @@ type commonSorted interface {
 	getLast(v Value) bool
 	dropFirst(bytes int)
 	dropLast(bytes int)
-	newIterator(p iteratorParent, reverse bool) keyValueIterator
+	newIterator(p iteratorParent, reverse bool) keyIterator
 }
 
-// NewSorted creates a sorted container, spilling to disk at location and sorting
-// it's elements by the keys returned by the underlying type of v.
-// All items added to this instance must be of the same type as v.
-func NewSorted(location string) *Sorted {
-	o := &Sorted{base: newBase(location)}
+// NewSorted returns an implementaiton of Sorted, spilling to disk at location.
+func NewSorted(location string) Sorted {
+	o := &sorted{base: newBase(location)}
 	o.commonSorted = &memorySorted{}
 	return o
 }
 
-func (o *Sorted) Add(k []byte, v Value) {
+func (o *sorted) Add(k []byte, v Value) {
 	if o.startSpilling(o.Bytes() + v.Bytes()) {
 		d := v.Marshal()
 		newSorted := newDiskSorted(o.location)
@@ -68,7 +80,7 @@ func (o *Sorted) Add(k []byte, v Value) {
 	o.add(k, v)
 }
 
-func (o *Sorted) NewIterator(reverse bool) ValueIterator {
+func (o *sorted) NewIterator(reverse bool) Iterator {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}
@@ -76,7 +88,7 @@ func (o *Sorted) NewIterator(reverse bool) ValueIterator {
 	return o.newIterator(o, reverse)
 }
 
-func (o *Sorted) PopFirst(v Value) bool {
+func (o *sorted) PopFirst(v Value) bool {
 	ok := o.getFirst(v)
 	if !ok {
 		return false
@@ -85,7 +97,7 @@ func (o *Sorted) PopFirst(v Value) bool {
 	return true
 }
 
-func (o *Sorted) PopLast(v Value) bool {
+func (o *sorted) PopLast(v Value) bool {
 	ok := o.getLast(v)
 	if !ok {
 		return false
@@ -96,15 +108,15 @@ func (o *Sorted) PopLast(v Value) bool {
 
 // Close is just here to catch deferred calls to Close, such that the correct
 // method is called in case spilling happened.
-func (o *Sorted) Close() {
+func (o *sorted) Close() {
 	o.commonSorted.Close()
 }
 
-func (o *Sorted) String() string {
+func (o *sorted) String() string {
 	return fmt.Sprintf("Sorted@%p", o)
 }
 
-func (o *Sorted) released() {
+func (o *sorted) released() {
 	o.iterating = false
 }
 
@@ -189,22 +201,22 @@ func (o *memorySorted) dropLast(bytes int) {
 	o.bytes -= bytes
 }
 
-func (o *memorySorted) newIterator(parent iteratorParent, reverse bool) keyValueIterator {
+func (o *memorySorted) newIterator(parent iteratorParent, reverse bool) keyIterator {
 	if !o.outgoing {
 		sort.Sort(o)
 	}
-	return &memSortValueIterator{
+	return &memSortIterator{
 		memIterator: newMemIterator(o.values, parent, reverse, o.Items()),
 		keys:        o.keys,
 	}
 }
 
-type memSortValueIterator struct {
+type memSortIterator struct {
 	*memIterator
 	keys [][]byte
 }
 
-func (si *memSortValueIterator) key() []byte {
+func (si *memSortIterator) key() []byte {
 	if si.pos == si.len || si.pos == -1 {
 		return nil
 	}
@@ -275,7 +287,7 @@ func (d *diskSorted) dropLast(bytes int) {
 	d.len--
 }
 
-func (d *diskSorted) newIterator(parent iteratorParent, reverse bool) keyValueIterator {
+func (d *diskSorted) newIterator(parent iteratorParent, reverse bool) keyIterator {
 	di := &diskIterator{
 		it:     d.db.NewIterator(nil, nil),
 		parent: parent,

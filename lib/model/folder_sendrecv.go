@@ -296,7 +296,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	return changed
 }
 
-func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, *diskoverflow.Map, *diskoverflow.Slice, error) {
+func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, diskoverflow.Map, diskoverflow.Slice, error) {
 	defer f.queue.Reset()
 
 	changed := 0
@@ -501,7 +501,7 @@ nextFile:
 	return changed, fileDeletions, dirDeletions, nil
 }
 
-func (f *sendReceiveFolder) processDeletions(fileDeletions *diskoverflow.Map, dirDeletions *diskoverflow.Slice, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) processDeletions(fileDeletions diskoverflow.Map, dirDeletions diskoverflow.Slice, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Do not return early due to necessary cleanup
 	fit := fileDeletions.NewIterator()
 	v := &diskoverflow.ValueFileInfo{}
