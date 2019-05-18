@@ -190,16 +190,17 @@ type queueValue struct {
 	string
 }
 
-func (q *queueValue) Bytes() int {
+func (q *queueValue) ProtoSize() int {
 	return len(q.string)
 }
 
-func (q *queueValue) Marshal() []byte {
-	return []byte(q.string)
+func (q *queueValue) Marshal() ([]byte, error) {
+	return []byte(q.string), nil
 }
 
-func (q *queueValue) Unmarshal(v []byte) {
+func (q *queueValue) Unmarshal(v []byte) error {
 	q.string = string(v)
+	return nil
 }
 
 func (q *queueValue) Reset() {

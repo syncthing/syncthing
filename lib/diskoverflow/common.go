@@ -42,11 +42,13 @@ func DefaultOverflowBytes() int {
 }
 
 // Value must be implemented by every type that is to be stored in a disk spilling container.
+// Un-/Marshal returning an error will result in a panic.
+// This uses methods from proto interfaces such that existing types can be reused.
 type Value interface {
-	Bytes() int
-	Marshal() []byte
-	Unmarshal([]byte)
+	Marshal() ([]byte, error)
+	Unmarshal([]byte) error
 	Reset() // To make an already populated Value ready for Unmarshal
+	ProtoSize() int
 }
 
 // copyValue copies the content from src to dst. Src and dst must be pointers
@@ -55,31 +57,6 @@ func copyValue(dst, src Value) {
 	dstv := reflect.ValueOf(dst).Elem()
 	srcv := reflect.ValueOf(src).Elem()
 	dstv.Set(srcv)
-}
-
-// ValueFileInfo implements Value for protocol.FileInfo
-type ValueFileInfo struct{ protocol.FileInfo }
-
-func (s *ValueFileInfo) Bytes() int {
-	return s.ProtoSize()
-}
-
-func (s *ValueFileInfo) Marshal() []byte {
-	data, err := s.FileInfo.Marshal()
-	if err != nil {
-		panic("bug: marshalling FileInfo should never fail: " + err.Error())
-	}
-	return data
-}
-
-func (s *ValueFileInfo) Unmarshal(v []byte) {
-	if err := s.FileInfo.Unmarshal(v); err != nil {
-		panic("unmarshal failed: " + err.Error())
-	}
-}
-
-func (s *ValueFileInfo) Reset() {
-	s.FileInfo = protocol.FileInfo{}
 }
 
 type common interface {

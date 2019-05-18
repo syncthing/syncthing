@@ -130,16 +130,17 @@ func randomTestValues(length int) []*testValue {
 	return l
 }
 
-func (t *testValue) Bytes() int {
+func (t *testValue) ProtoSize() int {
 	return len(t.string)
 }
 
-func (t *testValue) Marshal() []byte {
-	return []byte(t.string)
+func (t *testValue) Marshal() ([]byte, error) {
+	return []byte(t.string), nil
 }
 
-func (t *testValue) Unmarshal(v []byte) {
+func (t *testValue) Unmarshal(v []byte) error {
 	t.string = string(v)
+	return nil
 }
 
 func (t *testValue) Reset() {

@@ -56,8 +56,9 @@ func NewSorted(location string) Sorted {
 }
 
 func (o *sorted) Add(k []byte, v Value) {
-	if o.startSpilling(o.Bytes() + v.Bytes()) {
-		d := v.Marshal()
+	if o.startSpilling(o.Bytes() + v.ProtoSize()) {
+		d, err := v.Marshal()
+		errPanic(err)
 		newSorted := newDiskSorted(o.location)
 		it := o.NewIterator().(keyIterator)
 		for it.Next() {
@@ -70,7 +71,7 @@ func (o *sorted) Add(k []byte, v Value) {
 		o.commonSorted = newSorted
 		o.spilling = true
 		v.Reset()
-		v.Unmarshal(d)
+		errPanic(v.Unmarshal(d))
 	}
 	o.add(k, v)
 }
@@ -120,7 +121,7 @@ func (o *memorySorted) add(k []byte, v Value) {
 	}
 	o.values = append(o.values, v)
 	o.keys = append(o.keys, k)
-	o.bytes += v.Bytes()
+	o.bytes += v.ProtoSize()
 }
 
 func (o *memorySorted) Len() int {
@@ -170,7 +171,7 @@ func (o *memorySorted) pop(v Value, first bool) bool {
 		o.values = o.values[:i]
 		o.keys = o.keys[:i]
 	}
-	o.bytes -= v.Bytes()
+	o.bytes -= v.ProtoSize()
 	return true
 }
 
@@ -211,7 +212,7 @@ func (o *diskSorted) add(k []byte, v Value) {
 	suffix := make([]byte, suffixLength)
 	binary.BigEndian.PutUint64(suffix[:], uint64(o.Items()))
 	o.diskMap.addBytes(append(k, suffix...), v)
-	o.bytes += v.Bytes()
+	o.bytes += v.ProtoSize()
 }
 
 func (o *diskSorted) Bytes() int {
@@ -238,9 +239,9 @@ func (o *diskSorted) pop(v Value, first bool) bool {
 	if !ok {
 		return false
 	}
-	v.Unmarshal(it.Value())
+	errPanic(v.Unmarshal(it.Value()))
 	errPanic(o.db.Delete(it.Key(), nil))
-	o.bytes -= v.Bytes()
+	o.bytes -= v.ProtoSize()
 	o.len--
 	return true
 }

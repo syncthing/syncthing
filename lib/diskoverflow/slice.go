@@ -43,8 +43,9 @@ func (o *slice) Append(v Value) {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}
-	if o.startSpilling(o.Bytes() + v.Bytes()) {
-		d := v.Marshal()
+	if o.startSpilling(o.Bytes() + v.ProtoSize()) {
+		d, err := v.Marshal()
+		errPanic(err)
 		ds := &diskSlice{newDiskSorted(o.location)}
 		it := o.NewIterator()
 		for it.Next() {
@@ -57,7 +58,7 @@ func (o *slice) Append(v Value) {
 		o.commonSlice = ds
 		o.spilling = true
 		v.Reset()
-		v.Unmarshal(d)
+		errPanic(v.Unmarshal(d))
 	}
 	o.append(v)
 }
@@ -99,7 +100,7 @@ type memorySlice struct {
 
 func (o *memorySlice) append(v Value) {
 	o.values = append(o.values, v)
-	o.bytes += v.Bytes()
+	o.bytes += v.ProtoSize()
 }
 
 func (o *memorySlice) Bytes() int {

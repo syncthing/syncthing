@@ -110,6 +110,7 @@ func TestWalk(t *testing.T) {
 
 	var tmp []protocol.FileInfo
 	for f := range fchan {
+		t.Log("receiving", f)
 		if f.Err != nil {
 			t.Errorf("Error while scanning %v: %v", f.Err, f.Path)
 		}
@@ -119,6 +120,8 @@ func TestWalk(t *testing.T) {
 	files := fileList(tmp).testfiles()
 
 	if diff, equal := messagediff.PrettyDiff(testdata, files); !equal {
+		t.Log(testdata)
+		t.Log(files)
 		t.Errorf("Walk returned unexpected data. Diff:\n%s", diff)
 	}
 }
@@ -253,7 +256,7 @@ func TestNormalization(t *testing.T) {
 func TestIssue1507(t *testing.T) {
 	w := &walker{}
 	w.Matcher = ignore.New(w.Filesystem)
-	h := make(chan protocol.FileInfo, 100)
+	h := make(chan *protocol.FileInfo, 100)
 	f := make(chan ScanResult, 100)
 	fn := w.walkAndHashFiles(context.TODO(), h, f)
 

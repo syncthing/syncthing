@@ -55,8 +55,9 @@ func (o *omap) Set(k string, v Value) {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}
-	if o.startSpilling(o.Bytes() + v.Bytes()) {
-		d := v.Marshal()
+	if o.startSpilling(o.Bytes() + v.ProtoSize()) {
+		d, err := v.Marshal()
+		errPanic(err)
 		newMap := newDiskMap(o.location)
 		it := o.newIterator(o)
 		for it.Next() {
@@ -69,7 +70,7 @@ func (o *omap) Set(k string, v Value) {
 		o.commonMap = newMap
 		o.spilling = true
 		v.Reset()
-		v.Unmarshal(d)
+		errPanic(v.Unmarshal(d))
 	}
 	o.set(k, v)
 }
@@ -107,7 +108,7 @@ type memoryMap struct {
 
 func (o *memoryMap) set(k string, v Value) {
 	o.values[k] = v
-	o.bytes += v.Bytes()
+	o.bytes += v.ProtoSize()
 }
 
 func (o *memoryMap) Bytes() int {
@@ -137,7 +138,7 @@ func (o *memoryMap) Pop(k string, v Value) bool {
 		return false
 	}
 	delete(o.values, k)
-	o.bytes -= v.Bytes()
+	o.bytes -= v.ProtoSize()
 	return true
 }
 
@@ -147,7 +148,7 @@ func (o *memoryMap) Delete(k string) {
 		return
 	}
 	delete(o.values, k)
-	o.bytes -= v.Bytes()
+	o.bytes -= v.ProtoSize()
 }
 
 type iteratorValue struct {
@@ -232,11 +233,13 @@ func newDiskMap(location string) *diskMap {
 
 func (o *diskMap) set(k string, v Value) {
 	o.addBytes([]byte(k), v)
-	o.bytes += v.Bytes()
+	o.bytes += v.ProtoSize()
 }
 
 func (o *diskMap) addBytes(k []byte, v Value) {
-	if err := o.db.Put(k, v.Marshal(), nil); err != nil {
+	d, err := v.Marshal()
+	errPanic(err)
+	if err := o.db.Put(k, d, nil); err != nil {
 		panic("writing to temporary database: " + err.Error())
 	}
 	o.len++
@@ -256,7 +259,7 @@ func (o *diskMap) Get(k string, v Value) bool {
 	if err != nil {
 		return false
 	}
-	v.Unmarshal(d)
+	errPanic(v.Unmarshal(d))
 	return true
 }
 
@@ -295,7 +298,7 @@ func (i *diskIterator) Next() bool {
 }
 
 func (i *diskIterator) Value(v Value) {
-	v.Unmarshal(i.it.Value())
+	errPanic(v.Unmarshal(i.it.Value()))
 }
 
 func (i *diskIterator) key() []byte {
