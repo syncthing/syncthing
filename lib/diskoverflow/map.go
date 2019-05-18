@@ -123,7 +123,7 @@ func (o *memoryMap) Get(k string, v Value) bool {
 	if !ok {
 		return false
 	}
-	v.Copy(nv)
+	copyValue(v, nv)
 	return true
 }
 
@@ -190,7 +190,7 @@ func (i *memMapIterator) Key() string {
 }
 
 func (i *memMapIterator) Value(v Value) {
-	v.Copy(i.current.v)
+	copyValue(v, i.current.v)
 }
 
 func (i *memMapIterator) Next() bool {

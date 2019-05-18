@@ -142,10 +142,6 @@ func (t *testValue) Unmarshal(v []byte) {
 	t.string = string(v)
 }
 
-func (t *testValue) Copy(v Value) {
-	t.string = v.(*testValue).string
-}
-
 func (t *testValue) Reset() {
 	t.string = ""
 }

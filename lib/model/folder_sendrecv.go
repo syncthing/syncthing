@@ -2036,10 +2036,6 @@ func (s *valueFileInfoSlice) Unmarshal(v []byte) {
 	}
 }
 
-func (s *valueFileInfoSlice) Copy(v diskoverflow.Value) {
-	s.Index = v.(*valueFileInfoSlice).Index
-}
-
 func (s *valueFileInfoSlice) Reset() {
 	s.Index = protocol.Index{}
 }

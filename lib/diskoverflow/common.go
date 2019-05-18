@@ -11,6 +11,7 @@
 package diskoverflow
 
 import (
+	"reflect"
 	"sync"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -46,7 +47,14 @@ type Value interface {
 	Marshal() []byte
 	Unmarshal([]byte)
 	Reset() // To make an already populated Value ready for Unmarshal
-	Copy(Value)
+}
+
+// copyValue copies the content from src to dst. Src and dst must be pointers
+// to the same underlying types, otherwise this will panic.
+func copyValue(dst, src Value) {
+	dstv := reflect.ValueOf(dst).Elem()
+	srcv := reflect.ValueOf(src).Elem()
+	dstv.Set(srcv)
 }
 
 // ValueFileInfo implements Value for protocol.FileInfo
@@ -68,10 +76,6 @@ func (s *ValueFileInfo) Unmarshal(v []byte) {
 	if err := s.FileInfo.Unmarshal(v); err != nil {
 		panic("unmarshal failed: " + err.Error())
 	}
-}
-
-func (s *ValueFileInfo) Copy(v Value) {
-	s.FileInfo = v.(*ValueFileInfo).FileInfo
 }
 
 func (s *ValueFileInfo) Reset() {
@@ -158,7 +162,7 @@ func (si *memIterator) Next() bool {
 
 func (si *memIterator) Value(v Value) {
 	if si.pos != si.len && si.pos != -1 {
-		v.Copy(si.values[si.pos])
+		copyValue(v, si.values[si.pos])
 	}
 }
 

@@ -167,7 +167,7 @@ func (o *memorySorted) getFirst(v Value) bool {
 	if o.Items() == 0 {
 		return false
 	}
-	v.Copy(o.values[0])
+	copyValue(v, o.values[0])
 	return true
 }
 
@@ -179,7 +179,7 @@ func (o *memorySorted) getLast(v Value) bool {
 	if o.Items() == 0 {
 		return false
 	}
-	v.Copy(o.values[o.Items()-1])
+	copyValue(v, o.values[o.Items()-1])
 	return true
 }
 

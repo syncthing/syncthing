@@ -202,10 +202,6 @@ func (q *queueValue) Unmarshal(v []byte) {
 	q.string = string(v)
 }
 
-func (q *queueValue) Copy(v diskoverflow.Value) {
-	q.string = v.(*queueValue).string
-}
-
 func (q *queueValue) Reset() {
 	q.string = ""
 }
