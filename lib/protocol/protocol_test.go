@@ -11,11 +11,13 @@ import (
 	"io"
 	"io/ioutil"
 	"runtime"
-	"strings"
+	"sync"
 	"testing"
 	"testing/quick"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/testutils"
 )
 
 var (
@@ -43,6 +45,8 @@ func TestPing(t *testing.T) {
 	}
 }
 
+var errManual = errors.New("manual close")
+
 func TestClose(t *testing.T) {
 	m0 := newTestModel()
 	m1 := newTestModel()
@@ -57,10 +61,10 @@ func TestClose(t *testing.T) {
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
 
-	c0.internalClose(errors.New("manual close"))
+	c0.internalClose(errManual)
 
 	<-c0.closed
-	if err := m0.closedError(); err == nil || !strings.Contains(err.Error(), "manual close") {
+	if err := m0.closedError(); err != errManual {
 		t.Fatal("Connection should be closed")
 	}
 
@@ -75,6 +79,49 @@ func TestClose(t *testing.T) {
 
 	if _, err := c0.Request("default", "foo", 0, 0, nil, 0, false); err == nil {
 		t.Error("Request should return an error")
+	}
+}
+
+// TestCloseOnBlockingSend checks that the connection does not deadlock when
+// Close is called while the underlying connection is broken (send blocks).
+// https://github.com/syncthing/syncthing/pull/5442
+func TestCloseOnBlockingSend(t *testing.T) {
+	m := newTestModel()
+
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c.Start()
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		c.ClusterConfig(ClusterConfig{})
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		c.Close(errManual)
+		wg.Done()
+	}()
+
+	// This simulates an error from ping timeout
+	wg.Add(1)
+	go func() {
+		c.internalClose(ErrTimeout)
+		wg.Done()
+	}()
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before all functions returned")
 	}
 }
 
