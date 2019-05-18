@@ -521,7 +521,7 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions diskoverflow.Map, dir
 	fit.Release()
 	fileDeletions.Close()
 
-	dit := dirDeletions.NewIterator(true)
+	dit := dirDeletions.NewReverseIterator()
 	for dit.Next() {
 		select {
 		case <-f.ctx.Done():

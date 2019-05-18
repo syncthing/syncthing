@@ -58,7 +58,7 @@ func testSorted(t *testing.T) {
 	}
 
 	i := 0
-	it := sorted.NewIterator(false)
+	it := sorted.NewIterator()
 	v := &testValue{}
 	for it.Next() {
 		it.Value(v)
@@ -114,7 +114,7 @@ func testSorted(t *testing.T) {
 	}
 
 	i = len(testValues) - 1
-	it = sorted.NewIterator(true)
+	it = sorted.NewReverseIterator()
 	for it.Next() {
 		i--
 		v.Reset()

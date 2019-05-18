@@ -12,7 +12,8 @@ import (
 
 type Slice interface {
 	Append(v Value)
-	NewIterator(reverse bool) Iterator
+	NewIterator() Iterator
+	NewReverseIterator() Iterator
 	Bytes() int
 	Items() int
 	SetOverflowBytes(bytes int)
@@ -45,7 +46,7 @@ func (o *slice) Append(v Value) {
 	if o.startSpilling(o.Bytes() + v.Bytes()) {
 		d := v.Marshal()
 		ds := &diskSlice{newDiskSorted(o.location)}
-		it := o.newIterator(o, false)
+		it := o.NewIterator()
 		for it.Next() {
 			v.Reset()
 			it.Value(v)
@@ -65,12 +66,20 @@ func (o *slice) released() {
 	o.iterating = false
 }
 
-func (o *slice) NewIterator(reverse bool) Iterator {
+func (o *slice) NewIterator() Iterator {
+	return o.newIterator(false)
+}
+
+func (o *slice) NewReverseIterator() Iterator {
+	return o.newIterator(true)
+}
+
+func (o *slice) newIterator(reverse bool) Iterator {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}
 	o.iterating = true
-	return o.newIterator(o, reverse)
+	return o.commonSlice.newIterator(o, reverse)
 }
 
 // Close is just here to catch deferred calls to Close, such that the correct

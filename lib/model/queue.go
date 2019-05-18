@@ -102,7 +102,7 @@ func (q *jobQueue) BringToFront(filename string) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	it := q.queued.NewIterator(false)
+	it := q.queued.NewIterator()
 	defer it.Release()
 	v := &queueValue{}
 	for it.Next() {
@@ -144,13 +144,13 @@ func (q *jobQueue) Jobs() ([]string, []string) {
 		}
 	}
 
-	rev := false
+	var it diskoverflow.Iterator
 	switch q.order {
 	case config.OrderLargestFirst, config.OrderNewestFirst:
-		l.Infoln("queue iter", q.order)
-		rev = true
+		it = q.queued.NewReverseIterator()
+	default:
+		it = q.queued.NewIterator()
 	}
-	it := q.queued.NewIterator(rev)
 	v := &queueValue{}
 	for it.Next() {
 		it.Value(v)

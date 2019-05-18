@@ -56,7 +56,7 @@ func testSlice(t *testing.T) {
 	}
 
 	i := 0
-	it := slice.NewIterator(false)
+	it := slice.NewIterator()
 	v := &testValue{}
 	for it.Next() {
 		it.Value(v)
@@ -77,7 +77,7 @@ func testSlice(t *testing.T) {
 		t.Fatalf("s.Bytes() == %v, expected %v", s, len(testValues)*10)
 	}
 
-	it = slice.NewIterator(true)
+	it = slice.NewReverseIterator()
 
 	for it.Next() {
 		i--
@@ -93,7 +93,7 @@ func testSlice(t *testing.T) {
 	it.Release()
 
 	i = len(testValues)
-	it = slice.NewIterator(true)
+	it = slice.NewReverseIterator()
 	for it.Next() {
 		i--
 		v.Reset()

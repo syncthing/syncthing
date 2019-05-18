@@ -189,7 +189,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			}
 		}()
 
-		it := filesToHash.NewIterator(true)
+		it := filesToHash.NewReverseIterator()
 		v := &diskoverflow.ValueFileInfo{}
 		for it.Next() {
 			it.Value(v)

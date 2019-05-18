@@ -22,7 +22,8 @@ type Sorted interface {
 	Add(k []byte, v Value)
 	PopFirst(v Value) bool
 	PopLast(v Value) bool
-	NewIterator(reverse bool) Iterator
+	NewIterator() Iterator
+	NewReverseIterator() Iterator
 	Bytes() int
 	Items() int
 	SetOverflowBytes(bytes int)
@@ -60,11 +61,7 @@ func (o *sorted) Add(k []byte, v Value) {
 	if o.startSpilling(o.Bytes() + v.Bytes()) {
 		d := v.Marshal()
 		newSorted := newDiskSorted(o.location)
-		if o.iterating {
-			panic(concurrencyMsg)
-		}
-		o.iterating = true
-		it := o.newIterator(o, false)
+		it := o.NewIterator().(keyIterator)
 		for it.Next() {
 			v.Reset()
 			it.Value(v)
@@ -80,12 +77,20 @@ func (o *sorted) Add(k []byte, v Value) {
 	o.add(k, v)
 }
 
-func (o *sorted) NewIterator(reverse bool) Iterator {
+func (o *sorted) NewIterator() Iterator {
+	return o.newIterator(false)
+}
+
+func (o *sorted) NewReverseIterator() Iterator {
+	return o.newIterator(true)
+}
+
+func (o *sorted) newIterator(reverse bool) Iterator {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}
 	o.iterating = true
-	return o.newIterator(o, reverse)
+	return o.commonSorted.newIterator(o, reverse)
 }
 
 func (o *sorted) PopFirst(v Value) bool {
