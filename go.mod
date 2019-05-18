@@ -27,7 +27,7 @@ require (
 	github.com/petermattis/goid v0.0.0-20170816195418-3db12ebb2a59 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v0.9.2
+	github.com/prometheus/client_golang v0.9.3
 	github.com/rcrowley/go-metrics v0.0.0-20171128170426-e181e095bae9
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/stretchr/testify v1.2.2 // indirect
