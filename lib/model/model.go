@@ -1119,7 +1119,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", deviceID, folder.Description(), dev.IndexID, myIndexID)
 					startSequence = 0
 				}
-			} else if dev.ID == deviceID && dev.IndexID != 0 {
+			} else if dev.ID == deviceID {
 				// This is the other side's description of themselves. We
 				// check to see that it matches the IndexID we have on file,
 				// otherwise we drop our old index data and expect to get a

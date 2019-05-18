@@ -339,16 +339,17 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			if file.IsDirectory() {
 				// Perform directory deletions at the end, as we may have
 				// files to delete inside them before we get to that point.
-				l.Debugln("processing directly appending deleted dir", file.Name)
 				dirDeletions.Append(&diskoverflow.ValueFileInfo{file})
+			} else if file.IsSymlink() {
+				f.deleteFile(file, dbUpdateChan, scanChan)
 			} else {
-				fileDeletions.Add(file.Name, &diskoverflow.ValueFileInfo{file})
 				df, ok := f.fset.Get(protocol.LocalDeviceID, file.Name)
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
 				// WithNeed, furthermore, the file can simply be of the wrong
 				// type if we haven't yet managed to pull it.
 				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
+					fileDeletions.Add(file.Name, &diskoverflow.ValueFileInfo{file})
 					// Put files into buckets per first hash
 					key := string(df.Blocks[0].Hash)
 					v := &valueFileInfoSlice{}
@@ -358,6 +359,8 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 						v = newValueFileInfoSlice([]protocol.FileInfo{df})
 					}
 					buckets.Add(key, v)
+				} else {
+					f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
 				}
 			}
 			changed++
@@ -368,7 +371,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
-				f.resetPullError(file.Name)
 				f.shortcutFile(file, curFile, dbUpdateChan)
 			} else {
 				// Queue files for processing after directories and symlinks.
@@ -385,7 +387,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		case file.IsDirectory() && !file.IsSymlink():
 			changed++
 			l.Debugln(f, "Handling directory", file.Name)
-			f.resetPullError(file.Name)
 			if f.checkParent(file.Name, scanChan) {
 				f.handleDir(file, dbUpdateChan, scanChan)
 			}
@@ -393,7 +394,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		case file.IsSymlink():
 			changed++
 			l.Debugln(f, "Handling symlink", file.Name)
-			f.resetPullError(file.Name)
 			if f.checkParent(file.Name, scanChan) {
 				f.handleSymlink(file, dbUpdateChan, scanChan)
 			}
@@ -515,13 +515,8 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions diskoverflow.Map, dir
 		v.Reset()
 		fit.Value(v)
 		file := v.FileInfo
-		l.Debugln(f, "Deleting file", file.Name)
 		f.resetPullError(file.Name)
-		if update, err := f.deleteFile(file, scanChan); err != nil {
-			f.newPullError(file.Name, errors.Wrap(err, "delete file"))
-		} else {
-			dbUpdateChan <- update
-		}
+		f.deleteFile(file, dbUpdateChan, scanChan)
 	}
 	fit.Release()
 	fileDeletions.Close()
@@ -550,6 +545,8 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
+
+	f.resetPullError(file.Name)
 
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
@@ -709,6 +706,8 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	// care not declare another err.
 	var err error
 
+	f.resetPullError(file.Name)
+
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
@@ -821,10 +820,19 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 }
 
 // deleteFile attempts to delete the given file
-func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- string) (dbUpdateJob, error) {
+func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+	cur, hasCur := f.fset.Get(protocol.LocalDeviceID, file.Name)
+	f.deleteFileWithCurrent(file, cur, hasCur, dbUpdateChan, scanChan)
+}
+
+func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, hasCur bool, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
+
+	l.Debugln(f, "Deleting file", file.Name)
+
+	f.resetPullError(file.Name)
 
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
@@ -834,6 +842,9 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- s
 	})
 
 	defer func() {
+		if err != nil {
+			f.newPullError(file.Name, errors.Wrap(err, "delete file"))
+		}
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   file.Name,
@@ -843,20 +854,21 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- s
 		})
 	}()
 
-	cur, ok := f.fset.Get(protocol.LocalDeviceID, file.Name)
-	if !ok {
+	if !hasCur {
 		// We should never try to pull a deletion for a file we don't have in the DB.
 		l.Debugln(f, "not deleting file we don't have", file.Name)
-		return dbUpdateJob{file, dbUpdateDeleteFile}, nil
+		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
+		return
 	}
 	if err = f.checkToBeDeleted(cur, scanChan); err != nil {
-		return dbUpdateJob{}, err
+		return
 	}
 
 	// We are asked to delete a file, but what we have on disk and in db
 	// is a directory. Something is wrong here, should probably not happen.
 	if cur.IsDirectory() {
-		return dbUpdateJob{}, errUnexpectedDirOnFileDel
+		err = errUnexpectedDirOnFileDel
+		return
 	}
 
 	if f.inConflict(cur.Version, file.Version) {
@@ -864,7 +876,8 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- s
 		// always lose. Merge the version vector of the file we have
 		// locally and commit it to db to resolve the conflict.
 		cur.Version = cur.Version.Merge(file.Version)
-		return dbUpdateJob{cur, dbUpdateHandleFile}, nil
+		dbUpdateChan <- dbUpdateJob{cur, dbUpdateHandleFile}
+		return
 	}
 
 	if f.versioner != nil && !cur.IsSymlink() {
@@ -875,7 +888,8 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- s
 
 	if err == nil || fs.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
-		return dbUpdateJob{file, dbUpdateDeleteFile}, nil
+		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
+		return
 	}
 
 	if _, serr := f.fs.Lstat(file.Name); serr != nil && !fs.IsPermission(serr) {
@@ -884,10 +898,8 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- s
 		// does not exist" (possibly expressed as some parent being a file and
 		// not a directory etc) and that the delete is handled.
 		err = nil
-		return dbUpdateJob{file, dbUpdateDeleteFile}, nil
+		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
 	}
-
-	return dbUpdateJob{}, err
 }
 
 // renameFile attempts to rename an existing file to a destination
@@ -1178,6 +1190,8 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 // thing that has changed.
 func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	l.Debugln(f, "taking shortcut on", file.Name)
+
+	f.resetPullError(file.Name)
 
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
