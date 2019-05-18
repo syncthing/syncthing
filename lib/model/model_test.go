@@ -1501,6 +1501,8 @@ func TestIgnores(t *testing.T) {
 		m.db.Close()
 	}()
 
+	m.RemoveFolder(defaultFolderConfig)
+	m.AddFolder(defaultFolderConfig)
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
 	// because we will be changing the files on disk often enough that the
@@ -1508,6 +1510,7 @@ func TestIgnores(t *testing.T) {
 	m.fmut.Lock()
 	m.folderIgnores["default"] = ignore.New(defaultFs, ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Unlock()
+	m.StartFolder("default")
 
 	// Make sure the initial scan has finished (ScanFolders is blocking)
 	m.ScanFolders()
@@ -3316,39 +3319,6 @@ func TestFolderRestartZombies(t *testing.T) {
 	if r := atomic.LoadInt32(&m.foldersRunning); r != 1 {
 		t.Error("Expected one running folder, not", r)
 	}
-}
-
-type alwaysChangedKey struct {
-	fs   fs.Filesystem
-	name string
-}
-
-// alwaysChanges is an ignore.ChangeDetector that always returns true on Changed()
-type alwaysChanged struct {
-	seen map[alwaysChangedKey]struct{}
-}
-
-func newAlwaysChanged() *alwaysChanged {
-	return &alwaysChanged{
-		seen: make(map[alwaysChangedKey]struct{}),
-	}
-}
-
-func (c *alwaysChanged) Remember(fs fs.Filesystem, name string, _ time.Time) {
-	c.seen[alwaysChangedKey{fs, name}] = struct{}{}
-}
-
-func (c *alwaysChanged) Reset() {
-	c.seen = make(map[alwaysChangedKey]struct{})
-}
-
-func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
-	_, ok := c.seen[alwaysChangedKey{fs, name}]
-	return ok
-}
-
-func (c *alwaysChanged) Changed() bool {
-	return true
 }
 
 func TestRequestLimit(t *testing.T) {

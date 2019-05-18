@@ -306,14 +306,12 @@ func TestPullInvalidIgnoredSR(t *testing.T) {
 
 // This test checks that (un-)ignored/invalid/deleted files are treated as expected.
 func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
-	t.Helper()
-
 	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
 	fcfg := testFolderConfigTmp()
 	fss := fcfg.Filesystem()
 	fcfg.Type = ft
 	w.SetFolder(fcfg)
-	m, fc := setupModelWithConnectionFromWrapper(w)
+	m := setupModel(w)
 	defer func() {
 		m.Stop()
 		m.db.Close()
@@ -321,6 +319,8 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 		os.Remove(w.ConfigPath())
 	}()
 
+	m.RemoveFolder(fcfg)
+	m.AddFolder(fcfg)
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
 	// because we might be changing the files on disk often enough that the
@@ -328,6 +328,10 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	m.fmut.Lock()
 	m.folderIgnores["default"] = ignore.New(fss, ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Unlock()
+	m.StartFolder(fcfg.ID)
+
+	fc := addFakeConn(m, device1)
+	fc.folder = "default"
 
 	if err := m.SetIgnores("default", []string{"*ignored*"}); err != nil {
 		panic(err)
@@ -366,7 +370,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 		for name := range expected {
 			t.Errorf("File %v wasn't added to index", name)
 		}
-		done <- struct{}{}
+		close(done)
 	}
 	fc.mut.Unlock()
 
@@ -377,12 +381,13 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 
 	select {
 	case ev := <-sub.C():
-		t.Fatalf("Errors while pulling: %v", ev)
+		t.Fatalf("Errors while scanning/pulling: %v", ev)
 	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out before index was received")
 	case <-done:
 	}
 
+	done = make(chan struct{})
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		expected := map[string]struct{}{ign: {}, ignExisting: {}}
@@ -411,7 +416,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 		for name := range expected {
 			t.Errorf("File %v wasn't updated in index", name)
 		}
-		done <- struct{}{}
+		close(done)
 	}
 	// Make sure pulling doesn't interfere, as index updates are racy and
 	// thus we cannot distinguish between scan and pull results.
