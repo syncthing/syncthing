@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 )
@@ -23,6 +24,7 @@ type downloadProgressMessage struct {
 }
 
 type fakeConnection struct {
+	fakeUnderlyingConn
 	id                       protocol.DeviceID
 	downloadProgressMessages []downloadProgressMessage
 	closed                   bool
@@ -55,10 +57,6 @@ func (f *fakeConnection) ID() protocol.DeviceID {
 }
 
 func (f *fakeConnection) Name() string {
-	return ""
-}
-
-func (f *fakeConnection) String() string {
 	return ""
 }
 
@@ -109,26 +107,6 @@ func (f *fakeConnection) Closed() bool {
 
 func (f *fakeConnection) Statistics() protocol.Statistics {
 	return protocol.Statistics{}
-}
-
-func (f *fakeConnection) RemoteAddr() net.Addr {
-	return &fakeAddr{}
-}
-
-func (f *fakeConnection) Type() string {
-	return "fake"
-}
-
-func (f *fakeConnection) Crypto() string {
-	return "fake"
-}
-
-func (f *fakeConnection) Transport() string {
-	return "fake"
-}
-
-func (f *fakeConnection) Priority() int {
-	return 9000
 }
 
 func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate) {
@@ -233,6 +211,43 @@ func addFakeConn(m *model, dev protocol.DeviceID) *fakeConnection {
 	})
 
 	return fc
+}
+
+type fakeProtoConn struct {
+	protocol.Connection
+	fakeUnderlyingConn
+}
+
+func newFakeProtoConn(protoConn protocol.Connection) connections.Connection {
+	return &fakeProtoConn{Connection: protoConn}
+}
+
+// fakeUnderlyingConn implements the methods of connections.Connection that are
+// not implemented by protocol.Connection
+type fakeUnderlyingConn struct{}
+
+func (f *fakeUnderlyingConn) RemoteAddr() net.Addr {
+	return &fakeAddr{}
+}
+
+func (f *fakeUnderlyingConn) Type() string {
+	return "fake"
+}
+
+func (f *fakeUnderlyingConn) Crypto() string {
+	return "fake"
+}
+
+func (f *fakeUnderlyingConn) Transport() string {
+	return "fake"
+}
+
+func (f *fakeUnderlyingConn) Priority() int {
+	return 9000
+}
+
+func (f *fakeUnderlyingConn) String() string {
+	return ""
 }
 
 type fakeAddr struct{}
