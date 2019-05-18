@@ -726,7 +726,8 @@ func main() {
 	if useHTTP {
 		listener, err = net.Listen("tcp", listenAddr)
 	} else {
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		var cert tls.Certificate
+		cert, err = tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
 			log.Fatalln("tls:", err)
 		}
@@ -1403,15 +1404,6 @@ func getReport(db *sql.DB) map[string]interface{} {
 	r["contries"] = countryList
 
 	return r
-}
-
-func ensureDir(dir string, mode int) {
-	fi, err := os.Stat(dir)
-	if os.IsNotExist(err) {
-		os.MkdirAll(dir, 0700)
-	} else if mode >= 0 && err == nil && int(fi.Mode()&0777) != mode {
-		os.Chmod(dir, os.FileMode(mode))
-	}
 }
 
 var (
