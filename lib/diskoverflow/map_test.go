@@ -42,7 +42,7 @@ func testMap(t *testing.T) {
 				t.Fatalf("s.Items() == %v, expected %v", l, i)
 			}
 		}
-		Map.Add(tv.string, tv)
+		Map.Set(tv.string, tv)
 	}
 
 	gotValues := make(map[string]struct{}, len(testValueSlice))

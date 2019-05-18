@@ -349,7 +349,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				// WithNeed, furthermore, the file can simply be of the wrong
 				// type if we haven't yet managed to pull it.
 				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
-					fileDeletions.Add(file.Name, &diskoverflow.ValueFileInfo{file})
+					fileDeletions.Set(file.Name, &diskoverflow.ValueFileInfo{file})
 					// Put files into buckets per first hash
 					key := string(df.Blocks[0].Hash)
 					v := &valueFileInfoSlice{}
@@ -358,7 +358,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 					} else {
 						v = newValueFileInfoSlice([]protocol.FileInfo{df})
 					}
-					buckets.Add(key, v)
+					buckets.Set(key, v)
 				} else {
 					f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
 				}
@@ -461,7 +461,7 @@ nextFile:
 				lidx := len(list) - 1
 				list[i] = list[lidx]
 				list = list[:lidx]
-				buckets.Add(key, newValueFileInfoSlice(list))
+				buckets.Set(key, newValueFileInfoSlice(list))
 
 				// candidate is our current state of the file, where as the
 				// desired state with the delete bit set is in the deletion

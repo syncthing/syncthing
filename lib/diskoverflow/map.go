@@ -17,7 +17,7 @@ import (
 )
 
 type Map interface {
-	Add(k string, v Value)
+	Set(k string, v Value)
 	Get(k string, v Value) bool
 	Pop(k string, v Value) bool
 	Delete(k string)
@@ -35,7 +35,7 @@ type omap struct {
 
 type commonMap interface {
 	common
-	add(k string, v Value)
+	set(k string, v Value)
 	Get(k string, v Value) bool
 	Pop(k string, v Value) bool
 	Delete(k string)
@@ -51,7 +51,7 @@ func NewMap(location string) Map {
 	return o
 }
 
-func (o *omap) Add(k string, v Value) {
+func (o *omap) Set(k string, v Value) {
 	if o.iterating {
 		panic(concurrencyMsg)
 	}
@@ -62,7 +62,7 @@ func (o *omap) Add(k string, v Value) {
 		for it.Next() {
 			v.Reset()
 			it.Value(v)
-			newMap.add(it.Key(), v)
+			newMap.set(it.Key(), v)
 		}
 		it.Release()
 		o.commonMap.Close()
@@ -71,7 +71,7 @@ func (o *omap) Add(k string, v Value) {
 		v.Reset()
 		v.Unmarshal(d)
 	}
-	o.add(k, v)
+	o.set(k, v)
 }
 
 func (o *omap) String() string {
@@ -105,7 +105,7 @@ type memoryMap struct {
 	bytes  int
 }
 
-func (o *memoryMap) add(k string, v Value) {
+func (o *memoryMap) set(k string, v Value) {
 	o.values[k] = v
 	o.bytes += v.Bytes()
 }
@@ -230,7 +230,7 @@ func newDiskMap(location string) *diskMap {
 	}
 }
 
-func (o *diskMap) add(k string, v Value) {
+func (o *diskMap) set(k string, v Value) {
 	o.addBytes([]byte(k), v)
 	o.bytes += v.Bytes()
 }
