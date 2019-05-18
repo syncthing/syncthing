@@ -11,6 +11,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/syncthing/notify"
 )
@@ -20,10 +21,10 @@ import (
 // Not meant to be changed, but must be changeable for tests
 var backendBuffer = 500
 
-func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
+func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
 	watchPath, root, err := f.watchPaths(name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	outChan := make(chan Event)
@@ -36,7 +37,11 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 
 	if ignore.SkipIgnoredDirs() {
 		absShouldIgnore := func(absPath string) bool {
-			return ignore.ShouldIgnore(f.unrootedChecked(absPath, root))
+			rel, err := f.unrootedChecked(absPath, root)
+			if err != nil {
+				return true
+			}
+			return ignore.ShouldIgnore(rel)
 		}
 		err = notify.WatchWithFilter(watchPath, backendChan, absShouldIgnore, eventMask)
 	} else {
@@ -47,15 +52,16 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		if reachedMaxUserWatches(err) {
 			err = errors.New("failed to setup inotify handler. Please increase inotify limits, see https://docs.syncthing.net/users/faq.html#inotify-limits")
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
-	go f.watchLoop(name, root, backendChan, outChan, ignore, ctx)
+	errChan := make(chan error)
+	go f.watchLoop(name, root, backendChan, outChan, errChan, ignore, ctx)
 
-	return outChan, nil
+	return outChan, errChan, nil
 }
 
-func (f *BasicFilesystem) watchLoop(name, evalRoot string, backendChan chan notify.EventInfo, outChan chan<- Event, ignore Matcher, ctx context.Context) {
+func (f *BasicFilesystem) watchLoop(name, evalRoot string, backendChan chan notify.EventInfo, outChan chan<- Event, errChan chan<- error, ignore Matcher, ctx context.Context) {
 	for {
 		// Detect channel overflow
 		if len(backendChan) == backendBuffer {
@@ -74,7 +80,18 @@ func (f *BasicFilesystem) watchLoop(name, evalRoot string, backendChan chan noti
 
 		select {
 		case ev := <-backendChan:
-			relPath := f.unrootedChecked(ev.Path(), evalRoot)
+			relPath, err := f.unrootedChecked(ev.Path(), evalRoot)
+			if err != nil {
+				select {
+				case errChan <- err:
+					l.Debugln(f.Type(), f.URI(), "Watch: Sending error", err)
+				case <-ctx.Done():
+				}
+				notify.Stop(backendChan)
+				l.Debugln(f.Type(), f.URI(), "Watch: Stopped due to", err)
+				return
+			}
+
 			if ignore.ShouldIgnore(relPath) {
 				l.Debugln(f.Type(), f.URI(), "Watch: Ignoring", relPath)
 				continue
@@ -101,4 +118,14 @@ func (f *BasicFilesystem) eventType(notifyType notify.Event) EventType {
 		return Remove
 	}
 	return NonRemove
+}
+
+type ErrWatchEventOutsideRoot struct{ msg string }
+
+func (e *ErrWatchEventOutsideRoot) Error() string {
+	return e.msg
+}
+
+func (f *BasicFilesystem) newErrWatchEventOutsideRoot(absPath, root string) *ErrWatchEventOutsideRoot {
+	return &ErrWatchEventOutsideRoot{fmt.Sprintf("Watching for changes encountered an event outside of the filesystem root: f.root==%v, root==%v, path==%v. This should never happen, please report this message to forum.syncthing.net.", f.root, root, absPath)}
 }
