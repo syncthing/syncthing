@@ -43,10 +43,8 @@ type keyIterator interface {
 type commonSorted interface {
 	common
 	add(k []byte, v Value)
-	getFirst(v Value) bool
-	getLast(v Value) bool
-	dropFirst(bytes int)
-	dropLast(bytes int)
+	PopFirst(v Value) bool
+	PopLast(v Value) bool
 	newIterator(p iteratorParent, reverse bool) keyIterator
 }
 
@@ -91,24 +89,6 @@ func (o *sorted) newIterator(reverse bool) Iterator {
 	}
 	o.iterating = true
 	return o.commonSorted.newIterator(o, reverse)
-}
-
-func (o *sorted) PopFirst(v Value) bool {
-	ok := o.getFirst(v)
-	if !ok {
-		return false
-	}
-	o.dropFirst(v.Bytes())
-	return true
-}
-
-func (o *sorted) PopLast(v Value) bool {
-	ok := o.getLast(v)
-	if !ok {
-		return false
-	}
-	o.dropLast(v.Bytes())
-	return true
 }
 
 // Close is just here to catch deferred calls to Close, such that the correct
@@ -164,7 +144,15 @@ func (o *memorySorted) Items() int {
 	return len(o.values)
 }
 
-func (o *memorySorted) getFirst(v Value) bool {
+func (o *memorySorted) PopFirst(v Value) bool {
+	return o.pop(v, true)
+}
+
+func (o *memorySorted) PopLast(v Value) bool {
+	return o.pop(v, false)
+}
+
+func (o *memorySorted) pop(v Value, first bool) bool {
 	if !o.outgoing {
 		sort.Sort(o)
 		o.outgoing = true
@@ -172,38 +160,18 @@ func (o *memorySorted) getFirst(v Value) bool {
 	if o.Items() == 0 {
 		return false
 	}
-	copyValue(v, o.values[0])
+	if first {
+		copyValue(v, o.values[0])
+		o.values = o.values[1:]
+		o.keys = o.keys[1:]
+	} else {
+		i := o.Items() - 1
+		copyValue(v, o.values[i])
+		o.values = o.values[:i]
+		o.keys = o.keys[:i]
+	}
+	o.bytes -= v.Bytes()
 	return true
-}
-
-func (o *memorySorted) getLast(v Value) bool {
-	if !o.outgoing {
-		sort.Sort(o)
-		o.outgoing = true
-	}
-	if o.Items() == 0 {
-		return false
-	}
-	copyValue(v, o.values[o.Items()-1])
-	return true
-}
-
-func (o *memorySorted) dropFirst(bytes int) {
-	if len(o.values) == 0 {
-		return
-	}
-	o.values = o.values[1:]
-	o.keys = o.keys[1:]
-	o.bytes -= bytes
-}
-
-func (o *memorySorted) dropLast(bytes int) {
-	if len(o.values) == 0 {
-		return
-	}
-	o.values = o.values[:len(o.values)-1]
-	o.keys = o.keys[:len(o.keys)-1]
-	o.bytes -= bytes
 }
 
 func (o *memorySorted) newIterator(parent iteratorParent, reverse bool) keyIterator {
@@ -239,62 +207,47 @@ func newDiskSorted(loc string) *diskSorted {
 	return &diskSorted{diskMap: newDiskMap(loc)}
 }
 
-func (d *diskSorted) add(k []byte, v Value) {
+func (o *diskSorted) add(k []byte, v Value) {
 	suffix := make([]byte, suffixLength)
-	binary.BigEndian.PutUint64(suffix[:], uint64(d.Items()))
-	d.diskMap.addBytes(append(k, suffix...), v)
-	d.bytes += v.Bytes()
+	binary.BigEndian.PutUint64(suffix[:], uint64(o.Items()))
+	o.diskMap.addBytes(append(k, suffix...), v)
+	o.bytes += v.Bytes()
 }
 
-func (d *diskSorted) Bytes() int {
-	return d.bytes
+func (o *diskSorted) Bytes() int {
+	return o.bytes
 }
 
-func (d *diskSorted) getFirst(v Value) bool {
-	it := d.db.NewIterator(nil, nil)
+func (o *diskSorted) PopFirst(v Value) bool {
+	return o.pop(v, true)
+}
+
+func (o *diskSorted) PopLast(v Value) bool {
+	return o.pop(v, false)
+}
+
+func (o *diskSorted) pop(v Value, first bool) bool {
+	it := o.db.NewIterator(nil, nil)
 	defer it.Release()
-	if !it.First() {
+	var ok bool
+	if first {
+		ok = it.First()
+	} else {
+		ok = it.Last()
+	}
+	if !ok {
 		return false
 	}
 	v.Unmarshal(it.Value())
+	_ = o.db.Delete(it.Key(), nil)
+	o.bytes -= v.Bytes()
+	o.len--
 	return true
 }
 
-func (d *diskSorted) getLast(v Value) bool {
-	it := d.db.NewIterator(nil, nil)
-	defer it.Release()
-	if !it.Last() {
-		return false
-	}
-	v.Unmarshal(it.Value())
-	return true
-}
-
-func (d *diskSorted) dropFirst(bytes int) {
-	it := d.db.NewIterator(nil, nil)
-	defer it.Release()
-	if !it.First() {
-		return
-	}
-	_ = d.db.Delete(it.Key(), nil)
-	d.bytes -= bytes
-	d.len--
-}
-
-func (d *diskSorted) dropLast(bytes int) {
-	it := d.db.NewIterator(nil, nil)
-	defer it.Release()
-	if !it.Last() {
-		return
-	}
-	_ = d.db.Delete(it.Key(), nil)
-	d.bytes -= bytes
-	d.len--
-}
-
-func (d *diskSorted) newIterator(parent iteratorParent, reverse bool) keyIterator {
+func (o *diskSorted) newIterator(parent iteratorParent, reverse bool) keyIterator {
 	di := &diskIterator{
-		it:     d.db.NewIterator(nil, nil),
+		it:     o.db.NewIterator(nil, nil),
 		parent: parent,
 	}
 	if !reverse {
