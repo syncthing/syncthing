@@ -267,18 +267,15 @@ func (o *diskMap) Items() int {
 func (o *diskMap) Pop(k string, v Value) bool {
 	ok := o.Get(k, v)
 	if ok {
-		_ = o.db.Delete([]byte(k), nil)
+		errPanic(o.db.Delete([]byte(k), nil))
 		o.len--
 	}
 	return ok
 }
 
 func (o *diskMap) Delete(k string) {
-	_, err := o.db.Get([]byte(k), nil)
-	if err == nil {
-		_ = o.db.Delete([]byte(k), nil)
-		o.len--
-	}
+	errPanic(o.db.Delete([]byte(k), nil))
+	o.len--
 }
 
 func (o *diskMap) newIterator(p iteratorParent) MapIterator {

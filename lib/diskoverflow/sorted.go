@@ -239,7 +239,7 @@ func (o *diskSorted) pop(v Value, first bool) bool {
 		return false
 	}
 	v.Unmarshal(it.Value())
-	_ = o.db.Delete(it.Key(), nil)
+	errPanic(o.db.Delete(it.Key(), nil))
 	o.bytes -= v.Bytes()
 	o.len--
 	return true

@@ -169,3 +169,9 @@ func (si *memIterator) Value(v Value) {
 func (si *memIterator) Release() {
 	si.parent.released()
 }
+
+func errPanic(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
