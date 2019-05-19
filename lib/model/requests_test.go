@@ -30,7 +30,7 @@ func TestRequestSimple(t *testing.T) {
 
 	m, fc, fcfg := setupModelWithConnection()
 	tfs := fcfg.Filesystem()
-	defer stopModelAndRemoveDir(m, tfs.URI())
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -72,7 +72,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 	}
 
 	m, fc, fcfg := setupModelWithConnection()
-	defer stopModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -115,7 +115,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 	}
 
 	m, fc, fcfg := setupModelWithConnection()
-	defer stopModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected names.
@@ -174,7 +174,7 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 	// Test that an update for a temporary file is invalidated
 
 	m, fc, fcfg := setupModelWithConnection()
-	defer stopModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -223,7 +223,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	fcfg.Versioning = config.VersioningConfiguration{Type: "trashcan"}
 	w.SetFolder(fcfg)
 	m, fc := setupModelWithConnectionFromWrapper(w)
-	defer stopModel(m)
+	defer cleanupModel(m)
 
 	// Create a temporary directory that we will use as target to see if
 	// we can escape to it
@@ -293,7 +293,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	fcfg.Type = ft
 	w.SetFolder(fcfg)
 	m, fc := setupModelWithConnectionFromWrapper(w)
-	defer stopModelAndRemoveDir(m, fss.URI())
+	defer cleanupModelAndRemoveDir(m, fss.URI())
 
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
@@ -407,7 +407,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 
 func TestIssue4841(t *testing.T) {
 	m, fc, fcfg := setupModelWithConnection()
-	defer stopModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan protocol.FileInfo)
 	fc.mut.Lock()
@@ -446,7 +446,7 @@ func TestIssue4841(t *testing.T) {
 func TestRescanIfHaveInvalidContent(t *testing.T) {
 	m, fc, fcfg := setupModelWithConnection()
 	tmpDir := fcfg.Filesystem().URI()
-	defer stopModelAndRemoveDir(m, tmpDir)
+	defer cleanupModelAndRemoveDir(m, tmpDir)
 
 	payload := []byte("hello")
 
@@ -507,7 +507,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 func TestParentDeletion(t *testing.T) {
 	m, fc, fcfg := setupModelWithConnection()
 	testFs := fcfg.Filesystem()
-	defer stopModelAndRemoveDir(m, testFs.URI())
+	defer cleanupModelAndRemoveDir(m, testFs.URI())
 
 	parent := "foo"
 	child := filepath.Join(parent, "bar")
@@ -585,7 +585,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	}
 
 	m, fc, fcfg := setupModelWithConnection()
-	defer stopModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	done := make(chan struct{})
 	fc.mut.Lock()
@@ -654,7 +654,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	m, fc, fcfg := setupModelWithConnection()
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
-	defer stopModelAndRemoveDir(m, tfs.URI())
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	done := make(chan struct{})
 	fc.mut.Lock()
@@ -782,7 +782,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 	m, fc, fcfg := setupModelWithConnection()
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
-	defer stopModelAndRemoveDir(m, tmpDir)
+	defer cleanupModelAndRemoveDir(m, tmpDir)
 
 	recv := make(chan int)
 	fc.mut.Lock()
@@ -872,7 +872,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 func TestRequestDeleteChanged(t *testing.T) {
 	m, fc, fcfg := setupModelWithConnection()
 	tfs := fcfg.Filesystem()
-	defer stopModelAndRemoveDir(m, tfs.URI())
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	done := make(chan struct{})
 	fc.mut.Lock()

@@ -119,14 +119,14 @@ func newModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 	return NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles).(*model)
 }
 
-func stopModel(m *model) {
+func cleanupModel(m *model) {
 	m.Stop()
 	m.db.Close()
 	os.Remove(m.cfg.ConfigPath())
 }
 
-func stopModelAndRemoveDir(m *model, dir string) {
-	stopModel(m)
+func cleanupModelAndRemoveDir(m *model, dir string) {
+	cleanupModel(m)
 	os.RemoveAll(dir)
 }
 

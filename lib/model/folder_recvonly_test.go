@@ -29,7 +29,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	m, f := setupROFolder()
 	ffs := f.Filesystem()
-	defer stopModelAndRemoveDir(m, ffs.URI())
+	defer cleanupModelAndRemoveDir(m, ffs.URI())
 
 	// Create some test data
 
@@ -110,7 +110,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	m, f := setupROFolder()
 	ffs := f.Filesystem()
-	defer stopModelAndRemoveDir(m, ffs.URI())
+	defer cleanupModelAndRemoveDir(m, ffs.URI())
 
 	// Create some test data
 
@@ -201,7 +201,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	m, f := setupROFolder()
 	ffs := f.Filesystem()
-	defer stopModelAndRemoveDir(m, ffs.URI())
+	defer cleanupModelAndRemoveDir(m, ffs.URI())
 
 	// Create some test data
 
