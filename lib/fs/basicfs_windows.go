@@ -156,7 +156,7 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 // unrooted) or an error if the given path is not a subpath and handles the
 // special case when the given path is the folder root without a trailing
 // pathseparator.
-func (f *BasicFilesystem) unrootedChecked(absPath, root string) (string, err) {
+func (f *BasicFilesystem) unrootedChecked(absPath, root string) (string, error) {
 	absPath = f.resolveWin83(absPath)
 	lowerAbsPath := UnicodeLowercase(absPath)
 	lowerRoot := UnicodeLowercase(root)
