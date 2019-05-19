@@ -8,6 +8,7 @@ package model
 
 import (
 	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -82,10 +83,10 @@ func testFolderConfig(path string) config.FolderConfiguration {
 	return cfg
 }
 
-func setupModelWithConnection() (*model, *fakeConnection, config.FolderConfiguration, config.Wrapper) {
+func setupModelWithConnection() (*model, *fakeConnection, config.FolderConfiguration) {
 	w, fcfg := tmpDefaultWrapper()
 	m, fc := setupModelWithConnectionFromWrapper(w)
-	return m, fc, fcfg, w
+	return m, fc, fcfg
 }
 
 func setupModelWithConnectionFromWrapper(w config.Wrapper) (*model, *fakeConnection) {
@@ -113,6 +114,21 @@ func setupModel(w config.Wrapper) *model {
 	m.ScanFolders()
 
 	return m
+}
+
+func newModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) *model {
+	return NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles).(*model)
+}
+
+func cleanupModel(m *model) {
+	m.Stop()
+	m.db.Close()
+	os.Remove(m.cfg.ConfigPath())
+}
+
+func cleanupModelAndRemoveDir(m *model, dir string) {
+	cleanupModel(m)
+	os.RemoveAll(dir)
 }
 
 func createTmpDir() string {
