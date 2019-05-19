@@ -31,6 +31,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	srand "github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/testutils"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -1451,6 +1452,8 @@ func TestIgnores(t *testing.T) {
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
 
+	m.RemoveFolder(defaultFolderConfig)
+	m.AddFolder(defaultFolderConfig)
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
 	// because we will be changing the files on disk often enough that the
@@ -1458,6 +1461,7 @@ func TestIgnores(t *testing.T) {
 	m.fmut.Lock()
 	m.folderIgnores["default"] = ignore.New(defaultFs, ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Unlock()
+	m.StartFolder("default")
 
 	// Make sure the initial scan has finished (ScanFolders is blocking)
 	m.ScanFolders()
@@ -3200,39 +3204,6 @@ func TestFolderRestartZombies(t *testing.T) {
 	}
 }
 
-type alwaysChangedKey struct {
-	fs   fs.Filesystem
-	name string
-}
-
-// alwaysChanges is an ignore.ChangeDetector that always returns true on Changed()
-type alwaysChanged struct {
-	seen map[alwaysChangedKey]struct{}
-}
-
-func newAlwaysChanged() *alwaysChanged {
-	return &alwaysChanged{
-		seen: make(map[alwaysChangedKey]struct{}),
-	}
-}
-
-func (c *alwaysChanged) Remember(fs fs.Filesystem, name string, _ time.Time) {
-	c.seen[alwaysChangedKey{fs, name}] = struct{}{}
-}
-
-func (c *alwaysChanged) Reset() {
-	c.seen = make(map[alwaysChangedKey]struct{})
-}
-
-func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
-	_, ok := c.seen[alwaysChangedKey{fs, name}]
-	return ok
-}
-
-func (c *alwaysChanged) Changed() bool {
-	return true
-}
-
 func TestRequestLimit(t *testing.T) {
 	wrapper := createTmpWrapper(defaultCfg.Copy())
 	dev, _ := wrapper.Device(device1)
@@ -3287,5 +3258,40 @@ func TestSanitizePath(t *testing.T) {
 		if res != tc[1] {
 			t.Errorf("sanitizePath(%q) => %q, expected %q", tc[0], res, tc[1])
 		}
+	}
+}
+
+// TestConnCloseOnRestart checks that there is no deadlock when calling Close
+// on a protocol connection that has a blocking reader (blocking writer can't
+// be done as the test requires clusterconfigs to go through).
+func TestConnCloseOnRestart(t *testing.T) {
+	w, fcfg := tmpDefaultWrapper()
+	m := setupModel(w)
+	defer func() {
+		m.Stop()
+		m.db.Close()
+		os.RemoveAll(fcfg.Filesystem().URI())
+		os.Remove(w.ConfigPath())
+	}()
+
+	br := &testutils.BlockingRW{}
+	nw := &testutils.NoopRW{}
+	m.AddConnection(newFakeProtoConn(protocol.NewConnection(device1, br, nw, m, "testConn", protocol.CompressNever)), protocol.HelloResult{})
+
+	newFcfg := fcfg.Copy()
+	newFcfg.Paused = true
+	done := make(chan struct{})
+	go func() {
+		m.RestartFolder(fcfg, newFcfg)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out before folder restart returned")
+	}
+	m.pmut.RLock()
+	if len(m.conn) != 0 {
+		t.Errorf("Conn wasn't removed on restart (len(m.conn) == %v)", len(m.conn))
 	}
 }

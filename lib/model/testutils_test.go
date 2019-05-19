@@ -9,6 +9,7 @@ package model
 import (
 	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -136,4 +137,37 @@ func createTmpDir() string {
 		panic("Failed to create temporary testing dir")
 	}
 	return tmpDir
+}
+
+type alwaysChangedKey struct {
+	fs   fs.Filesystem
+	name string
+}
+
+// alwaysChanges is an ignore.ChangeDetector that always returns true on Changed()
+type alwaysChanged struct {
+	seen map[alwaysChangedKey]struct{}
+}
+
+func newAlwaysChanged() *alwaysChanged {
+	return &alwaysChanged{
+		seen: make(map[alwaysChangedKey]struct{}),
+	}
+}
+
+func (c *alwaysChanged) Remember(fs fs.Filesystem, name string, _ time.Time) {
+	c.seen[alwaysChangedKey{fs, name}] = struct{}{}
+}
+
+func (c *alwaysChanged) Reset() {
+	c.seen = make(map[alwaysChangedKey]struct{})
+}
+
+func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
+	_, ok := c.seen[alwaysChangedKey{fs, name}]
+	return ok
+}
+
+func (c *alwaysChanged) Changed() bool {
+	return true
 }

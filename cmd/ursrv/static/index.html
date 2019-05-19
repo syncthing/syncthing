@@ -506,6 +506,27 @@ found in the LICENSE file.
         </table>
       </div>
 
+      <div class="col-md-6">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Distribution Channel</th>
+              <th class="text-right">Devices</th>
+              <th class="text-right">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .distributions}}
+            <tr>
+              <td>{{.Key}}</td>
+              <td class="text-right">{{.Count}}</td>
+              <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+
     </div>
 
     <div class="row">

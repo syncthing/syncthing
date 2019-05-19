@@ -1,5 +1,21 @@
+run:
+  modules-download-mode: readonly
+
+linters-settings:
+  maligned:
+    suggest-new: true
+
+linters:
+  enable-all: true
+  disable:
+    - goimports
+    - depguard
+    - lll
+    - gochecknoinits
+    - gochecknoglobals
+    - gofmt
+
 service:
-  golangci-lint-version: 1.13.x
+  golangci-lint-version: 1.16.x
   prepare:
     - go run build.go assets
-    - GO111MODULE=on go mod vendor

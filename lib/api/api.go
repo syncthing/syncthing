@@ -898,7 +898,8 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 		res["discoveryErrors"] = discoErrors
 	}
 
-	res["connectionServiceStatus"] = s.connectionsService.Status()
+	res["connectionServiceStatus"] = s.connectionsService.ListenerStatus()
+	res["lastDialStatus"] = s.connectionsService.ConnectionStatus()
 	// cpuUsage.Rate() is in milliseconds per second, so dividing by ten
 	// gives us percent
 	res["cpuPercent"] = s.cpu.Rate() / 10 / float64(runtime.NumCPU())
