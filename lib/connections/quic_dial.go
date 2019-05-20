@@ -44,7 +44,7 @@ func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, err
 		}
 	}
 
-	addr, err := net.ResolveUDPAddr("udp", ":0")
+	addr, err := net.ResolveUDPAddr("udp", uri.Host)
 	if err != nil {
 		return internalConn{}, err
 	}
@@ -54,6 +54,7 @@ func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, err
 	if err != nil {
 		return internalConn{}, err
 	}
+
 	stream, err := session.OpenStreamSync()
 	if err != nil {
 		// It's ok to close these, this does not close the underlying packetConn.

@@ -140,6 +140,7 @@ func (t *quicListener) Serve() {
 			_ = session.Close()
 			continue
 		}
+		close(ok)
 
 		t.conns <- internalConn{&quicTlsConn{session, stream}, connTypeQUICServer, quicPriority}
 	}
