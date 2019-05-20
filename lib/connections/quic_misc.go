@@ -8,7 +8,6 @@ package connections
 
 import (
 	"bytes"
-	"io"
 	"net"
 	"sort"
 	"sync"
@@ -125,38 +124,6 @@ func (f *stunFilter) reap() {
 			delete(f.ids, id)
 		}
 	}
-}
-
-func decodeConnIDLen(enc byte) (int /*dest conn id len*/, int /*src conn id len*/) {
-	return decodeSingleConnIDLen(enc >> 4), decodeSingleConnIDLen(enc & 0xf)
-}
-
-func decodeSingleConnIDLen(enc uint8) int {
-	if enc == 0 {
-		return 0
-	}
-	return int(enc) + 3
-}
-
-func parseQuicConnectionId(data []byte) ([]byte, error) {
-	if len(data) == 0 {
-		return nil, io.EOF
-	}
-	isLongHeader := data[0]&0x80 > 0
-	if !isLongHeader {
-		if len(data) < quicConfig.ConnectionIDLength+1 {
-			return nil, io.EOF
-		}
-		return data[1 : 1+quicConfig.ConnectionIDLength], nil
-	}
-	if len(data) < 6 {
-		return nil, io.EOF
-	}
-	destConnIDLen, _ := decodeConnIDLen(data[5])
-	if len(data) < 6+destConnIDLen {
-		return nil, io.EOF
-	}
-	return data[6 : 6+destConnIDLen], nil
 }
 
 type quicTlsConn struct {

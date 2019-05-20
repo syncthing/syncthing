@@ -83,7 +83,7 @@ func (orig OptionsConfiguration) RequiresRestartOnly() OptionsConfiguration {
 	blank := OptionsConfiguration{}
 	util.CopyMatchingTag(&blank, &copy, "restart", func(v string) bool {
 		if len(v) > 0 && v != "true" {
-			panic(fmt.Sprintf(`unexpected tag value: %s.expected untagged or "true"`, v))
+			panic(fmt.Sprintf(`unexpected tag value: %s. Expected untagged or "true"`, v))
 		}
 		return v != "true"
 	})
