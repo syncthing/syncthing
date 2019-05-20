@@ -39,7 +39,7 @@ const (
 var (
 	// DefaultTCPPort defines default TCP port used if the URI does not specify one, for example tcp://0.0.0.0
 	DefaultTCPPort = 22000
-	// DefaultQUICPort defines default QUIC port used if the URI does not specify one, for example tcp://0.0.0.0
+	// DefaultQUICPort defines default QUIC port used if the URI does not specify one, for example quic://0.0.0.0
 	DefaultQUICPort = 22442
 	// DefaultListenAddresses should be substituted when the configuration
 	// contains <listenAddress>default</listenAddress>. This is done by the

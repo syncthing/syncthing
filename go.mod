@@ -18,10 +18,9 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20170619183022-cd60e84ee657
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.0.0
+	github.com/lucas-clemente/quic-go v0.11.1 // indirect
 	github.com/mattn/go-isatty v0.0.4
 	github.com/minio/sha256-simd v0.0.0-20190117184323-cc1980cb0338
-	github.com/onsi/ginkgo v0.0.0-20171221013426-6c46eb8334b3 // indirect
-	github.com/onsi/gomega v0.0.0-20171227184521-ba3724c94e4d // indirect
 	github.com/oschwald/geoip2-golang v1.1.0
 	github.com/oschwald/maxminddb-golang v0.0.0-20170901134056-26fe5ace1c70 // indirect
 	github.com/petermattis/goid v0.0.0-20170816195418-3db12ebb2a59 // indirect
@@ -36,13 +35,11 @@ require (
 	github.com/thejerf/suture v3.0.2+incompatible
 	github.com/urfave/cli v1.20.0
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
-	golang.org/x/crypto v0.0.0-20171231215028-0fcca4842a8d
+	golang.org/x/crypto v0.0.0-20190228161510-8dd112bcdc25
 	golang.org/x/net v0.0.0-20181201002055-351d144fa1fc
-	golang.org/x/sys v0.0.0-20181213200352-4d1cda033e06 // indirect
-	golang.org/x/text v0.0.0-20171227012246-e19ae1496984
+	golang.org/x/text v0.3.0
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b
 	gopkg.in/asn1-ber.v1 v1.0.0-20170511165959-379148ca0225 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/ldap.v2 v2.5.1
-	gopkg.in/yaml.v2 v2.0.0-20171116090243-287cf08546ab // indirect
 )
