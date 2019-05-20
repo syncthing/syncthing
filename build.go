@@ -348,7 +348,7 @@ func test(pkgs ...string) {
 	}
 
 	if coverage {
-		args = append(args, "-covermode", "atomic", "-coverprofile", "coverage.txt")
+		args = append(args, "-covermode", "atomic", "-coverprofile", "coverage.txt", "-coverpkg", strings.Join(pkgs, ","))
 	}
 
 	runPrint(goCmd, append(args, pkgs...)...)
