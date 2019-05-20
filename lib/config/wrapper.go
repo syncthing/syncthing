@@ -7,6 +7,7 @@
 package config
 
 import (
+	"math/rand"
 	"os"
 	"sync/atomic"
 	"time"
@@ -88,6 +89,7 @@ type Wrapper interface {
 
 	ListenAddresses() []string
 	GlobalDiscoveryServers() []string
+	StunServers() []string
 
 	Subscribe(c Committer)
 	Unsubscribe(c Committer)
@@ -103,6 +105,29 @@ type wrapper struct {
 	mut       sync.Mutex
 
 	requiresRestart uint32 // an atomic bool
+}
+
+func (w *wrapper) StunServers() []string {
+	var addresses []string
+	for _, addr := range w.cfg.Options.StunServers {
+		switch addr {
+		case "default":
+			addresses = append(addresses, DefaultStunServers...)
+		default:
+			addresses = append(addresses, addr)
+		}
+	}
+
+	addresses = util.UniqueStrings(addresses)
+
+	// Shuffle
+	l := len(addresses)
+	for i := range addresses {
+		r := rand.Intn(l)
+		addresses[i], addresses[r] = addresses[r], addresses[i]
+	}
+
+	return addresses
 }
 
 // Wrap wraps an existing Configuration structure and ties it to a file on

@@ -72,7 +72,7 @@ func (t *kcpListener) Serve() {
 	})
 
 	filterConn.Start()
-	registerFilter(filterConn)
+	registerConn(filterConn)
 
 	listener, err := kcp.ServeConn(nil, 0, 0, kcpConn)
 	if err != nil {
@@ -86,7 +86,7 @@ func (t *kcpListener) Serve() {
 	defer listener.Close()
 	defer stunConn.Close()
 	defer kcpConn.Close()
-	defer deregisterFilter(filterConn)
+	defer deregisterConn(filterConn)
 	defer packetConn.Close()
 
 	l.Infof("KCP listener (%v) starting", kcpConn.LocalAddr())

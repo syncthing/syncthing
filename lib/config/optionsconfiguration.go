@@ -52,6 +52,8 @@ type OptionsConfiguration struct {
 	DefaultFolderPath       string   `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 	SetLowPriority          bool     `xml:"setLowPriority" json:"setLowPriority" default:"true"`
 	MaxConcurrentScans      int      `xml:"maxConcurrentScans" json:"maxConcurrentScans"`
+	StunKeepaliveS          int      `xml:"stunKeepaliveS" json:"stunKeepaliveS" default:"18"`
+	StunServers             []string `xml:"stunServer" json:"stunServers" default:"default"`
 
 	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM         int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`
@@ -81,7 +83,7 @@ func (orig OptionsConfiguration) RequiresRestartOnly() OptionsConfiguration {
 	blank := OptionsConfiguration{}
 	util.CopyMatchingTag(&blank, &copy, "restart", func(v string) bool {
 		if len(v) > 0 && v != "true" {
-			panic(fmt.Sprintf(`unexpected tag value: %s. expected untagged or "true"`, v))
+			panic(fmt.Sprintf(`unexpected tag value: %s.expected untagged or "true"`, v))
 		}
 		return v != "true"
 	})
