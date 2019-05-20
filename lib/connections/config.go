@@ -8,5 +8,6 @@ package connections
 
 const (
 	tcpPriority   = 10
+	quicPriority  = 100
 	relayPriority = 200
 )

@@ -39,6 +39,8 @@ const (
 var (
 	// DefaultTCPPort defines default TCP port used if the URI does not specify one, for example tcp://0.0.0.0
 	DefaultTCPPort = 22000
+	// DefaultQUICPort defines default QUIC port used if the URI does not specify one, for example tcp://0.0.0.0
+	DefaultQUICPort = 22442
 	// DefaultListenAddresses should be substituted when the configuration
 	// contains <listenAddress>default</listenAddress>. This is done by the
 	// "consumer" of the configuration as we don't want these saved to the
@@ -46,6 +48,7 @@ var (
 	DefaultListenAddresses = []string{
 		util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
 		"dynamic+https://relays.syncthing.net/endpoint",
+		util.Address("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultQUICPort))),
 	}
 	DefaultGUIPort = 8384
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
