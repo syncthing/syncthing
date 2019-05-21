@@ -69,6 +69,8 @@ func TestDefaultValues(t *testing.T) {
 		UnackedNotificationIDs:  []string{},
 		DefaultFolderPath:       "~",
 		SetLowPriority:          true,
+		StunKeepaliveS:          18,
+		StunServers:             []string{"default"},
 	}
 
 	cfg := New(device1)
@@ -214,6 +216,8 @@ func TestOverriddenValues(t *testing.T) {
 		},
 		DefaultFolderPath: "/media/syncthing",
 		SetLowPriority:    false,
+		StunKeepaliveS:    9000,
+		StunServers:       []string{"foo"},
 	}
 
 	os.Unsetenv("STNOUPGRADE")

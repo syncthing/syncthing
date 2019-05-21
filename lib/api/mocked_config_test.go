@@ -122,6 +122,10 @@ func (m *mockedConfig) GlobalDiscoveryServers() []string {
 	return nil
 }
 
+func (m *mockedConfig) StunServers() []string {
+	return nil
+}
+
 type noopWaiter struct{}
 
 func (noopWaiter) Wait() {}
