@@ -15,6 +15,7 @@ import (
 
 	"github.com/lucas-clemente/quic-go"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -34,8 +35,8 @@ func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, err
 	uri = fixupPort(uri, config.DefaultQUICPort)
 
 	var conn net.PacketConn
-	if listenConn := getListeningConn(); listenConn != nil {
-		conn = listenConn
+	if listenConn := registry.Get(uri.Scheme); listenConn != nil {
+		conn = listenConn.(net.PacketConn)
 	} else {
 		if packetConn, err := net.ListenPacket("udp", ":0"); err != nil {
 			return internalConn{}, err
@@ -55,7 +56,21 @@ func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, err
 		return internalConn{}, err
 	}
 
+	// OpenStreamSync is blocks, but we want to make sure the connection is usable
+	// before we start killing off other connections, so do the dance.
+	ok := make(chan struct{})
+	go func() {
+		select {
+		case <-ok:
+			return
+		case <-time.After(10 * time.Second):
+			l.Debugln("timed out waiting for OpenStream on", session.RemoteAddr())
+			_ = session.Close()
+		}
+	}()
+
 	stream, err := session.OpenStreamSync()
+	close(ok)
 	if err != nil {
 		// It's ok to close these, this does not close the underlying packetConn.
 		_ = session.Close()

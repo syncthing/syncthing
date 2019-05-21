@@ -18,6 +18,7 @@ import (
 	"github.com/AudriusButkevicius/pfilter"
 	"github.com/ccding/go-stun/stun"
 	"github.com/lucas-clemente/quic-go"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
@@ -70,7 +71,7 @@ func (t *quicListener) Serve() {
 	})
 
 	filterConn.Start()
-	registerConn(quicConn)
+	registry.Register(t.uri.Scheme, quicConn.(net.Conn))
 
 	listener, err := quic.Listen(quicConn, t.tlsCfg, quicConfig)
 	if err != nil {
@@ -84,7 +85,7 @@ func (t *quicListener) Serve() {
 	defer listener.Close()
 	defer stunConn.Close()
 	defer quicConn.Close()
-	defer deregisterConn(quicConn)
+	defer registry.Unregister(t.uri.Scheme, quicConn.(net.Conn))
 	defer filterConn.Close()
 	defer packetConn.Close()
 
@@ -129,18 +130,18 @@ func (t *quicListener) Serve() {
 			case <-ok:
 				return
 			case <-time.After(10 * time.Second):
-				l.Debugln("timed out waiting for stream on", session.RemoteAddr())
+				l.Debugln("timed out waiting for AcceptStream on", session.RemoteAddr())
 				_ = session.Close()
 			}
 		}()
 
 		stream, err := session.AcceptStream()
+		close(ok)
 		if err != nil {
 			l.Debugln("failed to accept stream from", session.RemoteAddr(), err.Error())
 			_ = session.Close()
 			continue
 		}
-		close(ok)
 
 		t.conns <- internalConn{&quicTlsConn{session, stream}, connTypeQUICServer, quicPriority}
 	}
@@ -205,7 +206,7 @@ func (t *quicListener) stunRenewal(listener net.PacketConn) {
 	for {
 
 	disabled:
-		if t.cfg.Options().StunKeepaliveS < 1 {
+		if t.cfg.Options().StunKeepaliveS < 1 || !t.cfg.Options().NATEnabled {
 			time.Sleep(time.Second)
 			oldType = stun.NATUnknown
 			t.nat.Store(stun.NATUnknown)
@@ -252,7 +253,8 @@ func (t *quicListener) stunRenewal(listener net.PacketConn) {
 				break
 			}
 
-			for {
+			addressChanges := 1
+			for loops := 1; ; loops++ {
 				changed := false
 
 				uri := *t.uri
@@ -264,8 +266,16 @@ func (t *quicListener) stunRenewal(listener net.PacketConn) {
 					l.Infof("%s resolved external address %s (via %s)", t.uri, uri.String(), addr)
 					t.address = &uri
 					changed = true
+					addressChanges++
 				}
 				t.mut.Unlock()
+
+				// Check that after a few rounds we're not changing addresses at a stupid rate.
+				// If we're changing addresses on every second request, something is stuffed with the stun server
+				// or router...
+				if loops > 3 && loops/addressChanges < 2 {
+					break
+				}
 
 				// This will most likely result in a call to WANAddresses() which tries to
 				// get t.mut, so notify while unlocked.
@@ -279,7 +289,7 @@ func (t *quicListener) stunRenewal(listener net.PacketConn) {
 					return
 				}
 
-				if t.cfg.Options().StunKeepaliveS < 1 {
+				if t.cfg.Options().StunKeepaliveS < 1 || !t.cfg.Options().NATEnabled {
 					goto disabled
 				}
 

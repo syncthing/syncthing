@@ -73,3 +73,10 @@ func SeedFromBytes(bs []byte) int64 {
 	// uint64s and XOR them together.
 	return int64(binary.BigEndian.Uint64(s[0:]) ^ binary.BigEndian.Uint64(s[8:]))
 }
+
+// Shuffle pseudo-randomizes the order of elements.
+// n is the number of elements. Shuffle panics if n < 0.
+// swap swaps the elements with indexes i and j.
+func Shuffle(n int, swap func(i, j int)) {
+	defaultSecureRand.Shuffle(n, swap)
+}

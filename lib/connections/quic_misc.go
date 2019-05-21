@@ -9,16 +9,10 @@ package connections
 import (
 	"bytes"
 	"net"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
-)
-
-var (
-	mut   sync.Mutex
-	conns []net.PacketConn
 )
 
 var (
@@ -29,55 +23,6 @@ var (
 		KeepAlive:          true,
 	}
 )
-
-// Track connections on which we are listening on, to increase the probability of accessing a connection that
-// has a NAT port mapping. This also makes our outgoing port stable and same as incoming port which should allow
-// better probability of punching through.
-func getListeningConn() net.PacketConn {
-	mut.Lock()
-	defer mut.Unlock()
-	if len(conns) == 0 {
-		return nil
-	}
-	return conns[0]
-}
-
-func registerConn(conn net.PacketConn) {
-	mut.Lock()
-	defer mut.Unlock()
-	conns = append(conns, conn)
-
-	sort.Slice(conns, connSort)
-}
-
-func deregisterConn(conn net.PacketConn) {
-	mut.Lock()
-	defer mut.Unlock()
-
-	for i, f := range conns {
-		if f == conn {
-			copy(conns[i:], conns[i+1:])
-			conns[len(conns)-1] = nil
-			conns = conns[:len(conns)-1]
-			break
-		}
-	}
-	sort.Slice(conns, connSort)
-}
-
-// Sort connections by whether they are unspecified or not, as connections
-// listening on all addresses are more useful.
-func connSort(i, j int) bool {
-	iIsUnspecified := false
-	jIsUnspecified := false
-	if host, _, err := net.SplitHostPort(conns[i].LocalAddr().String()); err == nil {
-		iIsUnspecified = net.ParseIP(host).IsUnspecified()
-	}
-	if host, _, err := net.SplitHostPort(conns[j].LocalAddr().String()); err == nil {
-		jIsUnspecified = net.ParseIP(host).IsUnspecified()
-	}
-	return (iIsUnspecified && !jIsUnspecified) || (iIsUnspecified && jIsUnspecified)
-}
 
 type stunFilter struct {
 	ids map[string]time.Time
