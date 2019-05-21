@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
+	
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/protocol"

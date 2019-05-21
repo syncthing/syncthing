@@ -18,9 +18,9 @@ import (
 	"github.com/AudriusButkevicius/pfilter"
 	"github.com/ccding/go-stun/stun"
 	"github.com/lucas-clemente/quic-go"
-	"github.com/syncthing/syncthing/lib/connections/registry"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/nat"
 )
 
