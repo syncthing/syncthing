@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"io"
 	mathRand "math/rand"
+	"reflect"
 )
 
 // Reader is the standard crypto/rand.Reader, re-exported for convenience
@@ -74,9 +75,13 @@ func SeedFromBytes(bs []byte) int64 {
 	return int64(binary.BigEndian.Uint64(s[0:]) ^ binary.BigEndian.Uint64(s[8:]))
 }
 
-// Shuffle pseudo-randomizes the order of elements.
-// n is the number of elements. Shuffle panics if n < 0.
-// swap swaps the elements with indexes i and j.
-func Shuffle(n int, swap func(i, j int)) {
-	defaultSecureRand.Shuffle(n, swap)
+// Shuffle the order of elements
+func Shuffle(slice interface{}) {
+	rv := reflect.ValueOf(slice)
+	swap := reflect.Swapper(slice)
+	length := rv.Len()
+	if length < 2 {
+		return
+	}
+	defaultSecureRand.Shuffle(length, swap)
 }

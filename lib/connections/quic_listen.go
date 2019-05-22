@@ -4,6 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
+// +build go1.12
+
 package connections
 
 import (
@@ -64,6 +66,8 @@ func (t *quicListener) Serve() {
 		l.Infoln("Listen (BEP/quic):", err)
 		return
 	}
+	writeTrackingConn := &writeTrackingPacketConn{PacketConn: packetConn}
+	packetConn = writeTrackingConn
 	filterConn := pfilter.NewPacketFilter(packetConn)
 	quicConn := filterConn.NewConn(quicFilterPriority, nil)
 	stunConn := filterConn.NewConn(stunFilterPriority, &stunFilter{
@@ -92,7 +96,7 @@ func (t *quicListener) Serve() {
 	l.Infof("QUIC listener (%v) starting", quicConn.LocalAddr())
 	defer l.Infof("QUIC listener (%v) shutting down", quicConn.LocalAddr())
 
-	go t.stunRenewal(stunConn)
+	go t.stunRenewal(stunConn, writeTrackingConn.GetLastWrite)
 
 	// Accept is forever, so handle stops externally.
 	go func() {
@@ -192,110 +196,38 @@ func (t *quicListener) NATType() string {
 	return v.String()
 }
 
-func (t *quicListener) stunRenewal(listener net.PacketConn) {
-	client := stun.NewClientWithConnection(listener)
-	client.SetSoftwareName("syncthing")
-
-	var natType stun.NATType
-	var extAddr *stun.Host
-	var udpAddr *net.UDPAddr
-	var err error
-
-	oldType := stun.NATUnknown
-
+func (t *quicListener) stunRenewal(listener net.PacketConn, getLastWriteTime func() time.Time) {
 	for {
-
 	disabled:
 		if t.cfg.Options().StunKeepaliveS < 1 || !t.cfg.Options().NATEnabled {
 			time.Sleep(time.Second)
-			oldType = stun.NATUnknown
-			t.nat.Store(stun.NATUnknown)
-			t.mut.Lock()
-			t.address = nil
-			t.mut.Unlock()
 			continue
 		}
 
+		t.nat.Store(stun.NATUnknown)
+		t.mut.Lock()
+		t.address = nil
+		t.mut.Unlock()
+
 		for _, addr := range t.cfg.StunServers() {
-			// Resolve the address, so that in case the server advertises two
-			// IPs, we always hit the same one, as otherwise, the mapping might
-			// expire as we hit the other address, and cause us to flip flop
-			// between servers/external addresses, as a result flooding discovery
-			// servers.
-			udpAddr, err = net.ResolveUDPAddr("udp", addr)
-			if err != nil {
-				l.Debugf("%s stun addr resolution on %s: %s", t.uri, addr, err)
-				continue
-			}
-			client.SetServerAddr(udpAddr.String())
+			if !t.runStunForServer(listener, addr, getLastWriteTime) {
+				// Check exit conditions.
 
-			natType, extAddr, err = client.Discover()
-			if err != nil || extAddr == nil {
-				l.Debugf("%s stun discovery on %s: %s", t.uri, addr, err)
-				continue
-			}
-
-			// The stun server is most likely borked, try another one.
-			if natType == stun.NATError || natType == stun.NATUnknown || natType == stun.NATBlocked {
-				l.Debugf("%s stun discovery on %s resolved to %s", t.uri, addr, natType)
-				continue
-			}
-
-			if oldType != natType {
-				l.Infof("%s detected NAT type: %s", t.uri, natType)
-				t.nat.Store(natType)
-				oldType = natType
-			}
-
-			// We can't punch through this one, so no point doing keepalives
-			// and such, just try again in a minute and hope that the NAT type changes.
-			if !isPunchable(natType) {
-				break
-			}
-
-			addressChanges := 1
-			for loops := 1; ; loops++ {
-				changed := false
-
-				uri := *t.uri
-				uri.Host = extAddr.TransportAddr()
-
-				t.mut.Lock()
-
-				if t.address == nil || t.address.String() != uri.String() {
-					l.Infof("%s resolved external address %s (via %s)", t.uri, uri.String(), addr)
-					t.address = &uri
-					changed = true
-					addressChanges++
-				}
-				t.mut.Unlock()
-
-				// Check that after a few rounds we're not changing addresses at a stupid rate.
-				// If we're changing addresses on every second request, something is stuffed with the stun server
-				// or router...
-				if loops > 3 && loops/addressChanges < 2 {
-					break
-				}
-
-				// This will most likely result in a call to WANAddresses() which tries to
-				// get t.mut, so notify while unlocked.
-				if changed {
-					t.notifyAddressesChanged(t)
-				}
-
+				// Have we been asked to stop?
 				select {
-				case <-time.After(time.Duration(t.cfg.Options().StunKeepaliveS) * time.Second):
 				case <-t.stop:
 					return
+				default:
 				}
 
+				// Are we disabled?
 				if t.cfg.Options().StunKeepaliveS < 1 || !t.cfg.Options().NATEnabled {
 					goto disabled
 				}
 
-				extAddr, err = client.Keepalive()
-				if err != nil {
-					l.Debugf("%s stun keepalive on %s: %s (%v)", t.uri, addr, err, extAddr)
+				lastNatType := t.nat.Load().(stun.NATType)
+				// Unpunchable NAT? Chillout for some time.
+				if !isPunchable(lastNatType) {
 					break
 				}
 			}
@@ -304,6 +236,111 @@ func (t *quicListener) stunRenewal(listener net.PacketConn) {
 		// We failed to contact all provided stun servers or the nat is not punchable.
 		// Chillout for a while.
 		time.Sleep(stunRetryInterval)
+	}
+}
+
+func (t *quicListener) runStunForServer(listener net.PacketConn, addr string, getLastWriteTime func() time.Time) (tryNext bool) {
+	// Resolve the address, so that in case the server advertises two
+	// IPs, we always hit the same one, as otherwise, the mapping might
+	// expire as we hit the other address, and cause us to flip flop
+	// between servers/external addresses, as a result flooding discovery
+	// servers.
+	udpAddr, err := net.ResolveUDPAddr("udp", addr)
+	if err != nil {
+		l.Debugf("%s stun addr resolution on %s: %s", t.uri, addr, err)
+		return true
+	}
+	client := stun.NewClientWithConnection(listener)
+	client.SetServerAddr(udpAddr.String())
+	client.SetSoftwareName("") // Explicitly unset this, seems to freak some servers out.
+
+	natType, extAddr, err := client.Discover()
+	if err != nil || extAddr == nil {
+		l.Debugf("%s stun discovery on %s: %s", t.uri, addr, err)
+		return true
+	}
+
+	// The stun server is most likely borked, try another one.
+	if natType == stun.NATError || natType == stun.NATUnknown || natType == stun.NATBlocked {
+		l.Debugf("%s stun discovery on %s resolved to %s", t.uri, addr, natType)
+		return true
+	}
+
+	oldNatType := t.nat.Load().(stun.NATType)
+	if oldNatType != natType {
+		l.Infof("%s detected NAT type: %s", t.uri, natType)
+	}
+
+	t.nat.Store(natType)
+
+	// We can't punch through this one, so no point doing keepalives
+	// and such, just let the caller check the nat type and work it out themselves.
+	if !isPunchable(natType) {
+		return false
+	}
+
+	return t.stunKeepAlive(client, addr, extAddr, getLastWriteTime)
+}
+
+func (t *quicListener) stunKeepAlive(client *stun.Client, addr string, extAddr *stun.Host, getLastWriteTime func() time.Time) (tryNext bool) {
+	addressChanges := 1
+	var err error
+	for loops := 1; ; loops++ {
+		changed := false
+
+		uri := *t.uri
+		uri.Host = extAddr.TransportAddr()
+
+		t.mut.Lock()
+
+		if t.address == nil || t.address.String() != uri.String() {
+			l.Infof("%s resolved external address %s (via %s)", t.uri, uri.String(), addr)
+			t.address = &uri
+			changed = true
+			addressChanges++
+		}
+		t.mut.Unlock()
+
+		// Check that after a few rounds we're not changing addresses at a stupid rate.
+		// If we're changing addresses on every second request, something is stuffed with the stun server
+		// or router...
+		if loops > 3 && loops/addressChanges < 2 {
+			return true
+		}
+
+		// This will most likely result in a call to WANAddresses() which tries to
+		// get t.mut, so notify while unlocked.
+		if changed {
+			t.notifyAddressesChanged(t)
+		}
+
+		lastWrite := getLastWriteTime()
+	tryLater:
+		nextKeepalive := lastWrite.Add(time.Duration(t.cfg.Options().StunKeepaliveS) * time.Second)
+		sleepFor := nextKeepalive.Sub(time.Now())
+
+		select {
+		case <-time.After(sleepFor):
+		case <-t.stop:
+			return false
+		}
+
+		if t.cfg.Options().StunKeepaliveS < 1 || !t.cfg.Options().NATEnabled {
+			// Disabled, give up
+			return false
+		}
+
+		// Check if any writes happened while we were sleeping, if they did, sleep again
+		lastWrite = getLastWriteTime()
+		if time.Now().Sub(lastWrite) < time.Duration(t.cfg.Options().StunKeepaliveS)*time.Second {
+			goto tryLater
+		}
+
+		extAddr, err = client.Keepalive()
+		if err != nil {
+			l.Debugf("%s stun keepalive on %s: %s (%v)", t.uri, addr, err, extAddr)
+			return true
+		}
 	}
 }
 

@@ -121,9 +121,7 @@ func (w *wrapper) StunServers() []string {
 	addresses = util.UniqueStrings(addresses)
 
 	// Shuffle
-	rand.Shuffle(len(addresses), func(i, j int) {
-		addresses[i], addresses[j] = addresses[j], addresses[i]
-	})
+	rand.Shuffle(addresses)
 
 	return addresses
 }

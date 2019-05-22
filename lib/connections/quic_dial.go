@@ -4,6 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+// +build go1.12
+
 package connections
 
 import (
@@ -14,7 +16,7 @@ import (
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
-	
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -36,7 +38,7 @@ func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, err
 	uri = fixupPort(uri, config.DefaultQUICPort)
 
 	var conn net.PacketConn
-	if listenConn := registry.Get(uri.Scheme); listenConn != nil {
+	if listenConn := registry.Get(uri.Scheme, packetConnLess); listenConn != nil {
 		conn = listenConn.(net.PacketConn)
 	} else {
 		if packetConn, err := net.ListenPacket("udp", ":0"); err != nil {

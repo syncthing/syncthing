@@ -10,7 +10,6 @@
 package registry
 
 import (
-	"net"
 	"sort"
 	"strings"
 
@@ -18,41 +17,41 @@ import (
 )
 
 var (
-	mut            = sync.NewMutex()
-	availableConns = make(map[string][]net.Conn)
+	mut       = sync.NewMutex()
+	available = make(map[string][]interface{})
 )
 
-func Register(scheme string, conn net.Conn) {
+func Register(scheme string, item interface{}) {
 	mut.Lock()
 	defer mut.Unlock()
 
-	availableConns[scheme] = append(availableConns[scheme], conn)
+	available[scheme] = append(available[scheme], item)
 }
 
-func Unregister(scheme string, conn net.Conn) {
+func Unregister(scheme string, item interface{}) {
 	mut.Lock()
 	defer mut.Unlock()
 
-	conns := availableConns[scheme]
-	for i, f := range conns {
-		if f == conn {
-			copy(conns[i:], conns[i+1:])
-			conns[len(conns)-1] = nil
-			availableConns[scheme] = conns[:len(conns)-1]
+	candidates := available[scheme]
+	for i, existingItem := range candidates {
+		if existingItem == item {
+			copy(candidates[i:], candidates[i+1:])
+			candidates[len(candidates)-1] = nil
+			available[scheme] = candidates[:len(candidates)-1]
 			break
 		}
 	}
 }
 
-func Get(scheme string) net.Conn {
+func Get(scheme string, less func(i, j interface{}) bool) interface{} {
 	mut.Lock()
 	defer mut.Unlock()
 
-	candidates := make([]net.Conn, 0)
-	for availableScheme, conns := range availableConns {
+	candidates := make([]interface{}, 0)
+	for availableScheme, items := range available {
 		// quic:// should be considered ok for both quic4:// and quic6://
 		if strings.HasPrefix(scheme, availableScheme) {
-			candidates = append(candidates, conns...)
+			candidates = append(candidates, items...)
 		}
 	}
 
@@ -60,22 +59,8 @@ func Get(scheme string) net.Conn {
 		return nil
 	}
 
-	sort.Slice(candidates, connSorter(candidates))
+	sort.Slice(candidates, func(i, j int) bool {
+		return less(candidates[i], candidates[j])
+	})
 	return candidates[0]
-}
-
-// Sort connections by whether they are unspecified or not, as connections
-// listening on all addresses are more useful.
-func connSorter(conns []net.Conn) func(int, int) bool {
-	return func(i, j int) bool {
-		iIsUnspecified := false
-		jIsUnspecified := false
-		if host, _, err := net.SplitHostPort(conns[i].LocalAddr().String()); err == nil {
-			iIsUnspecified = net.ParseIP(host).IsUnspecified()
-		}
-		if host, _, err := net.SplitHostPort(conns[j].LocalAddr().String()); err == nil {
-			jIsUnspecified = net.ParseIP(host).IsUnspecified()
-		}
-		return (iIsUnspecified && !jIsUnspecified) || (iIsUnspecified && jIsUnspecified)
-	}
 }
