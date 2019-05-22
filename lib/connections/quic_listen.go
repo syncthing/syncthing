@@ -314,10 +314,17 @@ func (t *quicListener) stunKeepAlive(client *stun.Client, addr string, extAddr *
 			t.notifyAddressesChanged(t)
 		}
 
+		// Adjust our keepalives to fire every 18s only if there were no writes on the connection.
 		lastWrite := getLastWriteTime()
 	tryLater:
-		nextKeepalive := lastWrite.Add(time.Duration(t.cfg.Options().StunKeepaliveS) * time.Second)
-		sleepFor := nextKeepalive.Sub(time.Now())
+		defaultSleep := time.Duration(t.cfg.Options().StunKeepaliveS) * time.Second
+		sleepFor := defaultSleep
+		now := time.Now()
+
+		nextKeepalive := lastWrite.Add(defaultSleep)
+		if nextKeepalive.After(now) {
+			sleepFor = nextKeepalive.Sub(time.Now())
+		}
 
 		select {
 		case <-time.After(sleepFor):
