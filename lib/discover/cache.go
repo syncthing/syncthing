@@ -124,7 +124,7 @@ func (m *cachingMux) Lookup(deviceID protocol.DeviceID) (addresses []string, err
 	l.Debugln("lookup results for", deviceID)
 	l.Debugln("  addresses: ", addresses)
 
-	addresses = util.UniqueStrings(addresses)
+	addresses = util.UniqueTrimmedStrings(addresses)
 
 	return addresses, nil
 }
@@ -185,7 +185,7 @@ func (m *cachingMux) Cache() map[protocol.DeviceID]CacheEntry {
 	m.mut.RUnlock()
 
 	for k, v := range res {
-		v.Addresses = util.UniqueStrings(v.Addresses)
+		v.Addresses = util.UniqueTrimmedStrings(v.Addresses)
 		res[k] = v
 	}
 

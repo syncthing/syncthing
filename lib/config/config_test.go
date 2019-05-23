@@ -69,7 +69,8 @@ func TestDefaultValues(t *testing.T) {
 		UnackedNotificationIDs:  []string{},
 		DefaultFolderPath:       "~",
 		SetLowPriority:          true,
-		StunKeepaliveS:          18,
+		StunKeepaliveStartS:     180,
+		StunKeepaliveMinS:       20,
 		StunServers:             []string{"default"},
 	}
 
@@ -214,10 +215,11 @@ func TestOverriddenValues(t *testing.T) {
 			"channelNotification",   // added in 17->18 migration
 			"fsWatcherNotification", // added in 27->28 migration
 		},
-		DefaultFolderPath: "/media/syncthing",
-		SetLowPriority:    false,
-		StunKeepaliveS:    9000,
-		StunServers:       []string{"foo"},
+		DefaultFolderPath:   "/media/syncthing",
+		SetLowPriority:      false,
+		StunKeepaliveStartS: 9000,
+		StunKeepaliveMinS:   900,
+		StunServers:         []string{"foo"},
 	}
 
 	os.Unsetenv("STNOUPGRADE")

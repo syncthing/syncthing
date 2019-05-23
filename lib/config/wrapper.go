@@ -112,16 +112,19 @@ func (w *wrapper) StunServers() []string {
 	for _, addr := range w.cfg.Options.StunServers {
 		switch addr {
 		case "default":
-			addresses = append(addresses, DefaultStunServers...)
+			defaultPrimaryAddresses := DefaultPrimaryStunServers
+			rand.Shuffle(defaultPrimaryAddresses)
+			addresses = append(addresses, defaultPrimaryAddresses...)
+
+			defaultSecondaryAddresses := DefaultSecondaryStunServers
+			rand.Shuffle(defaultSecondaryAddresses)
+			addresses = append(addresses, defaultSecondaryAddresses...)
 		default:
 			addresses = append(addresses, addr)
 		}
 	}
 
-	addresses = util.UniqueStrings(addresses)
-
-	// Shuffle
-	rand.Shuffle(addresses)
+	addresses = util.UniqueTrimmedStrings(addresses)
 
 	return addresses
 }
@@ -463,7 +466,7 @@ func (w *wrapper) GlobalDiscoveryServers() []string {
 			servers = append(servers, srv)
 		}
 	}
-	return util.UniqueStrings(servers)
+	return util.UniqueTrimmedStrings(servers)
 }
 
 func (w *wrapper) ListenAddresses() []string {
@@ -476,7 +479,7 @@ func (w *wrapper) ListenAddresses() []string {
 			addresses = append(addresses, addr)
 		}
 	}
-	return util.UniqueStrings(addresses)
+	return util.UniqueTrimmedStrings(addresses)
 }
 
 func (w *wrapper) RequiresRestart() bool {

@@ -68,9 +68,12 @@ var (
 	DefaultDiscoveryServers = append(DefaultDiscoveryServersV4, DefaultDiscoveryServersV6...)
 	// DefaultTheme is the default and fallback theme for the web UI.
 	DefaultTheme = "default"
-	// DefaultStunServers should be substituted when the configuration
+	// Default stun servers should be substituted when the configuration
 	// contains <stunServer>default</stunServer>.
-	DefaultStunServers = []string{
+	DefaultPrimaryStunServers = []string{
+		"stun.syncthing.net:3478",
+	}
+	DefaultSecondaryStunServers = []string{
 		"stun.callwithus.com:3478",
 		"stun.counterpath.com:3478",
 		"stun.counterpath.net:3478",
@@ -280,8 +283,8 @@ func (cfg *Configuration) clean() error {
 		existingFolders[folder.ID] = folder
 	}
 
-	cfg.Options.ListenAddresses = util.UniqueStrings(cfg.Options.ListenAddresses)
-	cfg.Options.GlobalAnnServers = util.UniqueStrings(cfg.Options.GlobalAnnServers)
+	cfg.Options.ListenAddresses = util.UniqueTrimmedStrings(cfg.Options.ListenAddresses)
+	cfg.Options.GlobalAnnServers = util.UniqueTrimmedStrings(cfg.Options.GlobalAnnServers)
 
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
 		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)

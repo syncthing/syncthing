@@ -36,7 +36,8 @@
         <tempIndexMinBlocks>100</tempIndexMinBlocks>
         <defaultFolderPath>/media/syncthing</defaultFolderPath>
         <setLowPriority>false</setLowPriority>
-        <stunKeepaliveS>9000</stunKeepaliveS>
+        <stunKeepaliveStartS>9000</stunKeepaliveStartS>
+        <stunKeepaliveMinS>900</stunKeepaliveMinS>
         <stunServer>foo</stunServer>
     </options>
 </configuration>

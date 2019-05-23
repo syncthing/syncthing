@@ -52,7 +52,8 @@ type OptionsConfiguration struct {
 	DefaultFolderPath       string   `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 	SetLowPriority          bool     `xml:"setLowPriority" json:"setLowPriority" default:"true"`
 	MaxConcurrentScans      int      `xml:"maxConcurrentScans" json:"maxConcurrentScans"`
-	StunKeepaliveS          int      `xml:"stunKeepaliveS" json:"stunKeepaliveS" default:"18"`
+	StunKeepaliveStartS     int      `xml:"stunKeepaliveStartS" json:"stunKeepaliveStartS" default:"180"` // 0 for off
+	StunKeepaliveMinS       int      `xml:"stunKeepaliveMinS" json:"stunKeepaliveMinS" default:"20"`      // 0 for off
 	StunServers             []string `xml:"stunServer" json:"stunServers" default:"default"`
 
 	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`

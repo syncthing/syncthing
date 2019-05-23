@@ -75,7 +75,7 @@ func (t *quicListener) Serve() {
 	})
 
 	filterConn.Start()
-	registry.Register(t.uri.Scheme, quicConn.(net.Conn))
+	registry.Register(t.uri.Scheme, quicConn.(net.PacketConn))
 
 	listener, err := quic.Listen(quicConn, t.tlsCfg, quicConfig)
 	if err != nil {
@@ -89,7 +89,7 @@ func (t *quicListener) Serve() {
 	defer listener.Close()
 	defer stunConn.Close()
 	defer quicConn.Close()
-	defer registry.Unregister(t.uri.Scheme, quicConn.(net.Conn))
+	defer registry.Unregister(t.uri.Scheme, quicConn.(net.PacketConn))
 	defer filterConn.Close()
 	defer packetConn.Close()
 
@@ -199,10 +199,12 @@ func (t *quicListener) NATType() string {
 func (t *quicListener) stunRenewal(listener net.PacketConn, getLastWriteTime func() time.Time) {
 	for {
 	disabled:
-		if t.cfg.Options().StunKeepaliveS < 1 || !t.cfg.Options().NATEnabled {
+		if t.stunDisabled() {
 			time.Sleep(time.Second)
 			continue
 		}
+
+		l.Debugf("Starting stun for %s", t.uri)
 
 		t.nat.Store(stun.NATUnknown)
 		t.mut.Lock()
@@ -221,7 +223,8 @@ func (t *quicListener) stunRenewal(listener net.PacketConn, getLastWriteTime fun
 				}
 
 				// Are we disabled?
-				if t.cfg.Options().StunKeepaliveS < 1 || !t.cfg.Options().NATEnabled {
+				if t.stunDisabled() {
+					l.Infoln("STUN disabled")
 					goto disabled
 				}
 
@@ -239,7 +242,14 @@ func (t *quicListener) stunRenewal(listener net.PacketConn, getLastWriteTime fun
 	}
 }
 
+func (t *quicListener) stunDisabled() bool {
+	opts := t.cfg.Options()
+	return opts.StunKeepaliveMinS < 1 || opts.StunKeepaliveStartS < 1 || !opts.NATEnabled
+}
+
 func (t *quicListener) runStunForServer(listener net.PacketConn, addr string, getLastWriteTime func() time.Time) (tryNext bool) {
+	l.Debugf("Running stun for %s via %s", t.uri, addr)
+
 	// Resolve the address, so that in case the server advertises two
 	// IPs, we always hit the same one, as otherwise, the mapping might
 	// expire as we hit the other address, and cause us to flip flop
@@ -270,12 +280,13 @@ func (t *quicListener) runStunForServer(listener net.PacketConn, addr string, ge
 	if oldNatType != natType {
 		l.Infof("%s detected NAT type: %s", t.uri, natType)
 	}
-
+	l.Debugf("%s detected NAT type: %s", t.uri, natType)
 	t.nat.Store(natType)
 
 	// We can't punch through this one, so no point doing keepalives
 	// and such, just let the caller check the nat type and work it out themselves.
 	if !isPunchable(natType) {
+		l.Debugf("%s cannot punch %s, skipping", t.uri, natType)
 		return false
 	}
 
@@ -283,9 +294,12 @@ func (t *quicListener) runStunForServer(listener net.PacketConn, addr string, ge
 }
 
 func (t *quicListener) stunKeepAlive(client *stun.Client, addr string, extAddr *stun.Host, getLastWriteTime func() time.Time) (tryNext bool) {
-	addressChanges := 1
 	var err error
-	for loops := 1; ; loops++ {
+	nextSleep := time.Duration(t.cfg.Options().StunKeepaliveStartS) * time.Second
+
+	l.Debugf("%s starting stun keepalive via %s, next sleep %s", t.uri, addr, nextSleep)
+
+	for {
 		changed := false
 
 		uri := *t.uri
@@ -295,53 +309,68 @@ func (t *quicListener) stunKeepAlive(client *stun.Client, addr string, extAddr *
 
 		if t.address == nil || t.address.String() != uri.String() {
 			l.Infof("%s resolved external address %s (via %s)", t.uri, uri.String(), addr)
+			// If the port has changed (addresses are not equal but the hosts are equal),
+			// we're probably spending too much time between keepalives, reduce the sleep.
+			if t.address != nil && t.address.Host == uri.Host {
+				nextSleep /= 2
+				l.Debugf("%s stun port change, next sleep %s", t.uri, nextSleep)
+			}
 			t.address = &uri
 			changed = true
-			addressChanges++
 		}
 		t.mut.Unlock()
-
-		// Check that after a few rounds we're not changing addresses at a stupid rate.
-		// If we're changing addresses on every second request, something is stuffed with the stun server
-		// or router...
-		if loops > 3 && loops/addressChanges < 2 {
-			return true
-		}
 
 		// This will most likely result in a call to WANAddresses() which tries to
 		// get t.mut, so notify while unlocked.
 		if changed {
 			t.notifyAddressesChanged(t)
+
+			// The stun server is probably stuffed, we've gone beyond min timeout, yet the address keeps changing.
+			minSleep := time.Duration(t.cfg.Options().StunKeepaliveMinS) * time.Second
+			if nextSleep < minSleep {
+				l.Debugf("%s keepalive aborting, sleep below min: %s < %s", t.uri, nextSleep, minSleep)
+				return true
+			}
 		}
 
-		// Adjust our keepalives to fire every 18s only if there were no writes on the connection.
+		// Adjust the keepalives to fire only nextSleep after last write.
 		lastWrite := getLastWriteTime()
+		minSleep := time.Duration(t.cfg.Options().StunKeepaliveMinS) * time.Second
+		if nextSleep < minSleep {
+			nextSleep = minSleep
+		}
 	tryLater:
-		defaultSleep := time.Duration(t.cfg.Options().StunKeepaliveS) * time.Second
-		sleepFor := defaultSleep
+		sleepFor := nextSleep
 		now := time.Now()
 
-		nextKeepalive := lastWrite.Add(defaultSleep)
+		nextKeepalive := lastWrite.Add(sleepFor)
 		if nextKeepalive.After(now) {
 			sleepFor = nextKeepalive.Sub(time.Now())
 		}
 
+		l.Debugf("%s stun sleeping for %s", t.uri, sleepFor)
+
 		select {
 		case <-time.After(sleepFor):
 		case <-t.stop:
+			l.Debugf("%s stopping, aborting stun", t.uri)
 			return false
 		}
 
-		if t.cfg.Options().StunKeepaliveS < 1 || !t.cfg.Options().NATEnabled {
+		if t.stunDisabled() {
 			// Disabled, give up
+			l.Debugf("%s disabled, aborting stun ", t.uri)
 			return false
 		}
 
 		// Check if any writes happened while we were sleeping, if they did, sleep again
 		lastWrite = getLastWriteTime()
-		if time.Now().Sub(lastWrite) < time.Duration(t.cfg.Options().StunKeepaliveS)*time.Second {
+		if gap := time.Now().Sub(lastWrite); gap < nextSleep {
+			l.Debugf("%s stun last write gap less than next sleep: %s < %s. Will try later", t.uri, gap, nextSleep)
 			goto tryLater
 		}
+
+		l.Debugf("%s stun keepalive", t.uri)
 
 		extAddr, err = client.Keepalive()
 		if err != nil {
