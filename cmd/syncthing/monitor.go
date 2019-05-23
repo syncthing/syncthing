@@ -72,6 +72,8 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 	childEnv := childEnv()
 	first := true
 	for {
+		maybeReportPanics()
+
 		if t := time.Since(restarts[0]); t < loopThreshold {
 			l.Warnf("%d restarts in %v; not retrying further", countRestarts, t)
 			os.Exit(exitError)
@@ -449,7 +451,7 @@ func maybeReportPanics() {
 
 	// Report the panic, if we're supposed to.
 	if opts := cfg.Options(); opts.CREnabled {
-		dir := locations.GetBaseDir(locations.HomeBaseDir)
+		dir := locations.GetBaseDir(locations.ConfigBaseDir)
 		uploadPanicLogs(opts.CRURL, dir)
 	}
 }
