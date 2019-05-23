@@ -90,8 +90,20 @@ var tlsVersionNames = map[uint16]string{
 // dialers. Successful connections are handed to the model.
 type Service interface {
 	suture.Service
-	Status() map[string]interface{}
+	ListenerStatus() map[string]ListenerStatusEntry
+	ConnectionStatus() map[string]ConnectionStatusEntry
 	NATType() string
+}
+
+type ListenerStatusEntry struct {
+	Error        *string  `json:"error"`
+	LANAddresses []string `json:"lanAddresses"`
+	WANAddresses []string `json:"wanAddresses"`
+}
+
+type ConnectionStatusEntry struct {
+	When  time.Time `json:"when"`
+	Error *string   `json:"error"`
 }
 
 type service struct {
@@ -112,6 +124,9 @@ type service struct {
 	listeners          map[string]genericListener
 	listenerTokens     map[string]suture.ServiceToken
 	listenerSupervisor *suture.Supervisor
+
+	connectionStatusMut sync.RWMutex
+	connectionStatus    map[string]ConnectionStatusEntry // address -> latest error/status
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
@@ -151,6 +166,9 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 			FailureBackoff:    600 * time.Second,
 			PassThroughPanics: true,
 		}),
+
+		connectionStatusMut: sync.NewRWMutex(),
+		connectionStatus:    make(map[string]ConnectionStatusEntry),
 	}
 	cfg.Subscribe(service)
 
@@ -378,18 +396,23 @@ func (s *service) connect() {
 
 				uri, err := url.Parse(addr)
 				if err != nil {
+					s.setConnectionStatus(addr, err)
 					l.Infof("Parsing dialer address %s: %v", addr, err)
 					continue
 				}
 
 				if len(deviceCfg.AllowedNetworks) > 0 {
 					if !IsAllowedNetwork(uri.Host, deviceCfg.AllowedNetworks) {
+						s.setConnectionStatus(addr, errors.New("network disallowed"))
 						l.Debugln("Network for", uri, "is disallowed")
 						continue
 					}
 				}
 
 				dialerFactory, err := getDialerFactory(cfg, uri)
+				if err != nil {
+					s.setConnectionStatus(addr, err)
+				}
 				switch err {
 				case nil:
 					// all good
@@ -424,6 +447,7 @@ func (s *service) connect() {
 				}
 
 				dialTargets = append(dialTargets, dialTarget{
+					addr:     addr,
 					dialer:   dialer,
 					priority: priority,
 					deviceID: deviceID,
@@ -431,7 +455,7 @@ func (s *service) connect() {
 				})
 			}
 
-			conn, ok := dialParallel(deviceCfg.DeviceID, dialTargets)
+			conn, ok := s.dialParallel(deviceCfg.DeviceID, dialTargets)
 			if ok {
 				s.conns <- conn
 			}
@@ -633,24 +657,46 @@ func (s *service) ExternalAddresses() []string {
 	return util.UniqueStrings(addrs)
 }
 
-func (s *service) Status() map[string]interface{} {
+func (s *service) ListenerStatus() map[string]ListenerStatusEntry {
+	result := make(map[string]ListenerStatusEntry)
 	s.listenersMut.RLock()
-	result := make(map[string]interface{})
 	for addr, listener := range s.listeners {
-		status := make(map[string]interface{})
+		var status ListenerStatusEntry
 
-		err := listener.Error()
-		if err != nil {
-			status["error"] = err.Error()
+		if err := listener.Error(); err != nil {
+			errStr := err.Error()
+			status.Error = &errStr
 		}
 
-		status["lanAddresses"] = urlsToStrings(listener.LANAddresses())
-		status["wanAddresses"] = urlsToStrings(listener.WANAddresses())
+		status.LANAddresses = urlsToStrings(listener.LANAddresses())
+		status.WANAddresses = urlsToStrings(listener.WANAddresses())
 
 		result[addr] = status
 	}
 	s.listenersMut.RUnlock()
 	return result
+}
+
+func (s *service) ConnectionStatus() map[string]ConnectionStatusEntry {
+	result := make(map[string]ConnectionStatusEntry)
+	s.connectionStatusMut.RLock()
+	for k, v := range s.connectionStatus {
+		result[k] = v
+	}
+	s.connectionStatusMut.RUnlock()
+	return result
+}
+
+func (s *service) setConnectionStatus(address string, err error) {
+	status := ConnectionStatusEntry{When: time.Now().UTC().Truncate(time.Second)}
+	if err != nil {
+		errStr := err.Error()
+		status.Error = &errStr
+	}
+
+	s.connectionStatusMut.Lock()
+	s.connectionStatus[address] = status
+	s.connectionStatusMut.Unlock()
 }
 
 func (s *service) NATType() string {
@@ -769,7 +815,7 @@ func IsAllowedNetwork(host string, allowed []string) bool {
 	return false
 }
 
-func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (internalConn, bool) {
+func (s *service) dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (internalConn, bool) {
 	// Group targets into buckets by priority
 	dialTargetBuckets := make(map[int][]dialTarget, len(dialTargets))
 	for _, tgt := range dialTargets {
@@ -793,6 +839,7 @@ func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (interna
 			wg.Add(1)
 			go func(tgt dialTarget) {
 				conn, err := tgt.Dial()
+				s.setConnectionStatus(tgt.addr, err)
 				if err == nil {
 					res <- conn
 				}

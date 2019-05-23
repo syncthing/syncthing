@@ -171,6 +171,7 @@
     "Log": "Napló",
     "Log tailing paused. Click here to continue.": "Napló utolsó sorainak figyelése leállítva. Ide kattintva lehet folytatni.",
     "Log tailing paused. Scroll to bottom continue.": "Napló utolsó sorainak figyelése leállítva. Görgetve lehet folytatni.",
+    "Log tailing paused. Scroll to the bottom to continue.": "Napló utolsó sorainak figyelése leállítva. Görgetve lehet folytatni.",
     "Logs": "Naplófájlok",
     "Major Upgrade": "Főverzió-frissítés",
     "Mass actions": "Tömeges műveletek",

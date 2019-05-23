@@ -21,11 +21,14 @@ const (
 )
 
 func number(ntype NumberType, v float64) string {
-	if ntype == NumberDuration {
+	switch ntype {
+	case NumberMetric:
+		return metric(v)
+	case NumberDuration:
 		return duration(v)
-	} else if ntype == NumberBinary {
+	case NumberBinary:
 		return binary(v)
-	} else {
+	default:
 		return metric(v)
 	}
 }

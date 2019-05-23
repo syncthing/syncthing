@@ -715,8 +715,14 @@
                         </span>
                       </td>
                       <td ng-if="!connections[deviceCfg.deviceID].connected" class="text-right">
-                        <span ng-repeat="addr in deviceCfg.addresses"><span tooltip data-original-title="{{'Configured' | translate}}">{{addr}}</span><br></span>
-                        <span ng-repeat="addr in discoveryCache[deviceCfg.deviceID].addresses"><span tooltip data-original-title="{{'Discovered' | translate}}">{{addr}}</span><br></span>
+                        <span ng-repeat="addr in deviceCfg.addresses">
+                            <span tooltip data-original-title="{{'Configured' | translate}}">{{addr}}</span><br>
+                            <small ng-if="system.lastDialStatus[addr].error" tooltip data-original-title="{{system.lastDialStatus[addr].error}}" class="text-danger">{{abbreviatedError(addr)}}<br></small>
+                        </span>
+                        <span ng-repeat="addr in discoveryCache[deviceCfg.deviceID].addresses">
+                          <span tooltip data-original-title="{{'Discovered' | translate}}">{{addr}}</span><br>
+                          <small ng-if="system.lastDialStatus[addr].error" tooltip data-original-title="{{system.lastDialStatus[addr].error}}" class="text-danger">{{abbreviatedError(addr)}}<br></small>
+                        </span>
                       </td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].connected && connections[deviceCfg.deviceID].type.indexOf('Relay') > -1" tooltip data-original-title="Connections via relays might be rate limited by the relay">
