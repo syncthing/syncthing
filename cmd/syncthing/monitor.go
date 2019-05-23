@@ -173,10 +173,11 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 	br := bufio.NewReader(stderr)
 
 	var panicFd *os.File
+loop:
 	for {
 		line, err := br.ReadString('\n')
 		if err != nil {
-			return
+			break loop
 		}
 
 		if panicFd == nil {
@@ -242,6 +243,11 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 		if panicFd != nil {
 			panicFd.WriteString(line)
 		}
+	}
+
+	if panicFd != nil {
+		_ = panicFd.Close()
+		maybeReportPanics()
 	}
 }
 
@@ -429,4 +435,21 @@ func childEnv() []string {
 	}
 	env = append(env, "STMONITORED=yes")
 	return env
+}
+
+// maybeReportPanics tries to figure out if crash reporting is on or off,
+// and reports any panics it can find if it's enabled.
+func maybeReportPanics() {
+	// Try to get a config to see if/where panics should be reported.
+	cfg, err := loadOrDefaultConfig()
+	if err != nil {
+		l.Warnln("Couldn't load config; not reporting crash")
+		return
+	}
+
+	// Report the panic, if we're supposed to.
+	if opts := cfg.Options(); opts.CREnabled {
+		dir := locations.GetBaseDir(locations.HomeBaseDir)
+		uploadPanicLogs(opts.CRURL, dir)
+	}
 }

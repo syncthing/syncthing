@@ -24,7 +24,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/dialer"
-	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -34,12 +33,7 @@ import (
 // Current version number of the usage report, for acceptance purposes. If
 // fields are added or changed this integer must be incremented so that users
 // are prompted for acceptance of the new report.
-const Version = 4
-
-const (
-	// What version introduced the panic uploader
-	panicUploadVersion = 4
-)
+const Version = 3
 
 var StartTime = time.Now()
 
@@ -72,23 +66,8 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 // ReportData returns the data to be sent in a usage report with the currently
 // configured usage reporting version.
 func (s *Service) ReportData() map[string]interface{} {
-	uploadDone := make(chan struct{})
 	urVersion := s.cfg.Options().URAccepted
-
-	if urVersion >= panicUploadVersion {
-		// Do crash reporter log uploads in the background.
-		go func() {
-			uploadPanicLogs(s.cfg.Options().CRURL, locations.GetBaseDir(locations.ConfigBaseDir))
-			close(uploadDone)
-		}()
-	} else {
-		close(uploadDone)
-	}
-
-	// Do the data report, and also wait for uploads to complete (potentially)
-	err := s.reportData(urVersion, false)
-	<-uploadDone
-	return err
+	return s.reportData(urVersion, false)
 }
 
 // ReportDataPreview returns a preview of the data to be sent in a usage report
