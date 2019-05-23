@@ -74,7 +74,7 @@ func (r *crashReceiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // serveHead responds to HEAD requests by checking if the named report
 // already exists in the system.
-func (r *crashReceiver) serveHead(base string, w http.ResponseWriter, req *http.Request) {
+func (r *crashReceiver) serveHead(base string, w http.ResponseWriter, _ *http.Request) {
 	path := filepath.Join(r.dirFor(base), base)
 	if _, err := os.Lstat(path); err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
@@ -107,7 +107,7 @@ func (r *crashReceiver) servePut(base string, w http.ResponseWriter, req *http.R
 	// Consider it best effort.
 	log.Println("Receiving report", base)
 	lr := io.LimitReader(req.Body, maxRequestSize)
-	io.Copy(dst, lr)
+	_, _ = io.Copy(dst, lr)
 }
 
 // 01234567890abcdef... => dir/01/23
