@@ -60,7 +60,6 @@ func TestDefaultValues(t *testing.T) {
 		LimitBandwidthInLan:     false,
 		MinHomeDiskFree:         Size{1, "%"},
 		URURL:                   "https://data.syncthing.net/newdata",
-		CRURL:                   "https://crash.syncthing.net/newcrash",
 		URInitialDelayS:         1800,
 		URPostInsecurely:        false,
 		ReleasesURL:             "https://upgrades.syncthing.net/meta.json",
@@ -70,6 +69,8 @@ func TestDefaultValues(t *testing.T) {
 		UnackedNotificationIDs:  []string{},
 		DefaultFolderPath:       "~",
 		SetLowPriority:          true,
+		CRURL:                   "https://crash.syncthing.net/newcrash",
+		CREnabled:               true,
 	}
 
 	cfg := New(device1)
@@ -203,7 +204,6 @@ func TestOverriddenValues(t *testing.T) {
 		MinHomeDiskFree:         Size{5.2, "%"},
 		URSeen:                  2,
 		URURL:                   "https://localhost/newdata",
-		CRURL:                   "https://localhost/newcrash",
 		URInitialDelayS:         800,
 		URPostInsecurely:        true,
 		ReleasesURL:             "https://localhost/releases",
@@ -216,6 +216,8 @@ func TestOverriddenValues(t *testing.T) {
 		},
 		DefaultFolderPath: "/media/syncthing",
 		SetLowPriority:    false,
+		CRURL:             "https://localhost/newcrash",
+		CREnabled:         false,
 	}
 
 	os.Unsetenv("STNOUPGRADE")
