@@ -8,6 +8,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"os"
 	"os/exec"
@@ -33,6 +34,8 @@ const (
 	loopThreshold         = 60 * time.Second
 	logFileAutoCloseDelay = 5 * time.Second
 	logFileMaxOpenTime    = time.Minute
+	panicUploadMaxWait    = 2 * time.Minute
+	uploadNoticeWait      = 10 * time.Second
 )
 
 func monitorMain(runtimeOptions RuntimeOptions) {
@@ -440,7 +443,8 @@ func childEnv() []string {
 }
 
 // maybeReportPanics tries to figure out if crash reporting is on or off,
-// and reports any panics it can find if it's enabled.
+// and reports any panics it can find if it's enabled. We spend at most
+// panicUploadMaxWait uploading panics...
 func maybeReportPanics() {
 	// Try to get a config to see if/where panics should be reported.
 	cfg, err := loadOrDefaultConfig()
@@ -449,9 +453,27 @@ func maybeReportPanics() {
 		return
 	}
 
-	// Report the panic, if we're supposed to.
-	if opts := cfg.Options(); opts.CREnabled {
-		dir := locations.GetBaseDir(locations.ConfigBaseDir)
-		uploadPanicLogs(opts.CRURL, dir)
+	// Bail if we're not supposed to report panics.
+	opts := cfg.Options()
+	if !opts.CREnabled {
+		return
 	}
+
+	// Set up a timeout on the whole operation.
+	ctx, cancel := context.WithTimeout(context.Background(), panicUploadMaxWait)
+	defer cancel()
+
+	// Print a notice if the upload takes a long time.
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(uploadNoticeWait):
+			l.Warnln("Uploading crash reports is taking a while, please wait...")
+		}
+	}()
+
+	// Report the panics.
+	dir := locations.GetBaseDir(locations.ConfigBaseDir)
+	uploadPanicLogs(ctx, opts.CRURL, dir)
 }

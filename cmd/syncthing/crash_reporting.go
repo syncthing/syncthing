@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -15,16 +16,23 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/sha256"
+)
+
+const (
+	headRequestTimeout = 10 * time.Second
+	putRequestTimeout  = time.Minute
 )
 
 // uploadPanicLogs attempts to upload all the panic logs in the named
 // directory to the crash reporting server as urlBase. Uploads are attempted
 // with the newest log first.
 //
-// This can can block for a long time.
-func uploadPanicLogs(urlBase, dir string) {
+// This can can block for a long time. The context can set a final deadline
+// for this.
+func uploadPanicLogs(ctx context.Context, urlBase, dir string) {
 	files, err := filepath.Glob(filepath.Join(dir, "panic-*.log"))
 	if err != nil {
 		l.Warnln("Failed to list panic logs:", err)
@@ -39,7 +47,7 @@ func uploadPanicLogs(urlBase, dir string) {
 			continue
 		}
 
-		if err := uploadPanicLog(urlBase, file); err != nil {
+		if err := uploadPanicLog(ctx, urlBase, file); err != nil {
 			l.Warnln("Reporting crash:", err)
 		} else {
 			// Rename the log so we don't have to try to report it again. This
@@ -53,7 +61,7 @@ func uploadPanicLogs(urlBase, dir string) {
 // reporting server at urlBase. The panic ID is constructed as the sha256 of
 // the log contents. A HEAD request is made to see if the log has already
 // been reported. If not, a PUT is made with the log contents.
-func uploadPanicLog(urlBase, file string) error {
+func uploadPanicLog(ctx context.Context, urlBase, file string) error {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		return err
@@ -71,6 +79,11 @@ func uploadPanicLog(urlBase, file string) error {
 		return err
 	}
 
+	// Set a reasonable timeout on the HEAD request
+	headCtx, headCancel := context.WithTimeout(ctx, headRequestTimeout)
+	defer headCancel()
+	headReq = headReq.WithContext(headCtx)
+
 	resp, err := http.DefaultClient.Do(headReq)
 	if err != nil {
 		return err
@@ -85,6 +98,12 @@ func uploadPanicLog(urlBase, file string) error {
 	if err != nil {
 		return err
 	}
+
+	// Set a reasonable timeout on the PUT request
+	putCtx, putCancel := context.WithTimeout(ctx, putRequestTimeout)
+	defer putCancel()
+	putReq = putReq.WithContext(putCtx)
+
 	resp, err = http.DefaultClient.Do(putReq)
 	if err != nil {
 		return err
