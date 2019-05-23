@@ -35,7 +35,7 @@ const (
 	logFileAutoCloseDelay = 5 * time.Second
 	logFileMaxOpenTime    = time.Minute
 	panicUploadMaxWait    = 2 * time.Minute
-	uploadNoticeWait      = 10 * time.Second
+	panicUploadNoticeWait = 10 * time.Second
 )
 
 func monitorMain(runtimeOptions RuntimeOptions) {
@@ -468,7 +468,7 @@ func maybeReportPanics() {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(uploadNoticeWait):
+		case <-time.After(panicUploadNoticeWait):
 			l.Warnln("Uploading crash reports is taking a while, please wait...")
 		}
 	}()
