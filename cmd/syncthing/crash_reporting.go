@@ -63,8 +63,9 @@ func uploadPanicLog(urlBase, file string) error {
 	data = filterLogLines(data)
 
 	hash := fmt.Sprintf("%x", sha256.Sum256(data))
-	url := fmt.Sprintf("%s/%s", urlBase, hash)
+	l.Infof("Reporting crash found in %s (report ID %s) ...\n", filepath.Base(file), hash[:8])
 
+	url := fmt.Sprintf("%s/%s", urlBase, hash)
 	headReq, err := http.NewRequest(http.MethodHead, url, nil)
 	if err != nil {
 		return err
@@ -79,8 +80,6 @@ func uploadPanicLog(urlBase, file string) error {
 		// It's known, we're done
 		return nil
 	}
-
-	l.Infoln("Reporting crash found in", filepath.Base(file), "...")
 
 	putReq, err := http.NewRequest(http.MethodPut, url, bytes.NewReader(data))
 	if err != nil {
