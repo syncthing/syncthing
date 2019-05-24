@@ -6,9 +6,11 @@ require (
 	github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e
 	github.com/calmh/du v1.0.1
 	github.com/calmh/xdr v1.1.0
+	github.com/certifi/gocertifi v0.0.0-20190506164543-d2eda7129713 // indirect
 	github.com/chmduquesne/rollinghash v0.0.0-20180912150627-a60f8e7142b5
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
+	github.com/getsentry/raven-go v0.2.0 // indirect
 	github.com/gobwas/glob v0.0.0-20170212200151-51eb1ee00b6d
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4
@@ -17,6 +19,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20170619183022-cd60e84ee657
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.1.1
+	github.com/maruel/panicparse v1.2.0
 	github.com/mattn/go-isatty v0.0.7
 	github.com/minio/sha256-simd v0.0.0-20190117184323-cc1980cb0338
 	github.com/onsi/ginkgo v0.0.0-20171221013426-6c46eb8334b3 // indirect
