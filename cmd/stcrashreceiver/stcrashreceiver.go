@@ -120,9 +120,12 @@ func (r *crashReceiver) servePut(base string, w http.ResponseWriter, req *http.R
 
 	// Send the report to Sentry
 	if r.dsn != "" {
-		if err := sendReport(r.dsn, path, bs); err != nil {
-			log.Println("Failed to send report:", err)
-		}
+		go func() {
+			// There's no need for the client to have to wait for this part.
+			if err := sendReport(r.dsn, path, bs); err != nil {
+				log.Println("Failed to send report:", err)
+			}
+		}()
 	}
 }
 
