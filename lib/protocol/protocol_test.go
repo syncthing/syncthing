@@ -86,6 +86,12 @@ func TestClose(t *testing.T) {
 // Close is called while the underlying connection is broken (send blocks).
 // https://github.com/syncthing/syncthing/pull/5442
 func TestCloseOnBlockingSend(t *testing.T) {
+	oldCloseTimeout := CloseTimeout
+	CloseTimeout = 100 * time.Millisecond
+	defer func() {
+		CloseTimeout = oldCloseTimeout
+	}()
+
 	m := newTestModel()
 
 	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
@@ -211,6 +217,33 @@ func TestClusterConfigFirst(t *testing.T) {
 
 	if err := m.closedError(); err != errManual {
 		t.Fatal("Connection should be closed")
+	}
+}
+
+// TestCloseTimeout checks that calling Close times out and proceeds, if sending
+// the close message does not succeed.
+func TestCloseTimeout(t *testing.T) {
+	oldCloseTimeout := CloseTimeout
+	CloseTimeout = 100 * time.Millisecond
+	defer func() {
+		CloseTimeout = oldCloseTimeout
+	}()
+
+	m := newTestModel()
+
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c.Start()
+
+	done := make(chan struct{})
+	go func() {
+		c.Close(errManual)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * CloseTimeout):
+		t.Fatal("timed out before Close returned")
 	}
 }
 
