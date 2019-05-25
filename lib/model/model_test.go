@@ -862,15 +862,6 @@ func TestIssue5063(t *testing.T) {
 	m := newState(defaultAutoAcceptCfg)
 	defer cleanupModel(m)
 
-	m.pmut.Lock()
-	for _, c := range m.conn {
-		conn := c.(*fakeConnection)
-		conn.mut.Lock()
-		conn.closeFn = func(_ error) {}
-		conn.mut.Unlock()
-	}
-	m.pmut.Unlock()
-
 	wg := sync.WaitGroup{}
 
 	addAndVerify := func(id string) {
@@ -3267,12 +3258,7 @@ func TestSanitizePath(t *testing.T) {
 func TestConnCloseOnRestart(t *testing.T) {
 	w, fcfg := tmpDefaultWrapper()
 	m := setupModel(w)
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(fcfg.Filesystem().URI())
-		os.Remove(w.ConfigPath())
-	}()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
@@ -3291,6 +3277,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 		t.Fatal("Timed out before folder restart returned")
 	}
 	m.pmut.RLock()
+	defer m.pmut.RUnlock()
 	if len(m.conn) != 0 {
 		t.Errorf("Conn wasn't removed on restart (len(m.conn) == %v)", len(m.conn))
 	}
