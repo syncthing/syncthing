@@ -17,8 +17,10 @@ import (
 	"github.com/maruel/panicparse/stack"
 )
 
-func sendReport(path, dsn string) error {
-	pkt, err := loadReport(path)
+const reportServer = "https://crash.syncthing.net/report/"
+
+func sendReport(dsn, path string, report []byte) error {
+	pkt, err := parseReport(path, report)
 	if err != nil {
 		return err
 	}
@@ -36,14 +38,6 @@ func sendReport(path, dsn string) error {
 
 	_, errC := cli.Capture(pkt, nil)
 	return <-errC
-}
-
-func loadReport(path string) (*raven.Packet, error) {
-	bs, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	return parseReport(path, bs)
 }
 
 func parseReport(path string, report []byte) (*raven.Packet, error) {
@@ -117,7 +111,7 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 			raven.Tag{Key: "builder", Value: version.builder},
 		},
 		Extra: raven.Extra{
-			"path": path,
+			"url": reportServer + path,
 		},
 		Interfaces: []raven.Interface{&trace},
 	}

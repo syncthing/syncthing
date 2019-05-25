@@ -15,6 +15,7 @@ package main
 import (
 	"flag"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -89,40 +90,43 @@ func (r *crashReceiver) serveHead(base string, w http.ResponseWriter, _ *http.Re
 
 // servePut accepts and stores the given report.
 func (r *crashReceiver) servePut(base string, w http.ResponseWriter, req *http.Request) {
+	path := filepath.Join(r.dirFor(base), base)
+	fullPath := filepath.Join(r.dir, path)
+
 	// Ensure the destination directory exists
-	dir := r.dirFor(base)
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 		log.Printf("Creating directory for report %s: %v", base, err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
+	// Read at most maxRequestSize of report data.
+	log.Println("Receiving report", base)
+	lr := io.LimitReader(req.Body, maxRequestSize)
+	bs, err := ioutil.ReadAll(lr)
+	if err != nil {
+		log.Printf("Reading report: %v", base, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	// Create an output file
-	path := filepath.Join(dir, base)
-	dst, err := os.Create(path)
+	err = ioutil.WriteFile(fullPath, bs, 0644)
 	if err != nil {
 		log.Printf("Creating file for report %s: %v", base, err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	// Read at most maxRequestSize into it. At this point we don't really
-	// care about errors any more, whether they are network or I/O errors.
-	// Consider it best effort.
-	log.Println("Receiving report", base)
-	lr := io.LimitReader(req.Body, maxRequestSize)
-	_, _ = io.Copy(dst, lr)
-	dst.Close()
-
+	// Send the report to Sentry
 	if r.dsn != "" {
-		// Send the report to Sentry
-		if err := sendReport(r.dsn, path); err != nil {
+		if err := sendReport(r.dsn, path, bs); err != nil {
 			log.Println("Failed to send report:", err)
 		}
 	}
 }
 
-// 01234567890abcdef... => dir/01/23
+// 01234567890abcdef... => 01/23
 func (r *crashReceiver) dirFor(base string) string {
-	return filepath.Join(r.dir, base[0:2], base[2:4])
+	return filepath.Join(base[0:2], base[2:4])
 }
