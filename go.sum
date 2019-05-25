@@ -1,7 +1,7 @@
 github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362 h1:l4qGIzSY0WhdXdR74XMYAtfc0Ri/RJVM4p6x/E/+WkA=
 github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362/go.mod h1:CEaBhA5lh1spxbPOELh5wNLKGsVQoahjUhVrJViVK8s=
-github.com/AudriusButkevicius/pfilter v0.0.0-20171205232613-9dca34a5b530 h1:NLWRKjwzcyk8NxvBD9/wm6Il05W6gid0MRWvaq9qvOg=
-github.com/AudriusButkevicius/pfilter v0.0.0-20171205232613-9dca34a5b530/go.mod h1:1N0EEx/irz4B1qV17wW82TFbjQrE7oX316Cki6eDY0Q=
+github.com/AudriusButkevicius/pfilter v0.0.0-20190525131515-730b0de4d4de h1:w1VG0ehgPh2ucQGO7wL9TBmHLzMo4dduYwyp2lhs8+A=
+github.com/AudriusButkevicius/pfilter v0.0.0-20190525131515-730b0de4d4de/go.mod h1:1N0EEx/irz4B1qV17wW82TFbjQrE7oX316Cki6eDY0Q=
 github.com/AudriusButkevicius/recli v0.0.5 h1:xUa55PvWTHBm17T6RvjElRO3y5tALpdceH86vhzQ5wg=
 github.com/AudriusButkevicius/recli v0.0.5/go.mod h1:Q2E26yc6RvWWEz/TJ/goUp6yXvipYdJI096hpoaqsNs=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=

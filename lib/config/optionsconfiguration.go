@@ -90,3 +90,7 @@ func (orig OptionsConfiguration) RequiresRestartOnly() OptionsConfiguration {
 	})
 	return copy
 }
+
+func (opts OptionsConfiguration) IsStunDisabled() bool {
+	return opts.StunKeepaliveMinS < 1 || opts.StunKeepaliveStartS < 1 || !opts.NATEnabled
+}
