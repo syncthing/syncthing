@@ -8,6 +8,7 @@ package fs
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -333,4 +334,14 @@ func longFilenameSupport(path string) string {
 		return `\\?\` + path
 	}
 	return path
+}
+
+type ErrWatchEventOutsideRoot struct{ msg string }
+
+func (e *ErrWatchEventOutsideRoot) Error() string {
+	return e.msg
+}
+
+func (f *BasicFilesystem) newErrWatchEventOutsideRoot(absPath, root string) *ErrWatchEventOutsideRoot {
+	return &ErrWatchEventOutsideRoot{fmt.Sprintf("Watching for changes encountered an event outside of the filesystem root: f.root==%v, root==%v, path==%v. This should never happen, please report this message to forum.syncthing.net.", f.root, root, absPath)}
 }
