@@ -862,16 +862,6 @@ func TestIssue5063(t *testing.T) {
 	m := newState(defaultAutoAcceptCfg)
 	defer cleanupModel(m)
 
-	m.pmut.Lock()
-	for _, c := range m.conn {
-		conn := c.(*fakeConnection)
-		conn.mut.Lock()
-		conn.closeFn = func(_ error) {}
-		conn.mut.Unlock()
-		defer m.Closed(c, errStopped) // to unblock m.Stop()
-	}
-	m.pmut.Unlock()
-
 	wg := sync.WaitGroup{}
 
 	addAndVerify := func(id string) {
