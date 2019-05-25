@@ -37,25 +37,30 @@ type quicDialer struct {
 func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri, config.DefaultQUICPort)
 
+	addr, err := net.ResolveUDPAddr("udp", uri.Host)
+	if err != nil {
+		return internalConn{}, err
+	}
+
 	var conn net.PacketConn
+	closeConn := false
 	if listenConn := registry.Get(uri.Scheme, packetConnLess); listenConn != nil {
 		conn = listenConn.(net.PacketConn)
 	} else {
 		if packetConn, err := net.ListenPacket("udp", ":0"); err != nil {
 			return internalConn{}, err
 		} else {
+			closeConn = true
 			conn = packetConn
 		}
-	}
-
-	addr, err := net.ResolveUDPAddr("udp", uri.Host)
-	if err != nil {
-		return internalConn{}, err
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	session, err := quic.DialContext(ctx, conn, addr, uri.Host, d.tlsCfg, quicConfig)
 	if err != nil {
+		if closeConn {
+			_ = conn.Close()
+		}
 		return internalConn{}, err
 	}
 
@@ -68,6 +73,7 @@ func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, err
 			return
 		case <-time.After(10 * time.Second):
 			l.Debugln("timed out waiting for OpenStream on", session.RemoteAddr())
+			// This will unblock OpenStreamSync
 			_ = session.Close()
 		}
 	}()
@@ -77,6 +83,9 @@ func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, err
 	if err != nil {
 		// It's ok to close these, this does not close the underlying packetConn.
 		_ = session.Close()
+		if closeConn {
+			_ = conn.Close()
+		}
 		return internalConn{}, err
 	}
 

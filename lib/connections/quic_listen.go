@@ -200,8 +200,12 @@ func (t *quicListener) stunRenewal(listener net.PacketConn, getLastWriteTime fun
 	for {
 	disabled:
 		if t.stunDisabled() {
-			time.Sleep(time.Second)
-			continue
+			select {
+			case <-t.stop:
+				return
+			case <-time.After(time.Second):
+				continue
+			}
 		}
 
 		l.Debugf("Starting stun for %s", t.uri)
@@ -212,6 +216,9 @@ func (t *quicListener) stunRenewal(listener net.PacketConn, getLastWriteTime fun
 		t.mut.Unlock()
 
 		for _, addr := range t.cfg.StunServers() {
+			// This blocks until we hit an exit condition or there are issues with the STUN server.
+			// This returns a boolean signifying if a different STUN server should be tried (oppose to the whole thing
+			// shutting down and this winding itself down.
 			if !t.runStunForServer(listener, addr, getLastWriteTime) {
 				// Check exit conditions.
 

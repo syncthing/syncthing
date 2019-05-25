@@ -112,11 +112,13 @@ func (w *wrapper) StunServers() []string {
 	for _, addr := range w.cfg.Options.StunServers {
 		switch addr {
 		case "default":
-			defaultPrimaryAddresses := DefaultPrimaryStunServers
+			defaultPrimaryAddresses := make([]string, len(DefaultPrimaryStunServers))
+			copy(defaultPrimaryAddresses, DefaultPrimaryStunServers)
 			rand.Shuffle(defaultPrimaryAddresses)
 			addresses = append(addresses, defaultPrimaryAddresses...)
 
-			defaultSecondaryAddresses := DefaultSecondaryStunServers
+			defaultSecondaryAddresses := make([]string, len(DefaultSecondaryStunServers))
+			copy(defaultSecondaryAddresses, DefaultSecondaryStunServers)
 			rand.Shuffle(defaultSecondaryAddresses)
 			addresses = append(addresses, defaultSecondaryAddresses...)
 		default:

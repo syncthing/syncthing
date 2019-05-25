@@ -63,17 +63,18 @@ func packetConnLess(i interface{}, j interface{}) bool {
 }
 
 type writeTrackingPacketConn struct {
+	lastWrite int64
 	net.PacketConn
-	lastWrite atomic.Value
 }
 
 func (c *writeTrackingPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
-	c.lastWrite.Store(time.Now())
+	atomic.StoreInt64(&c.lastWrite, time.Now().Unix())
 	return c.PacketConn.WriteTo(p, addr)
 }
 
 func (c *writeTrackingPacketConn) GetLastWrite() time.Time {
-	return c.lastWrite.Load().(time.Time)
+	unix := atomic.LoadInt64(&c.lastWrite)
+	return time.Unix(unix, 0)
 }
 
 type stunFilter struct {
