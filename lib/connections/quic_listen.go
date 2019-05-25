@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
+	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -32,9 +33,7 @@ func init() {
 }
 
 type quicListener struct {
-	nat     atomic.Value
-	address atomic.Value
-	err     atomic.Value
+	nat atomic.Value
 
 	onAddressesChangedNotifier
 
@@ -44,6 +43,10 @@ type quicListener struct {
 	stop    chan struct{}
 	conns   chan internalConn
 	factory listenerFactory
+
+	address *url.URL
+	err     error
+	mut     sync.Mutex
 }
 
 func (t *quicListener) OnNATTypeChanged(natType stun.NATType) {
@@ -60,8 +63,10 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 		uri.Host = address.TransportAddr()
 	}
 
-	existingAddress := t.address.Load().(*url.URL)
-	t.address.Store(uri)
+	t.mut.Lock()
+	existingAddress := t.address
+	t.address = uri
+	t.mut.Unlock()
 
 	if uri != nil && (existingAddress == nil || existingAddress.String() != uri.String()) {
 		l.Infof("%s resolved external address %s (via %s)", t.uri, uri.String(), via)
@@ -72,13 +77,17 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 }
 
 func (t *quicListener) Serve() {
-	t.err.Store(nil)
+	t.mut.Lock()
+	t.err = nil
+	t.mut.Unlock()
 
 	network := strings.Replace(t.uri.Scheme, "quic", "udp", -1)
 
 	packetConn, err := net.ListenPacket(network, t.uri.Host)
 	if err != nil {
-		t.err.Store(err)
+		t.mut.Lock()
+		t.err = err
+		t.mut.Unlock()
 		l.Infoln("Listen (BEP/quic):", err)
 		return
 	}
@@ -90,7 +99,9 @@ func (t *quicListener) Serve() {
 
 	listener, err := quic.Listen(conn, t.tlsCfg, quicConfig)
 	if err != nil {
-		t.err.Store(err)
+		t.mut.Lock()
+		t.err = err
+		t.mut.Unlock()
 		l.Infoln("Listen (BEP/quic):", err)
 		return
 	}
@@ -166,10 +177,11 @@ func (t *quicListener) URI() *url.URL {
 
 func (t *quicListener) WANAddresses() []*url.URL {
 	uris := t.LANAddresses()
-	addr := t.address.Load().(*url.URL)
-	if addr != nil {
-		uris = append(uris, addr)
+	t.mut.Lock()
+	if t.address != nil {
+		uris = append(uris, t.address)
 	}
+	t.mut.Unlock()
 	return uris
 }
 
@@ -178,7 +190,10 @@ func (t *quicListener) LANAddresses() []*url.URL {
 }
 
 func (t *quicListener) Error() error {
-	return t.err.Load().(error)
+	t.mut.Lock()
+	err := t.err
+	t.mut.Unlock()
+	return err
 }
 
 func (t *quicListener) String() string {

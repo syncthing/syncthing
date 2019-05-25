@@ -18,12 +18,15 @@ func TestCacheUnique(t *testing.T) {
 	addresses0 := []string{"tcp://192.0.2.44:22000", "tcp://192.0.2.42:22000"}
 	addresses1 := []string{"tcp://192.0.2.43:22000", "tcp://192.0.2.42:22000"}
 
+	// what we expect from just addresses0
+	addresses0Sorted := []string{"tcp://192.0.2.42:22000", "tcp://192.0.2.44:22000"}
+
 	// what we expect from addresses0+addresses1
-	totalUnique := []string{
-		"tcp://192.0.2.44:22000",
+	totalSorted := []string{
 		"tcp://192.0.2.42:22000",
 		// no duplicate .42
 		"tcp://192.0.2.43:22000",
+		"tcp://192.0.2.44:22000",
 	}
 
 	c := NewCachingMux()
@@ -40,8 +43,8 @@ func TestCacheUnique(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(addr, addresses0) {
-		t.Errorf("Incorrect addresses; %+v != %+v", addr, addresses0)
+	if !reflect.DeepEqual(addr, addresses0Sorted) {
+		t.Errorf("Incorrect addresses; %+v != %+v", addr, addresses0Sorted)
 	}
 
 	// Add one more that answers in the same way and check that we don't
@@ -54,8 +57,8 @@ func TestCacheUnique(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(addr, totalUnique) {
-		t.Errorf("Incorrect addresses; %+v != %+v", addr, totalUnique)
+	if !reflect.DeepEqual(addr, totalSorted) {
+		t.Errorf("Incorrect addresses; %+v != %+v", addr, totalSorted)
 	}
 }
 
