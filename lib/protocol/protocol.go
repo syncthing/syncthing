@@ -182,14 +182,13 @@ type rawConnection struct {
 	nextID    int32
 	nextIDMut sync.Mutex
 
-	inbox               chan message
-	outbox              chan asyncMessage
-	clusterConfigBox    chan *ClusterConfig
-	receiverLoopStopped chan struct{}
-	closed              chan struct{}
-	closeOnce           sync.Once
-	sendCloseOnce       sync.Once
-	compression         Compression
+	inbox                 chan message
+	outbox                chan asyncMessage
+	dispatcherLoopStopped chan struct{}
+	closed                chan struct{}
+	closeOnce             sync.Once
+	sendCloseOnce         sync.Once
+	compression           Compression
 }
 
 type asyncResult struct {
@@ -223,18 +222,17 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	cw := &countingWriter{Writer: writer}
 
 	c := rawConnection{
-		id:                  deviceID,
-		name:                name,
-		receiver:            nativeModel{receiver},
-		cr:                  cr,
-		cw:                  cw,
-		awaiting:            make(map[int32]chan asyncResult),
-		inbox:               make(chan message),
-		outbox:              make(chan asyncMessage),
-		clusterConfigBox:    make(chan *ClusterConfig),
-		receiverLoopStopped: make(chan struct{}),
-		closed:              make(chan struct{}),
-		compression:         compress,
+		id:                    deviceID,
+		name:                  name,
+		receiver:              nativeModel{receiver},
+		cr:                    cr,
+		cw:                    cw,
+		awaiting:              make(map[int32]chan asyncResult),
+		inbox:                 make(chan message),
+		outbox:                make(chan asyncMessage),
+		dispatcherLoopStopped: make(chan struct{}),
+		closed:                make(chan struct{}),
+		compression:           compress,
 	}
 
 	return wireFormatConnection{&c}
@@ -245,7 +243,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 func (c *rawConnection) Start() {
 	go c.readerLoop()
 	go func() {
-		err := c.receiverLoop()
+		err := c.dispatcherLoop()
 		c.internalClose(err)
 	}()
 	go c.writerLoop()
@@ -376,8 +374,8 @@ func (c *rawConnection) readerLoop() {
 	}
 }
 
-func (c *rawConnection) receiverLoop() (err error) {
-	defer close(c.receiverLoopStopped)
+func (c *rawConnection) dispatcherLoop() (err error) {
+	defer close(c.dispatcherLoopStopped)
 	var msg message
 	state := stateInitial
 	for {
@@ -866,7 +864,7 @@ func (c *rawConnection) internalClose(err error) {
 		}
 		c.awaitingMut.Unlock()
 
-		<-c.receiverLoopStopped
+		<-c.dispatcherLoopStopped
 
 		c.receiver.Closed(c, err)
 	})
