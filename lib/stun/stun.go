@@ -112,8 +112,8 @@ func (s *Service) Stop() {
 func (s *Service) Serve() {
 	for {
 	disabled:
-		s.subscriber.OnNATTypeChanged(NATUnknown)
-		s.subscriber.OnExternalAddressChanged(nil, "")
+		s.setNATType(NATUnknown)
+		s.setExternalAddress(nil, "")
 
 		if s.cfg.Options().IsStunDisabled() {
 			select {
@@ -154,8 +154,8 @@ func (s *Service) Serve() {
 		}
 
 		// Failed all servers, sad.
-		s.subscriber.OnNATTypeChanged(NATUnknown)
-		s.subscriber.OnExternalAddressChanged(nil, "")
+		s.setNATType(NATUnknown)
+		s.setExternalAddress(nil, "")
 
 		// We failed to contact all provided stun servers or the nat is not punchable.
 		// Chillout for a while.
@@ -191,6 +191,7 @@ func (s *Service) runStunForServer(addr string) (tryNext bool) {
 	}
 
 	s.setNATType(natType)
+	s.setExternalAddress(extAddr, addr)
 	l.Debugf("%s detected NAT type: %s via %s", s, natType, addr)
 
 	// We can't punch through this one, so no point doing keepalives
@@ -210,15 +211,15 @@ func (s *Service) stunKeepAlive(addr string, extAddr *Host) (tryNext bool) {
 	l.Debugf("%s starting stun keepalive via %s, next sleep %s", s, addr, nextSleep)
 
 	for {
-		if s.addr == nil || s.addr != extAddr {
-			s.subscriber.OnExternalAddressChanged(extAddr, addr)
+		if areDifferent(s.addr, extAddr) {
 			// If the port has changed (addresses are not equal but the hosts are equal),
 			// we're probably spending too much time between keepalives, reduce the sleep.
-			if s.addr != nil && s.addr.IP() == extAddr.IP() {
+			if s.addr != nil && extAddr != nil && s.addr.IP() == extAddr.IP() {
 				nextSleep /= 2
-				l.Debugf("%s stun port change, next sleep %s", s, nextSleep)
+				l.Debugf("%s stun port change (%s to %s), next sleep %s", s, s.addr.TransportAddr(), extAddr.TransportAddr(), nextSleep)
 			}
-			s.addr = extAddr
+
+			s.setExternalAddress(extAddr, addr)
 
 			// The stun server is probably stuffed, we've gone beyond min timeout, yet the address keeps changing.
 			minSleep := time.Duration(s.cfg.Options().StunKeepaliveMinS) * time.Second
@@ -277,13 +278,15 @@ func (s *Service) stunKeepAlive(addr string, extAddr *Host) (tryNext bool) {
 
 func (s *Service) setNATType(natType NATType) {
 	if natType != s.natType {
+		l.Debugf("Notifying %s of NAT type change: %s", s.subscriber, natType)
 		s.subscriber.OnNATTypeChanged(natType)
 	}
 	s.natType = natType
 }
 
 func (s *Service) setExternalAddress(addr *Host, via string) {
-	if addr != s.addr {
+	if areDifferent(s.addr, addr) {
+		l.Debugf("Notifying %s of address change: %s via %s", s.subscriber, addr, via)
 		s.subscriber.OnExternalAddressChanged(addr, via)
 	}
 	s.addr = addr
@@ -295,4 +298,14 @@ func (s *Service) String() string {
 
 func (s *Service) isCurrentNATTypePunchable() bool {
 	return s.natType == NATNone || s.natType == NATPortRestricted || s.natType == NATRestricted || s.natType == NATFull
+}
+
+func areDifferent(first, second *Host) bool {
+	if (first == nil) != (second == nil) {
+		return true
+	}
+	if first != nil {
+		return first.TransportAddr() != second.TransportAddr()
+	}
+	return false
 }

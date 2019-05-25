@@ -13,11 +13,11 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
-	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -59,7 +59,7 @@ func (t *quicListener) OnNATTypeChanged(natType stun.NATType) {
 func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) {
 	var uri *url.URL
 	if address != nil {
-		uri := *t.uri
+		uri = &(*t.uri)
 		uri.Host = address.TransportAddr()
 	}
 
