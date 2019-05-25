@@ -6,7 +6,11 @@
 
 package main
 
-import "testing"
+import (
+	"fmt"
+	"io/ioutil"
+	"testing"
+)
 
 func TestParseVersion(t *testing.T) {
 	cases := []struct {
@@ -16,14 +20,14 @@ func TestParseVersion(t *testing.T) {
 		{
 			longVersion: `syncthing v1.1.4-rc.1+30-g6aaae618-dirty-crashrep "Erbium Earthworm" (go1.12.5 darwin-amd64) jb@kvin.kastelo.net 2019-05-23 16:08:14 UTC`,
 			parsed: version{
-				version: "v1.1.4-rc.1+30-g6aaae618-dirty-crashrep",
-				tag:     "v1.1.4-rc.1",
-				commit:  "6aaae618",
-				code:    "Erbium Earthworm",
-				runtime: "go1.12.5",
-				goos:    "darwin",
-				goarch:  "amd64",
-				builder: "jb@kvin.kastelo.net",
+				version:  "v1.1.4-rc.1+30-g6aaae618-dirty-crashrep",
+				tag:      "v1.1.4-rc.1",
+				commit:   "6aaae618",
+				codename: "Erbium Earthworm",
+				runtime:  "go1.12.5",
+				goos:     "darwin",
+				goarch:   "amd64",
+				builder:  "jb@kvin.kastelo.net",
 			},
 		},
 	}
@@ -38,4 +42,23 @@ func TestParseVersion(t *testing.T) {
 			t.Error(v)
 		}
 	}
+}
+
+func TestParseReport(t *testing.T) {
+	bs, err := ioutil.ReadFile("_testdata/panic.log")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pkt, err := parseReport("1/2/345", bs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bs, err = pkt.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Printf("%s\n", bs)
 }

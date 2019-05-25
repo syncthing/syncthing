@@ -27,10 +27,14 @@ const maxRequestSize = 1 << 20 // 1 MiB
 
 func main() {
 	dir := flag.String("dir", ".", "Directory to store reports in")
+	dsn := flag.String("dsn", "", "Sentry DSN")
 	listen := flag.String("listen", ":22039", "HTTP listen address")
 	flag.Parse()
 
-	cr := &crashReceiver{dir: *dir}
+	cr := &crashReceiver{
+		dir: *dir,
+		dsn: *dsn,
+	}
 
 	log.SetOutput(os.Stdout)
 	if err := http.ListenAndServe(*listen, cr); err != nil {
@@ -40,6 +44,7 @@ func main() {
 
 type crashReceiver struct {
 	dir string
+	dsn string
 }
 
 func (r *crashReceiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -100,7 +105,6 @@ func (r *crashReceiver) servePut(base string, w http.ResponseWriter, req *http.R
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	defer dst.Close() // errors shmerrors what am I going to do about it
 
 	// Read at most maxRequestSize into it. At this point we don't really
 	// care about errors any more, whether they are network or I/O errors.
@@ -108,6 +112,14 @@ func (r *crashReceiver) servePut(base string, w http.ResponseWriter, req *http.R
 	log.Println("Receiving report", base)
 	lr := io.LimitReader(req.Body, maxRequestSize)
 	_, _ = io.Copy(dst, lr)
+	dst.Close()
+
+	if r.dsn != "" {
+		// Send the report to Sentry
+		if err := sendReport(r.dsn, path); err != nil {
+			log.Println("Failed to send report:", err)
+		}
+	}
 }
 
 // 01234567890abcdef... => dir/01/23

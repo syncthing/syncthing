@@ -10,7 +10,7 @@ require (
 	github.com/chmduquesne/rollinghash v0.0.0-20180912150627-a60f8e7142b5
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
-	github.com/getsentry/raven-go v0.2.0 // indirect
+	github.com/getsentry/raven-go v0.2.0
 	github.com/gobwas/glob v0.0.0-20170212200151-51eb1ee00b6d
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4
