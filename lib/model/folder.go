@@ -624,15 +624,9 @@ func (f *folder) monitorWatch(ctx context.Context) {
 		select {
 		case <-failTimer.C:
 			eventChan, errChan, err = f.Filesystem().Watch(".", f.ignores, ctx, f.IgnorePerms)
-			f.watchMut.Lock()
-			if f.watchErr != nil && f.watchErr != errWatchNotStarted {
-				// We encountered an error before -> schedule rescan
-				// to catch potentially missed changes.
-				// We do this at most once per minute which is the
-				// default rescan time without watcher.
-				f.Delay(0)
-			}
-			f.watchMut.Unlock()
+			// We do this at most once per minute which is the
+			// default rescan time without watcher.
+			f.scanOnWatchErr()
 			f.setWatchError(err)
 			if err != nil {
 				failTimer.Reset(time.Minute)
@@ -647,6 +641,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			if !warnedOutside {
 				if _, ok := err.(*fs.ErrWatchEventOutsideRoot); ok {
 					l.Warnln(err)
+					warnedOutside = true
 					return
 				}
 			}
@@ -687,6 +682,15 @@ func (f *folder) setWatchError(err error) {
 		return
 	}
 	l.Debugf("Repeat error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
+}
+
+// scanOnWatchErr schedules a full scan immediately if an error occurred while watching.
+func (f *folder) scanOnWatchErr() {
+	f.watchMut.Lock()
+	if f.watchErr != nil && f.watchErr != errWatchNotStarted {
+		f.Delay(0)
+	}
+	f.watchMut.Unlock()
 }
 
 func (f *folder) setError(err error) {
