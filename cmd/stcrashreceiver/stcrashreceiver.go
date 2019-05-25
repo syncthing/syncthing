@@ -105,7 +105,7 @@ func (r *crashReceiver) servePut(base string, w http.ResponseWriter, req *http.R
 	lr := io.LimitReader(req.Body, maxRequestSize)
 	bs, err := ioutil.ReadAll(lr)
 	if err != nil {
-		log.Printf("Reading report: %v", base, err)
+		log.Println("Reading report:", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
