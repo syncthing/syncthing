@@ -7,20 +7,18 @@
 package dialer
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"golang.org/x/net/proxy"
-
-	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
-	l           = logger.DefaultLogger.NewFacility("dialer", "Dialing connections")
 	proxyDialer proxy.Dialer
 	usingProxy  bool
 	noFallback  = os.Getenv("ALL_PROXY_NO_FALLBACK") != ""
@@ -29,8 +27,6 @@ var (
 type dialFunc func(network, addr string) (net.Conn, error)
 
 func init() {
-	l.SetDebug("dialer", strings.Contains(os.Getenv("STTRACE"), "dialer") || os.Getenv("STTRACE") == "all")
-
 	proxy.RegisterDialerType("socks", socksDialerFunction)
 	proxyDialer = getDialer(proxy.Direct)
 	usingProxy = proxyDialer != proxy.Direct
@@ -128,7 +124,7 @@ type timeoutDirectDialer struct {
 }
 
 func (d *timeoutDirectDialer) Dial(network, addr string) (net.Conn, error) {
-	return net.DialTimeout(network, addr, d.timeout)
+	return dialTimeout(network, addr, d.timeout)
 }
 
 type dialerConn struct {
@@ -159,4 +155,50 @@ func (a fallbackAddr) Network() string {
 
 func (a fallbackAddr) String() string {
 	return a.addr
+}
+
+// Sort available tcp address, preferring unspecified address.
+func tcpAddrLess(i interface{}, j interface{}) bool {
+	iIsUnspecified := false
+	jIsUnspecified := false
+	iAddr := i.(*net.TCPAddr)
+	jAddr := j.(*net.TCPAddr)
+
+	if host, _, err := net.SplitHostPort(iAddr.String()); err == nil {
+		iIsUnspecified = host == "" || net.ParseIP(host).IsUnspecified()
+	}
+	if host, _, err := net.SplitHostPort(jAddr.String()); err == nil {
+		jIsUnspecified = host == "" || net.ParseIP(host).IsUnspecified()
+	}
+
+	if jIsUnspecified != iIsUnspecified {
+		return len(iAddr.Network()) <= len(jAddr.Network())
+	}
+
+	return iIsUnspecified
+}
+
+func dial(network, addr string) (net.Conn, error) {
+	localAddrInterface := registry.Get(network, tcpAddrLess)
+	if localAddrInterface == nil {
+		return net.Dial(network, addr)
+	}
+	dialer := net.Dialer{
+		LocalAddr: localAddrInterface.(*net.TCPAddr),
+		Control:   ReusePortControl,
+	}
+	return dialer.Dial(network, addr)
+}
+
+func dialTimeout(network, addr string, timeout time.Duration) (net.Conn, error) {
+	localAddrInterface := registry.Get(network, tcpAddrLess)
+	if localAddrInterface == nil {
+		return net.DialTimeout(network, addr, timeout)
+	}
+	dialer := net.Dialer{
+		LocalAddr: localAddrInterface.(*net.TCPAddr),
+		Control:   ReusePortControl,
+	}
+	ctx, _ := context.WithTimeout(context.Background(), timeout)
+	return dialer.DialContext(ctx, network, addr)
 }

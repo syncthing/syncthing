@@ -1,0 +1,48 @@
+// Copyright (C) 2019 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
+
+// +build aix darwin dragonfly freebsd linux netbsd openbsd
+
+package dialer
+
+import (
+	"syscall"
+
+	"golang.org/x/sys/unix"
+)
+
+var portReuseSupported = false
+
+func init() {
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
+	if err != nil {
+		l.Debugln("Failed to create a socket", err)
+		return
+	}
+	defer func() { _ = syscall.Close(fd) }()
+	if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, unix.SO_REUSEPORT, 1); err == syscall.ENOPROTOOPT || err == syscall.EINVAL {
+		l.Debugln("SO_REUSEPORT not supported")
+	} else if err != nil {
+		l.Debugln("Unknown error when determining SO_REUSEPORT support", err)
+	} else {
+		l.Debugln("SO_REUSEPORT supported")
+		portReuseSupported = true
+	}
+}
+
+func ReusePortControl(network, address string, c syscall.RawConn) error {
+	if !portReuseSupported {
+		return nil
+	}
+	var opErr error
+	err := c.Control(func(fd uintptr) {
+		opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+	})
+	if err != nil {
+		return err
+	}
+	return opErr
+}

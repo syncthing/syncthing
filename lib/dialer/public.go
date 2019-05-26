@@ -19,9 +19,9 @@ import (
 // a direct connection if no proxy is defined, or connecting via proxy fails.
 func Dial(network, addr string) (net.Conn, error) {
 	if usingProxy {
-		return dialWithFallback(proxyDialer.Dial, net.Dial, network, addr)
+		return dialWithFallback(proxyDialer.Dial, dial, network, addr)
 	}
-	return net.Dial(network, addr)
+	return dial(network, addr)
 }
 
 // DialTimeout tries dialing via proxy with a timeout if a proxy is configured,
@@ -43,12 +43,12 @@ func DialTimeout(network, addr string, timeout time.Duration) (net.Conn, error) 
 		// returns timeoutDirectDialer due to env vars changing.
 		if timeoutProxyDialer := getDialer(dd); timeoutProxyDialer != dd {
 			directDialFunc := func(inetwork, iaddr string) (net.Conn, error) {
-				return net.DialTimeout(inetwork, iaddr, timeout)
+				return dialTimeout(network, iaddr, timeout)
 			}
 			return dialWithFallback(timeoutProxyDialer.Dial, directDialFunc, network, addr)
 		}
 	}
-	return net.DialTimeout(network, addr, timeout)
+	return dialTimeout(network, addr, timeout)
 }
 
 // SetTCPOptions sets our default TCP options on a TCP connection, possibly
