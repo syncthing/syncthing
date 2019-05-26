@@ -466,8 +466,8 @@ func (fs *fakefs) Walk(name string, walkFn WalkFunc) error {
 	return errors.New("not implemented")
 }
 
-func (fs *fakefs) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
-	return nil, ErrWatchNotSupported
+func (fs *fakefs) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
+	return nil, nil, ErrWatchNotSupported
 }
 
 func (fs *fakefs) Hide(name string) error {

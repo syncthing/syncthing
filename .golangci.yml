@@ -1,6 +1,3 @@
-run:
-  modules-download-mode: readonly
-
 linters-settings:
   maligned:
     suggest-new: true
@@ -18,4 +15,5 @@ linters:
 service:
   golangci-lint-version: 1.16.x
   prepare:
+    - GO111MODULE=on go mod vendor
     - go run build.go assets
