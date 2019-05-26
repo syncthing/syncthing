@@ -153,20 +153,20 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 }
 
 // unrootedChecked returns the path relative to the folder root (same as
-// unrooted). It panics if the given path is not a subpath and handles the
+// unrooted) or an error if the given path is not a subpath and handles the
 // special case when the given path is the folder root without a trailing
 // pathseparator.
-func (f *BasicFilesystem) unrootedChecked(absPath, root string) string {
+func (f *BasicFilesystem) unrootedChecked(absPath, root string) (string, error) {
 	absPath = f.resolveWin83(absPath)
 	lowerAbsPath := UnicodeLowercase(absPath)
 	lowerRoot := UnicodeLowercase(root)
 	if lowerAbsPath+string(PathSeparator) == lowerRoot {
-		return "."
+		return ".", nil
 	}
 	if !strings.HasPrefix(lowerAbsPath, lowerRoot) {
-		panic(fmt.Sprintf("bug: Notify backend is processing a change outside of the filesystem root: f.root==%v, root==%v (lower), path==%v (lower)", f.root, lowerRoot, lowerAbsPath))
+		return "", f.newErrWatchEventOutsideRoot(lowerAbsPath, lowerRoot)
 	}
-	return rel(absPath, root)
+	return rel(absPath, root), nil
 }
 
 func rel(path, prefix string) string {
