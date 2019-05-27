@@ -32,7 +32,8 @@ func Dial(network, addr string) (net.Conn, error) {
 // directly.
 func DialTimeout(network, addr string, timeout time.Duration) (net.Conn, error) {
 	if usingProxy {
-		ctx, _ := context.WithTimeout(context.Background(), timeout)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
 		dd := &contextDirectDialer{
 			ctx: ctx,
 		}
