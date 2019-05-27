@@ -27,18 +27,16 @@ func (f *stunFilter) Outgoing(out []byte, addr net.Addr) {
 	if !f.isStunPayload(out) {
 		panic("not a stun payload")
 	}
-	id := string(out[8:20])
 	f.mut.Lock()
-	f.ids[id] = time.Now().Add(time.Minute)
+	f.ids[string(out[8:20])] = time.Now().Add(time.Minute)
 	f.reap()
 	f.mut.Unlock()
 }
 
 func (f *stunFilter) ClaimIncoming(in []byte, addr net.Addr) bool {
 	if f.isStunPayload(in) {
-		id := string(in[8:20])
 		f.mut.Lock()
-		_, ok := f.ids[id]
+		_, ok := f.ids[string(in[8:20])]
 		f.reap()
 		f.mut.Unlock()
 		return ok

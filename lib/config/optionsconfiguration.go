@@ -64,31 +64,31 @@ type OptionsConfiguration struct {
 	DeprecatedMinHomeDiskFreePct float64  `xml:"minHomeDiskFreePct,omitempty" json:"-"`
 }
 
-func (orig OptionsConfiguration) Copy() OptionsConfiguration {
-	c := orig
-	c.ListenAddresses = make([]string, len(orig.ListenAddresses))
-	copy(c.ListenAddresses, orig.ListenAddresses)
-	c.GlobalAnnServers = make([]string, len(orig.GlobalAnnServers))
-	copy(c.GlobalAnnServers, orig.GlobalAnnServers)
-	c.AlwaysLocalNets = make([]string, len(orig.AlwaysLocalNets))
-	copy(c.AlwaysLocalNets, orig.AlwaysLocalNets)
-	c.UnackedNotificationIDs = make([]string, len(orig.UnackedNotificationIDs))
-	copy(c.UnackedNotificationIDs, orig.UnackedNotificationIDs)
-	return c
+func (opts OptionsConfiguration) Copy() OptionsConfiguration {
+	optsCopy := opts
+	optsCopy.ListenAddresses = make([]string, len(opts.ListenAddresses))
+	copy(optsCopy.ListenAddresses, opts.ListenAddresses)
+	optsCopy.GlobalAnnServers = make([]string, len(opts.GlobalAnnServers))
+	copy(optsCopy.GlobalAnnServers, opts.GlobalAnnServers)
+	optsCopy.AlwaysLocalNets = make([]string, len(opts.AlwaysLocalNets))
+	copy(optsCopy.AlwaysLocalNets, opts.AlwaysLocalNets)
+	optsCopy.UnackedNotificationIDs = make([]string, len(opts.UnackedNotificationIDs))
+	copy(optsCopy.UnackedNotificationIDs, opts.UnackedNotificationIDs)
+	return optsCopy
 }
 
 // RequiresRestartOnly returns a copy with only the attributes that require
 // restart on change.
-func (orig OptionsConfiguration) RequiresRestartOnly() OptionsConfiguration {
-	copy := orig
+func (opts OptionsConfiguration) RequiresRestartOnly() OptionsConfiguration {
+	optsCopy := opts
 	blank := OptionsConfiguration{}
-	util.CopyMatchingTag(&blank, &copy, "restart", func(v string) bool {
+	util.CopyMatchingTag(&blank, &optsCopy, "restart", func(v string) bool {
 		if len(v) > 0 && v != "true" {
 			panic(fmt.Sprintf(`unexpected tag value: %s. Expected untagged or "true"`, v))
 		}
 		return v != "true"
 	})
-	return copy
+	return optsCopy
 }
 
 func (opts OptionsConfiguration) IsStunDisabled() bool {
