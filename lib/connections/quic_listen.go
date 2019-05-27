@@ -91,11 +91,16 @@ func (t *quicListener) Serve() {
 		l.Infoln("Listen (BEP/quic):", err)
 		return
 	}
+	defer func() { _ = packetConn.Close() }()
 
 	svc, conn := stun.New(t.cfg, t, packetConn)
-	registry.Register(t.uri.Scheme, conn)
+	defer func() { _ = conn.Close() }()
 
 	go svc.Serve()
+	defer svc.Stop()
+
+	registry.Register(t.uri.Scheme, conn)
+	defer registry.Unregister(t.uri.Scheme, conn)
 
 	listener, err := quic.Listen(conn, t.tlsCfg, quicConfig)
 	if err != nil {
@@ -105,11 +110,6 @@ func (t *quicListener) Serve() {
 		l.Infoln("Listen (BEP/quic):", err)
 		return
 	}
-
-	defer func() { _ = packetConn.Close() }()
-	defer func() { _ = conn.Close() }()
-	defer svc.Stop()
-	defer registry.Unregister(t.uri.Scheme, conn)
 
 	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
 	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
@@ -149,6 +149,8 @@ func (t *quicListener) Serve() {
 			select {
 			case <-ok:
 				return
+			case <-t.stop:
+				_ = session.Close()
 			case <-time.After(10 * time.Second):
 				l.Debugln("timed out waiting for AcceptStream on", session.RemoteAddr())
 				_ = session.Close()
