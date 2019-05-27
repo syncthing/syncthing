@@ -211,30 +211,6 @@ func isMaybeWin83(absPath string) bool {
 	return strings.Contains(strings.TrimPrefix(filepath.Base(absPath), WindowsTempPrefix), "~")
 }
 
-func evalSymlinks(in string) (string, error) {
-	out, err := filepath.EvalSymlinks(in)
-	if err != nil && strings.HasPrefix(in, `\\?\`) {
-		// Try again without the `\\?\` prefix
-		out, err = filepath.EvalSymlinks(in[4:])
-	}
-	if err != nil {
-		// Try to get a normalized path from Win-API
-		var err1 error
-		out, err1 = getFinalPathName(in)
-		if err1 != nil {
-			return "", err // return the prior error
-		}
-		// Trim UNC prefix, equivalent to
-		// https://github.com/golang/go/blob/2396101e0590cb7d77556924249c26af0ccd9eff/src/os/file_windows.go#L470
-		if strings.HasPrefix(out, `\\?\UNC\`) {
-			out = `\` + out[7:] // path like \\server\share\...
-		} else {
-			out = strings.TrimPrefix(out, `\\?\`)
-		}
-	}
-	return longFilenameSupport(out), nil
-}
-
 func getFinalPathName(in string) (string, error) {
 	// Return the normalized path
 	// Wrap the call to GetFinalPathNameByHandleW
@@ -290,4 +266,28 @@ func getFinalPathName(in string) (string, error) {
 		bufSize = newBufSize
 	}
 	return "", err
+}
+
+func evalSymlinks(in string) (string, error) {
+	out, err := filepath.EvalSymlinks(in)
+	if err != nil && strings.HasPrefix(in, `\\?\`) {
+		// Try again without the `\\?\` prefix
+		out, err = filepath.EvalSymlinks(in[4:])
+	}
+	if err != nil {
+		// Try to get a normalized path from Win-API
+		var err1 error
+		out, err1 = getFinalPathName(in)
+		if err1 != nil {
+			return "", err // return the prior error
+		}
+		// Trim UNC prefix, equivalent to
+		// https://github.com/golang/go/blob/2396101e0590cb7d77556924249c26af0ccd9eff/src/os/file_windows.go#L470
+		if strings.HasPrefix(out, `\\?\UNC\`) {
+			out = `\` + out[7:] // path like \\server\share\...
+		} else {
+			out = strings.TrimPrefix(out, `\\?\`)
+		}
+	}
+	return longFilenameSupport(out), nil
 }
