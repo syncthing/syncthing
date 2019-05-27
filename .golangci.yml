@@ -11,6 +11,7 @@ linters:
     - gochecknoinits
     - gochecknoglobals
     - gofmt
+    - scopelint
 
 service:
   golangci-lint-version: 1.16.x
