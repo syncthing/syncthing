@@ -17,6 +17,8 @@ import (
 	"github.com/syncthing/syncthing/lib/relay/client"
 )
 
+const relayPriority = 200
+
 func init() {
 	dialers["relay"] = relayDialerFactory{}
 }

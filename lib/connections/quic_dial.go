@@ -22,6 +22,8 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
+const quicPriority = 100
+
 func init() {
 	factory := &quicDialerFactory{}
 	for _, scheme := range []string{"quic", "quic4", "quic6"} {
