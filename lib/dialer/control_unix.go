@@ -23,7 +23,7 @@ func init() {
 		return
 	}
 	defer func() { _ = syscall.Close(fd) }()
-	if err := syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, unix.SO_REUSEPORT, 1); err == syscall.ENOPROTOOPT || err == syscall.EINVAL {
+	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, unix.SO_REUSEPORT, 1); err == syscall.ENOPROTOOPT || err == syscall.EINVAL {
 		l.Debugln("SO_REUSEPORT not supported")
 	} else if err != nil {
 		l.Debugln("Unknown error when determining SO_REUSEPORT support", err)
