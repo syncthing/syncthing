@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -27,6 +28,8 @@ var (
 type dialFunc func(network, addr string) (net.Conn, error)
 
 func init() {
+	l.SetDebug("dialer", strings.Contains(os.Getenv("STTRACE"), "dialer") || os.Getenv("STTRACE") == "all")
+
 	proxy.RegisterDialerType("socks", socksDialerFunction)
 	proxyDialer = getDialer(proxy.Direct)
 	usingProxy = proxyDialer != proxy.Direct
@@ -119,12 +122,13 @@ func getDialer(forward proxy.Dialer) proxy.Dialer {
 	return perHost
 }
 
-type timeoutDirectDialer struct {
-	timeout time.Duration
+type contextDirectDialer struct {
+	ctx context.Context
 }
 
-func (d *timeoutDirectDialer) Dial(network, addr string) (net.Conn, error) {
-	return dialTimeout(network, addr, d.timeout)
+func (d *contextDirectDialer) Dial(network, addr string) (net.Conn, error) {
+	dialer := net.Dialer{}
+	return dialer.DialContext(d.ctx, network, addr)
 }
 
 type dialerConn struct {
@@ -157,7 +161,7 @@ func (a fallbackAddr) String() string {
 	return a.addr
 }
 
-// Sort available tcp address, preferring unspecified address.
+// Sort available addresses, preferring unspecified address.
 func tcpAddrLess(i interface{}, j interface{}) bool {
 	iIsUnspecified := false
 	jIsUnspecified := false
@@ -178,27 +182,18 @@ func tcpAddrLess(i interface{}, j interface{}) bool {
 	return iIsUnspecified
 }
 
-func dial(network, addr string) (net.Conn, error) {
-	localAddrInterface := registry.Get(network, tcpAddrLess)
-	if localAddrInterface == nil {
-		return net.Dial(network, addr)
-	}
+func dialContextReusePort(ctx context.Context, network, addr string) (net.Conn, error) {
 	dialer := net.Dialer{
-		LocalAddr: localAddrInterface.(*net.TCPAddr),
-		Control:   ReusePortControl,
+		Control: ReusePortControl,
 	}
-	return dialer.Dial(network, addr)
-}
+	localAddrInterface := registry.Get(network, tcpAddrLess)
+	if localAddrInterface != nil {
+		dialer.LocalAddr = localAddrInterface.(*net.TCPAddr)
+	}
 
-func dialTimeout(network, addr string, timeout time.Duration) (net.Conn, error) {
-	localAddrInterface := registry.Get(network, tcpAddrLess)
-	if localAddrInterface == nil {
-		return net.DialTimeout(network, addr, timeout)
+	conn, err := dialer.DialContext(ctx, network, addr)
+	if dialer.LocalAddr != nil {
+		l.Debugf("dialContextReusePort dial %s %s via %s: %v", network, addr, dialer.LocalAddr, err)
 	}
-	dialer := net.Dialer{
-		LocalAddr: localAddrInterface.(*net.TCPAddr),
-		Control:   ReusePortControl,
-	}
-	ctx, _ := context.WithTimeout(context.Background(), timeout)
-	return dialer.DialContext(ctx, network, addr)
+	return conn, err
 }

@@ -19,5 +19,5 @@ var (
 	_ = func() error {
 		l.SetDebug("dialer", strings.Contains(os.Getenv("STTRACE"), "dialer") || os.Getenv("STTRACE") == "all")
 		return nil
-	}
+	}()
 )

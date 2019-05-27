@@ -12,6 +12,8 @@ import (
 	"syscall"
 )
 
+var SupportsReusePort = true
+
 func ReusePortControl(network, address string, c syscall.RawConn) error {
 	var opErr error
 	err := c.Control(func(fd uintptr) {
@@ -19,7 +21,11 @@ func ReusePortControl(network, address string, c syscall.RawConn) error {
 		opErr = syscall.SetsockoptInt(syscall.Handle(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
 	})
 	if err != nil {
+		l.Debugln("ReusePortControl", err)
 		return err
+	}
+	if opErr != nil {
+		l.Debugln("ReusePortControl", opErr)
 	}
 	return opErr
 }

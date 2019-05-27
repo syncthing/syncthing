@@ -91,6 +91,7 @@ func (t *tcpListener) Serve() {
 	acceptFailures := 0
 	const maxAcceptFailures = 10
 
+	// :(, but what can you do.
 	tcpListener := listener.(*net.TCPListener)
 
 	for {
@@ -178,6 +179,14 @@ func (t *tcpListener) WANAddresses() []*url.URL {
 		}
 	}
 	t.mut.RUnlock()
+
+	// If we support ReusePort, add an unspecified zero port address, which will be resolved by the discovery server
+	// in hopes that TCP punch through works.
+	if dialer.SupportsReusePort {
+		uri := *t.uri
+		uri.Host = "0.0.0.0:0"
+		uris = append([]*url.URL{&uri}, uris...)
+	}
 	return uris
 }
 

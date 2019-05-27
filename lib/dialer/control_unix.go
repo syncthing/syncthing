@@ -14,7 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var portReuseSupported = false
+var SupportsReusePort = false
 
 func init() {
 	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
@@ -29,12 +29,12 @@ func init() {
 		l.Debugln("Unknown error when determining SO_REUSEPORT support", err)
 	} else {
 		l.Debugln("SO_REUSEPORT supported")
-		portReuseSupported = true
+		SupportsReusePort = true
 	}
 }
 
 func ReusePortControl(network, address string, c syscall.RawConn) error {
-	if !portReuseSupported {
+	if !SupportsReusePort {
 		return nil
 	}
 	var opErr error

@@ -7,6 +7,7 @@
 package dialer
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -19,9 +20,9 @@ import (
 // a direct connection if no proxy is defined, or connecting via proxy fails.
 func Dial(network, addr string) (net.Conn, error) {
 	if usingProxy {
-		return dialWithFallback(proxyDialer.Dial, dial, network, addr)
+		return dialWithFallback(proxyDialer.Dial, net.Dial, network, addr)
 	}
-	return dial(network, addr)
+	return net.Dial(network, addr)
 }
 
 // DialTimeout tries dialing via proxy with a timeout if a proxy is configured,
@@ -31,24 +32,19 @@ func Dial(network, addr string) (net.Conn, error) {
 // directly.
 func DialTimeout(network, addr string, timeout time.Duration) (net.Conn, error) {
 	if usingProxy {
-		// Because the proxy package is poorly structured, we have to
-		// construct a struct that matches proxy.Dialer but has a timeout
-		// and reconstrcut the proxy dialer using that, in order to be able to
-		// set a timeout.
-		dd := &timeoutDirectDialer{
-			timeout: timeout,
+		ctx, _ := context.WithTimeout(context.Background(), timeout)
+		dd := &contextDirectDialer{
+			ctx: ctx,
 		}
-		// Check if the dialer we are getting is not timeoutDirectDialer we just
+		// Check if the dialer we are getting is not contextDirectDialer we just
 		// created. It could happen that usingProxy is true, but getDialer
-		// returns timeoutDirectDialer due to env vars changing.
-		if timeoutProxyDialer := getDialer(dd); timeoutProxyDialer != dd {
-			directDialFunc := func(inetwork, iaddr string) (net.Conn, error) {
-				return dialTimeout(network, iaddr, timeout)
-			}
-			return dialWithFallback(timeoutProxyDialer.Dial, directDialFunc, network, addr)
+		// returns contextDirectDialer due to env vars changing.
+		if proxyDialer := getDialer(dd); proxyDialer != dd {
+			return dialWithFallback(proxyDialer.Dial, dd.Dial, network, addr)
 		}
 	}
-	return dialTimeout(network, addr, timeout)
+
+	return net.DialTimeout(network, addr, timeout)
 }
 
 // SetTCPOptions sets our default TCP options on a TCP connection, possibly
@@ -96,4 +92,22 @@ func SetTrafficClass(conn net.Conn, class int) error {
 	default:
 		return fmt.Errorf("unknown connection type %T", conn)
 	}
+}
+
+func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, error) {
+	if usingProxy {
+		// There is no point using SO_REUSEPORT when dialing via the proxy.
+		dd := &contextDirectDialer{
+			ctx: ctx,
+		}
+		// Check if the dialer we are getting is not contextDirectDialer we just
+		// created. It could happen that usingProxy is true, but getDialer
+		// returns contextDirectDialer due to env vars changing.
+		if proxyDialer := getDialer(dd); proxyDialer != dd {
+			return dialWithFallback(proxyDialer.Dial, func(inetwork, iaddr string) (net.Conn, error) {
+				return dialContextReusePort(ctx, inetwork, iaddr)
+			}, network, addr)
+		}
+	}
+	return dialContextReusePort(ctx, network, addr)
 }
