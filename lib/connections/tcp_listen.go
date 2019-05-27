@@ -95,7 +95,7 @@ func (t *tcpListener) Serve() {
 	tcpListener := listener.(*net.TCPListener)
 
 	for {
-		tcpListener.SetDeadline(time.Now().Add(time.Second))
+		_ = tcpListener.SetDeadline(time.Now().Add(time.Second))
 		conn, err := tcpListener.Accept()
 		select {
 		case <-t.stop:
