@@ -70,6 +70,8 @@ var (
 	DefaultTheme = "default"
 	// Default stun servers should be substituted when the configuration
 	// contains <stunServer>default</stunServer>.
+
+	// DefaultPrimaryStunServers are servers provided by us (to avoid causing the public servers burden)
 	DefaultPrimaryStunServers = []string{
 		"stun.syncthing.net:3478",
 	}

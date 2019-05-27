@@ -237,11 +237,10 @@ func (s *Service) stunKeepAlive(addr string, extAddr *Host) (tryNext bool) {
 		}
 	tryLater:
 		sleepFor := nextSleep
-		now := time.Now()
 
-		nextKeepalive := lastWrite.Add(sleepFor)
-		if nextKeepalive.After(now) {
-			sleepFor = nextKeepalive.Sub(time.Now())
+		timeUntilNextKeepalive := time.Until(lastWrite.Add(sleepFor))
+		if timeUntilNextKeepalive > 0 {
+			sleepFor = timeUntilNextKeepalive
 		}
 
 		l.Debugf("%s stun sleeping for %s", s, sleepFor)
@@ -261,7 +260,7 @@ func (s *Service) stunKeepAlive(addr string, extAddr *Host) (tryNext bool) {
 
 		// Check if any writes happened while we were sleeping, if they did, sleep again
 		lastWrite = s.writeTrackingPacketConn.getLastWrite()
-		if gap := time.Now().Sub(lastWrite); gap < nextSleep {
+		if gap := time.Since(lastWrite); gap < nextSleep {
 			l.Debugf("%s stun last write gap less than next sleep: %s < %s. Will try later", s, gap, nextSleep)
 			goto tryLater
 		}
