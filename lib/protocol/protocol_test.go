@@ -172,6 +172,48 @@ func TestCloseRace(t *testing.T) {
 	}
 }
 
+func TestClusterConfigFirst(t *testing.T) {
+	m := newTestModel()
+
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.NoopRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c.Start()
+
+	select {
+	case c.outbox <- asyncMessage{&Ping{}, nil}:
+		t.Fatal("able to send ping before cluster config")
+	case <-time.After(100 * time.Millisecond):
+		// Allow some time for c.writerLoop to setup after c.Start
+	}
+
+	c.ClusterConfig(ClusterConfig{})
+
+	done := make(chan struct{})
+	if ok := c.send(&Ping{}, done); !ok {
+		t.Fatal("send ping after cluster config returned false")
+	}
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before ping was sent")
+	}
+
+	done = make(chan struct{})
+	go func() {
+		c.internalClose(errManual)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close didn't return before timeout")
+	}
+
+	if err := m.closedError(); err != errManual {
+		t.Fatal("Connection should be closed")
+	}
+}
+
 func TestMarshalIndexMessage(t *testing.T) {
 	if testing.Short() {
 		quickCfg.MaxCount = 10
