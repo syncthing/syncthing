@@ -369,7 +369,7 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 					continue
 				}
 
-				host = remote.String()
+				host = remote.IP.String()
 			}
 
 			// If zero port was specified, use remote port.
