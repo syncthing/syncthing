@@ -159,6 +159,7 @@ func TestWatchWinRoot(t *testing.T) {
 
 	outChan := make(chan Event)
 	backendChan := make(chan notify.EventInfo, backendBuffer)
+	errChan := make(chan error)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -177,7 +178,7 @@ func TestWatchWinRoot(t *testing.T) {
 			}
 			cancel()
 		}()
-		fs.watchLoop(".", root, backendChan, outChan, fakeMatcher{}, ctx)
+		fs.watchLoop(".", root, backendChan, outChan, errChan, fakeMatcher{}, ctx)
 	}()
 
 	// filepath.Dir as watch has a /... suffix
@@ -192,6 +193,8 @@ func TestWatchWinRoot(t *testing.T) {
 		if ev.Name != name {
 			t.Errorf("Unexpected event %v, expected %v", ev.Name, name)
 		}
+	case err := <-errChan:
+		t.Error("Received fatal watch error:", err)
 	case <-ctx.Done():
 	}
 }
@@ -200,32 +203,22 @@ func TestWatchWinRoot(t *testing.T) {
 func TestWatchOutside(t *testing.T) {
 	outChan := make(chan Event)
 	backendChan := make(chan notify.EventInfo, backendBuffer)
+	errChan := make(chan error)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// testFs is Filesystem, but we need BasicFilesystem here
 	fs := newBasicFilesystem(testDirAbs)
 
-	go func() {
-		defer func() {
-			if recover() == nil {
-				select {
-				case <-ctx.Done(): // timed out
-				default:
-					t.Fatalf("Watch did not panic on receiving event outside of folder")
-				}
-			}
-			cancel()
-		}()
-		fs.watchLoop(".", testDirAbs, backendChan, outChan, fakeMatcher{}, ctx)
-	}()
+	go fs.watchLoop(".", testDirAbs, backendChan, outChan, errChan, fakeMatcher{}, ctx)
 
 	backendChan <- fakeEventInfo(filepath.Join(filepath.Dir(testDirAbs), "outside"))
 
 	select {
 	case <-time.After(10 * time.Second):
 		cancel()
-		t.Errorf("Timed out before panicing")
+		t.Errorf("Timed out before receiving error")
+	case <-errChan:
 	case <-ctx.Done():
 	}
 }
@@ -233,6 +226,7 @@ func TestWatchOutside(t *testing.T) {
 func TestWatchSubpath(t *testing.T) {
 	outChan := make(chan Event)
 	backendChan := make(chan notify.EventInfo, backendBuffer)
+	errChan := make(chan error)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -240,7 +234,7 @@ func TestWatchSubpath(t *testing.T) {
 	fs := newBasicFilesystem(testDirAbs)
 
 	abs, _ := fs.rooted("sub")
-	go fs.watchLoop("sub", testDirAbs, backendChan, outChan, fakeMatcher{}, ctx)
+	go fs.watchLoop("sub", testDirAbs, backendChan, outChan, errChan, fakeMatcher{}, ctx)
 
 	backendChan <- fakeEventInfo(filepath.Join(abs, "file"))
 
@@ -253,6 +247,8 @@ func TestWatchSubpath(t *testing.T) {
 		if ev.Name != filepath.Join("sub", "file") {
 			t.Errorf("While watching a subfolder, received an event with unexpected path %v", ev.Name)
 		}
+	case err := <-errChan:
+		t.Error("Received fatal watch error:", err)
 	}
 
 	cancel()
@@ -337,7 +333,7 @@ func TestWatchSymlinkedRoot(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if _, err := linkedFs.Watch(".", fakeMatcher{}, ctx, false); err != nil {
+	if _, _, err := linkedFs.Watch(".", fakeMatcher{}, ctx, false); err != nil {
 		panic(err)
 	}
 
@@ -350,14 +346,10 @@ func TestWatchSymlinkedRoot(t *testing.T) {
 }
 
 func TestUnrootedChecked(t *testing.T) {
-	var unrooted string
-	defer func() {
-		if recover() == nil {
-			t.Fatal("unrootedChecked did not panic on outside path, but returned", unrooted)
-		}
-	}()
 	fs := newBasicFilesystem(testDirAbs)
-	unrooted = fs.unrootedChecked("/random/other/path", testDirAbs)
+	if unrooted, err := fs.unrootedChecked("/random/other/path", testDirAbs); err == nil {
+		t.Error("unrootedChecked did not return an error on outside path, but returned", unrooted)
+	}
 }
 
 func TestWatchIssue4877(t *testing.T) {
@@ -428,7 +420,7 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents, al
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	eventChan, err := testFs.Watch(name, fm, ctx, false)
+	eventChan, errChan, err := testFs.Watch(name, fm, ctx, false)
 	if err != nil {
 		panic(err)
 	}
@@ -439,8 +431,9 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents, al
 
 	select {
 	case <-time.After(10 * time.Second):
-		t.Errorf("Timed out before receiving all expected events")
-
+		t.Error("Timed out before receiving all expected events")
+	case err := <-errChan:
+		t.Error("Received fatal watch error:", err)
 	case <-ctx.Done():
 	}
 }

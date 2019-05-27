@@ -125,6 +125,53 @@ func TestCloseOnBlockingSend(t *testing.T) {
 	}
 }
 
+func TestCloseRace(t *testing.T) {
+	indexReceived := make(chan struct{})
+	unblockIndex := make(chan struct{})
+	m0 := newTestModel()
+	m0.indexFn = func(_ DeviceID, _ string, _ []FileInfo) {
+		close(indexReceived)
+		<-unblockIndex
+	}
+	m1 := newTestModel()
+
+	ar, aw := io.Pipe()
+	br, bw := io.Pipe()
+
+	c0 := NewConnection(c0ID, ar, bw, m0, "c0", CompressNever).(wireFormatConnection).Connection.(*rawConnection)
+	c0.Start()
+	c1 := NewConnection(c1ID, br, aw, m1, "c1", CompressNever)
+	c1.Start()
+	c0.ClusterConfig(ClusterConfig{})
+	c1.ClusterConfig(ClusterConfig{})
+
+	c1.Index("default", nil)
+	select {
+	case <-indexReceived:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before receiving index")
+	}
+
+	go c0.internalClose(errManual)
+	select {
+	case <-c0.closed:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before c0.closed was closed")
+	}
+
+	select {
+	case <-m0.closedCh:
+		t.Errorf("receiver.Closed called before receiver.Index")
+	default:
+	}
+
+	close(unblockIndex)
+
+	if err := m0.closedError(); err != errManual {
+		t.Fatal("Connection should be closed")
+	}
+}
+
 func TestClusterConfigFirst(t *testing.T) {
 	m := newTestModel()
 

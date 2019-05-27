@@ -36,7 +36,10 @@ type Filesystem interface {
 	Stat(name string) (FileInfo, error)
 	SymlinksSupported() bool
 	Walk(name string, walkFn WalkFunc) error
-	Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error)
+	// If setup fails, returns non-nil error, and if afterwards a fatal (!)
+	// error occurs, sends that error on the channel. Afterwards this watch
+	// can be considered stopped.
+	Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error)
 	Hide(name string) error
 	Unhide(name string) error
 	Glob(pattern string) ([]string, error)
