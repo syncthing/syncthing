@@ -8,6 +8,8 @@
 
 package dialer
 
+import "syscall"
+
 var SupportsReusePort = false
 
 func ReusePortControl(network, address string, c syscall.RawConn) error {
