@@ -49,8 +49,8 @@ func packetConnLess(i interface{}, j interface{}) bool {
 		jIsUnspecified = host == "" || net.ParseIP(host).IsUnspecified()
 	}
 
-	if jIsUnspecified != iIsUnspecified {
-		return len(iLocalAddr.Network()) <= len(jLocalAddr.Network())
+	if jIsUnspecified == iIsUnspecified {
+		return len(iLocalAddr.Network()) < len(jLocalAddr.Network())
 	}
 
 	return iIsUnspecified

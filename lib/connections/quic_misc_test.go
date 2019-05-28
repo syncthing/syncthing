@@ -10,13 +10,12 @@ package connections
 
 import (
 	"net"
-	"sort"
 	"testing"
 	"time"
 )
 
 type mockPacketConn struct {
-	addr net.Addr
+	addr mockedAddr
 }
 
 func (mockPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
@@ -47,74 +46,47 @@ func (mockPacketConn) SetWriteDeadline(t time.Time) error {
 	panic("implement me")
 }
 
-func TestPacketConnUnspecifiedVsSpecified(t *testing.T) {
-	addr1, err := net.ResolveTCPAddr("tcp", "127.0.0.1:1234")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr2, err := net.ResolveTCPAddr("tcp", ":1235")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	conns := []*mockPacketConn{
-		{addr1},
-		{addr2},
-	}
-
-	sort.Slice(conns, func(i, j int) bool {
-		return packetConnLess(conns[i], conns[j])
-	})
-
-	if conns[0].addr != addr2 {
-		t.Error("unexpected")
-	}
+type mockedAddr struct {
+	network string
+	addr    string
 }
 
-func TestPacketConnUnspecifiedVsSpecifiedNonEmpty(t *testing.T) {
-	addr1, err := net.ResolveTCPAddr("tcp", "127.0.0.1:1234")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr2, err := net.ResolveTCPAddr("tcp", "0.0.0.0:1235")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	conns := []*mockPacketConn{
-		{addr1},
-		{addr2},
-	}
-
-	sort.Slice(conns, func(i, j int) bool {
-		return packetConnLess(conns[i], conns[j])
-	})
-
-	if conns[0].addr != addr2 {
-		t.Error("unexpected")
-	}
+func (a mockedAddr) Network() string {
+	return a.network
 }
 
-func TestPacketConnTCPvsTCP4(t *testing.T) {
-	addr1, err := net.ResolveTCPAddr("tcp4", "0.0.0.0:1234")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr2, err := net.ResolveTCPAddr("tcp", "0.0.0.0:1235")
-	if err != nil {
-		t.Fatal(err)
+func (a mockedAddr) String() string {
+	return a.addr
+}
+
+func TestPacketConnLess(t *testing.T) {
+	cases := []struct {
+		netA  string
+		addrA string
+		netB  string
+		addrB string
+	}{
+		// B is assumed the winner.
+		// {"tcp", "127.0.0.1:1234", "tcp", ":1235"},
+		// {"tcp", "127.0.0.1:1234", "tcp", "0.0.0.0:1235"},
+		{"tcp4", "0.0.0.0:1234", "tcp", "0.0.0.0:1235"}, // tcp4 on the first one
 	}
 
-	conns := []*mockPacketConn{
-		{addr1},
-		{addr2},
-	}
+	for i, testCase := range cases {
 
-	sort.Slice(conns, func(i, j int) bool {
-		return packetConnLess(conns[i], conns[j])
-	})
+		conns := []*mockPacketConn{
+			{mockedAddr{testCase.netA, testCase.addrA}},
+			{mockedAddr{testCase.netB, testCase.addrB}},
+		}
 
-	if conns[0].addr != addr2 {
-		t.Error("unexpected")
+		if packetConnLess(conns[0], conns[1]) {
+			t.Error(i, "unexpected")
+		}
+		if !packetConnLess(conns[1], conns[0]) {
+			t.Error(i, "unexpected")
+		}
+		if packetConnLess(conns[0], conns[0]) || packetConnLess(conns[1], conns[1]) {
+			t.Error(i, "unexpected")
+		}
 	}
 }
