@@ -60,7 +60,9 @@ angular.module('syncthing.core')
         } catch (exception) { }
 
         $scope.folderDefaults = {
+            sharedDevices: {},
             selectedDevices: {},
+            unrelatedDevices: {},
             type: "sendreceive",
             rescanIntervalS: 3600,
             fsWatcherDelayS: 10,
@@ -1658,9 +1660,19 @@ angular.module('syncthing.core')
             if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
             }
+            // Cache complete device objects indexed by ID for lookups
+            var devMap = deviceMap($scope.devices)
+            $scope.currentFolder.sharedDevices = [];
             $scope.currentFolder.selectedDevices = {};
             $scope.currentFolder.devices.forEach(function (n) {
+                if (n.deviceID !== $scope.myID) {
+                    $scope.currentFolder.sharedDevices.push(devMap[n.deviceID]);
+                }
                 $scope.currentFolder.selectedDevices[n.deviceID] = true;
+            });
+            $scope.currentFolder.unrelatedDevices = $scope.devices.filter(function (n) {
+                return n.deviceID !== $scope.myID
+                    && ! $scope.currentFolder.selectedDevices[n.deviceID]
             });
             if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "trashcan") {
                 $scope.currentFolder.trashcanFileVersioning = true;
@@ -1712,20 +1724,30 @@ angular.module('syncthing.core')
             $scope.editFolderModal();
         };
 
-        $scope.selectAllDevices = function (state = true) {
-            var devices = $scope.otherDevices();
+        $scope.selectAllSharedDevices = function (state = true) {
+            var devices = $scope.currentFolder.sharedDevices;
             for (var i = 0; i < devices.length; i++) {
                 $scope.currentFolder.selectedDevices[devices[i].deviceID] = !!state;
             }
         };
 
-        $scope.deSelectAllDevices = function () { $scope.selectAllDevices(false); };
+        $scope.deSelectAllSharedDevices = function () { $scope.selectAllSharedDevices(false); };
+
+        $scope.selectAllUnrelatedDevices = function (state = true) {
+            var devices = $scope.currentFolder.unrelatedDevices;
+            for (var i = 0; i < devices.length; i++) {
+                $scope.currentFolder.selectedDevices[devices[i].deviceID] = !!state;
+            }
+        };
+
+        $scope.deSelectAllUnrelatedDevices = function () { $scope.selectAllUnrelatedDevices(false); };
 
         $scope.addFolder = function () {
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.editingExisting = false;
                 $scope.currentFolder = angular.copy($scope.folderDefaults);
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
+                $scope.currentFolder.unrelatedDevices = $scope.otherDevices();
                 $('#folder-ignores textarea').val("");
                 $('#folder-ignores textarea').removeAttr('disabled');
                 $scope.editFolderModal();
@@ -1741,6 +1763,7 @@ angular.module('syncthing.core')
                 importFromOtherDevice: true
             };
             $scope.currentFolder.selectedDevices[device] = true;
+            $scope.currentFolder.unrelatedDevices = $scope.otherDevices();
             $('#folder-ignores textarea').val("");
             $('#folder-ignores textarea').removeAttr('disabled');
             $scope.editFolderModal();
@@ -1766,7 +1789,9 @@ angular.module('syncthing.core')
                     });
                 }
             }
+            delete folderCfg.sharedDevices;
             delete folderCfg.selectedDevices;
+            delete folderCfg.unrelatedDevices;
 
             if (folderCfg.fileVersioningSelector === "trashcan") {
                 folderCfg.versioning = {
