@@ -32,6 +32,7 @@ type FolderConfiguration struct {
 	Path                    string                      `xml:"path,attr" json:"path"`
 	Type                    FolderType                  `xml:"type,attr" json:"type"`
 	Devices                 []FolderDeviceConfiguration `xml:"device" json:"devices"`
+	CandidateDevices        []ObservedCandidateDevice   `xml:"candidateDevice" json:"candidateDevices"`
 	RescanIntervalS         int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS" default:"3600"`
 	FSWatcherEnabled        bool                        `xml:"fsWatcherEnabled,attr" json:"fsWatcherEnabled" default:"true"`
 	FSWatcherDelayS         int                         `xml:"fsWatcherDelayS,attr" json:"fsWatcherDelayS" default:"10"`
@@ -69,11 +70,12 @@ type FolderDeviceConfiguration struct {
 
 func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
 	f := FolderConfiguration{
-		ID:             id,
-		Label:          label,
-		Devices:        []FolderDeviceConfiguration{{DeviceID: myID}},
-		FilesystemType: fsType,
-		Path:           path,
+		ID:               id,
+		Label:            label,
+		Devices:          []FolderDeviceConfiguration{{DeviceID: myID}},
+		CandidateDevices: []ObservedCandidateDevice{},
+		FilesystemType:   fsType,
+		Path:             path,
 	}
 
 	util.SetDefaults(&f)
@@ -86,6 +88,8 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 	c := f
 	c.Devices = make([]FolderDeviceConfiguration, len(f.Devices))
 	copy(c.Devices, f.Devices)
+	c.CandidateDevices = make([]ObservedCandidateDevice, len(f.CandidateDevices))
+	copy(c.CandidateDevices, f.CandidateDevices)
 	c.Versioning = f.Versioning.Copy()
 	return c
 }
@@ -283,4 +287,34 @@ func (f *FolderConfiguration) CheckAvailableSpace(req int64) error {
 		}
 	}
 	return fmt.Errorf("insufficient space in %v %v", fs.Type(), fs.URI())
+}
+
+func (f *FolderConfiguration) AddOrUpdateCandidateDevice(device, introducer protocol.DeviceID, name, certName string, addresses []string) {
+
+	//FIXME locking already handled in config wrapper?!?
+
+	for i := range f.CandidateDevices {
+		cDev := &f.CandidateDevices[i]
+		if cDev.ID == device {
+			if cDev.CertName != certName {
+				//FIXME which one should be used?
+			}
+			cDev.CollectAddresses(addresses)
+			if !introducer.Equals(protocol.EmptyDeviceID) {
+				// Add / update source information for current candidate
+				cDev.SetIntroducer(introducer, name)
+			}
+			return
+		}
+	}
+
+	cDev := ObservedCandidateDevice{
+		ID:        device,
+		CertName:  certName,
+		Addresses: addresses,
+	}
+	if !introducer.Equals(protocol.EmptyDeviceID) {
+		cDev.SetIntroducer(introducer, name)
+	}
+	f.CandidateDevices = append(f.CandidateDevices, cDev)
 }
