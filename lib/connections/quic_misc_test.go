@@ -67,8 +67,8 @@ func TestPacketConnLess(t *testing.T) {
 		addrB string
 	}{
 		// B is assumed the winner.
-		// {"tcp", "127.0.0.1:1234", "tcp", ":1235"},
-		// {"tcp", "127.0.0.1:1234", "tcp", "0.0.0.0:1235"},
+		{"tcp", "127.0.0.1:1234", "tcp", ":1235"},
+		{"tcp", "127.0.0.1:1234", "tcp", "0.0.0.0:1235"},
 		{"tcp4", "0.0.0.0:1234", "tcp", "0.0.0.0:1235"}, // tcp4 on the first one
 	}
 
