@@ -22,5 +22,5 @@ type ObservedDevice struct {
 	Time    time.Time         `xml:"time,attr" json:"time"`
 	ID      protocol.DeviceID `xml:"id,attr" json:"deviceID"`
 	Name    string            `xml:"name,attr" json:"name"`
-	Address string            `xml:"address,attr" json:"address"`
+	Address string            `xml:"address,attr,omitempty" json:"address"`
 }
