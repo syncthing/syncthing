@@ -85,6 +85,8 @@ type Wrapper interface {
 	AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID)
 	IgnoredDevice(id protocol.DeviceID) bool
 	IgnoredFolder(device protocol.DeviceID, folder string) bool
+	AddOrUpdateFolderCandidateDevice(folder string,
+		device, introducer protocol.DeviceID, name, certName string, addresses []string)
 
 	ListenAddresses() []string
 	GlobalDiscoveryServers() []string
@@ -522,4 +524,22 @@ func (w *wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.Dev
 	}
 
 	panic("bug: adding pending folder for non-existing device")
+}
+
+func (w *wrapper) AddOrUpdateFolderCandidateDevice(folder string,
+	device, introducer protocol.DeviceID, name, certName string, addresses []string) {
+	defer w.Save()
+
+	w.mut.Lock()
+	defer w.mut.Unlock()
+
+	for i := range w.cfg.Folders {
+		if w.cfg.Folders[i].ID == folder {
+			w.cfg.Folders[i].AddOrUpdateCandidateDevice(
+				device, introducer, name, certName, addresses)
+			return
+		}
+	}
+
+	panic("bug: adding candidate device for non-existing folder")
 }
