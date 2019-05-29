@@ -766,6 +766,8 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		},
 	}
 
+	m := migration{14, migrateToConfigV14}
+
 	for _, tc := range tcs {
 		cfg := Configuration{
 			Version: 13,
@@ -774,7 +776,7 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 				DeprecatedRelayServers: tc[1],
 			},
 		}
-		convertV13V14(&cfg)
+		m.apply(&cfg)
 		if cfg.Version != 14 {
 			t.Error("Configuration was not converted")
 		}
