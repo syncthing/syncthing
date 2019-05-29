@@ -375,7 +375,7 @@ func (s *service) connect() {
 				}
 			}
 
-			addrs = util.UniqueStrings(addrs)
+			addrs = util.UniqueTrimmedStrings(addrs)
 
 			l.Debugln("Reconnect loop for", deviceID, addrs)
 
@@ -642,7 +642,7 @@ func (s *service) AllAddresses() []string {
 		}
 	}
 	s.listenersMut.RUnlock()
-	return util.UniqueStrings(addrs)
+	return util.UniqueTrimmedStrings(addrs)
 }
 
 func (s *service) ExternalAddresses() []string {
@@ -654,7 +654,7 @@ func (s *service) ExternalAddresses() []string {
 		}
 	}
 	s.listenersMut.RUnlock()
-	return util.UniqueStrings(addrs)
+	return util.UniqueTrimmedStrings(addrs)
 }
 
 func (s *service) ListenerStatus() map[string]ListenerStatusEntry {

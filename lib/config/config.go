@@ -39,6 +39,8 @@ const (
 var (
 	// DefaultTCPPort defines default TCP port used if the URI does not specify one, for example tcp://0.0.0.0
 	DefaultTCPPort = 22000
+	// DefaultQUICPort defines default QUIC port used if the URI does not specify one, for example quic://0.0.0.0
+	DefaultQUICPort = 22000
 	// DefaultListenAddresses should be substituted when the configuration
 	// contains <listenAddress>default</listenAddress>. This is done by the
 	// "consumer" of the configuration as we don't want these saved to the
@@ -46,6 +48,7 @@ var (
 	DefaultListenAddresses = []string{
 		util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
 		"dynamic+https://relays.syncthing.net/endpoint",
+		util.Address("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultQUICPort))),
 	}
 	DefaultGUIPort = 8384
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
@@ -65,6 +68,30 @@ var (
 	DefaultDiscoveryServers = append(DefaultDiscoveryServersV4, DefaultDiscoveryServersV6...)
 	// DefaultTheme is the default and fallback theme for the web UI.
 	DefaultTheme = "default"
+	// Default stun servers should be substituted when the configuration
+	// contains <stunServer>default</stunServer>.
+
+	// DefaultPrimaryStunServers are servers provided by us (to avoid causing the public servers burden)
+	DefaultPrimaryStunServers = []string{
+		"stun.syncthing.net:3478",
+	}
+	DefaultSecondaryStunServers = []string{
+		"stun.callwithus.com:3478",
+		"stun.counterpath.com:3478",
+		"stun.counterpath.net:3478",
+		"stun.ekiga.net:3478",
+		"stun.ideasip.com:3478",
+		"stun.internetcalls.com:3478",
+		"stun.schlund.de:3478",
+		"stun.sipgate.net:10000",
+		"stun.sipgate.net:3478",
+		"stun.voip.aebc.com:3478",
+		"stun.voiparound.com:3478",
+		"stun.voipbuster.com:3478",
+		"stun.voipstunt.com:3478",
+		"stun.voxgratia.org:3478",
+		"stun.xten.com:3478",
+	}
 )
 
 func New(myID protocol.DeviceID) Configuration {
@@ -258,8 +285,8 @@ func (cfg *Configuration) clean() error {
 		existingFolders[folder.ID] = folder
 	}
 
-	cfg.Options.ListenAddresses = util.UniqueStrings(cfg.Options.ListenAddresses)
-	cfg.Options.GlobalAnnServers = util.UniqueStrings(cfg.Options.GlobalAnnServers)
+	cfg.Options.ListenAddresses = util.UniqueTrimmedStrings(cfg.Options.ListenAddresses)
+	cfg.Options.GlobalAnnServers = util.UniqueTrimmedStrings(cfg.Options.GlobalAnnServers)
 
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
 		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)

@@ -8,6 +8,7 @@ package versioner
 
 import (
 	"path/filepath"
+	"sort"
 	"strconv"
 	"time"
 
@@ -242,7 +243,9 @@ func (v *Staggered) Archive(filePath string) error {
 
 	// Use all the found filenames.
 	versions := append(oldVersions, newVersions...)
-	v.expire(util.UniqueStrings(versions))
+	versions = util.UniqueTrimmedStrings(versions)
+	sort.Strings(versions)
+	v.expire(versions)
 
 	return nil
 }

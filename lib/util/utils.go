@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -111,20 +110,22 @@ func CopyMatchingTag(from interface{}, to interface{}, tag string, shouldCopy fu
 	}
 }
 
-// UniqueStrings returns a list on unique strings, trimming and sorting them
-// at the same time.
-func UniqueStrings(ss []string) []string {
-	var m = make(map[string]bool, len(ss))
-	for _, s := range ss {
-		m[strings.Trim(s, " ")] = true
+// UniqueTrimmedStrings returns a list on unique strings, trimming at the same time.
+func UniqueTrimmedStrings(ss []string) []string {
+	// Trim all first
+	for i, v := range ss {
+		ss[i] = strings.Trim(v, " ")
 	}
 
-	var us = make([]string, 0, len(m))
-	for k := range m {
-		us = append(us, k)
+	var m = make(map[string]struct{}, len(ss))
+	var us = make([]string, 0, len(ss))
+	for _, v := range ss {
+		if _, ok := m[v]; ok {
+			continue
+		}
+		m[v] = struct{}{}
+		us = append(us, v)
 	}
-
-	sort.Strings(us)
 
 	return us
 }
