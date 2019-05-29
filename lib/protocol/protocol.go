@@ -332,8 +332,11 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 // ClusterConfig sends the cluster configuration message to the peer.
 // It must be called just once (as per BEP), otherwise it will panic.
 func (c *rawConnection) ClusterConfig(config ClusterConfig) {
-	c.clusterConfigBox <- &config
-	close(c.clusterConfigBox)
+	select {
+	case c.clusterConfigBox <- &config:
+		close(c.clusterConfigBox)
+	case <-c.closed:
+	}
 }
 
 func (c *rawConnection) Closed() bool {

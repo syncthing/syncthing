@@ -757,3 +757,26 @@ func TestSha256OfEmptyBlock(t *testing.T) {
 		}
 	}
 }
+
+// TestClusterConfigAfterClose checks that ClusterConfig does not deadlock when
+// ClusterConfig is called on a closed connection.
+func TestClusterConfigAfterClose(t *testing.T) {
+	m := newTestModel()
+
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c.Start()
+
+	c.internalClose(errManual)
+
+	done := make(chan struct{})
+	go func() {
+		c.ClusterConfig(ClusterConfig{})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before Cluster Config returned")
+	}
+}
