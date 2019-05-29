@@ -8,6 +8,7 @@ package util
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"reflect"
 	"strconv"
@@ -169,4 +170,21 @@ func Address(network, host string) string {
 		Host:   host,
 	}
 	return u.String()
+}
+
+func AddressUnspecifiedLess(a, b net.Addr) bool {
+	aIsUnspecified := false
+	bIsUnspecified := false
+	if host, _, err := net.SplitHostPort(a.String()); err == nil {
+		aIsUnspecified = host == "" || net.ParseIP(host).IsUnspecified()
+	}
+	if host, _, err := net.SplitHostPort(b.String()); err == nil {
+		bIsUnspecified = host == "" || net.ParseIP(host).IsUnspecified()
+	}
+
+	if aIsUnspecified == bIsUnspecified {
+		return len(a.Network()) < len(b.Network())
+	}
+
+	return aIsUnspecified
 }

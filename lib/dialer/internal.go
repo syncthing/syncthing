@@ -7,6 +7,7 @@
 package dialer
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,13 +15,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/connections/registry"
+	"github.com/syncthing/syncthing/lib/util"
 	"golang.org/x/net/proxy"
-
-	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
-	l           = logger.DefaultLogger.NewFacility("dialer", "Dialing connections")
 	proxyDialer proxy.Dialer
 	usingProxy  bool
 	noFallback  = os.Getenv("ALL_PROXY_NO_FALLBACK") != ""
@@ -123,12 +123,13 @@ func getDialer(forward proxy.Dialer) proxy.Dialer {
 	return perHost
 }
 
-type timeoutDirectDialer struct {
-	timeout time.Duration
+type contextDirectDialer struct {
+	ctx context.Context
 }
 
-func (d *timeoutDirectDialer) Dial(network, addr string) (net.Conn, error) {
-	return net.DialTimeout(network, addr, d.timeout)
+func (d *contextDirectDialer) Dial(network, addr string) (net.Conn, error) {
+	dialer := net.Dialer{}
+	return dialer.DialContext(d.ctx, network, addr)
 }
 
 type dialerConn struct {
@@ -159,4 +160,25 @@ func (a fallbackAddr) Network() string {
 
 func (a fallbackAddr) String() string {
 	return a.addr
+}
+
+// Sort available addresses, preferring unspecified alddress.
+func tcpAddrLess(i interface{}, j interface{}) bool {
+	return util.AddressUnspecifiedLess(i.(*net.TCPAddr), j.(*net.TCPAddr))
+}
+
+func dialContextReusePort(ctx context.Context, network, addr string) (net.Conn, error) {
+	dialer := net.Dialer{
+		Control: ReusePortControl,
+	}
+	localAddrInterface := registry.Get(network, tcpAddrLess)
+	if localAddrInterface != nil {
+		dialer.LocalAddr = localAddrInterface.(*net.TCPAddr)
+	}
+
+	conn, err := dialer.DialContext(ctx, network, addr)
+	if dialer.LocalAddr != nil {
+		l.Debugf("dialContextReusePort dial %s %s via %s: %v", network, addr, dialer.LocalAddr, err)
+	}
+	return conn, err
 }

@@ -7,6 +7,7 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
 )
@@ -56,7 +58,11 @@ func (t *tcpListener) Serve() {
 		return
 	}
 
-	listener, err := net.ListenTCP(t.uri.Scheme, tcaddr)
+	lc := net.ListenConfig{
+		Control: dialer.ReusePortControl,
+	}
+
+	listener, err := lc.Listen(context.TODO(), t.uri.Scheme, tcaddr.String())
 	if err != nil {
 		t.mut.Lock()
 		t.err = err
@@ -64,7 +70,10 @@ func (t *tcpListener) Serve() {
 		l.Infoln("Listen (BEP/tcp):", err)
 		return
 	}
+	registry.Register(t.uri.Scheme, tcaddr)
+
 	defer listener.Close()
+	defer registry.Unregister(t.uri.Scheme, tcaddr)
 
 	l.Infof("TCP listener (%v) starting", listener.Addr())
 	defer l.Infof("TCP listener (%v) shutting down", listener.Addr())
@@ -82,9 +91,12 @@ func (t *tcpListener) Serve() {
 	acceptFailures := 0
 	const maxAcceptFailures = 10
 
+	// :(, but what can you do.
+	tcpListener := listener.(*net.TCPListener)
+
 	for {
-		listener.SetDeadline(time.Now().Add(time.Second))
-		conn, err := listener.Accept()
+		_ = tcpListener.SetDeadline(time.Now().Add(time.Second))
+		conn, err := tcpListener.Accept()
 		select {
 		case <-t.stop:
 			if err == nil {
@@ -167,6 +179,14 @@ func (t *tcpListener) WANAddresses() []*url.URL {
 		}
 	}
 	t.mut.RUnlock()
+
+	// If we support ReusePort, add an unspecified zero port address, which will be resolved by the discovery server
+	// in hopes that TCP punch through works.
+	if dialer.SupportsReusePort {
+		uri := *t.uri
+		uri.Host = "0.0.0.0:0"
+		uris = append([]*url.URL{&uri}, uris...)
+	}
 	return uris
 }
 

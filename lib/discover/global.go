@@ -87,8 +87,8 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (Fin
 	var announceClient httpClient = &http.Client{
 		Timeout: requestTimeout,
 		Transport: &http.Transport{
-			Dial:  dialer.Dial,
-			Proxy: http.ProxyFromEnvironment,
+			DialContext: dialer.DialContextReusePort,
+			Proxy:       http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: opts.insecure,
 				Certificates:       []tls.Certificate{cert},
