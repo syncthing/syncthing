@@ -36,7 +36,7 @@ require (
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 	golang.org/x/net v0.0.0-20181201002055-351d144fa1fc
-	golang.org/x/text v0.3.0
+	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b
 	gopkg.in/asn1-ber.v1 v1.0.0-20170511165959-379148ca0225 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
