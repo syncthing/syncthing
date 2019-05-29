@@ -71,6 +71,9 @@ func TestDefaultValues(t *testing.T) {
 		SetLowPriority:          true,
 		CRURL:                   "https://crash.syncthing.net/newcrash",
 		CREnabled:               true,
+		StunKeepaliveStartS:     180,
+		StunKeepaliveMinS:       20,
+		StunServers:             []string{"default"},
 	}
 
 	cfg := New(device1)
@@ -214,10 +217,13 @@ func TestOverriddenValues(t *testing.T) {
 			"channelNotification",   // added in 17->18 migration
 			"fsWatcherNotification", // added in 27->28 migration
 		},
-		DefaultFolderPath: "/media/syncthing",
-		SetLowPriority:    false,
-		CRURL:             "https://localhost/newcrash",
-		CREnabled:         false,
+		DefaultFolderPath:   "/media/syncthing",
+		SetLowPriority:      false,
+		CRURL:               "https://localhost/newcrash",
+		CREnabled:           false,
+		StunKeepaliveStartS: 9000,
+		StunKeepaliveMinS:   900,
+		StunServers:         []string{"foo"},
 	}
 
 	os.Unsetenv("STNOUPGRADE")
@@ -764,6 +770,8 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		},
 	}
 
+	m := migration{14, migrateToConfigV14}
+
 	for _, tc := range tcs {
 		cfg := Configuration{
 			Version: 13,
@@ -772,7 +780,7 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 				DeprecatedRelayServers: tc[1],
 			},
 		}
-		convertV13V14(&cfg)
+		m.apply(&cfg)
 		if cfg.Version != 14 {
 			t.Error("Configuration was not converted")
 		}

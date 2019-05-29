@@ -75,17 +75,13 @@ func TestUniqueStrings(t *testing.T) {
 			nil,
 		},
 		{
-			[]string{"b", "a"},
-			[]string{"a", "b"},
-		},
-		{
 			[]string{"       a     ", "     a  ", "b        ", "    b"},
 			[]string{"a", "b"},
 		},
 	}
 
 	for _, test := range tests {
-		result := UniqueStrings(test.input)
+		result := UniqueTrimmedStrings(test.input)
 		if len(result) != len(test.expected) {
 			t.Errorf("%s != %s", result, test.expected)
 		}

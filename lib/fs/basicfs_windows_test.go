@@ -127,19 +127,15 @@ func TestRelUnrootedCheckedWindows(t *testing.T) {
 		}
 
 		// unrootedChecked really just wraps rel, and does not care about
-		// the actual root of that filesystem, but should not panic on these
-		// test cases.
-		fs := BasicFilesystem{root: tc.root}
-		if res := fs.unrootedChecked(tc.abs, tc.root); res != tc.expectedRel {
-			t.Errorf(`unrootedChecked("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
-		}
-		fs = BasicFilesystem{root: strings.ToLower(tc.root)}
-		if res := fs.unrootedChecked(tc.abs, tc.root); res != tc.expectedRel {
-			t.Errorf(`unrootedChecked("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
-		}
-		fs = BasicFilesystem{root: strings.ToUpper(tc.root)}
-		if res := fs.unrootedChecked(tc.abs, tc.root); res != tc.expectedRel {
-			t.Errorf(`unrootedChecked("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
+		// the actual root of that filesystem, but should not return an error
+		// on these test cases.
+		for _, root := range []string{tc.root, strings.ToLower(tc.root), strings.ToUpper(tc.root)} {
+			fs := BasicFilesystem{root: root}
+			if res, err := fs.unrootedChecked(tc.abs, tc.root); err != nil {
+				t.Errorf(`Unexpected error from unrootedChecked("%v", "%v"): %v (fs.root: %v)`, tc.abs, tc.root, err, root)
+			} else if res != tc.expectedRel {
+				t.Errorf(`unrootedChecked("%v", "%v") == "%v", expected "%v" (fs.root: %v)`, tc.abs, tc.root, res, tc.expectedRel, root)
+			}
 		}
 	}
 }

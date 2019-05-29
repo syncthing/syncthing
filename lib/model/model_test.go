@@ -868,6 +868,7 @@ func TestIssue5063(t *testing.T) {
 		conn.mut.Lock()
 		conn.closeFn = func(_ error) {}
 		conn.mut.Unlock()
+		defer m.Closed(c, errStopped) // to unblock deferred m.Stop()
 	}
 	m.pmut.Unlock()
 
@@ -3267,16 +3268,17 @@ func TestSanitizePath(t *testing.T) {
 func TestConnCloseOnRestart(t *testing.T) {
 	w, fcfg := tmpDefaultWrapper()
 	m := setupModel(w)
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(fcfg.Filesystem().URI())
-		os.Remove(w.ConfigPath())
-	}()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
 	m.AddConnection(newFakeProtoConn(protocol.NewConnection(device1, br, nw, m, "testConn", protocol.CompressNever)), protocol.HelloResult{})
+	m.pmut.RLock()
+	if len(m.closed) != 1 {
+		t.Fatalf("Expected just one conn (len(m.conn) == %v)", len(m.conn))
+	}
+	closed := m.closed[device1]
+	m.pmut.RUnlock()
 
 	newFcfg := fcfg.Copy()
 	newFcfg.Paused = true
@@ -3290,8 +3292,9 @@ func TestConnCloseOnRestart(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out before folder restart returned")
 	}
-	m.pmut.RLock()
-	if len(m.conn) != 0 {
-		t.Errorf("Conn wasn't removed on restart (len(m.conn) == %v)", len(m.conn))
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out before connection was closed")
 	}
 }

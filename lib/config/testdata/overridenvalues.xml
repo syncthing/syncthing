@@ -38,5 +38,8 @@
         <setLowPriority>false</setLowPriority>
         <crashReportingURL>https://localhost/newcrash</crashReportingURL>
         <crashReportingEnabled>false</crashReportingEnabled>
+        <stunKeepaliveStartS>9000</stunKeepaliveStartS>
+        <stunKeepaliveMinS>900</stunKeepaliveMinS>
+        <stunServer>foo</stunServer>
     </options>
 </configuration>
