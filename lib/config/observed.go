@@ -70,7 +70,7 @@ func (d *ObservedCandidateDevice) CollectAddresses(addresses []string) {
 		addressMap[s] = struct{}{}
 	}
 	d.Addresses = make([]string, 0, len(addressMap))
-	for a, _ := range addressMap {
+	for a := range addressMap {
 		d.Addresses = append(d.Addresses, a)
 	}
 }
