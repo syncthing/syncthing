@@ -1428,6 +1428,19 @@ angular.module('syncthing.core')
         };
 
 	$scope.addDeviceAndShare = function (deviceID, deviceName, folderID) {
+            $scope.currentDevice = {
+                name: deviceName,
+                deviceID: deviceID,
+                _addressesStr: 'dynamic',               //FIXME use info from candidateDevices?
+                compression: 'metadata',
+                introducer: false,
+                selectedFolders: { folderID: true },	//FIXME not working!
+                pendingFolders: [],
+                ignoredFolders: []
+            };
+            $scope.editingExisting = false;//FIXME conflict when opened from within editFolderModalView!
+            $scope.deviceEditor.$setPristine();
+            $('#editDevice').modal();
         };
 
         $scope.deleteDevice = function () {
