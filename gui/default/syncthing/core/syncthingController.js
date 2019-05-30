@@ -730,6 +730,7 @@ angular.module('syncthing.core')
             $scope.currentSharing = {};
             $scope.currentSharing.editing = editing;
             $scope.currentSharing.shared = [];
+            $scope.currentSharing.suggested = [];
             $scope.currentSharing.unrelated = [];
             $scope.currentSharing.selected = {};
         };
@@ -1780,9 +1781,24 @@ angular.module('syncthing.core')
                 }
                 $scope.currentSharing.selected[n.deviceID] = true;
             });
-            $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
-                return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID];
-            });
+            $http.get(urlbase + '/cluster/candidate/devices?folder=' + encodeURIComponent(folderCfg.id))
+                .success(function (candidates) {
+                    for (var id in candidates) {
+                        if (id in $scope.devices) {
+                            var candidate = $scope.devices[id];
+                            candidate.introducedBy = candidates[id].introducedBy;
+                            $scope.currentSharing.suggested.push(candidate);
+                        }
+                    }
+                })
+                .then(function (response) {
+                    var candidates = response.data;
+                    $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
+                        return n.deviceID !== $scope.myID
+                            && !$scope.currentSharing.selected[n.deviceID]
+                            && !candidates.hasOwnProperty(n.deviceID);
+                    });
+                });
             if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "trashcan") {
                 $scope.currentFolder.trashcanFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "trashcan";
@@ -1847,11 +1863,30 @@ angular.module('syncthing.core')
             }
         };
 
+        $scope.selectAllSuggestedDevices = function (state) {
+            var devices = $scope.currentSharing.suggested;
+            for (var i = 0; i < devices.length; i++) {
+                $scope.currentSharing.selected[devices[i].deviceID] = !!state;
+            }
+        };
+
         $scope.selectAllUnrelatedDevices = function (state) {
             var devices = $scope.currentSharing.unrelated;
             for (var i = 0; i < devices.length; i++) {
                 $scope.currentSharing.selected[devices[i].deviceID] = !!state;
             }
+        };
+
+        $scope.introducerList = function (introducedBy) {
+            var text = '';
+            for (var id in introducedBy) {
+                if (text !== '') {
+                    text += '<br />';
+                }
+                text += $scope.deviceName($scope.devices[id]);
+                text += ' (' + new Date(introducedBy[id].time).toLocaleString() + ')';
+            }
+            return text.trim();
         };
 
         $scope.addFolder = function () {
