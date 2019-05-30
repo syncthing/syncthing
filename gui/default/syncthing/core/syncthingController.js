@@ -1712,19 +1712,14 @@ angular.module('syncthing.core')
             $scope.editFolderModal();
         };
 
-        $scope.selectAllDevices = function () {
+        $scope.selectAllDevices = function (state = true) {
             var devices = $scope.otherDevices();
             for (var i = 0; i < devices.length; i++) {
-                $scope.currentFolder.selectedDevices[devices[i].deviceID] = true;
+                $scope.currentFolder.selectedDevices[devices[i].deviceID] = !!state;
             }
         };
 
-        $scope.deSelectAllDevices = function () {
-            var devices = $scope.otherDevices();
-            for (var i = 0; i < devices.length; i++) {
-                $scope.currentFolder.selectedDevices[devices[i].deviceID] = false;
-            }
-        };
+        $scope.deSelectAllDevices = function () { $scope.selectAllDevices(false); };
 
         $scope.addFolder = function () {
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
