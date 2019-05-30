@@ -42,7 +42,7 @@ type commonMap interface {
 	newIterator(p iteratorParent) MapIterator
 }
 
-// NewMap returns an implementaiton of Map, spilling to disk at location.
+// NewMap returns an implementation of Map, spilling to disk at location.
 func NewMap(location string) Map {
 	o := &omap{base: newBase(location)}
 	o.commonMap = &memoryMap{

@@ -43,7 +43,7 @@ func (q *jobQueue) Push(file string, size int64, modified time.Time) {
 	case config.OrderRandom:
 		n := rand.Uint64()
 		key = make([]byte, 8)
-		binary.BigEndian.PutUint64(key[:], n)
+		binary.BigEndian.PutUint64(key, n)
 	case config.OrderAlphabetic:
 		key = []byte(file)
 	case config.OrderSmallestFirst, config.OrderLargestFirst:

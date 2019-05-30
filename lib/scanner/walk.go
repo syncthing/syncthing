@@ -177,7 +177,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 				case <-ticker.C:
 					current := progress.Total()
 					rate := progress.Rate()
-					l.Debugf("Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w.Folder, w.Subs, current, total, rate/1024/1024, current*100/int64(total))
+					l.Debugf("Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
 					events.Default.Log(events.FolderScanProgress, map[string]interface{}{
 						"folder":  w.Folder,
 						"current": current,

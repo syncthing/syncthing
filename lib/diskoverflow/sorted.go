@@ -48,7 +48,7 @@ type commonSorted interface {
 	newIterator(p iteratorParent, reverse bool) keyIterator
 }
 
-// NewSorted returns an implementaiton of Sorted, spilling to disk at location.
+// NewSorted returns an implementation of Sorted, spilling to disk at location.
 func NewSorted(location string) Sorted {
 	o := &sorted{base: newBase(location)}
 	o.commonSorted = &memorySorted{}
@@ -210,7 +210,7 @@ func newDiskSorted(loc string) *diskSorted {
 
 func (o *diskSorted) add(k []byte, v Value) {
 	suffix := make([]byte, suffixLength)
-	binary.BigEndian.PutUint64(suffix[:], uint64(o.Items()))
+	binary.BigEndian.PutUint64(suffix, uint64(o.Items()))
 	o.diskMap.addBytes(append(k, suffix...), v)
 	o.bytes += v.ProtoSize()
 }
