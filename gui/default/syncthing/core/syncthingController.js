@@ -62,6 +62,8 @@ angular.module('syncthing.core')
         $scope.folderDefaults = {
             sharedDevices: {},
             selectedDevices: {},
+            suggestedDevices: {},
+            suggestedUnknownDevices: {},
             unrelatedDevices: {},
             type: "sendreceive",
             rescanIntervalS: 3600,
@@ -1425,6 +1427,9 @@ angular.module('syncthing.core')
                 });
         };
 
+	$scope.addDeviceAndShare = function (deviceID, deviceName, folderID) {
+        };
+
         $scope.deleteDevice = function () {
             $('#editDevice').modal('hide');
             if (!$scope.editingExisting) {
@@ -1670,9 +1675,31 @@ angular.module('syncthing.core')
                 }
                 $scope.currentFolder.selectedDevices[n.deviceID] = true;
             });
+            $scope.currentFolder.suggestedDevices = [];
+            $scope.currentFolder.suggestedUnknownDevices = [];
+            $scope.currentFolder.candidateDevices.forEach(function (n) {
+		if (n.deviceID in devMap) {
+                    $scope.currentFolder.suggestedDevices.push(devMap[n.deviceID]);
+                } else {
+                    var alias = '';
+                    n.introducedBy.forEach(function (i) {
+                        if (alias === '') {
+                            alias = i.name;
+                        } else if (alias !== i.name) {
+                            alias = undefined;
+                        }
+                    });
+                    $scope.currentFolder.suggestedUnknownDevices.push({
+                        'deviceID': n.deviceID,
+	    		'alias': alias
+                    });
+                    //FIXME provide detailed introduced-by info via tooltip?
+                }
+            });
             $scope.currentFolder.unrelatedDevices = $scope.devices.filter(function (n) {
                 return n.deviceID !== $scope.myID
                     && ! $scope.currentFolder.selectedDevices[n.deviceID]
+                    && ! $scope.currentFolder.suggestedDevices.includes(n);
             });
             if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "trashcan") {
                 $scope.currentFolder.trashcanFileVersioning = true;
@@ -1733,6 +1760,15 @@ angular.module('syncthing.core')
 
         $scope.deSelectAllSharedDevices = function () { $scope.selectAllSharedDevices(false); };
 
+        $scope.selectAllSuggestedDevices = function (state = true) {
+            var devices = $scope.currentFolder.suggestedDevices;
+            for (var i = 0; i < devices.length; i++) {
+                $scope.currentFolder.selectedDevices[devices[i].deviceID] = !!state;
+            }
+        };
+
+        $scope.deSelectAllSuggestedDevices = function () { $scope.selectAllSuggestedDevices(false); };
+
         $scope.selectAllUnrelatedDevices = function (state = true) {
             var devices = $scope.currentFolder.unrelatedDevices;
             for (var i = 0; i < devices.length; i++) {
@@ -1791,6 +1827,8 @@ angular.module('syncthing.core')
             }
             delete folderCfg.sharedDevices;
             delete folderCfg.selectedDevices;
+            delete folderCfg.suggestedDevices;
+            delete folderCfg.suggestedUnknownDevices;
             delete folderCfg.unrelatedDevices;
 
             if (folderCfg.fileVersioningSelector === "trashcan") {
