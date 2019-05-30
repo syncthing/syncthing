@@ -74,51 +74,55 @@ func (c *mockedConfig) AddOrUpdatePendingDevice(device protocol.DeviceID, name, 
 
 func (c *mockedConfig) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {}
 
-func (m *mockedConfig) MyName() string {
+func (c *mockedConfig) MyName() string {
 	return ""
 }
 
-func (m *mockedConfig) ConfigPath() string {
+func (c *mockedConfig) ConfigPath() string {
 	return ""
 }
 
-func (m *mockedConfig) SetGUI(gui config.GUIConfiguration) (config.Waiter, error) {
+func (c *mockedConfig) SetGUI(gui config.GUIConfiguration) (config.Waiter, error) {
 	return noopWaiter{}, nil
 }
 
-func (m *mockedConfig) SetOptions(opts config.OptionsConfiguration) (config.Waiter, error) {
+func (c *mockedConfig) SetOptions(opts config.OptionsConfiguration) (config.Waiter, error) {
 	return noopWaiter{}, nil
 }
 
-func (m *mockedConfig) Folder(id string) (config.FolderConfiguration, bool) {
+func (c *mockedConfig) Folder(id string) (config.FolderConfiguration, bool) {
 	return config.FolderConfiguration{}, false
 }
 
-func (m *mockedConfig) FolderList() []config.FolderConfiguration {
+func (c *mockedConfig) FolderList() []config.FolderConfiguration {
 	return nil
 }
 
-func (m *mockedConfig) SetFolder(fld config.FolderConfiguration) (config.Waiter, error) {
+func (c *mockedConfig) SetFolder(fld config.FolderConfiguration) (config.Waiter, error) {
 	return noopWaiter{}, nil
 }
 
-func (m *mockedConfig) Device(id protocol.DeviceID) (config.DeviceConfiguration, bool) {
+func (c *mockedConfig) Device(id protocol.DeviceID) (config.DeviceConfiguration, bool) {
 	return config.DeviceConfiguration{}, false
 }
 
-func (m *mockedConfig) RemoveDevice(id protocol.DeviceID) (config.Waiter, error) {
+func (c *mockedConfig) RemoveDevice(id protocol.DeviceID) (config.Waiter, error) {
 	return noopWaiter{}, nil
 }
 
-func (m *mockedConfig) IgnoredDevice(id protocol.DeviceID) bool {
+func (c *mockedConfig) IgnoredDevice(id protocol.DeviceID) bool {
 	return false
 }
 
-func (m *mockedConfig) IgnoredFolder(device protocol.DeviceID, folder string) bool {
+func (c *mockedConfig) IgnoredFolder(device protocol.DeviceID, folder string) bool {
 	return false
 }
 
-func (m *mockedConfig) GlobalDiscoveryServers() []string {
+func (c *mockedConfig) GlobalDiscoveryServers() []string {
+	return nil
+}
+
+func (c *mockedConfig) StunServers() []string {
 	return nil
 }
 

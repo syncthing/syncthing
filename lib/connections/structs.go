@@ -9,6 +9,7 @@ package connections
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"time"
@@ -43,10 +44,19 @@ func (c completeConn) Close(err error) {
 	c.internalConn.Close()
 }
 
+type tlsConn interface {
+	io.ReadWriteCloser
+	ConnectionState() tls.ConnectionState
+	RemoteAddr() net.Addr
+	SetDeadline(time.Time) error
+	SetWriteDeadline(time.Time) error
+	LocalAddr() net.Addr
+}
+
 // internalConn is the raw TLS connection plus some metadata on where it
 // came from (type, priority).
 type internalConn struct {
-	*tls.Conn
+	tlsConn
 	connType connType
 	priority int
 }
@@ -58,6 +68,8 @@ const (
 	connTypeRelayServer
 	connTypeTCPClient
 	connTypeTCPServer
+	connTypeQUICClient
+	connTypeQUICServer
 )
 
 func (t connType) String() string {
@@ -70,6 +82,10 @@ func (t connType) String() string {
 		return "tcp-client"
 	case connTypeTCPServer:
 		return "tcp-server"
+	case connTypeQUICClient:
+		return "quic-client"
+	case connTypeQUICServer:
+		return "quic-server"
 	default:
 		return "unknown-type"
 	}
@@ -81,6 +97,8 @@ func (t connType) Transport() string {
 		return "relay"
 	case connTypeTCPClient, connTypeTCPServer:
 		return "tcp"
+	case connTypeQUICClient, connTypeQUICServer:
+		return "quic"
 	default:
 		return "unknown"
 	}
@@ -90,8 +108,8 @@ func (c internalConn) Close() {
 	// *tls.Conn.Close() does more than it says on the tin. Specifically, it
 	// sends a TLS alert message, which might block forever if the
 	// connection is dead and we don't have a deadline set.
-	c.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
-	c.Conn.Close()
+	_ = c.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
+	_ = c.tlsConn.Close()
 }
 
 func (c internalConn) Type() string {

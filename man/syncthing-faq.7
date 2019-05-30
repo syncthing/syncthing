@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "May 17, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "May 23, 2019" "v1" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -552,6 +552,24 @@ sudo sh \-c \(aqecho 204800 > /proc/sys/fs/inotify/max_user_watches\(aq
 .fi
 .UNINDENT
 .UNINDENT
+.SH HOW DO I RESET THE GUI PASSWORD?
+.sp
+If you’ve forgotten/lost the GUI password, you can remove it by deleting the \fB<user>\fP and \fB<password>\fP XML tags from the \fB<gui>\fP block in file \fBconfig.xml\fP\&. This should be done while Syncthing is not running. The location of the file depends on OS and is described in the configuration documentation.
+.sp
+For example the two lines \fBin bold\fP below would be removed from the file.
+.nf
+<gui enabled=”true” tls=”false” debugging=”false”>
+.in +2
+<address>127.0.0.1:8384</address>
+\fB<user>syncguy</user>\fP
+\fB<password>$2a$10$s9wWHOQetp46Cq7GPye69.KqKantdUrbHCeLnZ9A6VlzkEPPYHDAC</password>\fP
+<apikey>9RCKohqCAyrj5RjpyZdR2wXmQ9PyQFeN</apikey>
+<theme>default</theme>
+.in -2
+</gui>
+
+.fi
+.sp
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

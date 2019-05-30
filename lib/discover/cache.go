@@ -7,6 +7,7 @@
 package discover
 
 import (
+	"sort"
 	stdsync "sync"
 	"time"
 
@@ -121,10 +122,11 @@ func (m *cachingMux) Lookup(deviceID protocol.DeviceID) (addresses []string, err
 	}
 	m.mut.RUnlock()
 
+	addresses = util.UniqueTrimmedStrings(addresses)
+	sort.Strings(addresses)
+
 	l.Debugln("lookup results for", deviceID)
 	l.Debugln("  addresses: ", addresses)
-
-	addresses = util.UniqueStrings(addresses)
 
 	return addresses, nil
 }
@@ -185,7 +187,7 @@ func (m *cachingMux) Cache() map[protocol.DeviceID]CacheEntry {
 	m.mut.RUnlock()
 
 	for k, v := range res {
-		v.Addresses = util.UniqueStrings(v.Addresses)
+		v.Addresses = util.UniqueTrimmedStrings(v.Addresses)
 		res[k] = v
 	}
 
