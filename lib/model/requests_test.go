@@ -248,8 +248,8 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 
 	for updates := 0; updates < 1; {
 		select {
-		case len := <-idx:
-			updates += len
+		case length := <-idx:
+			updates += length
 		case <-time.After(10 * time.Second):
 			t.Fatalf("timed out")
 		}
@@ -260,8 +260,8 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	fc.sendIndexUpdate()
 	for updates := 0; updates < 1; {
 		select {
-		case len := <-idx:
-			updates += len
+		case length := <-idx:
+			updates += length
 		case <-time.After(10 * time.Second):
 			t.Fatalf("timed out")
 		}

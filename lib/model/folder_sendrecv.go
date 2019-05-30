@@ -269,7 +269,10 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 		doneWg.Done()
 	}()
 
-	changed, fileDeletions, dirDeletions, err := f.processNeeded(dbUpdateChan, copyChan, scanChan)
+	overflowLoc := locations.Get(locations.Database)
+	fileDeletions := diskoverflow.NewMap(overflowLoc)
+	dirDeletions := diskoverflow.NewSlice(overflowLoc)
+	changed, err := f.processNeeded(dbUpdateChan, copyChan, scanChan, fileDeletions, dirDeletions)
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration. Wait for them to finish.
@@ -287,6 +290,9 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 		f.processDeletions(fileDeletions, dirDeletions, dbUpdateChan, scanChan)
 	}
 
+	fileDeletions.Close()
+	dirDeletions.Close()
+
 	// Wait for db updates and scan scheduling to complete
 	close(dbUpdateChan)
 	updateWg.Wait()
@@ -296,14 +302,11 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	return changed
 }
 
-func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, diskoverflow.Map, diskoverflow.Slice, error) {
+func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string, fileDeletions diskoverflow.Map, dirDeletions diskoverflow.Slice) (int, error) {
 	defer f.queue.Reset()
 
 	changed := 0
-	overflowLoc := locations.Get(locations.Database)
-	dirDeletions := diskoverflow.NewSlice(overflowLoc)
-	fileDeletions := diskoverflow.NewMap(overflowLoc)
-	buckets := diskoverflow.NewMap(overflowLoc)
+	buckets := diskoverflow.NewMap(locations.Get(locations.Database))
 
 	// Iterate the list of items that we need and sort them into piles.
 	// Regular files to pull goes into the file queue, everything else
@@ -408,7 +411,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 
 	select {
 	case <-f.ctx.Done():
-		return changed, nil, nil, f.ctx.Err()
+		return changed, f.ctx.Err()
 	default:
 	}
 
@@ -417,7 +420,7 @@ nextFile:
 	for {
 		select {
 		case <-f.ctx.Done():
-			return changed, fileDeletions, dirDeletions, f.ctx.Err()
+			return changed, f.ctx.Err()
 		default:
 		}
 
@@ -497,7 +500,7 @@ nextFile:
 	}
 	buckets.Close()
 
-	return changed, fileDeletions, dirDeletions, nil
+	return changed, nil
 }
 
 func (f *sendReceiveFolder) processDeletions(fileDeletions diskoverflow.Map, dirDeletions diskoverflow.Slice, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
@@ -516,7 +519,6 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions diskoverflow.Map, dir
 		f.deleteFile(*v, dbUpdateChan, scanChan)
 	}
 	fit.Release()
-	fileDeletions.Close()
 
 	dit := dirDeletions.NewReverseIterator()
 	for dit.Next() {
@@ -533,7 +535,6 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions diskoverflow.Map, dir
 		f.deleteDir(*v, dbUpdateChan, scanChan)
 	}
 	dit.Release()
-	dirDeletions.Close()
 }
 
 // handleDir creates or updates the given directory

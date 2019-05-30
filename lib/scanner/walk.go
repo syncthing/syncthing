@@ -141,9 +141,11 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	// which it receives the files we ask it to hash.
 	go func() {
 		filesToHash := diskoverflow.NewSlice(w.DiskOverflowLocation)
+		var total int64
 		defer filesToHash.Close()
 
 		for file := range toHashChan {
+			total += file.Size
 			filesToHash.Append(file)
 		}
 
@@ -152,7 +154,6 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			return // nothing to do
 		}
 
-		total := filesToHash.Bytes()
 		realToHashChan := make(chan *protocol.FileInfo)
 		done := make(chan struct{})
 		progress := newByteCounter()
@@ -189,7 +190,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			}
 		}()
 
-		it := filesToHash.NewReverseIterator()
+		it := filesToHash.NewIterator()
 		for it.Next() {
 			v := &protocol.FileInfo{}
 			it.Value(v)

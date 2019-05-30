@@ -33,16 +33,9 @@ func testSorted(t *testing.T) {
 
 	testValues := randomTestValues(testSize)
 	testValuesSorted := make([]string, 0, testSize)
-	// testValuesSorted := &memorySorted{
-	// 	values: make([]Value, 0 , testSize),
-	// 	keys: make([][]byte, 0 , testSize),
-	// }
 	for _, tv := range testValues {
 		testValuesSorted = append(testValuesSorted, tv.string)
-		// testValuesSorted.values = append(testValuesSorted.values, tv)
-		// testValuesSorted.keys = append(testValuesSorted.keys, []byte(tv.string))
 	}
-	// sort.Sort(testValuesSorted)
 	sort.Strings(testValuesSorted)
 
 	for i, tv := range testValues {

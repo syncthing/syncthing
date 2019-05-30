@@ -107,6 +107,9 @@ type memoryMap struct {
 }
 
 func (o *memoryMap) set(k string, v Value) {
+	if ov, ok := o.values[k]; ok {
+		o.bytes -= ov.ProtoSize()
+	}
 	o.values[k] = v
 	o.bytes += v.ProtoSize()
 }
@@ -232,16 +235,19 @@ func newDiskMap(location string) *diskMap {
 }
 
 func (o *diskMap) set(k string, v Value) {
+	old, err := o.db.Get([]byte(k), nil)
 	o.addBytes([]byte(k), v)
 	o.bytes += v.ProtoSize()
+	if err == nil {
+		errPanic(v.Unmarshal(old))
+		o.bytes -= v.ProtoSize()
+	}
 }
 
 func (o *diskMap) addBytes(k []byte, v Value) {
 	d, err := v.Marshal()
 	errPanic(err)
-	if err := o.db.Put(k, d, nil); err != nil {
-		panic("writing to temporary database: " + err.Error())
-	}
+	errPanic(o.db.Put(k, d, nil))
 	o.len++
 }
 

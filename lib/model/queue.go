@@ -23,7 +23,6 @@ type jobQueue struct {
 	handledAtFront map[string]struct{}
 	location       string
 	order          config.PullOrder
-	shuffleKeys    map[uint64]struct{}
 	mut            sync.Mutex
 }
 
@@ -35,9 +34,6 @@ func newJobQueue(order config.PullOrder, loc string) *jobQueue {
 		mut:            sync.NewMutex(),
 	}
 	q.queued = diskoverflow.NewSorted(loc)
-	if order == config.OrderRandom {
-		q.shuffleKeys = make(map[uint64]struct{})
-	}
 	return q
 }
 
@@ -45,14 +41,7 @@ func (q *jobQueue) Push(file string, size int64, modified time.Time) {
 	var key []byte
 	switch q.order {
 	case config.OrderRandom:
-		var n uint64
-		for {
-			n = rand.Uint64()
-			if _, ok := q.shuffleKeys[n]; !ok {
-				q.shuffleKeys[n] = struct{}{}
-				break
-			}
-		}
+		n := rand.Uint64()
 		key = make([]byte, 8)
 		binary.BigEndian.PutUint64(key[:], n)
 	case config.OrderAlphabetic:

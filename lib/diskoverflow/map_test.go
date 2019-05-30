@@ -27,8 +27,8 @@ func TestMap100kB(t *testing.T) {
 }
 
 func testMap(t *testing.T) {
-	Map := NewMap(".")
-	defer Map.Close()
+	tmap := NewMap(".")
+	defer tmap.Close()
 
 	testValueSlice := randomTestValues(testSize)
 	testValues := make(map[string]Value, len(testValueSlice))
@@ -38,15 +38,15 @@ func testMap(t *testing.T) {
 
 	for i, tv := range testValueSlice {
 		if i%100 == 0 {
-			if l := Map.Items(); l != i {
+			if l := tmap.Items(); l != i {
 				t.Fatalf("s.Items() == %v, expected %v", l, i)
 			}
 		}
-		Map.Set(tv.string, tv)
+		tmap.Set(tv.string, tv)
 	}
 
 	gotValues := make(map[string]struct{}, len(testValueSlice))
-	it := Map.NewIterator()
+	it := tmap.NewIterator()
 	v := &testValue{}
 	for it.Next() {
 		k := it.Key()
@@ -68,7 +68,7 @@ func testMap(t *testing.T) {
 		t.Fatalf("Received just %v files, expected %v", len(gotValues), len(testValues))
 	}
 
-	if l := Map.Items(); l != len(testValues) {
+	if l := tmap.Items(); l != len(testValues) {
 		t.Fatalf("s.Items() == %v, expected %v", l, len(testValues))
 	}
 
@@ -76,33 +76,33 @@ func testMap(t *testing.T) {
 	exp := testValueSlice[k].string
 
 	v.Reset()
-	ok := Map.Get(exp, v)
+	ok := tmap.Get(exp, v)
 	if !ok {
 		t.Fatalf("Get didn't return any value")
 	}
 	if got := v.string; got != exp {
 		t.Fatalf("Get: %v != %v", got, exp)
 	}
-	if l := Map.Items(); l != len(testValues) {
+	if l := tmap.Items(); l != len(testValues) {
 		t.Fatalf("s.Items() == %v, expected %v", l, len(testValues))
 	}
 
 	v.Reset()
-	ok = Map.Pop(exp, v)
+	ok = tmap.Pop(exp, v)
 	if !ok {
 		t.Fatalf("Pop didn't return any value")
 	}
 	if got := v.string; got != exp {
 		t.Fatalf("Pop %v != %v", got, exp)
 	}
-	if l := Map.Items(); l != len(testValues)-1 {
+	if l := tmap.Items(); l != len(testValues)-1 {
 		t.Fatalf("s.Items() == %v, expected %v", l, len(testValues)-1)
 	}
 	testValueSlice = append(testValueSlice[:k], testValueSlice[k+1:]...)
 	delete(testValues, exp)
 
 	gotValues = make(map[string]struct{}, len(testValueSlice))
-	it = Map.NewIterator()
+	it = tmap.NewIterator()
 	for it.Next() {
 		k := it.Key()
 		if _, ok := gotValues[k]; ok {
