@@ -731,6 +731,7 @@ angular.module('syncthing.core')
             $scope.currentSharing.editing = editing;
             $scope.currentSharing.shared = [];
             $scope.currentSharing.suggested = [];
+            $scope.currentSharing.suggestedUnknownDevices = [];
             $scope.currentSharing.unrelated = [];
             $scope.currentSharing.selected = {};
         };
@@ -1524,6 +1525,23 @@ angular.module('syncthing.core')
                 });
         };
 
+        $scope.addDeviceAndShare = function (deviceCfg, deviceName, folderID) {
+            $('#editFolder').modal('hide');
+            $scope.currentDevice = {
+                name: deviceName,
+                deviceID: deviceCfg.deviceID,
+                _addressesStr: deviceCfg.addresses.join(','),
+                compression: 'metadata',
+                introducer: false,
+                ignoredFolders: []
+            };
+            $scope.editingExisting = false;
+            initShareEditing('device');
+            $scope.currentSharing.selected[folderID] = true;
+            $scope.deviceEditor.$setPristine();
+            $('#editDevice').modal();
+        };
+
         $scope.deleteDevice = function () {
             $('#editDevice').modal('hide');
             if (!$scope.editingExisting) {
@@ -1788,6 +1806,20 @@ angular.module('syncthing.core')
                             var candidate = $scope.devices[id];
                             candidate.introducedBy = candidates[id].introducedBy;
                             $scope.currentSharing.suggested.push(candidate);
+                        } else {
+                            var alias = '';
+                            for (i in candidates[id].introducedBy) {
+                                if (alias === '') {
+                                    alias = i.suggestedName;
+                                } else if (alias !== i.suggestedName) {
+                                    alias = undefined;
+                                    break;
+                                }
+                            }
+                            var candidate = candidates[id];
+                            candidate['deviceID'] = id;
+                            candidate['alias'] = alias;
+                            $scope.currentSharing.suggestedUnknownDevices.push(candidate);
                         }
                     }
                 })
