@@ -155,10 +155,9 @@ func (q *jobQueue) Jobs() ([]string, []string) {
 	return progress, queued
 }
 
-// To be called after a puller iteration finishes
-func (q *jobQueue) Reset() {
+func (q *jobQueue) Close() {
 	q.mut.Lock()
-	q.queued = diskoverflow.NewSorted(q.location)
+	q.queued.Close()
 	q.mut.Unlock()
 }
 

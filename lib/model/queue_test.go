@@ -18,6 +18,7 @@ import (
 func TestJobQueue(t *testing.T) {
 	// Some random actions
 	q := newJobQueue(config.OrderAlphabetic, "")
+	defer q.Close()
 	for i := 4; i > 0; i-- {
 		q.Push(fmt.Sprintf("f%d", i), 0, time.Time{})
 	}
@@ -86,6 +87,7 @@ func TestJobQueue(t *testing.T) {
 
 func TestBringToFront(t *testing.T) {
 	q := newJobQueue(config.OrderAlphabetic, "")
+	defer q.Close()
 	q.Push("f1", 0, time.Time{})
 	q.Push("f2", 0, time.Time{})
 	q.Push("f3", 0, time.Time{})
@@ -127,6 +129,7 @@ func TestBringToFront(t *testing.T) {
 
 func TestShuffle(t *testing.T) {
 	q := newJobQueue(config.OrderRandom, "")
+	defer q.Close()
 	q.Push("f1", 0, time.Time{})
 	q.Push("f2", 0, time.Time{})
 	q.Push("f3", 0, time.Time{})
@@ -166,7 +169,10 @@ func TestSortBySize(t *testing.T) {
 		t.Errorf("SortSmallestFirst() diff:\n%s", diff)
 	}
 
+	q.Close()
 	q = newJobQueue(config.OrderLargestFirst, "")
+	defer q.Close()
+
 	q.Push("f1", 20, time.Time{})
 	q.Push("f2", 40, time.Time{})
 	q.Push("f3", 30, time.Time{})
@@ -202,7 +208,10 @@ func TestSortByAge(t *testing.T) {
 		t.Errorf("SortOldestFirst() diff:\n%s", diff)
 	}
 
+	q.Close()
 	q = newJobQueue(config.OrderNewestFirst, "")
+	defer q.Close()
+
 	q.Push("f1", 0, time.Unix(20, 0))
 	q.Push("f2", 0, time.Unix(40, 0))
 	q.Push("f3", 0, time.Unix(30, 0))
@@ -225,6 +234,7 @@ func BenchmarkJobQueueBump(b *testing.B) {
 	files := genFiles(len)
 
 	q := newJobQueue(config.OrderAlphabetic, "")
+	defer q.Close()
 	for _, f := range files {
 		q.Push(f.Name, 0, time.Time{})
 	}
@@ -248,6 +258,7 @@ func BenchmarkJobQueuePushPopDone10k(b *testing.B) {
 			n, _ := q.Pop()
 			q.Done(n)
 		}
+		q.Close()
 	}
 
 }

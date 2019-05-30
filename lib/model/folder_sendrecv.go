@@ -103,7 +103,8 @@ type sendReceiveFolder struct {
 	fs        fs.Filesystem
 	versioner versioner.Versioner
 
-	queue *jobQueue
+	queue    *jobQueue
+	queueMut sync.Mutex
 
 	pullErrors    map[string]string // path -> error string
 	pullErrorsMut sync.Mutex
@@ -115,11 +116,10 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 		fs:            fs,
 		versioner:     ver,
 		pullErrorsMut: sync.NewMutex(),
+		queueMut:      sync.NewMutex(),
 	}
 
 	f.folder.puller = f
-
-	f.queue = newJobQueue(f.Order, locations.Get(locations.Database))
 
 	if f.Copiers == 0 {
 		f.Copiers = defaultCopiers
@@ -297,13 +297,14 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	close(dbUpdateChan)
 	updateWg.Wait()
 
-	f.queue.Reset()
-
 	return changed
 }
 
 func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string, fileDeletions diskoverflow.Map, dirDeletions diskoverflow.Slice) (int, error) {
-	defer f.queue.Reset()
+	f.queueMut.Lock()
+	f.queue = newJobQueue(f.Order, locations.Get(locations.Database))
+	f.queueMut.Unlock()
+	defer f.queue.Close()
 
 	changed := 0
 	buckets := diskoverflow.NewMap(locations.Get(locations.Database))
@@ -1599,10 +1600,14 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 
 // Moves the given filename to the front of the job queue
 func (f *sendReceiveFolder) BringToFront(filename string) {
+	f.queueMut.Lock()
 	f.queue.BringToFront(filename)
+	f.queueMut.Unlock()
 }
 
 func (f *sendReceiveFolder) Jobs() ([]string, []string) {
+	f.queueMut.Lock()
+	defer f.queueMut.Unlock()
 	return f.queue.Jobs()
 }
 
