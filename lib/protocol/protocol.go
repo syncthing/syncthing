@@ -675,6 +675,10 @@ func (c *rawConnection) writerLoop() {
 			c.internalClose(err)
 			return
 		}
+	case hm := <-c.closeBox:
+		_ = c.writeMessage(hm.msg)
+		close(hm.done)
+		return
 	case <-c.closed:
 		return
 	}
