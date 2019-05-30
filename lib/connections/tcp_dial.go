@@ -16,6 +16,8 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
+const tcpPriority = 10
+
 func init() {
 	factory := &tcpDialerFactory{}
 	for _, scheme := range []string{"tcp", "tcp4", "tcp6"} {

@@ -16,7 +16,7 @@ import (
 )
 
 func TestBenchmarkTransferManyFiles(t *testing.T) {
-	benchmarkTransfer(t, 50000, 15)
+	benchmarkTransfer(t, 10000, 15)
 }
 
 func TestBenchmarkTransferLargeFile1G(t *testing.T) {
@@ -154,9 +154,9 @@ loop:
 		t.Fatal(err)
 	}
 
-	log.Println("Result: Wall time:", t1.Sub(t0))
-	log.Printf("Result: %.1f MiB/s synced", float64(total)/1024/1024/t1.Sub(t0).Seconds())
+	log.Printf("Result: Wall time: %v / MiB", t1.Sub(t0)/time.Duration(total/1024/1024))
+	log.Printf("Result: %.3g KiB/s synced", float64(total)/1024/t1.Sub(t0).Seconds())
 
-	printUsage("Receiver", recvProc)
-	printUsage("Sender", sendProc)
+	printUsage("Receiver", recvProc, total)
+	printUsage("Sender", sendProc, total)
 }

@@ -8,6 +8,8 @@ package model
 
 import (
 	"io/ioutil"
+	"os"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -81,10 +83,10 @@ func testFolderConfig(path string) config.FolderConfiguration {
 	return cfg
 }
 
-func setupModelWithConnection() (*model, *fakeConnection, config.FolderConfiguration, config.Wrapper) {
+func setupModelWithConnection() (*model, *fakeConnection, config.FolderConfiguration) {
 	w, fcfg := tmpDefaultWrapper()
 	m, fc := setupModelWithConnectionFromWrapper(w)
-	return m, fc, fcfg, w
+	return m, fc, fcfg
 }
 
 func setupModelWithConnectionFromWrapper(w config.Wrapper) (*model, *fakeConnection) {
@@ -114,10 +116,58 @@ func setupModel(w config.Wrapper) *model {
 	return m
 }
 
+func newModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) *model {
+	return NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles).(*model)
+}
+
+func cleanupModel(m *model) {
+	m.Stop()
+	m.db.Close()
+	os.Remove(m.cfg.ConfigPath())
+}
+
+func cleanupModelAndRemoveDir(m *model, dir string) {
+	cleanupModel(m)
+	os.RemoveAll(dir)
+}
+
 func createTmpDir() string {
 	tmpDir, err := ioutil.TempDir("", "syncthing_testFolder-")
 	if err != nil {
 		panic("Failed to create temporary testing dir")
 	}
 	return tmpDir
+}
+
+type alwaysChangedKey struct {
+	fs   fs.Filesystem
+	name string
+}
+
+// alwaysChanges is an ignore.ChangeDetector that always returns true on Changed()
+type alwaysChanged struct {
+	seen map[alwaysChangedKey]struct{}
+}
+
+func newAlwaysChanged() *alwaysChanged {
+	return &alwaysChanged{
+		seen: make(map[alwaysChangedKey]struct{}),
+	}
+}
+
+func (c *alwaysChanged) Remember(fs fs.Filesystem, name string, _ time.Time) {
+	c.seen[alwaysChangedKey{fs, name}] = struct{}{}
+}
+
+func (c *alwaysChanged) Reset() {
+	c.seen = make(map[alwaysChangedKey]struct{})
+}
+
+func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
+	_, ok := c.seen[alwaysChangedKey{fs, name}]
+	return ok
+}
+
+func (c *alwaysChanged) Changed() bool {
+	return true
 }

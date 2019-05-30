@@ -181,6 +181,7 @@ var (
 	// errors about why a connection is closed
 	errIgnoredFolderRemoved = errors.New("folder no longer ignored")
 	errReplacingConnection  = errors.New("replacing connection")
+	errStopped              = errors.New("Syncthing is being stopped")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -224,6 +225,25 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 	cfg.Subscribe(m)
 
 	return m
+}
+
+func (m *model) Stop() {
+	m.Supervisor.Stop()
+	devs := m.cfg.Devices()
+	ids := make([]protocol.DeviceID, 0, len(devs))
+	for id := range devs {
+		ids = append(ids, id)
+	}
+	m.pmut.RLock()
+	closed := make([]chan struct{}, 0, len(m.closed))
+	for _, c := range m.closed {
+		closed = append(closed, c)
+	}
+	m.pmut.RUnlock()
+	m.closeConns(ids, errStopped)
+	for _, c := range closed {
+		<-c
+	}
 }
 
 // StartDeadlockDetector starts a deadlock detector on the models locks which

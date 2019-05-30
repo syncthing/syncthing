@@ -28,14 +28,9 @@ func TestRequestSimple(t *testing.T) {
 	// Verify that the model performs a request and creates a file based on
 	// an incoming index update.
 
-	m, fc, fcfg, w := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection()
 	tfs := fcfg.Filesystem()
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(tfs.URI())
-		os.Remove(w.ConfigPath())
-	}()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -76,13 +71,8 @@ func TestSymlinkTraversalRead(t *testing.T) {
 		return
 	}
 
-	m, fc, fcfg, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(fcfg.Filesystem().URI())
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -124,13 +114,8 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 		return
 	}
 
-	m, fc, fcfg, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(fcfg.Filesystem().URI())
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected names.
@@ -188,13 +173,8 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 func TestRequestCreateTmpSymlink(t *testing.T) {
 	// Test that an update for a temporary file is invalidated
 
-	m, fc, fcfg, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(fcfg.Filesystem().URI())
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -243,8 +223,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	fcfg.Versioning = config.VersioningConfiguration{Type: "trashcan"}
 	w.SetFolder(fcfg)
 	m, fc := setupModelWithConnectionFromWrapper(w)
-	defer m.db.Close()
-	defer m.Stop()
+	defer cleanupModel(m)
 
 	// Create a temporary directory that we will use as target to see if
 	// we can escape to it
@@ -318,21 +297,16 @@ func TestPullInvalidIgnoredSR(t *testing.T) {
 
 // This test checks that (un-)ignored/invalid/deleted files are treated as expected.
 func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
-	t.Helper()
-
 	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
 	fcfg := testFolderConfigTmp()
 	fss := fcfg.Filesystem()
 	fcfg.Type = ft
 	w.SetFolder(fcfg)
-	m, fc := setupModelWithConnectionFromWrapper(w)
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(fss.URI())
-		os.Remove(w.ConfigPath())
-	}()
+	m := setupModel(w)
+	defer cleanupModelAndRemoveDir(m, fss.URI())
 
+	m.RemoveFolder(fcfg)
+	m.AddFolder(fcfg)
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
 	// because we might be changing the files on disk often enough that the
@@ -340,6 +314,10 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	m.fmut.Lock()
 	m.folderIgnores["default"] = ignore.New(fss, ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Unlock()
+	m.StartFolder(fcfg.ID)
+
+	fc := addFakeConn(m, device1)
+	fc.folder = "default"
 
 	if err := m.SetIgnores("default", []string{"*ignored*"}); err != nil {
 		panic(err)
@@ -378,7 +356,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 		for name := range expected {
 			t.Errorf("File %v wasn't added to index", name)
 		}
-		done <- struct{}{}
+		close(done)
 	}
 	fc.mut.Unlock()
 
@@ -389,12 +367,13 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 
 	select {
 	case ev := <-sub.C():
-		t.Fatalf("Errors while pulling: %v", ev)
+		t.Fatalf("Errors while scanning/pulling: %v", ev)
 	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out before index was received")
 	case <-done:
 	}
 
+	done = make(chan struct{})
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		expected := map[string]struct{}{ign: {}, ignExisting: {}}
@@ -423,7 +402,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 		for name := range expected {
 			t.Errorf("File %v wasn't updated in index", name)
 		}
-		done <- struct{}{}
+		close(done)
 	}
 	// Make sure pulling doesn't interfere, as index updates are racy and
 	// thus we cannot distinguish between scan and pull results.
@@ -444,13 +423,8 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 }
 
 func TestIssue4841(t *testing.T) {
-	m, fc, fcfg, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(fcfg.Filesystem().URI())
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan protocol.FileInfo)
 	fc.mut.Lock()
@@ -487,14 +461,9 @@ func TestIssue4841(t *testing.T) {
 }
 
 func TestRescanIfHaveInvalidContent(t *testing.T) {
-	m, fc, fcfg, w := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection()
 	tmpDir := fcfg.Filesystem().URI()
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
+	defer cleanupModelAndRemoveDir(m, tmpDir)
 
 	payload := []byte("hello")
 
@@ -553,14 +522,9 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 }
 
 func TestParentDeletion(t *testing.T) {
-	m, fc, fcfg, w := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection()
 	testFs := fcfg.Filesystem()
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(testFs.URI())
-		os.Remove(w.ConfigPath())
-	}()
+	defer cleanupModelAndRemoveDir(m, testFs.URI())
 
 	parent := "foo"
 	child := filepath.Join(parent, "bar")
@@ -637,13 +601,8 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		t.Skip("windows specific test")
 	}
 
-	m, fc, fcfg, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(fcfg.Filesystem().URI())
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	done := make(chan struct{})
 	fc.mut.Lock()
@@ -709,15 +668,10 @@ func equalContents(path string, contents []byte) error {
 }
 
 func TestRequestRemoteRenameChanged(t *testing.T) {
-	m, fc, fcfg, w := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection()
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	done := make(chan struct{})
 	fc.mut.Lock()
@@ -842,15 +796,10 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 }
 
 func TestRequestRemoteRenameConflict(t *testing.T) {
-	m, fc, fcfg, w := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection()
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
+	defer cleanupModelAndRemoveDir(m, tmpDir)
 
 	recv := make(chan int)
 	fc.mut.Lock()
@@ -938,14 +887,9 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 }
 
 func TestRequestDeleteChanged(t *testing.T) {
-	m, fc, fcfg, w := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection()
 	tfs := fcfg.Filesystem()
-	defer func() {
-		m.Stop()
-		m.db.Close()
-		os.RemoveAll(tfs.URI())
-		os.Remove(w.ConfigPath())
-	}()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	done := make(chan struct{})
 	fc.mut.Lock()

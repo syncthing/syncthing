@@ -16,10 +16,11 @@ import (
 	"time"
 )
 
-func printUsage(name string, proc *os.ProcessState) {
+func printUsage(name string, proc *os.ProcessState, total int64) {
 	if rusage, ok := proc.SysUsage().(*syscall.Rusage); ok {
-		log.Printf("%s: Utime: %s", name, time.Duration(rusage.Utime.Nano()))
-		log.Printf("%s: Stime: %s", name, time.Duration(rusage.Stime.Nano()))
+		mib := total / 1024 / 1024
+		log.Printf("%s: Utime: %s / MiB", name, time.Duration(rusage.Utime.Nano()/mib))
+		log.Printf("%s: Stime: %s / MiB", name, time.Duration(rusage.Stime.Nano()/mib))
 		if runtime.GOOS == "darwin" {
 			// Darwin reports in bytes, Linux seems to report in KiB even
 			// though the manpage says otherwise.

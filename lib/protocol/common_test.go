@@ -13,6 +13,7 @@ type TestModel struct {
 	hash          []byte
 	weakHash      uint32
 	fromTemporary bool
+	indexFn       func(DeviceID, string, []FileInfo)
 	closedCh      chan struct{}
 	closedErr     error
 }
@@ -24,6 +25,9 @@ func newTestModel() *TestModel {
 }
 
 func (t *TestModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
+	if t.indexFn != nil {
+		t.indexFn(deviceID, folder, files)
+	}
 }
 
 func (t *TestModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {

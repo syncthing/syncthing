@@ -173,9 +173,6 @@ func (f *folder) Serve() {
 				pullFailTimer.Reset(pause)
 			}
 
-		// The reason for running the scanner from within the puller is that
-		// this is the easiest way to make sure we are not doing both at the
-		// same time.
 		case <-f.scanTimer.C:
 			l.Debugln(f, "Scanning subdirectories")
 			f.scanTimerFired()
@@ -612,51 +609,89 @@ func (f *folder) startWatch() {
 	f.watchChan = make(chan []string)
 	f.watchCancel = cancel
 	f.watchMut.Unlock()
-	go f.startWatchAsync(ctx)
+	go f.monitorWatch(ctx)
 }
 
-// startWatchAsync tries to start the filesystem watching and retries every minute on failure.
-// It is a convenience function that should not be used except in startWatch.
-func (f *folder) startWatchAsync(ctx context.Context) {
-	timer := time.NewTimer(0)
+// monitorWatch starts the filesystem watching and retries every minute on failure.
+// It should not be used except in startWatch.
+func (f *folder) monitorWatch(ctx context.Context) {
+	failTimer := time.NewTimer(0)
+	aggrCtx, aggrCancel := context.WithCancel(ctx)
+	var err error
+	var eventChan <-chan fs.Event
+	var errChan <-chan error
+	warnedOutside := false
 	for {
 		select {
-		case <-timer.C:
-			eventChan, err := f.Filesystem().Watch(".", f.ignores, ctx, f.IgnorePerms)
-			f.watchMut.Lock()
-			prevErr := f.watchErr
-			f.watchErr = err
-			f.watchMut.Unlock()
-			if err != prevErr {
-				data := map[string]interface{}{
-					"folder": f.ID,
-				}
-				if prevErr != nil {
-					data["from"] = prevErr.Error()
-				}
-				if err != nil {
-					data["to"] = err.Error()
-				}
-				events.Default.Log(events.FolderWatchStateChanged, data)
-			}
+		case <-failTimer.C:
+			eventChan, errChan, err = f.Filesystem().Watch(".", f.ignores, ctx, f.IgnorePerms)
+			// We do this at most once per minute which is the
+			// default rescan time without watcher.
+			f.scanOnWatchErr()
+			f.setWatchError(err)
 			if err != nil {
-				if prevErr == errWatchNotStarted {
-					l.Infof("Error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
-				} else {
-					l.Debugf("Repeat error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
-				}
-				timer.Reset(time.Minute)
+				failTimer.Reset(time.Minute)
 				continue
 			}
-			f.watchMut.Lock()
-			defer f.watchMut.Unlock()
-			watchaggregator.Aggregate(eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, ctx)
+			watchaggregator.Aggregate(eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, aggrCtx)
 			l.Debugln("Started filesystem watcher for folder", f.Description())
-			return
+		case err = <-errChan:
+			f.setWatchError(err)
+			// This error was previously a panic and should never occur, so generate
+			// a warning, but don't do it repetitively.
+			if !warnedOutside {
+				if _, ok := err.(*fs.ErrWatchEventOutsideRoot); ok {
+					l.Warnln(err)
+					warnedOutside = true
+					return
+				}
+			}
+			aggrCancel()
+			errChan = nil
+			aggrCtx, aggrCancel = context.WithCancel(ctx)
+			failTimer.Reset(time.Minute)
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+// setWatchError sets the current error state of the watch and should be called
+// regardless of whether err is nil or not.
+func (f *folder) setWatchError(err error) {
+	f.watchMut.Lock()
+	prevErr := f.watchErr
+	f.watchErr = err
+	f.watchMut.Unlock()
+	if err != prevErr {
+		data := map[string]interface{}{
+			"folder": f.ID,
+		}
+		if prevErr != nil {
+			data["from"] = prevErr.Error()
+		}
+		if err != nil {
+			data["to"] = err.Error()
+		}
+		events.Default.Log(events.FolderWatchStateChanged, data)
+	}
+	if err == nil {
+		return
+	}
+	if prevErr == errWatchNotStarted {
+		l.Infof("Error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
+		return
+	}
+	l.Debugf("Repeat error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
+}
+
+// scanOnWatchErr schedules a full scan immediately if an error occurred while watching.
+func (f *folder) scanOnWatchErr() {
+	f.watchMut.Lock()
+	if f.watchErr != nil && f.watchErr != errWatchNotStarted {
+		f.Delay(0)
+	}
+	f.watchMut.Unlock()
 }
 
 func (f *folder) setError(err error) {

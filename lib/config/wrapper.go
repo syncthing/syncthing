@@ -14,6 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 )
@@ -88,6 +89,7 @@ type Wrapper interface {
 
 	ListenAddresses() []string
 	GlobalDiscoveryServers() []string
+	StunServers() []string
 
 	Subscribe(c Committer)
 	Unsubscribe(c Committer)
@@ -103,6 +105,30 @@ type wrapper struct {
 	mut       sync.Mutex
 
 	requiresRestart uint32 // an atomic bool
+}
+
+func (w *wrapper) StunServers() []string {
+	var addresses []string
+	for _, addr := range w.cfg.Options.StunServers {
+		switch addr {
+		case "default":
+			defaultPrimaryAddresses := make([]string, len(DefaultPrimaryStunServers))
+			copy(defaultPrimaryAddresses, DefaultPrimaryStunServers)
+			rand.Shuffle(defaultPrimaryAddresses)
+			addresses = append(addresses, defaultPrimaryAddresses...)
+
+			defaultSecondaryAddresses := make([]string, len(DefaultSecondaryStunServers))
+			copy(defaultSecondaryAddresses, DefaultSecondaryStunServers)
+			rand.Shuffle(defaultSecondaryAddresses)
+			addresses = append(addresses, defaultSecondaryAddresses...)
+		default:
+			addresses = append(addresses, addr)
+		}
+	}
+
+	addresses = util.UniqueTrimmedStrings(addresses)
+
+	return addresses
 }
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
@@ -442,7 +468,7 @@ func (w *wrapper) GlobalDiscoveryServers() []string {
 			servers = append(servers, srv)
 		}
 	}
-	return util.UniqueStrings(servers)
+	return util.UniqueTrimmedStrings(servers)
 }
 
 func (w *wrapper) ListenAddresses() []string {
@@ -455,7 +481,7 @@ func (w *wrapper) ListenAddresses() []string {
 			addresses = append(addresses, addr)
 		}
 	}
-	return util.UniqueStrings(addresses)
+	return util.UniqueTrimmedStrings(addresses)
 }
 
 func (w *wrapper) RequiresRestart() bool {

@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"mime"
 	"net"
 	"net/http"
@@ -29,6 +28,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -370,10 +370,7 @@ func handleGetRequest(w http.ResponseWriter, r *http.Request) {
 	mut.RUnlock()
 
 	// Shuffle
-	for i := range relays {
-		j := rand.Intn(i + 1)
-		relays[i], relays[j] = relays[j], relays[i]
-	}
+	rand.Shuffle(relays)
 
 	json.NewEncoder(w).Encode(map[string][]*relay{
 		"relays": relays,

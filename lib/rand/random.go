@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"io"
 	mathRand "math/rand"
+	"reflect"
 )
 
 // Reader is the standard crypto/rand.Reader, re-exported for convenience
@@ -72,4 +73,15 @@ func SeedFromBytes(bs []byte) int64 {
 	// The MD5 hash of the byte slice is 16 bytes long. We interpret it as two
 	// uint64s and XOR them together.
 	return int64(binary.BigEndian.Uint64(s[0:]) ^ binary.BigEndian.Uint64(s[8:]))
+}
+
+// Shuffle the order of elements
+func Shuffle(slice interface{}) {
+	rv := reflect.ValueOf(slice)
+	swap := reflect.Swapper(slice)
+	length := rv.Len()
+	if length < 2 {
+		return
+	}
+	defaultSecureRand.Shuffle(length, swap)
 }
