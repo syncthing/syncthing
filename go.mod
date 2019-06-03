@@ -19,7 +19,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20170619183022-cd60e84ee657
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.1.1
-	github.com/lucas-clemente/quic-go v0.11.1
+	github.com/lucas-clemente/quic-go v0.11.2
 	github.com/mattn/go-isatty v0.0.7
 	github.com/minio/sha256-simd v0.0.0-20190117184323-cc1980cb0338
 	github.com/oschwald/geoip2-golang v1.3.0
