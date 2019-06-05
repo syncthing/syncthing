@@ -139,6 +139,8 @@ type model struct {
 	shortID           protocol.ShortID
 	cacheIgnoredFiles bool
 	protectedFiles    []string
+	stop              chan struct{}
+	stopWG            sync.WaitGroup
 
 	clientName    string
 	clientVersion string
@@ -202,6 +204,8 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		shortID:             id.Short(),
 		cacheIgnoredFiles:   cfg.Options().CacheIgnoredFiles,
 		protectedFiles:      protectedFiles,
+		stop:                make(chan struct{}),
+		stopWG:              sync.NewWaitGroup(),
 		clientName:          clientName,
 		clientVersion:       clientVersion,
 		folderCfgs:          make(map[string]config.FolderConfiguration),
@@ -228,6 +232,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 
 func (m *model) Stop() {
 	m.Supervisor.Stop()
+	close(m.stop)
 	devs := m.cfg.Devices()
 	ids := make([]protocol.DeviceID, 0, len(devs))
 	for id := range devs {
@@ -243,6 +248,7 @@ func (m *model) Stop() {
 	for _, c := range closed {
 		<-c
 	}
+	m.stopWG.Wait()
 }
 
 // StartDeadlockDetector starts a deadlock detector on the models locks which
@@ -1172,7 +1178,8 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 		}
 
-		go sendIndexes(conn, folder.ID, fs, startSequence, dropSymlinks)
+		m.stopWG.Add(1)
+		go sendIndexes(conn, folder.ID, fs, startSequence, dropSymlinks, m.stop, m.stopWG)
 	}
 
 	m.pmut.Lock()
@@ -1886,7 +1893,9 @@ func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 	m.deviceStatRef(deviceID).WasSeen()
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, prevSequence int64, dropSymlinks bool) {
+func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, prevSequence int64, dropSymlinks bool, stop chan struct{}, wg sync.WaitGroup) {
+	defer wg.Done()
+
 	deviceID := conn.ID()
 	var err error
 
@@ -1902,7 +1911,15 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, prevSe
 	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.DeviceDisconnected)
 	defer events.Default.Unsubscribe(sub)
 
+	evChan := sub.C()
+	ticker := time.NewTicker(time.Minute)
 	for err == nil {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+
 		if conn.Closed() {
 			// Our work is done.
 			return
@@ -1913,7 +1930,12 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, prevSe
 		// local index may update for other folders than the one we are
 		// sending for.
 		if fs.Sequence(protocol.LocalDeviceID) <= prevSequence {
-			sub.Poll(time.Minute)
+			select {
+			case <-stop:
+				return
+			case <-evChan:
+			case <-ticker.C:
+			}
 			continue
 		}
 
