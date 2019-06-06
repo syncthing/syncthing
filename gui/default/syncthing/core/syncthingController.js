@@ -78,7 +78,6 @@ angular.module('syncthing.core')
             externalCommand: "",
             autoNormalize: true,
             path: "",
-            useLargeBlocks: true,
         };
 
         $scope.localStateTotal = {
