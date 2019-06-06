@@ -17,15 +17,12 @@ import (
 )
 
 type Map interface {
-	Set(k string, v Value)
-	Get(k string, v Value) bool
-	Pop(k string, v Value) bool
-	Delete(k string)
+	Common
+	Set(k []byte, v Value)
+	Get(k []byte, v Value) bool
+	Pop(k []byte, v Value) bool
+	Delete(k []byte)
 	NewIterator() MapIterator
-	Bytes() int
-	Items() int
-	SetOverflowBytes(bytes int)
-	Close()
 }
 
 type omap struct {
@@ -33,33 +30,34 @@ type omap struct {
 	base
 }
 
-type commonMap interface {
+type veryCommonMap interface {
 	common
-	set(k string, v Value)
-	Get(k string, v Value) bool
-	Pop(k string, v Value) bool
-	Delete(k string)
-	newIterator(p iteratorParent) MapIterator
+	set(k []byte, v Value)
+	Get(k []byte, v Value) bool
+	Pop(k []byte, v Value) bool
+	Delete(k []byte)
+}
+
+type commonMap interface {
+	veryCommonMap
+	NewIterator() MapIterator
 }
 
 // NewMap returns an implementation of Map, spilling to disk at location.
 func NewMap(location string) Map {
 	o := &omap{base: newBase(location)}
-	o.commonMap = &memoryMap{
+	o.commonMap = &memMap{
 		values: make(map[string]Value),
 	}
 	return o
 }
 
-func (o *omap) Set(k string, v Value) {
-	if o.iterating {
-		panic(concurrencyMsg)
-	}
+func (o *omap) Set(k []byte, v Value) {
 	if o.startSpilling(o.Bytes() + v.ProtoSize()) {
 		d, err := v.Marshal()
 		errPanic(err)
 		newMap := newDiskMap(o.location)
-		it := o.newIterator(o)
+		it := o.NewIterator()
 		for it.Next() {
 			v.Reset()
 			it.Value(v)
@@ -85,45 +83,33 @@ func (o *omap) Close() {
 	o.commonMap.Close()
 }
 
-func (o *omap) released() {
-	o.iterating = false
-}
-
 type MapIterator interface {
 	Iterator
-	Key() string
+	Key() []byte
 }
 
-func (o *omap) NewIterator() MapIterator {
-	if o.iterating {
-		panic(concurrencyMsg)
-	}
-	return o.newIterator(o)
-}
-
-type memoryMap struct {
+type memMap struct {
 	values map[string]Value
 	bytes  int
 }
 
-func (o *memoryMap) set(k string, v Value) {
-	if ov, ok := o.values[k]; ok {
+func (o *memMap) set(k []byte, v Value) {
+	s := string(k)
+	if ov, ok := o.values[s]; ok {
 		o.bytes -= ov.ProtoSize()
 	}
-	o.values[k] = v
+	o.values[s] = v
 	o.bytes += v.ProtoSize()
 }
 
-func (o *memoryMap) Bytes() int {
+func (o *memMap) Bytes() int {
 	return o.bytes
 }
 
-func (o *memoryMap) Close() {
-	o.values = nil
-}
+func (o *memMap) Close() {}
 
-func (o *memoryMap) Get(k string, v Value) bool {
-	nv, ok := o.values[k]
+func (o *memMap) Get(k []byte, v Value) bool {
+	nv, ok := o.values[string(k)]
 	if !ok {
 		return false
 	}
@@ -131,31 +117,32 @@ func (o *memoryMap) Get(k string, v Value) bool {
 	return true
 }
 
-func (o *memoryMap) Items() int {
+func (o *memMap) Items() int {
 	return len(o.values)
 }
 
-func (o *memoryMap) Pop(k string, v Value) bool {
+func (o *memMap) Pop(k []byte, v Value) bool {
 	ok := o.Get(k, v)
 	if !ok {
 		return false
 	}
-	delete(o.values, k)
+	delete(o.values, string(k))
 	o.bytes -= v.ProtoSize()
 	return true
 }
 
-func (o *memoryMap) Delete(k string) {
-	v, ok := o.values[k]
+func (o *memMap) Delete(k []byte) {
+	s := string(k)
+	v, ok := o.values[s]
 	if !ok {
 		return
 	}
-	delete(o.values, k)
+	delete(o.values, s)
 	o.bytes -= v.ProtoSize()
 }
 
 type iteratorValue struct {
-	k string
+	k []byte
 	v Value
 }
 
@@ -164,14 +151,12 @@ type memMapIterator struct {
 	ch      chan iteratorValue
 	stop    chan struct{}
 	current iteratorValue
-	parent  iteratorParent
 }
 
-func (o *memoryMap) newIterator(p iteratorParent) MapIterator {
+func (o *memMap) NewIterator() MapIterator {
 	i := &memMapIterator{
 		ch:     make(chan iteratorValue),
 		stop:   make(chan struct{}),
-		parent: p,
 		values: o.values,
 	}
 	go i.iterate()
@@ -183,13 +168,13 @@ func (i *memMapIterator) iterate() {
 		select {
 		case <-i.stop:
 			break
-		case i.ch <- iteratorValue{k, v}:
+		case i.ch <- iteratorValue{[]byte(k), v}:
 		}
 	}
 	close(i.ch)
 }
 
-func (i *memMapIterator) Key() string {
+func (i *memMapIterator) Key() []byte {
 	return i.current.k
 }
 
@@ -205,7 +190,6 @@ func (i *memMapIterator) Next() bool {
 
 func (i *memMapIterator) Release() {
 	close(i.stop)
-	i.parent.released()
 }
 
 type diskMap struct {
@@ -234,21 +218,17 @@ func newDiskMap(location string) *diskMap {
 	}
 }
 
-func (o *diskMap) set(k string, v Value) {
-	old, err := o.db.Get([]byte(k), nil)
-	o.addBytes([]byte(k), v)
-	o.bytes += v.ProtoSize()
-	if err == nil {
-		errPanic(v.Unmarshal(old))
-		o.bytes -= v.ProtoSize()
-	}
-}
-
-func (o *diskMap) addBytes(k []byte, v Value) {
+func (o *diskMap) set(k []byte, v Value) {
+	old, oldErr := o.db.Get([]byte(k), nil)
 	d, err := v.Marshal()
 	errPanic(err)
 	errPanic(o.db.Put(k, d, nil))
 	o.len++
+	o.bytes += v.ProtoSize()
+	if oldErr == nil {
+		errPanic(v.Unmarshal(old))
+		o.bytes -= v.ProtoSize()
+	}
 }
 
 func (o *diskMap) Close() {
@@ -260,7 +240,7 @@ func (o *diskMap) Bytes() int {
 	return o.bytes
 }
 
-func (o *diskMap) Get(k string, v Value) bool {
+func (o *diskMap) Get(k []byte, v Value) bool {
 	d, err := o.db.Get([]byte(k), nil)
 	if err != nil {
 		return false
@@ -273,7 +253,7 @@ func (o *diskMap) Items() int {
 	return o.len
 }
 
-func (o *diskMap) Pop(k string, v Value) bool {
+func (o *diskMap) Pop(k []byte, v Value) bool {
 	ok := o.Get(k, v)
 	if ok {
 		errPanic(o.db.Delete([]byte(k), nil))
@@ -282,40 +262,70 @@ func (o *diskMap) Pop(k string, v Value) bool {
 	return ok
 }
 
-func (o *diskMap) Delete(k string) {
+func (o *diskMap) PopFirst(v Value) bool {
+	return o.pop(v, true)
+}
+
+func (o *diskMap) PopLast(v Value) bool {
+	return o.pop(v, false)
+}
+
+func (o *diskMap) pop(v Value, first bool) bool {
+	it := o.db.NewIterator(nil, nil)
+	defer it.Release()
+	var ok bool
+	if first {
+		ok = it.First()
+	} else {
+		ok = it.Last()
+	}
+	if !ok {
+		return false
+	}
+	errPanic(v.Unmarshal(it.Value()))
+	errPanic(o.db.Delete(it.Key(), nil))
+	o.bytes -= v.ProtoSize()
+	o.len--
+	return true
+}
+
+func (o *diskMap) Delete(k []byte) {
 	errPanic(o.db.Delete([]byte(k), nil))
 	o.len--
 }
 
-func (o *diskMap) newIterator(p iteratorParent) MapIterator {
-	return &diskIterator{
-		it:     o.db.NewIterator(nil, nil),
-		parent: p,
+func (o *diskMap) NewIterator() MapIterator {
+	return o.newIterator(false)
+}
+
+func (o *diskMap) newIterator(reverse bool) MapIterator {
+	di := &diskIterator{o.db.NewIterator(nil, nil)}
+	if !reverse {
+		return di
 	}
+	ri := &diskReverseIterator{diskIterator: di}
+	ri.next = func(i *diskReverseIterator) bool {
+		i.next = func(j *diskReverseIterator) bool {
+			return j.Prev()
+		}
+		return i.Last()
+	}
+	return ri
 }
 
 type diskIterator struct {
-	it     iterator.Iterator
-	parent iteratorParent
-}
-
-func (i *diskIterator) Next() bool {
-	return i.it.Next()
+	iterator.Iterator
 }
 
 func (i *diskIterator) Value(v Value) {
-	errPanic(v.Unmarshal(i.it.Value()))
+	errPanic(v.Unmarshal(i.Iterator.Value()))
 }
 
-func (i *diskIterator) key() []byte {
-	return i.it.Key()
+type diskReverseIterator struct {
+	*diskIterator
+	next func(*diskReverseIterator) bool
 }
 
-func (i *diskIterator) Key() string {
-	return string(i.key())
-}
-
-func (i *diskIterator) Release() {
-	i.it.Release()
-	i.parent.released()
+func (i *diskReverseIterator) Next() bool {
+	return i.next(i)
 }

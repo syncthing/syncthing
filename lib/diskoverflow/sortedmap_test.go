@@ -28,7 +28,7 @@ func TestSorted100kB(t *testing.T) {
 }
 
 func testSorted(t *testing.T) {
-	sorted := NewSorted(".")
+	sorted := NewSortedMap(".")
 	defer sorted.Close()
 
 	testValues := randomTestValues(testSize)
@@ -47,7 +47,7 @@ func testSorted(t *testing.T) {
 				t.Fatalf("s.Bytes() == %v, expected %v", s, i*10)
 			}
 		}
-		sorted.Add([]byte(tv.string), tv)
+		sorted.Set([]byte(tv.string), tv)
 	}
 
 	i := 0

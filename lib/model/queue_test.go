@@ -28,6 +28,43 @@ func TestJobQueue(t *testing.T) {
 		t.Fatal("Wrong length")
 	}
 
+	for i := 1; i < 5; i++ {
+		n, ok := q.Pop()
+		if !ok || n != "f1" {
+			t.Fatal("Wrong element")
+		}
+
+		if progress, queued = q.Jobs(); len(progress) != 1 || len(queued) != 3 {
+			t.Log(progress)
+			t.Log(queued)
+			t.Fatal("Wrong length")
+		}
+		progress, queued = q.Jobs()
+		q.Done(n)
+		if progress, queued = q.Jobs(); len(progress) != 0 || len(queued) != 3 {
+			t.Log(queued)
+			t.Fatal("Wrong length", len(progress), len(queued))
+		}
+
+		t.Log(queued)
+		q.Push(n, 0, time.Time{})
+		progress, queued = q.Jobs()
+		if len(progress) != 0 || len(queued) != 4 {
+			t.Log(progress, queued)
+			t.Fatal("Wrong length")
+		}
+
+		q.Done("f5") // Does not exist
+		progress, queued = q.Jobs()
+		if len(progress) != 0 || len(queued) != 4 {
+			t.Fatal("Wrong length")
+		}
+	}
+
+	if progress, queued = q.Jobs(); len(progress) > 0 || len(queued) != 4 {
+		t.Fatal("Wrong length")
+	}
+
 	for i := 4; i > 0; i-- {
 		progress, queued = q.Jobs()
 		if len(progress) != 4-i || len(queued) != i {

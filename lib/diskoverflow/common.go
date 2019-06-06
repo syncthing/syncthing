@@ -17,8 +17,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const concurrencyMsg = "iteration in progress - don't modify or start a new iteration concurrently"
-
 const OrigDefaultOverflowBytes = 16 << protocol.MiB
 
 var (
@@ -51,6 +49,17 @@ type Value interface {
 	ProtoSize() int
 }
 
+// Common are the methods implemented by all container types.
+//
+// Close must be called to release resources. All iterations must be released
+// before calling Close.
+type Common interface {
+	Bytes() int
+	Items() int
+	SetOverflowBytes(bytes int)
+	Close()
+}
+
 // copyValue copies the content from src to dst. Src and dst must be pointers
 // to the same underlying types, otherwise this will panic.
 func copyValue(dst, src Value) {
@@ -69,7 +78,6 @@ type base struct {
 	location      string
 	overflowBytes int
 	spilling      bool
-	iterating     bool
 }
 
 func newBase(location string) base {
@@ -95,57 +103,36 @@ type Iterator interface {
 	Value(Value)
 }
 
-type iteratorParent interface {
-	released()
-}
-
-type memIterator struct {
-	values  []Value
-	pos     int
+type posIterator struct {
 	len     int
+	offset  int
 	reverse bool
-	parent  iteratorParent
 }
 
-func newMemIterator(values []Value, p iteratorParent, reverse bool, len int) *memIterator {
-	it := &memIterator{
-		values:  values,
-		len:     len,
+func newPosIterator(l int, reverse bool) *posIterator {
+	return &posIterator{
+		len:     l,
+		offset:  -1,
 		reverse: reverse,
-		parent:  p,
 	}
-	if reverse {
-		it.pos = len
-	} else {
-		it.pos = -1
-	}
-	return it
 }
 
-func (si *memIterator) Next() bool {
-	if si.reverse {
-		if si.pos == 0 {
-			return false
-		}
-		si.pos--
-		return true
+func (si *posIterator) pos() int {
+	if !si.reverse {
+		return si.offset
 	}
-	if si.pos == si.len-1 {
+	return si.len - si.offset - 1
+}
+
+func (si *posIterator) Next() bool {
+	if si.offset == si.len-1 {
 		return false
 	}
-	si.pos++
+	si.offset++
 	return true
 }
 
-func (si *memIterator) Value(v Value) {
-	if si.pos != si.len && si.pos != -1 {
-		copyValue(v, si.values[si.pos])
-	}
-}
-
-func (si *memIterator) Release() {
-	si.parent.released()
-}
+func (si *posIterator) Release() {}
 
 func errPanic(err error) {
 	if err != nil {

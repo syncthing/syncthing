@@ -42,14 +42,14 @@ func testMap(t *testing.T) {
 				t.Fatalf("s.Items() == %v, expected %v", l, i)
 			}
 		}
-		tmap.Set(tv.string, tv)
+		tmap.Set([]byte(tv.string), tv)
 	}
 
 	gotValues := make(map[string]struct{}, len(testValueSlice))
 	it := tmap.NewIterator()
 	v := &testValue{}
 	for it.Next() {
-		k := it.Key()
+		k := string(it.Key())
 		if _, ok := gotValues[k]; ok {
 			t.Fatalf("Iterating; got %v more than once", k)
 		}
@@ -76,7 +76,7 @@ func testMap(t *testing.T) {
 	exp := testValueSlice[k].string
 
 	v.Reset()
-	ok := tmap.Get(exp, v)
+	ok := tmap.Get([]byte(exp), v)
 	if !ok {
 		t.Fatalf("Get didn't return any value")
 	}
@@ -88,7 +88,7 @@ func testMap(t *testing.T) {
 	}
 
 	v.Reset()
-	ok = tmap.Pop(exp, v)
+	ok = tmap.Pop([]byte(exp), v)
 	if !ok {
 		t.Fatalf("Pop didn't return any value")
 	}
@@ -104,7 +104,7 @@ func testMap(t *testing.T) {
 	gotValues = make(map[string]struct{}, len(testValueSlice))
 	it = tmap.NewIterator()
 	for it.Next() {
-		k := it.Key()
+		k := string(it.Key())
 		if _, ok := gotValues[k]; ok {
 			t.Fatalf("Iterating; got %v more than once", k)
 		}

@@ -353,9 +353,9 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				// WithNeed, furthermore, the file can simply be of the wrong
 				// type if we haven't yet managed to pull it.
 				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
-					fileDeletions.Set(file.Name, &file)
+					fileDeletions.Set([]byte(file.Name), &file)
 					// Put files into buckets per first hash
-					key := string(df.Blocks[0].Hash)
+					key := df.Blocks[0].Hash
 					v := &protocol.Index{}
 					if ok := buckets.Get(key, v); ok {
 						v.Files = append(v.Files, df)
@@ -453,7 +453,7 @@ nextFile:
 
 		// Check our list of files to be removed for a match, in which case
 		// we can just do a rename instead.
-		key := string(fi.Blocks[0].Hash)
+		key := fi.Blocks[0].Hash
 		var list []protocol.FileInfo
 		v := &protocol.Index{}
 		if ok := buckets.Get(key, v); ok {
@@ -471,7 +471,7 @@ nextFile:
 				// desired state with the delete bit set is in the deletion
 				// map.
 				v := &protocol.FileInfo{}
-				_ = fileDeletions.Get(candidate.Name, v)
+				_ = fileDeletions.Get([]byte(candidate.Name), v)
 				if err := f.renameFile(candidate, *v, fi, dbUpdateChan, scanChan); err != nil {
 					// Failed to rename, try to handle files as separate
 					// deletions and updates.
@@ -479,7 +479,7 @@ nextFile:
 				}
 
 				// Remove the pending deletion (as we performed it by renaming)
-				fileDeletions.Delete(candidate.Name)
+				fileDeletions.Delete([]byte(candidate.Name))
 
 				changed++
 				f.queue.Done(fileName)

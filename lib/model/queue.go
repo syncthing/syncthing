@@ -18,9 +18,8 @@ import (
 
 type jobQueue struct {
 	progress       []string
-	queued         diskoverflow.Sorted
+	queued         diskoverflow.SortedMap
 	broughtToFront []string
-	handledAtFront map[string]struct{}
 	location       string
 	order          config.PullOrder
 	mut            sync.Mutex
@@ -28,12 +27,11 @@ type jobQueue struct {
 
 func newJobQueue(order config.PullOrder, loc string) *jobQueue {
 	q := &jobQueue{
-		handledAtFront: make(map[string]struct{}),
-		location:       loc,
-		order:          order,
-		mut:            sync.NewMutex(),
+		location: loc,
+		order:    order,
+		mut:      sync.NewMutex(),
 	}
-	q.queued = diskoverflow.NewSorted(loc)
+	q.queued = diskoverflow.NewSortedMap(loc)
 	return q
 }
 
@@ -53,7 +51,7 @@ func (q *jobQueue) Push(file string, size int64, modified time.Time) {
 		key, _ = modified.MarshalText()
 	}
 	q.mut.Lock()
-	q.queued.Add(key, &queueValue{file})
+	q.queued.Set(key, &queueValue{file})
 	q.mut.Unlock()
 }
 
@@ -63,11 +61,8 @@ func (q *jobQueue) Pop() (string, bool) {
 	if l := len(q.broughtToFront); l > 0 {
 		f := q.broughtToFront[l-1]
 		q.broughtToFront = q.broughtToFront[:l-1]
-		if _, ok := q.handledAtFront[f]; !ok {
-			q.handledAtFront[f] = struct{}{}
-			q.progress = append(q.progress, f)
-			return f, true
-		}
+		q.progress = append(q.progress, f)
+		return f, true
 	}
 	pop := q.queued.PopFirst
 	switch q.order {
@@ -80,9 +75,6 @@ func (q *jobQueue) Pop() (string, bool) {
 		return "", false
 	}
 	f := v.string
-	if _, ok := q.handledAtFront[f]; ok {
-		return "", false
-	}
 	q.progress = append(q.progress, f)
 	return f, true
 }
@@ -91,15 +83,9 @@ func (q *jobQueue) BringToFront(filename string) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	it := q.queued.NewIterator()
-	defer it.Release()
-	v := &queueValue{}
-	for it.Next() {
-		it.Value(v)
-		if f := v.string; f == filename {
-			q.broughtToFront = append([]string{f}, q.broughtToFront...)
-			return
-		}
+	var v queueValue
+	if ok := q.queued.Pop([]byte(filename), &v); ok {
+		q.broughtToFront = append([]string{v.string}, q.broughtToFront...)
 	}
 }
 
@@ -140,15 +126,10 @@ func (q *jobQueue) Jobs() ([]string, []string) {
 	default:
 		it = q.queued.NewIterator()
 	}
-	v := &queueValue{}
 	for it.Next() {
-		it.Value(v)
-		f := v.string
-		if _, ok := atFront[f]; !ok {
-			if _, ok := q.handledAtFront[f]; !ok {
-				queued = append(queued, f)
-			}
-		}
+		v := queueValue{}
+		it.Value(&v)
+		queued = append(queued, v.string)
 	}
 	it.Release()
 
