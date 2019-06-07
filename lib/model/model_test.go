@@ -3266,6 +3266,12 @@ func TestSanitizePath(t *testing.T) {
 // on a protocol connection that has a blocking reader (blocking writer can't
 // be done as the test requires clusterconfigs to go through).
 func TestConnCloseOnRestart(t *testing.T) {
+	oldCloseTimeout := protocol.CloseTimeout
+	protocol.CloseTimeout = 100 * time.Millisecond
+	defer func() {
+		protocol.CloseTimeout = oldCloseTimeout
+	}()
+
 	w, fcfg := tmpDefaultWrapper()
 	m := setupModel(w)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
