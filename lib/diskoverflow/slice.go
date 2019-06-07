@@ -51,7 +51,9 @@ func (o *slice) Append(v Value) error {
 		it := o.NewIterator()
 		for it.Next() {
 			v.Reset()
-			it.Value(v)
+			if err := it.Value(v); err != nil {
+				return err
+			}
 			if err := ds.append(v); err != nil {
 				return err
 			}
@@ -66,7 +68,6 @@ func (o *slice) Append(v Value) error {
 		}
 	}
 	return o.append(v)
-	return nil
 }
 
 func (o *slice) NewIterator() Iterator {

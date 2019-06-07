@@ -65,7 +65,9 @@ func (o *omap) Set(k []byte, v Value) error {
 		it := o.NewIterator()
 		for it.Next() {
 			v.Reset()
-			it.Value(v)
+			if err := it.Value(v); err != nil {
+				return err
+			}
 			err = newMap.set(it.Key(), v)
 			if err != nil {
 				return err

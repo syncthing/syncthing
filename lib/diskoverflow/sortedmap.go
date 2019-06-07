@@ -57,8 +57,12 @@ func (o *sortedMap) Set(k []byte, v Value) error {
 		it := o.newIterator(false)
 		for it.Next() {
 			v.Reset()
-			it.Value(v)
-			newMap.set(it.Key(), v)
+			if err := it.Value(v); err != nil {
+				return err
+			}
+			if err := newMap.set(it.Key(), v); err != nil {
+				return err
+			}
 		}
 		it.Release()
 		o.commonSortedMap.Close()

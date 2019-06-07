@@ -46,7 +46,7 @@ func (q *jobQueue) Push(file string, size int64, modified time.Time) error {
 		key = []byte(file)
 	case config.OrderSmallestFirst, config.OrderLargestFirst:
 		key = make([]byte, 8)
-		binary.BigEndian.PutUint64(key[:], uint64(size))
+		binary.BigEndian.PutUint64(key, uint64(size))
 	case config.OrderOldestFirst, config.OrderNewestFirst:
 		key, _ = modified.MarshalText()
 	}

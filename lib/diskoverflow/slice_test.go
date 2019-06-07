@@ -61,7 +61,9 @@ func testSlice(t *testing.T) {
 	it := slice.NewIterator()
 	v := &testValue{}
 	for it.Next() {
-		it.Value(v)
+		if err := it.Value(v); err != nil {
+			t.Fatal(err)
+		}
 		tv := v.string
 		if exp := testValues[i].string; tv != exp {
 
@@ -84,7 +86,9 @@ func testSlice(t *testing.T) {
 	for it.Next() {
 		i--
 		v.Reset()
-		it.Value(v)
+		if err := it.Value(v); err != nil {
+			t.Fatal(err)
+		}
 		tv := v.string
 		exp := testValues[i].string
 		if tv != exp {
@@ -99,7 +103,9 @@ func testSlice(t *testing.T) {
 	for it.Next() {
 		i--
 		v.Reset()
-		it.Value(v)
+		if err := it.Value(v); err != nil {
+			t.Fatal(err)
+		}
 		tv := v.string
 		exp := testValues[i].string
 		if tv != exp {

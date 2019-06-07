@@ -20,7 +20,9 @@ func TestJobQueue(t *testing.T) {
 	q := newJobQueue(config.OrderAlphabetic, "")
 	defer q.Close()
 	for i := 4; i > 0; i-- {
-		q.Push(fmt.Sprintf("f%d", i), 0, time.Time{})
+		if err := q.Push(fmt.Sprintf("f%d", i), 0, time.Time{}); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	progress, queued := q.Jobs()
@@ -47,7 +49,9 @@ func TestJobQueue(t *testing.T) {
 		}
 
 		t.Log(queued)
-		q.Push(n, 0, time.Time{})
+		if err := q.Push(n, 0, time.Time{}); err != nil {
+			t.Fatal(err)
+		}
 		progress, queued = q.Jobs()
 		if len(progress) != 0 || len(queued) != 4 {
 			t.Log(progress, queued)
@@ -125,10 +129,11 @@ func TestJobQueue(t *testing.T) {
 func TestBringToFront(t *testing.T) {
 	q := newJobQueue(config.OrderAlphabetic, "")
 	defer q.Close()
-	q.Push("f1", 0, time.Time{})
-	q.Push("f2", 0, time.Time{})
-	q.Push("f3", 0, time.Time{})
-	q.Push("f4", 0, time.Time{})
+	for i := 1; i < 5; i++ {
+		if err := q.Push(fmt.Sprintf("f%d", i), 0, time.Time{}); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	_, queued := q.Jobs()
 	if diff, equal := messagediff.PrettyDiff([]string{"f1", "f2", "f3", "f4"}, queued); !equal {
@@ -167,10 +172,11 @@ func TestBringToFront(t *testing.T) {
 func TestShuffle(t *testing.T) {
 	q := newJobQueue(config.OrderRandom, "")
 	defer q.Close()
-	q.Push("f1", 0, time.Time{})
-	q.Push("f2", 0, time.Time{})
-	q.Push("f3", 0, time.Time{})
-	q.Push("f4", 0, time.Time{})
+	for i := 1; i < 5; i++ {
+		if err := q.Push(fmt.Sprintf("f%d", i), 0, time.Time{}); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	// This test will fail once in eight million times (1 / (4!)^5) :)
 	for i := 0; i < 5; i++ {
@@ -191,10 +197,12 @@ func TestShuffle(t *testing.T) {
 
 func TestSortBySize(t *testing.T) {
 	q := newJobQueue(config.OrderSmallestFirst, "")
-	q.Push("f1", 20, time.Time{})
-	q.Push("f2", 40, time.Time{})
-	q.Push("f3", 30, time.Time{})
-	q.Push("f4", 10, time.Time{})
+	sizes := []int64{20, 40, 30, 10}
+	for i := 1; i < 5; i++ {
+		if err := q.Push(fmt.Sprintf("f%d", i), sizes[i-1], time.Time{}); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	_, actual := q.Jobs()
 	if l := len(actual); l != 4 {
@@ -210,10 +218,11 @@ func TestSortBySize(t *testing.T) {
 	q = newJobQueue(config.OrderLargestFirst, "")
 	defer q.Close()
 
-	q.Push("f1", 20, time.Time{})
-	q.Push("f2", 40, time.Time{})
-	q.Push("f3", 30, time.Time{})
-	q.Push("f4", 10, time.Time{})
+	for i := 1; i < 5; i++ {
+		if err := q.Push(fmt.Sprintf("f%d", i), sizes[i-1], time.Time{}); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	_, actual = q.Jobs()
 	if l := len(actual); l != 4 {
@@ -230,10 +239,12 @@ func TestSortBySize(t *testing.T) {
 
 func TestSortByAge(t *testing.T) {
 	q := newJobQueue(config.OrderOldestFirst, "")
-	q.Push("f1", 0, time.Unix(20, 0))
-	q.Push("f2", 0, time.Unix(40, 0))
-	q.Push("f3", 0, time.Unix(30, 0))
-	q.Push("f4", 0, time.Unix(10, 0))
+	times := []int64{20, 40, 30, 10}
+	for i := 1; i < 5; i++ {
+		if err := q.Push(fmt.Sprintf("f%d", i), 0, time.Unix(times[i-1], 0)); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	_, actual := q.Jobs()
 	if l := len(actual); l != 4 {
@@ -249,10 +260,11 @@ func TestSortByAge(t *testing.T) {
 	q = newJobQueue(config.OrderNewestFirst, "")
 	defer q.Close()
 
-	q.Push("f1", 0, time.Unix(20, 0))
-	q.Push("f2", 0, time.Unix(40, 0))
-	q.Push("f3", 0, time.Unix(30, 0))
-	q.Push("f4", 0, time.Unix(10, 0))
+	for i := 1; i < 5; i++ {
+		if err := q.Push(fmt.Sprintf("f%d", i), 0, time.Unix(times[i-1], 0)); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	_, actual = q.Jobs()
 	if l := len(actual); l != 4 {
@@ -273,7 +285,9 @@ func BenchmarkJobQueueBump(b *testing.B) {
 	q := newJobQueue(config.OrderAlphabetic, "")
 	defer q.Close()
 	for _, f := range files {
-		q.Push(f.Name, 0, time.Time{})
+		if err := q.Push(f.Name, 0, time.Time{}); err != nil {
+			b.Fatal(err)
+		}
 	}
 
 	b.ResetTimer()
@@ -289,7 +303,9 @@ func BenchmarkJobQueuePushPopDone10k(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		q := newJobQueue(config.OrderAlphabetic, "")
 		for _, f := range files {
-			q.Push(f.Name, 0, time.Time{})
+			if err := q.Push(f.Name, 0, time.Time{}); err != nil {
+				b.Fatal(err)
+			}
 		}
 		for range files {
 			n, _ := q.Pop()
