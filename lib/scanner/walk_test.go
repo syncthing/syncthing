@@ -256,7 +256,7 @@ func TestNormalization(t *testing.T) {
 func TestIssue1507(t *testing.T) {
 	w := &walker{}
 	w.Matcher = ignore.New(w.Filesystem)
-	h := make(chan *protocol.FileInfo, 100)
+	h := make(chan protocol.FileInfo, 100)
 	f := make(chan ScanResult, 100)
 	fn := w.walkAndHashFiles(context.TODO(), h, f)
 

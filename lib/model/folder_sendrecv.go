@@ -467,8 +467,8 @@ nextFile:
 		// we can just do a rename instead.
 		key := fi.Blocks[0].Hash
 		var list []protocol.FileInfo
-		v := &protocol.Index{}
-		if ok, err := buckets.Get(key, v); err == nil && ok {
+		v := protocol.Index{}
+		if ok, err := buckets.Get(key, &v); err == nil && ok {
 			list = v.Files
 		}
 		for i, candidate := range list {
@@ -478,11 +478,11 @@ nextFile:
 				// map.
 				// On Failure, try to handle files as separate
 				// deletions and updates.
-				v := &protocol.FileInfo{}
-				if _, err := fileDeletions.Get([]byte(candidate.Name), v); err != nil {
+				v := protocol.FileInfo{}
+				if _, err := fileDeletions.Get([]byte(candidate.Name), &v); err != nil {
 					break
 				}
-				if err := f.renameFile(candidate, *v, fi, dbUpdateChan, scanChan); err != nil {
+				if err := f.renameFile(candidate, v, fi, dbUpdateChan, scanChan); err != nil {
 					break
 				}
 
@@ -528,12 +528,12 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions diskoverflow.Map, dir
 		default:
 		}
 
-		v := &protocol.FileInfo{}
-		if err := fit.Value(v); err != nil {
+		v := protocol.FileInfo{}
+		if err := fit.Value(&v); err != nil {
 			l.Infoln("Failed to get file info for deletion")
 		}
 		f.resetPullError(v.Name)
-		f.deleteFile(*v, dbUpdateChan, scanChan)
+		f.deleteFile(v, dbUpdateChan, scanChan)
 	}
 	fit.Release()
 
@@ -545,13 +545,13 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions diskoverflow.Map, dir
 		default:
 		}
 
-		v := &protocol.FileInfo{}
-		if err := dit.Value(v); err != nil {
+		v := protocol.FileInfo{}
+		if err := dit.Value(&v); err != nil {
 			l.Infoln("Failed to get file info for deletion")
 		}
 		f.resetPullError(v.Name)
 		l.Debugln(f, "Deleting dir", v.Name)
-		f.deleteDir(*v, dbUpdateChan, scanChan)
+		f.deleteDir(v, dbUpdateChan, scanChan)
 	}
 	dit.Release()
 }
