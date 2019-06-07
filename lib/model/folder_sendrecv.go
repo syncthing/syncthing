@@ -340,34 +340,43 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			f.newPullError(file.Name, fs.ErrInvalidFilename)
 
 		case file.IsDeleted():
+			changed++
 			if file.IsDirectory() {
 				// Perform directory deletions at the end, as we may have
 				// files to delete inside them before we get to that point.
-				dirDeletions.Append(&file)
-			} else if file.IsSymlink() {
-				f.deleteFile(file, dbUpdateChan, scanChan)
-			} else {
-				df, ok := f.fset.Get(protocol.LocalDeviceID, file.Name)
-				// Local file can be already deleted, but with a lower version
-				// number, hence the deletion coming in again as part of
-				// WithNeed, furthermore, the file can simply be of the wrong
-				// type if we haven't yet managed to pull it.
-				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
-					fileDeletions.Set([]byte(file.Name), &file)
-					// Put files into buckets per first hash
-					key := df.Blocks[0].Hash
-					v := &protocol.Index{}
-					if ok := buckets.Get(key, v); ok {
-						v.Files = append(v.Files, df)
-					} else {
-						v.Files = []protocol.FileInfo{df}
-					}
-					buckets.Set(key, v)
-				} else {
-					f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
+				if err := dirDeletions.Append(&file); err != nil {
+					f.newPullError(file.Name, err)
+					f.queue.Done(file.Name)
 				}
+				return true
 			}
-			changed++
+			if file.IsSymlink() {
+				f.deleteFile(file, dbUpdateChan, scanChan)
+				return true
+			}
+			df, ok := f.fset.Get(protocol.LocalDeviceID, file.Name)
+			// Local file can be already deleted, but with a lower version
+			// number, hence the deletion coming in again as part of
+			// WithNeed, furthermore, the file can simply be of the wrong
+			// type if we haven't yet managed to pull it.
+			if !ok || df.IsDeleted() || df.IsSymlink() || df.IsDirectory() || df.IsInvalid() {
+				f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
+				return true
+			}
+			if err := fileDeletions.Set([]byte(file.Name), &file); err != nil {
+				f.newPullError(file.Name, err)
+				f.queue.Done(file.Name)
+				return true
+			}
+			// Put files into buckets per first hash
+			key := df.Blocks[0].Hash
+			v := &protocol.Index{}
+			if ok, err := buckets.Get(key, v); err == nil && ok {
+				v.Files = append(v.Files, df)
+			} else {
+				v.Files = []protocol.FileInfo{df}
+			}
+			_ = buckets.Set(key, v)
 
 		case file.Type == protocol.FileInfoTypeFile:
 			curFile, hasCurFile := f.fset.Get(protocol.LocalDeviceID, file.Name)
@@ -378,7 +387,10 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				f.shortcutFile(file, curFile, dbUpdateChan)
 			} else {
 				// Queue files for processing after directories and symlinks.
-				f.queue.Push(file.Name, file.Size, file.ModTime())
+				if err := f.queue.Push(file.Name, file.Size, file.ModTime()); err != nil {
+					f.newPullError(file.Name, err)
+					f.queue.Done(file.Name)
+				}
 			}
 
 		case runtime.GOOS == "windows" && file.IsSymlink():
@@ -456,30 +468,32 @@ nextFile:
 		key := fi.Blocks[0].Hash
 		var list []protocol.FileInfo
 		v := &protocol.Index{}
-		if ok := buckets.Get(key, v); ok {
+		if ok, err := buckets.Get(key, v); err == nil && ok {
 			list = v.Files
 		}
 		for i, candidate := range list {
 			if protocol.BlocksEqual(candidate.Blocks, fi.Blocks) {
+				// candidate is our current state of the file, where as the
+				// desired state with the delete bit set is in the deletion
+				// map.
+				// On Failure, try to handle files as separate
+				// deletions and updates.
+				v := &protocol.FileInfo{}
+				if _, err := fileDeletions.Get([]byte(candidate.Name), v); err != nil {
+					break
+				}
+				if err := f.renameFile(candidate, *v, fi, dbUpdateChan, scanChan); err != nil {
+					break
+				}
+
 				// Remove the candidate from the bucket
 				lidx := len(list) - 1
 				list[i] = list[lidx]
 				list = list[:lidx]
-				buckets.Set(key, &protocol.Index{Files: list})
-
-				// candidate is our current state of the file, where as the
-				// desired state with the delete bit set is in the deletion
-				// map.
-				v := &protocol.FileInfo{}
-				_ = fileDeletions.Get([]byte(candidate.Name), v)
-				if err := f.renameFile(candidate, *v, fi, dbUpdateChan, scanChan); err != nil {
-					// Failed to rename, try to handle files as separate
-					// deletions and updates.
-					break
-				}
+				_ = buckets.Set(key, &protocol.Index{Files: list})
 
 				// Remove the pending deletion (as we performed it by renaming)
-				fileDeletions.Delete([]byte(candidate.Name))
+				_ = fileDeletions.Delete([]byte(candidate.Name))
 
 				changed++
 				f.queue.Done(fileName)
@@ -515,7 +529,9 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions diskoverflow.Map, dir
 		}
 
 		v := &protocol.FileInfo{}
-		fit.Value(v)
+		if err := fit.Value(v); err != nil {
+			l.Infoln("Failed to get file info for deletion")
+		}
 		f.resetPullError(v.Name)
 		f.deleteFile(*v, dbUpdateChan, scanChan)
 	}
@@ -530,7 +546,9 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions diskoverflow.Map, dir
 		}
 
 		v := &protocol.FileInfo{}
-		dit.Value(v)
+		if err := dit.Value(v); err != nil {
+			l.Infoln("Failed to get file info for deletion")
+		}
 		f.resetPullError(v.Name)
 		l.Debugln(f, "Deleting dir", v.Name)
 		f.deleteDir(*v, dbUpdateChan, scanChan)

@@ -47,14 +47,18 @@ func testSorted(t *testing.T) {
 				t.Fatalf("s.Bytes() == %v, expected %v", s, i*10)
 			}
 		}
-		sorted.Set([]byte(tv.string), tv)
+		if err := sorted.Set([]byte(tv.string), tv); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	i := 0
 	it := sorted.NewIterator()
 	v := &testValue{}
 	for it.Next() {
-		it.Value(v)
+		if err := it.Value(v); err != nil {
+			t.Fatal(err)
+		}
 		tv := v.string
 		if exp := testValuesSorted[i]; tv != exp {
 			t.Fatalf("Iterating at %v: %v != %v", i, tv, exp)
@@ -75,8 +79,9 @@ func testSorted(t *testing.T) {
 	}
 
 	v.Reset()
-	ok := sorted.PopFirst(v)
-	if !ok {
+	if ok, err := sorted.PopFirst(v); err != nil {
+		t.Fatal(err)
+	} else if !ok {
 		t.Fatalf("PopFirst didn't return any value")
 	}
 	got := v.string
@@ -91,8 +96,9 @@ func testSorted(t *testing.T) {
 	}
 
 	v.Reset()
-	ok = sorted.PopLast(v)
-	if !ok {
+	if ok, err := sorted.PopLast(v); err != nil {
+		t.Fatal(err)
+	} else if !ok {
 		t.Fatalf("PopLast didn't return any value")
 	}
 	got = v.string
@@ -111,7 +117,9 @@ func testSorted(t *testing.T) {
 	for it.Next() {
 		i--
 		v.Reset()
-		it.Value(v)
+		if err := it.Value(v); err != nil {
+			t.Fatal(err)
+		}
 		tv := v.string
 		if exp := testValuesSorted[i]; tv != exp {
 			t.Fatalf("Iterating at %v: %v != %v", i, tv, exp)

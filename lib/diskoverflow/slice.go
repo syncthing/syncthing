@@ -13,7 +13,7 @@ import (
 
 type Slice interface {
 	Common
-	Append(v Value)
+	Append(v Value) error
 	NewIterator() Iterator
 	NewReverseIterator() Iterator
 }
@@ -25,7 +25,7 @@ type slice struct {
 
 type commonSlice interface {
 	common
-	append(v Value)
+	append(v Value) error
 	newIterator(reverse bool) Iterator
 }
 
@@ -37,25 +37,36 @@ func NewSlice(location string) Slice {
 	return o
 }
 
-func (o *slice) Append(v Value) {
+func (o *slice) Append(v Value) error {
 	if o.startSpilling(o.Bytes() + v.ProtoSize()) {
 		d, err := v.Marshal()
-		errPanic(err)
-		ds := &diskSlice{newDiskMap(o.location)}
+		if err != nil {
+			return err
+		}
+		newMap, err := newDiskMap(o.location)
+		if err != nil {
+			return err
+		}
+		ds := &diskSlice{newMap}
 		it := o.NewIterator()
 		for it.Next() {
 			v.Reset()
 			it.Value(v)
-			ds.append(v)
+			if err := ds.append(v); err != nil {
+				return err
+			}
 		}
 		it.Release()
 		o.commonSlice.Close()
 		o.commonSlice = ds
 		o.spilling = true
 		v.Reset()
-		errPanic(v.Unmarshal(d))
+		if err := v.Unmarshal(d); err != nil {
+			return err
+		}
 	}
-	o.append(v)
+	return o.append(v)
+	return nil
 }
 
 func (o *slice) NewIterator() Iterator {
@@ -81,9 +92,10 @@ type memSlice struct {
 	bytes  int
 }
 
-func (o *memSlice) append(v Value) {
+func (o *memSlice) append(v Value) error {
 	o.values = append(o.values, v)
 	o.bytes += v.ProtoSize()
+	return nil
 }
 
 func (o *memSlice) Bytes() int {
@@ -106,10 +118,11 @@ func (o *memSlice) newIterator(reverse bool) Iterator {
 	}
 }
 
-func (si *sliceIterator) Value(v Value) {
+func (si *sliceIterator) Value(v Value) error {
 	if si.offset < si.len {
 		copyValue(v, si.values[si.pos()])
 	}
+	return nil
 }
 
 func (o *memSlice) Items() int {
@@ -122,10 +135,10 @@ type diskSlice struct {
 
 const indexLength = 8
 
-func (o *diskSlice) append(v Value) {
+func (o *diskSlice) append(v Value) error {
 	index := make([]byte, indexLength)
 	binary.BigEndian.PutUint64(index, uint64(o.Items()))
-	o.diskMap.set(index, v)
+	return o.diskMap.set(index, v)
 }
 
 func (o *diskSlice) newIterator(reverse bool) Iterator {

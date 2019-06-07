@@ -13,12 +13,12 @@ import (
 
 type SortedMap interface {
 	Common
-	Set(k []byte, v Value)
-	Get(k []byte, v Value) bool
-	Pop(k []byte, v Value) bool
-	PopFirst(v Value) bool
-	PopLast(v Value) bool
-	Delete(k []byte)
+	Set(k []byte, v Value) error
+	Get(k []byte, v Value) (bool, error)
+	Pop(k []byte, v Value) (bool, error)
+	PopFirst(v Value) (bool, error)
+	PopLast(v Value) (bool, error)
+	Delete(k []byte) error
 	NewIterator() MapIterator
 	NewReverseIterator() MapIterator
 }
@@ -30,8 +30,8 @@ type sortedMap struct {
 
 type commonSortedMap interface {
 	veryCommonMap
-	PopFirst(v Value) bool
-	PopLast(v Value) bool
+	PopFirst(v Value) (bool, error)
+	PopLast(v Value) (bool, error)
 	newIterator(reverse bool) MapIterator
 }
 
@@ -44,11 +44,16 @@ func NewSortedMap(location string) SortedMap {
 	return o
 }
 
-func (o *sortedMap) Set(k []byte, v Value) {
+func (o *sortedMap) Set(k []byte, v Value) error {
 	if o.startSpilling(o.Bytes() + v.ProtoSize()) {
 		d, err := v.Marshal()
-		errPanic(err)
-		newMap := newDiskMap(o.location)
+		if err != nil {
+			return err
+		}
+		newMap, err := newDiskMap(o.location)
+		if err != nil {
+			return err
+		}
 		it := o.newIterator(false)
 		for it.Next() {
 			v.Reset()
@@ -60,9 +65,11 @@ func (o *sortedMap) Set(k []byte, v Value) {
 		o.commonSortedMap = newMap
 		o.spilling = true
 		v.Reset()
-		errPanic(v.Unmarshal(d))
+		if err := v.Unmarshal(d); err != nil {
+			return err
+		}
 	}
-	o.set(k, v)
+	return o.set(k, v)
 }
 
 func (o *sortedMap) String() string {
@@ -89,18 +96,18 @@ type memSortedMap struct {
 	keys         []string
 }
 
-func (o *memSortedMap) set(k []byte, v Value) {
+func (o *memSortedMap) set(k []byte, v Value) error {
 	s := string(k)
 	if _, ok := o.values[s]; !ok {
 		o.needsSorting = true
 		o.keys = append(o.keys, s)
 	}
-	o.memMap.set(k, v)
+	return o.memMap.set(k, v)
 }
 
-func (o *memSortedMap) PopFirst(v Value) bool {
+func (o *memSortedMap) PopFirst(v Value) (bool, error) {
 	if o.Items() == 0 {
-		return false
+		return false, nil
 	}
 	if o.needsSorting {
 		sort.Strings(o.keys)
@@ -112,9 +119,9 @@ func (o *memSortedMap) PopFirst(v Value) bool {
 	return o.Pop([]byte(o.keys[0]), v)
 }
 
-func (o *memSortedMap) PopLast(v Value) bool {
+func (o *memSortedMap) PopLast(v Value) (bool, error) {
 	if o.Items() == 0 {
-		return false
+		return false, nil
 	}
 	if o.needsSorting {
 		sort.Strings(o.keys)
@@ -163,10 +170,11 @@ func (si *memSortedMapIterator) Next() bool {
 	return false
 }
 
-func (si *memSortedMapIterator) Value(v Value) {
+func (si *memSortedMapIterator) Value(v Value) error {
 	if si.offset >= 0 && si.offset < si.len {
 		copyValue(v, si.values[si.keys[si.pos()]])
 	}
+	return nil
 }
 
 func (si *memSortedMapIterator) Key() []byte {

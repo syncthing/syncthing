@@ -146,7 +146,9 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 
 		for file := range toHashChan {
 			total += file.Size
-			filesToHash.Append(file)
+			if err := filesToHash.Append(file); err != nil {
+				w.handleError(ctx, "scheduling for hashing", file.Name, err, finishedChan)
+			}
 		}
 
 		if filesToHash.Items() == 0 {
@@ -193,8 +195,11 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		it := filesToHash.NewIterator()
 		for it.Next() {
 			v := &protocol.FileInfo{}
-			it.Value(v)
-			l.Infoln("real to hash:", v)
+			if err := it.Value(v); err != nil {
+				// Should never happen, lets just hope it will work the next time around
+				l.Infoln("Failed to get file to hash while scanning")
+				continue
+			}
 			select {
 			case realToHashChan <- v:
 			case <-ctx.Done():

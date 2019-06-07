@@ -35,7 +35,7 @@ func newJobQueue(order config.PullOrder, loc string) *jobQueue {
 	return q
 }
 
-func (q *jobQueue) Push(file string, size int64, modified time.Time) {
+func (q *jobQueue) Push(file string, size int64, modified time.Time) error {
 	var key []byte
 	switch q.order {
 	case config.OrderRandom:
@@ -51,8 +51,8 @@ func (q *jobQueue) Push(file string, size int64, modified time.Time) {
 		key, _ = modified.MarshalText()
 	}
 	q.mut.Lock()
-	q.queued.Set(key, &queueValue{file})
-	q.mut.Unlock()
+	defer q.mut.Unlock()
+	return q.queued.Set(key, &queueValue{file})
 }
 
 func (q *jobQueue) Pop() (string, bool) {
@@ -70,8 +70,10 @@ func (q *jobQueue) Pop() (string, bool) {
 		pop = q.queued.PopLast
 	}
 	v := &queueValue{}
-	ok := pop(v)
-	if !ok {
+	if ok, err := pop(v); err != nil || !ok {
+		if err != nil {
+			l.Debugln("Failed to get item from queue")
+		}
 		return "", false
 	}
 	f := v.string
@@ -84,7 +86,7 @@ func (q *jobQueue) BringToFront(filename string) {
 	defer q.mut.Unlock()
 
 	var v queueValue
-	if ok := q.queued.Pop([]byte(filename), &v); ok {
+	if ok, err := q.queued.Pop([]byte(filename), &v); err == nil && ok {
 		q.broughtToFront = append([]string{v.string}, q.broughtToFront...)
 	}
 }
@@ -128,7 +130,11 @@ func (q *jobQueue) Jobs() ([]string, []string) {
 	}
 	for it.Next() {
 		v := queueValue{}
-		it.Value(&v)
+		if err := it.Value(&v); err != nil {
+			// This should never happen and Jobs is just informational, so ignore
+			l.Debugln("Failed to get queue item")
+			continue
+		}
 		queued = append(queued, v.string)
 	}
 	it.Release()

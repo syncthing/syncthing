@@ -18,10 +18,10 @@ import (
 
 type Map interface {
 	Common
-	Set(k []byte, v Value)
-	Get(k []byte, v Value) bool
-	Pop(k []byte, v Value) bool
-	Delete(k []byte)
+	Set(k []byte, v Value) error
+	Get(k []byte, v Value) (bool, error)
+	Pop(k []byte, v Value) (bool, error)
+	Delete(k []byte) error
 	NewIterator() MapIterator
 }
 
@@ -32,10 +32,10 @@ type omap struct {
 
 type veryCommonMap interface {
 	common
-	set(k []byte, v Value)
-	Get(k []byte, v Value) bool
-	Pop(k []byte, v Value) bool
-	Delete(k []byte)
+	set(k []byte, v Value) error
+	Get(k []byte, v Value) (bool, error)
+	Pop(k []byte, v Value) (bool, error)
+	Delete(k []byte) error
 }
 
 type commonMap interface {
@@ -52,25 +52,35 @@ func NewMap(location string) Map {
 	return o
 }
 
-func (o *omap) Set(k []byte, v Value) {
+func (o *omap) Set(k []byte, v Value) error {
 	if o.startSpilling(o.Bytes() + v.ProtoSize()) {
 		d, err := v.Marshal()
-		errPanic(err)
-		newMap := newDiskMap(o.location)
+		if err != nil {
+			return err
+		}
+		newMap, err := newDiskMap(o.location)
+		if err != nil {
+			return err
+		}
 		it := o.NewIterator()
 		for it.Next() {
 			v.Reset()
 			it.Value(v)
-			newMap.set(it.Key(), v)
+			err = newMap.set(it.Key(), v)
+			if err != nil {
+				return err
+			}
 		}
 		it.Release()
 		o.commonMap.Close()
 		o.commonMap = newMap
 		o.spilling = true
 		v.Reset()
-		errPanic(v.Unmarshal(d))
+		if err := v.Unmarshal(d); err != nil {
+			return err
+		}
 	}
-	o.set(k, v)
+	return o.set(k, v)
 }
 
 func (o *omap) String() string {
@@ -93,13 +103,14 @@ type memMap struct {
 	bytes  int
 }
 
-func (o *memMap) set(k []byte, v Value) {
+func (o *memMap) set(k []byte, v Value) error {
 	s := string(k)
 	if ov, ok := o.values[s]; ok {
 		o.bytes -= ov.ProtoSize()
 	}
 	o.values[s] = v
 	o.bytes += v.ProtoSize()
+	return nil
 }
 
 func (o *memMap) Bytes() int {
@@ -108,37 +119,38 @@ func (o *memMap) Bytes() int {
 
 func (o *memMap) Close() {}
 
-func (o *memMap) Get(k []byte, v Value) bool {
+func (o *memMap) Get(k []byte, v Value) (bool, error) {
 	nv, ok := o.values[string(k)]
 	if !ok {
-		return false
+		return false, nil
 	}
 	copyValue(v, nv)
-	return true
+	return true, nil
 }
 
 func (o *memMap) Items() int {
 	return len(o.values)
 }
 
-func (o *memMap) Pop(k []byte, v Value) bool {
-	ok := o.Get(k, v)
-	if !ok {
-		return false
+func (o *memMap) Pop(k []byte, v Value) (bool, error) {
+	ok, err := o.Get(k, v)
+	if !ok || err != nil {
+		return false, err
 	}
 	delete(o.values, string(k))
 	o.bytes -= v.ProtoSize()
-	return true
+	return true, nil
 }
 
-func (o *memMap) Delete(k []byte) {
+func (o *memMap) Delete(k []byte) error {
 	s := string(k)
 	v, ok := o.values[s]
 	if !ok {
-		return
+		return nil
 	}
 	delete(o.values, s)
 	o.bytes -= v.ProtoSize()
+	return nil
 }
 
 type iteratorValue struct {
@@ -178,8 +190,9 @@ func (i *memMapIterator) Key() []byte {
 	return i.current.k
 }
 
-func (i *memMapIterator) Value(v Value) {
+func (i *memMapIterator) Value(v Value) error {
 	copyValue(v, i.current.v)
+	return nil
 }
 
 func (i *memMapIterator) Next() bool {
@@ -199,36 +212,43 @@ type diskMap struct {
 	len   int
 }
 
-func newDiskMap(location string) *diskMap {
+func newDiskMap(location string) (*diskMap, error) {
 	// Use a temporary database directory.
 	tmp, err := ioutil.TempDir(location, "overflow-")
 	if err != nil {
-		panic("creating temporary directory: " + err.Error())
+		return nil, err
 	}
 	db, err := leveldb.OpenFile(tmp, &opt.Options{
 		OpenFilesCacheCapacity: 10,
 		WriteBuffer:            512 << 10,
 	})
 	if err != nil {
-		panic("creating temporary database: " + err.Error())
+		return nil, err
 	}
 	return &diskMap{
 		db:  db,
 		dir: tmp,
-	}
+	}, nil
 }
 
-func (o *diskMap) set(k []byte, v Value) {
-	old, oldErr := o.db.Get([]byte(k), nil)
+func (o *diskMap) set(k []byte, v Value) error {
+	old, oldErr := o.db.Get(k, nil)
 	d, err := v.Marshal()
-	errPanic(err)
-	errPanic(o.db.Put(k, d, nil))
+	if err != nil {
+		return err
+	}
+	if err := o.db.Put(k, d, nil); err != nil {
+		return err
+	}
 	o.len++
 	o.bytes += v.ProtoSize()
 	if oldErr == nil {
-		errPanic(v.Unmarshal(old))
+		if err := v.Unmarshal(old); err != nil {
+			return err
+		}
 		o.bytes -= v.ProtoSize()
 	}
+	return nil
 }
 
 func (o *diskMap) Close() {
@@ -240,37 +260,44 @@ func (o *diskMap) Bytes() int {
 	return o.bytes
 }
 
-func (o *diskMap) Get(k []byte, v Value) bool {
-	d, err := o.db.Get([]byte(k), nil)
+func (o *diskMap) Get(k []byte, v Value) (bool, error) {
+	d, err := o.db.Get(k, nil)
 	if err != nil {
-		return false
+		return false, nil
 	}
-	errPanic(v.Unmarshal(d))
-	return true
+	if err := v.Unmarshal(d); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (o *diskMap) Items() int {
 	return o.len
 }
 
-func (o *diskMap) Pop(k []byte, v Value) bool {
-	ok := o.Get(k, v)
+func (o *diskMap) Pop(k []byte, v Value) (bool, error) {
+	ok, err := o.Get(k, v)
+	if err != nil {
+		return false, err
+	}
 	if ok {
-		errPanic(o.db.Delete([]byte(k), nil))
+		if err := o.db.Delete(k, nil); err != nil {
+			return false, err
+		}
 		o.len--
 	}
-	return ok
+	return ok, nil
 }
 
-func (o *diskMap) PopFirst(v Value) bool {
+func (o *diskMap) PopFirst(v Value) (bool, error) {
 	return o.pop(v, true)
 }
 
-func (o *diskMap) PopLast(v Value) bool {
+func (o *diskMap) PopLast(v Value) (bool, error) {
 	return o.pop(v, false)
 }
 
-func (o *diskMap) pop(v Value, first bool) bool {
+func (o *diskMap) pop(v Value, first bool) (bool, error) {
 	it := o.db.NewIterator(nil, nil)
 	defer it.Release()
 	var ok bool
@@ -280,18 +307,25 @@ func (o *diskMap) pop(v Value, first bool) bool {
 		ok = it.Last()
 	}
 	if !ok {
-		return false
+		return false, nil
 	}
-	errPanic(v.Unmarshal(it.Value()))
-	errPanic(o.db.Delete(it.Key(), nil))
+	if err := v.Unmarshal(it.Value()); err != nil {
+		return false, err
+	}
+	if err := o.db.Delete(it.Key(), nil); err != nil {
+		return false, err
+	}
 	o.bytes -= v.ProtoSize()
 	o.len--
-	return true
+	return true, nil
 }
 
-func (o *diskMap) Delete(k []byte) {
-	errPanic(o.db.Delete([]byte(k), nil))
+func (o *diskMap) Delete(k []byte) error {
+	if err := o.db.Delete(k, nil); err != nil {
+		return err
+	}
 	o.len--
+	return nil
 }
 
 func (o *diskMap) NewIterator() MapIterator {
@@ -317,8 +351,8 @@ type diskIterator struct {
 	iterator.Iterator
 }
 
-func (i *diskIterator) Value(v Value) {
-	errPanic(v.Unmarshal(i.Iterator.Value()))
+func (i *diskIterator) Value(v Value) error {
+	return v.Unmarshal(i.Iterator.Value())
 }
 
 type diskReverseIterator struct {

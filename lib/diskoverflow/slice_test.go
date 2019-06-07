@@ -52,7 +52,9 @@ func testSlice(t *testing.T) {
 				t.Fatalf("s.Bytes() == %v, expected %v", s, i*10)
 			}
 		}
-		slice.Append(tv)
+		if err := slice.Append(tv); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	i := 0

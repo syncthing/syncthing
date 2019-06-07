@@ -100,7 +100,7 @@ func (o *base) startSpilling(size int) bool {
 type Iterator interface {
 	Release()
 	Next() bool
-	Value(Value)
+	Value(Value) error
 }
 
 type posIterator struct {
@@ -133,9 +133,3 @@ func (si *posIterator) Next() bool {
 }
 
 func (si *posIterator) Release() {}
-
-func errPanic(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
