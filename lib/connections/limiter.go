@@ -34,7 +34,10 @@ type waiter interface {
 	WaitN(ctx context.Context, n int) error
 }
 
-const limiterBurstSize = 4 * 128 << 10
+const (
+	limiterBurstSize   = 4 * 128 << 10
+	maxSingleWriteSize = 8 << 10
+)
 
 func newLimiter(cfg config.Wrapper) *limiter {
 	l := &limiter{
@@ -244,10 +247,28 @@ type limitedWriter struct {
 }
 
 func (w *limitedWriter) Write(buf []byte) (int, error) {
-	if !w.isLAN || w.limitsLAN.get() {
-		take(w.waiter, len(buf))
+	if w.isLAN && !w.limitsLAN.get() {
+		// Fast path
+		return w.writer.Write(buf)
 	}
-	return w.writer.Write(buf)
+
+	// This does (potentially) multiple smaller writes in order to be less
+	// bursty with large writes and slow rates.
+	written := 0
+	for written < len(buf) {
+		toWrite := maxSingleWriteSize
+		if toWrite > len(buf)-written {
+			toWrite = len(buf) - written
+		}
+		take(w.waiter, toWrite)
+		n, err := w.writer.Write(buf[written : written+toWrite])
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	return written, nil
 }
 
 // take is a utility function to consume tokens from a overall rate.Limiter and deviceLimiter.
