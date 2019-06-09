@@ -59,7 +59,8 @@ func (t *quicListener) OnNATTypeChanged(natType stun.NATType) {
 func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) {
 	var uri *url.URL
 	if address != nil {
-		uri = &(*t.uri)
+		copy := *t.uri
+		uri = &copy
 		uri.Host = address.TransportAddr()
 	}
 
@@ -165,7 +166,7 @@ func (t *quicListener) Serve() {
 			continue
 		}
 
-		t.conns <- internalConn{&quicTlsConn{session, stream}, connTypeQUICServer, quicPriority}
+		t.conns <- internalConn{&quicTlsConn{session, stream, nil}, connTypeQUICServer, quicPriority}
 	}
 }
 
