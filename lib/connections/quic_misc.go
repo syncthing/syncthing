@@ -24,15 +24,24 @@ var (
 type quicTlsConn struct {
 	quic.Session
 	quic.Stream
+	// If we created this connection, we should be the ones closing it.
+	createdConn net.PacketConn
 }
 
 func (q *quicTlsConn) Close() error {
 	sterr := q.Stream.Close()
 	seerr := q.Session.Close()
+	var pcerr error
+	if q.createdConn != nil {
+		pcerr = q.createdConn.Close()
+	}
 	if sterr != nil {
 		return sterr
 	}
-	return seerr
+	if seerr != nil {
+		return seerr
+	}
+	return pcerr
 }
 
 // Sort available packet connections by ip address, preferring unspecified local address.

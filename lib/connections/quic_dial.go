@@ -45,23 +45,26 @@ func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, err
 	}
 
 	var conn net.PacketConn
-	closeConn := false
+	// We need to track who created the conn.
+	// Given we always pass the connection to quic, it assumes it's a remote connection it never closes it,
+	// So our wrapper around it needs to close it, but it only needs to close it if it's not the listening connection.
+	var createdConn net.PacketConn
 	if listenConn := registry.Get(uri.Scheme, packetConnLess); listenConn != nil {
 		conn = listenConn.(net.PacketConn)
 	} else {
 		if packetConn, err := net.ListenPacket("udp", ":0"); err != nil {
 			return internalConn{}, err
 		} else {
-			closeConn = true
 			conn = packetConn
+			createdConn = packetConn
 		}
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	session, err := quic.DialContext(ctx, conn, addr, uri.Host, d.tlsCfg, quicConfig)
 	if err != nil {
-		if closeConn {
-			_ = conn.Close()
+		if createdConn != nil {
+			_ = createdConn.Close()
 		}
 		return internalConn{}, err
 	}
@@ -85,13 +88,13 @@ func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, err
 	if err != nil {
 		// It's ok to close these, this does not close the underlying packetConn.
 		_ = session.Close()
-		if closeConn {
-			_ = conn.Close()
+		if createdConn != nil {
+			_ = createdConn.Close()
 		}
 		return internalConn{}, err
 	}
 
-	return internalConn{&quicTlsConn{session, stream}, connTypeQUICClient, quicPriority}, nil
+	return internalConn{&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, quicPriority}, nil
 }
 
 func (d *quicDialer) RedialFrequency() time.Duration {
