@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -268,4 +269,31 @@ func fsFromParams(folderFs fs.Filesystem, params map[string]string) (versionsFs 
 	}
 	l.Debugln("%s (%s) folder using %s (%s) versioner dir", folderFs.URI(), folderFs.Type(), versionsFs.URI(), versionsFs.Type())
 	return
+}
+
+type versionWithMtime struct {
+	name  string
+	mtime time.Time
+}
+
+func versionsToVersionsWithMtime(fs fs.Filesystem, versions []string) []versionWithMtime {
+	versionsWithMtimes := make([]versionWithMtime, 0, len(versions))
+
+	for _, version := range versions {
+		if stat, err := fs.Stat(version); err != nil {
+			// Welp, assume it's gone?
+			continue
+		} else {
+			versionsWithMtimes = append(versionsWithMtimes, versionWithMtime{
+				name:  version,
+				mtime: stat.ModTime(),
+			})
+		}
+	}
+
+	sort.Slice(versionsWithMtimes, func(i, j int) bool {
+		return versionsWithMtimes[i].mtime.Before(versionsWithMtimes[j].mtime)
+	})
+
+	return versionsWithMtimes
 }

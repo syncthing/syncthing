@@ -70,7 +70,19 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 
 	<-v.testCleanDone
 
-	rem := v.toRemove(files, now)
+	versionsWithMtime := make([]versionWithMtime, 0, len(files))
+	for _, file := range files {
+		versionTime, err := time.ParseInLocation(TimeFormat, ExtractTag(file), loc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		versionsWithMtime = append(versionsWithMtime, versionWithMtime{
+			name:  file,
+			mtime: versionTime,
+		})
+	}
+
+	rem := v.toRemove(versionsWithMtime, now)
 	if diff, equal := messagediff.PrettyDiff(delete, rem); !equal {
 		t.Errorf("Incorrect deleted files; got %v, expected %v\n%v", rem, delete, diff)
 	}
