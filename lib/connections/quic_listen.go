@@ -60,7 +60,7 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 	var uri *url.URL
 	if address != nil {
 		copy := *t.uri
-		uri = &copy		
+		uri = &copy
 		uri.Host = address.TransportAddr()
 	}
 
