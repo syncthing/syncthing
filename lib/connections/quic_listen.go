@@ -59,8 +59,8 @@ func (t *quicListener) OnNATTypeChanged(natType stun.NATType) {
 func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) {
 	var uri *url.URL
 	if address != nil {
-		uri = &url.URL{}
-		*uri = *t.uri
+		copy := *t.uri
+		uri = &copy		
 		uri.Host = address.TransportAddr()
 	}
 
