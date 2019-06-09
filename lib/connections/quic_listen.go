@@ -166,7 +166,7 @@ func (t *quicListener) Serve() {
 			continue
 		}
 
-		t.conns <- internalConn{&quicTlsConn{session, stream}, connTypeQUICServer, quicPriority}
+		t.conns <- internalConn{&quicTlsConn{session, stream, nil}, connTypeQUICServer, quicPriority}
 	}
 }
 
