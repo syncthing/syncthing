@@ -961,10 +961,10 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	var files []fileEntry
 
 	// Redacted configuration as a JSON
-	if jsonConfig, err := json.MarshalIndent(getRedactedConfig(s), "", "  "); err == nil {
-		files = append(files, fileEntry{name: "config.json.txt", data: jsonConfig})
-	} else {
+	if jsonConfig, err := json.MarshalIndent(getRedactedConfig(s), "", "  "); err != nil {
 		l.Warnln("Support bundle: failed to create config.json:", err)
+	} else {
+		files = append(files, fileEntry{name: "config.json.txt", data: jsonConfig})
 	}
 
 	// Log as a text
@@ -977,9 +977,9 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	// Errors as a JSON
 	if errs := s.guiErrors.Since(time.Time{}); len(errs) > 0 {
 		if jsonError, err := json.MarshalIndent(errs, "", "  "); err != nil {
-			files = append(files, fileEntry{name: "errors.json.txt", data: jsonError})
-		} else {
 			l.Warnln("Support bundle: failed to create errors.json:", err)
+		} else {
+			files = append(files, fileEntry{name: "errors.json.txt", data: jsonError})
 		}
 	}
 
