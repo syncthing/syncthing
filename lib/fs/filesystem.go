@@ -114,7 +114,7 @@ type EventType int
 const (
 	NonRemove EventType = 1 + iota
 	Remove
-	Mixed // Should probably not be necessary to be used in filesystem interface implementation
+	Mixed  // Should probably not be necessary to be used in filesystem interface implementation
 )
 
 // Merge returns Mixed, except if evType and other are the same and not Mixed.

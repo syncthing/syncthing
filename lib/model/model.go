@@ -163,7 +163,7 @@ type model struct {
 	foldersRunning int32 // for testing only
 }
 
-type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
+type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory)
@@ -329,7 +329,7 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	ffs.Hide(".stversions")
 	ffs.Hide(".stignore")
 
-	p := folderFactory(m, fset, m.folderIgnores[folder], cfg, ver, ffs)
+	p := folderFactory(m, fset, m.folderIgnores[folder], cfg, ver)
 
 	m.folderRunners[folder] = p
 
