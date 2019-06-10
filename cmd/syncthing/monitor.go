@@ -34,7 +34,7 @@ const (
 	loopThreshold         = 60 * time.Second
 	logFileAutoCloseDelay = 5 * time.Second
 	logFileMaxOpenTime    = time.Minute
-	panicUploadMaxWait    = 2 * time.Minute
+	panicUploadMaxWait    = 30 * time.Second
 	panicUploadNoticeWait = 10 * time.Second
 )
 
@@ -178,11 +178,17 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 	br := bufio.NewReader(stderr)
 
 	var panicFd *os.File
-loop:
+	defer func() {
+		if panicFd != nil {
+			_ = panicFd.Close()
+			maybeReportPanics()
+		}
+	}()
+
 	for {
 		line, err := br.ReadString('\n')
 		if err != nil {
-			break loop
+			return
 		}
 
 		if panicFd == nil {
@@ -248,11 +254,6 @@ loop:
 		if panicFd != nil {
 			panicFd.WriteString(line)
 		}
-	}
-
-	if panicFd != nil {
-		_ = panicFd.Close()
-		maybeReportPanics()
 	}
 }
 
