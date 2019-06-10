@@ -130,6 +130,7 @@ func (f *MtimeFS) Open(name string) (File, error) {
 	}
 	return &mtimeFile{fd, f}, nil
 }
+
 func (f *MtimeFS) OpenFile(name string, flags int, mode FileMode) (File, error) {
 	fd, err := f.Filesystem.OpenFile(name, flags, mode)
 	if err != nil {
