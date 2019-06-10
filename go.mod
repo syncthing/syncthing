@@ -26,7 +26,7 @@ require (
 	github.com/oschwald/maxminddb-golang v0.0.0-20170901134056-26fe5ace1c70 // indirect
 	github.com/petermattis/goid v0.0.0-20170816195418-3db12ebb2a59 // indirect
 	github.com/pkg/errors v0.8.1
-	github.com/prometheus/client_golang v0.9.3
+	github.com/prometheus/client_golang v0.9.4
 	github.com/rcrowley/go-metrics v0.0.0-20171128170426-e181e095bae9
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/syncthing/notify v0.0.0-20181107104724-4e389ea6c0d8
