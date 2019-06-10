@@ -139,3 +139,42 @@ func TestRelUnrootedCheckedWindows(t *testing.T) {
 		}
 	}
 }
+
+func TestGetFinalPath(t *testing.T) {
+	testCases := []struct {
+		input         string
+		expectedPath  string
+		eqToEvalSyml  bool
+		ignoreMissing bool
+	}{
+		{`c:\`, `C:\`, true, false},
+		{`\\?\c:\`, `C:\`, false, false},
+		{`c:\wInDows\sYstEm32`, `C:\Windows\System32`, true, false},
+		{`c:\parent\child`, `C:\parent\child`, false, true},
+	}
+
+	for _, testCase := range testCases {
+		out, err := getFinalPathName(testCase.input)
+		if err != nil {
+			if testCase.ignoreMissing && os.IsNotExist(err) {
+				continue
+			}
+			t.Errorf("getFinalPathName failed at %q with error %s", testCase.input, err)
+		}
+		// Trim UNC prefix
+		if strings.HasPrefix(out, `\\?\UNC\`) {
+			out = `\` + out[7:]
+		} else {
+			out = strings.TrimPrefix(out, `\\?\`)
+		}
+		if out != testCase.expectedPath {
+			t.Errorf("getFinalPathName got wrong path: %q (expected %q)", out, testCase.expectedPath)
+		}
+		if testCase.eqToEvalSyml {
+			evlPath, err1 := filepath.EvalSymlinks(testCase.input)
+			if err1 != nil || out != evlPath {
+				t.Errorf("EvalSymlinks got different results %q %s", evlPath, err1)
+			}
+		}
+	}
+}
