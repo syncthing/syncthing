@@ -2426,4 +2426,14 @@ angular.module('syncthing.core')
             var err = status.error.replace(/.+: /, '');
             return err + " (" + time + ")";
         }
+
+        $scope.enableCrashReporting = function () {
+            $scope.config.options.crashReportingEnabled = true;
+            $scope.saveConfig();
+        };
+
+        $scope.disableCrashReporting = function () {
+            $scope.config.options.crashReportingEnabled = false;
+            $scope.saveConfig();
+        };
     });
