@@ -1969,10 +1969,11 @@ func (s *indexSender) Stop() {
 	<-s.stopped
 }
 
-// Complete returning true means that the suture supervisor will not restart
-// this service if it wasn't stopped. Here it always returns true, as indexSender
-// only terminates when a connection is closed/has failed, in which case
-// retrying doesn't help.
+// Complete implements the suture.IsCompletable interface. When Serve terminates
+// before Stop is called, the supervisor will check for this method and if it
+// returns true removes the service instead of restarting it. Here it always
+// returns true, as indexSender only terminates when a connection is
+// closed/has failed, in which case retrying doesn't help.
 func (s *indexSender) Complete() bool { return true }
 
 // sendIndexTo sends file infos with a sequence number higher than prevSequence and
