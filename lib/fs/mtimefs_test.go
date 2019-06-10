@@ -257,5 +257,5 @@ func failChtimes(name string, mtime, atime time.Time) error {
 // evilChtimes will set an mtime that's 300 days in the future of what was
 // asked for, and truncate the time to the closest hour.
 func evilChtimes(name string, mtime, atime time.Time) error {
-	return os.Chtimes(name, mtime.Add(300 * time.Hour).Truncate(time.Hour), atime.Add(300 * time.Hour).Truncate(time.Hour))
+	return os.Chtimes(name, mtime.Add(300*time.Hour).Truncate(time.Hour), atime.Add(300 * time.Hour).Truncate(time.Hour))
 }
