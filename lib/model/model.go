@@ -1041,6 +1041,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	m.pmut.RLock()
 	conn, ok := m.conn[deviceID]
+	closed := m.closed[deviceID]
 	hello := m.helloMessages[deviceID]
 	m.pmut.RUnlock()
 	if !ok {
@@ -1172,8 +1173,9 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 		}
 
-		token := m.Add(&indexSender{
+		m.Add(&indexSender{
 			conn:         conn,
+			connClosed:   closed,
 			folder:       folder.ID,
 			fset:         fs,
 			prevSequence: startSequence,
@@ -1181,7 +1183,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			stop:         make(chan struct{}),
 			stopped:      make(chan struct{}),
 		})
-		m.folderRunnerTokens[folder.ID] = append(m.folderRunnerTokens[folder.ID], token)
 	}
 
 	m.pmut.Lock()
@@ -1902,6 +1903,7 @@ type indexSender struct {
 	fset         *db.FileSet
 	prevSequence int64
 	dropSymlinks bool
+	connClosed   chan struct{}
 	stop         chan struct{}
 	stopped      chan struct{}
 }
@@ -1922,17 +1924,18 @@ func (s *indexSender) Serve() {
 	// exit).
 	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.DeviceDisconnected)
 	defer events.Default.Unsubscribe(sub)
+
 	evChan := sub.C()
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
 
 	for err == nil {
 		select {
 		case <-s.stop:
 			return
-		default:
-		}
-		if s.conn.Closed() {
-			// Our work is done.
+		case <-s.connClosed:
 			return
+		default:
 		}
 
 		// While we have sent a sequence at least equal to the one
@@ -1943,8 +1946,10 @@ func (s *indexSender) Serve() {
 			select {
 			case <-s.stop:
 				return
+			case <-s.connClosed:
+				return
 			case <-evChan:
-			case <-time.After(time.Minute):
+			case <-ticker.C:
 			}
 
 			continue
@@ -1964,8 +1969,10 @@ func (s *indexSender) Stop() {
 	<-s.stopped
 }
 
-// Complete always returns true, as Serve only terminates when a connection is
-// closed/has failed, in which case retrying doesn't help.
+// Complete returning true means that the suture supervisor will not restart
+// this service if it wasn't stopped. Here it always returns true, as indexSender
+// only terminates when a connection is closed/has failed, in which case
+// retrying doesn't help.
 func (s *indexSender) Complete() bool { return true }
 
 // sendIndexTo sends file infos with a sequence number higher than prevSequence and
