@@ -1173,6 +1173,9 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 		}
 
+		// The token isn't tracked as the service stops when the connection
+		// terminates and is automatically removed from supervisor (by
+		// implementing suture.IsCompletable).
 		m.Add(&indexSender{
 			conn:         conn,
 			connClosed:   closed,
