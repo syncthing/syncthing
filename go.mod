@@ -19,7 +19,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20170619183022-cd60e84ee657
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.1.1
-	github.com/lucas-clemente/quic-go v0.11.1
+	github.com/lucas-clemente/quic-go v0.11.2
 	github.com/mattn/go-isatty v0.0.7
 	github.com/minio/sha256-simd v0.0.0-20190117184323-cc1980cb0338
 	github.com/oschwald/geoip2-golang v1.3.0
@@ -36,7 +36,7 @@ require (
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 	golang.org/x/net v0.0.0-20181201002055-351d144fa1fc
-	golang.org/x/text v0.3.0
+	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b
 	gopkg.in/asn1-ber.v1 v1.0.0-20170511165959-379148ca0225 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect

@@ -78,7 +78,6 @@ angular.module('syncthing.core')
             externalCommand: "",
             autoNormalize: true,
             path: "",
-            useLargeBlocks: true,
         };
 
         $scope.localStateTotal = {
@@ -561,6 +560,9 @@ angular.module('syncthing.core')
         }
 
         function refreshNeed(folder) {
+            if (!$scope.neededFolder) {
+                return;
+            }
             var url = urlbase + "/db/need?folder=" + encodeURIComponent(folder);
             url += "&page=" + $scope.neededCurrentPage;
             url += "&perpage=" + $scope.neededPageSize;
@@ -653,6 +655,9 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshFailed = function (page, perpage) {
+            if (!$scope.failed) {
+                return;
+            }
             var url = urlbase + '/folder/errors?folder=' + encodeURIComponent($scope.failed.folder);
             url += "&page=" + page + "&perpage=" + perpage;
             $http.get(url).success(function (data) {
@@ -661,13 +666,14 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshRemoteNeed = function (folder, page, perpage) {
+            if (!$scope.remoteNeedDevice) {
+                return;
+            }
             var url = urlbase + '/db/remoteneed?device=' + $scope.remoteNeedDevice.deviceID;
             url += '&folder=' + encodeURIComponent(folder);
             url += "&page=" + page + "&perpage=" + perpage;
             $http.get(url).success(function (data) {
-                if ($scope.remoteNeedDevice !== '') {
-                    $scope.remoteNeed[folder] = data;
-                }
+                $scope.remoteNeed[folder] = data;
             }).error(function (err) {
                 $scope.remoteNeed[folder] = undefined;
                 $scope.emitHTTPError(err);
@@ -675,6 +681,9 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshLocalChanged = function (page, perpage) {
+            if (!$scope.localChangedFolder) {
+                return;
+            }
             var url = urlbase + '/db/localchanged?folder=';
             url += encodeURIComponent($scope.localChangedFolder);
             url += "&page=" + page + "&perpage=" + perpage;
@@ -2205,6 +2214,7 @@ angular.module('syncthing.core')
             $scope.localChanged = $scope.refreshLocalChanged(1, 10);
             $('#localChanged').modal().one('hidden.bs.modal', function () {
                 $scope.localChanged = {};
+                $scope.localChangedFolder = undefined;
             });
         };
 

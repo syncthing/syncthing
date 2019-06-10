@@ -467,14 +467,13 @@ func TestWalkReceiveOnly(t *testing.T) {
 
 func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.Matcher, localFlags uint32) []protocol.FileInfo {
 	fchan := Walk(context.TODO(), Config{
-		Filesystem:     fs,
-		Subs:           []string{dir},
-		AutoNormalize:  true,
-		Hashers:        2,
-		UseLargeBlocks: true,
-		CurrentFiler:   cfiler,
-		Matcher:        matcher,
-		LocalFlags:     localFlags,
+		Filesystem:    fs,
+		Subs:          []string{dir},
+		AutoNormalize: true,
+		Hashers:       2,
+		CurrentFiler:  cfiler,
+		Matcher:       matcher,
+		LocalFlags:    localFlags,
 	})
 
 	var tmp []protocol.FileInfo
