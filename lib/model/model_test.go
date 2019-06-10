@@ -2852,7 +2852,7 @@ func TestVersionRestore(t *testing.T) {
 	defer cleanupModel(m)
 	m.ScanFolder("default")
 
-	sentinel, err := time.ParseInLocation(versioner.TimeFormat, "20200101-010101", locationLocal)
+	sentinel, err := time.ParseInLocation(versioner.TimeFormat, "20200101-010101", time.Local)
 	must(t, err)
 	sentinelTag := sentinel.Format(versioner.TimeFormat)
 
@@ -2926,7 +2926,7 @@ func TestVersionRestore(t *testing.T) {
 	}
 
 	makeTime := func(s string) time.Time {
-		tm, err := time.ParseInLocation(versioner.TimeFormat, s, locationLocal)
+		tm, err := time.ParseInLocation(versioner.TimeFormat, s, time.Local)
 		if err != nil {
 			t.Error(err)
 		}
@@ -2960,7 +2960,7 @@ func TestVersionRestore(t *testing.T) {
 		if runtime.GOOS == "windows" {
 			file = filepath.FromSlash(file)
 		}
-		tag := version.In(locationLocal).Truncate(time.Second).Format(versioner.TimeFormat)
+		tag := version.In(time.Local).Truncate(time.Second).Format(versioner.TimeFormat)
 		taggedName := filepath.Join(".stversions", versioner.TagFilename(file, tag))
 		fd, err := filesystem.Open(file)
 		if err != nil {
