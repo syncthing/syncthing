@@ -205,7 +205,8 @@ func TestOverriddenValues(t *testing.T) {
 		ProgressUpdateIntervalS: 10,
 		LimitBandwidthInLan:     true,
 		MinHomeDiskFree:         Size{5.2, "%"},
-		URSeen:                  2,
+		URSeen:                  8,
+		URAccepted:              4,
 		URURL:                   "https://localhost/newdata",
 		URInitialDelayS:         800,
 		URPostInsecurely:        true,
@@ -213,17 +214,14 @@ func TestOverriddenValues(t *testing.T) {
 		AlwaysLocalNets:         []string{},
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
-		UnackedNotificationIDs: []string{
-			"channelNotification",   // added in 17->18 migration
-			"fsWatcherNotification", // added in 27->28 migration
-		},
-		DefaultFolderPath:   "/media/syncthing",
-		SetLowPriority:      false,
-		CRURL:               "https://localhost/newcrash",
-		CREnabled:           false,
-		StunKeepaliveStartS: 9000,
-		StunKeepaliveMinS:   900,
-		StunServers:         []string{"foo"},
+		UnackedNotificationIDs:  []string{"asdfasdf"},
+		DefaultFolderPath:       "/media/syncthing",
+		SetLowPriority:          false,
+		CRURL:                   "https://localhost/newcrash",
+		CREnabled:               false,
+		StunKeepaliveStartS:     9000,
+		StunKeepaliveMinS:       900,
+		StunServers:             []string{"foo"},
 	}
 
 	os.Unsetenv("STNOUPGRADE")
