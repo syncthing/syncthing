@@ -349,7 +349,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		Hashers:               f.model.numHashers(f.ID),
 		ShortID:               f.shortID,
 		ProgressTickIntervalS: f.ScanProgressIntervalS,
-		UseLargeBlocks:        f.UseLargeBlocks,
 		LocalFlags:            f.localFlags,
 	})
 
