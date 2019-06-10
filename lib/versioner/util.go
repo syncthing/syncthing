@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 
@@ -19,18 +18,9 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 )
 
-var locationLocal *time.Location
 var errDirectory = fmt.Errorf("cannot restore on top of a directory")
 var errNotFound = fmt.Errorf("version not found")
 var errFileAlreadyExists = fmt.Errorf("file already exists")
-
-func init() {
-	var err error
-	locationLocal, err = time.LoadLocation("Local")
-	if err != nil {
-		panic(err.Error())
-	}
-}
 
 // Inserts ~tag just before the extension of the filename.
 func TagFilename(name, tag string) string {
@@ -110,7 +100,7 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 			return nil
 		}
 
-		versionTime, err := time.ParseInLocation(TimeFormat, tag, locationLocal)
+		versionTime, err := time.ParseInLocation(TimeFormat, tag, time.Local)
 		if err != nil {
 			// Can't parse it, welp, continue
 			return nil
@@ -118,8 +108,10 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 
 		if err == nil {
 			files[name] = append(files[name], FileVersion{
-				VersionTime: versionTime.Truncate(time.Second),
-				ModTime:     f.ModTime().Truncate(time.Second),
+				// This looks backwards, but mtime of the file is when we archived it, making that the version time
+				// The mod time of the file before archiving is embedded in the file name.
+				VersionTime: f.ModTime().Truncate(time.Second),
+				ModTime:     versionTime.Truncate(time.Second),
 				Size:        f.Size(),
 			})
 		}
@@ -210,7 +202,7 @@ func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time,
 	}
 
 	filePath = osutil.NativeFilename(filePath)
-	tag := versionTime.In(locationLocal).Truncate(time.Second).Format(TimeFormat)
+	tag := versionTime.In(time.Local).Truncate(time.Second).Format(TimeFormat)
 
 	taggedFilename := TagFilename(filePath, tag)
 	oldTaggedFilename := filePath + tag
@@ -290,10 +282,6 @@ func versionsToVersionsWithMtime(fs fs.Filesystem, versions []string) []versionW
 			})
 		}
 	}
-
-	sort.Slice(versionsWithMtimes, func(i, j int) bool {
-		return versionsWithMtimes[i].mtime.Before(versionsWithMtimes[j].mtime)
-	})
 
 	return versionsWithMtimes
 }

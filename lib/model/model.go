@@ -36,16 +36,6 @@ import (
 	"github.com/thejerf/suture"
 )
 
-var locationLocal *time.Location
-
-func init() {
-	var err error
-	locationLocal, err = time.LoadLocation("Local")
-	if err != nil {
-		panic(err.Error())
-	}
-}
-
 // How many files to send in each Index/IndexUpdate message.
 const (
 	maxBatchSizeBytes = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)

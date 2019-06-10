@@ -8,6 +8,7 @@ package versioner
 
 import (
 	"path/filepath"
+	"sort"
 	"strconv"
 	"time"
 
@@ -137,7 +138,6 @@ func (v *Staggered) clean() {
 	}
 
 	for _, versionList := range versionsPerFile {
-		// List from filepath.Walk is sorted
 		v.expire(versionList)
 	}
 
@@ -167,6 +167,11 @@ func (v *Staggered) toRemove(versions []versionWithMtime, now time.Time) []strin
 	var prevAge int64
 	firstFile := true
 	var remove []string
+
+	sort.Slice(versions, func(i, j int) bool {
+		return versions[i].mtime.Before(versions[j].mtime)
+	})
+
 	for _, version := range versions {
 		age := int64(now.Sub(version.mtime).Seconds())
 
