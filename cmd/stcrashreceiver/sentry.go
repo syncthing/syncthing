@@ -111,9 +111,10 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 	}
 
 	pkt := &raven.Packet{
-		Message:  string(subjectLine),
-		Platform: "go",
-		Release:  version.tag,
+		Message:     string(subjectLine),
+		Platform:    "go",
+		Release:     version.tag,
+		Environment: version.environment(),
 		Tags: raven.Tags{
 			raven.Tag{Key: "version", Value: version.version},
 			raven.Tag{Key: "tag", Value: version.tag},
@@ -147,6 +148,19 @@ type version struct {
 	goos     string // "darwin"
 	goarch   string // "amd64"
 	builder  string // "jb@kvin.kastelo.net"
+}
+
+func (v version) environment() string {
+	if v.commit != "" {
+		return "Development"
+	}
+	if strings.Contains(v.tag, "-rc.") {
+		return "Candidate"
+	}
+	if strings.Contains(v.tag, "-") {
+		return "Beta"
+	}
+	return "Stable"
 }
 
 func parseVersion(line string) (version, error) {
