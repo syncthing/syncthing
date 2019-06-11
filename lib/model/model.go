@@ -59,8 +59,6 @@ type service interface {
 	GetStatistics() stats.FolderStatistics
 
 	getState() (folderState, time.Time, error)
-	setState(state folderState)
-	setError(err error)
 }
 
 type Availability struct {
@@ -2072,15 +2070,6 @@ func (m *model) ScanFolders() map[string]error {
 				errorsMut.Lock()
 				errors[folder] = err
 				errorsMut.Unlock()
-
-				// Potentially sets the error twice, once in the scanner just
-				// by doing a check, and once here, if the error returned is
-				// the same one as returned by CheckHealth, though
-				// duplicate set is handled by setError.
-				m.fmut.RLock()
-				srv := m.folderRunners[folder]
-				m.fmut.RUnlock()
-				srv.setError(err)
 			}
 			wg.Done()
 		}()
