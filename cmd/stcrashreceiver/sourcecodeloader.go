@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -48,6 +49,7 @@ func (l *githubSourceCodeLoader) Unlock() {
 }
 
 func (l *githubSourceCodeLoader) Load(filename string, line, context int) ([][]byte, int) {
+	filename = filepath.ToSlash(filename)
 	lines, ok := l.cache[l.version][filename]
 	if !ok {
 		// Cache whatever we managed to find (or nil if nothing, so we don't try again)
