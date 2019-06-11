@@ -928,7 +928,17 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	code := exit.waitForExit()
 
 	mainService.Stop()
-	ldb.Close()
+
+	done := make(chan struct{})
+	go func() {
+		ldb.Close()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		l.Warnln("Database failed to stop within 10s")
+	}
 
 	l.Infoln("Exiting")
 
