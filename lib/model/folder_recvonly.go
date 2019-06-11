@@ -12,6 +12,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/versioner"
@@ -55,8 +56,8 @@ type receiveOnlyFolder struct {
 	*sendReceiveFolder
 }
 
-func newReceiveOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner) service {
-	sr := newSendReceiveFolder(model, fset, ignores, cfg, ver).(*sendReceiveFolder)
+func newReceiveOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem) service {
+	sr := newSendReceiveFolder(model, fset, ignores, cfg, ver, fs).(*sendReceiveFolder)
 	sr.localFlags = protocol.FlagLocalReceiveOnly // gets propagated to the scanner, and set on locally changed files
 	return &receiveOnlyFolder{sr}
 }
