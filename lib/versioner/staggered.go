@@ -8,6 +8,7 @@ package versioner
 
 import (
 	"path/filepath"
+	"sort"
 	"strconv"
 	"time"
 
@@ -167,16 +168,19 @@ func (v *Staggered) toRemove(versions []versionWithMtime, now time.Time) []strin
 	firstFile := true
 	var remove []string
 
+	// The list of versions may or may not be properly sorted. Let's take
+	// off and nuke from orbit, it's the only way to be sure.
+	sort.Slice(versions, func(i, j int) bool {
+		return versions[i].mtime.Before(versions[j].mtime)
+	})
+
 	for _, version := range versions {
 		age := int64(now.Sub(version.mtime).Seconds())
 
 		// If the file is older than the max age of the last interval, remove it
 		if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
 			l.Debugln("Versioner: File over maximum age -> delete ", version.name)
-			err := v.versionsFs.Remove(version.name)
-			if err != nil {
-				l.Warnf("Versioner: can't remove %q: %v", version.name, err)
-			}
+			remove = append(remove, version.name)
 			continue
 		}
 
@@ -242,7 +246,6 @@ func (v *Staggered) Archive(filePath string) error {
 	versions = util.UniqueTrimmedStrings(versions)
 
 	versionsWithMtimes := versionsToVersionsWithMtime(v.versionsFs, versions)
-
 	v.expire(versionsWithMtimes)
 
 	return nil

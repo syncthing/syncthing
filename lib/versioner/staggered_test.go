@@ -7,7 +7,6 @@
 package versioner
 
 import (
-	"os"
 	"sort"
 	"strconv"
 	"testing"
@@ -58,17 +57,12 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 	}
 	sort.Strings(delete)
 
-	os.MkdirAll("testdata/.stversions", 0755)
-	defer os.RemoveAll("testdata")
-
-	v := NewStaggered("", fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), map[string]string{"maxAge": strconv.Itoa(365 * 86400)}).(*Staggered)
-	v.testCleanDone = make(chan struct{})
-	defer v.Stop()
-	go v.Serve()
-
-	<-v.testCleanDone
-
+	v := NewStaggered("", fs.NewFilesystem(fs.FilesystemTypeFake, "testdata"), map[string]string{
+		"maxAge": strconv.Itoa(365 * 86400),
+	}).(*Staggered)
 	rem := v.toRemove(versionsWithMtime, now)
+	sort.Strings(rem)
+
 	if diff, equal := messagediff.PrettyDiff(delete, rem); !equal {
 		t.Errorf("Incorrect deleted files; got %v, expected %v\n%v", rem, delete, diff)
 	}
