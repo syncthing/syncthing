@@ -19,6 +19,12 @@ import (
 
 const reportServer = "https://crash.syncthing.net/report/"
 
+var loader = newGithubSourceCodeLoader()
+
+func init() {
+	raven.SetSourceCodeLoader(loader)
+}
+
 func sendReport(dsn, path string, report []byte) error {
 	pkt, err := parseReport(path, report)
 	if err != nil {
@@ -80,17 +86,25 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 		return nil, err
 	}
 
+	// Lock the source code loader to the version we are processing here.
+	if version.commit != "" {
+		// We have a commit hash, so we know exactly which source to use
+		loader.LockWithVersion(version.commit)
+	} else if strings.HasPrefix(version.tag, "v") {
+		// Lets hope the tag is close enough
+		loader.LockWithVersion(version.tag)
+	} else {
+		// Last resort
+		loader.LockWithVersion("master")
+	}
+	defer loader.Unlock()
+
 	var trace raven.Stacktrace
 	for _, gr := range ctx.Goroutines {
 		if gr.First {
 			trace.Frames = make([]*raven.StacktraceFrame, len(gr.Stack.Calls))
 			for i, sc := range gr.Stack.Calls {
-				trace.Frames[len(trace.Frames)-1-i] = &raven.StacktraceFrame{
-					Function: sc.Func.Name(),
-					Module:   sc.Func.PkgName(),
-					Filename: sc.SrcPath,
-					Lineno:   sc.Line,
-				}
+				trace.Frames[len(trace.Frames)-1-i] = raven.NewStacktraceFrame(0, sc.Func.Name(), sc.SrcPath, sc.Line, 3, nil)
 			}
 			break
 		}
@@ -103,7 +117,6 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 		Tags: raven.Tags{
 			raven.Tag{Key: "version", Value: version.version},
 			raven.Tag{Key: "tag", Value: version.tag},
-			raven.Tag{Key: "commit", Value: version.commit},
 			raven.Tag{Key: "codename", Value: version.codename},
 			raven.Tag{Key: "runtime", Value: version.runtime},
 			raven.Tag{Key: "goos", Value: version.goos},
@@ -114,6 +127,9 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 			"url": reportServer + path,
 		},
 		Interfaces: []raven.Interface{&trace},
+	}
+	if version.commit != "" {
+		pkt.Tags = append(pkt.Tags, raven.Tag{Key: "commit", Value: version.commit})
 	}
 
 	return pkt, nil
