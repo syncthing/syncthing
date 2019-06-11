@@ -8,7 +8,6 @@ package versioner
 
 import (
 	"path/filepath"
-	"sort"
 	"strconv"
 	"time"
 
@@ -70,15 +69,16 @@ func (v Simple) Archive(filePath string) error {
 		return nil
 	}
 
-	// Use all the found filenames. "~" sorts after "." so all old pattern
-	// files will be deleted before any new, which is as it should be.
+	// Use all the found filenames.
 	versions := util.UniqueTrimmedStrings(append(oldVersions, newVersions...))
-	sort.Strings(versions)
 
-	if len(versions) > v.keep {
-		for _, toRemove := range versions[:len(versions)-v.keep] {
+	// Amend with mtime, sort on mtime, delete the oldest first. Mtime,
+	// nowadays at least, is the time when the archiving happened.
+	versionsWithMtimes := versionsToVersionsWithMtime(v.versionsFs, versions)
+	if len(versionsWithMtimes) > v.keep {
+		for _, toRemove := range versionsWithMtimes[:len(versionsWithMtimes)-v.keep] {
 			l.Debugln("cleaning out", toRemove)
-			err = v.versionsFs.Remove(toRemove)
+			err = v.versionsFs.Remove(toRemove.name)
 			if err != nil {
 				l.Warnln("removing old version:", err)
 			}

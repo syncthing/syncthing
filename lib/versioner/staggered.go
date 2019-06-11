@@ -103,7 +103,7 @@ func (v *Staggered) clean() {
 		return
 	}
 
-	versionsPerFile := make(map[string][]string)
+	versionsPerFile := make(map[string][]versionWithMtime)
 	dirTracker := make(emptyDirTracker)
 
 	walkFn := func(path string, f fs.FileInfo, err error) error {
@@ -124,7 +124,10 @@ func (v *Staggered) clean() {
 			return nil
 		}
 
-		versionsPerFile[name] = append(versionsPerFile[name], path)
+		versionsPerFile[name] = append(versionsPerFile[name], versionWithMtime{
+			name:  name,
+			mtime: f.ModTime(),
+		})
 
 		return nil
 	}
@@ -135,7 +138,6 @@ func (v *Staggered) clean() {
 	}
 
 	for _, versionList := range versionsPerFile {
-		// List from filepath.Walk is sorted
 		v.expire(versionList)
 	}
 
@@ -144,7 +146,7 @@ func (v *Staggered) clean() {
 	l.Debugln("Cleaner: Finished cleaning", v.versionsFs)
 }
 
-func (v *Staggered) expire(versions []string) {
+func (v *Staggered) expire(versions []versionWithMtime) {
 	l.Debugln("Versioner: Expiring versions", versions)
 	for _, file := range v.toRemove(versions, time.Now()) {
 		if fi, err := v.versionsFs.Lstat(file); err != nil {
@@ -161,26 +163,24 @@ func (v *Staggered) expire(versions []string) {
 	}
 }
 
-func (v *Staggered) toRemove(versions []string, now time.Time) []string {
+func (v *Staggered) toRemove(versions []versionWithMtime, now time.Time) []string {
 	var prevAge int64
 	firstFile := true
 	var remove []string
-	for _, file := range versions {
-		loc, _ := time.LoadLocation("Local")
-		versionTime, err := time.ParseInLocation(TimeFormat, ExtractTag(file), loc)
-		if err != nil {
-			l.Debugf("Versioner: file name %q is invalid: %v", file, err)
-			continue
-		}
-		age := int64(now.Sub(versionTime).Seconds())
+
+	// The list of versions may or may not be properly sorted. Let's take
+	// off and nuke from orbit, it's the only way to be sure.
+	sort.Slice(versions, func(i, j int) bool {
+		return versions[i].mtime.Before(versions[j].mtime)
+	})
+
+	for _, version := range versions {
+		age := int64(now.Sub(version.mtime).Seconds())
 
 		// If the file is older than the max age of the last interval, remove it
 		if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
-			l.Debugln("Versioner: File over maximum age -> delete ", file)
-			err = v.versionsFs.Remove(file)
-			if err != nil {
-				l.Warnf("Versioner: can't remove %q: %v", file, err)
-			}
+			l.Debugln("Versioner: File over maximum age -> delete ", version.name)
+			remove = append(remove, version.name)
 			continue
 		}
 
@@ -200,8 +200,8 @@ func (v *Staggered) toRemove(versions []string, now time.Time) []string {
 		}
 
 		if prevAge-age < usedInterval.step {
-			l.Debugln("too many files in step -> delete", file)
-			remove = append(remove, file)
+			l.Debugln("too many files in step -> delete", version.name)
+			remove = append(remove, version.name)
 			continue
 		}
 
@@ -244,8 +244,9 @@ func (v *Staggered) Archive(filePath string) error {
 	// Use all the found filenames.
 	versions := append(oldVersions, newVersions...)
 	versions = util.UniqueTrimmedStrings(versions)
-	sort.Strings(versions)
-	v.expire(versions)
+
+	versionsWithMtimes := versionsToVersionsWithMtime(v.versionsFs, versions)
+	v.expire(versionsWithMtimes)
 
 	return nil
 }
