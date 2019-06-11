@@ -66,6 +66,23 @@ func (f *MtimeFS) Chtimes(name string, atime, mtime time.Time) error {
 	return nil
 }
 
+func (f *MtimeFS) Stat(name string) (FileInfo, error) {
+	info, err := f.Filesystem.Stat(name)
+	if err != nil {
+		return nil, err
+	}
+
+	real, virtual := f.load(name)
+	if real == info.ModTime() {
+		info = mtimeFileInfo{
+			FileInfo: info,
+			mtime:    virtual,
+		}
+	}
+
+	return info, nil
+}
+
 func (f *MtimeFS) Lstat(name string) (FileInfo, error) {
 	info, err := f.Filesystem.Lstat(name)
 	if err != nil {
@@ -81,6 +98,45 @@ func (f *MtimeFS) Lstat(name string) (FileInfo, error) {
 	}
 
 	return info, nil
+}
+
+func (f *MtimeFS) Walk(root string, walkFn WalkFunc) error {
+	return f.Filesystem.Walk(root, func(path string, info FileInfo, err error) error {
+		if info != nil {
+			real, virtual := f.load(path)
+			if real == info.ModTime() {
+				info = mtimeFileInfo{
+					FileInfo: info,
+					mtime:    virtual,
+				}
+			}
+		}
+		return walkFn(path, info, err)
+	})
+}
+
+func (f *MtimeFS) Create(name string) (File, error) {
+	fd, err := f.Filesystem.Create(name)
+	if err != nil {
+		return nil, err
+	}
+	return &mtimeFile{fd, f}, nil
+}
+
+func (f *MtimeFS) Open(name string) (File, error) {
+	fd, err := f.Filesystem.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	return &mtimeFile{fd, f}, nil
+}
+
+func (f *MtimeFS) OpenFile(name string, flags int, mode FileMode) (File, error) {
+	fd, err := f.Filesystem.OpenFile(name, flags, mode)
+	if err != nil {
+		return nil, err
+	}
+	return &mtimeFile{fd, f}, nil
 }
 
 // "real" is the on disk timestamp
@@ -133,6 +189,28 @@ type mtimeFileInfo struct {
 
 func (m mtimeFileInfo) ModTime() time.Time {
 	return m.mtime
+}
+
+type mtimeFile struct {
+	File
+	fs *MtimeFS
+}
+
+func (f *mtimeFile) Stat() (FileInfo, error) {
+	info, err := f.File.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	real, virtual := f.fs.load(f.Name())
+	if real == info.ModTime() {
+		info = mtimeFileInfo{
+			FileInfo: info,
+			mtime:    virtual,
+		}
+	}
+
+	return info, nil
 }
 
 // The dbMtime is our database representation

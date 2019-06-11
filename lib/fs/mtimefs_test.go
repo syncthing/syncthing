@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 	"time"
@@ -78,6 +79,111 @@ func TestMtimeFS(t *testing.T) {
 		t.Error("Lstat shouldn't fail:", err)
 	} else if !info.ModTime().Equal(testTime) {
 		t.Errorf("Time mismatch; %v != expected %v", info.ModTime(), testTime)
+	}
+}
+
+func TestMtimeFSWalk(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	underlying := NewFilesystem(FilesystemTypeBasic, dir)
+	mtimefs := NewMtimeFS(underlying, make(mapStore))
+	mtimefs.chtimes = failChtimes
+
+	if err := ioutil.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldStat, err := mtimefs.Lstat("file")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newTime := time.Now().Add(-2 * time.Hour)
+
+	if err := mtimefs.Chtimes("file", newTime, newTime); err != nil {
+		t.Fatal(err)
+	}
+
+	if newStat, err := mtimefs.Lstat("file"); err != nil {
+		t.Fatal(err)
+	} else if !newStat.ModTime().Equal(newTime) {
+		t.Errorf("expected time %v, lstat time %v", newTime, newStat.ModTime())
+	}
+
+	if underlyingStat, err := underlying.Lstat("file"); err != nil {
+		t.Fatal(err)
+	} else if !underlyingStat.ModTime().Equal(oldStat.ModTime()) {
+		t.Errorf("expected time %v, lstat time %v", oldStat.ModTime(), underlyingStat.ModTime())
+	}
+
+	found := false
+	_ = mtimefs.Walk("", func(path string, info FileInfo, err error) error {
+		if path == "file" {
+			found = true
+			if !info.ModTime().Equal(newTime) {
+				t.Errorf("expected time %v, lstat time %v", newTime, info.ModTime())
+			}
+		}
+		return nil
+	})
+
+	if !found {
+		t.Error("did not find")
+	}
+}
+
+func TestMtimeFSOpen(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	underlying := NewFilesystem(FilesystemTypeBasic, dir)
+	mtimefs := NewMtimeFS(underlying, make(mapStore))
+	mtimefs.chtimes = failChtimes
+
+	if err := ioutil.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldStat, err := mtimefs.Lstat("file")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	newTime := time.Now().Add(-2 * time.Hour)
+
+	if err := mtimefs.Chtimes("file", newTime, newTime); err != nil {
+		t.Fatal(err)
+	}
+
+	if newStat, err := mtimefs.Lstat("file"); err != nil {
+		t.Fatal(err)
+	} else if !newStat.ModTime().Equal(newTime) {
+		t.Errorf("expected time %v, lstat time %v", newTime, newStat.ModTime())
+	}
+
+	if underlyingStat, err := underlying.Lstat("file"); err != nil {
+		t.Fatal(err)
+	} else if !underlyingStat.ModTime().Equal(oldStat.ModTime()) {
+		t.Errorf("expected time %v, lstat time %v", oldStat.ModTime(), underlyingStat.ModTime())
+	}
+
+	fd, err := mtimefs.Open("file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := fd.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.ModTime().Equal(newTime) {
+		t.Errorf("expected time %v, lstat time %v", newTime, info.ModTime())
 	}
 }
 
