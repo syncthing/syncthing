@@ -42,7 +42,6 @@ import (
 	"github.com/syncthing/syncthing/lib/upgrade"
 
 	"github.com/pkg/errors"
-	"github.com/thejerf/suture"
 )
 
 const (
@@ -569,7 +568,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		setPauseState(cfg, true)
 	}
 
-	app := syncthing.New(cfg, runtimeOptions.Options)
+	appOpts := runtimeOptions.Options
+	if runtimeOptions.auditEnabled {
+		appOpts.AuditWriter = auditWriter(runtimeOptions.auditFile)
+	}
+	app := syncthing.New(cfg, appOpts)
 
 	setupSignalHandling(app)
 
@@ -728,8 +731,7 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func startAuditing(mainService *suture.Supervisor, auditFile string) {
-
+func auditWriter(auditFile string) io.Writer {
 	var fd io.Writer
 	var err error
 	var auditDest string
@@ -756,14 +758,9 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 		auditDest = auditFile
 	}
 
-	auditService := newAuditService(fd)
-	mainService.Add(auditService)
-
-	// We wait for the audit service to fully start before we return, to
-	// ensure we capture all events from the start.
-	auditService.WaitForStart()
-
 	l.Infoln("Audit log in", auditDest)
+
+	return fd
 }
 
 func defaultConfig(cfgFile string) (config.Wrapper, error) {
