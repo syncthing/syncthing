@@ -11,9 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -135,10 +133,6 @@ func (a *App) startup() error {
 	defaultSub := events.NewBufferedSubscription(events.Default.Subscribe(api.DefaultEventMask), api.EventSubBufferSize)
 	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(api.DiskEventMask), api.EventSubBufferSize)
 
-	if len(os.Getenv("GOMAXPROCS")) == 0 {
-		runtime.GOMAXPROCS(runtime.NumCPU())
-	}
-
 	// Attempt to increase the limit on number of open files to the maximum
 	// allowed, in case we have many peers. We don't really care enough to
 	// report the error if there is one.
@@ -258,10 +252,8 @@ func (a *App) startup() error {
 
 	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles)
 
-	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
-		if secs, _ := strconv.Atoi(t); secs > 0 {
-			m.StartDeadlockDetector(time.Duration(secs) * time.Second)
-		}
+	if a.opts.DeadlockTimeoutS > 0 {
+		m.StartDeadlockDetector(time.Duration(a.opts.DeadlockTimeoutS) * time.Second)
 	} else if !build.IsRelease || build.IsBeta {
 		m.StartDeadlockDetector(20 * time.Minute)
 	}

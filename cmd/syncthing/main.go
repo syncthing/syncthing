@@ -24,6 +24,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"sort"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -572,9 +573,17 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	if runtimeOptions.auditEnabled {
 		appOpts.AuditWriter = auditWriter(runtimeOptions.auditFile)
 	}
+	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
+		secs, _ := strconv.Atoi(t)
+		appOpts.DeadlockTimeoutS = secs
+	}
 	app := syncthing.New(cfg, appOpts)
 
 	setupSignalHandling(app)
+
+	if len(os.Getenv("GOMAXPROCS")) == 0 {
+		runtime.GOMAXPROCS(runtime.NumCPU())
+	}
 
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
