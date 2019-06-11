@@ -105,24 +105,24 @@ func (a *App) Start() {
 func (a *App) startup() error {
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
-	mainService := suture.New("main", suture.Spec{
+	a.mainService = suture.New("main", suture.Spec{
 		Log: func(line string) {
 			l.Debugln(line)
 		},
 		PassThroughPanics: true,
 	})
-	mainService.ServeBackground()
+	a.mainService.ServeBackground()
 
 	// Set a log prefix similar to the ID we will have later on, or early log
 	// lines look ugly.
 	l.SetPrefix("[start] ")
 
-	if runtimeOptions.auditEnabled {
-		startAuditing(mainService, runtimeOptions.auditFile)
+	if runtimeOptions.audtiEnabled {
+		startAuditing(a.mainService, runtimeOptions.audtiFile)
 	}
 
-	if runtimeOptions.verbose {
-		mainService.Add(newVerboseService())
+	if a.opts.Verbose {
+		a.mainService.Add(newVerboseService())
 	}
 
 	errors := logger.NewRecorder(l, logger.LevelWarn, maxSystemErrors, 0)
@@ -157,15 +157,15 @@ func (a *App) startup() error {
 		)
 		if err != nil {
 			l.Infoln("Failed to generate certificate:", err)
-			os.Exit(exitError)
+			return err
 		}
 	}
 
-	myID = protocol.NewDeviceID(cert.Certificate[0])
-	l.SetPrefix(fmt.Sprintf("[%s] ", myID.String()[:5]))
+	a.myID = protocol.NewDeviceID(cert.Certificate[0])
+	l.SetPrefix(fmt.Sprintf("[%s] ", a.myID.String()[:5]))
 
 	l.Infoln(build.LongVersion)
-	l.Infoln("My ID:", myID)
+	l.Infoln("My ID:", a.myID)
 
 	// Select SHA256 implementation and report. Affected by the
 	// STHASHING environment variable.
@@ -176,22 +176,22 @@ func (a *App) startup() error {
 
 	events.Default.Log(events.Starting, map[string]string{
 		"home": locations.GetBaseDir(locations.ConfigBaseDir),
-		"myID": myID.String(),
+		"myID": a.myID.String(),
 	})
 
-	if err := checkShortIDs(cfg); err != nil {
+	if err := checkShortIDs(a.cfg); err != nil {
 		l.Warnln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
-		os.Exit(exitError)
+		return err
 	}
 
-	if len(runtimeOptions.profiler) > 0 {
+	if len(a.opts.ProfilerURL) > 0 {
 		go func() {
-			l.Debugln("Starting profiler on", runtimeOptions.profiler)
+			l.Debugln("Starting profiler on", a.opts.ProfilerURL)
 			runtime.SetBlockProfileRate(1)
-			err := http.ListenAndServe(runtimeOptions.profiler, nil)
+			err := http.ListenAndServe(a.opts.ProfilerURL, nil)
 			if err != nil {
 				l.Warnln(err)
-				os.Exit(exitError)
+				return
 			}
 		}()
 	}
@@ -200,19 +200,19 @@ func (a *App) startup() error {
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	dbFile := locations.Get(locations.Database)
-	ldb, err := db.Open(dbFile)
+	a.ll, err = db.Open(dbFile)
 	if err != nil {
 		l.Warnln("Error opening database:", err)
-		os.Exit(exitError)
+		return err
 	}
-	if err := db.UpdateSchema(ldb); err != nil {
+	if err := db.UpdateSchema(a.ll); err != nil {
 		l.Warnln("Database schema:", err)
-		os.Exit(exitError)
+		return err
 	}
 
-	if runtimeOptions.resetDeltaIdxs {
+	if a.opts.ResetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
-		db.DropDeltaIndexIDs(ldb)
+		db.DropDeltaIndexIDs(a.ll)
 	}
 
 	protectedFiles := []string{
@@ -223,17 +223,17 @@ func (a *App) startup() error {
 	}
 
 	// Remove database entries for folders that no longer exist in the config
-	folders := cfg.Folders()
-	for _, folder := range ldb.ListFolders() {
+	folders := a.cfg.Folders()
+	for _, folder := range a.ll.ListFolders() {
 		if _, ok := folders[folder]; !ok {
 			l.Infof("Cleaning data for dropped folder %q", folder)
-			db.DropFolder(ldb, folder)
+			db.DropFolder(a.ll, folder)
 		}
 	}
 
 	// Grab the previously running version string from the database.
 
-	miscDB := db.NewMiscDataNamespace(ldb)
+	miscDB := db.NewMiscDataNamespace(a.ll)
 	prevVersion, _ := miscDB.String("prevVersion")
 
 	// Strip away prerelease/beta stuff and just compare the release
@@ -249,13 +249,13 @@ func (a *App) startup() error {
 
 		// Drop delta indexes in case we've changed random stuff we
 		// shouldn't have. We will resend our index on next connect.
-		db.DropDeltaIndexIDs(ldb)
+		db.DropDeltaIndexIDs(a.ll)
 
 		// Remember the new version.
 		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	m := model.NewModel(cfg, myID, "syncthing", build.Version, ldb, protectedFiles)
+	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
 		if secs, _ := strconv.Atoi(t); secs > 0 {
@@ -266,7 +266,7 @@ func (a *App) startup() error {
 	}
 
 	// Add and start folders
-	for _, folderCfg := range cfg.Folders() {
+	for _, folderCfg := range a.cfg.Folders() {
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
@@ -275,12 +275,12 @@ func (a *App) startup() error {
 		m.StartFolder(folderCfg.ID)
 	}
 
-	mainService.Add(m)
+	a.mainService.Add(m)
 
 	// Start discovery
 
 	cachedDiscovery := discover.NewCachingMux()
-	mainService.Add(cachedDiscovery)
+	a.mainService.Add(cachedDiscovery)
 
 	// The TLS configuration is used for both the listening socket and outgoing
 	// connections.
@@ -294,11 +294,11 @@ func (a *App) startup() error {
 
 	// Start connection management
 
-	connectionsService := connections.NewService(cfg, myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName)
-	mainService.Add(connectionsService)
+	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName)
+	a.mainService.Add(connectionsService)
 
-	if cfg.Options().GlobalAnnEnabled {
-		for _, srv := range cfg.GlobalDiscoveryServers() {
+	if a.cfg.Options().GlobalAnnEnabled {
+		for _, srv := range a.cfg.GlobalDiscoveryServers() {
 			l.Infoln("Using discovery server", srv)
 			gd, err := discover.NewGlobal(srv, cert, connectionsService)
 			if err != nil {
@@ -313,16 +313,16 @@ func (a *App) startup() error {
 		}
 	}
 
-	if cfg.Options().LocalAnnEnabled {
+	if a.cfg.Options().LocalAnnEnabled {
 		// v4 broadcasts
-		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), connectionsService)
+		bcd, err := discover.NewLocal(a.myID, fmt.Sprintf(":%d", a.cfg.Options().LocalAnnPort), connectionsService)
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
 			cachedDiscovery.Add(bcd, 0, 0)
 		}
 		// v6 multicasts
-		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, connectionsService)
+		mcd, err := discover.NewLocal(a.myID, a.cfg.Options().LocalAnnMCAddr, connectionsService)
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
@@ -332,33 +332,34 @@ func (a *App) startup() error {
 
 	// Candidate builds always run with usage reporting.
 
-	if opts := cfg.Options(); build.IsCandidate {
+	if opts := a.cfg.Options(); build.IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
 		if opts.URAccepted != ur.Version {
 			opts.URAccepted = ur.Version
-			cfg.SetOptions(opts)
-			cfg.Save()
+			a.cfg.SetOptions(opts)
+			a.cfg.Save()
 			// Unique ID will be set and config saved below if necessary.
 		}
 	}
 
 	// If we are going to do usage reporting, ensure we have a valid unique ID.
-	if opts := cfg.Options(); opts.URAccepted > 0 && opts.URUniqueID == "" {
+	if opts := a.cfg.Options(); opts.URAccepted > 0 && opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
-		cfg.SetOptions(opts)
-		cfg.Save()
+		a.cfg.SetOptions(opts)
+		a.cfg.Save()
 	}
 
-	usageReportingSvc := ur.New(cfg, m, connectionsService, noUpgradeFromEnv)
-	mainService.Add(usageReportingSvc)
+	usageReportingSvc := ur.New(a.cfg, m, connectionsService, a.opts.NoUpgrade)
+	a.mainService.Add(usageReportingSvc)
 
 	// GUI
 
-	setupGUI(mainService, cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog, runtimeOptions)
-	myDev, _ := cfg.Device(myID)
+	setupGUI(a.mainService, a.cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog, runtimeOptions)
+
+	myDev, _ := a.cfg.Device(a.myID)
 	l.Infof(`My name is "%v"`, myDev.Name)
-	for _, device := range cfg.Devices() {
-		if device.DeviceID != myID {
+	for _, device := range a.cfg.Devices() {
+		if device.DeviceID != a.myID {
 			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
 		}
 	}
@@ -368,10 +369,10 @@ func (a *App) startup() error {
 	}
 
 	events.Default.Log(events.StartupComplete, map[string]string{
-		"myID": myID.String(),
+		"myID": a.myID.String(),
 	})
 
-	if cfg.Options().SetLowPriority {
+	if a.cfg.Options().SetLowPriority {
 		if err := osutil.SetLowPriority(); err != nil {
 			l.Warnln("Failed to lower process priority:", err)
 		}
@@ -381,11 +382,11 @@ func (a *App) startup() error {
 }
 
 func (a *App) run() {
-	mainService.Stop()
+	a.mainService.Stop()
 
 	done := make(chan struct{})
 	go func() {
-		ldb.Close()
+		a.ll.Close()
 		close(done)
 	}()
 	select {
