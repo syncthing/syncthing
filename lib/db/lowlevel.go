@@ -119,6 +119,11 @@ func (db *Lowlevel) Write(batch *leveldb.Batch, wo *opt.WriteOptions) error {
 }
 
 func (db *Lowlevel) Delete(key []byte, wo *opt.WriteOptions) error {
+	db.closeMut.RLock()
+	defer db.closeMut.RUnlock()
+	if db.closed {
+		return leveldb.ErrClosed
+	}
 	atomic.AddInt64(&db.committed, 1)
 	return db.DB.Delete(key, wo)
 }
