@@ -66,7 +66,8 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 // ReportData returns the data to be sent in a usage report with the currently
 // configured usage reporting version.
 func (s *Service) ReportData() map[string]interface{} {
-	return s.reportData(Version, false)
+	urVersion := s.cfg.Options().URAccepted
+	return s.reportData(urVersion, false)
 }
 
 // ReportDataPreview returns a preview of the data to be sent in a usage report

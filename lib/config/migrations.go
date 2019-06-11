@@ -25,6 +25,7 @@ import (
 // update the config version. The order of migrations doesn't matter here,
 // put the newest on top for readability.
 var migrations = migrationSet{
+	{29, migrateToConfigV29},
 	{28, migrateToConfigV28},
 	{27, migrateToConfigV27},
 	{26, nil}, // triggers database update
@@ -81,6 +82,19 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV29(cfg *Configuration) {
+	// The new crash reporting option should follow the state of global
+	// discovery / usage reporting, and we should display an appropriate
+	// notification.
+	if cfg.Options.GlobalAnnEnabled || cfg.Options.URAccepted > 0 {
+		cfg.Options.CREnabled = true
+		cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "crAutoEnabled")
+	} else {
+		cfg.Options.CREnabled = false
+		cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "crAutoDisabled")
+	}
 }
 
 func migrateToConfigV28(cfg *Configuration) {
