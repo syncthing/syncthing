@@ -69,13 +69,12 @@ func (v Simple) Archive(filePath string) error {
 		return nil
 	}
 
-	// Use all the found filenames. "~" sorts after "." so all old pattern
-	// files will be deleted before any new, which is as it should be.
+	// Use all the found filenames.
 	versions := util.UniqueTrimmedStrings(append(oldVersions, newVersions...))
 
-	// Versions with mtimes
+	// Amend with mtime, sort on mtime, delete the oldest first. Mtime,
+	// nowadays at least, is the time when the archiving happened.
 	versionsWithMtimes := versionsToVersionsWithMtime(v.versionsFs, versions)
-
 	if len(versionsWithMtimes) > v.keep {
 		for _, toRemove := range versionsWithMtimes[:len(versionsWithMtimes)-v.keep] {
 			l.Debugln("cleaning out", toRemove)

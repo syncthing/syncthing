@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -282,6 +283,10 @@ func versionsToVersionsWithMtime(fs fs.Filesystem, versions []string) []versionW
 			})
 		}
 	}
+
+	sort.Slice(versionsWithMtimes, func(i, j int) bool {
+		return versionsWithMtimes[i].mtime.Before(versionsWithMtimes[j].mtime)
+	})
 
 	return versionsWithMtimes
 }
