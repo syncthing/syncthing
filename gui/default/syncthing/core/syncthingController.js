@@ -2427,13 +2427,8 @@ angular.module('syncthing.core')
             return err + " (" + time + ")";
         }
 
-        $scope.enableCrashReporting = function () {
-            $scope.config.options.crashReportingEnabled = true;
-            $scope.saveConfig();
-        };
-
-        $scope.disableCrashReporting = function () {
-            $scope.config.options.crashReportingEnabled = false;
+        $scope.setCrashReportingEnabled = function (enabled) {
+            $scope.config.options.crashReportingEnabled = enabled;
             $scope.saveConfig();
         };
     });

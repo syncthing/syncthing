@@ -81,7 +81,7 @@
     </div>
     <div class="panel-footer clearfix">
       <div class="pull-right">
-        <button type="button" class="btn btn-danger" ng-click="disableCrashReporting(); dismissNotification('crAutoEnabled')">
+        <button type="button" class="btn btn-danger" ng-click="setCrashReportingEnabled(false); dismissNotification('crAutoEnabled')">
           <span class="fas fa-times"></span>&nbsp;<span translate>Disable Crash Reporting</span>
         </button>
         <button type="button" class="btn btn-default" ng-click="dismissNotification('crAutoEnabled')">
@@ -105,7 +105,7 @@
     </div>
     <div class="panel-footer clearfix">
       <div class="pull-right">
-        <button type="button" class="btn btn-success" ng-click="enableCrashReporting(); dismissNotification('crAutoDisabled')">
+        <button type="button" class="btn btn-success" ng-click="setCrashReportingEnabled(true); dismissNotification('crAutoDisabled')">
           <span class="fas fa-check"></span>&nbsp;<span translate>Enable Crash Reporting</span>
         </button>
         <button type="button" class="btn btn-default" ng-click="dismissNotification('crAutoDisabled')">
