@@ -1406,9 +1406,9 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	device := conn.ID()
 
 	m.pmut.Lock()
-	defer m.pmut.Unlock()
 	conn, ok := m.conn[device]
 	if !ok {
+		m.pmut.Unlock()
 		return
 	}
 	m.progressEmitter.temporaryIndexUnsubscribe(conn)
@@ -1419,6 +1419,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	delete(m.remotePausedFolders, device)
 	closed := m.closed[device]
 	delete(m.closed, device)
+	m.pmut.Unlock()
 
 	l.Infof("Connection to %s at %s closed: %v", device, conn.Name(), err)
 	events.Default.Log(events.DeviceDisconnected, map[string]string{
