@@ -150,15 +150,14 @@ The following are valid values for the STTRACE variable:
 
 // Environment options
 var (
-	noUpgradeFromEnv = os.Getenv("STNOUPGRADE") != ""
-	innerProcess     = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
-	noDefaultFolder  = os.Getenv("STNODEFAULTFOLDER") != ""
+	innerProcess    = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
+	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
 )
 
 type RuntimeOptions struct {
+	syncthing.Options
 	confDir          string
 	resetDatabase    bool
-	resetDeltaIdxs   bool
 	showVersion      bool
 	showPaths        bool
 	showDeviceId     bool
@@ -171,15 +170,12 @@ type RuntimeOptions struct {
 	logFile          string
 	auditEnabled     bool
 	auditFile        string
-	verbose          bool
 	paused           bool
 	unpaused         bool
 	guiAddress       string
 	guiAPIKey        string
 	generateDir      string
 	noRestart        bool
-	profiler         string
-	assetDir         string
 	cpuProfile       bool
 	stRestarting     bool
 	logFlags         int
@@ -189,9 +185,12 @@ type RuntimeOptions struct {
 
 func defaultRuntimeOptions() RuntimeOptions {
 	options := RuntimeOptions{
+		Options: syncthing.Options{
+			AssetDir:    os.Getenv("STGUIASSETS"),
+			NoUpgrade:   os.Getenv("STNOUPGRADE") != "",
+			ProfilerURL: os.Getenv("STPROFILER"),
+		},
 		noRestart:    os.Getenv("STNORESTART") != "",
-		profiler:     os.Getenv("STPROFILER"),
-		assetDir:     os.Getenv("STGUIASSETS"),
 		cpuProfile:   os.Getenv("STCPUPROFILE") != "",
 		stRestarting: os.Getenv("STRESTART") != "",
 		logFlags:     log.Ltime,
@@ -224,7 +223,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
 	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Disable monitor process, managed restarts and log file writing")
 	flag.BoolVar(&options.resetDatabase, "reset-database", false, "Reset the database, forcing a full rescan and resync")
-	flag.BoolVar(&options.resetDeltaIdxs, "reset-deltas", false, "Reset delta index IDs, forcing a full index exchange")
+	flag.BoolVar(&options.ResetDeltaIdxs, "reset-deltas", false, "Reset delta index IDs, forcing a full index exchange")
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&options.showVersion, "version", false, "Show version")
@@ -233,7 +232,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.showDeviceId, "device-id", false, "Show the device ID")
 	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
 	flag.BoolVar(&options.auditEnabled, "audit", false, "Write events to audit file")
-	flag.BoolVar(&options.verbose, "verbose", false, "Print verbose log output")
+	flag.BoolVar(&options.Verbose, "verbose", false, "Print verbose log output")
 	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
@@ -304,10 +303,10 @@ func main() {
 		options.logFile = locations.Get(locations.LogFile)
 	}
 
-	if options.assetDir == "" {
+	if options.AssetDir == "" {
 		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
 		// should look for extra assets in the default place.
-		options.assetDir = locations.Get(locations.GUIAssets)
+		options.AssetDir = locations.Get(locations.GUIAssets)
 	}
 
 	if options.showVersion {
@@ -587,14 +586,14 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	if opts := cfg.Options(); opts.RestartOnWakeup {
-		go standbyMonitor()
+		go standbyMonitor(app)
 	}
 
 	// Candidate builds should auto upgrade. Make sure the option is set,
 	// unless we are in a build where it's disabled or the STNOUPGRADE
 	// environment variable is set.
 
-	if build.IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
+	if build.IsCandidate && !upgrade.DisabledByCompilation && !runtimeOptions.NoUpgrade {
 		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
 		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
 			opts.AutoUpgradeIntervalH = 12
@@ -608,7 +607,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
-		if noUpgradeFromEnv {
+		if runtimeOptions.NoUpgrade {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		} else {
 			go autoUpgrade(cfg, app)
@@ -935,7 +934,7 @@ func showPaths(options RuntimeOptions) {
 	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.KeyFile), locations.Get(locations.CertFile))
 	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations.Get(locations.HTTPSKeyFile), locations.Get(locations.HTTPSCertFile))
 	fmt.Printf("Log file:\n\t%s\n\n", options.logFile)
-	fmt.Printf("GUI override directory:\n\t%s\n\n", options.assetDir)
+	fmt.Printf("GUI override directory:\n\t%s\n\n", options.AssetDir)
 	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations.Get(locations.DefFolder))
 }
 
