@@ -100,8 +100,22 @@ func (db *Lowlevel) Committed() int64 {
 }
 
 func (db *Lowlevel) Put(key, val []byte, wo *opt.WriteOptions) error {
+	db.closeMut.RLock()
+	defer db.closeMut.RUnlock()
+	if db.closed {
+		return leveldb.ErrClosed
+	}
 	atomic.AddInt64(&db.committed, 1)
 	return db.DB.Put(key, val, wo)
+}
+
+func (db *Lowlevel) Write(batch *leveldb.Batch, wo *opt.WriteOptions) error {
+	db.closeMut.RLock()
+	defer db.closeMut.RUnlock()
+	if db.closed {
+		return leveldb.ErrClosed
+	}
+	return db.DB.Write(batch, wo)
 }
 
 func (db *Lowlevel) Delete(key []byte, wo *opt.WriteOptions) error {
@@ -113,7 +127,9 @@ func (db *Lowlevel) NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator
 	return db.newIterator(func() iterator.Iterator { return db.DB.NewIterator(slice, ro) })
 }
 
-func (db *Lowlevel) newIterator(fn func() iterator.Iterator) iterator.Iterator {
+// newIterator returns an iterator created with the given constructor only if db
+// is not yet closed. If it is closed, a closedIter is returned instead.
+func (db *Lowlevel) newIterator(constr func() iterator.Iterator) iterator.Iterator {
 	db.closeMut.RLock()
 	defer db.closeMut.RUnlock()
 	if db.closed {
@@ -121,7 +137,7 @@ func (db *Lowlevel) newIterator(fn func() iterator.Iterator) iterator.Iterator {
 	}
 	db.iterWG.Add(1)
 	return &iter{
-		Iterator: fn(),
+		Iterator: constr(),
 		db:       db,
 	}
 }
@@ -141,13 +157,13 @@ func (db *Lowlevel) GetSnapshot() snapshot {
 }
 
 func (db *Lowlevel) Close() {
-	db.closeMut.RLock()
+	db.closeMut.Lock()
 	if db.closed {
-		db.closeMut.RUnlock()
+		db.closeMut.Unlock()
 		return
 	}
 	db.closed = true
-	db.closeMut.RUnlock()
+	db.closeMut.Unlock()
 	db.iterWG.Wait()
 	db.DB.Close()
 }
