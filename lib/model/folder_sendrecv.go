@@ -326,14 +326,15 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			changed++
 
 		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name):
-			// Just pretend we deleted it, no reason to create an error
-			// about a deleted file that we can't have anyway.
-			// Reason we need it in the first place is, that it was
-			// ignored at some point.
 			if file.IsDeleted() {
+				// Just pretend we deleted it, no reason to create an error
+				// about a deleted file that we can't have anyway.
+				// Reason we need it in the first place is, that it was
+				// ignored at some point.
 				dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
 				changed++
 			} else {
+				// We can't pull an invalid file.
 				f.newPullError(file.Name, fs.ErrInvalidFilename)
 			}
 
