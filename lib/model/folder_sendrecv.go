@@ -333,8 +333,9 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			if file.IsDeleted() {
 				dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
 				changed++
+			} else {
+				f.newPullError(file.Name, fs.ErrInvalidFilename)
 			}
-			f.newPullError(file.Name, fs.ErrInvalidFilename)
 
 		case file.IsDeleted():
 			if file.IsDirectory() {
