@@ -70,6 +70,7 @@ type App struct {
 	opts        Options
 	cfg         config.Wrapper
 	exitStatus  ExitStatus
+	err         error
 	startOnce   sync.Once
 	stop        chan struct{}
 	stopped     chan struct{}
@@ -84,16 +85,21 @@ func New(cfg config.Wrapper, opts Options) *App {
 	}
 }
 
+// Run does the same as start, but then does not return until the app stops. It
+// is equivalent to calling Start and then Wait.
 func (a *App) Run() ExitStatus {
 	a.Start()
 	return a.Wait()
 }
 
+// Start executes the app and returns once all the startup operations are done,
+// e.g. the API is ready for use.
 func (a *App) Start() {
 	a.startOnce.Do(func() {
 		if err := a.startup(); err != nil {
 			close(a.stop)
 			a.exitStatus = ExitError
+			a.err = err
 			close(a.stopped)
 			return
 		}
@@ -398,11 +404,25 @@ func (a *App) run() {
 	close(a.stopped)
 }
 
+// Wait blocks until the app stops running.
 func (a *App) Wait() ExitStatus {
 	<-a.stopped
 	return a.exitStatus
 }
 
+// Error returns an error if one occurred while running the app. It does not wait
+// for the app to stop before returning.
+func (a *App) Error() error {
+	select {
+	case <-a.stopped:
+		return nil
+	default:
+	}
+	return a.err
+}
+
+// Stop stops the app and sets its exit status to given reason, unless the app
+// was already stopped before. In any case it returns the effective exit status.
 func (a *App) Stop(stopReason ExitStatus) ExitStatus {
 	select {
 	case <-a.stopped:
