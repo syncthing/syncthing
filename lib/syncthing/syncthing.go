@@ -388,6 +388,8 @@ func (a *App) startup() error {
 }
 
 func (a *App) run() {
+	<-a.stop
+
 	a.mainService.Stop()
 
 	done := make(chan struct{})
@@ -402,6 +404,8 @@ func (a *App) run() {
 	}
 
 	l.Infoln("Exiting")
+
+	close(a.stopped)
 }
 
 func (a *App) Wait() ExitStatus {

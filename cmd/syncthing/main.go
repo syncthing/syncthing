@@ -37,6 +37,7 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/syncthing"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 
@@ -254,33 +255,6 @@ func parseCommandLineOptions() RuntimeOptions {
 
 	return options
 }
-
-// exiter implements api.Controller
-type exiter struct {
-	stop chan int
-}
-
-func (e *exiter) Restart() {
-	l.Infoln("Restarting")
-	e.stop <- exitRestarting
-}
-
-func (e *exiter) Shutdown() {
-	l.Infoln("Shutting down")
-	e.stop <- exitSuccess
-}
-
-func (e *exiter) ExitUpgrading() {
-	l.Infoln("Shutting down after upgrade")
-	e.stop <- exitUpgrading
-}
-
-// waitForExit must be called synchronously.
-func (e *exiter) waitForExit() int {
-	return <-e.stop
-}
-
-var exit = &exiter{make(chan int)}
 
 func main() {
 	options := parseCommandLineOptions()
@@ -584,8 +558,6 @@ func upgradeViaRest() error {
 }
 
 func syncthingMain(runtimeOptions RuntimeOptions) {
-	setupSignalHandling()
-
 	cfg, err := loadConfigAtStartup(runtimeOptions.allowNewerConfig)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
@@ -597,6 +569,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	} else if runtimeOptions.paused {
 		setPauseState(cfg, true)
 	}
+
+	app := syncthing.New(cfg, runtimeOptions.Options)
+
+	setupSignalHandling(app)
 
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
@@ -635,9 +611,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		if noUpgradeFromEnv {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		} else {
-			go autoUpgrade(cfg)
+			go autoUpgrade(cfg, app)
 		}
 	}
+
+	app.Start()
 
 	cleanConfigDirectory()
 
@@ -647,16 +625,16 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		go func() { _ = openURL(cfg.GUI().URL()) }()
 	}
 
-	code := exit.waitForExit()
+	status := app.Wait()
 
 	if runtimeOptions.cpuProfile {
 		pprof.StopCPUProfile()
 	}
 
-	os.Exit(code)
+	os.Exit(int(status))
 }
 
-func setupSignalHandling() {
+func setupSignalHandling(app *syncthing.App) {
 	// Exit cleanly with "restarting" code on SIGHUP.
 
 	restartSign := make(chan os.Signal, 1)
@@ -664,7 +642,7 @@ func setupSignalHandling() {
 	signal.Notify(restartSign, sigHup)
 	go func() {
 		<-restartSign
-		exit.Restart()
+		app.Stop(syncthing.ExitRestart)
 	}()
 
 	// Exit with "success" code (no restart) on INT/TERM
@@ -674,7 +652,7 @@ func setupSignalHandling() {
 	signal.Notify(stopSign, os.Interrupt, sigTerm)
 	go func() {
 		<-stopSign
-		exit.Shutdown()
+		app.Stop(syncthing.ExitSuccess)
 	}()
 }
 
@@ -832,7 +810,7 @@ func ensureDir(dir string, mode fs.FileMode) error {
 	return nil
 }
 
-func standbyMonitor() {
+func standbyMonitor(app *syncthing.App) {
 	restartDelay := 60 * time.Second
 	now := time.Now()
 	for {
@@ -845,14 +823,14 @@ func standbyMonitor() {
 			// things a moment to stabilize.
 			time.Sleep(restartDelay)
 
-			exit.Restart()
+			app.Stop(syncthing.ExitRestart)
 			return
 		}
 		now = time.Now()
 	}
 }
 
-func autoUpgrade(cfg config.Wrapper) {
+func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
 	timer := time.NewTimer(0)
 	sub := events.Default.Subscribe(events.DeviceConnected)
 	for {
@@ -903,7 +881,7 @@ func autoUpgrade(cfg config.Wrapper) {
 		events.Default.Unsubscribe(sub)
 		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
 		time.Sleep(time.Minute)
-		exit.ExitUpgrading()
+		app.Stop(syncthing.ExitUpgrade)
 		return
 	}
 }
