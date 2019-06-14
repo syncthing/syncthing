@@ -7,12 +7,33 @@
 package syncthing
 
 import (
+	"crypto/tls"
+	"fmt"
 	"io"
+	"net/http"
+	"os"
+	"runtime"
+	"strconv"
+	"strings"
 	"sync"
+	"time"
 
+	"github.com/syncthing/syncthing/lib/api"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/discover"
+	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/locations"
+	"github.com/syncthing/syncthing/lib/logger"
+	"github.com/syncthing/syncthing/lib/model"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sha256"
+	"github.com/syncthing/syncthing/lib/tlsutil"
+	"github.com/syncthing/syncthing/lib/ur"
 
 	"github.com/thejerf/suture"
 )
@@ -81,9 +102,7 @@ func (a *App) Start() {
 	})
 }
 
-func syncthingMain(runtimeOptions RuntimeOptions) {
-	setupSignalHandling()
-
+func (a *App) startup() error {
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
 	mainService := suture.New("main", suture.Spec{
@@ -159,12 +178,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"home": locations.GetBaseDir(locations.ConfigBaseDir),
 		"myID": myID.String(),
 	})
-
-	cfg, err := loadConfigAtStartup(runtimeOptions.allowNewerConfig)
-	if err != nil {
-		l.Warnln("Failed to initialize config:", err)
-		os.Exit(exitError)
-	}
 
 	if err := checkShortIDs(cfg); err != nil {
 		l.Warnln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
@@ -252,12 +265,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		m.StartDeadlockDetector(20 * time.Minute)
 	}
 
-	if runtimeOptions.unpaused {
-		setPauseState(cfg, false)
-	} else if runtimeOptions.paused {
-		setPauseState(cfg, true)
-	}
-
 	// Add and start folders
 	for _, folderCfg := range cfg.Folders() {
 		if folderCfg.Paused {
@@ -323,18 +330,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	if runtimeOptions.cpuProfile {
-		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
-		if err != nil {
-			l.Warnln("Creating profile:", err)
-			os.Exit(exitError)
-		}
-		if err := pprof.StartCPUProfile(f); err != nil {
-			l.Warnln("Starting profile:", err)
-			os.Exit(exitError)
-		}
-	}
-
 	// Candidate builds always run with usage reporting.
 
 	if opts := cfg.Options(); build.IsCandidate {
@@ -360,41 +355,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// GUI
 
 	setupGUI(mainService, cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog, runtimeOptions)
-
 	myDev, _ := cfg.Device(myID)
 	l.Infof(`My name is "%v"`, myDev.Name)
 	for _, device := range cfg.Devices() {
 		if device.DeviceID != myID {
 			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
-		}
-	}
-
-	if opts := cfg.Options(); opts.RestartOnWakeup {
-		go standbyMonitor()
-	}
-
-	// Candidate builds should auto upgrade. Make sure the option is set,
-	// unless we are in a build where it's disabled or the STNOUPGRADE
-	// environment variable is set.
-
-	if build.IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
-		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
-		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
-			opts.AutoUpgradeIntervalH = 12
-			// Set the option into the config as well, as the auto upgrade
-			// loop expects to read a valid interval from there.
-			cfg.SetOptions(opts)
-			cfg.Save()
-		}
-		// We don't tweak the user's choice of upgrading to pre-releases or
-		// not, as otherwise they cannot step off the candidate channel.
-	}
-
-	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
-		if noUpgradeFromEnv {
-			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
-		} else {
-			go autoUpgrade(cfg)
 		}
 	}
 
@@ -406,16 +371,16 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"myID": myID.String(),
 	})
 
-	cleanConfigDirectory()
-
 	if cfg.Options().SetLowPriority {
 		if err := osutil.SetLowPriority(); err != nil {
 			l.Warnln("Failed to lower process priority:", err)
 		}
 	}
 
-	code := exit.waitForExit()
+	return nil
+}
 
+func (a *App) run() {
 	mainService.Stop()
 
 	done := make(chan struct{})
@@ -430,12 +395,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	l.Infoln("Exiting")
-
-	if runtimeOptions.cpuProfile {
-		pprof.StopCPUProfile()
-	}
-
-	os.Exit(code)
 }
 
 func (a *App) Wait() ExitStatus {
