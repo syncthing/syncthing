@@ -815,6 +815,8 @@ func TestClusterConfigAfterClose(t *testing.T) {
 }
 
 func TestDispatcherToCloseDeadlock(t *testing.T) {
+	// Verify that we don't deadlock when calling Close() from within one of
+	// the model callbacks (ClusterConfig).
 	m := newTestModel()
 	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.NoopRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
 	m.ccFn = func(devID DeviceID, cc ClusterConfig) {
