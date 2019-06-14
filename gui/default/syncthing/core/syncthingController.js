@@ -726,6 +726,11 @@ angular.module('syncthing.core')
 
         var refreshGlobalChanges = debounce(function () {
             $http.get(urlbase + "/events/disk?limit=25").success(function (data) {
+                if (!data) {
+                    // For reasons unknown this is called with data being the empty
+                    // string on shutdown, causing an error on .reverse().
+                    return;
+                }
                 data = data.reverse();
                 $scope.globalChangeEvents = data;
                 console.log("refreshGlobalChanges", data);
