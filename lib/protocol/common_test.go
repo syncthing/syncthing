@@ -14,6 +14,7 @@ type TestModel struct {
 	weakHash      uint32
 	fromTemporary bool
 	indexFn       func(DeviceID, string, []FileInfo)
+	ccFn          func(DeviceID, ClusterConfig)
 	closedCh      chan struct{}
 	closedErr     error
 }
@@ -52,6 +53,9 @@ func (t *TestModel) Closed(conn Connection, err error) {
 }
 
 func (t *TestModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) {
+	if t.ccFn != nil {
+		t.ccFn(deviceID, config)
+	}
 }
 
 func (t *TestModel) DownloadProgress(DeviceID, string, []FileDownloadProgressUpdate) {

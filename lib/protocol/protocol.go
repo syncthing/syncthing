@@ -882,7 +882,11 @@ func (c *rawConnection) Close(err error) {
 		}
 	})
 
-	c.internalClose(err)
+	// Close might be called from a method that is called from within
+	// dispatcherLoop, resulting in a deadlock.
+	// The sending above must happen before spawning the routine, to prevent
+	// the underlying connection from terminating before sending the close msg.
+	go c.internalClose(err)
 }
 
 // internalClose is called if there is an unexpected error during normal operation.

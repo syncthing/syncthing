@@ -813,3 +813,20 @@ func TestClusterConfigAfterClose(t *testing.T) {
 		t.Fatal("timed out before Cluster Config returned")
 	}
 }
+
+func TestDispatcherToCloseDeadlock(t *testing.T) {
+	m := newTestModel()
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.NoopRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	m.ccFn = func(devID DeviceID, cc ClusterConfig) {
+		c.Close(errManual)
+	}
+	c.Start()
+
+	c.inbox <- &ClusterConfig{}
+
+	select {
+	case <-c.dispatcherLoopStopped:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before dispatcher loop terminated")
+	}
+}
