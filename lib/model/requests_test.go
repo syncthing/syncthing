@@ -362,9 +362,13 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	}
 
 	done = make(chan struct{})
+	expected := map[string]struct{}{ign: {}, ignExisting: {}}
+	// The indexes will normally arrive in one update, but it is possible
+	// that they arrive in separate ones.
+	secondIndex := false
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
-		expected := map[string]struct{}{ign: {}, ignExisting: {}}
+		secondIndex = true
 		for _, f := range fs {
 			if _, ok := expected[f.Name]; !ok {
 				t.Fatalf("Unexpected file %v was updated in index", f.Name)
@@ -387,10 +391,11 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 			}
 			delete(expected, f.Name)
 		}
-		for name := range expected {
-			t.Errorf("File %v wasn't updated in index", name)
+		if len(expected) == 0 {
+			close(done)
+		} else if secondIndex {
+			t.Fatal("Didn't receive index updates for all existing files, missing", expected)
 		}
-		close(done)
 	}
 	// Make sure pulling doesn't interfere, as index updates are racy and
 	// thus we cannot distinguish between scan and pull results.
