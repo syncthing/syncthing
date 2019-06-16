@@ -84,19 +84,36 @@ func (q *jobQueue) Done(file string) {
 	}
 }
 
-func (q *jobQueue) Jobs() ([]string, []string) {
+// Jobs returns a paginated list of file currently being pulled and files queued
+// to be pulled. It also returns how many items were skipped.
+func (q *jobQueue) Jobs(page, perpage int) ([]string, []string, int) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	progress := make([]string, len(q.progress))
-	copy(progress, q.progress)
+	toSkip := (page - 1) * perpage
+	plen := len(q.progress)
+	if plen >= toSkip+perpage {
+		progress := make([]string, perpage)
+		copy(progress, q.progress[toSkip:toSkip+perpage])
+		return progress, nil, toSkip
+	}
+	var progress []string
+	if plen > toSkip {
+		progress = make([]string, plen-toSkip)
+		copy(progress, q.progress[toSkip:plen])
+	}
 
-	queued := make([]string, len(q.queued))
-	for i := range q.queued {
+	var queued []string
+	if qlen := len(q.queued); qlen < perpage-len(progress) {
+		queued = make([]string, qlen)
+	} else {
+		queued = make([]string, perpage-len(progress))
+	}
+	for i := range queued {
 		queued[i] = q.queued[i].name
 	}
 
-	return progress, queued
+	return progress, queued, toSkip
 }
 
 func (q *jobQueue) Shuffle() {
