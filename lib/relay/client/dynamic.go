@@ -43,7 +43,8 @@ func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan pr
 		closeInvitationsOnFinish: closeInvitationsOnFinish,
 		timeout:                  timeout,
 
-		mut: sync.NewRWMutex(),
+		mut:  sync.NewRWMutex(),
+		stop: make(chan struct{}),
 	}
 }
 
