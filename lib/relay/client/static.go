@@ -12,68 +12,38 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type staticClient struct {
-	uri         *url.URL
-	invitations chan protocol.SessionInvitation
+	*commonClient
 
-	closeInvitationsOnFinish bool
+	uri *url.URL
 
 	config *tls.Config
 
 	messageTimeout time.Duration
 	connectTimeout time.Duration
 
-	stop    chan struct{}
-	stopped chan struct{}
-	stopMut sync.RWMutex
-
 	conn *tls.Conn
 
-	mut       sync.RWMutex
-	err       error
 	connected bool
 	latency   time.Duration
 }
 
 func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) RelayClient {
-	closeInvitationsOnFinish := false
-	if invitations == nil {
-		closeInvitationsOnFinish = true
-		invitations = make(chan protocol.SessionInvitation)
-	}
-
-	stopped := make(chan struct{})
-	close(stopped) // not yet started, don't block on Stop()
-	return &staticClient{
-		uri:         uri,
-		invitations: invitations,
-
-		closeInvitationsOnFinish: closeInvitationsOnFinish,
+	c := &staticClient{
+		uri: uri,
 
 		config: configForCerts(certs),
 
 		messageTimeout: time.Minute * 2,
 		connectTimeout: timeout,
-
-		stop:    make(chan struct{}),
-		stopped: stopped,
-		stopMut: sync.NewRWMutex(),
-
-		mut: sync.NewRWMutex(),
 	}
+	c.commonClient = newCommonClient(invitations, c.serve, nil)
+	return c
 }
 
-func (c *staticClient) Serve() {
-	defer c.cleanup()
-	c.stopMut.Lock()
-	c.stop = make(chan struct{})
-	c.stopped = make(chan struct{})
-	c.stopMut.Unlock()
-	defer close(c.stopped)
-
+func (c *staticClient) serve() {
 	if err := c.connect(); err != nil {
 		l.Infof("Could not connect to relay %s: %s", c.uri, err)
 		c.setError(err)
@@ -110,8 +80,6 @@ func (c *staticClient) Serve() {
 
 	timeout := time.NewTimer(c.messageTimeout)
 
-	c.stopMut.RLock()
-	defer c.stopMut.RUnlock()
 	for {
 		select {
 		case message := <-messages:
@@ -176,13 +144,6 @@ func (c *staticClient) Serve() {
 	}
 }
 
-func (c *staticClient) Stop() {
-	c.stopMut.RLock()
-	close(c.stop)
-	<-c.stopped
-	c.stopMut.RUnlock()
-}
-
 func (c *staticClient) StatusOK() bool {
 	c.mut.RLock()
 	con := c.connected
@@ -203,22 +164,6 @@ func (c *staticClient) String() string {
 
 func (c *staticClient) URI() *url.URL {
 	return c.uri
-}
-
-func (c *staticClient) Invitations() chan protocol.SessionInvitation {
-	c.mut.RLock()
-	inv := c.invitations
-	c.mut.RUnlock()
-	return inv
-}
-
-func (c *staticClient) cleanup() {
-	c.mut.Lock()
-	if c.closeInvitationsOnFinish {
-		close(c.invitations)
-		c.invitations = make(chan protocol.SessionInvitation)
-	}
-	c.mut.Unlock()
 }
 
 func (c *staticClient) connect() error {
@@ -261,17 +206,10 @@ func (c *staticClient) disconnect() {
 	c.conn.Close()
 }
 
-func (c *staticClient) setError(err error) {
-	c.mut.Lock()
-	c.err = err
-	c.mut.Unlock()
-}
-
 func (c *staticClient) Error() error {
 	c.mut.RLock()
-	err := c.err
-	c.mut.RUnlock()
-	return err
+	defer c.mut.RUnlock()
+	return c.err
 }
 
 func (c *staticClient) join() error {

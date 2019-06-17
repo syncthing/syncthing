@@ -12,6 +12,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type defaultParser interface {
@@ -169,4 +171,47 @@ func Address(network, host string) string {
 		Host:   host,
 	}
 	return u.String()
+}
+
+// Service implements suture.Service and takes care of stopping the service.
+type Service struct {
+	serve    func()
+	stop     func()
+	stopping bool
+	stopped  chan struct{}
+	mut      sync.Mutex
+}
+
+// NewService takes functions serve and stop, which are the equivalent to
+// Serve and Stop in suture.Service. However stop can return immediately after
+// initiating termination/cleanup, it doesn't need to wait for serve to terminate.
+func NewService(serve func(), stop func()) *Service {
+	s := &Service{
+		serve:   serve,
+		stop:    stop,
+		stopped: make(chan struct{}),
+		mut:     sync.NewMutex(),
+	}
+	close(s.stopped) // not yet started, don't block on Stop()
+	return s
+}
+
+func (s *Service) Serve() {
+	s.mut.Lock()
+	if s.stopping {
+		s.mut.Unlock()
+		return
+	}
+	s.stopped = make(chan struct{})
+	s.mut.Unlock()
+	defer close(s.stopped)
+	s.serve()
+}
+
+func (s *Service) Stop() {
+	s.mut.Lock()
+	s.stopping = true
+	s.mut.Unlock()
+	s.stop()
+	<-s.stopped
 }
