@@ -27,6 +27,7 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
 
@@ -36,6 +37,7 @@ var scanLimiter = newByteSemaphore(0)
 var errWatchNotStarted = errors.New("not started")
 
 type folder struct {
+	*util.Service
 	stateTracker
 	config.FolderConfiguration
 	*stats.FolderStatisticsReference
@@ -54,7 +56,6 @@ type folder struct {
 	scanNow             chan rescanRequest
 	scanDelay           chan time.Duration
 	initialScanFinished chan struct{}
-	stopped             chan struct{}
 	scanErrors          []FileError
 	scanErrorsMut       sync.Mutex
 
@@ -98,7 +99,6 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		scanNow:             make(chan rescanRequest),
 		scanDelay:           make(chan time.Duration),
 		initialScanFinished: make(chan struct{}),
-		stopped:             make(chan struct{}),
 		scanErrorsMut:       sync.NewMutex(),
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
@@ -109,7 +109,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 	}
 }
 
-func (f *folder) Serve() {
+func (f *folder) serve() {
 	atomic.AddInt32(&f.model.foldersRunning, 1)
 	defer atomic.AddInt32(&f.model.foldersRunning, -1)
 
@@ -119,7 +119,6 @@ func (f *folder) Serve() {
 	defer func() {
 		f.scanTimer.Stop()
 		f.setState(FolderIdle)
-		close(f.stopped)
 	}()
 
 	pause := f.basePause()
@@ -254,9 +253,8 @@ func (f *folder) Delay(next time.Duration) {
 	f.scanDelay <- next
 }
 
-func (f *folder) Stop() {
+func (f *folder) stop() {
 	f.cancel()
-	<-f.stopped
 }
 
 // CheckHealth checks the folder for common errors, updates the folder state

@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
 )
@@ -116,6 +117,7 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 		pullErrorsMut: sync.NewMutex(),
 	}
 	f.folder.puller = f
+	f.folder.Service = util.NewService(f.serve, f.stop)
 
 	if f.Copiers == 0 {
 		f.Copiers = defaultCopiers
