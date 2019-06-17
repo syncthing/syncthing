@@ -27,23 +27,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/api"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/dialer"
-	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
-	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/ur"
 
 	"github.com/pkg/errors"
 	"github.com/thejerf/suture"
@@ -646,6 +641,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	cleanConfigDirectory()
 
+	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
+		// Can potentially block if the utility we are invoking doesn't
+		// fork, and just execs, hence keep it in its own routine.
+		go func() { _ = openURL(cfg.GUI().URL()) }()
+	}
+
 	code := exit.waitForExit()
 
 	if runtimeOptions.cpuProfile {
@@ -786,38 +787,6 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 	auditService.WaitForStart()
 
 	l.Infoln("Audit log in", auditDest)
-}
-
-func setupGUI(mainService *suture.Supervisor, cfg config.Wrapper, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
-	guiCfg := cfg.GUI()
-
-	if !guiCfg.Enabled {
-		return
-	}
-
-	if guiCfg.InsecureAdminAccess {
-		l.Warnln("Insecure admin access is enabled.")
-	}
-
-	cpu := newCPUService()
-	mainService.Add(cpu)
-
-	summaryService := model.NewFolderSummaryService(cfg, m, myID)
-	mainService.Add(summaryService)
-
-	apiSvc := api.New(myID, cfg, runtimeOptions.assetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, exit, noUpgradeFromEnv)
-	mainService.Add(apiSvc)
-
-	if err := apiSvc.WaitForStart(); err != nil {
-		l.Warnln("Failed starting API:", err)
-		os.Exit(exitError)
-	}
-
-	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
-		// Can potentially block if the utility we are invoking doesn't
-		// fork, and just execs, hence keep it in its own routine.
-		go func() { _ = openURL(guiCfg.URL()) }()
-	}
 }
 
 func defaultConfig(cfgFile string) (config.Wrapper, error) {
@@ -980,21 +949,6 @@ func cleanConfigDirectory() {
 			}
 		}
 	}
-}
-
-// checkShortIDs verifies that the configuration won't result in duplicate
-// short ID:s; that is, that the devices in the cluster all have unique
-// initial 64 bits.
-func checkShortIDs(cfg config.Wrapper) error {
-	exists := make(map[protocol.ShortID]protocol.DeviceID)
-	for deviceID := range cfg.Devices() {
-		shortID := deviceID.Short()
-		if otherID, ok := exists[shortID]; ok {
-			return fmt.Errorf("%v in conflict with %v", deviceID, otherID)
-		}
-		exists[shortID] = deviceID
-	}
-	return nil
 }
 
 func showPaths(options RuntimeOptions) {

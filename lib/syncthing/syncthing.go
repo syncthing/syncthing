@@ -52,6 +52,7 @@ const (
 	ExitSuccess ExitStatus = 0
 	ExitError   ExitStatus = 1
 	ExitRestart ExitStatus = 3
+	ExitUpgrade ExitStatus = 4
 )
 
 type Options struct {
@@ -117,8 +118,10 @@ func (a *App) startup() error {
 	// lines look ugly.
 	l.SetPrefix("[start] ")
 
-	if runtimeOptions.audtiEnabled {
-		startAuditing(a.mainService, runtimeOptions.audtiFile)
+	if runtimeOptions.auditEnabled {
+		if err := a.startAuditing(); err != nil {
+			return err
+		}
 	}
 
 	if a.opts.Verbose {
@@ -354,7 +357,10 @@ func (a *App) startup() error {
 
 	// GUI
 
-	setupGUI(a.mainService, a.cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog, runtimeOptions)
+	if err := a.setupGUI(m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog); err != nil {
+		l.Warnln("Failed starting API:", err)
+		return err
+	}
 
 	myDev, _ := a.cfg.Device(a.myID)
 	l.Infof(`My name is "%v"`, myDev.Name)
@@ -417,4 +423,60 @@ func (a *App) Stop(stopReason ExitStatus) ExitStatus {
 		a.exitStatus = stopReason
 	}
 	return a.exitStatus
+}
+
+func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
+	guiCfg := a.cfg.GUI()
+
+	if !guiCfg.Enabled {
+		return nil
+	}
+
+	if guiCfg.InsecureAdminAccess {
+		l.Warnln("Insecure admin access is enabled.")
+	}
+
+	cpu := newCPUService()
+	a.mainService.Add(cpu)
+
+	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID)
+	a.mainService.Add(summaryService)
+
+	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, &controller{a}, a.opts.NoUpgrade)
+	a.mainService.Add(apiSvc)
+
+	if err := apiSvc.WaitForStart(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// checkShortIDs verifies that the configuration won't result in duplicate
+// short ID:s; that is, that the devices in the cluster all have unique
+// initial 64 bits.
+func checkShortIDs(cfg config.Wrapper) error {
+	exists := make(map[protocol.ShortID]protocol.DeviceID)
+	for deviceID := range cfg.Devices() {
+		shortID := deviceID.Short()
+		if otherID, ok := exists[shortID]; ok {
+			return fmt.Errorf("%v in conflict with %v", deviceID, otherID)
+		}
+		exists[shortID] = deviceID
+	}
+	return nil
+}
+
+// Implements api.Controller
+type controller struct{ *App }
+
+func (e *controller) Restart() {
+	e.Stop(ExitRestart)
+}
+
+func (e *controller) Shutdown() {
+	e.Stop(ExitSuccess)
+}
+
+func (e *controller) ExitUpgrading() {
+	e.Stop(ExitUpgrade)
 }
