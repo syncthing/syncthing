@@ -92,28 +92,38 @@ func (q *jobQueue) Jobs(page, perpage int) ([]string, []string, int) {
 
 	toSkip := (page - 1) * perpage
 	plen := len(q.progress)
+	qlen := len(q.queued)
+
+	if tot := plen + qlen; tot <= toSkip {
+		return nil, nil, tot
+	}
+
 	if plen >= toSkip+perpage {
 		progress := make([]string, perpage)
 		copy(progress, q.progress[toSkip:toSkip+perpage])
 		return progress, nil, toSkip
 	}
+
 	var progress []string
 	if plen > toSkip {
 		progress = make([]string, plen-toSkip)
 		copy(progress, q.progress[toSkip:plen])
+		toSkip = 0
+	} else {
+		toSkip -= plen
 	}
 
 	var queued []string
-	if qlen := len(q.queued); qlen < perpage-len(progress) {
-		queued = make([]string, qlen)
+	if qlen-toSkip < perpage-len(progress) {
+		queued = make([]string, qlen-toSkip)
 	} else {
 		queued = make([]string, perpage-len(progress))
 	}
 	for i := range queued {
-		queued[i] = q.queued[i].name
+		queued[i] = q.queued[i+toSkip].name
 	}
 
-	return progress, queued, toSkip
+	return progress, queued, (page - 1) * perpage
 }
 
 func (q *jobQueue) Shuffle() {
