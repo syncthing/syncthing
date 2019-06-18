@@ -7,14 +7,12 @@
 package versioner
 
 import (
-	"path/filepath"
 	"sort"
 	"strconv"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -126,7 +124,7 @@ func (v *Staggered) clean() {
 
 		versionsPerFile[name] = append(versionsPerFile[name], versionWithMtime{
 			name:  path,
-			mtime: f.ModTime(),
+			mtime: f.ModTime().Truncate(time.Second),
 		})
 
 		return nil
@@ -222,31 +220,7 @@ func (v *Staggered) Archive(filePath string) error {
 		return err
 	}
 
-	file := filepath.Base(filePath)
-	inFolderPath := filepath.Dir(filePath)
-
-	// Glob according to the new file~timestamp.ext pattern.
-	pattern := filepath.Join(inFolderPath, TagFilename(file, TimeGlob))
-	newVersions, err := v.versionsFs.Glob(pattern)
-	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
-		return nil
-	}
-
-	// Also according to the old file.ext~timestamp pattern.
-	pattern = filepath.Join(inFolderPath, file+"~"+TimeGlob)
-	oldVersions, err := v.versionsFs.Glob(pattern)
-	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
-		return nil
-	}
-
-	// Use all the found filenames.
-	versions := append(oldVersions, newVersions...)
-	versions = util.UniqueTrimmedStrings(versions)
-
-	versionsWithMtimes := versionsToVersionsWithMtime(v.versionsFs, versions)
-	v.expire(versionsWithMtimes)
+	v.expire(findAllVersions(v.versionsFs, filePath))
 
 	return nil
 }

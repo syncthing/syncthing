@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 var errDirectory = fmt.Errorf("cannot restore on top of a directory")
@@ -87,12 +88,14 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 			return nil
 		}
 
+		versionTime := f.ModTime().Truncate(time.Second)
+
 		path = osutil.NormalizedFilename(path)
 
 		name, tag := UntagFilename(path)
 		// Something invalid, assume it's an untagged file
 		if name == "" || tag == "" {
-			versionTime := f.ModTime().Truncate(time.Second)
+
 			files[path] = append(files[path], FileVersion{
 				VersionTime: versionTime,
 				ModTime:     versionTime,
@@ -101,7 +104,7 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 			return nil
 		}
 
-		versionTime, err := time.ParseInLocation(TimeFormat, tag, time.Local)
+		originalFileModtime, err := time.ParseInLocation(TimeFormat, tag, time.Local)
 		if err != nil {
 			// Can't parse it, welp, continue
 			return nil
@@ -111,8 +114,8 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 			files[name] = append(files[name], FileVersion{
 				// This looks backwards, but mtime of the file is when we archived it, making that the version time
 				// The mod time of the file before archiving is embedded in the file name.
-				VersionTime: f.ModTime().Truncate(time.Second),
-				ModTime:     versionTime.Truncate(time.Second),
+				VersionTime: versionTime,
+				ModTime:     originalFileModtime.Truncate(time.Second),
 				Size:        f.Size(),
 			})
 		}
@@ -203,28 +206,24 @@ func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time,
 	}
 
 	filePath = osutil.NativeFilename(filePath)
-	tag := versionTime.In(time.Local).Truncate(time.Second).Format(TimeFormat)
+	versionTime = versionTime.In(time.Local).Truncate(time.Second)
 
-	taggedFilename := TagFilename(filePath, tag)
-	oldTaggedFilename := filePath + tag
-	untaggedFileName := filePath
-
-	// Check that the thing we've been asked to restore is actually a file
-	// and that it exists.
+	// Try and find a file that has the correct mtime
 	sourceFile := ""
-	for _, candidate := range []string{taggedFilename, oldTaggedFilename, untaggedFileName} {
-		if info, err := src.Lstat(candidate); fs.IsNotExist(err) || !info.IsRegular() {
-			continue
-		} else if err != nil {
-			// All other errors are fatal
-			return err
-		} else if candidate == untaggedFileName && !info.ModTime().Truncate(time.Second).Equal(versionTime) {
-			// No error, and untagged file, but mtime does not match, skip
-			continue
+	for _, versionWithMtime := range findAllVersions(src, filePath) {
+		if versionWithMtime.mtime.Equal(versionTime) {
+			sourceFile = versionWithMtime.name
+			break
+		}
+	}
+
+	// Check for untagged file
+	if sourceFile == "" {
+		info, err := src.Lstat(filePath)
+		if err == nil && info.IsRegular() && info.ModTime().Truncate(time.Second).Equal(versionTime) {
+			sourceFile = filePath
 		}
 
-		sourceFile = candidate
-		break
 	}
 
 	if sourceFile == "" {
@@ -276,10 +275,10 @@ func versionsToVersionsWithMtime(fs fs.Filesystem, versions []string) []versionW
 		if stat, err := fs.Stat(version); err != nil {
 			// Welp, assume it's gone?
 			continue
-		} else {
+		} else if stat.IsRegular() {
 			versionsWithMtimes = append(versionsWithMtimes, versionWithMtime{
 				name:  version,
-				mtime: stat.ModTime(),
+				mtime: stat.ModTime().Truncate(time.Second),
 			})
 		}
 	}
@@ -289,4 +288,30 @@ func versionsToVersionsWithMtime(fs fs.Filesystem, versions []string) []versionW
 	})
 
 	return versionsWithMtimes
+}
+
+func findAllVersions(fs fs.Filesystem, filePath string) []versionWithMtime {
+	inFolderPath := filepath.Dir(filePath)
+	file := filepath.Base(filePath)
+
+	// Glob according to the new file~timestamp.ext pattern.
+	pattern := filepath.Join(inFolderPath, TagFilename(file, TimeGlob))
+	newVersions, err := fs.Glob(pattern)
+	if err != nil {
+		l.Warnln("globbing:", err, "for", pattern)
+		return nil
+	}
+
+	// Also according to the old file.ext~timestamp pattern.
+	pattern = filepath.Join(inFolderPath, file+"~"+TimeGlob)
+	oldVersions, err := fs.Glob(pattern)
+	if err != nil {
+		l.Warnln("globbing:", err, "for", pattern)
+		return nil
+	}
+
+	// Use all the found filenames.
+	versions := append(oldVersions, newVersions...)
+
+	return versionsToVersionsWithMtime(fs, util.UniqueTrimmedStrings(versions))
 }
