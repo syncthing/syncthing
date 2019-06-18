@@ -125,7 +125,7 @@ func (v *Staggered) clean() {
 		}
 
 		versionsPerFile[name] = append(versionsPerFile[name], versionWithMtime{
-			name:  name,
+			name:  path,
 			mtime: f.ModTime(),
 		})
 
