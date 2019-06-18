@@ -280,3 +280,136 @@ func BenchmarkJobQueuePushPopDone10k(b *testing.B) {
 	}
 
 }
+
+func TestQueuePagination(t *testing.T) {
+	q := newJobQueue()
+	// Ten random actions
+	names := make([]string, 10)
+	for i := 0; i < 10; i++ {
+		names[i] = fmt.Sprint("f", i)
+		q.Push(names[i], 0, time.Time{})
+	}
+
+	progress, queued, skip := q.Jobs(1, 100)
+	if len(progress) != 0 || len(queued) != 10 || skip != 0 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	}
+
+	progress, queued, skip = q.Jobs(1, 5)
+	if len(progress) != 0 || len(queued) != 5 || skip != 0 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	} else if !equalStrings(queued, names[:5]) {
+		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[:5])
+	}
+
+	progress, queued, skip = q.Jobs(2, 5)
+	if len(progress) != 0 || len(queued) != 5 || skip != 5 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	} else if !equalStrings(queued, names[5:]) {
+		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[5:])
+	}
+
+	progress, queued, skip = q.Jobs(2, 7)
+	if len(progress) != 0 || len(queued) != 3 || skip != 7 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	} else if !equalStrings(queued, names[7:]) {
+		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[7:])
+	}
+
+	progress, queued, skip = q.Jobs(3, 5)
+	if len(progress) != 0 || len(queued) != 0 || skip != 10 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	}
+
+	n, ok := q.Pop()
+	if !ok || n != names[0] {
+		t.Fatal("Wrong element")
+	}
+
+	progress, queued, skip = q.Jobs(1, 100)
+	if len(progress) != 1 || len(queued) != 9 || skip != 0 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	}
+
+	progress, queued, skip = q.Jobs(1, 5)
+	if len(progress) != 1 || len(queued) != 4 || skip != 0 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	} else if !equalStrings(progress, names[:1]) {
+		t.Errorf("Wrong elements in progress, got %v, expected %v", progress, names[:1])
+	} else if !equalStrings(queued, names[1:5]) {
+		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[1:5])
+	}
+
+	progress, queued, skip = q.Jobs(2, 5)
+	if len(progress) != 0 || len(queued) != 5 || skip != 5 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	} else if !equalStrings(queued, names[5:]) {
+		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[5:])
+	}
+
+	progress, queued, skip = q.Jobs(2, 7)
+	if len(progress) != 0 || len(queued) != 3 || skip != 7 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	} else if !equalStrings(queued, names[7:]) {
+		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[7:])
+	}
+
+	progress, queued, skip = q.Jobs(3, 5)
+	if len(progress) != 0 || len(queued) != 0 || skip != 10 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	}
+
+	for i := 1; i < 8; i++ {
+		n, ok := q.Pop()
+		if !ok || n != names[i] {
+			t.Fatal("Wrong element")
+		}
+	}
+
+	progress, queued, skip = q.Jobs(1, 100)
+	if len(progress) != 8 || len(queued) != 2 || skip != 0 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	}
+
+	progress, queued, skip = q.Jobs(1, 5)
+	if len(progress) != 5 || len(queued) != 0 || skip != 0 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	} else if !equalStrings(progress, names[:5]) {
+		t.Errorf("Wrong elements in progress, got %v, expected %v", progress, names[:5])
+	}
+
+	progress, queued, skip = q.Jobs(2, 5)
+	if len(progress) != 3 || len(queued) != 2 || skip != 5 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	} else if !equalStrings(progress, names[5:8]) {
+		t.Errorf("Wrong elements in progress, got %v, expected %v", progress, names[5:8])
+	} else if !equalStrings(queued, names[8:]) {
+		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[8:])
+	}
+
+	progress, queued, skip = q.Jobs(2, 7)
+	if len(progress) != 1 || len(queued) != 2 || skip != 7 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	} else if !equalStrings(progress, names[7:8]) {
+		t.Errorf("Wrong elements in progress, got %v, expected %v", progress, names[7:8])
+	} else if !equalStrings(queued, names[8:]) {
+		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[8:])
+	}
+
+	progress, queued, skip = q.Jobs(3, 5)
+	if len(progress) != 0 || len(queued) != 0 || skip != 10 {
+		t.Error("Wrong length", len(progress), len(queued), 0)
+	}
+}
+
+func equalStrings(first, second []string) bool {
+	if len(first) != len(second) {
+		return false
+	}
+	for i := range first {
+		if first[i] != second[i] {
+			return false
+		}
+	}
+	return true
+}
