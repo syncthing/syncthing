@@ -50,11 +50,11 @@ func (v Simple) Archive(filePath string) error {
 
 	// Amend with mtime, sort on mtime, delete the oldest first. Mtime,
 	// nowadays at least, is the time when the archiving happened.
-	versionsWithMtimes := findAllVersions(v.versionsFs, filePath)
-	if len(versionsWithMtimes) > v.keep {
-		for _, toRemove := range versionsWithMtimes[:len(versionsWithMtimes)-v.keep] {
+	versions := findAllVersions(v.versionsFs, filePath)
+	if len(versions) > v.keep {
+		for _, toRemove := range versions[:len(versions)-v.keep] {
 			l.Debugln("cleaning out", toRemove)
-			err = v.versionsFs.Remove(toRemove.name)
+			err = v.versionsFs.Remove(toRemove)
 			if err != nil {
 				l.Warnln("removing old version:", err)
 			}
