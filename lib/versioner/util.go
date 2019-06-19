@@ -216,8 +216,10 @@ func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time,
 
 	// Try and find a file that has the correct mtime
 	sourceFile := ""
+	sourceMtime := time.Time{}
 	if info, err := src.Lstat(taggedFilePath); err == nil && info.IsRegular() {
 		sourceFile = taggedFilePath
+		sourceMtime = info.ModTime()
 	} else if err == nil {
 		l.Debugln("restore:", taggedFilePath, "not regular")
 	} else {
@@ -229,6 +231,7 @@ func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time,
 		info, err := src.Lstat(filePath)
 		if err == nil && info.IsRegular() && info.ModTime().Truncate(time.Second).Equal(versionTime) {
 			sourceFile = filePath
+			sourceMtime = info.ModTime()
 		}
 
 	}
@@ -246,7 +249,9 @@ func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time,
 	}
 
 	_ = dst.MkdirAll(filepath.Dir(filePath), 0755)
-	return osutil.RenameOrCopy(src, dst, sourceFile, filePath)
+	err := osutil.RenameOrCopy(src, dst, sourceFile, filePath)
+	_ = dst.Chtimes(filePath, sourceMtime, sourceMtime)
+	return err
 }
 
 func fsFromParams(folderFs fs.Filesystem, params map[string]string) (versionsFs fs.Filesystem) {
