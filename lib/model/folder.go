@@ -27,8 +27,9 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
+
+	"github.com/thejerf/suture"
 )
 
 // scanLimiter limits the number of concurrent scans. A limit of zero means no limit.
@@ -37,7 +38,7 @@ var scanLimiter = newByteSemaphore(0)
 var errWatchNotStarted = errors.New("not started")
 
 type folder struct {
-	*util.Service
+	suture.Service
 	stateTracker
 	config.FolderConfiguration
 	*stats.FolderStatisticsReference
@@ -109,7 +110,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 	}
 }
 
-func (f *folder) serve() {
+func (f *folder) serve(_ chan struct{}) {
 	atomic.AddInt32(&f.model.foldersRunning, 1)
 	defer atomic.AddInt32(&f.model.foldersRunning, -1)
 
@@ -253,8 +254,9 @@ func (f *folder) Delay(next time.Duration) {
 	f.scanDelay <- next
 }
 
-func (f *folder) stop() {
+func (f *folder) Stop() {
 	f.cancel()
+	f.Service.Stop()
 }
 
 // CheckHealth checks the folder for common errors, updates the folder state

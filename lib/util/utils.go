@@ -14,6 +14,8 @@ import (
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/sync"
+
+	"github.com/thejerf/suture"
 )
 
 type defaultParser interface {
@@ -173,22 +175,12 @@ func Address(network, host string) string {
 	return u.String()
 }
 
-// Service implements suture.Service and takes care of stopping the service.
-type Service struct {
-	serve    func()
-	stop     func()
-	stopping bool
-	stopped  chan struct{}
-	mut      sync.Mutex
-}
-
-// NewService takes functions serve and stop, which are the equivalent to
-// Serve and Stop in suture.Service. However stop can return immediately after
-// initiating termination/cleanup, it doesn't need to wait for serve to terminate.
-func NewService(serve func(), stop func()) *Service {
-	s := &Service{
-		serve:   serve,
-		stop:    stop,
+// AsService wraps the given function to implement suture.Service by calling
+// that function on serve and closing the passed channel when Stop is called.
+func AsService(fn func(stop chan struct{})) suture.Service {
+	s := &service{
+		serve:   fn,
+		stop:    make(chan struct{}),
 		stopped: make(chan struct{}),
 		mut:     sync.NewMutex(),
 	}
@@ -196,7 +188,15 @@ func NewService(serve func(), stop func()) *Service {
 	return s
 }
 
-func (s *Service) Serve() {
+type service struct {
+	serve    func(close chan struct{})
+	stopping bool
+	stop     chan struct{}
+	stopped  chan struct{}
+	mut      sync.Mutex
+}
+
+func (s *service) Serve() {
 	s.mut.Lock()
 	if s.stopping {
 		s.mut.Unlock()
@@ -205,13 +205,13 @@ func (s *Service) Serve() {
 	s.stopped = make(chan struct{})
 	s.mut.Unlock()
 	defer close(s.stopped)
-	s.serve()
+	s.serve(s.stop)
 }
 
-func (s *Service) Stop() {
+func (s *service) Stop() {
 	s.mut.Lock()
 	s.stopping = true
 	s.mut.Unlock()
-	s.stop()
+	close(s.stop)
 	<-s.stopped
 }

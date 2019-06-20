@@ -1169,9 +1169,8 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			fset:         fs,
 			prevSequence: startSequence,
 			dropSymlinks: dropSymlinks,
-			stop:         make(chan struct{}),
 		}
-		is.Service = util.NewService(is.serve, is.stopFn)
+		is.Service = util.AsService(is.serve)
 		// The token isn't tracked as the service stops when the connection
 		// terminates and is automatically removed from supervisor (by
 		// implementing suture.IsCompletable).
@@ -1890,7 +1889,7 @@ func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 }
 
 type indexSender struct {
-	*util.Service
+	suture.Service
 	conn         protocol.Connection
 	folder       string
 	dev          string
@@ -1898,10 +1897,9 @@ type indexSender struct {
 	prevSequence int64
 	dropSymlinks bool
 	connClosed   chan struct{}
-	stop         chan struct{}
 }
 
-func (s *indexSender) serve() {
+func (s *indexSender) serve(stop chan struct{}) {
 	var err error
 
 	l.Debugf("Starting indexSender for %s to %s at %s (slv=%d)", s.folder, s.dev, s.conn, s.prevSequence)
@@ -1922,7 +1920,7 @@ func (s *indexSender) serve() {
 
 	for err == nil {
 		select {
-		case <-s.stop:
+		case <-stop:
 			return
 		case <-s.connClosed:
 			return
@@ -1935,7 +1933,7 @@ func (s *indexSender) serve() {
 		// sending for.
 		if s.fset.Sequence(protocol.LocalDeviceID) <= s.prevSequence {
 			select {
-			case <-s.stop:
+			case <-stop:
 				return
 			case <-s.connClosed:
 				return
@@ -1953,10 +1951,6 @@ func (s *indexSender) serve() {
 		// time to batch them up a little.
 		time.Sleep(250 * time.Millisecond)
 	}
-}
-
-func (s *indexSender) stopFn() {
-	close(s.stop)
 }
 
 // Complete implements the suture.IsCompletable interface. When Serve terminates

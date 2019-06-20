@@ -28,6 +28,8 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/util"
+
+	"github.com/thejerf/suture"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
@@ -38,13 +40,12 @@ const Version = 3
 var StartTime = time.Now()
 
 type Service struct {
-	*util.Service
+	suture.Service
 	cfg                config.Wrapper
 	model              model.Model
 	connectionsService connections.Service
 	noUpgrade          bool
 	forceRun           chan struct{}
-	stop               chan struct{}
 }
 
 func New(cfg config.Wrapper, m model.Model, connectionsService connections.Service, noUpgrade bool) *Service {
@@ -53,10 +54,9 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 		model:              m,
 		connectionsService: connectionsService,
 		noUpgrade:          noUpgrade,
-		forceRun:           make(chan struct{}),
-		stop:               make(chan struct{}),
+		forceRun:           make(chan struct{}, 1), // Buffered to prevent locking
 	}
-	svc.Service = util.NewService(svc.serve, svc.stopFn)
+	svc.Service = util.AsService(svc.serve)
 	cfg.Subscribe(svc)
 	return svc
 }
@@ -383,11 +383,11 @@ func (s *Service) sendUsageReport() error {
 	return err
 }
 
-func (s *Service) serve() {
+func (s *Service) serve(stop chan struct{}) {
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
 	for {
 		select {
-		case <-s.stop:
+		case <-stop:
 			return
 		case <-s.forceRun:
 			t.Reset(0)
@@ -413,14 +413,12 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
 		select {
 		case s.forceRun <- struct{}{}:
-		case <-s.stop:
+		default:
+			// s.forceRun is one buffered, so even though nothing
+			// was sent, a run will still happen after this point.
 		}
 	}
 	return true
-}
-
-func (s *Service) stopFn() {
-	close(s.stop)
 }
 
 func (*Service) String() string {

@@ -32,11 +32,11 @@ func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan pr
 		certs:    certs,
 		timeout:  timeout,
 	}
-	c.commonClient = newCommonClient(invitations, c.serve, c.stopFn)
+	c.commonClient = newCommonClient(invitations, c.serve)
 	return c
 }
 
-func (c *dynamicClient) serve() {
+func (c *dynamicClient) serve(stop chan struct{}) {
 	uri := *c.pooladdr
 
 	// Trim off the `dynamic+` prefix
@@ -73,7 +73,7 @@ func (c *dynamicClient) serve() {
 
 	for _, addr := range relayAddressesOrder(addrs) {
 		select {
-		case <-c.stop:
+		case <-stop:
 			l.Debugln(c, "stopping")
 			c.setError(nil)
 			return
@@ -99,7 +99,8 @@ func (c *dynamicClient) serve() {
 	c.setError(fmt.Errorf("could not find a connectable relay"))
 }
 
-func (c *dynamicClient) stopFn() {
+func (c *dynamicClient) Stop() {
+	c.Service.Stop()
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	if c.client != nil {

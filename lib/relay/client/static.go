@@ -39,11 +39,11 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 		messageTimeout: time.Minute * 2,
 		connectTimeout: timeout,
 	}
-	c.commonClient = newCommonClient(invitations, c.serve, nil)
+	c.commonClient = newCommonClient(invitations, c.serve)
 	return c
 }
 
-func (c *staticClient) serve() {
+func (c *staticClient) serve(stop chan struct{}) {
 	if err := c.connect(); err != nil {
 		l.Infof("Could not connect to relay %s: %s", c.uri, err)
 		c.setError(err)
@@ -114,7 +114,7 @@ func (c *staticClient) serve() {
 				c.disconnect()
 			}
 
-		case <-c.stop:
+		case <-stop:
 			l.Debugln(c, "stopping")
 			c.setError(nil)
 			c.disconnect()

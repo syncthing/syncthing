@@ -117,7 +117,7 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 		pullErrorsMut: sync.NewMutex(),
 	}
 	f.folder.puller = f
-	f.folder.Service = util.NewService(f.serve, f.stop)
+	f.folder.Service = util.AsService(f.serve)
 
 	if f.Copiers == 0 {
 		f.Copiers = defaultCopiers
