@@ -2853,6 +2853,9 @@ func TestVersionRestore(t *testing.T) {
 	m.ScanFolder("default")
 
 	sentinel, err := time.ParseInLocation(versioner.TimeFormat, "20180101-010101", time.Local)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, file := range []string{
 		// Versions directory
