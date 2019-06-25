@@ -44,26 +44,25 @@ func NewClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.
 }
 
 type commonClient struct {
-	suture.Service
+	util.ServiceWithError
 
 	invitations              chan protocol.SessionInvitation
 	closeInvitationsOnFinish bool
 
 	mut sync.RWMutex
-	err error
 }
 
-func newCommonClient(invitations chan protocol.SessionInvitation, serve func(chan struct{})) *commonClient {
+func newCommonClient(invitations chan protocol.SessionInvitation, serve func(chan struct{}) error) *commonClient {
 	c := &commonClient{
 		invitations: invitations,
 
 		mut: sync.NewRWMutex(),
 	}
-	newServe := func(stop chan struct{}) {
-		serve(stop)
-		c.cleanup()
+	newServe := func(stop chan struct{}) error {
+		defer c.cleanup()
+		return serve(stop)
 	}
-	c.Service = util.AsService(newServe)
+	c.ServiceWithError = util.AsServiceWithError(newServe)
 	if c.invitations == nil {
 		c.closeInvitationsOnFinish = true
 		c.invitations = make(chan protocol.SessionInvitation)
@@ -83,10 +82,4 @@ func (c *commonClient) Invitations() chan protocol.SessionInvitation {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.invitations
-}
-
-func (c *commonClient) setError(err error) {
-	c.mut.Lock()
-	c.err = err
-	c.mut.Unlock()
 }

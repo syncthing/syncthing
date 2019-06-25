@@ -43,27 +43,23 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 	return c
 }
 
-func (c *staticClient) serve(stop chan struct{}) {
+func (c *staticClient) serve(stop chan struct{}) error {
 	if err := c.connect(); err != nil {
 		l.Infof("Could not connect to relay %s: %s", c.uri, err)
-		c.setError(err)
-		return
+		return err
 	}
 
 	l.Debugln(c, "connected", c.conn.RemoteAddr())
+	defer c.disconnect()
 
 	if err := c.join(); err != nil {
-		c.conn.Close()
 		l.Infof("Could not join relay %s: %s", c.uri, err)
-		c.setError(err)
-		return
+		return err
 	}
 
 	if err := c.conn.SetDeadline(time.Time{}); err != nil {
-		c.conn.Close()
 		l.Infoln("Relay set deadline:", err)
-		c.setError(err)
-		return
+		return err
 	}
 
 	l.Infof("Joined relay %s://%s", c.uri.Scheme, c.uri.Host)
@@ -76,7 +72,7 @@ func (c *staticClient) serve(stop chan struct{}) {
 	messages := make(chan interface{})
 	errors := make(chan error, 1)
 
-	go messageReader(c.conn, messages, errors)
+	go messageReader(c.conn, messages, errors, stop)
 
 	timeout := time.NewTimer(c.messageTimeout)
 
@@ -90,11 +86,9 @@ func (c *staticClient) serve(stop chan struct{}) {
 			case protocol.Ping:
 				if err := protocol.WriteMessage(c.conn, protocol.Pong{}); err != nil {
 					l.Infoln("Relay write:", err)
-					c.setError(err)
-					c.disconnect()
-				} else {
-					l.Debugln(c, "sent pong")
+					return err
 				}
+				l.Debugln(c, "sent pong")
 
 			case protocol.SessionInvitation:
 				ip := net.IP(msg.Address)
@@ -105,41 +99,24 @@ func (c *staticClient) serve(stop chan struct{}) {
 
 			case protocol.RelayFull:
 				l.Infof("Disconnected from relay %s due to it becoming full.", c.uri)
-				c.setError(fmt.Errorf("Relay full"))
-				c.disconnect()
+				return fmt.Errorf("Relay full")
 
 			default:
 				l.Infoln("Relay: protocol error: unexpected message %v", msg)
-				c.setError(fmt.Errorf("protocol error: unexpected message %v", msg))
-				c.disconnect()
+				return fmt.Errorf("protocol error: unexpected message %v", msg)
 			}
 
 		case <-stop:
 			l.Debugln(c, "stopping")
-			c.setError(nil)
-			c.disconnect()
+			return nil
 
-		// We always exit via this branch of the select, to make sure the
-		// the reader routine exits.
 		case err := <-errors:
-			close(errors)
-			close(messages)
-			c.mut.Lock()
-			if c.connected {
-				c.conn.Close()
-				c.connected = false
-				l.Infof("Disconnecting from relay %s due to error: %s", c.uri, err)
-				c.err = err
-			} else {
-				c.err = nil
-			}
-			c.mut.Unlock()
-			return
+			l.Infof("Disconnecting from relay %s due to error: %s", c.uri, err)
+			return err
 
 		case <-timeout.C:
 			l.Debugln(c, "timed out")
-			c.disconnect()
-			c.setError(fmt.Errorf("timed out"))
+			return fmt.Errorf("timed out")
 		}
 	}
 }
@@ -206,12 +183,6 @@ func (c *staticClient) disconnect() {
 	c.conn.Close()
 }
 
-func (c *staticClient) Error() error {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
-	return c.err
-}
-
 func (c *staticClient) join() error {
 	if err := protocol.WriteMessage(c.conn, protocol.JoinRelayRequest{}); err != nil {
 		return err
@@ -270,13 +241,17 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	return nil
 }
 
-func messageReader(conn net.Conn, messages chan<- interface{}, errors chan<- error) {
+func messageReader(conn net.Conn, messages chan<- interface{}, errors chan<- error, stop chan struct{}) {
 	for {
 		msg, err := protocol.ReadMessage(conn)
 		if err != nil {
 			errors <- err
 			return
 		}
-		messages <- msg
+		select {
+		case messages <- msg:
+		case <-stop:
+			return
+		}
 	}
 }

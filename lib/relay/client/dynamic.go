@@ -36,7 +36,7 @@ func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan pr
 	return c
 }
 
-func (c *dynamicClient) serve(stop chan struct{}) {
+func (c *dynamicClient) serve(stop chan struct{}) error {
 	uri := *c.pooladdr
 
 	// Trim off the `dynamic+` prefix
@@ -47,8 +47,7 @@ func (c *dynamicClient) serve(stop chan struct{}) {
 	data, err := http.Get(uri.String())
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
-		c.setError(err)
-		return
+		return err
 	}
 
 	var ann dynamicAnnouncement
@@ -56,8 +55,7 @@ func (c *dynamicClient) serve(stop chan struct{}) {
 	data.Body.Close()
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
-		c.setError(err)
-		return
+		return err
 	}
 
 	var addrs []string
@@ -75,8 +73,7 @@ func (c *dynamicClient) serve(stop chan struct{}) {
 		select {
 		case <-stop:
 			l.Debugln(c, "stopping")
-			c.setError(nil)
-			return
+			return nil
 		default:
 			ruri, err := url.Parse(addr)
 			if err != nil {
@@ -96,11 +93,11 @@ func (c *dynamicClient) serve(stop chan struct{}) {
 		}
 	}
 	l.Debugln(c, "could not find a connectable relay")
-	c.setError(fmt.Errorf("could not find a connectable relay"))
+	return fmt.Errorf("could not find a connectable relay")
 }
 
 func (c *dynamicClient) Stop() {
-	c.Service.Stop()
+	c.ServiceWithError.Stop()
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	if c.client != nil {
@@ -112,7 +109,7 @@ func (c *dynamicClient) Error() error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	if c.client == nil {
-		return c.err
+		return c.Error()
 	}
 	return c.client.Error()
 }
