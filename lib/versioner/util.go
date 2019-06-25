@@ -109,15 +109,11 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 			return nil
 		}
 
-		if err == nil {
-			files[name] = append(files[name], FileVersion{
-				// This looks backwards, but mtime of the file is when we archived it, making that the version time
-				// The mod time of the file before archiving is embedded in the file name.
-				VersionTime: versionTime,
-				ModTime:     modTime,
-				Size:        f.Size(),
-			})
-		}
+		files[name] = append(files[name], FileVersion{
+			VersionTime: versionTime,
+			ModTime:     modTime,
+			Size:        f.Size(),
+		})
 
 		return nil
 	})
