@@ -48,15 +48,13 @@ type commonClient struct {
 
 	invitations              chan protocol.SessionInvitation
 	closeInvitationsOnFinish bool
-
-	mut sync.RWMutex
+	mut                      sync.RWMutex
 }
 
 func newCommonClient(invitations chan protocol.SessionInvitation, serve func(chan struct{}) error) *commonClient {
 	c := &commonClient{
 		invitations: invitations,
-
-		mut: sync.NewRWMutex(),
+		mut:         sync.NewRWMutex(),
 	}
 	newServe := func(stop chan struct{}) error {
 		defer c.cleanup()

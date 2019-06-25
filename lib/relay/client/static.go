@@ -99,7 +99,7 @@ func (c *staticClient) serve(stop chan struct{}) error {
 
 			case protocol.RelayFull:
 				l.Infof("Disconnected from relay %s due to it becoming full.", c.uri)
-				return fmt.Errorf("Relay full")
+				return fmt.Errorf("relay full")
 
 			default:
 				l.Infoln("Relay: protocol error: unexpected message %v", msg)
