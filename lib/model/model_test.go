@@ -2852,9 +2852,10 @@ func TestVersionRestore(t *testing.T) {
 	defer cleanupModel(m)
 	m.ScanFolder("default")
 
-	sentinel, err := time.ParseInLocation(versioner.TimeFormat, "20200101-010101", time.Local)
-	must(t, err)
-	sentinelTag := sentinel.Format(versioner.TimeFormat)
+	sentinel, err := time.ParseInLocation(versioner.TimeFormat, "20180101-010101", time.Local)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, file := range []string{
 		// Versions directory
@@ -2866,7 +2867,6 @@ func TestVersionRestore(t *testing.T) {
 		".stversions/dir/file~20171210-040406.txt",
 		".stversions/very/very/deep/one~20171210-040406.txt", // lives deep down, no directory exists.
 		".stversions/dir/existing~20171210-040406.txt",       // exists, should expect to be archived.
-		".stversions/dir/file.txt~20171210-040405",           // old tag format, supported
 		".stversions/dir/cat",                                // untagged which was used by trashcan, supported
 
 		// "file.txt" will be restored
@@ -2897,7 +2897,7 @@ func TestVersionRestore(t *testing.T) {
 		"file.txt":               1,
 		"existing":               1,
 		"something":              1,
-		"dir/file.txt":           4,
+		"dir/file.txt":           3,
 		"dir/existing.txt":       1,
 		"very/very/deep/one.txt": 1,
 		"dir/cat":                1,
@@ -2942,6 +2942,8 @@ func TestVersionRestore(t *testing.T) {
 		"very/very/deep/one.txt": makeTime("20171210-040406"),
 	}
 
+	beforeRestore := time.Now().Truncate(time.Second)
+
 	ferr, err := m.RestoreFolderVersions("default", restore)
 	must(t, err)
 
@@ -2977,51 +2979,48 @@ func TestVersionRestore(t *testing.T) {
 		}
 	}
 
-	// Simple versioner uses modtime for timestamp generation, so we can check
-	// if existing stuff was correctly archived as we restored.
+	// Simple versioner uses now for timestamp generation, so we can check
+	// if existing stuff was correctly archived as we restored (oppose to deleteD), and version time as after beforeRestore
 	expectArchived := map[string]struct{}{
 		"existing":         {},
 		"dir/file.txt":     {},
 		"dir/existing.txt": {},
 	}
 
-	// Even if they are at the archived path, content should have the non
-	// archived name.
-	for file := range expectArchived {
+	allFileVersions, err := m.GetFolderVersions("default")
+	must(t, err)
+	for file, versions := range allFileVersions {
+		key := file
 		if runtime.GOOS == "windows" {
 			file = filepath.FromSlash(file)
 		}
-		taggedName := versioner.TagFilename(file, sentinelTag)
-		taggedArchivedName := filepath.Join(".stversions", taggedName)
+		for _, version := range versions {
+			if version.VersionTime.Equal(beforeRestore) || version.VersionTime.After(beforeRestore) {
+				fd, err := filesystem.Open(".stversions/" + versioner.TagFilename(file, version.VersionTime.Format(versioner.TimeFormat)))
+				must(t, err)
+				defer fd.Close()
 
-		fd, err := filesystem.Open(taggedArchivedName)
-		must(t, err)
-		defer fd.Close()
-
-		content, err := ioutil.ReadAll(fd)
-		if err != nil {
-			t.Error(err)
-		}
-		if !bytes.Equal(content, []byte(file)) {
-			t.Errorf("%s: %s != %s", file, string(content), file)
+				content, err := ioutil.ReadAll(fd)
+				if err != nil {
+					t.Error(err)
+				}
+				// Even if they are at the archived path, content should have the non
+				// archived name.
+				if !bytes.Equal(content, []byte(file)) {
+					t.Errorf("%s (%s): %s != %s", file, fd.Name(), string(content), file)
+				}
+				_, ok := expectArchived[key]
+				if !ok {
+					t.Error("unexpected archived file with future timestamp", file, version.VersionTime)
+				}
+				delete(expectArchived, key)
+			}
 		}
 	}
 
-	// Check for other unexpected things that are tagged.
-	filesystem.Walk(".", func(path string, f fs.FileInfo, err error) error {
-		if !f.IsRegular() {
-			return nil
-		}
-		if strings.Contains(path, sentinelTag) {
-			path = osutil.NormalizedFilename(path)
-			name, _ := versioner.UntagFilename(path)
-			name = strings.TrimPrefix(name, ".stversions/")
-			if _, ok := expectArchived[name]; !ok {
-				t.Errorf("unexpected file with sentinel tag: %s", name)
-			}
-		}
-		return nil
-	})
+	if len(expectArchived) != 0 {
+		t.Fatal("missed some archived files", expectArchived)
+	}
 }
 
 func TestPausedFolders(t *testing.T) {
