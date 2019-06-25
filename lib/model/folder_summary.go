@@ -11,11 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thejerf/suture"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/thejerf/suture"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 const minSummaryInterval = time.Minute
@@ -34,7 +36,6 @@ type folderSummaryService struct {
 	cfg       config.Wrapper
 	model     Model
 	id        protocol.DeviceID
-	stop      chan struct{}
 	immediate chan string
 
 	// For keeping track of folders to recalculate for
@@ -54,22 +55,16 @@ func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID) 
 		cfg:             cfg,
 		model:           m,
 		id:              id,
-		stop:            make(chan struct{}),
 		immediate:       make(chan string),
 		folders:         make(map[string]struct{}),
 		foldersMut:      sync.NewMutex(),
 		lastEventReqMut: sync.NewMutex(),
 	}
 
-	service.Add(serviceFunc(service.listenForUpdates))
-	service.Add(serviceFunc(service.calculateSummaries))
+	service.Add(util.AsService(service.listenForUpdates))
+	service.Add(util.AsService(service.calculateSummaries))
 
 	return service
-}
-
-func (c *folderSummaryService) Stop() {
-	c.Supervisor.Stop()
-	close(c.stop)
 }
 
 func (c *folderSummaryService) String() string {
@@ -148,7 +143,7 @@ func (c *folderSummaryService) OnEventRequest() {
 
 // listenForUpdates subscribes to the event bus and makes note of folders that
 // need their data recalculated.
-func (c *folderSummaryService) listenForUpdates() {
+func (c *folderSummaryService) listenForUpdates(stop chan struct{}) {
 	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged)
 	defer events.Default.Unsubscribe(sub)
 
@@ -213,7 +208,7 @@ func (c *folderSummaryService) listenForUpdates() {
 				c.foldersMut.Unlock()
 			}
 
-		case <-c.stop:
+		case <-stop:
 			return
 		}
 	}
@@ -221,7 +216,7 @@ func (c *folderSummaryService) listenForUpdates() {
 
 // calculateSummaries periodically recalculates folder summaries and
 // completion percentage, and sends the results on the event bus.
-func (c *folderSummaryService) calculateSummaries() {
+func (c *folderSummaryService) calculateSummaries(stop chan struct{}) {
 	const pumpInterval = 2 * time.Second
 	pump := time.NewTimer(pumpInterval)
 
@@ -242,7 +237,7 @@ func (c *folderSummaryService) calculateSummaries() {
 		case folder := <-c.immediate:
 			c.sendSummary(folder)
 
-		case <-c.stop:
+		case <-stop:
 			return
 		}
 	}
@@ -303,10 +298,3 @@ func (c *folderSummaryService) sendSummary(folder string) {
 		events.Default.Log(events.FolderCompletion, comp)
 	}
 }
-
-// serviceFunc wraps a function to create a suture.Service without stop
-// functionality.
-type serviceFunc func()
-
-func (f serviceFunc) Serve() { f() }
-func (f serviceFunc) Stop()  {}
