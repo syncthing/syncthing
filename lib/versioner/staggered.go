@@ -11,8 +11,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/thejerf/suture"
+
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -26,13 +29,13 @@ type Interval struct {
 }
 
 type Staggered struct {
+	suture.Service
 	cleanInterval int64
 	folderFs      fs.Filesystem
 	versionsFs    fs.Filesystem
 	interval      [4]Interval
 	mutex         sync.Mutex
 
-	stop          chan struct{}
 	testCleanDone chan struct{}
 }
 
@@ -61,14 +64,14 @@ func NewStaggered(folderID string, folderFs fs.Filesystem, params map[string]str
 			{604800, maxAge}, // next year -> 1 week between versions
 		},
 		mutex: sync.NewMutex(),
-		stop:  make(chan struct{}),
 	}
+	s.Service = util.AsService(s.serve)
 
 	l.Debugf("instantiated %#v", s)
 	return s
 }
 
-func (v *Staggered) Serve() {
+func (v *Staggered) serve(stop chan struct{}) {
 	v.clean()
 	if v.testCleanDone != nil {
 		close(v.testCleanDone)
@@ -80,14 +83,10 @@ func (v *Staggered) Serve() {
 		select {
 		case <-tck.C:
 			v.clean()
-		case <-v.stop:
+		case <-stop:
 			return
 		}
 	}
-}
-
-func (v *Staggered) Stop() {
-	close(v.stop)
 }
 
 func (v *Staggered) clean() {

@@ -191,13 +191,6 @@ type Model interface {
 	GetHello(protocol.DeviceID) protocol.HelloIntf
 }
 
-// serviceFunc wraps a function to create a suture.Service without stop
-// functionality.
-type serviceFunc func()
-
-func (f serviceFunc) Serve() { f() }
-func (f serviceFunc) Stop()  {}
-
 type onAddressesChangedNotifier struct {
 	callbacks []func(genericListener)
 }

@@ -184,16 +184,22 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 	// the common handling regardless of whether the connection was
 	// incoming or outgoing.
 
-	service.Add(serviceFunc(service.connect))
-	service.Add(serviceFunc(service.handle))
+	service.Add(util.AsService(service.connect))
+	service.Add(util.AsService(service.handle))
 	service.Add(service.listenerSupervisor)
 
 	return service
 }
 
-func (s *service) handle() {
-next:
-	for c := range s.conns {
+func (s *service) handle(stop chan struct{}) {
+	var c internalConn
+	for {
+		select {
+		case <-stop:
+			return
+		case c = <-s.conns:
+		}
+
 		cs := c.ConnectionState()
 
 		// We should have negotiated the next level protocol "bep/1.0" as part
@@ -298,7 +304,7 @@ next:
 			// config. Warn instead of Info.
 			l.Warnf("Bad certificate from %s at %s: %v", remoteID, c, err)
 			c.Close()
-			continue next
+			continue
 		}
 
 		// Wrap the connection in rate limiters. The limiter itself will
@@ -313,11 +319,11 @@ next:
 		l.Infof("Established secure connection to %s at %s", remoteID, c)
 
 		s.model.AddConnection(modelConn, hello)
-		continue next
+		continue
 	}
 }
 
-func (s *service) connect() {
+func (s *service) connect(stop chan struct{}) {
 	nextDial := make(map[string]time.Time)
 
 	// Used as delay for the first few connection attempts, increases
@@ -328,6 +334,12 @@ func (s *service) connect() {
 	var sleep time.Duration
 
 	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+
 		cfg := s.cfg.RawCopy()
 
 		bestDialerPrio := 1<<31 - 1 // worse prio won't build on 32 bit
