@@ -1599,8 +1599,8 @@ func (f *sendReceiveFolder) BringToFront(filename string) {
 	f.queue.BringToFront(filename)
 }
 
-func (f *sendReceiveFolder) Jobs() ([]string, []string) {
-	return f.queue.Jobs()
+func (f *sendReceiveFolder) Jobs(page, perpage int) ([]string, []string, int) {
+	return f.queue.Jobs(page, perpage)
 }
 
 // dbUpdaterRoutine aggregates db updates and commits them in batches no
