@@ -2,6 +2,8 @@ github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362 h1:l
 github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362/go.mod h1:CEaBhA5lh1spxbPOELh5wNLKGsVQoahjUhVrJViVK8s=
 github.com/AudriusButkevicius/pfilter v0.0.0-20190525131515-730b0de4d4de h1:w1VG0ehgPh2ucQGO7wL9TBmHLzMo4dduYwyp2lhs8+A=
 github.com/AudriusButkevicius/pfilter v0.0.0-20190525131515-730b0de4d4de/go.mod h1:1N0EEx/irz4B1qV17wW82TFbjQrE7oX316Cki6eDY0Q=
+github.com/AudriusButkevicius/pfilter v0.0.0-20190627213056-c55ef6137fc6 h1:Apvc4kyfdrOxG+F5dn8osz+45kwGJa6CySQn0tB38SU=
+github.com/AudriusButkevicius/pfilter v0.0.0-20190627213056-c55ef6137fc6/go.mod h1:1N0EEx/irz4B1qV17wW82TFbjQrE7oX316Cki6eDY0Q=
 github.com/AudriusButkevicius/recli v0.0.5 h1:xUa55PvWTHBm17T6RvjElRO3y5tALpdceH86vhzQ5wg=
 github.com/AudriusButkevicius/recli v0.0.5/go.mod h1:Q2E26yc6RvWWEz/TJ/goUp6yXvipYdJI096hpoaqsNs=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
