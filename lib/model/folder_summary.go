@@ -149,7 +149,7 @@ func (c *folderSummaryService) OnEventRequest() {
 // listenForUpdates subscribes to the event bus and makes note of folders that
 // need their data recalculated.
 func (c *folderSummaryService) listenForUpdates() {
-	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged)
+	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged | events.DownloadProgress)
 	defer events.Default.Unsubscribe(sub)
 
 	for {
@@ -165,7 +165,10 @@ func (c *folderSummaryService) listenForUpdates() {
 }
 
 func (c *folderSummaryService) processUpdate(ev events.Event) {
-	if ev.Type == events.DeviceConnected {
+	var folder string
+
+	switch ev.Type {
+	case events.DeviceConnected:
 		// When a device connects we schedule a refresh of all
 		// folders shared with that device.
 
@@ -184,42 +187,52 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 		}
 		c.foldersMut.Unlock()
 
-		continue
-	}
+		return
 
-	// The other events all have a "folder" attribute that they
-	// affect. Whenever the local or remote index is updated for a
-	// given folder we make a note of it.
+	case events.DownloadProgress:
+		data := ev.Data.(map[string]map[string]*pullerProgress)
+		c.foldersMut.Lock()
+		for folder := range data {
+			c.folders[folder] = struct{}{}
+		}
+		c.foldersMut.Unlock()
+		return
 
-	data := ev.Data.(map[string]interface{})
-	folder := data["folder"].(string)
-
-	switch ev.Type {
 	case events.StateChanged:
-		if data["to"].(string) == "idle" && data["from"].(string) == "syncing" {
-			// The folder changed to idle from syncing. We should do an
-			// immediate refresh to update the GUI. The send to
-			// c.immediate must be nonblocking so that we can continue
-			// handling events.
+		data := ev.Data.(map[string]interface{})
+		if !(data["to"].(string) == "idle" && data["from"].(string) == "syncing") {
+			return
+		}
 
+		// The folder changed to idle from syncing. We should do an
+		// immediate refresh to update the GUI. The send to
+		// c.immediate must be nonblocking so that we can continue
+		// handling events.
+
+		folder = data["folder"].(string)
+		select {
+		case c.immediate <- folder:
 			c.foldersMut.Lock()
-			select {
-			case c.immediate <- folder:
-				delete(c.folders, folder)
-			default:
-				c.folders[folder] = struct{}{}
-			}
+			delete(c.folders, folder)
 			c.foldersMut.Unlock()
+			return
+		default:
+			// Refresh whenever we do the next summary.
 		}
 
 	default:
+		// The other events all have a "folder" attribute that they
+		// affect. Whenever the local or remote index is updated for a
+		// given folder we make a note of it.
 		// This folder needs to be refreshed whenever we do the next
 		// refresh.
 
-		c.foldersMut.Lock()
-		c.folders[folder] = struct{}{}
-		c.foldersMut.Unlock()
+		folder = ev.Data.(map[string]interface{})["folder"].(string)
 	}
+
+	c.foldersMut.Lock()
+	c.folders[folder] = struct{}{}
+	c.foldersMut.Unlock()
 }
 
 // calculateSummaries periodically recalculates folder summaries and

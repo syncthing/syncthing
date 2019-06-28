@@ -325,7 +325,7 @@
                   <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span>
-                    <span ng-show="syncRemaining(folder.id)">({{syncPercentage(folder.id) | percent}}, {{syncRemaining(folder.id) | binary}}B)</span>
+                    <span>({{syncPercentage(folder.id) | percent}}, {{model[folder.id].needBytes | binary}}B)</span>
                   </span>
                   <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs" aria-label="{{'Out of Sync' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
                   <span ng-switch-when="faileditems"><span class="hidden-xs" translate>Failed Items</span><span class="visible-xs" aria-label="{{'Failed Items' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
