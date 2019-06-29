@@ -370,17 +370,20 @@ func (m *model) AddFolder(cfg config.FolderConfiguration) {
 		panic("cannot add empty folder path")
 	}
 
+	// Creating the fileset can take a long time (metadata calculation) so
+	// we do it outside of the lock.
+	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
+
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
-	m.addFolderLocked(cfg)
+	m.addFolderLocked(cfg, fset)
 }
 
-func (m *model) addFolderLocked(cfg config.FolderConfiguration) {
+func (m *model) addFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
 	m.folderCfgs[cfg.ID] = cfg
-	folderFs := cfg.Filesystem()
-	m.folderFiles[cfg.ID] = db.NewFileSet(cfg.ID, folderFs, m.db)
+	m.folderFiles[cfg.ID] = fset
 
-	ignores := ignore.New(folderFs, ignore.WithCache(m.cacheIgnoredFiles))
+	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
 	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 		l.Warnln("Loading ignores:", err)
 	}
@@ -458,12 +461,19 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 		errMsg = "restarting"
 	}
 
+	var fset *db.FileSet
+	if !to.Paused {
+		// Creating the fileset can take a long time (metadata calculation)
+		// so we do it outside of the lock.
+		fset = db.NewFileSet(to.ID, to.Filesystem(), m.db)
+	}
+
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
 	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
 	if !to.Paused {
-		m.addFolderLocked(to)
+		m.addFolderLocked(to, fset)
 		m.startFolderLocked(to)
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
