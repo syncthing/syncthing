@@ -370,7 +370,10 @@ func (m *model) AddFolder(cfg config.FolderConfiguration) {
 		panic("cannot add empty folder path")
 	}
 
+	// Creating the fileset can take a long time (metadata calculation) so
+	// we do it outside of the lock.
 	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
+
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 	m.addFolderLocked(cfg, fset)
@@ -460,6 +463,8 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 
 	var fset *db.FileSet
 	if !to.Paused {
+		// Creating the fileset can take a long time (metadata calculation)
+		// so we do it outside of the lock.
 		fset = db.NewFileSet(to.ID, to.Filesystem(), m.db)
 	}
 
