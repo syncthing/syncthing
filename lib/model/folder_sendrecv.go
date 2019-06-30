@@ -579,13 +579,9 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	case err == nil && !info.IsDir():
 		// Check that it is what we have in the database.
 		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
-		if changed, err := f.itemChanged(info, curFile, hasCurFile, scanChan); err != nil {
+		if err := f.scanIfItemChanged(info, curFile, hasCurFile, scanChan); err != nil {
+			err = errors.Wrap(err, "handling dir")
 			f.newPullError(file.Name, err)
-			return
-		} else if changed {
-			l.Debugln("item changed on disk compared to db; not replacing with dir:", file.Name)
-			scanChan <- curFile.Name
-			f.newPullError(file.Name, errModified)
 			return
 		}
 
@@ -737,13 +733,9 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	if info, err := f.fs.Lstat(file.Name); err == nil {
 		// Check that it is what we have in the database.
 		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
-		if changed, err := f.itemChanged(info, curFile, hasCurFile, scanChan); err != nil {
+		if err := f.scanIfItemChanged(info, curFile, hasCurFile, scanChan); err != nil {
+			err = errors.Wrap(err, "handling symlink")
 			f.newPullError(file.Name, err)
-			return
-		} else if changed {
-			l.Debugln("item changed on disk compared to db; not replacing with symlink:", file.Name)
-			scanChan <- curFile.Name
-			f.newPullError(file.Name, errModified)
 			return
 		}
 		// Remove it to replace with the symlink. This also handles the
@@ -1516,12 +1508,10 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		// There is an old file or directory already in place. We need to
 		// handle that.
 
-		if changed, err := f.itemChanged(stat, curFile, hasCurFile, scanChan); err != nil {
+		if err := f.scanIfItemChanged(stat, curFile, hasCurFile, scanChan); err != nil {
+			err = errors.Wrap(err, "handling file")
+			f.newPullError(file.Name, err)
 			return err
-		} else if changed {
-			l.Debugln("file changed on disk compared to db; not finishing:", file.Name)
-			scanChan <- curFile.Name
-			return errModified
 		}
 
 		if !curFile.IsDirectory() && !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
@@ -1601,8 +1591,8 @@ func (f *sendReceiveFolder) BringToFront(filename string) {
 	f.queue.BringToFront(filename)
 }
 
-func (f *sendReceiveFolder) Jobs() ([]string, []string) {
-	return f.queue.Jobs()
+func (f *sendReceiveFolder) Jobs(page, perpage int) ([]string, []string, int) {
+	return f.queue.Jobs(page, perpage)
 }
 
 // dbUpdaterRoutine aggregates db updates and commits them in batches no
@@ -1905,18 +1895,19 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, scanChan chan<- string) 
 	return err
 }
 
-// itemChanged returns true if the given disk file differs from the information
-// in the database and schedules that file for scanning
-func (f *sendReceiveFolder) itemChanged(stat fs.FileInfo, item protocol.FileInfo, hasItem bool, scanChan chan<- string) (changed bool, err error) {
+// scanIfItemChanged schedules the given file for scanning and returns errModified
+// if it differs from the information in the database. Returns nil if the file has
+// not changed.
+func (f *sendReceiveFolder) scanIfItemChanged(stat fs.FileInfo, item protocol.FileInfo, hasItem bool, scanChan chan<- string) (err error) {
 	defer func() {
-		if changed {
+		if err == errModified {
 			scanChan <- item.Name
 		}
 	}()
 
 	if !hasItem || item.Deleted {
 		// The item appeared from nowhere
-		return true, nil
+		return errModified
 	}
 
 	// Check that the item on disk is what we expect it to be according
@@ -1925,10 +1916,14 @@ func (f *sendReceiveFolder) itemChanged(stat fs.FileInfo, item protocol.FileInfo
 	// touching the item.
 	statItem, err := scanner.CreateFileInfo(stat, item.Name, f.fs)
 	if err != nil {
-		return false, errors.Wrap(err, "comparing item on disk to db")
+		return errors.Wrap(err, "comparing item on disk to db")
 	}
 
-	return !statItem.IsEquivalentOptional(item, f.IgnorePerms, true, protocol.LocalAllFlags), nil
+	if !statItem.IsEquivalentOptional(item, f.IgnorePerms, true, protocol.LocalAllFlags) {
+		return errModified
+	}
+
+	return nil
 }
 
 // checkToBeDeleted makes sure the file on disk is compatible with what there is
@@ -1945,14 +1940,7 @@ func (f *sendReceiveFolder) checkToBeDeleted(cur protocol.FileInfo, scanChan cha
 		// do not delete.
 		return err
 	}
-	changed, err := f.itemChanged(stat, cur, true, scanChan)
-	if err != nil {
-		return err
-	}
-	if changed {
-		return errModified
-	}
-	return nil
+	return f.scanIfItemChanged(stat, cur, true, scanChan)
 }
 
 func (f *sendReceiveFolder) maybeCopyOwner(path string) error {

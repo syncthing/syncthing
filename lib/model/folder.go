@@ -220,8 +220,8 @@ func (f *folder) SchedulePull() {
 	}
 }
 
-func (f *folder) Jobs() ([]string, []string) {
-	return nil, nil
+func (f *folder) Jobs(_, _ int) ([]string, []string, int) {
+	return nil, nil, 0
 }
 
 func (f *folder) Scan(subdirs []string) error {
