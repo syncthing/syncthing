@@ -801,7 +801,8 @@ func (m *model) ReceiveOnlyChangedSize(folder string) db.Counts {
 	return db.Counts{}
 }
 
-// NeedSize returns the number and total size of currently needed files.
+// NeedSize returns the number of currently needed files and their total size
+// minus the amount that has already been downloaded.
 func (m *model) NeedSize(folder string) db.Counts {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
