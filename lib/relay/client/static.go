@@ -15,7 +15,7 @@ import (
 )
 
 type staticClient struct {
-	*commonClient
+	commonClient
 
 	uri *url.URL
 

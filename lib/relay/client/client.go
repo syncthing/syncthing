@@ -51,8 +51,8 @@ type commonClient struct {
 	mut                      sync.RWMutex
 }
 
-func newCommonClient(invitations chan protocol.SessionInvitation, serve func(chan struct{}) error) *commonClient {
-	c := &commonClient{
+func newCommonClient(invitations chan protocol.SessionInvitation, serve func(chan struct{}) error) commonClient {
+	c := commonClient{
 		invitations: invitations,
 		mut:         sync.NewRWMutex(),
 	}

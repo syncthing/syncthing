@@ -203,35 +203,39 @@ func AsServiceWithError(fn func(stop chan struct{}) error) ServiceWithError {
 }
 
 type service struct {
-	serve    func(stop chan struct{}) error
-	stopping bool
-	stop     chan struct{}
-	stopped  chan struct{}
-	err      error
-	mut      sync.Mutex
+	serve   func(stop chan struct{}) error
+	stop    chan struct{}
+	stopped chan struct{}
+	err     error
+	mut     sync.Mutex
 }
 
 func (s *service) Serve() {
 	s.mut.Lock()
-	if s.stopping {
+	select {
+	case <-s.stop:
 		s.mut.Unlock()
 		return
+	default:
 	}
 	s.err = nil
 	s.stopped = make(chan struct{})
 	s.mut.Unlock()
-	defer close(s.stopped)
-	err := s.serve(s.stop)
-	s.mut.Lock()
-	s.err = err
-	s.mut.Unlock()
+
+	var err error
+	defer func() {
+		s.mut.Lock()
+		s.err = err
+		close(s.stopped)
+		s.mut.Unlock()
+	}()
+	err = s.serve(s.stop)
 }
 
 func (s *service) Stop() {
 	s.mut.Lock()
-	s.stopping = true
-	s.mut.Unlock()
 	close(s.stop)
+	s.mut.Unlock()
 	<-s.stopped
 }
 

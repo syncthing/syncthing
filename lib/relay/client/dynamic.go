@@ -17,7 +17,7 @@ import (
 )
 
 type dynamicClient struct {
-	*commonClient
+	commonClient
 
 	pooladdr *url.URL
 	certs    []tls.Certificate
@@ -69,6 +69,14 @@ func (c *dynamicClient) serve(stop chan struct{}) error {
 		addrs = append(addrs, ruri.String())
 	}
 
+	defer func() {
+		c.mut.RLock()
+		if c.client != nil {
+			c.client.Stop()
+		}
+		c.mut.RUnlock()
+	}()
+
 	for _, addr := range relayAddressesOrder(addrs) {
 		select {
 		case <-stop:
@@ -94,15 +102,6 @@ func (c *dynamicClient) serve(stop chan struct{}) error {
 	}
 	l.Debugln(c, "could not find a connectable relay")
 	return fmt.Errorf("could not find a connectable relay")
-}
-
-func (c *dynamicClient) Stop() {
-	c.ServiceWithError.Stop()
-	c.mut.RLock()
-	defer c.mut.RUnlock()
-	if c.client != nil {
-		c.client.Stop()
-	}
 }
 
 func (c *dynamicClient) Error() error {

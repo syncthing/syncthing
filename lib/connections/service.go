@@ -334,12 +334,6 @@ func (s *service) connect(stop chan struct{}) {
 	var sleep time.Duration
 
 	for {
-		select {
-		case <-stop:
-			return
-		default:
-		}
-
 		cfg := s.cfg.RawCopy()
 
 		bestDialerPrio := 1<<31 - 1 // worse prio won't build on 32 bit
@@ -477,11 +471,16 @@ func (s *service) connect(stop chan struct{}) {
 
 		if initialRampup < sleep {
 			l.Debugln("initial rampup; sleep", initialRampup, "and update to", initialRampup*2)
-			time.Sleep(initialRampup)
+			sleep = initialRampup
 			initialRampup *= 2
 		} else {
 			l.Debugln("sleep until next dial", sleep)
-			time.Sleep(sleep)
+		}
+
+		select {
+		case <-time.After(sleep):
+		case <-stop:
+			return
 		}
 	}
 }
