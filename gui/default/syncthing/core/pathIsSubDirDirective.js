@@ -15,9 +15,9 @@ angular.module('syncthing.core')
                         if (xdirArr.length > ydirArr.length) {
                             return false;
                         }
-                        return xdirArr.map(function(e, i) {
+                        return xdirArr.map(function (e, i) {
                             return xdirArr[i] === ydirArr[i];
-                        }).every(function(e) { return e });
+                        }).every(function (e) { return e });
                     }
 
                     scope.folderPathErrors.isSub = false;
@@ -43,4 +43,4 @@ angular.module('syncthing.core')
                 });
             }
         };
-});
+    });

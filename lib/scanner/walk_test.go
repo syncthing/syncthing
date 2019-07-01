@@ -252,6 +252,7 @@ func TestNormalization(t *testing.T) {
 
 func TestIssue1507(t *testing.T) {
 	w := &walker{}
+	w.Matcher = ignore.New(w.Filesystem)
 	h := make(chan protocol.FileInfo, 100)
 	f := make(chan ScanResult, 100)
 	fn := w.walkAndHashFiles(context.TODO(), h, f)
@@ -466,14 +467,13 @@ func TestWalkReceiveOnly(t *testing.T) {
 
 func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.Matcher, localFlags uint32) []protocol.FileInfo {
 	fchan := Walk(context.TODO(), Config{
-		Filesystem:     fs,
-		Subs:           []string{dir},
-		AutoNormalize:  true,
-		Hashers:        2,
-		UseLargeBlocks: true,
-		CurrentFiler:   cfiler,
-		Matcher:        matcher,
-		LocalFlags:     localFlags,
+		Filesystem:    fs,
+		Subs:          []string{dir},
+		AutoNormalize: true,
+		Hashers:       2,
+		CurrentFiler:  cfiler,
+		Matcher:       matcher,
+		LocalFlags:    localFlags,
 	})
 
 	var tmp []protocol.FileInfo
@@ -735,6 +735,23 @@ func TestIssue4841(t *testing.T) {
 	}
 	if expected := (protocol.Vector{}.Update(protocol.LocalDeviceID.Short())); !files[0].Version.Equal(expected) {
 		t.Fatalf("Expected Version == %v, got %v", expected, files[0].Version)
+	}
+}
+
+// TestNotExistingError reproduces https://github.com/syncthing/syncthing/issues/5385
+func TestNotExistingError(t *testing.T) {
+	sub := "notExisting"
+	if _, err := testFs.Lstat(sub); !fs.IsNotExist(err) {
+		t.Fatalf("Lstat returned error %v, while nothing should exist there.", err)
+	}
+
+	fchan := Walk(context.TODO(), Config{
+		Filesystem: testFs,
+		Subs:       []string{sub},
+		Hashers:    2,
+	})
+	for f := range fchan {
+		t.Fatalf("Expected no result from scan, got %v", f)
 	}
 }
 

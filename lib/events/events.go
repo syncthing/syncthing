@@ -204,7 +204,9 @@ type Logger struct {
 	nextSubscriptionIDs []int
 	nextGlobalID        int
 	timeout             *time.Timer
-	mutex               sync.Mutex
+	events              chan Event
+	funcs               chan func()
+	stop                chan struct{}
 }
 
 type Event struct {
@@ -225,6 +227,13 @@ type Subscription struct {
 
 var Default = NewLogger()
 
+func init() {
+	// The default logger never stops. To ensure this we nil out the stop
+	// channel so any attempt to stop it will panic.
+	Default.stop = nil
+	go Default.Serve()
+}
+
 var (
 	ErrTimeout = errors.New("timeout")
 	ErrClosed  = errors.New("closed")
@@ -232,8 +241,10 @@ var (
 
 func NewLogger() *Logger {
 	l := &Logger{
-		mutex:   sync.NewMutex(),
 		timeout: time.NewTimer(time.Second),
+		events:  make(chan Event, BufferSize),
+		funcs:   make(chan func()),
+		stop:    make(chan struct{}),
 	}
 	// Make sure the timer is in the stopped state and hasn't fired anything
 	// into the channel.
@@ -243,20 +254,52 @@ func NewLogger() *Logger {
 	return l
 }
 
-func (l *Logger) Log(t EventType, data interface{}) {
-	l.mutex.Lock()
-	l.nextGlobalID++
-	dl.Debugln("log", l.nextGlobalID, t, data)
+func (l *Logger) Serve() {
+loop:
+	for {
+		select {
+		case e := <-l.events:
+			// Incoming events get sent
+			l.sendEvent(e)
 
-	e := Event{
-		GlobalID: l.nextGlobalID,
-		Time:     time.Now(),
-		Type:     t,
-		Data:     data,
+		case fn := <-l.funcs:
+			// Subscriptions etc are handled here.
+			fn()
+
+		case <-l.stop:
+			break loop
+		}
 	}
 
+	// Closing the event channels corresponds to what happens when a
+	// subscription is unsubscribed; this stops any BufferedSubscription,
+	// makes Poll() return ErrClosed, etc.
+	for _, s := range l.subs {
+		close(s.events)
+	}
+}
+
+func (l *Logger) Stop() {
+	close(l.stop)
+}
+
+func (l *Logger) Log(t EventType, data interface{}) {
+	l.events <- Event{
+		Time: time.Now(),
+		Type: t,
+		Data: data,
+		// SubscriptionID and GlobalID are set in sendEvent
+	}
+}
+
+func (l *Logger) sendEvent(e Event) {
+	l.nextGlobalID++
+	dl.Debugln("log", l.nextGlobalID, e.Type, e.Data)
+
+	e.GlobalID = l.nextGlobalID
+
 	for i, s := range l.subs {
-		if s.mask&t != 0 {
+		if s.mask&e.Type != 0 {
 			e.SubscriptionID = l.nextSubscriptionIDs[i]
 			l.nextSubscriptionIDs[i]++
 
@@ -278,59 +321,60 @@ func (l *Logger) Log(t EventType, data interface{}) {
 			}
 		}
 	}
-	l.mutex.Unlock()
 }
 
 func (l *Logger) Subscribe(mask EventType) *Subscription {
-	l.mutex.Lock()
-	dl.Debugln("subscribe", mask)
+	res := make(chan *Subscription)
+	l.funcs <- func() {
+		dl.Debugln("subscribe", mask)
 
-	s := &Subscription{
-		mask:    mask,
-		events:  make(chan Event, BufferSize),
-		timeout: time.NewTimer(0),
-	}
+		s := &Subscription{
+			mask:    mask,
+			events:  make(chan Event, BufferSize),
+			timeout: time.NewTimer(0),
+		}
 
-	// We need to create the timeout timer in the stopped, non-fired state so
-	// that Subscription.Poll() can safely reset it and select on the timeout
-	// channel. This ensures the timer is stopped and the channel drained.
-	if runningTests {
-		// Make the behavior stable when running tests to avoid randomly
-		// varying test coverage. This ensures, in practice if not in
-		// theory, that the timer fires and we take the true branch of the
-		// next if.
-		runtime.Gosched()
-	}
-	if !s.timeout.Stop() {
-		<-s.timeout.C
-	}
+		// We need to create the timeout timer in the stopped, non-fired state so
+		// that Subscription.Poll() can safely reset it and select on the timeout
+		// channel. This ensures the timer is stopped and the channel drained.
+		if runningTests {
+			// Make the behavior stable when running tests to avoid randomly
+			// varying test coverage. This ensures, in practice if not in
+			// theory, that the timer fires and we take the true branch of the
+			// next if.
+			runtime.Gosched()
+		}
+		if !s.timeout.Stop() {
+			<-s.timeout.C
+		}
 
-	l.subs = append(l.subs, s)
-	l.nextSubscriptionIDs = append(l.nextSubscriptionIDs, 1)
-	l.mutex.Unlock()
-	return s
+		l.subs = append(l.subs, s)
+		l.nextSubscriptionIDs = append(l.nextSubscriptionIDs, 1)
+		res <- s
+	}
+	return <-res
 }
 
 func (l *Logger) Unsubscribe(s *Subscription) {
-	l.mutex.Lock()
-	dl.Debugln("unsubscribe")
-	for i, ss := range l.subs {
-		if s == ss {
-			last := len(l.subs) - 1
+	l.funcs <- func() {
+		dl.Debugln("unsubscribe")
+		for i, ss := range l.subs {
+			if s == ss {
+				last := len(l.subs) - 1
 
-			l.subs[i] = l.subs[last]
-			l.subs[last] = nil
-			l.subs = l.subs[:last]
+				l.subs[i] = l.subs[last]
+				l.subs[last] = nil
+				l.subs = l.subs[:last]
 
-			l.nextSubscriptionIDs[i] = l.nextSubscriptionIDs[last]
-			l.nextSubscriptionIDs[last] = 0
-			l.nextSubscriptionIDs = l.nextSubscriptionIDs[:last]
+				l.nextSubscriptionIDs[i] = l.nextSubscriptionIDs[last]
+				l.nextSubscriptionIDs[last] = 0
+				l.nextSubscriptionIDs = l.nextSubscriptionIDs[:last]
 
-			break
+				break
+			}
 		}
+		close(s.events)
 	}
-	close(s.events)
-	l.mutex.Unlock()
 }
 
 // Poll returns an event from the subscription or an error if the poll times

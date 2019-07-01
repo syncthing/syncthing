@@ -9,17 +9,21 @@ package db
 import (
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/storage"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 const (
 	dbMaxOpenFiles = 100
-	dbWriteBuffer  = 4 << 20
+	dbWriteBuffer  = 16 << 20
+	dbFlushBatch   = dbWriteBuffer / 4 // Some leeway for any leveldb in-memory optimizations
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
@@ -33,6 +37,9 @@ type Lowlevel struct {
 	location  string
 	folderIdx *smallIndex
 	deviceIdx *smallIndex
+	closed    bool
+	closeMut  *sync.RWMutex
+	iterWG    sync.WaitGroup
 }
 
 // Open attempts to open the database at the given location, and runs
@@ -82,11 +89,6 @@ func OpenMemory() *Lowlevel {
 	return NewLowlevel(db, "<memory>")
 }
 
-// Location returns the filesystem path where the database is stored
-func (db *Lowlevel) Location() string {
-	return db.location
-}
-
 // ListFolders returns the list of folders currently in the database
 func (db *Lowlevel) ListFolders() []string {
 	return db.folderIdx.Values()
@@ -98,13 +100,77 @@ func (db *Lowlevel) Committed() int64 {
 }
 
 func (db *Lowlevel) Put(key, val []byte, wo *opt.WriteOptions) error {
+	db.closeMut.RLock()
+	defer db.closeMut.RUnlock()
+	if db.closed {
+		return leveldb.ErrClosed
+	}
 	atomic.AddInt64(&db.committed, 1)
 	return db.DB.Put(key, val, wo)
 }
 
+func (db *Lowlevel) Write(batch *leveldb.Batch, wo *opt.WriteOptions) error {
+	db.closeMut.RLock()
+	defer db.closeMut.RUnlock()
+	if db.closed {
+		return leveldb.ErrClosed
+	}
+	return db.DB.Write(batch, wo)
+}
+
 func (db *Lowlevel) Delete(key []byte, wo *opt.WriteOptions) error {
+	db.closeMut.RLock()
+	defer db.closeMut.RUnlock()
+	if db.closed {
+		return leveldb.ErrClosed
+	}
 	atomic.AddInt64(&db.committed, 1)
 	return db.DB.Delete(key, wo)
+}
+
+func (db *Lowlevel) NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator {
+	return db.newIterator(func() iterator.Iterator { return db.DB.NewIterator(slice, ro) })
+}
+
+// newIterator returns an iterator created with the given constructor only if db
+// is not yet closed. If it is closed, a closedIter is returned instead.
+func (db *Lowlevel) newIterator(constr func() iterator.Iterator) iterator.Iterator {
+	db.closeMut.RLock()
+	defer db.closeMut.RUnlock()
+	if db.closed {
+		return &closedIter{}
+	}
+	db.iterWG.Add(1)
+	return &iter{
+		Iterator: constr(),
+		db:       db,
+	}
+}
+
+func (db *Lowlevel) GetSnapshot() snapshot {
+	s, err := db.DB.GetSnapshot()
+	if err != nil {
+		if err == leveldb.ErrClosed {
+			return &closedSnap{}
+		}
+		panic(err)
+	}
+	return &snap{
+		Snapshot: s,
+		db:       db,
+	}
+}
+
+func (db *Lowlevel) Close() {
+	db.closeMut.Lock()
+	if db.closed {
+		db.closeMut.Unlock()
+		return
+	}
+	db.closed = true
+	db.closeMut.Unlock()
+	db.iterWG.Wait()
+	db.DB.Close()
 }
 
 // NewLowlevel wraps the given *leveldb.DB into a *lowlevel
@@ -114,6 +180,8 @@ func NewLowlevel(db *leveldb.DB, location string) *Lowlevel {
 		location:  location,
 		folderIdx: newSmallIndex(db, []byte{KeyTypeFolderIdx}),
 		deviceIdx: newSmallIndex(db, []byte{KeyTypeDeviceIdx}),
+		closeMut:  &sync.RWMutex{},
+		iterWG:    sync.WaitGroup{},
 	}
 }
 
@@ -131,4 +199,108 @@ func leveldbIsCorrupted(err error) bool {
 	}
 
 	return false
+}
+
+type batch struct {
+	*leveldb.Batch
+	db *Lowlevel
+}
+
+func (db *Lowlevel) newBatch() *batch {
+	return &batch{
+		Batch: new(leveldb.Batch),
+		db:    db,
+	}
+}
+
+// checkFlush flushes and resets the batch if its size exceeds dbFlushBatch.
+func (b *batch) checkFlush() {
+	if len(b.Dump()) > dbFlushBatch {
+		b.flush()
+		b.Reset()
+	}
+}
+
+func (b *batch) flush() {
+	if err := b.db.Write(b.Batch, nil); err != nil && err != leveldb.ErrClosed {
+		panic(err)
+	}
+}
+
+type closedIter struct{}
+
+func (it *closedIter) Release()                           {}
+func (it *closedIter) Key() []byte                        { return nil }
+func (it *closedIter) Value() []byte                      { return nil }
+func (it *closedIter) Next() bool                         { return false }
+func (it *closedIter) Prev() bool                         { return false }
+func (it *closedIter) First() bool                        { return false }
+func (it *closedIter) Last() bool                         { return false }
+func (it *closedIter) Seek(key []byte) bool               { return false }
+func (it *closedIter) Valid() bool                        { return false }
+func (it *closedIter) Error() error                       { return leveldb.ErrClosed }
+func (it *closedIter) SetReleaser(releaser util.Releaser) {}
+
+type snapshot interface {
+	Get([]byte, *opt.ReadOptions) ([]byte, error)
+	Has([]byte, *opt.ReadOptions) (bool, error)
+	NewIterator(*util.Range, *opt.ReadOptions) iterator.Iterator
+	Release()
+}
+
+type closedSnap struct{}
+
+func (s *closedSnap) Get([]byte, *opt.ReadOptions) ([]byte, error) { return nil, leveldb.ErrClosed }
+func (s *closedSnap) Has([]byte, *opt.ReadOptions) (bool, error)   { return false, leveldb.ErrClosed }
+func (s *closedSnap) NewIterator(*util.Range, *opt.ReadOptions) iterator.Iterator {
+	return &closedIter{}
+}
+func (s *closedSnap) Release() {}
+
+type snap struct {
+	*leveldb.Snapshot
+	db *Lowlevel
+}
+
+func (s *snap) NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator {
+	return s.db.newIterator(func() iterator.Iterator { return s.Snapshot.NewIterator(slice, ro) })
+}
+
+// iter implements iterator.Iterator which allows tracking active iterators
+// and aborts if the underlying database is being closed.
+type iter struct {
+	iterator.Iterator
+	db *Lowlevel
+}
+
+func (it *iter) Release() {
+	it.db.iterWG.Done()
+	it.Iterator.Release()
+}
+
+func (it *iter) Next() bool {
+	return it.execIfNotClosed(it.Iterator.Next)
+}
+func (it *iter) Prev() bool {
+	return it.execIfNotClosed(it.Iterator.Prev)
+}
+func (it *iter) First() bool {
+	return it.execIfNotClosed(it.Iterator.First)
+}
+func (it *iter) Last() bool {
+	return it.execIfNotClosed(it.Iterator.Last)
+}
+func (it *iter) Seek(key []byte) bool {
+	return it.execIfNotClosed(func() bool {
+		return it.Iterator.Seek(key)
+	})
+}
+
+func (it *iter) execIfNotClosed(fn func() bool) bool {
+	it.db.closeMut.RLock()
+	defer it.db.closeMut.RUnlock()
+	if it.db.closed {
+		return false
+	}
+	return fn()
 }

@@ -29,23 +29,44 @@ import (
 	"unicode"
 
 	"github.com/lib/pq"
-	"github.com/oschwald/geoip2-golang"
+	geoip2 "github.com/oschwald/geoip2-golang"
 )
 
 var (
-	useHTTP          = os.Getenv("UR_USE_HTTP") != ""
-	debug            = os.Getenv("UR_DEBUG") != ""
-	keyFile          = getEnvDefault("UR_KEY_FILE", "key.pem")
-	certFile         = getEnvDefault("UR_CRT_FILE", "crt.pem")
-	dbConn           = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
-	listenAddr       = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
-	geoIPPath        = getEnvDefault("UR_GEOIP", "GeoLite2-City.mmdb")
-	tpl              *template.Template
-	compilerRe       = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
-	progressBarClass = []string{"", "progress-bar-success", "progress-bar-info", "progress-bar-warning", "progress-bar-danger"}
-	featureOrder     = []string{"Various", "Folder", "Device", "Connection", "GUI"}
-	knownVersions    = []string{"v2", "v3"}
+	useHTTP            = os.Getenv("UR_USE_HTTP") != ""
+	debug              = os.Getenv("UR_DEBUG") != ""
+	keyFile            = getEnvDefault("UR_KEY_FILE", "key.pem")
+	certFile           = getEnvDefault("UR_CRT_FILE", "crt.pem")
+	dbConn             = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
+	listenAddr         = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
+	geoIPPath          = getEnvDefault("UR_GEOIP", "GeoLite2-City.mmdb")
+	tpl                *template.Template
+	compilerRe         = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
+	progressBarClass   = []string{"", "progress-bar-success", "progress-bar-info", "progress-bar-warning", "progress-bar-danger"}
+	featureOrder       = []string{"Various", "Folder", "Device", "Connection", "GUI"}
+	knownVersions      = []string{"v2", "v3"}
+	knownDistributions = []distributionMatch{
+		// Maps well known builders to the official distribution method that
+		// they represent
+		{regexp.MustCompile("android-.*teamcity@build.syncthing.net"), "Google Play"},
+		{regexp.MustCompile("teamcity@build.syncthing.net"), "GitHub"},
+		{regexp.MustCompile("deb@build.syncthing.net"), "APT"},
+		{regexp.MustCompile("docker@syncthing.net"), "Docker Hub"},
+		{regexp.MustCompile("jenkins@build.syncthing.net"), "GitHub"},
+		{regexp.MustCompile("snap@build.syncthing.net"), "Snapcraft"},
+		{regexp.MustCompile("android-.*vagrant@basebox-stretch64"), "F-Droid"},
+		{regexp.MustCompile("builduser@svetlemodry"), "Arch (3rd party)"},
+		{regexp.MustCompile("@debian"), "Debian (3rd party)"},
+		{regexp.MustCompile("@fedora"), "Fedora (3rd party)"},
+		{regexp.MustCompile(`\bbrew@`), "Homebrew (3rd party)"},
+		{regexp.MustCompile("."), "Others"},
+	}
 )
+
+type distributionMatch struct {
+	matcher      *regexp.Regexp
+	distribution string
+}
 
 var funcs = map[string]interface{}{
 	"commatize":  commatize,
@@ -705,7 +726,8 @@ func main() {
 	if useHTTP {
 		listener, err = net.Listen("tcp", listenAddr)
 	} else {
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		var cert tls.Certificate
+		cert, err = tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
 			log.Fatalln("tls:", err)
 		}
@@ -816,6 +838,11 @@ func newDataHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := insertReport(db, rep); err != nil {
+		if err.Error() == `pq: duplicate key value violates unique constraint "uniqueidindex"` {
+			// We already have a report today for the same unique ID; drop
+			// this one without complaining.
+			return
+		}
 		log.Println("insert:", err)
 		if debug {
 			log.Printf("%#v", rep)
@@ -996,6 +1023,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 	var uptime []int
 	var compilers []string
 	var builders []string
+	var distributions []string
 	locations := make(map[location]int)
 	countries := make(map[string]int)
 
@@ -1065,10 +1093,19 @@ func getReport(db *sql.DB) map[string]interface{} {
 		nodes++
 		versions = append(versions, transformVersion(rep.Version))
 		platforms = append(platforms, rep.Platform)
+
 		if m := compilerRe.FindStringSubmatch(rep.LongVersion); len(m) == 3 {
 			compilers = append(compilers, m[1])
 			builders = append(builders, m[2])
+		loop:
+			for _, d := range knownDistributions {
+				if d.matcher.MatchString(rep.LongVersion) {
+					distributions = append(distributions, d.distribution)
+					break loop
+				}
+			}
 		}
+
 		if rep.NumFolders > 0 {
 			numFolders = append(numFolders, rep.NumFolders)
 		}
@@ -1361,20 +1398,12 @@ func getReport(db *sql.DB) map[string]interface{} {
 	r["platforms"] = group(byPlatform, analyticsFor(platforms, 2000), 5)
 	r["compilers"] = group(byCompiler, analyticsFor(compilers, 2000), 5)
 	r["builders"] = analyticsFor(builders, 12)
+	r["distributions"] = analyticsFor(distributions, 10)
 	r["featureOrder"] = featureOrder
 	r["locations"] = locations
 	r["contries"] = countryList
 
 	return r
-}
-
-func ensureDir(dir string, mode int) {
-	fi, err := os.Stat(dir)
-	if os.IsNotExist(err) {
-		os.MkdirAll(dir, 0700)
-	} else if mode >= 0 && err == nil && int(fi.Mode()&0777) != mode {
-		os.Chmod(dir, os.FileMode(mode))
-	}
 }
 
 var (
@@ -1501,7 +1530,7 @@ func getSummary(db *sql.DB) (summary, error) {
 		}
 
 		// SUPER UGLY HACK to avoid having to do sorting properly
-		if len(ver) == 4 { // v0.x
+		if len(ver) == 4 && strings.HasPrefix(ver, "v0.") { // v0.x
 			ver = ver[:3] + "0" + ver[3:] // now v0.0x
 		}
 

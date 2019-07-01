@@ -21,7 +21,7 @@ found in the LICENSE file.
   <style type="text/css">
     body {
       margin: 40px;
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     }
     tr.main td {
       font-weight: bold;
@@ -496,6 +496,27 @@ found in the LICENSE file.
           </thead>
           <tbody>
             {{range .builders}}
+            <tr>
+              <td>{{.Key}}</td>
+              <td class="text-right">{{.Count}}</td>
+              <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="col-md-6">
+        <table class="table table-striped">
+          <thead>
+            <tr>
+              <th>Distribution Channel</th>
+              <th class="text-right">Devices</th>
+              <th class="text-right">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .distributions}}
             <tr>
               <td>{{.Key}}</td>
               <td class="text-right">{{.Count}}</td>

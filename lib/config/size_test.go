@@ -6,7 +6,28 @@
 
 package config
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/syncthing/syncthing/lib/util"
+)
+
+type TestStruct struct {
+	Size Size `default:"10%"`
+}
+
+func TestSizeDefaults(t *testing.T) {
+	x := &TestStruct{}
+
+	util.SetDefaults(x)
+
+	if !x.Size.Percentage() {
+		t.Error("not percentage")
+	}
+	if x.Size.Value != 10 {
+		t.Error("not ten")
+	}
+}
 
 func TestParseSize(t *testing.T) {
 	cases := []struct {

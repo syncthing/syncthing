@@ -17,12 +17,14 @@ import (
 	"github.com/syncthing/syncthing/lib/relay/client"
 )
 
+const relayPriority = 200
+
 func init() {
 	dialers["relay"] = relayDialerFactory{}
 }
 
 type relayDialer struct {
-	cfg    *config.Wrapper
+	cfg    config.Wrapper
 	tlsCfg *tls.Config
 }
 
@@ -70,7 +72,7 @@ func (d *relayDialer) RedialFrequency() time.Duration {
 
 type relayDialerFactory struct{}
 
-func (relayDialerFactory) New(cfg *config.Wrapper, tlsCfg *tls.Config) genericDialer {
+func (relayDialerFactory) New(cfg config.Wrapper, tlsCfg *tls.Config) genericDialer {
 	return &relayDialer{
 		cfg:    cfg,
 		tlsCfg: tlsCfg,

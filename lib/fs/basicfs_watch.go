@@ -11,7 +11,6 @@ package fs
 import (
 	"context"
 	"errors"
-	"path/filepath"
 
 	"github.com/syncthing/notify"
 )
@@ -21,15 +20,10 @@ import (
 // Not meant to be changed, but must be changeable for tests
 var backendBuffer = 500
 
-func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
-	evalRoot, err := evalSymlinks(f.root)
+func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
+	watchPath, root, err := f.watchPaths(name)
 	if err != nil {
-		return nil, err
-	}
-
-	absName, err := rooted(name, evalRoot)
-	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	outChan := make(chan Event)
@@ -42,26 +36,31 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 
 	if ignore.SkipIgnoredDirs() {
 		absShouldIgnore := func(absPath string) bool {
-			return ignore.ShouldIgnore(f.unrootedChecked(absPath, evalRoot))
+			rel, err := f.unrootedChecked(absPath, root)
+			if err != nil {
+				return true
+			}
+			return ignore.ShouldIgnore(rel)
 		}
-		err = notify.WatchWithFilter(filepath.Join(absName, "..."), backendChan, absShouldIgnore, eventMask)
+		err = notify.WatchWithFilter(watchPath, backendChan, absShouldIgnore, eventMask)
 	} else {
-		err = notify.Watch(filepath.Join(absName, "..."), backendChan, eventMask)
+		err = notify.Watch(watchPath, backendChan, eventMask)
 	}
 	if err != nil {
 		notify.Stop(backendChan)
 		if reachedMaxUserWatches(err) {
 			err = errors.New("failed to setup inotify handler. Please increase inotify limits, see https://docs.syncthing.net/users/faq.html#inotify-limits")
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
-	go f.watchLoop(name, evalRoot, backendChan, outChan, ignore, ctx)
+	errChan := make(chan error)
+	go f.watchLoop(name, root, backendChan, outChan, errChan, ignore, ctx)
 
-	return outChan, nil
+	return outChan, errChan, nil
 }
 
-func (f *BasicFilesystem) watchLoop(name, evalRoot string, backendChan chan notify.EventInfo, outChan chan<- Event, ignore Matcher, ctx context.Context) {
+func (f *BasicFilesystem) watchLoop(name, evalRoot string, backendChan chan notify.EventInfo, outChan chan<- Event, errChan chan<- error, ignore Matcher, ctx context.Context) {
 	for {
 		// Detect channel overflow
 		if len(backendChan) == backendBuffer {
@@ -80,7 +79,18 @@ func (f *BasicFilesystem) watchLoop(name, evalRoot string, backendChan chan noti
 
 		select {
 		case ev := <-backendChan:
-			relPath := f.unrootedChecked(ev.Path(), evalRoot)
+			relPath, err := f.unrootedChecked(ev.Path(), evalRoot)
+			if err != nil {
+				select {
+				case errChan <- err:
+					l.Debugln(f.Type(), f.URI(), "Watch: Sending error", err)
+				case <-ctx.Done():
+				}
+				notify.Stop(backendChan)
+				l.Debugln(f.Type(), f.URI(), "Watch: Stopped due to", err)
+				return
+			}
+
 			if ignore.ShouldIgnore(relPath) {
 				l.Debugln(f.Type(), f.URI(), "Watch: Ignoring", relPath)
 				continue

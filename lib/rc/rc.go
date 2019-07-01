@@ -22,7 +22,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -40,14 +39,14 @@ type Process struct {
 	addr string
 
 	// Set by eventLoop()
-	eventMut          sync.Mutex
-	id                protocol.DeviceID
-	folders           []string
-	startComplete     bool
-	startCompleteCond *stdsync.Cond
-	stop              bool
-	sequence          map[string]map[string]int64 // Folder ID => Device ID => Sequence
-	done              map[string]bool             // Folder ID => 100%
+	eventMut      sync.Mutex
+	id            protocol.DeviceID
+	folders       []string
+	startComplete chan struct{}
+	stopped       chan struct{}
+	stopErr       error
+	sequence      map[string]map[string]int64 // Folder ID => Device ID => Sequence
+	done          map[string]bool             // Folder ID => 100%
 
 	cmd   *exec.Cmd
 	logfd *os.File
@@ -57,12 +56,13 @@ type Process struct {
 // Example: NewProcess("127.0.0.1:8082")
 func NewProcess(addr string) *Process {
 	p := &Process{
-		addr:     addr,
-		sequence: make(map[string]map[string]int64),
-		done:     make(map[string]bool),
-		eventMut: sync.NewMutex(),
+		addr:          addr,
+		sequence:      make(map[string]map[string]int64),
+		done:          make(map[string]bool),
+		eventMut:      sync.NewMutex(),
+		startComplete: make(chan struct{}),
+		stopped:       make(chan struct{}),
 	}
-	p.startCompleteCond = stdsync.NewCond(p.eventMut)
 	return p
 }
 
@@ -108,19 +108,28 @@ func (p *Process) Start(bin string, args ...string) error {
 
 	p.cmd = cmd
 	go p.eventLoop()
+	go p.wait()
 
 	return nil
+}
+
+func (p *Process) wait() {
+	p.cmd.Wait()
+
+	if p.logfd != nil {
+		p.stopErr = p.checkForProblems(p.logfd)
+	}
+
+	close(p.stopped)
 }
 
 // AwaitStartup waits for the Syncthing process to start and perform initial
 // scans of all folders.
 func (p *Process) AwaitStartup() {
-	p.eventMut.Lock()
-	for !p.startComplete {
-		p.startCompleteCond.Wait()
+	select {
+	case <-p.startComplete:
+	case <-p.stopped:
 	}
-	p.eventMut.Unlock()
-	return
 }
 
 // Stop stops the running Syncthing process. If the process was logging to a
@@ -128,27 +137,21 @@ func (p *Process) AwaitStartup() {
 // panics and data races. The presence of either will be signalled in the form
 // of a returned error.
 func (p *Process) Stop() (*os.ProcessState, error) {
-	p.eventMut.Lock()
-	if p.stop {
-		p.eventMut.Unlock()
-		return p.cmd.ProcessState, nil
+	select {
+	case <-p.stopped:
+		return p.cmd.ProcessState, p.stopErr
+	default:
 	}
-	p.stop = true
-	p.eventMut.Unlock()
 
 	if _, err := p.Post("/rest/system/shutdown", nil); err != nil && err != io.ErrUnexpectedEOF {
 		// Unexpected EOF is somewhat expected here, as we may exit before
 		// returning something sensible.
 		return nil, err
 	}
-	p.cmd.Wait()
 
-	var err error
-	if p.logfd != nil {
-		err = p.checkForProblems(p.logfd)
-	}
+	<-p.stopped
 
-	return p.cmd.ProcessState, err
+	return p.cmd.ProcessState, p.stopErr
 }
 
 // Get performs an HTTP GET and returns the bytes and/or an error. Any non-200
@@ -315,6 +318,7 @@ func InSync(folder string, ps ...*Process) bool {
 		// If our latest FolderSummary didn't report 100%, then we are not done.
 
 		if !ps[i].done[folder] {
+			l.Debugf("done = ps[%d].done[%q] = false", i, folder)
 			return false
 		}
 
@@ -403,7 +407,10 @@ func (p *Process) checkForProblems(logfd *os.File) error {
 	raceConditionStart := []byte("WARNING: DATA RACE")
 	raceConditionSep := []byte("==================")
 	panicConditionStart := []byte("panic:")
-	panicConditionSep := []byte(p.id.String()[:5])
+	panicConditionSep := []byte("[") // fallback if we don't already know our ID
+	if p.id.String() != "" {
+		panicConditionSep = []byte(p.id.String()[:5])
+	}
 	sc := bufio.NewScanner(fd)
 	race := false
 	_panic := false
@@ -442,12 +449,11 @@ func (p *Process) eventLoop() {
 	notScanned := make(map[string]struct{})
 	start := time.Now()
 	for {
-		p.eventMut.Lock()
-		if p.stop {
-			p.eventMut.Unlock()
+		select {
+		case <-p.stopped:
 			return
+		default:
 		}
-		p.eventMut.Unlock()
 
 		events, err := p.Events(since)
 		if err != nil {
@@ -457,12 +463,11 @@ func (p *Process) eventLoop() {
 			}
 
 			// If we're stopping, no need to print the error.
-			p.eventMut.Lock()
-			if p.stop {
-				p.eventMut.Unlock()
+			select {
+			case <-p.stopped:
 				return
+			default:
 			}
-			p.eventMut.Unlock()
 
 			log.Println("eventLoop: events:", err)
 			continue
@@ -511,17 +516,16 @@ func (p *Process) eventLoop() {
 					panic("race, or lost startup event")
 				}
 
-				if !p.startComplete {
+				select {
+				case <-p.startComplete:
+				default:
 					data := ev.Data.(map[string]interface{})
 					to := data["to"].(string)
 					if to == "idle" {
 						folder := data["folder"].(string)
 						delete(notScanned, folder)
 						if len(notScanned) == 0 {
-							p.eventMut.Lock()
-							p.startComplete = true
-							p.startCompleteCond.Broadcast()
-							p.eventMut.Unlock()
+							close(p.startComplete)
 						}
 					}
 				}

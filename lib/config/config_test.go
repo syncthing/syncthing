@@ -69,6 +69,11 @@ func TestDefaultValues(t *testing.T) {
 		UnackedNotificationIDs:  []string{},
 		DefaultFolderPath:       "~",
 		SetLowPriority:          true,
+		CRURL:                   "https://crash.syncthing.net/newcrash",
+		CREnabled:               true,
+		StunKeepaliveStartS:     180,
+		StunKeepaliveMinS:       20,
+		StunServers:             []string{"default"},
 	}
 
 	cfg := New(device1)
@@ -93,7 +98,7 @@ func TestDeviceConfig(t *testing.T) {
 			t.Fatal("Unexpected file")
 		}
 
-		cfg := wr.cfg
+		cfg := wr.(*wrapper).cfg
 
 		expectedFolders := []FolderConfiguration{
 			{
@@ -200,7 +205,8 @@ func TestOverriddenValues(t *testing.T) {
 		ProgressUpdateIntervalS: 10,
 		LimitBandwidthInLan:     true,
 		MinHomeDiskFree:         Size{5.2, "%"},
-		URSeen:                  2,
+		URSeen:                  8,
+		URAccepted:              4,
 		URURL:                   "https://localhost/newdata",
 		URInitialDelayS:         800,
 		URPostInsecurely:        true,
@@ -208,12 +214,14 @@ func TestOverriddenValues(t *testing.T) {
 		AlwaysLocalNets:         []string{},
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
-		UnackedNotificationIDs: []string{
-			"channelNotification",   // added in 17->18 migration
-			"fsWatcherNotification", // added in 27->28 migration
-		},
-		DefaultFolderPath: "/media/syncthing",
-		SetLowPriority:    false,
+		UnackedNotificationIDs:  []string{"asdfasdf"},
+		DefaultFolderPath:       "/media/syncthing",
+		SetLowPriority:          false,
+		CRURL:                   "https://localhost/newcrash",
+		CREnabled:               false,
+		StunKeepaliveStartS:     9000,
+		StunKeepaliveMinS:       900,
+		StunServers:             []string{"foo"},
 	}
 
 	os.Unsetenv("STNOUPGRADE")
@@ -515,7 +523,7 @@ func TestNewSaveLoad(t *testing.T) {
 	cfg := Wrap(path, intCfg)
 
 	// To make the equality pass later
-	cfg.cfg.XMLName.Local = "configuration"
+	cfg.(*wrapper).cfg.XMLName.Local = "configuration"
 
 	if exists(path) {
 		t.Error(path, "exists")
@@ -760,6 +768,8 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		},
 	}
 
+	m := migration{14, migrateToConfigV14}
+
 	for _, tc := range tcs {
 		cfg := Configuration{
 			Version: 13,
@@ -768,7 +778,7 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 				DeprecatedRelayServers: tc[1],
 			},
 		}
-		convertV13V14(&cfg)
+		m.apply(&cfg)
 		if cfg.Version != 14 {
 			t.Error("Configuration was not converted")
 		}
@@ -827,7 +837,7 @@ func TestIgnoredFolders(t *testing.T) {
 
 	// 2 for folder2, 1 for folder1, as non-existing device and device the folder is shared with is removed.
 	expectedIgnoredFolders := 3
-	for _, dev := range wrapper.cfg.Devices {
+	for _, dev := range wrapper.Devices() {
 		expectedIgnoredFolders -= len(dev.IgnoredFolders)
 	}
 	if expectedIgnoredFolders != 0 {
@@ -918,7 +928,7 @@ func TestIssue4219(t *testing.T) {
 		],
 		"folders": [
 			{
-				"id": "abcd123", 
+				"id": "abcd123",
 				"devices":[
 					{"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"}
 				]

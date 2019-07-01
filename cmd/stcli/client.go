@@ -1,115 +1,95 @@
-// Copyright (C) 2014 Audrius Butkevičius
+// Copyright (C) 2019 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
+	"fmt"
+	"net"
 	"net/http"
 	"strings"
 
-	"github.com/AudriusButkevicius/cli"
+	"github.com/syncthing/syncthing/lib/config"
 )
 
 type APIClient struct {
-	httpClient http.Client
-	endpoint   string
-	apikey     string
-	username   string
-	password   string
-	id         string
-	csrf       string
+	http.Client
+	cfg    config.GUIConfiguration
+	apikey string
 }
 
-var instance *APIClient
-
-func getClient(c *cli.Context) *APIClient {
-	if instance != nil {
-		return instance
-	}
-	endpoint := c.GlobalString("endpoint")
-	if !strings.HasPrefix(endpoint, "http") {
-		endpoint = "http://" + endpoint
-	}
+func getClient(cfg config.GUIConfiguration) *APIClient {
 	httpClient := http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: c.GlobalBool("insecure"),
+				InsecureSkipVerify: true,
+			},
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial(cfg.Network(), cfg.Address())
 			},
 		},
 	}
-	client := APIClient{
-		httpClient: httpClient,
-		endpoint:   endpoint,
-		apikey:     c.GlobalString("apikey"),
-		username:   c.GlobalString("username"),
-		password:   c.GlobalString("password"),
+	return &APIClient{
+		Client: httpClient,
+		cfg:    cfg,
+		apikey: cfg.APIKey,
 	}
-
-	if client.apikey == "" {
-		request, err := http.NewRequest("GET", client.endpoint, nil)
-		die(err)
-		response := client.handleRequest(request)
-		client.id = response.Header.Get("X-Syncthing-ID")
-		if client.id == "" {
-			die("Failed to get device ID")
-		}
-		for _, item := range response.Cookies() {
-			if item.Name == "CSRF-Token-"+client.id[:5] {
-				client.csrf = item.Value
-				goto csrffound
-			}
-		}
-		die("Failed to get CSRF token")
-	csrffound:
-	}
-	instance = &client
-	return &client
 }
 
-func (client *APIClient) handleRequest(request *http.Request) *http.Response {
-	if client.apikey != "" {
-		request.Header.Set("X-API-Key", client.apikey)
+func (c *APIClient) Endpoint() string {
+	if c.cfg.Network() == "unix" {
+		return "http://unix/"
 	}
-	if client.username != "" || client.password != "" {
-		request.SetBasicAuth(client.username, client.password)
+	url := c.cfg.URL()
+	if !strings.HasSuffix(url, "/") {
+		url += "/"
 	}
-	if client.csrf != "" {
-		request.Header.Set("X-CSRF-Token-"+client.id[:5], client.csrf)
-	}
+	return url
+}
 
-	response, err := client.httpClient.Do(request)
-	die(err)
+func (c *APIClient) Do(req *http.Request) (*http.Response, error) {
+	req.Header.Set("X-API-Key", c.apikey)
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, checkResponse(resp)
+}
 
+func (c *APIClient) Get(url string) (*http.Response, error) {
+	request, err := http.NewRequest("GET", c.Endpoint()+"rest/"+url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return c.Do(request)
+}
+
+func (c *APIClient) Post(url, body string) (*http.Response, error) {
+	request, err := http.NewRequest("POST", c.Endpoint()+"rest/"+url, bytes.NewBufferString(body))
+	if err != nil {
+		return nil, err
+	}
+	return c.Do(request)
+}
+
+func checkResponse(response *http.Response) error {
 	if response.StatusCode == 404 {
-		die("Invalid endpoint or API call")
-	} else if response.StatusCode == 401 {
-		die("Invalid username or password")
+		return fmt.Errorf("Invalid endpoint or API call")
 	} else if response.StatusCode == 403 {
-		if client.apikey == "" {
-			die("Invalid CSRF token")
-		}
-		die("Invalid API key")
+		return fmt.Errorf("Invalid API key")
 	} else if response.StatusCode != 200 {
-		body := strings.TrimSpace(string(responseToBArray(response)))
-		if body != "" {
-			die(body)
+		data, err := responseToBArray(response)
+		if err != nil {
+			return err
 		}
-		die("Unknown HTTP status returned: " + response.Status)
+		body := strings.TrimSpace(string(data))
+		return fmt.Errorf("Unexpected HTTP status returned: %s\n%s", response.Status, body)
 	}
-	return response
-}
-
-func httpGet(c *cli.Context, url string) *http.Response {
-	client := getClient(c)
-	request, err := http.NewRequest("GET", client.endpoint+"/rest/"+url, nil)
-	die(err)
-	return client.handleRequest(request)
-}
-
-func httpPost(c *cli.Context, url string, body string) *http.Response {
-	client := getClient(c)
-	request, err := http.NewRequest("POST", client.endpoint+"/rest/"+url, bytes.NewBufferString(body))
-	die(err)
-	return client.handleRequest(request)
+	return nil
 }

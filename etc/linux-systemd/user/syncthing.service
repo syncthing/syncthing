@@ -8,5 +8,10 @@ Restart=on-failure
 SuccessExitStatus=3 4
 RestartForceExitStatus=3 4
 
+# Hardening
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
+
 [Install]
 WantedBy=default.target

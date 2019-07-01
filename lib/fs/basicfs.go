@@ -8,6 +8,7 @@ package fs
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -98,6 +99,14 @@ func (f *BasicFilesystem) Chmod(name string, mode FileMode) error {
 	return os.Chmod(name, os.FileMode(mode))
 }
 
+func (f *BasicFilesystem) Lchown(name string, uid, gid int) error {
+	name, err := f.rooted(name)
+	if err != nil {
+		return err
+	}
+	return os.Lchown(name, uid, gid)
+}
+
 func (f *BasicFilesystem) Chtimes(name string, atime time.Time, mtime time.Time) error {
 	name, err := f.rooted(name)
 	if err != nil {
@@ -136,7 +145,7 @@ func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fsFileInfo{fi}, err
+	return basicFileInfo{fi}, err
 }
 
 func (f *BasicFilesystem) Remove(name string) error {
@@ -176,7 +185,7 @@ func (f *BasicFilesystem) Stat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fsFileInfo{fi}, err
+	return basicFileInfo{fi}, err
 }
 
 func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
@@ -207,7 +216,7 @@ func (f *BasicFilesystem) Open(name string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fsFile{fd, name}, err
+	return basicFile{fd, name}, err
 }
 
 func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File, error) {
@@ -219,7 +228,7 @@ func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File,
 	if err != nil {
 		return nil, err
 	}
-	return fsFile{fd, name}, err
+	return basicFile{fd, name}, err
 }
 
 func (f *BasicFilesystem) Create(name string) (File, error) {
@@ -231,7 +240,7 @@ func (f *BasicFilesystem) Create(name string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fsFile{fd, name}, err
+	return basicFile{fd, name}, err
 }
 
 func (f *BasicFilesystem) Walk(root string, walkFn WalkFunc) error {
@@ -275,8 +284,8 @@ func (f *BasicFilesystem) URI() string {
 func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
 	// Like os.SameFile, we always return false unless fi1 and fi2 were created
 	// by this package's Stat/Lstat method.
-	f1, ok1 := fi1.(fsFileInfo)
-	f2, ok2 := fi2.(fsFileInfo)
+	f1, ok1 := fi1.(basicFileInfo)
+	f2, ok2 := fi2.(basicFileInfo)
 	if !ok1 || !ok2 {
 		return false
 	}
@@ -284,36 +293,36 @@ func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
 	return os.SameFile(f1.FileInfo, f2.FileInfo)
 }
 
-// fsFile implements the fs.File interface on top of an os.File
-type fsFile struct {
+// basicFile implements the fs.File interface on top of an os.File
+type basicFile struct {
 	*os.File
 	name string
 }
 
-func (f fsFile) Name() string {
+func (f basicFile) Name() string {
 	return f.name
 }
 
-func (f fsFile) Stat() (FileInfo, error) {
+func (f basicFile) Stat() (FileInfo, error) {
 	info, err := f.File.Stat()
 	if err != nil {
 		return nil, err
 	}
-	return fsFileInfo{info}, nil
+	return basicFileInfo{info}, nil
 }
 
-// fsFileInfo implements the fs.FileInfo interface on top of an os.FileInfo.
-type fsFileInfo struct {
+// basicFileInfo implements the fs.FileInfo interface on top of an os.FileInfo.
+type basicFileInfo struct {
 	os.FileInfo
 }
 
-func (e fsFileInfo) IsSymlink() bool {
-	// Must use fsFileInfo.Mode() because it may apply magic.
+func (e basicFileInfo) IsSymlink() bool {
+	// Must use basicFileInfo.Mode() because it may apply magic.
 	return e.Mode()&ModeSymlink != 0
 }
 
-func (e fsFileInfo) IsRegular() bool {
-	// Must use fsFileInfo.Mode() because it may apply magic.
+func (e basicFileInfo) IsRegular() bool {
+	// Must use basicFileInfo.Mode() because it may apply magic.
 	return e.Mode()&ModeType == 0
 }
 
@@ -325,4 +334,14 @@ func longFilenameSupport(path string) string {
 		return `\\?\` + path
 	}
 	return path
+}
+
+type ErrWatchEventOutsideRoot struct{ msg string }
+
+func (e *ErrWatchEventOutsideRoot) Error() string {
+	return e.msg
+}
+
+func (f *BasicFilesystem) newErrWatchEventOutsideRoot(absPath, root string) *ErrWatchEventOutsideRoot {
+	return &ErrWatchEventOutsideRoot{fmt.Sprintf("Watching for changes encountered an event outside of the filesystem root: f.root==%v, root==%v, path==%v. This should never happen, please report this message to forum.syncthing.net.", f.root, root, absPath)}
 }

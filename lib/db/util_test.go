@@ -30,6 +30,10 @@ func writeJSONS(w io.Writer, db *leveldb.DB) {
 	}
 }
 
+// we know this function isn't generally used, nonetheless we want it in
+// here and the linter to not complain.
+var _ = writeJSONS
+
 // openJSONS reads a JSON stream file into a leveldb.DB
 func openJSONS(file string) (*leveldb.DB, error) {
 	fd, err := os.Open(file)

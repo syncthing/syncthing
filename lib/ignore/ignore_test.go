@@ -9,6 +9,7 @@ package ignore
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -507,7 +508,7 @@ func TestCacheReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fd.Seek(0, os.SEEK_SET)
+	_, err = fd.Seek(0, io.SeekStart)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1051,5 +1052,30 @@ func TestIssue5009(t *testing.T) {
 
 	if pats.skipIgnoredDirs {
 		t.Error("skipIgnoredDirs should not be true with includes")
+	}
+}
+
+func TestSpecialChars(t *testing.T) {
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+
+	stignore := `(?i)/#recycle
+(?i)/#nosync
+(?i)/$Recycle.bin
+(?i)/$RECYCLE.BIN
+(?i)/System Volume Information`
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []string{
+		"#nosync",
+		"$RECYCLE.BIN",
+		filepath.FromSlash("$RECYCLE.BIN/S-1-5-18/desktop.ini"),
+	}
+
+	for _, c := range cases {
+		if !pats.Match(c).IsIgnored() {
+			t.Errorf("%q should be ignored", c)
+		}
 	}
 }

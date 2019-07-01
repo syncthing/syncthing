@@ -23,3 +23,4 @@ parts/
 stage/
 *.snap
 *.bz2
+/repos

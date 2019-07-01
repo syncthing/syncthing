@@ -4,17 +4,20 @@ package protocol
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"io/ioutil"
 	"runtime"
-	"strings"
+	"sync"
 	"testing"
 	"testing/quick"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/testutils"
 )
 
 var (
@@ -42,6 +45,8 @@ func TestPing(t *testing.T) {
 	}
 }
 
+var errManual = errors.New("manual close")
+
 func TestClose(t *testing.T) {
 	m0 := newTestModel()
 	m1 := newTestModel()
@@ -56,10 +61,10 @@ func TestClose(t *testing.T) {
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
 
-	c0.close(errors.New("manual close"))
+	c0.internalClose(errManual)
 
 	<-c0.closed
-	if err := m0.closedError(); err == nil || !strings.Contains(err.Error(), "manual close") {
+	if err := m0.closedError(); err != errManual {
 		t.Fatal("Connection should be closed")
 	}
 
@@ -74,6 +79,171 @@ func TestClose(t *testing.T) {
 
 	if _, err := c0.Request("default", "foo", 0, 0, nil, 0, false); err == nil {
 		t.Error("Request should return an error")
+	}
+}
+
+// TestCloseOnBlockingSend checks that the connection does not deadlock when
+// Close is called while the underlying connection is broken (send blocks).
+// https://github.com/syncthing/syncthing/pull/5442
+func TestCloseOnBlockingSend(t *testing.T) {
+	oldCloseTimeout := CloseTimeout
+	CloseTimeout = 100 * time.Millisecond
+	defer func() {
+		CloseTimeout = oldCloseTimeout
+	}()
+
+	m := newTestModel()
+
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c.Start()
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		c.ClusterConfig(ClusterConfig{})
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		c.Close(errManual)
+		wg.Done()
+	}()
+
+	// This simulates an error from ping timeout
+	wg.Add(1)
+	go func() {
+		c.internalClose(ErrTimeout)
+		wg.Done()
+	}()
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before all functions returned")
+	}
+}
+
+func TestCloseRace(t *testing.T) {
+	indexReceived := make(chan struct{})
+	unblockIndex := make(chan struct{})
+	m0 := newTestModel()
+	m0.indexFn = func(_ DeviceID, _ string, _ []FileInfo) {
+		close(indexReceived)
+		<-unblockIndex
+	}
+	m1 := newTestModel()
+
+	ar, aw := io.Pipe()
+	br, bw := io.Pipe()
+
+	c0 := NewConnection(c0ID, ar, bw, m0, "c0", CompressNever).(wireFormatConnection).Connection.(*rawConnection)
+	c0.Start()
+	c1 := NewConnection(c1ID, br, aw, m1, "c1", CompressNever)
+	c1.Start()
+	c0.ClusterConfig(ClusterConfig{})
+	c1.ClusterConfig(ClusterConfig{})
+
+	c1.Index("default", nil)
+	select {
+	case <-indexReceived:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before receiving index")
+	}
+
+	go c0.internalClose(errManual)
+	select {
+	case <-c0.closed:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before c0.closed was closed")
+	}
+
+	select {
+	case <-m0.closedCh:
+		t.Errorf("receiver.Closed called before receiver.Index")
+	default:
+	}
+
+	close(unblockIndex)
+
+	if err := m0.closedError(); err != errManual {
+		t.Fatal("Connection should be closed")
+	}
+}
+
+func TestClusterConfigFirst(t *testing.T) {
+	m := newTestModel()
+
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.NoopRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c.Start()
+
+	select {
+	case c.outbox <- asyncMessage{&Ping{}, nil}:
+		t.Fatal("able to send ping before cluster config")
+	case <-time.After(100 * time.Millisecond):
+		// Allow some time for c.writerLoop to setup after c.Start
+	}
+
+	c.ClusterConfig(ClusterConfig{})
+
+	done := make(chan struct{})
+	if ok := c.send(&Ping{}, done); !ok {
+		t.Fatal("send ping after cluster config returned false")
+	}
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before ping was sent")
+	}
+
+	done = make(chan struct{})
+	go func() {
+		c.internalClose(errManual)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close didn't return before timeout")
+	}
+
+	if err := m.closedError(); err != errManual {
+		t.Fatal("Connection should be closed")
+	}
+}
+
+// TestCloseTimeout checks that calling Close times out and proceeds, if sending
+// the close message does not succeed.
+func TestCloseTimeout(t *testing.T) {
+	oldCloseTimeout := CloseTimeout
+	CloseTimeout = 100 * time.Millisecond
+	defer func() {
+		CloseTimeout = oldCloseTimeout
+	}()
+
+	m := newTestModel()
+
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c.Start()
+
+	done := make(chan struct{})
+	go func() {
+		c.Close(errManual)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * CloseTimeout):
+		t.Fatal("timed out before Close returned")
 	}
 }
 
@@ -608,5 +778,57 @@ func TestIsEquivalent(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestSha256OfEmptyBlock(t *testing.T) {
+	// every block size should have a correct entry in sha256OfEmptyBlock
+	for blockSize := MinBlockSize; blockSize <= MaxBlockSize; blockSize *= 2 {
+		expected := sha256.Sum256(make([]byte, blockSize))
+		if sha256OfEmptyBlock[blockSize] != expected {
+			t.Error("missing or wrong hash for block of size", blockSize)
+		}
+	}
+}
+
+// TestClusterConfigAfterClose checks that ClusterConfig does not deadlock when
+// ClusterConfig is called on a closed connection.
+func TestClusterConfigAfterClose(t *testing.T) {
+	m := newTestModel()
+
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c.Start()
+
+	c.internalClose(errManual)
+
+	done := make(chan struct{})
+	go func() {
+		c.ClusterConfig(ClusterConfig{})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before Cluster Config returned")
+	}
+}
+
+func TestDispatcherToCloseDeadlock(t *testing.T) {
+	// Verify that we don't deadlock when calling Close() from within one of
+	// the model callbacks (ClusterConfig).
+	m := newTestModel()
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.NoopRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	m.ccFn = func(devID DeviceID, cc ClusterConfig) {
+		c.Close(errManual)
+	}
+	c.Start()
+
+	c.inbox <- &ClusterConfig{}
+
+	select {
+	case <-c.dispatcherLoopStopped:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before dispatcher loop terminated")
 	}
 }

@@ -1,0 +1,20 @@
+linters-settings:
+  maligned:
+    suggest-new: true
+
+linters:
+  enable-all: true
+  disable:
+    - goimports
+    - depguard
+    - lll
+    - gochecknoinits
+    - gochecknoglobals
+    - gofmt
+    - scopelint
+
+service:
+  golangci-lint-version: 1.16.x
+  prepare:
+    - GO111MODULE=on go mod vendor
+    - go run build.go assets

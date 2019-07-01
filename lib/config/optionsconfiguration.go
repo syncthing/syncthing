@@ -14,7 +14,7 @@ import (
 
 type OptionsConfiguration struct {
 	ListenAddresses         []string `xml:"listenAddress" json:"listenAddresses" default:"default"`
-	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"default" restart:"true"`
+	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" default:"default" restart:"true"`
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true" restart:"true"`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true" restart:"true"`
 	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027" restart:"true"`
@@ -29,11 +29,11 @@ type OptionsConfiguration struct {
 	NATLeaseM               int      `xml:"natLeaseMinutes" json:"natLeaseMinutes" default:"60"`
 	NATRenewalM             int      `xml:"natRenewalMinutes" json:"natRenewalMinutes" default:"30"`
 	NATTimeoutS             int      `xml:"natTimeoutSeconds" json:"natTimeoutSeconds" default:"10"`
-	URAccepted              int      `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
-	URSeen                  int      `xml:"urSeen" json:"urSeen"`         // Report which the user has been prompted for.
-	URUniqueID              string   `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
-	URURL                   string   `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"`
-	URPostInsecurely        bool     `xml:"urPostInsecurely" json:"urPostInsecurely" default:"false"` // For testing
+	URAccepted              int      `xml:"urAccepted" json:"urAccepted"`                                    // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
+	URSeen                  int      `xml:"urSeen" json:"urSeen"`                                            // Report which the user has been prompted for.
+	URUniqueID              string   `xml:"urUniqueID" json:"urUniqueId"`                                    // Unique ID for reporting purposes, regenerated when UR is turned on.
+	URURL                   string   `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"` // usage reporting URL
+	URPostInsecurely        bool     `xml:"urPostInsecurely" json:"urPostInsecurely" default:"false"`        // For testing
 	URInitialDelayS         int      `xml:"urInitialDelayS" json:"urInitialDelayS" default:"1800"`
 	RestartOnWakeup         bool     `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true" restart:"true"`
 	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12" restart:"true"` // 0 for off
@@ -52,38 +52,47 @@ type OptionsConfiguration struct {
 	DefaultFolderPath       string   `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 	SetLowPriority          bool     `xml:"setLowPriority" json:"setLowPriority" default:"true"`
 	MaxConcurrentScans      int      `xml:"maxConcurrentScans" json:"maxConcurrentScans"`
+	CRURL                   string   `xml:"crashReportingURL" json:"crURL" default:"https://crash.syncthing.net/newcrash"` // crash reporting URL
+	CREnabled               bool     `xml:"crashReportingEnabled" json:"crashReportingEnabled" default:"true" restart:"true"`
+	StunKeepaliveStartS     int      `xml:"stunKeepaliveStartS" json:"stunKeepaliveStartS" default:"180"` // 0 for off
+	StunKeepaliveMinS       int      `xml:"stunKeepaliveMinS" json:"stunKeepaliveMinS" default:"20"`      // 0 for off
+	StunServers             []string `xml:"stunServer" json:"stunServers" default:"default"`
 
 	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM         int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`
 	DeprecatedUPnPRenewalM       int      `xml:"upnpRenewalMinutes,omitempty" json:"-"`
 	DeprecatedUPnPTimeoutS       int      `xml:"upnpTimeoutSeconds,omitempty" json:"-"`
 	DeprecatedRelayServers       []string `xml:"relayServer,omitempty" json:"-"`
-	DeprecatedMinHomeDiskFreePct float64  `xml:"minHomeDiskFreePct" json:"-"`
+	DeprecatedMinHomeDiskFreePct float64  `xml:"minHomeDiskFreePct,omitempty" json:"-"`
 }
 
-func (orig OptionsConfiguration) Copy() OptionsConfiguration {
-	c := orig
-	c.ListenAddresses = make([]string, len(orig.ListenAddresses))
-	copy(c.ListenAddresses, orig.ListenAddresses)
-	c.GlobalAnnServers = make([]string, len(orig.GlobalAnnServers))
-	copy(c.GlobalAnnServers, orig.GlobalAnnServers)
-	c.AlwaysLocalNets = make([]string, len(orig.AlwaysLocalNets))
-	copy(c.AlwaysLocalNets, orig.AlwaysLocalNets)
-	c.UnackedNotificationIDs = make([]string, len(orig.UnackedNotificationIDs))
-	copy(c.UnackedNotificationIDs, orig.UnackedNotificationIDs)
-	return c
+func (opts OptionsConfiguration) Copy() OptionsConfiguration {
+	optsCopy := opts
+	optsCopy.ListenAddresses = make([]string, len(opts.ListenAddresses))
+	copy(optsCopy.ListenAddresses, opts.ListenAddresses)
+	optsCopy.GlobalAnnServers = make([]string, len(opts.GlobalAnnServers))
+	copy(optsCopy.GlobalAnnServers, opts.GlobalAnnServers)
+	optsCopy.AlwaysLocalNets = make([]string, len(opts.AlwaysLocalNets))
+	copy(optsCopy.AlwaysLocalNets, opts.AlwaysLocalNets)
+	optsCopy.UnackedNotificationIDs = make([]string, len(opts.UnackedNotificationIDs))
+	copy(optsCopy.UnackedNotificationIDs, opts.UnackedNotificationIDs)
+	return optsCopy
 }
 
 // RequiresRestartOnly returns a copy with only the attributes that require
 // restart on change.
-func (orig OptionsConfiguration) RequiresRestartOnly() OptionsConfiguration {
-	copy := orig
+func (opts OptionsConfiguration) RequiresRestartOnly() OptionsConfiguration {
+	optsCopy := opts
 	blank := OptionsConfiguration{}
-	util.CopyMatchingTag(&blank, &copy, "restart", func(v string) bool {
+	util.CopyMatchingTag(&blank, &optsCopy, "restart", func(v string) bool {
 		if len(v) > 0 && v != "true" {
-			panic(fmt.Sprintf(`unexpected tag value: %s. expected untagged or "true"`, v))
+			panic(fmt.Sprintf(`unexpected tag value: %s. Expected untagged or "true"`, v))
 		}
 		return v != "true"
 	})
-	return copy
+	return optsCopy
+}
+
+func (opts OptionsConfiguration) IsStunDisabled() bool {
+	return opts.StunKeepaliveMinS < 1 || opts.StunKeepaliveStartS < 1 || !opts.NATEnabled
 }

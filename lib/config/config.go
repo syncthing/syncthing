@@ -16,8 +16,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"path"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
@@ -26,19 +24,20 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/util"
 )
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 28
+	CurrentVersion       = 29
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
 var (
 	// DefaultTCPPort defines default TCP port used if the URI does not specify one, for example tcp://0.0.0.0
 	DefaultTCPPort = 22000
+	// DefaultQUICPort defines default QUIC port used if the URI does not specify one, for example quic://0.0.0.0
+	DefaultQUICPort = 22000
 	// DefaultListenAddresses should be substituted when the configuration
 	// contains <listenAddress>default</listenAddress>. This is done by the
 	// "consumer" of the configuration as we don't want these saved to the
@@ -46,7 +45,9 @@ var (
 	DefaultListenAddresses = []string{
 		util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
 		"dynamic+https://relays.syncthing.net/endpoint",
+		util.Address("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultQUICPort))),
 	}
+	DefaultGUIPort = 8384
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
 	DefaultDiscoveryServersV4 = []string{
@@ -64,6 +65,30 @@ var (
 	DefaultDiscoveryServers = append(DefaultDiscoveryServersV4, DefaultDiscoveryServersV6...)
 	// DefaultTheme is the default and fallback theme for the web UI.
 	DefaultTheme = "default"
+	// Default stun servers should be substituted when the configuration
+	// contains <stunServer>default</stunServer>.
+
+	// DefaultPrimaryStunServers are servers provided by us (to avoid causing the public servers burden)
+	DefaultPrimaryStunServers = []string{
+		"stun.syncthing.net:3478",
+	}
+	DefaultSecondaryStunServers = []string{
+		"stun.callwithus.com:3478",
+		"stun.counterpath.com:3478",
+		"stun.counterpath.net:3478",
+		"stun.ekiga.net:3478",
+		"stun.ideasip.com:3478",
+		"stun.internetcalls.com:3478",
+		"stun.schlund.de:3478",
+		"stun.sipgate.net:10000",
+		"stun.sipgate.net:3478",
+		"stun.voip.aebc.com:3478",
+		"stun.voiparound.com:3478",
+		"stun.voipbuster.com:3478",
+		"stun.voipstunt.com:3478",
+		"stun.voxgratia.org:3478",
+		"stun.xten.com:3478",
+	}
 )
 
 func New(myID protocol.DeviceID) Configuration {
@@ -81,6 +106,31 @@ func New(myID protocol.DeviceID) Configuration {
 	}
 
 	return cfg
+}
+
+func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
+	cfg := New(myID)
+
+	port, err := getFreePort("127.0.0.1", DefaultGUIPort)
+	if err != nil {
+		return Configuration{}, fmt.Errorf("get free port (GUI): %v", err)
+	}
+	cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
+
+	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
+	if err != nil {
+		return Configuration{}, fmt.Errorf("get free port (BEP): %v", err)
+	}
+	if port == DefaultTCPPort {
+		cfg.Options.ListenAddresses = []string{"default"}
+	} else {
+		cfg.Options.ListenAddresses = []string{
+			fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
+			"dynamic+https://relays.syncthing.net/endpoint",
+		}
+	}
+
+	return cfg, nil
 }
 
 func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
@@ -232,68 +282,15 @@ func (cfg *Configuration) clean() error {
 		existingFolders[folder.ID] = folder
 	}
 
-	cfg.Options.ListenAddresses = util.UniqueStrings(cfg.Options.ListenAddresses)
-	cfg.Options.GlobalAnnServers = util.UniqueStrings(cfg.Options.GlobalAnnServers)
+	cfg.Options.ListenAddresses = util.UniqueTrimmedStrings(cfg.Options.ListenAddresses)
+	cfg.Options.GlobalAnnServers = util.UniqueTrimmedStrings(cfg.Options.GlobalAnnServers)
 
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
 		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)
 	}
 
 	// Upgrade configuration versions as appropriate
-	if cfg.Version <= 10 {
-		convertV10V11(cfg)
-	}
-	if cfg.Version == 11 {
-		convertV11V12(cfg)
-	}
-	if cfg.Version == 12 {
-		convertV12V13(cfg)
-	}
-	if cfg.Version == 13 {
-		convertV13V14(cfg)
-	}
-	if cfg.Version == 14 {
-		convertV14V15(cfg)
-	}
-	if cfg.Version == 15 {
-		convertV15V16(cfg)
-	}
-	if cfg.Version == 16 {
-		convertV16V17(cfg)
-	}
-	if cfg.Version == 17 {
-		convertV17V18(cfg)
-	}
-	if cfg.Version == 18 {
-		convertV18V19(cfg)
-	}
-	if cfg.Version == 19 {
-		convertV19V20(cfg)
-	}
-	if cfg.Version == 20 {
-		convertV20V21(cfg)
-	}
-	if cfg.Version == 21 {
-		convertV21V22(cfg)
-	}
-	if cfg.Version == 22 {
-		convertV22V23(cfg)
-	}
-	if cfg.Version == 23 {
-		convertV23V24(cfg)
-	}
-	if cfg.Version == 24 {
-		convertV24V25(cfg)
-	}
-	if cfg.Version == 25 {
-		convertV25V26(cfg)
-	}
-	if cfg.Version == 26 {
-		convertV26V27(cfg)
-	}
-	if cfg.Version == 27 {
-		convertV27V28(cfg)
-	}
+	migrations.apply(cfg)
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -420,324 +417,6 @@ func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration 
 	return m
 }
 
-func convertV27V28(cfg *Configuration) {
-	// Show a notification about enabling filesystem watching
-	cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "fsWatcherNotification")
-	cfg.Version = 28
-}
-
-func convertV26V27(cfg *Configuration) {
-	for i := range cfg.Folders {
-		f := &cfg.Folders[i]
-		if f.DeprecatedPullers != 0 {
-			f.PullerMaxPendingKiB = 128 * f.DeprecatedPullers
-			f.DeprecatedPullers = 0
-		}
-	}
-	cfg.Version = 27
-}
-
-func convertV25V26(cfg *Configuration) {
-	// triggers database update
-	cfg.Version = 26
-}
-
-func convertV24V25(cfg *Configuration) {
-	for i := range cfg.Folders {
-		cfg.Folders[i].FSWatcherDelayS = 10
-	}
-
-	cfg.Version = 25
-}
-
-func convertV23V24(cfg *Configuration) {
-	cfg.Options.URSeen = 2
-
-	cfg.Version = 24
-}
-
-func convertV22V23(cfg *Configuration) {
-	permBits := fs.FileMode(0777)
-	if runtime.GOOS == "windows" {
-		// Windows has no umask so we must chose a safer set of bits to
-		// begin with.
-		permBits = 0700
-	}
-
-	// Upgrade code remains hardcoded for .stfolder despite configurable
-	// marker name in later versions.
-
-	for i := range cfg.Folders {
-		fs := cfg.Folders[i].Filesystem()
-		// Invalid config posted, or tests.
-		if fs == nil {
-			continue
-		}
-		if stat, err := fs.Stat(DefaultMarkerName); err == nil && !stat.IsDir() {
-			err = fs.Remove(DefaultMarkerName)
-			if err == nil {
-				err = fs.Mkdir(DefaultMarkerName, permBits)
-				fs.Hide(DefaultMarkerName) // ignore error
-			}
-			if err != nil {
-				l.Infoln("Failed to upgrade folder marker:", err)
-			}
-		}
-	}
-
-	cfg.Version = 23
-}
-
-func convertV21V22(cfg *Configuration) {
-	for i := range cfg.Folders {
-		cfg.Folders[i].FilesystemType = fs.FilesystemTypeBasic
-		// Migrate to templated external versioner commands
-		if cfg.Folders[i].Versioning.Type == "external" {
-			cfg.Folders[i].Versioning.Params["command"] += " %FOLDER_PATH% %FILE_PATH%"
-		}
-	}
-
-	cfg.Version = 22
-}
-
-func convertV20V21(cfg *Configuration) {
-	for _, folder := range cfg.Folders {
-		if folder.FilesystemType != fs.FilesystemTypeBasic {
-			continue
-		}
-		switch folder.Versioning.Type {
-		case "simple", "trashcan":
-			// Clean out symlinks in the known place
-			cleanSymlinks(folder.Filesystem(), ".stversions")
-		case "staggered":
-			versionDir := folder.Versioning.Params["versionsPath"]
-			if versionDir == "" {
-				// default place
-				cleanSymlinks(folder.Filesystem(), ".stversions")
-			} else if filepath.IsAbs(versionDir) {
-				// absolute
-				cleanSymlinks(fs.NewFilesystem(fs.FilesystemTypeBasic, versionDir), ".")
-			} else {
-				// relative to folder
-				cleanSymlinks(folder.Filesystem(), versionDir)
-			}
-		}
-	}
-
-	cfg.Version = 21
-}
-
-func convertV19V20(cfg *Configuration) {
-	cfg.Options.MinHomeDiskFree = Size{Value: cfg.Options.DeprecatedMinHomeDiskFreePct, Unit: "%"}
-	cfg.Options.DeprecatedMinHomeDiskFreePct = 0
-
-	for i := range cfg.Folders {
-		cfg.Folders[i].MinDiskFree = Size{Value: cfg.Folders[i].DeprecatedMinDiskFreePct, Unit: "%"}
-		cfg.Folders[i].DeprecatedMinDiskFreePct = 0
-	}
-
-	cfg.Version = 20
-}
-
-func convertV18V19(cfg *Configuration) {
-	// Triggers a database tweak
-	cfg.Version = 19
-}
-
-func convertV17V18(cfg *Configuration) {
-	// Do channel selection for existing users. Those who have auto upgrades
-	// and usage reporting on default to the candidate channel. Others get
-	// stable.
-	if cfg.Options.URAccepted > 0 && cfg.Options.AutoUpgradeIntervalH > 0 {
-		cfg.Options.UpgradeToPreReleases = true
-	}
-
-	// Show a notification to explain what's going on, except if upgrades
-	// are disabled by compilation or environment variable in which case
-	// it's not relevant.
-	if !upgrade.DisabledByCompilation && os.Getenv("STNOUPGRADE") == "" {
-		cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "channelNotification")
-	}
-
-	cfg.Version = 18
-}
-
-func convertV16V17(cfg *Configuration) {
-	// Fsync = true removed
-
-	cfg.Version = 17
-}
-
-func convertV15V16(cfg *Configuration) {
-	// Triggers a database tweak
-	cfg.Version = 16
-}
-
-func convertV14V15(cfg *Configuration) {
-	// Undo v0.13.0 broken migration
-
-	for i, addr := range cfg.Options.GlobalAnnServers {
-		switch addr {
-		case "default-v4v2/":
-			cfg.Options.GlobalAnnServers[i] = "default-v4"
-		case "default-v6v2/":
-			cfg.Options.GlobalAnnServers[i] = "default-v6"
-		}
-	}
-
-	cfg.Version = 15
-}
-
-func convertV13V14(cfg *Configuration) {
-	// Not using the ignore cache is the new default. Disable it on existing
-	// configurations.
-	cfg.Options.CacheIgnoredFiles = false
-
-	// Migrate UPnP -> NAT options
-	cfg.Options.NATEnabled = cfg.Options.DeprecatedUPnPEnabled
-	cfg.Options.DeprecatedUPnPEnabled = false
-	cfg.Options.NATLeaseM = cfg.Options.DeprecatedUPnPLeaseM
-	cfg.Options.DeprecatedUPnPLeaseM = 0
-	cfg.Options.NATRenewalM = cfg.Options.DeprecatedUPnPRenewalM
-	cfg.Options.DeprecatedUPnPRenewalM = 0
-	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
-	cfg.Options.DeprecatedUPnPTimeoutS = 0
-
-	// Replace the default listen address "tcp://0.0.0.0:22000" with the
-	// string "default", but only if we also have the default relay pool
-	// among the relay servers as this is implied by the new "default"
-	// entry.
-	hasDefault := false
-	for _, raddr := range cfg.Options.DeprecatedRelayServers {
-		if raddr == "dynamic+https://relays.syncthing.net/endpoint" {
-			for i, addr := range cfg.Options.ListenAddresses {
-				if addr == "tcp://0.0.0.0:22000" {
-					cfg.Options.ListenAddresses[i] = "default"
-					hasDefault = true
-					break
-				}
-			}
-			break
-		}
-	}
-
-	// Copy relay addresses into listen addresses.
-	for _, addr := range cfg.Options.DeprecatedRelayServers {
-		if hasDefault && addr == "dynamic+https://relays.syncthing.net/endpoint" {
-			// Skip the default relay address if we already have the
-			// "default" entry in the list.
-			continue
-		}
-		if addr == "" {
-			continue
-		}
-		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, addr)
-	}
-
-	cfg.Options.DeprecatedRelayServers = nil
-
-	// For consistency
-	sort.Strings(cfg.Options.ListenAddresses)
-
-	var newAddrs []string
-	for _, addr := range cfg.Options.GlobalAnnServers {
-		uri, err := url.Parse(addr)
-		if err != nil {
-			// That's odd. Skip the broken address.
-			continue
-		}
-		if uri.Scheme == "https" {
-			uri.Path = path.Join(uri.Path, "v2") + "/"
-			addr = uri.String()
-		}
-
-		newAddrs = append(newAddrs, addr)
-	}
-	cfg.Options.GlobalAnnServers = newAddrs
-
-	for i, fcfg := range cfg.Folders {
-		if fcfg.DeprecatedReadOnly {
-			cfg.Folders[i].Type = FolderTypeSendOnly
-		} else {
-			cfg.Folders[i].Type = FolderTypeSendReceive
-		}
-		cfg.Folders[i].DeprecatedReadOnly = false
-	}
-	// v0.13-beta already had config version 13 but did not get the new URL
-	if cfg.Options.ReleasesURL == "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30" {
-		cfg.Options.ReleasesURL = "https://upgrades.syncthing.net/meta.json"
-	}
-
-	cfg.Version = 14
-}
-
-func convertV12V13(cfg *Configuration) {
-	if cfg.Options.ReleasesURL == "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30" {
-		cfg.Options.ReleasesURL = "https://upgrades.syncthing.net/meta.json"
-	}
-
-	cfg.Version = 13
-}
-
-func convertV11V12(cfg *Configuration) {
-	// Change listen address schema
-	for i, addr := range cfg.Options.ListenAddresses {
-		if len(addr) > 0 && !strings.HasPrefix(addr, "tcp://") {
-			cfg.Options.ListenAddresses[i] = util.Address("tcp", addr)
-		}
-	}
-
-	for i, device := range cfg.Devices {
-		for j, addr := range device.Addresses {
-			if addr != "dynamic" && addr != "" {
-				cfg.Devices[i].Addresses[j] = util.Address("tcp", addr)
-			}
-		}
-	}
-
-	// Use new discovery server
-	var newDiscoServers []string
-	var useDefault bool
-	for _, addr := range cfg.Options.GlobalAnnServers {
-		if addr == "udp4://announce.syncthing.net:22026" {
-			useDefault = true
-		} else if addr == "udp6://announce-v6.syncthing.net:22026" {
-			useDefault = true
-		} else {
-			newDiscoServers = append(newDiscoServers, addr)
-		}
-	}
-	if useDefault {
-		newDiscoServers = append(newDiscoServers, "default")
-	}
-	cfg.Options.GlobalAnnServers = newDiscoServers
-
-	// Use new multicast group
-	if cfg.Options.LocalAnnMCAddr == "[ff32::5222]:21026" {
-		cfg.Options.LocalAnnMCAddr = "[ff12::8384]:21027"
-	}
-
-	// Use new local discovery port
-	if cfg.Options.LocalAnnPort == 21025 {
-		cfg.Options.LocalAnnPort = 21027
-	}
-
-	// Set MaxConflicts to unlimited
-	for i := range cfg.Folders {
-		cfg.Folders[i].MaxConflicts = -1
-	}
-
-	cfg.Version = 12
-}
-
-func convertV10V11(cfg *Configuration) {
-	// Set minimum disk free of existing folders to 1%
-	for i := range cfg.Folders {
-		cfg.Folders[i].DeprecatedMinDiskFreePct = 1
-	}
-	cfg.Version = 11
-}
-
 func ensureDevicePresent(devices []FolderDeviceConfiguration, myID protocol.DeviceID) []FolderDeviceConfiguration {
 	for _, device := range devices {
 		if device.DeviceID.Equals(myID) {
@@ -839,4 +518,24 @@ func filterURLSchemePrefix(addrs []string, prefix string) []string {
 		}
 	}
 	return addrs
+}
+
+// tried in succession and the first to succeed is returned. If none succeed,
+// a random high port is returned.
+func getFreePort(host string, ports ...int) (int, error) {
+	for _, port := range ports {
+		c, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+		if err == nil {
+			c.Close()
+			return port, nil
+		}
+	}
+
+	c, err := net.Listen("tcp", host+":0")
+	if err != nil {
+		return 0, err
+	}
+	addr := c.Addr().(*net.TCPAddr)
+	c.Close()
+	return addr.Port, nil
 }

@@ -9,11 +9,11 @@
 
 body {
     padding-bottom: 70px;
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
 h1, h2, h3, h4, h5 {
-    font-family: "Raleway", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-family: "Raleway", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     line-height: 1.25;
 }
 
@@ -122,6 +122,18 @@ table.table-condensed td {
 
 table.table-condensed td.no-overflow-ellipse {
     white-space: normal;
+}
+
+table.table-auto {
+	table-layout: auto;
+}
+
+table.table-auto th {
+	width: 1px;
+}
+
+table.table-auto td {
+    max-width: 0px;
 }
 
 .folder-advanced {
@@ -359,4 +371,33 @@ ul.three-columns li, ul.two-columns li {
 
 .fancytree-ext-table {
     width: 100% !important;
+}
+
+@media (max-width: 419px) {
+    /* the selectors are build to target only the content of folder and device
+       panels as it would "destroy" e.g. out of sync or recent changes listings */
+    div[id^='device-'].panel-collapse table,
+    div[id^='folder-'].panel-collapse table,
+    div[id^='device-'].panel-collapse tbody,
+    div[id^='folder-'].panel-collapse tbody,
+    div[id^='device-'].panel-collapse tr,
+    div[id^='folder-'].panel-collapse tr {
+        display: block;
+    }
+    div[id^='device-'].panel-collapse th,
+    div[id^='folder-'].panel-collapse th,
+    div[id^='device-'].panel-collapse td,
+    div[id^='folder-'].panel-collapse td {
+        display: block;
+        max-width: 100%;
+        width: 100%;
+    }
+    
+    /* all buttons, except panel headings, get bottom margin, as they won't fit
+       beside each other anymore */
+    .btn:not(.panel-heading),
+    /* this "+"-selector is needed to override some bootstrap defaults */
+    .btn:not(.panel-heading) + .btn:not(.panel-heading) {
+        margin-bottom: 1rem;
+    }
 }

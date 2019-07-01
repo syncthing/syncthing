@@ -2,12 +2,15 @@ syntax = "proto3";
 
 package db;
 
-import "github.com/gogo/protobuf/gogoproto/gogo.proto";
-import "github.com/syncthing/syncthing/lib/protocol/bep.proto";
+import "repos/protobuf/gogoproto/gogo.proto";
+import "lib/protocol/bep.proto";
 
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.sizer_all) = false;
 option (gogoproto.protosizer_all) = true;
+option (gogoproto.goproto_unkeyed_all) = false;
+option (gogoproto.goproto_unrecognized_all) = false;
+option (gogoproto.goproto_sizecache_all) = false;
 
 message FileVersion {
     protocol.Vector version = 1 [(gogoproto.nullable) = false];

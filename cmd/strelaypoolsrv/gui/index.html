@@ -193,9 +193,9 @@
   <script>
   angular.module('syncthing', [
   ])
-  .config(function($httpProvider) {
+  .config(['$httpProvider', function($httpProvider) {
     $httpProvider.defaults.timeout = 5000;
-  })
+  }])
   .filter('bytes', function() {
     return function(bytes, precision) {
       if (isNaN(parseFloat(bytes)) || !isFinite(bytes)) return '-';

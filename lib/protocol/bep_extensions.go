@@ -1,7 +1,7 @@
 // Copyright (C) 2014 The Protocol Authors.
 
 //go:generate go run ../../script/protofmt.go bep.proto
-//go:generate protoc -I ../../vendor/ -I ../../vendor/github.com/gogo/protobuf/protobuf -I . --gogofast_out=. bep.proto
+//go:generate protoc -I ../../ -I . --gogofast_out=. bep.proto
 
 package protocol
 
@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	SyntheticDirectorySize = 128
-	HelloMessageMagic      = uint32(0x2EA7D90B)
+	SyntheticDirectorySize        = 128
+	HelloMessageMagic      uint32 = 0x2EA7D90B
+	Version13HelloMagic    uint32 = 0x9F79BC40 // old
 )
 
 func (m Hello) Magic() uint32 {

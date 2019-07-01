@@ -9,7 +9,6 @@
 package fs
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,17 +57,17 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 }
 
 // unrootedChecked returns the path relative to the folder root (same as
-// unrooted). It panics if the given path is not a subpath and handles the
+// unrooted) or an error if the given path is not a subpath and handles the
 // special case when the given path is the folder root without a trailing
 // pathseparator.
-func (f *BasicFilesystem) unrootedChecked(absPath, root string) string {
+func (f *BasicFilesystem) unrootedChecked(absPath, root string) (string, *ErrWatchEventOutsideRoot) {
 	if absPath+string(PathSeparator) == root {
-		return "."
+		return ".", nil
 	}
 	if !strings.HasPrefix(absPath, root) {
-		panic(fmt.Sprintf("bug: Notify backend is processing a change outside of the filesystem root: f.root==%v, root==%v, path==%v", f.root, root, absPath))
+		return "", f.newErrWatchEventOutsideRoot(absPath, root)
 	}
-	return rel(absPath, root)
+	return rel(absPath, root), nil
 }
 
 func rel(path, prefix string) string {
@@ -76,3 +75,19 @@ func rel(path, prefix string) string {
 }
 
 var evalSymlinks = filepath.EvalSymlinks
+
+// watchPaths adjust the folder root for use with the notify backend and the
+// corresponding absolute path to be passed to notify to watch name.
+func (f *BasicFilesystem) watchPaths(name string) (string, string, error) {
+	root, err := evalSymlinks(f.root)
+	if err != nil {
+		return "", "", err
+	}
+
+	absName, err := rooted(name, root)
+	if err != nil {
+		return "", "", err
+	}
+
+	return filepath.Join(absName, "..."), root, nil
+}

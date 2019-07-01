@@ -18,6 +18,7 @@ type errorFilesystem struct {
 }
 
 func (fs *errorFilesystem) Chmod(name string, mode FileMode) error                      { return fs.err }
+func (fs *errorFilesystem) Lchown(name string, uid, gid int) error                      { return fs.err }
 func (fs *errorFilesystem) Chtimes(name string, atime time.Time, mtime time.Time) error { return fs.err }
 func (fs *errorFilesystem) Create(name string) (File, error)                            { return nil, fs.err }
 func (fs *errorFilesystem) CreateSymlink(target, name string) error                     { return fs.err }
@@ -43,6 +44,6 @@ func (fs *errorFilesystem) Usage(name string) (Usage, error)                    
 func (fs *errorFilesystem) Type() FilesystemType                                        { return fs.fsType }
 func (fs *errorFilesystem) URI() string                                                 { return fs.uri }
 func (fs *errorFilesystem) SameFile(fi1, fi2 FileInfo) bool                             { return false }
-func (fs *errorFilesystem) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
-	return nil, fs.err
+func (fs *errorFilesystem) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
+	return nil, nil, fs.err
 }

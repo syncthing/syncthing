@@ -29,7 +29,7 @@ type tcpListener struct {
 	onAddressesChangedNotifier
 
 	uri     *url.URL
-	cfg     *config.Wrapper
+	cfg     config.Wrapper
 	tlsCfg  *tls.Config
 	stop    chan struct{}
 	conns   chan internalConn
@@ -195,7 +195,7 @@ func (t *tcpListener) NATType() string {
 
 type tcpListenerFactory struct{}
 
-func (f *tcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
+func (f *tcpListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	return &tcpListener{
 		uri:        fixupPort(uri, config.DefaultTCPPort),
 		cfg:        cfg,

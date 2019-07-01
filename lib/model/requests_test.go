@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -29,18 +28,20 @@ func TestRequestSimple(t *testing.T) {
 	// Verify that the model performs a request and creates a file based on
 	// an incoming index update.
 
-	m, fc, tmpDir, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	tfs := fcfg.Filesystem()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
 	done := make(chan struct{})
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		select {
+		case <-done:
+			t.Fatalf("More than one index update sent")
+		default:
+		}
 		for _, f := range fs {
 			if f.Name == "testfile" {
 				close(done)
@@ -57,7 +58,7 @@ func TestRequestSimple(t *testing.T) {
 	<-done
 
 	// Verify the contents
-	if err := equalContents(filepath.Join(tmpDir, "testfile"), contents); err != nil {
+	if err := equalContents(filepath.Join(tfs.URI(), "testfile"), contents); err != nil {
 		t.Error("File did not sync correctly:", err)
 	}
 }
@@ -70,18 +71,19 @@ func TestSymlinkTraversalRead(t *testing.T) {
 		return
 	}
 
-	m, fc, tmpDir, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
 	done := make(chan struct{})
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		select {
+		case <-done:
+			t.Fatalf("More than one index update sent")
+		default:
+		}
 		for _, f := range fs {
 			if f.Name == "symlink" {
 				close(done)
@@ -112,12 +114,8 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 		return
 	}
 
-	m, fc, tmpDir, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected names.
@@ -175,12 +173,8 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 func TestRequestCreateTmpSymlink(t *testing.T) {
 	// Test that an update for a temporary file is invalidated
 
-	m, fc, tmpDir, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -220,33 +214,16 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	// Sets up a folder with trashcan versioning and tries to use a
 	// deleted symlink to escape
 
-	tmpDir := createTmpDir()
-	defer os.RemoveAll(tmpDir)
+	w, fcfg := tmpDefaultWrapper()
+	defer func() {
+		os.RemoveAll(fcfg.Filesystem().URI())
+		os.Remove(w.ConfigPath())
+	}()
 
-	cfg := defaultCfgWrapper.RawCopy()
-	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
-	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
-	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
-		{DeviceID: device1},
-		{DeviceID: device2},
-	}
-	cfg.Folders[0].Versioning = config.VersioningConfiguration{
-		Type: "trashcan",
-	}
-	w := createTmpWrapper(cfg)
-	defer os.Remove(w.ConfigPath())
-
-	db := db.OpenMemory()
-	m := NewModel(w, device1, "syncthing", "dev", db, nil)
-	m.AddFolder(cfg.Folders[0])
-	m.ServeBackground()
-	m.StartFolder("default")
-	defer m.Stop()
-
-	defer os.RemoveAll(tmpDir)
-
-	fc := addFakeConn(m, device2)
-	fc.folder = "default"
+	fcfg.Versioning = config.VersioningConfiguration{Type: "trashcan"}
+	w.SetFolder(fcfg)
+	m, fc := setupModelWithConnectionFromWrapper(w)
+	defer cleanupModel(m)
 
 	// Create a temporary directory that we will use as target to see if
 	// we can escape to it
@@ -254,6 +231,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(tmpdir)
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -307,31 +285,27 @@ func TestPullInvalidIgnoredSR(t *testing.T) {
 
 // This test checks that (un-)ignored/invalid/deleted files are treated as expected.
 func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
-	t.Helper()
+	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
+	fcfg := testFolderConfigTmp()
+	fss := fcfg.Filesystem()
+	fcfg.Type = ft
+	w.SetFolder(fcfg)
+	m := setupModel(w)
+	defer cleanupModelAndRemoveDir(m, fss.URI())
 
-	tmpDir := createTmpDir()
-	cfg := defaultCfgWrapper.RawCopy()
-	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
-	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
-	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
-		{DeviceID: device1},
-		{DeviceID: device2},
-	}
-	cfg.Folders[0].Type = ft
-	m, fc, w := setupModelWithConnectionManual(cfg)
-	defer func() {
-		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
-
+	m.RemoveFolder(fcfg)
+	m.AddFolder(fcfg)
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
 	// because we might be changing the files on disk often enough that the
 	// mtimes will be unreliable to determine change status.
 	m.fmut.Lock()
-	m.folderIgnores["default"] = ignore.New(cfg.Folders[0].Filesystem(), ignore.WithChangeDetector(newAlwaysChanged()))
+	m.folderIgnores["default"] = ignore.New(fss, ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Unlock()
+	m.StartFolder(fcfg.ID)
+
+	fc := addFakeConn(m, device1)
+	fc.folder = "default"
 
 	if err := m.SetIgnores("default", []string{"*ignored*"}); err != nil {
 		panic(err)
@@ -350,7 +324,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	fc.deleteFile(invDel)
 	fc.addFile(ign, 0644, protocol.FileInfoTypeFile, contents)
 	fc.addFile(ignExisting, 0644, protocol.FileInfoTypeFile, contents)
-	if err := ioutil.WriteFile(filepath.Join(tmpDir, ignExisting), otherContents, 0644); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(fss.URI(), ignExisting), otherContents, 0644); err != nil {
 		panic(err)
 	}
 
@@ -370,7 +344,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 		for name := range expected {
 			t.Errorf("File %v wasn't added to index", name)
 		}
-		done <- struct{}{}
+		close(done)
 	}
 	fc.mut.Unlock()
 
@@ -379,19 +353,22 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 
 	fc.sendIndexUpdate()
 
-	timeout := time.NewTimer(5 * time.Second)
 	select {
 	case ev := <-sub.C():
-		t.Fatalf("Errors while pulling: %v", ev)
-	case <-timeout.C:
+		t.Fatalf("Errors while scanning/pulling: %v", ev)
+	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out before index was received")
 	case <-done:
-		return
 	}
 
+	done = make(chan struct{})
+	expected := map[string]struct{}{ign: {}, ignExisting: {}}
+	// The indexes will normally arrive in one update, but it is possible
+	// that they arrive in separate ones.
+	secondIndex := false
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
-		expected := map[string]struct{}{ign: {}, ignExisting: {}}
+		secondIndex = true
 		for _, f := range fs {
 			if _, ok := expected[f.Name]; !ok {
 				t.Fatalf("Unexpected file %v was updated in index", f.Name)
@@ -401,7 +378,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 			}
 			// The unignored files should only have a local version,
 			// to mark them as in conflict with any other existing versions.
-			ev := protocol.Vector{}.Update(device1.Short())
+			ev := protocol.Vector{}.Update(myID.Short())
 			if v := f.Version; !v.Equal(ev) {
 				t.Errorf("File %v has version %v, expected %v", f.Name, v, ev)
 			}
@@ -414,10 +391,11 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 			}
 			delete(expected, f.Name)
 		}
-		for name := range expected {
-			t.Errorf("File %v wasn't updated in index", name)
+		if len(expected) == 0 {
+			close(done)
+		} else if secondIndex {
+			t.Fatal("Didn't receive index updates for all existing files, missing", expected)
 		}
-		done <- struct{}{}
 	}
 	// Make sure pulling doesn't interfere, as index updates are racy and
 	// thus we cannot distinguish between scan and pull results.
@@ -430,22 +408,16 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 		panic(err)
 	}
 
-	timeout = time.NewTimer(5 * time.Second)
 	select {
-	case <-timeout.C:
+	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out before index was received")
 	case <-done:
-		return
 	}
 }
 
 func TestIssue4841(t *testing.T) {
-	m, fc, tmpDir, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan protocol.FileInfo)
 	fc.mut.Lock()
@@ -457,16 +429,16 @@ func TestIssue4841(t *testing.T) {
 			t.Fatalf(`Sent index with file %v, should be "foo"`, fs[0].Name)
 		}
 		received <- fs[0]
-		return
 	}
 	fc.mut.Unlock()
 
 	// Setup file from remote that was ignored locally
-	m.updateLocals(defaultFolderConfig.ID, []protocol.FileInfo{{
+	folder := m.folderRunners[defaultFolderConfig.ID].(*sendReceiveFolder)
+	folder.updateLocals([]protocol.FileInfo{{
 		Name:       "foo",
 		Type:       protocol.FileInfoTypeFile,
 		LocalFlags: protocol.FlagLocalIgnored,
-		Version:    protocol.Vector{}.Update(device2.Short()),
+		Version:    protocol.Vector{}.Update(device1.Short()),
 	}})
 	<-received
 
@@ -476,24 +448,19 @@ func TestIssue4841(t *testing.T) {
 	}
 
 	f := <-received
-	if expected := (protocol.Vector{}.Update(device1.Short())); !f.Version.Equal(expected) {
+	if expected := (protocol.Vector{}.Update(myID.Short())); !f.Version.Equal(expected) {
 		t.Errorf("Got Version == %v, expected %v", f.Version, expected)
 	}
 }
 
 func TestRescanIfHaveInvalidContent(t *testing.T) {
-	m, fc, tmpDir, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	tmpDir := fcfg.Filesystem().URI()
+	defer cleanupModelAndRemoveDir(m, tmpDir)
 
 	payload := []byte("hello")
 
-	if err := ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777))
 
 	received := make(chan protocol.FileInfo)
 	fc.mut.Lock()
@@ -505,7 +472,6 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 			t.Fatalf(`Sent index with file %v, should be "foo"`, fs[0].Name)
 		}
 		received <- fs[0]
-		return
 	}
 	fc.mut.Unlock()
 
@@ -519,7 +485,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 		t.Fatalf("unexpected weak hash: %d != 103547413", f.Blocks[0].WeakHash)
 	}
 
-	res, err := m.Request(device2, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	res, err := m.Request(device1, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -531,11 +497,9 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 	payload = []byte("bye")
 	buf = make([]byte, len(payload))
 
-	if err := ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777); err != nil {
-		t.Fatal(err)
-	}
+	must(t, ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777))
 
-	res, err = m.Request(device2, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	_, err = m.Request(device1, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err == nil {
 		t.Fatalf("expected failure")
 	}
@@ -551,16 +515,12 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 }
 
 func TestParentDeletion(t *testing.T) {
-	m, fc, tmpDir, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	testFs := fcfg.Filesystem()
+	defer cleanupModelAndRemoveDir(m, testFs.URI())
 
 	parent := "foo"
 	child := filepath.Join(parent, "bar")
-	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 
 	received := make(chan []protocol.FileInfo)
 	fc.addFile(parent, 0777, protocol.FileInfoTypeDirectory, nil)
@@ -568,7 +528,6 @@ func TestParentDeletion(t *testing.T) {
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		received <- fs
-		return
 	}
 	fc.mut.Unlock()
 	fc.sendIndexUpdate()
@@ -584,9 +543,7 @@ func TestParentDeletion(t *testing.T) {
 	}
 
 	// Delete parent dir
-	if err := testFs.RemoveAll(parent); err != nil {
-		t.Fatal(err)
-	}
+	must(t, testFs.RemoveAll(parent))
 
 	// Scan only the child dir (not the parent)
 	if err := m.ScanFolderSubdirs("default", []string{child}); err != nil {
@@ -637,16 +594,17 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		t.Skip("windows specific test")
 	}
 
-	m, fc, tmpDir, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
+	m, fc, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
-	first := make(chan struct{})
+	done := make(chan struct{})
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		select {
+		case <-done:
+			t.Fatalf("More than one index update sent")
+		default:
+		}
 		// expected first index
 		if len(fs) != 1 {
 			t.Fatalf("Expected just one file in index, got %v", fs)
@@ -658,7 +616,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		if !f.IsInvalid() {
 			t.Errorf(`File info was not marked as invalid`)
 		}
-		close(first)
+		close(done)
 	}
 	fc.mut.Unlock()
 
@@ -666,7 +624,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	fc.sendIndexUpdate()
 
 	select {
-	case <-first:
+	case <-done:
 	case <-time.After(time.Second):
 		t.Fatalf("timed out before pull was finished")
 	}
@@ -693,44 +651,6 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	}
 }
 
-func setupModelWithConnection() (*Model, *fakeConnection, string, *config.Wrapper) {
-	tmpDir := createTmpDir()
-	cfg := defaultCfgWrapper.RawCopy()
-	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
-	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
-	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
-		{DeviceID: device1},
-		{DeviceID: device2},
-	}
-	m, fc, w := setupModelWithConnectionManual(cfg)
-	return m, fc, tmpDir, w
-}
-
-func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConnection, *config.Wrapper) {
-	w := createTmpWrapper(cfg)
-
-	db := db.OpenMemory()
-	m := NewModel(w, device1, "syncthing", "dev", db, nil)
-	m.AddFolder(cfg.Folders[0])
-	m.ServeBackground()
-	m.StartFolder("default")
-
-	fc := addFakeConn(m, device2)
-	fc.folder = "default"
-
-	m.ScanFolder("default")
-
-	return m, fc, w
-}
-
-func createTmpDir() string {
-	tmpDir, err := ioutil.TempDir("testdata", "_request-")
-	if err != nil {
-		panic("Failed to create temporary testing dir")
-	}
-	return tmpDir
-}
-
 func equalContents(path string, contents []byte) error {
 	if bs, err := ioutil.ReadFile(path); err != nil {
 		return err
@@ -741,17 +661,19 @@ func equalContents(path string, contents []byte) error {
 }
 
 func TestRequestRemoteRenameChanged(t *testing.T) {
-	m, fc, tmpDir, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
-	tfs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+	m, fc, fcfg := setupModelWithConnection()
+	tfs := fcfg.Filesystem()
+	tmpDir := tfs.URI()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	done := make(chan struct{})
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		select {
+		case <-done:
+			t.Fatalf("More than one index update sent")
+		default:
+		}
 		if len(fs) != 2 {
 			t.Fatalf("Received index with %v indexes instead of 2", len(fs))
 		}
@@ -772,21 +694,49 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	fc.sendIndexUpdate()
 	select {
 	case <-done:
-		done = make(chan struct{})
-		fc.mut.Lock()
-		fc.indexFn = func(folder string, fs []protocol.FileInfo) {
-			close(done)
-		}
-		fc.mut.Unlock()
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out")
 	}
 
 	for _, n := range [2]string{a, b} {
-		if err := equalContents(filepath.Join(tmpDir, n), data[n]); err != nil {
-			t.Fatal(err)
+		must(t, equalContents(filepath.Join(tmpDir, n), data[n]))
+	}
+
+	var gotA, gotB, gotConfl bool
+	done = make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		select {
+		case <-done:
+			t.Fatalf("Received more index updates than expected")
+		default:
+		}
+		for _, f := range fs {
+			switch {
+			case f.Name == a:
+				if gotA {
+					t.Error("Got more than one index update for", f.Name)
+				}
+				gotA = true
+			case f.Name == b:
+				if gotB {
+					t.Error("Got more than one index update for", f.Name)
+				}
+				gotB = true
+			case strings.HasPrefix(f.Name, "b.sync-conflict-"):
+				if gotConfl {
+					t.Error("Got more than one index update for conflicts of", f.Name)
+				}
+				gotConfl = true
+			default:
+				t.Error("Got unexpected file in index update", f.Name)
+			}
+		}
+		if gotA && gotB && gotConfl {
+			close(done)
 		}
 	}
+	fc.mut.Unlock()
 
 	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0644)
 	if err != nil {
@@ -801,11 +751,20 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	// rename
 	fc.deleteFile(a)
 	fc.updateFile(b, 0644, protocol.FileInfoTypeFile, data[a])
+	// Make sure the remote file for b is newer and thus stays global -> local conflict
+	fc.mut.Lock()
+	for i := range fc.files {
+		if fc.files[i].Name == b {
+			fc.files[i].ModifiedS += 100
+			break
+		}
+	}
+	fc.mut.Unlock()
 	fc.sendIndexUpdate()
 	select {
 	case <-done:
 	case <-time.After(10 * time.Second):
-		t.Fatal("timed out")
+		t.Errorf("timed out without receiving all expected index updates")
 	}
 
 	// Check outcome
@@ -814,22 +773,26 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 		case path == a:
 			t.Errorf(`File "a" was not removed`)
 		case path == b:
-			if err := equalContents(filepath.Join(tmpDir, b), otherData); err != nil {
-				t.Errorf(`Modified file "b" was overwritten`)
+			if err := equalContents(filepath.Join(tmpDir, b), data[a]); err != nil {
+				t.Error(`File "b" has unexpected content (renamed from a on remote)`)
 			}
+		case strings.HasPrefix(path, b+".sync-conflict-"):
+			if err := equalContents(filepath.Join(tmpDir, path), otherData); err != nil {
+				t.Error(`Sync conflict of "b" has unexptected content`)
+			}
+		case path == "." || strings.HasPrefix(path, ".stfolder"):
+		default:
+			t.Error("Found unexpected file", path)
 		}
 		return nil
 	})
 }
 
 func TestRequestRemoteRenameConflict(t *testing.T) {
-	m, fc, tmpDir, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
-	tfs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+	m, fc, fcfg := setupModelWithConnection()
+	tfs := fcfg.Filesystem()
+	tmpDir := tfs.URI()
+	defer cleanupModelAndRemoveDir(m, tmpDir)
 
 	recv := make(chan int)
 	fc.mut.Lock()
@@ -859,9 +822,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 	}
 
 	for _, n := range [2]string{a, b} {
-		if err := equalContents(filepath.Join(tmpDir, n), data[n]); err != nil {
-			t.Fatal(err)
-		}
+		must(t, equalContents(filepath.Join(tmpDir, n), data[n]))
 	}
 
 	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0644)
@@ -919,17 +880,18 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 }
 
 func TestRequestDeleteChanged(t *testing.T) {
-	m, fc, tmpDir, w := setupModelWithConnection()
-	defer func() {
-		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
-	}()
-	tfs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+	m, fc, fcfg := setupModelWithConnection()
+	tfs := fcfg.Filesystem()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	done := make(chan struct{})
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		select {
+		case <-done:
+			t.Fatalf("More than one index update sent")
+		default:
+		}
 		close(done)
 	}
 	fc.mut.Unlock()
@@ -945,6 +907,17 @@ func TestRequestDeleteChanged(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out")
 	}
+
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		select {
+		case <-done:
+			t.Fatalf("More than one index update sent")
+		default:
+		}
+		close(done)
+	}
+	fc.mut.Unlock()
 
 	fd, err := tfs.OpenFile(a, fs.OptReadWrite, 0644)
 	if err != nil {
@@ -967,7 +940,7 @@ func TestRequestDeleteChanged(t *testing.T) {
 
 	// Check outcome
 	if _, err := tfs.Lstat(a); err != nil {
-		if os.IsNotExist(err) {
+		if fs.IsNotExist(err) {
 			t.Error(`Modified file "a" was removed`)
 		} else {
 			t.Error(`Error stating file "a":`, err)

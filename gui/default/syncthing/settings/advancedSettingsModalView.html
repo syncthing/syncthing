@@ -18,7 +18,7 @@
               <div ng-repeat="(key, value) in advancedConfig.gui" ng-init="type = inputTypeFor(key, value)" ng-if="type != 'skip'" class="form-group">
                 <label for="guiInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
                 <div class="col-sm-8">
-                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="advancedConfig.gui[key]" ng-list/>
+                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="advancedConfig.gui[key]" ng-list />
                   <input ng-if="inputTypeFor(key, value) != 'list'" id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.gui[key]" />
                 </div>
               </div>
@@ -37,7 +37,7 @@
               <div ng-repeat="(key, value) in advancedConfig.options" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
                 <label for="optionsInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
                 <div class="col-sm-8">
-                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="advancedConfig.options[key]" ng-list/>
+                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="advancedConfig.options[key]" ng-list />
                   <input ng-if="inputTypeFor(key, value) != 'list'" id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.options[key]" />
                 </div>
               </div>
@@ -47,12 +47,12 @@
       </div>
 
       <div class="panel panel-default" ng-repeat="folder in advancedConfig.folders">
-        <div class="panel-heading" role="tab" id="folder{{$index}}Heading"  data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{$index}}Config" aria-expanded="false" aria-controls="folder{{$index}}Config" style="cursor: pointer;">
+        <div class="panel-heading" role="tab" id="folder{{$index}}Heading" data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{$index}}Config" aria-expanded="false" aria-controls="folder{{$index}}Config" style="cursor: pointer;">
           <h4 ng-if="folder.label.length == 0" class="panel-title" tabindex="0">
-              <span translate>Folder</span> "{{folder.id}}"
+            <span translate>Folder</span> "{{folder.id}}"
           </h4>
           <h4 ng-if="folder.label.length != 0" class="panel-title" tabindex="0">
-              <span translate>Folder</span> "{{folder.label}}" ({{folder.id}})
+            <span translate>Folder</span> "{{folder.label}}" ({{folder.id}})
           </h4>
         </div>
         <div id="folder{{$index}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="folder{{$index}}Heading">
@@ -61,7 +61,7 @@
               <div ng-repeat="(key, value) in folder" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
                 <label for="folder{{$index}}Input{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
                 <div class="col-sm-8">
-                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="folder[key]" ng-list/>
+                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="folder[key]" ng-list />
                   <input ng-if="inputTypeFor(key, value) != 'list'" id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="folder[key]" />
                 </div>
               </div>
@@ -71,9 +71,9 @@
       </div>
 
       <div class="panel panel-default" ng-repeat="device in advancedConfig.devices">
-        <div class="panel-heading" role="tab" id="device{{$index}}Heading"  data-toggle="collapse" data-parent="#advancedAccordion" href="#device{{$index}}Config" aria-expanded="false" aria-controls="folder{{$index}}Config" style="cursor: pointer;">
+        <div class="panel-heading" role="tab" id="device{{$index}}Heading" data-toggle="collapse" data-parent="#advancedAccordion" href="#device{{$index}}Config" aria-expanded="false" aria-controls="folder{{$index}}Config" style="cursor: pointer;">
           <h4 class="panel-title" tabindex="0">
-              <span translate>Device</span> "{{deviceName(device)}}"
+            <span translate>Device</span> "{{deviceName(device)}}"
           </h4>
         </div>
         <div id="device{{$index}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="device{{$index}}Heading">
@@ -82,7 +82,7 @@
               <div ng-repeat="(key, value) in device" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
                 <label for="device{{$index}}Input{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
                 <div class="col-sm-8">
-                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="device[key]" ng-list/>
+                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="device[key]" ng-list />
                   <input ng-if="inputTypeFor(key, value) != 'list'" id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="device[key]" />
                 </div>
               </div>

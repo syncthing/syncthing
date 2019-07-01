@@ -10,12 +10,13 @@ import (
 	"sort"
 
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type DeviceConfiguration struct {
 	DeviceID                 protocol.DeviceID    `xml:"id,attr" json:"deviceID"`
 	Name                     string               `xml:"name,attr,omitempty" json:"name"`
-	Addresses                []string             `xml:"address,omitempty" json:"addresses"`
+	Addresses                []string             `xml:"address,omitempty" json:"addresses" default:"dynamic"`
 	Compression              protocol.Compression `xml:"compression,attr" json:"compression"`
 	CertName                 string               `xml:"certName,attr,omitempty" json:"certName"`
 	Introducer               bool                 `xml:"introducer,attr" json:"introducer"`
@@ -36,6 +37,9 @@ func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfigurati
 		DeviceID: id,
 		Name:     name,
 	}
+
+	util.SetDefaults(&d)
+
 	d.prepare(nil)
 	return d
 }

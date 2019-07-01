@@ -8,7 +8,6 @@ angular.module('syncthing.core')
                 var uid = new Date();
                 var storage = window.localStorage;
                 storage.setItem(uid, uid);
-                var success = storage.getItem(uid) == uid;
                 storage.removeItem(uid);
                 return storage;
             } catch (exception) {
@@ -51,7 +50,7 @@ angular.module('syncthing.core')
                     savedLang = _localStorage[_SYNLANG];
                 }
 
-                if(params.lang) {
+                if (params.lang) {
                     useLocale(params.lang, true);
                 } else if (savedLang) {
                     useLocale(savedLang);
@@ -99,8 +98,8 @@ angular.module('syncthing.core')
 
             function useLocale(language, save2Storage) {
                 if (language) {
-                   $translate.use(language).then(function () {
-                       if (save2Storage && _localStorage)
+                    $translate.use(language).then(function () {
+                        if (save2Storage && _localStorage)
                             _localStorage[_SYNLANG] = language;
                     });
                 }
@@ -109,10 +108,10 @@ angular.module('syncthing.core')
             return {
                 autoConfigLocale: autoConfigLocale,
                 useLocale: useLocale,
-                getCurrentLocale: function() { return $translate.use() },
-                getAvailableLocales: function() { return _availableLocales },
+                getCurrentLocale: function () { return $translate.use() },
+                getAvailableLocales: function () { return _availableLocales },
                 // langPrettyprint comes from an included global
-                getLocalesDisplayNames: function() { return langPrettyprint }
+                getLocalesDisplayNames: function () { return langPrettyprint }
             }
         }];
 

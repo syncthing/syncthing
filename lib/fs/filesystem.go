@@ -19,6 +19,7 @@ import (
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
 	Chmod(name string, mode FileMode) error
+	Lchown(name string, uid, gid int) error
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	Create(name string) (File, error)
 	CreateSymlink(target, name string) error
@@ -35,7 +36,10 @@ type Filesystem interface {
 	Stat(name string) (FileInfo, error)
 	SymlinksSupported() bool
 	Walk(name string, walkFn WalkFunc) error
-	Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error)
+	// If setup fails, returns non-nil error, and if afterwards a fatal (!)
+	// error occurs, sends that error on the channel. Afterwards this watch
+	// can be considered stopped.
+	Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error)
 	Hide(name string) error
 	Unhide(name string) error
 	Glob(pattern string) ([]string, error)
@@ -74,6 +78,8 @@ type FileInfo interface {
 	// Extensions
 	IsRegular() bool
 	IsSymlink() bool
+	Owner() int
+	Group() int
 }
 
 // FileMode is similar to os.FileMode

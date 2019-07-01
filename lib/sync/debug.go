@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sasha-s/go-deadlock"
+	deadlock "github.com/sasha-s/go-deadlock"
 	"github.com/syncthing/syncthing/lib/logger"
 )
 

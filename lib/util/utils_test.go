@@ -12,8 +12,9 @@ type Defaulter struct {
 	Value string
 }
 
-func (Defaulter) ParseDefault(v string) (interface{}, error) {
-	return Defaulter{Value: v}, nil
+func (d *Defaulter) ParseDefault(v string) error {
+	*d = Defaulter{Value: v}
+	return nil
 }
 
 func TestSetDefaults(t *testing.T) {
@@ -37,9 +38,7 @@ func TestSetDefaults(t *testing.T) {
 		t.Errorf("defaulter failed")
 	}
 
-	if err := SetDefaults(x); err != nil {
-		t.Error(err)
-	}
+	SetDefaults(x)
 
 	if x.A != "string" {
 		t.Error("string failed")
@@ -76,17 +75,13 @@ func TestUniqueStrings(t *testing.T) {
 			nil,
 		},
 		{
-			[]string{"b", "a"},
-			[]string{"a", "b"},
-		},
-		{
 			[]string{"       a     ", "     a  ", "b        ", "    b"},
 			[]string{"a", "b"},
 		},
 	}
 
 	for _, test := range tests {
-		result := UniqueStrings(test.input)
+		result := UniqueTrimmedStrings(test.input)
 		if len(result) != len(test.expected) {
 			t.Errorf("%s != %s", result, test.expected)
 		}

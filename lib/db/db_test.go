@@ -149,7 +149,7 @@ func TestUpdate0to3(t *testing.T) {
 
 	updater.updateSchema0to1()
 
-	if _, ok := db.getFile(db.keyer.GenerateDeviceFileKey(nil, folder, protocol.LocalDeviceID[:], []byte(slashPrefixed))); ok {
+	if _, ok := db.getFileDirty(folder, protocol.LocalDeviceID[:], []byte(slashPrefixed)); ok {
 		t.Error("File prefixed by '/' was not removed during transition to schema 1")
 	}
 

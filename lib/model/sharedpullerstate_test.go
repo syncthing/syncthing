@@ -17,15 +17,16 @@ import (
 // Test creating temporary file inside read-only directory
 func TestReadOnlyDir(t *testing.T) {
 	// Create a read only directory, clean it up afterwards.
-	os.Mkdir("testdata/read_only_dir", 0555)
-	defer func() {
-		os.Chmod("testdata/read_only_dir", 0755)
-		os.RemoveAll("testdata/read_only_dir")
-	}()
+	tmpDir := createTmpDir()
+	defer os.RemoveAll(tmpDir)
+	if err := os.Chmod(tmpDir, 0555); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(tmpDir, 0755)
 
 	s := sharedPullerState{
-		fs:       fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
-		tempName: "read_only_dir/.temp_name",
+		fs:       fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir),
+		tempName: ".temp_name",
 		mut:      sync.NewRWMutex(),
 	}
 
@@ -37,6 +38,6 @@ func TestReadOnlyDir(t *testing.T) {
 		t.Fatal("Unexpected nil fd")
 	}
 
-	s.fail("Test done", nil)
+	s.fail(nil)
 	s.finalClose()
 }

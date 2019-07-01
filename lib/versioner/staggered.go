@@ -7,14 +7,12 @@
 package versioner
 
 import (
-	"os"
-	"path/filepath"
+	"sort"
 	"strconv"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -48,16 +46,9 @@ func NewStaggered(folderID string, folderFs fs.Filesystem, params map[string]str
 		cleanInterval = 3600 // Default: clean once per hour
 	}
 
-	// Use custom path if set, otherwise .stversions in folderPath
-	var versionsFs fs.Filesystem
-	if params["versionsPath"] == "" {
-		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), ".stversions"))
-	} else if filepath.IsAbs(params["versionsPath"]) {
-		versionsFs = fs.NewFilesystem(folderFs.Type(), params["versionsPath"])
-	} else {
-		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), params["versionsPath"]))
-	}
-	l.Debugln("%s folder using %s (%s) staggered versioner dir", folderID, versionsFs.URI(), versionsFs.Type())
+	// Backwards compatibility
+	params["fsPath"] = params["versionsPath"]
+	versionsFs := fsFromParams(folderFs, params)
 
 	s := &Staggered{
 		cleanInterval: cleanInterval,
@@ -142,7 +133,6 @@ func (v *Staggered) clean() {
 	}
 
 	for _, versionList := range versionsPerFile {
-		// List from filepath.Walk is sorted
 		v.expire(versionList)
 	}
 
@@ -172,22 +162,22 @@ func (v *Staggered) toRemove(versions []string, now time.Time) []string {
 	var prevAge int64
 	firstFile := true
 	var remove []string
-	for _, file := range versions {
-		loc, _ := time.LoadLocation("Local")
-		versionTime, err := time.ParseInLocation(TimeFormat, ExtractTag(file), loc)
+
+	// The list of versions may or may not be properly sorted.
+	sort.Strings(versions)
+
+	for _, version := range versions {
+		versionTime, err := time.ParseInLocation(TimeFormat, ExtractTag(version), time.Local)
 		if err != nil {
-			l.Debugf("Versioner: file name %q is invalid: %v", file, err)
+			l.Debugf("Versioner: file name %q is invalid: %v", version, err)
 			continue
 		}
 		age := int64(now.Sub(versionTime).Seconds())
 
 		// If the file is older than the max age of the last interval, remove it
 		if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
-			l.Debugln("Versioner: File over maximum age -> delete ", file)
-			err = v.versionsFs.Remove(file)
-			if err != nil {
-				l.Warnf("Versioner: can't remove %q: %v", file, err)
-			}
+			l.Debugln("Versioner: File over maximum age -> delete ", version)
+			remove = append(remove, version)
 			continue
 		}
 
@@ -207,8 +197,8 @@ func (v *Staggered) toRemove(versions []string, now time.Time) []string {
 		}
 
 		if prevAge-age < usedInterval.step {
-			l.Debugln("too many files in step -> delete", file)
-			remove = append(remove, file)
+			l.Debugln("too many files in step -> delete", version)
+			remove = append(remove, version)
 			continue
 		}
 
@@ -225,73 +215,19 @@ func (v *Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	info, err := v.folderFs.Lstat(filePath)
-	if fs.IsNotExist(err) {
-		l.Debugln("not archiving nonexistent file", filePath)
-		return nil
-	} else if err != nil {
-		return err
-	}
-	if info.IsSymlink() {
-		panic("bug: attempting to version a symlink")
-	}
-
-	if _, err := v.versionsFs.Stat("."); err != nil {
-		if fs.IsNotExist(err) {
-			l.Debugln("creating versions dir", v.versionsFs)
-			v.versionsFs.MkdirAll(".", 0755)
-			v.versionsFs.Hide(".")
-		} else {
-			return err
-		}
-	}
-
-	l.Debugln("archiving", filePath)
-
-	file := filepath.Base(filePath)
-	inFolderPath := filepath.Dir(filePath)
-	if err != nil {
+	if err := archiveFile(v.folderFs, v.versionsFs, filePath, TagFilename); err != nil {
 		return err
 	}
 
-	err = v.versionsFs.MkdirAll(inFolderPath, 0755)
-	if err != nil && !fs.IsExist(err) {
-		return err
-	}
-
-	ver := TagFilename(file, time.Now().Format(TimeFormat))
-	dst := filepath.Join(inFolderPath, ver)
-	l.Debugln("moving to", dst)
-
-	/// TODO: Fix this when we have an alternative filesystem implementation
-	if v.versionsFs.Type() != fs.FilesystemTypeBasic {
-		panic("bug: staggered versioner used with unsupported filesystem")
-	}
-
-	err = os.Rename(filepath.Join(v.folderFs.URI(), filePath), filepath.Join(v.versionsFs.URI(), dst))
-	if err != nil {
-		return err
-	}
-
-	// Glob according to the new file~timestamp.ext pattern.
-	pattern := filepath.Join(inFolderPath, TagFilename(file, TimeGlob))
-	newVersions, err := v.versionsFs.Glob(pattern)
-	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
-		return nil
-	}
-
-	// Also according to the old file.ext~timestamp pattern.
-	pattern = filepath.Join(inFolderPath, file+"~"+TimeGlob)
-	oldVersions, err := v.versionsFs.Glob(pattern)
-	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
-		return nil
-	}
-
-	// Use all the found filenames.
-	versions := append(oldVersions, newVersions...)
-	v.expire(util.UniqueStrings(versions))
+	v.expire(findAllVersions(v.versionsFs, filePath))
 
 	return nil
+}
+
+func (v *Staggered) GetVersions() (map[string][]FileVersion, error) {
+	return retrieveVersions(v.versionsFs)
+}
+
+func (v *Staggered) Restore(filepath string, versionTime time.Time) error {
+	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }

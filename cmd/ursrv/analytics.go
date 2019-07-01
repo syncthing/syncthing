@@ -24,10 +24,10 @@ type analyticList []analytic
 
 func (l analyticList) Less(a, b int) bool {
 	if l[a].Key == "Others" {
-		return true
+		return false
 	}
 	if l[b].Key == "Others" {
-		return false
+		return true
 	}
 	return l[b].Count < l[a].Count // inverse
 }

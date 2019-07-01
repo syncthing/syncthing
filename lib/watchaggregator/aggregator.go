@@ -125,21 +125,24 @@ func newAggregator(folderCfg config.FolderConfiguration, ctx context.Context) *a
 	return a
 }
 
-func Aggregate(in <-chan fs.Event, out chan<- []string, folderCfg config.FolderConfiguration, cfg *config.Wrapper, ctx context.Context) {
+func Aggregate(in <-chan fs.Event, out chan<- []string, folderCfg config.FolderConfiguration, cfg config.Wrapper, ctx context.Context) {
 	a := newAggregator(folderCfg, ctx)
 
 	// Necessary for unit tests where the backend is mocked
 	go a.mainLoop(in, out, cfg)
 }
 
-func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg *config.Wrapper) {
+func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg config.Wrapper) {
 	a.notifyTimer = time.NewTimer(a.notifyDelay)
 	defer a.notifyTimer.Stop()
 
-	inProgress := make(map[string]struct{})
 	inProgressItemSubscription := events.Default.Subscribe(events.ItemStarted | events.ItemFinished)
+	defer events.Default.Unsubscribe(inProgressItemSubscription)
 
 	cfg.Subscribe(a)
+	defer cfg.Unsubscribe(a)
+
+	inProgress := make(map[string]struct{})
 
 	for {
 		select {
@@ -154,7 +157,6 @@ func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg *conf
 		case folderCfg := <-a.folderCfgUpdate:
 			a.updateConfig(folderCfg)
 		case <-a.ctx.Done():
-			cfg.Unsubscribe(a)
 			l.Debugln(a, "Stopped")
 			return
 		}

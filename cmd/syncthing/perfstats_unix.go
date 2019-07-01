@@ -38,7 +38,10 @@ func savePerfStats(file string) {
 
 	t0 := time.Now()
 	for t := range time.NewTicker(250 * time.Millisecond).C {
-		syscall.Getrusage(syscall.RUSAGE_SELF, &rusage)
+		if err := syscall.Getrusage(syscall.RUSAGE_SELF, &rusage); err != nil {
+			continue
+		}
+
 		curTime := time.Now().UnixNano()
 		timeDiff := curTime - prevTime
 		curUsage := rusage.Utime.Nano() + rusage.Stime.Nano()
