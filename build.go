@@ -619,7 +619,7 @@ func buildDeb(target target) {
 		args = append(args, "-d", dep)
 	}
 	for _, trigger := range target.debtriggers {
-		args = append(args, "--activate", trigger)
+		args = append(args, "--deb-activate", trigger)
 	}
 	if target.debpost != "" {
 		args = append(args, "--after-upgrade", target.debpost)
