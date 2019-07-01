@@ -6,7 +6,7 @@ Documentation=man:stdiscosrv(1)
 [Service]
 WorkingDirectory=/var/lib/syncthing-stdiscosrv
 EnvironmentFile=/etc/default/syncthing-stdiscosrv
-ExecStart=/usr/bin/strelaysrv $DISCOSRV_OPTS
+ExecStart=/usr/bin/stdiscosrv $DISCOSRV_OPTS
 
 # Hardening
 User=syncthing-stdiscosrv
