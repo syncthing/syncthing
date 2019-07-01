@@ -737,7 +737,7 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		// config to start with...
 		{
 			{"tcp://0.0.0.0:22000"}, // old listen addrs
-			{""}, // old relay addrs
+			{""},                    // old relay addrs
 			{"tcp://0.0.0.0:22000"}, // new listen addrs
 		},
 		// Default listen plus non-default relays gets copied verbatim
