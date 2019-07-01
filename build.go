@@ -56,7 +56,6 @@ type target struct {
 	debdeps           []string
 	debpre            string
 	debpost           string
-	systemdEnable     bool
 	description       string
 	buildPkg          string
 	binaryName        string
@@ -125,14 +124,13 @@ var targets = map[string]target{
 		},
 	},
 	"stdiscosrv": {
-		name:          "stdiscosrv",
-		debname:       "syncthing-discosrv",
-		debdeps:       []string{"libc6"},
-		debpre:        "cmd/stdiscosrv/scripts/preinst",
-		systemdEnable: true,
-		description:   "Syncthing Discovery Server",
-		buildPkg:      "github.com/syncthing/syncthing/cmd/stdiscosrv",
-		binaryName:    "stdiscosrv", // .exe will be added automatically for Windows builds
+		name:        "stdiscosrv",
+		debname:     "syncthing-discosrv",
+		debdeps:     []string{"libc6"},
+		debpre:      "cmd/stdiscosrv/scripts/preinst",
+		description: "Syncthing Discovery Server",
+		buildPkg:    "github.com/syncthing/syncthing/cmd/stdiscosrv",
+		binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "README.txt", perm: 0644},
@@ -154,14 +152,13 @@ var targets = map[string]target{
 		tags: []string{"purego"},
 	},
 	"strelaysrv": {
-		name:          "strelaysrv",
-		debname:       "syncthing-relaysrv",
-		debdeps:       []string{"libc6"},
-		debpre:        "cmd/strelaysrv/scripts/preinst",
-		systemdEnable: true,
-		description:   "Syncthing Relay Server",
-		buildPkg:      "github.com/syncthing/syncthing/cmd/strelaysrv",
-		binaryName:    "strelaysrv", // .exe will be added automatically for Windows builds
+		name:        "strelaysrv",
+		debname:     "syncthing-relaysrv",
+		debdeps:     []string{"libc6"},
+		debpre:      "cmd/strelaysrv/scripts/preinst",
+		description: "Syncthing Relay Server",
+		buildPkg:    "github.com/syncthing/syncthing/cmd/strelaysrv",
+		binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "README.txt", perm: 0644},
@@ -626,9 +623,6 @@ func buildDeb(target target) {
 	}
 	for _, service := range target.systemdServices {
 		args = append(args, "--deb-systemd", service)
-	}
-	if target.systemdEnable {
-		args = append(args, "--deb-systemd-enable")
 	}
 	if target.debpost != "" {
 		args = append(args, "--after-upgrade", target.debpost)
