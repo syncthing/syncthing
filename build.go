@@ -56,6 +56,7 @@ type target struct {
 	debdeps           []string
 	debpre            string
 	debpost           string
+	debtriggers       []string
 	description       string
 	buildPkg          string
 	binaryName        string
@@ -127,6 +128,7 @@ var targets = map[string]target{
 		debname:     "syncthing-discosrv",
 		debdeps:     []string{"libc6"},
 		debpre:      "cmd/stdiscosrv/scripts/preinst",
+		debtriggers: []string{"systemd"},
 		description: "Syncthing Discovery Server",
 		buildPkg:    "github.com/syncthing/syncthing/cmd/stdiscosrv",
 		binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
@@ -153,6 +155,7 @@ var targets = map[string]target{
 		debname:     "syncthing-relaysrv",
 		debdeps:     []string{"libc6"},
 		debpre:      "cmd/strelaysrv/scripts/preinst",
+		debtriggers: []string{"systemd"},
 		description: "Syncthing Relay Server",
 		buildPkg:    "github.com/syncthing/syncthing/cmd/strelaysrv",
 		binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
@@ -614,6 +617,9 @@ func buildDeb(target target) {
 	}
 	for _, dep := range target.debdeps {
 		args = append(args, "-d", dep)
+	}
+	for _, trigger := range target.debtriggers {
+		args = append(args, "--activate", trigger)
 	}
 	if target.debpost != "" {
 		args = append(args, "--after-upgrade", target.debpost)
