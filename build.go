@@ -56,11 +56,12 @@ type target struct {
 	debdeps           []string
 	debpre            string
 	debpost           string
-	debtriggers       []string
+	systemdEnable     bool
 	description       string
 	buildPkg          string
 	binaryName        string
 	archiveFiles      []archiveFile
+	systemdServices   []string
 	installationFiles []archiveFile
 	tags              []string
 }
@@ -124,19 +125,22 @@ var targets = map[string]target{
 		},
 	},
 	"stdiscosrv": {
-		name:        "stdiscosrv",
-		debname:     "syncthing-discosrv",
-		debdeps:     []string{"libc6"},
-		debpre:      "cmd/stdiscosrv/scripts/preinst",
-		debtriggers: []string{"systemd"},
-		description: "Syncthing Discovery Server",
-		buildPkg:    "github.com/syncthing/syncthing/cmd/stdiscosrv",
-		binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
+		name:          "stdiscosrv",
+		debname:       "syncthing-discosrv",
+		debdeps:       []string{"libc6"},
+		debpre:        "cmd/stdiscosrv/scripts/preinst",
+		systemdEnable: true,
+		description:   "Syncthing Discovery Server",
+		buildPkg:      "github.com/syncthing/syncthing/cmd/stdiscosrv",
+		binaryName:    "stdiscosrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "README.txt", perm: 0644},
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+		},
+		systemdServices: []string{
+			"cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service",
 		},
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
@@ -145,26 +149,28 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-discosrv/AUTHORS.txt", perm: 0644},
 			{src: "man/stdiscosrv.1", dst: "deb/usr/share/man/man1/stdiscosrv.1", perm: 0644},
 			{src: "cmd/stdiscosrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-stdiscosrv", perm: 0644},
-			{src: "cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service", dst: "deb/lib/systemd/system/stdiscosrv.service", perm: 0644},
 			{src: "cmd/stdiscosrv/etc/firewall-ufw/stdiscosrv", dst: "deb/etc/ufw/applications.d/stdiscosrv", perm: 0644},
 		},
 		tags: []string{"purego"},
 	},
 	"strelaysrv": {
-		name:        "strelaysrv",
-		debname:     "syncthing-relaysrv",
-		debdeps:     []string{"libc6"},
-		debpre:      "cmd/strelaysrv/scripts/preinst",
-		debtriggers: []string{"systemd"},
-		description: "Syncthing Relay Server",
-		buildPkg:    "github.com/syncthing/syncthing/cmd/strelaysrv",
-		binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
+		name:          "strelaysrv",
+		debname:       "syncthing-relaysrv",
+		debdeps:       []string{"libc6"},
+		debpre:        "cmd/strelaysrv/scripts/preinst",
+		systemdEnable: true,
+		description:   "Syncthing Relay Server",
+		buildPkg:      "github.com/syncthing/syncthing/cmd/strelaysrv",
+		binaryName:    "strelaysrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "README.txt", perm: 0644},
 			{src: "cmd/strelaysrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+		},
+		systemdServices: []string{
+			"cmd/strelaysrv/etc/linux-systemd/strelaysrv.service",
 		},
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
@@ -618,8 +624,11 @@ func buildDeb(target target) {
 	for _, dep := range target.debdeps {
 		args = append(args, "-d", dep)
 	}
-	for _, trigger := range target.debtriggers {
-		args = append(args, "--deb-activate", trigger)
+	for _, service := range target.systemdServices {
+		args = append(args, "--deb-systemd", service)
+	}
+	if target.systemdEnable {
+		args = append(args, "--deb-systemd-enable")
 	}
 	if target.debpost != "" {
 		args = append(args, "--after-upgrade", target.debpost)
