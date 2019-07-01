@@ -4,7 +4,7 @@ After=network.target
 Documentation=man:stdiscosrv(1)
 
 [Service]
-WorkingDirectory=/var/lib/syncthing-stdiscosrv
+WorkingDirectory=/var/lib/syncthing-discosrv
 EnvironmentFile=/etc/default/syncthing-stdiscosrv
 ExecStart=/usr/bin/stdiscosrv $DISCOSRV_OPTS
 
