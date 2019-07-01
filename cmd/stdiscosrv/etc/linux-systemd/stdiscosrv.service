@@ -5,7 +5,7 @@ Documentation=man:stdiscosrv(1)
 
 [Service]
 WorkingDirectory=/var/lib/syncthing-discosrv
-EnvironmentFile=/etc/default/syncthing-stdiscosrv
+EnvironmentFile=/etc/default/syncthing-discosrv
 ExecStart=/usr/bin/stdiscosrv $DISCOSRV_OPTS
 
 # Hardening
