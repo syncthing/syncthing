@@ -569,6 +569,31 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		setPauseState(cfg, true)
 	}
 
+	// Ensure that we have a certificate and key.
+	cert, err := tls.LoadX509KeyPair(
+		locations.Get(locations.CertFile),
+		locations.Get(locations.KeyFile),
+	)
+	if err != nil {
+		l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
+		cert, err = tlsutil.NewCertificate(
+			locations.Get(locations.CertFile),
+			locations.Get(locations.KeyFile),
+			tlsDefaultCommonName,
+		)
+		if err != nil {
+			l.Warnln("Failed to generate certificate:", err)
+			os.Exit(1)
+		}
+	}
+
+	dbFile := locations.Get(locations.Database)
+	ldb, err := db.Open(dbFile)
+	if err != nil {
+		l.Warnln("Error opening database:", err)
+		os.Exit(1)
+	}
+
 	appOpts := runtimeOptions.Options
 	if runtimeOptions.auditEnabled {
 		appOpts.AuditWriter = auditWriter(runtimeOptions.auditFile)
@@ -577,7 +602,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		secs, _ := strconv.Atoi(t)
 		appOpts.DeadlockTimeoutS = secs
 	}
-	app := syncthing.New(cfg, appOpts)
+
+	app := syncthing.New(cfg, ldb, cert, appOpts)
 
 	setupSignalHandling(app)
 

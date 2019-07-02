@@ -66,9 +66,10 @@ type Options struct {
 type App struct {
 	myID        protocol.DeviceID
 	mainService *suture.Supervisor
-	ll          *db.Lowlevel
-	opts        Options
 	cfg         config.Wrapper
+	ll          *db.Lowlevel
+	cert        tls.Certificate
+	opts        Options
 	exitStatus  ExitStatus
 	err         error
 	startOnce   sync.Once
@@ -76,10 +77,12 @@ type App struct {
 	stopped     chan struct{}
 }
 
-func New(cfg config.Wrapper, opts Options) *App {
+func New(cfg config.Wrapper, ll *db.Lowlevel, cert tls.Certificate, opts Options) *App {
 	return &App{
-		opts:    opts,
 		cfg:     cfg,
+		ll:      ll,
+		opts:    opts,
+		cert:    cert,
 		stop:    make(chan struct{}),
 		stopped: make(chan struct{}),
 	}
@@ -144,25 +147,7 @@ func (a *App) startup() error {
 	// report the error if there is one.
 	osutil.MaximizeOpenFileLimit()
 
-	// Ensure that we have a certificate and key.
-	cert, err := tls.LoadX509KeyPair(
-		locations.Get(locations.CertFile),
-		locations.Get(locations.KeyFile),
-	)
-	if err != nil {
-		l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
-		cert, err = tlsutil.NewCertificate(
-			locations.Get(locations.CertFile),
-			locations.Get(locations.KeyFile),
-			tlsDefaultCommonName,
-		)
-		if err != nil {
-			l.Infoln("Failed to generate certificate:", err)
-			return err
-		}
-	}
-
-	a.myID = protocol.NewDeviceID(cert.Certificate[0])
+	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", a.myID.String()[:5]))
 
 	l.Infoln(build.LongVersion)
@@ -200,12 +185,6 @@ func (a *App) startup() error {
 	perf := ur.CpuBench(3, 150*time.Millisecond, true)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
-	dbFile := locations.Get(locations.Database)
-	a.ll, err = db.Open(dbFile)
-	if err != nil {
-		l.Warnln("Error opening database:", err)
-		return err
-	}
 	if err := db.UpdateSchema(a.ll); err != nil {
 		l.Warnln("Database schema:", err)
 		return err
@@ -285,7 +264,7 @@ func (a *App) startup() error {
 	// connections.
 
 	tlsCfg := tlsutil.SecureDefault()
-	tlsCfg.Certificates = []tls.Certificate{cert}
+	tlsCfg.Certificates = []tls.Certificate{a.cert}
 	tlsCfg.NextProtos = []string{bepProtocolName}
 	tlsCfg.ClientAuth = tls.RequestClientCert
 	tlsCfg.SessionTicketsDisabled = true
@@ -299,7 +278,7 @@ func (a *App) startup() error {
 	if a.cfg.Options().GlobalAnnEnabled {
 		for _, srv := range a.cfg.GlobalDiscoveryServers() {
 			l.Infoln("Using discovery server", srv)
-			gd, err := discover.NewGlobal(srv, cert, connectionsService)
+			gd, err := discover.NewGlobal(srv, a.cert, connectionsService)
 			if err != nil {
 				l.Warnln("Global discovery:", err)
 				continue
@@ -431,8 +410,8 @@ func (a *App) Stop(stopReason ExitStatus) ExitStatus {
 		close(a.stop)
 	}
 	<-a.stopped
-	// If there was already an exit status set internally, ignore the reason
-	// given to Stop.
+	// ExitSuccess is the default value for a.exitStatus. If another status
+	// was already set, ignore the stop reason given as argument to Stop.
 	if a.exitStatus == ExitSuccess {
 		a.exitStatus = stopReason
 	}
