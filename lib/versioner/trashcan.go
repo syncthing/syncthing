@@ -133,9 +133,15 @@ func (t *Trashcan) Restore(filepath string, versionTime time.Time) error {
 
 	taggedName := ""
 	tagger := func(name, tag string) string {
-		// We can't use TagFilename here, as restoreFii would discover that as a valid version and restore that instead.
+		// We also abuse the fact that tagger gets called twice, once for tagging the restoration version, which
+		// should just return the plain name, and second time by archive which archives existing file in the folder.
+		// We can't use TagFilename here, as restoreFile would discover that as a valid version and restore that instead.
+		if taggedName != "" {
+			return taggedName
+		}
+
 		taggedName = fs.TempName(name)
-		return taggedName
+		return name
 	}
 
 	err := restoreFile(t.versionsFs, t.folderFs, filepath, versionTime, tagger)

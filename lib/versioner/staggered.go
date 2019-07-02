@@ -7,14 +7,12 @@
 package versioner
 
 import (
-	"path/filepath"
 	"sort"
 	"strconv"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -103,7 +101,7 @@ func (v *Staggered) clean() {
 		return
 	}
 
-	versionsPerFile := make(map[string][]versionWithMtime)
+	versionsPerFile := make(map[string][]string)
 	dirTracker := make(emptyDirTracker)
 
 	walkFn := func(path string, f fs.FileInfo, err error) error {
@@ -124,10 +122,7 @@ func (v *Staggered) clean() {
 			return nil
 		}
 
-		versionsPerFile[name] = append(versionsPerFile[name], versionWithMtime{
-			name:  name,
-			mtime: f.ModTime(),
-		})
+		versionsPerFile[name] = append(versionsPerFile[name], path)
 
 		return nil
 	}
@@ -146,7 +141,7 @@ func (v *Staggered) clean() {
 	l.Debugln("Cleaner: Finished cleaning", v.versionsFs)
 }
 
-func (v *Staggered) expire(versions []versionWithMtime) {
+func (v *Staggered) expire(versions []string) {
 	l.Debugln("Versioner: Expiring versions", versions)
 	for _, file := range v.toRemove(versions, time.Now()) {
 		if fi, err := v.versionsFs.Lstat(file); err != nil {
@@ -163,24 +158,26 @@ func (v *Staggered) expire(versions []versionWithMtime) {
 	}
 }
 
-func (v *Staggered) toRemove(versions []versionWithMtime, now time.Time) []string {
+func (v *Staggered) toRemove(versions []string, now time.Time) []string {
 	var prevAge int64
 	firstFile := true
 	var remove []string
 
-	// The list of versions may or may not be properly sorted. Let's take
-	// off and nuke from orbit, it's the only way to be sure.
-	sort.Slice(versions, func(i, j int) bool {
-		return versions[i].mtime.Before(versions[j].mtime)
-	})
+	// The list of versions may or may not be properly sorted.
+	sort.Strings(versions)
 
 	for _, version := range versions {
-		age := int64(now.Sub(version.mtime).Seconds())
+		versionTime, err := time.ParseInLocation(TimeFormat, ExtractTag(version), time.Local)
+		if err != nil {
+			l.Debugf("Versioner: file name %q is invalid: %v", version, err)
+			continue
+		}
+		age := int64(now.Sub(versionTime).Seconds())
 
 		// If the file is older than the max age of the last interval, remove it
 		if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
-			l.Debugln("Versioner: File over maximum age -> delete ", version.name)
-			remove = append(remove, version.name)
+			l.Debugln("Versioner: File over maximum age -> delete ", version)
+			remove = append(remove, version)
 			continue
 		}
 
@@ -200,8 +197,8 @@ func (v *Staggered) toRemove(versions []versionWithMtime, now time.Time) []strin
 		}
 
 		if prevAge-age < usedInterval.step {
-			l.Debugln("too many files in step -> delete", version.name)
-			remove = append(remove, version.name)
+			l.Debugln("too many files in step -> delete", version)
+			remove = append(remove, version)
 			continue
 		}
 
@@ -222,31 +219,7 @@ func (v *Staggered) Archive(filePath string) error {
 		return err
 	}
 
-	file := filepath.Base(filePath)
-	inFolderPath := filepath.Dir(filePath)
-
-	// Glob according to the new file~timestamp.ext pattern.
-	pattern := filepath.Join(inFolderPath, TagFilename(file, TimeGlob))
-	newVersions, err := v.versionsFs.Glob(pattern)
-	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
-		return nil
-	}
-
-	// Also according to the old file.ext~timestamp pattern.
-	pattern = filepath.Join(inFolderPath, file+"~"+TimeGlob)
-	oldVersions, err := v.versionsFs.Glob(pattern)
-	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
-		return nil
-	}
-
-	// Use all the found filenames.
-	versions := append(oldVersions, newVersions...)
-	versions = util.UniqueTrimmedStrings(versions)
-
-	versionsWithMtimes := versionsToVersionsWithMtime(v.versionsFs, versions)
-	v.expire(versionsWithMtimes)
+	v.expire(findAllVersions(v.versionsFs, filePath))
 
 	return nil
 }

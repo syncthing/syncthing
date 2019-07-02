@@ -47,8 +47,8 @@ type service interface {
 	Override()
 	Revert()
 	DelayScan(d time.Duration)
-	SchedulePull()              // something relevant changed, we should try a pull
-	Jobs() ([]string, []string) // In progress, Queued
+	SchedulePull()                                    // something relevant changed, we should try a pull
+	Jobs(page, perpage int) ([]string, []string, int) // In progress, Queued, skipped
 	Scan(subs []string) error
 	Serve()
 	Stop()
@@ -370,17 +370,20 @@ func (m *model) AddFolder(cfg config.FolderConfiguration) {
 		panic("cannot add empty folder path")
 	}
 
+	// Creating the fileset can take a long time (metadata calculation) so
+	// we do it outside of the lock.
+	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
+
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
-	m.addFolderLocked(cfg)
+	m.addFolderLocked(cfg, fset)
 }
 
-func (m *model) addFolderLocked(cfg config.FolderConfiguration) {
+func (m *model) addFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
 	m.folderCfgs[cfg.ID] = cfg
-	folderFs := cfg.Filesystem()
-	m.folderFiles[cfg.ID] = db.NewFileSet(cfg.ID, folderFs, m.db)
+	m.folderFiles[cfg.ID] = fset
 
-	ignores := ignore.New(folderFs, ignore.WithCache(m.cacheIgnoredFiles))
+	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
 	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 		l.Warnln("Loading ignores:", err)
 	}
@@ -458,12 +461,19 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 		errMsg = "restarting"
 	}
 
+	var fset *db.FileSet
+	if !to.Paused {
+		// Creating the fileset can take a long time (metadata calculation)
+		// so we do it outside of the lock.
+		fset = db.NewFileSet(to.ID, to.Filesystem(), m.db)
+	}
+
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
 	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
 	if !to.Paused {
-		m.addFolderLocked(to)
+		m.addFolderLocked(to, fset)
 		m.startFolderLocked(to)
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
@@ -791,7 +801,8 @@ func (m *model) ReceiveOnlyChangedSize(folder string) db.Counts {
 	return db.Counts{}
 }
 
-// NeedSize returns the number and total size of currently needed files.
+// NeedSize returns the number of currently needed files and their total size
+// minus the amount that has already been downloaded.
 func (m *model) NeedSize(folder string) db.Counts {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
@@ -815,8 +826,7 @@ func (m *model) NeedSize(folder string) db.Counts {
 }
 
 // NeedFolderFiles returns paginated list of currently needed files in
-// progress, queued, and to be queued on next puller iteration, as well as the
-// total number of files currently needed.
+// progress, queued, and to be queued on next puller iteration.
 func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
 	m.fmut.RLock()
 	rf, rfOk := m.folderFiles[folder]
@@ -835,15 +845,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	get := perpage
 
 	if runnerOk {
-		allProgressNames, allQueuedNames := runner.Jobs()
-
-		var progressNames, queuedNames []string
-		progressNames, skip, get = getChunk(allProgressNames, skip, get)
-		queuedNames, skip, get = getChunk(allQueuedNames, skip, get)
-
-		progress = make([]db.FileInfoTruncated, len(progressNames))
-		queued = make([]db.FileInfoTruncated, len(queuedNames))
-		seen = make(map[string]struct{}, len(progressNames)+len(queuedNames))
+		progressNames, queuedNames, skipped := runner.Jobs(page, perpage)
 
 		for i, name := range progressNames {
 			if f, ok := rf.GetGlobalTruncated(name); ok {
@@ -858,6 +860,12 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 				seen[name] = struct{}{}
 			}
 		}
+
+		get -= len(seen)
+		if get == 0 {
+			return progress, queued, nil
+		}
+		skip -= skipped
 	}
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
@@ -2611,20 +2619,6 @@ func mapDevices(devices []protocol.DeviceID) map[protocol.DeviceID]struct{} {
 		m[dev] = struct{}{}
 	}
 	return m
-}
-
-// Skips `skip` elements and retrieves up to `get` elements from a given slice.
-// Returns the resulting slice, plus how much elements are left to skip or
-// copy to satisfy the values which were provided, given the slice is not
-// big enough.
-func getChunk(data []string, skip, get int) ([]string, int, int) {
-	l := len(data)
-	if l <= skip {
-		return []string{}, skip - l, get
-	} else if l < skip+get {
-		return data[skip:l], 0, get - (l - skip)
-	}
-	return data[skip : skip+get], 0, 0
 }
 
 func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) error {

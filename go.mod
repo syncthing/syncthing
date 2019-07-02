@@ -2,7 +2,7 @@ module github.com/syncthing/syncthing
 
 require (
 	github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362
-	github.com/AudriusButkevicius/pfilter v0.0.0-20190525131515-730b0de4d4de
+	github.com/AudriusButkevicius/pfilter v0.0.0-20190627213056-c55ef6137fc6
 	github.com/AudriusButkevicius/recli v0.0.5
 	github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e
 	github.com/calmh/du v1.0.1
