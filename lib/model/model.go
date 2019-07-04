@@ -221,10 +221,8 @@ func (m *model) Stop() {
 	for id := range devs {
 		ids = append(ids, id)
 	}
-	closed := m.closeConns(ids, errStopped)
-	for _, c := range closed {
-		<-c
-	}
+	w := m.closeConns(ids, errStopped)
+	w.Wait()
 }
 
 // StartDeadlockDetector starts a deadlock detector on the models locks which
@@ -407,15 +405,13 @@ func (m *model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) 
 	// Close connections to affected devices
 	// Must happen before stopping the folder service to abort ongoing
 	// transmissions and thus allow timely service termination.
-	closed := m.closeConns(cfg.DeviceIDs(), err)
+	w := m.closeConns(cfg.DeviceIDs(), err)
 
 	for _, id := range tokens {
 		m.RemoveAndWait(id, 0)
 	}
 
-	for _, c := range closed {
-		<-c
-	}
+	w.Wait()
 
 	m.fmut.Lock()
 
@@ -1432,10 +1428,9 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	close(closed)
 }
 
-// closeConns will close the underlying connection for given devices and
-// return an array of channels that will be closed once the connections are
-// finished closing.
-func (m *model) closeConns(devs []protocol.DeviceID, err error) []chan struct{} {
+// closeConns will close the underlying connection for given devices and return
+// a waiter that will return once all the connections are finished closing.
+func (m *model) closeConns(devs []protocol.DeviceID, err error) config.Waiter {
 	conns := make([]connections.Connection, 0, len(devs))
 	closed := make([]chan struct{}, 0, len(devs))
 	m.pmut.Lock()
@@ -1449,19 +1444,23 @@ func (m *model) closeConns(devs []protocol.DeviceID, err error) []chan struct{} 
 	for _, conn := range conns {
 		conn.Close(err)
 	}
-	return closed
+	return &channelWaiter{chans: closed}
 }
 
 // closeConn closes the underlying connection for the given device and returns
-// a channel that will be closed once the connection is finished closing.
-func (m *model) closeConn(dev protocol.DeviceID, err error) chan struct{} {
-	closed := m.closeConns([]protocol.DeviceID{dev}, err)
-	if len(closed) == 0 {
-		c := make(chan struct{})
-		close(c)
-		return c
+// a waiter that will return once the connection is finished closing.
+func (m *model) closeConn(dev protocol.DeviceID, err error) config.Waiter {
+	return m.closeConns([]protocol.DeviceID{dev}, err)
+}
+
+type channelWaiter struct {
+	chans []chan struct{}
+}
+
+func (w *channelWaiter) Wait() {
+	for _, c := range w.chans {
+		<-c
 	}
-	return closed[0]
 }
 
 // Implements protocol.RequestResponse
