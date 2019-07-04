@@ -16,8 +16,12 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func dump(ldb *db.Lowlevel) {
-	it := ldb.NewIterator(nil, nil)
+func dump(ldb *db.Instance) {
+	it, err := ldb.NewIterator(nil)
+	if err != nil {
+		return
+	}
+	defer it.Release()
 	for it.Next() {
 		key := it.Key()
 		switch key[0] {

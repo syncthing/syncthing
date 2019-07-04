@@ -21,7 +21,7 @@ type DeviceStatisticsReference struct {
 	device string
 }
 
-func NewDeviceStatisticsReference(ldb *db.Lowlevel, device string) *DeviceStatisticsReference {
+func NewDeviceStatisticsReference(ldb *db.Instance, device string) *DeviceStatisticsReference {
 	return &DeviceStatisticsReference{
 		ns:     db.NewDeviceStatisticsNamespace(ldb, device),
 		device: device,

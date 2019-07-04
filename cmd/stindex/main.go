@@ -30,7 +30,7 @@ func main() {
 		path = filepath.Join(defaultConfigDir(), "index-v0.14.0.db")
 	}
 
-	ldb, err := db.OpenRO(path)
+	ldb, err := db.NewROInstanceFromGoleveldb(path)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -14,11 +14,10 @@ import (
 )
 
 func TestIgnoredFiles(t *testing.T) {
-	ldb, err := openJSONS("testdata/v0.14.48-ignoredfiles.db.jsons")
+	db, err := openJSONS("testdata/v0.14.48-ignoredfiles.db.jsons")
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := NewLowlevel(ldb, "<memory>")
 	UpdateSchema(db)
 
 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
@@ -136,13 +135,12 @@ func init() {
 }
 
 func TestUpdate0to3(t *testing.T) {
-	ldb, err := openJSONS("testdata/v0.14.45-update0to3.db.jsons")
+	db, err := openJSONS("testdata/v0.14.45-update0to3.db.jsons")
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	db := newInstance(NewLowlevel(ldb, "<memory>"))
 	updater := schemaUpdater{db}
 
 	folder := []byte(update0to3Folder)
@@ -153,7 +151,7 @@ func TestUpdate0to3(t *testing.T) {
 		t.Error("File prefixed by '/' was not removed during transition to schema 1")
 	}
 
-	if _, err := db.Get(db.keyer.GenerateGlobalVersionKey(nil, folder, []byte(invalid)), nil); err != nil {
+	if _, err := db.Get(db.keyer.GenerateGlobalVersionKey(nil, folder, []byte(invalid))); err != nil {
 		t.Error("Invalid file wasn't added to global list")
 	}
 

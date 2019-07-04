@@ -26,7 +26,7 @@ import (
 type FileSet struct {
 	folder string
 	fs     fs.Filesystem
-	db     *instance
+	db     *Instance
 	meta   *metadataTracker
 
 	updateMutex sync.Mutex // protects database updates and the corresponding metadata changes
@@ -66,9 +66,7 @@ func init() {
 	}
 }
 
-func NewFileSet(folder string, fs fs.Filesystem, ll *Lowlevel) *FileSet {
-	db := newInstance(ll)
-
+func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
 	var s = FileSet{
 		folder:      folder,
 		fs:          fs,
@@ -269,7 +267,7 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 
 func (s *FileSet) MtimeFS() *fs.MtimeFS {
 	prefix := s.db.keyer.GenerateMtimesKey(nil, []byte(s.folder))
-	kv := NewNamespacedKV(s.db.Lowlevel, string(prefix))
+	kv := NewNamespacedKV(s.db, string(prefix))
 	return fs.NewMtimeFS(s.fs, kv)
 }
 
@@ -279,8 +277,7 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 
 // DropFolder clears out all information related to the given folder from the
 // database.
-func DropFolder(ll *Lowlevel, folder string) {
-	db := newInstance(ll)
+func DropFolder(db *Instance, folder string) {
 	db.dropFolder([]byte(folder))
 	db.dropMtimes([]byte(folder))
 	db.dropFolderMeta([]byte(folder))
@@ -291,11 +288,15 @@ func DropFolder(ll *Lowlevel, folder string) {
 
 // DropDeltaIndexIDs removes all delta index IDs from the database.
 // This will cause a full index transmission on the next connection.
-func DropDeltaIndexIDs(db *Lowlevel) {
-	dbi := db.NewIterator(util.BytesPrefix([]byte{KeyTypeIndexID}), nil)
+func DropDeltaIndexIDs(db *Instance) {
+	dbi, err := db.NewIterator(util.BytesPrefix([]byte{KeyTypeIndexID}))
+	if err != nil {
+		l.Debugln("NewIterator:", err)
+		return
+	}
 	defer dbi.Release()
 	for dbi.Next() {
-		db.Delete(dbi.Key(), nil)
+		db.Delete(dbi.Key())
 	}
 }
 

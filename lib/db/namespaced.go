@@ -16,13 +16,13 @@ import (
 // NamespacedKV is a simple key-value store using a specific namespace within
 // a leveldb.
 type NamespacedKV struct {
-	db     *Lowlevel
+	db     Backend
 	prefix []byte
 }
 
 // NewNamespacedKV returns a new NamespacedKV that lives in the namespace
 // specified by the prefix.
-func NewNamespacedKV(db *Lowlevel, prefix string) *NamespacedKV {
+func NewNamespacedKV(db Backend, prefix string) *NamespacedKV {
 	prefixBs := []byte(prefix)
 	// After the conversion from string the cap will be larger than the len (in Go 1.11.5,
 	// 32 bytes cap for small strings). We need to cut it down to ensure append() calls
@@ -36,14 +36,18 @@ func NewNamespacedKV(db *Lowlevel, prefix string) *NamespacedKV {
 
 // Reset removes all entries in this namespace.
 func (n *NamespacedKV) Reset() {
-	it := n.db.NewIterator(util.BytesPrefix(n.prefix), nil)
+	it, err := n.db.NewIterator(util.BytesPrefix(n.prefix))
+	if err != nil {
+		l.Debugln("NewIterator:", err)
+		return
+	}
 	defer it.Release()
-	batch := n.db.newBatch()
+	batch := n.db.NewBatch()
 	for it.Next() {
 		batch.Delete(it.Key())
-		batch.checkFlush()
+		batch.CheckFlush()
 	}
-	batch.flush()
+	batch.Flush()
 }
 
 // PutInt64 stores a new int64. Any existing value (even if of another type)
@@ -51,13 +55,13 @@ func (n *NamespacedKV) Reset() {
 func (n *NamespacedKV) PutInt64(key string, val int64) {
 	var valBs [8]byte
 	binary.BigEndian.PutUint64(valBs[:], uint64(val))
-	n.db.Put(n.prefixedKey(key), valBs[:], nil)
+	n.db.Put(n.prefixedKey(key), valBs[:])
 }
 
 // Int64 returns the stored value interpreted as an int64 and a boolean that
 // is false if no value was stored at the key.
 func (n *NamespacedKV) Int64(key string) (int64, bool) {
-	valBs, err := n.db.Get(n.prefixedKey(key), nil)
+	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
 		return 0, false
 	}
@@ -69,14 +73,14 @@ func (n *NamespacedKV) Int64(key string) (int64, bool) {
 // type) is overwritten.
 func (n *NamespacedKV) PutTime(key string, val time.Time) {
 	valBs, _ := val.MarshalBinary() // never returns an error
-	n.db.Put(n.prefixedKey(key), valBs, nil)
+	n.db.Put(n.prefixedKey(key), valBs)
 }
 
 // Time returns the stored value interpreted as a time.Time and a boolean
 // that is false if no value was stored at the key.
 func (n NamespacedKV) Time(key string) (time.Time, bool) {
 	var t time.Time
-	valBs, err := n.db.Get(n.prefixedKey(key), nil)
+	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
 		return t, false
 	}
@@ -87,13 +91,13 @@ func (n NamespacedKV) Time(key string) (time.Time, bool) {
 // PutString stores a new string. Any existing value (even if of another type)
 // is overwritten.
 func (n *NamespacedKV) PutString(key, val string) {
-	n.db.Put(n.prefixedKey(key), []byte(val), nil)
+	n.db.Put(n.prefixedKey(key), []byte(val))
 }
 
 // String returns the stored value interpreted as a string and a boolean that
 // is false if no value was stored at the key.
 func (n NamespacedKV) String(key string) (string, bool) {
-	valBs, err := n.db.Get(n.prefixedKey(key), nil)
+	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
 		return "", false
 	}
@@ -103,13 +107,13 @@ func (n NamespacedKV) String(key string) (string, bool) {
 // PutBytes stores a new byte slice. Any existing value (even if of another type)
 // is overwritten.
 func (n *NamespacedKV) PutBytes(key string, val []byte) {
-	n.db.Put(n.prefixedKey(key), val, nil)
+	n.db.Put(n.prefixedKey(key), val)
 }
 
 // Bytes returns the stored value as a raw byte slice and a boolean that
 // is false if no value was stored at the key.
 func (n NamespacedKV) Bytes(key string) ([]byte, bool) {
-	valBs, err := n.db.Get(n.prefixedKey(key), nil)
+	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
 		return nil, false
 	}
@@ -120,16 +124,16 @@ func (n NamespacedKV) Bytes(key string) ([]byte, bool) {
 // is overwritten.
 func (n *NamespacedKV) PutBool(key string, val bool) {
 	if val {
-		n.db.Put(n.prefixedKey(key), []byte{0x0}, nil)
+		n.db.Put(n.prefixedKey(key), []byte{0x0})
 	} else {
-		n.db.Put(n.prefixedKey(key), []byte{0x1}, nil)
+		n.db.Put(n.prefixedKey(key), []byte{0x1})
 	}
 }
 
 // Bool returns the stored value as a boolean and a boolean that
 // is false if no value was stored at the key.
 func (n NamespacedKV) Bool(key string) (bool, bool) {
-	valBs, err := n.db.Get(n.prefixedKey(key), nil)
+	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
 		return false, false
 	}
@@ -139,7 +143,7 @@ func (n NamespacedKV) Bool(key string) (bool, bool) {
 // Delete deletes the specified key. It is allowed to delete a nonexistent
 // key.
 func (n NamespacedKV) Delete(key string) {
-	n.db.Delete(n.prefixedKey(key), nil)
+	n.db.Delete(n.prefixedKey(key))
 }
 
 func (n NamespacedKV) prefixedKey(key string) []byte {
@@ -151,17 +155,17 @@ func (n NamespacedKV) prefixedKey(key string) []byte {
 
 // NewDeviceStatisticsNamespace creates a KV namespace for device statistics
 // for the given device.
-func NewDeviceStatisticsNamespace(db *Lowlevel, device string) *NamespacedKV {
+func NewDeviceStatisticsNamespace(db Backend, device string) *NamespacedKV {
 	return NewNamespacedKV(db, string(KeyTypeDeviceStatistic)+device)
 }
 
 // NewFolderStatisticsNamespace creates a KV namespace for folder statistics
 // for the given folder.
-func NewFolderStatisticsNamespace(db *Lowlevel, folder string) *NamespacedKV {
+func NewFolderStatisticsNamespace(db Backend, folder string) *NamespacedKV {
 	return NewNamespacedKV(db, string(KeyTypeFolderStatistic)+folder)
 }
 
 // NewMiscDateNamespace creates a KV namespace for miscellaneous metadata.
-func NewMiscDataNamespace(db *Lowlevel) *NamespacedKV {
+func NewMiscDataNamespace(db Backend) *NamespacedKV {
 	return NewNamespacedKV(db, string(KeyTypeMiscData))
 }

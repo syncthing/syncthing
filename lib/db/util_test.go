@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
@@ -35,7 +36,7 @@ func writeJSONS(w io.Writer, db *leveldb.DB) {
 var _ = writeJSONS
 
 // openJSONS reads a JSON stream file into a leveldb.DB
-func openJSONS(file string) (*leveldb.DB, error) {
+func openJSONS(file string) (*Instance, error) {
 	fd, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -57,7 +58,11 @@ func openJSONS(file string) (*leveldb.DB, error) {
 		db.Put(row["k"], row["v"], nil)
 	}
 
-	return db, nil
+	return NewInstance(&goleveldb{
+		DB:       db,
+		closeMut: &sync.RWMutex{},
+		iterWG:   sync.WaitGroup{},
+	}), nil
 }
 
 // The following commented tests were used to generate jsons files to stdout for

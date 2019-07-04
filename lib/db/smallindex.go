@@ -11,7 +11,6 @@ import (
 	"sort"
 
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -19,7 +18,7 @@ import (
 // fast lookups in both directions and persists to the database. Don't use for
 // storing more items than fit comfortably in RAM.
 type smallIndex struct {
-	db     *leveldb.DB
+	db     Backend
 	prefix []byte
 	id2val map[uint32]string
 	val2id map[string]uint32
@@ -27,7 +26,7 @@ type smallIndex struct {
 	mut    sync.Mutex
 }
 
-func newSmallIndex(db *leveldb.DB, prefix []byte) *smallIndex {
+func newSmallIndex(db Backend, prefix []byte) *smallIndex {
 	idx := &smallIndex{
 		db:     db,
 		prefix: prefix,
@@ -42,7 +41,10 @@ func newSmallIndex(db *leveldb.DB, prefix []byte) *smallIndex {
 // load iterates over the prefix space in the database and populates the in
 // memory maps.
 func (i *smallIndex) load() {
-	it := i.db.NewIterator(util.BytesPrefix(i.prefix), nil)
+	it, err := i.db.NewIterator(util.BytesPrefix(i.prefix))
+	if err != nil {
+		return
+	}
 	defer it.Release()
 	for it.Next() {
 		val := string(it.Value())
@@ -82,7 +84,7 @@ func (i *smallIndex) ID(val []byte) uint32 {
 	key := make([]byte, len(i.prefix)+8) // prefix plus uint32 id
 	copy(key, i.prefix)
 	binary.BigEndian.PutUint32(key[len(i.prefix):], id)
-	i.db.Put(key, val, nil)
+	i.db.Put(key, val)
 
 	i.mut.Unlock()
 	return id
@@ -115,7 +117,7 @@ func (i *smallIndex) Delete(val []byte) {
 		// Put an empty value into the database. This indicates that the
 		// entry does not exist any more and prevents the ID from being
 		// reused in the future.
-		i.db.Put(key, []byte{}, nil)
+		i.db.Put(key, []byte{})
 
 		// Delete reverse mapping.
 		delete(i.id2val, id)

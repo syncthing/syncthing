@@ -28,7 +28,7 @@ type LastFile struct {
 	Deleted  bool      `json:"deleted"`
 }
 
-func NewFolderStatisticsReference(ldb *db.Lowlevel, folder string) *FolderStatisticsReference {
+func NewFolderStatisticsReference(ldb *db.Instance, folder string) *FolderStatisticsReference {
 	return &FolderStatisticsReference{
 		ns:     db.NewFolderStatisticsNamespace(ldb, folder),
 		folder: folder,

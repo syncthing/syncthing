@@ -49,21 +49,27 @@ func init() {
 	}
 }
 
-func setup() (*instance, *BlockFinder) {
+func setup() (*Instance, *BlockFinder) {
 	// Setup
 
 	db := OpenMemory()
-	return newInstance(db), NewBlockFinder(db)
+	return db, NewBlockFinder(db)
 }
 
-func dbEmpty(db *instance) bool {
-	iter := db.NewIterator(util.BytesPrefix([]byte{KeyTypeBlock}), nil)
+func dbEmpty(db *Instance) bool {
+	iter, err := db.NewIterator(util.BytesPrefix([]byte{KeyTypeBlock}))
+	if err != nil {
+		panic(err)
+	}
 	defer iter.Release()
 	return !iter.Next()
 }
 
-func addToBlockMap(db *instance, folder []byte, fs []protocol.FileInfo) {
-	t := db.newReadWriteTransaction()
+func addToBlockMap(db *Instance, folder []byte, fs []protocol.FileInfo) {
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		panic(err)
+	}
 	defer t.close()
 
 	var keyBuf []byte
@@ -80,8 +86,11 @@ func addToBlockMap(db *instance, folder []byte, fs []protocol.FileInfo) {
 	}
 }
 
-func discardFromBlockMap(db *instance, folder []byte, fs []protocol.FileInfo) {
-	t := db.newReadWriteTransaction()
+func discardFromBlockMap(db *Instance, folder []byte, fs []protocol.FileInfo) {
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		panic(err)
+	}
 	defer t.close()
 
 	var keyBuf []byte

@@ -31,7 +31,7 @@ type sequenceKey struct {
 	sequence uint64
 }
 
-func idxck(ldb *db.Lowlevel) (success bool) {
+func idxck(ldb *db.Instance) (success bool) {
 	folders := make(map[uint32]string)
 	devices := make(map[uint32]string)
 	deviceToIDs := make(map[string]uint32)
@@ -42,7 +42,12 @@ func idxck(ldb *db.Lowlevel) (success bool) {
 	var localDeviceKey uint32
 	success = true
 
-	it := ldb.NewIterator(nil, nil)
+	it, err := ldb.NewIterator(nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer it.Release()
 	for it.Next() {
 		key := it.Key()
 		switch key[0] {

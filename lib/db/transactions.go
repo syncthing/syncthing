@@ -8,21 +8,24 @@ package db
 
 import (
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
-	snapshot
+	Snapshot
 	keyer keyer
 }
 
-func (db *instance) newReadOnlyTransaction() readOnlyTransaction {
-	return readOnlyTransaction{
-		snapshot: db.GetSnapshot(),
-		keyer:    db.keyer,
+func (db *Instance) newReadOnlyTransaction() (readOnlyTransaction, error) {
+	s, err := db.GetSnapshot()
+	if err != nil {
+		return readOnlyTransaction{}, err
 	}
+	return readOnlyTransaction{
+		Snapshot: s,
+		keyer:    db.keyer,
+	}, nil
 }
 
 func (t readOnlyTransaction) close() {
@@ -41,8 +44,8 @@ func (t readOnlyTransaction) getFileByKey(key []byte) (protocol.FileInfo, bool) 
 }
 
 func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, bool) {
-	bs, err := t.Get(key, nil)
-	if err == leveldb.ErrNotFound {
+	bs, err := t.Get(key)
+	if err == ErrNotFound {
 		return nil, false
 	}
 	if err != nil {
@@ -60,7 +63,7 @@ func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, boo
 func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool) {
 	keyBuf = t.keyer.GenerateGlobalVersionKey(keyBuf, folder, file)
 
-	bs, err := t.Get(keyBuf, nil)
+	bs, err := t.Get(keyBuf)
 	if err != nil {
 		return keyBuf, nil, false
 	}
@@ -83,18 +86,22 @@ func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate boo
 // batch size.
 type readWriteTransaction struct {
 	readOnlyTransaction
-	*batch
+	Batch
 }
 
-func (db *instance) newReadWriteTransaction() readWriteTransaction {
-	return readWriteTransaction{
-		readOnlyTransaction: db.newReadOnlyTransaction(),
-		batch:               db.newBatch(),
+func (db *Instance) newReadWriteTransaction() (readWriteTransaction, error) {
+	t, err := db.newReadOnlyTransaction()
+	if err != nil {
+		return readWriteTransaction{}, err
 	}
+	return readWriteTransaction{
+		readOnlyTransaction: t,
+		Batch:               db.NewBatch(),
+	}, nil
 }
 
 func (t readWriteTransaction) close() {
-	t.flush()
+	_ = t.Flush()
 	t.readOnlyTransaction.close()
 }
 
@@ -105,7 +112,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.IsInvalid())
 
 	var fl VersionList
-	if svl, err := t.Get(gk, nil); err == nil {
+	if svl, err := t.Get(gk); err == nil {
 		fl.Unmarshal(svl) // Ignore error, continue with empty fl
 	}
 	fl, removedFV, removedAt, insertedAt := fl.update(folder, device, file, t.readOnlyTransaction)
@@ -170,7 +177,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 // the db accordingly.
 func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, fl VersionList, global protocol.FileInfo) []byte {
 	keyBuf = t.keyer.GenerateNeedFileKey(keyBuf, folder, name)
-	hasNeeded, _ := t.Has(keyBuf, nil)
+	hasNeeded, _ := t.Has(keyBuf)
 	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(global, haveLocalFV, localFV.Version) {
 		if !hasNeeded {
 			l.Debugf("local need insert; folder=%q, name=%q", folder, name)
@@ -205,7 +212,7 @@ func need(global FileIntf, haveLocal bool, localVersion protocol.Vector) bool {
 func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte, file []byte, meta *metadataTracker) []byte {
 	l.Debugf("remove from global; folder=%q device=%v file=%q", folder, protocol.DeviceIDFromBytes(device), file)
 
-	svl, err := t.Get(gk, nil)
+	svl, err := t.Get(gk)
 	if err != nil {
 		// We might be called to "remove" a global version that doesn't exist
 		// if the first update for the file is already marked invalid.
@@ -261,10 +268,14 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 }
 
 func (t readWriteTransaction) deleteKeyPrefix(prefix []byte) {
-	dbi := t.NewIterator(util.BytesPrefix(prefix), nil)
+	dbi, err := t.NewIterator(util.BytesPrefix(prefix))
+	if err != nil {
+		l.Debugln("NewIterator:", err)
+		return
+	}
 	for dbi.Next() {
 		t.Delete(dbi.Key())
-		t.checkFlush()
+		t.CheckFlush()
 	}
 	dbi.Release()
 }

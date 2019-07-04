@@ -536,7 +536,7 @@ func checkUpgrade() upgrade.Release {
 
 func performUpgrade(release upgrade.Release) {
 	// Use leveldb database locks to protect against concurrent upgrades
-	_, err := db.Open(locations.Get(locations.Database))
+	_, err := db.NewInstanceFromGoleveldb(locations.Get(locations.Database))
 	if err == nil {
 		err = upgrade.To(release)
 		if err != nil {
@@ -698,7 +698,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	dbFile := locations.Get(locations.Database)
-	ldb, err := db.Open(dbFile)
+	ldb, err := db.NewInstanceFromGoleveldb(dbFile)
 	if err != nil {
 		l.Warnln("Error opening database:", err)
 		os.Exit(exitError)

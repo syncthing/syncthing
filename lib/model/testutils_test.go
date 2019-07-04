@@ -116,7 +116,7 @@ func setupModel(w config.Wrapper) *model {
 	return m
 }
 
-func newModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) *model {
+func newModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Instance, protectedFiles []string) *model {
 	return NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles).(*model)
 }
 

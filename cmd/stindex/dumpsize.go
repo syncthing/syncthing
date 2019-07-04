@@ -37,11 +37,16 @@ func (h *ElementHeap) Pop() interface{} {
 	return x
 }
 
-func dumpsize(ldb *db.Lowlevel) {
+func dumpsize(ldb *db.Instance) {
 	h := &ElementHeap{}
 	heap.Init(h)
 
-	it := ldb.NewIterator(nil, nil)
+	it, err := ldb.NewIterator(nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer it.Release()
 	var ele SizedElement
 	for it.Next() {
 		key := it.Key()

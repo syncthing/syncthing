@@ -10,7 +10,7 @@ import "testing"
 
 func TestSmallIndex(t *testing.T) {
 	db := OpenMemory()
-	idx := newSmallIndex(db.DB, []byte{12, 34})
+	idx := newSmallIndex(db.Backend, []byte{12, 34})
 
 	// ID zero should be unallocated
 	if val, ok := idx.Val(0); ok || val != nil {
@@ -35,7 +35,7 @@ func TestSmallIndex(t *testing.T) {
 	}
 
 	// Now lets create a new index instance based on what's actually serialized to the database.
-	idx = newSmallIndex(db.DB, []byte{12, 34})
+	idx = newSmallIndex(db.Backend, []byte{12, 34})
 
 	// Status should be about the same as before.
 	if val, ok := idx.Val(0); ok || val != nil {
