@@ -482,3 +482,15 @@ func (e *controller) Shutdown() {
 func (e *controller) ExitUpgrading() {
 	e.Stop(ExitUpgrade)
 }
+
+func LoadCertificate(certFile, keyFile string) (tls.Certificate, error) {
+	return tls.LoadX509KeyPair(certFile, keyFile)
+}
+
+func LoadConfig(path string, cert tls.Certificate) (config.Wrapper, error) {
+	return config.Load(path, protocol.NewDeviceID(cert.Certificate[0]))
+}
+
+func OpenGoleveldb(path string) (*db.Lowlevel, error) {
+	return db.Open(path)
+}
