@@ -1,7 +1,5 @@
 github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362 h1:l4qGIzSY0WhdXdR74XMYAtfc0Ri/RJVM4p6x/E/+WkA=
 github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362/go.mod h1:CEaBhA5lh1spxbPOELh5wNLKGsVQoahjUhVrJViVK8s=
-github.com/AudriusButkevicius/pfilter v0.0.0-20190525131515-730b0de4d4de h1:w1VG0ehgPh2ucQGO7wL9TBmHLzMo4dduYwyp2lhs8+A=
-github.com/AudriusButkevicius/pfilter v0.0.0-20190525131515-730b0de4d4de/go.mod h1:1N0EEx/irz4B1qV17wW82TFbjQrE7oX316Cki6eDY0Q=
 github.com/AudriusButkevicius/pfilter v0.0.0-20190627213056-c55ef6137fc6 h1:Apvc4kyfdrOxG+F5dn8osz+45kwGJa6CySQn0tB38SU=
 github.com/AudriusButkevicius/pfilter v0.0.0-20190627213056-c55ef6137fc6/go.mod h1:1N0EEx/irz4B1qV17wW82TFbjQrE7oX316Cki6eDY0Q=
 github.com/AudriusButkevicius/recli v0.0.5 h1:xUa55PvWTHBm17T6RvjElRO3y5tALpdceH86vhzQ5wg=
@@ -135,8 +133,8 @@ github.com/stretchr/testify v1.2.2 h1:bSDNvY7ZPG5RlJ8otE/7V6gMiyenm9RtJ7IUVIAoJ1
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0Q=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
-github.com/syncthing/notify v0.0.0-20181107104724-4e389ea6c0d8 h1:ewsMW/a4xDpqHyIteoD29ayMn6GdkFZc2T0PX2K6PAg=
-github.com/syncthing/notify v0.0.0-20181107104724-4e389ea6c0d8/go.mod h1:Sn4ChoS7e4FxjCN1XHPVBT43AgnRLbuaB8pEc1Zcdjg=
+github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2 h1:6tuEEEpg+mxM82E0YingzoXzXXISYR/o/7I9n573LWI=
+github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2/go.mod h1:Sn4ChoS7e4FxjCN1XHPVBT43AgnRLbuaB8pEc1Zcdjg=
 github.com/syndtr/goleveldb v1.0.1-0.20190318030020-c3a204f8e965 h1:1oFLiOyVl+W7bnBzGhf7BbIv9loSFQcieWWYIjLqcAw=
 github.com/syndtr/goleveldb v1.0.1-0.20190318030020-c3a204f8e965/go.mod h1:9OrXJhf154huy1nPWmuSrkgjPUtUNhA+Zmy+6AESzuA=
 github.com/thejerf/suture v3.0.2+incompatible h1:GtMydYcnK4zBJ0KL6Lx9vLzl6Oozb65wh252FTBxrvM=
@@ -171,8 +169,8 @@ golang.org/x/sys v0.0.0-20190222072716-a9d3bda3a223/go.mod h1:STP8DvDyc/dI5b8T5h
 golang.org/x/sys v0.0.0-20190228124157-a34e9553db1e h1:ZytStCyV048ZqDsWHiYDdoI2Vd4msMcrDECFxS+tL9c=
 golang.org/x/sys v0.0.0-20190228124157-a34e9553db1e/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
 golang.org/x/sys v0.0.0-20190412213103-97732733099d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
-golang.org/x/sys v0.0.0-20190613124609-5ed2794edfdc h1:x+/QxSNkVFAC+v4pL1f6mZr1z+qgi+FoR8ccXZPVC10=
-golang.org/x/sys v0.0.0-20190613124609-5ed2794edfdc/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb h1:fgwFCsaw9buMuxNd6+DQfAuSFqbNiQZpcgJQAgJsK6k=
+golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/text v0.3.2 h1:tW2bmiBqwgJj/UpqtC8EpXEZVYOwU0yG4iWbprSVAcs=

@@ -33,14 +33,14 @@ require (
 	github.com/prometheus/client_golang v0.9.4
 	github.com/rcrowley/go-metrics v0.0.0-20171128170426-e181e095bae9
 	github.com/sasha-s/go-deadlock v0.2.0
-	github.com/syncthing/notify v0.0.0-20181107104724-4e389ea6c0d8
+	github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2
 	github.com/syndtr/goleveldb v1.0.1-0.20190318030020-c3a204f8e965
 	github.com/thejerf/suture v3.0.2+incompatible
 	github.com/urfave/cli v1.20.0
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8
 	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980
-	golang.org/x/sys v0.0.0-20190613124609-5ed2794edfdc // indirect
+	golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb // indirect
 	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b
 	gopkg.in/asn1-ber.v1 v1.0.0-20170511165959-379148ca0225 // indirect
