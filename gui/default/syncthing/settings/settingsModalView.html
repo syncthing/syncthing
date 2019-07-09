@@ -94,7 +94,7 @@
                 <p class="help-block" ng-if="!upgradeInfo">
                   <span translate>Unavailable/Disabled by administrator or maintainer</span>
                 </p>
-                <p class="help-block" ng-if="version.isCandidate"">
+                <p class="help-block" ng-if="version.isCandidate && upgradeInfo"">
                   <span translate>Automatic upgrades are always enabled for candidate releases.</span>
                 </p>
               </div>
