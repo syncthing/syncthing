@@ -108,7 +108,7 @@ func (c *dynamicClient) Error() error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	if c.client == nil {
-		return c.Error()
+		return c.commonClient.Error()
 	}
 	return c.client.Error()
 }
