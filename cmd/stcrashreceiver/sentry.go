@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"regexp"
 	"strings"
+	"sync"
 
 	raven "github.com/getsentry/raven-go"
 	"github.com/maruel/panicparse/stack"
@@ -25,15 +26,27 @@ func init() {
 	raven.SetSourceCodeLoader(loader)
 }
 
+var (
+	clients    = make(map[string]*raven.Client)
+	clientsMut sync.Mutex
+)
+
 func sendReport(dsn, path string, report []byte) error {
 	pkt, err := parseReport(path, report)
 	if err != nil {
 		return err
 	}
 
-	cli, err := raven.New(dsn)
-	if err != nil {
-		return err
+	clientsMut.Lock()
+	defer clientsMut.Unlock()
+
+	cli, ok := clients[dsn]
+	if !ok {
+		cli, err = raven.New(dsn)
+		if err != nil {
+			return err
+		}
+		clients[dsn] = cli
 	}
 
 	// The client sets release and such on the packet before sending, in the
@@ -42,6 +55,7 @@ func sendReport(dsn, path string, report []byte) error {
 	cli.SetRelease(pkt.Release)
 	cli.SetEnvironment(pkt.Environment)
 
+	defer cli.Wait()
 	_, errC := cli.Capture(pkt, nil)
 	return <-errC
 }
