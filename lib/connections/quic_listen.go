@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/stun"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -33,6 +34,7 @@ func init() {
 }
 
 type quicListener struct {
+	util.ServiceWithError
 	nat atomic.Value
 
 	onAddressesChangedNotifier
@@ -40,12 +42,10 @@ type quicListener struct {
 	uri     *url.URL
 	cfg     config.Wrapper
 	tlsCfg  *tls.Config
-	stop    chan struct{}
 	conns   chan internalConn
 	factory listenerFactory
 
 	address *url.URL
-	err     error
 	mut     sync.Mutex
 }
 
@@ -77,20 +77,13 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 	}
 }
 
-func (t *quicListener) Serve() {
-	t.mut.Lock()
-	t.err = nil
-	t.mut.Unlock()
-
+func (t *quicListener) serve(stop chan struct{}) error {
 	network := strings.Replace(t.uri.Scheme, "quic", "udp", -1)
 
 	packetConn, err := net.ListenPacket(network, t.uri.Host)
 	if err != nil {
-		t.mut.Lock()
-		t.err = err
-		t.mut.Unlock()
 		l.Infoln("Listen (BEP/quic):", err)
-		return
+		return err
 	}
 	defer func() { _ = packetConn.Close() }()
 
@@ -105,11 +98,8 @@ func (t *quicListener) Serve() {
 
 	listener, err := quic.Listen(conn, t.tlsCfg, quicConfig)
 	if err != nil {
-		t.mut.Lock()
-		t.err = err
-		t.mut.Unlock()
 		l.Infoln("Listen (BEP/quic):", err)
-		return
+		return err
 	}
 
 	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
@@ -118,7 +108,7 @@ func (t *quicListener) Serve() {
 	// Accept is forever, so handle stops externally.
 	go func() {
 		select {
-		case <-t.stop:
+		case <-stop:
 			_ = listener.Close()
 		}
 	}()
@@ -128,11 +118,11 @@ func (t *quicListener) Serve() {
 		session, err := listener.Accept()
 
 		select {
-		case <-t.stop:
+		case <-stop:
 			if err == nil {
 				_ = session.Close()
 			}
-			return
+			return nil
 		default:
 		}
 		if err != nil {
@@ -150,7 +140,7 @@ func (t *quicListener) Serve() {
 			select {
 			case <-ok:
 				return
-			case <-t.stop:
+			case <-stop:
 				_ = session.Close()
 			case <-time.After(10 * time.Second):
 				l.Debugln("timed out waiting for AcceptStream on", session.RemoteAddr())
@@ -170,10 +160,6 @@ func (t *quicListener) Serve() {
 	}
 }
 
-func (t *quicListener) Stop() {
-	close(t.stop)
-}
-
 func (t *quicListener) URI() *url.URL {
 	return t.uri
 }
@@ -190,13 +176,6 @@ func (t *quicListener) WANAddresses() []*url.URL {
 
 func (t *quicListener) LANAddresses() []*url.URL {
 	return []*url.URL{t.uri}
-}
-
-func (t *quicListener) Error() error {
-	t.mut.Lock()
-	err := t.err
-	t.mut.Unlock()
-	return err
 }
 
 func (t *quicListener) String() string {
@@ -227,9 +206,9 @@ func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.
 		cfg:     cfg,
 		tlsCfg:  tlsCfg,
 		conns:   conns,
-		stop:    make(chan struct{}),
 		factory: f,
 	}
+	l.ServiceWithError = util.AsServiceWithError(l.serve)
 	l.nat.Store(stun.NATUnknown)
 	return l
 }

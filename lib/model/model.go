@@ -32,6 +32,7 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/thejerf/suture"
 )
@@ -1169,19 +1170,19 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 		}
 
-		// The token isn't tracked as the service stops when the connection
-		// terminates and is automatically removed from supervisor (by
-		// implementing suture.IsCompletable).
-		m.Add(&indexSender{
+		is := &indexSender{
 			conn:         conn,
 			connClosed:   closed,
 			folder:       folder.ID,
 			fset:         fs,
 			prevSequence: startSequence,
 			dropSymlinks: dropSymlinks,
-			stop:         make(chan struct{}),
-			stopped:      make(chan struct{}),
-		})
+		}
+		is.Service = util.AsService(is.serve)
+		// The token isn't tracked as the service stops when the connection
+		// terminates and is automatically removed from supervisor (by
+		// implementing suture.IsCompletable).
+		m.Add(is)
 	}
 
 	m.pmut.Lock()
@@ -1896,6 +1897,7 @@ func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 }
 
 type indexSender struct {
+	suture.Service
 	conn         protocol.Connection
 	folder       string
 	dev          string
@@ -1903,13 +1905,9 @@ type indexSender struct {
 	prevSequence int64
 	dropSymlinks bool
 	connClosed   chan struct{}
-	stop         chan struct{}
-	stopped      chan struct{}
 }
 
-func (s *indexSender) Serve() {
-	defer close(s.stopped)
-
+func (s *indexSender) serve(stop chan struct{}) {
 	var err error
 
 	l.Debugf("Starting indexSender for %s to %s at %s (slv=%d)", s.folder, s.dev, s.conn, s.prevSequence)
@@ -1930,7 +1928,7 @@ func (s *indexSender) Serve() {
 
 	for err == nil {
 		select {
-		case <-s.stop:
+		case <-stop:
 			return
 		case <-s.connClosed:
 			return
@@ -1943,7 +1941,7 @@ func (s *indexSender) Serve() {
 		// sending for.
 		if s.fset.Sequence(protocol.LocalDeviceID) <= s.prevSequence {
 			select {
-			case <-s.stop:
+			case <-stop:
 				return
 			case <-s.connClosed:
 				return
@@ -1961,11 +1959,6 @@ func (s *indexSender) Serve() {
 		// time to batch them up a little.
 		time.Sleep(250 * time.Millisecond)
 	}
-}
-
-func (s *indexSender) Stop() {
-	close(s.stop)
-	<-s.stopped
 }
 
 // Complete implements the suture.IsCompletable interface. When Serve terminates

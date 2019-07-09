@@ -12,6 +12,10 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/syncthing/syncthing/lib/sync"
+
+	"github.com/thejerf/suture"
 )
 
 type defaultParser interface {
@@ -169,4 +173,74 @@ func Address(network, host string) string {
 		Host:   host,
 	}
 	return u.String()
+}
+
+// AsService wraps the given function to implement suture.Service by calling
+// that function on serve and closing the passed channel when Stop is called.
+func AsService(fn func(stop chan struct{})) suture.Service {
+	return AsServiceWithError(func(stop chan struct{}) error {
+		fn(stop)
+		return nil
+	})
+}
+
+type ServiceWithError interface {
+	suture.Service
+	Error() error
+}
+
+// AsServiceWithError does the same as AsService, except that it keeps track
+// of an error returned by the given function.
+func AsServiceWithError(fn func(stop chan struct{}) error) ServiceWithError {
+	s := &service{
+		serve:   fn,
+		stop:    make(chan struct{}),
+		stopped: make(chan struct{}),
+		mut:     sync.NewMutex(),
+	}
+	close(s.stopped) // not yet started, don't block on Stop()
+	return s
+}
+
+type service struct {
+	serve   func(stop chan struct{}) error
+	stop    chan struct{}
+	stopped chan struct{}
+	err     error
+	mut     sync.Mutex
+}
+
+func (s *service) Serve() {
+	s.mut.Lock()
+	select {
+	case <-s.stop:
+		s.mut.Unlock()
+		return
+	default:
+	}
+	s.err = nil
+	s.stopped = make(chan struct{})
+	s.mut.Unlock()
+
+	var err error
+	defer func() {
+		s.mut.Lock()
+		s.err = err
+		close(s.stopped)
+		s.mut.Unlock()
+	}()
+	err = s.serve(s.stop)
+}
+
+func (s *service) Stop() {
+	s.mut.Lock()
+	close(s.stop)
+	s.mut.Unlock()
+	<-s.stopped
+}
+
+func (s *service) Error() error {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	return s.err
 }

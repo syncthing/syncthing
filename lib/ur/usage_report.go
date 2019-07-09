@@ -17,7 +17,6 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
@@ -28,6 +27,9 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/util"
+
+	"github.com/thejerf/suture"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
@@ -38,14 +40,12 @@ const Version = 3
 var StartTime = time.Now()
 
 type Service struct {
+	suture.Service
 	cfg                config.Wrapper
 	model              model.Model
 	connectionsService connections.Service
 	noUpgrade          bool
 	forceRun           chan struct{}
-	stop               chan struct{}
-	stopped            chan struct{}
-	stopMut            sync.RWMutex
 }
 
 func New(cfg config.Wrapper, m model.Model, connectionsService connections.Service, noUpgrade bool) *Service {
@@ -54,11 +54,9 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 		model:              m,
 		connectionsService: connectionsService,
 		noUpgrade:          noUpgrade,
-		forceRun:           make(chan struct{}),
-		stop:               make(chan struct{}),
-		stopped:            make(chan struct{}),
+		forceRun:           make(chan struct{}, 1), // Buffered to prevent locking
 	}
-	close(svc.stopped) // Not yet running, dont block on Stop()
+	svc.Service = util.AsService(svc.serve)
 	cfg.Subscribe(svc)
 	return svc
 }
@@ -385,20 +383,11 @@ func (s *Service) sendUsageReport() error {
 	return err
 }
 
-func (s *Service) Serve() {
-	s.stopMut.Lock()
-	s.stop = make(chan struct{})
-	s.stopped = make(chan struct{})
-	s.stopMut.Unlock()
+func (s *Service) serve(stop chan struct{}) {
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
-	s.stopMut.RLock()
-	defer func() {
-		close(s.stopped)
-		s.stopMut.RUnlock()
-	}()
 	for {
 		select {
-		case <-s.stop:
+		case <-stop:
 			return
 		case <-s.forceRun:
 			t.Reset(0)
@@ -422,21 +411,14 @@ func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
 
 func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
-		s.stopMut.RLock()
 		select {
 		case s.forceRun <- struct{}{}:
-		case <-s.stop:
+		default:
+			// s.forceRun is one buffered, so even though nothing
+			// was sent, a run will still happen after this point.
 		}
-		s.stopMut.RUnlock()
 	}
 	return true
-}
-
-func (s *Service) Stop() {
-	s.stopMut.RLock()
-	close(s.stop)
-	<-s.stopped
-	s.stopMut.RUnlock()
 }
 
 func (*Service) String() string {

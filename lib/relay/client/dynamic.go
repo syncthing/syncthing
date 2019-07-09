@@ -14,45 +14,29 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type dynamicClient struct {
-	pooladdr                 *url.URL
-	certs                    []tls.Certificate
-	invitations              chan protocol.SessionInvitation
-	closeInvitationsOnFinish bool
-	timeout                  time.Duration
+	commonClient
 
-	mut    sync.RWMutex
-	err    error
+	pooladdr *url.URL
+	certs    []tls.Certificate
+	timeout  time.Duration
+
 	client RelayClient
-	stop   chan struct{}
 }
 
 func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) RelayClient {
-	closeInvitationsOnFinish := false
-	if invitations == nil {
-		closeInvitationsOnFinish = true
-		invitations = make(chan protocol.SessionInvitation)
+	c := &dynamicClient{
+		pooladdr: uri,
+		certs:    certs,
+		timeout:  timeout,
 	}
-	return &dynamicClient{
-		pooladdr:                 uri,
-		certs:                    certs,
-		invitations:              invitations,
-		closeInvitationsOnFinish: closeInvitationsOnFinish,
-		timeout:                  timeout,
-
-		mut: sync.NewRWMutex(),
-	}
+	c.commonClient = newCommonClient(invitations, c.serve)
+	return c
 }
 
-func (c *dynamicClient) Serve() {
-	defer c.cleanup()
-	c.mut.Lock()
-	c.stop = make(chan struct{})
-	c.mut.Unlock()
-
+func (c *dynamicClient) serve(stop chan struct{}) error {
 	uri := *c.pooladdr
 
 	// Trim off the `dynamic+` prefix
@@ -63,8 +47,7 @@ func (c *dynamicClient) Serve() {
 	data, err := http.Get(uri.String())
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
-		c.setError(err)
-		return
+		return err
 	}
 
 	var ann dynamicAnnouncement
@@ -72,8 +55,7 @@ func (c *dynamicClient) Serve() {
 	data.Body.Close()
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
-		c.setError(err)
-		return
+		return err
 	}
 
 	var addrs []string
@@ -87,22 +69,26 @@ func (c *dynamicClient) Serve() {
 		addrs = append(addrs, ruri.String())
 	}
 
+	defer func() {
+		c.mut.RLock()
+		if c.client != nil {
+			c.client.Stop()
+		}
+		c.mut.RUnlock()
+	}()
+
 	for _, addr := range relayAddressesOrder(addrs) {
 		select {
-		case <-c.stop:
+		case <-stop:
 			l.Debugln(c, "stopping")
-			c.setError(nil)
-			return
+			return nil
 		default:
 			ruri, err := url.Parse(addr)
 			if err != nil {
 				l.Debugln(c, "skipping relay", addr, err)
 				continue
 			}
-			client, err := NewClient(ruri, c.certs, c.invitations, c.timeout)
-			if err != nil {
-				continue
-			}
+			client := newStaticClient(ruri, c.certs, c.invitations, c.timeout)
 			c.mut.Lock()
 			c.client = client
 			c.mut.Unlock()
@@ -115,24 +101,14 @@ func (c *dynamicClient) Serve() {
 		}
 	}
 	l.Debugln(c, "could not find a connectable relay")
-	c.setError(fmt.Errorf("could not find a connectable relay"))
-}
-
-func (c *dynamicClient) Stop() {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
-	close(c.stop)
-	if c.client == nil {
-		return
-	}
-	c.client.Stop()
+	return fmt.Errorf("could not find a connectable relay")
 }
 
 func (c *dynamicClient) Error() error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	if c.client == nil {
-		return c.err
+		return c.Error()
 	}
 	return c.client.Error()
 }
@@ -157,28 +133,6 @@ func (c *dynamicClient) URI() *url.URL {
 		return nil
 	}
 	return c.client.URI()
-}
-
-func (c *dynamicClient) Invitations() chan protocol.SessionInvitation {
-	c.mut.RLock()
-	inv := c.invitations
-	c.mut.RUnlock()
-	return inv
-}
-
-func (c *dynamicClient) cleanup() {
-	c.mut.Lock()
-	if c.closeInvitationsOnFinish {
-		close(c.invitations)
-		c.invitations = make(chan protocol.SessionInvitation)
-	}
-	c.mut.Unlock()
-}
-
-func (c *dynamicClient) setError(err error) {
-	c.mut.Lock()
-	c.err = err
-	c.mut.Unlock()
 }
 
 // This is the announcement received from the relay server;

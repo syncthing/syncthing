@@ -28,6 +28,10 @@ import (
 	"time"
 
 	metrics "github.com/rcrowley/go-metrics"
+	"github.com/thejerf/suture"
+	"github.com/vitrun/qart/qr"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -44,9 +48,7 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/thejerf/suture"
-	"github.com/vitrun/qart/qr"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 // matches a bcrypt hash and not too much else
@@ -60,6 +62,8 @@ const (
 )
 
 type service struct {
+	suture.Service
+
 	id                   protocol.DeviceID
 	cfg                  config.Wrapper
 	statics              *staticsServer
@@ -102,7 +106,7 @@ type Service interface {
 }
 
 func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
-	return &service{
+	s := &service{
 		id:      id,
 		cfg:     cfg,
 		statics: newStaticsServer(cfg.GUI().Theme, assetDir),
@@ -123,10 +127,11 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		contr:                contr,
 		noUpgrade:            noUpgrade,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		stop:                 make(chan struct{}),
 		configChanged:        make(chan struct{}),
 		startedOnce:          make(chan struct{}),
 	}
+	s.Service = util.AsService(s.serve)
+	return s
 }
 
 func (s *service) WaitForStart() error {
@@ -190,7 +195,7 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 	fmt.Fprintf(w, "%s\n", bs)
 }
 
-func (s *service) Serve() {
+func (s *service) serve(stop chan struct{}) {
 	listener, err := s.getListener(s.cfg.GUI())
 	if err != nil {
 		select {
@@ -360,7 +365,7 @@ func (s *service) Serve() {
 	// Wait for stop, restart or error signals
 
 	select {
-	case <-s.stop:
+	case <-stop:
 		// Shutting down permanently
 		l.Debugln("shutting down (stop)")
 	case <-s.configChanged:
@@ -378,15 +383,9 @@ func (s *service) Complete() bool {
 	select {
 	case <-s.startedOnce:
 		return s.startupErr != nil
-	case <-s.stop:
-		return true
 	default:
 	}
 	return false
-}
-
-func (s *service) Stop() {
-	close(s.stop)
 }
 
 func (s *service) String() string {
