@@ -10,6 +10,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -74,6 +75,7 @@ func (v External) Archive(filePath string) error {
 		"%FOLDER_FILESYSTEM%": v.filesystem.Type().String(),
 		"%FOLDER_PATH%":       v.filesystem.URI(),
 		"%FILE_PATH%":         filePath,
+		"%FILE_PATH_FULL%":    filepath.Join(v.filesystem.URI(), filePath),
 	}
 
 	for i, word := range words {
