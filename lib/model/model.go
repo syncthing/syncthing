@@ -411,6 +411,8 @@ func (m *model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) 
 		m.RemoveAndWait(id, 0)
 	}
 
+	// Wait for connections to stop to ensure that no more calls to methods
+	// expecting this folder to exist happen (e.g. .IndexUpdate).
 	w.Wait()
 
 	m.fmut.Lock()
