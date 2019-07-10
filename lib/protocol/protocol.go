@@ -187,7 +187,7 @@ type rawConnection struct {
 	closeBox              chan asyncMessage
 	clusterConfigBox      chan *ClusterConfig
 	dispatcherLoopStopped chan struct{}
-	sendStop              chan struct{}
+	preventSends          chan struct{}
 	closed                chan struct{}
 	closeOnce             sync.Once
 	sendCloseOnce         sync.Once
@@ -241,7 +241,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		closeBox:              make(chan asyncMessage),
 		clusterConfigBox:      make(chan *ClusterConfig),
 		dispatcherLoopStopped: make(chan struct{}),
-		sendStop:              make(chan struct{}),
+		preventSends:          make(chan struct{}),
 		closed:                make(chan struct{}),
 		compression:           compress,
 	}
@@ -664,7 +664,7 @@ func (c *rawConnection) send(msg message, done chan struct{}) bool {
 	select {
 	case c.outbox <- asyncMessage{msg, done}:
 		return true
-	case <-c.sendStop:
+	case <-c.preventSends:
 	case <-c.closed:
 	}
 	if done != nil {
@@ -870,29 +870,26 @@ func (c *rawConnection) shouldCompressMessage(msg message) bool {
 // BEP message is sent before terminating the actual connection. The error
 // argument specifies the reason for closing the connection.
 func (c *rawConnection) Close(err error) {
+	c.sendCloseOnce.Do(func() {
+		done := make(chan struct{})
+		timeout := time.NewTimer(CloseTimeout)
+		select {
+		case c.closeBox <- asyncMessage{&Close{err.Error()}, done}:
+			select {
+			case <-done:
+			case <-timeout.C:
+			case <-c.closed:
+			}
+		case <-timeout.C:
+		case <-c.closed:
+		}
+	})
+
 	// Close might be called from a method that is called from within
 	// dispatcherLoop, resulting in a deadlock.
 	// The sending above must happen before spawning the routine, to prevent
 	// the underlying connection from terminating before sending the close msg.
-	timeout := time.NewTimer(CloseTimeout) // To prevent a testing race
-	go func() {
-		c.sendCloseOnce.Do(func() {
-			close(c.sendStop)
-			done := make(chan struct{})
-			select {
-			case c.closeBox <- asyncMessage{&Close{err.Error()}, done}:
-				select {
-				case <-done:
-				case <-timeout.C:
-				case <-c.closed:
-				}
-			case <-timeout.C:
-			case <-c.closed:
-			}
-		})
-
-		c.internalClose(err)
-	}()
+	go c.internalClose(err)
 }
 
 // internalClose is called if there is an unexpected error during normal operation.
