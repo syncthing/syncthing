@@ -3,6 +3,11 @@ FROM golang:1.12 AS builder
 WORKDIR /src
 COPY . .
 
+RUN apk update && apk add nodejs nodejs-npm
+RUN npm install -g --unsafe-perm csso-cli uglify-js
+RUN find / -type f -name '*.js' | while read -r line; do uglifyjs "$line" -c -o "$line"; done
+RUN find / -type f -name '*.css' | while read -r line; do csso "$line" -o "$line"; done
+
 ENV CGO_ENABLED=0
 ENV BUILD_HOST=syncthing.net
 ENV BUILD_USER=docker
