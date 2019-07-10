@@ -172,7 +172,8 @@ func (db *instance) withHaveSequence(folder []byte, startSeq int64, fn Iterator)
 
 		if shouldDebug() {
 			if seq := db.keyer.SequenceFromSequenceKey(dbi.Key()); f.Sequence != seq {
-				panic(fmt.Sprintf("sequence index corruption (folder %v, file %v): sequence %d != expected %d", string(folder), f.Name, f.Sequence, seq))
+				l.Warnf("Sequence index corruption (folder %v, file %v): sequence %d != expected %d", string(folder), f.Name, f.Sequence, seq)
+				panic("sequence index corruption")
 			}
 		}
 		if !fn(f) {

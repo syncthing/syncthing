@@ -257,9 +257,11 @@ func (m *model) StartFolder(folder string) {
 // Need to hold lock on m.fmut when calling this.
 func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	if err := m.checkFolderRunningLocked(cfg.ID); err == errFolderMissing {
-		panic("cannot start nonexistent folder " + cfg.Description())
+		l.Warnln("Cannot start nonexistent folder", cfg.Description())
+		panic("cannot start nonexistent folder")
 	} else if err == nil {
-		panic("cannot start already running folder " + cfg.Description())
+		l.Warnln("Cannot start already running folder", cfg.Description())
+		panic("cannot start already running folder")
 	}
 
 	folderFactory, ok := folderFactories[cfg.Type]
@@ -435,7 +437,8 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 		panic("bug: cannot restart empty folder ID")
 	}
 	if to.ID != from.ID {
-		panic(fmt.Sprintf("bug: folder restart cannot change ID %q -> %q", from.ID, to.ID))
+		l.Warnf("bug: folder restart cannot change ID %q -> %q", from.ID, to.ID)
+		panic("bug: folder restart cannot change ID")
 	}
 
 	// This mutex protects the entirety of the restart operation, preventing
@@ -995,7 +998,8 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	m.fmut.RUnlock()
 
 	if !existing {
-		panic(fmt.Sprintf("%v for nonexistent folder %q", op, folder))
+		l.Warnf("%v for nonexistent folder %q", op, folder)
+		panic("handling index for nonexistent folder")
 	}
 
 	if running {
@@ -1003,7 +1007,8 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	} else if update {
 		// Runner may legitimately not be set if this is the "cleanup" Index
 		// message at startup.
-		panic(fmt.Sprintf("%v for not running folder %q", op, folder))
+		l.Warnf("%v for not running folder %q", op, folder)
+		panic("handling index for not running folder")
 	}
 
 	m.pmut.RLock()
