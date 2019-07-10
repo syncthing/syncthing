@@ -8,7 +8,6 @@ package model
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/rand"
 	"path/filepath"
@@ -34,8 +33,6 @@ import (
 
 // scanLimiter limits the number of concurrent scans. A limit of zero means no limit.
 var scanLimiter = newByteSemaphore(0)
-
-var errWatchNotStarted = errors.New("not started")
 
 type folder struct {
 	suture.Service
@@ -564,19 +561,8 @@ func (f *folder) WatchError() error {
 func (f *folder) stopWatch() {
 	f.watchMut.Lock()
 	f.watchCancel()
-	prevErr := f.watchErr
-	f.watchErr = errWatchNotStarted
 	f.watchMut.Unlock()
-	if prevErr != errWatchNotStarted {
-		data := map[string]interface{}{
-			"folder": f.ID,
-			"to":     errWatchNotStarted.Error(),
-		}
-		if prevErr != nil {
-			data["from"] = prevErr.Error()
-		}
-		events.Default.Log(events.FolderWatchStateChanged, data)
-	}
+	f.setWatchError(nil)
 }
 
 // scheduleWatchRestart makes sure watching is restarted from the main for loop
@@ -641,7 +627,6 @@ func (f *folder) monitorWatch(ctx context.Context) {
 				if _, ok := err.(*fs.ErrWatchEventOutsideRoot); ok {
 					l.Warnln(err)
 					warnedOutside = true
-					return
 				}
 			}
 			aggrCancel()
@@ -676,17 +661,18 @@ func (f *folder) setWatchError(err error) {
 	if err == nil {
 		return
 	}
-	if prevErr == errWatchNotStarted {
-		l.Infof("Error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
+	msg := fmt.Sprintf("Error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
+	if prevErr != err {
+		l.Infof(msg)
 		return
 	}
-	l.Debugf("Repeat error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
+	l.Debugf(msg)
 }
 
 // scanOnWatchErr schedules a full scan immediately if an error occurred while watching.
 func (f *folder) scanOnWatchErr() {
 	f.watchMut.Lock()
-	if f.watchErr != nil && f.watchErr != errWatchNotStarted {
+	if f.watchErr != nil {
 		f.Delay(0)
 	}
 	f.watchMut.Unlock()
