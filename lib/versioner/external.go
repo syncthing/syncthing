@@ -78,7 +78,7 @@ func (v External) Archive(filePath string) error {
 
 	for i, word := range words {
 		for key, val := range context {
-			word = strings.ReplaceAll(word, key, val)
+			word = strings.Replace(word, key, val, -1)
 		}
 
 		words[i] = word
