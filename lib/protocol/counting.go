@@ -10,8 +10,8 @@ import (
 
 type countingReader struct {
 	io.Reader
-	tot  int64 // bytes
-	last int64 // unix nanos
+	tot  int64 // bytes (atomic, must remain 64-bit aligned)
+	last int64 // unix nanos (atomic, must remain 64-bit aligned)
 }
 
 var (
@@ -37,8 +37,8 @@ func (c *countingReader) Last() time.Time {
 
 type countingWriter struct {
 	io.Writer
-	tot  int64 // bytes
-	last int64 // unix nanos
+	tot  int64 // bytes (atomic, must remain 64-bit aligned)
+	last int64 // unix nanos (atomic, must remain 64-bit aligned)
 }
 
 func (c *countingWriter) Write(bs []byte) (int, error) {

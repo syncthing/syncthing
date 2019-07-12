@@ -39,7 +39,7 @@ const (
 )
 
 type writeTrackingPacketConn struct {
-	lastWrite int64
+	lastWrite int64 // atomic, must remain 64-bit aligned
 	net.PacketConn
 }
 

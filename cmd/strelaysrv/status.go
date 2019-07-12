@@ -86,9 +86,9 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 type rateCalculator struct {
+	counter   *int64 // atomic, must remain 64-bit aligned
 	rates     []int64
 	prev      int64
-	counter   *int64
 	startTime time.Time
 }
 
