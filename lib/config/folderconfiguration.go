@@ -241,10 +241,10 @@ func (f *FolderConfiguration) prepare() {
 	}
 
 	if f.ModTimeWindowS < 2 && f.Path != "" {
-		if usage, err := disk.Usage(f.Filesystem().URI()); err == nil {
-			if strings.HasPrefix(strings.ToLower(usage.Fstype), "fat") {
-				f.ModTimeWindowS = 2
-			}
+		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil {
+			l.Debugln("Error determining FS type:", err)
+		} else if strings.HasPrefix(strings.ToLower(usage.Fstype), "fat") {
+			f.ModTimeWindowS = 2
 		}
 	}
 }
