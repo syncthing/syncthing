@@ -905,7 +905,7 @@ func TestWithHaveSequence(t *testing.T) {
 
 	i := 2
 	s.WithHaveSequence(int64(i), func(fi db.FileIntf) bool {
-		if f := fi.(protocol.FileInfo); !f.IsEquivalent(localHave[i-1]) {
+		if f := fi.(protocol.FileInfo); !f.IsEquivalent(localHave[i-1], 0) {
 			t.Fatalf("Got %v\nExpected %v", f, localHave[i-1])
 		}
 		i++
@@ -1004,7 +1004,7 @@ func TestMoveGlobalBack(t *testing.T) {
 
 	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
 		t.Error("Expected 1 local need, got", need)
-	} else if !need[0].IsEquivalent(remote0Have[0]) {
+	} else if !need[0].IsEquivalent(remote0Have[0], 0) {
 		t.Errorf("Local need incorrect;\n A: %v !=\n E: %v", need[0], remote0Have[0])
 	}
 
@@ -1030,7 +1030,7 @@ func TestMoveGlobalBack(t *testing.T) {
 
 	if need := needList(s, remoteDevice0); len(need) != 1 {
 		t.Error("Expected 1 need for remote 0, got", need)
-	} else if !need[0].IsEquivalent(localHave[0]) {
+	} else if !need[0].IsEquivalent(localHave[0], 0) {
 		t.Errorf("Need for remote 0 incorrect;\n A: %v !=\n E: %v", need[0], localHave[0])
 	}
 
@@ -1066,7 +1066,7 @@ func TestIssue5007(t *testing.T) {
 
 	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
 		t.Fatal("Expected 1 local need, got", need)
-	} else if !need[0].IsEquivalent(fs[0]) {
+	} else if !need[0].IsEquivalent(fs[0], 0) {
 		t.Fatalf("Local need incorrect;\n A: %v !=\n E: %v", need[0], fs[0])
 	}
 
@@ -1101,7 +1101,7 @@ func TestNeedDeleted(t *testing.T) {
 
 	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
 		t.Fatal("Expected 1 local need, got", need)
-	} else if !need[0].IsEquivalent(fs[0]) {
+	} else if !need[0].IsEquivalent(fs[0], 0) {
 		t.Fatalf("Local need incorrect;\n A: %v !=\n E: %v", need[0], fs[0])
 	}
 
@@ -1243,7 +1243,7 @@ func TestNeedAfterUnignore(t *testing.T) {
 
 	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
 		t.Fatal("Expected one local need, got", need)
-	} else if !need[0].IsEquivalent(remote) {
+	} else if !need[0].IsEquivalent(remote, 0) {
 		t.Fatalf("Got %v, expected %v", need[0], remote)
 	}
 }
@@ -1287,7 +1287,7 @@ func TestNeedWithNewerInvalid(t *testing.T) {
 	if len(need) != 1 {
 		t.Fatal("Locally missing file should be needed")
 	}
-	if !need[0].IsEquivalent(file) {
+	if !need[0].IsEquivalent(file, 0) {
 		t.Fatalf("Got needed file %v, expected %v", need[0], file)
 	}
 
@@ -1302,7 +1302,7 @@ func TestNeedWithNewerInvalid(t *testing.T) {
 	if len(need) != 1 {
 		t.Fatal("Locally missing file should be needed regardless of invalid files")
 	}
-	if !need[0].IsEquivalent(file) {
+	if !need[0].IsEquivalent(file, 0) {
 		t.Fatalf("Got needed file %v, expected %v", need[0], file)
 	}
 }

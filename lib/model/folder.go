@@ -365,7 +365,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				switch gf, ok := f.fset.GetGlobal(fs[i].Name); {
 				case !ok:
 					continue
-				case gf.IsEquivalentOptional(fs[i], false, false, protocol.FlagLocalReceiveOnly):
+				case gf.IsEquivalentOptional(fs[i], f.ModTimeWindowS, false, false, protocol.FlagLocalReceiveOnly):
 					// What we have locally is equivalent to the global file.
 					fs[i].Version = fs[i].Version.Merge(gf.Version)
 					fallthrough

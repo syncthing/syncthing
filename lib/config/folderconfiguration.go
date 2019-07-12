@@ -10,6 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strings"
+
+	"github.com/shirou/gopsutil/disk"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -53,6 +56,7 @@ type FolderConfiguration struct {
 	WeakHashThresholdPct    int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
 	MarkerName              string                      `xml:"markerName" json:"markerName"`
 	CopyOwnershipFromParent bool                        `xml:"copyOwnershipFromParent" json:"copyOwnershipFromParent"`
+	ModTimeWindowS          int                         `xml:"modTimeWindowS" json:"modTimeWindowS"`
 
 	cachedFilesystem fs.Filesystem
 
@@ -234,6 +238,14 @@ func (f *FolderConfiguration) prepare() {
 
 	if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
+	}
+
+	if f.ModTimeWindowS < 2 && f.Path != "" {
+		if usage, err := disk.Usage(f.Filesystem().URI()); err == nil {
+			if strings.HasPrefix(strings.ToLower(usage.Fstype), "fat") {
+				f.ModTimeWindowS = 2
+			}
+		}
 	}
 }
 
