@@ -722,7 +722,7 @@ func (m *model) Completion(device protocol.DeviceID, folder string) FolderComple
 		}
 
 		// This might might be more than it really is, because some blocks can be of a smaller size.
-		downloaded = int64(counts[ft.Name] * int(ft.BlockSize()))
+		downloaded = int64(counts[ft.Name]) * int64(ft.BlockSize())
 
 		fileNeed = ft.FileSize() - downloaded
 		if fileNeed < 0 {
@@ -1623,7 +1623,7 @@ func (m *model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 		return
 	}
 
-	blockIndex := int(offset) / cf.BlockSize()
+	blockIndex := int(offset / int64(cf.BlockSize()))
 	if blockIndex >= len(cf.Blocks) {
 		l.Debugf("%v recheckFile: %s: %q / %q i=%d: block index too far", m, deviceID, folder, name, blockIndex)
 		return
