@@ -666,7 +666,10 @@ func TestConfigPostOK(t *testing.T) {
 	cfg := bytes.NewBuffer([]byte(`{
 		"version": 15,
 		"folders": [
-			{"id": "foo"}
+			{
+				"id": "foo",
+				"path": "TestConfigPostOK"
+			}
 		]
 	}`))
 
@@ -677,6 +680,7 @@ func TestConfigPostOK(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Error("Expected 200 OK, not", resp.Status)
 	}
+	os.RemoveAll("TestConfigPostOK")
 }
 
 func TestConfigPostDupFolder(t *testing.T) {

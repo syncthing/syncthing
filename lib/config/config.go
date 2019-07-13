@@ -10,6 +10,7 @@ package config
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -89,6 +90,11 @@ var (
 		"stun.voxgratia.org:3478",
 		"stun.xten.com:3478",
 	}
+)
+
+var (
+	errFolderIDEmpty   = errors.New("folder with empty ID in configuration")
+	errFolderPathEmpty = errors.New("folder with empty path in configuration")
 )
 
 func New(myID protocol.DeviceID) Configuration {
@@ -273,7 +279,11 @@ func (cfg *Configuration) clean() error {
 		folder.prepare()
 
 		if folder.ID == "" {
-			return fmt.Errorf("folder with empty ID in configuration")
+			return errFolderIDEmpty
+		}
+
+		if folder.Path == "" {
+			return errFolderPathEmpty
 		}
 
 		if _, ok := existingFolders[folder.ID]; ok {
