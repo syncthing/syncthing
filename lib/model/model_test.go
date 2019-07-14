@@ -3307,7 +3307,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 func TestModTimeWindow(t *testing.T) {
 	w, fcfg := tmpDefaultWrapper()
 	tfs := fcfg.Filesystem()
-	fcfg.ModTimeWindowS = 2
+	fcfg.RawModTimeWindowS = 2
 	w.SetFolder(fcfg)
 	m := setupModel(w)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())

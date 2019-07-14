@@ -953,7 +953,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 	default:
 		var fi protocol.FileInfo
 		if fi, err = scanner.CreateFileInfo(stat, target.Name, f.fs); err == nil {
-			if !fi.IsEquivalentOptional(curTarget, f.ModTimeWindowS, f.IgnorePerms, true, protocol.LocalAllFlags) {
+			if !fi.IsEquivalentOptional(curTarget, f.ModTimeWindowS(), f.IgnorePerms, true, protocol.LocalAllFlags) {
 				// Target changed
 				scanChan <- target.Name
 				err = errModified
@@ -1919,7 +1919,7 @@ func (f *sendReceiveFolder) scanIfItemChanged(stat fs.FileInfo, item protocol.Fi
 		return errors.Wrap(err, "comparing item on disk to db")
 	}
 
-	if !statItem.IsEquivalentOptional(item, f.ModTimeWindowS, f.IgnorePerms, true, protocol.LocalAllFlags) {
+	if !statItem.IsEquivalentOptional(item, f.ModTimeWindowS(), f.IgnorePerms, true, protocol.LocalAllFlags) {
 		return errModified
 	}
 

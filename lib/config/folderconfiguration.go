@@ -10,9 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"strings"
-
-	"github.com/shirou/gopsutil/disk"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -56,9 +53,10 @@ type FolderConfiguration struct {
 	WeakHashThresholdPct    int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
 	MarkerName              string                      `xml:"markerName" json:"markerName"`
 	CopyOwnershipFromParent bool                        `xml:"copyOwnershipFromParent" json:"copyOwnershipFromParent"`
-	ModTimeWindowS          int                         `xml:"modTimeWindowS" json:"modTimeWindowS"`
+	RawModTimeWindowS       int                         `xml:"modTimeWindowS" json:"modTimeWindowS"`
 
-	cachedFilesystem fs.Filesystem
+	cachedFilesystem     fs.Filesystem
+	cachedModTimeWindowS int
 
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
 	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
@@ -113,6 +111,10 @@ func (f FolderConfiguration) Versioner() versioner.Versioner {
 	}
 
 	return versionerFactory(f.ID, f.Filesystem(), f.Versioning.Params)
+}
+
+func (f FolderConfiguration) ModTimeWindowS() int {
+	return f.cachedModTimeWindowS
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
@@ -240,12 +242,12 @@ func (f *FolderConfiguration) prepare() {
 		f.MarkerName = DefaultMarkerName
 	}
 
-	if f.ModTimeWindowS < 2 && f.Path != "" {
-		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil {
-			l.Debugln("Error determining FS type:", err)
-		} else if strings.HasPrefix(strings.ToLower(usage.Fstype), "fat") {
-			f.ModTimeWindowS = 2
-		}
+	if runtime.GOOS == "android" && f.RawModTimeWindowS <= 0 {
+		f.cachedModTimeWindowS = 2
+	} else if f.RawModTimeWindowS < 0 {
+		f.cachedModTimeWindowS = 0
+	} else {
+		f.cachedModTimeWindowS = f.RawModTimeWindowS
 	}
 }
 
