@@ -93,8 +93,9 @@ var (
 )
 
 var (
-	errFolderIDEmpty   = errors.New("folder with empty ID in configuration")
-	errFolderPathEmpty = errors.New("folder with empty path in configuration")
+	errFolderIDEmpty     = errors.New("folder has empty ID")
+	errFolderIDDuplicate = errors.New("folder has duplicate ID")
+	errFolderPathEmpty   = errors.New("folder has empty path")
 )
 
 func New(myID protocol.DeviceID) Configuration {
@@ -283,12 +284,13 @@ func (cfg *Configuration) clean() error {
 		}
 
 		if folder.Path == "" {
-			return errFolderPathEmpty
+			return fmt.Errorf("folder %q: %v", folder.ID, errFolderPathEmpty)
 		}
 
 		if _, ok := existingFolders[folder.ID]; ok {
-			return fmt.Errorf("duplicate folder ID %q in configuration", folder.ID)
+			return fmt.Errorf("folder %q: %v", folder.ID, errFolderIDDuplicate)
 		}
+
 		existingFolders[folder.ID] = folder
 	}
 
