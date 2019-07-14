@@ -6,7 +6,7 @@
 
 //+build !windows,!solaris
 
-package main
+package syncthing
 
 import "syscall"
 import "time"
