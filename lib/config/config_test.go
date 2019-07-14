@@ -711,7 +711,7 @@ func TestDuplicateFolders(t *testing.T) {
 	// Duplicate folders are a loading error
 
 	_, err := Load("testdata/dupfolders.xml", device1)
-	if err == nil || !strings.HasPrefix(err.Error(), "duplicate folder ID") {
+	if err == nil || !strings.Contains(err.Error(), errFolderIDDuplicate.Error()) {
 		t.Fatal(`Expected error to mention "duplicate folder ID":`, err)
 	}
 }
@@ -722,7 +722,7 @@ func TestEmptyFolderPaths(t *testing.T) {
 	// get a slash added so that it becomes the root directory or similar).
 
 	_, err := Load("testdata/nopath.xml", device1)
-	if err != errFolderPathEmpty {
+	if err == nil || !strings.Contains(err.Error(), errFolderPathEmpty.Error()) {
 		t.Fatal("Expected error due to empty folder path, got", err)
 	}
 }
