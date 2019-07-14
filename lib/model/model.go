@@ -32,19 +32,10 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/thejerf/suture"
 )
-
-var locationLocal *time.Location
-
-func init() {
-	var err error
-	locationLocal, err = time.LoadLocation("Local")
-	if err != nil {
-		panic(err.Error())
-	}
-}
 
 // How many files to send in each Index/IndexUpdate message.
 const (
@@ -57,8 +48,8 @@ type service interface {
 	Override()
 	Revert()
 	DelayScan(d time.Duration)
-	SchedulePull()              // something relevant changed, we should try a pull
-	Jobs() ([]string, []string) // In progress, Queued
+	SchedulePull()                                    // something relevant changed, we should try a pull
+	Jobs(page, perpage int) ([]string, []string, int) // In progress, Queued, skipped
 	Scan(subs []string) error
 	Serve()
 	Stop()
@@ -69,8 +60,6 @@ type service interface {
 	GetStatistics() stats.FolderStatistics
 
 	getState() (folderState, time.Time, error)
-	setState(state folderState)
-	setError(err error)
 }
 
 type Availability struct {
@@ -233,16 +222,8 @@ func (m *model) Stop() {
 	for id := range devs {
 		ids = append(ids, id)
 	}
-	m.pmut.RLock()
-	closed := make([]chan struct{}, 0, len(m.closed))
-	for _, c := range m.closed {
-		closed = append(closed, c)
-	}
-	m.pmut.RUnlock()
-	m.closeConns(ids, errStopped)
-	for _, c := range closed {
-		<-c
-	}
+	w := m.closeConns(ids, errStopped)
+	w.Wait()
 }
 
 // StartDeadlockDetector starts a deadlock detector on the models locks which
@@ -268,9 +249,11 @@ func (m *model) StartFolder(folder string) {
 // Need to hold lock on m.fmut when calling this.
 func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	if err := m.checkFolderRunningLocked(cfg.ID); err == errFolderMissing {
-		panic("cannot start nonexistent folder " + cfg.Description())
+		l.Warnln("Cannot start nonexistent folder", cfg.Description())
+		panic("cannot start nonexistent folder")
 	} else if err == nil {
-		panic("cannot start already running folder " + cfg.Description())
+		l.Warnln("Cannot start already running folder", cfg.Description())
+		panic("cannot start already running folder")
 	}
 
 	folderFactory, ok := folderFactories[cfg.Type]
@@ -382,17 +365,20 @@ func (m *model) AddFolder(cfg config.FolderConfiguration) {
 		panic("cannot add empty folder path")
 	}
 
+	// Creating the fileset can take a long time (metadata calculation) so
+	// we do it outside of the lock.
+	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
+
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
-	m.addFolderLocked(cfg)
+	m.addFolderLocked(cfg, fset)
 }
 
-func (m *model) addFolderLocked(cfg config.FolderConfiguration) {
+func (m *model) addFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
 	m.folderCfgs[cfg.ID] = cfg
-	folderFs := cfg.Filesystem()
-	m.folderFiles[cfg.ID] = db.NewFileSet(cfg.ID, folderFs, m.db)
+	m.folderFiles[cfg.ID] = fset
 
-	ignores := ignore.New(folderFs, ignore.WithCache(m.cacheIgnoredFiles))
+	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
 	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 		l.Warnln("Loading ignores:", err)
 	}
@@ -422,11 +408,15 @@ func (m *model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) 
 	// Close connections to affected devices
 	// Must happen before stopping the folder service to abort ongoing
 	// transmissions and thus allow timely service termination.
-	m.closeConns(cfg.DeviceIDs(), err)
+	w := m.closeConns(cfg.DeviceIDs(), err)
 
 	for _, id := range tokens {
 		m.RemoveAndWait(id, 0)
 	}
+
+	// Wait for connections to stop to ensure that no more calls to methods
+	// expecting this folder to exist happen (e.g. .IndexUpdate).
+	w.Wait()
 
 	m.fmut.Lock()
 
@@ -443,7 +433,8 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 		panic("bug: cannot restart empty folder ID")
 	}
 	if to.ID != from.ID {
-		panic(fmt.Sprintf("bug: folder restart cannot change ID %q -> %q", from.ID, to.ID))
+		l.Warnf("bug: folder restart cannot change ID %q -> %q", from.ID, to.ID)
+		panic("bug: folder restart cannot change ID")
 	}
 
 	// This mutex protects the entirety of the restart operation, preventing
@@ -470,12 +461,19 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 		errMsg = "restarting"
 	}
 
+	var fset *db.FileSet
+	if !to.Paused {
+		// Creating the fileset can take a long time (metadata calculation)
+		// so we do it outside of the lock.
+		fset = db.NewFileSet(to.ID, to.Filesystem(), m.db)
+	}
+
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
 	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
 	if !to.Paused {
-		m.addFolderLocked(to)
+		m.addFolderLocked(to, fset)
 		m.startFolderLocked(to)
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
@@ -720,7 +718,7 @@ func (m *model) Completion(device protocol.DeviceID, folder string) FolderComple
 		}
 
 		// This might might be more than it really is, because some blocks can be of a smaller size.
-		downloaded = int64(counts[ft.Name] * int(ft.BlockSize()))
+		downloaded = int64(counts[ft.Name]) * int64(ft.BlockSize())
 
 		fileNeed = ft.FileSize() - downloaded
 		if fileNeed < 0 {
@@ -803,7 +801,8 @@ func (m *model) ReceiveOnlyChangedSize(folder string) db.Counts {
 	return db.Counts{}
 }
 
-// NeedSize returns the number and total size of currently needed files.
+// NeedSize returns the number of currently needed files and their total size
+// minus the amount that has already been downloaded.
 func (m *model) NeedSize(folder string) db.Counts {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
@@ -827,8 +826,7 @@ func (m *model) NeedSize(folder string) db.Counts {
 }
 
 // NeedFolderFiles returns paginated list of currently needed files in
-// progress, queued, and to be queued on next puller iteration, as well as the
-// total number of files currently needed.
+// progress, queued, and to be queued on next puller iteration.
 func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
 	m.fmut.RLock()
 	rf, rfOk := m.folderFiles[folder]
@@ -847,15 +845,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	get := perpage
 
 	if runnerOk {
-		allProgressNames, allQueuedNames := runner.Jobs()
-
-		var progressNames, queuedNames []string
-		progressNames, skip, get = getChunk(allProgressNames, skip, get)
-		queuedNames, skip, get = getChunk(allQueuedNames, skip, get)
-
-		progress = make([]db.FileInfoTruncated, len(progressNames))
-		queued = make([]db.FileInfoTruncated, len(queuedNames))
-		seen = make(map[string]struct{}, len(progressNames)+len(queuedNames))
+		progressNames, queuedNames, skipped := runner.Jobs(page, perpage)
 
 		for i, name := range progressNames {
 			if f, ok := rf.GetGlobalTruncated(name); ok {
@@ -870,6 +860,12 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 				seen[name] = struct{}{}
 			}
 		}
+
+		get -= len(seen)
+		if get == 0 {
+			return progress, queued, nil
+		}
+		skip -= skipped
 	}
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
@@ -998,7 +994,8 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	m.fmut.RUnlock()
 
 	if !existing {
-		panic(fmt.Sprintf("%v for nonexistent folder %q", op, folder))
+		l.Warnf("%v for nonexistent folder %q", op, folder)
+		panic("handling index for nonexistent folder")
 	}
 
 	if running {
@@ -1006,7 +1003,8 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	} else if update {
 		// Runner may legitimately not be set if this is the "cleanup" Index
 		// message at startup.
-		panic(fmt.Sprintf("%v for not running folder %q", op, folder))
+		l.Warnf("%v for not running folder %q", op, folder)
+		panic("handling index for not running folder")
 	}
 
 	m.pmut.RLock()
@@ -1041,6 +1039,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	m.pmut.RLock()
 	conn, ok := m.conn[deviceID]
+	closed := m.closed[deviceID]
 	hello := m.helloMessages[deviceID]
 	m.pmut.RUnlock()
 	if !ok {
@@ -1172,7 +1171,19 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 		}
 
-		go sendIndexes(conn, folder.ID, fs, startSequence, dropSymlinks)
+		is := &indexSender{
+			conn:         conn,
+			connClosed:   closed,
+			folder:       folder.ID,
+			fset:         fs,
+			prevSequence: startSequence,
+			dropSymlinks: dropSymlinks,
+		}
+		is.Service = util.AsService(is.serve)
+		// The token isn't tracked as the service stops when the connection
+		// terminates and is automatically removed from supervisor (by
+		// implementing suture.IsCompletable).
+		m.Add(is)
 	}
 
 	m.pmut.Lock()
@@ -1425,23 +1436,39 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	close(closed)
 }
 
-// closeConns will close the underlying connection for given devices
-func (m *model) closeConns(devs []protocol.DeviceID, err error) {
+// closeConns will close the underlying connection for given devices and return
+// a waiter that will return once all the connections are finished closing.
+func (m *model) closeConns(devs []protocol.DeviceID, err error) config.Waiter {
 	conns := make([]connections.Connection, 0, len(devs))
+	closed := make([]chan struct{}, 0, len(devs))
 	m.pmut.Lock()
 	for _, dev := range devs {
 		if conn, ok := m.conn[dev]; ok {
 			conns = append(conns, conn)
+			closed = append(closed, m.closed[dev])
 		}
 	}
 	m.pmut.Unlock()
 	for _, conn := range conns {
 		conn.Close(err)
 	}
+	return &channelWaiter{chans: closed}
 }
 
-func (m *model) closeConn(dev protocol.DeviceID, err error) {
-	m.closeConns([]protocol.DeviceID{dev}, err)
+// closeConn closes the underlying connection for the given device and returns
+// a waiter that will return once the connection is finished closing.
+func (m *model) closeConn(dev protocol.DeviceID, err error) config.Waiter {
+	return m.closeConns([]protocol.DeviceID{dev}, err)
+}
+
+type channelWaiter struct {
+	chans []chan struct{}
+}
+
+func (w *channelWaiter) Wait() {
+	for _, c := range w.chans {
+		<-c
+	}
 }
 
 // Implements protocol.RequestResponse
@@ -1608,7 +1635,7 @@ func (m *model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 		return
 	}
 
-	blockIndex := int(offset) / cf.BlockSize()
+	blockIndex := int(offset / int64(cf.BlockSize()))
 	if blockIndex >= len(cf.Blocks) {
 		l.Debugf("%v recheckFile: %s: %q / %q i=%d: block index too far", m, deviceID, folder, name, blockIndex)
 		return
@@ -1886,15 +1913,25 @@ func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 	m.deviceStatRef(deviceID).WasSeen()
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, prevSequence int64, dropSymlinks bool) {
-	deviceID := conn.ID()
+type indexSender struct {
+	suture.Service
+	conn         protocol.Connection
+	folder       string
+	dev          string
+	fset         *db.FileSet
+	prevSequence int64
+	dropSymlinks bool
+	connClosed   chan struct{}
+}
+
+func (s *indexSender) serve(stop chan struct{}) {
 	var err error
 
-	l.Debugf("Starting sendIndexes for %s to %s at %s (slv=%d)", folder, deviceID, conn, prevSequence)
-	defer l.Debugf("Exiting sendIndexes for %s to %s at %s: %v", folder, deviceID, conn, err)
+	l.Debugf("Starting indexSender for %s to %s at %s (slv=%d)", s.folder, s.dev, s.conn, s.prevSequence)
+	defer l.Debugf("Exiting indexSender for %s to %s at %s: %v", s.folder, s.dev, s.conn, err)
 
 	// We need to send one index, regardless of whether there is something to send or not
-	prevSequence, err = sendIndexTo(prevSequence, conn, folder, fs, dropSymlinks)
+	err = s.sendIndexTo()
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
 	// DeviceDisconnected (it might be us who disconnected, so we should
@@ -1902,22 +1939,37 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, prevSe
 	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.DeviceDisconnected)
 	defer events.Default.Unsubscribe(sub)
 
+	evChan := sub.C()
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
 	for err == nil {
-		if conn.Closed() {
-			// Our work is done.
+		select {
+		case <-stop:
 			return
+		case <-s.connClosed:
+			return
+		default:
 		}
 
 		// While we have sent a sequence at least equal to the one
 		// currently in the database, wait for the local index to update. The
 		// local index may update for other folders than the one we are
 		// sending for.
-		if fs.Sequence(protocol.LocalDeviceID) <= prevSequence {
-			sub.Poll(time.Minute)
+		if s.fset.Sequence(protocol.LocalDeviceID) <= s.prevSequence {
+			select {
+			case <-stop:
+				return
+			case <-s.connClosed:
+				return
+			case <-evChan:
+			case <-ticker.C:
+			}
+
 			continue
 		}
 
-		prevSequence, err = sendIndexTo(prevSequence, conn, folder, fs, dropSymlinks)
+		err = s.sendIndexTo()
 
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
@@ -1926,31 +1978,37 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, prevSe
 	}
 }
 
+// Complete implements the suture.IsCompletable interface. When Serve terminates
+// before Stop is called, the supervisor will check for this method and if it
+// returns true removes the service instead of restarting it. Here it always
+// returns true, as indexSender only terminates when a connection is
+// closed/has failed, in which case retrying doesn't help.
+func (s *indexSender) Complete() bool { return true }
+
 // sendIndexTo sends file infos with a sequence number higher than prevSequence and
 // returns the highest sent sequence number.
-func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, dropSymlinks bool) (int64, error) {
-	deviceID := conn.ID()
-	initial := prevSequence == 0
+func (s *indexSender) sendIndexTo() error {
+	initial := s.prevSequence == 0
 	batch := newFileInfoBatch(nil)
 	batch.flushFn = func(fs []protocol.FileInfo) error {
-		l.Debugf("Sending indexes for %s to %s at %s: %d files (<%d bytes)", folder, deviceID, conn, len(batch.infos), batch.size)
+		l.Debugf("Sending indexes for %s to %s at %s: %d files (<%d bytes)", s.folder, s.dev, s.conn, len(batch.infos), batch.size)
 		if initial {
 			initial = false
-			return conn.Index(folder, fs)
+			return s.conn.Index(s.folder, fs)
 		}
-		return conn.IndexUpdate(folder, fs)
+		return s.conn.IndexUpdate(s.folder, fs)
 	}
 
 	var err error
 	var f protocol.FileInfo
-	fs.WithHaveSequence(prevSequence+1, func(fi db.FileIntf) bool {
+	s.fset.WithHaveSequence(s.prevSequence+1, func(fi db.FileIntf) bool {
 		if err = batch.flushIfFull(); err != nil {
 			return false
 		}
 
 		if shouldDebug() {
-			if fi.SequenceNo() < prevSequence+1 {
-				panic(fmt.Sprintln("sequence lower than requested, got:", fi.SequenceNo(), ", asked to start at:", prevSequence+1))
+			if fi.SequenceNo() < s.prevSequence+1 {
+				panic(fmt.Sprintln("sequence lower than requested, got:", fi.SequenceNo(), ", asked to start at:", s.prevSequence+1))
 			}
 			if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
 				panic(fmt.Sprintln("non-increasing sequence, current:", fi.SequenceNo(), "<= previous:", f.Sequence))
@@ -1969,7 +2027,7 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 		}
 		f.LocalFlags = 0 // never sent externally
 
-		if dropSymlinks && f.IsSymlink() {
+		if s.dropSymlinks && f.IsSymlink() {
 			// Do not send index entries with symlinks to clients that can't
 			// handle it. Fixes issue #3802. Once both sides are upgraded, a
 			// rescan (i.e., change) of the symlink is required for it to
@@ -1981,17 +2039,18 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 		return true
 	})
 	if err != nil {
-		return prevSequence, err
+		return err
 	}
 
 	err = batch.flush()
 
 	// True if there was nothing to be sent
 	if f.Sequence == 0 {
-		return prevSequence, err
+		return err
 	}
 
-	return f.Sequence, err
+	s.prevSequence = f.Sequence
+	return err
 }
 
 func (m *model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
@@ -2029,15 +2088,6 @@ func (m *model) ScanFolders() map[string]error {
 				errorsMut.Lock()
 				errors[folder] = err
 				errorsMut.Unlock()
-
-				// Potentially sets the error twice, once in the scanner just
-				// by doing a check, and once here, if the error returned is
-				// the same one as returned by CheckHealth, though
-				// duplicate set is handled by setError.
-				m.fmut.RLock()
-				srv := m.folderRunners[folder]
-				m.fmut.RUnlock()
-				srv.setError(err)
 			}
 			wg.Done()
 		}()
@@ -2499,7 +2549,6 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
-			m.closeConn(deviceID, errDevicePaused)
 			events.Default.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
 			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
@@ -2579,20 +2628,6 @@ func mapDevices(devices []protocol.DeviceID) map[protocol.DeviceID]struct{} {
 		m[dev] = struct{}{}
 	}
 	return m
-}
-
-// Skips `skip` elements and retrieves up to `get` elements from a given slice.
-// Returns the resulting slice, plus how much elements are left to skip or
-// copy to satisfy the values which were provided, given the slice is not
-// big enough.
-func getChunk(data []string, skip, get int) ([]string, int, int) {
-	l := len(data)
-	if l <= skip {
-		return []string{}, skip - l, get
-	} else if l < skip+get {
-		return data[skip:l], 0, get - (l - skip)
-	}
-	return data[skip : skip+get], 0, 0
 }
 
 func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) error {

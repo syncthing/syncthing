@@ -52,8 +52,6 @@ type Config struct {
 	// Optional progress tick interval which defines how often FolderScanProgress
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int
-	// Whether to use large blocks for large files or the old standard of 128KiB for everything.
-	UseLargeBlocks bool
 	// Local flags to set on scanned files
 	LocalFlags uint32
 }
@@ -326,23 +324,19 @@ func (w *walker) handleItem(ctx context.Context, path string, toHashChan chan<- 
 func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
-	blockSize := protocol.MinBlockSize
+	blockSize := protocol.BlockSize(info.Size())
 
-	if w.UseLargeBlocks {
-		blockSize = protocol.BlockSize(info.Size())
-
-		if hasCurFile {
-			// Check if we should retain current block size.
-			curBlockSize := curFile.BlockSize()
-			if blockSize > curBlockSize && blockSize/curBlockSize <= 2 {
-				// New block size is larger, but not more than twice larger.
-				// Retain.
-				blockSize = curBlockSize
-			} else if curBlockSize > blockSize && curBlockSize/blockSize <= 2 {
-				// Old block size is larger, but not more than twice larger.
-				// Retain.
-				blockSize = curBlockSize
-			}
+	if hasCurFile {
+		// Check if we should retain current block size.
+		curBlockSize := curFile.BlockSize()
+		if blockSize > curBlockSize && blockSize/curBlockSize <= 2 {
+			// New block size is larger, but not more than twice larger.
+			// Retain.
+			blockSize = curBlockSize
+		} else if curBlockSize > blockSize && curBlockSize/blockSize <= 2 {
+			// Old block size is larger, but not more than twice larger.
+			// Retain.
+			blockSize = curBlockSize
 		}
 	}
 
@@ -543,7 +537,7 @@ func (w *walker) handleError(ctx context.Context, context, path string, err erro
 // A byteCounter gets bytes added to it via Update() and then provides the
 // Total() and one minute moving average Rate() in bytes per second.
 type byteCounter struct {
-	total int64
+	total int64 // atomic, must remain 64-bit aligned
 	metrics.EWMA
 	stop chan struct{}
 }

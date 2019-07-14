@@ -52,7 +52,6 @@ type FolderConfiguration struct {
 	Paused                  bool                        `xml:"paused" json:"paused"`
 	WeakHashThresholdPct    int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
 	MarkerName              string                      `xml:"markerName" json:"markerName"`
-	UseLargeBlocks          bool                        `xml:"useLargeBlocks" json:"useLargeBlocks" default:"true"`
 	CopyOwnershipFromParent bool                        `xml:"copyOwnershipFromParent" json:"copyOwnershipFromParent"`
 
 	cachedFilesystem fs.Filesystem
@@ -93,7 +92,7 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Filesystem() should be valid.
-	if f.cachedFilesystem == nil && f.Path != "" {
+	if f.cachedFilesystem == nil {
 		l.Infoln("bug: uncached filesystem call (should only happen in tests)")
 		return fs.NewFilesystem(f.FilesystemType, f.Path)
 	}
@@ -210,9 +209,7 @@ func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 }
 
 func (f *FolderConfiguration) prepare() {
-	if f.Path != "" {
-		f.cachedFilesystem = fs.NewFilesystem(f.FilesystemType, f.Path)
-	}
+	f.cachedFilesystem = fs.NewFilesystem(f.FilesystemType, f.Path)
 
 	if f.RescanIntervalS > MaxRescanIntervalS {
 		f.RescanIntervalS = MaxRescanIntervalS

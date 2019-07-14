@@ -9,6 +9,10 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/relay/protocol"
+	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
+
+	"github.com/thejerf/suture"
 )
 
 type relayClientFactory func(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) RelayClient
@@ -22,8 +26,7 @@ var (
 )
 
 type RelayClient interface {
-	Serve()
-	Stop()
+	suture.Service
 	Error() error
 	Latency() time.Duration
 	String() string
@@ -38,4 +41,43 @@ func NewClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.
 	}
 
 	return factory(uri, certs, invitations, timeout), nil
+}
+
+type commonClient struct {
+	util.ServiceWithError
+
+	invitations              chan protocol.SessionInvitation
+	closeInvitationsOnFinish bool
+	mut                      sync.RWMutex
+}
+
+func newCommonClient(invitations chan protocol.SessionInvitation, serve func(chan struct{}) error) commonClient {
+	c := commonClient{
+		invitations: invitations,
+		mut:         sync.NewRWMutex(),
+	}
+	newServe := func(stop chan struct{}) error {
+		defer c.cleanup()
+		return serve(stop)
+	}
+	c.ServiceWithError = util.AsServiceWithError(newServe)
+	if c.invitations == nil {
+		c.closeInvitationsOnFinish = true
+		c.invitations = make(chan protocol.SessionInvitation)
+	}
+	return c
+}
+
+func (c *commonClient) cleanup() {
+	c.mut.Lock()
+	if c.closeInvitationsOnFinish {
+		close(c.invitations)
+	}
+	c.mut.Unlock()
+}
+
+func (c *commonClient) Invitations() chan protocol.SessionInvitation {
+	c.mut.RLock()
+	defer c.mut.RUnlock()
+	return c.invitations
 }

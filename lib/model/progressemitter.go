@@ -10,13 +10,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/thejerf/suture"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type ProgressEmitter struct {
+	suture.Service
+
 	registry           map[string]map[string]*sharedPullerState // folder: name: puller
 	interval           time.Duration
 	minBlocks          int
@@ -27,15 +32,12 @@ type ProgressEmitter struct {
 	mut                sync.Mutex
 
 	timer *time.Timer
-
-	stop chan struct{}
 }
 
 // NewProgressEmitter creates a new progress emitter which emits
 // DownloadProgress events every interval.
 func NewProgressEmitter(cfg config.Wrapper) *ProgressEmitter {
 	t := &ProgressEmitter{
-		stop:               make(chan struct{}),
 		registry:           make(map[string]map[string]*sharedPullerState),
 		timer:              time.NewTimer(time.Millisecond),
 		sentDownloadStates: make(map[protocol.DeviceID]*sentDownloadState),
@@ -43,6 +45,7 @@ func NewProgressEmitter(cfg config.Wrapper) *ProgressEmitter {
 		foldersByConns:     make(map[protocol.DeviceID][]string),
 		mut:                sync.NewMutex(),
 	}
+	t.Service = util.AsService(t.serve)
 
 	t.CommitConfiguration(config.Configuration{}, cfg.RawCopy())
 	cfg.Subscribe(t)
@@ -50,14 +53,14 @@ func NewProgressEmitter(cfg config.Wrapper) *ProgressEmitter {
 	return t
 }
 
-// Serve starts the progress emitter which starts emitting DownloadProgress
+// serve starts the progress emitter which starts emitting DownloadProgress
 // events as the progress happens.
-func (t *ProgressEmitter) Serve() {
+func (t *ProgressEmitter) serve(stop chan struct{}) {
 	var lastUpdate time.Time
 	var lastCount, newCount int
 	for {
 		select {
-		case <-t.stop:
+		case <-stop:
 			l.Debugln("progress emitter: stopping")
 			return
 		case <-t.timer.C:
@@ -210,11 +213,6 @@ func (t *ProgressEmitter) CommitConfiguration(from, to config.Configuration) boo
 	t.minBlocks = to.Options.TempIndexMinBlocks
 
 	return true
-}
-
-// Stop stops the emitter.
-func (t *ProgressEmitter) Stop() {
-	t.stop <- struct{}{}
 }
 
 // Register a puller with the emitter which will start broadcasting pullers

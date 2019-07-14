@@ -14,6 +14,8 @@ import (
 
 	"github.com/thejerf/suture"
 	"golang.org/x/net/ipv6"
+
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type Multicast struct {
@@ -45,15 +47,15 @@ func NewMulticast(addr string) *Multicast {
 	m.mr = &multicastReader{
 		addr:   addr,
 		outbox: m.outbox,
-		stop:   make(chan struct{}),
 	}
+	m.mr.Service = util.AsService(m.mr.serve)
 	m.Add(m.mr)
 
 	m.mw = &multicastWriter{
 		addr:  addr,
 		inbox: m.inbox,
-		stop:  make(chan struct{}),
 	}
+	m.mw.Service = util.AsService(m.mw.serve)
 	m.Add(m.mw)
 
 	return m
@@ -76,13 +78,13 @@ func (m *Multicast) Error() error {
 }
 
 type multicastWriter struct {
+	suture.Service
 	addr  string
 	inbox <-chan []byte
 	errorHolder
-	stop chan struct{}
 }
 
-func (w *multicastWriter) Serve() {
+func (w *multicastWriter) serve(stop chan struct{}) {
 	l.Debugln(w, "starting")
 	defer l.Debugln(w, "stopping")
 
@@ -106,7 +108,14 @@ func (w *multicastWriter) Serve() {
 		HopLimit: 1,
 	}
 
-	for bs := range w.inbox {
+	for {
+		var bs []byte
+		select {
+		case bs = <-w.inbox:
+		case <-stop:
+			return
+		}
+
 		intfs, err := net.Interfaces()
 		if err != nil {
 			l.Debugln(err)
@@ -130,6 +139,12 @@ func (w *multicastWriter) Serve() {
 			l.Debugf("sent %d bytes to %v on %s", len(bs), gaddr, intf.Name)
 
 			success++
+
+			select {
+			case <-stop:
+				return
+			default:
+			}
 		}
 
 		if success > 0 {
@@ -141,22 +156,18 @@ func (w *multicastWriter) Serve() {
 	}
 }
 
-func (w *multicastWriter) Stop() {
-	close(w.stop)
-}
-
 func (w *multicastWriter) String() string {
 	return fmt.Sprintf("multicastWriter@%p", w)
 }
 
 type multicastReader struct {
+	suture.Service
 	addr   string
 	outbox chan<- recv
 	errorHolder
-	stop chan struct{}
 }
 
-func (r *multicastReader) Serve() {
+func (r *multicastReader) serve(stop chan struct{}) {
 	l.Debugln(r, "starting")
 	defer l.Debugln(r, "stopping")
 
@@ -213,14 +224,12 @@ func (r *multicastReader) Serve() {
 		copy(c, bs)
 		select {
 		case r.outbox <- recv{c, addr}:
+		case <-stop:
+			return
 		default:
 			l.Debugln("dropping message")
 		}
 	}
-}
-
-func (r *multicastReader) Stop() {
-	close(r.stop)
 }
 
 func (r *multicastReader) String() string {

@@ -19,19 +19,22 @@ import (
 	stdsync "sync"
 	"time"
 
+	"github.com/thejerf/suture"
+
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type globalClient struct {
+	suture.Service
 	server         string
 	addrList       AddressLister
 	announceClient httpClient
 	queryClient    httpClient
 	noAnnounce     bool
 	noLookup       bool
-	stop           chan struct{}
 	errorHolder
 }
 
@@ -122,8 +125,8 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (Fin
 		queryClient:    queryClient,
 		noAnnounce:     opts.noAnnounce,
 		noLookup:       opts.noLookup,
-		stop:           make(chan struct{}),
 	}
+	cl.Service = util.AsService(cl.serve)
 	if !opts.noAnnounce {
 		// If we are supposed to annonce, it's an error until we've done so.
 		cl.setError(errors.New("not announced"))
@@ -183,11 +186,11 @@ func (c *globalClient) String() string {
 	return "global@" + c.server
 }
 
-func (c *globalClient) Serve() {
+func (c *globalClient) serve(stop chan struct{}) {
 	if c.noAnnounce {
 		// We're configured to not do announcements, only lookups. To maintain
 		// the same interface, we just pause here if Serve() is run.
-		<-c.stop
+		<-stop
 		return
 	}
 
@@ -207,7 +210,7 @@ func (c *globalClient) Serve() {
 		case <-timer.C:
 			c.sendAnnouncement(timer)
 
-		case <-c.stop:
+		case <-stop:
 			return
 		}
 	}
@@ -274,10 +277,6 @@ func (c *globalClient) sendAnnouncement(timer *time.Timer) {
 	}
 
 	timer.Reset(defaultReannounceInterval)
-}
-
-func (c *globalClient) Stop() {
-	close(c.stop)
 }
 
 func (c *globalClient) Cache() map[protocol.DeviceID]CacheEntry {

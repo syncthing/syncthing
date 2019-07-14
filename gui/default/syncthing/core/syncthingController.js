@@ -78,7 +78,6 @@ angular.module('syncthing.core')
             externalCommand: "",
             autoNormalize: true,
             path: "",
-            useLargeBlocks: true,
         };
 
         $scope.localStateTotal = {
@@ -561,6 +560,9 @@ angular.module('syncthing.core')
         }
 
         function refreshNeed(folder) {
+            if (!$scope.neededFolder) {
+                return;
+            }
             var url = urlbase + "/db/need?folder=" + encodeURIComponent(folder);
             url += "&page=" + $scope.neededCurrentPage;
             url += "&perpage=" + $scope.neededPageSize;
@@ -653,6 +655,9 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshFailed = function (page, perpage) {
+            if (!$scope.failed) {
+                return;
+            }
             var url = urlbase + '/folder/errors?folder=' + encodeURIComponent($scope.failed.folder);
             url += "&page=" + page + "&perpage=" + perpage;
             $http.get(url).success(function (data) {
@@ -661,13 +666,14 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshRemoteNeed = function (folder, page, perpage) {
+            if (!$scope.remoteNeedDevice) {
+                return;
+            }
             var url = urlbase + '/db/remoteneed?device=' + $scope.remoteNeedDevice.deviceID;
             url += '&folder=' + encodeURIComponent(folder);
             url += "&page=" + page + "&perpage=" + perpage;
             $http.get(url).success(function (data) {
-                if ($scope.remoteNeedDevice !== '') {
-                    $scope.remoteNeed[folder] = data;
-                }
+                $scope.remoteNeed[folder] = data;
             }).error(function (err) {
                 $scope.remoteNeed[folder] = undefined;
                 $scope.emitHTTPError(err);
@@ -675,6 +681,9 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshLocalChanged = function (page, perpage) {
+            if (!$scope.localChangedFolder) {
+                return;
+            }
             var url = urlbase + '/db/localchanged?folder=';
             url += encodeURIComponent($scope.localChangedFolder);
             url += "&page=" + page + "&perpage=" + perpage;
@@ -717,6 +726,11 @@ angular.module('syncthing.core')
 
         var refreshGlobalChanges = debounce(function () {
             $http.get(urlbase + "/events/disk?limit=25").success(function (data) {
+                if (!data) {
+                    // For reasons unknown this is called with data being the empty
+                    // string on shutdown, causing an error on .reverse().
+                    return;
+                }
                 data = data.reverse();
                 $scope.globalChangeEvents = data;
                 console.log("refreshGlobalChanges", data);
@@ -800,22 +814,6 @@ angular.module('syncthing.core')
 
             var pct = 100 * $scope.model[folder].inSyncBytes / $scope.model[folder].globalBytes;
             return Math.floor(pct);
-        };
-
-        $scope.syncRemaining = function (folder) {
-            // Remaining sync bytes
-            if (typeof $scope.model[folder] === 'undefined') {
-                return 0;
-            }
-            if ($scope.model[folder].globalBytes === 0) {
-                return 0;
-            }
-
-            var bytes = $scope.model[folder].globalBytes - $scope.model[folder].inSyncBytes;
-            if (isNaN(bytes) || bytes < 0) {
-                return 0;
-            }
-            return bytes;
         };
 
         $scope.scanPercentage = function (folder) {
@@ -2205,6 +2203,7 @@ angular.module('syncthing.core')
             $scope.localChanged = $scope.refreshLocalChanged(1, 10);
             $('#localChanged').modal().one('hidden.bs.modal', function () {
                 $scope.localChanged = {};
+                $scope.localChangedFolder = undefined;
             });
         };
 
@@ -2416,4 +2415,9 @@ angular.module('syncthing.core')
             var err = status.error.replace(/.+: /, '');
             return err + " (" + time + ")";
         }
+
+        $scope.setCrashReportingEnabled = function (enabled) {
+            $scope.config.options.crashReportingEnabled = enabled;
+            $scope.saveConfig();
+        };
     });

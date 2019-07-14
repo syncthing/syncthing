@@ -155,8 +155,6 @@
                 <div class="col-md-6">
                   <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="fsWatcherToggled()" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
                   <p translate class="help-block">Watching for changes discovers most changes without periodic scanning.</p>
-                  <input type="checkbox" ng-model="currentFolder.useLargeBlocks"> <span translate>Variable Size Blocks</span>
-                  <p translate class="help-block">Variable size blocks (also "large blocks") are more efficient for large files.</p>
                 </div>
                 <div class="col-md-6">
                   <label for="rescanIntervalS" translate>Full Rescan Interval (s)</label>

@@ -10,26 +10,19 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
-var locationLocal *time.Location
 var errDirectory = fmt.Errorf("cannot restore on top of a directory")
 var errNotFound = fmt.Errorf("version not found")
 var errFileAlreadyExists = fmt.Errorf("file already exists")
-
-func init() {
-	var err error
-	locationLocal, err = time.LoadLocation("Local")
-	if err != nil {
-		panic(err.Error())
-	}
-}
 
 // Inserts ~tag just before the extension of the filename.
 func TagFilename(name, tag string) string {
@@ -95,33 +88,32 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 			return nil
 		}
 
+		modTime := f.ModTime().Truncate(time.Second)
+
 		path = osutil.NormalizedFilename(path)
 
 		name, tag := UntagFilename(path)
-		// Something invalid, assume it's an untagged file
+		// Something invalid, assume it's an untagged file (trashcan versioner stuff)
 		if name == "" || tag == "" {
-			versionTime := f.ModTime().Truncate(time.Second)
 			files[path] = append(files[path], FileVersion{
-				VersionTime: versionTime,
-				ModTime:     versionTime,
+				VersionTime: modTime,
+				ModTime:     modTime,
 				Size:        f.Size(),
 			})
 			return nil
 		}
 
-		versionTime, err := time.ParseInLocation(TimeFormat, tag, locationLocal)
+		versionTime, err := time.ParseInLocation(TimeFormat, tag, time.Local)
 		if err != nil {
 			// Can't parse it, welp, continue
 			return nil
 		}
 
-		if err == nil {
-			files[name] = append(files[name], FileVersion{
-				VersionTime: versionTime.Truncate(time.Second),
-				ModTime:     f.ModTime().Truncate(time.Second),
-				Size:        f.Size(),
-			})
-		}
+		files[name] = append(files[name], FileVersion{
+			VersionTime: versionTime,
+			ModTime:     modTime,
+			Size:        f.Size(),
+		})
 
 		return nil
 	})
@@ -162,30 +154,38 @@ func archiveFile(srcFs, dstFs fs.Filesystem, filePath string, tagger fileTagger)
 		}
 	}
 
-	l.Debugln("archiving", filePath)
-
 	file := filepath.Base(filePath)
 	inFolderPath := filepath.Dir(filePath)
 
 	err = dstFs.MkdirAll(inFolderPath, 0755)
 	if err != nil && !fs.IsExist(err) {
+		l.Debugln("archiving", filePath, err)
 		return err
 	}
 
-	ver := tagger(file, info.ModTime().Format(TimeFormat))
+	now := time.Now()
+
+	ver := tagger(file, now.Format(TimeFormat))
 	dst := filepath.Join(inFolderPath, ver)
-	l.Debugln("moving to", dst)
+	l.Debugln("archiving", filePath, "moving to", dst)
 	err = osutil.RenameOrCopy(srcFs, dstFs, filePath, dst)
 
-	// Set the mtime to the time the file was deleted. This can be used by the
-	// cleanout routine. If this fails things won't work optimally but there's
-	// not much we can do about it so we ignore the error.
-	_ = dstFs.Chtimes(dst, time.Now(), time.Now())
+	mtime := info.ModTime()
+	// If it's a trashcan versioner type thing, then it does not have version time in the name
+	// so use mtime for that.
+	if ver == file {
+		mtime = now
+	}
+
+	_ = dstFs.Chtimes(dst, mtime, mtime)
 
 	return err
 }
 
 func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time, tagger fileTagger) error {
+	tag := versionTime.In(time.Local).Truncate(time.Second).Format(TimeFormat)
+	taggedFilePath := tagger(filePath, tag)
+
 	// If the something already exists where we are restoring to, archive existing file for versioning
 	// remove if it's a symlink, or fail if it's a directory
 	if info, err := dst.Lstat(filePath); err == nil {
@@ -209,28 +209,27 @@ func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time,
 	}
 
 	filePath = osutil.NativeFilename(filePath)
-	tag := versionTime.In(locationLocal).Truncate(time.Second).Format(TimeFormat)
 
-	taggedFilename := TagFilename(filePath, tag)
-	oldTaggedFilename := filePath + tag
-	untaggedFileName := filePath
-
-	// Check that the thing we've been asked to restore is actually a file
-	// and that it exists.
+	// Try and find a file that has the correct mtime
 	sourceFile := ""
-	for _, candidate := range []string{taggedFilename, oldTaggedFilename, untaggedFileName} {
-		if info, err := src.Lstat(candidate); fs.IsNotExist(err) || !info.IsRegular() {
-			continue
-		} else if err != nil {
-			// All other errors are fatal
-			return err
-		} else if candidate == untaggedFileName && !info.ModTime().Truncate(time.Second).Equal(versionTime) {
-			// No error, and untagged file, but mtime does not match, skip
-			continue
+	sourceMtime := time.Time{}
+	if info, err := src.Lstat(taggedFilePath); err == nil && info.IsRegular() {
+		sourceFile = taggedFilePath
+		sourceMtime = info.ModTime()
+	} else if err == nil {
+		l.Debugln("restore:", taggedFilePath, "not regular")
+	} else {
+		l.Debugln("restore:", taggedFilePath, err.Error())
+	}
+
+	// Check for untagged file
+	if sourceFile == "" {
+		info, err := src.Lstat(filePath)
+		if err == nil && info.IsRegular() && info.ModTime().Truncate(time.Second).Equal(versionTime) {
+			sourceFile = filePath
+			sourceMtime = info.ModTime()
 		}
 
-		sourceFile = candidate
-		break
 	}
 
 	if sourceFile == "" {
@@ -246,7 +245,9 @@ func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time,
 	}
 
 	_ = dst.MkdirAll(filepath.Dir(filePath), 0755)
-	return osutil.RenameOrCopy(src, dst, sourceFile, filePath)
+	err := osutil.RenameOrCopy(src, dst, sourceFile, filePath)
+	_ = dst.Chtimes(filePath, sourceMtime, sourceMtime)
+	return err
 }
 
 func fsFromParams(folderFs fs.Filesystem, params map[string]string) (versionsFs fs.Filesystem) {
@@ -266,6 +267,23 @@ func fsFromParams(folderFs fs.Filesystem, params map[string]string) (versionsFs 
 		_ = fsType.UnmarshalText([]byte(params["fsType"]))
 		versionsFs = fs.NewFilesystem(fsType, params["fsPath"])
 	}
-	l.Debugln("%s (%s) folder using %s (%s) versioner dir", folderFs.URI(), folderFs.Type(), versionsFs.URI(), versionsFs.Type())
+	l.Debugf("%s (%s) folder using %s (%s) versioner dir", folderFs.URI(), folderFs.Type(), versionsFs.URI(), versionsFs.Type())
 	return
+}
+
+func findAllVersions(fs fs.Filesystem, filePath string) []string {
+	inFolderPath := filepath.Dir(filePath)
+	file := filepath.Base(filePath)
+
+	// Glob according to the new file~timestamp.ext pattern.
+	pattern := filepath.Join(inFolderPath, TagFilename(file, TimeGlob))
+	versions, err := fs.Glob(pattern)
+	if err != nil {
+		l.Warnln("globbing:", err, "for", pattern)
+		return nil
+	}
+	versions = util.UniqueTrimmedStrings(versions)
+	sort.Strings(versions)
+
+	return versions
 }

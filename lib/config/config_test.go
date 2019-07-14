@@ -69,6 +69,8 @@ func TestDefaultValues(t *testing.T) {
 		UnackedNotificationIDs:  []string{},
 		DefaultFolderPath:       "~",
 		SetLowPriority:          true,
+		CRURL:                   "https://crash.syncthing.net/newcrash",
+		CREnabled:               true,
 		StunKeepaliveStartS:     180,
 		StunKeepaliveMinS:       20,
 		StunServers:             []string{"default"},
@@ -203,7 +205,8 @@ func TestOverriddenValues(t *testing.T) {
 		ProgressUpdateIntervalS: 10,
 		LimitBandwidthInLan:     true,
 		MinHomeDiskFree:         Size{5.2, "%"},
-		URSeen:                  2,
+		URSeen:                  8,
+		URAccepted:              4,
 		URURL:                   "https://localhost/newdata",
 		URInitialDelayS:         800,
 		URPostInsecurely:        true,
@@ -211,15 +214,14 @@ func TestOverriddenValues(t *testing.T) {
 		AlwaysLocalNets:         []string{},
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
-		UnackedNotificationIDs: []string{
-			"channelNotification",   // added in 17->18 migration
-			"fsWatcherNotification", // added in 27->28 migration
-		},
-		DefaultFolderPath:   "/media/syncthing",
-		SetLowPriority:      false,
-		StunKeepaliveStartS: 9000,
-		StunKeepaliveMinS:   900,
-		StunServers:         []string{"foo"},
+		UnackedNotificationIDs:  []string{"asdfasdf"},
+		DefaultFolderPath:       "/media/syncthing",
+		SetLowPriority:          false,
+		CRURL:                   "https://localhost/newcrash",
+		CREnabled:               false,
+		StunKeepaliveStartS:     9000,
+		StunKeepaliveMinS:       900,
+		StunServers:             []string{"foo"},
 	}
 
 	os.Unsetenv("STNOUPGRADE")
@@ -709,23 +711,19 @@ func TestDuplicateFolders(t *testing.T) {
 	// Duplicate folders are a loading error
 
 	_, err := Load("testdata/dupfolders.xml", device1)
-	if err == nil || !strings.HasPrefix(err.Error(), "duplicate folder ID") {
+	if err == nil || !strings.Contains(err.Error(), errFolderIDDuplicate.Error()) {
 		t.Fatal(`Expected error to mention "duplicate folder ID":`, err)
 	}
 }
 
 func TestEmptyFolderPaths(t *testing.T) {
-	// Empty folder paths are allowed at the loading stage, and should not
+	// Empty folder paths are not allowed at the loading stage, and should not
 	// get messed up by the prepare steps (e.g., become the current dir or
 	// get a slash added so that it becomes the root directory or similar).
 
-	wrapper, err := Load("testdata/nopath.xml", device1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	folder := wrapper.Folders()["f1"]
-	if folder.cachedFilesystem != nil {
-		t.Errorf("Expected %q to be empty", folder.cachedFilesystem)
+	_, err := Load("testdata/nopath.xml", device1)
+	if err == nil || !strings.Contains(err.Error(), errFolderPathEmpty.Error()) {
+		t.Fatal("Expected error due to empty folder path, got", err)
 	}
 }
 
@@ -927,6 +925,7 @@ func TestIssue4219(t *testing.T) {
 		"folders": [
 			{
 				"id": "abcd123",
+				"path": "testdata",
 				"devices":[
 					{"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"}
 				]

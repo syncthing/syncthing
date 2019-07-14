@@ -8,7 +8,6 @@ package model
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/rand"
 	"path/filepath"
@@ -28,14 +27,15 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
+
+	"github.com/thejerf/suture"
 )
 
 // scanLimiter limits the number of concurrent scans. A limit of zero means no limit.
 var scanLimiter = newByteSemaphore(0)
 
-var errWatchNotStarted = errors.New("not started")
-
 type folder struct {
+	suture.Service
 	stateTracker
 	config.FolderConfiguration
 	*stats.FolderStatisticsReference
@@ -54,7 +54,6 @@ type folder struct {
 	scanNow             chan rescanRequest
 	scanDelay           chan time.Duration
 	initialScanFinished chan struct{}
-	stopped             chan struct{}
 	scanErrors          []FileError
 	scanErrorsMut       sync.Mutex
 
@@ -98,7 +97,6 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		scanNow:             make(chan rescanRequest),
 		scanDelay:           make(chan time.Duration),
 		initialScanFinished: make(chan struct{}),
-		stopped:             make(chan struct{}),
 		scanErrorsMut:       sync.NewMutex(),
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
@@ -109,7 +107,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 	}
 }
 
-func (f *folder) Serve() {
+func (f *folder) serve(_ chan struct{}) {
 	atomic.AddInt32(&f.model.foldersRunning, 1)
 	defer atomic.AddInt32(&f.model.foldersRunning, -1)
 
@@ -119,7 +117,6 @@ func (f *folder) Serve() {
 	defer func() {
 		f.scanTimer.Stop()
 		f.setState(FolderIdle)
-		close(f.stopped)
 	}()
 
 	pause := f.basePause()
@@ -220,8 +217,8 @@ func (f *folder) SchedulePull() {
 	}
 }
 
-func (f *folder) Jobs() ([]string, []string) {
-	return nil, nil
+func (f *folder) Jobs(_, _ int) ([]string, []string, int) {
+	return nil, nil, 0
 }
 
 func (f *folder) Scan(subdirs []string) error {
@@ -256,7 +253,7 @@ func (f *folder) Delay(next time.Duration) {
 
 func (f *folder) Stop() {
 	f.cancel()
-	<-f.stopped
+	f.Service.Stop()
 }
 
 // CheckHealth checks the folder for common errors, updates the folder state
@@ -349,7 +346,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		Hashers:               f.model.numHashers(f.ID),
 		ShortID:               f.shortID,
 		ProgressTickIntervalS: f.ScanProgressIntervalS,
-		UseLargeBlocks:        f.UseLargeBlocks,
 		LocalFlags:            f.localFlags,
 	})
 
@@ -565,19 +561,8 @@ func (f *folder) WatchError() error {
 func (f *folder) stopWatch() {
 	f.watchMut.Lock()
 	f.watchCancel()
-	prevErr := f.watchErr
-	f.watchErr = errWatchNotStarted
 	f.watchMut.Unlock()
-	if prevErr != errWatchNotStarted {
-		data := map[string]interface{}{
-			"folder": f.ID,
-			"to":     errWatchNotStarted.Error(),
-		}
-		if prevErr != nil {
-			data["from"] = prevErr.Error()
-		}
-		events.Default.Log(events.FolderWatchStateChanged, data)
-	}
+	f.setWatchError(nil)
 }
 
 // scheduleWatchRestart makes sure watching is restarted from the main for loop
@@ -642,7 +627,6 @@ func (f *folder) monitorWatch(ctx context.Context) {
 				if _, ok := err.(*fs.ErrWatchEventOutsideRoot); ok {
 					l.Warnln(err)
 					warnedOutside = true
-					return
 				}
 			}
 			aggrCancel()
@@ -677,17 +661,18 @@ func (f *folder) setWatchError(err error) {
 	if err == nil {
 		return
 	}
-	if prevErr == errWatchNotStarted {
-		l.Infof("Error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
+	msg := fmt.Sprintf("Error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
+	if prevErr != err {
+		l.Infof(msg)
 		return
 	}
-	l.Debugf("Repeat error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
+	l.Debugf(msg)
 }
 
 // scanOnWatchErr schedules a full scan immediately if an error occurred while watching.
 func (f *folder) scanOnWatchErr() {
 	f.watchMut.Lock()
-	if f.watchErr != nil && f.watchErr != errWatchNotStarted {
+	if f.watchErr != nil {
 		f.Delay(0)
 	}
 	f.watchMut.Unlock()

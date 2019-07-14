@@ -325,7 +325,7 @@
                   <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span>
-                    <span ng-show="syncRemaining(folder.id)">({{syncPercentage(folder.id) | percent}}, {{syncRemaining(folder.id) | binary}}B)</span>
+                    <span>({{syncPercentage(folder.id) | percent}}, {{model[folder.id].needBytes | binary}}B)</span>
                   </span>
                   <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs" aria-label="{{'Out of Sync' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
                   <span ng-switch-when="faileditems"><span class="hidden-xs" translate>Failed Items</span><span class="visible-xs" aria-label="{{'Failed Items' | translate}}"><i class="fas fa-fw fa-exclamation-circle"></i></span></span>
@@ -506,7 +506,7 @@
                   <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type">
                     <span class="fas fa-undo"></span>&nbsp;<span translate>Versions</span>
                   </button>
-                  <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync'].indexOf(folderStatus(folder)) < 0">
+                  <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync', 'faileditems'].indexOf(folderStatus(folder)) < 0">
                     <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="editFolder(folder)">

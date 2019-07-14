@@ -24,7 +24,7 @@ var (
 	Stamp   = "0"       // Set by build script
 
 	// Static
-	Codename = "Erbium Earthworm"
+	Codename = "Fermium Flea"
 
 	// Set by init()
 	Date        time.Time
