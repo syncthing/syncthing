@@ -176,6 +176,9 @@ func Address(network, host string) string {
 	return u.String()
 }
 
+// AddressUnspecifiedLess is a comparator function preferring least specific network address (most widely listening,
+// namely preferring 0.0.0.0 over some IP), if both IPs are equal, it prefers the less restrictive network (prefers tcp
+// over tcp4)
 func AddressUnspecifiedLess(a, b net.Addr) bool {
 	aIsUnspecified := false
 	bIsUnspecified := false

@@ -17,16 +17,16 @@ import (
 var SupportsReusePort = false
 
 func init() {
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
+	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_STREAM, unix.IPPROTO_IP)
 	if err != nil {
 		l.Debugln("Failed to create a socket", err)
 		return
 	}
-	defer func() { _ = syscall.Close(fd) }()
+	defer func() { _ = unix.Close(fd) }()
 
-	err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+	err = unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
 	switch {
-	case err == syscall.ENOPROTOOPT || err == syscall.EINVAL:
+	case err == unix.ENOPROTOOPT || err == unix.EINVAL:
 		l.Debugln("SO_REUSEPORT not supported")
 	case err != nil:
 		l.Debugln("Unknown error when determining SO_REUSEPORT support", err)
@@ -42,7 +42,7 @@ func ReusePortControl(network, address string, c syscall.RawConn) error {
 	}
 	var opErr error
 	err := c.Control(func(fd uintptr) {
-		opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+		opErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
 	})
 	if err != nil {
 		return err

@@ -36,6 +36,8 @@ func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	conn, err := dialer.DialContextReusePort(ctx, uri.Scheme, uri.Host)
+	// Release resources associated with the context after dialing (we know we've either succeeded or timed out at this
+	// point)
 	cancel()
 	if err != nil {
 		return internalConn{}, err

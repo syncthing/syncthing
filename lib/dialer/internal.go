@@ -124,12 +124,12 @@ func getDialer(forward proxy.Dialer) proxy.Dialer {
 }
 
 type contextDirectDialer struct {
+	net.Dialer
 	ctx context.Context
 }
 
 func (d *contextDirectDialer) Dial(network, addr string) (net.Conn, error) {
-	dialer := net.Dialer{}
-	return dialer.DialContext(d.ctx, network, addr)
+	return d.DialContext(d.ctx, network, addr)
 }
 
 type dialerConn struct {
@@ -162,7 +162,7 @@ func (a fallbackAddr) String() string {
 	return a.addr
 }
 
-// Sort available addresses, preferring unspecified alddress.
+// Sort available addresses, preferring unspecified address.
 func tcpAddrLess(i interface{}, j interface{}) bool {
 	return util.AddressUnspecifiedLess(i.(*net.TCPAddr), j.(*net.TCPAddr))
 }
