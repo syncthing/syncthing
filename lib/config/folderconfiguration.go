@@ -246,6 +246,7 @@ func (f *FolderConfiguration) prepare() {
 	case f.RawModTimeWindowS == 0:
 		if runtime.GOOS == "android" {
 			f.cachedModTimeWindowS = 2
+			break
 		}
 		fallthrough
 	case f.RawModTimeWindowS < 0:
