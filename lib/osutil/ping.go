@@ -7,6 +7,7 @@
 package osutil
 
 import (
+	"context"
 	"net/url"
 	"time"
 
@@ -18,7 +19,8 @@ import (
 // tcp.
 func TCPPing(address string) (time.Duration, error) {
 	start := time.Now()
-	conn, err := dialer.DialTimeout("tcp", address, time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), time.Second)
+	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if conn != nil {
 		conn.Close()
 	}

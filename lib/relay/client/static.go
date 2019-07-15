@@ -3,6 +3,7 @@
 package client
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -149,7 +150,8 @@ func (c *staticClient) connect() error {
 	}
 
 	t0 := time.Now()
-	tcpConn, err := dialer.DialTimeout("tcp", c.uri.Host, c.connectTimeout)
+	ctx, _ := context.WithTimeout(context.Background(), c.connectTimeout)
+	tcpConn, err := dialer.DialContext(ctx, "tcp", c.uri.Host)
 	if err != nil {
 		return err
 	}

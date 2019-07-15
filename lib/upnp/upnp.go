@@ -35,6 +35,7 @@ package upnp
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -271,7 +272,8 @@ func parseResponse(deviceType string, resp []byte) ([]IGDService, error) {
 }
 
 func localIP(url *url.URL) (net.IP, error) {
-	conn, err := dialer.DialTimeout("tcp", url.Host, time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), time.Second)
+	conn, err := dialer.DialContext(ctx, "tcp", url.Host)
 	if err != nil {
 		return nil, err
 	}

@@ -12,41 +12,11 @@ import (
 	"net"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
+	"golang.org/x/net/proxy"
 )
-
-// Dial tries dialing via proxy if a proxy is configured, and falls back to
-// a direct connection if no proxy is defined, or connecting via proxy fails.
-func Dial(network, addr string) (net.Conn, error) {
-	if usingProxy {
-		return dialWithFallback(proxyDialer.Dial, net.Dial, network, addr)
-	}
-	return net.Dial(network, addr)
-}
-
-// DialTimeout tries dialing via proxy with a timeout if a proxy is configured,
-// and falls back to a direct connection if no proxy is defined, or connecting
-// via proxy fails. The timeout can potentially be applied twice, once trying
-// to connect via the proxy connection, and second time trying to connect
-// directly.
-func DialTimeout(network, addr string, timeout time.Duration) (net.Conn, error) {
-	if usingProxy {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		dd := &contextDirectDialer{
-			ctx: ctx,
-		}
-		// Check if the dialer we are getting is not contextDirectDialer we just
-		// created. It could happen that usingProxy is true, but getDialer
-		// returns contextDirectDialer due to env vars changing.
-		if proxyDialer := getDialer(dd); proxyDialer != dd {
-			return dialWithFallback(proxyDialer.Dial, dd.Dial, network, addr)
-		}
-	}
-
-	return net.DialTimeout(network, addr, timeout)
-}
 
 // SetTCPOptions sets our default TCP options on a TCP connection, possibly
 // digging through dialerConn to extract the *net.TCPConn
@@ -67,10 +37,6 @@ func SetTCPOptions(conn net.Conn) error {
 			return err
 		}
 		return nil
-
-	case dialerConn:
-		return SetTCPOptions(conn.Conn)
-
 	default:
 		return fmt.Errorf("unknown connection type %T", conn)
 	}
@@ -86,29 +52,48 @@ func SetTrafficClass(conn net.Conn, class int) error {
 			return e1
 		}
 		return e2
-
-	case dialerConn:
-		return SetTrafficClass(conn.Conn, class)
-
 	default:
 		return fmt.Errorf("unknown connection type %T", conn)
 	}
 }
 
-func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, error) {
-	if usingProxy {
-		// There is no point using SO_REUSEPORT when dialing via the proxy.
-		dd := &contextDirectDialer{
-			ctx: ctx,
+func dialContextWithFallback(fallback proxy.ContextDialer, ctx context.Context, network, addr string) (net.Conn, error) {
+	dialer := proxy.FromEnvironment().(proxy.ContextDialer)
+	if dialer != proxy.Direct {
+		// Capture the existing timeout by checking the deadline
+		var timeout time.Duration
+		if deadline, ok := ctx.Deadline(); ok {
+			timeout = deadline.Sub(deadline)
 		}
-		// Check if the dialer we are getting is not contextDirectDialer we just
-		// created. It could happen that usingProxy is true, but getDialer
-		// returns contextDirectDialer due to env vars changing.
-		if proxyDialer := getDialer(dd); proxyDialer != dd {
-			return dialWithFallback(proxyDialer.Dial, func(inetwork, iaddr string) (net.Conn, error) {
-				return dialContextReusePort(ctx, inetwork, iaddr)
-			}, network, addr)
+		if conn, err := dialer.DialContext(ctx, network, addr); noFallback || err == nil {
+			return conn, err
+		}
+		// If the deadline was set, reset it again for the next dial attempt.
+		if timeout != 0 {
+			ctx, _ = context.WithTimeout(ctx, timeout)
 		}
 	}
-	return dialContextReusePort(ctx, network, addr)
+	return fallback.DialContext(ctx, network, addr)
+}
+
+// DialContext tries dialing via proxy if a proxy is configured, and falls back to
+// a direct connection if no proxy is defined, or connecting via proxy fails.
+// If the context has a timeout, the timeout might be applied twice.
+func DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	return dialContextWithFallback(proxy.Direct, ctx, network, addr)
+}
+
+// DialContextReusePort tries dialing via proxy if a proxy is configured, and falls back to
+// a direct connection reusing the port from the connections registry, if no proxy is defined, or connecting via proxy
+// fails. If the context has a timeout, the timeout might be applied twice.
+func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, error) {
+	dialer := &net.Dialer{
+		Control: ReusePortControl,
+	}
+	localAddrInterface := registry.Get(network, tcpAddrLess)
+	if localAddrInterface != nil {
+		dialer.LocalAddr = localAddrInterface.(*net.TCPAddr)
+	}
+
+	return dialContextWithFallback(dialer, ctx, network, addr)
 }
