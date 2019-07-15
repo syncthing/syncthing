@@ -19,7 +19,8 @@ import (
 // tcp.
 func TCPPing(address string) (time.Duration, error) {
 	start := time.Now()
-	ctx, _ := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if conn != nil {
 		conn.Close()

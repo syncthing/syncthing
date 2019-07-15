@@ -60,7 +60,8 @@ func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, err
 		}
 	}
 
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	session, err := quic.DialContext(ctx, conn, addr, uri.Host, d.tlsCfg, quicConfig)
 	if err != nil {
 		if createdConn != nil {

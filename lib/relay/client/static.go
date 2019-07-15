@@ -150,7 +150,8 @@ func (c *staticClient) connect() error {
 	}
 
 	t0 := time.Now()
-	ctx, _ := context.WithTimeout(context.Background(), c.connectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), c.connectTimeout)
+	defer cancel()
 	tcpConn, err := dialer.DialContext(ctx, "tcp", c.uri.Host)
 	if err != nil {
 		return err

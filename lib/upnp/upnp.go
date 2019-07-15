@@ -272,7 +272,8 @@ func parseResponse(deviceType string, resp []byte) ([]IGDService, error) {
 }
 
 func localIP(url *url.URL) (net.IP, error) {
-	ctx, _ := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	conn, err := dialer.DialContext(ctx, "tcp", url.Host)
 	if err != nil {
 		return nil, err

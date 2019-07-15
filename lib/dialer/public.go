@@ -70,7 +70,9 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 		}
 		// If the deadline was set, reset it again for the next dial attempt.
 		if timeout != 0 {
-			ctx, _ = context.WithTimeout(ctx, timeout)
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
 		}
 	}
 	return fallback.DialContext(ctx, network, addr)
