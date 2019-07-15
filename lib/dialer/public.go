@@ -57,7 +57,7 @@ func SetTrafficClass(conn net.Conn, class int) error {
 	}
 }
 
-func dialContextWithFallback(fallback proxy.ContextDialer, ctx context.Context, network, addr string) (net.Conn, error) {
+func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, network, addr string) (net.Conn, error) {
 	dialer := proxy.FromEnvironment().(proxy.ContextDialer)
 	if dialer != proxy.Direct {
 		// Capture the existing timeout by checking the deadline
@@ -80,7 +80,7 @@ func dialContextWithFallback(fallback proxy.ContextDialer, ctx context.Context, 
 // a direct connection if no proxy is defined, or connecting via proxy fails.
 // If the context has a timeout, the timeout might be applied twice.
 func DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	return dialContextWithFallback(proxy.Direct, ctx, network, addr)
+	return dialContextWithFallback(ctx, proxy.Direct, network, addr)
 }
 
 // DialContextReusePort tries dialing via proxy if a proxy is configured, and falls back to
@@ -95,5 +95,5 @@ func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, 
 		dialer.LocalAddr = localAddrInterface.(*net.TCPAddr)
 	}
 
-	return dialContextWithFallback(dialer, ctx, network, addr)
+	return dialContextWithFallback(ctx, dialer, network, addr)
 }
