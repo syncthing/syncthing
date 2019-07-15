@@ -242,11 +242,15 @@ func (f *FolderConfiguration) prepare() {
 		f.MarkerName = DefaultMarkerName
 	}
 
-	if runtime.GOOS == "android" && f.RawModTimeWindowS <= 0 {
-		f.cachedModTimeWindowS = 2
-	} else if f.RawModTimeWindowS < 0 {
+	switch {
+	case f.RawModTimeWindowS == 0:
+		if runtime.GOOS == "android" {
+			f.cachedModTimeWindowS = 2
+		}
+		fallthrough
+	case f.RawModTimeWindowS < 0:
 		f.cachedModTimeWindowS = 0
-	} else {
+	case f.RawModTimeWindowS > 0:
 		f.cachedModTimeWindowS = f.RawModTimeWindowS
 	}
 }
