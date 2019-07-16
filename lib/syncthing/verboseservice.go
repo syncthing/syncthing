@@ -9,45 +9,37 @@ package syncthing
 import (
 	"fmt"
 
+	"github.com/thejerf/suture"
+
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 // The verbose logging service subscribes to events and prints these in
 // verbose format to the console using INFO level.
 type verboseService struct {
-	stop    chan struct{} // signals time to stop
-	started chan struct{} // signals startup complete
+	suture.Service
+	sub *events.Subscription
 }
 
 func newVerboseService() *verboseService {
-	return &verboseService{
-		stop:    make(chan struct{}),
-		started: make(chan struct{}),
+	s := &verboseService{
+		sub: events.Default.Subscribe(events.AllEvents),
 	}
+	s.Service = util.AsService(s.serve)
+	return s
 }
 
-// Serve runs the verbose logging service.
-func (s *verboseService) Serve() {
-	sub := events.Default.Subscribe(events.AllEvents)
-	defer events.Default.Unsubscribe(sub)
-
-	select {
-	case <-s.started:
-		// The started channel has already been closed; do nothing.
-	default:
-		// This is the first time around. Indicate that we're ready to start
-		// processing events.
-		close(s.started)
-	}
-
+// serve runs the verbose logging service.
+func (s *verboseService) serve(stop chan struct{}) {
 	for {
 		select {
-		case ev := <-sub.C():
+		case ev := <-s.sub.C():
 			formatted := s.formatEvent(ev)
 			if formatted != "" {
 				l.Verboseln(formatted)
 			}
-		case <-s.stop:
+		case <-stop:
 			return
 		}
 	}
@@ -55,13 +47,9 @@ func (s *verboseService) Serve() {
 
 // Stop stops the verbose logging service.
 func (s *verboseService) Stop() {
-	close(s.stop)
-}
+	s.Service.Stop()
+	events.Default.Unsubscribe(s.sub)
 
-// WaitForStart returns once the verbose logging service is ready to receive
-// events, or immediately if it's already running.
-func (s *verboseService) WaitForStart() {
-	<-s.started
 }
 
 func (s *verboseService) formatEvent(ev events.Event) string {

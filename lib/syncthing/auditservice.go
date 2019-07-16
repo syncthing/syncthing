@@ -10,42 +10,40 @@ import (
 	"encoding/json"
 	"io"
 
+	"github.com/thejerf/suture"
+
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 // The auditService subscribes to events and writes these in JSON format, one
 // event per line, to the specified writer.
 type auditService struct {
-	w       io.Writer     // audit destination
-	stop    chan struct{} // signals time to stop
-	started chan struct{} // signals startup complete
+	suture.Service
+	w       io.Writer // audit destination
+	sub     *events.Subscription
 	stopped chan struct{} // signals stop complete
 }
 
 func newAuditService(w io.Writer) *auditService {
-	return &auditService{
+	s := &auditService{
 		w:       w,
-		stop:    make(chan struct{}),
-		started: make(chan struct{}),
+		sub:     events.Default.Subscribe(events.AllEvents),
 		stopped: make(chan struct{}),
 	}
+	s.Service = util.AsService(s.serve)
+	return s
 }
 
-// Serve runs the audit service.
-func (s *auditService) Serve() {
-	defer close(s.stopped)
-	sub := events.Default.Subscribe(events.AllEvents)
-	defer events.Default.Unsubscribe(sub)
+// serve runs the audit service.
+func (s *auditService) serve(stop chan struct{}) {
 	enc := json.NewEncoder(s.w)
-
-	// We're ready to start processing events.
-	close(s.started)
 
 	for {
 		select {
-		case ev := <-sub.C():
+		case ev := <-s.sub.C():
 			enc.Encode(ev)
-		case <-s.stop:
+		case <-stop:
 			return
 		}
 	}
@@ -53,13 +51,9 @@ func (s *auditService) Serve() {
 
 // Stop stops the audit service.
 func (s *auditService) Stop() {
-	close(s.stop)
-}
-
-// WaitForStart returns once the audit service is ready to receive events, or
-// immediately if it's already running.
-func (s *auditService) WaitForStart() {
-	<-s.started
+	s.Service.Stop()
+	events.Default.Unsubscribe(s.sub)
+	close(s.stopped)
 }
 
 // WaitForStop returns once the audit service has stopped.

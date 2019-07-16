@@ -17,13 +17,12 @@ import (
 
 func TestAuditService(t *testing.T) {
 	buf := new(bytes.Buffer)
-	service := newAuditService(buf)
 
-	// Event sent before start, will not be logged
+	// Event sent before construction, will not be logged
 	events.Default.Log(events.ConfigSaved, "the first event")
 
+	service := newAuditService(buf)
 	go service.Serve()
-	service.WaitForStart()
 
 	// Event that should end up in the audit log
 	events.Default.Log(events.ConfigSaved, "the second event")
