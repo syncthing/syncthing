@@ -423,16 +423,14 @@ func generate(generateDir string) error {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err == nil {
 		l.Warnln("Key exists; will not overwrite.")
-		myID = protocol.NewDeviceID(cert.Certificate[0])
-		l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 	} else {
 		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName)
 		if err != nil {
 			return errors.Wrap(err, "create certificate")
 		}
-		myID = protocol.NewDeviceID(cert.Certificate[0])
-		l.Infoln("Device ID:", myID)
 	}
+	myID = protocol.NewDeviceID(cert.Certificate[0])
+	l.Infoln("Device ID:", myID)
 
 	cfgFile := filepath.Join(dir, "config.xml")
 	if _, err := os.Stat(cfgFile); err == nil {
