@@ -20,16 +20,14 @@ import (
 // event per line, to the specified writer.
 type auditService struct {
 	suture.Service
-	w       io.Writer // audit destination
-	sub     *events.Subscription
-	stopped chan struct{} // signals stop complete
+	w   io.Writer // audit destination
+	sub *events.Subscription
 }
 
 func newAuditService(w io.Writer) *auditService {
 	s := &auditService{
-		w:       w,
-		sub:     events.Default.Subscribe(events.AllEvents),
-		stopped: make(chan struct{}),
+		w:   w,
+		sub: events.Default.Subscribe(events.AllEvents),
 	}
 	s.Service = util.AsService(s.serve)
 	return s
@@ -53,11 +51,4 @@ func (s *auditService) serve(stop chan struct{}) {
 func (s *auditService) Stop() {
 	s.Service.Stop()
 	events.Default.Unsubscribe(s.sub)
-	close(s.stopped)
-}
-
-// WaitForStop returns once the audit service has stopped.
-// (Needed by the tests.)
-func (s *auditService) WaitForStop() {
-	<-s.stopped
 }
