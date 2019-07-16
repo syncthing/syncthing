@@ -33,7 +33,7 @@ require (
 	github.com/prometheus/client_golang v0.9.4
 	github.com/rcrowley/go-metrics v0.0.0-20171128170426-e181e095bae9
 	github.com/sasha-s/go-deadlock v0.2.0
-	github.com/shirou/gopsutil v2.19.6+incompatible
+	github.com/shirou/gopsutil v0.0.0-20190714054239-47ef3260b6bf
 	github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2
 	github.com/syndtr/goleveldb v1.0.1-0.20190318030020-c3a204f8e965
 	github.com/thejerf/suture v3.0.2+incompatible

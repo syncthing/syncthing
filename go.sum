@@ -128,6 +128,8 @@ github.com/rcrowley/go-metrics v0.0.0-20171128170426-e181e095bae9 h1:jmLW6izPBVl
 github.com/rcrowley/go-metrics v0.0.0-20171128170426-e181e095bae9/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/sasha-s/go-deadlock v0.2.0 h1:lMqc+fUb7RrFS3gQLtoQsJ7/6TV/pAIFvBsqX73DK8Y=
 github.com/sasha-s/go-deadlock v0.2.0/go.mod h1:StQn567HiB1fF2yJ44N9au7wOhrPS3iZqiDbRupzT10=
+github.com/shirou/gopsutil v0.0.0-20190714054239-47ef3260b6bf h1:c9SV5NzG4KOk448TUE7iqCmb4E4y79CZF4zDdc1Jx3Q=
+github.com/shirou/gopsutil v0.0.0-20190714054239-47ef3260b6bf/go.mod h1:WWnYX4lzhCH5h/3YBfyVA3VbLYjlMZZAQcW9ojMexNc=
 github.com/shirou/gopsutil v2.19.6+incompatible h1:49/Gru26Lne9Cl3IoAVDZVM09hvkSrUodgIIsCVRwbs=
 github.com/shirou/gopsutil v2.19.6+incompatible/go.mod h1:WWnYX4lzhCH5h/3YBfyVA3VbLYjlMZZAQcW9ojMexNc=
 github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4/go.mod h1:qsXQc7+bwAM3Q1u/4XEfrquwF8Lw7D7y5cD8CuHnfIc=
