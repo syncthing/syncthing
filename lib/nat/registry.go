@@ -19,17 +19,18 @@ func Register(provider DiscoverFunc) {
 	providers = append(providers, provider)
 }
 
-func discoverAll(renewal, timeout time.Duration) map[string]Device {
+func discoverAll(renewal, timeout time.Duration, stop chan struct{}) map[string]Device {
 	wg := &sync.WaitGroup{}
 	wg.Add(len(providers))
 
 	c := make(chan Device)
-	done := make(chan struct{})
-
 	for _, discoverFunc := range providers {
 		go func(f DiscoverFunc) {
 			for _, dev := range f(renewal, timeout) {
-				c <- dev
+				select {
+				case c <- dev:
+				case <-stop:
+				}
 			}
 			wg.Done()
 		}(discoverFunc)
@@ -37,16 +38,14 @@ func discoverAll(renewal, timeout time.Duration) map[string]Device {
 
 	nats := make(map[string]Device)
 
-	go func() {
-		for dev := range c {
+	for num := len(providers); len(nats) < num; {
+		select {
+		case dev := <-c:
 			nats[dev.ID()] = dev
+		case <-stop:
+			return nil
 		}
-		close(done)
-	}()
-
-	wg.Wait()
-	close(c)
-	<-done
+	}
 
 	return nats
 }

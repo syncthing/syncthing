@@ -11,8 +11,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/thejerf/suture"
+
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type Broadcast struct {
@@ -44,16 +45,16 @@ func NewBroadcast(port int) *Broadcast {
 	}
 
 	b.br = &broadcastReader{
-		port:    port,
-		outbox:  b.outbox,
-		connMut: sync.NewMutex(),
+		port:   port,
+		outbox: b.outbox,
 	}
+	b.br.ServiceWithError = util.AsServiceWithError(b.br.serve)
 	b.Add(b.br)
 	b.bw = &broadcastWriter{
-		port:    port,
-		inbox:   b.inbox,
-		connMut: sync.NewMutex(),
+		port:  port,
+		inbox: b.inbox,
 	}
+	b.bw.ServiceWithError = util.AsServiceWithError(b.bw.serve)
 	b.Add(b.bw)
 
 	return b
@@ -76,34 +77,34 @@ func (b *Broadcast) Error() error {
 }
 
 type broadcastWriter struct {
-	port    int
-	inbox   chan []byte
-	conn    *net.UDPConn
-	connMut sync.Mutex
-	errorHolder
+	util.ServiceWithError
+	port  int
+	inbox chan []byte
 }
 
-func (w *broadcastWriter) Serve() {
+func (w *broadcastWriter) serve(stop chan struct{}) error {
 	l.Debugln(w, "starting")
 	defer l.Debugln(w, "stopping")
 
 	conn, err := net.ListenUDP("udp4", nil)
 	if err != nil {
 		l.Debugln(err)
-		w.setError(err)
-		return
+		return err
 	}
 	defer conn.Close()
 
-	w.connMut.Lock()
-	w.conn = conn
-	w.connMut.Unlock()
+	for {
+		var bs []byte
+		select {
+		case bs = <-w.inbox:
+		case <-stop:
+			return nil
+		}
 
-	for bs := range w.inbox {
 		addrs, err := net.InterfaceAddrs()
 		if err != nil {
 			l.Debugln(err)
-			w.setError(err)
+			w.SetError(err)
 			continue
 		}
 
@@ -134,14 +135,13 @@ func (w *broadcastWriter) Serve() {
 				// Write timeouts should not happen. We treat it as a fatal
 				// error on the socket.
 				l.Debugln(err)
-				w.setError(err)
-				return
+				return err
 			}
 
 			if err != nil {
 				// Some other error that we don't expect. Debug and continue.
 				l.Debugln(err)
-				w.setError(err)
+				w.SetError(err)
 				continue
 			}
 
@@ -150,17 +150,11 @@ func (w *broadcastWriter) Serve() {
 		}
 
 		if success > 0 {
-			w.setError(nil)
+			w.SetError(nil)
 		}
 	}
-}
 
-func (w *broadcastWriter) Stop() {
-	w.connMut.Lock()
-	if w.conn != nil {
-		w.conn.Close()
-	}
-	w.connMut.Unlock()
+	return nil
 }
 
 func (w *broadcastWriter) String() string {
@@ -168,59 +162,62 @@ func (w *broadcastWriter) String() string {
 }
 
 type broadcastReader struct {
-	port    int
-	outbox  chan recv
-	conn    *net.UDPConn
-	connMut sync.Mutex
-	errorHolder
+	util.ServiceWithError
+	port   int
+	outbox chan recv
 }
 
-func (r *broadcastReader) Serve() {
+func (r *broadcastReader) serve(stop chan struct{}) error {
 	l.Debugln(r, "starting")
 	defer l.Debugln(r, "stopping")
 
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{Port: r.port})
 	if err != nil {
 		l.Debugln(err)
-		r.setError(err)
-		return
+		return err
 	}
 	defer conn.Close()
 
-	r.connMut.Lock()
-	r.conn = conn
-	r.connMut.Unlock()
-
+	readResChan := make(chan readRes)
 	bs := make([]byte, 65536)
+
 	for {
-		n, addr, err := conn.ReadFrom(bs)
-		if err != nil {
-			l.Debugln(err)
-			r.setError(err)
-			return
-		}
+		go func() {
+			for {
+				n, addr, err := conn.ReadFrom(bs)
+				if err != nil {
+					l.Debugln(err)
+					r.SetError(err)
+					return
+				}
+				r.SetError(nil)
 
-		r.setError(nil)
+				l.Debugf("recv %d bytes from %s", n, addr)
 
-		l.Debugf("recv %d bytes from %s", n, addr)
+				select {
+				case readResChan <- readRes{n, addr}:
+				case <-stop:
+				}
+			}
+		}()
 
-		c := make([]byte, n)
-		copy(c, bs)
 		select {
-		case r.outbox <- recv{c, addr}:
-		default:
-			l.Debugln("dropping message")
+		case res := <-readResChan:
+			c := make([]byte, res.n)
+			copy(c, bs)
+			select {
+			case r.outbox <- recv{c, res.addr}:
+			case <-stop:
+				return nil
+			default:
+				l.Debugln("dropping message")
+			}
+		case <-stop:
+			return nil
 		}
 	}
 
-}
-
-func (r *broadcastReader) Stop() {
-	r.connMut.Lock()
-	if r.conn != nil {
-		r.conn.Close()
-	}
-	r.connMut.Unlock()
+	return nil
 }
 
 func (r *broadcastReader) String() string {

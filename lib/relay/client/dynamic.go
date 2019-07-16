@@ -14,6 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
+	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type dynamicClient struct {
@@ -69,15 +70,7 @@ func (c *dynamicClient) serve(stop chan struct{}) error {
 		addrs = append(addrs, ruri.String())
 	}
 
-	defer func() {
-		c.mut.RLock()
-		if c.client != nil {
-			c.client.Stop()
-		}
-		c.mut.RUnlock()
-	}()
-
-	for _, addr := range relayAddressesOrder(addrs) {
+	for _, addr := range relayAddressesOrder(addrs, stop) {
 		select {
 		case <-stop:
 			l.Debugln(c, "stopping")
@@ -102,6 +95,15 @@ func (c *dynamicClient) serve(stop chan struct{}) error {
 	}
 	l.Debugln(c, "could not find a connectable relay")
 	return fmt.Errorf("could not find a connectable relay")
+}
+
+func (c *dynamicClient) Stop() {
+	c.mut.RLock()
+	if c.client != nil {
+		c.client.Stop()
+	}
+	c.mut.RUnlock()
+	c.commonClient.Stop()
 }
 
 func (c *dynamicClient) Error() error {
@@ -147,18 +149,32 @@ type dynamicAnnouncement struct {
 // the closest 50ms, and puts them in buckets of 50ms latency ranges. Then
 // shuffles each bucket, and returns all addresses starting with the ones from
 // the lowest latency bucket, ending with the highest latency buceket.
-func relayAddressesOrder(input []string) []string {
+func relayAddressesOrder(input []string, stop chan struct{}) []string {
 	buckets := make(map[int][]string)
 
+	wg := sync.NewWaitGroup()
+	wg.Add(len(input))
+	results := make(chan urlWithLatency, len(input))
 	for _, relay := range input {
-		latency, err := osutil.GetLatencyForURL(relay)
-		if err != nil {
-			latency = time.Hour
-		}
+		go func(irelay string) {
+			latency, err := osutil.GetLatencyForURL(irelay)
+			if err != nil {
+				latency = time.Hour
+			}
+			select {
+			case results <- urlWithLatency{irelay, latency}:
+			case <-stop:
+			}
+			wg.Done()
+		}(relay)
+	}
 
-		id := int(latency/time.Millisecond) / 50
+	wg.Wait()
+	close(results)
 
-		buckets[id] = append(buckets[id], relay)
+	for result := range results {
+		id := int(result.latency/time.Millisecond) / 50
+		buckets[id] = append(buckets[id], result.url)
 	}
 
 	var ids []int
@@ -176,4 +192,9 @@ func relayAddressesOrder(input []string) []string {
 	}
 
 	return addresses
+}
+
+type urlWithLatency struct {
+	url     string
+	latency time.Duration
 }
