@@ -10,6 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strings"
+
+	"github.com/shirou/gopsutil/disk"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -243,16 +246,16 @@ func (f *FolderConfiguration) prepare() {
 	}
 
 	switch {
-	case f.RawModTimeWindowS == 0:
-		if runtime.GOOS == "android" {
-			f.cachedModTimeWindowS = 2
-			break
-		}
-		fallthrough
 	case f.RawModTimeWindowS < 0:
 		f.cachedModTimeWindowS = 0
 	case f.RawModTimeWindowS > 0:
 		f.cachedModTimeWindowS = f.RawModTimeWindowS
+	case runtime.GOOS == "android":
+		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil || strings.Contains(strings.ToLower(usage.Fstype), "fat") {
+			f.cachedModTimeWindowS = 2
+		}
+	default:
+		f.cachedModTimeWindowS = 0
 	}
 }
 
