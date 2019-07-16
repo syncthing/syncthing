@@ -14,7 +14,7 @@ import (
 
 var SupportsReusePort = true
 
-func ReusePortControl(network, address string, c syscall.RawConn) error {
+func ReusePortControl(_, _ string, c syscall.RawConn) error {
 	var opErr error
 	err := c.Control(func(fd uintptr) {
 		// On Windows, SO_REUSEADDR is equivalent to SO_REUSEPORT on Linux.
