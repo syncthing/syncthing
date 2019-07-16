@@ -36,7 +36,7 @@ func init() {
 	}
 }
 
-func ReusePortControl(network, address string, c syscall.RawConn) error {
+func ReusePortControl(_, _ string, c syscall.RawConn) error {
 	if !SupportsReusePort {
 		return nil
 	}
