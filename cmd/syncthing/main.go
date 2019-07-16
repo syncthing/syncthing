@@ -180,7 +180,7 @@ type RuntimeOptions struct {
 	logFlags         int
 	showHelp         bool
 	allowNewerConfig bool
-	umask		 string
+	umask            string
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -194,7 +194,7 @@ func defaultRuntimeOptions() RuntimeOptions {
 		cpuProfile:   os.Getenv("STCPUPROFILE") != "",
 		stRestarting: os.Getenv("STRESTART") != "",
 		logFlags:     log.Ltime,
-		umask:	      "",
+		umask:        "",
 	}
 
 	if os.Getenv("STTRACE") != "" {
@@ -271,8 +271,8 @@ func main() {
 			}
 
 			if mask < 0 || mask > 0777 {
-                                l.Warnln("Umask invalid, must between 0000 and 0777")
-                                os.Exit(exitError)
+				l.Warnln("Umask invalid, must between 0000 and 0777")
+				os.Exit(exitError)
 			}
 			syscall.Umask(int(mask))
 		}
