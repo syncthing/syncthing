@@ -180,6 +180,7 @@ type RuntimeOptions struct {
 	logFlags         int
 	showHelp         bool
 	allowNewerConfig bool
+	umask		 string
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -193,6 +194,7 @@ func defaultRuntimeOptions() RuntimeOptions {
 		cpuProfile:   os.Getenv("STCPUPROFILE") != "",
 		stRestarting: os.Getenv("STRESTART") != "",
 		logFlags:     log.Ltime,
+		umask:	      "",
 	}
 
 	if os.Getenv("STTRACE") != "" {
@@ -240,6 +242,8 @@ func parseCommandLineOptions() RuntimeOptions {
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
 		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
+	} else {
+		flag.StringVar(&options.umask, "umask", options.umask, "Set umask")
 	}
 
 	longUsage := fmt.Sprintf(extraUsage, debugFacilities())
@@ -257,6 +261,22 @@ func parseCommandLineOptions() RuntimeOptions {
 func main() {
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
+	if runtime.GOOS != "windows" {
+		if options.umask != "" {
+			var mask int64
+			var err error
+			if mask, err = strconv.ParseInt(options.umask, 0, 9); err != nil {
+				l.Warnln("Failed to parse umask:", err)
+				os.Exit(exitError)
+			}
+
+			if mask < 0 || mask > 0777 {
+                                l.Warnln("Umask invalid, must between 0000 and 0777")
+                                os.Exit(exitError)
+			}
+			syscall.Umask(int(mask))
+		}
+	}
 
 	if options.guiAddress != "" {
 		// The config picks this up from the environment.
