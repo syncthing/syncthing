@@ -274,7 +274,7 @@ func main() {
 				l.Warnln("Umask invalid, must between 0000 and 0777")
 				os.Exit(exitError)
 			}
-			syscall.Umask(int(mask))
+			umask(int(mask))
 		}
 	}
 
