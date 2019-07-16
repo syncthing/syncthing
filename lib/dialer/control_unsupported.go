@@ -12,6 +12,6 @@ import "syscall"
 
 var SupportsReusePort = false
 
-func ReusePortControl(network, address string, c syscall.RawConn) error {
+func ReusePortControl(_, _ string, _ syscall.RawConn) error {
 	return nil
 }
