@@ -17,11 +17,6 @@ type recv struct {
 	src  net.Addr
 }
 
-type readRes struct {
-	n    int
-	addr net.Addr
-}
-
 type Interface interface {
 	suture.Service
 	Send(data []byte)

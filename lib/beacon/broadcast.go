@@ -91,7 +91,15 @@ func (w *broadcastWriter) serve(stop chan struct{}) error {
 		l.Debugln(err)
 		return err
 	}
-	defer conn.Close()
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-stop:
+		case <-done:
+		}
+		conn.Close()
+	}()
 
 	for {
 		var bs []byte
@@ -176,44 +184,36 @@ func (r *broadcastReader) serve(stop chan struct{}) error {
 		l.Debugln(err)
 		return err
 	}
-	defer conn.Close()
-
-	readResChan := make(chan readRes)
-	bs := make([]byte, 65536)
-
-	for {
-		go func() {
-			for {
-				n, addr, err := conn.ReadFrom(bs)
-				if err != nil {
-					l.Debugln(err)
-					r.SetError(err)
-					return
-				}
-				r.SetError(nil)
-
-				l.Debugf("recv %d bytes from %s", n, addr)
-
-				select {
-				case readResChan <- readRes{n, addr}:
-				case <-stop:
-				}
-			}
-		}()
-
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
 		select {
-		case res := <-readResChan:
-			c := make([]byte, res.n)
-			copy(c, bs)
-			select {
-			case r.outbox <- recv{c, res.addr}:
-			case <-stop:
-				return nil
-			default:
-				l.Debugln("dropping message")
-			}
+		case <-stop:
+		case <-done:
+		}
+		conn.Close()
+	}()
+
+	bs := make([]byte, 65536)
+	for {
+		n, addr, err := conn.ReadFrom(bs)
+		if err != nil {
+			l.Debugln(err)
+			return err
+		}
+
+		r.SetError(nil)
+
+		l.Debugf("recv %d bytes from %s", n, addr)
+
+		c := make([]byte, n)
+		copy(c, bs)
+		select {
+		case r.outbox <- recv{c, addr}:
 		case <-stop:
 			return nil
+		default:
+			l.Debugln("dropping message")
 		}
 	}
 

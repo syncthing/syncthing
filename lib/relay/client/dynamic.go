@@ -14,7 +14,6 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type dynamicClient struct {
@@ -152,29 +151,21 @@ type dynamicAnnouncement struct {
 func relayAddressesOrder(input []string, stop chan struct{}) []string {
 	buckets := make(map[int][]string)
 
-	wg := sync.NewWaitGroup()
-	wg.Add(len(input))
-	results := make(chan urlWithLatency, len(input))
 	for _, relay := range input {
-		go func(irelay string) {
-			latency, err := osutil.GetLatencyForURL(irelay)
-			if err != nil {
-				latency = time.Hour
-			}
-			select {
-			case results <- urlWithLatency{irelay, latency}:
-			case <-stop:
-			}
-			wg.Done()
-		}(relay)
-	}
+		latency, err := osutil.GetLatencyForURL(relay)
+		if err != nil {
+			latency = time.Hour
+		}
 
-	wg.Wait()
-	close(results)
+		id := int(latency/time.Millisecond) / 50
 
-	for result := range results {
-		id := int(result.latency/time.Millisecond) / 50
-		buckets[id] = append(buckets[id], result.url)
+		buckets[id] = append(buckets[id], relay)
+
+		select {
+		case <-stop:
+			return nil
+		default:
+		}
 	}
 
 	var ids []int
@@ -192,9 +183,4 @@ func relayAddressesOrder(input []string, stop chan struct{}) []string {
 	}
 
 	return addresses
-}
-
-type urlWithLatency struct {
-	url     string
-	latency time.Duration
 }

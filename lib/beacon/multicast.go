@@ -98,6 +98,15 @@ func (w *multicastWriter) serve(stop chan struct{}) error {
 		l.Debugln(err)
 		return err
 	}
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-stop:
+		case <-done:
+		}
+		conn.Close()
+	}()
 
 	pconn := ipv6.NewPacketConn(conn)
 
@@ -176,6 +185,16 @@ func (r *multicastReader) serve(stop chan struct{}) error {
 		l.Debugln(err)
 		return err
 	}
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-stop:
+		case <-done:
+		}
+		l.Infoln("mutlicastreader close conn")
+		conn.Close()
+	}()
 
 	intfs, err := net.Interfaces()
 	if err != nil {
@@ -200,43 +219,27 @@ func (r *multicastReader) serve(stop chan struct{}) error {
 		return errors.New("no multicast interfaces available")
 	}
 
-	readResChan := make(chan readRes)
 	bs := make([]byte, 65536)
-
 	for {
-		go func() {
-			for {
-				n, _, addr, err := pconn.ReadFrom(bs)
-				if err != nil {
-					l.Debugln(err)
-					r.SetError(err)
-					select {
-					case <-stop:
-						return
-					}
-					continue
-				}
-				l.Debugf("recv %d bytes from %s", n, addr)
-				select {
-				case readResChan <- readRes{n, addr}:
-				case <-stop:
-				}
-			}
-		}()
-
 		select {
-		case res := <-readResChan:
-			c := make([]byte, res.n)
-			copy(c, bs)
-			select {
-			case r.outbox <- recv{c, res.addr}:
-			case <-stop:
-				return nil
-			default:
-				l.Debugln("dropping message")
-			}
 		case <-stop:
 			return nil
+		default:
+		}
+		n, _, addr, err := pconn.ReadFrom(bs)
+		if err != nil {
+			l.Debugln(err)
+			r.SetError(err)
+			continue
+		}
+		l.Debugf("recv %d bytes from %s", n, addr)
+
+		c := make([]byte, n)
+		copy(c, bs)
+		select {
+		case r.outbox <- recv{c, addr}:
+		default:
+			l.Debugln("dropping message")
 		}
 	}
 
