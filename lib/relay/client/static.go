@@ -145,7 +145,7 @@ func (c *staticClient) URI() *url.URL {
 
 func (c *staticClient) connect() error {
 	if c.uri.Scheme != "relay" {
-		return fmt.Errorf("Unsupported relay schema: %v", c.uri.Scheme)
+		return fmt.Errorf("unsupported relay scheme: %v", c.uri.Scheme)
 	}
 
 	t0 := time.Now()
@@ -196,7 +196,7 @@ func (c *staticClient) join() error {
 	switch msg := message.(type) {
 	case protocol.Response:
 		if msg.Code != 0 {
-			return fmt.Errorf("Incorrect response code %d: %s", msg.Code, msg.Message)
+			return fmt.Errorf("incorrect response code %d: %s", msg.Code, msg.Message)
 		}
 
 	case protocol.RelayFull:
