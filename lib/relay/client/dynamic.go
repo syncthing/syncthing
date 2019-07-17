@@ -169,8 +169,7 @@ func relayAddressesOrder(input []string) []string {
 
 	sort.Ints(ids)
 
-	addresses := make([]string, len(input))
-
+	addresses := make([]string, 0, len(input))
 	for _, id := range ids {
 		addresses = append(addresses, buckets[id]...)
 	}
