@@ -156,8 +156,6 @@ func (w *multicastWriter) serve(stop chan struct{}) error {
 			w.SetError(nil)
 		}
 	}
-
-	return nil
 }
 
 func (w *multicastWriter) String() string {
@@ -242,8 +240,6 @@ func (r *multicastReader) serve(stop chan struct{}) error {
 			l.Debugln("dropping message")
 		}
 	}
-
-	return nil
 }
 
 func (r *multicastReader) String() string {

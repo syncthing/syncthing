@@ -161,8 +161,6 @@ func (w *broadcastWriter) serve(stop chan struct{}) error {
 			w.SetError(nil)
 		}
 	}
-
-	return nil
 }
 
 func (w *broadcastWriter) String() string {
@@ -216,8 +214,6 @@ func (r *broadcastReader) serve(stop chan struct{}) error {
 			l.Debugln("dropping message")
 		}
 	}
-
-	return nil
 }
 
 func (r *broadcastReader) String() string {
