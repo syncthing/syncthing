@@ -190,7 +190,6 @@ func (r *multicastReader) serve(stop chan struct{}) error {
 		case <-stop:
 		case <-done:
 		}
-		l.Infoln("mutlicastreader close conn")
 		conn.Close()
 	}()
 
