@@ -73,7 +73,7 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, allowNewerConfig, no
 		}
 		l.Infof("Default config saved. Edit %s to taste (with Syncthing stopped) or use the GUI", cfg.ConfigPath())
 	} else if err == io.EOF {
-		return nil, errors.New("Failed to load config: unexpected end of file. Truncated or empty configuration?")
+		return nil, errors.New("failed to load config: unexpected end of file. Truncated or empty configuration?")
 	} else if err != nil {
 		return nil, errors.Wrap(err, "failed to load config")
 	}
@@ -83,7 +83,7 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, allowNewerConfig, no
 			l.Infof("Now, THAT's what we call a config from the future! Don't worry. As long as you hit that wire with the connecting hook at precisely eighty-eight miles per hour the instant the lightning strikes the tower... everything will be fine.")
 		}
 		if cfg.RawCopy().OriginalVersion > config.CurrentVersion && !allowNewerConfig {
-			return nil, fmt.Errorf("Config file version (%d) is newer than supported version (%d). If this is expected, use -allow-newer-config to override.", cfg.RawCopy().OriginalVersion, config.CurrentVersion)
+			return nil, fmt.Errorf("config file version (%d) is newer than supported version (%d). If this is expected, use -allow-newer-config to override.", cfg.RawCopy().OriginalVersion, config.CurrentVersion)
 		}
 		err = archiveAndSaveConfig(cfg)
 		if err != nil {
