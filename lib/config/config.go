@@ -270,6 +270,16 @@ found:
 func (cfg *Configuration) clean() error {
 	util.FillNilSlices(&cfg.Options)
 
+	// Ensure that the device list is
+	// - free from duplicates
+	// - no devices with empty ID
+	// - sorted by ID
+	// Happen before preparting folders as that needs a correct device list.
+	cfg.Devices = ensureNoDuplicateOrEmptyIDDevices(cfg.Devices)
+	sort.Slice(cfg.Devices, func(a, b int) bool {
+		return cfg.Devices[a].DeviceID.Compare(cfg.Devices[b].DeviceID) == -1
+	})
+
 	// Prepare folders and check for duplicates. Duplicates are bad and
 	// dangerous, can't currently be resolved in the GUI, and shouldn't
 	// happen when configured by the GUI. We return with an error in that
@@ -309,14 +319,6 @@ func (cfg *Configuration) clean() error {
 	for _, device := range cfg.Devices {
 		existingDevices[device.DeviceID] = true
 	}
-
-	// Ensure that the device list is
-	// - free from duplicates
-	// - sorted by ID
-	cfg.Devices = ensureNoDuplicateDevices(cfg.Devices)
-	sort.Slice(cfg.Devices, func(a, b int) bool {
-		return cfg.Devices[a].DeviceID.Compare(cfg.Devices[b].DeviceID) == -1
-	})
 
 	// Ensure that the folder list is sorted by ID
 	sort.Slice(cfg.Folders, func(a, b int) bool {
@@ -476,14 +478,14 @@ loop:
 	return devices[0:count]
 }
 
-func ensureNoDuplicateDevices(devices []DeviceConfiguration) []DeviceConfiguration {
+func ensureNoDuplicateOrEmptyIDDevices(devices []DeviceConfiguration) []DeviceConfiguration {
 	count := len(devices)
 	i := 0
 	seenDevices := make(map[protocol.DeviceID]bool)
 loop:
 	for i < count {
 		id := devices[i].DeviceID
-		if _, ok := seenDevices[id]; ok {
+		if _, ok := seenDevices[id]; ok || id == protocol.EmptyDeviceID {
 			devices[i] = devices[count-1]
 			count--
 			continue loop

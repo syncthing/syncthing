@@ -60,8 +60,6 @@ const (
 	maxSystemLog         = 250
 )
 
-var myID protocol.DeviceID
-
 const (
 	usage      = "syncthing [options]"
 	extraUsage = `
@@ -333,13 +331,12 @@ func main() {
 			os.Exit(exitError)
 		}
 
-		myID = protocol.NewDeviceID(cert.Certificate[0])
-		fmt.Println(myID)
+		fmt.Println(protocol.NewDeviceID(cert.Certificate[0]))
 		return
 	}
 
 	if options.browserOnly {
-		if err := openGUI(); err != nil {
+		if err := openGUI(protocol.EmptyDeviceID); err != nil {
 			l.Warnln("Failed to open web UI:", err)
 			os.Exit(exitError)
 		}
@@ -396,8 +393,8 @@ func main() {
 	}
 }
 
-func openGUI() error {
-	cfg, err := loadOrDefaultConfig()
+func openGUI(myID protocol.DeviceID) error {
+	cfg, err := loadOrDefaultConfig(myID)
 	if err != nil {
 		return err
 	}
@@ -421,31 +418,26 @@ func generate(generateDir string) error {
 		return err
 	}
 
+	var myID protocol.DeviceID
 	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err == nil {
 		l.Warnln("Key exists; will not overwrite.")
-		l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 	} else {
 		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName)
 		if err != nil {
 			return errors.Wrap(err, "create certificate")
 		}
-		myID = protocol.NewDeviceID(cert.Certificate[0])
-		if err != nil {
-			return errors.Wrap(err, "load certificate")
-		}
-		if err == nil {
-			l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
-		}
 	}
+	myID = protocol.NewDeviceID(cert.Certificate[0])
+	l.Infoln("Device ID:", myID)
 
 	cfgFile := filepath.Join(dir, "config.xml")
 	if _, err := os.Stat(cfgFile); err == nil {
 		l.Warnln("Config exists; will not overwrite.")
 		return nil
 	}
-	cfg, err := defaultConfig(cfgFile)
+	cfg, err := defaultConfig(cfgFile, myID)
 	if err != nil {
 		return err
 	}
@@ -479,7 +471,7 @@ func debugFacilities() string {
 }
 
 func checkUpgrade() upgrade.Release {
-	cfg, _ := loadOrDefaultConfig()
+	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID)
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
@@ -520,7 +512,7 @@ func performUpgrade(release upgrade.Release) {
 }
 
 func upgradeViaRest() error {
-	cfg, _ := loadOrDefaultConfig()
+	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID)
 	u, err := url.Parse(cfg.GUI().URL())
 	if err != nil {
 		return err
@@ -556,18 +548,6 @@ func upgradeViaRest() error {
 }
 
 func syncthingMain(runtimeOptions RuntimeOptions) {
-	cfg, err := loadConfigAtStartup(runtimeOptions.allowNewerConfig)
-	if err != nil {
-		l.Warnln("Failed to initialize config:", err)
-		os.Exit(exitError)
-	}
-
-	if runtimeOptions.unpaused {
-		setPauseState(cfg, false)
-	} else if runtimeOptions.paused {
-		setPauseState(cfg, true)
-	}
-
 	// Ensure that we have a certificate and key.
 	cert, err := tls.LoadX509KeyPair(
 		locations.Get(locations.CertFile),
@@ -584,6 +564,19 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			l.Warnln("Failed to generate certificate:", err)
 			os.Exit(1)
 		}
+	}
+	myID := protocol.NewDeviceID(cert.Certificate[0])
+
+	cfg, err := loadConfigAtStartup(runtimeOptions.allowNewerConfig, myID)
+	if err != nil {
+		l.Warnln("Failed to initialize config:", err)
+		os.Exit(exitError)
+	}
+
+	if runtimeOptions.unpaused {
+		setPauseState(cfg, false)
+	} else if runtimeOptions.paused {
+		setPauseState(cfg, true)
 	}
 
 	dbFile := locations.Get(locations.Database)
@@ -692,22 +685,22 @@ func setupSignalHandling(app *syncthing.App) {
 	}()
 }
 
-func loadOrDefaultConfig() (config.Wrapper, error) {
+func loadOrDefaultConfig(myID protocol.DeviceID) (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 
 	if err != nil {
-		cfg, err = defaultConfig(cfgFile)
+		cfg, err = defaultConfig(cfgFile, myID)
 	}
 
 	return cfg, err
 }
 
-func loadConfigAtStartup(allowNewerConfig bool) (config.Wrapper, error) {
+func loadConfigAtStartup(allowNewerConfig bool, myID protocol.DeviceID) (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
-		cfg, err = defaultConfig(cfgFile)
+		cfg, err = defaultConfig(cfgFile, myID)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate default config")
 		}
@@ -797,7 +790,7 @@ func auditWriter(auditFile string) io.Writer {
 	return fd
 }
 
-func defaultConfig(cfgFile string) (config.Wrapper, error) {
+func defaultConfig(cfgFile string, myID protocol.DeviceID) (config.Wrapper, error) {
 	newCfg, err := config.NewWithFreePorts(myID)
 	if err != nil {
 		return nil, err
