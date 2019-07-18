@@ -407,13 +407,13 @@ func (a *App) Stop(stopReason ExitStatus) ExitStatus {
 	case <-a.stopped:
 	case <-a.stop:
 	default:
+		// ExitSuccess is the default value for a.exitStatus. If another status
+		// was already set, ignore the stop reason given as argument to Stop.
+		if a.exitStatus == ExitSuccess {
+			a.exitStatus = stopReason
+		}
 		close(a.stop)
-	}
-	<-a.stopped
-	// ExitSuccess is the default value for a.exitStatus. If another status
-	// was already set, ignore the stop reason given as argument to Stop.
-	if a.exitStatus == ExitSuccess {
-		a.exitStatus = stopReason
+		<-a.stopped
 	}
 	return a.exitStatus
 }
