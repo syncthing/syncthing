@@ -42,7 +42,10 @@ func discoverAll(renewal, timeout time.Duration, stop chan struct{}) map[string]
 	go func() {
 		for {
 			select {
-			case dev := <-c:
+			case dev, ok := <-c:
+				if !ok {
+					return
+				}
 				nats[dev.ID()] = dev
 			case <-stop:
 				return
