@@ -24,6 +24,8 @@ func discoverAll(renewal, timeout time.Duration, stop chan struct{}) map[string]
 	wg.Add(len(providers))
 
 	c := make(chan Device)
+	done := make(chan struct{})
+
 	for _, discoverFunc := range providers {
 		go func(f DiscoverFunc) {
 			defer wg.Done()
@@ -40,6 +42,7 @@ func discoverAll(renewal, timeout time.Duration, stop chan struct{}) map[string]
 	nats := make(map[string]Device)
 
 	go func() {
+		defer close(done)
 		for {
 			select {
 			case dev, ok := <-c:
@@ -55,6 +58,7 @@ func discoverAll(renewal, timeout time.Duration, stop chan struct{}) map[string]
 
 	wg.Wait()
 	close(c)
+	<-done
 
 	return nats
 }
