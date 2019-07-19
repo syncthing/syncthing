@@ -847,6 +847,10 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	if runnerOk {
 		progressNames, queuedNames, skipped := runner.Jobs(page, perpage)
 
+		progress = make([]db.FileInfoTruncated, len(progressNames))
+		queued = make([]db.FileInfoTruncated, len(queuedNames))
+		seen = make(map[string]struct{}, len(progressNames)+len(queuedNames))
+
 		for i, name := range progressNames {
 			if f, ok := rf.GetGlobalTruncated(name); ok {
 				progress[i] = f
