@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -944,6 +945,49 @@ func TestRequestDeleteChanged(t *testing.T) {
 			t.Error(`Modified file "a" was removed`)
 		} else {
 			t.Error(`Error stating file "a":`, err)
+		}
+	}
+}
+
+func TestNeedFolderFiles(t *testing.T) {
+	m, fc, fcfg := setupModelWithConnection()
+	tfs := fcfg.Filesystem()
+	tmpDir := tfs.URI()
+	defer cleanupModelAndRemoveDir(m, tmpDir)
+
+	sub := events.Default.Subscribe(events.RemoteIndexUpdated)
+	defer events.Default.Unsubscribe(sub)
+
+	errPreventSync := errors.New("you aren't getting any of this")
+	fc.mut.Lock()
+	fc.requestFn = func(string, string, int64, int, []byte, bool) ([]byte, error) {
+		return nil, errPreventSync
+	}
+	fc.mut.Unlock()
+
+	data := []byte("foo")
+	num := 20
+	for i := 0; i < num; i++ {
+		fc.addFile(strconv.Itoa(i), 0644, protocol.FileInfoTypeFile, data)
+	}
+	fc.sendIndexUpdate()
+
+	select {
+	case <-sub.C():
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out before receiving index")
+	}
+
+	progress, queued, rest := m.NeedFolderFiles(fcfg.ID, 1, 100)
+	if got := len(progress) + len(queued) + len(rest); got != num {
+		t.Errorf("Got %v needed items, expected %v", got, num)
+	}
+
+	exp := 10
+	for page := 1; page < 3; page++ {
+		progress, queued, rest := m.NeedFolderFiles(fcfg.ID, page, exp)
+		if got := len(progress) + len(queued) + len(rest); got != exp {
+			t.Errorf("Got %v needed items on page %v, expected %v", got, page, exp)
 		}
 	}
 }
