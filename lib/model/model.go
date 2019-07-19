@@ -2549,6 +2549,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
+			m.closeConn(deviceID, errDevicePaused)
 			events.Default.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
 			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
