@@ -2238,7 +2238,7 @@ func (m *model) WatchError(folder string) error {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if err := m.checkFolderRunningLocked(folder); err != nil {
-		return err
+		return nil // If the folder isn't running, there's no error to report.
 	}
 	return m.folderRunners[folder].WatchError()
 }
