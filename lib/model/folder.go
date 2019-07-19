@@ -423,6 +423,12 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		var iterError error
 
 		f.fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
+			select {
+			case <-f.ctx.Done():
+				return false
+			default:
+			}
+
 			file := fi.(db.FileInfoTruncated)
 
 			if err := batch.flushIfFull(); err != nil {
@@ -506,6 +512,12 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			}
 			return true
 		})
+
+		select {
+		case <-f.ctx.Done():
+			return f.ctx.Err()
+		default:
+		}
 
 		if iterError == nil && len(toIgnore) > 0 {
 			for _, file := range toIgnore {
