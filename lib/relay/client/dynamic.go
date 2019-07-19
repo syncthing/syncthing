@@ -69,15 +69,7 @@ func (c *dynamicClient) serve(stop chan struct{}) error {
 		addrs = append(addrs, ruri.String())
 	}
 
-	defer func() {
-		c.mut.RLock()
-		if c.client != nil {
-			c.client.Stop()
-		}
-		c.mut.RUnlock()
-	}()
-
-	for _, addr := range relayAddressesOrder(addrs) {
+	for _, addr := range relayAddressesOrder(addrs, stop) {
 		select {
 		case <-stop:
 			l.Debugln(c, "stopping")
@@ -102,6 +94,15 @@ func (c *dynamicClient) serve(stop chan struct{}) error {
 	}
 	l.Debugln(c, "could not find a connectable relay")
 	return fmt.Errorf("could not find a connectable relay")
+}
+
+func (c *dynamicClient) Stop() {
+	c.mut.RLock()
+	if c.client != nil {
+		c.client.Stop()
+	}
+	c.mut.RUnlock()
+	c.commonClient.Stop()
 }
 
 func (c *dynamicClient) Error() error {
@@ -147,7 +148,7 @@ type dynamicAnnouncement struct {
 // the closest 50ms, and puts them in buckets of 50ms latency ranges. Then
 // shuffles each bucket, and returns all addresses starting with the ones from
 // the lowest latency bucket, ending with the highest latency buceket.
-func relayAddressesOrder(input []string) []string {
+func relayAddressesOrder(input []string, stop chan struct{}) []string {
 	buckets := make(map[int][]string)
 
 	for _, relay := range input {
@@ -159,6 +160,12 @@ func relayAddressesOrder(input []string) []string {
 		id := int(latency/time.Millisecond) / 50
 
 		buckets[id] = append(buckets[id], relay)
+
+		select {
+		case <-stop:
+			return nil
+		default:
+		}
 	}
 
 	var ids []int
