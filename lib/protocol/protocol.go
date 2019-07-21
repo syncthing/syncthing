@@ -187,6 +187,7 @@ type rawConnection struct {
 	closeBox              chan asyncMessage
 	clusterConfigBox      chan *ClusterConfig
 	dispatcherLoopStopped chan struct{}
+	preventSends          chan struct{}
 	closed                chan struct{}
 	closeOnce             sync.Once
 	sendCloseOnce         sync.Once
@@ -240,6 +241,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		closeBox:              make(chan asyncMessage),
 		clusterConfigBox:      make(chan *ClusterConfig),
 		dispatcherLoopStopped: make(chan struct{}),
+		preventSends:          make(chan struct{}),
 		closed:                make(chan struct{}),
 		compression:           compress,
 	}
@@ -662,12 +664,13 @@ func (c *rawConnection) send(msg message, done chan struct{}) bool {
 	select {
 	case c.outbox <- asyncMessage{msg, done}:
 		return true
+	case <-c.preventSends:
 	case <-c.closed:
-		if done != nil {
-			close(done)
-		}
-		return false
 	}
+	if done != nil {
+		close(done)
+	}
+	return false
 }
 
 func (c *rawConnection) writerLoop() {

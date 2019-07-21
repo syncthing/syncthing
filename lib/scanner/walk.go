@@ -539,7 +539,7 @@ func (w *walker) handleError(ctx context.Context, context, path string, err erro
 // A byteCounter gets bytes added to it via Update() and then provides the
 // Total() and one minute moving average Rate() in bytes per second.
 type byteCounter struct {
-	total int64
+	total int64 // atomic, must remain 64-bit aligned
 	metrics.EWMA
 	stop chan struct{}
 }

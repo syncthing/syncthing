@@ -39,7 +39,7 @@ const (
 )
 
 type writeTrackingPacketConn struct {
-	lastWrite int64
+	lastWrite int64 // atomic, must remain 64-bit aligned
 	net.PacketConn
 }
 
@@ -109,8 +109,8 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) (*Servi
 }
 
 func (s *Service) Stop() {
-	s.Service.Stop()
 	_ = s.stunConn.Close()
+	s.Service.Stop()
 }
 
 func (s *Service) serve(stop chan struct{}) {
@@ -163,7 +163,11 @@ func (s *Service) serve(stop chan struct{}) {
 
 		// We failed to contact all provided stun servers or the nat is not punchable.
 		// Chillout for a while.
-		time.Sleep(stunRetryInterval)
+		select {
+		case <-time.After(stunRetryInterval):
+		case <-stop:
+			return
+		}
 	}
 }
 

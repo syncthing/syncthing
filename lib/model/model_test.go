@@ -26,6 +26,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -3353,5 +3354,33 @@ func TestModTimeWindow(t *testing.T) {
 	fi, _ = m.CurrentFolderFile("default", name)
 	if !fi.Version.Equal(v) {
 		t.Fatalf("Got version %v, expected %v", fi.Version, v)
+	}
+}
+
+func TestDevicePause(t *testing.T) {
+	sub := events.Default.Subscribe(events.DevicePaused)
+	defer events.Default.Unsubscribe(sub)
+
+	m, _, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+
+	m.pmut.RLock()
+	closed := m.closed[device1]
+	m.pmut.RUnlock()
+
+	dev := m.cfg.Devices()[device1]
+	dev.Paused = true
+	m.cfg.SetDevice(dev)
+
+	timeout := time.NewTimer(5 * time.Second)
+	select {
+	case <-sub.C():
+		select {
+		case <-closed:
+		case <-timeout.C:
+			t.Fatal("Timed out before connection was closed")
+		}
+	case <-timeout.C:
+		t.Fatal("Timed out before device was paused")
 	}
 }

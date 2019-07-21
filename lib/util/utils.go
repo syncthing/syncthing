@@ -187,6 +187,7 @@ func AsService(fn func(stop chan struct{})) suture.Service {
 type ServiceWithError interface {
 	suture.Service
 	Error() error
+	SetError(error)
 }
 
 // AsServiceWithError does the same as AsService, except that it keeps track
@@ -243,4 +244,10 @@ func (s *service) Error() error {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	return s.err
+}
+
+func (s *service) SetError(err error) {
+	s.mut.Lock()
+	s.err = err
+	s.mut.Unlock()
 }

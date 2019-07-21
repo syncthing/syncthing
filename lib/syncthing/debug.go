@@ -4,22 +4,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package beacon
+package syncthing
 
 import (
-	"net"
+	"os"
+	"strings"
 
-	"github.com/thejerf/suture"
+	"github.com/syncthing/syncthing/lib/logger"
 )
 
-type recv struct {
-	data []byte
-	src  net.Addr
-}
+var (
+	l = logger.DefaultLogger.NewFacility("app", "Main run facility")
+)
 
-type Interface interface {
-	suture.Service
-	Send(data []byte)
-	Recv() ([]byte, net.Addr)
-	Error() error
+func init() {
+	l.SetDebug("app", strings.Contains(os.Getenv("STTRACE"), "app") || os.Getenv("STTRACE") == "all")
 }

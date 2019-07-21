@@ -6,7 +6,7 @@
 
 //+build solaris
 
-package main
+package syncthing
 
 import (
 	"encoding/binary"
