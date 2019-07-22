@@ -248,10 +248,8 @@ func (m *model) StartFolder(folder string) {
 
 // Need to hold lock on m.fmut when calling this.
 func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
-	if err := m.checkFolderRunningLocked(cfg.ID); err == errFolderMissing {
-		l.Warnln("Cannot start nonexistent folder", cfg.Description())
-		panic("cannot start nonexistent folder")
-	} else if err == nil {
+	_, ok := m.folderRunners[cfg.ID]
+	if ok {
 		l.Warnln("Cannot start already running folder", cfg.Description())
 		panic("cannot start already running folder")
 	}
