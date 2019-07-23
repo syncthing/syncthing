@@ -126,7 +126,7 @@ func (a *App) startup() error {
 	l.SetPrefix("[start] ")
 
 	if a.opts.AuditWriter != nil {
-		a.startAuditing()
+		a.mainService.Add(newAuditService(a.opts.AuditWriter))
 	}
 
 	if a.opts.Verbose {
@@ -416,15 +416,6 @@ func (a *App) Stop(stopReason ExitStatus) ExitStatus {
 		<-a.stopped
 	}
 	return a.exitStatus
-}
-
-func (a *App) startAuditing() {
-	auditService := newAuditService(a.opts.AuditWriter)
-	a.mainService.Add(auditService)
-
-	// We wait for the audit service to fully start before we return, to
-	// ensure we capture all events from the start.
-	auditService.WaitForStart()
 }
 
 func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
