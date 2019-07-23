@@ -244,16 +244,21 @@ func (f *FolderConfiguration) prepare() {
 	}
 
 	switch {
-	case f.RawModTimeWindowS < 0:
-		f.cachedModTimeWindowS = 0
 	case f.RawModTimeWindowS > 0:
 		f.cachedModTimeWindowS = f.RawModTimeWindowS
 	case runtime.GOOS == "android":
-		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil || strings.Contains(strings.ToLower(usage.Fstype), "fat") {
+		usage, err := disk.Usage(f.Filesystem().URI())
+		if err != nil {
+			l.Debugf("Error detecting FS at %v on android, setting mtime window to 2s: %v", f.Path, err)
 			f.cachedModTimeWindowS = 2
+			break
 		}
-	default:
-		f.cachedModTimeWindowS = 0
+		if strings.Contains(strings.ToLower(usage.Fstype), "fat") {
+			l.Debugf("Detecting FS at %v on android, found %v, thus setting mtime window to 2s", f.Path, usage.Fstype)
+			f.cachedModTimeWindowS = 2
+			break
+		}
+		l.Debugf("Detecting FS at %v on android, found %v, thus leaving mtime window at 0", f.Path, usage.Fstype)
 	}
 }
 
