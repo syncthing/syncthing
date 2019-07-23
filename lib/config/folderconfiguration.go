@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/shirou/gopsutil/disk"
 
@@ -58,8 +59,8 @@ type FolderConfiguration struct {
 	CopyOwnershipFromParent bool                        `xml:"copyOwnershipFromParent" json:"copyOwnershipFromParent"`
 	RawModTimeWindowS       int                         `xml:"modTimeWindowS" json:"modTimeWindowS"`
 
-	cachedFilesystem     fs.Filesystem
-	cachedModTimeWindowS int
+	cachedFilesystem    fs.Filesystem
+	cachedModTimeWindow time.Duration
 
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
 	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
@@ -116,8 +117,8 @@ func (f FolderConfiguration) Versioner() versioner.Versioner {
 	return versionerFactory(f.ID, f.Filesystem(), f.Versioning.Params)
 }
 
-func (f FolderConfiguration) ModTimeWindowS() int {
-	return f.cachedModTimeWindowS
+func (f FolderConfiguration) ModTimeWindow() time.Duration {
+	return f.cachedModTimeWindow
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
@@ -245,17 +246,17 @@ func (f *FolderConfiguration) prepare() {
 
 	switch {
 	case f.RawModTimeWindowS > 0:
-		f.cachedModTimeWindowS = f.RawModTimeWindowS
+		f.cachedModTimeWindow = time.Duration(f.RawModTimeWindowS) * time.Second
 	case runtime.GOOS == "android":
 		usage, err := disk.Usage(f.Filesystem().URI())
 		if err != nil {
 			l.Debugf("Error detecting FS at %v on android, setting mtime window to 2s: %v", f.Path, err)
-			f.cachedModTimeWindowS = 2
+			f.cachedModTimeWindow = 2 * time.Second
 			break
 		}
 		if strings.Contains(strings.ToLower(usage.Fstype), "fat") {
 			l.Debugf("Detecting FS at %v on android, found %v, thus setting mtime window to 2s", f.Path, usage.Fstype)
-			f.cachedModTimeWindowS = 2
+			f.cachedModTimeWindow = 2 * time.Second
 			break
 		}
 		l.Debugf("Detecting FS at %v on android, found %v, thus leaving mtime window at 0", f.Path, usage.Fstype)
