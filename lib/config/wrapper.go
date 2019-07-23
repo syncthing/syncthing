@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -450,7 +449,6 @@ func (w *wrapper) Save() error {
 		return err
 	}
 
-	events.Default.Log(events.ConfigSaved, w.cfg)
 	return nil
 }
 

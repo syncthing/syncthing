@@ -17,15 +17,22 @@ import (
 
 func TestAuditService(t *testing.T) {
 	buf := new(bytes.Buffer)
+	evLogger := events.NewLogger()
+	go evLogger.Serve()
+	defer evLogger.Stop()
+	sub := evLogger.Subscribe(events.AllEvents)
+	defer evLogger.Unsubscribe(sub)
 
-	// Event sent before construction, will not be logged
-	events.Default.Log(events.ConfigSaved, "the first event")
+	// Event sent before start, will not be logged
+	evLogger.Log(events.ConfigSaved, "the first event")
+	// Make sure the event goes through before creating the service
+	<-sub.C()
 
-	service := newAuditService(buf)
+	service := newAuditService(buf, evLogger)
 	go service.Serve()
 
 	// Event that should end up in the audit log
-	events.Default.Log(events.ConfigSaved, "the second event")
+	evLogger.Log(events.ConfigSaved, "the second event")
 
 	// We need to give the events time to arrive, since the channels are buffered etc.
 	time.Sleep(10 * time.Millisecond)
@@ -33,7 +40,7 @@ func TestAuditService(t *testing.T) {
 	service.Stop()
 
 	// This event should not be logged, since we have stopped.
-	events.Default.Log(events.ConfigSaved, "the third event")
+	evLogger.Log(events.ConfigSaved, "the third event")
 
 	result := buf.String()
 	t.Log(result)

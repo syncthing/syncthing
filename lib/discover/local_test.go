@@ -15,7 +15,7 @@ import (
 )
 
 func TestLocalInstanceID(t *testing.T) {
-	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{})
+	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{}, testEvLogger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestLocalInstanceID(t *testing.T) {
 }
 
 func TestLocalInstanceIDShouldTriggerNew(t *testing.T) {
-	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{})
+	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{}, testEvLogger)
 	if err != nil {
 		t.Fatal(err)
 	}

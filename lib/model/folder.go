@@ -77,11 +77,11 @@ type puller interface {
 	pull() bool // true when successfull and should not be retried
 }
 
-func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration) folder {
+func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger *events.Logger) folder {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return folder{
-		stateTracker:              newStateTracker(cfg.ID),
+		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
 		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
 
@@ -630,7 +630,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 				failTimer.Reset(time.Minute)
 				continue
 			}
-			watchaggregator.Aggregate(eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, aggrCtx)
+			watchaggregator.Aggregate(eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, f.evLogger, aggrCtx)
 			l.Debugln("Started filesystem watcher for folder", f.Description())
 		case err = <-errChan:
 			f.setWatchError(err)
@@ -669,7 +669,7 @@ func (f *folder) setWatchError(err error) {
 		if err != nil {
 			data["to"] = err.Error()
 		}
-		events.Default.Log(events.FolderWatchStateChanged, data)
+		f.evLogger.Log(events.FolderWatchStateChanged, data)
 	}
 	if err == nil {
 		return
@@ -799,7 +799,7 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 		filenames[i] = file.Name
 	}
 
-	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
+	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":    f.ID,
 		"items":     len(fs),
 		"filenames": filenames,
@@ -838,7 +838,7 @@ func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events
 		}
 
 		// Two different events can be fired here based on what EventType is passed into function
-		events.Default.Log(typeOfEvent, map[string]string{
+		f.evLogger.Log(typeOfEvent, map[string]string{
 			"folder":     f.ID,
 			"folderID":   f.ID, // incorrect, deprecated, kept for historical compliance
 			"label":      f.Label,

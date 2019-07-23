@@ -119,6 +119,7 @@ type service struct {
 	limiter              *limiter
 	natService           *nat.Service
 	natServiceToken      *suture.ServiceToken
+	evLogger             *events.Logger
 
 	listenersMut       sync.RWMutex
 	listeners          map[string]genericListener
@@ -130,7 +131,7 @@ type service struct {
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
-	bepProtocolName string, tlsDefaultCommonName string) *service {
+	bepProtocolName string, tlsDefaultCommonName string, evLogger *events.Logger) *service {
 
 	service := &service{
 		Supervisor: suture.New("connections.Service", suture.Spec{
@@ -149,6 +150,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		limiter:              newLimiter(cfg),
 		natService:           nat.NewService(myID, cfg),
+		evLogger:             evLogger,
 
 		listenersMut:   sync.NewRWMutex(),
 		listeners:      make(map[string]genericListener),
@@ -553,7 +555,7 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 }
 
 func (s *service) logListenAddressesChangedEvent(l genericListener) {
-	events.Default.Log(events.ListenAddressesChanged, map[string]interface{}{
+	s.evLogger.Log(events.ListenAddressesChanged, map[string]interface{}{
 		"address": l.URI(),
 		"lan":     l.LANAddresses(),
 		"wan":     l.WANAddresses(),

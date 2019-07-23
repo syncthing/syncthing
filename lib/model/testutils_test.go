@@ -13,6 +13,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -117,12 +118,16 @@ func setupModel(w config.Wrapper) *model {
 }
 
 func newModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) *model {
-	return NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles).(*model)
+	evLogger := events.NewLogger()
+	m := NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles, evLogger).(*model)
+	go evLogger.Serve()
+	return m
 }
 
 func cleanupModel(m *model) {
 	m.Stop()
 	m.db.Close()
+	m.evLogger.Stop()
 	os.Remove(m.cfg.ConfigPath())
 }
 

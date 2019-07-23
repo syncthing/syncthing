@@ -17,6 +17,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/discover"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -55,12 +56,15 @@ type checkResult struct {
 }
 
 func checkServers(deviceID protocol.DeviceID, servers ...string) {
+	evLogger := events.NewLogger()
+	go evLogger.Serve()
+	defer evLogger.Stop()
 	t0 := time.Now()
 	resc := make(chan checkResult)
 	for _, srv := range servers {
 		srv := srv
 		go func() {
-			res := checkServer(deviceID, srv)
+			res := checkServer(deviceID, srv, evLogger)
 			res.server = srv
 			resc <- res
 		}()
@@ -81,8 +85,8 @@ func checkServers(deviceID protocol.DeviceID, servers ...string) {
 	}
 }
 
-func checkServer(deviceID protocol.DeviceID, server string) checkResult {
-	disco, err := discover.NewGlobal(server, tls.Certificate{}, nil)
+func checkServer(deviceID protocol.DeviceID, server string, evLogger *events.Logger) checkResult {
+	disco, err := discover.NewGlobal(server, tls.Certificate{}, nil, evLogger)
 	if err != nil {
 		return checkResult{error: err}
 	}

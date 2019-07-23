@@ -9,6 +9,7 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -511,16 +512,15 @@ func performUpgrade(release upgrade.Release) {
 	}
 }
 
-func upgradeViaRest() error {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID)
-	u, err := url.Parse(cfg.GUI().URL())
+func restGet(guiCfg config.GUIConfiguration, suffix string, timeoutS int) (*http.Response, error) {
+	u, err := url.Parse(guiCfg.URL())
 	if err != nil {
-		return err
+		return nil, err
 	}
-	u.Path = path.Join(u.Path, "rest/system/upgrade")
+	u.Path = path.Join(u.Path, suffix)
 	target := u.String()
 	r, _ := http.NewRequest("POST", target, nil)
-	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
+	r.Header.Set("X-API-Key", guiCfg.APIKey)
 
 	tr := &http.Transport{
 		Dial:            dialer.Dial,
@@ -529,9 +529,14 @@ func upgradeViaRest() error {
 	}
 	client := &http.Client{
 		Transport: tr,
-		Timeout:   60 * time.Second,
+		Timeout:   time.Duration(timeoutS) * time.Second,
 	}
-	resp, err := client.Do(r)
+	return client.Do(r)
+}
+
+func upgradeViaRest() error {
+	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID)
+	resp, err := restGet(cfg.GUI(), "rest/system/upgrade", 60)
 	if err != nil {
 		return err
 	}
@@ -768,10 +773,47 @@ func standbyMonitor(app *syncthing.App) {
 
 func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
 	timer := time.NewTimer(0)
-	sub := events.Default.Subscribe(events.DeviceConnected)
+	since := 0
+	timeoutS := 600
+	suffixBase := fmt.Sprintf("/rest/events?types=%s&limit=1&timeout=%v&since=", events.DeviceConnected, timeoutS)
+	evChan := make(chan events.Event)
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			case <-time.After(time.Minute):
+			}
+			res, err := restGet(cfg.GUI(), suffixBase+strconv.Itoa(since), 2*timeoutS) // Let the endpoint time out.
+			if err != nil {
+				l.Debugln("Unexpected error querying events API for auto upgrades:", err)
+				continue
+			}
+			if res.StatusCode != 200 {
+				bs, err := ioutil.ReadAll(res.Body)
+				if err != nil {
+					panic(err)
+				}
+				l.Debugln("Unexpected error querying events API for auto upgrades:", string(bs))
+				continue
+			}
+			var events []events.Event
+			if err = json.NewDecoder(res.Body).Decode(&events); err != nil {
+				panic(err)
+			}
+			if len(events) == 0 {
+				continue
+			}
+			evChan <- events[0]
+			break
+		}
+	}()
+
 	for {
 		select {
-		case event := <-sub.C():
+		case event := <-evChan:
+			since = event.SubscriptionID
 			data, ok := event.Data.(map[string]string)
 			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], build.Version) != upgrade.Newer {
 				continue
@@ -790,7 +832,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
 
 		rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
-			events.Default.Unsubscribe(sub)
+			close(done)
 			return
 		}
 		if err != nil {
@@ -814,7 +856,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
 			timer.Reset(checkInterval)
 			continue
 		}
-		events.Default.Unsubscribe(sub)
+		close(done)
 		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
 		time.Sleep(time.Minute)
 		app.Stop(syncthing.ExitUpgrade)

@@ -70,6 +70,7 @@ type service struct {
 	model                model.Model
 	eventSubs            map[events.EventType]events.BufferedSubscription
 	eventSubsMut         sync.Mutex
+	evLogger             *events.Logger
 	discoverer           discover.CachingMux
 	connectionsService   connections.Service
 	fss                  model.FolderSummaryService
@@ -105,7 +106,7 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger *events.Logger, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
 	s := &service{
 		id:      id,
 		cfg:     cfg,
@@ -116,6 +117,7 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 			DiskEventMask:    diskSub,
 		},
 		eventSubsMut:         sync.NewMutex(),
+		evLogger:             evLogger,
 		discoverer:           discoverer,
 		connectionsService:   connectionsService,
 		fss:                  fss,
@@ -315,7 +317,7 @@ func (s *service) serve(stop chan struct{}) {
 
 	// Wrap everything in basic auth, if user/password is set.
 	if guiCfg.IsAuthEnabled() {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler)
+		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 	}
 
 	// Redirect to HTTPS if we are supposed to
@@ -824,6 +826,7 @@ func (s *service) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	s.evLogger.Log(events.ConfigSaved, s.cfg)
 }
 
 func (s *service) getSystemConfigInsync(w http.ResponseWriter, r *http.Request) {
@@ -1211,7 +1214,7 @@ func (s *service) getEventSub(mask events.EventType) events.BufferedSubscription
 	s.eventSubsMut.Lock()
 	bufsub, ok := s.eventSubs[mask]
 	if !ok {
-		evsub := events.Default.Subscribe(mask)
+		evsub := s.evLogger.Subscribe(mask)
 		bufsub = events.NewBufferedSubscription(evsub, EventSubBufferSize)
 		s.eventSubs[mask] = bufsub
 	}

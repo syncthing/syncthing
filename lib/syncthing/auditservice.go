@@ -20,14 +20,16 @@ import (
 // event per line, to the specified writer.
 type auditService struct {
 	suture.Service
-	w   io.Writer // audit destination
-	sub *events.Subscription
+	w        io.Writer // audit destination
+	sub      *events.Subscription
+	evLogger *events.Logger
 }
 
-func newAuditService(w io.Writer) *auditService {
+func newAuditService(w io.Writer, evLogger *events.Logger) *auditService {
 	s := &auditService{
-		w:   w,
-		sub: events.Default.Subscribe(events.AllEvents),
+		w:        w,
+		sub:      evLogger.Subscribe(events.AllEvents),
+		evLogger: evLogger,
 	}
 	s.Service = util.AsService(s.serve)
 	return s
@@ -50,5 +52,5 @@ func (s *auditService) serve(stop chan struct{}) {
 // Stop stops the audit service.
 func (s *auditService) Stop() {
 	s.Service.Stop()
-	events.Default.Unsubscribe(s.sub)
+	s.evLogger.Unsubscribe(s.sub)
 }

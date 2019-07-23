@@ -52,7 +52,11 @@ func expectTimeout(w *events.Subscription, t *testing.T) {
 }
 
 func TestProgressEmitter(t *testing.T) {
-	w := events.Default.Subscribe(events.DownloadProgress)
+	evLogger := events.NewLogger()
+	go evLogger.Serve()
+	defer evLogger.Stop()
+
+	w := evLogger.Subscribe(events.DownloadProgress)
 
 	c := createTmpWrapper(config.Configuration{})
 	defer os.Remove(c.ConfigPath())
@@ -60,7 +64,7 @@ func TestProgressEmitter(t *testing.T) {
 		ProgressUpdateIntervalS: 0,
 	})
 
-	p := NewProgressEmitter(c)
+	p := NewProgressEmitter(c, evLogger)
 	go p.Serve()
 	p.interval = 0
 
@@ -112,7 +116,11 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 
 	fc := &fakeConnection{}
 
-	p := NewProgressEmitter(c)
+	evLogger := events.NewLogger()
+	go evLogger.Serve()
+	defer evLogger.Stop()
+
+	p := NewProgressEmitter(c, evLogger)
 	p.temporaryIndexSubscribe(fc, []string{"folder", "folder2"})
 	p.registry["folder"] = make(map[string]*sharedPullerState)
 	p.registry["folder2"] = make(map[string]*sharedPullerState)

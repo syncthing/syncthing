@@ -225,15 +225,6 @@ type Subscription struct {
 	timeout *time.Timer
 }
 
-var Default = NewLogger()
-
-func init() {
-	// The default logger never stops. To ensure this we nil out the stop
-	// channel so any attempt to stop it will panic.
-	Default.stop = nil
-	go Default.Serve()
-}
-
 var (
 	ErrTimeout = errors.New("timeout")
 	ErrClosed  = errors.New("closed")

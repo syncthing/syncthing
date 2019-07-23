@@ -3358,11 +3358,11 @@ func TestModTimeWindow(t *testing.T) {
 }
 
 func TestDevicePause(t *testing.T) {
-	sub := events.Default.Subscribe(events.DevicePaused)
-	defer events.Default.Unsubscribe(sub)
-
 	m, _, fcfg := setupModelWithConnection()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+
+	sub := m.evLogger.Subscribe(events.DevicePaused)
+	defer m.evLogger.Unsubscribe(sub)
 
 	m.pmut.RLock()
 	closed := m.closed[device1]
