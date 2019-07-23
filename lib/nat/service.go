@@ -225,7 +225,7 @@ func (s *Service) verifyExistingMappings(mapping *Mapping, nats map[string]Devic
 
 			l.Debugf("Renewing %s -> %s mapping on %s", mapping, address, id)
 
-			addr, err := s.tryNATDevice(nat, mapping.address.Port, address.Port, leaseTime)
+			addr, err := s.tryNATDevice(nat, mapping.address.Port, address.Port, leaseTime, stop)
 			if err != nil {
 				l.Debugf("Failed to renew %s -> mapping on %s", mapping, address, id)
 				mapping.removeAddress(id)
@@ -274,7 +274,7 @@ func (s *Service) acquireNewMappings(mapping *Mapping, nats map[string]Device, s
 
 		l.Debugf("Acquiring %s mapping on %s", mapping, id)
 
-		addr, err := s.tryNATDevice(nat, mapping.address.Port, 0, leaseTime)
+		addr, err := s.tryNATDevice(nat, mapping.address.Port, 0, leaseTime, stop)
 		if err != nil {
 			l.Debugf("Failed to acquire %s mapping on %s", mapping, id)
 			continue
@@ -291,7 +291,7 @@ func (s *Service) acquireNewMappings(mapping *Mapping, nats map[string]Device, s
 
 // tryNATDevice tries to acquire a port mapping for the given internal address to
 // the given external port. If external port is 0, picks a pseudo-random port.
-func (s *Service) tryNATDevice(natd Device, intPort, extPort int, leaseTime time.Duration) (Address, error) {
+func (s *Service) tryNATDevice(natd Device, intPort, extPort int, leaseTime time.Duration, stop chan struct{}) (Address, error) {
 	var err error
 	var port int
 
@@ -312,6 +312,12 @@ func (s *Service) tryNATDevice(natd Device, intPort, extPort int, leaseTime time
 	}
 
 	for i := 0; i < 10; i++ {
+		select {
+		case <-stop:
+			return Address{}, nil
+		default:
+		}
+
 		// Then try up to ten random ports.
 		extPort = 1024 + predictableRand.Intn(65535-1024)
 		name := fmt.Sprintf("syncthing-%d", extPort)
