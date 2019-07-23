@@ -68,7 +68,7 @@ func (f *sendOnlyFolder) pull() bool {
 		curFile, ok := f.fset.Get(protocol.LocalDeviceID, intf.FileName())
 		if !ok {
 			if intf.IsDeleted() {
-				panic("Should never get a deleted file as needed when we don't have it")
+				l.Debugln("Should never get a deleted file as needed when we don't have it")
 			}
 			return true
 		}
