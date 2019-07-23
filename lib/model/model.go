@@ -459,18 +459,16 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 		errMsg = "restarting"
 	}
 
-	var fset *db.FileSet
-	if !to.Paused {
-		// Creating the fileset can take a long time (metadata calculation)
-		// so we do it outside of the lock.
-		fset = db.NewFileSet(to.ID, to.Filesystem(), m.db)
-	}
-
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
 	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
 	if !to.Paused {
+		// Creating the fileset can take a long time (metadata calculation)
+		// so we do it outside of the lock.
+		m.fmut.Unlock()
+		fset := db.NewFileSet(to.ID, to.Filesystem(), m.db)
+		m.fmut.Lock()
 		m.addFolderLocked(to, fset)
 		m.startFolderLocked(to)
 	}
