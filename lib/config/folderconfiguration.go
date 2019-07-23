@@ -10,6 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strings"
+	"time"
+
+	"github.com/shirou/gopsutil/disk"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -53,8 +57,10 @@ type FolderConfiguration struct {
 	WeakHashThresholdPct    int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
 	MarkerName              string                      `xml:"markerName" json:"markerName"`
 	CopyOwnershipFromParent bool                        `xml:"copyOwnershipFromParent" json:"copyOwnershipFromParent"`
+	RawModTimeWindowS       int                         `xml:"modTimeWindowS" json:"modTimeWindowS"`
 
-	cachedFilesystem fs.Filesystem
+	cachedFilesystem    fs.Filesystem
+	cachedModTimeWindow time.Duration
 
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
 	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
@@ -109,6 +115,10 @@ func (f FolderConfiguration) Versioner() versioner.Versioner {
 	}
 
 	return versionerFactory(f.ID, f.Filesystem(), f.Versioning.Params)
+}
+
+func (f FolderConfiguration) ModTimeWindow() time.Duration {
+	return f.cachedModTimeWindow
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
@@ -232,6 +242,24 @@ func (f *FolderConfiguration) prepare() {
 
 	if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
+	}
+
+	switch {
+	case f.RawModTimeWindowS > 0:
+		f.cachedModTimeWindow = time.Duration(f.RawModTimeWindowS) * time.Second
+	case runtime.GOOS == "android":
+		usage, err := disk.Usage(f.Filesystem().URI())
+		if err != nil {
+			l.Debugf("Error detecting FS at %v on android, setting mtime window to 2s: %v", f.Path, err)
+			f.cachedModTimeWindow = 2 * time.Second
+			break
+		}
+		if strings.Contains(strings.ToLower(usage.Fstype), "fat") {
+			l.Debugf("Detecting FS at %v on android, found %v, thus setting mtime window to 2s", f.Path, usage.Fstype)
+			f.cachedModTimeWindow = 2 * time.Second
+			break
+		}
+		l.Debugf("Detecting FS at %v on android, found %v, thus leaving mtime window at 0", f.Path, usage.Fstype)
 	}
 }
 

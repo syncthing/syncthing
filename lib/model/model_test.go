@@ -3305,6 +3305,58 @@ func TestConnCloseOnRestart(t *testing.T) {
 	}
 }
 
+func TestModTimeWindow(t *testing.T) {
+	w, fcfg := tmpDefaultWrapper()
+	tfs := fcfg.Filesystem()
+	fcfg.RawModTimeWindowS = 2
+	w.SetFolder(fcfg)
+	m := setupModel(w)
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+
+	name := "foo"
+
+	fd, err := tfs.Create(name)
+	must(t, err)
+	stat, err := fd.Stat()
+	must(t, err)
+	modTime := stat.ModTime()
+	fd.Close()
+
+	m.ScanFolders()
+
+	v := protocol.Vector{}
+	v = v.Update(myID.Short())
+	fi, ok := m.CurrentFolderFile("default", name)
+	if !ok {
+		t.Fatal("File missing")
+	}
+	if !fi.Version.Equal(v) {
+		t.Fatalf("Got version %v, expected %v", fi.Version, v)
+	}
+
+	err = tfs.Chtimes(name, time.Now(), modTime.Add(time.Second))
+	must(t, err)
+
+	m.ScanFolders()
+
+	// No change due to window
+	fi, _ = m.CurrentFolderFile("default", name)
+	if !fi.Version.Equal(v) {
+		t.Fatalf("Got version %v, expected %v", fi.Version, v)
+	}
+
+	err = tfs.Chtimes(name, time.Now(), modTime.Add(2*time.Second))
+	must(t, err)
+
+	m.ScanFolders()
+
+	v = v.Update(myID.Short())
+	fi, _ = m.CurrentFolderFile("default", name)
+	if !fi.Version.Equal(v) {
+		t.Fatalf("Got version %v, expected %v", fi.Version, v)
+	}
+}
+
 func TestDevicePause(t *testing.T) {
 	sub := events.Default.Subscribe(events.DevicePaused)
 	defer events.Default.Unsubscribe(sub)
