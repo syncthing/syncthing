@@ -66,8 +66,8 @@ func Open(location string) (*Lowlevel, error) {
 		DisableLargeBatchTransaction:  debugEnvValue("DisableLargeBatchTransaction", 0) != 0,
 		NoSync:                        debugEnvValue("NoSync", 0) != 0,
 		NoWriteMerge:                  debugEnvValue("NoWriteMerge", 0) != 0,
-		OpenFilesCacheCapacity:        debugEnvValue("DBOpenFilesCacheCapacity", dbMaxOpenFiles),
-		WriteBuffer:                   debugEnvValue("DBWriteBuffer", dbWriteBuffer),
+		OpenFilesCacheCapacity:        debugEnvValue("OpenFilesCacheCapacity", dbMaxOpenFiles),
+		WriteBuffer:                   debugEnvValue("WriteBuffer", dbWriteBuffer),
 		// The write slowdown and pause can be overridden, but even if they
 		// are not and the compaction trigger is overridden we need to
 		// adjust so that we don't pause writes for L0 compaction before we
