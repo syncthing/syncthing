@@ -8,6 +8,7 @@ package syncthing
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -44,6 +45,11 @@ const (
 	maxSystemLog         = 250
 )
 
+var (
+	errNotStarted     = errors.New("the App was not yet started")
+	errAlreadyStopped = errors.New("the App was already stopped")
+)
+
 type ExitStatus int
 
 const (
@@ -68,11 +74,13 @@ type App struct {
 	mainService *suture.Supervisor
 	cfg         config.Wrapper
 	ll          *db.Lowlevel
+	evLogger    *events.Logger
 	cert        tls.Certificate
 	opts        Options
 	exitStatus  ExitStatus
 	err         error
 	startOnce   sync.Once
+	started     chan struct{}
 	stop        chan struct{}
 	stopped     chan struct{}
 }
@@ -83,6 +91,7 @@ func New(cfg config.Wrapper, ll *db.Lowlevel, cert tls.Certificate, opts Options
 		ll:      ll,
 		opts:    opts,
 		cert:    cert,
+		started: make(chan struct{}),
 		stop:    make(chan struct{}),
 		stopped: make(chan struct{}),
 	}
@@ -99,6 +108,7 @@ func (a *App) Run() ExitStatus {
 // e.g. the API is ready for use.
 func (a *App) Start() {
 	a.startOnce.Do(func() {
+		defer close(a.started)
 		if err := a.startup(); err != nil {
 			close(a.stop)
 			a.exitStatus = ExitError
@@ -125,15 +135,15 @@ func (a *App) startup() error {
 	// lines look ugly.
 	l.SetPrefix("[start] ")
 
-	evLogger := events.NewLogger()
-	a.mainService.Add(evLogger)
+	a.evLogger = events.NewLogger()
+	a.mainService.Add(a.evLogger)
 
 	if a.opts.AuditWriter != nil {
-		a.mainService.Add(newAuditService(a.opts.AuditWriter, evLogger))
+		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
 	}
 
 	if a.opts.Verbose {
-		a.mainService.Add(newVerboseService(evLogger))
+		a.mainService.Add(newVerboseService(a.evLogger))
 	}
 
 	errors := logger.NewRecorder(l, logger.LevelWarn, maxSystemErrors, 0)
@@ -142,8 +152,8 @@ func (a *App) startup() error {
 	// Event subscription for the API; must start early to catch the early
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
-	defaultSub := events.NewBufferedSubscription(evLogger.Subscribe(api.DefaultEventMask), api.EventSubBufferSize)
-	diskSub := events.NewBufferedSubscription(evLogger.Subscribe(api.DiskEventMask), api.EventSubBufferSize)
+	defaultSub := events.NewBufferedSubscription(a.evLogger.Subscribe(api.DefaultEventMask), api.EventSubBufferSize)
+	diskSub := events.NewBufferedSubscription(a.evLogger.Subscribe(api.DiskEventMask), api.EventSubBufferSize)
 
 	// Attempt to increase the limit on number of open files to the maximum
 	// allowed, in case we have many peers. We don't really care enough to
@@ -163,7 +173,7 @@ func (a *App) startup() error {
 
 	// Emit the Starting event, now that we know who we are.
 
-	evLogger.Log(events.Starting, map[string]string{
+	a.evLogger.Log(events.Starting, map[string]string{
 		"home": locations.GetBaseDir(locations.ConfigBaseDir),
 		"myID": a.myID.String(),
 	})
@@ -238,7 +248,7 @@ func (a *App) startup() error {
 		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, evLogger)
+	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
 
 	if a.opts.DeadlockTimeoutS > 0 {
 		m.StartDeadlockDetector(time.Duration(a.opts.DeadlockTimeoutS) * time.Second)
@@ -275,13 +285,13 @@ func (a *App) startup() error {
 
 	// Start connection management
 
-	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName, evLogger)
+	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName, a.evLogger)
 	a.mainService.Add(connectionsService)
 
 	if a.cfg.Options().GlobalAnnEnabled {
 		for _, srv := range a.cfg.GlobalDiscoveryServers() {
 			l.Infoln("Using discovery server", srv)
-			gd, err := discover.NewGlobal(srv, a.cert, connectionsService, evLogger)
+			gd, err := discover.NewGlobal(srv, a.cert, connectionsService, a.evLogger)
 			if err != nil {
 				l.Warnln("Global discovery:", err)
 				continue
@@ -296,14 +306,14 @@ func (a *App) startup() error {
 
 	if a.cfg.Options().LocalAnnEnabled {
 		// v4 broadcasts
-		bcd, err := discover.NewLocal(a.myID, fmt.Sprintf(":%d", a.cfg.Options().LocalAnnPort), connectionsService, evLogger)
+		bcd, err := discover.NewLocal(a.myID, fmt.Sprintf(":%d", a.cfg.Options().LocalAnnPort), connectionsService, a.evLogger)
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
 			cachedDiscovery.Add(bcd, 0, 0)
 		}
 		// v6 multicasts
-		mcd, err := discover.NewLocal(a.myID, a.cfg.Options().LocalAnnMCAddr, connectionsService, evLogger)
+		mcd, err := discover.NewLocal(a.myID, a.cfg.Options().LocalAnnMCAddr, connectionsService, a.evLogger)
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
@@ -319,7 +329,7 @@ func (a *App) startup() error {
 			opts.URAccepted = ur.Version
 			a.cfg.SetOptions(opts)
 			a.cfg.Save()
-			evLogger.Log(events.ConfigSaved, a.cfg)
+			a.evLogger.Log(events.ConfigSaved, a.cfg)
 			// Unique ID will be set and config saved below if necessary.
 		}
 	}
@@ -329,7 +339,7 @@ func (a *App) startup() error {
 		opts.URUniqueID = rand.String(8)
 		a.cfg.SetOptions(opts)
 		a.cfg.Save()
-		evLogger.Log(events.ConfigSaved, a.cfg)
+		a.evLogger.Log(events.ConfigSaved, a.cfg)
 	}
 
 	usageReportingSvc := ur.New(a.cfg, m, connectionsService, a.opts.NoUpgrade)
@@ -337,7 +347,7 @@ func (a *App) startup() error {
 
 	// GUI
 
-	if err := a.setupGUI(m, defaultSub, diskSub, evLogger, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog); err != nil {
+	if err := a.setupGUI(m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog); err != nil {
 		l.Warnln("Failed starting API:", err)
 		return err
 	}
@@ -354,7 +364,7 @@ func (a *App) startup() error {
 		l.Warnln("Syncthing should not run as a privileged or system user. Please consider using a normal user account.")
 	}
 
-	evLogger.Log(events.StartupComplete, map[string]string{
+	a.evLogger.Log(events.StartupComplete, map[string]string{
 		"myID": a.myID.String(),
 	})
 
@@ -386,6 +396,17 @@ func (a *App) run() {
 	l.Infoln("Exiting")
 
 	close(a.stopped)
+}
+
+func (a *App) EventLogger() (*events.Logger, error) {
+	select {
+	case <-a.started:
+	case <-a.stop:
+		return nil, errAlreadyStopped
+	default:
+		return nil, errNotStarted
+	}
+	return a.evLogger, nil
 }
 
 // Wait blocks until the app stops running.
@@ -423,7 +444,7 @@ func (a *App) Stop(stopReason ExitStatus) ExitStatus {
 	return a.exitStatus
 }
 
-func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger *events.Logger, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
+func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
 	guiCfg := a.cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -437,10 +458,10 @@ func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscri
 	cpu := newCPUService()
 	a.mainService.Add(cpu)
 
-	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID, evLogger)
+	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID, a.evLogger)
 	a.mainService.Add(summaryService)
 
-	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, &controller{a}, a.opts.NoUpgrade)
+	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, &controller{a}, a.opts.NoUpgrade)
 	a.mainService.Add(apiSvc)
 
 	if err := apiSvc.WaitForStart(); err != nil {

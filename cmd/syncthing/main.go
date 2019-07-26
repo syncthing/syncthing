@@ -9,7 +9,6 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -512,15 +511,16 @@ func performUpgrade(release upgrade.Release) {
 	}
 }
 
-func restGet(guiCfg config.GUIConfiguration, suffix string, timeoutS int) (*http.Response, error) {
-	u, err := url.Parse(guiCfg.URL())
+func upgradeViaRest() error {
+	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID)
+	u, err := url.Parse(cfg.GUI().URL())
 	if err != nil {
-		return nil, err
+		return err
 	}
-	u.Path = path.Join(u.Path, suffix)
+	u.Path = path.Join(u.Path, "rest/system/upgrade")
 	target := u.String()
 	r, _ := http.NewRequest("POST", target, nil)
-	r.Header.Set("X-API-Key", guiCfg.APIKey)
+	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
 
 	tr := &http.Transport{
 		Dial:            dialer.Dial,
@@ -529,14 +529,9 @@ func restGet(guiCfg config.GUIConfiguration, suffix string, timeoutS int) (*http
 	}
 	client := &http.Client{
 		Transport: tr,
-		Timeout:   time.Duration(timeoutS) * time.Second,
+		Timeout:   60 * time.Second,
 	}
-	return client.Do(r)
-}
-
-func upgradeViaRest() error {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID)
-	resp, err := restGet(cfg.GUI(), "rest/system/upgrade", 60)
+	resp, err := client.Do(r)
 	if err != nil {
 		return err
 	}
@@ -632,6 +627,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// not, as otherwise they cannot step off the candidate channel.
 	}
 
+	app.Start()
+
 	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
 		if runtimeOptions.NoUpgrade {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
@@ -639,8 +636,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			go autoUpgrade(cfg, app)
 		}
 	}
-
-	app.Start()
 
 	cleanConfigDirectory()
 
@@ -773,47 +768,20 @@ func standbyMonitor(app *syncthing.App) {
 
 func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
 	timer := time.NewTimer(0)
-	since := 0
-	timeoutS := 600
-	suffixBase := fmt.Sprintf("/rest/events?types=%s&limit=1&timeout=%v&since=", events.DeviceConnected, timeoutS)
-	evChan := make(chan events.Event)
-	done := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case <-time.After(time.Minute):
-			}
-			res, err := restGet(cfg.GUI(), suffixBase+strconv.Itoa(since), 2*timeoutS) // Let the endpoint time out.
-			if err != nil {
-				l.Debugln("Unexpected error querying events API for auto upgrades:", err)
-				continue
-			}
-			if res.StatusCode != 200 {
-				bs, err := ioutil.ReadAll(res.Body)
-				if err != nil {
-					panic(err)
-				}
-				l.Debugln("Unexpected error querying events API for auto upgrades:", string(bs))
-				continue
-			}
-			var events []events.Event
-			if err = json.NewDecoder(res.Body).Decode(&events); err != nil {
-				panic(err)
-			}
-			if len(events) == 0 {
-				continue
-			}
-			evChan <- events[0]
-			break
-		}
-	}()
-
+	var evChan <-chan events.Event
+	var sub *events.Subscription
+	evLogger, err := app.EventLogger()
+	if err != nil {
+		// Shouldn't happen as app has been started already and it's unlikely
+		// that it was stopped already by now.
+		l.Infoln("Error trying to subscribe to events for auto upgrades:", err)
+	} else {
+		sub = evLogger.Subscribe(events.DeviceConnected)
+		evChan = sub.C()
+	}
 	for {
 		select {
 		case event := <-evChan:
-			since = event.SubscriptionID
 			data, ok := event.Data.(map[string]string)
 			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], build.Version) != upgrade.Newer {
 				continue
@@ -832,7 +800,9 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
 
 		rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
-			close(done)
+			if sub != nil {
+				evLogger.Unsubscribe(sub)
+			}
 			return
 		}
 		if err != nil {
@@ -856,7 +826,9 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
 			timer.Reset(checkInterval)
 			continue
 		}
-		close(done)
+		if sub != nil {
+			evLogger.Unsubscribe(sub)
+		}
 		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
 		time.Sleep(time.Minute)
 		app.Stop(syncthing.ExitUpgrade)
