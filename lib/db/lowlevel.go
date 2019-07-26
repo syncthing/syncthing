@@ -24,7 +24,10 @@ import (
 const (
 	dbMaxOpenFiles = 100
 	dbWriteBuffer  = 16 << 20
-	dbFlushBatch   = dbWriteBuffer / 4 // Some leeway for any leveldb in-memory optimizations
+)
+
+var (
+	dbFlushBatch = debugEnvValue("WriteBuffer", dbWriteBuffer) / 4 // Some leeway for any leveldb in-memory optimizations
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
