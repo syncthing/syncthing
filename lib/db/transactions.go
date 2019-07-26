@@ -12,9 +12,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-// Flush batches to disk when they contain this many records.
-const batchFlushSize = 64
-
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
 	*leveldb.Snapshot
