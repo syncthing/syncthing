@@ -548,6 +548,14 @@ func upgradeViaRest() error {
 }
 
 func syncthingMain(runtimeOptions RuntimeOptions) {
+	// Set a log prefix similar to the ID we will have later on, or early log
+	// lines look ugly.
+	l.SetPrefix("[start] ")
+
+	// Print our version information up front, so any crash that happens
+	// early etc. will have it available.
+	l.Infoln(build.LongVersion)
+
 	// Ensure that we have a certificate and key.
 	cert, err := syncthing.LoadOrGenerateCertificate(
 		locations.Get(locations.CertFile),
