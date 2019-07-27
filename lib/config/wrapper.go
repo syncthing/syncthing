@@ -501,8 +501,6 @@ func (w *wrapper) MyName() string {
 }
 
 func (w *wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {
-	defer w.Save()
-
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -524,8 +522,6 @@ func (w *wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, addre
 }
 
 func (w *wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {
-	defer w.Save()
-
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
