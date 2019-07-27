@@ -16,6 +16,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/thejerf/suture"
+
 	"github.com/syncthing/syncthing/lib/api"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -32,8 +34,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
-
-	"github.com/thejerf/suture"
 )
 
 const (
@@ -121,12 +121,8 @@ func (a *App) startup() error {
 	})
 	a.mainService.ServeBackground()
 
-	// Set a log prefix similar to the ID we will have later on, or early log
-	// lines look ugly.
-	l.SetPrefix("[start] ")
-
 	if a.opts.AuditWriter != nil {
-		a.startAuditing()
+		a.mainService.Add(newAuditService(a.opts.AuditWriter))
 	}
 
 	if a.opts.Verbose {
@@ -147,10 +143,9 @@ func (a *App) startup() error {
 	// report the error if there is one.
 	osutil.MaximizeOpenFileLimit()
 
+	// Figure out our device ID, set it as the log prefix and log it.
 	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", a.myID.String()[:5]))
-
-	l.Infoln(build.LongVersion)
 	l.Infoln("My ID:", a.myID)
 
 	// Select SHA256 implementation and report. Affected by the
@@ -407,24 +402,15 @@ func (a *App) Stop(stopReason ExitStatus) ExitStatus {
 	case <-a.stopped:
 	case <-a.stop:
 	default:
+		// ExitSuccess is the default value for a.exitStatus. If another status
+		// was already set, ignore the stop reason given as argument to Stop.
+		if a.exitStatus == ExitSuccess {
+			a.exitStatus = stopReason
+		}
 		close(a.stop)
-	}
-	<-a.stopped
-	// ExitSuccess is the default value for a.exitStatus. If another status
-	// was already set, ignore the stop reason given as argument to Stop.
-	if a.exitStatus == ExitSuccess {
-		a.exitStatus = stopReason
+		<-a.stopped
 	}
 	return a.exitStatus
-}
-
-func (a *App) startAuditing() {
-	auditService := newAuditService(a.opts.AuditWriter)
-	a.mainService.Add(auditService)
-
-	// We wait for the audit service to fully start before we return, to
-	// ensure we capture all events from the start.
-	auditService.WaitForStart()
 }
 
 func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
@@ -481,16 +467,4 @@ func (e *controller) Shutdown() {
 
 func (e *controller) ExitUpgrading() {
 	e.Stop(ExitUpgrade)
-}
-
-func LoadCertificate(certFile, keyFile string) (tls.Certificate, error) {
-	return tls.LoadX509KeyPair(certFile, keyFile)
-}
-
-func LoadConfig(path string, cert tls.Certificate) (config.Wrapper, error) {
-	return config.Load(path, protocol.NewDeviceID(cert.Certificate[0]))
-}
-
-func OpenGoleveldb(path string) (*db.Lowlevel, error) {
-	return db.Open(path)
 }

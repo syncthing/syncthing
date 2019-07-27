@@ -347,6 +347,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		ShortID:               f.shortID,
 		ProgressTickIntervalS: f.ScanProgressIntervalS,
 		LocalFlags:            f.localFlags,
+		ModTimeWindow:         f.ModTimeWindow(),
 	})
 
 	batchFn := func(fs []protocol.FileInfo) error {
@@ -365,7 +366,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				switch gf, ok := f.fset.GetGlobal(fs[i].Name); {
 				case !ok:
 					continue
-				case gf.IsEquivalentOptional(fs[i], false, false, protocol.FlagLocalReceiveOnly):
+				case gf.IsEquivalentOptional(fs[i], f.ModTimeWindow(), false, false, protocol.FlagLocalReceiveOnly):
 					// What we have locally is equivalent to the global file.
 					fs[i].Version = fs[i].Version.Merge(gf.Version)
 					fallthrough
@@ -423,6 +424,12 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		var iterError error
 
 		f.fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
+			select {
+			case <-f.ctx.Done():
+				return false
+			default:
+			}
+
 			file := fi.(db.FileInfoTruncated)
 
 			if err := batch.flushIfFull(); err != nil {
@@ -506,6 +513,12 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			}
 			return true
 		})
+
+		select {
+		case <-f.ctx.Done():
+			return f.ctx.Err()
+		default:
+		}
 
 		if iterError == nil && len(toIgnore) > 0 {
 			for _, file := range toIgnore {

@@ -19,9 +19,9 @@ require (
 	github.com/jackpal/gateway v0.0.0-20161225004348-5795ac81146e
 	github.com/kballard/go-shellquote v0.0.0-20170619183022-cd60e84ee657
 	github.com/kr/pretty v0.1.0 // indirect
-	github.com/lib/pq v1.1.1
+	github.com/lib/pq v1.2.0
 	github.com/lucas-clemente/quic-go v0.11.2
-	github.com/maruel/panicparse v1.2.1
+	github.com/maruel/panicparse v1.3.0
 	github.com/mattn/go-isatty v0.0.7
 	github.com/minio/sha256-simd v0.0.0-20190117184323-cc1980cb0338
 	github.com/onsi/ginkgo v1.8.0 // indirect
@@ -33,6 +33,7 @@ require (
 	github.com/prometheus/client_golang v0.9.4
 	github.com/rcrowley/go-metrics v0.0.0-20171128170426-e181e095bae9
 	github.com/sasha-s/go-deadlock v0.2.0
+	github.com/shirou/gopsutil v0.0.0-20190714054239-47ef3260b6bf
 	github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2
 	github.com/syndtr/goleveldb v1.0.1-0.20190318030020-c3a204f8e965
 	github.com/thejerf/suture v3.0.2+incompatible

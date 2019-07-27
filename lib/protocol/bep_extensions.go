@@ -158,12 +158,12 @@ func (f FileInfo) IsEmpty() bool {
 	return f.Version.Counters == nil
 }
 
-func (f FileInfo) IsEquivalent(other FileInfo) bool {
-	return f.isEquivalent(other, false, false, 0)
+func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
+	return f.isEquivalent(other, modTimeWindow, false, false, 0)
 }
 
-func (f FileInfo) IsEquivalentOptional(other FileInfo, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
-	return f.isEquivalent(other, ignorePerms, ignoreBlocks, ignoreFlags)
+func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
+	return f.isEquivalent(other, modTimeWindow, ignorePerms, ignoreBlocks, ignoreFlags)
 }
 
 // isEquivalent checks that the two file infos represent the same actual file content,
@@ -175,13 +175,13 @@ func (f FileInfo) IsEquivalentOptional(other FileInfo, ignorePerms bool, ignoreB
 //  - invalid flag
 //  - permissions, unless they are ignored
 // A file is not "equivalent", if it has different
-//  - modification time
+//  - modification time (difference bigger than modTimeWindow)
 //  - size
 //  - blocks, unless there are no blocks to compare (scanning)
 // A symlink is not "equivalent", if it has different
 //  - target
 // A directory does not have anything specific to check.
-func (f FileInfo) isEquivalent(other FileInfo, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
+func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
 	if f.MustRescan() || other.MustRescan() {
 		// These are per definition not equivalent because they don't
 		// represent a valid state, even if both happen to have the
@@ -203,7 +203,7 @@ func (f FileInfo) isEquivalent(other FileInfo, ignorePerms bool, ignoreBlocks bo
 
 	switch f.Type {
 	case FileInfoTypeFile:
-		return f.Size == other.Size && f.ModTime().Equal(other.ModTime()) && (ignoreBlocks || BlocksEqual(f.Blocks, other.Blocks))
+		return f.Size == other.Size && ModTimeEqual(f.ModTime(), other.ModTime(), modTimeWindow) && (ignoreBlocks || BlocksEqual(f.Blocks, other.Blocks))
 	case FileInfoTypeSymlink:
 		return f.SymlinkTarget == other.SymlinkTarget
 	case FileInfoTypeDirectory:
@@ -211,6 +211,17 @@ func (f FileInfo) isEquivalent(other FileInfo, ignorePerms bool, ignoreBlocks bo
 	}
 
 	return false
+}
+
+func ModTimeEqual(a, b time.Time, modTimeWindow time.Duration) bool {
+	if a.Equal(b) {
+		return true
+	}
+	diff := a.Sub(b)
+	if diff < 0 {
+		diff *= -1
+	}
+	return diff < modTimeWindow
 }
 
 func PermsEqual(a, b uint32) bool {

@@ -248,10 +248,8 @@ func (m *model) StartFolder(folder string) {
 
 // Need to hold lock on m.fmut when calling this.
 func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
-	if err := m.checkFolderRunningLocked(cfg.ID); err == errFolderMissing {
-		l.Warnln("Cannot start nonexistent folder", cfg.Description())
-		panic("cannot start nonexistent folder")
-	} else if err == nil {
+	_, ok := m.folderRunners[cfg.ID]
+	if ok {
 		l.Warnln("Cannot start already running folder", cfg.Description())
 		panic("cannot start already running folder")
 	}
@@ -461,18 +459,16 @@ func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 		errMsg = "restarting"
 	}
 
-	var fset *db.FileSet
-	if !to.Paused {
-		// Creating the fileset can take a long time (metadata calculation)
-		// so we do it outside of the lock.
-		fset = db.NewFileSet(to.ID, to.Filesystem(), m.db)
-	}
-
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
 	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
 	if !to.Paused {
+		// Creating the fileset can take a long time (metadata calculation)
+		// so we do it outside of the lock.
+		m.fmut.Unlock()
+		fset := db.NewFileSet(to.ID, to.Filesystem(), m.db)
+		m.fmut.Lock()
 		m.addFolderLocked(to, fset)
 		m.startFolderLocked(to)
 	}
@@ -847,6 +843,10 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	if runnerOk {
 		progressNames, queuedNames, skipped := runner.Jobs(page, perpage)
 
+		progress = make([]db.FileInfoTruncated, len(progressNames))
+		queued = make([]db.FileInfoTruncated, len(queuedNames))
+		seen = make(map[string]struct{}, len(progressNames)+len(queuedNames))
+
 		for i, name := range progressNames {
 			if f, ok := rf.GetGlobalTruncated(name); ok {
 				progress[i] = f
@@ -1075,6 +1075,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				continue
 			}
 			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
+			changed = true
 			events.Default.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -1769,6 +1770,7 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 	cfg, ok := m.cfg.Device(remoteID)
 	if !ok {
 		m.cfg.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String())
+		_ = m.cfg.Save() // best effort
 		events.Default.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),
@@ -2238,7 +2240,7 @@ func (m *model) WatchError(folder string) error {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if err := m.checkFolderRunningLocked(folder); err != nil {
-		return err
+		return nil // If the folder isn't running, there's no error to report.
 	}
 	return m.folderRunners[folder].WatchError()
 }
@@ -2549,6 +2551,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
+			m.closeConn(deviceID, errDevicePaused)
 			events.Default.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
 			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})

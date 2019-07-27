@@ -26,6 +26,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -3301,5 +3302,85 @@ func TestConnCloseOnRestart(t *testing.T) {
 	case <-closed:
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out before connection was closed")
+	}
+}
+
+func TestModTimeWindow(t *testing.T) {
+	w, fcfg := tmpDefaultWrapper()
+	tfs := fcfg.Filesystem()
+	fcfg.RawModTimeWindowS = 2
+	w.SetFolder(fcfg)
+	m := setupModel(w)
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+
+	name := "foo"
+
+	fd, err := tfs.Create(name)
+	must(t, err)
+	stat, err := fd.Stat()
+	must(t, err)
+	modTime := stat.ModTime()
+	fd.Close()
+
+	m.ScanFolders()
+
+	v := protocol.Vector{}
+	v = v.Update(myID.Short())
+	fi, ok := m.CurrentFolderFile("default", name)
+	if !ok {
+		t.Fatal("File missing")
+	}
+	if !fi.Version.Equal(v) {
+		t.Fatalf("Got version %v, expected %v", fi.Version, v)
+	}
+
+	err = tfs.Chtimes(name, time.Now(), modTime.Add(time.Second))
+	must(t, err)
+
+	m.ScanFolders()
+
+	// No change due to window
+	fi, _ = m.CurrentFolderFile("default", name)
+	if !fi.Version.Equal(v) {
+		t.Fatalf("Got version %v, expected %v", fi.Version, v)
+	}
+
+	err = tfs.Chtimes(name, time.Now(), modTime.Add(2*time.Second))
+	must(t, err)
+
+	m.ScanFolders()
+
+	v = v.Update(myID.Short())
+	fi, _ = m.CurrentFolderFile("default", name)
+	if !fi.Version.Equal(v) {
+		t.Fatalf("Got version %v, expected %v", fi.Version, v)
+	}
+}
+
+func TestDevicePause(t *testing.T) {
+	sub := events.Default.Subscribe(events.DevicePaused)
+	defer events.Default.Unsubscribe(sub)
+
+	m, _, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+
+	m.pmut.RLock()
+	closed := m.closed[device1]
+	m.pmut.RUnlock()
+
+	dev := m.cfg.Devices()[device1]
+	dev.Paused = true
+	m.cfg.SetDevice(dev)
+
+	timeout := time.NewTimer(5 * time.Second)
+	select {
+	case <-sub.C():
+		select {
+		case <-closed:
+		case <-timeout.C:
+			t.Fatal("Timed out before connection was closed")
+		}
+	case <-timeout.C:
+		t.Fatal("Timed out before device was paused")
 	}
 }

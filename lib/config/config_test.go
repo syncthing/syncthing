@@ -1100,6 +1100,32 @@ func TestDeviceConfigObservedNotNil(t *testing.T) {
 	}
 }
 
+func TestRemoveDeviceWithEmptyID(t *testing.T) {
+	cfg := Configuration{
+		Devices: []DeviceConfiguration{
+			{
+				Name: "foo",
+			},
+		},
+		Folders: []FolderConfiguration{
+			{
+				ID:      "foo",
+				Path:    "testdata",
+				Devices: []FolderDeviceConfiguration{{}},
+			},
+		},
+	}
+
+	cfg.clean()
+
+	if len(cfg.Devices) != 0 {
+		t.Error("Expected device with empty ID to be removed from config:", cfg.Devices)
+	}
+	if len(cfg.Folders[0].Devices) != 0 {
+		t.Error("Expected device with empty ID to be removed from folder")
+	}
+}
+
 // defaultConfigAsMap returns a valid default config as a JSON-decoded
 // map[string]interface{}. This is useful to override random elements and
 // re-encode into JSON.
