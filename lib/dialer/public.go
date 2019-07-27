@@ -12,11 +12,14 @@ import (
 	"net"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 	"golang.org/x/net/proxy"
 )
+
+var errUnexpectedInterfaceType = errors.New("unexpected interface type")
 
 // SetTCPOptions sets our default TCP options on a TCP connection, possibly
 // digging through dialerConn to extract the *net.TCPConn
@@ -58,7 +61,10 @@ func SetTrafficClass(conn net.Conn, class int) error {
 }
 
 func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, network, addr string) (net.Conn, error) {
-	dialer := proxy.FromEnvironment().(proxy.ContextDialer)
+	dialer, ok := proxy.FromEnvironment().(proxy.ContextDialer)
+	if !ok {
+		return nil, errUnexpectedInterfaceType
+	}
 	if dialer != proxy.Direct {
 		// Capture the existing timeout by checking the deadline
 		var timeout time.Duration
@@ -94,7 +100,11 @@ func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, 
 	}
 	localAddrInterface := registry.Get(network, tcpAddrLess)
 	if localAddrInterface != nil {
-		dialer.LocalAddr = localAddrInterface.(*net.TCPAddr)
+		if addr, ok := localAddrInterface.(*net.TCPAddr); !ok {
+			return nil, errUnexpectedInterfaceType
+		} else {
+			dialer.LocalAddr = addr
+		}
 	}
 
 	return dialContextWithFallback(ctx, dialer, network, addr)
