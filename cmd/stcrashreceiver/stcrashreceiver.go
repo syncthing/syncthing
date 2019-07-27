@@ -13,6 +13,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"flag"
 	"io"
 	"io/ioutil"
@@ -69,6 +71,8 @@ func (r *crashReceiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	switch req.Method {
+	case http.MethodGet:
+		r.serveGet(base, w, req)
 	case http.MethodHead:
 		r.serveHead(base, w, req)
 	case http.MethodPut:
@@ -78,14 +82,42 @@ func (r *crashReceiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// serveGet responds to GET requests by serving the uncompressed report.
+func (r *crashReceiver) serveGet(base string, w http.ResponseWriter, req *http.Request) {
+	path := filepath.Join(r.dirFor(base), base)
+	fullPath := filepath.Join(r.dir, path)
+	if fd, err := os.Open(fullPath + ".gz"); err == nil {
+		// There is a compressed report
+		defer fd.Close()
+		gr, err := gzip.NewReader(fd)
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		_, _ = io.Copy(w, gr) // best effort
+		return
+	}
+	if _, err := os.Lstat(fullPath); err == nil {
+		http.ServeFile(w, req, fullPath)
+		return
+	}
+	http.Error(w, "Not found", http.StatusNotFound)
+}
+
 // serveHead responds to HEAD requests by checking if the named report
 // already exists in the system.
 func (r *crashReceiver) serveHead(base string, w http.ResponseWriter, _ *http.Request) {
 	path := filepath.Join(r.dirFor(base), base)
-	if _, err := os.Lstat(path); err != nil {
-		http.Error(w, "Not found", http.StatusNotFound)
+	fullPath := filepath.Join(r.dir, path)
+	if _, err := os.Lstat(fullPath + ".gz"); err == nil {
+		// There is a compressed report
+		return
 	}
-	// 200 OK
+	if _, err := os.Lstat(fullPath); err == nil {
+		// There is an uncompressed report
+		return
+	}
+	http.Error(w, "Not found", http.StatusNotFound)
 }
 
 // servePut accepts and stores the given report.
@@ -110,8 +142,14 @@ func (r *crashReceiver) servePut(base string, w http.ResponseWriter, req *http.R
 		return
 	}
 
-	// Create an output file
-	err = ioutil.WriteFile(fullPath, bs, 0644)
+	// Compress the report for storage
+	buf := new(bytes.Buffer)
+	gw := gzip.NewWriter(buf)
+	gw.Write(bs)
+	gw.Close()
+
+	// Create an output file with the compressed report
+	err = ioutil.WriteFile(fullPath+".gz", buf.Bytes(), 0644)
 	if err != nil {
 		log.Printf("Creating file for report %s: %v", base, err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -122,7 +160,7 @@ func (r *crashReceiver) servePut(base string, w http.ResponseWriter, req *http.R
 	if r.dsn != "" {
 		go func() {
 			// There's no need for the client to have to wait for this part.
-			if err := sendReport(r.dsn, path, bs); err != nil {
+			if err := sendReport(r.dsn, base, bs); err != nil {
 				log.Println("Failed to send report:", err)
 			}
 		}()
