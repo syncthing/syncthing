@@ -256,8 +256,38 @@ func (b *batch) checkFlush() {
 }
 
 func (b *batch) flush() {
-	if err := b.db.Write(b.Batch, nil); err != nil && err != leveldb.ErrClosed {
+	if b.Batch.Len() == 0 {
+		// We're good here.
+		return
+	}
+
+	if b.Batch.Len() == 1 {
+		// There can be no need for a transaction for a single operation
+		if err := b.db.Write(b.Batch, nil); err != nil && err != leveldb.ErrClosed {
+			panic(err)
+		}
+		return
+	}
+
+	// Create an atomic update for the batch
+
+	tran, err := b.db.OpenTransaction()
+	if err == leveldb.ErrClosed {
+		return
+	} else if err != nil {
+		panic(err.Error())
+	}
+
+	if err := tran.Write(b.Batch, nil); err == leveldb.ErrClosed {
+		return
+	} else if err != nil {
 		panic(err)
+	}
+
+	if err := tran.Commit(); err == leveldb.ErrClosed {
+		return
+	} else if err != nil {
+		panic(err.Error())
 	}
 }
 
