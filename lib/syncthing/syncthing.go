@@ -121,10 +121,6 @@ func (a *App) startup() error {
 	})
 	a.mainService.ServeBackground()
 
-	// Set a log prefix similar to the ID we will have later on, or early log
-	// lines look ugly.
-	l.SetPrefix("[start] ")
-
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter))
 	}
@@ -147,10 +143,9 @@ func (a *App) startup() error {
 	// report the error if there is one.
 	osutil.MaximizeOpenFileLimit()
 
+	// Figure out our device ID, set it as the log prefix and log it.
 	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", a.myID.String()[:5]))
-
-	l.Infoln(build.LongVersion)
 	l.Infoln("My ID:", a.myID)
 
 	// Select SHA256 implementation and report. Affected by the
