@@ -16,7 +16,7 @@ import (
 )
 
 func TestInWriteableDir(t *testing.T) {
-	dir, err := ioutil.TempDir("", "")
+	dir, err := ioutil.TempDir("", "syncthing-test")
 	if err != nil {
 		t.Skip(err)
 	}
@@ -82,7 +82,7 @@ func TestOSWindowsRemove(t *testing.T) {
 		return
 	}
 
-	dir, err := ioutil.TempDir("", "")
+	dir, err := ioutil.TempDir("", "syncthing-test")
 	if err != nil {
 		t.Skip(err)
 	}
@@ -124,7 +124,7 @@ func TestOSWindowsRemoveAll(t *testing.T) {
 		return
 	}
 
-	dir, err := ioutil.TempDir("", "")
+	dir, err := ioutil.TempDir("", "syncthing-test")
 	if err != nil {
 		t.Skip(err)
 	}
@@ -161,7 +161,7 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 		return
 	}
 
-	dir, err := ioutil.TempDir("", "")
+	dir, err := ioutil.TempDir("", "syncthing-test")
 	if err != nil {
 		t.Skip(err)
 	}
