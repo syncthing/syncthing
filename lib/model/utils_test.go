@@ -155,7 +155,7 @@ func TestOSWindowsRemoveAll(t *testing.T) {
 	}
 }
 
-func TestinWritableDirWindowsRename(t *testing.T) {
+func TestInWritableDirWindowsRename(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skipf("Tests not required")
 		return
