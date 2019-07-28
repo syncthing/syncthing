@@ -26,10 +26,6 @@ const (
 	dbWriteBuffer  = 16 << 20
 )
 
-var (
-	dbFlushBatch = debugEnvValue("WriteBuffer", dbWriteBuffer) / 4 // Some leeway for any leveldb in-memory optimizations
-)
-
 // Lowlevel is the lowest level database interface. It has a very simple
 // purpose: hold the actual *leveldb.DB database, and the in-memory state
 // that belong to that database. In the same way that a single on disk
@@ -233,59 +229,6 @@ func leveldbIsCorrupted(err error) bool {
 	}
 
 	return false
-}
-
-type batch struct {
-	*leveldb.Batch
-	w writer
-}
-
-func newBatch(w writer) *batch {
-	return &batch{
-		Batch: new(leveldb.Batch),
-		w:     w,
-	}
-}
-
-func (db *Lowlevel) newBatch() *batch {
-	return newBatch(db)
-}
-
-// Put implements the writeonly interface on top of the batch
-func (b *batch) Put(key []byte, val []byte, _ *opt.WriteOptions) error {
-	b.Batch.Put(key, val)
-	return nil
-}
-
-// Delete implements the writeonly interface on top of the batch
-func (b *batch) Delete(key []byte, _ *opt.WriteOptions) error {
-	b.Batch.Delete(key)
-	return nil
-}
-
-// Write implements the writeonly interface on top of the batch
-func (b *batch) Write(batch *leveldb.Batch, _ *opt.WriteOptions) error {
-	batch.Replay(b.Batch)
-	return nil
-}
-
-// checkFlush flushes and resets the batch if its size exceeds dbFlushBatch.
-func (b *batch) checkFlush() {
-	if len(b.Dump()) > dbFlushBatch {
-		b.flush()
-		b.Reset()
-	}
-}
-
-func (b *batch) flush() {
-	if b.Batch.Len() == 0 {
-		// We're good here.
-		return
-	}
-
-	if err := b.w.Write(b.Batch, nil); err != nil && err != leveldb.ErrClosed {
-		panic(err)
-	}
 }
 
 type closedIter struct{}

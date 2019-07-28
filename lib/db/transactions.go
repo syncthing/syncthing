@@ -130,8 +130,7 @@ func getGlobal(r reader, k keyer, keyBuf, folder, file []byte, truncate bool) ([
 // batch size.
 type readWriteTransaction struct {
 	readOnlyTransaction
-	*batch
-	tran *leveldb.Transaction
+	*leveldb.Transaction
 }
 
 func (db *instance) newReadWriteTransaction() readWriteTransaction {
@@ -141,14 +140,12 @@ func (db *instance) newReadWriteTransaction() readWriteTransaction {
 	}
 	return readWriteTransaction{
 		readOnlyTransaction: newReadOnlyTransaction(tran),
-		batch:               newBatch(tran),
-		tran:                tran,
+		Transaction:         tran,
 	}
 }
 
 func (t readWriteTransaction) close() {
-	t.batch.flush()
-	if err := t.tran.Commit(); err != nil && err != leveldb.ErrClosed {
+	if err := t.Transaction.Commit(); err != nil && err != leveldb.ErrClosed {
 		panic(err)
 	}
 }

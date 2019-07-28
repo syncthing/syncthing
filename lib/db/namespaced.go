@@ -36,14 +36,16 @@ func NewNamespacedKV(db *Lowlevel, prefix string) *NamespacedKV {
 
 // Reset removes all entries in this namespace.
 func (n *NamespacedKV) Reset() {
-	it := n.db.NewIterator(util.BytesPrefix(n.prefix), nil)
-	defer it.Release()
-	batch := n.db.newBatch()
-	for it.Next() {
-		batch.Delete(it.Key(), nil)
-		batch.checkFlush()
+	tran, err := n.db.OpenTransaction()
+	if err != nil {
+		return
 	}
-	batch.flush()
+	defer tran.Commit()
+	it := tran.NewIterator(util.BytesPrefix(n.prefix), nil)
+	defer it.Release()
+	for it.Next() {
+		tran.Delete(it.Key(), nil)
+	}
 }
 
 // PutInt64 stores a new int64. Any existing value (even if of another type)
