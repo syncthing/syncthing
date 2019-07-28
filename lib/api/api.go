@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -337,6 +338,9 @@ func (s *service) serve(stop chan struct{}) {
 		// ReadTimeout must be longer than SyncthingController $scope.refresh
 		// interval to avoid HTTP keepalive/GUI refresh race.
 		ReadTimeout: 15 * time.Second,
+		// Prevent the HTTP server from logging stuff on its own. The things we
+		// care about we log ourselves from the handlers.
+		ErrorLog: log.New(ioutil.Discard, "", 0),
 	}
 
 	l.Infoln("GUI and API listening on", listener.Addr())
