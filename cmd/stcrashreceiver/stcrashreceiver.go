@@ -86,7 +86,7 @@ func (r *crashReceiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // serveGet responds to GET requests by serving the uncompressed report.
-func (r *crashReceiver) serveGet(fullPath string, w http.ResponseWriter, req *http.Request) {
+func (r *crashReceiver) serveGet(fullPath string, w http.ResponseWriter, _ *http.Request) {
 	fd, err := os.Open(fullPath)
 	if err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
