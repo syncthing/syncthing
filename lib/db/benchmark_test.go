@@ -37,7 +37,7 @@ func lazyInitBenchFileSet() {
 	oneFile = firstHalf[middle-1 : middle]
 
 	ldb := db.OpenMemory()
-	benchS = db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, "."), ldb)
+	benchS = db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	replace(benchS, remoteDevice0, files)
 	replace(benchS, protocol.LocalDeviceID, firstHalf)
 }
@@ -48,7 +48,7 @@ func BenchmarkReplaceAll(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, "."), ldb)
+		m := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 		replace(m, protocol.LocalDeviceID, files)
 	}
 
@@ -150,7 +150,7 @@ func BenchmarkNeedHalfRemote(b *testing.B) {
 
 	ldb := db.OpenMemory()
 	defer ldb.Close()
-	fset := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, "."), ldb)
+	fset := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	replace(fset, remoteDevice0, firstHalf)
 	replace(fset, protocol.LocalDeviceID, files)
 
