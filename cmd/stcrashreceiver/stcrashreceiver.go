@@ -105,10 +105,9 @@ func (r *crashReceiver) serveGet(fullPath string, w http.ResponseWriter, _ *http
 // serveHead responds to HEAD requests by checking if the named report
 // already exists in the system.
 func (r *crashReceiver) serveHead(fullPath string, w http.ResponseWriter, _ *http.Request) {
-	if _, err := os.Lstat(fullPath); err == nil {
-		return
+	if _, err := os.Lstat(fullPath); err != nil {
+		http.Error(w, "Not found", http.StatusNotFound)
 	}
-	http.Error(w, "Not found", http.StatusNotFound)
 }
 
 // servePut accepts and stores the given report.
