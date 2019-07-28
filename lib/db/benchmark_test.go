@@ -16,13 +16,13 @@ import (
 )
 
 var files, oneFile, firstHalf, secondHalf []protocol.FileInfo
-var benchS *db.FileSet
 
-func lazyInitBenchFileSet() {
-	if benchS != nil {
+func lazyInitBenchFiles() {
+	if files != nil {
 		return
 	}
 
+	files = make([]protocol.FileInfo, 0, 1000)
 	for i := 0; i < 1000; i++ {
 		files = append(files, protocol.FileInfo{
 			Name:    fmt.Sprintf("file%d", i),
@@ -35,11 +35,17 @@ func lazyInitBenchFileSet() {
 	firstHalf = files[:middle]
 	secondHalf = files[middle:]
 	oneFile = firstHalf[middle-1 : middle]
+}
+
+func getBenchFileSet() (*db.Lowlevel, *db.FileSet) {
+	lazyInitBenchFiles()
 
 	ldb := db.OpenMemory()
-	benchS = db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	benchS := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	replace(benchS, remoteDevice0, files)
 	replace(benchS, protocol.LocalDeviceID, firstHalf)
+
+	return ldb, benchS
 }
 
 func BenchmarkReplaceAll(b *testing.B) {
@@ -56,7 +62,8 @@ func BenchmarkReplaceAll(b *testing.B) {
 }
 
 func BenchmarkUpdateOneChanged(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	changed := make([]protocol.FileInfo, 1)
 	changed[0] = oneFile[0]
@@ -75,7 +82,8 @@ func BenchmarkUpdateOneChanged(b *testing.B) {
 }
 
 func BenchmarkUpdate100Changed(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	unchanged := files[100:200]
 	changed := append([]protocol.FileInfo{}, unchanged...)
@@ -96,7 +104,8 @@ func BenchmarkUpdate100Changed(b *testing.B) {
 }
 
 func BenchmarkUpdate100ChangedRemote(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	unchanged := files[100:200]
 	changed := append([]protocol.FileInfo{}, unchanged...)
@@ -117,7 +126,8 @@ func BenchmarkUpdate100ChangedRemote(b *testing.B) {
 }
 
 func BenchmarkUpdateOneUnchanged(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -128,7 +138,8 @@ func BenchmarkUpdateOneUnchanged(b *testing.B) {
 }
 
 func BenchmarkNeedHalf(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -146,8 +157,6 @@ func BenchmarkNeedHalf(b *testing.B) {
 }
 
 func BenchmarkNeedHalfRemote(b *testing.B) {
-	lazyInitBenchFileSet()
-
 	ldb := db.OpenMemory()
 	defer ldb.Close()
 	fset := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -170,7 +179,8 @@ func BenchmarkNeedHalfRemote(b *testing.B) {
 }
 
 func BenchmarkHave(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -188,7 +198,8 @@ func BenchmarkHave(b *testing.B) {
 }
 
 func BenchmarkGlobal(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -206,7 +217,8 @@ func BenchmarkGlobal(b *testing.B) {
 }
 
 func BenchmarkNeedHalfTruncated(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -224,7 +236,8 @@ func BenchmarkNeedHalfTruncated(b *testing.B) {
 }
 
 func BenchmarkHaveTruncated(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -242,7 +255,8 @@ func BenchmarkHaveTruncated(b *testing.B) {
 }
 
 func BenchmarkGlobalTruncated(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
