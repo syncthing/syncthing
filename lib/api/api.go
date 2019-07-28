@@ -79,7 +79,6 @@ type service struct {
 	contr                Controller
 	noUpgrade            bool
 	tlsDefaultCommonName string
-	stop                 chan struct{} // signals intentional stop
 	configChanged        chan struct{} // signals intentional listener close due to config change
 	started              chan string   // signals startup complete by sending the listener address, for testing only
 	startedOnce          chan struct{} // the service has started successfully at least once
@@ -375,6 +374,7 @@ func (s *service) serve(stop chan struct{}) {
 		// Restart due to listen/serve failure
 		l.Warnln("GUI/API:", err, "(restarting)")
 	}
+	srv.Close()
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor
