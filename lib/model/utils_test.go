@@ -35,7 +35,7 @@ func TestInWriteableDir(t *testing.T) {
 
 	// These should succeed
 
-	err = inWritableDir(create, fs, "testdata/file")
+	err := inWritableDir(create, fs, "testdata/file")
 	if err != nil {
 		t.Error("testdata/file:", err)
 	}
