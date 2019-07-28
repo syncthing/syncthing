@@ -7,7 +7,6 @@
 package model
 
 import (
-	"io/ioutil"
 	"os"
 	"runtime"
 	"testing"
@@ -16,11 +15,7 @@ import (
 )
 
 func TestInWriteableDir(t *testing.T) {
-	dir, err := ioutil.TempDir("", "syncthing-test")
-	if err != nil {
-		t.Skip(err)
-	}
-
+	dir := createTmpDir()
 	defer os.RemoveAll(dir)
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
@@ -82,11 +77,7 @@ func TestOSWindowsRemove(t *testing.T) {
 		return
 	}
 
-	dir, err := ioutil.TempDir("", "syncthing-test")
-	if err != nil {
-		t.Skip(err)
-	}
-
+	dir := createTmpDir()
 	defer os.RemoveAll(dir)
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
@@ -124,11 +115,7 @@ func TestOSWindowsRemoveAll(t *testing.T) {
 		return
 	}
 
-	dir, err := ioutil.TempDir("", "syncthing-test")
-	if err != nil {
-		t.Skip(err)
-	}
-
+	dir := createTmpDir()
 	defer os.RemoveAll(dir)
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
@@ -161,11 +148,7 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 		return
 	}
 
-	dir, err := ioutil.TempDir("", "syncthing-test")
-	if err != nil {
-		t.Skip(err)
-	}
-
+	dir := createTmpDir()
 	defer os.RemoveAll(dir)
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
