@@ -101,7 +101,11 @@ func getFileTrunc(r reader, key []byte, trunc bool) (FileIntf, bool) {
 }
 
 func getGlobal(r reader, k keyer, keyBuf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool) {
-	keyBuf = k.GenerateGlobalVersionKey(errorWriter{}, keyBuf, folder, file)
+	var ok bool
+	keyBuf, ok = k.GenerateGlobalVersionKeyRO(keyBuf, folder, file)
+	if !ok {
+		return keyBuf, nil, false
+	}
 
 	bs, err := r.Get(keyBuf, nil)
 	if err != nil {

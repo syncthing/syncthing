@@ -31,13 +31,12 @@ func newInstance(ll *Lowlevel) *instance {
 // updateRemoteFiles adds a list of fileinfos to the database and updates the
 // global versionlist and metadata.
 func (db *instance) updateRemoteFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-	updateRemoteFiles(t, db.keyer, folder, device, fs, meta)
+	rw := db.newReadWriteTransaction()
+	defer rw.close()
+	updateRemoteFiles(rw, db.keyer, folder, device, fs, meta)
 }
 
 func updateRemoteFiles(rw readWriter, k keyer, folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) {
-
 	var dk, gk, keyBuf []byte
 	devID := protocol.DeviceIDFromBytes(device)
 	for _, f := range fs {
@@ -65,9 +64,9 @@ func updateRemoteFiles(rw readWriter, k keyer, folder, device []byte, fs []proto
 // updateLocalFiles adds fileinfos to the db, and updates the global versionlist,
 // metadata, sequence and blockmap buckets.
 func (db *instance) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta *metadataTracker) {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-	updateLocalFiles(t, db.keyer, folder, fs, meta)
+	rw := db.newReadWriteTransaction()
+	defer rw.close()
+	updateLocalFiles(rw, db.keyer, folder, fs, meta)
 }
 
 func updateLocalFiles(rw readWriter, k keyer, folder []byte, fs []protocol.FileInfo, meta *metadataTracker) {
@@ -123,9 +122,9 @@ func updateLocalFiles(rw readWriter, k keyer, folder []byte, fs []protocol.FileI
 }
 
 func (db *instance) withHave(folder, device, prefix []byte, truncate bool, fn Iterator) {
-	t := db.newReadOnlyTransaction()
-	defer t.close()
-	withHave(t, db.keyer, folder, device, prefix, truncate, fn)
+	r := db.newReadOnlyTransaction()
+	defer r.close()
+	withHave(r, db.keyer, folder, device, prefix, truncate, fn)
 }
 
 func withHave(r reader, k keyer, folder, device, prefix []byte, truncate bool, fn Iterator) {
@@ -256,7 +255,11 @@ func withGlobal(r reader, k keyer, folder, prefix []byte, truncate bool, fn Iter
 		}
 	}
 
-	dbi := r.NewIterator(util.BytesPrefix(k.GenerateGlobalVersionKey(errorWriter{}, nil, folder, prefix)), nil)
+	gk, ok := k.GenerateGlobalVersionKeyRO(nil, folder, prefix)
+	if !ok {
+		return
+	}
+	dbi := r.NewIterator(util.BytesPrefix(gk), nil)
 	defer dbi.Release()
 
 	var dk []byte
@@ -504,7 +507,7 @@ func checkGlobals(rw readWriter, k keyer, folder []byte, meta *metadataTracker) 
 }
 
 func (db *instance) getIndexID(device, folder []byte) protocol.IndexID {
-	cur, err := db.Get(db.keyer.GenerateNeedFileKey(db, nil, device, folder), nil)
+	cur, err := db.Get(db.keyer.GenerateIndexIDKey(db, nil, device, folder), nil)
 	if err != nil {
 		return 0
 	}

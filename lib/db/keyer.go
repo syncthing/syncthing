@@ -70,6 +70,7 @@ type keyer interface {
 
 	// global version key stuff
 	GenerateGlobalVersionKey(w writer, key, folder, name []byte) globalVersionKey
+	GenerateGlobalVersionKeyRO(key, folder, name []byte) (globalVersionKey, bool)
 	NameFromGlobalVersionKey(key []byte) []byte
 	FolderFromGlobalVersionKey(key []byte) ([]byte, bool)
 
@@ -144,9 +145,21 @@ func (k globalVersionKey) WithoutName() []byte {
 }
 
 func (k defaultKeyer) GenerateGlobalVersionKey(w writer, key, folder, name []byte) globalVersionKey {
+	return k.generateGlobalVersionKey(key, k.folderIdx.ID(w, folder), name)
+}
+
+func (k defaultKeyer) GenerateGlobalVersionKeyRO(key, folder, name []byte) (globalVersionKey, bool) {
+	folderID, ok := k.folderIdx.IDRO(folder)
+	if !ok {
+		return nil, false
+	}
+	return k.generateGlobalVersionKey(key, folderID, name), true
+}
+
+func (k defaultKeyer) generateGlobalVersionKey(key []byte, folderID uint32, name []byte) globalVersionKey {
 	key = resize(key, keyPrefixLen+keyFolderLen+len(name))
 	key[0] = KeyTypeGlobal
-	binary.BigEndian.PutUint32(key[keyPrefixLen:], k.folderIdx.ID(w, folder))
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
 	copy(key[keyPrefixLen+keyFolderLen:], name)
 	return key
 }
