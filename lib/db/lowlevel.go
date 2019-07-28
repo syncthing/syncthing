@@ -237,14 +237,36 @@ func leveldbIsCorrupted(err error) bool {
 
 type batch struct {
 	*leveldb.Batch
-	db *Lowlevel
+	w writer
+}
+
+func newBatch(w writer) *batch {
+	return &batch{
+		Batch: new(leveldb.Batch),
+		w:     w,
+	}
 }
 
 func (db *Lowlevel) newBatch() *batch {
-	return &batch{
-		Batch: new(leveldb.Batch),
-		db:    db,
-	}
+	return newBatch(db)
+}
+
+// Put implements the writeonly interface on top of the batch
+func (b *batch) Put(key []byte, val []byte, _ *opt.WriteOptions) error {
+	b.Batch.Put(key, val)
+	return nil
+}
+
+// Delete implements the writeonly interface on top of the batch
+func (b *batch) Delete(key []byte, _ *opt.WriteOptions) error {
+	b.Batch.Delete(key)
+	return nil
+}
+
+// Write implements the writeonly interface on top of the batch
+func (b *batch) Write(batch *leveldb.Batch, _ *opt.WriteOptions) error {
+	batch.Replay(b.Batch)
+	return nil
 }
 
 // checkFlush flushes and resets the batch if its size exceeds dbFlushBatch.
@@ -261,33 +283,8 @@ func (b *batch) flush() {
 		return
 	}
 
-	if b.Batch.Len() == 1 {
-		// There can be no need for a transaction for a single operation
-		if err := b.db.Write(b.Batch, nil); err != nil && err != leveldb.ErrClosed {
-			panic(err)
-		}
-		return
-	}
-
-	// Create an atomic update for the batch
-
-	tran, err := b.db.OpenTransaction()
-	if err == leveldb.ErrClosed {
-		return
-	} else if err != nil {
-		panic(err.Error())
-	}
-
-	if err := tran.Write(b.Batch, nil); err == leveldb.ErrClosed {
-		return
-	} else if err != nil {
+	if err := b.w.Write(b.Batch, nil); err != nil && err != leveldb.ErrClosed {
 		panic(err)
-	}
-
-	if err := tran.Commit(); err == leveldb.ErrClosed {
-		return
-	} else if err != nil {
-		panic(err.Error())
 	}
 }
 
@@ -304,13 +301,6 @@ func (it *closedIter) Seek(key []byte) bool               { return false }
 func (it *closedIter) Valid() bool                        { return false }
 func (it *closedIter) Error() error                       { return leveldb.ErrClosed }
 func (it *closedIter) SetReleaser(releaser util.Releaser) {}
-
-type snapshot interface {
-	Get([]byte, *opt.ReadOptions) ([]byte, error)
-	Has([]byte, *opt.ReadOptions) (bool, error)
-	NewIterator(*util.Range, *opt.ReadOptions) iterator.Iterator
-	Release()
-}
 
 type closedSnap struct{}
 

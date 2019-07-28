@@ -11,7 +11,6 @@ import (
 	"sort"
 
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -19,7 +18,6 @@ import (
 // fast lookups in both directions and persists to the database. Don't use for
 // storing more items than fit comfortably in RAM.
 type smallIndex struct {
-	db     *leveldb.DB
 	prefix []byte
 	id2val map[uint32]string
 	val2id map[string]uint32
@@ -27,22 +25,21 @@ type smallIndex struct {
 	mut    sync.Mutex
 }
 
-func newSmallIndex(db *leveldb.DB, prefix []byte) *smallIndex {
+func newSmallIndex(r reader, prefix []byte) *smallIndex {
 	idx := &smallIndex{
-		db:     db,
 		prefix: prefix,
 		id2val: make(map[uint32]string),
 		val2id: make(map[string]uint32),
 		mut:    sync.NewMutex(),
 	}
-	idx.load()
+	idx.load(r)
 	return idx
 }
 
 // load iterates over the prefix space in the database and populates the in
 // memory maps.
-func (i *smallIndex) load() {
-	it := i.db.NewIterator(util.BytesPrefix(i.prefix), nil)
+func (i *smallIndex) load(r reader) {
+	it := r.NewIterator(util.BytesPrefix(i.prefix), nil)
 	defer it.Release()
 	for it.Next() {
 		val := string(it.Value())
@@ -60,7 +57,7 @@ func (i *smallIndex) load() {
 
 // ID returns the index number for the given byte slice, allocating a new one
 // and persisting this to the database if necessary.
-func (i *smallIndex) ID(val []byte) uint32 {
+func (i *smallIndex) ID(w writer, val []byte) uint32 {
 	i.mut.Lock()
 	// intentionally avoiding defer here as we want this call to be as fast as
 	// possible in the general case (folder ID already exists). The map lookup
@@ -82,7 +79,9 @@ func (i *smallIndex) ID(val []byte) uint32 {
 	key := make([]byte, len(i.prefix)+8) // prefix plus uint32 id
 	copy(key, i.prefix)
 	binary.BigEndian.PutUint32(key[len(i.prefix):], id)
-	i.db.Put(key, val, nil)
+	if err := w.Put(key, val, nil); err != nil {
+		panic(err)
+	}
 
 	i.mut.Unlock()
 	return id
@@ -101,7 +100,7 @@ func (i *smallIndex) Val(id uint32) ([]byte, bool) {
 	return []byte(val), true
 }
 
-func (i *smallIndex) Delete(val []byte) {
+func (i *smallIndex) Delete(w writer, val []byte) {
 	i.mut.Lock()
 	defer i.mut.Unlock()
 
@@ -115,7 +114,9 @@ func (i *smallIndex) Delete(val []byte) {
 		// Put an empty value into the database. This indicates that the
 		// entry does not exist any more and prevents the ID from being
 		// reused in the future.
-		i.db.Put(key, []byte{}, nil)
+		if err := w.Put(key, []byte{}, nil); err != nil {
+			panic(err)
+		}
 
 		// Delete reverse mapping.
 		delete(i.id2val, id)

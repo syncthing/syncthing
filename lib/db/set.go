@@ -201,13 +201,13 @@ func (s *FileSet) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
 }
 
 func (s *FileSet) Get(device protocol.DeviceID, file string) (protocol.FileInfo, bool) {
-	f, ok := s.db.getFileDirty([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
+	f, ok := getFile(s.db, s.db.keyer, []byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
 	f.Name = osutil.NativeFilename(f.Name)
 	return f, ok
 }
 
 func (s *FileSet) GetGlobal(file string) (protocol.FileInfo, bool) {
-	fi, ok := s.db.getGlobalDirty([]byte(s.folder), []byte(osutil.NormalizedFilename(file)), false)
+	_, fi, ok := getGlobal(s.db, s.db.keyer, nil, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), false)
 	if !ok {
 		return protocol.FileInfo{}, false
 	}
@@ -217,7 +217,7 @@ func (s *FileSet) GetGlobal(file string) (protocol.FileInfo, bool) {
 }
 
 func (s *FileSet) GetGlobalTruncated(file string) (FileInfoTruncated, bool) {
-	fi, ok := s.db.getGlobalDirty([]byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
+	_, fi, ok := getGlobal(s.db, s.db.keyer, nil, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
 	if !ok {
 		return FileInfoTruncated{}, false
 	}
@@ -268,7 +268,7 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 }
 
 func (s *FileSet) MtimeFS() *fs.MtimeFS {
-	prefix := s.db.keyer.GenerateMtimesKey(nil, []byte(s.folder))
+	prefix := s.db.keyer.GenerateMtimesKey(s.db, nil, []byte(s.folder))
 	kv := NewNamespacedKV(s.db.Lowlevel, string(prefix))
 	return fs.NewMtimeFS(s.fs, kv)
 }
@@ -286,7 +286,7 @@ func DropFolder(ll *Lowlevel, folder string) {
 	db.dropFolderMeta([]byte(folder))
 
 	// Also clean out the folder ID mapping.
-	db.folderIdx.Delete([]byte(folder))
+	db.folderIdx.Delete(ll, []byte(folder))
 }
 
 // DropDeltaIndexIDs removes all delta index IDs from the database.

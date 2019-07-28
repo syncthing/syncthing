@@ -7,41 +7,84 @@
 package db
 
 import (
+	"errors"
+
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-// A readOnlyTransaction represents a database snapshot.
-type readOnlyTransaction struct {
-	snapshot
-	keyer keyer
+// The reader interface covers the raw database, a snapshot, or a transaction
+type reader interface {
+	Get(key []byte, ro *opt.ReadOptions) ([]byte, error)
+	Has(key []byte, ro *opt.ReadOptions) (bool, error)
+	NewIterator(*util.Range, *opt.ReadOptions) iterator.Iterator
 }
 
+// The writer interface covers the raw database or a transaction
+type writer interface {
+	Put(key []byte, val []byte, wo *opt.WriteOptions) error
+	Delete(key []byte, wo *opt.WriteOptions) error
+	Write(batch *leveldb.Batch, wo *opt.WriteOptions) error
+}
+
+type readWriter interface {
+	reader
+	writer
+}
+
+// The snapshot must be released, and is also a reader
+type snapshot interface {
+	Release()
+	reader
+}
+
+// A readOnlyTransaction represents a database snapshot.
+type readOnlyTransaction struct {
+	reader
+}
+
+// The errorWriter can be passed when a function takes a writer, but we
+// don't have one and we're reasonably sure that one shouldn't be needed.
+type errorWriter struct{}
+
+var errReadOnly = errors.New("write in read only context")
+
+func (errorWriter) Put(key []byte, val []byte, wo *opt.WriteOptions) error { return errReadOnly }
+func (errorWriter) Delete(key []byte, wo *opt.WriteOptions) error          { return errReadOnly }
+func (errorWriter) Write(batch *leveldb.Batch, wo *opt.WriteOptions) error { return errReadOnly }
+
 func (db *instance) newReadOnlyTransaction() readOnlyTransaction {
+	return newReadOnlyTransaction(db.GetSnapshot())
+}
+
+func newReadOnlyTransaction(reader reader) readOnlyTransaction {
 	return readOnlyTransaction{
-		snapshot: db.GetSnapshot(),
-		keyer:    db.keyer,
+		reader: reader,
 	}
 }
 
 func (t readOnlyTransaction) close() {
-	t.Release()
+	if snap, ok := t.reader.(snapshot); ok {
+		snap.Release()
+	}
 }
 
-func (t readOnlyTransaction) getFile(folder, device, file []byte) (protocol.FileInfo, bool) {
-	return t.getFileByKey(t.keyer.GenerateDeviceFileKey(nil, folder, device, file))
+func getFile(r reader, k keyer, folder, device, file []byte) (protocol.FileInfo, bool) {
+	return getFileByKey(r, k.GenerateDeviceFileKey(errorWriter{}, nil, folder, device, file))
 }
 
-func (t readOnlyTransaction) getFileByKey(key []byte) (protocol.FileInfo, bool) {
-	if f, ok := t.getFileTrunc(key, false); ok {
+func getFileByKey(r reader, key []byte) (protocol.FileInfo, bool) {
+	if f, ok := getFileTrunc(r, key, false); ok {
 		return f.(protocol.FileInfo), true
 	}
 	return protocol.FileInfo{}, false
 }
 
-func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, bool) {
-	bs, err := t.Get(key, nil)
+func getFileTrunc(r reader, key []byte, trunc bool) (FileIntf, bool) {
+	bs, err := r.Get(key, nil)
 	if err == leveldb.ErrNotFound {
 		return nil, false
 	}
@@ -57,10 +100,10 @@ func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, boo
 	return f, true
 }
 
-func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool) {
-	keyBuf = t.keyer.GenerateGlobalVersionKey(keyBuf, folder, file)
+func getGlobal(r reader, k keyer, keyBuf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool) {
+	keyBuf = k.GenerateGlobalVersionKey(errorWriter{}, keyBuf, folder, file)
 
-	bs, err := t.Get(keyBuf, nil)
+	bs, err := r.Get(keyBuf, nil)
 	if err != nil {
 		return keyBuf, nil, false
 	}
@@ -70,8 +113,8 @@ func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate boo
 		return keyBuf, nil, false
 	}
 
-	keyBuf = t.keyer.GenerateDeviceFileKey(keyBuf, folder, vl.Versions[0].Device, file)
-	if fi, ok := t.getFileTrunc(keyBuf, truncate); ok {
+	keyBuf = k.GenerateDeviceFileKey(errorWriter{}, keyBuf, folder, vl.Versions[0].Device, file)
+	if fi, ok := getFileTrunc(r, keyBuf, truncate); ok {
 		return keyBuf, fi, true
 	}
 
@@ -83,32 +126,37 @@ func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate boo
 // batch size.
 type readWriteTransaction struct {
 	readOnlyTransaction
-	*batch
+	*leveldb.Transaction
 }
 
 func (db *instance) newReadWriteTransaction() readWriteTransaction {
+	tran, err := db.OpenTransaction()
+	if err != nil && err != leveldb.ErrClosed {
+		panic(err)
+	}
 	return readWriteTransaction{
-		readOnlyTransaction: db.newReadOnlyTransaction(),
-		batch:               db.newBatch(),
+		readOnlyTransaction: newReadOnlyTransaction(tran),
+		Transaction:         tran,
 	}
 }
 
 func (t readWriteTransaction) close() {
-	t.flush()
-	t.readOnlyTransaction.close()
+	if err := t.Transaction.Commit(); err != nil && err != leveldb.ErrClosed {
+		panic(err)
+	}
 }
 
 // updateGlobal adds this device+version to the version list for the given
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
-func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) ([]byte, bool) {
+func updateGlobal(rw readWriter, k keyer, gk, keyBuf, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) ([]byte, bool) {
 	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.IsInvalid())
 
 	var fl VersionList
-	if svl, err := t.Get(gk, nil); err == nil {
+	if svl, err := rw.Get(gk, nil); err == nil {
 		fl.Unmarshal(svl) // Ignore error, continue with empty fl
 	}
-	fl, removedFV, removedAt, insertedAt := fl.update(folder, device, file, t.readOnlyTransaction)
+	fl, removedFV, removedAt, insertedAt := fl.update(rw, k, folder, device, file)
 	if insertedAt == -1 {
 		l.Debugln("update global; same version, global unchanged")
 		return keyBuf, false
@@ -121,8 +169,8 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 		// Inserted a new newest version
 		global = file
 	} else {
-		keyBuf = t.keyer.GenerateDeviceFileKey(keyBuf, folder, fl.Versions[0].Device, name)
-		if new, ok := t.getFileByKey(keyBuf); ok {
+		keyBuf = k.GenerateDeviceFileKey(rw, keyBuf, folder, fl.Versions[0].Device, name)
+		if new, ok := getFileByKey(rw, keyBuf); ok {
 			global = new
 		} else {
 			// This file must exist in the db, so this must be caused
@@ -133,11 +181,11 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	}
 
 	// Fixup the list of files we need.
-	keyBuf = t.updateLocalNeed(keyBuf, folder, name, fl, global)
+	keyBuf = updateLocalNeed(rw, k, keyBuf, folder, name, fl, global)
 
 	if removedAt != 0 && insertedAt != 0 {
 		l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
-		t.Put(gk, mustMarshal(&fl))
+		rw.Put(gk, mustMarshal(&fl), nil)
 		return keyBuf, true
 	}
 
@@ -149,8 +197,8 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 		// The previous newest version is now at index 1
 		oldGlobalFV = fl.Versions[1]
 	}
-	keyBuf = t.keyer.GenerateDeviceFileKey(keyBuf, folder, oldGlobalFV.Device, name)
-	if oldFile, ok := t.getFileByKey(keyBuf); ok {
+	keyBuf = k.GenerateDeviceFileKey(rw, keyBuf, folder, oldGlobalFV.Device, name)
+	if oldFile, ok := getFileByKey(rw, keyBuf); ok {
 		// A failure to get the file here is surprising and our
 		// global size data will be incorrect until a restart...
 		meta.removeFile(protocol.GlobalDeviceID, oldFile)
@@ -160,7 +208,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	meta.addFile(protocol.GlobalDeviceID, global)
 
 	l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
-	t.Put(gk, mustMarshal(&fl))
+	rw.Put(gk, mustMarshal(&fl), nil)
 
 	return keyBuf, true
 }
@@ -168,17 +216,17 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 // updateLocalNeed checks whether the given file is still needed on the local
 // device according to the version list and global FileInfo given and updates
 // the db accordingly.
-func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, fl VersionList, global protocol.FileInfo) []byte {
-	keyBuf = t.keyer.GenerateNeedFileKey(keyBuf, folder, name)
-	hasNeeded, _ := t.Has(keyBuf, nil)
+func updateLocalNeed(rw readWriter, k keyer, keyBuf, folder, name []byte, fl VersionList, global protocol.FileInfo) []byte {
+	keyBuf = k.GenerateNeedFileKey(rw, keyBuf, folder, name)
+	hasNeeded, _ := rw.Has(keyBuf, nil)
 	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(global, haveLocalFV, localFV.Version) {
 		if !hasNeeded {
 			l.Debugf("local need insert; folder=%q, name=%q", folder, name)
-			t.Put(keyBuf, nil)
+			rw.Put(keyBuf, nil, nil)
 		}
 	} else if hasNeeded {
 		l.Debugf("local need delete; folder=%q, name=%q", folder, name)
-		t.Delete(keyBuf)
+		rw.Delete(keyBuf, nil)
 	}
 	return keyBuf
 }
@@ -202,10 +250,10 @@ func need(global FileIntf, haveLocal bool, localVersion protocol.Vector) bool {
 // removeFromGlobal removes the device from the global version list for the
 // given file. If the version list is empty after this, the file entry is
 // removed entirely.
-func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte, file []byte, meta *metadataTracker) []byte {
+func removeFromGlobal(rw readWriter, k keyer, gk, keyBuf, folder, device []byte, file []byte, meta *metadataTracker) []byte {
 	l.Debugf("remove from global; folder=%q device=%v file=%q", folder, protocol.DeviceIDFromBytes(device), file)
 
-	svl, err := t.Get(gk, nil)
+	svl, err := rw.Get(gk, nil)
 	if err != nil {
 		// We might be called to "remove" a global version that doesn't exist
 		// if the first update for the file is already marked invalid.
@@ -228,43 +276,42 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 	if removedAt == 0 {
 		// A failure to get the file here is surprising and our
 		// global size data will be incorrect until a restart...
-		keyBuf = t.keyer.GenerateDeviceFileKey(keyBuf, folder, device, file)
-		if f, ok := t.getFileByKey(keyBuf); ok {
+		keyBuf = k.GenerateDeviceFileKey(rw, keyBuf, folder, device, file)
+		if f, ok := getFileByKey(rw, keyBuf); ok {
 			meta.removeFile(protocol.GlobalDeviceID, f)
 		}
 	}
 
 	if len(fl.Versions) == 0 {
-		keyBuf = t.keyer.GenerateNeedFileKey(keyBuf, folder, file)
-		t.Delete(keyBuf)
-		t.Delete(gk)
+		keyBuf = k.GenerateNeedFileKey(rw, keyBuf, folder, file)
+		rw.Delete(keyBuf, nil)
+		rw.Delete(gk, nil)
 		return keyBuf
 	}
 
 	if removedAt == 0 {
-		keyBuf = t.keyer.GenerateDeviceFileKey(keyBuf, folder, fl.Versions[0].Device, file)
-		global, ok := t.getFileByKey(keyBuf)
+		keyBuf = k.GenerateDeviceFileKey(rw, keyBuf, folder, fl.Versions[0].Device, file)
+		global, ok := getFileByKey(rw, keyBuf)
 		if !ok {
 			// This file must exist in the db, so this must be caused
 			// by the db being closed - bail out.
 			l.Debugln("File should exist:", file)
 			return keyBuf
 		}
-		keyBuf = t.updateLocalNeed(keyBuf, folder, file, fl, global)
+		keyBuf = updateLocalNeed(rw, k, keyBuf, folder, file, fl, global)
 		meta.addFile(protocol.GlobalDeviceID, global)
 	}
 
 	l.Debugf("new global after remove: %v", fl)
-	t.Put(gk, mustMarshal(&fl))
+	rw.Put(gk, mustMarshal(&fl), nil)
 
 	return keyBuf
 }
 
-func (t readWriteTransaction) deleteKeyPrefix(prefix []byte) {
-	dbi := t.NewIterator(util.BytesPrefix(prefix), nil)
+func deleteKeyPrefix(rw readWriter, prefix []byte) {
+	dbi := rw.NewIterator(util.BytesPrefix(prefix), nil)
 	for dbi.Next() {
-		t.Delete(dbi.Key())
-		t.checkFlush()
+		rw.Delete(dbi.Key(), nil)
 	}
 	dbi.Release()
 }

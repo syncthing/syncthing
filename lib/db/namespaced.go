@@ -40,7 +40,7 @@ func (n *NamespacedKV) Reset() {
 	defer it.Release()
 	batch := n.db.newBatch()
 	for it.Next() {
-		batch.Delete(it.Key())
+		batch.Delete(it.Key(), nil)
 		batch.checkFlush()
 	}
 	batch.flush()

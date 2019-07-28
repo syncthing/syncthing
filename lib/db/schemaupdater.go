@@ -104,18 +104,16 @@ func (db *schemaUpdater) updateSchema0to1() {
 	var gk, buf []byte
 
 	for dbi.Next() {
-		t.checkFlush()
-
 		folder, ok := db.keyer.FolderFromDeviceFileKey(dbi.Key())
 		if !ok {
 			// not having the folder in the index is bad; delete and continue
-			t.Delete(dbi.Key())
+			t.Delete(dbi.Key(), nil)
 			continue
 		}
 		device, ok := db.keyer.DeviceFromDeviceFileKey(dbi.Key())
 		if !ok {
 			// not having the device in the index is bad; delete and continue
-			t.Delete(dbi.Key())
+			t.Delete(dbi.Key(), nil)
 			continue
 		}
 		name := db.keyer.NameFromDeviceFileKey(dbi.Key())
@@ -125,9 +123,9 @@ func (db *schemaUpdater) updateSchema0to1() {
 			if _, ok := changedFolders[string(folder)]; !ok {
 				changedFolders[string(folder)] = struct{}{}
 			}
-			gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-			buf = t.removeFromGlobal(gk, buf, folder, device, nil, nil)
-			t.Delete(dbi.Key())
+			gk = db.keyer.GenerateGlobalVersionKey(t, gk, folder, name)
+			buf = removeFromGlobal(t, db.keyer, gk, buf, folder, device, nil, nil)
+			t.Delete(dbi.Key(), nil)
 			continue
 		}
 
@@ -147,14 +145,14 @@ func (db *schemaUpdater) updateSchema0to1() {
 			if err != nil {
 				panic("can't happen: " + err.Error())
 			}
-			t.Put(dbi.Key(), bs)
+			t.Put(dbi.Key(), bs, nil)
 			symlinkConv++
 		}
 
 		// Add invalid files to global list
 		if f.IsInvalid() {
-			gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-			if buf, ok = t.updateGlobal(gk, buf, folder, device, f, meta); ok {
+			gk = db.keyer.GenerateGlobalVersionKey(t, gk, folder, name)
+			if buf, ok = updateGlobal(t, db.keyer, gk, buf, folder, device, f, meta); ok {
 				if _, ok = changedFolders[string(folder)]; !ok {
 					changedFolders[string(folder)] = struct{}{}
 				}
@@ -164,7 +162,7 @@ func (db *schemaUpdater) updateSchema0to1() {
 	}
 
 	for folder := range changedFolders {
-		db.dropFolderMeta([]byte(folder))
+		deleteKeyPrefix(t, db.keyer.GenerateFolderMetaKey(t, nil, []byte(folder)))
 	}
 }
 
@@ -178,11 +176,10 @@ func (db *schemaUpdater) updateSchema1to2() {
 	var dk []byte
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
-		db.withHave(folder, protocol.LocalDeviceID[:], nil, true, func(f FileIntf) bool {
-			sk = db.keyer.GenerateSequenceKey(sk, folder, f.SequenceNo())
-			dk = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], []byte(f.FileName()))
-			t.Put(sk, dk)
-			t.checkFlush()
+		withHave(t, db.keyer, folder, protocol.LocalDeviceID[:], nil, true, func(f FileIntf) bool {
+			sk = db.keyer.GenerateSequenceKey(t, sk, folder, f.SequenceNo())
+			dk = db.keyer.GenerateDeviceFileKey(t, dk, folder, protocol.LocalDeviceID[:], []byte(f.FileName()))
+			t.Put(sk, dk, nil)
 			return true
 		})
 	}
@@ -197,20 +194,19 @@ func (db *schemaUpdater) updateSchema2to3() {
 	var dk []byte
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
-		db.withGlobal(folder, nil, true, func(f FileIntf) bool {
+		withGlobal(t, db.keyer, folder, nil, true, func(f FileIntf) bool {
 			name := []byte(f.FileName())
-			dk = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], name)
+			dk = db.keyer.GenerateDeviceFileKey(t, dk, folder, protocol.LocalDeviceID[:], name)
 			var v protocol.Vector
-			haveFile, ok := t.getFileTrunc(dk, true)
+			haveFile, ok := getFileTrunc(t, dk, true)
 			if ok {
 				v = haveFile.FileVersion()
 			}
 			if !need(f, ok, v) {
 				return true
 			}
-			nk = t.keyer.GenerateNeedFileKey(nk, folder, []byte(f.FileName()))
-			t.Put(nk, nil)
-			t.checkFlush()
+			nk = db.keyer.GenerateNeedFileKey(t, nk, folder, []byte(f.FileName()))
+			t.Put(nk, nil, nil)
 			return true
 		})
 	}
@@ -224,8 +220,8 @@ func (db *schemaUpdater) updateSchemaTo5() {
 	t := db.newReadWriteTransaction()
 	var nk []byte
 	for _, folderStr := range db.ListFolders() {
-		nk = db.keyer.GenerateNeedFileKey(nk, []byte(folderStr), nil)
-		t.deleteKeyPrefix(nk[:keyPrefixLen+keyFolderLen])
+		nk = db.keyer.GenerateNeedFileKey(t, nk, []byte(folderStr), nil)
+		deleteKeyPrefix(t, nk[:keyPrefixLen+keyFolderLen])
 	}
 	t.close()
 
@@ -243,7 +239,7 @@ func (db *schemaUpdater) updateSchema5to6() {
 
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
-		db.withHave(folder, protocol.LocalDeviceID[:], nil, false, func(f FileIntf) bool {
+		withHave(t, db.keyer, folder, protocol.LocalDeviceID[:], nil, false, func(f FileIntf) bool {
 			if !f.IsInvalid() {
 				return true
 			}
@@ -253,10 +249,9 @@ func (db *schemaUpdater) updateSchema5to6() {
 			fi.LocalFlags = protocol.FlagLocalIgnored
 			bs, _ := fi.Marshal()
 
-			dk = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], []byte(fi.Name))
-			t.Put(dk, bs)
+			dk = db.keyer.GenerateDeviceFileKey(t, dk, folder, protocol.LocalDeviceID[:], []byte(fi.Name))
+			t.Put(dk, bs, nil)
 
-			t.checkFlush()
 			return true
 		})
 	}
@@ -273,14 +268,14 @@ func (db *schemaUpdater) updateSchema6to7() {
 
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
-		db.withNeedLocal(folder, false, func(f FileIntf) bool {
+		withNeedLocal(t, db.keyer, folder, false, func(f FileIntf) bool {
 			name := []byte(f.FileName())
 			global := f.(protocol.FileInfo)
-			gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
+			gk = db.keyer.GenerateGlobalVersionKey(t, gk, folder, name)
 			svl, err := t.Get(gk, nil)
 			if err != nil {
 				// If there is no global list, we hardly need it.
-				t.Delete(t.keyer.GenerateNeedFileKey(nk, folder, name))
+				t.Delete(db.keyer.GenerateNeedFileKey(t, nk, folder, name), nil)
 				return true
 			}
 			var fl VersionList
@@ -291,7 +286,7 @@ func (db *schemaUpdater) updateSchema6to7() {
 				return true
 			}
 			if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); !need(global, haveLocalFV, localFV.Version) {
-				t.Delete(t.keyer.GenerateNeedFileKey(nk, folder, name))
+				t.Delete(db.keyer.GenerateNeedFileKey(t, nk, folder, name), nil)
 			}
 			return true
 		})

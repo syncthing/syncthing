@@ -18,7 +18,7 @@ func TestDeviceKey(t *testing.T) {
 
 	db := newInstance(OpenMemory())
 
-	key := db.keyer.GenerateDeviceFileKey(nil, fld, dev, name)
+	key := db.keyer.GenerateDeviceFileKey(db, nil, fld, dev, name)
 
 	fld2, ok := db.keyer.FolderFromDeviceFileKey(key)
 	if !ok {
@@ -46,7 +46,7 @@ func TestGlobalKey(t *testing.T) {
 
 	db := newInstance(OpenMemory())
 
-	key := db.keyer.GenerateGlobalVersionKey(nil, fld, name)
+	key := db.keyer.GenerateGlobalVersionKey(db, nil, fld, name)
 
 	fld2, ok := db.keyer.FolderFromGlobalVersionKey(key)
 	if !ok {
@@ -72,7 +72,7 @@ func TestSequenceKey(t *testing.T) {
 	db := newInstance(OpenMemory())
 
 	const seq = 1234567890
-	key := db.keyer.GenerateSequenceKey(nil, fld, seq)
+	key := db.keyer.GenerateSequenceKey(db, nil, fld, seq)
 	outSeq := db.keyer.SequenceFromSequenceKey(key)
 	if outSeq != seq {
 		t.Errorf("sequence number mangled, %d != %d", outSeq, seq)

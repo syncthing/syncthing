@@ -150,11 +150,11 @@ func TestUpdate0to3(t *testing.T) {
 
 	updater.updateSchema0to1()
 
-	if _, ok := db.getFileDirty(folder, protocol.LocalDeviceID[:], []byte(slashPrefixed)); ok {
+	if _, ok := getFile(db, db.keyer, folder, protocol.LocalDeviceID[:], []byte(slashPrefixed)); ok {
 		t.Error("File prefixed by '/' was not removed during transition to schema 1")
 	}
 
-	if _, err := db.Get(db.keyer.GenerateGlobalVersionKey(nil, folder, []byte(invalid)), nil); err != nil {
+	if _, err := db.Get(db.keyer.GenerateGlobalVersionKey(db, nil, folder, []byte(invalid)), nil); err != nil {
 		t.Error("Invalid file wasn't added to global list")
 	}
 

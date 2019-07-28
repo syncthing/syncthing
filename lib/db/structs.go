@@ -164,7 +164,7 @@ func (vl VersionList) String() string {
 // update brings the VersionList up to date with file. It returns the updated
 // VersionList, a potentially removed old FileVersion and its index, as well as
 // the index where the new FileVersion was inserted.
-func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t readOnlyTransaction) (_ VersionList, removedFV FileVersion, removedAt int, insertedAt int) {
+func (vl VersionList) update(rw readWriter, k keyer, folder, device []byte, file protocol.FileInfo) (_ VersionList, removedFV FileVersion, removedAt int, insertedAt int) {
 	vl, removedFV, removedAt = vl.pop(device)
 
 	nv := FileVersion{
@@ -198,7 +198,7 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t re
 			// to determine the winner.)
 			//
 			// A surprise missing file entry here is counted as a win for us.
-			if of, ok := t.getFile(folder, vl.Versions[i].Device, []byte(file.Name)); !ok || file.WinsConflict(of) {
+			if of, ok := getFile(rw, k, folder, vl.Versions[i].Device, []byte(file.Name)); !ok || file.WinsConflict(of) {
 				vl = vl.insertAt(i, nv)
 				return vl, removedFV, removedAt, i
 			}
