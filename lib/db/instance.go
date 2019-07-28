@@ -53,11 +53,14 @@ func updateRemoteFiles(rw readWriter, k keyer, folder, device []byte, fs []proto
 		}
 		meta.addFile(devID, f)
 
-		l.Debugf("insert; folder=%q device=%v %v", folder, devID, f)
-		rw.Put(dk, mustMarshal(&f), nil)
-
+		// updateGlobal depends on being able to access the previous version
+		// of the file in the database, so we need to do this before we Put
+		// the new file
 		gk = k.GenerateGlobalVersionKey(rw, gk, folder, name)
 		keyBuf, _ = updateGlobal(rw, k, gk, keyBuf, folder, device, f, meta)
+
+		l.Debugf("insert; folder=%q device=%v %v", folder, devID, f)
+		rw.Put(dk, mustMarshal(&f), nil)
 	}
 }
 
@@ -101,11 +104,14 @@ func updateLocalFiles(rw readWriter, k keyer, folder []byte, fs []protocol.FileI
 		}
 		meta.addFile(protocol.LocalDeviceID, f)
 
-		l.Debugf("insert (local); folder=%q %v", folder, f)
-		rw.Put(dk, mustMarshal(&f), nil)
-
+		// updateGlobal depends on being able to access the previous version
+		// of the file in the database, so we need to do this before we Put
+		// the new file
 		gk = k.GenerateGlobalVersionKey(rw, gk, folder, []byte(f.Name))
 		keyBuf, _ = updateGlobal(rw, k, gk, keyBuf, folder, protocol.LocalDeviceID[:], f, meta)
+
+		l.Debugf("insert (local); folder=%q %v", folder, f)
+		rw.Put(dk, mustMarshal(&f), nil)
 
 		keyBuf = k.GenerateSequenceKey(rw, keyBuf, folder, f.Sequence)
 		rw.Put(keyBuf, dk, nil)
