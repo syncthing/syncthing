@@ -66,9 +66,9 @@ func (d *deadlockDetector) Watch(name string, mut sync.Locker) {
 
 // inWritableDir calls fn(path), while making sure that the directory
 // containing `path` is writable for the duration of the call.
-func inWritableDir(fn func(string) error, fs fs.Filesystem, path string) error {
+func inWritableDir(fn func(string) error, targetFs fs.Filesystem, path string) error {
 	dir := filepath.Dir(path)
-	info, err := fs.Stat(dir)
+	info, err := targetFs.Stat(dir)
 	if err != nil {
 		return err
 	}
@@ -79,14 +79,14 @@ func inWritableDir(fn func(string) error, fs fs.Filesystem, path string) error {
 		// A non-writeable directory (for this user; we assume that's the
 		// relevant part). Temporarily change the mode so we can delete the
 		// file or directory inside it.
-		if err := fs.Chmod(dir, 0755); err == nil {
+		if err := targetFs.Chmod(dir, 0755); err == nil {
 			// Chmod succeeded, we should change the permissions back on the way
 			// out. If we fail we log the error as we have irrevocably messed up
 			// at this point. :( (The operation we were called to wrap has
 			// succeeded or failed on its own so returning an error to the
 			// caller is inappropriate.)
 			defer func() {
-				if err := fs.Chmod(dir, info.Mode()); err != nil {
+				if err := targetFs.Chmod(dir, info.Mode()); err != nil && !fs.IsNotExist(err) {
 					l.Warnln("Failed to restore directory permissions after gaining write access:", err)
 				}
 			}()
