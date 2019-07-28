@@ -75,6 +75,7 @@ type keyer interface {
 
 	// block map key stuff (former BlockMap)
 	GenerateBlockMapKey(w writer, key, folder, hash, name []byte) blockMapKey
+	GenerateBlockMapKeyRO(key, folder, hash, name []byte) (blockMapKey, bool)
 	NameFromBlockMapKey(key []byte) []byte
 
 	// file need index
@@ -161,9 +162,22 @@ func (k defaultKeyer) FolderFromGlobalVersionKey(key []byte) ([]byte, bool) {
 type blockMapKey []byte
 
 func (k defaultKeyer) GenerateBlockMapKey(w writer, key, folder, hash, name []byte) blockMapKey {
+	return k.generateBlockMapKey(key, k.folderIdx.ID(w, folder), hash, name)
+}
+
+func (k defaultKeyer) GenerateBlockMapKeyRO(key, folder, hash, name []byte) (blockMapKey, bool) {
+	folderID, ok := k.folderIdx.IDRO(folder)
+	if !ok {
+		return nil, false
+	}
+
+	return k.generateBlockMapKey(key, folderID, hash, name), true
+}
+
+func (k defaultKeyer) generateBlockMapKey(key []byte, folderID uint32, hash, name []byte) blockMapKey {
 	key = resize(key, keyPrefixLen+keyFolderLen+keyHashLen+len(name))
 	key[0] = KeyTypeBlock
-	binary.BigEndian.PutUint32(key[keyPrefixLen:], k.folderIdx.ID(w, folder))
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
 	copy(key[keyPrefixLen+keyFolderLen:], hash)
 	copy(key[keyPrefixLen+keyFolderLen+keyHashLen:], name)
 	return key

@@ -45,8 +45,13 @@ func (f *BlockFinder) Iterate(folders []string, hash []byte, iterFn func(string,
 	defer t.close()
 
 	var key []byte
+	var ok bool
 	for _, folder := range folders {
-		key = f.db.keyer.GenerateBlockMapKey(errorWriter{}, key, []byte(folder), hash, nil)
+		key, ok = f.db.keyer.GenerateBlockMapKeyRO(key, []byte(folder), hash, nil)
+		if !ok {
+			// No such folder
+			continue
+		}
 		iter := t.NewIterator(util.BytesPrefix(key), nil)
 
 		for iter.Next() && iter.Error() == nil {

@@ -87,6 +87,18 @@ func (i *smallIndex) ID(w writer, val []byte) uint32 {
 	return id
 }
 
+// IDRO returns the index number for the given byte slice, *without*
+// allocating a new one if it wasn't present.
+func (i *smallIndex) IDRO(val []byte) (uint32, bool) {
+	i.mut.Lock()
+	id, ok := i.val2id[string(val)]
+	i.mut.Unlock()
+	if !ok {
+		return 0, false
+	}
+	return id, true
+}
+
 // Val returns the value for the given index number, or (nil, false) if there
 // is no such index number.
 func (i *smallIndex) Val(id uint32) ([]byte, bool) {
