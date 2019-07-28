@@ -594,7 +594,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 			// Symlinks aren't checked for conflicts.
 
 			file.Version = file.Version.Merge(curFile.Version)
-			err = osutil.InWritableDir(func(name string) error {
+			err = inWritableDir(func(name string) error {
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, f.fs, curFile.Name)
 		} else {
@@ -633,7 +633,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 			return f.fs.Chmod(path, mode|(info.Mode()&retainBits))
 		}
 
-		if err = osutil.InWritableDir(mkdir, f.fs, file.Name); err == nil {
+		if err = inWritableDir(mkdir, f.fs, file.Name); err == nil {
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleDir}
 		} else {
 			f.newPullError(file.Name, errors.Wrap(err, "creating directory"))
@@ -748,7 +748,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 			// Directories and symlinks aren't checked for conflicts.
 
 			file.Version = file.Version.Merge(curFile.Version)
-			err = osutil.InWritableDir(func(name string) error {
+			err = inWritableDir(func(name string) error {
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, f.fs, curFile.Name)
 		} else {
@@ -769,7 +769,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 		return f.maybeCopyOwner(path)
 	}
 
-	if err = osutil.InWritableDir(createLink, f.fs, file.Name); err == nil {
+	if err = inWritableDir(createLink, f.fs, file.Name); err == nil {
 		dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleSymlink}
 	} else {
 		f.newPullError(file.Name, errors.Wrap(err, "symlink create"))
@@ -869,9 +869,9 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 	}
 
 	if f.versioner != nil && !cur.IsSymlink() {
-		err = osutil.InWritableDir(f.versioner.Archive, f.fs, file.Name)
+		err = inWritableDir(f.versioner.Archive, f.fs, file.Name)
 	} else {
-		err = osutil.InWritableDir(f.fs.Remove, f.fs, file.Name)
+		err = inWritableDir(f.fs.Remove, f.fs, file.Name)
 	}
 
 	if err == nil || fs.IsNotExist(err) {
@@ -971,7 +971,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 		if err == nil {
 			err = osutil.Copy(f.fs, f.fs, source.Name, tempName)
 			if err == nil {
-				err = osutil.InWritableDir(f.versioner.Archive, f.fs, source.Name)
+				err = inWritableDir(f.versioner.Archive, f.fs, source.Name)
 			}
 		}
 	} else {
@@ -1078,7 +1078,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 			// Otherwise, discard the file ourselves in order for the
 			// sharedpuller not to panic when it fails to exclusively create a
 			// file which already exists
-			osutil.InWritableDir(f.fs.Remove, f.fs, tempName)
+			inWritableDir(f.fs.Remove, f.fs, tempName)
 		}
 	} else {
 		// Copy the blocks, as we don't want to shuffle them on the FileInfo
@@ -1522,7 +1522,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 			// Directories and symlinks aren't checked for conflicts.
 
 			file.Version = file.Version.Merge(curFile.Version)
-			err = osutil.InWritableDir(func(name string) error {
+			err = inWritableDir(func(name string) error {
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, f.fs, curFile.Name)
 		} else {
@@ -1825,10 +1825,10 @@ func (f *sendReceiveFolder) deleteItemOnDisk(item protocol.FileInfo, scanChan ch
 		// an error.
 		// Symlinks aren't archived.
 
-		return osutil.InWritableDir(f.versioner.Archive, f.fs, item.Name)
+		return inWritableDir(f.versioner.Archive, f.fs, item.Name)
 	}
 
-	return osutil.InWritableDir(f.fs.Remove, f.fs, item.Name)
+	return inWritableDir(f.fs.Remove, f.fs, item.Name)
 }
 
 // deleteDirOnDisk attempts to delete a directory. It checks for files/dirs inside
@@ -1879,7 +1879,7 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, scanChan chan<- string) 
 		f.fs.RemoveAll(del)
 	}
 
-	err := osutil.InWritableDir(f.fs.Remove, f.fs, dir)
+	err := inWritableDir(f.fs.Remove, f.fs, dir)
 	if err == nil || fs.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
 		return nil
