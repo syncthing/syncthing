@@ -29,6 +29,14 @@ func init() {
 var (
 	clients    = make(map[string]*raven.Client)
 	clientsMut sync.Mutex
+
+	// The stacktraces accompanying these exceptions vary, thus creating
+	// tons of separate issues for the same issue. Match on these messages
+	// instead.
+	messagesToGroup = []string{
+		"runtime: out of memory",
+		"runtime: failed to commit pages",
+	}
 )
 
 func sendReport(dsn, path string, report []byte) error {
@@ -73,7 +81,7 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 	report = parts[1]
 
 	foundPanic := false
-	var subjectLine []byte
+	var subjectLine string
 	for {
 		parts = bytes.SplitN(report, []byte("\n"), 2)
 		if len(parts) != 2 {
@@ -87,7 +95,7 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 			// The previous line was our "Panic at ..." header. We are now
 			// at the beginning of the real panic trace and this is our
 			// subject line.
-			subjectLine = line
+			subjectLine = string(line)
 			break
 		} else if bytes.HasPrefix(line, []byte("Panic at")) {
 			foundPanic = true
@@ -125,7 +133,7 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 	}
 
 	pkt := &raven.Packet{
-		Message:     string(subjectLine),
+		Message:     subjectLine,
 		Platform:    "go",
 		Release:     version.tag,
 		Environment: version.environment(),
@@ -145,6 +153,12 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 	}
 	if version.commit != "" {
 		pkt.Tags = append(pkt.Tags, raven.Tag{Key: "commit", Value: version.commit})
+	}
+	for _, msg := range messagesToGroup {
+		if strings.Contains(subjectLine, msg) {
+			pkt.Fingerprint = []string{msg}
+			break
+		}
 	}
 
 	return pkt, nil
