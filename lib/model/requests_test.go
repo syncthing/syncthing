@@ -719,45 +719,17 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	}
 
 	var gotA, gotB, gotConfl bool
-	received = make(chan []protocol.FileInfo)
 	bIntermediateVersion := protocol.Vector{}.Update(fc.id.Short()).Update(myID.Short())
 	bFinalVersion := bIntermediateVersion.Copy().Update(fc.id.Short())
+	done := make(chan struct{})
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		select {
-		case <-received:
-			t.Error("More index update sent than expected")
+		case <-done:
+			t.Error("Received more index updates than expected")
+			return
 		default:
 		}
-		received <- fs
-	}
-	fc.mut.Unlock()
-
-	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
-	otherData := []byte("otherData")
-	if _, err = fd.Write(otherData); err != nil {
-		t.Fatal(err)
-	}
-	fd.Close()
-
-	// rename
-	fc.deleteFile(a)
-	fc.updateFile(b, 0644, protocol.FileInfoTypeFile, data[a])
-	// Make sure the remote file for b is newer and thus stays global -> local conflict
-	fc.mut.Lock()
-	for i := range fc.files {
-		if fc.files[i].Name == b {
-			fc.files[i].ModifiedS += 100
-			break
-		}
-	}
-	fc.mut.Unlock()
-	fc.sendIndexUpdate()
-	select {
-	case fs := <-received:
 		for _, f := range fs {
 			switch {
 			case f.Name == a:
@@ -789,8 +761,36 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 			}
 		}
 		if gotA && gotB && gotConfl {
-			close(received)
+			close(done)
 		}
+	}
+	fc.mut.Unlock()
+
+	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherData := []byte("otherData")
+	if _, err = fd.Write(otherData); err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	// rename
+	fc.deleteFile(a)
+	fc.updateFile(b, 0644, protocol.FileInfoTypeFile, data[a])
+	// Make sure the remote file for b is newer and thus stays global -> local conflict
+	fc.mut.Lock()
+	for i := range fc.files {
+		if fc.files[i].Name == b {
+			fc.files[i].ModifiedS += 100
+			break
+		}
+	}
+	fc.mut.Unlock()
+	fc.sendIndexUpdate()
+	select {
+	case <-done:
 	case <-time.After(10 * time.Second):
 		t.Errorf("timed out without receiving all expected index updates")
 	}
