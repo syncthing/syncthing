@@ -267,10 +267,13 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 		return Usage{}, err
 	}
 	u, err := disk.Usage(name)
+	if err != nil {
+		return Usage{}, err
+	}
 	return Usage{
 		Free:  int64(u.Free),
 		Total: int64(u.Total),
-	}, err
+	}, nil
 }
 
 func (f *BasicFilesystem) Type() FilesystemType {
