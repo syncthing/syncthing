@@ -73,6 +73,7 @@ type App struct {
 	exitStatus  ExitStatus
 	err         error
 	startOnce   sync.Once
+	stopOnce    sync.Once
 	stop        chan struct{}
 	stopped     chan struct{}
 }
@@ -100,10 +101,7 @@ func (a *App) Run() ExitStatus {
 func (a *App) Start() {
 	a.startOnce.Do(func() {
 		if err := a.startup(); err != nil {
-			close(a.stop)
-			a.exitStatus = ExitError
-			a.err = err
-			close(a.stopped)
+			a.stopWithErr(ExitError, err)
 			return
 		}
 		go a.run()
@@ -398,18 +396,19 @@ func (a *App) Error() error {
 // Stop stops the app and sets its exit status to given reason, unless the app
 // was already stopped before. In any case it returns the effective exit status.
 func (a *App) Stop(stopReason ExitStatus) ExitStatus {
-	select {
-	case <-a.stopped:
-	case <-a.stop:
-	default:
+	return a.stopWithErr(stopReason, nil)
+}
+
+func (a *App) stopWithErr(stopReason ExitStatus, err error) ExitStatus {
+	a.stopOnce.Do(func() {
 		// ExitSuccess is the default value for a.exitStatus. If another status
 		// was already set, ignore the stop reason given as argument to Stop.
 		if a.exitStatus == ExitSuccess {
 			a.exitStatus = stopReason
+			a.err = err
 		}
 		close(a.stop)
-		<-a.stopped
-	}
+	})
 	return a.exitStatus
 }
 
