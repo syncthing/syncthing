@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/calmh/du"
+	"github.com/shirou/gopsutil/disk"
 )
 
 var (
@@ -266,11 +266,14 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 	if err != nil {
 		return Usage{}, err
 	}
-	u, err := du.Get(name)
+	u, err := disk.Usage(name)
+	if err != nil {
+		return Usage{}, err
+	}
 	return Usage{
-		Free:  u.FreeBytes,
-		Total: u.TotalBytes,
-	}, err
+		Free:  int64(u.Free),
+		Total: int64(u.Total),
+	}, nil
 }
 
 func (f *BasicFilesystem) Type() FilesystemType {
