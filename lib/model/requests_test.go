@@ -720,6 +720,8 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 
 	var gotA, gotB, gotConfl bool
 	received = make(chan []protocol.FileInfo)
+	bIntermediateVersion := protocol.Vector{}.Update(fc.id.Short()).Update(myID.Short())
+	bFinalVersion := bIntermediateVersion.Copy().Update(fc.id.Short())
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		select {
@@ -767,7 +769,16 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 				if gotB {
 					t.Error("Got more than one index update for", f.Name)
 				}
-				gotB = true
+				if f.Version.Equal(bIntermediateVersion) {
+					// This index entry might be superseeded
+					// by the final one or sent before it separately.
+					break
+				}
+				if f.Version.Equal(bFinalVersion) {
+					gotB = true
+					break
+				}
+				t.Errorf("Got unexpected version %v for file %v in index update", f.Version, f.Name)
 			case strings.HasPrefix(f.Name, "b.sync-conflict-"):
 				if gotConfl {
 					t.Error("Got more than one index update for conflicts of", f.Name)
