@@ -102,7 +102,8 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 		l.Infoln("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
-			panic(err)
+			l.Warnln("Error starting the main Syncthing process:", err)
+			panic("Error starting the main Syncthing process")
 		}
 
 		stdoutMut.Lock()
