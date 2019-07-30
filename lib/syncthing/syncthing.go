@@ -80,6 +80,7 @@ type App struct {
 	exitStatus  ExitStatus
 	err         error
 	startOnce   sync.Once
+	stopOnce    sync.Once
 	started     chan struct{}
 	stop        chan struct{}
 	stopped     chan struct{}
@@ -110,10 +111,7 @@ func (a *App) Start() {
 	a.startOnce.Do(func() {
 		defer close(a.started)
 		if err := a.startup(); err != nil {
-			close(a.stop)
-			a.exitStatus = ExitError
-			a.err = err
-			close(a.stopped)
+			a.stopWithErr(ExitError, err)
 			return
 		}
 		go a.run()
@@ -130,10 +128,6 @@ func (a *App) startup() error {
 		PassThroughPanics: true,
 	})
 	a.mainService.ServeBackground()
-
-	// Set a log prefix similar to the ID we will have later on, or early log
-	// lines look ugly.
-	l.SetPrefix("[start] ")
 
 	a.evLogger = events.NewLogger()
 	a.mainService.Add(a.evLogger)
@@ -160,10 +154,9 @@ func (a *App) startup() error {
 	// report the error if there is one.
 	osutil.MaximizeOpenFileLimit()
 
+	// Figure out our device ID, set it as the log prefix and log it.
 	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", a.myID.String()[:5]))
-
-	l.Infoln(build.LongVersion)
 	l.Infoln("My ID:", a.myID)
 
 	// Select SHA256 implementation and report. Affected by the
@@ -429,18 +422,19 @@ func (a *App) Error() error {
 // Stop stops the app and sets its exit status to given reason, unless the app
 // was already stopped before. In any case it returns the effective exit status.
 func (a *App) Stop(stopReason ExitStatus) ExitStatus {
-	select {
-	case <-a.stopped:
-	case <-a.stop:
-	default:
+	return a.stopWithErr(stopReason, nil)
+}
+
+func (a *App) stopWithErr(stopReason ExitStatus, err error) ExitStatus {
+	a.stopOnce.Do(func() {
 		// ExitSuccess is the default value for a.exitStatus. If another status
 		// was already set, ignore the stop reason given as argument to Stop.
 		if a.exitStatus == ExitSuccess {
 			a.exitStatus = stopReason
+			a.err = err
 		}
 		close(a.stop)
-		<-a.stopped
-	}
+	})
 	return a.exitStatus
 }
 

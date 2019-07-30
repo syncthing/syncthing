@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -80,7 +81,6 @@ type service struct {
 	contr                Controller
 	noUpgrade            bool
 	tlsDefaultCommonName string
-	stop                 chan struct{} // signals intentional stop
 	configChanged        chan struct{} // signals intentional listener close due to config change
 	started              chan string   // signals startup complete by sending the listener address, for testing only
 	startedOnce          chan struct{} // the service has started successfully at least once
@@ -340,6 +340,9 @@ func (s *service) serve(stop chan struct{}) {
 		// ReadTimeout must be longer than SyncthingController $scope.refresh
 		// interval to avoid HTTP keepalive/GUI refresh race.
 		ReadTimeout: 15 * time.Second,
+		// Prevent the HTTP server from logging stuff on its own. The things we
+		// care about we log ourselves from the handlers.
+		ErrorLog: log.New(ioutil.Discard, "", 0),
 	}
 
 	l.Infoln("GUI and API listening on", listener.Addr())
@@ -377,6 +380,7 @@ func (s *service) serve(stop chan struct{}) {
 		// Restart due to listen/serve failure
 		l.Warnln("GUI/API:", err, "(restarting)")
 	}
+	srv.Close()
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor

@@ -1077,6 +1077,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				continue
 			}
 			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
+			changed = true
 			m.evLogger.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -1770,6 +1771,7 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 	cfg, ok := m.cfg.Device(remoteID)
 	if !ok {
 		m.cfg.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String())
+		_ = m.cfg.Save() // best effort
 		m.evLogger.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),

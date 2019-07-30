@@ -13,6 +13,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"flag"
 	"io"
 	"io/ioutil"
@@ -52,12 +54,12 @@ func (r *crashReceiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// The final path component should be a SHA256 hash in hex, so 64 hex
 	// characters. We don't care about case on the request but use lower
 	// case internally.
-	base := strings.ToLower(path.Base(req.URL.Path))
-	if len(base) != 64 {
+	reportID := strings.ToLower(path.Base(req.URL.Path))
+	if len(reportID) != 64 {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
-	for _, c := range base {
+	for _, c := range reportID {
 		if c >= 'a' && c <= 'f' {
 			continue
 		}
@@ -68,40 +70,57 @@ func (r *crashReceiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// The location of the report on disk, compressed
+	fullPath := filepath.Join(r.dir, r.dirFor(reportID), reportID) + ".gz"
+
 	switch req.Method {
+	case http.MethodGet:
+		r.serveGet(fullPath, w, req)
 	case http.MethodHead:
-		r.serveHead(base, w, req)
+		r.serveHead(fullPath, w, req)
 	case http.MethodPut:
-		r.servePut(base, w, req)
+		r.servePut(reportID, fullPath, w, req)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
+// serveGet responds to GET requests by serving the uncompressed report.
+func (r *crashReceiver) serveGet(fullPath string, w http.ResponseWriter, _ *http.Request) {
+	fd, err := os.Open(fullPath)
+	if err != nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	defer fd.Close()
+	gr, err := gzip.NewReader(fd)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	_, _ = io.Copy(w, gr) // best effort
+}
+
 // serveHead responds to HEAD requests by checking if the named report
 // already exists in the system.
-func (r *crashReceiver) serveHead(base string, w http.ResponseWriter, _ *http.Request) {
-	path := filepath.Join(r.dirFor(base), base)
-	if _, err := os.Lstat(path); err != nil {
+func (r *crashReceiver) serveHead(fullPath string, w http.ResponseWriter, _ *http.Request) {
+	if _, err := os.Lstat(fullPath); err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
 	}
-	// 200 OK
 }
 
 // servePut accepts and stores the given report.
-func (r *crashReceiver) servePut(base string, w http.ResponseWriter, req *http.Request) {
-	path := filepath.Join(r.dirFor(base), base)
-	fullPath := filepath.Join(r.dir, path)
-
+func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWriter, req *http.Request) {
 	// Ensure the destination directory exists
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-		log.Printf("Creating directory for report %s: %v", base, err)
+		log.Println("Creating directory:", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	// Read at most maxRequestSize of report data.
-	log.Println("Receiving report", base)
+	log.Println("Receiving report", reportID)
 	lr := io.LimitReader(req.Body, maxRequestSize)
 	bs, err := ioutil.ReadAll(lr)
 	if err != nil {
@@ -110,10 +129,16 @@ func (r *crashReceiver) servePut(base string, w http.ResponseWriter, req *http.R
 		return
 	}
 
-	// Create an output file
-	err = ioutil.WriteFile(fullPath, bs, 0644)
+	// Compress the report for storage
+	buf := new(bytes.Buffer)
+	gw := gzip.NewWriter(buf)
+	_, _ = gw.Write(bs) // can't fail
+	gw.Close()
+
+	// Create an output file with the compressed report
+	err = ioutil.WriteFile(fullPath, buf.Bytes(), 0644)
 	if err != nil {
-		log.Printf("Creating file for report %s: %v", base, err)
+		log.Println("Saving report:", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -122,7 +147,7 @@ func (r *crashReceiver) servePut(base string, w http.ResponseWriter, req *http.R
 	if r.dsn != "" {
 		go func() {
 			// There's no need for the client to have to wait for this part.
-			if err := sendReport(r.dsn, path, bs); err != nil {
+			if err := sendReport(r.dsn, reportID, bs); err != nil {
 				log.Println("Failed to send report:", err)
 			}
 		}()

@@ -8,6 +8,7 @@ package db
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -23,7 +24,10 @@ import (
 const (
 	dbMaxOpenFiles = 100
 	dbWriteBuffer  = 16 << 20
-	dbFlushBatch   = dbWriteBuffer / 4 // Some leeway for any leveldb in-memory optimizations
+)
+
+var (
+	dbFlushBatch = debugEnvValue("WriteBuffer", dbWriteBuffer) / 4 // Some leeway for any leveldb in-memory optimizations
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
@@ -47,8 +51,32 @@ type Lowlevel struct {
 // the database is erased and created from scratch.
 func Open(location string) (*Lowlevel, error) {
 	opts := &opt.Options{
-		OpenFilesCacheCapacity: dbMaxOpenFiles,
-		WriteBuffer:            dbWriteBuffer,
+		BlockCacheCapacity:            debugEnvValue("BlockCacheCapacity", 0),
+		BlockCacheEvictRemoved:        debugEnvValue("BlockCacheEvictRemoved", 0) != 0,
+		BlockRestartInterval:          debugEnvValue("BlockRestartInterval", 0),
+		BlockSize:                     debugEnvValue("BlockSize", 0),
+		CompactionExpandLimitFactor:   debugEnvValue("CompactionExpandLimitFactor", 0),
+		CompactionGPOverlapsFactor:    debugEnvValue("CompactionGPOverlapsFactor", 0),
+		CompactionL0Trigger:           debugEnvValue("CompactionL0Trigger", 0),
+		CompactionSourceLimitFactor:   debugEnvValue("CompactionSourceLimitFactor", 0),
+		CompactionTableSize:           debugEnvValue("CompactionTableSize", 0),
+		CompactionTableSizeMultiplier: float64(debugEnvValue("CompactionTableSizeMultiplier", 0)) / 10.0,
+		CompactionTotalSize:           debugEnvValue("CompactionTotalSize", 0),
+		CompactionTotalSizeMultiplier: float64(debugEnvValue("CompactionTotalSizeMultiplier", 0)) / 10.0,
+		DisableBufferPool:             debugEnvValue("DisableBufferPool", 0) != 0,
+		DisableBlockCache:             debugEnvValue("DisableBlockCache", 0) != 0,
+		DisableCompactionBackoff:      debugEnvValue("DisableCompactionBackoff", 0) != 0,
+		DisableLargeBatchTransaction:  debugEnvValue("DisableLargeBatchTransaction", 0) != 0,
+		NoSync:                        debugEnvValue("NoSync", 0) != 0,
+		NoWriteMerge:                  debugEnvValue("NoWriteMerge", 0) != 0,
+		OpenFilesCacheCapacity:        debugEnvValue("OpenFilesCacheCapacity", dbMaxOpenFiles),
+		WriteBuffer:                   debugEnvValue("WriteBuffer", dbWriteBuffer),
+		// The write slowdown and pause can be overridden, but even if they
+		// are not and the compaction trigger is overridden we need to
+		// adjust so that we don't pause writes for L0 compaction before we
+		// even *start* L0 compaction...
+		WriteL0SlowdownTrigger: debugEnvValue("WriteL0SlowdownTrigger", 2*debugEnvValue("CompactionL0Trigger", opt.DefaultCompactionL0Trigger)),
+		WriteL0PauseTrigger:    debugEnvValue("WriteL0SlowdownTrigger", 3*debugEnvValue("CompactionL0Trigger", opt.DefaultCompactionL0Trigger)),
 	}
 	return open(location, opts)
 }
@@ -79,6 +107,12 @@ func open(location string, opts *opt.Options) (*Lowlevel, error) {
 	}
 	if err != nil {
 		return nil, errorSuggestion{err, "is another instance of Syncthing running?"}
+	}
+
+	if debugEnvValue("CompactEverything", 0) != 0 {
+		if err := db.CompactRange(util.Range{}); err != nil {
+			l.Warnln("Compacting database:", err)
+		}
 	}
 	return NewLowlevel(db, location), nil
 }
@@ -303,4 +337,12 @@ func (it *iter) execIfNotClosed(fn func() bool) bool {
 		return false
 	}
 	return fn()
+}
+
+func debugEnvValue(key string, def int) int {
+	v, err := strconv.ParseInt(os.Getenv("STDEBUG_"+key), 10, 63)
+	if err != nil {
+		return def
+	}
+	return int(v)
 }
