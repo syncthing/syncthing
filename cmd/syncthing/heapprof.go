@@ -64,5 +64,4 @@ func saveHeapProfiles(rate int) error {
 
 		time.Sleep(250 * time.Millisecond)
 	}
-	return nil
 }
