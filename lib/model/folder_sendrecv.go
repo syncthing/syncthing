@@ -594,9 +594,9 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 			// Symlinks aren't checked for conflicts.
 
 			file.Version = file.Version.Merge(curFile.Version)
-			err = inWritableDir(func(name string) error {
+			err = f.inWritableDir(func(name string) error {
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
-			}, f.fs, curFile.Name)
+			}, curFile.Name)
 		} else {
 			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
@@ -633,7 +633,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 			return f.fs.Chmod(path, mode|(info.Mode()&retainBits))
 		}
 
-		if err = inWritableDir(mkdir, f.fs, file.Name); err == nil {
+		if err = f.inWritableDir(mkdir, file.Name); err == nil {
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleDir}
 		} else {
 			f.newPullError(file.Name, errors.Wrap(err, "creating directory"))
@@ -748,9 +748,9 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 			// Directories and symlinks aren't checked for conflicts.
 
 			file.Version = file.Version.Merge(curFile.Version)
-			err = inWritableDir(func(name string) error {
+			err = f.inWritableDir(func(name string) error {
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
-			}, f.fs, curFile.Name)
+			}, curFile.Name)
 		} else {
 			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
@@ -769,7 +769,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 		return f.maybeCopyOwner(path)
 	}
 
-	if err = inWritableDir(createLink, f.fs, file.Name); err == nil {
+	if err = f.inWritableDir(createLink, file.Name); err == nil {
 		dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleSymlink}
 	} else {
 		f.newPullError(file.Name, errors.Wrap(err, "symlink create"))
@@ -869,9 +869,9 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 	}
 
 	if f.versioner != nil && !cur.IsSymlink() {
-		err = inWritableDir(f.versioner.Archive, f.fs, file.Name)
+		err = f.inWritableDir(f.versioner.Archive, file.Name)
 	} else {
-		err = inWritableDir(f.fs.Remove, f.fs, file.Name)
+		err = f.inWritableDir(f.fs.Remove, file.Name)
 	}
 
 	if err == nil || fs.IsNotExist(err) {
@@ -971,7 +971,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 		if err == nil {
 			err = osutil.Copy(f.fs, f.fs, source.Name, tempName)
 			if err == nil {
-				err = inWritableDir(f.versioner.Archive, f.fs, source.Name)
+				err = f.inWritableDir(f.versioner.Archive, source.Name)
 			}
 		}
 	} else {
@@ -1078,7 +1078,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 			// Otherwise, discard the file ourselves in order for the
 			// sharedpuller not to panic when it fails to exclusively create a
 			// file which already exists
-			inWritableDir(f.fs.Remove, f.fs, tempName)
+			f.inWritableDir(f.fs.Remove, tempName)
 		}
 	} else {
 		// Copy the blocks, as we don't want to shuffle them on the FileInfo
@@ -1522,9 +1522,9 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 			// Directories and symlinks aren't checked for conflicts.
 
 			file.Version = file.Version.Merge(curFile.Version)
-			err = inWritableDir(func(name string) error {
+			err = f.inWritableDir(func(name string) error {
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
-			}, f.fs, curFile.Name)
+			}, curFile.Name)
 		} else {
 			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
@@ -1825,10 +1825,10 @@ func (f *sendReceiveFolder) deleteItemOnDisk(item protocol.FileInfo, scanChan ch
 		// an error.
 		// Symlinks aren't archived.
 
-		return inWritableDir(f.versioner.Archive, f.fs, item.Name)
+		return f.inWritableDir(f.versioner.Archive, item.Name)
 	}
 
-	return inWritableDir(f.fs.Remove, f.fs, item.Name)
+	return f.inWritableDir(f.fs.Remove, item.Name)
 }
 
 // deleteDirOnDisk attempts to delete a directory. It checks for files/dirs inside
@@ -1879,7 +1879,7 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, scanChan chan<- string) 
 		f.fs.RemoveAll(del)
 	}
 
-	err := inWritableDir(f.fs.Remove, f.fs, dir)
+	err := f.inWritableDir(f.fs.Remove, dir)
 	if err == nil || fs.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
 		return nil
@@ -1961,6 +1961,10 @@ func (f *sendReceiveFolder) maybeCopyOwner(path string) error {
 		return errors.Wrap(err, "copy owner from parent")
 	}
 	return nil
+}
+
+func (f *sendReceiveFolder) inWritableDir(fn func(string) error, path string) error {
+	return inWritableDir(fn, f.fs, path, f.IgnorePerms)
 }
 
 // A []FileError is sent as part of an event and will be JSON serialized.

@@ -35,35 +35,35 @@ func TestInWriteableDir(t *testing.T) {
 
 	// These should succeed
 
-	err := inWritableDir(create, fs, "testdata/file")
+	err := inWritableDir(create, fs, "testdata/file", false)
 	if err != nil {
 		t.Error("testdata/file:", err)
 	}
-	err = inWritableDir(create, fs, "testdata/rw/foo")
+	err = inWritableDir(create, fs, "testdata/rw/foo", false)
 	if err != nil {
 		t.Error("testdata/rw/foo:", err)
 	}
-	err = inWritableDir(fs.Remove, fs, "testdata/rw/foo")
+	err = inWritableDir(fs.Remove, fs, "testdata/rw/foo", false)
 	if err != nil {
 		t.Error("testdata/rw/foo:", err)
 	}
 
-	err = inWritableDir(create, fs, "testdata/ro/foo")
+	err = inWritableDir(create, fs, "testdata/ro/foo", false)
 	if err != nil {
 		t.Error("testdata/ro/foo:", err)
 	}
-	err = inWritableDir(fs.Remove, fs, "testdata/ro/foo")
+	err = inWritableDir(fs.Remove, fs, "testdata/ro/foo", false)
 	if err != nil {
 		t.Error("testdata/ro/foo:", err)
 	}
 
 	// These should not
 
-	err = inWritableDir(create, fs, "testdata/nonexistent/foo")
+	err = inWritableDir(create, fs, "testdata/nonexistent/foo", false)
 	if err == nil {
 		t.Error("testdata/nonexistent/foo returned nil error")
 	}
-	err = inWritableDir(create, fs, "testdata/file/foo")
+	err = inWritableDir(create, fs, "testdata/file/foo", false)
 	if err == nil {
 		t.Error("testdata/file/foo returned nil error")
 	}
@@ -100,7 +100,7 @@ func TestOSWindowsRemove(t *testing.T) {
 	fs.Chmod("testdata/windows/ro/readonly", 0500)
 
 	for _, path := range []string{"testdata/windows/ro/readonly", "testdata/windows/ro", "testdata/windows"} {
-		err := inWritableDir(fs.Remove, fs, path)
+		err := inWritableDir(fs.Remove, fs, path, false)
 		if err != nil {
 			t.Errorf("Unexpected error %s: %s", path, err)
 		}
@@ -183,7 +183,7 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 	}
 
 	for _, path := range []string{"testdata/windows/ro/readonly", "testdata/windows/ro", "testdata/windows"} {
-		err := inWritableDir(rename, fs, path)
+		err := inWritableDir(rename, fs, path, false)
 		if err != nil {
 			t.Errorf("Unexpected error %s: %s", path, err)
 		}
