@@ -42,11 +42,11 @@ type relayListener struct {
 
 func (t *relayListener) serve(stop chan struct{}) error {
 	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, nil, 10*time.Second)
-	invitations := clnt.Invitations()
 	if err != nil {
 		l.Infoln("Listen (BEP/relay):", err)
 		return err
 	}
+	invitations := clnt.Invitations()
 
 	t.mut.Lock()
 	t.client = clnt
