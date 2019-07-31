@@ -66,7 +66,7 @@ func (d *deadlockDetector) Watch(name string, mut sync.Locker) {
 
 // inWritableDir calls fn(path), while making sure that the directory
 // containing `path` is writable for the duration of the call.
-func inWritableDir(fn func(string) error, targetFs fs.Filesystem, path string) error {
+func inWritableDir(fn func(string) error, targetFs fs.Filesystem, path string, ignorePerms bool) error {
 	dir := filepath.Dir(path)
 	info, err := targetFs.Stat(dir)
 	if err != nil {
@@ -86,8 +86,12 @@ func inWritableDir(fn func(string) error, targetFs fs.Filesystem, path string) e
 			// succeeded or failed on its own so returning an error to the
 			// caller is inappropriate.)
 			defer func() {
-				if err := targetFs.Chmod(dir, info.Mode()); err != nil && !fs.IsNotExist(err) {
-					l.Warnln("Failed to restore directory permissions after gaining write access:", err)
+				if err := targetFs.Chmod(dir, info.Mode()&fs.ModePerm); err != nil && !fs.IsNotExist(err) {
+					logFn := l.Warnln
+					if ignorePerms {
+						logFn = l.Debugln
+					}
+					logFn("Failed to restore directory permissions after gaining write access:", err)
 				}
 			}()
 		}

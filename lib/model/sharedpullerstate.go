@@ -8,7 +8,6 @@ package model
 
 import (
 	"io"
-	"path/filepath"
 	"time"
 
 	"github.com/pkg/errors"
@@ -92,25 +91,16 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		return lockedWriterAt{&s.mut, s.fd}, nil
 	}
 
-	// Ensure that the parent directory is writable. This is
-	// osutil.InWritableDir except we need to do more stuff so we duplicate it
-	// here.
-	dir := filepath.Dir(s.tempName)
-	if info, err := s.fs.Stat(dir); err != nil {
-		s.failLocked(errors.Wrap(err, "ensuring parent dir is writeable"))
+	if err := inWritableDir(s.tempFileInWritableDir, s.fs, s.tempName, s.ignorePerms); err != nil {
+		s.failLocked(err)
 		return nil, err
-	} else if info.Mode()&0200 == 0 {
-		err := s.fs.Chmod(dir, 0755)
-		if !s.ignorePerms && err == nil {
-			defer func() {
-				err := s.fs.Chmod(dir, info.Mode()&fs.ModePerm)
-				if err != nil {
-					panic(err)
-				}
-			}()
-		}
 	}
 
+	return lockedWriterAt{&s.mut, s.fd}, nil
+}
+
+// tempFileInWritableDir should only be called from tempFile.
+func (s *sharedPullerState) tempFileInWritableDir(_ string) error {
 	// The permissions to use for the temporary file should be those of the
 	// final file, except we need user read & write at minimum. The
 	// permissions will be set to the final value later, but in the meantime
@@ -140,14 +130,12 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		// what the umask dictates.
 
 		if err := s.fs.Chmod(s.tempName, mode); err != nil {
-			s.failLocked(errors.Wrap(err, "setting perms on temp file"))
-			return nil, err
+			return errors.Wrap(err, "setting perms on temp file")
 		}
 	}
 	fd, err := s.fs.OpenFile(s.tempName, flags, mode)
 	if err != nil {
-		s.failLocked(errors.Wrap(err, "opening temp file"))
-		return nil, err
+		return errors.Wrap(err, "opening temp file")
 	}
 
 	// Hide the temporary file
@@ -177,16 +165,14 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 					l.Debugln("failed to remove temporary file:", remErr)
 				}
 
-				s.failLocked(err)
-				return nil, err
+				return err
 			}
 		}
 	}
 
 	// Same fd will be used by all writers
 	s.fd = fd
-
-	return lockedWriterAt{&s.mut, s.fd}, nil
+	return nil
 }
 
 // fail sets the error on the puller state compose of error, and marks the

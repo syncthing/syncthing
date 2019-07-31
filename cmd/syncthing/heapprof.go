@@ -23,11 +23,15 @@ func init() {
 			rate = i
 		}
 		l.Debugln("Starting heap profiling")
-		go saveHeapProfiles(rate)
+		go func() {
+			err := saveHeapProfiles(rate) // Only returns on error
+			l.Warnln("Heap profiler failed:", err)
+			panic("Heap profiler failed")
+		}()
 	}
 }
 
-func saveHeapProfiles(rate int) {
+func saveHeapProfiles(rate int) error {
 	runtime.MemProfileRate = rate
 	var memstats, prevMemstats runtime.MemStats
 
@@ -38,21 +42,21 @@ func saveHeapProfiles(rate int) {
 		if memstats.HeapInuse > prevMemstats.HeapInuse {
 			fd, err := os.Create(name + ".tmp")
 			if err != nil {
-				panic(err)
+				return err
 			}
 			err = pprof.WriteHeapProfile(fd)
 			if err != nil {
-				panic(err)
+				return err
 			}
 			err = fd.Close()
 			if err != nil {
-				panic(err)
+				return err
 			}
 
 			os.Remove(name) // Error deliberately ignored
 			err = os.Rename(name+".tmp", name)
 			if err != nil {
-				panic(err)
+				return err
 			}
 
 			prevMemstats = memstats
