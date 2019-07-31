@@ -594,7 +594,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		appOpts.DeadlockTimeoutS = secs
 	}
 
-	app := syncthing.New(cfg, ldb, cert, appOpts)
+	evLogger := syncthing.NewEventsLogger()
+
+	app := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
 
 	setupSignalHandling(app)
 
@@ -635,15 +637,15 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// not, as otherwise they cannot step off the candidate channel.
 	}
 
-	app.Start()
-
 	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
 		if runtimeOptions.NoUpgrade {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		} else {
-			go autoUpgrade(cfg, app)
+			go autoUpgrade(cfg, app, evLogger)
 		}
 	}
+
+	app.Start()
 
 	cleanConfigDirectory()
 
@@ -774,22 +776,12 @@ func standbyMonitor(app *syncthing.App) {
 	}
 }
 
-func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
+func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger *events.Logger) {
 	timer := time.NewTimer(0)
-	var evChan <-chan events.Event
-	var sub *events.Subscription
-	evLogger, err := app.EventLogger()
-	if err != nil {
-		// Shouldn't happen as app has been started already and it's unlikely
-		// that it was stopped already by now.
-		l.Infoln("Error trying to subscribe to events for auto upgrades:", err)
-	} else {
-		sub = evLogger.Subscribe(events.DeviceConnected)
-		evChan = sub.C()
-	}
+	sub := evLogger.Subscribe(events.DeviceConnected)
 	for {
 		select {
-		case event := <-evChan:
+		case event := <-sub.C():
 			data, ok := event.Data.(map[string]string)
 			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], build.Version) != upgrade.Newer {
 				continue
@@ -808,9 +800,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
 
 		rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
-			if sub != nil {
-				evLogger.Unsubscribe(sub)
-			}
+			evLogger.Unsubscribe(sub)
 			return
 		}
 		if err != nil {
@@ -834,9 +824,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
 			timer.Reset(checkInterval)
 			continue
 		}
-		if sub != nil {
-			evLogger.Unsubscribe(sub)
-		}
+		evLogger.Unsubscribe(sub)
 		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
 		time.Sleep(time.Minute)
 		app.Stop(syncthing.ExitUpgrade)

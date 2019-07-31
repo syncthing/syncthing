@@ -2618,7 +2618,6 @@ func (m *model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folde
 func (m *model) saveConfig() {
 	if err := m.cfg.Save(); err != nil {
 		l.Warnln("Failed to save config", err)
-		return
 	}
 	m.evLogger.Log(events.ConfigSaved, m.cfg)
 }

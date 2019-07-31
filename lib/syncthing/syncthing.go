@@ -86,15 +86,16 @@ type App struct {
 	stopped     chan struct{}
 }
 
-func New(cfg config.Wrapper, ll *db.Lowlevel, cert tls.Certificate, opts Options) *App {
+func New(cfg config.Wrapper, ll *db.Lowlevel, evLogger *events.Logger, cert tls.Certificate, opts Options) *App {
 	return &App{
-		cfg:     cfg,
-		ll:      ll,
-		opts:    opts,
-		cert:    cert,
-		started: make(chan struct{}),
-		stop:    make(chan struct{}),
-		stopped: make(chan struct{}),
+		cfg:      cfg,
+		ll:       ll,
+		evLogger: evLogger,
+		opts:     opts,
+		cert:     cert,
+		started:  make(chan struct{}),
+		stop:     make(chan struct{}),
+		stopped:  make(chan struct{}),
 	}
 }
 
@@ -129,7 +130,6 @@ func (a *App) startup() error {
 	})
 	a.mainService.ServeBackground()
 
-	a.evLogger = events.NewLogger()
 	a.mainService.Add(a.evLogger)
 
 	if a.opts.AuditWriter != nil {

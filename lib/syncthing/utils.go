@@ -17,6 +17,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -123,4 +124,8 @@ func copyFile(src, dst string) error {
 
 func OpenGoleveldb(path string) (*db.Lowlevel, error) {
 	return db.Open(path)
+}
+
+func NewEventsLogger() *events.Logger {
+	return events.NewLogger()
 }
