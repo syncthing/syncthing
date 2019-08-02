@@ -47,6 +47,7 @@ import (
 const (
 	tlsDefaultCommonName   = "syncthing"
 	deviceCertLifetimeDays = 20 * 365
+	sigTerm                = syscall.Signal(15)
 )
 
 const (
@@ -225,7 +226,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.Verbose, "verbose", false, "Print verbose log output")
 	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
-	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
+	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout).")
 	flag.IntVar(&options.logMaxSize, "log-max-size", options.logMaxSize, "Maximum size of any file (zero to disable log rotation).")
 	flag.IntVar(&options.logMaxFiles, "log-max-old-files", options.logMaxFiles, "Number of old files to keep (zero to keep only current).")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
@@ -258,15 +259,6 @@ func main() {
 	if options.guiAPIKey != "" {
 		// The config picks this up from the environment.
 		os.Setenv("STGUIAPIKEY", options.guiAPIKey)
-	}
-
-	// Check for options which are not compatible with each other. We have
-	// to check logfile before it's set to the default below - we only want
-	// to complain if they set -logfile explicitly, not if it's set to its
-	// default location
-	if options.noRestart && (options.logFile != "" && options.logFile != "-") {
-		l.Warnln("-logfile may not be used with -no-restart or STNORESTART")
-		os.Exit(syncthing.ExitError.AsInt())
 	}
 
 	if options.hideConsole {
@@ -381,7 +373,7 @@ func main() {
 		return
 	}
 
-	if innerProcess || options.noRestart {
+	if innerProcess {
 		syncthingMain(options)
 	} else {
 		monitorMain(options)
@@ -677,7 +669,6 @@ func setupSignalHandling(app *syncthing.App) {
 	// Exit with "success" code (no restart) on INT/TERM
 
 	stopSign := make(chan os.Signal, 1)
-	sigTerm := syscall.Signal(15)
 	signal.Notify(stopSign, os.Interrupt, sigTerm)
 	go func() {
 		<-stopSign
