@@ -90,7 +90,7 @@ func CheckFreeSpace(req Size, usage fs.Usage) error {
 			return fmt.Errorf("%.1f %% < %v", freePct, req)
 		}
 	} else if float64(usage.Free) < val {
-		return fmt.Errorf("%vB < %v", formatSI(usage.Free), req)
+		return fmt.Errorf("%sB < %v", formatSI(usage.Free), req)
 	}
 
 	return nil
