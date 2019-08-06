@@ -892,7 +892,7 @@ func (s *service) dialParallel(deviceID protocol.DeviceID, dialTargets []dialTar
 	return internalConn{}, false
 }
 
-func (s *service) validateIdentity(c internalConn, expectedId protocol.DeviceID) error {
+func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID) error {
 	cs := c.ConnectionState()
 
 	// We should have received exactly one certificate from the other
@@ -902,7 +902,7 @@ func (s *service) validateIdentity(c internalConn, expectedId protocol.DeviceID)
 	if cl := len(certs); cl != 1 {
 		l.Infof("Got peer certificate list of length %d != 1 from peer at %s; protocol error", cl, c)
 		c.Close()
-		return fmt.Errorf("expected 1 certificate, got %s", cl)
+		return fmt.Errorf("expected 1 certificate, got %d", cl)
 	}
 	remoteCert := certs[0]
 	remoteID := protocol.NewDeviceID(remoteCert.Raw)
@@ -917,9 +917,9 @@ func (s *service) validateIdentity(c internalConn, expectedId protocol.DeviceID)
 	}
 
 	// We should see the expected device ID
-	if !remoteID.Equals(expectedId) {
+	if !remoteID.Equals(expectedID) {
 		c.Close()
-		return fmt.Errorf("unexpected device id, expected %s got %s", expectedId, remoteID)
+		return fmt.Errorf("unexpected device id, expected %s got %s", expectedID, remoteID)
 	}
 
 	return nil
