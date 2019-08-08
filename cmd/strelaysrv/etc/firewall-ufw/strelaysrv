@@ -1,0 +1,9 @@
+[strelaysrv]
+title=Syncthing relay server
+description=Proxies traffic of syncthing client behind firewalls
+ports=22067/tcp
+
+[strelaysrv-metrics]
+title=Syncthing relay metrics
+description=Provides metrics about the syncthing relay server
+ports=22070/tcp

@@ -1,0 +1,4 @@
+[stdiscosrv]
+title=Syncthing discovery server
+description=Lets syncthing clients discover each other
+ports=8443/tcp

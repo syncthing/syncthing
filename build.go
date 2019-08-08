@@ -57,11 +57,13 @@ type target struct {
 	name              string
 	debname           string
 	debdeps           []string
+	debpre            string
 	debpost           string
 	description       string
 	buildPkg          string
 	binaryName        string
 	archiveFiles      []archiveFile
+	systemdServices   []string
 	installationFiles []archiveFile
 	tags              []string
 }
@@ -128,6 +130,7 @@ var targets = map[string]target{
 		name:        "stdiscosrv",
 		debname:     "syncthing-discosrv",
 		debdeps:     []string{"libc6"},
+		debpre:      "cmd/stdiscosrv/scripts/preinst",
 		description: "Syncthing Discovery Server",
 		buildPkg:    "github.com/syncthing/syncthing/cmd/stdiscosrv",
 		binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
@@ -137,12 +140,17 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
+		systemdServices: []string{
+			"cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service",
+		},
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/syncthing-discosrv/README.txt", perm: 0644},
 			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-discosrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-discosrv/AUTHORS.txt", perm: 0644},
 			{src: "man/stdiscosrv.1", dst: "deb/usr/share/man/man1/stdiscosrv.1", perm: 0644},
+			{src: "cmd/stdiscosrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-discosrv", perm: 0644},
+			{src: "cmd/stdiscosrv/etc/firewall-ufw/stdiscosrv", dst: "deb/etc/ufw/applications.d/stdiscosrv", perm: 0644},
 		},
 		tags: []string{"purego"},
 	},
@@ -150,6 +158,7 @@ var targets = map[string]target{
 		name:        "strelaysrv",
 		debname:     "syncthing-relaysrv",
 		debdeps:     []string{"libc6"},
+		debpre:      "cmd/strelaysrv/scripts/preinst",
 		description: "Syncthing Relay Server",
 		buildPkg:    "github.com/syncthing/syncthing/cmd/strelaysrv",
 		binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
@@ -160,6 +169,9 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
+		systemdServices: []string{
+			"cmd/strelaysrv/etc/linux-systemd/strelaysrv.service",
+		},
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/syncthing-relaysrv/README.txt", perm: 0644},
@@ -167,6 +179,8 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-relaysrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaysrv/AUTHORS.txt", perm: 0644},
 			{src: "man/strelaysrv.1", dst: "deb/usr/share/man/man1/strelaysrv.1", perm: 0644},
+			{src: "cmd/strelaysrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-relaysrv", perm: 0644},
+			{src: "cmd/strelaysrv/etc/firewall-ufw/strelaysrv", dst: "deb/etc/ufw/applications.d/strelaysrv", perm: 0644},
 		},
 	},
 	"strelaypoolsrv": {
@@ -555,8 +569,14 @@ func buildDeb(target target) {
 	for _, dep := range target.debdeps {
 		args = append(args, "-d", dep)
 	}
+	for _, service := range target.systemdServices {
+		args = append(args, "--deb-systemd", service)
+	}
 	if target.debpost != "" {
 		args = append(args, "--after-upgrade", target.debpost)
+	}
+	if target.debpre != "" {
+		args = append(args, "--before-install", target.debpre)
 	}
 	runPrint("fpm", args...)
 }
