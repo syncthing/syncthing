@@ -1,17 +1,25 @@
 [Unit]
-Description=Syncthing relay server
+Description=Syncthing Relay Server
 After=network.target
+Documentation=man:strelaysrv(1)
 
 [Service]
-User=strelaysrv
-Group=strelaysrv
-ExecStart=/usr/bin/strelaysrv
-WorkingDirectory=/var/lib/strelaysrv
+WorkingDirectory=/var/lib/syncthing-relaysrv
+EnvironmentFile=/etc/default/syncthing-relaysrv
+ExecStart=/usr/bin/strelaysrv -nat=${NAT} $RELAYSRV_OPTS
 
-PrivateTmp=true
-ProtectSystem=full
-ProtectHome=true
+# Hardening
+User=syncthing-relaysrv
+Group=syncthing
+ProtectSystem=strict
+ReadWritePaths=/var/lib/syncthing-relaysrv
 NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
 
 [Install]
 WantedBy=multi-user.target
+Alias=syncthing-relaysrv.service

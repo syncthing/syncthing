@@ -1,0 +1,3 @@
+# Default settings for syncthing-relaysrv (strelaysrv).
+## Add Options here:
+DISCOSRV_OPTS=

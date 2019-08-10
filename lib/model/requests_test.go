@@ -40,7 +40,7 @@ func TestRequestSimple(t *testing.T) {
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		select {
 		case <-done:
-			t.Fatalf("More than one index update sent")
+			t.Error("More than one index update sent")
 		default:
 		}
 		for _, f := range fs {
@@ -82,7 +82,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		select {
 		case <-done:
-			t.Fatalf("More than one index update sent")
+			t.Error("More than one index update sent")
 		default:
 		}
 		for _, f := range fs {
@@ -188,7 +188,8 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 				if f.IsInvalid() {
 					goodIdx <- struct{}{}
 				} else {
-					t.Fatal("Received index with non-invalid temporary file")
+					t.Error("Received index with non-invalid temporary file")
+					close(goodIdx)
 				}
 				return
 			}
@@ -366,13 +367,12 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	expected := map[string]struct{}{ign: {}, ignExisting: {}}
 	// The indexes will normally arrive in one update, but it is possible
 	// that they arrive in separate ones.
-	secondIndex := false
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
-		secondIndex = true
 		for _, f := range fs {
 			if _, ok := expected[f.Name]; !ok {
-				t.Fatalf("Unexpected file %v was updated in index", f.Name)
+				t.Errorf("Unexpected file %v was updated in index", f.Name)
+				continue
 			}
 			if f.IsInvalid() {
 				t.Errorf("File %v is still marked as invalid", f.Name)
@@ -394,8 +394,6 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 		}
 		if len(expected) == 0 {
 			close(done)
-		} else if secondIndex {
-			t.Fatal("Didn't receive index updates for all existing files, missing", expected)
 		}
 	}
 	// Make sure pulling doesn't interfere, as index updates are racy and
@@ -411,7 +409,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 
 	select {
 	case <-time.After(5 * time.Second):
-		t.Fatalf("timed out before index was received")
+		t.Fatal("timed out before receiving index updates for all existing files, missing", expected)
 	case <-done:
 	}
 }
@@ -420,18 +418,22 @@ func TestIssue4841(t *testing.T) {
 	m, fc, fcfg := setupModelWithConnection()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
-	received := make(chan protocol.FileInfo)
+	received := make(chan []protocol.FileInfo)
 	fc.mut.Lock()
-	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+	fc.indexFn = func(_ string, fs []protocol.FileInfo) {
+		received <- fs
+	}
+	fc.mut.Unlock()
+	checkReceived := func(fs []protocol.FileInfo) protocol.FileInfo {
+		t.Helper()
 		if len(fs) != 1 {
 			t.Fatalf("Sent index with %d files, should be 1", len(fs))
 		}
 		if fs[0].Name != "foo" {
 			t.Fatalf(`Sent index with file %v, should be "foo"`, fs[0].Name)
 		}
-		received <- fs[0]
+		return fs[0]
 	}
-	fc.mut.Unlock()
 
 	// Setup file from remote that was ignored locally
 	folder := m.folderRunners[defaultFolderConfig.ID].(*sendReceiveFolder)
@@ -441,14 +443,16 @@ func TestIssue4841(t *testing.T) {
 		LocalFlags: protocol.FlagLocalIgnored,
 		Version:    protocol.Vector{}.Update(device1.Short()),
 	}})
-	<-received
+
+	checkReceived(<-received)
 
 	// Scan without ignore patterns with "foo" not existing locally
 	if err := m.ScanFolder("default"); err != nil {
 		t.Fatal("Failed scanning:", err)
 	}
 
-	f := <-received
+	f := checkReceived(<-received)
+
 	if expected := (protocol.Vector{}.Update(myID.Short())); !f.Version.Equal(expected) {
 		t.Errorf("Got Version == %v, expected %v", f.Version, expected)
 	}
@@ -463,25 +467,29 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 
 	must(t, ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777))
 
-	received := make(chan protocol.FileInfo)
+	received := make(chan []protocol.FileInfo)
 	fc.mut.Lock()
-	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+	fc.indexFn = func(_ string, fs []protocol.FileInfo) {
+		received <- fs
+	}
+	fc.mut.Unlock()
+	checkReceived := func(fs []protocol.FileInfo) protocol.FileInfo {
+		t.Helper()
 		if len(fs) != 1 {
 			t.Fatalf("Sent index with %d files, should be 1", len(fs))
 		}
 		if fs[0].Name != "foo" {
 			t.Fatalf(`Sent index with file %v, should be "foo"`, fs[0].Name)
 		}
-		received <- fs[0]
+		return fs[0]
 	}
-	fc.mut.Unlock()
 
 	// Scan without ignore patterns with "foo" not existing locally
 	if err := m.ScanFolder("default"); err != nil {
 		t.Fatal("Failed scanning:", err)
 	}
 
-	f := <-received
+	f := checkReceived(<-received)
 	if f.Blocks[0].WeakHash != 103547413 {
 		t.Fatalf("unexpected weak hash: %d != 103547413", f.Blocks[0].WeakHash)
 	}
@@ -506,7 +514,8 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 	}
 
 	select {
-	case f := <-received:
+	case fs := <-received:
+		f := checkReceived(fs)
 		if f.Blocks[0].WeakHash != 41943361 {
 			t.Fatalf("unexpected weak hash: %d != 41943361", f.Blocks[0].WeakHash)
 		}
@@ -598,14 +607,24 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	m, fc, fcfg := setupModelWithConnection()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
-	done := make(chan struct{})
+	received := make(chan []protocol.FileInfo)
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		select {
-		case <-done:
-			t.Fatalf("More than one index update sent")
+		case <-received:
+			t.Error("More than one index update sent")
 		default:
 		}
+		received <- fs
+	}
+	fc.mut.Unlock()
+
+	fc.addFile("link", 0644, protocol.FileInfoTypeSymlink, nil)
+	fc.sendIndexUpdate()
+
+	select {
+	case fs := <-received:
+		close(received)
 		// expected first index
 		if len(fs) != 1 {
 			t.Fatalf("Expected just one file in index, got %v", fs)
@@ -617,15 +636,6 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		if !f.IsInvalid() {
 			t.Errorf(`File info was not marked as invalid`)
 		}
-		close(done)
-	}
-	fc.mut.Unlock()
-
-	fc.addFile("link", 0644, protocol.FileInfoTypeSymlink, nil)
-	fc.sendIndexUpdate()
-
-	select {
-	case <-done:
 	case <-time.After(time.Second):
 		t.Fatalf("timed out before pull was finished")
 	}
@@ -667,18 +677,15 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
-	done := make(chan struct{})
+	received := make(chan []protocol.FileInfo)
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		select {
-		case <-done:
-			t.Fatalf("More than one index update sent")
+		case <-received:
+			t.Error("More than one index update sent")
 		default:
 		}
-		if len(fs) != 2 {
-			t.Fatalf("Received index with %v indexes instead of 2", len(fs))
-		}
-		close(done)
+		received <- fs
 	}
 	fc.mut.Unlock()
 
@@ -694,7 +701,11 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	}
 	fc.sendIndexUpdate()
 	select {
-	case <-done:
+	case fs := <-received:
+		close(received)
+		if len(fs) != 2 {
+			t.Fatalf("Received index with %v indexes instead of 2", len(fs))
+		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out")
 	}
@@ -706,12 +717,13 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	var gotA, gotB, gotConfl bool
 	bIntermediateVersion := protocol.Vector{}.Update(fc.id.Short()).Update(myID.Short())
 	bFinalVersion := bIntermediateVersion.Copy().Update(fc.id.Short())
-	done = make(chan struct{})
+	done := make(chan struct{})
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		select {
 		case <-done:
-			t.Fatalf("Received more index updates than expected")
+			t.Error("Received more index updates than expected")
+			return
 		default:
 		}
 		for _, f := range fs {
@@ -901,7 +913,7 @@ func TestRequestDeleteChanged(t *testing.T) {
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		select {
 		case <-done:
-			t.Fatalf("More than one index update sent")
+			t.Error("More than one index update sent")
 		default:
 		}
 		close(done)
@@ -924,7 +936,7 @@ func TestRequestDeleteChanged(t *testing.T) {
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		select {
 		case <-done:
-			t.Fatalf("More than one index update sent")
+			t.Error("More than one index update sent")
 		default:
 		}
 		close(done)

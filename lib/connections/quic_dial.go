@@ -36,7 +36,7 @@ type quicDialer struct {
 	tlsCfg *tls.Config
 }
 
-func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, error) {
+func (d *quicDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri, config.DefaultQUICPort)
 
 	addr, err := net.ResolveUDPAddr("udp", uri.Host)

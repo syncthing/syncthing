@@ -36,7 +36,7 @@ require (
 	github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2
 	github.com/syndtr/goleveldb v1.0.1-0.20190318030020-c3a204f8e965
 	github.com/thejerf/suture v3.0.2+incompatible
-	github.com/urfave/cli v1.20.0
+	github.com/urfave/cli v1.21.0
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8
 	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980
@@ -46,7 +46,6 @@ require (
 	gopkg.in/asn1-ber.v1 v1.0.0-20170511165959-379148ca0225 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/ldap.v2 v2.5.1
-	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
 
 go 1.12

@@ -1279,6 +1279,13 @@ angular.module('syncthing.core')
                     $scope.protocolChanged = true;
                 }
 
+                // Parse strings to arrays before copying over
+                ['listenAddresses', 'globalAnnounceServers'].forEach(function (key) {
+                    $scope.tmpOptions[key] = $scope.tmpOptions["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
+                        return x.trim();
+                    });
+                });
+
                 // Apply new settings locally
                 $scope.thisDeviceIn($scope.tmpDevices).name = $scope.tmpOptions.deviceName;
                 $scope.config.options = angular.copy($scope.tmpOptions);
@@ -1291,12 +1298,6 @@ angular.module('syncthing.core')
                 // modified (even though we just saved) unless we update
                 // here as well...
                 $scope.devices = $scope.config.devices;
-
-                ['listenAddresses', 'globalAnnounceServers'].forEach(function (key) {
-                    $scope.config.options[key] = $scope.config.options["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
-                        return x.trim();
-                    });
-                });
 
                 $scope.saveConfig(function () {
                     if (themeChanged) {
