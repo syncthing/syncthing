@@ -505,24 +505,24 @@ func NewNoopLogger() Logger {
 	return &noopLogger{}
 }
 
-func (_ *noopLogger) Serve() {}
+func (*noopLogger) Serve() {}
 
-func (_ *noopLogger) Stop() {}
+func (*noopLogger) Stop() {}
 
-func (_ *noopLogger) Log(t EventType, data interface{}) {}
+func (*noopLogger) Log(t EventType, data interface{}) {}
 
-func (_ *noopLogger) Subscribe(mask EventType) Subscription {
+func (*noopLogger) Subscribe(mask EventType) Subscription {
 	return &noopSubscription{}
 }
 
-func (_ *noopLogger) Unsubscribe(s Subscription) {}
+func (*noopLogger) Unsubscribe(s Subscription) {}
 
 type noopSubscription struct{}
 
-func (_ *noopSubscription) C() <-chan Event {
+func (*noopSubscription) C() <-chan Event {
 	return nil
 }
 
-func (_ *noopSubscription) Poll(timeout time.Duration) (Event, error) {
+func (*noopSubscription) Poll(timeout time.Duration) (Event, error) {
 	return Event{}, errNoop
 }
