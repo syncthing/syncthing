@@ -108,7 +108,7 @@ type sendReceiveFolder struct {
 	pullErrorsMut sync.Mutex
 }
 
-func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger *events.Logger) service {
+func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger) service {
 	f := &sendReceiveFolder{
 		folder:        newFolder(model, fset, ignores, cfg, evLogger),
 		fs:            fs,

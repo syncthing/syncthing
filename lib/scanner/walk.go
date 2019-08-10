@@ -57,7 +57,7 @@ type Config struct {
 	// Modification time is to be considered unchanged if the difference is lower.
 	ModTimeWindow time.Duration
 	// Event logger to which the scan progress events are sent
-	EvLogger *events.Logger
+	EvLogger events.Logger
 }
 
 type CurrentFiler interface {

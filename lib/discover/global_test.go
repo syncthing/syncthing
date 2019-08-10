@@ -20,12 +20,6 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )
 
-var testEvLogger = events.NewLogger()
-
-func init() {
-	go testEvLogger.Serve()
-}
-
 func TestParseOptions(t *testing.T) {
 	testcases := []struct {
 		in   string
@@ -61,15 +55,15 @@ func TestGlobalOverHTTP(t *testing.T) {
 	// is only allowed in combination with the "insecure" and "noannounce"
 	// parameters.
 
-	if _, err := NewGlobal("http://192.0.2.42/", tls.Certificate{}, nil, testEvLogger); err == nil {
+	if _, err := NewGlobal("http://192.0.2.42/", tls.Certificate{}, nil, events.NewNoopLogger()); err == nil {
 		t.Fatal("http is not allowed without insecure and noannounce")
 	}
 
-	if _, err := NewGlobal("http://192.0.2.42/?insecure", tls.Certificate{}, nil, testEvLogger); err == nil {
+	if _, err := NewGlobal("http://192.0.2.42/?insecure", tls.Certificate{}, nil, events.NewNoopLogger()); err == nil {
 		t.Fatal("http is not allowed without noannounce")
 	}
 
-	if _, err := NewGlobal("http://192.0.2.42/?noannounce", tls.Certificate{}, nil, testEvLogger); err == nil {
+	if _, err := NewGlobal("http://192.0.2.42/?noannounce", tls.Certificate{}, nil, events.NewNoopLogger()); err == nil {
 		t.Fatal("http is not allowed without insecure")
 	}
 
@@ -200,7 +194,7 @@ func TestGlobalAnnounce(t *testing.T) {
 	go func() { _ = http.Serve(list, mux) }()
 
 	url := "https://" + list.Addr().String() + "?insecure"
-	disco, err := NewGlobal(url, cert, new(fakeAddressLister), testEvLogger)
+	disco, err := NewGlobal(url, cert, new(fakeAddressLister), events.NewNoopLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +218,7 @@ func TestGlobalAnnounce(t *testing.T) {
 }
 
 func testLookup(url string) ([]string, error) {
-	disco, err := NewGlobal(url, tls.Certificate{}, nil, testEvLogger)
+	disco, err := NewGlobal(url, tls.Certificate{}, nil, events.NewNoopLogger())
 	if err != nil {
 		return nil, err
 	}

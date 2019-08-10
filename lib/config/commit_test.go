@@ -44,7 +44,7 @@ func (validationError) String() string {
 func TestReplaceCommit(t *testing.T) {
 	t.Skip("broken, fails randomly, #3834")
 
-	w := Wrap("/dev/null", Configuration{Version: 0})
+	w := wrap("/dev/null", Configuration{Version: 0})
 	if w.RawCopy().Version != 0 {
 		t.Fatal("Config incorrect")
 	}

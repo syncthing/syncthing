@@ -29,7 +29,7 @@ type ProgressEmitter struct {
 	connections        map[protocol.DeviceID]protocol.Connection
 	foldersByConns     map[protocol.DeviceID][]string
 	disabled           bool
-	evLogger           *events.Logger
+	evLogger           events.Logger
 	mut                sync.Mutex
 
 	timer *time.Timer
@@ -37,7 +37,7 @@ type ProgressEmitter struct {
 
 // NewProgressEmitter creates a new progress emitter which emits
 // DownloadProgress events every interval.
-func NewProgressEmitter(cfg config.Wrapper, evLogger *events.Logger) *ProgressEmitter {
+func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmitter {
 	t := &ProgressEmitter{
 		registry:           make(map[string]map[string]*sharedPullerState),
 		timer:              time.NewTimer(time.Millisecond),

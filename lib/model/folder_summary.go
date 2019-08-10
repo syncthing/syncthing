@@ -36,7 +36,7 @@ type folderSummaryService struct {
 	cfg       config.Wrapper
 	model     Model
 	id        protocol.DeviceID
-	evLogger  *events.Logger
+	evLogger  events.Logger
 	immediate chan string
 
 	// For keeping track of folders to recalculate for
@@ -48,7 +48,7 @@ type folderSummaryService struct {
 	lastEventReqMut sync.Mutex
 }
 
-func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger *events.Logger) FolderSummaryService {
+func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
 	service := &folderSummaryService{
 		Supervisor: suture.New("folderSummaryService", suture.Spec{
 			PassThroughPanics: true,

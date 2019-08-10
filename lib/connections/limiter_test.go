@@ -8,6 +8,7 @@ package connections
 
 import (
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/time/rate"
 	"math/rand"
@@ -25,7 +26,7 @@ func init() {
 }
 
 func initConfig() config.Wrapper {
-	cfg := config.Wrap("/dev/null", config.New(device1))
+	cfg := config.Wrap("/dev/null", config.New(device1), events.NewNoopLogger())
 	dev1Conf = config.NewDeviceConfiguration(device1, "device1")
 	dev2Conf = config.NewDeviceConfiguration(device2, "device2")
 	dev3Conf = config.NewDeviceConfiguration(device3, "device3")

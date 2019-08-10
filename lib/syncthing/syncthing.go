@@ -74,7 +74,7 @@ type App struct {
 	mainService *suture.Supervisor
 	cfg         config.Wrapper
 	ll          *db.Lowlevel
-	evLogger    *events.Logger
+	evLogger    events.Logger
 	cert        tls.Certificate
 	opts        Options
 	exitStatus  ExitStatus
@@ -86,7 +86,7 @@ type App struct {
 	stopped     chan struct{}
 }
 
-func New(cfg config.Wrapper, ll *db.Lowlevel, evLogger *events.Logger, cert tls.Certificate, opts Options) *App {
+func New(cfg config.Wrapper, ll *db.Lowlevel, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
 	return &App{
 		cfg:      cfg,
 		ll:       ll,
@@ -391,7 +391,7 @@ func (a *App) run() {
 	close(a.stopped)
 }
 
-func (a *App) EventLogger() (*events.Logger, error) {
+func (a *App) EventLogger() (events.Logger, error) {
 	select {
 	case <-a.started:
 	case <-a.stop:

@@ -30,7 +30,7 @@ type localClient struct {
 	myID     protocol.DeviceID
 	addrList AddressLister
 	name     string
-	evLogger *events.Logger
+	evLogger events.Logger
 
 	beacon          beacon.Interface
 	localBcastStart time.Time
@@ -47,7 +47,7 @@ const (
 	v13Magic          = uint32(0x7D79BC40) // previous version
 )
 
-func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogger *events.Logger) (FinderService, error) {
+func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogger events.Logger) (FinderService, error) {
 	c := &localClient{
 		Supervisor: suture.New("local", suture.Spec{
 			PassThroughPanics: true,

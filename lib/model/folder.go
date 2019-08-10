@@ -77,7 +77,7 @@ type puller interface {
 	pull() bool // true when successfull and should not be retried
 }
 
-func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger *events.Logger) folder {
+func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger) folder {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return folder{

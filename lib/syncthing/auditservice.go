@@ -21,11 +21,11 @@ import (
 type auditService struct {
 	suture.Service
 	w        io.Writer // audit destination
-	sub      *events.Subscription
-	evLogger *events.Logger
+	sub      events.Subscription
+	evLogger events.Logger
 }
 
-func newAuditService(w io.Writer, evLogger *events.Logger) *auditService {
+func newAuditService(w io.Writer, evLogger events.Logger) *auditService {
 	s := &auditService{
 		w:        w,
 		sub:      evLogger.Subscribe(events.AllEvents),

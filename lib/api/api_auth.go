@@ -28,14 +28,14 @@ var (
 	sessionsMut = sync.NewMutex()
 )
 
-func emitLoginAttempt(success bool, username string, evLogger *events.Logger) {
+func emitLoginAttempt(success bool, username string, evLogger events.Logger) {
 	evLogger.Log(events.LoginAttempt, map[string]interface{}{
 		"success":  success,
 		"username": username,
 	})
 }
 
-func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger *events.Logger) http.Handler {
+func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)

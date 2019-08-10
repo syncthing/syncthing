@@ -42,7 +42,7 @@ func (s folderState) String() string {
 
 type stateTracker struct {
 	folderID string
-	evLogger *events.Logger
+	evLogger events.Logger
 
 	mut     sync.Mutex
 	current folderState
@@ -50,7 +50,7 @@ type stateTracker struct {
 	changed time.Time
 }
 
-func newStateTracker(id string, evLogger *events.Logger) stateTracker {
+func newStateTracker(id string, evLogger events.Logger) stateTracker {
 	return stateTracker{
 		folderID: id,
 		evLogger: evLogger,

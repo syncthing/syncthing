@@ -47,7 +47,7 @@ var (
 	}
 	defaultCfg = config.Wrap("", config.Configuration{
 		Folders: []config.FolderConfiguration{defaultFolderCfg},
-	})
+	}, events.NewNoopLogger())
 )
 
 // Represents possibly multiple (different event types) expected paths from
@@ -284,7 +284,7 @@ func compareBatchToExpectedDirect(t *testing.T, batch []string, expectedPaths []
 	}
 }
 
-func testScenario(t *testing.T, name string, testCase func(c chan<- fs.Event), expectedBatches []expectedBatch, evLogger *events.Logger) {
+func testScenario(t *testing.T, name string, testCase func(c chan<- fs.Event), expectedBatches []expectedBatch, evLogger events.Logger) {
 	t.Helper()
 
 	if evLogger == nil {

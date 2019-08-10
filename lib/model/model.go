@@ -128,7 +128,7 @@ type model struct {
 	shortID           protocol.ShortID
 	cacheIgnoredFiles bool
 	protectedFiles    []string
-	evLogger          *events.Logger
+	evLogger          events.Logger
 
 	clientName    string
 	clientVersion string
@@ -153,7 +153,7 @@ type model struct {
 	foldersRunning int32 // for testing only
 }
 
-type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem, *events.Logger) service
+type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem, events.Logger) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory)
@@ -176,7 +176,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger *events.Logger) Model {
+func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger) Model {
 	m := &model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
@@ -1219,7 +1219,9 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	if changed {
-		m.saveConfig()
+		if err := m.cfg.Save(); err != nil {
+			l.Warnln("Failed to save config", err)
+		}
 	}
 }
 
@@ -1872,7 +1874,7 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
 		device.Name = hello.DeviceName
 		m.cfg.SetDevice(device)
-		m.saveConfig()
+		m.cfg.Save()
 	}
 
 	m.deviceWasSeen(deviceID)
@@ -1924,7 +1926,7 @@ type indexSender struct {
 	fset         *db.FileSet
 	prevSequence int64
 	dropSymlinks bool
-	evLogger     *events.Logger
+	evLogger     events.Logger
 	connClosed   chan struct{}
 }
 
@@ -2613,13 +2615,6 @@ func (m *model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folde
 		return errors.New("folder is not shared with device")
 	}
 	return nil
-}
-
-func (m *model) saveConfig() {
-	if err := m.cfg.Save(); err != nil {
-		l.Warnln("Failed to save config", err)
-	}
-	m.evLogger.Log(events.ConfigSaved, m.cfg)
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given

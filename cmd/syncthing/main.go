@@ -394,7 +394,7 @@ func main() {
 }
 
 func openGUI(myID protocol.DeviceID) error {
-	cfg, err := loadOrDefaultConfig(myID)
+	cfg, err := loadOrDefaultConfig(myID, events.NewNoopLogger())
 	if err != nil {
 		return err
 	}
@@ -437,7 +437,7 @@ func generate(generateDir string) error {
 		l.Warnln("Config exists; will not overwrite.")
 		return nil
 	}
-	cfg, err := syncthing.DefaultConfig(cfgFile, myID, noDefaultFolder)
+	cfg, err := syncthing.DefaultConfig(cfgFile, myID, events.NewNoopLogger(), noDefaultFolder)
 	if err != nil {
 		return err
 	}
@@ -471,7 +471,7 @@ func debugFacilities() string {
 }
 
 func checkUpgrade() upgrade.Release {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID)
+	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NewNoopLogger())
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
@@ -512,7 +512,7 @@ func performUpgrade(release upgrade.Release) {
 }
 
 func upgradeViaRest() error {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID)
+	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NewNoopLogger())
 	u, err := url.Parse(cfg.GUI().URL())
 	if err != nil {
 		return err
@@ -566,7 +566,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		os.Exit(1)
 	}
 
-	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, runtimeOptions.allowNewerConfig, noDefaultFolder)
+	evLogger := syncthing.NewEventsLogger()
+
+	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(exitError)
@@ -593,8 +595,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		secs, _ := strconv.Atoi(t)
 		appOpts.DeadlockTimeoutS = secs
 	}
-
-	evLogger := syncthing.NewEventsLogger()
 
 	app := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
 
@@ -686,12 +686,12 @@ func setupSignalHandling(app *syncthing.App) {
 	}()
 }
 
-func loadOrDefaultConfig(myID protocol.DeviceID) (config.Wrapper, error) {
+func loadOrDefaultConfig(myID protocol.DeviceID, evLogger events.Logger) (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
-	cfg, err := config.Load(cfgFile, myID)
+	cfg, err := config.Load(cfgFile, myID, evLogger)
 
 	if err != nil {
-		cfg, err = syncthing.DefaultConfig(cfgFile, myID, noDefaultFolder)
+		cfg, err = syncthing.DefaultConfig(cfgFile, myID, evLogger, noDefaultFolder)
 	}
 
 	return cfg, err
@@ -776,7 +776,7 @@ func standbyMonitor(app *syncthing.App) {
 	}
 }
 
-func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger *events.Logger) {
+func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger) {
 	timer := time.NewTimer(0)
 	sub := evLogger.Subscribe(events.DeviceConnected)
 	for {

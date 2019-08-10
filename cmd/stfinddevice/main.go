@@ -56,9 +56,7 @@ type checkResult struct {
 }
 
 func checkServers(deviceID protocol.DeviceID, servers ...string) {
-	evLogger := events.NewLogger()
-	go evLogger.Serve()
-	defer evLogger.Stop()
+	evLogger := events.NewNoopLogger()
 	t0 := time.Now()
 	resc := make(chan checkResult)
 	for _, srv := range servers {
@@ -85,7 +83,7 @@ func checkServers(deviceID protocol.DeviceID, servers ...string) {
 	}
 }
 
-func checkServer(deviceID protocol.DeviceID, server string, evLogger *events.Logger) checkResult {
+func checkServer(deviceID protocol.DeviceID, server string, evLogger events.Logger) checkResult {
 	disco, err := discover.NewGlobal(server, tls.Certificate{}, nil, evLogger)
 	if err != nil {
 		return checkResult{error: err}

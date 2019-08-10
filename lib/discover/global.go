@@ -35,7 +35,7 @@ type globalClient struct {
 	queryClient    httpClient
 	noAnnounce     bool
 	noLookup       bool
-	evLogger       *events.Logger
+	evLogger       events.Logger
 	errorHolder
 }
 
@@ -71,7 +71,7 @@ func (e lookupError) CacheFor() time.Duration {
 	return e.cacheFor
 }
 
-func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLogger *events.Logger) (FinderService, error) {
+func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLogger events.Logger) (FinderService, error) {
 	server, opts, err := parseOptions(server)
 	if err != nil {
 		return nil, err
