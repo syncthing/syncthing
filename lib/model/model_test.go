@@ -3362,7 +3362,7 @@ func TestDevicePause(t *testing.T) {
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	sub := m.evLogger.Subscribe(events.DevicePaused)
-	defer m.evLogger.Unsubscribe(sub)
+	defer sub.Unsubscribe()
 
 	m.pmut.RLock()
 	closed := m.closed[device1]

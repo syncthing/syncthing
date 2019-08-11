@@ -208,7 +208,6 @@ type Logger interface {
 	suture.Service
 	Log(t EventType, data interface{})
 	Subscribe(mask EventType) Subscription
-	Unsubscribe(s Subscription)
 }
 
 type evLogger struct {
@@ -218,6 +217,7 @@ type evLogger struct {
 	timeout             *time.Timer
 	events              chan Event
 	funcs               chan func()
+	toUnsubscribe       chan *subscription
 	stop                chan struct{}
 }
 
@@ -234,12 +234,14 @@ type Event struct {
 type Subscription interface {
 	C() <-chan Event
 	Poll(timeout time.Duration) (Event, error)
+	Unsubscribe()
 }
 
 type subscription struct {
-	mask    EventType
-	events  chan Event
-	timeout *time.Timer
+	mask          EventType
+	events        chan Event
+	toUnsubscribe chan *subscription
+	timeout       *time.Timer
 }
 
 var (
@@ -249,10 +251,11 @@ var (
 
 func NewLogger() Logger {
 	l := &evLogger{
-		timeout: time.NewTimer(time.Second),
-		events:  make(chan Event, BufferSize),
-		funcs:   make(chan func()),
-		stop:    make(chan struct{}),
+		timeout:       time.NewTimer(time.Second),
+		events:        make(chan Event, BufferSize),
+		funcs:         make(chan func()),
+		toUnsubscribe: make(chan *subscription),
+		stop:          make(chan struct{}),
 	}
 	// Make sure the timer is in the stopped state and hasn't fired anything
 	// into the channel.
@@ -271,8 +274,11 @@ loop:
 			l.sendEvent(e)
 
 		case fn := <-l.funcs:
-			// Subscriptions etc are handled here.
+			// Subscriptions are handled here.
 			fn()
+
+		case s := <-l.toUnsubscribe:
+			l.unsubscribe(s)
 
 		case <-l.stop:
 			break loop
@@ -337,9 +343,10 @@ func (l *evLogger) Subscribe(mask EventType) Subscription {
 		dl.Debugln("subscribe", mask)
 
 		s := &subscription{
-			mask:    mask,
-			events:  make(chan Event, BufferSize),
-			timeout: time.NewTimer(0),
+			mask:          mask,
+			events:        make(chan Event, BufferSize),
+			toUnsubscribe: l.toUnsubscribe,
+			timeout:       time.NewTimer(0),
 		}
 
 		// We need to create the timeout timer in the stopped, non-fired state so
@@ -363,27 +370,24 @@ func (l *evLogger) Subscribe(mask EventType) Subscription {
 	return <-res
 }
 
-func (l *evLogger) Unsubscribe(si Subscription) {
-	s := si.(*subscription)
-	l.funcs <- func() {
-		dl.Debugln("unsubscribe")
-		for i, ss := range l.subs {
-			if s == ss {
-				last := len(l.subs) - 1
+func (l *evLogger) unsubscribe(s *subscription) {
+	dl.Debugln("unsubscribe")
+	for i, ss := range l.subs {
+		if s == ss {
+			last := len(l.subs) - 1
 
-				l.subs[i] = l.subs[last]
-				l.subs[last] = nil
-				l.subs = l.subs[:last]
+			l.subs[i] = l.subs[last]
+			l.subs[last] = nil
+			l.subs = l.subs[:last]
 
-				l.nextSubscriptionIDs[i] = l.nextSubscriptionIDs[last]
-				l.nextSubscriptionIDs[last] = 0
-				l.nextSubscriptionIDs = l.nextSubscriptionIDs[:last]
+			l.nextSubscriptionIDs[i] = l.nextSubscriptionIDs[last]
+			l.nextSubscriptionIDs[last] = 0
+			l.nextSubscriptionIDs = l.nextSubscriptionIDs[:last]
 
-				break
-			}
+			break
 		}
-		close(s.events)
 	}
+	close(s.events)
 }
 
 // Poll returns an event from the subscription or an error if the poll times
@@ -420,6 +424,12 @@ func (s *subscription) Poll(timeout time.Duration) (Event, error) {
 
 func (s *subscription) C() <-chan Event {
 	return s.events
+}
+
+func (s *subscription) Unsubscribe() {
+	s.toUnsubscribe <- s
+	for range s.events {
+	} // Wait for unsubscription to finish, i.e. s.events being closed.
 }
 
 type bufferedSubscription struct {
@@ -515,8 +525,6 @@ func (*noopLogger) Subscribe(mask EventType) Subscription {
 	return &noopSubscription{}
 }
 
-func (*noopLogger) Unsubscribe(s Subscription) {}
-
 type noopSubscription struct{}
 
 func (*noopSubscription) C() <-chan Event {
@@ -526,3 +534,5 @@ func (*noopSubscription) C() <-chan Event {
 func (*noopSubscription) Poll(timeout time.Duration) (Event, error) {
 	return Event{}, errNoop
 }
+
+func (*noopSubscription) Unsubscribe() {}

@@ -137,7 +137,7 @@ func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg confi
 	defer a.notifyTimer.Stop()
 
 	inProgressItemSubscription := evLogger.Subscribe(events.ItemStarted | events.ItemFinished)
-	defer evLogger.Unsubscribe(inProgressItemSubscription)
+	defer inProgressItemSubscription.Unsubscribe()
 
 	cfg.Subscribe(a)
 	defer cfg.Unsubscribe(a)

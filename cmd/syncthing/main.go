@@ -800,7 +800,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 
 		rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
-			evLogger.Unsubscribe(sub)
+			sub.Unsubscribe()
 			return
 		}
 		if err != nil {
@@ -824,7 +824,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 			timer.Reset(checkInterval)
 			continue
 		}
-		evLogger.Unsubscribe(sub)
+		sub.Unsubscribe()
 		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
 		time.Sleep(time.Minute)
 		app.Stop(syncthing.ExitUpgrade)

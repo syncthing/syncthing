@@ -50,7 +50,7 @@ func (s *verboseService) serve(stop chan struct{}) {
 // Stop stops the verbose logging service.
 func (s *verboseService) Stop() {
 	s.Service.Stop()
-	s.evLogger.Unsubscribe(s.sub)
+	s.sub.Unsubscribe()
 
 }
 

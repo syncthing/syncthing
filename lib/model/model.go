@@ -1943,7 +1943,7 @@ func (s *indexSender) serve(stop chan struct{}) {
 	// DeviceDisconnected (it might be us who disconnected, so we should
 	// exit).
 	sub := s.evLogger.Subscribe(events.LocalIndexUpdated | events.DeviceDisconnected)
-	defer s.evLogger.Unsubscribe(sub)
+	defer sub.Unsubscribe()
 
 	evChan := sub.C()
 	ticker := time.NewTicker(time.Minute)

@@ -147,7 +147,7 @@ func (c *folderSummaryService) OnEventRequest() {
 // need their data recalculated.
 func (c *folderSummaryService) listenForUpdates(stop chan struct{}) {
 	sub := c.evLogger.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged | events.DownloadProgress)
-	defer c.evLogger.Unsubscribe(sub)
+	defer sub.Unsubscribe()
 
 	for {
 		// This loop needs to be fast so we don't miss too many events.

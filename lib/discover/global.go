@@ -200,7 +200,7 @@ func (c *globalClient) serve(stop chan struct{}) {
 	defer timer.Stop()
 
 	eventSub := c.evLogger.Subscribe(events.ListenAddressesChanged)
-	defer c.evLogger.Unsubscribe(eventSub)
+	defer eventSub.Unsubscribe()
 
 	for {
 		select {

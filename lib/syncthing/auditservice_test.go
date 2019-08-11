@@ -21,7 +21,7 @@ func TestAuditService(t *testing.T) {
 	go evLogger.Serve()
 	defer evLogger.Stop()
 	sub := evLogger.Subscribe(events.AllEvents)
-	defer evLogger.Unsubscribe(sub)
+	defer sub.Unsubscribe()
 
 	// Event sent before start, will not be logged
 	evLogger.Log(events.ConfigSaved, "the first event")

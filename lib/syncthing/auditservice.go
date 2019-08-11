@@ -52,5 +52,5 @@ func (s *auditService) serve(stop chan struct{}) {
 // Stop stops the audit service.
 func (s *auditService) Stop() {
 	s.Service.Stop()
-	s.evLogger.Unsubscribe(s.sub)
+	s.sub.Unsubscribe()
 }
