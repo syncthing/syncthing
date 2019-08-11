@@ -322,7 +322,6 @@ func (a *App) startup() error {
 			opts.URAccepted = ur.Version
 			a.cfg.SetOptions(opts)
 			a.cfg.Save()
-			a.evLogger.Log(events.ConfigSaved, a.cfg)
 			// Unique ID will be set and config saved below if necessary.
 		}
 	}
@@ -332,7 +331,6 @@ func (a *App) startup() error {
 		opts.URUniqueID = rand.String(8)
 		a.cfg.SetOptions(opts)
 		a.cfg.Save()
-		a.evLogger.Log(events.ConfigSaved, a.cfg)
 	}
 
 	usageReportingSvc := ur.New(a.cfg, m, connectionsService, a.opts.NoUpgrade)
