@@ -1064,8 +1064,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 	}
 
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
+	m.fmut.RLock()
 	var paused []string
 	for _, folder := range cm.Folders {
 		cfg, ok := m.cfg.Folder(folder.ID)
@@ -1186,6 +1185,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		// implementing suture.IsCompletable).
 		m.Add(is)
 	}
+	m.fmut.RUnlock()
 
 	m.pmut.Lock()
 	m.remotePausedFolders[deviceID] = paused
