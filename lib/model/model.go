@@ -597,10 +597,8 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 
 // ConnectionStats returns a map with connection statistics for each device.
 func (m *model) ConnectionStats() map[string]interface{} {
-	m.fmut.RLock()
 	m.pmut.RLock()
 	defer m.pmut.RUnlock()
-	defer m.fmut.RUnlock()
 
 	res := make(map[string]interface{})
 	devs := m.cfg.Devices()
@@ -1654,9 +1652,9 @@ func (m *model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 	// to what we have in the database, yet the content we've read off the filesystem doesn't
 	// Something is fishy, invalidate the file and rescan it.
 	// The file will temporarily become invalid, which is ok as the content is messed up.
-	m.fmut.Lock()
+	m.fmut.RLock()
 	runner, ok := m.folderRunners[folder]
-	m.fmut.Unlock()
+	m.fmut.RUnlock()
 	if !ok {
 		l.Debugf("%v recheckFile: %s: %q / %q: Folder stopped before rescan could be scheduled", m, deviceID, folder, name)
 		return
