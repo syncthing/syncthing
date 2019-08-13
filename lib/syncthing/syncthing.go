@@ -8,7 +8,6 @@ package syncthing
 
 import (
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"

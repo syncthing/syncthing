@@ -210,7 +210,7 @@ type Logger interface {
 	Subscribe(mask EventType) Subscription
 }
 
-type evLogger struct {
+type logger struct {
 	subs                []*subscription
 	nextSubscriptionIDs []int
 	nextGlobalID        int
@@ -250,7 +250,7 @@ var (
 )
 
 func NewLogger() Logger {
-	l := &evLogger{
+	l := &logger{
 		timeout:       time.NewTimer(time.Second),
 		events:        make(chan Event, BufferSize),
 		funcs:         make(chan func()),
@@ -265,7 +265,7 @@ func NewLogger() Logger {
 	return l
 }
 
-func (l *evLogger) Serve() {
+func (l *logger) Serve() {
 loop:
 	for {
 		select {
@@ -293,11 +293,11 @@ loop:
 	}
 }
 
-func (l *evLogger) Stop() {
+func (l *logger) Stop() {
 	close(l.stop)
 }
 
-func (l *evLogger) Log(t EventType, data interface{}) {
+func (l *logger) Log(t EventType, data interface{}) {
 	l.events <- Event{
 		Time: time.Now(),
 		Type: t,
@@ -306,7 +306,7 @@ func (l *evLogger) Log(t EventType, data interface{}) {
 	}
 }
 
-func (l *evLogger) sendEvent(e Event) {
+func (l *logger) sendEvent(e Event) {
 	l.nextGlobalID++
 	dl.Debugln("log", l.nextGlobalID, e.Type, e.Data)
 
@@ -337,7 +337,7 @@ func (l *evLogger) sendEvent(e Event) {
 	}
 }
 
-func (l *evLogger) Subscribe(mask EventType) Subscription {
+func (l *logger) Subscribe(mask EventType) Subscription {
 	res := make(chan Subscription)
 	l.funcs <- func() {
 		dl.Debugln("subscribe", mask)
@@ -370,7 +370,7 @@ func (l *evLogger) Subscribe(mask EventType) Subscription {
 	return <-res
 }
 
-func (l *evLogger) unsubscribe(s *subscription) {
+func (l *logger) unsubscribe(s *subscription) {
 	dl.Debugln("unsubscribe")
 	for i, ss := range l.subs {
 		if s == ss {
