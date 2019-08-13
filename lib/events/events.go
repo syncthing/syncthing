@@ -428,8 +428,6 @@ func (s *subscription) C() <-chan Event {
 
 func (s *subscription) Unsubscribe() {
 	s.toUnsubscribe <- s
-	for range s.events {
-	} // Wait for unsubscription to finish, i.e. s.events being closed.
 }
 
 type bufferedSubscription struct {
