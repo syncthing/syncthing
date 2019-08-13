@@ -65,7 +65,10 @@ func (b *Broadcast) Send(data []byte) {
 }
 
 func (b *Broadcast) Recv() ([]byte, net.Addr) {
-	recv := <-b.outbox
+	recv, ok := <-b.outbox
+	if !ok {
+		return nil, nil
+	}
 	return recv.data, recv.src
 }
 
@@ -209,6 +212,7 @@ func (r *broadcastReader) serve(stop chan struct{}) error {
 		select {
 		case r.outbox <- recv{c, addr}:
 		case <-stop:
+			close(r.outbox)
 			return nil
 		default:
 			l.Debugln("dropping message")

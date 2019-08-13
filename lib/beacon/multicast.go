@@ -66,7 +66,10 @@ func (m *Multicast) Send(data []byte) {
 }
 
 func (m *Multicast) Recv() ([]byte, net.Addr) {
-	recv := <-m.outbox
+	recv, ok := <-m.outbox
+	if !ok {
+		return nil, nil
+	}
 	return recv.data, recv.src
 }
 
@@ -220,6 +223,7 @@ func (r *multicastReader) serve(stop chan struct{}) error {
 	for {
 		select {
 		case <-stop:
+			close(r.outbox)
 			return nil
 		default:
 		}
