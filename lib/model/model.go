@@ -765,8 +765,9 @@ func addSizeOfFile(s *db.Counts, f db.FileIntf) {
 // files in the global model.
 func (m *model) GlobalSize(folder string) db.Counts {
 	m.fmut.RLock()
-	defer m.fmut.RUnlock()
-	if rf, ok := m.folderFiles[folder]; ok {
+	rf, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+	if ok {
 		return rf.GlobalSize()
 	}
 	return db.Counts{}
@@ -776,8 +777,9 @@ func (m *model) GlobalSize(folder string) db.Counts {
 // files in the local folder.
 func (m *model) LocalSize(folder string) db.Counts {
 	m.fmut.RLock()
-	defer m.fmut.RUnlock()
-	if rf, ok := m.folderFiles[folder]; ok {
+	rf, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+	if ok {
 		return rf.LocalSize()
 	}
 	return db.Counts{}
@@ -788,8 +790,9 @@ func (m *model) LocalSize(folder string) db.Counts {
 // folder.
 func (m *model) ReceiveOnlyChangedSize(folder string) db.Counts {
 	m.fmut.RLock()
-	defer m.fmut.RUnlock()
-	if rf, ok := m.folderFiles[folder]; ok {
+	rf, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+	if ok {
 		return rf.ReceiveOnlyChangedSize()
 	}
 	return db.Counts{}
@@ -1006,8 +1009,9 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	}
 
 	m.pmut.RLock()
-	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
+	downloads := m.deviceDownloads[deviceID]
 	m.pmut.RUnlock()
+	downloads.Update(folder, makeForgetUpdate(fs))
 
 	if !update {
 		files.Drop(deviceID)
@@ -1885,9 +1889,10 @@ func (m *model) DownloadProgress(device protocol.DeviceID, folder string, update
 	}
 
 	m.pmut.RLock()
-	m.deviceDownloads[device].Update(folder, updates)
-	state := m.deviceDownloads[device].GetBlockCounts(folder)
+	downloads := m.deviceDownloads[device]
 	m.pmut.RUnlock()
+	downloads.Update(folder, updates)
+	state := downloads.GetBlockCounts(folder)
 
 	events.Default.Log(events.RemoteDownloadProgress, map[string]interface{}{
 		"device": device.String(),
@@ -2227,20 +2232,24 @@ func (m *model) State(folder string) (string, time.Time, error) {
 
 func (m *model) FolderErrors(folder string) ([]FileError, error) {
 	m.fmut.RLock()
-	defer m.fmut.RUnlock()
-	if err := m.checkFolderRunningLocked(folder); err != nil {
+	err := m.checkFolderRunningLocked(folder)
+	runner := m.folderRunners[folder]
+	m.fmut.RUnlock()
+	if err != nil {
 		return nil, err
 	}
-	return m.folderRunners[folder].Errors(), nil
+	return runner.Errors(), nil
 }
 
 func (m *model) WatchError(folder string) error {
 	m.fmut.RLock()
-	defer m.fmut.RUnlock()
-	if err := m.checkFolderRunningLocked(folder); err != nil {
+	err := m.checkFolderRunningLocked(folder)
+	runner := m.folderRunners[folder]
+	m.fmut.RUnlock()
+	if err != nil {
 		return nil // If the folder isn't running, there's no error to report.
 	}
-	return m.folderRunners[folder].WatchError()
+	return runner.WatchError()
 }
 
 func (m *model) Override(folder string) {
