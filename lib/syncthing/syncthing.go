@@ -45,11 +45,6 @@ const (
 	maxSystemLog         = 250
 )
 
-var (
-	errNotStarted     = errors.New("the App was not yet started")
-	errAlreadyStopped = errors.New("the App was already stopped")
-)
-
 type ExitStatus int
 
 const (
