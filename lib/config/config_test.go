@@ -1148,9 +1148,9 @@ func defaultConfigAsMap() map[string]interface{} {
 }
 
 func load(path string, myID protocol.DeviceID) (Wrapper, error) {
-	return Load(path, myID, events.NewNoopLogger())
+	return Load(path, myID, events.NoopLogger)
 }
 
 func wrap(path string, cfg Configuration) Wrapper {
-	return Wrap(path, cfg, events.NewNoopLogger())
+	return Wrap(path, cfg, events.NoopLogger)
 }

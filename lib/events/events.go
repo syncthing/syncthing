@@ -507,9 +507,7 @@ func Error(err error) *string {
 
 type noopLogger struct{}
 
-func NewNoopLogger() Logger {
-	return &noopLogger{}
-}
+var NoopLogger Logger = &noopLogger{}
 
 func (*noopLogger) Serve() {}
 

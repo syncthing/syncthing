@@ -394,7 +394,7 @@ func main() {
 }
 
 func openGUI(myID protocol.DeviceID) error {
-	cfg, err := loadOrDefaultConfig(myID, events.NewNoopLogger())
+	cfg, err := loadOrDefaultConfig(myID, events.NoopLogger)
 	if err != nil {
 		return err
 	}
@@ -437,7 +437,7 @@ func generate(generateDir string) error {
 		l.Warnln("Config exists; will not overwrite.")
 		return nil
 	}
-	cfg, err := syncthing.DefaultConfig(cfgFile, myID, events.NewNoopLogger(), noDefaultFolder)
+	cfg, err := syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder)
 	if err != nil {
 		return err
 	}
@@ -471,7 +471,7 @@ func debugFacilities() string {
 }
 
 func checkUpgrade() upgrade.Release {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NewNoopLogger())
+	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
@@ -512,7 +512,7 @@ func performUpgrade(release upgrade.Release) {
 }
 
 func upgradeViaRest() error {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NewNoopLogger())
+	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
 	u, err := url.Parse(cfg.GUI().URL())
 	if err != nil {
 		return err

@@ -36,7 +36,7 @@ func TestIsLANHost(t *testing.T) {
 		Options: config.OptionsConfiguration{
 			AlwaysLocalNets: []string{"10.20.30.0/24"},
 		},
-	}, events.NewNoopLogger())
+	}, events.NoopLogger)
 	s := &service{cfg: cfg}
 
 	for _, tc := range cases {

@@ -47,7 +47,7 @@ var (
 	}
 	defaultCfg = config.Wrap("", config.Configuration{
 		Folders: []config.FolderConfiguration{defaultFolderCfg},
-	}, events.NewNoopLogger())
+	}, events.NoopLogger)
 )
 
 // Represents possibly multiple (different event types) expected paths from
@@ -284,7 +284,7 @@ func testScenario(t *testing.T, name string, testCase func(c chan<- fs.Event), e
 	t.Helper()
 
 	if evLogger == nil {
-		evLogger = events.NewNoopLogger()
+		evLogger = events.NoopLogger
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
