@@ -63,10 +63,6 @@ type expectedBatch struct {
 func TestAggregate(t *testing.T) {
 	inProgress := make(map[string]struct{})
 
-	evLogger := events.NewLogger()
-	go evLogger.Serve()
-	defer evLogger.Stop()
-
 	folderCfg := defaultFolderCfg.Copy()
 	folderCfg.ID = "Aggregate"
 	ctx, cancel := context.WithCancel(context.Background())
@@ -288,9 +284,7 @@ func testScenario(t *testing.T, name string, testCase func(c chan<- fs.Event), e
 	t.Helper()
 
 	if evLogger == nil {
-		evLogger = events.NewLogger()
-		go evLogger.Serve()
-		defer evLogger.Stop()
+		evLogger = events.NewNoopLogger()
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

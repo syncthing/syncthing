@@ -19,14 +19,12 @@ import (
 // verbose format to the console using INFO level.
 type verboseService struct {
 	suture.Service
-	sub      events.Subscription
-	evLogger events.Logger
+	sub events.Subscription
 }
 
 func newVerboseService(evLogger events.Logger) *verboseService {
 	s := &verboseService{
-		sub:      evLogger.Subscribe(events.AllEvents),
-		evLogger: evLogger,
+		sub: evLogger.Subscribe(events.AllEvents),
 	}
 	s.Service = util.AsService(s.serve)
 	return s

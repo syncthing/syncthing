@@ -16,6 +16,7 @@ import (
 	"github.com/thejerf/suture"
 
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type EventType int
@@ -211,6 +212,7 @@ type Logger interface {
 }
 
 type logger struct {
+	suture.Service
 	subs                []*subscription
 	nextSubscriptionIDs []int
 	nextGlobalID        int
@@ -255,8 +257,8 @@ func NewLogger() Logger {
 		events:        make(chan Event, BufferSize),
 		funcs:         make(chan func()),
 		toUnsubscribe: make(chan *subscription),
-		stop:          make(chan struct{}),
 	}
+	l.Service = util.AsService(l.serve)
 	// Make sure the timer is in the stopped state and hasn't fired anything
 	// into the channel.
 	if !l.timeout.Stop() {
@@ -265,7 +267,7 @@ func NewLogger() Logger {
 	return l
 }
 
-func (l *logger) Serve() {
+func (l *logger) serve(stop chan struct{}) {
 loop:
 	for {
 		select {
@@ -280,7 +282,7 @@ loop:
 		case s := <-l.toUnsubscribe:
 			l.unsubscribe(s)
 
-		case <-l.stop:
+		case <-stop:
 			break loop
 		}
 	}
@@ -291,10 +293,6 @@ loop:
 	for _, s := range l.subs {
 		close(s.events)
 	}
-}
-
-func (l *logger) Stop() {
-	close(l.stop)
 }
 
 func (l *logger) Log(t EventType, data interface{}) {
@@ -371,7 +369,7 @@ func (l *logger) Subscribe(mask EventType) Subscription {
 }
 
 func (l *logger) unsubscribe(s *subscription) {
-	dl.Debugln("unsubscribe")
+	dl.Debugln("unsubscribe", s.mask)
 	for i, ss := range l.subs {
 		if s == ss {
 			last := len(l.subs) - 1

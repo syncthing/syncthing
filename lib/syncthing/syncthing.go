@@ -75,7 +75,6 @@ type App struct {
 	err         error
 	startOnce   sync.Once
 	stopOnce    sync.Once
-	started     chan struct{}
 	stop        chan struct{}
 	stopped     chan struct{}
 }
@@ -87,7 +86,6 @@ func New(cfg config.Wrapper, ll *db.Lowlevel, evLogger events.Logger, cert tls.C
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,
-		started:  make(chan struct{}),
 		stop:     make(chan struct{}),
 		stopped:  make(chan struct{}),
 	}
@@ -104,7 +102,6 @@ func (a *App) Run() ExitStatus {
 // e.g. the API is ready for use.
 func (a *App) Start() {
 	a.startOnce.Do(func() {
-		defer close(a.started)
 		if err := a.startup(); err != nil {
 			a.stopWithErr(ExitError, err)
 			return
