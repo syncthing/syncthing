@@ -685,10 +685,11 @@ func (f *folder) setWatchError(err error) {
 // scanOnWatchErr schedules a full scan immediately if an error occurred while watching.
 func (f *folder) scanOnWatchErr() {
 	f.watchMut.Lock()
-	if f.watchErr != nil {
+	err := f.watchErr
+	f.watchMut.Unlock()
+	if err != nil {
 		f.Delay(0)
 	}
-	f.watchMut.Unlock()
 }
 
 func (f *folder) setError(err error) {

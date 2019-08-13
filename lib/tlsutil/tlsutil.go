@@ -86,10 +86,6 @@ func SecureDefault() *tls.Config {
 	return &tls.Config{
 		// TLS 1.2 is the minimum we accept
 		MinVersion: tls.VersionTLS12,
-		// We want the longer curves at the front, because that's more
-		// secure (so the web tells me, don't ask me to explain the
-		// details).
-		CurvePreferences: []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
 		// The cipher suite lists built above. These are ignored in TLS 1.3.
 		CipherSuites: cs,
 		// We've put some thought into this choice and would like it to
