@@ -90,6 +90,7 @@ var tlsVersionNames = map[uint16]string{
 // dialers. Successful connections are handed to the model.
 type Service interface {
 	suture.Service
+	discover.AddressLister
 	ListenerStatus() map[string]ListenerStatusEntry
 	ConnectionStatus() map[string]ConnectionStatusEntry
 	NATType() string
@@ -129,9 +130,7 @@ type service struct {
 	connectionStatus    map[string]ConnectionStatusEntry // address -> latest error/status
 }
 
-func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
-	bepProtocolName string, tlsDefaultCommonName string) *service {
-
+func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string) Service {
 	service := &service{
 		Supervisor: suture.New("connections.Service", suture.Spec{
 			Log: func(line string) {
