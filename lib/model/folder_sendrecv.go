@@ -1045,7 +1045,6 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	populateOffsets(file.Blocks)
 
 	blocks := make([]protocol.BlockInfo, 0, len(file.Blocks))
-	var blocksSize int64
 	reused := make([]int32, 0, len(file.Blocks))
 
 	// Check for an old temporary file which might have some blocks we could
@@ -1066,7 +1065,6 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 			_, ok := existingBlocks[block.String()]
 			if !ok {
 				blocks = append(blocks, block)
-				blocksSize += int64(block.Size)
 			} else {
 				reused = append(reused, int32(i))
 			}
@@ -1083,13 +1081,6 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	} else {
 		// Copy the blocks, as we don't want to shuffle them on the FileInfo
 		blocks = append(blocks, file.Blocks...)
-		blocksSize = file.Size
-	}
-
-	if err := f.CheckAvailableSpace(blocksSize); err != nil {
-		f.newPullError(file.Name, err)
-		f.queue.Done(file.Name)
-		return
 	}
 
 	// Shuffle the blocks
@@ -1221,6 +1212,13 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	}()
 
 	for state := range in {
+		if err := f.CheckAvailableSpace(state.file.Size); err != nil {
+			state.fail(err)
+			// Nothing more to do for this failed file, since it would use to much disk space
+			out <- state.sharedPullerState
+			continue
+		}
+
 		dstFd, err := state.tempFile()
 		if err != nil {
 			// Nothing more to do for this failed file, since we couldn't create a temporary for it.
