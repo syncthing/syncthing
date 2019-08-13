@@ -566,7 +566,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		os.Exit(1)
 	}
 
-	evLogger := syncthing.NewEventsLogger()
+	evLogger := events.NewLogger()
+	go evLogger.Serve()
+	defer evLogger.Stop()
 
 	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
 	if err != nil {

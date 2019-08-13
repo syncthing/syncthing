@@ -125,7 +125,3 @@ func copyFile(src, dst string) error {
 func OpenGoleveldb(path string) (*db.Lowlevel, error) {
 	return db.Open(path)
 }
-
-func NewEventsLogger() events.Logger {
-	return events.NewLogger()
-}

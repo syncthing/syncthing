@@ -130,8 +130,6 @@ func (a *App) startup() error {
 	})
 	a.mainService.ServeBackground()
 
-	a.mainService.Add(a.evLogger)
-
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
 	}
@@ -387,17 +385,6 @@ func (a *App) run() {
 	l.Infoln("Exiting")
 
 	close(a.stopped)
-}
-
-func (a *App) EventLogger() (events.Logger, error) {
-	select {
-	case <-a.started:
-	case <-a.stop:
-		return nil, errAlreadyStopped
-	default:
-		return nil, errNotStarted
-	}
-	return a.evLogger, nil
 }
 
 // Wait blocks until the app stops running.
