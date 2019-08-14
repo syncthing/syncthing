@@ -8,89 +8,30 @@ package beacon
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"time"
 
-	"github.com/thejerf/suture"
 	"golang.org/x/net/ipv6"
 
 	"github.com/syncthing/syncthing/lib/util"
 )
 
-type Multicast struct {
-	*suture.Supervisor
-	inbox  chan []byte
-	outbox chan recv
-	mr     *multicastReader
-	mw     *multicastWriter
+func NewMulticast(addr string) Interface {
+	c := newCast("multicastBeacon")
+	c.addReader(util.AsServiceWithError(func(stop chan struct{}) error {
+		return writeMulticasts(c.inbox, addr, stop)
+	}))
+	c.addWriter(util.AsServiceWithError(func(stop chan struct{}) error {
+		return readMulticasts(c.outbox, addr, stop)
+	}))
+	return c
 }
 
-func NewMulticast(addr string) *Multicast {
-	m := &Multicast{
-		Supervisor: suture.New("multicastBeacon", suture.Spec{
-			// Don't retry too frenetically: an error to open a socket or
-			// whatever is usually something that is either permanent or takes
-			// a while to get solved...
-			FailureThreshold: 2,
-			FailureBackoff:   60 * time.Second,
-			// Only log restarts in debug mode.
-			Log: func(line string) {
-				l.Debugln(line)
-			},
-			PassThroughPanics: true,
-		}),
-		inbox:  make(chan []byte),
-		outbox: make(chan recv, 16),
-	}
+func writeMulticasts(inbox <-chan []byte, addr string, stop chan struct{}) error {
+	l.Debugln("starting writeMulticasts")
+	defer l.Debugln("stopping writeMulticasts")
 
-	m.mr = &multicastReader{
-		addr:   addr,
-		outbox: m.outbox,
-	}
-	m.mr.ServiceWithError = util.AsServiceWithError(m.mr.serve)
-	m.Add(m.mr)
-
-	m.mw = &multicastWriter{
-		addr:  addr,
-		inbox: m.inbox,
-	}
-	m.mw.ServiceWithError = util.AsServiceWithError(m.mw.serve)
-	m.Add(m.mw)
-
-	return m
-}
-
-func (m *Multicast) Send(data []byte) {
-	m.inbox <- data
-}
-
-func (m *Multicast) Recv() ([]byte, net.Addr) {
-	recv, ok := <-m.outbox
-	if !ok {
-		return nil, nil
-	}
-	return recv.data, recv.src
-}
-
-func (m *Multicast) Error() error {
-	if err := m.mr.Error(); err != nil {
-		return err
-	}
-	return m.mw.Error()
-}
-
-type multicastWriter struct {
-	util.ServiceWithError
-	addr  string
-	inbox <-chan []byte
-}
-
-func (w *multicastWriter) serve(stop chan struct{}) error {
-	l.Debugln(w, "starting")
-	defer l.Debugln(w, "stopping")
-
-	gaddr, err := net.ResolveUDPAddr("udp6", w.addr)
+	gaddr, err := net.ResolveUDPAddr("udp6", addr)
 	if err != nil {
 		l.Debugln(err)
 		return err
@@ -120,7 +61,7 @@ func (w *multicastWriter) serve(stop chan struct{}) error {
 	for {
 		var bs []byte
 		select {
-		case bs = <-w.inbox:
+		case bs = <-inbox:
 		case <-stop:
 			return nil
 		}
@@ -140,7 +81,6 @@ func (w *multicastWriter) serve(stop chan struct{}) error {
 
 			if err != nil {
 				l.Debugln(err, "on write to", gaddr, intf.Name)
-				w.SetError(err)
 				continue
 			}
 
@@ -155,33 +95,23 @@ func (w *multicastWriter) serve(stop chan struct{}) error {
 			}
 		}
 
-		if success > 0 {
-			w.SetError(nil)
+		if success == 0 {
+			return err
 		}
 	}
 }
 
-func (w *multicastWriter) String() string {
-	return fmt.Sprintf("multicastWriter@%p", w)
-}
+func readMulticasts(outbox chan<- recv, addr string, stop chan struct{}) error {
+	l.Debugln("starting readMulticasts")
+	defer l.Debugln("stopping readMulticasts")
 
-type multicastReader struct {
-	util.ServiceWithError
-	addr   string
-	outbox chan<- recv
-}
-
-func (r *multicastReader) serve(stop chan struct{}) error {
-	l.Debugln(r, "starting")
-	defer l.Debugln(r, "stopping")
-
-	gaddr, err := net.ResolveUDPAddr("udp6", r.addr)
+	gaddr, err := net.ResolveUDPAddr("udp6", addr)
 	if err != nil {
 		l.Debugln(err)
 		return err
 	}
 
-	conn, err := net.ListenPacket("udp6", r.addr)
+	conn, err := net.ListenPacket("udp6", addr)
 	if err != nil {
 		l.Debugln(err)
 		return err
@@ -223,28 +153,22 @@ func (r *multicastReader) serve(stop chan struct{}) error {
 	for {
 		select {
 		case <-stop:
-			close(r.outbox)
 			return nil
 		default:
 		}
 		n, _, addr, err := pconn.ReadFrom(bs)
 		if err != nil {
 			l.Debugln(err)
-			r.SetError(err)
-			continue
+			return err
 		}
 		l.Debugf("recv %d bytes from %s", n, addr)
 
 		c := make([]byte, n)
 		copy(c, bs)
 		select {
-		case r.outbox <- recv{c, addr}:
+		case outbox <- recv{c, addr}:
 		default:
 			l.Debugln("dropping message")
 		}
 	}
-}
-
-func (r *multicastReader) String() string {
-	return fmt.Sprintf("multicastReader@%p", r)
 }
