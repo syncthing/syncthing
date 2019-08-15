@@ -69,12 +69,16 @@ type lockedWriterAt struct {
 	fd  fs.File
 }
 
+// WriteAt itself is goroutine safe, thus just needs to acquire a read-lock to
+// prevent closing concurrently (see SyncClose).
 func (w *lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 	w.mut.RLock()
 	defer w.mut.RUnlock()
 	return w.fd.WriteAt(p, off)
 }
 
+// SyncClose ensures that no more writes are happening before going ahead and
+// syncing and closing the fd, thus needs to acquire a write-lock.
 func (w *lockedWriterAt) SyncClose() error {
 	w.mut.Lock()
 	defer w.mut.Unlock()
