@@ -257,6 +257,7 @@ func TestCopierFinder(t *testing.T) {
 
 	pulls := []pullBlockState{<-pullChan, <-pullChan, <-pullChan, <-pullChan}
 	finish := <-finisherChan
+	defer cleanupSharedPullerState(finish)
 
 	select {
 	case <-pullChan:
@@ -296,7 +297,6 @@ func TestCopierFinder(t *testing.T) {
 			t.Errorf("Block %d mismatch: %s != %s", eq, blks[eq-1].String(), blocks[eq].String())
 		}
 	}
-	finish.fd.Close()
 }
 
 func TestWeakHash(t *testing.T) {
@@ -395,7 +395,7 @@ func TestWeakHash(t *testing.T) {
 	default:
 	}
 
-	finish.fd.Close()
+	cleanupSharedPullerState(finish)
 	if err := ffs.Remove(tempFile); err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +415,7 @@ func TestWeakHash(t *testing.T) {
 	}
 
 	finish = <-finisherChan
-	finish.fd.Close()
+	cleanupSharedPullerState(finish)
 
 	expectShifted := expectBlocks - expectPulls
 	if finish.copyOriginShifted != expectShifted {
@@ -528,9 +528,9 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		t.Log("event took", time.Since(t0))
 
 		state.mut.Lock()
-		stateFd := state.fd
+		stateWriter := state.writer
 		state.mut.Unlock()
-		if stateFd != nil {
+		if stateWriter != nil {
 			t.Fatal("File not closed?")
 		}
 
@@ -609,9 +609,9 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		t.Log("event took", time.Since(t0))
 
 		state.mut.Lock()
-		stateFd := state.fd
+		stateWriter := state.writer
 		state.mut.Unlock()
-		if stateFd != nil {
+		if stateWriter != nil {
 			t.Fatal("File not closed?")
 		}
 
@@ -932,4 +932,15 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 	} else if scan := <-scanChan; confls[0] != scan {
 		t.Fatal("Expected request to scan", confls[0], "got", scan)
 	}
+}
+
+func cleanupSharedPullerState(s *sharedPullerState) {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	if s.writer == nil {
+		return
+	}
+	s.writer.mut.Lock()
+	s.writer.fd.Close()
+	s.writer.mut.Unlock()
 }

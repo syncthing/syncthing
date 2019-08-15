@@ -34,19 +34,19 @@ type sharedPullerState struct {
 	created     time.Time
 
 	// Mutable, must be locked for access
-	err               error        // The first error we hit
-	fd                fs.File      // The fd of the temp file
-	copyTotal         int          // Total number of copy actions for the whole job
-	pullTotal         int          // Total number of pull actions for the whole job
-	copyOrigin        int          // Number of blocks copied from the original file
-	copyOriginShifted int          // Number of blocks copied from the original file but shifted
-	copyNeeded        int          // Number of copy actions still pending
-	pullNeeded        int          // Number of block pulls still pending
-	updated           time.Time    // Time when any of the counters above were last updated
-	closed            bool         // True if the file has been finalClosed.
-	available         []int32      // Indexes of the blocks that are available in the temporary file
-	availableUpdated  time.Time    // Time when list of available blocks was last updated
-	mut               sync.RWMutex // Protects the above
+	err               error           // The first error we hit
+	writer            *lockedWriterAt // Wraps fd to protect it from concurrent writing
+	copyTotal         int             // Total number of copy actions for the whole job
+	pullTotal         int             // Total number of pull actions for the whole job
+	copyOrigin        int             // Number of blocks copied from the original file
+	copyOriginShifted int             // Number of blocks copied from the original file but shifted
+	copyNeeded        int             // Number of copy actions still pending
+	pullNeeded        int             // Number of block pulls still pending
+	updated           time.Time       // Time when any of the counters above were last updated
+	closed            bool            // True if the file has been finalClosed.
+	available         []int32         // Indexes of the blocks that are available in the temporary file
+	availableUpdated  time.Time       // Time when list of available blocks was last updated
+	mut               sync.RWMutex    // Protects the above
 }
 
 // A momentary state representing the progress of the puller
@@ -62,17 +62,17 @@ type pullerProgress struct {
 	BytesTotal              int64 `json:"bytesTotal"`
 }
 
-// A lockedWriterAt synchronizes WriteAt calls with an external mutex.
-// WriteAt() is goroutine safe by itself, but not against for example Close().
+// lockedWriterAt wraps the file-descriptor in a lock that must be held whenever
+// it's accessed and provides a convenience method to do so automatically for WriteAt.
 type lockedWriterAt struct {
-	mut *sync.RWMutex
-	wr  io.WriterAt
+	mut sync.Mutex
+	fd  fs.File
 }
 
 func (w lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
-	(*w.mut).Lock()
-	defer (*w.mut).Unlock()
-	return w.wr.WriteAt(p, off)
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.fd.WriteAt(p, off)
 }
 
 // tempFile returns the fd for the temporary file, reusing an open fd
@@ -87,8 +87,8 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	}
 
 	// If the temp file is already open, return the file descriptor
-	if s.fd != nil {
-		return lockedWriterAt{&s.mut, s.fd}, nil
+	if s.writer != nil {
+		return s.writer, nil
 	}
 
 	if err := inWritableDir(s.tempFileInWritableDir, s.fs, s.tempName, s.ignorePerms); err != nil {
@@ -96,7 +96,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		return nil, err
 	}
 
-	return lockedWriterAt{&s.mut, s.fd}, nil
+	return s.writer, nil
 }
 
 // tempFileInWritableDir should only be called from tempFile.
@@ -171,7 +171,7 @@ func (s *sharedPullerState) tempFileInWritableDir(_ string) error {
 	}
 
 	// Same fd will be used by all writers
-	s.fd = fd
+	s.writer = &lockedWriterAt{sync.NewMutex(), fd}
 	return nil
 }
 
@@ -265,18 +265,20 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 		return false, nil
 	}
 
-	if s.fd != nil {
-		if err := s.fd.Sync(); err != nil {
+	if s.writer != nil {
+		s.writer.mut.Lock()
+		if err := s.writer.fd.Sync(); err != nil {
 			// Sync() is nice if it works but not worth failing the
 			// operation over if it fails.
 			l.Debugf("fsync %q failed: %v", s.tempName, err)
 		}
 
-		if err := s.fd.Close(); err != nil && s.err == nil {
+		if err := s.writer.fd.Close(); err != nil && s.err == nil {
 			// This is our error as we weren't errored before.
 			s.err = err
 		}
-		s.fd = nil
+		s.writer.mut.Unlock()
+		s.writer = nil
 	}
 
 	s.closed = true
