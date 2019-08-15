@@ -64,7 +64,6 @@ type pullerProgress struct {
 
 // lockedWriterAt adds a lock to protect from closing the fd at the same time as writing.
 // WriteAt() is goroutine safe by itself, but not against for example Close().
-// I.e. one must acquire the (write) lock before closing fd.
 type lockedWriterAt struct {
 	mut sync.RWMutex
 	fd  fs.File
@@ -74,6 +73,17 @@ func (w *lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 	w.mut.RLock()
 	defer w.mut.RUnlock()
 	return w.fd.WriteAt(p, off)
+}
+
+func (w *lockedWriterAt) SyncClose() error {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	if err := w.fd.Sync(); err != nil {
+		// Sync() is nice if it works but not worth failing the
+		// operation over if it fails.
+		l.Debugf("fsync failed: %v", err)
+	}
+	return w.fd.Close()
 }
 
 // tempFile returns the fd for the temporary file, reusing an open fd
@@ -267,19 +277,10 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	}
 
 	if s.writer != nil {
-		// The lock must be acquired before closing the fd.
-		s.writer.mut.Lock()
-		if err := s.writer.fd.Sync(); err != nil {
-			// Sync() is nice if it works but not worth failing the
-			// operation over if it fails.
-			l.Debugf("fsync %q failed: %v", s.tempName, err)
-		}
-
-		if err := s.writer.fd.Close(); err != nil && s.err == nil {
+		if err := s.writer.SyncClose(); err != nil && s.err == nil {
 			// This is our error as we weren't errored before.
 			s.err = err
 		}
-		s.writer.mut.Unlock()
 		s.writer = nil
 	}
 
