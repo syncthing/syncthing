@@ -35,7 +35,7 @@ type sharedPullerState struct {
 
 	// Mutable, must be locked for access
 	err               error           // The first error we hit
-	writer            *lockedWriterAt // Wraps fd to protect it from concurrent writing
+	writer            *lockedWriterAt // Wraps fd to prevent fd closing at the same time as writing
 	copyTotal         int             // Total number of copy actions for the whole job
 	pullTotal         int             // Total number of pull actions for the whole job
 	copyOrigin        int             // Number of blocks copied from the original file
@@ -62,16 +62,17 @@ type pullerProgress struct {
 	BytesTotal              int64 `json:"bytesTotal"`
 }
 
-// lockedWriterAt wraps the file-descriptor in a lock that must be held whenever
-// it's accessed and provides a convenience method to do so automatically for WriteAt.
+// lockedWriterAt adds a lock to protect from closing the fd at the same time as writing.
+// WriteAt() is goroutine safe by itself, but not against for example Close().
+// I.e. one must acquire the (write) lock before closing fd.
 type lockedWriterAt struct {
-	mut sync.Mutex
+	mut sync.RWMutex
 	fd  fs.File
 }
 
 func (w *lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
-	w.mut.Lock()
-	defer w.mut.Unlock()
+	w.mut.RLock()
+	defer w.mut.RUnlock()
 	return w.fd.WriteAt(p, off)
 }
 
@@ -171,7 +172,7 @@ func (s *sharedPullerState) tempFileInWritableDir(_ string) error {
 	}
 
 	// Same fd will be used by all writers
-	s.writer = &lockedWriterAt{sync.NewMutex(), fd}
+	s.writer = &lockedWriterAt{sync.NewRWMutex(), fd}
 	return nil
 }
 
@@ -266,6 +267,8 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	}
 
 	if s.writer != nil {
+		// The lock must be acquired before closing the fd.
+		s.writer.mut.Lock()
 		if err := s.writer.fd.Sync(); err != nil {
 			// Sync() is nice if it works but not worth failing the
 			// operation over if it fails.
@@ -276,6 +279,7 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 			// This is our error as we weren't errored before.
 			s.err = err
 		}
+		s.writer.mut.Unlock()
 		s.writer = nil
 	}
 
