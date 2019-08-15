@@ -69,7 +69,7 @@ type lockedWriterAt struct {
 	fd  fs.File
 }
 
-func (w lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
+func (w *lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	return w.fd.WriteAt(p, off)
@@ -266,7 +266,6 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	}
 
 	if s.writer != nil {
-		s.writer.mut.Lock()
 		if err := s.writer.fd.Sync(); err != nil {
 			// Sync() is nice if it works but not worth failing the
 			// operation over if it fails.
@@ -277,7 +276,6 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 			// This is our error as we weren't errored before.
 			s.err = err
 		}
-		s.writer.mut.Unlock()
 		s.writer = nil
 	}
 
