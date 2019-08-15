@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -194,7 +195,7 @@ func main() {
 		log.Println("ID:", id)
 	}
 
-	wrapper := config.Wrap("config", config.New(id))
+	wrapper := config.Wrap("config", config.New(id), events.NoopLogger)
 	wrapper.SetOptions(config.OptionsConfiguration{
 		NATLeaseM:   natLease,
 		NATRenewalM: natRenewal,

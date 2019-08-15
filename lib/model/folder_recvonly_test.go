@@ -321,6 +321,7 @@ func setupROFolder() (*model, *sendOnlyFolder) {
 
 	f := &sendOnlyFolder{
 		folder: folder{
+			stateTracker:        newStateTracker(fcfg.ID, m.evLogger),
 			fset:                m.folderFiles[fcfg.ID],
 			FolderConfiguration: fcfg,
 		},

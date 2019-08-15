@@ -26,6 +26,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -455,7 +456,7 @@ func (p *Process) eventLoop() {
 		default:
 		}
 
-		events, err := p.Events(since)
+		evs, err := p.Events(since)
 		if err != nil {
 			if time.Since(start) < 5*time.Second {
 				// The API has probably not started yet, lets give it some time.
@@ -473,7 +474,7 @@ func (p *Process) eventLoop() {
 			continue
 		}
 
-		for _, ev := range events {
+		for _, ev := range evs {
 			if ev.ID != since+1 {
 				l.Warnln("Event ID jumped", since, "to", ev.ID)
 			}
@@ -493,7 +494,7 @@ func (p *Process) eventLoop() {
 				p.id = id
 
 				home := data["home"].(string)
-				w, err := config.Load(filepath.Join(home, "config.xml"), protocol.LocalDeviceID)
+				w, err := config.Load(filepath.Join(home, "config.xml"), protocol.LocalDeviceID, events.NoopLogger)
 				if err != nil {
 					log.Println("eventLoop: Starting:", err)
 					continue

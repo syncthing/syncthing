@@ -35,6 +35,7 @@ type globalClient struct {
 	queryClient    httpClient
 	noAnnounce     bool
 	noLookup       bool
+	evLogger       events.Logger
 	errorHolder
 }
 
@@ -70,7 +71,7 @@ func (e lookupError) CacheFor() time.Duration {
 	return e.cacheFor
 }
 
-func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (FinderService, error) {
+func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLogger events.Logger) (FinderService, error) {
 	server, opts, err := parseOptions(server)
 	if err != nil {
 		return nil, err
@@ -125,6 +126,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (Fin
 		queryClient:    queryClient,
 		noAnnounce:     opts.noAnnounce,
 		noLookup:       opts.noLookup,
+		evLogger:       evLogger,
 	}
 	cl.Service = util.AsService(cl.serve)
 	if !opts.noAnnounce {
@@ -197,8 +199,8 @@ func (c *globalClient) serve(stop chan struct{}) {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
-	eventSub := events.Default.Subscribe(events.ListenAddressesChanged)
-	defer events.Default.Unsubscribe(eventSub)
+	eventSub := c.evLogger.Subscribe(events.ListenAddressesChanged)
+	defer eventSub.Unsubscribe()
 
 	for {
 		select {

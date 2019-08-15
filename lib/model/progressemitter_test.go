@@ -30,7 +30,7 @@ func caller(skip int) string {
 	return fmt.Sprintf("%s:%d", filepath.Base(file), line)
 }
 
-func expectEvent(w *events.Subscription, t *testing.T, size int) {
+func expectEvent(w events.Subscription, t *testing.T, size int) {
 	event, err := w.Poll(timeout)
 	if err != nil {
 		t.Fatal("Unexpected error:", err, "at", caller(1))
@@ -44,7 +44,7 @@ func expectEvent(w *events.Subscription, t *testing.T, size int) {
 	}
 }
 
-func expectTimeout(w *events.Subscription, t *testing.T) {
+func expectTimeout(w events.Subscription, t *testing.T) {
 	_, err := w.Poll(timeout)
 	if err != events.ErrTimeout {
 		t.Fatal("Unexpected non-Timeout error:", err, "at", caller(1))
@@ -52,7 +52,11 @@ func expectTimeout(w *events.Subscription, t *testing.T) {
 }
 
 func TestProgressEmitter(t *testing.T) {
-	w := events.Default.Subscribe(events.DownloadProgress)
+	evLogger := events.NewLogger()
+	go evLogger.Serve()
+	defer evLogger.Stop()
+
+	w := evLogger.Subscribe(events.DownloadProgress)
 
 	c := createTmpWrapper(config.Configuration{})
 	defer os.Remove(c.ConfigPath())
@@ -60,7 +64,7 @@ func TestProgressEmitter(t *testing.T) {
 		ProgressUpdateIntervalS: 0,
 	})
 
-	p := NewProgressEmitter(c)
+	p := NewProgressEmitter(c, evLogger)
 	go p.Serve()
 	p.interval = 0
 
@@ -112,7 +116,11 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 
 	fc := &fakeConnection{}
 
-	p := NewProgressEmitter(c)
+	evLogger := events.NewLogger()
+	go evLogger.Serve()
+	defer evLogger.Stop()
+
+	p := NewProgressEmitter(c, evLogger)
 	p.temporaryIndexSubscribe(fc, []string{"folder", "folder2"})
 	p.registry["folder"] = make(map[string]*sharedPullerState)
 	p.registry["folder2"] = make(map[string]*sharedPullerState)

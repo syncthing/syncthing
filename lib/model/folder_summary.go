@@ -36,6 +36,7 @@ type folderSummaryService struct {
 	cfg       config.Wrapper
 	model     Model
 	id        protocol.DeviceID
+	evLogger  events.Logger
 	immediate chan string
 
 	// For keeping track of folders to recalculate for
@@ -47,7 +48,7 @@ type folderSummaryService struct {
 	lastEventReqMut sync.Mutex
 }
 
-func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID) FolderSummaryService {
+func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
 	service := &folderSummaryService{
 		Supervisor: suture.New("folderSummaryService", suture.Spec{
 			PassThroughPanics: true,
@@ -55,6 +56,7 @@ func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID) 
 		cfg:             cfg,
 		model:           m,
 		id:              id,
+		evLogger:        evLogger,
 		immediate:       make(chan string),
 		folders:         make(map[string]struct{}),
 		foldersMut:      sync.NewMutex(),
@@ -144,8 +146,8 @@ func (c *folderSummaryService) OnEventRequest() {
 // listenForUpdates subscribes to the event bus and makes note of folders that
 // need their data recalculated.
 func (c *folderSummaryService) listenForUpdates(stop chan struct{}) {
-	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged | events.DownloadProgress)
-	defer events.Default.Unsubscribe(sub)
+	sub := c.evLogger.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged | events.DownloadProgress)
+	defer sub.Unsubscribe()
 
 	for {
 		// This loop needs to be fast so we don't miss too many events.
@@ -291,7 +293,7 @@ func (c *folderSummaryService) sendSummary(folder string) {
 	if err != nil {
 		return
 	}
-	events.Default.Log(events.FolderSummary, map[string]interface{}{
+	c.evLogger.Log(events.FolderSummary, map[string]interface{}{
 		"folder":  folder,
 		"summary": data,
 	})
@@ -311,6 +313,6 @@ func (c *folderSummaryService) sendSummary(folder string) {
 		comp := c.model.Completion(devCfg.DeviceID, folder).Map()
 		comp["folder"] = folder
 		comp["device"] = devCfg.DeviceID.String()
-		events.Default.Log(events.FolderCompletion, comp)
+		c.evLogger.Log(events.FolderCompletion, comp)
 	}
 }

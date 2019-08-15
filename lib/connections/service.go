@@ -120,6 +120,7 @@ type service struct {
 	limiter              *limiter
 	natService           *nat.Service
 	natServiceToken      *suture.ServiceToken
+	evLogger             events.Logger
 
 	listenersMut       sync.RWMutex
 	listeners          map[string]genericListener
@@ -130,7 +131,7 @@ type service struct {
 	connectionStatus    map[string]ConnectionStatusEntry // address -> latest error/status
 }
 
-func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string) Service {
+func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
 	service := &service{
 		Supervisor: suture.New("connections.Service", suture.Spec{
 			Log: func(line string) {
@@ -148,6 +149,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		limiter:              newLimiter(cfg),
 		natService:           nat.NewService(myID, cfg),
+		evLogger:             evLogger,
 
 		listenersMut:   sync.NewRWMutex(),
 		listeners:      make(map[string]genericListener),
@@ -552,7 +554,7 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 }
 
 func (s *service) logListenAddressesChangedEvent(l genericListener) {
-	events.Default.Log(events.ListenAddressesChanged, map[string]interface{}{
+	s.evLogger.Log(events.ListenAddressesChanged, map[string]interface{}{
 		"address": l.URI(),
 		"lan":     l.LANAddresses(),
 		"wan":     l.WANAddresses(),
@@ -579,7 +581,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
-	for _, addr := range config.Wrap("", to).ListenAddresses() {
+	for _, addr := range config.Wrap("", to, s.evLogger).ListenAddresses() {
 		if addr == "" {
 			// We can get an empty address if there is an empty listener
 			// element in the config, indicating no listeners should be

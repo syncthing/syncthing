@@ -108,9 +108,9 @@ type sendReceiveFolder struct {
 	pullErrorsMut sync.Mutex
 }
 
-func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem) service {
+func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger) service {
 	f := &sendReceiveFolder{
-		folder:        newFolder(model, fset, ignores, cfg),
+		folder:        newFolder(model, fset, ignores, cfg, evLogger),
 		fs:            fs,
 		versioner:     ver,
 		queue:         newJobQueue(),
@@ -211,7 +211,7 @@ func (f *sendReceiveFolder) pull() bool {
 	// errors preventing us. Flag this with a warning and
 	// wait a bit longer before retrying.
 	if errors := f.Errors(); len(errors) > 0 {
-		events.Default.Log(events.FolderErrors, map[string]interface{}{
+		f.evLogger.Log(events.FolderErrors, map[string]interface{}{
 			"folder": f.folderID,
 			"errors": errors,
 		})
@@ -544,7 +544,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 
 	f.resetPullError(file.Name)
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "dir",
@@ -552,7 +552,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	})
 
 	defer func() {
-		events.Default.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   file.Name,
 			"error":  events.Error(err),
@@ -700,7 +700,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 
 	f.resetPullError(file.Name)
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "symlink",
@@ -708,7 +708,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	})
 
 	defer func() {
-		events.Default.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   file.Name,
 			"error":  events.Error(err),
@@ -782,7 +782,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 	// care not declare another err.
 	var err error
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "dir",
@@ -790,7 +790,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 	})
 
 	defer func() {
-		events.Default.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   file.Name,
 			"error":  events.Error(err),
@@ -822,7 +822,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 
 	f.resetPullError(file.Name)
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "file",
@@ -833,7 +833,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 		if err != nil {
 			f.newPullError(file.Name, errors.Wrap(err, "delete file"))
 		}
-		events.Default.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   file.Name,
 			"error":  events.Error(err),
@@ -897,13 +897,13 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 	// care not declare another err.
 	var err error
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   source.Name,
 		"type":   "file",
 		"action": "delete",
 	})
-	events.Default.Log(events.ItemStarted, map[string]string{
+	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   target.Name,
 		"type":   "file",
@@ -911,14 +911,14 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 	})
 
 	defer func() {
-		events.Default.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   source.Name,
 			"error":  events.Error(err),
 			"type":   "file",
 			"action": "delete",
 		})
-		events.Default.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   target.Name,
 			"error":  events.Error(err),
@@ -1095,7 +1095,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	// Shuffle the blocks
 	rand.Shuffle(blocks)
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "file",
@@ -1178,7 +1178,7 @@ func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpda
 
 	f.resetPullError(file.Name)
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "file",
@@ -1186,7 +1186,7 @@ func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpda
 	})
 
 	var err error
-	defer events.Default.Log(events.ItemFinished, map[string]interface{}{
+	defer f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"error":  events.Error(err),
@@ -1575,7 +1575,7 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 
 			f.model.progressEmitter.Deregister(state)
 
-			events.Default.Log(events.ItemFinished, map[string]interface{}{
+			f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 				"folder": f.folderID,
 				"item":   state.file.Name,
 				"error":  events.Error(err),

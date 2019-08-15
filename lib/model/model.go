@@ -128,6 +128,7 @@ type model struct {
 	shortID           protocol.ShortID
 	cacheIgnoredFiles bool
 	protectedFiles    []string
+	evLogger          events.Logger
 
 	clientName    string
 	clientVersion string
@@ -152,7 +153,7 @@ type model struct {
 	foldersRunning int32 // for testing only
 }
 
-type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
+type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem, events.Logger) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory)
@@ -175,7 +176,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) Model {
+func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger) Model {
 	m := &model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
@@ -186,11 +187,12 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		cfg:                 cfg,
 		db:                  ldb,
 		finder:              db.NewBlockFinder(ldb),
-		progressEmitter:     NewProgressEmitter(cfg),
+		progressEmitter:     NewProgressEmitter(cfg, evLogger),
 		id:                  id,
 		shortID:             id.Short(),
 		cacheIgnoredFiles:   cfg.Options().CacheIgnoredFiles,
 		protectedFiles:      protectedFiles,
+		evLogger:            evLogger,
 		clientName:          clientName,
 		clientVersion:       clientVersion,
 		folderCfgs:          make(map[string]config.FolderConfiguration),
@@ -310,7 +312,7 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	ffs.Hide(".stversions")
 	ffs.Hide(".stignore")
 
-	p := folderFactory(m, fset, m.folderIgnores[folder], cfg, ver, ffs)
+	p := folderFactory(m, fset, m.folderIgnores[folder], cfg, ver, ffs, m.evLogger)
 
 	m.folderRunners[folder] = p
 
@@ -1023,7 +1025,7 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	}
 	files.Update(deviceID, fs)
 
-	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
+	m.evLogger.Log(events.RemoteIndexUpdated, map[string]interface{}{
 		"device":  deviceID.String(),
 		"folder":  folder,
 		"items":   len(fs),
@@ -1077,7 +1079,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
 			changed = true
-			events.Default.Log(events.FolderRejected, map[string]string{
+			m.evLogger.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
 				"device":      deviceID.String(),
@@ -1180,6 +1182,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			fset:         fs,
 			prevSequence: startSequence,
 			dropSymlinks: dropSymlinks,
+			evLogger:     m.evLogger,
 		}
 		is.Service = util.AsService(is.serve)
 		// The token isn't tracked as the service stops when the connection
@@ -1432,7 +1435,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	delete(m.closed, device)
 
 	l.Infof("Connection to %s at %s closed: %v", device, conn.Name(), err)
-	events.Default.Log(events.DeviceDisconnected, map[string]string{
+	m.evLogger.Log(events.DeviceDisconnected, map[string]string{
 		"id":    device.String(),
 		"error": err.Error(),
 	})
@@ -1773,7 +1776,7 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 	if !ok {
 		m.cfg.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String())
 		_ = m.cfg.Save() // best effort
-		events.Default.Log(events.DeviceRejected, map[string]string{
+		m.evLogger.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),
 			"address": addr.String(),
@@ -1859,7 +1862,7 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 		event["addr"] = addr.String()
 	}
 
-	events.Default.Log(events.DeviceConnected, event)
+	m.evLogger.Log(events.DeviceConnected, event)
 
 	l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
 
@@ -1894,7 +1897,7 @@ func (m *model) DownloadProgress(device protocol.DeviceID, folder string, update
 	downloads.Update(folder, updates)
 	state := downloads.GetBlockCounts(folder)
 
-	events.Default.Log(events.RemoteDownloadProgress, map[string]interface{}{
+	m.evLogger.Log(events.RemoteDownloadProgress, map[string]interface{}{
 		"device": device.String(),
 		"folder": folder,
 		"state":  state,
@@ -1926,6 +1929,7 @@ type indexSender struct {
 	fset         *db.FileSet
 	prevSequence int64
 	dropSymlinks bool
+	evLogger     events.Logger
 	connClosed   chan struct{}
 }
 
@@ -1941,8 +1945,8 @@ func (s *indexSender) serve(stop chan struct{}) {
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
 	// DeviceDisconnected (it might be us who disconnected, so we should
 	// exit).
-	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.DeviceDisconnected)
-	defer events.Default.Unsubscribe(sub)
+	sub := s.evLogger.Subscribe(events.LocalIndexUpdated | events.DeviceDisconnected)
+	defer sub.Unsubscribe()
 
 	evChan := sub.C()
 	ticker := time.NewTicker(time.Minute)
@@ -2531,7 +2535,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			if toCfg.Paused {
 				eventType = events.FolderPaused
 			}
-			events.Default.Log(eventType, map[string]string{"id": toCfg.ID, "label": toCfg.Label})
+			m.evLogger.Log(eventType, map[string]string{"id": toCfg.ID, "label": toCfg.Label})
 		}
 	}
 
@@ -2559,9 +2563,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
 			m.closeConn(deviceID, errDevicePaused)
-			events.Default.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
+			m.evLogger.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
-			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
+			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
 

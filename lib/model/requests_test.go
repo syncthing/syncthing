@@ -350,8 +350,8 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	}
 	fc.mut.Unlock()
 
-	sub := events.Default.Subscribe(events.FolderErrors)
-	defer events.Default.Unsubscribe(sub)
+	sub := m.evLogger.Subscribe(events.FolderErrors)
+	defer sub.Unsubscribe()
 
 	fc.sendIndexUpdate()
 
@@ -640,8 +640,8 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		t.Fatalf("timed out before pull was finished")
 	}
 
-	sub := events.Default.Subscribe(events.StateChanged | events.LocalIndexUpdated)
-	defer events.Default.Unsubscribe(sub)
+	sub := m.evLogger.Subscribe(events.StateChanged | events.LocalIndexUpdated)
+	defer sub.Unsubscribe()
 
 	m.ScanFolder("default")
 
@@ -978,8 +978,8 @@ func TestNeedFolderFiles(t *testing.T) {
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
 
-	sub := events.Default.Subscribe(events.RemoteIndexUpdated)
-	defer events.Default.Unsubscribe(sub)
+	sub := m.evLogger.Subscribe(events.RemoteIndexUpdated)
+	defer sub.Unsubscribe()
 
 	errPreventSync := errors.New("you aren't getting any of this")
 	fc.mut.Lock()

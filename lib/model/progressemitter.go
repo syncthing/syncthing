@@ -29,6 +29,7 @@ type ProgressEmitter struct {
 	connections        map[protocol.DeviceID]protocol.Connection
 	foldersByConns     map[protocol.DeviceID][]string
 	disabled           bool
+	evLogger           events.Logger
 	mut                sync.Mutex
 
 	timer *time.Timer
@@ -36,13 +37,14 @@ type ProgressEmitter struct {
 
 // NewProgressEmitter creates a new progress emitter which emits
 // DownloadProgress events every interval.
-func NewProgressEmitter(cfg config.Wrapper) *ProgressEmitter {
+func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmitter {
 	t := &ProgressEmitter{
 		registry:           make(map[string]map[string]*sharedPullerState),
 		timer:              time.NewTimer(time.Millisecond),
 		sentDownloadStates: make(map[protocol.DeviceID]*sentDownloadState),
 		connections:        make(map[protocol.DeviceID]protocol.Connection),
 		foldersByConns:     make(map[protocol.DeviceID][]string),
+		evLogger:           evLogger,
 		mut:                sync.NewMutex(),
 	}
 	t.Service = util.AsService(t.serve)
@@ -107,7 +109,7 @@ func (t *ProgressEmitter) sendDownloadProgressEventLocked() {
 			output[folder][name] = puller.Progress()
 		}
 	}
-	events.Default.Log(events.DownloadProgress, output)
+	t.evLogger.Log(events.DownloadProgress, output)
 	l.Debugf("progress emitter: emitting %#v", output)
 }
 

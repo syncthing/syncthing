@@ -21,13 +21,13 @@ import (
 type auditService struct {
 	suture.Service
 	w   io.Writer // audit destination
-	sub *events.Subscription
+	sub events.Subscription
 }
 
-func newAuditService(w io.Writer) *auditService {
+func newAuditService(w io.Writer, evLogger events.Logger) *auditService {
 	s := &auditService{
 		w:   w,
-		sub: events.Default.Subscribe(events.AllEvents),
+		sub: evLogger.Subscribe(events.AllEvents),
 	}
 	s.Service = util.AsService(s.serve)
 	return s
@@ -50,5 +50,5 @@ func (s *auditService) serve(stop chan struct{}) {
 // Stop stops the audit service.
 func (s *auditService) Stop() {
 	s.Service.Stop()
-	events.Default.Unsubscribe(s.sub)
+	s.sub.Unsubscribe()
 }

@@ -100,9 +100,9 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 			RawUseTLS:  false,
 		},
 	}
-	w := config.Wrap("/dev/null", cfg)
+	w := config.Wrap("/dev/null", cfg, events.NoopLogger)
 
-	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
 	defer os.Remove(token)
 	srv.started = make(chan string)
 
@@ -512,8 +512,8 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
-	summaryService := model.NewFolderSummaryService(cfg, m, protocol.LocalDeviceID)
-	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, discoverer, connections, urService, summaryService, errorLog, systemLog, cpu, nil, false).(*service)
+	summaryService := model.NewFolderSummaryService(cfg, m, protocol.LocalDeviceID, events.NoopLogger)
+	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, summaryService, errorLog, systemLog, cpu, nil, false).(*service)
 	defer os.Remove(token)
 	svc.started = addrChan
 
@@ -979,7 +979,7 @@ func TestEventMasks(t *testing.T) {
 	cfg := new(mockedConfig)
 	defSub := new(mockedEventSub)
 	diskSub := new(mockedEventSub)
-	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
 	defer os.Remove(token)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
