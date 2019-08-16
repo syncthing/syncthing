@@ -33,20 +33,22 @@ func main() {
 	json.NewEncoder(os.Stdout).Encode(rels)
 }
 
-// filterForLatest returns the latest stable and prerelease only
+// filterForLatest returns the latest stable and prerelease only. If the
+// stable version is newer (comes first in the list) there is no need to go
+// looking for a prerelease at all.
 func filterForLatest(rels []upgrade.Release) []upgrade.Release {
 	var filtered []upgrade.Release
-	var havePre, haveStable bool
+	var havePre bool
 	for _, rel := range rels {
+		if !rel.Prerelease {
+			// We found a stable version, we're good now.
+			filtered = append(filtered, rel)
+			break
+		}
 		if rel.Prerelease && !havePre {
+			// We remember the first prerelease we find.
 			filtered = append(filtered, rel)
 			havePre = true
-		} else if !rel.Prerelease && !haveStable {
-			filtered = append(filtered, rel)
-			haveStable = true
-		}
-		if havePre && haveStable {
-			break
 		}
 	}
 	return filtered
