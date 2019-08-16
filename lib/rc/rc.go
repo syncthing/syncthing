@@ -155,6 +155,11 @@ func (p *Process) Stop() (*os.ProcessState, error) {
 	return p.cmd.ProcessState, p.stopErr
 }
 
+// Stopped returns a channel that will be closed when Syncthing has stopped.
+func (p *Process) Stopped() chan struct{} {
+	return p.stopped
+}
+
 // Get performs an HTTP GET and returns the bytes and/or an error. Any non-200
 // return code is returned as an error.
 func (p *Process) Get(path string) ([]byte, error) {
