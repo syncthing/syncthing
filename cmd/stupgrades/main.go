@@ -30,7 +30,9 @@ func main() {
 	sort.Sort(upgrade.SortByRelease(rels))
 	rels = filterForLatest(rels)
 
-	json.NewEncoder(os.Stdout).Encode(rels)
+	if err := json.NewEncoder(os.Stdout).Encode(rels); err != nil {
+		os.Exit(1)
+	}
 }
 
 // filterForLatest returns the latest stable and prerelease only. If the
