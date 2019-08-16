@@ -227,7 +227,7 @@ func (s *service) handle(stop chan struct{}) {
 		// though, especially in the presence of NAT hairpinning, multiple
 		// clients between the same NAT gateway, and global discovery.
 		if remoteID == s.myID {
-			l.Infof("Connected to myself (%s) at %s - should not happen", remoteID, c)
+			l.Infof("Connected with myself (%s) at %s - should not happen", remoteID, c)
 			c.Close()
 			continue
 		}
@@ -247,7 +247,7 @@ func (s *service) handle(stop chan struct{}) {
 					// IP.
 					remote = fmt.Sprintf("%q (%s %s, %v)", hello.DeviceName, hello.ClientName, hello.ClientVersion, remoteID)
 				}
-				msg := fmt.Sprintf("Connecting to %s: %s", remote, err)
+				msg := fmt.Sprintf("Connecting with %s: %s", remote, err)
 				warningFor(remoteID, msg)
 			} else {
 				// It's something else - connection reset or whatever
@@ -274,13 +274,13 @@ func (s *service) handle(stop chan struct{}) {
 		if connected && ct.Priority() > c.priority {
 			l.Debugf("Switching connections %s (existing: %s new: %s)", remoteID, ct, c)
 		} else if connected {
-			// We should not already be connected to the other party. TODO: This
+			// We should not already be connected with the other party. TODO: This
 			// could use some better handling. If the old connection is dead but
 			// hasn't timed out yet we may want to drop *that* connection and keep
 			// this one. But in case we are two devices connecting to each other
 			// in parallel we don't want to do that or we end up with no
 			// connections still established...
-			l.Infof("Connected to already connected device %s (existing: %s new: %s)", remoteID, ct, c)
+			l.Infof("Connected with an already connected device %s (existing: %s new: %s)", remoteID, ct, c)
 			c.Close()
 			continue
 		}
@@ -317,7 +317,7 @@ func (s *service) handle(stop chan struct{}) {
 		protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
 		modelConn := completeConn{c, protoConn}
 
-		l.Infof("Established secure connection to %s at %s", remoteID, c)
+		l.Infof("Established secure connection with %s at %s", remoteID, c)
 
 		s.model.AddConnection(modelConn, hello)
 		continue
@@ -877,10 +877,10 @@ func (s *service) dialParallel(deviceID protocol.DeviceID, dialTargets []dialTar
 		if conn, ok := <-res; ok {
 			// Got a connection, means more might come back, hence spawn a
 			// routine that will do the discarding.
-			l.Debugln("connected to", deviceID, prio, "using", conn, conn.priority)
+			l.Debugln("connected with", deviceID, prio, "using", conn, conn.priority)
 			go func(deviceID protocol.DeviceID, prio int) {
 				wg.Wait()
-				l.Debugln("discarding", len(res), "connections while connecting to", deviceID, prio)
+				l.Debugln("discarding", len(res), "connections while connecting with", deviceID, prio)
 				for conn := range res {
 					conn.Close()
 				}
@@ -912,9 +912,9 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	// though, especially in the presence of NAT hairpinning, multiple
 	// clients between the same NAT gateway, and global discovery.
 	if remoteID == s.myID {
-		l.Infof("Connected to myself (%s) at %s - should not happen", remoteID, c)
+		l.Infof("Connected with myself (%s) at %s - should not happen", remoteID, c)
 		c.Close()
-		return fmt.Errorf("connected to self")
+		return fmt.Errorf("connected with self")
 	}
 
 	// We should see the expected device ID
