@@ -12,25 +12,20 @@ import (
 	"time"
 
 	"golang.org/x/net/ipv6"
-
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 func NewMulticast(addr string) Interface {
 	c := newCast("multicastBeacon")
-	c.addReader(util.AsServiceWithError(func(stop chan struct{}) error {
-		return writeMulticasts(c.inbox, addr, stop)
-	}))
-	c.addWriter(util.AsServiceWithError(func(stop chan struct{}) error {
+	c.addReader(func(stop chan struct{}) error {
 		return readMulticasts(c.outbox, addr, stop)
-	}))
+	})
+	c.addWriter(func(stop chan struct{}) error {
+		return writeMulticasts(c.inbox, addr, stop)
+	})
 	return c
 }
 
 func writeMulticasts(inbox <-chan []byte, addr string, stop chan struct{}) error {
-	l.Debugln("starting writeMulticasts")
-	defer l.Debugln("stopping writeMulticasts")
-
 	gaddr, err := net.ResolveUDPAddr("udp6", addr)
 	if err != nil {
 		l.Debugln(err)
@@ -102,9 +97,6 @@ func writeMulticasts(inbox <-chan []byte, addr string, stop chan struct{}) error
 }
 
 func readMulticasts(outbox chan<- recv, addr string, stop chan struct{}) error {
-	l.Debugln("starting readMulticasts")
-	defer l.Debugln("stopping readMulticasts")
-
 	gaddr, err := net.ResolveUDPAddr("udp6", addr)
 	if err != nil {
 		l.Debugln(err)

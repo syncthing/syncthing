@@ -9,25 +9,20 @@ package beacon
 import (
 	"net"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 func NewBroadcast(port int) Interface {
 	c := newCast("broadcastBeacon")
-	c.addReader(util.AsServiceWithError(func(stop chan struct{}) error {
-		return writeBroadcasts(c.inbox, port, stop)
-	}))
-	c.addWriter(util.AsServiceWithError(func(stop chan struct{}) error {
+	c.addReader(func(stop chan struct{}) error {
 		return readBroadcasts(c.outbox, port, stop)
-	}))
+	})
+	c.addWriter(func(stop chan struct{}) error {
+		return writeBroadcasts(c.inbox, port, stop)
+	})
 	return c
 }
 
 func writeBroadcasts(inbox <-chan []byte, port int, stop chan struct{}) error {
-	l.Debugln("starting writeBroadcasts")
-	defer l.Debugln("stopping writeBroadcasts")
-
 	conn, err := net.ListenUDP("udp4", nil)
 	if err != nil {
 		l.Debugln(err)
@@ -105,9 +100,6 @@ func writeBroadcasts(inbox <-chan []byte, port int, stop chan struct{}) error {
 }
 
 func readBroadcasts(outbox chan<- recv, port int, stop chan struct{}) error {
-	l.Debugln("starting readBroadcasts")
-	defer l.Debugln("stopping readBroadcasts")
-
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{Port: port})
 	if err != nil {
 		l.Debugln(err)

@@ -63,14 +63,23 @@ func newCast(name string) *cast {
 	}
 }
 
-func (c *cast) addReader(r util.ServiceWithError) {
-	c.reader = r
-	c.Add(r)
+func (c *cast) addReader(svc func(chan struct{}) error) {
+	c.writer = c.createService(svc, "reader")
+	c.Add(c.reader)
 }
 
-func (c *cast) addWriter(w util.ServiceWithError) {
-	c.writer = w
-	c.Add(w)
+func (c *cast) addWriter(svc func(stop chan struct{}) error) {
+	c.writer = c.createService(svc, "writer")
+	c.Add(c.writer)
+}
+
+func (c *cast) createService(svc func(chan struct{}) error, suffix string) util.ServiceWithError {
+	return util.AsServiceWithError(func(stop chan struct{}) error {
+		l.Debugln("Starting", c.name, suffix)
+		err := svc(stop)
+		l.Debugf("Stopped %v %v: %v", c.name, suffix, err)
+		return err
+	})
 }
 
 func (c *cast) Stop() {
