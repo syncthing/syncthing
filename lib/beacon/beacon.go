@@ -64,7 +64,7 @@ func newCast(name string) *cast {
 }
 
 func (c *cast) addReader(svc func(chan struct{}) error) {
-	c.writer = c.createService(svc, "reader")
+	c.reader = c.createService(svc, "reader")
 	c.Add(c.reader)
 }
 
