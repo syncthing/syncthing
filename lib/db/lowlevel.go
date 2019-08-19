@@ -23,11 +23,17 @@ import (
 
 const (
 	dbMaxOpenFiles = 100
-	dbWriteBuffer  = 16 << 20
-)
+	dbFlushBatch   = 4 << MiB
 
-var (
-	dbFlushBatch = debugEnvValue("WriteBuffer", dbWriteBuffer) / 4 // Some leeway for any leveldb in-memory optimizations
+	// A large database is > 200 MiB. It's a mostly arbitrary value, but
+	// it's also the case that each file is 2 MiB by default and when we
+	// have dbMaxOpenFiles of them we will need to start thrashing fd:s.
+	// Switching to large database settings causes larger files to be used
+	// when compaticting, reducing the number.
+	largeDBThreshold = dbMaxOpenFiles * (2 << MiB)
+
+	KiB = 10
+	MiB = 20
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
@@ -50,17 +56,50 @@ type Lowlevel struct {
 // recovery on it if opening fails. Worst case, if recovery is not possible,
 // the database is erased and created from scratch.
 func Open(location string) (*Lowlevel, error) {
+	size := dbSize(location) // defaults to 0 in case of error
+	opts := optsFor(size)
+	return open(location, opts)
+}
+
+// optsFor returns the database options to use when opening a database with
+// the given size. Settings can be overridden by debug environment
+// variables.
+func optsFor(size int64) *opt.Options {
+	var (
+		// Set defaults used for small databases.
+		defaultBlockCacheCapacity            = 0 // 0 means let leveldb use default
+		defaultBlockSize                     = 0
+		defaultCompactionTableSize           = 0
+		defaultCompactionTableSizeMultiplier = 0
+		defaultWriteBuffer                   = 16 << MiB                      // increased from leveldb default of 4 MiB
+		defaultCompactionL0Trigger           = opt.DefaultCompactionL0Trigger // explicit because we use it as base for other stuff
+	)
+
+	if size > largeDBThreshold {
+		// Change the parameters for better throughput at the price of some
+		// RAM and larger files. This results in larger batches of writes
+		// and compaction at a lower frequency.
+		l.Infoln("Using large-database tuning")
+
+		defaultBlockCacheCapacity = 64 << MiB
+		defaultBlockSize = 64 << KiB
+		defaultCompactionTableSize = 16 << MiB
+		defaultCompactionTableSizeMultiplier = 20 // 2.0 after division by ten
+		defaultWriteBuffer = 64 << MiB
+		defaultCompactionL0Trigger = 8 // number of l0 files
+	}
+
 	opts := &opt.Options{
-		BlockCacheCapacity:            debugEnvValue("BlockCacheCapacity", 0),
+		BlockCacheCapacity:            debugEnvValue("BlockCacheCapacity", defaultBlockCacheCapacity),
 		BlockCacheEvictRemoved:        debugEnvValue("BlockCacheEvictRemoved", 0) != 0,
 		BlockRestartInterval:          debugEnvValue("BlockRestartInterval", 0),
-		BlockSize:                     debugEnvValue("BlockSize", 0),
+		BlockSize:                     debugEnvValue("BlockSize", defaultBlockSize),
 		CompactionExpandLimitFactor:   debugEnvValue("CompactionExpandLimitFactor", 0),
 		CompactionGPOverlapsFactor:    debugEnvValue("CompactionGPOverlapsFactor", 0),
-		CompactionL0Trigger:           debugEnvValue("CompactionL0Trigger", 0),
+		CompactionL0Trigger:           debugEnvValue("CompactionL0Trigger", defaultCompactionL0Trigger),
 		CompactionSourceLimitFactor:   debugEnvValue("CompactionSourceLimitFactor", 0),
-		CompactionTableSize:           debugEnvValue("CompactionTableSize", 0),
-		CompactionTableSizeMultiplier: float64(debugEnvValue("CompactionTableSizeMultiplier", 0)) / 10.0,
+		CompactionTableSize:           debugEnvValue("CompactionTableSize", defaultCompactionTableSize),
+		CompactionTableSizeMultiplier: float64(debugEnvValue("CompactionTableSizeMultiplier", defaultCompactionTableSizeMultiplier)) / 10.0,
 		CompactionTotalSize:           debugEnvValue("CompactionTotalSize", 0),
 		CompactionTotalSizeMultiplier: float64(debugEnvValue("CompactionTotalSizeMultiplier", 0)) / 10.0,
 		DisableBufferPool:             debugEnvValue("DisableBufferPool", 0) != 0,
@@ -70,15 +109,16 @@ func Open(location string) (*Lowlevel, error) {
 		NoSync:                        debugEnvValue("NoSync", 0) != 0,
 		NoWriteMerge:                  debugEnvValue("NoWriteMerge", 0) != 0,
 		OpenFilesCacheCapacity:        debugEnvValue("OpenFilesCacheCapacity", dbMaxOpenFiles),
-		WriteBuffer:                   debugEnvValue("WriteBuffer", dbWriteBuffer),
+		WriteBuffer:                   debugEnvValue("WriteBuffer", defaultWriteBuffer),
 		// The write slowdown and pause can be overridden, but even if they
 		// are not and the compaction trigger is overridden we need to
 		// adjust so that we don't pause writes for L0 compaction before we
 		// even *start* L0 compaction...
-		WriteL0SlowdownTrigger: debugEnvValue("WriteL0SlowdownTrigger", 2*debugEnvValue("CompactionL0Trigger", opt.DefaultCompactionL0Trigger)),
-		WriteL0PauseTrigger:    debugEnvValue("WriteL0SlowdownTrigger", 3*debugEnvValue("CompactionL0Trigger", opt.DefaultCompactionL0Trigger)),
+		WriteL0SlowdownTrigger: debugEnvValue("WriteL0SlowdownTrigger", 2*debugEnvValue("CompactionL0Trigger", defaultCompactionL0Trigger)),
+		WriteL0PauseTrigger:    debugEnvValue("WriteL0SlowdownTrigger", 3*debugEnvValue("CompactionL0Trigger", defaultCompactionL0Trigger)),
 	}
-	return open(location, opts)
+
+	return opts
 }
 
 // OpenRO attempts to open the database at the given location, read only.
@@ -114,6 +154,7 @@ func open(location string, opts *opt.Options) (*Lowlevel, error) {
 			l.Warnln("Compacting database:", err)
 		}
 	}
+
 	return NewLowlevel(db, location), nil
 }
 
@@ -205,6 +246,32 @@ func (db *Lowlevel) Close() {
 	db.closeMut.Unlock()
 	db.iterWG.Wait()
 	db.DB.Close()
+}
+
+// dbSize returns the estimated size of the database at location, in bytes,
+// or zero if the size cannot be determined. It is simply the sum of the
+// file sizes so it does not account for deleted or overwritten but
+// uncompacted data.
+func dbSize(location string) int64 {
+	dir, err := os.Open(location)
+	if err != nil {
+		return 0
+	}
+
+	fis, err := dir.Readdir(-1)
+	if err != nil {
+		return 0
+	}
+
+	var size int64
+	for _, fi := range fis {
+		if fi.Name() == "LOG" {
+			continue
+		}
+		size += fi.Size()
+	}
+
+	return size
 }
 
 // NewLowlevel wraps the given *leveldb.DB into a *lowlevel
