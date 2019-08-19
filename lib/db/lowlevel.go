@@ -65,6 +65,14 @@ type Lowlevel struct {
 // recovery on it if opening fails. Worst case, if recovery is not possible,
 // the database is erased and created from scratch.
 func Open(location string, tuning Tuning) (*Lowlevel, error) {
+	opts := optsFor(location, tuning)
+	return open(location, opts)
+}
+
+// optsFor returns the database options to use when opening a database with
+// the given location and tuning. Settings can be overridden by debug
+// environment variables.
+func optsFor(location string, tuning Tuning) *opt.Options {
 	large := false
 	switch tuning {
 	case TuningLarge:
@@ -73,15 +81,6 @@ func Open(location string, tuning Tuning) (*Lowlevel, error) {
 		large = dbIsLarge(location)
 	}
 
-	opts := optsFor(large)
-	return open(location, opts)
-}
-
-// optsFor returns the database options to use when opening a database. The
-// large bool indicates whether we think the database should use the large
-// mode parameters. Settings can be overridden by debug environment
-// variables.
-func optsFor(large bool) *opt.Options {
 	var (
 		// Set defaults used for small databases.
 		defaultBlockCacheCapacity            = 0 // 0 means let leveldb use default
