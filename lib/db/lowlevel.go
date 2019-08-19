@@ -64,10 +64,10 @@ func Open(location string) (*Lowlevel, error) {
 	return open(location, opts)
 }
 
-// optsFor returns the database options to use when opening a database with
-// the given size. The large bool indicates whether we think the database is
-// currently using the large mode parameters. Settings can be overridden by
-// debug environment variables.
+// optsFor returns the database options to use when opening a database. The
+// large bool indicates whether we think the database should use the large
+// mode parameters. Settings can be overridden by debug environment
+// variables.
 func optsFor(large bool) *opt.Options {
 	var (
 		// Set defaults used for small databases.
