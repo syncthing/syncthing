@@ -7,7 +7,9 @@
 package db
 
 import (
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,7 +32,8 @@ const (
 	// have dbMaxOpenFiles of them we will need to start thrashing fd:s.
 	// Switching to large database settings causes larger files to be used
 	// when compaticting, reducing the number.
-	largeDBThreshold = dbMaxOpenFiles * (2 << MiB)
+	dbLargeThreshold  = dbMaxOpenFiles * (2 << MiB)
+	dbLargeMarkerFile = "LARGE"
 
 	KiB = 10
 	MiB = 20
@@ -56,15 +59,16 @@ type Lowlevel struct {
 // recovery on it if opening fails. Worst case, if recovery is not possible,
 // the database is erased and created from scratch.
 func Open(location string) (*Lowlevel, error) {
-	size := dbSize(location) // defaults to 0 in case of error
-	opts := optsFor(size)
+	large := dbIsLarge(location)
+	opts := optsFor(large)
 	return open(location, opts)
 }
 
 // optsFor returns the database options to use when opening a database with
-// the given size. Settings can be overridden by debug environment
-// variables.
-func optsFor(size int64) *opt.Options {
+// the given size. The large bool indicates whether we think the database is
+// currently using the large mode parameters. Settings can be overridden by
+// debug environment variables.
+func optsFor(large bool) *opt.Options {
 	var (
 		// Set defaults used for small databases.
 		defaultBlockCacheCapacity            = 0 // 0 means let leveldb use default
@@ -75,7 +79,7 @@ func optsFor(size int64) *opt.Options {
 		defaultCompactionL0Trigger           = opt.DefaultCompactionL0Trigger // explicit because we use it as base for other stuff
 	)
 
-	if size > largeDBThreshold {
+	if large {
 		// Change the parameters for better throughput at the price of some
 		// RAM and larger files. This results in larger batches of writes
 		// and compaction at a lower frequency.
@@ -248,30 +252,49 @@ func (db *Lowlevel) Close() {
 	db.DB.Close()
 }
 
-// dbSize returns the estimated size of the database at location, in bytes,
-// or zero if the size cannot be determined. It is simply the sum of the
-// file sizes so it does not account for deleted or overwritten but
-// uncompacted data.
-func dbSize(location string) int64 {
+// dbIsLarge returns whether the estimated size of the database at location,
+// is large enough to warrant optimization for large databases. The
+// largeness is remembered via a marker file, and a shrinking database is
+// still considered large down to half of the largeness threshold if it has
+// this marker file.
+func dbIsLarge(location string) bool {
 	dir, err := os.Open(location)
 	if err != nil {
-		return 0
+		return false
 	}
 
 	fis, err := dir.Readdir(-1)
 	if err != nil {
-		return 0
+		return false
 	}
 
 	var size int64
+	var large bool
 	for _, fi := range fis {
 		if fi.Name() == "LOG" {
+			// don't count the size
+			continue
+		}
+		if fi.Name() == dbLargeMarkerFile {
+			// database is marked as large
+			large = true
 			continue
 		}
 		size += fi.Size()
 	}
 
-	return size
+	marker := filepath.Join(location, dbLargeMarkerFile)
+	if size > dbLargeThreshold {
+		// Database is large.
+		_ = ioutil.WriteFile(marker, []byte("Say, that's a large database you have there!\n"), 0644)
+		large = true
+	} else if large && size < dbLargeThreshold {
+		// Database has shrunk
+		_ = os.Remove(marker)
+		large = false
+	}
+
+	return large
 }
 
 // NewLowlevel wraps the given *leveldb.DB into a *lowlevel
