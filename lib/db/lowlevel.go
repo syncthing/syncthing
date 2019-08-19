@@ -284,12 +284,13 @@ func dbIsLarge(location string) bool {
 	}
 
 	marker := filepath.Join(location, dbLargeMarkerFile)
-	if size > dbLargeThreshold {
-		// Database is large.
+	if !large && size > dbLargeThreshold {
+		// Database is large, there is no marker.
 		_ = ioutil.WriteFile(marker, []byte("Say, that's a large database you have there!\n"), 0644)
 		large = true
-	} else if large && size < dbLargeThreshold {
-		// Database has shrunk
+	} else if large && size < dbLargeThreshold/2 {
+		// Database was large but has shrunk to less than half the
+		// threshold.
 		_ = os.Remove(marker)
 		large = false
 	}
