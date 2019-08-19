@@ -65,7 +65,14 @@ type Lowlevel struct {
 // recovery on it if opening fails. Worst case, if recovery is not possible,
 // the database is erased and created from scratch.
 func Open(location string, tuning Tuning) (*Lowlevel, error) {
-	large := dbIsLarge(location, tuning)
+	large := false
+	switch tuning {
+	case TuningLarge:
+		large = true
+	case TuningAuto:
+		large = dbIsLarge(location)
+	}
+
 	opts := optsFor(large)
 	return open(location, opts)
 }
@@ -260,18 +267,7 @@ func (db *Lowlevel) Close() {
 
 // dbIsLarge returns whether the estimated size of the database at location
 // is large enough to warrant optimization for large databases.
-func dbIsLarge(location string, tuning Tuning) bool {
-	switch tuning {
-	case TuningSmall:
-		return false
-
-	case TuningLarge:
-		return true
-
-	case TuningAuto:
-		// do the thing below
-	}
-
+func dbIsLarge(location string) bool {
 	dir, err := os.Open(location)
 	if err != nil {
 		return false
