@@ -31,7 +31,7 @@ const (
 	// it's also the case that each file is 2 MiB by default and when we
 	// have dbMaxOpenFiles of them we will need to start thrashing fd:s.
 	// Switching to large database settings causes larger files to be used
-	// when compaticting, reducing the number.
+	// when compacting, reducing the number.
 	dbLargeThreshold  = dbMaxOpenFiles * (2 << MiB)
 	dbLargeMarkerFile = "LARGE"
 
