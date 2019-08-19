@@ -7,9 +7,7 @@
 package db
 
 import (
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,11 +30,19 @@ const (
 	// have dbMaxOpenFiles of them we will need to start thrashing fd:s.
 	// Switching to large database settings causes larger files to be used
 	// when compacting, reducing the number.
-	dbLargeThreshold  = dbMaxOpenFiles * (2 << MiB)
-	dbLargeMarkerFile = "LARGE"
+	dbLargeThreshold = dbMaxOpenFiles * (2 << MiB)
 
 	KiB = 10
 	MiB = 20
+)
+
+type Tuning int
+
+const (
+	// N.b. these constants must match those in lib/config.Tuning!
+	TuningAuto Tuning = iota
+	TuningSmall
+	TuningLarge
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
@@ -58,8 +64,8 @@ type Lowlevel struct {
 // Open attempts to open the database at the given location, and runs
 // recovery on it if opening fails. Worst case, if recovery is not possible,
 // the database is erased and created from scratch.
-func Open(location string) (*Lowlevel, error) {
-	large := dbIsLarge(location)
+func Open(location string, tuning Tuning) (*Lowlevel, error) {
+	large := dbIsLarge(location, tuning)
 	opts := optsFor(large)
 	return open(location, opts)
 }
@@ -252,12 +258,20 @@ func (db *Lowlevel) Close() {
 	db.DB.Close()
 }
 
-// dbIsLarge returns whether the estimated size of the database at location,
-// is large enough to warrant optimization for large databases. The
-// largeness is remembered via a marker file, and a shrinking database is
-// still considered large down to half of the largeness threshold if it has
-// this marker file.
-func dbIsLarge(location string) bool {
+// dbIsLarge returns whether the estimated size of the database at location
+// is large enough to warrant optimization for large databases.
+func dbIsLarge(location string, tuning Tuning) bool {
+	switch tuning {
+	case TuningSmall:
+		return false
+
+	case TuningLarge:
+		return true
+
+	case TuningAuto:
+		// do the thing below
+	}
+
 	dir, err := os.Open(location)
 	if err != nil {
 		return false
@@ -269,33 +283,15 @@ func dbIsLarge(location string) bool {
 	}
 
 	var size int64
-	var large bool
 	for _, fi := range fis {
 		if fi.Name() == "LOG" {
 			// don't count the size
 			continue
 		}
-		if fi.Name() == dbLargeMarkerFile {
-			// database is marked as large
-			large = true
-			continue
-		}
 		size += fi.Size()
 	}
 
-	marker := filepath.Join(location, dbLargeMarkerFile)
-	if !large && size > dbLargeThreshold {
-		// Database is large, there is no marker.
-		_ = ioutil.WriteFile(marker, []byte("Say, that's a large database you have there!\n"), 0644)
-		large = true
-	} else if large && size < dbLargeThreshold/2 {
-		// Database was large but has shrunk to less than half the
-		// threshold.
-		_ = os.Remove(marker)
-		large = false
-	}
-
-	return large
+	return size > dbLargeThreshold
 }
 
 // NewLowlevel wraps the given *leveldb.DB into a *lowlevel
