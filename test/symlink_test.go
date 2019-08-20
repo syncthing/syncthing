@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rc"
 )
@@ -25,7 +26,7 @@ func TestSymlinks(t *testing.T) {
 
 	// Use no versioning
 	id, _ := protocol.DeviceIDFromString(id2)
-	cfg, _ := config.Load("h2/config.xml", id)
+	cfg, _ := config.Load("h2/config.xml", id, events.NoopLogger)
 	fld := cfg.Folders()["default"]
 	fld.Versioning = config.VersioningConfiguration{}
 	cfg.SetFolder(fld)
@@ -43,7 +44,7 @@ func TestSymlinksSimpleVersioning(t *testing.T) {
 
 	// Use simple versioning
 	id, _ := protocol.DeviceIDFromString(id2)
-	cfg, _ := config.Load("h2/config.xml", id)
+	cfg, _ := config.Load("h2/config.xml", id, events.NoopLogger)
 	fld := cfg.Folders()["default"]
 	fld.Versioning = config.VersioningConfiguration{
 		Type:   "simple",
@@ -64,7 +65,7 @@ func TestSymlinksStaggeredVersioning(t *testing.T) {
 
 	// Use staggered versioning
 	id, _ := protocol.DeviceIDFromString(id2)
-	cfg, _ := config.Load("h2/config.xml", id)
+	cfg, _ := config.Load("h2/config.xml", id, events.NoopLogger)
 	fld := cfg.Folders()["default"]
 	fld.Versioning = config.VersioningConfiguration{
 		Type: "staggered",
