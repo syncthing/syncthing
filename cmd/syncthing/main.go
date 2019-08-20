@@ -491,7 +491,7 @@ func checkUpgrade() upgrade.Release {
 
 func performUpgrade(release upgrade.Release) {
 	// Use leveldb database locks to protect against concurrent upgrades
-	_, err := syncthing.OpenGoleveldb(locations.Get(locations.Database))
+	_, err := syncthing.OpenGoleveldb(locations.Get(locations.Database), config.TuningAuto)
 	if err == nil {
 		err = upgrade.To(release)
 		if err != nil {
@@ -583,7 +583,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	dbFile := locations.Get(locations.Database)
-	ldb, err := syncthing.OpenGoleveldb(dbFile)
+	ldb, err := syncthing.OpenGoleveldb(dbFile, cfg.Options().DatabaseTuning)
 	if err != nil {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)
