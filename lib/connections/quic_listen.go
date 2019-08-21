@@ -80,6 +80,10 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 func (t *quicListener) serve(stop chan struct{}) error {
 	network := strings.Replace(t.uri.Scheme, "quic", "udp", -1)
 
+	// Convert the stop channel into a context
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { <-stop; cancel() }()
+
 	packetConn, err := net.ListenPacket(network, t.uri.Host)
 	if err != nil {
 		l.Infoln("Listen (BEP/quic):", err)
@@ -112,8 +116,8 @@ func (t *quicListener) serve(stop chan struct{}) error {
 		default:
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), quicOperationTimeout)
-		session, err := listener.Accept(ctx)
+		acceptCtx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
+		session, err := listener.Accept(acceptCtx)
 		cancel()
 		if err != nil {
 			if err == context.DeadlineExceeded {
@@ -127,11 +131,8 @@ func (t *quicListener) serve(stop chan struct{}) error {
 		}
 		l.Debugln("connect from", session.RemoteAddr())
 
-		// We create a new timeout context because we might legitimately
-		// have used almost all of the timeout waiting for the connection to
-		// come in to begin with.
-		ctx, cancel = context.WithTimeout(context.Background(), quicOperationTimeout)
-		stream, err := session.AcceptStream(ctx)
+		streamCtx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
+		stream, err := session.AcceptStream(streamCtx)
 		cancel()
 		if err != nil {
 			l.Warnln("Listen (BEP/quic): Accepting stream:", err)
