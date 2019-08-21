@@ -57,7 +57,7 @@ type Config struct {
 	// Modification time is to be considered unchanged if the difference is lower.
 	ModTimeWindow time.Duration
 	// Event logger to which the scan progress events are sent
-	EvLogger events.Logger
+	EventLogger events.Logger
 }
 
 type CurrentFiler interface {
@@ -170,7 +170,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 					current := progress.Total()
 					rate := progress.Rate()
 					l.Debugf("Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
-					w.EvLogger.Log(events.FolderScanProgress, map[string]interface{}{
+					w.EventLogger.Log(events.FolderScanProgress, map[string]interface{}{
 						"folder":  w.Folder,
 						"current": current,
 						"total":   total,
