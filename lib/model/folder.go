@@ -348,6 +348,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		ProgressTickIntervalS: f.ScanProgressIntervalS,
 		LocalFlags:            f.localFlags,
 		ModTimeWindow:         f.ModTimeWindow(),
+		EventLogger:           f.evLogger,
 	})
 
 	batchFn := func(fs []protocol.FileInfo) error {
