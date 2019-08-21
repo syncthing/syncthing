@@ -9,13 +9,13 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/lucas-clemente/quic-go"
 
@@ -105,53 +105,36 @@ func (t *quicListener) serve(stop chan struct{}) error {
 	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
 	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
 
-	// Accept is forever, so handle stops externally.
-	go func() {
-		select {
-		case <-stop:
-			_ = listener.Close()
-		}
-	}()
-
 	for {
-		// Blocks forever, see https://github.com/lucas-clemente/quic-go/issues/1915
-		session, err := listener.Accept()
-
 		select {
 		case <-stop:
-			if err == nil {
-				_ = session.Close()
-			}
 			return nil
 		default:
 		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), quicOperationTimeout)
+		session, err := listener.Accept(ctx)
+		cancel()
 		if err != nil {
+			if err == context.DeadlineExceeded {
+				// Expected
+				continue
+			}
 			if err, ok := err.(net.Error); !ok || !err.Timeout() {
 				l.Warnln("Listen (BEP/quic): Accepting connection:", err)
 			}
 			continue
 		}
-
 		l.Debugln("connect from", session.RemoteAddr())
 
-		// Accept blocks forever, give it 10s to do it's thing.
-		ok := make(chan struct{})
-		go func() {
-			select {
-			case <-ok:
-				return
-			case <-stop:
-				_ = session.Close()
-			case <-time.After(10 * time.Second):
-				l.Debugln("timed out waiting for AcceptStream on", session.RemoteAddr())
-				_ = session.Close()
-			}
-		}()
-
-		stream, err := session.AcceptStream()
-		close(ok)
+		// We create a new timeout context because we might legitimately
+		// have used almost all of the timeout waiting for the connection to
+		// come in to begin with.
+		ctx, cancel = context.WithTimeout(context.Background(), quicOperationTimeout)
+		stream, err := session.AcceptStream(ctx)
+		cancel()
 		if err != nil {
-			l.Debugln("failed to accept stream from", session.RemoteAddr(), err.Error())
+			l.Warnln("Listen (BEP/quic): Accepting stream:", err)
 			_ = session.Close()
 			continue
 		}
