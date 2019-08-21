@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -178,7 +179,7 @@ func Address(network, host string) string {
 // AsService wraps the given function to implement suture.Service by calling
 // that function on serve and closing the passed channel when Stop is called.
 func AsService(fn func(stop chan struct{})) suture.Service {
-	return AsServiceWithError(func(stop chan struct{}) error {
+	return asServiceWithError(func(stop chan struct{}) error {
 		fn(stop)
 		return nil
 	})
@@ -186,6 +187,7 @@ func AsService(fn func(stop chan struct{})) suture.Service {
 
 type ServiceWithError interface {
 	suture.Service
+	fmt.Stringer
 	Error() error
 	SetError(error)
 }
@@ -193,7 +195,21 @@ type ServiceWithError interface {
 // AsServiceWithError does the same as AsService, except that it keeps track
 // of an error returned by the given function.
 func AsServiceWithError(fn func(stop chan struct{}) error) ServiceWithError {
+	return asServiceWithError(fn)
+}
+
+// caller retrieves information about the creator of the service, i.e. the stack
+// two levels up from itself.
+func caller() string {
+	pc := make([]uintptr, 1)
+	_ = runtime.Callers(4, pc)
+	f, _ := runtime.CallersFrames(pc).Next()
+	return f.Function
+}
+
+func asServiceWithError(fn func(stop chan struct{}) error) ServiceWithError {
 	s := &service{
+		caller:  caller(),
 		serve:   fn,
 		stop:    make(chan struct{}),
 		stopped: make(chan struct{}),
@@ -204,6 +220,7 @@ func AsServiceWithError(fn func(stop chan struct{}) error) ServiceWithError {
 }
 
 type service struct {
+	caller  string
 	serve   func(stop chan struct{}) error
 	stop    chan struct{}
 	stopped chan struct{}
@@ -235,7 +252,12 @@ func (s *service) Serve() {
 
 func (s *service) Stop() {
 	s.mut.Lock()
-	close(s.stop)
+	select {
+	case <-s.stop:
+		panic(fmt.Sprintf("Stop called more than once on %v", s))
+	default:
+		close(s.stop)
+	}
 	s.mut.Unlock()
 	<-s.stopped
 }
@@ -250,4 +272,8 @@ func (s *service) SetError(err error) {
 	s.mut.Lock()
 	s.err = err
 	s.mut.Unlock()
+}
+
+func (s *service) String() string {
+	return fmt.Sprintf("Service@%p created by %v", s, s.caller)
 }
