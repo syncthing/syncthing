@@ -755,6 +755,8 @@ func main() {
 	http.HandleFunc("/blockstats.json", withDB(db, blockStatsHandler))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
+	go cacheRefresher(db)
+
 	err = srv.Serve(listener)
 	if err != nil {
 		log.Fatalln("https:", err)
@@ -767,7 +769,31 @@ var (
 	cacheMut  sync.Mutex
 )
 
-const maxCacheTime = 5 * 60 * time.Second
+const maxCacheTime = 15 * time.Minute
+
+func cacheRefresher(db *sql.DB) {
+	ticker := time.NewTicker(maxCacheTime - time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		cacheMut.Lock()
+		if err := refreshCacheLocked(db); err != nil {
+			log.Println(err)
+		}
+		cacheMut.Unlock()
+	}
+}
+
+func refreshCacheLocked(db *sql.DB) error {
+	rep := getReport(db)
+	buf := new(bytes.Buffer)
+	err := tpl.Execute(buf, rep)
+	if err != nil {
+		return err
+	}
+	cacheData = buf.Bytes()
+	cacheTime = time.Now()
+	return nil
+}
 
 func rootHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" || r.URL.Path == "/index.html" {
@@ -775,16 +801,11 @@ func rootHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		defer cacheMut.Unlock()
 
 		if time.Since(cacheTime) > maxCacheTime {
-			rep := getReport(db)
-			buf := new(bytes.Buffer)
-			err := tpl.Execute(buf, rep)
-			if err != nil {
+			if err := refreshCacheLocked(db); err != nil {
 				log.Println(err)
 				http.Error(w, "Template Error", http.StatusInternalServerError)
 				return
 			}
-			cacheData = buf.Bytes()
-			cacheTime = time.Now()
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
