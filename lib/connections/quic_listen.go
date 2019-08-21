@@ -112,19 +112,13 @@ func (t *quicListener) serve(stop chan struct{}) error {
 
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return nil
 		default:
 		}
 
-		acceptCtx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
-		session, err := listener.Accept(acceptCtx)
-		cancel()
+		session, err := listener.Accept(ctx)
 		if err != nil {
-			if err == context.DeadlineExceeded {
-				// Expected
-				continue
-			}
 			if err, ok := err.(net.Error); !ok || !err.Timeout() {
 				l.Warnln("Listen (BEP/quic): Accepting connection:", err)
 			}
