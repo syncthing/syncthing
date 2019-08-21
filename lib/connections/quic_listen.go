@@ -135,7 +135,7 @@ func (t *quicListener) serve(stop chan struct{}) error {
 		stream, err := session.AcceptStream(streamCtx)
 		cancel()
 		if err != nil {
-			l.Warnln("Listen (BEP/quic): Accepting stream:", err)
+			l.Debugf("failed to accept stream from %s: %v", session.RemoteAddr(), err)
 			_ = session.Close()
 			continue
 		}
