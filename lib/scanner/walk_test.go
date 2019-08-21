@@ -788,8 +788,8 @@ func testConfig() Config {
 	evLogger := events.NewLogger()
 	go evLogger.Serve()
 	return Config{
-		Filesystem: testFs,
-		Hashers:    2,
-		EvLogger:   evLogger,
+		Filesystem:  testFs,
+		Hashers:     2,
+		EventLogger: evLogger,
 	}
 }
