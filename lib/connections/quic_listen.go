@@ -105,6 +105,7 @@ func (t *quicListener) serve(stop chan struct{}) error {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
+	defer listener.Close()
 
 	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
 	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
