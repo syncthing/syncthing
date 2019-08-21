@@ -118,10 +118,10 @@ func (t *quicListener) serve(stop chan struct{}) error {
 		}
 
 		session, err := listener.Accept(ctx)
-		if err != nil {
-			if err, ok := err.(net.Error); !ok || !err.Timeout() {
-				l.Warnln("Listen (BEP/quic): Accepting connection:", err)
-			}
+		if err == context.Canceled {
+			return nil
+		} else if err != nil {
+			l.Warnln("Listen (BEP/quic): Accepting connection:", err)
 			continue
 		}
 		l.Debugln("connect from", session.RemoteAddr())
