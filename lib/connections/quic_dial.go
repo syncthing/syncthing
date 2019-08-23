@@ -11,6 +11,7 @@ package connections
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/url"
 	"time"
@@ -22,7 +23,13 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const quicPriority = 100
+const (
+	quicPriority = 100
+
+	// The timeout for connecting, accepting and creating the various
+	// streams.
+	quicOperationTimeout = 10 * time.Second
+)
 
 func init() {
 	factory := &quicDialerFactory{}
@@ -60,38 +67,25 @@ func (d *quicDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, erro
 		}
 	}
 
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), quicOperationTimeout)
+	defer cancel()
+
 	session, err := quic.DialContext(ctx, conn, addr, uri.Host, d.tlsCfg, quicConfig)
 	if err != nil {
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}
-		return internalConn{}, err
+		return internalConn{}, fmt.Errorf("dial: %v", err)
 	}
 
-	// OpenStreamSync is blocks, but we want to make sure the connection is usable
-	// before we start killing off other connections, so do the dance.
-	ok := make(chan struct{})
-	go func() {
-		select {
-		case <-ok:
-			return
-		case <-time.After(10 * time.Second):
-			l.Debugln("timed out waiting for OpenStream on", session.RemoteAddr())
-			// This will unblock OpenStreamSync
-			_ = session.Close()
-		}
-	}()
-
-	stream, err := session.OpenStreamSync()
-	close(ok)
+	stream, err := session.OpenStreamSync(ctx)
 	if err != nil {
 		// It's ok to close these, this does not close the underlying packetConn.
 		_ = session.Close()
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}
-		return internalConn{}, err
+		return internalConn{}, fmt.Errorf("open stream: %v", err)
 	}
 
 	return internalConn{&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, quicPriority}, nil
