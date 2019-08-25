@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
@@ -425,8 +426,16 @@ func (*Service) String() string {
 	return "ur.Service"
 }
 
+var (
+	blocksResult    []protocol.BlockInfo // so the result is not optimized away
+	blocksResultMut sync.Mutex
+)
+
 // CpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
 func CpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 {
+	blocksResultMut.Lock()
+	defer blocksResultMut.Unlock()
+
 	dataSize := 16 * protocol.MinBlockSize
 	bs := make([]byte, dataSize)
 	rand.Reader.Read(bs)
@@ -440,8 +449,6 @@ func CpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 
 	blocksResult = nil
 	return perf
 }
-
-var blocksResult []protocol.BlockInfo // so the result is not optimized away
 
 func cpuBenchOnce(duration time.Duration, useWeakHash bool, bs []byte) float64 {
 	t0 := time.Now()
