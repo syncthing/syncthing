@@ -48,8 +48,8 @@
             <label translate>Currently Shared With Devices</label>
             <p class="help-block">
               <span translate>Deselect devices to stop sharing this folder with.</span>&emsp;
-              <small><a href="#" ng-click="selectAllSharedDevices()" translate>Select All</a>&emsp;
-                <a href="#" ng-click="deSelectAllSharedDevices()" translate>Deselect All</a></small>
+              <small><a href="#" ng-click="selectAllSharedDevices(true)" translate>Select All</a>&emsp;
+                <a href="#" ng-click="selectAllSharedDevices(false)" translate>Deselect All</a></small>
             </p>
             <div class="row">
               <div class="col-md-4" ng-repeat="device in currentFolder.sharedDevices">
@@ -65,8 +65,8 @@
             <label translate>Unshared Devices</label>
             <p class="help-block">
               <span translate>Select additional devices to share this folder with.</span>&emsp;
-              <small><a href="#" ng-click="selectAllUnrelatedDevices()" translate>Select All</a>&emsp;
-                <a href="#" ng-click="deSelectAllUnrelatedDevices()" translate>Deselect All</a></small>
+              <small><a href="#" ng-click="selectAllUnrelatedDevices(true)" translate>Select All</a>&emsp;
+                <a href="#" ng-click="selectAllUnrelatedDevices(false)" translate>Deselect All</a></small>
             </p>
             <div class="row">
               <div class="col-md-4" ng-repeat="device in currentFolder.unrelatedDevices">
