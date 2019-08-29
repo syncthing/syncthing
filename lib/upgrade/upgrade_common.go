@@ -26,6 +26,10 @@ type Release struct {
 type Asset struct {
 	URL  string `json:"url"`
 	Name string `json:"name"`
+
+	// The browser URL is needed for human readable links in the output created
+	// by cmd/stupgrades.
+	BrowserURL string `json:"browser_download_url"`
 }
 
 var (
