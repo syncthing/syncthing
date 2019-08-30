@@ -624,9 +624,11 @@ func (m *model) ConnectionStats() map[string]interface{} {
 
 // DeviceStatistics returns statistics about each device
 func (m *model) DeviceStatistics() map[string]stats.DeviceStatistics {
-	res := make(map[string]stats.DeviceStatistics)
-	for id := range m.cfg.Devices() {
-		res[id.String()] = m.deviceStatRef(id).GetStatistics()
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+	res := make(map[string]stats.DeviceStatistics, len(m.deviceStatRefs))
+	for id, sr := range m.deviceStatRefs {
+		res[id.String()] = sr.GetStatistics()
 	}
 	return res
 }
@@ -1893,24 +1895,13 @@ func (m *model) DownloadProgress(device protocol.DeviceID, folder string, update
 	})
 }
 
-func (m *model) deviceStatRef(deviceID protocol.DeviceID) *stats.DeviceStatisticsReference {
+func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 	m.fmut.RLock()
 	sr, ok := m.deviceStatRefs[deviceID]
 	m.fmut.RUnlock()
 	if ok {
-		return sr
+		sr.WasSeen()
 	}
-
-	sr = stats.NewDeviceStatisticsReference(m.db, deviceID.String())
-	m.fmut.Lock()
-	m.deviceStatRefs[deviceID] = sr
-	m.fmut.Unlock()
-
-	return sr
-}
-
-func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
-	m.deviceStatRef(deviceID).WasSeen()
 }
 
 type indexSender struct {
@@ -2543,7 +2534,15 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	toDevices := to.DeviceMap()
 	for deviceID, toCfg := range toDevices {
 		fromCfg, ok := fromDevices[deviceID]
-		if !ok || fromCfg.Paused == toCfg.Paused {
+		if !ok {
+			sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
+			m.fmut.Lock()
+			m.deviceStatRefs[deviceID] = sr
+			m.fmut.Unlock()
+			continue
+		}
+		delete(fromDevices, deviceID)
+		if fromCfg.Paused == toCfg.Paused {
 			continue
 		}
 
@@ -2560,6 +2559,11 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
+	m.fmut.Lock()
+	for deviceID := range fromDevices {
+		delete(m.deviceStatRefs, deviceID)
+	}
+	m.fmut.Unlock()
 
 	scanLimiter.setCapacity(to.Options.MaxConcurrentScans)
 
