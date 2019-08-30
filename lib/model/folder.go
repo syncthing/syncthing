@@ -171,20 +171,23 @@ func (f *folder) serve(_ chan struct{}) {
 			}
 
 		case <-f.scanTimer.C:
-			l.Debugln(f, "Scanning subdirectories")
+			l.Debugln(f, "Scanning due to timer")
 			f.scanTimerFired()
 
 		case req := <-f.scanNow:
+			l.Debugln(f, "Scanning due to request")
 			req.err <- f.scanSubdirs(req.subdirs)
 
 		case next := <-f.scanDelay:
+			l.Debugln(f, "Delaying scan")
 			f.scanTimer.Reset(next)
 
 		case fsEvents := <-f.watchChan:
-			l.Debugln(f, "filesystem notification rescan")
+			l.Debugln(f, "Scan due to watcher")
 			f.scanSubdirs(fsEvents)
 
 		case <-f.restartWatchChan:
+			l.Debugln(f, "Restart watcher")
 			f.restartWatch()
 		}
 	}
@@ -283,13 +286,38 @@ func (f *folder) getHealthError() error {
 }
 
 func (f *folder) scanSubdirs(subDirs []string) error {
-	if err := f.CheckHealth(); err != nil {
+	if err := f.getHealthError(); err != nil {
+		// If there is a health error we set it as the folder error. We do not
+		// clear the folder error if there is no health error, as there might be
+		// an *other* folder error (failed to load ignores, for example). Hence
+		// we do not use the CheckHealth() convenience function here.
+		f.setError(err)
 		return err
 	}
 
-	mtimefs := f.fset.MtimeFS()
+	oldHash := f.ignores.Hash()
+	if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+		err = fmt.Errorf("loading ignores: %v", err)
+		f.setError(err)
+		return err
+	}
 
+	// Check on the way out if the ignore patterns changed as part of scanning
+	// this folder. If they did we should schedule a pull of the folder so that
+	// we request things we might have suddenly become unignored and so on.
+	defer func() {
+		if f.ignores.Hash() != oldHash {
+			l.Debugln("Folder", f.Description(), "ignore patterns change detected while scanning; triggering puller")
+			f.ignoresUpdated()
+			f.SchedulePull()
+		}
+	}()
+
+	// We've passed all health checks so now mark ourselves healthy and queued
+	// for scanning.
+	f.setError(nil)
 	f.setState(FolderScanWaiting)
+
 	scanLimiter.take(1)
 	defer scanLimiter.give(1)
 
@@ -306,24 +334,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		subDirs[i] = sub
 	}
 
-	// Check if the ignore patterns changed as part of scanning this folder.
-	// If they did we should schedule a pull of the folder so that we
-	// request things we might have suddenly become unignored and so on.
-	oldHash := f.ignores.Hash()
-	defer func() {
-		if f.ignores.Hash() != oldHash {
-			l.Debugln("Folder", f.Description(), "ignore patterns change detected while scanning; triggering puller")
-			f.ignoresUpdated()
-			f.SchedulePull()
-		}
-	}()
-
-	if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		err = fmt.Errorf("loading ignores: %v", err)
-		f.setError(err)
-		return err
-	}
-
 	// Clean the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
@@ -334,6 +344,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 	f.setState(FolderScanning)
 
+	mtimefs := f.fset.MtimeFS()
 	fchan := scanner.Walk(f.ctx, scanner.Config{
 		Folder:                f.ID,
 		Subs:                  subDirs,
