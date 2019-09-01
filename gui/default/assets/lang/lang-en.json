@@ -373,6 +373,7 @@
    "Watch for Changes": "Watch for Changes",
    "Watching for Changes": "Watching for Changes",
    "Watching for changes discovers most changes without periodic scanning.": "Watching for changes discovers most changes without periodic scanning.",
+   "What to do if files are replaced or deleted, either locally, or on remote devices.": "What to do if files are replaced or deleted, either locally, or on remote devices.",
    "When adding a new device, keep in mind that this device must be added on the other side too.": "When adding a new device, keep in mind that this device must be added on the other side too.",
    "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.",
    "Yes": "Yes",
