@@ -13,7 +13,7 @@ require (
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/getsentry/raven-go v0.2.0
 	github.com/gobwas/glob v0.0.0-20170212200151-51eb1ee00b6d
-	github.com/gogo/protobuf v1.2.1
+	github.com/gogo/protobuf v1.3.0
 	github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4
 	github.com/golang/mock v1.3.1 // indirect
 	github.com/golang/protobuf v1.3.2 // indirect
