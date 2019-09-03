@@ -18,6 +18,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -826,6 +827,11 @@ func TestHostCheck(t *testing.T) {
 
 	// This should all work over IPv6 as well
 
+	if runningInContainer() {
+		// Working IPv6 in Docker can't be taken for granted.
+		return
+	}
+
 	cfg = new(mockedConfig)
 	cfg.gui.RawAddress = "[::1]:0"
 	baseURL, err = startHTTP(cfg)
@@ -1089,4 +1095,25 @@ func equalStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// runningInContainer returns true if we are inside Docker or LXC. It might
+// be prone to false negatives if things change in the future, but likely
+// not false positives.
+func runningInContainer() bool {
+	if runtime.GOOS != "linux" {
+		return false
+	}
+
+	bs, err := ioutil.ReadFile("/proc/1/cgroup")
+	if err != nil {
+		return false
+	}
+	if bytes.Contains(bs, []byte("/docker/")) {
+		return true
+	}
+	if bytes.Contains(bs, []byte("/lxc/")) {
+		return true
+	}
+	return false
 }
