@@ -209,7 +209,7 @@ func TestLimitedWriterWrite(t *testing.T) {
 	lw := &limitedWriter{
 		writer: cw,
 		waiterHolder: waiterHolder{
-			waiter:    rate.NewLimiter(rate.Limit(maxSingleWriteSize), limiterBurstSize),
+			waiter:    rate.NewLimiter(rate.Limit(42), limiterBurstSize),
 			limitsLAN: new(atomicBool),
 			isLAN:     false, // enables limiting
 		},
@@ -233,7 +233,7 @@ func TestLimitedWriterWrite(t *testing.T) {
 	lw = &limitedWriter{
 		writer: cw,
 		waiterHolder: waiterHolder{
-			waiter:    rate.NewLimiter(rate.Limit(maxSingleWriteSize), limiterBurstSize),
+			waiter:    rate.NewLimiter(rate.Limit(42), limiterBurstSize),
 			limitsLAN: new(atomicBool),
 			isLAN:     true, // disables limiting
 		},
@@ -268,6 +268,34 @@ func TestLimitedWriterWrite(t *testing.T) {
 
 	// Verify there were a single write and that the end result is identical.
 	if cw.writeCount != 1 {
+		t.Error("expected just the one write")
+	}
+	if !bytes.Equal(src, dst.Bytes()) {
+		t.Error("results should be equal")
+	}
+
+	// Once more, but making sure we *don't* take the fast path when there
+	// is a combo of limited and unlimited writers.
+	dst = new(bytes.Buffer)
+	cw = &countingWriter{w: dst}
+	lw = &limitedWriter{
+		writer: cw,
+		waiterHolder: waiterHolder{
+			waiter: totalWaiter{
+				rate.NewLimiter(rate.Inf, limiterBurstSize),
+				rate.NewLimiter(rate.Limit(42), limiterBurstSize),
+				rate.NewLimiter(rate.Inf, limiterBurstSize),
+			},
+			limitsLAN: new(atomicBool),
+			isLAN:     false, // enables limiting
+		},
+	}
+	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify there were lots of writes and that the end result is identical.
+	if cw.writeCount != 13 {
 		t.Error("expected just the one write")
 	}
 	if !bytes.Equal(src, dst.Bytes()) {

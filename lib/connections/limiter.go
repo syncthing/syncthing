@@ -287,24 +287,29 @@ func (w waiterHolder) unlimited() bool {
 	return w.waiter.Limit() == rate.Inf
 }
 
-// take is a utility function to consume tokens from a overall rate.Limiter and deviceLimiter.
-// No call to WaitN can be larger than the limiter burst size so we split it up into
-// several calls when necessary.
+// take is a utility function to consume tokens, because no call to WaitN
+// must be larger than the limiter burst size or it will hang.
 func (w waiterHolder) take(tokens int) {
+	// For writes we already split the buffer into smaller operations so those
+	// will always end up in the fast path below. For reads, however, we don't
+	// control the size of the incoming buffer and don't split the calls
+	// into the lower level reads so we might get a large amount of data and
+	// end up in the loop further down.
+
 	if tokens < limiterBurstSize {
-		// This is the by far more common case so we get it out of the way
-		// early.
-		w.waiter.WaitN(context.TODO(), tokens)
+		// Fast path. We won't get an error from WaitN as we don't pass a
+		// context with a deadline.
+		_ = w.waiter.WaitN(context.TODO(), tokens)
 		return
 	}
 
 	for tokens > 0 {
 		// Consume limiterBurstSize tokens at a time until we're done.
 		if tokens > limiterBurstSize {
-			w.waiter.WaitN(context.TODO(), limiterBurstSize)
+			_ = w.waiter.WaitN(context.TODO(), limiterBurstSize)
 			tokens -= limiterBurstSize
 		} else {
-			w.waiter.WaitN(context.TODO(), tokens)
+			_ = w.waiter.WaitN(context.TODO(), tokens)
 			tokens = 0
 		}
 	}
