@@ -34,23 +34,22 @@ import (
 )
 
 var (
-	versionRe        = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
-	goarch           string
-	goos             string
-	noupgrade        bool
-	version          string
-	goCmd            string
-	goVersion        float64
-	race             bool
-	debug            = os.Getenv("BUILDDEBUG") != ""
-	extraTags        string
-	installSuffix    string
-	pkgdir           string
-	cc               string
-	debugBinary      bool
-	coverage         bool
-	timeout          = "120s"
-	gogoProtoVersion = "v1.2.0"
+	versionRe     = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
+	goarch        string
+	goos          string
+	noupgrade     bool
+	version       string
+	goCmd         string
+	goVersion     float64
+	race          bool
+	debug         = os.Getenv("BUILDDEBUG") != ""
+	extraTags     string
+	installSuffix string
+	pkgdir        string
+	cc            string
+	debugBinary   bool
+	coverage      bool
+	timeout       = "120s"
 )
 
 type target struct {
@@ -214,7 +213,6 @@ type dependencyRepo struct {
 }
 
 var dependencyRepos = []dependencyRepo{
-	{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: gogoProtoVersion},
 	{path: "xdr", repo: "https://github.com/calmh/xdr.git", commit: "08e072f9cb16"},
 }
 
@@ -756,7 +754,12 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func proto() {
-	runPrint(goCmd, "get", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", gogoProtoVersion))
+	pv := protobufVersion()
+	dependencyRepos = append(dependencyRepos,
+		dependencyRepo{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: pv},
+	)
+
+	runPrint(goCmd, "get", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", pv))
 	os.MkdirAll("repos", 0755)
 	for _, dep := range dependencyRepos {
 		path := filepath.Join("repos", dep.path)
@@ -1251,4 +1254,12 @@ func (t target) BinaryName() string {
 		return t.binaryName + ".exe"
 	}
 	return t.binaryName
+}
+
+func protobufVersion() string {
+	bs, err := runError(goCmd, "list", "-f", "{{.Version}}", "-m", "github.com/gogo/protobuf")
+	if err != nil {
+		log.Fatal("Getting protobuf version:", err)
+	}
+	return string(bs)
 }
