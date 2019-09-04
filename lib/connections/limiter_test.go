@@ -246,12 +246,13 @@ func TestLimitedWriterWrite(t *testing.T) {
 		t.Error("results should be equal")
 	}
 
-	// Once more, but making sure the fast path is used for an unlimited rate.
+	// Once more, but making sure the fast path is used for an unlimited
+	// rate, with multiple unlimited raters even (global and per-device).
 	dst = new(bytes.Buffer)
 	cw = &countingWriter{w: dst}
 	lw = &limitedWriter{
 		writer:    cw,
-		waiter:    rate.NewLimiter(rate.Inf, limiterBurstSize),
+		waiter:    totalWaiter{rate.NewLimiter(rate.Inf, limiterBurstSize), rate.NewLimiter(rate.Inf, limiterBurstSize)},
 		limitsLAN: new(atomicBool),
 		isLAN:     false, // enables limiting
 	}
