@@ -32,6 +32,7 @@ type limiter struct {
 type waiter interface {
 	// This is the rate limiting operation
 	WaitN(ctx context.Context, n int) error
+	Limit() rate.Limit
 }
 
 const (
@@ -303,11 +304,7 @@ func take(waiter waiter, tokens int) {
 }
 
 func isUnlimited(waiter waiter) bool {
-	rl, ok := waiter.(*rate.Limiter)
-	if !ok {
-		return false
-	}
-	return rl.Limit() == rate.Inf
+	return waiter.Limit() == rate.Inf
 }
 
 type atomicBool int32
@@ -336,4 +333,14 @@ func (tw totalWaiter) WaitN(ctx context.Context, n int) error {
 		}
 	}
 	return nil
+}
+
+func (tw totalWaiter) Limit() rate.Limit {
+	min := rate.Inf
+	for _, w := range tw {
+		if l := w.Limit(); l < min {
+			min = l
+		}
+	}
+	return min
 }
