@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -60,7 +61,7 @@ type target struct {
 	debpre            string
 	debpost           string
 	description       string
-	buildPkg          string
+	buildPkgs         []string
 	binaryName        string
 	archiveFiles      []archiveFile
 	systemdServices   []string
@@ -77,9 +78,8 @@ type archiveFile struct {
 var targets = map[string]target{
 	"all": {
 		// Only valid for the "build" and "install" commands as it lacks all
-		// the archive creation stuff.
-		buildPkg: "github.com/syncthing/syncthing/cmd/...",
-		tags:     []string{"purego"},
+		// the archive creation stuff. buildPkgs gets filled out in init()
+		tags: []string{"purego"},
 	},
 	"syncthing": {
 		// The default target for "build", "install", "tar", "zip", "deb", etc.
@@ -88,7 +88,7 @@ var targets = map[string]target{
 		debdeps:     []string{"libc6", "procps"},
 		debpost:     "script/post-upgrade",
 		description: "Open Source Continuous File Synchronization",
-		buildPkg:    "github.com/syncthing/syncthing/cmd/syncthing",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/syncthing"},
 		binaryName:  "syncthing", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -132,7 +132,7 @@ var targets = map[string]target{
 		debdeps:     []string{"libc6"},
 		debpre:      "cmd/stdiscosrv/scripts/preinst",
 		description: "Syncthing Discovery Server",
-		buildPkg:    "github.com/syncthing/syncthing/cmd/stdiscosrv",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stdiscosrv"},
 		binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -160,7 +160,7 @@ var targets = map[string]target{
 		debdeps:     []string{"libc6"},
 		debpre:      "cmd/strelaysrv/scripts/preinst",
 		description: "Syncthing Relay Server",
-		buildPkg:    "github.com/syncthing/syncthing/cmd/strelaysrv",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/strelaysrv"},
 		binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -188,7 +188,7 @@ var targets = map[string]target{
 		debname:     "syncthing-relaypoolsrv",
 		debdeps:     []string{"libc6"},
 		description: "Syncthing Relay Pool Server",
-		buildPkg:    "github.com/syncthing/syncthing/cmd/strelaypoolsrv",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/strelaypoolsrv"},
 		binaryName:  "strelaypoolsrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -219,6 +219,17 @@ var dependencyRepos = []dependencyRepo{
 }
 
 func init() {
+	all := targets["all"]
+	pkgs, _ := filepath.Glob("cmd/*")
+	for _, pkg := range pkgs {
+		if strings.HasPrefix(filepath.Base(pkg), ".") {
+			// ignore dotfiles
+			continue
+		}
+		all.buildPkgs = append(all.buildPkgs, fmt.Sprintf("github.com/syncthing/syncthing/%s", filepath.ToSlash(pkg)))
+	}
+	targets["all"] = all
+
 	// The "syncthing" target includes a few more files found in the "etc"
 	// and "extra" dirs.
 	syncthingPkg := targets["syncthing"]
@@ -384,9 +395,6 @@ func install(target target, tags []string) {
 	}
 	os.Setenv("GOBIN", filepath.Join(cwd, "bin"))
 
-	args := []string{"install", "-v"}
-	args = appendParameters(args, tags, target)
-
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
 	os.Setenv("CC", cc)
@@ -402,18 +410,19 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	runPrint(goCmd, args...)
+	for _, pkg := range target.buildPkgs {
+		args := []string{"install", "-v"}
+		args = appendParameters(args, tags, pkg)
+
+		runPrint(goCmd, args...)
+	}
 }
 
 func build(target target, tags []string) {
 	lazyRebuildAssets()
-
 	tags = append(target.tags, tags...)
 
 	rmr(target.BinaryName())
-
-	args := []string{"build", "-v"}
-	args = appendParameters(args, tags, target)
 
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
@@ -434,10 +443,15 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	runPrint(goCmd, args...)
+	for _, pkg := range target.buildPkgs {
+		args := []string{"build", "-v"}
+		args = appendParameters(args, tags, pkg)
+
+		runPrint(goCmd, args...)
+	}
 }
 
-func appendParameters(args []string, tags []string, target target) []string {
+func appendParameters(args []string, tags []string, pkg string) []string {
 	if pkgdir != "" {
 		args = append(args, "-pkgdir", pkgdir)
 	}
@@ -453,7 +467,7 @@ func appendParameters(args []string, tags []string, target target) []string {
 
 	if !debugBinary {
 		// Regular binaries get version tagged and skip some debug symbols
-		args = append(args, "-ldflags", ldflags())
+		args = append(args, "-ldflags", ldflags(path.Base(pkg)))
 	} else {
 		// -gcflags to disable optimizations and inlining. Skip -ldflags
 		// because `Could not launch program: decoding dwarf section info at
@@ -462,7 +476,7 @@ func appendParameters(args []string, tags []string, target target) []string {
 		args = append(args, "-gcflags", "-N -l")
 	}
 
-	return append(args, target.buildPkg)
+	return append(args, pkg)
 }
 
 func buildTar(target target) {
@@ -710,6 +724,7 @@ func listFiles(dir string) []string {
 		if err != nil {
 			return err
 		}
+
 		if fi.Mode().IsRegular() {
 			res = append(res, path)
 		}
@@ -784,7 +799,7 @@ func transifex() {
 	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
 }
 
-func ldflags() string {
+func ldflags(program string) string {
 	sep := '='
 	if goVersion > 0 && goVersion < 1.5 {
 		sep = ' '
@@ -796,6 +811,7 @@ func ldflags() string {
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp%c%d", sep, buildStamp())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User%c%s", sep, buildUser())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host%c%s", sep, buildHost())
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Program%c%s", sep, program)
 	return b.String()
 }
 

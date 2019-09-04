@@ -14,7 +14,6 @@ import (
 	"log"
 	"os"
 	"reflect"
-	"strings"
 
 	"github.com/AudriusButkevicius/recli"
 	"github.com/flynn-archive/go-shlex"
@@ -128,7 +127,7 @@ func main() {
 	app.HelpName = app.Name
 	app.Author = "The Syncthing Authors"
 	app.Usage = "Syncthing command line interface"
-	app.Version = strings.Replace(build.LongVersion, "syncthing", app.Name, 1)
+	app.Version = build.Version
 	app.Flags = fakeFlags
 	app.Metadata = map[string]interface{}{
 		"client": client,
