@@ -765,8 +765,10 @@ func proto() {
 		path := filepath.Join("repos", dep.path)
 		if _, err := os.Stat(path); err != nil {
 			runPrintInDir("repos", "git", "clone", dep.repo, dep.path)
-			runPrintInDir(path, "git", "checkout", dep.commit)
+		} else {
+			runPrintInDir(path, "git", "fetch")
 		}
+		runPrintInDir(path, "git", "checkout", dep.commit)
 	}
 	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 }
