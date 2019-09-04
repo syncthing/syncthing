@@ -231,11 +231,16 @@ type limitedReader struct {
 }
 
 func (r *limitedReader) Read(buf []byte) (int, error) {
-	n, err := r.reader.Read(buf)
-	if !r.isLAN || r.limitsLAN.get() && !isUnlimited(r.waiter) {
-		take(r.waiter, n)
+	if r.fastpath() {
+		return r.reader.Read(buf)
 	}
+	n, err := r.reader.Read(buf)
+	take(r.waiter, n)
 	return n, err
+}
+
+func (r *limitedReader) fastpath() bool {
+	return r.isLAN && !r.limitsLAN.get() || isUnlimited(r.waiter)
 }
 
 // limitedWriter is a rate limited io.Writer
@@ -246,9 +251,12 @@ type limitedWriter struct {
 	isLAN     bool
 }
 
+func (w *limitedWriter) fastpath() bool {
+	return w.isLAN && !w.limitsLAN.get() || isUnlimited(w.waiter)
+}
+
 func (w *limitedWriter) Write(buf []byte) (int, error) {
-	if w.isLAN && !w.limitsLAN.get() || isUnlimited(w.waiter) {
-		// Fast path
+	if w.fastpath() {
 		return w.writer.Write(buf)
 	}
 
