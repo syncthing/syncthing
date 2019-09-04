@@ -207,10 +207,12 @@ func TestLimitedWriterWrite(t *testing.T) {
 	dst := new(bytes.Buffer)
 	cw := &countingWriter{w: dst}
 	lw := &limitedWriter{
-		writer:    cw,
-		waiter:    rate.NewLimiter(rate.Limit(maxSingleWriteSize), limiterBurstSize),
-		limitsLAN: new(atomicBool),
-		isLAN:     false, // enables limiting
+		writer: cw,
+		waiterHolder: waiterHolder{
+			waiter:    rate.NewLimiter(rate.Limit(maxSingleWriteSize), limiterBurstSize),
+			limitsLAN: new(atomicBool),
+			isLAN:     false, // enables limiting
+		},
 	}
 	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
 		t.Fatal(err)
@@ -229,10 +231,12 @@ func TestLimitedWriterWrite(t *testing.T) {
 	dst = new(bytes.Buffer)
 	cw = &countingWriter{w: dst}
 	lw = &limitedWriter{
-		writer:    cw,
-		waiter:    rate.NewLimiter(rate.Limit(maxSingleWriteSize), limiterBurstSize),
-		limitsLAN: new(atomicBool),
-		isLAN:     true, // disables limiting
+		writer: cw,
+		waiterHolder: waiterHolder{
+			waiter:    rate.NewLimiter(rate.Limit(maxSingleWriteSize), limiterBurstSize),
+			limitsLAN: new(atomicBool),
+			isLAN:     true, // disables limiting
+		},
 	}
 	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
 		t.Fatal(err)
@@ -251,10 +255,12 @@ func TestLimitedWriterWrite(t *testing.T) {
 	dst = new(bytes.Buffer)
 	cw = &countingWriter{w: dst}
 	lw = &limitedWriter{
-		writer:    cw,
-		waiter:    totalWaiter{rate.NewLimiter(rate.Inf, limiterBurstSize), rate.NewLimiter(rate.Inf, limiterBurstSize)},
-		limitsLAN: new(atomicBool),
-		isLAN:     false, // enables limiting
+		writer: cw,
+		waiterHolder: waiterHolder{
+			waiter:    totalWaiter{rate.NewLimiter(rate.Inf, limiterBurstSize), rate.NewLimiter(rate.Inf, limiterBurstSize)},
+			limitsLAN: new(atomicBool),
+			isLAN:     false, // enables limiting
+		},
 	}
 	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
 		t.Fatal(err)

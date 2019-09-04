@@ -190,19 +190,23 @@ func (lim *limiter) getLimiters(remoteID protocol.DeviceID, rw io.ReadWriter, is
 
 func (lim *limiter) newLimitedReaderLocked(remoteID protocol.DeviceID, r io.Reader, isLAN bool) io.Reader {
 	return &limitedReader{
-		reader:    r,
-		limitsLAN: &lim.limitsLAN,
-		waiter:    totalWaiter{lim.getReadLimiterLocked(remoteID), lim.read},
-		isLAN:     isLAN,
+		reader: r,
+		waiterHolder: waiterHolder{
+			waiter:    totalWaiter{lim.getReadLimiterLocked(remoteID), lim.read},
+			limitsLAN: &lim.limitsLAN,
+			isLAN:     isLAN,
+		},
 	}
 }
 
 func (lim *limiter) newLimitedWriterLocked(remoteID protocol.DeviceID, w io.Writer, isLAN bool) io.Writer {
 	return &limitedWriter{
-		writer:    w,
-		limitsLAN: &lim.limitsLAN,
-		waiter:    totalWaiter{lim.getWriteLimiterLocked(remoteID), lim.write},
-		isLAN:     isLAN,
+		writer: w,
+		waiterHolder: waiterHolder{
+			waiter:    totalWaiter{lim.getWriteLimiterLocked(remoteID), lim.write},
+			limitsLAN: &lim.limitsLAN,
+			isLAN:     isLAN,
+		},
 	}
 }
 
@@ -225,39 +229,26 @@ func getRateLimiter(m map[protocol.DeviceID]*rate.Limiter, deviceID protocol.Dev
 
 // limitedReader is a rate limited io.Reader
 type limitedReader struct {
-	reader    io.Reader
-	limitsLAN *atomicBool
-	waiter    waiter
-	isLAN     bool
+	reader io.Reader
+	waiterHolder
 }
 
 func (r *limitedReader) Read(buf []byte) (int, error) {
-	if r.fastpath() {
-		return r.reader.Read(buf)
-	}
 	n, err := r.reader.Read(buf)
-	take(r.waiter, n)
+	if !r.unlimited() {
+		r.take(n)
+	}
 	return n, err
-}
-
-func (r *limitedReader) fastpath() bool {
-	return r.isLAN && !r.limitsLAN.get() || isUnlimited(r.waiter)
 }
 
 // limitedWriter is a rate limited io.Writer
 type limitedWriter struct {
-	writer    io.Writer
-	limitsLAN *atomicBool
-	waiter    waiter
-	isLAN     bool
-}
-
-func (w *limitedWriter) fastpath() bool {
-	return w.isLAN && !w.limitsLAN.get() || isUnlimited(w.waiter)
+	writer io.Writer
+	waiterHolder
 }
 
 func (w *limitedWriter) Write(buf []byte) (int, error) {
-	if w.fastpath() {
+	if w.unlimited() {
 		return w.writer.Write(buf)
 	}
 
@@ -269,7 +260,7 @@ func (w *limitedWriter) Write(buf []byte) (int, error) {
 		if toWrite > len(buf)-written {
 			toWrite = len(buf) - written
 		}
-		take(w.waiter, toWrite)
+		w.take(toWrite)
 		n, err := w.writer.Write(buf[written : written+toWrite])
 		written += n
 		if err != nil {
@@ -280,31 +271,43 @@ func (w *limitedWriter) Write(buf []byte) (int, error) {
 	return written, nil
 }
 
+// waiterHolder is the common functionality around having and evaluating a
+// waiter, valid for both writers and readers
+type waiterHolder struct {
+	waiter    waiter
+	limitsLAN *atomicBool
+	isLAN     bool
+}
+
+// unlimited returns true if the waiter is not limiting the rate
+func (w waiterHolder) unlimited() bool {
+	if w.isLAN && !w.limitsLAN.get() {
+		return true
+	}
+	return w.waiter.Limit() == rate.Inf
+}
+
 // take is a utility function to consume tokens from a overall rate.Limiter and deviceLimiter.
 // No call to WaitN can be larger than the limiter burst size so we split it up into
 // several calls when necessary.
-func take(waiter waiter, tokens int) {
+func (w waiterHolder) take(tokens int) {
 	if tokens < limiterBurstSize {
 		// This is the by far more common case so we get it out of the way
 		// early.
-		waiter.WaitN(context.TODO(), tokens)
+		w.waiter.WaitN(context.TODO(), tokens)
 		return
 	}
 
 	for tokens > 0 {
 		// Consume limiterBurstSize tokens at a time until we're done.
 		if tokens > limiterBurstSize {
-			waiter.WaitN(context.TODO(), limiterBurstSize)
+			w.waiter.WaitN(context.TODO(), limiterBurstSize)
 			tokens -= limiterBurstSize
 		} else {
-			waiter.WaitN(context.TODO(), tokens)
+			w.waiter.WaitN(context.TODO(), tokens)
 			tokens = 0
 		}
 	}
-}
-
-func isUnlimited(waiter waiter) bool {
-	return waiter.Limit() == rate.Inf
 }
 
 type atomicBool int32
