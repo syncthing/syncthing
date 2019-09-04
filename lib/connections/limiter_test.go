@@ -303,6 +303,37 @@ func TestLimitedWriterWrite(t *testing.T) {
 	}
 }
 
+func TestTotalWaiterLimit(t *testing.T) {
+	cases := []struct {
+		w waiter
+		r rate.Limit
+	}{
+		{
+			totalWaiter{},
+			rate.Inf,
+		},
+		{
+			totalWaiter{rate.NewLimiter(rate.Inf, 42)},
+			rate.Inf,
+		},
+		{
+			totalWaiter{rate.NewLimiter(rate.Inf, 42), rate.NewLimiter(rate.Inf, 42)},
+			rate.Inf,
+		},
+		{
+			totalWaiter{rate.NewLimiter(rate.Inf, 42), rate.NewLimiter(rate.Limit(12), 42), rate.NewLimiter(rate.Limit(15), 42)},
+			rate.Limit(12),
+		},
+	}
+
+	for _, tc := range cases {
+		l := tc.w.Limit()
+		if l != tc.r {
+			t.Error("incorrect limit returned")
+		}
+	}
+}
+
 func checkActualAndExpected(t *testing.T, actualR, actualW, expectedR, expectedW map[protocol.DeviceID]*rate.Limiter) {
 	t.Helper()
 	if len(expectedW) != len(actualW) || len(expectedR) != len(actualR) {
