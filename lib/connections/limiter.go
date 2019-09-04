@@ -232,7 +232,7 @@ type limitedReader struct {
 
 func (r *limitedReader) Read(buf []byte) (int, error) {
 	n, err := r.reader.Read(buf)
-	if !r.isLAN || r.limitsLAN.get() {
+	if !r.isLAN || r.limitsLAN.get() && !isUnlimited(r.waiter) {
 		take(r.waiter, n)
 	}
 	return n, err
@@ -247,7 +247,7 @@ type limitedWriter struct {
 }
 
 func (w *limitedWriter) Write(buf []byte) (int, error) {
-	if w.isLAN && !w.limitsLAN.get() {
+	if w.isLAN && !w.limitsLAN.get() || isUnlimited(w.waiter) {
 		// Fast path
 		return w.writer.Write(buf)
 	}
@@ -292,6 +292,14 @@ func take(waiter waiter, tokens int) {
 			tokens = 0
 		}
 	}
+}
+
+func isUnlimited(waiter waiter) bool {
+	rl, ok := waiter.(*rate.Limiter)
+	if !ok {
+		return false
+	}
+	return rl.Limit() == rate.Inf
 }
 
 type atomicBool int32

@@ -245,6 +245,27 @@ func TestLimitedWriterWrite(t *testing.T) {
 	if !bytes.Equal(src, dst.Bytes()) {
 		t.Error("results should be equal")
 	}
+
+	// Once more, but making sure the fast path is used for an unlimited rate.
+	dst = new(bytes.Buffer)
+	cw = &countingWriter{w: dst}
+	lw = &limitedWriter{
+		writer:    cw,
+		waiter:    rate.NewLimiter(rate.Inf, limiterBurstSize),
+		limitsLAN: new(atomicBool),
+		isLAN:     false, // enables limiting
+	}
+	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify there were a single write and that the end result is identical.
+	if cw.writeCount != 1 {
+		t.Error("expected just the one write")
+	}
+	if !bytes.Equal(src, dst.Bytes()) {
+		t.Error("results should be equal")
+	}
 }
 
 func checkActualAndExpected(t *testing.T, actualR, actualW, expectedR, expectedW map[protocol.DeviceID]*rate.Limiter) {
