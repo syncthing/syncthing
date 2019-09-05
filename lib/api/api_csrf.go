@@ -92,7 +92,7 @@ func (m *csrfManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Verify the CSRF token
 	token := r.Header.Get("X-CSRF-Token-" + m.unique)
 	if !m.validToken(token) {
-		http.Error(w, "CSRF Error", 403)
+		http.Error(w, "CSRF Error", http.StatusForbidden)
 		return
 	}
 
