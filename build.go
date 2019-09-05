@@ -222,11 +222,12 @@ func init() {
 	all := targets["all"]
 	pkgs, _ := filepath.Glob("cmd/*")
 	for _, pkg := range pkgs {
-		if strings.HasPrefix(filepath.Base(pkg), ".") {
+		pkg = filepath.Base(pkg)
+		if strings.HasPrefix(pkg, ".") {
 			// ignore dotfiles
 			continue
 		}
-		all.buildPkgs = append(all.buildPkgs, fmt.Sprintf("github.com/syncthing/syncthing/%s", filepath.ToSlash(pkg)))
+		all.buildPkgs = append(all.buildPkgs, fmt.Sprintf("github.com/syncthing/syncthing/cmd/%s", pkg))
 	}
 	targets["all"] = all
 
