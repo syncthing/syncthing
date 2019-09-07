@@ -801,6 +801,9 @@ func ldflags() string {
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp%c%d", sep, buildStamp())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User%c%s", sep, buildUser())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host%c%s", sep, buildHost())
+	if v := os.Getenv("EXTRA_LDFLAGS"); v != "" {
+		fmt.Fprintf(b, " %s", v);
+	}
 	return b.String()
 }
 
