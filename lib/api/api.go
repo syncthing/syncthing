@@ -310,7 +310,7 @@ func (s *service) serve(stop chan struct{}) {
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg, mux)
+	var handler http.Handler = newCsrfManager(s.id.String()[:5], "/rest", guiCfg, mux, locations.Get(locations.CsrfTokens))
 
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)

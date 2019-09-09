@@ -32,9 +32,13 @@ type limiter struct {
 type waiter interface {
 	// This is the rate limiting operation
 	WaitN(ctx context.Context, n int) error
+	Limit() rate.Limit
 }
 
-const limiterBurstSize = 4 * 128 << 10
+const (
+	limiterBurstSize   = 4 * 128 << 10
+	maxSingleWriteSize = 8 << 10
+)
 
 func newLimiter(cfg config.Wrapper) *limiter {
 	l := &limiter{
@@ -186,19 +190,23 @@ func (lim *limiter) getLimiters(remoteID protocol.DeviceID, rw io.ReadWriter, is
 
 func (lim *limiter) newLimitedReaderLocked(remoteID protocol.DeviceID, r io.Reader, isLAN bool) io.Reader {
 	return &limitedReader{
-		reader:    r,
-		limitsLAN: &lim.limitsLAN,
-		waiter:    totalWaiter{lim.getReadLimiterLocked(remoteID), lim.read},
-		isLAN:     isLAN,
+		reader: r,
+		waiterHolder: waiterHolder{
+			waiter:    totalWaiter{lim.getReadLimiterLocked(remoteID), lim.read},
+			limitsLAN: &lim.limitsLAN,
+			isLAN:     isLAN,
+		},
 	}
 }
 
 func (lim *limiter) newLimitedWriterLocked(remoteID protocol.DeviceID, w io.Writer, isLAN bool) io.Writer {
 	return &limitedWriter{
-		writer:    w,
-		limitsLAN: &lim.limitsLAN,
-		waiter:    totalWaiter{lim.getWriteLimiterLocked(remoteID), lim.write},
-		isLAN:     isLAN,
+		writer: w,
+		waiterHolder: waiterHolder{
+			waiter:    totalWaiter{lim.getWriteLimiterLocked(remoteID), lim.write},
+			limitsLAN: &lim.limitsLAN,
+			isLAN:     isLAN,
+		},
 	}
 }
 
@@ -221,53 +229,87 @@ func getRateLimiter(m map[protocol.DeviceID]*rate.Limiter, deviceID protocol.Dev
 
 // limitedReader is a rate limited io.Reader
 type limitedReader struct {
-	reader    io.Reader
-	limitsLAN *atomicBool
-	waiter    waiter
-	isLAN     bool
+	reader io.Reader
+	waiterHolder
 }
 
 func (r *limitedReader) Read(buf []byte) (int, error) {
 	n, err := r.reader.Read(buf)
-	if !r.isLAN || r.limitsLAN.get() {
-		take(r.waiter, n)
+	if !r.unlimited() {
+		r.take(n)
 	}
 	return n, err
 }
 
 // limitedWriter is a rate limited io.Writer
 type limitedWriter struct {
-	writer    io.Writer
-	limitsLAN *atomicBool
-	waiter    waiter
-	isLAN     bool
+	writer io.Writer
+	waiterHolder
 }
 
 func (w *limitedWriter) Write(buf []byte) (int, error) {
-	if !w.isLAN || w.limitsLAN.get() {
-		take(w.waiter, len(buf))
+	if w.unlimited() {
+		return w.writer.Write(buf)
 	}
-	return w.writer.Write(buf)
+
+	// This does (potentially) multiple smaller writes in order to be less
+	// bursty with large writes and slow rates.
+	written := 0
+	for written < len(buf) {
+		toWrite := maxSingleWriteSize
+		if toWrite > len(buf)-written {
+			toWrite = len(buf) - written
+		}
+		w.take(toWrite)
+		n, err := w.writer.Write(buf[written : written+toWrite])
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	return written, nil
 }
 
-// take is a utility function to consume tokens from a overall rate.Limiter and deviceLimiter.
-// No call to WaitN can be larger than the limiter burst size so we split it up into
-// several calls when necessary.
-func take(waiter waiter, tokens int) {
+// waiterHolder is the common functionality around having and evaluating a
+// waiter, valid for both writers and readers
+type waiterHolder struct {
+	waiter    waiter
+	limitsLAN *atomicBool
+	isLAN     bool
+}
+
+// unlimited returns true if the waiter is not limiting the rate
+func (w waiterHolder) unlimited() bool {
+	if w.isLAN && !w.limitsLAN.get() {
+		return true
+	}
+	return w.waiter.Limit() == rate.Inf
+}
+
+// take is a utility function to consume tokens, because no call to WaitN
+// must be larger than the limiter burst size or it will hang.
+func (w waiterHolder) take(tokens int) {
+	// For writes we already split the buffer into smaller operations so those
+	// will always end up in the fast path below. For reads, however, we don't
+	// control the size of the incoming buffer and don't split the calls
+	// into the lower level reads so we might get a large amount of data and
+	// end up in the loop further down.
+
 	if tokens < limiterBurstSize {
-		// This is the by far more common case so we get it out of the way
-		// early.
-		waiter.WaitN(context.TODO(), tokens)
+		// Fast path. We won't get an error from WaitN as we don't pass a
+		// context with a deadline.
+		_ = w.waiter.WaitN(context.TODO(), tokens)
 		return
 	}
 
 	for tokens > 0 {
 		// Consume limiterBurstSize tokens at a time until we're done.
 		if tokens > limiterBurstSize {
-			waiter.WaitN(context.TODO(), limiterBurstSize)
+			_ = w.waiter.WaitN(context.TODO(), limiterBurstSize)
 			tokens -= limiterBurstSize
 		} else {
-			waiter.WaitN(context.TODO(), tokens)
+			_ = w.waiter.WaitN(context.TODO(), tokens)
 			tokens = 0
 		}
 	}
@@ -299,4 +341,14 @@ func (tw totalWaiter) WaitN(ctx context.Context, n int) error {
 		}
 	}
 	return nil
+}
+
+func (tw totalWaiter) Limit() rate.Limit {
+	min := rate.Inf
+	for _, w := range tw {
+		if l := w.Limit(); l < min {
+			min = l
+		}
+	}
+	return min
 }

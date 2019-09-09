@@ -19,6 +19,8 @@ func init() {
 }
 
 func TestStaticAuthOK(t *testing.T) {
+	t.Parallel()
+
 	ok := authStatic("user", "pass", "user", string(passwordHashBytes))
 	if !ok {
 		t.Fatalf("should pass auth")
@@ -26,6 +28,8 @@ func TestStaticAuthOK(t *testing.T) {
 }
 
 func TestSimpleAuthUsernameFail(t *testing.T) {
+	t.Parallel()
+
 	ok := authStatic("userWRONG", "pass", "user", string(passwordHashBytes))
 	if ok {
 		t.Fatalf("should fail auth")
@@ -33,6 +37,8 @@ func TestSimpleAuthUsernameFail(t *testing.T) {
 }
 
 func TestStaticAuthPasswordFail(t *testing.T) {
+	t.Parallel()
+
 	ok := authStatic("user", "passWRONG", "user", string(passwordHashBytes))
 	if ok {
 		t.Fatalf("should fail auth")
