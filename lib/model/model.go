@@ -644,9 +644,11 @@ func (m *model) ConnectionStats() map[string]interface{} {
 
 // DeviceStatistics returns statistics about each device
 func (m *model) DeviceStatistics() map[string]stats.DeviceStatistics {
-	res := make(map[string]stats.DeviceStatistics)
-	for id := range m.cfg.Devices() {
-		res[id.String()] = m.deviceStatRef(id).GetStatistics()
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+	res := make(map[string]stats.DeviceStatistics, len(m.deviceStatRefs))
+	for id, sr := range m.deviceStatRefs {
+		res[id.String()] = sr.GetStatistics()
 	}
 	return res
 }
@@ -1449,14 +1451,14 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 func (m *model) closeConns(devs []protocol.DeviceID, err error) config.Waiter {
 	conns := make([]connections.Connection, 0, len(devs))
 	closed := make([]chan struct{}, 0, len(devs))
-	m.pmut.Lock()
+	m.pmut.RLock()
 	for _, dev := range devs {
 		if conn, ok := m.conn[dev]; ok {
 			conns = append(conns, conn)
 			closed = append(closed, m.closed[dev])
 		}
 	}
-	m.pmut.Unlock()
+	m.pmut.RUnlock()
 	for _, conn := range conns {
 		conn.Close(err)
 	}
@@ -1906,21 +1908,13 @@ func (m *model) DownloadProgress(device protocol.DeviceID, folder string, update
 	})
 }
 
-func (m *model) deviceStatRef(deviceID protocol.DeviceID) *stats.DeviceStatisticsReference {
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
-
-	if sr, ok := m.deviceStatRefs[deviceID]; ok {
-		return sr
-	}
-
-	sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
-	m.deviceStatRefs[deviceID] = sr
-	return sr
-}
-
 func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
-	m.deviceStatRef(deviceID).WasSeen()
+	m.fmut.RLock()
+	sr, ok := m.deviceStatRefs[deviceID]
+	m.fmut.RUnlock()
+	if ok {
+		sr.WasSeen()
+	}
 }
 
 type indexSender struct {
@@ -2125,9 +2119,9 @@ func (m *model) ScanFolderSubdirs(folder string, subs []string) error {
 }
 
 func (m *model) DelayScan(folder string, next time.Duration) {
-	m.fmut.Lock()
+	m.fmut.RLock()
 	runner, ok := m.folderRunners[folder]
-	m.fmut.Unlock()
+	m.fmut.RUnlock()
 	if !ok {
 		return
 	}
@@ -2137,10 +2131,10 @@ func (m *model) DelayScan(folder string, next time.Duration) {
 // numHashers returns the number of hasher routines to use for a given folder,
 // taking into account configuration and available CPU cores.
 func (m *model) numHashers(folder string) int {
-	m.fmut.Lock()
+	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
 	numFolders := len(m.folderCfgs)
-	m.fmut.Unlock()
+	m.fmut.RUnlock()
 
 	if folderCfg.Hashers > 0 {
 		// Specific value set in the config, use that.
@@ -2553,7 +2547,15 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	toDevices := to.DeviceMap()
 	for deviceID, toCfg := range toDevices {
 		fromCfg, ok := fromDevices[deviceID]
-		if !ok || fromCfg.Paused == toCfg.Paused {
+		if !ok {
+			sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
+			m.fmut.Lock()
+			m.deviceStatRefs[deviceID] = sr
+			m.fmut.Unlock()
+			continue
+		}
+		delete(fromDevices, deviceID)
+		if fromCfg.Paused == toCfg.Paused {
 			continue
 		}
 
@@ -2570,6 +2572,11 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
+	m.fmut.Lock()
+	for deviceID := range fromDevices {
+		delete(m.deviceStatRefs, deviceID)
+	}
+	m.fmut.Unlock()
 
 	scanLimiter.setCapacity(to.Options.MaxConcurrentScans)
 
