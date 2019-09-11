@@ -478,7 +478,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 					return true
 				}
 
-				l.Debugln("marking file as ignored", f)
+				l.Debugln("marking file as ignored", file)
 				nf := file.ConvertToIgnoredFileInfo(f.shortID)
 				batch.append(nf)
 				changes++

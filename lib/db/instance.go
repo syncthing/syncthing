@@ -562,7 +562,7 @@ func (e errorSuggestion) Error() string {
 
 // unchanged checks if two files are the same and thus don't need to be updated.
 // Local flags or the invalid bit might change without the version
-// being bumped. The IsInvalid() method handles both.
+// being bumped.
 func unchanged(nf, ef FileIntf) bool {
-	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid()
+	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid() && ef.FileLocalFlags() == nf.FileLocalFlags()
 }
