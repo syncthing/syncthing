@@ -1462,6 +1462,33 @@ func TestSequenceIndex(t *testing.T) {
 	}
 }
 
+func TestIgnoreAfterReceiveOnly(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	file := "foo"
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	fs := fileList{{
+		Name:       file,
+		Version:    protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}},
+		LocalFlags: protocol.FlagLocalReceiveOnly,
+	}}
+
+	s.Update(protocol.LocalDeviceID, fs)
+
+	fs[0].LocalFlags = protocol.FlagLocalIgnored
+
+	s.Update(protocol.LocalDeviceID, fs)
+
+	if f, ok := s.Get(protocol.LocalDeviceID, file); !ok {
+		t.Error("File missing in db")
+	} else if f.IsReceiveOnlyChanged() {
+		t.Error("File is still receive-only changed")
+	} else if !f.IsIgnored() {
+		t.Error("File is not ignored")
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
