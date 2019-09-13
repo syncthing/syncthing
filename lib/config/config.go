@@ -87,7 +87,6 @@ var (
 		"stun.voiparound.com:3478",
 		"stun.voipbuster.com:3478",
 		"stun.voipstunt.com:3478",
-		"stun.voxgratia.org:3478",
 		"stun.xten.com:3478",
 	}
 )
