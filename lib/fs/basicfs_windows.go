@@ -156,17 +156,19 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 // unrooted) or an error if the given path is not a subpath and handles the
 // special case when the given path is the folder root without a trailing
 // pathseparator.
-func (f *BasicFilesystem) unrootedChecked(absPath, root string) (string, error) {
+func (f *BasicFilesystem) unrootedChecked(absPath string, roots []string) (string, error) {
 	absPath = f.resolveWin83(absPath)
 	lowerAbsPath := UnicodeLowercase(absPath)
-	lowerRoot := UnicodeLowercase(root)
-	if lowerAbsPath+string(PathSeparator) == lowerRoot {
-		return ".", nil
+	for _, root := range roots {
+		lowerRoot := UnicodeLowercase(root)
+		if lowerAbsPath+string(PathSeparator) == lowerRoot {
+			return ".", nil
+		}
+		if strings.HasPrefix(lowerAbsPath, lowerRoot) {
+			return rel(absPath, root), nil
+		}
 	}
-	if !strings.HasPrefix(lowerAbsPath, lowerRoot) {
-		return "", f.newErrWatchEventOutsideRoot(lowerAbsPath, lowerRoot)
-	}
-	return rel(absPath, root), nil
+	return "", f.newErrWatchEventOutsideRoot(lowerAbsPath, roots)
 }
 
 func rel(path, prefix string) string {
@@ -311,8 +313,14 @@ func (f *BasicFilesystem) watchPaths(name string) (string, string, error) {
 		return "", "", err
 	}
 
-	root = f.resolveWin83(root)
+	roots := []string{f.resolveWin83(root)}
 	absName = f.resolveWin83(absName)
+
+	// Events returned from fs watching are all over the place, so allow
+	// both the user's input and the result of "canonicalizing" the path.
+	if roots[0] != f.root {
+		roots = append(roots, f.root)
+	}
 
 	return filepath.Join(absName, "..."), root, nil
 }
