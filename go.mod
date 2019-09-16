@@ -25,7 +25,7 @@ require (
 	github.com/lucas-clemente/quic-go v0.12.0
 	github.com/maruel/panicparse v1.3.0
 	github.com/mattn/go-isatty v0.0.9
-	github.com/minio/sha256-simd v0.1.0
+	github.com/minio/sha256-simd v0.1.1
 	github.com/onsi/ginkgo v1.9.0 // indirect
 	github.com/onsi/gomega v1.6.0 // indirect
 	github.com/oschwald/geoip2-golang v1.3.0
