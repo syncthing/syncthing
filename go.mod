@@ -41,7 +41,7 @@ require (
 	github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2
 	github.com/syndtr/goleveldb v1.0.1-0.20190318030020-c3a204f8e965
 	github.com/thejerf/suture v3.0.2+incompatible
-	github.com/urfave/cli v1.21.0
+	github.com/urfave/cli v1.22.1
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
