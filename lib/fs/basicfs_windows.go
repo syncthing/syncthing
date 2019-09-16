@@ -296,10 +296,10 @@ func evalSymlinks(in string) (string, error) {
 
 // watchPaths adjust the folder root for use with the notify backend and the
 // corresponding absolute path to be passed to notify to watch name.
-func (f *BasicFilesystem) watchPaths(name string) (string, string, error) {
+func (f *BasicFilesystem) watchPaths(name string) (string, []string, error) {
 	root, err := evalSymlinks(f.root)
 	if err != nil {
-		return "", "", err
+		return "", nil, err
 	}
 
 	// Remove `\\?\` prefix if the path is just a drive letter as a dirty
@@ -310,7 +310,7 @@ func (f *BasicFilesystem) watchPaths(name string) (string, string, error) {
 
 	absName, err := rooted(name, root)
 	if err != nil {
-		return "", "", err
+		return "", nil, err
 	}
 
 	roots := []string{f.resolveWin83(root)}
@@ -322,5 +322,5 @@ func (f *BasicFilesystem) watchPaths(name string) (string, string, error) {
 		roots = append(roots, f.root)
 	}
 
-	return filepath.Join(absName, "..."), root, nil
+	return filepath.Join(absName, "..."), roots, nil
 }
