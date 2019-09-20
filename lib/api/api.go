@@ -913,6 +913,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["uptime"] = s.urService.UptimeS()
 	res["startTime"] = ur.StartTime
 	res["guiAddressOverridden"] = s.cfg.GUI().IsOverridden()
+	res["guiAddressUsed"] = s.cfg.GUI().Address()
 
 	sendJSON(w, res)
 }

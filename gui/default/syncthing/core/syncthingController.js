@@ -386,15 +386,7 @@ angular.module('syncthing.core')
                 });
             });
 
-            // If we're not listening on localhost, and there is no
-            // authentication configured, and the magic setting to silence the
-            // warning isn't set, then yell at the user.
-            var guiCfg = $scope.config.gui;
-            $scope.openNoAuth = guiCfg.address.substr(0, 4) !== "127."
-                && guiCfg.address.substr(0, 6) !== "[::1]:"
-                && (!guiCfg.user || !guiCfg.password)
-                && guiCfg.authMode !== 'ldap'
-                && !guiCfg.insecureAdminAccess;
+            refreshNoAuthWarning();
 
             if (!hasConfig) {
                 $scope.$emit('ConfigLoaded');
@@ -427,9 +419,31 @@ angular.module('syncthing.core')
                     }
                 }
                 $scope.discoveryFailed = discoveryFailed;
+
+                refreshNoAuthWarning();
+
                 console.log("refreshSystem", data);
             }).error($scope.emitHTTPError);
         }
+
+        function refreshNoAuthWarning() {
+            if (!$scope.system || !$scope.config) {
+                // We need both to be able to determine the state.
+                return
+            }
+
+            // If we're not listening on localhost, and there is no
+            // authentication configured, and the magic setting to silence the
+            // warning isn't set, then yell at the user.
+            var addr = $scope.system.guiAddressUsed;
+            var guiCfg = $scope.config.gui;
+            $scope.openNoAuth = addr.substr(0, 4) !== "127."
+                && addr.substr(0, 6) !== "[::1]:"
+                && (!guiCfg.user || !guiCfg.password)
+                && guiCfg.authMode !== 'ldap'
+                && !guiCfg.insecureAdminAccess;
+        }
+
 
         function refreshDiscoveryCache() {
             $http.get(urlbase + '/system/discovery').success(function (data) {
