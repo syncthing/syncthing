@@ -64,7 +64,7 @@ implementations][11] for Windows, Mac and Linux.
 
 ## Docker
 
-To run Syncthing in Docker, see [the Docker README](16).
+To run Syncthing in Docker, see [the Docker README][16].
 
 ## Vote on features/bugs
 
