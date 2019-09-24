@@ -327,7 +327,7 @@
     "The path cannot be blank.": "路徑不能空白。",
     "The rate limit must be a non-negative number (0: no limit)": "限制速率必須為非負的數字 (0: 不設限制)",
     "The rescan interval must be a non-negative number of seconds.": "重新掃描間隔必須為一個非負數的秒數。",
-    "They are retried automatically and will be synced when the error is resolved.": "解決間題後，將會自動重試和同步。",
+    "They are retried automatically and will be synced when the error is resolved.": "解決問題後，將會自動重試和同步。",
     "This Device": "本機",
     "This can easily give hackers access to read and change any files on your computer.": "這能給駭客輕易的來讀取、變更電腦中的任何檔案。",
     "This is a major version upgrade.": "這是一個重大版本更新。",
