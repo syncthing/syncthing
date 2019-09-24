@@ -195,7 +195,7 @@ func (f *sendReceiveFolder) pull() bool {
 
 		// Needs to be set on every loop, as the puller might have set
 		// it to FolderSyncing during the last iteration.
-		f.setState(FolderPreparingSync)
+		f.setState(FolderSyncPreparing)
 
 		changed := f.pullerIteration(scanChan)
 
@@ -1392,19 +1392,13 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 	requestLimiter := newByteSemaphore(f.PullerMaxPendingKiB * 1024)
 	wg := sync.NewWaitGroup()
 
-	// To set the folder state to syncing when the first block is started.
-	active := false
-
 	for state := range in {
 		if state.failed() != nil {
 			out <- state.sharedPullerState
 			continue
 		}
 
-		if !active {
-			f.setState(FolderSyncing)
-			active = true
-		}
+		f.setState(FolderSyncing) // Does nothing if already FolderSyncing
 
 		// The requestLimiter limits how many pending block requests we have
 		// ongoing at any given time, based on the size of the blocks

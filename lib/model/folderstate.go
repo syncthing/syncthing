@@ -19,7 +19,7 @@ const (
 	FolderIdle folderState = iota
 	FolderScanning
 	FolderScanWaiting
-	FolderPreparingSync
+	FolderSyncPreparing
 	FolderSyncing
 	FolderError
 )
@@ -32,8 +32,8 @@ func (s folderState) String() string {
 		return "scanning"
 	case FolderScanWaiting:
 		return "scan-waiting"
-	case FolderPreparingSync:
-		return "preparing-sync"
+	case FolderSyncPreparing:
+		return "sync-preparing"
 	case FolderSyncing:
 		return "syncing"
 	case FolderError:

@@ -802,7 +802,7 @@ angular.module('syncthing.core')
             if (status == 'paused') {
                 return 'default';
             }
-            if (status === 'syncing' || status === 'preparing-sync' || status === 'scanning') {
+            if (status === 'syncing' || status === 'sync-preparing' || status === 'scanning') {
                 return 'primary';
             }
             if (status === 'unknown') {
@@ -961,7 +961,7 @@ angular.module('syncthing.core')
             for (var i = 0; i < folderListCache.length; i++) {
                 var status = $scope.folderStatus(folderListCache[i]);
                 switch (status) {
-                    case 'preparing-sync':
+                    case 'sync-preparing':
                     case 'syncing':
                         syncCount++;
                         break;
