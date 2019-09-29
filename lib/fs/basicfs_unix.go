@@ -62,6 +62,10 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 // pathseparator.
 func (f *BasicFilesystem) unrootedChecked(absPath string, roots []string) (string, *ErrWatchEventOutsideRoot) {
 	for _, root := range roots {
+		// Make sure the root ends with precisely one path separator, to
+		// ease prefix comparisons.
+		root := strings.TrimRight(root, string(PathSeparator)) + string(PathSeparator)
+
 		if absPath+string(PathSeparator) == root {
 			return ".", nil
 		}
