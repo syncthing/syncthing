@@ -201,23 +201,33 @@ func TestWatchWinRoot(t *testing.T) {
 
 // TestWatchOutside checks that no changes from outside the folder make it in
 func TestWatchOutside(t *testing.T) {
+	expectErrorForPath(t, filepath.Join(filepath.Dir(testDirAbs), "outside"))
+
+	rootWithoutSlash := strings.TrimRight(filepath.ToSlash(testDirAbs), "/")
+	expectErrorForPath(t, rootWithoutSlash+"outside")
+	expectErrorForPath(t, rootWithoutSlash+"outside/thing")
+}
+
+func expectErrorForPath(t *testing.T, path string) {
 	outChan := make(chan Event)
 	backendChan := make(chan notify.EventInfo, backendBuffer)
 	errChan := make(chan error)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// testFs is Filesystem, but we need BasicFilesystem here
 	fs := newBasicFilesystem(testDirAbs)
 
 	go fs.watchLoop(".", []string{testDirAbs}, backendChan, outChan, errChan, fakeMatcher{}, ctx)
 
-	backendChan <- fakeEventInfo(filepath.Join(filepath.Dir(testDirAbs), "outside"))
+	backendChan <- fakeEventInfo(path)
 
 	select {
 	case <-time.After(10 * time.Second):
-		cancel()
 		t.Errorf("Timed out before receiving error")
+	case e := <-outChan:
+		t.Errorf("Unexpected passed through event %v", e)
 	case <-errChan:
 	case <-ctx.Done():
 	}
