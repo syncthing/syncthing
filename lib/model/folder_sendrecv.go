@@ -982,8 +982,8 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 	}
 
 	blockStatsMut.Lock()
-	blockStats["total"] += len(target.Blocks)
-	blockStats["renamed"] += len(target.Blocks)
+	blockStats["total"] += len(target.Blocks) * (target.BlockSize() / protocol.MinBlockSize)
+	blockStats["renamed"] += len(target.Blocks) * (target.BlockSize() / protocol.MinBlockSize)
 	blockStatsMut.Unlock()
 
 	// The file was renamed, so we have handled both the necessary delete
@@ -1560,14 +1560,14 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 				f.newPullError(state.file.Name, err)
 			} else {
 				blockStatsMut.Lock()
-				blockStats["total"] += state.reused + state.copyTotal + state.pullTotal
-				blockStats["reused"] += state.reused
-				blockStats["pulled"] += state.pullTotal
+				blockStats["total"] += (state.reused + state.copyTotal + state.pullTotal) * (state.file.BlockSize() / protocol.MinBlockSize)
+				blockStats["reused"] += state.reused * (state.file.BlockSize() / protocol.MinBlockSize)
+				blockStats["pulled"] += state.pullTotal * (state.file.BlockSize() / protocol.MinBlockSize)
 				// copyOriginShifted is counted towards copyOrigin due to progress bar reasons
 				// for reporting reasons we want to separate these.
-				blockStats["copyOrigin"] += state.copyOrigin - state.copyOriginShifted
-				blockStats["copyOriginShifted"] += state.copyOriginShifted
-				blockStats["copyElsewhere"] += state.copyTotal - state.copyOrigin
+				blockStats["copyOrigin"] += (state.copyOrigin - state.copyOriginShifted) * (state.file.BlockSize() / protocol.MinBlockSize)
+				blockStats["copyOriginShifted"] += state.copyOriginShifted * (state.file.BlockSize() / protocol.MinBlockSize)
+				blockStats["copyElsewhere"] += (state.copyTotal - state.copyOrigin) * (state.file.BlockSize() / protocol.MinBlockSize)
 				blockStatsMut.Unlock()
 			}
 
