@@ -88,7 +88,7 @@ func New(cfg config.Wrapper, ll *db.Lowlevel, evLogger events.Logger, cert tls.C
 		stop:     make(chan struct{}),
 		stopped:  make(chan struct{}),
 	}
-	close(a.stopped) // Hasn't been started, so shouldn't
+	close(a.stopped) // Hasn't been started, so shouldn't block on Wait.
 	return a
 }
 
@@ -108,6 +108,7 @@ func (a *App) Start() error {
 		a.stopWithErr(ExitError, err)
 		return err
 	}
+	a.stopped = make(chan struct{})
 	go a.run()
 	return nil
 }
@@ -360,8 +361,6 @@ func (a *App) startup() error {
 }
 
 func (a *App) run() {
-	a.stopped = make(chan struct{})
-
 	<-a.stop
 
 	a.mainService.Stop()
