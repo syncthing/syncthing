@@ -31,9 +31,9 @@ a:hover,a:focus,a.focus{
 .nav-tabs > li.active > a,
 .nav-tabs > li.active > a:hover,
 .nav-tabs > li.active > a:focus {
-  color: #555555 !important;
-  background-color:black !important;
-  border: 1px solid black !important;
+  color: #3498db !important;
+  background-color: #424242 !important;
+  border: 1px solid #424242 !important;
   border-bottom-color: transparent !important;
   cursor: default;
 }
