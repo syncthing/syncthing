@@ -647,7 +647,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	app.Start()
+	if err := app.Start(); err != nil {
+		os.Exit(syncthing.ExitError)
+	}
 
 	cleanConfigDirectory()
 
