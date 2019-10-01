@@ -377,18 +377,25 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 			if f.IsInvalid() {
 				t.Errorf("File %v is still marked as invalid", f.Name)
 			}
-			// The unignored files should only have a local version,
-			// to mark them as in conflict with any other existing versions.
-			ev := protocol.Vector{}.Update(myID.Short())
-			if v := f.Version; !v.Equal(ev) {
-				t.Errorf("File %v has version %v, expected %v", f.Name, v, ev)
-			}
+			ev := protocol.Vector{}
 			if f.Name == ign {
+				// The unignored deleted file should have an
+				// empty version, to make it not override
+				// existing global files.
 				if !f.Deleted {
 					t.Errorf("File %v was not marked as deleted", f.Name)
 				}
-			} else if f.Deleted {
-				t.Errorf("File %v is marked as deleted", f.Name)
+			} else {
+				// The unignored existing file should have a
+				// version with only a local counter, to make
+				// it conflict changed global files.
+				ev = protocol.Vector{}.Update(myID.Short())
+				if f.Deleted {
+					t.Errorf("File %v is marked as deleted", f.Name)
+				}
+			}
+			if v := f.Version; !v.Equal(ev) {
+				t.Errorf("File %v has version %v, expected %v", f.Name, v, ev)
 			}
 			delete(expected, f.Name)
 		}
@@ -453,8 +460,8 @@ func TestIssue4841(t *testing.T) {
 
 	f := checkReceived(<-received)
 
-	if expected := (protocol.Vector{}.Update(myID.Short())); !f.Version.Equal(expected) {
-		t.Errorf("Got Version == %v, expected %v", f.Version, expected)
+	if !f.Version.Equal(protocol.Vector{}) {
+		t.Errorf("Got Version == %v, expected empty version", f.Version)
 	}
 }
 
@@ -1012,5 +1019,114 @@ func TestNeedFolderFiles(t *testing.T) {
 		if got := len(progress) + len(queued) + len(rest); got != exp {
 			t.Errorf("Got %v needed items on page %v, expected %v", got, page, exp)
 		}
+	}
+}
+
+// TestIgnoreDeleteUnignore checks that the deletion of an ignored file is not
+// propagated upon un-ignoring.
+// https://github.com/syncthing/syncthing/issues/6038
+func TestIgnoreDeleteUnignore(t *testing.T) {
+	w, fcfg := tmpDefaultWrapper()
+	m := setupModel(w)
+	fss := fcfg.Filesystem()
+	tmpDir := fss.URI()
+	defer cleanupModelAndRemoveDir(m, tmpDir)
+
+	m.RemoveFolder(fcfg)
+	m.AddFolder(fcfg)
+	// Reach in and update the ignore matcher to one that always does
+	// reloads when asked to, instead of checking file mtimes. This is
+	// because we might be changing the files on disk often enough that the
+	// mtimes will be unreliable to determine change status.
+	m.fmut.Lock()
+	m.folderIgnores["default"] = ignore.New(fss, ignore.WithChangeDetector(newAlwaysChanged()))
+	m.fmut.Unlock()
+	m.StartFolder(fcfg.ID)
+
+	fc := addFakeConn(m, device1)
+	fc.folder = "default"
+	fc.mut.Lock()
+	fc.mut.Unlock()
+
+	file := "foobar"
+	contents := []byte("test file contents\n")
+
+	basicCheck := func(fs []protocol.FileInfo) {
+		t.Helper()
+		if len(fs) != 1 {
+			t.Fatal("expected a single index entry, got", len(fs))
+		} else if fs[0].Name != file {
+			t.Fatalf("expected a index entry for %v, got one for %v", file, fs[0].Name)
+		}
+	}
+
+	done := make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		basicCheck(fs)
+		close(done)
+	}
+	fc.mut.Unlock()
+
+	if err := ioutil.WriteFile(filepath.Join(fss.URI(), file), contents, 0644); err != nil {
+		panic(err)
+	}
+	m.ScanFolders()
+
+	select {
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out before index was received")
+	case <-done:
+	}
+
+	done = make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		basicCheck(fs)
+		f := fs[0]
+		if !f.IsInvalid() {
+			t.Errorf("Received non-invalid index update")
+		}
+		close(done)
+	}
+	fc.mut.Unlock()
+
+	if err := m.SetIgnores("default", []string{"foobar"}); err != nil {
+		panic(err)
+	}
+
+	select {
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out before receiving index update")
+	case <-done:
+	}
+
+	done = make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		basicCheck(fs)
+		f := fs[0]
+		if f.IsInvalid() {
+			t.Errorf("Received invalid index update")
+		}
+		if !f.Version.Equal(protocol.Vector{}) && f.Deleted {
+			t.Error("Received deleted index entry with non-empty version")
+		}
+		l.Infoln(f)
+		close(done)
+	}
+	fc.mut.Unlock()
+
+	if err := fss.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.SetIgnores("default", []string{}); err != nil {
+		panic(err)
+	}
+
+	select {
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out before index was received")
+	case <-done:
 	}
 }

@@ -512,12 +512,11 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 					LocalFlags: f.localFlags,
 				}
 				// We do not want to override the global version
-				// with the deleted file. Keeping only our local
-				// counter makes sure we are in conflict with any
-				// other existing versions, which will be resolved
-				// by the normal pulling mechanisms.
+				// with the deleted file. Setting to an empty
+				// version makes sure the file gets in sync on
+				// the following pull.
 				if file.ShouldConflict() {
-					nf.Version = nf.Version.DropOthers(f.shortID)
+					nf.Version = protocol.Vector{}
 				}
 
 				batch.append(nf)
