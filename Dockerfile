@@ -1,4 +1,4 @@
-FROM golang:1.12 AS builder
+FROM golang:1.13 AS builder
 
 WORKDIR /src
 COPY . .
@@ -24,4 +24,5 @@ ENV PUID=1000 PGID=1000
 HEALTHCHECK --interval=1m --timeout=10s \
   CMD nc -z localhost 8384 || exit 1
 
-ENTRYPOINT ["/bin/entrypoint.sh", "-home", "/var/syncthing/config", "-gui-address", "0.0.0.0:8384"]
+ENV STGUIADDRESS=0.0.0.0:8384
+ENTRYPOINT ["/bin/entrypoint.sh", "-home", "/var/syncthing/config"]

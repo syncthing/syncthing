@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -102,7 +103,8 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 		l.Infoln("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
-			panic(err)
+			l.Warnln("Error starting the main Syncthing process:", err)
+			panic("Error starting the main Syncthing process")
 		}
 
 		stdoutMut.Lock()
@@ -449,7 +451,7 @@ func childEnv() []string {
 // panicUploadMaxWait uploading panics...
 func maybeReportPanics() {
 	// Try to get a config to see if/where panics should be reported.
-	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID)
+	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
 	if err != nil {
 		l.Warnln("Couldn't load config; not reporting crash")
 		return

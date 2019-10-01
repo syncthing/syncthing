@@ -28,14 +28,14 @@ var (
 	sessionsMut = sync.NewMutex()
 )
 
-func emitLoginAttempt(success bool, username string) {
-	events.Default.Log(events.LoginAttempt, map[string]interface{}{
+func emitLoginAttempt(success bool, username string, evLogger events.Logger) {
+	evLogger.Log(events.LoginAttempt, map[string]interface{}{
 		"success":  success,
 		"username": username,
 	})
 }
 
-func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler) http.Handler {
+func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)
@@ -94,7 +94,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 		}
 
 		if !authOk {
-			emitLoginAttempt(false, username)
+			emitLoginAttempt(false, username, evLogger)
 			error()
 			return
 		}
@@ -109,7 +109,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			MaxAge: 0,
 		})
 
-		emitLoginAttempt(true, username)
+		emitLoginAttempt(true, username, evLogger)
 		next.ServeHTTP(w, r)
 	})
 }

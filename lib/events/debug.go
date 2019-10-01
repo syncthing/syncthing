@@ -10,11 +10,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/syncthing/syncthing/lib/logger"
+	liblogger "github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
-	dl = logger.DefaultLogger.NewFacility("events", "Event generation and logging")
+	dl = liblogger.DefaultLogger.NewFacility("events", "Event generation and logging")
 )
 
 func init() {

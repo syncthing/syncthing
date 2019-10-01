@@ -248,18 +248,15 @@ func (f *FolderConfiguration) prepare() {
 	case f.RawModTimeWindowS > 0:
 		f.cachedModTimeWindow = time.Duration(f.RawModTimeWindowS) * time.Second
 	case runtime.GOOS == "android":
-		usage, err := disk.Usage(f.Filesystem().URI())
-		if err != nil {
-			l.Debugf("Error detecting FS at %v on android, setting mtime window to 2s: %v", f.Path, err)
+		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil {
 			f.cachedModTimeWindow = 2 * time.Second
-			break
-		}
-		if strings.Contains(strings.ToLower(usage.Fstype), "fat") {
-			l.Debugf("Detecting FS at %v on android, found %v, thus setting mtime window to 2s", f.Path, usage.Fstype)
+			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: err == "%v"`, f.Path, err)
+		} else if usage.Fstype == "" || strings.Contains(strings.ToLower(usage.Fstype), "fat") {
 			f.cachedModTimeWindow = 2 * time.Second
-			break
+			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: usage.Fstype == "%v"`, f.Path, usage.Fstype)
+		} else {
+			l.Debugf(`Detecting FS at %v on android: Leaving mtime window at 0: usage.Fstype == "%v"`, f.Path, usage.Fstype)
 		}
-		l.Debugf("Detecting FS at %v on android, found %v, thus leaving mtime window at 0", f.Path, usage.Fstype)
 	}
 }
 

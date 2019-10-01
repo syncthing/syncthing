@@ -7,11 +7,16 @@
 package connections
 
 import (
-	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/protocol"
-	"golang.org/x/time/rate"
+	"bytes"
+	crand "crypto/rand"
+	"io"
 	"math/rand"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/protocol"
+	"golang.org/x/time/rate"
 )
 
 var device1, device2, device3, device4 protocol.DeviceID
@@ -25,7 +30,7 @@ func init() {
 }
 
 func initConfig() config.Wrapper {
-	cfg := config.Wrap("/dev/null", config.New(device1))
+	cfg := config.Wrap("/dev/null", config.New(device1), events.NoopLogger)
 	dev1Conf = config.NewDeviceConfiguration(device1, "device1")
 	dev2Conf = config.NewDeviceConfiguration(device2, "device2")
 	dev3Conf = config.NewDeviceConfiguration(device3, "device3")
@@ -184,6 +189,151 @@ func TestAddAndRemove(t *testing.T) {
 	checkActualAndExpected(t, actualR, actualW, expectedR, expectedW)
 }
 
+func TestLimitedWriterWrite(t *testing.T) {
+	// Check that the limited writer writes the correct data in the correct manner.
+
+	// A buffer with random data that is larger than the write size and not
+	// a precise multiple either.
+	src := make([]byte, int(12.5*maxSingleWriteSize))
+	if _, err := crand.Reader.Read(src); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write it to the destination using a limited writer, with a wrapper to
+	// count the write calls. The defaults on the limited writer should mean
+	// it is used (and doesn't take the fast path). In practice the limiter
+	// won't delay the test as the burst size is large enough to accommodate
+	// regardless of the rate.
+	dst := new(bytes.Buffer)
+	cw := &countingWriter{w: dst}
+	lw := &limitedWriter{
+		writer: cw,
+		waiterHolder: waiterHolder{
+			waiter:    rate.NewLimiter(rate.Limit(42), limiterBurstSize),
+			limitsLAN: new(atomicBool),
+			isLAN:     false, // enables limiting
+		},
+	}
+	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify there were lots of writes and that the end result is identical.
+	if cw.writeCount != 13 {
+		t.Error("expected lots of smaller writes, but not too many")
+	}
+	if !bytes.Equal(src, dst.Bytes()) {
+		t.Error("results should be equal")
+	}
+
+	// Write it to the destination using a limited writer, with a wrapper to
+	// count the write calls. Now we make sure the fast path is used.
+	dst = new(bytes.Buffer)
+	cw = &countingWriter{w: dst}
+	lw = &limitedWriter{
+		writer: cw,
+		waiterHolder: waiterHolder{
+			waiter:    rate.NewLimiter(rate.Limit(42), limiterBurstSize),
+			limitsLAN: new(atomicBool),
+			isLAN:     true, // disables limiting
+		},
+	}
+	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify there were a single write and that the end result is identical.
+	if cw.writeCount != 1 {
+		t.Error("expected just the one write")
+	}
+	if !bytes.Equal(src, dst.Bytes()) {
+		t.Error("results should be equal")
+	}
+
+	// Once more, but making sure the fast path is used for an unlimited
+	// rate, with multiple unlimited raters even (global and per-device).
+	dst = new(bytes.Buffer)
+	cw = &countingWriter{w: dst}
+	lw = &limitedWriter{
+		writer: cw,
+		waiterHolder: waiterHolder{
+			waiter:    totalWaiter{rate.NewLimiter(rate.Inf, limiterBurstSize), rate.NewLimiter(rate.Inf, limiterBurstSize)},
+			limitsLAN: new(atomicBool),
+			isLAN:     false, // enables limiting
+		},
+	}
+	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify there were a single write and that the end result is identical.
+	if cw.writeCount != 1 {
+		t.Error("expected just the one write")
+	}
+	if !bytes.Equal(src, dst.Bytes()) {
+		t.Error("results should be equal")
+	}
+
+	// Once more, but making sure we *don't* take the fast path when there
+	// is a combo of limited and unlimited writers.
+	dst = new(bytes.Buffer)
+	cw = &countingWriter{w: dst}
+	lw = &limitedWriter{
+		writer: cw,
+		waiterHolder: waiterHolder{
+			waiter: totalWaiter{
+				rate.NewLimiter(rate.Inf, limiterBurstSize),
+				rate.NewLimiter(rate.Limit(42), limiterBurstSize),
+				rate.NewLimiter(rate.Inf, limiterBurstSize),
+			},
+			limitsLAN: new(atomicBool),
+			isLAN:     false, // enables limiting
+		},
+	}
+	if _, err := io.Copy(lw, bytes.NewReader(src)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify there were lots of writes and that the end result is identical.
+	if cw.writeCount != 13 {
+		t.Error("expected just the one write")
+	}
+	if !bytes.Equal(src, dst.Bytes()) {
+		t.Error("results should be equal")
+	}
+}
+
+func TestTotalWaiterLimit(t *testing.T) {
+	cases := []struct {
+		w waiter
+		r rate.Limit
+	}{
+		{
+			totalWaiter{},
+			rate.Inf,
+		},
+		{
+			totalWaiter{rate.NewLimiter(rate.Inf, 42)},
+			rate.Inf,
+		},
+		{
+			totalWaiter{rate.NewLimiter(rate.Inf, 42), rate.NewLimiter(rate.Inf, 42)},
+			rate.Inf,
+		},
+		{
+			totalWaiter{rate.NewLimiter(rate.Inf, 42), rate.NewLimiter(rate.Limit(12), 42), rate.NewLimiter(rate.Limit(15), 42)},
+			rate.Limit(12),
+		},
+	}
+
+	for _, tc := range cases {
+		l := tc.w.Limit()
+		if l != tc.r {
+			t.Error("incorrect limit returned")
+		}
+	}
+}
+
 func checkActualAndExpected(t *testing.T, actualR, actualW, expectedR, expectedW map[protocol.DeviceID]*rate.Limiter) {
 	t.Helper()
 	if len(expectedW) != len(actualW) || len(expectedR) != len(actualR) {
@@ -202,4 +352,14 @@ func checkActualAndExpected(t *testing.T, actualR, actualW, expectedR, expectedW
 			t.Errorf("Write limits for device %s differ actual: %f, expected: %f", key, actualW[key].Limit(), expectedW[key].Limit())
 		}
 	}
+}
+
+type countingWriter struct {
+	w          io.Writer
+	writeCount int
+}
+
+func (w *countingWriter) Write(data []byte) (int, error) {
+	w.writeCount++
+	return w.w.Write(data)
 }

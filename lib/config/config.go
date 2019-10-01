@@ -87,7 +87,6 @@ var (
 		"stun.voiparound.com:3478",
 		"stun.voipbuster.com:3478",
 		"stun.voipstunt.com:3478",
-		"stun.voxgratia.org:3478",
 		"stun.xten.com:3478",
 	}
 )
@@ -109,7 +108,8 @@ func New(myID protocol.DeviceID) Configuration {
 
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
-		panic("bug: error in preparing new folder: " + err.Error())
+		l.Warnln("bug: error in preparing new folder:", err)
+		panic("error in preparing new folder")
 	}
 
 	return cfg

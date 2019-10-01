@@ -57,6 +57,7 @@ type OptionsConfiguration struct {
 	StunKeepaliveStartS     int      `xml:"stunKeepaliveStartS" json:"stunKeepaliveStartS" default:"180"` // 0 for off
 	StunKeepaliveMinS       int      `xml:"stunKeepaliveMinS" json:"stunKeepaliveMinS" default:"20"`      // 0 for off
 	StunServers             []string `xml:"stunServer" json:"stunServers" default:"default"`
+	DatabaseTuning          Tuning   `xml:"databaseTuning" json:"databaseTuning" restart:"true"`
 
 	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM         int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -70,6 +71,7 @@ type service struct {
 	model                model.Model
 	eventSubs            map[events.EventType]events.BufferedSubscription
 	eventSubsMut         sync.Mutex
+	evLogger             events.Logger
 	discoverer           discover.CachingMux
 	connectionsService   connections.Service
 	fss                  model.FolderSummaryService
@@ -79,7 +81,6 @@ type service struct {
 	contr                Controller
 	noUpgrade            bool
 	tlsDefaultCommonName string
-	stop                 chan struct{} // signals intentional stop
 	configChanged        chan struct{} // signals intentional listener close due to config change
 	started              chan string   // signals startup complete by sending the listener address, for testing only
 	startedOnce          chan struct{} // the service has started successfully at least once
@@ -105,7 +106,7 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
 	s := &service{
 		id:      id,
 		cfg:     cfg,
@@ -116,6 +117,7 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 			DiskEventMask:    diskSub,
 		},
 		eventSubsMut:         sync.NewMutex(),
+		evLogger:             evLogger,
 		discoverer:           discoverer,
 		connectionsService:   connectionsService,
 		fss:                  fss,
@@ -308,14 +310,14 @@ func (s *service) serve(stop chan struct{}) {
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg, mux)
+	var handler http.Handler = newCsrfManager(s.id.String()[:5], "/rest", guiCfg, mux, locations.Get(locations.CsrfTokens))
 
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in basic auth, if user/password is set.
 	if guiCfg.IsAuthEnabled() {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler)
+		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 	}
 
 	// Redirect to HTTPS if we are supposed to
@@ -338,6 +340,9 @@ func (s *service) serve(stop chan struct{}) {
 		// ReadTimeout must be longer than SyncthingController $scope.refresh
 		// interval to avoid HTTP keepalive/GUI refresh race.
 		ReadTimeout: 15 * time.Second,
+		// Prevent the HTTP server from logging stuff on its own. The things we
+		// care about we log ourselves from the handlers.
+		ErrorLog: log.New(ioutil.Discard, "", 0),
 	}
 
 	l.Infoln("GUI and API listening on", listener.Addr())
@@ -375,6 +380,7 @@ func (s *service) serve(stop chan struct{}) {
 		// Restart due to listen/serve failure
 		l.Warnln("GUI/API:", err, "(restarting)")
 	}
+	srv.Close()
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor
@@ -907,6 +913,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["uptime"] = s.urService.UptimeS()
 	res["startTime"] = ur.StartTime
 	res["guiAddressOverridden"] = s.cfg.GUI().IsOverridden()
+	res["guiAddressUsed"] = s.cfg.GUI().Address()
 
 	sendJSON(w, res)
 }
@@ -1211,7 +1218,7 @@ func (s *service) getEventSub(mask events.EventType) events.BufferedSubscription
 	s.eventSubsMut.Lock()
 	bufsub, ok := s.eventSubs[mask]
 	if !ok {
-		evsub := events.Default.Subscribe(mask)
+		evsub := s.evLogger.Subscribe(mask)
 		bufsub = events.NewBufferedSubscription(evsub, EventSubBufferSize)
 		s.eventSubs[mask] = bufsub
 	}

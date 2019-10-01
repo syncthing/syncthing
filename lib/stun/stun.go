@@ -304,7 +304,7 @@ func (s *Service) String() string {
 }
 
 func (s *Service) isCurrentNATTypePunchable() bool {
-	return s.natType == NATNone || s.natType == NATPortRestricted || s.natType == NATRestricted || s.natType == NATFull
+	return s.natType == NATNone || s.natType == NATPortRestricted || s.natType == NATRestricted || s.natType == NATFull || s.natType == NATSymmetricUDPFirewall
 }
 
 func areDifferent(first, second *Host) bool {

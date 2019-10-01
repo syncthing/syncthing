@@ -18,6 +18,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -52,7 +53,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestCSRFToken(t *testing.T) {
-	defer os.Remove(token)
+	t.Parallel()
 
 	max := 250
 	int := 5
@@ -61,11 +62,13 @@ func TestCSRFToken(t *testing.T) {
 		int = 2
 	}
 
-	t1 := newCsrfToken()
-	t2 := newCsrfToken()
+	m := newCsrfManager("unique", "prefix", config.GUIConfiguration{}, nil, "")
 
-	t3 := newCsrfToken()
-	if !validCsrfToken(t3) {
+	t1 := m.newToken()
+	t2 := m.newToken()
+
+	t3 := m.newToken()
+	if !m.validToken(t3) {
 		t.Fatal("t3 should be valid")
 	}
 
@@ -73,36 +76,38 @@ func TestCSRFToken(t *testing.T) {
 		if i%int == 0 {
 			// t1 and t2 should remain valid by virtue of us checking them now
 			// and then.
-			if !validCsrfToken(t1) {
+			if !m.validToken(t1) {
 				t.Fatal("t1 should be valid at iteration", i)
 			}
-			if !validCsrfToken(t2) {
+			if !m.validToken(t2) {
 				t.Fatal("t2 should be valid at iteration", i)
 			}
 		}
 
 		// The newly generated token is always valid
-		t4 := newCsrfToken()
-		if !validCsrfToken(t4) {
+		t4 := m.newToken()
+		if !m.validToken(t4) {
 			t.Fatal("t4 should be valid at iteration", i)
 		}
 	}
 
-	if validCsrfToken(t3) {
+	if m.validToken(t3) {
 		t.Fatal("t3 should have expired by now")
 	}
 }
 
 func TestStopAfterBrokenConfig(t *testing.T) {
+	t.Parallel()
+
 	cfg := config.Configuration{
 		GUI: config.GUIConfiguration{
 			RawAddress: "127.0.0.1:0",
 			RawUseTLS:  false,
 		},
 	}
-	w := config.Wrap("/dev/null", cfg)
+	w := config.Wrap("/dev/null", cfg, events.NoopLogger)
 
-	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
 	defer os.Remove(token)
 	srv.started = make(chan string)
 
@@ -134,6 +139,8 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 }
 
 func TestAssetsDir(t *testing.T) {
+	t.Parallel()
+
 	// For any given request to $FILE, we should return the first found of
 	//  - assetsdir/$THEME/$FILE
 	//  - compiled in asset $THEME/$FILE
@@ -208,6 +215,8 @@ func expectURLToContain(t *testing.T, url, exp string) {
 }
 
 func TestDirNames(t *testing.T) {
+	t.Parallel()
+
 	names := dirNames("testdata")
 	expected := []string{"config", "default", "foo", "testfolder"}
 	if diff, equal := messagediff.PrettyDiff(expected, names); !equal {
@@ -224,6 +233,8 @@ type httpTestCase struct {
 }
 
 func TestAPIServiceRequests(t *testing.T) {
+	t.Parallel()
+
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
@@ -434,6 +445,8 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey strin
 }
 
 func TestHTTPLogin(t *testing.T) {
+	t.Parallel()
+
 	cfg := new(mockedConfig)
 	cfg.gui.User = "üser"
 	cfg.gui.Password = "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq" // bcrypt of "räksmörgås" in UTF-8
@@ -512,8 +525,8 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
-	summaryService := model.NewFolderSummaryService(cfg, m, protocol.LocalDeviceID)
-	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, discoverer, connections, urService, summaryService, errorLog, systemLog, cpu, nil, false).(*service)
+	summaryService := model.NewFolderSummaryService(cfg, m, protocol.LocalDeviceID, events.NoopLogger)
+	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, summaryService, errorLog, systemLog, cpu, nil, false).(*service)
 	defer os.Remove(token)
 	svc.started = addrChan
 
@@ -541,6 +554,8 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 }
 
 func TestCSRFRequired(t *testing.T) {
+	t.Parallel()
+
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
@@ -614,6 +629,8 @@ func TestCSRFRequired(t *testing.T) {
 }
 
 func TestRandomString(t *testing.T) {
+	t.Parallel()
+
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
@@ -663,6 +680,8 @@ func TestRandomString(t *testing.T) {
 }
 
 func TestConfigPostOK(t *testing.T) {
+	t.Parallel()
+
 	cfg := bytes.NewBuffer([]byte(`{
 		"version": 15,
 		"folders": [
@@ -684,6 +703,8 @@ func TestConfigPostOK(t *testing.T) {
 }
 
 func TestConfigPostDupFolder(t *testing.T) {
+	t.Parallel()
+
 	cfg := bytes.NewBuffer([]byte(`{
 		"version": 15,
 		"folders": [
@@ -719,6 +740,8 @@ func testConfigPost(data io.Reader) (*http.Response, error) {
 }
 
 func TestHostCheck(t *testing.T) {
+	t.Parallel()
+
 	// An API service bound to localhost should reject non-localhost host Headers
 
 	cfg := new(mockedConfig)
@@ -826,6 +849,11 @@ func TestHostCheck(t *testing.T) {
 
 	// This should all work over IPv6 as well
 
+	if runningInContainer() {
+		// Working IPv6 in Docker can't be taken for granted.
+		return
+	}
+
 	cfg = new(mockedConfig)
 	cfg.gui.RawAddress = "[::1]:0"
 	baseURL, err = startHTTP(cfg)
@@ -872,6 +900,8 @@ func TestHostCheck(t *testing.T) {
 }
 
 func TestAddressIsLocalhost(t *testing.T) {
+	t.Parallel()
+
 	testcases := []struct {
 		address string
 		result  bool
@@ -915,6 +945,8 @@ func TestAddressIsLocalhost(t *testing.T) {
 }
 
 func TestAccessControlAllowOriginHeader(t *testing.T) {
+	t.Parallel()
+
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
@@ -943,6 +975,8 @@ func TestAccessControlAllowOriginHeader(t *testing.T) {
 }
 
 func TestOptionsRequest(t *testing.T) {
+	t.Parallel()
+
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
@@ -976,10 +1010,12 @@ func TestOptionsRequest(t *testing.T) {
 }
 
 func TestEventMasks(t *testing.T) {
+	t.Parallel()
+
 	cfg := new(mockedConfig)
 	defSub := new(mockedEventSub)
 	diskSub := new(mockedEventSub)
-	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
 	defer os.Remove(token)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
@@ -1008,6 +1044,8 @@ func TestEventMasks(t *testing.T) {
 }
 
 func TestBrowse(t *testing.T) {
+	t.Parallel()
+
 	pathSep := string(os.PathSeparator)
 
 	tmpDir, err := ioutil.TempDir("", "syncthing")
@@ -1060,6 +1098,8 @@ func TestBrowse(t *testing.T) {
 }
 
 func TestPrefixMatch(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		s        string
 		prefix   string
@@ -1089,4 +1129,25 @@ func equalStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// runningInContainer returns true if we are inside Docker or LXC. It might
+// be prone to false negatives if things change in the future, but likely
+// not false positives.
+func runningInContainer() bool {
+	if runtime.GOOS != "linux" {
+		return false
+	}
+
+	bs, err := ioutil.ReadFile("/proc/1/cgroup")
+	if err != nil {
+		return false
+	}
+	if bytes.Contains(bs, []byte("/docker/")) {
+		return true
+	}
+	if bytes.Contains(bs, []byte("/lxc/")) {
+		return true
+	}
+	return false
 }

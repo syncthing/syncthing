@@ -28,6 +28,27 @@ a:hover,a:focus,a.focus{
 
 }
 
+.nav-tabs > li.active > a,
+.nav-tabs > li.active > a:hover,
+.nav-tabs > li.active > a:focus {
+  color: #3498db !important;
+  background-color: #424242 !important;
+  border: 1px solid #424242 !important;
+  border-bottom-color: transparent !important;
+  cursor: default;
+}
+
+.nav-tabs{
+    border-bottom: 1px solid #333;
+}
+
+.nav-tabs > li > a:hover,
+.nav-tabs > li > a:focus {
+  background-color: #424242 !important;
+  border: none !important;
+}
+
+
 .navbar-text, .dropdown>a, .dropdown-menu>li>a, .hidden-xs>a, .navbar-link {
     color: #aaa !important;
 }

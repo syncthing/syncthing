@@ -34,34 +34,35 @@ import (
 )
 
 var (
-	versionRe        = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
-	goarch           string
-	goos             string
-	noupgrade        bool
-	version          string
-	goCmd            string
-	goVersion        float64
-	race             bool
-	debug            = os.Getenv("BUILDDEBUG") != ""
-	extraTags        string
-	installSuffix    string
-	pkgdir           string
-	cc               string
-	debugBinary      bool
-	coverage         bool
-	timeout          = "120s"
-	gogoProtoVersion = "v1.2.0"
+	versionRe     = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
+	goarch        string
+	goos          string
+	noupgrade     bool
+	version       string
+	goCmd         string
+	goVersion     float64
+	race          bool
+	debug         = os.Getenv("BUILDDEBUG") != ""
+	extraTags     string
+	installSuffix string
+	pkgdir        string
+	cc            string
+	debugBinary   bool
+	coverage      bool
+	timeout       = "120s"
 )
 
 type target struct {
 	name              string
 	debname           string
 	debdeps           []string
+	debpre            string
 	debpost           string
 	description       string
 	buildPkg          string
 	binaryName        string
 	archiveFiles      []archiveFile
+	systemdServices   []string
 	installationFiles []archiveFile
 	tags              []string
 }
@@ -128,6 +129,7 @@ var targets = map[string]target{
 		name:        "stdiscosrv",
 		debname:     "syncthing-discosrv",
 		debdeps:     []string{"libc6"},
+		debpre:      "cmd/stdiscosrv/scripts/preinst",
 		description: "Syncthing Discovery Server",
 		buildPkg:    "github.com/syncthing/syncthing/cmd/stdiscosrv",
 		binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
@@ -137,12 +139,17 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
+		systemdServices: []string{
+			"cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service",
+		},
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/syncthing-discosrv/README.txt", perm: 0644},
 			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-discosrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-discosrv/AUTHORS.txt", perm: 0644},
 			{src: "man/stdiscosrv.1", dst: "deb/usr/share/man/man1/stdiscosrv.1", perm: 0644},
+			{src: "cmd/stdiscosrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-discosrv", perm: 0644},
+			{src: "cmd/stdiscosrv/etc/firewall-ufw/stdiscosrv", dst: "deb/etc/ufw/applications.d/stdiscosrv", perm: 0644},
 		},
 		tags: []string{"purego"},
 	},
@@ -150,6 +157,7 @@ var targets = map[string]target{
 		name:        "strelaysrv",
 		debname:     "syncthing-relaysrv",
 		debdeps:     []string{"libc6"},
+		debpre:      "cmd/strelaysrv/scripts/preinst",
 		description: "Syncthing Relay Server",
 		buildPkg:    "github.com/syncthing/syncthing/cmd/strelaysrv",
 		binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
@@ -160,6 +168,9 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
+		systemdServices: []string{
+			"cmd/strelaysrv/etc/linux-systemd/strelaysrv.service",
+		},
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/syncthing-relaysrv/README.txt", perm: 0644},
@@ -167,6 +178,8 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-relaysrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaysrv/AUTHORS.txt", perm: 0644},
 			{src: "man/strelaysrv.1", dst: "deb/usr/share/man/man1/strelaysrv.1", perm: 0644},
+			{src: "cmd/strelaysrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-relaysrv", perm: 0644},
+			{src: "cmd/strelaysrv/etc/firewall-ufw/strelaysrv", dst: "deb/etc/ufw/applications.d/strelaysrv", perm: 0644},
 		},
 	},
 	"strelaypoolsrv": {
@@ -200,7 +213,6 @@ type dependencyRepo struct {
 }
 
 var dependencyRepos = []dependencyRepo{
-	{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: gogoProtoVersion},
 	{path: "xdr", repo: "https://github.com/calmh/xdr.git", commit: "08e072f9cb16"},
 }
 
@@ -555,8 +567,14 @@ func buildDeb(target target) {
 	for _, dep := range target.debdeps {
 		args = append(args, "-d", dep)
 	}
+	for _, service := range target.systemdServices {
+		args = append(args, "--deb-systemd", service)
+	}
 	if target.debpost != "" {
 		args = append(args, "--after-upgrade", target.debpost)
+	}
+	if target.debpre != "" {
+		args = append(args, "--before-install", target.debpre)
 	}
 	runPrint("fpm", args...)
 }
@@ -736,14 +754,21 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func proto() {
-	runPrint(goCmd, "get", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", gogoProtoVersion))
+	pv := protobufVersion()
+	dependencyRepos = append(dependencyRepos,
+		dependencyRepo{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: pv},
+	)
+
+	runPrint(goCmd, "get", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", pv))
 	os.MkdirAll("repos", 0755)
 	for _, dep := range dependencyRepos {
 		path := filepath.Join("repos", dep.path)
 		if _, err := os.Stat(path); err != nil {
 			runPrintInDir("repos", "git", "clone", dep.repo, dep.path)
-			runPrintInDir(path, "git", "checkout", dep.commit)
+		} else {
+			runPrintInDir(path, "git", "fetch")
 		}
+		runPrintInDir(path, "git", "checkout", dep.commit)
 	}
 	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 }
@@ -776,6 +801,9 @@ func ldflags() string {
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp%c%d", sep, buildStamp())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User%c%s", sep, buildUser())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host%c%s", sep, buildHost())
+	if v := os.Getenv("EXTRA_LDFLAGS"); v != "" {
+		fmt.Fprintf(b, " %s", v);
+	}
 	return b.String()
 }
 
@@ -1231,4 +1259,12 @@ func (t target) BinaryName() string {
 		return t.binaryName + ".exe"
 	}
 	return t.binaryName
+}
+
+func protobufVersion() string {
+	bs, err := runError(goCmd, "list", "-f", "{{.Version}}", "-m", "github.com/gogo/protobuf")
+	if err != nil {
+		log.Fatal("Getting protobuf version:", err)
+	}
+	return string(bs)
 }

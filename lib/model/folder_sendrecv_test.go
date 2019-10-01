@@ -96,7 +96,7 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 
 	f := &sendReceiveFolder{
 		folder: folder{
-			stateTracker:        newStateTracker("default"),
+			stateTracker:        newStateTracker("default", model.evLogger),
 			model:               model,
 			fset:                model.folderFiles[fcfg.ID],
 			initialScanFinished: make(chan struct{}),
@@ -121,6 +121,12 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 	return model, f
 }
 
+func cleanupSRFolder(f *sendReceiveFolder, m *model) {
+	m.evLogger.Stop()
+	os.Remove(m.cfg.ConfigPath())
+	os.Remove(f.Filesystem().URI())
+}
+
 // Layout of the files: (indexes from the above array)
 // 12345678 - Required file
 // 02005008 - Existing file (currently in the index)
@@ -137,10 +143,7 @@ func TestHandleFile(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	m, f := setupSendReceiveFolder(existingFile)
-	defer func() {
-		os.Remove(m.cfg.ConfigPath())
-		os.Remove(f.Filesystem().URI())
-	}()
+	defer cleanupSRFolder(f, m)
 
 	copyChan := make(chan copyBlocksState, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
@@ -183,10 +186,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	m, f := setupSendReceiveFolder(existingFile)
-	defer func() {
-		os.Remove(m.cfg.ConfigPath())
-		os.Remove(f.Filesystem().URI())
-	}()
+	defer cleanupSRFolder(f, m)
 
 	if _, err := prepareTmpFile(f.Filesystem()); err != nil {
 		t.Fatal(err)
@@ -236,10 +236,7 @@ func TestCopierFinder(t *testing.T) {
 	requiredFile.Name = "file2"
 
 	m, f := setupSendReceiveFolder(existingFile)
-	defer func() {
-		os.Remove(m.cfg.ConfigPath())
-		os.Remove(f.Filesystem().URI())
-	}()
+	defer cleanupSRFolder(f, m)
 
 	if _, err := prepareTmpFile(f.Filesystem()); err != nil {
 		t.Fatal(err)
@@ -257,6 +254,7 @@ func TestCopierFinder(t *testing.T) {
 
 	pulls := []pullBlockState{<-pullChan, <-pullChan, <-pullChan, <-pullChan}
 	finish := <-finisherChan
+	defer cleanupSharedPullerState(finish)
 
 	select {
 	case <-pullChan:
@@ -296,17 +294,13 @@ func TestCopierFinder(t *testing.T) {
 			t.Errorf("Block %d mismatch: %s != %s", eq, blks[eq-1].String(), blocks[eq].String())
 		}
 	}
-	finish.fd.Close()
 }
 
 func TestWeakHash(t *testing.T) {
 	// Setup the model/pull environment
 	model, fo := setupSendReceiveFolder()
+	defer cleanupSRFolder(fo, model)
 	ffs := fo.Filesystem()
-	defer func() {
-		os.Remove(model.cfg.ConfigPath())
-		os.Remove(ffs.URI())
-	}()
 
 	tempFile := fs.TempName("weakhash")
 	var shift int64 = 10
@@ -395,7 +389,7 @@ func TestWeakHash(t *testing.T) {
 	default:
 	}
 
-	finish.fd.Close()
+	cleanupSharedPullerState(finish)
 	if err := ffs.Remove(tempFile); err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +409,7 @@ func TestWeakHash(t *testing.T) {
 	}
 
 	finish = <-finisherChan
-	finish.fd.Close()
+	cleanupSharedPullerState(finish)
 
 	expectShifted := expectBlocks - expectPulls
 	if finish.copyOriginShifted != expectShifted {
@@ -432,10 +426,7 @@ func TestCopierCleanup(t *testing.T) {
 	// Create a file
 	file := setupFile("test", []int{0})
 	m, f := setupSendReceiveFolder(file)
-	defer func() {
-		os.Remove(m.cfg.ConfigPath())
-		os.Remove(f.Filesystem().URI())
-	}()
+	defer cleanupSRFolder(f, m)
 
 	file.Blocks = []protocol.BlockInfo{blocks[1]}
 	file.Version = file.Version.Update(myID.Short())
@@ -468,13 +459,10 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	file := setupFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
 
 	m, f := setupSendReceiveFolder()
-	defer func() {
-		os.Remove(m.cfg.ConfigPath())
-		os.Remove(f.Filesystem().URI())
-	}()
+	defer cleanupSRFolder(f, m)
 
 	// Set up our evet subscription early
-	s := events.Default.Subscribe(events.ItemFinished)
+	s := m.evLogger.Subscribe(events.ItemFinished)
 
 	// queue.Done should be called by the finisher routine
 	f.queue.Push("filex", 0, time.Time{})
@@ -528,9 +516,9 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		t.Log("event took", time.Since(t0))
 
 		state.mut.Lock()
-		stateFd := state.fd
+		stateWriter := state.writer
 		state.mut.Unlock()
-		if stateFd != nil {
+		if stateWriter != nil {
 			t.Fatal("File not closed?")
 		}
 
@@ -558,13 +546,10 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	file := setupFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
 
 	m, f := setupSendReceiveFolder()
-	defer func() {
-		os.Remove(m.cfg.ConfigPath())
-		os.Remove(f.Filesystem().URI())
-	}()
+	defer cleanupSRFolder(f, m)
 
 	// Set up our evet subscription early
-	s := events.Default.Subscribe(events.ItemFinished)
+	s := m.evLogger.Subscribe(events.ItemFinished)
 
 	// queue.Done should be called by the finisher routine
 	f.queue.Push("filex", 0, time.Time{})
@@ -609,9 +594,9 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		t.Log("event took", time.Since(t0))
 
 		state.mut.Lock()
-		stateFd := state.fd
+		stateWriter := state.writer
 		state.mut.Unlock()
-		if stateFd != nil {
+		if stateWriter != nil {
 			t.Fatal("File not closed?")
 		}
 
@@ -636,12 +621,9 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 func TestIssue3164(t *testing.T) {
 	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
 	tmpDir := ffs.URI()
-	defer func() {
-		os.Remove(m.cfg.ConfigPath())
-		os.Remove(tmpDir)
-	}()
 
 	ignDir := filepath.Join("issue3164", "oktodelete")
 	subDir := filepath.Join(ignDir, "foobar")
@@ -728,11 +710,8 @@ func TestDiffEmpty(t *testing.T) {
 // in the db.
 func TestDeleteIgnorePerms(t *testing.T) {
 	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
-	defer func() {
-		os.Remove(m.cfg.ConfigPath())
-		os.Remove(ffs.URI())
-	}()
 	f.IgnorePerms = true
 
 	name := "deleteIgnorePerms"
@@ -778,7 +757,7 @@ func TestCopyOwner(t *testing.T) {
 	// filesystem.
 
 	m, f := setupSendReceiveFolder()
-	defer os.Remove(m.cfg.ConfigPath())
+	defer cleanupSRFolder(f, m)
 	f.folder.FolderConfiguration = config.NewFolderConfiguration(m.id, f.ID, f.Label, fs.FilesystemTypeFake, "/TestCopyOwner")
 	f.folder.FolderConfiguration.CopyOwnershipFromParent = true
 
@@ -867,11 +846,8 @@ func TestCopyOwner(t *testing.T) {
 // is replaced with a directory and versions are conflicting
 func TestSRConflictReplaceFileByDir(t *testing.T) {
 	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
-	defer func() {
-		os.Remove(m.cfg.ConfigPath())
-		os.Remove(ffs.URI())
-	}()
 
 	name := "foo"
 
@@ -902,11 +878,8 @@ func TestSRConflictReplaceFileByDir(t *testing.T) {
 // is replaced with a link and versions are conflicting
 func TestSRConflictReplaceFileByLink(t *testing.T) {
 	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
-	defer func() {
-		os.Remove(m.cfg.ConfigPath())
-		os.Remove(ffs.URI())
-	}()
 
 	name := "foo"
 
@@ -932,4 +905,15 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 	} else if scan := <-scanChan; confls[0] != scan {
 		t.Fatal("Expected request to scan", confls[0], "got", scan)
 	}
+}
+
+func cleanupSharedPullerState(s *sharedPullerState) {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	if s.writer == nil {
+		return
+	}
+	s.writer.mut.Lock()
+	s.writer.fd.Close()
+	s.writer.mut.Unlock()
 }

@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestReset(t *testing.T) {
@@ -76,6 +77,11 @@ func TestReset(t *testing.T) {
 	}
 
 	// ---- Syncthing exits here ----
+	select {
+	case <-p.Stopped():
+	case <-time.After(20 * time.Second):
+		t.Fatal("timed out before Syncthing stopped")
+	}
 
 	p = startInstance(t, 1)
 	defer p.Stop() // Not checkedStop, because Syncthing will exit on its own
@@ -115,6 +121,11 @@ func TestReset(t *testing.T) {
 	}
 
 	// ---- Syncthing exits here ----
+	select {
+	case <-p.Stopped():
+	case <-time.After(20 * time.Second):
+		t.Fatal("timed out before Syncthing stopped")
+	}
 
 	p = startInstance(t, 1)
 	defer checkedStop(t, p)

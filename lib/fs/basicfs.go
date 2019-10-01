@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/calmh/du"
+	"github.com/shirou/gopsutil/disk"
 )
 
 var (
@@ -266,11 +266,14 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 	if err != nil {
 		return Usage{}, err
 	}
-	u, err := du.Get(name)
+	u, err := disk.Usage(name)
+	if err != nil {
+		return Usage{}, err
+	}
 	return Usage{
-		Free:  u.FreeBytes,
-		Total: u.TotalBytes,
-	}, err
+		Free:  int64(u.Free),
+		Total: int64(u.Total),
+	}, nil
 }
 
 func (f *BasicFilesystem) Type() FilesystemType {
@@ -342,6 +345,6 @@ func (e *ErrWatchEventOutsideRoot) Error() string {
 	return e.msg
 }
 
-func (f *BasicFilesystem) newErrWatchEventOutsideRoot(absPath, root string) *ErrWatchEventOutsideRoot {
-	return &ErrWatchEventOutsideRoot{fmt.Sprintf("Watching for changes encountered an event outside of the filesystem root: f.root==%v, root==%v, path==%v. This should never happen, please report this message to forum.syncthing.net.", f.root, root, absPath)}
+func (f *BasicFilesystem) newErrWatchEventOutsideRoot(absPath string, roots []string) *ErrWatchEventOutsideRoot {
+	return &ErrWatchEventOutsideRoot{fmt.Sprintf("Watching for changes encountered an event outside of the filesystem root: f.root==%v, roots==%v, path==%v. This should never happen, please report this message to forum.syncthing.net.", f.root, roots, absPath)}
 }

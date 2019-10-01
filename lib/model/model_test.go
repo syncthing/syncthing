@@ -110,7 +110,7 @@ func createTmpWrapper(cfg config.Configuration) config.Wrapper {
 	if err != nil {
 		panic(err)
 	}
-	wrapper := config.Wrap(tmpFile.Name(), cfg)
+	wrapper := config.Wrap(tmpFile.Name(), cfg, events.NoopLogger)
 	tmpFile.Close()
 	return wrapper
 }
@@ -303,7 +303,7 @@ func TestDeviceRename(t *testing.T) {
 			DeviceID: device1,
 		},
 	}
-	cfg := config.Wrap("testdata/tmpconfig.xml", rawCfg)
+	cfg := config.Wrap("testdata/tmpconfig.xml", rawCfg, events.NoopLogger)
 
 	db := db.OpenMemory()
 	m := newModel(cfg, myID, "syncthing", "dev", db, nil)
@@ -339,7 +339,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device name got overwritten")
 	}
 
-	cfgw, err := config.Load("testdata/tmpconfig.xml", myID)
+	cfgw, err := config.Load("testdata/tmpconfig.xml", myID, events.NoopLogger)
 	if err != nil {
 		t.Error(err)
 		return
@@ -3358,11 +3358,11 @@ func TestModTimeWindow(t *testing.T) {
 }
 
 func TestDevicePause(t *testing.T) {
-	sub := events.Default.Subscribe(events.DevicePaused)
-	defer events.Default.Unsubscribe(sub)
-
 	m, _, fcfg := setupModelWithConnection()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+
+	sub := m.evLogger.Subscribe(events.DevicePaused)
+	defer sub.Unsubscribe()
 
 	m.pmut.RLock()
 	closed := m.closed[device1]

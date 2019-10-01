@@ -90,6 +90,7 @@ var tlsVersionNames = map[uint16]string{
 // dialers. Successful connections are handed to the model.
 type Service interface {
 	suture.Service
+	discover.AddressLister
 	ListenerStatus() map[string]ListenerStatusEntry
 	ConnectionStatus() map[string]ConnectionStatusEntry
 	NATType() string
@@ -119,6 +120,7 @@ type service struct {
 	limiter              *limiter
 	natService           *nat.Service
 	natServiceToken      *suture.ServiceToken
+	evLogger             events.Logger
 
 	listenersMut       sync.RWMutex
 	listeners          map[string]genericListener
@@ -129,9 +131,7 @@ type service struct {
 	connectionStatus    map[string]ConnectionStatusEntry // address -> latest error/status
 }
 
-func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
-	bepProtocolName string, tlsDefaultCommonName string) *service {
-
+func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
 	service := &service{
 		Supervisor: suture.New("connections.Service", suture.Spec{
 			Log: func(line string) {
@@ -149,6 +149,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		limiter:              newLimiter(cfg),
 		natService:           nat.NewService(myID, cfg),
+		evLogger:             evLogger,
 
 		listenersMut:   sync.NewRWMutex(),
 		listeners:      make(map[string]genericListener),
@@ -231,7 +232,7 @@ func (s *service) handle(stop chan struct{}) {
 			continue
 		}
 
-		c.SetDeadline(time.Now().Add(20 * time.Second))
+		_ = c.SetDeadline(time.Now().Add(20 * time.Second))
 		hello, err := protocol.ExchangeHello(c, s.model.GetHello(remoteID))
 		if err != nil {
 			if protocol.IsVersionMismatch(err) {
@@ -255,7 +256,7 @@ func (s *service) handle(stop chan struct{}) {
 			c.Close()
 			continue
 		}
-		c.SetDeadline(time.Time{})
+		_ = c.SetDeadline(time.Time{})
 
 		// The Model will return an error for devices that we don't want to
 		// have a connection with for whatever reason, for example unknown devices.
@@ -553,7 +554,7 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 }
 
 func (s *service) logListenAddressesChangedEvent(l genericListener) {
-	events.Default.Log(events.ListenAddressesChanged, map[string]interface{}{
+	s.evLogger.Log(events.ListenAddressesChanged, map[string]interface{}{
 		"address": l.URI(),
 		"lan":     l.LANAddresses(),
 		"wan":     l.WANAddresses(),
@@ -580,7 +581,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
-	for _, addr := range config.Wrap("", to).ListenAddresses() {
+	for _, addr := range config.Wrap("", to, s.evLogger).ListenAddresses() {
 		if addr == "" {
 			// We can get an empty address if there is an empty listener
 			// element in the config, indicating no listeners should be
@@ -850,8 +851,15 @@ func (s *service) dialParallel(deviceID protocol.DeviceID, dialTargets []dialTar
 			wg.Add(1)
 			go func(tgt dialTarget) {
 				conn, err := tgt.Dial()
-				s.setConnectionStatus(tgt.addr, err)
 				if err == nil {
+					// Closes the connection on error
+					err = s.validateIdentity(conn, deviceID)
+				}
+				s.setConnectionStatus(tgt.addr, err)
+				if err != nil {
+					l.Debugln("dialing", deviceID, tgt.uri, "error:", err)
+				} else {
+					l.Debugln("dialing", deviceID, tgt.uri, "success:", conn)
 					res <- conn
 				}
 				wg.Done()
@@ -883,4 +891,37 @@ func (s *service) dialParallel(deviceID protocol.DeviceID, dialTargets []dialTar
 		l.Debugln("failed to connect to", deviceID, prio)
 	}
 	return internalConn{}, false
+}
+
+func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID) error {
+	cs := c.ConnectionState()
+
+	// We should have received exactly one certificate from the other
+	// side. If we didn't, they don't have a device ID and we drop the
+	// connection.
+	certs := cs.PeerCertificates
+	if cl := len(certs); cl != 1 {
+		l.Infof("Got peer certificate list of length %d != 1 from peer at %s; protocol error", cl, c)
+		c.Close()
+		return fmt.Errorf("expected 1 certificate, got %d", cl)
+	}
+	remoteCert := certs[0]
+	remoteID := protocol.NewDeviceID(remoteCert.Raw)
+
+	// The device ID should not be that of ourselves. It can happen
+	// though, especially in the presence of NAT hairpinning, multiple
+	// clients between the same NAT gateway, and global discovery.
+	if remoteID == s.myID {
+		l.Infof("Connected to myself (%s) at %s - should not happen", remoteID, c)
+		c.Close()
+		return fmt.Errorf("connected to self")
+	}
+
+	// We should see the expected device ID
+	if !remoteID.Equals(expectedID) {
+		c.Close()
+		return fmt.Errorf("unexpected device id, expected %s got %s", expectedID, remoteID)
+	}
+
+	return nil
 }

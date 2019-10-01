@@ -27,3 +27,7 @@ func (m *mockedConnections) NATType() string {
 func (m *mockedConnections) Serve() {}
 
 func (m *mockedConnections) Stop() {}
+
+func (m *mockedConnections) ExternalAddresses() []string { return nil }
+
+func (m *mockedConnections) AllAddresses() []string { return nil }

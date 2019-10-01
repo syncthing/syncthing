@@ -47,7 +47,7 @@ var (
 	}
 	defaultCfg = config.Wrap("", config.Configuration{
 		Folders: []config.FolderConfiguration{defaultFolderCfg},
-	})
+	}, events.NoopLogger)
 )
 
 // Represents possibly multiple (different event types) expected paths from
@@ -151,14 +151,17 @@ func TestAggregate(t *testing.T) {
 
 // TestInProgress checks that ignoring files currently edited by Syncthing works
 func TestInProgress(t *testing.T) {
+	evLogger := events.NewLogger()
+	go evLogger.Serve()
+	defer evLogger.Stop()
 	testCase := func(c chan<- fs.Event) {
-		events.Default.Log(events.ItemStarted, map[string]string{
+		evLogger.Log(events.ItemStarted, map[string]string{
 			"item": "inprogress",
 		})
 		sleepMs(100)
 		c <- fs.Event{Name: "inprogress", Type: fs.NonRemove}
 		sleepMs(1000)
-		events.Default.Log(events.ItemFinished, map[string]interface{}{
+		evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"item": "inprogress",
 		})
 		sleepMs(100)
@@ -170,7 +173,7 @@ func TestInProgress(t *testing.T) {
 		{[][]string{{"notinprogress"}}, 2000, 3500},
 	}
 
-	testScenario(t, "InProgress", testCase, expectedBatches)
+	testScenario(t, "InProgress", testCase, expectedBatches, evLogger)
 }
 
 // TestDelay checks that recurring changes to the same path are delayed
@@ -208,7 +211,7 @@ func TestDelay(t *testing.T) {
 		{[][]string{{delayed}, {delAfter}}, 3600, 7000},
 	}
 
-	testScenario(t, "Delay", testCase, expectedBatches)
+	testScenario(t, "Delay", testCase, expectedBatches, nil)
 }
 
 // TestNoDelay checks that no delay occurs if there are no non-remove events
@@ -225,7 +228,7 @@ func TestNoDelay(t *testing.T) {
 		{[][]string{{mixed}, {del}}, 500, 2000},
 	}
 
-	testScenario(t, "NoDelay", testCase, expectedBatches)
+	testScenario(t, "NoDelay", testCase, expectedBatches, nil)
 }
 
 func getEventPaths(dir *eventDir, dirPath string, a *aggregator) []string {
@@ -277,8 +280,13 @@ func compareBatchToExpectedDirect(t *testing.T, batch []string, expectedPaths []
 	}
 }
 
-func testScenario(t *testing.T, name string, testCase func(c chan<- fs.Event), expectedBatches []expectedBatch) {
+func testScenario(t *testing.T, name string, testCase func(c chan<- fs.Event), expectedBatches []expectedBatch, evLogger events.Logger) {
 	t.Helper()
+
+	if evLogger == nil {
+		evLogger = events.NoopLogger
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	eventChan := make(chan fs.Event)
 	watchChan := make(chan []string)
@@ -289,7 +297,7 @@ func testScenario(t *testing.T, name string, testCase func(c chan<- fs.Event), e
 	a.notifyTimeout = testNotifyTimeout
 
 	startTime := time.Now()
-	go a.mainLoop(eventChan, watchChan, defaultCfg)
+	go a.mainLoop(eventChan, watchChan, defaultCfg, evLogger)
 
 	sleepMs(20)
 
