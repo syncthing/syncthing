@@ -439,6 +439,7 @@ angular.module('syncthing.core')
             var guiCfg = $scope.config.gui;
             $scope.openNoAuth = addr.substr(0, 4) !== "127."
                 && addr.substr(0, 6) !== "[::1]:"
+                && addr.substr(0, 1) !== "/"
                 && (!guiCfg.user || !guiCfg.password)
                 && guiCfg.authMode !== 'ldap'
                 && !guiCfg.insecureAdminAccess;
