@@ -22,7 +22,7 @@ var (
 	// We make an exception in this package and have an actual "if debug { ...
 	// }" variable, as it may be rather performance critical and does
 	// nonstandard things (from a debug logging PoV).
-	debug       = logger.DefaultLogger.IsTraced("sync")
+	debug       = logger.DefaultLogger.ShouldDebug("sync")
 	useDeadlock = false
 )
 
