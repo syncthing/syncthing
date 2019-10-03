@@ -7,16 +7,9 @@
 package nat
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	l = logger.DefaultLogger.NewFacility("nat", "NAT discovery and port mapping")
 )
-
-func init() {
-	l.SetDebug("nat", strings.Contains(os.Getenv("STTRACE"), "nat") || os.Getenv("STTRACE") == "all")
-}

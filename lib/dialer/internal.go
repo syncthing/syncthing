@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"golang.org/x/net/proxy"
@@ -29,8 +28,6 @@ var (
 type dialFunc func(network, addr string) (net.Conn, error)
 
 func init() {
-	l.SetDebug("dialer", strings.Contains(os.Getenv("STTRACE"), "dialer") || os.Getenv("STTRACE") == "all")
-
 	proxy.RegisterDialerType("socks", socksDialerFunction)
 	proxyDialer = getDialer(proxy.Direct)
 	usingProxy = proxyDialer != proxy.Direct

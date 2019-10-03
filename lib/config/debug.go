@@ -7,16 +7,9 @@
 package config
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	l = logger.DefaultLogger.NewFacility("config", "Configuration loading and saving")
 )
-
-func init() {
-	l.SetDebug("config", strings.Contains(os.Getenv("STTRACE"), "config") || os.Getenv("STTRACE") == "all")
-}

@@ -7,16 +7,9 @@
 package upnp
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	l = logger.DefaultLogger.NewFacility("upnp", "UPnP discovery and port mapping")
 )
-
-func init() {
-	l.SetDebug("upnp", strings.Contains(os.Getenv("STTRACE"), "upnp") || os.Getenv("STTRACE") == "all")
-}

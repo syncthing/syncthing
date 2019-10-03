@@ -7,16 +7,9 @@
 package upgrade
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	l = logger.DefaultLogger.NewFacility("upgrade", "Binary upgrades")
 )
-
-func init() {
-	l.SetDebug("upgrade", strings.Contains(os.Getenv("STTRACE"), "upgrade") || os.Getenv("STTRACE") == "all")
-}

@@ -7,16 +7,9 @@
 package ur
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	l = logger.DefaultLogger.NewFacility("ur", "Usage reporting")
 )
-
-func init() {
-	l.SetDebug("ur", strings.Contains(os.Getenv("STTRACE"), "ur") || os.Getenv("STTRACE") == "all")
-}
