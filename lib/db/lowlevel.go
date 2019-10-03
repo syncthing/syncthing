@@ -267,6 +267,13 @@ func (db *Lowlevel) Close() {
 // dbIsLarge returns whether the estimated size of the database at location
 // is large enough to warrant optimization for large databases.
 func dbIsLarge(location string) bool {
+	if ^uint(0)>>63 == 0 {
+		// We're compiled for a 32 bit architecture. We've seen trouble with
+		// large settings there.
+		// (https://forum.syncthing.net/t/many-small-ldb-files-with-database-tuning/13842)
+		return false
+	}
+
 	dir, err := os.Open(location)
 	if err != nil {
 		return false
