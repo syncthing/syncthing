@@ -244,6 +244,8 @@ func (l *logger) Facilities() map[string]string {
 
 // NewFacility returns a new logger bound to the named facility.
 func (l *logger) NewFacility(facility, description string) Logger {
+	l.SetDebug(facility, l.IsTraced(facility))
+
 	l.mut.Lock()
 	l.facilities[facility] = description
 	l.mut.Unlock()
