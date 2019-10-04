@@ -7,9 +7,6 @@
 package fs
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
@@ -19,11 +16,7 @@ var (
 
 func init() {
 	logger.DefaultLogger.NewFacility("walkfs", "Filesystem access while walking")
-	switch {
-	case strings.Contains(os.Getenv("STTRACE"), "walkfs") || os.Getenv("STTRACE") == "all":
-		l.SetDebug("walkfs", true)
-		fallthrough
-	case strings.Contains(os.Getenv("STTRACE"), "fs"):
+	if logger.DefaultLogger.ShouldDebug("walkfs") {
 		l.SetDebug("fs", true)
 	}
 }
