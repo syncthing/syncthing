@@ -85,6 +85,7 @@ type service struct {
 	started              chan string   // signals startup complete by sending the listener address, for testing only
 	startedOnce          chan struct{} // the service has started successfully at least once
 	startupErr           error
+	listenerAddr         net.Addr
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -222,6 +223,7 @@ func (s *service) serve(stop chan struct{}) {
 		return
 	}
 
+	s.listenerAddr = listener.Addr()
 	defer listener.Close()
 
 	s.cfg.Subscribe(s)
@@ -913,7 +915,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["uptime"] = s.urService.UptimeS()
 	res["startTime"] = ur.StartTime
 	res["guiAddressOverridden"] = s.cfg.GUI().IsOverridden()
-	res["guiAddressUsed"] = s.cfg.GUI().Address()
+	res["guiAddressUsed"] = s.listenerAddr.String()
 
 	sendJSON(w, res)
 }
