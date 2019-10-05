@@ -853,10 +853,9 @@ angular.module('syncthing.core')
             // 32m 40s
             // 2h 32m
             // 4d 2h
-            // In case remaining scan time appears to be >366d, omit the
-            // details, and if the scan rate is < 10 B/s just give up, i.e.:
-            // > 1 year
-            // unknown (stalled)
+            // In case remaining scan time appears to be >31d, omit the
+            // details, i.e.:
+            // > 1 month
 
             if (!$scope.scanProgress[folder]) {
                 return "";
@@ -876,11 +875,8 @@ angular.module('syncthing.core')
             var res = [];
             if (seconds >= 86400) {
                 days = Math.floor(seconds / 86400);
-                if (days > 366) {
-                    if ($scope.scanProgress[folder].rate < 10) {
-                        return 'unknown (stalled)';
-                    }
-                    return '> 1 year';
+                if (days > 31) {
+                    return '> 1 month';
                 }
                 res.push('' + days + 'd')
                 seconds = seconds % 86400;
