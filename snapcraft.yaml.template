@@ -29,7 +29,16 @@ parts:
   syncthing:
     source: .
     plugin: dump
+    stage-packages:
+      - iproute2
+      - net-tools
     stage:
       - syncthing
+      - sbin/route
+      - sbin/ip
+      - bin/ip
     prime:
       - syncthing
+      - sbin/route
+      - sbin/ip
+      - bin/ip
