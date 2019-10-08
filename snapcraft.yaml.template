@@ -9,6 +9,7 @@ description: |
 architectures: 
   - build-on: [{{.HostArchitecture}}]
     run-on: [{{.TargetArchitecture}}]
+base: core18
 
 grade: {{.Grade}}
 confinement: strict
