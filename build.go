@@ -630,9 +630,9 @@ func buildSnap(target target) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	runPrint("snapcraft", "clean")
+	runPrint("snapcraft", "clean", "--destructive-mode")
 	build(target, []string{"noupgrade"})
-	runPrint("snapcraft")
+	runPrint("snapcraft", "--destructive-mode")
 }
 
 func shouldBuildSyso(dir string) (string, error) {
