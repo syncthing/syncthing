@@ -184,7 +184,9 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fd1, err := fs.Create("fuBAR/фАЙл")
+	// "ΣΊΣΥΦΟΣ", "Σίσυφος", and "σίσυφοσ" denote the same file on OS X
+	// (yes, I've checked)
+	fd1, err := fs.Create("fuBAR/ΣΊΣΥΦΟΣ")
 	if err != nil {
 		t.Fatalf("could not create file: %s", err)
 	}
@@ -194,20 +196,26 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Try reading from the same file with different filename
-	fd2, err := fs.Open("Fubar/Файл")
-	if err != nil {
-		t.Fatalf("could not open file by its case-differing filename: %s", err)
-	}
+	// Try reading from the same file with different filenames
+	variants := []string{"Fubar/Σίσυφος", "fubar/σίσυφοσ"}
 
-	fd2.Seek(0, io.SeekStart)
+	for _, variant := range variants {
+		fd2, err := fs.Open(variant)
+		if err != nil {
+			t.Fatalf("could not open file by its case-differing filename: %s", err)
+		}
 
-	bs2, err := ioutil.ReadAll(fd2)
-	if err != nil {
-		t.Fatal(err)
-	}
+		fd2.Seek(0, io.SeekStart)
 
-	if len(bs1) != len(bs2) {
-		t.Errorf("wrong number of bytes, expected %d, got %d", len(bs1), len(bs2))
+		bs2, err := ioutil.ReadAll(fd2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(bs1) != len(bs2) {
+			t.Errorf("wrong number of bytes, expected %d, got %d", len(bs1), len(bs2))
+		}
+
+		fd2.Close()
 	}
 }
