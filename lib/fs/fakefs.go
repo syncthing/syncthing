@@ -47,12 +47,14 @@ const randomBlockShift = 14 // 128k
 //     maxsize=n  to generate files up to a total of n MiB (default 0)
 //     sizeavg=n  to set the average size of random files, in bytes (default 1<<20)
 //     seed=n     to set the initial random seed (default 0)
+//     insens=b   "true" makes filesystem case-insensitive Windows- or OSX-style (default false)
 //
 // - Two fakefs:s pointing at the same root path see the same files.
 //
 type fakefs struct {
-	mut  sync.Mutex
-	root *fakeEntry
+	mut    sync.Mutex
+	root   *fakeEntry
+	insens bool
 }
 
 var (
@@ -90,6 +92,10 @@ func newFakeFilesystem(root string) *fakefs {
 	maxsize, _ := strconv.Atoi(params.Get("maxsize"))
 	sizeavg, _ := strconv.Atoi(params.Get("sizeavg"))
 	seed, _ := strconv.Atoi(params.Get("seed"))
+
+	if params.Get("insens") == "true" {
+		fs.insens = true
+	}
 	if sizeavg == 0 {
 		sizeavg = 1 << 20
 	}
@@ -162,8 +168,19 @@ func (fs *fakefs) entryForName(name string) *fakeEntry {
 		if entry.entryType != fakeEntryTypeDir {
 			return nil
 		}
+
 		var ok bool
-		entry, ok = entry.children[comp]
+
+		if fs.insens {
+			for _, child := range entry.children {
+				if strings.EqualFold(child.name, comp) {
+					entry = child
+					ok = true
+				}
+			}
+		} else {
+			entry, ok = entry.children[comp]
+		}
 		if !ok {
 			return nil
 		}
@@ -227,6 +244,7 @@ func (fs *fakefs) create(name string) (*fakeEntry, error) {
 	if entry == nil {
 		return nil, os.ErrNotExist
 	}
+
 	new := &fakeEntry{
 		name:  base,
 		mode:  0666,

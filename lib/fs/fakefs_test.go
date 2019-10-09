@@ -172,3 +172,42 @@ func TestFakeFSRead(t *testing.T) {
 		t.Error("data mismatch")
 	}
 }
+
+func TestFakeFSCaseInsensitive(t *testing.T) {
+	// Test case-insensitive fakefs
+	fs := newFakeFilesystem("/foo/bar?insens=true")
+
+	bs1 := []byte("test")
+
+	err := fs.Mkdir("/fubar", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fd1, err := fs.Create("fuBAR/фАЙл")
+	if err != nil {
+		t.Fatalf("could not create file: %s", err)
+	}
+
+	_, err = fd1.Write(bs1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Try reading from the same file with different filename
+	fd2, err := fs.Open("Fubar/Файл")
+	if err != nil {
+		t.Fatalf("could not open file by its case-differing filename: %s", err)
+	}
+
+	fd2.Seek(0, io.SeekStart)
+
+	bs2, err := ioutil.ReadAll(fd2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(bs1) != len(bs2) {
+		t.Errorf("wrong number of bytes, expected %d, got %d", len(bs1), len(bs2))
+	}
+}
