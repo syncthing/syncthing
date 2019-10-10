@@ -214,5 +214,30 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 		t.Errorf("wrong number of bytes, expected %d, got %d", len(bs1), len(bs2))
 	}
 
-	fd2.Close()
+	// fd.Stat and fs.Stat should return the same name it was called for, not the actual filename
+	info, err := fd2.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if info.Name() != "Σίσυφος" {
+		t.Error("wrong name:", info.Name())
+	}
+
+	if info.Size() != 4 {
+		t.Error("wrong size:", info.Size())
+	}
+
+	info, err = fs.Stat("fubar/σίσυφοσ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if info.Name() != "σίσυφοσ" {
+		t.Error("wrong name:", info.Name())
+	}
+
+	if info.Size() != 4 {
+		t.Error("wrong size:", info.Size())
+	}
 }

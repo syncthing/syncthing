@@ -175,6 +175,7 @@ func (fs *fakefs) entryForName(name string) *fakeEntry {
 			for _, child := range entry.children {
 				if strings.EqualFold(child.name, comp) {
 					entry = child
+					entry.name = comp
 					ok = true
 				}
 			}
