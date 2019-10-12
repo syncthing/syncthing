@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -174,7 +175,6 @@ func TestFakeFSRead(t *testing.T) {
 }
 
 func TestFakeFSCaseInsensitive(t *testing.T) {
-	// Test case-insensitive fakefs
 	fs := newFakeFilesystem("/foo/bar?insens=true")
 
 	bs1 := []byte("test")
@@ -185,7 +185,6 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 	}
 
 	// "ΣΊΣΥΦΟΣ" and "Σίσυφος" denote the same file on OS X
-	// (yes, I've checked)
 	fd1, err := fs.Create("fuBAR/ΣΊΣΥΦΟΣ")
 	if err != nil {
 		t.Fatalf("could not create file: %s", err)
@@ -197,7 +196,6 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 	}
 
 	// Try reading from the same file with different filenames
-
 	fd2, err := fs.Open("Fubar/Σίσυφος")
 	if err != nil {
 		t.Fatalf("could not open file by its case-differing filename: %s", err)
@@ -239,6 +237,28 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 
 	if info.Size() != 4 {
 		t.Error("wrong size:", info.Size())
+	}
+}
+
+func TestFakeFSCaseInsensitiveMkdirAll(t *testing.T) {
+	fs := newFakeFilesystem("/foo?insens=true")
+
+	err := fs.MkdirAll("/fOO/Bar/bAz", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fd, err := fs.OpenFile("/foo/BaR/BaZ/tESt", os.O_CREATE, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = fd.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = fs.Rename("/FOO/BAR/baz/tesT", "/foo/baR/BAZ/TEst"); err != nil {
+		t.Fatal(err)
 	}
 }
 

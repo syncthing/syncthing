@@ -463,6 +463,7 @@ func (fs *fakefs) Rename(oldname, newname string) error {
 	defer fs.mut.Unlock()
 
 	if fs.insens {
+		oldname = unicodeFoldLower(oldname)
 		newname = unicodeFoldLower(newname)
 	}
 
