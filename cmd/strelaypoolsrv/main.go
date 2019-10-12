@@ -633,7 +633,7 @@ func createTestCertificate() tls.Certificate {
 	}
 
 	certFile, keyFile := filepath.Join(tmpDir, "cert.pem"), filepath.Join(tmpDir, "key.pem")
-	cert, err := tlsutil.NewCertificate(certFile, keyFile, "relaypoolsrv")
+	cert, err := tlsutil.NewCertificate(certFile, keyFile, "relaypoolsrv", 20*365)
 	if err != nil {
 		log.Fatalln("Failed to create test X509 key pair:", err)
 	}

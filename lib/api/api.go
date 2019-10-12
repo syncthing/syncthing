@@ -9,7 +9,9 @@ package api
 import (
 	"bytes"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -56,10 +58,11 @@ import (
 var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 
 const (
-	DefaultEventMask    = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
-	DiskEventMask       = events.LocalChangeDetected | events.RemoteChangeDetected
-	EventSubBufferSize  = 1000
-	defaultEventTimeout = time.Minute
+	DefaultEventMask      = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
+	DiskEventMask         = events.LocalChangeDetected | events.RemoteChangeDetected
+	EventSubBufferSize    = 1000
+	defaultEventTimeout   = time.Minute
+	httpsCertLifetimeDays = 820
 )
 
 type service struct {
@@ -146,6 +149,12 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 	httpsCertFile := locations.Get(locations.HTTPSCertFile)
 	httpsKeyFile := locations.Get(locations.HTTPSKeyFile)
 	cert, err := tls.LoadX509KeyPair(httpsCertFile, httpsKeyFile)
+
+	// If the certificate has expired or will expire in the next month, fail
+	// it and generate a new one.
+	if err == nil {
+		err = checkExpiry(cert)
+	}
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
 		l.Infoln("Creating new HTTPS certificate")
@@ -158,7 +167,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 			name = s.tlsDefaultCommonName
 		}
 
-		cert, err = tlsutil.NewCertificate(httpsCertFile, httpsKeyFile, name)
+		cert, err = tlsutil.NewCertificate(httpsCertFile, httpsKeyFile, name, httpsCertLifetimeDays)
 	}
 	if err != nil {
 		return nil, err
@@ -1677,4 +1686,44 @@ func addressIsLocalhost(addr string) bool {
 		}
 		return ip.IsLoopback()
 	}
+}
+
+func checkExpiry(cert tls.Certificate) error {
+	leaf := cert.Leaf
+	if leaf == nil {
+		// Leaf can be nil or not, depending on how parsed the certificate
+		// was when we got it.
+		if len(cert.Certificate) < 1 {
+			// can't happen
+			return errors.New("no certificate in certificate")
+		}
+		var err error
+		leaf, err = x509.ParseCertificate(cert.Certificate[0])
+		if err != nil {
+			return err
+		}
+	}
+
+	if leaf.Subject.String() != leaf.Issuer.String() {
+		// The certificate is not self signed, so we leave it alone.
+		return nil
+	}
+
+	if leaf.NotAfter.Before(time.Now()) {
+		return errors.New("certificate has expired")
+	}
+	if leaf.NotAfter.Before(time.Now().Add(30 * 24 * time.Hour)) {
+		return errors.New("certificate will soon expire")
+	}
+
+	// On macOS, check for certificates issued on or after July 1st, 2019,
+	// with a longer validity time than 825 days.
+	cutoff := time.Date(2019, 7, 1, 0, 0, 0, 0, time.UTC)
+	if runtime.GOOS == "darwin" &&
+		leaf.NotBefore.After(cutoff) &&
+		leaf.NotAfter.Sub(leaf.NotBefore) > 825*24*time.Hour {
+		return errors.New("certificate incompatible with macOS 10.15 (Catalina)")
+	}
+
+	return nil
 }
