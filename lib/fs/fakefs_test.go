@@ -179,7 +179,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 
 	bs1 := []byte("test")
 
-	err := fs.Mkdir("/fubar", 0755)
+	err := fs.Mkdir("/fUbar", 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,5 +239,34 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 
 	if info.Size() != 4 {
 		t.Error("wrong size:", info.Size())
+	}
+}
+
+func TestUnicodeFoldLower(t *testing.T) {
+	var tests = []struct {
+		a, b string
+		want bool
+	}{
+		{"abc", "abc", true},
+		{"ABcd", "ABcd", true},
+		{"123abc", "123ABC", true},
+		{"αβδ", "ΑΒΔ", true},
+		{"abc", "xyz", false},
+		{"abc", "XYZ", false},
+		{"abcdefghijk", "abcdefghijX", false},
+		{"abcdefghijk", "abcdefghij\u212A", true},
+		{"abcdefghijK", "abcdefghij\u212A", true},
+		{"abcdefghijkz", "abcdefghij\u212Ay", false},
+		{"abcdefghijKz", "abcdefghij\u212Ay", false},
+		{"1", "2", false},
+		{"utf-8", "US-ASCII", false},
+		{"Σίσυφος", "ΣΊΣΥΦΟΣ", true},
+	}
+
+	for _, tt := range tests {
+		got := (unicodeFoldLower(tt.a) == unicodeFoldLower(tt.b))
+		if tt.want != got {
+			t.Errorf("comparing %s and %s got %t, want %t", tt.a, tt.b, got, tt.want)
+		}
 	}
 }

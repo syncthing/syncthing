@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 // see readShortAt()
@@ -168,22 +169,20 @@ func (fs *fakefs) entryForName(name string) *fakeEntry {
 		if entry.entryType != fakeEntryTypeDir {
 			return nil
 		}
-
 		var ok bool
 
 		if fs.insens {
-			for _, child := range entry.children {
-				if strings.EqualFold(child.name, comp) {
-					entry = child
-					entry.name = comp
-					ok = true
-				}
+			entry, ok = entry.children[unicodeFoldLower(comp)]
+			if !ok {
+				return nil
 			}
+
+			entry.name = comp
 		} else {
 			entry, ok = entry.children[comp]
-		}
-		if !ok {
-			return nil
+			if !ok {
+				return nil
+			}
 		}
 	}
 	return entry
@@ -239,13 +238,16 @@ func (fs *fakefs) create(name string) (*fakeEntry, error) {
 		return entry, nil
 	}
 
+	if fs.insens {
+		name = unicodeFoldLower(name)
+	}
+
 	dir := filepath.Dir(name)
 	base := filepath.Base(name)
 	entry := fs.entryForName(dir)
 	if entry == nil {
 		return nil, os.ErrNotExist
 	}
-
 	new := &fakeEntry{
 		name:  base,
 		mode:  0666,
@@ -305,6 +307,10 @@ func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
 
+	if fs.insens {
+		name = unicodeFoldLower(name)
+	}
+
 	dir := filepath.Dir(name)
 	base := filepath.Base(name)
 	entry := fs.entryForName(dir)
@@ -329,6 +335,10 @@ func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 }
 
 func (fs *fakefs) MkdirAll(name string, perm FileMode) error {
+	if fs.insens {
+		name = unicodeFoldLower(name)
+	}
+
 	name = filepath.ToSlash(name)
 	name = strings.Trim(name, "/")
 	comps := strings.Split(name, "/")
@@ -372,6 +382,10 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 
 	if flags&os.O_CREATE == 0 {
 		return fs.Open(name)
+	}
+
+	if fs.insens {
+		name = unicodeFoldLower(name)
 	}
 
 	dir := filepath.Dir(name)
@@ -447,6 +461,10 @@ func (fs *fakefs) RemoveAll(name string) error {
 func (fs *fakefs) Rename(oldname, newname string) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+
+	if fs.insens {
+		newname = unicodeFoldLower(newname)
+	}
 
 	p0 := fs.entryForName(filepath.Dir(oldname))
 	if p0 == nil {
@@ -755,4 +773,15 @@ func (f *fakeFileInfo) Owner() int {
 
 func (f *fakeFileInfo) Group() int {
 	return f.gid
+}
+
+func unicodeFoldLower(s string) string {
+	rs := []rune(s)
+	for i := range rs {
+		for r := unicode.SimpleFold(rs[i]); r > rs[i]; r = unicode.SimpleFold(r) {
+			rs[i] = r
+		}
+	}
+
+	return string(rs)
 }
