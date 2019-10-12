@@ -219,6 +219,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
 	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Disable monitor process, managed restarts and log file writing")
+	flag.BoolVar(&options.NoUpgrade, "no-upgrade", false, "Do not perform automatic upgrades")
 	flag.BoolVar(&options.resetDatabase, "reset-database", false, "Reset the database, forcing a full rescan and resync")
 	flag.BoolVar(&options.ResetDeltaIdxs, "reset-deltas", false, "Reset delta index IDs, forcing a full index exchange")
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
@@ -641,7 +642,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
 		if runtimeOptions.NoUpgrade {
-			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
+			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined or 'no-upgrade' command line argument was used.")
 		} else {
 			go autoUpgrade(cfg, app, evLogger)
 		}
