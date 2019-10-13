@@ -110,7 +110,7 @@ func (t *quicListener) serve(stop chan struct{}) error {
 
 	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
 	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
-	
+
 	acceptFailures := 0
 	const maxAcceptFailures = 10
 
@@ -126,7 +126,7 @@ func (t *quicListener) serve(stop chan struct{}) error {
 			return nil
 		} else if err != nil {
 			l.Infoln("Listen (BEP/quic): Accepting connection:", err)
-			
+		
 			acceptFailures++
 			if acceptFailures > maxAcceptFailures {
 				// Return to restart the listener, because something
@@ -136,12 +136,12 @@ func (t *quicListener) serve(stop chan struct{}) error {
 
 			// Slightly increased delay for each failure.
 			time.Sleep(time.Duration(acceptFailures) * time.Second)
-			
+
 			continue
 		}
-		
+
 		acceptFailures = 0
-		
+
 		l.Debugln("connect from", session.RemoteAddr())
 
 		streamCtx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
