@@ -21,7 +21,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 )
 
 // see readShortAt()
@@ -172,7 +171,7 @@ func (fs *fakefs) entryForName(name string) *fakeEntry {
 		var ok bool
 
 		if fs.insens {
-			entry, ok = entry.children[unicodeFoldLower(comp)]
+			entry, ok = entry.children[UnicodeLowercase(comp)]
 			if !ok {
 				return nil
 			}
@@ -239,7 +238,7 @@ func (fs *fakefs) create(name string) (*fakeEntry, error) {
 	}
 
 	if fs.insens {
-		name = unicodeFoldLower(name)
+		name = UnicodeLowercase(name)
 	}
 
 	dir := filepath.Dir(name)
@@ -308,7 +307,7 @@ func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 	defer fs.mut.Unlock()
 
 	if fs.insens {
-		name = unicodeFoldLower(name)
+		name = UnicodeLowercase(name)
 	}
 
 	dir := filepath.Dir(name)
@@ -336,7 +335,7 @@ func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 
 func (fs *fakefs) MkdirAll(name string, perm FileMode) error {
 	if fs.insens {
-		name = unicodeFoldLower(name)
+		name = UnicodeLowercase(name)
 	}
 
 	name = filepath.ToSlash(name)
@@ -385,7 +384,7 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 	}
 
 	if fs.insens {
-		name = unicodeFoldLower(name)
+		name = UnicodeLowercase(name)
 	}
 
 	dir := filepath.Dir(name)
@@ -463,8 +462,8 @@ func (fs *fakefs) Rename(oldname, newname string) error {
 	defer fs.mut.Unlock()
 
 	if fs.insens {
-		oldname = unicodeFoldLower(oldname)
-		newname = unicodeFoldLower(newname)
+		oldname = UnicodeLowercase(oldname)
+		newname = UnicodeLowercase(newname)
 	}
 
 	p0 := fs.entryForName(filepath.Dir(oldname))
@@ -774,15 +773,4 @@ func (f *fakeFileInfo) Owner() int {
 
 func (f *fakeFileInfo) Group() int {
 	return f.gid
-}
-
-func unicodeFoldLower(s string) string {
-	rs := []rune(s)
-	for i := range rs {
-		for r := unicode.SimpleFold(rs[i]); r > rs[i]; r = unicode.SimpleFold(r) {
-			rs[i] = r
-		}
-	}
-
-	return string(rs)
 }
