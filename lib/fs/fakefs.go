@@ -275,6 +275,7 @@ func (fs *fakefs) CreateSymlink(target, name string) error {
 }
 
 func (fs *fakefs) DirNames(name string) ([]string, error) {
+	// BUG: this will return folded names if fs is case-insensitive
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
 
