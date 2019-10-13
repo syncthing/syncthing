@@ -1704,8 +1704,10 @@ func checkExpiry(cert tls.Certificate) error {
 		}
 	}
 
-	if leaf.Subject.String() != leaf.Issuer.String() {
-		// The certificate is not self signed, so we leave it alone.
+	if leaf.Subject.String() != leaf.Issuer.String() ||
+		len(leaf.DNSNames) != 0 || len(leaf.IPAddresses) != 0 {
+		// The certificate is not self signed, or has DNS/IP attributes we don't
+		// add, so we leave it alone.
 		return nil
 	}
 
