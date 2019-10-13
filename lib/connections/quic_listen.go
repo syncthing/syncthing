@@ -125,7 +125,7 @@ func (t *quicListener) serve(stop chan struct{}) error {
 		if err == context.Canceled {
 			return nil
 		} else if err != nil {
-			l.Warnln("Listen (BEP/quic): Accepting connection:", err)
+			l.Infoln("Listen (BEP/quic): Accepting connection:", err)
 			
 			acceptFailures++
 			if acceptFailures > maxAcceptFailures {
