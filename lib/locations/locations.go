@@ -46,7 +46,8 @@ const (
 func init() {
 	err := expandLocations()
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		panic("Failed to expand locations at init time")
 	}
 }
 
@@ -124,7 +125,8 @@ func defaultConfigDir() string {
 	case "darwin":
 		dir, err := fs.ExpandTilde("~/Library/Application Support/Syncthing")
 		if err != nil {
-			panic(err)
+			fmt.Println(err)
+			panic("Failed to get default config dir")
 		}
 		return dir
 
@@ -134,7 +136,8 @@ func defaultConfigDir() string {
 		}
 		dir, err := fs.ExpandTilde("~/.config/syncthing")
 		if err != nil {
-			panic(err)
+			fmt.Println(err)
+			panic("Failed to get default config dir")
 		}
 		return dir
 	}
@@ -144,7 +147,8 @@ func defaultConfigDir() string {
 func homeDir() string {
 	home, err := fs.ExpandTilde("~")
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		panic("Failed to get user home dir")
 	}
 	return home
 }

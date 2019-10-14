@@ -8,6 +8,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"os"
 	"os/exec"
@@ -17,8 +18,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -33,6 +36,8 @@ const (
 	loopThreshold         = 60 * time.Second
 	logFileAutoCloseDelay = 5 * time.Second
 	logFileMaxOpenTime    = time.Minute
+	panicUploadMaxWait    = 30 * time.Second
+	panicUploadNoticeWait = 10 * time.Second
 )
 
 func monitorMain(runtimeOptions RuntimeOptions) {
@@ -72,6 +77,8 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 	childEnv := childEnv()
 	first := true
 	for {
+		maybeReportPanics()
+
 		if t := time.Since(restarts[0]); t < loopThreshold {
 			l.Warnf("%d restarts in %v; not retrying further", countRestarts, t)
 			os.Exit(exitError)
@@ -96,7 +103,8 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 		l.Infoln("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
-			panic(err)
+			l.Warnln("Error starting the main Syncthing process:", err)
+			panic("Error starting the main Syncthing process")
 		}
 
 		stdoutMut.Lock()
@@ -173,6 +181,13 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 	br := bufio.NewReader(stderr)
 
 	var panicFd *os.File
+	defer func() {
+		if panicFd != nil {
+			_ = panicFd.Close()
+			maybeReportPanics()
+		}
+	}()
+
 	for {
 		line, err := br.ReadString('\n')
 		if err != nil {
@@ -429,4 +444,40 @@ func childEnv() []string {
 	}
 	env = append(env, "STMONITORED=yes")
 	return env
+}
+
+// maybeReportPanics tries to figure out if crash reporting is on or off,
+// and reports any panics it can find if it's enabled. We spend at most
+// panicUploadMaxWait uploading panics...
+func maybeReportPanics() {
+	// Try to get a config to see if/where panics should be reported.
+	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	if err != nil {
+		l.Warnln("Couldn't load config; not reporting crash")
+		return
+	}
+
+	// Bail if we're not supposed to report panics.
+	opts := cfg.Options()
+	if !opts.CREnabled {
+		return
+	}
+
+	// Set up a timeout on the whole operation.
+	ctx, cancel := context.WithTimeout(context.Background(), panicUploadMaxWait)
+	defer cancel()
+
+	// Print a notice if the upload takes a long time.
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(panicUploadNoticeWait):
+			l.Warnln("Uploading crash reports is taking a while, please wait...")
+		}
+	}()
+
+	// Report the panics.
+	dir := locations.GetBaseDir(locations.ConfigBaseDir)
+	uploadPanicLogs(ctx, opts.CRURL, dir)
 }

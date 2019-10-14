@@ -1,25 +1,25 @@
 <configuration version="10">
-    <folder id="f1" directory="testdata/">
+    <folder id="f1" path="testdata/">
     </folder>
-    <folder id="f2" directory="testdata/">
+    <folder id="f2" path="testdata/">
         <order>random</order>
     </folder>
-    <folder id="f3" directory="testdata/">
+    <folder id="f3" path="testdata/">
         <order>alphabetic</order>
     </folder>
-    <folder id="f4" directory="testdata/">
+    <folder id="f4" path="testdata/">
         <order>whatever</order>
     </folder>
-    <folder id="f5" directory="testdata/">
+    <folder id="f5" path="testdata/">
         <order>smallestFirst</order>
     </folder>
-    <folder id="f6" directory="testdata/">
+    <folder id="f6" path="testdata/">
         <order>largestFirst</order>
     </folder>
-    <folder id="f7" directory="testdata/">
+    <folder id="f7" path="testdata/">
         <order>oldestFirst</order>
     </folder>
-    <folder id="f8" directory="testdata/">
+    <folder id="f8" path="testdata/">
         <order>newestFirst</order>
     </folder>
 </configuration>

@@ -11,11 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thejerf/suture"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/thejerf/suture"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 const minSummaryInterval = time.Minute
@@ -34,7 +36,7 @@ type folderSummaryService struct {
 	cfg       config.Wrapper
 	model     Model
 	id        protocol.DeviceID
-	stop      chan struct{}
+	evLogger  events.Logger
 	immediate chan string
 
 	// For keeping track of folders to recalculate for
@@ -46,7 +48,7 @@ type folderSummaryService struct {
 	lastEventReqMut sync.Mutex
 }
 
-func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID) FolderSummaryService {
+func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
 	service := &folderSummaryService{
 		Supervisor: suture.New("folderSummaryService", suture.Spec{
 			PassThroughPanics: true,
@@ -54,22 +56,17 @@ func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID) 
 		cfg:             cfg,
 		model:           m,
 		id:              id,
-		stop:            make(chan struct{}),
+		evLogger:        evLogger,
 		immediate:       make(chan string),
 		folders:         make(map[string]struct{}),
 		foldersMut:      sync.NewMutex(),
 		lastEventReqMut: sync.NewMutex(),
 	}
 
-	service.Add(serviceFunc(service.listenForUpdates))
-	service.Add(serviceFunc(service.calculateSummaries))
+	service.Add(util.AsService(service.listenForUpdates))
+	service.Add(util.AsService(service.calculateSummaries))
 
 	return service
-}
-
-func (c *folderSummaryService) Stop() {
-	c.Supervisor.Stop()
-	close(c.stop)
 }
 
 func (c *folderSummaryService) String() string {
@@ -148,80 +145,96 @@ func (c *folderSummaryService) OnEventRequest() {
 
 // listenForUpdates subscribes to the event bus and makes note of folders that
 // need their data recalculated.
-func (c *folderSummaryService) listenForUpdates() {
-	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged)
-	defer events.Default.Unsubscribe(sub)
+func (c *folderSummaryService) listenForUpdates(stop chan struct{}) {
+	sub := c.evLogger.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged | events.DownloadProgress)
+	defer sub.Unsubscribe()
 
 	for {
 		// This loop needs to be fast so we don't miss too many events.
 
 		select {
 		case ev := <-sub.C():
-			if ev.Type == events.DeviceConnected {
-				// When a device connects we schedule a refresh of all
-				// folders shared with that device.
-
-				data := ev.Data.(map[string]string)
-				deviceID, _ := protocol.DeviceIDFromString(data["id"])
-
-				c.foldersMut.Lock()
-			nextFolder:
-				for _, folder := range c.cfg.Folders() {
-					for _, dev := range folder.Devices {
-						if dev.DeviceID == deviceID {
-							c.folders[folder.ID] = struct{}{}
-							continue nextFolder
-						}
-					}
-				}
-				c.foldersMut.Unlock()
-
-				continue
-			}
-
-			// The other events all have a "folder" attribute that they
-			// affect. Whenever the local or remote index is updated for a
-			// given folder we make a note of it.
-
-			data := ev.Data.(map[string]interface{})
-			folder := data["folder"].(string)
-
-			switch ev.Type {
-			case events.StateChanged:
-				if data["to"].(string) == "idle" && data["from"].(string) == "syncing" {
-					// The folder changed to idle from syncing. We should do an
-					// immediate refresh to update the GUI. The send to
-					// c.immediate must be nonblocking so that we can continue
-					// handling events.
-
-					c.foldersMut.Lock()
-					select {
-					case c.immediate <- folder:
-						delete(c.folders, folder)
-					default:
-						c.folders[folder] = struct{}{}
-					}
-					c.foldersMut.Unlock()
-				}
-
-			default:
-				// This folder needs to be refreshed whenever we do the next
-				// refresh.
-
-				c.foldersMut.Lock()
-				c.folders[folder] = struct{}{}
-				c.foldersMut.Unlock()
-			}
-
-		case <-c.stop:
+			c.processUpdate(ev)
+		case <-stop:
 			return
 		}
 	}
 }
 
+func (c *folderSummaryService) processUpdate(ev events.Event) {
+	var folder string
+
+	switch ev.Type {
+	case events.DeviceConnected:
+		// When a device connects we schedule a refresh of all
+		// folders shared with that device.
+
+		data := ev.Data.(map[string]string)
+		deviceID, _ := protocol.DeviceIDFromString(data["id"])
+
+		c.foldersMut.Lock()
+	nextFolder:
+		for _, folder := range c.cfg.Folders() {
+			for _, dev := range folder.Devices {
+				if dev.DeviceID == deviceID {
+					c.folders[folder.ID] = struct{}{}
+					continue nextFolder
+				}
+			}
+		}
+		c.foldersMut.Unlock()
+
+		return
+
+	case events.DownloadProgress:
+		data := ev.Data.(map[string]map[string]*pullerProgress)
+		c.foldersMut.Lock()
+		for folder := range data {
+			c.folders[folder] = struct{}{}
+		}
+		c.foldersMut.Unlock()
+		return
+
+	case events.StateChanged:
+		data := ev.Data.(map[string]interface{})
+		if !(data["to"].(string) == "idle" && data["from"].(string) == "syncing") {
+			return
+		}
+
+		// The folder changed to idle from syncing. We should do an
+		// immediate refresh to update the GUI. The send to
+		// c.immediate must be nonblocking so that we can continue
+		// handling events.
+
+		folder = data["folder"].(string)
+		select {
+		case c.immediate <- folder:
+			c.foldersMut.Lock()
+			delete(c.folders, folder)
+			c.foldersMut.Unlock()
+			return
+		default:
+			// Refresh whenever we do the next summary.
+		}
+
+	default:
+		// The other events all have a "folder" attribute that they
+		// affect. Whenever the local or remote index is updated for a
+		// given folder we make a note of it.
+		// This folder needs to be refreshed whenever we do the next
+		// refresh.
+
+		folder = ev.Data.(map[string]interface{})["folder"].(string)
+	}
+
+	c.foldersMut.Lock()
+	c.folders[folder] = struct{}{}
+	c.foldersMut.Unlock()
+}
+
 // calculateSummaries periodically recalculates folder summaries and
 // completion percentage, and sends the results on the event bus.
-func (c *folderSummaryService) calculateSummaries() {
+func (c *folderSummaryService) calculateSummaries(stop chan struct{}) {
 	const pumpInterval = 2 * time.Second
 	pump := time.NewTimer(pumpInterval)
 
@@ -242,7 +255,7 @@ func (c *folderSummaryService) calculateSummaries() {
 		case folder := <-c.immediate:
 			c.sendSummary(folder)
 
-		case <-c.stop:
+		case <-stop:
 			return
 		}
 	}
@@ -280,7 +293,7 @@ func (c *folderSummaryService) sendSummary(folder string) {
 	if err != nil {
 		return
 	}
-	events.Default.Log(events.FolderSummary, map[string]interface{}{
+	c.evLogger.Log(events.FolderSummary, map[string]interface{}{
 		"folder":  folder,
 		"summary": data,
 	})
@@ -300,13 +313,6 @@ func (c *folderSummaryService) sendSummary(folder string) {
 		comp := c.model.Completion(devCfg.DeviceID, folder).Map()
 		comp["folder"] = folder
 		comp["device"] = devCfg.DeviceID.String()
-		events.Default.Log(events.FolderCompletion, comp)
+		c.evLogger.Log(events.FolderCompletion, comp)
 	}
 }
-
-// serviceFunc wraps a function to create a suture.Service without stop
-// functionality.
-type serviceFunc func()
-
-func (f serviceFunc) Serve() { f() }
-func (f serviceFunc) Stop()  {}

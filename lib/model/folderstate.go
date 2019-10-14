@@ -42,6 +42,7 @@ func (s folderState) String() string {
 
 type stateTracker struct {
 	folderID string
+	evLogger events.Logger
 
 	mut     sync.Mutex
 	current folderState
@@ -49,9 +50,10 @@ type stateTracker struct {
 	changed time.Time
 }
 
-func newStateTracker(id string) stateTracker {
+func newStateTracker(id string, evLogger events.Logger) stateTracker {
 	return stateTracker{
 		folderID: id,
+		evLogger: evLogger,
 		mut:      sync.NewMutex(),
 	}
 }
@@ -83,7 +85,7 @@ func (s *stateTracker) setState(newState folderState) {
 		s.current = newState
 		s.changed = time.Now()
 
-		events.Default.Log(events.StateChanged, eventData)
+		s.evLogger.Log(events.StateChanged, eventData)
 	}
 	s.mut.Unlock()
 }
@@ -124,5 +126,5 @@ func (s *stateTracker) setError(err error) {
 	s.err = err
 	s.changed = time.Now()
 
-	events.Default.Log(events.StateChanged, eventData)
+	s.evLogger.Log(events.StateChanged, eventData)
 }

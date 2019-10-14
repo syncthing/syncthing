@@ -87,11 +87,26 @@ func CheckFreeSpace(req Size, usage fs.Usage) error {
 	if req.Percentage() {
 		freePct := (float64(usage.Free) / float64(usage.Total)) * 100
 		if freePct < val {
-			return fmt.Errorf("%f %% < %v", freePct, req)
+			return fmt.Errorf("%.1f %% < %v", freePct, req)
 		}
 	} else if float64(usage.Free) < val {
-		return fmt.Errorf("%v < %v", usage.Free, req)
+		return fmt.Errorf("%sB < %v", formatSI(usage.Free), req)
 	}
 
 	return nil
+}
+
+func formatSI(b int64) string {
+	switch {
+	case b < 1000:
+		return fmt.Sprintf("%d ", b)
+	case b < 1000*1000:
+		return fmt.Sprintf("%.1f K", float64(b)/1000)
+	case b < 1000*1000*1000:
+		return fmt.Sprintf("%.1f M", float64(b)/(1000*1000))
+	case b < 1000*1000*1000*1000:
+		return fmt.Sprintf("%.1f G", float64(b)/(1000*1000*1000))
+	default:
+		return fmt.Sprintf("%.1f T", float64(b)/(1000*1000*1000*1000))
+	}
 }

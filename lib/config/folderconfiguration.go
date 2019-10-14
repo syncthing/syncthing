@@ -10,6 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"strings"
+	"time"
+
+	"github.com/shirou/gopsutil/disk"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -52,10 +56,11 @@ type FolderConfiguration struct {
 	Paused                  bool                        `xml:"paused" json:"paused"`
 	WeakHashThresholdPct    int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
 	MarkerName              string                      `xml:"markerName" json:"markerName"`
-	UseLargeBlocks          bool                        `xml:"useLargeBlocks" json:"useLargeBlocks" default:"true"`
 	CopyOwnershipFromParent bool                        `xml:"copyOwnershipFromParent" json:"copyOwnershipFromParent"`
+	RawModTimeWindowS       int                         `xml:"modTimeWindowS" json:"modTimeWindowS"`
 
-	cachedFilesystem fs.Filesystem
+	cachedFilesystem    fs.Filesystem
+	cachedModTimeWindow time.Duration
 
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
 	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
@@ -93,7 +98,7 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Filesystem() should be valid.
-	if f.cachedFilesystem == nil && f.Path != "" {
+	if f.cachedFilesystem == nil {
 		l.Infoln("bug: uncached filesystem call (should only happen in tests)")
 		return fs.NewFilesystem(f.FilesystemType, f.Path)
 	}
@@ -110,6 +115,10 @@ func (f FolderConfiguration) Versioner() versioner.Versioner {
 	}
 
 	return versionerFactory(f.ID, f.Filesystem(), f.Versioning.Params)
+}
+
+func (f FolderConfiguration) ModTimeWindow() time.Duration {
+	return f.cachedModTimeWindow
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
@@ -210,9 +219,7 @@ func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 }
 
 func (f *FolderConfiguration) prepare() {
-	if f.Path != "" {
-		f.cachedFilesystem = fs.NewFilesystem(f.FilesystemType, f.Path)
-	}
+	f.cachedFilesystem = fs.NewFilesystem(f.FilesystemType, f.Path)
 
 	if f.RescanIntervalS > MaxRescanIntervalS {
 		f.RescanIntervalS = MaxRescanIntervalS
@@ -235,6 +242,21 @@ func (f *FolderConfiguration) prepare() {
 
 	if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
+	}
+
+	switch {
+	case f.RawModTimeWindowS > 0:
+		f.cachedModTimeWindow = time.Duration(f.RawModTimeWindowS) * time.Second
+	case runtime.GOOS == "android":
+		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil {
+			f.cachedModTimeWindow = 2 * time.Second
+			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: err == "%v"`, f.Path, err)
+		} else if usage.Fstype == "" || strings.Contains(strings.ToLower(usage.Fstype), "fat") {
+			f.cachedModTimeWindow = 2 * time.Second
+			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: usage.Fstype == "%v"`, f.Path, usage.Fstype)
+		} else {
+			l.Debugf(`Detecting FS at %v on android: Leaving mtime window at 0: usage.Fstype == "%v"`, f.Path, usage.Fstype)
+		}
 	}
 }
 

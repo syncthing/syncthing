@@ -7,16 +7,9 @@
 package discover
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	l = logger.DefaultLogger.NewFacility("discover", "Remote device discovery")
 )
-
-func init() {
-	l.SetDebug("discover", strings.Contains(os.Getenv("STTRACE"), "discover") || os.Getenv("STTRACE") == "all")
-}

@@ -7,13 +7,10 @@
 package versioner
 
 import (
-	"path/filepath"
-	"sort"
 	"strconv"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -51,30 +48,8 @@ func (v Simple) Archive(filePath string) error {
 		return err
 	}
 
-	file := filepath.Base(filePath)
-	dir := filepath.Dir(filePath)
-
-	// Glob according to the new file~timestamp.ext pattern.
-	pattern := filepath.Join(dir, TagFilename(file, TimeGlob))
-	newVersions, err := v.versionsFs.Glob(pattern)
-	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
-		return nil
-	}
-
-	// Also according to the old file.ext~timestamp pattern.
-	pattern = filepath.Join(dir, file+"~"+TimeGlob)
-	oldVersions, err := v.versionsFs.Glob(pattern)
-	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
-		return nil
-	}
-
-	// Use all the found filenames. "~" sorts after "." so all old pattern
-	// files will be deleted before any new, which is as it should be.
-	versions := util.UniqueTrimmedStrings(append(oldVersions, newVersions...))
-	sort.Strings(versions)
-
+	// Versions are sorted by timestamp in the file name, oldest first.
+	versions := findAllVersions(v.versionsFs, filePath)
 	if len(versions) > v.keep {
 		for _, toRemove := range versions[:len(versions)-v.keep] {
 			l.Debugln("cleaning out", toRemove)

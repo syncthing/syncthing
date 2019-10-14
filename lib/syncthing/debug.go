@@ -4,15 +4,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//+build !windows,!solaris
+package syncthing
 
-package main
+import (
+	"github.com/syncthing/syncthing/lib/logger"
+)
 
-import "syscall"
-import "time"
-
-func cpuUsage() time.Duration {
-	var rusage syscall.Rusage
-	syscall.Getrusage(syscall.RUSAGE_SELF, &rusage)
-	return time.Duration(rusage.Utime.Nano() + rusage.Stime.Nano())
-}
+var (
+	l = logger.DefaultLogger.NewFacility("app", "Main run facility")
+)

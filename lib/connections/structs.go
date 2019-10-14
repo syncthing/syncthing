@@ -191,13 +191,6 @@ type Model interface {
 	GetHello(protocol.DeviceID) protocol.HelloIntf
 }
 
-// serviceFunc wraps a function to create a suture.Service without stop
-// functionality.
-type serviceFunc func()
-
-func (f serviceFunc) Serve() { f() }
-func (f serviceFunc) Stop()  {}
-
 type onAddressesChangedNotifier struct {
 	callbacks []func(genericListener)
 }
@@ -222,11 +215,5 @@ type dialTarget struct {
 
 func (t dialTarget) Dial() (internalConn, error) {
 	l.Debugln("dialing", t.deviceID, t.uri, "prio", t.priority)
-	conn, err := t.dialer.Dial(t.deviceID, t.uri)
-	if err != nil {
-		l.Debugln("dialing", t.deviceID, t.uri, "error:", err)
-	} else {
-		l.Debugln("dialing", t.deviceID, t.uri, "success:", conn)
-	}
-	return conn, err
+	return t.dialer.Dial(t.deviceID, t.uri)
 }

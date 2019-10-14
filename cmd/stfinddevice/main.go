@@ -17,6 +17,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/discover"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -82,7 +83,7 @@ func checkServers(deviceID protocol.DeviceID, servers ...string) {
 }
 
 func checkServer(deviceID protocol.DeviceID, server string) checkResult {
-	disco, err := discover.NewGlobal(server, tls.Certificate{}, nil)
+	disco, err := discover.NewGlobal(server, tls.Certificate{}, nil, events.NoopLogger)
 	if err != nil {
 		return checkResult{error: err}
 	}

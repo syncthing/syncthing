@@ -80,7 +80,6 @@ angular.module('syncthing.core')
             externalCommand: "",
             autoNormalize: true,
             path: "",
-            useLargeBlocks: true,
         };
 
         $scope.localStateTotal = {
@@ -389,15 +388,7 @@ angular.module('syncthing.core')
                 });
             });
 
-            // If we're not listening on localhost, and there is no
-            // authentication configured, and the magic setting to silence the
-            // warning isn't set, then yell at the user.
-            var guiCfg = $scope.config.gui;
-            $scope.openNoAuth = guiCfg.address.substr(0, 4) !== "127."
-                && guiCfg.address.substr(0, 6) !== "[::1]:"
-                && (!guiCfg.user || !guiCfg.password)
-                && guiCfg.authMode !== 'ldap'
-                && !guiCfg.insecureAdminAccess;
+            refreshNoAuthWarning();
 
             if (!hasConfig) {
                 $scope.$emit('ConfigLoaded');
@@ -430,9 +421,32 @@ angular.module('syncthing.core')
                     }
                 }
                 $scope.discoveryFailed = discoveryFailed;
+
+                refreshNoAuthWarning();
+
                 console.log("refreshSystem", data);
             }).error($scope.emitHTTPError);
         }
+
+        function refreshNoAuthWarning() {
+            if (!$scope.system || !$scope.config) {
+                // We need both to be able to determine the state.
+                return
+            }
+
+            // If we're not listening on localhost, and there is no
+            // authentication configured, and the magic setting to silence the
+            // warning isn't set, then yell at the user.
+            var addr = $scope.system.guiAddressUsed;
+            var guiCfg = $scope.config.gui;
+            $scope.openNoAuth = addr.substr(0, 4) !== "127."
+                && addr.substr(0, 6) !== "[::1]:"
+                && addr.substr(0, 1) !== "/"
+                && (!guiCfg.user || !guiCfg.password)
+                && guiCfg.authMode !== 'ldap'
+                && !guiCfg.insecureAdminAccess;
+        }
+
 
         function refreshDiscoveryCache() {
             $http.get(urlbase + '/system/discovery').success(function (data) {
@@ -563,6 +577,9 @@ angular.module('syncthing.core')
         }
 
         function refreshNeed(folder) {
+            if (!$scope.neededFolder) {
+                return;
+            }
             var url = urlbase + "/db/need?folder=" + encodeURIComponent(folder);
             url += "&page=" + $scope.neededCurrentPage;
             url += "&perpage=" + $scope.neededPageSize;
@@ -655,6 +672,9 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshFailed = function (page, perpage) {
+            if (!$scope.failed) {
+                return;
+            }
             var url = urlbase + '/folder/errors?folder=' + encodeURIComponent($scope.failed.folder);
             url += "&page=" + page + "&perpage=" + perpage;
             $http.get(url).success(function (data) {
@@ -663,13 +683,14 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshRemoteNeed = function (folder, page, perpage) {
+            if (!$scope.remoteNeedDevice) {
+                return;
+            }
             var url = urlbase + '/db/remoteneed?device=' + $scope.remoteNeedDevice.deviceID;
             url += '&folder=' + encodeURIComponent(folder);
             url += "&page=" + page + "&perpage=" + perpage;
             $http.get(url).success(function (data) {
-                if ($scope.remoteNeedDevice !== '') {
-                    $scope.remoteNeed[folder] = data;
-                }
+                $scope.remoteNeed[folder] = data;
             }).error(function (err) {
                 $scope.remoteNeed[folder] = undefined;
                 $scope.emitHTTPError(err);
@@ -677,6 +698,9 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshLocalChanged = function (page, perpage) {
+            if (!$scope.localChangedFolder) {
+                return;
+            }
             var url = urlbase + '/db/localchanged?folder=';
             url += encodeURIComponent($scope.localChangedFolder);
             url += "&page=" + page + "&perpage=" + perpage;
@@ -719,6 +743,11 @@ angular.module('syncthing.core')
 
         var refreshGlobalChanges = debounce(function () {
             $http.get(urlbase + "/events/disk?limit=25").success(function (data) {
+                if (!data) {
+                    // For reasons unknown this is called with data being the empty
+                    // string on shutdown, causing an error on .reverse().
+                    return;
+                }
                 data = data.reverse();
                 $scope.globalChangeEvents = data;
                 console.log("refreshGlobalChanges", data);
@@ -804,22 +833,6 @@ angular.module('syncthing.core')
             return Math.floor(pct);
         };
 
-        $scope.syncRemaining = function (folder) {
-            // Remaining sync bytes
-            if (typeof $scope.model[folder] === 'undefined') {
-                return 0;
-            }
-            if ($scope.model[folder].globalBytes === 0) {
-                return 0;
-            }
-
-            var bytes = $scope.model[folder].globalBytes - $scope.model[folder].inSyncBytes;
-            if (isNaN(bytes) || bytes < 0) {
-                return 0;
-            }
-            return bytes;
-        };
-
         $scope.scanPercentage = function (folder) {
             if (!$scope.scanProgress[folder]) {
                 return undefined;
@@ -842,6 +855,9 @@ angular.module('syncthing.core')
             // 32m 40s
             // 2h 32m
             // 4d 2h
+            // In case remaining scan time appears to be >31d, omit the
+            // details, i.e.:
+            // > 1 month
 
             if (!$scope.scanProgress[folder]) {
                 return "";
@@ -861,6 +877,9 @@ angular.module('syncthing.core')
             var res = [];
             if (seconds >= 86400) {
                 days = Math.floor(seconds / 86400);
+                if (days > 31) {
+                    return '> 1 month';
+                }
                 res.push('' + days + 'd')
                 seconds = seconds % 86400;
             }
@@ -1283,6 +1302,13 @@ angular.module('syncthing.core')
                     $scope.protocolChanged = true;
                 }
 
+                // Parse strings to arrays before copying over
+                ['listenAddresses', 'globalAnnounceServers'].forEach(function (key) {
+                    $scope.tmpOptions[key] = $scope.tmpOptions["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
+                        return x.trim();
+                    });
+                });
+
                 // Apply new settings locally
                 $scope.thisDeviceIn($scope.tmpDevices).name = $scope.tmpOptions.deviceName;
                 $scope.config.options = angular.copy($scope.tmpOptions);
@@ -1295,12 +1321,6 @@ angular.module('syncthing.core')
                 // modified (even though we just saved) unless we update
                 // here as well...
                 $scope.devices = $scope.config.devices;
-
-                ['listenAddresses', 'globalAnnounceServers'].forEach(function (key) {
-                    $scope.config.options[key] = $scope.config.options["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
-                        return x.trim();
-                    });
-                });
 
                 $scope.saveConfig(function () {
                     if (themeChanged) {
@@ -2221,6 +2241,7 @@ angular.module('syncthing.core')
             $scope.localChanged = $scope.refreshLocalChanged(1, 10);
             $('#localChanged').modal().one('hidden.bs.modal', function () {
                 $scope.localChanged = {};
+                $scope.localChangedFolder = undefined;
             });
         };
 
@@ -2432,4 +2453,9 @@ angular.module('syncthing.core')
             var err = status.error.replace(/.+: /, '');
             return err + " (" + time + ")";
         }
+
+        $scope.setCrashReportingEnabled = function (enabled) {
+            $scope.config.options.crashReportingEnabled = enabled;
+            $scope.saveConfig();
+        };
     });

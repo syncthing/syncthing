@@ -172,7 +172,8 @@ func (db *instance) withHaveSequence(folder []byte, startSeq int64, fn Iterator)
 
 		if shouldDebug() {
 			if seq := db.keyer.SequenceFromSequenceKey(dbi.Key()); f.Sequence != seq {
-				panic(fmt.Sprintf("sequence index corruption (folder %v, file %v): sequence %d != expected %d", string(folder), f.Name, f.Sequence, seq))
+				l.Warnf("Sequence index corruption (folder %v, file %v): sequence %d != expected %d", string(folder), f.Name, f.Sequence, seq)
+				panic("sequence index corruption")
 			}
 		}
 		if !fn(f) {
@@ -561,7 +562,7 @@ func (e errorSuggestion) Error() string {
 
 // unchanged checks if two files are the same and thus don't need to be updated.
 // Local flags or the invalid bit might change without the version
-// being bumped. The IsInvalid() method handles both.
+// being bumped.
 func unchanged(nf, ef FileIntf) bool {
-	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid()
+	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid() && ef.FileLocalFlags() == nf.FileLocalFlags()
 }

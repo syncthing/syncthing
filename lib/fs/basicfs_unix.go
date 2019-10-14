@@ -60,14 +60,20 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 // unrooted) or an error if the given path is not a subpath and handles the
 // special case when the given path is the folder root without a trailing
 // pathseparator.
-func (f *BasicFilesystem) unrootedChecked(absPath, root string) (string, *ErrWatchEventOutsideRoot) {
-	if absPath+string(PathSeparator) == root {
-		return ".", nil
+func (f *BasicFilesystem) unrootedChecked(absPath string, roots []string) (string, *ErrWatchEventOutsideRoot) {
+	for _, root := range roots {
+		// Make sure the root ends with precisely one path separator, to
+		// ease prefix comparisons.
+		root := strings.TrimRight(root, string(PathSeparator)) + string(PathSeparator)
+
+		if absPath+string(PathSeparator) == root {
+			return ".", nil
+		}
+		if strings.HasPrefix(absPath, root) {
+			return rel(absPath, root), nil
+		}
 	}
-	if !strings.HasPrefix(absPath, root) {
-		return "", f.newErrWatchEventOutsideRoot(absPath, root)
-	}
-	return rel(absPath, root), nil
+	return "", f.newErrWatchEventOutsideRoot(absPath, roots)
 }
 
 func rel(path, prefix string) string {
@@ -78,16 +84,16 @@ var evalSymlinks = filepath.EvalSymlinks
 
 // watchPaths adjust the folder root for use with the notify backend and the
 // corresponding absolute path to be passed to notify to watch name.
-func (f *BasicFilesystem) watchPaths(name string) (string, string, error) {
+func (f *BasicFilesystem) watchPaths(name string) (string, []string, error) {
 	root, err := evalSymlinks(f.root)
 	if err != nil {
-		return "", "", err
+		return "", nil, err
 	}
 
 	absName, err := rooted(name, root)
 	if err != nil {
-		return "", "", err
+		return "", nil, err
 	}
 
-	return filepath.Join(absName, "..."), root, nil
+	return filepath.Join(absName, "..."), []string{root}, nil
 }

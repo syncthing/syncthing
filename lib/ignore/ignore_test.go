@@ -1079,3 +1079,22 @@ func TestSpecialChars(t *testing.T) {
 		}
 	}
 }
+
+func TestPartialIncludeLine(t *testing.T) {
+	// Loading a partial #include line (no file mentioned) should error but not crash.
+
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+	cases := []string{
+		"#include",
+		"#include\n",
+		"#include ",
+		"#include \n",
+		"#include   \n\n\n",
+	}
+
+	for _, tc := range cases {
+		if err := pats.Parse(bytes.NewBufferString(tc), ".stignore"); err == nil {
+			t.Fatal("should error out")
+		}
+	}
+}

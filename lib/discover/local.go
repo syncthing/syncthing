@@ -22,6 +22,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture"
 )
 
@@ -30,6 +31,7 @@ type localClient struct {
 	myID     protocol.DeviceID
 	addrList AddressLister
 	name     string
+	evLogger events.Logger
 
 	beacon          beacon.Interface
 	localBcastStart time.Time
@@ -46,13 +48,14 @@ const (
 	v13Magic          = uint32(0x7D79BC40) // previous version
 )
 
-func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (FinderService, error) {
+func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogger events.Logger) (FinderService, error) {
 	c := &localClient{
 		Supervisor: suture.New("local", suture.Spec{
 			PassThroughPanics: true,
 		}),
 		myID:            id,
 		addrList:        addrList,
+		evLogger:        evLogger,
 		localBcastTick:  time.NewTicker(BroadcastInterval).C,
 		forcedBcastTick: make(chan time.Time),
 		localBcastStart: time.Now(),
@@ -71,28 +74,18 @@ func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (Finder
 		if err != nil {
 			return nil, err
 		}
-		c.startLocalIPv4Broadcasts(bcPort)
+		c.beacon = beacon.NewBroadcast(bcPort)
 	} else {
 		// A multicast client
 		c.name = "IPv6 local"
-		c.startLocalIPv6Multicasts(addr)
+		c.beacon = beacon.NewMulticast(addr)
 	}
+	c.Add(c.beacon)
+	c.Add(util.AsService(c.recvAnnouncements))
 
-	go c.sendLocalAnnouncements()
+	c.Add(util.AsService(c.sendLocalAnnouncements))
 
 	return c, nil
-}
-
-func (c *localClient) startLocalIPv4Broadcasts(localPort int) {
-	c.beacon = beacon.NewBroadcast(localPort)
-	c.Add(c.beacon)
-	go c.recvAnnouncements(c.beacon)
-}
-
-func (c *localClient) startLocalIPv6Multicasts(localMCAddr string) {
-	c.beacon = beacon.NewMulticast(localMCAddr)
-	c.Add(c.beacon)
-	go c.recvAnnouncements(c.beacon)
 }
 
 // Lookup returns a list of addresses the device is available at.
@@ -142,7 +135,7 @@ func (c *localClient) announcementPkt(instanceID int64, msg []byte) ([]byte, boo
 	return msg, true
 }
 
-func (c *localClient) sendLocalAnnouncements() {
+func (c *localClient) sendLocalAnnouncements(stop chan struct{}) {
 	var msg []byte
 	var ok bool
 	instanceID := rand.Int63()
@@ -154,13 +147,22 @@ func (c *localClient) sendLocalAnnouncements() {
 		select {
 		case <-c.localBcastTick:
 		case <-c.forcedBcastTick:
+		case <-stop:
+			return
 		}
 	}
 }
 
-func (c *localClient) recvAnnouncements(b beacon.Interface) {
+func (c *localClient) recvAnnouncements(stop chan struct{}) {
+	b := c.beacon
 	warnedAbout := make(map[string]bool)
 	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+
 		buf, addr := b.Recv()
 		if len(buf) < 4 {
 			l.Debugf("discover: short packet from %s")
@@ -272,7 +274,7 @@ func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
 	})
 
 	if isNewDevice {
-		events.Default.Log(events.DeviceDiscovered, map[string]interface{}{
+		c.evLogger.Log(events.DeviceDiscovered, map[string]interface{}{
 			"device": device.ID.String(),
 			"addrs":  validAddresses,
 		})

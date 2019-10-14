@@ -9,9 +9,11 @@ package model
 import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -23,11 +25,12 @@ type sendOnlyFolder struct {
 	folder
 }
 
-func newSendOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, _ versioner.Versioner, _ fs.Filesystem) service {
+func newSendOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, _ versioner.Versioner, _ fs.Filesystem, evLogger events.Logger) service {
 	f := &sendOnlyFolder{
-		folder: newFolder(model, fset, ignores, cfg),
+		folder: newFolder(model, fset, ignores, cfg, evLogger),
 	}
 	f.folder.puller = f
+	f.folder.Service = util.AsService(f.serve)
 	return f
 }
 
@@ -66,13 +69,13 @@ func (f *sendOnlyFolder) pull() bool {
 		curFile, ok := f.fset.Get(protocol.LocalDeviceID, intf.FileName())
 		if !ok {
 			if intf.IsDeleted() {
-				panic("Should never get a deleted file as needed when we don't have it")
+				l.Debugln("Should never get a deleted file as needed when we don't have it")
 			}
 			return true
 		}
 
 		file := intf.(protocol.FileInfo)
-		if !file.IsEquivalentOptional(curFile, f.IgnorePerms, false, 0) {
+		if !file.IsEquivalentOptional(curFile, f.ModTimeWindow(), f.IgnorePerms, false, 0) {
 			return true
 		}
 

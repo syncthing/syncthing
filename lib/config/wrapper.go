@@ -96,8 +96,9 @@ type Wrapper interface {
 }
 
 type wrapper struct {
-	cfg  Configuration
-	path string
+	cfg      Configuration
+	path     string
+	evLogger events.Logger
 
 	deviceMap map[protocol.DeviceID]DeviceConfiguration
 	folderMap map[string]FolderConfiguration
@@ -133,18 +134,19 @@ func (w *wrapper) StunServers() []string {
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
 // disk.
-func Wrap(path string, cfg Configuration) Wrapper {
+func Wrap(path string, cfg Configuration, evLogger events.Logger) Wrapper {
 	w := &wrapper{
-		cfg:  cfg,
-		path: path,
-		mut:  sync.NewMutex(),
+		cfg:      cfg,
+		path:     path,
+		evLogger: evLogger,
+		mut:      sync.NewMutex(),
 	}
 	return w
 }
 
 // Load loads an existing file on disk and returns a new configuration
 // wrapper.
-func Load(path string, myID protocol.DeviceID) (Wrapper, error) {
+func Load(path string, myID protocol.DeviceID, evLogger events.Logger) (Wrapper, error) {
 	fd, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -156,7 +158,7 @@ func Load(path string, myID protocol.DeviceID) (Wrapper, error) {
 		return nil, err
 	}
 
-	return Wrap(path, cfg), nil
+	return Wrap(path, cfg, evLogger), nil
 }
 
 func (w *wrapper) ConfigPath() string {
@@ -450,7 +452,7 @@ func (w *wrapper) Save() error {
 		return err
 	}
 
-	events.Default.Log(events.ConfigSaved, w.cfg)
+	w.evLogger.Log(events.ConfigSaved, w.cfg)
 	return nil
 }
 
@@ -501,8 +503,6 @@ func (w *wrapper) MyName() string {
 }
 
 func (w *wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {
-	defer w.Save()
-
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -524,8 +524,6 @@ func (w *wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, addre
 }
 
 func (w *wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {
-	defer w.Save()
-
 	w.mut.Lock()
 	defer w.mut.Unlock()
 

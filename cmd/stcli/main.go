@@ -14,7 +14,6 @@ import (
 	"log"
 	"os"
 	"reflect"
-	"strings"
 
 	"github.com/AudriusButkevicius/recli"
 	"github.com/flynn-archive/go-shlex"
@@ -22,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/urfave/cli"
@@ -85,7 +85,7 @@ func main() {
 		myID := protocol.NewDeviceID(cert.Certificate[0])
 
 		// Load the config
-		cfg, err := config.Load(locations.Get(locations.ConfigFile), myID)
+		cfg, err := config.Load(locations.Get(locations.ConfigFile), myID, events.NoopLogger)
 		if err != nil {
 			log.Fatalln(errors.Wrap(err, "loading config"))
 		}
@@ -127,7 +127,7 @@ func main() {
 	app.HelpName = app.Name
 	app.Author = "The Syncthing Authors"
 	app.Usage = "Syncthing command line interface"
-	app.Version = strings.Replace(build.LongVersion, "syncthing", app.Name, 1)
+	app.Version = build.Version
 	app.Flags = fakeFlags
 	app.Metadata = map[string]interface{}{
 		"client": client,

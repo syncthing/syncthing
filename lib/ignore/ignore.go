@@ -461,7 +461,18 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		line = filepath.ToSlash(line)
 		switch {
 		case strings.HasPrefix(line, "#include"):
-			includeRel := strings.TrimSpace(line[len("#include "):])
+			fields := strings.SplitN(line, " ", 2)
+			if len(fields) != 2 {
+				err = fmt.Errorf("failed to parse #include line: no file?")
+				break
+			}
+
+			includeRel := strings.TrimSpace(fields[1])
+			if includeRel == "" {
+				err = fmt.Errorf("failed to parse #include line: no file?")
+				break
+			}
+
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
 			var includePatterns []Pattern
 			if includePatterns, err = loadParseIncludeFile(fs, includeFile, cd, linesSeen); err == nil {

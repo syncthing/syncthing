@@ -11,7 +11,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/thejerf/suture"
+
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -20,10 +23,10 @@ func init() {
 }
 
 type Trashcan struct {
+	suture.Service
 	folderFs     fs.Filesystem
 	versionsFs   fs.Filesystem
 	cleanoutDays int
-	stop         chan struct{}
 }
 
 func NewTrashcan(folderID string, folderFs fs.Filesystem, params map[string]string) Versioner {
@@ -34,8 +37,8 @@ func NewTrashcan(folderID string, folderFs fs.Filesystem, params map[string]stri
 		folderFs:     folderFs,
 		versionsFs:   fsFromParams(folderFs, params),
 		cleanoutDays: cleanoutDays,
-		stop:         make(chan struct{}),
 	}
+	s.Service = util.AsService(s.serve)
 
 	l.Debugf("instantiated %#v", s)
 	return s
@@ -49,7 +52,7 @@ func (t *Trashcan) Archive(filePath string) error {
 	})
 }
 
-func (t *Trashcan) Serve() {
+func (t *Trashcan) serve(stop chan struct{}) {
 	l.Debugln(t, "starting")
 	defer l.Debugln(t, "stopping")
 
@@ -59,7 +62,7 @@ func (t *Trashcan) Serve() {
 
 	for {
 		select {
-		case <-t.stop:
+		case <-stop:
 			return
 
 		case <-timer.C:
@@ -73,10 +76,6 @@ func (t *Trashcan) Serve() {
 			timer.Reset(24 * time.Hour)
 		}
 	}
-}
-
-func (t *Trashcan) Stop() {
-	close(t.stop)
 }
 
 func (t *Trashcan) String() string {
@@ -133,9 +132,15 @@ func (t *Trashcan) Restore(filepath string, versionTime time.Time) error {
 
 	taggedName := ""
 	tagger := func(name, tag string) string {
-		// We can't use TagFilename here, as restoreFii would discover that as a valid version and restore that instead.
+		// We also abuse the fact that tagger gets called twice, once for tagging the restoration version, which
+		// should just return the plain name, and second time by archive which archives existing file in the folder.
+		// We can't use TagFilename here, as restoreFile would discover that as a valid version and restore that instead.
+		if taggedName != "" {
+			return taggedName
+		}
+
 		taggedName = fs.TempName(name)
-		return taggedName
+		return name
 	}
 
 	err := restoreFile(t.versionsFs, t.folderFs, filepath, versionTime, tagger)

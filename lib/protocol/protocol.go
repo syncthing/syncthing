@@ -184,8 +184,10 @@ type rawConnection struct {
 
 	inbox                 chan message
 	outbox                chan asyncMessage
+	closeBox              chan asyncMessage
 	clusterConfigBox      chan *ClusterConfig
 	dispatcherLoopStopped chan struct{}
+	preventSends          chan struct{}
 	closed                chan struct{}
 	closeOnce             sync.Once
 	sendCloseOnce         sync.Once
@@ -218,6 +220,11 @@ const (
 	ReceiveTimeout = 300 * time.Second
 )
 
+// CloseTimeout is the longest we'll wait when trying to send the close
+// message before just closing the connection.
+// Should not be modified in production code, just for testing.
+var CloseTimeout = 10 * time.Second
+
 func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
 	cr := &countingReader{Reader: reader}
 	cw := &countingWriter{Writer: writer}
@@ -231,8 +238,10 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		awaiting:              make(map[int32]chan asyncResult),
 		inbox:                 make(chan message),
 		outbox:                make(chan asyncMessage),
+		closeBox:              make(chan asyncMessage),
 		clusterConfigBox:      make(chan *ClusterConfig),
 		dispatcherLoopStopped: make(chan struct{}),
+		preventSends:          make(chan struct{}),
 		closed:                make(chan struct{}),
 		compression:           compress,
 	}
@@ -655,12 +664,13 @@ func (c *rawConnection) send(msg message, done chan struct{}) bool {
 	select {
 	case c.outbox <- asyncMessage{msg, done}:
 		return true
+	case <-c.preventSends:
 	case <-c.closed:
-		if done != nil {
-			close(done)
-		}
-		return false
 	}
+	if done != nil {
+		close(done)
+	}
+	return false
 }
 
 func (c *rawConnection) writerLoop() {
@@ -671,6 +681,10 @@ func (c *rawConnection) writerLoop() {
 			c.internalClose(err)
 			return
 		}
+	case hm := <-c.closeBox:
+		_ = c.writeMessage(hm.msg)
+		close(hm.done)
+		return
 	case <-c.closed:
 		return
 	}
@@ -685,6 +699,11 @@ func (c *rawConnection) writerLoop() {
 				c.internalClose(err)
 				return
 			}
+
+		case hm := <-c.closeBox:
+			_ = c.writeMessage(hm.msg)
+			close(hm.done)
+			return
 
 		case <-c.closed:
 			return
@@ -853,16 +872,23 @@ func (c *rawConnection) shouldCompressMessage(msg message) bool {
 func (c *rawConnection) Close(err error) {
 	c.sendCloseOnce.Do(func() {
 		done := make(chan struct{})
-		c.send(&Close{err.Error()}, done)
+		timeout := time.NewTimer(CloseTimeout)
 		select {
-		case <-done:
+		case c.closeBox <- asyncMessage{&Close{err.Error()}, done}:
+			select {
+			case <-done:
+			case <-timeout.C:
+			case <-c.closed:
+			}
+		case <-timeout.C:
 		case <-c.closed:
 		}
 	})
 
-	// No more sends are necessary, therefore further steps to close the
-	// connection outside of this package can proceed immediately.
-	// And this prevents a potential deadlock due to calling c.receiver.Closed
+	// Close might be called from a method that is called from within
+	// dispatcherLoop, resulting in a deadlock.
+	// The sending above must happen before spawning the routine, to prevent
+	// the underlying connection from terminating before sending the close msg.
 	go c.internalClose(err)
 }
 

@@ -8,8 +8,12 @@ package model
 
 import (
 	"fmt"
+	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/syncthing/syncthing/lib/fs"
 )
 
 type Holdable interface {
@@ -58,4 +62,40 @@ func (d *deadlockDetector) Watch(name string, mut sync.Locker) {
 			}
 		}
 	}()
+}
+
+// inWritableDir calls fn(path), while making sure that the directory
+// containing `path` is writable for the duration of the call.
+func inWritableDir(fn func(string) error, targetFs fs.Filesystem, path string, ignorePerms bool) error {
+	dir := filepath.Dir(path)
+	info, err := targetFs.Stat(dir)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return errors.New("Not a directory: " + path)
+	}
+	if info.Mode()&0200 == 0 {
+		// A non-writeable directory (for this user; we assume that's the
+		// relevant part). Temporarily change the mode so we can delete the
+		// file or directory inside it.
+		if err := targetFs.Chmod(dir, 0755); err == nil {
+			// Chmod succeeded, we should change the permissions back on the way
+			// out. If we fail we log the error as we have irrevocably messed up
+			// at this point. :( (The operation we were called to wrap has
+			// succeeded or failed on its own so returning an error to the
+			// caller is inappropriate.)
+			defer func() {
+				if err := targetFs.Chmod(dir, info.Mode()&fs.ModePerm); err != nil && !fs.IsNotExist(err) {
+					logFn := l.Warnln
+					if ignorePerms {
+						logFn = l.Debugln
+					}
+					logFn("Failed to restore directory permissions after gaining write access:", err)
+				}
+			}()
+		}
+	}
+
+	return fn(path)
 }

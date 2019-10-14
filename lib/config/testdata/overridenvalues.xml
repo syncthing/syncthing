@@ -1,4 +1,4 @@
-<configuration version="14">
+<configuration version="29">
     <options>
         <listenAddress>tcp://:23000</listenAddress>
         <allowDelete>false</allowDelete>
@@ -27,8 +27,10 @@
         <symlinksEnabled>false</symlinksEnabled>
         <limitBandwidthInLan>true</limitBandwidthInLan>
         <databaseBlockCacheMiB>42</databaseBlockCacheMiB>
-        <minHomeDiskFreePct>5.2</minHomeDiskFreePct>
+        <minHomeDiskFree unit="%">5.2</minHomeDiskFree>
         <urURL>https://localhost/newdata</urURL>
+        <urSeen>8</urSeen>
+        <urAccepted>4</urAccepted>
         <urInitialDelayS>800</urInitialDelayS>
         <urPostInsecurely>true</urPostInsecurely>
         <releasesURL>https://localhost/releases</releasesURL>
@@ -36,8 +38,11 @@
         <tempIndexMinBlocks>100</tempIndexMinBlocks>
         <defaultFolderPath>/media/syncthing</defaultFolderPath>
         <setLowPriority>false</setLowPriority>
+        <crashReportingURL>https://localhost/newcrash</crashReportingURL>
+        <crashReportingEnabled>false</crashReportingEnabled>
         <stunKeepaliveStartS>9000</stunKeepaliveStartS>
         <stunKeepaliveMinS>900</stunKeepaliveMinS>
         <stunServer>foo</stunServer>
+        <unackedNotificationID>asdfasdf</unackedNotificationID>
     </options>
 </configuration>

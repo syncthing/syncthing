@@ -9,13 +9,13 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/lucas-clemente/quic-go"
 
@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/stun"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -33,6 +34,7 @@ func init() {
 }
 
 type quicListener struct {
+	util.ServiceWithError
 	nat atomic.Value
 
 	onAddressesChangedNotifier
@@ -40,12 +42,10 @@ type quicListener struct {
 	uri     *url.URL
 	cfg     config.Wrapper
 	tlsCfg  *tls.Config
-	stop    chan struct{}
 	conns   chan internalConn
 	factory listenerFactory
 
 	address *url.URL
-	err     error
 	mut     sync.Mutex
 }
 
@@ -59,7 +59,8 @@ func (t *quicListener) OnNATTypeChanged(natType stun.NATType) {
 func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) {
 	var uri *url.URL
 	if address != nil {
-		uri = &(*t.uri)
+		copy := *t.uri
+		uri = &copy
 		uri.Host = address.TransportAddr()
 	}
 
@@ -76,20 +77,17 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 	}
 }
 
-func (t *quicListener) Serve() {
-	t.mut.Lock()
-	t.err = nil
-	t.mut.Unlock()
-
+func (t *quicListener) serve(stop chan struct{}) error {
 	network := strings.Replace(t.uri.Scheme, "quic", "udp", -1)
+
+	// Convert the stop channel into a context
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() { <-stop; cancel() }()
 
 	packetConn, err := net.ListenPacket(network, t.uri.Host)
 	if err != nil {
-		t.mut.Lock()
-		t.err = err
-		t.mut.Unlock()
 		l.Infoln("Listen (BEP/quic):", err)
-		return
+		return err
 	}
 	defer func() { _ = packetConn.Close() }()
 
@@ -104,73 +102,41 @@ func (t *quicListener) Serve() {
 
 	listener, err := quic.Listen(conn, t.tlsCfg, quicConfig)
 	if err != nil {
-		t.mut.Lock()
-		t.err = err
-		t.mut.Unlock()
 		l.Infoln("Listen (BEP/quic):", err)
-		return
+		return err
 	}
+	defer listener.Close()
 
 	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
 	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
 
-	// Accept is forever, so handle stops externally.
-	go func() {
-		select {
-		case <-t.stop:
-			_ = listener.Close()
-		}
-	}()
-
 	for {
-		// Blocks forever, see https://github.com/lucas-clemente/quic-go/issues/1915
-		session, err := listener.Accept()
-
 		select {
-		case <-t.stop:
-			if err == nil {
-				_ = session.Close()
-			}
-			return
+		case <-ctx.Done():
+			return nil
 		default:
 		}
-		if err != nil {
-			if err, ok := err.(net.Error); !ok || !err.Timeout() {
-				l.Warnln("Listen (BEP/quic): Accepting connection:", err)
-			}
+
+		session, err := listener.Accept(ctx)
+		if err == context.Canceled {
+			return nil
+		} else if err != nil {
+			l.Warnln("Listen (BEP/quic): Accepting connection:", err)
 			continue
 		}
-
 		l.Debugln("connect from", session.RemoteAddr())
 
-		// Accept blocks forever, give it 10s to do it's thing.
-		ok := make(chan struct{})
-		go func() {
-			select {
-			case <-ok:
-				return
-			case <-t.stop:
-				_ = session.Close()
-			case <-time.After(10 * time.Second):
-				l.Debugln("timed out waiting for AcceptStream on", session.RemoteAddr())
-				_ = session.Close()
-			}
-		}()
-
-		stream, err := session.AcceptStream()
-		close(ok)
+		streamCtx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
+		stream, err := session.AcceptStream(streamCtx)
+		cancel()
 		if err != nil {
-			l.Debugln("failed to accept stream from", session.RemoteAddr(), err.Error())
+			l.Debugf("failed to accept stream from %s: %v", session.RemoteAddr(), err)
 			_ = session.Close()
 			continue
 		}
 
-		t.conns <- internalConn{&quicTlsConn{session, stream}, connTypeQUICServer, quicPriority}
+		t.conns <- internalConn{&quicTlsConn{session, stream, nil}, connTypeQUICServer, quicPriority}
 	}
-}
-
-func (t *quicListener) Stop() {
-	close(t.stop)
 }
 
 func (t *quicListener) URI() *url.URL {
@@ -189,13 +155,6 @@ func (t *quicListener) WANAddresses() []*url.URL {
 
 func (t *quicListener) LANAddresses() []*url.URL {
 	return []*url.URL{t.uri}
-}
-
-func (t *quicListener) Error() error {
-	t.mut.Lock()
-	err := t.err
-	t.mut.Unlock()
-	return err
 }
 
 func (t *quicListener) String() string {
@@ -226,9 +185,9 @@ func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.
 		cfg:     cfg,
 		tlsCfg:  tlsCfg,
 		conns:   conns,
-		stop:    make(chan struct{}),
 		factory: f,
 	}
+	l.ServiceWithError = util.AsServiceWithError(l.serve)
 	l.nat.Store(stun.NATUnknown)
 	return l
 }

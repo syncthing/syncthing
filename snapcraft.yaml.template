@@ -20,6 +20,7 @@ apps:
       HOME: ${SNAP_USER_COMMON}
       XDG_CONFIG_HOME: ${SNAP_USER_COMMON}
     plugs:
+    - desktop
     - home
     - network
     - network-bind

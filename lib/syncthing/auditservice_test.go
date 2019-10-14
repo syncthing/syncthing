@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package syncthing
 
 import (
 	"bytes"
@@ -17,25 +17,30 @@ import (
 
 func TestAuditService(t *testing.T) {
 	buf := new(bytes.Buffer)
-	service := newAuditService(buf)
+	evLogger := events.NewLogger()
+	go evLogger.Serve()
+	defer evLogger.Stop()
+	sub := evLogger.Subscribe(events.AllEvents)
+	defer sub.Unsubscribe()
 
 	// Event sent before start, will not be logged
-	events.Default.Log(events.ConfigSaved, "the first event")
+	evLogger.Log(events.ConfigSaved, "the first event")
+	// Make sure the event goes through before creating the service
+	<-sub.C()
 
+	service := newAuditService(buf, evLogger)
 	go service.Serve()
-	service.WaitForStart()
 
 	// Event that should end up in the audit log
-	events.Default.Log(events.ConfigSaved, "the second event")
+	evLogger.Log(events.ConfigSaved, "the second event")
 
 	// We need to give the events time to arrive, since the channels are buffered etc.
 	time.Sleep(10 * time.Millisecond)
 
 	service.Stop()
-	service.WaitForStop()
 
 	// This event should not be logged, since we have stopped.
-	events.Default.Log(events.ConfigSaved, "the third event")
+	evLogger.Log(events.ConfigSaved, "the third event")
 
 	result := buf.String()
 	t.Log(result)

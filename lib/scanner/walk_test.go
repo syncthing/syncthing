@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -66,12 +67,10 @@ func TestWalkSub(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fchan := Walk(context.TODO(), Config{
-		Filesystem: testFs,
-		Subs:       []string{"dir2"},
-		Matcher:    ignores,
-		Hashers:    2,
-	})
+	cfg := testConfig()
+	cfg.Subs = []string{"dir2"}
+	cfg.Matcher = ignores
+	fchan := Walk(context.TODO(), cfg)
 	var files []protocol.FileInfo
 	for f := range fchan {
 		if f.Err != nil {
@@ -102,11 +101,9 @@ func TestWalk(t *testing.T) {
 	}
 	t.Log(ignores)
 
-	fchan := Walk(context.TODO(), Config{
-		Filesystem: testFs,
-		Matcher:    ignores,
-		Hashers:    2,
-	})
+	cfg := testConfig()
+	cfg.Matcher = ignores
+	fchan := Walk(context.TODO(), cfg)
 
 	var tmp []protocol.FileInfo
 	for f := range fchan {
@@ -466,16 +463,14 @@ func TestWalkReceiveOnly(t *testing.T) {
 }
 
 func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.Matcher, localFlags uint32) []protocol.FileInfo {
-	fchan := Walk(context.TODO(), Config{
-		Filesystem:     fs,
-		Subs:           []string{dir},
-		AutoNormalize:  true,
-		Hashers:        2,
-		UseLargeBlocks: true,
-		CurrentFiler:   cfiler,
-		Matcher:        matcher,
-		LocalFlags:     localFlags,
-	})
+	cfg := testConfig()
+	cfg.Filesystem = fs
+	cfg.Subs = []string{dir}
+	cfg.AutoNormalize = true
+	cfg.CurrentFiler = cfiler
+	cfg.Matcher = matcher
+	cfg.LocalFlags = localFlags
+	fchan := Walk(context.TODO(), cfg)
 
 	var tmp []protocol.FileInfo
 	for f := range fchan {
@@ -577,11 +572,11 @@ func TestStopWalk(t *testing.T) {
 
 	const numHashers = 4
 	ctx, cancel := context.WithCancel(context.Background())
-	fchan := Walk(ctx, Config{
-		Filesystem:            fs,
-		Hashers:               numHashers,
-		ProgressTickIntervalS: -1, // Don't attempt to build the full list of files before starting to scan...
-	})
+	cfg := testConfig()
+	cfg.Filesystem = fs
+	cfg.Hashers = numHashers
+	cfg.ProgressTickIntervalS = -1 // Don't attempt to build the full list of files before starting to scan...
+	fchan := Walk(ctx, cfg)
 
 	// Receive a few entries to make sure the walker is up and running,
 	// scanning both files and dirs. Do some quick sanity tests on the
@@ -706,21 +701,17 @@ func TestIssue4841(t *testing.T) {
 	}
 	fd.Close()
 
-	fchan := Walk(context.TODO(), Config{
-		Filesystem:    fs,
-		Subs:          nil,
-		AutoNormalize: true,
-		Hashers:       2,
-		CurrentFiler: fakeCurrentFiler{
-			"foo": {
-				Name:       "foo",
-				Type:       protocol.FileInfoTypeFile,
-				LocalFlags: protocol.FlagLocalIgnored,
-				Version:    protocol.Vector{}.Update(1),
-			},
-		},
-		ShortID: protocol.LocalDeviceID.Short(),
-	})
+	cfg := testConfig()
+	cfg.Filesystem = fs
+	cfg.AutoNormalize = true
+	cfg.CurrentFiler = fakeCurrentFiler{"foo": {
+		Name:       "foo",
+		Type:       protocol.FileInfoTypeFile,
+		LocalFlags: protocol.FlagLocalIgnored,
+		Version:    protocol.Vector{}.Update(1),
+	}}
+	cfg.ShortID = protocol.LocalDeviceID.Short()
+	fchan := Walk(context.TODO(), cfg)
 
 	var files []protocol.FileInfo
 	for f := range fchan {
@@ -746,11 +737,9 @@ func TestNotExistingError(t *testing.T) {
 		t.Fatalf("Lstat returned error %v, while nothing should exist there.", err)
 	}
 
-	fchan := Walk(context.TODO(), Config{
-		Filesystem: testFs,
-		Subs:       []string{sub},
-		Hashers:    2,
-	})
+	cfg := testConfig()
+	cfg.Subs = []string{sub}
+	fchan := Walk(context.TODO(), cfg)
 	for f := range fchan {
 		t.Fatalf("Expected no result from scan, got %v", f)
 	}
@@ -793,4 +782,14 @@ type fakeCurrentFiler map[string]protocol.FileInfo
 func (fcf fakeCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 	f, ok := fcf[name]
 	return f, ok
+}
+
+func testConfig() Config {
+	evLogger := events.NewLogger()
+	go evLogger.Serve()
+	return Config{
+		Filesystem:  testFs,
+		Hashers:     2,
+		EventLogger: evLogger,
+	}
 }

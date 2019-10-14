@@ -29,11 +29,11 @@ type OptionsConfiguration struct {
 	NATLeaseM               int      `xml:"natLeaseMinutes" json:"natLeaseMinutes" default:"60"`
 	NATRenewalM             int      `xml:"natRenewalMinutes" json:"natRenewalMinutes" default:"30"`
 	NATTimeoutS             int      `xml:"natTimeoutSeconds" json:"natTimeoutSeconds" default:"10"`
-	URAccepted              int      `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
-	URSeen                  int      `xml:"urSeen" json:"urSeen"`         // Report which the user has been prompted for.
-	URUniqueID              string   `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
-	URURL                   string   `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"`
-	URPostInsecurely        bool     `xml:"urPostInsecurely" json:"urPostInsecurely" default:"false"` // For testing
+	URAccepted              int      `xml:"urAccepted" json:"urAccepted"`                                    // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
+	URSeen                  int      `xml:"urSeen" json:"urSeen"`                                            // Report which the user has been prompted for.
+	URUniqueID              string   `xml:"urUniqueID" json:"urUniqueId"`                                    // Unique ID for reporting purposes, regenerated when UR is turned on.
+	URURL                   string   `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"` // usage reporting URL
+	URPostInsecurely        bool     `xml:"urPostInsecurely" json:"urPostInsecurely" default:"false"`        // For testing
 	URInitialDelayS         int      `xml:"urInitialDelayS" json:"urInitialDelayS" default:"1800"`
 	RestartOnWakeup         bool     `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true" restart:"true"`
 	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12" restart:"true"` // 0 for off
@@ -52,9 +52,12 @@ type OptionsConfiguration struct {
 	DefaultFolderPath       string   `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 	SetLowPriority          bool     `xml:"setLowPriority" json:"setLowPriority" default:"true"`
 	MaxConcurrentScans      int      `xml:"maxConcurrentScans" json:"maxConcurrentScans"`
+	CRURL                   string   `xml:"crashReportingURL" json:"crURL" default:"https://crash.syncthing.net/newcrash"` // crash reporting URL
+	CREnabled               bool     `xml:"crashReportingEnabled" json:"crashReportingEnabled" default:"true" restart:"true"`
 	StunKeepaliveStartS     int      `xml:"stunKeepaliveStartS" json:"stunKeepaliveStartS" default:"180"` // 0 for off
 	StunKeepaliveMinS       int      `xml:"stunKeepaliveMinS" json:"stunKeepaliveMinS" default:"20"`      // 0 for off
 	StunServers             []string `xml:"stunServer" json:"stunServers" default:"default"`
+	DatabaseTuning          Tuning   `xml:"databaseTuning" json:"databaseTuning" restart:"true"`
 
 	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM         int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`

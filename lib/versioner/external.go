@@ -77,9 +77,11 @@ func (v External) Archive(filePath string) error {
 	}
 
 	for i, word := range words {
-		if replacement, ok := context[word]; ok {
-			words[i] = replacement
+		for key, val := range context {
+			word = strings.Replace(word, key, val, -1)
 		}
+
+		words[i] = word
 	}
 
 	cmd := exec.Command(words[0], words[1:]...)

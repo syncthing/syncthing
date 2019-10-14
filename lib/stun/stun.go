@@ -13,7 +13,10 @@ import (
 
 	"github.com/AudriusButkevicius/pfilter"
 	"github.com/ccding/go-stun/stun"
+	"github.com/thejerf/suture"
+
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 const stunRetryInterval = 5 * time.Minute
@@ -36,7 +39,7 @@ const (
 )
 
 type writeTrackingPacketConn struct {
-	lastWrite int64
+	lastWrite int64 // atomic, must remain 64-bit aligned
 	net.PacketConn
 }
 
@@ -56,6 +59,8 @@ type Subscriber interface {
 }
 
 type Service struct {
+	suture.Service
+
 	name       string
 	cfg        config.Wrapper
 	subscriber Subscriber
@@ -66,8 +71,6 @@ type Service struct {
 
 	natType NATType
 	addr    *Host
-
-	stop chan struct{}
 }
 
 func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) (*Service, net.PacketConn) {
@@ -88,7 +91,7 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) (*Servi
 	client.SetSoftwareName("") // Explicitly unset this, seems to freak some servers out.
 
 	// Return the service and the other conn to the client
-	return &Service{
+	s := &Service{
 		name: "Stun@" + conn.LocalAddr().Network() + "://" + conn.LocalAddr().String(),
 
 		cfg:        cfg,
@@ -100,16 +103,17 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) (*Servi
 
 		natType: NATUnknown,
 		addr:    nil,
-		stop:    make(chan struct{}),
-	}, otherDataConn
+	}
+	s.Service = util.AsService(s.serve)
+	return s, otherDataConn
 }
 
 func (s *Service) Stop() {
-	close(s.stop)
 	_ = s.stunConn.Close()
+	s.Service.Stop()
 }
 
-func (s *Service) Serve() {
+func (s *Service) serve(stop chan struct{}) {
 	for {
 	disabled:
 		s.setNATType(NATUnknown)
@@ -117,7 +121,7 @@ func (s *Service) Serve() {
 
 		if s.cfg.Options().IsStunDisabled() {
 			select {
-			case <-s.stop:
+			case <-stop:
 				return
 			case <-time.After(time.Second):
 				continue
@@ -130,12 +134,12 @@ func (s *Service) Serve() {
 			// This blocks until we hit an exit condition or there are issues with the STUN server.
 			// This returns a boolean signifying if a different STUN server should be tried (oppose to the whole thing
 			// shutting down and this winding itself down.
-			if !s.runStunForServer(addr) {
+			if !s.runStunForServer(addr, stop) {
 				// Check exit conditions.
 
 				// Have we been asked to stop?
 				select {
-				case <-s.stop:
+				case <-stop:
 					return
 				default:
 				}
@@ -159,11 +163,15 @@ func (s *Service) Serve() {
 
 		// We failed to contact all provided stun servers or the nat is not punchable.
 		// Chillout for a while.
-		time.Sleep(stunRetryInterval)
+		select {
+		case <-time.After(stunRetryInterval):
+		case <-stop:
+			return
+		}
 	}
 }
 
-func (s *Service) runStunForServer(addr string) (tryNext bool) {
+func (s *Service) runStunForServer(addr string, stop chan struct{}) (tryNext bool) {
 	l.Debugf("Running stun for %s via %s", s, addr)
 
 	// Resolve the address, so that in case the server advertises two
@@ -201,10 +209,10 @@ func (s *Service) runStunForServer(addr string) (tryNext bool) {
 		return false
 	}
 
-	return s.stunKeepAlive(addr, extAddr)
+	return s.stunKeepAlive(addr, extAddr, stop)
 }
 
-func (s *Service) stunKeepAlive(addr string, extAddr *Host) (tryNext bool) {
+func (s *Service) stunKeepAlive(addr string, extAddr *Host, stop chan struct{}) (tryNext bool) {
 	var err error
 	nextSleep := time.Duration(s.cfg.Options().StunKeepaliveStartS) * time.Second
 
@@ -247,7 +255,7 @@ func (s *Service) stunKeepAlive(addr string, extAddr *Host) (tryNext bool) {
 
 		select {
 		case <-time.After(sleepFor):
-		case <-s.stop:
+		case <-stop:
 			l.Debugf("%s stopping, aborting stun", s)
 			return false
 		}
@@ -296,7 +304,7 @@ func (s *Service) String() string {
 }
 
 func (s *Service) isCurrentNATTypePunchable() bool {
-	return s.natType == NATNone || s.natType == NATPortRestricted || s.natType == NATRestricted || s.natType == NATFull
+	return s.natType == NATNone || s.natType == NATPortRestricted || s.natType == NATRestricted || s.natType == NATFull || s.natType == NATSymmetricUDPFirewall
 }
 
 func areDifferent(first, second *Host) bool {
