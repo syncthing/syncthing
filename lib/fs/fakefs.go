@@ -172,16 +172,11 @@ func (fs *fakefs) entryForName(name string) *fakeEntry {
 
 		if fs.insens {
 			entry, ok = entry.children[UnicodeLowercase(comp)]
-			if !ok {
-				return nil
-			}
-
-			entry.name = comp
 		} else {
 			entry, ok = entry.children[comp]
-			if !ok {
-				return nil
-			}
+		}
+		if !ok {
+			return nil
 		}
 	}
 	return entry
@@ -236,11 +231,6 @@ func (fs *fakefs) create(name string) (*fakeEntry, error) {
 		entry.mode = 0666
 		return entry, nil
 	}
-
-	if fs.insens {
-		name = UnicodeLowercase(name)
-	}
-
 	dir := filepath.Dir(name)
 	base := filepath.Base(name)
 	entry := fs.entryForName(dir)
@@ -252,6 +242,11 @@ func (fs *fakefs) create(name string) (*fakeEntry, error) {
 		mode:  0666,
 		mtime: time.Now(),
 	}
+
+	if fs.insens {
+		base = UnicodeLowercase(base)
+	}
+
 	entry.children[base] = new
 	return new, nil
 }
@@ -299,17 +294,18 @@ func (fs *fakefs) Lstat(name string) (FileInfo, error) {
 	if entry == nil {
 		return nil, os.ErrNotExist
 	}
-	return &fakeFileInfo{*entry}, nil
+
+	info := &fakeFileInfo{*entry}
+	if fs.insens {
+		info.name = filepath.Base(name)
+	}
+
+	return info, nil
 }
 
 func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
-
-	if fs.insens {
-		name = UnicodeLowercase(name)
-	}
-
 	dir := filepath.Dir(name)
 	base := filepath.Base(name)
 	entry := fs.entryForName(dir)
@@ -323,7 +319,12 @@ func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 		return os.ErrExist
 	}
 
-	entry.children[base] = &fakeEntry{
+	key := base
+	if fs.insens {
+		key = UnicodeLowercase(key)
+	}
+
+	entry.children[key] = &fakeEntry{
 		name:      base,
 		entryType: fakeEntryTypeDir,
 		mode:      perm,
@@ -334,16 +335,17 @@ func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 }
 
 func (fs *fakefs) MkdirAll(name string, perm FileMode) error {
-	if fs.insens {
-		name = UnicodeLowercase(name)
-	}
-
 	name = filepath.ToSlash(name)
 	name = strings.Trim(name, "/")
 	comps := strings.Split(name, "/")
 	entry := fs.root
 	for _, comp := range comps {
-		next, ok := entry.children[comp]
+		key := comp
+		if fs.insens {
+			key = UnicodeLowercase(key)
+		}
+
+		next, ok := entry.children[key]
 
 		if !ok {
 			new := &fakeEntry{
@@ -353,7 +355,7 @@ func (fs *fakefs) MkdirAll(name string, perm FileMode) error {
 				mtime:     time.Now(),
 				children:  make(map[string]*fakeEntry),
 			}
-			entry.children[comp] = new
+			entry.children[key] = new
 			next = new
 		} else if next.entryType != fakeEntryTypeDir {
 			return errors.New("not a directory")
@@ -372,6 +374,10 @@ func (fs *fakefs) Open(name string) (File, error) {
 	if entry == nil || entry.entryType != fakeEntryTypeFile {
 		return nil, os.ErrNotExist
 	}
+
+	if fs.insens {
+		return &fakeFile{fakeEntry: entry, presentedName: filepath.Base(name)}, nil
+	}
 	return &fakeFile{fakeEntry: entry}, nil
 }
 
@@ -382,11 +388,6 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 	if flags&os.O_CREATE == 0 {
 		return fs.Open(name)
 	}
-
-	if fs.insens {
-		name = UnicodeLowercase(name)
-	}
-
 	dir := filepath.Dir(name)
 	base := filepath.Base(name)
 	entry := fs.entryForName(dir)
@@ -406,6 +407,10 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 		name:  base,
 		mode:  mode,
 		mtime: time.Now(),
+	}
+
+	if fs.insens {
+		base = UnicodeLowercase(base)
 	}
 
 	entry.children[base] = newEntry
@@ -461,9 +466,12 @@ func (fs *fakefs) Rename(oldname, newname string) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
 
+	oldBase := filepath.Base(oldname)
+	newBase := filepath.Base(newname)
+
 	if fs.insens {
-		oldname = UnicodeLowercase(oldname)
-		newname = UnicodeLowercase(newname)
+		oldBase = UnicodeLowercase(oldBase)
+		newBase = UnicodeLowercase(newBase)
 	}
 
 	p0 := fs.entryForName(filepath.Dir(oldname))
@@ -471,7 +479,7 @@ func (fs *fakefs) Rename(oldname, newname string) error {
 		return os.ErrNotExist
 	}
 
-	entry := p0.children[filepath.Base(oldname)]
+	entry := p0.children[oldBase]
 	if entry == nil {
 		return os.ErrNotExist
 	}
@@ -481,13 +489,15 @@ func (fs *fakefs) Rename(oldname, newname string) error {
 		return os.ErrNotExist
 	}
 
-	dst, ok := p1.children[filepath.Base(newname)]
+	dst, ok := p1.children[newBase]
 	if ok && dst.entryType == fakeEntryTypeDir {
 		return errors.New("is a directory")
 	}
 
-	p1.children[filepath.Base(newname)] = entry
-	delete(p0.children, filepath.Base(oldname))
+	p1.children[newBase] = entry
+	entry.name = filepath.Base(newname)
+
+	delete(p0.children, oldBase)
 	return nil
 }
 
@@ -544,11 +554,12 @@ func (fs *fakefs) SameFile(fi1, fi2 FileInfo) bool {
 // opened for reading or writing, it's all good.
 type fakeFile struct {
 	*fakeEntry
-	mut      sync.Mutex
-	rng      io.Reader
-	seed     int64
-	offset   int64
-	seedOffs int64
+	mut           sync.Mutex
+	rng           io.Reader
+	seed          int64
+	offset        int64
+	seedOffs      int64
+	presentedName string // present (i.e. != "") on insensitive fs only
 }
 
 func (f *fakeFile) Close() error {
@@ -711,6 +722,9 @@ func (f *fakeFile) WriteAt(p []byte, off int64) (int, error) {
 }
 
 func (f *fakeFile) Name() string {
+	if f.presentedName != "" {
+		return f.presentedName
+	}
 	return f.name
 }
 
@@ -727,7 +741,12 @@ func (f *fakeFile) Truncate(size int64) error {
 }
 
 func (f *fakeFile) Stat() (FileInfo, error) {
-	return &fakeFileInfo{*f.fakeEntry}, nil
+	info := &fakeFileInfo{*f.fakeEntry}
+	if f.presentedName != "" {
+		info.name = f.presentedName
+	}
+
+	return info, nil
 }
 
 func (f *fakeFile) Sync() error {

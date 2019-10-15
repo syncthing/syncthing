@@ -274,8 +274,6 @@ func TestFakeFSDirNames(t *testing.T) {
 }
 
 func testDirNames(t *testing.T, fs *fakefs) {
-	t.Helper()
-
 	filenames := []string{"fOO", "Bar", "baz"}
 	for _, filename := range filenames {
 		if _, err := fs.Create("/" + filename); err != nil {
@@ -287,8 +285,6 @@ func testDirNames(t *testing.T, fs *fakefs) {
 }
 
 func assertDir(t *testing.T, fs *fakefs, directory string, filenames []string) {
-	t.Helper()
-
 	got, err := fs.DirNames(directory)
 	if err != nil {
 		t.Fatal(err)
