@@ -11,6 +11,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -259,5 +261,30 @@ func TestFakeFSCaseInsensitiveMkdirAll(t *testing.T) {
 
 	if err = fs.Rename("/FOO/BAR/baz/tesT", "/foo/baR/BAZ/TEst"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestFakeFSDirNames(t *testing.T) {
+	fs := newFakeFilesystem("/")
+	testDirNames(t, fs)
+}
+
+func testDirNames(t *testing.T, fs *fakefs) {
+	t.Helper()
+	filenames := []string{"fOO", "Bar", "baz"}
+	for _, filename := range filenames {
+		if _, err := fs.Create("/" + filename); err != nil {
+			t.Fatalf("Could not create %s: %s", filename, err)
+		}
+	}
+	got, err := fs.DirNames("/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	filenames = append(filenames, ".stfolder")
+	sort.Strings(filenames)
+	sort.Strings(got)
+	if !reflect.DeepEqual(got, filenames) {
+		t.Errorf("want %s, got %s", filenames, got)
 	}
 }
