@@ -124,6 +124,18 @@ func (f FileInfo) FileVersion() Vector {
 	return f.Version
 }
 
+func (f FileInfo) FileType() FileInfoType {
+	return f.Type
+}
+
+func (f FileInfo) FilePermissions() uint32 {
+	return f.Permissions
+}
+
+func (f FileInfo) FileModifiedBy() ShortID {
+	return f.ModifiedBy
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func (f FileInfo) WinsConflict(other FileInfo) bool {
