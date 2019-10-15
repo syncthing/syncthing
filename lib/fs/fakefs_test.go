@@ -314,4 +314,26 @@ func TestFakeFSStatIgnoreCase(t *testing.T) {
 	if info.Name() != "AAA" {
 		t.Errorf("want AAA, got %s", info.Name())
 	}
+
+	fd1, err := fs.Open("AAA")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if info, err = fd1.Stat(); err != nil {
+		t.Fatal(err)
+	}
+
+	fd2, err := fs.Open("aAa")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = fd2.Stat(); err != nil {
+		t.Fatal(err)
+	}
+
+	if info.Name() != "AAA" {
+		t.Errorf("want AAA, got %s", info.Name())
+	}
 }
