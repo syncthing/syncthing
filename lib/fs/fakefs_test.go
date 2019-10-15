@@ -295,3 +295,23 @@ func testDirNames(t *testing.T, fs *fakefs) {
 		t.Errorf("want %s, got %s", filenames, got)
 	}
 }
+
+func TestFakeFSStatIgnoreCase(t *testing.T) {
+	fs := newFakeFilesystem("/foo?insens=true")
+	if _, err := fs.Create("aaa"); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := fs.Stat("AAA")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = fs.Stat("aAa"); err != nil {
+		t.Fatal(err)
+	}
+
+	if info.Name() != "AAA" {
+		t.Errorf("want AAA, got %s", info.Name())
+	}
+}
