@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path"
 	"reflect"
 	"sort"
 	"testing"
@@ -282,12 +283,20 @@ func testDirNames(t *testing.T, fs *fakefs) {
 		}
 	}
 
-	got, err := fs.DirNames("/")
+	assertDir(t, fs, "/", filenames)
+}
+
+func assertDir(t *testing.T, fs *fakefs, directory string, filenames []string) {
+	t.Helper()
+
+	got, err := fs.DirNames(directory)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	filenames = append(filenames, ".stfolder")
+	if path.Clean(directory) == "/" {
+		filenames = append(filenames, ".stfolder")
+	}
 	sort.Strings(filenames)
 	sort.Strings(got)
 
@@ -297,17 +306,22 @@ func testDirNames(t *testing.T, fs *fakefs) {
 }
 
 func TestFakeFSStatIgnoreCase(t *testing.T) {
-	fs := newFakeFilesystem("/foo?insens=true")
-	if _, err := fs.Create("aaa"); err != nil {
+	fs := newFakeFilesystem("/foobaar?insens=true")
+
+	if err := fs.Mkdir("/foo", 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	info, err := fs.Stat("AAA")
+	if _, err := fs.Create("/Foo/aaa"); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := fs.Stat("/FOO/AAA")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err = fs.Stat("aAa"); err != nil {
+	if _, err = fs.Stat("/fOO/aAa"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -315,7 +329,7 @@ func TestFakeFSStatIgnoreCase(t *testing.T) {
 		t.Errorf("want AAA, got %s", info.Name())
 	}
 
-	fd1, err := fs.Open("AAA")
+	fd1, err := fs.Open("/FOO/AAA")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +338,7 @@ func TestFakeFSStatIgnoreCase(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fd2, err := fs.Open("aAa")
+	fd2, err := fs.Open("Foo/aAa")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -336,4 +350,7 @@ func TestFakeFSStatIgnoreCase(t *testing.T) {
 	if info.Name() != "AAA" {
 		t.Errorf("want AAA, got %s", info.Name())
 	}
+
+	assertDir(t, fs, "/", []string{"foo"})
+	assertDir(t, fs, "/foo", []string{"aaa"})
 }
