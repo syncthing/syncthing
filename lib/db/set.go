@@ -51,6 +51,10 @@ type FileIntf interface {
 	SequenceNo() int64
 	BlockSize() int
 	FileVersion() protocol.Vector
+	FileType() protocol.FileInfoType
+	FilePermissions() uint32
+	FileModifiedBy() protocol.ShortID
+	ModTime() time.Time
 }
 
 // The Iterator is called with either a protocol.FileInfo or a

@@ -1573,10 +1573,10 @@ func (s *service) getHeapProf(w http.ResponseWriter, r *http.Request) {
 	pprof.WriteHeapProfile(w)
 }
 
-func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
-	res := make([]jsonDBFileInfo, len(fs))
+func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonFileInfoTrunc {
+	res := make([]jsonFileInfoTrunc, len(fs))
 	for i, f := range fs {
-		res[i] = jsonDBFileInfo(f)
+		res[i] = jsonFileInfoTrunc(f)
 	}
 	return res
 }
@@ -1586,45 +1586,39 @@ func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
 type jsonFileInfo protocol.FileInfo
 
 func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"name":          f.Name,
-		"type":          f.Type,
-		"size":          f.Size,
-		"permissions":   fmt.Sprintf("%#o", f.Permissions),
-		"deleted":       f.Deleted,
-		"invalid":       protocol.FileInfo(f).IsInvalid(),
-		"ignored":       protocol.FileInfo(f).IsIgnored(),
-		"mustRescan":    protocol.FileInfo(f).MustRescan(),
-		"noPermissions": f.NoPermissions,
-		"modified":      protocol.FileInfo(f).ModTime(),
-		"modifiedBy":    f.ModifiedBy.String(),
-		"sequence":      f.Sequence,
-		"numBlocks":     len(f.Blocks),
-		"version":       jsonVersionVector(f.Version),
-		"localFlags":    f.LocalFlags,
-	})
+	m := fileIntfJSONMap(protocol.FileInfo(f))
+	m["numBlocks"] = len(f.Blocks)
+	return json.Marshal(m)
 }
 
-type jsonDBFileInfo db.FileInfoTruncated
+type jsonFileInfoTrunc db.FileInfoTruncated
 
-func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"name":          f.Name,
-		"type":          f.Type.String(),
-		"size":          f.Size,
-		"permissions":   fmt.Sprintf("%#o", f.Permissions),
-		"deleted":       f.Deleted,
-		"invalid":       db.FileInfoTruncated(f).IsInvalid(),
-		"ignored":       db.FileInfoTruncated(f).IsIgnored(),
-		"mustRescan":    db.FileInfoTruncated(f).MustRescan(),
-		"noPermissions": f.NoPermissions,
-		"modified":      db.FileInfoTruncated(f).ModTime(),
-		"modifiedBy":    f.ModifiedBy.String(),
-		"sequence":      f.Sequence,
-		"numBlocks":     nil, // explicitly unknown
-		"version":       jsonVersionVector(f.Version),
-		"localFlags":    f.LocalFlags,
-	})
+func (f jsonFileInfoTrunc) MarshalJSON() ([]byte, error) {
+	m := fileIntfJSONMap(db.FileInfoTruncated(f))
+	m["numBlocks"] = nil // explicitly unknown
+	return json.Marshal(m)
+}
+
+func fileIntfJSONMap(f db.FileIntf) map[string]interface{} {
+	out := map[string]interface{}{
+		"name":          f.FileName(),
+		"type":          f.FileType().String(),
+		"size":          f.FileSize(),
+		"deleted":       f.IsDeleted(),
+		"invalid":       f.IsInvalid(),
+		"ignored":       f.IsIgnored(),
+		"mustRescan":    f.MustRescan(),
+		"noPermissions": !f.HasPermissionBits(),
+		"modified":      f.ModTime(),
+		"modifiedBy":    f.FileModifiedBy().String(),
+		"sequence":      f.SequenceNo(),
+		"version":       jsonVersionVector(f.FileVersion()),
+		"localFlags":    f.FileLocalFlags(),
+	}
+	if f.HasPermissionBits() {
+		out["permissions"] = fmt.Sprintf("%#o", f.FilePermissions())
+	}
+	return out
 }
 
 type jsonVersionVector protocol.Vector
