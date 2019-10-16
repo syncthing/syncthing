@@ -244,7 +244,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 }
 
 func TestFakeFSCaseInsensitiveMkdirAll(t *testing.T) {
-	fs := newFakeFilesystem("/foo?insens=true")
+	fs := newFakeFilesystem("/fooi?insens=true")
 
 	err := fs.MkdirAll("/fOO/Bar/bAz", 0755)
 	if err != nil {
@@ -266,10 +266,10 @@ func TestFakeFSCaseInsensitiveMkdirAll(t *testing.T) {
 }
 
 func TestFakeFSDirNames(t *testing.T) {
-	fs := newFakeFilesystem("/")
+	fs := newFakeFilesystem("/fbr")
 	testDirNames(t, fs)
 
-	fs = newFakeFilesystem("/?insens=true")
+	fs = newFakeFilesystem("/fbri?insens=true")
 	testDirNames(t, fs)
 }
 
@@ -349,4 +349,84 @@ func TestFakeFSStatIgnoreCase(t *testing.T) {
 
 	assertDir(t, fs, "/", []string{"foo"})
 	assertDir(t, fs, "/foo", []string{"aaa"})
+}
+
+func TestFileName(t *testing.T) {
+	var testCases = []struct {
+		fs     string
+		create string
+		open   string
+	}{
+		{"/foo", "bar", "bar"},
+		{"/fo?insens=true", "BaZ", "bAz"},
+	}
+	for _, testCase := range testCases {
+		fs := newFakeFilesystem(testCase.fs)
+		if _, err := fs.Create(testCase.create); err != nil {
+			t.Fatal(err)
+		}
+		fd, err := fs.Open(testCase.open)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := fd.Name(); got != testCase.open {
+			t.Errorf("want %s, got %s", testCase.open, got)
+		}
+	}
+}
+
+func TestRename(t *testing.T) {
+	fs := newFakeFilesystem("/qux")
+	if err := fs.MkdirAll("/foo/bar/baz", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fs.Create("/foo/bar/baz/qux"); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.Rename("/foo/bar/baz/qux", "/foo/baz/bar/qux"); err == nil {
+		t.Errorf("rename to non-existent dir gave no error")
+	}
+	if err := fs.MkdirAll("/baz/bar/foo", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.Rename("/foo/bar/baz/qux", "/baz/bar/foo/qux"); err != nil {
+		t.Fatal(err)
+	}
+	var dirs = []struct {
+		dir   string
+		files []string
+	}{
+		{dir: "/", files: []string{"foo", "baz"}},
+		{dir: "/foo", files: []string{"bar"}},
+		{dir: "/foo/bar/baz", files: []string{}},
+		{dir: "/baz/bar/foo", files: []string{"qux"}},
+	}
+	for _, dir := range dirs {
+		assertDir(t, fs, dir.dir, dir.files)
+	}
+	fs = newFakeFilesystem("/quux?insens=true")
+	if err := fs.MkdirAll("/baz/bar/foo", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.MkdirAll("/foO/baR/baZ", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fs.Create("/BAZ/BAR/FOO/QUX"); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.Rename("/Baz/bAr/foO/QuX", "/Foo/Bar/Baz/qUUx"); err != nil {
+		t.Fatal(err)
+	}
+	dirs = []struct {
+		dir   string
+		files []string
+	}{
+		{dir: "/", files: []string{"foO", "baz"}},
+		{dir: "/foo", files: []string{"baR"}},
+		{dir: "/foo/bar/baz", files: []string{"qUUx"}},
+		{dir: "/baz/bar/foo", files: []string{}},
+	}
+	for _, dir := range dirs {
+		assertDir(t, fs, dir.dir, dir.files)
+	}
 }

@@ -388,6 +388,7 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 	if flags&os.O_CREATE == 0 {
 		return fs.Open(name)
 	}
+
 	dir := filepath.Dir(name)
 	base := filepath.Base(name)
 	entry := fs.entryForName(dir)
