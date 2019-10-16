@@ -100,9 +100,6 @@ func TestStartupFail(t *testing.T) {
 		t.Errorf("Got exit status %v, expected %v", waitE, ExitError)
 	}
 
-	if runE := app.Run(); runE != waitE {
-		t.Errorf(`Got different exit statuses "%v" from Run and "%v" from Wait`, runE, waitE)
-	}
 	if err = app.Error(); err != startErr {
 		t.Errorf(`Got different errors "%v" from Start and "%v" from Error`, startErr, err)
 	}

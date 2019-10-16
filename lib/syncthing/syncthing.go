@@ -92,17 +92,9 @@ func New(cfg config.Wrapper, ll *db.Lowlevel, evLogger events.Logger, cert tls.C
 	return a
 }
 
-// Run does the same as Start, but then does not return until the app stops. It
-// is equivalent to calling Start and then Wait.
-// Either Run or Start may be called once only.
-func (a *App) Run() ExitStatus {
-	a.Start()
-	return a.Wait()
-}
-
 // Start executes the app and returns once all the startup operations are done,
 // e.g. the API is ready for use.
-// Either Run or Start may be called once only.
+// Must be called once only.
 func (a *App) Start() error {
 	if err := a.startup(); err != nil {
 		a.stopWithErr(ExitError, err)
