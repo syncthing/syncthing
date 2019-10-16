@@ -310,19 +310,20 @@ func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 	dir := filepath.Dir(name)
 	base := filepath.Base(name)
 	entry := fs.entryForName(dir)
+	key := base
+
+	if fs.insens {
+		key = UnicodeLowercase(key)
+	}
+
 	if entry == nil {
 		return os.ErrNotExist
 	}
 	if entry.entryType != fakeEntryTypeDir {
 		return os.ErrExist
 	}
-	if _, ok := entry.children[base]; ok {
+	if _, ok := entry.children[key]; ok {
 		return os.ErrExist
-	}
-
-	key := base
-	if fs.insens {
-		key = UnicodeLowercase(key)
 	}
 
 	entry.children[key] = &fakeEntry{

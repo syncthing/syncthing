@@ -423,3 +423,33 @@ func TestRenameInsensitive(t *testing.T) {
 		assertDir(t, fs, dir.dir, dir.files)
 	}
 }
+
+func TestMkdir(t *testing.T) {
+	fs := newFakeFilesystem("/mkdir")
+
+	if err := fs.Mkdir("/foo", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fs.Stat("/foo"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fs.Mkdir("/foo", 0755); err == nil {
+		t.Errorf("got no error while creating existing directory")
+	}
+
+	fs = newFakeFilesystem("/mkdiri?insens=true")
+
+	if err := fs.Mkdir("/foo", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fs.Stat("/Foo"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fs.Mkdir("/FOO", 0755); err == nil {
+		t.Errorf("got no error while creating existing directory")
+	}
+}
