@@ -307,6 +307,7 @@ func (fs *fakefs) Lstat(name string) (FileInfo, error) {
 func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+
 	dir := filepath.Dir(name)
 	base := filepath.Base(name)
 	entry := fs.entryForName(dir)
