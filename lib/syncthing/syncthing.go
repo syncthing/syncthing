@@ -37,11 +37,12 @@ import (
 )
 
 const (
-	bepProtocolName      = "bep/1.0"
-	tlsDefaultCommonName = "syncthing"
-	maxSystemErrors      = 5
-	initialSystemLog     = 10
-	maxSystemLog         = 250
+	bepProtocolName        = "bep/1.0"
+	tlsDefaultCommonName   = "syncthing"
+	maxSystemErrors        = 5
+	initialSystemLog       = 10
+	maxSystemLog           = 250
+	deviceCertLifetimeDays = 20 * 365
 )
 
 type ExitStatus int

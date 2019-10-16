@@ -112,7 +112,7 @@ func TestGlobalOverHTTPS(t *testing.T) {
 	}
 
 	// Generate a server certificate.
-	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing")
+	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing", 30)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestGlobalAnnounce(t *testing.T) {
 	}
 
 	// Generate a server certificate.
-	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing")
+	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing", 30)
 	if err != nil {
 		t.Fatal(err)
 	}

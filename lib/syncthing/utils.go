@@ -35,6 +35,7 @@ func LoadOrGenerateCertificate(certFile, keyFile string) (tls.Certificate, error
 			locations.Get(locations.CertFile),
 			locations.Get(locations.KeyFile),
 			tlsDefaultCommonName,
+			deviceCertLifetimeDays,
 		)
 	}
 	return cert, nil

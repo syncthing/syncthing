@@ -32,6 +32,7 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
 	"github.com/thejerf/suture"
 )
@@ -1115,6 +1116,44 @@ func TestPrefixMatch(t *testing.T) {
 		ret := checkPrefixMatch(tc.s, tc.prefix)
 		if ret != tc.expected {
 			t.Errorf("checkPrefixMatch(%q, %q) => %v, expected %v", tc.s, tc.prefix, ret, tc.expected)
+		}
+	}
+}
+
+func TestCheckExpiry(t *testing.T) {
+	dir, err := ioutil.TempDir("", "syncthing-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	// Self signed certificates expiring in less than a month are errored so we
+	// can regenerate in time.
+	crt, err := tlsutil.NewCertificate(filepath.Join(dir, "crt"), filepath.Join(dir, "key"), "foo.example.com", 29)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkExpiry(crt); err == nil {
+		t.Error("expected expiry error")
+	}
+
+	// Certificates with at least 31 days of life left are fine.
+	crt, err = tlsutil.NewCertificate(filepath.Join(dir, "crt"), filepath.Join(dir, "key"), "foo.example.com", 31)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkExpiry(crt); err != nil {
+		t.Error("expected no error:", err)
+	}
+
+	if runtime.GOOS == "darwin" {
+		// Certificates with too long an expiry time are not allowed on macOS
+		crt, err = tlsutil.NewCertificate(filepath.Join(dir, "crt"), filepath.Join(dir, "key"), "foo.example.com", 1000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := checkExpiry(crt); err == nil {
+			t.Error("expected expiry error")
 		}
 	}
 }
