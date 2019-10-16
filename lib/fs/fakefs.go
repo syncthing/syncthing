@@ -279,8 +279,8 @@ func (fs *fakefs) DirNames(name string) ([]string, error) {
 	}
 
 	names := make([]string, 0, len(entry.children))
-	for name := range entry.children {
-		names = append(names, name)
+	for _, child := range entry.children {
+		names = append(names, child.name)
 	}
 
 	return names, nil

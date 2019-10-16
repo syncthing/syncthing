@@ -204,7 +204,9 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 		t.Fatalf("could not open file by its case-differing filename: %s", err)
 	}
 
-	fd2.Seek(0, io.SeekStart)
+	if _, err := fd2.Seek(0, io.SeekStart); err != nil {
+		t.Fatal(err)
+	}
 
 	bs2, err := ioutil.ReadAll(fd2)
 	if err != nil {
@@ -213,33 +215,6 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 
 	if len(bs1) != len(bs2) {
 		t.Errorf("wrong number of bytes, expected %d, got %d", len(bs1), len(bs2))
-	}
-
-	// fd.Stat and fs.Stat should return the same name it was called for, not the actual filename
-	info, err := fd2.Stat()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if info.Name() != "Σίσυφος" {
-		t.Error("wrong name:", info.Name())
-	}
-
-	if info.Size() != 4 {
-		t.Error("wrong size:", info.Size())
-	}
-
-	info, err = fs.Stat("fubar/σίσυφοσ")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if info.Name() != "σίσυφοσ" {
-		t.Error("wrong name:", info.Name())
-	}
-
-	if info.Size() != 4 {
-		t.Error("wrong size:", info.Size())
 	}
 }
 
@@ -360,15 +335,18 @@ func TestFileName(t *testing.T) {
 		{"/foo", "bar", "bar"},
 		{"/fo?insens=true", "BaZ", "bAz"},
 	}
+
 	for _, testCase := range testCases {
 		fs := newFakeFilesystem(testCase.fs)
 		if _, err := fs.Create(testCase.create); err != nil {
 			t.Fatal(err)
 		}
+
 		fd, err := fs.Open(testCase.open)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if got := fd.Name(); got != testCase.open {
 			t.Errorf("want %s, got %s", testCase.open, got)
 		}
@@ -380,18 +358,23 @@ func TestRename(t *testing.T) {
 	if err := fs.MkdirAll("/foo/bar/baz", 0755); err != nil {
 		t.Fatal(err)
 	}
+
 	if _, err := fs.Create("/foo/bar/baz/qux"); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := fs.Rename("/foo/bar/baz/qux", "/foo/baz/bar/qux"); err == nil {
 		t.Errorf("rename to non-existent dir gave no error")
 	}
+
 	if err := fs.MkdirAll("/baz/bar/foo", 0755); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := fs.Rename("/foo/bar/baz/qux", "/baz/bar/foo/qux"); err != nil {
 		t.Fatal(err)
 	}
+
 	var dirs = []struct {
 		dir   string
 		files []string
@@ -401,23 +384,32 @@ func TestRename(t *testing.T) {
 		{dir: "/foo/bar/baz", files: []string{}},
 		{dir: "/baz/bar/foo", files: []string{"qux"}},
 	}
+
 	for _, dir := range dirs {
 		assertDir(t, fs, dir.dir, dir.files)
 	}
-	fs = newFakeFilesystem("/quux?insens=true")
+}
+
+func TestRenameInsensitive(t *testing.T) {
+	fs := newFakeFilesystem("/quux?insens=true")
+
 	if err := fs.MkdirAll("/baz/bar/foo", 0755); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := fs.MkdirAll("/foO/baR/baZ", 0755); err != nil {
 		t.Fatal(err)
 	}
+
 	if _, err := fs.Create("/BAZ/BAR/FOO/QUX"); err != nil {
 		t.Fatal(err)
 	}
+
 	if err := fs.Rename("/Baz/bAr/foO/QuX", "/Foo/Bar/Baz/qUUx"); err != nil {
 		t.Fatal(err)
 	}
-	dirs = []struct {
+
+	var dirs = []struct {
 		dir   string
 		files []string
 	}{
@@ -426,6 +418,7 @@ func TestRename(t *testing.T) {
 		{dir: "/foo/bar/baz", files: []string{"qUUx"}},
 		{dir: "/baz/bar/foo", files: []string{}},
 	}
+
 	for _, dir := range dirs {
 		assertDir(t, fs, dir.dir, dir.files)
 	}
