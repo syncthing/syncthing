@@ -19,6 +19,7 @@ const (
 	FolderIdle folderState = iota
 	FolderScanning
 	FolderScanWaiting
+	FolderSyncPreparing
 	FolderSyncing
 	FolderError
 )
@@ -31,6 +32,8 @@ func (s folderState) String() string {
 		return "scanning"
 	case FolderScanWaiting:
 		return "scan-waiting"
+	case FolderSyncPreparing:
+		return "sync-preparing"
 	case FolderSyncing:
 		return "syncing"
 	case FolderError:
@@ -65,29 +68,32 @@ func (s *stateTracker) setState(newState folderState) {
 	}
 
 	s.mut.Lock()
-	if newState != s.current {
-		/* This should hold later...
-		if s.current != FolderIdle && (newState == FolderScanning || newState == FolderSyncing) {
-			panic("illegal state transition " + s.current.String() + " -> " + newState.String())
-		}
-		*/
+	defer s.mut.Unlock()
 
-		eventData := map[string]interface{}{
-			"folder": s.folderID,
-			"to":     newState.String(),
-			"from":   s.current.String(),
-		}
-
-		if !s.changed.IsZero() {
-			eventData["duration"] = time.Since(s.changed).Seconds()
-		}
-
-		s.current = newState
-		s.changed = time.Now()
-
-		s.evLogger.Log(events.StateChanged, eventData)
+	if newState == s.current {
+		return
 	}
-	s.mut.Unlock()
+
+	/* This should hold later...
+	if s.current != FolderIdle && (newState == FolderScanning || newState == FolderSyncing) {
+		panic("illegal state transition " + s.current.String() + " -> " + newState.String())
+	}
+	*/
+
+	eventData := map[string]interface{}{
+		"folder": s.folderID,
+		"to":     newState.String(),
+		"from":   s.current.String(),
+	}
+
+	if !s.changed.IsZero() {
+		eventData["duration"] = time.Since(s.changed).Seconds()
+	}
+
+	s.current = newState
+	s.changed = time.Now()
+
+	s.evLogger.Log(events.StateChanged, eventData)
 }
 
 // getState returns the current state, the time when it last changed, and the

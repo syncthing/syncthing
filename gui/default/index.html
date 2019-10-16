@@ -323,6 +323,10 @@
                     <span class="visible-xs" aria-label="{{'Scanning' | translate}}"><i class="fas fa-fw fa-search"></i></span>
                   </span>
                   <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
+                  <span ng-switch-when="sync-preparing">
+                    <span class="hidden-xs" translate>Preparing to Sync</span>
+                    <span class="visible-xs" aria-label="{{'Preparing to Sync' | translate}}"><i class="fas fa-fw fa-hourglass-half"></i></span>
+                  </span>
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span>
                     <span>({{syncPercentage(folder.id) | percent}}, {{model[folder.id].needBytes | binary}}B)</span>
