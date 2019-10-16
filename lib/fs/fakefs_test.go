@@ -501,3 +501,57 @@ func TestOpenFileInsens(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestRemoveAll(t *testing.T) {
+	fs := newFakeFilesystem("/removeall")
+
+	if err := fs.Mkdir("/foo", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	filenames := []string{"bar", "baz", "qux"}
+	for _, filename := range filenames {
+		if _, err := fs.Create("/foo/" + filename); err != nil {
+			t.Fatalf("Could not create %s: %s", filename, err)
+		}
+	}
+
+	if err := fs.RemoveAll("/foo"); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fs.Stat("/foo"); err == nil {
+		t.Errorf("this should not exist anymore")
+	}
+
+	if err := fs.RemoveAll("/foo/bar"); err == nil {
+		t.Errorf("should have returned error")
+	}
+}
+
+func TestRemoveAllInsens(t *testing.T) {
+	fs := newFakeFilesystem("/removealli?insens=true")
+
+	if err := fs.Mkdir("/Foo", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	filenames := []string{"bar", "baz", "qux"}
+	for _, filename := range filenames {
+		if _, err := fs.Create("/FOO/" + filename); err != nil {
+			t.Fatalf("Could not create %s: %s", filename, err)
+		}
+	}
+
+	if err := fs.RemoveAll("/fOo"); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fs.Stat("/foo"); err == nil {
+		t.Errorf("this should not exist anymore")
+	}
+
+	if err := fs.RemoveAll("/foO/bAr"); err == nil {
+		t.Errorf("should have returned error")
+	}
+}

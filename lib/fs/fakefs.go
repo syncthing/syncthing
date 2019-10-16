@@ -456,6 +456,10 @@ func (fs *fakefs) RemoveAll(name string) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
 
+	if fs.insens {
+		name = UnicodeLowercase(name)
+	}
+
 	entry := fs.entryForName(filepath.Dir(name))
 	if entry == nil {
 		return os.ErrNotExist
