@@ -152,8 +152,7 @@ func TestRWMutex(t *testing.T) {
 
 	if len(messages) != 2 {
 		t.Errorf("Unexpected message count")
-	}
-	if !strings.Contains(messages[1], "RUnlockers while locking:\nat sync") || !strings.Contains(messages[1], "sync_test.go:") {
+	} else if !strings.Contains(messages[1], "RUnlockers while locking:\nat sync") || !strings.Contains(messages[1], "sync_test.go:") {
 		t.Error("Unexpected message")
 	}
 
