@@ -384,16 +384,22 @@ func (fs *fakefs) Open(name string) (File, error) {
 }
 
 func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) {
-	fs.mut.Lock()
-	defer fs.mut.Unlock()
-
 	if flags&os.O_CREATE == 0 {
 		return fs.Open(name)
 	}
 
+	fs.mut.Lock()
+	defer fs.mut.Unlock()
+
 	dir := filepath.Dir(name)
 	base := filepath.Base(name)
 	entry := fs.entryForName(dir)
+	key := base
+
+	if fs.insens {
+		key = UnicodeLowercase(key)
+	}
+
 	if entry == nil {
 		return nil, os.ErrNotExist
 	} else if entry.entryType != fakeEntryTypeDir {
@@ -401,7 +407,7 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 	}
 
 	if flags&os.O_EXCL != 0 {
-		if _, ok := entry.children[base]; ok {
+		if _, ok := entry.children[key]; ok {
 			return nil, os.ErrExist
 		}
 	}
@@ -412,11 +418,7 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 		mtime: time.Now(),
 	}
 
-	if fs.insens {
-		base = UnicodeLowercase(base)
-	}
-
-	entry.children[base] = newEntry
+	entry.children[key] = newEntry
 	return &fakeFile{fakeEntry: newEntry}, nil
 }
 

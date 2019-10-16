@@ -453,3 +453,51 @@ func TestMkdir(t *testing.T) {
 		t.Errorf("got no error while creating existing directory")
 	}
 }
+
+func TestOpenFile(t *testing.T) {
+	fs := newFakeFilesystem("/openf")
+
+	if _, err := fs.OpenFile("foobar", os.O_RDONLY, 0664); err == nil {
+		t.Errorf("got no error opening a non-existing file")
+	}
+
+	if _, err := fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE, 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE|os.O_EXCL, 0664); err == nil {
+		t.Errorf("created an existing file while told not to")
+	}
+
+	if _, err := fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE, 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fs.OpenFile("foobar", os.O_RDWR, 0664); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestOpenFileInsens(t *testing.T) {
+	fs := newFakeFilesystem("/openfi?insens=true")
+
+	if _, err := fs.OpenFile("FooBar", os.O_RDONLY, 0664); err == nil {
+		t.Errorf("got no error opening a non-existing file")
+	}
+
+	if _, err := fs.OpenFile("fOObar", os.O_RDWR|os.O_CREATE, 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fs.OpenFile("fOoBaR", os.O_RDWR|os.O_CREATE|os.O_EXCL, 0664); err == nil {
+		t.Errorf("created an existing file while told not to")
+	}
+
+	if _, err := fs.OpenFile("FoObAr", os.O_RDWR|os.O_CREATE, 0664); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fs.OpenFile("FOOBAR", os.O_RDWR, 0664); err != nil {
+		t.Fatal(err)
+	}
+}
