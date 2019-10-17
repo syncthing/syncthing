@@ -61,7 +61,7 @@ func TestStartupFail(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	cert, err := tlsutil.NewCertificate(filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key"), "syncthing")
+	cert, err := tlsutil.NewCertificate(filepath.Join(tmpDir, "cert"), filepath.Join(tmpDir, "key"), "syncthing", 365)
 	if err != nil {
 		t.Fatal(err)
 	}
