@@ -260,6 +260,7 @@ func testDirNames(t *testing.T, fs *fakefs) {
 }
 
 func assertDir(t *testing.T, fs *fakefs, directory string, filenames []string) {
+	t.Helper()
 	got, err := fs.DirNames(directory)
 	if err != nil {
 		t.Fatal(err)
@@ -388,6 +389,13 @@ func TestRename(t *testing.T) {
 	for _, dir := range dirs {
 		assertDir(t, fs, dir.dir, dir.files)
 	}
+
+	if err := fs.Rename("/baz/bar/foo", "/baz/bar/FOO"); err != nil {
+		t.Fatal(err)
+	}
+
+	assertDir(t, fs, "/baz/bar", []string{"FOO"})
+	assertDir(t, fs, "/baz/bar/FOO", []string{"qux"})
 }
 
 func TestRenameInsensitive(t *testing.T) {
@@ -422,6 +430,13 @@ func TestRenameInsensitive(t *testing.T) {
 	for _, dir := range dirs {
 		assertDir(t, fs, dir.dir, dir.files)
 	}
+
+	if err := fs.Rename("/foo/bar/BAZ", "/FOO/BAR/bAz"); err != nil {
+		t.Fatal(err)
+	}
+
+	assertDir(t, fs, "/Foo/Bar", []string{"bAz"})
+	assertDir(t, fs, "/fOO/bAr/baz", []string{"qUUx"})
 }
 
 func TestMkdir(t *testing.T) {

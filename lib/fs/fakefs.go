@@ -501,6 +501,11 @@ func (fs *fakefs) Rename(oldname, newname string) error {
 
 	dst, ok := p1.children[newKey]
 	if ok && dst.entryType == fakeEntryTypeDir {
+		if fs.insens && newKey == oldKey {
+			entry.name = filepath.Base(newname)
+			return nil
+		}
+
 		return errors.New("is a directory")
 	}
 
