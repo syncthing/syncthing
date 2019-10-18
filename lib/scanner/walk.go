@@ -21,6 +21,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/text/unicode/norm"
 )
@@ -113,6 +114,10 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			w.Filesystem.Walk(".", hashFiles)
 		} else {
 			for _, sub := range w.Subs {
+				if err := osutil.TraversesSymlink(w.Filesystem, filepath.Dir(sub)); err != nil {
+					l.Debugf("Skip walking %v as it is below a symlink", sub)
+					continue
+				}
 				w.Filesystem.Walk(sub, hashFiles)
 			}
 		}

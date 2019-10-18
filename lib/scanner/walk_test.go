@@ -322,7 +322,7 @@ func TestWalkRootSymlink(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	link := tmp + "/link"
+	link := filepath.Join(tmp, "link")
 	dest, _ := filepath.Abs("testdata/dir1")
 	if err := osutil.DebugSymlinkForTestsOnly(dest, link); err != nil {
 		if runtime.GOOS == "windows" {
@@ -339,6 +339,14 @@ func TestWalkRootSymlink(t *testing.T) {
 	// Verify that we got two files
 	if len(files) != 2 {
 		t.Errorf("expected two files, not %d", len(files))
+	}
+
+	// Scan below it
+	files = walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, tmp), filepath.Join("link", "cfile"), nil, nil, 0)
+
+	// Verify that we get nothing
+	if len(files) != 0 {
+		t.Errorf("expected no files, not %d", len(files))
 	}
 }
 
