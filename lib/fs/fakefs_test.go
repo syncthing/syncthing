@@ -437,6 +437,12 @@ func TestRenameInsensitive(t *testing.T) {
 
 	assertDir(t, fs, "/Foo/Bar", []string{"bAz"})
 	assertDir(t, fs, "/fOO/bAr/baz", []string{"qUUx"})
+
+	if err := fs.Rename("foo/bar/baz/quux", "foo/bar/baz/Quux"); err != nil {
+		t.Fatal(err)
+	}
+
+	assertDir(t, fs, "/FOO/BAR/BAZ", []string{"Quux"})
 }
 
 func TestMkdir(t *testing.T) {
