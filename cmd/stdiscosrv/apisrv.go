@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -278,6 +279,10 @@ func (s *apiSrv) handleAnnounce(remote net.IP, deviceID protocol.DeviceID, addre
 		dbAddrs[i].Address = addresses[i]
 		dbAddrs[i].Expires = expire
 	}
+
+	// The address slice must always be sorted for database merges to work
+	// properly.
+	sort.Sort(databaseAddressOrder(dbAddrs))
 
 	seen := now.UnixNano()
 	if s.repl != nil {
