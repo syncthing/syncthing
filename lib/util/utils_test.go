@@ -253,7 +253,6 @@ func TestInspecifiedAddressLess(t *testing.T) {
 	}
 
 	for i, testCase := range cases {
-
 		addrs := []mockedAddr{
 			{testCase.netA, testCase.addrA},
 			{testCase.netB, testCase.addrB},
