@@ -44,18 +44,35 @@
           </div>
         </div>
         <div id="folder-sharing" class="tab-pane">
-          <div class="form-group">
-            <label translate for="devices">Share With Devices</label>
+          <div class="form-group" ng-if="currentFolder.sharedDevices.length">
+            <label translate>Currently Shared With Devices</label>
+            <p class="help-block">
+              <span translate>Deselect devices to stop sharing this folder with.</span>&emsp;
+              <small><a href="#" ng-click="selectAllSharedDevices(true)" translate>Select All</a>&emsp;
+                <a href="#" ng-click="selectAllSharedDevices(false)" translate>Deselect All</a></small>
+            </p>
+            <div class="row">
+              <div class="col-md-4" ng-repeat="device in currentFolder.sharedDevices">
+                <div class="checkbox">
+                  <label>
+                    <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]" /> {{deviceName(device)}}
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="form-group" ng-if="currentFolder.unrelatedDevices.length || otherDevices().length <= 0">
+            <label translate>Unshared Devices</label>
             <p class="help-block" ng-if="otherDevices().length > 0">
-              <span translate>Select the devices to share this folder with.</span>&emsp;
-              <small><a href="#" ng-click="selectAllDevices()" translate>Select All</a>&emsp;
-                <a href="#" ng-click="deSelectAllDevices()" translate>Deselect All</a></small>
+              <span translate>Select additional devices to share this folder with.</span>&emsp;
+              <small><a href="#" ng-click="selectAllUnrelatedDevices(true)" translate>Select All</a>&emsp;
+                <a href="#" ng-click="selectAllUnrelatedDevices(false)" translate>Deselect All</a></small>
             </p>
             <p class="help-block" ng-if="otherDevices().length <= 0">
               <span translate>There are no devices to share this folder with.</span>
             </p>
             <div class="row">
-              <div class="col-md-4" ng-repeat="device in otherDevices()">
+              <div class="col-md-4" ng-repeat="device in currentFolder.unrelatedDevices">
                 <div class="checkbox">
                   <label>
                     <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]" /> {{deviceName(device)}}
