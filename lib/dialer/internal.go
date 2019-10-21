@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/util"
@@ -23,8 +22,6 @@ var (
 )
 
 func init() {
-	l.SetDebug("dialer", strings.Contains(os.Getenv("STTRACE"), "dialer") || os.Getenv("STTRACE") == "all")
-
 	proxy.RegisterDialerType("socks", socksDialerFunction)
 
 	if proxyDialer := proxy.FromEnvironment(); proxyDialer != proxy.Direct {

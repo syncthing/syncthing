@@ -7,16 +7,9 @@
 package scanner
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	l = logger.DefaultLogger.NewFacility("scanner", "File change detection and hashing")
 )
-
-func init() {
-	l.SetDebug("scanner", strings.Contains(os.Getenv("STTRACE"), "scanner") || os.Getenv("STTRACE") == "all")
-}

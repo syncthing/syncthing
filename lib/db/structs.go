@@ -116,6 +116,17 @@ func (f FileInfoTruncated) FileVersion() protocol.Vector {
 	return f.Version
 }
 
+func (f FileInfoTruncated) FileType() protocol.FileInfoType {
+	return f.Type
+}
+
+func (f FileInfoTruncated) FilePermissions() uint32 {
+	return f.Permissions
+}
+
+func (f FileInfoTruncated) FileModifiedBy() protocol.ShortID {
+	return f.ModifiedBy
+}
 func (f FileInfoTruncated) ConvertToIgnoredFileInfo(by protocol.ShortID) protocol.FileInfo {
 	return protocol.FileInfo{
 		Name:         f.Name,

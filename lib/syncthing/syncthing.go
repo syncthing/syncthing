@@ -37,11 +37,12 @@ import (
 )
 
 const (
-	bepProtocolName      = "bep/1.0"
-	tlsDefaultCommonName = "syncthing"
-	maxSystemErrors      = 5
-	initialSystemLog     = 10
-	maxSystemLog         = 250
+	bepProtocolName        = "bep/1.0"
+	tlsDefaultCommonName   = "syncthing"
+	maxSystemErrors        = 5
+	initialSystemLog       = 10
+	maxSystemLog           = 250
+	deviceCertLifetimeDays = 20 * 365
 )
 
 type ExitStatus int
@@ -73,14 +74,13 @@ type App struct {
 	opts        Options
 	exitStatus  ExitStatus
 	err         error
-	startOnce   sync.Once
 	stopOnce    sync.Once
 	stop        chan struct{}
 	stopped     chan struct{}
 }
 
 func New(cfg config.Wrapper, ll *db.Lowlevel, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
-	return &App{
+	a := &App{
 		cfg:      cfg,
 		ll:       ll,
 		evLogger: evLogger,
@@ -89,25 +89,21 @@ func New(cfg config.Wrapper, ll *db.Lowlevel, evLogger events.Logger, cert tls.C
 		stop:     make(chan struct{}),
 		stopped:  make(chan struct{}),
 	}
-}
-
-// Run does the same as start, but then does not return until the app stops. It
-// is equivalent to calling Start and then Wait.
-func (a *App) Run() ExitStatus {
-	a.Start()
-	return a.Wait()
+	close(a.stopped) // Hasn't been started, so shouldn't block on Wait.
+	return a
 }
 
 // Start executes the app and returns once all the startup operations are done,
 // e.g. the API is ready for use.
-func (a *App) Start() {
-	a.startOnce.Do(func() {
-		if err := a.startup(); err != nil {
-			a.stopWithErr(ExitError, err)
-			return
-		}
-		go a.run()
-	})
+// Must be called once only.
+func (a *App) Start() error {
+	if err := a.startup(); err != nil {
+		a.stopWithErr(ExitError, err)
+		return err
+	}
+	a.stopped = make(chan struct{})
+	go a.run()
+	return nil
 }
 
 func (a *App) startup() error {
@@ -378,7 +374,8 @@ func (a *App) run() {
 	close(a.stopped)
 }
 
-// Wait blocks until the app stops running.
+// Wait blocks until the app stops running. Also returns if the app hasn't been
+// started yet.
 func (a *App) Wait() ExitStatus {
 	<-a.stopped
 	return a.exitStatus
@@ -388,11 +385,11 @@ func (a *App) Wait() ExitStatus {
 // for the app to stop before returning.
 func (a *App) Error() error {
 	select {
-	case <-a.stopped:
-		return nil
+	case <-a.stop:
+		return a.err
 	default:
 	}
-	return a.err
+	return nil
 }
 
 // Stop stops the app and sets its exit status to given reason, unless the app
@@ -403,12 +400,8 @@ func (a *App) Stop(stopReason ExitStatus) ExitStatus {
 
 func (a *App) stopWithErr(stopReason ExitStatus, err error) ExitStatus {
 	a.stopOnce.Do(func() {
-		// ExitSuccess is the default value for a.exitStatus. If another status
-		// was already set, ignore the stop reason given as argument to Stop.
-		if a.exitStatus == ExitSuccess {
-			a.exitStatus = stopReason
-			a.err = err
-		}
+		a.exitStatus = stopReason
+		a.err = err
 		close(a.stop)
 	})
 	return a.exitStatus

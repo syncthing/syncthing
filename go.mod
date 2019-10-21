@@ -15,16 +15,16 @@ require (
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gobwas/glob v0.2.3
-	github.com/gogo/protobuf v1.3.0
+	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
 	github.com/golang/mock v1.3.1 // indirect
 	github.com/jackpal/gateway v1.0.5
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.2.0
-	github.com/lucas-clemente/quic-go v0.12.0
+	github.com/lucas-clemente/quic-go v0.12.1
 	github.com/maruel/panicparse v1.3.0
-	github.com/mattn/go-isatty v0.0.9
+	github.com/mattn/go-isatty v0.0.10
 	github.com/minio/sha256-simd v0.1.1
 	github.com/onsi/ginkgo v1.9.0 // indirect
 	github.com/onsi/gomega v1.6.0 // indirect
@@ -39,13 +39,12 @@ require (
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/shirou/gopsutil v0.0.0-20190714054239-47ef3260b6bf
 	github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2
-	github.com/syndtr/goleveldb v1.0.1-0.20190318030020-c3a204f8e965
+	github.com/syndtr/goleveldb v1.0.1-0.20190923125748-758128399b1d
 	github.com/thejerf/suture v3.0.2+incompatible
 	github.com/urfave/cli v1.22.1
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
-	golang.org/x/sys v0.0.0-20190904154756-749cb33beabd // indirect
 	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect

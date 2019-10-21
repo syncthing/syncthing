@@ -50,6 +50,7 @@ type Logger interface {
 	Warnf(format string, vals ...interface{})
 	ShouldDebug(facility string) bool
 	SetDebug(facility string, enabled bool)
+	IsTraced(facility string) bool
 	Facilities() map[string]string
 	FacilityDebugging() []string
 	NewFacility(facility, description string) Logger
@@ -60,6 +61,7 @@ type logger struct {
 	handlers   [NumLevels][]MessageHandler
 	facilities map[string]string   // facility name => description
 	debug      map[string]struct{} // only facility names with debugging enabled
+	traces     string
 	mut        sync.Mutex
 }
 
@@ -78,6 +80,7 @@ func New() Logger {
 func newLogger(w io.Writer) Logger {
 	return &logger{
 		logger:     log.New(w, "", DefaultFlags),
+		traces:     os.Getenv("STTRACE"),
 		facilities: make(map[string]string),
 		debug:      make(map[string]struct{}),
 	}
@@ -210,6 +213,11 @@ func (l *logger) SetDebug(facility string, enabled bool) {
 	}
 }
 
+// IsTraced returns whether the facility name is contained in STTRACE.
+func (l *logger) IsTraced(facility string) bool {
+	return strings.Contains(l.traces, facility) || l.traces == "all"
+}
+
 // FacilityDebugging returns the set of facilities that have debugging
 // enabled.
 func (l *logger) FacilityDebugging() []string {
@@ -236,6 +244,8 @@ func (l *logger) Facilities() map[string]string {
 
 // NewFacility returns a new logger bound to the named facility.
 func (l *logger) NewFacility(facility, description string) Logger {
+	l.SetDebug(facility, l.IsTraced(facility))
+
 	l.mut.Lock()
 	l.facilities[facility] = description
 	l.mut.Unlock()

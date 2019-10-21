@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/lucas-clemente/quic-go"
 
@@ -110,6 +111,9 @@ func (t *quicListener) serve(stop chan struct{}) error {
 	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
 	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
 
+	acceptFailures := 0
+	const maxAcceptFailures = 10
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -121,9 +125,23 @@ func (t *quicListener) serve(stop chan struct{}) error {
 		if err == context.Canceled {
 			return nil
 		} else if err != nil {
-			l.Warnln("Listen (BEP/quic): Accepting connection:", err)
+			l.Infoln("Listen (BEP/quic): Accepting connection:", err)
+
+			acceptFailures++
+			if acceptFailures > maxAcceptFailures {
+				// Return to restart the listener, because something
+				// seems permanently damaged.
+				return err
+			}
+
+			// Slightly increased delay for each failure.
+			time.Sleep(time.Duration(acceptFailures) * time.Second)
+
 			continue
 		}
+
+		acceptFailures = 0
+
 		l.Debugln("connect from", session.RemoteAddr())
 
 		streamCtx, cancel := context.WithTimeout(ctx, quicOperationTimeout)

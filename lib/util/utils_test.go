@@ -6,7 +6,10 @@
 
 package util
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 type Defaulter struct {
 	Value string
@@ -266,4 +269,21 @@ func TestInspecifiedAddressLess(t *testing.T) {
 			t.Error(i, "unexpected")
 		}
 	}
+}
+
+func TestUtilStopTwicePanic(t *testing.T) {
+	s := AsService(func(stop chan struct{}) {
+		<-stop
+	})
+
+	go s.Serve()
+	s.Stop()
+
+	defer func() {
+		expected := "lib/util.TestUtilStopTwicePanic"
+		if r := recover(); r == nil || !strings.Contains(r.(string), expected) {
+			t.Fatalf(`expected panic containing "%v", got "%v"`, expected, r)
+		}
+	}()
+	s.Stop()
 }

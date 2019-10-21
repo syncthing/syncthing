@@ -95,15 +95,17 @@ func SecureDefault() *tls.Config {
 }
 
 // NewCertificate generates and returns a new TLS certificate.
-func NewCertificate(certFile, keyFile, commonName string) (tls.Certificate, error) {
+func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls.Certificate, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("generate key: %s", err)
 	}
 
-	notBefore := time.Now()
-	notAfter := time.Date(2049, 12, 31, 23, 59, 59, 0, time.UTC)
+	notBefore := time.Now().Truncate(24 * time.Hour)
+	notAfter := notBefore.Add(time.Duration(lifetimeDays*24) * time.Hour)
 
+	// NOTE: update checkExpiry() appropriately if you add or change attributes
+	// in here, especially DNSNames or IPAddresses.
 	template := x509.Certificate{
 		SerialNumber: new(big.Int).SetInt64(rand.Int63()),
 		Subject: pkix.Name{

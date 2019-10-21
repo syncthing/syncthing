@@ -176,7 +176,6 @@ func (f *sendReceiveFolder) pull() bool {
 
 	l.Debugf("%v pulling", f)
 
-	f.setState(FolderSyncing)
 	f.clearPullErrors()
 
 	scanChan := make(chan string)
@@ -193,6 +192,10 @@ func (f *sendReceiveFolder) pull() bool {
 			return false
 		default:
 		}
+
+		// Needs to be set on every loop, as the puller might have set
+		// it to FolderSyncing during the last iteration.
+		f.setState(FolderSyncPreparing)
 
 		changed := f.pullerIteration(scanChan)
 
@@ -982,8 +985,9 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 	}
 
 	blockStatsMut.Lock()
-	blockStats["total"] += len(target.Blocks)
-	blockStats["renamed"] += len(target.Blocks)
+	minBlocksPerBlock := target.BlockSize() / protocol.MinBlockSize
+	blockStats["total"] += len(target.Blocks) * minBlocksPerBlock
+	blockStats["renamed"] += len(target.Blocks) * minBlocksPerBlock
 	blockStatsMut.Unlock()
 
 	// The file was renamed, so we have handled both the necessary delete
@@ -1395,6 +1399,8 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 			continue
 		}
 
+		f.setState(FolderSyncing) // Does nothing if already FolderSyncing
+
 		// The requestLimiter limits how many pending block requests we have
 		// ongoing at any given time, based on the size of the blocks
 		// themselves.
@@ -1559,15 +1565,16 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 			if err != nil {
 				f.newPullError(state.file.Name, err)
 			} else {
+				minBlocksPerBlock := state.file.BlockSize() / protocol.MinBlockSize
 				blockStatsMut.Lock()
-				blockStats["total"] += state.reused + state.copyTotal + state.pullTotal
-				blockStats["reused"] += state.reused
-				blockStats["pulled"] += state.pullTotal
+				blockStats["total"] += (state.reused + state.copyTotal + state.pullTotal) * minBlocksPerBlock
+				blockStats["reused"] += state.reused * minBlocksPerBlock
+				blockStats["pulled"] += state.pullTotal * minBlocksPerBlock
 				// copyOriginShifted is counted towards copyOrigin due to progress bar reasons
 				// for reporting reasons we want to separate these.
-				blockStats["copyOrigin"] += state.copyOrigin - state.copyOriginShifted
-				blockStats["copyOriginShifted"] += state.copyOriginShifted
-				blockStats["copyElsewhere"] += state.copyTotal - state.copyOrigin
+				blockStats["copyOrigin"] += (state.copyOrigin - state.copyOriginShifted) * minBlocksPerBlock
+				blockStats["copyOriginShifted"] += state.copyOriginShifted * minBlocksPerBlock
+				blockStats["copyElsewhere"] += (state.copyTotal - state.copyOrigin) * minBlocksPerBlock
 				blockStatsMut.Unlock()
 			}
 

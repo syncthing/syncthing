@@ -7,16 +7,9 @@
 package events
 
 import (
-	"os"
-	"strings"
-
 	liblogger "github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	dl = liblogger.DefaultLogger.NewFacility("events", "Event generation and logging")
 )
-
-func init() {
-	dl.SetDebug("events", strings.Contains(os.Getenv("STTRACE"), "events") || os.Getenv("STTRACE") == "all")
-}

@@ -803,7 +803,7 @@ angular.module('syncthing.core')
             if (status == 'paused') {
                 return 'default';
             }
-            if (status === 'syncing' || status === 'scanning') {
+            if (status === 'syncing' || status === 'sync-preparing' || status === 'scanning') {
                 return 'primary';
             }
             if (status === 'unknown') {
@@ -853,6 +853,9 @@ angular.module('syncthing.core')
             // 32m 40s
             // 2h 32m
             // 4d 2h
+            // In case remaining scan time appears to be >31d, omit the
+            // details, i.e.:
+            // > 1 month
 
             if (!$scope.scanProgress[folder]) {
                 return "";
@@ -872,6 +875,9 @@ angular.module('syncthing.core')
             var res = [];
             if (seconds >= 86400) {
                 days = Math.floor(seconds / 86400);
+                if (days > 31) {
+                    return '> 1 month';
+                }
                 res.push('' + days + 'd')
                 seconds = seconds % 86400;
             }
@@ -962,6 +968,7 @@ angular.module('syncthing.core')
             for (var i = 0; i < folderListCache.length; i++) {
                 var status = $scope.folderStatus(folderListCache[i]);
                 switch (status) {
+                    case 'sync-preparing':
                     case 'syncing':
                         syncCount++;
                         break;

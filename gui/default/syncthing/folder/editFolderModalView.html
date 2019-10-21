@@ -46,10 +46,13 @@
         <div id="folder-sharing" class="tab-pane">
           <div class="form-group">
             <label translate for="devices">Share With Devices</label>
-            <p class="help-block">
+            <p class="help-block" ng-if="otherDevices().length > 0">
               <span translate>Select the devices to share this folder with.</span>&emsp;
               <small><a href="#" ng-click="selectAllDevices()" translate>Select All</a>&emsp;
                 <a href="#" ng-click="deSelectAllDevices()" translate>Deselect All</a></small>
+            </p>
+            <p class="help-block" ng-if="otherDevices().length <= 0">
+              <span translate>There are no devices to share this folder with.</span>
             </p>
             <div class="row">
               <div class="col-md-4" ng-repeat="device in otherDevices()">

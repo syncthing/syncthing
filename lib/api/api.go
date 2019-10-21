@@ -9,7 +9,9 @@ package api
 import (
 	"bytes"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -56,10 +58,11 @@ import (
 var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 
 const (
-	DefaultEventMask    = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
-	DiskEventMask       = events.LocalChangeDetected | events.RemoteChangeDetected
-	EventSubBufferSize  = 1000
-	defaultEventTimeout = time.Minute
+	DefaultEventMask      = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
+	DiskEventMask         = events.LocalChangeDetected | events.RemoteChangeDetected
+	EventSubBufferSize    = 1000
+	defaultEventTimeout   = time.Minute
+	httpsCertLifetimeDays = 820
 )
 
 type service struct {
@@ -85,6 +88,7 @@ type service struct {
 	started              chan string   // signals startup complete by sending the listener address, for testing only
 	startedOnce          chan struct{} // the service has started successfully at least once
 	startupErr           error
+	listenerAddr         net.Addr
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -145,6 +149,12 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 	httpsCertFile := locations.Get(locations.HTTPSCertFile)
 	httpsKeyFile := locations.Get(locations.HTTPSKeyFile)
 	cert, err := tls.LoadX509KeyPair(httpsCertFile, httpsKeyFile)
+
+	// If the certificate has expired or will expire in the next month, fail
+	// it and generate a new one.
+	if err == nil {
+		err = checkExpiry(cert)
+	}
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
 		l.Infoln("Creating new HTTPS certificate")
@@ -157,7 +167,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 			name = s.tlsDefaultCommonName
 		}
 
-		cert, err = tlsutil.NewCertificate(httpsCertFile, httpsKeyFile, name)
+		cert, err = tlsutil.NewCertificate(httpsCertFile, httpsKeyFile, name, httpsCertLifetimeDays)
 	}
 	if err != nil {
 		return nil, err
@@ -222,6 +232,7 @@ func (s *service) serve(stop chan struct{}) {
 		return
 	}
 
+	s.listenerAddr = listener.Addr()
 	defer listener.Close()
 
 	s.cfg.Subscribe(s)
@@ -913,7 +924,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["uptime"] = s.urService.UptimeS()
 	res["startTime"] = ur.StartTime
 	res["guiAddressOverridden"] = s.cfg.GUI().IsOverridden()
-	res["guiAddressUsed"] = s.cfg.GUI().Address()
+	res["guiAddressUsed"] = s.listenerAddr.String()
 
 	sendJSON(w, res)
 }
@@ -1571,10 +1582,10 @@ func (s *service) getHeapProf(w http.ResponseWriter, r *http.Request) {
 	pprof.WriteHeapProfile(w)
 }
 
-func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
-	res := make([]jsonDBFileInfo, len(fs))
+func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonFileInfoTrunc {
+	res := make([]jsonFileInfoTrunc, len(fs))
 	for i, f := range fs {
-		res[i] = jsonDBFileInfo(f)
+		res[i] = jsonFileInfoTrunc(f)
 	}
 	return res
 }
@@ -1584,45 +1595,39 @@ func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
 type jsonFileInfo protocol.FileInfo
 
 func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"name":          f.Name,
-		"type":          f.Type,
-		"size":          f.Size,
-		"permissions":   fmt.Sprintf("%#o", f.Permissions),
-		"deleted":       f.Deleted,
-		"invalid":       protocol.FileInfo(f).IsInvalid(),
-		"ignored":       protocol.FileInfo(f).IsIgnored(),
-		"mustRescan":    protocol.FileInfo(f).MustRescan(),
-		"noPermissions": f.NoPermissions,
-		"modified":      protocol.FileInfo(f).ModTime(),
-		"modifiedBy":    f.ModifiedBy.String(),
-		"sequence":      f.Sequence,
-		"numBlocks":     len(f.Blocks),
-		"version":       jsonVersionVector(f.Version),
-		"localFlags":    f.LocalFlags,
-	})
+	m := fileIntfJSONMap(protocol.FileInfo(f))
+	m["numBlocks"] = len(f.Blocks)
+	return json.Marshal(m)
 }
 
-type jsonDBFileInfo db.FileInfoTruncated
+type jsonFileInfoTrunc db.FileInfoTruncated
 
-func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"name":          f.Name,
-		"type":          f.Type.String(),
-		"size":          f.Size,
-		"permissions":   fmt.Sprintf("%#o", f.Permissions),
-		"deleted":       f.Deleted,
-		"invalid":       db.FileInfoTruncated(f).IsInvalid(),
-		"ignored":       db.FileInfoTruncated(f).IsIgnored(),
-		"mustRescan":    db.FileInfoTruncated(f).MustRescan(),
-		"noPermissions": f.NoPermissions,
-		"modified":      db.FileInfoTruncated(f).ModTime(),
-		"modifiedBy":    f.ModifiedBy.String(),
-		"sequence":      f.Sequence,
-		"numBlocks":     nil, // explicitly unknown
-		"version":       jsonVersionVector(f.Version),
-		"localFlags":    f.LocalFlags,
-	})
+func (f jsonFileInfoTrunc) MarshalJSON() ([]byte, error) {
+	m := fileIntfJSONMap(db.FileInfoTruncated(f))
+	m["numBlocks"] = nil // explicitly unknown
+	return json.Marshal(m)
+}
+
+func fileIntfJSONMap(f db.FileIntf) map[string]interface{} {
+	out := map[string]interface{}{
+		"name":          f.FileName(),
+		"type":          f.FileType().String(),
+		"size":          f.FileSize(),
+		"deleted":       f.IsDeleted(),
+		"invalid":       f.IsInvalid(),
+		"ignored":       f.IsIgnored(),
+		"mustRescan":    f.MustRescan(),
+		"noPermissions": !f.HasPermissionBits(),
+		"modified":      f.ModTime(),
+		"modifiedBy":    f.FileModifiedBy().String(),
+		"sequence":      f.SequenceNo(),
+		"version":       jsonVersionVector(f.FileVersion()),
+		"localFlags":    f.FileLocalFlags(),
+	}
+	if f.HasPermissionBits() {
+		out["permissions"] = fmt.Sprintf("%#o", f.FilePermissions())
+	}
+	return out
 }
 
 type jsonVersionVector protocol.Vector
@@ -1675,4 +1680,46 @@ func addressIsLocalhost(addr string) bool {
 		}
 		return ip.IsLoopback()
 	}
+}
+
+func checkExpiry(cert tls.Certificate) error {
+	leaf := cert.Leaf
+	if leaf == nil {
+		// Leaf can be nil or not, depending on how parsed the certificate
+		// was when we got it.
+		if len(cert.Certificate) < 1 {
+			// can't happen
+			return errors.New("no certificate in certificate")
+		}
+		var err error
+		leaf, err = x509.ParseCertificate(cert.Certificate[0])
+		if err != nil {
+			return err
+		}
+	}
+
+	if leaf.Subject.String() != leaf.Issuer.String() ||
+		len(leaf.DNSNames) != 0 || len(leaf.IPAddresses) != 0 {
+		// The certificate is not self signed, or has DNS/IP attributes we don't
+		// add, so we leave it alone.
+		return nil
+	}
+
+	if leaf.NotAfter.Before(time.Now()) {
+		return errors.New("certificate has expired")
+	}
+	if leaf.NotAfter.Before(time.Now().Add(30 * 24 * time.Hour)) {
+		return errors.New("certificate will soon expire")
+	}
+
+	// On macOS, check for certificates issued on or after July 1st, 2019,
+	// with a longer validity time than 825 days.
+	cutoff := time.Date(2019, 7, 1, 0, 0, 0, 0, time.UTC)
+	if runtime.GOOS == "darwin" &&
+		leaf.NotBefore.After(cutoff) &&
+		leaf.NotAfter.Sub(leaf.NotBefore) > 825*24*time.Hour {
+		return errors.New("certificate incompatible with macOS 10.15 (Catalina)")
+	}
+
+	return nil
 }
