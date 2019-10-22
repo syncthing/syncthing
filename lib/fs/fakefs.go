@@ -171,7 +171,6 @@ func (fs *fakefs) entryForName(name string) *fakeEntry {
 		if entry.entryType != fakeEntryTypeDir {
 			return nil
 		}
-
 		var ok bool
 		entry, ok = entry.children[comp]
 		if !ok {
