@@ -333,7 +333,7 @@ func TestWalkRootSymlink(t *testing.T) {
 		}
 	}
 
-	// Scan it
+	// Scan root with symlink at FS root
 	files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".", nil, nil, 0)
 
 	// Verify that we got two files
@@ -341,7 +341,15 @@ func TestWalkRootSymlink(t *testing.T) {
 		t.Errorf("expected two files, not %d", len(files))
 	}
 
-	// Scan below it
+	// Scan symlink below FS root
+	files = walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, tmp), "link", nil, nil, 0)
+
+	// Verify that we got the one symlink
+	if len(files) != 1 {
+		t.Errorf("expected two files, not %d", len(files))
+	}
+
+	// Scan path below symlink
 	files = walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, tmp), filepath.Join("link", "cfile"), nil, nil, 0)
 
 	// Verify that we get nothing
