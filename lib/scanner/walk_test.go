@@ -344,9 +344,11 @@ func TestWalkRootSymlink(t *testing.T) {
 	// Scan symlink below FS root
 	files = walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, tmp), "link", nil, nil, 0)
 
-	// Verify that we got the one symlink
-	if len(files) != 1 {
-		t.Errorf("expected two files, not %d", len(files))
+	// Verify that we got the one symlink, except on windows
+	if runtime.GOOS == "windows" && len(files) != 0 {
+		t.Errorf("expected no files, not %d", len(files))
+	} else if len(files) != 1 {
+		t.Errorf("expected one file, not %d", len(files))
 	}
 
 	// Scan path below symlink
