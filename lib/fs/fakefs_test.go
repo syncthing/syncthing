@@ -249,6 +249,7 @@ func TestFakeFSDirNames(t *testing.T) {
 }
 
 func testDirNames(t *testing.T, fs *fakefs) {
+	t.Helper()
 	filenames := []string{"fOO", "Bar", "baz"}
 	for _, filename := range filenames {
 		if _, err := fs.Create("/" + filename); err != nil {
@@ -327,7 +328,7 @@ func TestFakeFSStatIgnoreCase(t *testing.T) {
 	assertDir(t, fs, "/foo", []string{"aaa"})
 }
 
-func TestFileName(t *testing.T) {
+func TestFakeFSFileName(t *testing.T) {
 	var testCases = []struct {
 		fs     string
 		create string
@@ -354,7 +355,7 @@ func TestFileName(t *testing.T) {
 	}
 }
 
-func TestRename(t *testing.T) {
+func TestFakeFSRename(t *testing.T) {
 	fs := newFakeFilesystem("/qux")
 	if err := fs.MkdirAll("/foo/bar/baz", 0755); err != nil {
 		t.Fatal(err)
@@ -398,7 +399,7 @@ func TestRename(t *testing.T) {
 	assertDir(t, fs, "/baz/bar/FOO", []string{"qux"})
 }
 
-func TestRenameInsensitive(t *testing.T) {
+func TestFakeFSRenameInsensitive(t *testing.T) {
 	fs := newFakeFilesystem("/quux?insens=true")
 
 	if err := fs.MkdirAll("/baz/bar/foo", 0755); err != nil {
@@ -445,7 +446,7 @@ func TestRenameInsensitive(t *testing.T) {
 	assertDir(t, fs, "/FOO/BAR/BAZ", []string{"Quux"})
 }
 
-func TestMkdir(t *testing.T) {
+func TestFakeFSMkdir(t *testing.T) {
 	fs := newFakeFilesystem("/mkdir")
 
 	if err := fs.Mkdir("/foo", 0755); err != nil {
@@ -475,7 +476,7 @@ func TestMkdir(t *testing.T) {
 	}
 }
 
-func TestOpenFile(t *testing.T) {
+func TestFakeFSOpenFile(t *testing.T) {
 	fs := newFakeFilesystem("/openf")
 
 	if _, err := fs.OpenFile("foobar", os.O_RDONLY, 0664); err == nil {
@@ -499,7 +500,7 @@ func TestOpenFile(t *testing.T) {
 	}
 }
 
-func TestOpenFileInsens(t *testing.T) {
+func TestFakeFSOpenFileInsens(t *testing.T) {
 	fs := newFakeFilesystem("/openfi?insens=true")
 
 	if _, err := fs.OpenFile("FooBar", os.O_RDONLY, 0664); err == nil {
@@ -523,7 +524,7 @@ func TestOpenFileInsens(t *testing.T) {
 	}
 }
 
-func TestRemoveAll(t *testing.T) {
+func TestFakeFSRemoveAll(t *testing.T) {
 	fs := newFakeFilesystem("/removeall")
 
 	if err := fs.Mkdir("/foo", 0755); err != nil {
@@ -550,7 +551,7 @@ func TestRemoveAll(t *testing.T) {
 	}
 }
 
-func TestRemoveAllInsens(t *testing.T) {
+func TestFakeFSRemoveAllInsens(t *testing.T) {
 	fs := newFakeFilesystem("/removealli?insens=true")
 
 	if err := fs.Mkdir("/Foo", 0755); err != nil {
