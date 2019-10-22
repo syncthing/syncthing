@@ -625,3 +625,78 @@ func TestFakeFSRemoveInsens(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestFakeFSSameFile(t *testing.T) {
+	fs := newFakeFilesystem("/samefile")
+
+	if err := fs.Mkdir("/Foo", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	filenames := []string{"Bar", "Baz", "/Foo/Bar"}
+	for _, filename := range filenames {
+		if _, err := fs.Create(filename); err != nil {
+			t.Fatalf("Could not create %s: %s", filename, err)
+		}
+	}
+
+	testCases := []struct {
+		f1   string
+		f2   string
+		want bool
+	}{
+		{f1: "Bar", f2: "Baz", want: false},
+		{f1: "Bar", f2: "/Foo/Bar", want: true},
+	}
+
+	for _, test := range testCases {
+		assertSameFile(t, fs, test.f1, test.f2, test.want)
+	}
+}
+
+func TestFakeFSSameFileInsens(t *testing.T) {
+	fs := newFakeFilesystem("/samefilei?insens=true")
+
+	if err := fs.Mkdir("/Foo", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	filenames := []string{"Bar", "Baz", "/Foo/BAR"}
+	for _, filename := range filenames {
+		if _, err := fs.Create(filename); err != nil {
+			t.Fatalf("Could not create %s: %s", filename, err)
+		}
+	}
+
+	testCases := []struct {
+		f1   string
+		f2   string
+		want bool
+	}{
+		{f1: "bAr", f2: "baZ", want: false},
+		{f1: "baR", f2: "/fOO/bAr", want: true},
+	}
+
+	for _, test := range testCases {
+		assertSameFile(t, fs, test.f1, test.f2, test.want)
+	}
+}
+
+func assertSameFile(t *testing.T, fs *fakefs, f1, f2 string, want bool) {
+	t.Helper()
+
+	fi1, err := fs.Stat(f1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fi2, err := fs.Stat(f2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := fs.SameFile(fi1, fi2)
+	if got != want {
+		t.Errorf("for \"%s\" and \"%s\" want SameFile %v, got %v", f1, f2, want, got)
+	}
+}

@@ -568,6 +568,9 @@ func (fs *fakefs) URI() string {
 }
 
 func (fs *fakefs) SameFile(fi1, fi2 FileInfo) bool {
+	if fs.insens {
+		return UnicodeLowercase(fi1.Name()) == UnicodeLowercase(fi2.Name())
+	}
 	return fi1.Name() == fi2.Name()
 }
 
