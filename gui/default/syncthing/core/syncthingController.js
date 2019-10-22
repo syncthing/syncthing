@@ -1401,13 +1401,13 @@ angular.module('syncthing.core')
         };
 
         $scope.selectAllFolders = function () {
-            angular.forEach($scope.folders, function (id) {
+            angular.forEach($scope.folders, function (_, id) {
                 $scope.currentDevice.selectedFolders[id] = true;
             });
         };
 
         $scope.deSelectAllFolders = function () {
-            angular.forEach($scope.folders, function (id) {
+            angular.forEach($scope.folders, function (_, id) {
                 $scope.currentDevice.selectedFolders[id] = false;
             });
         };
