@@ -945,9 +945,18 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	select {
 	case f := <-scanChan:
 		t.Fatalf("Received %v on scanChan", f)
-	case f := <-dbUpdateChan:
-		t.Fatalf("Received %v on finishedChan", f)
+	case u := <-dbUpdateChan:
+		if u.jobType != dbUpdateDeleteFile {
+			t.Errorf("Expected jobType %v, got %v", dbUpdateDeleteFile, u.jobType)
+		}
+		if u.file.Name != fi.Name {
+			t.Errorf("Expected update for %v, got %v", fi.Name, u.file.Name)
+		}
 	default:
+		t.Fatalf("No db update received")
+	}
+	if _, err := destFs.Stat("file"); err != nil {
+		t.Errorf("Expected no error when stating file behind symlink, got %v", err)
 	}
 }
 

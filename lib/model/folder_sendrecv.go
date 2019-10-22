@@ -844,12 +844,14 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 
 	if !hasCur {
 		// We should never try to pull a deletion for a file we don't have in the DB.
-		l.Debugln(f, "not deleting file we don't have", file.Name)
+		l.Debugln(f, "not deleting file we don't have, but update db", file.Name)
 		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
 		return
 	}
 
 	if err = osutil.TraversesSymlink(f.fs, filepath.Dir(file.Name)); err != nil {
+		l.Debugln(f, "not deleting file behind symlink on disk, but update db", file.Name)
+		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
 		return
 	}
 
