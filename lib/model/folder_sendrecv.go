@@ -847,10 +847,17 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 
 	if !hasCur {
 		// We should never try to pull a deletion for a file we don't have in the DB.
-		l.Debugln(f, "not deleting file we don't have", file.Name)
+		l.Debugln(f, "not deleting file we don't have, but update db", file.Name)
 		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
 		return
 	}
+
+	if err = osutil.TraversesSymlink(f.fs, filepath.Dir(file.Name)); err != nil {
+		l.Debugln(f, "not deleting file behind symlink on disk, but update db", file.Name)
+		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
+		return
+	}
+
 	if err = f.checkToBeDeleted(cur, scanChan); err != nil {
 		return
 	}
@@ -1839,6 +1846,10 @@ func (f *sendReceiveFolder) deleteItemOnDisk(item protocol.FileInfo, scanChan ch
 // deleteDirOnDisk attempts to delete a directory. It checks for files/dirs inside
 // the directory and removes them if possible or returns an error if it fails
 func (f *sendReceiveFolder) deleteDirOnDisk(dir string, scanChan chan<- string) error {
+	if err := osutil.TraversesSymlink(f.fs, filepath.Dir(dir)); err != nil {
+		return err
+	}
+
 	files, _ := f.fs.DirNames(dir)
 
 	toBeDeleted := make([]string, 0, len(files))

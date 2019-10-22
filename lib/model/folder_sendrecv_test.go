@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -124,7 +125,7 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 func cleanupSRFolder(f *sendReceiveFolder, m *model) {
 	m.evLogger.Stop()
 	os.Remove(m.cfg.ConfigPath())
-	os.Remove(f.Filesystem().URI())
+	os.RemoveAll(f.Filesystem().URI())
 }
 
 // Layout of the files: (indexes from the above array)
@@ -904,6 +905,58 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 		t.Fatal("Expected one conflict, got", len(confls))
 	} else if scan := <-scanChan; confls[0] != scan {
 		t.Fatal("Expected request to scan", confls[0], "got", scan)
+	}
+}
+
+// TestDeleteBehindSymlink checks that we don't delete or schedule a scan
+// when trying to delete a file behind a symlink.
+func TestDeleteBehindSymlink(t *testing.T) {
+	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
+	ffs := f.Filesystem()
+
+	destDir := createTmpDir()
+	defer os.RemoveAll(destDir)
+	destFs := fs.NewFilesystem(fs.FilesystemTypeBasic, destDir)
+
+	link := "link"
+	file := filepath.Join(link, "file")
+
+	must(t, ffs.MkdirAll(link, 0755))
+	fi := createFile(t, file, ffs)
+	f.updateLocalsFromScanning([]protocol.FileInfo{fi})
+	must(t, osutil.RenameOrCopy(ffs, destFs, file, "file"))
+	must(t, ffs.RemoveAll(link))
+
+	if err := osutil.DebugSymlinkForTestsOnly(destFs.URI(), filepath.Join(ffs.URI(), link)); err != nil {
+		if runtime.GOOS == "windows" {
+			// Probably we require permissions we don't have.
+			t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
+		} else {
+			t.Fatal(err)
+		}
+	}
+
+	fi.Deleted = true
+	fi.Version = fi.Version.Update(device1.Short())
+	scanChan := make(chan string, 1)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+	f.deleteFile(fi, dbUpdateChan, scanChan)
+	select {
+	case f := <-scanChan:
+		t.Fatalf("Received %v on scanChan", f)
+	case u := <-dbUpdateChan:
+		if u.jobType != dbUpdateDeleteFile {
+			t.Errorf("Expected jobType %v, got %v", dbUpdateDeleteFile, u.jobType)
+		}
+		if u.file.Name != fi.Name {
+			t.Errorf("Expected update for %v, got %v", fi.Name, u.file.Name)
+		}
+	default:
+		t.Fatalf("No db update received")
+	}
+	if _, err := destFs.Stat("file"); err != nil {
+		t.Errorf("Expected no error when stating file behind symlink, got %v", err)
 	}
 }
 
