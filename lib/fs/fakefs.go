@@ -440,6 +440,10 @@ func (fs *fakefs) Remove(name string) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
 
+	if fs.insens {
+		name = UnicodeLowercase(name)
+	}
+
 	entry := fs.entryForName(name)
 	if entry == nil {
 		return os.ErrNotExist

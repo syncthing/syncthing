@@ -577,3 +577,51 @@ func TestFakeFSRemoveAllInsens(t *testing.T) {
 		t.Errorf("should have returned error")
 	}
 }
+
+func TestFakeFSRemove(t *testing.T) {
+	fs := newFakeFilesystem("/remove")
+
+	if err := fs.Mkdir("/Foo", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fs.Create("/Foo/Bar"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fs.Remove("/Foo"); err == nil {
+		t.Errorf("not empty, should give error")
+	}
+
+	if err := fs.Remove("/Foo/Bar"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fs.Remove("/Foo"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFakeFSRemoveInsens(t *testing.T) {
+	fs := newFakeFilesystem("/removei?insens=true")
+
+	if err := fs.Mkdir("/Foo", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := fs.Create("/Foo/Bar"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fs.Remove("/FOO"); err == nil || err == os.ErrNotExist {
+		t.Errorf("not empty, should give error")
+	}
+
+	if err := fs.Remove("/Foo/BaR"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := fs.Remove("/FoO"); err != nil {
+		t.Fatal(err)
+	}
+}
