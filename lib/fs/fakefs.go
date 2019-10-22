@@ -155,6 +155,9 @@ type fakeEntry struct {
 
 func (fs *fakefs) entryForName(name string) *fakeEntry {
 	// bug: lookup doesn't work through symlinks.
+	if fs.insens {
+		name = UnicodeLowercase(name)
+	}
 
 	name = filepath.ToSlash(name)
 	if name == "." || name == "/" {
@@ -170,11 +173,7 @@ func (fs *fakefs) entryForName(name string) *fakeEntry {
 		}
 
 		var ok bool
-		if fs.insens {
-			entry, ok = entry.children[UnicodeLowercase(comp)]
-		} else {
-			entry, ok = entry.children[comp]
-		}
+		entry, ok = entry.children[comp]
 		if !ok {
 			return nil
 		}
