@@ -383,6 +383,9 @@ func testFakeFSStatInsens(t *testing.T, fs Filesystem) {
 		t.Errorf("want AAA, got %s", info.Name())
 	}
 
+	fd1.Close()
+	fd2.Close()
+
 	assertDir(t, fs, "/", []string{"foo"})
 	assertDir(t, fs, "/foo", []string{"aaa"})
 }
