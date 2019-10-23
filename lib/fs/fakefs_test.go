@@ -233,6 +233,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 				if err := cleanup(filesystem.fs); err != nil {
 					t.Fatal(err)
 				}
+				assertDir(t, filesystem.fs, "/", []string{}) // make sure cleanup worked
 			})
 		}
 	}
