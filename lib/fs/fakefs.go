@@ -468,7 +468,7 @@ func (fs *fakefs) RemoveAll(name string) error {
 
 	entry := fs.entryForName(filepath.Dir(name))
 	if entry == nil {
-		return os.ErrNotExist
+		return nil // all tested real systems exibit this behaviour
 	}
 
 	// RemoveAll is easy when the file system uses garbage collection under
