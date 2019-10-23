@@ -258,6 +258,9 @@ func (fs *fakefs) Create(name string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
+	if fs.insens {
+		return &fakeFile{fakeEntry: entry, presentedName: filepath.Base(name)}, nil
+	}
 	return &fakeFile{fakeEntry: entry}, nil
 }
 
