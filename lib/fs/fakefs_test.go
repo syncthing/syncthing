@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"runtime"
 	"sort"
 	"testing"
 )
@@ -179,6 +180,20 @@ func TestFakeFSRead(t *testing.T) {
 
 func TestFakeFSCaseInsensitive(t *testing.T) {
 	filesystems := []Filesystem{newFakeFilesystem("/foobar?insens=true")}
+
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		if err := os.Mkdir("test-tmp", 0755); err != nil {
+			t.Fatalf("could not create temporary dir for testing")
+		}
+
+		defer func() {
+			if err := os.RemoveAll("test-tmp"); err != nil {
+				t.Fatalf("could not remove test-tmp directory")
+			}
+		}()
+
+		filesystems = append(filesystems, newBasicFilesystem("test-tmp"))
+	}
 
 	for _, fs := range filesystems {
 		testFakeFSCaseInsensitive(t, fs)
