@@ -231,7 +231,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				test.impl(t, filesystem.fs)
 				if err := cleanup(filesystem.fs); err != nil {
-					t.Fatal(err)
+					t.Errorf("cleanup failed: %s", err)
 				}
 				assertDir(t, filesystem.fs, "/", []string{}) // make sure cleanup worked
 			})
@@ -720,9 +720,11 @@ func testFakeFSRemoveInsens(t *testing.T, fs Filesystem) {
 		t.Fatal(err)
 	}
 
-	if _, err := fs.Create("/Foo/Bar"); err != nil {
+	fd, err := fs.Create("/Foo/Bar")
+	if err != nil {
 		t.Fatal(err)
 	}
+	fd.Close()
 
 	if err := fs.Remove("/FOO"); err == nil || err == os.ErrNotExist {
 		t.Errorf("not empty, should give error")
