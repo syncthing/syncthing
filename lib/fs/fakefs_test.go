@@ -192,6 +192,7 @@ type test struct {
 func TestFakeFSCaseSensitive(t *testing.T) {
 	var tests = []test{
 		{"RemoveAll", testFakeFSRemoveAll},
+		{"SameFile", testFakeFSSameFile},
 	}
 	var filesystems = []testFS{
 		{"fakefs", newFakeFilesystem("/foo")},
@@ -778,13 +779,11 @@ func testFakeFSRemoveInsens(t *testing.T, fs Filesystem) {
 	}
 }
 
-func TestFakeFSSameFile(t *testing.T) {
+func testFakeFSSameFile(t *testing.T, fs Filesystem) {
 	if runtime.GOOS == "windows" {
 		// windows time in not precise enough
 		t.SkipNow()
 	}
-
-	fs := newFakeFilesystem("/samefile")
 
 	if err := fs.Mkdir("/Foo", 0755); err != nil {
 		t.Fatal(err)
