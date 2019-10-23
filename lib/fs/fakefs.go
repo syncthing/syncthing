@@ -507,9 +507,8 @@ func (fs *fakefs) Rename(oldname, newname string) error {
 	dst, ok := p1.children[newKey]
 	if ok {
 		if fs.insens && newKey == oldKey {
-			// case-only in-place rename
-			entry.name = filepath.Base(newname)
-			return nil
+			// case-only in-place rename (gives os.ErrExist on OSX)
+			return os.ErrExist
 		}
 
 		if dst.entryType == fakeEntryTypeDir {

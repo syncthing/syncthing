@@ -270,7 +270,7 @@ func testFakeFSCaseInsensitiveMkdirAll(t *testing.T, fs Filesystem) {
 		t.Fatal(err)
 	}
 
-	if err = fs.Rename("/FOO/BAR/baz/tesT", "/foo/baR/BAZ/TEst"); err != nil {
+	if err = fs.Rename("/FOO/BAR/baz/tesT", "/foo/baR/BAZ/Qux"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -496,18 +496,17 @@ func testFakeFSRenameInsensitive(t *testing.T, fs Filesystem) {
 		assertDir(t, fs, dir.dir, dir.files)
 	}
 
-	if err := fs.Rename("/foo/bar/BAZ", "/FOO/BAR/bAz"); err != nil {
-		t.Fatal(err)
+	if err := fs.Rename("/foo/bar/BAZ", "/FOO/BAR/bAz"); err != os.ErrExist {
+		t.Errorf("expected file exists error")
 	}
 
-	assertDir(t, fs, "/Foo/Bar", []string{"bAz"})
 	assertDir(t, fs, "/fOO/bAr/baz", []string{"qUUx"})
 
-	if err := fs.Rename("foo/bar/baz/quux", "foo/bar/baz/Quux"); err != nil {
+	if err := fs.Rename("foo/bar/baz/quux", "foo/bar/baz/Qux"); err != nil {
 		t.Fatal(err)
 	}
 
-	assertDir(t, fs, "/FOO/BAR/BAZ", []string{"Quux"})
+	assertDir(t, fs, "/FOO/BAR/BAZ", []string{"Qux"})
 
 	cleanup(fs)
 }
