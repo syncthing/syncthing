@@ -673,13 +673,15 @@ func testFakeFSRemoveAllInsens(t *testing.T, fs Filesystem) {
 
 	filenames := []string{"bar", "baz", "qux"}
 	for _, filename := range filenames {
-		if _, err := fs.Create("/FOO/" + filename); err != nil {
+		fd, err := fs.Create("/FOO/" + filename)
+		if err != nil {
 			t.Fatalf("Could not create %s: %s", filename, err)
 		}
+		fd.Close()
 	}
 
 	if err := fs.RemoveAll("/fOo"); err != nil {
-		t.Fatal(err)
+		t.Errorf("Could not remove dir: %s", err)
 	}
 
 	if _, err := fs.Stat("/foo"); err == nil {
@@ -740,6 +742,11 @@ func testFakeFSRemoveInsens(t *testing.T, fs Filesystem) {
 }
 
 func TestFakeFSSameFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		// windows time in not precise enough
+		t.SkipNow()
+	}
+
 	fs := newFakeFilesystem("/samefile")
 
 	if err := fs.Mkdir("/Foo", 0755); err != nil {
