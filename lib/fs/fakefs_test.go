@@ -516,8 +516,8 @@ func testFakeFSRenameInsensitive(t *testing.T, fs Filesystem) {
 		assertDir(t, fs, dir.dir, dir.files)
 	}
 
-	if err := fs.Rename("/foo/bar/BAZ", "/FOO/BAR/bAz"); err != os.ErrExist {
-		t.Errorf("expected file exists error")
+	if err := fs.Rename("/foo/bar/BAZ", "/FOO/BAR/bAz"); err != nil {
+		t.Fatal(err)
 	}
 
 	assertDir(t, fs, "/fOO/bAr/baz", []string{"qUUx"})
