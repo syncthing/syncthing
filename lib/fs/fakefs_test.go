@@ -230,7 +230,9 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 			name := fmt.Sprintf("%s_%s", test.name, filesystem.name)
 			t.Run(name, func(t *testing.T) {
 				test.impl(t, filesystem.fs)
-				cleanup(filesystem.fs)
+				if err := cleanup(filesystem.fs); err != nil {
+					t.Fatal(err)
+				}
 			})
 		}
 	}
@@ -786,11 +788,15 @@ func testFakeFSCreateInsens(t *testing.T, fs Filesystem) {
 	}
 }
 
-func cleanup(fs Filesystem) {
+func cleanup(fs Filesystem) error {
 	filenames, _ := fs.DirNames("/")
 	for _, filename := range filenames {
 		if filename != ".stfolder" {
-			fs.RemoveAll(filename)
+			if err := fs.RemoveAll(filename); err != nil {
+				return err
+			}
 		}
 	}
+
+	return nil
 }
