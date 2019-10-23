@@ -704,16 +704,21 @@ func assertSameFile(t *testing.T, fs *fakefs, f1, f2 string, want bool) {
 func TestFakeFSCreateInsens(t *testing.T) {
 	fs := newFakeFilesystem("/createi?insens=true")
 
-	if _, err := fs.Create("FOO"); err != nil {
-		t.Fatal(err)
-	}
-
-	fd, err := fs.Create("fOo")
+	fd1, err := fs.Create("FOO")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if fd.Name() != "fOo" {
-		t.Errorf("name of created file \"fOo\" is %s", fd.Name())
+	fd2, err := fs.Create("fOo")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if fd2.Name() != "fOo" {
+		t.Errorf("name of created file \"fOo\" is %s", fd2.Name())
+	}
+
+	if fd1.Name() != "fOo" {
+		t.Errorf("name of the file created as \"FOO\" is %s", fd1.Name())
 	}
 }
