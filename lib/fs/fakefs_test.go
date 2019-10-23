@@ -223,8 +223,7 @@ func testFakeFSCaseInsensitive(t *testing.T, fs Filesystem) {
 		t.Fatal(err)
 	}
 
-	// "ΣΊΣΥΦΟΣ" and "Σίσυφος" denote the same file on OS X
-	fd1, err := fs.Create("fuBAR/ΣΊΣΥΦΟΣ")
+	fd1, err := fs.Create("fuBAR/SISYPHOS")
 	if err != nil {
 		t.Fatalf("could not create file: %s", err)
 	}
@@ -235,7 +234,7 @@ func testFakeFSCaseInsensitive(t *testing.T, fs Filesystem) {
 	}
 
 	// Try reading from the same file with different filenames
-	fd2, err := fs.Open("Fubar/Σίσυφος")
+	fd2, err := fs.Open("Fubar/Sisyphos")
 	if err != nil {
 		t.Fatalf("could not open file by its case-differing filename: %s", err)
 	}
