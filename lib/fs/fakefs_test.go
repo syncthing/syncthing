@@ -874,15 +874,15 @@ func testFakeFSCreateInsens(t *testing.T, fs Filesystem) {
 
 	defer fd2.Close()
 
-	if fd2.Name() != "fOo" {
-		t.Errorf("name of created file \"fOo\" is %s", fd2.Name())
-	}
-
 	if fd1.Name() != "FOO" {
 		t.Errorf("name of the file created as \"FOO\" is %s", fd1.Name())
 	}
 
-	assertDir(t, fs, "/", []string{"fOo"})
+	if fd2.Name() != "fOo" {
+		t.Errorf("name of created file \"fOo\" is %s", fd2.Name())
+	}
+
+	assertDir(t, fs, "/", []string{"FOO"})
 }
 
 func cleanup(fs Filesystem) error {
