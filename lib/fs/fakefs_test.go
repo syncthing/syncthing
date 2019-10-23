@@ -256,6 +256,8 @@ func testFakeFSCaseInsensitive(t *testing.T, fs Filesystem) {
 		t.Fatal(err)
 	}
 
+	fd1.Close()
+
 	// Try reading from the same file with different filenames
 	fd2, err := fs.Open("Fubar/Sisyphos")
 	if err != nil {
@@ -270,6 +272,8 @@ func testFakeFSCaseInsensitive(t *testing.T, fs Filesystem) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	fd2.Close()
 
 	if len(bs1) != len(bs2) {
 		t.Errorf("wrong number of bytes, expected %d, got %d", len(bs1), len(bs2))
