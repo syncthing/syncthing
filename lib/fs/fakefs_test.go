@@ -344,9 +344,11 @@ func testFakeFSStatInsens(t *testing.T, fs Filesystem) {
 		t.Fatal(err)
 	}
 
-	if _, err := fs.Create("/Foo/aaa"); err != nil {
+	if fd, err := fs.Create("/Foo/aaa"); err != nil {
 		t.Fatal(err)
 	}
+
+	fd.Close()
 
 	info, err := fs.Stat("/FOO/AAA")
 	if err != nil {
