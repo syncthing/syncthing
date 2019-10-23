@@ -812,7 +812,7 @@ func testFakeFSSameFileInsens(t *testing.T, fs Filesystem) {
 		t.Fatal(err)
 	}
 
-	filenames := []string{"Bar", "Baz", "/Foo/BAR"}
+	filenames := []string{"Bar", "Baz"}
 	for _, filename := range filenames {
 		fd, err := fs.Create(filename)
 		if err != nil {
@@ -827,7 +827,6 @@ func testFakeFSSameFileInsens(t *testing.T, fs Filesystem) {
 		want bool
 	}{
 		{f1: "bAr", f2: "baZ", want: false},
-		{f1: "baR", f2: "/fOO/bAr", want: false},
 		{"baz", "BAZ", true},
 	}
 
