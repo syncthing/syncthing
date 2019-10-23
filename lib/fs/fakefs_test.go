@@ -490,9 +490,12 @@ func testFakeFSRenameInsensitive(t *testing.T, fs Filesystem) {
 		t.Fatal(err)
 	}
 
-	if _, err := fs.Create("/BAZ/BAR/FOO/QUX"); err != nil {
+	fd, err := fs.Create("/BAZ/BAR/FOO/QUX")
+	if err != nil {
 		t.Fatal(err)
 	}
+
+	fd.Close()
 
 	if err := fs.Rename("/Baz/bAr/foO/QuX", "/Foo/Bar/Baz/qUUx"); err != nil {
 		t.Fatal(err)
@@ -790,6 +793,9 @@ func testFakeFSCreateInsens(t *testing.T, fs Filesystem) {
 	if fd1.Name() != "fOo" {
 		t.Errorf("name of the file created as \"FOO\" is %s", fd1.Name())
 	}
+
+	fd1.Close()
+	fd2.Close()
 }
 
 func cleanup(fs Filesystem) error {
