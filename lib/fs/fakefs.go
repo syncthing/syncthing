@@ -227,9 +227,6 @@ func (fs *fakefs) create(name string) (*fakeEntry, error) {
 		entry.size = 0
 		entry.mtime = time.Now()
 		entry.mode = 0666
-		if fs.insens {
-			//entry.name = filepath.Base(name)
-		}
 		return entry, nil
 	}
 

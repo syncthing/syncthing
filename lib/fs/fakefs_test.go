@@ -882,6 +882,8 @@ func testFakeFSCreateInsens(t *testing.T, fs Filesystem) {
 		t.Errorf("name of created file \"fOo\" is %s", fd2.Name())
 	}
 
+	// one would expect DirNames to show the last variant, but in fact it shows
+	// the original one
 	assertDir(t, fs, "/", []string{"FOO"})
 }
 
