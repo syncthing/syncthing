@@ -186,6 +186,10 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 			t.Fatalf("could not create temporary dir for testing")
 		}
 
+		if _, err := os.Create("test-tmp/.stfolder"); err != nil {
+			t.Fatalf("could not create .stfolder")
+		}
+
 		defer func() {
 			if err := os.RemoveAll("test-tmp"); err != nil {
 				t.Fatalf("could not remove test-tmp directory")
