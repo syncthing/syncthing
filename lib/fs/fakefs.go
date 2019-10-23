@@ -506,14 +506,16 @@ func (fs *fakefs) Rename(oldname, newname string) error {
 
 	dst, ok := p1.children[newKey]
 	if ok {
+		// in-place case-only directory renames will fail on insensitive systems
+		// they do fail on OS X, so that's expected
+		if dst.entryType == fakeEntryTypeDir {
+			return errors.New("is a directory")
+		}
+
 		if fs.insens && newKey == oldKey {
 			// case-only in-place rename
 			entry.name = filepath.Base(newname)
 			return nil
-		}
-
-		if dst.entryType == fakeEntryTypeDir {
-			return errors.New("is a directory")
 		}
 	}
 
