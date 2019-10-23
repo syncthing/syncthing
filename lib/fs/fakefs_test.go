@@ -8,6 +8,7 @@ package fs
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -179,7 +180,32 @@ func TestFakeFSRead(t *testing.T) {
 }
 
 func TestFakeFSCaseInsensitive(t *testing.T) {
-	filesystems := []Filesystem{newFakeFilesystem("/foobar?insens=true")}
+	var tests = []struct {
+		name string
+		impl func(t *testing.T, fs Filesystem)
+	}{
+		{"general", testFakeFSCaseInsensitive},
+		{"MkdirAll", testFakeFSCaseInsensitiveMkdirAll},
+		{"Stat", testFakeFSStatInsens},
+		{"Rename", testFakeFSRenameInsensitive},
+		{"Mkdir", testFakeFSMkdirInsens},
+		{"DirNames", testFakeFSDirNamesInsens},
+		{"OpenFile", testFakeFSOpenFileInsens},
+		{"RemoveAll", testFakeFSRemoveAllInsens},
+		{"Remove", testFakeFSRemoveInsens},
+		{"SameFile", testFakeFSSameFileInsens},
+		{"Create", testFakeFSCreateInsens},
+		{"FileName", testFakeFSFileNameInsens},
+	}
+
+	type testFS struct {
+		name string
+		fs   Filesystem
+	}
+
+	var filesystems = []testFS{
+		{"fakefs", newFakeFilesystem("/foobar?insens=true")},
+	}
 
 	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
 		if err := os.Mkdir("test-tmp", 0755); err != nil {
@@ -196,22 +222,16 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 			}
 		}()
 
-		filesystems = append(filesystems, newBasicFilesystem("test-tmp"))
+		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem("test-tmp")})
 	}
 
-	for _, fs := range filesystems {
-		testFakeFSCaseInsensitive(t, fs)
-		testFakeFSCaseInsensitiveMkdirAll(t, fs)
-		testFakeFSStatInsens(t, fs)
-		testFakeFSRenameInsensitive(t, fs)
-		testFakeFSMkdirInsens(t, fs)
-		testFakeFSDirNamesInsens(t, fs)
-		testFakeFSOpenFileInsens(t, fs)
-		testFakeFSRemoveAllInsens(t, fs)
-		testFakeFSRemoveInsens(t, fs)
-		testFakeFSSameFileInsens(t, fs)
-		testFakeFSCreateInsens(t, fs)
-		testFakeFSFileNameInsens(t, fs)
+	for _, filesystem := range filesystems {
+		for _, test := range tests {
+			name := fmt.Sprintf("%s_%s", test.name, filesystem.name)
+			t.Run(name, func(t *testing.T) {
+				test.impl(t, filesystem.fs)
+			})
+		}
 	}
 }
 
