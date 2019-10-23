@@ -230,7 +230,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 		{"RemoveAll", testFakeFSRemoveAllInsens},
 		{"Remove", testFakeFSRemoveInsens},
 		{"SameFile", testFakeFSSameFileInsens},
-		//{"Create", testFakeFSCreateInsens},
+		{"Create", testFakeFSCreateInsens},
 		{"FileName", testFakeFSFileNameInsens},
 	}
 
