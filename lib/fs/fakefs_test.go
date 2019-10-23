@@ -564,12 +564,16 @@ func testFakeFSRenameInsensitive(t *testing.T, fs Filesystem) {
 		assertDir(t, fs, dir.dir, dir.files)
 	}
 
-	if err := fs.Rename("/foo/bar/BAZ", "/FOO/BAR/bAz"); err == nil {
-		t.Errorf("In-place case-only directory renames fail on OS X, should fail here, too: %s", err)
-	}
+	// the next rename can be done on Windows, and maybe elsewhere, but not on OS X
+	// so we're shooting for the lowest common denominator
+	if _, ok := fs.(*fakefs); ok || runtime.GOOS == "darwin" {
+		if err := fs.Rename("/foo/bar/BAZ", "/FOO/BAR/bAz"); err == nil {
+			t.Errorf("In-place case-only directory renames fail on OS X, should fail here, too: %s", err)
+		}
 
-	assertDir(t, fs, "/foo/bar", []string{"baZ"})
-	assertDir(t, fs, "/fOO/bAr/baz", []string{"qUUx"})
+		assertDir(t, fs, "/foo/bar", []string{"baZ"})
+		assertDir(t, fs, "/fOO/bAr/baz", []string{"qUUx"})
+	}
 
 	if err := fs.Rename("foo/bar/baz/quux", "foo/bar/baz/Qux"); err != nil {
 		t.Errorf("File rename failed: %s", err)
