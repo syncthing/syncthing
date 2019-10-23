@@ -782,9 +782,11 @@ func testFakeFSSameFileInsens(t *testing.T, fs Filesystem) {
 
 	filenames := []string{"Bar", "Baz", "/Foo/BAR"}
 	for _, filename := range filenames {
-		if _, err := fs.Create(filename); err != nil {
-			t.Fatalf("Could not create %s: %s", filename, err)
+		fd, err := fs.Create(filename)
+		if err != nil {
+			t.Errorf("Could not create %s: %s", filename, err)
 		}
+		fd.Close()
 	}
 
 	testCases := []struct {
