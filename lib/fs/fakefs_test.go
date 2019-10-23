@@ -728,7 +728,8 @@ func TestFakeFSSameFile(t *testing.T) {
 		want bool
 	}{
 		{f1: "Bar", f2: "Baz", want: false},
-		{f1: "Bar", f2: "/Foo/Bar", want: true},
+		{f1: "Bar", f2: "/Foo/Bar", want: false},
+		{"Bar", "Bar", true},
 	}
 
 	for _, test := range testCases {
@@ -754,7 +755,8 @@ func testFakeFSSameFileInsens(t *testing.T, fs Filesystem) {
 		want bool
 	}{
 		{f1: "bAr", f2: "baZ", want: false},
-		{f1: "baR", f2: "/fOO/bAr", want: true},
+		{f1: "baR", f2: "/fOO/bAr", want: false},
+		{"baz", "BAZ", true},
 	}
 
 	for _, test := range testCases {
@@ -787,10 +789,14 @@ func testFakeFSCreateInsens(t *testing.T, fs Filesystem) {
 		t.Fatal(err)
 	}
 
+	defer fd1.Close()
+
 	fd2, err := fs.Create("fOo")
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	defer fd2.Close()
 
 	if fd2.Name() != "fOo" {
 		t.Errorf("name of created file \"fOo\" is %s", fd2.Name())
@@ -799,9 +805,6 @@ func testFakeFSCreateInsens(t *testing.T, fs Filesystem) {
 	if fd1.Name() != "fOo" {
 		t.Errorf("name of the file created as \"FOO\" is %s", fd1.Name())
 	}
-
-	fd1.Close()
-	fd2.Close()
 }
 
 func cleanup(fs Filesystem) error {

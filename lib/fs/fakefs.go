@@ -570,10 +570,14 @@ func (fs *fakefs) URI() string {
 }
 
 func (fs *fakefs) SameFile(fi1, fi2 FileInfo) bool {
+	var ok bool
 	if fs.insens {
-		return UnicodeLowercase(fi1.Name()) == UnicodeLowercase(fi2.Name())
+		ok = (UnicodeLowercase(fi1.Name()) == UnicodeLowercase(fi2.Name()))
+	} else {
+		ok = (fi1.Name() == fi2.Name())
 	}
-	return fi1.Name() == fi2.Name()
+
+	return ok && fi1.ModTime() == fi2.ModTime()
 }
 
 // fakeFile is the representation of an open file. We don't care if it's
