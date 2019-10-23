@@ -313,9 +313,11 @@ func testDirNames(t *testing.T, fs Filesystem) {
 	t.Helper()
 	filenames := []string{"fOO", "Bar", "baz"}
 	for _, filename := range filenames {
-		if _, err := fs.Create("/" + filename); err != nil {
+		fd, err := fs.Create("/" + filename)
+		if err != nil {
 			t.Fatalf("Could not create %s: %s", filename, err)
 		}
+		fd.Close()
 	}
 
 	assertDir(t, fs, "/", filenames)
@@ -428,14 +430,18 @@ func testFakeFSFileNameInsens(t *testing.T, fs Filesystem) {
 	}
 
 	for _, testCase := range testCases {
-		if _, err := fs.Create(testCase.create); err != nil {
-			t.Fatal(err)
-		}
-
-		fd, err := fs.Open(testCase.open)
+		fd, err := fs.Create(testCase.create)
 		if err != nil {
 			t.Fatal(err)
 		}
+		fd.Close()
+
+		fd, err = fs.Open(testCase.open)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		defer fd.Close()
 
 		if got := fd.Name(); got != testCase.open {
 			t.Errorf("want %s, got %s", testCase.open, got)
@@ -449,9 +455,11 @@ func TestFakeFSRename(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := fs.Create("/foo/bar/baz/qux"); err != nil {
+	fd, err := fs.Create("/foo/bar/baz/qux")
+	if err != nil {
 		t.Fatal(err)
 	}
+	fd.Close()
 
 	if err := fs.Rename("/foo/bar/baz/qux", "/foo/baz/bar/qux"); err == nil {
 		t.Errorf("rename to non-existent dir gave no error")
