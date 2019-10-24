@@ -578,9 +578,9 @@ func (fs *fakefs) SameFile(fi1, fi2 FileInfo) bool {
 	// where ModTime is not that precise
 	var ok bool
 	if fs.insens {
-		ok = (UnicodeLowercase(fi1.Name()) == UnicodeLowercase(fi2.Name()))
+		ok = UnicodeLowercase(fi1.Name()) == UnicodeLowercase(fi2.Name())
 	} else {
-		ok = (fi1.Name() == fi2.Name())
+		ok = fi1.Name() == fi2.Name()
 	}
 
 	return ok && fi1.ModTime() == fi2.ModTime() && fi1.Mode() == fi2.Mode() && fi1.IsDir() == fi2.IsDir() && fi1.IsRegular() == fi2.IsRegular() && fi1.IsSymlink() == fi2.IsSymlink() && fi1.Owner() == fi2.Owner() && fi1.Group() == fi2.Group()
