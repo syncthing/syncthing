@@ -460,6 +460,8 @@ func testFakeFSFileName(t *testing.T, fs Filesystem) {
 			t.Fatal(err)
 		}
 
+		defer fd.Close()
+
 		if got := fd.Name(); got != testCase.open {
 			t.Errorf("want %s, got %s", testCase.open, got)
 		}
