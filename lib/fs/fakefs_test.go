@@ -199,6 +199,7 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 		{"Mkdir", testFakeFSMkdir},
 		{"SameFile", testFakeFSSameFile},
 		{"DirNames", testFakeFSDirNames},
+		{"FileName", testFakeFSFileName},
 	}
 	var filesystems = []testFS{
 		{"fakefs", newFakeFilesystem("/foo")},
@@ -438,17 +439,15 @@ func testFakeFSStatInsens(t *testing.T, fs Filesystem) {
 	assertDir(t, fs, "/foo", []string{"aaa"})
 }
 
-func TestFakeFSFileName(t *testing.T) {
+func testFakeFSFileName(t *testing.T, fs Filesystem) {
 	var testCases = []struct {
-		fs     string
 		create string
 		open   string
 	}{
-		{"/foo", "bar", "bar"},
+		{"bar", "bar"},
 	}
 
 	for _, testCase := range testCases {
-		fs := newFakeFilesystem(testCase.fs)
 		if _, err := fs.Create(testCase.create); err != nil {
 			t.Fatal(err)
 		}
