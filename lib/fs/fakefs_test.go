@@ -217,7 +217,7 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 
 		defer func() {
 			if err := os.RemoveAll(testDir); err != nil {
-				t.Fatalf("could not remove test-tmp directory: %s", err)
+				t.Fatalf("could not remove test directory: %s", err)
 			}
 		}()
 
@@ -261,7 +261,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 
 		defer func() {
 			if err := os.RemoveAll(testDir); err != nil {
-				t.Fatalf("could not remove test-tmp directory: %s", err)
+				t.Fatalf("could not remove test directory: %s", err)
 			}
 		}()
 
@@ -699,7 +699,7 @@ func testFakeFSRemoveAll(t *testing.T, fs Filesystem) {
 	}
 
 	if _, err := fs.Stat("/foo"); err == nil {
-		t.Errorf("this should not exist anymore")
+		t.Errorf("this should be an error, as file doesn not exist anymore")
 	}
 
 	if err := fs.RemoveAll("/foo/bar"); err != nil {
@@ -726,7 +726,7 @@ func testFakeFSRemoveAllInsens(t *testing.T, fs Filesystem) {
 	}
 
 	if _, err := fs.Stat("/foo"); err == nil {
-		t.Errorf("this should not exist anymore")
+		t.Errorf("this should be an error, as file doesn not exist anymore")
 	}
 
 	if err := fs.RemoveAll("/foO/bAr"); err != nil {
