@@ -398,12 +398,12 @@ func testFakeFSStatInsens(t *testing.T, fs Filesystem) {
 		t.Fatal(err)
 	}
 
-	fd, err := fs.Create("/Foo/aaa")
+	fd1, err := fs.Create("/Foo/aaa")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fd.Close()
+	defer fd1.Close()
 
 	info, err := fs.Stat("/FOO/AAA")
 	if err != nil {
@@ -418,11 +418,6 @@ func testFakeFSStatInsens(t *testing.T, fs Filesystem) {
 		t.Errorf("want AAA, got %s", info.Name())
 	}
 
-	fd1, err := fs.Open("/FOO/AAA")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	if info, err = fd1.Stat(); err != nil {
 		t.Fatal(err)
 	}
@@ -435,13 +430,11 @@ func testFakeFSStatInsens(t *testing.T, fs Filesystem) {
 	if _, err = fd2.Stat(); err != nil {
 		t.Fatal(err)
 	}
+	defer fd2.Close()
 
-	if info.Name() != "AAA" {
-		t.Errorf("want AAA, got %s", info.Name())
+	if info.Name() != "aaa" {
+		t.Errorf("want aaa, got %s", info.Name())
 	}
-
-	fd1.Close()
-	fd2.Close()
 
 	assertDir(t, fs, "/", []string{"foo"})
 	assertDir(t, fs, "/foo", []string{"aaa"})
