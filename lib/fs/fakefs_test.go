@@ -204,23 +204,8 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 	}
 
 	if runtime.GOOS == "linux" {
-		testDir, err := ioutil.TempDir("", "")
-		if err != nil {
-			t.Fatalf("could not create temporary dir for testing: %s", err)
-		}
-
-		if fd, err := os.Create(filepath.Join(testDir, ".stfolder")); err != nil {
-			t.Fatalf("could not create .stfolder: %s", err)
-		} else {
-			fd.Close()
-		}
-
-		defer func() {
-			if err := os.RemoveAll(testDir); err != nil {
-				t.Fatalf("could not remove test directory: %s", err)
-			}
-		}()
-
+		testDir := createTestDir(t)
+		defer removeTestDir(t)
 		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
 	}
 
@@ -255,27 +240,37 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 	}
 
 	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
-		testDir, err := ioutil.TempDir("", "")
-		if err != nil {
-			t.Fatalf("could not create temporary dir for testing: %s", err)
-		}
-
-		if fd, err := os.Create(filepath.Join(testDir, ".stfolder")); err != nil {
-			t.Fatalf("could not create .stfolder: %s", err)
-		} else {
-			fd.Close()
-		}
-
-		defer func() {
-			if err := os.RemoveAll(testDir); err != nil {
-				t.Fatalf("could not remove test directory: %s", err)
-			}
-		}()
-
+		testDir := createTestDir(t)
+		defer removeTestDir(t)
 		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
 	}
 
 	runTests(t, tests, filesystems)
+}
+
+func createTestDir(t *testing.T) string {
+	t.Helper()
+
+	testDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("could not create temporary dir for testing: %s", err)
+	}
+
+	if fd, err := os.Create(filepath.Join(testDir, ".stfolder")); err != nil {
+		t.Fatalf("could not create .stfolder: %s", err)
+	} else {
+		fd.Close()
+	}
+
+	return testDir
+}
+
+func removeTestDir(t *testing.T) {
+	t.Helper()
+
+	if err := os.RemoveAll(testDir); err != nil {
+		t.Fatalf("could not remove test directory: %s", err)
+	}
 }
 
 func runTests(t *testing.T, tests []test, filesystems []testFS) {
