@@ -507,7 +507,7 @@ func testFakeFSRename(t *testing.T, fs Filesystem) {
 	}
 	fd.Close()
 
-	if err := fs.Rename("/foo/bar/baz/qux", "/foo/baz/bar/qux"); err == nil {
+	if err := fs.Rename("/foo/bar/baz/qux", "/foo/notthere/qux"); err == nil {
 		t.Errorf("rename to non-existent dir gave no error")
 	}
 
@@ -624,85 +624,61 @@ func testFakeFSMkdirInsens(t *testing.T, fs Filesystem) {
 func testFakeFSOpenFile(t *testing.T, fs Filesystem) {
 	fd, err := fs.OpenFile("foobar", os.O_RDONLY, 0664)
 	if err == nil {
-		t.Errorf("got no error opening a non-existing file")
-	}
-	if fd != nil {
-		fd.Close()
+		t.Fatalf("got no error opening a non-existing file")
 	}
 
 	fd, err = fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE, 0664)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fd != nil {
-		fd.Close()
-	}
+	fd.Close()
 
 	fd, err = fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE|os.O_EXCL, 0664)
 	if err == nil {
-		t.Errorf("created an existing file while told not to")
-	}
-	if fd != nil {
-		fd.Close()
+		t.Fatalf("created an existing file while told not to")
 	}
 
 	fd, err = fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE, 0664)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fd != nil {
-		fd.Close()
-	}
+	fd.Close()
 
 	fd, err = fs.OpenFile("foobar", os.O_RDWR, 0664)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fd != nil {
-		fd.Close()
-	}
+	fd.Close()
 }
 
 func testFakeFSOpenFileInsens(t *testing.T, fs Filesystem) {
 	fd, err := fs.OpenFile("FooBar", os.O_RDONLY, 0664)
 	if err == nil {
-		t.Errorf("got no error opening a non-existing file")
-	}
-	if fd != nil {
-		fd.Close()
+		t.Fatalf("got no error opening a non-existing file")
 	}
 
 	fd, err = fs.OpenFile("fOObar", os.O_RDWR|os.O_CREATE, 0664)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fd != nil {
-		fd.Close()
-	}
+	fd.Close()
 
 	fd, err = fs.OpenFile("fOoBaR", os.O_RDWR|os.O_CREATE|os.O_EXCL, 0664)
 	if err == nil {
-		t.Errorf("created an existing file while told not to")
-	}
-	if fd != nil {
-		fd.Close()
+		t.Fatalf("created an existing file while told not to")
 	}
 
 	fd, err = fs.OpenFile("FoObAr", os.O_RDWR|os.O_CREATE, 0664)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fd != nil {
-		fd.Close()
-	}
+	fd.Close()
 
 	fd, err = fs.OpenFile("FOOBAR", os.O_RDWR, 0664)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fd != nil {
-		fd.Close()
-	}
+	fd.Close()
 }
 
 func testFakeFSRemoveAll(t *testing.T, fs Filesystem) {
