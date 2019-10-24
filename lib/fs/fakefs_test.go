@@ -205,7 +205,7 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 
 	if runtime.GOOS == "linux" {
 		testDir := createTestDir(t)
-		defer removeTestDir(t)
+		defer removeTestDir(t, testDir)
 		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
 	}
 
@@ -241,7 +241,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 
 	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
 		testDir := createTestDir(t)
-		defer removeTestDir(t)
+		defer removeTestDir(t, testDir)
 		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
 	}
 
@@ -265,7 +265,7 @@ func createTestDir(t *testing.T) string {
 	return testDir
 }
 
-func removeTestDir(t *testing.T) {
+func removeTestDir(t *testing.T, testDir string) {
 	t.Helper()
 
 	if err := os.RemoveAll(testDir); err != nil {
