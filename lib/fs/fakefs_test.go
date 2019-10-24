@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"sort"
@@ -201,21 +202,24 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 	}
 
 	if runtime.GOOS == "linux" {
-		if err := os.Mkdir("test-tmp", 0755); err != nil {
-			t.Fatalf("could not create temporary dir for testing")
+		testDir, err := ioutil.TempDir("", "")
+		if err != nil {
+			t.Fatalf("could not create temporary dir for testing: %s", err)
 		}
 
-		if _, err := os.Create("test-tmp/.stfolder"); err != nil {
-			t.Fatalf("could not create .stfolder")
+		if fd, err := os.Create(filepath.Join(testDir, ".stfolder")); err != nil {
+			t.Fatalf("could not create .stfolder: %s", err)
+		} else {
+			fd.Close()
 		}
 
 		defer func() {
-			if err := os.RemoveAll("test-tmp"); err != nil {
-				t.Fatalf("could not remove test-tmp directory")
+			if err := os.RemoveAll(testDir); err != nil {
+				t.Fatalf("could not remove test-tmp directory: %s", err)
 			}
 		}()
 
-		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem("test-tmp")})
+		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
 	}
 
 	runTests(t, tests, filesystems)
@@ -242,21 +246,24 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 	}
 
 	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
-		if err := os.Mkdir("test-tmp", 0755); err != nil {
-			t.Fatalf("could not create temporary dir for testing")
+		testDir, err := ioutil.TempDir("", "")
+		if err != nil {
+			t.Fatalf("could not create temporary dir for testing: %s", err)
 		}
 
-		if _, err := os.Create("test-tmp/.stfolder"); err != nil {
-			t.Fatalf("could not create .stfolder")
+		if fd, err := os.Create(filepath.Join(testDir, ".stfolder")); err != nil {
+			t.Fatalf("could not create .stfolder: %s", err)
+		} else {
+			fd.Close()
 		}
 
 		defer func() {
-			if err := os.RemoveAll("test-tmp"); err != nil {
-				t.Fatalf("could not remove test-tmp directory")
+			if err := os.RemoveAll(testDir); err != nil {
+				t.Fatalf("could not remove test-tmp directory: %s", err)
 			}
 		}()
 
-		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem("test-tmp")})
+		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
 	}
 
 	runTests(t, tests, filesystems)
