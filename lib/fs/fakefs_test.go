@@ -772,7 +772,7 @@ func testFakeFSRemoveInsens(t *testing.T, fs Filesystem) {
 	}
 	fd.Close()
 
-	if err := fs.Remove("/FOO"); err == nil || err == os.ErrNotExist {
+	if err := fs.Remove("/FOO"); err == nil {
 		t.Errorf("not empty, should give error")
 	}
 
