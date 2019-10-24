@@ -19,7 +19,7 @@ import (
 	"testing"
 )
 
-func testFakeFS(t *testing.T) {
+func TestFakeFS(t *testing.T) {
 	// Test some basic aspects of the fakefs
 
 	fs := newFakeFilesystem("/foo/bar/baz")
@@ -621,6 +621,7 @@ func testFakeFSMkdirInsens(t *testing.T, fs Filesystem) {
 func testFakeFSOpenFile(t *testing.T, fs Filesystem) {
 	fd, err := fs.OpenFile("foobar", os.O_RDONLY, 0664)
 	if err == nil {
+		fd.Close()
 		t.Fatalf("got no error opening a non-existing file")
 	}
 
@@ -632,6 +633,7 @@ func testFakeFSOpenFile(t *testing.T, fs Filesystem) {
 
 	fd, err = fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE|os.O_EXCL, 0664)
 	if err == nil {
+		fd.Close()
 		t.Fatalf("created an existing file while told not to")
 	}
 
@@ -651,6 +653,7 @@ func testFakeFSOpenFile(t *testing.T, fs Filesystem) {
 func testFakeFSOpenFileInsens(t *testing.T, fs Filesystem) {
 	fd, err := fs.OpenFile("FooBar", os.O_RDONLY, 0664)
 	if err == nil {
+		fd.Close()
 		t.Fatalf("got no error opening a non-existing file")
 	}
 
@@ -662,6 +665,7 @@ func testFakeFSOpenFileInsens(t *testing.T, fs Filesystem) {
 
 	fd, err = fs.OpenFile("fOoBaR", os.O_RDWR|os.O_CREATE|os.O_EXCL, 0664)
 	if err == nil {
+		fd.Close()
 		t.Fatalf("created an existing file while told not to")
 	}
 
