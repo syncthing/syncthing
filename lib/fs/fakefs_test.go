@@ -191,6 +191,7 @@ type test struct {
 
 func TestFakeFSCaseSensitive(t *testing.T) {
 	var tests = []test{
+		{"OpenFile", testFakeFSOpenFile},
 		{"RemoveAll", testFakeFSRemoveAll},
 		{"Remove", testFakeFSRemove},
 		{"SameFile", testFakeFSSameFile},
@@ -614,9 +615,7 @@ func testFakeFSMkdirInsens(t *testing.T, fs Filesystem) {
 	}
 }
 
-func TestFakeFSOpenFile(t *testing.T) {
-	fs := newFakeFilesystem("/openf")
-
+func testFakeFSOpenFile(t *testing.T, fs Filesystem) {
 	if _, err := fs.OpenFile("foobar", os.O_RDONLY, 0664); err == nil {
 		t.Errorf("got no error opening a non-existing file")
 	}
