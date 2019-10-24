@@ -809,8 +809,8 @@ func testFakeFSSameFile(t *testing.T, fs Filesystem) {
 		f2   string
 		want bool
 	}{
-		{f1: "Bar", f2: "Baz", want: false},
-		{f1: "Bar", f2: "/Foo/Bar", want: false},
+		{"Bar", "Baz", false},
+		{"Bar", "/Foo/Bar", false},
 		{"Bar", "Bar", true},
 	}
 
@@ -838,7 +838,7 @@ func testFakeFSSameFileInsens(t *testing.T, fs Filesystem) {
 		f2   string
 		want bool
 	}{
-		{f1: "bAr", f2: "baZ", want: false},
+		{"bAr", "baZ", false},
 		{"baz", "BAZ", true},
 	}
 
