@@ -196,6 +196,7 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 		{"RemoveAll", testFakeFSRemoveAll},
 		{"Remove", testFakeFSRemove},
 		{"Rename", testFakeFSRename},
+		{"Mkdir", testFakeFSMkdir},
 		{"SameFile", testFakeFSSameFile},
 		{"DirNames", testFakeFSDirNames},
 	}
@@ -588,9 +589,7 @@ func testFakeFSRenameInsensitive(t *testing.T, fs Filesystem) {
 	assertDir(t, fs, "/FOO/BAR/BAZ", []string{"Qux"})
 }
 
-func TestFakeFSMkdir(t *testing.T) {
-	fs := newFakeFilesystem("/mkdir")
-
+func testFakeFSMkdir(t *testing.T, fs Filesystem) {
 	if err := fs.Mkdir("/foo", 0755); err != nil {
 		t.Fatal(err)
 	}
