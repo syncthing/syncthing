@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func TestFakeFS(t *testing.T) {
+func testFakeFS(t *testing.T) {
 	// Test some basic aspects of the fakefs
 
 	fs := newFakeFilesystem("/foo/bar/baz")
@@ -130,13 +130,11 @@ func TestFakeFS(t *testing.T) {
 	}
 }
 
-func TestFakeFSRead(t *testing.T) {
+func testFakeFSRead(t *testing.T, fs Filesystem) {
 	// Test some basic aspects of the fakefs
-
-	fs := newFakeFilesystem("/foo/bar/baz")
-
 	// Create
 	fd, _ := fs.Create("test")
+	defer fd.Close()
 	fd.Truncate(3 * 1 << randomBlockShift)
 
 	// Read
@@ -192,13 +190,14 @@ type test struct {
 
 func TestFakeFSCaseSensitive(t *testing.T) {
 	var tests = []test{
+		{"read", testFakeFSRead},
 		{"OpenFile", testFakeFSOpenFile},
 		{"RemoveAll", testFakeFSRemoveAll},
 		{"Remove", testFakeFSRemove},
 		{"Rename", testFakeFSRename},
 		{"Mkdir", testFakeFSMkdir},
 		{"SameFile", testFakeFSSameFile},
-		{"DirNames", testFakeFSDirNames},
+		{"DirNames", testDirNames},
 		{"FileName", testFakeFSFileName},
 	}
 	var filesystems = []testFS{
@@ -231,18 +230,25 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 
 func TestFakeFSCaseInsensitive(t *testing.T) {
 	var tests = []test{
-		{"general", testFakeFSCaseInsensitive},
-		{"MkdirAll", testFakeFSCaseInsensitiveMkdirAll},
-		{"Stat", testFakeFSStatInsens},
-		{"Rename", testFakeFSRenameInsensitive},
-		{"Mkdir", testFakeFSMkdirInsens},
-		{"DirNames", testFakeFSDirNames},
-		{"OpenFile", testFakeFSOpenFileInsens},
-		{"RemoveAll", testFakeFSRemoveAllInsens},
-		{"Remove", testFakeFSRemoveInsens},
-		{"SameFile", testFakeFSSameFileInsens},
-		{"Create", testFakeFSCreateInsens},
-		{"FileName", testFakeFSFileNameInsens},
+		{"read", testFakeFSRead},
+		{"OpenFile", testFakeFSOpenFile},
+		{"RemoveAll", testFakeFSRemoveAll},
+		{"Remove", testFakeFSRemove},
+		{"Mkdir", testFakeFSMkdir},
+		{"SameFile", testFakeFSSameFile},
+		{"DirNames", testDirNames},
+		{"FileName", testFakeFSFileName},
+		{"generalInsens", testFakeFSCaseInsensitive},
+		{"MkdirAllInsens", testFakeFSCaseInsensitiveMkdirAll},
+		{"StatInsens", testFakeFSStatInsens},
+		{"RenameInsens", testFakeFSRenameInsensitive},
+		{"MkdirInsens", testFakeFSMkdirInsens},
+		{"OpenFileInsens", testFakeFSOpenFileInsens},
+		{"RemoveAllInsens", testFakeFSRemoveAllInsens},
+		{"RemoveInsens", testFakeFSRemoveInsens},
+		{"SameFileInsens", testFakeFSSameFileInsens},
+		{"CreateInsens", testFakeFSCreateInsens},
+		{"FileNameInsens", testFakeFSFileNameInsens},
 	}
 
 	var filesystems = []testFS{
@@ -349,19 +355,14 @@ func testFakeFSCaseInsensitiveMkdirAll(t *testing.T, fs Filesystem) {
 	}
 }
 
-func testFakeFSDirNames(t *testing.T, fs Filesystem) {
-	testDirNames(t, fs)
-}
-
 func testDirNames(t *testing.T, fs Filesystem) {
-	t.Helper()
 	filenames := []string{"fOO", "Bar", "baz"}
 	for _, filename := range filenames {
-		fd, err := fs.Create("/" + filename)
-		if err != nil {
+		if fd, err := fs.Create("/" + filename); err != nil {
 			t.Errorf("Could not create %s: %s", filename, err)
+		} else {
+			fd.Close()
 		}
-		fd.Close()
 	}
 
 	assertDir(t, fs, "/", filenames)
@@ -448,8 +449,10 @@ func testFakeFSFileName(t *testing.T, fs Filesystem) {
 	}
 
 	for _, testCase := range testCases {
-		if _, err := fs.Create(testCase.create); err != nil {
+		if fd, err := fs.Create(testCase.create); err != nil {
 			t.Fatal(err)
+		} else {
+			fd.Close()
 		}
 
 		fd, err := fs.Open(testCase.open)
@@ -617,24 +620,44 @@ func testFakeFSMkdirInsens(t *testing.T, fs Filesystem) {
 }
 
 func testFakeFSOpenFile(t *testing.T, fs Filesystem) {
-	if _, err := fs.OpenFile("foobar", os.O_RDONLY, 0664); err == nil {
+	fd, err := fs.OpenFile("foobar", os.O_RDONLY, 0664)
+	if err == nil {
 		t.Errorf("got no error opening a non-existing file")
 	}
-
-	if _, err := fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE, 0664); err != nil {
-		t.Fatal(err)
+	if fd != nil {
+		fd.Close()
 	}
 
-	if _, err := fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE|os.O_EXCL, 0664); err == nil {
+	fd, err = fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE, 0664)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fd != nil {
+		fd.Close()
+	}
+
+	fd, err = fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE|os.O_EXCL, 0664)
+	if err == nil {
 		t.Errorf("created an existing file while told not to")
 	}
-
-	if _, err := fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE, 0664); err != nil {
-		t.Fatal(err)
+	if fd != nil {
+		fd.Close()
 	}
 
-	if _, err := fs.OpenFile("foobar", os.O_RDWR, 0664); err != nil {
+	fd, err = fs.OpenFile("foobar", os.O_RDWR|os.O_CREATE, 0664)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if fd != nil {
+		fd.Close()
+	}
+
+	fd, err = fs.OpenFile("foobar", os.O_RDWR, 0664)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fd != nil {
+		fd.Close()
 	}
 }
 
@@ -687,8 +710,11 @@ func testFakeFSRemoveAll(t *testing.T, fs Filesystem) {
 
 	filenames := []string{"bar", "baz", "qux"}
 	for _, filename := range filenames {
-		if _, err := fs.Create("/foo/" + filename); err != nil {
+		fd, err := fs.Create("/foo/" + filename)
+		if err != nil {
 			t.Fatalf("Could not create %s: %s", filename, err)
+		} else {
+			fd.Close()
 		}
 	}
 
@@ -737,8 +763,11 @@ func testFakeFSRemove(t *testing.T, fs Filesystem) {
 		t.Fatal(err)
 	}
 
-	if _, err := fs.Create("/Foo/Bar"); err != nil {
+	fd, err := fs.Create("/Foo/Bar")
+	if err != nil {
 		t.Fatal(err)
+	} else {
+		fd.Close()
 	}
 
 	if err := fs.Remove("/Foo"); err == nil {
@@ -790,8 +819,10 @@ func testFakeFSSameFile(t *testing.T, fs Filesystem) {
 
 	filenames := []string{"Bar", "Baz", "/Foo/Bar"}
 	for _, filename := range filenames {
-		if _, err := fs.Create(filename); err != nil {
+		if fd, err := fs.Create(filename); err != nil {
 			t.Fatalf("Could not create %s: %s", filename, err)
+		} else {
+			fd.Close()
 		}
 	}
 
