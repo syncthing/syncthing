@@ -14,7 +14,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"sort"
 	"testing"
@@ -306,18 +305,20 @@ func testFakeFSCaseInsensitive(t *testing.T, fs Filesystem) {
 		t.Fatalf("could not create file: %s", err)
 	}
 
+	defer fd1.Close()
+
 	_, err = fd1.Write(bs1)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	fd1.Close()
 
 	// Try reading from the same file with different filenames
 	fd2, err := fs.Open("Fubar/Sisyphos")
 	if err != nil {
 		t.Fatalf("could not open file by its case-differing filename: %s", err)
 	}
+
+	defer fd2.Close()
 
 	if _, err := fd2.Seek(0, io.SeekStart); err != nil {
 		t.Fatal(err)
@@ -327,8 +328,6 @@ func testFakeFSCaseInsensitive(t *testing.T, fs Filesystem) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	fd2.Close()
 
 	if len(bs1) != len(bs2) {
 		t.Errorf("wrong number of bytes, expected %d, got %d", len(bs1), len(bs2))
@@ -381,8 +380,16 @@ func assertDir(t *testing.T, fs Filesystem, directory string, filenames []string
 	sort.Strings(filenames)
 	sort.Strings(got)
 
-	if !reflect.DeepEqual(got, filenames) {
+	if len(filenames) != len(got) {
 		t.Errorf("want %s, got %s", filenames, got)
+		return
+	}
+
+	for i := range filenames {
+		if filenames[i] != got[i] {
+			t.Errorf("want %s, got %s", filenames, got)
+			return
+		}
 	}
 }
 
