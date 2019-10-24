@@ -394,50 +394,47 @@ func assertDir(t *testing.T, fs Filesystem, directory string, filenames []string
 }
 
 func testFakeFSStatInsens(t *testing.T, fs Filesystem) {
-	if err := fs.Mkdir("/foo", 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	fd1, err := fs.Create("/Foo/aaa")
+	// this is to test that neither fs.Stat nor fd.Stat change the filename
+	// both in directory and in previous Stat results
+	fd1, err := fs.Create("aAa")
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	defer fd1.Close()
 
-	info, err := fs.Stat("/FOO/AAA")
+	info1, err := fs.Stat("AAA")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err = fs.Stat("/fOO/aAa"); err != nil {
+	if _, err = fs.Stat("AaA"); err != nil {
 		t.Fatal(err)
 	}
 
-	if info.Name() != "AAA" {
-		t.Errorf("want AAA, got %s", info.Name())
-	}
-
-	if info, err = fd1.Stat(); err != nil {
-		t.Fatal(err)
-	}
-
-	fd2, err := fs.Open("Foo/aAa")
+	info2, err := fd1.Stat()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err = fd2.Stat(); err != nil {
+	fd2, err := fs.Open("aaa")
+	if err != nil {
 		t.Fatal(err)
 	}
 	defer fd2.Close()
 
-	if info.Name() != "aaa" {
-		t.Errorf("want aaa, got %s", info.Name())
+	if _, err = fd2.Stat(); err != nil {
+		t.Fatal(err)
 	}
 
-	assertDir(t, fs, "/", []string{"foo"})
-	assertDir(t, fs, "/foo", []string{"aaa"})
+	if info1.Name() != "AAA" {
+		t.Errorf("want AAA, got %s", info1.Name())
+	}
+
+	if info2.Name() != "aAa" {
+		t.Errorf("want aAa, got %s", info2.Name())
+	}
+
+	assertDir(t, fs, "/", []string{"aAa"})
 }
 
 func testFakeFSFileName(t *testing.T, fs Filesystem) {
