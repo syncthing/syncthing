@@ -195,7 +195,9 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 		{"OpenFile", testFakeFSOpenFile},
 		{"RemoveAll", testFakeFSRemoveAll},
 		{"Remove", testFakeFSRemove},
+		{"Rename", testFakeFSRename},
 		{"SameFile", testFakeFSSameFile},
+		{"DirNames", testFakeFSDirNames},
 	}
 	var filesystems = []testFS{
 		{"fakefs", newFakeFilesystem("/foo")},
@@ -232,7 +234,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 		{"Stat", testFakeFSStatInsens},
 		{"Rename", testFakeFSRenameInsensitive},
 		{"Mkdir", testFakeFSMkdirInsens},
-		{"DirNames", testFakeFSDirNamesInsens},
+		{"DirNames", testFakeFSDirNames},
 		{"OpenFile", testFakeFSOpenFileInsens},
 		{"RemoveAll", testFakeFSRemoveAllInsens},
 		{"Remove", testFakeFSRemoveInsens},
@@ -345,12 +347,7 @@ func testFakeFSCaseInsensitiveMkdirAll(t *testing.T, fs Filesystem) {
 	}
 }
 
-func TestFakeFSDirNames(t *testing.T) {
-	fs := newFakeFilesystem("/fbr")
-	testDirNames(t, fs)
-}
-
-func testFakeFSDirNamesInsens(t *testing.T, fs Filesystem) {
+func testFakeFSDirNames(t *testing.T, fs Filesystem) {
 	testDirNames(t, fs)
 }
 
@@ -494,8 +491,7 @@ func testFakeFSFileNameInsens(t *testing.T, fs Filesystem) {
 	}
 }
 
-func TestFakeFSRename(t *testing.T) {
-	fs := newFakeFilesystem("/qux")
+func testFakeFSRename(t *testing.T, fs Filesystem) {
 	if err := fs.MkdirAll("/foo/bar/baz", 0755); err != nil {
 		t.Fatal(err)
 	}

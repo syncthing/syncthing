@@ -511,18 +511,17 @@ func (fs *fakefs) Rename(oldname, newname string) error {
 		if dst.entryType == fakeEntryTypeDir {
 			return errors.New("is a directory")
 		}
-
-		if fs.insens && newKey == oldKey {
-			// case-only in-place rename
-			entry.name = filepath.Base(newname)
-			return nil
-		}
 	}
 
 	p1.children[newKey] = entry
 	entry.name = filepath.Base(newname)
 
-	delete(p0.children, oldKey)
+	// don't want to remove the entry for in-place case-only rename
+	// on an insensitive FS
+	if !(p0 == p1 && oldKey == newKey && fs.insens) {
+		delete(p0.children, oldKey)
+	}
+
 	return nil
 }
 
