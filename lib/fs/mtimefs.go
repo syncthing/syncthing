@@ -13,8 +13,8 @@ import (
 // The database is where we store the virtual mtimes
 type database interface {
 	Bytes(key string) (data []byte, ok bool)
-	PutBytes(key string, data []byte)
-	Delete(key string)
+	PutBytes(key string, data []byte) error
+	Delete(key string) error
 }
 
 // The MtimeFS is a filesystem with nanosecond mtime precision, regardless

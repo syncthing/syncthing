@@ -236,8 +236,9 @@ func TestMtimeFSInsensitive(t *testing.T) {
 
 type mapStore map[string][]byte
 
-func (s mapStore) PutBytes(key string, data []byte) {
+func (s mapStore) PutBytes(key string, data []byte) error {
 	s[key] = data
+	return nil
 }
 
 func (s mapStore) Bytes(key string) (data []byte, ok bool) {
@@ -245,8 +246,9 @@ func (s mapStore) Bytes(key string) (data []byte, ok bool) {
 	return
 }
 
-func (s mapStore) Delete(key string) {
+func (s mapStore) Delete(key string) error {
 	delete(s, key)
+	return nil
 }
 
 // failChtimes does nothing, and fails

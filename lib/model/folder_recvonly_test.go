@@ -16,6 +16,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -316,7 +317,7 @@ func setupROFolder() (*model, *sendOnlyFolder) {
 	fcfg.Type = config.FolderTypeReceiveOnly
 	w.SetFolder(fcfg)
 
-	m := newModel(w, myID, "syncthing", "dev", db.OpenMemory(), nil)
+	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
 	m.AddFolder(fcfg)
 
 	f := &sendOnlyFolder{

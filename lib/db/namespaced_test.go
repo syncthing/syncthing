@@ -9,10 +9,12 @@ package db
 import (
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/db/backend"
 )
 
 func TestNamespacedInt(t *testing.T) {
-	ldb := OpenMemory()
+	ldb := NewLowlevel(backend.OpenMemory())
 
 	n1 := NewNamespacedKV(ldb, "foo")
 	n2 := NewNamespacedKV(ldb, "bar")
@@ -23,7 +25,9 @@ func TestNamespacedInt(t *testing.T) {
 		t.Errorf("Incorrect return v %v != 0 || ok %v != false", v, ok)
 	}
 
-	n1.PutInt64("test", 42)
+	if err := n1.PutInt64("test", 42); err != nil {
+		t.Fatal(err)
+	}
 
 	// It should now exist in n1
 
@@ -37,7 +41,9 @@ func TestNamespacedInt(t *testing.T) {
 		t.Errorf("Incorrect return v %v != 0 || ok %v != false", v, ok)
 	}
 
-	n1.Delete("test")
+	if err := n1.Delete("test"); err != nil {
+		t.Fatal(err)
+	}
 
 	// It should no longer exist
 
@@ -47,7 +53,7 @@ func TestNamespacedInt(t *testing.T) {
 }
 
 func TestNamespacedTime(t *testing.T) {
-	ldb := OpenMemory()
+	ldb := NewLowlevel(backend.OpenMemory())
 
 	n1 := NewNamespacedKV(ldb, "foo")
 
@@ -56,7 +62,9 @@ func TestNamespacedTime(t *testing.T) {
 	}
 
 	now := time.Now()
-	n1.PutTime("test", now)
+	if err := n1.PutTime("test", now); err != nil {
+		t.Fatal(err)
+	}
 
 	if v, ok := n1.Time("test"); !v.Equal(now) || !ok {
 		t.Errorf("Incorrect return v %v != %v || ok %v != true", v, now, ok)
@@ -64,7 +72,7 @@ func TestNamespacedTime(t *testing.T) {
 }
 
 func TestNamespacedString(t *testing.T) {
-	ldb := OpenMemory()
+	ldb := NewLowlevel(backend.OpenMemory())
 
 	n1 := NewNamespacedKV(ldb, "foo")
 
@@ -72,7 +80,9 @@ func TestNamespacedString(t *testing.T) {
 		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
 	}
 
-	n1.PutString("test", "yo")
+	if err := n1.PutString("test", "yo"); err != nil {
+		t.Fatal(err)
+	}
 
 	if v, ok := n1.String("test"); v != "yo" || !ok {
 		t.Errorf("Incorrect return v %q != \"yo\" || ok %v != true", v, ok)
@@ -80,13 +90,19 @@ func TestNamespacedString(t *testing.T) {
 }
 
 func TestNamespacedReset(t *testing.T) {
-	ldb := OpenMemory()
+	ldb := NewLowlevel(backend.OpenMemory())
 
 	n1 := NewNamespacedKV(ldb, "foo")
 
-	n1.PutString("test1", "yo1")
-	n1.PutString("test2", "yo2")
-	n1.PutString("test3", "yo3")
+	if err := n1.PutString("test1", "yo1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := n1.PutString("test2", "yo2"); err != nil {
+		t.Fatal(err)
+	}
+	if err := n1.PutString("test3", "yo3"); err != nil {
+		t.Fatal(err)
+	}
 
 	if v, ok := n1.String("test1"); v != "yo1" || !ok {
 		t.Errorf("Incorrect return v %q != \"yo1\" || ok %v != true", v, ok)
@@ -98,7 +114,7 @@ func TestNamespacedReset(t *testing.T) {
 		t.Errorf("Incorrect return v %q != \"yo3\" || ok %v != true", v, ok)
 	}
 
-	n1.Reset()
+	reset(n1)
 
 	if v, ok := n1.String("test1"); v != "" || ok {
 		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
@@ -109,4 +125,23 @@ func TestNamespacedReset(t *testing.T) {
 	if v, ok := n1.String("test3"); v != "" || ok {
 		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
 	}
+}
+
+// reset removes all entries in this namespace.
+func reset(n *NamespacedKV) {
+	tr, err := n.db.NewWriteTransaction()
+	if err != nil {
+		return
+	}
+	defer tr.Release()
+
+	it, err := tr.NewPrefixIterator(n.prefix)
+	if err != nil {
+		return
+	}
+	for it.Next() {
+		_ = tr.Delete(it.Key())
+	}
+	it.Release()
+	_ = tr.Commit()
 }

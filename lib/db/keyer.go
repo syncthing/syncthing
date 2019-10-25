@@ -63,36 +63,36 @@ const (
 
 type keyer interface {
 	// device file key stuff
-	GenerateDeviceFileKey(key, folder, device, name []byte) deviceFileKey
+	GenerateDeviceFileKey(key, folder, device, name []byte) (deviceFileKey, error)
 	NameFromDeviceFileKey(key []byte) []byte
 	DeviceFromDeviceFileKey(key []byte) ([]byte, bool)
 	FolderFromDeviceFileKey(key []byte) ([]byte, bool)
 
 	// global version key stuff
-	GenerateGlobalVersionKey(key, folder, name []byte) globalVersionKey
+	GenerateGlobalVersionKey(key, folder, name []byte) (globalVersionKey, error)
 	NameFromGlobalVersionKey(key []byte) []byte
 	FolderFromGlobalVersionKey(key []byte) ([]byte, bool)
 
 	// block map key stuff (former BlockMap)
-	GenerateBlockMapKey(key, folder, hash, name []byte) blockMapKey
+	GenerateBlockMapKey(key, folder, hash, name []byte) (blockMapKey, error)
 	NameFromBlockMapKey(key []byte) []byte
 
 	// file need index
-	GenerateNeedFileKey(key, folder, name []byte) needFileKey
+	GenerateNeedFileKey(key, folder, name []byte) (needFileKey, error)
 
 	// file sequence index
-	GenerateSequenceKey(key, folder []byte, seq int64) sequenceKey
+	GenerateSequenceKey(key, folder []byte, seq int64) (sequenceKey, error)
 	SequenceFromSequenceKey(key []byte) int64
 
 	// index IDs
-	GenerateIndexIDKey(key, device, folder []byte) indexIDKey
+	GenerateIndexIDKey(key, device, folder []byte) (indexIDKey, error)
 	DeviceFromIndexIDKey(key []byte) ([]byte, bool)
 
 	// Mtimes
-	GenerateMtimesKey(key, folder []byte) mtimesKey
+	GenerateMtimesKey(key, folder []byte) (mtimesKey, error)
 
 	// Folder metadata
-	GenerateFolderMetaKey(key, folder []byte) folderMetaKey
+	GenerateFolderMetaKey(key, folder []byte) (folderMetaKey, error)
 }
 
 // defaultKeyer implements our key scheme. It needs folder and device
@@ -115,13 +115,21 @@ func (k deviceFileKey) WithoutNameAndDevice() []byte {
 	return k[:keyPrefixLen+keyFolderLen]
 }
 
-func (k defaultKeyer) GenerateDeviceFileKey(key, folder, device, name []byte) deviceFileKey {
+func (k defaultKeyer) GenerateDeviceFileKey(key, folder, device, name []byte) (deviceFileKey, error) {
+	folderID, err := k.folderIdx.ID(folder)
+	if err != nil {
+		return nil, err
+	}
+	deviceID, err := k.deviceIdx.ID(device)
+	if err != nil {
+		return nil, err
+	}
 	key = resize(key, keyPrefixLen+keyFolderLen+keyDeviceLen+len(name))
 	key[0] = KeyTypeDevice
-	binary.BigEndian.PutUint32(key[keyPrefixLen:], k.folderIdx.ID(folder))
-	binary.BigEndian.PutUint32(key[keyPrefixLen+keyFolderLen:], k.deviceIdx.ID(device))
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
+	binary.BigEndian.PutUint32(key[keyPrefixLen+keyFolderLen:], deviceID)
 	copy(key[keyPrefixLen+keyFolderLen+keyDeviceLen:], name)
-	return key
+	return key, nil
 }
 
 func (k defaultKeyer) NameFromDeviceFileKey(key []byte) []byte {
@@ -142,12 +150,16 @@ func (k globalVersionKey) WithoutName() []byte {
 	return k[:keyPrefixLen+keyFolderLen]
 }
 
-func (k defaultKeyer) GenerateGlobalVersionKey(key, folder, name []byte) globalVersionKey {
+func (k defaultKeyer) GenerateGlobalVersionKey(key, folder, name []byte) (globalVersionKey, error) {
+	folderID, err := k.folderIdx.ID(folder)
+	if err != nil {
+		return nil, err
+	}
 	key = resize(key, keyPrefixLen+keyFolderLen+len(name))
 	key[0] = KeyTypeGlobal
-	binary.BigEndian.PutUint32(key[keyPrefixLen:], k.folderIdx.ID(folder))
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
 	copy(key[keyPrefixLen+keyFolderLen:], name)
-	return key
+	return key, nil
 }
 
 func (k defaultKeyer) NameFromGlobalVersionKey(key []byte) []byte {
@@ -160,13 +172,17 @@ func (k defaultKeyer) FolderFromGlobalVersionKey(key []byte) ([]byte, bool) {
 
 type blockMapKey []byte
 
-func (k defaultKeyer) GenerateBlockMapKey(key, folder, hash, name []byte) blockMapKey {
+func (k defaultKeyer) GenerateBlockMapKey(key, folder, hash, name []byte) (blockMapKey, error) {
+	folderID, err := k.folderIdx.ID(folder)
+	if err != nil {
+		return nil, err
+	}
 	key = resize(key, keyPrefixLen+keyFolderLen+keyHashLen+len(name))
 	key[0] = KeyTypeBlock
-	binary.BigEndian.PutUint32(key[keyPrefixLen:], k.folderIdx.ID(folder))
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
 	copy(key[keyPrefixLen+keyFolderLen:], hash)
 	copy(key[keyPrefixLen+keyFolderLen+keyHashLen:], name)
-	return key
+	return key, nil
 }
 
 func (k defaultKeyer) NameFromBlockMapKey(key []byte) []byte {
@@ -183,12 +199,16 @@ func (k needFileKey) WithoutName() []byte {
 	return k[:keyPrefixLen+keyFolderLen]
 }
 
-func (k defaultKeyer) GenerateNeedFileKey(key, folder, name []byte) needFileKey {
+func (k defaultKeyer) GenerateNeedFileKey(key, folder, name []byte) (needFileKey, error) {
+	folderID, err := k.folderIdx.ID(folder)
+	if err != nil {
+		return nil, err
+	}
 	key = resize(key, keyPrefixLen+keyFolderLen+len(name))
 	key[0] = KeyTypeNeed
-	binary.BigEndian.PutUint32(key[keyPrefixLen:], k.folderIdx.ID(folder))
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
 	copy(key[keyPrefixLen+keyFolderLen:], name)
-	return key
+	return key, nil
 }
 
 type sequenceKey []byte
@@ -197,12 +217,16 @@ func (k sequenceKey) WithoutSequence() []byte {
 	return k[:keyPrefixLen+keyFolderLen]
 }
 
-func (k defaultKeyer) GenerateSequenceKey(key, folder []byte, seq int64) sequenceKey {
+func (k defaultKeyer) GenerateSequenceKey(key, folder []byte, seq int64) (sequenceKey, error) {
+	folderID, err := k.folderIdx.ID(folder)
+	if err != nil {
+		return nil, err
+	}
 	key = resize(key, keyPrefixLen+keyFolderLen+keySequenceLen)
 	key[0] = KeyTypeSequence
-	binary.BigEndian.PutUint32(key[keyPrefixLen:], k.folderIdx.ID(folder))
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
 	binary.BigEndian.PutUint64(key[keyPrefixLen+keyFolderLen:], uint64(seq))
-	return key
+	return key, nil
 }
 
 func (k defaultKeyer) SequenceFromSequenceKey(key []byte) int64 {
@@ -211,12 +235,20 @@ func (k defaultKeyer) SequenceFromSequenceKey(key []byte) int64 {
 
 type indexIDKey []byte
 
-func (k defaultKeyer) GenerateIndexIDKey(key, device, folder []byte) indexIDKey {
+func (k defaultKeyer) GenerateIndexIDKey(key, device, folder []byte) (indexIDKey, error) {
+	deviceID, err := k.deviceIdx.ID(device)
+	if err != nil {
+		return nil, err
+	}
+	folderID, err := k.folderIdx.ID(folder)
+	if err != nil {
+		return nil, err
+	}
 	key = resize(key, keyPrefixLen+keyDeviceLen+keyFolderLen)
 	key[0] = KeyTypeIndexID
-	binary.BigEndian.PutUint32(key[keyPrefixLen:], k.deviceIdx.ID(device))
-	binary.BigEndian.PutUint32(key[keyPrefixLen+keyDeviceLen:], k.folderIdx.ID(folder))
-	return key
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], deviceID)
+	binary.BigEndian.PutUint32(key[keyPrefixLen+keyDeviceLen:], folderID)
+	return key, nil
 }
 
 func (k defaultKeyer) DeviceFromIndexIDKey(key []byte) ([]byte, bool) {
@@ -225,20 +257,28 @@ func (k defaultKeyer) DeviceFromIndexIDKey(key []byte) ([]byte, bool) {
 
 type mtimesKey []byte
 
-func (k defaultKeyer) GenerateMtimesKey(key, folder []byte) mtimesKey {
+func (k defaultKeyer) GenerateMtimesKey(key, folder []byte) (mtimesKey, error) {
+	folderID, err := k.folderIdx.ID(folder)
+	if err != nil {
+		return nil, err
+	}
 	key = resize(key, keyPrefixLen+keyFolderLen)
 	key[0] = KeyTypeVirtualMtime
-	binary.BigEndian.PutUint32(key[keyPrefixLen:], k.folderIdx.ID(folder))
-	return key
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
+	return key, nil
 }
 
 type folderMetaKey []byte
 
-func (k defaultKeyer) GenerateFolderMetaKey(key, folder []byte) folderMetaKey {
+func (k defaultKeyer) GenerateFolderMetaKey(key, folder []byte) (folderMetaKey, error) {
+	folderID, err := k.folderIdx.ID(folder)
+	if err != nil {
+		return nil, err
+	}
 	key = resize(key, keyPrefixLen+keyFolderLen)
 	key[0] = KeyTypeFolderMeta
-	binary.BigEndian.PutUint32(key[keyPrefixLen:], k.folderIdx.ID(folder))
-	return key
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
+	return key, nil
 }
 
 // resize returns a byte slice of the specified size, reusing bs if possible

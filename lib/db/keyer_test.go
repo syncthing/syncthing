@@ -9,6 +9,8 @@ package db
 import (
 	"bytes"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/db/backend"
 )
 
 func TestDeviceKey(t *testing.T) {
@@ -16,9 +18,12 @@ func TestDeviceKey(t *testing.T) {
 	dev := []byte("device67890123456789012345678901")
 	name := []byte("name")
 
-	db := newInstance(OpenMemory())
+	db := newInstance(NewLowlevel(backend.OpenMemory()))
 
-	key := db.keyer.GenerateDeviceFileKey(nil, fld, dev, name)
+	key, err := db.keyer.GenerateDeviceFileKey(nil, fld, dev, name)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	fld2, ok := db.keyer.FolderFromDeviceFileKey(key)
 	if !ok {
@@ -44,9 +49,12 @@ func TestGlobalKey(t *testing.T) {
 	fld := []byte("folder6789012345678901234567890123456789012345678901234567890123")
 	name := []byte("name")
 
-	db := newInstance(OpenMemory())
+	db := newInstance(NewLowlevel(backend.OpenMemory()))
 
-	key := db.keyer.GenerateGlobalVersionKey(nil, fld, name)
+	key, err := db.keyer.GenerateGlobalVersionKey(nil, fld, name)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	fld2, ok := db.keyer.FolderFromGlobalVersionKey(key)
 	if !ok {
@@ -69,10 +77,13 @@ func TestGlobalKey(t *testing.T) {
 func TestSequenceKey(t *testing.T) {
 	fld := []byte("folder6789012345678901234567890123456789012345678901234567890123")
 
-	db := newInstance(OpenMemory())
+	db := newInstance(NewLowlevel(backend.OpenMemory()))
 
 	const seq = 1234567890
-	key := db.keyer.GenerateSequenceKey(nil, fld, seq)
+	key, err := db.keyer.GenerateSequenceKey(nil, fld, seq)
+	if err != nil {
+		t.Fatal(err)
+	}
 	outSeq := db.keyer.SequenceFromSequenceKey(key)
 	if outSeq != seq {
 		t.Errorf("sequence number mangled, %d != %d", outSeq, seq)

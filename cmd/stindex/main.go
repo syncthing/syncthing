@@ -13,7 +13,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 )
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 		path = filepath.Join(defaultConfigDir(), "index-v0.14.0.db")
 	}
 
-	ldb, err := db.OpenRO(path)
+	ldb, err := backend.OpenLevelDBRO(path)
 	if err != nil {
 		log.Fatal(err)
 	}
