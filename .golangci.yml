@@ -12,6 +12,8 @@ linters:
     - gochecknoglobals
     - gofmt
     - scopelint
+    - gocyclo
+    - funlen
 
 service:
   golangci-lint-version: 1.19.x
