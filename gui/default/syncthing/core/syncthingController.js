@@ -447,6 +447,14 @@ angular.module('syncthing.core')
                 && !guiCfg.insecureAdminAccess;
         }
 
+        $scope.dismissPanel = function(id) {
+            var dismissedPanels = $scope.config.options.dismissedPanels;
+            var idx = dismissedPanels.indexOf(id);
+            if (idx === -1) {
+                dismissedPanels.push(id);
+                $scope.saveConfig();
+            }
+        }
 
         function refreshDiscoveryCache() {
             $http.get(urlbase + '/system/discovery').success(function (data) {

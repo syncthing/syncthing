@@ -418,6 +418,9 @@ nextPendingDevice:
 	if cfg.Options.UnackedNotificationIDs == nil {
 		cfg.Options.UnackedNotificationIDs = []string{}
 	}
+	if cfg.Options.DismissedPanels == nil {
+		cfg.Options.DismissedPanels = []string{}
+	}
 
 	return nil
 }
