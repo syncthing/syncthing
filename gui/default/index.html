@@ -122,6 +122,39 @@
       </div>
     </div>
 
+    <!-- Panel: Closed, no auth -->
+
+    <div ng-if="closedNoAuth" class="row">
+      <div class="col-md-12">
+        <div class="panel panel-warning">
+          <div class="panel-heading">
+            <h3 class="panel-title">
+              <div class="panel-icon">
+                <span class="fas fa-exclamation-circle"></span>
+              </div>
+              <span translate>Warning!</span>
+            </h3>
+          </div>
+          <div class="panel-body">
+            <p>
+            <span translate>If this is a shared computer, other users might be able to access the admin interface.</span>
+            <span translate>Please set a GUI Authentication User and Password in the Settings dialog.</span>
+            </p>
+          </div>
+          <div class="panel-footer clearfix">
+            <div class="pull-right">
+              <button type="button" class="btn btn-sm btn-default" ng-click="editSettings()">
+                <span class="fas fa-cog"></span>&nbsp;<span translate>Settings</span>
+              </button>
+              <button type="button" class="btn btn-sm btn-default" ng-click="dismissPanel('closedNoAuth')">
+                <span class="fas fa-times"></span>&nbsp;<span translate>Do not show again</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Panel: Restart Needed -->
 
     <div ng-if="!configInSync" class="row">

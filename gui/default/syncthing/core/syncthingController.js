@@ -445,6 +445,17 @@ angular.module('syncthing.core')
                 && (!guiCfg.user || !guiCfg.password)
                 && guiCfg.authMode !== 'ldap'
                 && !guiCfg.insecureAdminAccess;
+
+            // Show a warning that can be dismissed, when no authentication is
+            // configured but we're only listening on localhost.
+            // Similar to the above.
+            $scope.closedNoAuth = (addr.substr(0, 4) === "127."
+                || addr.substr(0, 6) === "[::1]:"
+                || addr.substr(0, 1) === "/")
+                && (!guiCfg.user || !guiCfg.password)
+                && guiCfg.authMode !== 'ldap'
+                && !guiCfg.insecureAdminAccess
+                && $scope.config.options.dismissedPanels.indexOf('closedNoAuth') === -1;
         }
 
         $scope.dismissPanel = function(id) {
@@ -1013,7 +1024,7 @@ angular.module('syncthing.core')
             }
 
             // enumerate notifications
-            if ($scope.openNoAuth || !$scope.configInSync || $scope.errorList().length > 0 || !online || (
+            if ($scope.openNoAuth || $scope.closedNoAuth || !$scope.configInSync || $scope.errorList().length > 0 || !online || (
                 !isEmptyObject($scope.config) && ($scope.config.pendingDevices.length > 0 || pendingFolders > 0)
             )) {
                 notifyCount++;
