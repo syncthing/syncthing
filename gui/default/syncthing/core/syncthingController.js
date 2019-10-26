@@ -1086,6 +1086,10 @@ angular.module('syncthing.core')
             return device.deviceID.substr(0, 6);
         };
 
+        $scope.setCurrentFolder = function (id) {
+            $scope.currentFolder = angular.copy($scope.folders[id]);
+        }
+
         $scope.setDevicePause = function (device, pause) {
             $scope.devices.forEach(function (cfg) {
                 if (cfg.deviceID == device) {

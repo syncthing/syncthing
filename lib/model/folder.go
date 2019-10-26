@@ -83,7 +83,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 	return folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
-		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
+		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID, cfg.Path),
 
 		model:   model,
 		shortID: model.shortID,

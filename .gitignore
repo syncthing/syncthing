@@ -24,3 +24,5 @@ stage/
 *.snap
 *.bz2
 /repos
+.idea/
+_test_config/
