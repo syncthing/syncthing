@@ -389,8 +389,17 @@ func (m *model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
-	// Delete syncthing specific files
-	cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
+	isPathUnique := true
+	for folderID, folderCfg := range m.folderCfgs {
+		if folderID != cfg.ID && folderCfg.Path == cfg.Path {
+			isPathUnique = false
+			break
+		}
+	}
+	if isPathUnique {
+		// Delete syncthing specific files
+		cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
+	}
 
 	m.tearDownFolderLocked(cfg, fmt.Errorf("removing folder %v", cfg.Description()))
 	// Remove it from the database
