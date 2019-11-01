@@ -770,16 +770,18 @@ angular.module('syncthing.core')
                 return 'paused';
             }
 
+            var folderInfo = $scope.model[folderCfg.id];
+
             // after restart syncthing process state may be empty
-            if (!$scope.model[folderCfg.id].state) {
+            if (!folderInfo.state) {
                 return 'unknown';
             }
 
-            var state = '' + $scope.model[folderCfg.id].state;
+            var state = '' + folderInfo.state;
             if (state === 'error') {
                 return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
-            if (state === 'idle' && $scope.model[folderCfg.id].needTotalItems > 0) {
+            if (state === 'idle' && folderInfo.needTotalItems > 0) {
                 return 'outofsync';
             }
             if ($scope.hasFailedFiles(folderCfg.id)) {
@@ -787,6 +789,10 @@ angular.module('syncthing.core')
             }
             if (state === 'scanning') {
                 return state;
+            }
+
+            if (folderInfo.receiveOnlyTotalItems) {
+                return 'localadditions';
             }
 
             if (folderCfg.devices.length <= 1) {
@@ -799,7 +805,7 @@ angular.module('syncthing.core')
         $scope.folderClass = function (folderCfg) {
             var status = $scope.folderStatus(folderCfg);
 
-            if (status === 'idle') {
+            if (status === 'idle' || status === 'localadditions') {
                 return 'success';
             }
             if (status == 'paused') {
