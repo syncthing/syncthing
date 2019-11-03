@@ -120,8 +120,13 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		// Check for a compiled in default asset.
 		bs, ok = s.assets[config.DefaultTheme+"/"+file]
 		if !ok {
-			http.NotFound(w, r)
-			return
+
+			// Check for a compiled outside of current theme
+			bs, ok = s.assets[file]
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
 		}
 	}
 
