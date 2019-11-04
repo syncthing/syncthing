@@ -22,17 +22,10 @@ func (p *bufferPool) Get(size int) []byte {
 		return make([]byte, size)
 	}
 
-	// Find the segment containing a slice guaranteed to be >= size
-	var i, blockSize int
-	for i, blockSize = range BlockSizes {
-		if size <= blockSize {
-			break
-		}
-	}
-
-	var bs []byte
 	// Try the fitting and all bigger pools
-	for j := i; j < len(BlockSizes); j++ {
+	var bs []byte
+	bkt := getBucketForSize(size)
+	for j := bkt; j < len(BlockSizes); j++ {
 		if intf := p.pools[j].Get(); intf != nil {
 			bs = *intf.(*[]byte)
 			return bs[:size]
@@ -45,7 +38,7 @@ func (p *bufferPool) Get(size int) []byte {
 	if size < MinBlockSize/64 {
 		return make([]byte, size)
 	}
-	return make([]byte, BlockSizes[i])[:size]
+	return make([]byte, BlockSizes[bkt])[:size]
 }
 
 // Put makes the given byte slice available again in the global pool
@@ -56,12 +49,9 @@ func (p *bufferPool) Put(bs []byte) {
 	if c > MaxBlockSize*1.5 || c < MinBlockSize {
 		return
 	}
-	for i, blockSize := range BlockSizes {
-		if c <= blockSize {
-			p.pools[i].Put(&bs)
-			return
-		}
-	}
+
+	bkt := putBucketForSize(c)
+	p.pools[bkt].Put(&bs)
 }
 
 // Upgrade grows the buffer to the requested size, while attempting to reuse
@@ -76,4 +66,30 @@ func (p *bufferPool) Upgrade(bs []byte, size int) []byte {
 	// buffer.
 	p.Put(bs)
 	return p.Get(size)
+}
+
+// getBucketForSize returns the bucket where we should *get* a slice of
+// a certain size. Each bucket is guaranteed to hold slices that are *at
+// least* the block size for that bucket, so if the block size is larger
+// than our size we are good.
+func getBucketForSize(size int) int {
+	for i, blockSize := range BlockSizes {
+		if size <= blockSize {
+			return i
+		}
+	}
+	return len(BlockSizes) - 1
+}
+
+// putBucketForSize returns the bucket where we should *put* a slice of a
+// certain size. Each bucket is guaranteed to hold slices that are *at
+// least* the block size for that bucket, so we find the highest bucket that
+// is smaller or equal to our size.
+func putBucketForSize(size int) int {
+	for i := len(BlockSizes) - 1; i >= 0; i-- {
+		if size >= BlockSizes[i] {
+			return i
+		}
+	}
+	return -1
 }
