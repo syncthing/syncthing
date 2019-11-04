@@ -23,6 +23,8 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
+const themePrefix = "theme-assets/"
+
 type staticsServer struct {
 	assetDir        string
 	assets          map[string][]byte
@@ -89,7 +91,6 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	s.mut.RUnlock()
 
 	// If path starts with special prefix, get theme and file from path
-	const themePrefix = "theme-assets/"
 	if strings.HasPrefix(file, themePrefix) {
 		path := file[len(themePrefix):]
 		i := strings.IndexRune(path, '/')
