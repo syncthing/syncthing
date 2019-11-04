@@ -26,6 +26,10 @@ func TestBucketNumbers(t *testing.T) {
 
 		// ... and past it.
 		{size: 2*MinBlockSize + 1, put: 1, get: 2},
+
+		// ... and past it some more. We can always put large blocks, but
+		// can't guarantee getting one.
+		{size: 2 * MaxBlockSize, put: len(BlockSizes) - 1, get: -1},
 	}
 
 	for _, tc := range cases {

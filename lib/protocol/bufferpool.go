@@ -2,7 +2,10 @@
 
 package protocol
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 // Global pool to get buffers from. Requires Blocksizes to be initialised,
 // therefore it is initialized in the same init() as BlockSizes
@@ -25,6 +28,9 @@ func (p *bufferPool) Get(size int) []byte {
 	// Try the fitting and all bigger pools
 	var bs []byte
 	bkt := getBucketForSize(size)
+	if bkt == -1 {
+		panic(fmt.Sprintf("bug: tried to get impossible block size %d", size))
+	}
 	for j := bkt; j < len(BlockSizes); j++ {
 		if intf := p.pools[j].Get(); intf != nil {
 			bs = *intf.(*[]byte)
@@ -51,6 +57,9 @@ func (p *bufferPool) Put(bs []byte) {
 	}
 
 	bkt := putBucketForSize(c)
+	if bkt == -1 {
+		panic(fmt.Sprintf("bug: tried to put impossible block size %d", c))
+	}
 	p.pools[bkt].Put(&bs)
 }
 
@@ -78,7 +87,7 @@ func getBucketForSize(size int) int {
 			return i
 		}
 	}
-	return len(BlockSizes) - 1
+	return -1
 }
 
 // putBucketForSize returns the bucket where we should *put* a slice of a
