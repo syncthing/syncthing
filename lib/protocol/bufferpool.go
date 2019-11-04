@@ -21,12 +21,15 @@ func (p *bufferPool) Get(size int) []byte {
 	if size > MaxBlockSize {
 		return make([]byte, size)
 	}
-	var i int
-	for i = range BlockSizes {
-		if size <= BlockSizes[i] {
+
+	// Find the segment containing a slice guaranteed to be >= size
+	var i, blockSize int
+	for i, blockSize = range BlockSizes {
+		if size <= blockSize {
 			break
 		}
 	}
+
 	var bs []byte
 	// Try the fitting and all bigger pools
 	for j := i; j < len(BlockSizes); j++ {
@@ -35,19 +38,26 @@ func (p *bufferPool) Get(size int) []byte {
 			return bs[:size]
 		}
 	}
-	// All pools are empty, must allocate.
+
+	// All pools are empty, must allocate. For very small slices where we
+	// didn't have a block to reuse, just allocate a small slice instead of
+	// a large one. We won't be able to reuse it, but avoid some overhead.
+	if size < MinBlockSize/64 {
+		return make([]byte, size)
+	}
 	return make([]byte, BlockSizes[i])[:size]
 }
 
-// Put makes the given byte slice availabe again in the global pool
+// Put makes the given byte slice available again in the global pool
 func (p *bufferPool) Put(bs []byte) {
 	c := cap(bs)
-	// Don't buffer huge byte slices
-	if c > 2*MaxBlockSize {
+	// Don't buffer huge byte slices or slices that are too small to be
+	// safely reused
+	if c > MaxBlockSize*1.5 || c < MinBlockSize {
 		return
 	}
-	for i := range BlockSizes {
-		if c >= BlockSizes[i] {
+	for i, blockSize := range BlockSizes {
+		if c <= blockSize {
 			p.pools[i].Put(&bs)
 			return
 		}
