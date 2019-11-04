@@ -72,6 +72,7 @@ func TestStressBufferPool(t *testing.T) {
 	t0 := time.Now()
 
 	var wg sync.WaitGroup
+	fail := make(chan struct{}, routines)
 	for i := 0; i < routines; i++ {
 		wg.Add(1)
 		go func() {
@@ -82,7 +83,7 @@ func TestStressBufferPool(t *testing.T) {
 					want := rand.Intn(1.5 * MaxBlockSize)
 					blocks[i] = bp.Get(want)
 					if len(blocks[i]) != want {
-						t.Fatal("wat")
+						fail <- struct{}{}
 					}
 				}
 				for i := range blocks {
@@ -93,6 +94,11 @@ func TestStressBufferPool(t *testing.T) {
 	}
 
 	wg.Wait()
+	select {
+	case <-fail:
+		t.Fatal("a block was bad size")
+	default:
+	}
 
 	t.Log(bp.puts, bp.skips, bp.misses, bp.hits)
 	if bp.puts == 0 || bp.skips == 0 || bp.misses == 0 {
