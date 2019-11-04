@@ -30,7 +30,7 @@ func newBufferPool() bufferPool {
 func (p *bufferPool) Get(size int) []byte {
 	// Too big, isn't pooled
 	if size > MaxBlockSize {
-		atomic.AddInt64(&p.misses, 1)
+		atomic.AddInt64(&p.skips, 1)
 		return make([]byte, size)
 	}
 
