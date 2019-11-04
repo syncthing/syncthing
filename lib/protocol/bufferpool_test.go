@@ -2,7 +2,13 @@
 
 package protocol
 
-import "testing"
+import (
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/syncthing/syncthing/lib/rand"
+)
 
 func TestGetBucketNumbers(t *testing.T) {
 	cases := []struct {
@@ -56,6 +62,37 @@ func TestPutBucketNumbers(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestStressBufferPool(t *testing.T) {
+	const routines = 100
+	const runtime = time.Second
+
+	bp := newBufferPool()
+	t0 := time.Now()
+
+	var wg sync.WaitGroup
+	for i := 0; i < routines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for time.Since(t0) < runtime {
+				blocks := make([][]byte, 100)
+				for i := range blocks {
+					want := rand.Intn(MaxBlockSize)
+					blocks[i] = bp.Get(want)
+					if len(blocks[i]) != want {
+						t.Fatal("wat")
+					}
+				}
+				for i := range blocks {
+					bp.Put(blocks[i])
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
 }
 
 func shouldPanic(t *testing.T, fn func()) {
