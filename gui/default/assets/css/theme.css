@@ -7,5 +7,5 @@
 
 */
 
-@import "/dark/assets/css/theme.css" (prefers-color-scheme: dark);
-@import "/light/assets/css/theme.css" (prefers-color-scheme: light), (prefers-color-scheme: no-preference);
+@import "/theme-assets/dark/assets/css/theme.css" (prefers-color-scheme: dark);
+@import "/theme-assets/light/assets/css/theme.css" (prefers-color-scheme: light), (prefers-color-scheme: no-preference);

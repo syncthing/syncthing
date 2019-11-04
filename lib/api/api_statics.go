@@ -88,6 +88,21 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	theme := s.theme
 	s.mut.RUnlock()
 
+	// If path starts with special prefix, get theme and file from path
+	const themePrefix = "theme-assets/"
+	if strings.HasPrefix(file, themePrefix) {
+		path := file[len(themePrefix):]
+		i := strings.IndexRune(path, '/')
+
+		if i == -1 {
+			http.NotFound(w, r)
+			return
+		}
+
+		theme = path[:i]
+		file = path[i+1:]
+	}
+
 	// Check for an override for the current theme.
 	if s.assetDir != "" {
 		p := filepath.Join(s.assetDir, theme, filepath.FromSlash(file))
@@ -120,13 +135,8 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		// Check for a compiled in default asset.
 		bs, ok = s.assets[config.DefaultTheme+"/"+file]
 		if !ok {
-
-			// Check for a compiled outside of current theme
-			bs, ok = s.assets[file]
-			if !ok {
-				http.NotFound(w, r)
-				return
-			}
+			http.NotFound(w, r)
+			return
 		}
 	}
 
