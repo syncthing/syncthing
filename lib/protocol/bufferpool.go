@@ -28,9 +28,6 @@ func (p *bufferPool) Get(size int) []byte {
 	// Try the fitting and all bigger pools
 	var bs []byte
 	bkt := getBucketForSize(size)
-	if bkt == -1 {
-		panic(fmt.Sprintf("bug: tried to get impossible block size %d", size))
-	}
 	for j := bkt; j < len(BlockSizes); j++ {
 		if intf := p.pools[j].Get(); intf != nil {
 			bs = *intf.(*[]byte)
@@ -47,19 +44,15 @@ func (p *bufferPool) Get(size int) []byte {
 	return make([]byte, BlockSizes[bkt])[:size]
 }
 
-// Put makes the given byte slice available again in the global pool
+// Put makes the given byte slice available again in the global pool.
+// You must only Put() slices that were returned by Get() or Upgrade().
 func (p *bufferPool) Put(bs []byte) {
-	c := cap(bs)
-	// Don't buffer huge byte slices or slices that are too small to be
-	// safely reused
-	if c > MaxBlockSize*1.5 || c < MinBlockSize {
+	// Don't buffer slices outside of our pool range
+	if cap(bs) > MaxBlockSize || cap(bs) < MinBlockSize {
 		return
 	}
 
-	bkt := putBucketForSize(c)
-	if bkt == -1 {
-		panic(fmt.Sprintf("bug: tried to put impossible block size %d", c))
-	}
+	bkt := putBucketForSize(cap(bs))
 	p.pools[bkt].Put(&bs)
 }
 
@@ -77,28 +70,29 @@ func (p *bufferPool) Upgrade(bs []byte, size int) []byte {
 	return p.Get(size)
 }
 
-// getBucketForSize returns the bucket where we should *get* a slice of
-// a certain size. Each bucket is guaranteed to hold slices that are *at
-// least* the block size for that bucket, so if the block size is larger
-// than our size we are good.
+// getBucketForSize returns the bucket where we should get a slice of a
+// certain size. Each bucket is guaranteed to hold slices that are precisely
+// the block size for that bucket, so if the block size is larger than our
+// size we are good.
 func getBucketForSize(size int) int {
 	for i, blockSize := range BlockSizes {
 		if size <= blockSize {
 			return i
 		}
 	}
-	return -1
+
+	panic(fmt.Sprintf("bug: tried to get impossible block size %d", size))
 }
 
-// putBucketForSize returns the bucket where we should *put* a slice of a
-// certain size. Each bucket is guaranteed to hold slices that are *at
-// least* the block size for that bucket, so we find the highest bucket that
-// is smaller or equal to our size.
-func putBucketForSize(size int) int {
-	for i := len(BlockSizes) - 1; i >= 0; i-- {
-		if size >= BlockSizes[i] {
+// putBucketForSize returns the bucket where we should put a slice of a
+// certain size. Each bucket is guaranteed to hold slices that are precisely
+// the block size for that bucket, so we just find the matching one.
+func putBucketForSize(cap int) int {
+	for i, blockSize := range BlockSizes {
+		if cap == blockSize {
 			return i
 		}
 	}
-	return -1
+
+	panic(fmt.Sprintf("bug: tried to put impossible block size %d", cap))
 }

@@ -4,42 +4,66 @@ package protocol
 
 import "testing"
 
-func TestBucketNumbers(t *testing.T) {
+func TestGetBucketNumbers(t *testing.T) {
 	cases := []struct {
-		size int
-		put  int
-		get  int
+		size   int
+		bkt    int
+		panics bool
 	}{
-		// Small blocks are put nowwhere, but can be fetched from bucket 0
-		{size: 1024, put: -1, get: 0},
-
-		// The blocksize for bucket zero  goes there
-		{size: MinBlockSize, put: 0, get: 0},
-
-		// Up to the next blocksize - 1 we still put in the same bucket, but
-		// we look for these blocks in the next bucket where we know they
-		// can be found.
-		{size: 2*MinBlockSize - 1, put: 0, get: 1},
-
-		// Next blocksize at the border...
-		{size: 2 * MinBlockSize, put: 1, get: 1},
-
-		// ... and past it.
-		{size: 2*MinBlockSize + 1, put: 1, get: 2},
-
-		// ... and past it some more. We can always put large blocks, but
-		// can't guarantee getting one.
-		{size: 2 * MaxBlockSize, put: len(BlockSizes) - 1, get: -1},
+		{size: 1024, bkt: 0},
+		{size: MinBlockSize, bkt: 0},
+		{size: MinBlockSize + 1, bkt: 1},
+		{size: 2*MinBlockSize - 1, bkt: 1},
+		{size: 2 * MinBlockSize, bkt: 1},
+		{size: 2*MinBlockSize + 1, bkt: 2},
+		{size: MaxBlockSize, bkt: len(BlockSizes) - 1},
+		{size: MaxBlockSize + 1, panics: true},
 	}
 
 	for _, tc := range cases {
-		getRes := getBucketForSize(tc.size)
-		if getRes != tc.get {
-			t.Errorf("block of size %d should get from bucket %d, not %d", tc.size, tc.get, getRes)
-		}
-		putRes := putBucketForSize(tc.size)
-		if putRes != tc.put {
-			t.Errorf("block of size %d should put into bucket %d, not %d", tc.size, tc.put, putRes)
+		if tc.panics {
+			shouldPanic(t, func() { getBucketForSize(tc.size) })
+		} else {
+			res := getBucketForSize(tc.size)
+			if res != tc.bkt {
+				t.Errorf("block of size %d should get from bucket %d, not %d", tc.size, tc.bkt, res)
+			}
 		}
 	}
+}
+
+func TestPutBucketNumbers(t *testing.T) {
+	cases := []struct {
+		size   int
+		bkt    int
+		panics bool
+	}{
+		{size: 1024, panics: true},
+		{size: MinBlockSize, bkt: 0},
+		{size: MinBlockSize + 1, panics: true},
+		{size: 2 * MinBlockSize, bkt: 1},
+		{size: MaxBlockSize, bkt: len(BlockSizes) - 1},
+		{size: MaxBlockSize + 1, panics: true},
+	}
+
+	for _, tc := range cases {
+		if tc.panics {
+			shouldPanic(t, func() { putBucketForSize(tc.size) })
+		} else {
+			res := putBucketForSize(tc.size)
+			if res != tc.bkt {
+				t.Errorf("block of size %d should put into bucket %d, not %d", tc.size, tc.bkt, res)
+			}
+		}
+	}
+}
+
+func shouldPanic(t *testing.T, fn func()) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("did not panic")
+		}
+	}()
+
+	fn()
 }
