@@ -17,7 +17,7 @@ type bufferPool struct {
 	skips  int64
 	misses int64
 	pools  []sync.Pool
-	hits   []int64
+	hits   []int64 // start of slice allocation is always aligned
 }
 
 func newBufferPool() bufferPool {
