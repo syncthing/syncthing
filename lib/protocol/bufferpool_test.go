@@ -79,7 +79,7 @@ func TestStressBufferPool(t *testing.T) {
 			for time.Since(t0) < runtime {
 				blocks := make([][]byte, 100)
 				for i := range blocks {
-					want := rand.Intn(MaxBlockSize)
+					want := rand.Intn(1.5 * MaxBlockSize)
 					blocks[i] = bp.Get(want)
 					if len(blocks[i]) != want {
 						t.Fatal("wat")
