@@ -84,6 +84,7 @@ func TestStressBufferPool(t *testing.T) {
 					blocks[i] = bp.Get(want)
 					if len(blocks[i]) != want {
 						fail <- struct{}{}
+						return
 					}
 				}
 				for i := range blocks {
