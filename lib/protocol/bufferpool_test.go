@@ -93,6 +93,16 @@ func TestStressBufferPool(t *testing.T) {
 	}
 
 	wg.Wait()
+
+	t.Log(bp.puts, bp.skips, bp.misses, bp.hits)
+	if bp.puts == 0 || bp.skips == 0 || bp.misses == 0 {
+		t.Error("didn't exercise some paths")
+	}
+	for _, h := range bp.hits {
+		if h == 0 {
+			t.Error("didn't exercise some paths")
+		}
+	}
 }
 
 func shouldPanic(t *testing.T, fn func()) {

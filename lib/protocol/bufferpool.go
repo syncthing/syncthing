@@ -5,6 +5,7 @@ package protocol
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 )
 
 // Global pool to get buffers from. Requires Blocksizes to be initialised,
@@ -12,16 +13,24 @@ import (
 var BufferPool bufferPool
 
 type bufferPool struct {
-	pools []sync.Pool
+	puts   int64
+	skips  int64
+	misses int64
+	pools  []sync.Pool
+	hits   []int64
 }
 
 func newBufferPool() bufferPool {
-	return bufferPool{make([]sync.Pool, len(BlockSizes))}
+	return bufferPool{
+		pools: make([]sync.Pool, len(BlockSizes)),
+		hits:  make([]int64, len(BlockSizes)),
+	}
 }
 
 func (p *bufferPool) Get(size int) []byte {
 	// Too big, isn't pooled
 	if size > MaxBlockSize {
+		atomic.AddInt64(&p.misses, 1)
 		return make([]byte, size)
 	}
 
@@ -31,9 +40,12 @@ func (p *bufferPool) Get(size int) []byte {
 	for j := bkt; j < len(BlockSizes); j++ {
 		if intf := p.pools[j].Get(); intf != nil {
 			bs = *intf.(*[]byte)
+			atomic.AddInt64(&p.hits[j], 1)
 			return bs[:size]
 		}
 	}
+
+	atomic.AddInt64(&p.misses, 1)
 
 	// All pools are empty, must allocate. For very small slices where we
 	// didn't have a block to reuse, just allocate a small slice instead of
@@ -49,9 +61,11 @@ func (p *bufferPool) Get(size int) []byte {
 func (p *bufferPool) Put(bs []byte) {
 	// Don't buffer slices outside of our pool range
 	if cap(bs) > MaxBlockSize || cap(bs) < MinBlockSize {
+		atomic.AddInt64(&p.skips, 1)
 		return
 	}
 
+	atomic.AddInt64(&p.puts, 1)
 	bkt := putBucketForSize(cap(bs))
 	p.pools[bkt].Put(&bs)
 }
