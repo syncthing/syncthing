@@ -98,14 +98,14 @@ const (
 )
 
 var (
-	ErrClosed               = errors.New("connection closed")
-	ErrTimeout              = errors.New("read timeout")
-	errUnknownMessage       = errors.New("unknown message")
-	errInvalidFilename      = errors.New("filename is invalid")
-	errUncleanFilename      = errors.New("filename not in canonical format")
-	errDeletedHasBlocks     = errors.New("deleted file with non-empty block list")
-	errDirectoryHasBlocks   = errors.New("directory with non-empty block list")
-	errFileHasNoBlocks      = errors.New("file with empty block list")
+	ErrClosed             = errors.New("connection closed")
+	ErrTimeout            = errors.New("read timeout")
+	errUnknownMessage     = errors.New("unknown message")
+	errInvalidFilename    = errors.New("filename is invalid")
+	errUncleanFilename    = errors.New("filename not in canonical format")
+	errDeletedHasBlocks   = errors.New("deleted file with non-empty block list")
+	errDirectoryHasBlocks = errors.New("directory with non-empty block list")
+	errFileHasNoBlocks    = errors.New("file with empty block list")
 )
 
 type Model interface {
