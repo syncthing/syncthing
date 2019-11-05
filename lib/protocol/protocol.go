@@ -79,28 +79,6 @@ const (
 	stateReady
 )
 
-// Request message flags
-const (
-	FlagFromTemporary uint32 = 1 << iota
-)
-
-// ClusterConfigMessage.Folders flags
-const (
-	FlagFolderReadOnly            uint32 = 1 << 0
-	FlagFolderIgnorePerms                = 1 << 1
-	FlagFolderIgnoreDelete               = 1 << 2
-	FlagFolderDisabledTempIndexes        = 1 << 3
-	FlagFolderAll                        = 1<<4 - 1
-)
-
-// ClusterConfigMessage.Folders.Devices flags
-const (
-	FlagShareTrusted  uint32 = 1 << 0
-	FlagShareReadOnly        = 1 << 1
-	FlagIntroducer           = 1 << 2
-	FlagShareBits            = 0x000000ff
-)
-
 // FileInfo.LocalFlags flags
 const (
 	FlagLocalUnsupported = 1 << 0 // The kind is unsupported, e.g. symlinks on Windows
@@ -122,7 +100,6 @@ const (
 var (
 	ErrClosed               = errors.New("connection closed")
 	ErrTimeout              = errors.New("read timeout")
-	ErrSwitchingConnections = errors.New("switching connections")
 	errUnknownMessage       = errors.New("unknown message")
 	errInvalidFilename      = errors.New("filename is invalid")
 	errUncleanFilename      = errors.New("filename not in canonical format")
@@ -491,6 +468,8 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	msgLen := int32(binary.BigEndian.Uint32(fourByteBuf))
 	if msgLen < 0 {
 		return nil, fmt.Errorf("negative message length %d", msgLen)
+	} else if msgLen > MaxMessageLen {
+		return nil, fmt.Errorf("message length %d exceeds maximum %d", msgLen, MaxMessageLen)
 	}
 
 	// Then comes the message

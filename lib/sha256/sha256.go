@@ -28,11 +28,6 @@ const (
 	minioImpl              = "minio/sha256-simd"
 )
 
-const (
-	BlockSize = cryptoSha256.BlockSize
-	Size      = cryptoSha256.Size
-)
-
 // May be switched out for another implementation
 var (
 	New    = cryptoSha256.New

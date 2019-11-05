@@ -37,7 +37,6 @@ type Asset struct {
 }
 
 var (
-	ErrVersionUpToDate    = errors.New("current version is up to date")
 	ErrNoReleaseDownload  = errors.New("couldn't find a release to download")
 	ErrNoVersionToSelect  = errors.New("no version to select")
 	ErrUpgradeUnsupported = errors.New("upgrade unsupported")

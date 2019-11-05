@@ -45,19 +45,13 @@ import (
 )
 
 const (
-	exitSuccess            = 0
 	exitError              = 1
 	exitNoUpgradeAvailable = 2
-	exitRestarting         = 3
 	exitUpgrading          = 4
 )
 
 const (
-	bepProtocolName        = "bep/1.0"
 	tlsDefaultCommonName   = "syncthing"
-	maxSystemErrors        = 5
-	initialSystemLog       = 10
-	maxSystemLog           = 250
 	deviceCertLifetimeDays = 20 * 365
 )
 
