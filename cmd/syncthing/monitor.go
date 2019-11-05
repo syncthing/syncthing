@@ -82,7 +82,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 		if t := time.Since(restarts[0]); t < loopThreshold {
 			l.Warnf("%d restarts in %v; not retrying further", countRestarts, t)
-			os.Exit(int(syncthing.ExitError))
+			os.Exit(syncthing.ExitError.AsInt())
 		}
 
 		copy(restarts[0:], restarts[1:])
@@ -153,7 +153,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			} else if exiterr, ok := err.(*exec.ExitError); ok {
 				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 					switch status.ExitStatus() {
-					case int(syncthing.ExitUpgrade):
+					case syncthing.ExitUpgrade.AsInt():
 						// Restart the monitor process to release the .old
 						// binary as part of the upgrade process.
 						l.Infoln("Restarting monitor...")

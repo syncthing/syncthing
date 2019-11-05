@@ -47,6 +47,10 @@ const (
 
 type ExitStatus int
 
+func (s ExitStatus) AsInt() int {
+	return int(s)
+}
+
 const (
 	ExitSuccess            ExitStatus = 0
 	ExitError              ExitStatus = 1
