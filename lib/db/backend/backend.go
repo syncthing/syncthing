@@ -10,28 +10,44 @@ import (
 	"sync"
 )
 
+// The Reader interface specifies the read-only operations available on the
+// main database and on read-only transactions (snapshots). Note that when
+// called directly on the database handle these operations may take implicit
+// transactions and performance may suffer.
 type Reader interface {
 	Get(key []byte) ([]byte, error)
 	NewPrefixIterator(prefix []byte) (Iterator, error)
 	NewRangeIterator(first, last []byte) (Iterator, error)
 }
 
+// The Writer interface specifies the mutating operations available on the
+// main database and on writable transactions. Note that when called
+// directly on the database handle these operations may take implicit
+// transactions and performance may suffer.
 type Writer interface {
 	Put(key, val []byte) error
 	Delete(key []byte) error
 }
 
+// The ReadTransaction interface specifies the operations on read-only
+// transactions. Every ReadTransaction must be Released when no longer
+// required.
 type ReadTransaction interface {
 	Reader
 	Release()
 }
 
+// The WriteTransaction interface specifies the operations on writable
+// transactions. Every WriteTransaction must be either Commited or Released
+// (i.e., discarded) when no longer required. It is fine to Release an
+// already Commited transaction.
 type WriteTransaction interface {
 	ReadTransaction
 	Writer
 	Commit() error
 }
 
+// The Iterator interface specifies the operations available on iterators returned by NewPrefixIterator and NewRangeIterator. Note that there are multiple ways an error may be reported: in the Value()
 type Iterator interface {
 	Next() bool
 	Key() []byte
