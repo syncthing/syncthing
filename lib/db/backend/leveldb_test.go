@@ -9,7 +9,5 @@ package backend
 import "testing"
 
 func TestLevelDBBackendBehavior(t *testing.T) {
-	testBackendBehavior(t, func() Backend {
-		return OpenLevelDBMemory()
-	})
+	testBackendBehavior(t, OpenLevelDBMemory)
 }
