@@ -414,7 +414,10 @@ func (db *instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 			return nil
 		}
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	return dbi.Error()
 }
 
 func (db *instance) availability(folder, file []byte) ([]protocol.DeviceID, error) {
@@ -729,6 +732,10 @@ func (db *instance) checkGlobals(folder []byte, meta *metadataTracker) error {
 			}
 		}
 	}
+	if err := dbi.Error(); err != nil {
+		return err
+	}
+
 	l.Debugf("db check completed for %q", folder)
 	return t.commit()
 }
