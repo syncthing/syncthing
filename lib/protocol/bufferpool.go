@@ -36,7 +36,7 @@ func (p *bufferPool) Get(size int) []byte {
 
 	// Try the fitting and all bigger pools
 	var bs []byte
-	bkt := getBucketForSize(size)
+	bkt := getBucketForLen(size)
 	for j := bkt; j < len(BlockSizes); j++ {
 		if intf := p.pools[j].Get(); intf != nil {
 			bs = *intf.(*[]byte)
@@ -66,7 +66,7 @@ func (p *bufferPool) Put(bs []byte) {
 	}
 
 	atomic.AddInt64(&p.puts, 1)
-	bkt := putBucketForSize(cap(bs))
+	bkt := putBucketForCap(cap(bs))
 	p.pools[bkt].Put(&bs)
 }
 
@@ -84,29 +84,30 @@ func (p *bufferPool) Upgrade(bs []byte, size int) []byte {
 	return p.Get(size)
 }
 
-// getBucketForSize returns the bucket where we should get a slice of a
-// certain size. Each bucket is guaranteed to hold slices that are precisely
-// the block size for that bucket, so if the block size is larger than our
-// size we are good.
-func getBucketForSize(size int) int {
+// getBucketForLen returns the bucket where we should get a slice of a
+// certain length. Each bucket is guaranteed to hold slices that are
+// precisely the block size for that bucket, so if the block size is larger
+// than our size we are good.
+func getBucketForLen(len int) int {
 	for i, blockSize := range BlockSizes {
-		if size <= blockSize {
+		if len <= blockSize {
 			return i
 		}
 	}
 
-	panic(fmt.Sprintf("bug: tried to get impossible block size %d", size))
+	panic(fmt.Sprintf("bug: tried to get impossible block len %d", len))
 }
 
-// putBucketForSize returns the bucket where we should put a slice of a
-// certain size. Each bucket is guaranteed to hold slices that are precisely
-// the block size for that bucket, so we just find the matching one.
-func putBucketForSize(cap int) int {
+// putBucketForCap returns the bucket where we should put a slice of a
+// certain capacity. Each bucket is guaranteed to hold slices that are
+// precisely the block size for that bucket, so we just find the matching
+// one.
+func putBucketForCap(cap int) int {
 	for i, blockSize := range BlockSizes {
 		if cap == blockSize {
 			return i
 		}
 	}
 
-	panic(fmt.Sprintf("bug: tried to put impossible block size %d", cap))
+	panic(fmt.Sprintf("bug: tried to put impossible block cap %d", cap))
 }
