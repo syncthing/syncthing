@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"sort"
 	"testing"
+	"time"
 )
 
 func TestFakeFS(t *testing.T) {
@@ -799,6 +800,9 @@ func testFakeFSSameFile(t *testing.T, fs Filesystem) {
 			t.Fatalf("Could not create %s: %s", filename, err)
 		} else {
 			fd.Close()
+			if runtime.GOOS == "windows" {
+				time.Sleep(1 * time.Millisecond)
+			}
 		}
 	}
 
