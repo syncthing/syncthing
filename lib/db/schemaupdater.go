@@ -267,7 +267,8 @@ func (db *schemaUpdater) updateSchema2to3() error {
 			var v protocol.Vector
 			haveFile, ok, err := t.getFileTrunc(dk, true)
 			if err != nil {
-				return false // XXX: propagate
+				putErr = err
+				return false
 			}
 			if ok {
 				v = haveFile.FileVersion()
