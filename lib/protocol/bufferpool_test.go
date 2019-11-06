@@ -84,6 +84,9 @@ func TestStressBufferPool(t *testing.T) {
 			for time.Since(t0) < runtime {
 				blocks := make([][]byte, 10)
 				for i := range blocks {
+					// Request a block of random size with the range
+					// covering smaller-than-min to larger-than-max and
+					// everything in between.
 					want := rand.Intn(1.5 * MaxBlockSize)
 					blocks[i] = bp.Get(want)
 					if len(blocks[i]) != want {
