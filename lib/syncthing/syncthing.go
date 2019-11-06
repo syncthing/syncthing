@@ -47,11 +47,16 @@ const (
 
 type ExitStatus int
 
+func (s ExitStatus) AsInt() int {
+	return int(s)
+}
+
 const (
-	ExitSuccess ExitStatus = 0
-	ExitError   ExitStatus = 1
-	ExitRestart ExitStatus = 3
-	ExitUpgrade ExitStatus = 4
+	ExitSuccess            ExitStatus = 0
+	ExitError              ExitStatus = 1
+	ExitNoUpgradeAvailable ExitStatus = 2
+	ExitRestart            ExitStatus = 3
+	ExitUpgrade            ExitStatus = 4
 )
 
 type Options struct {
