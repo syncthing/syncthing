@@ -123,13 +123,13 @@ func (db *instance) newReadWriteTransaction() (readWriteTransaction, error) {
 }
 
 func (t readWriteTransaction) commit() error {
-	defer t.readOnlyTransaction.close()
+	t.readOnlyTransaction.close()
 	return t.WriteTransaction.Commit()
 }
 
 func (t readWriteTransaction) close() {
-	t.WriteTransaction.Release()
 	t.readOnlyTransaction.close()
+	t.WriteTransaction.Release()
 }
 
 // updateGlobal adds this device+version to the version list for the given
