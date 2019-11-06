@@ -389,6 +389,7 @@ angular.module('syncthing.core')
             });
 
             refreshNoAuthWarning();
+            setDefaultTheme();
 
             if (!hasConfig) {
                 $scope.$emit('ConfigLoaded');
@@ -649,6 +650,17 @@ angular.module('syncthing.core')
             $scope.remoteNeed = {};
             $scope.remoteNeedFolders = [];
             $scope.remoteNeedDevice = undefined;
+        }
+
+        function setDefaultTheme(){
+          // If theme is default and there is no support for prefers-color-scheme
+          if ($scope.config.gui.theme === "default" && window.matchMedia('(prefers-color-scheme: dark)').media === 'not all') {
+            document.documentElement.style.display = 'none';
+            document.head.insertAdjacentHTML(
+              'beforeend',
+              '<link rel="stylesheet" href="/theme-assets/light/assets/css/theme.css" onload="document.documentElement.style.display = \'\'">'
+            );
+          }
         }
 
         function saveIgnores(ignores, cb) {
