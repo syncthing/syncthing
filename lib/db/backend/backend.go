@@ -30,7 +30,7 @@ type Writer interface {
 }
 
 // The ReadTransaction interface specifies the operations on read-only
-// transactions. Every ReadTransaction must be Released when no longer
+// transactions. Every ReadTransaction must be released when no longer
 // required.
 type ReadTransaction interface {
 	Reader
@@ -38,16 +38,38 @@ type ReadTransaction interface {
 }
 
 // The WriteTransaction interface specifies the operations on writable
-// transactions. Every WriteTransaction must be either Commited or Released
-// (i.e., discarded) when no longer required. It is fine to Release an
-// already Commited transaction.
+// transactions. Every WriteTransaction must be either committed or released
+// (i.e., discarded) when no longer required. It is fine to release an
+// already committed transaction.
 type WriteTransaction interface {
 	ReadTransaction
 	Writer
 	Commit() error
 }
 
-// The Iterator interface specifies the operations available on iterators returned by NewPrefixIterator and NewRangeIterator. Note that there are multiple ways an error may be reported: in the Value()
+// The Iterator interface specifies the operations available on iterators
+// returned by NewPrefixIterator and NewRangeIterator. The iterator pattern
+// is to loop while Next returns true, then check Error after the loop. Next
+// will return false when iteration is complete (Error() == nil) or when
+// there is an error preventing iteration, which is then returned by
+// Error(). For example:
+//
+//     it, err := db.NewPrefixIterator(nil)
+//     if err != nil {
+//         // problem preventing iteration
+//     }
+//     defer it.Release()
+//     for it.Next() {
+//         // ...
+//     }
+//     if err := it.Error(); err != nil {
+//         // there was a database problem while iterating
+//     }
+//
+// An iterator must be Released when no longer required. The Error method
+// can be called either before or after Release with the same results. If an
+// iterator was created in a transaction (whether read-only or write) it
+// must be released before the transaction is released (or committed).
 type Iterator interface {
 	Next() bool
 	Key() []byte
@@ -56,6 +78,14 @@ type Iterator interface {
 	Release()
 }
 
+// The Backend interface represents the main database handle. It supports
+// both read/write operations and opening read-only or writable
+// transactions. Depending on the actual implementation, individual
+// read/write operations may be implicitly wrapped in transactions, making
+// them perform quite badly when used repeatedly. For bulk operations,
+// consider always using a transaction of the appropriate type. The
+// transaction isolation level is "read committed" - there are no dirty
+// reads.
 type Backend interface {
 	Reader
 	Writer

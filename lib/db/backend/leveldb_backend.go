@@ -44,8 +44,9 @@ func (b *leveldbBackend) NewWriteTransaction() (WriteTransaction, error) {
 			snap: snap,
 			rel:  newReleaser(&b.closeWG),
 		},
-		ldb: b.ldb,
-		rel: newReleaser(&b.closeWG),
+		ldb:   b.ldb,
+		batch: new(leveldb.Batch),
+		rel:   newReleaser(&b.closeWG),
 	}, nil
 }
 
@@ -95,8 +96,8 @@ func (l leveldbSnapshot) NewRangeIterator(first, last []byte) (Iterator, error) 
 }
 
 func (l leveldbSnapshot) Release() {
-	defer l.rel.Release()
 	l.snap.Release()
+	l.rel.Release()
 }
 
 // leveldbTransaction implements backend.WriteTransaction using a batch (not
@@ -109,30 +110,25 @@ type leveldbTransaction struct {
 }
 
 func (t *leveldbTransaction) Delete(key []byte) error {
-	if t.batch == nil {
-		t.batch = new(leveldb.Batch)
-	}
 	t.batch.Delete(key)
 	return wrapLeveldbErr(t.checkFlush())
 }
 
 func (t *leveldbTransaction) Put(key, val []byte) error {
-	if t.batch == nil {
-		t.batch = new(leveldb.Batch)
-	}
 	t.batch.Put(key, val)
 	return wrapLeveldbErr(t.checkFlush())
 }
 
 func (t *leveldbTransaction) Commit() error {
-	defer t.rel.Release()
-	defer t.leveldbSnapshot.Release()
-	return wrapLeveldbErr(t.flush())
+	err := wrapLeveldbErr(t.flush())
+	t.leveldbSnapshot.Release()
+	t.rel.Release()
+	return err
 }
 
 func (t *leveldbTransaction) Release() {
-	defer t.rel.Release()
 	t.leveldbSnapshot.Release()
+	t.rel.Release()
 }
 
 // checkFlush flushes and resets the batch if its size exceeds dbFlushBatch.
@@ -144,7 +140,7 @@ func (t *leveldbTransaction) checkFlush() error {
 }
 
 func (t *leveldbTransaction) flush() error {
-	if t.batch == nil {
+	if t.batch.Len() == 0 {
 		return nil
 	}
 	if err := t.ldb.Write(t.batch, nil); err != nil {
