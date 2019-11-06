@@ -580,7 +580,7 @@ func (fs *fakefs) SameFile(fi1, fi2 FileInfo) bool {
 		ok = fi1.Name() == fi2.Name()
 	}
 
-	return ok && fi1.ModTime() == fi2.ModTime() && fi1.Mode() == fi2.Mode() && fi1.IsDir() == fi2.IsDir() && fi1.IsRegular() == fi2.IsRegular() && fi1.IsSymlink() == fi2.IsSymlink() && fi1.Owner() == fi2.Owner() && fi1.Group() == fi2.Group()
+	return ok && fi1.ModTime().Equal(fi2.ModTime()) && fi1.Mode() == fi2.Mode() && fi1.IsDir() == fi2.IsDir() && fi1.IsRegular() == fi2.IsRegular() && fi1.IsSymlink() == fi2.IsSymlink() && fi1.Owner() == fi2.Owner() && fi1.Group() == fi2.Group()
 }
 
 // fakeFile is the representation of an open file. We don't care if it's
