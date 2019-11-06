@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"sort"
 	"testing"
+	"time"
 )
 
 func TestFakeFS(t *testing.T) {
@@ -189,7 +190,7 @@ type test struct {
 
 func TestFakeFSCaseSensitive(t *testing.T) {
 	var tests = []test{
-		{"read", testFakeFSRead},
+		{"Read", testFakeFSRead},
 		{"OpenFile", testFakeFSOpenFile},
 		{"RemoveAll", testFakeFSRemoveAll},
 		{"Remove", testFakeFSRemove},
@@ -203,9 +204,9 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 		{"fakefs", newFakeFilesystem("/foo")},
 	}
 
-	if runtime.GOOS == "linux" {
-		testDir := createTestDir(t)
-		defer removeTestDir(t, testDir)
+	testDir, sensitive := createTestDir(t)
+	defer removeTestDir(t, testDir)
+	if sensitive {
 		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
 	}
 
@@ -214,7 +215,7 @@ func TestFakeFSCaseSensitive(t *testing.T) {
 
 func TestFakeFSCaseInsensitive(t *testing.T) {
 	var tests = []test{
-		{"read", testFakeFSRead},
+		{"Read", testFakeFSRead},
 		{"OpenFile", testFakeFSOpenFile},
 		{"RemoveAll", testFakeFSRemoveAll},
 		{"Remove", testFakeFSRemove},
@@ -222,7 +223,7 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 		{"SameFile", testFakeFSSameFile},
 		{"DirNames", testDirNames},
 		{"FileName", testFakeFSFileName},
-		{"generalInsens", testFakeFSCaseInsensitive},
+		{"GeneralInsens", testFakeFSCaseInsensitive},
 		{"MkdirAllInsens", testFakeFSCaseInsensitiveMkdirAll},
 		{"StatInsens", testFakeFSStatInsens},
 		{"RenameInsens", testFakeFSRenameInsensitive},
@@ -239,16 +240,16 @@ func TestFakeFSCaseInsensitive(t *testing.T) {
 		{"fakefs", newFakeFilesystem("/foobar?insens=true")},
 	}
 
-	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
-		testDir := createTestDir(t)
-		defer removeTestDir(t, testDir)
+	testDir, sensitive := createTestDir(t)
+	defer removeTestDir(t, testDir)
+	if !sensitive {
 		filesystems = append(filesystems, testFS{runtime.GOOS, newBasicFilesystem(testDir)})
 	}
 
 	runTests(t, tests, filesystems)
 }
 
-func createTestDir(t *testing.T) string {
+func createTestDir(t *testing.T) (string, bool) {
 	t.Helper()
 
 	testDir, err := ioutil.TempDir("", "")
@@ -262,7 +263,15 @@ func createTestDir(t *testing.T) string {
 		fd.Close()
 	}
 
-	return testDir
+	var sensitive bool
+
+	if f, err := os.Open(filepath.Join(testDir, ".STfolder")); err != nil {
+		sensitive = true
+	} else {
+		defer f.Close()
+	}
+
+	return testDir, sensitive
 }
 
 func removeTestDir(t *testing.T, testDir string) {
@@ -781,11 +790,6 @@ func testFakeFSRemoveInsens(t *testing.T, fs Filesystem) {
 }
 
 func testFakeFSSameFile(t *testing.T, fs Filesystem) {
-	if runtime.GOOS == "windows" {
-		// windows time in not precise enough
-		t.SkipNow()
-	}
-
 	if err := fs.Mkdir("/Foo", 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -796,6 +800,9 @@ func testFakeFSSameFile(t *testing.T, fs Filesystem) {
 			t.Fatalf("Could not create %s: %s", filename, err)
 		} else {
 			fd.Close()
+			if runtime.GOOS == "windows" {
+				time.Sleep(1 * time.Millisecond)
+			}
 		}
 	}
 

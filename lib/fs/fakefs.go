@@ -314,15 +314,14 @@ func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 	entry := fs.entryForName(dir)
 	key := base
 
-	if fs.insens {
-		key = UnicodeLowercase(key)
-	}
-
 	if entry == nil {
 		return os.ErrNotExist
 	}
 	if entry.entryType != fakeEntryTypeDir {
 		return os.ErrExist
+	}
+	if fs.insens {
+		key = UnicodeLowercase(key)
 	}
 	if _, ok := entry.children[key]; ok {
 		return os.ErrExist
@@ -398,16 +397,15 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 	entry := fs.entryForName(dir)
 	key := base
 
-	if fs.insens {
-		key = UnicodeLowercase(key)
-	}
-
 	if entry == nil {
 		return nil, os.ErrNotExist
 	} else if entry.entryType != fakeEntryTypeDir {
 		return nil, errors.New("not a directory")
 	}
 
+	if fs.insens {
+		key = UnicodeLowercase(key)
+	}
 	if flags&os.O_EXCL != 0 {
 		if _, ok := entry.children[key]; ok {
 			return nil, os.ErrExist
