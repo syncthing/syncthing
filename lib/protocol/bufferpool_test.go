@@ -28,9 +28,9 @@ func TestGetBucketNumbers(t *testing.T) {
 
 	for _, tc := range cases {
 		if tc.panics {
-			shouldPanic(t, func() { getBucketForSize(tc.size) })
+			shouldPanic(t, func() { getBucketForLen(tc.size) })
 		} else {
-			res := getBucketForSize(tc.size)
+			res := getBucketForLen(tc.size)
 			if res != tc.bkt {
 				t.Errorf("block of size %d should get from bucket %d, not %d", tc.size, tc.bkt, res)
 			}
@@ -54,9 +54,9 @@ func TestPutBucketNumbers(t *testing.T) {
 
 	for _, tc := range cases {
 		if tc.panics {
-			shouldPanic(t, func() { putBucketForSize(tc.size) })
+			shouldPanic(t, func() { putBucketForCap(tc.size) })
 		} else {
-			res := putBucketForSize(tc.size)
+			res := putBucketForCap(tc.size)
 			if res != tc.bkt {
 				t.Errorf("block of size %d should put into bucket %d, not %d", tc.size, tc.bkt, res)
 			}
@@ -65,6 +65,10 @@ func TestPutBucketNumbers(t *testing.T) {
 }
 
 func TestStressBufferPool(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	const routines = 10
 	const runtime = 2 * time.Second
 

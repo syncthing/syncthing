@@ -35,12 +35,11 @@ func (p *bufferPool) Get(size int) []byte {
 	}
 
 	// Try the fitting and all bigger pools
-	var bs []byte
 	bkt := getBucketForLen(size)
 	for j := bkt; j < len(BlockSizes); j++ {
 		if intf := p.pools[j].Get(); intf != nil {
-			bs = *intf.(*[]byte)
 			atomic.AddInt64(&p.hits[j], 1)
+			bs := *intf.(*[]byte)
 			return bs[:size]
 		}
 	}
