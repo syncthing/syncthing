@@ -24,9 +24,13 @@ type leveldbBackend struct {
 }
 
 func (b *leveldbBackend) NewReadTransaction() (ReadTransaction, error) {
+	return b.newSnapshot()
+}
+
+func (b *leveldbBackend) newSnapshot() (leveldbSnapshot, error) {
 	snap, err := b.ldb.GetSnapshot()
 	if err != nil {
-		return nil, wrapLeveldbErr(err)
+		return leveldbSnapshot{}, wrapLeveldbErr(err)
 	}
 	return leveldbSnapshot{
 		snap: snap,
@@ -35,18 +39,15 @@ func (b *leveldbBackend) NewReadTransaction() (ReadTransaction, error) {
 }
 
 func (b *leveldbBackend) NewWriteTransaction() (WriteTransaction, error) {
-	snap, err := b.ldb.GetSnapshot()
+	snap, err := b.newSnapshot()
 	if err != nil {
-		return nil, wrapLeveldbErr(err)
+		return nil, err // already wrapped
 	}
 	return &leveldbTransaction{
-		leveldbSnapshot: leveldbSnapshot{
-			snap: snap,
-			rel:  newReleaser(&b.closeWG),
-		},
-		ldb:   b.ldb,
-		batch: new(leveldb.Batch),
-		rel:   newReleaser(&b.closeWG),
+		leveldbSnapshot: snap,
+		ldb:             b.ldb,
+		batch:           new(leveldb.Batch),
+		rel:             newReleaser(&b.closeWG),
 	}, nil
 }
 
