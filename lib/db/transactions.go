@@ -42,11 +42,8 @@ func (t readOnlyTransaction) getFile(folder, device, file []byte) (protocol.File
 
 func (t readOnlyTransaction) getFileByKey(key []byte) (protocol.FileInfo, bool, error) {
 	f, ok, err := t.getFileTrunc(key, false)
-	if err != nil {
+	if err != nil || !ok {
 		return protocol.FileInfo{}, false, err
-	}
-	if !ok {
-		return protocol.FileInfo{}, false, nil
 	}
 	return f.(protocol.FileInfo), true, nil
 }

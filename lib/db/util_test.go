@@ -58,7 +58,9 @@ func openJSONS(file string) (backend.Backend, error) {
 			return nil, err
 		}
 
-		_ = db.Put(row["k"], row["v"])
+		if err := db.Put(row["k"], row["v"]); err != nil {
+			return nil, err
+		}
 	}
 
 	return db, nil

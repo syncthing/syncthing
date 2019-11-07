@@ -402,7 +402,7 @@ func DropDeltaIndexIDs(db *Lowlevel) {
 	if backend.IsClosed(err) {
 		return
 	} else if err != nil {
-		return
+		panic(err)
 	}
 	defer dbi.Release()
 	for dbi.Next() {
