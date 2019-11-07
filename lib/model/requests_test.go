@@ -295,8 +295,8 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	m := setupModel(w)
 	defer cleanupModelAndRemoveDir(m, fss.URI())
 
-	m.RemoveFolder(fcfg)
-	m.AddFolder(fcfg)
+	m.removeFolder(fcfg)
+	m.addFolder(fcfg)
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
 	// because we might be changing the files on disk often enough that the
@@ -304,7 +304,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	m.fmut.Lock()
 	m.folderIgnores["default"] = ignore.New(fss, ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Unlock()
-	m.StartFolder(fcfg.ID)
+	m.startFolder(fcfg.ID)
 
 	fc := addFakeConn(m, device1)
 	fc.folder = "default"
@@ -1032,8 +1032,8 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 	tmpDir := fss.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
 
-	m.RemoveFolder(fcfg)
-	m.AddFolder(fcfg)
+	m.removeFolder(fcfg)
+	m.addFolder(fcfg)
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
 	// because we might be changing the files on disk often enough that the
@@ -1041,7 +1041,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 	m.fmut.Lock()
 	m.folderIgnores["default"] = ignore.New(fss, ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Unlock()
-	m.StartFolder(fcfg.ID)
+	m.startFolder(fcfg.ID)
 
 	fc := addFakeConn(m, device1)
 	fc.folder = "default"
