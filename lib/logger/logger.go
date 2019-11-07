@@ -1,5 +1,8 @@
-// Copyright (C) 2014 Jakob Borg. All rights reserved. Use of this source code
-// is governed by an MIT-style license that can be found in the LICENSE file.
+// Copyright (C) 2014 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // Package logger implements a standardized logger with callback functionality
 package logger
@@ -33,6 +36,12 @@ const (
 	DebugFlags   = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
 )
 
+const (
+	suppressionBuckets  = 5
+	supressionThreshold = 100
+	suppressionInterval = time.Minute
+)
+
 // A MessageHandler is called with the log level and message text.
 type MessageHandler func(l LogLevel, msg string)
 
@@ -56,8 +65,14 @@ type Logger interface {
 	NewFacility(facility, description string) Logger
 }
 
+type lowlevelLogger interface {
+	SetFlags(flag int)
+	SetPrefix(prefix string)
+	Output(level int, message string) error
+}
+
 type logger struct {
-	logger     *log.Logger
+	logger     lowlevelLogger
 	handlers   [NumLevels][]MessageHandler
 	facilities map[string]string   // facility name => description
 	debug      map[string]struct{} // only facility names with debugging enabled
@@ -78,8 +93,11 @@ func New() Logger {
 }
 
 func newLogger(w io.Writer) Logger {
+	logWriter := log.New(w, "", DefaultFlags)
+	suppressor := newSuppressingLogger(logWriter, suppressionBuckets, supressionThreshold, suppressionInterval)
+	go suppressor.Serve() // will never stop because a log never closes...
 	return &logger{
-		logger:     log.New(w, "", DefaultFlags),
+		logger:     suppressor,
 		traces:     os.Getenv("STTRACE"),
 		facilities: make(map[string]string),
 		debug:      make(map[string]struct{}),
