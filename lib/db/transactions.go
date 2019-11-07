@@ -88,11 +88,8 @@ func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate boo
 		return nil, nil, false, err
 	}
 	fi, ok, err := t.getFileTrunc(keyBuf, truncate)
-	if !ok {
-		return keyBuf, nil, false, nil
-	}
-	if err != nil {
-		return nil, nil, false, err
+	if err != nil || !ok {
+		return keyBuf, nil, false, err
 	}
 	return keyBuf, fi, true, nil
 }
@@ -164,12 +161,8 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 			return nil, false, err
 		}
 		new, ok, err := t.getFileByKey(keyBuf)
-		if err != nil {
-			return nil, false, err
-		}
-		if !ok {
-			l.Debugln("File should exist:", name)
-			return keyBuf, false, nil
+		if err != nil || !ok {
+			return keyBuf, false, err
 		}
 		global = new
 	}
@@ -328,12 +321,8 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 			return nil, err
 		}
 		global, ok, err := t.getFileByKey(keyBuf)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			l.Debugln("File should exist:", file)
-			return keyBuf, nil
+		if err != nil || !ok {
+			return keyBuf, err
 		}
 		keyBuf, err = t.updateLocalNeed(keyBuf, folder, file, fl, global)
 		if err != nil {
