@@ -371,27 +371,19 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 // database.
 func DropFolder(ll *Lowlevel, folder string) {
 	db := newInstance(ll)
-	if err := db.dropFolder([]byte(folder)); backend.IsClosed(err) {
-		return
-	} else if err != nil {
-		panic(err)
-	}
-	if err := db.dropMtimes([]byte(folder)); backend.IsClosed(err) {
-		return
-	} else if err != nil {
-		panic(err)
-	}
-	if err := db.dropFolderMeta([]byte(folder)); backend.IsClosed(err) {
-		return
-	} else if err != nil {
-		panic(err)
-	}
 
-	// Also clean out the folder ID mapping.
-	if err := db.folderIdx.Delete([]byte(folder)); backend.IsClosed(err) {
-		return
-	} else if err != nil {
-		panic(err)
+	droppers := []func([]byte) error{
+		db.dropFolder,
+		db.dropMtimes,
+		db.dropFolderMeta,
+		db.folderIdx.Delete,
+	}
+	for _, drop := range droppers {
+		if err := drop([]byte(folder)); backend.IsClosed(err) {
+			return
+		} else if err != nil {
+			panic(err)
+		}
 	}
 }
 
