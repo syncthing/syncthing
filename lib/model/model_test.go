@@ -3384,3 +3384,16 @@ func TestDevicePause(t *testing.T) {
 		t.Fatal("Timed out before device was paused")
 	}
 }
+
+func TestDeviceWasSeen(t *testing.T) {
+	m, _, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+
+	m.deviceWasSeen(device1)
+
+	stats := m.DeviceStatistics()
+	entry := stats[device1.String()]
+	if time.Since(entry.LastSeen) > time.Second {
+		t.Error("device should have been seen now")
+	}
+}
