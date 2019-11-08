@@ -3224,7 +3224,7 @@ func TestRequestLimit(t *testing.T) {
 	go func() {
 		second, err := m.Request(device1, "default", file, 2000, 0, nil, 0, false)
 		if err != nil {
-			t.Fatalf("Second request failed: %v", err)
+			t.Errorf("Second request failed: %v", err)
 		}
 		close(returned)
 		second.Close()
