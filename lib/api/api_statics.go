@@ -28,16 +28,18 @@ type staticsServer struct {
 	assets          map[string][]byte
 	availableThemes []string
 
-	mut   sync.RWMutex
-	theme string
+	mut             sync.RWMutex
+	theme           string
+	lastThemeChange time.Time
 }
 
 func newStaticsServer(theme, assetDir string) *staticsServer {
 	s := &staticsServer{
-		assetDir: assetDir,
-		assets:   auto.Assets(),
-		mut:      sync.NewRWMutex(),
-		theme:    theme,
+		assetDir:        assetDir,
+		assets:          auto.Assets(),
+		mut:             sync.NewRWMutex(),
+		theme:           theme,
+		lastThemeChange: time.Now().UTC(),
 	}
 
 	seen := make(map[string]struct{})
@@ -86,6 +88,7 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 
 	s.mut.RLock()
 	theme := s.theme
+	modificationTime := s.lastThemeChange
 	s.mut.RUnlock()
 
 	// Check for an override for the current theme.
@@ -125,14 +128,12 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	etag := fmt.Sprintf("%d", auto.Generated)
-	modified := time.Unix(auto.Generated, 0).UTC()
-
-	w.Header().Set("Last-Modified", modified.Format(http.TimeFormat))
+	etag := fmt.Sprintf("%d", modificationTime.Unix())
+	w.Header().Set("Last-Modified", modificationTime.Format(http.TimeFormat))
 	w.Header().Set("Etag", etag)
 
 	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil {
-		if modified.Equal(t) || modified.Before(t) {
+		if modificationTime.Equal(t) || modificationTime.Before(t) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
@@ -199,6 +200,7 @@ func (s *staticsServer) mimeTypeForFile(file string) string {
 func (s *staticsServer) setTheme(theme string) {
 	s.mut.Lock()
 	s.theme = theme
+	s.lastThemeChange = time.Now().UTC()
 	s.mut.Unlock()
 }
 
