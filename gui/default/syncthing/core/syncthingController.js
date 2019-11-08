@@ -652,15 +652,21 @@ angular.module('syncthing.core')
             $scope.remoteNeedDevice = undefined;
         }
 
-        function setDefaultTheme(){
-          // If theme is default and there is no support for prefers-color-scheme
-          if ($scope.config.gui.theme === "default" && window.matchMedia('(prefers-color-scheme: dark)').media === 'not all') {
-            document.documentElement.style.display = 'none';
-            document.head.insertAdjacentHTML(
-              'beforeend',
-              '<link rel="stylesheet" href="/theme-assets/light/assets/css/theme.css" onload="document.documentElement.style.display = \'\'">'
-            );
-          }
+
+        function setDefaultTheme() {
+            if (!document.getElementById("fallback-theme-css")){
+
+                // check if no support for prefers-color-scheme
+                var colorSchemeNotSupported = typeof window.matchMedia === "undefined" || window.matchMedia('(prefers-color-scheme: dark)').media === 'not all';
+
+                if ($scope.config.gui.theme === "default" && colorSchemeNotSupported) {
+                    document.documentElement.style.display = 'none';
+                    document.head.insertAdjacentHTML(
+                      'beforeend',
+                      '<link id="fallback-theme-css" rel="stylesheet" href="/theme-assets/light/assets/css/theme.css" onload="document.documentElement.style.display = \'\'">'
+                    );
+                }
+            }
         }
 
         function saveIgnores(ignores, cb) {
