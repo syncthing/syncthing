@@ -23,6 +23,8 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
+const themePrefix = "theme-assets/"
+
 type staticsServer struct {
 	assetDir        string
 	assets          map[string][]byte
@@ -90,6 +92,20 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	theme := s.theme
 	modificationTime := s.lastThemeChange
 	s.mut.RUnlock()
+
+	// If path starts with special prefix, get theme and file from path
+	if strings.HasPrefix(file, themePrefix) {
+		path := file[len(themePrefix):]
+		i := strings.IndexRune(path, '/')
+
+		if i == -1 {
+			http.NotFound(w, r)
+			return
+		}
+
+		theme = path[:i]
+		file = path[i+1:]
+	}
 
 	// Check for an override for the current theme.
 	if s.assetDir != "" {
