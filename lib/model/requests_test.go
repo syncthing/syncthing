@@ -244,31 +244,37 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	}
 	fc.mut.Unlock()
 
+	waitForIdx := func() {
+		select {
+		case c := <-idx:
+			if c == 0 {
+				t.Fatal("Got empty index update")
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out before receiving index update")
+		}
+	}
+
 	// Send an update for the test file, wait for it to sync and be reported back.
 	fc.addFile("foo", 0644, protocol.FileInfoTypeSymlink, []byte(tmpdir))
 	fc.sendIndexUpdate()
-
-	for updates := 0; updates < 1; updates += <-idx {
-	}
+	waitForIdx()
 
 	// Delete the symlink, hoping for it to get versioned
 	fc.deleteFile("foo")
 	fc.sendIndexUpdate()
-	for updates := 0; updates < 1; updates += <-idx {
-	}
+	waitForIdx()
 
 	// Recreate foo and a file in it with some data
 	fc.updateFile("foo", 0755, protocol.FileInfoTypeDirectory, nil)
 	fc.addFile("foo/test", 0644, protocol.FileInfoTypeFile, []byte("testtesttest"))
 	fc.sendIndexUpdate()
-	for updates := 0; updates < 1; updates += <-idx {
-	}
+	waitForIdx()
 
 	// Remove the test file and see if it escaped
 	fc.deleteFile("foo/test")
 	fc.sendIndexUpdate()
-	for updates := 0; updates < 1; updates += <-idx {
-	}
+	waitForIdx()
 
 	path := filepath.Join(tmpdir, "test")
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
@@ -295,8 +301,8 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	m := setupModel(w)
 	defer cleanupModelAndRemoveDir(m, fss.URI())
 
-	m.RemoveFolder(fcfg)
-	m.AddFolder(fcfg)
+	m.removeFolder(fcfg)
+	m.addFolder(fcfg)
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
 	// because we might be changing the files on disk often enough that the
@@ -304,7 +310,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	m.fmut.Lock()
 	m.folderIgnores["default"] = ignore.New(fss, ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Unlock()
-	m.StartFolder(fcfg.ID)
+	m.startFolder(fcfg.ID)
 
 	fc := addFakeConn(m, device1)
 	fc.folder = "default"
@@ -1032,8 +1038,8 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 	tmpDir := fss.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
 
-	m.RemoveFolder(fcfg)
-	m.AddFolder(fcfg)
+	m.removeFolder(fcfg)
+	m.addFolder(fcfg)
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
 	// because we might be changing the files on disk often enough that the
@@ -1041,7 +1047,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 	m.fmut.Lock()
 	m.folderIgnores["default"] = ignore.New(fss, ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Unlock()
-	m.StartFolder(fcfg.ID)
+	m.startFolder(fcfg.ID)
 
 	fc := addFakeConn(m, device1)
 	fc.folder = "default"

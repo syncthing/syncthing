@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/syncthing"
 )
 
 var (
@@ -81,7 +82,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 		if t := time.Since(restarts[0]); t < loopThreshold {
 			l.Warnf("%d restarts in %v; not retrying further", countRestarts, t)
-			os.Exit(exitError)
+			os.Exit(syncthing.ExitError.AsInt())
 		}
 
 		copy(restarts[0:], restarts[1:])
@@ -152,7 +153,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			} else if exiterr, ok := err.(*exec.ExitError); ok {
 				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
 					switch status.ExitStatus() {
-					case exitUpgrading:
+					case syncthing.ExitUpgrade.AsInt():
 						// Restart the monitor process to release the .old
 						// binary as part of the upgrade process.
 						l.Infoln("Restarting monitor...")

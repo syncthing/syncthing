@@ -566,7 +566,7 @@ func TestCSRFRequired(t *testing.T) {
 	}
 
 	cli := &http.Client{
-		Timeout: time.Second,
+		Timeout: time.Minute,
 	}
 
 	// Getting the base URL (i.e. "/") should succeed.
