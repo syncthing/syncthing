@@ -663,7 +663,7 @@ angular.module('syncthing.core')
                     document.documentElement.style.display = 'none';
                     document.head.insertAdjacentHTML(
                       'beforeend',
-                      '<link id="fallback-theme-css" rel="stylesheet" href="/theme-assets/light/assets/css/theme.css" onload="document.documentElement.style.display = \'\'">'
+                      '<link id="fallback-theme-css" rel="stylesheet" href="theme-assets/light/assets/css/theme.css" onload="document.documentElement.style.display = \'\'">'
                     );
                 }
             }
