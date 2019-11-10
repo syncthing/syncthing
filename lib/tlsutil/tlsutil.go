@@ -70,11 +70,6 @@ var (
 func init() {
 	// Creates the list of ciper suites that SecureDefault uses.
 	cipherSuites = buildCipherSuites()
-	if build.IsBeta {
-		// Append "tls13=1" to GODEBUG before starting TLS, to enable TLS
-		// 1.3 in Go 1.12.
-		os.Setenv("GODEBUG", os.Getenv("GODEBUG")+",tls13=1")
-	}
 }
 
 // SecureDefault returns a tls.Config with reasonable, secure defaults set.
