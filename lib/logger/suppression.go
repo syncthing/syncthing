@@ -24,8 +24,6 @@ type suppressingLogger struct {
 	bucketInterval time.Duration // how often to rotate
 	threshold      int           // threshold for suppression in average messages/bucket
 	active         bool          // whether suppression is currently active
-	lastHash       uint64        // hash of last message
-	lastRepeated   int           // how many times the last message has been repeated
 	stop           chan struct{}
 }
 
@@ -77,11 +75,6 @@ func (l *suppressingLogger) Output(level int, message string) error {
 	hash := messageHash(message)
 	l.buckets[0].seen[hash] = struct{}{}
 
-	if l.suppressSameAsLast(hash) {
-		// Message is the same as the last message
-		return nil
-	}
-
 	if l.active && l.haveSeen(hash) {
 		l.buckets[0].suppressed++
 		return nil
@@ -91,28 +84,9 @@ func (l *suppressingLogger) Output(level int, message string) error {
 	return l.next.Output(level+1, message)
 }
 
-func (l *suppressingLogger) suppressSameAsLast(hash uint64) bool {
-	if hash == l.lastHash {
-		l.lastRepeated++
-		return true
-	}
-
-	l.lastHash = hash
-
-	if l.lastRepeated > 0 {
-		_ = l.next.Output(0, fmt.Sprintf("LOG: Last message repeated %d times", l.lastRepeated))
-		l.lastRepeated = 0
-	}
-
-	return false
-}
-
 func (l *suppressingLogger) rotateBuckets() {
 	l.mut.Lock()
 	defer l.mut.Unlock()
-
-	// Reset last message hash and trigger message if we were suppressing
-	l.suppressSameAsLast(0)
 
 	if supp := l.buckets[0].suppressed; supp > 0 {
 		_ = l.next.Output(0, fmt.Sprintf("LOG: Suppressed %d previously seen log messages", supp))

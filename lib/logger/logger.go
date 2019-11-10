@@ -37,9 +37,9 @@ const (
 )
 
 const (
-	suppressionBuckets  = 5
-	supressionThreshold = 100
-	suppressionInterval = time.Minute
+	suppressionBuckets   = 5
+	suppressionThreshold = 100
+	suppressionInterval  = time.Minute
 )
 
 // A MessageHandler is called with the log level and message text.
@@ -94,7 +94,7 @@ func New() Logger {
 
 func newLogger(w io.Writer) Logger {
 	logWriter := log.New(w, "", DefaultFlags)
-	suppressor := newSuppressingLogger(logWriter, suppressionBuckets, supressionThreshold, suppressionInterval)
+	suppressor := newSuppressingLogger(logWriter, suppressionBuckets, suppressionThreshold, suppressionInterval)
 	go suppressor.Serve() // will never stop because a log never closes...
 	return &logger{
 		logger:     suppressor,
