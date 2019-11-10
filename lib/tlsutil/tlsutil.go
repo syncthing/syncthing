@@ -20,7 +20,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 

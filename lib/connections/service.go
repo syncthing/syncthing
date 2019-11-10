@@ -83,7 +83,7 @@ var tlsCipherSuiteNames = map[uint16]string{
 
 var tlsVersionNames = map[uint16]string{
 	tls.VersionTLS12: "TLS1.2",
-	772:              "TLS1.3", // tls.VersionTLS13 constant available in Go 1.12+
+	tls.VersionTLS13: "TLS1.3",
 }
 
 // Service listens and dials all configured unconnected devices, via supported
