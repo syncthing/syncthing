@@ -79,28 +79,6 @@ const (
 	stateReady
 )
 
-// Request message flags
-const (
-	FlagFromTemporary uint32 = 1 << iota
-)
-
-// ClusterConfigMessage.Folders flags
-const (
-	FlagFolderReadOnly            uint32 = 1 << 0
-	FlagFolderIgnorePerms                = 1 << 1
-	FlagFolderIgnoreDelete               = 1 << 2
-	FlagFolderDisabledTempIndexes        = 1 << 3
-	FlagFolderAll                        = 1<<4 - 1
-)
-
-// ClusterConfigMessage.Folders.Devices flags
-const (
-	FlagShareTrusted  uint32 = 1 << 0
-	FlagShareReadOnly        = 1 << 1
-	FlagIntroducer           = 1 << 2
-	FlagShareBits            = 0x000000ff
-)
-
 // FileInfo.LocalFlags flags
 const (
 	FlagLocalUnsupported = 1 << 0 // The kind is unsupported, e.g. symlinks on Windows
@@ -120,15 +98,14 @@ const (
 )
 
 var (
-	ErrClosed               = errors.New("connection closed")
-	ErrTimeout              = errors.New("read timeout")
-	ErrSwitchingConnections = errors.New("switching connections")
-	errUnknownMessage       = errors.New("unknown message")
-	errInvalidFilename      = errors.New("filename is invalid")
-	errUncleanFilename      = errors.New("filename not in canonical format")
-	errDeletedHasBlocks     = errors.New("deleted file with non-empty block list")
-	errDirectoryHasBlocks   = errors.New("directory with non-empty block list")
-	errFileHasNoBlocks      = errors.New("file with empty block list")
+	ErrClosed             = errors.New("connection closed")
+	ErrTimeout            = errors.New("read timeout")
+	errUnknownMessage     = errors.New("unknown message")
+	errInvalidFilename    = errors.New("filename is invalid")
+	errUncleanFilename    = errors.New("filename not in canonical format")
+	errDeletedHasBlocks   = errors.New("deleted file with non-empty block list")
+	errDirectoryHasBlocks = errors.New("directory with non-empty block list")
+	errFileHasNoBlocks    = errors.New("file with empty block list")
 )
 
 type Model interface {
@@ -491,6 +468,8 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	msgLen := int32(binary.BigEndian.Uint32(fourByteBuf))
 	if msgLen < 0 {
 		return nil, fmt.Errorf("negative message length %d", msgLen)
+	} else if msgLen > MaxMessageLen {
+		return nil, fmt.Errorf("message length %d exceeds maximum %d", msgLen, MaxMessageLen)
 	}
 
 	// Then comes the message
@@ -980,14 +959,17 @@ func (c *rawConnection) Statistics() Statistics {
 
 func (c *rawConnection) lz4Compress(src []byte) ([]byte, error) {
 	var err error
-	buf := BufferPool.Get(len(src))
-	buf, err = lz4.Encode(buf, src)
+	buf := BufferPool.Get(lz4.CompressBound(len(src)))
+	compressed, err := lz4.Encode(buf, src)
 	if err != nil {
 		return nil, err
 	}
+	if &compressed[0] != &buf[0] {
+		panic("bug: lz4.Compress allocated, which it must not (should use buffer pool)")
+	}
 
-	binary.BigEndian.PutUint32(buf, binary.LittleEndian.Uint32(buf))
-	return buf, nil
+	binary.BigEndian.PutUint32(compressed, binary.LittleEndian.Uint32(compressed))
+	return compressed, nil
 }
 
 func (c *rawConnection) lz4Decompress(src []byte) ([]byte, error) {
@@ -995,9 +977,12 @@ func (c *rawConnection) lz4Decompress(src []byte) ([]byte, error) {
 	binary.LittleEndian.PutUint32(src, size)
 	var err error
 	buf := BufferPool.Get(int(size))
-	buf, err = lz4.Decode(buf, src)
+	decoded, err := lz4.Decode(buf, src)
 	if err != nil {
 		return nil, err
 	}
-	return buf, nil
+	if &decoded[0] != &buf[0] {
+		panic("bug: lz4.Decode allocated, which it must not (should use buffer pool)")
+	}
+	return decoded, nil
 }

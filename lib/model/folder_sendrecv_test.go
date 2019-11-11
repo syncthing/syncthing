@@ -94,7 +94,7 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 	w := createTmpWrapper(defaultCfg)
 	model := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
 	fcfg := testFolderConfigTmp()
-	model.AddFolder(fcfg)
+	model.addFolder(fcfg)
 
 	f := &sendReceiveFolder{
 		folder: folder{
@@ -254,8 +254,22 @@ func TestCopierFinder(t *testing.T) {
 
 	f.handleFile(requiredFile, copyChan, dbUpdateChan)
 
-	pulls := []pullBlockState{<-pullChan, <-pullChan, <-pullChan, <-pullChan}
-	finish := <-finisherChan
+	timeout := time.After(10 * time.Second)
+	pulls := make([]pullBlockState, 4)
+	for i := 0; i < 4; i++ {
+		select {
+		case pulls[i] = <-pullChan:
+		case <-timeout:
+			t.Fatalf("Timed out before receiving all 4 states on pullChan (already got %v)", i)
+		}
+	}
+	var finish *sharedPullerState
+	select {
+	case finish = <-finisherChan:
+	case <-timeout:
+		t.Fatal("Timed out before receiving 4 states on pullChan")
+	}
+
 	defer cleanupSharedPullerState(finish)
 
 	select {

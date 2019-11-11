@@ -47,11 +47,16 @@ const (
 
 type ExitStatus int
 
+func (s ExitStatus) AsInt() int {
+	return int(s)
+}
+
 const (
-	ExitSuccess ExitStatus = 0
-	ExitError   ExitStatus = 1
-	ExitRestart ExitStatus = 3
-	ExitUpgrade ExitStatus = 4
+	ExitSuccess            ExitStatus = 0
+	ExitError              ExitStatus = 1
+	ExitNoUpgradeAvailable ExitStatus = 2
+	ExitRestart            ExitStatus = 3
+	ExitUpgrade            ExitStatus = 4
 )
 
 type Options struct {
@@ -232,16 +237,6 @@ func (a *App) startup() error {
 		m.StartDeadlockDetector(time.Duration(a.opts.DeadlockTimeoutS) * time.Second)
 	} else if !build.IsRelease || build.IsBeta {
 		m.StartDeadlockDetector(20 * time.Minute)
-	}
-
-	// Add and start folders
-	for _, folderCfg := range a.cfg.Folders() {
-		if folderCfg.Paused {
-			folderCfg.CreateRoot()
-			continue
-		}
-		m.AddFolder(folderCfg)
-		m.StartFolder(folderCfg.ID)
 	}
 
 	a.mainService.Add(m)
