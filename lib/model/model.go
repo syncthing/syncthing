@@ -427,18 +427,13 @@ func (m *model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) 
 
 	m.fmut.Unlock()
 
-	// Close connections to affected devices
-	// Must happen before stopping the folder service to abort ongoing
-	// transmissions and thus allow timely service termination.
-	w := m.closeConns(cfg.DeviceIDs(), err)
-
 	for _, id := range tokens {
 		m.RemoveAndWait(id, 0)
 	}
 
 	// Wait for connections to stop to ensure that no more calls to methods
 	// expecting this folder to exist happen (e.g. .IndexUpdate).
-	w.Wait()
+	m.closeConns(cfg.DeviceIDs(), err).Wait()
 
 	m.fmut.Lock()
 

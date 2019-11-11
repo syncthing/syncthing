@@ -104,7 +104,8 @@ type sendReceiveFolder struct {
 
 	queue *jobQueue
 
-	pullErrors    map[string]string // path -> error string
+	pullErrors    map[string]string // errors for most recent/current iteration
+	oldPullErrors map[string]string // errors from previous iterations for log filtering only
 	pullErrorsMut sync.Mutex
 }
 
@@ -210,9 +211,10 @@ func (f *sendReceiveFolder) pull() bool {
 	}
 
 	f.pullErrorsMut.Lock()
-	hasPullErrs := len(f.pullErrors) > 0
+	pullErrNum := len(f.pullErrors)
 	f.pullErrorsMut.Unlock()
-	if hasPullErrs {
+	if pullErrNum > 0 {
+		l.Infof("%v: Failed to sync %v items", f.Description(), pullErrNum)
 		f.evLogger.Log(events.FolderErrors, map[string]interface{}{
 			"folder": f.folderID,
 			"errors": f.Errors(),
@@ -227,6 +229,11 @@ func (f *sendReceiveFolder) pull() bool {
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
 func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
+	f.pullErrorsMut.Lock()
+	f.oldPullErrors = f.pullErrors
+	f.pullErrors = make(map[string]string)
+	f.pullErrorsMut.Unlock()
+
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -269,9 +276,6 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 		doneWg.Done()
 	}()
 
-	// Clear out all previous errors
-	f.clearPullErrors()
-
 	changed, fileDeletions, dirDeletions, err := f.processNeeded(dbUpdateChan, copyChan, scanChan)
 
 	// Signal copy and puller routines that we are done with the in data for
@@ -293,6 +297,10 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	// Wait for db updates and scan scheduling to complete
 	close(dbUpdateChan)
 	updateWg.Wait()
+
+	f.pullErrorsMut.Lock()
+	f.oldPullErrors = nil
+	f.pullErrorsMut.Unlock()
 
 	return changed
 }
@@ -1458,7 +1466,17 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 		// leastBusy can select another device when someone else asks.
 		activity.using(selected)
 		var buf []byte
-		buf, lastError = f.model.requestGlobal(selected.ID, f.folderID, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
+		done := make(chan struct{})
+		go func() {
+			buf, lastError = f.model.requestGlobal(selected.ID, f.folderID, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-f.ctx.Done():
+			state.fail(errors.Wrap(f.ctx.Err(), "folder stopped"))
+			return
+		}
 		activity.done(selected)
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)
@@ -1757,6 +1775,11 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 }
 
 func (f *sendReceiveFolder) newPullError(path string, err error) {
+	if errors.Cause(err) == f.ctx.Err() {
+		// Error because the folder stopped - no point logging/tracking
+		return
+	}
+
 	f.pullErrorsMut.Lock()
 	defer f.pullErrorsMut.Unlock()
 
@@ -1767,18 +1790,18 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 		return
 	}
 
-	l.Infof("Puller (folder %s, item %q): %v", f.Description(), path, err)
-
 	// Establish context to differentiate from errors while scanning.
 	// Use "syncing" as opposed to "pulling" as the latter might be used
 	// for errors occurring specificly in the puller routine.
-	f.pullErrors[path] = fmt.Sprintln("syncing:", err)
-}
+	errStr := fmt.Sprintln("syncing:", err)
+	f.pullErrors[path] = errStr
 
-func (f *sendReceiveFolder) clearPullErrors() {
-	f.pullErrorsMut.Lock()
-	f.pullErrors = make(map[string]string)
-	f.pullErrorsMut.Unlock()
+	if oldErr, ok := f.oldPullErrors[path]; ok && oldErr == errStr {
+		l.Debugf("Repeat error on puller (folder %s, item %q): %v", f.Description(), path, err)
+		return
+	}
+
+	l.Infof("Puller (folder %s, item %q): %v", f.Description(), path, err)
 }
 
 func (f *sendReceiveFolder) Errors() []FileError {
