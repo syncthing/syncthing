@@ -8,6 +8,7 @@ package model
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -2075,7 +2076,7 @@ func (s *indexSender) sendIndexTo() error {
 	return err
 }
 
-func (m *model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (m *model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool, ctx context.Context) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
@@ -2086,7 +2087,7 @@ func (m *model) requestGlobal(deviceID protocol.DeviceID, folder, name string, o
 
 	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, offset, size, hash, weakHash, fromTemporary)
 
-	return nc.Request(folder, name, offset, size, hash, weakHash, fromTemporary)
+	return nc.Request(folder, name, offset, size, hash, weakHash, fromTemporary, ctx)
 }
 
 func (m *model) ScanFolders() map[string]error {

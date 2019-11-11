@@ -1443,7 +1443,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 		select {
 		case <-f.ctx.Done():
 			state.fail(errors.Wrap(f.ctx.Err(), "folder stopped"))
-			return
+			break
 		default:
 		}
 
@@ -1466,17 +1466,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 		// leastBusy can select another device when someone else asks.
 		activity.using(selected)
 		var buf []byte
-		done := make(chan struct{})
-		go func() {
-			buf, lastError = f.model.requestGlobal(selected.ID, f.folderID, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
-			close(done)
-		}()
-		select {
-		case <-done:
-		case <-f.ctx.Done():
-			state.fail(errors.Wrap(f.ctx.Err(), "folder stopped"))
-			return
-		}
+		buf, lastError = f.model.requestGlobal(selected.ID, f.folderID, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary, f.ctx)
 		activity.done(selected)
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)
@@ -1798,6 +1788,7 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 
 	if oldErr, ok := f.oldPullErrors[path]; ok && oldErr == errStr {
 		l.Debugf("Repeat error on puller (folder %s, item %q): %v", f.Description(), path, err)
+		delete(f.oldPullErrors, path) // Potential repeats are now caught by f.pullErrors itself
 		return
 	}
 

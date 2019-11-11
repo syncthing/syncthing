@@ -3,6 +3,7 @@
 package protocol
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -136,7 +137,7 @@ type Connection interface {
 	Name() string
 	Index(folder string, files []FileInfo) error
 	IndexUpdate(folder string, files []FileInfo) error
-	Request(folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
+	Request(folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool, ctx context.Context) ([]byte, error)
 	ClusterConfig(config ClusterConfig)
 	DownloadProgress(folder string, updates []FileDownloadProgressUpdate)
 	Statistics() Statistics
@@ -186,6 +187,7 @@ type message interface {
 type asyncMessage struct {
 	msg  message
 	done chan struct{} // done closes when we're done sending the message
+	ctx  context.Context
 }
 
 const (
@@ -258,7 +260,7 @@ func (c *rawConnection) Index(folder string, idx []FileInfo) error {
 	c.send(&Index{
 		Folder: folder,
 		Files:  idx,
-	}, nil)
+	}, nil, context.TODO())
 	c.idxMut.Unlock()
 	return nil
 }
@@ -274,13 +276,13 @@ func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo) error {
 	c.send(&IndexUpdate{
 		Folder: folder,
 		Files:  idx,
-	}, nil)
+	}, nil, context.TODO())
 	c.idxMut.Unlock()
 	return nil
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
-func (c *rawConnection) Request(folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (c *rawConnection) Request(folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool, ctx context.Context) ([]byte, error) {
 	c.nextIDMut.Lock()
 	id := c.nextID
 	c.nextID++
@@ -303,7 +305,7 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 		Hash:          hash,
 		WeakHash:      weakHash,
 		FromTemporary: fromTemporary,
-	}, nil)
+	}, nil, ctx)
 	if !ok {
 		return nil, ErrClosed
 	}
@@ -339,11 +341,11 @@ func (c *rawConnection) DownloadProgress(folder string, updates []FileDownloadPr
 	c.send(&DownloadProgress{
 		Folder:  folder,
 		Updates: updates,
-	}, nil)
+	}, nil, context.TODO())
 }
 
 func (c *rawConnection) ping() bool {
-	return c.send(&Ping{}, nil)
+	return c.send(&Ping{}, nil, context.Background())
 }
 
 func (c *rawConnection) readerLoop() {
@@ -616,7 +618,7 @@ func (c *rawConnection) handleRequest(req Request) {
 		c.send(&Response{
 			ID:   req.ID,
 			Code: errorToCode(err),
-		}, nil)
+		}, nil, context.Background())
 		return
 	}
 	done := make(chan struct{})
@@ -624,7 +626,7 @@ func (c *rawConnection) handleRequest(req Request) {
 		ID:   req.ID,
 		Data: res.Data(),
 		Code: errorToCode(nil),
-	}, done)
+	}, done, context.Background())
 	<-done
 	res.Close()
 }
@@ -639,12 +641,13 @@ func (c *rawConnection) handleResponse(resp Response) {
 	c.awaitingMut.Unlock()
 }
 
-func (c *rawConnection) send(msg message, done chan struct{}) bool {
+func (c *rawConnection) send(msg message, done chan struct{}, ctx context.Context) bool {
 	select {
-	case c.outbox <- asyncMessage{msg, done}:
+	case c.outbox <- asyncMessage{msg, done, ctx}:
 		return true
 	case <-c.preventSends:
 	case <-c.closed:
+	case <-ctx.Done():
 	}
 	if done != nil {
 		close(done)
@@ -853,7 +856,7 @@ func (c *rawConnection) Close(err error) {
 		done := make(chan struct{})
 		timeout := time.NewTimer(CloseTimeout)
 		select {
-		case c.closeBox <- asyncMessage{&Close{err.Error()}, done}:
+		case c.closeBox <- asyncMessage{&Close{err.Error()}, done, context.Background()}:
 			select {
 			case <-done:
 			case <-timeout.C:

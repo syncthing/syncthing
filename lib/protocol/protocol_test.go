@@ -4,6 +4,7 @@ package protocol
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -77,7 +78,7 @@ func TestClose(t *testing.T) {
 	c0.Index("default", nil)
 	c0.Index("default", nil)
 
-	if _, err := c0.Request("default", "foo", 0, 0, nil, 0, false); err == nil {
+	if _, err := c0.Request("default", "foo", 0, 0, nil, 0, false, context.Background()); err == nil {
 		t.Error("Request should return an error")
 	}
 }
@@ -185,7 +186,7 @@ func TestClusterConfigFirst(t *testing.T) {
 	c.Start()
 
 	select {
-	case c.outbox <- asyncMessage{&Ping{}, nil}:
+	case c.outbox <- asyncMessage{&Ping{}, nil, context.Background()}:
 		t.Fatal("able to send ping before cluster config")
 	case <-time.After(100 * time.Millisecond):
 		// Allow some time for c.writerLoop to setup after c.Start
@@ -194,7 +195,7 @@ func TestClusterConfigFirst(t *testing.T) {
 	c.ClusterConfig(ClusterConfig{})
 
 	done := make(chan struct{})
-	if ok := c.send(&Ping{}, done); !ok {
+	if ok := c.send(&Ping{}, done, context.Background()); !ok {
 		t.Fatal("send ping after cluster config returned false")
 	}
 	select {
