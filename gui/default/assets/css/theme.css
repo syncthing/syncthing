@@ -7,29 +7,5 @@
 
 */
 
-.panel-progress {
-    background: #3498db;
-}
-
-.identicon rect {
-    fill: #333;
-}
-
-.panel-warning .identicon rect {
-    fill: #fff;
-}
-
-.li-column {
-    background-color: rgb(236, 240, 241);
-    border-radius: 3px;
-}
-
-.panel-heading:hover, .panel-heading:focus {
-    text-decoration: none;
-}
-
-.fancytree-ext-filter-hide tr.fancytree-submatch span.fancytree-title,
-.fancytree-ext-filter-hide span.fancytree-node.fancytree-submatch span.fancytree-title {
-    color: black !important;
-    font-weight: lighter !important;
-}
+@import "../../theme-assets/dark/assets/css/theme.css" screen and (prefers-color-scheme: dark);
+@import "../../theme-assets/light/assets/css/theme.css" (prefers-color-scheme: light), (prefers-color-scheme: no-preference);

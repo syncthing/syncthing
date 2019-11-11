@@ -3224,7 +3224,7 @@ func TestRequestLimit(t *testing.T) {
 	go func() {
 		second, err := m.Request(device1, "default", file, 2000, 0, nil, 0, false)
 		if err != nil {
-			t.Fatalf("Second request failed: %v", err)
+			t.Errorf("Second request failed: %v", err)
 		}
 		close(returned)
 		second.Close()
@@ -3382,5 +3382,18 @@ func TestDevicePause(t *testing.T) {
 		}
 	case <-timeout.C:
 		t.Fatal("Timed out before device was paused")
+	}
+}
+
+func TestDeviceWasSeen(t *testing.T) {
+	m, _, fcfg := setupModelWithConnection()
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+
+	m.deviceWasSeen(device1)
+
+	stats := m.DeviceStatistics()
+	entry := stats[device1.String()]
+	if time.Since(entry.LastSeen) > time.Second {
+		t.Error("device should have been seen now")
 	}
 }

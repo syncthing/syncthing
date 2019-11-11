@@ -207,6 +207,9 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		fmut:                sync.NewRWMutex(),
 		pmut:                sync.NewRWMutex(),
 	}
+	for devID := range cfg.Devices() {
+		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
+	}
 	m.Add(m.progressEmitter)
 	scanLimiter.setCapacity(cfg.Options().MaxConcurrentScans)
 	cfg.Subscribe(m)
