@@ -959,14 +959,17 @@ func (c *rawConnection) Statistics() Statistics {
 
 func (c *rawConnection) lz4Compress(src []byte) ([]byte, error) {
 	var err error
-	buf := BufferPool.Get(len(src))
-	buf, err = lz4.Encode(buf, src)
+	buf := BufferPool.Get(lz4.CompressBound(len(src)))
+	compressed, err := lz4.Encode(buf, src)
 	if err != nil {
 		return nil, err
 	}
+	if &compressed[0] != &buf[0] {
+		panic("bug: lz4.Compress allocated, which it must not (should use buffer pool)")
+	}
 
-	binary.BigEndian.PutUint32(buf, binary.LittleEndian.Uint32(buf))
-	return buf, nil
+	binary.BigEndian.PutUint32(compressed, binary.LittleEndian.Uint32(compressed))
+	return compressed, nil
 }
 
 func (c *rawConnection) lz4Decompress(src []byte) ([]byte, error) {
@@ -974,9 +977,12 @@ func (c *rawConnection) lz4Decompress(src []byte) ([]byte, error) {
 	binary.LittleEndian.PutUint32(src, size)
 	var err error
 	buf := BufferPool.Get(int(size))
-	buf, err = lz4.Decode(buf, src)
+	decoded, err := lz4.Decode(buf, src)
 	if err != nil {
 		return nil, err
 	}
-	return buf, nil
+	if &decoded[0] != &buf[0] {
+		panic("bug: lz4.Decode allocated, which it must not (should use buffer pool)")
+	}
+	return decoded, nil
 }
