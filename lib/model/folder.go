@@ -49,7 +49,6 @@ type folder struct {
 	fset    *db.FileSet
 	ignores *ignore.Matcher
 	ctx     context.Context
-	cancel  context.CancelFunc
 
 	scanInterval        time.Duration
 	scanTimer           *time.Timer
@@ -80,8 +79,6 @@ type puller interface {
 }
 
 func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger) folder {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	return folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -91,8 +88,6 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		shortID: model.shortID,
 		fset:    fset,
 		ignores: ignores,
-		ctx:     ctx,
-		cancel:  cancel,
 
 		scanInterval:        time.Duration(cfg.RescanIntervalS) * time.Second,
 		scanTimer:           time.NewTimer(time.Millisecond), // The first scan should be done immediately.
@@ -109,9 +104,11 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 	}
 }
 
-func (f *folder) serve(_ chan struct{}) {
+func (f *folder) serve(ctx context.Context) {
 	atomic.AddInt32(&f.model.foldersRunning, 1)
 	defer atomic.AddInt32(&f.model.foldersRunning, -1)
+
+	f.ctx = ctx
 
 	l.Debugln(f, "starting")
 	defer l.Debugln(f, "exiting")
@@ -254,11 +251,6 @@ func (f *folder) Reschedule() {
 
 func (f *folder) Delay(next time.Duration) {
 	f.scanDelay <- next
-}
-
-func (f *folder) Stop() {
-	f.cancel()
-	f.Service.Stop()
 }
 
 // CheckHealth checks the folder for common errors, updates the folder state
@@ -643,7 +635,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 				failTimer.Reset(time.Minute)
 				continue
 			}
-			watchaggregator.Aggregate(eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, f.evLogger, aggrCtx)
+			watchaggregator.Aggregate(aggrCtx, eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, f.evLogger)
 			l.Debugln("Started filesystem watcher for folder", f.Description())
 		case err = <-errChan:
 			f.setWatchError(err)

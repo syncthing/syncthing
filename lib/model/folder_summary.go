@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -63,8 +64,8 @@ func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, 
 		lastEventReqMut: sync.NewMutex(),
 	}
 
-	service.Add(util.AsService(service.listenForUpdates))
-	service.Add(util.AsService(service.calculateSummaries))
+	service.Add(util.AsService(service.listenForUpdates, service.String()))
+	service.Add(util.AsService(service.calculateSummaries, service.String()))
 
 	return service
 }
@@ -145,7 +146,7 @@ func (c *folderSummaryService) OnEventRequest() {
 
 // listenForUpdates subscribes to the event bus and makes note of folders that
 // need their data recalculated.
-func (c *folderSummaryService) listenForUpdates(stop chan struct{}) {
+func (c *folderSummaryService) listenForUpdates(ctx context.Context) {
 	sub := c.evLogger.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged | events.DownloadProgress)
 	defer sub.Unsubscribe()
 
@@ -155,7 +156,7 @@ func (c *folderSummaryService) listenForUpdates(stop chan struct{}) {
 		select {
 		case ev := <-sub.C():
 			c.processUpdate(ev)
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -234,7 +235,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 
 // calculateSummaries periodically recalculates folder summaries and
 // completion percentage, and sends the results on the event bus.
-func (c *folderSummaryService) calculateSummaries(stop chan struct{}) {
+func (c *folderSummaryService) calculateSummaries(ctx context.Context) {
 	const pumpInterval = 2 * time.Second
 	pump := time.NewTimer(pumpInterval)
 
@@ -255,7 +256,7 @@ func (c *folderSummaryService) calculateSummaries(stop chan struct{}) {
 		case folder := <-c.immediate:
 			c.sendSummary(folder)
 
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}

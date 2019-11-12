@@ -3,6 +3,7 @@
 package client
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net/url"
@@ -51,16 +52,16 @@ type commonClient struct {
 	mut                      sync.RWMutex
 }
 
-func newCommonClient(invitations chan protocol.SessionInvitation, serve func(chan struct{}) error) commonClient {
+func newCommonClient(invitations chan protocol.SessionInvitation, serve func(context.Context) error) commonClient {
 	c := commonClient{
 		invitations: invitations,
 		mut:         sync.NewRWMutex(),
 	}
-	newServe := func(stop chan struct{}) error {
+	newServe := func(ctx context.Context) error {
 		defer c.cleanup()
-		return serve(stop)
+		return serve(ctx)
 	}
-	c.ServiceWithError = util.AsServiceWithError(newServe)
+	c.ServiceWithError = util.AsServiceWithError(newServe, c.String())
 	if c.invitations == nil {
 		c.closeInvitationsOnFinish = true
 		c.invitations = make(chan protocol.SessionInvitation)
@@ -80,4 +81,8 @@ func (c *commonClient) Invitations() chan protocol.SessionInvitation {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.invitations
+}
+
+func (c *commonClient) String() string {
+	return fmt.Sprintf("commonClient/@%p", c)
 }

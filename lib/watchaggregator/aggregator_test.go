@@ -67,7 +67,7 @@ func TestAggregate(t *testing.T) {
 	folderCfg.ID = "Aggregate"
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	a := newAggregator(folderCfg, ctx)
+	a := newAggregator(ctx, folderCfg)
 
 	// checks whether maxFilesPerDir events in one dir are kept as is
 	for i := 0; i < maxFilesPerDir; i++ {
@@ -95,7 +95,7 @@ func TestAggregate(t *testing.T) {
 	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"parent"})
 
 	// again test aggregation in "parent" but with event in subdirs
-	a = newAggregator(folderCfg, ctx)
+	a = newAggregator(ctx, folderCfg)
 	for i := 0; i < maxFilesPerDir; i++ {
 		a.newEvent(fs.Event{
 			Name: filepath.Join("parent", strconv.Itoa(i)),
@@ -109,7 +109,7 @@ func TestAggregate(t *testing.T) {
 	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"parent"})
 
 	// test aggregation in root
-	a = newAggregator(folderCfg, ctx)
+	a = newAggregator(ctx, folderCfg)
 	for i := 0; i < maxFiles; i++ {
 		a.newEvent(fs.Event{
 			Name: strconv.Itoa(i),
@@ -132,7 +132,7 @@ func TestAggregate(t *testing.T) {
 	}, inProgress)
 	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"."})
 
-	a = newAggregator(folderCfg, ctx)
+	a = newAggregator(ctx, folderCfg)
 	filesPerDir := maxFilesPerDir / 2
 	dirs := make([]string, maxFiles/filesPerDir+1)
 	for i := 0; i < maxFiles/filesPerDir+1; i++ {
@@ -293,7 +293,7 @@ func testScenario(t *testing.T, name string, testCase func(c chan<- fs.Event), e
 
 	folderCfg := defaultFolderCfg.Copy()
 	folderCfg.ID = name
-	a := newAggregator(folderCfg, ctx)
+	a := newAggregator(ctx, folderCfg)
 	a.notifyTimeout = testNotifyTimeout
 
 	startTime := time.Now()

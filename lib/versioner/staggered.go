@@ -7,6 +7,8 @@
 package versioner
 
 import (
+	"context"
+	"fmt"
 	"sort"
 	"strconv"
 	"time"
@@ -65,13 +67,13 @@ func NewStaggered(folderID string, folderFs fs.Filesystem, params map[string]str
 		},
 		mutex: sync.NewMutex(),
 	}
-	s.Service = util.AsService(s.serve)
+	s.Service = util.AsService(s.serve, s.String())
 
 	l.Debugf("instantiated %#v", s)
 	return s
 }
 
-func (v *Staggered) serve(stop chan struct{}) {
+func (v *Staggered) serve(ctx context.Context) {
 	v.clean()
 	if v.testCleanDone != nil {
 		close(v.testCleanDone)
@@ -83,7 +85,7 @@ func (v *Staggered) serve(stop chan struct{}) {
 		select {
 		case <-tck.C:
 			v.clean()
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -229,4 +231,8 @@ func (v *Staggered) GetVersions() (map[string][]FileVersion, error) {
 
 func (v *Staggered) Restore(filepath string, versionTime time.Time) error {
 	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
+}
+
+func (v *Staggered) String() string {
+	return fmt.Sprintf("Staggered/@%p", v)
 }

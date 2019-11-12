@@ -3,6 +3,7 @@
 package client
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -43,7 +44,7 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 	return c
 }
 
-func (c *staticClient) serve(stop chan struct{}) error {
+func (c *staticClient) serve(ctx context.Context) error {
 	if err := c.connect(); err != nil {
 		l.Infof("Could not connect to relay %s: %s", c.uri, err)
 		return err
@@ -72,7 +73,7 @@ func (c *staticClient) serve(stop chan struct{}) error {
 	messages := make(chan interface{})
 	errors := make(chan error, 1)
 
-	go messageReader(c.conn, messages, errors, stop)
+	go messageReader(ctx, c.conn, messages, errors)
 
 	timeout := time.NewTimer(c.messageTimeout)
 
@@ -106,7 +107,7 @@ func (c *staticClient) serve(stop chan struct{}) error {
 				return fmt.Errorf("protocol error: unexpected message %v", msg)
 			}
 
-		case <-stop:
+		case <-ctx.Done():
 			l.Debugln(c, "stopping")
 			return nil
 
@@ -241,7 +242,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	return nil
 }
 
-func messageReader(conn net.Conn, messages chan<- interface{}, errors chan<- error, stop chan struct{}) {
+func messageReader(ctx context.Context, conn net.Conn, messages chan<- interface{}, errors chan<- error) {
 	for {
 		msg, err := protocol.ReadMessage(conn)
 		if err != nil {
@@ -250,7 +251,7 @@ func messageReader(conn net.Conn, messages chan<- interface{}, errors chan<- err
 		}
 		select {
 		case messages <- msg:
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}

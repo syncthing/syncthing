@@ -7,6 +7,7 @@
 package nat
 
 import (
+	"context"
 	"fmt"
 	"hash/fnv"
 	"math/rand"
@@ -43,11 +44,11 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 		timer: time.NewTimer(0),
 		mut:   sync.NewRWMutex(),
 	}
-	s.Service = util.AsService(s.serve)
+	s.Service = util.AsService(s.serve, s.String())
 	return s
 }
 
-func (s *Service) serve(stop chan struct{}) {
+func (s *Service) serve(ctx context.Context) {
 	announce := stdsync.Once{}
 
 	s.mut.Lock()
@@ -57,7 +58,7 @@ func (s *Service) serve(stop chan struct{}) {
 	for {
 		select {
 		case <-s.timer.C:
-			if found := s.process(stop); found != -1 {
+			if found := s.process(ctx); found != -1 {
 				announce.Do(func() {
 					suffix := "s"
 					if found == 1 {
@@ -66,7 +67,7 @@ func (s *Service) serve(stop chan struct{}) {
 					l.Infoln("Detected", found, "NAT service"+suffix)
 				})
 			}
-		case <-stop:
+		case <-ctx.Done():
 			s.timer.Stop()
 			s.mut.RLock()
 			for _, mapping := range s.mappings {
@@ -78,7 +79,7 @@ func (s *Service) serve(stop chan struct{}) {
 	}
 }
 
-func (s *Service) process(stop chan struct{}) int {
+func (s *Service) process(ctx context.Context) int {
 	// toRenew are mappings which are due for renewal
 	// toUpdate are the remaining mappings, which will only be updated if one of
 	// the old IGDs has gone away, or a new IGD has appeared, but only if we
@@ -120,14 +121,14 @@ func (s *Service) process(stop chan struct{}) int {
 		return -1
 	}
 
-	nats := discoverAll(time.Duration(s.cfg.Options().NATRenewalM)*time.Minute, time.Duration(s.cfg.Options().NATTimeoutS)*time.Second, stop)
+	nats := discoverAll(ctx, time.Duration(s.cfg.Options().NATRenewalM)*time.Minute, time.Duration(s.cfg.Options().NATTimeoutS)*time.Second)
 
 	for _, mapping := range toRenew {
-		s.updateMapping(mapping, nats, true, stop)
+		s.updateMapping(ctx, mapping, nats, true)
 	}
 
 	for _, mapping := range toUpdate {
-		s.updateMapping(mapping, nats, false, stop)
+		s.updateMapping(ctx, mapping, nats, false)
 	}
 
 	return len(nats)
@@ -177,17 +178,17 @@ func (s *Service) RemoveMapping(mapping *Mapping) {
 // acquire mappings for natds which the mapping was unaware of before.
 // Optionally takes renew flag which indicates whether or not we should renew
 // mappings with existing natds
-func (s *Service) updateMapping(mapping *Mapping, nats map[string]Device, renew bool, stop chan struct{}) {
+func (s *Service) updateMapping(ctx context.Context, mapping *Mapping, nats map[string]Device, renew bool) {
 	var added, removed []Address
 
 	renewalTime := time.Duration(s.cfg.Options().NATRenewalM) * time.Minute
 	mapping.expires = time.Now().Add(renewalTime)
 
-	newAdded, newRemoved := s.verifyExistingMappings(mapping, nats, renew, stop)
+	newAdded, newRemoved := s.verifyExistingMappings(ctx, mapping, nats, renew)
 	added = append(added, newAdded...)
 	removed = append(removed, newRemoved...)
 
-	newAdded, newRemoved = s.acquireNewMappings(mapping, nats, stop)
+	newAdded, newRemoved = s.acquireNewMappings(ctx, mapping, nats)
 	added = append(added, newAdded...)
 	removed = append(removed, newRemoved...)
 
@@ -196,14 +197,14 @@ func (s *Service) updateMapping(mapping *Mapping, nats map[string]Device, renew 
 	}
 }
 
-func (s *Service) verifyExistingMappings(mapping *Mapping, nats map[string]Device, renew bool, stop chan struct{}) ([]Address, []Address) {
+func (s *Service) verifyExistingMappings(ctx context.Context, mapping *Mapping, nats map[string]Device, renew bool) ([]Address, []Address) {
 	var added, removed []Address
 
 	leaseTime := time.Duration(s.cfg.Options().NATLeaseM) * time.Minute
 
 	for id, address := range mapping.addressMap() {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return nil, nil
 		default:
 		}
@@ -225,7 +226,7 @@ func (s *Service) verifyExistingMappings(mapping *Mapping, nats map[string]Devic
 
 			l.Debugf("Renewing %s -> %s mapping on %s", mapping, address, id)
 
-			addr, err := s.tryNATDevice(nat, mapping.address.Port, address.Port, leaseTime, stop)
+			addr, err := s.tryNATDevice(ctx, nat, mapping.address.Port, address.Port, leaseTime)
 			if err != nil {
 				l.Debugf("Failed to renew %s -> mapping on %s", mapping, address, id)
 				mapping.removeAddress(id)
@@ -247,7 +248,7 @@ func (s *Service) verifyExistingMappings(mapping *Mapping, nats map[string]Devic
 	return added, removed
 }
 
-func (s *Service) acquireNewMappings(mapping *Mapping, nats map[string]Device, stop chan struct{}) ([]Address, []Address) {
+func (s *Service) acquireNewMappings(ctx context.Context, mapping *Mapping, nats map[string]Device) ([]Address, []Address) {
 	var added, removed []Address
 
 	leaseTime := time.Duration(s.cfg.Options().NATLeaseM) * time.Minute
@@ -255,7 +256,7 @@ func (s *Service) acquireNewMappings(mapping *Mapping, nats map[string]Device, s
 
 	for id, nat := range nats {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return nil, nil
 		default:
 		}
@@ -274,7 +275,7 @@ func (s *Service) acquireNewMappings(mapping *Mapping, nats map[string]Device, s
 
 		l.Debugf("Acquiring %s mapping on %s", mapping, id)
 
-		addr, err := s.tryNATDevice(nat, mapping.address.Port, 0, leaseTime, stop)
+		addr, err := s.tryNATDevice(ctx, nat, mapping.address.Port, 0, leaseTime)
 		if err != nil {
 			l.Debugf("Failed to acquire %s mapping on %s", mapping, id)
 			continue
@@ -291,7 +292,7 @@ func (s *Service) acquireNewMappings(mapping *Mapping, nats map[string]Device, s
 
 // tryNATDevice tries to acquire a port mapping for the given internal address to
 // the given external port. If external port is 0, picks a pseudo-random port.
-func (s *Service) tryNATDevice(natd Device, intPort, extPort int, leaseTime time.Duration, stop chan struct{}) (Address, error) {
+func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPort int, leaseTime time.Duration) (Address, error) {
 	var err error
 	var port int
 
@@ -313,7 +314,7 @@ func (s *Service) tryNATDevice(natd Device, intPort, extPort int, leaseTime time
 
 	for i := 0; i < 10; i++ {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return Address{}, nil
 		default:
 		}
@@ -341,6 +342,10 @@ findIP:
 		IP:   ip,
 		Port: extPort,
 	}, nil
+}
+
+func (s *Service) String() string {
+	return fmt.Sprintf("nat.Service@%p", s)
 }
 
 func hash(input string) int64 {
