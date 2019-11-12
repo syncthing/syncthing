@@ -1016,23 +1016,18 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	}
 
 	m.fmut.RLock()
-	files, existing := m.folderFiles[folder]
-	runner, running := m.folderRunners[folder]
+	files, ok := m.folderFiles[folder]
+	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
-	if !existing {
-		l.Warnf("%v for nonexistent folder %q", op, folder)
-		panic("handling index for nonexistent folder")
+	if !ok {
+		// This can happen due to a config change that isn't yet
+		// reflected in the model
+		l.Debugf("%v for folder %q missing in model", op, folder)
+		return
 	}
 
-	if running {
-		defer runner.SchedulePull()
-	} else if update {
-		// Runner may legitimately not be set if this is the "cleanup" Index
-		// message at startup.
-		l.Warnf("%v for not running folder %q", op, folder)
-		panic("handling index for not running folder")
-	}
+	defer runner.SchedulePull()
 
 	m.pmut.RLock()
 	downloads := m.deviceDownloads[deviceID]
