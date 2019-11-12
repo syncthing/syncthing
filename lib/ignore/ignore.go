@@ -30,6 +30,14 @@ const (
 	resultFoldCase          = 1 << iota
 )
 
+var defaultResult Result = resultInclude
+
+func init() {
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+		defaultResult |= resultFoldCase
+	}
+}
+
 type Pattern struct {
 	pattern string
 	match   glob.Glob
@@ -48,6 +56,29 @@ func (p Pattern) String() string {
 		ret = "(?d)" + ret
 	}
 	return ret
+}
+
+func (p Pattern) allowsSkippingIgnoredDirs() bool {
+	if p.result.IsIgnored() {
+		return true
+	}
+	if p.pattern[0] != '/' {
+		return false
+	}
+	comps := strings.Split(p.pattern[1:], "/")
+	// Any wildcards (*, [...]) anywhere except for the last path component are bad
+	for _, comp := range comps[:len(comps)-1] {
+		if strings.Contains(comp, "*") {
+			return false
+		}
+		// need to check for escapes
+		for i := strings.Index(comp, "["); i != -1; i = strings.Index(comp[i+1:], "[") {
+			if i == 0 || comp[i-1] != '\\' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 type Result uint8
@@ -173,7 +204,7 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 
 	m.skipIgnoredDirs = true
 	for _, p := range patterns {
-		if !p.result.IsIgnored() {
+		if !p.allowsSkippingIgnoredDirs() {
 			m.skipIgnoredDirs = false
 			break
 		}
@@ -358,87 +389,90 @@ func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetect
 	return patterns, err
 }
 
+func parseLine(line string) ([]Pattern, error) {
+	pattern := Pattern{
+		result: defaultResult,
+	}
+
+	// Allow prefixes to be specified in any order, but only once.
+	var seenPrefix [3]bool
+
+	for {
+		if strings.HasPrefix(line, "!") && !seenPrefix[0] {
+			seenPrefix[0] = true
+			line = line[1:]
+			pattern.result ^= resultInclude
+		} else if strings.HasPrefix(line, "(?i)") && !seenPrefix[1] {
+			seenPrefix[1] = true
+			pattern.result |= resultFoldCase
+			line = line[4:]
+		} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
+			seenPrefix[2] = true
+			pattern.result |= resultDeletable
+			line = line[4:]
+		} else {
+			break
+		}
+	}
+
+	if pattern.result.IsCaseFolded() {
+		line = strings.ToLower(line)
+	}
+
+	pattern.pattern = line
+
+	var err error
+	if strings.HasPrefix(line, "/") {
+		// Pattern is rooted in the current dir only
+		pattern.match, err = glob.Compile(line[1:], '/')
+		return []Pattern{pattern}, err
+	}
+	patterns := make([]Pattern, 2)
+	if strings.HasPrefix(line, "**/") {
+		// Add the pattern as is, and without **/ so it matches in current dir
+		pattern.match, err = glob.Compile(line, '/')
+		if err != nil {
+			return nil, err
+		}
+		patterns[0] = pattern
+
+		line = line[3:]
+		pattern.pattern = line
+		pattern.match, err = glob.Compile(line, '/')
+		if err != nil {
+			return nil, err
+		}
+		patterns[1] = pattern
+		return patterns, nil
+	}
+	// Path name or pattern, add it so it matches files both in
+	// current directory and subdirs.
+	pattern.match, err = glob.Compile(line, '/')
+	if err != nil {
+		return nil, err
+	}
+	patterns[0] = pattern
+
+	line = "**/" + line
+	pattern.pattern = line
+	pattern.match, err = glob.Compile(line, '/')
+	if err != nil {
+		return nil, err
+	}
+	patterns[1] = pattern
+	return patterns, nil
+}
+
 func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd ChangeDetector, linesSeen map[string]struct{}) ([]string, []Pattern, error) {
 	var lines []string
 	var patterns []Pattern
 
-	defaultResult := resultInclude
-	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
-		defaultResult |= resultFoldCase
-	}
-
 	addPattern := func(line string) error {
-		pattern := Pattern{
-			result: defaultResult,
+		newPatterns, err := parseLine(line)
+		if err != nil {
+			return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
 		}
-
-		// Allow prefixes to be specified in any order, but only once.
-		var seenPrefix [3]bool
-
-		for {
-			if strings.HasPrefix(line, "!") && !seenPrefix[0] {
-				seenPrefix[0] = true
-				line = line[1:]
-				pattern.result ^= resultInclude
-			} else if strings.HasPrefix(line, "(?i)") && !seenPrefix[1] {
-				seenPrefix[1] = true
-				pattern.result |= resultFoldCase
-				line = line[4:]
-			} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
-				seenPrefix[2] = true
-				pattern.result |= resultDeletable
-				line = line[4:]
-			} else {
-				break
-			}
-		}
-
-		if pattern.result.IsCaseFolded() {
-			line = strings.ToLower(line)
-		}
-
-		pattern.pattern = line
-
-		var err error
-		if strings.HasPrefix(line, "/") {
-			// Pattern is rooted in the current dir only
-			pattern.match, err = glob.Compile(line[1:], '/')
-			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
-			}
-			patterns = append(patterns, pattern)
-		} else if strings.HasPrefix(line, "**/") {
-			// Add the pattern as is, and without **/ so it matches in current dir
-			pattern.match, err = glob.Compile(line, '/')
-			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
-			}
-			patterns = append(patterns, pattern)
-
-			line = line[3:]
-			pattern.pattern = line
-			pattern.match, err = glob.Compile(line, '/')
-			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
-			}
-			patterns = append(patterns, pattern)
-		} else {
-			// Path name or pattern, add it so it matches files both in
-			// current directory and subdirs.
-			pattern.match, err = glob.Compile(line, '/')
-			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
-			}
-			patterns = append(patterns, pattern)
-
-			line := "**/" + line
-			pattern.pattern = line
-			pattern.match, err = glob.Compile(line, '/')
-			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
-			}
-			patterns = append(patterns, pattern)
-		}
+		patterns = append(patterns, newPatterns...)
 		return nil
 	}
 

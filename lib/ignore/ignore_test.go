@@ -1098,3 +1098,37 @@ func TestPartialIncludeLine(t *testing.T) {
 		}
 	}
 }
+
+func TestSkipIgnoredDirs(t *testing.T) {
+	tcs := []struct {
+		pattern  string
+		expected bool
+	}{
+		{`!/test`, true},
+		{`!/t[eih]t`, true},
+		{`!/t*t`, true},
+		{`!/parent/test`, true},
+		{`!/parent/t[eih]t`, true},
+		{`!/parent/t*t`, true},
+		{`!/pa\[esd\]rent/t*t`, true},
+		{`!/pa*nt/test`, false},
+		{`!/pa[sdf]nt/t[eih]t`, false},
+		{`!/lowest/pa[sdf]nt/test`, false},
+		{`!/lo*st/parent/test`, false},
+		{`/pa*nt/test`, true},
+		{`test`, true},
+		{`*`, true},
+	}
+
+	for _, tc := range tcs {
+		pats, err := parseLine(tc.pattern)
+		if err != nil {
+			t.Error(err)
+		}
+		for _, pat := range pats {
+			if got := pat.allowsSkippingIgnoredDirs(); got != tc.expected {
+				t.Errorf(`Pattern "%v": got %v, expected %v`, pat, got, tc.expected)
+			}
+		}
+	}
+}
