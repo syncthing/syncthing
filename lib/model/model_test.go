@@ -1454,16 +1454,12 @@ func TestIgnores(t *testing.T) {
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
 
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
-	// Reach in and update the ignore matcher to one that always does
+	// Update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
 	// because we will be changing the files on disk often enough that the
 	// mtimes will be unreliable to determine change status.
-	m.fmut.Lock()
-	m.folderIgnores["default"] = ignore.New(defaultFs, ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
-	m.fmut.Unlock()
-	m.startFolder("default")
+	m.removeFolder(defaultFolderConfig)
+	m.addFolderWithIgnores(defaultFolderConfig, ignore.New(defaultFs, ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged())))
 
 	// Make sure the initial scan has finished (ScanFolders is blocking)
 	m.ScanFolders()
@@ -1487,6 +1483,7 @@ func TestIgnores(t *testing.T) {
 
 	// Invalid path, marker should be missing, hence returns an error.
 	m.addFolder(config.FolderConfiguration{ID: "fresh", Path: "XXX"})
+	os.RemoveAll("XXX")
 	_, _, err = m.GetIgnores("fresh")
 	if err == nil {
 		t.Error("No error")
@@ -1556,7 +1553,6 @@ func TestROScanRecovery(t *testing.T) {
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
 	m.addFolder(fcfg)
-	m.startFolder("default")
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -1609,7 +1605,6 @@ func TestRWScanRecovery(t *testing.T) {
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
 	m.addFolder(fcfg)
-	m.startFolder("default")
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -2263,7 +2258,6 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", dbi, nil)
 	m.addFolder(defaultFolderConfig)
-	m.startFolder("default")
 	defer cleanupModel(m)
 
 	// Remote sequence is cached, hence need to recreated.
@@ -2702,7 +2696,6 @@ func TestCustomMarkerName(t *testing.T) {
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
 	m.addFolder(fcfg)
-	m.startFolder("default")
 	m.ServeBackground()
 	defer cleanupModel(m)
 

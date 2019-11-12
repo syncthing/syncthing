@@ -225,7 +225,6 @@ func (m *model) Serve() {
 			continue
 		}
 		m.addFolder(folderCfg)
-		m.startFolder(folderCfg.ID)
 	}
 	m.Supervisor.Serve()
 }
@@ -252,6 +251,12 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 }
 
 func (m *model) addFolder(cfg config.FolderConfiguration) {
+	m.addFolderWithIgnores(cfg, ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles)))
+}
+
+// Only use addFolder in production. The ignores parameter could be generated
+// from cfg, but needs to be customizable for testing.
+func (m *model) addFolderWithIgnores(cfg config.FolderConfiguration, ignores *ignore.Matcher) {
 	if len(cfg.ID) == 0 {
 		panic("cannot add empty folder id")
 	}
@@ -260,38 +265,24 @@ func (m *model) addFolder(cfg config.FolderConfiguration) {
 		panic("cannot add empty folder path")
 	}
 
+	// Close connections to affected devices
+	m.closeConns(cfg.DeviceIDs(), fmt.Errorf("started folder %v", cfg.Description()))
+
 	// Creating the fileset can take a long time (metadata calculation) so
 	// we do it outside of the lock.
 	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
 
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
-	m.addFolderLocked(cfg, fset)
-}
 
-func (m *model) addFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
 	m.folderCfgs[cfg.ID] = cfg
 	m.folderFiles[cfg.ID] = fset
 
-	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
 	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 		l.Warnln("Loading ignores:", err)
 	}
 	m.folderIgnores[cfg.ID] = ignores
-}
 
-// startFolder constructs the folder service and starts it.
-func (m *model) startFolder(folder string) {
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
-	folderCfg := m.folderCfgs[folder]
-	m.startFolderLocked(folderCfg)
-
-	l.Infof("Ready to synchronize %s (%s)", folderCfg.Description(), folderCfg.Type)
-}
-
-// Need to hold lock on m.fmut when calling this.
-func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	_, ok := m.folderRunners[cfg.ID]
 	if ok {
 		l.Warnln("Cannot start already running folder", cfg.Description())
@@ -305,8 +296,6 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 
 	folder := cfg.ID
 
-	fset := m.folderFiles[folder]
-
 	// Find any devices for which we hold the index in the db, but the folder
 	// is not shared, and drop it.
 	expected := mapDevices(cfg.DeviceIDs())
@@ -316,11 +305,6 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 			fset.Drop(available)
 		}
 	}
-
-	// Close connections to affected devices
-	m.fmut.Unlock()
-	m.closeConns(cfg.DeviceIDs(), fmt.Errorf("started folder %v", cfg.Description()))
-	m.fmut.Lock()
 
 	v, ok := fset.Sequence(protocol.LocalDeviceID), true
 	indexHasFiles := ok && v > 0
@@ -358,24 +342,25 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 
 	m.folderRunners[folder] = p
 
-	m.warnAboutOverwritingProtectedFiles(folder)
+	m.warnAboutOverwritingProtectedFiles(cfg, ignores)
 
 	token := m.Add(p)
 	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
+
+	l.Infof("Ready to synchronize %s (%s)", cfg.Description(), cfg.Type)
 }
 
-func (m *model) warnAboutOverwritingProtectedFiles(folder string) {
-	if m.folderCfgs[folder].Type == config.FolderTypeSendOnly {
+func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguration, ignores *ignore.Matcher) {
+	if cfg.Type == config.FolderTypeSendOnly {
 		return
 	}
 
 	// This is a bit of a hack.
-	ffs := m.folderCfgs[folder].Filesystem()
+	ffs := cfg.Filesystem()
 	if ffs.Type() != fs.FilesystemTypeBasic {
 		return
 	}
 	folderLocation := ffs.URI()
-	ignores := m.folderIgnores[folder]
 
 	var filesAtRisk []string
 	for _, protectedFilePath := range m.protectedFiles {
@@ -484,17 +469,11 @@ func (m *model) restartFolder(from, to config.FolderConfiguration) {
 	}
 
 	m.fmut.Lock()
-	defer m.fmut.Unlock()
-
 	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
+	m.fmut.Unlock()
+
 	if !to.Paused {
-		// Creating the fileset can take a long time (metadata calculation)
-		// so we do it outside of the lock.
-		m.fmut.Unlock()
-		fset := db.NewFileSet(to.ID, to.Filesystem(), m.db)
-		m.fmut.Lock()
-		m.addFolderLocked(to, fset)
-		m.startFolderLocked(to)
+		m.addFolder(to)
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
 }
@@ -2519,7 +2498,6 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			} else {
 				l.Infoln("Adding folder", cfg.Description())
 				m.addFolder(cfg)
-				m.startFolder(folderID)
 			}
 		}
 	}

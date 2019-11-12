@@ -52,9 +52,6 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
 
-	// Start the folder. This will cause a scan, should discover the other stuff in the folder
-
-	m.startFolder("ro")
 	m.ScanFolder("ro")
 
 	// We should now have two files and two directories.
@@ -123,9 +120,6 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	m.Index(device1, "ro", knownFiles)
 	f.updateLocalsFromScanning(knownFiles)
 
-	// Start the folder. This will cause a scan.
-
-	m.startFolder("ro")
 	m.ScanFolder("ro")
 
 	// Everything should be in sync.
@@ -219,9 +213,6 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	m.Index(device1, "ro", knownFiles)
 	f.updateLocalsFromScanning(knownFiles)
 
-	// Start the folder. This will cause a scan.
-
-	m.startFolder("ro")
 	m.ScanFolder("ro")
 
 	// Everything should be in sync.
