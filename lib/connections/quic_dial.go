@@ -43,7 +43,7 @@ type quicDialer struct {
 	tlsCfg *tls.Config
 }
 
-func (d *quicDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, error) {
+func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri, config.DefaultQUICPort)
 
 	addr, err := net.ResolveUDPAddr("udp", uri.Host)
@@ -67,7 +67,7 @@ func (d *quicDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, erro
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), quicOperationTimeout)
+	ctx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
 	defer cancel()
 
 	session, err := quic.DialContext(ctx, conn, addr, uri.Host, d.tlsCfg, quicConfig)

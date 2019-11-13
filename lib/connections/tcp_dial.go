@@ -7,6 +7,7 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
 	"net/url"
 	"time"
@@ -30,10 +31,10 @@ type tcpDialer struct {
 	tlsCfg *tls.Config
 }
 
-func (d *tcpDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, error) {
+func (d *tcpDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri, config.DefaultTCPPort)
 
-	conn, err := dialer.DialTimeout(uri.Scheme, uri.Host, 10*time.Second)
+	conn, err := dialer.DialTimeout(ctx, uri.Scheme, uri.Host, 10*time.Second)
 	if err != nil {
 		return internalConn{}, err
 	}

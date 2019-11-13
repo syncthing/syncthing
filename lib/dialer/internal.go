@@ -7,6 +7,7 @@
 package dialer
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/url"
@@ -20,12 +21,17 @@ import (
 
 var (
 	l           = logger.DefaultLogger.NewFacility("dialer", "Dialing connections")
-	proxyDialer proxy.Dialer
+	proxyDialer dialer
 	usingProxy  bool
 	noFallback  = os.Getenv("ALL_PROXY_NO_FALLBACK") != ""
 )
 
-type dialFunc func(network, addr string) (net.Conn, error)
+type dialer interface {
+	proxy.ContextDialer
+	proxy.Dialer
+}
+
+type dialFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 
 func init() {
 	proxy.RegisterDialerType("socks", socksDialerFunction)
@@ -34,7 +40,7 @@ func init() {
 
 	if usingProxy {
 		http.DefaultTransport = &http.Transport{
-			Dial:                Dial,
+			DialContext:         Dial,
 			Proxy:               http.ProxyFromEnvironment,
 			TLSHandshakeTimeout: 10 * time.Second,
 		}
@@ -55,8 +61,8 @@ func init() {
 	}
 }
 
-func dialWithFallback(proxyDialFunc dialFunc, fallbackDialFunc dialFunc, network, addr string) (net.Conn, error) {
-	conn, err := proxyDialFunc(network, addr)
+func dialWithFallback(ctx context.Context, proxyDialer, fallbackDialer dialer, network, addr string) (net.Conn, error) {
+	conn, err := proxyDialer.DialContext(ctx, network, addr)
 	if err == nil {
 		l.Debugf("Dialing %s address %s via proxy - success, %s -> %s", network, addr, conn.LocalAddr(), conn.RemoteAddr())
 		SetTCPOptions(conn)
@@ -70,7 +76,7 @@ func dialWithFallback(proxyDialFunc dialFunc, fallbackDialFunc dialFunc, network
 		return conn, err
 	}
 
-	conn, err = fallbackDialFunc(network, addr)
+	conn, err = fallbackDialer.DialContext(ctx, network, addr)
 	if err == nil {
 		l.Debugf("Dialing %s address %s via fallback - success, %s -> %s", network, addr, conn.LocalAddr(), conn.RemoteAddr())
 		SetTCPOptions(conn)
@@ -95,7 +101,7 @@ func socksDialerFunction(u *url.URL, forward proxy.Dialer) (proxy.Dialer, error)
 }
 
 // This is a rip off of proxy.FromEnvironment with a custom forward dialer
-func getDialer(forward proxy.Dialer) proxy.Dialer {
+func getDialer(forward dialer) dialer {
 	allProxy := os.Getenv("all_proxy")
 	if len(allProxy) == 0 {
 		return forward
@@ -112,7 +118,11 @@ func getDialer(forward proxy.Dialer) proxy.Dialer {
 
 	noProxy := os.Getenv("no_proxy")
 	if len(noProxy) == 0 {
-		return prxy
+		// Probably due to compatibility promises, proxy.FromURL returns
+		// proxy.Dialer interface. However it returns either
+		// *socks.Dialer, a dialer registered by us or forward, all of
+		// which implement DialContext -> conversion is safe.
+		return prxy.(dialer)
 	}
 
 	perHost := proxy.NewPerHost(prxy, forward)

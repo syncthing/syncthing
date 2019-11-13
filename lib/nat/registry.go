@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type DiscoverFunc func(renewal, timeout time.Duration) []Device
+type DiscoverFunc func(ctx context.Context, renewal, timeout time.Duration) []Device
 
 var providers []DiscoverFunc
 
@@ -30,7 +30,7 @@ func discoverAll(ctx context.Context, renewal, timeout time.Duration) map[string
 	for _, discoverFunc := range providers {
 		go func(f DiscoverFunc) {
 			defer wg.Done()
-			for _, dev := range f(renewal, timeout) {
+			for _, dev := range f(ctx, renewal, timeout) {
 				select {
 				case c <- dev:
 				case <-ctx.Done():

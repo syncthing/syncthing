@@ -236,6 +236,9 @@ func (s *service) Serve() {
 
 	var err error
 	defer func() {
+		if err == context.Canceled {
+			err = nil
+		}
 		s.mut.Lock()
 		s.err = err
 		close(s.stopped)

@@ -70,9 +70,11 @@ func (t *relayListener) serve(ctx context.Context) error {
 				return err
 			}
 
-			conn, err := client.JoinSession(inv)
+			conn, err := client.JoinSession(ctx, inv)
 			if err != nil {
-				l.Infoln("Listen (BEP/relay): joining session:", err)
+				if err != context.Canceled {
+					l.Infoln("Listen (BEP/relay): joining session:", err)
+				}
 				continue
 			}
 

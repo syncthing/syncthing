@@ -153,7 +153,7 @@ func relayAddressesOrder(ctx context.Context, input []string) []string {
 	buckets := make(map[int][]string)
 
 	for _, relay := range input {
-		latency, err := osutil.GetLatencyForURL(relay)
+		latency, err := osutil.GetLatencyForURL(ctx, relay)
 		if err != nil {
 			latency = time.Hour
 		}

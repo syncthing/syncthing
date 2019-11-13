@@ -45,7 +45,7 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 }
 
 func (c *staticClient) serve(ctx context.Context) error {
-	if err := c.connect(); err != nil {
+	if err := c.connect(ctx); err != nil {
 		l.Infof("Could not connect to relay %s: %s", c.uri, err)
 		return err
 	}
@@ -144,13 +144,13 @@ func (c *staticClient) URI() *url.URL {
 	return c.uri
 }
 
-func (c *staticClient) connect() error {
+func (c *staticClient) connect(ctx context.Context) error {
 	if c.uri.Scheme != "relay" {
 		return fmt.Errorf("unsupported relay scheme: %v", c.uri.Scheme)
 	}
 
 	t0 := time.Now()
-	tcpConn, err := dialer.DialTimeout("tcp", c.uri.Host, c.connectTimeout)
+	tcpConn, err := dialer.DialTimeout(ctx, "tcp", c.uri.Host, c.connectTimeout)
 	if err != nil {
 		return err
 	}

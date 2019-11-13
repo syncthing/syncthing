@@ -463,7 +463,7 @@ func (s *service) connect(ctx context.Context) {
 				})
 			}
 
-			conn, ok := s.dialParallel(deviceCfg.DeviceID, dialTargets)
+			conn, ok := s.dialParallel(ctx, deviceCfg.DeviceID, dialTargets)
 			if ok {
 				s.conns <- conn
 			}
@@ -701,6 +701,10 @@ func (s *service) ConnectionStatus() map[string]ConnectionStatusEntry {
 }
 
 func (s *service) setConnectionStatus(address string, err error) {
+	if err == context.Canceled {
+		return
+	}
+
 	status := ConnectionStatusEntry{When: time.Now().UTC().Truncate(time.Second)}
 	if err != nil {
 		errStr := err.Error()
@@ -828,7 +832,7 @@ func IsAllowedNetwork(host string, allowed []string) bool {
 	return false
 }
 
-func (s *service) dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (internalConn, bool) {
+func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, dialTargets []dialTarget) (internalConn, bool) {
 	// Group targets into buckets by priority
 	dialTargetBuckets := make(map[int][]dialTarget, len(dialTargets))
 	for _, tgt := range dialTargets {
@@ -851,7 +855,7 @@ func (s *service) dialParallel(deviceID protocol.DeviceID, dialTargets []dialTar
 		for _, tgt := range tgts {
 			wg.Add(1)
 			go func(tgt dialTarget) {
-				conn, err := tgt.Dial()
+				conn, err := tgt.Dial(ctx)
 				if err == nil {
 					// Closes the connection on error
 					err = s.validateIdentity(conn, deviceID)
