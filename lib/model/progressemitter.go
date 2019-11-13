@@ -85,7 +85,7 @@ func (t *ProgressEmitter) serve(ctx context.Context) {
 				lastCount = newCount
 				t.sendDownloadProgressEventLocked()
 				if len(t.connections) > 0 {
-					t.sendDownloadProgressMessagesLocked()
+					t.sendDownloadProgressMessagesLocked(ctx)
 				}
 			} else {
 				l.Debugln("progress emitter: nothing new")
@@ -114,7 +114,7 @@ func (t *ProgressEmitter) sendDownloadProgressEventLocked() {
 	l.Debugf("progress emitter: emitting %#v", output)
 }
 
-func (t *ProgressEmitter) sendDownloadProgressMessagesLocked() {
+func (t *ProgressEmitter) sendDownloadProgressMessagesLocked(ctx context.Context) {
 	for id, conn := range t.connections {
 		for _, folder := range t.foldersByConns[id] {
 			pullers, ok := t.registry[folder]
@@ -145,7 +145,7 @@ func (t *ProgressEmitter) sendDownloadProgressMessagesLocked() {
 			updates := state.update(folder, activePullers)
 
 			if len(updates) > 0 {
-				conn.DownloadProgress(folder, updates)
+				conn.DownloadProgress(ctx, folder, updates)
 			}
 		}
 	}
@@ -311,7 +311,7 @@ func (t *ProgressEmitter) clearLocked() {
 		}
 		for _, folder := range state.folders() {
 			if updates := state.cleanup(folder); len(updates) > 0 {
-				conn.DownloadProgress(folder, updates)
+				conn.DownloadProgress(context.Background(), folder, updates)
 			}
 		}
 	}

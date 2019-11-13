@@ -135,11 +135,11 @@ type Connection interface {
 	Close(err error)
 	ID() DeviceID
 	Name() string
-	Index(folder string, files []FileInfo) error
-	IndexUpdate(folder string, files []FileInfo) error
+	Index(ctx context.Context, folder string, files []FileInfo) error
+	IndexUpdate(ctx context.Context, folder string, files []FileInfo) error
 	Request(ctx context.Context, folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
 	ClusterConfig(config ClusterConfig)
-	DownloadProgress(folder string, updates []FileDownloadProgressUpdate)
+	DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate)
 	Statistics() Statistics
 	Closed() bool
 }
@@ -249,14 +249,14 @@ func (c *rawConnection) Name() string {
 }
 
 // Index writes the list of file information to the connected peer device
-func (c *rawConnection) Index(folder string, idx []FileInfo) error {
+func (c *rawConnection) Index(ctx context.Context, folder string, idx []FileInfo) error {
 	select {
 	case <-c.closed:
 		return ErrClosed
 	default:
 	}
 	c.idxMut.Lock()
-	c.send(context.TODO(), &Index{
+	c.send(ctx, &Index{
 		Folder: folder,
 		Files:  idx,
 	}, nil)
@@ -265,14 +265,14 @@ func (c *rawConnection) Index(folder string, idx []FileInfo) error {
 }
 
 // IndexUpdate writes the list of file information to the connected peer device as an update
-func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo) error {
+func (c *rawConnection) IndexUpdate(ctx context.Context, folder string, idx []FileInfo) error {
 	select {
 	case <-c.closed:
 		return ErrClosed
 	default:
 	}
 	c.idxMut.Lock()
-	c.send(context.TODO(), &IndexUpdate{
+	c.send(ctx, &IndexUpdate{
 		Folder: folder,
 		Files:  idx,
 	}, nil)
@@ -340,8 +340,8 @@ func (c *rawConnection) Closed() bool {
 }
 
 // DownloadProgress sends the progress updates for the files that are currently being downloaded.
-func (c *rawConnection) DownloadProgress(folder string, updates []FileDownloadProgressUpdate) {
-	c.send(context.TODO(), &DownloadProgress{
+func (c *rawConnection) DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate) {
+	c.send(ctx, &DownloadProgress{
 		Folder:  folder,
 		Updates: updates,
 	}, nil)
