@@ -251,6 +251,35 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 	detector.Watch("pmut", m.pmut)
 }
 
+func (m *model) addFolder(cfg config.FolderConfiguration) {
+	if len(cfg.ID) == 0 {
+		panic("cannot add empty folder id")
+	}
+
+	if len(cfg.Path) == 0 {
+		panic("cannot add empty folder path")
+	}
+
+	// Creating the fileset can take a long time (metadata calculation) so
+	// we do it outside of the lock.
+	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
+
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
+	m.addFolderLocked(cfg, fset)
+}
+
+func (m *model) addFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
+	m.folderCfgs[cfg.ID] = cfg
+	m.folderFiles[cfg.ID] = fset
+
+	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
+	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+		l.Warnln("Loading ignores:", err)
+	}
+	m.folderIgnores[cfg.ID] = ignores
+}
+
 // startFolder constructs the folder service and starts it.
 func (m *model) startFolder(folder string) {
 	m.fmut.Lock()
@@ -367,35 +396,6 @@ func (m *model) warnAboutOverwritingProtectedFiles(folder string) {
 	if len(filesAtRisk) > 0 {
 		l.Warnln("Some protected files may be overwritten and cause issues. See https://docs.syncthing.net/users/config.html#syncing-configuration-files for more information. The at risk files are:", strings.Join(filesAtRisk, ", "))
 	}
-}
-
-func (m *model) addFolder(cfg config.FolderConfiguration) {
-	if len(cfg.ID) == 0 {
-		panic("cannot add empty folder id")
-	}
-
-	if len(cfg.Path) == 0 {
-		panic("cannot add empty folder path")
-	}
-
-	// Creating the fileset can take a long time (metadata calculation) so
-	// we do it outside of the lock.
-	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
-
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
-	m.addFolderLocked(cfg, fset)
-}
-
-func (m *model) addFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
-	m.folderCfgs[cfg.ID] = cfg
-	m.folderFiles[cfg.ID] = fset
-
-	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
-	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		l.Warnln("Loading ignores:", err)
-	}
-	m.folderIgnores[cfg.ID] = ignores
 }
 
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
