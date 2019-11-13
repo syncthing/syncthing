@@ -250,6 +250,7 @@ func TestCopierFinder(t *testing.T) {
 
 	// Run a single fetcher routine
 	go f.copierRoutine(copyChan, pullChan, finisherChan)
+	defer close(copyChan)
 
 	f.handleFile(requiredFile, copyChan, dbUpdateChan)
 
@@ -380,17 +381,19 @@ func TestWeakHash(t *testing.T) {
 
 	// Run a single fetcher routine
 	go fo.copierRoutine(copyChan, pullChan, finisherChan)
+	defer close(copyChan)
 
 	// Test 1 - no weak hashing, file gets fully repulled (`expectBlocks` pulls).
 	fo.WeakHashThresholdPct = 101
 	fo.handleFile(desiredFile, copyChan, dbUpdateChan)
 
 	var pulls []pullBlockState
+	timeout := time.After(10 * time.Second)
 	for len(pulls) < expectBlocks {
 		select {
 		case pull := <-pullChan:
 			pulls = append(pulls, pull)
-		case <-time.After(10 * time.Second):
+		case <-timeout:
 			t.Errorf("timed out, got %d pulls expected %d", len(pulls), expectPulls)
 		}
 	}
@@ -495,6 +498,9 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
 	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
+	defer close(copyChan)
+	defer close(pullChan)
+	defer close(finisherChan)
 
 	f.handleFile(file, copyChan, dbUpdateChan)
 
@@ -552,7 +558,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
 		}
 
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Didn't get anything to the finisher")
 	}
 }
@@ -583,6 +589,9 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
 	go f.pullerRoutine(pullChan, finisherBufferChan)
 	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
+	defer close(copyChan)
+	defer close(pullChan)
+	defer close(finisherChan)
 
 	f.handleFile(file, copyChan, dbUpdateChan)
 
@@ -629,7 +638,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
 			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("Didn't get anything to the finisher")
 	}
 }
