@@ -52,6 +52,9 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
 
+	// Start the folder. This will cause a scan, should discover the other stuff in the folder
+
+	startROFolder(m, f)
 	m.ScanFolder("ro")
 
 	// We should now have two files and two directories.
@@ -120,6 +123,9 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	m.Index(device1, "ro", knownFiles)
 	f.updateLocalsFromScanning(knownFiles)
 
+	// Start the folder. This will cause a scan.
+
+	startROFolder(m, f)
 	m.ScanFolder("ro")
 
 	// Everything should be in sync.
@@ -213,6 +219,9 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	m.Index(device1, "ro", knownFiles)
 	f.updateLocalsFromScanning(knownFiles)
 
+	// Start the folder. This will cause a scan.
+
+	startROFolder(m, f)
 	m.ScanFolder("ro")
 
 	// Everything should be in sync.
@@ -308,7 +317,7 @@ func setupROFolder() (*model, *sendOnlyFolder) {
 	w.SetFolder(fcfg)
 
 	m := newModel(w, myID, "syncthing", "dev", db.OpenMemory(), nil)
-	m.addFolder(fcfg)
+	addFolder(m, fcfg)
 
 	f := &sendOnlyFolder{
 		folder: folder{
@@ -321,4 +330,10 @@ func setupROFolder() (*model, *sendOnlyFolder) {
 	m.ServeBackground()
 
 	return m, f
+}
+
+func startROFolder(m *model, f *sendOnlyFolder) {
+	m.fmut.Lock()
+	m.startFolderLocked(f.FolderConfiguration)
+	m.fmut.Unlock()
 }

@@ -107,7 +107,7 @@ func setupModel(w config.Wrapper) *model {
 	m.ServeBackground()
 	for _, cfg := range w.Folders() {
 		if !cfg.Paused {
-			m.addFolder(cfg)
+			m.newFolder(cfg)
 		}
 	}
 
@@ -174,4 +174,11 @@ func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
 
 func (c *alwaysChanged) Changed() bool {
 	return true
+}
+
+func addFolder(m *model, cfg config.FolderConfiguration) {
+	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
+	m.fmut.Lock()
+	m.addFolderLocked(cfg, fset)
+	m.fmut.Unlock()
 }

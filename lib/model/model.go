@@ -224,7 +224,7 @@ func (m *model) Serve() {
 			folderCfg.CreateRoot()
 			continue
 		}
-		m.addFolder(folderCfg)
+		m.newFolder(folderCfg)
 	}
 	m.Supervisor.Serve()
 }
@@ -250,39 +250,10 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 	detector.Watch("pmut", m.pmut)
 }
 
-func (m *model) addFolder(cfg config.FolderConfiguration) {
-	m.addFolderWithIgnores(cfg, ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles)))
-}
-
-// Only use addFolder in production. The ignores parameter could be generated
-// from cfg, but needs to be customizable for testing.
-func (m *model) addFolderWithIgnores(cfg config.FolderConfiguration, ignores *ignore.Matcher) {
-	if len(cfg.ID) == 0 {
-		panic("cannot add empty folder id")
-	}
-
-	if len(cfg.Path) == 0 {
-		panic("cannot add empty folder path")
-	}
-
-	// Close connections to affected devices
-	m.closeConns(cfg.DeviceIDs(), fmt.Errorf("started folder %v", cfg.Description()))
-
-	// Creating the fileset can take a long time (metadata calculation) so
-	// we do it outside of the lock.
-	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
-
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
-
-	m.folderCfgs[cfg.ID] = cfg
-	m.folderFiles[cfg.ID] = fset
-
-	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		l.Warnln("Loading ignores:", err)
-	}
-	m.folderIgnores[cfg.ID] = ignores
-
+// Should never be used outside of testing - use newFolder and restartFolder
+// startFolderLocked constructs the folder service and starts it.
+// Need to hold lock on m.fmut when calling this.
+func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	_, ok := m.folderRunners[cfg.ID]
 	if ok {
 		l.Warnln("Cannot start already running folder", cfg.Description())
@@ -295,6 +266,8 @@ func (m *model) addFolderWithIgnores(cfg config.FolderConfiguration, ignores *ig
 	}
 
 	folder := cfg.ID
+
+	fset := m.folderFiles[folder]
 
 	// Find any devices for which we hold the index in the db, but the folder
 	// is not shared, and drop it.
@@ -338,7 +311,9 @@ func (m *model) addFolderWithIgnores(cfg config.FolderConfiguration, ignores *ig
 	ffs.Hide(".stversions")
 	ffs.Hide(".stignore")
 
-	p := folderFactory(m, fset, m.folderIgnores[folder], cfg, ver, ffs, m.evLogger)
+	ignores := m.folderIgnores[folder]
+
+	p := folderFactory(m, fset, ignores, cfg, ver, ffs, m.evLogger)
 
 	m.folderRunners[folder] = p
 
@@ -381,6 +356,27 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 	if len(filesAtRisk) > 0 {
 		l.Warnln("Some protected files may be overwritten and cause issues. See https://docs.syncthing.net/users/config.html#syncing-configuration-files for more information. The at risk files are:", strings.Join(filesAtRisk, ", "))
 	}
+}
+
+// Should never be used outside of testing - use newFolder and restartFolder
+// Need to hold lock on m.fmut when calling this.
+func (m *model) addFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
+	if len(cfg.ID) == 0 {
+		panic("cannot add empty folder id")
+	}
+
+	if len(cfg.Path) == 0 {
+		panic("cannot add empty folder path")
+	}
+
+	m.folderCfgs[cfg.ID] = cfg
+	m.folderFiles[cfg.ID] = fset
+
+	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
+	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+		l.Warnln("Loading ignores:", err)
+	}
+	m.folderIgnores[cfg.ID] = ignores
 }
 
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
@@ -468,14 +464,39 @@ func (m *model) restartFolder(from, to config.FolderConfiguration) {
 		errMsg = "restarting"
 	}
 
-	m.fmut.Lock()
-	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
-	m.fmut.Unlock()
-
+	var fset *db.FileSet
 	if !to.Paused {
-		m.addFolder(to)
+		// Creating the fileset can take a long time (metadata calculation)
+		// so we do it outside of the lock.
+		fset = db.NewFileSet(to.ID, to.Filesystem(), m.db)
+	}
+
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
+
+	m.tearDownFolderLocked(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
+	if !to.Paused {
+		m.addFolderLocked(to, fset)
+		m.startFolderLocked(to)
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
+}
+
+// Adds and starts a newly added folder (for unpaused/changed folders, user restartFolder)
+func (m *model) newFolder(cfg config.FolderConfiguration) {
+	l.Infoln("Adding new folder", cfg.Description())
+
+	// Close connections to affected devices
+	m.closeConns(cfg.DeviceIDs(), fmt.Errorf("started folder %v", cfg.Description()))
+
+	// Creating the fileset can take a long time (metadata calculation)
+	// so we do it outside of the lock.
+	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
+
+	m.fmut.Lock()
+	m.addFolderLocked(cfg, fset)
+	m.startFolderLocked(cfg)
+	m.fmut.Unlock()
 }
 
 func (m *model) UsageReportingStats(version int, preview bool) map[string]interface{} {
@@ -995,18 +1016,21 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	}
 
 	m.fmut.RLock()
-	files, ok := m.folderFiles[folder]
-	runner := m.folderRunners[folder]
+	files, existing := m.folderFiles[folder]
+	runner, running := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
-	if !ok {
-		// This can happen due to a config change that isn't yet
-		// reflected in the model
+	if !existing {
+		// This can happen when a new folder wasn't yet added to the model
+		// but the connection already established.
 		l.Debugf("%v for folder %q missing in model", op, folder)
 		return
 	}
 
-	defer runner.SchedulePull()
+	if running {
+		// Always true except in tests
+		defer runner.SchedulePull()
+	}
 
 	m.pmut.RLock()
 	downloads := m.deviceDownloads[deviceID]
@@ -2496,8 +2520,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			if cfg.Paused {
 				l.Infoln("Paused folder", cfg.Description())
 			} else {
-				l.Infoln("Adding folder", cfg.Description())
-				m.addFolder(cfg)
+				m.newFolder(cfg)
 			}
 		}
 	}

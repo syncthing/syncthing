@@ -405,8 +405,8 @@ func TestClusterConfig(t *testing.T) {
 
 	wrapper := createTmpWrapper(cfg)
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
-	m.addFolder(cfg.Folders[0])
-	m.addFolder(cfg.Folders[1])
+	addFolder(m, cfg.Folders[0])
+	addFolder(m, cfg.Folders[1])
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -1454,12 +1454,16 @@ func TestIgnores(t *testing.T) {
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
 
-	// Update the ignore matcher to one that always does
+	m.removeFolder(defaultFolderConfig)
+	addFolder(m, defaultFolderConfig)
+	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
 	// because we will be changing the files on disk often enough that the
 	// mtimes will be unreliable to determine change status.
-	m.removeFolder(defaultFolderConfig)
-	m.addFolderWithIgnores(defaultFolderConfig, ignore.New(defaultFs, ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged())))
+	m.fmut.Lock()
+	m.folderIgnores["default"] = ignore.New(defaultFs, ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
+	m.startFolderLocked(defaultFolderConfig)
+	m.fmut.Unlock()
 
 	// Make sure the initial scan has finished (ScanFolders is blocking)
 	m.ScanFolders()
@@ -1482,8 +1486,7 @@ func TestIgnores(t *testing.T) {
 	}
 
 	// Invalid path, marker should be missing, hence returns an error.
-	m.addFolder(config.FolderConfiguration{ID: "fresh", Path: "XXX"})
-	os.RemoveAll("XXX")
+	addFolder(m, config.FolderConfiguration{ID: "fresh", Path: "XXX"})
 	_, _, err = m.GetIgnores("fresh")
 	if err == nil {
 		t.Error("No error")
@@ -1552,7 +1555,7 @@ func TestROScanRecovery(t *testing.T) {
 	testOs.RemoveAll(fcfg.Path)
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
-	m.addFolder(fcfg)
+	m.newFolder(fcfg)
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -1604,7 +1607,7 @@ func TestRWScanRecovery(t *testing.T) {
 	testOs.RemoveAll(fcfg.Path)
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
-	m.addFolder(fcfg)
+	m.newFolder(fcfg)
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -1631,7 +1634,7 @@ func TestRWScanRecovery(t *testing.T) {
 func TestGlobalDirectoryTree(t *testing.T) {
 	db := db.OpenMemory()
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.addFolder(defaultFolderConfig)
+	addFolder(m, defaultFolderConfig)
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -1883,7 +1886,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 func TestGlobalDirectorySelfFixing(t *testing.T) {
 	db := db.OpenMemory()
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.addFolder(defaultFolderConfig)
+	addFolder(m, defaultFolderConfig)
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -2059,7 +2062,7 @@ func BenchmarkTree_100_10(b *testing.B) {
 func benchmarkTree(b *testing.B, n1, n2 int) {
 	db := db.OpenMemory()
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.addFolder(defaultFolderConfig)
+	addFolder(m, defaultFolderConfig)
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -2257,7 +2260,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	}
 
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", dbi, nil)
-	m.addFolder(defaultFolderConfig)
+	m.newFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	// Remote sequence is cached, hence need to recreated.
@@ -2695,7 +2698,7 @@ func TestCustomMarkerName(t *testing.T) {
 	defer testOs.RemoveAll(fcfg.Path)
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
-	m.addFolder(fcfg)
+	m.newFolder(fcfg)
 	m.ServeBackground()
 	defer cleanupModel(m)
 

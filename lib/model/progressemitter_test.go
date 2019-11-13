@@ -66,6 +66,7 @@ func TestProgressEmitter(t *testing.T) {
 
 	p := NewProgressEmitter(c, evLogger)
 	go p.Serve()
+	defer p.Stop()
 	p.interval = 0
 
 	expectTimeout(w, t)
@@ -103,7 +104,6 @@ func TestProgressEmitter(t *testing.T) {
 
 	expectEvent(w, t, 0)
 	expectTimeout(w, t)
-
 }
 
 func TestSendDownloadProgressMessages(t *testing.T) {
