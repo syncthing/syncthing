@@ -565,7 +565,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
 		}
 
-	case <-time.After(5 * time.Second):
+	case <-time.After(20 * time.Second):
 		t.Fatal("Didn't get anything to the finisher")
 	}
 }
@@ -653,7 +653,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
 			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(20 * time.Second):
 		t.Fatal("Didn't get anything to the finisher")
 	}
 }
