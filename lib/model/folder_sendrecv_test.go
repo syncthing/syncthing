@@ -590,18 +590,24 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
 	copyChan, copyWg := startCopier(f, pullChan, finisherBufferChan)
-	go f.pullerRoutine(pullChan, finisherBufferChan)
+	pullWg := sync.NewWaitGroup()
+	pullWg.Add(1)
+	go func() {
+		f.pullerRoutine(pullChan, finisherBufferChan)
+		pullWg.Done()
+	}()
 	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
 	defer func() {
-		// Unblock copier
+		// Unblock copier and puller
 		go func() {
 			for range finisherBufferChan {
 			}
 		}()
 		close(copyChan)
 		copyWg.Wait()
-		close(finisherBufferChan)
 		close(pullChan)
+		pullWg.Wait()
+		close(finisherBufferChan)
 		close(finisherChan)
 	}()
 
