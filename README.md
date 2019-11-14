@@ -11,11 +11,10 @@
 
 ## Goals
 
-Syncthing is a **continuous file synchronization program**. It synchronizes
+Syncthing is a **file synchronization program** that continuously synchronizes
 files between two or more computers. We strive to fulfill the goals below.
-The goals are listed in order of importance, the most important one being
-the first. This is the summary version of the goal list - for more
-commentary, see the full [Goals document][13].
+The goals are listed in descending order of importance.This is the summary
+version of the goal list - for more commentary, see the full [Goals document][13].
 
 Syncthing should be:
 
