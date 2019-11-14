@@ -13,7 +13,7 @@
 
 Syncthing is a **file synchronization program** that continuously synchronizes
 files between two or more computers. We strive to fulfill the goals below.
-The goals are listed in descending order of importance.This is the summary
+The goals are listed in descending order of importance. This is the summary
 version of the goal list - for more commentary, see the full [Goals document][13].
 
 Syncthing should be:
