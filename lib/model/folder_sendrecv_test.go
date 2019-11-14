@@ -490,17 +490,30 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		t.Fatal("Expected file in progress")
 	}
 
-	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState)
 	finisherBufferChan := make(chan *sharedPullerState)
 	finisherChan := make(chan *sharedPullerState)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
+	copyChan, copyWg := startCopier(f, pullChan, finisherBufferChan)
 	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
-	defer close(copyChan)
-	defer close(pullChan)
-	defer close(finisherChan)
+
+	defer func() {
+		// Unblock copier
+		go func() {
+			for range pullChan {
+			}
+		}()
+		go func() {
+			for range finisherBufferChan {
+			}
+		}()
+		close(copyChan)
+		copyWg.Wait()
+		close(pullChan)
+		close(finisherBufferChan)
+		close(finisherChan)
+	}()
 
 	f.handleFile(file, copyChan, dbUpdateChan)
 
@@ -510,12 +523,6 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 	// Close the file, causing errors on further access
 	toPull.sharedPullerState.fail(os.ErrNotExist)
-
-	// Unblock copier
-	go func() {
-		for range pullChan {
-		}
-	}()
 
 	select {
 	case state := <-finisherBufferChan:
@@ -580,18 +587,26 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		t.Fatal("Expected file in progress")
 	}
 
-	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState)
 	finisherBufferChan := make(chan *sharedPullerState)
 	finisherChan := make(chan *sharedPullerState)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
+	copyChan, copyWg := startCopier(f, pullChan, finisherBufferChan)
 	go f.pullerRoutine(pullChan, finisherBufferChan)
 	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
-	defer close(copyChan)
-	defer close(pullChan)
-	defer close(finisherChan)
+	defer func() {
+		// Unblock copier
+		go func() {
+			for range finisherBufferChan {
+			}
+		}()
+		close(copyChan)
+		copyWg.Wait()
+		close(finisherBufferChan)
+		close(pullChan)
+		close(finisherChan)
+	}()
 
 	f.handleFile(file, copyChan, dbUpdateChan)
 
@@ -830,11 +845,14 @@ func TestCopyOwner(t *testing.T) {
 	// comes the finisher is done.
 
 	finisherChan := make(chan *sharedPullerState)
-	defer close(finisherChan)
-	copierChan := make(chan copyBlocksState)
-	defer close(copierChan)
-	go f.copierRoutine(copierChan, nil, finisherChan)
+	copierChan, copyWg := startCopier(f, nil, finisherChan)
 	go f.finisherRoutine(finisherChan, dbUpdateChan, nil)
+	defer func() {
+		close(copierChan)
+		copyWg.Wait()
+		close(finisherChan)
+	}()
+
 	f.handleFile(file, copierChan, nil)
 	<-dbUpdateChan
 
@@ -992,4 +1010,15 @@ func cleanupSharedPullerState(s *sharedPullerState) {
 	s.writer.mut.Lock()
 	s.writer.fd.Close()
 	s.writer.mut.Unlock()
+}
+
+func startCopier(f *sendReceiveFolder, pullChan chan<- pullBlockState, finisherChan chan<- *sharedPullerState) (chan copyBlocksState, sync.WaitGroup) {
+	copyChan := make(chan copyBlocksState)
+	wg := sync.NewWaitGroup()
+	wg.Add(1)
+	go func() {
+		f.copierRoutine(copyChan, pullChan, finisherChan)
+		wg.Done()
+	}()
+	return copyChan, wg
 }
