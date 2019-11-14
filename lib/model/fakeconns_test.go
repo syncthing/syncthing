@@ -33,7 +33,7 @@ type fakeConnection struct {
 	folder                   string
 	model                    *model
 	indexFn                  func(string, []protocol.FileInfo)
-	requestFn                func(folder, name string, offset int64, size int, hash []byte, fromTemporary bool, ctx context.Context) ([]byte, error)
+	requestFn                func(ctx context.Context, folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
 	closeFn                  func(error)
 	mut                      sync.Mutex
 }
@@ -86,7 +86,7 @@ func (f *fakeConnection) Request(ctx context.Context, folder, name string, offse
 	f.mut.Lock()
 	defer f.mut.Unlock()
 	if f.requestFn != nil {
-		return f.requestFn(folder, name, offset, size, hash, fromTemporary, ctx)
+		return f.requestFn(ctx, folder, name, offset, size, hash, fromTemporary)
 	}
 	return f.fileData[name], nil
 }
