@@ -1107,10 +1107,12 @@ func TestSkipIgnoredDirs(t *testing.T) {
 		{`!/test`, true},
 		{`!/t[eih]t`, true},
 		{`!/t*t`, true},
+		{`!/**`, true},
 		{`!/parent/test`, true},
 		{`!/parent/t[eih]t`, true},
 		{`!/parent/t*t`, true},
 		{`!/pa\[esd\]rent/t*t`, true},
+		{`!/**.mp3`, false},
 		{`!/pa*nt/test`, false},
 		{`!/pa[sdf]nt/t[eih]t`, false},
 		{`!/lowest/pa[sdf]nt/test`, false},
@@ -1131,4 +1133,20 @@ func TestSkipIgnoredDirs(t *testing.T) {
 			}
 		}
 	}
+
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), WithCache(true))
+
+	stignore := `
+	/foo/ign*
+	!/f*
+	!/bar
+	*
+	`
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if !pats.SkipIgnoredDirs() {
+		t.Error("SkipIgnoredDirs should be true")
+	}
+
 }

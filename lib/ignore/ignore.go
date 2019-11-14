@@ -65,8 +65,13 @@ func (p Pattern) allowsSkippingIgnoredDirs() bool {
 	if p.pattern[0] != '/' {
 		return false
 	}
-	comps := strings.Split(p.pattern[1:], "/")
+	// Double asteriks everywhere in the path except at the end is bad
+	tocheck := strings.TrimSuffix(p.pattern[1:], "**")
+	if strings.Contains(tocheck, "**") {
+		return false
+	}
 	// Any wildcards (*, [...]) anywhere except for the last path component are bad
+	comps := strings.Split(tocheck, "/")
 	for _, comp := range comps[:len(comps)-1] {
 		if strings.Contains(comp, "*") {
 			return false
@@ -203,11 +208,17 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	}
 
 	m.skipIgnoredDirs = true
+	var previous string
 	for _, p := range patterns {
+		// We automatically add patterns with a /** suffix - no need to check them
+		if l := len(p.pattern); l > 3 && p.pattern[:len(p.pattern)-3] == previous {
+			continue
+		}
 		if !p.allowsSkippingIgnoredDirs() {
 			m.skipIgnoredDirs = false
 			break
 		}
+		previous = p.pattern
 	}
 
 	m.curHash = newHash
