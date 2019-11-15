@@ -1148,5 +1148,4 @@ func TestSkipIgnoredDirs(t *testing.T) {
 	if !pats.SkipIgnoredDirs() {
 		t.Error("SkipIgnoredDirs should be true")
 	}
-
 }

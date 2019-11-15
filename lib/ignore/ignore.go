@@ -65,7 +65,7 @@ func (p Pattern) allowsSkippingIgnoredDirs() bool {
 	if p.pattern[0] != '/' {
 		return false
 	}
-	// Double asteriks everywhere in the path except at the end is bad
+	// Double asterisk everywhere in the path except at the end is bad
 	tocheck := strings.TrimSuffix(p.pattern[1:], "**")
 	if strings.Contains(tocheck, "**") {
 		return false
@@ -210,7 +210,10 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	m.skipIgnoredDirs = true
 	var previous string
 	for _, p := range patterns {
-		// We automatically add patterns with a /** suffix - no need to check them
+		// We automatically add patterns with a /** suffix, which normally
+		// means that we cannot skip directories. However if the same
+		// pattern without the /** already exists (which is true for
+		// automatically added patterns) we can skip.
 		if l := len(p.pattern); l > 3 && p.pattern[:len(p.pattern)-3] == previous {
 			continue
 		}
