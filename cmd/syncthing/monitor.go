@@ -461,6 +461,12 @@ func maybeReportPanics() {
 		return
 	}
 
+	// respect DO_NOT_TRACK opt-out of phone home per
+	// https://consoledonottrack.com
+	if os.Getenv("DO_NOT_TRACK") != "" {
+		return
+	}
+
 	// Set up a timeout on the whole operation.
 	ctx, cancel := context.WithTimeout(context.Background(), panicUploadMaxWait)
 	defer cancel()

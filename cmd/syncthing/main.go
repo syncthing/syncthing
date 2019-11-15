@@ -170,10 +170,23 @@ type RuntimeOptions struct {
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
+
+	noUpgrade := false
+
+	if os.Getenv("STNOUPGRADE") != "" {
+		noUpgrade = true
+	}
+
+	if os.Getenv("DO_NOT_TRACK") != "" {
+		// disable autoupdate phone-home per
+		// consoledonottrack.com user opt out setting
+		noUpgrade = true
+	}
+
 	options := RuntimeOptions{
 		Options: syncthing.Options{
 			AssetDir:    os.Getenv("STGUIASSETS"),
-			NoUpgrade:   os.Getenv("STNOUPGRADE") != "",
+			NoUpgrade:   noUpgrade,
 			ProfilerURL: os.Getenv("STPROFILER"),
 		},
 		noRestart:    os.Getenv("STNORESTART") != "",
