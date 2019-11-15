@@ -15,6 +15,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -278,7 +280,7 @@ func (f *folder) getHealthError() error {
 	dbPath := locations.Get(locations.Database)
 	if usage, err := fs.NewFilesystem(fs.FilesystemTypeBasic, dbPath).Usage("."); err == nil {
 		if err = config.CheckFreeSpace(f.model.cfg.Options().MinHomeDiskFree, usage); err != nil {
-			return fmt.Errorf("insufficient space on disk for database (%v): %v", dbPath, err)
+			return errors.Wrapf(err, "insufficient space on disk for database (%v)", dbPath)
 		}
 	}
 
@@ -297,7 +299,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 	oldHash := f.ignores.Hash()
 	if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		err = fmt.Errorf("loading ignores: %v", err)
+		err = errors.Wrap(err, "loading ignores")
 		f.setError(err)
 		return err
 	}

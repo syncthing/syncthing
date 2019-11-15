@@ -170,7 +170,7 @@ func (f *sendReceiveFolder) pull() bool {
 		}
 	}()
 	if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		err = fmt.Errorf("loading ignores: %v", err)
+		err = errors.Wrap(err, "loading ignores")
 		f.setError(err)
 		return false
 	}
