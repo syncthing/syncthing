@@ -141,10 +141,10 @@ func (t *leveldbTransaction) Release() {
 
 // checkFlush flushes and resets the batch if its size exceeds the given size.
 func (t *leveldbTransaction) checkFlush(size int) error {
-	if len(t.batch.Dump()) > size {
-		return wrapLeveldbErr(t.flush())
+	if len(t.batch.Dump()) < size {
+		return nil
 	}
-	return nil
+	return wrapLeveldbErr(t.flush())
 }
 
 func (t *leveldbTransaction) flush() error {
