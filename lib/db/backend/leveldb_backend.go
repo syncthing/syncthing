@@ -144,7 +144,7 @@ func (t *leveldbTransaction) checkFlush(size int) error {
 	if len(t.batch.Dump()) < size {
 		return nil
 	}
-	return wrapLeveldbErr(t.flush())
+	return t.flush()
 }
 
 func (t *leveldbTransaction) flush() error {
