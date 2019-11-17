@@ -15,6 +15,7 @@ linters:
     - gocyclo
     - funlen
     - wsl
+    - gocognit
 
 service:
   golangci-lint-version: 1.21.x
