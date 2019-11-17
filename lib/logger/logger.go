@@ -36,17 +36,12 @@ const (
 	DebugFlags   = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
 )
 
-const (
-	suppressionBuckets   = 5
-	suppressionThreshold = 100
-	suppressionInterval  = time.Minute
-)
-
 // A MessageHandler is called with the log level and message text.
 type MessageHandler func(l LogLevel, msg string)
 
 type Logger interface {
 	AddHandler(level LogLevel, h MessageHandler)
+	AddOutputMiddleware(mw OutputMiddleware)
 	SetFlags(flag int)
 	SetPrefix(prefix string)
 	Debugln(vals ...interface{})
@@ -65,14 +60,20 @@ type Logger interface {
 	NewFacility(facility, description string) Logger
 }
 
-type lowlevelLogger interface {
+// Lowlevel represents the output stream below things like log levels, prefixes,
+// etc.
+type Lowlevel interface {
 	SetFlags(flag int)
 	SetPrefix(prefix string)
 	Output(level int, message string) error
 }
 
+// An OutputMiddle acts as an intermediate Lowlevel and gets the chance to
+// modify or filter log levels as they pass through.
+type OutputMiddleware func(Lowlevel) Lowlevel
+
 type logger struct {
-	logger     lowlevelLogger
+	logger     Lowlevel
 	handlers   [NumLevels][]MessageHandler
 	facilities map[string]string   // facility name => description
 	debug      map[string]struct{} // only facility names with debugging enabled
@@ -93,15 +94,16 @@ func New() Logger {
 }
 
 func newLogger(w io.Writer) Logger {
-	logWriter := log.New(w, "", DefaultFlags)
-	suppressor := newSuppressingLogger(logWriter, suppressionBuckets, suppressionThreshold, suppressionInterval)
-	go suppressor.Serve() // will never stop because a log never closes...
 	return &logger{
-		logger:     suppressor,
+		logger:     log.New(w, "", DefaultFlags),
 		traces:     os.Getenv("STTRACE"),
 		facilities: make(map[string]string),
 		debug:      make(map[string]struct{}),
 	}
+}
+
+func (l *logger) AddOutputMiddleware(mw OutputMiddleware) {
+	l.logger = mw(l.logger)
 }
 
 // AddHandler registers a new MessageHandler to receive messages with the

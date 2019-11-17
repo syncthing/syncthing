@@ -45,8 +45,11 @@ import (
 )
 
 const (
-	tlsDefaultCommonName   = "syncthing"
-	deviceCertLifetimeDays = 20 * 365
+	tlsDefaultCommonName    = "syncthing"
+	deviceCertLifetimeDays  = 20 * 365
+	logSuppressionBuckets   = 5
+	logSuppressionThreshold = 100
+	logSuppressionInterval  = time.Minute
 )
 
 const (
@@ -167,6 +170,7 @@ type RuntimeOptions struct {
 	logFlags         int
 	showHelp         bool
 	allowNewerConfig bool
+	verbose          bool // do no log suppression
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -224,6 +228,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
 	flag.BoolVar(&options.allowNewerConfig, "allow-newer-config", false, "Allow loading newer than current config version")
+	flag.BoolVar(&options.verbose, "verbose", false, "Output all log data without filtering/suppression")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
 		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
@@ -244,6 +249,10 @@ func parseCommandLineOptions() RuntimeOptions {
 func main() {
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
+	if !options.verbose {
+		supp := logger.NewSuppressionMiddleware(logSuppressionBuckets, logSuppressionThreshold, logSuppressionInterval)
+		l.AddOutputMiddleware(supp)
+	}
 
 	if options.guiAddress != "" {
 		// The config picks this up from the environment.
