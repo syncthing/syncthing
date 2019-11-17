@@ -14,7 +14,10 @@ import (
 )
 
 const (
-	dbFlushBatch = 4 << MiB
+	// Never flush transactions smaller than this, even on Checkpoint()
+	dbFlushBatchMin = 1 << MiB
+	// Once a transaction reaches this size, flush it unconditionally.
+	dbFlushBatchMax = 128 << MiB
 )
 
 // leveldbBackend implements Backend on top of a leveldb
@@ -112,12 +115,16 @@ type leveldbTransaction struct {
 
 func (t *leveldbTransaction) Delete(key []byte) error {
 	t.batch.Delete(key)
-	return wrapLeveldbErr(t.checkFlush())
+	return t.checkFlush(dbFlushBatchMax)
 }
 
 func (t *leveldbTransaction) Put(key, val []byte) error {
 	t.batch.Put(key, val)
-	return wrapLeveldbErr(t.checkFlush())
+	return t.checkFlush(dbFlushBatchMax)
+}
+
+func (t *leveldbTransaction) Checkpoint() error {
+	return t.checkFlush(dbFlushBatchMin)
 }
 
 func (t *leveldbTransaction) Commit() error {
@@ -132,9 +139,9 @@ func (t *leveldbTransaction) Release() {
 	t.rel.Release()
 }
 
-// checkFlush flushes and resets the batch if its size exceeds dbFlushBatch.
-func (t *leveldbTransaction) checkFlush() error {
-	if len(t.batch.Dump()) > dbFlushBatch {
+// checkFlush flushes and resets the batch if its size exceeds the given size.
+func (t *leveldbTransaction) checkFlush(size int) error {
+	if len(t.batch.Dump()) > size {
 		return wrapLeveldbErr(t.flush())
 	}
 	return nil

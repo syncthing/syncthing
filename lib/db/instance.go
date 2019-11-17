@@ -70,6 +70,10 @@ func (db *instance) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		if err != nil {
 			return err
 		}
+
+		if err := t.Checkpoint(); err != nil {
+			return err
+		}
 	}
 
 	return t.commit()
@@ -165,6 +169,10 @@ func (db *instance) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 					return err
 				}
 			}
+		}
+
+		if err := t.Checkpoint(); err != nil {
+			return err
 		}
 	}
 
@@ -652,6 +660,9 @@ func (db *instance) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 			return err
 		}
 		if err := t.Delete(dbi.Key()); err != nil {
+			return err
+		}
+		if err := t.Checkpoint(); err != nil {
 			return err
 		}
 	}
