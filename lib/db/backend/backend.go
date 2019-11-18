@@ -39,13 +39,15 @@ type ReadTransaction interface {
 
 // The WriteTransaction interface specifies the operations on writable
 // transactions. Every WriteTransaction must be either committed or released
-// (i.e., discarded) when no longer required. It is fine to release an already
-// committed transaction. A Checkpoint is a potential commit of the transaction
-// so far, for purposes of saving memory when transactions are in-RAM. Note that
-// transactions may be checkpointed *anyway* even if this is not called, but
-// this gives you a chance to decide when. Since Checkpoint may perform a commit
-// or not, it's undefined if reads after Checkpoint return your newly written
-// data or not.
+// (i.e., discarded) when no longer required. No further operations must be
+// performed after release or commit (regardless of whether commit succeeded),
+// with one exception -- it's fine to release an already committed or released
+// transaction.
+//
+// A Checkpoint is a potential partial commit of the transaction so far, for
+// purposes of saving memory when transactions are in-RAM. Note that
+// transactions may be checkpointed *anyway* even if this is not called, due to
+// resource constraints, but this gives you a chance to decide when.
 type WriteTransaction interface {
 	ReadTransaction
 	Writer
