@@ -1086,7 +1086,7 @@ func TestBrowse(t *testing.T) {
 		{tmpDir + pathSep + "dir", []string{dirPath}},
 		{tmpDir + pathSep + "f", nil},
 		{tmpDir + pathSep + "q", nil},
-		// Globbing is case-insensitve
+		// Globbing is case-insensitive
 		{tmpDir + pathSep + "mixed", []string{mixedCaseDirPath}},
 	}
 

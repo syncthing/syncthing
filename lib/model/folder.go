@@ -74,7 +74,7 @@ type rescanRequest struct {
 }
 
 type puller interface {
-	pull() bool // true when successfull and should not be retried
+	pull() bool // true when successful and should not be retried
 }
 
 func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger) folder {

@@ -93,7 +93,7 @@ func writeBroadcasts(inbox <-chan []byte, port int, stop chan struct{}) error {
 		}
 
 		if success == 0 {
-			l.Debugln("couldn't send any braodcasts")
+			l.Debugln("couldn't send any broadcasts")
 			return err
 		}
 	}

@@ -915,7 +915,7 @@ func TestWithHaveSequence(t *testing.T) {
 
 func TestStressWithHaveSequence(t *testing.T) {
 	// This races two loops against each other: one that contiously does
-	// updates, and one that continously does sequence walks. The test fails
+	// updates, and one that continuously does sequence walks. The test fails
 	// if the sequence walker sees a discontinuity.
 
 	if testing.Short() {
