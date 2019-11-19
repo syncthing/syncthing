@@ -247,14 +247,10 @@ a.toggler:hover {
 }
 
 /**
- * Panel and Modal body padding decrease
+ * Panel padding decrease
  */
 
 .panel-collapse .panel-body {
-    padding: 0;
-}
-
-.modal-body {
     padding: 5px;
 }
 
@@ -404,7 +400,7 @@ ul.three-columns li, ul.two-columns li {
         max-width: 100%;
         width: 100%;
     }
-    
+
     /* all buttons, except panel headings, get bottom margin, as they won't fit
        beside each other anymore */
     .btn:not(.panel-heading),
