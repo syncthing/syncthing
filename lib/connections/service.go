@@ -186,8 +186,8 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 	// the common handling regardless of whether the connection was
 	// incoming or outgoing.
 
-	service.Add(util.AsService(service.connect, service.String()))
-	service.Add(util.AsService(service.handle, service.String()))
+	service.Add(util.AsService(service.connect, fmt.Sprintf("%s/connect", service)))
+	service.Add(util.AsService(service.handle, fmt.Sprintf("%s/handle", service)))
 	service.Add(service.listenerSupervisor)
 
 	return service

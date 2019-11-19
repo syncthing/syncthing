@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net"
 	"net/url"
@@ -82,9 +83,9 @@ func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogge
 		c.beacon = beacon.NewMulticast(addr)
 	}
 	c.Add(c.beacon)
-	c.Add(util.AsService(c.recvAnnouncements, c.String()))
+	c.Add(util.AsService(c.recvAnnouncements, fmt.Sprintf("%s/recv", c)))
 
-	c.Add(util.AsService(c.sendLocalAnnouncements, c.String()))
+	c.Add(util.AsService(c.sendLocalAnnouncements, fmt.Sprintf("%s/sendLocal", c)))
 
 	return c, nil
 }

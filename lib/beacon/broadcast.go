@@ -29,13 +29,10 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 		l.Debugln(err)
 		return err
 	}
-	done := make(chan struct{})
-	defer close(done)
+	doneCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		select {
-		case <-ctx.Done():
-		case <-done:
-		}
+		<-doneCtx.Done()
 		conn.Close()
 	}()
 
@@ -106,13 +103,11 @@ func readBroadcasts(ctx context.Context, outbox chan<- recv, port int) error {
 		l.Debugln(err)
 		return err
 	}
-	done := make(chan struct{})
-	defer close(done)
+
+	doneCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		select {
-		case <-ctx.Done():
-		case <-done:
-		}
+		<-doneCtx.Done()
 		conn.Close()
 	}()
 

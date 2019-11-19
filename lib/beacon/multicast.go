@@ -38,13 +38,10 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 		l.Debugln(err)
 		return err
 	}
-	done := make(chan struct{})
-	defer close(done)
+	doneCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		select {
-		case <-ctx.Done():
-		case <-done:
-		}
+		<-doneCtx.Done()
 		conn.Close()
 	}()
 
@@ -109,13 +106,10 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 		l.Debugln(err)
 		return err
 	}
-	done := make(chan struct{})
-	defer close(done)
+	doneCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		select {
-		case <-ctx.Done():
-		case <-done:
-		}
+		<-doneCtx.Done()
 		conn.Close()
 	}()
 
