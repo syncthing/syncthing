@@ -1257,11 +1257,8 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 }
 
-// handleIntroductions handles adding devices/shares that are shared by an introducer device
+// handleIntroductions handles adding devices/folders that are shared by an introducer device
 func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, folderDeviceSet, bool) {
-	// This device is an introducer. Go through the announced lists of folders
-	// and devices and add what we are missing, remove what we have extra that
-	// has been introducer by the introducer.
 	changed := false
 	folders := m.cfg.Folders()
 	devices := m.cfg.Devices()
@@ -1320,14 +1317,11 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 
 // handleDeintroductions handles removals of devices/shares that are removed by an introducer device
 func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, foldersDevices folderDeviceSet, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, bool) {
-	changed := false
-
-	// If permitted, check if the introducer has unshared devices/folders with
-	// some of the devices/folders that we know were introduced to us by him.
 	if introducerCfg.SkipIntroductionRemovals {
-		return folders, devices, changed
+		return folders, devices, false
 	}
 
+	changed := false
 	devicesNotIntroduced := make(map[protocol.DeviceID]struct{})
 
 	// Check if we should unshare some folders, if the introducer has unshared them.
