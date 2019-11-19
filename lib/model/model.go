@@ -1234,7 +1234,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	if deviceCfg.Introducer {
 		folders, devices, foldersDevices, introduced := m.handleIntroductions(deviceCfg, cm)
-		folders, devices, deintroduced := m.handleDeintroductions(deviceCfg, cm, foldersDevices, folders, devices)
+		folders, devices, deintroduced := m.handleDeintroductions(deviceCfg, foldersDevices, folders, devices)
 		if introduced || deintroduced {
 			changed = true
 			cfg := m.cfg.RawCopy()
@@ -1319,7 +1319,7 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 }
 
 // handleDeintroductions handles removals of devices/shares that are removed by an introducer device
-func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig, foldersDevices folderDeviceSet, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, bool) {
+func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, foldersDevices folderDeviceSet, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, bool) {
 	changed := false
 
 	// If permitted, check if the introducer has unshared devices/folders with
