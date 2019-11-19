@@ -1233,7 +1233,21 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	if deviceCfg.Introducer {
-		changed = m.handleIntroductions(deviceCfg, cm) || changed
+		folders, devices, foldersDevices, introduced := m.handleIntroductions(deviceCfg, cm)
+		folders, devices, deintroduced := m.handleDeintroductions(deviceCfg, cm, foldersDevices, folders, devices)
+		if introduced || deintroduced {
+			changed = true
+			cfg := m.cfg.RawCopy()
+			cfg.Folders = make([]config.FolderConfiguration, 0, len(folders))
+			for _, fcfg := range folders {
+				cfg.Folders = append(cfg.Folders, fcfg)
+			}
+			cfg.Devices = make([]config.DeviceConfiguration, len(devices))
+			for _, dcfg := range devices {
+				cfg.Devices = append(cfg.Devices, dcfg)
+			}
+			m.cfg.Replace(cfg)
+		}
 	}
 
 	if changed {
@@ -1243,31 +1257,14 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 }
 
-// handleIntroductions handles adding and removing devices/shares that are shared by an introducer device
-func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig) bool {
-	changed := false
-	folders := m.cfg.Folders()
-	devices := m.cfg.Devices()
-
-	defer func() {
-		if !changed {
-			return
-		}
-		cfg := m.cfg.RawCopy()
-		cfg.Folders = make([]config.FolderConfiguration, 0, len(folders))
-		for _, fcfg := range folders {
-			cfg.Folders = append(cfg.Folders, fcfg)
-		}
-		cfg.Devices = make([]config.DeviceConfiguration, len(devices))
-		for _, dcfg := range devices {
-			cfg.Devices = append(cfg.Devices, dcfg)
-		}
-		m.cfg.Replace(cfg)
-	}()
-
+// handleIntroductions handles adding devices/shares that are shared by an introducer device
+func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, folderDeviceSet, bool) {
 	// This device is an introducer. Go through the announced lists of folders
 	// and devices and add what we are missing, remove what we have extra that
 	// has been introducer by the introducer.
+	changed := false
+	folders := m.cfg.Folders()
+	devices := m.cfg.Devices()
 
 	foldersDevices := make(folderDeviceSet)
 
@@ -1318,28 +1315,35 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 		}
 	}
 
-	// If permitted, check if the introducer has unshare devices/folders with
+	return folders, devices, foldersDevices, changed
+}
+
+// handleDeintroductions handles removals of devices/shares that are removed by an introducer device
+func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig, foldersDevices folderDeviceSet, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, bool) {
+	changed := false
+
+	// If permitted, check if the introducer has unshared devices/folders with
 	// some of the devices/folders that we know were introduced to us by him.
 	if introducerCfg.SkipIntroductionRemovals {
-		return changed
+		return folders, devices, changed
 	}
 
 	devicesNotIntroduced := make(map[protocol.DeviceID]struct{})
 
 	// Check if we should unshare some folders, if the introducer has unshared them.
-	for fid, fcfg := range folders {
-		for k := 0; k < len(fcfg.Devices); k++ {
-			if fcfg.Devices[k].IntroducedBy != introducerCfg.DeviceID {
-				devicesNotIntroduced[fcfg.Devices[k].DeviceID] = struct{}{}
+	for folderID, folderCfg := range folders {
+		for k := 0; k < len(folderCfg.Devices); k++ {
+			if folderCfg.Devices[k].IntroducedBy != introducerCfg.DeviceID {
+				devicesNotIntroduced[folderCfg.Devices[k].DeviceID] = struct{}{}
 				continue
 			}
-			if !foldersDevices.has(fcfg.Devices[k].DeviceID, fcfg.ID) {
+			if !foldersDevices.has(folderCfg.Devices[k].DeviceID, folderCfg.ID) {
 				// We could not find that folder shared on the
 				// introducer with the device that was introduced to us.
 				// We should follow and unshare as well.
-				l.Infof("Unsharing folder %s with %v as introducer %v no longer shares the folder with that device", fcfg.Description(), fcfg.Devices[k].DeviceID, fcfg.Devices[k].IntroducedBy)
-				fcfg.Devices = append(fcfg.Devices[:k], fcfg.Devices[k+1:]...)
-				folders[fid] = fcfg
+				l.Infof("Unsharing folder %s with %v as introducer %v no longer shares the folder with that device", folderCfg.Description(), folderCfg.Devices[k].DeviceID, folderCfg.Devices[k].IntroducedBy)
+				folderCfg.Devices = append(folderCfg.Devices[:k], folderCfg.Devices[k+1:]...)
+				folders[folderID] = folderCfg
 				k--
 				changed = true
 			}
@@ -1365,7 +1369,7 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 		}
 	}
 
-	return changed
+	return folders, devices, changed
 }
 
 // handleAutoAccepts handles adding and sharing folders for devices that have
