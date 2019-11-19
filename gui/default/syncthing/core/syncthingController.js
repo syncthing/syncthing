@@ -1387,6 +1387,7 @@ angular.module('syncthing.core')
 
         $scope.upgrade = function () {
             restarting = true;
+            $('#upgrade').modal('hide');
             $('#majorUpgrade').modal('hide');
             $('#upgrading').modal();
             $http.post(urlbase + '/system/upgrade').success(function () {

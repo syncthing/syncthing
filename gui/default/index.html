@@ -42,7 +42,7 @@
       <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
       <ul class="nav navbar-nav navbar-right">
         <li ng-if="upgradeInfo && upgradeInfo.newer" class="upgrade-newer">
-          <button type="button" class="btn navbar-btn btn-primary btn-sm" ng-click="upgrade()">
+          <button type="button" class="btn navbar-btn btn-primary btn-sm" data-toggle="modal" data-target="#upgrade">
             <span class="fas fa-arrow-circle-up"></span>
             <span class="hidden-xs" translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
@@ -841,6 +841,7 @@
   <ng-include src="'syncthing/transfer/failedFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/remoteNeededFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/localChangedFilesModalView.html'"></ng-include>
+  <ng-include src="'syncthing/core/upgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
