@@ -3,6 +3,7 @@
 package protocol
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -136,7 +137,7 @@ type Connection interface {
 	Name() string
 	Index(folder string, files []FileInfo) error
 	IndexUpdate(folder string, files []FileInfo) error
-	Request(folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
+	Request(ctx context.Context, folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
 	ClusterConfig(config ClusterConfig)
 	DownloadProgress(folder string, updates []FileDownloadProgressUpdate)
 	Statistics() Statistics
@@ -255,7 +256,7 @@ func (c *rawConnection) Index(folder string, idx []FileInfo) error {
 	default:
 	}
 	c.idxMut.Lock()
-	c.send(&Index{
+	c.send(context.TODO(), &Index{
 		Folder: folder,
 		Files:  idx,
 	}, nil)
@@ -271,7 +272,7 @@ func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo) error {
 	default:
 	}
 	c.idxMut.Lock()
-	c.send(&IndexUpdate{
+	c.send(context.TODO(), &IndexUpdate{
 		Folder: folder,
 		Files:  idx,
 	}, nil)
@@ -280,7 +281,7 @@ func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo) error {
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
-func (c *rawConnection) Request(folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (c *rawConnection) Request(ctx context.Context, folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	c.nextIDMut.Lock()
 	id := c.nextID
 	c.nextID++
@@ -294,7 +295,7 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 	c.awaiting[id] = rc
 	c.awaitingMut.Unlock()
 
-	ok := c.send(&Request{
+	ok := c.send(ctx, &Request{
 		ID:            id,
 		Folder:        folder,
 		Name:          name,
@@ -308,11 +309,15 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 		return nil, ErrClosed
 	}
 
-	res, ok := <-rc
-	if !ok {
-		return nil, ErrClosed
+	select {
+	case res, ok := <-rc:
+		if !ok {
+			return nil, ErrClosed
+		}
+		return res.val, res.err
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
-	return res.val, res.err
 }
 
 // ClusterConfig sends the cluster configuration message to the peer.
@@ -336,14 +341,14 @@ func (c *rawConnection) Closed() bool {
 
 // DownloadProgress sends the progress updates for the files that are currently being downloaded.
 func (c *rawConnection) DownloadProgress(folder string, updates []FileDownloadProgressUpdate) {
-	c.send(&DownloadProgress{
+	c.send(context.TODO(), &DownloadProgress{
 		Folder:  folder,
 		Updates: updates,
 	}, nil)
 }
 
 func (c *rawConnection) ping() bool {
-	return c.send(&Ping{}, nil)
+	return c.send(context.Background(), &Ping{}, nil)
 }
 
 func (c *rawConnection) readerLoop() {
@@ -613,14 +618,14 @@ func checkFilename(name string) error {
 func (c *rawConnection) handleRequest(req Request) {
 	res, err := c.receiver.Request(c.id, req.Folder, req.Name, req.Size, req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
 	if err != nil {
-		c.send(&Response{
+		c.send(context.Background(), &Response{
 			ID:   req.ID,
 			Code: errorToCode(err),
 		}, nil)
 		return
 	}
 	done := make(chan struct{})
-	c.send(&Response{
+	c.send(context.Background(), &Response{
 		ID:   req.ID,
 		Data: res.Data(),
 		Code: errorToCode(nil),
@@ -639,12 +644,13 @@ func (c *rawConnection) handleResponse(resp Response) {
 	c.awaitingMut.Unlock()
 }
 
-func (c *rawConnection) send(msg message, done chan struct{}) bool {
+func (c *rawConnection) send(ctx context.Context, msg message, done chan struct{}) bool {
 	select {
 	case c.outbox <- asyncMessage{msg, done}:
 		return true
 	case <-c.preventSends:
 	case <-c.closed:
+	case <-ctx.Done():
 	}
 	if done != nil {
 		close(done)

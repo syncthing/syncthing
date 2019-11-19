@@ -8,6 +8,7 @@ package model
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -136,7 +137,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 			}
 		}
 	}
-	fc.requestFn = func(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
+	fc.requestFn = func(_ context.Context, folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
 		if name != "symlink" && strings.HasPrefix(name, "symlink") {
 			badReq <- name
 		}
@@ -411,7 +412,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	}
 	// Make sure pulling doesn't interfere, as index updates are racy and
 	// thus we cannot distinguish between scan and pull results.
-	fc.requestFn = func(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
+	fc.requestFn = func(_ context.Context, folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
 		return nil, nil
 	}
 	fc.mut.Unlock()
@@ -996,7 +997,7 @@ func TestNeedFolderFiles(t *testing.T) {
 
 	errPreventSync := errors.New("you aren't getting any of this")
 	fc.mut.Lock()
-	fc.requestFn = func(string, string, int64, int, []byte, bool) ([]byte, error) {
+	fc.requestFn = func(context.Context, string, string, int64, int, []byte, bool) ([]byte, error) {
 		return nil, errPreventSync
 	}
 	fc.mut.Unlock()

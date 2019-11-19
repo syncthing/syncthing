@@ -8,6 +8,7 @@ package model
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -431,18 +432,13 @@ func (m *model) stopFolder(cfg config.FolderConfiguration, err error) {
 	tokens := m.folderRunnerTokens[cfg.ID]
 	m.fmut.RUnlock()
 
-	// Close connections to affected devices
-	// Must happen before stopping the folder service to abort ongoing
-	// transmissions and thus allow timely service termination.
-	w := m.closeConns(cfg.DeviceIDs(), err)
-
 	for _, id := range tokens {
 		m.RemoveAndWait(id, 0)
 	}
 
 	// Wait for connections to stop to ensure that no more calls to methods
 	// expecting this folder to exist happen (e.g. .IndexUpdate).
-	w.Wait()
+	m.closeConns(cfg.DeviceIDs(), err).Wait()
 }
 
 // Need to hold lock on m.fmut when calling this.
@@ -2103,7 +2099,7 @@ func (s *indexSender) sendIndexTo() error {
 	return err
 }
 
-func (m *model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (m *model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
@@ -2114,7 +2110,7 @@ func (m *model) requestGlobal(deviceID protocol.DeviceID, folder, name string, o
 
 	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, offset, size, hash, weakHash, fromTemporary)
 
-	return nc.Request(folder, name, offset, size, hash, weakHash, fromTemporary)
+	return nc.Request(ctx, folder, name, offset, size, hash, weakHash, fromTemporary)
 }
 
 func (m *model) ScanFolders() map[string]error {
