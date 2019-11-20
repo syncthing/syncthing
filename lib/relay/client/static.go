@@ -40,7 +40,7 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 		messageTimeout: time.Minute * 2,
 		connectTimeout: timeout,
 	}
-	c.commonClient = newCommonClient(invitations, c.serve)
+	c.commonClient = newCommonClient(invitations, c.serve, c.String())
 	return c
 }
 

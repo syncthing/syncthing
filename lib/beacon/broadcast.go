@@ -40,7 +40,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 		var bs []byte
 		select {
 		case bs = <-inbox:
-		case <-ctx.Done():
+		case <-doneCtx.Done():
 			return nil
 		}
 
@@ -125,7 +125,7 @@ func readBroadcasts(ctx context.Context, outbox chan<- recv, port int) error {
 		copy(c, bs)
 		select {
 		case outbox <- recv{c, addr}:
-		case <-ctx.Done():
+		case <-doneCtx.Done():
 			return nil
 		default:
 			l.Debugln("dropping message")

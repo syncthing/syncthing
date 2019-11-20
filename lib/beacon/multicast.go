@@ -55,7 +55,7 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 		var bs []byte
 		select {
 		case bs = <-inbox:
-		case <-ctx.Done():
+		case <-doneCtx.Done():
 			return nil
 		}
 
@@ -82,7 +82,7 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 			success++
 
 			select {
-			case <-ctx.Done():
+			case <-doneCtx.Done():
 				return nil
 			default:
 			}
@@ -139,7 +139,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 	bs := make([]byte, 65536)
 	for {
 		select {
-		case <-ctx.Done():
+		case <-doneCtx.Done():
 			return nil
 		default:
 		}

@@ -33,7 +33,7 @@ func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan pr
 		certs:    certs,
 		timeout:  timeout,
 	}
-	c.commonClient = newCommonClient(invitations, c.serve)
+	c.commonClient = newCommonClient(invitations, c.serve, c.String())
 	return c
 }
 

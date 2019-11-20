@@ -52,7 +52,7 @@ type commonClient struct {
 	mut                      sync.RWMutex
 }
 
-func newCommonClient(invitations chan protocol.SessionInvitation, serve func(context.Context) error) commonClient {
+func newCommonClient(invitations chan protocol.SessionInvitation, serve func(context.Context) error, creator string) commonClient {
 	c := commonClient{
 		invitations: invitations,
 		mut:         sync.NewRWMutex(),
@@ -61,7 +61,7 @@ func newCommonClient(invitations chan protocol.SessionInvitation, serve func(con
 		defer c.cleanup()
 		return serve(ctx)
 	}
-	c.ServiceWithError = util.AsServiceWithError(newServe, c.String())
+	c.ServiceWithError = util.AsServiceWithError(newServe, creator)
 	if c.invitations == nil {
 		c.closeInvitationsOnFinish = true
 		c.invitations = make(chan protocol.SessionInvitation)
@@ -81,8 +81,4 @@ func (c *commonClient) Invitations() chan protocol.SessionInvitation {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	return c.invitations
-}
-
-func (c *commonClient) String() string {
-	return fmt.Sprintf("commonClient/@%p", c)
 }

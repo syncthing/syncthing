@@ -80,7 +80,7 @@ func (c *cast) createService(svc func(context.Context) error, suffix string) uti
 		err := svc(ctx)
 		l.Debugf("Stopped %v %v: %v", c.name, suffix, err)
 		return err
-	}, c.String())
+	}, fmt.Sprintf("%s/%s", c, suffix))
 }
 
 func (c *cast) Stop() {
