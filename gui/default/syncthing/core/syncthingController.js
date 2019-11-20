@@ -1220,6 +1220,19 @@ angular.module('syncthing.core')
             }
         };
 
+        $scope.discardChangedSettings = function () {
+            $("#discard-changes-confirmation").modal("hide");
+            $("#settings").modal("hide");
+        };
+
+        $scope.closeSettings = function () {
+            if ($scope.settingsModified()) {
+                $("#discard-changes-confirmation").modal("show");
+            } else {
+                $("#settings").modal("hide");
+            }
+        };
+
         $scope.editSettings = function () {
             // Make a working copy
             $scope.tmpOptions = angular.copy($scope.config.options);
@@ -1234,23 +1247,8 @@ angular.module('syncthing.core')
             $scope.tmpGUI = angular.copy($scope.config.gui);
             $scope.tmpRemoteIgnoredDevices = angular.copy($scope.config.remoteIgnoredDevices);
             $scope.tmpDevices = angular.copy($scope.config.devices);
-            var settingsModal = $('#settings').modal();
-            settingsModal.one('hidden.bs.modal', function () {
-                $('.nav-tabs a[href="#settings-general"]').tab('show');
-                window.location.hash = "";
-                settingsModal.off('hide.bs.modal');
-            }).on('hide.bs.modal', function (e) {
-                if ($scope.settingsModified()) {
-                    $("#discard-changes-confirmation").modal().one('hidden.bs.modal', function () {
-                        if (!$scope.settingsModified()) {
-                            settingsModal.modal('hide');
-                        }
-                    });
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    return false;
-                }
-            });
+            $('#settings').modal("show");
+            $("#settings a[href='#settings-general']").tab("show");
         };
 
         $scope.saveConfig = function (cb) {
