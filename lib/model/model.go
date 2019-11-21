@@ -1227,7 +1227,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			dropSymlinks: dropSymlinks,
 			evLogger:     m.evLogger,
 		}
-		is.Service = util.AsService(is.serve)
+		is.Service = util.AsService(is.serve, is.String())
 		// The token isn't tracked as the service stops when the connection
 		// terminates and is automatically removed from supervisor (by
 		// implementing suture.IsCompletable).
@@ -1970,7 +1970,7 @@ type indexSender struct {
 	connClosed   chan struct{}
 }
 
-func (s *indexSender) serve(stop chan struct{}) {
+func (s *indexSender) serve(ctx context.Context) {
 	var err error
 
 	l.Debugf("Starting indexSender for %s to %s at %s (slv=%d)", s.folder, s.dev, s.conn, s.prevSequence)
@@ -1991,7 +1991,7 @@ func (s *indexSender) serve(stop chan struct{}) {
 
 	for err == nil {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return
 		case <-s.connClosed:
 			return
@@ -2004,7 +2004,7 @@ func (s *indexSender) serve(stop chan struct{}) {
 		// sending for.
 		if s.fset.Sequence(protocol.LocalDeviceID) <= s.prevSequence {
 			select {
-			case <-stop:
+			case <-ctx.Done():
 				return
 			case <-s.connClosed:
 				return
@@ -2037,7 +2037,7 @@ func (s *indexSender) sendIndexTo() error {
 	initial := s.prevSequence == 0
 	batch := newFileInfoBatch(nil)
 	batch.flushFn = func(fs []protocol.FileInfo) error {
-		l.Debugf("Sending indexes for %s to %s at %s: %d files (<%d bytes)", s.folder, s.dev, s.conn, len(batch.infos), batch.size)
+		l.Debugf("%v: Sending %d files (<%d bytes)", s, len(batch.infos), batch.size)
 		if initial {
 			initial = false
 			return s.conn.Index(s.folder, fs)
@@ -2097,6 +2097,10 @@ func (s *indexSender) sendIndexTo() error {
 
 	s.prevSequence = f.Sequence
 	return err
+}
+
+func (s *indexSender) String() string {
+	return fmt.Sprintf("indexSender@%p for %s to %s at %s", s, s.folder, s.dev, s.conn)
 }
 
 func (m *model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {

@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -47,7 +48,7 @@ func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmi
 		evLogger:           evLogger,
 		mut:                sync.NewMutex(),
 	}
-	t.Service = util.AsService(t.serve)
+	t.Service = util.AsService(t.serve, t.String())
 
 	t.CommitConfiguration(config.Configuration{}, cfg.RawCopy())
 	cfg.Subscribe(t)
@@ -57,12 +58,12 @@ func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmi
 
 // serve starts the progress emitter which starts emitting DownloadProgress
 // events as the progress happens.
-func (t *ProgressEmitter) serve(stop chan struct{}) {
+func (t *ProgressEmitter) serve(ctx context.Context) {
 	var lastUpdate time.Time
 	var lastCount, newCount int
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			l.Debugln("progress emitter: stopping")
 			return
 		case <-t.timer.C:
