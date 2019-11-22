@@ -45,7 +45,8 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 
 	var localIP net.IP
 	// Port comes from the natpmp package
-	timeoutCtx, _ := context.WithTimeout(ctx, timeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	conn, err := (&net.Dialer{}).DialContext(timeoutCtx, "udp", net.JoinHostPort(ip.String(), "5351"))
 	if err == nil {
 		conn.Close()
