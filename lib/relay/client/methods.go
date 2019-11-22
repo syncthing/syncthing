@@ -22,7 +22,9 @@ func GetInvitationFromRelay(ctx context.Context, uri *url.URL, id syncthingproto
 		return protocol.SessionInvitation{}, fmt.Errorf("Unsupported relay scheme: %v", uri.Scheme)
 	}
 
-	rconn, err := dialer.DialTimeout(ctx, "tcp", uri.Host, timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	rconn, err := dialer.DialContext(ctx, "tcp", uri.Host)
 	if err != nil {
 		return protocol.SessionInvitation{}, err
 	}
@@ -67,7 +69,9 @@ func GetInvitationFromRelay(ctx context.Context, uri *url.URL, id syncthingproto
 func JoinSession(ctx context.Context, invitation protocol.SessionInvitation) (net.Conn, error) {
 	addr := net.JoinHostPort(net.IP(invitation.Address).String(), strconv.Itoa(int(invitation.Port)))
 
-	conn, err := dialer.Dial(ctx, "tcp", addr)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
 	}

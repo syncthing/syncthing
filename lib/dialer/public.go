@@ -12,28 +12,13 @@ import (
 	"net"
 	"time"
 
+	"github.com/pkg/errors"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
+	"golang.org/x/net/proxy"
 )
 
-// Dial tries dialing via proxy if a proxy is configured, and falls back to
-// a direct connection if no proxy is defined, or connecting via proxy fails.
-func Dial(ctx context.Context, network, addr string) (net.Conn, error) {
-	if usingProxy {
-		return dialWithFallback(ctx, proxyDialer, &net.Dialer{}, network, addr)
-	}
-	return (&net.Dialer{}).DialContext(ctx, network, addr)
-}
-
-// DialTimeout tries dialing via proxy with a timeout if a proxy is configured,
-// and falls back to a direct connection if no proxy is defined, or connecting
-// via proxy fails. The timeout can potentially be applied twice, once trying
-// to connect via the proxy connection, and second time trying to connect
-// directly.
-func DialTimeout(ctx context.Context, network, addr string, timeout time.Duration) (net.Conn, error) {
-	timeoutCtx, _ := context.WithTimeout(ctx, timeout)
-	return Dial(timeoutCtx, network, addr)
-}
+var errUnexpectedInterfaceType = errors.New("unexpected interface type")
 
 // SetTCPOptions sets our default TCP options on a TCP connection, possibly
 // digging through dialerConn to extract the *net.TCPConn
@@ -54,10 +39,6 @@ func SetTCPOptions(conn net.Conn) error {
 			return err
 		}
 		return nil
-
-	case dialerConn:
-		return SetTCPOptions(conn.Conn)
-
 	default:
 		return fmt.Errorf("unknown connection type %T", conn)
 	}
@@ -73,11 +54,38 @@ func SetTrafficClass(conn net.Conn, class int) error {
 			return e1
 		}
 		return e2
-
-	case dialerConn:
-		return SetTrafficClass(conn.Conn, class)
-
 	default:
 		return fmt.Errorf("unknown connection type %T", conn)
 	}
+}
+
+func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, network, addr string) (net.Conn, error) {
+	dialer, ok := proxy.FromEnvironment().(proxy.ContextDialer)
+	if !ok {
+		return nil, errUnexpectedInterfaceType
+	}
+	if dialer != proxy.Direct {
+		// Capture the existing timeout by checking the deadline
+		var timeout time.Duration
+		if deadline, ok := ctx.Deadline(); ok {
+			timeout = deadline.Sub(deadline)
+		}
+		if conn, err := dialer.DialContext(ctx, network, addr); noFallback || err == nil {
+			return conn, err
+		}
+		// If the deadline was set, reset it again for the next dial attempt.
+		if timeout != 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
+	}
+	return fallback.DialContext(ctx, network, addr)
+}
+
+// DialContext tries dialing via proxy if a proxy is configured, and falls back to
+// a direct connection if no proxy is defined, or connecting via proxy fails.
+// If the context has a timeout, the timeout might be applied twice.
+func DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	return dialContextWithFallback(ctx, proxy.Direct, network, addr)
 }

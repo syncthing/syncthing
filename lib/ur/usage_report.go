@@ -373,7 +373,7 @@ func (s *Service) sendUsageReport() error {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: dialer.Dial,
+			DialContext: dialer.DialContext,
 			Proxy:       http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: s.cfg.Options().URPostInsecurely,

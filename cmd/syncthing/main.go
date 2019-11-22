@@ -512,7 +512,7 @@ func upgradeViaRest() error {
 	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
 
 	tr := &http.Transport{
-		DialContext:     dialer.Dial,
+		DialContext:     dialer.DialContext,
 		Proxy:           http.ProxyFromEnvironment,
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}

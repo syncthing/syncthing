@@ -66,7 +66,7 @@ const (
 var insecureHTTP = &http.Client{
 	Timeout: readTimeout,
 	Transport: &http.Transport{
-		DialContext: dialer.Dial,
+		DialContext: dialer.DialContext,
 		Proxy:       http.ProxyFromEnvironment,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
