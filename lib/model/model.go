@@ -219,6 +219,16 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 }
 
 func (m *model) Serve() {
+	m.onServe()
+	m.Supervisor.Serve()
+}
+
+func (m *model) ServeBackground() {
+	m.onServe()
+	m.Supervisor.ServeBackground()
+}
+
+func (m *model) onServe() {
 	// Add and start folders
 	for _, folderCfg := range m.cfg.Folders() {
 		if folderCfg.Paused {
@@ -227,7 +237,6 @@ func (m *model) Serve() {
 		}
 		m.newFolder(folderCfg)
 	}
-	m.Supervisor.Serve()
 }
 
 func (m *model) Stop() {
