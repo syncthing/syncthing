@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
@@ -72,7 +74,7 @@ func (t *relayListener) serve(ctx context.Context) error {
 
 			conn, err := client.JoinSession(ctx, inv)
 			if err != nil {
-				if err != context.Canceled {
+				if errors.Cause(err) != context.Canceled {
 					l.Infoln("Listen (BEP/relay): joining session:", err)
 				}
 				continue

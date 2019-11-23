@@ -9,7 +9,6 @@ package connections
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -31,6 +30,7 @@ import (
 	_ "github.com/syncthing/syncthing/lib/pmp"
 	_ "github.com/syncthing/syncthing/lib/upnp"
 
+	"github.com/pkg/errors"
 	"github.com/thejerf/suture"
 	"golang.org/x/time/rate"
 )
@@ -701,7 +701,7 @@ func (s *service) ConnectionStatus() map[string]ConnectionStatusEntry {
 }
 
 func (s *service) setConnectionStatus(address string, err error) {
-	if err == context.Canceled {
+	if errors.Cause(err) != context.Canceled {
 		return
 	}
 

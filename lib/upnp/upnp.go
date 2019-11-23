@@ -37,7 +37,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -47,6 +46,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
@@ -194,7 +195,7 @@ USER-AGENT: syncthing/1.0
 			case *UnsupportedDeviceTypeError:
 				l.Debugln(err.Error())
 			default:
-				if err != context.Canceled {
+				if errors.Cause(err) != context.Canceled {
 					l.Infoln("UPnP parse:", err)
 				}
 			}
