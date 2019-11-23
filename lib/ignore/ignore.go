@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"github.com/gobwas/glob"
+	"github.com/pkg/errors"
+
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -404,14 +406,14 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			// Pattern is rooted in the current dir only
 			pattern.match, err = glob.Compile(line[1:], '/')
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
+				return errors.Wrapf(err, "invalid pattern %q in ignore file", line)
 			}
 			patterns = append(patterns, pattern)
 		} else if strings.HasPrefix(line, "**/") {
 			// Add the pattern as is, and without **/ so it matches in current dir
 			pattern.match, err = glob.Compile(line, '/')
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
+				return errors.Wrapf(err, "invalid pattern %q in ignore file", line)
 			}
 			patterns = append(patterns, pattern)
 
@@ -419,7 +421,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			pattern.pattern = line
 			pattern.match, err = glob.Compile(line, '/')
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
+				return errors.Wrapf(err, "invalid pattern %q in ignore file", line)
 			}
 			patterns = append(patterns, pattern)
 		} else {
@@ -427,7 +429,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			// current directory and subdirs.
 			pattern.match, err = glob.Compile(line, '/')
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
+				return errors.Wrapf(err, "invalid pattern %q in ignore file", line)
 			}
 			patterns = append(patterns, pattern)
 
@@ -435,7 +437,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			pattern.pattern = line
 			pattern.match, err = glob.Compile(line, '/')
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
+				return errors.Wrapf(err, "invalid pattern %q in ignore file", line)
 			}
 			patterns = append(patterns, pattern)
 		}

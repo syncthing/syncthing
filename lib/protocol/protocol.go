@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"path"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	lz4 "github.com/bkaradzic/go-lz4"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -397,7 +397,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 				return fmt.Errorf("protocol error: index message in state %d", state)
 			}
 			if err := checkIndexConsistency(msg.Files); err != nil {
-				return fmt.Errorf("protocol error: index: %v", err)
+				return errors.Wrap(err, "protocol error: index")
 			}
 			c.handleIndex(*msg)
 			state = stateReady
@@ -408,7 +408,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 				return fmt.Errorf("protocol error: index update message in state %d", state)
 			}
 			if err := checkIndexConsistency(msg.Files); err != nil {
-				return fmt.Errorf("protocol error: index update: %v", err)
+				return errors.Wrap(err, "protocol error: index update")
 			}
 			c.handleIndexUpdate(*msg)
 			state = stateReady
@@ -419,7 +419,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 				return fmt.Errorf("protocol error: request message in state %d", state)
 			}
 			if err := checkFilename(msg.Name); err != nil {
-				return fmt.Errorf("protocol error: request: %q: %v", msg.Name, err)
+				return errors.Wrapf(err, "protocol error: request: %q", msg.Name)
 			}
 			go c.handleRequest(*msg)
 
@@ -468,7 +468,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	// First comes a 4 byte message length
 
 	if _, err := io.ReadFull(c.cr, fourByteBuf[:4]); err != nil {
-		return nil, fmt.Errorf("reading message length: %v", err)
+		return nil, errors.Wrap(err, "reading message length")
 	}
 	msgLen := int32(binary.BigEndian.Uint32(fourByteBuf))
 	if msgLen < 0 {
@@ -481,7 +481,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 
 	buf := BufferPool.Get(int(msgLen))
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
-		return nil, fmt.Errorf("reading message: %v", err)
+		return nil, errors.Wrap(err, "reading message")
 	}
 
 	// ... which might be compressed
@@ -494,7 +494,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 		decomp, err := c.lz4Decompress(buf)
 		BufferPool.Put(buf)
 		if err != nil {
-			return nil, fmt.Errorf("decompressing message: %v", err)
+			return nil, errors.Wrap(err, "decompressing message")
 		}
 		buf = decomp
 
@@ -509,7 +509,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 		return nil, err
 	}
 	if err := msg.Unmarshal(buf); err != nil {
-		return nil, fmt.Errorf("unmarshalling message: %v", err)
+		return nil, errors.Wrap(err, "unmarshalling message")
 	}
 	BufferPool.Put(buf)
 
@@ -520,7 +520,7 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 	// First comes a 2 byte header length
 
 	if _, err := io.ReadFull(c.cr, fourByteBuf[:2]); err != nil {
-		return Header{}, fmt.Errorf("reading length: %v", err)
+		return Header{}, errors.Wrap(err, "reading length")
 	}
 	hdrLen := int16(binary.BigEndian.Uint16(fourByteBuf))
 	if hdrLen < 0 {
@@ -531,12 +531,12 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 
 	buf := BufferPool.Get(int(hdrLen))
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
-		return Header{}, fmt.Errorf("reading header: %v", err)
+		return Header{}, errors.Wrap(err, "reading header")
 	}
 
 	var hdr Header
 	if err := hdr.Unmarshal(buf); err != nil {
-		return Header{}, fmt.Errorf("unmarshalling header: %v", err)
+		return Header{}, errors.Wrap(err, "unmarshalling header")
 	}
 
 	BufferPool.Put(buf)
@@ -558,7 +558,7 @@ func (c *rawConnection) handleIndexUpdate(im IndexUpdate) {
 func checkIndexConsistency(fs []FileInfo) error {
 	for _, f := range fs {
 		if err := checkFileInfoConsistency(f); err != nil {
-			return fmt.Errorf("%q: %v", f.Name, err)
+			return errors.Wrapf(err, "%q", f.Name)
 		}
 	}
 	return nil
@@ -707,12 +707,12 @@ func (c *rawConnection) writeCompressedMessage(msg message) error {
 	size := msg.ProtoSize()
 	buf := BufferPool.Get(size)
 	if _, err := msg.MarshalTo(buf); err != nil {
-		return fmt.Errorf("marshalling message: %v", err)
+		return errors.Wrap(err, "marshalling message")
 	}
 
 	compressed, err := c.lz4Compress(buf)
 	if err != nil {
-		return fmt.Errorf("compressing message: %v", err)
+		return errors.Wrap(err, "compressing message")
 	}
 
 	hdr := Header{
@@ -731,7 +731,7 @@ func (c *rawConnection) writeCompressedMessage(msg message) error {
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
 	// Header
 	if _, err := hdr.MarshalTo(buf[2:]); err != nil {
-		return fmt.Errorf("marshalling header: %v", err)
+		return errors.Wrap(err, "marshalling header")
 	}
 	// Message length
 	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(len(compressed)))
@@ -744,7 +744,7 @@ func (c *rawConnection) writeCompressedMessage(msg message) error {
 
 	l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message (%d uncompressed)), err=%v", n, hdrSize, len(compressed), size, err)
 	if err != nil {
-		return fmt.Errorf("writing message: %v", err)
+		return errors.Wrap(err, "writing message")
 	}
 	return nil
 }
@@ -767,13 +767,13 @@ func (c *rawConnection) writeUncompressedMessage(msg message) error {
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
 	// Header
 	if _, err := hdr.MarshalTo(buf[2:]); err != nil {
-		return fmt.Errorf("marshalling header: %v", err)
+		return errors.Wrap(err, "marshalling header")
 	}
 	// Message length
 	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(size))
 	// Message
 	if _, err := msg.MarshalTo(buf[2+hdrSize+4:]); err != nil {
-		return fmt.Errorf("marshalling message: %v", err)
+		return errors.Wrap(err, "marshalling message")
 	}
 
 	n, err := c.cw.Write(buf[:totSize])
@@ -781,7 +781,7 @@ func (c *rawConnection) writeUncompressedMessage(msg message) error {
 
 	l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message), err=%v", n, hdrSize, size, err)
 	if err != nil {
-		return fmt.Errorf("writing message: %v", err)
+		return errors.Wrap(err, "writing message")
 	}
 	return nil
 }
