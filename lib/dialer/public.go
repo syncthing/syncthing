@@ -64,28 +64,38 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 	if !ok {
 		return nil, errUnexpectedInterfaceType
 	}
-	if dialer != proxy.Direct {
-		// Capture the existing timeout by checking the deadline
-		var timeout time.Duration
-		if deadline, ok := ctx.Deadline(); ok {
-			timeout = deadline.Sub(deadline)
-		}
-		if conn, err := dialer.DialContext(ctx, network, addr); noFallback || err == nil {
-			return conn, err
-		}
-		// If the deadline was set, reset it again for the next dial attempt.
-		if timeout != 0 {
-			var cancel context.CancelFunc
-			ctx, cancel = context.WithTimeout(ctx, timeout)
-			defer cancel()
-		}
+	if dialer == proxy.Direct {
+		return fallback.DialContext(ctx, network, addr)
 	}
-	return fallback.DialContext(ctx, network, addr)
+	if noFallback {
+		return dialer.DialContext(ctx, network, addr)
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var proxyConn, fallbackConn net.Conn
+	var proxyErr, fallbackErr error
+	proxyDone := make(chan struct{})
+	fallbackDone := make(chan struct{})
+	go func() {
+		proxyConn, proxyErr = dialer.DialContext(ctx, network, addr)
+		close(proxyDone)
+	}()
+	go func() {
+		fallbackConn, fallbackErr = fallback.DialContext(ctx, network, addr)
+		close(fallbackDone)
+	}()
+	<-proxyDone
+	if proxyErr == nil {
+		return proxyConn, nil
+	}
+	<-fallbackDone
+	return fallbackConn, fallbackErr
 }
 
-// DialContext tries dialing via proxy if a proxy is configured, and falls back to
-// a direct connection if no proxy is defined, or connecting via proxy fails.
-// If the context has a timeout, the timeout might be applied twice.
+// DialContext dials via context and/or directly, depending on how it is configured.
+// If dialing via proxy and allowing fallback, dialing for both happens simultaneously
+// and the proxy connection is returned if successful.
 func DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	return dialContextWithFallback(ctx, proxy.Direct, network, addr)
 }
