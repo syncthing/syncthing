@@ -356,6 +356,12 @@ ul.three-columns li, ul.two-columns li {
         * columns. */
         white-space: normal;
     }
+
+    .two-columns {
+        -webkit-column-count: 1;
+        -moz-column-count: 1;
+        column-count: 1;
+    }
 }
 
 @media (max-width:479px) {
