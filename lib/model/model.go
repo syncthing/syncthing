@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -20,6 +19,9 @@ import (
 	"strings"
 	stdsync "sync"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/thejerf/suture"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -35,7 +37,6 @@ import (
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
-	"github.com/thejerf/suture"
 )
 
 // How many files to send in each Index/IndexUpdate message.
@@ -219,6 +220,16 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 }
 
 func (m *model) Serve() {
+	m.onServe()
+	m.Supervisor.Serve()
+}
+
+func (m *model) ServeBackground() {
+	m.onServe()
+	m.Supervisor.ServeBackground()
+}
+
+func (m *model) onServe() {
 	// Add and start folders
 	for _, folderCfg := range m.cfg.Folders() {
 		if folderCfg.Paused {
@@ -227,7 +238,6 @@ func (m *model) Serve() {
 		}
 		m.newFolder(folderCfg)
 	}
-	m.Supervisor.Serve()
 }
 
 func (m *model) Stop() {
@@ -1790,7 +1800,7 @@ func (m *model) SetIgnores(folder string, content []string) error {
 	err := cfg.CheckPath()
 	if err == config.ErrPathMissing {
 		if err = cfg.CreateRoot(); err != nil {
-			return fmt.Errorf("failed to create folder root: %v", err)
+			return errors.Wrap(err, "failed to create folder root")
 		}
 		err = cfg.CheckPath()
 	}

@@ -10,7 +10,6 @@ package config
 import (
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -21,6 +20,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -120,13 +121,13 @@ func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
 
 	port, err := getFreePort("127.0.0.1", DefaultGUIPort)
 	if err != nil {
-		return Configuration{}, fmt.Errorf("get free port (GUI): %v", err)
+		return Configuration{}, errors.Wrap(err, "get free port (GUI)")
 	}
 	cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
 
 	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
 	if err != nil {
-		return Configuration{}, fmt.Errorf("get free port (BEP): %v", err)
+		return Configuration{}, errors.Wrap(err, "get free port (BEP)")
 	}
 	if port == DefaultTCPPort {
 		cfg.Options.ListenAddresses = []string{"default"}

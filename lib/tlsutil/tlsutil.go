@@ -20,6 +20,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -92,7 +94,7 @@ func SecureDefault() *tls.Config {
 func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls.Certificate, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("generate key: %s", err)
+		return tls.Certificate{}, errors.Wrap(err, "generate key")
 	}
 
 	notBefore := time.Now().Truncate(24 * time.Hour)
@@ -115,39 +117,39 @@ func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, publicKey(priv), priv)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("create cert: %s", err)
+		return tls.Certificate{}, errors.Wrap(err, "create cert")
 	}
 
 	certOut, err := os.Create(certFile)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("save cert: %s", err)
+		return tls.Certificate{}, errors.Wrap(err, "save cert")
 	}
 	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("save cert: %s", err)
+		return tls.Certificate{}, errors.Wrap(err, "save cert")
 	}
 	err = certOut.Close()
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("save cert: %s", err)
+		return tls.Certificate{}, errors.Wrap(err, "save cert")
 	}
 
 	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
+		return tls.Certificate{}, errors.Wrap(err, "save key")
 	}
 
 	block, err := pemBlockForKey(priv)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
+		return tls.Certificate{}, errors.Wrap(err, "save key")
 	}
 
 	err = pem.Encode(keyOut, block)
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
+		return tls.Certificate{}, errors.Wrap(err, "save key")
 	}
 	err = keyOut.Close()
 	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
+		return tls.Certificate{}, errors.Wrap(err, "save key")
 	}
 
 	return tls.LoadX509KeyPair(certFile, keyFile)

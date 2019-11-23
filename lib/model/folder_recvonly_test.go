@@ -317,8 +317,14 @@ func setupROFolder() (*model, *sendOnlyFolder) {
 	w.SetFolder(fcfg)
 
 	m := newModel(w, myID, "syncthing", "dev", db.OpenMemory(), nil)
+
+	m.ServeBackground()
+
+	// Folder should only be added, not started.
+	m.removeFolder(fcfg)
 	m.addFolder(fcfg)
 
+	m.fmut.RLock()
 	f := &sendOnlyFolder{
 		folder: folder{
 			stateTracker:        newStateTracker(fcfg.ID, m.evLogger),
@@ -326,8 +332,7 @@ func setupROFolder() (*model, *sendOnlyFolder) {
 			FolderConfiguration: fcfg,
 		},
 	}
-
-	m.ServeBackground()
+	m.fmut.RUnlock()
 
 	return m, f
 }

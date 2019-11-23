@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/syncthing/syncthing/lib/dialer"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
@@ -227,7 +229,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	if relayIDs != "" {
 		relayID, err := syncthingprotocol.DeviceIDFromString(relayIDs)
 		if err != nil {
-			return fmt.Errorf("relay address contains invalid verification id: %s", err)
+			return errors.Wrap(err, "relay address contains invalid verification id")
 		}
 
 		certs := cs.PeerCertificates
