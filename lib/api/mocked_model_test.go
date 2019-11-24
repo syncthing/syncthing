@@ -10,6 +10,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/model"
@@ -178,5 +179,11 @@ func (m *mockedModel) OnHello(protocol.DeviceID, net.Addr, protocol.HelloResult)
 func (m *mockedModel) GetHello(protocol.DeviceID) protocol.HelloIntf {
 	return nil
 }
+
+func (m *mockedModel) AddFolder(cfg config.FolderConfiguration) {}
+
+func (m *mockedModel) RestartFolder(from, to config.FolderConfiguration) {}
+
+func (m *mockedModel) StartFolder(folder string) {}
 
 func (m *mockedModel) StartDeadlockDetector(timeout time.Duration) {}

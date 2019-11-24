@@ -72,6 +72,9 @@ type Model interface {
 
 	connections.Model
 
+	AddFolder(cfg config.FolderConfiguration)
+	RestartFolder(from, to config.FolderConfiguration)
+	StartFolder(folder string)
 	ResetFolder(folder string)
 	DelayScan(folder string, next time.Duration)
 	ScanFolder(folder string) error
@@ -217,19 +220,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 	return m
 }
 
-func (m *model) Serve() {
-	// Add and start folders
-	for _, folderCfg := range m.cfg.Folders() {
-		if folderCfg.Paused {
-			folderCfg.CreateRoot()
-			continue
-		}
-		m.addFolder(folderCfg)
-		m.startFolder(folderCfg.ID)
-	}
-	m.Supervisor.Serve()
-}
-
 func (m *model) Stop() {
 	m.Supervisor.Stop()
 	devs := m.cfg.Devices()
@@ -251,8 +241,8 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 	detector.Watch("pmut", m.pmut)
 }
 
-// startFolder constructs the folder service and starts it.
-func (m *model) startFolder(folder string) {
+// StartFolder constructs the folder service and starts it.
+func (m *model) StartFolder(folder string) {
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 	folderCfg := m.folderCfgs[folder]
@@ -369,7 +359,7 @@ func (m *model) warnAboutOverwritingProtectedFiles(folder string) {
 	}
 }
 
-func (m *model) addFolder(cfg config.FolderConfiguration) {
+func (m *model) AddFolder(cfg config.FolderConfiguration) {
 	if len(cfg.ID) == 0 {
 		panic("cannot add empty folder id")
 	}
@@ -398,7 +388,7 @@ func (m *model) addFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet
 	m.folderIgnores[cfg.ID] = ignores
 }
 
-func (m *model) removeFolder(cfg config.FolderConfiguration) {
+func (m *model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
@@ -450,7 +440,7 @@ func (m *model) tearDownFolderLocked(cfg config.FolderConfiguration, err error) 
 	delete(m.folderRunnerTokens, cfg.ID)
 }
 
-func (m *model) restartFolder(from, to config.FolderConfiguration) {
+func (m *model) RestartFolder(from, to config.FolderConfiguration) {
 	if len(to.ID) == 0 {
 		panic("bug: cannot restart empty folder ID")
 	}
@@ -2523,8 +2513,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				l.Infoln("Paused folder", cfg.Description())
 			} else {
 				l.Infoln("Adding folder", cfg.Description())
-				m.addFolder(cfg)
-				m.startFolder(folderID)
+				m.AddFolder(cfg)
+				m.StartFolder(folderID)
 			}
 		}
 	}
@@ -2533,7 +2523,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		toCfg, ok := toFolders[folderID]
 		if !ok {
 			// The folder was removed.
-			m.removeFolder(fromCfg)
+			m.RemoveFolder(fromCfg)
 			continue
 		}
 
@@ -2544,7 +2534,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		// This folder exists on both sides. Settings might have changed.
 		// Check if anything differs that requires a restart.
 		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) {
-			m.restartFolder(fromCfg, toCfg)
+			m.RestartFolder(fromCfg, toCfg)
 		}
 
 		// Emit the folder pause/resume event

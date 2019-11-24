@@ -239,6 +239,16 @@ func (a *App) startup() error {
 		m.StartDeadlockDetector(20 * time.Minute)
 	}
 
+	// Add and start folders
+	for _, folderCfg := range a.cfg.Folders() {
+		if folderCfg.Paused {
+			folderCfg.CreateRoot()
+			continue
+		}
+		m.AddFolder(folderCfg)
+		m.StartFolder(folderCfg.ID)
+	}
+
 	a.mainService.Add(m)
 
 	// Start discovery

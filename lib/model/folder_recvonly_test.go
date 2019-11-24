@@ -54,7 +54,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	// Start the folder. This will cause a scan, should discover the other stuff in the folder
 
-	m.startFolder("ro")
+	m.StartFolder("ro")
 	m.ScanFolder("ro")
 
 	// We should now have two files and two directories.
@@ -125,7 +125,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// Start the folder. This will cause a scan.
 
-	m.startFolder("ro")
+	m.StartFolder("ro")
 	m.ScanFolder("ro")
 
 	// Everything should be in sync.
@@ -221,7 +221,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Start the folder. This will cause a scan.
 
-	m.startFolder("ro")
+	m.StartFolder("ro")
 	m.ScanFolder("ro")
 
 	// Everything should be in sync.
@@ -317,7 +317,7 @@ func setupROFolder() (*model, *sendOnlyFolder) {
 	w.SetFolder(fcfg)
 
 	m := newModel(w, myID, "syncthing", "dev", db.OpenMemory(), nil)
-	m.addFolder(fcfg)
+	m.AddFolder(fcfg)
 
 	f := &sendOnlyFolder{
 		folder: folder{

@@ -107,8 +107,8 @@ func setupModel(w config.Wrapper) *model {
 	m.ServeBackground()
 	for id, cfg := range w.Folders() {
 		if !cfg.Paused {
-			m.addFolder(cfg)
-			m.startFolder(id)
+			m.AddFolder(cfg)
+			m.StartFolder(id)
 		}
 	}
 
