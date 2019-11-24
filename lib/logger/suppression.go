@@ -72,12 +72,17 @@ func (l *suppressingLogger) Output(level int, message string) error {
 	l.mut.Lock()
 	defer l.mut.Unlock()
 
-	hash := messageHash(message)
-	l.buckets[0].seen[hash] = struct{}{}
+	if l.active {
+		// If suppression is active, track message identity by hash and
+		// don't output duplicates.
 
-	if l.active && l.haveSeen(hash) {
-		l.buckets[0].suppressed++
-		return nil
+		hash := messageHash(message)
+		l.buckets[0].seen[hash] = struct{}{}
+
+		if l.haveSeen(hash) {
+			l.buckets[0].suppressed++
+			return nil
+		}
 	}
 
 	l.buckets[0].count++
