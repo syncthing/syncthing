@@ -87,6 +87,12 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 	}()
 	<-proxyDone
 	if proxyErr == nil {
+		go func() {
+			<-fallbackDone
+			if fallbackErr == nil {
+				fallbackConn.Close()
+			}
+		}()
 		return proxyConn, nil
 	}
 	<-fallbackDone
