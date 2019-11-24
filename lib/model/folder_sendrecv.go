@@ -176,8 +176,6 @@ func (f *sendReceiveFolder) pull() bool {
 
 	l.Debugf("%v pulling", f)
 
-	f.clearPullErrors()
-
 	scanChan := make(chan string)
 	go f.pullScannerRoutine(scanChan)
 
@@ -185,6 +183,8 @@ func (f *sendReceiveFolder) pull() bool {
 		close(scanChan)
 		f.setState(FolderIdle)
 	}()
+
+	changed := 0
 
 	for tries := 0; tries < maxPullerIterations; tries++ {
 		select {
@@ -197,30 +197,29 @@ func (f *sendReceiveFolder) pull() bool {
 		// it to FolderSyncing during the last iteration.
 		f.setState(FolderSyncPreparing)
 
-		changed := f.pullerIteration(scanChan)
+		changed = f.pullerIteration(scanChan)
 
 		l.Debugln(f, "changed", changed, "on try", tries+1)
 
 		if changed == 0 {
 			// No files were changed by the puller, so we are in
-			// sync. Any errors were just transitional.
-			f.clearPullErrors()
-			return true
+			// sync (except for unrecoverable stuff like invalid
+			// filenames on windows).
+			break
 		}
 	}
 
-	// We've tried a bunch of times to get in sync, but
-	// we're not making it. Probably there are write
-	// errors preventing us. Flag this with a warning and
-	// wait a bit longer before retrying.
-	if errors := f.Errors(); len(errors) > 0 {
+	f.pullErrorsMut.Lock()
+	hasPullErrs := len(f.pullErrors) > 0
+	f.pullErrorsMut.Unlock()
+	if hasPullErrs {
 		f.evLogger.Log(events.FolderErrors, map[string]interface{}{
 			"folder": f.folderID,
-			"errors": errors,
+			"errors": f.Errors(),
 		})
 	}
 
-	return false
+	return changed == 0
 }
 
 // pullerIteration runs a single puller iteration for the given folder and
@@ -270,6 +269,9 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 		doneWg.Done()
 	}()
 
+	// Clear out all previous errors
+	f.clearPullErrors()
+
 	changed, fileDeletions, dirDeletions, err := f.processNeeded(dbUpdateChan, copyChan, scanChan)
 
 	// Signal copy and puller routines that we are done with the in data for
@@ -315,20 +317,19 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		}
 
 		if f.IgnoreDelete && intf.IsDeleted() {
-			f.resetPullError(intf.FileName())
 			l.Debugln(f, "ignore file deletion (config)", intf.FileName())
 			return true
 		}
+
+		changed++
 
 		file := intf.(protocol.FileInfo)
 
 		switch {
 		case f.ignores.ShouldIgnore(file.Name):
-			f.resetPullError(file.Name)
 			file.SetIgnored(f.shortID)
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
-			changed++
 
 		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name):
 			if file.IsDeleted() {
@@ -337,10 +338,11 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 				// Reason we need it in the first place is, that it was
 				// ignored at some point.
 				dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
-				changed++
 			} else {
 				// We can't pull an invalid file.
 				f.newPullError(file.Name, fs.ErrInvalidFilename)
+				// No reason to retry for this
+				changed--
 			}
 
 		case file.IsDeleted():
@@ -365,7 +367,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 					f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
 				}
 			}
-			changed++
 
 		case file.Type == protocol.FileInfoTypeFile:
 			curFile, hasCurFile := f.fset.Get(protocol.LocalDeviceID, file.Name)
@@ -380,21 +381,17 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			}
 
 		case runtime.GOOS == "windows" && file.IsSymlink():
-			f.resetPullError(file.Name)
 			file.SetUnsupported(f.shortID)
 			l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
-			changed++
 
 		case file.IsDirectory() && !file.IsSymlink():
-			changed++
 			l.Debugln(f, "Handling directory", file.Name)
 			if f.checkParent(file.Name, scanChan) {
 				f.handleDir(file, dbUpdateChan, scanChan)
 			}
 
 		case file.IsSymlink():
-			changed++
 			l.Debugln(f, "Handling symlink", file.Name)
 			if f.checkParent(file.Name, scanChan) {
 				f.handleSymlink(file, dbUpdateChan, scanChan)
@@ -446,8 +443,6 @@ nextFile:
 			break
 		}
 
-		f.resetPullError(fileName)
-
 		fi, ok := f.fset.GetGlobal(fileName)
 		if !ok {
 			// File is no longer in the index. Mark it as done and drop it.
@@ -490,7 +485,6 @@ nextFile:
 				// Remove the pending deletion (as we performed it by renaming)
 				delete(fileDeletions, candidate.Name)
 
-				changed++
 				f.queue.Done(fileName)
 				continue nextFile
 			}
@@ -499,7 +493,6 @@ nextFile:
 		devices := f.fset.Availability(fileName)
 		for _, dev := range devices {
 			if _, ok := f.model.Connection(dev); ok {
-				changed++
 				// Handle the file normally, by coping and pulling, etc.
 				f.handleFile(fi, copyChan, dbUpdateChan)
 				continue nextFile
@@ -520,7 +513,6 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.F
 		default:
 		}
 
-		f.resetPullError(file.Name)
 		f.deleteFile(file, dbUpdateChan, scanChan)
 	}
 
@@ -533,7 +525,6 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.F
 		}
 
 		dir := dirDeletions[len(dirDeletions)-i-1]
-		f.resetPullError(dir.Name)
 		l.Debugln(f, "Deleting dir", dir.Name)
 		f.deleteDir(dir, dbUpdateChan, scanChan)
 	}
@@ -544,8 +535,6 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
-
-	f.resetPullError(file.Name)
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
@@ -701,8 +690,6 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	// care not declare another err.
 	var err error
 
-	f.resetPullError(file.Name)
-
 	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
@@ -822,8 +809,6 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 	var err error
 
 	l.Debugln(f, "Deleting file", file.Name)
-
-	f.resetPullError(file.Name)
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
@@ -1177,8 +1162,6 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 // thing that has changed.
 func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	l.Debugln(f, "taking shortcut on", file.Name)
-
-	f.resetPullError(file.Name)
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
@@ -1790,14 +1773,6 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 	// Use "syncing" as opposed to "pulling" as the latter might be used
 	// for errors occurring specificly in the puller routine.
 	f.pullErrors[path] = fmt.Sprintln("syncing:", err)
-}
-
-// resetPullError removes the error at path in case there was an error on a
-// previous pull iteration.
-func (f *sendReceiveFolder) resetPullError(path string) {
-	f.pullErrorsMut.Lock()
-	delete(f.pullErrors, path)
-	f.pullErrorsMut.Unlock()
 }
 
 func (f *sendReceiveFolder) clearPullErrors() {

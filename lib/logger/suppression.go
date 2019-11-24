@@ -13,11 +13,19 @@ import (
 	"time"
 )
 
+func NewSuppressionMiddleware(numBuckets, threshold int, bucketInterval time.Duration) OutputMiddleware {
+	return func(ll Lowlevel) Lowlevel {
+		supp := newSuppressingLogger(ll, numBuckets, threshold, bucketInterval)
+		go supp.Serve()
+		return supp
+	}
+}
+
 // The suppressingLogger passes logging through to the next logger, unless
 // it's a repeated message or the rate thresholds are exceeded in which case
 // previously seen messages are filtered.
 type suppressingLogger struct {
-	next lowlevelLogger
+	next Lowlevel
 
 	mut            sync.Mutex
 	buckets        []suppressingLoggerBucket
@@ -27,7 +35,7 @@ type suppressingLogger struct {
 	stop           chan struct{}
 }
 
-func newSuppressingLogger(next lowlevelLogger, numBuckets, threshold int, bucketInterval time.Duration) *suppressingLogger {
+func newSuppressingLogger(next Lowlevel, numBuckets, threshold int, bucketInterval time.Duration) *suppressingLogger {
 	l := &suppressingLogger{
 		next:           next,
 		buckets:        make([]suppressingLoggerBucket, numBuckets),

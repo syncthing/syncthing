@@ -35,23 +35,16 @@ func ExpandTilde(path string) (string, error) {
 }
 
 func getHomeDir() (string, error) {
-	var home string
-
-	switch runtime.GOOS {
-	case "windows":
-		home = filepath.Join(os.Getenv("HomeDrive"), os.Getenv("HomePath"))
-		if home == "" {
-			home = os.Getenv("UserProfile")
+	if runtime.GOOS == "windows" {
+		// Legacy -- we prioritize this for historical reasons, whereas
+		// os.UserHomeDir uses %USERPROFILE% always.
+		home := filepath.Join(os.Getenv("HomeDrive"), os.Getenv("HomePath"))
+		if home != "" {
+			return home, nil
 		}
-	default:
-		home = os.Getenv("HOME")
 	}
 
-	if home == "" {
-		return "", errNoHome
-	}
-
-	return home, nil
+	return os.UserHomeDir()
 }
 
 var windowsDisallowedCharacters = string([]rune{

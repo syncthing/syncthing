@@ -19,10 +19,10 @@ RUN apk add --no-cache ca-certificates su-exec
 COPY --from=builder /src/syncthing /bin/syncthing
 COPY --from=builder /src/script/docker-entrypoint.sh /bin/entrypoint.sh
 
-ENV PUID=1000 PGID=1000
+ENV PUID=1000 PGID=1000 HOME=/var/syncthing
 
 HEALTHCHECK --interval=1m --timeout=10s \
   CMD nc -z localhost 8384 || exit 1
 
 ENV STGUIADDRESS=0.0.0.0:8384
-ENTRYPOINT ["/bin/entrypoint.sh", "-home", "/var/syncthing/config"]
+ENTRYPOINT ["/bin/entrypoint.sh", "/bin/syncthing", "-home", "/var/syncthing/config"]
