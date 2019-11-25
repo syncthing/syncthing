@@ -32,8 +32,8 @@ type fakeConnection struct {
 	fileData                 map[string][]byte
 	folder                   string
 	model                    *model
-	indexFn                  func(string, []protocol.FileInfo)
-	requestFn                func(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
+	indexFn                  func(context.Context, string, []protocol.FileInfo)
+	requestFn                func(ctx context.Context, folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
 	closeFn                  func(error)
 	mut                      sync.Mutex
 }
@@ -64,29 +64,29 @@ func (f *fakeConnection) Option(string) string {
 	return ""
 }
 
-func (f *fakeConnection) Index(folder string, fs []protocol.FileInfo) error {
+func (f *fakeConnection) Index(ctx context.Context, folder string, fs []protocol.FileInfo) error {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 	if f.indexFn != nil {
-		f.indexFn(folder, fs)
+		f.indexFn(ctx, folder, fs)
 	}
 	return nil
 }
 
-func (f *fakeConnection) IndexUpdate(folder string, fs []protocol.FileInfo) error {
+func (f *fakeConnection) IndexUpdate(ctx context.Context, folder string, fs []protocol.FileInfo) error {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 	if f.indexFn != nil {
-		f.indexFn(folder, fs)
+		f.indexFn(ctx, folder, fs)
 	}
 	return nil
 }
 
-func (f *fakeConnection) Request(folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (f *fakeConnection) Request(ctx context.Context, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 	if f.requestFn != nil {
-		return f.requestFn(folder, name, offset, size, hash, fromTemporary)
+		return f.requestFn(ctx, folder, name, offset, size, hash, fromTemporary)
 	}
 	return f.fileData[name], nil
 }
@@ -109,7 +109,7 @@ func (f *fakeConnection) Statistics() protocol.Statistics {
 	return protocol.Statistics{}
 }
 
-func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate) {
+func (f *fakeConnection) DownloadProgress(_ context.Context, folder string, updates []protocol.FileDownloadProgressUpdate) {
 	f.downloadProgressMessages = append(f.downloadProgressMessages, downloadProgressMessage{
 		folder:  folder,
 		updates: updates,

@@ -7,6 +7,7 @@
 package versioner
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -38,7 +39,7 @@ func NewTrashcan(folderID string, folderFs fs.Filesystem, params map[string]stri
 		versionsFs:   fsFromParams(folderFs, params),
 		cleanoutDays: cleanoutDays,
 	}
-	s.Service = util.AsService(s.serve)
+	s.Service = util.AsService(s.serve, s.String())
 
 	l.Debugf("instantiated %#v", s)
 	return s
@@ -52,7 +53,7 @@ func (t *Trashcan) Archive(filePath string) error {
 	})
 }
 
-func (t *Trashcan) serve(stop chan struct{}) {
+func (t *Trashcan) serve(ctx context.Context) {
 	l.Debugln(t, "starting")
 	defer l.Debugln(t, "stopping")
 
@@ -62,7 +63,7 @@ func (t *Trashcan) serve(stop chan struct{}) {
 
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return
 
 		case <-timer.C:

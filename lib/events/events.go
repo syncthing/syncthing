@@ -8,8 +8,10 @@
 package events
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"runtime"
 	"time"
 
@@ -258,7 +260,7 @@ func NewLogger() Logger {
 		funcs:         make(chan func()),
 		toUnsubscribe: make(chan *subscription),
 	}
-	l.Service = util.AsService(l.serve)
+	l.Service = util.AsService(l.serve, l.String())
 	// Make sure the timer is in the stopped state and hasn't fired anything
 	// into the channel.
 	if !l.timeout.Stop() {
@@ -267,7 +269,7 @@ func NewLogger() Logger {
 	return l
 }
 
-func (l *logger) serve(stop chan struct{}) {
+func (l *logger) serve(ctx context.Context) {
 loop:
 	for {
 		select {
@@ -282,7 +284,7 @@ loop:
 		case s := <-l.toUnsubscribe:
 			l.unsubscribe(s)
 
-		case <-stop:
+		case <-ctx.Done():
 			break loop
 		}
 	}
@@ -386,6 +388,10 @@ func (l *logger) unsubscribe(s *subscription) {
 		}
 	}
 	close(s.events)
+}
+
+func (l *logger) String() string {
+	return fmt.Sprintf("events.Logger/@%p", l)
 }
 
 // Poll returns an event from the subscription or an error if the poll times

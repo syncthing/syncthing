@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"github.com/gobwas/glob"
+	"github.com/pkg/errors"
+
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -477,7 +479,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 	addPattern := func(line string) error {
 		newPatterns, err := parseLine(line)
 		if err != nil {
-			return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
+			return errors.Wrapf(err, "invalid pattern %q in ignore file", line)
 		}
 		patterns = append(patterns, newPatterns...)
 		return nil

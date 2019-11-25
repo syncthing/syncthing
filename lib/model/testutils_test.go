@@ -105,12 +105,6 @@ func setupModel(w config.Wrapper) *model {
 	db := db.OpenMemory()
 	m := newModel(w, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	for id, cfg := range w.Folders() {
-		if !cfg.Paused {
-			m.addFolder(cfg)
-			m.startFolder(id)
-		}
-	}
 
 	m.ScanFolders()
 

@@ -57,7 +57,7 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 		noUpgrade:          noUpgrade,
 		forceRun:           make(chan struct{}, 1), // Buffered to prevent locking
 	}
-	svc.Service = util.AsService(svc.serve)
+	svc.Service = util.AsService(svc.serve, svc.String())
 	cfg.Subscribe(svc)
 	return svc
 }
@@ -384,11 +384,11 @@ func (s *Service) sendUsageReport() error {
 	return err
 }
 
-func (s *Service) serve(stop chan struct{}) {
+func (s *Service) serve(ctx context.Context) {
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return
 		case <-s.forceRun:
 			t.Reset(0)

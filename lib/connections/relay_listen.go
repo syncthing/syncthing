@@ -7,6 +7,7 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
 	"net/url"
 	"sync"
@@ -40,7 +41,7 @@ type relayListener struct {
 	mut    sync.RWMutex
 }
 
-func (t *relayListener) serve(stop chan struct{}) error {
+func (t *relayListener) serve(ctx context.Context) error {
 	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, nil, 10*time.Second)
 	if err != nil {
 		l.Infoln("Listen (BEP/relay):", err)
@@ -112,7 +113,7 @@ func (t *relayListener) serve(stop chan struct{}) error {
 				t.notifyAddressesChanged(t)
 			}
 
-		case <-stop:
+		case <-ctx.Done():
 			return nil
 		}
 	}
@@ -178,7 +179,7 @@ func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls
 		conns:   conns,
 		factory: f,
 	}
-	t.ServiceWithError = util.AsServiceWithError(t.serve)
+	t.ServiceWithError = util.AsServiceWithError(t.serve, t.String())
 	return t
 }
 

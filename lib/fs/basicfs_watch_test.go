@@ -178,7 +178,7 @@ func TestWatchWinRoot(t *testing.T) {
 			}
 			cancel()
 		}()
-		fs.watchLoop(".", roots, backendChan, outChan, errChan, fakeMatcher{}, ctx)
+		fs.watchLoop(ctx, ".", roots, backendChan, outChan, errChan, fakeMatcher{})
 	}()
 
 	// filepath.Dir as watch has a /... suffix
@@ -219,7 +219,7 @@ func expectErrorForPath(t *testing.T, path string) {
 	// testFs is Filesystem, but we need BasicFilesystem here
 	fs := newBasicFilesystem(testDirAbs)
 
-	go fs.watchLoop(".", []string{testDirAbs}, backendChan, outChan, errChan, fakeMatcher{}, ctx)
+	go fs.watchLoop(ctx, ".", []string{testDirAbs}, backendChan, outChan, errChan, fakeMatcher{})
 
 	backendChan <- fakeEventInfo(path)
 
@@ -244,7 +244,7 @@ func TestWatchSubpath(t *testing.T) {
 	fs := newBasicFilesystem(testDirAbs)
 
 	abs, _ := fs.rooted("sub")
-	go fs.watchLoop("sub", []string{testDirAbs}, backendChan, outChan, errChan, fakeMatcher{}, ctx)
+	go fs.watchLoop(ctx, "sub", []string{testDirAbs}, backendChan, outChan, errChan, fakeMatcher{})
 
 	backendChan <- fakeEventInfo(filepath.Join(abs, "file"))
 

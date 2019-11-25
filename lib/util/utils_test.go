@@ -7,6 +7,7 @@
 package util
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -227,17 +228,17 @@ func TestCopyMatching(t *testing.T) {
 }
 
 func TestUtilStopTwicePanic(t *testing.T) {
-	s := AsService(func(stop chan struct{}) {
-		<-stop
-	})
+	name := "foo"
+	s := AsService(func(ctx context.Context) {
+		<-ctx.Done()
+	}, name)
 
 	go s.Serve()
 	s.Stop()
 
 	defer func() {
-		expected := "lib/util.TestUtilStopTwicePanic"
-		if r := recover(); r == nil || !strings.Contains(r.(string), expected) {
-			t.Fatalf(`expected panic containing "%v", got "%v"`, expected, r)
+		if r := recover(); r == nil || !strings.Contains(r.(string), name) {
+			t.Fatalf(`expected panic containing "%v", got "%v"`, name, r)
 		}
 	}()
 	s.Stop()

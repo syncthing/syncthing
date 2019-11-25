@@ -7,6 +7,7 @@
 package nat
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -19,7 +20,7 @@ func Register(provider DiscoverFunc) {
 	providers = append(providers, provider)
 }
 
-func discoverAll(renewal, timeout time.Duration, stop chan struct{}) map[string]Device {
+func discoverAll(ctx context.Context, renewal, timeout time.Duration) map[string]Device {
 	wg := &sync.WaitGroup{}
 	wg.Add(len(providers))
 
@@ -32,7 +33,7 @@ func discoverAll(renewal, timeout time.Duration, stop chan struct{}) map[string]
 			for _, dev := range f(renewal, timeout) {
 				select {
 				case c <- dev:
-				case <-stop:
+				case <-ctx.Done():
 					return
 				}
 			}
@@ -50,7 +51,7 @@ func discoverAll(renewal, timeout time.Duration, stop chan struct{}) map[string]
 					return
 				}
 				nats[dev.ID()] = dev
-			case <-stop:
+			case <-ctx.Done():
 				return
 			}
 		}

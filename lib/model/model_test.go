@@ -8,6 +8,7 @@ package model
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -254,7 +255,7 @@ func BenchmarkRequestOut(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		data, err := m.requestGlobal(device1, "default", files[i%n].Name, 0, 32, nil, 0, false)
+		data, err := m.requestGlobal(context.Background(), device1, "default", files[i%n].Name, 0, 32, nil, 0, false)
 		if err != nil {
 			b.Error(err)
 		}
@@ -405,9 +406,11 @@ func TestClusterConfig(t *testing.T) {
 
 	wrapper := createTmpWrapper(cfg)
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
-	m.addFolder(cfg.Folders[0])
-	m.addFolder(cfg.Folders[1])
 	m.ServeBackground()
+	for _, fcfg := range cfg.Folders {
+		m.removeFolder(fcfg)
+		m.addFolder(fcfg)
+	}
 	defer cleanupModel(m)
 
 	cm := m.generateClusterConfig(device2)
@@ -1555,8 +1558,6 @@ func TestROScanRecovery(t *testing.T) {
 	testOs.RemoveAll(fcfg.Path)
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
-	m.addFolder(fcfg)
-	m.startFolder("default")
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -1608,8 +1609,6 @@ func TestRWScanRecovery(t *testing.T) {
 	testOs.RemoveAll(fcfg.Path)
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
-	m.addFolder(fcfg)
-	m.startFolder("default")
 	m.ServeBackground()
 	defer cleanupModel(m)
 
@@ -1636,8 +1635,9 @@ func TestRWScanRecovery(t *testing.T) {
 func TestGlobalDirectoryTree(t *testing.T) {
 	db := db.OpenMemory()
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.addFolder(defaultFolderConfig)
 	m.ServeBackground()
+	m.removeFolder(defaultFolderConfig)
+	m.addFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
@@ -1888,8 +1888,9 @@ func TestGlobalDirectoryTree(t *testing.T) {
 func TestGlobalDirectorySelfFixing(t *testing.T) {
 	db := db.OpenMemory()
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.addFolder(defaultFolderConfig)
 	m.ServeBackground()
+	m.removeFolder(defaultFolderConfig)
+	m.addFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
@@ -2064,8 +2065,9 @@ func BenchmarkTree_100_10(b *testing.B) {
 func benchmarkTree(b *testing.B, n1, n2 int) {
 	db := db.OpenMemory()
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.addFolder(defaultFolderConfig)
 	m.ServeBackground()
+	m.removeFolder(defaultFolderConfig)
+	m.addFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	m.ScanFolder("default")
@@ -2269,8 +2271,8 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	// Remote sequence is cached, hence need to recreated.
 	files = db.NewFileSet("default", defaultFs, dbi)
 
-	if len(files.ListDevices()) != 1 {
-		t.Error("Expected one device")
+	if l := len(files.ListDevices()); l != 1 {
+		t.Errorf("Expected one device got %v", l)
 	}
 }
 
@@ -2701,8 +2703,6 @@ func TestCustomMarkerName(t *testing.T) {
 	defer testOs.RemoveAll(fcfg.Path)
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
-	m.addFolder(fcfg)
-	m.startFolder("default")
 	m.ServeBackground()
 	defer cleanupModel(m)
 

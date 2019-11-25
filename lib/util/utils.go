@@ -7,10 +7,10 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -178,11 +178,11 @@ func Address(network, host string) string {
 
 // AsService wraps the given function to implement suture.Service by calling
 // that function on serve and closing the passed channel when Stop is called.
-func AsService(fn func(stop chan struct{})) suture.Service {
-	return asServiceWithError(func(stop chan struct{}) error {
-		fn(stop)
+func AsService(fn func(ctx context.Context), creator string) suture.Service {
+	return asServiceWithError(func(ctx context.Context) error {
+		fn(ctx)
 		return nil
-	})
+	}, creator)
 }
 
 type ServiceWithError interface {
@@ -194,25 +194,18 @@ type ServiceWithError interface {
 
 // AsServiceWithError does the same as AsService, except that it keeps track
 // of an error returned by the given function.
-func AsServiceWithError(fn func(stop chan struct{}) error) ServiceWithError {
-	return asServiceWithError(fn)
+func AsServiceWithError(fn func(ctx context.Context) error, creator string) ServiceWithError {
+	return asServiceWithError(fn, creator)
 }
 
-// caller retrieves information about the creator of the service, i.e. the stack
-// two levels up from itself.
-func caller() string {
-	pc := make([]uintptr, 1)
-	_ = runtime.Callers(4, pc)
-	f, _ := runtime.CallersFrames(pc).Next()
-	return f.Function
-}
-
-func asServiceWithError(fn func(stop chan struct{}) error) ServiceWithError {
+func asServiceWithError(fn func(ctx context.Context) error, creator string) ServiceWithError {
+	ctx, cancel := context.WithCancel(context.Background())
 	s := &service{
-		caller:  caller(),
 		serve:   fn,
-		stop:    make(chan struct{}),
+		ctx:     ctx,
+		cancel:  cancel,
 		stopped: make(chan struct{}),
+		creator: creator,
 		mut:     sync.NewMutex(),
 	}
 	close(s.stopped) // not yet started, don't block on Stop()
@@ -220,9 +213,10 @@ func asServiceWithError(fn func(stop chan struct{}) error) ServiceWithError {
 }
 
 type service struct {
-	caller  string
-	serve   func(stop chan struct{}) error
-	stop    chan struct{}
+	creator string
+	serve   func(ctx context.Context) error
+	ctx     context.Context
+	cancel  context.CancelFunc
 	stopped chan struct{}
 	err     error
 	mut     sync.Mutex
@@ -231,7 +225,7 @@ type service struct {
 func (s *service) Serve() {
 	s.mut.Lock()
 	select {
-	case <-s.stop:
+	case <-s.ctx.Done():
 		s.mut.Unlock()
 		return
 	default:
@@ -247,16 +241,16 @@ func (s *service) Serve() {
 		close(s.stopped)
 		s.mut.Unlock()
 	}()
-	err = s.serve(s.stop)
+	err = s.serve(s.ctx)
 }
 
 func (s *service) Stop() {
 	s.mut.Lock()
 	select {
-	case <-s.stop:
+	case <-s.ctx.Done():
 		panic(fmt.Sprintf("Stop called more than once on %v", s))
 	default:
-		close(s.stop)
+		s.cancel()
 	}
 	s.mut.Unlock()
 	<-s.stopped
@@ -275,5 +269,5 @@ func (s *service) SetError(err error) {
 }
 
 func (s *service) String() string {
-	return fmt.Sprintf("Service@%p created by %v", s, s.caller)
+	return fmt.Sprintf("Service@%p created by %v", s, s.creator)
 }

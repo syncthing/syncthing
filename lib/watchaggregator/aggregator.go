@@ -109,7 +109,7 @@ type aggregator struct {
 	ctx                   context.Context
 }
 
-func newAggregator(folderCfg config.FolderConfiguration, ctx context.Context) *aggregator {
+func newAggregator(ctx context.Context, folderCfg config.FolderConfiguration) *aggregator {
 	a := &aggregator{
 		folderID:              folderCfg.ID,
 		folderCfgUpdate:       make(chan config.FolderConfiguration),
@@ -125,8 +125,8 @@ func newAggregator(folderCfg config.FolderConfiguration, ctx context.Context) *a
 	return a
 }
 
-func Aggregate(in <-chan fs.Event, out chan<- []string, folderCfg config.FolderConfiguration, cfg config.Wrapper, evLogger events.Logger, ctx context.Context) {
-	a := newAggregator(folderCfg, ctx)
+func Aggregate(ctx context.Context, in <-chan fs.Event, out chan<- []string, folderCfg config.FolderConfiguration, cfg config.Wrapper, evLogger events.Logger) {
+	a := newAggregator(ctx, folderCfg)
 
 	// Necessary for unit tests where the backend is mocked
 	go a.mainLoop(in, out, cfg, evLogger)

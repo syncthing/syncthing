@@ -30,7 +30,7 @@ func newSendOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, 
 		folder: newFolder(model, fset, ignores, cfg, evLogger),
 	}
 	f.folder.puller = f
-	f.folder.Service = util.AsService(f.serve)
+	f.folder.Service = util.AsService(f.serve, f.String())
 	return f
 }
 
