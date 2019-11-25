@@ -105,12 +105,10 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	if s.writer != nil {
 		return s.writer, nil
 	}
-
 	if err := inWritableDir(s.tempFileInWritableDir, s.fs, s.tempName, s.ignorePerms); err != nil {
 		s.failLocked(err)
 		return nil, err
 	}
-
 	return s.writer, nil
 }
 

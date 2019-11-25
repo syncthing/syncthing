@@ -1276,7 +1276,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				break blocks
 			default:
 			}
-
 			if !f.DisableSparseFiles && state.reused == 0 && block.IsEmpty() {
 				// The block is a block of all zeroes, and we are not reusing
 				// a temp file, so there is no need to do anything with it.
@@ -1296,7 +1295,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				if verifyBuffer(buf, block) != nil {
 					return true
 				}
-
 				_, err = dstFd.WriteAt(buf, block.Offset)
 				if err != nil {
 					state.fail(errors.Wrap(err, "dst write"))
@@ -1332,7 +1330,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						l.Debugln("Finder failed to verify buffer", err)
 						return false
 					}
-
 					_, err = dstFd.WriteAt(buf, block.Offset)
 					if err != nil {
 						state.fail(errors.Wrap(err, "dst write"))
@@ -1541,6 +1538,11 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		return err
 	}
 
+	// chown
+	if err := f.fs.Lchown(file.Name, int(file.Uid)/*uid*/, int(file.Gid)/*gid*/); err != nil {
+		l.Infof("failed to chown %d:%d %s. error: %v", file.Gid, file.Uid, file.Name, err)
+	}
+
 	// Set the correct timestamp on the new file
 	f.fs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
 
@@ -1553,7 +1555,6 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 	for state := range in {
 		if closed, err := state.finalClose(); closed {
 			l.Debugln(f, "closing", state.file.Name)
-
 			f.queue.Done(state.file.Name)
 
 			if err == nil {

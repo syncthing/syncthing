@@ -39,6 +39,8 @@ message FileInfoTruncated {
     int32                 modified_ns    = 11;
     int32                 block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
 
+    int32                 gid            = 18;
+    int32                 uid            = 19;
     // see bep.proto
     uint32 local_flags = 1000;
 

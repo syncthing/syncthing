@@ -110,6 +110,8 @@ func (f *receiveOnlyFolder) Revert() {
 				ModifiedBy: f.shortID,
 				Deleted:    true,
 				Version:    protocol.Vector{}, // if this file ever resurfaces anywhere we want our delete to be strictly older
+				Gid:        fi.Gid,
+				Uid:        fi.Uid,
 			}
 		} else {
 			// Revert means to throw away our local changes. We reset the

@@ -504,6 +504,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 					Deleted:    true,
 					Version:    file.Version.Update(f.shortID),
 					LocalFlags: f.localFlags,
+					Uid:        file.Uid,
+					Gid:        file.Gid,
 				}
 				// We do not want to override the global version
 				// with the deleted file. Setting to an empty

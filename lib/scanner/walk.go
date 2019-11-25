@@ -598,6 +598,8 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 
 func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (protocol.FileInfo, error) {
 	f := protocol.FileInfo{Name: name}
+	f.Uid = int32(fi.Owner())
+	f.Gid = int32(fi.Group())
 	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink
 		target, err := filesystem.ReadSymlink(name)

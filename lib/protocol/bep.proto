@@ -112,6 +112,8 @@ message FileInfo {
     uint32             permissions    = 4;
     int32              modified_ns    = 11;
     int32              block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
+    int32              gid            = 18;
+    int32              uid            = 19;
 
     // The local_flags fields stores flags that are relevant to the local
     // host only. It is not part of the protocol, doesn't get sent or
