@@ -24,8 +24,7 @@ func init() {
 }
 
 type relayDialer struct {
-	cfg    config.Wrapper
-	tlsCfg *tls.Config
+	commonDialer
 }
 
 func (d *relayDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, error) {
@@ -45,7 +44,7 @@ func (d *relayDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, er
 		return internalConn{}, err
 	}
 
-	err = dialer.SetTrafficClass(conn, d.cfg.Options().TrafficClass)
+	err = dialer.SetTrafficClass(conn, d.trafficClass)
 	if err != nil {
 		l.Debugln("Dial (BEP/relay): setting traffic class:", err)
 	}
@@ -66,17 +65,14 @@ func (d *relayDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, er
 	return internalConn{tc, connTypeRelayClient, relayPriority}, nil
 }
 
-func (d *relayDialer) RedialFrequency() time.Duration {
-	return time.Duration(d.cfg.Options().RelayReconnectIntervalM) * time.Minute
-}
-
 type relayDialerFactory struct{}
 
-func (relayDialerFactory) New(cfg config.Wrapper, tlsCfg *tls.Config) genericDialer {
-	return &relayDialer{
-		cfg:    cfg,
-		tlsCfg: tlsCfg,
-	}
+func (relayDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
+	return &relayDialer{commonDialer{
+		trafficClass:      opts.TrafficClass,
+		reconnectInterval: time.Duration(opts.RelayReconnectIntervalM) * time.Minute,
+		tlsCfg:            tlsCfg,
+	}}
 }
 
 func (relayDialerFactory) Priority() int {

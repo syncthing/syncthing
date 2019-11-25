@@ -39,8 +39,7 @@ func init() {
 }
 
 type quicDialer struct {
-	cfg    config.Wrapper
-	tlsCfg *tls.Config
+	commonDialer
 }
 
 func (d *quicDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, error) {
@@ -91,20 +90,16 @@ func (d *quicDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, erro
 	return internalConn{&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, quicPriority}, nil
 }
 
-func (d *quicDialer) RedialFrequency() time.Duration {
-	return time.Duration(d.cfg.Options().ReconnectIntervalS) * time.Second
-}
-
 type quicDialerFactory struct {
 	cfg    config.Wrapper
 	tlsCfg *tls.Config
 }
 
-func (quicDialerFactory) New(cfg config.Wrapper, tlsCfg *tls.Config) genericDialer {
-	return &quicDialer{
-		cfg:    cfg,
-		tlsCfg: tlsCfg,
-	}
+func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
+	return &quicDialer{commonDialer{
+		reconnectInterval: time.Duration(opts.ReconnectIntervalS) * time.Second,
+		tlsCfg:            tlsCfg,
+	}}
 }
 
 func (quicDialerFactory) Priority() int {

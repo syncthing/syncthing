@@ -442,7 +442,7 @@ func (s *service) connect(ctx context.Context) {
 					continue
 				}
 
-				dialer := dialerFactory.New(s.cfg, s.tlsCfg)
+				dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg)
 				nextDial[nextDialKey] = now.Add(dialer.RedialFrequency())
 
 				// For LAN addresses, increase the priority so that we
