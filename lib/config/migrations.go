@@ -248,9 +248,9 @@ func migrateToConfigV14(cfg *Configuration) {
 	hasDefault := false
 	for _, raddr := range cfg.Options.DeprecatedRelayServers {
 		if raddr == "dynamic+https://relays.syncthing.net/endpoint" {
-			for i, addr := range cfg.Options.ListenAddresses {
+			for i, addr := range cfg.Options.RawListenAddresses {
 				if addr == "tcp://0.0.0.0:22000" {
-					cfg.Options.ListenAddresses[i] = "default"
+					cfg.Options.RawListenAddresses[i] = "default"
 					hasDefault = true
 					break
 				}
@@ -269,13 +269,13 @@ func migrateToConfigV14(cfg *Configuration) {
 		if addr == "" {
 			continue
 		}
-		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, addr)
+		cfg.Options.RawListenAddresses = append(cfg.Options.RawListenAddresses, addr)
 	}
 
 	cfg.Options.DeprecatedRelayServers = nil
 
 	// For consistency
-	sort.Strings(cfg.Options.ListenAddresses)
+	sort.Strings(cfg.Options.RawListenAddresses)
 
 	var newAddrs []string
 	for _, addr := range cfg.Options.GlobalAnnServers {
@@ -315,9 +315,9 @@ func migrateToConfigV13(cfg *Configuration) {
 
 func migrateToConfigV12(cfg *Configuration) {
 	// Change listen address schema
-	for i, addr := range cfg.Options.ListenAddresses {
+	for i, addr := range cfg.Options.RawListenAddresses {
 		if len(addr) > 0 && !strings.HasPrefix(addr, "tcp://") {
-			cfg.Options.ListenAddresses[i] = util.Address("tcp", addr)
+			cfg.Options.RawListenAddresses[i] = util.Address("tcp", addr)
 		}
 	}
 

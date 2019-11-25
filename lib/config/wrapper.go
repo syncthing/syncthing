@@ -474,16 +474,9 @@ func (w *wrapper) GlobalDiscoveryServers() []string {
 }
 
 func (w *wrapper) ListenAddresses() []string {
-	var addresses []string
-	for _, addr := range w.Options().ListenAddresses {
-		switch addr {
-		case "default":
-			addresses = append(addresses, DefaultListenAddresses...)
-		default:
-			addresses = append(addresses, addr)
-		}
-	}
-	return util.UniqueTrimmedStrings(addresses)
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.cfg.Options.ListenAddresses()
 }
 
 func (w *wrapper) RequiresRestart() bool {

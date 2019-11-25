@@ -37,7 +37,7 @@ func init() {
 
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
-		ListenAddresses:         []string{"default"},
+		RawListenAddresses:      []string{"default"},
 		GlobalAnnServers:        []string{"default"},
 		GlobalAnnEnabled:        true,
 		LocalAnnEnabled:         true,
@@ -175,15 +175,15 @@ func TestNoListenAddresses(t *testing.T) {
 	}
 
 	expected := []string{""}
-	actual := cfg.Options().ListenAddresses
+	actual := cfg.Options().RawListenAddresses
 	if diff, equal := messagediff.PrettyDiff(expected, actual); !equal {
-		t.Errorf("Unexpected ListenAddresses. Diff:\n%s", diff)
+		t.Errorf("Unexpected RawListenAddresses. Diff:\n%s", diff)
 	}
 }
 
 func TestOverriddenValues(t *testing.T) {
 	expected := OptionsConfiguration{
-		ListenAddresses:         []string{"tcp://:23000"},
+		RawListenAddresses:      []string{"tcp://:23000"},
 		GlobalAnnServers:        []string{"udp4://syncthing.nym.se:22026"},
 		GlobalAnnEnabled:        false,
 		LocalAnnEnabled:         false,
@@ -424,12 +424,12 @@ func TestIssue1750(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if cfg.Options().ListenAddresses[0] != "tcp://:23000" {
-		t.Errorf("%q != %q", cfg.Options().ListenAddresses[0], "tcp://:23000")
+	if cfg.Options().RawListenAddresses[0] != "tcp://:23000" {
+		t.Errorf("%q != %q", cfg.Options().RawListenAddresses[0], "tcp://:23000")
 	}
 
-	if cfg.Options().ListenAddresses[1] != "tcp://:23001" {
-		t.Errorf("%q != %q", cfg.Options().ListenAddresses[1], "tcp://:23001")
+	if cfg.Options().RawListenAddresses[1] != "tcp://:23001" {
+		t.Errorf("%q != %q", cfg.Options().RawListenAddresses[1], "tcp://:23001")
 	}
 
 	if cfg.Options().GlobalAnnServers[0] != "udp4://syncthing.nym.se:22026" {
@@ -553,13 +553,13 @@ func TestNewSaveLoad(t *testing.T) {
 func TestPrepare(t *testing.T) {
 	var cfg Configuration
 
-	if cfg.Folders != nil || cfg.Devices != nil || cfg.Options.ListenAddresses != nil {
+	if cfg.Folders != nil || cfg.Devices != nil || cfg.Options.RawListenAddresses != nil {
 		t.Error("Expected nil")
 	}
 
 	cfg.prepare(device1)
 
-	if cfg.Folders == nil || cfg.Devices == nil || cfg.Options.ListenAddresses == nil {
+	if cfg.Folders == nil || cfg.Devices == nil || cfg.Options.RawListenAddresses == nil {
 		t.Error("Unexpected nil")
 	}
 }
@@ -580,7 +580,7 @@ func TestCopy(t *testing.T) {
 
 	cfg.Devices[0].Addresses[0] = "wrong"
 	cfg.Folders[0].Devices[0].DeviceID = protocol.DeviceID{0, 1, 2, 3}
-	cfg.Options.ListenAddresses[0] = "wrong"
+	cfg.Options.RawListenAddresses[0] = "wrong"
 	cfg.GUI.APIKey = "wrong"
 
 	bsChanged, err := json.MarshalIndent(cfg, "", "  ")
@@ -771,7 +771,7 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		cfg := Configuration{
 			Version: 13,
 			Options: OptionsConfiguration{
-				ListenAddresses:        tc[0],
+				RawListenAddresses:     tc[0],
 				DeprecatedRelayServers: tc[1],
 			},
 		}
@@ -781,8 +781,8 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		}
 
 		sort.Strings(tc[2])
-		if !reflect.DeepEqual(cfg.Options.ListenAddresses, tc[2]) {
-			t.Errorf("Migration error; actual %#v != expected %#v", cfg.Options.ListenAddresses, tc[2])
+		if !reflect.DeepEqual(cfg.Options.RawListenAddresses, tc[2]) {
+			t.Errorf("Migration error; actual %#v != expected %#v", cfg.Options.RawListenAddresses, tc[2])
 		}
 	}
 }

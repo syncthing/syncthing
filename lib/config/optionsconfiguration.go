@@ -13,7 +13,7 @@ import (
 )
 
 type OptionsConfiguration struct {
-	ListenAddresses         []string `xml:"listenAddress" json:"listenAddresses" default:"default"`
+	RawListenAddresses      []string `xml:"listenAddress" json:"listenAddresses" default:"default"`
 	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" default:"default" restart:"true"`
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true" restart:"true"`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true" restart:"true"`
@@ -69,8 +69,8 @@ type OptionsConfiguration struct {
 
 func (opts OptionsConfiguration) Copy() OptionsConfiguration {
 	optsCopy := opts
-	optsCopy.ListenAddresses = make([]string, len(opts.ListenAddresses))
-	copy(optsCopy.ListenAddresses, opts.ListenAddresses)
+	optsCopy.RawListenAddresses = make([]string, len(opts.RawListenAddresses))
+	copy(optsCopy.RawListenAddresses, opts.RawListenAddresses)
 	optsCopy.GlobalAnnServers = make([]string, len(opts.GlobalAnnServers))
 	copy(optsCopy.GlobalAnnServers, opts.GlobalAnnServers)
 	optsCopy.AlwaysLocalNets = make([]string, len(opts.AlwaysLocalNets))
@@ -96,4 +96,17 @@ func (opts OptionsConfiguration) RequiresRestartOnly() OptionsConfiguration {
 
 func (opts OptionsConfiguration) IsStunDisabled() bool {
 	return opts.StunKeepaliveMinS < 1 || opts.StunKeepaliveStartS < 1 || !opts.NATEnabled
+}
+
+func (opts OptionsConfiguration) ListenAddresses() []string {
+	var addresses []string
+	for _, addr := range opts.RawListenAddresses {
+		switch addr {
+		case "default":
+			addresses = append(addresses, DefaultListenAddresses...)
+		default:
+			addresses = append(addresses, addr)
+		}
+	}
+	return util.UniqueTrimmedStrings(addresses)
 }
