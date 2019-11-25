@@ -29,7 +29,7 @@ func TestExternalNoCommand(t *testing.T) {
 
 	// The versioner should fail due to missing command.
 
-	e := External{
+	e := external{
 		filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "."),
 		command:    "nonexistent command",
 	}
@@ -62,7 +62,7 @@ func TestExternal(t *testing.T) {
 
 	// The versioner should run successfully.
 
-	e := External{
+	e := external{
 		filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "."),
 		command:    cmd,
 	}
