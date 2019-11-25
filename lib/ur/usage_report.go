@@ -192,7 +192,7 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 	res["deviceUses"] = deviceUses
 
 	defaultAnnounceServersDNS, defaultAnnounceServersIP, otherAnnounceServers := 0, 0, 0
-	for _, addr := range opts.GlobalAnnServers {
+	for _, addr := range opts.RawGlobalAnnServers {
 		if addr == "default" || addr == "default-v4" || addr == "default-v6" {
 			defaultAnnounceServersDNS++
 		} else {
@@ -208,7 +208,7 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 	}
 
 	defaultRelayServers, otherRelayServers := 0, 0
-	for _, addr := range s.cfg.ListenAddresses() {
+	for _, addr := range s.cfg.Options().ListenAddresses() {
 		switch {
 		case addr == "dynamic+https://relays.syncthing.net/endpoint":
 			defaultRelayServers++

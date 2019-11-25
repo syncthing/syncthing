@@ -38,7 +38,7 @@ func init() {
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		RawListenAddresses:      []string{"default"},
-		GlobalAnnServers:        []string{"default"},
+		RawGlobalAnnServers:     []string{"default"},
 		GlobalAnnEnabled:        true,
 		LocalAnnEnabled:         true,
 		LocalAnnPort:            21027,
@@ -74,7 +74,7 @@ func TestDefaultValues(t *testing.T) {
 		CREnabled:               true,
 		StunKeepaliveStartS:     180,
 		StunKeepaliveMinS:       20,
-		StunServers:             []string{"default"},
+		RawStunServers:          []string{"default"},
 	}
 
 	cfg := New(device1)
@@ -184,7 +184,7 @@ func TestNoListenAddresses(t *testing.T) {
 func TestOverriddenValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		RawListenAddresses:      []string{"tcp://:23000"},
-		GlobalAnnServers:        []string{"udp4://syncthing.nym.se:22026"},
+		RawGlobalAnnServers:     []string{"udp4://syncthing.nym.se:22026"},
 		GlobalAnnEnabled:        false,
 		LocalAnnEnabled:         false,
 		LocalAnnPort:            42123,
@@ -222,7 +222,7 @@ func TestOverriddenValues(t *testing.T) {
 		CREnabled:               false,
 		StunKeepaliveStartS:     9000,
 		StunKeepaliveMinS:       900,
-		StunServers:             []string{"foo"},
+		RawStunServers:          []string{"foo"},
 	}
 
 	os.Unsetenv("STNOUPGRADE")
@@ -432,12 +432,12 @@ func TestIssue1750(t *testing.T) {
 		t.Errorf("%q != %q", cfg.Options().RawListenAddresses[1], "tcp://:23001")
 	}
 
-	if cfg.Options().GlobalAnnServers[0] != "udp4://syncthing.nym.se:22026" {
-		t.Errorf("%q != %q", cfg.Options().GlobalAnnServers[0], "udp4://syncthing.nym.se:22026")
+	if cfg.Options().RawGlobalAnnServers[0] != "udp4://syncthing.nym.se:22026" {
+		t.Errorf("%q != %q", cfg.Options().RawGlobalAnnServers[0], "udp4://syncthing.nym.se:22026")
 	}
 
-	if cfg.Options().GlobalAnnServers[1] != "udp4://syncthing.nym.se:22027" {
-		t.Errorf("%q != %q", cfg.Options().GlobalAnnServers[1], "udp4://syncthing.nym.se:22027")
+	if cfg.Options().RawGlobalAnnServers[1] != "udp4://syncthing.nym.se:22027" {
+		t.Errorf("%q != %q", cfg.Options().RawGlobalAnnServers[1], "udp4://syncthing.nym.se:22027")
 	}
 }
 

@@ -14,9 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // The Committer interface is implemented by objects that need to know about
@@ -87,10 +85,6 @@ type Wrapper interface {
 	IgnoredDevice(id protocol.DeviceID) bool
 	IgnoredFolder(device protocol.DeviceID, folder string) bool
 
-	ListenAddresses() []string
-	GlobalDiscoveryServers() []string
-	StunServers() []string
-
 	Subscribe(c Committer)
 	Unsubscribe(c Committer)
 }
@@ -106,30 +100,6 @@ type wrapper struct {
 	mut       sync.Mutex
 
 	requiresRestart uint32 // an atomic bool
-}
-
-func (w *wrapper) StunServers() []string {
-	var addresses []string
-	for _, addr := range w.cfg.Options.StunServers {
-		switch addr {
-		case "default":
-			defaultPrimaryAddresses := make([]string, len(DefaultPrimaryStunServers))
-			copy(defaultPrimaryAddresses, DefaultPrimaryStunServers)
-			rand.Shuffle(defaultPrimaryAddresses)
-			addresses = append(addresses, defaultPrimaryAddresses...)
-
-			defaultSecondaryAddresses := make([]string, len(DefaultSecondaryStunServers))
-			copy(defaultSecondaryAddresses, DefaultSecondaryStunServers)
-			rand.Shuffle(defaultSecondaryAddresses)
-			addresses = append(addresses, defaultSecondaryAddresses...)
-		default:
-			addresses = append(addresses, addr)
-		}
-	}
-
-	addresses = util.UniqueTrimmedStrings(addresses)
-
-	return addresses
 }
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
@@ -454,29 +424,6 @@ func (w *wrapper) Save() error {
 
 	w.evLogger.Log(events.ConfigSaved, w.cfg)
 	return nil
-}
-
-func (w *wrapper) GlobalDiscoveryServers() []string {
-	var servers []string
-	for _, srv := range w.Options().GlobalAnnServers {
-		switch srv {
-		case "default":
-			servers = append(servers, DefaultDiscoveryServers...)
-		case "default-v4":
-			servers = append(servers, DefaultDiscoveryServersV4...)
-		case "default-v6":
-			servers = append(servers, DefaultDiscoveryServersV6...)
-		default:
-			servers = append(servers, srv)
-		}
-	}
-	return util.UniqueTrimmedStrings(servers)
-}
-
-func (w *wrapper) ListenAddresses() []string {
-	w.mut.Lock()
-	defer w.mut.Unlock()
-	return w.cfg.Options.ListenAddresses()
 }
 
 func (w *wrapper) RequiresRestart() bool {

@@ -306,7 +306,7 @@ func (cfg *Configuration) clean() error {
 	}
 
 	cfg.Options.RawListenAddresses = util.UniqueTrimmedStrings(cfg.Options.RawListenAddresses)
-	cfg.Options.GlobalAnnServers = util.UniqueTrimmedStrings(cfg.Options.GlobalAnnServers)
+	cfg.Options.RawGlobalAnnServers = util.UniqueTrimmedStrings(cfg.Options.RawGlobalAnnServers)
 
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
 		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)

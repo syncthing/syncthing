@@ -216,12 +216,12 @@ func migrateToConfigV18(cfg *Configuration) {
 func migrateToConfigV15(cfg *Configuration) {
 	// Undo v0.13.0 broken migration
 
-	for i, addr := range cfg.Options.GlobalAnnServers {
+	for i, addr := range cfg.Options.RawGlobalAnnServers {
 		switch addr {
 		case "default-v4v2/":
-			cfg.Options.GlobalAnnServers[i] = "default-v4"
+			cfg.Options.RawGlobalAnnServers[i] = "default-v4"
 		case "default-v6v2/":
-			cfg.Options.GlobalAnnServers[i] = "default-v6"
+			cfg.Options.RawGlobalAnnServers[i] = "default-v6"
 		}
 	}
 }
@@ -278,7 +278,7 @@ func migrateToConfigV14(cfg *Configuration) {
 	sort.Strings(cfg.Options.RawListenAddresses)
 
 	var newAddrs []string
-	for _, addr := range cfg.Options.GlobalAnnServers {
+	for _, addr := range cfg.Options.RawGlobalAnnServers {
 		uri, err := url.Parse(addr)
 		if err != nil {
 			// That's odd. Skip the broken address.
@@ -291,7 +291,7 @@ func migrateToConfigV14(cfg *Configuration) {
 
 		newAddrs = append(newAddrs, addr)
 	}
-	cfg.Options.GlobalAnnServers = newAddrs
+	cfg.Options.RawGlobalAnnServers = newAddrs
 
 	for i, fcfg := range cfg.Folders {
 		if fcfg.DeprecatedReadOnly {
@@ -332,7 +332,7 @@ func migrateToConfigV12(cfg *Configuration) {
 	// Use new discovery server
 	var newDiscoServers []string
 	var useDefault bool
-	for _, addr := range cfg.Options.GlobalAnnServers {
+	for _, addr := range cfg.Options.RawGlobalAnnServers {
 		if addr == "udp4://announce.syncthing.net:22026" {
 			useDefault = true
 		} else if addr == "udp6://announce-v6.syncthing.net:22026" {
@@ -344,7 +344,7 @@ func migrateToConfigV12(cfg *Configuration) {
 	if useDefault {
 		newDiscoServers = append(newDiscoServers, "default")
 	}
-	cfg.Options.GlobalAnnServers = newDiscoServers
+	cfg.Options.RawGlobalAnnServers = newDiscoServers
 
 	// Use new multicast group
 	if cfg.Options.LocalAnnMCAddr == "[ff32::5222]:21026" {
