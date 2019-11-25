@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -461,5 +462,5 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 func sendMsgs(p *ProgressEmitter) {
 	p.mut.Lock()
 	defer p.mut.Unlock()
-	p.sendDownloadProgressMessagesLocked()
+	p.sendDownloadProgressMessagesLocked(context.Background())
 }

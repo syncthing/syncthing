@@ -1990,7 +1990,7 @@ func (s *indexSender) serve(ctx context.Context) {
 	defer l.Debugf("Exiting indexSender for %s to %s at %s: %v", s.folder, s.dev, s.conn, err)
 
 	// We need to send one index, regardless of whether there is something to send or not
-	err = s.sendIndexTo()
+	err = s.sendIndexTo(ctx)
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
 	// DeviceDisconnected (it might be us who disconnected, so we should
@@ -2028,7 +2028,7 @@ func (s *indexSender) serve(ctx context.Context) {
 			continue
 		}
 
-		err = s.sendIndexTo()
+		err = s.sendIndexTo(ctx)
 
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
@@ -2046,16 +2046,16 @@ func (s *indexSender) Complete() bool { return true }
 
 // sendIndexTo sends file infos with a sequence number higher than prevSequence and
 // returns the highest sent sequence number.
-func (s *indexSender) sendIndexTo() error {
+func (s *indexSender) sendIndexTo(ctx context.Context) error {
 	initial := s.prevSequence == 0
 	batch := newFileInfoBatch(nil)
 	batch.flushFn = func(fs []protocol.FileInfo) error {
 		l.Debugf("%v: Sending %d files (<%d bytes)", s, len(batch.infos), batch.size)
 		if initial {
 			initial = false
-			return s.conn.Index(s.folder, fs)
+			return s.conn.Index(ctx, s.folder, fs)
 		}
-		return s.conn.IndexUpdate(s.folder, fs)
+		return s.conn.IndexUpdate(ctx, s.folder, fs)
 	}
 
 	var err error

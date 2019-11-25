@@ -75,10 +75,12 @@ func TestClose(t *testing.T) {
 		t.Error("Ping should not return true")
 	}
 
-	c0.Index("default", nil)
-	c0.Index("default", nil)
+	ctx := context.Background()
 
-	if _, err := c0.Request(context.Background(), "default", "foo", 0, 0, nil, 0, false); err == nil {
+	c0.Index(ctx, "default", nil)
+	c0.Index(ctx, "default", nil)
+
+	if _, err := c0.Request(ctx, "default", "foo", 0, 0, nil, 0, false); err == nil {
 		t.Error("Request should return an error")
 	}
 }
@@ -152,7 +154,7 @@ func TestCloseRace(t *testing.T) {
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
 
-	c1.Index("default", nil)
+	c1.Index(context.Background(), "default", nil)
 	select {
 	case <-indexReceived:
 	case <-time.After(time.Second):
