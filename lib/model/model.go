@@ -328,8 +328,10 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	_ = ffs.Hide(".stversions")
 	_ = ffs.Hide(".stignore")
 
+	var ver versioner.Versioner
 	if cfg.Versioning.Type != "" {
-		ver, err := versioner.New(ffs, cfg.Versioning)
+		var err error
+		ver, err = versioner.New(ffs, cfg.Versioning)
 		if err != nil {
 			panic(fmt.Errorf("creating versioner: %v", err))
 		}
@@ -340,12 +342,12 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 			token := m.Add(service)
 			m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 		}
-		m.folderVersioners[folder] = ver
 	}
+	m.folderVersioners[folder] = ver
 
 	ignores := m.folderIgnores[folder]
 
-	p := folderFactory(m, fset, ignores, cfg, m.folderVersioners[folder], ffs, m.evLogger)
+	p := folderFactory(m, fset, ignores, cfg, ver, ffs, m.evLogger)
 
 	m.folderRunners[folder] = p
 
@@ -2455,8 +2457,11 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 
 func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {
 	m.fmut.RLock()
-	ver := m.folderVersioners[folder]
+	ver, ok := m.folderVersioners[folder]
 	m.fmut.RUnlock()
+	if !ok {
+		return nil, errFolderMissing
+	}
 	if ver == nil {
 		return nil, errNoVersioner
 	}
@@ -2473,6 +2478,9 @@ func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 	m.fmut.RLock()
 	ver := m.folderVersioners[folder]
 	m.fmut.RUnlock()
+	if !ok {
+		return nil, errFolderMissing
+	}
 	if ver == nil {
 		return nil, errNoVersioner
 	}
