@@ -71,19 +71,12 @@ func (p Pattern) allowsSkippingIgnoredDirs() bool {
 		return false
 	}
 	// Any wildcards (*, [...]) anywhere except for the last path component are bad
-	comps := strings.Split(tocheck, "/")
-	for _, comp := range comps[:len(comps)-1] {
-		if strings.Contains(comp, "*") {
-			return false
-		}
-		// need to check for escapes
-		for i := strings.Index(comp, "["); i != -1; i = strings.Index(comp[i+1:], "[") {
-			if i == 0 || comp[i-1] != '\\' {
-				return false
-			}
-		}
+	lastSep := strings.LastIndex(tocheck, "/")
+	if lastSep == -1 {
+		return true
 	}
-	return true
+	tocheck = tocheck[:lastSep]
+	return tocheck == glob.QuoteMeta(tocheck)
 }
 
 type Result uint8
