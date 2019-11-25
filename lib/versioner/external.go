@@ -29,7 +29,7 @@ type external struct {
 	filesystem fs.Filesystem
 }
 
-func newExternal(folderID string, filesystem fs.Filesystem, params map[string]string) Versioner {
+func newExternal(filesystem fs.Filesystem, params map[string]string) Versioner {
 	command := params["command"]
 
 	if runtime.GOOS == "windows" {

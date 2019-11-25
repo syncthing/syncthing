@@ -41,7 +41,7 @@ type staggered struct {
 	testCleanDone chan struct{}
 }
 
-func newStaggered(folderID string, folderFs fs.Filesystem, params map[string]string) Versioner {
+func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
 		maxAge = 31536000 // Default: ~1 year

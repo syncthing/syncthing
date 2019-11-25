@@ -24,7 +24,7 @@ type simple struct {
 	versionsFs fs.Filesystem
 }
 
-func newSimple(folderID string, folderFs fs.Filesystem, params map[string]string) Versioner {
+func newSimple(folderFs fs.Filesystem, params map[string]string) Versioner {
 	keep, err := strconv.Atoi(params["keep"])
 	if err != nil {
 		keep = 5 // A reasonable default

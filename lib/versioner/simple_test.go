@@ -61,7 +61,7 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 
-	v := newSimple("", fs, map[string]string{"keep": "2"})
+	v := newSimple(fs, map[string]string{"keep": "2"})
 
 	path := "test"
 

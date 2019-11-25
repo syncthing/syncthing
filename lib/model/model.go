@@ -329,7 +329,7 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	_ = ffs.Hide(".stignore")
 
 	if cfg.Versioning.Type != "" {
-		ver, err := versioner.New(folder, ffs, cfg.Versioning)
+		ver, err := versioner.New(ffs, cfg.Versioning)
 		if err != nil {
 			panic(fmt.Errorf("creating versioner: %v", err))
 		}

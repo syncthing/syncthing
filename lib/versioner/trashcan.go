@@ -30,7 +30,7 @@ type trashcan struct {
 	cleanoutDays int
 }
 
-func newTrashcan(folderID string, folderFs fs.Filesystem, params map[string]string) Versioner {
+func newTrashcan(folderFs fs.Filesystem, params map[string]string) Versioner {
 	cleanoutDays, _ := strconv.Atoi(params["cleanoutDays"])
 	// On error we default to 0, "do not clean out the trash can"
 
