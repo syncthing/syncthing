@@ -119,11 +119,10 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 	}()
 
 	seenResults := make(map[string]bool)
-nextResult:
 	for result := range resultChan {
 		if seenResults[result.ID()] {
 			l.Debugf("Skipping duplicate result %s", result.ID())
-			continue nextResult
+			continue
 		}
 
 		results = append(results, result)
