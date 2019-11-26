@@ -150,7 +150,7 @@ USER-AGENT: syncthing/1.0
 `
 	searchStr := fmt.Sprintf(tpl, deviceType, timeout/time.Second)
 
-	search := []byte(strings.Replace(searchStr, "\n", "\r\n", -1))
+	search := []byte(strings.Replace(searchStr, "\n", "\r\n", -1) + "\r\n")
 
 	l.Debugln("Starting discovery of device type", deviceType, "on", intf.Name)
 
