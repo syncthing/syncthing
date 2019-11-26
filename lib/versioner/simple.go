@@ -15,22 +15,22 @@ import (
 
 func init() {
 	// Register the constructor for this type of versioner with the name "simple"
-	Factories["simple"] = NewSimple
+	factories["simple"] = newSimple
 }
 
-type Simple struct {
+type simple struct {
 	keep       int
 	folderFs   fs.Filesystem
 	versionsFs fs.Filesystem
 }
 
-func NewSimple(folderID string, folderFs fs.Filesystem, params map[string]string) Versioner {
+func newSimple(folderFs fs.Filesystem, params map[string]string) Versioner {
 	keep, err := strconv.Atoi(params["keep"])
 	if err != nil {
 		keep = 5 // A reasonable default
 	}
 
-	s := Simple{
+	s := simple{
 		keep:       keep,
 		folderFs:   folderFs,
 		versionsFs: fsFromParams(folderFs, params),
@@ -42,7 +42,7 @@ func NewSimple(folderID string, folderFs fs.Filesystem, params map[string]string
 
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
-func (v Simple) Archive(filePath string) error {
+func (v simple) Archive(filePath string) error {
 	err := archiveFile(v.folderFs, v.versionsFs, filePath, TagFilename)
 	if err != nil {
 		return err
@@ -63,10 +63,10 @@ func (v Simple) Archive(filePath string) error {
 	return nil
 }
 
-func (v Simple) GetVersions() (map[string][]FileVersion, error) {
+func (v simple) GetVersions() (map[string][]FileVersion, error) {
 	return retrieveVersions(v.versionsFs)
 }
 
-func (v Simple) Restore(filepath string, versionTime time.Time) error {
+func (v simple) Restore(filepath string, versionTime time.Time) error {
 	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }

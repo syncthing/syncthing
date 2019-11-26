@@ -140,6 +140,7 @@ type model struct {
 	folderRunners      map[string]service                                     // folder -> puller or scanner
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderRestartMuts  syncMutexMap                                           // folder -> restart mutex
+	folderVersioners   map[string]versioner.Versioner                         // folder -> versioner (may be nil)
 
 	pmut                sync.RWMutex // protects the below
 	conn                map[protocol.DeviceID]connections.Connection
@@ -166,6 +167,7 @@ var (
 	errFolderNotRunning  = errors.New("folder is not running")
 	errFolderMissing     = errors.New("no such folder")
 	errNetworkNotAllowed = errors.New("network not allowed")
+	errNoVersioner       = errors.New("folder has no versioner")
 	// errors about why a connection is closed
 	errIgnoredFolderRemoved = errors.New("folder no longer ignored")
 	errReplacingConnection  = errors.New("replacing connection")
@@ -200,6 +202,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		folderIgnores:       make(map[string]*ignore.Matcher),
 		folderRunners:       make(map[string]service),
 		folderRunnerTokens:  make(map[string][]suture.ServiceToken),
+		folderVersioners:    make(map[string]versioner.Versioner),
 		conn:                make(map[protocol.DeviceID]connections.Connection),
 		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
@@ -318,21 +321,29 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 		}
 	}
 
-	ver := cfg.Versioner()
-	if service, ok := ver.(suture.Service); ok {
-		// The versioner implements the suture.Service interface, so
-		// expects to be run in the background in addition to being called
-		// when files are going to be archived.
-		token := m.Add(service)
-		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
-	}
-
 	ffs := fset.MtimeFS()
 
 	// These are our metadata files, and they should always be hidden.
-	ffs.Hide(config.DefaultMarkerName)
-	ffs.Hide(".stversions")
-	ffs.Hide(".stignore")
+	_ = ffs.Hide(config.DefaultMarkerName)
+	_ = ffs.Hide(".stversions")
+	_ = ffs.Hide(".stignore")
+
+	var ver versioner.Versioner
+	if cfg.Versioning.Type != "" {
+		var err error
+		ver, err = versioner.New(ffs, cfg.Versioning)
+		if err != nil {
+			panic(fmt.Errorf("creating versioner: %v", err))
+		}
+		if service, ok := ver.(suture.Service); ok {
+			// The versioner implements the suture.Service interface, so
+			// expects to be run in the background in addition to being called
+			// when files are going to be archived.
+			token := m.Add(service)
+			m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
+		}
+	}
+	m.folderVersioners[folder] = ver
 
 	ignores := m.folderIgnores[folder]
 
@@ -459,6 +470,7 @@ func (m *model) removeFolderLocked(cfg config.FolderConfiguration) {
 	delete(m.folderIgnores, cfg.ID)
 	delete(m.folderRunners, cfg.ID)
 	delete(m.folderRunnerTokens, cfg.ID)
+	delete(m.folderVersioners, cfg.ID)
 }
 
 func (m *model) restartFolder(from, to config.FolderConfiguration) {
@@ -2444,14 +2456,14 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 }
 
 func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {
-	fcfg, ok := m.cfg.Folder(folder)
+	m.fmut.RLock()
+	ver, ok := m.folderVersioners[folder]
+	m.fmut.RUnlock()
 	if !ok {
 		return nil, errFolderMissing
 	}
-
-	ver := fcfg.Versioner()
 	if ver == nil {
-		return nil, errors.New("no versioner configured")
+		return nil, errNoVersioner
 	}
 
 	return ver.GetVersions()
@@ -2463,7 +2475,15 @@ func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 		return nil, errFolderMissing
 	}
 
-	ver := fcfg.Versioner()
+	m.fmut.RLock()
+	ver := m.folderVersioners[folder]
+	m.fmut.RUnlock()
+	if !ok {
+		return nil, errFolderMissing
+	}
+	if ver == nil {
+		return nil, errNoVersioner
+	}
 
 	restoreErrors := make(map[string]string)
 
