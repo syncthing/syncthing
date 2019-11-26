@@ -26,8 +26,7 @@ func init() {
 }
 
 type tcpDialer struct {
-	cfg    config.Wrapper
-	tlsCfg *tls.Config
+	commonDialer
 }
 
 func (d *tcpDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, error) {
@@ -43,7 +42,7 @@ func (d *tcpDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, error
 		l.Debugln("Dial (BEP/tcp): setting tcp options:", err)
 	}
 
-	err = dialer.SetTrafficClass(conn, d.cfg.Options().TrafficClass)
+	err = dialer.SetTrafficClass(conn, d.trafficClass)
 	if err != nil {
 		l.Debugln("Dial (BEP/tcp): setting traffic class:", err)
 	}
@@ -58,17 +57,14 @@ func (d *tcpDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, error
 	return internalConn{tc, connTypeTCPClient, tcpPriority}, nil
 }
 
-func (d *tcpDialer) RedialFrequency() time.Duration {
-	return time.Duration(d.cfg.Options().ReconnectIntervalS) * time.Second
-}
-
 type tcpDialerFactory struct{}
 
-func (tcpDialerFactory) New(cfg config.Wrapper, tlsCfg *tls.Config) genericDialer {
-	return &tcpDialer{
-		cfg:    cfg,
-		tlsCfg: tlsCfg,
-	}
+func (tcpDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
+	return &tcpDialer{commonDialer{
+		trafficClass:      opts.TrafficClass,
+		reconnectInterval: time.Duration(opts.ReconnectIntervalS) * time.Second,
+		tlsCfg:            tlsCfg,
+	}}
 }
 
 func (tcpDialerFactory) Priority() int {

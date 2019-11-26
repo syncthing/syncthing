@@ -146,11 +146,21 @@ func (c internalConn) String() string {
 }
 
 type dialerFactory interface {
-	New(config.Wrapper, *tls.Config) genericDialer
+	New(config.OptionsConfiguration, *tls.Config) genericDialer
 	Priority() int
 	AlwaysWAN() bool
 	Valid(config.Configuration) error
 	String() string
+}
+
+type commonDialer struct {
+	trafficClass      int
+	reconnectInterval time.Duration
+	tlsCfg            *tls.Config
+}
+
+func (d *commonDialer) RedialFrequency() time.Duration {
+	return d.reconnectInterval
 }
 
 type genericDialer interface {
