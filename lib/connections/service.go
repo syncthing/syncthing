@@ -582,7 +582,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
-	for _, addr := range config.Wrap("", to, s.evLogger).ListenAddresses() {
+	for _, addr := range to.Options.ListenAddresses() {
 		if addr == "" {
 			// We can get an empty address if there is an empty listener
 			// element in the config, indicating no listeners should be

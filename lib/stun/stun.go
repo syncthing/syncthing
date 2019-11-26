@@ -131,7 +131,7 @@ func (s *Service) serve(ctx context.Context) {
 
 		l.Debugf("Starting stun for %s", s)
 
-		for _, addr := range s.cfg.StunServers() {
+		for _, addr := range s.cfg.Options().StunServers() {
 			// This blocks until we hit an exit condition or there are issues with the STUN server.
 			// This returns a boolean signifying if a different STUN server should be tried (oppose to the whole thing
 			// shutting down and this winding itself down.

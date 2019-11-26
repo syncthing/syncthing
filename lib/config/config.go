@@ -130,9 +130,9 @@ func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
 		return Configuration{}, errors.Wrap(err, "get free port (BEP)")
 	}
 	if port == DefaultTCPPort {
-		cfg.Options.ListenAddresses = []string{"default"}
+		cfg.Options.RawListenAddresses = []string{"default"}
 	} else {
-		cfg.Options.ListenAddresses = []string{
+		cfg.Options.RawListenAddresses = []string{
 			fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
 			"dynamic+https://relays.syncthing.net/endpoint",
 		}
@@ -305,8 +305,8 @@ func (cfg *Configuration) clean() error {
 		existingFolders[folder.ID] = folder
 	}
 
-	cfg.Options.ListenAddresses = util.UniqueTrimmedStrings(cfg.Options.ListenAddresses)
-	cfg.Options.GlobalAnnServers = util.UniqueTrimmedStrings(cfg.Options.GlobalAnnServers)
+	cfg.Options.RawListenAddresses = util.UniqueTrimmedStrings(cfg.Options.RawListenAddresses)
+	cfg.Options.RawGlobalAnnServers = util.UniqueTrimmedStrings(cfg.Options.RawGlobalAnnServers)
 
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
 		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)
@@ -396,7 +396,7 @@ nextPendingDevice:
 	// Deprecated protocols are removed from the list of listeners and
 	// device addresses. So far just kcp*.
 	for _, prefix := range []string{"kcp"} {
-		cfg.Options.ListenAddresses = filterURLSchemePrefix(cfg.Options.ListenAddresses, prefix)
+		cfg.Options.RawListenAddresses = filterURLSchemePrefix(cfg.Options.RawListenAddresses, prefix)
 		for i := range cfg.Devices {
 			dev := &cfg.Devices[i]
 			dev.Addresses = filterURLSchemePrefix(dev.Addresses, prefix)
