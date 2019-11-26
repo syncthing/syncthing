@@ -3,6 +3,7 @@
 package client
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -16,12 +17,14 @@ import (
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 )
 
-func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs []tls.Certificate, timeout time.Duration) (protocol.SessionInvitation, error) {
+func GetInvitationFromRelay(ctx context.Context, uri *url.URL, id syncthingprotocol.DeviceID, certs []tls.Certificate, timeout time.Duration) (protocol.SessionInvitation, error) {
 	if uri.Scheme != "relay" {
 		return protocol.SessionInvitation{}, fmt.Errorf("Unsupported relay scheme: %v", uri.Scheme)
 	}
 
-	rconn, err := dialer.DialTimeout("tcp", uri.Host, timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	rconn, err := dialer.DialContext(ctx, "tcp", uri.Host)
 	if err != nil {
 		return protocol.SessionInvitation{}, err
 	}
@@ -63,10 +66,12 @@ func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs [
 	}
 }
 
-func JoinSession(invitation protocol.SessionInvitation) (net.Conn, error) {
+func JoinSession(ctx context.Context, invitation protocol.SessionInvitation) (net.Conn, error) {
 	addr := net.JoinHostPort(net.IP(invitation.Address).String(), strconv.Itoa(int(invitation.Port)))
 
-	conn, err := dialer.Dial("tcp", addr)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +104,7 @@ func JoinSession(invitation protocol.SessionInvitation) (net.Conn, error) {
 	}
 }
 
-func TestRelay(uri *url.URL, certs []tls.Certificate, sleep, timeout time.Duration, times int) bool {
+func TestRelay(ctx context.Context, uri *url.URL, certs []tls.Certificate, sleep, timeout time.Duration, times int) bool {
 	id := syncthingprotocol.NewDeviceID(certs[0].Certificate[0])
 	invs := make(chan protocol.SessionInvitation, 1)
 	c, err := NewClient(uri, certs, invs, timeout)
@@ -114,7 +119,7 @@ func TestRelay(uri *url.URL, certs []tls.Certificate, sleep, timeout time.Durati
 	}()
 
 	for i := 0; i < times; i++ {
-		_, err := GetInvitationFromRelay(uri, id, certs, timeout)
+		_, err := GetInvitationFromRelay(ctx, uri, id, certs, timeout)
 		if err == nil {
 			return true
 		}

@@ -7,6 +7,7 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
 	"net/url"
 	"time"
@@ -27,13 +28,13 @@ type relayDialer struct {
 	commonDialer
 }
 
-func (d *relayDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, error) {
-	inv, err := client.GetInvitationFromRelay(uri, id, d.tlsCfg.Certificates, 10*time.Second)
+func (d *relayDialer) Dial(ctx context.Context, id protocol.DeviceID, uri *url.URL) (internalConn, error) {
+	inv, err := client.GetInvitationFromRelay(ctx, uri, id, d.tlsCfg.Certificates, 10*time.Second)
 	if err != nil {
 		return internalConn{}, err
 	}
 
-	conn, err := client.JoinSession(inv)
+	conn, err := client.JoinSession(ctx, inv)
 	if err != nil {
 		return internalConn{}, err
 	}

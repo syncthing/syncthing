@@ -7,6 +7,7 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -164,7 +165,7 @@ func (d *commonDialer) RedialFrequency() time.Duration {
 }
 
 type genericDialer interface {
-	Dial(protocol.DeviceID, *url.URL) (internalConn, error)
+	Dial(context.Context, protocol.DeviceID, *url.URL) (internalConn, error)
 	RedialFrequency() time.Duration
 }
 
@@ -223,7 +224,7 @@ type dialTarget struct {
 	deviceID protocol.DeviceID
 }
 
-func (t dialTarget) Dial() (internalConn, error) {
+func (t dialTarget) Dial(ctx context.Context) (internalConn, error) {
 	l.Debugln("dialing", t.deviceID, t.uri, "prio", t.priority)
-	return t.dialer.Dial(t.deviceID, t.uri)
+	return t.dialer.Dial(ctx, t.deviceID, t.uri)
 }
