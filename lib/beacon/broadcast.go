@@ -7,34 +7,32 @@
 package beacon
 
 import (
+	"context"
 	"net"
 	"time"
 )
 
 func NewBroadcast(port int) Interface {
 	c := newCast("broadcastBeacon")
-	c.addReader(func(stop chan struct{}) error {
-		return readBroadcasts(c.outbox, port, stop)
+	c.addReader(func(ctx context.Context) error {
+		return readBroadcasts(ctx, c.outbox, port)
 	})
-	c.addWriter(func(stop chan struct{}) error {
-		return writeBroadcasts(c.inbox, port, stop)
+	c.addWriter(func(ctx context.Context) error {
+		return writeBroadcasts(ctx, c.inbox, port)
 	})
 	return c
 }
 
-func writeBroadcasts(inbox <-chan []byte, port int, stop chan struct{}) error {
+func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 	conn, err := net.ListenUDP("udp4", nil)
 	if err != nil {
 		l.Debugln(err)
 		return err
 	}
-	done := make(chan struct{})
-	defer close(done)
+	doneCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		select {
-		case <-stop:
-		case <-done:
-		}
+		<-doneCtx.Done()
 		conn.Close()
 	}()
 
@@ -42,7 +40,7 @@ func writeBroadcasts(inbox <-chan []byte, port int, stop chan struct{}) error {
 		var bs []byte
 		select {
 		case bs = <-inbox:
-		case <-stop:
+		case <-doneCtx.Done():
 			return nil
 		}
 
@@ -99,19 +97,17 @@ func writeBroadcasts(inbox <-chan []byte, port int, stop chan struct{}) error {
 	}
 }
 
-func readBroadcasts(outbox chan<- recv, port int, stop chan struct{}) error {
+func readBroadcasts(ctx context.Context, outbox chan<- recv, port int) error {
 	conn, err := net.ListenUDP("udp4", &net.UDPAddr{Port: port})
 	if err != nil {
 		l.Debugln(err)
 		return err
 	}
-	done := make(chan struct{})
-	defer close(done)
+
+	doneCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		select {
-		case <-stop:
-		case <-done:
-		}
+		<-doneCtx.Done()
 		conn.Close()
 	}()
 
@@ -129,7 +125,7 @@ func readBroadcasts(outbox chan<- recv, port int, stop chan struct{}) error {
 		copy(c, bs)
 		select {
 		case outbox <- recv{c, addr}:
-		case <-stop:
+		case <-doneCtx.Done():
 			return nil
 		default:
 			l.Debugln("dropping message")

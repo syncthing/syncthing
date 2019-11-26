@@ -18,7 +18,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/util"
-	"github.com/syncthing/syncthing/lib/versioner"
 )
 
 var (
@@ -103,18 +102,6 @@ func (f FolderConfiguration) Filesystem() fs.Filesystem {
 		return fs.NewFilesystem(f.FilesystemType, f.Path)
 	}
 	return f.cachedFilesystem
-}
-
-func (f FolderConfiguration) Versioner() versioner.Versioner {
-	if f.Versioning.Type == "" {
-		return nil
-	}
-	versionerFactory, ok := versioner.Factories[f.Versioning.Type]
-	if !ok {
-		panic(fmt.Sprintf("Requested versioning type %q that does not exist", f.Versioning.Type))
-	}
-
-	return versionerFactory(f.ID, f.Filesystem(), f.Versioning.Params)
 }
 
 func (f FolderConfiguration) ModTimeWindow() time.Duration {

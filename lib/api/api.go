@@ -8,6 +8,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -136,7 +137,7 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		configChanged:        make(chan struct{}),
 		startedOnce:          make(chan struct{}),
 	}
-	s.Service = util.AsService(s.serve)
+	s.Service = util.AsService(s.serve, s.String())
 	return s
 }
 
@@ -207,7 +208,7 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 	fmt.Fprintf(w, "%s\n", bs)
 }
 
-func (s *service) serve(stop chan struct{}) {
+func (s *service) serve(ctx context.Context) {
 	listener, err := s.getListener(s.cfg.GUI())
 	if err != nil {
 		select {
@@ -381,7 +382,7 @@ func (s *service) serve(stop chan struct{}) {
 	// Wait for stop, restart or error signals
 
 	select {
-	case <-stop:
+	case <-ctx.Done():
 		// Shutting down permanently
 		l.Debugln("shutting down (stop)")
 	case <-s.configChanged:

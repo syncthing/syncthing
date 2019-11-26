@@ -7,6 +7,7 @@
 package pmp
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -21,7 +22,7 @@ func init() {
 	nat.Register(Discover)
 }
 
-func Discover(renewal, timeout time.Duration) []nat.Device {
+func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device {
 	ip, err := gateway.DiscoverGateway()
 	if err != nil {
 		l.Debugln("Failed to discover gateway", err)
@@ -44,7 +45,9 @@ func Discover(renewal, timeout time.Duration) []nat.Device {
 
 	var localIP net.IP
 	// Port comes from the natpmp package
-	conn, err := net.DialTimeout("udp", net.JoinHostPort(ip.String(), "5351"), timeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	conn, err := (&net.Dialer{}).DialContext(timeoutCtx, "udp", net.JoinHostPort(ip.String(), "5351"))
 	if err == nil {
 		conn.Close()
 		localIPAddress, _, err := net.SplitHostPort(conn.LocalAddr().String())

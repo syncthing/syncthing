@@ -7,8 +7,8 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -30,6 +30,7 @@ import (
 	_ "github.com/syncthing/syncthing/lib/pmp"
 	_ "github.com/syncthing/syncthing/lib/upnp"
 
+	"github.com/pkg/errors"
 	"github.com/thejerf/suture"
 	"golang.org/x/time/rate"
 )
@@ -185,18 +186,18 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 	// the common handling regardless of whether the connection was
 	// incoming or outgoing.
 
-	service.Add(util.AsService(service.connect))
-	service.Add(util.AsService(service.handle))
+	service.Add(util.AsService(service.connect, fmt.Sprintf("%s/connect", service)))
+	service.Add(util.AsService(service.handle, fmt.Sprintf("%s/handle", service)))
 	service.Add(service.listenerSupervisor)
 
 	return service
 }
 
-func (s *service) handle(stop chan struct{}) {
+func (s *service) handle(ctx context.Context) {
 	var c internalConn
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return
 		case c = <-s.conns:
 		}
@@ -324,7 +325,7 @@ func (s *service) handle(stop chan struct{}) {
 	}
 }
 
-func (s *service) connect(stop chan struct{}) {
+func (s *service) connect(ctx context.Context) {
 	nextDial := make(map[string]time.Time)
 
 	// Used as delay for the first few connection attempts, increases
@@ -441,7 +442,7 @@ func (s *service) connect(stop chan struct{}) {
 					continue
 				}
 
-				dialer := dialerFactory.New(s.cfg, s.tlsCfg)
+				dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg)
 				nextDial[nextDialKey] = now.Add(dialer.RedialFrequency())
 
 				// For LAN addresses, increase the priority so that we
@@ -462,7 +463,7 @@ func (s *service) connect(stop chan struct{}) {
 				})
 			}
 
-			conn, ok := s.dialParallel(deviceCfg.DeviceID, dialTargets)
+			conn, ok := s.dialParallel(ctx, deviceCfg.DeviceID, dialTargets)
 			if ok {
 				s.conns <- conn
 			}
@@ -480,7 +481,7 @@ func (s *service) connect(stop chan struct{}) {
 
 		select {
 		case <-time.After(sleep):
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -700,6 +701,10 @@ func (s *service) ConnectionStatus() map[string]ConnectionStatusEntry {
 }
 
 func (s *service) setConnectionStatus(address string, err error) {
+	if errors.Cause(err) != context.Canceled {
+		return
+	}
+
 	status := ConnectionStatusEntry{When: time.Now().UTC().Truncate(time.Second)}
 	if err != nil {
 		errStr := err.Error()
@@ -827,7 +832,7 @@ func IsAllowedNetwork(host string, allowed []string) bool {
 	return false
 }
 
-func (s *service) dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (internalConn, bool) {
+func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, dialTargets []dialTarget) (internalConn, bool) {
 	// Group targets into buckets by priority
 	dialTargetBuckets := make(map[int][]dialTarget, len(dialTargets))
 	for _, tgt := range dialTargets {
@@ -850,7 +855,7 @@ func (s *service) dialParallel(deviceID protocol.DeviceID, dialTargets []dialTar
 		for _, tgt := range tgts {
 			wg.Add(1)
 			go func(tgt dialTarget) {
-				conn, err := tgt.Dial()
+				conn, err := tgt.Dial(ctx)
 				if err == nil {
 					// Closes the connection on error
 					err = s.validateIdentity(conn, deviceID)

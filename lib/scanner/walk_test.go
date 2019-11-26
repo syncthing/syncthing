@@ -765,6 +765,51 @@ func TestNotExistingError(t *testing.T) {
 	}
 }
 
+func TestSkipIgnoredDirs(t *testing.T) {
+	tmp, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
+	fss := fs.NewFilesystem(fs.FilesystemTypeBasic, tmp)
+
+	name := "foo/ignored"
+	err = fss.MkdirAll(name, 0777)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stat, err := fss.Lstat(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	w := &walker{}
+
+	pats := ignore.New(fss, ignore.WithCache(true))
+
+	stignore := `
+	/foo/ign*
+	!/f*
+	*
+	`
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if !pats.SkipIgnoredDirs() {
+		t.Error("SkipIgnoredDirs should be true")
+	}
+
+	w.Matcher = pats
+
+	fn := w.walkAndHashFiles(context.Background(), nil, nil)
+
+	if err := fn(name, stat, nil); err != fs.SkipDir {
+		t.Errorf("Expected %v, got %v", fs.SkipDir, err)
+	}
+}
+
 // Verify returns nil or an error describing the mismatch between the block
 // list and actual reader contents
 func verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {

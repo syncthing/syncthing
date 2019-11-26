@@ -57,9 +57,9 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 	}
 	sort.Strings(delete)
 
-	v := NewStaggered("", fs.NewFilesystem(fs.FilesystemTypeFake, "testdata"), map[string]string{
+	v := newStaggered(fs.NewFilesystem(fs.FilesystemTypeFake, "testdata"), map[string]string{
 		"maxAge": strconv.Itoa(365 * 86400),
-	}).(*Staggered)
+	}).(*staggered)
 	rem := v.toRemove(versionsWithMtime, now)
 	sort.Strings(rem)
 

@@ -55,12 +55,12 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 	}
 
 	errChan := make(chan error)
-	go f.watchLoop(name, roots, backendChan, outChan, errChan, ignore, ctx)
+	go f.watchLoop(ctx, name, roots, backendChan, outChan, errChan, ignore)
 
 	return outChan, errChan, nil
 }
 
-func (f *BasicFilesystem) watchLoop(name string, roots []string, backendChan chan notify.EventInfo, outChan chan<- Event, errChan chan<- error, ignore Matcher, ctx context.Context) {
+func (f *BasicFilesystem) watchLoop(ctx context.Context, name string, roots []string, backendChan chan notify.EventInfo, outChan chan<- Event, errChan chan<- error, ignore Matcher) {
 	for {
 		// Detect channel overflow
 		if len(backendChan) == backendBuffer {
