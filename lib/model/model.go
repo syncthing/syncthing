@@ -1820,9 +1820,16 @@ func (m *model) SetIgnores(folder string, content []string) error {
 		return err
 	}
 
-	if err := ignore.WriteIgnores(cfg.Filesystem(), ".stignore", content); err != nil {
-		l.Warnln("Saving .stignore:", err)
-		return err
+	if len(content) == 0 {
+		if err := ignore.DeleteIgnores(cfg.Filesystem(), ".stignore"); err != nil {
+			l.Warnln("Deleting .stignore:", err)
+			return err
+		}
+	} else {
+		if err := ignore.WriteIgnores(cfg.Filesystem(), ".stignore", content); err != nil {
+			l.Warnln("Saving .stignore:", err)
+			return err
+		}
 	}
 
 	m.fmut.RLock()
