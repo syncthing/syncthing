@@ -1530,21 +1530,21 @@ func TestEmptyIgnores(t *testing.T) {
 		t.Error(err)
 	}
 	if _, err := os.Stat("testdata/.stignore"); err == nil {
-		t.Error((".stignore was created despite being empty"))
+		t.Error(".stignore was created despite being empty")
 	}
 
 	if err := m.SetIgnores("default", []string{".*", "quux"}); err != nil {
 		t.Error(err)
 	}
 	if _, err := os.Stat("testdata/.stignore"); os.IsNotExist(err) {
-		t.Error((".stignore does not exist"))
+		t.Error(".stignore does not exist")
 	}
 
 	if err := m.SetIgnores("default", []string{}); err != nil {
 		t.Error(err)
 	}
 	if _, err := os.Stat("testdata/.stignore"); err == nil {
-		t.Error((".stignore should have been deleted because it is empty"))
+		t.Error(".stignore should have been deleted because it is empty")
 	}
 }
 
