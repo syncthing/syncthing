@@ -10,7 +10,6 @@ package config
 import (
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -21,6 +20,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -120,18 +121,18 @@ func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
 
 	port, err := getFreePort("127.0.0.1", DefaultGUIPort)
 	if err != nil {
-		return Configuration{}, fmt.Errorf("get free port (GUI): %v", err)
+		return Configuration{}, errors.Wrap(err, "get free port (GUI)")
 	}
 	cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
 
 	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
 	if err != nil {
-		return Configuration{}, fmt.Errorf("get free port (BEP): %v", err)
+		return Configuration{}, errors.Wrap(err, "get free port (BEP)")
 	}
 	if port == DefaultTCPPort {
-		cfg.Options.ListenAddresses = []string{"default"}
+		cfg.Options.RawListenAddresses = []string{"default"}
 	} else {
-		cfg.Options.ListenAddresses = []string{
+		cfg.Options.RawListenAddresses = []string{
 			fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
 			"dynamic+https://relays.syncthing.net/endpoint",
 		}
@@ -304,8 +305,8 @@ func (cfg *Configuration) clean() error {
 		existingFolders[folder.ID] = folder
 	}
 
-	cfg.Options.ListenAddresses = util.UniqueTrimmedStrings(cfg.Options.ListenAddresses)
-	cfg.Options.GlobalAnnServers = util.UniqueTrimmedStrings(cfg.Options.GlobalAnnServers)
+	cfg.Options.RawListenAddresses = util.UniqueTrimmedStrings(cfg.Options.RawListenAddresses)
+	cfg.Options.RawGlobalAnnServers = util.UniqueTrimmedStrings(cfg.Options.RawGlobalAnnServers)
 
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
 		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)
@@ -395,7 +396,7 @@ nextPendingDevice:
 	// Deprecated protocols are removed from the list of listeners and
 	// device addresses. So far just kcp*.
 	for _, prefix := range []string{"kcp"} {
-		cfg.Options.ListenAddresses = filterURLSchemePrefix(cfg.Options.ListenAddresses, prefix)
+		cfg.Options.RawListenAddresses = filterURLSchemePrefix(cfg.Options.RawListenAddresses, prefix)
 		for i := range cfg.Devices {
 			dev := &cfg.Devices[i]
 			dev.Addresses = filterURLSchemePrefix(dev.Addresses, prefix)

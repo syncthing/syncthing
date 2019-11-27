@@ -7,6 +7,7 @@
 package beacon
 
 import (
+	"context"
 	"errors"
 	"net"
 	"time"
@@ -16,16 +17,16 @@ import (
 
 func NewMulticast(addr string) Interface {
 	c := newCast("multicastBeacon")
-	c.addReader(func(stop chan struct{}) error {
-		return readMulticasts(c.outbox, addr, stop)
+	c.addReader(func(ctx context.Context) error {
+		return readMulticasts(ctx, c.outbox, addr)
 	})
-	c.addWriter(func(stop chan struct{}) error {
-		return writeMulticasts(c.inbox, addr, stop)
+	c.addWriter(func(ctx context.Context) error {
+		return writeMulticasts(ctx, c.inbox, addr)
 	})
 	return c
 }
 
-func writeMulticasts(inbox <-chan []byte, addr string, stop chan struct{}) error {
+func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) error {
 	gaddr, err := net.ResolveUDPAddr("udp6", addr)
 	if err != nil {
 		l.Debugln(err)
@@ -37,13 +38,10 @@ func writeMulticasts(inbox <-chan []byte, addr string, stop chan struct{}) error
 		l.Debugln(err)
 		return err
 	}
-	done := make(chan struct{})
-	defer close(done)
+	doneCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		select {
-		case <-stop:
-		case <-done:
-		}
+		<-doneCtx.Done()
 		conn.Close()
 	}()
 
@@ -57,7 +55,7 @@ func writeMulticasts(inbox <-chan []byte, addr string, stop chan struct{}) error
 		var bs []byte
 		select {
 		case bs = <-inbox:
-		case <-stop:
+		case <-doneCtx.Done():
 			return nil
 		}
 
@@ -84,7 +82,7 @@ func writeMulticasts(inbox <-chan []byte, addr string, stop chan struct{}) error
 			success++
 
 			select {
-			case <-stop:
+			case <-doneCtx.Done():
 				return nil
 			default:
 			}
@@ -96,7 +94,7 @@ func writeMulticasts(inbox <-chan []byte, addr string, stop chan struct{}) error
 	}
 }
 
-func readMulticasts(outbox chan<- recv, addr string, stop chan struct{}) error {
+func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error {
 	gaddr, err := net.ResolveUDPAddr("udp6", addr)
 	if err != nil {
 		l.Debugln(err)
@@ -108,13 +106,10 @@ func readMulticasts(outbox chan<- recv, addr string, stop chan struct{}) error {
 		l.Debugln(err)
 		return err
 	}
-	done := make(chan struct{})
-	defer close(done)
+	doneCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		select {
-		case <-stop:
-		case <-done:
-		}
+		<-doneCtx.Done()
 		conn.Close()
 	}()
 
@@ -144,7 +139,7 @@ func readMulticasts(outbox chan<- recv, addr string, stop chan struct{}) error {
 	bs := make([]byte, 65536)
 	for {
 		select {
-		case <-stop:
+		case <-doneCtx.Done():
 			return nil
 		default:
 		}

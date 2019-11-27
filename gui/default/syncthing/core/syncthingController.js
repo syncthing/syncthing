@@ -799,20 +799,20 @@ angular.module('syncthing.core')
             if (state === 'error') {
                 return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
-            if (state === 'idle' && folderInfo.needTotalItems > 0) {
+
+            if (state !== 'idle') {
+                return state;
+            }
+
+            if (folderInfo.needTotalItems > 0) {
                 return 'outofsync';
             }
             if ($scope.hasFailedFiles(folderCfg.id)) {
                 return 'faileditems';
             }
-            if (state === 'scanning') {
-                return state;
-            }
-
             if (folderInfo.receiveOnlyTotalItems) {
                 return 'localadditions';
             }
-
             if (folderCfg.devices.length <= 1) {
                 return 'unshared';
             }

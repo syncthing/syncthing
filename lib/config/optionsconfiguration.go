@@ -9,12 +9,13 @@ package config
 import (
 	"fmt"
 
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/util"
 )
 
 type OptionsConfiguration struct {
-	ListenAddresses         []string `xml:"listenAddress" json:"listenAddresses" default:"default"`
-	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" default:"default" restart:"true"`
+	RawListenAddresses      []string `xml:"listenAddress" json:"listenAddresses" default:"default"`
+	RawGlobalAnnServers     []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" default:"default" restart:"true"`
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true" restart:"true"`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true" restart:"true"`
 	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027" restart:"true"`
@@ -56,7 +57,7 @@ type OptionsConfiguration struct {
 	CREnabled               bool     `xml:"crashReportingEnabled" json:"crashReportingEnabled" default:"true" restart:"true"`
 	StunKeepaliveStartS     int      `xml:"stunKeepaliveStartS" json:"stunKeepaliveStartS" default:"180"` // 0 for off
 	StunKeepaliveMinS       int      `xml:"stunKeepaliveMinS" json:"stunKeepaliveMinS" default:"20"`      // 0 for off
-	StunServers             []string `xml:"stunServer" json:"stunServers" default:"default"`
+	RawStunServers          []string `xml:"stunServer" json:"stunServers" default:"default"`
 	DatabaseTuning          Tuning   `xml:"databaseTuning" json:"databaseTuning" restart:"true"`
 
 	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`
@@ -69,10 +70,10 @@ type OptionsConfiguration struct {
 
 func (opts OptionsConfiguration) Copy() OptionsConfiguration {
 	optsCopy := opts
-	optsCopy.ListenAddresses = make([]string, len(opts.ListenAddresses))
-	copy(optsCopy.ListenAddresses, opts.ListenAddresses)
-	optsCopy.GlobalAnnServers = make([]string, len(opts.GlobalAnnServers))
-	copy(optsCopy.GlobalAnnServers, opts.GlobalAnnServers)
+	optsCopy.RawListenAddresses = make([]string, len(opts.RawListenAddresses))
+	copy(optsCopy.RawListenAddresses, opts.RawListenAddresses)
+	optsCopy.RawGlobalAnnServers = make([]string, len(opts.RawGlobalAnnServers))
+	copy(optsCopy.RawGlobalAnnServers, opts.RawGlobalAnnServers)
 	optsCopy.AlwaysLocalNets = make([]string, len(opts.AlwaysLocalNets))
 	copy(optsCopy.AlwaysLocalNets, opts.AlwaysLocalNets)
 	optsCopy.UnackedNotificationIDs = make([]string, len(opts.UnackedNotificationIDs))
@@ -96,4 +97,58 @@ func (opts OptionsConfiguration) RequiresRestartOnly() OptionsConfiguration {
 
 func (opts OptionsConfiguration) IsStunDisabled() bool {
 	return opts.StunKeepaliveMinS < 1 || opts.StunKeepaliveStartS < 1 || !opts.NATEnabled
+}
+
+func (opts OptionsConfiguration) ListenAddresses() []string {
+	var addresses []string
+	for _, addr := range opts.RawListenAddresses {
+		switch addr {
+		case "default":
+			addresses = append(addresses, DefaultListenAddresses...)
+		default:
+			addresses = append(addresses, addr)
+		}
+	}
+	return util.UniqueTrimmedStrings(addresses)
+}
+
+func (opts OptionsConfiguration) StunServers() []string {
+	var addresses []string
+	for _, addr := range opts.RawStunServers {
+		switch addr {
+		case "default":
+			defaultPrimaryAddresses := make([]string, len(DefaultPrimaryStunServers))
+			copy(defaultPrimaryAddresses, DefaultPrimaryStunServers)
+			rand.Shuffle(defaultPrimaryAddresses)
+			addresses = append(addresses, defaultPrimaryAddresses...)
+
+			defaultSecondaryAddresses := make([]string, len(DefaultSecondaryStunServers))
+			copy(defaultSecondaryAddresses, DefaultSecondaryStunServers)
+			rand.Shuffle(defaultSecondaryAddresses)
+			addresses = append(addresses, defaultSecondaryAddresses...)
+		default:
+			addresses = append(addresses, addr)
+		}
+	}
+
+	addresses = util.UniqueTrimmedStrings(addresses)
+
+	return addresses
+}
+
+func (opts OptionsConfiguration) GlobalDiscoveryServers() []string {
+	var servers []string
+	for _, srv := range opts.RawGlobalAnnServers {
+		switch srv {
+		case "default":
+			servers = append(servers, DefaultDiscoveryServers...)
+		case "default-v4":
+			servers = append(servers, DefaultDiscoveryServersV4...)
+		case "default-v6":
+			servers = append(servers, DefaultDiscoveryServersV6...)
+		default:
+			servers = append(servers, srv)
+		}
+	}
+	return util.UniqueTrimmedStrings(servers)
 }

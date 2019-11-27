@@ -10,8 +10,10 @@
 package discover
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net"
 	"net/url"
@@ -81,9 +83,9 @@ func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogge
 		c.beacon = beacon.NewMulticast(addr)
 	}
 	c.Add(c.beacon)
-	c.Add(util.AsService(c.recvAnnouncements))
+	c.Add(util.AsService(c.recvAnnouncements, fmt.Sprintf("%s/recv", c)))
 
-	c.Add(util.AsService(c.sendLocalAnnouncements))
+	c.Add(util.AsService(c.sendLocalAnnouncements, fmt.Sprintf("%s/sendLocal", c)))
 
 	return c, nil
 }
@@ -135,7 +137,7 @@ func (c *localClient) announcementPkt(instanceID int64, msg []byte) ([]byte, boo
 	return msg, true
 }
 
-func (c *localClient) sendLocalAnnouncements(stop chan struct{}) {
+func (c *localClient) sendLocalAnnouncements(ctx context.Context) {
 	var msg []byte
 	var ok bool
 	instanceID := rand.Int63()
@@ -147,18 +149,18 @@ func (c *localClient) sendLocalAnnouncements(stop chan struct{}) {
 		select {
 		case <-c.localBcastTick:
 		case <-c.forcedBcastTick:
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (c *localClient) recvAnnouncements(stop chan struct{}) {
+func (c *localClient) recvAnnouncements(ctx context.Context) {
 	b := c.beacon
 	warnedAbout := make(map[string]bool)
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return
 		default:
 		}

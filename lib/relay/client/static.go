@@ -3,11 +3,14 @@
 package client
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
 	"net/url"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/dialer"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
@@ -39,12 +42,12 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 		messageTimeout: time.Minute * 2,
 		connectTimeout: timeout,
 	}
-	c.commonClient = newCommonClient(invitations, c.serve)
+	c.commonClient = newCommonClient(invitations, c.serve, c.String())
 	return c
 }
 
-func (c *staticClient) serve(stop chan struct{}) error {
-	if err := c.connect(); err != nil {
+func (c *staticClient) serve(ctx context.Context) error {
+	if err := c.connect(ctx); err != nil {
 		l.Infof("Could not connect to relay %s: %s", c.uri, err)
 		return err
 	}
@@ -72,7 +75,7 @@ func (c *staticClient) serve(stop chan struct{}) error {
 	messages := make(chan interface{})
 	errors := make(chan error, 1)
 
-	go messageReader(c.conn, messages, errors, stop)
+	go messageReader(ctx, c.conn, messages, errors)
 
 	timeout := time.NewTimer(c.messageTimeout)
 
@@ -106,7 +109,7 @@ func (c *staticClient) serve(stop chan struct{}) error {
 				return fmt.Errorf("protocol error: unexpected message %v", msg)
 			}
 
-		case <-stop:
+		case <-ctx.Done():
 			l.Debugln(c, "stopping")
 			return nil
 
@@ -143,13 +146,15 @@ func (c *staticClient) URI() *url.URL {
 	return c.uri
 }
 
-func (c *staticClient) connect() error {
+func (c *staticClient) connect(ctx context.Context) error {
 	if c.uri.Scheme != "relay" {
 		return fmt.Errorf("unsupported relay scheme: %v", c.uri.Scheme)
 	}
 
 	t0 := time.Now()
-	tcpConn, err := dialer.DialTimeout("tcp", c.uri.Host, c.connectTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	tcpConn, err := dialer.DialContext(timeoutCtx, "tcp", c.uri.Host)
 	if err != nil {
 		return err
 	}
@@ -224,7 +229,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	if relayIDs != "" {
 		relayID, err := syncthingprotocol.DeviceIDFromString(relayIDs)
 		if err != nil {
-			return fmt.Errorf("relay address contains invalid verification id: %s", err)
+			return errors.Wrap(err, "relay address contains invalid verification id")
 		}
 
 		certs := cs.PeerCertificates
@@ -241,7 +246,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	return nil
 }
 
-func messageReader(conn net.Conn, messages chan<- interface{}, errors chan<- error, stop chan struct{}) {
+func messageReader(ctx context.Context, conn net.Conn, messages chan<- interface{}, errors chan<- error) {
 	for {
 		msg, err := protocol.ReadMessage(conn)
 		if err != nil {
@@ -250,7 +255,7 @@ func messageReader(conn net.Conn, messages chan<- interface{}, errors chan<- err
 		}
 		select {
 		case messages <- msg:
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}

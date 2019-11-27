@@ -78,12 +78,8 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 	}
 }
 
-func (t *quicListener) serve(stop chan struct{}) error {
+func (t *quicListener) serve(ctx context.Context) error {
 	network := strings.Replace(t.uri.Scheme, "quic", "udp", -1)
-
-	// Convert the stop channel into a context
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() { <-stop; cancel() }()
 
 	packetConn, err := net.ListenPacket(network, t.uri.Host)
 	if err != nil {
@@ -205,7 +201,7 @@ func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.
 		conns:   conns,
 		factory: f,
 	}
-	l.ServiceWithError = util.AsServiceWithError(l.serve)
+	l.ServiceWithError = util.AsServiceWithError(l.serve, l.String())
 	l.nat.Store(stun.NATUnknown)
 	return l
 }

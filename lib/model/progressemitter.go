@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -47,7 +48,7 @@ func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmi
 		evLogger:           evLogger,
 		mut:                sync.NewMutex(),
 	}
-	t.Service = util.AsService(t.serve)
+	t.Service = util.AsService(t.serve, t.String())
 
 	t.CommitConfiguration(config.Configuration{}, cfg.RawCopy())
 	cfg.Subscribe(t)
@@ -57,12 +58,12 @@ func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmi
 
 // serve starts the progress emitter which starts emitting DownloadProgress
 // events as the progress happens.
-func (t *ProgressEmitter) serve(stop chan struct{}) {
+func (t *ProgressEmitter) serve(ctx context.Context) {
 	var lastUpdate time.Time
 	var lastCount, newCount int
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			l.Debugln("progress emitter: stopping")
 			return
 		case <-t.timer.C:
@@ -84,7 +85,7 @@ func (t *ProgressEmitter) serve(stop chan struct{}) {
 				lastCount = newCount
 				t.sendDownloadProgressEventLocked()
 				if len(t.connections) > 0 {
-					t.sendDownloadProgressMessagesLocked()
+					t.sendDownloadProgressMessagesLocked(ctx)
 				}
 			} else {
 				l.Debugln("progress emitter: nothing new")
@@ -113,7 +114,7 @@ func (t *ProgressEmitter) sendDownloadProgressEventLocked() {
 	l.Debugf("progress emitter: emitting %#v", output)
 }
 
-func (t *ProgressEmitter) sendDownloadProgressMessagesLocked() {
+func (t *ProgressEmitter) sendDownloadProgressMessagesLocked(ctx context.Context) {
 	for id, conn := range t.connections {
 		for _, folder := range t.foldersByConns[id] {
 			pullers, ok := t.registry[folder]
@@ -144,7 +145,7 @@ func (t *ProgressEmitter) sendDownloadProgressMessagesLocked() {
 			updates := state.update(folder, activePullers)
 
 			if len(updates) > 0 {
-				conn.DownloadProgress(folder, updates)
+				conn.DownloadProgress(ctx, folder, updates)
 			}
 		}
 	}
@@ -310,7 +311,7 @@ func (t *ProgressEmitter) clearLocked() {
 		}
 		for _, folder := range state.folders() {
 			if updates := state.cleanup(folder); len(updates) > 0 {
-				conn.DownloadProgress(folder, updates)
+				conn.DownloadProgress(context.Background(), folder, updates)
 			}
 		}
 	}

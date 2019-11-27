@@ -11,12 +11,12 @@ package connections
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net"
 	"net/url"
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
+	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -39,11 +39,10 @@ func init() {
 }
 
 type quicDialer struct {
-	cfg    config.Wrapper
-	tlsCfg *tls.Config
+	commonDialer
 }
 
-func (d *quicDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, error) {
+func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri, config.DefaultQUICPort)
 
 	addr, err := net.ResolveUDPAddr("udp", uri.Host)
@@ -67,7 +66,7 @@ func (d *quicDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, erro
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), quicOperationTimeout)
+	ctx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
 	defer cancel()
 
 	session, err := quic.DialContext(ctx, conn, addr, uri.Host, d.tlsCfg, quicConfig)
@@ -75,7 +74,7 @@ func (d *quicDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, erro
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}
-		return internalConn{}, fmt.Errorf("dial: %v", err)
+		return internalConn{}, errors.Wrap(err, "dial")
 	}
 
 	stream, err := session.OpenStreamSync(ctx)
@@ -85,14 +84,10 @@ func (d *quicDialer) Dial(_ protocol.DeviceID, uri *url.URL) (internalConn, erro
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}
-		return internalConn{}, fmt.Errorf("open stream: %v", err)
+		return internalConn{}, errors.Wrap(err, "open stream")
 	}
 
 	return internalConn{&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, quicPriority}, nil
-}
-
-func (d *quicDialer) RedialFrequency() time.Duration {
-	return time.Duration(d.cfg.Options().ReconnectIntervalS) * time.Second
 }
 
 type quicDialerFactory struct {
@@ -100,11 +95,11 @@ type quicDialerFactory struct {
 	tlsCfg *tls.Config
 }
 
-func (quicDialerFactory) New(cfg config.Wrapper, tlsCfg *tls.Config) genericDialer {
-	return &quicDialer{
-		cfg:    cfg,
-		tlsCfg: tlsCfg,
-	}
+func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
+	return &quicDialer{commonDialer{
+		reconnectInterval: time.Duration(opts.ReconnectIntervalS) * time.Second,
+		tlsCfg:            tlsCfg,
+	}}
 }
 
 func (quicDialerFactory) Priority() int {

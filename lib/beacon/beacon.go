@@ -7,6 +7,7 @@
 package beacon
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -63,23 +64,23 @@ func newCast(name string) *cast {
 	}
 }
 
-func (c *cast) addReader(svc func(chan struct{}) error) {
+func (c *cast) addReader(svc func(context.Context) error) {
 	c.reader = c.createService(svc, "reader")
 	c.Add(c.reader)
 }
 
-func (c *cast) addWriter(svc func(stop chan struct{}) error) {
+func (c *cast) addWriter(svc func(ctx context.Context) error) {
 	c.writer = c.createService(svc, "writer")
 	c.Add(c.writer)
 }
 
-func (c *cast) createService(svc func(chan struct{}) error, suffix string) util.ServiceWithError {
-	return util.AsServiceWithError(func(stop chan struct{}) error {
+func (c *cast) createService(svc func(context.Context) error, suffix string) util.ServiceWithError {
+	return util.AsServiceWithError(func(ctx context.Context) error {
 		l.Debugln("Starting", c.name, suffix)
-		err := svc(stop)
+		err := svc(ctx)
 		l.Debugf("Stopped %v %v: %v", c.name, suffix, err)
 		return err
-	})
+	}, fmt.Sprintf("%s/%s", c, suffix))
 }
 
 func (c *cast) Stop() {

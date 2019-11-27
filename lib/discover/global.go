@@ -8,6 +8,7 @@ package discover
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -91,8 +92,8 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 	var announceClient httpClient = &http.Client{
 		Timeout: requestTimeout,
 		Transport: &http.Transport{
-			Dial:  dialer.Dial,
-			Proxy: http.ProxyFromEnvironment,
+			DialContext: dialer.DialContext,
+			Proxy:       http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: opts.insecure,
 				Certificates:       []tls.Certificate{cert},
@@ -108,8 +109,8 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 	var queryClient httpClient = &http.Client{
 		Timeout: requestTimeout,
 		Transport: &http.Transport{
-			Dial:  dialer.Dial,
-			Proxy: http.ProxyFromEnvironment,
+			DialContext: dialer.DialContext,
+			Proxy:       http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: opts.insecure,
 			},
@@ -128,7 +129,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 		noLookup:       opts.noLookup,
 		evLogger:       evLogger,
 	}
-	cl.Service = util.AsService(cl.serve)
+	cl.Service = util.AsService(cl.serve, cl.String())
 	if !opts.noAnnounce {
 		// If we are supposed to annonce, it's an error until we've done so.
 		cl.setError(errors.New("not announced"))
@@ -188,11 +189,11 @@ func (c *globalClient) String() string {
 	return "global@" + c.server
 }
 
-func (c *globalClient) serve(stop chan struct{}) {
+func (c *globalClient) serve(ctx context.Context) {
 	if c.noAnnounce {
 		// We're configured to not do announcements, only lookups. To maintain
 		// the same interface, we just pause here if Serve() is run.
-		<-stop
+		<-ctx.Done()
 		return
 	}
 
@@ -212,7 +213,7 @@ func (c *globalClient) serve(stop chan struct{}) {
 		case <-timer.C:
 			c.sendAnnouncement(timer)
 
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}

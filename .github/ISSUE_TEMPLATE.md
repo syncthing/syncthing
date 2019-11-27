@@ -36,7 +36,7 @@ its entirety.
 
 ### Version Information
 
-Syncthing Version: v0.x.y
+Syncthing Version: v1.x.y
 OS Version: Windows 7 / Ubuntu 14.04 / ...
 Browser Version: (if applicable, for GUI issues)
 

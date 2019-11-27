@@ -57,7 +57,7 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 		noUpgrade:          noUpgrade,
 		forceRun:           make(chan struct{}, 1), // Buffered to prevent locking
 	}
-	svc.Service = util.AsService(svc.serve)
+	svc.Service = util.AsService(svc.serve, svc.String())
 	cfg.Subscribe(svc)
 	return svc
 }
@@ -192,7 +192,7 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 	res["deviceUses"] = deviceUses
 
 	defaultAnnounceServersDNS, defaultAnnounceServersIP, otherAnnounceServers := 0, 0, 0
-	for _, addr := range opts.GlobalAnnServers {
+	for _, addr := range opts.RawGlobalAnnServers {
 		if addr == "default" || addr == "default-v4" || addr == "default-v6" {
 			defaultAnnounceServersDNS++
 		} else {
@@ -208,7 +208,7 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 	}
 
 	defaultRelayServers, otherRelayServers := 0, 0
-	for _, addr := range s.cfg.ListenAddresses() {
+	for _, addr := range s.cfg.Options().ListenAddresses() {
 		switch {
 		case addr == "dynamic+https://relays.syncthing.net/endpoint":
 			defaultRelayServers++
@@ -373,8 +373,8 @@ func (s *Service) sendUsageReport() error {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			Dial:  dialer.Dial,
-			Proxy: http.ProxyFromEnvironment,
+			DialContext: dialer.DialContext,
+			Proxy:       http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: s.cfg.Options().URPostInsecurely,
 			},
@@ -384,11 +384,11 @@ func (s *Service) sendUsageReport() error {
 	return err
 }
 
-func (s *Service) serve(stop chan struct{}) {
+func (s *Service) serve(ctx context.Context) {
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return
 		case <-s.forceRun:
 			t.Reset(0)

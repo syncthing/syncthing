@@ -7,10 +7,13 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -40,7 +43,7 @@ type relayListener struct {
 	mut    sync.RWMutex
 }
 
-func (t *relayListener) serve(stop chan struct{}) error {
+func (t *relayListener) serve(ctx context.Context) error {
 	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, nil, 10*time.Second)
 	if err != nil {
 		l.Infoln("Listen (BEP/relay):", err)
@@ -69,9 +72,11 @@ func (t *relayListener) serve(stop chan struct{}) error {
 				return err
 			}
 
-			conn, err := client.JoinSession(inv)
+			conn, err := client.JoinSession(ctx, inv)
 			if err != nil {
-				l.Infoln("Listen (BEP/relay): joining session:", err)
+				if errors.Cause(err) != context.Canceled {
+					l.Infoln("Listen (BEP/relay): joining session:", err)
+				}
 				continue
 			}
 
@@ -112,7 +117,7 @@ func (t *relayListener) serve(stop chan struct{}) error {
 				t.notifyAddressesChanged(t)
 			}
 
-		case <-stop:
+		case <-ctx.Done():
 			return nil
 		}
 	}
@@ -178,7 +183,7 @@ func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls
 		conns:   conns,
 		factory: f,
 	}
-	t.ServiceWithError = util.AsServiceWithError(t.serve)
+	t.ServiceWithError = util.AsServiceWithError(t.serve, t.String())
 	return t
 }
 

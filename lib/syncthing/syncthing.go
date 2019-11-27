@@ -262,7 +262,7 @@ func (a *App) startup() error {
 	a.mainService.Add(connectionsService)
 
 	if a.cfg.Options().GlobalAnnEnabled {
-		for _, srv := range a.cfg.GlobalDiscoveryServers() {
+		for _, srv := range a.cfg.Options().GlobalDiscoveryServers() {
 			l.Infoln("Using discovery server", srv)
 			gd, err := discover.NewGlobal(srv, a.cert, connectionsService, a.evLogger)
 			if err != nil {

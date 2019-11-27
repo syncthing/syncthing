@@ -7,6 +7,7 @@
 package versioner
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -19,26 +20,26 @@ import (
 
 func init() {
 	// Register the constructor for this type of versioner
-	Factories["trashcan"] = NewTrashcan
+	factories["trashcan"] = newTrashcan
 }
 
-type Trashcan struct {
+type trashcan struct {
 	suture.Service
 	folderFs     fs.Filesystem
 	versionsFs   fs.Filesystem
 	cleanoutDays int
 }
 
-func NewTrashcan(folderID string, folderFs fs.Filesystem, params map[string]string) Versioner {
+func newTrashcan(folderFs fs.Filesystem, params map[string]string) Versioner {
 	cleanoutDays, _ := strconv.Atoi(params["cleanoutDays"])
 	// On error we default to 0, "do not clean out the trash can"
 
-	s := &Trashcan{
+	s := &trashcan{
 		folderFs:     folderFs,
 		versionsFs:   fsFromParams(folderFs, params),
 		cleanoutDays: cleanoutDays,
 	}
-	s.Service = util.AsService(s.serve)
+	s.Service = util.AsService(s.serve, s.String())
 
 	l.Debugf("instantiated %#v", s)
 	return s
@@ -46,13 +47,13 @@ func NewTrashcan(folderID string, folderFs fs.Filesystem, params map[string]stri
 
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
-func (t *Trashcan) Archive(filePath string) error {
+func (t *trashcan) Archive(filePath string) error {
 	return archiveFile(t.folderFs, t.versionsFs, filePath, func(name, tag string) string {
 		return name
 	})
 }
 
-func (t *Trashcan) serve(stop chan struct{}) {
+func (t *trashcan) serve(ctx context.Context) {
 	l.Debugln(t, "starting")
 	defer l.Debugln(t, "stopping")
 
@@ -62,7 +63,7 @@ func (t *Trashcan) serve(stop chan struct{}) {
 
 	for {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return
 
 		case <-timer.C:
@@ -78,11 +79,11 @@ func (t *Trashcan) serve(stop chan struct{}) {
 	}
 }
 
-func (t *Trashcan) String() string {
+func (t *trashcan) String() string {
 	return fmt.Sprintf("trashcan@%p", t)
 }
 
-func (t *Trashcan) cleanoutArchive() error {
+func (t *trashcan) cleanoutArchive() error {
 	if _, err := t.versionsFs.Lstat("."); fs.IsNotExist(err) {
 		return nil
 	}
@@ -120,11 +121,11 @@ func (t *Trashcan) cleanoutArchive() error {
 	return nil
 }
 
-func (t *Trashcan) GetVersions() (map[string][]FileVersion, error) {
+func (t *trashcan) GetVersions() (map[string][]FileVersion, error) {
 	return retrieveVersions(t.versionsFs)
 }
 
-func (t *Trashcan) Restore(filepath string, versionTime time.Time) error {
+func (t *trashcan) Restore(filepath string, versionTime time.Time) error {
 	// If we have an untagged file A and want to restore it on top of existing file A, we can't first archive the
 	// existing A as we'd overwrite the old A version, therefore when we archive existing file, we archive it with a
 	// tag but when the restoration is finished, we rename it (untag it). This is only important if when restoring A,

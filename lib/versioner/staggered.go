@@ -7,6 +7,8 @@
 package versioner
 
 import (
+	"context"
+	"fmt"
 	"sort"
 	"strconv"
 	"time"
@@ -20,26 +22,26 @@ import (
 
 func init() {
 	// Register the constructor for this type of versioner with the name "staggered"
-	Factories["staggered"] = NewStaggered
+	factories["staggered"] = newStaggered
 }
 
-type Interval struct {
+type interval struct {
 	step int64
 	end  int64
 }
 
-type Staggered struct {
+type staggered struct {
 	suture.Service
 	cleanInterval int64
 	folderFs      fs.Filesystem
 	versionsFs    fs.Filesystem
-	interval      [4]Interval
+	interval      [4]interval
 	mutex         sync.Mutex
 
 	testCleanDone chan struct{}
 }
 
-func NewStaggered(folderID string, folderFs fs.Filesystem, params map[string]string) Versioner {
+func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
 		maxAge = 31536000 // Default: ~1 year
@@ -53,11 +55,11 @@ func NewStaggered(folderID string, folderFs fs.Filesystem, params map[string]str
 	params["fsPath"] = params["versionsPath"]
 	versionsFs := fsFromParams(folderFs, params)
 
-	s := &Staggered{
+	s := &staggered{
 		cleanInterval: cleanInterval,
 		folderFs:      folderFs,
 		versionsFs:    versionsFs,
-		interval: [4]Interval{
+		interval: [4]interval{
 			{30, 3600},       // first hour -> 30 sec between versions
 			{3600, 86400},    // next day -> 1 h between versions
 			{86400, 592000},  // next 30 days -> 1 day between versions
@@ -65,13 +67,13 @@ func NewStaggered(folderID string, folderFs fs.Filesystem, params map[string]str
 		},
 		mutex: sync.NewMutex(),
 	}
-	s.Service = util.AsService(s.serve)
+	s.Service = util.AsService(s.serve, s.String())
 
 	l.Debugf("instantiated %#v", s)
 	return s
 }
 
-func (v *Staggered) serve(stop chan struct{}) {
+func (v *staggered) serve(ctx context.Context) {
 	v.clean()
 	if v.testCleanDone != nil {
 		close(v.testCleanDone)
@@ -83,13 +85,13 @@ func (v *Staggered) serve(stop chan struct{}) {
 		select {
 		case <-tck.C:
 			v.clean()
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (v *Staggered) clean() {
+func (v *staggered) clean() {
 	l.Debugln("Versioner clean: Waiting for lock on", v.versionsFs)
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
@@ -140,7 +142,7 @@ func (v *Staggered) clean() {
 	l.Debugln("Cleaner: Finished cleaning", v.versionsFs)
 }
 
-func (v *Staggered) expire(versions []string) {
+func (v *staggered) expire(versions []string) {
 	l.Debugln("Versioner: Expiring versions", versions)
 	for _, file := range v.toRemove(versions, time.Now()) {
 		if fi, err := v.versionsFs.Lstat(file); err != nil {
@@ -157,7 +159,7 @@ func (v *Staggered) expire(versions []string) {
 	}
 }
 
-func (v *Staggered) toRemove(versions []string, now time.Time) []string {
+func (v *staggered) toRemove(versions []string, now time.Time) []string {
 	var prevAge int64
 	firstFile := true
 	var remove []string
@@ -166,7 +168,7 @@ func (v *Staggered) toRemove(versions []string, now time.Time) []string {
 	sort.Strings(versions)
 
 	for _, version := range versions {
-		versionTime, err := time.ParseInLocation(TimeFormat, ExtractTag(version), time.Local)
+		versionTime, err := time.ParseInLocation(TimeFormat, extractTag(version), time.Local)
 		if err != nil {
 			l.Debugf("Versioner: file name %q is invalid: %v", version, err)
 			continue
@@ -188,7 +190,7 @@ func (v *Staggered) toRemove(versions []string, now time.Time) []string {
 		}
 
 		// Find the interval the file fits in
-		var usedInterval Interval
+		var usedInterval interval
 		for _, usedInterval = range v.interval {
 			if age < usedInterval.end {
 				break
@@ -209,7 +211,7 @@ func (v *Staggered) toRemove(versions []string, now time.Time) []string {
 
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
-func (v *Staggered) Archive(filePath string) error {
+func (v *staggered) Archive(filePath string) error {
 	l.Debugln("Waiting for lock on ", v.versionsFs)
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
@@ -223,10 +225,14 @@ func (v *Staggered) Archive(filePath string) error {
 	return nil
 }
 
-func (v *Staggered) GetVersions() (map[string][]FileVersion, error) {
+func (v *staggered) GetVersions() (map[string][]FileVersion, error) {
 	return retrieveVersions(v.versionsFs)
 }
 
-func (v *Staggered) Restore(filepath string, versionTime time.Time) error {
+func (v *staggered) Restore(filepath string, versionTime time.Time) error {
 	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
+}
+
+func (v *staggered) String() string {
+	return fmt.Sprintf("Staggered/@%p", v)
 }

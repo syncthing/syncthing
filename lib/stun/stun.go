@@ -7,6 +7,7 @@
 package stun
 
 import (
+	"context"
 	"net"
 	"sync/atomic"
 	"time"
@@ -104,7 +105,7 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) (*Servi
 		natType: NATUnknown,
 		addr:    nil,
 	}
-	s.Service = util.AsService(s.serve)
+	s.Service = util.AsService(s.serve, s.String())
 	return s, otherDataConn
 }
 
@@ -113,7 +114,7 @@ func (s *Service) Stop() {
 	s.Service.Stop()
 }
 
-func (s *Service) serve(stop chan struct{}) {
+func (s *Service) serve(ctx context.Context) {
 	for {
 	disabled:
 		s.setNATType(NATUnknown)
@@ -121,7 +122,7 @@ func (s *Service) serve(stop chan struct{}) {
 
 		if s.cfg.Options().IsStunDisabled() {
 			select {
-			case <-stop:
+			case <-ctx.Done():
 				return
 			case <-time.After(time.Second):
 				continue
@@ -130,16 +131,16 @@ func (s *Service) serve(stop chan struct{}) {
 
 		l.Debugf("Starting stun for %s", s)
 
-		for _, addr := range s.cfg.StunServers() {
+		for _, addr := range s.cfg.Options().StunServers() {
 			// This blocks until we hit an exit condition or there are issues with the STUN server.
 			// This returns a boolean signifying if a different STUN server should be tried (oppose to the whole thing
 			// shutting down and this winding itself down.
-			if !s.runStunForServer(addr, stop) {
+			if !s.runStunForServer(ctx, addr) {
 				// Check exit conditions.
 
 				// Have we been asked to stop?
 				select {
-				case <-stop:
+				case <-ctx.Done():
 					return
 				default:
 				}
@@ -165,13 +166,13 @@ func (s *Service) serve(stop chan struct{}) {
 		// Chillout for a while.
 		select {
 		case <-time.After(stunRetryInterval):
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (s *Service) runStunForServer(addr string, stop chan struct{}) (tryNext bool) {
+func (s *Service) runStunForServer(ctx context.Context, addr string) (tryNext bool) {
 	l.Debugf("Running stun for %s via %s", s, addr)
 
 	// Resolve the address, so that in case the server advertises two
@@ -209,10 +210,10 @@ func (s *Service) runStunForServer(addr string, stop chan struct{}) (tryNext boo
 		return false
 	}
 
-	return s.stunKeepAlive(addr, extAddr, stop)
+	return s.stunKeepAlive(ctx, addr, extAddr)
 }
 
-func (s *Service) stunKeepAlive(addr string, extAddr *Host, stop chan struct{}) (tryNext bool) {
+func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host) (tryNext bool) {
 	var err error
 	nextSleep := time.Duration(s.cfg.Options().StunKeepaliveStartS) * time.Second
 
@@ -255,7 +256,7 @@ func (s *Service) stunKeepAlive(addr string, extAddr *Host, stop chan struct{}) 
 
 		select {
 		case <-time.After(sleepFor):
-		case <-stop:
+		case <-ctx.Done():
 			l.Debugf("%s stopping, aborting stun", s)
 			return false
 		}
