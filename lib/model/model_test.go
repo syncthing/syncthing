@@ -1513,6 +1513,41 @@ func TestIgnores(t *testing.T) {
 	changeIgnores(t, m, []string{})
 }
 
+func TestEmptyIgnores(t *testing.T) {
+	testOs := &fatalOs{t}
+
+	// Assure a clean start state
+	testOs.RemoveAll(filepath.Join("testdata", config.DefaultMarkerName))
+	testOs.MkdirAll(filepath.Join("testdata", config.DefaultMarkerName), 0644)
+
+	m := setupModel(defaultCfgWrapper)
+	defer cleanupModel(m)
+
+	m.removeFolder(defaultFolderConfig)
+	m.addFolder(defaultFolderConfig)
+
+	if err := m.SetIgnores("default", []string{}); err != nil {
+		t.Error(err)
+	}
+	if _, err := os.Stat("testdata/.stignore"); err == nil {
+		t.Error((".stignore was created despite being empty"))
+	}
+
+	if err := m.SetIgnores("default", []string{".*", "quux"}); err != nil {
+		t.Error(err)
+	}
+	if _, err := os.Stat("testdata/.stignore"); os.IsNotExist(err) {
+		t.Error((".stignore does not exist"))
+	}
+
+	if err := m.SetIgnores("default", []string{}); err != nil {
+		t.Error(err)
+	}
+	if _, err := os.Stat("testdata/.stignore"); err == nil {
+		t.Error((".stignore should have been deleted because it is empty"))
+	}
+}
+
 func waitForState(t *testing.T, m *model, folder, status string) {
 	t.Helper()
 	timeout := time.Now().Add(2 * time.Second)
