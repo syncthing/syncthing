@@ -198,7 +198,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 
 	case events.StateChanged:
 		data := ev.Data.(map[string]interface{})
-		if !(data["to"].(string) == "idle" && data["from"].(string) == "syncing") {
+		if from := data["from"].(string); !(data["to"].(string) == "idle" && (from == "syncing" || from == "sync-preparing")) {
 			return
 		}
 
