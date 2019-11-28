@@ -154,6 +154,8 @@ type RuntimeOptions struct {
 	browserOnly      bool
 	hideConsole      bool
 	logFile          string
+	logMaxSize       int
+	logMaxFiles      int
 	auditEnabled     bool
 	auditFile        string
 	paused           bool
@@ -180,6 +182,8 @@ func defaultRuntimeOptions() RuntimeOptions {
 		cpuProfile:   os.Getenv("STCPUPROFILE") != "",
 		stRestarting: os.Getenv("STRESTART") != "",
 		logFlags:     log.Ltime,
+		logMaxSize:   10 << 20, // 10 MiB
+		logMaxFiles:  3,        // plus the current one
 	}
 
 	if os.Getenv("STTRACE") != "" {
@@ -222,6 +226,8 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
+	flag.IntVar(&options.logMaxSize, "log-max-size", options.logMaxSize, "Maximum size of any file (zero to disable log rotation).")
+	flag.IntVar(&options.logMaxFiles, "log-max-old-files", options.logMaxFiles, "Number of old files to keep (zero to keep only current).")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
 	flag.BoolVar(&options.allowNewerConfig, "allow-newer-config", false, "Allow loading newer than current config version")
 	if runtime.GOOS == "windows" {
