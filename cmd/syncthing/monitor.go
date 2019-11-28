@@ -55,7 +55,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			open := func(name string) (io.WriteCloser, error) {
 				return newAutoclosedFile(name, logFileAutoCloseDelay, logFileMaxOpenTime), nil
 			}
-			fileDst = newRotatedFile(logFile, open, int64(runtimeOptions.logMaxSize), runtimeOptions.logMaxFiles, time.Second)
+			fileDst = newRotatedFile(logFile, open, int64(runtimeOptions.logMaxSize), runtimeOptions.logMaxFiles)
 		} else {
 			fileDst = newAutoclosedFile(logFile, logFileAutoCloseDelay, logFileMaxOpenTime)
 		}
@@ -330,62 +330,49 @@ func restartMonitorWindows(args []string) error {
 // rotatedFile keeps a set of rotating logs. There will be the base file plus up
 // to maxFiles rotated ones, each ~ maxSize bytes large.
 type rotatedFile struct {
-	name            string
-	open            openFn
-	maxSize         int64 // bytes
-	maxFiles        int
-	minStatInterval time.Duration // wait at least this long between stat() calls
-	current         io.WriteCloser
-	lastStat        time.Time
+	name        string
+	create      createFn
+	maxSize     int64 // bytes
+	maxFiles    int
+	currentFile io.WriteCloser
+	currentSize int64
 }
 
-type openFn func(name string) (io.WriteCloser, error)
+// the createFn should act equivalently to os.Create
+type createFn func(name string) (io.WriteCloser, error)
 
-func newRotatedFile(name string, open openFn, maxSize int64, maxFiles int, minStatInterval time.Duration) *rotatedFile {
+func newRotatedFile(name string, create createFn, maxSize int64, maxFiles int) *rotatedFile {
 	return &rotatedFile{
-		name:            name,
-		open:            open,
-		maxSize:         maxSize,
-		maxFiles:        maxFiles,
-		minStatInterval: minStatInterval,
+		name:     name,
+		create:   create,
+		maxSize:  maxSize,
+		maxFiles: maxFiles,
 	}
 }
 
 func (r *rotatedFile) Write(bs []byte) (int, error) {
-	// Do the rotate check at most once a minStatInterval once any given file is
-	// open. Limits the number of stat() calls when there's a lot of logging,
-	// and limits the number of warnings if we're stuck unable to rotate for
-	// whatever reason.
-	if r.current != nil && time.Since(r.lastStat) >= r.minStatInterval {
-		info, err := os.Lstat(r.name)
-		if err != nil && !os.IsNotExist(err) {
-			// N.B. we can't call the logger from inside the log writer or we'll
-			// cause a paradox and the universe will implode.
-			fmt.Println("LOG: Rotating log:", err)
-		}
-
-		// If the current size of the log plus what we're going to write would
-		// exceed the max, close this log file and we will open another one
-		// later.
-		if err == nil && info.Size()+int64(len(bs)) > r.maxSize {
-			r.current.Close()
-			r.current = nil
-		}
-		r.lastStat = time.Now()
+	// Check if we're about to exceed the max size, and if so close this
+	// file so we'll start on a new one.
+	if r.currentSize+int64(len(bs)) > r.maxSize {
+		r.currentFile.Close()
+		r.currentFile = nil
+		r.currentSize = 0
 	}
 
-	// Rotate old files out of the way and create a new one.
-	if r.current == nil {
+	// If we have no current log, rotate old files out of the way and create
+	// a new one.
+	if r.currentFile == nil {
 		r.rotate()
-		fd, err := r.open(r.name)
+		fd, err := r.create(r.name)
 		if err != nil {
 			return 0, err
 		}
-		r.current = fd
-		r.lastStat = time.Now() // we know it's zero bytes right now
+		r.currentFile = fd
 	}
 
-	return r.current.Write(bs)
+	n, err := r.currentFile.Write(bs)
+	r.currentSize += int64(n)
+	return n, err
 }
 
 func (r *rotatedFile) rotate() {

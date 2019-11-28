@@ -32,9 +32,8 @@ func TestRotatedFile(t *testing.T) {
 	testData := []byte("12345678\n")
 	maxSize := int64(len(testData) + len(testData)/2)
 
-	// We allow the log file plus two rotated copies, with zero stat interval
-	// (every write is checked against size).
-	rf := newRotatedFile(logName, open, maxSize, 2, 0)
+	// We allow the log file plus two rotated copies.
+	rf := newRotatedFile(logName, open, maxSize, 2)
 
 	// Write some bytes.
 	if _, err := rf.Write(testData); err != nil {
@@ -78,37 +77,6 @@ func TestRotatedFile(t *testing.T) {
 	checkSize(t, numberedFile(logName, 0), len(testData))
 	checkSize(t, numberedFile(logName, 1), len(testData)+1)
 	checkNotExist(t, numberedFile(logName, 2)) // exceeds maxFiles so deleted
-}
-
-func TestRotatedFileStatInterval(t *testing.T) {
-	dir, err := ioutil.TempDir("", "syncthing")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dir)
-
-	open := func(name string) (io.WriteCloser, error) {
-		return os.Create(name)
-	}
-
-	logName := filepath.Join(dir, "log.txt")
-	testData := []byte("12345678\n")
-	maxSize := int64(len(testData) + len(testData)/2)
-
-	// A log file to hold maxSize, but only check once a minute so allows some
-	// elasticity in the size.
-	rf := newRotatedFile(logName, open, maxSize, 2, time.Minute)
-
-	// Write some bytes.
-	for i := 0; i < 10; i++ {
-		if _, err := rf.Write(testData); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	// They should be in the log, which should not have had time to rotate.
-	checkSize(t, logName, 10*len(testData))
-	checkNotExist(t, numberedFile(logName, 0))
 }
 
 func TestNumberedFile(t *testing.T) {
