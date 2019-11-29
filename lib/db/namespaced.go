@@ -46,10 +46,8 @@ func (n *NamespacedKV) PutInt64(key string, val int64) error {
 // is false if no value was stored at the key.
 func (n *NamespacedKV) Int64(key string) (int64, bool, error) {
 	valBs, err := n.db.Get(n.prefixedKey(key))
-	if backend.IsNotFound(err) {
-		return 0, false, nil
-	} else if err != nil {
-		return 0, false, err
+	if err != nil {
+		return 0, false, filterNotFound(err)
 	}
 	val := binary.BigEndian.Uint64(valBs)
 	return int64(val), true, nil
@@ -67,10 +65,8 @@ func (n *NamespacedKV) PutTime(key string, val time.Time) error {
 func (n NamespacedKV) Time(key string) (time.Time, bool, error) {
 	var t time.Time
 	valBs, err := n.db.Get(n.prefixedKey(key))
-	if backend.IsNotFound(err) {
-		return t, false, nil
-	} else if err != nil {
-		return t, false, err
+	if err != nil {
+		return t, false, filterNotFound(err)
 	}
 	err = t.UnmarshalBinary(valBs)
 	return t, err == nil, err
@@ -86,10 +82,8 @@ func (n *NamespacedKV) PutString(key, val string) error {
 // is false if no value was stored at the key.
 func (n NamespacedKV) String(key string) (string, bool, error) {
 	valBs, err := n.db.Get(n.prefixedKey(key))
-	if backend.IsNotFound(err) {
-		return "", false, nil
-	} else if err != nil {
-		return "", false, err
+	if err != nil {
+		return "", false, filterNotFound(err)
 	}
 	return string(valBs), true, nil
 }
@@ -104,10 +98,8 @@ func (n *NamespacedKV) PutBytes(key string, val []byte) error {
 // is false if no value was stored at the key.
 func (n NamespacedKV) Bytes(key string) ([]byte, bool, error) {
 	valBs, err := n.db.Get(n.prefixedKey(key))
-	if backend.IsNotFound(err) {
-		return nil, false, nil
-	} else if err != nil {
-		return nil, false, err
+	if err != nil {
+		return nil, false, filterNotFound(err)
 	}
 	return valBs, true, nil
 }
@@ -125,10 +117,8 @@ func (n *NamespacedKV) PutBool(key string, val bool) error {
 // is false if no value was stored at the key.
 func (n NamespacedKV) Bool(key string) (bool, bool, error) {
 	valBs, err := n.db.Get(n.prefixedKey(key))
-	if backend.IsNotFound(err) {
-		return false, false, nil
-	} else if err != nil {
-		return false, false, err
+	if err != nil {
+		return false, false, filterNotFound(err)
 	}
 	return valBs[0] == 0x0, true, nil
 }
@@ -161,4 +151,11 @@ func NewFolderStatisticsNamespace(db *Lowlevel, folder string) *NamespacedKV {
 // NewMiscDateNamespace creates a KV namespace for miscellaneous metadata.
 func NewMiscDataNamespace(db *Lowlevel) *NamespacedKV {
 	return NewNamespacedKV(db, string(KeyTypeMiscData))
+}
+
+func filterNotFound(err error) error {
+	if backend.IsNotFound(err) {
+		return nil
+	}
+	return err
 }
