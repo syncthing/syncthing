@@ -13,11 +13,15 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func dump(ldb *db.Lowlevel) {
-	it := ldb.NewIterator(nil, nil)
+func dump(ldb backend.Backend) {
+	it, err := ldb.NewPrefixIterator(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 	for it.Next() {
 		key := it.Key()
 		switch key[0] {

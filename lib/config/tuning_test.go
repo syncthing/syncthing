@@ -10,17 +10,17 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 )
 
 func TestTuningMatches(t *testing.T) {
-	if int(config.TuningAuto) != int(db.TuningAuto) {
+	if int(config.TuningAuto) != int(backend.TuningAuto) {
 		t.Error("mismatch for TuningAuto")
 	}
-	if int(config.TuningSmall) != int(db.TuningSmall) {
+	if int(config.TuningSmall) != int(backend.TuningSmall) {
 		t.Error("mismatch for TuningSmall")
 	}
-	if int(config.TuningLarge) != int(db.TuningLarge) {
+	if int(config.TuningLarge) != int(backend.TuningLarge) {
 		t.Error("mismatch for TuningLarge")
 	}
 }

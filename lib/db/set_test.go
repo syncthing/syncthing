@@ -17,6 +17,7 @@ import (
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -117,7 +118,7 @@ func (l fileList) String() string {
 }
 
 func TestGlobalSet(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -332,7 +333,7 @@ func TestGlobalSet(t *testing.T) {
 }
 
 func TestNeedWithInvalid(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -369,7 +370,7 @@ func TestNeedWithInvalid(t *testing.T) {
 }
 
 func TestUpdateToInvalid(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	folder := "test"
 	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -425,7 +426,7 @@ func TestUpdateToInvalid(t *testing.T) {
 }
 
 func TestInvalidAvailability(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -463,7 +464,7 @@ func TestInvalidAvailability(t *testing.T) {
 }
 
 func TestGlobalReset(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -501,7 +502,7 @@ func TestGlobalReset(t *testing.T) {
 }
 
 func TestNeed(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -539,7 +540,7 @@ func TestNeed(t *testing.T) {
 }
 
 func TestSequence(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -569,7 +570,7 @@ func TestSequence(t *testing.T) {
 }
 
 func TestListDropFolder(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	s0 := db.NewFileSet("test0", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	local1 := []protocol.FileInfo{
@@ -619,7 +620,7 @@ func TestListDropFolder(t *testing.T) {
 }
 
 func TestGlobalNeedWithInvalid(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	s := db.NewFileSet("test1", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -660,7 +661,7 @@ func TestGlobalNeedWithInvalid(t *testing.T) {
 }
 
 func TestLongPath(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -671,7 +672,7 @@ func TestLongPath(t *testing.T) {
 	name := b.String() // 5000 characters
 
 	local := []protocol.FileInfo{
-		{Name: string(name), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: name, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
 	}
 
 	replace(s, protocol.LocalDeviceID, local)
@@ -686,39 +687,6 @@ func TestLongPath(t *testing.T) {
 	}
 }
 
-func TestCommitted(t *testing.T) {
-	// Verify that the Committed counter increases when we change things and
-	// doesn't increase when we don't.
-
-	ldb := db.OpenMemory()
-
-	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
-
-	local := []protocol.FileInfo{
-		{Name: string("file"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
-	}
-
-	// Adding a file should increase the counter
-
-	c0 := ldb.Committed()
-
-	replace(s, protocol.LocalDeviceID, local)
-
-	c1 := ldb.Committed()
-	if c1 <= c0 {
-		t.Errorf("committed data didn't increase; %d <= %d", c1, c0)
-	}
-
-	// Updating with something identical should not do anything
-
-	s.Update(protocol.LocalDeviceID, local)
-
-	c2 := ldb.Committed()
-	if c2 > c1 {
-		t.Errorf("replace with same contents should do nothing but %d > %d", c2, c1)
-	}
-}
-
 func BenchmarkUpdateOneFile(b *testing.B) {
 	local0 := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
@@ -729,10 +697,11 @@ func BenchmarkUpdateOneFile(b *testing.B) {
 		protocol.FileInfo{Name: "zajksdhaskjdh/askjdhaskjdashkajshd/kasjdhaskjdhaskdjhaskdjash/dkjashdaksjdhaskdjahskdjh", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(8)},
 	}
 
-	ldb, err := db.Open("testdata/benchmarkupdate.db", db.TuningAuto)
+	be, err := backend.Open("testdata/benchmarkupdate.db", backend.TuningAuto)
 	if err != nil {
 		b.Fatal(err)
 	}
+	ldb := db.NewLowlevel(be)
 	defer func() {
 		ldb.Close()
 		os.RemoveAll("testdata/benchmarkupdate.db")
@@ -751,7 +720,7 @@ func BenchmarkUpdateOneFile(b *testing.B) {
 }
 
 func TestIndexID(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -783,7 +752,7 @@ func TestIndexID(t *testing.T) {
 }
 
 func TestDropFiles(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -846,7 +815,7 @@ func TestDropFiles(t *testing.T) {
 }
 
 func TestIssue4701(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -887,7 +856,7 @@ func TestIssue4701(t *testing.T) {
 }
 
 func TestWithHaveSequence(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	folder := "test"
 	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -915,14 +884,14 @@ func TestWithHaveSequence(t *testing.T) {
 
 func TestStressWithHaveSequence(t *testing.T) {
 	// This races two loops against each other: one that contiously does
-	// updates, and one that continously does sequence walks. The test fails
+	// updates, and one that continuously does sequence walks. The test fails
 	// if the sequence walker sees a discontinuity.
 
 	if testing.Short() {
 		t.Skip("Takes a long time")
 	}
 
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	folder := "test"
 	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -945,7 +914,7 @@ func TestStressWithHaveSequence(t *testing.T) {
 		close(done)
 	}()
 
-	var prevSeq int64 = 0
+	var prevSeq int64
 loop:
 	for {
 		select {
@@ -964,7 +933,7 @@ loop:
 }
 
 func TestIssue4925(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	folder := "test"
 	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -990,7 +959,7 @@ func TestIssue4925(t *testing.T) {
 }
 
 func TestMoveGlobalBack(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	folder := "test"
 	file := "foo"
@@ -1054,7 +1023,7 @@ func TestMoveGlobalBack(t *testing.T) {
 // needed files.
 // https://github.com/syncthing/syncthing/issues/5007
 func TestIssue5007(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	folder := "test"
 	file := "foo"
@@ -1081,7 +1050,7 @@ func TestIssue5007(t *testing.T) {
 // TestNeedDeleted checks that a file that doesn't exist locally isn't needed
 // when the global file is deleted.
 func TestNeedDeleted(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	folder := "test"
 	file := "foo"
@@ -1115,7 +1084,7 @@ func TestNeedDeleted(t *testing.T) {
 }
 
 func TestReceiveOnlyAccounting(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	folder := "test"
 	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -1219,7 +1188,7 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 }
 
 func TestNeedAfterUnignore(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	folder := "test"
 	file := "foo"
@@ -1251,7 +1220,7 @@ func TestNeedAfterUnignore(t *testing.T) {
 func TestRemoteInvalidNotAccounted(t *testing.T) {
 	// Remote files with the invalid bit should not count.
 
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	files := []protocol.FileInfo{
@@ -1270,7 +1239,7 @@ func TestRemoteInvalidNotAccounted(t *testing.T) {
 }
 
 func TestNeedWithNewerInvalid(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	s := db.NewFileSet("default", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -1308,7 +1277,7 @@ func TestNeedWithNewerInvalid(t *testing.T) {
 }
 
 func TestNeedAfterDeviceRemove(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	file := "foo"
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -1335,7 +1304,7 @@ func TestNeedAfterDeviceRemove(t *testing.T) {
 func TestCaseSensitive(t *testing.T) {
 	// Normal case sensitive lookup should work
 
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local := []protocol.FileInfo{
@@ -1372,7 +1341,7 @@ func TestSequenceIndex(t *testing.T) {
 
 	// Set up a db and a few files that we will manipulate.
 
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local := []protocol.FileInfo{
@@ -1463,7 +1432,7 @@ func TestSequenceIndex(t *testing.T) {
 }
 
 func TestIgnoreAfterReceiveOnly(t *testing.T) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 
 	file := "foo"
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
