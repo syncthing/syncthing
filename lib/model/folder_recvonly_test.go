@@ -316,7 +316,7 @@ func setupROFolder() (*model, *sendOnlyFolder) {
 	fcfg.ID = "ro"
 	fcfg.Type = config.FolderTypeReceiveOnly
 	w.SetFolder(fcfg)
- 
+
 	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
 
 	m.ServeBackground()
