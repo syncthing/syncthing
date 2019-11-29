@@ -2056,6 +2056,9 @@ angular.module('syncthing.core')
                                     value.modTime = new Date(value.modTime);
                                     value.versionTime = new Date(value.versionTime);
                                 });
+                                values.sort(function (a, b) {
+                                    return b.versionTime - a.versionTime;
+                                });
                             });
                             if (closed) return;
                             $scope.restoreVersions.versions = data;
