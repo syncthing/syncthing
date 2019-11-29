@@ -48,12 +48,12 @@ func (m *mockedModel) ConnectionStats() map[string]interface{} {
 	return nil
 }
 
-func (m *mockedModel) DeviceStatistics() map[string]stats.DeviceStatistics {
-	return nil
+func (m *mockedModel) DeviceStatistics() (map[string]stats.DeviceStatistics, error) {
+	return nil, nil
 }
 
-func (m *mockedModel) FolderStatistics() map[string]stats.FolderStatistics {
-	return nil
+func (m *mockedModel) FolderStatistics() (map[string]stats.FolderStatistics, error) {
+	return nil, nil
 }
 
 func (m *mockedModel) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {

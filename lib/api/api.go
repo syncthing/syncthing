@@ -769,11 +769,21 @@ func (s *service) getSystemConnections(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getDeviceStats(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, s.model.DeviceStatistics())
+	stats, err := s.model.DeviceStatistics()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	sendJSON(w, stats)
 }
 
 func (s *service) getFolderStats(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, s.model.FolderStatistics())
+	stats, err := s.model.FolderStatistics()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	sendJSON(w, stats)
 }
 
 func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {

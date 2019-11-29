@@ -21,7 +21,9 @@ func TestNamespacedInt(t *testing.T) {
 
 	// Key is missing to start with
 
-	if v, ok := n1.Int64("test"); v != 0 || ok {
+	if v, ok, err := n1.Int64("test"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if v != 0 || ok {
 		t.Errorf("Incorrect return v %v != 0 || ok %v != false", v, ok)
 	}
 
@@ -31,13 +33,17 @@ func TestNamespacedInt(t *testing.T) {
 
 	// It should now exist in n1
 
-	if v, ok := n1.Int64("test"); v != 42 || !ok {
+	if v, ok, err := n1.Int64("test"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if v != 42 || !ok {
 		t.Errorf("Incorrect return v %v != 42 || ok %v != true", v, ok)
 	}
 
 	// ... but not in n2, which is in a different namespace
 
-	if v, ok := n2.Int64("test"); v != 0 || ok {
+	if v, ok, err := n2.Int64("test"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if v != 0 || ok {
 		t.Errorf("Incorrect return v %v != 0 || ok %v != false", v, ok)
 	}
 
@@ -47,7 +53,9 @@ func TestNamespacedInt(t *testing.T) {
 
 	// It should no longer exist
 
-	if v, ok := n1.Int64("test"); v != 0 || ok {
+	if v, ok, err := n1.Int64("test"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if v != 0 || ok {
 		t.Errorf("Incorrect return v %v != 0 || ok %v != false", v, ok)
 	}
 }
@@ -57,7 +65,9 @@ func TestNamespacedTime(t *testing.T) {
 
 	n1 := NewNamespacedKV(ldb, "foo")
 
-	if v, ok := n1.Time("test"); !v.IsZero() || ok {
+	if v, ok, err := n1.Time("test"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if !v.IsZero() || ok {
 		t.Errorf("Incorrect return v %v != %v || ok %v != false", v, time.Time{}, ok)
 	}
 
@@ -66,7 +76,9 @@ func TestNamespacedTime(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if v, ok := n1.Time("test"); !v.Equal(now) || !ok {
+	if v, ok, err := n1.Time("test"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if !v.Equal(now) || !ok {
 		t.Errorf("Incorrect return v %v != %v || ok %v != true", v, now, ok)
 	}
 }
@@ -76,7 +88,9 @@ func TestNamespacedString(t *testing.T) {
 
 	n1 := NewNamespacedKV(ldb, "foo")
 
-	if v, ok := n1.String("test"); v != "" || ok {
+	if v, ok, err := n1.String("test"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if v != "" || ok {
 		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
 	}
 
@@ -84,7 +98,9 @@ func TestNamespacedString(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if v, ok := n1.String("test"); v != "yo" || !ok {
+	if v, ok, err := n1.String("test"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if v != "yo" || !ok {
 		t.Errorf("Incorrect return v %q != \"yo\" || ok %v != true", v, ok)
 	}
 }
@@ -104,25 +120,37 @@ func TestNamespacedReset(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if v, ok := n1.String("test1"); v != "yo1" || !ok {
+	if v, ok, err := n1.String("test1"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if v != "yo1" || !ok {
 		t.Errorf("Incorrect return v %q != \"yo1\" || ok %v != true", v, ok)
 	}
-	if v, ok := n1.String("test2"); v != "yo2" || !ok {
+	if v, ok, err := n1.String("test2"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if v != "yo2" || !ok {
 		t.Errorf("Incorrect return v %q != \"yo2\" || ok %v != true", v, ok)
 	}
-	if v, ok := n1.String("test3"); v != "yo3" || !ok {
+	if v, ok, err := n1.String("test3"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if v != "yo3" || !ok {
 		t.Errorf("Incorrect return v %q != \"yo3\" || ok %v != true", v, ok)
 	}
 
 	reset(n1)
 
-	if v, ok := n1.String("test1"); v != "" || ok {
+	if v, ok, err := n1.String("test1"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if v != "" || ok {
 		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
 	}
-	if v, ok := n1.String("test2"); v != "" || ok {
+	if v, ok, err := n1.String("test2"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if v != "" || ok {
 		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
 	}
-	if v, ok := n1.String("test3"); v != "" || ok {
+	if v, ok, err := n1.String("test3"); err != nil {
+		t.Error("Unexpected error:", err)
+	} else if v != "" || ok {
 		t.Errorf("Incorrect return v %q != \"\" || ok %v != false", v, ok)
 	}
 }

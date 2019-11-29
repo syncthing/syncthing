@@ -3392,7 +3392,10 @@ func TestDeviceWasSeen(t *testing.T) {
 
 	m.deviceWasSeen(device1)
 
-	stats := m.DeviceStatistics()
+	stats, err := m.DeviceStatistics()
+	if err != nil {
+		t.Error("Unexpected error:", err)
+	}
 	entry := stats[device1.String()]
 	if time.Since(entry.LastSeen) > time.Second {
 		t.Error("device should have been seen now")
