@@ -16,7 +16,7 @@ import (
 var blockFinder *BlockFinder
 
 type BlockFinder struct {
-	db *instance
+	db *Lowlevel
 }
 
 func NewBlockFinder(db *Lowlevel) *BlockFinder {
@@ -25,7 +25,7 @@ func NewBlockFinder(db *Lowlevel) *BlockFinder {
 	}
 
 	return &BlockFinder{
-		db: newInstance(db),
+		db: db,
 	}
 }
 

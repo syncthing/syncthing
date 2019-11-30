@@ -38,13 +38,13 @@ func (e databaseDowngradeError) Error() string {
 	return fmt.Sprintf("Syncthing %s required", e.minSyncthingVersion)
 }
 
-func UpdateSchema(ll *Lowlevel) error {
-	updater := &schemaUpdater{newInstance(ll)}
+func UpdateSchema(db *Lowlevel) error {
+	updater := &schemaUpdater{db}
 	return updater.updateSchema()
 }
 
 type schemaUpdater struct {
-	*instance
+	*Lowlevel
 }
 
 func (db *schemaUpdater) updateSchema() error {

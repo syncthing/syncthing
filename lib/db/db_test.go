@@ -158,7 +158,7 @@ func TestUpdate0to3(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	db := newInstance(NewLowlevel(ldb))
+	db := NewLowlevel(ldb)
 	updater := schemaUpdater{db}
 
 	folder := []byte(update0to3Folder)
