@@ -9,6 +9,8 @@ package db
 import (
 	"encoding/binary"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/db/backend"
 )
 
 // NamespacedKV is a simple key-value store using a specific namespace within
@@ -42,13 +44,13 @@ func (n *NamespacedKV) PutInt64(key string, val int64) error {
 
 // Int64 returns the stored value interpreted as an int64 and a boolean that
 // is false if no value was stored at the key.
-func (n *NamespacedKV) Int64(key string) (int64, bool) {
+func (n *NamespacedKV) Int64(key string) (int64, bool, error) {
 	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
-		return 0, false
+		return 0, false, filterNotFound(err)
 	}
 	val := binary.BigEndian.Uint64(valBs)
-	return int64(val), true
+	return int64(val), true, nil
 }
 
 // PutTime stores a new time.Time. Any existing value (even if of another
@@ -60,14 +62,14 @@ func (n *NamespacedKV) PutTime(key string, val time.Time) error {
 
 // Time returns the stored value interpreted as a time.Time and a boolean
 // that is false if no value was stored at the key.
-func (n NamespacedKV) Time(key string) (time.Time, bool) {
+func (n NamespacedKV) Time(key string) (time.Time, bool, error) {
 	var t time.Time
 	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
-		return t, false
+		return t, false, filterNotFound(err)
 	}
 	err = t.UnmarshalBinary(valBs)
-	return t, err == nil
+	return t, err == nil, err
 }
 
 // PutString stores a new string. Any existing value (even if of another type)
@@ -78,12 +80,12 @@ func (n *NamespacedKV) PutString(key, val string) error {
 
 // String returns the stored value interpreted as a string and a boolean that
 // is false if no value was stored at the key.
-func (n NamespacedKV) String(key string) (string, bool) {
+func (n NamespacedKV) String(key string) (string, bool, error) {
 	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
-		return "", false
+		return "", false, filterNotFound(err)
 	}
-	return string(valBs), true
+	return string(valBs), true, nil
 }
 
 // PutBytes stores a new byte slice. Any existing value (even if of another type)
@@ -94,12 +96,12 @@ func (n *NamespacedKV) PutBytes(key string, val []byte) error {
 
 // Bytes returns the stored value as a raw byte slice and a boolean that
 // is false if no value was stored at the key.
-func (n NamespacedKV) Bytes(key string) ([]byte, bool) {
+func (n NamespacedKV) Bytes(key string) ([]byte, bool, error) {
 	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
-		return nil, false
+		return nil, false, filterNotFound(err)
 	}
-	return valBs, true
+	return valBs, true, nil
 }
 
 // PutBool stores a new boolean. Any existing value (even if of another type)
@@ -113,12 +115,12 @@ func (n *NamespacedKV) PutBool(key string, val bool) error {
 
 // Bool returns the stored value as a boolean and a boolean that
 // is false if no value was stored at the key.
-func (n NamespacedKV) Bool(key string) (bool, bool) {
+func (n NamespacedKV) Bool(key string) (bool, bool, error) {
 	valBs, err := n.db.Get(n.prefixedKey(key))
 	if err != nil {
-		return false, false
+		return false, false, filterNotFound(err)
 	}
-	return valBs[0] == 0x0, true
+	return valBs[0] == 0x0, true, nil
 }
 
 // Delete deletes the specified key. It is allowed to delete a nonexistent
@@ -149,4 +151,11 @@ func NewFolderStatisticsNamespace(db *Lowlevel, folder string) *NamespacedKV {
 // NewMiscDateNamespace creates a KV namespace for miscellaneous metadata.
 func NewMiscDataNamespace(db *Lowlevel) *NamespacedKV {
 	return NewNamespacedKV(db, string(KeyTypeMiscData))
+}
+
+func filterNotFound(err error) error {
+	if backend.IsNotFound(err) {
+		return nil
+	}
+	return err
 }

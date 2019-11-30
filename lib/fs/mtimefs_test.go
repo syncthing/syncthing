@@ -241,7 +241,7 @@ func (s mapStore) PutBytes(key string, data []byte) error {
 	return nil
 }
 
-func (s mapStore) Bytes(key string) (data []byte, ok bool) {
+func (s mapStore) Bytes(key string) (data []byte, ok bool, err error) {
 	data, ok = s[key]
 	return
 }

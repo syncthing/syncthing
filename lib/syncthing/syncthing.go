@@ -210,7 +210,11 @@ func (a *App) startup() error {
 	// Grab the previously running version string from the database.
 
 	miscDB := db.NewMiscDataNamespace(a.ll)
-	prevVersion, _ := miscDB.String("prevVersion")
+	prevVersion, _, err := miscDB.String("prevVersion")
+	if err != nil {
+		l.Warnln("Database:", err)
+		return err
+	}
 
 	// Strip away prerelease/beta stuff and just compare the release
 	// numbers. 0.14.44 to 0.14.45-banana is an upgrade, 0.14.45-banana to

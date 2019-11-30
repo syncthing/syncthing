@@ -59,7 +59,7 @@ type service interface {
 	Errors() []FileError
 	WatchError() error
 	ForceRescan(file protocol.FileInfo) error
-	GetStatistics() stats.FolderStatistics
+	GetStatistics() (stats.FolderStatistics, error)
 
 	getState() (folderState, time.Time, error)
 }
@@ -108,8 +108,8 @@ type Model interface {
 
 	Completion(device protocol.DeviceID, folder string) FolderCompletion
 	ConnectionStats() map[string]interface{}
-	DeviceStatistics() map[string]stats.DeviceStatistics
-	FolderStatistics() map[string]stats.FolderStatistics
+	DeviceStatistics() (map[string]stats.DeviceStatistics, error)
+	FolderStatistics() (map[string]stats.FolderStatistics, error)
 	UsageReportingStats(version int, preview bool) map[string]interface{}
 
 	StartDeadlockDetector(timeout time.Duration)
@@ -706,25 +706,33 @@ func (m *model) ConnectionStats() map[string]interface{} {
 }
 
 // DeviceStatistics returns statistics about each device
-func (m *model) DeviceStatistics() map[string]stats.DeviceStatistics {
+func (m *model) DeviceStatistics() (map[string]stats.DeviceStatistics, error) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	res := make(map[string]stats.DeviceStatistics, len(m.deviceStatRefs))
 	for id, sr := range m.deviceStatRefs {
-		res[id.String()] = sr.GetStatistics()
+		stats, err := sr.GetStatistics()
+		if err != nil {
+			return nil, err
+		}
+		res[id.String()] = stats
 	}
-	return res
+	return res, nil
 }
 
 // FolderStatistics returns statistics about each folder
-func (m *model) FolderStatistics() map[string]stats.FolderStatistics {
+func (m *model) FolderStatistics() (map[string]stats.FolderStatistics, error) {
 	res := make(map[string]stats.FolderStatistics)
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	for id, runner := range m.folderRunners {
-		res[id] = runner.GetStatistics()
+		stats, err := runner.GetStatistics()
+		if err != nil {
+			return nil, err
+		}
+		res[id] = stats
 	}
-	return res
+	return res, nil
 }
 
 type FolderCompletion struct {

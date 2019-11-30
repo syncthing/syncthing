@@ -49,11 +49,16 @@ type schemaUpdater struct {
 
 func (db *schemaUpdater) updateSchema() error {
 	miscDB := NewMiscDataNamespace(db.Lowlevel)
-	prevVersion, _ := miscDB.Int64("dbVersion")
+	prevVersion, _, err := miscDB.Int64("dbVersion")
+	if err != nil {
+		return err
+	}
 
 	if prevVersion > dbVersion {
 		err := databaseDowngradeError{}
-		if minSyncthingVersion, ok := miscDB.String("dbMinSyncthingVersion"); ok {
+		if minSyncthingVersion, ok, dbErr := miscDB.String("dbMinSyncthingVersion"); dbErr != nil {
+			return dbErr
+		} else if ok {
 			err.minSyncthingVersion = minSyncthingVersion
 		}
 		return err
