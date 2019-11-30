@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -77,7 +78,7 @@ func TestStartupFail(t *testing.T) {
 	}, events.NoopLogger)
 	defer os.Remove(cfg.ConfigPath())
 
-	app := New(cfg, nil, events.NoopLogger, cert, Options{})
+	app := New(cfg, backend.OpenMemory(), events.NoopLogger, cert, Options{})
 	startErr := app.Start()
 	if startErr == nil {
 		t.Fatal("Expected an error from Start, got nil")
