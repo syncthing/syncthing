@@ -564,10 +564,11 @@ func WriteIgnores(filesystem fs.Filesystem, path string, content []string) error
 
 // DeleteIgnores should be called instead of WriteIgnores if parameter "content" is empty
 func DeleteIgnores(filesystem fs.Filesystem, path string) error {
-	if osutil.IsDeleted(filesystem, path) {
+	err := filesystem.Remove(path)
+	if fs.IsNotExist(err) {
 		return nil
 	}
-	return filesystem.Remove(path)
+	return err
 }
 
 type modtimeCheckerKey struct {
