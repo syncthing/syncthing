@@ -23,6 +23,7 @@ import (
 type ProgressEmitter struct {
 	suture.Service
 
+	cfg                config.Wrapper
 	registry           map[string]map[string]*sharedPullerState // folder: name: puller
 	interval           time.Duration
 	minBlocks          int
@@ -40,6 +41,7 @@ type ProgressEmitter struct {
 // DownloadProgress events every interval.
 func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmitter {
 	t := &ProgressEmitter{
+		cfg:                cfg,
 		registry:           make(map[string]map[string]*sharedPullerState),
 		timer:              time.NewTimer(time.Millisecond),
 		sentDownloadStates: make(map[protocol.DeviceID]*sentDownloadState),
@@ -51,7 +53,6 @@ func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmi
 	t.Service = util.AsService(t.serve, t.String())
 
 	t.CommitConfiguration(config.Configuration{}, cfg.RawCopy())
-	cfg.Subscribe(t)
 
 	return t
 }
@@ -59,6 +60,9 @@ func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmi
 // serve starts the progress emitter which starts emitting DownloadProgress
 // events as the progress happens.
 func (t *ProgressEmitter) serve(ctx context.Context) {
+	t.cfg.Subscribe(t)
+	defer t.cfg.Unsubscribe(t)
+
 	var lastUpdate time.Time
 	var lastCount, newCount int
 	for {

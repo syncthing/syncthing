@@ -94,6 +94,7 @@ type wrapper struct {
 	path     string
 	evLogger events.Logger
 
+	waiter    Waiter // Latest ongoing config change
 	deviceMap map[protocol.DeviceID]DeviceConfiguration
 	folderMap map[string]FolderConfiguration
 	subs      []Committer
@@ -109,6 +110,7 @@ func Wrap(path string, cfg Configuration, evLogger events.Logger) Wrapper {
 		cfg:      cfg,
 		path:     path,
 		evLogger: evLogger,
+		waiter:   noopWaiter{}, // Noop until first config change
 		mut:      sync.NewMutex(),
 	}
 	return w
@@ -144,7 +146,8 @@ func (w *wrapper) Subscribe(c Committer) {
 }
 
 // Unsubscribe de-registers the given handler from any future calls to
-// configuration changes
+// configuration changes and only returns after a potential ongoing config
+// change is done.
 func (w *wrapper) Unsubscribe(c Committer) {
 	w.mut.Lock()
 	for i := range w.subs {
@@ -155,7 +158,11 @@ func (w *wrapper) Unsubscribe(c Committer) {
 			break
 		}
 	}
+	waiter := w.waiter
 	w.mut.Unlock()
+	// Waiting mustn't be done under lock, as the goroutines in notifyListener
+	// may dead-lock when trying to access lock on config read operations.
+	waiter.Wait()
 }
 
 // RawCopy returns a copy of the currently wrapped Configuration object.
@@ -191,7 +198,9 @@ func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {
 	w.deviceMap = nil
 	w.folderMap = nil
 
-	return w.notifyListeners(from.Copy(), to.Copy()), nil
+	w.waiter = w.notifyListeners(from.Copy(), to.Copy())
+
+	return w.waiter, nil
 }
 
 func (w *wrapper) notifyListeners(from, to Configuration) Waiter {

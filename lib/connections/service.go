@@ -193,6 +193,12 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 	return service
 }
 
+func (s *service) Stop() {
+	s.cfg.Unsubscribe(s.limiter)
+	s.cfg.Unsubscribe(s)
+	s.Supervisor.Stop()
+}
+
 func (s *service) handle(ctx context.Context) {
 	var c internalConn
 	for {
