@@ -58,7 +58,7 @@ func OpenLevelDBRO(location string) (Backend, error) {
 	return &leveldbBackend{ldb: ldb}, nil
 }
 
-// OpenMemory returns a new Lowlevel referencing an in-memory database.
+// OpenMemory returns a new Backend referencing an in-memory database.
 func OpenLevelDBMemory() Backend {
 	ldb, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	return &leveldbBackend{ldb: ldb}

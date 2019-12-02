@@ -36,14 +36,14 @@ func init() {
 	}
 }
 
-func setup() (*instance, *BlockFinder) {
+func setup() (*Lowlevel, *BlockFinder) {
 	// Setup
 
 	db := NewLowlevel(backend.OpenMemory())
-	return newInstance(db), NewBlockFinder(db)
+	return db, NewBlockFinder(db)
 }
 
-func dbEmpty(db *instance) bool {
+func dbEmpty(db *Lowlevel) bool {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypeBlock})
 	if err != nil {
 		panic(err)
@@ -52,7 +52,7 @@ func dbEmpty(db *instance) bool {
 	return !iter.Next()
 }
 
-func addToBlockMap(db *instance, folder []byte, fs []protocol.FileInfo) error {
+func addToBlockMap(db *Lowlevel, folder []byte, fs []protocol.FileInfo) error {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func addToBlockMap(db *instance, folder []byte, fs []protocol.FileInfo) error {
 	return t.commit()
 }
 
-func discardFromBlockMap(db *instance, folder []byte, fs []protocol.FileInfo) error {
+func discardFromBlockMap(db *Lowlevel, folder []byte, fs []protocol.FileInfo) error {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err

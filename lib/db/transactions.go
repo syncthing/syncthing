@@ -17,7 +17,7 @@ type readOnlyTransaction struct {
 	keyer keyer
 }
 
-func (db *instance) newReadOnlyTransaction() (readOnlyTransaction, error) {
+func (db *Lowlevel) newReadOnlyTransaction() (readOnlyTransaction, error) {
 	tran, err := db.NewReadTransaction()
 	if err != nil {
 		return readOnlyTransaction{}, err
@@ -102,7 +102,7 @@ type readWriteTransaction struct {
 	readOnlyTransaction
 }
 
-func (db *instance) newReadWriteTransaction() (readWriteTransaction, error) {
+func (db *Lowlevel) newReadWriteTransaction() (readWriteTransaction, error) {
 	tran, err := db.NewWriteTransaction()
 	if err != nil {
 		return readWriteTransaction{}, err

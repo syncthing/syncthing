@@ -26,7 +26,7 @@ import (
 type FileSet struct {
 	folder string
 	fs     fs.Filesystem
-	db     *instance
+	db     *Lowlevel
 	meta   *metadataTracker
 
 	updateMutex sync.Mutex // protects database updates and the corresponding metadata changes
@@ -70,9 +70,7 @@ func init() {
 	}
 }
 
-func NewFileSet(folder string, fs fs.Filesystem, ll *Lowlevel) *FileSet {
-	db := newInstance(ll)
-
+func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 	var s = FileSet{
 		folder:      folder,
 		fs:          fs,
@@ -359,7 +357,7 @@ func (s *FileSet) MtimeFS() *fs.MtimeFS {
 	} else if err != nil {
 		panic(err)
 	}
-	kv := NewNamespacedKV(s.db.Lowlevel, string(prefix))
+	kv := NewNamespacedKV(s.db, string(prefix))
 	return fs.NewMtimeFS(s.fs, kv)
 }
 
@@ -369,9 +367,7 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 
 // DropFolder clears out all information related to the given folder from the
 // database.
-func DropFolder(ll *Lowlevel, folder string) {
-	db := newInstance(ll)
-
+func DropFolder(db *Lowlevel, folder string) {
 	droppers := []func([]byte) error{
 		db.dropFolder,
 		db.dropMtimes,
