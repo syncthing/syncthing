@@ -3,7 +3,7 @@
 package protocol
 
 import (
-	"sync"
+	"context"
 	"testing"
 	"time"
 
@@ -70,18 +70,44 @@ func TestStressBufferPool(t *testing.T) {
 	}
 
 	const routines = 10
-	const runtime = 2 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 
 	bp := newBufferPool()
-	t0 := time.Now()
 
-	var wg sync.WaitGroup
+	checkDone := func() bool {
+		if bp.puts == 0 || bp.skips == 0 || bp.misses == 0 {
+			return false
+		}
+		var hits int64
+		for _, h := range bp.hits {
+			hits += h
+		}
+		return hits > 0
+	}
+	go func() {
+		for {
+			select {
+			case <-time.After(100 * time.Millisecond):
+				if checkDone() {
+					cancel()
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	fail := make(chan struct{}, routines)
 	for i := 0; i < routines; i++ {
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
-			for time.Since(t0) < runtime {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
 				blocks := make([][]byte, 10)
 				for i := range blocks {
 					// Request a block of random size with the range
@@ -101,23 +127,13 @@ func TestStressBufferPool(t *testing.T) {
 		}()
 	}
 
-	wg.Wait()
 	select {
 	case <-fail:
 		t.Fatal("a block was bad size")
-	default:
-	}
-
-	t.Log(bp.puts, bp.skips, bp.misses, bp.hits)
-	if bp.puts == 0 || bp.skips == 0 || bp.misses == 0 {
-		t.Error("didn't exercise some paths")
-	}
-	var hits int64
-	for _, h := range bp.hits {
-		hits += h
-	}
-	if hits == 0 {
-		t.Error("didn't exercise some paths")
+	case <-ctx.Done():
+		if ctx.Err() == context.DeadlineExceeded {
+			t.Fatal("timed out before exercising all paths")
+		}
 	}
 }
 
