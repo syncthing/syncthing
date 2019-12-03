@@ -489,10 +489,7 @@ func buildTar(target target) {
 	}
 
 	build(target, tags)
-
-	if goos == "darwin" {
-		macosCodesign(target.BinaryName())
-	}
+	codesign(target)
 
 	for i := range target.archiveFiles {
 		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.BinaryName(), 1)
@@ -515,10 +512,7 @@ func buildZip(target target) {
 	}
 
 	build(target, tags)
-
-	if goos == "windows" {
-		windowsCodesign(target.BinaryName())
-	}
+	codesign(target)
 
 	for i := range target.archiveFiles {
 		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.BinaryName(), 1)
@@ -1176,6 +1170,15 @@ func zipFile(out string, files []archiveFile) {
 	err = fd.Close()
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+func codesign(target target) {
+	switch goos {
+	case "windows":
+		windowsCodesign(target.BinaryName())
+	case "darwin":
+		macosCodesign(target.BinaryName())
 	}
 }
 
