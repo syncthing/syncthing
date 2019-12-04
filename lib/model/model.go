@@ -1074,15 +1074,12 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 		l.Infof("%v for nonexistent folder %q", op, folder)
 		return errFolderMissing
 	}
-
-	if running {
-		defer runner.SchedulePull()
-	} else if update {
-		// Runner may legitimately not be set if this is the "cleanup" Index
-		// message at startup.
+	if !running {
 		l.Infof("%v for not running folder %q", op, folder)
-		return ErrFolderPaused
+		return errFolderNotRunning
 	}
+
+	defer runner.SchedulePull()
 
 	m.pmut.RLock()
 	downloads := m.deviceDownloads[deviceID]
