@@ -1059,10 +1059,10 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 
 	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
 		l.Infof("%v for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", op, folder, deviceID)
-		return errFolderMissing
+		return errors.Wrap(errFolderMissing, folder)
 	} else if cfg.Paused {
 		l.Debugf("%v for paused folder (ID %q) sent from device %q.", op, folder, deviceID)
-		return errFolderNotRunning
+		return errors.Wrap(ErrFolderPaused, folder)
 	}
 
 	m.fmut.RLock()
@@ -1072,14 +1072,12 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 
 	if !existing {
 		l.Infof("%v for nonexistent folder %q", op, folder)
-		return errFolderMissing
-	}
-	if !running {
-		l.Infof("%v for not running folder %q", op, folder)
-		return errFolderNotRunning
+		return errors.Wrap(errFolderMissing, folder)
 	}
 
-	defer runner.SchedulePull()
+	if running {
+		defer runner.SchedulePull()
+	}
 
 	m.pmut.RLock()
 	downloads := m.deviceDownloads[deviceID]
