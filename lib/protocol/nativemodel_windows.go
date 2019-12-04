@@ -15,14 +15,14 @@ type nativeModel struct {
 	Model
 }
 
-func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
+func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo) error {
 	files = fixupFiles(files)
-	m.Model.Index(deviceID, folder, files)
+	return m.Model.Index(deviceID, folder, files)
 }
 
-func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
+func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error {
 	files = fixupFiles(files)
-	m.Model.IndexUpdate(deviceID, folder, files)
+	return m.Model.IndexUpdate(deviceID, folder, files)
 }
 
 func (m nativeModel) Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
