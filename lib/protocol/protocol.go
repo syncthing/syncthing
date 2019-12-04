@@ -111,17 +111,17 @@ var (
 
 type Model interface {
 	// An index was received from the peer device
-	Index(deviceID DeviceID, folder string, files []FileInfo)
+	Index(deviceID DeviceID, folder string, files []FileInfo) error
 	// An index update was received from the peer device
-	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo)
+	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error
 	// A request was made by the peer device
 	Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
 	// A cluster configuration message was received
-	ClusterConfig(deviceID DeviceID, config ClusterConfig)
+	ClusterConfig(deviceID DeviceID, config ClusterConfig) error
 	// The peer device closed the connection
 	Closed(conn Connection, err error)
 	// The peer device sent progress updates for the files it is currently downloading
-	DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate)
+	DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error
 }
 
 type RequestResponse interface {
@@ -388,7 +388,9 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 			if state != stateInitial {
 				return fmt.Errorf("protocol error: cluster config message in state %d", state)
 			}
-			c.receiver.ClusterConfig(c.id, *msg)
+			if err := c.receiver.ClusterConfig(c.id, *msg); err != nil {
+				return errors.Wrap(err, "receiver error")
+			}
 			state = stateReady
 
 		case *Index:
@@ -399,7 +401,9 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 			if err := checkIndexConsistency(msg.Files); err != nil {
 				return errors.Wrap(err, "protocol error: index")
 			}
-			c.handleIndex(*msg)
+			if err := c.handleIndex(*msg); err != nil {
+				return errors.Wrap(err, "receiver error")
+			}
 			state = stateReady
 
 		case *IndexUpdate:
@@ -410,7 +414,9 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 			if err := checkIndexConsistency(msg.Files); err != nil {
 				return errors.Wrap(err, "protocol error: index update")
 			}
-			c.handleIndexUpdate(*msg)
+			if err := c.handleIndexUpdate(*msg); err != nil {
+				return errors.Wrap(err, "receiver error")
+			}
 			state = stateReady
 
 		case *Request:
@@ -435,7 +441,9 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 			if state != stateReady {
 				return fmt.Errorf("protocol error: response message in state %d", state)
 			}
-			c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates)
+			if err := c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates); err != nil {
+				return errors.Wrap(err, "receiver error")
+			}
 
 		case *Ping:
 			l.Debugln("read Ping message")
@@ -543,14 +551,14 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 	return hdr, nil
 }
 
-func (c *rawConnection) handleIndex(im Index) {
+func (c *rawConnection) handleIndex(im Index) error {
 	l.Debugf("Index(%v, %v, %d file)", c.id, im.Folder, len(im.Files))
-	c.receiver.Index(c.id, im.Folder, im.Files)
+	return c.receiver.Index(c.id, im.Folder, im.Files)
 }
 
-func (c *rawConnection) handleIndexUpdate(im IndexUpdate) {
+func (c *rawConnection) handleIndexUpdate(im IndexUpdate) error {
 	l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.id, im.Folder, len(im.Files))
-	c.receiver.IndexUpdate(c.id, im.Folder, im.Files)
+	return c.receiver.IndexUpdate(c.id, im.Folder, im.Files)
 }
 
 // checkIndexConsistency verifies a number of invariants on FileInfos received in
