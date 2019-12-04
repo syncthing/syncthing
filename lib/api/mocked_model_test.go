@@ -152,21 +152,29 @@ func (m *mockedModel) LocalChangedFiles(folder string, page, perpage int) []db.F
 	return nil
 }
 
-func (m *mockedModel) Serve()                                                                     {}
-func (m *mockedModel) Stop()                                                                      {}
-func (m *mockedModel) Index(deviceID protocol.DeviceID, folder string, files []protocol.FileInfo) {}
-func (m *mockedModel) IndexUpdate(deviceID protocol.DeviceID, folder string, files []protocol.FileInfo) {
+func (m *mockedModel) Serve() {}
+func (m *mockedModel) Stop()  {}
+
+func (m *mockedModel) Index(deviceID protocol.DeviceID, folder string, files []protocol.FileInfo) error {
+	return nil
+}
+
+func (m *mockedModel) IndexUpdate(deviceID protocol.DeviceID, folder string, files []protocol.FileInfo) error {
+	return nil
 }
 
 func (m *mockedModel) Request(deviceID protocol.DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (protocol.RequestResponse, error) {
 	return nil, nil
 }
 
-func (m *mockedModel) ClusterConfig(deviceID protocol.DeviceID, config protocol.ClusterConfig) {}
+func (m *mockedModel) ClusterConfig(deviceID protocol.DeviceID, config protocol.ClusterConfig) error {
+	return nil
+}
 
 func (m *mockedModel) Closed(conn protocol.Connection, err error) {}
 
-func (m *mockedModel) DownloadProgress(deviceID protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) {
+func (m *mockedModel) DownloadProgress(deviceID protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) error {
+	return nil
 }
 
 func (m *mockedModel) AddConnection(conn connections.Connection, hello protocol.HelloResult) {}
