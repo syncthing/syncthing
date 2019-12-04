@@ -58,7 +58,6 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 		forceRun:           make(chan struct{}, 1), // Buffered to prevent locking
 	}
 	svc.Service = util.AsService(svc.serve, svc.String())
-	cfg.Subscribe(svc)
 	return svc
 }
 
@@ -385,6 +384,9 @@ func (s *Service) sendUsageReport() error {
 }
 
 func (s *Service) serve(ctx context.Context) {
+	s.cfg.Subscribe(s)
+	defer s.cfg.Unsubscribe(s)
+
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
 	for {
 		select {

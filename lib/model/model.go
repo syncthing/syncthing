@@ -217,7 +217,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 	}
 	m.Add(m.progressEmitter)
 	scanLimiter.setCapacity(cfg.Options().MaxConcurrentScans)
-	cfg.Subscribe(m)
 
 	return m
 }
@@ -241,9 +240,11 @@ func (m *model) onServe() {
 		}
 		m.newFolder(folderCfg)
 	}
+	m.cfg.Subscribe(m)
 }
 
 func (m *model) Stop() {
+	m.cfg.Unsubscribe(m)
 	m.Supervisor.Stop()
 	devs := m.cfg.Devices()
 	ids := make([]protocol.DeviceID, 0, len(devs))
