@@ -37,8 +37,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-var key = [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0}
-
 var (
 	dialers   = make(map[string]dialerFactory)
 	listeners = make(map[string]listenerFactory)
