@@ -107,14 +107,13 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 }
 
 func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate) {
-	return
+	// No need to send these
 }
 
-func encryptFileInfos(files []FileInfo, key *[32]byte) error {
+func encryptFileInfos(files []FileInfo, key *[32]byte) {
 	for i, fi := range files {
 		files[i] = encryptFileInfo(fi, key)
 	}
-	return nil
 }
 
 func encryptFileInfo(fi FileInfo, key *[32]byte) FileInfo {
@@ -158,14 +157,14 @@ func encryptFileInfo(fi FileInfo, key *[32]byte) FileInfo {
 	// blockOverheads.
 
 	var offset int64
-	var blocks []BlockInfo
+	blocks := make([]BlockInfo, len(fi.Blocks))
 	for i, b := range fi.Blocks {
 		size := b.Size + blockOverhead
-		blocks = append(blocks, BlockInfo{
+		blocks[i] = BlockInfo{
 			Offset:   offset,
 			Size:     size,
 			WeakHash: uint32(i),
-		})
+		}
 		offset += int64(size)
 	}
 
