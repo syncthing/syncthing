@@ -8,6 +8,7 @@ package connections
 
 import (
 	"context"
+	"crypto/sha1"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -32,8 +33,11 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/thejerf/suture"
+	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/time/rate"
 )
+
+var key = [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0}
 
 var (
 	dialers   = make(map[string]dialerFactory)
@@ -321,7 +325,15 @@ func (s *service) handle(ctx context.Context) {
 		isLAN := s.isLAN(c.RemoteAddr())
 		rd, wr := s.limiter.getLimiters(remoteID, c, isLAN)
 
-		protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
+		var protoConn protocol.Connection
+		if deviceCfg.EncryptionPassword != "" {
+			keyBs := pbkdf2.Key([]byte(deviceCfg.EncryptionPassword), []byte("Syncthing's Salt"), 4096, 32, sha1.New)
+			var key [32]byte
+			copy(key[:], keyBs)
+			protoConn = protocol.NewEncryptedConnection(&key, remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
+		} else {
+			protoConn = protocol.NewConnection(remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
+		}
 		modelConn := completeConn{c, protoConn}
 
 		l.Infof("Established secure connection to %s at %s", remoteID, c)

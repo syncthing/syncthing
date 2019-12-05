@@ -41,7 +41,7 @@ require (
 	github.com/thejerf/suture v3.0.2+incompatible
 	github.com/urfave/cli v1.22.2
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
-	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
+	golang.org/x/crypto v0.0.0-20191205180655-e7c4368fe9dd
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4

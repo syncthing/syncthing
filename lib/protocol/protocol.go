@@ -137,7 +137,7 @@ type Connection interface {
 	Name() string
 	Index(ctx context.Context, folder string, files []FileInfo) error
 	IndexUpdate(ctx context.Context, folder string, files []FileInfo) error
-	Request(ctx context.Context, folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
+	Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
 	ClusterConfig(config ClusterConfig)
 	DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate)
 	Statistics() Statistics
@@ -204,13 +204,24 @@ const (
 var CloseTimeout = 10 * time.Second
 
 func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
+	receiver = nativeModel{receiver}
+	return newConnection(deviceID, reader, writer, receiver, name, compress)
+}
+
+func NewEncryptedConnection(key *[32]byte, deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
+	receiver = encryptedModel{Model: nativeModel{receiver}, key: key}
+	wfc := newConnection(deviceID, reader, writer, receiver, name, compress)
+	return encryptedConnection{Connection: wfc, key: key}
+}
+
+func newConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) wireFormatConnection {
 	cr := &countingReader{Reader: reader}
 	cw := &countingWriter{Writer: writer}
 
 	c := rawConnection{
 		id:                    deviceID,
 		name:                  name,
-		receiver:              nativeModel{receiver},
+		receiver:              receiver,
 		cr:                    cr,
 		cw:                    cw,
 		awaiting:              make(map[int32]chan asyncResult),
@@ -281,7 +292,7 @@ func (c *rawConnection) IndexUpdate(ctx context.Context, folder string, idx []Fi
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
-func (c *rawConnection) Request(ctx context.Context, folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (c *rawConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	c.nextIDMut.Lock()
 	id := c.nextID
 	c.nextID++

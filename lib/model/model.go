@@ -1698,7 +1698,7 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, size in
 		return nil, protocol.ErrGeneric
 	}
 
-	if !scanner.Validate(res.data, hash, weakHash) {
+	if len(hash) > 0 && !scanner.Validate(res.data, hash, weakHash) {
 		m.recheckFile(deviceID, folderFs, folder, name, size, offset, hash)
 		l.Debugf("%v REQ(in) failed validating data (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
@@ -2138,7 +2138,7 @@ func (s *indexSender) String() string {
 	return fmt.Sprintf("indexSender@%p for %s to %s at %s", s, s.folder, s.dev, s.conn)
 }
 
-func (m *model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (m *model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
@@ -2149,7 +2149,7 @@ func (m *model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, f
 
 	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, offset, size, hash, weakHash, fromTemporary)
 
-	return nc.Request(ctx, folder, name, offset, size, hash, weakHash, fromTemporary)
+	return nc.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 }
 
 func (m *model) ScanFolders() map[string]error {

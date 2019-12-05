@@ -80,7 +80,7 @@ func TestClose(t *testing.T) {
 	c0.Index(ctx, "default", nil)
 	c0.Index(ctx, "default", nil)
 
-	if _, err := c0.Request(ctx, "default", "foo", 0, 0, nil, 0, false); err == nil {
+	if _, err := c0.Request(ctx, "default", "foo", 0, 0, 0, nil, 0, false); err == nil {
 		t.Error("Request should return an error")
 	}
 }

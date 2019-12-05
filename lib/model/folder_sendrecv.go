@@ -1248,7 +1248,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		if blocksPercentChanged >= f.WeakHashThresholdPct {
 			hashesToFind := make([]uint32, 0, len(state.blocks))
 			for _, block := range state.blocks {
-				if block.WeakHash != 0 {
+				if block.IsHashed() && block.WeakHash != 0 {
 					hashesToFind = append(hashesToFind, block.WeakHash)
 				}
 			}
@@ -1290,58 +1290,61 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				continue
 			}
 
-			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
+			var found bool
+			if block.IsHashed() {
+				buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
 
-			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
-				if verifyBuffer(buf, block) != nil {
-					return true
-				}
-
-				_, err = dstFd.WriteAt(buf, block.Offset)
-				if err != nil {
-					state.fail(errors.Wrap(err, "dst write"))
-
-				}
-				if offset == block.Offset {
-					state.copiedFromOrigin()
-				} else {
-					state.copiedFromOriginShifted()
-				}
-
-				return false
-			})
-			if err != nil {
-				l.Debugln("weak hasher iter", err)
-			}
-
-			if !found {
-				found = f.model.finder.Iterate(folders, block.Hash, func(folder, path string, index int32) bool {
-					fs := folderFilesystems[folder]
-					fd, err := fs.Open(path)
-					if err != nil {
-						return false
-					}
-
-					_, err = fd.ReadAt(buf, int64(state.file.BlockSize())*int64(index))
-					fd.Close()
-					if err != nil {
-						return false
-					}
-
-					if err := verifyBuffer(buf, block); err != nil {
-						l.Debugln("Finder failed to verify buffer", err)
-						return false
+				found, err = weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
+					if verifyBuffer(buf, block) != nil {
+						return true
 					}
 
 					_, err = dstFd.WriteAt(buf, block.Offset)
 					if err != nil {
 						state.fail(errors.Wrap(err, "dst write"))
+
 					}
-					if path == state.file.Name {
+					if offset == block.Offset {
 						state.copiedFromOrigin()
+					} else {
+						state.copiedFromOriginShifted()
 					}
-					return true
+
+					return false
 				})
+				if err != nil {
+					l.Debugln("weak hasher iter", err)
+				}
+
+				if !found {
+					found = f.model.finder.Iterate(folders, block.Hash, func(folder, path string, index int32) bool {
+						fs := folderFilesystems[folder]
+						fd, err := fs.Open(path)
+						if err != nil {
+							return false
+						}
+
+						_, err = fd.ReadAt(buf, int64(state.file.BlockSize())*int64(index))
+						fd.Close()
+						if err != nil {
+							return false
+						}
+
+						if err := verifyBuffer(buf, block); err != nil {
+							l.Debugln("Finder failed to verify buffer", err)
+							return false
+						}
+
+						_, err = dstFd.WriteAt(buf, block.Offset)
+						if err != nil {
+							state.fail(errors.Wrap(err, "dst write"))
+						}
+						if path == state.file.Name {
+							state.copiedFromOrigin()
+						}
+						return true
+					})
+				}
 			}
 
 			if state.failed() != nil {
@@ -1372,6 +1375,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 func verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 	if len(buf) != int(block.Size) {
 		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
+	}
+	if !block.IsHashed() {
+		return nil
 	}
 	hf := sha256.New()
 	_, err := hf.Write(buf)
@@ -1466,7 +1472,8 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 		// leastBusy can select another device when someone else asks.
 		activity.using(selected)
 		var buf []byte
-		buf, lastError = f.model.requestGlobal(f.ctx, selected.ID, f.folderID, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
+		blockNo := int(state.block.Offset / int64(state.file.BlockSize()))
+		buf, lastError = f.model.requestGlobal(f.ctx, selected.ID, f.folderID, state.file.Name, blockNo, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
 		activity.done(selected)
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)

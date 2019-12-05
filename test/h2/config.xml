@@ -1,5 +1,5 @@
 <configuration version="29">
-    <folder id="default" label="" path="s2" type="sendreceive" rescanIntervalS="15" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+    <folder id="default" label="" path="s2" type="receiveonly" rescanIntervalS="0" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <filesystemType>basic</filesystemType>
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" introducedBy=""></device>
         <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" introducedBy=""></device>

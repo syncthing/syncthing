@@ -68,6 +68,7 @@
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <maxRequestKiB>0</maxRequestKiB>
+	<encryptionPassword>hello you</encryptionPassword>
     </device>
     <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22003</address>

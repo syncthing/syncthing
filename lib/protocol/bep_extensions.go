@@ -297,6 +297,10 @@ func (b BlockInfo) IsEmpty() bool {
 	return false
 }
 
+func (b BlockInfo) IsHashed() bool {
+	return len(b.Hash) > 0
+}
+
 type IndexID uint64
 
 func (i IndexID) String() string {
