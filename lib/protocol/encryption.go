@@ -91,9 +91,7 @@ func (e encryptedConnection) IndexUpdate(ctx context.Context, folder string, fil
 
 func (e encryptedConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	name = encryptName(name, e.key)
-	realOffset := offset
 	offset += int64(blockNo * blockOverhead)
-	realSize := size
 	size += blockOverhead
 
 	bs, err := e.Connection.Request(ctx, folder, name, blockNo, offset, size, nil, uint32(blockNo), false)
