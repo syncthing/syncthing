@@ -1302,7 +1302,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					_, err = dstFd.WriteAt(buf, block.Offset)
 					if err != nil {
 						state.fail(errors.Wrap(err, "dst write"))
-
 					}
 					if offset == block.Offset {
 						state.copiedFromOrigin()
