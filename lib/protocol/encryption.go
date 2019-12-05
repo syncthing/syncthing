@@ -43,7 +43,8 @@ func (e encryptedModel) IndexUpdate(deviceID DeviceID, folder string, files []Fi
 }
 
 func (e encryptedModel) Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
-	// Dededuct the real file, offset and size from the encrypted values.
+	// Figure out the real file name, offset and size from the encrypted /
+	// tweaked values.
 
 	realName, err := decryptName(name, e.key)
 	if err != nil {
@@ -61,6 +62,9 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, size int
 		}
 		return nil, err
 	}
+
+	// Encrypt the response.
+
 	data := resp.Data()
 	enc := encryptResponse(data, e.key)
 	resp.Close()
