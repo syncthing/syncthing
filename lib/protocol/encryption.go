@@ -164,13 +164,19 @@ func encryptFileInfo(fi FileInfo, key *[32]byte) FileInfo {
 		},
 	}
 
-	// Construct the fake block list. Each block will be blockOverhead
-	// bytes larger than the corresponding real one, have a nil hash and the
-	// block number in the weak hash. Stuffing the block number in the weak hash
-	// is an ugly hack that avoids a couple of other protocol changes, as it is
-	// a value that is propagated through to the block request. It helps the
-	// other end figure out the actual block offset to look at, given that the
-	// offset we get from the encrypted side is tainted by an unknown number of
+	// Construct the fake block list. Each block will be blockOverhead bytes
+	// larger than the corresponding real one, have an encrypted hash and
+	// the block number in the weak hash.
+	//
+	// The encrypted hash becomes just a "token" for the data -- it doesn't
+	// help verifying it, but it lets the encrypted device to block level
+	// diffs and data reuse properly when it gets a new version of a file.
+	//
+	// Stuffing the block number in the weak hash is an ugly hack that
+	// avoids a couple of other protocol changes, as it is a value that is
+	// propagated through to the block request. It helps the other end
+	// figure out the actual block offset to look at, given that the offset
+	// we get from the encrypted side is tainted by an unknown number of
 	// blockOverheads.
 
 	var offset int64
@@ -180,6 +186,7 @@ func encryptFileInfo(fi FileInfo, key *[32]byte) FileInfo {
 		blocks[i] = BlockInfo{
 			Offset:   offset,
 			Size:     size,
+			Hash:     encryptDeterministic(b.Hash, key),
 			WeakHash: uint32(i),
 		}
 		offset += int64(size)

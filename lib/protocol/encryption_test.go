@@ -45,8 +45,8 @@ func TestEnDecryptName(t *testing.T) {
 func TestEnDecryptBytes(t *testing.T) {
 	var key [32]byte
 	cases := [][]byte{
-		[]byte{},
-		[]byte{1, 2, 3, 4, 5},
+		{},
+		{1, 2, 3, 4, 5},
 	}
 	for _, tc := range cases {
 		var prev []byte
@@ -78,7 +78,7 @@ func TestEnDecryptFileInfo(t *testing.T) {
 		Permissions: 0755,
 		ModifiedS:   8080,
 		Blocks: []BlockInfo{
-			BlockInfo{
+			{
 				Size: 45,
 				Hash: []byte{1, 2, 3},
 			},

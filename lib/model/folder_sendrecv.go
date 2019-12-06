@@ -1290,10 +1290,10 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				continue
 			}
 
+			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
+
 			var found bool
 			if block.HashIsSHA256() {
-				buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
-
 				found, err = weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
 					if verifyBuffer(buf, block) != nil {
 						return true
@@ -1314,36 +1314,42 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				if err != nil {
 					l.Debugln("weak hasher iter", err)
 				}
+			}
 
-				if !found {
-					found = f.model.finder.Iterate(folders, block.Hash, func(folder, path string, index int32) bool {
-						fs := folderFilesystems[folder]
-						fd, err := fs.Open(path)
-						if err != nil {
-							return false
-						}
+			if !found {
+				found = f.model.finder.Iterate(folders, block.Hash, func(folder, path string, index int32) bool {
+					fs := folderFilesystems[folder]
+					fd, err := fs.Open(path)
+					if err != nil {
+						return false
+					}
 
-						_, err = fd.ReadAt(buf, int64(state.file.BlockSize())*int64(index))
-						fd.Close()
-						if err != nil {
-							return false
-						}
+					_, err = fd.ReadAt(buf, int64(state.file.BlockSize())*int64(index))
+					fd.Close()
+					if err != nil {
+						return false
+					}
 
+					if block.HashIsSHA256() {
+						// If the hash is not SHA256 it's an encrypted hash
+						// token. In that case we can't verify the block
+						// integrity so we'll take it on trust. (The other
+						// side can and will verify.)
 						if err := verifyBuffer(buf, block); err != nil {
 							l.Debugln("Finder failed to verify buffer", err)
 							return false
 						}
+					}
 
-						_, err = dstFd.WriteAt(buf, block.Offset)
-						if err != nil {
-							state.fail(errors.Wrap(err, "dst write"))
-						}
-						if path == state.file.Name {
-							state.copiedFromOrigin()
-						}
-						return true
-					})
-				}
+					_, err = dstFd.WriteAt(buf, block.Offset)
+					if err != nil {
+						state.fail(errors.Wrap(err, "dst write"))
+					}
+					if path == state.file.Name {
+						state.copiedFromOrigin()
+					}
+					return true
+				})
 			}
 
 			if state.failed() != nil {
