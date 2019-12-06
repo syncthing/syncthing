@@ -175,7 +175,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 
 		if !f.IsDirectory() && !f.IsDeleted() && !f.IsInvalid() {
 			for i, block := range f.Blocks {
-				if !block.IsHashed() {
+				if len(block.Hash) == 0 {
 					continue
 				}
 				binary.BigEndian.PutUint32(blockBuf, uint32(i))

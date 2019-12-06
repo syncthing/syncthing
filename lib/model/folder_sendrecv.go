@@ -1248,7 +1248,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		if blocksPercentChanged >= f.WeakHashThresholdPct {
 			hashesToFind := make([]uint32, 0, len(state.blocks))
 			for _, block := range state.blocks {
-				if block.IsHashed() && block.WeakHash != 0 {
+				if block.HashIsSHA256() && block.WeakHash != 0 {
 					hashesToFind = append(hashesToFind, block.WeakHash)
 				}
 			}
@@ -1291,7 +1291,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			}
 
 			var found bool
-			if block.IsHashed() {
+			if block.HashIsSHA256() {
 				buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
 
 				found, err = weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
@@ -1375,7 +1375,7 @@ func verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 	if len(buf) != int(block.Size) {
 		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
 	}
-	if !block.IsHashed() {
+	if !block.HashIsSHA256() {
 		return nil
 	}
 	hf := sha256.New()
