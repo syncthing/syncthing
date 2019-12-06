@@ -124,6 +124,8 @@ func encryptFileInfos(files []FileInfo, key *[32]byte) {
 	}
 }
 
+// encryptFileInfo encrypts a FileInfo and wraps it into a new fake FileInfo
+// with an encrypted name.
 func encryptFileInfo(fi FileInfo, key *[32]byte) FileInfo {
 	// The entire FileInfo is encrypted with a random nonce, and concatenated
 	// with that nonce.
@@ -207,6 +209,8 @@ func decryptFileInfos(files []FileInfo, key *[32]byte) error {
 	return nil
 }
 
+// decryptFileInfo extracts the encrypted portion of a FileInfo, decrypts it
+// and returns that.
 func decryptFileInfo(fi FileInfo, key *[32]byte) (FileInfo, error) {
 	dec, err := decryptBytes(fi.Encrypted, key)
 	if err != nil {
@@ -220,11 +224,15 @@ func decryptFileInfo(fi FileInfo, key *[32]byte) (FileInfo, error) {
 	return decFI, nil
 }
 
+// encryptName encrypts the given string in a deterministic manner (the
+// result is always the same for any given string) and encodes it in a
+// filesystem-friendly manner.
 func encryptName(name string, key *[32]byte) string {
 	enc := encryptDeterministic([]byte(name), key)
 	return base32.HexEncoding.EncodeToString(enc)
 }
 
+// decryptName decrypts a string from encryptName
 func decryptName(name string, key *[32]byte) (string, error) {
 	bs, err := base32.HexEncoding.DecodeString(name)
 	if err != nil {
@@ -237,16 +245,21 @@ func decryptName(name string, key *[32]byte) (string, error) {
 	return string(dec), nil
 }
 
+// encryptBytes encrypts bytes with a random nonce
 func encryptBytes(data []byte, key *[32]byte) []byte {
 	nonce := randomNonce()
 	return secretbox.Seal(nonce[:], data, nonce, key)
 }
 
+// encryptDeterministic encrypts bytes with a nonce based on the data and
+// key.
 func encryptDeterministic(data []byte, key *[32]byte) []byte {
 	nonce := deterministicNonce(data, key)
 	return secretbox.Seal(nonce[:], data, nonce, key)
 }
 
+// decryptBytes returns the decrypted bytes, or an error if decryption
+// failed.
 func decryptBytes(data []byte, key *[32]byte) ([]byte, error) {
 	if len(data) < 24 {
 		return nil, errors.New("data too short")
@@ -262,14 +275,16 @@ func decryptBytes(data []byte, key *[32]byte) ([]byte, error) {
 	return dec, nil
 }
 
+// deterministicNonce is a nonce based on the hash of data and key using
+// PBKDF2
 func deterministicNonce(data []byte, key *[32]byte) *[24]byte {
-	h := sha256.Sum256(append(data, (*key)[:]...))
-	bs := pbkdf2.Key(h[:], nonceSalt[:], 4096, 24, sha256.New)
+	bs := pbkdf2.Key(append(data, (*key)[:]...), nonceSalt[:], 4096, 24, sha256.New)
 	var nonce [24]byte
 	copy(nonce[:], bs)
 	return &nonce
 }
 
+// randomNonce is a randomly generated nonce
 func randomNonce() *[24]byte {
 	var nonce [24]byte
 	if _, err := rand.Read(nonce[:]); err != nil {

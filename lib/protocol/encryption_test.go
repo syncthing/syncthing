@@ -21,16 +21,23 @@ func TestEnDecryptName(t *testing.T) {
 		"a longer name/with/slashes not that they matter",
 	}
 	for _, tc := range cases {
-		enc := encryptName(tc, &key)
-		if tc != "" && strings.Contains(enc, tc) {
-			t.Error("shouldn't contain plaintext")
-		}
-		dec, err := decryptName(enc, &key)
-		if err != nil {
-			t.Error(err)
-		}
-		if dec != tc {
-			t.Error("mismatch after decryption")
+		var prev string
+		for i := 0; i < 5; i++ {
+			enc := encryptName(tc, &key)
+			if prev != "" && prev != enc {
+				t.Error("name should always encrypt the same")
+			}
+			prev = enc
+			if tc != "" && strings.Contains(enc, tc) {
+				t.Error("shouldn't contain plaintext")
+			}
+			dec, err := decryptName(enc, &key)
+			if err != nil {
+				t.Error(err)
+			}
+			if dec != tc {
+				t.Error("mismatch after decryption")
+			}
 		}
 	}
 }
@@ -42,16 +49,23 @@ func TestEnDecryptBytes(t *testing.T) {
 		[]byte{1, 2, 3, 4, 5},
 	}
 	for _, tc := range cases {
-		enc := encryptBytes(tc, &key)
-		if len(tc) > 0 && bytes.Contains(enc, tc) {
-			t.Error("shouldn't contain plaintext")
-		}
-		dec, err := decryptBytes(enc, &key)
-		if err != nil {
-			t.Error(err)
-		}
-		if !bytes.Equal(dec, tc) {
-			t.Error("mismatch after decryption")
+		var prev []byte
+		for i := 0; i < 5; i++ {
+			enc := encryptBytes(tc, &key)
+			if bytes.Equal(enc, prev) {
+				t.Error("encryption should not repeat")
+			}
+			prev = enc
+			if len(tc) > 0 && bytes.Contains(enc, tc) {
+				t.Error("shouldn't contain plaintext")
+			}
+			dec, err := decryptBytes(enc, &key)
+			if err != nil {
+				t.Error(err)
+			}
+			if !bytes.Equal(dec, tc) {
+				t.Error("mismatch after decryption")
+			}
 		}
 	}
 }
