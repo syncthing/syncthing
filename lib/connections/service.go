@@ -8,7 +8,7 @@ package connections
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -325,7 +325,7 @@ func (s *service) handle(ctx context.Context) {
 
 		var protoConn protocol.Connection
 		if deviceCfg.EncryptionPassword != "" {
-			keyBs := pbkdf2.Key([]byte(deviceCfg.EncryptionPassword), []byte("Syncthing's Salt"), 4096, 32, sha1.New)
+			keyBs := pbkdf2.Key([]byte(deviceCfg.EncryptionPassword), []byte("Syncthing's Salt"), 4096, 32, sha256.New)
 			var key [32]byte
 			copy(key[:], keyBs)
 			protoConn = protocol.NewEncryptedConnection(&key, remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)

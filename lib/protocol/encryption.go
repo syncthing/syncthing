@@ -9,7 +9,6 @@ package protocol
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/base32"
 	"errors"
@@ -265,7 +264,7 @@ func decryptBytes(data []byte, key *[32]byte) ([]byte, error) {
 
 func deterministicNonce(data []byte, key *[32]byte) *[24]byte {
 	h := sha256.Sum256(append(data, (*key)[:]...))
-	bs := pbkdf2.Key(h[:], nonceSalt[:], 4096, 24, sha1.New)
+	bs := pbkdf2.Key(h[:], nonceSalt[:], 4096, 24, sha256.New)
 	var nonce [24]byte
 	copy(nonce[:], bs)
 	return &nonce
