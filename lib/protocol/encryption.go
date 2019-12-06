@@ -12,6 +12,7 @@ import (
 	"crypto/sha256"
 	"encoding/base32"
 	"errors"
+	"path"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -19,7 +20,10 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
-const blockOverhead = secretbox.Overhead + 24 // Nonce is [24]byte and prepended to each block
+const (
+	blockOverhead          = secretbox.Overhead + 24 // Nonce is [24]byte and prepended to each block
+	EncryptedFileExtension = ".stencdata"
+)
 
 // nonceSalt is a random salt we use for PBKDF2 when generating
 // deterministic nonces.
@@ -247,11 +251,19 @@ func decryptFileInfo(fi FileInfo, key *[32]byte) (FileInfo, error) {
 // filesystem-friendly manner.
 func encryptName(name string, key *[32]byte) string {
 	enc := encryptDeterministic([]byte(name), key)
-	return base32.HexEncoding.EncodeToString(enc)
+	return base32.HexEncoding.EncodeToString(enc) + EncryptedFileExtension
 }
 
 // decryptName decrypts a string from encryptName
 func decryptName(name string, key *[32]byte) (string, error) {
+	// Verify and strip file extension
+	ext := path.Ext(name)
+	if ext != EncryptedFileExtension {
+		return "", errors.New("unexpected file extension")
+	}
+	name = name[:len(name)-len(ext)]
+
+	// Decode base32 stuff and decrypt.
 	bs, err := base32.HexEncoding.DecodeString(name)
 	if err != nil {
 		return "", err

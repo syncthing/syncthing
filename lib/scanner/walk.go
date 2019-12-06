@@ -227,6 +227,12 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			return skip
 		}
 
+		// If the file is an encrypted data file it can't currently be scanned.
+		// (Special handling here in the future)
+		if filepath.Ext(path) == protocol.EncryptedFileExtension {
+			return skip
+		}
+
 		if fs.IsTemporary(path) {
 			l.Debugln("temporary:", path, "err:", err)
 			if err == nil && info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {

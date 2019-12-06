@@ -8,6 +8,7 @@ package model
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -1503,6 +1504,12 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 }
 
 func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCurFile bool, tempName string, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
+	if len(file.Encrypted) > 0 {
+		if err := f.finalizeEncrypted(file, tempName); err != nil {
+			l.Warnln("Finalize encrypted file:", err)
+		}
+	}
+
 	// Set the correct permission bits on the new file
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err := f.fs.Chmod(tempName, fs.FileMode(file.Permissions&0777)); err != nil {
@@ -1556,6 +1563,31 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 	// Record the updated file in the index
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleFile}
 	return nil
+}
+
+// finalizeEncrypted adds a trailer to the encrypted file containing the
+// serialized FileInfo and the length of that FileInfo. When initializing a
+// folder from encrypted data we can extract this FileInfo from the end of
+// the file and regain the original metadata.
+func (f *sendReceiveFolder) finalizeEncrypted(file protocol.FileInfo, tempName string) error {
+	size := file.ProtoSize()
+	bs := make([]byte, 4+size)
+	n, err := file.MarshalTo(bs)
+	if err != nil {
+		return err
+	}
+	binary.BigEndian.PutUint32(bs[n:], uint32(n))
+	bs = bs[:n+4]
+
+	fd, err := f.fs.OpenFile(tempName, fs.OptWriteOnly|fs.OptAppend, 0600)
+	if err != nil {
+		return err
+	}
+	if _, err := fd.Write(bs); err != nil {
+		fd.Close()
+		return err
+	}
+	return fd.Close()
 }
 
 func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
