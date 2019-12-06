@@ -208,7 +208,8 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	return newConnection(deviceID, reader, writer, receiver, name, compress)
 }
 
-func NewEncryptedConnection(key *[32]byte, deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
+func NewEncryptedConnection(password string, deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
+	key := keyFromPassword(password)
 	receiver = encryptedModel{Model: nativeModel{receiver}, key: key}
 	wfc := newConnection(deviceID, reader, writer, receiver, name, compress)
 	return encryptedConnection{Connection: wfc, key: key}
