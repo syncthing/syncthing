@@ -1330,15 +1330,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						return false
 					}
 
-					if block.HashIsSHA256() {
-						// If the hash is not SHA256 it's an encrypted hash
-						// token. In that case we can't verify the block
-						// integrity so we'll take it on trust. (The other
-						// side can and will verify.)
-						if err := verifyBuffer(buf, block); err != nil {
-							l.Debugln("Finder failed to verify buffer", err)
-							return false
-						}
+					if err := verifyBuffer(buf, block); err != nil {
+						l.Debugln("Finder failed to verify buffer", err)
+						return false
 					}
 
 					_, err = dstFd.WriteAt(buf, block.Offset)
@@ -1382,6 +1376,9 @@ func verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
 	}
 	if !block.HashIsSHA256() {
+		// If the hash is not SHA256 it's an encrypted hash token. In that
+		// case we can't verify the block integrity so we'll take it on
+		// trust. (The other side can and will verify.)
 		return nil
 	}
 	hf := sha256.New()
