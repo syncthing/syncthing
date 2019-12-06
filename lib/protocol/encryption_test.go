@@ -8,7 +8,6 @@ package protocol
 
 import (
 	"bytes"
-	fmt "fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -36,18 +35,18 @@ func TestEnDecryptName(t *testing.T) {
 	}
 }
 
-func TestEnDecryptResponse(t *testing.T) {
+func TestEnDecryptBytes(t *testing.T) {
 	var key [32]byte
 	cases := [][]byte{
 		[]byte{},
 		[]byte{1, 2, 3, 4, 5},
 	}
 	for _, tc := range cases {
-		enc := encryptResponse(tc, &key)
+		enc := encryptBytes(tc, &key)
 		if len(tc) > 0 && bytes.Contains(enc, tc) {
 			t.Error("shouldn't contain plaintext")
 		}
-		dec, err := decryptResponse(enc, &key)
+		dec, err := decryptBytes(enc, &key)
 		if err != nil {
 			t.Error(err)
 		}
@@ -73,7 +72,6 @@ func TestEnDecryptFileInfo(t *testing.T) {
 	}
 
 	enc := encryptFileInfo(fi, &key)
-	fmt.Println(enc)
 	dec, err := decryptFileInfo(enc, &key)
 	if err != nil {
 		t.Error(err)

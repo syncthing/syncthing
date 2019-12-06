@@ -9,6 +9,7 @@ package protocol
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/base32"
 	"errors"
@@ -16,9 +17,17 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"golang.org/x/crypto/nacl/secretbox"
+	"golang.org/x/crypto/pbkdf2"
 )
 
 const blockOverhead = secretbox.Overhead + 24 // Nonce is [24]byte and prepended to each block
+
+var nonceSalt = [32]byte{
+	0x83, 0xf6, 0x92, 0x44, 0x5f, 0x33, 0x00, 0xdb,
+	0x14, 0x37, 0xe9, 0x69, 0x59, 0x09, 0x87, 0x3c,
+	0x2b, 0x10, 0x03, 0x4d, 0x48, 0xfb, 0x34, 0x8f,
+	0x0b, 0x0d, 0xfd, 0xe9, 0x7e, 0xe2, 0xc9, 0xef,
+}
 
 // The encryptedModel sits between the encrypted device and the model. It
 // receives encrypted metadata and requests, so it must decrypt those and answer
@@ -66,7 +75,7 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, size int
 	// Encrypt the response.
 
 	data := resp.Data()
-	enc := encryptResponse(data, e.key)
+	enc := encryptBytes(data, e.key)
 	resp.Close()
 	return rawResponse{enc}, nil
 }
@@ -103,7 +112,7 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 		return nil, err
 	}
 
-	return decryptResponse(bs, e.key)
+	return decryptBytes(bs, e.key)
 }
 
 func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate) {
@@ -120,15 +129,11 @@ func encryptFileInfo(fi FileInfo, key *[32]byte) FileInfo {
 	// The entire FileInfo is encrypted with a random nonce, and concatenated
 	// with that nonce.
 
-	var nonce [24]byte
-	if _, err := rand.Read(nonce[:]); err != nil {
-		panic("catastrophic randomness failure: " + err.Error())
-	}
 	bs, err := proto.Marshal(&fi)
 	if err != nil {
 		panic("impossible serialization mishap: " + err.Error())
 	}
-	encryptedFI := secretbox.Seal(nonce[:], bs, &nonce, key)
+	encryptedFI := encryptBytes(bs, key)
 
 	// The vector is set to something that is higher than any other version sent
 	// previously, assuming people's clocks are correct. We do this because
@@ -204,15 +209,9 @@ func decryptFileInfos(files []FileInfo, key *[32]byte) error {
 }
 
 func decryptFileInfo(fi FileInfo, key *[32]byte) (FileInfo, error) {
-	if len(fi.Encrypted) < 24 {
-		return FileInfo{}, errors.New("FileInfo too short")
-	}
-
-	var nonce [24]byte
-	copy(nonce[:], fi.Encrypted)
-	dec, ok := secretbox.Open(nil, fi.Encrypted[24:], &nonce, key)
-	if !ok {
-		return FileInfo{}, errors.New("FileInfo decryption failed")
+	dec, err := decryptBytes(fi.Encrypted, key)
+	if err != nil {
+		return FileInfo{}, err
 	}
 
 	var decFI FileInfo
@@ -223,10 +222,7 @@ func decryptFileInfo(fi FileInfo, key *[32]byte) (FileInfo, error) {
 }
 
 func encryptName(name string, key *[32]byte) string {
-	h := sha256.Sum256(append([]byte(name), (*key)[:]...))
-	var nonce [24]byte
-	copy(nonce[:], h[:])
-	enc := secretbox.Seal(nonce[:], []byte(name), &nonce, key)
+	enc := encryptDeterministic([]byte(name), key)
 	return base32.HexEncoding.EncodeToString(enc)
 }
 
@@ -235,42 +231,52 @@ func decryptName(name string, key *[32]byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(bs) < 24 {
-		return "", errors.New("name too short")
+	dec, err := decryptBytes(bs, key)
+	if err != nil {
+		return "", err
 	}
-
-	var nonce [24]byte
-	copy(nonce[:], bs)
-	dec, ok := secretbox.Open(nil, bs[24:], &nonce, key)
-	if !ok {
-		return "", errors.New("name decryption failed")
-	}
-
 	return string(dec), nil
 }
 
-func encryptResponse(data []byte, key *[32]byte) []byte {
-	var nonce [24]byte
-	if _, err := rand.Read(nonce[:]); err != nil {
-		panic("catastrophic randomness failure: " + err.Error())
-	}
-
-	return secretbox.Seal(nonce[:], data, &nonce, key)
+func encryptBytes(data []byte, key *[32]byte) []byte {
+	nonce := randomNonce()
+	return secretbox.Seal(nonce[:], data, nonce, key)
 }
 
-func decryptResponse(data []byte, key *[32]byte) ([]byte, error) {
+func encryptDeterministic(data []byte, key *[32]byte) []byte {
+	nonce := deterministicNonce(data, key)
+	return secretbox.Seal(nonce[:], data, nonce, key)
+}
+
+func decryptBytes(data []byte, key *[32]byte) ([]byte, error) {
 	if len(data) < 24 {
-		return nil, errors.New("response too short")
+		return nil, errors.New("data too short")
 	}
 
 	var nonce [24]byte
 	copy(nonce[:], data)
 	dec, ok := secretbox.Open(nil, data[24:], &nonce, key)
 	if !ok {
-		return nil, errors.New("response decryption failed")
+		return nil, errors.New("decryption failed")
 	}
 
 	return dec, nil
+}
+
+func deterministicNonce(data []byte, key *[32]byte) *[24]byte {
+	h := sha256.Sum256(append(data, (*key)[:]...))
+	bs := pbkdf2.Key(h[:], nonceSalt[:], 4096, 24, sha1.New)
+	var nonce [24]byte
+	copy(nonce[:], bs)
+	return &nonce
+}
+
+func randomNonce() *[24]byte {
+	var nonce [24]byte
+	if _, err := rand.Read(nonce[:]); err != nil {
+		panic("catastrophic randomness failure: " + err.Error())
+	}
+	return &nonce
 }
 
 type rawResponse struct {
