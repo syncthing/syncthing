@@ -96,6 +96,10 @@ message IndexUpdate {
 
 message FileInfo {
     option (gogoproto.goproto_stringer) = false;
+
+    // The field ordering here optimizes for struct size / alignment --
+    // large types come before smaller ones.
+
     string             name           = 1;
     int64              size           = 3;
     int64              modified_s     = 5;
