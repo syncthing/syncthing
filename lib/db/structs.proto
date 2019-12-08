@@ -27,23 +27,24 @@ message VersionList {
 message FileInfoTruncated {
     option (gogoproto.goproto_stringer) = false;
     string                name           = 1;
-    protocol.FileInfoType type           = 2;
     int64                 size           = 3;
-    uint32                permissions    = 4;
     int64                 modified_s     = 5;
-    int32                 modified_ns    = 11;
     uint64                modified_by    = 12 [(gogoproto.customtype) = "github.com/syncthing/syncthing/lib/protocol.ShortID", (gogoproto.nullable) = false];
-    bool                  deleted        = 6;
-    bool                  invalid        = 7 [(gogoproto.customname) = "RawInvalid"];
-    bool                  no_permissions = 8;
     protocol.Vector       version        = 9 [(gogoproto.nullable) = false];
     int64                 sequence       = 10;
-    int32                 block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
     // repeated BlockInfo Blocks         = 16
     string                symlink_target = 17;
+    protocol.FileInfoType type           = 2;
+    uint32                permissions    = 4;
+    int32                 modified_ns    = 11;
+    int32                 block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
 
     // see bep.proto
     uint32 local_flags = 1000;
+
+    bool deleted        = 6;
+    bool invalid        = 7 [(gogoproto.customname) = "RawInvalid"];
+    bool no_permissions = 8;
 }
 
 // For each folder and device we keep one of these to track the current
