@@ -630,7 +630,11 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 
 			// Mask for the bits we want to preserve and add them in to the
 			// directories permissions.
-			return f.fs.Chmod(path, mode|(info.Mode()&retainBits))
+			if err = f.fs.Chmod(path, mode|(info.Mode()&retainBits)); err != nil {
+				return err
+			}
+			l.Infof("Lchown Dir. name: %s uid: %d gid: %d", path, file.Uid, file.Gid)
+			return f.fs.Lchown(path, int(file.Uid), int(file.Gid))
 		}
 
 		if err = f.inWritableDir(mkdir, file.Name); err == nil {
