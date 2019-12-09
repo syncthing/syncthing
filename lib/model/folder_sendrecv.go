@@ -1539,7 +1539,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 	}
 
 	// chown
-	if err := f.fs.Lchown(file.Name, int(file.Uid)/*uid*/, int(file.Gid)/*gid*/); err != nil {
+	if err := f.fs.Lchown(file.Name, int(file.Uid) /*uid*/, int(file.Gid) /*gid*/); err != nil {
 		l.Infof("failed to chown %d:%d %s. error: %v", file.Gid, file.Uid, file.Name, err)
 	}
 
