@@ -1222,18 +1222,10 @@ angular.module('syncthing.core')
 
         $scope.discardChangedSettings = function () {
             $("#discard-changes-confirmation").modal("hide");
-            $("#settings").modal("hide");
+            $("#settings").off("hide.bs.modal").modal("hide");
         };
 
-        $scope.closeSettings = function () {
-            if ($scope.settingsModified()) {
-                $("#discard-changes-confirmation").modal("show");
-            } else {
-                $("#settings").modal("hide");
-            }
-        };
-
-        $scope.editSettings = function () {
+        $scope.showSettings = function () {
             // Make a working copy
             $scope.tmpOptions = angular.copy($scope.config.options);
             $scope.tmpOptions.deviceName = $scope.thisDevice().name;
@@ -1249,6 +1241,14 @@ angular.module('syncthing.core')
             $scope.tmpDevices = angular.copy($scope.config.devices);
             $('#settings').modal("show");
             $("#settings a[href='#settings-general']").tab("show");
+            $("#settings").on('hide.bs.modal', function (event) {
+                if ($scope.settingsModified()) {
+                    event.preventDefault();
+                    $("#discard-changes-confirmation").modal("show");
+                } else {
+                    $("#settings").off("hide.bs.modal");
+                }
+            });
         };
 
         $scope.saveConfig = function (cb) {
@@ -1352,7 +1352,7 @@ angular.module('syncthing.core')
                 });
             }
 
-            $('#settings').modal("hide");
+            $("#settings").off("hide.bs.modal").modal("hide");
         };
 
         $scope.saveAdvanced = function () {
