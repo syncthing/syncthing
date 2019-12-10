@@ -1251,7 +1251,7 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.saveConfig = function (cb) {
+        $scope.saveConfig = function (callback) {
             var cfg = JSON.stringify($scope.config);
             var opts = {
                 headers: {
@@ -1260,8 +1260,9 @@ angular.module('syncthing.core')
             };
             $http.post(urlbase + '/system/config', cfg, opts).success(function () {
                 refreshConfig();
-                if (cb) {
-                    cb();
+
+                if (callback) {
+                    callback();
                 }
             }).error(function (data, status, headers, config) {
                 refreshConfig();
@@ -1318,6 +1319,7 @@ angular.module('syncthing.core')
                     $scope.tmpOptions.upgradeToPreReleases = false;
                 } else {
                     $scope.tmpOptions.autoUpgradeIntervalH = 0;
+                    $scope.tmpOptions.upgradeToPreReleases = false;
                 }
 
                 // Check if protocol will need to be changed on restart
