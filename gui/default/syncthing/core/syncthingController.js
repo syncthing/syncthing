@@ -690,7 +690,7 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshFailed = function (page, perpage) {
-            if (!$scope.failed) {
+            if (!$scope.failed || !$scope.failed.folder) {
                 return;
             }
             var url = urlbase + '/folder/errors?folder=' + encodeURIComponent($scope.failed.folder);
