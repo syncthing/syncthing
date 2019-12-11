@@ -105,7 +105,7 @@ angular.module('syncthing.core')
         $scope.needIcons = {
             'rm': 'far fa-fw fa-trash-alt',
             'rmdir': 'far fa-fw fa-trash-alt',
-            'sync': 'far fa-fw arrow-alt-circle-down',
+            'sync': 'far fa-fw fa-arrow-alt-circle-down',
             'touch': 'fas fa-fw fa-asterisk'
         };
 
