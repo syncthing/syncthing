@@ -72,7 +72,8 @@ type Options struct {
 type App struct {
 	myID        protocol.DeviceID
 	mainService *suture.Supervisor
-	cfg         config.Wrapper
+	cfgw        config.Wrapper
+	cfg         config.Configuration
 	ll          *db.Lowlevel
 	evLogger    events.Logger
 	cert        tls.Certificate
@@ -84,8 +85,9 @@ type App struct {
 	stopped     chan struct{}
 }
 
-func New(cfg config.Wrapper, ll *db.Lowlevel, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
+func New(cfgw config.Wrapper, cfg config.Configuration, ll *db.Lowlevel, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
 	a := &App{
+		cfgw:     cfgw,
 		cfg:      cfg,
 		ll:       ll,
 		evLogger: evLogger,
@@ -161,7 +163,7 @@ func (a *App) startup() error {
 		"myID": a.myID.String(),
 	})
 
-	if err := checkShortIDs(a.cfg); err != nil {
+	if err := checkShortIDs(a.cfg.Devices); err != nil {
 		l.Warnln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
 		return err
 	}
@@ -199,9 +201,8 @@ func (a *App) startup() error {
 	}
 
 	// Remove database entries for folders that no longer exist in the config
-	folders := a.cfg.Folders()
 	for _, folder := range a.ll.ListFolders() {
-		if _, ok := folders[folder]; !ok {
+		if _, ok := a.cfg.FolderMap[folder]; !ok {
 			l.Infof("Cleaning data for dropped folder %q", folder)
 			db.DropFolder(a.ll, folder)
 		}
@@ -235,7 +236,7 @@ func (a *App) startup() error {
 		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
+	m := model.NewModel(a.cfgw, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
 
 	if a.opts.DeadlockTimeoutS > 0 {
 		m.StartDeadlockDetector(time.Duration(a.opts.DeadlockTimeoutS) * time.Second)
@@ -262,11 +263,11 @@ func (a *App) startup() error {
 
 	// Start connection management
 
-	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName, a.evLogger)
+	connectionsService := connections.NewService(a.cfgw, a.myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName, a.evLogger)
 	a.mainService.Add(connectionsService)
 
-	if a.cfg.Options().GlobalAnnEnabled {
-		for _, srv := range a.cfg.Options().GlobalDiscoveryServers() {
+	if a.cfg.Options.GlobalAnnEnabled {
+		for _, srv := range a.cfg.Options.GlobalDiscoveryServers() {
 			l.Infoln("Using discovery server", srv)
 			gd, err := discover.NewGlobal(srv, a.cert, connectionsService, a.evLogger)
 			if err != nil {
@@ -281,16 +282,16 @@ func (a *App) startup() error {
 		}
 	}
 
-	if a.cfg.Options().LocalAnnEnabled {
+	if a.cfg.Options.LocalAnnEnabled {
 		// v4 broadcasts
-		bcd, err := discover.NewLocal(a.myID, fmt.Sprintf(":%d", a.cfg.Options().LocalAnnPort), connectionsService, a.evLogger)
+		bcd, err := discover.NewLocal(a.myID, fmt.Sprintf(":%d", a.cfg.Options.LocalAnnPort), connectionsService, a.evLogger)
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
 			cachedDiscovery.Add(bcd, 0, 0)
 		}
 		// v6 multicasts
-		mcd, err := discover.NewLocal(a.myID, a.cfg.Options().LocalAnnMCAddr, connectionsService, a.evLogger)
+		mcd, err := discover.NewLocal(a.myID, a.cfg.Options.LocalAnnMCAddr, connectionsService, a.evLogger)
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
@@ -300,36 +301,36 @@ func (a *App) startup() error {
 
 	// Candidate builds always run with usage reporting.
 
-	if opts := a.cfg.Options(); build.IsCandidate {
+	if build.IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
-		if opts.URAccepted != ur.Version {
-			opts.URAccepted = ur.Version
-			a.cfg.SetOptions(opts)
-			a.cfg.Save()
+		if a.cfg.Options.URAccepted != ur.Version {
+			a.cfg.Options.URAccepted = ur.Version
+			a.cfgw.SetOptions(a.cfg.Options)
+			a.cfgw.Save()
 			// Unique ID will be set and config saved below if necessary.
 		}
 	}
 
 	// If we are going to do usage reporting, ensure we have a valid unique ID.
-	if opts := a.cfg.Options(); opts.URAccepted > 0 && opts.URUniqueID == "" {
-		opts.URUniqueID = rand.String(8)
-		a.cfg.SetOptions(opts)
-		a.cfg.Save()
+	if a.cfg.Options.URAccepted > 0 && a.cfg.Options.URUniqueID == "" {
+		a.cfg.Options.URUniqueID = rand.String(8)
+		a.cfgw.SetOptions(a.cfg.Options)
+		a.cfgw.Save()
 	}
 
-	usageReportingSvc := ur.New(a.cfg, m, connectionsService, a.opts.NoUpgrade)
+	usageReportingSvc := ur.New(a.cfgw, m, connectionsService, a.opts.NoUpgrade)
 	a.mainService.Add(usageReportingSvc)
 
 	// GUI
 
-	if err := a.setupGUI(m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog); err != nil {
+	if err := a.setupGUI(a.cfg.GUI, m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog); err != nil {
 		l.Warnln("Failed starting API:", err)
 		return err
 	}
 
-	myDev, _ := a.cfg.Device(a.myID)
+	myDev, _ := a.cfg.DeviceMap[a.myID]
 	l.Infof(`My name is "%v"`, myDev.Name)
-	for _, device := range a.cfg.Devices() {
+	for _, device := range a.cfg.DeviceMap {
 		if device.DeviceID != a.myID {
 			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
 		}
@@ -343,7 +344,7 @@ func (a *App) startup() error {
 		"myID": a.myID.String(),
 	})
 
-	if a.cfg.Options().SetLowPriority {
+	if a.cfg.Options.SetLowPriority {
 		if err := osutil.SetLowPriority(); err != nil {
 			l.Warnln("Failed to lower process priority:", err)
 		}
@@ -406,9 +407,7 @@ func (a *App) stopWithErr(stopReason ExitStatus, err error) ExitStatus {
 	return a.exitStatus
 }
 
-func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
-	guiCfg := a.cfg.GUI()
-
+func (a *App) setupGUI(guiCfg config.GUIConfiguration, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
 	if !guiCfg.Enabled {
 		return nil
 	}
@@ -420,10 +419,10 @@ func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscri
 	cpu := newCPUService()
 	a.mainService.Add(cpu)
 
-	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID, a.evLogger)
+	summaryService := model.NewFolderSummaryService(a.cfgw, m, a.myID, a.evLogger)
 	a.mainService.Add(summaryService)
 
-	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, &controller{a}, a.opts.NoUpgrade)
+	apiSvc := api.New(a.myID, a.cfgw, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, &controller{a}, a.opts.NoUpgrade)
 	a.mainService.Add(apiSvc)
 
 	if err := apiSvc.WaitForStart(); err != nil {
@@ -435,9 +434,10 @@ func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscri
 // checkShortIDs verifies that the configuration won't result in duplicate
 // short ID:s; that is, that the devices in the cluster all have unique
 // initial 64 bits.
-func checkShortIDs(cfg config.Wrapper) error {
+func checkShortIDs(devices []config.DeviceConfiguration) error {
 	exists := make(map[protocol.ShortID]protocol.DeviceID)
-	for deviceID := range cfg.Devices() {
+	for _, deviceCfg := range devices {
+		deviceID := deviceCfg.DeviceID
 		shortID := deviceID.Short()
 		if otherID, ok := exists[shortID]; ok {
 			return fmt.Errorf("%v in conflict with %v", deviceID, otherID)

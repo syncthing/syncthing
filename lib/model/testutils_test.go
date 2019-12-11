@@ -37,14 +37,13 @@ func init() {
 
 	defaultFolderConfig = testFolderConfig("testdata")
 
-	defaultCfgWrapper = createTmpWrapper(config.New(myID))
-	_, _ = defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
-	_, _ = defaultCfgWrapper.SetFolder(defaultFolderConfig)
-	opts := defaultCfgWrapper.Options()
-	opts.KeepTemporariesH = 1
-	_, _ = defaultCfgWrapper.SetOptions(opts)
+	defaultCfg = config.New(myID)
+	defaultCfgWrapper = createTmpWrapper(defaultCfg)
 
-	defaultCfg = defaultCfgWrapper.RawCopy()
+	defaultCfg.Devices = append(defaultCfg.Devices, config.NewDeviceConfiguration(device1, "device1"))
+	defaultCfg.Folders = append(defaultCfg.Folders, defaultFolderConfig)
+	defaultCfg.Options.KeepTemporariesH = 1
+	defaultCfgWrapper.Replace(defaultCfg)
 
 	defaultAutoAcceptCfg = config.Configuration{
 		Devices: []config.DeviceConfiguration{
@@ -67,7 +66,7 @@ func init() {
 }
 
 func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration) {
-	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
+	w := createTmpWrapper(defaultCfg.Copy())
 	fcfg := testFolderConfigTmp()
 	_, _ = w.SetFolder(fcfg)
 	return w, fcfg
@@ -123,7 +122,7 @@ func cleanupModel(m *model) {
 	m.Stop()
 	m.db.Close()
 	m.evLogger.Stop()
-	os.Remove(m.cfg.ConfigPath())
+	os.Remove(m.cfgw.ConfigPath())
 }
 
 func cleanupModelAndRemoveDir(m *model, dir string) {

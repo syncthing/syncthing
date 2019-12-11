@@ -294,7 +294,7 @@ func TestPullInvalidIgnoredSR(t *testing.T) {
 
 // This test checks that (un-)ignored/invalid/deleted files are treated as expected.
 func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
-	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
+	w := createTmpWrapper(defaultCfg.Copy())
 	fcfg := testFolderConfigTmp()
 	fss := fcfg.Filesystem()
 	fcfg.Type = ft
@@ -1135,5 +1135,25 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out before index was received")
 	case <-done:
+	}
+}
+
+// TestConnectionBeforeFolder makes sure we don't advertise folders that are in
+// config, but not yet known to the model.
+func TestConnectionBeforeFolder(t *testing.T) {
+	w, fcfg := tmpDefaultWrapper()
+	m := setupModel(w)
+	fss := fcfg.Filesystem()
+	tmpDir := fss.URI()
+	defer cleanupModelAndRemoveDir(m, tmpDir)
+
+	m.removeFolder(fcfg)
+
+	fc := addFakeConn(m, device1)
+
+	for _, folder := range fc.clusterConfig.Folders {
+		if folder.ID == fcfg.ID {
+			t.Error("Got folder in ClusterConfig event though it's not added to model")
+		}
 	}
 }

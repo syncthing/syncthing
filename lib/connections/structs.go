@@ -170,7 +170,7 @@ type genericDialer interface {
 }
 
 type listenerFactory interface {
-	New(*url.URL, config.Wrapper, *tls.Config, chan internalConn, *nat.Service) genericListener
+	New(*url.URL, config.Wrapper, int, *tls.Config, chan internalConn, *nat.Service) genericListener
 	Valid(config.Configuration) error
 }
 

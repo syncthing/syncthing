@@ -109,9 +109,9 @@ type sendReceiveFolder struct {
 	pullErrorsMut sync.Mutex
 }
 
-func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger) service {
+func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, opts config.OptionsConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger) service {
 	f := &sendReceiveFolder{
-		folder:        newFolder(model, fset, ignores, cfg, evLogger),
+		folder:        newFolder(model, fset, ignores, cfg, opts, evLogger),
 		fs:            fs,
 		versioner:     ver,
 		queue:         newJobQueue(),
@@ -1230,10 +1230,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 		f.model.progressEmitter.Register(state.sharedPullerState)
 
-		folderFilesystems := make(map[string]fs.Filesystem)
+		folderFilesystems := f.model.folderFilesystems()
 		var folders []string
-		for folder, cfg := range f.model.cfg.Folders() {
-			folderFilesystems[folder] = cfg.Filesystem()
+		for folder := range folderFilesystems {
 			folders = append(folders, folder)
 		}
 

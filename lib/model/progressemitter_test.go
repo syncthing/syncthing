@@ -123,12 +123,16 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	defer evLogger.Stop()
 
 	p := NewProgressEmitter(c, evLogger)
+	cfg := p.cfgw.Subscribe(p)
+	defer p.cfgw.Unsubscribe(p)
+	p.CommitConfiguration(config.Configuration{}, cfg)
 	p.temporaryIndexSubscribe(fc, []string{"folder", "folder2"})
 	p.registry["folder"] = make(map[string]*sharedPullerState)
 	p.registry["folder2"] = make(map[string]*sharedPullerState)
 	p.registry["folderXXX"] = make(map[string]*sharedPullerState)
 
 	expect := func(updateIdx int, state *sharedPullerState, updateType protocol.FileDownloadProgressUpdateType, version protocol.Vector, blocks []int32, remove bool) {
+		t.Helper()
 		messageIdx := -1
 		for i, msg := range fc.downloadProgressMessages {
 			if msg.folder == state.folder {
@@ -153,11 +157,11 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 		}
 
 		if updateIdx == -1 {
-			t.Errorf("Could not find update for %s at %s", state.file.Name, caller(1))
+			t.Fatalf("Could not find update for %s at %s", state.file.Name, caller(1))
 		}
 
 		if updateIdx > len(msg.updates)-1 {
-			t.Errorf("Update at index %d does not exist at %s", updateIdx, caller(1))
+			t.Fatalf("Update at index %d does not exist at %s", updateIdx, caller(1))
 		}
 
 		update := msg.updates[updateIdx]
@@ -184,6 +188,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 		}
 	}
 	expectEmpty := func() {
+		t.Helper()
 		if len(fc.downloadProgressMessages) > 0 {
 			t.Errorf("Still have something at %s: %#v", caller(1), fc.downloadProgressMessages)
 		}

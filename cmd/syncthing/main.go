@@ -389,12 +389,12 @@ func main() {
 }
 
 func openGUI(myID protocol.DeviceID) error {
-	cfg, err := loadOrDefaultConfig(myID, events.NoopLogger)
+	_, cfg, err := loadOrDefaultConfig(myID, events.NoopLogger)
 	if err != nil {
 		return err
 	}
-	if cfg.GUI().Enabled {
-		if err := openURL(cfg.GUI().URL()); err != nil {
+	if cfg.GUI.Enabled {
+		if err := openURL(cfg.GUI.URL()); err != nil {
 			return err
 		}
 	} else {
@@ -432,11 +432,11 @@ func generate(generateDir string) error {
 		l.Warnln("Config exists; will not overwrite.")
 		return nil
 	}
-	cfg, err := syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder)
+	cfgw, _, err := syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder)
 	if err != nil {
 		return err
 	}
-	err = cfg.Save()
+	err = cfgw.Save()
 	if err != nil {
 		return errors.Wrap(err, "save config")
 	}
@@ -466,9 +466,8 @@ func debugFacilities() string {
 }
 
 func checkUpgrade() upgrade.Release {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
-	opts := cfg.Options()
-	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
+	_, cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	release, err := upgrade.LatestRelease(cfg.Options.ReleasesURL, build.Version, cfg.Options.UpgradeToPreReleases)
 	if err != nil {
 		l.Warnln("Upgrade:", err)
 		os.Exit(syncthing.ExitError.AsInt())
@@ -507,15 +506,15 @@ func performUpgrade(release upgrade.Release) {
 }
 
 func upgradeViaRest() error {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
-	u, err := url.Parse(cfg.GUI().URL())
+	_, cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	u, err := url.Parse(cfg.GUI.URL())
 	if err != nil {
 		return err
 	}
 	u.Path = path.Join(u.Path, "rest/system/upgrade")
 	target := u.String()
 	r, _ := http.NewRequest("POST", target, nil)
-	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
+	r.Header.Set("X-API-Key", cfg.GUI.APIKey)
 
 	tr := &http.Transport{
 		DialContext:     dialer.DialContext,
@@ -565,20 +564,20 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	go evLogger.Serve()
 	defer evLogger.Stop()
 
-	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
+	cfgw, cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(syncthing.ExitError.AsInt())
 	}
 
 	if runtimeOptions.unpaused {
-		setPauseState(cfg, false)
+		cfg = setPauseState(cfgw, cfg, false)
 	} else if runtimeOptions.paused {
-		setPauseState(cfg, true)
+		cfg = setPauseState(cfgw, cfg, true)
 	}
 
 	dbFile := locations.Get(locations.Database)
-	ldb, err := syncthing.OpenGoleveldb(dbFile, cfg.Options().DatabaseTuning)
+	ldb, err := syncthing.OpenGoleveldb(dbFile, cfg.Options.DatabaseTuning)
 	if err != nil {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)
@@ -593,7 +592,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		appOpts.DeadlockTimeoutS = secs
 	}
 
-	app := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
+	app := syncthing.New(cfgw, cfg, ldb, evLogger, cert, appOpts)
 
 	setupSignalHandling(app)
 
@@ -613,7 +612,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	if opts := cfg.Options(); opts.RestartOnWakeup {
+	if opts := cfg.Options; opts.RestartOnWakeup {
 		go standbyMonitor(app)
 	}
 
@@ -623,18 +622,18 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if build.IsCandidate && !upgrade.DisabledByCompilation && !runtimeOptions.NoUpgrade {
 		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
-		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
-			opts.AutoUpgradeIntervalH = 12
+		if cfg.Options.AutoUpgradeIntervalH == 0 || cfg.Options.AutoUpgradeIntervalH > 24 {
+			cfg.Options.AutoUpgradeIntervalH = 12
 			// Set the option into the config as well, as the auto upgrade
 			// loop expects to read a valid interval from there.
-			cfg.SetOptions(opts)
-			cfg.Save()
+			cfgw.SetOptions(cfg.Options)
+			cfgw.Save()
 		}
 		// We don't tweak the user's choice of upgrading to pre-releases or
 		// not, as otherwise they cannot step off the candidate channel.
 	}
 
-	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
+	if opts := cfg.Options; opts.AutoUpgradeIntervalH > 0 {
 		if runtimeOptions.NoUpgrade {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		} else {
@@ -648,10 +647,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	cleanConfigDirectory()
 
-	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
+	if cfg.Options.StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
-		go func() { _ = openURL(cfg.GUI().URL()) }()
+		go func() { _ = openURL(cfg.GUI.URL()) }()
 	}
 
 	status := app.Wait()
@@ -685,15 +684,15 @@ func setupSignalHandling(app *syncthing.App) {
 	}()
 }
 
-func loadOrDefaultConfig(myID protocol.DeviceID, evLogger events.Logger) (config.Wrapper, error) {
+func loadOrDefaultConfig(myID protocol.DeviceID, evLogger events.Logger) (config.Wrapper, config.Configuration, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
-	cfg, err := config.Load(cfgFile, myID, evLogger)
+	cfgw, cfg, err := config.Load(cfgFile, myID, evLogger)
 
 	if err != nil {
-		cfg, err = syncthing.DefaultConfig(cfgFile, myID, evLogger, noDefaultFolder)
+		cfgw, cfg, err = syncthing.DefaultConfig(cfgFile, myID, evLogger, noDefaultFolder)
 	}
 
-	return cfg, err
+	return cfgw, cfg, err
 }
 
 func auditWriter(auditFile string) io.Writer {
@@ -775,7 +774,7 @@ func standbyMonitor(app *syncthing.App) {
 	}
 }
 
-func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger) {
+func autoUpgrade(cfg config.Configuration, app *syncthing.App, evLogger events.Logger) {
 	timer := time.NewTimer(0)
 	sub := evLogger.Subscribe(events.DeviceConnected)
 	for {
@@ -789,7 +788,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 		case <-timer.C:
 		}
 
-		opts := cfg.Options()
+		opts := cfg.Options
 		checkInterval := time.Duration(opts.AutoUpgradeIntervalH) * time.Hour
 		if checkInterval < time.Hour {
 			// We shouldn't be here if AutoUpgradeIntervalH < 1, but for
@@ -884,16 +883,16 @@ func showPaths(options RuntimeOptions) {
 	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations.Get(locations.DefFolder))
 }
 
-func setPauseState(cfg config.Wrapper, paused bool) {
-	raw := cfg.RawCopy()
-	for i := range raw.Devices {
-		raw.Devices[i].Paused = paused
+func setPauseState(cfgw config.Wrapper, cfg config.Configuration, paused bool) config.Configuration {
+	for i := range cfg.Devices {
+		cfg.Devices[i].Paused = paused
 	}
-	for i := range raw.Folders {
-		raw.Folders[i].Paused = paused
+	for i := range cfg.Folders {
+		cfg.Folders[i].Paused = paused
 	}
-	if _, err := cfg.Replace(raw); err != nil {
+	if _, err := cfgw.Replace(cfg); err != nil {
 		l.Warnln("Cannot adjust paused state:", err)
 		os.Exit(syncthing.ExitError.AsInt())
 	}
+	return cfg
 }

@@ -110,7 +110,7 @@ type ConnectionStatusEntry struct {
 
 type service struct {
 	*suture.Supervisor
-	cfg                  config.Wrapper
+	cfgw                 config.Wrapper
 	myID                 protocol.DeviceID
 	model                Model
 	tlsCfg               *tls.Config
@@ -123,6 +123,9 @@ type service struct {
 	natServiceToken      *suture.ServiceToken
 	evLogger             events.Logger
 
+	cfg    config.Configuration
+	cfgMut sync.Mutex
+
 	listenersMut       sync.RWMutex
 	listeners          map[string]genericListener
 	listenerTokens     map[string]suture.ServiceToken
@@ -132,7 +135,7 @@ type service struct {
 	connectionStatus    map[string]ConnectionStatusEntry // address -> latest error/status
 }
 
-func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
+func NewService(cfgw config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
 	service := &service{
 		Supervisor: suture.New("connections.Service", suture.Spec{
 			Log: func(line string) {
@@ -140,7 +143,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 			},
 			PassThroughPanics: true,
 		}),
-		cfg:                  cfg,
+		cfgw:                 cfgw,
 		myID:                 myID,
 		model:                mdl,
 		tlsCfg:               tlsCfg,
@@ -148,9 +151,11 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		conns:                make(chan internalConn),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		limiter:              newLimiter(cfg),
-		natService:           nat.NewService(myID, cfg),
+		limiter:              newLimiter(cfgw),
+		natService:           nat.NewService(myID, cfgw),
 		evLogger:             evLogger,
+
+		cfgMut: sync.NewRWMutex(),
 
 		listenersMut:   sync.NewRWMutex(),
 		listeners:      make(map[string]genericListener),
@@ -172,13 +177,12 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		connectionStatusMut: sync.NewRWMutex(),
 		connectionStatus:    make(map[string]ConnectionStatusEntry),
 	}
-	cfg.Subscribe(service)
+	cfg := cfgw.Subscribe(service)
 
-	raw := cfg.RawCopy()
 	// Actually starts the listeners and NAT service
 	// Need to start this before service.connect so that any dials that
 	// try punch through already have a listener to cling on.
-	service.CommitConfiguration(raw, raw)
+	service.CommitConfiguration(cfg, cfg)
 
 	// There are several moving parts here; one routine per listening address
 	// (handled in configuration changing) to handle incoming connections,
@@ -194,8 +198,8 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 }
 
 func (s *service) Stop() {
-	s.cfg.Unsubscribe(s.limiter)
-	s.cfg.Unsubscribe(s)
+	s.cfgw.Unsubscribe(s.limiter)
+	s.cfgw.Unsubscribe(s)
 	s.Supervisor.Stop()
 }
 
@@ -292,7 +296,9 @@ func (s *service) handle(ctx context.Context) {
 			continue
 		}
 
-		deviceCfg, ok := s.cfg.Device(remoteID)
+		s.cfgMut.Lock()
+		deviceCfg, ok := s.cfg.DeviceMap[remoteID]
+		s.cfgMut.Unlock()
 		if !ok {
 			l.Infof("Device %s removed from config during connection attempt at %s", remoteID, c)
 			c.Close()
@@ -342,7 +348,9 @@ func (s *service) connect(ctx context.Context) {
 	var sleep time.Duration
 
 	for {
-		cfg := s.cfg.RawCopy()
+		s.cfgMut.Lock()
+		cfg := s.cfg
+		s.cfgMut.Unlock()
 
 		bestDialerPrio := 1<<31 - 1 // worse prio won't build on 32 bit
 		for _, df := range dialers {
@@ -448,7 +456,7 @@ func (s *service) connect(ctx context.Context) {
 					continue
 				}
 
-				dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg)
+				dialer := dialerFactory.New(cfg.Options, s.tlsCfg)
 				nextDial[nextDialKey] = now.Add(dialer.RedialFrequency())
 
 				// For LAN addresses, increase the priority so that we
@@ -527,7 +535,10 @@ func (s *service) isLAN(addr net.Addr) bool {
 		return true
 	}
 
-	for _, lan := range s.cfg.Options().AlwaysLocalNets {
+	s.cfgMut.Lock()
+	alwaysLocalNets := s.cfg.Options.AlwaysLocalNets
+	s.cfgMut.Unlock()
+	for _, lan := range alwaysLocalNets {
 		_, ipnet, err := net.ParseCIDR(lan)
 		if err != nil {
 			l.Debugln("Network", lan, "is malformed:", err)
@@ -548,12 +559,12 @@ func (s *service) isLAN(addr net.Addr) bool {
 	return false
 }
 
-func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
+func (s *service) createListener(factory listenerFactory, uri *url.URL, trafficClass int) bool {
 	// must be called with listenerMut held
 
 	l.Debugln("Starting listener", uri)
 
-	listener := factory.New(uri, s.cfg, s.tlsCfg, s.conns, s.natService)
+	listener := factory.New(uri, s.cfgw, trafficClass, s.tlsCfg, s.conns, s.natService)
 	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
 	s.listeners[uri.String()] = listener
 	s.listenerTokens[uri.String()] = s.listenerSupervisor.Add(listener)
@@ -573,6 +584,10 @@ func (s *service) VerifyConfiguration(from, to config.Configuration) error {
 }
 
 func (s *service) CommitConfiguration(from, to config.Configuration) bool {
+	s.cfgMut.Lock()
+	defer s.cfgMut.Unlock()
+	s.cfg = to
+
 	newDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
 	for _, dev := range to.Devices {
 		newDevices[dev.DeviceID] = true
@@ -587,6 +602,15 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	s.listenersMut.Lock()
+	// If TrafficClass changes, stop all listeners to get them restarted
+	if from.Options.TrafficClass != to.Options.TrafficClass {
+		for addr := range s.listeners {
+			l.Debugln("Stopping listener", addr)
+			s.listenerSupervisor.Remove(s.listenerTokens[addr])
+			delete(s.listenerTokens, addr)
+			delete(s.listeners, addr)
+		}
+	}
 	seen := make(map[string]struct{})
 	for _, addr := range to.Options.ListenAddresses() {
 		if addr == "" {
@@ -622,7 +646,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
-		s.createListener(factory, uri)
+		s.createListener(factory, uri, to.Options.TrafficClass)
 		seen[addr] = struct{}{}
 	}
 

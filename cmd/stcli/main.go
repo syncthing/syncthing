@@ -85,12 +85,12 @@ func main() {
 		myID := protocol.NewDeviceID(cert.Certificate[0])
 
 		// Load the config
-		cfg, err := config.Load(locations.Get(locations.ConfigFile), myID, events.NoopLogger)
+		_, cfg, err := config.Load(locations.Get(locations.ConfigFile), myID, events.NoopLogger)
 		if err != nil {
 			log.Fatalln(errors.Wrap(err, "loading config"))
 		}
 
-		guiCfg = cfg.GUI()
+		guiCfg = cfg.GUI
 	} else if guiCfg.Address() == "" || guiCfg.APIKey == "" {
 		log.Fatalln("Both -gui-address and -gui-apikey should be specified")
 	}

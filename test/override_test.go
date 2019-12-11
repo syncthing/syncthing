@@ -25,13 +25,13 @@ import (
 func TestOverride(t *testing.T) {
 	// Enable "send-only" on s1/default
 	id, _ := protocol.DeviceIDFromString(id1)
-	cfg, _ := config.Load("h1/config.xml", id, events.NoopLogger)
-	fld := cfg.Folders()["default"]
+	cfgw, cfg, _ := config.Load("h1/config.xml", id, events.NoopLogger)
+	fld := cfg.FolderMap["default"]
 	fld.Type = config.FolderTypeSendOnly
-	cfg.SetFolder(fld)
+	cfgw.SetFolder(fld)
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
 	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
-	cfg.Save()
+	cfgw.Save()
 
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
@@ -157,13 +157,13 @@ get to completion when in sendOnly/sendRecv mode. Needs fixing.
 func TestOverrideIgnores(t *testing.T) {
 	// Enable "sendOnly" on s1/default
 	id, _ := protocol.DeviceIDFromString(id1)
-	cfg, _ := config.Load("h1/config.xml", id, events.NoopLogger)
-	fld := cfg.Folders()["default"]
+	cfgw, cfg, _ := config.Load("h1/config.xml", id, events.NoopLogger)
+	fld := cfg.FolderMap["default"]
 	fld.ReadOnly = true
-	cfg.SetFolder(fld)
+	cfgw.SetFolder(fld)
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
 	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
-	cfg.Save()
+	cfgw.Save()
 
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s2", "h1/index*", "h2/index*")

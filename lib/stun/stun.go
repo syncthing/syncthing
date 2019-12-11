@@ -9,6 +9,7 @@ package stun
 import (
 	"context"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -68,6 +69,12 @@ type Service struct {
 	stunConn   net.PacketConn
 	client     *stun.Client
 
+	keepAliveStart time.Duration
+	keepAliveMin   time.Duration
+	stunServers    []string
+	disabled       bool
+	mut            sync.Mutex
+
 	writeTrackingPacketConn *writeTrackingPacketConn
 
 	natType NATType
@@ -109,18 +116,39 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) (*Servi
 	return s, otherDataConn
 }
 
+func (s *Service) VerifyConfiguration(_, _ config.Configuration) error {
+	return nil
+}
+
+func (s *Service) CommitConfiguration(_, to config.Configuration) bool {
+	s.mut.Lock()
+	s.keepAliveMin = time.Duration(to.Options.StunKeepaliveMinS) * time.Second
+	s.keepAliveStart = time.Duration(to.Options.StunKeepaliveStartS) * time.Second
+	s.stunServers = to.Options.StunServers()
+	s.disabled = to.Options.IsStunDisabled()
+	s.mut.Unlock()
+	return true
+}
+
 func (s *Service) Stop() {
 	_ = s.stunConn.Close()
 	s.Service.Stop()
 }
 
 func (s *Service) serve(ctx context.Context) {
+	conf := s.cfg.Subscribe(s)
+	defer s.cfg.Unsubscribe(s)
+	s.CommitConfiguration(config.Configuration{}, conf)
+
 	for {
 	disabled:
 		s.setNATType(NATUnknown)
 		s.setExternalAddress(nil, "")
 
-		if s.cfg.Options().IsStunDisabled() {
+		s.mut.Lock()
+		disabled := s.disabled
+		s.mut.Unlock()
+		if disabled {
 			select {
 			case <-ctx.Done():
 				return
@@ -131,7 +159,10 @@ func (s *Service) serve(ctx context.Context) {
 
 		l.Debugf("Starting stun for %s", s)
 
-		for _, addr := range s.cfg.Options().StunServers() {
+		s.mut.Lock()
+		stunServers := s.stunServers
+		s.mut.Unlock()
+		for _, addr := range stunServers {
 			// This blocks until we hit an exit condition or there are issues with the STUN server.
 			// This returns a boolean signifying if a different STUN server should be tried (oppose to the whole thing
 			// shutting down and this winding itself down.
@@ -146,7 +177,10 @@ func (s *Service) serve(ctx context.Context) {
 				}
 
 				// Are we disabled?
-				if s.cfg.Options().IsStunDisabled() {
+				s.mut.Lock()
+				disabled := s.disabled
+				s.mut.Unlock()
+				if disabled {
 					l.Infoln("STUN disabled")
 					goto disabled
 				}
@@ -215,11 +249,16 @@ func (s *Service) runStunForServer(ctx context.Context, addr string) (tryNext bo
 
 func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host) (tryNext bool) {
 	var err error
-	nextSleep := time.Duration(s.cfg.Options().StunKeepaliveStartS) * time.Second
+	s.mut.Lock()
+	nextSleep := s.keepAliveStart
+	s.mut.Unlock()
 
 	l.Debugf("%s starting stun keepalive via %s, next sleep %s", s, addr, nextSleep)
 
 	for {
+		s.mut.Lock()
+		minSleep := s.keepAliveMin
+		s.mut.Unlock()
 		if areDifferent(s.addr, extAddr) {
 			// If the port has changed (addresses are not equal but the hosts are equal),
 			// we're probably spending too much time between keepalives, reduce the sleep.
@@ -231,7 +270,6 @@ func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host)
 			s.setExternalAddress(extAddr, addr)
 
 			// The stun server is probably stuffed, we've gone beyond min timeout, yet the address keeps changing.
-			minSleep := time.Duration(s.cfg.Options().StunKeepaliveMinS) * time.Second
 			if nextSleep < minSleep {
 				l.Debugf("%s keepalive aborting, sleep below min: %s < %s", s, nextSleep, minSleep)
 				return true
@@ -240,7 +278,6 @@ func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host)
 
 		// Adjust the keepalives to fire only nextSleep after last write.
 		lastWrite := s.writeTrackingPacketConn.getLastWrite()
-		minSleep := time.Duration(s.cfg.Options().StunKeepaliveMinS) * time.Second
 		if nextSleep < minSleep {
 			nextSleep = minSleep
 		}
@@ -261,7 +298,10 @@ func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host)
 			return false
 		}
 
-		if s.cfg.Options().IsStunDisabled() {
+		s.mut.Lock()
+		disabled := s.disabled
+		s.mut.Unlock()
+		if disabled {
 			// Disabled, give up
 			l.Debugf("%s disabled, aborting stun ", s)
 			return false

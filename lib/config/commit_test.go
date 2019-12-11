@@ -45,7 +45,7 @@ func TestReplaceCommit(t *testing.T) {
 	t.Skip("broken, fails randomly, #3834")
 
 	w := wrap("/dev/null", Configuration{Version: 0})
-	if w.RawCopy().Version != 0 {
+	if w.(*wrapper).cfg.Version != 0 {
 		t.Fatal("Config incorrect")
 	}
 
@@ -59,7 +59,7 @@ func TestReplaceCommit(t *testing.T) {
 	if w.RequiresRestart() {
 		t.Fatal("Should not require restart")
 	}
-	if w.RawCopy().Version != CurrentVersion {
+	if w.(*wrapper).cfg.Version != CurrentVersion {
 		t.Fatal("Config should have changed")
 	}
 
@@ -78,7 +78,7 @@ func TestReplaceCommit(t *testing.T) {
 	if !w.RequiresRestart() {
 		t.Fatal("Should require restart")
 	}
-	if w.RawCopy().Version != CurrentVersion {
+	if w.(*wrapper).cfg.Version != CurrentVersion {
 		t.Fatal("Config should have changed")
 	}
 
@@ -94,7 +94,7 @@ func TestReplaceCommit(t *testing.T) {
 	if !w.RequiresRestart() {
 		t.Fatal("Should still require restart")
 	}
-	if w.RawCopy().Version != CurrentVersion {
+	if w.(*wrapper).cfg.Version != CurrentVersion {
 		t.Fatal("Config should not have changed")
 	}
 }

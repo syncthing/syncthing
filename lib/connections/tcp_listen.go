@@ -31,11 +31,11 @@ type tcpListener struct {
 	util.ServiceWithError
 	onAddressesChangedNotifier
 
-	uri     *url.URL
-	cfg     config.Wrapper
-	tlsCfg  *tls.Config
-	conns   chan internalConn
-	factory listenerFactory
+	uri          *url.URL
+	tlsCfg       *tls.Config
+	conns        chan internalConn
+	factory      listenerFactory
+	trafficClass int
 
 	natService *nat.Service
 	mapping    *nat.Mapping
@@ -111,8 +111,8 @@ func (t *tcpListener) serve(ctx context.Context) error {
 			l.Debugln("Listen (BEP/tcp): setting tcp options:", err)
 		}
 
-		if tc := t.cfg.Options().TrafficClass; tc != 0 {
-			if err := dialer.SetTrafficClass(conn, tc); err != nil {
+		if t.trafficClass != 0 {
+			if err := dialer.SetTrafficClass(conn, t.trafficClass); err != nil {
 				l.Debugln("Listen (BEP/tcp): setting traffic class:", err)
 			}
 		}
@@ -175,14 +175,14 @@ func (t *tcpListener) NATType() string {
 
 type tcpListenerFactory struct{}
 
-func (f *tcpListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
+func (f *tcpListenerFactory) New(uri *url.URL, cfg config.Wrapper, trafficClass int, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	l := &tcpListener{
-		uri:        fixupPort(uri, config.DefaultTCPPort),
-		cfg:        cfg,
-		tlsCfg:     tlsCfg,
-		conns:      conns,
-		natService: natService,
-		factory:    f,
+		uri:          fixupPort(uri, config.DefaultTCPPort),
+		tlsCfg:       tlsCfg,
+		conns:        conns,
+		natService:   natService,
+		factory:      f,
+		trafficClass: trafficClass,
 	}
 	l.ServiceWithError = util.AsServiceWithError(l.serve, l.String())
 	return l

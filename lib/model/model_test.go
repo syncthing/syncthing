@@ -118,7 +118,9 @@ func createTmpWrapper(cfg config.Configuration) config.Wrapper {
 }
 
 func newState(cfg config.Configuration) *model {
-	wcfg := createTmpWrapper(cfg)
+	initCfg := config.New(myID)
+	wcfg := createTmpWrapper(initCfg)
+	wcfg.Replace(cfg)
 
 	m := setupModel(wcfg)
 
@@ -136,7 +138,7 @@ func TestRequest(t *testing.T) {
 	// Existing, shared file
 	res, err := m.Request(device1, "default", "foo", 6, 0, nil, 0, false)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	bs := res.Data()
 	if !bytes.Equal(bs, []byte("foobar")) {
@@ -291,26 +293,22 @@ func BenchmarkRequestInSingleFile(b *testing.B) {
 }
 
 func TestDeviceRename(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	hello := protocol.HelloResult{
 		ClientName:    "syncthing",
 		ClientVersion: "v0.9.4",
 	}
-	defer testOs.Remove("testdata/tmpconfig.xml")
 
-	rawCfg := config.New(device1)
-	rawCfg.Devices = []config.DeviceConfiguration{
-		{
-			DeviceID: device1,
-		},
-	}
-	cfg := config.Wrap("testdata/tmpconfig.xml", rawCfg, events.NoopLogger)
+	rawCfg := config.New(myID)
+	cfg := createTmpWrapper(rawCfg)
+	cfg.SetDevice(config.DeviceConfiguration{DeviceID: device1})
 
 	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(cfg, myID, "syncthing", "dev", db, nil)
 
-	if cfg.Devices()[device1].Name != "" {
+	m.pmut.RLock()
+	devCfg := m.deviceCfgs[device1]
+	m.pmut.RUnlock()
+	if devCfg.Name != "" {
 		t.Errorf("Device already has a name")
 	}
 
@@ -321,7 +319,10 @@ func TestDeviceRename(t *testing.T) {
 	m.ServeBackground()
 	defer cleanupModel(m)
 
-	if cfg.Devices()[device1].Name != "" {
+	m.pmut.RLock()
+	devCfg = m.deviceCfgs[device1]
+	m.pmut.RUnlock()
+	if devCfg.Name != "" {
 		t.Errorf("Device already has a name")
 	}
 
@@ -329,7 +330,10 @@ func TestDeviceRename(t *testing.T) {
 	hello.DeviceName = "tester"
 	m.AddConnection(conn, hello)
 
-	if cfg.Devices()[device1].Name != "tester" {
+	m.pmut.RLock()
+	devCfg = m.deviceCfgs[device1]
+	m.pmut.RUnlock()
+	if devCfg.Name != "tester" {
 		t.Errorf("Device did not get a name")
 	}
 
@@ -337,36 +341,49 @@ func TestDeviceRename(t *testing.T) {
 	hello.DeviceName = "tester2"
 	m.AddConnection(conn, hello)
 
-	if cfg.Devices()[device1].Name != "tester" {
+	m.pmut.RLock()
+	devCfg = m.deviceCfgs[device1]
+	m.pmut.RUnlock()
+	if devCfg.Name != "tester" {
 		t.Errorf("Device name got overwritten")
 	}
 
-	cfgw, err := config.Load("testdata/tmpconfig.xml", myID, events.NoopLogger)
+	_, newCfg, err := config.Load(cfg.ConfigPath(), myID, events.NoopLogger)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	if cfgw.Devices()[device1].Name != "tester" {
-		t.Errorf("Device name not saved in config")
+	for _, devCfg := range newCfg.Devices {
+		if devCfg.DeviceID == device1 {
+			if devCfg.Name != "tester" {
+				t.Errorf("Device name not saved in config")
+			}
+			break
+		}
 	}
 
 	m.Closed(conn, protocol.ErrTimeout)
 
-	opts := cfg.Options()
+	opts := rawCfg.Options
 	opts.OverwriteRemoteDevNames = true
-	cfg.SetOptions(opts)
+	w, _ := cfg.SetOptions(opts)
+	w.Wait()
 
 	hello.DeviceName = "tester2"
 	m.AddConnection(conn, hello)
 
-	if cfg.Devices()[device1].Name != "tester2" {
+	m.pmut.RLock()
+	devCfg = m.deviceCfgs[device1]
+	m.pmut.RUnlock()
+	if devCfg.Name != "tester2" {
 		t.Errorf("Device name not overwritten")
 	}
 }
 
 func TestClusterConfig(t *testing.T) {
-	cfg := config.New(device1)
-	cfg.Devices = []config.DeviceConfiguration{
+	cfg := config.New(myID)
+	wrapper := createTmpWrapper(cfg)
+	wrapper.SetDevices([]config.DeviceConfiguration{
 		{
 			DeviceID:   device1,
 			Introducer: true,
@@ -374,8 +391,8 @@ func TestClusterConfig(t *testing.T) {
 		{
 			DeviceID: device2,
 		},
-	}
-	cfg.Folders = []config.FolderConfiguration{
+	})
+	wrapper.SetFolders([]config.FolderConfiguration{
 		{
 			ID:   "folder1",
 			Path: "testdata1",
@@ -401,11 +418,10 @@ func TestClusterConfig(t *testing.T) {
 				// should not be included, does not include device2
 			},
 		},
-	}
+	})
 
 	db := db.NewLowlevel(backend.OpenMemory())
 
-	wrapper := createTmpWrapper(cfg)
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
 	for _, fcfg := range cfg.Folders {
@@ -420,44 +436,33 @@ func TestClusterConfig(t *testing.T) {
 		t.Fatalf("Incorrect number of folders %d != 2", l)
 	}
 
-	r := cm.Folders[0]
-	if r.ID != "folder1" {
-		t.Errorf("Incorrect folder %q != folder1", r.ID)
+	expected := map[string]struct{}{
+		"folder1": {},
+		"folder2": {},
 	}
-	if l := len(r.Devices); l != 2 {
-		t.Errorf("Incorrect number of devices %d != 2", l)
+	for _, r := range cm.Folders {
+		if _, ok := expected[r.ID]; !ok {
+			t.Errorf("Incorrect folder %q != folder1", r.ID)
+		}
+		delete(expected, r.ID)
+		if l := len(r.Devices); l != 2 {
+			t.Errorf("Incorrect number of devices %d != 2", l)
+		}
+		if id := r.Devices[0].ID; id != device1 {
+			t.Errorf("Incorrect device ID %s != %s", id, device1)
+		}
+		if !r.Devices[0].Introducer {
+			t.Error("Device1 should be flagged as Introducer")
+		}
+		if id := r.Devices[1].ID; id != device2 {
+			t.Errorf("Incorrect device ID %s != %s", id, device2)
+		}
+		if r.Devices[1].Introducer {
+			t.Error("Device2 should not be flagged as Introducer")
+		}
 	}
-	if id := r.Devices[0].ID; id != device1 {
-		t.Errorf("Incorrect device ID %s != %s", id, device1)
-	}
-	if !r.Devices[0].Introducer {
-		t.Error("Device1 should be flagged as Introducer")
-	}
-	if id := r.Devices[1].ID; id != device2 {
-		t.Errorf("Incorrect device ID %s != %s", id, device2)
-	}
-	if r.Devices[1].Introducer {
-		t.Error("Device2 should not be flagged as Introducer")
-	}
-
-	r = cm.Folders[1]
-	if r.ID != "folder2" {
-		t.Errorf("Incorrect folder %q != folder2", r.ID)
-	}
-	if l := len(r.Devices); l != 2 {
-		t.Errorf("Incorrect number of devices %d != 2", l)
-	}
-	if id := r.Devices[0].ID; id != device1 {
-		t.Errorf("Incorrect device ID %s != %s", id, device1)
-	}
-	if !r.Devices[0].Introducer {
-		t.Error("Device1 should be flagged as Introducer")
-	}
-	if id := r.Devices[1].ID; id != device2 {
-		t.Errorf("Incorrect device ID %s != %s", id, device2)
-	}
-	if r.Devices[1].Introducer {
-		t.Error("Device2 should not be flagged as Introducer")
+	if len(expected) != 0 {
+		t.Errorf("These folders were missing in the cluster config: %v", expected)
 	}
 }
 
@@ -516,11 +521,17 @@ func TestIntroducer(t *testing.T) {
 		},
 	})
 
-	if newDev, ok := m.cfg.Device(device2); !ok || !newDev.Introducer || !newDev.SkipIntroductionRemovals {
+	m.pmut.RLock()
+	newDev, ok := m.deviceCfgs[device2]
+	m.pmut.RUnlock()
+	if !ok || !newDev.Introducer || !newDev.SkipIntroductionRemovals {
 		t.Error("devie 2 missing or wrong flags")
 	}
 
-	if !contains(m.cfg.Folders()["folder1"], device2, device1) {
+	m.fmut.RLock()
+	folderCfg := m.folderCfgs["folder1"]
+	m.fmut.RUnlock()
+	if !contains(folderCfg, device2, device1) {
 		t.Error("expected folder 1 to have device2 introduced by device 1")
 	}
 
@@ -570,15 +581,24 @@ func TestIntroducer(t *testing.T) {
 	})
 
 	// Should not get introducer, as it's already unset, and it's an existing device.
-	if newDev, ok := m.cfg.Device(device2); !ok || newDev.Introducer || newDev.SkipIntroductionRemovals {
+	m.pmut.RLock()
+	newDev, ok = m.deviceCfgs[device2]
+	m.pmut.RUnlock()
+	if !ok || newDev.Introducer || newDev.SkipIntroductionRemovals {
 		t.Error("device 2 missing or changed flags")
 	}
 
-	if contains(m.cfg.Folders()["folder1"], device2, introducedByAnyone) {
+	m.fmut.RLock()
+	folderCfg = m.folderCfgs["folder1"]
+	m.fmut.RUnlock()
+	if contains(folderCfg, device2, introducedByAnyone) {
 		t.Error("expected device 2 to be removed from folder 1")
 	}
 
-	if !contains(m.cfg.Folders()["folder2"], device2, device1) {
+	m.fmut.RLock()
+	folderCfg = m.folderCfgs["folder2"]
+	m.fmut.RUnlock()
+	if !contains(folderCfg, device2, device1) {
 		t.Error("expected device 2 to be added to folder 2")
 	}
 
@@ -615,15 +635,24 @@ func TestIntroducer(t *testing.T) {
 	})
 	m.ClusterConfig(device1, protocol.ClusterConfig{})
 
-	if _, ok := m.cfg.Device(device2); ok {
+	m.pmut.RLock()
+	_, ok = m.deviceCfgs[device2]
+	m.pmut.RUnlock()
+	if ok {
 		t.Error("device 2 should have been removed")
 	}
 
-	if contains(m.cfg.Folders()["folder1"], device2, introducedByAnyone) {
+	m.fmut.RLock()
+	folderCfg = m.folderCfgs["folder1"]
+	m.fmut.RUnlock()
+	if contains(folderCfg, device2, introducedByAnyone) {
 		t.Error("expected device 2 to be removed from folder 1")
 	}
 
-	if contains(m.cfg.Folders()["folder2"], device2, introducedByAnyone) {
+	m.fmut.RLock()
+	folderCfg = m.folderCfgs["folder2"]
+	m.fmut.RUnlock()
+	if contains(folderCfg, device2, introducedByAnyone) {
 		t.Error("expected device 2 to be removed from folder 2")
 	}
 
@@ -663,15 +692,24 @@ func TestIntroducer(t *testing.T) {
 	})
 	m.ClusterConfig(device1, protocol.ClusterConfig{})
 
-	if _, ok := m.cfg.Device(device2); !ok {
+	m.pmut.RLock()
+	_, ok = m.deviceCfgs[device2]
+	m.pmut.RUnlock()
+	if !ok {
 		t.Error("device 2 should not have been removed")
 	}
 
-	if !contains(m.cfg.Folders()["folder1"], device2, device1) {
+	m.fmut.RLock()
+	folderCfg = m.folderCfgs["folder1"]
+	m.fmut.RUnlock()
+	if !contains(folderCfg, device2, device1) {
 		t.Error("expected device 2 not to be removed from folder 1")
 	}
 
-	if !contains(m.cfg.Folders()["folder2"], device2, device1) {
+	m.fmut.RLock()
+	folderCfg = m.folderCfgs["folder2"]
+	m.fmut.RUnlock()
+	if !contains(folderCfg, device2, device1) {
 		t.Error("expected device 2 not to be removed from folder 2")
 	}
 
@@ -723,15 +761,24 @@ func TestIntroducer(t *testing.T) {
 		},
 	})
 
-	if _, ok := m.cfg.Device(device2); !ok {
+	m.pmut.RLock()
+	_, ok = m.deviceCfgs[device2]
+	m.pmut.RUnlock()
+	if !ok {
 		t.Error("device 2 should not have been removed")
 	}
 
-	if !contains(m.cfg.Folders()["folder1"], device2, device1) {
+	m.fmut.RLock()
+	folderCfg = m.folderCfgs["folder1"]
+	m.fmut.RUnlock()
+	if !contains(folderCfg, device2, device1) {
 		t.Error("expected device 2 not to be removed from folder 1")
 	}
 
-	if !contains(m.cfg.Folders()["folder2"], device2, device1) {
+	m.fmut.RLock()
+	folderCfg = m.folderCfgs["folder2"]
+	m.fmut.RUnlock()
+	if !contains(folderCfg, device2, device1) {
 		t.Error("expected device 2 not to be added to folder 2")
 	}
 
@@ -770,15 +817,24 @@ func TestIntroducer(t *testing.T) {
 	})
 	m.ClusterConfig(device1, protocol.ClusterConfig{})
 
-	if _, ok := m.cfg.Device(device2); !ok {
+	m.pmut.RLock()
+	_, ok = m.deviceCfgs[device2]
+	m.pmut.RUnlock()
+	if !ok {
 		t.Error("device 2 should not have been removed")
 	}
 
-	if contains(m.cfg.Folders()["folder1"], device2, introducedByAnyone) {
+	m.fmut.RLock()
+	folderCfg = m.folderCfgs["folder1"]
+	m.fmut.RUnlock()
+	if contains(folderCfg, device2, introducedByAnyone) {
 		t.Error("expected device 2 to be removed from folder 1")
 	}
 
-	if !contains(m.cfg.Folders()["folder2"], device2, introducedByAnyone) {
+	m.fmut.RLock()
+	folderCfg = m.folderCfgs["folder2"]
+	m.fmut.RUnlock()
+	if !contains(folderCfg, device2, introducedByAnyone) {
 		t.Error("expected device 2 not to be removed from folder 2")
 	}
 
@@ -818,15 +874,24 @@ func TestIntroducer(t *testing.T) {
 	defer cleanupModel(m)
 	m.ClusterConfig(device1, protocol.ClusterConfig{})
 
-	if _, ok := m.cfg.Device(device2); !ok {
+	m.pmut.RLock()
+	_, ok = m.deviceCfgs[device2]
+	m.pmut.RUnlock()
+	if !ok {
 		t.Error("device 2 should not have been removed")
 	}
 
-	if contains(m.cfg.Folders()["folder1"], device2, introducedByAnyone) {
+	m.fmut.RLock()
+	folderCfg = m.folderCfgs["folder1"]
+	m.fmut.RUnlock()
+	if contains(folderCfg, device2, introducedByAnyone) {
 		t.Error("expected device 2 to be removed from folder 1")
 	}
 
-	if !contains(m.cfg.Folders()["folder2"], device2, introducedByAnyone) {
+	m.fmut.RLock()
+	folderCfg = m.folderCfgs["folder2"]
+	m.fmut.RUnlock()
+	if !contains(folderCfg, device2, introducedByAnyone) {
 		t.Error("expected device 2 not to be removed from folder 2")
 	}
 }
@@ -888,7 +953,10 @@ func TestIssue5063(t *testing.T) {
 				},
 			},
 		})
-		if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+		m.fmut.RLock()
+		fcfg, ok := m.folderCfgs[id]
+		m.fmut.RUnlock()
+		if !ok || !fcfg.SharedWith(device1) {
 			t.Error("expected shared", id)
 		}
 		wg.Done()
@@ -939,7 +1007,10 @@ func TestAutoAcceptRejected(t *testing.T) {
 		},
 	})
 
-	if cfg, ok := m.cfg.Folder(id); ok && cfg.SharedWith(device1) {
+	m.fmut.RLock()
+	cfg, ok := m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if ok && cfg.SharedWith(device1) {
 		t.Error("unexpected shared", id)
 	}
 }
@@ -958,7 +1029,10 @@ func TestAutoAcceptNewFolder(t *testing.T) {
 			},
 		},
 	})
-	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id)
 	}
 }
@@ -976,10 +1050,16 @@ func TestAutoAcceptNewFolderFromTwoDevices(t *testing.T) {
 			},
 		},
 	})
-	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id)
 	}
-	if fcfg, ok := m.cfg.Folder(id); !ok || fcfg.SharedWith(device2) {
+	m.fmut.RLock()
+	fcfg, ok = m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || fcfg.SharedWith(device2) {
 		t.Error("unexpected expected shared", id)
 	}
 	m.ClusterConfig(device2, protocol.ClusterConfig{
@@ -990,7 +1070,10 @@ func TestAutoAcceptNewFolderFromTwoDevices(t *testing.T) {
 			},
 		},
 	})
-	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device2) {
+	m.fmut.RLock()
+	fcfg, ok = m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device2) {
 		t.Error("expected shared", id)
 	}
 }
@@ -1010,10 +1093,16 @@ func TestAutoAcceptNewFolderFromOnlyOneDevice(t *testing.T) {
 			},
 		},
 	})
-	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id)
 	}
-	if fcfg, ok := m.cfg.Folder(id); !ok || fcfg.SharedWith(device2) {
+	m.fmut.RLock()
+	fcfg, ok = m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || fcfg.SharedWith(device2) {
 		t.Error("unexpected expected shared", id)
 	}
 	m.ClusterConfig(device2, protocol.ClusterConfig{
@@ -1024,7 +1113,10 @@ func TestAutoAcceptNewFolderFromOnlyOneDevice(t *testing.T) {
 			},
 		},
 	})
-	if fcfg, ok := m.cfg.Folder(id); !ok || fcfg.SharedWith(device2) {
+	m.fmut.RLock()
+	fcfg, ok = m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || fcfg.SharedWith(device2) {
 		t.Error("unexpected shared", id)
 	}
 }
@@ -1091,10 +1183,16 @@ func TestAutoAcceptMultipleFolders(t *testing.T) {
 			},
 		},
 	})
-	if fcfg, ok := m.cfg.Folder(id1); !ok || !fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs[id1]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id1)
 	}
-	if fcfg, ok := m.cfg.Folder(id2); !ok || !fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok = m.folderCfgs[id2]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id2)
 	}
 }
@@ -1115,7 +1213,10 @@ func TestAutoAcceptExistingFolder(t *testing.T) {
 	}
 	m := newState(tcfg)
 	defer cleanupModel(m)
-	if fcfg, ok := m.cfg.Folder(id); !ok || fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || fcfg.SharedWith(device1) {
 		t.Error("missing folder, or shared", id)
 	}
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -1127,7 +1228,10 @@ func TestAutoAcceptExistingFolder(t *testing.T) {
 		},
 	})
 
-	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) || fcfg.Path != idOther {
+	m.fmut.RLock()
+	fcfg, ok = m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) || fcfg.Path != idOther {
 		t.Error("missing folder, or unshared, or path changed", id)
 	}
 }
@@ -1148,7 +1252,10 @@ func TestAutoAcceptNewAndExistingFolder(t *testing.T) {
 	}
 	m := newState(tcfg)
 	defer cleanupModel(m)
-	if fcfg, ok := m.cfg.Folder(id1); !ok || fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs[id1]
+	m.fmut.RUnlock()
+	if !ok || fcfg.SharedWith(device1) {
 		t.Error("missing folder, or shared", id1)
 	}
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -1165,7 +1272,10 @@ func TestAutoAcceptNewAndExistingFolder(t *testing.T) {
 	})
 
 	for i, id := range []string{id1, id2} {
-		if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+		m.fmut.RLock()
+		fcfg, ok = m.folderCfgs[id]
+		m.fmut.RUnlock()
+		if !ok || !fcfg.SharedWith(device1) {
 			t.Error("missing folder, or unshared", i, id)
 		}
 	}
@@ -1189,7 +1299,10 @@ func TestAutoAcceptAlreadyShared(t *testing.T) {
 	}
 	m := newState(tcfg)
 	defer cleanupModel(m)
-	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -1201,7 +1314,10 @@ func TestAutoAcceptAlreadyShared(t *testing.T) {
 		},
 	})
 
-	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok = m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
 }
@@ -1225,7 +1341,10 @@ func TestAutoAcceptNameConflict(t *testing.T) {
 			},
 		},
 	})
-	if fcfg, ok := m.cfg.Folder(id); ok && fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if ok && fcfg.SharedWith(device1) {
 		t.Error("unexpected folder", id)
 	}
 }
@@ -1246,7 +1365,10 @@ func TestAutoAcceptPrefersLabel(t *testing.T) {
 			},
 		},
 	})
-	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) || !strings.HasSuffix(fcfg.Path, label) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) || !strings.HasSuffix(fcfg.Path, label) {
 		t.Error("expected shared, or wrong path", id, label, fcfg.Path)
 	}
 }
@@ -1271,7 +1393,10 @@ func TestAutoAcceptFallsBackToID(t *testing.T) {
 			},
 		},
 	})
-	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) || !strings.HasSuffix(fcfg.Path, id) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) || !strings.HasSuffix(fcfg.Path, id) {
 		t.Error("expected shared, or wrong path", id, label, fcfg.Path)
 	}
 }
@@ -1295,7 +1420,10 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 	tcfg.Folders = []config.FolderConfiguration{fcfg}
 	m := newState(tcfg)
 	defer cleanupModel(m)
-	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
 	if _, ok := m.folderRunners[id]; ok {
@@ -1312,7 +1440,10 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 	})
 	m.generateClusterConfig(device1)
 
-	if fcfg, ok := m.cfg.Folder(id); !ok {
+	m.fmut.RLock()
+	fcfg, ok = m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok {
 		t.Error("missing folder")
 	} else if fcfg.Path != idOther {
 		t.Error("folder path changed")
@@ -1352,7 +1483,10 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 	tcfg.Folders = []config.FolderConfiguration{fcfg}
 	m := newState(tcfg)
 	defer cleanupModel(m)
-	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
 	if _, ok := m.folderRunners[id]; ok {
@@ -1369,7 +1503,10 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 	})
 	m.generateClusterConfig(device1)
 
-	if fcfg, ok := m.cfg.Folder(id); !ok {
+	m.fmut.RLock()
+	fcfg, ok = m.folderCfgs[id]
+	m.fmut.RUnlock()
+	if !ok {
 		t.Error("missing folder")
 	} else if fcfg.Path != idOther {
 		t.Error("folder path changed")
@@ -1388,6 +1525,8 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 }
 
 func changeIgnores(t *testing.T, m *model, expected []string) {
+	t.Helper()
+
 	arrEqual := func(a, b []string) bool {
 		if len(a) != len(b) {
 			return false
@@ -2165,7 +2304,7 @@ func TestIssue3028(t *testing.T) {
 
 func TestIssue4357(t *testing.T) {
 	db := db.NewLowlevel(backend.OpenMemory())
-	cfg := defaultCfgWrapper.RawCopy()
+	cfg := defaultCfg.Copy()
 	// Create a separate wrapper not to pollute other tests.
 	wrapper := createTmpWrapper(config.Configuration{})
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
@@ -2180,23 +2319,31 @@ func TestIssue4357(t *testing.T) {
 	}
 
 	if _, ok := m.folderCfgs["default"]; !ok {
-		t.Error("Folder should be running")
+		t.Fatal("Folder should be running")
 	}
 
-	newCfg := wrapper.RawCopy()
-	newCfg.Folders[0].Paused = true
+	cfg.Folders[0].Paused = true
 
-	p, err = wrapper.Replace(newCfg)
+	p, err = wrapper.Replace(cfg)
 	p.Wait()
 	if err != nil {
 		t.Error(err)
 	}
 
-	if _, ok := m.folderCfgs["default"]; ok {
-		t.Error("Folder should not be running")
+	if _, ok := m.folderCfgs["default"]; !ok {
+		t.Error("Folder config should be present when paused")
 	}
 
-	if _, ok := m.cfg.Folder("default"); !ok {
+	m.fmut.RLock()
+	if err := m.checkFolderRunningLocked("default"); err != ErrFolderPaused {
+		t.Errorf("Expected %v, got %v", ErrFolderPaused, err)
+	}
+	m.fmut.RUnlock()
+
+	m.fmut.RLock()
+	_, ok := m.folderCfgs["default"]
+	m.fmut.RUnlock()
+	if !ok {
 		t.Error("should still have folder in config")
 	}
 
@@ -2206,7 +2353,10 @@ func TestIssue4357(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, ok := m.cfg.Folder("default"); ok {
+	m.fmut.RLock()
+	_, ok = m.folderCfgs["default"]
+	m.fmut.RUnlock()
+	if ok {
 		t.Error("should not have folder in config")
 	}
 
@@ -2220,7 +2370,10 @@ func TestIssue4357(t *testing.T) {
 	if _, ok := m.folderCfgs["default"]; !ok {
 		t.Error("Folder should be running")
 	}
-	if _, ok := m.cfg.Folder("default"); !ok {
+	m.fmut.RLock()
+	_, ok = m.folderCfgs["default"]
+	m.fmut.RUnlock()
+	if !ok {
 		t.Error("should still have folder in config")
 	}
 
@@ -2234,7 +2387,10 @@ func TestIssue4357(t *testing.T) {
 	if _, ok := m.folderCfgs["default"]; ok {
 		t.Error("Folder should not be running")
 	}
-	if _, ok := m.cfg.Folder("default"); ok {
+	m.fmut.RLock()
+	_, ok = m.folderCfgs["default"]
+	m.fmut.RUnlock()
+	if ok {
 		t.Error("should not have folder in config")
 	}
 }
@@ -2315,7 +2471,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	wcfg := createTmpWrapper(defaultCfg)
 	wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
-	fcfg := wcfg.FolderList()[0]
+	fcfg := defaultCfg.Folders[0].Copy()
 	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 	wcfg.SetFolder(fcfg)
 	defer os.Remove(wcfg.ConfigPath())
@@ -2353,10 +2509,16 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		},
 	})
 
-	if fcfg, ok := m.cfg.Folder("default"); !ok || !fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs["default"]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) {
 		t.Error("not shared with device1")
 	}
-	if fcfg, ok := m.cfg.Folder("default"); !ok || !fcfg.SharedWith(device2) {
+	m.fmut.RLock()
+	fcfg, ok = m.folderCfgs["default"]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device2) {
 		t.Error("not shared with device2")
 	}
 
@@ -2370,7 +2532,9 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond) // Committer notification happens in a separate routine
 
-	fcfg, ok := m.cfg.Folder("default")
+	m.fmut.RLock()
+	fcfg, ok = m.folderCfgs["default"]
+	m.fmut.RUnlock()
 	if !ok {
 		t.Fatal("default folder missing")
 	}
@@ -2390,7 +2554,10 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		t.Error("connection not closed")
 	}
 
-	if _, ok := wcfg.Devices()[device2]; ok {
+	m.pmut.RLock()
+	_, ok = m.deviceCfgs[device2]
+	m.pmut.RUnlock()
+	if ok {
 		t.Error("device still in config")
 	}
 
@@ -2509,7 +2676,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 
 	wcfg := createTmpWrapper(defaultCfg)
 	wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
-	fcfg := wcfg.FolderList()[0]
+	fcfg := defaultCfg.Folders[0].Copy()
 	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 	wcfg.SetFolder(fcfg)
 
@@ -2826,7 +2993,10 @@ func TestIssue4475(t *testing.T) {
 
 	m.ScanFolder("default")
 
-	if fcfg, ok := m.cfg.Folder("default"); !ok || !fcfg.SharedWith(device1) {
+	m.fmut.RLock()
+	fcfg, ok := m.folderCfgs["default"]
+	m.fmut.RUnlock()
+	if !ok || !fcfg.SharedWith(device1) {
 		t.Fatal("not shared with device1")
 	}
 
@@ -3062,7 +3232,7 @@ func TestVersionRestore(t *testing.T) {
 
 func TestPausedFolders(t *testing.T) {
 	// Create a separate wrapper not to pollute other tests.
-	wrapper := createTmpWrapper(defaultCfgWrapper.RawCopy())
+	wrapper := createTmpWrapper(defaultCfg.Copy())
 	m := setupModel(wrapper)
 	defer cleanupModel(m)
 
@@ -3070,9 +3240,9 @@ func TestPausedFolders(t *testing.T) {
 		t.Error(err)
 	}
 
-	pausedConfig := wrapper.RawCopy()
+	pausedConfig := defaultCfg.Copy()
 	pausedConfig.Folders[0].Paused = true
-	w, err := m.cfg.Replace(pausedConfig)
+	w, err := m.cfgw.Replace(pausedConfig)
 	must(t, err)
 	w.Wait()
 
@@ -3098,7 +3268,7 @@ func TestIssue4094(t *testing.T) {
 	// Force the model to wire itself and add the folders
 	folderPath := "nonexistent"
 	defer testOs.RemoveAll(folderPath)
-	cfg := defaultCfgWrapper.RawCopy()
+	cfg := defaultCfg.Copy()
 	fcfg := config.FolderConfiguration{
 		ID:     "folder1",
 		Path:   folderPath,
@@ -3134,7 +3304,7 @@ func TestIssue4903(t *testing.T) {
 	// Force the model to wire itself and add the folders
 	folderPath := "nonexistent"
 	defer testOs.RemoveAll(folderPath)
-	cfg := defaultCfgWrapper.RawCopy()
+	cfg := defaultCfg.Copy()
 	fcfg := config.FolderConfiguration{
 		ID:     "folder1",
 		Path:   folderPath,
@@ -3195,8 +3365,9 @@ func TestParentOfUnignored(t *testing.T) {
 // TestFolderRestartZombies reproduces issue 5233, where multiple concurrent folder
 // restarts would leave more than one folder runner alive.
 func TestFolderRestartZombies(t *testing.T) {
-	wrapper := createTmpWrapper(defaultCfg.Copy())
-	folderCfg, _ := wrapper.Folder("default")
+	cfg := defaultCfg.Copy()
+	wrapper := createTmpWrapper(cfg)
+	folderCfg := cfg.Folders[0]
 	folderCfg.FilesystemType = fs.FilesystemTypeFake
 	wrapper.SetFolder(folderCfg)
 
@@ -3242,8 +3413,9 @@ func TestFolderRestartZombies(t *testing.T) {
 }
 
 func TestRequestLimit(t *testing.T) {
-	wrapper := createTmpWrapper(defaultCfg.Copy())
-	dev, _ := wrapper.Device(device1)
+	cfg := defaultCfg.Copy()
+	wrapper := createTmpWrapper(cfg)
+	dev := cfg.DeviceMap[device1]
 	dev.MaxRequestKiB = 1
 	wrapper.SetDevice(dev)
 	m, _ := setupModelWithConnectionFromWrapper(wrapper)
@@ -3402,11 +3574,11 @@ func TestDevicePause(t *testing.T) {
 
 	m.pmut.RLock()
 	closed := m.closed[device1]
+	dev := m.deviceCfgs[device1]
 	m.pmut.RUnlock()
 
-	dev := m.cfg.Devices()[device1]
 	dev.Paused = true
-	m.cfg.SetDevice(dev)
+	m.cfgw.SetDevice(dev)
 
 	timeout := time.NewTimer(5 * time.Second)
 	select {

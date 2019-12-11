@@ -195,6 +195,10 @@ type Configuration struct {
 
 	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
 	OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
+
+	// Not part of serialized configs, just for "convenience".
+	DeviceMap map[protocol.DeviceID]DeviceConfiguration `xml:"-" json:"-"`
+	FolderMap map[string]FolderConfiguration            `xml:"-" json:"-"`
 }
 
 func (cfg Configuration) Copy() Configuration {
@@ -221,6 +225,8 @@ func (cfg Configuration) Copy() Configuration {
 
 	newCfg.PendingDevices = make([]ObservedDevice, len(cfg.PendingDevices))
 	copy(newCfg.PendingDevices, cfg.PendingDevices)
+
+	newCfg.populateMaps()
 
 	return newCfg
 }
@@ -265,7 +271,20 @@ found:
 		cfg.Folders[i].Devices = ensureDevicePresent(cfg.Folders[i].Devices, myID)
 	}
 
+	cfg.populateMaps()
+
 	return nil
+}
+
+func (cfg *Configuration) populateMaps() {
+	cfg.FolderMap = make(map[string]FolderConfiguration, len(cfg.Folders))
+	for i := range cfg.Folders {
+		cfg.FolderMap[cfg.Folders[i].ID] = cfg.Folders[i]
+	}
+	cfg.DeviceMap = make(map[protocol.DeviceID]DeviceConfiguration, len(cfg.Devices))
+	for i := range cfg.Devices {
+		cfg.DeviceMap[cfg.Devices[i].DeviceID] = cfg.Devices[i]
+	}
 }
 
 func (cfg *Configuration) clean() error {
@@ -423,13 +442,19 @@ nextPendingDevice:
 	return nil
 }
 
-// DeviceMap returns a map of device ID to device configuration for the given configuration.
-func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration {
-	m := make(map[protocol.DeviceID]DeviceConfiguration, len(cfg.Devices))
+func (cfg *Configuration) MyName() string {
 	for _, dev := range cfg.Devices {
-		m[dev.DeviceID] = dev
+		if dev.DeviceID == cfg.MyID {
+			return dev.Name
+		}
 	}
-	return m
+	var empty protocol.DeviceID
+	if cfg.MyID == empty {
+		l.Debugln("Empty MyID must only happen in tsts")
+	} else {
+		panic("device for my own ID must exist")
+	}
+	return ""
 }
 
 func ensureDevicePresent(devices []FolderDeviceConfiguration, myID protocol.DeviceID) []FolderDeviceConfiguration {

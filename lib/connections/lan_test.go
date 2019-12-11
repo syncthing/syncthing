@@ -7,10 +7,10 @@
 package connections
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/events"
 )
 
 func TestIsLANHost(t *testing.T) {
@@ -32,12 +32,15 @@ func TestIsLANHost(t *testing.T) {
 		{"„‹›ﬂ´ﬁÎ‡‰ˇ¨Á˝", false},
 	}
 
-	cfg := config.Wrap("/dev/null", config.Configuration{
+	cfg := config.Configuration{
 		Options: config.OptionsConfiguration{
 			AlwaysLocalNets: []string{"10.20.30.0/24"},
 		},
-	}, events.NoopLogger)
-	s := &service{cfg: cfg}
+	}
+	s := &service{
+		cfg:    cfg,
+		cfgMut: &sync.RWMutex{},
+	}
 
 	for _, tc := range cases {
 		res := s.isLANHost(tc.addr)

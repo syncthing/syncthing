@@ -50,6 +50,9 @@ type folder struct {
 	ignores *ignore.Matcher
 	ctx     context.Context
 
+	minHomeDiskFree config.Size
+	keepTemporaries time.Duration
+
 	scanInterval        time.Duration
 	scanTimer           *time.Timer
 	scanNow             chan rescanRequest
@@ -78,7 +81,7 @@ type puller interface {
 	pull() bool // true when successfull and should not be retried
 }
 
-func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger) folder {
+func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, opts config.OptionsConfiguration, evLogger events.Logger) folder {
 	return folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -88,6 +91,9 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		shortID: model.shortID,
 		fset:    fset,
 		ignores: ignores,
+
+		minHomeDiskFree: opts.MinHomeDiskFree,
+		keepTemporaries: time.Duration(opts.KeepTemporariesH) * time.Hour,
 
 		scanInterval:        time.Duration(cfg.RescanIntervalS) * time.Second,
 		scanTimer:           time.NewTimer(time.Millisecond), // The first scan should be done immediately.
@@ -271,7 +277,7 @@ func (f *folder) getHealthError() error {
 
 	dbPath := locations.Get(locations.Database)
 	if usage, err := fs.NewFilesystem(fs.FilesystemTypeBasic, dbPath).Usage("."); err == nil {
-		if err = config.CheckFreeSpace(f.model.cfg.Options().MinHomeDiskFree, usage); err != nil {
+		if err = config.CheckFreeSpace(f.minHomeDiskFree, usage); err != nil {
 			return errors.Wrapf(err, "insufficient space on disk for database (%v)", dbPath)
 		}
 	}
@@ -343,7 +349,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		Folder:                f.ID,
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
-		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
+		TempLifetime:          f.keepTemporaries,
 		CurrentFiler:          cFiler{f.fset},
 		Filesystem:            mtimefs,
 		IgnorePerms:           f.IgnorePerms,
@@ -635,7 +641,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 				failTimer.Reset(time.Minute)
 				continue
 			}
-			watchaggregator.Aggregate(aggrCtx, eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, f.evLogger)
+			watchaggregator.Aggregate(aggrCtx, eventChan, f.watchChan, f.FolderConfiguration, f.model.cfgw, f.evLogger)
 			l.Debugln("Started filesystem watcher for folder", f.Description())
 		case err = <-errChan:
 			f.setWatchError(err)

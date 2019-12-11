@@ -42,16 +42,19 @@ var StartTime = time.Now()
 
 type Service struct {
 	suture.Service
-	cfg                config.Wrapper
+	cfgw               config.Wrapper
 	model              model.Model
 	connectionsService connections.Service
 	noUpgrade          bool
 	forceRun           chan struct{}
+
+	cfg config.Configuration
+	mut sync.Mutex
 }
 
-func New(cfg config.Wrapper, m model.Model, connectionsService connections.Service, noUpgrade bool) *Service {
+func New(cfgw config.Wrapper, m model.Model, connectionsService connections.Service, noUpgrade bool) *Service {
 	svc := &Service{
-		cfg:                cfg,
+		cfgw:               cfgw,
 		model:              m,
 		connectionsService: connectionsService,
 		noUpgrade:          noUpgrade,
@@ -64,7 +67,7 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 // ReportData returns the data to be sent in a usage report with the currently
 // configured usage reporting version.
 func (s *Service) ReportData() map[string]interface{} {
-	urVersion := s.cfg.Options().URAccepted
+	urVersion := s.cfg.Options.URAccepted
 	return s.reportData(urVersion, false)
 }
 
@@ -75,20 +78,23 @@ func (s *Service) ReportDataPreview(urVersion int) map[string]interface{} {
 }
 
 func (s *Service) reportData(urVersion int, preview bool) map[string]interface{} {
-	opts := s.cfg.Options()
+	s.mut.Lock()
+	defer s.mut.Unlock()
+
+	opts := s.cfg.Options
 	res := make(map[string]interface{})
 	res["urVersion"] = urVersion
 	res["uniqueID"] = opts.URUniqueID
 	res["version"] = build.Version
 	res["longVersion"] = build.LongVersion
 	res["platform"] = runtime.GOOS + "-" + runtime.GOARCH
-	res["numFolders"] = len(s.cfg.Folders())
-	res["numDevices"] = len(s.cfg.Devices())
+	res["numFolders"] = len(s.cfg.Folders)
+	res["numDevices"] = len(s.cfg.Devices)
 
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
-	for folderID := range s.cfg.Folders() {
-		global := s.model.GlobalSize(folderID)
+	for _, cfg := range s.cfg.Folders {
+		global := s.model.GlobalSize(cfg.ID)
 		totFiles += int(global.Files)
 		totBytes += global.Bytes
 		if int(global.Files) > maxFiles {
@@ -129,7 +135,7 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 		"staggeredVersioning": 0,
 		"trashcanVersioning":  0,
 	}
-	for _, cfg := range s.cfg.Folders() {
+	for _, cfg := range s.cfg.Folders {
 		rescanIntvs = append(rescanIntvs, cfg.RescanIntervalS)
 
 		switch cfg.Type {
@@ -166,7 +172,7 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 		"dynamicAddr":      0,
 		"staticAddr":       0,
 	}
-	for _, cfg := range s.cfg.Devices() {
+	for _, cfg := range s.cfg.Devices {
 		if cfg.Introducer {
 			deviceUses["introducer"]++
 		}
@@ -207,7 +213,7 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 	}
 
 	defaultRelayServers, otherRelayServers := 0, 0
-	for _, addr := range s.cfg.Options().ListenAddresses() {
+	for _, addr := range opts.ListenAddresses() {
 		switch {
 		case addr == "dynamic+https://relays.syncthing.net/endpoint":
 			defaultRelayServers++
@@ -257,7 +263,7 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 		pullOrder := make(map[string]int)
 		filesystemType := make(map[string]int)
 		var fsWatcherDelays []int
-		for _, cfg := range s.cfg.Folders() {
+		for _, cfg := range s.cfg.Folders {
 			if cfg.ScanProgressIntervalS < 0 {
 				folderUsesV3["scanProgressDisabled"]++
 			}
@@ -297,7 +303,6 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 		}
 		res["folderUsesV3"] = folderUsesV3Interface
 
-		guiCfg := s.cfg.GUI()
 		// Anticipate multiple GUI configs in the future, hence store counts.
 		guiStats := map[string]int{
 			"enabled":                   0,
@@ -311,28 +316,28 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 			"listenUnspecified":         0,
 		}
 		theme := make(map[string]int)
-		if guiCfg.Enabled {
+		if s.cfg.GUI.Enabled {
 			guiStats["enabled"]++
-			if guiCfg.UseTLS() {
+			if s.cfg.GUI.UseTLS() {
 				guiStats["useTLS"]++
 			}
-			if len(guiCfg.User) > 0 && len(guiCfg.Password) > 0 {
+			if len(s.cfg.GUI.User) > 0 && len(s.cfg.GUI.Password) > 0 {
 				guiStats["useAuth"]++
 			}
-			if guiCfg.InsecureAdminAccess {
+			if s.cfg.GUI.InsecureAdminAccess {
 				guiStats["insecureAdminAccess"]++
 			}
-			if guiCfg.Debugging {
+			if s.cfg.GUI.Debugging {
 				guiStats["debugging"]++
 			}
-			if guiCfg.InsecureSkipHostCheck {
+			if s.cfg.GUI.InsecureSkipHostCheck {
 				guiStats["insecureSkipHostCheck"]++
 			}
-			if guiCfg.InsecureAllowFrameLoading {
+			if s.cfg.GUI.InsecureAllowFrameLoading {
 				guiStats["insecureAllowFrameLoading"]++
 			}
 
-			addr, err := net.ResolveTCPAddr("tcp", guiCfg.Address())
+			addr, err := net.ResolveTCPAddr("tcp", s.cfg.GUI.Address())
 			if err == nil {
 				if addr.IP.IsLoopback() {
 					guiStats["listenLocal"]++
@@ -341,7 +346,7 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 				}
 			}
 
-			theme[guiCfg.Theme]++
+			theme[s.cfg.GUI.Theme]++
 		}
 		guiStatsInterface := map[string]interface{}{
 			"theme": theme,
@@ -375,19 +380,19 @@ func (s *Service) sendUsageReport() error {
 			DialContext: dialer.DialContext,
 			Proxy:       http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: s.cfg.Options().URPostInsecurely,
+				InsecureSkipVerify: s.cfg.Options.URPostInsecurely,
 			},
 		},
 	}
-	_, err := client.Post(s.cfg.Options().URURL, "application/json", &b)
+	_, err := client.Post(s.cfg.Options.URURL, "application/json", &b)
 	return err
 }
 
 func (s *Service) serve(ctx context.Context) {
-	s.cfg.Subscribe(s)
-	defer s.cfg.Unsubscribe(s)
+	s.cfgw.Subscribe(s)
+	defer s.cfgw.Unsubscribe(s)
 
-	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
+	t := time.NewTimer(time.Duration(s.cfg.Options.URInitialDelayS) * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
@@ -395,12 +400,12 @@ func (s *Service) serve(ctx context.Context) {
 		case <-s.forceRun:
 			t.Reset(0)
 		case <-t.C:
-			if s.cfg.Options().URAccepted >= 2 {
+			if s.cfg.Options.URAccepted >= 2 {
 				err := s.sendUsageReport()
 				if err != nil {
 					l.Infoln("Usage report:", err)
 				} else {
-					l.Infof("Sent usage report (version %d)", s.cfg.Options().URAccepted)
+					l.Infof("Sent usage report (version %d)", s.cfg.Options.URAccepted)
 				}
 			}
 			t.Reset(24 * time.Hour) // next report tomorrow
@@ -421,6 +426,9 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 			// was sent, a run will still happen after this point.
 		}
 	}
+	s.mut.Lock()
+	s.cfg = to
+	s.mut.Unlock()
 	return true
 }
 

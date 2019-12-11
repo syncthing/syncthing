@@ -33,11 +33,11 @@ type relayListener struct {
 	util.ServiceWithError
 	onAddressesChangedNotifier
 
-	uri     *url.URL
-	cfg     config.Wrapper
-	tlsCfg  *tls.Config
-	conns   chan internalConn
-	factory listenerFactory
+	uri          *url.URL
+	tlsCfg       *tls.Config
+	conns        chan internalConn
+	factory      listenerFactory
+	trafficClass int
 
 	client client.RelayClient
 	mut    sync.RWMutex
@@ -85,7 +85,7 @@ func (t *relayListener) serve(ctx context.Context) error {
 				l.Debugln("Listen (BEP/relay): setting tcp options:", err)
 			}
 
-			err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
+			err = dialer.SetTrafficClass(conn, t.trafficClass)
 			if err != nil {
 				l.Debugln("Listen (BEP/relay): setting traffic class:", err)
 			}
@@ -175,13 +175,13 @@ func (t *relayListener) NATType() string {
 
 type relayListenerFactory struct{}
 
-func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
+func (f *relayListenerFactory) New(uri *url.URL, _ config.Wrapper, trafficClass int, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	t := &relayListener{
-		uri:     uri,
-		cfg:     cfg,
-		tlsCfg:  tlsCfg,
-		conns:   conns,
-		factory: f,
+		uri:          uri,
+		tlsCfg:       tlsCfg,
+		conns:        conns,
+		factory:      f,
+		trafficClass: trafficClass,
 	}
 	t.ServiceWithError = util.AsServiceWithError(t.serve, t.String())
 	return t

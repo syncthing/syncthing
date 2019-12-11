@@ -499,16 +499,16 @@ func (p *Process) eventLoop() {
 				p.id = id
 
 				home := data["home"].(string)
-				w, err := config.Load(filepath.Join(home, "config.xml"), protocol.LocalDeviceID, events.NoopLogger)
+				_, cfg, err := config.Load(filepath.Join(home, "config.xml"), protocol.LocalDeviceID, events.NoopLogger)
 				if err != nil {
 					log.Println("eventLoop: Starting:", err)
 					continue
 				}
-				for id := range w.Folders() {
+				for _, folderCfg := range cfg.Folders {
 					p.eventMut.Lock()
-					p.folders = append(p.folders, id)
+					p.folders = append(p.folders, folderCfg.ID)
 					p.eventMut.Unlock()
-					notScanned[id] = struct{}{}
+					notScanned[folderCfg.ID] = struct{}{}
 				}
 
 				l.Debugln("Started", p.id)

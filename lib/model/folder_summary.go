@@ -34,7 +34,7 @@ type FolderSummaryService interface {
 type folderSummaryService struct {
 	*suture.Supervisor
 
-	cfg       config.Wrapper
+	cfgw      config.Wrapper
 	model     Model
 	id        protocol.DeviceID
 	evLogger  events.Logger
@@ -43,18 +43,19 @@ type folderSummaryService struct {
 	// For keeping track of folders to recalculate for
 	foldersMut sync.Mutex
 	folders    map[string]struct{}
+	folderCfgs map[string]config.FolderConfiguration
 
 	// For keeping track of when the last event request on the API was
 	lastEventReq    time.Time
 	lastEventReqMut sync.Mutex
 }
 
-func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
+func NewFolderSummaryService(cfgw config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
 	service := &folderSummaryService{
 		Supervisor: suture.New("folderSummaryService", suture.Spec{
 			PassThroughPanics: true,
 		}),
-		cfg:             cfg,
+		cfgw:            cfgw,
 		model:           m,
 		id:              id,
 		evLogger:        evLogger,
@@ -64,10 +65,29 @@ func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, 
 		lastEventReqMut: sync.NewMutex(),
 	}
 
+	cfg := cfgw.Subscribe(service)
+	service.folderCfgs = cfg.FolderMap
+
 	service.Add(util.AsService(service.listenForUpdates, fmt.Sprintf("%s/listenForUpdates", service)))
 	service.Add(util.AsService(service.calculateSummaries, fmt.Sprintf("%s/calculateSummaries", service)))
 
 	return service
+}
+
+func (c *folderSummaryService) Stop() {
+	c.cfgw.Unsubscribe(c)
+	c.Supervisor.Stop()
+}
+
+func (c *folderSummaryService) VerifyConfiguration(_, to config.Configuration) error {
+	return nil
+}
+
+func (c *folderSummaryService) CommitConfiguration(_, to config.Configuration) bool {
+	c.foldersMut.Lock()
+	c.folderCfgs = to.FolderMap
+	c.foldersMut.Unlock()
+	return true
 }
 
 func (c *folderSummaryService) String() string {
@@ -96,7 +116,10 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	need := c.model.NeedSize(folder)
 	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
 
-	if c.cfg.Folders()[folder].Type == config.FolderTypeReceiveOnly {
+	c.foldersMut.Lock()
+	t := c.folderCfgs[folder].Type
+	c.foldersMut.Unlock()
+	if t == config.FolderTypeReceiveOnly {
 		// Add statistics for things that have changed locally in a receive
 		// only folder.
 		ro := c.model.ReceiveOnlyChangedSize(folder)
@@ -175,7 +198,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 
 		c.foldersMut.Lock()
 	nextFolder:
-		for _, folder := range c.cfg.Folders() {
+		for _, folder := range c.folderCfgs {
 			for _, dev := range folder.Devices {
 				if dev.DeviceID == deviceID {
 					c.folders[folder.ID] = struct{}{}
@@ -302,7 +325,10 @@ func (c *folderSummaryService) sendSummary(folder string) {
 		"summary": data,
 	})
 
-	for _, devCfg := range c.cfg.Folders()[folder].Devices {
+	c.foldersMut.Lock()
+	devices := c.folderCfgs[folder].Devices
+	c.foldersMut.Unlock()
+	for _, devCfg := range devices {
 		if devCfg.DeviceID.Equals(c.id) {
 			// We already know about ourselves.
 			continue

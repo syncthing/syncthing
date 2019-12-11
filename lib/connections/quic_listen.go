@@ -193,7 +193,7 @@ func (f *quicListenerFactory) Valid(config.Configuration) error {
 	return nil
 }
 
-func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
+func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, _ int, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	l := &quicListener{
 		uri:     fixupPort(uri, config.DefaultQUICPort),
 		cfg:     cfg,

@@ -30,26 +30,25 @@ func tempCfgFilename(t *testing.T) string {
 }
 
 func TestShortIDCheck(t *testing.T) {
-	cfg := config.Wrap(tempCfgFilename(t), config.Configuration{
+	cfg := config.Configuration{
 		Devices: []config.DeviceConfiguration{
 			{DeviceID: protocol.DeviceID{8, 16, 24, 32, 40, 48, 56, 0, 0}},
 			{DeviceID: protocol.DeviceID{8, 16, 24, 32, 40, 48, 56, 1, 1}}, // first 56 bits same, differ in the first 64 bits
 		},
-	}, events.NoopLogger)
-	defer os.Remove(cfg.ConfigPath())
+	}
 
-	if err := checkShortIDs(cfg); err != nil {
+	if err := checkShortIDs(cfg.Devices); err != nil {
 		t.Error("Unexpected error:", err)
 	}
 
-	cfg = config.Wrap("/tmp/test", config.Configuration{
+	cfg = config.Configuration{
 		Devices: []config.DeviceConfiguration{
 			{DeviceID: protocol.DeviceID{8, 16, 24, 32, 40, 48, 56, 64, 0}},
 			{DeviceID: protocol.DeviceID{8, 16, 24, 32, 40, 48, 56, 64, 1}}, // first 64 bits same
 		},
-	}, events.NoopLogger)
+	}
 
-	if err := checkShortIDs(cfg); err == nil {
+	if err := checkShortIDs(cfg.Devices); err == nil {
 		t.Error("Should have gotten an error")
 	}
 }
@@ -69,15 +68,16 @@ func TestStartupFail(t *testing.T) {
 	conflID := protocol.DeviceID{}
 	copy(conflID[:8], id[:8])
 
-	cfg := config.Wrap(tempCfgFilename(t), config.Configuration{
+	cfg := config.Configuration{
 		Devices: []config.DeviceConfiguration{
 			{DeviceID: id},
 			{DeviceID: conflID},
 		},
-	}, events.NoopLogger)
-	defer os.Remove(cfg.ConfigPath())
+	}
+	w := config.Wrap(tempCfgFilename(t), cfg, events.NoopLogger)
+	defer os.Remove(w.ConfigPath())
 
-	app := New(cfg, nil, events.NoopLogger, cert, Options{})
+	app := New(w, cfg, nil, events.NoopLogger, cert, Options{})
 	startErr := app.Start()
 	if startErr == nil {
 		t.Fatal("Expected an error from Start, got nil")

@@ -70,8 +70,11 @@ type service struct {
 	suture.Service
 
 	id                   protocol.DeviceID
-	cfg                  config.Wrapper
+	cfgw                 config.Wrapper
+	cfg                  config.Configuration
+	cfgMut               sync.RWMutex
 	statics              *staticsServer
+	assetDir             string
 	model                model.Model
 	eventSubs            map[events.EventType]events.BufferedSubscription
 	eventSubsMut         sync.Mutex
@@ -111,12 +114,13 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
+func New(id protocol.DeviceID, cfgw config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
 	s := &service{
-		id:      id,
-		cfg:     cfg,
-		statics: newStaticsServer(cfg.GUI().Theme, assetDir),
-		model:   m,
+		id:       id,
+		cfgw:     cfgw,
+		cfgMut:   sync.NewRWMutex(),
+		assetDir: assetDir,
+		model:    m,
 		eventSubs: map[events.EventType]events.BufferedSubscription{
 			DefaultEventMask: defaultSub,
 			DiskEventMask:    diskSub,
@@ -209,7 +213,16 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 }
 
 func (s *service) serve(ctx context.Context) {
-	listener, err := s.getListener(s.cfg.GUI())
+	s.cfgMut.Lock()
+	s.cfg = s.cfgw.Subscribe(s)
+	guiCfg := s.cfg.GUI
+	ldap := s.cfg.LDAP
+	s.cfgMut.Unlock()
+	defer s.cfgw.Unsubscribe(s)
+
+	s.statics = newStaticsServer(guiCfg.Theme, s.assetDir)
+
+	listener, err := s.getListener(guiCfg)
 	if err != nil {
 		select {
 		case <-s.startedOnce:
@@ -235,9 +248,6 @@ func (s *service) serve(ctx context.Context) {
 
 	s.listenerAddr = listener.Addr()
 	defer listener.Close()
-
-	s.cfg.Subscribe(s)
-	defer s.cfg.Unsubscribe(s)
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
@@ -301,7 +311,7 @@ func (s *service) serve(ctx context.Context) {
 	debugMux.HandleFunc("/rest/debug/cpuprof", s.getCPUProf) // duration
 	debugMux.HandleFunc("/rest/debug/heapprof", s.getHeapProf)
 	debugMux.HandleFunc("/rest/debug/support", s.getSupportBundle)
-	getRestMux.Handle("/rest/debug/", s.whenDebugging(debugMux))
+	getRestMux.Handle("/rest/debug/", s.whenDebugging(debugMux, guiCfg.Debugging))
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -318,8 +328,6 @@ func (s *service) serve(ctx context.Context) {
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
 
-	guiCfg := s.cfg.GUI()
-
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
 	var handler http.Handler = newCsrfManager(s.id.String()[:5], "/rest", guiCfg, mux, locations.Get(locations.CsrfTokens))
@@ -329,7 +337,7 @@ func (s *service) serve(ctx context.Context) {
 
 	// Wrap everything in basic auth, if user/password is set.
 	if guiCfg.IsAuthEnabled() {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, ldap, handler, s.evLogger)
 	}
 
 	// Redirect to HTTPS if we are supposed to
@@ -419,6 +427,10 @@ func (s *service) VerifyConfiguration(from, to config.Configuration) error {
 }
 
 func (s *service) CommitConfiguration(from, to config.Configuration) bool {
+	s.cfgMut.Lock()
+	s.cfg = to
+	s.cfgMut.Unlock()
+
 	// No action required when this changes, so mask the fact that it changed at all.
 	from.GUI.Debugging = to.GUI.Debugging
 
@@ -578,9 +590,9 @@ func localhostMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func (s *service) whenDebugging(h http.Handler) http.Handler {
+func (s *service) whenDebugging(h http.Handler, debugging bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.cfg.GUI().Debugging {
+		if debugging {
 			h.ServeHTTP(w, r)
 			return
 		}
@@ -808,7 +820,7 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getSystemConfig(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, s.cfg.RawCopy())
+	sendJSON(w, s.cfg)
 }
 
 func (s *service) postSystemConfig(w http.ResponseWriter, r *http.Request) {
@@ -823,7 +835,10 @@ func (s *service) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if to.GUI.Password != s.cfg.GUI().Password {
+	s.cfgMut.RLock()
+	currentPassword := s.cfg.GUI.Password
+	s.cfgMut.RUnlock()
+	if to.GUI.Password != currentPassword {
 		if to.GUI.Password != "" && !bcryptExpr.MatchString(to.GUI.Password) {
 			hash, err := bcrypt.GenerateFromPassword([]byte(to.GUI.Password), 0)
 			if err != nil {
@@ -839,7 +854,7 @@ func (s *service) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	// Activate and save. Wait for the configuration to become active before
 	// completing the request.
 
-	if wg, err := s.cfg.Replace(to); err != nil {
+	if wg, err := s.cfgw.Replace(to); err != nil {
 		l.Warnln("Replacing config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -847,7 +862,7 @@ func (s *service) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		wg.Wait()
 	}
 
-	if err := s.cfg.Save(); err != nil {
+	if err := s.cfgw.Save(); err != nil {
 		l.Warnln("Saving config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -855,7 +870,7 @@ func (s *service) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getSystemConfigInsync(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, map[string]bool{"configInSync": !s.cfg.RequiresRestart()})
+	sendJSON(w, map[string]bool{"configInSync": !s.cfgw.RequiresRestart()})
 }
 
 func (s *service) postSystemRestart(w http.ResponseWriter, r *http.Request) {
@@ -868,7 +883,10 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 	folder := qs.Get("folder")
 
 	if len(folder) > 0 {
-		if _, ok := s.cfg.Folders()[folder]; !ok {
+		s.cfgMut.RLock()
+		_, ok := s.cfg.FolderMap[folder]
+		s.cfgMut.RUnlock()
+		if !ok {
 			http.Error(w, "Invalid folder ID", 500)
 			return
 		}
@@ -876,9 +894,11 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 
 	if len(folder) == 0 {
 		// Reset all folders.
-		for folder := range s.cfg.Folders() {
-			s.model.ResetFolder(folder)
+		s.cfgMut.RLock()
+		for _, folder := range s.cfg.Folders {
+			s.model.ResetFolder(folder.ID)
 		}
+		s.cfgMut.RUnlock()
 		s.flushResponse(`{"ok": "resetting database"}`, w)
 	} else {
 		// Reset a specific folder, assuming it's supposed to exist.
@@ -904,6 +924,8 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
+	s.cfgMut.RLock()
+
 	tilde, _ := fs.ExpandTilde("~")
 	res := make(map[string]interface{})
 	res["myID"] = s.id.String()
@@ -911,7 +933,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["alloc"] = m.Alloc
 	res["sys"] = m.Sys - m.HeapReleased
 	res["tilde"] = tilde
-	if s.cfg.Options().LocalAnnEnabled || s.cfg.Options().GlobalAnnEnabled {
+	if s.cfg.Options.LocalAnnEnabled || s.cfg.Options.GlobalAnnEnabled {
 		res["discoveryEnabled"] = true
 		discoErrors := make(map[string]string)
 		discoMethods := 0
@@ -934,8 +956,10 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["urVersionMax"] = ur.Version
 	res["uptime"] = s.urService.UptimeS()
 	res["startTime"] = ur.StartTime
-	res["guiAddressOverridden"] = s.cfg.GUI().IsOverridden()
+	res["guiAddressOverridden"] = s.cfg.GUI.IsOverridden()
 	res["guiAddressUsed"] = s.listenerAddr.String()
+
+	s.cfgMut.RUnlock()
 
 	sendJSON(w, res)
 }
@@ -1254,7 +1278,9 @@ func (s *service) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
 		return
 	}
-	opts := s.cfg.Options()
+	s.cfgMut.RLock()
+	opts := s.cfg.Options
+	s.cfgMut.RUnlock()
 	rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -1296,7 +1322,9 @@ func (s *service) getLang(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
-	opts := s.cfg.Options()
+	s.cfgMut.RLock()
+	opts := s.cfg.Options
+	s.cfgMut.RUnlock()
 	rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		l.Warnln("getting latest release:", err)
@@ -1325,10 +1353,12 @@ func (s *service) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 		var cfgs []config.DeviceConfiguration
 
 		if deviceStr == "" {
-			for _, cfg := range s.cfg.Devices() {
+			s.cfgMut.RLock()
+			for _, cfg := range s.cfg.Devices {
 				cfg.Paused = paused
 				cfgs = append(cfgs, cfg)
 			}
+			s.cfgMut.RUnlock()
 		} else {
 			device, err := protocol.DeviceIDFromString(deviceStr)
 			if err != nil {
@@ -1336,7 +1366,9 @@ func (s *service) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 				return
 			}
 
-			cfg, ok := s.cfg.Devices()[device]
+			s.cfgMut.RLock()
+			cfg, ok := s.cfg.DeviceMap[device]
+			s.cfgMut.RUnlock()
 			if !ok {
 				http.Error(w, "not found", http.StatusNotFound)
 				return
@@ -1346,7 +1378,7 @@ func (s *service) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 			cfgs = append(cfgs, cfg)
 		}
 
-		if _, err := s.cfg.SetDevices(cfgs); err != nil {
+		if _, err := s.cfgw.SetDevices(cfgs); err != nil {
 			http.Error(w, err.Error(), 500)
 		}
 	}
@@ -1402,7 +1434,8 @@ func (s *service) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 	tot := map[string]float64{}
 	count := map[string]float64{}
 
-	for _, folder := range s.cfg.Folders() {
+	s.cfgMut.RLock()
+	for _, folder := range s.cfg.Folders {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
 			if _, ok := s.model.Connection(device); ok {
@@ -1413,6 +1446,7 @@ func (s *service) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 			count[deviceStr]++
 		}
 	}
+	s.cfgMut.RUnlock()
 
 	comp := map[string]int{}
 	for device := range tot {

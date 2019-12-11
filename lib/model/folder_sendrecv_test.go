@@ -125,7 +125,7 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 
 func cleanupSRFolder(f *sendReceiveFolder, m *model) {
 	m.evLogger.Stop()
-	os.Remove(m.cfg.ConfigPath())
+	os.Remove(m.cfgw.ConfigPath())
 	os.RemoveAll(f.Filesystem().URI())
 }
 
