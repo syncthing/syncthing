@@ -48,28 +48,37 @@ var keySalt = [32]byte{
 // requests by encrypting the data.
 type encryptedModel struct {
 	Model
-	key *[32]byte
+	keys map[string]*[32]byte // folder ID -> key
 }
 
 func (e encryptedModel) Index(deviceID DeviceID, folder string, files []FileInfo) error {
-	if err := decryptFileInfos(files, e.key); err != nil {
-		return err
+	if key, ok := e.keys[folder]; ok {
+		if err := decryptFileInfos(files, key); err != nil {
+			return err
+		}
 	}
 	return e.Model.Index(deviceID, folder, files)
 }
 
 func (e encryptedModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error {
-	if err := decryptFileInfos(files, e.key); err != nil {
-		return err
+	if key, ok := e.keys[folder]; ok {
+		if err := decryptFileInfos(files, key); err != nil {
+			return err
+		}
 	}
 	return e.Model.IndexUpdate(deviceID, folder, files)
 }
 
 func (e encryptedModel) Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
+	key, ok := e.keys[folder]
+	if !ok {
+		return e.Model.Request(deviceID, folder, name, size, offset, hash, weakHash, fromTemporary)
+	}
+
 	// Figure out the real file name, offset and size from the encrypted /
 	// tweaked values.
 
-	realName, err := decryptName(name, e.key)
+	realName, err := decryptName(name, key)
 	if err != nil {
 		return nil, err
 	}
@@ -89,12 +98,16 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, size int
 	// Encrypt the response.
 
 	data := resp.Data()
-	enc := encryptBytes(data, e.key)
+	enc := encryptBytes(data, key)
 	resp.Close()
 	return rawResponse{enc}, nil
 }
 
 func (e encryptedModel) DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error {
+	if _, ok := e.keys[folder]; !ok {
+		return e.Model.DownloadProgress(deviceID, folder, updates)
+	}
+
 	// The updates contain nonsense names and sizes, so we ignore them.
 	return nil
 }
@@ -103,21 +116,30 @@ func (e encryptedModel) DownloadProgress(deviceID DeviceID, folder string, updat
 // encrypts outgoing metadata and decrypts incoming responses.
 type encryptedConnection struct {
 	Connection
-	key *[32]byte
+	keys map[string]*[32]byte // folder ID -> key
 }
 
 func (e encryptedConnection) Index(ctx context.Context, folder string, files []FileInfo) error {
-	encryptFileInfos(files, e.key)
+	if key, ok := e.keys[folder]; ok {
+		encryptFileInfos(files, key)
+	}
 	return e.Connection.Index(ctx, folder, files)
 }
 
 func (e encryptedConnection) IndexUpdate(ctx context.Context, folder string, files []FileInfo) error {
-	encryptFileInfos(files, e.key)
+	if key, ok := e.keys[folder]; ok {
+		encryptFileInfos(files, key)
+	}
 	return e.Connection.IndexUpdate(ctx, folder, files)
 }
 
 func (e encryptedConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-	name = encryptName(name, e.key)
+	key, ok := e.keys[folder]
+	if !ok {
+		return e.Connection.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
+	}
+
+	name = encryptName(name, key)
 	offset += int64(blockNo * blockOverhead)
 	size += blockOverhead
 
@@ -126,10 +148,14 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 		return nil, err
 	}
 
-	return decryptBytes(bs, e.key)
+	return decryptBytes(bs, key)
 }
 
 func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate) {
+	if _, ok := e.keys[folder]; !ok {
+		e.Connection.DownloadProgress(ctx, folder, updates)
+	}
+
 	// No need to send these
 }
 
@@ -321,6 +347,16 @@ func randomNonce() *[24]byte {
 		panic("catastrophic randomness failure: " + err.Error())
 	}
 	return &nonce
+}
+
+// keysFromPasswords converts a set of folder ID to password into a set of
+// folder ID to encryption key, using our key derivation function.
+func keysFromPasswords(passwords map[string]string) map[string]*[32]byte {
+	res := make(map[string]*[32]byte, len(passwords))
+	for folder, password := range passwords {
+		res[folder] = keyFromPassword(password)
+	}
+	return res
 }
 
 // keyFromPassword uses PBKDF2 to generate a strong key from a probably weak

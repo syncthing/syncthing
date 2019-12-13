@@ -208,11 +208,11 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	return newConnection(deviceID, reader, writer, receiver, name, compress)
 }
 
-func NewEncryptedConnection(password string, deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
-	key := keyFromPassword(password)
-	receiver = encryptedModel{Model: nativeModel{receiver}, key: key}
+func NewEncryptedConnection(passwords map[string]string, deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
+	keys := keysFromPasswords(passwords)
+	receiver = encryptedModel{Model: nativeModel{receiver}, keys: keys}
 	wfc := newConnection(deviceID, reader, writer, receiver, name, compress)
-	return encryptedConnection{Connection: wfc, key: key}
+	return encryptedConnection{Connection: wfc, keys: keys}
 }
 
 func newConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) wireFormatConnection {

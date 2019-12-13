@@ -322,8 +322,9 @@ func (s *service) handle(ctx context.Context) {
 		rd, wr := s.limiter.getLimiters(remoteID, c, isLAN)
 
 		var protoConn protocol.Connection
-		if deviceCfg.EncryptionPassword != "" {
-			protoConn = protocol.NewEncryptedConnection(deviceCfg.EncryptionPassword, remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
+		passwords := s.cfg.RawCopy().FolderPasswords(remoteID)
+		if len(passwords) > 0 {
+			protoConn = protocol.NewEncryptedConnection(passwords, remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
 		} else {
 			protoConn = protocol.NewConnection(remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
 		}
