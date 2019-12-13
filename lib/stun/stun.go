@@ -116,11 +116,11 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) (*Servi
 	return s, otherDataConn
 }
 
-func (s *Service) VerifyConfiguration(_, _ config.Configuration) error {
+func (s *Service) VerifyConfiguration(_ config.Configuration) error {
 	return nil
 }
 
-func (s *Service) CommitConfiguration(_, to config.Configuration) bool {
+func (s *Service) CommitConfiguration(to config.Configuration) bool {
 	s.mut.Lock()
 	s.keepAliveMin = time.Duration(to.Options.StunKeepaliveMinS) * time.Second
 	s.keepAliveStart = time.Duration(to.Options.StunKeepaliveStartS) * time.Second
@@ -138,7 +138,7 @@ func (s *Service) Stop() {
 func (s *Service) serve(ctx context.Context) {
 	conf := s.cfg.Subscribe(s)
 	defer s.cfg.Unsubscribe(s)
-	s.CommitConfiguration(config.Configuration{}, conf)
+	s.CommitConfiguration(conf)
 
 	for {
 	disabled:

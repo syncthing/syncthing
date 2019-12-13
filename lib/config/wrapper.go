@@ -37,8 +37,8 @@ import (
 // the new configuration will still have been applied by those who were
 // capable of doing so.
 type Committer interface {
-	VerifyConfiguration(from, to Configuration) error
-	CommitConfiguration(from, to Configuration) (handled bool)
+	VerifyConfiguration(cfg Configuration) error
+	CommitConfiguration(cfg Configuration) (handled bool)
 	String() string
 }
 
@@ -148,10 +148,8 @@ func (w *wrapper) Unsubscribe(c Committer) {
 		}
 	}
 	waiter := w.waiter
-	w.mut.Unlock()
-	// Waiting mustn't be done under lock, as the goroutines in notifyListener
-	// may dead-lock when trying to access lock on config read operations.
 	waiter.Wait()
+	w.mut.Unlock()
 }
 
 // RawCopy returns a copy of the currently wrapped Configuration object.
@@ -169,8 +167,6 @@ func (w *wrapper) Replace(cfg Configuration) (Waiter, error) {
 }
 
 func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {
-	from := w.cfg
-
 	if err := to.clean(); err != nil {
 		return noopWaiter{}, err
 	}
@@ -179,34 +175,36 @@ func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {
 
 	for _, sub := range w.subs {
 		l.Debugln(sub, "verifying configuration")
-		if err := sub.VerifyConfiguration(from.Copy(), to.Copy()); err != nil {
+		if err := sub.VerifyConfiguration(to.Copy()); err != nil {
 			l.Debugln(sub, "rejected config:", err)
 			return noopWaiter{}, err
 		}
 	}
 
+	w.waiter.Wait()
+
 	w.cfg = to
 
-	w.waiter = w.notifyListeners(from, to)
+	w.waiter = w.notifyListeners(to)
 
 	return w.waiter, nil
 }
 
-func (w *wrapper) notifyListeners(from, to Configuration) Waiter {
+func (w *wrapper) notifyListeners(to Configuration) Waiter {
 	wg := sync.NewWaitGroup()
 	wg.Add(len(w.subs))
 	for _, sub := range w.subs {
 		go func(commiter Committer) {
-			w.notifyListener(commiter, from.Copy(), to.Copy())
+			w.notifyListener(commiter, to.Copy())
 			wg.Done()
 		}(sub)
 	}
 	return wg
 }
 
-func (w *wrapper) notifyListener(sub Committer, from, to Configuration) {
+func (w *wrapper) notifyListener(sub Committer, to Configuration) {
 	l.Debugln(sub, "committing configuration")
-	if !sub.CommitConfiguration(from, to) {
+	if !sub.CommitConfiguration(to) {
 		l.Debugln(sub, "requires restart")
 		w.setRequiresRestart()
 	}

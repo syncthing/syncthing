@@ -79,11 +79,11 @@ func (c *folderSummaryService) Stop() {
 	c.Supervisor.Stop()
 }
 
-func (c *folderSummaryService) VerifyConfiguration(_, to config.Configuration) error {
+func (c *folderSummaryService) VerifyConfiguration(to config.Configuration) error {
 	return nil
 }
 
-func (c *folderSummaryService) CommitConfiguration(_, to config.Configuration) bool {
+func (c *folderSummaryService) CommitConfiguration(to config.Configuration) bool {
 	c.foldersMut.Lock()
 	c.folderCfgs = to.FolderMap
 	c.foldersMut.Unlock()

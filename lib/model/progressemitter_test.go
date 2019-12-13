@@ -66,9 +66,9 @@ func TestProgressEmitter(t *testing.T) {
 	})
 
 	p := NewProgressEmitter(c, evLogger)
+	p.intervalS = 0
 	go p.Serve()
 	defer p.Stop()
-	p.interval = 0
 
 	expectTimeout(w, t)
 
@@ -125,7 +125,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	p := NewProgressEmitter(c, evLogger)
 	cfg := p.cfgw.Subscribe(p)
 	defer p.cfgw.Unsubscribe(p)
-	p.CommitConfiguration(config.Configuration{}, cfg)
+	p.CommitConfiguration(cfg)
 	p.temporaryIndexSubscribe(fc, []string{"folder", "folder2"})
 	p.registry["folder"] = make(map[string]*sharedPullerState)
 	p.registry["folder2"] = make(map[string]*sharedPullerState)

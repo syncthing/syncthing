@@ -25,7 +25,7 @@ type ProgressEmitter struct {
 
 	cfgw               config.Wrapper
 	registry           map[string]map[string]*sharedPullerState // folder: name: puller
-	interval           time.Duration
+	intervalS          int
 	minBlocks          int
 	sentDownloadStates map[protocol.DeviceID]*sentDownloadState // States representing what we've sent to the other peer via DownloadProgress messages.
 	connections        map[protocol.DeviceID]protocol.Connection
@@ -60,7 +60,7 @@ func NewProgressEmitter(cfgw config.Wrapper, evLogger events.Logger) *ProgressEm
 func (t *ProgressEmitter) serve(ctx context.Context) {
 	cfg := t.cfgw.Subscribe(t)
 	defer t.cfgw.Unsubscribe(t)
-	t.CommitConfiguration(config.Configuration{}, cfg)
+	t.CommitConfiguration(cfg)
 
 	var lastUpdate time.Time
 	var lastCount, newCount int
@@ -95,7 +95,7 @@ func (t *ProgressEmitter) serve(ctx context.Context) {
 			}
 
 			if newCount != 0 {
-				t.timer.Reset(t.interval)
+				t.timer.Reset(time.Duration(t.intervalS) * time.Second)
 			}
 			t.mut.Unlock()
 		}
@@ -191,12 +191,12 @@ func (t *ProgressEmitter) sendDownloadProgressMessagesLocked(ctx context.Context
 }
 
 // VerifyConfiguration implements the config.Committer interface
-func (t *ProgressEmitter) VerifyConfiguration(from, to config.Configuration) error {
+func (t *ProgressEmitter) VerifyConfiguration(to config.Configuration) error {
 	return nil
 }
 
 // CommitConfiguration implements the config.Committer interface
-func (t *ProgressEmitter) CommitConfiguration(from, to config.Configuration) bool {
+func (t *ProgressEmitter) CommitConfiguration(to config.Configuration) bool {
 	t.mut.Lock()
 	defer t.mut.Unlock()
 
@@ -205,12 +205,12 @@ func (t *ProgressEmitter) CommitConfiguration(from, to config.Configuration) boo
 		t.disabled = false
 		l.Debugln("progress emitter: enabled")
 		fallthrough
-	case !t.disabled && from.Options.ProgressUpdateIntervalS != to.Options.ProgressUpdateIntervalS:
-		t.interval = time.Duration(to.Options.ProgressUpdateIntervalS) * time.Second
-		if t.interval < time.Second {
-			t.interval = time.Second
+	case !t.disabled && t.intervalS != to.Options.ProgressUpdateIntervalS:
+		t.intervalS = to.Options.ProgressUpdateIntervalS
+		if t.intervalS < 1 {
+			t.intervalS = 1
 		}
-		l.Debugln("progress emitter: updated interval", t.interval)
+		l.Debugln("progress emitter: updated interval", t.intervalS)
 	case !t.disabled && to.Options.ProgressUpdateIntervalS < 0:
 		t.clearLocked()
 		t.disabled = true
@@ -232,7 +232,7 @@ func (t *ProgressEmitter) Register(s *sharedPullerState) {
 	}
 	l.Debugln("progress emitter: registering", s.folder, s.file.Name)
 	if t.emptyLocked() {
-		t.timer.Reset(t.interval)
+		t.timer.Reset(time.Duration(t.intervalS) * time.Second)
 	}
 	if _, ok := t.registry[s.folder]; !ok {
 		t.registry[s.folder] = make(map[string]*sharedPullerState)

@@ -236,7 +236,7 @@ func (m *model) ServeBackground() {
 func (m *model) onServe() {
 	// Initialise internal state
 	cfg := m.cfgw.Subscribe(m)
-	m.CommitConfiguration(config.Configuration{}, cfg)
+	m.CommitConfiguration(cfg)
 	close(m.initialized)
 }
 
@@ -1141,10 +1141,11 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 	}
 
-	m.fmut.RLock()
 	var paused []string
 	for _, folder := range cm.Folders {
+		m.fmut.RLock()
 		cfg, ok := m.folderCfgs[folder.ID]
+		m.fmut.RUnlock()
 		if !ok || !cfg.SharedWith(deviceID) {
 			if deviceCfg.IgnoredFolder(folder.ID) {
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
@@ -1167,7 +1168,9 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		if cfg.Paused {
 			continue
 		}
+		m.fmut.RLock()
 		fs, ok := m.folderFiles[folder.ID]
+		m.fmut.RUnlock()
 		if !ok {
 			// Shouldn't happen because !cfg.Paused, but might happen
 			// if the folder is about to be unpaused, but not yet.
@@ -1241,9 +1244,11 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// likely use delta indexes. We might already have files
 					// that we need to pull so let the folder runner know
 					// that it should recheck the index data.
+					m.fmut.RLock()
 					if runner := m.folderRunners[folder.ID]; runner != nil {
 						defer runner.SchedulePull()
 					}
+					m.fmut.RUnlock()
 				}
 			}
 		}
@@ -1263,7 +1268,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		// implementing suture.IsCompletable).
 		m.Add(is)
 	}
-	m.fmut.RUnlock()
 
 	m.pmut.Lock()
 	m.remotePausedFolders[deviceID] = paused
@@ -2589,17 +2593,24 @@ func (m *model) String() string {
 	return fmt.Sprintf("model@%p", m)
 }
 
-func (m *model) VerifyConfiguration(from, to config.Configuration) error {
+func (m *model) VerifyConfiguration(to config.Configuration) error {
 	return nil
 }
 
-func (m *model) CommitConfiguration(from, to config.Configuration) bool {
+func (m *model) CommitConfiguration(to config.Configuration) bool {
 	// TODO: This should not use reflect, and should take more care to try to handle stuff without restart.
 
 	// Go through the folder configs and figure out if we need to restart or not.
 
+	m.fmut.RLock()
+	fromFolders := make(map[string]config.FolderConfiguration, len(m.folderCfgs))
+	for folderID, folderCfg := range m.folderCfgs {
+		fromFolders[folderID] = folderCfg
+	}
+	m.fmut.RUnlock()
+
 	for folderID, cfg := range to.FolderMap {
-		if _, ok := from.FolderMap[folderID]; !ok {
+		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
 				l.Infoln("Paused folder", cfg.Description())
@@ -2613,7 +2624,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
-	for folderID, fromCfg := range from.FolderMap {
+	for folderID, fromCfg := range fromFolders {
 		toCfg, ok := to.FolderMap[folderID]
 		if !ok {
 			// The folder was removed.
@@ -2649,7 +2660,13 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// clean residue device state that is not part of any folder.
 
 	// Pausing a device, unpausing is handled by the connection service.
-	fromDevices := from.DeviceMap
+
+	m.fmut.RLock()
+	fromDevices := make(map[protocol.DeviceID]config.DeviceConfiguration, len(m.deviceCfgs))
+	for deviceID, deviceCfg := range m.deviceCfgs {
+		fromDevices[deviceID] = deviceCfg
+	}
+	m.fmut.RUnlock()
 	for deviceID, toCfg := range to.DeviceMap {
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
@@ -2694,6 +2711,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		remDevs = append(remDevs, deviceID)
 	}
 	m.closeConns(remDevs, errDeviceRemoved)
+	oldOpts := m.options
 	m.options = to.Options
 	m.myName = to.MyName()
 	m.fmut.Unlock()
@@ -2709,7 +2727,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		// This function is called once at the begginning, no need to restart
 		return true
 	}
-	if !reflect.DeepEqual(from.Options.RequiresRestartOnly(), to.Options.RequiresRestartOnly()) {
+	if !reflect.DeepEqual(oldOpts.RequiresRestartOnly(), to.Options.RequiresRestartOnly()) {
 		l.Debugln(m, "requires restart, options differ")
 		return false
 	}

@@ -27,6 +27,8 @@ type limiter struct {
 	limitsLAN           atomicBool
 	deviceReadLimiters  map[protocol.DeviceID]*rate.Limiter
 	deviceWriteLimiters map[protocol.DeviceID]*rate.Limiter
+	opts                config.OptionsConfiguration
+	firstConf           bool
 }
 
 type waiter interface {
@@ -50,9 +52,8 @@ func newLimiter(cfgw config.Wrapper) *limiter {
 	}
 
 	cfg := cfgw.Subscribe(l)
-	prev := config.Configuration{Options: config.OptionsConfiguration{MaxRecvKbps: -1, MaxSendKbps: -1}}
 
-	l.CommitConfiguration(prev, cfg)
+	l.CommitConfiguration(cfg)
 	return l
 }
 
@@ -84,7 +85,7 @@ func (lim *limiter) setLimitsLocked(device config.DeviceConfiguration) bool {
 }
 
 // This function handles removing, adding and updating of device limiters.
-func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configuration) {
+func (lim *limiter) processDevicesConfigurationLocked(to config.Configuration) {
 	seen := make(map[protocol.DeviceID]struct{})
 
 	// Mark devices which should not be removed, create new limiters if needed and assign new limiter rate
@@ -110,33 +111,36 @@ func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configurat
 	}
 
 	// Delete remote devices which were removed in new configuration
-	for _, dev := range from.Devices {
-		if _, ok := seen[dev.DeviceID]; !ok {
-			l.Debugf("deviceID: %s should be removed", dev.DeviceID)
+	for devID := range lim.deviceWriteLimiters {
+		if _, ok := seen[devID]; !ok {
+			l.Debugf("deviceID: %s should be removed", devID)
 
-			delete(lim.deviceWriteLimiters, dev.DeviceID)
-			delete(lim.deviceReadLimiters, dev.DeviceID)
+			delete(lim.deviceWriteLimiters, devID)
+			delete(lim.deviceReadLimiters, devID)
 		}
 	}
 }
 
-func (lim *limiter) VerifyConfiguration(from, to config.Configuration) error {
+func (lim *limiter) VerifyConfiguration(to config.Configuration) error {
 	return nil
 }
 
-func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
+func (lim *limiter) CommitConfiguration(to config.Configuration) bool {
 	// to ensure atomic update of configuration
 	lim.mu.Lock()
 	defer lim.mu.Unlock()
 
 	// Delete, add or update limiters for devices
-	lim.processDevicesConfigurationLocked(from, to)
+	lim.processDevicesConfigurationLocked(to)
 
-	if from.Options.MaxRecvKbps == to.Options.MaxRecvKbps &&
-		from.Options.MaxSendKbps == to.Options.MaxSendKbps &&
-		from.Options.LimitBandwidthInLan == to.Options.LimitBandwidthInLan {
+	if lim.firstConf && lim.opts.MaxRecvKbps == to.Options.MaxRecvKbps &&
+		lim.opts.MaxSendKbps == to.Options.MaxSendKbps &&
+		lim.opts.LimitBandwidthInLan == to.Options.LimitBandwidthInLan {
 		return true
 	}
+	lim.firstConf = true
+
+	lim.opts = to.Options
 
 	limited := false
 	sendLimitStr := "is unlimited"

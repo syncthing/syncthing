@@ -130,7 +130,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 			RawUseTLS:  false,
 		},
 	}
-	if err := srv.VerifyConfiguration(cfg, newCfg); err == nil {
+	if err := srv.VerifyConfiguration(newCfg); err == nil {
 		t.Fatal("Verify config should have failed")
 	}
 

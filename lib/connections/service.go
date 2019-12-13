@@ -182,7 +182,7 @@ func NewService(cfgw config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	// Actually starts the listeners and NAT service
 	// Need to start this before service.connect so that any dials that
 	// try punch through already have a listener to cling on.
-	service.CommitConfiguration(cfg, cfg)
+	service.CommitConfiguration(cfg)
 
 	// There are several moving parts here; one routine per listening address
 	// (handled in configuration changing) to handle incoming connections,
@@ -579,11 +579,11 @@ func (s *service) logListenAddressesChangedEvent(l genericListener) {
 	})
 }
 
-func (s *service) VerifyConfiguration(from, to config.Configuration) error {
+func (s *service) VerifyConfiguration(to config.Configuration) error {
 	return nil
 }
 
-func (s *service) CommitConfiguration(from, to config.Configuration) bool {
+func (s *service) CommitConfiguration(to config.Configuration) bool {
 	s.cfgMut.Lock()
 	defer s.cfgMut.Unlock()
 	s.cfg = to
@@ -593,7 +593,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 		newDevices[dev.DeviceID] = true
 	}
 
-	for _, dev := range from.Devices {
+	for _, dev := range s.cfg.DeviceMap {
 		if !newDevices[dev.DeviceID] {
 			warningLimitersMut.Lock()
 			delete(warningLimiters, dev.DeviceID)
@@ -603,7 +603,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 	s.listenersMut.Lock()
 	// If TrafficClass changes, stop all listeners to get them restarted
-	if from.Options.TrafficClass != to.Options.TrafficClass {
+	if s.cfg.Options.TrafficClass != to.Options.TrafficClass {
 		for addr := range s.listeners {
 			l.Debugln("Stopping listener", addr)
 			s.listenerSupervisor.Remove(s.listenerTokens[addr])

@@ -54,11 +54,11 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 	return s
 }
 
-func (s *Service) VerifyConfiguration(_, _ config.Configuration) error {
+func (s *Service) VerifyConfiguration(_ config.Configuration) error {
 	return nil
 }
 
-func (s *Service) CommitConfiguration(_, to config.Configuration) bool {
+func (s *Service) CommitConfiguration(to config.Configuration) bool {
 	s.optsMut.Lock()
 	s.leaseTime = time.Duration(to.Options.NATLeaseM) * time.Minute
 	s.renewalTime = time.Duration(to.Options.NATRenewalM) * time.Minute
@@ -70,7 +70,7 @@ func (s *Service) CommitConfiguration(_, to config.Configuration) bool {
 func (s *Service) serve(ctx context.Context) {
 	conf := s.cfg.Subscribe(s)
 	defer s.cfg.Unsubscribe(s)
-	s.CommitConfiguration(config.Configuration{}, conf)
+	s.CommitConfiguration(conf)
 
 	announce := stdsync.Once{}
 

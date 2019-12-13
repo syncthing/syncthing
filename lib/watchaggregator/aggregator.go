@@ -413,11 +413,11 @@ func (a *aggregator) String() string {
 	return fmt.Sprintf("aggregator/%s:", a.folderCfg.Description())
 }
 
-func (a *aggregator) VerifyConfiguration(from, to config.Configuration) error {
+func (a *aggregator) VerifyConfiguration(to config.Configuration) error {
 	return nil
 }
 
-func (a *aggregator) CommitConfiguration(from, to config.Configuration) bool {
+func (a *aggregator) CommitConfiguration(to config.Configuration) bool {
 	for _, folderCfg := range to.Folders {
 		if folderCfg.ID == a.folderID {
 			select {

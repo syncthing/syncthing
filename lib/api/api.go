@@ -424,7 +424,7 @@ func (s *service) String() string {
 	return fmt.Sprintf("api.service@%p", s)
 }
 
-func (s *service) VerifyConfiguration(from, to config.Configuration) error {
+func (s *service) VerifyConfiguration(to config.Configuration) error {
 	if to.GUI.Network() != "tcp" {
 		return nil
 	}
@@ -432,19 +432,21 @@ func (s *service) VerifyConfiguration(from, to config.Configuration) error {
 	return err
 }
 
-func (s *service) CommitConfiguration(from, to config.Configuration) bool {
+func (s *service) CommitConfiguration(to config.Configuration) bool {
 	s.cfgMut.Lock()
-	s.cfg = to
-	s.cfgMut.Unlock()
+	defer func() {
+		s.cfg = to
+		s.cfgMut.Unlock()
+	}()
 
 	// No action required when this changes, so mask the fact that it changed at all.
-	from.GUI.Debugging = to.GUI.Debugging
+	s.cfg.GUI.Debugging = to.GUI.Debugging
 
-	if to.GUI == from.GUI {
+	if to.GUI == s.cfg.GUI {
 		return true
 	}
 
-	if to.GUI.Theme != from.GUI.Theme {
+	if to.GUI.Theme != s.cfg.GUI.Theme {
 		s.statics.setTheme(to.GUI.Theme)
 	}
 

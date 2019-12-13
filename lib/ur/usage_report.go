@@ -413,12 +413,13 @@ func (s *Service) serve(ctx context.Context) {
 	}
 }
 
-func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
+func (s *Service) VerifyConfiguration(to config.Configuration) error {
 	return nil
 }
 
-func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
-	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
+func (s *Service) CommitConfiguration(to config.Configuration) bool {
+	s.mut.Lock()
+	if s.cfg.Options.URAccepted != to.Options.URAccepted || s.cfg.Options.URUniqueID != to.Options.URUniqueID || s.cfg.Options.URURL != to.Options.URURL {
 		select {
 		case s.forceRun <- struct{}{}:
 		default:
@@ -426,7 +427,6 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 			// was sent, a run will still happen after this point.
 		}
 	}
-	s.mut.Lock()
 	s.cfg = to
 	s.mut.Unlock()
 	return true

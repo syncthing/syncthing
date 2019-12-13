@@ -15,10 +15,10 @@ type requiresRestart struct {
 	committed chan struct{}
 }
 
-func (requiresRestart) VerifyConfiguration(_, _ Configuration) error {
+func (requiresRestart) VerifyConfiguration(_ Configuration) error {
 	return nil
 }
-func (c requiresRestart) CommitConfiguration(_, _ Configuration) bool {
+func (c requiresRestart) CommitConfiguration(_ Configuration) bool {
 	select {
 	case c.committed <- struct{}{}:
 	default:
@@ -31,10 +31,10 @@ func (requiresRestart) String() string {
 
 type validationError struct{}
 
-func (validationError) VerifyConfiguration(_, _ Configuration) error {
+func (validationError) VerifyConfiguration(_ Configuration) error {
 	return errors.New("some error")
 }
-func (c validationError) CommitConfiguration(_, _ Configuration) bool {
+func (c validationError) CommitConfiguration(_ Configuration) bool {
 	return true
 }
 func (validationError) String() string {
