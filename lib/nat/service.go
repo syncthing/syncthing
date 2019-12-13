@@ -20,7 +20,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // Service runs a loop for discovery of IGDs (Internet Gateway Devices) and
@@ -34,11 +33,6 @@ type Service struct {
 	mappings []*Mapping
 	timer    *time.Timer
 	mut      sync.RWMutex
-
-	leaseTime   time.Duration
-	renewalTime time.Duration
-	timeout     time.Duration
-	optsMut     sync.RWMutex
 }
 
 func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
@@ -46,31 +40,14 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 		id:  id,
 		cfg: cfg,
 
-		timer:   time.NewTimer(0),
-		mut:     sync.NewRWMutex(),
-		optsMut: sync.NewRWMutex(),
+		timer: time.NewTimer(0),
+		mut:   sync.NewRWMutex(),
 	}
-	s.Service = util.AsService(s.serve, s.String())
+	s.Service = config.AsServiceWithConfig(s.serve, cfg, s.String())
 	return s
 }
 
-func (s *Service) VerifyConfiguration(_ config.Configuration) error {
-	return nil
-}
-
-func (s *Service) CommitConfiguration(to config.Configuration) bool {
-	s.optsMut.Lock()
-	s.leaseTime = time.Duration(to.Options.NATLeaseM) * time.Minute
-	s.renewalTime = time.Duration(to.Options.NATRenewalM) * time.Minute
-	s.timeout = time.Duration(to.Options.NATTimeoutS) * time.Second
-	s.optsMut.Unlock()
-	return true
-}
-
-func (s *Service) serve(ctx context.Context) {
-	s.cfg.Subscribe(s)
-	defer s.cfg.Unsubscribe(s)
-
+func (s *Service) serve(ctx context.Context, cfg config.Configuration) {
 	announce := stdsync.Once{}
 
 	s.mut.Lock()
@@ -80,7 +57,7 @@ func (s *Service) serve(ctx context.Context) {
 	for {
 		select {
 		case <-s.timer.C:
-			if found := s.process(ctx); found != -1 {
+			if found := s.process(ctx, cfg.Options); found != -1 {
 				announce.Do(func() {
 					suffix := "s"
 					if found == 1 {
@@ -101,16 +78,14 @@ func (s *Service) serve(ctx context.Context) {
 	}
 }
 
-func (s *Service) process(ctx context.Context) int {
+func (s *Service) process(ctx context.Context, opts config.OptionsConfiguration) int {
 	// toRenew are mappings which are due for renewal
 	// toUpdate are the remaining mappings, which will only be updated if one of
 	// the old IGDs has gone away, or a new IGD has appeared, but only if we
 	// actually need to perform a renewal.
 	var toRenew, toUpdate []*Mapping
 
-	s.optsMut.RLock()
-	renewIn := s.renewalTime
-	s.optsMut.RUnlock()
+	renewIn := time.Duration(opts.NATRenewalM) * time.Minute
 	if renewIn == 0 {
 		// We always want to do renewal so lets just pick a nice sane number.
 		renewIn = 30 * time.Minute
@@ -145,18 +120,17 @@ func (s *Service) process(ctx context.Context) int {
 		return -1
 	}
 
-	s.optsMut.RLock()
-	renewalTime := s.renewalTime
-	timeout := s.timeout
-	s.optsMut.RUnlock()
-	nats := discoverAll(ctx, renewalTime, timeout)
+	renewalTime := time.Duration(opts.NATRenewalM) * time.Minute
+	leaseTime := time.Duration(opts.NATLeaseM) * time.Minute
+
+	nats := discoverAll(ctx, renewalTime, time.Duration(opts.NATTimeoutS)*time.Second)
 
 	for _, mapping := range toRenew {
-		s.updateMapping(ctx, mapping, nats, true)
+		s.updateMapping(ctx, mapping, nats, renewalTime, leaseTime, true)
 	}
 
 	for _, mapping := range toUpdate {
-		s.updateMapping(ctx, mapping, nats, false)
+		s.updateMapping(ctx, mapping, nats, renewalTime, leaseTime, false)
 	}
 
 	return len(nats)
@@ -206,18 +180,16 @@ func (s *Service) RemoveMapping(mapping *Mapping) {
 // acquire mappings for natds which the mapping was unaware of before.
 // Optionally takes renew flag which indicates whether or not we should renew
 // mappings with existing natds
-func (s *Service) updateMapping(ctx context.Context, mapping *Mapping, nats map[string]Device, renew bool) {
+func (s *Service) updateMapping(ctx context.Context, mapping *Mapping, nats map[string]Device, renewalTime, leaseTime time.Duration, renew bool) {
 	var added, removed []Address
 
-	s.optsMut.RLock()
-	mapping.expires = time.Now().Add(s.renewalTime)
-	s.optsMut.RUnlock()
+	mapping.expires = time.Now().Add(renewalTime)
 
-	newAdded, newRemoved := s.verifyExistingMappings(ctx, mapping, nats, renew)
+	newAdded, newRemoved := s.verifyExistingMappings(ctx, mapping, nats, leaseTime, renew)
 	added = append(added, newAdded...)
 	removed = append(removed, newRemoved...)
 
-	newAdded, newRemoved = s.acquireNewMappings(ctx, mapping, nats)
+	newAdded, newRemoved = s.acquireNewMappings(ctx, mapping, nats, leaseTime)
 	added = append(added, newAdded...)
 	removed = append(removed, newRemoved...)
 
@@ -226,12 +198,8 @@ func (s *Service) updateMapping(ctx context.Context, mapping *Mapping, nats map[
 	}
 }
 
-func (s *Service) verifyExistingMappings(ctx context.Context, mapping *Mapping, nats map[string]Device, renew bool) ([]Address, []Address) {
+func (s *Service) verifyExistingMappings(ctx context.Context, mapping *Mapping, nats map[string]Device, leaseTime time.Duration, renew bool) ([]Address, []Address) {
 	var added, removed []Address
-
-	s.optsMut.RLock()
-	leaseTime := s.leaseTime
-	s.optsMut.RUnlock()
 
 	for id, address := range mapping.addressMap() {
 		select {
@@ -279,12 +247,9 @@ func (s *Service) verifyExistingMappings(ctx context.Context, mapping *Mapping, 
 	return added, removed
 }
 
-func (s *Service) acquireNewMappings(ctx context.Context, mapping *Mapping, nats map[string]Device) ([]Address, []Address) {
+func (s *Service) acquireNewMappings(ctx context.Context, mapping *Mapping, nats map[string]Device, leaseTime time.Duration) ([]Address, []Address) {
 	var added, removed []Address
 
-	s.optsMut.RLock()
-	leaseTime := s.leaseTime
-	s.optsMut.RUnlock()
 	addrMap := mapping.addressMap()
 
 	for id, nat := range nats {

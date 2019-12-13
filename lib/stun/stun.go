@@ -9,7 +9,6 @@ package stun
 import (
 	"context"
 	"net"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 	"github.com/thejerf/suture"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 const stunRetryInterval = 5 * time.Minute
@@ -69,12 +67,6 @@ type Service struct {
 	stunConn   net.PacketConn
 	client     *stun.Client
 
-	keepAliveStart time.Duration
-	keepAliveMin   time.Duration
-	stunServers    []string
-	disabled       bool
-	mut            sync.Mutex
-
 	writeTrackingPacketConn *writeTrackingPacketConn
 
 	natType NATType
@@ -112,22 +104,8 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) (*Servi
 		natType: NATUnknown,
 		addr:    nil,
 	}
-	s.Service = util.AsService(s.serve, s.String())
+	s.Service = config.AsServiceWithConfig(s.serve, cfg, s.String())
 	return s, otherDataConn
-}
-
-func (s *Service) VerifyConfiguration(_ config.Configuration) error {
-	return nil
-}
-
-func (s *Service) CommitConfiguration(to config.Configuration) bool {
-	s.mut.Lock()
-	s.keepAliveMin = time.Duration(to.Options.StunKeepaliveMinS) * time.Second
-	s.keepAliveStart = time.Duration(to.Options.StunKeepaliveStartS) * time.Second
-	s.stunServers = to.Options.StunServers()
-	s.disabled = to.Options.IsStunDisabled()
-	s.mut.Unlock()
-	return true
 }
 
 func (s *Service) Stop() {
@@ -135,37 +113,23 @@ func (s *Service) Stop() {
 	s.Service.Stop()
 }
 
-func (s *Service) serve(ctx context.Context) {
-	s.cfg.Subscribe(s)
-	defer s.cfg.Unsubscribe(s)
-
+func (s *Service) serve(ctx context.Context, cfg config.Configuration) {
+	if cfg.Options.IsStunDisabled() {
+		// Lets wait for the config update
+		<-ctx.Done()
+		return
+	}
 	for {
-	disabled:
 		s.setNATType(NATUnknown)
 		s.setExternalAddress(nil, "")
 
-		s.mut.Lock()
-		disabled := s.disabled
-		s.mut.Unlock()
-		if disabled {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(time.Second):
-				continue
-			}
-		}
-
 		l.Debugf("Starting stun for %s", s)
 
-		s.mut.Lock()
-		stunServers := s.stunServers
-		s.mut.Unlock()
-		for _, addr := range stunServers {
+		for _, addr := range cfg.Options.StunServers() {
 			// This blocks until we hit an exit condition or there are issues with the STUN server.
 			// This returns a boolean signifying if a different STUN server should be tried (oppose to the whole thing
 			// shutting down and this winding itself down.
-			if !s.runStunForServer(ctx, addr) {
+			if !s.runStunForServer(ctx, addr, cfg.Options) {
 				// Check exit conditions.
 
 				// Have we been asked to stop?
@@ -173,15 +137,6 @@ func (s *Service) serve(ctx context.Context) {
 				case <-ctx.Done():
 					return
 				default:
-				}
-
-				// Are we disabled?
-				s.mut.Lock()
-				disabled := s.disabled
-				s.mut.Unlock()
-				if disabled {
-					l.Infoln("STUN disabled")
-					goto disabled
 				}
 
 				// Unpunchable NAT? Chillout for some time.
@@ -205,7 +160,7 @@ func (s *Service) serve(ctx context.Context) {
 	}
 }
 
-func (s *Service) runStunForServer(ctx context.Context, addr string) (tryNext bool) {
+func (s *Service) runStunForServer(ctx context.Context, addr string, opts config.OptionsConfiguration) (tryNext bool) {
 	l.Debugf("Running stun for %s via %s", s, addr)
 
 	// Resolve the address, so that in case the server advertises two
@@ -243,21 +198,18 @@ func (s *Service) runStunForServer(ctx context.Context, addr string) (tryNext bo
 		return false
 	}
 
-	return s.stunKeepAlive(ctx, addr, extAddr)
+	return s.stunKeepAlive(ctx, addr, extAddr, opts)
 }
 
-func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host) (tryNext bool) {
+func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host, opts config.OptionsConfiguration) (tryNext bool) {
 	var err error
-	s.mut.Lock()
-	nextSleep := s.keepAliveStart
-	s.mut.Unlock()
+	nextSleep := time.Duration(opts.StunKeepaliveMinS) * time.Second
 
 	l.Debugf("%s starting stun keepalive via %s, next sleep %s", s, addr, nextSleep)
 
 	for {
-		s.mut.Lock()
-		minSleep := s.keepAliveMin
-		s.mut.Unlock()
+		minSleep := time.Duration(opts.StunKeepaliveStartS) * time.Second
+
 		if areDifferent(s.addr, extAddr) {
 			// If the port has changed (addresses are not equal but the hosts are equal),
 			// we're probably spending too much time between keepalives, reduce the sleep.
@@ -294,15 +246,6 @@ func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host)
 		case <-time.After(sleepFor):
 		case <-ctx.Done():
 			l.Debugf("%s stopping, aborting stun", s)
-			return false
-		}
-
-		s.mut.Lock()
-		disabled := s.disabled
-		s.mut.Unlock()
-		if disabled {
-			// Disabled, give up
-			l.Debugf("%s disabled, aborting stun ", s)
 			return false
 		}
 
