@@ -177,12 +177,10 @@ func NewService(cfgw config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		connectionStatusMut: sync.NewRWMutex(),
 		connectionStatus:    make(map[string]ConnectionStatusEntry),
 	}
-	cfg := cfgw.Subscribe(service)
-
 	// Actually starts the listeners and NAT service
 	// Need to start this before service.connect so that any dials that
 	// try punch through already have a listener to cling on.
-	service.CommitConfiguration(cfg)
+	cfgw.Subscribe(service)
 
 	// There are several moving parts here; one routine per listening address
 	// (handled in configuration changing) to handle incoming connections,

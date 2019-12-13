@@ -68,9 +68,8 @@ func (s *Service) CommitConfiguration(to config.Configuration) bool {
 }
 
 func (s *Service) serve(ctx context.Context) {
-	conf := s.cfg.Subscribe(s)
+	s.cfg.Subscribe(s)
 	defer s.cfg.Unsubscribe(s)
-	s.CommitConfiguration(conf)
 
 	announce := stdsync.Once{}
 

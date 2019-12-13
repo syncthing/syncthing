@@ -75,7 +75,7 @@ type Wrapper interface {
 	AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string)
 	AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID)
 
-	Subscribe(c Committer) Configuration
+	Subscribe(c Committer)
 	Unsubscribe(c Committer)
 }
 
@@ -127,11 +127,11 @@ func (w *wrapper) ConfigPath() string {
 
 // Subscribe registers the given handler to be called on any future
 // configuration changes.
-func (w *wrapper) Subscribe(c Committer) Configuration {
+func (w *wrapper) Subscribe(c Committer) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	w.subs = append(w.subs, c)
-	return w.cfg.Copy()
+	c.CommitConfiguration(w.cfg.Copy())
 }
 
 // Unsubscribe de-registers the given handler from any future calls to

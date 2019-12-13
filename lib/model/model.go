@@ -235,8 +235,7 @@ func (m *model) ServeBackground() {
 
 func (m *model) onServe() {
 	// Initialise internal state
-	cfg := m.cfgw.Subscribe(m)
-	m.CommitConfiguration(cfg)
+	m.cfgw.Subscribe(m)
 	close(m.initialized)
 }
 

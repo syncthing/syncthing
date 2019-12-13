@@ -139,7 +139,8 @@ func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg confi
 	inProgressItemSubscription := evLogger.Subscribe(events.ItemStarted | events.ItemFinished)
 	defer inProgressItemSubscription.Unsubscribe()
 
-	cfg.Subscribe(a)
+	// Calls CommitConfiguration which needs the loop below to read the folder configs.
+	go cfg.Subscribe(a)
 	defer cfg.Unsubscribe(a)
 
 	inProgress := make(map[string]struct{})

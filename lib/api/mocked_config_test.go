@@ -20,11 +20,11 @@ func (c *mockedConfig) Replace(cfg config.Configuration) (config.Waiter, error) 
 	return noopWaiter{}, nil
 }
 
-func (c *mockedConfig) Subscribe(cm config.Committer) config.Configuration {
+func (c *mockedConfig) Subscribe(cm config.Committer) {
 	cfg := config.Configuration{}
 	util.SetDefaults(&cfg.Options)
 	cfg.GUI = c.gui
-	return cfg
+	cm.CommitConfiguration(cfg)
 }
 
 func (c *mockedConfig) Unsubscribe(cm config.Committer) {}

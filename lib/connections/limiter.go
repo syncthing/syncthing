@@ -51,9 +51,8 @@ func newLimiter(cfgw config.Wrapper) *limiter {
 		deviceWriteLimiters: make(map[protocol.DeviceID]*rate.Limiter),
 	}
 
-	cfg := cfgw.Subscribe(l)
+	cfgw.Subscribe(l)
 
-	l.CommitConfiguration(cfg)
 	return l
 }
 

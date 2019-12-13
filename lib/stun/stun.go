@@ -136,9 +136,8 @@ func (s *Service) Stop() {
 }
 
 func (s *Service) serve(ctx context.Context) {
-	conf := s.cfg.Subscribe(s)
+	s.cfg.Subscribe(s)
 	defer s.cfg.Unsubscribe(s)
-	s.CommitConfiguration(conf)
 
 	for {
 	disabled:

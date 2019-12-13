@@ -65,8 +65,7 @@ func NewFolderSummaryService(cfgw config.Wrapper, m Model, id protocol.DeviceID,
 		lastEventReqMut: sync.NewMutex(),
 	}
 
-	cfg := cfgw.Subscribe(service)
-	service.folderCfgs = cfg.FolderMap
+	cfgw.Subscribe(service)
 
 	service.Add(util.AsService(service.listenForUpdates, fmt.Sprintf("%s/listenForUpdates", service)))
 	service.Add(util.AsService(service.calculateSummaries, fmt.Sprintf("%s/calculateSummaries", service)))

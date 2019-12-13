@@ -138,7 +138,7 @@ func New(id protocol.DeviceID, cfgw config.Wrapper, assetDir, tlsDefaultCommonNa
 		contr:                contr,
 		noUpgrade:            noUpgrade,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		configChanged:        make(chan struct{}),
+		configChanged:        make(chan struct{}, 1),
 		startedOnce:          make(chan struct{}),
 	}
 	s.Service = util.AsService(s.serve, s.String())
@@ -213,12 +213,13 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 }
 
 func (s *service) serve(ctx context.Context) {
+	s.cfgw.Subscribe(s)
+	defer s.cfgw.Unsubscribe(s)
+
 	s.cfgMut.Lock()
-	s.cfg = s.cfgw.Subscribe(s)
 	guiCfg := s.cfg.GUI
 	ldap := s.cfg.LDAP
 	s.cfgMut.Unlock()
-	defer s.cfgw.Unsubscribe(s)
 
 	s.statics = newStaticsServer(guiCfg.Theme, s.assetDir)
 
@@ -439,6 +440,13 @@ func (s *service) CommitConfiguration(to config.Configuration) bool {
 		s.cfgMut.Unlock()
 	}()
 
+	select {
+	case <-s.startedOnce:
+	default:
+		// No need signalling a config change if this is the initial setup
+		return true
+	}
+
 	// No action required when this changes, so mask the fact that it changed at all.
 	s.cfg.GUI.Debugging = to.GUI.Debugging
 
@@ -451,7 +459,10 @@ func (s *service) CommitConfiguration(to config.Configuration) bool {
 	}
 
 	// Tell the serve loop to restart
-	s.configChanged <- struct{}{}
+	select {
+	case s.configChanged <- struct{}{}: // one-buffered
+	default:
+	}
 
 	return true
 }

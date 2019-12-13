@@ -58,9 +58,8 @@ func NewProgressEmitter(cfgw config.Wrapper, evLogger events.Logger) *ProgressEm
 // serve starts the progress emitter which starts emitting DownloadProgress
 // events as the progress happens.
 func (t *ProgressEmitter) serve(ctx context.Context) {
-	cfg := t.cfgw.Subscribe(t)
+	t.cfgw.Subscribe(t)
 	defer t.cfgw.Unsubscribe(t)
-	t.CommitConfiguration(cfg)
 
 	var lastUpdate time.Time
 	var lastCount, newCount int
