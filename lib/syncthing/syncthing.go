@@ -329,7 +329,7 @@ func (a *App) startup() error {
 		return err
 	}
 
-	myDev, _ := a.cfg.DeviceMap[a.myID]
+	myDev := a.cfg.DeviceMap[a.myID]
 	l.Infof(`My name is "%v"`, myDev.Name)
 	for _, device := range a.cfg.DeviceMap {
 		if device.DeviceID != a.myID {
