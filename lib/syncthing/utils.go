@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -124,10 +123,6 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func OpenGoleveldb(path string, tuning config.Tuning) (*db.Lowlevel, error) {
-	ldb, err := backend.Open(path, backend.Tuning(tuning))
-	if err != nil {
-		return nil, err
-	}
-	return db.NewLowlevel(ldb), nil
+func OpenDBBackend(path string, tuning config.Tuning) (backend.Backend, error) {
+	return backend.Open(path, backend.Tuning(tuning))
 }

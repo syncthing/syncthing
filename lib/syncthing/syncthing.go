@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
@@ -85,11 +86,11 @@ type App struct {
 	stopped     chan struct{}
 }
 
-func New(cfgw config.Wrapper, cfg config.Configuration, ll *db.Lowlevel, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
+func New(cfgw config.Wrapper, cfg config.Configuration, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
 	a := &App{
 		cfgw:     cfgw,
 		cfg:      cfg,
-		ll:       ll,
+		ll:       db.NewLowlevel(dbBackend),
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,

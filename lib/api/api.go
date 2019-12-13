@@ -369,7 +369,10 @@ func (s *service) serve(ctx context.Context) {
 	l.Infoln("Access the GUI via the following URL:", guiCfg.URL())
 	if s.started != nil {
 		// only set when run by the tests
-		s.started <- listener.Addr().String()
+		select {
+		case <-ctx.Done(): // Shouldn't return directly due to cleanup below
+		case s.started <- listener.Addr().String():
+		}
 	}
 
 	// Indicate successful initial startup, to ourselves and to interested
@@ -384,7 +387,10 @@ func (s *service) serve(ctx context.Context) {
 
 	serveError := make(chan error, 1)
 	go func() {
-		serveError <- srv.Serve(listener)
+		select {
+		case serveError <- srv.Serve(listener):
+		case <-ctx.Done():
+		}
 	}()
 
 	// Wait for stop, restart or error signals

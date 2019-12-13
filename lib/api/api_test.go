@@ -239,10 +239,11 @@ func TestAPIServiceRequests(t *testing.T) {
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 
 	cases := []httpTestCase{
 		// /rest/db
@@ -451,10 +452,11 @@ func TestHTTPLogin(t *testing.T) {
 	cfg := new(mockedConfig)
 	cfg.gui.User = "üser"
 	cfg.gui.Password = "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq" // bcrypt of "räksmörgås" in UTF-8
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 
 	// Verify rejection when not using authorization
 
@@ -512,7 +514,7 @@ func TestHTTPLogin(t *testing.T) {
 	}
 }
 
-func startHTTP(cfg *mockedConfig) (string, error) {
+func startHTTP(cfg *mockedConfig) (string, *suture.Supervisor, error) {
 	m := new(mockedModel)
 	assetDir := "../../gui"
 	eventSub := new(mockedEventSub)
@@ -542,7 +544,8 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	addr := <-addrChan
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
-		return "", fmt.Errorf("Weird address from API service: %v", err)
+		supervisor.Stop()
+		return "", nil, fmt.Errorf("Weird address from API service: %v", err)
 	}
 
 	host, _, _ := net.SplitHostPort(cfg.gui.RawAddress)
@@ -551,7 +554,7 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	}
 	baseURL := fmt.Sprintf("http://%s", net.JoinHostPort(host, strconv.Itoa(tcpAddr.Port)))
 
-	return baseURL, nil
+	return baseURL, supervisor, nil
 }
 
 func TestCSRFRequired(t *testing.T) {
@@ -560,10 +563,11 @@ func TestCSRFRequired(t *testing.T) {
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal("Unexpected error from getting base URL:", err)
 	}
+	defer sup.Stop()
 
 	cli := &http.Client{
 		Timeout: time.Minute,
@@ -635,10 +639,11 @@ func TestRandomString(t *testing.T) {
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 	cli := &http.Client{
 		Timeout: time.Second,
 	}
@@ -727,10 +732,11 @@ func testConfigPost(data io.Reader) (*http.Response, error) {
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		return nil, err
 	}
+	defer sup.Stop()
 	cli := &http.Client{
 		Timeout: time.Second,
 	}
@@ -747,10 +753,11 @@ func TestHostCheck(t *testing.T) {
 
 	cfg := new(mockedConfig)
 	cfg.gui.RawAddress = "127.0.0.1:0"
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 
 	// A normal HTTP get to the localhost-bound service should succeed
 
@@ -807,10 +814,11 @@ func TestHostCheck(t *testing.T) {
 	cfg = new(mockedConfig)
 	cfg.gui.RawAddress = "127.0.0.1:0"
 	cfg.gui.InsecureSkipHostCheck = true
-	baseURL, err = startHTTP(cfg)
+	baseURL, sup, err = startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 
 	// A request with a suspicious Host header should be allowed
 
@@ -830,10 +838,11 @@ func TestHostCheck(t *testing.T) {
 	cfg = new(mockedConfig)
 	cfg.gui.RawAddress = "0.0.0.0:0"
 	cfg.gui.InsecureSkipHostCheck = true
-	baseURL, err = startHTTP(cfg)
+	baseURL, sup, err = startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 
 	// A request with a suspicious Host header should be allowed
 
@@ -857,10 +866,11 @@ func TestHostCheck(t *testing.T) {
 
 	cfg = new(mockedConfig)
 	cfg.gui.RawAddress = "[::1]:0"
-	baseURL, err = startHTTP(cfg)
+	baseURL, sup, err = startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 
 	// A normal HTTP get to the localhost-bound service should succeed
 
@@ -951,10 +961,11 @@ func TestAccessControlAllowOriginHeader(t *testing.T) {
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 	cli := &http.Client{
 		Timeout: time.Second,
 	}
@@ -981,10 +992,11 @@ func TestOptionsRequest(t *testing.T) {
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 	cli := &http.Client{
 		Timeout: time.Second,
 	}
