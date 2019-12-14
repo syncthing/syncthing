@@ -8,6 +8,8 @@ package protocol
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base32"
@@ -16,18 +18,21 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/pbkdf2"
+	"golang.org/x/crypto/scrypt"
 )
 
 const (
-	blockOverhead          = secretbox.Overhead + 24 // Nonce is [24]byte and prepended to each block
+	nonceSize              = 12 // cipher.gcmStandardNonceSize
+	tagSize                = 16 // cipher.gcmTagSize
+	keySize                = 32 // AES-256
+	blockOverhead          = tagSize + nonceSize
 	EncryptedFileExtension = ".stencdata"
 )
 
 // nonceSalt is a random salt we use for PBKDF2 when generating
 // deterministic nonces.
-var nonceSalt = [32]byte{
+var nonceSalt = [...]byte{
 	0x83, 0xf6, 0x92, 0x44, 0x5f, 0x33, 0x00, 0xdb,
 	0x14, 0x37, 0xe9, 0x69, 0x59, 0x09, 0x87, 0x3c,
 	0x2b, 0x10, 0x03, 0x4d, 0x48, 0xfb, 0x34, 0x8f,
@@ -36,7 +41,7 @@ var nonceSalt = [32]byte{
 
 // keySalt is a random salt we use for PBKDF2 when generating
 // encryption keys.
-var keySalt = [32]byte{
+var keySalt = [...]byte{
 	0x8e, 0x13, 0x3c, 0x96, 0x26, 0xfd, 0x87, 0xcc,
 	0x03, 0x29, 0xa7, 0x84, 0xfa, 0x4e, 0xd9, 0xe5,
 	0x5d, 0x3b, 0x2f, 0xa3, 0xa9, 0x72, 0x0f, 0x6b,
@@ -48,7 +53,7 @@ var keySalt = [32]byte{
 // requests by encrypting the data.
 type encryptedModel struct {
 	Model
-	keys map[string]*[32]byte // folder ID -> key
+	keys map[string]*[keySize]byte // folder ID -> key
 }
 
 func (e encryptedModel) Index(deviceID DeviceID, folder string, files []FileInfo) error {
@@ -116,7 +121,7 @@ func (e encryptedModel) DownloadProgress(deviceID DeviceID, folder string, updat
 // encrypts outgoing metadata and decrypts incoming responses.
 type encryptedConnection struct {
 	Connection
-	keys map[string]*[32]byte // folder ID -> key
+	keys map[string]*[keySize]byte // folder ID -> key
 }
 
 func (e encryptedConnection) Index(ctx context.Context, folder string, files []FileInfo) error {
@@ -159,7 +164,7 @@ func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string
 	// No need to send these
 }
 
-func encryptFileInfos(files []FileInfo, key *[32]byte) {
+func encryptFileInfos(files []FileInfo, key *[keySize]byte) {
 	for i, fi := range files {
 		files[i] = encryptFileInfo(fi, key)
 	}
@@ -167,7 +172,7 @@ func encryptFileInfos(files []FileInfo, key *[32]byte) {
 
 // encryptFileInfo encrypts a FileInfo and wraps it into a new fake FileInfo
 // with an encrypted name.
-func encryptFileInfo(fi FileInfo, key *[32]byte) FileInfo {
+func encryptFileInfo(fi FileInfo, key *[keySize]byte) FileInfo {
 	// The entire FileInfo is encrypted with a random nonce, and concatenated
 	// with that nonce.
 
@@ -246,7 +251,7 @@ func encryptFileInfo(fi FileInfo, key *[32]byte) FileInfo {
 	return enc
 }
 
-func decryptFileInfos(files []FileInfo, key *[32]byte) error {
+func decryptFileInfos(files []FileInfo, key *[keySize]byte) error {
 	for i, fi := range files {
 		decFI, err := decryptFileInfo(fi, key)
 		if err != nil {
@@ -259,7 +264,7 @@ func decryptFileInfos(files []FileInfo, key *[32]byte) error {
 
 // decryptFileInfo extracts the encrypted portion of a FileInfo, decrypts it
 // and returns that.
-func decryptFileInfo(fi FileInfo, key *[32]byte) (FileInfo, error) {
+func decryptFileInfo(fi FileInfo, key *[keySize]byte) (FileInfo, error) {
 	dec, err := decryptBytes(fi.Encrypted, key)
 	if err != nil {
 		return FileInfo{}, err
@@ -275,13 +280,13 @@ func decryptFileInfo(fi FileInfo, key *[32]byte) (FileInfo, error) {
 // encryptName encrypts the given string in a deterministic manner (the
 // result is always the same for any given string) and encodes it in a
 // filesystem-friendly manner.
-func encryptName(name string, key *[32]byte) string {
+func encryptName(name string, key *[keySize]byte) string {
 	enc := encryptDeterministic([]byte(name), key)
 	return base32.HexEncoding.EncodeToString(enc) + EncryptedFileExtension
 }
 
 // decryptName decrypts a string from encryptName
-func decryptName(name string, key *[32]byte) (string, error) {
+func decryptName(name string, key *[keySize]byte) (string, error) {
 	// Verify and strip file extension
 	ext := path.Ext(name)
 	if ext != EncryptedFileExtension {
@@ -302,47 +307,83 @@ func decryptName(name string, key *[32]byte) (string, error) {
 }
 
 // encryptBytes encrypts bytes with a random nonce
-func encryptBytes(data []byte, key *[32]byte) []byte {
+func encryptBytes(data []byte, key *[keySize]byte) []byte {
 	nonce := randomNonce()
-	return secretbox.Seal(nonce[:], data, nonce, key)
+	return encrypt(data, nonce, key)
 }
 
 // encryptDeterministic encrypts bytes with a nonce based on the data and
 // key.
-func encryptDeterministic(data []byte, key *[32]byte) []byte {
+func encryptDeterministic(data []byte, key *[keySize]byte) []byte {
 	nonce := deterministicNonce(data, key)
-	return secretbox.Seal(nonce[:], data, nonce, key)
+	return encrypt(data, nonce, key)
+}
+
+func encrypt(data []byte, nonce *[nonceSize]byte, key *[keySize]byte) []byte {
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		// Can only fail if the key is the wrong length
+		panic("cipher failure: " + err.Error())
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		// Can only fail if the crypto isn't able to do GCM
+		panic("cipher failure: " + err.Error())
+	}
+
+	if gcm.NonceSize() != nonceSize || gcm.Overhead() != tagSize {
+		// We want these values to be constant so we don't use the returns
+		// from the GCM, but we verify them.
+		panic("crypto parameter mismatch")
+	}
+
+	return gcm.Seal(nonce[:], nonce[:], data, nil)
 }
 
 // decryptBytes returns the decrypted bytes, or an error if decryption
 // failed.
-func decryptBytes(data []byte, key *[32]byte) ([]byte, error) {
-	if len(data) < 24 {
+func decryptBytes(data []byte, key *[keySize]byte) ([]byte, error) {
+	if len(data) < blockOverhead {
 		return nil, errors.New("data too short")
 	}
 
-	var nonce [24]byte
-	copy(nonce[:], data)
-	dec, ok := secretbox.Open(nil, data[24:], &nonce, key)
-	if !ok {
-		return nil, errors.New("decryption failed")
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		// Can only fail if the key is the wrong length
+		panic("cipher failure: " + err.Error())
 	}
 
-	return dec, nil
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		// Can only fail if the crypto isn't able to do GCM
+		panic("cipher failure: " + err.Error())
+	}
+
+	if gcm.NonceSize() != nonceSize || gcm.Overhead() != tagSize {
+		// We want these values to be constant so we don't use the returns
+		// from the GCM, but we verify them.
+		panic("crypto parameter mismatch")
+	}
+
+	return gcm.Open(nil, data[:nonceSize], data[nonceSize:], nil)
 }
 
 // deterministicNonce is a nonce based on the hash of data and key using
 // PBKDF2
-func deterministicNonce(data []byte, key *[32]byte) *[24]byte {
-	bs := pbkdf2.Key(append(data, (*key)[:]...), nonceSalt[:], 4096, 24, sha256.New)
-	var nonce [24]byte
+func deterministicNonce(data []byte, key *[keySize]byte) *[nonceSize]byte {
+	bs := pbkdf2.Key(append(data, (*key)[:]...), nonceSalt[:], 1024, nonceSize, sha256.New)
+	if len(bs) != nonceSize {
+		panic("pkdf2 failure")
+	}
+	var nonce [nonceSize]byte
 	copy(nonce[:], bs)
 	return &nonce
 }
 
 // randomNonce is a randomly generated nonce
-func randomNonce() *[24]byte {
-	var nonce [24]byte
+func randomNonce() *[nonceSize]byte {
+	var nonce [nonceSize]byte
 	if _, err := rand.Read(nonce[:]); err != nil {
 		panic("catastrophic randomness failure: " + err.Error())
 	}
@@ -351,19 +392,25 @@ func randomNonce() *[24]byte {
 
 // keysFromPasswords converts a set of folder ID to password into a set of
 // folder ID to encryption key, using our key derivation function.
-func keysFromPasswords(passwords map[string]string) map[string]*[32]byte {
-	res := make(map[string]*[32]byte, len(passwords))
+func keysFromPasswords(passwords map[string]string) map[string]*[keySize]byte {
+	res := make(map[string]*[keySize]byte, len(passwords))
 	for folder, password := range passwords {
 		res[folder] = keyFromPassword(password)
 	}
 	return res
 }
 
-// keyFromPassword uses PBKDF2 to generate a strong key from a probably weak
+// keyFromPassword uses key derivation to generate a strong key from a probably weak
 // password.
-func keyFromPassword(password string) *[32]byte {
-	bs := pbkdf2.Key([]byte(password), keySalt[:], 4096, 32, sha256.New)
-	var key [32]byte
+func keyFromPassword(password string) *[keySize]byte {
+	bs, err := scrypt.Key([]byte(password), keySalt[:], 32768, 8, 1, 32)
+	if err != nil {
+		panic("key derivation failure: " + err.Error())
+	}
+	if len(bs) != 32 {
+		panic("key derivation failure: wrong number of bytes")
+	}
+	var key [keySize]byte
 	copy(key[:], bs)
 	return &key
 }
