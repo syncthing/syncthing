@@ -18,7 +18,7 @@ func TestEnDecryptName(t *testing.T) {
 	cases := []string{
 		"",
 		"foo",
-		"a longer name/with/slashes not that they matter",
+		"a longer name/with/slashes and spaces",
 	}
 	for _, tc := range cases {
 		var prev string

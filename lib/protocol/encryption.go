@@ -14,7 +14,7 @@ import (
 	"crypto/sha256"
 	"encoding/base32"
 	"errors"
-	"path"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -27,7 +27,8 @@ const (
 	tagSize                = 16 // cipher.gcmTagSize
 	keySize                = 32 // AES-256
 	blockOverhead          = tagSize + nonceSize
-	EncryptedFileExtension = ".stencdata"
+	maxNameComponent       = 80 // characters
+	EncryptedFileExtension = ".syncthing-enc"
 )
 
 // nonceSalt is a random salt we use for PBKDF2 when generating
@@ -282,19 +283,13 @@ func decryptFileInfo(fi FileInfo, key *[keySize]byte) (FileInfo, error) {
 // filesystem-friendly manner.
 func encryptName(name string, key *[keySize]byte) string {
 	enc := encryptDeterministic([]byte(name), key)
-	return base32.HexEncoding.EncodeToString(enc) + EncryptedFileExtension
+	b32enc := base32.HexEncoding.EncodeToString(enc)
+	return slashify(b32enc)
 }
 
 // decryptName decrypts a string from encryptName
 func decryptName(name string, key *[keySize]byte) (string, error) {
-	// Verify and strip file extension
-	ext := path.Ext(name)
-	if ext != EncryptedFileExtension {
-		return "", errors.New("unexpected file extension")
-	}
-	name = name[:len(name)-len(ext)]
-
-	// Decode base32 stuff and decrypt.
+	name = deslashify(name)
 	bs, err := base32.HexEncoding.DecodeString(name)
 	if err != nil {
 		return "", err
@@ -303,6 +298,7 @@ func decryptName(name string, key *[keySize]byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	return string(dec), nil
 }
 
@@ -413,6 +409,29 @@ func keyFromPassword(password string) *[keySize]byte {
 	var key [keySize]byte
 	copy(key[:], bs)
 	return &key
+}
+
+func slashify(s string) string {
+	if len(s) <= maxNameComponent {
+		return s + EncryptedFileExtension
+	}
+
+	comps := make([]string, 0, len(s)/maxNameComponent+1)
+	for {
+		if len(s) < maxNameComponent {
+			comps = append(comps, s+EncryptedFileExtension)
+			break
+		}
+
+		comps = append(comps, s[:maxNameComponent]+EncryptedFileExtension)
+		s = s[maxNameComponent:]
+	}
+	return strings.Join(comps, "/")
+}
+
+func deslashify(s string) string {
+	s = strings.ReplaceAll(s, EncryptedFileExtension, "")
+	return strings.ReplaceAll(s, "/", "")
 }
 
 type rawResponse struct {
