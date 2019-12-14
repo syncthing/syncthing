@@ -27,13 +27,13 @@ const (
 	tagSize                = 16 // cipher.gcmTagSize
 	keySize                = 32 // AES-256
 	blockOverhead          = tagSize + nonceSize
-	maxNameComponent       = 80 // characters
+	maxPathComponent       = 240 - len(EncryptedFileExtension) // characters
 	EncryptedFileExtension = ".syncthing-enc"
 )
 
 // nonceSalt is a random salt we use for PBKDF2 when generating
 // deterministic nonces.
-var nonceSalt = [...]byte{
+var nonceSalt = []byte{
 	0x83, 0xf6, 0x92, 0x44, 0x5f, 0x33, 0x00, 0xdb,
 	0x14, 0x37, 0xe9, 0x69, 0x59, 0x09, 0x87, 0x3c,
 	0x2b, 0x10, 0x03, 0x4d, 0x48, 0xfb, 0x34, 0x8f,
@@ -42,7 +42,7 @@ var nonceSalt = [...]byte{
 
 // keySalt is a random salt we use for PBKDF2 when generating
 // encryption keys.
-var keySalt = [...]byte{
+var keySalt = []byte{
 	0x8e, 0x13, 0x3c, 0x96, 0x26, 0xfd, 0x87, 0xcc,
 	0x03, 0x29, 0xa7, 0x84, 0xfa, 0x4e, 0xd9, 0xe5,
 	0x5d, 0x3b, 0x2f, 0xa3, 0xa9, 0x72, 0x0f, 0x6b,
@@ -368,7 +368,7 @@ func decryptBytes(data []byte, key *[keySize]byte) ([]byte, error) {
 // deterministicNonce is a nonce based on the hash of data and key using
 // PBKDF2
 func deterministicNonce(data []byte, key *[keySize]byte) *[nonceSize]byte {
-	bs := pbkdf2.Key(append(data, (*key)[:]...), nonceSalt[:], 1024, nonceSize, sha256.New)
+	bs := pbkdf2.Key(append(data, (*key)[:]...), nonceSalt, 1024, nonceSize, sha256.New)
 	if len(bs) != nonceSize {
 		panic("pkdf2 failure")
 	}
@@ -399,11 +399,11 @@ func keysFromPasswords(passwords map[string]string) map[string]*[keySize]byte {
 // keyFromPassword uses key derivation to generate a strong key from a probably weak
 // password.
 func keyFromPassword(password string) *[keySize]byte {
-	bs, err := scrypt.Key([]byte(password), keySalt[:], 32768, 8, 1, 32)
+	bs, err := scrypt.Key([]byte(password), keySalt, 32768, 8, 1, keySize)
 	if err != nil {
 		panic("key derivation failure: " + err.Error())
 	}
-	if len(bs) != 32 {
+	if len(bs) != keySize {
 		panic("key derivation failure: wrong number of bytes")
 	}
 	var key [keySize]byte
@@ -411,24 +411,31 @@ func keyFromPassword(password string) *[keySize]byte {
 	return &key
 }
 
+// slashify inserts slashes (and file extensions) in the string every
+// maxPathComponent characters.
 func slashify(s string) string {
-	if len(s) <= maxNameComponent {
+	// We somewhat sloppily assume bytes == characters here, but the only
+	// file names we should deal with are those that come from our base32
+	// encoding.
+	if len(s) <= maxPathComponent {
 		return s + EncryptedFileExtension
 	}
 
-	comps := make([]string, 0, len(s)/maxNameComponent+1)
+	comps := make([]string, 0, len(s)/maxPathComponent+1)
 	for {
-		if len(s) < maxNameComponent {
+		if len(s) < maxPathComponent {
 			comps = append(comps, s+EncryptedFileExtension)
 			break
 		}
 
-		comps = append(comps, s[:maxNameComponent]+EncryptedFileExtension)
-		s = s[maxNameComponent:]
+		comps = append(comps, s[:maxPathComponent]+EncryptedFileExtension)
+		s = s[maxPathComponent:]
 	}
 	return strings.Join(comps, "/")
 }
 
+// deslashify removes slashes and encrypted file extensions from the string.
+// This is the inverse of slashify().
 func deslashify(s string) string {
 	s = strings.ReplaceAll(s, EncryptedFileExtension, "")
 	return strings.ReplaceAll(s, "/", "")
