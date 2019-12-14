@@ -46,7 +46,9 @@ func genBlocks(n int) []protocol.BlockInfo {
 
 func globalList(s *db.FileSet) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	s.WithGlobal(func(fi db.FileIntf) bool {
+	snap := s.Snapshot()
+	defer snap.Release()
+	snap.WithGlobal(func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		fs = append(fs, f)
 		return true
@@ -55,7 +57,9 @@ func globalList(s *db.FileSet) []protocol.FileInfo {
 }
 func globalListPrefixed(s *db.FileSet, prefix string) []db.FileInfoTruncated {
 	var fs []db.FileInfoTruncated
-	s.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
+	snap := s.Snapshot()
+	defer snap.Release()
+	snap.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 		fs = append(fs, f)
 		return true
@@ -65,7 +69,9 @@ func globalListPrefixed(s *db.FileSet, prefix string) []db.FileInfoTruncated {
 
 func haveList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	s.WithHave(n, func(fi db.FileIntf) bool {
+	snap := s.Snapshot()
+	defer snap.Release()
+	snap.WithHave(n, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		fs = append(fs, f)
 		return true
@@ -75,7 +81,9 @@ func haveList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 
 func haveListPrefixed(s *db.FileSet, n protocol.DeviceID, prefix string) []db.FileInfoTruncated {
 	var fs []db.FileInfoTruncated
-	s.WithPrefixedHaveTruncated(n, prefix, func(fi db.FileIntf) bool {
+	snap := s.Snapshot()
+	defer snap.Release()
+	snap.WithPrefixedHaveTruncated(n, prefix, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 		fs = append(fs, f)
 		return true
@@ -85,7 +93,9 @@ func haveListPrefixed(s *db.FileSet, n protocol.DeviceID, prefix string) []db.Fi
 
 func needList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	s.WithNeed(n, func(fi db.FileIntf) bool {
+	snap := s.Snapshot()
+	defer snap.Release()
+	snap.WithNeed(n, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		fs = append(fs, f)
 		return true
@@ -277,7 +287,9 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", n, expectedRemoteNeed)
 	}
 
-	f, ok := m.Get(protocol.LocalDeviceID, "b")
+	snap := m.Snapshot()
+	defer snap.Release()
+	f, ok := snap.Get(protocol.LocalDeviceID, "b")
 	if !ok {
 		t.Error("Unexpectedly not OK")
 	}
@@ -285,7 +297,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, localTot[1])
 	}
 
-	f, ok = m.Get(remoteDevice0, "b")
+	f, ok = snap.Get(remoteDevice0, "b")
 	if !ok {
 		t.Error("Unexpectedly not OK")
 	}
@@ -293,7 +305,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, remote1[0])
 	}
 
-	f, ok = m.GetGlobal("b")
+	f, ok = snap.GetGlobal("b")
 	if !ok {
 		t.Error("Unexpectedly not OK")
 	}
@@ -301,7 +313,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("GetGlobal incorrect;\n A: %v !=\n E: %v", f, remote1[0])
 	}
 
-	f, ok = m.Get(protocol.LocalDeviceID, "zz")
+	f, ok = snap.Get(protocol.LocalDeviceID, "zz")
 	if ok {
 		t.Error("Unexpectedly OK")
 	}
@@ -309,7 +321,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, protocol.FileInfo{})
 	}
 
-	f, ok = m.GetGlobal("zz")
+	f, ok = snap.GetGlobal("zz")
 	if ok {
 		t.Error("Unexpectedly OK")
 	}
@@ -318,15 +330,15 @@ func TestGlobalSet(t *testing.T) {
 	}
 
 	av := []protocol.DeviceID{protocol.LocalDeviceID, remoteDevice0}
-	a := m.Availability("a")
+	a := snap.Availability("a")
 	if !(len(a) == 2 && (a[0] == av[0] && a[1] == av[1] || a[0] == av[1] && a[1] == av[0])) {
 		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, av)
 	}
-	a = m.Availability("b")
+	a = snap.Availability("b")
 	if len(a) != 1 || a[0] != remoteDevice0 {
 		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, remoteDevice0)
 	}
-	a = m.Availability("d")
+	a = snap.Availability("d")
 	if len(a) != 1 || a[0] != protocol.LocalDeviceID {
 		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, protocol.LocalDeviceID)
 	}
@@ -446,19 +458,22 @@ func TestInvalidAvailability(t *testing.T) {
 	replace(s, remoteDevice0, remote0Have)
 	replace(s, remoteDevice1, remote1Have)
 
-	if av := s.Availability("both"); len(av) != 2 {
+	snap := s.Snapshot()
+	defer snap.Release()
+
+	if av := snap.Availability("both"); len(av) != 2 {
 		t.Error("Incorrect availability for 'both':", av)
 	}
 
-	if av := s.Availability("r0only"); len(av) != 1 || av[0] != remoteDevice0 {
+	if av := snap.Availability("r0only"); len(av) != 1 || av[0] != remoteDevice0 {
 		t.Error("Incorrect availability for 'r0only':", av)
 	}
 
-	if av := s.Availability("r1only"); len(av) != 1 || av[0] != remoteDevice1 {
+	if av := snap.Availability("r1only"); len(av) != 1 || av[0] != remoteDevice1 {
 		t.Error("Incorrect availability for 'r1only':", av)
 	}
 
-	if av := s.Availability("none"); len(av) != 0 {
+	if av := snap.Availability("none"); len(av) != 0 {
 		t.Error("Incorrect availability for 'none':", av)
 	}
 }
@@ -873,7 +888,9 @@ func TestWithHaveSequence(t *testing.T) {
 	replace(s, protocol.LocalDeviceID, localHave)
 
 	i := 2
-	s.WithHaveSequence(int64(i), func(fi db.FileIntf) bool {
+	snap := s.Snapshot()
+	defer snap.Release()
+	snap.WithHaveSequence(int64(i), func(fi db.FileIntf) bool {
 		if f := fi.(protocol.FileInfo); !f.IsEquivalent(localHave[i-1], 0) {
 			t.Fatalf("Got %v\nExpected %v", f, localHave[i-1])
 		}
@@ -922,13 +939,15 @@ loop:
 			break loop
 		default:
 		}
-		s.WithHaveSequence(prevSeq+1, func(fi db.FileIntf) bool {
+		snap := s.Snapshot()
+		snap.WithHaveSequence(prevSeq+1, func(fi db.FileIntf) bool {
 			if fi.SequenceNo() < prevSeq+1 {
 				t.Fatal("Skipped ", prevSeq+1, fi.SequenceNo())
 			}
 			prevSeq = fi.SequenceNo()
 			return true
 		})
+		snap.Release()
 	}
 }
 
@@ -1386,12 +1405,14 @@ func TestSequenceIndex(t *testing.T) {
 		// a subset of those files if we manage to run before a complete
 		// update has happened since our last iteration.
 		latest = latest[:0]
-		s.WithHaveSequence(seq+1, func(f db.FileIntf) bool {
+		snap := s.Snapshot()
+		snap.WithHaveSequence(seq+1, func(f db.FileIntf) bool {
 			seen[f.FileName()] = f
 			latest = append(latest, f)
 			seq = f.SequenceNo()
 			return true
 		})
+		snap.Release()
 
 		// Calculate the spread in sequence number.
 		var max, min int64
@@ -1449,7 +1470,9 @@ func TestIgnoreAfterReceiveOnly(t *testing.T) {
 
 	s.Update(protocol.LocalDeviceID, fs)
 
-	if f, ok := s.Get(protocol.LocalDeviceID, file); !ok {
+	snap := s.Snapshot()
+	defer snap.Release()
+	if f, ok := snap.Get(protocol.LocalDeviceID, file); !ok {
 		t.Error("File missing in db")
 	} else if f.IsReceiveOnlyChanged() {
 		t.Error("File is still receive-only changed")

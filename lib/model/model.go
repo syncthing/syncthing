@@ -778,7 +778,9 @@ func (m *model) Completion(device protocol.DeviceID, folder string) FolderComple
 	m.pmut.RUnlock()
 
 	var need, items, fileNeed, downloaded, deletes int64
-	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
+	snap := rf.Snapshot()
+	defer snap.Release()
+	snap.WithNeedTruncated(device, func(f db.FileIntf) bool {
 		ft := f.(db.FileInfoTruncated)
 
 		// If the file is deleted, we account it only in the deleted column.
@@ -884,7 +886,8 @@ func (m *model) NeedSize(folder string) db.Counts {
 
 	var result db.Counts
 	if ok {
-		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+		snap := rf.Snapshot()
+		snap.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
 			if cfg.IgnoreDelete && f.IsDeleted() {
 				return true
 			}
@@ -892,6 +895,7 @@ func (m *model) NeedSize(folder string) db.Counts {
 			addSizeOfFile(&result, f)
 			return true
 		})
+		snap.Release()
 	}
 	result.Bytes -= m.progressEmitter.BytesCompleted(folder)
 	l.Debugf("%v NeedSize(%q): %v", m, folder, result)
@@ -911,6 +915,8 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 		return nil, nil, nil
 	}
 
+	snap := rf.Snapshot()
+	defer snap.Release()
 	var progress, queued, rest []db.FileInfoTruncated
 	var seen map[string]struct{}
 
@@ -925,14 +931,14 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 		seen = make(map[string]struct{}, len(progressNames)+len(queuedNames))
 
 		for i, name := range progressNames {
-			if f, ok := rf.GetGlobalTruncated(name); ok {
+			if f, ok := snap.GetGlobalTruncated(name); ok {
 				progress[i] = f
 				seen[name] = struct{}{}
 			}
 		}
 
 		for i, name := range queuedNames {
-			if f, ok := rf.GetGlobalTruncated(name); ok {
+			if f, ok := snap.GetGlobalTruncated(name); ok {
 				queued[i] = f
 				seen[name] = struct{}{}
 			}
@@ -946,7 +952,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	}
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
-	rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+	snap.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
 		if cfg.IgnoreDelete && f.IsDeleted() {
 			return true
 		}
@@ -990,7 +996,9 @@ func (m *model) LocalChangedFiles(folder string, page, perpage int) []db.FileInf
 	skip := (page - 1) * perpage
 	get := perpage
 
-	rf.WithHaveTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+	snap := rf.Snapshot()
+	defer snap.Release()
+	snap.WithHaveTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
 		if !f.IsReceiveOnlyChanged() {
 			return true
 		}
@@ -1024,7 +1032,9 @@ func (m *model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, p
 	files := make([]db.FileInfoTruncated, 0, perpage)
 	skip := (page - 1) * perpage
 	get := perpage
-	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
+	snap := rf.Snapshot()
+	defer snap.Release()
+	snap.WithNeedTruncated(device, func(f db.FileIntf) bool {
 		if skip > 0 {
 			skip--
 			return true
@@ -1758,7 +1768,9 @@ func (m *model) CurrentFolderFile(folder string, file string) (protocol.FileInfo
 	if !ok {
 		return protocol.FileInfo{}, false
 	}
-	return fs.Get(protocol.LocalDeviceID, file)
+	snap := fs.Snapshot()
+	defer snap.Release()
+	return snap.Get(protocol.LocalDeviceID, file)
 }
 
 func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool) {
@@ -1768,7 +1780,9 @@ func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 	if !ok {
 		return protocol.FileInfo{}, false
 	}
-	return fs.GetGlobal(file)
+	snap := fs.Snapshot()
+	defer snap.Release()
+	return snap.GetGlobal(file)
 }
 
 // Connection returns the current connection for device, and a boolean whether a connection was found.
@@ -2082,7 +2096,9 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 
 	var err error
 	var f protocol.FileInfo
-	s.fset.WithHaveSequence(s.prevSequence+1, func(fi db.FileIntf) bool {
+	snap := s.fset.Snapshot()
+	defer snap.Release()
+	snap.WithHaveSequence(s.prevSequence+1, func(fi db.FileIntf) bool {
 		if err = batch.flushIfFull(); err != nil {
 			return false
 		}
@@ -2417,7 +2433,9 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		prefix = prefix + sep
 	}
 
-	files.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
+	snap := files.Snapshot()
+	defer snap.Release()
+	snap.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 
 		// Don't include the prefix itself.
@@ -2529,8 +2547,10 @@ func (m *model) Availability(folder string, file protocol.FileInfo, block protoc
 	}
 
 	var availabilities []Availability
+	snap := fs.Snapshot()
+	defer snap.Release()
 next:
-	for _, device := range fs.Availability(file.Name) {
+	for _, device := range snap.Availability(file.Name) {
 		for _, pausedFolder := range m.remotePausedFolders[device] {
 			if pausedFolder == folder {
 				continue next

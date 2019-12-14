@@ -105,8 +105,12 @@ func (s *FileSet) recalcCounts() error {
 		return err
 	}
 
+	t, err := s.db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
 	var deviceID protocol.DeviceID
-	err := s.db.withAllFolderTruncated([]byte(s.folder), func(device []byte, f FileInfoTruncated) bool {
+	err = t.withAllFolderTruncated([]byte(s.folder), func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
 		s.meta.addFile(deviceID, f)
 		return true
@@ -183,75 +187,95 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	}
 }
 
-func (s *FileSet) WithNeed(device protocol.DeviceID, fn Iterator) {
+type Snapshot struct {
+	folder string
+	t      readOnlyTransaction
+}
+
+func (s *FileSet) Snapshot() *Snapshot {
+	t, err := s.db.newReadOnlyTransaction()
+	if err != nil {
+		panic(err)
+	}
+	return &Snapshot{
+		folder: s.folder,
+		t:      t,
+	}
+}
+
+func (s *Snapshot) Release() {
+	s.t.close()
+}
+
+func (s *Snapshot) WithNeed(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithNeed(%v)", s.folder, device)
-	if err := s.db.withNeed([]byte(s.folder), device[:], false, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
+	if err := s.t.withNeed([]byte(s.folder), device[:], false, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
 		panic(err)
 	}
 }
 
-func (s *FileSet) WithNeedTruncated(device protocol.DeviceID, fn Iterator) {
+func (s *Snapshot) WithNeedTruncated(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithNeedTruncated(%v)", s.folder, device)
-	if err := s.db.withNeed([]byte(s.folder), device[:], true, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
+	if err := s.t.withNeed([]byte(s.folder), device[:], true, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
 		panic(err)
 	}
 }
 
-func (s *FileSet) WithHave(device protocol.DeviceID, fn Iterator) {
+func (s *Snapshot) WithHave(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithHave(%v)", s.folder, device)
-	if err := s.db.withHave([]byte(s.folder), device[:], nil, false, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
+	if err := s.t.withHave([]byte(s.folder), device[:], nil, false, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
 		panic(err)
 	}
 }
 
-func (s *FileSet) WithHaveTruncated(device protocol.DeviceID, fn Iterator) {
+func (s *Snapshot) WithHaveTruncated(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithHaveTruncated(%v)", s.folder, device)
-	if err := s.db.withHave([]byte(s.folder), device[:], nil, true, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
+	if err := s.t.withHave([]byte(s.folder), device[:], nil, true, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
 		panic(err)
 	}
 }
 
-func (s *FileSet) WithHaveSequence(startSeq int64, fn Iterator) {
+func (s *Snapshot) WithHaveSequence(startSeq int64, fn Iterator) {
 	l.Debugf("%s WithHaveSequence(%v)", s.folder, startSeq)
-	if err := s.db.withHaveSequence([]byte(s.folder), startSeq, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
+	if err := s.t.withHaveSequence([]byte(s.folder), startSeq, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
 		panic(err)
 	}
 }
 
 // Except for an item with a path equal to prefix, only children of prefix are iterated.
 // E.g. for prefix "dir", "dir/file" is iterated, but "dir.file" is not.
-func (s *FileSet) WithPrefixedHaveTruncated(device protocol.DeviceID, prefix string, fn Iterator) {
+func (s *Snapshot) WithPrefixedHaveTruncated(device protocol.DeviceID, prefix string, fn Iterator) {
 	l.Debugf(`%s WithPrefixedHaveTruncated(%v, "%v")`, s.folder, device, prefix)
-	if err := s.db.withHave([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
+	if err := s.t.withHave([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
 		panic(err)
 	}
 }
 
-func (s *FileSet) WithGlobal(fn Iterator) {
+func (s *Snapshot) WithGlobal(fn Iterator) {
 	l.Debugf("%s WithGlobal()", s.folder)
-	if err := s.db.withGlobal([]byte(s.folder), nil, false, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
+	if err := s.t.withGlobal([]byte(s.folder), nil, false, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
 		panic(err)
 	}
 }
 
-func (s *FileSet) WithGlobalTruncated(fn Iterator) {
+func (s *Snapshot) WithGlobalTruncated(fn Iterator) {
 	l.Debugf("%s WithGlobalTruncated()", s.folder)
-	if err := s.db.withGlobal([]byte(s.folder), nil, true, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
+	if err := s.t.withGlobal([]byte(s.folder), nil, true, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
 		panic(err)
 	}
 }
 
 // Except for an item with a path equal to prefix, only children of prefix are iterated.
 // E.g. for prefix "dir", "dir/file" is iterated, but "dir.file" is not.
-func (s *FileSet) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
+func (s *Snapshot) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
 	l.Debugf(`%s WithPrefixedGlobalTruncated("%v")`, s.folder, prefix)
-	if err := s.db.withGlobal([]byte(s.folder), []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
+	if err := s.t.withGlobal([]byte(s.folder), []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
 		panic(err)
 	}
 }
 
-func (s *FileSet) Get(device protocol.DeviceID, file string) (protocol.FileInfo, bool) {
-	f, ok, err := s.db.getFileDirty([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
+func (s *Snapshot) Get(device protocol.DeviceID, file string) (protocol.FileInfo, bool) {
+	f, ok, err := s.t.getFile([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
 	if backend.IsClosed(err) {
 		return protocol.FileInfo{}, false
 	} else if err != nil {
@@ -261,8 +285,8 @@ func (s *FileSet) Get(device protocol.DeviceID, file string) (protocol.FileInfo,
 	return f, ok
 }
 
-func (s *FileSet) GetGlobal(file string) (protocol.FileInfo, bool) {
-	fi, ok, err := s.db.getGlobalDirty([]byte(s.folder), []byte(osutil.NormalizedFilename(file)), false)
+func (s *Snapshot) GetGlobal(file string) (protocol.FileInfo, bool) {
+	_, fi, ok, err := s.t.getGlobal(nil, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), false)
 	if backend.IsClosed(err) {
 		return protocol.FileInfo{}, false
 	} else if err != nil {
@@ -276,8 +300,8 @@ func (s *FileSet) GetGlobal(file string) (protocol.FileInfo, bool) {
 	return f, true
 }
 
-func (s *FileSet) GetGlobalTruncated(file string) (FileInfoTruncated, bool) {
-	fi, ok, err := s.db.getGlobalDirty([]byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
+func (s *Snapshot) GetGlobalTruncated(file string) (FileInfoTruncated, bool) {
+	_, fi, ok, err := s.t.getGlobal(nil, []byte(s.folder), []byte(osutil.NormalizedFilename(file)), true)
 	if backend.IsClosed(err) {
 		return FileInfoTruncated{}, false
 	} else if err != nil {
@@ -291,8 +315,8 @@ func (s *FileSet) GetGlobalTruncated(file string) (FileInfoTruncated, bool) {
 	return f, true
 }
 
-func (s *FileSet) Availability(file string) []protocol.DeviceID {
-	av, err := s.db.availability([]byte(s.folder), []byte(osutil.NormalizedFilename(file)))
+func (s *Snapshot) Availability(file string) []protocol.DeviceID {
+	av, err := s.t.availability([]byte(s.folder), []byte(osutil.NormalizedFilename(file)))
 	if backend.IsClosed(err) {
 		return nil
 	} else if err != nil {

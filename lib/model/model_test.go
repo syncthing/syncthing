@@ -2428,10 +2428,12 @@ func TestIssue3496(t *testing.T) {
 	fs := m.folderFiles["default"]
 	m.fmut.RUnlock()
 	var localFiles []protocol.FileInfo
-	fs.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
+	snap := fs.Snapshot()
+	snap.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
 		localFiles = append(localFiles, i.(protocol.FileInfo))
 		return true
 	})
+	snap.Release()
 
 	// Mark all files as deleted and fake it as update from device1
 

@@ -228,7 +228,7 @@ func (db *schemaUpdater) updateSchema1to2() error {
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
 		var putErr error
-		err := db.withHave(folder, protocol.LocalDeviceID[:], nil, true, func(f FileIntf) bool {
+		err := t.withHave(folder, protocol.LocalDeviceID[:], nil, true, func(f FileIntf) bool {
 			sk, putErr = db.keyer.GenerateSequenceKey(sk, folder, f.SequenceNo())
 			if putErr != nil {
 				return false
@@ -263,7 +263,7 @@ func (db *schemaUpdater) updateSchema2to3() error {
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
 		var putErr error
-		err := db.withGlobal(folder, nil, true, func(f FileIntf) bool {
+		err := t.withGlobal(folder, nil, true, func(f FileIntf) bool {
 			name := []byte(f.FileName())
 			dk, putErr = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], name)
 			if putErr != nil {
@@ -339,7 +339,7 @@ func (db *schemaUpdater) updateSchema5to6() error {
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
 		var putErr error
-		err := db.withHave(folder, protocol.LocalDeviceID[:], nil, false, func(f FileIntf) bool {
+		err := t.withHave(folder, protocol.LocalDeviceID[:], nil, false, func(f FileIntf) bool {
 			if !f.IsInvalid() {
 				return true
 			}
@@ -382,7 +382,7 @@ func (db *schemaUpdater) updateSchema6to7() error {
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
 		var delErr error
-		err := db.withNeedLocal(folder, false, func(f FileIntf) bool {
+		err := t.withNeedLocal(folder, false, func(f FileIntf) bool {
 			name := []byte(f.FileName())
 			global := f.(protocol.FileInfo)
 			gk, delErr = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
