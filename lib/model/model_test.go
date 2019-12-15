@@ -134,7 +134,7 @@ func TestRequest(t *testing.T) {
 	defer cleanupModel(m)
 
 	// Existing, shared file
-	res, err := m.Request(device1, "default", "foo", 6, 0, nil, 0, false)
+	res, err := m.Request(device1, "default", "foo", 0, 6, 0, nil, 0, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -144,31 +144,31 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Existing, nonshared file
-	_, err = m.Request(device2, "default", "foo", 6, 0, nil, 0, false)
+	_, err = m.Request(device2, "default", "foo", 0, 6, 0, nil, 0, false)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Nonexistent file
-	_, err = m.Request(device1, "default", "nonexistent", 6, 0, nil, 0, false)
+	_, err = m.Request(device1, "default", "nonexistent", 0, 6, 0, nil, 0, false)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Shared folder, but disallowed file name
-	_, err = m.Request(device1, "default", "../walk.go", 6, 0, nil, 0, false)
+	_, err = m.Request(device1, "default", "../walk.go", 0, 6, 0, nil, 0, false)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Negative offset
-	_, err = m.Request(device1, "default", "foo", -4, 0, nil, 0, false)
+	_, err = m.Request(device1, "default", "foo", 0, -4, 0, nil, 0, false)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Larger block than available
-	_, err = m.Request(device1, "default", "foo", 42, 0, nil, 0, false)
+	_, err = m.Request(device1, "default", "foo", 0, 42, 0, nil, 0, false)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -282,7 +282,7 @@ func BenchmarkRequestInSingleFile(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := m.Request(device1, "default", "request/for/a/file/in/a/couple/of/dirs/128k", 128<<10, 0, nil, 0, false); err != nil {
+		if _, err := m.Request(device1, "default", "request/for/a/file/in/a/couple/of/dirs/128k", 0, 128<<10, 0, nil, 0, false); err != nil {
 			b.Error(err)
 		}
 	}
@@ -3251,14 +3251,14 @@ func TestRequestLimit(t *testing.T) {
 
 	file := "tmpfile"
 	befReq := time.Now()
-	first, err := m.Request(device1, "default", file, 2000, 0, nil, 0, false)
+	first, err := m.Request(device1, "default", file, 0, 2000, 0, nil, 0, false)
 	if err != nil {
 		t.Fatalf("First request failed: %v", err)
 	}
 	reqDur := time.Since(befReq)
 	returned := make(chan struct{})
 	go func() {
-		second, err := m.Request(device1, "default", file, 2000, 0, nil, 0, false)
+		second, err := m.Request(device1, "default", file, 0, 2000, 0, nil, 0, false)
 		if err != nil {
 			t.Errorf("Second request failed: %v", err)
 		}

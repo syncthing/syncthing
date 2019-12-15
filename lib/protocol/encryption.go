@@ -31,7 +31,7 @@ const (
 	EncryptedFileExtension = ".syncthing-enc"
 )
 
-// nonceSalt is a random salt we use for PBKDF2 when generating
+// nonceSalt is a static salt we use for PBKDF2 when generating
 // deterministic nonces.
 var nonceSalt = []byte{
 	0x83, 0xf6, 0x92, 0x44, 0x5f, 0x33, 0x00, 0xdb,
@@ -40,8 +40,8 @@ var nonceSalt = []byte{
 	0x0b, 0x0d, 0xfd, 0xe9, 0x7e, 0xe2, 0xc9, 0xef,
 }
 
-// keySalt is a random salt we use for PBKDF2 when generating
-// encryption keys.
+// keySalt is a static salt we use for scrypt when generating encryption
+// keys.
 var keySalt = []byte{
 	0x8e, 0x13, 0x3c, 0x96, 0x26, 0xfd, 0x87, 0xcc,
 	0x03, 0x29, 0xa7, 0x84, 0xfa, 0x4e, 0xd9, 0xe5,
@@ -50,8 +50,8 @@ var keySalt = []byte{
 }
 
 // The encryptedModel sits between the encrypted device and the model. It
-// receives encrypted metadata and requests, so it must decrypt those and answer
-// requests by encrypting the data.
+// receives encrypted metadata and requests from the untrusted device, so it
+// must decrypt those and answer requests by encrypting the data.
 type encryptedModel struct {
 	Model
 	keys map[string]*[keySize]byte // folder ID -> key
@@ -59,6 +59,7 @@ type encryptedModel struct {
 
 func (e encryptedModel) Index(deviceID DeviceID, folder string, files []FileInfo) error {
 	if key, ok := e.keys[folder]; ok {
+		// incoming index data to be decrypted
 		if err := decryptFileInfos(files, key); err != nil {
 			return err
 		}
@@ -68,6 +69,7 @@ func (e encryptedModel) Index(deviceID DeviceID, folder string, files []FileInfo
 
 func (e encryptedModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error {
 	if key, ok := e.keys[folder]; ok {
+		// incoming index data to be decrypted
 		if err := decryptFileInfos(files, key); err != nil {
 			return err
 		}
@@ -75,10 +77,10 @@ func (e encryptedModel) IndexUpdate(deviceID DeviceID, folder string, files []Fi
 	return e.Model.IndexUpdate(deviceID, folder, files)
 }
 
-func (e encryptedModel) Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
+func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
 	key, ok := e.keys[folder]
 	if !ok {
-		return e.Model.Request(deviceID, folder, name, size, offset, hash, weakHash, fromTemporary)
+		return e.Model.Request(deviceID, folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
 	}
 
 	// Figure out the real file name, offset and size from the encrypted /
@@ -89,11 +91,11 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, size int
 		return nil, err
 	}
 	realSize := size - blockOverhead
-	realOffset := offset - int64(weakHash*blockOverhead)
+	realOffset := offset - int64(blockNo*blockOverhead)
 
 	// Perform that request and grab the data.
 
-	resp, err := e.Model.Request(deviceID, folder, realName, realSize, realOffset, nil, 0, false)
+	resp, err := e.Model.Request(deviceID, folder, realName, blockNo, realSize, realOffset, nil, 0, false)
 	if err != nil {
 		if resp != nil {
 			resp.Close()
@@ -201,29 +203,20 @@ func encryptFileInfo(fi FileInfo, key *[keySize]byte) FileInfo {
 	}
 
 	// Construct the fake block list. Each block will be blockOverhead bytes
-	// larger than the corresponding real one, have an encrypted hash and
-	// the block number in the weak hash.
+	// larger than the corresponding real one and have an encrypted hash.
 	//
 	// The encrypted hash becomes just a "token" for the data -- it doesn't
 	// help verifying it, but it lets the encrypted device to block level
 	// diffs and data reuse properly when it gets a new version of a file.
-	//
-	// Stuffing the block number in the weak hash is an ugly hack that
-	// avoids a couple of other protocol changes, as it is a value that is
-	// propagated through to the block request. It helps the other end
-	// figure out the actual block offset to look at, given that the offset
-	// we get from the encrypted side is tainted by an unknown number of
-	// blockOverheads.
 
 	var offset int64
 	blocks := make([]BlockInfo, len(fi.Blocks))
 	for i, b := range fi.Blocks {
 		size := b.Size + blockOverhead
 		blocks[i] = BlockInfo{
-			Offset:   offset,
-			Size:     size,
-			Hash:     encryptDeterministic(b.Hash, key),
-			WeakHash: uint32(i),
+			Offset: offset,
+			Size:   size,
+			Hash:   encryptDeterministic(b.Hash, key),
 		}
 		offset += int64(size)
 	}
@@ -368,7 +361,7 @@ func decryptBytes(data []byte, key *[keySize]byte) ([]byte, error) {
 // deterministicNonce is a nonce based on the hash of data and key using
 // PBKDF2
 func deterministicNonce(data []byte, key *[keySize]byte) *[nonceSize]byte {
-	bs := pbkdf2.Key(append(data, (*key)[:]...), nonceSalt, 1024, nonceSize, sha256.New)
+	bs := pbkdf2.Key(append(data, key[:]...), nonceSalt, 1024, nonceSize, sha256.New)
 	if len(bs) != nonceSize {
 		panic("pkdf2 failure")
 	}
@@ -377,7 +370,6 @@ func deterministicNonce(data []byte, key *[keySize]byte) *[nonceSize]byte {
 	return &nonce
 }
 
-// randomNonce is a randomly generated nonce
 func randomNonce() *[nonceSize]byte {
 	var nonce [nonceSize]byte
 	if _, err := rand.Read(nonce[:]); err != nil {
@@ -391,15 +383,15 @@ func randomNonce() *[nonceSize]byte {
 func keysFromPasswords(passwords map[string]string) map[string]*[keySize]byte {
 	res := make(map[string]*[keySize]byte, len(passwords))
 	for folder, password := range passwords {
-		res[folder] = keyFromPassword(password)
+		res[folder] = keyFromPassword(folder, password)
 	}
 	return res
 }
 
-// keyFromPassword uses key derivation to generate a strong key from a probably weak
-// password.
-func keyFromPassword(password string) *[keySize]byte {
-	bs, err := scrypt.Key([]byte(password), keySalt, 32768, 8, 1, keySize)
+// keyFromPassword uses key derivation to generate a stronger key from a
+// probably weak password.
+func keyFromPassword(folderID, password string) *[keySize]byte {
+	bs, err := scrypt.Key([]byte(folderID+password), keySalt, 32768, 8, 1, keySize)
 	if err != nil {
 		panic("key derivation failure: " + err.Error())
 	}

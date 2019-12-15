@@ -174,7 +174,7 @@ func (m *fakeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileIn
 	return nil
 }
 
-func (m *fakeModel) Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
+func (m *fakeModel) Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
 	// We write the offset to the end of the buffer, so the receiver
 	// can verify that it did in fact get some data back over the
 	// connection.

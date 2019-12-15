@@ -102,7 +102,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 	<-done
 
 	// Request a file by traversing the symlink
-	res, err := m.Request(device1, "default", "symlink/requests_test.go", 10, 0, nil, 0, false)
+	res, err := m.Request(device1, "default", "symlink/requests_test.go", 0, 10, 0, nil, 0, false)
 	if err == nil || res != nil {
 		t.Error("Managed to traverse symlink")
 	}
@@ -508,7 +508,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 		t.Fatalf("unexpected weak hash: %d != 103547413", f.Blocks[0].WeakHash)
 	}
 
-	res, err := m.Request(device1, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	res, err := m.Request(device1, "default", "foo", 0, int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -522,7 +522,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 
 	must(t, ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777))
 
-	_, err = m.Request(device1, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	_, err = m.Request(device1, "default", "foo", 0, int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err == nil {
 		t.Fatalf("expected failure")
 	}

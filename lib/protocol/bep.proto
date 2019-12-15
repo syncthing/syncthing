@@ -161,6 +161,7 @@ message Request {
     bytes  hash           = 6;
     bool   from_temporary = 7;
     uint32 weak_hash      = 8;
+    int32  block_no       = 9;
 }
 
 // Response

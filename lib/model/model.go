@@ -1586,7 +1586,7 @@ func (r *requestResponse) Wait() {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *model) Request(deviceID protocol.DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
+func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
 	if size < 0 || offset < 0 {
 		return nil, protocol.ErrInvalid
 	}
@@ -2147,7 +2147,7 @@ func (m *model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, f
 		return nil, fmt.Errorf("requestGlobal: no such device: %s", deviceID)
 	}
 
-	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, offset, size, hash, weakHash, fromTemporary)
+	l.Debugf("%v REQ(out): %s: %q / %q b=%d o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 
 	return nc.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 }

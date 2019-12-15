@@ -115,7 +115,7 @@ type Model interface {
 	// An index update was received from the peer device
 	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error
 	// A request was made by the peer device
-	Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
+	Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
 	// A cluster configuration message was received
 	ClusterConfig(deviceID DeviceID, config ClusterConfig) error
 	// The peer device closed the connection
@@ -313,6 +313,7 @@ func (c *rawConnection) Request(ctx context.Context, folder string, name string,
 		Name:          name,
 		Offset:        offset,
 		Size:          int32(size),
+		BlockNo:       int32(blockNo),
 		Hash:          hash,
 		WeakHash:      weakHash,
 		FromTemporary: fromTemporary,
@@ -636,7 +637,7 @@ func checkFilename(name string) error {
 }
 
 func (c *rawConnection) handleRequest(req Request) {
-	res, err := c.receiver.Request(c.id, req.Folder, req.Name, req.Size, req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
+	res, err := c.receiver.Request(c.id, req.Folder, req.Name, req.BlockNo, req.Size, req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
 	if err != nil {
 		c.send(context.Background(), &Response{
 			ID:   req.ID,
