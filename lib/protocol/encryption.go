@@ -93,13 +93,11 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo,
 	realSize := size - blockOverhead
 	realOffset := offset - int64(blockNo*blockOverhead)
 
-	// Perform that request and grab the data.
+	// Perform that request and grab the data. Explicitly zero out the
+	// hashes which are meaningless.
 
 	resp, err := e.Model.Request(deviceID, folder, realName, blockNo, realSize, realOffset, nil, 0, false)
 	if err != nil {
-		if resp != nil {
-			resp.Close()
-		}
 		return nil, err
 	}
 
@@ -118,6 +116,11 @@ func (e encryptedModel) DownloadProgress(deviceID DeviceID, folder string, updat
 
 	// The updates contain nonsense names and sizes, so we ignore them.
 	return nil
+}
+
+func (e encryptedModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) error {
+	// TODO: Filter/clean the incoming ClusterConfig?
+	return e.Model.ClusterConfig(deviceID, config)
 }
 
 // The encryptedConnection sits between the model and the encrypted device. It
@@ -147,14 +150,20 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 		return e.Connection.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 	}
 
-	name = encryptName(name, key)
-	offset += int64(blockNo * blockOverhead)
-	size += blockOverhead
+	// Encrypt / adjust the request parameters.
 
-	bs, err := e.Connection.Request(ctx, folder, name, blockNo, offset, size, nil, uint32(blockNo), false)
+	encName := encryptName(name, key)
+	encOffset := offset + int64(blockNo*blockOverhead)
+	encSize := size + blockOverhead
+
+	// Perform that request, getting back and encrypted block.
+
+	bs, err := e.Connection.Request(ctx, folder, encName, blockNo, encOffset, encSize, nil, 0, false)
 	if err != nil {
 		return nil, err
 	}
+
+	// Return the decrypted block (or an error if it fails decryption)
 
 	return decryptBytes(bs, key)
 }
@@ -165,6 +174,11 @@ func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string
 	}
 
 	// No need to send these
+}
+
+func (e encryptedConnection) ClusterConfig(config ClusterConfig) {
+	// TODO: Filter/clean the outgoing ClusterConfig?
+	e.Connection.ClusterConfig(config)
 }
 
 func encryptFileInfos(files []FileInfo, key *[keySize]byte) {
@@ -222,7 +236,10 @@ func encryptFileInfo(fi FileInfo, key *[keySize]byte) FileInfo {
 	}
 
 	// Construct the fake FileInfo. This is mostly just a wrapper around the
-	// encrypted FileInfo and fake block list.
+	// encrypted FileInfo and fake block list. We'll represent symlinks as
+	// directories, because they need some sort of on disk representation
+	// but have no data outside of the metadata. Deletion and sequence
+	// numbering are handled as usual.
 
 	typ := FileInfoTypeFile
 	if fi.Type != FileInfoTypeFile {
@@ -231,7 +248,7 @@ func encryptFileInfo(fi FileInfo, key *[keySize]byte) FileInfo {
 	enc := FileInfo{
 		Name:         encryptName(fi.Name, key),
 		Type:         typ,
-		Size:         offset,
+		Size:         offset, // new total file size
 		Permissions:  0644,
 		ModifiedS:    1234567890, // Sat Feb 14 00:31:30 CET 2009
 		Deleted:      fi.Deleted,
@@ -322,11 +339,13 @@ func encrypt(data []byte, nonce *[nonceSize]byte, key *[keySize]byte) []byte {
 	}
 
 	if gcm.NonceSize() != nonceSize || gcm.Overhead() != tagSize {
-		// We want these values to be constant so we don't use the returns
-		// from the GCM, but we verify them.
+		// We want these values to be constant for our type declarations so
+		// we don't use the values returned by the GCM, but we verify them
+		// here.
 		panic("crypto parameter mismatch")
 	}
 
+	// Data is appended to the nonce
 	return gcm.Seal(nonce[:], nonce[:], data, nil)
 }
 
@@ -350,8 +369,9 @@ func decryptBytes(data []byte, key *[keySize]byte) ([]byte, error) {
 	}
 
 	if gcm.NonceSize() != nonceSize || gcm.Overhead() != tagSize {
-		// We want these values to be constant so we don't use the returns
-		// from the GCM, but we verify them.
+		// We want these values to be constant for our type declarations so
+		// we don't use the values returned by the GCM, but we verify them
+		// here.
 		panic("crypto parameter mismatch")
 	}
 
@@ -359,7 +379,7 @@ func decryptBytes(data []byte, key *[keySize]byte) ([]byte, error) {
 }
 
 // deterministicNonce is a nonce based on the hash of data and key using
-// PBKDF2
+// a weak, quick PBKDF2.
 func deterministicNonce(data []byte, key *[keySize]byte) *[nonceSize]byte {
 	bs := pbkdf2.Key(append(data, key[:]...), nonceSalt, 1024, nonceSize, sha256.New)
 	if len(bs) != nonceSize {
@@ -370,6 +390,7 @@ func deterministicNonce(data []byte, key *[keySize]byte) *[nonceSize]byte {
 	return &nonce
 }
 
+// randomNonce is a normal, cryptographically random nonce
 func randomNonce() *[nonceSize]byte {
 	var nonce [nonceSize]byte
 	if _, err := rand.Read(nonce[:]); err != nil {
