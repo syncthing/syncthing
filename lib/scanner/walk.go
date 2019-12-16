@@ -227,9 +227,9 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			return skip
 		}
 
-		// If the file is an encrypted data file it can't currently be scanned.
-		// (Special handling here in the future)
-		if filepath.Ext(path) == protocol.EncryptedFileExtension {
+		// If the directory is an encrypted data container it can't currently be
+		// scanned. (Special handling here in the future?)
+		if filepath.Ext(path) == protocol.EncryptedDirExtension {
 			return skip
 		}
 

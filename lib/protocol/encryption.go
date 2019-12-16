@@ -23,12 +23,12 @@ import (
 )
 
 const (
-	nonceSize              = 12 // cipher.gcmStandardNonceSize
-	tagSize                = 16 // cipher.gcmTagSize
-	keySize                = 32 // AES-256
-	blockOverhead          = tagSize + nonceSize
-	maxPathComponent       = 240 - len(EncryptedFileExtension) // characters
-	EncryptedFileExtension = ".syncthing-enc"
+	nonceSize             = 12 // cipher.gcmStandardNonceSize
+	tagSize               = 16 // cipher.gcmTagSize
+	keySize               = 32 // AES-256
+	blockOverhead         = tagSize + nonceSize
+	maxPathComponent      = 200              // characters
+	EncryptedDirExtension = ".syncthing-enc" // for top level dirs, stops scans
 )
 
 // nonceSalt is a static salt we use for PBKDF2 when generating
@@ -293,14 +293,14 @@ func decryptFileInfo(fi FileInfo, key *[keySize]byte) (FileInfo, error) {
 // filesystem-friendly manner.
 func encryptName(name string, key *[keySize]byte) string {
 	enc := encryptDeterministic([]byte(name), key)
-	b32enc := base32.HexEncoding.EncodeToString(enc)
+	b32enc := base32.HexEncoding.WithPadding(base32.NoPadding).EncodeToString(enc)
 	return slashify(b32enc)
 }
 
 // decryptName decrypts a string from encryptName
 func decryptName(name string, key *[keySize]byte) (string, error) {
 	name = deslashify(name)
-	bs, err := base32.HexEncoding.DecodeString(name)
+	bs, err := base32.HexEncoding.WithPadding(base32.NoPadding).DecodeString(name)
 	if err != nil {
 		return "", err
 	}
@@ -424,25 +424,25 @@ func keyFromPassword(folderID, password string) *[keySize]byte {
 	return &key
 }
 
-// slashify inserts slashes (and file extensions) in the string every
-// maxPathComponent characters.
+// slashify inserts slashes (and file extension) in the string to create an appropriate tree.
+// ABCDEFGH... => A.syncthing-enc/BC/DEFGH...
 func slashify(s string) string {
 	// We somewhat sloppily assume bytes == characters here, but the only
 	// file names we should deal with are those that come from our base32
 	// encoding.
-	if len(s) <= maxPathComponent {
-		return s + EncryptedFileExtension
-	}
 
-	comps := make([]string, 0, len(s)/maxPathComponent+1)
-	for {
-		if len(s) < maxPathComponent {
-			comps = append(comps, s+EncryptedFileExtension)
-			break
-		}
+	comps := make([]string, 0, len(s)/maxPathComponent+3)
+	comps = append(comps, s[:1]+EncryptedDirExtension)
+	s = s[1:]
+	comps = append(comps, s[:2])
+	s = s[2:]
 
-		comps = append(comps, s[:maxPathComponent]+EncryptedFileExtension)
+	for len(s) > maxPathComponent {
+		comps = append(comps, s[:maxPathComponent])
 		s = s[maxPathComponent:]
+	}
+	if len(s) > 0 {
+		comps = append(comps, s)
 	}
 	return strings.Join(comps, "/")
 }
@@ -450,7 +450,7 @@ func slashify(s string) string {
 // deslashify removes slashes and encrypted file extensions from the string.
 // This is the inverse of slashify().
 func deslashify(s string) string {
-	s = strings.ReplaceAll(s, EncryptedFileExtension, "")
+	s = strings.ReplaceAll(s, EncryptedDirExtension, "")
 	return strings.ReplaceAll(s, "/", "")
 }
 

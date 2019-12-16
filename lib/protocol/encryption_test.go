@@ -38,6 +38,7 @@ func TestEnDecryptName(t *testing.T) {
 			if dec != tc {
 				t.Error("mismatch after decryption")
 			}
+			t.Log(enc)
 		}
 	}
 }
