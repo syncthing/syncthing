@@ -24,7 +24,7 @@ require (
 	github.com/lib/pq v1.2.0
 	github.com/lucas-clemente/quic-go v0.12.1
 	github.com/maruel/panicparse v1.3.0
-	github.com/mattn/go-isatty v0.0.10
+	github.com/mattn/go-isatty v0.0.11
 	github.com/minio/sha256-simd v0.1.1
 	github.com/onsi/ginkgo v1.9.0 // indirect
 	github.com/onsi/gomega v1.6.0 // indirect
