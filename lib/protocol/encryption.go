@@ -165,7 +165,7 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 
 	// Return the decrypted block (or an error if it fails decryption)
 
-	return decryptBytes(bs, key)
+	return DecryptBytes(bs, key)
 }
 
 func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate) {
@@ -264,7 +264,7 @@ func encryptFileInfo(fi FileInfo, key *[keySize]byte) FileInfo {
 
 func decryptFileInfos(files []FileInfo, key *[keySize]byte) error {
 	for i, fi := range files {
-		decFI, err := decryptFileInfo(fi, key)
+		decFI, err := DecryptFileInfo(fi, key)
 		if err != nil {
 			return err
 		}
@@ -273,10 +273,10 @@ func decryptFileInfos(files []FileInfo, key *[keySize]byte) error {
 	return nil
 }
 
-// decryptFileInfo extracts the encrypted portion of a FileInfo, decrypts it
+// DecryptFileInfo extracts the encrypted portion of a FileInfo, decrypts it
 // and returns that.
-func decryptFileInfo(fi FileInfo, key *[keySize]byte) (FileInfo, error) {
-	dec, err := decryptBytes(fi.Encrypted, key)
+func DecryptFileInfo(fi FileInfo, key *[keySize]byte) (FileInfo, error) {
+	dec, err := DecryptBytes(fi.Encrypted, key)
 	if err != nil {
 		return FileInfo{}, err
 	}
@@ -304,7 +304,7 @@ func decryptName(name string, key *[keySize]byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dec, err := decryptBytes(bs, key)
+	dec, err := DecryptBytes(bs, key)
 	if err != nil {
 		return "", err
 	}
@@ -349,9 +349,9 @@ func encrypt(data []byte, nonce *[nonceSize]byte, key *[keySize]byte) []byte {
 	return gcm.Seal(nonce[:], nonce[:], data, nil)
 }
 
-// decryptBytes returns the decrypted bytes, or an error if decryption
+// DecryptBytes returns the decrypted bytes, or an error if decryption
 // failed.
-func decryptBytes(data []byte, key *[keySize]byte) ([]byte, error) {
+func DecryptBytes(data []byte, key *[keySize]byte) ([]byte, error) {
 	if len(data) < blockOverhead {
 		return nil, errors.New("data too short")
 	}
@@ -404,14 +404,14 @@ func randomNonce() *[nonceSize]byte {
 func keysFromPasswords(passwords map[string]string) map[string]*[keySize]byte {
 	res := make(map[string]*[keySize]byte, len(passwords))
 	for folder, password := range passwords {
-		res[folder] = keyFromPassword(folder, password)
+		res[folder] = KeyFromPassword(folder, password)
 	}
 	return res
 }
 
-// keyFromPassword uses key derivation to generate a stronger key from a
+// KeyFromPassword uses key derivation to generate a stronger key from a
 // probably weak password.
-func keyFromPassword(folderID, password string) *[keySize]byte {
+func KeyFromPassword(folderID, password string) *[keySize]byte {
 	bs, err := scrypt.Key([]byte(folderID+password), keySalt, 32768, 8, 1, keySize)
 	if err != nil {
 		panic("key derivation failure: " + err.Error())

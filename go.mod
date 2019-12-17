@@ -5,6 +5,7 @@ require (
 	github.com/AudriusButkevicius/pfilter v0.0.0-20190627213056-c55ef6137fc6
 	github.com/AudriusButkevicius/recli v0.0.5
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
+	github.com/alecthomas/kingpin v2.2.6+incompatible
 	github.com/bkaradzic/go-lz4 v0.0.0-20160924222819-7224d8d8f27e
 	github.com/calmh/xdr v1.1.0
 	github.com/ccding/go-stun v0.0.0-20180726100737-be486d185f3d
