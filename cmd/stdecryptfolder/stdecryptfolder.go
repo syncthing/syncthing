@@ -98,7 +98,7 @@ func main() {
 			if verifyHashes {
 				hash := sha256.Sum256(bs)
 				if !bytes.Equal(hash[:], fi.Blocks[i].Hash) {
-					log.Printf("Preparing %s: warning: decrypted data fails hash check", outPath)
+					log.Printf("Decrypting %s: warning: decrypted data fails hash check", outPath)
 				}
 			}
 
