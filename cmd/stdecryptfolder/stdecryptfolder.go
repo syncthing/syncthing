@@ -7,6 +7,8 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"log"
 	"os"
@@ -48,6 +50,7 @@ func main() {
 		}
 
 		log.Println("Decrypting", fi.Name, "...")
+		outPath := filepath.Join(*destinationPath, fi.Name)
 
 		inFd, err := os.Open(path)
 		if err != nil {
@@ -56,7 +59,12 @@ func main() {
 		}
 		defer inFd.Close()
 
-		outPath := filepath.Join(*destinationPath, fi.Name)
+		verifyHashes := true
+		if len(fi.Blocks) != len(encFi.Blocks) {
+			log.Printf("Preparing %s: warning: block list mismatch (%d encrypted, %d plaintext), possible metadata out of sync?", outPath, len(encFi.Blocks), len(fi.Blocks))
+			verifyHashes = false
+		}
+
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
 			log.Printf("Preparing %s: %v", outPath, err)
 			return nil
@@ -69,7 +77,7 @@ func main() {
 		defer outFd.Close()
 
 		var buffer []byte
-		for _, eb := range encFi.Blocks {
+		for i, eb := range encFi.Blocks {
 			if cap(buffer) < int(eb.Size) {
 				buffer = make([]byte, int(eb.Size))
 			} else {
@@ -85,6 +93,13 @@ func main() {
 			if err != nil {
 				log.Printf("Decrypting %s: %v", path, err)
 				return nil
+			}
+
+			if verifyHashes {
+				hash := sha256.Sum256(bs)
+				if !bytes.Equal(hash[:], fi.Blocks[i].Hash) {
+					log.Printf("Preparing %s: warning: decrypted data fails hash check", outPath)
+				}
 			}
 
 			if _, err := outFd.Write(bs); err != nil {
