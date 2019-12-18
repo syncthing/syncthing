@@ -60,7 +60,7 @@ func TestEnDecryptBytes(t *testing.T) {
 			if len(tc) > 0 && bytes.Contains(enc, tc) {
 				t.Error("shouldn't contain plaintext")
 			}
-			dec, err := decryptBytes(enc, &key)
+			dec, err := DecryptBytes(enc, &key)
 			if err != nil {
 				t.Error(err)
 			}
@@ -87,7 +87,7 @@ func TestEnDecryptFileInfo(t *testing.T) {
 	}
 
 	enc := encryptFileInfo(fi, &key)
-	dec, err := decryptFileInfo(enc, &key)
+	dec, err := DecryptFileInfo(enc, &key)
 	if err != nil {
 		t.Error(err)
 	}

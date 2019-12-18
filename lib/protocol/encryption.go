@@ -11,14 +11,13 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base32"
 	"errors"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"golang.org/x/crypto/pbkdf2"
+	"github.com/jacobsa/crypto/siv"
 	"golang.org/x/crypto/scrypt"
 )
 
@@ -304,7 +303,7 @@ func decryptName(name string, key *[keySize]byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dec, err := DecryptBytes(bs, key)
+	dec, err := decryptDeterministic(bs, key)
 	if err != nil {
 		return "", err
 	}
@@ -318,11 +317,18 @@ func encryptBytes(data []byte, key *[keySize]byte) []byte {
 	return encrypt(data, nonce, key)
 }
 
-// encryptDeterministic encrypts bytes with a nonce based on the data and
-// key.
+// encryptDeterministic encrypts bytes using AES-SIV
 func encryptDeterministic(data []byte, key *[keySize]byte) []byte {
-	nonce := deterministicNonce(data, key)
-	return encrypt(data, nonce, key)
+	bs, err := siv.Encrypt(nil, key[:], data, nil)
+	if err != nil {
+		panic("cipher failure: " + err.Error())
+	}
+	return bs
+}
+
+// decryptDeterministic decrypts bytes using AES-SIV
+func decryptDeterministic(data []byte, key *[keySize]byte) ([]byte, error) {
+	return siv.Decrypt(key[:], data, nil)
 }
 
 func encrypt(data []byte, nonce *[nonceSize]byte, key *[keySize]byte) []byte {
@@ -376,18 +382,6 @@ func DecryptBytes(data []byte, key *[keySize]byte) ([]byte, error) {
 	}
 
 	return gcm.Open(nil, data[:nonceSize], data[nonceSize:], nil)
-}
-
-// deterministicNonce is a nonce based on the hash of data and key using
-// a weak, quick PBKDF2.
-func deterministicNonce(data []byte, key *[keySize]byte) *[nonceSize]byte {
-	bs := pbkdf2.Key(append(data, key[:]...), nonceSalt, 1024, nonceSize, sha256.New)
-	if len(bs) != nonceSize {
-		panic("pkdf2 failure")
-	}
-	var nonce [nonceSize]byte
-	copy(nonce[:], bs)
-	return &nonce
 }
 
 // randomNonce is a normal, cryptographically random nonce

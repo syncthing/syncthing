@@ -20,6 +20,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
 	github.com/golang/mock v1.3.1 // indirect
 	github.com/jackpal/gateway v1.0.5
+	github.com/jacobsa/crypto v0.0.0-20190317225127-9f44e2d11115
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.2.0
