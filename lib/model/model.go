@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"path/filepath"
 	"reflect"
@@ -1693,6 +1694,9 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 	if err := readOffsetIntoBuf(folderFs, name, offset, res.data); fs.IsNotExist(err) {
 		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
+	} else if err == io.EOF && len(hash) == 0 {
+		// Read beyond end of file when we can't verify the hash -- this is
+		// a padded read for an encrypted file. It's fine.
 	} else if err != nil {
 		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrGeneric

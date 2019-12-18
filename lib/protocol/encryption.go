@@ -22,9 +22,10 @@ import (
 )
 
 const (
-	nonceSize             = 16 // bytes
-	tagSize               = 16 // cipher.gcmTagSize
-	keySize               = 32 // AES-256
+	nonceSize             = 16   // bytes
+	tagSize               = 16   // cipher.gcmTagSize
+	keySize               = 32   // AES-256
+	minPaddedSize         = 1024 // smallest block we'll allow
 	blockOverhead         = tagSize + nonceSize
 	maxPathComponent      = 200              // characters
 	EncryptedDirExtension = ".syncthing-enc" // for top level dirs, stops scans
@@ -91,9 +92,18 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo,
 		return nil, err
 	}
 
-	// Encrypt the response.
+	// Encrypt the response. Blocks smaller than minPaddedSize are padded
+	// with random date.
 
 	data := resp.Data()
+	if len(data) < minPaddedSize {
+		nd := make([]byte, minPaddedSize)
+		copy(nd, data)
+		if _, err := rand.Read(nd[len(data):]); err != nil {
+			panic("catastrophic randomness failure")
+		}
+		data = nd
+	}
 	enc := encryptBytes(data, key)
 	resp.Close()
 	return rawResponse{enc}, nil
@@ -142,6 +152,12 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 
 	// Encrypt / adjust the request parameters.
 
+	origSize := size
+	if size < minPaddedSize {
+		// Make a request for minPaddedSize data instead of the smaller
+		// block. We'll chop of the extra data later.
+		size = minPaddedSize
+	}
 	encName := encryptName(name, key)
 	encOffset := offset + int64(blockNo*blockOverhead)
 	encSize := size + blockOverhead
@@ -155,7 +171,11 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 
 	// Return the decrypted block (or an error if it fails decryption)
 
-	return DecryptBytes(bs, key)
+	bs, err = DecryptBytes(bs, key)
+	if err != nil {
+		return nil, err
+	}
+	return bs[:origSize], nil
 }
 
 func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate) {
@@ -208,6 +228,7 @@ func encryptFileInfo(fi FileInfo, key *[keySize]byte) FileInfo {
 
 	// Construct the fake block list. Each block will be blockOverhead bytes
 	// larger than the corresponding real one and have an encrypted hash.
+	// Very small blocks will be padded upwards to minPaddedSize.
 	//
 	// The encrypted hash becomes just a "token" for the data -- it doesn't
 	// help verifying it, but it lets the encrypted device to block level
@@ -216,6 +237,9 @@ func encryptFileInfo(fi FileInfo, key *[keySize]byte) FileInfo {
 	var offset int64
 	blocks := make([]BlockInfo, len(fi.Blocks))
 	for i, b := range fi.Blocks {
+		if b.Size < minPaddedSize {
+			b.Size = minPaddedSize
+		}
 		size := b.Size + blockOverhead
 		blocks[i] = BlockInfo{
 			Offset: offset,
