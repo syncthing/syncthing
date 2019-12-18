@@ -168,9 +168,13 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Larger block than available
-	_, err = m.Request(device1, "default", "foo", 0, 42, 0, nil, 0, false)
+	_, err = m.Request(device1, "default", "foo", 0, 42, 0, []byte("hash necessary but not checked"), 0, false)
 	if err == nil {
-		t.Error("Unexpected nil error on insecure file read")
+		t.Error("Unexpected nil error on read past end of file")
+	}
+	_, err = m.Request(device1, "default", "foo", 0, 42, 0, nil, 0, false)
+	if err != nil {
+		t.Error("Unexpected error when large read should be permitted")
 	}
 }
 
