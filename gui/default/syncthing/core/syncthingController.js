@@ -105,7 +105,7 @@ angular.module('syncthing.core')
         $scope.needIcons = {
             'rm': 'far fa-fw fa-trash-alt',
             'rmdir': 'far fa-fw fa-trash-alt',
-            'sync': 'far fa-fw arrow-alt-circle-down',
+            'sync': 'far fa-fw fa-arrow-alt-circle-down',
             'touch': 'fas fa-fw fa-asterisk'
         };
 
@@ -690,7 +690,7 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshFailed = function (page, perpage) {
-            if (!$scope.failed) {
+            if (!$scope.failed || !$scope.failed.folder) {
                 return;
             }
             var url = urlbase + '/folder/errors?folder=' + encodeURIComponent($scope.failed.folder);
@@ -1220,7 +1220,12 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.editSettings = function () {
+        $scope.discardChangedSettings = function () {
+            $("#discard-changes-confirmation").modal("hide");
+            $("#settings").off("hide.bs.modal").modal("hide");
+        };
+
+        $scope.showSettings = function () {
             // Make a working copy
             $scope.tmpOptions = angular.copy($scope.config.options);
             $scope.tmpOptions.deviceName = $scope.thisDevice().name;
@@ -1234,26 +1239,19 @@ angular.module('syncthing.core')
             $scope.tmpGUI = angular.copy($scope.config.gui);
             $scope.tmpRemoteIgnoredDevices = angular.copy($scope.config.remoteIgnoredDevices);
             $scope.tmpDevices = angular.copy($scope.config.devices);
-            var settingsModal = $('#settings').modal();
-            settingsModal.one('hidden.bs.modal', function () {
-                $('.nav-tabs a[href="#settings-general"]').tab('show');
-                window.location.hash = "";
-                settingsModal.off('hide.bs.modal');
-            }).on('hide.bs.modal', function (e) {
+            $('#settings').modal("show");
+            $("#settings a[href='#settings-general']").tab("show");
+            $("#settings").on('hide.bs.modal', function (event) {
                 if ($scope.settingsModified()) {
-                    $("#discard-changes-confirmation").modal().one('hidden.bs.modal', function () {
-                        if (!$scope.settingsModified()) {
-                            settingsModal.modal('hide');
-                        }
-                    });
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    return false;
+                    event.preventDefault();
+                    $("#discard-changes-confirmation").modal("show");
+                } else {
+                    $("#settings").off("hide.bs.modal");
                 }
             });
         };
 
-        $scope.saveConfig = function (cb) {
+        $scope.saveConfig = function (callback) {
             var cfg = JSON.stringify($scope.config);
             var opts = {
                 headers: {
@@ -1262,8 +1260,9 @@ angular.module('syncthing.core')
             };
             $http.post(urlbase + '/system/config', cfg, opts).success(function () {
                 refreshConfig();
-                if (cb) {
-                    cb();
+
+                if (callback) {
+                    callback();
                 }
             }).error(function (data, status, headers, config) {
                 refreshConfig();
@@ -1320,6 +1319,7 @@ angular.module('syncthing.core')
                     $scope.tmpOptions.upgradeToPreReleases = false;
                 } else {
                     $scope.tmpOptions.autoUpgradeIntervalH = 0;
+                    $scope.tmpOptions.upgradeToPreReleases = false;
                 }
 
                 // Check if protocol will need to be changed on restart
@@ -1354,7 +1354,7 @@ angular.module('syncthing.core')
                 });
             }
 
-            $('#settings').modal("hide");
+            $("#settings").off("hide.bs.modal").modal("hide");
         };
 
         $scope.saveAdvanced = function () {
