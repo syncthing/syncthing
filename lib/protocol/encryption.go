@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	nonceSize             = 12 // cipher.gcmStandardNonceSize
+	nonceSize             = 16 // bytes
 	tagSize               = 16 // cipher.gcmTagSize
 	keySize               = 32 // AES-256
 	blockOverhead         = tagSize + nonceSize
@@ -329,7 +329,7 @@ func encrypt(data []byte, nonce *[nonceSize]byte, key *[keySize]byte) []byte {
 		panic("cipher failure: " + err.Error())
 	}
 
-	gcm, err := cipher.NewGCM(block)
+	gcm, err := cipher.NewGCMWithNonceSize(block, nonceSize)
 	if err != nil {
 		// Can only fail if the crypto isn't able to do GCM
 		panic("cipher failure: " + err.Error())
@@ -359,7 +359,7 @@ func DecryptBytes(data []byte, key *[keySize]byte) ([]byte, error) {
 		panic("cipher failure: " + err.Error())
 	}
 
-	gcm, err := cipher.NewGCM(block)
+	gcm, err := cipher.NewGCMWithNonceSize(block, nonceSize)
 	if err != nil {
 		// Can only fail if the crypto isn't able to do GCM
 		panic("cipher failure: " + err.Error())
