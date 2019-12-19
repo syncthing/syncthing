@@ -172,7 +172,7 @@ func (l *logger) Infof(format string, vals ...interface{}) {
 	l.callHandlers(LevelInfo, s)
 }
 
-// Warnln logs a formatted line with a WARNING prefix.
+// Warnln logs a line with a WARNING prefix.
 func (l *logger) Warnln(vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
