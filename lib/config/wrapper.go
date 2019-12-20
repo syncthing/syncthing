@@ -425,42 +425,46 @@ func (s *serviceCommitter) CommitConfiguration(to Configuration) bool {
 	return true
 }
 
+func (s *serviceCommitter) serve(fn func(context.Context, Configuration)) {
+	s.cfgw.Subscribe(s)
+	defer s.cfgw.Unsubscribe(s)
+
+	cfg := <-s.configChan
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		default:
+		}
+
+		ctx, cancel := context.WithCancel(s.ctx)
+		done := make(chan struct{})
+		go func() {
+			fn(ctx, cfg)
+			close(done)
+		}()
+
+		select {
+		case cfg = <-s.configChan:
+		case <-done:
+			return
+		}
+		cancel()
+	}
+}
+
 func (s *serviceCommitter) String() string {
-	return fmt.Sprintf("ConfigService@%p created by %v", s, s.creator)
+	return fmt.Sprintf("serviceCommitter@%p created by %v", s, s.creator)
 }
 
 func AsServiceWithConfig(fn func(context.Context, Configuration), cfgw Wrapper, creator string) suture.Service {
-	return util.AsService(func(parentCtx context.Context) {
-		l := &serviceCommitter{
-			ctx:        parentCtx,
+	return util.AsService(func(ctx context.Context) {
+		s := &serviceCommitter{
+			ctx:        ctx,
 			cfgw:       cfgw,
 			configChan: make(chan Configuration, 1), // First config must go through without blocking
 			creator:    creator,
 		}
-		cfgw.Subscribe(l)
-		defer cfgw.Unsubscribe(l)
-
-		cfg := <-l.configChan
-		for {
-			select {
-			case <-parentCtx.Done():
-				return
-			default:
-			}
-
-			ctx, cancel := context.WithCancel(parentCtx)
-			done := make(chan struct{})
-			go func() {
-				fn(ctx, cfg)
-				close(done)
-			}()
-
-			select {
-			case cfg = <-l.configChan:
-			case <-done:
-				return
-			}
-			cancel()
-		}
+		s.serve(fn)
 	}, creator)
 }

@@ -28,7 +28,7 @@ type limiter struct {
 	deviceReadLimiters  map[protocol.DeviceID]*rate.Limiter
 	deviceWriteLimiters map[protocol.DeviceID]*rate.Limiter
 	opts                config.OptionsConfiguration
-	firstConf           bool
+	configInitialized   bool
 }
 
 type waiter interface {
@@ -132,12 +132,12 @@ func (lim *limiter) CommitConfiguration(to config.Configuration) bool {
 	// Delete, add or update limiters for devices
 	lim.processDevicesConfigurationLocked(to)
 
-	if lim.firstConf && lim.opts.MaxRecvKbps == to.Options.MaxRecvKbps &&
+	if lim.configInitialized && lim.opts.MaxRecvKbps == to.Options.MaxRecvKbps &&
 		lim.opts.MaxSendKbps == to.Options.MaxSendKbps &&
 		lim.opts.LimitBandwidthInLan == to.Options.LimitBandwidthInLan {
 		return true
 	}
-	lim.firstConf = true
+	lim.configInitialized = true
 
 	lim.opts = to.Options
 

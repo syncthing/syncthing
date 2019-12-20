@@ -839,6 +839,8 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getSystemConfig(w http.ResponseWriter, r *http.Request) {
+	s.cfgMut.RLock()
+	defer s.cfgMut.RUnlock()
 	sendJSON(w, s.cfg)
 }
 
