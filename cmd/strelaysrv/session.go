@@ -146,6 +146,7 @@ func (s *session) AddConnection(conn net.Conn) bool {
 		log.Println("Connection not allowed from ", conn.RemoteAddr(), "between", s.clientid, " - ", s.serverid)
 		return false
 	}
+	
 	select {
 	case s.connsChan <- conn:
 		return true
@@ -156,6 +157,7 @@ func (s *session) AddConnection(conn net.Conn) bool {
 
 func (s *session) allowNewConnection(conn net.Conn) bool {
 	currentConnections := len(s.conns)
+
 	switch currentConnections {
 	case 2:
 		log.Println("Session doesn't allow more than two connections peer session")
