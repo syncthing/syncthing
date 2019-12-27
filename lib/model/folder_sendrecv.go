@@ -377,7 +377,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 					key := string(df.Blocks[0].Hash)
 					buckets[key] = append(buckets[key], df)
 				} else {
-					f.deleteFileWithCurrent(file, df, ok, snap, dbUpdateChan, scanChan)
+					f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
 				}
 			}
 
@@ -507,7 +507,7 @@ nextFile:
 		for _, dev := range devices {
 			if _, ok := f.model.Connection(dev); ok {
 				// Handle the file normally, by coping and pulling, etc.
-				f.handleFile(fi, snap, copyChan, dbUpdateChan)
+				f.handleFile(fi, snap, copyChan)
 				continue nextFile
 			}
 		}
@@ -813,10 +813,10 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 // deleteFile attempts to delete the given file
 func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	cur, hasCur := snap.Get(protocol.LocalDeviceID, file.Name)
-	f.deleteFileWithCurrent(file, cur, hasCur, snap, dbUpdateChan, scanChan)
+	f.deleteFileWithCurrent(file, cur, hasCur, dbUpdateChan, scanChan)
 }
 
-func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, hasCur bool, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, hasCur bool, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -1044,7 +1044,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState, dbUpdateChan chan<- dbUpdateJob) {
+func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState) {
 	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
 
 	have, _ := blockDiff(curFile.Blocks, file.Blocks)
