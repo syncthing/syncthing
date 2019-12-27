@@ -164,6 +164,7 @@
           <hr />
           <div class="pull-left" ng-show="editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span></div>
           <div class="pull-left" ng-show="!editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Creating ignore patterns, overwriting an existing file at {%path%}.</span></div>
+          <br />
         </div>
         <div id="folder-advanced" class="tab-pane">
           <div class="row form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
