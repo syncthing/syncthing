@@ -162,8 +162,8 @@
             <dd><span translate>Comment, when used at the start of a line</span></dd>
           </dl>
           <hr />
-          <div class="pull-left" ng-show="editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span></div>
-          <div class="pull-left" ng-show="!editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Creating ignore patterns, overwriting an existing file at {%path%}.</span></div>
+          <span translate ng-show="editingExisting" translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span>
+          <span translate ng-show="!editingExisting" translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Creating ignore patterns, overwriting an existing file at {%path%}.</span>
         </div>
         <div id="folder-advanced" class="tab-pane">
           <div class="row form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
