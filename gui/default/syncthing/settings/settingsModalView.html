@@ -256,6 +256,16 @@
               </div>
             </div>
             <div class="col-md-6">
+              <div class="form-group">
+                <div class="checkbox">
+                  <label>
+                    <input id="EnableNotifications" type="checkbox" ng-model="tmpGUI.enableNotifications" ng-disabled="!tmpGUI.supportNotifications" /> <span translate>Enable push notifications</span>
+                  </label>
+                  <p class="help-block" ng-if="!tmpGUI.supportNotifications">
+                    <span translate>Your browser do not support push notifications or your blocked them</span>
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

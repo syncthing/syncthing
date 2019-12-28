@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
+    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, PushNotifications, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
@@ -155,6 +155,7 @@ angular.module('syncthing.core')
             $('#networkError').modal('hide');
             $('#restarting').modal('hide');
             $('#shutdown').modal('hide');
+            PushNotifications.notify('App is back online');
         });
 
         $scope.$on(Events.OFFLINE, function () {
@@ -166,6 +167,7 @@ angular.module('syncthing.core')
             online = false;
             if (!restarting) {
                 $('#networkError').modal();
+                PushNotifications.notify('App is offline ;(')
             }
         });
 
@@ -203,6 +205,10 @@ angular.module('syncthing.core')
                 // also obsolete.
                 if (data.to === 'scanning') {
                     delete $scope.scanProgress[data.folder];
+                }
+
+                if (['syncing', 'sync-preparing'].includes(data.from) && data.to === 'idle') {
+                    PushNotifications.notify(`Folder ${$scope.folders[data.folder].label} was synced`)
                 }
 
                 // If a folder finished scanning, then refresh folder stats
@@ -373,6 +379,9 @@ angular.module('syncthing.core')
             $scope.config.options._listenAddressesStr = $scope.config.options.listenAddresses.join(', ');
             $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
             $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
+
+            $scope.config.gui.enableNotifications = PushNotifications.isEnabled();
+            $scope.config.gui.supportNotifications = PushNotifications.isSupported();
 
             $scope.devices = $scope.config.devices;
             $scope.devices.forEach(function (deviceCfg) {
@@ -1330,6 +1339,9 @@ angular.module('syncthing.core')
                 if ($scope.config.gui.useTLS !== $scope.tmpGUI.useTLS) {
                     $scope.protocolChanged = true;
                 }
+
+                // Save push notifications preferences in LocalStorage
+                PushNotifications.setEnabled($scope.tmpGUI.enableNotifications);
 
                 // Parse strings to arrays before copying over
                 ['listenAddresses', 'globalAnnounceServers'].forEach(function (key) {
