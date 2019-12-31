@@ -8,8 +8,6 @@ package protocol
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base32"
 	"errors"
@@ -18,27 +16,19 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/jacobsa/crypto/siv"
+	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/scrypt"
 )
 
 const (
-	nonceSize             = 16   // bytes
-	tagSize               = 16   // cipher.gcmTagSize
-	keySize               = 32   // AES-256
+	nonceSize             = 24   // chacha20poly1305.NonceSizeX
+	tagSize               = 16   // chacha20poly1305.Overhead()
+	keySize               = 32   // fits both chacha20poly1305 and AES-SIV
 	minPaddedSize         = 1024 // smallest block we'll allow
 	blockOverhead         = tagSize + nonceSize
 	maxPathComponent      = 200              // characters
 	EncryptedDirExtension = ".syncthing-enc" // for top level dirs, stops scans
 )
-
-// keySalt is a static salt we use for scrypt when generating encryption
-// keys.
-var keySalt = []byte{
-	0x8e, 0x13, 0x3c, 0x96, 0x26, 0xfd, 0x87, 0xcc,
-	0x03, 0x29, 0xa7, 0x84, 0xfa, 0x4e, 0xd9, 0xe5,
-	0x5d, 0x3b, 0x2f, 0xa3, 0xa9, 0x72, 0x0f, 0x6b,
-	0x5e, 0x91, 0xbb, 0xad, 0xe2, 0x49, 0xd7, 0x9d,
-}
 
 // The encryptedModel sits between the encrypted device and the model. It
 // receives encrypted metadata and requests from the untrusted device, so it
@@ -347,19 +337,13 @@ func decryptDeterministic(data []byte, key *[keySize]byte) ([]byte, error) {
 }
 
 func encrypt(data []byte, nonce *[nonceSize]byte, key *[keySize]byte) []byte {
-	block, err := aes.NewCipher(key[:])
+	aead, err := chacha20poly1305.NewX(key[:])
 	if err != nil {
 		// Can only fail if the key is the wrong length
 		panic("cipher failure: " + err.Error())
 	}
 
-	gcm, err := cipher.NewGCMWithNonceSize(block, nonceSize)
-	if err != nil {
-		// Can only fail if the crypto isn't able to do GCM
-		panic("cipher failure: " + err.Error())
-	}
-
-	if gcm.NonceSize() != nonceSize || gcm.Overhead() != tagSize {
+	if aead.NonceSize() != nonceSize || aead.Overhead() != tagSize {
 		// We want these values to be constant for our type declarations so
 		// we don't use the values returned by the GCM, but we verify them
 		// here.
@@ -367,7 +351,7 @@ func encrypt(data []byte, nonce *[nonceSize]byte, key *[keySize]byte) []byte {
 	}
 
 	// Data is appended to the nonce
-	return gcm.Seal(nonce[:], nonce[:], data, nil)
+	return aead.Seal(nonce[:], nonce[:], data, nil)
 }
 
 // DecryptBytes returns the decrypted bytes, or an error if decryption
@@ -377,26 +361,20 @@ func DecryptBytes(data []byte, key *[keySize]byte) ([]byte, error) {
 		return nil, errors.New("data too short")
 	}
 
-	block, err := aes.NewCipher(key[:])
+	aead, err := chacha20poly1305.NewX(key[:])
 	if err != nil {
 		// Can only fail if the key is the wrong length
 		panic("cipher failure: " + err.Error())
 	}
 
-	gcm, err := cipher.NewGCMWithNonceSize(block, nonceSize)
-	if err != nil {
-		// Can only fail if the crypto isn't able to do GCM
-		panic("cipher failure: " + err.Error())
-	}
-
-	if gcm.NonceSize() != nonceSize || gcm.Overhead() != tagSize {
+	if aead.NonceSize() != nonceSize || aead.Overhead() != tagSize {
 		// We want these values to be constant for our type declarations so
 		// we don't use the values returned by the GCM, but we verify them
 		// here.
 		panic("crypto parameter mismatch")
 	}
 
-	return gcm.Open(nil, data[:nonceSize], data[nonceSize:], nil)
+	return aead.Open(nil, data[:nonceSize], data[nonceSize:], nil)
 }
 
 // randomNonce is a normal, cryptographically random nonce
@@ -421,7 +399,7 @@ func keysFromPasswords(passwords map[string]string) map[string]*[keySize]byte {
 // KeyFromPassword uses key derivation to generate a stronger key from a
 // probably weak password.
 func KeyFromPassword(folderID, password string) *[keySize]byte {
-	bs, err := scrypt.Key([]byte(folderID+password), keySalt, 32768, 8, 1, keySize)
+	bs, err := scrypt.Key([]byte(password), []byte("syncthing"+folderID), 32768, 8, 1, keySize)
 	if err != nil {
 		panic("key derivation failure: " + err.Error())
 	}
