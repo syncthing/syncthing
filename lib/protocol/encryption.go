@@ -12,12 +12,14 @@ import (
 	"crypto/sha256"
 	"encoding/base32"
 	"errors"
+	"io"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/miscreant/miscreant.go"
 	"golang.org/x/crypto/chacha20poly1305"
+	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/scrypt"
 )
 
@@ -432,10 +434,11 @@ func KeyFromPassword(folderID, password string) *[keySize]byte {
 }
 
 func FileKey(filename string, folderKey *[keySize]byte) *[keySize]byte {
-	hash := sha256.Sum256([]byte(filename))
+	kdf := hkdf.New(sha256.New, folderKey[:], []byte(filename), []byte("fileKey"))
 	var fileKey [keySize]byte
-	for i := range fileKey {
-		fileKey[i] = folderKey[i] ^ hash[i]
+	n, err := io.ReadFull(kdf, fileKey[:])
+	if err != nil || n != keySize {
+		panic("hkdf failure")
 	}
 	return &fileKey
 }
