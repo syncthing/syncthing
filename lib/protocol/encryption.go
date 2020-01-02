@@ -340,21 +340,20 @@ func encryptBytes(data []byte, key *[keySize]byte) []byte {
 
 // encryptDeterministic encrypts bytes using AES-SIV
 func encryptDeterministic(data []byte, key *[keySize]byte) []byte {
-	nonce := sha256.Sum256(data)
-	aead, err := miscreant.NewAEAD(miscreantAlgo, key[:], nonceSize)
+	aead, err := miscreant.NewAEAD(miscreantAlgo, key[:], 0)
 	if err != nil {
 		panic("cipher failure: " + err.Error())
 	}
-	return aead.Seal(nonce[:nonceSize], nonce[:nonceSize], data, nil)
+	return aead.Seal(nil, nil, data, nil)
 }
 
 // decryptDeterministic decrypts bytes using AES-SIV
 func decryptDeterministic(data []byte, key *[keySize]byte) ([]byte, error) {
-	aead, err := miscreant.NewAEAD(miscreantAlgo, key[:], nonceSize)
+	aead, err := miscreant.NewAEAD(miscreantAlgo, key[:], 0)
 	if err != nil {
 		panic("cipher failure: " + err.Error())
 	}
-	return aead.Open(nil, data[:nonceSize], data[nonceSize:], nil)
+	return aead.Open(nil, nil, data, nil)
 }
 
 func encrypt(data []byte, nonce *[nonceSize]byte, key *[keySize]byte) []byte {
