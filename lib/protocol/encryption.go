@@ -9,6 +9,7 @@ package protocol
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base32"
 	"errors"
 	"strings"
@@ -35,13 +36,13 @@ const (
 // must decrypt those and answer requests by encrypting the data.
 type encryptedModel struct {
 	Model
-	keys map[string]*[keySize]byte // folder ID -> key
+	folderKeys map[string]*[keySize]byte // folder ID -> key
 }
 
 func (e encryptedModel) Index(deviceID DeviceID, folder string, files []FileInfo) error {
-	if key, ok := e.keys[folder]; ok {
+	if folderKey, ok := e.folderKeys[folder]; ok {
 		// incoming index data to be decrypted
-		if err := decryptFileInfos(files, key); err != nil {
+		if err := decryptFileInfos(files, folderKey); err != nil {
 			return err
 		}
 	}
@@ -49,9 +50,9 @@ func (e encryptedModel) Index(deviceID DeviceID, folder string, files []FileInfo
 }
 
 func (e encryptedModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error {
-	if key, ok := e.keys[folder]; ok {
+	if folderKey, ok := e.folderKeys[folder]; ok {
 		// incoming index data to be decrypted
-		if err := decryptFileInfos(files, key); err != nil {
+		if err := decryptFileInfos(files, folderKey); err != nil {
 			return err
 		}
 	}
@@ -59,7 +60,7 @@ func (e encryptedModel) IndexUpdate(deviceID DeviceID, folder string, files []Fi
 }
 
 func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
-	key, ok := e.keys[folder]
+	folderKey, ok := e.folderKeys[folder]
 	if !ok {
 		return e.Model.Request(deviceID, folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
 	}
@@ -67,7 +68,7 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo,
 	// Figure out the real file name, offset and size from the encrypted /
 	// tweaked values.
 
-	realName, err := decryptName(name, key)
+	realName, err := decryptName(name, folderKey)
 	if err != nil {
 		return nil, err
 	}
@@ -94,13 +95,14 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo,
 		}
 		data = nd
 	}
-	enc := encryptBytes(data, key)
+	fileKey := FileKey(realName, folderKey)
+	enc := encryptBytes(data, fileKey)
 	resp.Close()
 	return rawResponse{enc}, nil
 }
 
 func (e encryptedModel) DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error {
-	if _, ok := e.keys[folder]; !ok {
+	if _, ok := e.folderKeys[folder]; !ok {
 		return e.Model.DownloadProgress(deviceID, folder, updates)
 	}
 
@@ -117,25 +119,25 @@ func (e encryptedModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) e
 // encrypts outgoing metadata and decrypts incoming responses.
 type encryptedConnection struct {
 	Connection
-	keys map[string]*[keySize]byte // folder ID -> key
+	folderKeys map[string]*[keySize]byte // folder ID -> key
 }
 
 func (e encryptedConnection) Index(ctx context.Context, folder string, files []FileInfo) error {
-	if key, ok := e.keys[folder]; ok {
-		encryptFileInfos(files, key)
+	if folderKey, ok := e.folderKeys[folder]; ok {
+		encryptFileInfos(files, folderKey)
 	}
 	return e.Connection.Index(ctx, folder, files)
 }
 
 func (e encryptedConnection) IndexUpdate(ctx context.Context, folder string, files []FileInfo) error {
-	if key, ok := e.keys[folder]; ok {
-		encryptFileInfos(files, key)
+	if folderKey, ok := e.folderKeys[folder]; ok {
+		encryptFileInfos(files, folderKey)
 	}
 	return e.Connection.IndexUpdate(ctx, folder, files)
 }
 
 func (e encryptedConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-	key, ok := e.keys[folder]
+	folderKey, ok := e.folderKeys[folder]
 	if !ok {
 		return e.Connection.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 	}
@@ -148,7 +150,7 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 		// block. We'll chop of the extra data later.
 		size = minPaddedSize
 	}
-	encName := encryptName(name, key)
+	encName := encryptName(name, folderKey)
 	encOffset := offset + int64(blockNo*blockOverhead)
 	encSize := size + blockOverhead
 
@@ -161,7 +163,8 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 
 	// Return the decrypted block (or an error if it fails decryption)
 
-	bs, err = DecryptBytes(bs, key)
+	fileKey := FileKey(name, folderKey)
+	bs, err = DecryptBytes(bs, fileKey)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +172,7 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 }
 
 func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate) {
-	if _, ok := e.keys[folder]; !ok {
+	if _, ok := e.folderKeys[folder]; !ok {
 		e.Connection.DownloadProgress(ctx, folder, updates)
 	}
 
@@ -181,15 +184,17 @@ func (e encryptedConnection) ClusterConfig(config ClusterConfig) {
 	e.Connection.ClusterConfig(config)
 }
 
-func encryptFileInfos(files []FileInfo, key *[keySize]byte) {
+func encryptFileInfos(files []FileInfo, folderKey *[keySize]byte) {
 	for i, fi := range files {
-		files[i] = encryptFileInfo(fi, key)
+		files[i] = encryptFileInfo(fi, folderKey)
 	}
 }
 
 // encryptFileInfo encrypts a FileInfo and wraps it into a new fake FileInfo
 // with an encrypted name.
-func encryptFileInfo(fi FileInfo, key *[keySize]byte) FileInfo {
+func encryptFileInfo(fi FileInfo, folderKey *[keySize]byte) FileInfo {
+	fileKey := FileKey(fi.Name, folderKey)
+
 	// The entire FileInfo is encrypted with a random nonce, and concatenated
 	// with that nonce.
 
@@ -197,7 +202,7 @@ func encryptFileInfo(fi FileInfo, key *[keySize]byte) FileInfo {
 	if err != nil {
 		panic("impossible serialization mishap: " + err.Error())
 	}
-	encryptedFI := encryptBytes(bs, key)
+	encryptedFI := encryptBytes(bs, fileKey)
 
 	// The vector is set to something that is higher than any other version sent
 	// previously, assuming people's clocks are correct. We do this because
@@ -234,7 +239,7 @@ func encryptFileInfo(fi FileInfo, key *[keySize]byte) FileInfo {
 		blocks[i] = BlockInfo{
 			Offset: offset,
 			Size:   size,
-			Hash:   encryptDeterministic(b.Hash, key),
+			Hash:   encryptDeterministic(b.Hash, fileKey),
 		}
 		offset += int64(size)
 	}
@@ -250,7 +255,7 @@ func encryptFileInfo(fi FileInfo, key *[keySize]byte) FileInfo {
 		typ = FileInfoTypeDirectory
 	}
 	enc := FileInfo{
-		Name:         encryptName(fi.Name, key),
+		Name:         encryptName(fi.Name, folderKey),
 		Type:         typ,
 		Size:         offset, // new total file size
 		Permissions:  0644,
@@ -266,9 +271,9 @@ func encryptFileInfo(fi FileInfo, key *[keySize]byte) FileInfo {
 	return enc
 }
 
-func decryptFileInfos(files []FileInfo, key *[keySize]byte) error {
+func decryptFileInfos(files []FileInfo, folderKey *[keySize]byte) error {
 	for i, fi := range files {
-		decFI, err := DecryptFileInfo(fi, key)
+		decFI, err := DecryptFileInfo(fi, folderKey)
 		if err != nil {
 			return err
 		}
@@ -279,8 +284,14 @@ func decryptFileInfos(files []FileInfo, key *[keySize]byte) error {
 
 // DecryptFileInfo extracts the encrypted portion of a FileInfo, decrypts it
 // and returns that.
-func DecryptFileInfo(fi FileInfo, key *[keySize]byte) (FileInfo, error) {
-	dec, err := DecryptBytes(fi.Encrypted, key)
+func DecryptFileInfo(fi FileInfo, folderKey *[keySize]byte) (FileInfo, error) {
+	realName, err := decryptName(fi.Name, folderKey)
+	if err != nil {
+		return FileInfo{}, err
+	}
+
+	fileKey := FileKey(realName, folderKey)
+	dec, err := DecryptBytes(fi.Encrypted, fileKey)
 	if err != nil {
 		return FileInfo{}, err
 	}
@@ -409,6 +420,15 @@ func KeyFromPassword(folderID, password string) *[keySize]byte {
 	var key [keySize]byte
 	copy(key[:], bs)
 	return &key
+}
+
+func FileKey(filename string, folderKey *[keySize]byte) *[keySize]byte {
+	hash := sha256.Sum256([]byte(filename))
+	var fileKey [keySize]byte
+	for i := range fileKey {
+		fileKey[i] = folderKey[i] ^ hash[i]
+	}
+	return &fileKey
 }
 
 // slashify inserts slashes (and file extension) in the string to create an appropriate tree.

@@ -26,7 +26,7 @@ func main() {
 	destinationPath := kingpin.Flag("dest-path", "Destination path").Required().String()
 	kingpin.Parse()
 
-	key := protocol.KeyFromPassword(*folderID, *password)
+	folderKey := protocol.KeyFromPassword(*folderID, *password)
 
 	err := filepath.Walk(*folderPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -43,11 +43,13 @@ func main() {
 			return nil
 		}
 
-		fi, err := protocol.DecryptFileInfo(encFi, key)
+		fi, err := protocol.DecryptFileInfo(encFi, folderKey)
 		if err != nil {
 			log.Printf("Decrypting metadata for %s: %v", path, err)
 			return nil
 		}
+
+		fileKey := protocol.FileKey(fi.Name, folderKey)
 
 		log.Println("Decrypting", fi.Name, "...")
 		outPath := filepath.Join(*destinationPath, fi.Name)
@@ -89,7 +91,7 @@ func main() {
 				return nil
 			}
 
-			bs, err := protocol.DecryptBytes(buffer, key)
+			bs, err := protocol.DecryptBytes(buffer, fileKey)
 			if err != nil {
 				log.Printf("Decrypting %s: %v", path, err)
 				return nil
