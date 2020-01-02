@@ -434,7 +434,7 @@ func KeyFromPassword(folderID, password string) *[keySize]byte {
 }
 
 func FileKey(filename string, folderKey *[keySize]byte) *[keySize]byte {
-	kdf := hkdf.New(sha256.New, folderKey[:], []byte(filename), []byte("fileKey"))
+	kdf := hkdf.New(sha256.New, append(folderKey[:], filename...), []byte("syncthing"), nil)
 	var fileKey [keySize]byte
 	n, err := io.ReadFull(kdf, fileKey[:])
 	if err != nil || n != keySize {
