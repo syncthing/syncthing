@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/jacobsa/crypto/siv"
+	"github.com/miscreant/miscreant.go"
 	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/scrypt"
 )
@@ -29,6 +29,7 @@ const (
 	blockOverhead         = tagSize + nonceSize
 	maxPathComponent      = 200              // characters
 	EncryptedDirExtension = ".syncthing-enc" // for top level dirs, stops scans
+	miscreantAlgo         = "AES-SIV"
 )
 
 // The encryptedModel sits between the encrypted device and the model. It
@@ -339,16 +340,21 @@ func encryptBytes(data []byte, key *[keySize]byte) []byte {
 
 // encryptDeterministic encrypts bytes using AES-SIV
 func encryptDeterministic(data []byte, key *[keySize]byte) []byte {
-	bs, err := siv.Encrypt(nil, key[:], data, nil)
+	nonce := sha256.Sum256(data)
+	aead, err := miscreant.NewAEAD(miscreantAlgo, key[:], nonceSize)
 	if err != nil {
 		panic("cipher failure: " + err.Error())
 	}
-	return bs
+	return aead.Seal(nonce[:nonceSize], nonce[:nonceSize], data, nil)
 }
 
 // decryptDeterministic decrypts bytes using AES-SIV
 func decryptDeterministic(data []byte, key *[keySize]byte) ([]byte, error) {
-	return siv.Decrypt(key[:], data, nil)
+	aead, err := miscreant.NewAEAD(miscreantAlgo, key[:], nonceSize)
+	if err != nil {
+		panic("cipher failure: " + err.Error())
+	}
+	return aead.Open(nil, data[:nonceSize], data[nonceSize:], nil)
 }
 
 func encrypt(data []byte, nonce *[nonceSize]byte, key *[keySize]byte) []byte {

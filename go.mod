@@ -20,7 +20,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
 	github.com/golang/mock v1.3.1 // indirect
 	github.com/jackpal/gateway v1.0.5
-	github.com/jacobsa/crypto v0.0.0-20190317225127-9f44e2d11115
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.2.0
@@ -28,6 +27,7 @@ require (
 	github.com/maruel/panicparse v1.3.0
 	github.com/mattn/go-isatty v0.0.11
 	github.com/minio/sha256-simd v0.1.1
+	github.com/miscreant/miscreant.go v0.0.0-20190903041724-6bebe170cbaf
 	github.com/onsi/ginkgo v1.9.0 // indirect
 	github.com/onsi/gomega v1.6.0 // indirect
 	github.com/oschwald/geoip2-golang v1.3.0
