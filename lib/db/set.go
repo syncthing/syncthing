@@ -190,6 +190,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 type Snapshot struct {
 	folder string
 	t      readOnlyTransaction
+	meta   *countsMap
 }
 
 func (s *FileSet) Snapshot() *Snapshot {
@@ -200,6 +201,7 @@ func (s *FileSet) Snapshot() *Snapshot {
 	return &Snapshot{
 		folder: s.folder,
 		t:      t,
+		meta:   s.meta.Snapshot(),
 	}
 }
 
@@ -325,24 +327,108 @@ func (s *Snapshot) Availability(file string) []protocol.DeviceID {
 	return av
 }
 
-func (s *FileSet) Sequence(device protocol.DeviceID) int64 {
-	return s.meta.Sequence(device)
+func (s *Snapshot) Sequence(device protocol.DeviceID) int64 {
+	return s.meta.Counts(device, 0).Sequence
 }
 
-func (s *FileSet) LocalSize() Counts {
+// RemoteSequence returns the change version for the given folder, as
+// sent by remote peers. This is guaranteed to increment if the contents of
+// the remote or global folder has changed.
+func (s *Snapshot) RemoteSequence() int64 {
+	var ver int64
+
+	for _, device := range s.meta.devices() {
+		ver += s.Sequence(device)
+	}
+
+	return ver
+}
+
+func (s *Snapshot) LocalSize() Counts {
 	local := s.meta.Counts(protocol.LocalDeviceID, 0)
-	recvOnlyChanged := s.meta.Counts(protocol.LocalDeviceID, protocol.FlagLocalReceiveOnly)
-	return local.Add(recvOnlyChanged)
+	return local.Add(s.ReceiveOnlyChangedSize())
 }
 
-func (s *FileSet) ReceiveOnlyChangedSize() Counts {
+func (s *Snapshot) ReceiveOnlyChangedSize() Counts {
 	return s.meta.Counts(protocol.LocalDeviceID, protocol.FlagLocalReceiveOnly)
 }
 
-func (s *FileSet) GlobalSize() Counts {
+func (s *Snapshot) GlobalSize() Counts {
 	global := s.meta.Counts(protocol.GlobalDeviceID, 0)
 	recvOnlyChanged := s.meta.Counts(protocol.GlobalDeviceID, protocol.FlagLocalReceiveOnly)
 	return global.Add(recvOnlyChanged)
+}
+
+func (s *Snapshot) NeedSize() Counts {
+	var result Counts
+	s.WithNeedTruncated(protocol.LocalDeviceID, func(f FileIntf) bool {
+		switch {
+		case f.IsDeleted():
+			result.Deleted++
+		case f.IsDirectory():
+			result.Directories++
+		case f.IsSymlink():
+			result.Symlinks++
+		default:
+			result.Files++
+			result.Bytes += f.FileSize()
+		}
+		return true
+	})
+	return result
+}
+
+// LocalChangedFiles returns a paginated list of currently needed files in
+// progress, queued, and to be queued on next puller iteration, as well as the
+// total number of files currently needed.
+func (s *Snapshot) LocalChangedFiles(page, perpage int) []FileInfoTruncated {
+	if s.ReceiveOnlyChangedSize().TotalItems() == 0 {
+		return nil
+	}
+
+	files := make([]FileInfoTruncated, 0, perpage)
+
+	skip := (page - 1) * perpage
+	get := perpage
+
+	s.WithHaveTruncated(protocol.LocalDeviceID, func(f FileIntf) bool {
+		if !f.IsReceiveOnlyChanged() {
+			return true
+		}
+		if skip > 0 {
+			skip--
+			return true
+		}
+		ft := f.(FileInfoTruncated)
+		files = append(files, ft)
+		get--
+		return get > 0
+	})
+
+	return files
+}
+
+// RemoteNeedFolderFiles returns paginated list of currently needed files in
+// progress, queued, and to be queued on next puller iteration, as well as the
+// total number of files currently needed.
+func (s *Snapshot) RemoteNeedFolderFiles(device protocol.DeviceID, page, perpage int) []FileInfoTruncated {
+	files := make([]FileInfoTruncated, 0, perpage)
+	skip := (page - 1) * perpage
+	get := perpage
+	s.WithNeedTruncated(device, func(f FileIntf) bool {
+		if skip > 0 {
+			skip--
+			return true
+		}
+		files = append(files, f.(FileInfoTruncated))
+		get--
+		return get > 0
+	})
+	return files
+}
+
+func (s *FileSet) Sequence(device protocol.DeviceID) int64 {
+	return s.meta.Sequence(device)
 }
 
 func (s *FileSet) IndexID(device protocol.DeviceID) protocol.IndexID {

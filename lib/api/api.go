@@ -743,15 +743,18 @@ func (s *service) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
 
 	page, perpage := getPagingParams(qs)
 
-	if files, err := s.model.RemoteNeedFolderFiles(deviceID, folder, page, perpage); err != nil {
+	snap, err := s.model.DBSnapshot(folder)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
-	} else {
-		sendJSON(w, map[string]interface{}{
-			"files":   toJsonFileInfoSlice(files),
-			"page":    page,
-			"perpage": perpage,
-		})
+		return
 	}
+	defer snap.Release()
+	files := snap.RemoteNeedFolderFiles(deviceID, page, perpage)
+	sendJSON(w, map[string]interface{}{
+		"files":   toJsonFileInfoSlice(files),
+		"page":    page,
+		"perpage": perpage,
+	})
 }
 
 func (s *service) getDBLocalChanged(w http.ResponseWriter, r *http.Request) {
@@ -761,7 +764,13 @@ func (s *service) getDBLocalChanged(w http.ResponseWriter, r *http.Request) {
 
 	page, perpage := getPagingParams(qs)
 
-	files := s.model.LocalChangedFiles(folder, page, perpage)
+	snap, err := s.model.DBSnapshot(folder)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	defer snap.Release()
+	files := snap.LocalChangedFiles(page, perpage)
 
 	sendJSON(w, map[string]interface{}{
 		"files":   toJsonFileInfoSlice(files),

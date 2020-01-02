@@ -77,9 +77,13 @@ func (c *folderSummaryService) String() string {
 func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, error) {
 	var res = make(map[string]interface{})
 
+	snap, err := c.model.DBSnapshot(folder)
+	if err != nil {
+		return nil, err
+	}
+
 	errors, err := c.model.FolderErrors(folder)
-	if err != nil && err != ErrFolderPaused {
-		// Stats from the db can still be obtained if the folder is just paused
+	if err != nil {
 		return nil, err
 	}
 	res["errors"] = len(errors)
@@ -87,19 +91,26 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 
 	res["invalid"] = "" // Deprecated, retains external API for now
 
-	global := c.model.GlobalSize(folder)
+	global := snap.GlobalSize()
 	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"], res["globalTotalItems"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
 
-	local := c.model.LocalSize(folder)
+	local := snap.LocalSize()
 	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"], res["localTotalItems"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
 
-	need := c.model.NeedSize(folder)
+	need := snap.NeedSize()
+	need.Bytes -= c.model.FolderProgressBytesCompleted(folder)
 	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
 
-	if c.cfg.Folders()[folder].Type == config.FolderTypeReceiveOnly {
+	fcfg, ok := c.cfg.Folder(folder)
+
+	if ok && fcfg.IgnoreDelete {
+		res["needDeletes"] = 0
+	}
+
+	if ok && fcfg.Type == config.FolderTypeReceiveOnly {
 		// Add statistics for things that have changed locally in a receive
 		// only folder.
-		ro := c.model.ReceiveOnlyChangedSize(folder)
+		ro := snap.ReceiveOnlyChangedSize()
 		res["receiveOnlyChangedFiles"] = ro.Files
 		res["receiveOnlyChangedDirectories"] = ro.Directories
 		res["receiveOnlyChangedSymlinks"] = ro.Symlinks
@@ -115,8 +126,8 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 		res["error"] = err.Error()
 	}
 
-	ourSeq, _ := c.model.CurrentSequence(folder)
-	remoteSeq, _ := c.model.RemoteSequence(folder)
+	ourSeq := snap.Sequence(protocol.LocalDeviceID)
+	remoteSeq := snap.Sequence(protocol.GlobalDeviceID)
 
 	res["version"] = ourSeq + remoteSeq  // legacy
 	res["sequence"] = ourSeq + remoteSeq // new name

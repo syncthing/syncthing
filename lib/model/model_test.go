@@ -2135,8 +2135,8 @@ func TestIssue3028(t *testing.T) {
 
 	// Get a count of how many files are there now
 
-	locorigfiles := m.LocalSize("default").Files
-	globorigfiles := m.GlobalSize("default").Files
+	locorigfiles := localSize(t, m, "default").Files
+	globorigfiles := globalSize(t, m, "default").Files
 
 	// Delete and rescan specifically these two
 
@@ -2147,8 +2147,8 @@ func TestIssue3028(t *testing.T) {
 	// Verify that the number of files decreased by two and the number of
 	// deleted files increases by two
 
-	loc := m.LocalSize("default")
-	glob := m.GlobalSize("default")
+	loc := localSize(t, m, "default")
+	glob := globalSize(t, m, "default")
 	if loc.Files != locorigfiles-2 {
 		t.Errorf("Incorrect local accounting; got %d current files, expected %d", loc.Files, locorigfiles-2)
 	}
@@ -2473,7 +2473,7 @@ func TestIssue3496(t *testing.T) {
 	t.Log(comp)
 
 	// Check that NeedSize does the correct thing
-	need := m.NeedSize("default")
+	need := needSize(t, m, "default")
 	if need.Files != 1 || need.Bytes != 1234 {
 		// The one we added synthetically above
 		t.Errorf("Incorrect need size; %d, %d != 1, 1234", need.Files, need.Bytes)
