@@ -75,6 +75,10 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo,
 	realSize := size - blockOverhead
 	realOffset := offset - int64(blockNo*blockOverhead)
 
+	if size < minPaddedSize {
+		return nil, errors.New("short request")
+	}
+
 	// Perform that request and grab the data. Explicitly zero out the
 	// hashes which are meaningless.
 
@@ -84,7 +88,7 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo,
 	}
 
 	// Encrypt the response. Blocks smaller than minPaddedSize are padded
-	// with random date.
+	// with random data.
 
 	data := resp.Data()
 	if len(data) < minPaddedSize {
