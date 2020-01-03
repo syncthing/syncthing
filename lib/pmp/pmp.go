@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AudriusButkevicius/go-nat-pmp"
 	"github.com/jackpal/gateway"
+	"github.com/jackpal/go-nat-pmp"
 	"github.com/syncthing/syncthing/lib/nat"
 )
 
@@ -34,7 +34,7 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 
 	l.Debugln("Discovered gateway at", ip)
 
-	c := natpmp.NewClient(ip, timeout)
+	c := natpmp.NewClientWithTimeout(ip, timeout)
 	// Try contacting the gateway, if it does not respond, assume it does not
 	// speak NAT-PMP.
 	_, err = c.GetExternalAddress()

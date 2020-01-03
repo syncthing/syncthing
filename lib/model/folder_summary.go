@@ -99,6 +99,11 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 
 	need := snap.NeedSize()
 	need.Bytes -= c.model.FolderProgressBytesCompleted(folder)
+	// This may happen if we are in progress of pulling files that were
+	// deleted globally after the pull started.
+	if need.Bytes < 0 {
+		need.Bytes = 0
+	}
 	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
 
 	fcfg, ok := c.cfg.Folder(folder)

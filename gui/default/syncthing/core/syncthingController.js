@@ -848,10 +848,15 @@ angular.module('syncthing.core')
             if (typeof $scope.model[folder] === 'undefined') {
                 return 100;
             }
-            if ($scope.model[folder].globalBytes === 0) {
+            if ($scope.model[folder].needTotalItems === 0) {
                 return 100;
             }
-
+            if ($scope.model[folder].needBytes == 0 && $scope.model[folder].needDeletes > 0) {
+                // We don't need any data, but we have deletes that we need
+                // to do. Drop down the completion percentage to indicate
+                // that we have stuff to do.
+                return 95;
+            }
             var pct = 100 * $scope.model[folder].inSyncBytes / $scope.model[folder].globalBytes;
             return Math.floor(pct);
         };

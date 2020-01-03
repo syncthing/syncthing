@@ -16,6 +16,7 @@ linters:
     - funlen
     - wsl
     - gocognit
+    - godox
 
 service:
   golangci-lint-version: 1.21.x

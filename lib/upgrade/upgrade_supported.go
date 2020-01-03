@@ -223,8 +223,8 @@ func readRelease(archiveName, dir, url string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	switch runtime.GOOS {
-	case "windows":
+	switch path.Ext(archiveName) {
+	case ".zip":
 		return readZip(archiveName, dir, io.LimitReader(resp.Body, maxArchiveSize))
 	default:
 		return readTarGz(archiveName, dir, io.LimitReader(resp.Body, maxArchiveSize))
