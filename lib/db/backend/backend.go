@@ -7,6 +7,7 @@
 package backend
 
 import (
+	"os"
 	"sync"
 )
 
@@ -112,10 +113,17 @@ const (
 )
 
 func Open(path string, tuning Tuning) (Backend, error) {
+	if os.Getenv("USE_BADGER") != "" {
+		l.Warnln("Using experimental badger db")
+		return OpenBadger(path)
+	}
 	return OpenLevelDB(path, tuning)
 }
 
 func OpenMemory() Backend {
+	if os.Getenv("USE_BADGER") != "" {
+		return OpenBadgerMemory()
+	}
 	return OpenLevelDBMemory()
 }
 
