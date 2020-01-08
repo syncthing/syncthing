@@ -1,7 +1,6 @@
 module github.com/syncthing/syncthing
 
 require (
-	github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362
 	github.com/AudriusButkevicius/pfilter v0.0.0-20190627213056-c55ef6137fc6
 	github.com/AudriusButkevicius/recli v0.0.5
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
@@ -19,12 +18,13 @@ require (
 	github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
 	github.com/golang/mock v1.3.1 // indirect
 	github.com/jackpal/gateway v1.0.5
+	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.2.0
 	github.com/lucas-clemente/quic-go v0.12.1
 	github.com/maruel/panicparse v1.3.0
-	github.com/mattn/go-isatty v0.0.10
+	github.com/mattn/go-isatty v0.0.11
 	github.com/minio/sha256-simd v0.1.1
 	github.com/onsi/ginkgo v1.9.0 // indirect
 	github.com/onsi/gomega v1.6.0 // indirect

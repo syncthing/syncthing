@@ -900,6 +900,11 @@ func (m *model) NeedSize(folder string) db.Counts {
 		})
 	}
 	result.Bytes -= m.progressEmitter.BytesCompleted(folder)
+	// This may happen if we are in progress of pulling files that were
+	// deleted globally after the pull started.
+	if result.Bytes < 0 {
+		result.Bytes = 0
+	}
 	l.Debugf("%v NeedSize(%q): %v", m, folder, result)
 	return result
 }
