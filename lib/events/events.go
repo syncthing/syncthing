@@ -220,7 +220,7 @@ type logger struct {
 	nextGlobalID        int
 	timeout             *time.Timer
 	events              chan Event
-	funcs               chan func()
+	funcs               chan func(context.Context)
 	toUnsubscribe       chan *subscription
 	stop                chan struct{}
 }
@@ -246,6 +246,7 @@ type subscription struct {
 	events        chan Event
 	toUnsubscribe chan *subscription
 	timeout       *time.Timer
+	ctx           context.Context
 }
 
 var (
@@ -257,7 +258,7 @@ func NewLogger() Logger {
 	l := &logger{
 		timeout:       time.NewTimer(time.Second),
 		events:        make(chan Event, BufferSize),
-		funcs:         make(chan func()),
+		funcs:         make(chan func(context.Context)),
 		toUnsubscribe: make(chan *subscription),
 	}
 	l.Service = util.AsService(l.serve, l.String())
@@ -279,7 +280,7 @@ loop:
 
 		case fn := <-l.funcs:
 			// Subscriptions are handled here.
-			fn()
+			fn(ctx)
 
 		case s := <-l.toUnsubscribe:
 			l.unsubscribe(s)
@@ -339,7 +340,7 @@ func (l *logger) sendEvent(e Event) {
 
 func (l *logger) Subscribe(mask EventType) Subscription {
 	res := make(chan Subscription)
-	l.funcs <- func() {
+	l.funcs <- func(ctx context.Context) {
 		dl.Debugln("subscribe", mask)
 
 		s := &subscription{
@@ -347,6 +348,7 @@ func (l *logger) Subscribe(mask EventType) Subscription {
 			events:        make(chan Event, BufferSize),
 			toUnsubscribe: l.toUnsubscribe,
 			timeout:       time.NewTimer(0),
+			ctx:           ctx,
 		}
 
 		// We need to create the timeout timer in the stopped, non-fired state so
@@ -431,7 +433,10 @@ func (s *subscription) C() <-chan Event {
 }
 
 func (s *subscription) Unsubscribe() {
-	s.toUnsubscribe <- s
+	select {
+	case s.toUnsubscribe <- s:
+	case <-s.ctx.Done():
+	}
 }
 
 type bufferedSubscription struct {
