@@ -1137,3 +1137,37 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 	case <-done:
 	}
 }
+
+// TestRequestLastFileProgress checks that the last pulled file (here only) is registered
+// as in progress.
+func TestRequestLastFileProgress(t *testing.T) {
+	m, fc, fcfg := setupModelWithConnection()
+	tfs := fcfg.Filesystem()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+
+	done := make(chan struct{})
+
+	fc.mut.Lock()
+	fc.requestFn = func(_ context.Context, folder, name string, _ int64, _ int, _ []byte, _ bool) ([]byte, error) {
+		defer close(done)
+		progress, queued, rest := m.NeedFolderFiles(folder, 1, 10)
+		if len(queued)+len(rest) != 0 {
+			t.Error(`There should not be any queued or "rest" items`)
+		}
+		if len(progress) != 1 {
+			t.Error("Expected exactly one item in progress.")
+		}
+		return fc.fileData[name], nil
+	}
+	fc.mut.Unlock()
+
+	contents := []byte("test file contents\n")
+	fc.addFile("testfile", 0644, protocol.FileInfoTypeFile, contents)
+	fc.sendIndexUpdate()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out before file was requested")
+	}
+}
