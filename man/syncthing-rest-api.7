@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Jun 11, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Jan 02, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -222,8 +222,13 @@ configuration is the same as that on disk.
 .SS POST /rest/system/config
 .sp
 Post the full contents of the configuration, in the same format as returned by
-the corresponding GET request. The configuration will be saved to disk and the
-\fBconfigInSync\fP flag set to false. Restart Syncthing to activate.
+the corresponding GET request. When posting the configuration succeeds,
+the posted configuration is immediately applied, except for changes that require a restart. Query
+rest\-config\-insync to check if a restart is required.
+.sp
+This endpoint is the main point to control Syncthing, even if the change only
+concerns a very small part of the config: The usual workflow is to get the
+config, modify the needed parts and post it again.
 .SS GET /rest/system/connections
 .sp
 \fBNOTE:\fP
@@ -1056,9 +1061,9 @@ in the event IDs.
 If no new events are produced since \fB<lastSeenID>\fP, the HTTP call blocks and
 waits for new events to happen before returning. By default it times out after
 60 seconds returning an empty array. The time out duration can be customized
-with the optional parameter \fBtimeout=seconds\fP\&.
+with the optional parameter \fBtimeout=<seconds>\fP\&.
 .sp
-To receive only a limited number of events, add the \fBlimit=n\fP parameter with a
+To receive only a limited number of events, add the \fBlimit=<n>\fP parameter with a
 suitable value for \fBn\fP and only the \fIlast\fP \fBn\fP events will be returned. This
 can be used to catch up with the latest event ID after a disconnection for
 example: \fB/rest/events?since=0&limit=1\fP\&.

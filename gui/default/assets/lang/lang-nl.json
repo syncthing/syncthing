@@ -32,6 +32,7 @@
     "Are you sure you want to remove folder {%label%}?": "Weet u zeker dat u map {{label}} wilt verwijderen?",
     "Are you sure you want to restore {%count%} files?": "Weet u zeker dat u {{count}} bestanden wilt herstellen?",
     "Auto Accept": "Automatisch aanvaarden",
+    "Automatic Crash Reporting": "Automatische crashrapportage",
     "Automatic upgrade now offers the choice between stable releases and release candidates.": "Automatisch bijwerken biedt nu de keuze tussen stabiele releases en release canditates.",
     "Automatic upgrades": "Automatische upgrades",
     "Automatic upgrades are always enabled for candidate releases.": "Automatische upgrades zijn altijd ingeschakeld voor kandidaat-releases.",
@@ -71,6 +72,7 @@
     "Device rate limits": "Snelheidsbegrenzingen apparaat",
     "Device that last modified the item": "Apparaat dat het item laatst gewijzigd heeft",
     "Devices": "Apparaten",
+    "Disable Crash Reporting": "Crashrapportage uitschakelen",
     "Disabled": "Uitgeschakeld",
     "Disabled periodic scanning and disabled watching for changes": "Periodiek scannen uitgeschakeld en opvolgen van wijzigingen uitgeschakeld",
     "Disabled periodic scanning and enabled watching for changes": "Periodiek scannen uitgeschakeld en opvolgen van wijzigingen ingeschakeld",
@@ -92,6 +94,7 @@
     "Edit Folder": "Map bewerken",
     "Editing": "Bewerken",
     "Editing {%path%}.": "{{path}} bewerken.",
+    "Enable Crash Reporting": "Crashrapportage inschakelen",
     "Enable NAT traversal": "NAT traversal inschakelen",
     "Enable Relaying": "Relaying inschakelen",
     "Enabled": "Ingeschakeld",
@@ -141,6 +144,7 @@
     "Global State": "Globale status",
     "Help": "Help",
     "Home page": "Startpagina",
+    "However, your current settings indicate you might not want it enabled. We have disabled automatic crash reporting for you.": "Uw huidige instellingen geven echter aan dat u het misschien niet wilt inschakelen. We hebben de automatische crashrapportage voor u uitgeschakeld.",
     "Ignore": "Negeren",
     "Ignore Patterns": "Negeerpatronen",
     "Ignore Permissions": "Machtigingen negeren",
@@ -299,6 +303,7 @@
     "Syncthing is Free and Open Source Software licensed as MPL v2.0.": "Syncthing is gratis en opensource software onder licentie van MPL v2.0.",
     "Syncthing is restarting.": "Syncthing is aan het herstarten.",
     "Syncthing is upgrading.": "Syncthing is aan het bijwerken.",
+    "Syncthing now supports automatically reporting crashes to the developers. This feature is enabled by default.": "Syncthing ondersteunt nu automatisch rapporteren van crashes naar de ontwikkelaars. De functie is standaard ingeschakeld.",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing lijkt gestopt te zijn, of er is een probleem met uw internetverbinding. Opnieuw proberen...",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing lijkt een probleem te ondervinden met het verwerken van uw verzoek. Vernieuw de pagina of start Syncthing opnieuw als het probleem zich blijft voordoen. ",
     "Take me back": "Neem me terug",
@@ -383,6 +388,6 @@
     "files": "bestanden",
     "full documentation": "volledige documentatie",
     "items": "items",
-    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wil de map \"{{folder}}\" delen.",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wil de map \"{{folderlabel}}\" ({{folder}}) delen."
+    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wil map \"{{folder}}\" delen.",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wil map \"{{folderlabel}}\" ({{folder}}) delen."
 }

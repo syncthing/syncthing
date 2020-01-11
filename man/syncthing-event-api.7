@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "Jun 11, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "Jan 02, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -275,46 +275,46 @@ configuration can cause multiple files to be shown.
     "data": {
         "folder1": {
             "file1": {
-                "Total": 800,
-                "Pulling": 2,
-                "CopiedFromOrigin": 0,
-                "Reused": 633,
-                "CopiedFromElsewhere": 0,
-                "Pulled": 38,
-                "BytesTotal": 104792064,
-                "BytesDone": 87883776
+                "total": 800,
+                "pulling": 2,
+                "copiedFromOrigin": 0,
+                "reused": 633,
+                "copiedFromElsewhere": 0,
+                "pulled": 38,
+                "bytesTotal": 104792064,
+                "bytesDone": 87883776
             },
             "dir\e\efile2": {
-                "Total": 80,
-                "Pulling": 2,
-                "CopiedFromOrigin": 0,
-                "Reused": 0,
-                "CopiedFromElsewhere": 0,
-                "Pulled": 32,
-                "BytesTotal": 10420224,
-                "BytesDone": 4128768
+                "total": 80,
+                "pulling": 2,
+                "copiedFromOrigin": 0,
+                "reused": 0,
+                "copiedFromElsewhere": 0,
+                "pulled": 32,
+                "bytesTotal": 10420224,
+                "bytesDone": 4128768
             }
         },
         "folder2": {
             "file3": {
-                "Total": 800,
-                "Pulling": 2,
-                "CopiedFromOrigin": 0,
-                "Reused": 633,
-                "CopiedFromElsewhere": 0,
-                "Pulled": 38,
-                "BytesTotal": 104792064,
-                "BytesDone": 87883776
+                "total": 800,
+                "pulling": 2,
+                "copiedFromOrigin": 0,
+                "reused": 633,
+                "copiedFromElsewhere": 0,
+                "pulled": 38,
+                "bytesTotal": 104792064,
+                "bytesDone": 87883776
             },
             "dir\e\efile4": {
-                "Total": 80,
-                "Pulling": 2,
-                "CopiedFromOrigin": 0,
-                "Reused": 0,
-                "CopiedFromElsewhere": 0,
-                "Pulled": 32,
-                "BytesTotal": 10420224,
-                "BytesDone": 4128768
+                "total": 80,
+                "pulling": 2,
+                "copiedFromOrigin": 0,
+                "reused": 0,
+                "copiedFromElsewhere": 0,
+                "pulled": 32,
+                "bytesTotal": 10420224,
+                "bytesDone": 4128768
             }
         }
     }
@@ -325,23 +325,23 @@ configuration can cause multiple files to be shown.
 .UNINDENT
 .INDENT 0.0
 .IP \(bu 2
-\fBTotal\fP \- total number of blocks in the file
+\fBtotal\fP \- total number of blocks in the file
 .IP \(bu 2
-\fBPulling\fP \- number of blocks currently being downloaded
+\fBpulling\fP \- number of blocks currently being downloaded
 .IP \(bu 2
-\fBCopiedFromOrigin\fP \- number of blocks copied from the file we are
+\fBcopiedFromOrigin\fP \- number of blocks copied from the file we are
 about to replace
 .IP \(bu 2
-\fBReused\fP \- number of blocks reused from a previous temporary file
+\fBreused\fP \- number of blocks reused from a previous temporary file
 .IP \(bu 2
-\fBCopiedFromElsewhere\fP \- number of blocks copied from other files or
+\fBcopiedFromElsewhere\fP \- number of blocks copied from other files or
 potentially other folders
 .IP \(bu 2
-\fBPulled\fP \- number of blocks actually downloaded so far
+\fBpulled\fP \- number of blocks actually downloaded so far
 .IP \(bu 2
-\fBBytesTotal\fP \- approximate total file size
+\fBbytesTotal\fP \- approximate total file size
 .IP \(bu 2
-\fBBytesDone\fP \- approximate number of bytes already handled (already
+\fBbytesDone\fP \- approximate number of bytes already handled (already
 reused, copied or pulled)
 .UNINDENT
 .sp
