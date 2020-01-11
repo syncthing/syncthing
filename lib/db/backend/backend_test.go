@@ -14,6 +14,7 @@ import "testing"
 func testBackendBehavior(t *testing.T, open func() Backend) {
 	t.Run("WriteIsolation", func(t *testing.T) { testWriteIsolation(t, open) })
 	t.Run("DeleteNonexisten", func(t *testing.T) { testDeleteNonexistent(t, open) })
+	t.Run("IteratorClosedDB", func(t *testing.T) { testIteratorClosedDB(t, open) })
 }
 
 func testWriteIsolation(t *testing.T, open func() Backend) {
@@ -49,5 +50,27 @@ func testDeleteNonexistent(t *testing.T, open func() Backend) {
 	err := db.Delete([]byte("a"))
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+// Either creating the iterator or the .Error() method of the returned iterator
+// should return an error and IsClosed(err) == true.
+func testIteratorClosedDB(t *testing.T, open func() Backend) {
+	db := open()
+
+	_ = db.Put([]byte("a"), []byte("a"))
+
+	db.Close()
+
+	it, err := db.NewPrefixIterator(nil)
+	if err != nil {
+		if !IsClosed(err) {
+			t.Error("NewPrefixIterator: IsClosed(err) == false:", err)
+		}
+		return
+	}
+	it.Next()
+	if err := it.Error(); !IsClosed(err) {
+		t.Error("Next: IsClosed(err) == false:", err)
 	}
 }
