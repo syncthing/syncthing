@@ -7,19 +7,14 @@
 package config
 
 import (
-	"context"
-	"fmt"
 	"os"
 	"sync/atomic"
 	"time"
-
-	"github.com/thejerf/suture"
 
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // The Committer interface is implemented by objects that need to know about
@@ -403,68 +398,4 @@ func (w *wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.Dev
 	}
 
 	panic("bug: adding pending folder for non-existing device")
-}
-
-type serviceCommitter struct {
-	suture.Service
-	ctx        context.Context
-	cfgw       Wrapper
-	configChan chan Configuration
-	creator    string
-}
-
-func (s *serviceCommitter) VerifyConfiguration(_ Configuration) error {
-	return nil
-}
-
-func (s *serviceCommitter) CommitConfiguration(to Configuration) bool {
-	select {
-	case s.configChan <- to:
-	case <-s.ctx.Done():
-	}
-	return true
-}
-
-func (s *serviceCommitter) serve(fn func(context.Context, Configuration)) {
-	s.cfgw.Subscribe(s)
-	defer s.cfgw.Unsubscribe(s)
-
-	cfg := <-s.configChan
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		default:
-		}
-
-		ctx, cancel := context.WithCancel(s.ctx)
-		done := make(chan struct{})
-		go func() {
-			fn(ctx, cfg)
-			close(done)
-		}()
-
-		select {
-		case cfg = <-s.configChan:
-		case <-done:
-			return
-		}
-		cancel()
-	}
-}
-
-func (s *serviceCommitter) String() string {
-	return fmt.Sprintf("serviceCommitter@%p created by %v", s, s.creator)
-}
-
-func AsServiceWithConfig(fn func(context.Context, Configuration), cfgw Wrapper, creator string) suture.Service {
-	return util.AsService(func(ctx context.Context) {
-		s := &serviceCommitter{
-			ctx:        ctx,
-			cfgw:       cfgw,
-			configChan: make(chan Configuration, 1), // First config must go through without blocking
-			creator:    creator,
-		}
-		s.serve(fn)
-	}, creator)
 }
