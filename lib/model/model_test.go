@@ -1688,21 +1688,28 @@ func TestEmptyIgnores(t *testing.T) {
 	}
 }
 
-func waitForState(t *testing.T, m *model, folder, status string) {
+func waitForState(t *testing.T, sub events.Subscription, folder, expected string) {
 	t.Helper()
-	timeout := time.Now().Add(2 * time.Second)
-	var err error
-	for !time.Now().After(timeout) {
-		_, _, err = m.State(folder)
-		if err == nil && status == "" {
-			return
+	timeout := time.After(5 * time.Second)
+	var error string
+	for {
+		select {
+		case ev := <-sub.C():
+			data := ev.Data.(map[string]interface{})
+			if data["folder"].(string) == folder {
+				if data["error"] == nil {
+					error = ""
+				} else {
+					error = data["error"].(string)
+				}
+				if error == expected {
+					return
+				}
+			}
+		case <-timeout:
+			t.Fatalf("Timed out waiting for status: %s, current status: %v", expected, error)
 		}
-		if err != nil && err.Error() == status {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatalf("Timed out waiting for status: %s, current status: %v", status, err)
 }
 
 func TestROScanRecovery(t *testing.T) {
@@ -1733,27 +1740,29 @@ func TestROScanRecovery(t *testing.T) {
 	testOs.RemoveAll(fcfg.Path)
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
+	sub := m.evLogger.Subscribe(events.StateChanged)
+	defer sub.Unsubscribe()
 	m.ServeBackground()
 	defer cleanupModel(m)
 
-	waitForState(t, m, "default", "folder path missing")
+	waitForState(t, sub, "default", "folder path missing")
 
 	testOs.Mkdir(fcfg.Path, 0700)
 
-	waitForState(t, m, "default", "folder marker missing")
+	waitForState(t, sub, "default", "folder marker missing")
 
 	fd := testOs.Create(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 	fd.Close()
 
-	waitForState(t, m, "default", "")
+	waitForState(t, sub, "default", "")
 
 	testOs.Remove(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 
-	waitForState(t, m, "default", "folder marker missing")
+	waitForState(t, sub, "default", "folder marker missing")
 
 	testOs.Remove(fcfg.Path)
 
-	waitForState(t, m, "default", "folder path missing")
+	waitForState(t, sub, "default", "folder path missing")
 }
 
 func TestRWScanRecovery(t *testing.T) {
@@ -1784,27 +1793,29 @@ func TestRWScanRecovery(t *testing.T) {
 	testOs.RemoveAll(fcfg.Path)
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
+	sub := m.evLogger.Subscribe(events.StateChanged)
+	defer sub.Unsubscribe()
 	m.ServeBackground()
 	defer cleanupModel(m)
 
-	waitForState(t, m, "default", "folder path missing")
+	waitForState(t, sub, "default", "folder path missing")
 
 	testOs.Mkdir(fcfg.Path, 0700)
 
-	waitForState(t, m, "default", "folder marker missing")
+	waitForState(t, sub, "default", "folder marker missing")
 
 	fd := testOs.Create(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 	fd.Close()
 
-	waitForState(t, m, "default", "")
+	waitForState(t, sub, "default", "")
 
 	testOs.Remove(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 
-	waitForState(t, m, "default", "folder marker missing")
+	waitForState(t, sub, "default", "folder marker missing")
 
 	testOs.Remove(fcfg.Path)
 
-	waitForState(t, m, "default", "folder path missing")
+	waitForState(t, sub, "default", "folder path missing")
 }
 
 func TestGlobalDirectoryTree(t *testing.T) {
@@ -2906,16 +2917,18 @@ func TestCustomMarkerName(t *testing.T) {
 	defer testOs.RemoveAll(fcfg.Path)
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
+	sub := m.evLogger.Subscribe(events.StateChanged)
+	defer sub.Unsubscribe()
 	m.ServeBackground()
 	defer cleanupModel(m)
 
-	waitForState(t, m, "default", "folder path missing")
+	waitForState(t, sub, "default", "folder path missing")
 
 	testOs.Mkdir(fcfg.Path, 0700)
 	fd := testOs.Create(filepath.Join(fcfg.Path, "myfile"))
 	fd.Close()
 
-	waitForState(t, m, "default", "")
+	waitForState(t, sub, "default", "")
 }
 
 func TestRemoveDirWithContent(t *testing.T) {

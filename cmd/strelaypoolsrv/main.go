@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"mime"
@@ -364,8 +365,8 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleGetRequest(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+func handleGetRequest(rw http.ResponseWriter, r *http.Request) {
+	rw.Header().Set("Content-Type", "application/json; charset=utf-8")
 	mut.RLock()
 	relays := append(permanentRelays, knownRelays...)
 	mut.RUnlock()
@@ -373,7 +374,15 @@ func handleGetRequest(w http.ResponseWriter, r *http.Request) {
 	// Shuffle
 	rand.Shuffle(relays)
 
-	json.NewEncoder(w).Encode(map[string][]*relay{
+	w := io.Writer(rw)
+	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+		rw.Header().Set("Content-Encoding", "gzip")
+		gw := gzip.NewWriter(rw)
+		defer gw.Close()
+		w = gw
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string][]*relay{
 		"relays": relays,
 	})
 }

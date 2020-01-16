@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -65,11 +66,11 @@ func (b *leveldbBackend) Get(key []byte) ([]byte, error) {
 }
 
 func (b *leveldbBackend) NewPrefixIterator(prefix []byte) (Iterator, error) {
-	return b.ldb.NewIterator(util.BytesPrefix(prefix), nil), nil
+	return &leveldbIterator{b.ldb.NewIterator(util.BytesPrefix(prefix), nil)}, nil
 }
 
 func (b *leveldbBackend) NewRangeIterator(first, last []byte) (Iterator, error) {
-	return b.ldb.NewIterator(&util.Range{Start: first, Limit: last}, nil), nil
+	return &leveldbIterator{b.ldb.NewIterator(&util.Range{Start: first, Limit: last}, nil)}, nil
 }
 
 func (b *leveldbBackend) Put(key, val []byte) error {
@@ -156,6 +157,14 @@ func (t *leveldbTransaction) flush() error {
 	}
 	t.batch.Reset()
 	return nil
+}
+
+type leveldbIterator struct {
+	iterator.Iterator
+}
+
+func (it *leveldbIterator) Error() error {
+	return wrapLeveldbErr(it.Iterator.Error())
 }
 
 // wrapLeveldbErr wraps errors so that the backend package can recognize them
