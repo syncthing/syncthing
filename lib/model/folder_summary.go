@@ -78,8 +78,8 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	var res = make(map[string]interface{})
 
 	errors, err := c.model.FolderErrors(folder)
-	if err != nil && err != ErrFolderPaused {
-		// Stats from the db can still be obtained if the folder is just paused
+	if err != nil && err != ErrFolderPaused && err != errFolderNotRunning {
+		// Stats from the db can still be obtained if the folder is just paused/being started
 		return nil, err
 	}
 	res["errors"] = len(errors)
