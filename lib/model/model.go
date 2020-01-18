@@ -113,7 +113,7 @@ type Model interface {
 	UsageReportingStats(version int, preview bool) map[string]interface{}
 
 	StartDeadlockDetector(timeout time.Duration)
-	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
+	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) []DirectoryTree // map[string]interface{}
 }
 
 type model struct {
@@ -2406,13 +2406,21 @@ func (m *model) RemoteSequence(folder string) (int64, bool) {
 	return ver, true
 }
 
-func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{} {
+type DirectoryTree struct {
+	Name     string
+	IsFolder bool
+}
+
+func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) []DirectoryTree { //} map[string]interface{} {
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
 	if !ok {
 		return nil
 	}
+
+	output1 := make([]DirectoryTree, 0)
+	alreadyExists := make(map[string]bool)
 
 	output := make(map[string]interface{})
 	sep := string(filepath.Separator)
@@ -2431,6 +2439,22 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		}
 
 		f.Name = strings.Replace(f.Name, prefix, "", 1)
+
+		nameToSave := f.Name
+		if strings.Contains(f.Name, sep) {
+			nameToSave = strings.Split(f.Name, sep)[0]
+		}
+		if _, ok := alreadyExists[nameToSave]; !ok {
+			if !f.IsSymlink() {
+				fmt.Println("nameToSave: ", nameToSave)
+				if f.IsDirectory() {
+					output1 = append(output1, DirectoryTree{Name: nameToSave, IsFolder: true})
+				} else {
+					output1 = append(output1, DirectoryTree{Name: nameToSave, IsFolder: false})
+				}
+				alreadyExists[nameToSave] = true
+			}
+		}
 
 		var dir, base string
 		if f.IsDirectory() && !f.IsSymlink() {
@@ -2467,7 +2491,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		return true
 	})
 
-	return output
+	return output1
 }
 
 func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {

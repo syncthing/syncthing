@@ -1084,6 +1084,13 @@ angular.module('syncthing.core')
             return deviceID.substr(0, 6);
         };
 
+        $scope.setCurrentFolderAndGetContents = function (id) {
+            $scope.currentFolder = angular.copy($scope.folders[id]);
+            $http.get(urlbase + '/rest/db/browse').success(function (data) {
+                $scope.currentFolder.content = data;
+            }).error($scope.emitHTTPError);
+        };
+
         $scope.findDevice = function (deviceID) {
             var matches = $scope.devices.filter(function (n) {
                 return n.deviceID === deviceID;

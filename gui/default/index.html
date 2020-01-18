@@ -491,6 +491,14 @@
                         </span>
                       </td>
                     </tr>
+                    <tr>
+                      <th><span class="fas fa-fw fa-copy"></span>&nbsp;<span translate>Shared files</span></th>
+                      <td class="text-right">
+                        <span>
+                          <a href="" data-toggle="modal" data-target="#folderFiles" ng-click="setCurrentFolder(folder.id)">show</a>
+                        </span>
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -832,6 +840,7 @@
   <ng-include src="'syncthing/folder/editFolderModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/restoreVersionsModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/restoreVersionsConfirmation.html'"></ng-include>
+  <ng-include src="'syncthing/folder/folderFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/settings/settingsModalView.html'"></ng-include>
   <ng-include src="'syncthing/settings/advancedSettingsModalView.html'"></ng-include>
   <ng-include src="'syncthing/settings/discardChangesConfirmation.html'"></ng-include>
@@ -885,6 +894,7 @@
   <script type="text/javascript" src="syncthing/core/tooltipDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/uncamelFilter.js"></script>
   <script type="text/javascript" src="syncthing/core/uniqueFolderDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/treeViewDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/validDeviceidDirective.js"></script>
   <script type="text/javascript" src="assets/lang/valid-langs.js"></script>
   <script type="text/javascript" src="assets/lang/prettyprint.js"></script>
