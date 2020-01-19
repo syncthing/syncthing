@@ -34,7 +34,6 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
@@ -1120,7 +1119,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	m.pmut.RLock()
 	conn, ok := m.conn[deviceID]
 	closed := m.closed[deviceID]
-	hello := m.helloMessages[deviceID]
 	m.pmut.RUnlock()
 	if !ok {
 		panic("bug: ClusterConfig called on closed or nonexistent connection")
@@ -1128,14 +1126,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	changed := false
 	deviceCfg := m.cfg.Devices()[deviceID]
-
-	// See issue #3802 - in short, we can't send modern symlink entries to older
-	// clients.
-	dropSymlinks := false
-	if hello.ClientName == m.clientName && upgrade.CompareVersions(hello.ClientVersion, "v0.14.14") < 0 {
-		l.Warnln("Not sending symlinks to old client", deviceID, "- please upgrade to v0.14.14 or newer")
-		dropSymlinks = true
-	}
 
 	// Needs to happen outside of the fmut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
@@ -1257,7 +1247,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			folder:       folder.ID,
 			fset:         fs,
 			prevSequence: startSequence,
-			dropSymlinks: dropSymlinks,
 			evLogger:     m.evLogger,
 		}
 		is.Service = util.AsService(is.serve, is.String())
@@ -2005,7 +1994,6 @@ type indexSender struct {
 	dev          string
 	fset         *db.FileSet
 	prevSequence int64
-	dropSymlinks bool
 	evLogger     events.Logger
 	connClosed   chan struct{}
 }
@@ -2112,14 +2100,6 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 			f.Version = protocol.Vector{}
 		}
 		f.LocalFlags = 0 // never sent externally
-
-		if s.dropSymlinks && f.IsSymlink() {
-			// Do not send index entries with symlinks to clients that can't
-			// handle it. Fixes issue #3802. Once both sides are upgraded, a
-			// rescan (i.e., change) of the symlink is required for it to
-			// sync again, due to delta indexes.
-			return true
-		}
 
 		batch.append(f)
 		return true
