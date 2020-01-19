@@ -1085,11 +1085,9 @@ angular.module('syncthing.core')
         };
 
         $scope.setCurrentFolderAndGetContents = function (id) {
-            console.log("going to fetch data from controller")
             $scope.currentFolder = angular.copy($scope.folders[id]);
-            $http.get(urlbase + '/db/browse?folder=' + id + "&levels=0").success(function (data) {
+            $http.get(urlbase + '/db/browse?folder=' + id + "&levels=3").success(function (data) {
                 $scope.currentFolder.content = data;
-                console.log("Data: ", data)
             }).error($scope.emitHTTPError);
         };
 

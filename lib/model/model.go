@@ -113,7 +113,7 @@ type Model interface {
 	UsageReportingStats(version int, preview bool) map[string]interface{}
 
 	StartDeadlockDetector(timeout time.Duration)
-	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) []*DirectoryTree // map[string]interface{}
+	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) []*DirectoryTree
 }
 
 type model struct {
@@ -2420,10 +2420,9 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		return nil
 	}
 
-	output1 := DirectoryTree{Name: ".", IsDirectory: true, Children: make([]*DirectoryTree, 0)}
+	output := DirectoryTree{Name: ".", IsDirectory: true, Children: []*DirectoryTree{}}
 	currentPrefix := ""
-	pathReferrences := make([]*DirectoryTree, 0)
-	pathReferrences = append(pathReferrences, &output1)
+	pathReferrences := []*DirectoryTree{&output}
 
 	sep := string(filepath.Separator)
 	prefix = osutil.NativeFilename(prefix)
@@ -2449,20 +2448,16 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		path := strings.Split(f.Name, sep)
 		baseDir := strings.Join(path[:len(path)-1], sep)
 
-		if baseDir == currentPrefix {
-			name := f.Name
-			if strings.Contains(f.Name, sep) {
-				name = strings.Split(f.Name, sep)[len(strings.Split(f.Name, sep))-1]
-			}
+		var tmp DirectoryTree
+		name := f.Name
+		if strings.Contains(name, sep) {
+			name = strings.Split(name, sep)[len(strings.Split(name, sep))-1]
+		}
 
-			v := &DirectoryTree{Name: name, IsDirectory: f.IsDirectory(), Children: make([]*DirectoryTree, 0)}
-			pathReferrences[len(pathReferrences)-1].Children = append(pathReferrences[len(pathReferrences)-1].Children, v)
-			if f.IsDirectory() {
-				pathReferrences = append(pathReferrences, v)
-				if currentPrefix != "" {
-					currentPrefix += sep
-				}
-				currentPrefix += name
+		if baseDir == currentPrefix {
+			tmp = DirectoryTree{Name: name, IsDirectory: f.IsDirectory(), Children: []*DirectoryTree{}}
+			if f.IsDirectory() && currentPrefix != "" {
+				currentPrefix += sep
 			}
 		} else {
 			for baseDir != currentPrefix && currentPrefix != "" {
@@ -2474,32 +2469,23 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 				currentPrefix = strings.Join(path[:len(path)-1], sep)
 			}
 
-			if currentPrefix == "" {
-				v := DirectoryTree{Name: f.Name, IsDirectory: f.IsDirectory(), Children: make([]*DirectoryTree, 0)}
-				pathReferrences[len(pathReferrences)-1].Children = append(pathReferrences[len(pathReferrences)-1].Children, &v)
-				if f.IsDirectory() {
-					pathReferrences = append(pathReferrences, &v)
-					currentPrefix += f.Name
-				}
-			} else {
-				name := f.Name
-				if strings.Contains(f.Name, sep) {
-					name = strings.Split(f.Name, sep)[len(strings.Split(f.Name, sep))-1]
-				}
-				v := DirectoryTree{Name: name, IsDirectory: f.IsDirectory(), Children: make([]*DirectoryTree, 0)}
-				pathReferrences[len(pathReferrences)-1].Children = append(pathReferrences[len(pathReferrences)-1].Children, &v)
-
-				if f.IsDirectory() {
-					pathReferrences = append(pathReferrences, &v)
-					currentPrefix += sep + name
-				}
+			tmp = DirectoryTree{Name: name, IsDirectory: f.IsDirectory(), Children: []*DirectoryTree{}}
+			if currentPrefix == "" && f.IsDirectory() {
+				currentPrefix += sep
 			}
+		}
+
+		pathReferrences[len(pathReferrences)-1].Children = append(pathReferrences[len(pathReferrences)-1].Children, &tmp)
+
+		if f.IsDirectory() {
+			pathReferrences = append(pathReferrences, &tmp)
+			currentPrefix += name
 		}
 
 		return true
 	})
 
-	return output1.Children
+	return output.Children
 }
 
 func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {
