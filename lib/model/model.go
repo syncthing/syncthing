@@ -2421,7 +2421,6 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 	}
 
 	output := DirectoryTree{Name: ".", IsDirectory: true, Children: []*DirectoryTree{}}
-	currentPrefix := ""
 	pathReferrences := []*DirectoryTree{&output}
 
 	sep := string(filepath.Separator)
@@ -2431,6 +2430,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		prefix = prefix + sep
 	}
 
+	currentPrefix := ""
 	files.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 
@@ -2447,38 +2447,26 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 
 		path := strings.Split(f.Name, sep)
 		baseDir := strings.Join(path[:len(path)-1], sep)
+		name := path[len(path)-1]
 
-		var tmp DirectoryTree
-		name := f.Name
-		if strings.Contains(name, sep) {
-			name = strings.Split(name, sep)[len(strings.Split(name, sep))-1]
-		}
-
-		if baseDir == currentPrefix {
-			tmp = DirectoryTree{Name: name, IsDirectory: f.IsDirectory(), Children: []*DirectoryTree{}}
-			if f.IsDirectory() && currentPrefix != "" {
-				currentPrefix += sep
+		tmp := DirectoryTree{Name: name, IsDirectory: f.IsDirectory(), Children: []*DirectoryTree{}}
+		for baseDir != currentPrefix && currentPrefix != "" {
+			pathReferrences = pathReferrences[:len(pathReferrences)-1]
+			path := strings.Split(currentPrefix, sep)
+			if path[len(path)-1] == "" {
+				path = path[:len(path)-1]
 			}
-		} else {
-			for baseDir != currentPrefix && currentPrefix != "" {
-				pathReferrences = pathReferrences[:len(pathReferrences)-1]
-				path := strings.Split(currentPrefix, sep)
-				if path[len(path)-1] == "" {
-					path = path[:len(path)-1]
-				}
-				currentPrefix = strings.Join(path[:len(path)-1], sep)
-			}
-
-			tmp = DirectoryTree{Name: name, IsDirectory: f.IsDirectory(), Children: []*DirectoryTree{}}
-			if currentPrefix == "" && f.IsDirectory() {
-				currentPrefix += sep
-			}
+			currentPrefix = strings.Join(path[:len(path)-1], sep)
 		}
 
 		pathReferrences[len(pathReferrences)-1].Children = append(pathReferrences[len(pathReferrences)-1].Children, &tmp)
 
 		if f.IsDirectory() {
 			pathReferrences = append(pathReferrences, &tmp)
+
+			if currentPrefix != "" {
+				currentPrefix += sep
+			}
 			currentPrefix += name
 		}
 
