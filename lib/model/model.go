@@ -69,6 +69,12 @@ type Availability struct {
 	FromTemporary bool              `json:"fromTemporary"`
 }
 
+type DirectoryTree struct {
+	Name        string           `json:"name"`
+	IsDirectory bool             `json:"isDirectory"`
+	Children    []*DirectoryTree `json:"children"`
+}
+
 type Model interface {
 	suture.Service
 
@@ -2406,12 +2412,6 @@ func (m *model) RemoteSequence(folder string) (int64, bool) {
 	return ver, true
 }
 
-type DirectoryTree struct {
-	Name        string           `json:"name"`
-	IsDirectory bool             `json:"isDirectory"`
-	Children    []*DirectoryTree `json:"children"`
-}
-
 func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) []*DirectoryTree {
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
@@ -2420,15 +2420,15 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		return nil
 	}
 
-	output := DirectoryTree{Children: []*DirectoryTree{}}
-	pathReferrences := []*DirectoryTree{&output}
-
 	sep := string(filepath.Separator)
 	prefix = osutil.NativeFilename(prefix)
 
 	if prefix != "" && !strings.HasSuffix(prefix, sep) {
 		prefix = prefix + sep
 	}
+
+	output := DirectoryTree{Children: []*DirectoryTree{}}
+	breadcrumbs := []*DirectoryTree{&output}
 
 	var currentPrefix []string
 	files.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
@@ -2445,20 +2445,20 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 			return true
 		}
 
-		path := strings.Split(f.Name, sep)
-		baseDir := path[:len(path)-1]
-		name := path[len(path)-1]
+		fullName := strings.Split(f.Name, sep)
+		name := fullName[len(fullName)-1]
+		path := fullName[:len(fullName)-1]
 
-		tmp := DirectoryTree{Name: name, IsDirectory: f.IsDirectory(), Children: []*DirectoryTree{}}
-		for !reflect.DeepEqual(baseDir, currentPrefix) && len(currentPrefix) != 0 {
-			pathReferrences = pathReferrences[:len(pathReferrences)-1]
+		tree := DirectoryTree{Name: name, IsDirectory: f.IsDirectory(), Children: []*DirectoryTree{}}
+		for !reflect.DeepEqual(path, currentPrefix) && len(currentPrefix) != 0 {
+			breadcrumbs = breadcrumbs[:len(breadcrumbs)-1]
 			currentPrefix = currentPrefix[:len(currentPrefix)-1]
 		}
 
-		pathReferrences[len(pathReferrences)-1].Children = append(pathReferrences[len(pathReferrences)-1].Children, &tmp)
+		breadcrumbs[len(breadcrumbs)-1].Children = append(breadcrumbs[len(breadcrumbs)-1].Children, &tree)
 
 		if f.IsDirectory() {
-			pathReferrences = append(pathReferrences, &tmp)
+			breadcrumbs = append(breadcrumbs, &tree)
 			currentPrefix = append(currentPrefix, name)
 		}
 
