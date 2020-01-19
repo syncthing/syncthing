@@ -2420,7 +2420,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		return nil
 	}
 
-	output := DirectoryTree{Name: ".", IsDirectory: true, Children: []*DirectoryTree{}}
+	output := DirectoryTree{Children: []*DirectoryTree{}}
 	pathReferrences := []*DirectoryTree{&output}
 
 	sep := string(filepath.Separator)
@@ -2430,7 +2430,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		prefix = prefix + sep
 	}
 
-	currentPrefix := ""
+	var currentPrefix []string
 	files.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 
@@ -2446,28 +2446,20 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		}
 
 		path := strings.Split(f.Name, sep)
-		baseDir := strings.Join(path[:len(path)-1], sep)
+		baseDir := path[:len(path)-1]
 		name := path[len(path)-1]
 
 		tmp := DirectoryTree{Name: name, IsDirectory: f.IsDirectory(), Children: []*DirectoryTree{}}
-		for baseDir != currentPrefix && currentPrefix != "" {
+		for !reflect.DeepEqual(baseDir, currentPrefix) && len(currentPrefix) != 0 {
 			pathReferrences = pathReferrences[:len(pathReferrences)-1]
-			path := strings.Split(currentPrefix, sep)
-			if path[len(path)-1] == "" {
-				path = path[:len(path)-1]
-			}
-			currentPrefix = strings.Join(path[:len(path)-1], sep)
+			currentPrefix = currentPrefix[:len(currentPrefix)-1]
 		}
 
 		pathReferrences[len(pathReferrences)-1].Children = append(pathReferrences[len(pathReferrences)-1].Children, &tmp)
 
 		if f.IsDirectory() {
 			pathReferrences = append(pathReferrences, &tmp)
-
-			if currentPrefix != "" {
-				currentPrefix += sep
-			}
-			currentPrefix += name
+			currentPrefix = append(currentPrefix, name)
 		}
 
 		return true
