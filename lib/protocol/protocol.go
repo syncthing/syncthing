@@ -98,6 +98,13 @@ const (
 	LocalAllFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly
 )
 
+// FileInfo.Attributes flags
+const (
+	FileAttributeHidden = 1 << 0 // The file is hidden
+
+	FileAttributeBitMask = FileAttributeHidden
+)
+
 var (
 	ErrClosed             = errors.New("connection closed")
 	ErrTimeout            = errors.New("read timeout")

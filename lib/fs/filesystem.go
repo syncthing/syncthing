@@ -42,6 +42,8 @@ type Filesystem interface {
 	Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error)
 	Hide(name string) error
 	Unhide(name string) error
+	GetAttributes(name string) (uint32, error)
+	SetAttributes(name string, f_attrs uint32, mask uint32) error
 	Glob(pattern string) ([]string, error)
 	Roots() ([]string, error)
 	Usage(name string) (Usage, error)

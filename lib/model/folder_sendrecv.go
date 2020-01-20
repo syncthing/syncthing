@@ -1501,6 +1501,10 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		}
 	}
 
+	if err := applyAttributes(file, tempName, f.fs); err != nil {
+		return err
+	}
+
 	// Copy the parent owner and group, if we are supposed to do that.
 	if err := f.maybeCopyOwner(tempName); err != nil {
 		return err
@@ -1587,6 +1591,20 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 			})
 		}
 	}
+}
+
+func applyAttributes(file protocol.FileInfo, filename string, fs fs.Filesystem) error {
+	if file.IsHidden() {
+		if err := fs.Hide(filename); err != nil {
+			return err
+		}
+	} else {
+		if err := fs.Unhide(filename); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Moves the given filename to the front of the job queue

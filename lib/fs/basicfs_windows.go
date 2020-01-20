@@ -12,6 +12,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/syncthing/syncthing/lib/protocol"
+	"golang.org/x/sys/windows"
 	"os"
 	"path/filepath"
 	"strings"
@@ -85,41 +87,73 @@ func (f *BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
 }
 
 func (f *BasicFilesystem) Unhide(name string) error {
-	name, err := f.rooted(name)
-	if err != nil {
-		return err
-	}
-	p, err := syscall.UTF16PtrFromString(name)
-	if err != nil {
-		return err
-	}
-
-	attrs, err := syscall.GetFileAttributes(p)
-	if err != nil {
-		return err
-	}
-
-	attrs &^= syscall.FILE_ATTRIBUTE_HIDDEN
-	return syscall.SetFileAttributes(p, attrs)
+	return f.SetAttributes(name, 0, protocol.FileAttributeHidden)
 }
 
 func (f *BasicFilesystem) Hide(name string) error {
+	return f.SetAttributes(name, protocol.FileAttributeHidden, protocol.FileAttributeHidden)
+}
+
+// GetAttributes returns a normalized bit mask with file attributes for a file 'name'.
+//   'name' - path to a file which to query the attributes for
+// The returned value has a format that follows the definition from the protocol.
+func (f *BasicFilesystem) GetAttributes(name string) (uint32, error) {
+	name, err := f.rooted(name)
+	if err != nil {
+		return 0, err
+	}
+	p, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return 0, err
+	}
+	os_f_attrs, err := windows.GetFileAttributes(p)
+	if err != nil {
+		return 0, err
+	}
+	var f_attrs uint32 = 0
+	if os_f_attrs&windows.FILE_ATTRIBUTE_HIDDEN != 0 {
+		f_attrs &= protocol.FileAttributeHidden
+	}
+	return f_attrs, nil
+}
+
+// SetAttributes sets file attributes for a file pointed to by 'name'.
+// Only the attributes that are present in the 'mask' will be changed
+// and their new value will be taken from 'f_attrs'.
+func (f *BasicFilesystem) SetAttributes(name string, f_attrs uint32, mask uint32) error {
+	if mask == 0 {
+		return nil
+	}
+
 	name, err := f.rooted(name)
 	if err != nil {
 		return err
 	}
-	p, err := syscall.UTF16PtrFromString(name)
+	p, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return err
+	}
+	os_f_attrs, err := windows.GetFileAttributes(p)
 	if err != nil {
 		return err
 	}
 
-	attrs, err := syscall.GetFileAttributes(p)
-	if err != nil {
-		return err
+	new_os_f_attrs := os_f_attrs
+
+	if mask&protocol.FileAttributeHidden != 0 {
+		if f_attrs&protocol.FileAttributeHidden != 0 {
+			new_os_f_attrs = new_os_f_attrs | windows.FILE_ATTRIBUTE_HIDDEN
+		} else {
+			new_os_f_attrs = new_os_f_attrs &^ windows.FILE_ATTRIBUTE_HIDDEN
+		}
 	}
 
-	attrs |= syscall.FILE_ATTRIBUTE_HIDDEN
-	return syscall.SetFileAttributes(p, attrs)
+	if new_os_f_attrs != os_f_attrs {
+		// no attributes were actually changed
+		return nil
+	} else {
+		return windows.SetFileAttributes(p, new_os_f_attrs)
+	}
 }
 
 func (f *BasicFilesystem) Roots() ([]string, error) {

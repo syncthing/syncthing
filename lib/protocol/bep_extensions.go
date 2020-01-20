@@ -136,6 +136,10 @@ func (f FileInfo) FileModifiedBy() ShortID {
 	return f.ModifiedBy
 }
 
+func (f FileInfo) IsHidden() bool {
+	return f.Attributes & FileAttributeHidden != 0
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func (f FileInfo) WinsConflict(other FileInfo) bool {
@@ -186,6 +190,7 @@ func (f FileInfo) IsEquivalentOptional(other FileInfo, modTimeWindow time.Durati
 //  - deleted flag
 //  - invalid flag
 //  - permissions, unless they are ignored
+//  - attributes
 // A file is not "equivalent", if it has different
 //  - modification time (difference bigger than modTimeWindow)
 //  - size
@@ -210,6 +215,10 @@ func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, igno
 	}
 
 	if !ignorePerms && !f.NoPermissions && !other.NoPermissions && !PermsEqual(f.Permissions, other.Permissions) {
+		return false
+	}
+
+	if !AttributesEqual(f.Attributes, other.Attributes) {
 		return false
 	}
 
@@ -246,6 +255,10 @@ func PermsEqual(a, b uint32) bool {
 		// All bits count
 		return a&0777 == b&0777
 	}
+}
+
+func AttributesEqual(a, b uint32) bool {
+	return (a & FileAttributeBitMask) == (b & FileAttributeBitMask)
 }
 
 // BlocksEqual returns whether two slices of blocks are exactly the same hash
