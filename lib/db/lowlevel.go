@@ -9,9 +9,23 @@ package db
 import (
 	"bytes"
 	"encoding/binary"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/willf/bloom"
+)
+
+const (
+	// We set the bloom filter capacity to handle 100k individual block lists
+	// with a false positive probability of 1% for the first pass. Once we know
+	// how many block lists we have we will use that number instead, if it's
+	// more than 100k. For fewer than 100k block lists we will just get better
+	// false positive rate instead.
+	blockGCBloomCapacity          = 100000
+	blockGCBloomFalsePositiveRate = 0.01 // 1%
+	blockGCInterval               = 13 * time.Hour
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
@@ -21,9 +35,12 @@ import (
 // any given backend.
 type Lowlevel struct {
 	backend.Backend
-	folderIdx *smallIndex
-	deviceIdx *smallIndex
-	keyer     keyer
+	folderIdx  *smallIndex
+	deviceIdx  *smallIndex
+	keyer      keyer
+	gcMut      sync.RWMutex
+	gcKeyCount int
+	gcStop     chan struct{}
 }
 
 func NewLowlevel(backend backend.Backend) *Lowlevel {
@@ -31,9 +48,17 @@ func NewLowlevel(backend backend.Backend) *Lowlevel {
 		Backend:   backend,
 		folderIdx: newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
 		deviceIdx: newSmallIndex(backend, []byte{KeyTypeDeviceIdx}),
+		gcMut:     sync.NewRWMutex(),
+		gcStop:    make(chan struct{}),
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
+	go db.gcRunner()
 	return db
+}
+
+func (db *Lowlevel) Close() error {
+	close(db.gcStop)
+	return db.Backend.Close()
 }
 
 // ListFolders returns the list of folders currently in the database
@@ -44,6 +69,9 @@ func (db *Lowlevel) ListFolders() []string {
 // updateRemoteFiles adds a list of fileinfos to the database and updates the
 // global versionlist and metadata.
 func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) error {
+	db.gcMut.RLock()
+	defer db.gcMut.RUnlock()
+
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -73,7 +101,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		meta.addFile(devID, f)
 
 		l.Debugf("insert; folder=%q device=%v %v", folder, devID, f)
-		if err := t.Put(dk, mustMarshal(&f)); err != nil {
+		if err := t.putFile(dk, f); err != nil {
 			return err
 		}
 
@@ -97,6 +125,9 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 // updateLocalFiles adds fileinfos to the db, and updates the global versionlist,
 // metadata, sequence and blockmap buckets.
 func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta *metadataTracker) error {
+	db.gcMut.RLock()
+	defer db.gcMut.RUnlock()
+
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -151,7 +182,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		meta.addFile(protocol.LocalDeviceID, f)
 
 		l.Debugf("insert (local); folder=%q %v", folder, f)
-		if err := t.Put(dk, mustMarshal(&f)); err != nil {
+		if err := t.putFile(dk, f); err != nil {
 			return err
 		}
 
@@ -236,12 +267,12 @@ func (db *Lowlevel) withHave(folder, device, prefix []byte, truncate bool, fn It
 			return nil
 		}
 
-		f, err := unmarshalTrunc(dbi.Value(), truncate)
+		fi, err := t.unmarshalTrunc(dbi.Value(), truncate)
 		if err != nil {
 			l.Debugln("unmarshal error:", err)
 			continue
 		}
-		if !fn(f) {
+		if !fn(fi) {
 			return nil
 		}
 	}
@@ -594,6 +625,9 @@ func (db *Lowlevel) withNeedLocal(folder []byte, truncate bool, fn Iterator) err
 }
 
 func (db *Lowlevel) dropFolder(folder []byte) error {
+	db.gcMut.RLock()
+	defer db.gcMut.RUnlock()
+
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -649,6 +683,9 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 }
 
 func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracker) error {
+	db.gcMut.RLock()
+	defer db.gcMut.RUnlock()
+
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -824,16 +861,96 @@ func (db *Lowlevel) dropPrefix(prefix []byte) error {
 	return t.commit()
 }
 
-func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
-	if truncate {
-		var tf FileInfoTruncated
-		err := tf.Unmarshal(bs)
-		return tf, err
+func (db *Lowlevel) gcRunner() {
+	t := time.NewTicker(blockGCInterval)
+	defer t.Stop()
+	for {
+		select {
+		case <-db.gcStop:
+			return
+		case <-t.C:
+			if err := db.gcBlocks(); err != nil {
+				l.Warnln("Database block GC failed:", err)
+			}
+		}
+	}
+}
+
+func (db *Lowlevel) gcBlocks() error {
+	// The block GC uses a bloom filter to track used block lists. This means
+	// iterating over all items, adding their block lists to the filter, then
+	// iterating over the block lists and removing those that don't match the
+	// filter. The filter will give false positives so we will keep around one
+	// percent of block lists that we don't really need (at most).
+	//
+	// Block GC needs to run when there are no modifications to the FileInfos or
+	// block lists.
+
+	db.gcMut.Lock()
+	defer db.gcMut.Unlock()
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.Release()
+
+	// Set up the bloom filter with the initial capacity and false positive
+	// rate, or higher capacity if we've done this before and seen lots of block
+	// lists.
+
+	capacity := blockGCBloomCapacity
+	if db.gcKeyCount > capacity {
+		capacity = db.gcKeyCount
+	}
+	filter := bloom.NewWithEstimates(uint(capacity), blockGCBloomFalsePositiveRate)
+
+	// Iterate the FileInfos, unmarshal the block list keys and add them to the
+	// filter.
+
+	it, err := db.NewPrefixIterator([]byte{KeyTypeDevice})
+	if err != nil {
+		return err
+	}
+	for it.Next() {
+		var bl BlockListKeyOnly
+		if err := bl.Unmarshal(it.Value()); err != nil {
+			return err
+		}
+		filter.Add(bl.BlockListKey)
+	}
+	it.Release()
+	if err := it.Error(); err != nil {
+		return err
 	}
 
-	var tf protocol.FileInfo
-	err := tf.Unmarshal(bs)
-	return tf, err
+	// Iterate over block lists, removing keys that don't match the filter.
+
+	it, err = db.NewPrefixIterator([]byte{KeyTypeBlockList})
+	if err != nil {
+		return err
+	}
+	matched := 0
+	for it.Next() {
+		if filter.Test(it.Key()) {
+			matched++
+		} else {
+			t.Delete(it.Key())
+		}
+	}
+	it.Release()
+	if err := it.Error(); err != nil {
+		return err
+	}
+
+	// Remember the number of unique keys we kept until the next pass.
+	db.gcKeyCount = matched
+
+	if err := t.Commit(); err != nil {
+		return err
+	}
+
+	return db.Compact()
 }
 
 func unmarshalVersionList(data []byte) (VersionList, bool) {

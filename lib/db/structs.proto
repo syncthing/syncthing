@@ -40,11 +40,22 @@ message FileInfoTruncated {
     int32                 block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
 
     // see bep.proto
-    uint32 local_flags = 1000;
+    uint32   local_flags    = 1000;
+    // bytes block_list_key = 1001;
 
     bool deleted        = 6;
     bool invalid        = 7 [(gogoproto.customname) = "RawInvalid"];
     bool no_permissions = 8;
+}
+
+// BlockList is the structure used to store block lists
+message BlockList {
+    repeated protocol.BlockInfo Blocks = 1 [(gogoproto.nullable) = false];
+}
+
+// BlockListKeyOnly is used to unly unmarshal the block list key from a FileInfo
+message BlockListKeyOnly {
+    bytes block_list_key = 1001;
 }
 
 // For each folder and device we keep one of these to track the current

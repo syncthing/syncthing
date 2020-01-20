@@ -81,6 +81,10 @@ func (b *leveldbBackend) Delete(key []byte) error {
 	return wrapLeveldbErr(b.ldb.Delete(key, nil))
 }
 
+func (b *leveldbBackend) Compact() error {
+	return wrapLeveldbErr(b.ldb.CompactRange(util.Range{}))
+}
+
 // leveldbSnapshot implements backend.ReadTransaction
 type leveldbSnapshot struct {
 	snap *leveldb.Snapshot

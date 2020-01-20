@@ -118,6 +118,9 @@ message FileInfo {
     // received (we make sure to zero it), nonetheless we need it on our
     // struct and to be able to serialize it to/from the database.
     uint32 local_flags = 1000;
+    // The block list key is used in the database only and not sent over the
+    // wire.
+    bytes block_list_key = 1001;
 
     bool deleted        = 6;
     bool invalid        = 7 [(gogoproto.customname) = "RawInvalid"];

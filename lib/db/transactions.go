@@ -9,6 +9,7 @@ package db
 import (
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 // A readOnlyTransaction represents a database snapshot.
@@ -56,11 +57,48 @@ func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, boo
 	if err != nil {
 		return nil, false, err
 	}
-	f, err := unmarshalTrunc(bs, trunc)
+	f, err := t.unmarshalTrunc(bs, trunc)
 	if err != nil {
 		return nil, false, err
 	}
 	return f, true, nil
+}
+
+func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (FileIntf, error) {
+	if trunc {
+		var tf FileInfoTruncated
+		err := tf.Unmarshal(bs)
+		if err != nil {
+			return nil, err
+		}
+		return tf, nil
+	}
+
+	var tf protocol.FileInfo
+	if err := tf.Unmarshal(bs); err != nil {
+		return nil, err
+	}
+	if err := t.fillBlockList(&tf); err != nil {
+		return nil, err
+	}
+	return tf, nil
+}
+
+func (t readOnlyTransaction) fillBlockList(fi *protocol.FileInfo) error {
+	if fi.BlockListKey == nil {
+		return nil
+	}
+	bs, err := t.Get(fi.BlockListKey)
+	if err != nil {
+		return err
+	}
+	var bl BlockList
+	if err := bl.Unmarshal(bs); err != nil {
+		return err
+	}
+	fi.Blocks = bl.Blocks
+	fi.BlockListKey = nil
+	return nil
 }
 
 func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool, error) {
@@ -124,6 +162,32 @@ func (t readWriteTransaction) commit() error {
 func (t readWriteTransaction) close() {
 	t.readOnlyTransaction.close()
 	t.WriteTransaction.Release()
+}
+
+func (t readWriteTransaction) putFile(key []byte, fi protocol.FileInfo) error {
+	if fi.Blocks != nil {
+		// Marshal the block list and calculate the block list key
+		blocksBs := mustMarshal(&BlockList{Blocks: fi.Blocks})
+		hash := sha256.Sum256(blocksBs)
+		blocksKey := t.keyer.GenerateBlockListKey(nil, &hash)
+
+		// Check if the block list already exists, or
+		// write the new one.
+		if _, err := t.Get(blocksKey); backend.IsNotFound(err) {
+			if err := t.Put(blocksKey, blocksBs); err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
+		}
+
+		// Update the FileInfo for marshalling
+		fi.BlockListKey = blocksKey
+		fi.Blocks = nil
+	}
+
+	fiBs := mustMarshal(&fi)
+	return t.Put(key, fiBs)
 }
 
 // updateGlobal adds this device+version to the version list for the given
