@@ -5,11 +5,11 @@ angular.module('syncthing.core')
             scope: {
                 isDirectory: "=",
                 name: "@",
-                folderId: "@"
+                show: "&",
             },
             template: `
                 <div ng-if="isDirectory">
-                    <a href="#" ng-click="setCurrentFolderAndGetContents(folderId, name)">
+                    <a href="#" ng-click="show()">
                         <span style="margin:10px;" class="fas fa-folder"></span>
                         <span>{{name}}</span>
                     </a>

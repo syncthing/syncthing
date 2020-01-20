@@ -6,7 +6,7 @@
                 <td tree-element
                     is-directory="file.isDirectory"
                     name="{{file.name}}"
-                    folder-id="{{currentFolder.id}}"
+                    show="setCurrentFolderAndGetContents(currentFolder.id, currentPath + '/' + file.name)"
                 >
                 </td>
             </tr>
@@ -15,7 +15,9 @@
 
     </div>
     <div class="modal-footer">
-        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal" ng-if="!currentFolder.topLevel">
+        <button type="button" class="btn btn-default btn-sm" ng-if="!currentFolder.topLevel"
+            ng-click="setCurrentFolderAndGetContents(currentFolder.id, backPath)"
+        >
             <span class="fas fa-arrow-left"></span>&nbsp;<span translate>Back</span>
         </button>
         <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
