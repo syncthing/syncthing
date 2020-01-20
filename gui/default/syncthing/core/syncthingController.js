@@ -53,8 +53,8 @@ angular.module('syncthing.core')
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
         $scope.currentFolder = {};
-        $scope.currentPath = '';
-        $scope.backPath = '';
+        $scope.currentFolderPrefix = '';
+        $scope.parentFolderPrefix = null;
 
         resetRemoteNeed();
 
@@ -1088,25 +1088,17 @@ angular.module('syncthing.core')
         };
 
         $scope.setCurrentFolderAndGetContents = function (id, prefix) {
-            console.log($scope.folders);
-            console.log("id", id, "prefix", prefix);
-
-            $scope.currentPath = prefix;
+            $scope.currentFolderPrefix = prefix;
             $scope.currentFolder = angular.copy($scope.folders[id]);
 
             let position = prefix.lastIndexOf("/");
             if (position !== -1) {
-                $scope.backPath = prefix.substr(0, position);
+                $scope.parentFolderPrefix = prefix.substr(0, position);
+            } else {
+                $scope.parentFolderPrefix = null;
             }
 
-            $scope.currentFolder.topLevel = true;
-            let prefixArg = "";
-
-            if (prefix !== "") {
-                $scope.currentFolder.topLevel = false;
-                prefixArg = "&prefix=" + prefix.substr(1);
-            }
-
+            let prefixArg = (prefix !== "") ? "&prefix=" + prefix.substr(1) : "";
             $http.get(urlbase + '/db/browse?folder=' + id + "&levels=0" + prefixArg).success(function (data) {
                 $scope.currentFolder.content = data;
             }).error($scope.emitHTTPError);
