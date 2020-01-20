@@ -218,7 +218,7 @@ func (t *ProgressEmitter) CommitConfiguration(_, to config.Configuration) bool {
 	}
 	t.minBlocks = to.Options.TempIndexMinBlocks
 	if t.interval < time.Second {
-		// can't happen
+		// can't happen when we're not disabled, but better safe than sorry.
 		t.interval = time.Second
 	}
 
