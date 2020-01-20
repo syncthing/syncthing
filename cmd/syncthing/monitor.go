@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -50,6 +51,9 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 	logFile := runtimeOptions.logFile
 	if logFile != "-" {
+		if expanded, err := fs.ExpandTilde(logFile); err == nil {
+			logFile = expanded
+		}
 		var fileDst io.Writer
 		if runtimeOptions.logMaxSize > 0 {
 			open := func(name string) (io.WriteCloser, error) {
@@ -79,7 +83,6 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 	var restarts [countRestarts]time.Time
 
 	stopSign := make(chan os.Signal, 1)
-	sigTerm := syscall.Signal(15)
 	signal.Notify(stopSign, os.Interrupt, sigTerm)
 	restartSign := make(chan os.Signal, 1)
 	sigHup := syscall.Signal(1)
@@ -111,7 +114,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			panic(err)
 		}
 
-		l.Infoln("Starting syncthing")
+		l.Debugln("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
 			l.Warnln("Error starting the main Syncthing process:", err)
@@ -144,12 +147,13 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			exit <- cmd.Wait()
 		}()
 
+		stopped := false
 		select {
 		case s := <-stopSign:
 			l.Infof("Signal %d received; exiting", s)
 			cmd.Process.Signal(sigTerm)
-			<-exit
-			return
+			err = <-exit
+			stopped = true
 
 		case s := <-restartSign:
 			l.Infof("Signal %d received; restarting", s)
@@ -157,20 +161,31 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			err = <-exit
 
 		case err = <-exit:
-			if err == nil {
-				// Successful exit indicates an intentional shutdown
-				return
-			} else if exiterr, ok := err.(*exec.ExitError); ok {
-				if exiterr.ExitCode() == syncthing.ExitUpgrade.AsInt() {
-					// Restart the monitor process to release the .old
-					// binary as part of the upgrade process.
-					l.Infoln("Restarting monitor...")
-					if err = restartMonitor(args); err != nil {
-						l.Warnln("Restart:", err)
-					}
-					return
-				}
+		}
+
+		if err == nil {
+			// Successful exit indicates an intentional shutdown
+			os.Exit(syncthing.ExitSuccess.AsInt())
+		}
+
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			exitCode := exiterr.ExitCode()
+			if stopped || runtimeOptions.noRestart {
+				os.Exit(exitCode)
 			}
+			if exitCode == syncthing.ExitUpgrade.AsInt() {
+				// Restart the monitor process to release the .old
+				// binary as part of the upgrade process.
+				l.Infoln("Restarting monitor...")
+				if err = restartMonitor(args); err != nil {
+					l.Warnln("Restart:", err)
+				}
+				os.Exit(exitCode)
+			}
+		}
+
+		if runtimeOptions.noRestart {
+			os.Exit(syncthing.ExitError.AsInt())
 		}
 
 		l.Infoln("Syncthing exited:", err)
