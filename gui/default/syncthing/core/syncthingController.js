@@ -1084,9 +1084,12 @@ angular.module('syncthing.core')
             return deviceID.substr(0, 6);
         };
 
-        $scope.setCurrentFolderAndGetContents = function (id) {
+        $scope.setCurrentFolderAndGetContents = function (id, prefix) {
             $scope.currentFolder = angular.copy($scope.folders[id]);
-            $http.get(urlbase + '/db/browse?folder=' + id + "&levels=3").success(function (data) {
+            $scope.currentFolder.topLevel = (prefix === "");
+            var prefixArg = (prefix !== "") ? ("&prefix=" + prefix) : "";
+
+            $http.get(urlbase + '/db/browse?folder=' + id + "&levels=0" + prefixArg).success(function (data) {
                 $scope.currentFolder.content = data;
             }).error($scope.emitHTTPError);
         };

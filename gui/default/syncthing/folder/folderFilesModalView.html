@@ -1,20 +1,25 @@
-<modal id="folderFiles" status="default" icon="fas fa-cog" heading="{{'Files setup' | translate}}" large="yes" closeable="yes">
-    <div className="modal-body">
-        <table className="table table-condensed table-striped table-auto">
+<modal id="folderFiles" status="default" icon="fas fa-cog" heading="{{'Included files' | translate}}" large="yes" closeable="yes">
+    <div class="modal-body">
+        <table class="table table-condensed table-striped table-auto">
             <tbody>
             <tr ng-repeat="file in currentFolder.content">
-                <th>{{file}}</th>
-                <th></th>
+                <td tree-element
+                    is-directory="file.isDirectory"
+                    name="{{file.name}}"
+                    folder-id="{{currentFolder.id}}"
+                >
+                </td>
             </tr>
-            nehehehe, {{currentFolder.content}}, {{currentFolder.id}}
             </tbody>
         </table>
 
-        <tree></tree>
     </div>
-    <div className="modal-footer">
-        <button type="button" className="btn btn-default btn-sm" data-dismiss="modal">
-            <span className="fas fa-times"></span>&nbsp;<span translate>Close</span>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal" ng-if="!currentFolder.topLevel">
+            <span class="fas fa-arrow-left"></span>&nbsp;<span translate>Back</span>
+        </button>
+        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+            <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
         </button>
     </div>
 </modal>
