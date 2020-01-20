@@ -76,7 +76,7 @@ func (f FileInfoTruncated) ShouldConflict() bool {
 }
 
 func (f FileInfoTruncated) IsHidden() bool {
-	return f.Attributes & protocol.FileAttributeHidden != 0
+	return f.Hidden
 }
 
 func (f FileInfoTruncated) HasPermissionBits() bool {

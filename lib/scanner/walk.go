@@ -608,11 +608,11 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (prot
 		f.NoPermissions = true // Symlinks don't have permissions of their own
 		return f, nil
 	}
-	attrs, err := filesystem.GetAttributes(name)
+	hidden, err := filesystem.IsHidden(f.Name)
 	if err != nil {
 		return protocol.FileInfo{}, err
 	}
-	f.Attributes = (f.Attributes &^ protocol.FileAttributeBitMask) & attrs
+	f.Hidden = hidden
 	f.Permissions = uint32(fi.Mode() & fs.ModePerm)
 	f.ModifiedS = fi.ModTime().Unix()
 	f.ModifiedNs = int32(fi.ModTime().Nanosecond())

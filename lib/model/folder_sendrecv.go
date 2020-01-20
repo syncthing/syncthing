@@ -1501,10 +1501,6 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		}
 	}
 
-	if err := applyAttributes(file, tempName, f.fs); err != nil {
-		return err
-	}
-
 	// Copy the parent owner and group, if we are supposed to do that.
 	if err := f.maybeCopyOwner(tempName); err != nil {
 		return err
@@ -1543,6 +1539,15 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 	// leave the temp file in place for reuse.
 	if err := osutil.RenameOrCopy(f.fs, f.fs, tempName, file.Name); err != nil {
 		return err
+	}
+
+	if file.IsHidden() {
+		// file was already 'unhidden' by (sharedPullerState).finalClose()
+		// in (sendReceiveFolder).finisherRoutine(), so we need to hide it again
+		err := f.fs.Hide(tempName)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Set the correct timestamp on the new file
@@ -1591,20 +1596,6 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 			})
 		}
 	}
-}
-
-func applyAttributes(file protocol.FileInfo, filename string, fs fs.Filesystem) error {
-	if file.IsHidden() {
-		if err := fs.Hide(filename); err != nil {
-			return err
-		}
-	} else {
-		if err := fs.Unhide(filename); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // Moves the given filename to the front of the job queue

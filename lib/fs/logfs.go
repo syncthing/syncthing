@@ -146,6 +146,12 @@ func (fs *logFilesystem) Hide(name string) error {
 	return err
 }
 
+func (fs *logFilesystem) IsHidden(name string) (bool, error) {
+	hidden, err := fs.Filesystem.IsHidden(name)
+	l.Debugln(getCaller(), fs.Type(), fs.URI(), "IsHidden", name, hidden, err)
+	return hidden, err
+}
+
 func (fs *logFilesystem) Glob(name string) ([]string, error) {
 	names, err := fs.Filesystem.Glob(name)
 	l.Debugln(getCaller(), fs.Type(), fs.URI(), "Glob", name, names, err)

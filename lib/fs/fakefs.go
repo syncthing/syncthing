@@ -547,15 +547,8 @@ func (fs *fakefs) Unhide(name string) error {
 	return nil
 }
 
-
-func (fs *fakefs) GetAttributes(name string) (uint32, error) {
-    // noop for now
-    return 0, nil
-}
-
-func (fs *fakefs) SetAttributes(name string, f_attrs uint32, mask uint32) error {
-    // noop for now
-    return nil
+func (fs *fakefs) IsHidden(name string) (bool, error) {
+	return false, nil
 }
 
 func (fs *fakefs) Glob(pattern string) ([]string, error) {

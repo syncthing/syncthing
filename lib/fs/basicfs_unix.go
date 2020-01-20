@@ -9,7 +9,6 @@
 package fs
 
 import (
-	"github.com/syncthing/syncthing/lib/protocol"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,20 +52,13 @@ func (f *BasicFilesystem) Hide(name string) error {
 	return err
 }
 
-func (f *BasicFilesystem) GetAttributes(name string) (uint32, error) {
-	var f_attrs uint32 = 0
-	// for now, only the 'hidden' attribute is supported
-	if name[0:1] == "." {
-		f_attrs &= protocol.FileAttributeHidden
+func (f *BasicFilesystem) IsHidden(name string) (bool, error) {
+	fileInfo, err := f.Stat(name)
+	if err != nil {
+		return false, err
 	}
-	return f_attrs, nil
-}
-
-func (f *BasicFilesystem) SetAttributes(name string, f_attrs uint32, mask uint32) error {
-	//  noop, since only the 'hidden' attribute is supported by the protocol right now
-	// and making a file 'hidden' on unix systems would need to change the name of a file,
-	// which is unintended.
-	return nil
+	name = fileInfo.Name()
+	return name[0:1] == ".", nil
 }
 
 func (f *BasicFilesystem) Roots() ([]string, error) {

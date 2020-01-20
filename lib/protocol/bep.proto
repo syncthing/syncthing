@@ -110,7 +110,6 @@ message FileInfo {
     string             symlink_target = 17;
     FileInfoType       type           = 2;
     uint32             permissions    = 4;
-    uint32             attributes     = 18;
     int32              modified_ns    = 11;
     int32              block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
 
@@ -123,6 +122,7 @@ message FileInfo {
     bool deleted        = 6;
     bool invalid        = 7 [(gogoproto.customname) = "RawInvalid"];
     bool no_permissions = 8;
+    bool hidden         = 18;
 }
 
 enum FileInfoType {
