@@ -22,7 +22,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.2.0
-	github.com/lucas-clemente/quic-go v0.12.1
+	github.com/lucas-clemente/quic-go v0.14.1
 	github.com/maruel/panicparse v1.3.0
 	github.com/mattn/go-isatty v0.0.11
 	github.com/minio/sha256-simd v0.1.1
@@ -48,5 +48,7 @@ require (
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/ldap.v2 v2.5.1
 )
+
+replace crypto/ed25519 => golang.org/x/crypto/ed25519 v0.0.0
 
 go 1.12
