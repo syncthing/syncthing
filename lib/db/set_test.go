@@ -46,7 +46,9 @@ func genBlocks(n int) []protocol.BlockInfo {
 
 func globalList(s *db.FileSet) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	s.WithGlobal(func(fi db.FileIntf) bool {
+	snap := s.Snapshot()
+	defer snap.Release()
+	snap.WithGlobal(func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		fs = append(fs, f)
 		return true
@@ -55,7 +57,9 @@ func globalList(s *db.FileSet) []protocol.FileInfo {
 }
 func globalListPrefixed(s *db.FileSet, prefix string) []db.FileInfoTruncated {
 	var fs []db.FileInfoTruncated
-	s.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
+	snap := s.Snapshot()
+	defer snap.Release()
+	snap.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 		fs = append(fs, f)
 		return true
@@ -65,7 +69,9 @@ func globalListPrefixed(s *db.FileSet, prefix string) []db.FileInfoTruncated {
 
 func haveList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	s.WithHave(n, func(fi db.FileIntf) bool {
+	snap := s.Snapshot()
+	defer snap.Release()
+	snap.WithHave(n, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		fs = append(fs, f)
 		return true
@@ -75,7 +81,9 @@ func haveList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 
 func haveListPrefixed(s *db.FileSet, n protocol.DeviceID, prefix string) []db.FileInfoTruncated {
 	var fs []db.FileInfoTruncated
-	s.WithPrefixedHaveTruncated(n, prefix, func(fi db.FileIntf) bool {
+	snap := s.Snapshot()
+	defer snap.Release()
+	snap.WithPrefixedHaveTruncated(n, prefix, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 		fs = append(fs, f)
 		return true
@@ -85,7 +93,9 @@ func haveListPrefixed(s *db.FileSet, n protocol.DeviceID, prefix string) []db.Fi
 
 func needList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	s.WithNeed(n, func(fi db.FileIntf) bool {
+	snap := s.Snapshot()
+	defer snap.Release()
+	snap.WithNeed(n, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		fs = append(fs, f)
 		return true
@@ -206,7 +216,7 @@ func TestGlobalSet(t *testing.T) {
 		}
 		globalBytes += f.FileSize()
 	}
-	gs := m.GlobalSize()
+	gs := globalSize(m)
 	if gs.Files != globalFiles {
 		t.Errorf("Incorrect GlobalSize files; %d != %d", gs.Files, globalFiles)
 	}
@@ -242,7 +252,7 @@ func TestGlobalSet(t *testing.T) {
 		}
 		haveBytes += f.FileSize()
 	}
-	ls := m.LocalSize()
+	ls := localSize(m)
 	if ls.Files != haveFiles {
 		t.Errorf("Incorrect LocalSize files; %d != %d", ls.Files, haveFiles)
 	}
@@ -277,7 +287,9 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", n, expectedRemoteNeed)
 	}
 
-	f, ok := m.Get(protocol.LocalDeviceID, "b")
+	snap := m.Snapshot()
+	defer snap.Release()
+	f, ok := snap.Get(protocol.LocalDeviceID, "b")
 	if !ok {
 		t.Error("Unexpectedly not OK")
 	}
@@ -285,7 +297,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, localTot[1])
 	}
 
-	f, ok = m.Get(remoteDevice0, "b")
+	f, ok = snap.Get(remoteDevice0, "b")
 	if !ok {
 		t.Error("Unexpectedly not OK")
 	}
@@ -293,7 +305,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, remote1[0])
 	}
 
-	f, ok = m.GetGlobal("b")
+	f, ok = snap.GetGlobal("b")
 	if !ok {
 		t.Error("Unexpectedly not OK")
 	}
@@ -301,7 +313,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("GetGlobal incorrect;\n A: %v !=\n E: %v", f, remote1[0])
 	}
 
-	f, ok = m.Get(protocol.LocalDeviceID, "zz")
+	f, ok = snap.Get(protocol.LocalDeviceID, "zz")
 	if ok {
 		t.Error("Unexpectedly OK")
 	}
@@ -309,7 +321,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, protocol.FileInfo{})
 	}
 
-	f, ok = m.GetGlobal("zz")
+	f, ok = snap.GetGlobal("zz")
 	if ok {
 		t.Error("Unexpectedly OK")
 	}
@@ -318,15 +330,15 @@ func TestGlobalSet(t *testing.T) {
 	}
 
 	av := []protocol.DeviceID{protocol.LocalDeviceID, remoteDevice0}
-	a := m.Availability("a")
+	a := snap.Availability("a")
 	if !(len(a) == 2 && (a[0] == av[0] && a[1] == av[1] || a[0] == av[1] && a[1] == av[0])) {
 		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, av)
 	}
-	a = m.Availability("b")
+	a = snap.Availability("b")
 	if len(a) != 1 || a[0] != remoteDevice0 {
 		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, remoteDevice0)
 	}
-	a = m.Availability("d")
+	a = snap.Availability("d")
 	if len(a) != 1 || a[0] != protocol.LocalDeviceID {
 		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, protocol.LocalDeviceID)
 	}
@@ -446,19 +458,22 @@ func TestInvalidAvailability(t *testing.T) {
 	replace(s, remoteDevice0, remote0Have)
 	replace(s, remoteDevice1, remote1Have)
 
-	if av := s.Availability("both"); len(av) != 2 {
+	snap := s.Snapshot()
+	defer snap.Release()
+
+	if av := snap.Availability("both"); len(av) != 2 {
 		t.Error("Incorrect availability for 'both':", av)
 	}
 
-	if av := s.Availability("r0only"); len(av) != 1 || av[0] != remoteDevice0 {
+	if av := snap.Availability("r0only"); len(av) != 1 || av[0] != remoteDevice0 {
 		t.Error("Incorrect availability for 'r0only':", av)
 	}
 
-	if av := s.Availability("r1only"); len(av) != 1 || av[0] != remoteDevice1 {
+	if av := snap.Availability("r1only"); len(av) != 1 || av[0] != remoteDevice1 {
 		t.Error("Incorrect availability for 'r1only':", av)
 	}
 
-	if av := s.Availability("none"); len(av) != 0 {
+	if av := snap.Availability("none"); len(av) != 0 {
 		t.Error("Incorrect availability for 'none':", av)
 	}
 }
@@ -826,20 +841,20 @@ func TestIssue4701(t *testing.T) {
 
 	s.Update(protocol.LocalDeviceID, localHave)
 
-	if c := s.LocalSize(); c.Files != 1 {
+	if c := localSize(s); c.Files != 1 {
 		t.Errorf("Expected 1 local file, got %v", c.Files)
 	}
-	if c := s.GlobalSize(); c.Files != 1 {
+	if c := globalSize(s); c.Files != 1 {
 		t.Errorf("Expected 1 global file, got %v", c.Files)
 	}
 
 	localHave[1].LocalFlags = 0
 	s.Update(protocol.LocalDeviceID, localHave)
 
-	if c := s.LocalSize(); c.Files != 2 {
+	if c := localSize(s); c.Files != 2 {
 		t.Errorf("Expected 2 local files, got %v", c.Files)
 	}
-	if c := s.GlobalSize(); c.Files != 2 {
+	if c := globalSize(s); c.Files != 2 {
 		t.Errorf("Expected 2 global files, got %v", c.Files)
 	}
 
@@ -847,10 +862,10 @@ func TestIssue4701(t *testing.T) {
 	localHave[1].LocalFlags = protocol.FlagLocalIgnored
 	s.Update(protocol.LocalDeviceID, localHave)
 
-	if c := s.LocalSize(); c.Files != 0 {
+	if c := localSize(s); c.Files != 0 {
 		t.Errorf("Expected 0 local files, got %v", c.Files)
 	}
-	if c := s.GlobalSize(); c.Files != 0 {
+	if c := globalSize(s); c.Files != 0 {
 		t.Errorf("Expected 0 global files, got %v", c.Files)
 	}
 }
@@ -873,7 +888,9 @@ func TestWithHaveSequence(t *testing.T) {
 	replace(s, protocol.LocalDeviceID, localHave)
 
 	i := 2
-	s.WithHaveSequence(int64(i), func(fi db.FileIntf) bool {
+	snap := s.Snapshot()
+	defer snap.Release()
+	snap.WithHaveSequence(int64(i), func(fi db.FileIntf) bool {
 		if f := fi.(protocol.FileInfo); !f.IsEquivalent(localHave[i-1], 0) {
 			t.Fatalf("Got %v\nExpected %v", f, localHave[i-1])
 		}
@@ -922,13 +939,15 @@ loop:
 			break loop
 		default:
 		}
-		s.WithHaveSequence(prevSeq+1, func(fi db.FileIntf) bool {
+		snap := s.Snapshot()
+		snap.WithHaveSequence(prevSeq+1, func(fi db.FileIntf) bool {
 			if fi.SequenceNo() < prevSeq+1 {
 				t.Fatal("Skipped ", prevSeq+1, fi.SequenceNo())
 			}
 			prevSeq = fi.SequenceNo()
 			return true
 		})
+		snap.Release()
 	}
 }
 
@@ -981,12 +1000,12 @@ func TestMoveGlobalBack(t *testing.T) {
 		t.Error("Expected no need for remote 0, got", need)
 	}
 
-	ls := s.LocalSize()
+	ls := localSize(s)
 	if haveBytes := localHave[0].Size; ls.Bytes != haveBytes {
 		t.Errorf("Incorrect LocalSize bytes; %d != %d", ls.Bytes, haveBytes)
 	}
 
-	gs := s.GlobalSize()
+	gs := globalSize(s)
 	if globalBytes := remote0Have[0].Size; gs.Bytes != globalBytes {
 		t.Errorf("Incorrect GlobalSize bytes; %d != %d", gs.Bytes, globalBytes)
 	}
@@ -1007,12 +1026,12 @@ func TestMoveGlobalBack(t *testing.T) {
 		t.Error("Expected no local need, got", need)
 	}
 
-	ls = s.LocalSize()
+	ls = localSize(s)
 	if haveBytes := localHave[0].Size; ls.Bytes != haveBytes {
 		t.Errorf("Incorrect LocalSize bytes; %d != %d", ls.Bytes, haveBytes)
 	}
 
-	gs = s.GlobalSize()
+	gs = globalSize(s)
 	if globalBytes := localHave[0].Size; gs.Bytes != globalBytes {
 		t.Errorf("Incorrect GlobalSize bytes; %d != %d", gs.Bytes, globalBytes)
 	}
@@ -1106,22 +1125,22 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 	replace(s, protocol.LocalDeviceID, files)
 	replace(s, remote, files)
 
-	if n := s.LocalSize().Files; n != 3 {
+	if n := localSize(s).Files; n != 3 {
 		t.Fatal("expected 3 local files initially, not", n)
 	}
-	if n := s.LocalSize().Bytes; n != 30 {
+	if n := localSize(s).Bytes; n != 30 {
 		t.Fatal("expected 30 local bytes initially, not", n)
 	}
-	if n := s.GlobalSize().Files; n != 3 {
+	if n := globalSize(s).Files; n != 3 {
 		t.Fatal("expected 3 global files initially, not", n)
 	}
-	if n := s.GlobalSize().Bytes; n != 30 {
+	if n := globalSize(s).Bytes; n != 30 {
 		t.Fatal("expected 30 global bytes initially, not", n)
 	}
-	if n := s.ReceiveOnlyChangedSize().Files; n != 0 {
+	if n := receiveOnlyChangedSize(s).Files; n != 0 {
 		t.Fatal("expected 0 receive only changed files initially, not", n)
 	}
-	if n := s.ReceiveOnlyChangedSize().Bytes; n != 0 {
+	if n := receiveOnlyChangedSize(s).Bytes; n != 0 {
 		t.Fatal("expected 0 receive only changed bytes initially, not", n)
 	}
 
@@ -1136,22 +1155,22 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 
 	// Check that we see the files
 
-	if n := s.LocalSize().Files; n != 3 {
+	if n := localSize(s).Files; n != 3 {
 		t.Fatal("expected 3 local files after local change, not", n)
 	}
-	if n := s.LocalSize().Bytes; n != 120 {
+	if n := localSize(s).Bytes; n != 120 {
 		t.Fatal("expected 120 local bytes after local change, not", n)
 	}
-	if n := s.GlobalSize().Files; n != 3 {
+	if n := globalSize(s).Files; n != 3 {
 		t.Fatal("expected 3 global files after local change, not", n)
 	}
-	if n := s.GlobalSize().Bytes; n != 30 {
+	if n := globalSize(s).Bytes; n != 30 {
 		t.Fatal("expected 30 global files after local change, not", n)
 	}
-	if n := s.ReceiveOnlyChangedSize().Files; n != 1 {
+	if n := receiveOnlyChangedSize(s).Files; n != 1 {
 		t.Fatal("expected 1 receive only changed file after local change, not", n)
 	}
-	if n := s.ReceiveOnlyChangedSize().Bytes; n != 100 {
+	if n := receiveOnlyChangedSize(s).Bytes; n != 100 {
 		t.Fatal("expected 100 receive only changed btyes after local change, not", n)
 	}
 
@@ -1167,22 +1186,22 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 
 	// Check that we see the files, same data as initially
 
-	if n := s.LocalSize().Files; n != 3 {
+	if n := localSize(s).Files; n != 3 {
 		t.Fatal("expected 3 local files after revert, not", n)
 	}
-	if n := s.LocalSize().Bytes; n != 30 {
+	if n := localSize(s).Bytes; n != 30 {
 		t.Fatal("expected 30 local bytes after revert, not", n)
 	}
-	if n := s.GlobalSize().Files; n != 3 {
+	if n := globalSize(s).Files; n != 3 {
 		t.Fatal("expected 3 global files after revert, not", n)
 	}
-	if n := s.GlobalSize().Bytes; n != 30 {
+	if n := globalSize(s).Bytes; n != 30 {
 		t.Fatal("expected 30 global bytes after revert, not", n)
 	}
-	if n := s.ReceiveOnlyChangedSize().Files; n != 0 {
+	if n := receiveOnlyChangedSize(s).Files; n != 0 {
 		t.Fatal("expected 0 receive only changed files after revert, not", n)
 	}
-	if n := s.ReceiveOnlyChangedSize().Bytes; n != 0 {
+	if n := receiveOnlyChangedSize(s).Bytes; n != 0 {
 		t.Fatal("expected 0 receive only changed bytes after revert, not", n)
 	}
 }
@@ -1229,7 +1248,7 @@ func TestRemoteInvalidNotAccounted(t *testing.T) {
 	}
 	s.Update(remoteDevice0, files)
 
-	global := s.GlobalSize()
+	global := globalSize(s)
 	if global.Files != 1 {
 		t.Error("Expected one file in global size, not", global.Files)
 	}
@@ -1386,12 +1405,14 @@ func TestSequenceIndex(t *testing.T) {
 		// a subset of those files if we manage to run before a complete
 		// update has happened since our last iteration.
 		latest = latest[:0]
-		s.WithHaveSequence(seq+1, func(f db.FileIntf) bool {
+		snap := s.Snapshot()
+		snap.WithHaveSequence(seq+1, func(f db.FileIntf) bool {
 			seen[f.FileName()] = f
 			latest = append(latest, f)
 			seq = f.SequenceNo()
 			return true
 		})
+		snap.Release()
 
 		// Calculate the spread in sequence number.
 		var max, min int64
@@ -1449,7 +1470,9 @@ func TestIgnoreAfterReceiveOnly(t *testing.T) {
 
 	s.Update(protocol.LocalDeviceID, fs)
 
-	if f, ok := s.Get(protocol.LocalDeviceID, file); !ok {
+	snap := s.Snapshot()
+	defer snap.Release()
+	if f, ok := snap.Get(protocol.LocalDeviceID, file); !ok {
 		t.Error("File missing in db")
 	} else if f.IsReceiveOnlyChanged() {
 		t.Error("File is still receive-only changed")
@@ -1461,4 +1484,22 @@ func TestIgnoreAfterReceiveOnly(t *testing.T) {
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
+}
+
+func localSize(fs *db.FileSet) db.Counts {
+	snap := fs.Snapshot()
+	defer snap.Release()
+	return snap.LocalSize()
+}
+
+func globalSize(fs *db.FileSet) db.Counts {
+	snap := fs.Snapshot()
+	defer snap.Release()
+	return snap.GlobalSize()
+}
+
+func receiveOnlyChangedSize(fs *db.FileSet) db.Counts {
+	snap := fs.Snapshot()
+	defer snap.Release()
+	return snap.ReceiveOnlyChangedSize()
 }
