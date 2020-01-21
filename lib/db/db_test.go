@@ -163,7 +163,7 @@ func TestUpdate0to3(t *testing.T) {
 
 	folder := []byte(update0to3Folder)
 
-	if err := updater.updateSchema0to1(); err != nil {
+	if err := updater.updateSchema0to1(0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -181,7 +181,7 @@ func TestUpdate0to3(t *testing.T) {
 		t.Error("Invalid file wasn't added to global list")
 	}
 
-	if err := updater.updateSchema1to2(); err != nil {
+	if err := updater.updateSchema1to2(1); err != nil {
 		t.Fatal(err)
 	}
 
@@ -204,7 +204,7 @@ func TestUpdate0to3(t *testing.T) {
 		t.Error("Local file wasn't added to sequence bucket", err)
 	}
 
-	if err := updater.updateSchema2to3(); err != nil {
+	if err := updater.updateSchema2to3(2); err != nil {
 		t.Fatal(err)
 	}
 
