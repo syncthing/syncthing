@@ -934,8 +934,10 @@ func (db *Lowlevel) gcBlocks() error {
 	for it.Next() {
 		if filter.Test(it.Key()) {
 			matched++
-		} else {
-			t.Delete(it.Key())
+			continue
+		}
+		if err := t.Delete(it.Key()); err != nil {
+			return err
 		}
 	}
 	it.Release()
