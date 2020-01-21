@@ -49,6 +49,6 @@ require (
 	gopkg.in/ldap.v2 v2.5.1
 )
 
-replace crypto/ed25519 => golang.org/x/crypto/ed25519 v0.0.0
+replace crypto/ed25519 => golang.org/x/crypto/ed25519 v0.0.0+incompatible
 
 go 1.12
