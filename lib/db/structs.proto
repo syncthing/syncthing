@@ -34,14 +34,14 @@ message FileInfoTruncated {
     int64                 sequence       = 10;
     // repeated BlockInfo Blocks         = 16
     string                symlink_target = 17;
+    bytes                 blocks_hash    = 18;
     protocol.FileInfoType type           = 2;
     uint32                permissions    = 4;
     int32                 modified_ns    = 11;
     int32                 block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
 
     // see bep.proto
-    uint32   local_flags    = 1000;
-    // bytes block_list_key = 1001;
+    uint32 local_flags = 1000;
 
     bool deleted        = 6;
     bool invalid        = 7 [(gogoproto.customname) = "RawInvalid"];

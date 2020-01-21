@@ -957,7 +957,6 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 		// The local attributes should never be transmitted over the wire.
 		// Make sure they look like they weren't.
 		fs[i].LocalFlags = 0
-		fs[i].BlockListKey = nil
 	}
 	files.Update(deviceID, fs)
 
@@ -1968,8 +1967,7 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 		if f.IsReceiveOnlyChanged() {
 			f.Version = protocol.Vector{}
 		}
-		f.LocalFlags = 0     // never sent externally
-		f.BlockListKey = nil // never sent externally
+		f.LocalFlags = 0 // never sent externally
 
 		batch.append(f)
 		return true

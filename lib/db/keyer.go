@@ -98,7 +98,7 @@ type keyer interface {
 	GenerateFolderMetaKey(key, folder []byte) (folderMetaKey, error)
 
 	// Block lists
-	GenerateBlockListKey(key []byte, hash *[32]byte) blockListKey
+	GenerateBlockListKey(key []byte, hash []byte) blockListKey
 }
 
 // defaultKeyer implements our key scheme. It needs folder and device
@@ -289,10 +289,10 @@ func (k defaultKeyer) GenerateFolderMetaKey(key, folder []byte) (folderMetaKey, 
 
 type blockListKey []byte
 
-func (k defaultKeyer) GenerateBlockListKey(key []byte, hash *[32]byte) blockListKey {
+func (k defaultKeyer) GenerateBlockListKey(key []byte, hash []byte) blockListKey {
 	key = resize(key, keyPrefixLen+len(hash))
 	key[0] = KeyTypeBlockList
-	copy(key[keyPrefixLen:], hash[:])
+	copy(key[keyPrefixLen:], hash)
 	return key
 }
 

@@ -11,7 +11,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 // A readOnlyTransaction represents a database snapshot.
@@ -87,10 +86,11 @@ func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (FileIntf, er
 }
 
 func (t readOnlyTransaction) fillBlockList(fi *protocol.FileInfo) error {
-	if fi.BlockListKey == nil {
+	if fi.BlocksHash == nil {
 		return nil
 	}
-	bs, err := t.Get(fi.BlockListKey)
+	blocksKey := t.keyer.GenerateBlockListKey(nil, fi.BlocksHash)
+	bs, err := t.Get(blocksKey)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,6 @@ func (t readOnlyTransaction) fillBlockList(fi *protocol.FileInfo) error {
 		return err
 	}
 	fi.Blocks = bl.Blocks
-	fi.BlockListKey = nil
 	return nil
 }
 
@@ -453,26 +452,22 @@ func (t readWriteTransaction) close() {
 
 func (t readWriteTransaction) putFile(key []byte, fi protocol.FileInfo) error {
 	if fi.Blocks != nil {
-		// Marshal the block list and calculate the block list key
-		blocksBs := mustMarshal(&BlockList{Blocks: fi.Blocks})
-		hash := sha256.Sum256(blocksBs)
-		blocksKey := t.keyer.GenerateBlockListKey(nil, &hash)
-
-		// Check if the block list already exists, or
-		// write the new one.
+		if fi.BlocksHash == nil {
+			fi.BlocksHash = protocol.BlocksHash(fi.Blocks)
+		}
+		blocksKey := t.keyer.GenerateBlockListKey(nil, fi.BlocksHash)
 		if _, err := t.Get(blocksKey); backend.IsNotFound(err) {
+			// Marshal the block list and save it
+			blocksBs := mustMarshal(&BlockList{Blocks: fi.Blocks})
 			if err := t.Put(blocksKey, blocksBs); err != nil {
 				return err
 			}
 		} else if err != nil {
 			return err
 		}
-
-		// Update the FileInfo for marshalling
-		fi.BlockListKey = blocksKey
-		fi.Blocks = nil
 	}
 
+	fi.Blocks = nil
 	fiBs := mustMarshal(&fi)
 	return t.Put(key, fiBs)
 }
