@@ -7,6 +7,8 @@
 package db
 
 import (
+	"bytes"
+
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -92,6 +94,291 @@ func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate boo
 		return keyBuf, nil, false, err
 	}
 	return keyBuf, fi, true, nil
+}
+
+func (t *readOnlyTransaction) withHave(folder, device, prefix []byte, truncate bool, fn Iterator) error {
+	if len(prefix) > 0 {
+		unslashedPrefix := prefix
+		if bytes.HasSuffix(prefix, []byte{'/'}) {
+			unslashedPrefix = unslashedPrefix[:len(unslashedPrefix)-1]
+		} else {
+			prefix = append(prefix, '/')
+		}
+
+		key, err := t.keyer.GenerateDeviceFileKey(nil, folder, device, unslashedPrefix)
+		if err != nil {
+			return err
+		}
+		if f, ok, err := t.getFileTrunc(key, true); err != nil {
+			return err
+		} else if ok && !fn(f) {
+			return nil
+		}
+	}
+
+	key, err := t.keyer.GenerateDeviceFileKey(nil, folder, device, prefix)
+	if err != nil {
+		return err
+	}
+	dbi, err := t.NewPrefixIterator(key)
+	if err != nil {
+		return err
+	}
+	defer dbi.Release()
+
+	for dbi.Next() {
+		name := t.keyer.NameFromDeviceFileKey(dbi.Key())
+		if len(prefix) > 0 && !bytes.HasPrefix(name, prefix) {
+			return nil
+		}
+
+		f, err := unmarshalTrunc(dbi.Value(), truncate)
+		if err != nil {
+			l.Debugln("unmarshal error:", err)
+			continue
+		}
+		if !fn(f) {
+			return nil
+		}
+	}
+	return dbi.Error()
+}
+
+func (t *readOnlyTransaction) withHaveSequence(folder []byte, startSeq int64, fn Iterator) error {
+	first, err := t.keyer.GenerateSequenceKey(nil, folder, startSeq)
+	if err != nil {
+		return err
+	}
+	last, err := t.keyer.GenerateSequenceKey(nil, folder, maxInt64)
+	if err != nil {
+		return err
+	}
+	dbi, err := t.NewRangeIterator(first, last)
+	if err != nil {
+		return err
+	}
+	defer dbi.Release()
+
+	for dbi.Next() {
+		f, ok, err := t.getFileByKey(dbi.Value())
+		if err != nil {
+			return err
+		}
+		if !ok {
+			l.Debugln("missing file for sequence number", t.keyer.SequenceFromSequenceKey(dbi.Key()))
+			continue
+		}
+
+		if shouldDebug() {
+			if seq := t.keyer.SequenceFromSequenceKey(dbi.Key()); f.Sequence != seq {
+				l.Warnf("Sequence index corruption (folder %v, file %v): sequence %d != expected %d", string(folder), f.Name, f.Sequence, seq)
+				panic("sequence index corruption")
+			}
+		}
+		if !fn(f) {
+			return nil
+		}
+	}
+	return dbi.Error()
+}
+
+func (t *readOnlyTransaction) withGlobal(folder, prefix []byte, truncate bool, fn Iterator) error {
+	if len(prefix) > 0 {
+		unslashedPrefix := prefix
+		if bytes.HasSuffix(prefix, []byte{'/'}) {
+			unslashedPrefix = unslashedPrefix[:len(unslashedPrefix)-1]
+		} else {
+			prefix = append(prefix, '/')
+		}
+
+		if _, f, ok, err := t.getGlobal(nil, folder, unslashedPrefix, truncate); err != nil {
+			return err
+		} else if ok && !fn(f) {
+			return nil
+		}
+	}
+
+	key, err := t.keyer.GenerateGlobalVersionKey(nil, folder, prefix)
+	if err != nil {
+		return err
+	}
+	dbi, err := t.NewPrefixIterator(key)
+	if err != nil {
+		return err
+	}
+	defer dbi.Release()
+
+	var dk []byte
+	for dbi.Next() {
+		name := t.keyer.NameFromGlobalVersionKey(dbi.Key())
+		if len(prefix) > 0 && !bytes.HasPrefix(name, prefix) {
+			return nil
+		}
+
+		vl, ok := unmarshalVersionList(dbi.Value())
+		if !ok {
+			continue
+		}
+
+		dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, name)
+		if err != nil {
+			return err
+		}
+
+		f, ok, err := t.getFileTrunc(dk, truncate)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+
+		if !fn(f) {
+			return nil
+		}
+	}
+	if err != nil {
+		return err
+	}
+	return dbi.Error()
+}
+
+func (t *readOnlyTransaction) availability(folder, file []byte) ([]protocol.DeviceID, error) {
+	k, err := t.keyer.GenerateGlobalVersionKey(nil, folder, file)
+	if err != nil {
+		return nil, err
+	}
+	bs, err := t.Get(k)
+	if backend.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	vl, ok := unmarshalVersionList(bs)
+	if !ok {
+		return nil, nil
+	}
+
+	var devices []protocol.DeviceID
+	for _, v := range vl.Versions {
+		if !v.Version.Equal(vl.Versions[0].Version) {
+			break
+		}
+		if v.Invalid {
+			continue
+		}
+		n := protocol.DeviceIDFromBytes(v.Device)
+		devices = append(devices, n)
+	}
+
+	return devices, nil
+}
+
+func (t *readOnlyTransaction) withNeed(folder, device []byte, truncate bool, fn Iterator) error {
+	if bytes.Equal(device, protocol.LocalDeviceID[:]) {
+		return t.withNeedLocal(folder, truncate, fn)
+	}
+
+	key, err := t.keyer.GenerateGlobalVersionKey(nil, folder, nil)
+	if err != nil {
+		return err
+	}
+	dbi, err := t.NewPrefixIterator(key.WithoutName())
+	if err != nil {
+		return err
+	}
+	defer dbi.Release()
+
+	var dk []byte
+	devID := protocol.DeviceIDFromBytes(device)
+	for dbi.Next() {
+		vl, ok := unmarshalVersionList(dbi.Value())
+		if !ok {
+			continue
+		}
+
+		haveFV, have := vl.Get(device)
+		// XXX: This marks Concurrent (i.e. conflicting) changes as
+		// needs. Maybe we should do that, but it needs special
+		// handling in the puller.
+		if have && haveFV.Version.GreaterEqual(vl.Versions[0].Version) {
+			continue
+		}
+
+		name := t.keyer.NameFromGlobalVersionKey(dbi.Key())
+		needVersion := vl.Versions[0].Version
+		needDevice := protocol.DeviceIDFromBytes(vl.Versions[0].Device)
+
+		for i := range vl.Versions {
+			if !vl.Versions[i].Version.Equal(needVersion) {
+				// We haven't found a valid copy of the file with the needed version.
+				break
+			}
+
+			if vl.Versions[i].Invalid {
+				// The file is marked invalid, don't use it.
+				continue
+			}
+
+			dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[i].Device, name)
+			if err != nil {
+				return err
+			}
+			gf, ok, err := t.getFileTrunc(dk, truncate)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				continue
+			}
+
+			if gf.IsDeleted() && !have {
+				// We don't need deleted files that we don't have
+				break
+			}
+
+			l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.Invalid, haveFV.Version, needVersion, needDevice)
+
+			if !fn(gf) {
+				return nil
+			}
+
+			// This file is handled, no need to look further in the version list
+			break
+		}
+	}
+	return dbi.Error()
+}
+
+func (t *readOnlyTransaction) withNeedLocal(folder []byte, truncate bool, fn Iterator) error {
+	key, err := t.keyer.GenerateNeedFileKey(nil, folder, nil)
+	if err != nil {
+		return err
+	}
+	dbi, err := t.NewPrefixIterator(key.WithoutName())
+	if err != nil {
+		return err
+	}
+	defer dbi.Release()
+
+	var keyBuf []byte
+	var f FileIntf
+	var ok bool
+	for dbi.Next() {
+		keyBuf, f, ok, err = t.getGlobal(keyBuf, folder, t.keyer.NameFromGlobalVersionKey(dbi.Key()), truncate)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		if !fn(f) {
+			return nil
+		}
+	}
+	return dbi.Error()
 }
 
 // A readWriteTransaction is a readOnlyTransaction plus a batch for writes.
@@ -351,6 +638,65 @@ func (t readWriteTransaction) deleteKeyPrefix(prefix []byte) error {
 		}
 	}
 	return dbi.Error()
+}
+
+func (t *readWriteTransaction) withAllFolderTruncated(folder []byte, fn func(device []byte, f FileInfoTruncated) bool) error {
+	key, err := t.keyer.GenerateDeviceFileKey(nil, folder, nil, nil)
+	if err != nil {
+		return err
+	}
+	dbi, err := t.NewPrefixIterator(key.WithoutNameAndDevice())
+	if err != nil {
+		return err
+	}
+	defer dbi.Release()
+
+	var gk, keyBuf []byte
+	for dbi.Next() {
+		device, ok := t.keyer.DeviceFromDeviceFileKey(dbi.Key())
+		if !ok {
+			// Not having the device in the index is bad. Clear it.
+			if err := t.Delete(dbi.Key()); err != nil {
+				return err
+			}
+			continue
+		}
+		var f FileInfoTruncated
+		// The iterator function may keep a reference to the unmarshalled
+		// struct, which in turn references the buffer it was unmarshalled
+		// from. dbi.Value() just returns an internal slice that it reuses, so
+		// we need to copy it.
+		err := f.Unmarshal(append([]byte{}, dbi.Value()...))
+		if err != nil {
+			return err
+		}
+
+		switch f.Name {
+		case "", ".", "..", "/": // A few obviously invalid filenames
+			l.Infof("Dropping invalid filename %q from database", f.Name)
+			name := []byte(f.Name)
+			gk, err = t.keyer.GenerateGlobalVersionKey(gk, folder, name)
+			if err != nil {
+				return err
+			}
+			keyBuf, err = t.removeFromGlobal(gk, keyBuf, folder, device, name, nil)
+			if err != nil {
+				return err
+			}
+			if err := t.Delete(dbi.Key()); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if !fn(device, f) {
+			return nil
+		}
+	}
+	if err := dbi.Error(); err != nil {
+		return err
+	}
+	return t.commit()
 }
 
 type marshaller interface {

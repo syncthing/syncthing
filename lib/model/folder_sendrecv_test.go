@@ -148,9 +148,8 @@ func TestHandleFile(t *testing.T) {
 	defer cleanupSRFolder(f, m)
 
 	copyChan := make(chan copyBlocksState, 1)
-	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.handleFile(requiredFile, copyChan, dbUpdateChan)
+	f.handleFile(requiredFile, f.fset.Snapshot(), copyChan)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -195,9 +194,8 @@ func TestHandleFileWithTemp(t *testing.T) {
 	}
 
 	copyChan := make(chan copyBlocksState, 1)
-	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.handleFile(requiredFile, copyChan, dbUpdateChan)
+	f.handleFile(requiredFile, f.fset.Snapshot(), copyChan)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -247,13 +245,12 @@ func TestCopierFinder(t *testing.T) {
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, 4)
 	finisherChan := make(chan *sharedPullerState, 1)
-	dbUpdateChan := make(chan dbUpdateJob, 1)
 
 	// Run a single fetcher routine
 	go f.copierRoutine(copyChan, pullChan, finisherChan)
 	defer close(copyChan)
 
-	f.handleFile(requiredFile, copyChan, dbUpdateChan)
+	f.handleFile(requiredFile, f.fset.Snapshot(), copyChan)
 
 	timeout := time.After(10 * time.Second)
 	pulls := make([]pullBlockState, 4)
@@ -378,7 +375,6 @@ func TestWeakHash(t *testing.T) {
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, expectBlocks)
 	finisherChan := make(chan *sharedPullerState, 1)
-	dbUpdateChan := make(chan dbUpdateJob, 1)
 
 	// Run a single fetcher routine
 	go fo.copierRoutine(copyChan, pullChan, finisherChan)
@@ -386,7 +382,7 @@ func TestWeakHash(t *testing.T) {
 
 	// Test 1 - no weak hashing, file gets fully repulled (`expectBlocks` pulls).
 	fo.WeakHashThresholdPct = 101
-	fo.handleFile(desiredFile, copyChan, dbUpdateChan)
+	fo.handleFile(desiredFile, fo.fset.Snapshot(), copyChan)
 
 	var pulls []pullBlockState
 	timeout := time.After(10 * time.Second)
@@ -415,7 +411,7 @@ func TestWeakHash(t *testing.T) {
 
 	// Test 2 - using weak hash, expectPulls blocks pulled.
 	fo.WeakHashThresholdPct = -1
-	fo.handleFile(desiredFile, copyChan, dbUpdateChan)
+	fo.handleFile(desiredFile, fo.fset.Snapshot(), copyChan)
 
 	pulls = pulls[:0]
 	for len(pulls) < expectPulls {
@@ -495,9 +491,10 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	finisherBufferChan := make(chan *sharedPullerState)
 	finisherChan := make(chan *sharedPullerState)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
+	snap := f.fset.Snapshot()
 
 	copyChan, copyWg := startCopier(f, pullChan, finisherBufferChan)
-	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
+	go f.finisherRoutine(snap, finisherChan, dbUpdateChan, make(chan string))
 
 	defer func() {
 		close(copyChan)
@@ -507,7 +504,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		close(finisherChan)
 	}()
 
-	f.handleFile(file, copyChan, dbUpdateChan)
+	f.handleFile(file, snap, copyChan)
 
 	// Receive a block at puller, to indicate that at least a single copier
 	// loop has been performed.
@@ -589,6 +586,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	finisherBufferChan := make(chan *sharedPullerState)
 	finisherChan := make(chan *sharedPullerState)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
+	snap := f.fset.Snapshot()
 
 	copyChan, copyWg := startCopier(f, pullChan, finisherBufferChan)
 	pullWg := sync.NewWaitGroup()
@@ -597,7 +595,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		f.pullerRoutine(pullChan, finisherBufferChan)
 		pullWg.Done()
 	}()
-	go f.finisherRoutine(finisherChan, dbUpdateChan, make(chan string))
+	go f.finisherRoutine(snap, finisherChan, dbUpdateChan, make(chan string))
 	defer func() {
 		// Unblock copier and puller
 		go func() {
@@ -612,7 +610,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		close(finisherChan)
 	}()
 
-	f.handleFile(file, copyChan, dbUpdateChan)
+	f.handleFile(file, snap, copyChan)
 
 	// Receive at finisher, we should error out as puller has nowhere to pull
 	// from.
@@ -693,7 +691,7 @@ func TestIssue3164(t *testing.T) {
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.deleteDir(file, dbUpdateChan, make(chan string))
+	f.deleteDir(file, f.fset.Snapshot(), dbUpdateChan, make(chan string))
 
 	if _, err := ffs.Stat("issue3164"); !fs.IsNotExist(err) {
 		t.Fatal(err)
@@ -832,7 +830,7 @@ func TestCopyOwner(t *testing.T) {
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	defer close(dbUpdateChan)
-	f.handleDir(dir, dbUpdateChan, nil)
+	f.handleDir(dir, f.fset.Snapshot(), dbUpdateChan, nil)
 	<-dbUpdateChan // empty the channel for later
 
 	info, err := f.fs.Lstat("foo/bar")
@@ -858,16 +856,17 @@ func TestCopyOwner(t *testing.T) {
 	// but it's the way data is passed around. When the database update
 	// comes the finisher is done.
 
+	snap := f.fset.Snapshot()
 	finisherChan := make(chan *sharedPullerState)
 	copierChan, copyWg := startCopier(f, nil, finisherChan)
-	go f.finisherRoutine(finisherChan, dbUpdateChan, nil)
+	go f.finisherRoutine(snap, finisherChan, dbUpdateChan, nil)
 	defer func() {
 		close(copierChan)
 		copyWg.Wait()
 		close(finisherChan)
 	}()
 
-	f.handleFile(file, copierChan, nil)
+	f.handleFile(file, snap, copierChan)
 	<-dbUpdateChan
 
 	info, err = f.fs.Lstat("foo/bar/baz")
@@ -886,7 +885,7 @@ func TestCopyOwner(t *testing.T) {
 		SymlinkTarget: "over the rainbow",
 	}
 
-	f.handleSymlink(symlink, dbUpdateChan, nil)
+	f.handleSymlink(symlink, snap, dbUpdateChan, nil)
 	<-dbUpdateChan
 
 	info, err = f.fs.Lstat("foo/bar/sym")
@@ -921,7 +920,7 @@ func TestSRConflictReplaceFileByDir(t *testing.T) {
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	scanChan := make(chan string, 1)
 
-	f.handleDir(file, dbUpdateChan, scanChan)
+	f.handleDir(file, f.fset.Snapshot(), dbUpdateChan, scanChan)
 
 	if confls := existingConflicts(name, ffs); len(confls) != 1 {
 		t.Fatal("Expected one conflict, got", len(confls))
@@ -954,7 +953,7 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	scanChan := make(chan string, 1)
 
-	f.handleSymlink(file, dbUpdateChan, scanChan)
+	f.handleSymlink(file, f.fset.Snapshot(), dbUpdateChan, scanChan)
 
 	if confls := existingConflicts(name, ffs); len(confls) != 1 {
 		t.Fatal("Expected one conflict, got", len(confls))
@@ -996,7 +995,7 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	fi.Version = fi.Version.Update(device1.Short())
 	scanChan := make(chan string, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
-	f.deleteFile(fi, dbUpdateChan, scanChan)
+	f.deleteFile(fi, f.fset.Snapshot(), dbUpdateChan, scanChan)
 	select {
 	case f := <-scanChan:
 		t.Fatalf("Received %v on scanChan", f)

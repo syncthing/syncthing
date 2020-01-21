@@ -15,12 +15,16 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-// metadataTracker keeps metadata on a per device, per local flag basis.
-type metadataTracker struct {
-	mut     sync.RWMutex
+type countsMap struct {
 	counts  CountsSet
 	indexes map[metaKey]int // device ID + local flags -> index in counts
-	dirty   bool
+}
+
+// metadataTracker keeps metadata on a per device, per local flag basis.
+type metadataTracker struct {
+	countsMap
+	mut   sync.RWMutex
+	dirty bool
 }
 
 type metaKey struct {
@@ -30,8 +34,10 @@ type metaKey struct {
 
 func newMetadataTracker() *metadataTracker {
 	return &metadataTracker{
-		mut:     sync.NewRWMutex(),
-		indexes: make(map[metaKey]int),
+		mut: sync.NewRWMutex(),
+		countsMap: countsMap{
+			indexes: make(map[metaKey]int),
+		},
 	}
 }
 
@@ -49,7 +55,7 @@ func (m *metadataTracker) Unmarshal(bs []byte) error {
 	return nil
 }
 
-// Unmarshal returns the protobuf representation of the metadataTracker
+// Marshal returns the protobuf representation of the metadataTracker
 func (m *metadataTracker) Marshal() ([]byte, error) {
 	return m.counts.Marshal()
 }
@@ -260,15 +266,10 @@ func (m *metadataTracker) resetCounts(dev protocol.DeviceID) {
 	m.mut.Unlock()
 }
 
-// Counts returns the counts for the given device ID and flag. `flag` should
-// be zero or have exactly one bit set.
-func (m *metadataTracker) Counts(dev protocol.DeviceID, flag uint32) Counts {
+func (m *countsMap) Counts(dev protocol.DeviceID, flag uint32) Counts {
 	if bits.OnesCount32(flag) > 1 {
 		panic("incorrect usage: set at most one bit in flag")
 	}
-
-	m.mut.RLock()
-	defer m.mut.RUnlock()
 
 	idx, ok := m.indexes[metaKey{dev, flag}]
 	if !ok {
@@ -276,6 +277,37 @@ func (m *metadataTracker) Counts(dev protocol.DeviceID, flag uint32) Counts {
 	}
 
 	return m.counts.Counts[idx]
+}
+
+// Counts returns the counts for the given device ID and flag. `flag` should
+// be zero or have exactly one bit set.
+func (m *metadataTracker) Counts(dev protocol.DeviceID, flag uint32) Counts {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+
+	return m.countsMap.Counts(dev, flag)
+}
+
+// Snapshot returns a copy of the metadata for reading.
+func (m *metadataTracker) Snapshot() *countsMap {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+
+	c := &countsMap{
+		counts: CountsSet{
+			Counts:  make([]Counts, len(m.counts.Counts)),
+			Created: m.counts.Created,
+		},
+		indexes: make(map[metaKey]int, len(m.indexes)),
+	}
+	for k, v := range m.indexes {
+		c.indexes[k] = v
+	}
+	for i := range m.counts.Counts {
+		c.counts.Counts[i] = m.counts.Counts[i]
+	}
+
+	return c
 }
 
 // nextLocalSeq allocates a new local sequence number
@@ -291,26 +323,25 @@ func (m *metadataTracker) nextLocalSeq() int64 {
 // devices returns the list of devices tracked, excluding the local device
 // (which we don't know the ID of)
 func (m *metadataTracker) devices() []protocol.DeviceID {
-	devs := make(map[protocol.DeviceID]struct{}, len(m.counts.Counts))
-
 	m.mut.RLock()
+	defer m.mut.RUnlock()
+	return m.countsMap.devices()
+}
+
+func (m *countsMap) devices() []protocol.DeviceID {
+	devs := make([]protocol.DeviceID, 0, len(m.counts.Counts))
+
 	for _, dev := range m.counts.Counts {
 		if dev.Sequence > 0 {
 			id := protocol.DeviceIDFromBytes(dev.DeviceID)
 			if id == protocol.GlobalDeviceID || id == protocol.LocalDeviceID {
 				continue
 			}
-			devs[id] = struct{}{}
+			devs = append(devs, id)
 		}
 	}
-	m.mut.RUnlock()
 
-	devList := make([]protocol.DeviceID, 0, len(devs))
-	for dev := range devs {
-		devList = append(devList, dev)
-	}
-
-	return devList
+	return devs
 }
 
 func (m *metadataTracker) Created() time.Time {

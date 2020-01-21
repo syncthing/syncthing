@@ -350,6 +350,9 @@ angular.module('syncthing.core')
         var debouncedFuncs = {};
 
         function refreshFolder(folder) {
+            if ($scope.folders[folder].paused) {
+                return;
+            }
             var key = "refreshFolder" + folder;
             if (!debouncedFuncs[key]) {
                 debouncedFuncs[key] = debounce(function () {
@@ -780,10 +783,6 @@ angular.module('syncthing.core')
         };
 
         $scope.folderStatus = function (folderCfg) {
-            if (typeof $scope.model[folderCfg.id] === 'undefined') {
-                return 'unknown';
-            }
-
             if (folderCfg.paused) {
                 return 'paused';
             }
@@ -791,7 +790,7 @@ angular.module('syncthing.core')
             var folderInfo = $scope.model[folderCfg.id];
 
             // after restart syncthing process state may be empty
-            if (!folderInfo.state) {
+            if (typeof folderInfo === 'undefined' || !folderInfo.state) {
                 return 'unknown';
             }
 
