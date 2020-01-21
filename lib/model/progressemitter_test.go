@@ -62,7 +62,7 @@ func TestProgressEmitter(t *testing.T) {
 	c := createTmpWrapper(config.Configuration{})
 	defer os.Remove(c.ConfigPath())
 	c.SetOptions(config.OptionsConfiguration{
-		ProgressUpdateIntervalS: 0,
+		ProgressUpdateIntervalS: 60, // irrelevant, but must be positive
 	})
 
 	p := NewProgressEmitter(c, evLogger)
@@ -112,7 +112,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	c := createTmpWrapper(config.Configuration{})
 	defer os.Remove(c.ConfigPath())
 	c.SetOptions(config.OptionsConfiguration{
-		ProgressUpdateIntervalS: 0,
+		ProgressUpdateIntervalS: 60, // irrelevant, but must be positive
 		TempIndexMinBlocks:      10,
 	})
 

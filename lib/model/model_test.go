@@ -1610,7 +1610,7 @@ func TestROScanRecovery(t *testing.T) {
 
 	testOs.Mkdir(fcfg.Path, 0700)
 
-	waitForState(t, sub, "default", "folder marker missing")
+	waitForState(t, sub, "default", config.ErrMarkerMissing.Error())
 
 	fd := testOs.Create(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 	fd.Close()
@@ -1619,7 +1619,7 @@ func TestROScanRecovery(t *testing.T) {
 
 	testOs.Remove(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 
-	waitForState(t, sub, "default", "folder marker missing")
+	waitForState(t, sub, "default", config.ErrMarkerMissing.Error())
 
 	testOs.Remove(fcfg.Path)
 
@@ -1663,7 +1663,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 	testOs.Mkdir(fcfg.Path, 0700)
 
-	waitForState(t, sub, "default", "folder marker missing")
+	waitForState(t, sub, "default", config.ErrMarkerMissing.Error())
 
 	fd := testOs.Create(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 	fd.Close()
@@ -1672,7 +1672,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 	testOs.Remove(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 
-	waitForState(t, sub, "default", "folder marker missing")
+	waitForState(t, sub, "default", config.ErrMarkerMissing.Error())
 
 	testOs.Remove(fcfg.Path)
 
