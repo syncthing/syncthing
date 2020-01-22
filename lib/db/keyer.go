@@ -296,6 +296,10 @@ func (k defaultKeyer) GenerateBlockListKey(key []byte, hash []byte) blockListKey
 	return key
 }
 
+func (k blockListKey) BlocksHash() []byte {
+	return k[keyPrefixLen:]
+}
+
 // resize returns a byte slice of the specified size, reusing bs if possible
 func resize(bs []byte, size int) []byte {
 	if cap(bs) < size {

@@ -53,9 +53,9 @@ message BlockList {
     repeated protocol.BlockInfo Blocks = 1 [(gogoproto.nullable) = false];
 }
 
-// BlockListKeyOnly is used to unly unmarshal the block list key from a FileInfo
-message BlockListKeyOnly {
-    bytes block_list_key = 1001;
+// BlocksHashOnly is used to only unmarshal the block list hash from a FileInfo
+message BlocksHashOnly {
+    bytes blocks_hash = 18;
 }
 
 // For each folder and device we keep one of these to track the current

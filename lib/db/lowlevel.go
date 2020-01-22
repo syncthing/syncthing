@@ -506,26 +506,27 @@ func (db *Lowlevel) gcBlocks() error {
 	}
 	filter := bloom.NewWithEstimates(uint(capacity), blockGCBloomFalsePositiveRate)
 
-	// Iterate the FileInfos, unmarshal the block list keys and add them to the
-	// filter.
+	// Iterate the FileInfos, unmarshal the blocks hashes and add them to
+	// the filter.
 
 	it, err := db.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
 		return err
 	}
 	for it.Next() {
-		var bl BlockListKeyOnly
+		var bl BlocksHashOnly
 		if err := bl.Unmarshal(it.Value()); err != nil {
 			return err
 		}
-		filter.Add(bl.BlockListKey)
+		filter.Add(bl.BlocksHash)
 	}
 	it.Release()
 	if err := it.Error(); err != nil {
 		return err
 	}
 
-	// Iterate over block lists, removing keys that don't match the filter.
+	// Iterate over block lists, removing keys with hashes that don't match
+	// the filter.
 
 	it, err = db.NewPrefixIterator([]byte{KeyTypeBlockList})
 	if err != nil {
@@ -533,11 +534,12 @@ func (db *Lowlevel) gcBlocks() error {
 	}
 	matched := 0
 	for it.Next() {
-		if filter.Test(it.Key()) {
+		key := blockListKey(it.Key())
+		if filter.Test(key.BlocksHash()) {
 			matched++
 			continue
 		}
-		if err := t.Delete(it.Key()); err != nil {
+		if err := t.Delete(key); err != nil {
 			return err
 		}
 	}
