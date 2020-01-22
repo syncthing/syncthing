@@ -2455,7 +2455,9 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 			currentPrefix = currentPrefix[:len(currentPrefix)-1]
 		}
 
-		breadcrumbs[len(breadcrumbs)-1].Children = append(breadcrumbs[len(breadcrumbs)-1].Children, &tree)
+		if !dirsonly || f.IsDirectory() {
+			breadcrumbs[len(breadcrumbs)-1].Children = append(breadcrumbs[len(breadcrumbs)-1].Children, &tree)
+		}
 
 		if f.IsDirectory() {
 			breadcrumbs = append(breadcrumbs, &tree)
