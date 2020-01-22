@@ -1964,7 +1964,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		}
 	}
 
-	//filedata := []interface{}{time.Unix(0x666, 0).Format(time.RFC3339), 0xa}
+	filedata := []interface{}{time.Unix(0x666, 0).Format(time.RFC3339), 0xa}
 
 	testdata := []protocol.FileInfo{
 		b(true, "another", "directory", "afile"),
@@ -2060,34 +2060,34 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		t.Errorf("Does not match:\n%s\n%s", mm(actual), mm(expected))
 	}
 
-	//result = m.GlobalDirectoryTree("default", "xthis/is/a/deep", -1, false)
-	//currentResult := map[string]interface{}{
-	//	"invalid": map[string]interface{}{
-	//		"file": filedata,
-	//	},
-	//}
-	//
-	//if mm(result) != mm(currentResult) {
-	//	t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
-	//}
-	//
-	//result = m.GlobalDirectoryTree("default", "xthis/is/a/deep", -1, true)
-	//currentResult = map[string]interface{}{
-	//	"invalid": map[string]interface{}{},
-	//}
-	//
-	//if mm(result) != mm(currentResult) {
-	//	t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
-	//}
-	//
-	//// !!! This is actually BAD, because we don't have enough level allowance
-	//// to accept this file, hence the tree is left unbuilt !!!
-	//result = m.GlobalDirectoryTree("default", "xthis", 1, false)
-	//currentResult = map[string]interface{}{}
-	//
-	//if mm(result) != mm(currentResult) {
-	//	t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
-	//}
+	result := m.GlobalDirectoryTree("default", "xthis/is/a/deep", -1, false)
+	currentResult := map[string]interface{}{
+		"invalid": map[string]interface{}{
+			"file": filedata,
+		},
+	}
+
+	if mm(result) != mm(currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	result = m.GlobalDirectoryTree("default", "xthis/is/a/deep", -1, true)
+	currentResult = map[string]interface{}{
+		"invalid": map[string]interface{}{},
+	}
+
+	if mm(result) != mm(currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
+
+	// !!! This is actually BAD, because we don't have enough level allowance
+	// to accept this file, hence the tree is left unbuilt !!!
+	result = m.GlobalDirectoryTree("default", "xthis", 1, false)
+	currentResult = map[string]interface{}{}
+
+	if mm(result) != mm(currentResult) {
+		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+	}
 }
 
 func genDeepFiles(n, d int) []protocol.FileInfo {
