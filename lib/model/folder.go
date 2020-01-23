@@ -281,7 +281,6 @@ func (f *folder) getHealthError() error {
 }
 
 func (f *folder) pull() bool {
-	f.setError(nil)
 	f.setState(FolderSyncWaiting)
 	defer f.setState(FolderIdle)
 
