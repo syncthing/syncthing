@@ -66,12 +66,12 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 	}
 	if dialer == proxy.Direct {
 		conn, err := fallback.DialContext(ctx, network, addr)
-		l.Debugf("Dialing direct result %s %s: %s %s", network, addr, conn, err)
+		l.Debugf("Dialing direct result %s %s: %v %v", network, addr, conn, err)
 		return conn, err
 	}
 	if noFallback {
 		conn, err := dialer.DialContext(ctx, network, addr)
-		l.Debugf("Dialing no fallback result %s %s: %s %s", network, addr, conn, err)
+		l.Debugf("Dialing no fallback result %s %s: %v %v", network, addr, conn, err)
 		return conn, err
 	}
 
@@ -83,12 +83,12 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 	fallbackDone := make(chan struct{})
 	go func() {
 		proxyConn, proxyErr = dialer.DialContext(ctx, network, addr)
-		l.Debugf("Dialing proxy result %s %s: %s %s", network, addr, proxyConn, proxyErr)
+		l.Debugf("Dialing proxy result %s %s: %v %v", network, addr, proxyConn, proxyErr)
 		close(proxyDone)
 	}()
 	go func() {
 		fallbackConn, fallbackErr = fallback.DialContext(ctx, network, addr)
-		l.Debugf("Dialing fallback result %s %s: %s %s", network, addr, fallbackConn, fallbackErr)
+		l.Debugf("Dialing fallback result %s %s: %v %v", network, addr, fallbackConn, fallbackErr)
 		close(fallbackDone)
 	}()
 	<-proxyDone
