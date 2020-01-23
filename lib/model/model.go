@@ -215,7 +215,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
 	}
 	m.Add(m.progressEmitter)
-	scanLimiter.setCapacity(cfg.Options().MaxConcurrentScans)
+	folderIOLimiter.setCapacity(cfg.Options().EffectiveMaxConcurrentFolders())
 
 	return m
 }
@@ -2650,7 +2650,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 	m.fmut.Unlock()
 
-	scanLimiter.setCapacity(to.Options.MaxConcurrentScans)
+	folderIOLimiter.setCapacity(to.Options.EffectiveMaxConcurrentFolders())
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves. Compare the options structs containing only the
