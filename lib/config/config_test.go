@@ -86,8 +86,13 @@ func TestDefaultValues(t *testing.T) {
 
 func TestDeviceConfig(t *testing.T) {
 	for i := OldestHandledVersion; i <= CurrentVersion; i++ {
+		cfgFile := fmt.Sprintf("testdata/v%d.xml", i)
+		if _, err := os.Stat(cfgFile); os.IsNotExist(err) {
+			continue
+		}
+
 		os.RemoveAll(filepath.Join("testdata", DefaultMarkerName))
-		wr, err := load(fmt.Sprintf("testdata/v%d.xml", i), device1)
+		wr, err := load(cfgFile, device1)
 		if err != nil {
 			t.Fatal(err)
 		}
