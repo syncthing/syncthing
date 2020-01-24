@@ -88,7 +88,7 @@ func (m migration) apply(cfg *Configuration) {
 func migrateToConfigV30(cfg *Configuration) {
 	// The "max concurrent scans" option is now spelled "max concurrent
 	// folders" to be more general.
-	cfg.Options.MaxConcurrentFolders = cfg.Options.DeprecatedMaxConcurrentScans
+	cfg.Options.RawMaxConcurrentFolders = cfg.Options.DeprecatedMaxConcurrentScans
 	cfg.Options.DeprecatedMaxConcurrentScans = 0
 }
 

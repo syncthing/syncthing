@@ -1132,6 +1132,27 @@ func TestRemoveDeviceWithEmptyID(t *testing.T) {
 	}
 }
 
+func TestMaxConcurrentFolders(t *testing.T) {
+	cases := []struct {
+		input  int
+		output int
+	}{
+		{input: -42, output: 0},
+		{input: -1, output: 0},
+		{input: 0, output: runtime.GOMAXPROCS(-1)},
+		{input: 1, output: 1},
+		{input: 42, output: 42},
+	}
+
+	for _, tc := range cases {
+		opts := OptionsConfiguration{RawMaxConcurrentFolders: tc.input}
+		res := opts.MaxConcurrentFolders()
+		if res != tc.output {
+			t.Errorf("Wrong MaxConcurrentFolders, %d => %d, expected %d", tc.input, res, tc.output)
+		}
+	}
+}
+
 // defaultConfigAsMap returns a valid default config as a JSON-decoded
 // map[string]interface{}. This is useful to override random elements and
 // re-encode into JSON.

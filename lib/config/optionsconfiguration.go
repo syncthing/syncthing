@@ -53,7 +53,7 @@ type OptionsConfiguration struct {
 	TrafficClass            int      `xml:"trafficClass" json:"trafficClass"`
 	DefaultFolderPath       string   `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 	SetLowPriority          bool     `xml:"setLowPriority" json:"setLowPriority" default:"true"`
-	MaxConcurrentFolders    int      `xml:"maxConcurrentFolders" json:"maxConcurrentFolders"`
+	RawMaxConcurrentFolders int      `xml:"maxConcurrentFolders" json:"maxConcurrentFolders"`
 	CRURL                   string   `xml:"crashReportingURL" json:"crURL" default:"https://crash.syncthing.net/newcrash"` // crash reporting URL
 	CREnabled               bool     `xml:"crashReportingEnabled" json:"crashReportingEnabled" default:"true" restart:"true"`
 	StunKeepaliveStartS     int      `xml:"stunKeepaliveStartS" json:"stunKeepaliveStartS" default:"180"` // 0 for off
@@ -155,10 +155,14 @@ func (opts OptionsConfiguration) GlobalDiscoveryServers() []string {
 	return util.UniqueTrimmedStrings(servers)
 }
 
-func (opts OptionsConfiguration) EffectiveMaxConcurrentFolders() int {
+func (opts OptionsConfiguration) MaxConcurrentFolders() int {
 	// If a value is set, trust that.
-	if opts.MaxConcurrentFolders > 0 {
-		return opts.MaxConcurrentFolders
+	if opts.RawMaxConcurrentFolders > 0 {
+		return opts.RawMaxConcurrentFolders
+	}
+	if opts.RawMaxConcurrentFolders < 0 {
+		// -1 etc means unlimited, which in the implementation means zero
+		return 0
 	}
 	// Otherwise default to the number of CPU cores in the system as a rough
 	// approximation of system powerfullness.
