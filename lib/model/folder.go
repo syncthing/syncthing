@@ -281,6 +281,23 @@ func (f *folder) getHealthError() error {
 }
 
 func (f *folder) pull() bool {
+	select {
+	case <-f.initialScanFinished:
+	default:
+		// Once the initial scan finished, a pull will be scheduled
+		return true
+	}
+
+	// If there is nothing to do, don't even enter sync-waiting state.
+	abort := true
+	f.fset.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+		abort = false
+		return false
+	})
+	if abort {
+		return true
+	}
+
 	f.setState(FolderSyncWaiting)
 	defer f.setState(FolderIdle)
 
