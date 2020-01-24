@@ -140,23 +140,6 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 // pull returns true if it manages to get all needed items from peers, i.e. get
 // the device in sync with the global state.
 func (f *sendReceiveFolder) pull() bool {
-	select {
-	case <-f.initialScanFinished:
-	default:
-		// Once the initial scan finished, a pull will be scheduled
-		return true
-	}
-
-	// If there is nothing to do, don't even enter pulling state.
-	abort := true
-	f.fset.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		abort = false
-		return false
-	})
-	if abort {
-		return true
-	}
-
 	if err := f.CheckHealth(); err != nil {
 		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
 		return false
