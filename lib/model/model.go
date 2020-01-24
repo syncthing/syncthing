@@ -954,8 +954,8 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 		files.Drop(deviceID)
 	}
 	for i := range fs {
-		// The local flags should never be transmitted over the wire. Make
-		// sure they look like they weren't.
+		// The local attributes should never be transmitted over the wire.
+		// Make sure they look like they weren't.
 		fs[i].LocalFlags = 0
 	}
 	files.Update(deviceID, fs)

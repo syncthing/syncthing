@@ -58,11 +58,48 @@ func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, boo
 	if err != nil {
 		return nil, false, err
 	}
-	f, err := unmarshalTrunc(bs, trunc)
+	f, err := t.unmarshalTrunc(bs, trunc)
 	if err != nil {
 		return nil, false, err
 	}
 	return f, true, nil
+}
+
+func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (FileIntf, error) {
+	if trunc {
+		var tf FileInfoTruncated
+		err := tf.Unmarshal(bs)
+		if err != nil {
+			return nil, err
+		}
+		return tf, nil
+	}
+
+	var tf protocol.FileInfo
+	if err := tf.Unmarshal(bs); err != nil {
+		return nil, err
+	}
+	if err := t.fillBlockList(&tf); err != nil {
+		return nil, err
+	}
+	return tf, nil
+}
+
+func (t readOnlyTransaction) fillBlockList(fi *protocol.FileInfo) error {
+	if fi.BlocksHash == nil {
+		return nil
+	}
+	blocksKey := t.keyer.GenerateBlockListKey(nil, fi.BlocksHash)
+	bs, err := t.Get(blocksKey)
+	if err != nil {
+		return err
+	}
+	var bl BlockList
+	if err := bl.Unmarshal(bs); err != nil {
+		return err
+	}
+	fi.Blocks = bl.Blocks
+	return nil
 }
 
 func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool, error) {
@@ -132,7 +169,7 @@ func (t *readOnlyTransaction) withHave(folder, device, prefix []byte, truncate b
 			return nil
 		}
 
-		f, err := unmarshalTrunc(dbi.Value(), truncate)
+		f, err := t.unmarshalTrunc(dbi.Value(), truncate)
 		if err != nil {
 			l.Debugln("unmarshal error:", err)
 			continue
@@ -411,6 +448,28 @@ func (t readWriteTransaction) commit() error {
 func (t readWriteTransaction) close() {
 	t.readOnlyTransaction.close()
 	t.WriteTransaction.Release()
+}
+
+func (t readWriteTransaction) putFile(key []byte, fi protocol.FileInfo) error {
+	if fi.Blocks != nil {
+		if fi.BlocksHash == nil {
+			fi.BlocksHash = protocol.BlocksHash(fi.Blocks)
+		}
+		blocksKey := t.keyer.GenerateBlockListKey(nil, fi.BlocksHash)
+		if _, err := t.Get(blocksKey); backend.IsNotFound(err) {
+			// Marshal the block list and save it
+			blocksBs := mustMarshal(&BlockList{Blocks: fi.Blocks})
+			if err := t.Put(blocksKey, blocksBs); err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
+		}
+	}
+
+	fi.Blocks = nil
+	fiBs := mustMarshal(&fi)
+	return t.Put(key, fiBs)
 }
 
 // updateGlobal adds this device+version to the version list for the given

@@ -59,6 +59,9 @@ const (
 
 	// KeyTypeNeed <int32 folder ID> <file name> = <nothing>
 	KeyTypeNeed = 12
+
+	// KeyTypeBlockList <block list hash> = BlockList
+	KeyTypeBlockList = 13
 )
 
 type keyer interface {
@@ -93,6 +96,9 @@ type keyer interface {
 
 	// Folder metadata
 	GenerateFolderMetaKey(key, folder []byte) (folderMetaKey, error)
+
+	// Block lists
+	GenerateBlockListKey(key []byte, hash []byte) blockListKey
 }
 
 // defaultKeyer implements our key scheme. It needs folder and device
@@ -279,6 +285,19 @@ func (k defaultKeyer) GenerateFolderMetaKey(key, folder []byte) (folderMetaKey, 
 	key[0] = KeyTypeFolderMeta
 	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
 	return key, nil
+}
+
+type blockListKey []byte
+
+func (k defaultKeyer) GenerateBlockListKey(key []byte, hash []byte) blockListKey {
+	key = resize(key, keyPrefixLen+len(hash))
+	key[0] = KeyTypeBlockList
+	copy(key[keyPrefixLen:], hash)
+	return key
+}
+
+func (k blockListKey) BlocksHash() []byte {
+	return k[keyPrefixLen:]
 }
 
 // resize returns a byte slice of the specified size, reusing bs if possible

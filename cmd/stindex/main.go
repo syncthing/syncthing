@@ -35,15 +35,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if mode == "dump" {
+	switch mode {
+	case "dump":
 		dump(ldb)
-	} else if mode == "dumpsize" {
+	case "dumpsize":
 		dumpsize(ldb)
-	} else if mode == "idxck" {
+	case "idxck":
 		if !idxck(ldb) {
 			os.Exit(1)
 		}
-	} else {
+	case "account":
+		account(ldb)
+	default:
 		fmt.Println("Unknown mode")
 	}
 }

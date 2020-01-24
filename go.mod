@@ -35,11 +35,14 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20190826022208-cac0b30c2563
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/shirou/gopsutil v0.0.0-20190714054239-47ef3260b6bf
+	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2
 	github.com/syndtr/goleveldb v1.0.1-0.20190923125748-758128399b1d
 	github.com/thejerf/suture v3.0.2+incompatible
 	github.com/urfave/cli v1.22.2
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
+	github.com/willf/bitset v1.1.10 // indirect
+	github.com/willf/bloom v2.0.3+incompatible
 	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 	golang.org/x/text v0.3.2
