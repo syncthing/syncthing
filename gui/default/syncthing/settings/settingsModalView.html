@@ -259,9 +259,9 @@
               <div class="form-group">
                 <div class="checkbox">
                   <label>
-                    <input id="EnableNotifications" type="checkbox" ng-model="tmpGUI.enableNotifications" ng-disabled="!tmpGUI.supportNotifications" /> <span translate>Enable push notifications</span>
+                    <input id="EnableNotifications" type="checkbox" ng-model="tmpGUI._enableNotifications" ng-disabled="!tmpGUI._supportNotifications" /> <span translate>Enable push notifications</span>
                   </label>
-                  <p class="help-block" ng-if="!tmpGUI.supportNotifications">
+                  <p class="help-block" ng-if="!tmpGUI._supportNotifications">
                     <span translate>Your browser do not support push notifications or your blocked them</span>
                   </p>
                 </div>
