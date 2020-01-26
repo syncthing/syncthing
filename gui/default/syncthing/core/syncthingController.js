@@ -265,6 +265,8 @@ angular.module('syncthing.core')
                     }
                 }
             }
+
+            PushNotifications.setEnabled($scope.config.gui.enableNotifications);
         });
 
         $scope.$on(Events.CONFIG_SAVED, function (event, arg) {
@@ -380,7 +382,6 @@ angular.module('syncthing.core')
             $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
             $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
 
-            $scope.config.gui._enableNotifications = PushNotifications.isEnabled();
             $scope.config.gui._supportNotifications = PushNotifications.isSupported();
 
             $scope.devices = $scope.config.devices;
@@ -1341,7 +1342,7 @@ angular.module('syncthing.core')
                 }
 
                 // Save push notifications preferences in LocalStorage
-                PushNotifications.setEnabled($scope.tmpGUI._enableNotifications);
+                PushNotifications.setEnabled($scope.tmpGUI.enableNotifications);
 
                 // Parse strings to arrays before copying over
                 ['listenAddresses', 'globalAnnounceServers'].forEach(function (key) {

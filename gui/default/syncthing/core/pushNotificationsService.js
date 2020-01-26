@@ -1,5 +1,5 @@
 angular.module('syncthing.core')
-    .service('PushNotifications', ['Events', function (Events) {
+    .service('PushNotifications', function() {
         'use strict';
 
         var self = this;
@@ -14,39 +14,23 @@ angular.module('syncthing.core')
             return true;
         }
 
-        function detectLocalStorage() {
-            // Feature detect localStorage; https://mathiasbynens.be/notes/localstorage-pattern
-            try {
-                var uid = new Date();
-                var storage = window.localStorage;
-                storage.setItem(uid, uid);
-                storage.removeItem(uid);
-                return storage;
-            } catch (exception) {
-                return undefined;
-            }
-        }
-
-        var _localStorage = detectLocalStorage();
-        var _SYNPN = "SYN_PN"; // const key for localStorage
-
         angular.extend(self, {
+            enabled: null,
             isEnabled: function () {
-                return  self.isSupported() &&_localStorage && _localStorage[_SYNPN] === 'true'
+                return self.isSupported() && self.enabled;
             },
-            setEnabled: function (enabled) {
-                if (!_localStorage || !self.isSupported()) return;
+            setEnabled: function (newEnabled) {
+                if(!self.isSupported()) return;
 
-                var showWelcomeNotification = false;
-                if (enabled && !self.isEnabled())
-                    showWelcomeNotification = true;
+                console.log('setNotifications', newEnabled);
 
-                _localStorage[_SYNPN] = enabled;
+                if (newEnabled && self.enabled === false)
+                    self.notify('Notifications will be shown like this');
 
-                if (showWelcomeNotification) self.notify('Notifications will be shown like this')
+                self.enabled = newEnabled;
             },
-            isSupported: function() {
-              return "Notification" in window && Notification.permission !== 'denied';
+            isSupported: function () {
+                return "Notification" in window && Notification.permission !== 'denied';
             },
             checkPermission: function () {
                 function handlePermission(permission) {
@@ -58,7 +42,7 @@ angular.module('syncthing.core')
 
                 return new Promise(function (resolve) {
                     // Let's check if the browser supports notifications and user has enabled them
-                   if (!self.isEnabled() || !self.isSupported()) {
+                    if (!self.isEnabled() || !self.isSupported()) {
                         resolve(false)
                     } else {
                         // Check if browser uses Promises or callbacks (Safari)
@@ -83,4 +67,4 @@ angular.module('syncthing.core')
                 })
             }
         })
-    }]);
+    });
