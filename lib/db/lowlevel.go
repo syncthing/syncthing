@@ -9,6 +9,7 @@ package db
 import (
 	"bytes"
 	"encoding/binary"
+	"os"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -25,8 +26,16 @@ const (
 	// false positive rate instead.
 	blockGCBloomCapacity          = 100000
 	blockGCBloomFalsePositiveRate = 0.01 // 1%
-	blockGCInterval               = 13 * time.Hour
+	blockGCDefaultInterval        = 13 * time.Hour
 )
+
+var blockGCInterval = blockGCDefaultInterval
+
+func init() {
+	if dur, err := time.ParseDuration(os.Getenv("STGCBLOCKSEVERY")); err == nil {
+		blockGCInterval = dur
+	}
+}
 
 // Lowlevel is the lowest level database interface. It has a very simple
 // purpose: hold the actual backend database, and the in-memory state
@@ -463,7 +472,8 @@ func (db *Lowlevel) dropPrefix(prefix []byte) error {
 }
 
 func (db *Lowlevel) gcRunner() {
-	t := time.NewTicker(blockGCInterval)
+	const gcTimeKey = "lastGCTime"
+	t := time.NewTimer(db.timeUntil(gcTimeKey, blockGCInterval))
 	defer t.Stop()
 	for {
 		select {
@@ -473,8 +483,31 @@ func (db *Lowlevel) gcRunner() {
 			if err := db.gcBlocks(); err != nil {
 				l.Warnln("Database block GC failed:", err)
 			}
+			db.recordTime(gcTimeKey)
+			t.Reset(db.timeUntil(gcTimeKey, blockGCInterval))
 		}
 	}
+}
+
+// recordTime records the current time under the given key, affecting the
+// next call to timeUntil with the same key.
+func (db *Lowlevel) recordTime(key string) {
+	miscDB := NewMiscDataNamespace(db)
+	_ = miscDB.PutInt64(key, time.Now().Unix()) // error wilfully ignored
+}
+
+// timeUntil returns how long we should wait until the next interval, or
+// zero if it should happen directly.
+func (db *Lowlevel) timeUntil(key string, every time.Duration) time.Duration {
+	miscDB := NewMiscDataNamespace(db)
+	lastTime, _, _ := miscDB.Int64(key) // error wilfully ignored
+	nextTime := time.Unix(lastTime, 0).Add(every)
+	sleepTime := time.Until(nextTime)
+	if sleepTime < 0 {
+		sleepTime = 0
+	}
+	l.Infoln("sleep time is", sleepTime)
+	return sleepTime
 }
 
 func (db *Lowlevel) gcBlocks() error {
