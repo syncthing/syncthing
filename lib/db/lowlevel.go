@@ -506,7 +506,6 @@ func (db *Lowlevel) timeUntil(key string, every time.Duration) time.Duration {
 	if sleepTime < 0 {
 		sleepTime = 0
 	}
-	l.Infoln("sleep time is", sleepTime)
 	return sleepTime
 }
 
