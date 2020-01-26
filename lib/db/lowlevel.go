@@ -27,6 +27,7 @@ const (
 	blockGCBloomCapacity          = 100000
 	blockGCBloomFalsePositiveRate = 0.01 // 1%
 	blockGCDefaultInterval        = 13 * time.Hour
+	blockGCTimeKey                = "lastGCTime"
 )
 
 var blockGCInterval = blockGCDefaultInterval
@@ -472,8 +473,7 @@ func (db *Lowlevel) dropPrefix(prefix []byte) error {
 }
 
 func (db *Lowlevel) gcRunner() {
-	const gcTimeKey = "lastGCTime"
-	t := time.NewTimer(db.timeUntil(gcTimeKey, blockGCInterval))
+	t := time.NewTimer(db.timeUntil(blockGCTimeKey, blockGCInterval))
 	defer t.Stop()
 	for {
 		select {
@@ -483,8 +483,8 @@ func (db *Lowlevel) gcRunner() {
 			if err := db.gcBlocks(); err != nil {
 				l.Warnln("Database block GC failed:", err)
 			}
-			db.recordTime(gcTimeKey)
-			t.Reset(db.timeUntil(gcTimeKey, blockGCInterval))
+			db.recordTime(blockGCTimeKey)
+			t.Reset(db.timeUntil(blockGCTimeKey, blockGCInterval))
 		}
 	}
 }
