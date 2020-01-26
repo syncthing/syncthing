@@ -27,7 +27,7 @@ const (
 	blockGCBloomCapacity          = 100000
 	blockGCBloomFalsePositiveRate = 0.01 // 1%
 	blockGCDefaultInterval        = 13 * time.Hour
-	blockGCTimeKey                = "lastGCTime"
+	blockGCTimeKey                = "lastBlockGCTime"
 )
 
 var blockGCInterval = blockGCDefaultInterval
