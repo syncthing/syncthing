@@ -451,5 +451,7 @@ func (db *schemaUpdater) updateSchema7to8(_ int) error {
 		return err
 	}
 
+	db.recordTime(blockGCTimeKey)
+
 	return t.commit()
 }
