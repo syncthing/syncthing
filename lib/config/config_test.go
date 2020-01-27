@@ -86,8 +86,13 @@ func TestDefaultValues(t *testing.T) {
 
 func TestDeviceConfig(t *testing.T) {
 	for i := OldestHandledVersion; i <= CurrentVersion; i++ {
+		cfgFile := fmt.Sprintf("testdata/v%d.xml", i)
+		if _, err := os.Stat(cfgFile); os.IsNotExist(err) {
+			continue
+		}
+
 		os.RemoveAll(filepath.Join("testdata", DefaultMarkerName))
-		wr, err := load(fmt.Sprintf("testdata/v%d.xml", i), device1)
+		wr, err := load(cfgFile, device1)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1124,6 +1129,27 @@ func TestRemoveDeviceWithEmptyID(t *testing.T) {
 	}
 	if len(cfg.Folders[0].Devices) != 0 {
 		t.Error("Expected device with empty ID to be removed from folder")
+	}
+}
+
+func TestMaxConcurrentFolders(t *testing.T) {
+	cases := []struct {
+		input  int
+		output int
+	}{
+		{input: -42, output: 0},
+		{input: -1, output: 0},
+		{input: 0, output: runtime.GOMAXPROCS(-1)},
+		{input: 1, output: 1},
+		{input: 42, output: 42},
+	}
+
+	for _, tc := range cases {
+		opts := OptionsConfiguration{RawMaxFolderConcurrency: tc.input}
+		res := opts.MaxFolderConcurrency()
+		if res != tc.output {
+			t.Errorf("Wrong MaxFolderConcurrency, %d => %d, expected %d", tc.input, res, tc.output)
+		}
 	}
 }
 

@@ -33,8 +33,9 @@ import (
 	"github.com/thejerf/suture"
 )
 
-// scanLimiter limits the number of concurrent scans. A limit of zero means no limit.
-var scanLimiter = newByteSemaphore(0)
+// folderIOLimiter limits the number of concurrent I/O heavy operations,
+// such as scans and pulls. A limit of zero means no limit.
+var folderIOLimiter = newByteSemaphore(0)
 
 type folder struct {
 	suture.Service
@@ -130,7 +131,7 @@ func (f *folder) serve(ctx context.Context) {
 
 	pull := func() {
 		startTime := time.Now()
-		if f.puller.pull() {
+		if f.pull() {
 			// We're good. Don't schedule another pull and reset
 			// the pause interval.
 			pause = f.basePause()
@@ -164,7 +165,7 @@ func (f *folder) serve(ctx context.Context) {
 		case <-initialCompleted:
 			// Initial scan has completed, we should do a pull
 			initialCompleted = nil // never hit this case again
-			if !f.puller.pull() {
+			if !f.pull() {
 				// Pulling failed, try again later.
 				pullFailTimer.Reset(pause)
 			}
@@ -279,6 +280,35 @@ func (f *folder) getHealthError() error {
 	return nil
 }
 
+func (f *folder) pull() bool {
+	select {
+	case <-f.initialScanFinished:
+	default:
+		// Once the initial scan finished, a pull will be scheduled
+		return true
+	}
+
+	// If there is nothing to do, don't even enter sync-waiting state.
+	abort := true
+	snap := f.fset.Snapshot()
+	snap.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+		abort = false
+		return false
+	})
+	snap.Release()
+	if abort {
+		return true
+	}
+
+	f.setState(FolderSyncWaiting)
+	defer f.setState(FolderIdle)
+
+	folderIOLimiter.take(1)
+	defer folderIOLimiter.give(1)
+
+	return f.puller.pull()
+}
+
 func (f *folder) scanSubdirs(subDirs []string) error {
 	if err := f.getHealthError(); err != nil {
 		// If there is a health error we set it as the folder error. We do not
@@ -312,8 +342,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	f.setError(nil)
 	f.setState(FolderScanWaiting)
 
-	scanLimiter.take(1)
-	defer scanLimiter.give(1)
+	folderIOLimiter.take(1)
+	defer folderIOLimiter.give(1)
 
 	for i := range subDirs {
 		sub := osutil.NativeFilename(subDirs[i])
