@@ -53,7 +53,7 @@ type OptionsConfiguration struct {
 	TrafficClass            int      `xml:"trafficClass" json:"trafficClass"`
 	DefaultFolderPath       string   `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 	SetLowPriority          bool     `xml:"setLowPriority" json:"setLowPriority" default:"true"`
-	RawMaxConcurrentFolders int      `xml:"maxConcurrentFolders" json:"maxConcurrentFolders"`
+	RawMaxFolderConcurrency int      `xml:"maxFolderConcurrency" json:"maxFolderConcurrency"`
 	CRURL                   string   `xml:"crashReportingURL" json:"crURL" default:"https://crash.syncthing.net/newcrash"` // crash reporting URL
 	CREnabled               bool     `xml:"crashReportingEnabled" json:"crashReportingEnabled" default:"true" restart:"true"`
 	StunKeepaliveStartS     int      `xml:"stunKeepaliveStartS" json:"stunKeepaliveStartS" default:"180"` // 0 for off
@@ -155,12 +155,12 @@ func (opts OptionsConfiguration) GlobalDiscoveryServers() []string {
 	return util.UniqueTrimmedStrings(servers)
 }
 
-func (opts OptionsConfiguration) MaxConcurrentFolders() int {
+func (opts OptionsConfiguration) MaxFolderConcurrency() int {
 	// If a value is set, trust that.
-	if opts.RawMaxConcurrentFolders > 0 {
-		return opts.RawMaxConcurrentFolders
+	if opts.RawMaxFolderConcurrency > 0 {
+		return opts.RawMaxFolderConcurrency
 	}
-	if opts.RawMaxConcurrentFolders < 0 {
+	if opts.RawMaxFolderConcurrency < 0 {
 		// -1 etc means unlimited, which in the implementation means zero
 		return 0
 	}

@@ -1145,10 +1145,10 @@ func TestMaxConcurrentFolders(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		opts := OptionsConfiguration{RawMaxConcurrentFolders: tc.input}
-		res := opts.MaxConcurrentFolders()
+		opts := OptionsConfiguration{RawMaxFolderConcurrency: tc.input}
+		res := opts.MaxFolderConcurrency()
 		if res != tc.output {
-			t.Errorf("Wrong MaxConcurrentFolders, %d => %d, expected %d", tc.input, res, tc.output)
+			t.Errorf("Wrong MaxFolderConcurrency, %d => %d, expected %d", tc.input, res, tc.output)
 		}
 	}
 }
