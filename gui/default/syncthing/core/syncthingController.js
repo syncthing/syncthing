@@ -1098,8 +1098,7 @@ angular.module('syncthing.core')
                 $scope.parentFolderPrefix = null;
             }
 
-            let prefixArg = (prefix !== "") ? "&prefix=" + prefix.substr(1) : "";
-            $http.get(urlbase + '/db/browse?folder=' + id + "&levels=0" + prefixArg).success(function (data) {
+            $http.get(urlbase + '/db/browse?folder=' + id + "&levels=0&prefix=" + prefix.substr(1)).success(function (data) {
                 $scope.currentFolder.content = data;
             }).error($scope.emitHTTPError);
         };

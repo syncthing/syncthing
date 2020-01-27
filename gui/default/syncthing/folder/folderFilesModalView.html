@@ -1,13 +1,22 @@
 <modal id="folderFiles" status="default" icon="fas fa-cog" heading="{{'Included files' | translate}}" large="yes" closeable="yes">
+    <div class="modal-header">
+        <div class="pull-left">
+            <strong ng-if="currentFolderPrefix === ''">/</strong>
+            <strong ng-if="currentFolderPrefix !== ''">{{currentFolderPrefix}}</strong>
+        </div>
+        <button type="button" class="btn btn-default btn-sm pull-right" ng-if="parentFolderPrefix !== null"
+                ng-click="setCurrentFolderAndGetContents(currentFolder.id, parentFolderPrefix)">
+            <span class="fas fa-arrow-left"></span>&nbsp;<span translate>Back</span>
+        </button>
+    </div>
     <div class="modal-body">
         <table class="table table-condensed table-striped table-auto">
             <tbody>
             <tr ng-repeat="file in currentFolder.content">
                 <td tree-element
-                    is-directory="file.isDirectory"
+                    file-type="file.fileType"
                     name="{{file.name}}"
-                    show="setCurrentFolderAndGetContents(currentFolder.id, currentFolderPrefix + '/' + file.name)"
-                >
+                    show="setCurrentFolderAndGetContents(currentFolder.id, currentFolderPrefix + '/' + file.name)">
                 </td>
             </tr>
             </tbody>
@@ -15,11 +24,6 @@
 
     </div>
     <div class="modal-footer">
-        <button type="button" class="btn btn-default btn-sm" ng-if="parentFolderPrefix !== null"
-            ng-click="setCurrentFolderAndGetContents(currentFolder.id, parentFolderPrefix)"
-        >
-            <span class="fas fa-arrow-left"></span>&nbsp;<span translate>Back</span>
-        </button>
         <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
             <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
         </button>

@@ -69,10 +69,10 @@ type Availability struct {
 	FromTemporary bool              `json:"fromTemporary"`
 }
 
-type DirectoryTree struct {
-	Name        string           `json:"name"`
-	IsDirectory bool             `json:"isDirectory"`
-	Children    []*DirectoryTree `json:"children"`
+type FolderItem struct {
+	Name     string                `json:"name"`
+	FileType protocol.FileInfoType `json:"fileType"`
+	Children []*FolderItem         `json:"children"`
 }
 
 type Model interface {
@@ -119,7 +119,7 @@ type Model interface {
 	UsageReportingStats(version int, preview bool) map[string]interface{}
 
 	StartDeadlockDetector(timeout time.Duration)
-	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) []*DirectoryTree
+	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) []*FolderItem
 }
 
 type model struct {
@@ -2412,7 +2412,7 @@ func (m *model) RemoteSequence(folder string) (int64, bool) {
 	return ver, true
 }
 
-func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) []*DirectoryTree {
+func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) []*FolderItem {
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
@@ -2427,8 +2427,8 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		prefix = prefix + sep
 	}
 
-	output := DirectoryTree{Children: []*DirectoryTree{}}
-	breadcrumbs := []*DirectoryTree{&output}
+	root := FolderItem{Children: []*FolderItem{}, Name: "."}
+	breadcrumbs := []*FolderItem{&root}
 
 	var currentPrefix []string
 	files.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
@@ -2445,21 +2445,24 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 			return true
 		}
 
-		fullName := strings.Split(f.Name, sep)
-		name := fullName[len(fullName)-1]
-		path := fullName[:len(fullName)-1]
+		name := filepath.Base(f.Name)
+		path := filepath.Dir(f.Name)
 
-		tree := DirectoryTree{Name: name, IsDirectory: f.IsDirectory(), Children: []*DirectoryTree{}}
-		for !reflect.DeepEqual(path, currentPrefix) && len(currentPrefix) != 0 {
+		var children []*FolderItem = nil
+		if f.FileType() == 1 {
+			children = make([]*FolderItem, 0)
+		}
+		tree := FolderItem{Name: name, FileType: f.FileType(), Children: children}
+		for strings.Join(currentPrefix, sep) != path && len(currentPrefix) != 0 {
 			breadcrumbs = breadcrumbs[:len(breadcrumbs)-1]
 			currentPrefix = currentPrefix[:len(currentPrefix)-1]
 		}
 
-		if !dirsonly || f.IsDirectory() {
+		if !dirsonly || f.IsDirectory() && !f.IsIgnored() {
 			breadcrumbs[len(breadcrumbs)-1].Children = append(breadcrumbs[len(breadcrumbs)-1].Children, &tree)
 		}
 
-		if f.IsDirectory() {
+		if f.IsDirectory() && !f.IsIgnored() {
 			breadcrumbs = append(breadcrumbs, &tree)
 			currentPrefix = append(currentPrefix, name)
 		}
@@ -2467,7 +2470,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		return true
 	})
 
-	return output.Children
+	return root.Children
 }
 
 func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {

@@ -1729,15 +1729,15 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		b(true, "rootfile"),
 	}
 
-	mkdir := func(name string, children []*DirectoryTree) *DirectoryTree {
+	mkdir := func(name string, children []*FolderItem) *FolderItem {
 		if children == nil {
-			children = []*DirectoryTree{}
+			children = []*FolderItem{}
 		}
-		return &DirectoryTree{Name: name, IsDirectory: true, Children: children}
+		return &FolderItem{Name: name, FileType: 1, Children: children}
 	}
 
-	mkfile := func(name string) *DirectoryTree {
-		return &DirectoryTree{Name: name, IsDirectory: false, Children: []*DirectoryTree{}}
+	mkfile := func(name string) *FolderItem {
+		return &FolderItem{Name: name, FileType: 0, Children: nil}
 	}
 
 	mm := func(data interface{}) string {
@@ -1748,12 +1748,12 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		return string(bytes)
 	}
 
-	expected := []*DirectoryTree{
-		mkdir("another", []*DirectoryTree{
-			mkdir("directory", []*DirectoryTree{
+	expected := []*FolderItem{
+		mkdir("another", []*FolderItem{
+			mkdir("directory", []*FolderItem{
 				mkfile("afile"),
-				mkdir("with", []*DirectoryTree{
-					mkdir("a", []*DirectoryTree{
+				mkdir("with", []*FolderItem{
+					mkdir("a", []*FolderItem{
 						mkfile("file"),
 					}),
 					mkfile("file"),
@@ -1761,19 +1761,19 @@ func TestGlobalDirectoryTree(t *testing.T) {
 			}),
 			mkfile("file"),
 		}),
-		mkdir("other", []*DirectoryTree{
+		mkdir("other", []*FolderItem{
 			mkdir("rand", nil),
-			mkdir("random", []*DirectoryTree{
+			mkdir("random", []*FolderItem{
 				mkdir("dir", nil),
 				mkdir("dirx", nil),
 			}),
 			mkdir("randomx", nil),
 		}),
 		mkfile("rootfile"), // rootfile is before some as the output is sorted
-		mkdir("some", []*DirectoryTree{
-			mkdir("directory", []*DirectoryTree{
-				mkdir("with", []*DirectoryTree{
-					mkdir("a", []*DirectoryTree{
+		mkdir("some", []*FolderItem{
+			mkdir("directory", []*FolderItem{
+				mkdir("with", []*FolderItem{
+					mkdir("a", []*FolderItem{
 						mkfile("file"),
 					}),
 				}),
@@ -1796,7 +1796,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	actual = m.GlobalDirectoryTree("default", "", 0, false)
-	expected = []*DirectoryTree{
+	expected = []*FolderItem{
 		mkdir("another", nil),
 		mkdir("other", nil),
 		mkfile("rootfile"),
@@ -1808,18 +1808,18 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	actual = m.GlobalDirectoryTree("default", "", 1, false)
-	expected = []*DirectoryTree{
-		mkdir("another", []*DirectoryTree{
+	expected = []*FolderItem{
+		mkdir("another", []*FolderItem{
 			mkdir("directory", nil),
 			mkfile("file"),
 		}),
-		mkdir("other", []*DirectoryTree{
+		mkdir("other", []*FolderItem{
 			mkdir("rand", nil),
 			mkdir("random", nil),
 			mkdir("randomx", nil),
 		}),
 		mkfile("rootfile"), // rootfile is before some as the output is sorted
-		mkdir("some", []*DirectoryTree{
+		mkdir("some", []*FolderItem{
 			mkdir("directory", nil),
 		}),
 	}
@@ -1829,25 +1829,25 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	actual = m.GlobalDirectoryTree("default", "", -1, true)
-	expected = []*DirectoryTree{
-		mkdir("another", []*DirectoryTree{
-			mkdir("directory", []*DirectoryTree{
-				mkdir("with", []*DirectoryTree{
+	expected = []*FolderItem{
+		mkdir("another", []*FolderItem{
+			mkdir("directory", []*FolderItem{
+				mkdir("with", []*FolderItem{
 					mkdir("a", nil),
 				}),
 			}),
 		}),
-		mkdir("other", []*DirectoryTree{
+		mkdir("other", []*FolderItem{
 			mkdir("rand", nil),
-			mkdir("random", []*DirectoryTree{
+			mkdir("random", []*FolderItem{
 				mkdir("dir", nil),
 				mkdir("dirx", nil),
 			}),
 			mkdir("randomx", nil),
 		}),
-		mkdir("some", []*DirectoryTree{
-			mkdir("directory", []*DirectoryTree{
-				mkdir("with", []*DirectoryTree{
+		mkdir("some", []*FolderItem{
+			mkdir("directory", []*FolderItem{
+				mkdir("with", []*FolderItem{
 					mkdir("a", nil),
 				}),
 			}),
@@ -1859,16 +1859,16 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	actual = m.GlobalDirectoryTree("default", "", 1, true)
-	expected = []*DirectoryTree{
-		mkdir("another", []*DirectoryTree{
+	expected = []*FolderItem{
+		mkdir("another", []*FolderItem{
 			mkdir("directory", nil),
 		}),
-		mkdir("other", []*DirectoryTree{
+		mkdir("other", []*FolderItem{
 			mkdir("rand", nil),
 			mkdir("random", nil),
 			mkdir("randomx", nil),
 		}),
-		mkdir("some", []*DirectoryTree{
+		mkdir("some", []*FolderItem{
 			mkdir("directory", nil),
 		}),
 	}
@@ -1878,7 +1878,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	actual = m.GlobalDirectoryTree("default", "another", 0, false)
-	expected = []*DirectoryTree{
+	expected = []*FolderItem{
 		mkdir("directory", nil),
 		mkfile("file"),
 	}
@@ -1888,15 +1888,15 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	actual = m.GlobalDirectoryTree("default", "some/directory", 0, false)
-	expected = []*DirectoryTree{mkdir("with", nil)}
+	expected = []*FolderItem{mkdir("with", nil)}
 
 	if mm(actual) != mm(expected) {
 		t.Errorf("Does not match:\n%s\n%s", mm(actual), mm(expected))
 	}
 
 	actual = m.GlobalDirectoryTree("default", "some/directory", 1, false)
-	expected = []*DirectoryTree{
-		mkdir("with", []*DirectoryTree{
+	expected = []*FolderItem{
+		mkdir("with", []*FolderItem{
 			mkdir("a", nil),
 		}),
 	}
@@ -1906,9 +1906,9 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	actual = m.GlobalDirectoryTree("default", "some/directory", 2, false)
-	expected = []*DirectoryTree{
-		mkdir("with", []*DirectoryTree{
-			mkdir("a", []*DirectoryTree{
+	expected = []*FolderItem{
+		mkdir("with", []*FolderItem{
+			mkdir("a", []*FolderItem{
 				mkfile("file"),
 			}),
 		}),
@@ -1919,9 +1919,9 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	actual = m.GlobalDirectoryTree("default", "another", -1, true)
-	expected = []*DirectoryTree{
-		mkdir("directory", []*DirectoryTree{
-			mkdir("with", []*DirectoryTree{
+	expected = []*FolderItem{
+		mkdir("directory", []*FolderItem{
+			mkdir("with", []*FolderItem{
 				mkdir("a", nil),
 			}),
 		}),
@@ -1933,7 +1933,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 
 	// No prefix matching!
 	actual = m.GlobalDirectoryTree("default", "som", -1, false)
-	expected = []*DirectoryTree{}
+	expected = []*FolderItem{}
 
 	if mm(actual) != mm(expected) {
 		t.Errorf("Does not match:\n%s\n%s", mm(actual), mm(expected))
@@ -1982,15 +1982,15 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		b(true, "xthis", "is", "a", "deep", "invalid", "file"),
 	}
 
-	mkdir := func(name string, children []*DirectoryTree) *DirectoryTree {
+	mkdir := func(name string, children []*FolderItem) *FolderItem {
 		if children == nil {
-			children = []*DirectoryTree{}
+			children = []*FolderItem{}
 		}
-		return &DirectoryTree{Name: name, IsDirectory: true, Children: children}
+		return &FolderItem{Name: name, FileType: 1, Children: children}
 	}
 
-	mkfile := func(name string) *DirectoryTree {
-		return &DirectoryTree{Name: name, IsDirectory: false, Children: []*DirectoryTree{}}
+	mkfile := func(name string) *FolderItem {
+		return &FolderItem{Name: name, FileType: 0, Children: []*FolderItem{}}
 	}
 
 	mm := func(data interface{}) string {
@@ -2004,50 +2004,50 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 	m.Index(device1, "default", testdata)
 
 	actual := m.GlobalDirectoryTree("default", "", -1, false)
-	expected := []*DirectoryTree{
-		mkdir("another", []*DirectoryTree{
-			mkdir("directory", []*DirectoryTree{
+	expected := []*FolderItem{
+		mkdir("another", []*FolderItem{
+			mkdir("directory", []*FolderItem{
 				mkfile("afile"),
-				mkdir("with", []*DirectoryTree{
-					mkdir("a", []*DirectoryTree{
+				mkdir("with", []*FolderItem{
+					mkdir("a", []*FolderItem{
 						mkfile("file"),
 					}),
 					mkfile("file"),
 				}),
 			}),
 		}),
-		mkdir("other", []*DirectoryTree{
-			mkdir("random", []*DirectoryTree{
+		mkdir("other", []*FolderItem{
+			mkdir("random", []*FolderItem{
 				mkdir("dirx", nil),
 			}),
 			mkdir("randomx", nil),
 		}),
-		mkdir("some", []*DirectoryTree{
-			mkdir("directory", []*DirectoryTree{
-				mkdir("with", []*DirectoryTree{
-					mkdir("a", []*DirectoryTree{
+		mkdir("some", []*FolderItem{
+			mkdir("directory", []*FolderItem{
+				mkdir("with", []*FolderItem{
+					mkdir("a", []*FolderItem{
 						mkfile("file"),
 					}),
 					mkdir("x", nil),
 				}),
 			}),
 		}),
-		mkdir("this", []*DirectoryTree{
-			mkdir("is", []*DirectoryTree{
-				mkdir("a", []*DirectoryTree{
-					mkdir("deep", []*DirectoryTree{
-						mkdir("invalid", []*DirectoryTree{
+		mkdir("this", []*FolderItem{
+			mkdir("is", []*FolderItem{
+				mkdir("a", []*FolderItem{
+					mkdir("deep", []*FolderItem{
+						mkdir("invalid", []*FolderItem{
 							mkdir("directory", nil),
 						}),
 					}),
 				}),
 			}),
 		}),
-		mkdir("xthis", []*DirectoryTree{
-			mkdir("is", []*DirectoryTree{
-				mkdir("a", []*DirectoryTree{
-					mkdir("deep", []*DirectoryTree{
-						mkdir("invalid", []*DirectoryTree{
+		mkdir("xthis", []*FolderItem{
+			mkdir("is", []*FolderItem{
+				mkdir("a", []*FolderItem{
+					mkdir("deep", []*FolderItem{
+						mkdir("invalid", []*FolderItem{
 							mkfile("file"),
 						}),
 					}),

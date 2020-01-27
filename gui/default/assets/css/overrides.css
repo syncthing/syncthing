@@ -206,6 +206,11 @@ table.table-auto td {
     margin-bottom: 0.25em;
 }
 
+#folderFiles .modal-body {
+    height: 300px;
+    overflow-y: scroll;
+}
+
 button.panel-heading {
     display: block;
     position: relative;
@@ -414,4 +419,12 @@ ul.three-columns li, ul.two-columns li {
     .btn:not(.panel-heading) + .btn:not(.panel-heading) {
         margin-bottom: 1rem;
     }
+
+    #folderFiles .modal-header {
+        min-height: 74px;
+    }
+}
+
+#folderFiles .modal-header {
+    min-height: 64px;
 }
