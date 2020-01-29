@@ -372,6 +372,8 @@
    "Versions": "Versions",
    "Versions Path": "Versions Path",
    "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.",
+   "Waiting to Scan": "Waiting to Scan",
+   "Waiting to Sync": "Waiting to Sync",
    "Waiting to scan": "Waiting to scan",
    "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Warning, this path is a parent directory of an existing folder \"{{otherFolder}}\".",
    "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Warning, this path is a parent directory of an existing folder \"{{otherFolderLabel}}\" ({{otherFolder}}).",
