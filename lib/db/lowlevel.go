@@ -28,13 +28,28 @@ const (
 	blockGCBloomFalsePositiveRate = 0.01 // 1%
 	blockGCDefaultInterval        = 13 * time.Hour
 	blockGCTimeKey                = "lastBlockGCTime"
+
+	deletedGCDefaultAge      = 180 * 24 * time.Hour
+	deletedGCMinAge          = 7 * 24 * time.Hour
+	deletedGCDefaultInterval = 37 * time.Hour
+	deletedGCTimeKey         = "lastDeletedGCTime"
 )
 
-var blockGCInterval = blockGCDefaultInterval
+var (
+	blockGCInterval   = blockGCDefaultInterval
+	deletedGCAge      = deletedGCDefaultAge
+	deletedGCInterval = deletedGCDefaultInterval
+)
 
 func init() {
 	if dur, err := time.ParseDuration(os.Getenv("STGCBLOCKSEVERY")); err == nil {
 		blockGCInterval = dur
+	}
+	if dur, err := time.ParseDuration(os.Getenv("STGCDELETEDAGE")); err == nil {
+		deletedGCAge = dur
+	}
+	if dur, err := time.ParseDuration(os.Getenv("STGCDELETEDEVERY")); err == nil {
+		deletedGCInterval = dur
 	}
 }
 
@@ -473,18 +488,40 @@ func (db *Lowlevel) dropPrefix(prefix []byte) error {
 }
 
 func (db *Lowlevel) gcRunner() {
-	t := time.NewTimer(db.timeUntil(blockGCTimeKey, blockGCInterval))
-	defer t.Stop()
+	var blocksTimerC <-chan time.Time
+	var blocksTimer *time.Timer
+	if blockGCInterval > 0 {
+		blocksTimer = time.NewTimer(db.timeUntil(blockGCTimeKey, blockGCInterval))
+		defer blocksTimer.Stop()
+		blocksTimerC = blocksTimer.C
+	}
+
+	var deletedTimerC <-chan time.Time
+	var deletedTimer *time.Timer
+	if deletedGCInterval > 0 {
+		deletedTimer = time.NewTimer(db.timeUntil(deletedGCTimeKey, deletedGCInterval))
+		defer deletedTimer.Stop()
+		deletedTimerC = deletedTimer.C
+	}
+
 	for {
 		select {
 		case <-db.gcStop:
 			return
-		case <-t.C:
+
+		case <-blocksTimerC:
 			if err := db.gcBlocks(); err != nil {
 				l.Warnln("Database block GC failed:", err)
 			}
 			db.recordTime(blockGCTimeKey)
-			t.Reset(db.timeUntil(blockGCTimeKey, blockGCInterval))
+			blocksTimer.Reset(db.timeUntil(blockGCTimeKey, blockGCInterval))
+
+		case <-deletedTimerC:
+			if err := db.gcDeleted(); err != nil {
+				l.Warnln("Deleted file GC failed:", err)
+			}
+			db.recordTime(deletedGCTimeKey)
+			blocksTimer.Reset(db.timeUntil(deletedGCTimeKey, deletedGCInterval))
 		}
 	}
 }
@@ -582,6 +619,122 @@ func (db *Lowlevel) gcBlocks() error {
 
 	// Remember the number of unique keys we kept until the next pass.
 	db.gcKeyCount = matched
+
+	if err := t.Commit(); err != nil {
+		return err
+	}
+
+	return db.Compact()
+}
+
+func (db *Lowlevel) gcDeleted() error {
+	// The deleted file GC finds items that are deleted and older than
+	// deletedGCAge (default 180 days). If we are in sync on this item (no
+	// need entry) we remove it from the database, along with the
+	// corresponding remote entries.
+	//
+	// If the remote side doesn't GC deleted files then the entry will at
+	// some point pop up again. Ideally this should therefore be
+	// symmetrically configured.
+
+	if deletedGCAge <= 0 {
+		// <= 0 is explicitly disabled
+		return nil
+	}
+	if deletedGCAge < deletedGCMinAge {
+		// an explicit but not reasonable value, we adjust upwards a bit.
+		deletedGCAge = deletedGCMinAge
+	}
+
+	db.gcMut.Lock()
+	defer db.gcMut.Unlock()
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.Release()
+
+	cutoff := time.Now().Add(-deletedGCAge)
+
+	it, err := db.NewPrefixIterator([]byte{KeyTypeSequence})
+	if err != nil {
+		return err
+	}
+	for it.Next() {
+		// Load our version of the file. See if it's an old deleted one.
+
+		dkey := deviceFileKey(it.Value())
+		f, ok, err := t.getFileTrunc(dkey, true)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		if !f.IsDeleted() || f.ModTime().After(cutoff) {
+			continue
+		}
+
+		name := []byte(f.FileName())
+		folder, ok := t.keyer.FolderFromDeviceFileKey(dkey)
+		if !ok {
+			continue
+		}
+
+		// See if we have a need entry for this file. In that case we
+		// shouldn't just drop it.
+
+		needKey, err := t.keyer.GenerateNeedFileKey(nil, folder, name)
+		if err != nil {
+			return err
+		}
+		_, err = t.Get(needKey)
+		if err == nil {
+			// need it
+			continue
+		}
+		if !backend.IsNotFound(err) {
+			return err
+		}
+
+		// Load the global list for this file.
+
+		gvKey, err := t.keyer.GenerateGlobalVersionKey(nil, folder, name)
+		if err != nil {
+			return err
+		}
+		gvBs, err := t.Get(gvKey)
+		if err != nil {
+			return err
+		}
+		var vl VersionList
+		if err := vl.Unmarshal(gvBs); err != nil {
+			return err
+		}
+
+		// We can clean this entry.
+
+		for _, v := range vl.Versions {
+			dkey, err = t.keyer.GenerateDeviceFileKey(dkey, folder, v.Device, name)
+			if err != nil {
+				return err
+			}
+			if err := t.Delete(dkey); err != nil {
+				return err
+			}
+		}
+		if err := t.Delete(gvKey); err != nil {
+			return err
+		}
+		if err := t.Delete(it.Key()); err != nil {
+			return err
+		}
+	}
+	it.Release()
+	if err := it.Error(); err != nil {
+		return err
+	}
 
 	if err := t.Commit(); err != nil {
 		return err
