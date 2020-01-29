@@ -521,7 +521,7 @@ func (db *Lowlevel) gcRunner() {
 				l.Warnln("Deleted file GC failed:", err)
 			}
 			db.recordTime(deletedGCTimeKey)
-			blocksTimer.Reset(db.timeUntil(deletedGCTimeKey, deletedGCInterval))
+			deletedTimer.Reset(db.timeUntil(deletedGCTimeKey, deletedGCInterval))
 		}
 	}
 }
