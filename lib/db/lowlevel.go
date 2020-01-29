@@ -661,6 +661,7 @@ func (db *Lowlevel) gcDeleted() error {
 	if err != nil {
 		return err
 	}
+	defer it.Release()
 	for it.Next() {
 		// Load our version of the file. See if it's an old deleted one.
 
