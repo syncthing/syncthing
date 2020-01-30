@@ -65,10 +65,14 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 		return nil, errUnexpectedInterfaceType
 	}
 	if dialer == proxy.Direct {
-		return fallback.DialContext(ctx, network, addr)
+		conn, err := fallback.DialContext(ctx, network, addr)
+		l.Debugf("Dialing direct result %s %s: %v %v", network, addr, conn, err)
+		return conn, err
 	}
 	if noFallback {
-		return dialer.DialContext(ctx, network, addr)
+		conn, err := dialer.DialContext(ctx, network, addr)
+		l.Debugf("Dialing no fallback result %s %s: %v %v", network, addr, conn, err)
+		return conn, err
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -79,10 +83,12 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 	fallbackDone := make(chan struct{})
 	go func() {
 		proxyConn, proxyErr = dialer.DialContext(ctx, network, addr)
+		l.Debugf("Dialing proxy result %s %s: %v %v", network, addr, proxyConn, proxyErr)
 		close(proxyDone)
 	}()
 	go func() {
 		fallbackConn, fallbackErr = fallback.DialContext(ctx, network, addr)
+		l.Debugf("Dialing fallback result %s %s: %v %v", network, addr, fallbackConn, fallbackErr)
 		close(fallbackDone)
 	}()
 	<-proxyDone

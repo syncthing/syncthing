@@ -197,27 +197,30 @@ func (t *ProgressEmitter) VerifyConfiguration(from, to config.Configuration) err
 }
 
 // CommitConfiguration implements the config.Committer interface
-func (t *ProgressEmitter) CommitConfiguration(from, to config.Configuration) bool {
+func (t *ProgressEmitter) CommitConfiguration(_, to config.Configuration) bool {
 	t.mut.Lock()
 	defer t.mut.Unlock()
 
-	switch {
-	case t.disabled && to.Options.ProgressUpdateIntervalS >= 0:
-		t.disabled = false
-		l.Debugln("progress emitter: enabled")
-		fallthrough
-	case !t.disabled && from.Options.ProgressUpdateIntervalS != to.Options.ProgressUpdateIntervalS:
-		t.interval = time.Duration(to.Options.ProgressUpdateIntervalS) * time.Second
-		if t.interval < time.Second {
-			t.interval = time.Second
+	newInterval := time.Duration(to.Options.ProgressUpdateIntervalS) * time.Second
+	if newInterval > 0 {
+		if t.disabled {
+			t.disabled = false
+			l.Debugln("progress emitter: enabled")
 		}
-		l.Debugln("progress emitter: updated interval", t.interval)
-	case !t.disabled && to.Options.ProgressUpdateIntervalS < 0:
+		if t.interval != newInterval {
+			t.interval = newInterval
+			l.Debugln("progress emitter: updated interval", t.interval)
+		}
+	} else if !t.disabled {
 		t.clearLocked()
 		t.disabled = true
 		l.Debugln("progress emitter: disabled")
 	}
 	t.minBlocks = to.Options.TempIndexMinBlocks
+	if t.interval < time.Second {
+		// can't happen when we're not disabled, but better safe than sorry.
+		t.interval = time.Second
+	}
 
 	return true
 }

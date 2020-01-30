@@ -106,8 +106,9 @@ message FileInfo {
     uint64             modified_by    = 12 [(gogoproto.customtype) = "ShortID", (gogoproto.nullable) = false];
     Vector             version        = 9 [(gogoproto.nullable) = false];
     int64              sequence       = 10;
-    repeated BlockInfo Blocks         = 16 [(gogoproto.nullable) = false];
+    repeated BlockInfo blocks         = 16 [(gogoproto.nullable) = false];
     string             symlink_target = 17;
+    bytes              blocks_hash    = 18;
     FileInfoType       type           = 2;
     uint32             permissions    = 4;
     int32              modified_ns    = 11;

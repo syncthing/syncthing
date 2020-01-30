@@ -25,6 +25,7 @@ import (
 // update the config version. The order of migrations doesn't matter here,
 // put the newest on top for readability.
 var migrations = migrationSet{
+	{30, migrateToConfigV30},
 	{29, migrateToConfigV29},
 	{28, migrateToConfigV28},
 	{27, migrateToConfigV27},
@@ -82,6 +83,13 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV30(cfg *Configuration) {
+	// The "max concurrent scans" option is now spelled "max folder concurrency"
+	// to be more general.
+	cfg.Options.RawMaxFolderConcurrency = cfg.Options.DeprecatedMaxConcurrentScans
+	cfg.Options.DeprecatedMaxConcurrentScans = 0
 }
 
 func migrateToConfigV29(cfg *Configuration) {

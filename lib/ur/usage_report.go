@@ -88,7 +88,12 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
 	for folderID := range s.cfg.Folders() {
-		global := s.model.GlobalSize(folderID)
+		snap, err := s.model.DBSnapshot(folderID)
+		if err != nil {
+			continue
+		}
+		global := snap.GlobalSize()
+		snap.Release()
 		totFiles += int(global.Files)
 		totBytes += global.Bytes
 		if int(global.Files) > maxFiles {

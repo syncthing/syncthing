@@ -9,6 +9,7 @@ package model
 import (
 	"io/ioutil"
 	"os"
+	"testing"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -170,4 +171,41 @@ func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
 
 func (c *alwaysChanged) Changed() bool {
 	return true
+}
+
+func localSize(t *testing.T, m Model, folder string) db.Counts {
+	t.Helper()
+	snap := dbSnapshot(t, m, folder)
+	defer snap.Release()
+	return snap.LocalSize()
+}
+
+func globalSize(t *testing.T, m Model, folder string) db.Counts {
+	t.Helper()
+	snap := dbSnapshot(t, m, folder)
+	defer snap.Release()
+	return snap.GlobalSize()
+}
+
+func receiveOnlyChangedSize(t *testing.T, m Model, folder string) db.Counts {
+	t.Helper()
+	snap := dbSnapshot(t, m, folder)
+	defer snap.Release()
+	return snap.ReceiveOnlyChangedSize()
+}
+
+func needSize(t *testing.T, m Model, folder string) db.Counts {
+	t.Helper()
+	snap := dbSnapshot(t, m, folder)
+	defer snap.Release()
+	return snap.NeedSize()
+}
+
+func dbSnapshot(t *testing.T, m Model, folder string) *db.Snapshot {
+	t.Helper()
+	snap, err := m.DBSnapshot(folder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap
 }
