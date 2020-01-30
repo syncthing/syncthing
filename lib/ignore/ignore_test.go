@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -1148,5 +1149,22 @@ func TestSkipIgnoredDirs(t *testing.T) {
 	}
 	if !pats.SkipIgnoredDirs() {
 		t.Error("SkipIgnoredDirs should be true")
+	}
+}
+
+func TestEmptyPatterns(t *testing.T) {
+	// These patterns are all invalid and should be rejected as such (without panicking...)
+	tcs := []string{
+		"!",
+		"(?d)",
+		"(?i)",
+	}
+
+	for _, tc := range tcs {
+		m := New(fs.NewFilesystem(fs.FilesystemTypeFake, ""))
+		err := m.Parse(strings.NewReader(tc), ".stignore")
+		if err == nil {
+			t.Error("Should reject invalid pattern", tc)
+		}
 	}
 }
