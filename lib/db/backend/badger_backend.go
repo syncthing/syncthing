@@ -8,8 +8,6 @@ package backend
 
 import (
 	"bytes"
-	"io/ioutil"
-	"os"
 	"sync"
 
 	badger "github.com/dgraph-io/badger/v2"
@@ -27,28 +25,22 @@ func OpenBadger(path string) (Backend, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &badgerBackend{bdb: bdb}, nil
+	return &badgerBackend{
+		bdb:    bdb,
+		closed: make(chan struct{}),
+	}, nil
 }
 
 func OpenBadgerMemory() Backend {
-	// Badger doesn't have a pure memory mode. We use a temp dir instead,
-	// which we try to clean up.
-
-	path, err := ioutil.TempDir("", "badger")
-	if err != nil {
-		panic(err)
-	}
-	opts := badger.DefaultOptions(path)
+	opts := badger.DefaultOptions("").WithInMemory(true)
 	opts.Logger = nil
 	bdb, err := badger.Open(opts)
 	if err != nil {
 		panic(err)
 	}
 	return &badgerBackend{
-		bdb: bdb,
-		closeFn: func() {
-			os.RemoveAll(path)
-		},
+		bdb:    bdb,
+		closed: make(chan struct{}),
 	}
 }
 
@@ -56,7 +48,7 @@ func OpenBadgerMemory() Backend {
 type badgerBackend struct {
 	bdb     *badger.DB
 	closeWG sync.WaitGroup
-	closeFn func()
+	closed  chan struct{}
 }
 
 func (b *badgerBackend) NewReadTransaction() (ReadTransaction, error) {
@@ -86,9 +78,7 @@ func (b *badgerBackend) NewWriteTransaction() (WriteTransaction, error) {
 func (b *badgerBackend) Close() error {
 	b.closeWG.Wait()
 	err := b.bdb.Close()
-	if b.closeFn != nil {
-		b.closeFn()
-	}
+	close(b.closed)
 	return wrapBadgerErr(err)
 }
 
@@ -107,6 +97,12 @@ func (b *badgerBackend) Get(key []byte) ([]byte, error) {
 }
 
 func (b *badgerBackend) NewPrefixIterator(prefix []byte) (Iterator, error) {
+	select {
+	case <-b.closed:
+		return nil, errClosed{}
+	default:
+	}
+
 	txn := b.bdb.NewTransaction(false)
 	it := badgerPrefixIterator(txn, prefix)
 	it.releaseFn = func() {
@@ -116,6 +112,12 @@ func (b *badgerBackend) NewPrefixIterator(prefix []byte) (Iterator, error) {
 }
 
 func (b *badgerBackend) NewRangeIterator(first, last []byte) (Iterator, error) {
+	select {
+	case <-b.closed:
+		return nil, errClosed{}
+	default:
+	}
+
 	txn := b.bdb.NewTransaction(false)
 	it := badgerRangeIterator(txn, first, last)
 	it.releaseFn = func() {
@@ -125,6 +127,12 @@ func (b *badgerBackend) NewRangeIterator(first, last []byte) (Iterator, error) {
 }
 
 func (b *badgerBackend) Put(key, val []byte) error {
+	select {
+	case <-b.closed:
+		return errClosed{}
+	default:
+	}
+
 	txn := b.bdb.NewTransaction(true)
 	if err := txn.Set(key, val); err != nil {
 		txn.Discard()
@@ -134,12 +142,32 @@ func (b *badgerBackend) Put(key, val []byte) error {
 }
 
 func (b *badgerBackend) Delete(key []byte) error {
+	select {
+	case <-b.closed:
+		return errClosed{}
+	default:
+	}
+
 	txn := b.bdb.NewTransaction(true)
 	if err := txn.Delete(key); err != nil {
 		txn.Discard()
 		return wrapBadgerErr(err)
 	}
 	return wrapBadgerErr(txn.Commit())
+}
+
+func (b *badgerBackend) Compact() error {
+	select {
+	case <-b.closed:
+		return errClosed{}
+	default:
+	}
+
+	// XXX: check if this is appropriate or if we also need Flatten and
+	// whatnot. Also it apparently returns an error if the GC didn't result
+	// in anything being freed...
+	_ = b.bdb.RunValueLogGC(0.5)
+	return nil
 }
 
 // badgerSnapshot implements backend.ReadTransaction

@@ -754,6 +754,7 @@ func (t *readWriteTransaction) withAllFolderTruncated(folder []byte, fn func(dev
 			return nil
 		}
 	}
+	dbi.Release()
 	if err := dbi.Error(); err != nil {
 		return err
 	}
