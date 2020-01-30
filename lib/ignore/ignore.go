@@ -422,6 +422,10 @@ func parseLine(line string) ([]Pattern, error) {
 		}
 	}
 
+	if line == "" {
+		return nil, errors.New("missing pattern")
+	}
+
 	if pattern.result.IsCaseFolded() {
 		line = strings.ToLower(line)
 	}
