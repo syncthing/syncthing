@@ -100,6 +100,7 @@ type Backend interface {
 	NewReadTransaction() (ReadTransaction, error)
 	NewWriteTransaction() (WriteTransaction, error)
 	Close() error
+	Compact() error
 }
 
 type Tuning int

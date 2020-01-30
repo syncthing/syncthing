@@ -145,10 +145,12 @@ func BenchmarkNeedHalf(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		benchS.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap := benchS.Snapshot()
+		snap.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(secondHalf) {
 			b.Errorf("wrong length %d != %d", count, len(secondHalf))
 		}
@@ -167,10 +169,12 @@ func BenchmarkNeedHalfRemote(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		fset.WithNeed(remoteDevice0, func(fi db.FileIntf) bool {
+		snap := fset.Snapshot()
+		snap.WithNeed(remoteDevice0, func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(secondHalf) {
 			b.Errorf("wrong length %d != %d", count, len(secondHalf))
 		}
@@ -186,10 +190,12 @@ func BenchmarkHave(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		benchS.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap := benchS.Snapshot()
+		snap.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(firstHalf) {
 			b.Errorf("wrong length %d != %d", count, len(firstHalf))
 		}
@@ -205,10 +211,12 @@ func BenchmarkGlobal(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		benchS.WithGlobal(func(fi db.FileIntf) bool {
+		snap := benchS.Snapshot()
+		snap.WithGlobal(func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(files) {
 			b.Errorf("wrong length %d != %d", count, len(files))
 		}
@@ -224,10 +232,12 @@ func BenchmarkNeedHalfTruncated(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		benchS.WithNeedTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap := benchS.Snapshot()
+		snap.WithNeedTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(secondHalf) {
 			b.Errorf("wrong length %d != %d", count, len(secondHalf))
 		}
@@ -243,10 +253,12 @@ func BenchmarkHaveTruncated(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		benchS.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap := benchS.Snapshot()
+		snap.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(firstHalf) {
 			b.Errorf("wrong length %d != %d", count, len(firstHalf))
 		}
@@ -262,10 +274,12 @@ func BenchmarkGlobalTruncated(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		benchS.WithGlobalTruncated(func(fi db.FileIntf) bool {
+		snap := benchS.Snapshot()
+		snap.WithGlobalTruncated(func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(files) {
 			b.Errorf("wrong length %d != %d", count, len(files))
 		}

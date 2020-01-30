@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 const (
@@ -331,4 +332,12 @@ func (f Folder) Description() string {
 		return f.ID
 	}
 	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
+}
+
+func BlocksHash(bs []BlockInfo) []byte {
+	h := sha256.New()
+	for _, b := range bs {
+		_, _ = h.Write(b.Hash)
+	}
+	return h.Sum(nil)
 }

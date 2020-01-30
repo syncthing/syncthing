@@ -350,6 +350,9 @@ angular.module('syncthing.core')
         var debouncedFuncs = {};
 
         function refreshFolder(folder) {
+            if ($scope.folders[folder].paused) {
+                return;
+            }
             var key = "refreshFolder" + folder;
             if (!debouncedFuncs[key]) {
                 debouncedFuncs[key] = debounce(function () {
@@ -780,10 +783,6 @@ angular.module('syncthing.core')
         };
 
         $scope.folderStatus = function (folderCfg) {
-            if (typeof $scope.model[folderCfg.id] === 'undefined') {
-                return 'unknown';
-            }
-
             if (folderCfg.paused) {
                 return 'paused';
             }
@@ -791,7 +790,7 @@ angular.module('syncthing.core')
             var folderInfo = $scope.model[folderCfg.id];
 
             // after restart syncthing process state may be empty
-            if (!folderInfo.state) {
+            if (typeof folderInfo === 'undefined' || !folderInfo.state) {
                 return 'unknown';
             }
 
@@ -838,7 +837,7 @@ angular.module('syncthing.core')
             if (status === 'stopped' || status === 'outofsync' || status === 'error' || status === 'faileditems') {
                 return 'danger';
             }
-            if (status === 'unshared' || status === 'scan-waiting') {
+            if (status === 'unshared' || status === 'scan-waiting' || status === 'sync-waiting') {
                 return 'warning';
             }
 
@@ -849,10 +848,15 @@ angular.module('syncthing.core')
             if (typeof $scope.model[folder] === 'undefined') {
                 return 100;
             }
-            if ($scope.model[folder].globalBytes === 0) {
+            if ($scope.model[folder].needTotalItems === 0) {
                 return 100;
             }
-
+            if ($scope.model[folder].needBytes == 0 && $scope.model[folder].needDeletes > 0) {
+                // We don't need any data, but we have deletes that we need
+                // to do. Drop down the completion percentage to indicate
+                // that we have stuff to do.
+                return 95;
+            }
             var pct = 100 * $scope.model[folder].inSyncBytes / $scope.model[folder].globalBytes;
             return Math.floor(pct);
         };

@@ -1,7 +1,6 @@
 module github.com/syncthing/syncthing
 
 require (
-	github.com/AudriusButkevicius/go-nat-pmp v0.0.0-20160522074932-452c97607362
 	github.com/AudriusButkevicius/pfilter v0.0.0-20190627213056-c55ef6137fc6
 	github.com/AudriusButkevicius/recli v0.0.5
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
@@ -20,6 +19,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
 	github.com/golang/mock v1.3.1 // indirect
 	github.com/jackpal/gateway v1.0.5
+	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/lib/pq v1.2.0
@@ -30,19 +30,21 @@ require (
 	github.com/miscreant/miscreant.go v0.0.0-20190903041724-6bebe170cbaf
 	github.com/onsi/ginkgo v1.9.0 // indirect
 	github.com/onsi/gomega v1.6.0 // indirect
-	github.com/oschwald/geoip2-golang v1.3.0
-	github.com/oschwald/maxminddb-golang v1.4.0 // indirect
+	github.com/oschwald/geoip2-golang v1.4.0
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
-	github.com/pkg/errors v0.8.1
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.2.1
 	github.com/rcrowley/go-metrics v0.0.0-20190826022208-cac0b30c2563
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/shirou/gopsutil v0.0.0-20190714054239-47ef3260b6bf
+	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2
 	github.com/syndtr/goleveldb v1.0.1-0.20190923125748-758128399b1d
 	github.com/thejerf/suture v3.0.2+incompatible
 	github.com/urfave/cli v1.22.2
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
+	github.com/willf/bitset v1.1.10 // indirect
+	github.com/willf/bloom v2.0.3+incompatible
 	golang.org/x/crypto v0.0.0-20191205180655-e7c4368fe9dd
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 	golang.org/x/text v0.3.2

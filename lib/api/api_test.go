@@ -29,7 +29,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -528,8 +527,7 @@ func startHTTP(cfg *mockedConfig) (string, *suture.Supervisor, error) {
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
-	summaryService := model.NewFolderSummaryService(cfg, m, protocol.LocalDeviceID, events.NoopLogger)
-	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, summaryService, errorLog, systemLog, cpu, nil, false).(*service)
+	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, &mockedFolderSummaryService{}, errorLog, systemLog, cpu, nil, false).(*service)
 	defer os.Remove(token)
 	svc.started = addrChan
 

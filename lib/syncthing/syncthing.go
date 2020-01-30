@@ -404,6 +404,7 @@ func (a *App) stopWithErr(stopReason ExitStatus, err error) ExitStatus {
 		a.err = err
 		close(a.stop)
 	})
+	<-a.stopped
 	return a.exitStatus
 }
 

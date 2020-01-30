@@ -36,12 +36,8 @@ func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.Fi
 	return nil, nil, nil
 }
 
-func (m *mockedModel) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
-	return nil, nil
-}
-
-func (m *mockedModel) NeedSize(folder string) db.Counts {
-	return db.Counts{}
+func (m *mockedModel) FolderProgressBytesCompleted(_ string) int64 {
+	return 0
 }
 
 func (m *mockedModel) ConnectionStats() map[string]interface{} {
@@ -112,26 +108,6 @@ func (m *mockedModel) Connection(deviceID protocol.DeviceID) (connections.Connec
 	return nil, false
 }
 
-func (m *mockedModel) GlobalSize(folder string) db.Counts {
-	return db.Counts{}
-}
-
-func (m *mockedModel) LocalSize(folder string) db.Counts {
-	return db.Counts{}
-}
-
-func (m *mockedModel) ReceiveOnlyChangedSize(folder string) db.Counts {
-	return db.Counts{}
-}
-
-func (m *mockedModel) CurrentSequence(folder string) (int64, bool) {
-	return 0, false
-}
-
-func (m *mockedModel) RemoteSequence(folder string) (int64, bool) {
-	return 0, false
-}
-
 func (m *mockedModel) State(folder string) (string, time.Time, error) {
 	return "", time.Time{}, nil
 }
@@ -145,10 +121,6 @@ func (m *mockedModel) FolderErrors(folder string) ([]model.FileError, error) {
 }
 
 func (m *mockedModel) WatchError(folder string) error {
-	return nil
-}
-
-func (m *mockedModel) LocalChangedFiles(folder string, page, perpage int) []db.FileInfoTruncated {
 	return nil
 }
 
@@ -188,3 +160,19 @@ func (m *mockedModel) GetHello(protocol.DeviceID) protocol.HelloIntf {
 }
 
 func (m *mockedModel) StartDeadlockDetector(timeout time.Duration) {}
+
+func (m *mockedModel) DBSnapshot(_ string) (*db.Snapshot, error) {
+	return nil, nil
+}
+
+type mockedFolderSummaryService struct{}
+
+func (m *mockedFolderSummaryService) Serve() {}
+
+func (m *mockedFolderSummaryService) Stop() {}
+
+func (m *mockedFolderSummaryService) Summary(folder string) (map[string]interface{}, error) {
+	return map[string]interface{}{"mocked": true}, nil
+}
+
+func (m *mockedFolderSummaryService) OnEventRequest() {}

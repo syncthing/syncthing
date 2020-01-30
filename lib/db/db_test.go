@@ -72,7 +72,9 @@ func TestIgnoredFiles(t *testing.T) {
 	// Local files should have the "ignored" bit in addition to just being
 	// generally invalid if we want to look at the simulation of that bit.
 
-	fi, ok := fs.Get(protocol.LocalDeviceID, "foo")
+	snap := fs.Snapshot()
+	defer snap.Release()
+	fi, ok := snap.Get(protocol.LocalDeviceID, "foo")
 	if !ok {
 		t.Fatal("foo should exist")
 	}
@@ -83,7 +85,7 @@ func TestIgnoredFiles(t *testing.T) {
 		t.Error("foo should be ignored")
 	}
 
-	fi, ok = fs.Get(protocol.LocalDeviceID, "bar")
+	fi, ok = snap.Get(protocol.LocalDeviceID, "bar")
 	if !ok {
 		t.Fatal("bar should exist")
 	}
@@ -97,7 +99,7 @@ func TestIgnoredFiles(t *testing.T) {
 	// Remote files have the invalid bit as usual, and the IsInvalid() method
 	// should pick this up too.
 
-	fi, ok = fs.Get(protocol.DeviceID{42}, "baz")
+	fi, ok = snap.Get(protocol.DeviceID{42}, "baz")
 	if !ok {
 		t.Fatal("baz should exist")
 	}
@@ -108,7 +110,7 @@ func TestIgnoredFiles(t *testing.T) {
 		t.Error("baz should be invalid")
 	}
 
-	fi, ok = fs.Get(protocol.DeviceID{42}, "quux")
+	fi, ok = snap.Get(protocol.DeviceID{42}, "quux")
 	if !ok {
 		t.Fatal("quux should exist")
 	}
@@ -163,11 +165,15 @@ func TestUpdate0to3(t *testing.T) {
 
 	folder := []byte(update0to3Folder)
 
-	if err := updater.updateSchema0to1(); err != nil {
+	if err := updater.updateSchema0to1(0); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, ok, err := db.getFileDirty(folder, protocol.LocalDeviceID[:], []byte(slashPrefixed)); err != nil {
+	trans, err := db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := trans.getFile(folder, protocol.LocalDeviceID[:], []byte(slashPrefixed)); err != nil {
 		t.Fatal(err)
 	} else if ok {
 		t.Error("File prefixed by '/' was not removed during transition to schema 1")
@@ -181,12 +187,16 @@ func TestUpdate0to3(t *testing.T) {
 		t.Error("Invalid file wasn't added to global list")
 	}
 
-	if err := updater.updateSchema1to2(); err != nil {
+	if err := updater.updateSchema1to2(1); err != nil {
 		t.Fatal(err)
 	}
 
 	found := false
-	_ = db.withHaveSequence(folder, 0, func(fi FileIntf) bool {
+	trans, err = db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = trans.withHaveSequence(folder, 0, func(fi FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		l.Infoln(f)
 		if found {
@@ -204,7 +214,7 @@ func TestUpdate0to3(t *testing.T) {
 		t.Error("Local file wasn't added to sequence bucket", err)
 	}
 
-	if err := updater.updateSchema2to3(); err != nil {
+	if err := updater.updateSchema2to3(2); err != nil {
 		t.Fatal(err)
 	}
 
@@ -213,7 +223,11 @@ func TestUpdate0to3(t *testing.T) {
 		haveUpdate0to3[remoteDevice1][0].Name: haveUpdate0to3[remoteDevice1][0],
 		haveUpdate0to3[remoteDevice0][2].Name: haveUpdate0to3[remoteDevice0][2],
 	}
-	_ = db.withNeed(folder, protocol.LocalDeviceID[:], false, func(fi FileIntf) bool {
+	trans, err = db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = trans.withNeed(folder, protocol.LocalDeviceID[:], false, func(fi FileIntf) bool {
 		e, ok := need[fi.FileName()]
 		if !ok {
 			t.Error("Got unexpected needed file:", fi.FileName())
