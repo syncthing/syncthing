@@ -18,6 +18,9 @@ type byteSemaphore struct {
 }
 
 func newByteSemaphore(max int) *byteSemaphore {
+	if max < 0 {
+		max = 0
+	}
 	s := byteSemaphore{
 		max:       max,
 		available: max,
@@ -56,6 +59,9 @@ func (s *byteSemaphore) give(bytes int) {
 }
 
 func (s *byteSemaphore) setCapacity(cap int) {
+	if cap < 0 {
+		cap = 0
+	}
 	s.mut.Lock()
 	diff := cap - s.max
 	s.max = cap
