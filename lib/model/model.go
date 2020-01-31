@@ -44,8 +44,6 @@ const (
 	maxBatchSizeFiles = 1000       // Either way, don't include more files than this
 )
 
-var ()
-
 type service interface {
 	BringToFront(string)
 	Override()
