@@ -41,6 +41,8 @@ func idxck(ldb backend.Backend) (success bool) {
 	globals := make(map[globalKey]db.VersionList)
 	sequences := make(map[sequenceKey]string)
 	needs := make(map[globalKey]struct{})
+	blocklists := make(map[string]struct{})
+	usedBlocklists := make(map[string]struct{})
 	var localDeviceKey uint32
 	success = true
 
@@ -99,6 +101,10 @@ func idxck(ldb backend.Backend) (success bool) {
 			folder := binary.BigEndian.Uint32(key[1:])
 			name := nulString(key[1+4:])
 			needs[globalKey{folder, name}] = struct{}{}
+
+		case db.KeyTypeBlockList:
+			hash := string(key[1:])
+			blocklists[hash] = struct{}{}
 		}
 	}
 
@@ -135,6 +141,16 @@ func idxck(ldb backend.Backend) (success bool) {
 			if name != fi.Name {
 				fmt.Printf("Sequence entry refers to wrong name, %q (seq) != %q (FileInfo), folder %q, seq %d\n", name, fi.Name, folder, fi.Sequence)
 				success = false
+			}
+		}
+
+		if fi.BlocksHash != nil {
+			key := string(fi.BlocksHash)
+			if _, ok := blocklists[key]; !ok {
+				fmt.Printf("Missing block list for file %q, block list hash %x\n", fi.Name, fi.BlocksHash)
+				success = false
+			} else {
+				usedBlocklists[key] = struct{}{}
 			}
 		}
 	}
@@ -227,6 +243,10 @@ func idxck(ldb backend.Backend) (success bool) {
 			fmt.Printf("Need entry for file we don't need, %q, folder %q\n", nk.name, folder)
 			success = false
 		}
+	}
+
+	if d := len(blocklists) - len(usedBlocklists); d > 0 {
+		fmt.Printf("%d block list entries out of %d needs GC\n", d, len(blocklists))
 	}
 
 	return

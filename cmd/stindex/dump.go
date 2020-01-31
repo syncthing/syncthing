@@ -80,6 +80,31 @@ func dump(ldb backend.Backend) {
 				fmt.Printf("[deviceidx] K:%d V:%s\n", key, dev)
 			}
 
+		case db.KeyTypeIndexID:
+			device := binary.BigEndian.Uint32(it.Key()[1:])
+			folder := binary.BigEndian.Uint32(it.Key()[5:])
+			fmt.Printf("[indexid] D:%d F:%d I:%x\n", device, folder, it.Value())
+
+		case db.KeyTypeFolderMeta:
+			folder := binary.BigEndian.Uint32(it.Key()[1:])
+			fmt.Printf("[foldermeta] F:%d V:%x\n", folder, it.Value())
+
+		case db.KeyTypeMiscData:
+			fmt.Printf("[miscdata] K:%q V:%q\n", it.Key()[1:], it.Value())
+
+		case db.KeyTypeSequence:
+			folder := binary.BigEndian.Uint32(it.Key()[1:])
+			seq := binary.BigEndian.Uint64(it.Key()[5:])
+			fmt.Printf("[sequence] F:%d S:%d V:%q\n", folder, seq, it.Value())
+
+		case db.KeyTypeNeed:
+			folder := binary.BigEndian.Uint32(it.Key()[1:])
+			file := string(it.Key()[5:])
+			fmt.Printf("[need] F:%d V:%q\n", folder, file)
+
+		case db.KeyTypeBlockList:
+			fmt.Printf("[blocklist] H:%x\n", it.Key()[1:])
+
 		default:
 			fmt.Printf("[???]\n  %x\n  %x\n", it.Key(), it.Value())
 		}
