@@ -121,6 +121,12 @@ type model struct {
 	protectedFiles    []string
 	evLogger          events.Logger
 
+	// globalRequestLimiter limits the amount of data in concurrent incoming requests
+	globalRequestLimiter *byteSemaphore
+	// folderIOLimiter limits the number of concurrent I/O heavy operations,
+	// such as scans and pulls. A limit of zero means no limit.
+	folderIOLimiter *byteSemaphore
+
 	clientName    string
 	clientVersion string
 
@@ -145,7 +151,7 @@ type model struct {
 	foldersRunning int32 // for testing only
 }
 
-type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem, events.Logger) service
+type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem, events.Logger, *byteSemaphore) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory)
@@ -177,38 +183,39 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 			},
 			PassThroughPanics: true,
 		}),
-		cfg:                 cfg,
-		db:                  ldb,
-		finder:              db.NewBlockFinder(ldb),
-		progressEmitter:     NewProgressEmitter(cfg, evLogger),
-		id:                  id,
-		shortID:             id.Short(),
-		cacheIgnoredFiles:   cfg.Options().CacheIgnoredFiles,
-		protectedFiles:      protectedFiles,
-		evLogger:            evLogger,
-		clientName:          clientName,
-		clientVersion:       clientVersion,
-		folderCfgs:          make(map[string]config.FolderConfiguration),
-		folderFiles:         make(map[string]*db.FileSet),
-		deviceStatRefs:      make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
-		folderIgnores:       make(map[string]*ignore.Matcher),
-		folderRunners:       make(map[string]service),
-		folderRunnerTokens:  make(map[string][]suture.ServiceToken),
-		folderVersioners:    make(map[string]versioner.Versioner),
-		conn:                make(map[protocol.DeviceID]connections.Connection),
-		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
-		closed:              make(map[protocol.DeviceID]chan struct{}),
-		helloMessages:       make(map[protocol.DeviceID]protocol.HelloResult),
-		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
-		remotePausedFolders: make(map[protocol.DeviceID][]string),
-		fmut:                sync.NewRWMutex(),
-		pmut:                sync.NewRWMutex(),
+		cfg:                  cfg,
+		db:                   ldb,
+		finder:               db.NewBlockFinder(ldb),
+		progressEmitter:      NewProgressEmitter(cfg, evLogger),
+		id:                   id,
+		shortID:              id.Short(),
+		cacheIgnoredFiles:    cfg.Options().CacheIgnoredFiles,
+		protectedFiles:       protectedFiles,
+		evLogger:             evLogger,
+		globalRequestLimiter: newByteSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
+		folderIOLimiter:      newByteSemaphore(cfg.Options().MaxFolderConcurrency()),
+		clientName:           clientName,
+		clientVersion:        clientVersion,
+		folderCfgs:           make(map[string]config.FolderConfiguration),
+		folderFiles:          make(map[string]*db.FileSet),
+		deviceStatRefs:       make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
+		folderIgnores:        make(map[string]*ignore.Matcher),
+		folderRunners:        make(map[string]service),
+		folderRunnerTokens:   make(map[string][]suture.ServiceToken),
+		folderVersioners:     make(map[string]versioner.Versioner),
+		conn:                 make(map[protocol.DeviceID]connections.Connection),
+		connRequestLimiters:  make(map[protocol.DeviceID]*byteSemaphore),
+		closed:               make(map[protocol.DeviceID]chan struct{}),
+		helloMessages:        make(map[protocol.DeviceID]protocol.HelloResult),
+		deviceDownloads:      make(map[protocol.DeviceID]*deviceDownloadState),
+		remotePausedFolders:  make(map[protocol.DeviceID][]string),
+		fmut:                 sync.NewRWMutex(),
+		pmut:                 sync.NewRWMutex(),
 	}
 	for devID := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
 	}
 	m.Add(m.progressEmitter)
-	folderIOLimiter.setCapacity(cfg.Options().MaxFolderConcurrency())
 
 	return m
 }
@@ -340,7 +347,7 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 
 	ignores := m.folderIgnores[folder]
 
-	p := folderFactory(m, fset, ignores, cfg, ver, ffs, m.evLogger)
+	p := folderFactory(m, fset, ignores, cfg, ver, ffs, m.evLogger, m.folderIOLimiter)
 
 	m.folderRunners[folder] = p
 
@@ -1500,25 +1507,16 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, size in
 	limiter := m.connRequestLimiters[deviceID]
 	m.pmut.RUnlock()
 
-	if limiter != nil {
-		limiter.take(int(size))
-	}
+	// The requestResponse releases the bytes to the buffer pool and the
+	// limiters when its Close method is called.
+	res := newLimitedRequestResponse(int(size), limiter, m.globalRequestLimiter)
 
-	// The requestResponse releases the bytes to the limiter when its Close method is called.
-	res := newRequestResponse(int(size))
 	defer func() {
 		// Close it ourselves if it isn't returned due to an error
 		if err != nil {
 			res.Close()
 		}
 	}()
-
-	if limiter != nil {
-		go func() {
-			res.Wait()
-			limiter.give(int(size))
-		}()
-	}
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
@@ -1561,6 +1559,32 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, size in
 	}
 
 	return res, nil
+}
+
+// newLimitedRequestResponse takes size bytes from the limiters in order,
+// skipping nil limiters, then returns a requestResponse of the given size.
+// When the requestResponse is closed the limiters are given back the bytes,
+// in reverse order.
+func newLimitedRequestResponse(size int, limiters ...*byteSemaphore) *requestResponse {
+	for _, limiter := range limiters {
+		if limiter != nil {
+			limiter.take(size)
+		}
+	}
+
+	res := newRequestResponse(size)
+
+	go func() {
+		res.Wait()
+		for i := range limiters {
+			limiter := limiters[len(limiters)-1-i]
+			if limiter != nil {
+				limiter.give(size)
+			}
+		}
+	}()
+
+	return res
 }
 
 func (m *model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, folder, name string, size int32, offset int64, hash []byte) {
@@ -2483,7 +2507,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 	m.fmut.Unlock()
 
-	folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
+	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
+	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves. Compare the options structs containing only the

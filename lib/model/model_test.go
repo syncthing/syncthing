@@ -3451,3 +3451,31 @@ func TestDeviceWasSeen(t *testing.T) {
 		t.Error("device should have been seen now")
 	}
 }
+
+func TestNewLimitedRequestResponse(t *testing.T) {
+	l0 := newByteSemaphore(0)
+	l1 := newByteSemaphore(1024)
+	l2 := (*byteSemaphore)(nil)
+
+	// Should take 500 bytes from any non-unlimited non-nil limiters.
+	res := newLimitedRequestResponse(500, l0, l1, l2)
+
+	if l1.available != 1024-500 {
+		t.Error("should have taken bytes from limited limiter")
+	}
+
+	// Closing the result should return the bytes.
+	res.Close()
+
+	// Try to take 1024 bytes to make sure the bytes were returned.
+	done := make(chan struct{})
+	go func() {
+		l1.take(1024)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Error("Bytes weren't returned in a timely fashion")
+	}
+}
