@@ -111,26 +111,29 @@ type Model interface {
 type model struct {
 	*suture.Supervisor
 
-	cfg               config.Wrapper
-	db                *db.Lowlevel
+	// constructor parameters
+	cfg            config.Wrapper
+	id             protocol.DeviceID
+	clientName     string
+	clientVersion  string
+	db             *db.Lowlevel
+	protectedFiles []string
+	evLogger       events.Logger
+
+	// constant or concurrency safe fields
 	finder            *db.BlockFinder
 	progressEmitter   *ProgressEmitter
-	id                protocol.DeviceID
 	shortID           protocol.ShortID
 	cacheIgnoredFiles bool
-	protectedFiles    []string
-	evLogger          events.Logger
-
-	// globalRequestLimiter limits the amount of data in concurrent incoming requests
+	// globalRequestLimiter limits the amount of data in concurrent incoming
+	// requests
 	globalRequestLimiter *byteSemaphore
 	// folderIOLimiter limits the number of concurrent I/O heavy operations,
-	// such as scans and pulls. A limit of zero means no limit.
+	// such as scans and pulls.
 	folderIOLimiter *byteSemaphore
 
-	clientName    string
-	clientVersion string
-
-	fmut               sync.RWMutex                                           // protects the below
+	// fields protected by fmut
+	fmut               sync.RWMutex
 	folderCfgs         map[string]config.FolderConfiguration                  // folder -> cfg
 	folderFiles        map[string]*db.FileSet                                 // folder -> files
 	deviceStatRefs     map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
@@ -140,7 +143,8 @@ type model struct {
 	folderRestartMuts  syncMutexMap                                           // folder -> restart mutex
 	folderVersioners   map[string]versioner.Versioner                         // folder -> versioner (may be nil)
 
-	pmut                sync.RWMutex // protects the below
+	// fields protected by pmut
+	pmut                sync.RWMutex
 	conn                map[protocol.DeviceID]connections.Connection
 	connRequestLimiters map[protocol.DeviceID]*byteSemaphore
 	closed              map[protocol.DeviceID]chan struct{}
@@ -183,34 +187,42 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 			},
 			PassThroughPanics: true,
 		}),
-		cfg:                  cfg,
-		db:                   ldb,
+
+		// constructor parameters
+		cfg:            cfg,
+		id:             id,
+		clientName:     clientName,
+		clientVersion:  clientVersion,
+		db:             ldb,
+		protectedFiles: protectedFiles,
+		evLogger:       evLogger,
+
+		// constant or concurrency safe fields
 		finder:               db.NewBlockFinder(ldb),
 		progressEmitter:      NewProgressEmitter(cfg, evLogger),
-		id:                   id,
 		shortID:              id.Short(),
 		cacheIgnoredFiles:    cfg.Options().CacheIgnoredFiles,
-		protectedFiles:       protectedFiles,
-		evLogger:             evLogger,
 		globalRequestLimiter: newByteSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
 		folderIOLimiter:      newByteSemaphore(cfg.Options().MaxFolderConcurrency()),
-		clientName:           clientName,
-		clientVersion:        clientVersion,
-		folderCfgs:           make(map[string]config.FolderConfiguration),
-		folderFiles:          make(map[string]*db.FileSet),
-		deviceStatRefs:       make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
-		folderIgnores:        make(map[string]*ignore.Matcher),
-		folderRunners:        make(map[string]service),
-		folderRunnerTokens:   make(map[string][]suture.ServiceToken),
-		folderVersioners:     make(map[string]versioner.Versioner),
-		conn:                 make(map[protocol.DeviceID]connections.Connection),
-		connRequestLimiters:  make(map[protocol.DeviceID]*byteSemaphore),
-		closed:               make(map[protocol.DeviceID]chan struct{}),
-		helloMessages:        make(map[protocol.DeviceID]protocol.HelloResult),
-		deviceDownloads:      make(map[protocol.DeviceID]*deviceDownloadState),
-		remotePausedFolders:  make(map[protocol.DeviceID][]string),
-		fmut:                 sync.NewRWMutex(),
-		pmut:                 sync.NewRWMutex(),
+
+		// fields protected by fmut
+		fmut:               sync.NewRWMutex(),
+		folderCfgs:         make(map[string]config.FolderConfiguration),
+		folderFiles:        make(map[string]*db.FileSet),
+		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
+		folderIgnores:      make(map[string]*ignore.Matcher),
+		folderRunners:      make(map[string]service),
+		folderRunnerTokens: make(map[string][]suture.ServiceToken),
+		folderVersioners:   make(map[string]versioner.Versioner),
+
+		// fields protected by pmut
+		pmut:                sync.NewRWMutex(),
+		conn:                make(map[protocol.DeviceID]connections.Connection),
+		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
+		closed:              make(map[protocol.DeviceID]chan struct{}),
+		helloMessages:       make(map[protocol.DeviceID]protocol.HelloResult),
+		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
+		remotePausedFolders: make(map[protocol.DeviceID][]string),
 	}
 	for devID := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
