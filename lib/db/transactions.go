@@ -124,9 +124,9 @@ func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate boo
 		return nil, nil, false, err
 	}
 
-	vl, ok := unmarshalVersionList(bs)
-	if !ok {
-		return keyBuf, nil, false, nil
+	var vl VersionList
+	if err := vl.Unmarshal(bs); err != nil {
+		return nil, nil, false, err
 	}
 
 	keyBuf, err = t.keyer.GenerateDeviceFileKey(keyBuf, folder, vl.Versions[0].Device, file)
@@ -259,9 +259,9 @@ func (t *readOnlyTransaction) withGlobal(folder, prefix []byte, truncate bool, f
 			return nil
 		}
 
-		vl, ok := unmarshalVersionList(dbi.Value())
-		if !ok {
-			continue
+		var vl VersionList
+		if err := vl.Unmarshal(dbi.Value()); err != nil {
+			return err
 		}
 
 		dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, name)
@@ -300,9 +300,9 @@ func (t *readOnlyTransaction) availability(folder, file []byte) ([]protocol.Devi
 		return nil, err
 	}
 
-	vl, ok := unmarshalVersionList(bs)
-	if !ok {
-		return nil, nil
+	var vl VersionList
+	if err := vl.Unmarshal(bs); err != nil {
+		return nil, err
 	}
 
 	var devices []protocol.DeviceID
@@ -338,9 +338,9 @@ func (t *readOnlyTransaction) withNeed(folder, device []byte, truncate bool, fn 
 	var dk []byte
 	devID := protocol.DeviceIDFromBytes(device)
 	for dbi.Next() {
-		vl, ok := unmarshalVersionList(dbi.Value())
-		if !ok {
-			continue
+		var vl VersionList
+		if err := vl.Unmarshal(dbi.Value()); err != nil {
+			return err
 		}
 
 		haveFV, have := vl.Get(device)
