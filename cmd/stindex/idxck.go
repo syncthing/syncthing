@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -114,6 +115,7 @@ func idxck(ldb backend.Backend) (success bool) {
 		return
 	}
 
+	var missingSeq []sequenceKey
 	for fk, fi := range fileInfos {
 		if fk.name != fi.Name {
 			fmt.Printf("Mismatching FileInfo name, %q (key) != %q (actual)\n", fk.name, fi.Name)
@@ -132,9 +134,11 @@ func idxck(ldb backend.Backend) (success bool) {
 		}
 
 		if fk.device == localDeviceKey {
-			name, ok := sequences[sequenceKey{fk.folder, uint64(fi.Sequence)}]
+			sk := sequenceKey{fk.folder, uint64(fi.Sequence)}
+			name, ok := sequences[sk]
 			if !ok {
 				fmt.Printf("Sequence entry missing for FileInfo %q, folder %q, seq %d\n", fi.Name, folder, fi.Sequence)
+				missingSeq = append(missingSeq, sk)
 				success = false
 				continue
 			}
@@ -153,6 +157,31 @@ func idxck(ldb backend.Backend) (success bool) {
 				usedBlocklists[key] = struct{}{}
 			}
 		}
+	}
+
+	// Aggregate the ranges of missing sequence entries, print them
+
+	sort.Slice(missingSeq, func(a, b int) bool {
+		if missingSeq[a].folder != missingSeq[b].folder {
+			return missingSeq[a].folder < missingSeq[b].folder
+		}
+		return missingSeq[a].sequence < missingSeq[b].sequence
+	})
+
+	var folder uint32
+	var startSeq, prevSeq uint64
+	for _, sk := range missingSeq {
+		if folder != sk.folder || sk.sequence != prevSeq+1 {
+			if folder != 0 {
+				fmt.Printf("Folder %d missing %d sequence entries: #%d - #%d\n", folder, prevSeq-startSeq+1, startSeq, prevSeq)
+			}
+			startSeq = sk.sequence
+			folder = sk.folder
+		}
+		prevSeq = sk.sequence
+	}
+	if folder != 0 {
+		fmt.Printf("Folder %d missing %d sequence entries: #%d - #%d\n", folder, prevSeq-startSeq+1, startSeq, prevSeq)
 	}
 
 	for gk, vl := range globals {
