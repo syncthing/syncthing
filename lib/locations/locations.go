@@ -39,11 +39,23 @@ const (
 type BaseDirEnum string
 
 const (
+	// Overridden by -home flag
 	ConfigBaseDir BaseDirEnum = "config"
-	HomeBaseDir   BaseDirEnum = "home"
+	DataBaseDir   BaseDirEnum = "data"
+	// User's home directory, *not* -home flag
+	HomeBaseDir BaseDirEnum = "home"
 )
 
+// Platform dependent directories
+var baseDirs = make(map[BaseDirEnum]string, 3)
+
 func init() {
+	home := homeDir()
+	config := defaultConfigDir(home)
+	baseDirs[HomeBaseDir] = home
+	baseDirs[ConfigBaseDir] = config
+	baseDirs[DataBaseDir] = defaultDataDir(home, config)
+
 	err := expandLocations()
 	if err != nil {
 		fmt.Println(err)
@@ -68,11 +80,7 @@ func GetBaseDir(baseDir BaseDirEnum) string {
 	return baseDirs[baseDir]
 }
 
-// Platform dependent directories
-var baseDirs = map[BaseDirEnum]string{
-	ConfigBaseDir: defaultConfigDir(), // Overridden by -home flag
-	HomeBaseDir:   homeDir(),          // User's home directory, *not* -home flag
-}
+var databaseDirname = "index-v0.14.0.db"
 
 // Use the variables from baseDirs here
 var locationTemplates = map[LocationEnum]string{
@@ -81,11 +89,11 @@ var locationTemplates = map[LocationEnum]string{
 	KeyFile:       "${config}/key.pem",
 	HTTPSCertFile: "${config}/https-cert.pem",
 	HTTPSKeyFile:  "${config}/https-key.pem",
-	Database:      "${config}/index-v0.14.0.db",
-	LogFile:       "${config}/syncthing.log", // -logfile on Windows
+	Database:      "${data}/" + databaseDirname,
+	LogFile:       "${data}/syncthing.log", // -logfile on Windows
 	CsrfTokens:    "${config}/csrftokens.txt",
-	PanicLog:      "${config}/panic-${timestamp}.log",
-	AuditLog:      "${config}/audit-${timestamp}.log",
+	PanicLog:      "${data}/panic-${timestamp}.log",
+	AuditLog:      "${data}/audit-${timestamp}.log",
 	GUIAssets:     "${config}/gui",
 	DefFolder:     "${home}/Sync",
 }
@@ -114,7 +122,7 @@ func expandLocations() error {
 // defaultConfigDir returns the default configuration directory, as figured
 // out by various the environment variables present on each platform, or dies
 // trying.
-func defaultConfigDir() string {
+func defaultConfigDir(home string) string {
 	switch runtime.GOOS {
 	case "windows":
 		if p := os.Getenv("LocalAppData"); p != "" {
@@ -123,23 +131,40 @@ func defaultConfigDir() string {
 		return filepath.Join(os.Getenv("AppData"), "Syncthing")
 
 	case "darwin":
-		dir, err := fs.ExpandTilde("~/Library/Application Support/Syncthing")
-		if err != nil {
-			fmt.Println(err)
-			panic("Failed to get default config dir")
-		}
-		return dir
+		return filepath.Join(home, "Library/Application Support/Syncthing")
 
 	default:
 		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
 			return filepath.Join(xdgCfg, "syncthing")
 		}
-		dir, err := fs.ExpandTilde("~/.config/syncthing")
-		if err != nil {
-			fmt.Println(err)
-			panic("Failed to get default config dir")
+		return filepath.Join(home, ".config/syncthing")
+	}
+}
+
+// defaultDataDir returns the default data directory, which usually is the
+// config directory but might be something else.
+func defaultDataDir(home, config string) string {
+	switch runtime.GOOS {
+	case "windows", "darwin":
+		return config
+
+	default:
+		xdgData := os.Getenv("XDG_DATA_HOME")
+		if xdgData == "" {
+			if xdgDatas := os.Getenv("XDG_DATA_DIRS"); xdgDatas == "" {
+				xdgData = filepath.Join(home, ".local/share/syncthing")
+				if _, err := os.Lstat(xdgData); err != nil {
+					return config
+				}
+			} else {
+				xdgData = strings.SplitN(xdgDatas, ":", 2)[0]
+			}
 		}
-		return dir
+		// Only use XDG location if no database exists at "normal" location
+		if _, err := os.Lstat(filepath.Join(home, "syncthing", databaseDirname)); os.IsNotExist(err) {
+			return xdgData
+		}
+		return config
 	}
 }
 

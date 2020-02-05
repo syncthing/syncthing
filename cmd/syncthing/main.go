@@ -147,7 +147,9 @@ var (
 
 type RuntimeOptions struct {
 	syncthing.Options
+	homeDir          string
 	confDir          string
+	dataDir          string
 	resetDatabase    bool
 	showVersion      bool
 	showPaths        bool
@@ -212,7 +214,9 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.StringVar(&options.generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&options.guiAddress, "gui-address", options.guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
 	flag.StringVar(&options.guiAPIKey, "gui-apikey", options.guiAPIKey, "Override GUI API key")
-	flag.StringVar(&options.confDir, "home", "", "Set configuration directory")
+	flag.StringVar(&options.homeDir, "home", "", "Set configuration and data directory")
+	flag.StringVar(&options.confDir, "config", "", "Set configuration directory (config and keys)")
+	flag.StringVar(&options.dataDir, "data", "", "Set data directory (database and logs)")
 	flag.IntVar(&options.logFlags, "logflags", options.logFlags, "Select information in log line prefix (see below)")
 	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
@@ -252,6 +256,17 @@ func parseCommandLineOptions() RuntimeOptions {
 	return options
 }
 
+func setLocation(loc string, enum locations.BaseDirEnum) error {
+	if !filepath.IsAbs(loc) {
+		var err error
+		loc, err = filepath.Abs(loc)
+		if err != nil {
+			return err
+		}
+	}
+	return locations.SetBaseDir(enum, loc)
+}
+
 func main() {
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
@@ -269,20 +284,20 @@ func main() {
 		osutil.HideConsole()
 	}
 
-	if options.confDir != "" {
-		// Not set as default above because the string can be really long.
-		if !filepath.IsAbs(options.confDir) {
-			var err error
-			options.confDir, err = filepath.Abs(options.confDir)
-			if err != nil {
-				l.Warnln("Failed to make options path absolute:", err)
-				os.Exit(syncthing.ExitError.AsInt())
-			}
+	// Not set as default above because the string can be really long.
+	var err error
+	if options.homeDir != "" {
+		if err = setLocation(options.homeDir, locations.ConfigBaseDir); err == nil {
+			err = setLocation(options.homeDir, locations.DataBaseDir)
 		}
-		if err := locations.SetBaseDir(locations.ConfigBaseDir, options.confDir); err != nil {
-			l.Warnln(err)
-			os.Exit(syncthing.ExitError.AsInt())
-		}
+	} else if options.confDir != "" {
+		err = setLocation(options.confDir, locations.ConfigBaseDir)
+	} else if options.dataDir != "" {
+		err = setLocation(options.dataDir, locations.DataBaseDir)
+	}
+	if err != nil {
+		l.Warnln(err)
+		os.Exit(syncthing.ExitError.AsInt())
 	}
 
 	if options.logFile == "" {
