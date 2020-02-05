@@ -372,6 +372,8 @@
     "Versions": "Wersje",
     "Versions Path": "Ścieżka wersji",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Wersje zostają automatycznie usunięte jeżeli są starsze niż maksymalny wiek lub przekraczają liczbę dopuszczalnych wersji.",
+    "Waiting to Scan": "Waiting to Scan",
+    "Waiting to Sync": "Waiting to Sync",
     "Waiting to scan": "Oczekiwanie na skanowanie",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Uwaga, ta ścieżka jest nadrzędnym folderem istniejącego folderu \"{{otherFolder}}\".",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Uwaga, ten folder jest nadfolderem istniejącego folderu \"{{otherFolderLabel}}\" ({{otherFolder}}).",

@@ -372,6 +372,8 @@
     "Versions": "Versioner",
     "Versions Path": "Versionssti",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Versioner slettes automatisk, hvis de er ældre end den givne maksimum alder eller overstiger det tilladte antal filer i et interval.",
+    "Waiting to Scan": "Waiting to Scan",
+    "Waiting to Sync": "Waiting to Sync",
     "Waiting to scan": "Venter på at skanne",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Advarsel: Denne sti er en forældermappe til den eksisterende mappe “{{otherFolder}}”.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Advarsel: Denne sti er en forældermappe til den eksisterende mappe “{{otherFolderLabel}}” ({{otherFolder}}).",

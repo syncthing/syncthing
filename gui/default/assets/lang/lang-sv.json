@@ -372,6 +372,8 @@
     "Versions": "Versioner",
     "Versions Path": "Sökväg för versioner",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Versioner raderas automatiskt när de är äldre än den maximala åldersgränsen eller överstiger frekvensen i intervallet.",
+    "Waiting to Scan": "Waiting to Scan",
+    "Waiting to Sync": "Waiting to Sync",
     "Waiting to scan": "Väntar på uppdatering",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Varning, denna sökväg är en överordnad mapp av en befintlig mapp \"{{otherFolder}}\".",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Varning, denna sökväg är en överordnad mapp av en befintlig mapp \"{{otherFolderLabel}}\" ({{otherFolder}}).",

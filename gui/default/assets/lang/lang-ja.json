@@ -372,6 +372,8 @@
     "Versions": "バージョン",
     "Versions Path": "古いバージョンを保存するパス",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "古いバージョンは、最大保存日数もしくは期間ごとの最大保存数を超えた場合、自動的に削除されます。",
+    "Waiting to Scan": "Waiting to Scan",
+    "Waiting to Sync": "Waiting to Sync",
     "Waiting to scan": "Waiting to scan",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "警告: 入力されたパスは、設定済みのフォルダー「{{otherFolder}}」の親ディレクトリです。",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "警告: 入力されたパスは、設定済みのフォルダー「{{otherFolderLabel}}」 ({{otherFolder}}) の親ディレクトリです。",

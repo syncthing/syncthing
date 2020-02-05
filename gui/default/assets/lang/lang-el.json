@@ -372,6 +372,8 @@
     "Versions": "Εκδόσεις",
     "Versions Path": "Φάκελος τήρησης εκδόσεων",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Οι παλιές εκδόσεις θα σβήνονται αυτόματα όταν ξεπεράσουν τη μέγιστη ηλικία ή όταν ξεπεραστεί ο μέγιστος αριθμός αρχείων ανά περίοδο.",
+    "Waiting to Scan": "Waiting to Scan",
+    "Waiting to Sync": "Waiting to Sync",
     "Waiting to scan": "Waiting to scan",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Προσοχή, αυτό το μονοπάτι είναι γονικός φάκελος ενός υπάρχοντος φακέλου \"{{otherFolder}}\".",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Προσοχή, αυτό το μονοπάτι είναι γονικός φάκελος ενός υπάρχοντος φακέλου \"{{otherFolderLabel}}\" ({{otherFolder}}).",

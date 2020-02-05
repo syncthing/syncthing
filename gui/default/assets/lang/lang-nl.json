@@ -372,6 +372,8 @@
     "Versions": "Versies",
     "Versions Path": "Pad voor versies",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Versies worden automatisch verwijderd als deze ouder zijn dan de maximale leeftijd of als ze het maximaal aantal toegestane bestanden in een interval overschrijden.",
+    "Waiting to Scan": "Wachten om te scannen",
+    "Waiting to Sync": "Wachten om te synchroniseren",
     "Waiting to scan": "Wachten om te scannen",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Waarschuwing, dit pad is een bovenliggende map van een bestaande map \"{{otherFolder}}\".",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Waarschuwing, dit pad is een bovenliggende map van een bestaande map \"{{otherFolderLabel}}\" ({{otherFolder}}).",

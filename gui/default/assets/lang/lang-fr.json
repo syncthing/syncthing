@@ -372,6 +372,8 @@
     "Versions": "Restauration...",
     "Versions Path": "Emplacement des versions",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Les plus anciennes versions seront supprimées automatiquement quand elles dépassent la durée maximum de conservation ou si leur nombre (par fichier) est supérieur à la limite prédéfinie pour l'intervalle.",
+    "Waiting to Scan": "En attente d'analyse",
+    "Waiting to Sync": "En attente de synchronisation",
     "Waiting to scan": "En attente d'analyse",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Attention, ce chemin est un répertoire parent d'au moins un partage existant (par exemple \"{{otherFolder}}\"). Si c'est bien ce que vous souhaitez, vous devriez créer un nouveau sous-répertoire, sinon ceci peut causer des problèmes tels que duplications et/ou suppressions intempestives de fichiers.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Attention, ce chemin est un répertoire parent d'au moins un partage existant (par exemple \"{{otherFolderLabel}}\" ({{otherFolder}})). Si vous continuez, vous devriez créer un nouveau sous-répertoire, sinon ceci peut causer des problèmes tels que duplications et/ou suppressions intempestives de fichiers.",

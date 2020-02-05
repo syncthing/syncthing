@@ -372,6 +372,8 @@
     "Versions": "Versões",
     "Versions Path": "Caminho das versões",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "As versões são eliminadas automaticamente se forem mais antigas do que a idade máxima ou excederem o número máximo de ficheiros permitido num intervalo.",
+    "Waiting to Scan": "À espera para verificar",
+    "Waiting to Sync": "À espera para sincronizar",
     "Waiting to scan": "À espera para verificar",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Aviso: Este caminho é uma pasta mãe duma pasta \"{{otherFolder}}\" já existente.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Aviso: Este caminho é uma pasta mãe duma pasta \"{{otherFolderLabel}}\" ({{otherFolder}}) já existente.",

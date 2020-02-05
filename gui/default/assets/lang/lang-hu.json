@@ -372,6 +372,8 @@
     "Versions": "Verziók",
     "Versions Path": "Verziók útvonala",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "A régi verziók automatikusan törlődnek, amennyiben öregebbek, mint a maximum kor, vagy már több van belőlük, mint az adott időszakban megtartható maximum.",
+    "Waiting to Scan": "Várakozás átnézésre",
+    "Waiting to Sync": "Várakozás a szinkronizálásra",
     "Waiting to scan": "Várakozás átnézésre",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Figyelem, ez az útvonal a meglévő „{{otherFolder}}” mappa szülőmappája.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Figyelem, ez az útvonal a meglévő „{{otherFolderLabel}}” ({{otherFolder}}) mappa szülőmappája.",

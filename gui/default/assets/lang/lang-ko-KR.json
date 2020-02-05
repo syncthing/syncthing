@@ -372,6 +372,8 @@
     "Versions": "버전",
     "Versions Path": "버전 저장 경로",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "최대 보존 기간보다 오래되었거나 지정한 개수를 넘긴 버전은 자동으로 삭제됩니다.",
+    "Waiting to Scan": "Waiting to Scan",
+    "Waiting to Sync": "Waiting to Sync",
     "Waiting to scan": "Waiting to scan",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "경고, 이 경로는 현재 존재하는 폴더 \"{{otherFolder}}\" 의 상위 폴더 입니다.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "경고, 이 경로는 현재 존재하는 폴더 \"{{otherFolderLabel}}\" ({{otherFolder}}) 의 상위 폴더 입니다.",

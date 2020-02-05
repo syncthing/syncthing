@@ -372,6 +372,8 @@
     "Versions": "Versioj",
     "Versions Path": "Vojo de Versioj",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Versioj estas aŭtomate forigita se ili estas pli malnovaj ol la maksimuma aĝo aŭ superas la nombron da dosieroj permesita en intervalo.",
+    "Waiting to Scan": "Waiting to Scan",
+    "Waiting to Sync": "Waiting to Sync",
     "Waiting to scan": "Atendante scanadon",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Averto, ĉi tiu vojo estas parenta dosierujo de ekzistanta dosierujo \"{{otherFolder}}\".",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Averto, ĉi tiu vojo estas parenta dosierujo de ekzistanta dosierujo \"{{otherFolderLabel}}\" ({{otherFolder}}).",

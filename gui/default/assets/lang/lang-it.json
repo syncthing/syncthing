@@ -372,6 +372,8 @@
     "Versions": "Versioni",
     "Versions Path": "Percorso Cartella Versioni",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Le versioni vengono eliminate automaticamente se superano la durata massima o il numero di file permessi in un determinato intervallo temporale.",
+    "Waiting to Scan": "In attesa di Scansione",
+    "Waiting to Sync": "In attesa di Sincronizzazione",
     "Waiting to scan": "In attesa di scansione",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Attenzione, questo percorso è una cartella superiore di una cartella esistente \"{{otherFolder}}\".",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Attenzione, questo percorso è una cartella superiore di una cartella esistente \"{{otherFolderLabel}}\" ({{otherFolder}}).",

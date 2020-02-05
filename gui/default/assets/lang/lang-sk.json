@@ -372,6 +372,8 @@
     "Versions": "Verzie",
     "Versions Path": "Cesta k verziám",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Verzie sú automaticky zmazané ak sú staršie ako je maximálny časový limit alebo presiahnu počet súborov povolených v danom intervale.",
+    "Waiting to Scan": "Waiting to Scan",
+    "Waiting to Sync": "Waiting to Sync",
     "Waiting to scan": "Čaká na sken",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Warning, this path is a parent directory of an existing folder \"{{otherFolder}}\".",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Warning, this path is a parent directory of an existing folder \"{{otherFolderLabel}}\" ({{otherFolder}}).",

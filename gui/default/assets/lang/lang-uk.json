@@ -372,6 +372,8 @@
     "Versions": "Версії",
     "Versions Path": "Шлях до версій",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Версії автоматично видаляються, якщо вони старше, ніж максимальний вік, або перевищують допустиму кількість файлів за інтервал.",
+    "Waiting to Scan": "Waiting to Scan",
+    "Waiting to Sync": "Waiting to Sync",
     "Waiting to scan": "Waiting to scan",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Увага, цей шлях є батьківським каталогом директорії \"{{otherFolder}}\", що й так синхронізується .",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Увага, цей шлях є батьківським каталогом директорії \"{{otherFolderLabel}}\" , що й так синхронізується ({{otherFolder}}).",
