@@ -15,6 +15,7 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -41,7 +42,6 @@ var (
 	noupgrade     bool
 	version       string
 	goCmd         string
-	goVersion     float64
 	race          bool
 	debug         = os.Getenv("BUILDDEBUG") != ""
 	extraTags     string
@@ -630,31 +630,31 @@ func buildSnap(target target) {
 }
 
 func shouldBuildSyso(dir string) (string, error) {
-	jsonPath := filepath.Join(dir, "versioninfo.json")
-	file, err := os.Create(filepath.Join(dir, "versioninfo.json"))
+	type M map[string]interface{}
+	major, minor, patch, build := semanticVersion()
+	bs, err := json.Marshal(M{
+		"FixedFileInfo": M{
+			"FileVersion": M{
+				"Major": major,
+				"Minor": minor,
+				"Patch": patch,
+				"Build": build,
+			},
+		},
+		"StringFileInfo": M{
+			"FileDescription": "Open Source Continuous File Synchronization",
+			"LegalCopyright":  "The Syncthing Authors",
+			"ProductVersion":  getVersion(),
+			"ProductName":     "Syncthing",
+		},
+		"IconPath": "assets/logo.ico",
+	})
 	if err != nil {
-		return "", errors.New("failed to create " + jsonPath + ": " + err.Error())
+		return "", err
 	}
 
-	major, minor, patch, build := semanticVersion()
-	fmt.Fprintf(file, `{
-    "FixedFileInfo": {
-        "FileVersion": {
-            "Major": %s,
-            "Minor": %s,
-            "Patch": %s,
-            "Build": %s
-        }
-    },
-    "StringFileInfo": {
-        "FileDescription": "Open Source Continuous File Synchronization",
-        "LegalCopyright": "The Syncthing Authors",
-        "ProductVersion": "%s",
-        "ProductName": "Syncthing"
-    },
-    "IconPath": "assets/logo.ico"
-}`, major, minor, patch, build, getVersion())
-	file.Close()
+	jsonPath := filepath.Join(dir, "versioninfo.json")
+	ioutil.WriteFile(jsonPath, bs, 0644)
 	defer func() {
 		if err := os.Remove(jsonPath); err != nil {
 			log.Printf("Warning: unable to remove generated %s: %v. Please remove it manually.", jsonPath, err)
@@ -800,18 +800,13 @@ func transifex() {
 }
 
 func ldflags(program string) string {
-	sep := '='
-	if goVersion > 0 && goVersion < 1.5 {
-		sep = ' '
-	}
-
-	b := new(bytes.Buffer)
+	b := new(strings.Builder)
 	b.WriteString("-w")
-	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version%c%s", sep, version)
-	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp%c%d", sep, buildStamp())
-	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User%c%s", sep, buildUser())
-	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host%c%s", sep, buildHost())
-	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Program%c%s", sep, program)
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version=%s", version)
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp=%d", buildStamp())
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User=%s", buildUser())
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host=%s", buildHost())
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Program=%s", program)
 	if v := os.Getenv("EXTRA_LDFLAGS"); v != "" {
 		fmt.Fprintf(b, " %s", v)
 	}
@@ -828,13 +823,7 @@ func rmr(paths ...string) {
 }
 
 func getReleaseVersion() (string, error) {
-	fd, err := os.Open("RELEASE")
-	if err != nil {
-		return "", err
-	}
-	defer fd.Close()
-
-	bs, err := ioutil.ReadAll(fd)
+	bs, err := ioutil.ReadFile("RELEASE")
 	if err != nil {
 		return "", err
 	}
