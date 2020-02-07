@@ -410,7 +410,7 @@ func install(target target, tags []string) {
 	}
 
 	for _, pkg := range target.buildPkgs {
-		args := []string{"install", "-v"}
+		args := []string{"install", "-v", "-trimpath"}
 		args = appendParameters(args, tags, pkg)
 
 		runPrint(goCmd, args...)
@@ -443,7 +443,7 @@ func build(target target, tags []string) {
 	}
 
 	for _, pkg := range target.buildPkgs {
-		args := []string{"build", "-v"}
+		args := []string{"build", "-v", "-trimpath"}
 		args = appendParameters(args, tags, pkg)
 
 		runPrint(goCmd, args...)
