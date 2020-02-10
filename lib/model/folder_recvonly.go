@@ -107,8 +107,7 @@ func (f *receiveOnlyFolder) Revert() {
 			fi = protocol.FileInfo{
 				Name:       fi.Name,
 				Type:       fi.Type,
-				ModifiedS:  fi.ModifiedS,
-				ModifiedNs: fi.ModifiedNs,
+				ModifiedS:  time.Now().Unix(),
 				ModifiedBy: f.shortID,
 				Deleted:    true,
 				Version:    protocol.Vector{}, // if this file ever resurfaces anywhere we want our delete to be strictly older
