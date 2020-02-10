@@ -149,21 +149,23 @@ func defaultDataDir(home, config string) string {
 		return config
 
 	default:
-		xdgData := os.Getenv("XDG_DATA_HOME")
-		if xdgData == "" {
-			if xdgDatas := os.Getenv("XDG_DATA_DIRS"); xdgDatas == "" {
-				xdgData = filepath.Join(home, ".local/share/syncthing")
-				if _, err := os.Lstat(xdgData); err != nil {
-					return config
-				}
-			} else {
-				xdgData = strings.SplitN(xdgDatas, ":", 2)[0]
-			}
+		// If a database exists at the "normal" location, use that anyway.
+		if _, err := os.Lstat(filepath.Join(home, "syncthing", databaseDirname)); err == nil {
+			return config
 		}
-		// Only use XDG location if no database exists at "normal" location
-		if _, err := os.Lstat(filepath.Join(home, "syncthing", databaseDirname)); os.IsNotExist(err) {
-			return xdgData
+		// Always use this env var, as it's explicitly set by the user
+		if xdgHome := os.Getenv("XDG_DATA_HOME"); xdgHome != "" {
+			return xdgHome
 		}
+		// Only use the XDG default, if a syncthing specific dir already
+		// exists. Existence of ~/.local/share is not deemed enough, as
+		// it may also exist erroneously on non-XDG systems.
+		xdgDefault := filepath.Join(home, ".local/share")
+		if _, err := os.Lstat(filepath.Join(xdgDefault, "syncthing")); err == nil {
+			return xdgDefault
+		}
+		// FYI: XDG_DATA_DIRS is not relevant, as it is for system-wide
+		// data dirs, not user specific ones.
 		return config
 	}
 }

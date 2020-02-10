@@ -284,16 +284,24 @@ func main() {
 		osutil.HideConsole()
 	}
 
-	// Not set as default above because the string can be really long.
+	// Not set as default above because the strings can be really long.
 	var err error
-	if options.homeDir != "" {
+	homeSet := options.homeDir != ""
+	confSet := options.confDir != ""
+	dataSet := options.dataDir != ""
+	switch {
+	case dataSet != confSet:
+		err = errors.New("Either both or none of -conf and -data must be given, use -home to set both at once.")
+	case homeSet && dataSet:
+		err = errors.New("Option -home must not be used together with -conf and -data.")
+	case homeSet:
 		if err = setLocation(options.homeDir, locations.ConfigBaseDir); err == nil {
 			err = setLocation(options.homeDir, locations.DataBaseDir)
 		}
-	} else if options.confDir != "" {
-		err = setLocation(options.confDir, locations.ConfigBaseDir)
-	} else if options.dataDir != "" {
-		err = setLocation(options.dataDir, locations.DataBaseDir)
+	case dataSet:
+		if err = setLocation(options.confDir, locations.ConfigBaseDir); err == nil {
+			err = setLocation(options.dataDir, locations.DataBaseDir)
+		}
 	}
 	if err != nil {
 		l.Warnln(err)
