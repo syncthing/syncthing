@@ -7,7 +7,9 @@
 package backend
 
 import (
-	"sync"
+	stdsync "sync"
+
+	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // The Reader interface specifies the read-only operations available on the
@@ -150,16 +152,22 @@ func IsNotFound(err error) bool {
 
 // releaser manages counting on top of a waitgroup
 type releaser struct {
-	wg   *sync.WaitGroup
-	once *sync.Once
+	wg   sync.CloseWaitGroup
+	once *stdsync.Once
 }
 
-func newReleaser(wg *sync.WaitGroup) *releaser {
-	wg.Add(1)
+func newReleaser(wg sync.CloseWaitGroup) (*releaser, error) {
+	if err := wg.Add(1); err != nil {
+		// This should only return an error if wg was already closed
+		if err != sync.ErrClosed {
+			panic(err)
+		}
+		return nil, errClosed{}
+	}
 	return &releaser{
 		wg:   wg,
-		once: new(sync.Once),
-	}
+		once: new(stdsync.Once),
+	}, nil
 }
 
 func (r releaser) Release() {

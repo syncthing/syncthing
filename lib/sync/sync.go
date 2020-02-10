@@ -42,6 +42,17 @@ type WaitGroup interface {
 	Wait()
 }
 
+var ErrClosed = fmt.Errorf("is closed")
+
+// CloseWaitGroup behaves just like a sync.WaitGroup, but does not require
+// a single routine to do the Add and Wait calls. If Add is called after
+// CloseWait, it will return an error, and both are safe to be used concurrently.
+type CloseWaitGroup interface {
+	Add(int) error
+	Done()
+	CloseWait()
+}
+
 func NewMutex() Mutex {
 	if useDeadlock {
 		return &deadlock.Mutex{}
@@ -211,6 +222,33 @@ func (wg *loggedWaitGroup) Wait() {
 	if duration >= threshold {
 		l.Debugf("WaitGroup took %v at %s", duration, getHolder())
 	}
+}
+
+type closeWaitGroup struct {
+	sync.WaitGroup
+	closed   bool
+	closeMut sync.RWMutex
+}
+
+func NewCloseWaitGroup() CloseWaitGroup {
+	return &closeWaitGroup{}
+}
+
+func (cg *closeWaitGroup) Add(i int) error {
+	cg.closeMut.RLock()
+	defer cg.closeMut.RUnlock()
+	if cg.closed {
+		return ErrClosed
+	}
+	cg.WaitGroup.Add(i)
+	return nil
+}
+
+func (cg *closeWaitGroup) CloseWait() {
+	cg.closeMut.Lock()
+	cg.closed = true
+	cg.closeMut.Unlock()
+	cg.WaitGroup.Wait()
 }
 
 func getHolder() holder {
