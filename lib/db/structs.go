@@ -127,6 +127,7 @@ func (f FileInfoTruncated) FilePermissions() uint32 {
 func (f FileInfoTruncated) FileModifiedBy() protocol.ShortID {
 	return f.ModifiedBy
 }
+
 func (f FileInfoTruncated) ConvertToIgnoredFileInfo(by protocol.ShortID) protocol.FileInfo {
 	return protocol.FileInfo{
 		Name:         f.Name,
@@ -137,6 +138,18 @@ func (f FileInfoTruncated) ConvertToIgnoredFileInfo(by protocol.ShortID) protoco
 		Version:      f.Version,
 		RawBlockSize: f.RawBlockSize,
 		LocalFlags:   protocol.FlagLocalIgnored,
+	}
+}
+
+func (f FileInfoTruncated) ConvertToDeletedFileInfo(by protocol.ShortID, localFlags uint32) protocol.FileInfo {
+	return protocol.FileInfo{
+		Name:       f.Name,
+		Type:       f.Type,
+		ModifiedS:  time.Now().Unix(),
+		ModifiedBy: by,
+		Deleted:    true,
+		Version:    f.Version.Update(by),
+		LocalFlags: localFlags,
 	}
 }
 

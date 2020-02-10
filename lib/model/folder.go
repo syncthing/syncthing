@@ -532,22 +532,11 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 					}
 					return true
 				}
-				nf := protocol.FileInfo{
-					Name:       file.Name,
-					Type:       file.Type,
-					Size:       0,
-					ModifiedS:  file.ModifiedS,
-					ModifiedNs: file.ModifiedNs,
-					ModifiedBy: f.shortID,
-					Deleted:    true,
-					Version:    file.Version.Update(f.shortID),
-					LocalFlags: f.localFlags,
-				}
-				// We do not want to override the global version
-				// with the deleted file. Setting to an empty
-				// version makes sure the file gets in sync on
-				// the following pull.
+				nf := file.ConvertToDeletedFileInfo(f.shortID, f.localFlags)
 				if file.ShouldConflict() {
+					// We do not want to override the global version with
+					// the deleted file. Setting to an empty version makes
+					// sure the file gets in sync on the following pull.
 					nf.Version = protocol.Vector{}
 				}
 
