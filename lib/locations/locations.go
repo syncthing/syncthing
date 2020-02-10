@@ -91,7 +91,7 @@ var locationTemplates = map[LocationEnum]string{
 	HTTPSKeyFile:  "${config}/https-key.pem",
 	Database:      "${data}/" + databaseDirname,
 	LogFile:       "${data}/syncthing.log", // -logfile on Windows
-	CsrfTokens:    "${config}/csrftokens.txt",
+	CsrfTokens:    "${data}/csrftokens.txt",
 	PanicLog:      "${data}/panic-${timestamp}.log",
 	AuditLog:      "${data}/audit-${timestamp}.log",
 	GUIAssets:     "${config}/gui",
@@ -155,13 +155,13 @@ func defaultDataDir(home, config string) string {
 		}
 		// Always use this env var, as it's explicitly set by the user
 		if xdgHome := os.Getenv("XDG_DATA_HOME"); xdgHome != "" {
-			return xdgHome
+			return filepath.Join(xdgHome, "syncthing")
 		}
 		// Only use the XDG default, if a syncthing specific dir already
 		// exists. Existence of ~/.local/share is not deemed enough, as
 		// it may also exist erroneously on non-XDG systems.
-		xdgDefault := filepath.Join(home, ".local/share")
-		if _, err := os.Lstat(filepath.Join(xdgDefault, "syncthing")); err == nil {
+		xdgDefault := filepath.Join(home, ".local/share/syncthing")
+		if _, err := os.Lstat(xdgDefault); err == nil {
 			return xdgDefault
 		}
 		// FYI: XDG_DATA_DIRS is not relevant, as it is for system-wide
