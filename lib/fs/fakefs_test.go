@@ -911,7 +911,7 @@ func TestReadWriteContent(t *testing.T) {
 	}
 	expected := []byte("foo\x00\x00bar")
 
-	buf := make([]byte, 1024)
+	buf := make([]byte, len(expected)-1)
 	n, err := fd.ReadAt(buf, 1) // note offset one byte
 	if err != nil {
 		t.Fatal(err)
