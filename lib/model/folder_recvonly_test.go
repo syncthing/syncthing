@@ -48,7 +48,11 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	m.Index(device1, "ro", knownFiles)
 	f.updateLocalsFromScanning(knownFiles)
 
-	size := globalSize(t, m, "ro")
+	m.fmut.RLock()
+	snap := m.folderFiles["ro"].Snapshot()
+	m.fmut.RUnlock()
+	size := snap.GlobalSize()
+	snap.Release()
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
