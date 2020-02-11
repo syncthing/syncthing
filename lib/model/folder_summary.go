@@ -15,6 +15,7 @@ import (
 	"github.com/thejerf/suture"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -77,28 +78,36 @@ func (c *folderSummaryService) String() string {
 func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, error) {
 	var res = make(map[string]interface{})
 
-	snap, err := c.model.DBSnapshot(folder)
-	if err != nil {
+	var local, global, need, ro db.Counts
+	var ourSeq, remoteSeq int64
+	errors, err := c.model.FolderErrors(folder)
+	if err == nil {
+		var snap *db.Snapshot
+		if snap, err = c.model.DBSnapshot(folder); err == nil {
+			global = snap.GlobalSize()
+			local = snap.LocalSize()
+			need = snap.NeedSize()
+			ro = snap.ReceiveOnlyChangedSize()
+			ourSeq = snap.Sequence(protocol.LocalDeviceID)
+			remoteSeq = snap.Sequence(protocol.GlobalDeviceID)
+		}
+	}
+	// For API backwards compatibility (SyncTrayzor needs it) an empty folder
+	// summary is returned for not running folders, an error might actually be
+	// more appropriate
+	if err != nil && err != ErrFolderPaused && err != errFolderNotRunning {
 		return nil, err
 	}
 
-	errors, err := c.model.FolderErrors(folder)
-	if err != nil && err != ErrFolderPaused && err != errFolderNotRunning {
-		// Stats from the db can still be obtained if the folder is just paused/being started
-		return nil, err
-	}
 	res["errors"] = len(errors)
 	res["pullErrors"] = len(errors) // deprecated
 
 	res["invalid"] = "" // Deprecated, retains external API for now
 
-	global := snap.GlobalSize()
 	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"], res["globalTotalItems"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
 
-	local := snap.LocalSize()
 	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"], res["localTotalItems"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
 
-	need := snap.NeedSize()
 	need.Bytes -= c.model.FolderProgressBytesCompleted(folder)
 	// This may happen if we are in progress of pulling files that were
 	// deleted globally after the pull started.
@@ -116,7 +125,6 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	if ok && fcfg.Type == config.FolderTypeReceiveOnly {
 		// Add statistics for things that have changed locally in a receive
 		// only folder.
-		ro := snap.ReceiveOnlyChangedSize()
 		res["receiveOnlyChangedFiles"] = ro.Files
 		res["receiveOnlyChangedDirectories"] = ro.Directories
 		res["receiveOnlyChangedSymlinks"] = ro.Symlinks
@@ -131,9 +139,6 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	if err != nil {
 		res["error"] = err.Error()
 	}
-
-	ourSeq := snap.Sequence(protocol.LocalDeviceID)
-	remoteSeq := snap.Sequence(protocol.GlobalDeviceID)
 
 	res["version"] = ourSeq + remoteSeq  // legacy
 	res["sequence"] = ourSeq + remoteSeq // new name
