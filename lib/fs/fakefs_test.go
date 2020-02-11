@@ -896,6 +896,28 @@ func testFakeFSCreateInsens(t *testing.T, fs Filesystem) {
 	assertDir(t, fs, "/", []string{"FOO"})
 }
 
+func TestReadWriteContent(t *testing.T) {
+	fs := newFakeFilesystem("foo?content=true")
+	fd, err := fs.Create("file")
+	if err != nil {
+		t.Fatal()
+	}
+
+	fd.Write([]byte("foo"))
+	fd.WriteAt([]byte("bar"), 5)
+	expected := []byte("foo\x00\x00bar")
+
+	buf := make([]byte, 1024)
+	n, err := fd.ReadAt(buf, 1) // note offset one byte
+	if n != len(expected)-1 {
+		t.Fatal("wrong number of bytes read")
+	}
+	if !bytes.Equal(buf[:n], expected[1:]) {
+		fmt.Printf("%d %q\n", n, buf[:n])
+		t.Error("wrong data in file")
+	}
+}
+
 func cleanup(fs Filesystem) error {
 	filenames, _ := fs.DirNames("/")
 	for _, filename := range filenames {
