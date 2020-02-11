@@ -33,6 +33,7 @@ func TestIgnoredFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	db := NewLowlevel(ldb)
+	defer db.Close()
 	if err := UpdateSchema(db); err != nil {
 		t.Fatal(err)
 	}
@@ -161,6 +162,7 @@ func TestUpdate0to3(t *testing.T) {
 	}
 
 	db := NewLowlevel(ldb)
+	defer db.Close()
 	updater := schemaUpdater{db}
 
 	folder := []byte(update0to3Folder)
@@ -173,6 +175,7 @@ func TestUpdate0to3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer trans.Release()
 	if _, ok, err := trans.getFile(folder, protocol.LocalDeviceID[:], []byte(slashPrefixed)); err != nil {
 		t.Fatal(err)
 	} else if ok {
@@ -196,6 +199,7 @@ func TestUpdate0to3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer trans.Release()
 	_ = trans.withHaveSequence(folder, 0, func(fi FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		l.Infoln(f)
@@ -227,6 +231,7 @@ func TestUpdate0to3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer trans.Release()
 	_ = trans.withNeed(folder, protocol.LocalDeviceID[:], false, func(fi FileIntf) bool {
 		e, ok := need[fi.FileName()]
 		if !ok {
@@ -246,6 +251,7 @@ func TestUpdate0to3(t *testing.T) {
 
 func TestDowngrade(t *testing.T) {
 	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
 	// sets the min version etc
 	if err := UpdateSchema(db); err != nil {
 		t.Fatal(err)

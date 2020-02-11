@@ -7,8 +7,6 @@
 package backend
 
 import (
-	"sync"
-
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -24,7 +22,14 @@ const (
 // leveldbBackend implements Backend on top of a leveldb
 type leveldbBackend struct {
 	ldb     *leveldb.DB
-	closeWG sync.WaitGroup
+	closeWG *closeWaitGroup
+}
+
+func newLeveldbBackend(ldb *leveldb.DB) *leveldbBackend {
+	return &leveldbBackend{
+		ldb:     ldb,
+		closeWG: &closeWaitGroup{},
+	}
 }
 
 func (b *leveldbBackend) NewReadTransaction() (ReadTransaction, error) {
@@ -36,9 +41,13 @@ func (b *leveldbBackend) newSnapshot() (leveldbSnapshot, error) {
 	if err != nil {
 		return leveldbSnapshot{}, wrapLeveldbErr(err)
 	}
+	rel, err := newReleaser(b.closeWG)
+	if err != nil {
+		return leveldbSnapshot{}, err
+	}
 	return leveldbSnapshot{
 		snap: snap,
-		rel:  newReleaser(&b.closeWG),
+		rel:  rel,
 	}, nil
 }
 
@@ -47,16 +56,20 @@ func (b *leveldbBackend) NewWriteTransaction() (WriteTransaction, error) {
 	if err != nil {
 		return nil, err // already wrapped
 	}
+	rel, err := newReleaser(b.closeWG)
+	if err != nil {
+		return nil, err
+	}
 	return &leveldbTransaction{
 		leveldbSnapshot: snap,
 		ldb:             b.ldb,
 		batch:           new(leveldb.Batch),
-		rel:             newReleaser(&b.closeWG),
+		rel:             rel,
 	}, nil
 }
 
 func (b *leveldbBackend) Close() error {
-	b.closeWG.Wait()
+	b.closeWG.CloseWait()
 	return wrapLeveldbErr(b.ldb.Close())
 }
 
@@ -82,6 +95,13 @@ func (b *leveldbBackend) Delete(key []byte) error {
 }
 
 func (b *leveldbBackend) Compact() error {
+	// Race is detected during testing when db is closed while compaction
+	// is ongoing.
+	err := b.closeWG.Add(1)
+	if err != nil {
+		return err
+	}
+	defer b.closeWG.Done()
 	return wrapLeveldbErr(b.ldb.CompactRange(util.Range{}))
 }
 

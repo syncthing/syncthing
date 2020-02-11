@@ -19,6 +19,7 @@ func TestDeviceKey(t *testing.T) {
 	name := []byte("name")
 
 	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
 
 	key, err := db.keyer.GenerateDeviceFileKey(nil, fld, dev, name)
 	if err != nil {
@@ -50,6 +51,7 @@ func TestGlobalKey(t *testing.T) {
 	name := []byte("name")
 
 	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
 
 	key, err := db.keyer.GenerateGlobalVersionKey(nil, fld, name)
 	if err != nil {
@@ -78,6 +80,7 @@ func TestSequenceKey(t *testing.T) {
 	fld := []byte("folder6789012345678901234567890123456789012345678901234567890123")
 
 	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
 
 	const seq = 1234567890
 	key, err := db.keyer.GenerateSequenceKey(nil, fld, seq)

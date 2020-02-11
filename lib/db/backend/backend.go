@@ -150,16 +150,18 @@ func IsNotFound(err error) bool {
 
 // releaser manages counting on top of a waitgroup
 type releaser struct {
-	wg   *sync.WaitGroup
+	wg   *closeWaitGroup
 	once *sync.Once
 }
 
-func newReleaser(wg *sync.WaitGroup) *releaser {
-	wg.Add(1)
+func newReleaser(wg *closeWaitGroup) (*releaser, error) {
+	if err := wg.Add(1); err != nil {
+		return nil, err
+	}
 	return &releaser{
 		wg:   wg,
 		once: new(sync.Once),
-	}
+	}, nil
 }
 
 func (r releaser) Release() {
@@ -168,4 +170,30 @@ func (r releaser) Release() {
 	r.once.Do(func() {
 		r.wg.Done()
 	})
+}
+
+// closeWaitGroup behaves just like a sync.WaitGroup, but does not require
+// a single routine to do the Add and Wait calls. If Add is called after
+// CloseWait, it will return an error, and both are safe to be used concurrently.
+type closeWaitGroup struct {
+	sync.WaitGroup
+	closed   bool
+	closeMut sync.RWMutex
+}
+
+func (cg *closeWaitGroup) Add(i int) error {
+	cg.closeMut.RLock()
+	defer cg.closeMut.RUnlock()
+	if cg.closed {
+		return errClosed{}
+	}
+	cg.WaitGroup.Add(i)
+	return nil
+}
+
+func (cg *closeWaitGroup) CloseWait() {
+	cg.closeMut.Lock()
+	cg.closed = true
+	cg.closeMut.Unlock()
+	cg.WaitGroup.Wait()
 }
