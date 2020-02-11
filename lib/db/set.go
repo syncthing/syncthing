@@ -196,6 +196,9 @@ type Snapshot struct {
 func (s *FileSet) Snapshot() *Snapshot {
 	t, err := s.db.newReadOnlyTransaction()
 	if err != nil {
+		if backend.IsClosed(err) {
+			return nil
+		}
 		panic(err)
 	}
 	return &Snapshot{
