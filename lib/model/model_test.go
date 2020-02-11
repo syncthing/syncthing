@@ -3479,3 +3479,35 @@ func TestNewLimitedRequestResponse(t *testing.T) {
 		t.Error("Bytes weren't returned in a timely fashion")
 	}
 }
+
+func TestFolderAPIErrors(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	fcfg.Paused = true
+	wcfg.SetFolder(fcfg)
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	methods := []func(folder string) error{
+		m.ScanFolder,
+		func(folder string) error {
+			return m.ScanFolderSubdirs(folder, nil)
+		},
+		func(folder string) error {
+			_, err := m.GetFolderVersions(folder)
+			return err
+		},
+		func(folder string) error {
+			_, err := m.RestoreFolderVersions(folder, nil)
+			return err
+		},
+	}
+
+	for i, method := range methods {
+		if err := method(fcfg.ID); err != ErrFolderPaused {
+			t.Errorf(`Expected "%v", got "%v" (method no %v)`, ErrFolderPaused, err, i)
+		}
+		if err := method("notexisting"); err != errFolderMissing {
+			t.Errorf(`Expected "%v", got "%v" (method no %v)`, errFolderMissing, err, i)
+		}
+	}
+}
