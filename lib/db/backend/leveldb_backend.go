@@ -10,8 +10,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
-
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 const (
@@ -24,13 +22,13 @@ const (
 // leveldbBackend implements Backend on top of a leveldb
 type leveldbBackend struct {
 	ldb     *leveldb.DB
-	closeWG sync.CloseWaitGroup
+	closeWG *closeWaitGroup
 }
 
 func newLeveldbBackend(ldb *leveldb.DB) *leveldbBackend {
 	return &leveldbBackend{
 		ldb:     ldb,
-		closeWG: sync.NewCloseWaitGroup(),
+		closeWG: &closeWaitGroup{},
 	}
 }
 
@@ -99,11 +97,11 @@ func (b *leveldbBackend) Delete(key []byte) error {
 func (b *leveldbBackend) Compact() error {
 	// Race is detected during testing when db is closed while compaction
 	// is ongoing.
-	rel, err := newReleaser(b.closeWG)
+	err := b.closeWG.Add(1)
 	if err != nil {
 		return err
 	}
-	defer rel.Release()
+	defer b.closeWG.Done()
 	return wrapLeveldbErr(b.ldb.CompactRange(util.Range{}))
 }
 
