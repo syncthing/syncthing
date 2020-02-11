@@ -840,10 +840,11 @@ func (m *model) Completion(device protocol.DeviceID, folder string) FolderComple
 // DBSnapshot returns a snapshot of the database content relevant to the given folder.
 func (m *model) DBSnapshot(folder string) (*db.Snapshot, error) {
 	m.fmut.RLock()
-	rf, ok := m.folderFiles[folder]
+	err := m.checkFolderRunningLocked(folder)
+	rf := m.folderFiles[folder]
 	m.fmut.RUnlock()
-	if !ok {
-		return nil, errFolderMissing
+	if err != nil {
+		return nil, err
 	}
 	return rf.Snapshot(), nil
 }
