@@ -900,15 +900,22 @@ func TestReadWriteContent(t *testing.T) {
 	fs := newFakeFilesystem("foo?content=true")
 	fd, err := fs.Create("file")
 	if err != nil {
-		t.Fatal()
+		t.Fatal(err)
 	}
 
-	fd.Write([]byte("foo"))
-	fd.WriteAt([]byte("bar"), 5)
+	if _, err := fd.Write([]byte("foo")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fd.WriteAt([]byte("bar"), 5); err != nil {
+		t.Fatal(err)
+	}
 	expected := []byte("foo\x00\x00bar")
 
 	buf := make([]byte, 1024)
 	n, err := fd.ReadAt(buf, 1) // note offset one byte
+	if err != nil {
+		t.Fatal(err)
+	}
 	if n != len(expected)-1 {
 		t.Fatal("wrong number of bytes read")
 	}

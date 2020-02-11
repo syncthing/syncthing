@@ -247,9 +247,9 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Remove the file again and undo the modification
 
-	ffs.Remove(file)
+	must(t, ffs.Remove(file))
 	must(t, writeFile(ffs, "knownDir/knownFile", oldData, 0644))
-	ffs.Chtimes("knownDir/knownFile", knownFiles[1].ModTime(), knownFiles[1].ModTime())
+	must(t, ffs.Chtimes("knownDir/knownFile", knownFiles[1].ModTime(), knownFiles[1].ModTime()))
 
 	must(t, m.ScanFolder("ro"))
 
