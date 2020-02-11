@@ -59,6 +59,9 @@ func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, boo
 		return nil, false, err
 	}
 	f, err := t.unmarshalTrunc(bs, trunc)
+	if backend.IsNotFound(err) {
+		return nil, false, nil
+	}
 	if err != nil {
 		return nil, false, err
 	}
@@ -86,7 +89,7 @@ func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (FileIntf, er
 }
 
 func (t readOnlyTransaction) fillBlockList(fi *protocol.FileInfo) error {
-	if fi.BlocksHash == nil {
+	if len(fi.BlocksHash) == 0 {
 		return nil
 	}
 	blocksKey := t.keyer.GenerateBlockListKey(nil, fi.BlocksHash)

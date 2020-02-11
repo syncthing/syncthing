@@ -550,7 +550,9 @@ func (db *Lowlevel) gcBlocks() error {
 		if err := bl.Unmarshal(it.Value()); err != nil {
 			return err
 		}
-		filter.Add(bl.BlocksHash)
+		if len(bl.BlocksHash) > 0 {
+			filter.Add(bl.BlocksHash)
+		}
 	}
 	it.Release()
 	if err := it.Error(); err != nil {
