@@ -37,13 +37,14 @@ func (b *leveldbBackend) NewReadTransaction() (ReadTransaction, error) {
 }
 
 func (b *leveldbBackend) newSnapshot() (leveldbSnapshot, error) {
-	snap, err := b.ldb.GetSnapshot()
-	if err != nil {
-		return leveldbSnapshot{}, wrapLeveldbErr(err)
-	}
 	rel, err := newReleaser(b.closeWG)
 	if err != nil {
 		return leveldbSnapshot{}, err
+	}
+	snap, err := b.ldb.GetSnapshot()
+	if err != nil {
+		rel.Release()
+		return leveldbSnapshot{}, wrapLeveldbErr(err)
 	}
 	return leveldbSnapshot{
 		snap: snap,
@@ -52,13 +53,14 @@ func (b *leveldbBackend) newSnapshot() (leveldbSnapshot, error) {
 }
 
 func (b *leveldbBackend) NewWriteTransaction() (WriteTransaction, error) {
-	snap, err := b.newSnapshot()
-	if err != nil {
-		return nil, err // already wrapped
-	}
 	rel, err := newReleaser(b.closeWG)
 	if err != nil {
 		return nil, err
+	}
+	snap, err := b.newSnapshot()
+	if err != nil {
+		rel.Release()
+		return nil, err // already wrapped
 	}
 	return &leveldbTransaction{
 		leveldbSnapshot: snap,
