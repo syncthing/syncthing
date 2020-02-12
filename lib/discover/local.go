@@ -91,7 +91,7 @@ func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogge
 }
 
 // Lookup returns a list of addresses the device is available at.
-func (c *localClient) Lookup(device protocol.DeviceID) (addresses []string, err error) {
+func (c *localClient) Lookup(_ context.Context, device protocol.DeviceID) (addresses []string, err error) {
 	if cache, ok := c.Get(device); ok {
 		if time.Since(cache.when) < CacheLifeTime {
 			addresses = cache.Addresses

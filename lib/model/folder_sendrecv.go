@@ -1200,13 +1200,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	}()
 
 	for state := range in {
-		select {
-		case <-f.ctx.Done():
-			state.fail(errors.Wrap(f.ctx.Err(), "folder stopped"))
-			out <- state.sharedPullerState
-		default:
-		}
-
 		if err := f.CheckAvailableSpace(state.file.Size); err != nil {
 			state.fail(err)
 			// Nothing more to do for this failed file, since it would use to much disk space

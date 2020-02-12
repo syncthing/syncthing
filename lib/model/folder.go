@@ -449,12 +449,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		return err
 	}
 
-	select {
-	case <-f.ctx.Done():
-		return f.ctx.Err()
-	default:
-	}
-
 	if len(subDirs) == 0 {
 		// If we have no specific subdirectories to traverse, set it to one
 		// empty prefix so we traverse the entire folder contents once.
