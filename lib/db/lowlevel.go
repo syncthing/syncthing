@@ -129,7 +129,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		}
 	}
 
-	return t.commit()
+	return t.Commit()
 }
 
 // updateLocalFiles adds fileinfos to the db, and updates the global versionlist,
@@ -232,7 +232,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		}
 	}
 
-	return t.commit()
+	return t.Commit()
 }
 
 func (db *Lowlevel) dropFolder(folder []byte) error {
@@ -290,7 +290,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 		return err
 	}
 
-	return t.commit()
+	return t.Commit()
 }
 
 func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracker) error {
@@ -343,7 +343,7 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 			return err
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
@@ -411,7 +411,7 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 	}
 
 	l.Debugf("db check completed for %q", folder)
-	return t.commit()
+	return t.Commit()
 }
 
 func (db *Lowlevel) getIndexID(device, folder []byte) (protocol.IndexID, error) {
@@ -469,7 +469,7 @@ func (db *Lowlevel) dropPrefix(prefix []byte) error {
 	if err := t.deleteKeyPrefix(prefix); err != nil {
 		return err
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 func (db *Lowlevel) gcRunner() {

@@ -76,7 +76,7 @@ func addToBlockMap(db *Lowlevel, folder []byte, fs []protocol.FileInfo) error {
 			}
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 func discardFromBlockMap(db *Lowlevel, folder []byte, fs []protocol.FileInfo) error {
@@ -101,7 +101,7 @@ func discardFromBlockMap(db *Lowlevel, folder []byte, fs []protocol.FileInfo) er
 			}
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 func TestBlockMapAddUpdateWipe(t *testing.T) {

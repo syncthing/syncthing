@@ -443,7 +443,7 @@ func (db *Lowlevel) newReadWriteTransaction() (readWriteTransaction, error) {
 	}, nil
 }
 
-func (t readWriteTransaction) commit() error {
+func (t readWriteTransaction) Commit() error {
 	t.readOnlyTransaction.close()
 	return t.WriteTransaction.Commit()
 }
@@ -758,7 +758,7 @@ func (t *readWriteTransaction) withAllFolderTruncated(folder []byte, fn func(dev
 	if err := dbi.Error(); err != nil {
 		return err
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 type marshaller interface {

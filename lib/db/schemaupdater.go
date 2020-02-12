@@ -204,7 +204,7 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 			return err
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 // updateSchema1to2 introduces a sequenceKey->deviceKey bucket for local items
@@ -240,7 +240,7 @@ func (db *schemaUpdater) updateSchema1to2(_ int) error {
 			return err
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 // updateSchema2to3 introduces a needKey->nil bucket for locally needed files.
@@ -288,7 +288,7 @@ func (db *schemaUpdater) updateSchema2to3(_ int) error {
 			return err
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 // updateSchemaTo5 resets the need bucket due to bugs existing in the v0.14.49
@@ -314,7 +314,7 @@ func (db *schemaUpdater) updateSchemaTo5(prevVersion int) error {
 			return err
 		}
 	}
-	if err := t.commit(); err != nil {
+	if err := t.Commit(); err != nil {
 		return err
 	}
 
@@ -361,7 +361,7 @@ func (db *schemaUpdater) updateSchema5to6(_ int) error {
 			return err
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 // updateSchema6to7 checks whether all currently locally needed files are really
@@ -418,7 +418,7 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 			return err
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 func (db *schemaUpdater) updateSchema7to8(_ int) error {
@@ -453,5 +453,5 @@ func (db *schemaUpdater) updateSchema7to8(_ int) error {
 
 	db.recordTime(blockGCTimeKey)
 
-	return t.commit()
+	return t.Commit()
 }
