@@ -840,10 +840,11 @@ func (m *model) Completion(device protocol.DeviceID, folder string) FolderComple
 // DBSnapshot returns a snapshot of the database content relevant to the given folder.
 func (m *model) DBSnapshot(folder string) (*db.Snapshot, error) {
 	m.fmut.RLock()
-	rf, ok := m.folderFiles[folder]
+	err := m.checkFolderRunningLocked(folder)
+	rf := m.folderFiles[folder]
 	m.fmut.RUnlock()
-	if !ok {
-		return nil, errFolderMissing
+	if err != nil {
+		return nil, err
 	}
 	return rf.Snapshot(), nil
 }
@@ -2319,10 +2320,11 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 
 func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {
 	m.fmut.RLock()
-	ver, ok := m.folderVersioners[folder]
+	err := m.checkFolderRunningLocked(folder)
+	ver := m.folderVersioners[folder]
 	m.fmut.RUnlock()
-	if !ok {
-		return nil, errFolderMissing
+	if err != nil {
+		return nil, err
 	}
 	if ver == nil {
 		return nil, errNoVersioner
@@ -2332,16 +2334,13 @@ func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVer
 }
 
 func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error) {
-	fcfg, ok := m.cfg.Folder(folder)
-	if !ok {
-		return nil, errFolderMissing
-	}
-
 	m.fmut.RLock()
+	err := m.checkFolderRunningLocked(folder)
+	fcfg := m.folderCfgs[folder]
 	ver := m.folderVersioners[folder]
 	m.fmut.RUnlock()
-	if !ok {
-		return nil, errFolderMissing
+	if err != nil {
+		return nil, err
 	}
 	if ver == nil {
 		return nil, errNoVersioner

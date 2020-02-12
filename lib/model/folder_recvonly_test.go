@@ -9,8 +9,6 @@ package model
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -28,18 +26,18 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	// Get us a model up and running
 
-	m, f := setupROFolder()
+	m, f := setupROFolder(t)
 	ffs := f.Filesystem()
-	defer cleanupModelAndRemoveDir(m, ffs.URI())
+	defer cleanupModel(m)
 
 	// Create some test data
 
 	for _, dir := range []string{".stfolder", "ignDir", "unknownDir"} {
 		must(t, ffs.MkdirAll(dir, 0755))
 	}
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "ignDir/ignFile"), []byte("hello\n"), 0644))
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "unknownDir/unknownFile"), []byte("hello\n"), 0644))
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), ".stignore"), []byte("ignDir\n"), 0644))
+	must(t, writeFile(ffs, "ignDir/ignFile", []byte("hello\n"), 0644))
+	must(t, writeFile(ffs, "unknownDir/unknownFile", []byte("hello\n"), 0644))
+	must(t, writeFile(ffs, ".stignore", []byte("ignDir\n"), 0644))
 
 	knownFiles := setupKnownFiles(t, ffs, []byte("hello\n"))
 
@@ -48,15 +46,18 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	m.Index(device1, "ro", knownFiles)
 	f.updateLocalsFromScanning(knownFiles)
 
-	size := globalSize(t, m, "ro")
+	m.fmut.RLock()
+	snap := m.folderFiles["ro"].Snapshot()
+	m.fmut.RUnlock()
+	size := snap.GlobalSize()
+	snap.Release()
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
 
-	// Start the folder. This will cause a scan, should discover the other stuff in the folder
+	// Scan, should discover the other stuff in the folder
 
-	m.startFolder("ro")
-	m.ScanFolder("ro")
+	must(t, m.ScanFolder("ro"))
 
 	// We should now have two files and two directories.
 
@@ -109,9 +110,9 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// Get us a model up and running
 
-	m, f := setupROFolder()
+	m, f := setupROFolder(t)
 	ffs := f.Filesystem()
-	defer cleanupModelAndRemoveDir(m, ffs.URI())
+	defer cleanupModel(m)
 
 	// Create some test data
 
@@ -124,10 +125,9 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	m.Index(device1, "ro", knownFiles)
 	f.updateLocalsFromScanning(knownFiles)
 
-	// Start the folder. This will cause a scan.
+	// Scan the folder.
 
-	m.startFolder("ro")
-	m.ScanFolder("ro")
+	must(t, m.ScanFolder("ro"))
 
 	// Everything should be in sync.
 
@@ -151,7 +151,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	// Update the file.
 
 	newData := []byte("totally different data\n")
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), newData, 0644))
+	must(t, writeFile(ffs, "knownDir/knownFile", newData, 0644))
 
 	// Rescan.
 
@@ -196,13 +196,11 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 }
 
 func TestRecvOnlyUndoChanges(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	// Get us a model up and running
 
-	m, f := setupROFolder()
+	m, f := setupROFolder(t)
 	ffs := f.Filesystem()
-	defer cleanupModelAndRemoveDir(m, ffs.URI())
+	defer cleanupModel(m)
 
 	// Create some test data
 
@@ -210,20 +208,14 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, ffs, oldData)
 
-	m.fmut.Lock()
-	fset := m.folderFiles["ro"]
-	m.fmut.Unlock()
-	folderFs := fset.MtimeFS()
-
-	// Send and index update for the known stuff
+	// Send an index update for the known stuff
 
 	m.Index(device1, "ro", knownFiles)
 	f.updateLocalsFromScanning(knownFiles)
 
-	// Start the folder. This will cause a scan.
+	// Scan the folder.
 
-	m.startFolder("ro")
-	m.ScanFolder("ro")
+	must(t, m.ScanFolder("ro"))
 
 	// Everything should be in sync.
 
@@ -246,12 +238,11 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Create a file and modify another
 
-	file := filepath.Join(ffs.URI(), "foo")
-	must(t, ioutil.WriteFile(file, []byte("hello\n"), 0644))
+	const file = "foo"
+	must(t, writeFile(ffs, file, []byte("hello\n"), 0644))
+	must(t, writeFile(ffs, "knownDir/knownFile", []byte("bye\n"), 0644))
 
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), []byte("bye\n"), 0644))
-
-	m.ScanFolder("ro")
+	must(t, m.ScanFolder("ro"))
 
 	size = receiveOnlyChangedSize(t, m, "ro")
 	if size.Files != 2 {
@@ -260,11 +251,11 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Remove the file again and undo the modification
 
-	testOs.Remove(file)
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), oldData, 0644))
-	folderFs.Chtimes("knownDir/knownFile", knownFiles[1].ModTime(), knownFiles[1].ModTime())
+	must(t, ffs.Remove(file))
+	must(t, writeFile(ffs, "knownDir/knownFile", oldData, 0644))
+	must(t, ffs.Chtimes("knownDir/knownFile", knownFiles[1].ModTime(), knownFiles[1].ModTime()))
 
-	m.ScanFolder("ro")
+	must(t, m.ScanFolder("ro"))
 
 	size = receiveOnlyChangedSize(t, m, "ro")
 	if size.Files+size.Directories+size.Deleted != 0 {
@@ -276,7 +267,7 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 	t.Helper()
 
 	must(t, ffs.MkdirAll("knownDir", 0755))
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), data, 0644))
+	must(t, writeFile(ffs, "knownDir/knownFile", data, 0644))
 
 	t0 := time.Now().Add(-1 * time.Minute)
 	must(t, ffs.Chtimes("knownDir/knownFile", t0, t0))
@@ -310,30 +301,38 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 	return knownFiles
 }
 
-func setupROFolder() (*model, *sendOnlyFolder) {
+func setupROFolder(t *testing.T) (*model, *receiveOnlyFolder) {
+	t.Helper()
+
 	w := createTmpWrapper(defaultCfg)
-	fcfg := testFolderConfigTmp()
+	fcfg := testFolderConfigFake()
 	fcfg.ID = "ro"
+	fcfg.Label = "ro"
 	fcfg.Type = config.FolderTypeReceiveOnly
 	w.SetFolder(fcfg)
 
 	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
-
 	m.ServeBackground()
-
-	// Folder should only be added, not started.
-	m.removeFolder(fcfg)
-	m.addFolder(fcfg)
+	must(t, m.ScanFolder("ro"))
 
 	m.fmut.RLock()
-	f := &sendOnlyFolder{
-		folder: folder{
-			stateTracker:        newStateTracker(fcfg.ID, m.evLogger),
-			fset:                m.folderFiles[fcfg.ID],
-			FolderConfiguration: fcfg,
-		},
-	}
-	m.fmut.RUnlock()
+	defer m.fmut.RUnlock()
+	f := m.folderRunners["ro"].(*receiveOnlyFolder)
 
 	return m, f
+}
+
+func writeFile(fs fs.Filesystem, filename string, data []byte, perm fs.FileMode) error {
+	fd, err := fs.Create(filename)
+	if err != nil {
+		return err
+	}
+	_, err = fd.Write(data)
+	if err != nil {
+		return err
+	}
+	if err := fd.Close(); err != nil {
+		return err
+	}
+	return fs.Chmod(filename, perm)
 }
