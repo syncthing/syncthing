@@ -409,18 +409,26 @@ type contextClient struct {
 }
 
 func (c *contextClient) Get(ctx context.Context, url string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	// For <go1.13 compatibility. Use the following commented line once that
+	// isn't required anymore.
+	// req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
+	req.Cancel = ctx.Done()
 	return c.Client.Do(req)
 }
 
 func (c *contextClient) Post(ctx context.Context, url, ctype string, data io.Reader) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, "POST", url, data)
+	// For <go1.13 compatibility. Use the following commented line once that
+	// isn't required anymore.
+	// req, err := http.NewRequestWithContext(ctx, "POST", url, data)
+	req, err := http.NewRequest("POST", url, data)
 	if err != nil {
 		return nil, err
 	}
+	req.Cancel = ctx.Done()
 	req.Header.Set("Content-Type", ctype)
 	return c.Client.Do(req)
 }
