@@ -360,6 +360,12 @@ func (s *service) connect(ctx context.Context) {
 		var seen []string
 
 		for _, deviceCfg := range cfg.Devices {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			deviceID := deviceCfg.DeviceID
 			if deviceID == s.myID {
 				continue
@@ -378,6 +384,11 @@ func (s *service) connect(ctx context.Context) {
 
 			var addrs []string
 			for _, addr := range deviceCfg.Addresses {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
 				if addr == "dynamic" {
 					if s.discoverer != nil {
 						if t, err := s.discoverer.Lookup(deviceID); err == nil {
@@ -396,6 +407,11 @@ func (s *service) connect(ctx context.Context) {
 			dialTargets := make([]dialTarget, 0)
 
 			for _, addr := range addrs {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
 				// Use a special key that is more than just the address, as you might have two devices connected to the same relay
 				nextDialKey := deviceID.String() + "/" + addr
 				seen = append(seen, nextDialKey)
