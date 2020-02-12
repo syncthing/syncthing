@@ -3480,6 +3480,19 @@ func TestNewLimitedRequestResponse(t *testing.T) {
 	}
 }
 
+func TestSummaryPausedNoError(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	fcfg.Paused = true
+	wcfg.SetFolder(fcfg)
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	fss := NewFolderSummaryService(wcfg, m, myID, events.NoopLogger)
+	if _, err := fss.Summary(fcfg.ID); err != nil {
+		t.Error("Expected no error getting a summary for a paused folder:", err)
+	}
+}
+
 func TestFolderAPIErrors(t *testing.T) {
 	wcfg, fcfg := tmpDefaultWrapper()
 	fcfg.Paused = true
