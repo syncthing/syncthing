@@ -90,6 +90,7 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 			ro = snap.ReceiveOnlyChangedSize()
 			ourSeq = snap.Sequence(protocol.LocalDeviceID)
 			remoteSeq = snap.Sequence(protocol.GlobalDeviceID)
+			snap.Release()
 		}
 	}
 	// For API backwards compatibility (SyncTrayzor needs it) an empty folder
