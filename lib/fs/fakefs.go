@@ -52,9 +52,10 @@ const randomBlockShift = 14 // 128k
 // - Two fakefs:s pointing at the same root path see the same files.
 //
 type fakefs struct {
-	mut    sync.Mutex
-	root   *fakeEntry
-	insens bool
+	mut         sync.Mutex
+	root        *fakeEntry
+	insens      bool
+	withContent bool
 }
 
 var (
@@ -93,9 +94,9 @@ func newFakeFilesystem(root string) *fakefs {
 	sizeavg, _ := strconv.Atoi(params.Get("sizeavg"))
 	seed, _ := strconv.Atoi(params.Get("seed"))
 
-	if params.Get("insens") == "true" {
-		fs.insens = true
-	}
+	fs.insens = params.Get("insens") == "true"
+	fs.withContent = params.Get("content") == "true"
+
 	if sizeavg == 0 {
 		sizeavg = 1 << 20
 	}
@@ -151,6 +152,7 @@ type fakeEntry struct {
 	gid       int
 	mtime     time.Time
 	children  map[string]*fakeEntry
+	content   []byte
 }
 
 func (fs *fakefs) entryForName(name string) *fakeEntry {
@@ -227,6 +229,10 @@ func (fs *fakefs) create(name string) (*fakeEntry, error) {
 		entry.size = 0
 		entry.mtime = time.Now()
 		entry.mode = 0666
+		entry.content = nil
+		if fs.withContent {
+			entry.content = make([]byte, 0)
+		}
 		return entry, nil
 	}
 
@@ -244,6 +250,10 @@ func (fs *fakefs) create(name string) (*fakeEntry, error) {
 
 	if fs.insens {
 		base = UnicodeLowercase(base)
+	}
+
+	if fs.withContent {
+		new.content = make([]byte, 0)
 	}
 
 	entry.children[base] = new
@@ -416,6 +426,9 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 		name:  base,
 		mode:  mode,
 		mtime: time.Now(),
+	}
+	if fs.withContent {
+		newEntry.content = make([]byte, 0)
 	}
 
 	entry.children[key] = newEntry
@@ -660,6 +673,12 @@ func (f *fakeFile) readShortAt(p []byte, offs int64) (int, error) {
 		return 0, io.EOF
 	}
 
+	if f.content != nil {
+		n := copy(p, f.content[int(offs):])
+		f.offset = offs + int64(n)
+		return n, nil
+	}
+
 	// Lazily calculate our main seed, a simple 64 bit FNV hash our file
 	// name.
 	if f.seed == 0 {
@@ -746,6 +765,15 @@ func (f *fakeFile) WriteAt(p []byte, off int64) (int, error) {
 		return 0, errors.New("is a directory")
 	}
 
+	if f.content != nil {
+		if len(f.content) < int(off)+len(p) {
+			newc := make([]byte, int(off)+len(p))
+			copy(newc, f.content)
+			f.content = newc
+		}
+		copy(f.content[int(off):], p)
+	}
+
 	f.rng = nil
 	f.offset = off + int64(len(p))
 	if f.offset > f.size {
@@ -765,6 +793,9 @@ func (f *fakeFile) Truncate(size int64) error {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
+	if f.content != nil {
+		f.content = f.content[:int(size)]
+	}
 	f.rng = nil
 	f.size = size
 	if f.offset > size {
