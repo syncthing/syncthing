@@ -28,8 +28,8 @@ type metadataTracker struct {
 }
 
 type metaKey struct {
-	dev   protocol.DeviceID
-	flags uint32
+	dev  protocol.DeviceID
+	flag uint32
 }
 
 func newMetadataTracker() *metadataTracker {
@@ -103,14 +103,18 @@ func (m *metadataTracker) fromDB(db *Lowlevel, folder []byte) error {
 
 // countsPtr returns a pointer to the corresponding Counts struct, if
 // necessary allocating one in the process
-func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flags uint32) *Counts {
+func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *Counts {
 	// must be called with the mutex held
 
-	key := metaKey{dev, flags}
+	if bits.OnesCount32(flag) > 1 {
+		panic("incorrect usage: set at most one bit in flag")
+	}
+
+	key := metaKey{dev, flag}
 	idx, ok := m.indexes[key]
 	if !ok {
 		idx = len(m.counts.Counts)
-		m.counts.Counts = append(m.counts.Counts, Counts{DeviceID: dev[:], LocalFlags: flags})
+		m.counts.Counts = append(m.counts.Counts, Counts{DeviceID: dev[:], LocalFlags: flag})
 		m.indexes[key] = idx
 	}
 	return &m.counts.Counts[idx]
@@ -157,8 +161,8 @@ func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f FileIntf) {
 	}
 }
 
-func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flags uint32, f FileIntf) {
-	cp := m.countsPtr(dev, flags)
+func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f FileIntf) {
+	cp := m.countsPtr(dev, flag)
 
 	switch {
 	case f.IsDeleted():
@@ -196,8 +200,8 @@ func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
 	}
 }
 
-func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flags uint32, f FileIntf) {
-	cp := m.countsPtr(dev, flags)
+func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flag uint32, f FileIntf) {
+	cp := m.countsPtr(dev, flag)
 
 	switch {
 	case f.IsDeleted():
