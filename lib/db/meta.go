@@ -197,7 +197,7 @@ func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
 }
 
 func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flags uint32, f FileIntf) {
-	cp := m.countsPtr(dev, f.FileLocalFlags())
+	cp := m.countsPtr(dev, flags)
 
 	switch {
 	case f.IsDeleted():
