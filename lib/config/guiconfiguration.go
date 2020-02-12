@@ -62,7 +62,7 @@ func (c GUIConfiguration) Address() string {
 }
 
 func (c GUIConfiguration) Permissions() os.FileMode {
-	perm, err := strconv.ParseUint(c.UnixPermissions, 0, 32)
+	perm, err := strconv.ParseUint(c.UnixPermissions, 8, 32)
 	if err != nil {
 		return 0
 	}
