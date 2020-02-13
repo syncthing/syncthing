@@ -43,7 +43,7 @@ const (
 	ConfigBaseDir BaseDirEnum = "config"
 	DataBaseDir   BaseDirEnum = "data"
 	// User's home directory, *not* -home flag
-	UserHomeBaseDir BaseDirEnum = "userhome"
+	UserHomeBaseDir BaseDirEnum = "userHome"
 )
 
 // Platform dependent directories
