@@ -270,6 +270,11 @@ func (c *folderSummaryService) calculateSummaries(ctx context.Context) {
 		case <-pump.C:
 			t0 := time.Now()
 			for _, folder := range c.foldersToHandle() {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
 				c.sendSummary(folder)
 			}
 
