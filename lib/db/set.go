@@ -71,7 +71,7 @@ func init() {
 }
 
 func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
-	var s = FileSet{
+	var s = &FileSet{
 		folder:      folder,
 		fs:          fs,
 		db:          db,
@@ -85,7 +85,7 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 		} else if err != nil {
 			panic(err)
 		}
-		return &s
+		return s
 	}
 
 	if err := s.meta.fromDB(db, []byte(folder)); err != nil {
@@ -103,7 +103,7 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 		return recalc()
 	}
 
-	return &s
+	return s
 }
 
 func (s *FileSet) recalcMeta() error {
