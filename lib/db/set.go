@@ -148,7 +148,7 @@ func (s *FileSet) verifyLocalSequence() bool {
 
 	snap := s.Snapshot()
 	ok := true
-	snap.WithHaveSequence(curSeq, func(fi FileIntf) bool {
+	snap.WithHaveSequence(curSeq+1, func(fi FileIntf) bool {
 		ok = false // we got something, which we should not have
 		return false
 	})
