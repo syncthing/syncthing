@@ -172,7 +172,7 @@
               </div>
             </div>
             <div class="col-md-6">
-              <div class="form-group" ng-class="{'has-error': settingsEditor.UnixPerms.$invalid && settingsEditor.UnixPerms.$dirty}">
+              <div ng-if="tmpGUI.address.startsWith('/')" class="form-group" ng-class="{'has-error': settingsEditor.UnixPerms.$invalid && settingsEditor.UnixPerms.$dirty}">
                 <label translate>UNIX Permissions</label>
                 <input id="UnixPerms" name="UnixPerms" class="form-control" type="text" ng-model="tmpGUI.unixPerms" ng-pattern="/^0?[0-7]{0,3}$/" />
                 <p class="help-block" ng-show="settingsEditor.UnixPerms.$invalid" translate>
