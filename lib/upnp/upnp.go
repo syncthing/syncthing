@@ -179,7 +179,7 @@ USER-AGENT: syncthing/1.0
 loop:
 	for {
 		resp := make([]byte, 65536)
-		if err := socket.SetDeadline(time.Now().Add(time.Second)); err != nil {
+		if err := socket.SetDeadline(time.Now().Add(250 * time.Millisecond)); err != nil {
 			l.Infoln("UPnP socket:", err)
 			break
 		}
