@@ -133,7 +133,7 @@ func (s *FileSet) recalcMeta() error {
 
 // Verify the local sequence number from actual sequence entries. Returns
 // true if it was all good, or false if a fixup was necessary.
-func (s *FileSet) verifyLocalSequence() (ok bool) {
+func (s *FileSet) verifyLocalSequence() bool {
 	// Walk the sequence index from the current (supposedly) highest
 	// sequence number and raise the alarm if we get anything. This recovers
 	// from the occasion where we have written sequence entries to disk but
@@ -145,15 +145,20 @@ func (s *FileSet) verifyLocalSequence() (ok bool) {
 	// and then be in sync again.
 
 	curSeq := s.meta.Sequence(protocol.LocalDeviceID)
+
+	first, err := s.db.keyer.GenerateSequenceKey(nil, folder, curSeq)
+	it, err := s.db.NewRangeIterator(first, nil)
+	if err != nil {
+		return false
+	}
+	defer it.Release()
+	return !it.Next()
+
 	snap := s.Snapshot()
-	ok = true
+	ok := true
 	snap.WithHaveSequence(curSeq, func(fi FileIntf) bool {
-		if fi.SequenceNo() > curSeq {
-			// Out of sync, we will recalculate the folder.
-			ok = false
-			return false // stop iteration
-		}
-		return true
+		ok = false // we got something, which we should not have
+		return false
 	})
 	snap.Release()
 
