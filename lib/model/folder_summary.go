@@ -275,7 +275,7 @@ func (c *folderSummaryService) calculateSummaries(ctx context.Context) {
 					return
 				default:
 				}
-				c.sendSummary(folder)
+				c.sendSummary(ctx, folder)
 			}
 
 			// We don't want to spend all our time calculating summaries. Lets
@@ -285,7 +285,7 @@ func (c *folderSummaryService) calculateSummaries(ctx context.Context) {
 			pump.Reset(wait)
 
 		case folder := <-c.immediate:
-			c.sendSummary(folder)
+			c.sendSummary(ctx, folder)
 
 		case <-ctx.Done():
 			return
@@ -318,7 +318,7 @@ func (c *folderSummaryService) foldersToHandle() []string {
 }
 
 // sendSummary send the summary events for a single folder
-func (c *folderSummaryService) sendSummary(folder string) {
+func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 	// The folder summary contains how many bytes, files etc
 	// are in the folder and how in sync we are.
 	data, err := c.Summary(folder)
@@ -331,6 +331,12 @@ func (c *folderSummaryService) sendSummary(folder string) {
 	})
 
 	for _, devCfg := range c.cfg.Folders()[folder].Devices {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		if devCfg.DeviceID.Equals(c.id) {
 			// We already know about ourselves.
 			continue
