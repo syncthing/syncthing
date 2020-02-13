@@ -124,7 +124,9 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 			return err
 		}
 
-		if err := t.Checkpoint(); err != nil {
+		if err := t.Checkpoint(func() error {
+			return meta.toDB(t, folder)
+		}); err != nil {
 			return err
 		}
 	}
@@ -231,7 +233,9 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 			}
 		}
 
-		if err := t.Checkpoint(); err != nil {
+		if err := t.Checkpoint(func() error {
+			return meta.toDB(t, folder)
+		}); err != nil {
 			return err
 		}
 	}

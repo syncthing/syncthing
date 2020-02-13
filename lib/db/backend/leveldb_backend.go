@@ -150,8 +150,8 @@ func (t *leveldbTransaction) Put(key, val []byte) error {
 	return t.checkFlush(dbFlushBatchMax)
 }
 
-func (t *leveldbTransaction) Checkpoint() error {
-	return t.checkFlush(dbFlushBatchMin)
+func (t *leveldbTransaction) Checkpoint(preFlush ...func() error) error {
+	return t.checkFlush(dbFlushBatchMin, preFlush...)
 }
 
 func (t *leveldbTransaction) Commit() error {
@@ -167,9 +167,14 @@ func (t *leveldbTransaction) Release() {
 }
 
 // checkFlush flushes and resets the batch if its size exceeds the given size.
-func (t *leveldbTransaction) checkFlush(size int) error {
+func (t *leveldbTransaction) checkFlush(size int, preFlush ...func() error) error {
 	if len(t.batch.Dump()) < size {
 		return nil
+	}
+	for _, hook := range preFlush {
+		if err := hook(); err != nil {
+			return err
+		}
 	}
 	return t.flush()
 }

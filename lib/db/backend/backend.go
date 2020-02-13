@@ -48,10 +48,15 @@ type ReadTransaction interface {
 // purposes of saving memory when transactions are in-RAM. Note that
 // transactions may be checkpointed *anyway* even if this is not called, due to
 // resource constraints, but this gives you a chance to decide when.
+//
+// Functions can be passed to Checkpoint. These are run if and only if the
+// checkpoint will result in a flush, and will run before the flush. The
+// transaction can be accessed via a closure. If an error is returned from
+// these functions the flush will be aborted and the error bubbled.
 type WriteTransaction interface {
 	ReadTransaction
 	Writer
-	Checkpoint() error
+	Checkpoint(...func() error) error
 	Commit() error
 }
 
