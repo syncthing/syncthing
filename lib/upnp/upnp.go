@@ -160,12 +160,6 @@ USER-AGENT: syncthing/1.0
 	}
 	defer socket.Close() // Make sure our socket gets closed
 
-	err = socket.SetDeadline(time.Now().Add(timeout))
-	if err != nil {
-		l.Debugln("UPnP discovery: setting socket deadline:", err)
-		return
-	}
-
 	l.Debugln("Sending search request for device type", deviceType, "on", intf.Name)
 
 	_, err = socket.WriteTo(search, ssdp)
@@ -178,15 +172,29 @@ USER-AGENT: syncthing/1.0
 
 	l.Debugln("Listening for UPnP response for device type", deviceType, "on", intf.Name)
 
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	// Listen for responses until a timeout is reached
+loop:
 	for {
 		resp := make([]byte, 65536)
+		if err := socket.SetDeadline(time.Now().Add(time.Second)); err != nil {
+			l.Infoln("UPnP socket:", err)
+			break
+		}
 		n, _, err := socket.ReadFrom(resp)
 		if err != nil {
+			select {
+			case <-ctx.Done():
+				break loop
+			default:
+			}
 			if e, ok := err.(net.Error); !ok || !e.Timeout() {
 				l.Infoln("UPnP read:", err) //legitimate error, not a timeout.
+				break
 			}
-			break
+			continue // continue reading
 		}
 		igds, err := parseResponse(ctx, deviceType, resp[:n])
 		if err != nil {
