@@ -7,6 +7,7 @@
 package discover
 
 import (
+	"context"
 	"crypto/tls"
 	"io/ioutil"
 	"net"
@@ -225,7 +226,7 @@ func testLookup(url string) ([]string, error) {
 	go disco.Serve()
 	defer disco.Stop()
 
-	return disco.Lookup(protocol.LocalDeviceID)
+	return disco.Lookup(context.Background(), protocol.LocalDeviceID)
 }
 
 type fakeDiscoveryServer struct {

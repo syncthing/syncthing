@@ -360,6 +360,12 @@ func (s *service) connect(ctx context.Context) {
 		var seen []string
 
 		for _, deviceCfg := range cfg.Devices {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			deviceID := deviceCfg.DeviceID
 			if deviceID == s.myID {
 				continue
@@ -380,7 +386,7 @@ func (s *service) connect(ctx context.Context) {
 			for _, addr := range deviceCfg.Addresses {
 				if addr == "dynamic" {
 					if s.discoverer != nil {
-						if t, err := s.discoverer.Lookup(deviceID); err == nil {
+						if t, err := s.discoverer.Lookup(ctx, deviceID); err == nil {
 							addrs = append(addrs, t...)
 						}
 					}
