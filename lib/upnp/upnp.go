@@ -175,9 +175,10 @@ USER-AGENT: syncthing/1.0
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	// Listen for responses until a timeout is reached
-loop:
+	// Listen for responses until a timeout is reached or the context is
+	// cancelled
 	resp := make([]byte, 65536)
+loop:
 	for {
 		if err := socket.SetDeadline(time.Now().Add(250 * time.Millisecond)); err != nil {
 			l.Infoln("UPnP socket:", err)
