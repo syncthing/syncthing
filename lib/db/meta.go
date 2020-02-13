@@ -62,8 +62,8 @@ func (m *metadataTracker) Marshal() ([]byte, error) {
 
 // toDB saves the marshalled metadataTracker to the given db, under the key
 // corresponding to the given folder
-func (m *metadataTracker) toDB(db *Lowlevel, folder []byte) error {
-	key, err := db.keyer.GenerateFolderMetaKey(nil, folder)
+func (m *metadataTracker) toDB(t readWriteTransaction, folder []byte) error {
+	key, err := t.keyer.GenerateFolderMetaKey(nil, folder)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func (m *metadataTracker) toDB(db *Lowlevel, folder []byte) error {
 	if err != nil {
 		return err
 	}
-	err = db.Put(key, bs)
+	err = t.Put(key, bs)
 	if err == nil {
 		m.dirty = false
 	}
