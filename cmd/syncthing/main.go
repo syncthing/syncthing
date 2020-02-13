@@ -291,9 +291,9 @@ func main() {
 	dataSet := options.dataDir != ""
 	switch {
 	case dataSet != confSet:
-		err = errors.New("Either both or none of -conf and -data must be given, use -home to set both at once.")
+		err = errors.New("either both or none of -conf and -data must be given, use -home to set both at once")
 	case homeSet && dataSet:
-		err = errors.New("Option -home must not be used together with -conf and -data.")
+		err = errors.New("-home must not be used together with -conf and -data")
 	case homeSet:
 		if err = setLocation(options.homeDir, locations.ConfigBaseDir); err == nil {
 			err = setLocation(options.homeDir, locations.DataBaseDir)
@@ -304,7 +304,7 @@ func main() {
 		}
 	}
 	if err != nil {
-		l.Warnln(err)
+		l.Warnln("Command line options:", err)
 		os.Exit(syncthing.ExitError.AsInt())
 	}
 
