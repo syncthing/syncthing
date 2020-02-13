@@ -146,6 +146,7 @@ func (s *FileSet) verifyLocalSequence() (ok bool) {
 
 	curSeq := s.meta.Sequence(protocol.LocalDeviceID)
 	snap := s.Snapshot()
+	ok = true
 	snap.WithHaveSequence(curSeq, func(fi FileIntf) bool {
 		if fi.SequenceNo() > curSeq {
 			// Out of sync, we will recalculate the folder.
