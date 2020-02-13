@@ -80,25 +80,33 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 	}
 
 	if err := s.meta.fromDB(db, []byte(folder)); err != nil {
-		l.Infof("No stored folder metadata for %q: recalculating", folder)
-		if err := s.recalcCounts(); backend.IsClosed(err) {
-			return nil
-		} else if err != nil {
-			panic(err)
-		}
-	} else if age := time.Since(s.meta.Created()); age > databaseRecheckInterval {
+		l.Infof("No stored folder metadata for %q; recalculating", folder)
+		goto recalcMeta
+	}
+
+	if metaOK := s.verifyLocalSequence(); !metaOK {
+		l.Infof("Stored folder metadata for %q is out of date after crash; recalculating", folder)
+		goto recalcMeta
+	}
+
+	if age := time.Since(s.meta.Created()); age > databaseRecheckInterval {
 		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, age)
-		if err := s.recalcCounts(); backend.IsClosed(err) {
-			return nil
-		} else if err != nil {
-			panic(err)
-		}
+		goto recalcMeta
+	}
+
+	return &s
+
+recalcMeta:
+	if err := s.recalcMeta(); backend.IsClosed(err) {
+		return nil
+	} else if err != nil {
+		panic(err)
 	}
 
 	return &s
 }
 
-func (s *FileSet) recalcCounts() error {
+func (s *FileSet) recalcMeta() error {
 	s.meta = newMetadataTracker()
 
 	if err := s.db.checkGlobals([]byte(s.folder), s.meta); err != nil {
@@ -121,6 +129,34 @@ func (s *FileSet) recalcCounts() error {
 
 	s.meta.SetCreated()
 	return s.meta.toDB(s.db, []byte(s.folder))
+}
+
+// Verify the local sequence number from actual sequence entries. Returns
+// true if it was all good, or false if a fixup was necessary.
+func (s *FileSet) verifyLocalSequence() (ok bool) {
+	// Walk the sequence index from the current (supposedly) highest
+	// sequence number and raise the alarm if we get anything. This recovers
+	// from the occasion where we have written sequence entries to disk but
+	// not yet written new metadata to disk.
+	//
+	// Note that we can have the same thing happen for remote devices but
+	// there it's not a problem -- we'll simply advertise a lower sequence
+	// number than we've actually seen and receive some duplicate updates
+	// and then be in sync again.
+
+	curSeq := s.meta.Sequence(protocol.LocalDeviceID)
+	snap := s.Snapshot()
+	snap.WithHaveSequence(curSeq, func(fi FileIntf) bool {
+		if fi.SequenceNo() > curSeq {
+			// Out of sync, we will recalculate the folder.
+			ok = false
+			return false // stop iteration
+		}
+		return true
+	})
+	snap.Release()
+
+	return ok
 }
 
 func (s *FileSet) Drop(device protocol.DeviceID) {
