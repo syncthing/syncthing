@@ -755,10 +755,7 @@ func (t *readWriteTransaction) withAllFolderTruncated(folder []byte, fn func(dev
 			return nil
 		}
 	}
-	if err := dbi.Error(); err != nil {
-		return err
-	}
-	return t.Commit()
+	return dbi.Error()
 }
 
 type marshaller interface {
