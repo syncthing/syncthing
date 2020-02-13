@@ -146,14 +146,6 @@ func (s *FileSet) verifyLocalSequence() bool {
 
 	curSeq := s.meta.Sequence(protocol.LocalDeviceID)
 
-	first, err := s.db.keyer.GenerateSequenceKey(nil, folder, curSeq)
-	it, err := s.db.NewRangeIterator(first, nil)
-	if err != nil {
-		return false
-	}
-	defer it.Release()
-	return !it.Next()
-
 	snap := s.Snapshot()
 	ok := true
 	snap.WithHaveSequence(curSeq, func(fi FileIntf) bool {
