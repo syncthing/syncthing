@@ -117,6 +117,8 @@ func (s *FileSet) recalcMeta() error {
 	if err != nil {
 		return err
 	}
+	defer t.close()
+
 	var deviceID protocol.DeviceID
 	err = t.withAllFolderTruncated([]byte(s.folder), func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
@@ -128,7 +130,10 @@ func (s *FileSet) recalcMeta() error {
 	}
 
 	s.meta.SetCreated()
-	return s.meta.toDB(s.db, []byte(s.folder))
+	if err := s.meta.toDB(t, []byte(s.folder)); err != nil {
+		return err
+	}
+	return t.Commit()
 }
 
 // Verify the local sequence number from actual sequence entries. Returns
@@ -184,7 +189,20 @@ func (s *FileSet) Drop(device protocol.DeviceID) {
 		s.meta.resetAll(device)
 	}
 
-	if err := s.meta.toDB(s.db, []byte(s.folder)); backend.IsClosed(err) {
+	t, err := s.db.newReadWriteTransaction()
+	if backend.IsClosed(err) {
+		return
+	} else if err != nil {
+		panic(err)
+	}
+	defer t.close()
+
+	if err := s.meta.toDB(t, []byte(s.folder)); backend.IsClosed(err) {
+		return
+	} else if err != nil {
+		panic(err)
+	}
+	if err := t.Commit(); backend.IsClosed(err) {
 		return
 	} else if err != nil {
 		panic(err)
@@ -201,12 +219,6 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
-
-	defer func() {
-		if err := s.meta.toDB(s.db, []byte(s.folder)); err != nil && !backend.IsClosed(err) {
-			panic(err)
-		}
-	}()
 
 	if device == protocol.LocalDeviceID {
 		// For the local device we have a bunch of metadata to track.
