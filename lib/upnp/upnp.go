@@ -177,12 +177,13 @@ USER-AGENT: syncthing/1.0
 
 	// Listen for responses until a timeout is reached
 loop:
+	resp := make([]byte, 65536)
 	for {
-		resp := make([]byte, 65536)
 		if err := socket.SetDeadline(time.Now().Add(250 * time.Millisecond)); err != nil {
 			l.Infoln("UPnP socket:", err)
 			break
 		}
+
 		n, _, err := socket.ReadFrom(resp)
 		if err != nil {
 			select {
@@ -190,12 +191,13 @@ loop:
 				break loop
 			default:
 			}
-			if e, ok := err.(net.Error); !ok || !e.Timeout() {
-				l.Infoln("UPnP read:", err) //legitimate error, not a timeout.
-				break
+			if e, ok := err.(net.Error); ok && e.Timeout() {
+				continue // continue reading
 			}
-			continue // continue reading
+			l.Infoln("UPnP read:", err) //legitimate error, not a timeout.
+			break
 		}
+
 		igds, err := parseResponse(ctx, deviceType, resp[:n])
 		if err != nil {
 			switch err.(type) {
