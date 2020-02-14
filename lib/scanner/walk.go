@@ -63,7 +63,7 @@ type Config struct {
 
 type CurrentFiler interface {
 	// CurrentFile returns the file as seen at last scan.
-	CurrentFile(name string) (protocol.FileInfo, bool)
+	CurrentFile(name string) (protocol.FileInfo, bool, error)
 }
 
 type ScanResult struct {
@@ -331,7 +331,10 @@ func (w *walker) handleItem(ctx context.Context, path string, toHashChan chan<- 
 }
 
 func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo) error {
-	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
+	curFile, hasCurFile, err := w.CurrentFiler.CurrentFile(relPath)
+	if err != nil {
+		return err
+	}
 
 	blockSize := protocol.BlockSize(info.Size())
 
@@ -381,7 +384,10 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 }
 
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
-	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
+	curFile, hasCurFile, err := w.CurrentFiler.CurrentFile(relPath)
+	if err != nil {
+		return err
+	}
 
 	f, _ := CreateFileInfo(info, relPath, nil)
 	f = w.updateFileInfo(f, curFile)
@@ -427,7 +433,10 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 		return nil
 	}
 
-	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
+	curFile, hasCurFile, err := w.CurrentFiler.CurrentFile(relPath)
+	if err != nil {
+		return err
+	}
 
 	f = w.updateFileInfo(f, curFile)
 
@@ -592,8 +601,8 @@ func (c *byteCounter) Close() {
 
 type noCurrentFiler struct{}
 
-func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
-	return protocol.FileInfo{}, false
+func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool, error) {
+	return protocol.FileInfo{}, false, nil
 }
 
 func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (protocol.FileInfo, error) {

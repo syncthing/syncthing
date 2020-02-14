@@ -30,7 +30,7 @@ func TestRequestSimple(t *testing.T) {
 	// Verify that the model performs a request and creates a file based on
 	// an incoming index update.
 
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -73,7 +73,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 		return
 	}
 
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -116,7 +116,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 		return
 	}
 
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -175,7 +175,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 func TestRequestCreateTmpSymlink(t *testing.T) {
 	// Test that an update for a temporary file is invalidated
 
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -225,7 +225,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 
 	fcfg.Versioning = config.VersioningConfiguration{Type: "trashcan"}
 	w.SetFolder(fcfg)
-	m, fc := setupModelWithConnectionFromWrapper(w)
+	m, fc := setupModelWithConnectionFromWrapper(t, w)
 	defer cleanupModel(m)
 
 	// Create a temporary directory that we will use as target to see if
@@ -299,7 +299,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	fss := fcfg.Filesystem()
 	fcfg.Type = ft
 	w.SetFolder(fcfg)
-	m := setupModel(w)
+	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, fss.URI())
 
 	m.removeFolder(fcfg)
@@ -429,7 +429,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 }
 
 func TestIssue4841(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan []protocol.FileInfo)
@@ -473,7 +473,7 @@ func TestIssue4841(t *testing.T) {
 }
 
 func TestRescanIfHaveInvalidContent(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tmpDir := fcfg.Filesystem().URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
 
@@ -539,7 +539,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 }
 
 func TestParentDeletion(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	testFs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, testFs.URI())
 
@@ -618,7 +618,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		t.Skip("windows specific test")
 	}
 
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan []protocol.FileInfo)
@@ -686,7 +686,7 @@ func equalContents(path string, contents []byte) error {
 }
 
 func TestRequestRemoteRenameChanged(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
@@ -827,7 +827,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 }
 
 func TestRequestRemoteRenameConflict(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
@@ -918,7 +918,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 }
 
 func TestRequestDeleteChanged(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -987,7 +987,7 @@ func TestRequestDeleteChanged(t *testing.T) {
 }
 
 func TestNeedFolderFiles(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
@@ -1034,7 +1034,7 @@ func TestNeedFolderFiles(t *testing.T) {
 // https://github.com/syncthing/syncthing/issues/6038
 func TestIgnoreDeleteUnignore(t *testing.T) {
 	w, fcfg := tmpDefaultWrapper()
-	m := setupModel(w)
+	m := setupModel(t, w)
 	fss := fcfg.Filesystem()
 	tmpDir := fss.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
@@ -1141,7 +1141,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 // TestRequestLastFileProgress checks that the last pulled file (here only) is registered
 // as in progress.
 func TestRequestLastFileProgress(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 

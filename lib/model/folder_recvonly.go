@@ -79,7 +79,10 @@ func (f *receiveOnlyFolder) Revert() {
 
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
-	snap := f.fset.Snapshot()
+	snap, err := f.fset.Snapshot()
+	if err != nil {
+		return
+	}
 	defer snap.Release()
 	snap.WithHave(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		fi := intf.(protocol.FileInfo)

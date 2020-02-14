@@ -844,9 +844,9 @@ func verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
 
 type fakeCurrentFiler map[string]protocol.FileInfo
 
-func (fcf fakeCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
+func (fcf fakeCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool, error) {
 	f, ok := fcf[name]
-	return f, ok
+	return f, ok, nil
 }
 
 func testConfig() Config {

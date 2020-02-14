@@ -288,7 +288,10 @@ func (f *folder) pull() bool {
 
 	// If there is nothing to do, don't even enter sync-waiting state.
 	abort := true
-	snap := f.fset.Snapshot()
+	snap, err := f.fset.Snapshot()
+	if err != nil {
+		return true
+	}
 	snap.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		abort = false
 		return false
@@ -356,7 +359,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		subDirs[i] = sub
 	}
 
-	snap := f.fset.Snapshot()
+	snap, err := f.fset.Snapshot()
+	if err != nil {
+		return err
+	}
 	// We release explicitly later in this function, however we might exit early
 	// and it's ok to release twice.
 	defer snap.Release()
@@ -365,13 +371,16 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
 	subDirs = unifySubs(subDirs, func(file string) bool {
-		_, ok := snap.Get(protocol.LocalDeviceID, file)
-		return ok
+		_, ok, err := snap.Get(protocol.LocalDeviceID, file)
+		return err == nil && ok
 	})
 
 	f.setState(FolderScanning)
 
-	mtimefs := f.fset.MtimeFS()
+	mtimefs, err := f.fset.MtimeFS()
+	if err != nil {
+		return err
+	}
 	fchan := scanner.Walk(f.ctx, scanner.Config{
 		Folder:                f.ID,
 		Subs:                  subDirs,
@@ -402,7 +411,9 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		oldBatchFn := batchFn // can't reference batchFn directly (recursion)
 		batchFn = func(fs []protocol.FileInfo) error {
 			for i := range fs {
-				switch gf, ok := snap.GetGlobal(fs[i].Name); {
+				switch gf, ok, err := snap.GetGlobal(fs[i].Name); {
+				case err != nil:
+					return err
 				case !ok:
 					continue
 				case gf.IsEquivalentOptional(fs[i], f.ModTimeWindow(), false, false, protocol.FlagLocalReceiveOnly):
@@ -461,7 +472,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	ignoredParent := ""
 
 	snap.Release()
-	snap = f.fset.Snapshot()
+	snap, err = f.fset.Snapshot()
+	if err != nil {
+		return err
+	}
 	defer snap.Release()
 
 	for _, sub := range subDirs {
@@ -922,6 +936,6 @@ type cFiler struct {
 }
 
 // Implements scanner.CurrentFiler
-func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
+func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool, error) {
 	return cf.Get(protocol.LocalDeviceID, file)
 }

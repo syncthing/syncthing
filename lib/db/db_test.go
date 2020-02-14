@@ -38,7 +38,7 @@ func TestIgnoredFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+	fs := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 
 	// The contents of the database are like this:
 	//
@@ -73,9 +73,12 @@ func TestIgnoredFiles(t *testing.T) {
 	// Local files should have the "ignored" bit in addition to just being
 	// generally invalid if we want to look at the simulation of that bit.
 
-	snap := fs.Snapshot()
+	snap, err := fs.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer snap.Release()
-	fi, ok := snap.Get(protocol.LocalDeviceID, "foo")
+	fi, ok := get(t, snap, protocol.LocalDeviceID, "foo")
 	if !ok {
 		t.Fatal("foo should exist")
 	}
@@ -86,7 +89,7 @@ func TestIgnoredFiles(t *testing.T) {
 		t.Error("foo should be ignored")
 	}
 
-	fi, ok = snap.Get(protocol.LocalDeviceID, "bar")
+	fi, ok = get(t, snap, protocol.LocalDeviceID, "bar")
 	if !ok {
 		t.Fatal("bar should exist")
 	}
@@ -100,7 +103,7 @@ func TestIgnoredFiles(t *testing.T) {
 	// Remote files have the invalid bit as usual, and the IsInvalid() method
 	// should pick this up too.
 
-	fi, ok = snap.Get(protocol.DeviceID{42}, "baz")
+	fi, ok = get(t, snap, protocol.DeviceID{42}, "baz")
 	if !ok {
 		t.Fatal("baz should exist")
 	}
@@ -111,7 +114,7 @@ func TestIgnoredFiles(t *testing.T) {
 		t.Error("baz should be invalid")
 	}
 
-	fi, ok = snap.Get(protocol.DeviceID{42}, "quux")
+	fi, ok = get(t, snap, protocol.DeviceID{42}, "quux")
 	if !ok {
 		t.Fatal("quux should exist")
 	}
@@ -272,4 +275,21 @@ func TestDowngrade(t *testing.T) {
 	} else if err.minSyncthingVersion != dbMinSyncthingVersion {
 		t.Fatalf("Error has %v as min Syncthing version, expected %v", err.minSyncthingVersion, dbMinSyncthingVersion)
 	}
+}
+
+func newFileSet(t testing.TB, folder string, fs fs.Filesystem, ldb *Lowlevel) *FileSet {
+	t.Helper()
+	s, err := NewFileSet(folder, fs, ldb, func(err error) { t.Fatal(err) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+func get(t testing.TB, snap *Snapshot, id protocol.DeviceID, name string) (protocol.FileInfo, bool) {
+	fi, ok, err := snap.Get(id, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fi, ok
 }

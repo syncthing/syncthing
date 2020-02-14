@@ -44,9 +44,9 @@ func genBlocks(n int) []protocol.BlockInfo {
 	return b
 }
 
-func globalList(s *db.FileSet) []protocol.FileInfo {
+func globalList(t testing.TB, s *db.FileSet) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	snap := s.Snapshot()
+	snap := snapshot(t, s)
 	defer snap.Release()
 	snap.WithGlobal(func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
@@ -55,9 +55,9 @@ func globalList(s *db.FileSet) []protocol.FileInfo {
 	})
 	return fs
 }
-func globalListPrefixed(s *db.FileSet, prefix string) []db.FileInfoTruncated {
+func globalListPrefixed(t testing.TB, s *db.FileSet, prefix string) []db.FileInfoTruncated {
 	var fs []db.FileInfoTruncated
-	snap := s.Snapshot()
+	snap := snapshot(t, s)
 	defer snap.Release()
 	snap.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
@@ -67,9 +67,9 @@ func globalListPrefixed(s *db.FileSet, prefix string) []db.FileInfoTruncated {
 	return fs
 }
 
-func haveList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
+func haveList(t testing.TB, s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	snap := s.Snapshot()
+	snap := snapshot(t, s)
 	defer snap.Release()
 	snap.WithHave(n, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
@@ -79,9 +79,9 @@ func haveList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	return fs
 }
 
-func haveListPrefixed(s *db.FileSet, n protocol.DeviceID, prefix string) []db.FileInfoTruncated {
+func haveListPrefixed(t testing.TB, s *db.FileSet, n protocol.DeviceID, prefix string) []db.FileInfoTruncated {
 	var fs []db.FileInfoTruncated
-	snap := s.Snapshot()
+	snap := snapshot(t, s)
 	defer snap.Release()
 	snap.WithPrefixedHaveTruncated(n, prefix, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
@@ -91,9 +91,9 @@ func haveListPrefixed(s *db.FileSet, n protocol.DeviceID, prefix string) []db.Fi
 	return fs
 }
 
-func needList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
+func needList(t testing.TB, s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
-	snap := s.Snapshot()
+	snap := snapshot(t, s)
 	defer snap.Release()
 	snap.WithNeed(n, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
@@ -131,7 +131,7 @@ func TestGlobalSet(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
-	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	m := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local0 := fileList{
 		protocol.FileInfo{Name: "a", Sequence: 1, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
@@ -195,7 +195,7 @@ func TestGlobalSet(t *testing.T) {
 	replace(m, remoteDevice0, remote0)
 	m.Update(remoteDevice0, remote1)
 
-	g := fileList(globalList(m))
+	g := fileList(globalList(t, m))
 	sort.Sort(g)
 
 	if fmt.Sprint(g) != fmt.Sprint(expectedGlobal) {
@@ -217,7 +217,7 @@ func TestGlobalSet(t *testing.T) {
 		}
 		globalBytes += f.FileSize()
 	}
-	gs := globalSize(m)
+	gs := globalSize(t, m)
 	if gs.Files != globalFiles {
 		t.Errorf("Incorrect GlobalSize files; %d != %d", gs.Files, globalFiles)
 	}
@@ -231,7 +231,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Incorrect GlobalSize bytes; %d != %d", gs.Bytes, globalBytes)
 	}
 
-	h := fileList(haveList(m, protocol.LocalDeviceID))
+	h := fileList(haveList(t, m, protocol.LocalDeviceID))
 	sort.Sort(h)
 
 	if fmt.Sprint(h) != fmt.Sprint(localTot) {
@@ -253,7 +253,7 @@ func TestGlobalSet(t *testing.T) {
 		}
 		haveBytes += f.FileSize()
 	}
-	ls := localSize(m)
+	ls := localSize(t, m)
 	if ls.Files != haveFiles {
 		t.Errorf("Incorrect LocalSize files; %d != %d", ls.Files, haveFiles)
 	}
@@ -267,30 +267,30 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Incorrect LocalSize bytes; %d != %d", ls.Bytes, haveBytes)
 	}
 
-	h = fileList(haveList(m, remoteDevice0))
+	h = fileList(haveList(t, m, remoteDevice0))
 	sort.Sort(h)
 
 	if fmt.Sprint(h) != fmt.Sprint(remoteTot) {
 		t.Errorf("Have incorrect;\n A: %v !=\n E: %v", h, remoteTot)
 	}
 
-	n := fileList(needList(m, protocol.LocalDeviceID))
+	n := fileList(needList(t, m, protocol.LocalDeviceID))
 	sort.Sort(n)
 
 	if fmt.Sprint(n) != fmt.Sprint(expectedLocalNeed) {
 		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", n, expectedLocalNeed)
 	}
 
-	n = fileList(needList(m, remoteDevice0))
+	n = fileList(needList(t, m, remoteDevice0))
 	sort.Sort(n)
 
 	if fmt.Sprint(n) != fmt.Sprint(expectedRemoteNeed) {
 		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", n, expectedRemoteNeed)
 	}
 
-	snap := m.Snapshot()
+	snap := snapshot(t, m)
 	defer snap.Release()
-	f, ok := snap.Get(protocol.LocalDeviceID, "b")
+	f, ok := get(t, snap, protocol.LocalDeviceID, "b")
 	if !ok {
 		t.Error("Unexpectedly not OK")
 	}
@@ -298,7 +298,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, localTot[1])
 	}
 
-	f, ok = snap.Get(remoteDevice0, "b")
+	f, ok = get(t, snap, remoteDevice0, "b")
 	if !ok {
 		t.Error("Unexpectedly not OK")
 	}
@@ -306,7 +306,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, remote1[0])
 	}
 
-	f, ok = snap.GetGlobal("b")
+	f, ok = getGlobal(t, snap, "b")
 	if !ok {
 		t.Error("Unexpectedly not OK")
 	}
@@ -314,7 +314,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("GetGlobal incorrect;\n A: %v !=\n E: %v", f, remote1[0])
 	}
 
-	f, ok = snap.Get(protocol.LocalDeviceID, "zz")
+	f, ok = get(t, snap, protocol.LocalDeviceID, "zz")
 	if ok {
 		t.Error("Unexpectedly OK")
 	}
@@ -322,7 +322,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Get incorrect;\n A: %v !=\n E: %v", f, protocol.FileInfo{})
 	}
 
-	f, ok = snap.GetGlobal("zz")
+	f, ok = getGlobal(t, snap, "zz")
 	if ok {
 		t.Error("Unexpectedly OK")
 	}
@@ -331,15 +331,15 @@ func TestGlobalSet(t *testing.T) {
 	}
 
 	av := []protocol.DeviceID{protocol.LocalDeviceID, remoteDevice0}
-	a := snap.Availability("a")
+	a := availability(t, snap, "a")
 	if !(len(a) == 2 && (a[0] == av[0] && a[1] == av[1] || a[0] == av[1] && a[1] == av[0])) {
 		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, av)
 	}
-	a = snap.Availability("b")
+	a = availability(t, snap, "b")
 	if len(a) != 1 || a[0] != remoteDevice0 {
 		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, remoteDevice0)
 	}
-	a = snap.Availability("d")
+	a = availability(t, snap, "d")
 	if len(a) != 1 || a[0] != protocol.LocalDeviceID {
 		t.Errorf("Availability incorrect;\n A: %v !=\n E: %v", a, protocol.LocalDeviceID)
 	}
@@ -349,7 +349,7 @@ func TestNeedWithInvalid(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
-	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
@@ -375,7 +375,7 @@ func TestNeedWithInvalid(t *testing.T) {
 	replace(s, remoteDevice0, remote0Have)
 	replace(s, remoteDevice1, remote1Have)
 
-	need := fileList(needList(s, protocol.LocalDeviceID))
+	need := fileList(needList(t, s, protocol.LocalDeviceID))
 	sort.Sort(need)
 
 	if fmt.Sprint(need) != fmt.Sprint(expectedNeed) {
@@ -388,7 +388,7 @@ func TestUpdateToInvalid(t *testing.T) {
 	defer ldb.Close()
 
 	folder := "test"
-	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	f := db.NewBlockFinder(ldb)
 
 	localHave := fileList{
@@ -401,7 +401,7 @@ func TestUpdateToInvalid(t *testing.T) {
 
 	replace(s, protocol.LocalDeviceID, localHave)
 
-	have := fileList(haveList(s, protocol.LocalDeviceID))
+	have := fileList(haveList(t, s, protocol.LocalDeviceID))
 	sort.Sort(have)
 
 	if fmt.Sprint(have) != fmt.Sprint(localHave) {
@@ -418,7 +418,7 @@ func TestUpdateToInvalid(t *testing.T) {
 
 	s.Update(protocol.LocalDeviceID, append(fileList{}, localHave[1], localHave[4]))
 
-	have = fileList(haveList(s, protocol.LocalDeviceID))
+	have = fileList(haveList(t, s, protocol.LocalDeviceID))
 	sort.Sort(have)
 
 	if fmt.Sprint(have) != fmt.Sprint(localHave) {
@@ -444,7 +444,7 @@ func TestInvalidAvailability(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
-	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	remote0Have := fileList{
 		protocol.FileInfo{Name: "both", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
@@ -462,22 +462,22 @@ func TestInvalidAvailability(t *testing.T) {
 	replace(s, remoteDevice0, remote0Have)
 	replace(s, remoteDevice1, remote1Have)
 
-	snap := s.Snapshot()
+	snap := snapshot(t, s)
 	defer snap.Release()
 
-	if av := snap.Availability("both"); len(av) != 2 {
+	if av := availability(t, snap, "both"); len(av) != 2 {
 		t.Error("Incorrect availability for 'both':", av)
 	}
 
-	if av := snap.Availability("r0only"); len(av) != 1 || av[0] != remoteDevice0 {
+	if av := availability(t, snap, "r0only"); len(av) != 1 || av[0] != remoteDevice0 {
 		t.Error("Incorrect availability for 'r0only':", av)
 	}
 
-	if av := snap.Availability("r1only"); len(av) != 1 || av[0] != remoteDevice1 {
+	if av := availability(t, snap, "r1only"); len(av) != 1 || av[0] != remoteDevice1 {
 		t.Error("Incorrect availability for 'r1only':", av)
 	}
 
-	if av := snap.Availability("none"); len(av) != 0 {
+	if av := availability(t, snap, "none"); len(av) != 0 {
 		t.Error("Incorrect availability for 'none':", av)
 	}
 }
@@ -486,7 +486,7 @@ func TestGlobalReset(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
-	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	m := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local := []protocol.FileInfo{
 		{Name: "a", Sequence: 1, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -503,7 +503,7 @@ func TestGlobalReset(t *testing.T) {
 	}
 
 	replace(m, protocol.LocalDeviceID, local)
-	g := globalList(m)
+	g := globalList(t, m)
 	sort.Sort(fileList(g))
 
 	if diff, equal := messagediff.PrettyDiff(local, g); !equal {
@@ -513,7 +513,7 @@ func TestGlobalReset(t *testing.T) {
 	replace(m, remoteDevice0, remote)
 	replace(m, remoteDevice0, nil)
 
-	g = globalList(m)
+	g = globalList(t, m)
 	sort.Sort(fileList(g))
 
 	if diff, equal := messagediff.PrettyDiff(local, g); !equal {
@@ -525,7 +525,7 @@ func TestNeed(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
-	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	m := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local := []protocol.FileInfo{
 		{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -550,7 +550,7 @@ func TestNeed(t *testing.T) {
 	replace(m, protocol.LocalDeviceID, local)
 	replace(m, remoteDevice0, remote)
 
-	need := needList(m, protocol.LocalDeviceID)
+	need := needList(t, m, protocol.LocalDeviceID)
 
 	sort.Sort(fileList(need))
 	sort.Sort(fileList(shouldNeed))
@@ -564,7 +564,7 @@ func TestSequence(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
-	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	m := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local1 := []protocol.FileInfo{
 		{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -595,7 +595,7 @@ func TestListDropFolder(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
-	s0 := db.NewFileSet("test0", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s0 := newFileSet(t, "test0", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	local1 := []protocol.FileInfo{
 		{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
 		{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -603,7 +603,7 @@ func TestListDropFolder(t *testing.T) {
 	}
 	replace(s0, protocol.LocalDeviceID, local1)
 
-	s1 := db.NewFileSet("test1", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s1 := newFileSet(t, "test1", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	local2 := []protocol.FileInfo{
 		{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}},
 		{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}},
@@ -618,10 +618,10 @@ func TestListDropFolder(t *testing.T) {
 	if diff, equal := messagediff.PrettyDiff(expectedFolderList, actualFolderList); !equal {
 		t.Fatalf("FolderList mismatch. Diff:\n%s", diff)
 	}
-	if l := len(globalList(s0)); l != 3 {
+	if l := len(globalList(t, s0)); l != 3 {
 		t.Errorf("Incorrect global length %d != 3 for s0", l)
 	}
-	if l := len(globalList(s1)); l != 3 {
+	if l := len(globalList(t, s1)); l != 3 {
 		t.Errorf("Incorrect global length %d != 3 for s1", l)
 	}
 
@@ -634,10 +634,10 @@ func TestListDropFolder(t *testing.T) {
 	if diff, equal := messagediff.PrettyDiff(expectedFolderList, actualFolderList); !equal {
 		t.Fatalf("FolderList mismatch. Diff:\n%s", diff)
 	}
-	if l := len(globalList(s0)); l != 3 {
+	if l := len(globalList(t, s0)); l != 3 {
 		t.Errorf("Incorrect global length %d != 3 for s0", l)
 	}
-	if l := len(globalList(s1)); l != 0 {
+	if l := len(globalList(t, s1)); l != 0 {
 		t.Errorf("Incorrect global length %d != 0 for s1", l)
 	}
 }
@@ -646,7 +646,7 @@ func TestGlobalNeedWithInvalid(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
-	s := db.NewFileSet("test1", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test1", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	rem0 := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
@@ -673,12 +673,12 @@ func TestGlobalNeedWithInvalid(t *testing.T) {
 		protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: remoteDevice0.Short(), Value: 1002}}}},
 	}
 
-	need := fileList(needList(s, protocol.LocalDeviceID))
+	need := fileList(needList(t, s, protocol.LocalDeviceID))
 	if fmt.Sprint(need) != fmt.Sprint(total) {
 		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", need, total)
 	}
 
-	global := fileList(globalList(s))
+	global := fileList(globalList(t, s))
 	if fmt.Sprint(global) != fmt.Sprint(total) {
 		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", global, total)
 	}
@@ -688,7 +688,7 @@ func TestLongPath(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
-	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	var b bytes.Buffer
 	for i := 0; i < 100; i++ {
@@ -702,7 +702,7 @@ func TestLongPath(t *testing.T) {
 
 	replace(s, protocol.LocalDeviceID, local)
 
-	gf := globalList(s)
+	gf := globalList(t, s)
 	if l := len(gf); l != 1 {
 		t.Fatalf("Incorrect len %d != 1 for global list", l)
 	}
@@ -732,7 +732,7 @@ func BenchmarkUpdateOneFile(b *testing.B) {
 		os.RemoveAll("testdata/benchmarkupdate.db")
 	}()
 
-	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	m := newFileSet(b, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	replace(m, protocol.LocalDeviceID, local0)
 	l := local0[4:5]
 
@@ -748,30 +748,30 @@ func TestIndexID(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
-	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	// The Index ID for some random device is zero by default.
-	id := s.IndexID(remoteDevice0)
+	id := indexID(t, s, remoteDevice0)
 	if id != 0 {
 		t.Errorf("index ID for remote device should default to zero, not %d", id)
 	}
 
 	// The Index ID for someone else should be settable
 	s.SetIndexID(remoteDevice0, 42)
-	id = s.IndexID(remoteDevice0)
+	id = indexID(t, s, remoteDevice0)
 	if id != 42 {
 		t.Errorf("index ID for remote device should be remembered; got %d, expected %d", id, 42)
 	}
 
 	// Our own index ID should be generated randomly.
-	id = s.IndexID(protocol.LocalDeviceID)
+	id = indexID(t, s, protocol.LocalDeviceID)
 	if id == 0 {
 		t.Errorf("index ID for local device should be random, not zero")
 	}
 	t.Logf("random index ID is 0x%016x", id)
 
 	// But of course always the same after that.
-	again := s.IndexID(protocol.LocalDeviceID)
+	again := indexID(t, s, protocol.LocalDeviceID)
 	if again != id {
 		t.Errorf("index ID changed; %d != %d", again, id)
 	}
@@ -780,7 +780,7 @@ func TestIndexID(t *testing.T) {
 func TestDropFiles(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 
-	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	m := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local0 := fileList{
 		protocol.FileInfo{Name: "a", Sequence: 1, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
@@ -803,17 +803,17 @@ func TestDropFiles(t *testing.T) {
 
 	// Check that they're there
 
-	h := haveList(m, protocol.LocalDeviceID)
+	h := haveList(t, m, protocol.LocalDeviceID)
 	if len(h) != len(local0) {
 		t.Errorf("Incorrect number of files after update, %d != %d", len(h), len(local0))
 	}
 
-	h = haveList(m, remoteDevice0)
+	h = haveList(t, m, remoteDevice0)
 	if len(h) != len(remote0) {
 		t.Errorf("Incorrect number of files after update, %d != %d", len(h), len(local0))
 	}
 
-	g := globalList(m)
+	g := globalList(t, m)
 	if len(g) != len(local0) {
 		// local0 covers all files
 		t.Errorf("Incorrect global files after update, %d != %d", len(g), len(local0))
@@ -823,17 +823,17 @@ func TestDropFiles(t *testing.T) {
 
 	m.Drop(protocol.LocalDeviceID)
 
-	h = haveList(m, protocol.LocalDeviceID)
+	h = haveList(t, m, protocol.LocalDeviceID)
 	if len(h) != 0 {
 		t.Errorf("Incorrect number of files after drop, %d != %d", len(h), 0)
 	}
 
-	h = haveList(m, remoteDevice0)
+	h = haveList(t, m, remoteDevice0)
 	if len(h) != len(remote0) {
 		t.Errorf("Incorrect number of files after update, %d != %d", len(h), len(local0))
 	}
 
-	g = globalList(m)
+	g = globalList(t, m)
 	if len(g) != len(remote0) {
 		// the ones in remote0 remain
 		t.Errorf("Incorrect global files after update, %d != %d", len(g), len(remote0))
@@ -844,7 +844,7 @@ func TestIssue4701(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
-	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -853,20 +853,20 @@ func TestIssue4701(t *testing.T) {
 
 	s.Update(protocol.LocalDeviceID, localHave)
 
-	if c := localSize(s); c.Files != 1 {
+	if c := localSize(t, s); c.Files != 1 {
 		t.Errorf("Expected 1 local file, got %v", c.Files)
 	}
-	if c := globalSize(s); c.Files != 1 {
+	if c := globalSize(t, s); c.Files != 1 {
 		t.Errorf("Expected 1 global file, got %v", c.Files)
 	}
 
 	localHave[1].LocalFlags = 0
 	s.Update(protocol.LocalDeviceID, localHave)
 
-	if c := localSize(s); c.Files != 2 {
+	if c := localSize(t, s); c.Files != 2 {
 		t.Errorf("Expected 2 local files, got %v", c.Files)
 	}
-	if c := globalSize(s); c.Files != 2 {
+	if c := globalSize(t, s); c.Files != 2 {
 		t.Errorf("Expected 2 global files, got %v", c.Files)
 	}
 
@@ -874,10 +874,10 @@ func TestIssue4701(t *testing.T) {
 	localHave[1].LocalFlags = protocol.FlagLocalIgnored
 	s.Update(protocol.LocalDeviceID, localHave)
 
-	if c := localSize(s); c.Files != 0 {
+	if c := localSize(t, s); c.Files != 0 {
 		t.Errorf("Expected 0 local files, got %v", c.Files)
 	}
-	if c := globalSize(s); c.Files != 0 {
+	if c := globalSize(t, s); c.Files != 0 {
 		t.Errorf("Expected 0 global files, got %v", c.Files)
 	}
 }
@@ -887,7 +887,7 @@ func TestWithHaveSequence(t *testing.T) {
 	defer ldb.Close()
 
 	folder := "test"
-	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	// The files must not be in alphabetical order
 	localHave := fileList{
@@ -901,7 +901,7 @@ func TestWithHaveSequence(t *testing.T) {
 	replace(s, protocol.LocalDeviceID, localHave)
 
 	i := 2
-	snap := s.Snapshot()
+	snap := snapshot(t, s)
 	defer snap.Release()
 	snap.WithHaveSequence(int64(i), func(fi db.FileIntf) bool {
 		if f := fi.(protocol.FileInfo); !f.IsEquivalent(localHave[i-1], 0) {
@@ -925,7 +925,7 @@ func TestStressWithHaveSequence(t *testing.T) {
 	defer ldb.Close()
 
 	folder := "test"
-	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	var localHave []protocol.FileInfo
 	for i := 0; i < 100; i++ {
@@ -953,7 +953,7 @@ loop:
 			break loop
 		default:
 		}
-		snap := s.Snapshot()
+		snap := snapshot(t, s)
 		snap.WithHaveSequence(prevSeq+1, func(fi db.FileIntf) bool {
 			if fi.SequenceNo() < prevSeq+1 {
 				t.Fatal("Skipped ", prevSeq+1, fi.SequenceNo())
@@ -970,7 +970,7 @@ func TestIssue4925(t *testing.T) {
 	defer ldb.Close()
 
 	folder := "test"
-	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "dir"},
@@ -981,11 +981,11 @@ func TestIssue4925(t *testing.T) {
 	replace(s, protocol.LocalDeviceID, localHave)
 
 	for _, prefix := range []string{"dir", "dir/"} {
-		pl := haveListPrefixed(s, protocol.LocalDeviceID, prefix)
+		pl := haveListPrefixed(t, s, protocol.LocalDeviceID, prefix)
 		if l := len(pl); l != 2 {
 			t.Errorf("Expected 2, got %v local items below %v", l, prefix)
 		}
-		pl = globalListPrefixed(s, prefix)
+		pl = globalListPrefixed(t, s, prefix)
 		if l := len(pl); l != 2 {
 			t.Errorf("Expected 2, got %v global items below %v", l, prefix)
 		}
@@ -998,7 +998,7 @@ func TestMoveGlobalBack(t *testing.T) {
 
 	folder := "test"
 	file := "foo"
-	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	localHave := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}, Blocks: genBlocks(1), ModifiedS: 10, Size: 1}}
 	remote0Have := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}, {ID: remoteDevice0.Short(), Value: 1}}}, Blocks: genBlocks(2), ModifiedS: 0, Size: 2}}
@@ -1006,22 +1006,22 @@ func TestMoveGlobalBack(t *testing.T) {
 	s.Update(protocol.LocalDeviceID, localHave)
 	s.Update(remoteDevice0, remote0Have)
 
-	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
+	if need := needList(t, s, protocol.LocalDeviceID); len(need) != 1 {
 		t.Error("Expected 1 local need, got", need)
 	} else if !need[0].IsEquivalent(remote0Have[0], 0) {
 		t.Errorf("Local need incorrect;\n A: %v !=\n E: %v", need[0], remote0Have[0])
 	}
 
-	if need := needList(s, remoteDevice0); len(need) != 0 {
+	if need := needList(t, s, remoteDevice0); len(need) != 0 {
 		t.Error("Expected no need for remote 0, got", need)
 	}
 
-	ls := localSize(s)
+	ls := localSize(t, s)
 	if haveBytes := localHave[0].Size; ls.Bytes != haveBytes {
 		t.Errorf("Incorrect LocalSize bytes; %d != %d", ls.Bytes, haveBytes)
 	}
 
-	gs := globalSize(s)
+	gs := globalSize(t, s)
 	if globalBytes := remote0Have[0].Size; gs.Bytes != globalBytes {
 		t.Errorf("Incorrect GlobalSize bytes; %d != %d", gs.Bytes, globalBytes)
 	}
@@ -1032,22 +1032,22 @@ func TestMoveGlobalBack(t *testing.T) {
 	remote0Have[0].Version = remote0Have[0].Version.Update(remoteDevice0.Short()).DropOthers(remoteDevice0.Short())
 	s.Update(remoteDevice0, remote0Have)
 
-	if need := needList(s, remoteDevice0); len(need) != 1 {
+	if need := needList(t, s, remoteDevice0); len(need) != 1 {
 		t.Error("Expected 1 need for remote 0, got", need)
 	} else if !need[0].IsEquivalent(localHave[0], 0) {
 		t.Errorf("Need for remote 0 incorrect;\n A: %v !=\n E: %v", need[0], localHave[0])
 	}
 
-	if need := needList(s, protocol.LocalDeviceID); len(need) != 0 {
+	if need := needList(t, s, protocol.LocalDeviceID); len(need) != 0 {
 		t.Error("Expected no local need, got", need)
 	}
 
-	ls = localSize(s)
+	ls = localSize(t, s)
 	if haveBytes := localHave[0].Size; ls.Bytes != haveBytes {
 		t.Errorf("Incorrect LocalSize bytes; %d != %d", ls.Bytes, haveBytes)
 	}
 
-	gs = globalSize(s)
+	gs = globalSize(t, s)
 	if globalBytes := localHave[0].Size; gs.Bytes != globalBytes {
 		t.Errorf("Incorrect GlobalSize bytes; %d != %d", gs.Bytes, globalBytes)
 	}
@@ -1063,13 +1063,13 @@ func TestIssue5007(t *testing.T) {
 
 	folder := "test"
 	file := "foo"
-	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	fs := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}}}
 
 	s.Update(remoteDevice0, fs)
 
-	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
+	if need := needList(t, s, protocol.LocalDeviceID); len(need) != 1 {
 		t.Fatal("Expected 1 local need, got", need)
 	} else if !need[0].IsEquivalent(fs[0], 0) {
 		t.Fatalf("Local need incorrect;\n A: %v !=\n E: %v", need[0], fs[0])
@@ -1078,7 +1078,7 @@ func TestIssue5007(t *testing.T) {
 	fs[0].LocalFlags = protocol.FlagLocalIgnored
 	s.Update(protocol.LocalDeviceID, fs)
 
-	if need := needList(s, protocol.LocalDeviceID); len(need) != 0 {
+	if need := needList(t, s, protocol.LocalDeviceID); len(need) != 0 {
 		t.Fatal("Expected no local need, got", need)
 	}
 }
@@ -1091,13 +1091,13 @@ func TestNeedDeleted(t *testing.T) {
 
 	folder := "test"
 	file := "foo"
-	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	fs := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}, Deleted: true}}
 
 	s.Update(remoteDevice0, fs)
 
-	if need := needList(s, protocol.LocalDeviceID); len(need) != 0 {
+	if need := needList(t, s, protocol.LocalDeviceID); len(need) != 0 {
 		t.Fatal("Expected no local need, got", need)
 	}
 
@@ -1105,7 +1105,7 @@ func TestNeedDeleted(t *testing.T) {
 	fs[0].Version = fs[0].Version.Update(remoteDevice0.Short())
 	s.Update(remoteDevice0, fs)
 
-	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
+	if need := needList(t, s, protocol.LocalDeviceID); len(need) != 1 {
 		t.Fatal("Expected 1 local need, got", need)
 	} else if !need[0].IsEquivalent(fs[0], 0) {
 		t.Fatalf("Local need incorrect;\n A: %v !=\n E: %v", need[0], fs[0])
@@ -1115,7 +1115,7 @@ func TestNeedDeleted(t *testing.T) {
 	fs[0].Version = fs[0].Version.Update(remoteDevice0.Short())
 	s.Update(remoteDevice0, fs)
 
-	if need := needList(s, protocol.LocalDeviceID); len(need) != 0 {
+	if need := needList(t, s, protocol.LocalDeviceID); len(need) != 0 {
 		t.Fatal("Expected no local need, got", need)
 	}
 }
@@ -1125,7 +1125,7 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 	defer ldb.Close()
 
 	folder := "test"
-	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local := protocol.DeviceID{1}
 	remote := protocol.DeviceID{2}
@@ -1144,22 +1144,22 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 	replace(s, protocol.LocalDeviceID, files)
 	replace(s, remote, files)
 
-	if n := localSize(s).Files; n != 3 {
+	if n := localSize(t, s).Files; n != 3 {
 		t.Fatal("expected 3 local files initially, not", n)
 	}
-	if n := localSize(s).Bytes; n != 30 {
+	if n := localSize(t, s).Bytes; n != 30 {
 		t.Fatal("expected 30 local bytes initially, not", n)
 	}
-	if n := globalSize(s).Files; n != 3 {
+	if n := globalSize(t, s).Files; n != 3 {
 		t.Fatal("expected 3 global files initially, not", n)
 	}
-	if n := globalSize(s).Bytes; n != 30 {
+	if n := globalSize(t, s).Bytes; n != 30 {
 		t.Fatal("expected 30 global bytes initially, not", n)
 	}
-	if n := receiveOnlyChangedSize(s).Files; n != 0 {
+	if n := receiveOnlyChangedSize(t, s).Files; n != 0 {
 		t.Fatal("expected 0 receive only changed files initially, not", n)
 	}
-	if n := receiveOnlyChangedSize(s).Bytes; n != 0 {
+	if n := receiveOnlyChangedSize(t, s).Bytes; n != 0 {
 		t.Fatal("expected 0 receive only changed bytes initially, not", n)
 	}
 
@@ -1174,22 +1174,22 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 
 	// Check that we see the files
 
-	if n := localSize(s).Files; n != 3 {
+	if n := localSize(t, s).Files; n != 3 {
 		t.Fatal("expected 3 local files after local change, not", n)
 	}
-	if n := localSize(s).Bytes; n != 120 {
+	if n := localSize(t, s).Bytes; n != 120 {
 		t.Fatal("expected 120 local bytes after local change, not", n)
 	}
-	if n := globalSize(s).Files; n != 3 {
+	if n := globalSize(t, s).Files; n != 3 {
 		t.Fatal("expected 3 global files after local change, not", n)
 	}
-	if n := globalSize(s).Bytes; n != 30 {
+	if n := globalSize(t, s).Bytes; n != 30 {
 		t.Fatal("expected 30 global files after local change, not", n)
 	}
-	if n := receiveOnlyChangedSize(s).Files; n != 1 {
+	if n := receiveOnlyChangedSize(t, s).Files; n != 1 {
 		t.Fatal("expected 1 receive only changed file after local change, not", n)
 	}
-	if n := receiveOnlyChangedSize(s).Bytes; n != 100 {
+	if n := receiveOnlyChangedSize(t, s).Bytes; n != 100 {
 		t.Fatal("expected 100 receive only changed btyes after local change, not", n)
 	}
 
@@ -1205,22 +1205,22 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 
 	// Check that we see the files, same data as initially
 
-	if n := localSize(s).Files; n != 3 {
+	if n := localSize(t, s).Files; n != 3 {
 		t.Fatal("expected 3 local files after revert, not", n)
 	}
-	if n := localSize(s).Bytes; n != 30 {
+	if n := localSize(t, s).Bytes; n != 30 {
 		t.Fatal("expected 30 local bytes after revert, not", n)
 	}
-	if n := globalSize(s).Files; n != 3 {
+	if n := globalSize(t, s).Files; n != 3 {
 		t.Fatal("expected 3 global files after revert, not", n)
 	}
-	if n := globalSize(s).Bytes; n != 30 {
+	if n := globalSize(t, s).Bytes; n != 30 {
 		t.Fatal("expected 30 global bytes after revert, not", n)
 	}
-	if n := receiveOnlyChangedSize(s).Files; n != 0 {
+	if n := receiveOnlyChangedSize(t, s).Files; n != 0 {
 		t.Fatal("expected 0 receive only changed files after revert, not", n)
 	}
-	if n := receiveOnlyChangedSize(s).Bytes; n != 0 {
+	if n := receiveOnlyChangedSize(t, s).Bytes; n != 0 {
 		t.Fatal("expected 0 receive only changed bytes after revert, not", n)
 	}
 }
@@ -1231,7 +1231,7 @@ func TestNeedAfterUnignore(t *testing.T) {
 
 	folder := "test"
 	file := "foo"
-	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	remID := remoteDevice0.Short()
 
@@ -1249,7 +1249,7 @@ func TestNeedAfterUnignore(t *testing.T) {
 	local.ModifiedS = 0
 	s.Update(protocol.LocalDeviceID, fileList{local})
 
-	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
+	if need := needList(t, s, protocol.LocalDeviceID); len(need) != 1 {
 		t.Fatal("Expected one local need, got", need)
 	} else if !need[0].IsEquivalent(remote, 0) {
 		t.Fatalf("Got %v, expected %v", need[0], remote)
@@ -1261,7 +1261,7 @@ func TestRemoteInvalidNotAccounted(t *testing.T) {
 
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
-	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	files := []protocol.FileInfo{
 		{Name: "a", Size: 1234, Sequence: 42, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}},                   // valid, should count
@@ -1269,7 +1269,7 @@ func TestRemoteInvalidNotAccounted(t *testing.T) {
 	}
 	s.Update(remoteDevice0, files)
 
-	global := globalSize(s)
+	global := globalSize(t, s)
 	if global.Files != 1 {
 		t.Error("Expected one file in global size, not", global.Files)
 	}
@@ -1282,7 +1282,7 @@ func TestNeedWithNewerInvalid(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
-	s := db.NewFileSet("default", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "default", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	rem0ID := remoteDevice0.Short()
 	rem1ID := remoteDevice1.Short()
@@ -1293,7 +1293,7 @@ func TestNeedWithNewerInvalid(t *testing.T) {
 	s.Update(remoteDevice0, fileList{file})
 	s.Update(remoteDevice1, fileList{file})
 
-	need := needList(s, protocol.LocalDeviceID)
+	need := needList(t, s, protocol.LocalDeviceID)
 	if len(need) != 1 {
 		t.Fatal("Locally missing file should be needed")
 	}
@@ -1308,7 +1308,7 @@ func TestNeedWithNewerInvalid(t *testing.T) {
 	s.Update(remoteDevice1, fileList{inv})
 
 	// We still have an old file, we need the newest valid file
-	need = needList(s, protocol.LocalDeviceID)
+	need = needList(t, s, protocol.LocalDeviceID)
 	if len(need) != 1 {
 		t.Fatal("Locally missing file should be needed regardless of invalid files")
 	}
@@ -1322,7 +1322,7 @@ func TestNeedAfterDeviceRemove(t *testing.T) {
 	defer ldb.Close()
 
 	file := "foo"
-	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	fs := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}}}
 
@@ -1332,13 +1332,13 @@ func TestNeedAfterDeviceRemove(t *testing.T) {
 
 	s.Update(remoteDevice0, fs)
 
-	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
+	if need := needList(t, s, protocol.LocalDeviceID); len(need) != 1 {
 		t.Fatal("Expected one local need, got", need)
 	}
 
 	s.Drop(remoteDevice0)
 
-	if need := needList(s, protocol.LocalDeviceID); len(need) != 0 {
+	if need := needList(t, s, protocol.LocalDeviceID); len(need) != 0 {
 		t.Fatal("Expected no local need, got", need)
 	}
 }
@@ -1348,7 +1348,7 @@ func TestCaseSensitive(t *testing.T) {
 
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
-	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local := []protocol.FileInfo{
 		{Name: filepath.FromSlash("D1/f1"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -1360,7 +1360,7 @@ func TestCaseSensitive(t *testing.T) {
 
 	replace(s, protocol.LocalDeviceID, local)
 
-	gf := globalList(s)
+	gf := globalList(t, s)
 	if l := len(gf); l != len(local) {
 		t.Fatalf("Incorrect len %d != %d for global list", l, len(local))
 	}
@@ -1386,7 +1386,7 @@ func TestSequenceIndex(t *testing.T) {
 
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
-	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local := []protocol.FileInfo{
 		{Name: filepath.FromSlash("banana"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
@@ -1430,7 +1430,7 @@ func TestSequenceIndex(t *testing.T) {
 		// a subset of those files if we manage to run before a complete
 		// update has happened since our last iteration.
 		latest = latest[:0]
-		snap := s.Snapshot()
+		snap := snapshot(t, s)
 		snap.WithHaveSequence(seq+1, func(f db.FileIntf) bool {
 			seen[f.FileName()] = f
 			latest = append(latest, f)
@@ -1482,7 +1482,7 @@ func TestIgnoreAfterReceiveOnly(t *testing.T) {
 	defer ldb.Close()
 
 	file := "foo"
-	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	fs := fileList{{
 		Name:       file,
@@ -1496,9 +1496,9 @@ func TestIgnoreAfterReceiveOnly(t *testing.T) {
 
 	s.Update(protocol.LocalDeviceID, fs)
 
-	snap := s.Snapshot()
+	snap := snapshot(t, s)
 	defer snap.Release()
-	if f, ok := snap.Get(protocol.LocalDeviceID, file); !ok {
+	if f, ok := get(t, snap, protocol.LocalDeviceID, file); !ok {
 		t.Error("File missing in db")
 	} else if f.IsReceiveOnlyChanged() {
 		t.Error("File is still receive-only changed")
@@ -1512,20 +1512,74 @@ func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo
 	fs.Update(device, files)
 }
 
-func localSize(fs *db.FileSet) db.Counts {
-	snap := fs.Snapshot()
+func localSize(t testing.TB, fs *db.FileSet) db.Counts {
+	snap := snapshot(t, fs)
 	defer snap.Release()
 	return snap.LocalSize()
 }
 
-func globalSize(fs *db.FileSet) db.Counts {
-	snap := fs.Snapshot()
+func globalSize(t testing.TB, fs *db.FileSet) db.Counts {
+	snap := snapshot(t, fs)
 	defer snap.Release()
 	return snap.GlobalSize()
 }
 
-func receiveOnlyChangedSize(fs *db.FileSet) db.Counts {
-	snap := fs.Snapshot()
+func receiveOnlyChangedSize(t testing.TB, fs *db.FileSet) db.Counts {
+	snap := snapshot(t, fs)
 	defer snap.Release()
 	return snap.ReceiveOnlyChangedSize()
+}
+
+func newFileSet(t testing.TB, folder string, fs fs.Filesystem, ldb *db.Lowlevel) *db.FileSet {
+	t.Helper()
+	s, err := db.NewFileSet(folder, fs, ldb, func(err error) { t.Fatal(err) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+func snapshot(t testing.TB, fs *db.FileSet) *db.Snapshot {
+	t.Helper()
+	snap, err := fs.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap
+}
+
+func get(t testing.TB, snap *db.Snapshot, device protocol.DeviceID, file string) (protocol.FileInfo, bool) {
+	t.Helper()
+	f, ok, err := snap.Get(device, file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f, ok
+}
+
+func getGlobal(t testing.TB, snap *db.Snapshot, file string) (protocol.FileInfo, bool) {
+	t.Helper()
+	f, ok, err := snap.GetGlobal(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f, ok
+}
+
+func availability(t testing.TB, snap *db.Snapshot, file string) []protocol.DeviceID {
+	t.Helper()
+	av, err := snap.Availability(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return av
+}
+
+func indexID(t testing.TB, s *db.FileSet, device protocol.DeviceID) protocol.IndexID {
+	t.Helper()
+	id, err := s.IndexID(device)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
 }

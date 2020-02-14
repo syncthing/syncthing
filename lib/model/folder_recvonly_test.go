@@ -47,7 +47,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	f.updateLocalsFromScanning(knownFiles)
 
 	m.fmut.RLock()
-	snap := m.folderFiles["ro"].Snapshot()
+	snap := snapshot(t, m.folderFiles["ro"])
 	m.fmut.RUnlock()
 	size := snap.GlobalSize()
 	snap.Release()
@@ -311,7 +311,7 @@ func setupROFolder(t *testing.T) (*model, *receiveOnlyFolder) {
 	fcfg.Type = config.FolderTypeReceiveOnly
 	w.SetFolder(fcfg)
 
-	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
+	m := newModel(t, w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
 	m.ServeBackground()
 	must(t, m.ScanFolder("ro"))
 

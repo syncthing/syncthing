@@ -50,7 +50,10 @@ func (f *sendOnlyFolder) pull() bool {
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
 
-	snap := f.fset.Snapshot()
+	snap, err := f.fset.Snapshot()
+	if err != nil {
+		return false
+	}
 	defer snap.Release()
 	snap.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
@@ -68,7 +71,10 @@ func (f *sendOnlyFolder) pull() bool {
 			return true
 		}
 
-		curFile, ok := snap.Get(protocol.LocalDeviceID, intf.FileName())
+		curFile, ok, err := snap.Get(protocol.LocalDeviceID, intf.FileName())
+		if err != nil {
+			return false
+		}
 		if !ok {
 			if intf.IsDeleted() {
 				l.Debugln("Should never get a deleted file as needed when we don't have it")
@@ -100,7 +106,10 @@ func (f *sendOnlyFolder) Override() {
 	f.setState(FolderScanning)
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
-	snap := f.fset.Snapshot()
+	snap, err := f.fset.Snapshot()
+	if err != nil {
+		return
+	}
 	defer snap.Release()
 	snap.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
@@ -110,7 +119,10 @@ func (f *sendOnlyFolder) Override() {
 			batchSizeBytes = 0
 		}
 
-		have, ok := snap.Get(protocol.LocalDeviceID, need.Name)
+		have, ok, err := snap.Get(protocol.LocalDeviceID, need.Name)
+		if err != nil {
+			return false
+		}
 		// Don't override files that are in a bad state (ignored,
 		// unsupported, must rescan, ...).
 		if ok && have.IsInvalid() {

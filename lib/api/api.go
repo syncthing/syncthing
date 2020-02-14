@@ -805,8 +805,16 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	file := qs.Get("file")
-	gf, gfOk := s.model.CurrentGlobalFile(folder, file)
-	lf, lfOk := s.model.CurrentFolderFile(folder, file)
+	gf, gfOk, err := s.model.CurrentGlobalFile(folder, file)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	lf, lfOk, err := s.model.CurrentFolderFile(folder, file)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
 	if !(gfOk || lfOk) {
 		// This file for sure does not exist.

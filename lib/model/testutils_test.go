@@ -94,14 +94,14 @@ func testFolderConfigFake() config.FolderConfiguration {
 	return cfg
 }
 
-func setupModelWithConnection() (*model, *fakeConnection, config.FolderConfiguration) {
+func setupModelWithConnection(t testing.TB) (*model, *fakeConnection, config.FolderConfiguration) {
 	w, fcfg := tmpDefaultWrapper()
-	m, fc := setupModelWithConnectionFromWrapper(w)
+	m, fc := setupModelWithConnectionFromWrapper(t, w)
 	return m, fc, fcfg
 }
 
-func setupModelWithConnectionFromWrapper(w config.Wrapper) (*model, *fakeConnection) {
-	m := setupModel(w)
+func setupModelWithConnectionFromWrapper(t testing.TB, w config.Wrapper) (*model, *fakeConnection) {
+	m := setupModel(t, w)
 
 	fc := addFakeConn(m, device1)
 	fc.folder = "default"
@@ -111,9 +111,9 @@ func setupModelWithConnectionFromWrapper(w config.Wrapper) (*model, *fakeConnect
 	return m, fc
 }
 
-func setupModel(w config.Wrapper) *model {
+func setupModel(t testing.TB, w config.Wrapper) *model {
 	db := db.NewLowlevel(backend.OpenMemory())
-	m := newModel(w, myID, "syncthing", "dev", db, nil)
+	m := newModel(t, w, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
 
 	m.ScanFolders()
@@ -121,9 +121,9 @@ func setupModel(w config.Wrapper) *model {
 	return m
 }
 
-func newModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) *model {
+func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) *model {
 	evLogger := events.NewLogger()
-	m := NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles, evLogger).(*model)
+	m := NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles, evLogger, &testFailer{t}).(*model)
 	go evLogger.Serve()
 	return m
 }
@@ -216,4 +216,40 @@ func dbSnapshot(t *testing.T, m Model, folder string) *db.Snapshot {
 		t.Fatal(err)
 	}
 	return snap
+}
+
+type testFailer struct {
+	t testing.TB
+}
+
+func (f *testFailer) Fail() {
+	f.t.Helper()
+	f.t.Error("Model failed")
+}
+
+func newFileSet(t testing.TB, folder string, fs fs.Filesystem, ldb *db.Lowlevel) *db.FileSet {
+	t.Helper()
+	s, err := db.NewFileSet(folder, fs, ldb, func(err error) { t.Fatal(err) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+func snapshot(t testing.TB, fs *db.FileSet) *db.Snapshot {
+	t.Helper()
+	snap, err := fs.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap
+}
+
+func currentFolderFile(t testing.TB, m Model, folder, file string) (protocol.FileInfo, bool) {
+	t.Helper()
+	f, ok, err := m.CurrentFolderFile(folder, file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f, ok
 }

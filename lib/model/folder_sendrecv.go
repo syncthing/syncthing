@@ -217,7 +217,11 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	f.pullErrors = make(map[string]string)
 	f.pullErrorsMut.Unlock()
 
-	snap := f.fset.Snapshot()
+	snap, err := f.fset.Snapshot()
+	if err != nil {
+		// everything is shutting down and 0 means "do not try again"
+		return 0
+	}
 	defer snap.Release()
 
 	pullChan := make(chan pullBlockState)
@@ -303,6 +307,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
+	var iterErr error
 	snap.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		select {
 		case <-f.ctx.Done():
@@ -345,9 +350,16 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				// files to delete inside them before we get to that point.
 				dirDeletions = append(dirDeletions, file)
 			} else if file.IsSymlink() {
-				f.deleteFile(file, snap, dbUpdateChan, scanChan)
+				if err := f.deleteFile(file, snap, dbUpdateChan, scanChan); err != nil {
+					iterErr = err
+					return false
+				}
 			} else {
-				df, ok := snap.Get(protocol.LocalDeviceID, file.Name)
+				df, ok, err := snap.Get(protocol.LocalDeviceID, file.Name)
+				if err != nil {
+					iterErr = err
+					return false
+				}
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
 				// WithNeed, furthermore, the file can simply be of the wrong
@@ -363,7 +375,11 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 			}
 
 		case file.Type == protocol.FileInfoTypeFile:
-			curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
+			curFile, hasCurFile, err := snap.Get(protocol.LocalDeviceID, file.Name)
+			if err != nil {
+				iterErr = err
+				return false
+			}
 			if _, need := blockDiff(curFile.Blocks, file.Blocks); hasCurFile && len(need) == 0 {
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
@@ -398,6 +414,10 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 
 		return true
 	})
+
+	if iterErr != nil {
+		return changed, nil, nil, iterErr
+	}
 
 	select {
 	case <-f.ctx.Done():
@@ -437,7 +457,10 @@ nextFile:
 			break
 		}
 
-		fi, ok := snap.GetGlobal(fileName)
+		fi, ok, err := snap.GetGlobal(fileName)
+		if err != nil {
+			return changed, nil, nil, err
+		}
 		if !ok {
 			// File is no longer in the index. Mark it as done and drop it.
 			f.queue.Done(fileName)
@@ -484,11 +507,16 @@ nextFile:
 			}
 		}
 
-		devices := snap.Availability(fileName)
+		devices, err := snap.Availability(fileName)
+		if err != nil {
+			return changed, nil, nil, err
+		}
 		for _, dev := range devices {
 			if _, ok := f.model.Connection(dev); ok {
 				// Handle the file normally, by coping and pulling, etc.
-				f.handleFile(fi, snap, copyChan)
+				if err := f.handleFile(fi, snap, copyChan); err != nil {
+					return changed, nil, nil, err
+				}
 				continue nextFile
 			}
 		}
@@ -507,7 +535,10 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.F
 		default:
 		}
 
-		f.deleteFile(file, snap, dbUpdateChan, scanChan)
+		if err := f.deleteFile(file, snap, dbUpdateChan, scanChan); err != nil {
+			// DB error, handled in model and shuttind down syncthing - just bail
+			return
+		}
 	}
 
 	// Process in reverse order to delete depth first
@@ -553,7 +584,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	}
 
 	if shouldDebug() {
-		curFile, _ := snap.Get(protocol.LocalDeviceID, file.Name)
+		curFile, _, _ := snap.Get(protocol.LocalDeviceID, file.Name)
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
@@ -564,8 +595,11 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	// that don't result in a conflict.
 	case err == nil && !info.IsDir():
 		// Check that it is what we have in the database.
-		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
-		if err := f.scanIfItemChanged(info, curFile, hasCurFile, scanChan); err != nil {
+		curFile, hasCurFile, err := f.model.CurrentFolderFile(f.folderID, file.Name)
+		if err == nil {
+			err = f.scanIfItemChanged(info, curFile, hasCurFile, scanChan)
+		}
+		if err != nil {
 			err = errors.Wrap(err, "handling dir")
 			f.newPullError(file.Name, err)
 			return
@@ -702,7 +736,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 	}()
 
 	if shouldDebug() {
-		curFile, _ := snap.Get(protocol.LocalDeviceID, file.Name)
+		curFile, _, _ := snap.Get(protocol.LocalDeviceID, file.Name)
 		l.Debugf("need symlink\n\t%v\n\t%v", file, curFile)
 	}
 
@@ -716,8 +750,11 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 	// There is already something under that name, we need to handle that.
 	if info, err := f.fs.Lstat(file.Name); err == nil {
 		// Check that it is what we have in the database.
-		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
-		if err := f.scanIfItemChanged(info, curFile, hasCurFile, scanChan); err != nil {
+		curFile, hasCurFile, err := f.model.CurrentFolderFile(f.folderID, file.Name)
+		if err == nil {
+			err = f.scanIfItemChanged(info, curFile, hasCurFile, scanChan)
+		}
+		if err != nil {
 			err = errors.Wrap(err, "handling symlink")
 			f.newPullError(file.Name, err)
 			return
@@ -792,9 +829,13 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 }
 
 // deleteFile attempts to delete the given file
-func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
-	cur, hasCur := snap.Get(protocol.LocalDeviceID, file.Name)
+func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
+	cur, hasCur, err := snap.Get(protocol.LocalDeviceID, file.Name)
+	if err != nil {
+		return err
+	}
 	f.deleteFileWithCurrent(file, cur, hasCur, dbUpdateChan, scanChan)
+	return nil
 }
 
 func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, hasCur bool, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
@@ -923,7 +964,10 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 		return err
 	}
 	// Check that the target corresponds to what we have in the DB
-	curTarget, ok := snap.Get(protocol.LocalDeviceID, target.Name)
+	curTarget, ok, err := snap.Get(protocol.LocalDeviceID, target.Name)
+	if err != nil {
+		return err
+	}
 	switch stat, serr := f.fs.Lstat(target.Name); {
 	case serr != nil && fs.IsNotExist(serr):
 		if !ok || curTarget.IsDeleted() {
@@ -1025,8 +1069,11 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState) {
-	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
+func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState) error {
+	curFile, hasCurFile, err := snap.Get(protocol.LocalDeviceID, file.Name)
+	if err != nil {
+		return err
+	}
 
 	have, _ := blockDiff(curFile.Blocks, file.Blocks)
 
@@ -1111,6 +1158,8 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 		have:              len(have),
 	}
 	copyChan <- cs
+
+	return nil
 }
 
 // blockDiff returns lists of common and missing (to transform src into tgt)
@@ -1839,7 +1888,9 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 			toBeDeleted = append(toBeDeleted, fullDirFile)
 		} else if f.ignores != nil && f.ignores.Match(fullDirFile).IsIgnored() {
 			hasIgnored = true
-		} else if cf, ok := snap.Get(protocol.LocalDeviceID, fullDirFile); !ok || cf.IsDeleted() || cf.IsInvalid() {
+		} else if cf, ok, err := snap.Get(protocol.LocalDeviceID, fullDirFile); err != nil {
+			return err
+		} else if !ok || cf.IsDeleted() || cf.IsInvalid() {
 			// Something appeared in the dir that we either are not aware of
 			// at all, that we think should be deleted or that is invalid,
 			// but not currently ignored -> schedule scan. The scanChan

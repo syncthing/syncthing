@@ -52,12 +52,12 @@ func (m *mockedModel) FolderStatistics() (map[string]stats.FolderStatistics, err
 	return nil, nil
 }
 
-func (m *mockedModel) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
-	return protocol.FileInfo{}, false
+func (m *mockedModel) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool, error) {
+	return protocol.FileInfo{}, false, nil
 }
 
-func (m *mockedModel) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool) {
-	return protocol.FileInfo{}, false
+func (m *mockedModel) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool, error) {
+	return protocol.FileInfo{}, false, nil
 }
 
 func (m *mockedModel) ResetFolder(folder string) {

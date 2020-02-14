@@ -189,7 +189,10 @@ func (a *App) startup() error {
 
 	if a.opts.ResetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
-		db.DropDeltaIndexIDs(a.ll)
+		if err := db.DropDeltaIndexIDs(a.ll); err != nil {
+			l.Warnln("Reinitializing delta index IDs:", err)
+			return err
+		}
 	}
 
 	protectedFiles := []string{
@@ -204,7 +207,10 @@ func (a *App) startup() error {
 	for _, folder := range a.ll.ListFolders() {
 		if _, ok := folders[folder]; !ok {
 			l.Infof("Cleaning data for dropped folder %q", folder)
-			db.DropFolder(a.ll, folder)
+			if err := db.DropFolder(a.ll, folder); err != nil {
+				l.Warnf("Cleaning data for dropped folder %q: %v", folder, err)
+				return err
+			}
 		}
 	}
 
@@ -230,13 +236,16 @@ func (a *App) startup() error {
 
 		// Drop delta indexes in case we've changed random stuff we
 		// shouldn't have. We will resend our index on next connect.
-		db.DropDeltaIndexIDs(a.ll)
+		if err := db.DropDeltaIndexIDs(a.ll); err != nil {
+			l.Warnln("Reinitializing delta index IDs on upgrade:", err)
+			return err
+		}
 
 		// Remember the new version.
 		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
+	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger, &controller{a})
 
 	if a.opts.DeadlockTimeoutS > 0 {
 		m.StartDeadlockDetector(time.Duration(a.opts.DeadlockTimeoutS) * time.Second)
@@ -449,17 +458,23 @@ func checkShortIDs(cfg config.Wrapper) error {
 	return nil
 }
 
-// Implements api.Controller
+// controller implements interfaces in model and api to shutdown App. This are
+// all non-blocking calls, to prevent an internal caller from hindering
+// shutdown while waiting for a return.
 type controller struct{ *App }
 
 func (e *controller) Restart() {
-	e.Stop(ExitRestart)
+	go e.Stop(ExitRestart)
 }
 
 func (e *controller) Shutdown() {
-	e.Stop(ExitSuccess)
+	go e.Stop(ExitSuccess)
 }
 
 func (e *controller) ExitUpgrading() {
-	e.Stop(ExitUpgrade)
+	go e.Stop(ExitUpgrade)
+}
+
+func (e *controller) Fail() {
+	go e.Stop(ExitError)
 }
