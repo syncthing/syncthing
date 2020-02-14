@@ -185,7 +185,18 @@ func (s *Service) runStunForServer(ctx context.Context, addr string) {
 	}
 	s.client.SetServerAddr(udpAddr.String())
 
-	natType, extAddr, err := s.client.Discover()
+	var natType stun.NATType
+	var extAddr *stun.Host
+	done := make(chan struct{})
+	go func() {
+		natType, extAddr, err = s.client.Discover()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		return
+	}
 	if err != nil || extAddr == nil {
 		l.Debugf("%s stun discovery on %s: %s", s, addr, err)
 		return
