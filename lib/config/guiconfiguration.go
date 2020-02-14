@@ -16,7 +16,7 @@ import (
 type GUIConfiguration struct {
 	Enabled                   bool     `xml:"enabled,attr" json:"enabled" default:"true"`
 	RawAddress                string   `xml:"address" json:"address" default:"127.0.0.1:8384"`
-	UnixPermissions           string   `xml:"unixPerms,omitempty" json:"unixPerms"`
+	UnixSocketPermissions     string   `xml:"unixSocketPermissions,omitempty" json:"unixSocketPermissions"`
 	User                      string   `xml:"user,omitempty" json:"user"`
 	Password                  string   `xml:"password,omitempty" json:"password"`
 	AuthMode                  AuthMode `xml:"authMode,omitempty" json:"authMode"`
@@ -61,8 +61,8 @@ func (c GUIConfiguration) Address() string {
 	return c.RawAddress
 }
 
-func (c GUIConfiguration) Permissions() os.FileMode {
-	perm, err := strconv.ParseUint(c.UnixPermissions, 8, 32)
+func (c GUIConfiguration) SocketPermissions() os.FileMode {
+	perm, err := strconv.ParseUint(c.UnixSocketPermissions, 8, 32)
 	if err != nil {
 		return 0
 	}

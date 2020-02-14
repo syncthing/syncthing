@@ -187,11 +187,11 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 		return nil, err
 	}
 
-	if guiCfg.Network() == "unix" && guiCfg.Permissions() != 0 {
+	if guiCfg.Network() == "unix" && guiCfg.SocketPermissions() != 0 {
 		// We should error if this fails under the assumption that these permissions are
 		// required for operation. If the configuration option isn't correctly formatted,
 		// then we will ignore it.
-		err = os.Chmod(guiCfg.Address(), guiCfg.Permissions())
+		err = os.Chmod(guiCfg.Address(), guiCfg.SocketPermissions())
 		if err != nil {
 			return nil, err
 		}
