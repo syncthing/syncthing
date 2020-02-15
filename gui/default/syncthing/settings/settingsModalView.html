@@ -172,7 +172,7 @@
               </div>
             </div>
             <div class="col-md-6">
-              <div ng-if="tmpGUI.address.startsWith('/')" class="form-group" ng-class="{'has-error': settingsEditor.UnixSocketPermissions.$invalid && settingsEditor.UnixSocketPermissions.$dirty}">
+              <div ng-if="tmpGUI.address.startsWith('/') || tmpGUI.address.startsWith('unix://') || tmpGUI.address.startsWith('unixs://')" class="form-group" ng-class="{'has-error': settingsEditor.UnixSocketPermissions.$invalid && settingsEditor.UnixSocketPermissions.$dirty}">
                 <label translate>UNIX Permissions</label>
                 <input id="UnixSocketPermissions" name="UnixSocketPermissions" class="form-control" type="text" ng-model="tmpGUI.unixSocketPermissions" ng-pattern="/^0?[0-7]{0,3}$/" />
                 <p class="help-block" ng-show="settingsEditor.UnixSocketPermissions.$invalid" translate>
