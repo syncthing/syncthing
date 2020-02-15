@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"sync"
 )
 
@@ -29,19 +30,45 @@ func newByteSemaphore(max int) *byteSemaphore {
 	return &s
 }
 
+func (s *byteSemaphore) takeWithContext(ctx context.Context, bytes int) error {
+	done := make(chan struct{})
+	var err error
+	go func() {
+		err = s.takeInner(ctx, bytes)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		s.cond.Broadcast()
+		<-done
+	}
+	return err
+}
+
 func (s *byteSemaphore) take(bytes int) {
+	s.takeInner(context.Background(), bytes)
+}
+
+func (s *byteSemaphore) takeInner(ctx context.Context, bytes int) error {
 	s.mut.Lock()
+	defer s.mut.Unlock()
 	if bytes > s.max {
 		bytes = s.max
 	}
 	for bytes > s.available {
 		s.cond.Wait()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		if bytes > s.max {
 			bytes = s.max
 		}
 	}
 	s.available -= bytes
-	s.mut.Unlock()
+	return nil
 }
 
 func (s *byteSemaphore) give(bytes int) {

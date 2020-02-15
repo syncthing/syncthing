@@ -274,3 +274,18 @@ func (s *service) SetError(err error) {
 func (s *service) String() string {
 	return fmt.Sprintf("Service@%p created by %v", s, s.creator)
 }
+
+func CallWithContext(ctx context.Context, fn func() error) error {
+	var err error
+	done := make(chan struct{})
+	go func() {
+		err = fn()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}

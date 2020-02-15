@@ -1057,7 +1057,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Report Data as a JSON
-	if usageReportingData, err := json.MarshalIndent(s.urService.ReportData(), "", "  "); err != nil {
+	if usageReportingData, err := json.MarshalIndent(s.urService.ReportData(context.TODO()), "", "  "); err != nil {
 		l.Warnln("Support bundle: failed to create versionPlatform.json:", err)
 	} else {
 		files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
@@ -1142,7 +1142,7 @@ func (s *service) getReport(w http.ResponseWriter, r *http.Request) {
 	if val, _ := strconv.Atoi(r.URL.Query().Get("version")); val > 0 {
 		version = val
 	}
-	sendJSON(w, s.urService.ReportDataPreview(version))
+	sendJSON(w, s.urService.ReportDataPreview(context.TODO(), version))
 }
 
 func (s *service) getRandomString(w http.ResponseWriter, r *http.Request) {

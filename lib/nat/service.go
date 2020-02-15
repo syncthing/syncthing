@@ -304,7 +304,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 	if extPort != 0 {
 		// First try renewing our existing mapping, if we have one.
 		name := fmt.Sprintf("syncthing-%d", extPort)
-		port, err = natd.AddPortMapping(TCP, intPort, extPort, name, leaseTime)
+		port, err = natd.AddPortMapping(ctx, TCP, intPort, extPort, name, leaseTime)
 		if err == nil {
 			extPort = port
 			goto findIP
@@ -322,7 +322,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 		// Then try up to ten random ports.
 		extPort = 1024 + predictableRand.Intn(65535-1024)
 		name := fmt.Sprintf("syncthing-%d", extPort)
-		port, err = natd.AddPortMapping(TCP, intPort, extPort, name, leaseTime)
+		port, err = natd.AddPortMapping(ctx, TCP, intPort, extPort, name, leaseTime)
 		if err == nil {
 			extPort = port
 			goto findIP
@@ -333,7 +333,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 	return Address{}, err
 
 findIP:
-	ip, err := natd.GetExternalIPAddress()
+	ip, err := natd.GetExternalIPAddress(ctx)
 	if err != nil {
 		l.Debugln("Error getting external ip on", natd.ID(), err)
 		ip = nil

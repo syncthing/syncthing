@@ -63,18 +63,18 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 
 // ReportData returns the data to be sent in a usage report with the currently
 // configured usage reporting version.
-func (s *Service) ReportData() map[string]interface{} {
+func (s *Service) ReportData(ctx context.Context) map[string]interface{} {
 	urVersion := s.cfg.Options().URAccepted
-	return s.reportData(urVersion, false)
+	return s.reportData(ctx, urVersion, false)
 }
 
 // ReportDataPreview returns a preview of the data to be sent in a usage report
 // with the given version.
-func (s *Service) ReportDataPreview(urVersion int) map[string]interface{} {
-	return s.reportData(urVersion, true)
+func (s *Service) ReportDataPreview(ctx context.Context, urVersion int) map[string]interface{} {
+	return s.reportData(ctx, urVersion, true)
 }
 
-func (s *Service) reportData(urVersion int, preview bool) map[string]interface{} {
+func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) map[string]interface{} {
 	opts := s.cfg.Options()
 	res := make(map[string]interface{})
 	res["urVersion"] = urVersion
@@ -112,8 +112,8 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 	res["memoryUsageMiB"] = (mem.Sys - mem.HeapReleased) / 1024 / 1024
-	res["sha256Perf"] = CpuBench(5, 125*time.Millisecond, false)
-	res["hashPerf"] = CpuBench(5, 125*time.Millisecond, true)
+	res["sha256Perf"] = CpuBench(ctx, 5, 125*time.Millisecond, false)
+	res["hashPerf"] = CpuBench(ctx, 5, 125*time.Millisecond, true)
 
 	bytes, err := memorySize()
 	if err == nil {
@@ -368,8 +368,8 @@ func (s *Service) UptimeS() int {
 	return int(time.Since(StartTime).Seconds())
 }
 
-func (s *Service) sendUsageReport() error {
-	d := s.ReportData()
+func (s *Service) sendUsageReport(ctx context.Context) error {
+	d := s.ReportData(ctx)
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(d); err != nil {
 		return err
@@ -384,7 +384,13 @@ func (s *Service) sendUsageReport() error {
 			},
 		},
 	}
-	_, err := client.Post(s.cfg.Options().URURL, "application/json", &b)
+	req, err := http.NewRequest("POST", s.cfg.Options().URURL, &b)
+	if err == nil {
+		req.Header.Set("Content-Type", "application/json")
+		req.Cancel = ctx.Done()
+		_, err = client.Do(req)
+	}
+
 	return err
 }
 
@@ -401,7 +407,7 @@ func (s *Service) serve(ctx context.Context) {
 			t.Reset(0)
 		case <-t.C:
 			if s.cfg.Options().URAccepted >= 2 {
-				err := s.sendUsageReport()
+				err := s.sendUsageReport(ctx)
 				if err != nil {
 					l.Infoln("Usage report:", err)
 				} else {
@@ -439,7 +445,7 @@ var (
 )
 
 // CpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
-func CpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 {
+func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWeakHash bool) float64 {
 	blocksResultMut.Lock()
 	defer blocksResultMut.Unlock()
 
@@ -449,7 +455,7 @@ func CpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 
 
 	var perf float64
 	for i := 0; i < iterations; i++ {
-		if v := cpuBenchOnce(duration, useWeakHash, bs); v > perf {
+		if v := cpuBenchOnce(ctx, duration, useWeakHash, bs); v > perf {
 			perf = v
 		}
 	}
@@ -457,12 +463,16 @@ func CpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 
 	return perf
 }
 
-func cpuBenchOnce(duration time.Duration, useWeakHash bool, bs []byte) float64 {
+func cpuBenchOnce(ctx context.Context, duration time.Duration, useWeakHash bool, bs []byte) float64 {
 	t0 := time.Now()
 	b := 0
+	var err error
 	for time.Since(t0) < duration {
 		r := bytes.NewReader(bs)
-		blocksResult, _ = scanner.Blocks(context.TODO(), r, protocol.MinBlockSize, int64(len(bs)), nil, useWeakHash)
+		blocksResult, err = scanner.Blocks(ctx, r, protocol.MinBlockSize, int64(len(bs)), nil, useWeakHash)
+		if err != nil {
+			return 0 // Context done
+		}
 		b += len(bs)
 	}
 	d := time.Since(t0)

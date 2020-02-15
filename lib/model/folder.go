@@ -301,7 +301,9 @@ func (f *folder) pull() bool {
 	f.setState(FolderSyncWaiting)
 	defer f.setState(FolderIdle)
 
-	f.ioLimiter.take(1)
+	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
+		return true
+	}
 	defer f.ioLimiter.give(1)
 
 	return f.puller.pull()
@@ -340,7 +342,9 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	f.setError(nil)
 	f.setState(FolderScanWaiting)
 
-	f.ioLimiter.take(1)
+	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
+		return err
+	}
 	defer f.ioLimiter.give(1)
 
 	for i := range subDirs {

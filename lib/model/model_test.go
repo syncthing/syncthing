@@ -3211,6 +3211,9 @@ func TestParentOfUnignored(t *testing.T) {
 // restarts would leave more than one folder runner alive.
 func TestFolderRestartZombies(t *testing.T) {
 	wrapper := createTmpWrapper(defaultCfg.Copy())
+	opts := wrapper.Options()
+	opts.RawMaxFolderConcurrency = -1
+	wrapper.SetOptions(opts)
 	folderCfg, _ := wrapper.Folder("default")
 	folderCfg.FilesystemType = fs.FilesystemTypeFake
 	wrapper.SetFolder(folderCfg)
