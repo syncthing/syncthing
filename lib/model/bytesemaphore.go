@@ -47,7 +47,7 @@ func (s *byteSemaphore) takeWithContext(ctx context.Context, bytes int) error {
 }
 
 func (s *byteSemaphore) take(bytes int) {
-	s.takeInner(context.Background(), bytes)
+	_ = s.takeInner(context.Background(), bytes)
 }
 
 func (s *byteSemaphore) takeInner(ctx context.Context, bytes int) error {

@@ -388,7 +388,9 @@ func (s *Service) sendUsageReport(ctx context.Context) error {
 	if err == nil {
 		req.Header.Set("Content-Type", "application/json")
 		req.Cancel = ctx.Done()
-		_, err = client.Do(req)
+		var resp *http.Response
+		resp, err = client.Do(req)
+		resp.Body.Close()
 	}
 
 	return err
