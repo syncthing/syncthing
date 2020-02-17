@@ -64,6 +64,7 @@ func (c GUIConfiguration) Address() string {
 func (c GUIConfiguration) SocketPermissions() os.FileMode {
 	perm, err := strconv.ParseUint(c.UnixSocketPermissions, 8, 32)
 	if err != nil {
+		// ignore incorrectly formatted permissions
 		return 0
 	}
 	return os.FileMode(perm) & os.ModePerm
