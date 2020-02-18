@@ -104,14 +104,8 @@ func (f *receiveOnlyFolder) Revert() {
 				return true // continue
 			}
 
-			fi = protocol.FileInfo{
-				Name:       fi.Name,
-				Type:       fi.Type,
-				ModifiedS:  time.Now().Unix(),
-				ModifiedBy: f.shortID,
-				Deleted:    true,
-				Version:    protocol.Vector{}, // if this file ever resurfaces anywhere we want our delete to be strictly older
-			}
+			fi = fi.SetDeleted(f.shortID)
+			fi.Version = protocol.Vector{} // if this file ever resurfaces anywhere we want our delete to be strictly older
 		} else {
 			// Revert means to throw away our local changes. We reset the
 			// version to the empty vector, which is strictly older than any
@@ -155,7 +149,7 @@ func (f *receiveOnlyFolder) Revert() {
 		})
 	}
 	if len(batch) > 0 {
-		f.updateLocalsFromScanning(batch)
+		f.updateLoclsFromScanning(batch)
 	}
 
 	// We will likely have changed our local index, but that won't trigger a

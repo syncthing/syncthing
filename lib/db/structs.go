@@ -129,27 +129,36 @@ func (f FileInfoTruncated) FileModifiedBy() protocol.ShortID {
 }
 
 func (f FileInfoTruncated) ConvertToIgnoredFileInfo(by protocol.ShortID) protocol.FileInfo {
-	return protocol.FileInfo{
-		Name:         f.Name,
-		Type:         f.Type,
-		ModifiedS:    f.ModifiedS,
-		ModifiedNs:   f.ModifiedNs,
-		ModifiedBy:   by,
-		Version:      f.Version,
-		RawBlockSize: f.RawBlockSize,
-		LocalFlags:   protocol.FlagLocalIgnored,
-	}
+	file := f.copyToFileInfo()
+	file.SetIgnored(by)
+	return file
 }
 
-func (f FileInfoTruncated) ConvertToDeletedFileInfo(by protocol.ShortID, localFlags uint32) protocol.FileInfo {
+func (f FileInfoTruncated) ConvertToDeletedFileInfo(by protocol.ShortID) protocol.FileInfo {
+	file := f.copyToFileInfo()
+	file.SetDeleted(by)
+	return file
+}
+
+// copyToFileInfo just copies all members of FileInfoTruncated to protocol.FileInfo
+func (f FileInfoTruncated) copyToFileInfo() protocol.FileInfo {
 	return protocol.FileInfo{
-		Name:       f.Name,
-		Type:       f.Type,
-		ModifiedS:  time.Now().Unix(),
-		ModifiedBy: by,
-		Deleted:    true,
-		Version:    f.Version.Update(by),
-		LocalFlags: localFlags,
+		Name:          f.Name,
+		Size:          f.Size,
+		ModifiedS:     f.ModifiedS,
+		ModifiedBy:    f.ModifiedBy,
+		Version:       f.Version,
+		Sequence:      f.Sequence,
+		SymlinkTarget: f.SymlinkTarget,
+		BlocksHash:    f.BlocksHash,
+		Type:          f.Type,
+		Permissions:   f.Permissions,
+		ModifiedNs:    f.ModifiedNs,
+		RawBlockSize:  f.RawBlockSize,
+		LocalFlags:    f.LocalFlags,
+		Deleted:       f.Deleted,
+		RawInvalid:    f.RawInvalid,
+		NoPermissions: f.NoPermissions,
 	}
 }
 

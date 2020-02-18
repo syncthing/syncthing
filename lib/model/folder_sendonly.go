@@ -118,10 +118,7 @@ func (f *sendOnlyFolder) Override() {
 		}
 		if !ok || have.Name != need.Name {
 			// We are missing the file
-			need.Deleted = true
-			need.Blocks = nil
-			need.Version = need.Version.Update(f.shortID)
-			need.Size = 0
+			need.SetDeleted(f.shortID)
 		} else {
 			// We have the file, replace with our version
 			have.Version = have.Version.Merge(need.Version).Update(f.shortID)
