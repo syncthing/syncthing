@@ -289,7 +289,6 @@ func (f *FileInfo) setLocalFlags(by ShortID, flags uint32) {
 	f.RawInvalid = false
 	f.LocalFlags = flags
 	f.ModifiedBy = by
-	f.Sequence = 0
 	f.setNoContent()
 }
 
