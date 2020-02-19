@@ -532,7 +532,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 					}
 					return true
 				}
-				nf := file.ConvertToDeletedFileInfo(f.shortID, f.localFlags)
+				nf := file.ConvertToDeletedFileInfo(f.shortID)
+				nf.LocalFlags = f.localFlags
 				if file.ShouldConflict() {
 					// We do not want to override the global version with
 					// the deleted file. Setting to an empty version makes
