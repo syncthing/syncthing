@@ -463,12 +463,11 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 				return err
 			}
 			switch dk, err := t.Get(sk); {
-			case backend.IsNotFound(err):
-				if err := t.Put(sk, it.Key()); err != nil {
+			case err != nil:
+				if !backend.IsNotFound(err) {
 					return err
 				}
-			case err != nil:
-				return err
+				fallthrough
 			case !bytes.Equal(it.Key(), dk):
 				folderStr := string(folder)
 				meta, ok := metas[folderStr]
