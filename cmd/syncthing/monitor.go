@@ -55,13 +55,13 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			logFile = expanded
 		}
 		var fileDst io.Writer
+		open := func(name string) io.WriteCloser {
+			return newAutoclosedFile(name, logFileAutoCloseDelay, logFileMaxOpenTime)
+		}
 		if runtimeOptions.logMaxSize > 0 {
-			open := func(name string) (io.WriteCloser, error) {
-				return newAutoclosedFile(name, logFileAutoCloseDelay, logFileMaxOpenTime), nil
-			}
 			fileDst = newRotatedFile(logFile, open, int64(runtimeOptions.logMaxSize), runtimeOptions.logMaxFiles)
 		} else {
-			fileDst = newAutoclosedFile(logFile, logFileAutoCloseDelay, logFileMaxOpenTime)
+			fileDst = open(logFile)
 		}
 
 		if runtime.GOOS == "windows" {
@@ -353,15 +353,15 @@ type rotatedFile struct {
 	currentSize int64
 }
 
-// the createFn should act equivalently to os.Create
-type createFn func(name string) (io.WriteCloser, error)
+type createFn func(name string) io.WriteCloser
 
 func newRotatedFile(name string, create createFn, maxSize int64, maxFiles int) *rotatedFile {
 	return &rotatedFile{
-		name:     name,
-		create:   create,
-		maxSize:  maxSize,
-		maxFiles: maxFiles,
+		name:        name,
+		create:      create,
+		maxSize:     maxSize,
+		maxFiles:    maxFiles,
+		currentFile: create(name),
 	}
 }
 
@@ -370,19 +370,9 @@ func (r *rotatedFile) Write(bs []byte) (int, error) {
 	// file so we'll start on a new one.
 	if r.currentSize+int64(len(bs)) > r.maxSize {
 		r.currentFile.Close()
-		r.currentFile = nil
 		r.currentSize = 0
-	}
-
-	// If we have no current log, rotate old files out of the way and create
-	// a new one.
-	if r.currentFile == nil {
 		r.rotate()
-		fd, err := r.create(r.name)
-		if err != nil {
-			return 0, err
-		}
-		r.currentFile = fd
+		r.currentFile = r.create(r.name)
 	}
 
 	n, err := r.currentFile.Write(bs)
@@ -453,7 +443,7 @@ func (f *autoclosedFile) Write(bs []byte) (int, error) {
 	defer f.mut.Unlock()
 
 	// Make sure the file is open for appending
-	if err := f.ensureOpen(); err != nil {
+	if err := f.ensureOpenLocked(); err != nil {
 		return 0, err
 	}
 
@@ -483,22 +473,14 @@ func (f *autoclosedFile) Close() error {
 }
 
 // Must be called with f.mut held!
-func (f *autoclosedFile) ensureOpen() error {
+func (f *autoclosedFile) ensureOpenLocked() error {
 	if f.fd != nil {
 		// File is already open
 		return nil
 	}
 
 	// We open the file for write only, and create it if it doesn't exist.
-	flags := os.O_WRONLY | os.O_CREATE
-	if f.opened.IsZero() {
-		// This is the first time we are opening the file. We should truncate
-		// it to better emulate an os.Create() call.
-		flags |= os.O_TRUNC
-	} else {
-		// The file was already opened once, so we should append to it.
-		flags |= os.O_APPEND
-	}
+	flags := os.O_WRONLY | os.O_CREATE | os.O_APPEND
 
 	fd, err := os.OpenFile(f.name, flags, 0644)
 	if err != nil {
