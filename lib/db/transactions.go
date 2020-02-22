@@ -468,9 +468,6 @@ func (t readWriteTransaction) putFile(key []byte, fi protocol.FileInfo) error {
 		} else if err != nil {
 			return err
 		}
-	} else if fi.BlocksHash != nil {
-		l.Debugln("Blocks is nil, but BlocksHash is not for file", fi)
-		fi.BlocksHash = nil
 	}
 
 	fi.Blocks = nil
