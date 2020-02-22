@@ -431,7 +431,7 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 
 func (db *schemaUpdater) updateSchemato9(prev int) error {
 	// Loads and rewrites all files with blocks, to deduplicate block lists.
-	// Checks for files with the same sequence number
+	// Checks for missing or incorrect sequence entries and rewrites those.
 
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
