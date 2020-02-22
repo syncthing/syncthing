@@ -1771,8 +1771,82 @@ angular.module('syncthing.core')
                     $scope.emitHTTPError(err);
                 });
 
+            $scope.currentFolderPath = $scope.currentFolder.path;
+            // See fancytree demo with all options:
+            // http://wwwendt.de/tech/fancytree/demo/index.html
+            $scope.tree = $("#folder-ignores-tree").fancytree({
+                extensions: [],
+                quicksearch: true,  // select next node by spelling the name
+                source: [{
+                    "title": $scope.currentFolderPath,
+                    "key": "",
+                    folder: true,
+                    lazy: true,
+                    unselectable: true,
+                    selected: true,
+                }],
+                checkbox: true,
+                clickFolderMode: 4, // one click activates, double click expands
+                selectMode: 2,      // selecting a folder does not select its children elements
+                tabindex: "0",      // the whole tree is focused with the TAB key
+                beforeActivate: function(event, data) {
+                    var node = data.node;
+                    if (!data.node.isActive()) {
+                        $("#folder-ignores-nodestatus").
+                            html($scope.currentFolderPath + '/' + data.node.key + ":<br /><ul>" +
+                                 "<li>type:" + (data.node.folder ? "directory" : "file") + "</li>" +
+                                 "<li>ignored: " + (data.node.selected ? "false" : "true") + "</li>" +
+                                 "</ul>");
+                    } else {
+                        $("#folder-ignores-nodestatus").html($translate.instant("Click on a node to see more details about it."));
+                    }
+                },
+                lazyLoad: function(event, data) {
+                    var dfd = $.Deferred();
+                    data.result = dfd.promise();
+                    $http.get(urlbase + '/folder/state?folder=' + encodeURIComponent($scope.currentFolder.id) + '&prefix=' + encodeURIComponent(data.node.key))
+                        .success(function (tree) {
+                            var result = $.map(tree, function(obj, title) {
+                                var key = data.node.key ? data.node.key + '/' + title : title;
+                                var selected = !obj.ignored;
+                                if (obj.isfile) {
+                                    return {title: title, key: key, selected: selected, unselectable: true, folder: false};
+                                } else {
+                                    return {title: title, key: key, selected: selected, unselectable: true, folder: true, lazy: true};
+                                }
+                            });
+                            dfd.resolve(result);
+                        })
+                        .error(function (error) {
+                            dfd.reject(error);
+                        });
+                },
+                debugLevel: 2,
+            });
+            $("#folder-ignores-nodestatus").html($translate.instant("Click on a node to see more details about it."));
+
             $scope.editFolderModal();
         };
+
+        $scope.reloadTree = function () {
+            var expanded = {};
+            $.ui.fancytree.getTree("#folder-ignores-tree").visit(function(node) {
+                if (node.folder && node.expanded) {
+                    var node = node;
+                    $http.get(urlbase + '/folder/state?folder=' + encodeURIComponent($scope.currentFolder.id) + '&prefix=' + encodeURIComponent(node.key))
+                        .success(function (tree) {
+                            $.map(tree, function(obj, title) {
+                                for (var child of node.children) {
+                                    if (child.title == title) {
+                                        child.selected = !obj.ignored;
+                                        child.render();
+                                    }
+                                }
+                            });
+                        });
+                }
+            });
+        }
 
         $scope.selectAllSharedDevices = function (state) {
             var devices = $scope.currentFolder.sharedDevices;
@@ -1823,8 +1897,32 @@ angular.module('syncthing.core')
             $scope.saveConfig();
         };
 
-        $scope.saveFolder = function () {
+        $scope.closeFolder = function () {
             $('#editFolder').modal('hide');
+            var folderCfg = $scope.currentFolder;
+            delete folderCfg.sharedDevices;
+            delete folderCfg.selectedDevices;
+            delete folderCfg.unrelatedDevices;
+            if (folderCfg.fileVersioningSelector === "trashcan") {
+                delete folderCfg.trashcanFileVersioning;
+                delete folderCfg.trashcanClean;
+            } else if (folderCfg.fileVersioningSelector === "simple") {
+                delete folderCfg.simpleFileVersioning;
+                delete folderCfg.simpleKeep;
+            } else if (folderCfg.fileVersioningSelector === "staggered") {
+                delete folderCfg.staggeredFileVersioning;
+                delete folderCfg.staggeredMaxAge;
+                delete folderCfg.staggeredCleanInterval;
+                delete folderCfg.staggeredVersionsPath;
+            } else if (folderCfg.fileVersioningSelector === "external") {
+                delete folderCfg.externalFileVersioning;
+                delete folderCfg.externalCommand;
+            } else {
+                delete folderCfg.versioning;
+            }
+        }
+
+        $scope.saveFolder = function () {
             var folderCfg = $scope.currentFolder;
             folderCfg.devices = [];
             folderCfg.selectedDevices[$scope.myID] = true;
@@ -1835,9 +1933,6 @@ angular.module('syncthing.core')
                     });
                 }
             }
-            delete folderCfg.sharedDevices;
-            delete folderCfg.selectedDevices;
-            delete folderCfg.unrelatedDevices;
 
             if (folderCfg.fileVersioningSelector === "trashcan") {
                 folderCfg.versioning = {
@@ -1846,8 +1941,6 @@ angular.module('syncthing.core')
                         'cleanoutDays': '' + folderCfg.trashcanClean
                     }
                 };
-                delete folderCfg.trashcanFileVersioning;
-                delete folderCfg.trashcanClean;
             } else if (folderCfg.fileVersioningSelector === "simple") {
                 folderCfg.versioning = {
                     'Type': 'simple',
@@ -1855,8 +1948,6 @@ angular.module('syncthing.core')
                         'keep': '' + folderCfg.simpleKeep
                     }
                 };
-                delete folderCfg.simpleFileVersioning;
-                delete folderCfg.simpleKeep;
             } else if (folderCfg.fileVersioningSelector === "staggered") {
                 folderCfg.versioning = {
                     'type': 'staggered',
@@ -1866,11 +1957,6 @@ angular.module('syncthing.core')
                         'versionsPath': '' + folderCfg.staggeredVersionsPath
                     }
                 };
-                delete folderCfg.staggeredFileVersioning;
-                delete folderCfg.staggeredMaxAge;
-                delete folderCfg.staggeredCleanInterval;
-                delete folderCfg.staggeredVersionsPath;
-
             } else if (folderCfg.fileVersioningSelector === "external") {
                 folderCfg.versioning = {
                     'Type': 'external',
@@ -1878,10 +1964,6 @@ angular.module('syncthing.core')
                         'command': '' + folderCfg.externalCommand
                     }
                 };
-                delete folderCfg.externalFileVersioning;
-                delete folderCfg.externalCommand;
-            } else {
-                delete folderCfg.versioning;
             }
 
             var ignoresLoaded = !$('#folder-ignores textarea').is(':disabled');
@@ -1898,13 +1980,14 @@ angular.module('syncthing.core')
             $scope.config.folders = folderList($scope.folders);
 
             if (ignoresLoaded && $scope.editingExisting && ignores !== folderCfg.ignores) {
-                saveIgnores(ignores);
+                saveIgnores(ignores, $scope.reloadTree);
             };
 
             $scope.saveConfig(function () {
                 if (!$scope.editingExisting && ignores.length) {
                     saveIgnores(ignores, function () {
                         $scope.setFolderPause(folderCfg.id, false);
+                        $scope.reloadTree();
                     });
                 }
             });

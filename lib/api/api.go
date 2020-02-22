@@ -261,6 +261,7 @@ func (s *service) serve(ctx context.Context) {
 	getRestMux.HandleFunc("/rest/folder/versions", s.getFolderVersions)          // folder
 	getRestMux.HandleFunc("/rest/folder/errors", s.getFolderErrors)              // folder
 	getRestMux.HandleFunc("/rest/folder/pullerrors", s.getFolderErrors)          // folder (deprecated)
+	getRestMux.HandleFunc("/rest/folder/state", s.getFolderState)                // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout] [events]
 	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // [since] [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
@@ -1509,6 +1510,34 @@ func (s *service) getFolderErrors(w http.ResponseWriter, r *http.Request) {
 		"page":    page,
 		"perpage": perpage,
 	})
+}
+
+func (s *service) getFolderState(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	prefix := qs.Get("prefix")
+	levels := 0
+	dirsonly := false
+	dir := s.model.GlobalDirectoryTree(folder, prefix, levels, dirsonly)
+
+	msg := make(map[string]map[string]interface{})
+
+	for name, data := range dir {
+		msg[name] = make(map[string]interface{})
+
+		switch data.(type) {
+		case []interface{}: // it's a file
+			msg[name]["isfile"] = true
+		default: // it's a folder
+			msg[name]["isfile"] = false
+		}
+
+		if lf, lfOk := s.model.CurrentFolderFile(folder, name); lfOk {
+			msg[name]["ignored"] = lf.IsIgnored()
+		}
+	}
+
+	sendJSON(w, msg)
 }
 
 func (s *service) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
