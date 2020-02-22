@@ -26,8 +26,9 @@ import (
 //   7: v0.14.53
 //   8: v1.4.0
 //   9: v1.4.0
+//   10: v1.4.0
 const (
-	dbVersion             = 9
+	dbVersion             = 10
 	dbMinSyncthingVersion = "v1.4.0"
 )
 
@@ -88,7 +89,7 @@ func (db *schemaUpdater) updateSchema() error {
 		{5, db.updateSchemaTo5},
 		{6, db.updateSchema5to6},
 		{7, db.updateSchema6to7},
-		{9, db.updateSchemato9},
+		{10, db.updateSchemato10},
 	}
 
 	for _, m := range migrations {
@@ -429,9 +430,10 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) updateSchemato9(prev int) error {
-	// Loads and rewrites all files with blocks, to deduplicate block lists.
-	// Checks for missing or incorrect sequence entries and rewrites those.
+func (db *schemaUpdater) updateSchemato10(prev int) error {
+	// 8: Loads and rewrites all files with blocks, to deduplicate block lists.
+	// 9: Checks for missing or incorrect sequence entries and rewrites those.
+	// 10: Checks that Blocks and BlocksHash are consistent (RC only).
 
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
@@ -446,6 +448,7 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 	}
 	metas := make(map[string]*metadataTracker)
 	for it.Next() {
+		changed := false // Whether the file needs to be rewritten to db
 		var fi protocol.FileInfo
 		if err := fi.Unmarshal(it.Value()); err != nil {
 			return err
@@ -454,7 +457,8 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 		if !ok {
 			return errDeviceIdxMissing
 		}
-		if bytes.Equal(device, protocol.LocalDeviceID[:]) {
+		// Sequence consistency check to version 9
+		if prev < 9 && bytes.Equal(device, protocol.LocalDeviceID[:]) {
 			folder, ok := t.keyer.FolderFromDeviceFileKey(it.Key())
 			if !ok {
 				return errFolderIdxMissing
@@ -482,21 +486,20 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 				if err := t.Put(sk, it.Key()); err != nil {
 					return err
 				}
-				if err := t.putFile(it.Key(), fi); err != nil {
-					return err
-				}
-				continue
+				changed = true
 			}
 		}
-		if prev == 8 {
-			// The transition to 8 already did the changes below.
-			continue
+		// 1.4.0 RCs had a bug where we'd reset the blocks, but
+		// not the blocks-hash (version 10).
+		if fi.Blocks == nil && fi.BlocksHash != nil {
+			fi.BlocksHash = nil
+			changed = true
 		}
-		if fi.Blocks == nil {
-			continue
-		}
-		if err := t.putFile(it.Key(), fi); err != nil {
-			return err
+		// Transition to 8 introduced separate block lists -> rewrite anwyay
+		if changed || prev < 8 {
+			if err := t.putFile(it.Key(), fi); err != nil {
+				return err
+			}
 		}
 	}
 	it.Release()
