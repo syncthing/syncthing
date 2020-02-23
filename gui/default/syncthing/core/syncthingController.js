@@ -2491,4 +2491,11 @@ angular.module('syncthing.core')
             $scope.config.options.crashReportingEnabled = enabled;
             $scope.saveConfig();
         };
+
+        $scope.isUnixAddress = function (address) {
+            return address != null &&
+                (address.startsWith('/') ||
+                    address.startsWith('unix://') ||
+                    address.startsWith('unixs://'));
+        }
     });

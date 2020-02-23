@@ -187,6 +187,15 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 		return nil, err
 	}
 
+	if guiCfg.Network() == "unix" && guiCfg.UnixSocketPermissions() != 0 {
+		// We should error if this fails under the assumption that these permissions are
+		// required for operation.
+		err = os.Chmod(guiCfg.Address(), guiCfg.UnixSocketPermissions())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	listener := &tlsutil.DowngradingListener{
 		Listener:  rawListener,
 		TLSConfig: tlsCfg,
