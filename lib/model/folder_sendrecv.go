@@ -1392,7 +1392,10 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 		state := state
 		bytes := int(state.block.Size)
 
-		requestLimiter.take(bytes)
+		if err := requestLimiter.takeWithContext(f.ctx, bytes); err != nil {
+			break
+		}
+
 		wg.Add(1)
 
 		go func() {

@@ -423,7 +423,7 @@ func replaceRawPath(u *url.URL, rp string) {
 	}
 }
 
-func soapRequest(url, service, function, message string) ([]byte, error) {
+func soapRequest(ctx context.Context, url, service, function, message string) ([]byte, error) {
 	tpl := `<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
@@ -437,6 +437,7 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 	if err != nil {
 		return resp, err
 	}
+	req.Cancel = ctx.Done()
 	req.Close = true
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")
