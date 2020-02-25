@@ -49,6 +49,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 	var dst io.Writer = os.Stdout
 
+	logErrChan := make(chan error)
 	logFile := runtimeOptions.logFile
 	if logFile != "-" {
 		if expanded, err := fs.ExpandTilde(logFile); err == nil {
@@ -59,7 +60,12 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			return newAutoclosedFile(name, logFileAutoCloseDelay, logFileMaxOpenTime)
 		}
 		if runtimeOptions.logMaxSize > 0 {
-			fileDst = newRotatedFile(logFile, open, int64(runtimeOptions.logMaxSize), runtimeOptions.logMaxFiles)
+			var err error
+			fileDst, err = newRotatedFile(logFile, open, int64(runtimeOptions.logMaxSize), runtimeOptions.logMaxFiles)
+			if err != nil {
+				l.Warnln("Failed to create logfile:", err)
+				os.Exit(syncthing.ExitError.AsInt())
+			}
 		} else {
 			fileDst = open(logFile)
 		}
@@ -136,7 +142,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 		wg.Add(1)
 		go func() {
-			copyStdout(stdout, dst)
+			copyStdout(stdout, dst, logErrChan)
 			wg.Done()
 		}()
 
@@ -159,6 +165,11 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			l.Infof("Signal %d received; restarting", s)
 			cmd.Process.Signal(sigHup)
 			err = <-exit
+
+		case err = <-logErrChan:
+			l.Warnln("Logger error, stopping Syncthing:", err)
+			cmd.Process.Signal(sigTerm)
+			<-exit
 
 		case err = <-exit:
 		}
@@ -283,7 +294,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 	}
 }
 
-func copyStdout(stdout io.Reader, dst io.Writer) {
+func copyStdout(stdout io.Reader, dst io.Writer, logErrChan chan<- error) {
 	br := bufio.NewReader(stdout)
 	for {
 		line, err := br.ReadString('\n')
@@ -302,7 +313,9 @@ func copyStdout(stdout io.Reader, dst io.Writer) {
 		}
 		stdoutMut.Unlock()
 
-		dst.Write([]byte(line))
+		if _, err := dst.Write([]byte(line)); err != nil {
+			logErrChan <- err
+		}
 	}
 }
 
@@ -355,14 +368,25 @@ type rotatedFile struct {
 
 type createFn func(name string) io.WriteCloser
 
-func newRotatedFile(name string, create createFn, maxSize int64, maxFiles int) *rotatedFile {
+func newRotatedFile(name string, create createFn, maxSize int64, maxFiles int) (*rotatedFile, error) {
+	var size int64
+
+	if info, err := os.Lstat(name); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+		size = 0
+	} else {
+		size = info.Size()
+	}
 	return &rotatedFile{
 		name:        name,
 		create:      create,
 		maxSize:     maxSize,
 		maxFiles:    maxFiles,
 		currentFile: create(name),
-	}
+		currentSize: size,
+	}, nil
 }
 
 func (r *rotatedFile) Write(bs []byte) (int, error) {

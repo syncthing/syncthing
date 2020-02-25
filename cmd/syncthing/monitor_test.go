@@ -24,8 +24,13 @@ func TestRotatedFile(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	open := func(name string) (io.WriteCloser, error) {
-		return os.Create(name)
+	open := func(name string) io.WriteCloser {
+		t.Helper()
+		fd, err := os.Create(name)
+		if err != nil {
+			t.Error(err)
+		}
+		return fd
 	}
 
 	logName := filepath.Join(dir, "log.txt")
@@ -33,7 +38,10 @@ func TestRotatedFile(t *testing.T) {
 	maxSize := int64(len(testData) + len(testData)/2)
 
 	// We allow the log file plus two rotated copies.
-	rf := newRotatedFile(logName, open, maxSize, 2)
+	rf, err := newRotatedFile(logName, open, maxSize, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Write some bytes.
 	if _, err := rf.Write(testData); err != nil {
@@ -189,14 +197,13 @@ func TestAutoClosedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// It should now contain only one write, because the first open
-	// should be a truncate.
+	// It should now contain three writes, as the file is always opened for appending
 	bs, err = ioutil.ReadFile(file)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(bs) != len(data) {
-		t.Fatalf("Write failed, expected %d bytes, not %d", len(data), len(bs))
+	if len(bs) != 3*len(data) {
+		t.Fatalf("Write failed, expected %d bytes, not %d", 3*len(data), len(bs))
 	}
 
 	// Close.
