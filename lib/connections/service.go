@@ -713,7 +713,7 @@ func (s *service) ConnectionStatus() map[string]ConnectionStatusEntry {
 }
 
 func (s *service) setConnectionStatus(address string, err error) {
-	if errors.Cause(err) != context.Canceled {
+	if errors.Cause(err) == context.Canceled {
 		return
 	}
 
