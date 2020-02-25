@@ -563,6 +563,12 @@ func (db *schemaUpdater) updateSchemato10(_ int) error {
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
 
+		// Update the existing metadata if it can be read, otherwise
+		// it will get recreated later in normal operations.
+		meta := newMetadataTracker()
+		metaErr := meta.fromDB(db.Lowlevel, []byte(folder))
+		meta.resetAll(protocol.GlobalDeviceID) // Is rewritten in updateGlobal
+
 		buf, err = t.keyer.GenerateDeviceFileKey(buf, folder, nil, nil)
 		if err != nil {
 			return err
@@ -583,32 +589,22 @@ func (db *schemaUpdater) updateSchemato10(_ int) error {
 			if err != nil {
 				return err
 			}
-			if !f.IsDeleted() {
-				continue
-			}
 			gk, err = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
 			if err != nil {
 				return err
 			}
-			var vl VersionList
-			svl, err := t.Get(gk)
-			if err != nil {
-				return err
-			}
-			if err = vl.Unmarshal(svl); err != nil {
-				return err
-			}
-			for i := range vl.Versions {
-				if bytes.Equal(vl.Versions[i].Device, device) {
-					vl.Versions[i].Deleted = true
-				}
-			}
-			if err = t.Put(gk, mustMarshal(&vl)); err != nil {
+			if buf, _, err = t.updateGlobal(gk, buf, folder, device, f.(protocol.FileInfo), meta); err != nil {
 				return err
 			}
 		}
 
 		dbi.Release()
+
+		if metaErr == nil {
+			if err = meta.toDB(t, folder); err != nil {
+				return err
+			}
+		}
 	}
 
 	return t.Commit()

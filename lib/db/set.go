@@ -132,6 +132,24 @@ func recalcMeta(db *Lowlevel, folder string) (*metadataTracker, error) {
 	if err != nil {
 		return nil, err
 	}
+	meta.emptyNeeded(protocol.LocalDeviceID)
+	err = t.withNeed([]byte(folder), protocol.LocalDeviceID[:], true, func(f FileIntf) bool {
+		meta.addNeeded(protocol.LocalDeviceID, f)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, device := range meta.devices() {
+		meta.emptyNeeded(device)
+		err = t.withNeed([]byte(folder), device[:], true, func(f FileIntf) bool {
+			meta.addNeeded(device, f)
+			return true
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	meta.SetCreated()
 	if err := meta.toDB(t, []byte(folder)); err != nil {
@@ -415,23 +433,8 @@ func (s *Snapshot) GlobalSize() Counts {
 	return global.Add(recvOnlyChanged)
 }
 
-func (s *Snapshot) NeedSize() Counts {
-	var result Counts
-	s.WithNeedTruncated(protocol.LocalDeviceID, func(f FileIntf) bool {
-		switch {
-		case f.IsDeleted():
-			result.Deleted++
-		case f.IsDirectory():
-			result.Directories++
-		case f.IsSymlink():
-			result.Symlinks++
-		default:
-			result.Files++
-			result.Bytes += f.FileSize()
-		}
-		return true
-	})
-	return result
+func (s *Snapshot) NeedSize(device protocol.DeviceID) Counts {
+	return s.meta.Counts(device, needFlag)
 }
 
 // LocalChangedFiles returns a paginated list of currently needed files in

@@ -750,9 +750,9 @@ func (m *model) FolderStatistics() (map[string]stats.FolderStatistics, error) {
 type FolderCompletion struct {
 	CompletionPct float64
 	NeedBytes     int64
-	NeedItems     int64
 	GlobalBytes   int64
-	NeedDeletes   int64
+	NeedItems     int32
+	NeedDeletes   int32
 }
 
 // Map returns the members as a map, e.g. used in api to serialize as Json.
@@ -791,49 +791,35 @@ func (m *model) Completion(device protocol.DeviceID, folder string) FolderComple
 	counts := m.deviceDownloads[device].GetBlockCounts(folder)
 	m.pmut.RUnlock()
 
-	var need, items, fileNeed, downloaded, deletes int64
-	snap.WithNeedTruncated(device, func(f db.FileIntf) bool {
-		ft := f.(db.FileInfoTruncated)
+	need := snap.NeedSize(device)
+	for _, d := range counts {
+		// This may be inaccurate because a block can be both smaller
+		// and bigger than the min block size.
+		need.Bytes -= int64(d) * protocol.MinBlockSize
+	}
+	if need.Bytes < 0 {
+		need.Bytes = 0
+	}
 
-		// If the file is deleted, we account it only in the deleted column.
-		if ft.Deleted {
-			deletes++
-			return true
-		}
-
-		// This might might be more than it really is, because some blocks can be of a smaller size.
-		downloaded = int64(counts[ft.Name]) * int64(ft.BlockSize())
-
-		fileNeed = ft.FileSize() - downloaded
-		if fileNeed < 0 {
-			fileNeed = 0
-		}
-
-		need += fileNeed
-		items++
-
-		return true
-	})
-
-	needRatio := float64(need) / float64(tot)
+	needRatio := float64(need.Bytes) / float64(tot)
 	completionPct := 100 * (1 - needRatio)
 
 	// If the completion is 100% but there are deletes we need to handle,
 	// drop it down a notch. Hack for consumers that look only at the
 	// percentage (our own GUI does the same calculation as here on its own
 	// and needs the same fixup).
-	if need == 0 && deletes > 0 {
+	if need.Bytes == 0 && need.Deleted > 0 {
 		completionPct = 95 // chosen by fair dice roll
 	}
 
-	l.Debugf("%v Completion(%s, %q): %f (%d / %d = %f)", m, device, folder, completionPct, need, tot, needRatio)
+	l.Debugf("%v Completion(%s, %q): %f (%d / %d = %f)", m, device, folder, completionPct, need.Bytes, tot, needRatio)
 
 	return FolderCompletion{
 		CompletionPct: completionPct,
-		NeedBytes:     need,
-		NeedItems:     items,
+		NeedBytes:     need.Bytes,
+		NeedItems:     need.Files + need.Directories + need.Files,
 		GlobalBytes:   tot,
-		NeedDeletes:   deletes,
+		NeedDeletes:   need.Deleted,
 	}
 }
 
