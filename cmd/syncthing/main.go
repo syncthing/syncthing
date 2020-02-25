@@ -230,7 +230,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.Verbose, "verbose", false, "Print verbose log output")
 	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
-	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout).")
+	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). This is best effort, i.e. Syncthing will keep running if encountering errors writing to this file.")
 	flag.IntVar(&options.logMaxSize, "log-max-size", options.logMaxSize, "Maximum size of any file (zero to disable log rotation).")
 	flag.IntVar(&options.logMaxFiles, "log-max-old-files", options.logMaxFiles, "Number of old files to keep (zero to keep only current).")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")

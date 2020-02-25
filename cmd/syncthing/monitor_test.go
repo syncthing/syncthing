@@ -24,13 +24,8 @@ func TestRotatedFile(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	open := func(name string) io.WriteCloser {
-		t.Helper()
-		fd, err := os.Create(name)
-		if err != nil {
-			t.Error(err)
-		}
-		return fd
+	open := func(name string) (io.WriteCloser, error) {
+		return os.Create(name)
 	}
 
 	logName := filepath.Join(dir, "log.txt")
@@ -148,7 +143,10 @@ func TestAutoClosedFile(t *testing.T) {
 	data := []byte("hello, world\n")
 
 	// An autoclosed file that closes very quickly
-	ac := newAutoclosedFile(file, time.Millisecond, time.Millisecond)
+	ac, err := newAutoclosedFile(file, time.Millisecond, time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Write some data.
 	if _, err := ac.Write(data); err != nil {
@@ -190,7 +188,10 @@ func TestAutoClosedFile(t *testing.T) {
 	}
 
 	// Open the file again.
-	ac = newAutoclosedFile(file, time.Second, time.Second)
+	ac, err = newAutoclosedFile(file, time.Second, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Write something
 	if _, err := ac.Write(data); err != nil {

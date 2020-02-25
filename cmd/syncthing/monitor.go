@@ -49,40 +49,38 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 	var dst io.Writer = os.Stdout
 
-	logErrChan := make(chan error)
 	logFile := runtimeOptions.logFile
 	if logFile != "-" {
 		if expanded, err := fs.ExpandTilde(logFile); err == nil {
 			logFile = expanded
 		}
 		var fileDst io.Writer
-		open := func(name string) io.WriteCloser {
+		var err error
+		open := func(name string) (io.WriteCloser, error) {
 			return newAutoclosedFile(name, logFileAutoCloseDelay, logFileMaxOpenTime)
 		}
 		if runtimeOptions.logMaxSize > 0 {
-			var err error
 			fileDst, err = newRotatedFile(logFile, open, int64(runtimeOptions.logMaxSize), runtimeOptions.logMaxFiles)
-			if err != nil {
-				l.Warnln("Failed to create logfile:", err)
-				os.Exit(syncthing.ExitError.AsInt())
-			}
 		} else {
-			fileDst = open(logFile)
+			fileDst, err = open(logFile)
 		}
-
-		if runtime.GOOS == "windows" {
-			// Translate line breaks to Windows standard
-			fileDst = osutil.ReplacingWriter{
-				Writer: fileDst,
-				From:   '\n',
-				To:     []byte{'\r', '\n'},
+		if err != nil {
+			l.Infoln(`Failed to setup logging to file "%s", proceeding with logging to stdout only: %v`, logFile, err)
+		} else {
+			if runtime.GOOS == "windows" {
+				// Translate line breaks to Windows standard
+				fileDst = osutil.ReplacingWriter{
+					Writer: fileDst,
+					From:   '\n',
+					To:     []byte{'\r', '\n'},
+				}
 			}
+
+			// Log to both stdout and file.
+			dst = io.MultiWriter(dst, fileDst)
+
+			l.Infof(`Log output saved to file "%s"`, logFile)
 		}
-
-		// Log to both stdout and file.
-		dst = io.MultiWriter(dst, fileDst)
-
-		l.Infof(`Log output saved to file "%s"`, logFile)
 	}
 
 	args := os.Args
@@ -142,7 +140,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 		wg.Add(1)
 		go func() {
-			copyStdout(stdout, dst, logErrChan)
+			copyStdout(stdout, dst)
 			wg.Done()
 		}()
 
@@ -165,11 +163,6 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			l.Infof("Signal %d received; restarting", s)
 			cmd.Process.Signal(sigHup)
 			err = <-exit
-
-		case err = <-logErrChan:
-			l.Warnln("Logger error, stopping Syncthing:", err)
-			cmd.Process.Signal(sigTerm)
-			<-exit
 
 		case err = <-exit:
 		}
@@ -294,7 +287,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 	}
 }
 
-func copyStdout(stdout io.Reader, dst io.Writer, logErrChan chan<- error) {
+func copyStdout(stdout io.Reader, dst io.Writer) {
 	br := bufio.NewReader(stdout)
 	for {
 		line, err := br.ReadString('\n')
@@ -313,9 +306,7 @@ func copyStdout(stdout io.Reader, dst io.Writer, logErrChan chan<- error) {
 		}
 		stdoutMut.Unlock()
 
-		if _, err := dst.Write([]byte(line)); err != nil {
-			logErrChan <- err
-		}
+		dst.Write([]byte(line))
 	}
 }
 
@@ -366,11 +357,10 @@ type rotatedFile struct {
 	currentSize int64
 }
 
-type createFn func(name string) io.WriteCloser
+type createFn func(name string) (io.WriteCloser, error)
 
 func newRotatedFile(name string, create createFn, maxSize int64, maxFiles int) (*rotatedFile, error) {
 	var size int64
-
 	if info, err := os.Lstat(name); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
@@ -379,12 +369,16 @@ func newRotatedFile(name string, create createFn, maxSize int64, maxFiles int) (
 	} else {
 		size = info.Size()
 	}
+	writer, err := create(name)
+	if err != nil {
+		return nil, err
+	}
 	return &rotatedFile{
 		name:        name,
 		create:      create,
 		maxSize:     maxSize,
 		maxFiles:    maxFiles,
-		currentFile: create(name),
+		currentFile: writer,
 		currentSize: size,
 	}, nil
 }
@@ -396,7 +390,11 @@ func (r *rotatedFile) Write(bs []byte) (int, error) {
 		r.currentFile.Close()
 		r.currentSize = 0
 		r.rotate()
-		r.currentFile = r.create(r.name)
+		f, err := r.create(r.name)
+		if err != nil {
+			return 0, err
+		}
+		r.currentFile = f
 	}
 
 	n, err := r.currentFile.Write(bs)
@@ -449,7 +447,7 @@ type autoclosedFile struct {
 	mut sync.Mutex
 }
 
-func newAutoclosedFile(name string, closeDelay, maxOpenTime time.Duration) *autoclosedFile {
+func newAutoclosedFile(name string, closeDelay, maxOpenTime time.Duration) (*autoclosedFile, error) {
 	f := &autoclosedFile{
 		name:        name,
 		closeDelay:  closeDelay,
@@ -458,8 +456,13 @@ func newAutoclosedFile(name string, closeDelay, maxOpenTime time.Duration) *auto
 		closed:      make(chan struct{}),
 		closeTimer:  time.NewTimer(time.Minute),
 	}
+	f.mut.Lock()
+	defer f.mut.Unlock()
+	if err := f.ensureOpenLocked(); err != nil {
+		return nil, err
+	}
 	go f.closerLoop()
-	return f
+	return f, nil
 }
 
 func (f *autoclosedFile) Write(bs []byte) (int, error) {
