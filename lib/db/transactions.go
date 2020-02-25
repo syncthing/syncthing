@@ -352,10 +352,14 @@ func (t *readOnlyTransaction) withNeed(folder, device []byte, truncate bool, fn 
 			return err
 		}
 
+		globalFV := vl.Versions[0]
 		haveFV, have := vl.Get(device)
 
+		if !need(globalFV, have, haveFV.Version) {
+			continue
+		}
 		name := t.keyer.NameFromGlobalVersionKey(dbi.Key())
-		dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, name)
+		dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, globalFV.Device, name)
 		if err != nil {
 			return err
 		}
@@ -366,10 +370,7 @@ func (t *readOnlyTransaction) withNeed(folder, device []byte, truncate bool, fn 
 		if !ok {
 			return errDeviceEntryMissing{string(name)}
 		}
-		if !need(gf, have, haveFV.Version) {
-			continue
-		}
-		l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.Invalid, haveFV.Version, vl.Versions[0].Version, vl.Versions[0].Device)
+		l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.Invalid, haveFV.Version, globalFV.Version, globalFV.Device)
 		if !fn(gf) {
 			return dbi.Error()
 		}
@@ -492,6 +493,20 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 
 	name := []byte(file.Name)
 
+	// Fixup the list of files we need.
+	keyBuf, err = t.updateLocalNeed(keyBuf, folder, name, fl)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if removedAt != 0 && insertedAt != 0 {
+		l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
+		if err := t.Put(gk, mustMarshal(&fl)); err != nil {
+			return nil, false, err
+		}
+		return keyBuf, true, nil
+	}
+
 	var global protocol.FileInfo
 	if insertedAt == 0 {
 		// Inserted a new newest version
@@ -506,20 +521,6 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 			return keyBuf, false, err
 		}
 		global = new
-	}
-
-	// Fixup the list of files we need.
-	keyBuf, err = t.updateLocalNeed(keyBuf, folder, name, fl, global)
-	if err != nil {
-		return nil, false, err
-	}
-
-	if removedAt != 0 && insertedAt != 0 {
-		l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
-		if err := t.Put(gk, mustMarshal(&fl)); err != nil {
-			return nil, false, err
-		}
-		return keyBuf, true, nil
 	}
 
 	// Remove the old global from the global size counter
@@ -558,7 +559,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 // updateLocalNeed checks whether the given file is still needed on the local
 // device according to the version list and global FileInfo given and updates
 // the db accordingly.
-func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, fl VersionList, global protocol.FileInfo) ([]byte, error) {
+func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, fl VersionList) ([]byte, error) {
 	var err error
 	keyBuf, err = t.keyer.GenerateNeedFileKey(keyBuf, folder, name)
 	if err != nil {
@@ -569,7 +570,7 @@ func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, fl Ve
 		return nil, err
 	}
 	hasNeeded := err == nil
-	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(global, haveLocalFV, localFV.Version) {
+	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(fl.Versions[0], haveLocalFV, localFV.Version) {
 		if !hasNeeded {
 			l.Debugf("local need insert; folder=%q, name=%q", folder, name)
 			if err := t.Put(keyBuf, nil); err != nil {
@@ -585,17 +586,17 @@ func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, fl Ve
 	return keyBuf, nil
 }
 
-func need(global FileIntf, haveLocal bool, localVersion protocol.Vector) bool {
+func need(global FileVersion, haveLocal bool, localVersion protocol.Vector) bool {
 	// We never need an invalid file.
-	if global.IsInvalid() {
+	if global.Invalid {
 		return false
 	}
 	// We don't need a deleted file if we don't have it.
-	if global.IsDeleted() && !haveLocal {
+	if global.Deleted && !haveLocal {
 		return false
 	}
 	// We don't need the global file if we already have the same version.
-	if haveLocal && localVersion.GreaterEqual(global.FileVersion()) {
+	if haveLocal && localVersion.GreaterEqual(global.Version) {
 		return false
 	}
 	return true
@@ -657,6 +658,10 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 	}
 
 	if removedAt == 0 {
+		keyBuf, err = t.updateLocalNeed(keyBuf, folder, file, fl)
+		if err != nil {
+			return nil, err
+		}
 		keyBuf, err = t.keyer.GenerateDeviceFileKey(keyBuf, folder, fl.Versions[0].Device, file)
 		if err != nil {
 			return nil, err
@@ -664,10 +669,6 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 		global, ok, err := t.getFileByKey(keyBuf)
 		if err != nil || !ok {
 			return keyBuf, err
-		}
-		keyBuf, err = t.updateLocalNeed(keyBuf, folder, file, fl, global)
-		if err != nil {
-			return nil, err
 		}
 		meta.addFile(protocol.GlobalDeviceID, global)
 	}

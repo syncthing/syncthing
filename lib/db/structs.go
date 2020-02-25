@@ -204,6 +204,7 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t re
 		Device:  device,
 		Version: file.Version,
 		Invalid: file.IsInvalid(),
+		Deleted: file.IsDeleted(),
 	}
 	i := 0
 	if nv.Invalid {
