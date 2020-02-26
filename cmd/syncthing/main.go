@@ -589,6 +589,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		appOpts.DeadlockTimeoutS = secs
 	}
 
+	if len(os.Getenv("STDBSEQUENCECHECK")) != 0 {
+		appOpts.CheckSequences = true
+	}
+
 	app := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
 
 	setupSignalHandling(app)

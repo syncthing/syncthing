@@ -604,6 +604,91 @@ func (db *Lowlevel) gcBlocks() error {
 	return db.Compact()
 }
 
+// CheckSequences makes sure the sequence numbers in the sequence keys match
+// those in the corresponding file entries. It returns the amount of fixed entries.
+func (db *Lowlevel) CheckSequences() error {
+	l.Infoln("Checking sequence entries in database...")
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	var dk, sk []byte
+	fixed := 0
+
+	for _, folderStr := range db.ListFolders() {
+		var meta *metadataTracker
+		folder := []byte(folderStr)
+
+		sk, err := t.keyer.GenerateSequenceKey(sk, folder, 0)
+		if err != nil {
+			return err
+		}
+
+		dbi, err := t.NewPrefixIterator(sk.WithoutSequence())
+		if err != nil {
+			return err
+		}
+		defer dbi.Release()
+
+		for dbi.Next() {
+			dk = dbi.Value()
+			// Check that the sequence from the key matches the
+			// sequence in the file.
+			fi, ok, err := t.getFileTrunc(dk, true)
+			if err != nil {
+				return err
+			}
+			// Shouldn't ever happen.
+			if !ok {
+				if err := t.Delete(sk); err != nil {
+					return err
+				}
+				continue
+			}
+			if seq := t.keyer.SequenceFromSequenceKey(dbi.Key()); seq == fi.SequenceNo() {
+				continue
+			}
+
+			// Mismatch: Bump sequence and rewrite.
+			fixed += 1
+			if meta == nil {
+				meta = loadMetadataTracker(db, folderStr)
+			}
+			if err := t.Delete(sk); err != nil {
+				return err
+			}
+			f := fi.(FileInfoTruncated).copyToFileInfo()
+			f.Sequence = meta.nextLocalSeq()
+			if sk, err = t.keyer.GenerateSequenceKey(sk, folder, f.Sequence); err != nil {
+				return err
+			}
+			if err := t.Put(sk, dk); err != nil {
+				return err
+			}
+			if err := t.putFile(dk, f); err != nil {
+				return err
+			}
+		}
+
+		if meta != nil {
+			if err := meta.toDB(t, folder); err != nil {
+				return err
+			}
+		}
+	}
+
+	if fixed == 0 {
+		l.Infoln("No sequence entries found that needed fixing")
+	} else {
+		l.Infof("Fixed %v sequence entries in the database", fixed)
+	}
+
+	return nil
+}
+
 func unmarshalVersionList(data []byte) (VersionList, bool) {
 	var vl VersionList
 	if err := vl.Unmarshal(data); err != nil {
