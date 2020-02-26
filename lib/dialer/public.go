@@ -91,10 +91,10 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 	go func() {
 		proxyConn, proxyErr = dialer.DialContext(ctx, network, addr)
 		l.Debugf("Dialing proxy result %s %s: %v %v", network, addr, proxyConn, proxyErr)
-		close(proxyDone)
 		proxyConn = dialerConn{
 			proxyConn, newDialerAddr(network, addr),
 		}
+		close(proxyDone)
 	}()
 	go func() {
 		fallbackConn, fallbackErr = fallback.DialContext(ctx, network, addr)
