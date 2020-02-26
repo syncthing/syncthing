@@ -788,15 +788,12 @@ func (m *model) Completion(device protocol.DeviceID, folder string) FolderComple
 	}
 
 	m.pmut.RLock()
-	counts := m.deviceDownloads[device].GetBlockCounts(folder)
+	downloaded := m.deviceDownloads[device].BytesDownloaded(folder)
 	m.pmut.RUnlock()
 
 	need := snap.NeedSize(device)
-	for _, d := range counts {
-		// This may be inaccurate because a block can be both smaller
-		// and bigger than the min block size.
-		need.Bytes -= int64(d) * protocol.MinBlockSize
-	}
+	need.Bytes -= downloaded
+	// This might might be more than it really is, because some blocks can be of a smaller size.
 	if need.Bytes < 0 {
 		need.Bytes = 0
 	}
