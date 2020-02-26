@@ -76,6 +76,9 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 	if noFallback {
 		conn, err := dialer.DialContext(ctx, network, addr)
 		l.Debugf("Dialing no fallback result %s %s: %v %v", network, addr, conn, err)
+		conn = dialerConn{
+			conn, newDialerAddr(network, addr),
+		}
 		return conn, err
 	}
 
