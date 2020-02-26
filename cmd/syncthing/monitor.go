@@ -65,7 +65,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			fileDst, err = open(logFile)
 		}
 		if err != nil {
-			l.Infoln(`Failed to setup logging to file "%s", proceeding with logging to stdout only: %v`, logFile, err)
+			l.Warnln("Failed to setup logging to file, proceeding with logging to stdout only:", err)
 		} else {
 			if runtime.GOOS == "windows" {
 				// Translate line breaks to Windows standard
