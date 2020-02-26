@@ -374,6 +374,7 @@ func main() {
 			l.Warnln("Resetting database:", err)
 			os.Exit(syncthing.ExitError.AsInt())
 		}
+		l.Infoln("Successfully reset database - it will be rebuilt after next start.")
 		return
 	}
 
