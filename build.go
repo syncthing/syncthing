@@ -364,12 +364,12 @@ func test(pkgs ...string) {
 
 	args := []string{"test", "-short", "-timeout", timeout, "-tags", "purego"}
 
-	if runtime.GOARCH == "amd64" {
-		switch runtime.GOOS {
-		case "darwin", "linux", "freebsd": // , "windows": # See https://github.com/golang/go/issues/27089
-			args = append(args, "-race")
-		}
-	}
+	// if runtime.GOARCH == "amd64" {
+	// 	switch runtime.GOOS {
+	// 	case "darwin", "linux", "freebsd": // , "windows": # See https://github.com/golang/go/issues/27089
+	// 		args = append(args, "-race")
+	// 	}
+	// }
 
 	if coverage {
 		args = append(args, "-covermode", "atomic", "-coverprofile", "coverage.txt", "-coverpkg", strings.Join(pkgs, ","))

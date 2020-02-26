@@ -653,7 +653,7 @@ func (db *Lowlevel) CheckSequences() error {
 			}
 
 			// Mismatch: Bump sequence and rewrite.
-			fixed += 1
+			fixed++
 			if meta == nil {
 				meta = loadMetadataTracker(db, folderStr)
 			}
