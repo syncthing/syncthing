@@ -519,6 +519,7 @@ func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
 		fi.Blocks = nil
 	}
 
+	// Indirect the version vector if it's large enough.
 	if len(fi.Version.Counters) > versionIndirectionCutoff {
 		fi.VersionHash = protocol.VectorHash(fi.Version)
 		bkey = t.keyer.GenerateVersionKey(bkey, fi.VersionHash)
