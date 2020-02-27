@@ -23,20 +23,6 @@ message VersionList {
     repeated FileVersion versions = 1 [(gogoproto.nullable) = false];
 }
 
-// message FileVersionV2Item {
-//     bytes device  = 1;
-//     bool  invalid = 2;
-// }
-
-// message FileVersionV2 {
-//     protocol.Vector            version = 1 [(gogoproto.nullable) = false];
-//     repeated FileVersionV2Item items   = 2 [(gogoproto.nullable) = false];
-// }
-
-// message VersionListV2 {
-//     repeated FileVersionV2 versions = 1 [(gogoproto.nullable) = false];
-// }
-
 // Must be the same as FileInfo but without the blocks field
 message FileInfoTruncated {
     option (gogoproto.goproto_stringer) = false;
