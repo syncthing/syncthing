@@ -120,7 +120,7 @@ are mostly useful for developers. Use with care.
                    Valid values are like "720h", "30s", etc.
 
  STGCINDIRECTEVERY Set to a time interval to override the default database
-                   block GC interval of 13 hours. Same format as the
+                   indirection GC interval of 13 hours. Same format as the
                    STRECHECKDBEVERY variable.
 
  GOMAXPROCS        Set the maximum number of CPU cores to use. Defaults to all
