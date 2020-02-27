@@ -71,7 +71,7 @@ message BlockList {
 // BlocksHashOnly is used to only unmarshal the block list hash from a FileInfo
 message BlocksHashOnly {
     bytes blocks_hash  = 18;
-    bytes version_hash = 19;
+    bytes version_hash = 1001;
 }
 
 // For each folder and device we keep one of these to track the current
