@@ -112,7 +112,11 @@ func idxck(ldb backend.Backend) (success bool) {
 		case db.KeyTypeVersion:
 			hash := string(key[1:])
 			var v protocol.Vector
-			v.Unmarshal(it.Value())
+			if err := v.Unmarshal(it.Value()); err != nil {
+				fmt.Println("Unable to unmarshal Vector:", err)
+				success = false
+				continue
+			}
 			versions[hash] = v
 		}
 	}
