@@ -522,6 +522,11 @@ func (db *schemaUpdater) updateSchemato10(prev int) error {
 	// Loads and rewrites all files, to update indirection (blocks &
 	// versions) where necessary.
 
+	if prev < 8 {
+		// The migration to 8 or 9 will have already rewritten the files with the latest code.
+		return nil
+	}
+
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
