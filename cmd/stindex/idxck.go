@@ -156,7 +156,7 @@ func idxck(ldb backend.Backend) (success bool) {
 			}
 		}
 
-		if fi.BlocksHash != nil {
+		if len(fi.Blocks) == 0 && len(fi.BlocksHash) != 0 {
 			key := string(fi.BlocksHash)
 			if _, ok := blocklists[key]; !ok {
 				fmt.Printf("Missing block list for file %q, block list hash %x\n", fi.Name, fi.BlocksHash)

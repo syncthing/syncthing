@@ -448,10 +448,11 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 	}
 	metas := make(map[string]*metadataTracker)
 	for it.Next() {
-		var fi protocol.FileInfo
-		if err := fi.Unmarshal(it.Value()); err != nil {
+		intf, err := t.unmarshalTrunc(it.Value(), false)
+		if err != nil {
 			return err
 		}
+		fi := intf.(protocol.FileInfo)
 		device, ok := t.keyer.DeviceFromDeviceFileKey(it.Key())
 		if !ok {
 			return errDeviceIdxMissing

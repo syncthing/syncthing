@@ -30,7 +30,7 @@ const (
 	indirectGCTimeKey                = "lastIndirectGCTime"
 
 	// Use indirection for the block list when it exceeds this many entries
-	blocksIndirectionCutoff = 4
+	blocksIndirectionCutoff = 3
 	// Use indirection for the version vector when it exceeds this many entries
 	versionIndirectionCutoff = 10
 )
@@ -38,11 +38,6 @@ const (
 var indirectGCInterval = indirectGCDefaultInterval
 
 func init() {
-	// deprecated
-	if dur, err := time.ParseDuration(os.Getenv("STGCBLOCKSEVERY")); err == nil {
-		indirectGCInterval = dur
-	}
-	// current
 	if dur, err := time.ParseDuration(os.Getenv("STGCINDIRECTEVERY")); err == nil {
 		indirectGCInterval = dur
 	}

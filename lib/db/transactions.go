@@ -91,12 +91,12 @@ func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (FileIntf, er
 	return fi, nil
 }
 
-// fillFileInfo follows the (possible) indirection of blocks and version
-// vector and fills both.
+// fillFileInfo follows the (possible) indirection of blocks and fills it out.
 func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
 	var key []byte
 
-	if len(fi.BlocksHash) != 0 {
+	if len(fi.Blocks) == 0 && len(fi.BlocksHash) != 0 {
+		// The blocks list is indirected and we need to load it.
 		key = t.keyer.GenerateBlockListKey(key, fi.BlocksHash)
 		bs, err := t.Get(key)
 		if err != nil {
@@ -497,8 +497,15 @@ func (t readWriteTransaction) close() {
 func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
 	var bkey []byte
 
-	if len(fi.Blocks) > blocksIndirectionCutoff {
+	// Always set the blocks hash when there are blocks.
+	if len(fi.Blocks) > 0 {
 		fi.BlocksHash = protocol.BlocksHash(fi.Blocks)
+	} else {
+		fi.BlocksHash = nil
+	}
+
+	// Indirect the blocks if the block list is large enough.
+	if len(fi.Blocks) > blocksIndirectionCutoff {
 		bkey = t.keyer.GenerateBlockListKey(bkey, fi.BlocksHash)
 		if _, err := t.Get(bkey); backend.IsNotFound(err) {
 			// Marshal the block list and save it
@@ -510,8 +517,6 @@ func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
 			return err
 		}
 		fi.Blocks = nil
-	} else {
-		fi.BlocksHash = nil
 	}
 
 	if len(fi.Version.Counters) > versionIndirectionCutoff {
