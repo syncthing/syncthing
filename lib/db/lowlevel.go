@@ -566,15 +566,15 @@ func (db *Lowlevel) gcIndirect() error {
 		return err
 	}
 	for it.Next() {
-		var bl BlocksHashOnly
-		if err := bl.Unmarshal(it.Value()); err != nil {
+		var hashes IndirectionHashesOnly
+		if err := hashes.Unmarshal(it.Value()); err != nil {
 			return err
 		}
-		if len(bl.BlocksHash) > 0 {
-			blockFilter.Add(bl.BlocksHash)
+		if len(hashes.BlocksHash) > 0 {
+			blockFilter.Add(hashes.BlocksHash)
 		}
-		if len(bl.VersionHash) > 0 {
-			versionFilter.Add(bl.VersionHash)
+		if len(hashes.VersionHash) > 0 {
+			versionFilter.Add(hashes.VersionHash)
 		}
 	}
 	it.Release()

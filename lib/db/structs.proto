@@ -68,8 +68,9 @@ message BlockList {
     repeated protocol.BlockInfo Blocks = 1 [(gogoproto.nullable) = false];
 }
 
-// BlocksHashOnly is used to only unmarshal the block list hash from a FileInfo
-message BlocksHashOnly {
+// IndirectionHashesOnly is used to only unmarshal the indirection hashes
+// from a FileInfo
+message IndirectionHashesOnly {
     bytes blocks_hash  = 18;
     bytes version_hash = 1001;
 }
