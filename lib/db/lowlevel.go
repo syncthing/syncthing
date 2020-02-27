@@ -19,22 +19,30 @@ import (
 )
 
 const (
-	// We set the bloom filter capacity to handle 100k individual block lists
-	// with a false positive probability of 1% for the first pass. Once we know
-	// how many block lists we have we will use that number instead, if it's
-	// more than 100k. For fewer than 100k block lists we will just get better
-	// false positive rate instead.
-	blockGCBloomCapacity          = 100000
-	blockGCBloomFalsePositiveRate = 0.01 // 1%
-	blockGCDefaultInterval        = 13 * time.Hour
-	blockGCTimeKey                = "lastBlockGCTime"
+	// We set the bloom filter capacity to handle 100k individual items with
+	// a false positive probability of 1% for the first pass. Once we know
+	// how many items we have we will use that number instead, if it's more
+	// than 100k. For fewer than 100k items we will just get better false
+	// positive rate instead.
+	indirectGCBloomCapacity          = 100000
+	indirectGCBloomFalsePositiveRate = 0.01 // 1%
+	indirectGCDefaultInterval        = 13 * time.Hour
+	indirectGCTimeKey                = "lastIndirectGCTime"
+
+	// Use indirection for the block list when it exceeds this many entries
+	blocksIndirectionCutoff = 3
 )
 
-var blockGCInterval = blockGCDefaultInterval
+var indirectGCInterval = indirectGCDefaultInterval
 
 func init() {
+	// deprecated
 	if dur, err := time.ParseDuration(os.Getenv("STGCBLOCKSEVERY")); err == nil {
-		blockGCInterval = dur
+		indirectGCInterval = dur
+	}
+	// current
+	if dur, err := time.ParseDuration(os.Getenv("STGCINDIRECTEVERY")); err == nil {
+		indirectGCInterval = dur
 	}
 }
 
@@ -485,18 +493,18 @@ func (db *Lowlevel) dropPrefix(prefix []byte) error {
 }
 
 func (db *Lowlevel) gcRunner() {
-	t := time.NewTimer(db.timeUntil(blockGCTimeKey, blockGCInterval))
+	t := time.NewTimer(db.timeUntil(indirectGCTimeKey, indirectGCInterval))
 	defer t.Stop()
 	for {
 		select {
 		case <-db.gcStop:
 			return
 		case <-t.C:
-			if err := db.gcBlocks(); err != nil {
-				l.Warnln("Database block GC failed:", err)
+			if err := db.gcIndirect(); err != nil {
+				l.Warnln("Database indirection GC failed:", err)
 			}
-			db.recordTime(blockGCTimeKey)
-			t.Reset(db.timeUntil(blockGCTimeKey, blockGCInterval))
+			db.recordTime(indirectGCTimeKey)
+			t.Reset(db.timeUntil(indirectGCTimeKey, indirectGCInterval))
 		}
 	}
 }
@@ -521,15 +529,16 @@ func (db *Lowlevel) timeUntil(key string, every time.Duration) time.Duration {
 	return sleepTime
 }
 
-func (db *Lowlevel) gcBlocks() error {
-	// The block GC uses a bloom filter to track used block lists. This means
-	// iterating over all items, adding their block lists to the filter, then
-	// iterating over the block lists and removing those that don't match the
-	// filter. The filter will give false positives so we will keep around one
-	// percent of block lists that we don't really need (at most).
+func (db *Lowlevel) gcIndirect() error {
+	// The indirection GC uses bloom filters to track used block lists and
+	// versions. This means iterating over all items, adding their hashes to
+	// the filter, then iterating over the indirected items and removing
+	// those that don't match the filter. The filter will give false
+	// positives so we will keep around one percent of things that we don't
+	// really need (at most).
 	//
-	// Block GC needs to run when there are no modifications to the FileInfos or
-	// block lists.
+	// Indirection GC needs to run when there are no modifications to the
+	// FileInfos or indirected items.
 
 	db.gcMut.Lock()
 	defer db.gcMut.Unlock()
@@ -540,18 +549,19 @@ func (db *Lowlevel) gcBlocks() error {
 	}
 	defer t.Release()
 
-	// Set up the bloom filter with the initial capacity and false positive
-	// rate, or higher capacity if we've done this before and seen lots of block
-	// lists.
+	// Set up the bloom filters with the initial capacity and false positive
+	// rate, or higher capacity if we've done this before and seen lots of
+	// items. For simplicity's sake we track just one count, which is the
+	// highest of the various indirected items.
 
-	capacity := blockGCBloomCapacity
+	capacity := indirectGCBloomCapacity
 	if db.gcKeyCount > capacity {
 		capacity = db.gcKeyCount
 	}
-	filter := bloom.NewWithEstimates(uint(capacity), blockGCBloomFalsePositiveRate)
+	blockFilter := bloom.NewWithEstimates(uint(capacity), indirectGCBloomFalsePositiveRate)
 
-	// Iterate the FileInfos, unmarshal the blocks hashes and add them to
-	// the filter.
+	// Iterate the FileInfos, unmarshal the block and version hashes and
+	// add them to the filter.
 
 	it, err := db.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
@@ -563,7 +573,7 @@ func (db *Lowlevel) gcBlocks() error {
 			return err
 		}
 		if len(bl.BlocksHash) > 0 {
-			filter.Add(bl.BlocksHash)
+			blockFilter.Add(bl.BlocksHash)
 		}
 	}
 	it.Release()
@@ -578,11 +588,11 @@ func (db *Lowlevel) gcBlocks() error {
 	if err != nil {
 		return err
 	}
-	matched := 0
+	matchedBlocks := 0
 	for it.Next() {
 		key := blockListKey(it.Key())
-		if filter.Test(key.BlocksHash()) {
-			matched++
+		if blockFilter.Test(key.BlocksHash()) {
+			matchedBlocks++
 			continue
 		}
 		if err := t.Delete(key); err != nil {
@@ -595,7 +605,7 @@ func (db *Lowlevel) gcBlocks() error {
 	}
 
 	// Remember the number of unique keys we kept until the next pass.
-	db.gcKeyCount = matched
+	db.gcKeyCount = matchedBlocks
 
 	if err := t.Commit(); err != nil {
 		return err
