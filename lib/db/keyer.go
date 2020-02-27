@@ -22,49 +22,49 @@ const (
 
 const (
 	// KeyTypeDevice <int32 folder ID> <int32 device ID> <file name> = FileInfo
-	KeyTypeDevice = 0x0
+	KeyTypeDevice = 0
 
 	// KeyTypeGlobal <int32 folder ID> <file name> = VersionList
-	KeyTypeGlobal = 0x1
+	KeyTypeGlobal = 1
 
 	// KeyTypeBlock <int32 folder ID> <32 bytes hash> <§file name> = int32 (block index)
-	KeyTypeBlock = 0x2
+	KeyTypeBlock = 2
 
 	// KeyTypeDeviceStatistic <device ID as string> <some string> = some value
-	KeyTypeDeviceStatistic = 0x3
+	KeyTypeDeviceStatistic = 3
 
 	// KeyTypeFolderStatistic <folder ID as string> <some string> = some value
-	KeyTypeFolderStatistic = 0x4
+	KeyTypeFolderStatistic = 4
 
 	// KeyTypeVirtualMtime <int32 folder ID> <file name> = dbMtime
-	KeyTypeVirtualMtime = 0x5
+	KeyTypeVirtualMtime = 5
 
 	// KeyTypeFolderIdx <int32 id> = string value
-	KeyTypeFolderIdx = 0x6
+	KeyTypeFolderIdx = 6
 
 	// KeyTypeDeviceIdx <int32 id> = string value
-	KeyTypeDeviceIdx = 0x7
+	KeyTypeDeviceIdx = 7
 
 	// KeyTypeIndexID <int32 device ID> <int32 folder ID> = protocol.IndexID
-	KeyTypeIndexID = 0x8
+	KeyTypeIndexID = 8
 
 	// KeyTypeFolderMeta <int32 folder ID> = CountsSet
-	KeyTypeFolderMeta = 0x9
+	KeyTypeFolderMeta = 9
 
 	// KeyTypeMiscData <some string> = some value
-	KeyTypeMiscData = 0xa
+	KeyTypeMiscData = 10
 
 	// KeyTypeSequence <int32 folder ID> <int64 sequence number> = KeyTypeDevice key
-	KeyTypeSequence = 0xb
+	KeyTypeSequence = 11
 
 	// KeyTypeNeed <int32 folder ID> <file name> = <nothing>
-	KeyTypeNeed = 0xc
+	KeyTypeNeed = 12
 
 	// KeyTypeBlockList <block list hash> = BlockList
-	KeyTypeBlockList = 0xd
+	KeyTypeBlockList = 13
 
 	// KeyTypeVersion <version hash> = Vector
-	KeyTypeVersion = 0xe
+	KeyTypeVersion = 14
 )
 
 type keyer interface {
