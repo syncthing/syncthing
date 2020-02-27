@@ -78,30 +78,33 @@ func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (FileIntf, er
 		return tf, nil
 	}
 
-	var tf protocol.FileInfo
-	if err := tf.Unmarshal(bs); err != nil {
+	var fi protocol.FileInfo
+	if err := fi.Unmarshal(bs); err != nil {
 		return nil, err
 	}
-	if err := t.fillBlockList(&tf); err != nil {
+	if err := t.fillFileInfo(&fi); err != nil {
 		return nil, err
 	}
-	return tf, nil
+	return fi, nil
 }
 
-func (t readOnlyTransaction) fillBlockList(fi *protocol.FileInfo) error {
-	if len(fi.BlocksHash) == 0 {
-		return nil
+// fillFileInfo follows the (possible) indirection of blocks and fills it out.
+func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
+	var key []byte
+
+	if len(fi.BlocksHash) != 0 {
+		key = t.keyer.GenerateBlockListKey(key, fi.BlocksHash)
+		bs, err := t.Get(key)
+		if err != nil {
+			return err
+		}
+		var bl BlockList
+		if err := bl.Unmarshal(bs); err != nil {
+			return err
+		}
+		fi.Blocks = bl.Blocks
 	}
-	blocksKey := t.keyer.GenerateBlockListKey(nil, fi.BlocksHash)
-	bs, err := t.Get(blocksKey)
-	if err != nil {
-		return err
-	}
-	var bl BlockList
-	if err := bl.Unmarshal(bs); err != nil {
-		return err
-	}
-	fi.Blocks = bl.Blocks
+
 	return nil
 }
 
@@ -453,26 +456,28 @@ func (t readWriteTransaction) close() {
 	t.WriteTransaction.Release()
 }
 
-func (t readWriteTransaction) putFile(key []byte, fi protocol.FileInfo) error {
-	if fi.Blocks != nil {
-		if fi.BlocksHash == nil {
-			fi.BlocksHash = protocol.BlocksHash(fi.Blocks)
-		}
-		blocksKey := t.keyer.GenerateBlockListKey(nil, fi.BlocksHash)
-		if _, err := t.Get(blocksKey); backend.IsNotFound(err) {
+func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
+	var bkey []byte
+
+	if len(fi.Blocks) > blocksIndirectionCutoff {
+		fi.BlocksHash = protocol.BlocksHash(fi.Blocks)
+		bkey = t.keyer.GenerateBlockListKey(bkey, fi.BlocksHash)
+		if _, err := t.Get(bkey); backend.IsNotFound(err) {
 			// Marshal the block list and save it
 			blocksBs := mustMarshal(&BlockList{Blocks: fi.Blocks})
-			if err := t.Put(blocksKey, blocksBs); err != nil {
+			if err := t.Put(bkey, blocksBs); err != nil {
 				return err
 			}
 		} else if err != nil {
 			return err
 		}
+		fi.Blocks = nil
+	} else {
+		fi.BlocksHash = nil
 	}
 
-	fi.Blocks = nil
 	fiBs := mustMarshal(&fi)
-	return t.Put(key, fiBs)
+	return t.Put(fkey, fiBs)
 }
 
 // updateGlobal adds this device+version to the version list for the given
@@ -723,15 +728,12 @@ func (t *readWriteTransaction) withAllFolderTruncated(folder []byte, fn func(dev
 			}
 			continue
 		}
-		var f FileInfoTruncated
-		// The iterator function may keep a reference to the unmarshalled
-		// struct, which in turn references the buffer it was unmarshalled
-		// from. dbi.Value() just returns an internal slice that it reuses, so
-		// we need to copy it.
-		err := f.Unmarshal(append([]byte{}, dbi.Value()...))
+
+		intf, err := t.unmarshalTrunc(dbi.Value(), true)
 		if err != nil {
 			return err
 		}
+		f := intf.(FileInfoTruncated)
 
 		switch f.Name {
 		case "", ".", "..", "/": // A few obviously invalid filenames
