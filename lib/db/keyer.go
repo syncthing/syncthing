@@ -22,46 +22,49 @@ const (
 
 const (
 	// KeyTypeDevice <int32 folder ID> <int32 device ID> <file name> = FileInfo
-	KeyTypeDevice = 0
+	KeyTypeDevice = 0x0
 
 	// KeyTypeGlobal <int32 folder ID> <file name> = VersionList
-	KeyTypeGlobal = 1
+	KeyTypeGlobal = 0x1
 
 	// KeyTypeBlock <int32 folder ID> <32 bytes hash> <§file name> = int32 (block index)
-	KeyTypeBlock = 2
+	KeyTypeBlock = 0x2
 
 	// KeyTypeDeviceStatistic <device ID as string> <some string> = some value
-	KeyTypeDeviceStatistic = 3
+	KeyTypeDeviceStatistic = 0x3
 
 	// KeyTypeFolderStatistic <folder ID as string> <some string> = some value
-	KeyTypeFolderStatistic = 4
+	KeyTypeFolderStatistic = 0x4
 
 	// KeyTypeVirtualMtime <int32 folder ID> <file name> = dbMtime
-	KeyTypeVirtualMtime = 5
+	KeyTypeVirtualMtime = 0x5
 
 	// KeyTypeFolderIdx <int32 id> = string value
-	KeyTypeFolderIdx = 6
+	KeyTypeFolderIdx = 0x6
 
 	// KeyTypeDeviceIdx <int32 id> = string value
-	KeyTypeDeviceIdx = 7
+	KeyTypeDeviceIdx = 0x7
 
 	// KeyTypeIndexID <int32 device ID> <int32 folder ID> = protocol.IndexID
-	KeyTypeIndexID = 8
+	KeyTypeIndexID = 0x8
 
 	// KeyTypeFolderMeta <int32 folder ID> = CountsSet
-	KeyTypeFolderMeta = 9
+	KeyTypeFolderMeta = 0x9
 
 	// KeyTypeMiscData <some string> = some value
-	KeyTypeMiscData = 10
+	KeyTypeMiscData = 0xa
 
 	// KeyTypeSequence <int32 folder ID> <int64 sequence number> = KeyTypeDevice key
-	KeyTypeSequence = 11
+	KeyTypeSequence = 0xb
 
 	// KeyTypeNeed <int32 folder ID> <file name> = <nothing>
-	KeyTypeNeed = 12
+	KeyTypeNeed = 0xc
 
 	// KeyTypeBlockList <block list hash> = BlockList
-	KeyTypeBlockList = 13
+	KeyTypeBlockList = 0xd
+
+	// KeyTypeVersion <version hash> = Vector
+	KeyTypeVersion = 0xe
 )
 
 type keyer interface {
@@ -99,6 +102,9 @@ type keyer interface {
 
 	// Block lists
 	GenerateBlockListKey(key []byte, hash []byte) blockListKey
+
+	// Version vectors
+	GenerateVersionKey(key []byte, hash []byte) versionKey
 }
 
 // defaultKeyer implements our key scheme. It needs folder and device
@@ -297,6 +303,19 @@ func (k defaultKeyer) GenerateBlockListKey(key []byte, hash []byte) blockListKey
 }
 
 func (k blockListKey) BlocksHash() []byte {
+	return k[keyPrefixLen:]
+}
+
+type versionKey []byte
+
+func (k defaultKeyer) GenerateVersionKey(key []byte, hash []byte) versionKey {
+	key = resize(key, keyPrefixLen+len(hash))
+	key[0] = KeyTypeVersion
+	copy(key[keyPrefixLen:], hash)
+	return key
+}
+
+func (k versionKey) VersionHash() []byte {
 	return k[keyPrefixLen:]
 }
 

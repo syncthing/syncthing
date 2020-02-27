@@ -23,6 +23,20 @@ message VersionList {
     repeated FileVersion versions = 1 [(gogoproto.nullable) = false];
 }
 
+// message FileVersionV2Item {
+//     bytes device  = 1;
+//     bool  invalid = 2;
+// }
+
+// message FileVersionV2 {
+//     protocol.Vector            version = 1 [(gogoproto.nullable) = false];
+//     repeated FileVersionV2Item items   = 2 [(gogoproto.nullable) = false];
+// }
+
+// message VersionListV2 {
+//     repeated FileVersionV2 versions = 1 [(gogoproto.nullable) = false];
+// }
+
 // Must be the same as FileInfo but without the blocks field
 message FileInfoTruncated {
     option (gogoproto.goproto_stringer) = false;
@@ -35,6 +49,7 @@ message FileInfoTruncated {
     // repeated BlockInfo Blocks         = 16
     string                symlink_target = 17;
     bytes                 blocks_hash    = 18;
+    bytes                 version_hash   = 19;
     protocol.FileInfoType type           = 2;
     uint32                permissions    = 4;
     int32                 modified_ns    = 11;
@@ -55,7 +70,8 @@ message BlockList {
 
 // BlocksHashOnly is used to only unmarshal the block list hash from a FileInfo
 message BlocksHashOnly {
-    bytes blocks_hash = 18;
+    bytes blocks_hash  = 18;
+    bytes version_hash = 19;
 }
 
 // For each folder and device we keep one of these to track the current

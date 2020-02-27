@@ -119,7 +119,7 @@ are mostly useful for developers. Use with care.
                    "h", "m" and "s" abbreviations for hours minutes and seconds.
                    Valid values are like "720h", "30s", etc.
 
- STGCBLOCKSEVERY   Set to a time interval to override the default database
+ STGCINDIRECTEVERY Set to a time interval to override the default database
                    block GC interval of 13 hours. Same format as the
                    STRECHECKDBEVERY variable.
 

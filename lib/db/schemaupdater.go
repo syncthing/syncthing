@@ -26,9 +26,10 @@ import (
 //   7: v0.14.53
 //   8: v1.4.0
 //   9: v1.4.0
+//  10: v1.5.0
 const (
-	dbVersion             = 9
-	dbMinSyncthingVersion = "v1.4.0"
+	dbVersion             = 10
+	dbMinSyncthingVersion = "v1.5.0"
 )
 
 var (
@@ -89,6 +90,7 @@ func (db *schemaUpdater) updateSchema() error {
 		{6, db.updateSchema5to6},
 		{7, db.updateSchema6to7},
 		{9, db.updateSchemato9},
+		{10, db.updateSchemato10},
 	}
 
 	for _, m := range migrations {
@@ -510,7 +512,46 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 		}
 	}
 
-	db.recordTime(blockGCTimeKey)
+	db.recordTime(indirectGCTimeKey)
+
+	return t.Commit()
+}
+
+func (db *schemaUpdater) updateSchemato10(prev int) error {
+	// Loads and rewrites all files, to update indirection (blocks &
+	// versions) where necessary.
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
+	if err != nil {
+		return err
+	}
+	for it.Next() {
+		intf, err := t.unmarshalTrunc(it.Value(), false)
+		if err != nil {
+			return err
+		}
+		fi := intf.(protocol.FileInfo)
+		if err := t.putFile(it.Key(), fi); err != nil {
+			return err
+		}
+	}
+	it.Release()
+	if err := it.Error(); err != nil {
+		return err
+	}
+
+	// We might have moved blocks from being indirect to being direct, so GC.
+	if err := db.gcIndirect(); err != nil {
+		return err
+	}
+
+	db.recordTime(indirectGCTimeKey)
 
 	return t.Commit()
 }

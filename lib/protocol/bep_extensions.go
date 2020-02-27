@@ -349,3 +349,12 @@ func BlocksHash(bs []BlockInfo) []byte {
 	}
 	return h.Sum(nil)
 }
+
+func VectorHash(v Vector) []byte {
+	h := sha256.New()
+	for _, c := range v.Counters {
+		binary.Write(h, binary.BigEndian, c.ID)
+		binary.Write(h, binary.BigEndian, c.Value)
+	}
+	return h.Sum(nil)
+}
