@@ -36,11 +36,6 @@ const (
 var indirectGCInterval = indirectGCDefaultInterval
 
 func init() {
-	// deprecated
-	if dur, err := time.ParseDuration(os.Getenv("STGCBLOCKSEVERY")); err == nil {
-		indirectGCInterval = dur
-	}
-	// current
 	if dur, err := time.ParseDuration(os.Getenv("STGCINDIRECTEVERY")); err == nil {
 		indirectGCInterval = dur
 	}
