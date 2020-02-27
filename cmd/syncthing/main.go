@@ -65,6 +65,12 @@ I.e. to prefix each log line with date and time, set -logflags=3 (1 + 2 from
 above). The value 0 is used to disable all of the above. The default is to
 show time only (2).
 
+Logging always happens to the command line (stdout) and optionally to the
+file at the path specified by -logfile=path. In addition to an explicity path,
+the special values "default" and "-" may be used. The former logs to
+DATADIR/syncthing.log (see -data-dir), which is the default on windows, and the
+latter only to stdout, no file, which is the default anywhere else.
+
 
 Development Settings
 --------------------
@@ -197,11 +203,13 @@ func defaultRuntimeOptions() RuntimeOptions {
 		options.logFlags = logger.DebugFlags
 	}
 
-	if runtime.GOOS != "windows" {
-		// On non-Windows, we explicitly default to "-" which means stdout. On
-		// Windows, the blank options.logFile will later be replaced with the
-		// default path, unless the user has manually specified "-" or
-		// something else.
+	// On non-Windows, we explicitly default to "-" which means stdout. On
+	// Windows, the "default" options.logFile will later be replaced with the
+	// default path, unless the user has manually specified "-" or
+	// something else.
+	if runtime.GOOS == "windows" {
+		options.logFile = "default"
+	} else {
 		options.logFile = "-"
 	}
 
@@ -234,7 +242,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.Verbose, "verbose", false, "Print verbose log output")
 	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
-	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout).")
+	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (see below).")
 	flag.IntVar(&options.logMaxSize, "log-max-size", options.logMaxSize, "Maximum size of any file (zero to disable log rotation).")
 	flag.IntVar(&options.logMaxFiles, "log-max-old-files", options.logMaxFiles, "Number of old files to keep (zero to keep only current).")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
@@ -256,7 +264,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	return options
 }
 
-func setLocation(loc string, enum locations.BaseDirEnum) error {
+func setLocation(enum locations.BaseDirEnum, loc string) error {
 	if !filepath.IsAbs(loc) {
 		var err error
 		loc, err = filepath.Abs(loc)
@@ -295,12 +303,12 @@ func main() {
 	case homeSet && dataSet:
 		err = errors.New("-home must not be used together with -conf and -data")
 	case homeSet:
-		if err = setLocation(options.homeDir, locations.ConfigBaseDir); err == nil {
-			err = setLocation(options.homeDir, locations.DataBaseDir)
+		if err = setLocation(locations.ConfigBaseDir, options.homeDir); err == nil {
+			err = setLocation(locations.DataBaseDir, options.homeDir)
 		}
 	case dataSet:
-		if err = setLocation(options.confDir, locations.ConfigBaseDir); err == nil {
-			err = setLocation(options.dataDir, locations.DataBaseDir)
+		if err = setLocation(locations.ConfigBaseDir, options.confDir); err == nil {
+			err = setLocation(locations.DataBaseDir, options.dataDir)
 		}
 	}
 	if err != nil {
@@ -308,9 +316,9 @@ func main() {
 		os.Exit(syncthing.ExitError.AsInt())
 	}
 
-	if options.logFile == "" {
-		// Blank means use the default logfile location. We must set this
-		// *after* expandLocations above.
+	if options.logFile == "default" || options.logFile == "" {
+		// We must set this *after* expandLocations above.
+		// Handling an empty value is for backwards compatibility (<1.4.1).
 		options.logFile = locations.Get(locations.LogFile)
 	}
 
