@@ -49,14 +49,14 @@ message FileInfoTruncated {
     // repeated BlockInfo Blocks         = 16
     string                symlink_target = 17;
     bytes                 blocks_hash    = 18;
-    bytes                 version_hash   = 19;
     protocol.FileInfoType type           = 2;
     uint32                permissions    = 4;
     int32                 modified_ns    = 11;
     int32                 block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
 
     // see bep.proto
-    uint32 local_flags = 1000;
+    uint32 local_flags  = 1000;
+    bytes  version_hash = 1001;
 
     bool deleted        = 6;
     bool invalid        = 7 [(gogoproto.customname) = "RawInvalid"];
