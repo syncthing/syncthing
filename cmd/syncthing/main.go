@@ -139,10 +139,12 @@ The following are valid values for the STTRACE variable:
 %s`
 )
 
-// Environment options
 var (
+	// Environment options
 	innerProcess    = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
 	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
+
+	errConcurrentUpgrade = errors.New("upgrade prevented by other running Syncthing instance")
 )
 
 type RuntimeOptions struct {
@@ -501,8 +503,6 @@ func checkUpgrade() (upgrade.Release, error) {
 	l.Infof("Upgrade available (current %q < latest %q)", build.Version, release.Tag)
 	return release, nil
 }
-
-var errConcurrentUpgrade = errors.New("upgrade prevented by other running Syncthing instance")
 
 func performUpgradeDirect(release upgrade.Release) error {
 	// Use leveldb database locks to protect against concurrent upgrades
