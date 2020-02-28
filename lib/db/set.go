@@ -97,7 +97,8 @@ func loadMetadataTracker(db *Lowlevel, folder string) *metadataTracker {
 		return recalc()
 	}
 
-	if metaOK := verifyLocalSequence(meta, db, folder); !metaOK {
+	curSeq := meta.Sequence(protocol.LocalDeviceID)
+	if metaOK := verifyLocalSequence(curSeq, db, folder); !metaOK {
 		l.Infof("Stored folder metadata for %q is out of date after crash; recalculating", folder)
 		return recalc()
 	}
@@ -144,7 +145,7 @@ func recalcMeta(db *Lowlevel, folder string) (*metadataTracker, error) {
 
 // Verify the local sequence number from actual sequence entries. Returns
 // true if it was all good, or false if a fixup was necessary.
-func verifyLocalSequence(meta *metadataTracker, db *Lowlevel, folder string) bool {
+func verifyLocalSequence(curSeq int64, db *Lowlevel, folder string) bool {
 	// Walk the sequence index from the current (supposedly) highest
 	// sequence number and raise the alarm if we get anything. This recovers
 	// from the occasion where we have written sequence entries to disk but
@@ -154,8 +155,6 @@ func verifyLocalSequence(meta *metadataTracker, db *Lowlevel, folder string) boo
 	// there it's not a problem -- we'll simply advertise a lower sequence
 	// number than we've actually seen and receive some duplicate updates
 	// and then be in sync again.
-
-	curSeq := meta.Sequence(protocol.LocalDeviceID)
 
 	t, err := db.newReadOnlyTransaction()
 	if err != nil {
