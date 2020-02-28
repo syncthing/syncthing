@@ -654,7 +654,11 @@ func shouldBuildSyso(dir string) (string, error) {
 	}
 
 	jsonPath := filepath.Join(dir, "versioninfo.json")
-	ioutil.WriteFile(jsonPath, bs, 0644)
+	err = ioutil.WriteFile(jsonPath, bs, 0644)
+	if err != nil {
+		return "", errors.New("failed to create " + jsonPath + ": " + err.Error())
+	}
+
 	defer func() {
 		if err := os.Remove(jsonPath); err != nil {
 			log.Printf("Warning: unable to remove generated %s: %v. Please remove it manually.", jsonPath, err)
@@ -860,13 +864,22 @@ func getVersion() string {
 	return "unknown-dev"
 }
 
-func semanticVersion() (major, minor, patch, build string) {
+func semanticVersion() (major, minor, patch, build int) {
 	r := regexp.MustCompile(`v(?P<Major>\d+)\.(?P<Minor>\d+).(?P<Patch>\d+).*\+(?P<CommitsAhead>\d+)`)
 	matches := r.FindStringSubmatch(getVersion())
 	if len(matches) != 5 {
-		return "0", "0", "0", "0"
+		return 0, 0, 0, 0
 	}
-	return matches[1], matches[2], matches[3], matches[4]
+
+	var ints [4]int
+	for i := 1; i < 5; i++ {
+		value, err := strconv.Atoi(matches[i])
+		if err != nil {
+			return 0, 0, 0, 0
+		}
+		ints[i-1] = value
+	}
+	return ints[0], ints[1], ints[2], ints[3]
 }
 
 func getBranchSuffix() string {
