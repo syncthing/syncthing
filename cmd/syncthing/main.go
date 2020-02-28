@@ -358,15 +358,31 @@ func main() {
 		return
 	}
 
+	checkUpgradeExitOnErr := func() upgrade.Release {
+		release, err := checkUpgrade()
+		if err != nil {
+			l.Warnln("Upgrade:", err)
+			if _, ok := err.(errNoUpgrade); ok {
+				os.Exit(syncthing.ExitNoUpgradeAvailable.AsInt())
+			}
+			os.Exit(syncthing.ExitError.AsInt())
+		}
+		return release
+	}
+
 	if options.doUpgradeCheck {
-		checkUpgrade()
+		_ = checkUpgradeExitOnErr()
 		return
 	}
 
 	if options.doUpgrade {
-		release := checkUpgrade()
-		performUpgrade(release)
-		return
+		release := checkUpgradeExitOnErr()
+		if err := performUpgrade(release); err != nil {
+			l.Warnln("Upgrade:", err)
+			os.Exit(syncthing.ExitError.AsInt())
+		}
+		l.Infof("Upgraded to %q", release.Tag)
+		os.Exit(syncthing.ExitUpgrade.AsInt())
 	}
 
 	if options.resetDatabase {
@@ -462,45 +478,49 @@ func debugFacilities() string {
 	return b.String()
 }
 
-func checkUpgrade() upgrade.Release {
+type errNoUpgrade struct {
+	current, latest string
+}
+
+func (e errNoUpgrade) Error() string {
+	return fmt.Sprintf("no upgrade available (current %q >= latest %q).", e.current, e.latest)
+}
+
+func checkUpgrade() (upgrade.Release, error) {
 	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
-		l.Warnln("Upgrade:", err)
-		os.Exit(syncthing.ExitError.AsInt())
+		return upgrade.Release{}, err
 	}
 
 	if upgrade.CompareVersions(release.Tag, build.Version) <= 0 {
-		noUpgradeMessage := "No upgrade available (current %q >= latest %q)."
-		l.Infof(noUpgradeMessage, build.Version, release.Tag)
-		os.Exit(syncthing.ExitNoUpgradeAvailable.AsInt())
+		return upgrade.Release{}, errNoUpgrade{build.Version, release.Tag}
 	}
 
 	l.Infof("Upgrade available (current %q < latest %q)", build.Version, release.Tag)
-	return release
+	return release, nil
 }
 
-func performUpgrade(release upgrade.Release) {
+var errConcurrentUpgrade = errors.New("upgrade prevented by other running Syncthing instance")
+
+func performUpgradeDirect(release upgrade.Release) error {
 	// Use leveldb database locks to protect against concurrent upgrades
-	_, err := syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto)
-	if err == nil {
-		err = upgrade.To(release)
-		if err != nil {
-			l.Warnln("Upgrade:", err)
-			os.Exit(syncthing.ExitError.AsInt())
-		}
-		l.Infof("Upgraded to %q", release.Tag)
-	} else {
-		l.Infoln("Attempting upgrade through running Syncthing...")
-		err = upgradeViaRest()
-		if err != nil {
-			l.Warnln("Upgrade:", err)
-			os.Exit(syncthing.ExitError.AsInt())
-		}
-		l.Infoln("Syncthing upgrading")
-		os.Exit(syncthing.ExitUpgrade.AsInt())
+	if _, err := syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto); err != nil {
+		return errConcurrentUpgrade
 	}
+	return upgrade.To(release)
+}
+
+func performUpgrade(release upgrade.Release) error {
+	if err := performUpgradeDirect(release); err != nil {
+		if err != errConcurrentUpgrade {
+			return err
+		}
+		l.Infoln("Attempting upgrade through running Syncthing...")
+		return upgradeViaRest()
+	}
+	return nil
 }
 
 func upgradeViaRest() error {
@@ -568,6 +588,46 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		os.Exit(syncthing.ExitError.AsInt())
 	}
 
+	// Candidate builds should auto upgrade. Make sure the option is set,
+	// unless we are in a build where it's disabled or the STNOUPGRADE
+	// environment variable is set.
+
+	if build.IsCandidate && !upgrade.DisabledByCompilation && !runtimeOptions.NoUpgrade {
+		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
+		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
+			opts.AutoUpgradeIntervalH = 12
+			// Set the option into the config as well, as the auto upgrade
+			// loop expects to read a valid interval from there.
+			cfg.SetOptions(opts)
+			cfg.Save()
+		}
+		// We don't tweak the user's choice of upgrading to pre-releases or
+		// not, as otherwise they cannot step off the candidate channel.
+	}
+
+	shouldAutoUpgrade := false
+
+	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
+		if runtimeOptions.NoUpgrade {
+			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
+		} else {
+			release, err := checkUpgrade()
+			if err == nil {
+				if err = performUpgradeDirect(release); err == nil {
+					l.Infof("Upgraded to %q, exiting now.", release.Tag)
+					os.Exit(syncthing.ExitUpgrade.AsInt())
+				}
+			}
+			if err != upgrade.ErrUpgradeUnsupported {
+				shouldAutoUpgrade = true
+			} else if err != nil {
+				if _, ok := err.(errNoUpgrade); !ok {
+					l.Infoln("Initial automatic upgrade:", err)
+				}
+			}
+		}
+	}
+
 	if runtimeOptions.unpaused {
 		setPauseState(cfg, false)
 	} else if runtimeOptions.paused {
@@ -614,33 +674,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		go standbyMonitor(app)
 	}
 
-	// Candidate builds should auto upgrade. Make sure the option is set,
-	// unless we are in a build where it's disabled or the STNOUPGRADE
-	// environment variable is set.
-
-	if build.IsCandidate && !upgrade.DisabledByCompilation && !runtimeOptions.NoUpgrade {
-		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
-		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
-			opts.AutoUpgradeIntervalH = 12
-			// Set the option into the config as well, as the auto upgrade
-			// loop expects to read a valid interval from there.
-			cfg.SetOptions(opts)
-			cfg.Save()
-		}
-		// We don't tweak the user's choice of upgrading to pre-releases or
-		// not, as otherwise they cannot step off the candidate channel.
-	}
-
-	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
-		if runtimeOptions.NoUpgrade {
-			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
-		} else {
-			go autoUpgrade(cfg, app, evLogger)
-		}
-	}
-
 	if err := app.Start(); err != nil {
 		os.Exit(syncthing.ExitError.AsInt())
+	}
+
+	if shouldAutoUpgrade {
+		go autoUpgrade(cfg, app, evLogger)
 	}
 
 	cleanConfigDirectory()
