@@ -81,10 +81,9 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 }
 
 func loadMetadataTracker(db *Lowlevel, folder string) *metadataTracker {
-	meta := newMetadataTracker()
-
 	recalc := func() *metadataTracker {
-		if err := recalcMeta(meta, db, folder); backend.IsClosed(err) {
+		meta, err := recalcMeta(db, folder)
+		if backend.IsClosed(err) {
 			return nil
 		} else if err != nil {
 			panic(err)
@@ -92,6 +91,7 @@ func loadMetadataTracker(db *Lowlevel, folder string) *metadataTracker {
 		return meta
 	}
 
+	meta := newMetadataTracker()
 	if err := meta.fromDB(db, []byte(folder)); err != nil {
 		l.Infof("No stored folder metadata for %q; recalculating", folder)
 		return recalc()
@@ -110,14 +110,15 @@ func loadMetadataTracker(db *Lowlevel, folder string) *metadataTracker {
 	return meta
 }
 
-func recalcMeta(meta *metadataTracker, db *Lowlevel, folder string) error {
+func recalcMeta(db *Lowlevel, folder string) (*metadataTracker, error) {
+	meta := newMetadataTracker()
 	if err := db.checkGlobals([]byte(folder), meta); err != nil {
-		return err
+		return nil, err
 	}
 
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer t.close()
 
@@ -128,14 +129,17 @@ func recalcMeta(meta *metadataTracker, db *Lowlevel, folder string) error {
 		return true
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	meta.SetCreated()
 	if err := meta.toDB(t, []byte(folder)); err != nil {
-		return err
+		return nil, err
 	}
-	return t.Commit()
+	if err := t.Commit(); err != nil {
+		return nil, err
+	}
+	return meta, nil
 }
 
 // Verify the local sequence number from actual sequence entries. Returns
