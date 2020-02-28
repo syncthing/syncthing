@@ -631,14 +631,25 @@ func buildSnap(target target) {
 
 func shouldBuildSyso(dir string) (string, error) {
 	type M map[string]interface{}
-	major, minor, patch, build := semanticVersion()
+	var vStr [4]string
+	vStr[0], vStr[1], vStr[2], vStr[3] = semanticVersion()
+
+	var vInt [4]int
+	for i, v := range vStr {
+		ver, err := strconv.Atoi(v)
+		if err != nil {
+			return "", err
+		}
+		vInt[i] = ver
+	}
+
 	bs, err := json.Marshal(M{
 		"FixedFileInfo": M{
 			"FileVersion": M{
-				"Major": major,
-				"Minor": minor,
-				"Patch": patch,
-				"Build": build,
+				"Major": vInt[0],
+				"Minor": vInt[1],
+				"Patch": vInt[2],
+				"Build": vInt[3],
 			},
 		},
 		"StringFileInfo": M{
@@ -654,7 +665,11 @@ func shouldBuildSyso(dir string) (string, error) {
 	}
 
 	jsonPath := filepath.Join(dir, "versioninfo.json")
-	ioutil.WriteFile(jsonPath, bs, 0644)
+	err = ioutil.WriteFile(jsonPath, bs, 0644)
+	if err != nil {
+		return "", errors.New("failed to create " + jsonPath + ": " + err.Error())
+	}
+
 	defer func() {
 		if err := os.Remove(jsonPath); err != nil {
 			log.Printf("Warning: unable to remove generated %s: %v. Please remove it manually.", jsonPath, err)
