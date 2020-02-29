@@ -572,6 +572,7 @@ func (db *Lowlevel) gcIndirect() error {
 	if err != nil {
 		return err
 	}
+	defer it.Release()
 	for it.Next() {
 		var bl BlocksHashOnly
 		if err := bl.Unmarshal(it.Value()); err != nil {
@@ -593,6 +594,7 @@ func (db *Lowlevel) gcIndirect() error {
 	if err != nil {
 		return err
 	}
+	defer it.Release()
 	matchedBlocks := 0
 	for it.Next() {
 		key := blockListKey(it.Key())
