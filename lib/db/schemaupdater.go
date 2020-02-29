@@ -57,6 +57,11 @@ type schemaUpdater struct {
 }
 
 func (db *schemaUpdater) updateSchema() error {
+	// Updating the schema can touch any and all parts of the database. Make
+	// sure we do not run GC concurrently with schema migrations.
+	db.gcMut.Lock()
+	defer db.gcMut.Unlock()
+
 	miscDB := NewMiscDataNamespace(db.Lowlevel)
 	prevVersion, _, err := miscDB.Int64("dbVersion")
 	if err != nil {
