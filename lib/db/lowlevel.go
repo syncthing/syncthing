@@ -488,8 +488,18 @@ func (db *Lowlevel) dropPrefix(prefix []byte) error {
 }
 
 func (db *Lowlevel) gcRunner() {
-	t := time.NewTimer(db.timeUntil(indirectGCTimeKey, indirectGCInterval))
+	// Calculate the time for the next GC run. Even if we should run GC
+	// directly, give the system a while to get up and running and do other
+	// stuff first. (We might have migrations and stuff which would be
+	// better off running before GC.)
+	next := db.timeUntil(indirectGCTimeKey, indirectGCInterval)
+	if next < time.Minute {
+		next = time.Minute
+	}
+
+	t := time.NewTimer(next)
 	defer t.Stop()
+
 	for {
 		select {
 		case <-db.gcStop:
@@ -558,10 +568,11 @@ func (db *Lowlevel) gcIndirect() error {
 	// Iterate the FileInfos, unmarshal the block and version hashes and
 	// add them to the filter.
 
-	it, err := db.NewPrefixIterator([]byte{KeyTypeDevice})
+	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
 		return err
 	}
+	defer it.Release()
 	for it.Next() {
 		var bl BlocksHashOnly
 		if err := bl.Unmarshal(it.Value()); err != nil {
@@ -579,10 +590,11 @@ func (db *Lowlevel) gcIndirect() error {
 	// Iterate over block lists, removing keys with hashes that don't match
 	// the filter.
 
-	it, err = db.NewPrefixIterator([]byte{KeyTypeBlockList})
+	it, err = t.NewPrefixIterator([]byte{KeyTypeBlockList})
 	if err != nil {
 		return err
 	}
+	defer it.Release()
 	matchedBlocks := 0
 	for it.Next() {
 		key := blockListKey(it.Key())
