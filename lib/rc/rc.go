@@ -232,7 +232,7 @@ func (p *Process) Events(since int) ([]Event, error) {
 	dec.UseNumber()
 	err = dec.Decode(&evs)
 	if err != nil {
-		return nil, fmt.Errorf("events: %s in %q", err, bs)
+		return nil, fmt.Errorf("events: %w in %q", err, bs)
 	}
 	return evs, err
 }
