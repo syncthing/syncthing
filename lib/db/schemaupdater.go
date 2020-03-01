@@ -8,6 +8,7 @@ package db
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -32,8 +33,8 @@ const (
 )
 
 var (
-	errFolderIdxMissing = fmt.Errorf("folder db index missing")
-	errDeviceIdxMissing = fmt.Errorf("device db index missing")
+	errFolderIdxMissing = errors.New("folder db index missing")
+	errDeviceIdxMissing = errors.New("device db index missing")
 )
 
 type databaseDowngradeError struct {

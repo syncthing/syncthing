@@ -14,7 +14,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"fmt"
 	"math/big"
 	"net"
 	"os"
@@ -26,7 +25,7 @@ import (
 )
 
 var (
-	ErrIdentificationFailed = fmt.Errorf("failed to identify socket type")
+	ErrIdentificationFailed = errors.New("failed to identify socket type")
 )
 
 var (
@@ -239,7 +238,7 @@ func pemBlockForKey(priv interface{}) (*pem.Block, error) {
 		}
 		return &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}, nil
 	default:
-		return nil, fmt.Errorf("unknown key type")
+		return nil, errors.New("unknown key type")
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -80,16 +81,16 @@ func (c *APIClient) Post(url, body string) (*http.Response, error) {
 
 func checkResponse(response *http.Response) error {
 	if response.StatusCode == 404 {
-		return fmt.Errorf("Invalid endpoint or API call")
+		return errors.New("invalid endpoint or API call")
 	} else if response.StatusCode == 403 {
-		return fmt.Errorf("Invalid API key")
+		return errors.New("invalid API key")
 	} else if response.StatusCode != 200 {
 		data, err := responseToBArray(response)
 		if err != nil {
 			return err
 		}
 		body := strings.TrimSpace(string(data))
-		return fmt.Errorf("Unexpected HTTP status returned: %s\n%s", response.Status, body)
+		return fmt.Errorf("unexpected HTTP status returned: %s\n%s", response.Status, body)
 	}
 	return nil
 }

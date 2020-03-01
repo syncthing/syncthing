@@ -137,7 +137,7 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 
 	hr, _, _ := getLogicalDriveStringsHandle.Call(uintptr(unsafe.Pointer(&bufferSize)), uintptr(unsafe.Pointer(&buffer)))
 	if hr == 0 {
-		return nil, fmt.Errorf("Syscall failed")
+		return nil, errors.New("syscall failed")
 	}
 
 	var drives []string

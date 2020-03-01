@@ -19,7 +19,7 @@ import (
 
 func GetInvitationFromRelay(ctx context.Context, uri *url.URL, id syncthingprotocol.DeviceID, certs []tls.Certificate, timeout time.Duration) (protocol.SessionInvitation, error) {
 	if uri.Scheme != "relay" {
-		return protocol.SessionInvitation{}, fmt.Errorf("Unsupported relay scheme: %v", uri.Scheme)
+		return protocol.SessionInvitation{}, fmt.Errorf("unsupported relay scheme: %v", uri.Scheme)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -53,7 +53,7 @@ func GetInvitationFromRelay(ctx context.Context, uri *url.URL, id syncthingproto
 
 	switch msg := message.(type) {
 	case protocol.Response:
-		return protocol.SessionInvitation{}, fmt.Errorf("Incorrect response code %d: %s", msg.Code, msg.Message)
+		return protocol.SessionInvitation{}, fmt.Errorf("incorrect response code %d: %s", msg.Code, msg.Message)
 	case protocol.SessionInvitation:
 		l.Debugln("Received invitation", msg, "via", conn.LocalAddr())
 		ip := net.IP(msg.Address)
@@ -96,7 +96,7 @@ func JoinSession(ctx context.Context, invitation protocol.SessionInvitation) (ne
 	switch msg := message.(type) {
 	case protocol.Response:
 		if msg.Code != 0 {
-			return nil, fmt.Errorf("Incorrect response code %d: %s", msg.Code, msg.Message)
+			return nil, fmt.Errorf("incorrect response code %d: %s", msg.Code, msg.Message)
 		}
 		return conn, nil
 	default:

@@ -266,10 +266,10 @@ type report struct {
 
 func (r *report) Validate() error {
 	if r.UniqueID == "" || r.Version == "" || r.Platform == "" {
-		return fmt.Errorf("missing required field")
+		return errors.New("missing required field")
 	}
 	if len(r.Date) != 8 {
-		return fmt.Errorf("date not initialized")
+		return errors.New("date not initialized")
 	}
 
 	// Some fields may not be null.

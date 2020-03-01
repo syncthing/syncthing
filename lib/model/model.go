@@ -345,7 +345,7 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 		var err error
 		ver, err = versioner.New(ffs, cfg.Versioning)
 		if err != nil {
-			panic(fmt.Errorf("creating versioner: %v", err))
+			panic(fmt.Errorf("creating versioner: %w", err))
 		}
 		if service, ok := ver.(suture.Service); ok {
 			// The versioner implements the suture.Service interface, so
@@ -1688,7 +1688,7 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	if !cfgOk {
 		cfg, cfgOk = m.cfg.Folders()[folder]
 		if !cfgOk {
-			return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
+			return nil, nil, fmt.Errorf("folder %s does not exist", folder)
 		}
 	}
 
