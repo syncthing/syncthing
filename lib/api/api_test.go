@@ -543,7 +543,7 @@ func startHTTP(cfg *mockedConfig) (string, *suture.Supervisor, error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		supervisor.Stop()
-		return "", nil, fmt.Errorf("Weird address from API service: %v", err)
+		return "", nil, fmt.Errorf("weird address from API service: %w", err)
 	}
 
 	host, _, _ := net.SplitHostPort(cfg.gui.RawAddress)

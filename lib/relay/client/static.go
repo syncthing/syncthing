@@ -73,9 +73,9 @@ func (c *staticClient) serve(ctx context.Context) error {
 	c.mut.Unlock()
 
 	messages := make(chan interface{})
-	errors := make(chan error, 1)
+	errorsc := make(chan error, 1)
 
-	go messageReader(ctx, c.conn, messages, errors)
+	go messageReader(ctx, c.conn, messages, errorsc)
 
 	timeout := time.NewTimer(c.messageTimeout)
 
@@ -102,7 +102,7 @@ func (c *staticClient) serve(ctx context.Context) error {
 
 			case protocol.RelayFull:
 				l.Infof("Disconnected from relay %s due to it becoming full.", c.uri)
-				return fmt.Errorf("relay full")
+				return errors.New("relay full")
 
 			default:
 				l.Infoln("Relay: protocol error: unexpected message %v", msg)
@@ -113,13 +113,13 @@ func (c *staticClient) serve(ctx context.Context) error {
 			l.Debugln(c, "stopping")
 			return nil
 
-		case err := <-errors:
+		case err := <-errorsc:
 			l.Infof("Disconnecting from relay %s due to error: %s", c.uri, err)
 			return err
 
 		case <-timeout.C:
 			l.Debugln(c, "timed out")
-			return fmt.Errorf("timed out")
+			return errors.New("timed out")
 		}
 	}
 }
@@ -205,7 +205,7 @@ func (c *staticClient) join() error {
 		}
 
 	case protocol.RelayFull:
-		return fmt.Errorf("relay full")
+		return errors.New("relay full")
 
 	default:
 		return fmt.Errorf("protocol error: expecting response got %v", msg)
@@ -221,7 +221,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 
 	cs := conn.ConnectionState()
 	if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != protocol.ProtocolName {
-		return fmt.Errorf("protocol negotiation error")
+		return errors.New("protocol negotiation error")
 	}
 
 	q := uri.Query()
