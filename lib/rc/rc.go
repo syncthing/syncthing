@@ -612,7 +612,6 @@ func (p *Process) Connections() (map[string]ConnectionStats, error) {
 
 type SystemStatus struct {
 	Alloc         int64
-	CPUPercent    float64
 	Goroutines    int
 	MyID          protocol.DeviceID
 	PathSeparator string

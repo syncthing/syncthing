@@ -605,14 +605,6 @@
                     </td>
                   </tr>
                   <tr>
-                    <th><span class="fas fa-fw fa-microchip"></span>&nbsp;<span translate>RAM Utilization</span></th>
-                    <td class="text-right">{{system.sys | binary}}B</td>
-                  </tr>
-                  <tr>
-                    <th><span class="fas fa-fw fa-tachometer-alt"></span>&nbsp;<span translate>CPU Utilization</span></th>
-                    <td class="text-right">{{system.cpuPercent | alwaysNumber | percent}}</td>
-                  </tr>
-                  <tr>
                     <th><span class="fas fa-fw fa-sitemap"></span>&nbsp;<span translate>Listeners</span></th>
                     <td class="text-right">
                       <span ng-if="listenersFailed.length == 0" class="data text-success">
