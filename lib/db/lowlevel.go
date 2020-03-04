@@ -604,32 +604,30 @@ func (db *Lowlevel) gcBlocks() error {
 	return db.Compact()
 }
 
-// CheckSequences makes sure the sequence numbers in the sequence keys match
+// repairSequence makes sure the sequence numbers in the sequence keys match
 // those in the corresponding file entries. It returns the amount of fixed entries.
-func (db *Lowlevel) CheckSequences() error {
-	l.Infoln("Checking sequence entries in database...")
-
+func (db *Lowlevel) repairSequence(folders []string) (int, error) {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer t.close()
 
 	var dk, sk []byte
 	fixed := 0
 
-	for _, folderStr := range db.ListFolders() {
+	for _, folderStr := range folders {
 		var meta *metadataTracker
 		folder := []byte(folderStr)
 
 		sk, err := t.keyer.GenerateSequenceKey(sk, folder, 0)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		dbi, err := t.NewPrefixIterator(sk.WithoutSequence())
 		if err != nil {
-			return err
+			return 0, err
 		}
 		defer dbi.Release()
 
@@ -639,12 +637,12 @@ func (db *Lowlevel) CheckSequences() error {
 			// sequence in the file.
 			fi, ok, err := t.getFileTrunc(dk, true)
 			if err != nil {
-				return err
+				return 0, err
 			}
 			// Shouldn't ever happen.
 			if !ok {
 				if err := t.Delete(sk); err != nil {
-					return err
+					return 0, err
 				}
 				continue
 			}
@@ -658,35 +656,29 @@ func (db *Lowlevel) CheckSequences() error {
 				meta = loadMetadataTracker(db, folderStr)
 			}
 			if err := t.Delete(sk); err != nil {
-				return err
+				return 0, err
 			}
 			f := fi.(FileInfoTruncated).copyToFileInfo()
 			f.Sequence = meta.nextLocalSeq()
 			if sk, err = t.keyer.GenerateSequenceKey(sk, folder, f.Sequence); err != nil {
-				return err
+				return 0, err
 			}
 			if err := t.Put(sk, dk); err != nil {
-				return err
+				return 0, err
 			}
 			if err := t.putFile(dk, f); err != nil {
-				return err
+				return 0, err
 			}
 		}
 
 		if meta != nil {
 			if err := meta.toDB(t, folder); err != nil {
-				return err
+				return 0, err
 			}
 		}
 	}
 
-	if fixed == 0 {
-		l.Infoln("No sequence entries found that needed fixing")
-	} else {
-		l.Infof("Fixed %v sequence entries in the database", fixed)
-	}
-
-	return nil
+	return fixed, nil
 }
 
 func unmarshalVersionList(data []byte) (VersionList, bool) {

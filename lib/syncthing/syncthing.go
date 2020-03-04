@@ -69,7 +69,6 @@ type Options struct {
 	ProfilerURL      string
 	ResetDeltaIdxs   bool
 	Verbose          bool
-	CheckSequences   bool
 }
 
 type App struct {
@@ -192,14 +191,6 @@ func (a *App) startup() error {
 	if a.opts.ResetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
 		db.DropDeltaIndexIDs(a.ll)
-	}
-
-	if a.opts.CheckSequences {
-		err := a.ll.CheckSequences()
-		if err != nil {
-			l.Warnln("Checking sequence entries in the database:", err)
-			return err
-		}
 	}
 
 	protectedFiles := []string{

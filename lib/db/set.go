@@ -528,6 +528,10 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 	return s.meta.devices()
 }
 
+func (s *FileSet) RepairSequence() (int, error) {
+	return s.db.repairSequence([]string{s.folder})
+}
+
 // DropFolder clears out all information related to the given folder from the
 // database.
 func DropFolder(db *Lowlevel, folder string) {

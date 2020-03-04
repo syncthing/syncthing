@@ -1989,9 +1989,22 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 			if fi.SequenceNo() < s.prevSequence+1 {
 				panic(fmt.Sprintln("sequence lower than requested, got:", fi.SequenceNo(), ", asked to start at:", s.prevSequence+1))
 			}
-			if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
-				panic(fmt.Sprintln("non-increasing sequence, current:", fi.SequenceNo(), "<= previous:", f.Sequence))
-			}
+		}
+
+		if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
+			// TODO: Create a zip of the db before repairing for debug
+			l.Warnln("Non-increasing sequence detected: Checking and repairing the db...")
+			// Abort this round of index sending - the next one will pick
+			// up from the last successful one with the repeaired db.
+			defer func() {
+				if fixed, dbErr := s.fset.RepairSequence(); dbErr != nil {
+					l.Warnln("Failed repairing sequence entries:", dbErr)
+					panic("Failed repairing sequence entries")
+				} else {
+					l.Infoln("Repaired %v sequence entries in database", fixed)
+				}
+			}()
+			return false
 		}
 
 		f = fi.(protocol.FileInfo)
