@@ -452,7 +452,16 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 	metas := make(map[string]*metadataTracker)
 	for it.Next() {
 		intf, err := t.unmarshalTrunc(it.Value(), false)
-		if err != nil {
+		if backend.IsNotFound(err) {
+			// Unmarshal error due to missing parts (block list), probably
+			// due to a bad migration in a previous RC. Drop this key, as
+			// getFile would anyway return this as a "not found" in the
+			// normal flow of things.
+			if err := t.Delete(it.Key()); err != nil {
+				return err
+			}
+			continue
+		} else if err != nil {
 			return err
 		}
 		fi := intf.(protocol.FileInfo)
