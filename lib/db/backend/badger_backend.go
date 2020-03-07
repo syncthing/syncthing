@@ -8,6 +8,7 @@ package backend
 
 import (
 	"bytes"
+	"errors"
 	"sync"
 
 	badger "github.com/dgraph-io/badger/v2"
@@ -26,8 +27,8 @@ func OpenBadger(path string) (Backend, error) {
 		return nil, err
 	}
 	return &badgerBackend{
-		bdb:    bdb,
-		closed: make(chan struct{}),
+		bdb:     bdb,
+		closeWG: &closeWaitGroup{},
 	}, nil
 }
 
@@ -39,26 +40,54 @@ func OpenBadgerMemory() Backend {
 		panic(err)
 	}
 	return &badgerBackend{
-		bdb:    bdb,
-		closed: make(chan struct{}),
+		bdb:     bdb,
+		closeWG: &closeWaitGroup{},
 	}
 }
 
 // badgerBackend implements Backend on top of a badger
 type badgerBackend struct {
 	bdb     *badger.DB
-	closeWG sync.WaitGroup
-	closed  chan struct{}
+	closeWG *closeWaitGroup
+
+	closedMut sync.RWMutex
+	closed    bool
 }
 
 func (b *badgerBackend) NewReadTransaction() (ReadTransaction, error) {
+	b.closedMut.RLock()
+	defer b.closedMut.RUnlock()
+	if b.closed {
+		return nil, errClosed{}
+	}
+
+	rel, err := newReleaser(b.closeWG)
+	if err != nil {
+		return nil, err
+	}
 	return badgerSnapshot{
 		txn: b.bdb.NewTransaction(false),
-		rel: newReleaser(&b.closeWG),
+		rel: rel,
 	}, nil
 }
 
 func (b *badgerBackend) NewWriteTransaction() (WriteTransaction, error) {
+	b.closedMut.RLock()
+	defer b.closedMut.RUnlock()
+	if b.closed {
+		return nil, errClosed{}
+	}
+
+	rel1, err := newReleaser(b.closeWG)
+	if err != nil {
+		return nil, err
+	}
+	rel2, err := newReleaser(b.closeWG)
+	if err != nil {
+		rel1.Release()
+		return nil, err
+	}
+
 	// We use two transactions here to preserve the property that our
 	// leveldb wrapper has, that writes in a transaction are completely
 	// invisible until it's committed, even inside that same transaction.
@@ -67,22 +96,34 @@ func (b *badgerBackend) NewWriteTransaction() (WriteTransaction, error) {
 	return &badgerTransaction{
 		badgerSnapshot: badgerSnapshot{
 			txn: rtxn,
-			rel: newReleaser(&b.closeWG),
+			rel: rel1,
 		},
 		txn: wtxn,
 		bdb: b.bdb,
-		rel: newReleaser(&b.closeWG),
+		rel: rel2,
 	}, nil
 }
 
 func (b *badgerBackend) Close() error {
-	b.closeWG.Wait()
+	b.closedMut.Lock()
+	defer b.closedMut.Unlock()
+	if b.closed {
+		return errClosed{}
+	}
+
+	b.closeWG.CloseWait()
 	err := b.bdb.Close()
-	close(b.closed)
+	b.closed = true
 	return wrapBadgerErr(err)
 }
 
 func (b *badgerBackend) Get(key []byte) ([]byte, error) {
+	b.closedMut.RLock()
+	defer b.closedMut.RUnlock()
+	if b.closed {
+		return nil, errClosed{}
+	}
+
 	txn := b.bdb.NewTransaction(false)
 	defer txn.Discard()
 	item, err := txn.Get(key)
@@ -97,10 +138,10 @@ func (b *badgerBackend) Get(key []byte) ([]byte, error) {
 }
 
 func (b *badgerBackend) NewPrefixIterator(prefix []byte) (Iterator, error) {
-	select {
-	case <-b.closed:
+	b.closedMut.RLock()
+	defer b.closedMut.RUnlock()
+	if b.closed {
 		return nil, errClosed{}
-	default:
 	}
 
 	txn := b.bdb.NewTransaction(false)
@@ -112,10 +153,10 @@ func (b *badgerBackend) NewPrefixIterator(prefix []byte) (Iterator, error) {
 }
 
 func (b *badgerBackend) NewRangeIterator(first, last []byte) (Iterator, error) {
-	select {
-	case <-b.closed:
+	b.closedMut.RLock()
+	defer b.closedMut.RUnlock()
+	if b.closed {
 		return nil, errClosed{}
-	default:
 	}
 
 	txn := b.bdb.NewTransaction(false)
@@ -127,10 +168,10 @@ func (b *badgerBackend) NewRangeIterator(first, last []byte) (Iterator, error) {
 }
 
 func (b *badgerBackend) Put(key, val []byte) error {
-	select {
-	case <-b.closed:
+	b.closedMut.RLock()
+	defer b.closedMut.RUnlock()
+	if b.closed {
 		return errClosed{}
-	default:
 	}
 
 	txn := b.bdb.NewTransaction(true)
@@ -142,10 +183,10 @@ func (b *badgerBackend) Put(key, val []byte) error {
 }
 
 func (b *badgerBackend) Delete(key []byte) error {
-	select {
-	case <-b.closed:
+	b.closedMut.RLock()
+	defer b.closedMut.RUnlock()
+	if b.closed {
 		return errClosed{}
-	default:
 	}
 
 	txn := b.bdb.NewTransaction(true)
@@ -157,17 +198,24 @@ func (b *badgerBackend) Delete(key []byte) error {
 }
 
 func (b *badgerBackend) Compact() error {
-	select {
-	case <-b.closed:
+	b.closedMut.RLock()
+	defer b.closedMut.RUnlock()
+	if b.closed {
 		return errClosed{}
-	default:
 	}
 
 	// XXX: check if this is appropriate or if we also need Flatten and
-	// whatnot. Also it apparently returns an error if the GC didn't result
-	// in anything being freed...
-	_ = b.bdb.RunValueLogGC(0.5)
-	return nil
+	// whatnot.
+	err := b.bdb.RunValueLogGC(0.5)
+	if errors.Is(err, badger.ErrNoRewrite) {
+		// GC did nothing, because nothing needed to be done
+		return nil
+	}
+	if errors.Is(err, badger.ErrGCInMemoryMode) {
+		// GC in in-memory mode, which is fine.
+		return nil
+	}
+	return err
 }
 
 // badgerSnapshot implements backend.ReadTransaction
@@ -254,9 +302,14 @@ func (t *badgerTransaction) Commit() error {
 	return wrapBadgerErr(t.txn.Commit())
 }
 
-func (t *badgerTransaction) Checkpoint() error {
+func (t *badgerTransaction) Checkpoint(preFlush ...func() error) error {
 	if t.size < checkpointFlushMinSize {
 		return nil
+	}
+	for _, hook := range preFlush {
+		if err := hook(); err != nil {
+			return err
+		}
 	}
 	err := t.txn.Commit()
 	if err == nil {
