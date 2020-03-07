@@ -127,16 +127,38 @@ func (f FileInfoTruncated) FilePermissions() uint32 {
 func (f FileInfoTruncated) FileModifiedBy() protocol.ShortID {
 	return f.ModifiedBy
 }
+
 func (f FileInfoTruncated) ConvertToIgnoredFileInfo(by protocol.ShortID) protocol.FileInfo {
+	file := f.copyToFileInfo()
+	file.SetIgnored(by)
+	return file
+}
+
+func (f FileInfoTruncated) ConvertToDeletedFileInfo(by protocol.ShortID) protocol.FileInfo {
+	file := f.copyToFileInfo()
+	file.SetDeleted(by)
+	return file
+}
+
+// copyToFileInfo just copies all members of FileInfoTruncated to protocol.FileInfo
+func (f FileInfoTruncated) copyToFileInfo() protocol.FileInfo {
 	return protocol.FileInfo{
-		Name:         f.Name,
-		Type:         f.Type,
-		ModifiedS:    f.ModifiedS,
-		ModifiedNs:   f.ModifiedNs,
-		ModifiedBy:   by,
-		Version:      f.Version,
-		RawBlockSize: f.RawBlockSize,
-		LocalFlags:   protocol.FlagLocalIgnored,
+		Name:          f.Name,
+		Size:          f.Size,
+		ModifiedS:     f.ModifiedS,
+		ModifiedBy:    f.ModifiedBy,
+		Version:       f.Version,
+		Sequence:      f.Sequence,
+		SymlinkTarget: f.SymlinkTarget,
+		BlocksHash:    f.BlocksHash,
+		Type:          f.Type,
+		Permissions:   f.Permissions,
+		ModifiedNs:    f.ModifiedNs,
+		RawBlockSize:  f.RawBlockSize,
+		LocalFlags:    f.LocalFlags,
+		Deleted:       f.Deleted,
+		RawInvalid:    f.RawInvalid,
+		NoPermissions: f.NoPermissions,
 	}
 }
 

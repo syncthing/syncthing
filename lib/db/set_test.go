@@ -129,6 +129,7 @@ func (l fileList) String() string {
 
 func TestGlobalSet(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -346,6 +347,7 @@ func TestGlobalSet(t *testing.T) {
 
 func TestNeedWithInvalid(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -383,6 +385,7 @@ func TestNeedWithInvalid(t *testing.T) {
 
 func TestUpdateToInvalid(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	folder := "test"
 	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -439,6 +442,7 @@ func TestUpdateToInvalid(t *testing.T) {
 
 func TestInvalidAvailability(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -480,6 +484,7 @@ func TestInvalidAvailability(t *testing.T) {
 
 func TestGlobalReset(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -518,6 +523,7 @@ func TestGlobalReset(t *testing.T) {
 
 func TestNeed(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -556,6 +562,7 @@ func TestNeed(t *testing.T) {
 
 func TestSequence(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -586,6 +593,7 @@ func TestSequence(t *testing.T) {
 
 func TestListDropFolder(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	s0 := db.NewFileSet("test0", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	local1 := []protocol.FileInfo{
@@ -636,6 +644,7 @@ func TestListDropFolder(t *testing.T) {
 
 func TestGlobalNeedWithInvalid(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	s := db.NewFileSet("test1", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -677,6 +686,7 @@ func TestGlobalNeedWithInvalid(t *testing.T) {
 
 func TestLongPath(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -736,6 +746,7 @@ func BenchmarkUpdateOneFile(b *testing.B) {
 
 func TestIndexID(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -831,6 +842,7 @@ func TestDropFiles(t *testing.T) {
 
 func TestIssue4701(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -872,6 +884,7 @@ func TestIssue4701(t *testing.T) {
 
 func TestWithHaveSequence(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	folder := "test"
 	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -909,6 +922,7 @@ func TestStressWithHaveSequence(t *testing.T) {
 	}
 
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	folder := "test"
 	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -953,6 +967,7 @@ loop:
 
 func TestIssue4925(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	folder := "test"
 	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -979,6 +994,7 @@ func TestIssue4925(t *testing.T) {
 
 func TestMoveGlobalBack(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	folder := "test"
 	file := "foo"
@@ -1043,6 +1059,7 @@ func TestMoveGlobalBack(t *testing.T) {
 // https://github.com/syncthing/syncthing/issues/5007
 func TestIssue5007(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	folder := "test"
 	file := "foo"
@@ -1070,6 +1087,7 @@ func TestIssue5007(t *testing.T) {
 // when the global file is deleted.
 func TestNeedDeleted(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	folder := "test"
 	file := "foo"
@@ -1104,6 +1122,7 @@ func TestNeedDeleted(t *testing.T) {
 
 func TestReceiveOnlyAccounting(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	folder := "test"
 	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -1208,6 +1227,7 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 
 func TestNeedAfterUnignore(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	folder := "test"
 	file := "foo"
@@ -1240,6 +1260,7 @@ func TestRemoteInvalidNotAccounted(t *testing.T) {
 	// Remote files with the invalid bit should not count.
 
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	files := []protocol.FileInfo{
@@ -1259,6 +1280,7 @@ func TestRemoteInvalidNotAccounted(t *testing.T) {
 
 func TestNeedWithNewerInvalid(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	s := db.NewFileSet("default", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -1297,6 +1319,7 @@ func TestNeedWithNewerInvalid(t *testing.T) {
 
 func TestNeedAfterDeviceRemove(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	file := "foo"
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -1324,6 +1347,7 @@ func TestCaseSensitive(t *testing.T) {
 	// Normal case sensitive lookup should work
 
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local := []protocol.FileInfo{
@@ -1361,6 +1385,7 @@ func TestSequenceIndex(t *testing.T) {
 	// Set up a db and a few files that we will manipulate.
 
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local := []protocol.FileInfo{
@@ -1454,6 +1479,7 @@ func TestSequenceIndex(t *testing.T) {
 
 func TestIgnoreAfterReceiveOnly(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
 
 	file := "foo"
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)

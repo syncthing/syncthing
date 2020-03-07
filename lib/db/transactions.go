@@ -59,6 +59,9 @@ func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, boo
 		return nil, false, err
 	}
 	f, err := t.unmarshalTrunc(bs, trunc)
+	if backend.IsNotFound(err) {
+		return nil, false, nil
+	}
 	if err != nil {
 		return nil, false, err
 	}
@@ -75,30 +78,34 @@ func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (FileIntf, er
 		return tf, nil
 	}
 
-	var tf protocol.FileInfo
-	if err := tf.Unmarshal(bs); err != nil {
+	var fi protocol.FileInfo
+	if err := fi.Unmarshal(bs); err != nil {
 		return nil, err
 	}
-	if err := t.fillBlockList(&tf); err != nil {
+	if err := t.fillFileInfo(&fi); err != nil {
 		return nil, err
 	}
-	return tf, nil
+	return fi, nil
 }
 
-func (t readOnlyTransaction) fillBlockList(fi *protocol.FileInfo) error {
-	if fi.BlocksHash == nil {
-		return nil
+// fillFileInfo follows the (possible) indirection of blocks and fills it out.
+func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
+	var key []byte
+
+	if len(fi.Blocks) == 0 && len(fi.BlocksHash) != 0 {
+		// The blocks list is indirected and we need to load it.
+		key = t.keyer.GenerateBlockListKey(key, fi.BlocksHash)
+		bs, err := t.Get(key)
+		if err != nil {
+			return err
+		}
+		var bl BlockList
+		if err := bl.Unmarshal(bs); err != nil {
+			return err
+		}
+		fi.Blocks = bl.Blocks
 	}
-	blocksKey := t.keyer.GenerateBlockListKey(nil, fi.BlocksHash)
-	bs, err := t.Get(blocksKey)
-	if err != nil {
-		return err
-	}
-	var bl BlockList
-	if err := bl.Unmarshal(bs); err != nil {
-		return err
-	}
-	fi.Blocks = bl.Blocks
+
 	return nil
 }
 
@@ -440,7 +447,7 @@ func (db *Lowlevel) newReadWriteTransaction() (readWriteTransaction, error) {
 	}, nil
 }
 
-func (t readWriteTransaction) commit() error {
+func (t readWriteTransaction) Commit() error {
 	t.readOnlyTransaction.close()
 	return t.WriteTransaction.Commit()
 }
@@ -450,26 +457,33 @@ func (t readWriteTransaction) close() {
 	t.WriteTransaction.Release()
 }
 
-func (t readWriteTransaction) putFile(key []byte, fi protocol.FileInfo) error {
-	if fi.Blocks != nil {
-		if fi.BlocksHash == nil {
-			fi.BlocksHash = protocol.BlocksHash(fi.Blocks)
-		}
-		blocksKey := t.keyer.GenerateBlockListKey(nil, fi.BlocksHash)
-		if _, err := t.Get(blocksKey); backend.IsNotFound(err) {
+func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
+	var bkey []byte
+
+	// Always set the blocks hash when there are blocks.
+	if len(fi.Blocks) > 0 {
+		fi.BlocksHash = protocol.BlocksHash(fi.Blocks)
+	} else {
+		fi.BlocksHash = nil
+	}
+
+	// Indirect the blocks if the block list is large enough.
+	if len(fi.Blocks) > blocksIndirectionCutoff {
+		bkey = t.keyer.GenerateBlockListKey(bkey, fi.BlocksHash)
+		if _, err := t.Get(bkey); backend.IsNotFound(err) {
 			// Marshal the block list and save it
 			blocksBs := mustMarshal(&BlockList{Blocks: fi.Blocks})
-			if err := t.Put(blocksKey, blocksBs); err != nil {
+			if err := t.Put(bkey, blocksBs); err != nil {
 				return err
 			}
 		} else if err != nil {
 			return err
 		}
+		fi.Blocks = nil
 	}
 
-	fi.Blocks = nil
 	fiBs := mustMarshal(&fi)
-	return t.Put(key, fiBs)
+	return t.Put(fkey, fiBs)
 }
 
 // updateGlobal adds this device+version to the version list for the given
@@ -720,15 +734,12 @@ func (t *readWriteTransaction) withAllFolderTruncated(folder []byte, fn func(dev
 			}
 			continue
 		}
-		var f FileInfoTruncated
-		// The iterator function may keep a reference to the unmarshalled
-		// struct, which in turn references the buffer it was unmarshalled
-		// from. dbi.Value() just returns an internal slice that it reuses, so
-		// we need to copy it.
-		err := f.Unmarshal(append([]byte{}, dbi.Value()...))
+
+		intf, err := t.unmarshalTrunc(dbi.Value(), true)
 		if err != nil {
 			return err
 		}
+		f := intf.(FileInfoTruncated)
 
 		switch f.Name {
 		case "", ".", "..", "/": // A few obviously invalid filenames
@@ -752,10 +763,7 @@ func (t *readWriteTransaction) withAllFolderTruncated(folder []byte, fn func(dev
 			return nil
 		}
 	}
-	if err := dbi.Error(); err != nil {
-		return err
-	}
-	return t.commit()
+	return dbi.Error()
 }
 
 type marshaller interface {

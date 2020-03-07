@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Jan 24, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Mar 02, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -42,7 +42,7 @@ generated in the GUI, or set in the \fBconfiguration/gui/apikey\fP element in
 the configuration file. To use an API key, set the request header
 \fBX\-API\-Key\fP to the API key value. For example, \fBcurl \-X POST \-H
 "X\-API\-Key: abc123" http://localhost:8384/rest/...\fP can be used to invoke
-with \fBcurl\fP\&.
+with \fBcurl\fP (add \fB\-k\fP flag when using HTTPS with a Syncthing generated or self signed certificate).
 .SH SYSTEM ENDPOINTS
 .SS GET /rest/system/browse
 .sp

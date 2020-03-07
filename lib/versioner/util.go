@@ -7,7 +7,6 @@
 package versioner
 
 import (
-	"fmt"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -20,9 +19,11 @@ import (
 	"github.com/syncthing/syncthing/lib/util"
 )
 
-var errDirectory = fmt.Errorf("cannot restore on top of a directory")
-var errNotFound = fmt.Errorf("version not found")
-var errFileAlreadyExists = fmt.Errorf("file already exists")
+var (
+	errDirectory         = errors.New("cannot restore on top of a directory")
+	errNotFound          = errors.New("version not found")
+	errFileAlreadyExists = errors.New("file already exists")
+)
 
 // TagFilename inserts ~tag just before the extension of the filename.
 func TagFilename(name, tag string) string {

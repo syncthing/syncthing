@@ -7,9 +7,12 @@
 package db
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -23,9 +26,15 @@ import (
 //   6: v0.14.50
 //   7: v0.14.53
 //   8: v1.4.0
+//   9: v1.4.0
 const (
-	dbVersion             = 8
+	dbVersion             = 9
 	dbMinSyncthingVersion = "v1.4.0"
+)
+
+var (
+	errFolderIdxMissing = errors.New("folder db index missing")
+	errDeviceIdxMissing = errors.New("device db index missing")
 )
 
 type databaseDowngradeError struct {
@@ -49,6 +58,11 @@ type schemaUpdater struct {
 }
 
 func (db *schemaUpdater) updateSchema() error {
+	// Updating the schema can touch any and all parts of the database. Make
+	// sure we do not run GC concurrently with schema migrations.
+	db.gcMut.Lock()
+	defer db.gcMut.Unlock()
+
 	miscDB := NewMiscDataNamespace(db.Lowlevel)
 	prevVersion, _, err := miscDB.Int64("dbVersion")
 	if err != nil {
@@ -80,7 +94,7 @@ func (db *schemaUpdater) updateSchema() error {
 		{5, db.updateSchemaTo5},
 		{6, db.updateSchema5to6},
 		{7, db.updateSchema6to7},
-		{8, db.updateSchema7to8},
+		{9, db.updateSchemato9},
 	}
 
 	for _, m := range migrations {
@@ -204,7 +218,7 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 			return err
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 // updateSchema1to2 introduces a sequenceKey->deviceKey bucket for local items
@@ -240,7 +254,7 @@ func (db *schemaUpdater) updateSchema1to2(_ int) error {
 			return err
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 // updateSchema2to3 introduces a needKey->nil bucket for locally needed files.
@@ -288,7 +302,7 @@ func (db *schemaUpdater) updateSchema2to3(_ int) error {
 			return err
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 // updateSchemaTo5 resets the need bucket due to bugs existing in the v0.14.49
@@ -314,7 +328,7 @@ func (db *schemaUpdater) updateSchemaTo5(prevVersion int) error {
 			return err
 		}
 	}
-	if err := t.commit(); err != nil {
+	if err := t.Commit(); err != nil {
 		return err
 	}
 
@@ -361,7 +375,7 @@ func (db *schemaUpdater) updateSchema5to6(_ int) error {
 			return err
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 // updateSchema6to7 checks whether all currently locally needed files are really
@@ -418,11 +432,12 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 			return err
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
-func (db *schemaUpdater) updateSchema7to8(_ int) error {
+func (db *schemaUpdater) updateSchemato9(prev int) error {
 	// Loads and rewrites all files with blocks, to deduplicate block lists.
+	// Checks for missing or incorrect sequence entries and rewrites those.
 
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
@@ -430,14 +445,68 @@ func (db *schemaUpdater) updateSchema7to8(_ int) error {
 	}
 	defer t.close()
 
+	var sk []byte
 	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
 		return err
 	}
+	metas := make(map[string]*metadataTracker)
 	for it.Next() {
-		var fi protocol.FileInfo
-		if err := fi.Unmarshal(it.Value()); err != nil {
+		intf, err := t.unmarshalTrunc(it.Value(), false)
+		if backend.IsNotFound(err) {
+			// Unmarshal error due to missing parts (block list), probably
+			// due to a bad migration in a previous RC. Drop this key, as
+			// getFile would anyway return this as a "not found" in the
+			// normal flow of things.
+			if err := t.Delete(it.Key()); err != nil {
+				return err
+			}
+			continue
+		} else if err != nil {
 			return err
+		}
+		fi := intf.(protocol.FileInfo)
+		device, ok := t.keyer.DeviceFromDeviceFileKey(it.Key())
+		if !ok {
+			return errDeviceIdxMissing
+		}
+		if bytes.Equal(device, protocol.LocalDeviceID[:]) {
+			folder, ok := t.keyer.FolderFromDeviceFileKey(it.Key())
+			if !ok {
+				return errFolderIdxMissing
+			}
+			if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
+				return err
+			}
+			switch dk, err := t.Get(sk); {
+			case err != nil:
+				if !backend.IsNotFound(err) {
+					return err
+				}
+				fallthrough
+			case !bytes.Equal(it.Key(), dk):
+				folderStr := string(folder)
+				meta, ok := metas[folderStr]
+				if !ok {
+					meta = loadMetadataTracker(db.Lowlevel, folderStr)
+					metas[folderStr] = meta
+				}
+				fi.Sequence = meta.nextLocalSeq()
+				if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
+					return err
+				}
+				if err := t.Put(sk, it.Key()); err != nil {
+					return err
+				}
+				if err := t.putFile(it.Key(), fi); err != nil {
+					return err
+				}
+				continue
+			}
+		}
+		if prev == 8 {
+			// The transition to 8 already did the changes below.
+			continue
 		}
 		if fi.Blocks == nil {
 			continue
@@ -451,7 +520,13 @@ func (db *schemaUpdater) updateSchema7to8(_ int) error {
 		return err
 	}
 
-	db.recordTime(blockGCTimeKey)
+	for folder, meta := range metas {
+		if err := meta.toDB(t, []byte(folder)); err != nil {
+			return err
+		}
+	}
 
-	return t.commit()
+	db.recordTime(indirectGCTimeKey)
+
+	return t.Commit()
 }

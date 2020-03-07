@@ -81,7 +81,6 @@ type service struct {
 	fss                  model.FolderSummaryService
 	urService            *ur.Service
 	systemConfigMut      sync.Mutex // serializes posts to /rest/system/config
-	cpu                  Rater
 	contr                Controller
 	noUpgrade            bool
 	tlsDefaultCommonName string
@@ -93,10 +92,6 @@ type service struct {
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
-}
-
-type Rater interface {
-	Rate() float64
 }
 
 type Controller interface {
@@ -111,7 +106,7 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, contr Controller, noUpgrade bool) Service {
 	s := &service{
 		id:      id,
 		cfg:     cfg,
@@ -130,7 +125,6 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		systemConfigMut:      sync.NewMutex(),
 		guiErrors:            errors,
 		systemLog:            systemLog,
-		cpu:                  cpu,
 		contr:                contr,
 		noUpgrade:            noUpgrade,
 		tlsDefaultCommonName: tlsDefaultCommonName,
@@ -185,6 +179,15 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 	rawListener, err := net.Listen(guiCfg.Network(), guiCfg.Address())
 	if err != nil {
 		return nil, err
+	}
+
+	if guiCfg.Network() == "unix" && guiCfg.UnixSocketPermissions() != 0 {
+		// We should error if this fails under the assumption that these permissions are
+		// required for operation.
+		err = os.Chmod(guiCfg.Address(), guiCfg.UnixSocketPermissions())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	listener := &tlsutil.DowngradingListener{
@@ -942,9 +945,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 
 	res["connectionServiceStatus"] = s.connectionsService.ListenerStatus()
 	res["lastDialStatus"] = s.connectionsService.ConnectionStatus()
-	// cpuUsage.Rate() is in milliseconds per second, so dividing by ten
-	// gives us percent
-	res["cpuPercent"] = s.cpu.Rate() / 10 / float64(runtime.NumCPU())
+	res["cpuPercent"] = 0 // deprecated from API
 	res["pathSeparator"] = string(filepath.Separator)
 	res["urVersionMax"] = ur.Version
 	res["uptime"] = s.urService.UptimeS()
@@ -1057,7 +1058,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Report Data as a JSON
-	if usageReportingData, err := json.MarshalIndent(s.urService.ReportData(), "", "  "); err != nil {
+	if usageReportingData, err := json.MarshalIndent(s.urService.ReportData(context.TODO()), "", "  "); err != nil {
 		l.Warnln("Support bundle: failed to create versionPlatform.json:", err)
 	} else {
 		files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
@@ -1142,7 +1143,7 @@ func (s *service) getReport(w http.ResponseWriter, r *http.Request) {
 	if val, _ := strconv.Atoi(r.URL.Query().Get("version")); val > 0 {
 		version = val
 	}
-	sendJSON(w, s.urService.ReportDataPreview(version))
+	sendJSON(w, s.urService.ReportDataPreview(context.TODO(), version))
 }
 
 func (s *service) getRandomString(w http.ResponseWriter, r *http.Request) {

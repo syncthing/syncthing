@@ -7,6 +7,7 @@
 package api
 
 import (
+	"context"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/discover"
@@ -26,7 +27,7 @@ func (m *mockedCachingMux) Stop() {
 
 // from events.Finder
 
-func (m *mockedCachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, err error) {
+func (m *mockedCachingMux) Lookup(ctx context.Context, deviceID protocol.DeviceID) (direct []string, err error) {
 	return nil, nil
 }
 

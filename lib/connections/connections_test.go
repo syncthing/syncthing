@@ -7,6 +7,8 @@
 package connections
 
 import (
+	"context"
+	"errors"
 	"net/url"
 	"testing"
 
@@ -166,4 +168,40 @@ func TestGetDialer(t *testing.T) {
 			t.Errorf("getListenerFactory(%q) => %v, expected %v", tc.uri, err, errDisabled)
 		}
 	}
+}
+
+func TestConnectionStatus(t *testing.T) {
+	s := newConnectionStatusHandler()
+
+	addr := "testAddr"
+	testErr := errors.New("testErr")
+
+	if stats := s.ConnectionStatus(); len(stats) != 0 {
+		t.Fatal("newly created connectionStatusHandler isn't empty:", len(stats))
+	}
+
+	check := func(in, out error) {
+		t.Helper()
+		s.setConnectionStatus(addr, in)
+		switch stat, ok := s.ConnectionStatus()[addr]; {
+		case !ok:
+			t.Fatal("entry missing")
+		case out == nil:
+			if stat.Error != nil {
+				t.Fatal("expected nil error, got", stat.Error)
+			}
+		case *stat.Error != out.Error():
+			t.Fatalf("expected %v error, got %v", out.Error(), *stat.Error)
+		}
+	}
+
+	check(nil, nil)
+
+	check(context.Canceled, nil)
+
+	check(testErr, testErr)
+
+	check(context.Canceled, testErr)
+
+	check(nil, nil)
 }

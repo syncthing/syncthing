@@ -295,11 +295,11 @@ func (cfg *Configuration) clean() error {
 		}
 
 		if folder.Path == "" {
-			return fmt.Errorf("folder %q: %v", folder.ID, errFolderPathEmpty)
+			return fmt.Errorf("folder %q: %w", folder.ID, errFolderPathEmpty)
 		}
 
 		if _, ok := existingFolders[folder.ID]; ok {
-			return fmt.Errorf("folder %q: %v", folder.ID, errFolderIDDuplicate)
+			return fmt.Errorf("folder %q: %w", folder.ID, errFolderIDDuplicate)
 		}
 
 		existingFolders[folder.ID] = folder

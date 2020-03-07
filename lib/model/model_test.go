@@ -3215,6 +3215,9 @@ func TestParentOfUnignored(t *testing.T) {
 // restarts would leave more than one folder runner alive.
 func TestFolderRestartZombies(t *testing.T) {
 	wrapper := createTmpWrapper(defaultCfg.Copy())
+	opts := wrapper.Options()
+	opts.RawMaxFolderConcurrency = -1
+	wrapper.SetOptions(opts)
 	folderCfg, _ := wrapper.Folder("default")
 	folderCfg.FilesystemType = fs.FilesystemTypeFake
 	wrapper.SetFolder(folderCfg)
@@ -3453,5 +3456,78 @@ func TestDeviceWasSeen(t *testing.T) {
 	entry := stats[device1.String()]
 	if time.Since(entry.LastSeen) > time.Second {
 		t.Error("device should have been seen now")
+	}
+}
+
+func TestNewLimitedRequestResponse(t *testing.T) {
+	l0 := newByteSemaphore(0)
+	l1 := newByteSemaphore(1024)
+	l2 := (*byteSemaphore)(nil)
+
+	// Should take 500 bytes from any non-unlimited non-nil limiters.
+	res := newLimitedRequestResponse(500, l0, l1, l2)
+
+	if l1.available != 1024-500 {
+		t.Error("should have taken bytes from limited limiter")
+	}
+
+	// Closing the result should return the bytes.
+	res.Close()
+
+	// Try to take 1024 bytes to make sure the bytes were returned.
+	done := make(chan struct{})
+	go func() {
+		l1.take(1024)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Error("Bytes weren't returned in a timely fashion")
+	}
+}
+
+func TestSummaryPausedNoError(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	fcfg.Paused = true
+	wcfg.SetFolder(fcfg)
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	fss := NewFolderSummaryService(wcfg, m, myID, events.NoopLogger)
+	if _, err := fss.Summary(fcfg.ID); err != nil {
+		t.Error("Expected no error getting a summary for a paused folder:", err)
+	}
+}
+
+func TestFolderAPIErrors(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	fcfg.Paused = true
+	wcfg.SetFolder(fcfg)
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	methods := []func(folder string) error{
+		m.ScanFolder,
+		func(folder string) error {
+			return m.ScanFolderSubdirs(folder, nil)
+		},
+		func(folder string) error {
+			_, err := m.GetFolderVersions(folder)
+			return err
+		},
+		func(folder string) error {
+			_, err := m.RestoreFolderVersions(folder, nil)
+			return err
+		},
+	}
+
+	for i, method := range methods {
+		if err := method(fcfg.ID); err != ErrFolderPaused {
+			t.Errorf(`Expected "%v", got "%v" (method no %v)`, ErrFolderPaused, err, i)
+		}
+		if err := method("notexisting"); err != errFolderMissing {
+			t.Errorf(`Expected "%v", got "%v" (method no %v)`, errFolderMissing, err, i)
+		}
 	}
 }

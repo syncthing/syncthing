@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -494,7 +495,7 @@ func handleRelayTest(request request) {
 		if debug {
 			log.Println("Test for relay", request.relay, "failed")
 		}
-		request.result <- result{fmt.Errorf("connection test failed"), 0}
+		request.result <- result{errors.New("connection test failed"), 0}
 		return
 	}
 
