@@ -33,15 +33,12 @@ import (
 	"github.com/thejerf/suture"
 )
 
-// folderIOLimiter limits the number of concurrent I/O heavy operations,
-// such as scans and pulls. A limit of zero means no limit.
-var folderIOLimiter = newByteSemaphore(0)
-
 type folder struct {
 	suture.Service
 	stateTracker
 	config.FolderConfiguration
 	*stats.FolderStatisticsReference
+	ioLimiter *byteSemaphore
 
 	localFlags uint32
 
@@ -79,11 +76,12 @@ type puller interface {
 	pull() bool // true when successfull and should not be retried
 }
 
-func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger) folder {
+func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore) folder {
 	return folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
 		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
+		ioLimiter:                 ioLimiter,
 
 		model:   model,
 		shortID: model.shortID,
@@ -303,8 +301,10 @@ func (f *folder) pull() bool {
 	f.setState(FolderSyncWaiting)
 	defer f.setState(FolderIdle)
 
-	folderIOLimiter.take(1)
-	defer folderIOLimiter.give(1)
+	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
+		return true
+	}
+	defer f.ioLimiter.give(1)
 
 	return f.puller.pull()
 }
@@ -342,8 +342,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	f.setError(nil)
 	f.setState(FolderScanWaiting)
 
-	folderIOLimiter.take(1)
-	defer folderIOLimiter.give(1)
+	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
+		return err
+	}
+	defer f.ioLimiter.give(1)
 
 	for i := range subDirs {
 		sub := osutil.NativeFilename(subDirs[i])
@@ -534,22 +536,12 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 					}
 					return true
 				}
-				nf := protocol.FileInfo{
-					Name:       file.Name,
-					Type:       file.Type,
-					Size:       0,
-					ModifiedS:  file.ModifiedS,
-					ModifiedNs: file.ModifiedNs,
-					ModifiedBy: f.shortID,
-					Deleted:    true,
-					Version:    file.Version.Update(f.shortID),
-					LocalFlags: f.localFlags,
-				}
-				// We do not want to override the global version
-				// with the deleted file. Setting to an empty
-				// version makes sure the file gets in sync on
-				// the following pull.
+				nf := file.ConvertToDeletedFileInfo(f.shortID)
+				nf.LocalFlags = f.localFlags
 				if file.ShouldConflict() {
+					// We do not want to override the global version with
+					// the deleted file. Setting to an empty version makes
+					// sure the file gets in sync on the following pull.
 					nf.Version = protocol.Vector{}
 				}
 

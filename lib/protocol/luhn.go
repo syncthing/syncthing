@@ -27,7 +27,7 @@ func (a luhnAlphabet) generate(s string) (rune, error) {
 	for i := range s {
 		codepoint := strings.IndexByte(string(a), s[i])
 		if codepoint == -1 {
-			return 0, fmt.Errorf("Digit %q not valid in alphabet %q", s[i], a)
+			return 0, fmt.Errorf("digit %q not valid in alphabet %q", s[i], a)
 		}
 		addend := factor * codepoint
 		if factor == 2 {

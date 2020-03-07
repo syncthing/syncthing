@@ -54,4 +54,7 @@ require (
 	gopkg.in/ldap.v2 v2.5.1
 )
 
-go 1.12
+go 1.13
+
+// https://github.com/spaolacci/murmur3/pull/30
+replace github.com/spaolacci/murmur3 v1.1.0 => github.com/calmh/murmur3 v1.1.1-0.20200226160057-74e9af8f47ac

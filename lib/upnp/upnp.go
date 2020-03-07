@@ -160,12 +160,6 @@ USER-AGENT: syncthing/1.0
 	}
 	defer socket.Close() // Make sure our socket gets closed
 
-	err = socket.SetDeadline(time.Now().Add(timeout))
-	if err != nil {
-		l.Debugln("UPnP discovery: setting socket deadline:", err)
-		return
-	}
-
 	l.Debugln("Sending search request for device type", deviceType, "on", intf.Name)
 
 	_, err = socket.WriteTo(search, ssdp)
@@ -178,16 +172,33 @@ USER-AGENT: syncthing/1.0
 
 	l.Debugln("Listening for UPnP response for device type", deviceType, "on", intf.Name)
 
-	// Listen for responses until a timeout is reached
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Listen for responses until a timeout is reached or the context is
+	// cancelled
+	resp := make([]byte, 65536)
+loop:
 	for {
-		resp := make([]byte, 65536)
-		n, _, err := socket.ReadFrom(resp)
-		if err != nil {
-			if e, ok := err.(net.Error); !ok || !e.Timeout() {
-				l.Infoln("UPnP read:", err) //legitimate error, not a timeout.
-			}
+		if err := socket.SetDeadline(time.Now().Add(250 * time.Millisecond)); err != nil {
+			l.Infoln("UPnP socket:", err)
 			break
 		}
+
+		n, _, err := socket.ReadFrom(resp)
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				break loop
+			default:
+			}
+			if e, ok := err.(net.Error); ok && e.Timeout() {
+				continue // continue reading
+			}
+			l.Infoln("UPnP read:", err) //legitimate error, not a timeout.
+			break
+		}
+
 		igds, err := parseResponse(ctx, deviceType, resp[:n])
 		if err != nil {
 			switch err.(type) {
@@ -412,7 +423,7 @@ func replaceRawPath(u *url.URL, rp string) {
 	}
 }
 
-func soapRequest(url, service, function, message string) ([]byte, error) {
+func soapRequest(ctx context.Context, url, service, function, message string) ([]byte, error) {
 	tpl := `<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
@@ -426,6 +437,7 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 	if err != nil {
 		return resp, err
 	}
+	req.Cancel = ctx.Done()
 	req.Close = true
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")

@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -45,7 +46,13 @@ func (c *dynamicClient) serve(ctx context.Context) error {
 
 	l.Debugln(c, "looking up dynamic relays")
 
-	data, err := http.Get(uri.String())
+	req, err := http.NewRequest("GET", uri.String(), nil)
+	if err != nil {
+		l.Debugln(c, "failed to lookup dynamic relays", err)
+		return err
+	}
+	req.Cancel = ctx.Done()
+	data, err := http.DefaultClient.Do(req)
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
 		return err
@@ -94,7 +101,7 @@ func (c *dynamicClient) serve(ctx context.Context) error {
 		}
 	}
 	l.Debugln(c, "could not find a connectable relay")
-	return fmt.Errorf("could not find a connectable relay")
+	return errors.New("could not find a connectable relay")
 }
 
 func (c *dynamicClient) Stop() {

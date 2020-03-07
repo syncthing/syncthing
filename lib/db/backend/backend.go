@@ -49,10 +49,15 @@ type ReadTransaction interface {
 // purposes of saving memory when transactions are in-RAM. Note that
 // transactions may be checkpointed *anyway* even if this is not called, due to
 // resource constraints, but this gives you a chance to decide when.
+//
+// Functions can be passed to Checkpoint. These are run if and only if the
+// checkpoint will result in a flush, and will run before the flush. The
+// transaction can be accessed via a closure. If an error is returned from
+// these functions the flush will be aborted and the error bubbled.
 type WriteTransaction interface {
 	ReadTransaction
 	Writer
-	Checkpoint() error
+	Checkpoint(...func() error) error
 	Commit() error
 }
 
@@ -158,16 +163,18 @@ func IsNotFound(err error) bool {
 
 // releaser manages counting on top of a waitgroup
 type releaser struct {
-	wg   *sync.WaitGroup
+	wg   *closeWaitGroup
 	once *sync.Once
 }
 
-func newReleaser(wg *sync.WaitGroup) *releaser {
-	wg.Add(1)
+func newReleaser(wg *closeWaitGroup) (*releaser, error) {
+	if err := wg.Add(1); err != nil {
+		return nil, err
+	}
 	return &releaser{
 		wg:   wg,
 		once: new(sync.Once),
-	}
+	}, nil
 }
 
 func (r releaser) Release() {
@@ -176,4 +183,30 @@ func (r releaser) Release() {
 	r.once.Do(func() {
 		r.wg.Done()
 	})
+}
+
+// closeWaitGroup behaves just like a sync.WaitGroup, but does not require
+// a single routine to do the Add and Wait calls. If Add is called after
+// CloseWait, it will return an error, and both are safe to be used concurrently.
+type closeWaitGroup struct {
+	sync.WaitGroup
+	closed   bool
+	closeMut sync.RWMutex
+}
+
+func (cg *closeWaitGroup) Add(i int) error {
+	cg.closeMut.RLock()
+	defer cg.closeMut.RUnlock()
+	if cg.closed {
+		return errClosed{}
+	}
+	cg.WaitGroup.Add(i)
+	return nil
+}
+
+func (cg *closeWaitGroup) CloseWait() {
+	cg.closeMut.Lock()
+	cg.closed = true
+	cg.closeMut.Unlock()
+	cg.WaitGroup.Wait()
 }

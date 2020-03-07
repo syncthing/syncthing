@@ -57,8 +57,8 @@ type receiveOnlyFolder struct {
 	*sendReceiveFolder
 }
 
-func newReceiveOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger) service {
-	sr := newSendReceiveFolder(model, fset, ignores, cfg, ver, fs, evLogger).(*sendReceiveFolder)
+func newReceiveOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger, ioLimiter *byteSemaphore) service {
+	sr := newSendReceiveFolder(model, fset, ignores, cfg, ver, fs, evLogger, ioLimiter).(*sendReceiveFolder)
 	sr.localFlags = protocol.FlagLocalReceiveOnly // gets propagated to the scanner, and set on locally changed files
 	return &receiveOnlyFolder{sr}
 }
@@ -104,15 +104,8 @@ func (f *receiveOnlyFolder) Revert() {
 				return true // continue
 			}
 
-			fi = protocol.FileInfo{
-				Name:       fi.Name,
-				Type:       fi.Type,
-				ModifiedS:  fi.ModifiedS,
-				ModifiedNs: fi.ModifiedNs,
-				ModifiedBy: f.shortID,
-				Deleted:    true,
-				Version:    protocol.Vector{}, // if this file ever resurfaces anywhere we want our delete to be strictly older
-			}
+			fi.SetDeleted(f.shortID)
+			fi.Version = protocol.Vector{} // if this file ever resurfaces anywhere we want our delete to be strictly older
 		} else {
 			// Revert means to throw away our local changes. We reset the
 			// version to the empty vector, which is strictly older than any

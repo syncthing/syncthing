@@ -7,6 +7,7 @@
 package discover
 
 import (
+	"context"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -15,7 +16,7 @@ import (
 
 // A Finder provides lookup services of some kind.
 type Finder interface {
-	Lookup(deviceID protocol.DeviceID) (address []string, err error)
+	Lookup(ctx context.Context, deviceID protocol.DeviceID) (address []string, err error)
 	Error() error
 	String() string
 	Cache() map[protocol.DeviceID]CacheEntry

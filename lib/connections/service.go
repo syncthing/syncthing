@@ -110,6 +110,8 @@ type ConnectionStatusEntry struct {
 
 type service struct {
 	*suture.Supervisor
+	connectionStatusHandler
+
 	cfg                  config.Wrapper
 	myID                 protocol.DeviceID
 	model                Model
@@ -127,9 +129,6 @@ type service struct {
 	listeners          map[string]genericListener
 	listenerTokens     map[string]suture.ServiceToken
 	listenerSupervisor *suture.Supervisor
-
-	connectionStatusMut sync.RWMutex
-	connectionStatus    map[string]ConnectionStatusEntry // address -> latest error/status
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
@@ -140,6 +139,8 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 			},
 			PassThroughPanics: true,
 		}),
+		connectionStatusHandler: newConnectionStatusHandler(),
+
 		cfg:                  cfg,
 		myID:                 myID,
 		model:                mdl,
@@ -168,9 +169,6 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 			FailureBackoff:    600 * time.Second,
 			PassThroughPanics: true,
 		}),
-
-		connectionStatusMut: sync.NewRWMutex(),
-		connectionStatus:    make(map[string]ConnectionStatusEntry),
 	}
 	cfg.Subscribe(service)
 
@@ -360,6 +358,12 @@ func (s *service) connect(ctx context.Context) {
 		var seen []string
 
 		for _, deviceCfg := range cfg.Devices {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			deviceID := deviceCfg.DeviceID
 			if deviceID == s.myID {
 				continue
@@ -380,7 +384,7 @@ func (s *service) connect(ctx context.Context) {
 			for _, addr := range deviceCfg.Addresses {
 				if addr == "dynamic" {
 					if s.discoverer != nil {
-						if t, err := s.discoverer.Lookup(deviceID); err == nil {
+						if t, err := s.discoverer.Lookup(ctx, deviceID); err == nil {
 							addrs = append(addrs, t...)
 						}
 					}
@@ -696,7 +700,19 @@ func (s *service) ListenerStatus() map[string]ListenerStatusEntry {
 	return result
 }
 
-func (s *service) ConnectionStatus() map[string]ConnectionStatusEntry {
+type connectionStatusHandler struct {
+	connectionStatusMut sync.RWMutex
+	connectionStatus    map[string]ConnectionStatusEntry // address -> latest error/status
+}
+
+func newConnectionStatusHandler() connectionStatusHandler {
+	return connectionStatusHandler{
+		connectionStatusMut: sync.NewRWMutex(),
+		connectionStatus:    make(map[string]ConnectionStatusEntry),
+	}
+}
+
+func (s *connectionStatusHandler) ConnectionStatus() map[string]ConnectionStatusEntry {
 	result := make(map[string]ConnectionStatusEntry)
 	s.connectionStatusMut.RLock()
 	for k, v := range s.connectionStatus {
@@ -706,8 +722,8 @@ func (s *service) ConnectionStatus() map[string]ConnectionStatusEntry {
 	return result
 }
 
-func (s *service) setConnectionStatus(address string, err error) {
-	if errors.Cause(err) != context.Canceled {
+func (s *connectionStatusHandler) setConnectionStatus(address string, err error) {
+	if errors.Cause(err) == context.Canceled {
 		return
 	}
 
@@ -925,7 +941,7 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	if remoteID == s.myID {
 		l.Infof("Connected to myself (%s) at %s - should not happen", remoteID, c)
 		c.Close()
-		return fmt.Errorf("connected to self")
+		return errors.New("connected to self")
 	}
 
 	// We should see the expected device ID

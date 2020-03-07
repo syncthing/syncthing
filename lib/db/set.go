@@ -71,56 +71,105 @@ func init() {
 }
 
 func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
-	var s = FileSet{
+	return &FileSet{
 		folder:      folder,
 		fs:          fs,
 		db:          db,
-		meta:        newMetadataTracker(),
+		meta:        loadMetadataTracker(db, folder),
 		updateMutex: sync.NewMutex(),
 	}
-
-	if err := s.meta.fromDB(db, []byte(folder)); err != nil {
-		l.Infof("No stored folder metadata for %q: recalculating", folder)
-		if err := s.recalcCounts(); backend.IsClosed(err) {
-			return nil
-		} else if err != nil {
-			panic(err)
-		}
-	} else if age := time.Since(s.meta.Created()); age > databaseRecheckInterval {
-		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, age)
-		if err := s.recalcCounts(); backend.IsClosed(err) {
-			return nil
-		} else if err != nil {
-			panic(err)
-		}
-	}
-
-	return &s
 }
 
-func (s *FileSet) recalcCounts() error {
-	s.meta = newMetadataTracker()
-
-	if err := s.db.checkGlobals([]byte(s.folder), s.meta); err != nil {
-		return err
+func loadMetadataTracker(db *Lowlevel, folder string) *metadataTracker {
+	recalc := func() *metadataTracker {
+		meta, err := recalcMeta(db, folder)
+		if backend.IsClosed(err) {
+			return nil
+		} else if err != nil {
+			panic(err)
+		}
+		return meta
 	}
 
-	t, err := s.db.newReadWriteTransaction()
+	meta := newMetadataTracker()
+	if err := meta.fromDB(db, []byte(folder)); err != nil {
+		l.Infof("No stored folder metadata for %q; recalculating", folder)
+		return recalc()
+	}
+
+	curSeq := meta.Sequence(protocol.LocalDeviceID)
+	if metaOK := verifyLocalSequence(curSeq, db, folder); !metaOK {
+		l.Infof("Stored folder metadata for %q is out of date after crash; recalculating", folder)
+		return recalc()
+	}
+
+	if age := time.Since(meta.Created()); age > databaseRecheckInterval {
+		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, age)
+		return recalc()
+	}
+
+	return meta
+}
+
+func recalcMeta(db *Lowlevel, folder string) (*metadataTracker, error) {
+	meta := newMetadataTracker()
+	if err := db.checkGlobals([]byte(folder), meta); err != nil {
+		return nil, err
+	}
+
+	t, err := db.newReadWriteTransaction()
 	if err != nil {
-		return err
+		return nil, err
 	}
+	defer t.close()
+
 	var deviceID protocol.DeviceID
-	err = t.withAllFolderTruncated([]byte(s.folder), func(device []byte, f FileInfoTruncated) bool {
+	err = t.withAllFolderTruncated([]byte(folder), func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
-		s.meta.addFile(deviceID, f)
+		meta.addFile(deviceID, f)
 		return true
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	s.meta.SetCreated()
-	return s.meta.toDB(s.db, []byte(s.folder))
+	meta.SetCreated()
+	if err := meta.toDB(t, []byte(folder)); err != nil {
+		return nil, err
+	}
+	if err := t.Commit(); err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+// Verify the local sequence number from actual sequence entries. Returns
+// true if it was all good, or false if a fixup was necessary.
+func verifyLocalSequence(curSeq int64, db *Lowlevel, folder string) bool {
+	// Walk the sequence index from the current (supposedly) highest
+	// sequence number and raise the alarm if we get anything. This recovers
+	// from the occasion where we have written sequence entries to disk but
+	// not yet written new metadata to disk.
+	//
+	// Note that we can have the same thing happen for remote devices but
+	// there it's not a problem -- we'll simply advertise a lower sequence
+	// number than we've actually seen and receive some duplicate updates
+	// and then be in sync again.
+
+	t, err := db.newReadOnlyTransaction()
+	if err != nil {
+		panic(err)
+	}
+	ok := true
+	if err := t.withHaveSequence([]byte(folder), curSeq+1, func(fi FileIntf) bool {
+		ok = false // we got something, which we should not have
+		return false
+	}); err != nil && !backend.IsClosed(err) {
+		panic(err)
+	}
+	t.close()
+
+	return ok
 }
 
 func (s *FileSet) Drop(device protocol.DeviceID) {
@@ -150,7 +199,20 @@ func (s *FileSet) Drop(device protocol.DeviceID) {
 		s.meta.resetAll(device)
 	}
 
-	if err := s.meta.toDB(s.db, []byte(s.folder)); backend.IsClosed(err) {
+	t, err := s.db.newReadWriteTransaction()
+	if backend.IsClosed(err) {
+		return
+	} else if err != nil {
+		panic(err)
+	}
+	defer t.close()
+
+	if err := s.meta.toDB(t, []byte(s.folder)); backend.IsClosed(err) {
+		return
+	} else if err != nil {
+		panic(err)
+	}
+	if err := t.Commit(); backend.IsClosed(err) {
 		return
 	} else if err != nil {
 		panic(err)
@@ -167,12 +229,6 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
-
-	defer func() {
-		if err := s.meta.toDB(s.db, []byte(s.folder)); err != nil && !backend.IsClosed(err) {
-			panic(err)
-		}
-	}()
 
 	if device == protocol.LocalDeviceID {
 		// For the local device we have a bunch of metadata to track.

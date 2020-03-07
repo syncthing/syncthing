@@ -7,8 +7,6 @@
 package backend
 
 import (
-	"sync"
-
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -24,7 +22,14 @@ const (
 // leveldbBackend implements Backend on top of a leveldb
 type leveldbBackend struct {
 	ldb     *leveldb.DB
-	closeWG sync.WaitGroup
+	closeWG *closeWaitGroup
+}
+
+func newLeveldbBackend(ldb *leveldb.DB) *leveldbBackend {
+	return &leveldbBackend{
+		ldb:     ldb,
+		closeWG: &closeWaitGroup{},
+	}
 }
 
 func (b *leveldbBackend) NewReadTransaction() (ReadTransaction, error) {
@@ -32,31 +37,41 @@ func (b *leveldbBackend) NewReadTransaction() (ReadTransaction, error) {
 }
 
 func (b *leveldbBackend) newSnapshot() (leveldbSnapshot, error) {
+	rel, err := newReleaser(b.closeWG)
+	if err != nil {
+		return leveldbSnapshot{}, err
+	}
 	snap, err := b.ldb.GetSnapshot()
 	if err != nil {
+		rel.Release()
 		return leveldbSnapshot{}, wrapLeveldbErr(err)
 	}
 	return leveldbSnapshot{
 		snap: snap,
-		rel:  newReleaser(&b.closeWG),
+		rel:  rel,
 	}, nil
 }
 
 func (b *leveldbBackend) NewWriteTransaction() (WriteTransaction, error) {
+	rel, err := newReleaser(b.closeWG)
+	if err != nil {
+		return nil, err
+	}
 	snap, err := b.newSnapshot()
 	if err != nil {
+		rel.Release()
 		return nil, err // already wrapped
 	}
 	return &leveldbTransaction{
 		leveldbSnapshot: snap,
 		ldb:             b.ldb,
 		batch:           new(leveldb.Batch),
-		rel:             newReleaser(&b.closeWG),
+		rel:             rel,
 	}, nil
 }
 
 func (b *leveldbBackend) Close() error {
-	b.closeWG.Wait()
+	b.closeWG.CloseWait()
 	return wrapLeveldbErr(b.ldb.Close())
 }
 
@@ -82,6 +97,13 @@ func (b *leveldbBackend) Delete(key []byte) error {
 }
 
 func (b *leveldbBackend) Compact() error {
+	// Race is detected during testing when db is closed while compaction
+	// is ongoing.
+	err := b.closeWG.Add(1)
+	if err != nil {
+		return err
+	}
+	defer b.closeWG.Done()
 	return wrapLeveldbErr(b.ldb.CompactRange(util.Range{}))
 }
 
@@ -128,8 +150,8 @@ func (t *leveldbTransaction) Put(key, val []byte) error {
 	return t.checkFlush(dbFlushBatchMax)
 }
 
-func (t *leveldbTransaction) Checkpoint() error {
-	return t.checkFlush(dbFlushBatchMin)
+func (t *leveldbTransaction) Checkpoint(preFlush ...func() error) error {
+	return t.checkFlush(dbFlushBatchMin, preFlush...)
 }
 
 func (t *leveldbTransaction) Commit() error {
@@ -145,9 +167,14 @@ func (t *leveldbTransaction) Release() {
 }
 
 // checkFlush flushes and resets the batch if its size exceeds the given size.
-func (t *leveldbTransaction) checkFlush(size int) error {
+func (t *leveldbTransaction) checkFlush(size int, preFlush ...func() error) error {
 	if len(t.batch.Dump()) < size {
 		return nil
+	}
+	for _, hook := range preFlush {
+		if err := hook(); err != nil {
+			return err
+		}
 	}
 	return t.flush()
 }

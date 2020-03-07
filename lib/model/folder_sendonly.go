@@ -25,9 +25,9 @@ type sendOnlyFolder struct {
 	folder
 }
 
-func newSendOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, _ versioner.Versioner, _ fs.Filesystem, evLogger events.Logger) service {
+func newSendOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, _ versioner.Versioner, _ fs.Filesystem, evLogger events.Logger, ioLimiter *byteSemaphore) service {
 	f := &sendOnlyFolder{
-		folder: newFolder(model, fset, ignores, cfg, evLogger),
+		folder: newFolder(model, fset, ignores, cfg, evLogger, ioLimiter),
 	}
 	f.folder.puller = f
 	f.folder.Service = util.AsService(f.serve, f.String())
@@ -118,10 +118,7 @@ func (f *sendOnlyFolder) Override() {
 		}
 		if !ok || have.Name != need.Name {
 			// We are missing the file
-			need.Deleted = true
-			need.Blocks = nil
-			need.Version = need.Version.Update(f.shortID)
-			need.Size = 0
+			need.SetDeleted(f.shortID)
 		} else {
 			// We have the file, replace with our version
 			have.Version = have.Version.Merge(need.Version).Update(f.shortID)

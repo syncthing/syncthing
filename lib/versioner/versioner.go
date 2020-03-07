@@ -9,6 +9,7 @@
 package versioner
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -32,7 +33,7 @@ type factory func(filesystem fs.Filesystem, params map[string]string) Versioner
 
 var factories = make(map[string]factory)
 
-var ErrRestorationNotSupported = fmt.Errorf("version restoration not supported with the current versioner")
+var ErrRestorationNotSupported = errors.New("version restoration not supported with the current versioner")
 
 const (
 	TimeFormat = "20060102-150405"

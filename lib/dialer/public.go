@@ -24,6 +24,8 @@ var errUnexpectedInterfaceType = errors.New("unexpected interface type")
 // digging through dialerConn to extract the *net.TCPConn
 func SetTCPOptions(conn net.Conn) error {
 	switch conn := conn.(type) {
+	case dialerConn:
+		return SetTCPOptions(conn.Conn)
 	case *net.TCPConn:
 		var err error
 		if err = conn.SetLinger(0); err != nil {
@@ -46,6 +48,8 @@ func SetTCPOptions(conn net.Conn) error {
 
 func SetTrafficClass(conn net.Conn, class int) error {
 	switch conn := conn.(type) {
+	case dialerConn:
+		return SetTrafficClass(conn.Conn, class)
 	case *net.TCPConn:
 		e1 := ipv4.NewConn(conn).SetTOS(class)
 		e2 := ipv6.NewConn(conn).SetTrafficClass(class)
@@ -72,7 +76,10 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 	if noFallback {
 		conn, err := dialer.DialContext(ctx, network, addr)
 		l.Debugf("Dialing no fallback result %s %s: %v %v", network, addr, conn, err)
-		return conn, err
+		if err != nil {
+			return nil, err
+		}
+		return dialerConn{conn, newDialerAddr(network, addr)}, nil
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -84,6 +91,9 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 	go func() {
 		proxyConn, proxyErr = dialer.DialContext(ctx, network, addr)
 		l.Debugf("Dialing proxy result %s %s: %v %v", network, addr, proxyConn, proxyErr)
+		if proxyErr == nil {
+			proxyConn = dialerConn{proxyConn, newDialerAddr(network, addr)}
+		}
 		close(proxyDone)
 	}()
 	go func() {
@@ -96,7 +106,7 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 		go func() {
 			<-fallbackDone
 			if fallbackErr == nil {
-				fallbackConn.Close()
+				_ = fallbackConn.Close()
 			}
 		}()
 		return proxyConn, nil

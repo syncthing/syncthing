@@ -76,7 +76,7 @@ func addToBlockMap(db *Lowlevel, folder []byte, fs []protocol.FileInfo) error {
 			}
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 func discardFromBlockMap(db *Lowlevel, folder []byte, fs []protocol.FileInfo) error {
@@ -101,11 +101,12 @@ func discardFromBlockMap(db *Lowlevel, folder []byte, fs []protocol.FileInfo) er
 			}
 		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
 func TestBlockMapAddUpdateWipe(t *testing.T) {
 	db, f := setup()
+	defer db.Close()
 
 	if !dbEmpty(db) {
 		t.Fatal("db not empty")
@@ -193,6 +194,7 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 
 func TestBlockFinderLookup(t *testing.T) {
 	db, f := setup()
+	defer db.Close()
 
 	folder1 := []byte("folder1")
 	folder2 := []byte("folder2")

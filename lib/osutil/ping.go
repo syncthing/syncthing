@@ -22,7 +22,7 @@ func TCPPing(ctx context.Context, address string) (time.Duration, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	conn, err := dialer.DialContext(ctx, "tcp", address)
-	if conn != nil {
+	if err == nil {
 		conn.Close()
 	}
 	return time.Since(start), err
