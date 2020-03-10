@@ -1992,7 +1992,6 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 		}
 
 		if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
-			// TODO: Create a zip of the db before repairing for debug
 			l.Warnln("Non-increasing sequence detected: Checking and repairing the db...")
 			// Abort this round of index sending - the next one will pick
 			// up from the last successful one with the repeaired db.
