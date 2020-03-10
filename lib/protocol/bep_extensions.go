@@ -249,6 +249,7 @@ func PermsEqual(a, b uint32) bool {
 	}
 }
 
+// BlocksEqual returns true when the two files have identical block lists.
 func (f FileInfo) BlocksEqual(other FileInfo) bool {
 	// If both sides have blocks hashes then we can just compare those.
 	if len(f.BlocksHash) > 0 && len(other.BlocksHash) > 0 {

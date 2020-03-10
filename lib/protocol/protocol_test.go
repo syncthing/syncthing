@@ -888,6 +888,9 @@ func TestBlocksEqual(t *testing.T) {
 		{blocksOne, nil, blocksTwo, nil, false},         // blocks compared
 		{blocksOne, hashOne, blocksTwo, hashOne, true},  // hashes equal, blocks not looked at
 		{blocksOne, hashOne, blocksOne, hashTwo, false}, // hashes different, blocks not looked at
+		{blocksOne, hashOne, nil, nil, false},           // blocks is different from no blocks
+		{blocksOne, nil, nil, nil, false},               // blocks is different from no blocks
+		{nil, hashOne, nil, nil, true},                  // nil blocks are equal, even of one side has a hash
 	}
 
 	for _, tc := range cases {
