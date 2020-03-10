@@ -216,7 +216,7 @@ func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, igno
 
 	switch f.Type {
 	case FileInfoTypeFile:
-		return f.Size == other.Size && ModTimeEqual(f.ModTime(), other.ModTime(), modTimeWindow) && (ignoreBlocks || BlocksEqual(f.Blocks, other.Blocks))
+		return f.Size == other.Size && ModTimeEqual(f.ModTime(), other.ModTime(), modTimeWindow) && (ignoreBlocks || f.BlocksEqual(other))
 	case FileInfoTypeSymlink:
 		return f.SymlinkTarget == other.SymlinkTarget
 	case FileInfoTypeDirectory:
@@ -249,9 +249,20 @@ func PermsEqual(a, b uint32) bool {
 	}
 }
 
-// BlocksEqual returns whether two slices of blocks are exactly the same hash
+// BlocksEqual returns true when the two files have identical block lists.
+func (f FileInfo) BlocksEqual(other FileInfo) bool {
+	// If both sides have blocks hashes then we can just compare those.
+	if len(f.BlocksHash) > 0 && len(other.BlocksHash) > 0 {
+		return bytes.Equal(f.BlocksHash, other.BlocksHash)
+	}
+
+	// Actually compare the block lists in full.
+	return blocksEqual(f.Blocks, other.Blocks)
+}
+
+// blocksEqual returns whether two slices of blocks are exactly the same hash
 // and index pair wise.
-func BlocksEqual(a, b []BlockInfo) bool {
+func blocksEqual(a, b []BlockInfo) bool {
 	if len(b) != len(a) {
 		return false
 	}
