@@ -613,10 +613,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 				os.Exit(syncthing.ExitUpgrade.AsInt())
 			}
 		}
-		// Disable auto-upgrades if unsupported
-		if err == upgrade.ErrUpgradeUnsupported {
-			shouldAutoUpgrade = false
-		}
 		// Log the error if relevant.
 		if err != nil {
 			if _, ok := err.(errNoUpgrade); !ok {
@@ -808,6 +804,9 @@ func standbyMonitor(app *syncthing.App) {
 }
 
 func shouldUpgrade(cfg config.Wrapper, runtimeOptions RuntimeOptions) bool {
+	if upgrade.DisabledByCompilation {
+		return false
+	}
 	if opts := cfg.Options(); opts.AutoUpgradeIntervalH < 0 {
 		return false
 	}
