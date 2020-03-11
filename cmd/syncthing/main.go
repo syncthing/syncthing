@@ -360,28 +360,22 @@ func main() {
 		return
 	}
 
-	checkUpgradeExitOnErr := func() upgrade.Release {
-		release, err := checkUpgrade()
-		if err != nil {
-			l.Warnln("Upgrade:", err)
-			if _, ok := err.(errNoUpgrade); ok {
-				os.Exit(syncthing.ExitNoUpgradeAvailable.AsInt())
-			}
-			os.Exit(syncthing.ExitError.AsInt())
-		}
-		return release
-	}
-
 	if options.doUpgradeCheck {
-		_ = checkUpgradeExitOnErr()
+		if _, err := checkUpgrade(); err != nil {
+			l.Warnln("Checking for upgrade:", err)
+			os.Exit(exitCodeForUpgrade(err))
+		}
 		return
 	}
 
 	if options.doUpgrade {
-		release := checkUpgradeExitOnErr()
-		if err := performUpgrade(release); err != nil {
+		release, err := checkUpgrade()
+		if err == nil {
+			err = performUpgrade(release)
+		}
+		if err != nil {
 			l.Warnln("Upgrade:", err)
-			os.Exit(syncthing.ExitError.AsInt())
+			os.Exit(exitCodeForUpgrade(err))
 		}
 		l.Infof("Upgraded to %q", release.Tag)
 		os.Exit(syncthing.ExitUpgrade.AsInt())
@@ -605,25 +599,28 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// not, as otherwise they cannot step off the candidate channel.
 	}
 
-	shouldAutoUpgrade := false
+	// Check if auto-upgrades should be done and if yes, do an initial
+	// upgrade immedately. The auto-upgrade routine can only be started
+	// later after App is initialised.
 
-	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
-		if runtimeOptions.NoUpgrade {
-			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
-		} else {
-			release, err := checkUpgrade()
-			if err == nil {
-				if err = performUpgradeDirect(release); err == nil {
-					l.Infof("Upgraded to %q, exiting now.", release.Tag)
-					os.Exit(syncthing.ExitUpgrade.AsInt())
-				}
+	shouldAutoUpgrade := shouldUpgrade(cfg, runtimeOptions)
+	if shouldAutoUpgrade {
+		// Try to do upgrade directly
+		release, err := checkUpgrade()
+		if err == nil {
+			if err = performUpgradeDirect(release); err == nil {
+				l.Infof("Upgraded to %q, exiting now.", release.Tag)
+				os.Exit(syncthing.ExitUpgrade.AsInt())
 			}
-			if err != upgrade.ErrUpgradeUnsupported {
-				shouldAutoUpgrade = true
-			} else if err != nil {
-				if _, ok := err.(errNoUpgrade); !ok {
-					l.Infoln("Initial automatic upgrade:", err)
-				}
+		}
+		// Disable auto-upgrades if unsupported
+		if err == upgrade.ErrUpgradeUnsupported {
+			shouldAutoUpgrade = false
+		}
+		// Log the error if relevant.
+		if err != nil {
+			if _, ok := err.(errNoUpgrade); !ok {
+				l.Infoln("Initial automatic upgrade:", err)
 			}
 		}
 	}
@@ -652,6 +649,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	app := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
 
+	if shouldAutoUpgrade {
+		go autoUpgrade(cfg, app, evLogger)
+	}
+
 	setupSignalHandling(app)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
@@ -676,10 +677,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if err := app.Start(); err != nil {
 		os.Exit(syncthing.ExitError.AsInt())
-	}
-
-	if shouldAutoUpgrade {
-		go autoUpgrade(cfg, app, evLogger)
 	}
 
 	cleanConfigDirectory()
@@ -810,6 +807,17 @@ func standbyMonitor(app *syncthing.App) {
 	}
 }
 
+func shouldUpgrade(cfg config.Wrapper, runtimeOptions RuntimeOptions) bool {
+	if opts := cfg.Options(); opts.AutoUpgradeIntervalH < 0 {
+		return false
+	}
+	if runtimeOptions.NoUpgrade {
+		l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
+		return false
+	}
+	return true
+}
+
 func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger) {
 	timer := time.NewTimer(0)
 	sub := evLogger.Subscribe(events.DeviceConnected)
@@ -931,4 +939,11 @@ func setPauseState(cfg config.Wrapper, paused bool) {
 		l.Warnln("Cannot adjust paused state:", err)
 		os.Exit(syncthing.ExitError.AsInt())
 	}
+}
+
+func exitCodeForUpgrade(err error) int {
+	if _, ok := err.(errNoUpgrade); ok {
+		return syncthing.ExitNoUpgradeAvailable.AsInt()
+	}
+	return syncthing.ExitError.AsInt()
 }
