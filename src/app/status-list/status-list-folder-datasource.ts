@@ -1,23 +1,22 @@
 import { DataSource } from '@angular/cdk/collections';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
+
 import { map } from 'rxjs/operators';
 import { Observable, of as observableOf, merge } from 'rxjs';
 import { Folder } from '../folder';
-import { SystemConfigService } from '../system-config.service';
-import { FOLDERS } from '../mock-folders';
 
 /**
  * Data source for the StatusList view. This class should
  * encapsulate all logic for fetching and manipulating the displayed data
  * (including sorting, pagination, and filtering).
  */
-export class StatusListFolderDataSource extends DataSource<Folder> {
-  data: Folder[] = FOLDERS;
+export class StatusListFolderDataSource extends DataSource<any> {
+  data: any[];
   paginator: MatPaginator;
   sort: MatSort;
 
-  constructor(private systemConfigService: SystemConfigService) {
+  constructor() {
     super();
   }
 

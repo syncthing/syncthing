@@ -2,9 +2,11 @@ import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 import { MatTable } from '@angular/material/table';
+
 import { StatusListFolderDataSource } from './status-list-folder-datasource';
 import { Folder } from '../folder';
 import { SystemConfigService } from '../system-config.service';
+
 
 @Component({
   selector: 'app-status-list',
@@ -23,7 +25,12 @@ export class StatusListComponent implements AfterViewInit, OnInit {
   constructor(private systemConfigService: SystemConfigService) { };
 
   ngOnInit() {
-    this.dataSource = new StatusListFolderDataSource(this.systemConfigService);
+    this.dataSource = new StatusListFolderDataSource();
+    this.systemConfigService.getDevices().subscribe(
+      data => {
+        this.dataSource.data = data;
+      }
+    );
   }
 
   ngAfterViewInit() {
