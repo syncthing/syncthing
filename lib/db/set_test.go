@@ -156,7 +156,7 @@ func TestGlobalSet(t *testing.T) {
 		protocol.FileInfo{Name: "d", Sequence: 9, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(4)},
 		protocol.FileInfo{Name: "z", Sequence: 10, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Deleted: true},
 	}
-	localSeq = setSequence(localSeq, local1)
+	setSequence(localSeq, local1)
 	localTot := fileList{
 		local1[0],
 		local1[1],
@@ -175,7 +175,7 @@ func TestGlobalSet(t *testing.T) {
 		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(6)},
 		protocol.FileInfo{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(7)},
 	}
-	remoteSeq = setSequence(remoteSeq, remote1)
+	setSequence(remoteSeq, remote1)
 	remoteTot := fileList{
 		remote0[0],
 		remote1[0],
