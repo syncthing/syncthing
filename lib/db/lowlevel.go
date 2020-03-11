@@ -607,6 +607,9 @@ func (db *Lowlevel) gcBlocks() error {
 // repairSequence makes sure the sequence numbers in the sequence keys match
 // those in the corresponding file entries. It returns the amount of fixed entries.
 func (db *Lowlevel) repairSequence(folders []string) (int, error) {
+	db.gcMut.RLock()
+	defer db.gcMut.RUnlock()
+
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return 0, err
@@ -678,7 +681,7 @@ func (db *Lowlevel) repairSequence(folders []string) (int, error) {
 		}
 	}
 
-	return fixed, nil
+	return fixed, t.Commit()
 }
 
 func unmarshalVersionList(data []byte) (VersionList, bool) {
