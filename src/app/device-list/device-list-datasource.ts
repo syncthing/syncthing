@@ -4,15 +4,15 @@ import { MatSort } from '@angular/material/sort';
 
 import { map } from 'rxjs/operators';
 import { Observable, of as observableOf, merge } from 'rxjs';
-import { Folder } from '../folder';
+import { Device } from '../device';
 
 /**
- * Data source for the StatusList view. This class should
+ * Data source for the DeviceList view. This class should
  * encapsulate all logic for fetching and manipulating the displayed data
  * (including sorting, pagination, and filtering).
  */
-export class StatusListFolderDataSource extends DataSource<any> {
-  data: any[];
+export class DeviceListDataSource extends DataSource<Device> {
+  data: Device[];
   paginator: MatPaginator;
   sort: MatSort;
 
@@ -25,9 +25,9 @@ export class StatusListFolderDataSource extends DataSource<any> {
    * the returned stream emits new items.
    * @returns A stream of the items to be rendered.
    */
-  connect(): Observable<Folder[]> {
+  connect(): Observable<Device[]> {
     // Combine everything that affects the rendered data into one update
-    // stream for the data-table to consume.
+    // st
     const dataMutations = [
       observableOf(this.data),
       this.paginator.page,
@@ -49,7 +49,7 @@ export class StatusListFolderDataSource extends DataSource<any> {
    * Paginate the data (client-side). If you're using server-side pagination,
    * this would be replaced by requesting the appropriate data from the server.
    */
-  private getPagedData(data: Folder[]) {
+  private getPagedData(data: Device[]) {
     const startIndex = this.paginator.pageIndex * this.paginator.pageSize;
     return data.splice(startIndex, this.paginator.pageSize);
   }
@@ -58,7 +58,7 @@ export class StatusListFolderDataSource extends DataSource<any> {
    * Sort the data (client-side). If you're using server-side sorting,
    * this would be replaced by requesting the appropriate data from the server.
    */
-  private getSortedData(data: Folder[]) {
+  private getSortedData(data: Device[]) {
     if (!this.sort.active || this.sort.direction === '') {
       return data;
     }
@@ -66,7 +66,7 @@ export class StatusListFolderDataSource extends DataSource<any> {
     return data.sort((a, b) => {
       const isAsc = this.sort.direction === 'asc';
       switch (this.sort.active) {
-        case 'label': return compare(a.label, b.label, isAsc);
+        case 'name': return compare(a.name, b.name, isAsc);
         case 'id': return compare(+a.id, +b.id, isAsc);
         default: return 0;
       }

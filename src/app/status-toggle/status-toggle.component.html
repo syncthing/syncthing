@@ -1,4 +1,4 @@
 <mat-button-toggle-group name="fontStyle" aria-label="Font Style">
-    <mat-button-toggle value="folders">Folders</mat-button-toggle>
-    <mat-button-toggle value="devices">Devices</mat-button-toggle>
+    <mat-button-toggle value="folders" (click)="onSelect(toggleAction.Folders)">Folders</mat-button-toggle>
+    <mat-button-toggle value=" devices" (click)="onSelect(toggleAction.Devices)">Devices</mat-button-toggle>
 </mat-button-toggle-group>
