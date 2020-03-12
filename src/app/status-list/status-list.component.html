@@ -1,3 +1,3 @@
-<app-status-toggle></app-status-toggle>
-<app-folder-list></app-folder-list>
-<app-device-list></app-device-list>
+<app-status-toggle (statusEvent)="onToggle($event)"></app-status-toggle>
+<app-folder-list *ngIf="currentStatus===status.Folders"></app-folder-list>
+<app-device-list *ngIf="currentStatus===status.Devices"></app-device-list>

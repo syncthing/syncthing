@@ -1,9 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output } from '@angular/core';
+import { Status } from '../status';
 
-export enum ToggleAction {
-  Folders = 1,
-  Devices,
-}
+
 
 @Component({
   selector: 'app-status-toggle',
@@ -12,20 +10,20 @@ export enum ToggleAction {
 })
 
 export class StatusToggleComponent implements OnInit {
-  public toggleAction = ToggleAction
-  constructor() { }
+  public status = Status
+  @Output() statusEvent = new EventEmitter<Status>();
 
+  constructor() { }
   ngOnInit(): void {
   }
 
-  onSelect(label: ToggleAction): void {
-
-    console.log("here?");
-    switch (label) {
-      case ToggleAction.Folders:
+  onSelect(s: Status): void {
+    this.statusEvent.emit(s);
+    switch (s) {
+      case Status.Folders:
         console.log("folder action");
         break;
-      case ToggleAction.Devices:
+      case Status.Devices:
         console.log("Device action");
         break;
     }
