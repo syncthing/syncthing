@@ -1,4 +1,4 @@
-<modal id="editDevice" status="default" icon="{{editingExisting ? 'fas fa-pencil-alt' : 'fas fa-desktop'}}" heading="{{editingExisting ? 'Edit Device' : 'Add Device' | translate}}" large="yes" closeable="yes">
+<modal id="editDevice" status="default" icon="{{editingExisting ? 'fas fa-pencil-alt' : 'fas fa-desktop'}}" heading="{{editingExisting ? 'Edit Device : ' : 'Add Device' | translate}} {{currentDevice.name}}" large="yes" closeable="yes">
   <div class="modal-body">
     <form role="form" name="deviceEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(deviceEditor)">
