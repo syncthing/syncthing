@@ -56,6 +56,7 @@ var (
 		{regexp.MustCompile("snap@build.syncthing.net"), "Snapcraft"},
 		{regexp.MustCompile("android-.*vagrant@basebox-stretch64"), "F-Droid"},
 		{regexp.MustCompile("builduser@svetlemodry"), "Arch (3rd party)"},
+		{regexp.MustCompile("synology@kastelo.net"), "Synology (Kastelo)"},
 		{regexp.MustCompile("@debian"), "Debian (3rd party)"},
 		{regexp.MustCompile("@fedora"), "Fedora (3rd party)"},
 		{regexp.MustCompile(`\bbrew@`), "Homebrew (3rd party)"},
@@ -266,10 +267,10 @@ type report struct {
 
 func (r *report) Validate() error {
 	if r.UniqueID == "" || r.Version == "" || r.Platform == "" {
-		return fmt.Errorf("missing required field")
+		return errors.New("missing required field")
 	}
 	if len(r.Date) != 8 {
-		return fmt.Errorf("date not initialized")
+		return errors.New("date not initialized")
 	}
 
 	// Some fields may not be null.
@@ -1419,7 +1420,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 	r["platforms"] = group(byPlatform, analyticsFor(platforms, 2000), 10)
 	r["compilers"] = group(byCompiler, analyticsFor(compilers, 2000), 5)
 	r["builders"] = analyticsFor(builders, 12)
-	r["distributions"] = analyticsFor(distributions, 10)
+	r["distributions"] = analyticsFor(distributions, len(knownDistributions))
 	r["featureOrder"] = featureOrder
 	r["locations"] = locations
 	r["contries"] = countryList

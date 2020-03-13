@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "Feb 22, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Mar 10, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -128,12 +128,6 @@ firewall\-setup to enable direct connections.
 Second, if one of the devices is a very low powered machine (a Raspberry Pi,
 or a phone, or a NAS, or similar) you are likely constrained by the CPU on
 that device. See the next question for reasons Syncthing likes a faster CPU.
-You can verify this by looking at the CPU utilization in the GUI. If it is
-constantly at or close to 100%, you are limited by the CPU speed. In some
-cases a lower CPU usage number can also indicate being limited by the CPU \-
-for example constant 25% usage on a four core CPU likely means that
-Syncthing is doing something that is not parallellizable and thus limited to
-a single CPU core.
 .sp
 Third, verify that the network connection is OK. Tools such as iperf or just
 an Internet speed test can be used to verify the performance here.

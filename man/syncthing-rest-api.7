@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Feb 22, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Mar 10, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -509,7 +509,7 @@ resumes all devices.  Returns status 200 and no content upon success, or status
 Post with empty body to cause Syncthing to exit and not restart.
 .SS GET /rest/system/status
 .sp
-Returns information about current system status and resource usage.
+Returns information about current system status and resource usage. The CPU percent value has been deprected from the API and will always report 0.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -537,7 +537,7 @@ Returns information about current system status and resource usage.
       ]
     }
   },
-  "cpuPercent": 0.006944836512046966,
+  "cpuPercent": 0,
   "discoveryEnabled": true,
   "discoveryErrors": {
     "global@https://discovery\-v4\-1.syncthing.net/v2/": "500 Internal Server Error",

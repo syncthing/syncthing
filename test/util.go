@@ -330,7 +330,7 @@ func compareDirectories(dirs ...string) error {
 		for i := 1; i < len(res); i++ {
 			if res[i] != res[0] {
 				close(abort)
-				return fmt.Errorf("Mismatch; %#v (%s) != %#v (%s)", res[i], dirs[i], res[0], dirs[0])
+				return fmt.Errorf("mismatch; %#v (%s) != %#v (%s)", res[i], dirs[i], res[0], dirs[0])
 			}
 		}
 
@@ -381,7 +381,7 @@ func compareDirectoryContents(actual, expected []fileInfo) error {
 
 	for i := range actual {
 		if actual[i] != expected[i] {
-			return fmt.Errorf("Mismatch; actual %#v != expected %#v", actual[i], expected[i])
+			return fmt.Errorf("mismatch; actual %#v != expected %#v", actual[i], expected[i])
 		}
 	}
 	return nil

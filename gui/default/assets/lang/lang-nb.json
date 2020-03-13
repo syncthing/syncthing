@@ -374,7 +374,7 @@
     "Versions": "Versjoner",
     "Versions Path": "Plassering av versjoner",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Versjoner blir automatisk slettet når maksimal levetid er nådd eller når antall filer er oversteget.",
-    "Waiting to Scan": "Waiting to Scan",
+    "Waiting to Scan": "Venter på å starte gjennomsøkning",
     "Waiting to Sync": "Waiting to Sync",
     "Waiting to scan": "Venter på å starte gjennomsøkning",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Advarsel, denne stien er en foreldremappe for en eksisterende mappe \"{{otherFolder}}\".",

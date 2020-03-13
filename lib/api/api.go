@@ -81,7 +81,6 @@ type service struct {
 	fss                  model.FolderSummaryService
 	urService            *ur.Service
 	systemConfigMut      sync.Mutex // serializes posts to /rest/system/config
-	cpu                  Rater
 	contr                Controller
 	noUpgrade            bool
 	tlsDefaultCommonName string
@@ -93,10 +92,6 @@ type service struct {
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
-}
-
-type Rater interface {
-	Rate() float64
 }
 
 type Controller interface {
@@ -111,7 +106,7 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, contr Controller, noUpgrade bool) Service {
 	s := &service{
 		id:      id,
 		cfg:     cfg,
@@ -130,7 +125,6 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		systemConfigMut:      sync.NewMutex(),
 		guiErrors:            errors,
 		systemLog:            systemLog,
-		cpu:                  cpu,
 		contr:                contr,
 		noUpgrade:            noUpgrade,
 		tlsDefaultCommonName: tlsDefaultCommonName,
@@ -951,9 +945,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 
 	res["connectionServiceStatus"] = s.connectionsService.ListenerStatus()
 	res["lastDialStatus"] = s.connectionsService.ConnectionStatus()
-	// cpuUsage.Rate() is in milliseconds per second, so dividing by ten
-	// gives us percent
-	res["cpuPercent"] = s.cpu.Rate() / 10 / float64(runtime.NumCPU())
+	res["cpuPercent"] = 0 // deprecated from API
 	res["pathSeparator"] = string(filepath.Separator)
 	res["urVersionMax"] = ur.Version
 	res["uptime"] = s.urService.UptimeS()

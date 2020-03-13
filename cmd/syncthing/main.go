@@ -119,8 +119,8 @@ are mostly useful for developers. Use with care.
                    "h", "m" and "s" abbreviations for hours minutes and seconds.
                    Valid values are like "720h", "30s", etc.
 
- STGCBLOCKSEVERY   Set to a time interval to override the default database
-                   block GC interval of 13 hours. Same format as the
+ STGCINDIRECTEVERY Set to a time interval to override the default database
+                   indirection GC interval of 13 hours. Same format as the
                    STRECHECKDBEVERY variable.
 
  GOMAXPROCS        Set the maximum number of CPU cores to use. Defaults to all
@@ -374,6 +374,7 @@ func main() {
 			l.Warnln("Resetting database:", err)
 			os.Exit(syncthing.ExitError.AsInt())
 		}
+		l.Infoln("Successfully reset database - it will be rebuilt after next start.")
 		return
 	}
 

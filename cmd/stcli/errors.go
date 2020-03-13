@@ -7,6 +7,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -54,7 +55,7 @@ func errorsPush(c *cli.Context) error {
 		if body != "" {
 			errStr += "\nBody: " + body
 		}
-		return fmt.Errorf(errStr)
+		return errors.New(errStr)
 	}
 	return nil
 }

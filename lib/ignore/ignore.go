@@ -508,13 +508,13 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		case strings.HasPrefix(line, "#include"):
 			fields := strings.SplitN(line, " ", 2)
 			if len(fields) != 2 {
-				err = fmt.Errorf("failed to parse #include line: no file?")
+				err = errors.New("failed to parse #include line: no file?")
 				break
 			}
 
 			includeRel := strings.TrimSpace(fields[1])
 			if includeRel == "" {
-				err = fmt.Errorf("failed to parse #include line: no file?")
+				err = errors.New("failed to parse #include line: no file?")
 				break
 			}
 
