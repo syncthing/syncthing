@@ -621,13 +621,10 @@ func (db *Lowlevel) gcIndirect() error {
 	return db.Compact()
 }
 
-// repairSequence makes sure the sequence numbers in the sequence keys match
-// those in the corresponding file entries. It returns the amount of fixed
+// repairSequenceGCLocked makes sure the sequence numbers in the sequence keys
+// match those in the corresponding file entries. It returns the amount of fixed
 // entries.
-func (db *Lowlevel) repairSequence(folderStr string, meta *metadataTracker) (int, error) {
-	db.gcMut.RLock()
-	defer db.gcMut.RUnlock()
-
+func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTracker) (int, error) {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return 0, err

@@ -475,9 +475,11 @@ func (db *schemaUpdater) updateSchema7to9(_ int) error {
 // updateSchemato10 makes sure the sequence numbers in the sequence keys match
 // those in the corresponding file entries.
 func (db *schemaUpdater) updateSchemato10(_ int) error {
+	db.gcMut.RLock()
+	defer db.gcMut.RUnlock()
 	for _, folderStr := range db.ListFolders() {
 		meta := loadMetadataTracker(db.Lowlevel, folderStr)
-		if _, err := db.repairSequence(folderStr, meta); err != nil {
+		if _, err := db.repairSequenceGCLocked(folderStr, meta); err != nil {
 			return err
 		}
 	}
