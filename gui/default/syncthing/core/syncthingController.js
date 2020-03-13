@@ -2041,9 +2041,8 @@ angular.module('syncthing.core')
                         }
                     });
                 },
-                show: function (folder,currentFolder) {
+                show: function (folder) {
                     $scope.restoreVersions.folder = folder;
-                    $scope.restoreVersions.currentFolder = currentFolder;
                     var closed = false;
                     var modalShown = $q.defer();
                     $('#restoreVersions').modal().one('hidden.bs.modal', function () {
