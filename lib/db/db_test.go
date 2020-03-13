@@ -282,7 +282,9 @@ func TestRepairSequence(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		trans.putFile(dk, f)
+		if err := trans.putFile(dk, f); err != nil {
+			t.Fatal(err)
+		}
 		sk, err := trans.keyer.GenerateSequenceKey(nil, folder, seq)
 		if err != nil {
 			t.Fatal(err)
@@ -348,9 +350,9 @@ func TestRepairSequence(t *testing.T) {
 	}
 
 	// Fix the db
-	db.gcMut.Lock()
+	db.gcMut.RLock()
 	fixed, err := db.repairSequenceGCLocked(folderStr, loadMetadataTracker(db, folderStr))
-	db.gcMut.Unlock()
+	db.gcMut.RUnlock()
 	if err != nil {
 		t.Fatal(err)
 	}
