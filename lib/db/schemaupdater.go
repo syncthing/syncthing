@@ -21,10 +21,11 @@ import (
 //   3-5: v0.14.49
 //   6: v0.14.50
 //   7: v0.14.53
-//   8-10: v1.4.0
+//   8-9: v1.4.0
+//   10: v1.4.1
 const (
 	dbVersion             = 10
-	dbMinSyncthingVersion = "v1.4.0"
+	dbMinSyncthingVersion = "v1.4.1"
 )
 
 type databaseDowngradeError struct {
@@ -474,6 +475,11 @@ func (db *schemaUpdater) updateSchema7to9(_ int) error {
 // updateSchemato10 makes sure the sequence numbers in the sequence keys match
 // those in the corresponding file entries.
 func (db *schemaUpdater) updateSchemato10(_ int) error {
-	_, err := db.repairSequence(db.ListFolders())
-	return err
+	for _, folderStr := range db.ListFolders() {
+		meta := loadMetadataTracker(db.Lowlevel, folderStr)
+		if _, err := db.repairSequence(folderStr, meta); err != nil {
+			return err
+		}
+	}
+	return nil
 }

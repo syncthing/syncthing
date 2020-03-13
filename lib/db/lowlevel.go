@@ -622,8 +622,9 @@ func (db *Lowlevel) gcIndirect() error {
 }
 
 // repairSequence makes sure the sequence numbers in the sequence keys match
-// those in the corresponding file entries. It returns the amount of fixed entries.
-func (db *Lowlevel) repairSequence(folders []string) (int, error) {
+// those in the corresponding file entries. It returns the amount of fixed
+// entries.
+func (db *Lowlevel) repairSequence(folderStr string, meta *metadataTracker) (int, error) {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
@@ -633,69 +634,95 @@ func (db *Lowlevel) repairSequence(folders []string) (int, error) {
 	}
 	defer t.close()
 
-	var dk, sk []byte
 	fixed := 0
 
-	for _, folderStr := range folders {
-		var meta *metadataTracker
-		folder := []byte(folderStr)
+	folder := []byte(folderStr)
 
-		sk, err := t.keyer.GenerateSequenceKey(sk, folder, 0)
+	// First check that every file entry has a matching sequence entry
+	// (this was previously db schema upgrade to 9).
+
+	dk, err := t.keyer.GenerateDeviceFileKey(nil, folder, protocol.LocalDeviceID[:], nil)
+	if err != nil {
+		return 0, err
+	}
+	it, err := t.NewPrefixIterator(dk.WithoutName())
+	if err != nil {
+		return 0, err
+	}
+	defer it.Release()
+
+	var sk sequenceKey
+	for it.Next() {
+		intf, err := t.unmarshalTrunc(it.Value(), true)
 		if err != nil {
 			return 0, err
 		}
-
-		dbi, err := t.NewPrefixIterator(sk.WithoutSequence())
-		if err != nil {
+		fi := intf.(FileInfoTruncated)
+		if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
 			return 0, err
 		}
-		defer dbi.Release()
-
-		for dbi.Next() {
-			dk = dbi.Value()
-			// Check that the sequence from the key matches the
-			// sequence in the file.
-			fi, ok, err := t.getFileTrunc(dk, true)
-			if err != nil {
+		switch dk, err = t.Get(sk); {
+		case err != nil:
+			if !backend.IsNotFound(err) {
 				return 0, err
 			}
-			// Shouldn't ever happen.
-			if !ok {
-				if err := t.Delete(sk); err != nil {
-					return 0, err
-				}
-				continue
-			}
-			if seq := t.keyer.SequenceFromSequenceKey(dbi.Key()); seq == fi.SequenceNo() {
-				continue
-			}
-
-			// Mismatch: Bump sequence and rewrite.
+			fallthrough
+		case !bytes.Equal(it.Key(), dk):
 			fixed++
-			if meta == nil {
-				meta = loadMetadataTracker(db, folderStr)
-			}
-			if err := t.Delete(sk); err != nil {
+			fi.Sequence = meta.nextLocalSeq()
+			if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
 				return 0, err
 			}
-			f := fi.(FileInfoTruncated).copyToFileInfo()
-			f.Sequence = meta.nextLocalSeq()
-			if sk, err = t.keyer.GenerateSequenceKey(sk, folder, f.Sequence); err != nil {
+			if err := t.Put(sk, it.Key()); err != nil {
 				return 0, err
 			}
-			if err := t.Put(sk, dk); err != nil {
-				return 0, err
-			}
-			if err := t.putFile(dk, f); err != nil {
+			if err := t.putFile(it.Key(), fi.copyToFileInfo()); err != nil {
 				return 0, err
 			}
 		}
+		if err := t.Checkpoint(func() error {
+			return meta.toDB(t, folder)
+		}); err != nil {
+			return 0, err
+		}
+	}
 
-		if meta != nil {
-			if err := meta.toDB(t, folder); err != nil {
-				return 0, err
+	it.Release()
+
+	// Secondly check there's no sequence entries pointing at incorrect things.
+
+	sk, err = t.keyer.GenerateSequenceKey(sk, folder, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	it, err = t.NewPrefixIterator(sk.WithoutSequence())
+	if err != nil {
+		return 0, err
+	}
+	defer it.Release()
+
+	for it.Next() {
+		// Check that the sequence from the key matches the
+		// sequence in the file.
+		fi, ok, err := t.getFileTrunc(it.Value(), true)
+		if err != nil {
+			return 0, err
+		}
+		if ok {
+			if seq := t.keyer.SequenceFromSequenceKey(it.Key()); seq == fi.SequenceNo() {
+				continue
 			}
 		}
+		// Either the file is missing or has a different sequence number
+		fixed++
+		if err := t.Delete(it.Key()); err != nil {
+			return 0, err
+		}
+	}
+
+	if err := meta.toDB(t, folder); err != nil {
+		return 0, err
 	}
 
 	return fixed, t.Commit()

@@ -532,7 +532,7 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 }
 
 func (s *FileSet) RepairSequence() (int, error) {
-	return s.db.repairSequence([]string{s.folder})
+	return s.db.repairSequence(s.folder, s.meta)
 }
 
 // DropFolder clears out all information related to the given folder from the
