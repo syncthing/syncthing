@@ -390,6 +390,9 @@ func TestRepairSequence(t *testing.T) {
 			t.Errorf("Wrong key for %v, expected %s, got %s", f.FileName(), it.Key(), dk)
 		}
 	}
+	if err := it.Error(); err != nil {
+		t.Fatal(err)
+	}
 	it.Release()
 
 	it, err = ro.NewPrefixIterator([]byte{KeyTypeSequence})
@@ -408,6 +411,9 @@ func TestRepairSequence(t *testing.T) {
 		} else if fi.SequenceNo() != seq {
 			t.Errorf("Inconsistent sequence entry for %v: %v != %v", fi.FileName(), fi.SequenceNo(), seq)
 		}
+	}
+	if err := it.Error(); err != nil {
+		t.Fatal(err)
 	}
 	it.Release()
 }

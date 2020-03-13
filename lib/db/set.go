@@ -532,9 +532,15 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 }
 
 func (s *FileSet) RepairSequence() (int, error) {
-	s.db.gcMut.RLock()
+	s.updateAndGCMutexLock() // Ensures consistent locking order
+	defer s.updateMutex.Unlock()
 	defer s.db.gcMut.RUnlock()
 	return s.db.repairSequenceGCLocked(s.folder, s.meta)
+}
+
+func (s *FileSet) updateAndGCMutexLock() {
+	s.updateMutex.Lock()
+	s.db.gcMut.RLock()
 }
 
 // DropFolder clears out all information related to the given folder from the

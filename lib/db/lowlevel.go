@@ -683,6 +683,9 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 			return 0, err
 		}
 	}
+	if err := it.Error(); err != nil {
+		return 0, err
+	}
 
 	it.Release()
 
@@ -717,6 +720,11 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 			return 0, err
 		}
 	}
+	if err := it.Error(); err != nil {
+		return 0, err
+	}
+
+	it.Release()
 
 	if err := meta.toDB(t, folder); err != nil {
 		return 0, err
