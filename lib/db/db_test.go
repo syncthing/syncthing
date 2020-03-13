@@ -7,6 +7,7 @@
 package db
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -247,6 +248,166 @@ func TestUpdate0to3(t *testing.T) {
 	for n := range need {
 		t.Errorf(`Missing needed file "%v"`, n)
 	}
+}
+
+// TestRepairSequence checks that a few hand-crafted messed-up sequence entries get fixed.
+func TestRepairSequence(t *testing.T) {
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+
+	folderStr := "test"
+	folder := []byte(folderStr)
+	id := protocol.LocalDeviceID
+	short := protocol.LocalDeviceID.Short()
+
+	files := []protocol.FileInfo{
+		{Name: "fine"},
+		{Name: "duplicate"},
+		{Name: "missing"},
+		{Name: "overwriting"},
+		{Name: "inconsistent"},
+	}
+	for i, f := range files {
+		files[i].Version = f.Version.Update(short)
+	}
+
+	trans, err := db.newReadWriteTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trans.close()
+
+	addFile := func(f protocol.FileInfo, seq int64) {
+		dk, err := trans.keyer.GenerateDeviceFileKey(nil, folder, id[:], []byte(f.Name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		trans.putFile(dk, f)
+		sk, err := trans.keyer.GenerateSequenceKey(nil, folder, seq)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := trans.Put(sk, dk); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Plain normal entry
+	var seq int64 = 1
+	files[0].Sequence = 1
+	addFile(files[0], seq)
+
+	// Second entry once updated with original sequence still in place
+	f := files[1]
+	f.Sequence = int64(len(files) + 1)
+	addFile(f, f.Sequence)
+	// Original sequence entry
+	seq++
+	sk, err := trans.keyer.GenerateSequenceKey(nil, folder, seq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dk, err := trans.keyer.GenerateDeviceFileKey(nil, folder, id[:], []byte(f.Name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := trans.Put(sk, dk); err != nil {
+		t.Fatal(err)
+	}
+
+	// File later overwritten thus missing sequence entry
+	seq++
+	files[2].Sequence = seq
+	addFile(files[2], seq)
+
+	// File overwriting previous sequence entry (no seq bump)
+	seq++
+	files[3].Sequence = seq
+	addFile(files[3], seq)
+
+	// Inconistent file
+	seq++
+	files[4].Sequence = 101
+	addFile(files[4], seq)
+
+	// And a sequence entry pointing at nothing because why not
+	sk, err = trans.keyer.GenerateSequenceKey(nil, folder, 100001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dk, err = trans.keyer.GenerateDeviceFileKey(nil, folder, id[:], []byte("nonexisting"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := trans.Put(sk, dk); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := trans.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Fix the db
+	db.gcMut.Lock()
+	fixed, err := db.repairSequenceGCLocked(folderStr, loadMetadataTracker(db, folderStr))
+	db.gcMut.Unlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fixed != 4 {
+		t.Error("Expected 4 items to be fixed, not", fixed)
+	}
+
+	// Check the db
+	ro, err := db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ro.close()
+
+	it, err := ro.NewPrefixIterator([]byte{KeyTypeDevice})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer it.Release()
+	for it.Next() {
+		fi, err := ro.unmarshalTrunc(it.Value(), true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if sk, err = ro.keyer.GenerateSequenceKey(sk, folder, fi.SequenceNo()); err != nil {
+			t.Fatal(err)
+		}
+		dk, err := ro.Get(sk)
+		if backend.IsNotFound(err) {
+			t.Error("Missing sequence entry for", fi.FileName())
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(it.Key(), dk) {
+			t.Errorf("Wrong key for %v, expected %s, got %s", f.FileName(), it.Key(), dk)
+		}
+	}
+	it.Release()
+
+	it, err = ro.NewPrefixIterator([]byte{KeyTypeSequence})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer it.Release()
+	for it.Next() {
+		fi, ok, err := ro.getFileTrunc(it.Value(), true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		seq := ro.keyer.SequenceFromSequenceKey(it.Key())
+		if !ok {
+			t.Errorf("Sequence entry %v points at nothing", seq)
+		} else if fi.SequenceNo() != seq {
+			t.Errorf("Inconsistent sequence entry for %v: %v != %v", fi.FileName(), fi.SequenceNo(), seq)
+		}
+	}
+	it.Release()
 }
 
 func TestDowngrade(t *testing.T) {
