@@ -7,8 +7,6 @@
 package db
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -27,11 +25,6 @@ import (
 const (
 	dbVersion             = 10
 	dbMinSyncthingVersion = "v1.4.0"
-)
-
-var (
-	errFolderIdxMissing = errors.New("folder db index missing")
-	errDeviceIdxMissing = errors.New("device db index missing")
 )
 
 type databaseDowngradeError struct {
@@ -91,7 +84,7 @@ func (db *schemaUpdater) updateSchema() error {
 		{5, db.updateSchemaTo5},
 		{6, db.updateSchema5to6},
 		{7, db.updateSchema6to7},
-		{9, db.updateSchemato9},
+		{9, db.updateSchema7to9},
 		{10, db.updateSchemato10},
 	}
 
@@ -433,9 +426,8 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) updateSchemato9(prev int) error {
+func (db *schemaUpdater) updateSchema7to9(_ int) error {
 	// Loads and rewrites all files with blocks, to deduplicate block lists.
-	// Checks for missing or incorrect sequence entries and rewrites those.
 
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
@@ -443,12 +435,10 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 	}
 	defer t.close()
 
-	var sk []byte
 	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
 		return err
 	}
-	metas := make(map[string]*metadataTracker)
 	for it.Next() {
 		intf, err := t.unmarshalTrunc(it.Value(), false)
 		if backend.IsNotFound(err) {
@@ -464,48 +454,6 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 			return err
 		}
 		fi := intf.(protocol.FileInfo)
-		device, ok := t.keyer.DeviceFromDeviceFileKey(it.Key())
-		if !ok {
-			return errDeviceIdxMissing
-		}
-		if bytes.Equal(device, protocol.LocalDeviceID[:]) {
-			folder, ok := t.keyer.FolderFromDeviceFileKey(it.Key())
-			if !ok {
-				return errFolderIdxMissing
-			}
-			if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
-				return err
-			}
-			switch dk, err := t.Get(sk); {
-			case err != nil:
-				if !backend.IsNotFound(err) {
-					return err
-				}
-				fallthrough
-			case !bytes.Equal(it.Key(), dk):
-				folderStr := string(folder)
-				meta, ok := metas[folderStr]
-				if !ok {
-					meta = loadMetadataTracker(db.Lowlevel, folderStr)
-					metas[folderStr] = meta
-				}
-				fi.Sequence = meta.nextLocalSeq()
-				if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
-					return err
-				}
-				if err := t.Put(sk, it.Key()); err != nil {
-					return err
-				}
-				if err := t.putFile(it.Key(), fi); err != nil {
-					return err
-				}
-				continue
-			}
-		}
-		if prev == 8 {
-			// The transition to 8 already did the changes below.
-			continue
-		}
 		if fi.Blocks == nil {
 			continue
 		}
@@ -516,12 +464,6 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 	it.Release()
 	if err := it.Error(); err != nil {
 		return err
-	}
-
-	for folder, meta := range metas {
-		if err := meta.toDB(t, []byte(folder)); err != nil {
-			return err
-		}
 	}
 
 	db.recordTime(indirectGCTimeKey)
