@@ -1,4 +1,4 @@
-<modal id="editFolder" status="default" icon="{{editingExisting ? 'fas fa-pencil-alt' : 'fas fa-folder'}}" heading="{{editingExisting ? 'Edit Folder' : 'Add Folder' | translate}}" large="yes" closeable="yes">
+<modal id="editFolder" status="default" icon="{{editingExisting ? 'fas fa-pencil-alt' : 'fas fa-folder'}}" heading="{{editingExisting ? 'Edit Folder ('+folderLabel(currentFolder.id)+')' : 'Add Folder' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
     <form role="form" name="folderEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
