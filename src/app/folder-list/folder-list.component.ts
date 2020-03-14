@@ -25,17 +25,22 @@ export class FolderListComponent implements AfterViewInit, OnInit {
   constructor(private systemConfigService: SystemConfigService) { };
 
   ngOnInit() {
-    this.dataSource = new FolderListDataSource();
-    this.systemConfigService.getFolders().subscribe(
-      data => {
-        this.dataSource.data = data;
-      }
-    );
+    this.dataSource = new FolderListDataSource(this.systemConfigService);
+    this.dataSource.data = [];
+  }
+
+  ngAfterContentInit() {
   }
 
   ngAfterViewInit() {
     this.dataSource.sort = this.sort;
     this.dataSource.paginator = this.paginator;
     this.table.dataSource = this.dataSource;
+
+    this.systemConfigService.getFolders().subscribe(
+      data => {
+        this.dataSource.data = data;
+      }
+    );
   }
 }

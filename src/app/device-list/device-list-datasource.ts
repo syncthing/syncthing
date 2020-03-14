@@ -5,6 +5,7 @@ import { MatSort } from '@angular/material/sort';
 import { map } from 'rxjs/operators';
 import { Observable, of as observableOf, merge } from 'rxjs';
 import { Device } from '../device';
+import { SystemConfigService } from '../system-config.service';
 
 /**
  * Data source for the DeviceList view. This class should
@@ -16,7 +17,7 @@ export class DeviceListDataSource extends DataSource<Device> {
   paginator: MatPaginator;
   sort: MatSort;
 
-  constructor() {
+  constructor(private systemConfigService: SystemConfigService) {
     super();
   }
 
@@ -29,7 +30,7 @@ export class DeviceListDataSource extends DataSource<Device> {
     // Combine everything that affects the rendered data into one update
     // st
     const dataMutations = [
-      observableOf(this.data),
+      this.systemConfigService.getDevices(),
       this.paginator.page,
       this.sort.sortChange
     ];

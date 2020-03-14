@@ -6,6 +6,7 @@ import { MatTable } from '@angular/material/table';
 import { DeviceListDataSource } from './device-list-datasource';
 import { Device } from '../device';
 import { SystemConfigService } from '../system-config.service';
+import { flatMap } from 'rxjs/operators';
 
 
 @Component({
@@ -25,17 +26,19 @@ export class DeviceListComponent implements AfterViewInit, OnInit {
   constructor(private systemConfigService: SystemConfigService) { };
 
   ngOnInit() {
-    this.dataSource = new DeviceListDataSource();
-    this.systemConfigService.getDevices().subscribe(
-      data => {
-        this.dataSource.data = data;
-      }
-    );
+    this.dataSource = new DeviceListDataSource(this.systemConfigService);
+    this.dataSource.data = [];
   }
 
   ngAfterViewInit() {
     this.dataSource.sort = this.sort;
     this.dataSource.paginator = this.paginator;
     this.table.dataSource = this.dataSource;
+
+    this.systemConfigService.getDevices().subscribe(
+      data => {
+        this.dataSource.data = data;
+      }
+    );
   }
 }

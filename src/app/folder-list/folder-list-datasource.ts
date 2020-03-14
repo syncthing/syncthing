@@ -5,6 +5,7 @@ import { MatSort } from '@angular/material/sort';
 import { map } from 'rxjs/operators';
 import { Observable, of as observableOf, merge } from 'rxjs';
 import { Folder } from '../folder';
+import { SystemConfigService } from '../system-config.service';
 
 /**
  * Data source for the FolderList view. This class should
@@ -16,7 +17,7 @@ export class FolderListDataSource extends DataSource<Folder> {
   paginator: MatPaginator;
   sort: MatSort;
 
-  constructor() {
+  constructor(private systemConfigService: SystemConfigService) {
     super();
   }
 
@@ -29,7 +30,8 @@ export class FolderListDataSource extends DataSource<Folder> {
     // Combine everything that affects the rendered data into one update
     // st
     const dataMutations = [
-      observableOf(this.data),
+      // observableOf(this.data),
+      this.systemConfigService.getFolders(),
       this.paginator.page,
       this.sort.sortChange
     ];
