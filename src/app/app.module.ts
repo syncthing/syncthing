@@ -1,5 +1,6 @@
 import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
+import { HttpClientModule, HttpClientXsrfModule } from '@angular/common/http';
 
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule } from '@angular/material/paginator';
@@ -13,7 +14,12 @@ import { StatusListComponent } from './status-list/status-list.component';
 import { FolderListComponent } from './folder-list/folder-list.component';
 import { DeviceListComponent } from './device-list/device-list.component';
 import { StatusToggleComponent } from './status-toggle/status-toggle.component';
+import { DeviceListDataSource } from './device-list/device-list-datasource';
 
+const deviceID = (): String => {
+  const dID: String = globalThis.metadata['deviceID'];
+  return dID.substring(0, 5)
+}
 
 @NgModule({
   declarations: [
@@ -30,9 +36,17 @@ import { StatusToggleComponent } from './status-toggle/status-toggle.component';
     MatTableModule,
     MatPaginatorModule,
     MatSortModule,
-    MatButtonToggleModule
+    MatButtonToggleModule,
+    HttpClientModule,
+    HttpClientXsrfModule.withOptions({
+      headerName: 'X-CSRF-Token-' + deviceID(),
+      cookieName: 'CSRF-Token-' + deviceID(),
+    })
   ],
   providers: [],
   bootstrap: [AppComponent]
 })
+
 export class AppModule { }
+
+
