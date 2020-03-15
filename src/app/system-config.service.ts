@@ -20,15 +20,15 @@ export class SystemConfigService {
   private devices: Device[];
   private foldersSubject: Subject<Folder[]> = new Subject();
   private devicesSubject: Subject<Device[]> = new Subject();
-  private systemConfigUrl = environment.production ? apiURL + '/rest/system/config' : 'api/config';
+  private systemConfigUrl = environment.production ? apiURL + 'rest/system/config' : 'api/config';
 
   private httpOptions;
 
-  constructor(private http: HttpClient, private cookieService: CookieService) { }
-
-  ngOnInit(): void {
+  constructor(private http: HttpClient, private cookieService: CookieService) {
     this.httpOptions = { headers: new HttpHeaders(this.cookieService.getCSRFHeader()) };
   }
+
+  ngOnInit(): void { }
 
   getSystemConfig(): Observable<any> {
     return this.http
