@@ -7,6 +7,8 @@ import { map } from 'rxjs/operators';
 import { Folder } from './folder';
 import { Device } from './device';
 import { FOLDERS, DEVICES } from './mock-config-data';
+import { CookieService } from './cookie.service';
+import { apiURL } from './api-utils'
 
 @Injectable({
   providedIn: 'root'
@@ -17,17 +19,13 @@ export class SystemConfigService {
   private devices: Device[];
   private foldersSubject: Subject<Folder[]> = new Subject();
   private devicesSubject: Subject<Device[]> = new Subject();
+  private systemConfigUrl = apiURL + '/rest/system/config';  // URL to web api
 
-  private systemConfigUrl = 'http://127.0.0.1:8384/rest/system/config';  // URL to web api
-  httpOptions = {
-    // TODO find best way to get api key
-    // headers: new HttpHeaders({ 'X-API-Key': 'x' })
-  };
+  httpOptions = { headers: new HttpHeaders(this.cookieService.getCSRFHeader()) };
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private cookieService: CookieService) { }
 
   ngOnInit(): void { }
-
 
   getSystemConfig(): Observable<any> {
     return this.http
