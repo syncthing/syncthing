@@ -15,8 +15,10 @@ import { FolderListComponent } from './folder-list/folder-list.component';
 import { DeviceListComponent } from './device-list/device-list.component';
 import { StatusToggleComponent } from './status-toggle/status-toggle.component';
 import { DeviceListDataSource } from './device-list/device-list-datasource';
+import { HttpClientInMemoryWebApiModule } from 'angular-in-memory-web-api';
+import { InMemoryConfigDataService } from './in-memory-config-data.service';
 import { deviceID } from './api-utils';
-
+import { environment } from '../environments/environment'
 
 @NgModule({
   declarations: [
@@ -38,7 +40,9 @@ import { deviceID } from './api-utils';
     HttpClientXsrfModule.withOptions({
       headerName: 'X-CSRF-Token-' + deviceID(),
       cookieName: 'CSRF-Token-' + deviceID(),
-    })
+    }),
+    environment.production ?
+      [] : HttpClientInMemoryWebApiModule.forRoot(InMemoryConfigDataService)
   ],
   providers: [],
   bootstrap: [AppComponent]

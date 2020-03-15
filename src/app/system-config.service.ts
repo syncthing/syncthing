@@ -8,6 +8,7 @@ import { Folder } from './folder';
 import { Device } from './device';
 import { FOLDERS, DEVICES } from './mock-config-data';
 import { CookieService } from './cookie.service';
+import { environment } from '../environments/environment'
 import { apiURL } from './api-utils'
 
 @Injectable({
@@ -19,13 +20,15 @@ export class SystemConfigService {
   private devices: Device[];
   private foldersSubject: Subject<Folder[]> = new Subject();
   private devicesSubject: Subject<Device[]> = new Subject();
-  private systemConfigUrl = apiURL + '/rest/system/config';  // URL to web api
+  private systemConfigUrl = environment.production ? apiURL + '/rest/system/config' : 'api/config';
 
-  httpOptions = { headers: new HttpHeaders(this.cookieService.getCSRFHeader()) };
+  private httpOptions;
 
   constructor(private http: HttpClient, private cookieService: CookieService) { }
 
-  ngOnInit(): void { }
+  ngOnInit(): void {
+    this.httpOptions = { headers: new HttpHeaders(this.cookieService.getCSRFHeader()) };
+  }
 
   getSystemConfig(): Observable<any> {
     return this.http
