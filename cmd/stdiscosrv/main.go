@@ -67,6 +67,13 @@ var (
 	debug = false
 )
 
+func fileExists(filename string) bool {
+	_, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
 func main() {
 	var listen string
 	var dir string
@@ -99,11 +106,15 @@ func main() {
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
-		log.Println("Failed to load keypair. Generating one, this might take a while...")
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv", 20*365)
-		if err != nil {
-			log.Fatalln("Failed to generate X509 key pair:", err)
+		log.Println("Failed to load keypair because:", err)
+		if !fileExists(certFile) && !fileExists(keyFile) {
+			log.Println("Failed to load keypair. Generating one, this might take a while...")
+			cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv", 20*365)
+			if err != nil {
+				log.Fatalln("Failed to generate X509 key pair:", err)
+			}
 		}
+
 	}
 
 	devID := protocol.NewDeviceID(cert.Certificate[0])
