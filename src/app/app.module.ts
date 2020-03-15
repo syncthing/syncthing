@@ -15,11 +15,8 @@ import { FolderListComponent } from './folder-list/folder-list.component';
 import { DeviceListComponent } from './device-list/device-list.component';
 import { StatusToggleComponent } from './status-toggle/status-toggle.component';
 import { DeviceListDataSource } from './device-list/device-list-datasource';
+import { deviceID } from './api-utils';
 
-const deviceID = (): String => {
-  const dID: String = globalThis.metadata['deviceID'];
-  return dID.substring(0, 5)
-}
 
 @NgModule({
   declarations: [
