@@ -20,15 +20,20 @@ export class SystemConfigService {
   private devices: Device[];
   private foldersSubject: Subject<Folder[]> = new Subject();
   private devicesSubject: Subject<Device[]> = new Subject();
-  private systemConfigUrl = environment.production ? apiURL + 'rest/system/config' : 'api/config';
 
+  private systemConfigUrl = environment.production ? apiURL + 'rest/system/config' : 'api/config';
   private httpOptions;
 
-  constructor(private http: HttpClient, private cookieService: CookieService) {
-    this.httpOptions = { headers: new HttpHeaders(this.cookieService.getCSRFHeader()) };
-  }
+  private checkInterval: Number = 200;
 
-  ngOnInit(): void { }
+  constructor(private http: HttpClient, private cookieService: CookieService) {
+    const csrfHeader = this.cookieService.getCSRFHeader();
+    this.httpOptions = {
+      headers: new HttpHeaders({
+        csrfHeader
+      })
+    }
+  }
 
   getSystemConfig(): Observable<any> {
     return this.http
@@ -52,7 +57,7 @@ export class SystemConfigService {
         observer.next(this.folders);
       } else {
         // create timer to keep checking for folders
-        let checkFolders = (): Boolean => {
+        let check = (): Boolean => {
           if (this.folders) {
             observer.next(this.folders);
             return true;
@@ -60,9 +65,11 @@ export class SystemConfigService {
           return false;
         }
         let t = setInterval(() => {
-          if (checkFolders())
+          if (check())
             clearInterval(t);
-        }, 100);
+        }, 200);
+
+        check(); // try right away
       }
     });
     return folderObservable;
@@ -74,7 +81,7 @@ export class SystemConfigService {
         observer.next(this.devices);
       } else {
         // create timer to keep checking for devices 
-        let checkFolders = (): Boolean => {
+        let check = (): Boolean => {
           if (this.devices) {
             observer.next(this.devices);
             return true;
@@ -82,9 +89,11 @@ export class SystemConfigService {
           return false;
         }
         let t = setInterval(() => {
-          if (checkFolders())
+          if (check())
             clearInterval(t);
-        }, 100);
+        }, 200);
+
+        check() // try right away
       }
     });
     return deviceObserverable;
