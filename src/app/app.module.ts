@@ -14,11 +14,13 @@ import { StatusListComponent } from './status-list/status-list.component';
 import { FolderListComponent } from './folder-list/folder-list.component';
 import { DeviceListComponent } from './device-list/device-list.component';
 import { StatusToggleComponent } from './status-toggle/status-toggle.component';
-import { DeviceListDataSource } from './device-list/device-list-datasource';
 import { HttpClientInMemoryWebApiModule } from 'angular-in-memory-web-api';
 import { InMemoryConfigDataService } from './in-memory-config-data.service';
 import { deviceID } from './api-utils';
-import { environment } from '../environments/environment'
+import { environment } from '../environments/environment';
+import { DashboardComponent } from './dashboard/dashboard.component';
+import { MatCardModule } from '@angular/material/card';
+import { FlexLayoutModule } from '@angular/flex-layout';
 
 @NgModule({
   declarations: [
@@ -27,6 +29,7 @@ import { environment } from '../environments/environment'
     FolderListComponent,
     DeviceListComponent,
     StatusToggleComponent,
+    DashboardComponent,
   ],
   imports: [
     BrowserModule,
@@ -42,7 +45,9 @@ import { environment } from '../environments/environment'
       cookieName: 'CSRF-Token-' + deviceID(),
     }),
     environment.production ?
-      [] : HttpClientInMemoryWebApiModule.forRoot(InMemoryConfigDataService)
+      [] : HttpClientInMemoryWebApiModule.forRoot(InMemoryConfigDataService),
+    MatCardModule,
+    FlexLayoutModule
   ],
   providers: [],
   bootstrap: [AppComponent]

@@ -24,15 +24,10 @@ export class SystemConfigService {
   private systemConfigUrl = environment.production ? apiURL + 'rest/system/config' : 'api/config';
   private httpOptions;
 
-  private checkInterval: Number = 200;
+  private checkInterval: number = 200;
 
   constructor(private http: HttpClient, private cookieService: CookieService) {
-    const csrfHeader = this.cookieService.getCSRFHeader();
-    this.httpOptions = {
-      headers: new HttpHeaders({
-        csrfHeader
-      })
-    }
+    this.httpOptions = { headers: new HttpHeaders(this.cookieService.getCSRFHeader()) };
   }
 
   getSystemConfig(): Observable<any> {
@@ -67,7 +62,7 @@ export class SystemConfigService {
         let t = setInterval(() => {
           if (check())
             clearInterval(t);
-        }, 200);
+        }, this.checkInterval);
 
         check(); // try right away
       }
@@ -91,16 +86,11 @@ export class SystemConfigService {
         let t = setInterval(() => {
           if (check())
             clearInterval(t);
-        }, 200);
+        }, this.checkInterval);
 
         check() // try right away
       }
     });
     return deviceObserverable;
-    // return from(this.devices);
-    if (this.devices) {
-      this.devicesSubject.next(this.devices);
-    }
-    return this.devicesSubject;
   }
 }
