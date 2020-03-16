@@ -17,7 +17,6 @@ export class StatusListComponent implements OnInit {
   }
 
   onToggle(s: Status) {
-    console.log("holy moly", s);
     this.currentStatus = s;
   }
 }

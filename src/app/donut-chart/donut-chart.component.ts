@@ -19,7 +19,6 @@ export class DonutChartComponent implements OnInit {
   }
 
   ngAfterViewInit(): void {
-    console.log("elementID?", this.elementID)
     this.canvas = document.getElementById(this.elementID);
     this.ctx = this.canvas.getContext('2d');
     const myChart = new Chart(this.ctx, {

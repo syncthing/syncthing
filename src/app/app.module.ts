@@ -47,7 +47,7 @@ import { DonutChartComponent } from './donut-chart/donut-chart.component';
       cookieName: 'CSRF-Token-' + deviceID(),
     }),
     environment.production ?
-      [] : HttpClientInMemoryWebApiModule.forRoot(InMemoryConfigDataService),
+      [] : HttpClientInMemoryWebApiModule.forRoot(InMemoryConfigDataService, { delay: 200 }),
     MatCardModule,
     FlexLayoutModule
   ],

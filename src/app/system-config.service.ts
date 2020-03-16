@@ -24,7 +24,7 @@ export class SystemConfigService {
   private systemConfigUrl = environment.production ? apiURL + 'rest/system/config' : 'api/config';
   private httpOptions;
 
-  private checkInterval: number = 500;
+  private checkInterval: number = 100;
 
   constructor(private http: HttpClient, private cookieService: CookieService) {
     this.httpOptions = { headers: new HttpHeaders(this.cookieService.getCSRFHeader()) };
@@ -53,9 +53,10 @@ export class SystemConfigService {
       } else {
         // create timer to keep checking for folders
         let t = setInterval(() => {
-          if (check(this.folders))
+          if (this.folders) {
             clearInterval(t);
-          observer.next(this.folders);
+            observer.next(this.folders);
+          }
         }, this.checkInterval);
       }
     });
@@ -68,7 +69,7 @@ export class SystemConfigService {
         observer.next(this.devices);
       } else {
         let t = setInterval(() => {
-          if (check(this.devices)) {
+          if (this.devices) {
             clearInterval(t);
             observer.next(this.devices);
           }
@@ -77,11 +78,4 @@ export class SystemConfigService {
     });
     return deviceObserverable;
   }
-}
-
-const check = (target: any): Boolean => {
-  if (target) {
-    return true;
-  }
-  return false;
 }

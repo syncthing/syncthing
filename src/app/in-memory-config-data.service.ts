@@ -109,7 +109,6 @@ export class InMemoryConfigDataService {
       "ignoredDevices": [],
       "ignoredFolders": []
     }
-    console.log("in mem?!?!?", config)
     return { config };
   }
   constructor() { }
