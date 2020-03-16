@@ -8,10 +8,19 @@ package db
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
+
+type errDeviceEntryMissing struct {
+	name string
+}
+
+func (err errDeviceEntryMissing) Error() string {
+	return fmt.Sprintf("device present in global list but missing as device/fileinfo entry: %s", err.name)
+}
 
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
@@ -344,53 +353,25 @@ func (t *readOnlyTransaction) withNeed(folder, device []byte, truncate bool, fn 
 		}
 
 		haveFV, have := vl.Get(device)
-		// XXX: This marks Concurrent (i.e. conflicting) changes as
-		// needs. Maybe we should do that, but it needs special
-		// handling in the puller.
-		if have && haveFV.Version.GreaterEqual(vl.Versions[0].Version) {
-			continue
-		}
 
 		name := t.keyer.NameFromGlobalVersionKey(dbi.Key())
-		needVersion := vl.Versions[0].Version
-		needDevice := protocol.DeviceIDFromBytes(vl.Versions[0].Device)
-
-		for i := range vl.Versions {
-			if !vl.Versions[i].Version.Equal(needVersion) {
-				// We haven't found a valid copy of the file with the needed version.
-				break
-			}
-
-			if vl.Versions[i].Invalid {
-				// The file is marked invalid, don't use it.
-				continue
-			}
-
-			dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[i].Device, name)
-			if err != nil {
-				return err
-			}
-			gf, ok, err := t.getFileTrunc(dk, truncate)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				continue
-			}
-
-			if gf.IsDeleted() && !have {
-				// We don't need deleted files that we don't have
-				break
-			}
-
-			l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.Invalid, haveFV.Version, needVersion, needDevice)
-
-			if !fn(gf) {
-				return nil
-			}
-
-			// This file is handled, no need to look further in the version list
-			break
+		dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, name)
+		if err != nil {
+			return err
+		}
+		gf, ok, err := t.getFileTrunc(dk, truncate)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errDeviceEntryMissing{string(name)}
+		}
+		if !need(gf, have, haveFV.Version) {
+			continue
+		}
+		l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.Invalid, haveFV.Version, vl.Versions[0].Version, vl.Versions[0].Device)
+		if !fn(gf) {
+			return dbi.Error()
 		}
 	}
 	return dbi.Error()
