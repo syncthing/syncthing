@@ -19,7 +19,7 @@ type errDeviceEntryMissing struct {
 }
 
 func (err errDeviceEntryMissing) Error() string {
-	return fmt.Sprintf("device present in global list but missing as device/fileinfo entry: %v", err.name)
+	return fmt.Sprintf("device present in global list but missing as device/fileinfo entry: %s", err.name)
 }
 
 // A readOnlyTransaction represents a database snapshot.
