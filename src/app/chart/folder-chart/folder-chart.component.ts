@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { SystemConfigService } from 'src/app/system-config.service';
+import { Folder } from '../../folder'
 import { cardElevation } from '../../style'
 
 @Component({
@@ -10,6 +11,7 @@ import { cardElevation } from '../../style'
 export class FolderChartComponent implements OnInit {
   chartID: string = 'foldersChart';
   elevation: string = cardElevation;
+  data: Folder[];
 
   constructor(private systemConfigService: SystemConfigService) { }
 

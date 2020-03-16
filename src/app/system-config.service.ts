@@ -6,7 +6,6 @@ import { map } from 'rxjs/operators';
 
 import { Folder } from './folder';
 import { Device } from './device';
-import { FOLDERS, DEVICES } from './mock-config-data';
 import { CookieService } from './cookie.service';
 import { environment } from '../environments/environment'
 import { apiURL } from './api-utils'

@@ -68,7 +68,7 @@ export class DeviceListDataSource extends DataSource<Device> {
       const isAsc = this.sort.direction === 'asc';
       switch (this.sort.active) {
         case 'name': return compare(a.name, b.name, isAsc);
-        case 'id': return compare(+a.id, +b.id, isAsc);
+        case 'id': return compare(+a.deviceID, +b.deviceID, isAsc);
         default: return 0;
       }
     });

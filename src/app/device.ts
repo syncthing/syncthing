@@ -1,5 +1,5 @@
 export interface Device {
-    id: string;
+    deviceID: string;
     name: string;
 
     // TODO add additional properties
