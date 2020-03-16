@@ -4,20 +4,10 @@
     <h1>Tech UI</h1>
   </div>
   <div gdArea="folders">
-    <mat-card>
-      <mat-card-title>Folders</mat-card-title>
-      <mat-card-content>
-        <app-donut-chart [elementID]="foldersChart"></app-donut-chart>
-      </mat-card-content>
-    </mat-card>
+    <app-folder-chart></app-folder-chart>
   </div>
   <div gdArea="devices">
-    <mat-card>
-      <mat-card-title>Devices</mat-card-title>
-      <mat-card-content>
-        <app-donut-chart [elementID]="devicesChart"></app-donut-chart>
-      </mat-card-content>
-    </mat-card>
+    <app-device-chart></app-device-chart>
   </div>
   <app-status-list gdArea="status-list"></app-status-list>
   <div gdArea="footer">

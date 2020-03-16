@@ -6,6 +6,7 @@ import { MatTable } from '@angular/material/table';
 import { DeviceListDataSource } from './device-list-datasource';
 import { Device } from '../../device';
 import { SystemConfigService } from '../../system-config.service';
+import { cardElevation } from '../../style';
 
 
 @Component({
@@ -18,6 +19,7 @@ export class DeviceListComponent implements AfterViewInit, OnInit {
   @ViewChild(MatSort) sort: MatSort;
   @ViewChild(MatTable) table: MatTable<Device>;
   dataSource: DeviceListDataSource;
+  elevation: string = cardElevation;
 
   /** Columns displayed in the table. Columns IDs can be added, removed, or reordered. */
   displayedColumns = ['id', 'name'];

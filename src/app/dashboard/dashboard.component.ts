@@ -7,8 +7,7 @@ import { SystemConfigService } from '../system-config.service';
   styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent {
-  foldersChart = 'foldersChart';
-  devicesChart = 'devicesChart';
+
 
   constructor(private systemConfigService: SystemConfigService) { }
 

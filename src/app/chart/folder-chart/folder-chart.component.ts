@@ -1,4 +1,6 @@
 import { Component, OnInit } from '@angular/core';
+import { SystemConfigService } from 'src/app/system-config.service';
+import { cardElevation } from '../../style'
 
 @Component({
   selector: 'app-folder-chart',
@@ -6,10 +8,17 @@ import { Component, OnInit } from '@angular/core';
   styleUrls: ['./folder-chart.component.scss']
 })
 export class FolderChartComponent implements OnInit {
+  chartID: string = 'foldersChart';
+  elevation: string = cardElevation;
 
-  constructor() { }
+  constructor(private systemConfigService: SystemConfigService) { }
 
   ngOnInit(): void {
+    this.systemConfigService.getFolders().subscribe(
+      data => {
+        console.log("char folder data", data)
+      }
+    );
   }
 
 }
