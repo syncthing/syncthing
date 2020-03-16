@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { Status } from '../status';
+import { Status } from '../../status';
 
 
 @Component({

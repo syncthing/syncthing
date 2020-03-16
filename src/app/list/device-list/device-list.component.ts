@@ -4,9 +4,8 @@ import { MatSort } from '@angular/material/sort';
 import { MatTable } from '@angular/material/table';
 
 import { DeviceListDataSource } from './device-list-datasource';
-import { Device } from '../device';
-import { SystemConfigService } from '../system-config.service';
-import { flatMap } from 'rxjs/operators';
+import { Device } from '../../device';
+import { SystemConfigService } from '../../system-config.service';
 
 
 @Component({

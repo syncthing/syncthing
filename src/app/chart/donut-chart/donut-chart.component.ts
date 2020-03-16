@@ -26,7 +26,7 @@ export class DonutChartComponent implements OnInit {
       data: {
         labels: ["Up to Date", "Syncing", "Waiting to Sync", "Out of Sync", "Failed Items"],
         datasets: [{
-          data: [1, 2, 3, 0, 0],
+          data: [100, 200, 300, 0, 0],
           backgroundColor: [
             '#56C568',
             'rgba(54, 162, 235, 1)',

@@ -4,8 +4,8 @@ import { MatSort } from '@angular/material/sort';
 import { MatTable } from '@angular/material/table';
 
 import { FolderListDataSource } from './folder-list-datasource';
-import { Folder } from '../folder';
-import { SystemConfigService } from '../system-config.service';
+import { Folder } from '../../folder';
+import { SystemConfigService } from '../../system-config.service';
 
 
 @Component({
