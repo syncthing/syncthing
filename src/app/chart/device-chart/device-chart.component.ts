@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { cardElevation } from '../../style';
+import { SystemConfigService } from 'src/app/system-config.service';
 
 @Component({
   selector: 'app-device-chart',
@@ -9,10 +10,15 @@ import { cardElevation } from '../../style';
 export class DeviceChartComponent implements OnInit {
   chartID: string = 'devicesChart';
   elevation: string = cardElevation;
+  data: number[];
 
-  constructor() { }
+  constructor(private systemConfigService: SystemConfigService) { }
 
   ngOnInit(): void {
+    this.systemConfigService.getFolders().subscribe(
+      data => {
+        this.data = [0, 230, 32, 40];
+      }
+    );
   }
-
 }

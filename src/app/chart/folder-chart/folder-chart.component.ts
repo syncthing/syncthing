@@ -11,16 +11,20 @@ import { cardElevation } from '../../style'
 export class FolderChartComponent implements OnInit {
   chartID: string = 'foldersChart';
   elevation: string = cardElevation;
-  data: Folder[];
+  data: number[];
 
   constructor(private systemConfigService: SystemConfigService) { }
 
   ngOnInit(): void {
     this.systemConfigService.getFolders().subscribe(
       data => {
-        console.log("char folder data", data)
+        this.data = [0, 1, 32, 40];
       }
     );
   }
+  /*
+  ngAfterViewInit() {
 
+  }
+  */
 }

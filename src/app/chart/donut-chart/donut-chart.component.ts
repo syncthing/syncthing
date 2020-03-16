@@ -1,32 +1,48 @@
-import { Component, OnInit, AfterViewInit, Input } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { Chart } from 'chart.js'
-import { flatMap } from 'rxjs/operators';
+import { SystemConfigService } from 'src/app/system-config.service';
 
 @Component({
   selector: 'app-donut-chart',
   templateUrl: './donut-chart.component.html',
   styleUrls: ['./donut-chart.component.scss']
 })
-export class DonutChartComponent implements OnInit {
+export class DonutChartComponent {
   @Input() elementID: string;
+  @Input() set data(val: number[]) {
+    if (this.chart) {
+      val.forEach((v) => {
+        this.addData(v)
+      });
+      console.log("set the data?", val)
+    }
+  };
 
   private canvas: any;
   private ctx: any;
+  private chart: Chart;
 
   constructor() { }
 
-  ngOnInit(): void {
+  addData(data: number): void {
+    //    this.chart.data.labels.push(label);
+    this.chart.data.datasets.forEach((dataset) => {
+      dataset.data.push(data);
+    });
+    this.chart.update();
   }
 
+
   ngAfterViewInit(): void {
+    console.log("is the data set?", this.data, this.elementID);
     this.canvas = document.getElementById(this.elementID);
     this.ctx = this.canvas.getContext('2d');
-    const myChart = new Chart(this.ctx, {
+    this.chart = new Chart(this.ctx, {
       type: 'doughnut',
       data: {
         labels: ["Up to Date", "Syncing", "Waiting to Sync", "Out of Sync", "Failed Items"],
         datasets: [{
-          data: [100, 200, 300, 0, 0],
+          data: [],
           backgroundColor: [
             '#56C568',
             'rgba(54, 162, 235, 1)',
@@ -37,7 +53,6 @@ export class DonutChartComponent implements OnInit {
       },
       options: {
         responsive: false,
-        display: false,
         legend: {
           display: false
         }
