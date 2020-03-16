@@ -23,6 +23,7 @@
     "@angular/platform-browser-dynamic": "~9.0.5",
     "@angular/router": "~9.0.5",
     "angular-in-memory-web-api": "^0.10.0",
+    "chart.js": "^2.9.3",
     "component": "^1.1.0",
     "rxjs": "~6.5.4",
     "tslib": "^1.10.0",

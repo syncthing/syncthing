@@ -21,6 +21,7 @@ import { environment } from '../environments/environment';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { MatCardModule } from '@angular/material/card';
 import { FlexLayoutModule } from '@angular/flex-layout';
+import { DonutChartComponent } from './donut-chart/donut-chart.component';
 
 @NgModule({
   declarations: [
@@ -30,6 +31,7 @@ import { FlexLayoutModule } from '@angular/flex-layout';
     DeviceListComponent,
     StatusToggleComponent,
     DashboardComponent,
+    DonutChartComponent,
   ],
   imports: [
     BrowserModule,
