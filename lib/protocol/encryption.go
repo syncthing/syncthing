@@ -443,8 +443,10 @@ func FileKey(filename string, folderKey *[keySize]byte) *[keySize]byte {
 	return &fileKey
 }
 
-// slashify inserts slashes (and file extension) in the string to create an appropriate tree.
-// ABCDEFGH... => A.syncthing-enc/BC/DEFGH...
+// slashify inserts slashes (and file extension) in the string to create an
+// appropriate tree. ABCDEFGH... => A.syncthing-enc/BC/DEFGH... We can use
+// forward slashes here because we're on the outside of native path formats,
+// the slash is the wire format.
 func slashify(s string) string {
 	// We somewhat sloppily assume bytes == characters here, but the only
 	// file names we should deal with are those that come from our base32

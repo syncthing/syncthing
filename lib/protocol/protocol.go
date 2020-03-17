@@ -205,21 +205,32 @@ var CloseTimeout = 10 * time.Second
 
 func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
 	receiver = nativeModel{receiver}
-	return newConnection(deviceID, reader, writer, receiver, name, compress)
+	rc := newRawConnection(deviceID, reader, writer, receiver, name, compress)
+	return wireFormatConnection{rc}
 }
 
 func NewEncryptedConnection(passwords map[string]string, deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
 	keys := keysFromPasswords(passwords)
-	receiver = encryptedModel{Model: nativeModel{receiver}, folderKeys: keys}
-	wfc := newConnection(deviceID, reader, writer, receiver, name, compress)
-	return encryptedConnection{Connection: wfc, folderKeys: keys}
+
+	// Encryption / decryption is first (outermost) before conversion to
+	// native path formats.
+	nm := nativeModel{receiver}
+	em := encryptedModel{Model: nm, folderKeys: keys}
+
+	// We do the wire format conversion first (outermost) so that the
+	// metadata is in wire format when it reaches the encryption step.
+	rc := newRawConnection(deviceID, reader, writer, em, name, compress)
+	ec := encryptedConnection{Connection: rc, folderKeys: keys}
+	wc := wireFormatConnection{ec}
+
+	return wc
 }
 
-func newConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) wireFormatConnection {
+func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) *rawConnection {
 	cr := &countingReader{Reader: reader}
 	cw := &countingWriter{Writer: writer}
 
-	c := rawConnection{
+	return &rawConnection{
 		id:                    deviceID,
 		name:                  name,
 		receiver:              receiver,
@@ -235,8 +246,6 @@ func newConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		closed:                make(chan struct{}),
 		compression:           compress,
 	}
-
-	return wireFormatConnection{&c}
 }
 
 // Start creates the goroutines for sending and receiving of messages. It must
