@@ -365,7 +365,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 
 		case file.Type == protocol.FileInfoTypeFile:
 			curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
-			if _, need := blockDiff(curFile.Blocks, file.Blocks); hasCurFile && len(need) == 0 {
+			if hasCurFile && file.BlocksEqual(curFile) {
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
@@ -461,7 +461,7 @@ nextFile:
 		// we can just do a rename instead.
 		key := string(fi.Blocks[0].Hash)
 		for i, candidate := range buckets[key] {
-			if protocol.BlocksEqual(candidate.Blocks, fi.Blocks) {
+			if candidate.BlocksEqual(fi) {
 				// Remove the candidate from the bucket
 				lidx := len(buckets[key]) - 1
 				buckets[key][i] = buckets[key][lidx]

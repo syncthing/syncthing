@@ -380,9 +380,11 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 
 	var dk []byte
 	for dbi.Next() {
-		vl, ok := unmarshalVersionList(dbi.Value())
-		if !ok {
-			continue
+		var vl VersionList
+		if err := vl.Unmarshal(dbi.Value()); err != nil || len(vl.Versions) == 0 {
+			if err := t.Delete(dbi.Key()); err != nil {
+				return err
+			}
 		}
 
 		// Check the global version list for consistency. An issue in previous
@@ -619,19 +621,6 @@ func (db *Lowlevel) gcIndirect() error {
 	}
 
 	return db.Compact()
-}
-
-func unmarshalVersionList(data []byte) (VersionList, bool) {
-	var vl VersionList
-	if err := vl.Unmarshal(data); err != nil {
-		l.Debugln("unmarshal error:", err)
-		return VersionList{}, false
-	}
-	if len(vl.Versions) == 0 {
-		l.Debugln("empty version list")
-		return VersionList{}, false
-	}
-	return vl, true
 }
 
 // unchanged checks if two files are the same and thus don't need to be updated.
