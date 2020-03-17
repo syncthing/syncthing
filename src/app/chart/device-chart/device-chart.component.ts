@@ -15,7 +15,7 @@ export class DeviceChartComponent implements OnInit {
   constructor(private systemConfigService: SystemConfigService) { }
 
   ngOnInit(): void {
-    this.systemConfigService.getFolders().subscribe(
+    this.systemConfigService.getDevices().subscribe(
       data => {
         this.data = [0, 230, 32, 40];
       }

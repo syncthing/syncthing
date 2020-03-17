@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 
-import { Observable, Subject, of } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 import { Folder } from './folder';
@@ -14,14 +14,13 @@ import { apiURL } from './api-utils'
   providedIn: 'root'
 })
 export class SystemConfigService {
-  private systemConfig: any;
   private folders: Folder[];
   private devices: Device[];
   private foldersSubject: Subject<Folder[]> = new Subject();
   private devicesSubject: Subject<Device[]> = new Subject();
 
   private systemConfigUrl = environment.production ? apiURL + 'rest/system/config' : 'api/config';
-  private httpOptions;
+  private httpOptions: any;
 
   private checkInterval: number = 100;
 
@@ -33,8 +32,6 @@ export class SystemConfigService {
     return this.http
       .get(this.systemConfigUrl, this.httpOptions)
       .pipe(map(res => {
-        this.systemConfig = res;
-
         this.folders = res['folders'];
         this.devices = res['devices'];
         this.foldersSubject.next(this.folders);

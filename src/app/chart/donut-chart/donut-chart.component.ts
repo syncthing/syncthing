@@ -14,7 +14,6 @@ export class DonutChartComponent {
       val.forEach((v) => {
         this.addData(v)
       });
-      console.log("set the data?", val)
     }
   };
 
@@ -34,7 +33,6 @@ export class DonutChartComponent {
 
 
   ngAfterViewInit(): void {
-    console.log("is the data set?", this.data, this.elementID);
     this.canvas = document.getElementById(this.elementID);
     this.ctx = this.canvas.getContext('2d');
     this.chart = new Chart(this.ctx, {

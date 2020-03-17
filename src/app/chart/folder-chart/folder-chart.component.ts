@@ -16,11 +16,15 @@ export class FolderChartComponent implements OnInit {
   constructor(private systemConfigService: SystemConfigService) { }
 
   ngOnInit(): void {
+    // Find total number of folders
     this.systemConfigService.getFolders().subscribe(
       data => {
         this.data = [0, 1, 32, 40];
       }
     );
+
+    // Sequentially look up each folder to get status
+    // dbStatusService
   }
   /*
   ngAfterViewInit() {
