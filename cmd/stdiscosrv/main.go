@@ -67,13 +67,6 @@ var (
 	debug = false
 )
 
-func fileExists(filename string) bool {
-	_, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return true
-}
 func main() {
 	var listen string
 	var dir string
@@ -108,7 +101,7 @@ func main() {
 	if err != nil {
 		log.Println("Failed to load keypair because:", err)
 		//If certfile and Key file exist
-		if !fileExists(certFile) && !fileExists(keyFile) {
+		if os.IsNotExist(err) {
 			log.Println("Failed to load keypair. Generating one, this might take a while...")
 			cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv", 20*365)
 			if err != nil {
