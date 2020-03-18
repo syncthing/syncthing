@@ -357,7 +357,7 @@ func (db *schemaUpdater) updateSchema5to6(_ int) error {
 			if iterErr != nil {
 				return false
 			}
-			if iterErr = t.Put(dk, bs); iterErr == nil {
+			if iterErr = t.Put(dk, bs); iterErr != nil {
 				return false
 			}
 			iterErr = t.Checkpoint()
