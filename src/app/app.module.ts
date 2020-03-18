@@ -56,7 +56,8 @@ import { environment } from '../environments/environment';
       cookieName: 'CSRF-Token-' + deviceID(),
     }),
     environment.production ?
-      [] : HttpClientInMemoryWebApiModule.forRoot(InMemoryConfigDataService, { delay: 200 }),
+      [] : HttpClientInMemoryWebApiModule.forRoot(InMemoryConfigDataService,
+        { dataEncapsulation: false, delay: 200 }),
   ],
   providers: [],
   bootstrap: [AppComponent]
