@@ -468,16 +468,5 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 
 	db.recordTime(indirectGCTimeKey)
 
-	if err := t.Commit(); err != nil {
-		return err
-	}
-
-	for _, folderStr := range db.ListFolders() {
-		meta := loadMetadataTracker(db.Lowlevel, folderStr)
-		if _, err := db.repairSequenceGCLocked(folderStr, meta); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return t.Commit()
 }
