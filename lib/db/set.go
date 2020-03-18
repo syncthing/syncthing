@@ -82,7 +82,16 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 
 func loadMetadataTracker(db *Lowlevel, folder string) *metadataTracker {
 	recalc := func() *metadataTracker {
+		db.gcMut.RLock()
+		defer db.gcMut.RUnlock()
 		meta, err := recalcMeta(db, folder)
+		if err == nil {
+			var fixed int
+			fixed, err = db.repairSequenceGCLocked(folder, meta)
+			if fixed != 0 {
+				l.Infoln("Repaired %v sequence entries in database", fixed)
+			}
+		}
 		if backend.IsClosed(err) {
 			return nil
 		} else if err != nil {

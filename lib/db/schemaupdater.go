@@ -21,9 +21,9 @@ import (
 //   3-5: v0.14.49
 //   6: v0.14.50
 //   7: v0.14.53
-//   8-10: v1.4.0
+//   8-9: v1.4.0
 const (
-	dbVersion             = 10
+	dbVersion             = 9
 	dbMinSyncthingVersion = "v1.4.0"
 )
 
@@ -84,8 +84,7 @@ func (db *schemaUpdater) updateSchema() error {
 		{5, db.updateSchemaTo5},
 		{6, db.updateSchema5to6},
 		{7, db.updateSchema6to7},
-		{9, db.updateSchema7to9},
-		{10, db.updateSchemato10},
+		{9, db.updateSchemato9},
 	}
 
 	for _, m := range migrations {
@@ -426,8 +425,9 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) updateSchema7to9(_ int) error {
+func (db *schemaUpdater) updateSchemato9(prev int) error {
 	// Loads and rewrites all files with blocks, to deduplicate block lists.
+	// Checks for missing or incorrect sequence entries and rewrites those.
 
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
@@ -468,17 +468,16 @@ func (db *schemaUpdater) updateSchema7to9(_ int) error {
 
 	db.recordTime(indirectGCTimeKey)
 
-	return t.Commit()
-}
+	if err := t.Commit(); err != nil {
+		return err
+	}
 
-// updateSchemato10 makes sure the sequence numbers in the sequence keys match
-// those in the corresponding file entries.
-func (db *schemaUpdater) updateSchemato10(_ int) error {
 	for _, folderStr := range db.ListFolders() {
 		meta := loadMetadataTracker(db.Lowlevel, folderStr)
 		if _, err := db.repairSequenceGCLocked(folderStr, meta); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
