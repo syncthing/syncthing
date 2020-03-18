@@ -98,14 +98,12 @@ func main() {
 	}
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			log.Println("Failed to load keypair. Generating one, this might take a while...")
-			cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv", 20*365)
+	if os.IsNotExist(err) {
+		log.Println("Failed to load keypair. Generating one, this might take a while...")
+		cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv", 20*365)
 
-		} else if err != nil {
-			log.Fatalln("Failed to load keypair:", err)
-		}
+	} else if err != nil {
+		log.Fatalln("Failed to load keypair:", err)
 	}
 
 	devID := protocol.NewDeviceID(cert.Certificate[0])
