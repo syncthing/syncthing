@@ -105,6 +105,8 @@ func main() {
 			if err != nil {
 				log.Fatalln("Failed to generate X509 key pair:", err)
 			}
+		} else if err != nil {
+			log.Fatalln("Failed to load keypair:", err)
 		}
 	}
 
