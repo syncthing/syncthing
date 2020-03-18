@@ -2,13 +2,13 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 
 import { Observable, Subject } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, retry } from 'rxjs/operators';
 
 import { Folder } from './folder';
 import { Device } from './device';
 import { CookieService } from './cookie.service';
 import { environment } from '../environments/environment'
-import { apiURL } from './api-utils'
+import { apiURL, apiRetry } from './api-utils'
 
 @Injectable({
   providedIn: 'root'
@@ -31,14 +31,16 @@ export class SystemConfigService {
   getSystemConfig(): Observable<any> {
     return this.http
       .get(this.systemConfigUrl, this.httpOptions)
-      .pipe(map(res => {
-        this.folders = res['folders'];
-        this.devices = res['devices'];
-        this.foldersSubject.next(this.folders);
-        this.devicesSubject.next(this.devices);
+      .pipe(
+        retry(apiRetry),
+        map(res => {
+          this.folders = res['folders'];
+          this.devices = res['devices'];
+          this.foldersSubject.next(this.folders);
+          this.devicesSubject.next(this.devices);
 
-        return res;
-      })
+          return res;
+        })
       );
   }
 
