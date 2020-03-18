@@ -1,4 +1,16 @@
-export const dbStatus = {
+export const dbStatus =
+    [
+        { "folder": "GXWxf-3zgnU", "state": "active" },
+        { "folder": "Tyeho-ncvqp", "state": "idle" },
+        { "folder": "Ihpqp-3zgng", "state": "idle" },
+        { "folder": "Abqqp-3zgnU", "state": "idle" },
+        { "folder": "Bawer-3zgnU", "state": "idle" },
+        { "folder": "Zpohq-3zgnU", "state": "idle" },
+        { "folder": "Lkmbn-3zgnU", "state": "idle" },
+        { "folder": "Poqff-3zgnU", "state": "idle" }
+    ]
+/*[{
+    "folder": "GXWxf-3zgnU",
     "globalBytes": 0,
     "globalDeleted": 0,
     "globalDirectories": 0,
@@ -28,4 +40,4 @@ export const dbStatus = {
     "state": "idle",
     "stateChanged": "2018-08-08T07:04:57.301064781+02:00",
     "version": 0
-};
+}]*/;
