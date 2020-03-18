@@ -3,7 +3,7 @@ import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 
 import { map } from 'rxjs/operators';
-import { Observable, of as observableOf, merge } from 'rxjs';
+import { Observable, of as observableOf, merge, Subject } from 'rxjs';
 import { Folder } from '../../folder';
 import { SystemConfigService } from '../../system-config.service';
 
@@ -12,8 +12,9 @@ import { SystemConfigService } from '../../system-config.service';
  * encapsulate all logic for fetching and manipulating the displayed data
  * (including sorting, pagination, and filtering).
  */
-export class FolderListDataSource extends DataSource<Folder> {
+export class FolderListDataSource extends DataSource<Folder>  {
   data: Folder[];
+  dataSubject: Subject<Folder[]>;
   paginator: MatPaginator;
   sort: MatSort;
 
@@ -30,8 +31,8 @@ export class FolderListDataSource extends DataSource<Folder> {
     // Combine everything that affects the rendered data into one update
     // st
     const dataMutations = [
-      // observableOf(this.data),
-      this.systemConfigService.getFolders(),
+      this.dataSubject,
+      observableOf(this.data),
       this.paginator.page,
       this.sort.sortChange
     ];

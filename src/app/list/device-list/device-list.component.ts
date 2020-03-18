@@ -7,6 +7,7 @@ import { DeviceListDataSource } from './device-list-datasource';
 import { Device } from '../../device';
 import { SystemConfigService } from '../../system-config.service';
 import { cardElevation } from '../../style';
+import { Subject } from 'rxjs';
 
 
 @Component({
@@ -28,18 +29,21 @@ export class DeviceListComponent implements AfterViewInit, OnInit {
 
   ngOnInit() {
     this.dataSource = new DeviceListDataSource(this.systemConfigService);
+    this.dataSource.dataSubject = new Subject<Device[]>()
     this.dataSource.data = [];
+
+    this.systemConfigService.getDevices().subscribe(
+      data => {
+        console.log("get data??", data)
+        this.dataSource.data = data;
+        this.dataSource.dataSubject.next(data);
+      }
+    );
   }
 
   ngAfterViewInit() {
     this.dataSource.sort = this.sort;
     this.dataSource.paginator = this.paginator;
     this.table.dataSource = this.dataSource;
-
-    this.systemConfigService.getDevices().subscribe(
-      data => {
-        this.dataSource.data = data;
-      }
-    );
   }
 }

@@ -7,6 +7,7 @@ import { FolderListDataSource } from './folder-list-datasource';
 import { Folder } from '../../folder';
 import { SystemConfigService } from '../../system-config.service';
 import { cardElevation } from '../../style';
+import { Subject } from 'rxjs';
 
 @Component({
   selector: 'app-folder-list',
@@ -27,21 +28,20 @@ export class FolderListComponent implements AfterViewInit, OnInit {
 
   ngOnInit() {
     this.dataSource = new FolderListDataSource(this.systemConfigService);
+    this.dataSource.dataSubject = new Subject<Folder[]>();
     this.dataSource.data = [];
-  }
 
-  ngAfterContentInit() {
+    this.systemConfigService.getFolders().subscribe(
+      data => {
+        this.dataSource.data = data;
+        this.dataSource.dataSubject.next(data);
+      }
+    );
   }
 
   ngAfterViewInit() {
     this.dataSource.sort = this.sort;
     this.dataSource.paginator = this.paginator;
     this.table.dataSource = this.dataSource;
-
-    this.systemConfigService.getFolders().subscribe(
-      data => {
-        this.dataSource.data = data;
-      }
-    );
   }
 }
