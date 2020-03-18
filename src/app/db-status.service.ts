@@ -14,27 +14,38 @@ import { FolderStatus, Folder } from './folder'
 })
 export class DbStatusService {
   private folderStatus: Object = {};
-
-  // TODO why isn't this working?
-  private httpOptions: { headers: HttpHeaders } | { params: HttpParams };
+  private headers: HttpHeaders;
   private dbStatusUrl = environment.production ? apiURL + 'rest/db/status' : 'api/dbStatus';
 
   constructor(private http: HttpClient, private cookieService: CookieService) {
-    this.httpOptions = { headers: new HttpHeaders(this.cookieService.getCSRFHeader()) };
+    this.headers = new HttpHeaders(this.cookieService.getCSRFHeader())
   }
 
   getFolderStatus(id: string): Observable<FolderStatus> {
-    /*
+    let httpOptions: { headers: HttpHeaders } |
+    { headers: HttpHeaders, params: HttpParams };
     if (id) {
-      this.httpOptions["params"] = new HttpParams().set('folder', id);
+      httpOptions = {
+        headers: this.headers,
+        params: new HttpParams().set('folder', id)
+      };
+    } else {
+      httpOptions = { headers: this.headers };
     }
-    */
 
     return this.http
-      .get<FolderStatus>(this.dbStatusUrl, this.httpOptions)
+      .get<FolderStatus>(this.dbStatusUrl, httpOptions)
       .pipe(
         retry(apiRetry),
         map(res => {
+          // Remove from array in developement
+          // in-memory-web-api returns arrays
+          if (!environment.production) {
+            const a: any = res as any;
+            if (a.length > 0) {
+              return res[0];
+            }
+          }
           return res;
         })
       );
