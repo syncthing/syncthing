@@ -9,19 +9,20 @@ import { SystemConfigService } from 'src/app/system-config.service';
 })
 export class DonutChartComponent {
   @Input() elementID: string;
-  @Input() set data(val: number[]) {
-    if (this.chart) {
-      val.forEach((v) => {
-        this.addData(v)
-      });
-    }
-  };
 
   private canvas: any;
   private ctx: any;
   private chart: Chart;
 
   constructor() { }
+
+  data(val: number[]) {
+    if (this.chart) {
+      val.forEach((v) => {
+        this.addData(v)
+      });
+    }
+  }
 
   addData(data: number): void {
     //    this.chart.data.labels.push(label);

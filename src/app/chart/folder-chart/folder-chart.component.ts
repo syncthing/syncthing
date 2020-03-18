@@ -1,7 +1,11 @@
-import { Component, OnInit } from '@angular/core';
-import { SystemConfigService } from 'src/app/system-config.service';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { Folder } from '../../folder'
 import { cardElevation } from '../../style'
+import { FolderService } from 'src/app/folder.service';
+import { SystemConfigService } from 'src/app/system-config.service';
+import { DbStatusService } from 'src/app/db-status.service';
+import { flatMap } from 'rxjs/operators';
+import { DonutChartComponent } from '../donut-chart/donut-chart.component';
 
 @Component({
   selector: 'app-folder-chart',
@@ -9,26 +13,29 @@ import { cardElevation } from '../../style'
   styleUrls: ['./folder-chart.component.scss']
 })
 export class FolderChartComponent implements OnInit {
+  @ViewChild(DonutChartComponent) donutChart: DonutChartComponent;
+
   chartID: string = 'foldersChart';
   elevation: string = cardElevation;
-  data: number[];
-
-  constructor(private systemConfigService: SystemConfigService) { }
+  constructor(
+    private systemConfigService: SystemConfigService,
+    private folderService: FolderService,
+    private dbStatusService: DbStatusService
+  ) { }
 
   ngOnInit(): void {
-    // Find total number of folders
-    this.systemConfigService.getFolders().subscribe(
-      data => {
-        this.data = [0, 1, 32, 40];
+  }
+
+  ngAfterViewInit() {
+    // TODO: Find total number of folders
+    this.folderService.getAll().subscribe(
+      folder => {
+
+        // TODO: Clear existing data
+        this.donutChart.data([0, 30, 32, 40]);
+        console.log("folder?", folder)
       }
     );
 
-    // Sequentially look up each folder to get status
-    // dbStatusService
   }
-  /*
-  ngAfterViewInit() {
-
-  }
-  */
 }
