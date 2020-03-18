@@ -1,6 +1,5 @@
 import { Component, Input } from '@angular/core';
 import { Chart } from 'chart.js'
-import { SystemConfigService } from 'src/app/system-config.service';
 
 @Component({
   selector: 'app-donut-chart',
@@ -31,7 +30,6 @@ export class DonutChartComponent {
     });
     this.chart.update();
   }
-
 
   ngAfterViewInit(): void {
     this.canvas = document.getElementById(this.elementID);

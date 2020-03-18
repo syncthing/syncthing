@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { SystemConfigService } from './system-config.service';
-import { Observable } from 'rxjs';
+import { Observable, Subscriber } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Folder } from './folder';
 import { DbStatusService } from './db-status.service';
@@ -9,33 +9,58 @@ import { DbStatusService } from './db-status.service';
   providedIn: 'root'
 })
 export class FolderService {
+  private folders: Folder[];
 
   constructor(
     private systemConfigService: SystemConfigService,
     private dbStatusService: DbStatusService
   ) { }
 
+  getFolderStatusInOrder(observer: Subscriber<Folder>, startIndex: number) {
+    // Return if there aren't any folders at the index
+    if (startIndex >= (this.folders.length - 1)) {
+      return
+    }
+
+    const folder: Folder = this.folders[startIndex];
+    startIndex = startIndex + 1;
+    this.dbStatusService.getFolderStatus(folder.id).subscribe(
+      status => {
+        folder["status"] = status;
+        observer.next(folder);
+
+        // recursively get the status of the next folder
+        this.getFolderStatusInOrder(observer, startIndex);
+      }
+    );
+  }
+
   /**
    * getAll() finds all folders and uses db status service to 
    * set all their statuses
    */
   getAll(): Observable<Folder> {
-    const dbs = this.dbStatusService;
+    const _this = this;
     const folderObservable: Observable<Folder> = new Observable((observer) => {
       this.systemConfigService.getFolders().subscribe({
         next(folders) {
-          let folder: Folder;
-          for (folder of folders) {
+          _this.folders = folders;
+
+          // Synchronously get the status of each folder
+          _this.getFolderStatusInOrder(observer, 0);
+
+          /*
+          for (let folder of folders) {
             // Get the status of each folder
             dbs.getFolderStatus(folder.id).subscribe(
               status => {
-                console.log(status)
                 folder["status"] = status;
-
+  
                 observer.next(folder);
               }
             );
           }
+          */
         },
         error(err) { console.log("getAll error!", err) }
       });
@@ -43,3 +68,4 @@ export class FolderService {
     return folderObservable
   }
 }
+

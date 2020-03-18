@@ -14,9 +14,9 @@ import { DonutChartComponent } from '../donut-chart/donut-chart.component';
 })
 export class FolderChartComponent implements OnInit {
   @ViewChild(DonutChartComponent) donutChart: DonutChartComponent;
-
   chartID: string = 'foldersChart';
   elevation: string = cardElevation;
+
   constructor(
     private systemConfigService: SystemConfigService,
     private folderService: FolderService,
@@ -30,9 +30,9 @@ export class FolderChartComponent implements OnInit {
     // TODO: Find total number of folders
     this.folderService.getAll().subscribe(
       folder => {
-
         // TODO: Clear existing data
-        this.donutChart.data([0, 30, 32, 40]);
+        this.donutChart.data([40]);
+
         console.log("folder?", folder)
       }
     );
