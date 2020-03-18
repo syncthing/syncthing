@@ -349,15 +349,13 @@ func TestRepairSequence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Fix the db
+	// Loading the metadata for the first time means a "re"calculation happens,
+	// along which the sequences get repaired too.
 	db.gcMut.RLock()
-	fixed, err := db.repairSequenceGCLocked(folderStr, loadMetadataTracker(db, folderStr))
+	_ = loadMetadataTracker(db, folderStr)
 	db.gcMut.RUnlock()
 	if err != nil {
 		t.Fatal(err)
-	}
-	if fixed != 4 {
-		t.Error("Expected 4 items to be fixed, not", fixed)
 	}
 
 	// Check the db
