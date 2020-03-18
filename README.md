@@ -8,7 +8,7 @@ Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app w
 
 ## Production server
 
-Run `ng build --prod --base-href /tech-ui/` and build [syncthing tech-ui branch](https://github.com/kastelo/syncthing/tree/tech-ui). Run `export STTECHUIDIR=/path/to/angular/build/; ./bin/syncthing` and navigate to `http://localhost:8384/tech-ui/`.
+Run `ng build --prod --base-href /tech-ui/` and build [syncthing tech-ui branch](https://github.com/kastelo/syncthing/tree/tech-ui). Run `export STNOUPGRADE=1 STTECHUIDIR=/path/to/angular/build/; ./bin/syncthing` and navigate to `http://localhost:8384/tech-ui/`.
 
 ## Code scaffolding
 
