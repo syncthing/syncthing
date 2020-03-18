@@ -201,6 +201,9 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 				ignAdded++
 			}
 		}
+		if err := t.Checkpoint(); err != nil {
+			return err
+		}
 	}
 
 	for folder := range changedFolders {
@@ -339,7 +342,7 @@ func (db *schemaUpdater) updateSchema5to6(_ int) error {
 
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
-		var putErr error
+		var iterErr error
 		err := t.withHave(folder, protocol.LocalDeviceID[:], nil, false, func(f FileIntf) bool {
 			if !f.IsInvalid() {
 				return true
@@ -350,16 +353,18 @@ func (db *schemaUpdater) updateSchema5to6(_ int) error {
 			fi.LocalFlags = protocol.FlagLocalIgnored
 			bs, _ := fi.Marshal()
 
-			dk, putErr = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], []byte(fi.Name))
-			if putErr != nil {
+			dk, iterErr = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], []byte(fi.Name))
+			if iterErr != nil {
 				return false
 			}
-			putErr = t.Put(dk, bs)
-
-			return putErr == nil
+			if iterErr = t.Put(dk, bs); iterErr != nil {
+				return false
+			}
+			iterErr = t.Checkpoint()
+			return iterErr == nil
 		})
-		if putErr != nil {
-			return putErr
+		if iterErr != nil {
+			return iterErr
 		}
 		if err != nil {
 			return err
@@ -421,6 +426,9 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 		if err != nil {
 			return err
 		}
+		if err := t.Checkpoint(); err != nil {
+			return err
+		}
 	}
 	return t.Commit()
 }
@@ -458,6 +466,9 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 			continue
 		}
 		if err := t.putFile(it.Key(), fi); err != nil {
+			return err
+		}
+		if err := t.Checkpoint(); err != nil {
 			return err
 		}
 	}
