@@ -228,12 +228,6 @@ func (a *App) startup() error {
 	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
 		if prevVersion != "" {
 			l.Infoln("Detected upgrade from", prevVersion, "to", build.Version)
-			// Check and repair metadata and sequences once immediately
-			// on upgrade, later it will happen periodically as usual.
-			if upgrade.CompareVersions(prevParts[0], "v1.4.2") <= upgrade.Older {
-				l.Infoln("Performing one-time check of db due to upgrade from < v1.4.2 - this may take a while...")
-				a.ll.CheckRepair()
-			}
 		}
 
 		// Drop delta indexes in case we've changed random stuff we
@@ -242,6 +236,14 @@ func (a *App) startup() error {
 
 		// Remember the new version.
 		miscDB.PutString("prevVersion", build.Version)
+	}
+
+	// Check and repair metadata and sequences on every upgrade including RCs.
+	prevParts = strings.Split(prevVersion, "+")
+	curParts = strings.Split(build.Version, "+")
+	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
+		l.Infoln("Checking db due to upgrade - this may take a while...")
+		a.ll.CheckRepair()
 	}
 
 	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
