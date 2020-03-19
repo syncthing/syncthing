@@ -1,19 +1,39 @@
-
 // Custom Theming for Angular Material
 // For more information: https://material.angular.io/guide/theming
 @import '~@angular/material/theming';
 // Plus imports for other components in your app.
 
+
+// Custom typography
+$tech-ui-typography: mat-typography-config(
+    $font-family: '"Courier New", Courier, monospace',
+    $display-4:     mat-typography-level(112px, 112px, 300),
+    $display-3:     mat-typography-level(56px, 56px, 400),
+    $display-2:     mat-typography-level(45px, 48px, 400),
+    $display-1:     mat-typography-level(34px, 40px, 400),
+    $headline:      mat-typography-level(24px, 32px, 400),
+    $title:         mat-typography-level(20px, 32px, 500),
+    $subheading-2:  mat-typography-level(16px, 28px, 400),
+    $subheading-1:  mat-typography-level(15px, 24px, 400),
+    $body-2:        mat-typography-level(14px, 24px, 500),
+    $body-1:        mat-typography-level(14px, 20px, 400),
+    $caption:       mat-typography-level(12px, 20px, 400),
+    $button:        mat-typography-level(14px, 14px, 500),
+      // Line-height must be unit-less fraction of the font-size.
+    $input:         mat-typography-level(16px, 1.25, 400)
+);
+
 // Include the common styles for Angular Material. We include this here so that you only
 // have to load a single css file for Angular Material in your app.
 // Be sure that you only ever include this mixin once!
-@include mat-core();
+@include mat-core($tech-ui-typography);
+
 
 // Define the palettes for your theme using the Material Design palettes available in palette.scss
 // (imported above). For each palette, you can optionally specify a default, lighter, and darker
 // hue. Available color palettes: https://material.io/design/color/
 $tech-ui-primary: mat-palette($mat-indigo);
-$tech-ui-accent: mat-palette($mat-pink, A200, A100, A400);
+$tech-ui-accent: mat-palette($mat-blue, A200, A100, A400);
 
 // The warn palette is optional (defaults to red).
 $tech-ui-warn: mat-palette($mat-red);
@@ -27,6 +47,13 @@ $tech-ui-theme: mat-light-theme($tech-ui-primary, $tech-ui-accent, $tech-ui-warn
 @include angular-material-theme($tech-ui-theme);
 
 /* You can add global styles to this file, and also import other style files */
-
-html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+html, body { 
+    height: 100%; 
+    background-color: #eeeeee;
+    font-size: mat-font-size($tech-ui-typography, body-1);
+    font-family: mat-font-family($tech-ui-typography);
+    line-height: mat-line-height($tech-ui-typography, body-1);
+}
+.mat-card-title {
+    font-size: mat-font-size($tech-ui-typography, subheading-2)
+}
