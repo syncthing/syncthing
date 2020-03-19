@@ -485,10 +485,6 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	if err != nil {
 		return nil, false, err
 	}
-	if insertedAt == -1 {
-		l.Debugln("update global; same version, global unchanged")
-		return keyBuf, false, nil
-	}
 
 	name := []byte(file.Name)
 

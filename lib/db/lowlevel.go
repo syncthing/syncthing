@@ -417,7 +417,11 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 			}
 		}
 
-		if len(newVL.Versions) != len(vl.Versions) {
+		if newLen := len(newVL.Versions); newLen == 0 {
+			if err := t.Delete(dbi.Key()); err != nil {
+				return err
+			}
+		} else if newLen != len(vl.Versions) {
 			if err := t.Put(dbi.Key(), mustMarshal(&newVL)); err != nil {
 				return err
 			}
