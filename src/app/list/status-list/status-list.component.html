@@ -1,10 +1,10 @@
 <mat-card class="{{elevation}}">
     <div fxLayout="row" fxLayoutAlign="space-between start">
         <mat-card-title>Status</mat-card-title>
-        <app-status-toggle (statusEvent)="onToggle($event)"></app-status-toggle>
+        <app-list-toggle (listTypeEvent)="onToggle($event)"></app-list-toggle>
     </div>
     <mat-card-content>
-        <app-folder-list *ngIf="currentStatus===status.Folders"></app-folder-list>
-        <app-device-list *ngIf="currentStatus===status.Devices"></app-device-list>
+        <app-folder-list *ngIf="currentListType===listType.Folders"></app-folder-list>
+        <app-device-list *ngIf="currentListType===listType.Devices"></app-device-list>
     </mat-card-content>
 </mat-card>

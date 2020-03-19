@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { Status } from '../../status';
+import { ListType } from '../../list-type';
 import { cardElevation } from '../../style';
 
 
@@ -9,8 +9,8 @@ import { cardElevation } from '../../style';
   styleUrls: ['./status-list.component.scss']
 })
 export class StatusListComponent implements OnInit {
-  currentStatus: Status = Status.Folders;
-  status = Status; // used in html
+  currentListType: ListType = ListType.Folders;
+  listType = ListType; // used in html
   elevation: string = cardElevation;
 
   constructor() { }
@@ -18,7 +18,7 @@ export class StatusListComponent implements OnInit {
   ngOnInit(): void {
   }
 
-  onToggle(s: Status) {
-    this.currentStatus = s;
+  onToggle(t: ListType) {
+    this.currentListType = t;
   }
 }
