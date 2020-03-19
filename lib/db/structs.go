@@ -257,14 +257,13 @@ func (vl VersionList) insertAt(i int, v FileVersion) VersionList {
 // as the removed FileVersion and the position, where that FileVersion was.
 // If there is no FileVersion for the given device, the position is -1.
 func (vl VersionList) pop(device []byte) (VersionList, FileVersion, int) {
-	removedAt := -1
 	for i, v := range vl.Versions {
 		if bytes.Equal(v.Device, device) {
 			vl.Versions = append(vl.Versions[:i], vl.Versions[i+1:]...)
 			return vl, v, i
 		}
 	}
-	return vl, FileVersion{}, removedAt
+	return vl, FileVersion{}, -1
 }
 
 func (vl VersionList) Get(device []byte) (FileVersion, bool) {

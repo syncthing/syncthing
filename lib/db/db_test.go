@@ -440,3 +440,40 @@ func TestDowngrade(t *testing.T) {
 		t.Fatalf("Error has %v as min Syncthing version, expected %v", err.minSyncthingVersion, dbMinSyncthingVersion)
 	}
 }
+
+func TestCheckGlobals(t *testing.T) {
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+
+	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+
+	// Add any file
+	name := "foo"
+	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+		{
+			Name:    name,
+			Type:    protocol.FileInfoTypeFile,
+			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1001}}},
+		},
+	})
+
+	// Remove just the file entry
+	if err := db.dropPrefix([]byte{KeyTypeDevice}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Clean up global entry of the now missing file
+	if err := db.checkGlobals([]byte(fs.folder), fs.meta); err != nil {
+		t.Fatal(err)
+	}
+
+	// Check that the global entry is gone
+	gk, err := db.keyer.GenerateGlobalVersionKey(nil, []byte(fs.folder), []byte(name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Get(gk)
+	if !backend.IsNotFound(err) {
+		t.Error("Expected key missing error, got", err)
+	}
+}
