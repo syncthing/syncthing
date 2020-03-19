@@ -4,7 +4,7 @@ import { MatSort } from '@angular/material/sort';
 import { MatTable } from '@angular/material/table';
 
 import { FolderListDataSource } from './folder-list-datasource';
-import { Folder } from '../../folder';
+import Folder from '../../folder';
 import { SystemConfigService } from '../../system-config.service';
 import { dataTableElevation } from '../../style';
 import { Subject } from 'rxjs';

@@ -7,7 +7,7 @@ import { map, retry, catchError } from 'rxjs/operators';
 
 import { environment } from '../environments/environment'
 import { apiURL, apiRetry } from './api-utils'
-import { FolderStatus, Folder } from './folder'
+import Folder from './folder'
 
 @Injectable({
   providedIn: 'root'
@@ -21,7 +21,7 @@ export class DbStatusService {
     this.headers = new HttpHeaders(this.cookieService.getCSRFHeader())
   }
 
-  getFolderStatus(id: string): Observable<FolderStatus> {
+  getFolderStatus(id: string): Observable<Folder.Status> {
     let httpOptions: { headers: HttpHeaders } |
     { headers: HttpHeaders, params: HttpParams };
     if (id) {
@@ -34,17 +34,19 @@ export class DbStatusService {
     }
 
     return this.http
-      .get<FolderStatus>(this.dbStatusUrl, httpOptions)
+      .get<Folder.Status>(this.dbStatusUrl, httpOptions)
       .pipe(
         retry(apiRetry),
         map(res => {
           // Remove from array in developement
           // in-memory-web-api returns arrays
           if (!environment.production) {
+            console.log("status res!", res);
             const a: any = res as any;
             if (a.length > 0) {
               return res[0];
             }
+            return {};
           }
           return res;
         })

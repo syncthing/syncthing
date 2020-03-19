@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { SystemConfigService } from './system-config.service';
 import { Observable, Subscriber } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Folder } from './folder';
+import Folder from './folder';
 import { DbStatusService } from './db-status.service';
 
 @Injectable({
@@ -40,30 +40,16 @@ export class FolderService {
    * set all their statuses
    */
   getAll(): Observable<Folder> {
-    const _this = this;
     const folderObservable: Observable<Folder> = new Observable((observer) => {
-      this.systemConfigService.getFolders().subscribe({
-        next(folders) {
-          _this.folders = folders;
+      this.systemConfigService.getFolders().subscribe(
+        folders => {
+          this.folders = folders;
 
           // Synchronously get the status of each folder
-          _this.getFolderStatusInOrder(observer, 0);
-
-          /*
-          for (let folder of folders) {
-            // Get the status of each folder
-            dbs.getFolderStatus(folder.id).subscribe(
-              status => {
-                folder["status"] = status;
-  
-                observer.next(folder);
-              }
-            );
-          }
-          */
+          this.getFolderStatusInOrder(observer, 0);
         },
-        error(err) { console.log("getAll error!", err) }
-      });
+        err => { console.log("getAll error!", err) }
+      );
     });
     return folderObservable
   }

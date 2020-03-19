@@ -1,10 +1,9 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
-import { Folder } from '../../folder'
+import Folder from '../../folder'
 import { cardElevation } from '../../style'
 import { FolderService } from 'src/app/folder.service';
 import { SystemConfigService } from 'src/app/system-config.service';
 import { DbStatusService } from 'src/app/db-status.service';
-import { flatMap } from 'rxjs/operators';
 import { DonutChartComponent } from '../donut-chart/donut-chart.component';
 
 @Component({
@@ -16,6 +15,7 @@ export class FolderChartComponent implements OnInit {
   @ViewChild(DonutChartComponent) donutChart: DonutChartComponent;
   chartID: string = 'foldersChart';
   elevation: string = cardElevation;
+  folderStates: Folder.stateType[];
 
   constructor(
     private systemConfigService: SystemConfigService,
@@ -24,6 +24,7 @@ export class FolderChartComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
+    //
   }
 
   ngAfterViewInit() {
@@ -33,7 +34,9 @@ export class FolderChartComponent implements OnInit {
         // TODO: Clear existing data
         this.donutChart.data([40]);
 
-        console.log("folder?", folder)
+        // state?
+        const state: string = Folder.statusToString(folder);
+        console.log("folder state?", state, folder);
       }
     );
 
