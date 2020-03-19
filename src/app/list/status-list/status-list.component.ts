@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Status } from '../../status';
+import { cardElevation } from '../../style';
 
 
 @Component({
@@ -8,8 +9,9 @@ import { Status } from '../../status';
   styleUrls: ['./status-list.component.scss']
 })
 export class StatusListComponent implements OnInit {
-  public currentStatus: Status = Status.Folders;
-  public status = Status;
+  currentStatus: Status = Status.Folders;
+  status = Status; // used in html
+  elevation: string = cardElevation;
 
   constructor() { }
 

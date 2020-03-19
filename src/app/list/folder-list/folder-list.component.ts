@@ -6,7 +6,7 @@ import { MatTable } from '@angular/material/table';
 import { FolderListDataSource } from './folder-list-datasource';
 import { Folder } from '../../folder';
 import { SystemConfigService } from '../../system-config.service';
-import { cardElevation } from '../../style';
+import { dataTableElevation } from '../../style';
 import { Subject } from 'rxjs';
 
 @Component({
@@ -19,7 +19,7 @@ export class FolderListComponent implements AfterViewInit, OnInit {
   @ViewChild(MatSort) sort: MatSort;
   @ViewChild(MatTable) table: MatTable<Folder>;
   dataSource: FolderListDataSource;
-  elevation: string = cardElevation;
+  elevation: string = dataTableElevation;
 
   /** Columns displayed in the table. Columns IDs can be added, removed, or reordered. */
   displayedColumns = ['id', 'label'];
