@@ -20,13 +20,14 @@ import { DonutChartComponent } from './chart/donut-chart/donut-chart.component';
 import { DeviceChartComponent } from './chart/device-chart/device-chart.component';
 import { FolderChartComponent } from './chart/folder-chart/folder-chart.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
-import { StatusToggleComponent } from './status-toggle/status-toggle.component';
+import { ListToggleComponent } from './list-toggle/list-toggle.component';
 
 import { HttpClientInMemoryWebApiModule } from 'angular-in-memory-web-api';
 import { InMemoryConfigDataService } from './in-memory-config-data.service';
 
 import { deviceID } from './api-utils';
 import { environment } from '../environments/environment';
+import { ChartItemComponent } from './chart/chart-item/chart-item.component';
 
 @NgModule({
   declarations: [
@@ -34,11 +35,12 @@ import { environment } from '../environments/environment';
     StatusListComponent,
     FolderListComponent,
     DeviceListComponent,
-    StatusToggleComponent,
+    ListToggleComponent,
     DashboardComponent,
     DonutChartComponent,
     DeviceChartComponent,
     FolderChartComponent,
+    ChartItemComponent,
   ],
   imports: [
     BrowserModule,
