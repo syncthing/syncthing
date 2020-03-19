@@ -231,6 +231,7 @@ func (a *App) startup() error {
 			// Check and repair metadata and sequences once immediately
 			// on upgrade, later it will happen periodically as usual.
 			if upgrade.CompareVersions(prevParts[0], "v1.4.2") <= upgrade.Older {
+				l.Infoln("Performing one-time check of db due to upgrade from < v1.4.2 - this may take a while...")
 				a.ll.CheckRepair()
 			}
 		}
