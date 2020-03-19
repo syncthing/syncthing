@@ -102,7 +102,7 @@ func main() {
 		log.Println("Failed to load keypair. Generating one, this might take a while...")
 		cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv", 20*365)
 		if err != nil {
-			log.Fatalln("Failed to generate keypair:", err)
+			log.Fatalln("Failed to generate X509 key pair:", err)
 		}
 	} else if err != nil {
 		log.Fatalln("Failed to load keypair:", err)
