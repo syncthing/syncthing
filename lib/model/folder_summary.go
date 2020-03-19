@@ -120,6 +120,7 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	fcfg, ok := c.cfg.Folder(folder)
 
 	if ok && fcfg.IgnoreDelete {
+		res["needTotalItems"] -= res["needDeletes"]
 		res["needDeletes"] = 0
 	}
 
