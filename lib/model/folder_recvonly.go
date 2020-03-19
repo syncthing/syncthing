@@ -158,6 +158,37 @@ func (f *receiveOnlyFolder) Revert() {
 	f.SchedulePull()
 }
 
+func (f *receiveOnlyFolder) pull() {
+	f.sendReceiveFolder.pull()
+
+	// Mark deleted files that don't exist anywhere else as not locally changed.
+
+	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+	batchSizeBytes := 0
+
+	snap := f.fset.Snapshot()
+	defer snap.Release()
+	snap.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		if !fi.IsDeleted() || !fi.IsReceiveOnlyChanged() || len(snap.Availability(fi.FileName())) > 0 {
+			return true
+		}
+		file := fi.(db.FileInfoTruncated).CopyToFileInfo()
+		file.LocalFlags = 0
+		batch = append(batch, file)
+		batchSizeBytes += file.ProtoSize()
+		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
+			f.updateLocalsFromPulling(batch)
+			batch = batch[:0]
+			batchSizeBytes = 0
+		}
+		return true
+	})
+
+	if len(batch) > 0 {
+		f.updateLocalsFromPulling(batch)
+	}
+}
+
 // deleteQueue handles deletes by delegating to a handler and queuing
 // directories for last.
 type deleteQueue struct {

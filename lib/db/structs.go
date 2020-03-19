@@ -129,19 +129,19 @@ func (f FileInfoTruncated) FileModifiedBy() protocol.ShortID {
 }
 
 func (f FileInfoTruncated) ConvertToIgnoredFileInfo(by protocol.ShortID) protocol.FileInfo {
-	file := f.copyToFileInfo()
+	file := f.CopyToFileInfo()
 	file.SetIgnored(by)
 	return file
 }
 
 func (f FileInfoTruncated) ConvertToDeletedFileInfo(by protocol.ShortID) protocol.FileInfo {
-	file := f.copyToFileInfo()
+	file := f.CopyToFileInfo()
 	file.SetDeleted(by)
 	return file
 }
 
 // copyToFileInfo just copies all members of FileInfoTruncated to protocol.FileInfo
-func (f FileInfoTruncated) copyToFileInfo() protocol.FileInfo {
+func (f FileInfoTruncated) CopyToFileInfo() protocol.FileInfo {
 	return protocol.FileInfo{
 		Name:          f.Name,
 		Size:          f.Size,
