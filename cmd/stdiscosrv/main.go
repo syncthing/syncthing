@@ -102,20 +102,7 @@ func main() {
 		log.Println("Failed to load keypair. Generating one, this might take a while...")
 		cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv", 20*365)
 		if err != nil {
-			if strings.Contains(err.Error(), os.ErrPermission.Error()) {
-				log.Fatalln("Failed to generate : permission not allowed")
-			} else if strings.Contains(err.Error(), "no such file or directory") {
-				log.Fatalln("Failed to generate : Path doesn't exist")
-			} else if strings.Contains(err.Error(), os.ErrExist.Error()) {
-				log.Fatalln("Failed to generate : KeyPair has already exist")
-			} else if strings.Contains(err.Error(), os.ErrInvalid.Error()) {
-				log.Fatalln("Failed to generate : Key want to be open with invalid argument")
-			} else if strings.Contains(err.Error(), os.ErrNotExist.Error()) {
-				log.Fatalln("Failed to generate : Path doesn't exist")
-			} else {
-				log.Fatalln("Failed to generate:", (err.Error()))
-			}
-
+			log.Fatalln("Failed to generate keypair:", err)
 		}
 	} else if err != nil {
 		log.Fatalln("Failed to load keypair:", err)
