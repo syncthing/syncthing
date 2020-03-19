@@ -35,6 +35,7 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
 )
 
@@ -224,7 +225,7 @@ func (a *App) startup() error {
 
 	prevParts := strings.Split(prevVersion, "-")
 	curParts := strings.Split(build.Version, "-")
-	if prevParts[0] != curParts[0] {
+	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
 		if prevVersion != "" {
 			l.Infoln("Detected upgrade from", prevVersion, "to", build.Version)
 		}
@@ -235,6 +236,14 @@ func (a *App) startup() error {
 
 		// Remember the new version.
 		miscDB.PutString("prevVersion", build.Version)
+	}
+
+	// Check and repair metadata and sequences on every upgrade including RCs.
+	prevParts = strings.Split(prevVersion, "+")
+	curParts = strings.Split(build.Version, "+")
+	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
+		l.Infoln("Checking db due to upgrade - this may take a while...")
+		a.ll.CheckRepair()
 	}
 
 	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
