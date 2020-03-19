@@ -627,6 +627,117 @@ func (db *Lowlevel) gcIndirect() error {
 	return db.Compact()
 }
 
+// CheckRepair checks folder metadata and sequences for miscellaneous errors.
+func (db *Lowlevel) CheckRepair() {
+	for _, folder := range db.ListFolders() {
+		_ = db.getMetaAndCheck(folder)
+	}
+}
+
+func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
+	db.gcMut.RLock()
+	defer db.gcMut.RUnlock()
+
+	meta, err := db.recalcMeta(folder)
+	if err == nil {
+		var fixed int
+		fixed, err = db.repairSequenceGCLocked(folder, meta)
+		if fixed != 0 {
+			l.Infoln("Repaired %v sequence entries in database", fixed)
+		}
+	}
+
+	if backend.IsClosed(err) {
+		return nil
+	} else if err != nil {
+		panic(err)
+	}
+
+	return meta
+}
+
+func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
+	meta := newMetadataTracker()
+	if err := meta.fromDB(db, []byte(folder)); err != nil {
+		l.Infof("No stored folder metadata for %q; recalculating", folder)
+		return db.getMetaAndCheck(folder)
+	}
+
+	curSeq := meta.Sequence(protocol.LocalDeviceID)
+	if metaOK := db.verifyLocalSequence(curSeq, folder); !metaOK {
+		l.Infof("Stored folder metadata for %q is out of date after crash; recalculating", folder)
+		return db.getMetaAndCheck(folder)
+	}
+
+	if age := time.Since(meta.Created()); age > databaseRecheckInterval {
+		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, age)
+		return db.getMetaAndCheck(folder)
+	}
+
+	return meta
+}
+
+func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
+	meta := newMetadataTracker()
+	if err := db.checkGlobals([]byte(folder), meta); err != nil {
+		return nil, err
+	}
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return nil, err
+	}
+	defer t.close()
+
+	var deviceID protocol.DeviceID
+	err = t.withAllFolderTruncated([]byte(folder), func(device []byte, f FileInfoTruncated) bool {
+		copy(deviceID[:], device)
+		meta.addFile(deviceID, f)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	meta.SetCreated()
+	if err := meta.toDB(t, []byte(folder)); err != nil {
+		return nil, err
+	}
+	if err := t.Commit(); err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+// Verify the local sequence number from actual sequence entries. Returns
+// true if it was all good, or false if a fixup was necessary.
+func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) bool {
+	// Walk the sequence index from the current (supposedly) highest
+	// sequence number and raise the alarm if we get anything. This recovers
+	// from the occasion where we have written sequence entries to disk but
+	// not yet written new metadata to disk.
+	//
+	// Note that we can have the same thing happen for remote devices but
+	// there it's not a problem -- we'll simply advertise a lower sequence
+	// number than we've actually seen and receive some duplicate updates
+	// and then be in sync again.
+
+	t, err := db.newReadOnlyTransaction()
+	if err != nil {
+		panic(err)
+	}
+	ok := true
+	if err := t.withHaveSequence([]byte(folder), curSeq+1, func(fi FileIntf) bool {
+		ok = false // we got something, which we should not have
+		return false
+	}); err != nil && !backend.IsClosed(err) {
+		panic(err)
+	}
+	t.close()
+
+	return ok
+}
+
 // repairSequenceGCLocked makes sure the sequence numbers in the sequence keys
 // match those in the corresponding file entries. It returns the amount of fixed
 // entries.
