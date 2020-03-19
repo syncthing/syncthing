@@ -65,6 +65,12 @@ I.e. to prefix each log line with date and time, set -logflags=3 (1 + 2 from
 above). The value 0 is used to disable all of the above. The default is to
 show time only (2).
 
+Logging always happens to the command line (stdout) and optionally to the
+file at the path specified by -logfile=path. In addition to an path, the special
+values "default" and "-" may be used. The former logs to DATADIR/syncthing.log
+(see -data-dir), which is the default on Windows, and the latter only to stdout,
+no file, which is the default anywhere else.
+
 
 Development Settings
 --------------------
@@ -139,15 +145,19 @@ The following are valid values for the STTRACE variable:
 %s`
 )
 
-// Environment options
 var (
+	// Environment options
 	innerProcess    = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
 	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
+
+	errConcurrentUpgrade = errors.New("upgrade prevented by other running Syncthing instance")
 )
 
 type RuntimeOptions struct {
 	syncthing.Options
+	homeDir          string
 	confDir          string
+	dataDir          string
 	resetDatabase    bool
 	showVersion      bool
 	showPaths        bool
@@ -195,11 +205,13 @@ func defaultRuntimeOptions() RuntimeOptions {
 		options.logFlags = logger.DebugFlags
 	}
 
-	if runtime.GOOS != "windows" {
-		// On non-Windows, we explicitly default to "-" which means stdout. On
-		// Windows, the blank options.logFile will later be replaced with the
-		// default path, unless the user has manually specified "-" or
-		// something else.
+	// On non-Windows, we explicitly default to "-" which means stdout. On
+	// Windows, the "default" options.logFile will later be replaced with the
+	// default path, unless the user has manually specified "-" or
+	// something else.
+	if runtime.GOOS == "windows" {
+		options.logFile = "default"
+	} else {
 		options.logFile = "-"
 	}
 
@@ -212,7 +224,9 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.StringVar(&options.generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&options.guiAddress, "gui-address", options.guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
 	flag.StringVar(&options.guiAPIKey, "gui-apikey", options.guiAPIKey, "Override GUI API key")
-	flag.StringVar(&options.confDir, "home", "", "Set configuration directory")
+	flag.StringVar(&options.homeDir, "home", "", "Set configuration and data directory")
+	flag.StringVar(&options.confDir, "config", "", "Set configuration directory (config and keys)")
+	flag.StringVar(&options.dataDir, "data", "", "Set data directory (database and logs)")
 	flag.IntVar(&options.logFlags, "logflags", options.logFlags, "Select information in log line prefix (see below)")
 	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
@@ -230,7 +244,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.Verbose, "verbose", false, "Print verbose log output")
 	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
-	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout).")
+	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (see below).")
 	flag.IntVar(&options.logMaxSize, "log-max-size", options.logMaxSize, "Maximum size of any file (zero to disable log rotation).")
 	flag.IntVar(&options.logMaxFiles, "log-max-old-files", options.logMaxFiles, "Number of old files to keep (zero to keep only current).")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
@@ -252,6 +266,17 @@ func parseCommandLineOptions() RuntimeOptions {
 	return options
 }
 
+func setLocation(enum locations.BaseDirEnum, loc string) error {
+	if !filepath.IsAbs(loc) {
+		var err error
+		loc, err = filepath.Abs(loc)
+		if err != nil {
+			return err
+		}
+	}
+	return locations.SetBaseDir(enum, loc)
+}
+
 func main() {
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
@@ -269,25 +294,33 @@ func main() {
 		osutil.HideConsole()
 	}
 
-	if options.confDir != "" {
-		// Not set as default above because the string can be really long.
-		if !filepath.IsAbs(options.confDir) {
-			var err error
-			options.confDir, err = filepath.Abs(options.confDir)
-			if err != nil {
-				l.Warnln("Failed to make options path absolute:", err)
-				os.Exit(syncthing.ExitError.AsInt())
-			}
+	// Not set as default above because the strings can be really long.
+	var err error
+	homeSet := options.homeDir != ""
+	confSet := options.confDir != ""
+	dataSet := options.dataDir != ""
+	switch {
+	case dataSet != confSet:
+		err = errors.New("either both or none of -conf and -data must be given, use -home to set both at once")
+	case homeSet && dataSet:
+		err = errors.New("-home must not be used together with -conf and -data")
+	case homeSet:
+		if err = setLocation(locations.ConfigBaseDir, options.homeDir); err == nil {
+			err = setLocation(locations.DataBaseDir, options.homeDir)
 		}
-		if err := locations.SetBaseDir(locations.ConfigBaseDir, options.confDir); err != nil {
-			l.Warnln(err)
-			os.Exit(syncthing.ExitError.AsInt())
+	case dataSet:
+		if err = setLocation(locations.ConfigBaseDir, options.confDir); err == nil {
+			err = setLocation(locations.DataBaseDir, options.dataDir)
 		}
 	}
+	if err != nil {
+		l.Warnln("Command line options:", err)
+		os.Exit(syncthing.ExitError.AsInt())
+	}
 
-	if options.logFile == "" {
-		// Blank means use the default logfile location. We must set this
-		// *after* expandLocations above.
+	if options.logFile == "default" || options.logFile == "" {
+		// We must set this *after* expandLocations above.
+		// Handling an empty value is for backwards compatibility (<1.4.1).
 		options.logFile = locations.Get(locations.LogFile)
 	}
 
@@ -359,14 +392,24 @@ func main() {
 	}
 
 	if options.doUpgradeCheck {
-		checkUpgrade()
+		if _, err := checkUpgrade(); err != nil {
+			l.Warnln("Checking for upgrade:", err)
+			os.Exit(exitCodeForUpgrade(err))
+		}
 		return
 	}
 
 	if options.doUpgrade {
-		release := checkUpgrade()
-		performUpgrade(release)
-		return
+		release, err := checkUpgrade()
+		if err == nil {
+			err = performUpgrade(release)
+		}
+		if err != nil {
+			l.Warnln("Upgrade:", err)
+			os.Exit(exitCodeForUpgrade(err))
+		}
+		l.Infof("Upgraded to %q", release.Tag)
+		os.Exit(syncthing.ExitUpgrade.AsInt())
 	}
 
 	if options.resetDatabase {
@@ -462,45 +505,47 @@ func debugFacilities() string {
 	return b.String()
 }
 
-func checkUpgrade() upgrade.Release {
+type errNoUpgrade struct {
+	current, latest string
+}
+
+func (e errNoUpgrade) Error() string {
+	return fmt.Sprintf("no upgrade available (current %q >= latest %q).", e.current, e.latest)
+}
+
+func checkUpgrade() (upgrade.Release, error) {
 	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
-		l.Warnln("Upgrade:", err)
-		os.Exit(syncthing.ExitError.AsInt())
+		return upgrade.Release{}, err
 	}
 
 	if upgrade.CompareVersions(release.Tag, build.Version) <= 0 {
-		noUpgradeMessage := "No upgrade available (current %q >= latest %q)."
-		l.Infof(noUpgradeMessage, build.Version, release.Tag)
-		os.Exit(syncthing.ExitNoUpgradeAvailable.AsInt())
+		return upgrade.Release{}, errNoUpgrade{build.Version, release.Tag}
 	}
 
 	l.Infof("Upgrade available (current %q < latest %q)", build.Version, release.Tag)
-	return release
+	return release, nil
 }
 
-func performUpgrade(release upgrade.Release) {
+func performUpgradeDirect(release upgrade.Release) error {
 	// Use leveldb database locks to protect against concurrent upgrades
-	_, err := syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto)
-	if err == nil {
-		err = upgrade.To(release)
-		if err != nil {
-			l.Warnln("Upgrade:", err)
-			os.Exit(syncthing.ExitError.AsInt())
-		}
-		l.Infof("Upgraded to %q", release.Tag)
-	} else {
-		l.Infoln("Attempting upgrade through running Syncthing...")
-		err = upgradeViaRest()
-		if err != nil {
-			l.Warnln("Upgrade:", err)
-			os.Exit(syncthing.ExitError.AsInt())
-		}
-		l.Infoln("Syncthing upgrading")
-		os.Exit(syncthing.ExitUpgrade.AsInt())
+	if _, err := syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto); err != nil {
+		return errConcurrentUpgrade
 	}
+	return upgrade.To(release)
+}
+
+func performUpgrade(release upgrade.Release) error {
+	if err := performUpgradeDirect(release); err != nil {
+		if err != errConcurrentUpgrade {
+			return err
+		}
+		l.Infoln("Attempting upgrade through running Syncthing...")
+		return upgradeViaRest()
+	}
+	return nil
 }
 
 func upgradeViaRest() error {
@@ -568,6 +613,45 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		os.Exit(syncthing.ExitError.AsInt())
 	}
 
+	// Candidate builds should auto upgrade. Make sure the option is set,
+	// unless we are in a build where it's disabled or the STNOUPGRADE
+	// environment variable is set.
+
+	if build.IsCandidate && !upgrade.DisabledByCompilation && !runtimeOptions.NoUpgrade {
+		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
+		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
+			opts.AutoUpgradeIntervalH = 12
+			// Set the option into the config as well, as the auto upgrade
+			// loop expects to read a valid interval from there.
+			cfg.SetOptions(opts)
+			cfg.Save()
+		}
+		// We don't tweak the user's choice of upgrading to pre-releases or
+		// not, as otherwise they cannot step off the candidate channel.
+	}
+
+	// Check if auto-upgrades should be done and if yes, do an initial
+	// upgrade immedately. The auto-upgrade routine can only be started
+	// later after App is initialised.
+
+	shouldAutoUpgrade := shouldUpgrade(cfg, runtimeOptions)
+	if shouldAutoUpgrade {
+		// Try to do upgrade directly
+		release, err := checkUpgrade()
+		if err == nil {
+			if err = performUpgradeDirect(release); err == nil {
+				l.Infof("Upgraded to %q, exiting now.", release.Tag)
+				os.Exit(syncthing.ExitUpgrade.AsInt())
+			}
+		}
+		// Log the error if relevant.
+		if err != nil {
+			if _, ok := err.(errNoUpgrade); !ok {
+				l.Infoln("Initial automatic upgrade:", err)
+			}
+		}
+	}
+
 	if runtimeOptions.unpaused {
 		setPauseState(cfg, false)
 	} else if runtimeOptions.paused {
@@ -592,6 +676,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	app := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
 
+	if shouldAutoUpgrade {
+		go autoUpgrade(cfg, app, evLogger)
+	}
+
 	setupSignalHandling(app)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
@@ -612,31 +700,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if opts := cfg.Options(); opts.RestartOnWakeup {
 		go standbyMonitor(app)
-	}
-
-	// Candidate builds should auto upgrade. Make sure the option is set,
-	// unless we are in a build where it's disabled or the STNOUPGRADE
-	// environment variable is set.
-
-	if build.IsCandidate && !upgrade.DisabledByCompilation && !runtimeOptions.NoUpgrade {
-		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
-		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
-			opts.AutoUpgradeIntervalH = 12
-			// Set the option into the config as well, as the auto upgrade
-			// loop expects to read a valid interval from there.
-			cfg.SetOptions(opts)
-			cfg.Save()
-		}
-		// We don't tweak the user's choice of upgrading to pre-releases or
-		// not, as otherwise they cannot step off the candidate channel.
-	}
-
-	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
-		if runtimeOptions.NoUpgrade {
-			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
-		} else {
-			go autoUpgrade(cfg, app, evLogger)
-		}
 	}
 
 	if err := app.Start(); err != nil {
@@ -771,6 +834,20 @@ func standbyMonitor(app *syncthing.App) {
 	}
 }
 
+func shouldUpgrade(cfg config.Wrapper, runtimeOptions RuntimeOptions) bool {
+	if upgrade.DisabledByCompilation {
+		return false
+	}
+	if opts := cfg.Options(); opts.AutoUpgradeIntervalH < 0 {
+		return false
+	}
+	if runtimeOptions.NoUpgrade {
+		l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
+		return false
+	}
+	return true
+}
+
 func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger) {
 	timer := time.NewTimer(0)
 	sub := evLogger.Subscribe(events.DeviceConnected)
@@ -892,4 +969,11 @@ func setPauseState(cfg config.Wrapper, paused bool) {
 		l.Warnln("Cannot adjust paused state:", err)
 		os.Exit(syncthing.ExitError.AsInt())
 	}
+}
+
+func exitCodeForUpgrade(err error) int {
+	if _, ok := err.(errNoUpgrade); ok {
+		return syncthing.ExitNoUpgradeAvailable.AsInt()
+	}
+	return syncthing.ExitError.AsInt()
 }

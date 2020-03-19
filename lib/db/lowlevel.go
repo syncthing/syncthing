@@ -380,9 +380,11 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 
 	var dk []byte
 	for dbi.Next() {
-		vl, ok := unmarshalVersionList(dbi.Value())
-		if !ok {
-			continue
+		var vl VersionList
+		if err := vl.Unmarshal(dbi.Value()); err != nil || len(vl.Versions) == 0 {
+			if err := t.Delete(dbi.Key()); err != nil {
+				return err
+			}
 		}
 
 		// Check the global version list for consistency. An issue in previous
@@ -621,17 +623,116 @@ func (db *Lowlevel) gcIndirect() error {
 	return db.Compact()
 }
 
-func unmarshalVersionList(data []byte) (VersionList, bool) {
-	var vl VersionList
-	if err := vl.Unmarshal(data); err != nil {
-		l.Debugln("unmarshal error:", err)
-		return VersionList{}, false
+// repairSequenceGCLocked makes sure the sequence numbers in the sequence keys
+// match those in the corresponding file entries. It returns the amount of fixed
+// entries.
+func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTracker) (int, error) {
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return 0, err
 	}
-	if len(vl.Versions) == 0 {
-		l.Debugln("empty version list")
-		return VersionList{}, false
+	defer t.close()
+
+	fixed := 0
+
+	folder := []byte(folderStr)
+
+	// First check that every file entry has a matching sequence entry
+	// (this was previously db schema upgrade to 9).
+
+	dk, err := t.keyer.GenerateDeviceFileKey(nil, folder, protocol.LocalDeviceID[:], nil)
+	if err != nil {
+		return 0, err
 	}
-	return vl, true
+	it, err := t.NewPrefixIterator(dk.WithoutName())
+	if err != nil {
+		return 0, err
+	}
+	defer it.Release()
+
+	var sk sequenceKey
+	for it.Next() {
+		intf, err := t.unmarshalTrunc(it.Value(), true)
+		if err != nil {
+			return 0, err
+		}
+		fi := intf.(FileInfoTruncated)
+		if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
+			return 0, err
+		}
+		switch dk, err = t.Get(sk); {
+		case err != nil:
+			if !backend.IsNotFound(err) {
+				return 0, err
+			}
+			fallthrough
+		case !bytes.Equal(it.Key(), dk):
+			fixed++
+			fi.Sequence = meta.nextLocalSeq()
+			if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
+				return 0, err
+			}
+			if err := t.Put(sk, it.Key()); err != nil {
+				return 0, err
+			}
+			if err := t.putFile(it.Key(), fi.copyToFileInfo()); err != nil {
+				return 0, err
+			}
+		}
+		if err := t.Checkpoint(func() error {
+			return meta.toDB(t, folder)
+		}); err != nil {
+			return 0, err
+		}
+	}
+	if err := it.Error(); err != nil {
+		return 0, err
+	}
+
+	it.Release()
+
+	// Secondly check there's no sequence entries pointing at incorrect things.
+
+	sk, err = t.keyer.GenerateSequenceKey(sk, folder, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	it, err = t.NewPrefixIterator(sk.WithoutSequence())
+	if err != nil {
+		return 0, err
+	}
+	defer it.Release()
+
+	for it.Next() {
+		// Check that the sequence from the key matches the
+		// sequence in the file.
+		fi, ok, err := t.getFileTrunc(it.Value(), true)
+		if err != nil {
+			return 0, err
+		}
+		if ok {
+			if seq := t.keyer.SequenceFromSequenceKey(it.Key()); seq == fi.SequenceNo() {
+				continue
+			}
+		}
+		// Either the file is missing or has a different sequence number
+		fixed++
+		if err := t.Delete(it.Key()); err != nil {
+			return 0, err
+		}
+	}
+	if err := it.Error(); err != nil {
+		return 0, err
+	}
+
+	it.Release()
+
+	if err := meta.toDB(t, folder); err != nil {
+		return 0, err
+	}
+
+	return fixed, t.Commit()
 }
 
 // unchanged checks if two files are the same and thus don't need to be updated.

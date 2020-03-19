@@ -82,7 +82,16 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 
 func loadMetadataTracker(db *Lowlevel, folder string) *metadataTracker {
 	recalc := func() *metadataTracker {
+		db.gcMut.RLock()
+		defer db.gcMut.RUnlock()
 		meta, err := recalcMeta(db, folder)
+		if err == nil {
+			var fixed int
+			fixed, err = db.repairSequenceGCLocked(folder, meta)
+			if fixed != 0 {
+				l.Infoln("Repaired %v sequence entries in database", fixed)
+			}
+		}
 		if backend.IsClosed(err) {
 			return nil
 		} else if err != nil {
@@ -529,6 +538,18 @@ func (s *FileSet) MtimeFS() *fs.MtimeFS {
 
 func (s *FileSet) ListDevices() []protocol.DeviceID {
 	return s.meta.devices()
+}
+
+func (s *FileSet) RepairSequence() (int, error) {
+	s.updateAndGCMutexLock() // Ensures consistent locking order
+	defer s.updateMutex.Unlock()
+	defer s.db.gcMut.RUnlock()
+	return s.db.repairSequenceGCLocked(s.folder, s.meta)
+}
+
+func (s *FileSet) updateAndGCMutexLock() {
+	s.updateMutex.Lock()
+	s.db.gcMut.RLock()
 }
 
 // DropFolder clears out all information related to the given folder from the
