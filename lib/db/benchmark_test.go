@@ -41,7 +41,7 @@ func lazyInitBenchFiles() {
 func getBenchFileSet() (*db.Lowlevel, *db.FileSet) {
 	lazyInitBenchFiles()
 
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	benchS := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	replace(benchS, remoteDevice0, files)
 	replace(benchS, protocol.LocalDeviceID, firstHalf)
@@ -50,7 +50,7 @@ func getBenchFileSet() (*db.Lowlevel, *db.FileSet) {
 }
 
 func BenchmarkReplaceAll(b *testing.B) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	b.ResetTimer()
@@ -160,7 +160,7 @@ func BenchmarkNeedHalf(b *testing.B) {
 }
 
 func BenchmarkNeedHalfRemote(b *testing.B) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 	fset := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	replace(fset, remoteDevice0, firstHalf)

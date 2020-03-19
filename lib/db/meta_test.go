@@ -105,7 +105,7 @@ func TestMetaSequences(t *testing.T) {
 }
 
 func TestRecalcMeta(t *testing.T) {
-	ldb := NewLowlevel(backend.OpenMemory())
+	ldb := NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	// Add some files

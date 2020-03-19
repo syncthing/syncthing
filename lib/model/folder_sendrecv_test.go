@@ -92,7 +92,7 @@ func createFile(t *testing.T, name string, fs fs.Filesystem) protocol.FileInfo {
 
 func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFolder) {
 	w := createTmpWrapper(defaultCfg)
-	model := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
+	model := newModel(w, myID, "syncthing", "dev", db.NewLowlevelDefault(backend.OpenMemory()), nil)
 	fcfg := testFolderConfigTmp()
 	model.addFolder(fcfg)
 

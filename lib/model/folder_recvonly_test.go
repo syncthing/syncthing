@@ -311,7 +311,7 @@ func setupROFolder(t *testing.T) (*model, *receiveOnlyFolder) {
 	fcfg.Type = config.FolderTypeReceiveOnly
 	w.SetFolder(fcfg)
 
-	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
+	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevelDefault(backend.OpenMemory()), nil)
 	m.ServeBackground()
 	must(t, m.ScanFolder("ro"))
 

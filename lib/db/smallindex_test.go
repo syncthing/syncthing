@@ -13,7 +13,7 @@ import (
 )
 
 func TestSmallIndex(t *testing.T) {
-	db := NewLowlevel(backend.OpenMemory())
+	db := NewLowlevelDefault(backend.OpenMemory())
 	idx := newSmallIndex(db, []byte{12, 34})
 
 	// ID zero should be unallocated

@@ -136,7 +136,7 @@ func setSequence(seq int64, files fileList) int64 {
 }
 
 func TestGlobalSet(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -430,7 +430,7 @@ func TestGlobalSet(t *testing.T) {
 }
 
 func TestNeedWithInvalid(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -468,7 +468,7 @@ func TestNeedWithInvalid(t *testing.T) {
 }
 
 func TestUpdateToInvalid(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	folder := "test"
@@ -525,7 +525,7 @@ func TestUpdateToInvalid(t *testing.T) {
 }
 
 func TestInvalidAvailability(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -567,7 +567,7 @@ func TestInvalidAvailability(t *testing.T) {
 }
 
 func TestGlobalReset(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -606,7 +606,7 @@ func TestGlobalReset(t *testing.T) {
 }
 
 func TestNeed(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -645,7 +645,7 @@ func TestNeed(t *testing.T) {
 }
 
 func TestSequence(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -676,7 +676,7 @@ func TestSequence(t *testing.T) {
 }
 
 func TestListDropFolder(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	s0 := db.NewFileSet("test0", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -727,7 +727,7 @@ func TestListDropFolder(t *testing.T) {
 }
 
 func TestGlobalNeedWithInvalid(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	s := db.NewFileSet("test1", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -769,7 +769,7 @@ func TestGlobalNeedWithInvalid(t *testing.T) {
 }
 
 func TestLongPath(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -810,7 +810,7 @@ func BenchmarkUpdateOneFile(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	ldb := db.NewLowlevel(be)
+	ldb := db.NewLowlevelDefault(be)
 	defer func() {
 		ldb.Close()
 		os.RemoveAll("testdata/benchmarkupdate.db")
@@ -829,7 +829,7 @@ func BenchmarkUpdateOneFile(b *testing.B) {
 }
 
 func TestIndexID(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -862,7 +862,7 @@ func TestIndexID(t *testing.T) {
 }
 
 func TestDropFiles(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 
 	m := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -925,7 +925,7 @@ func TestDropFiles(t *testing.T) {
 }
 
 func TestIssue4701(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -967,7 +967,7 @@ func TestIssue4701(t *testing.T) {
 }
 
 func TestWithHaveSequence(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	folder := "test"
@@ -1005,7 +1005,7 @@ func TestStressWithHaveSequence(t *testing.T) {
 		t.Skip("Takes a long time")
 	}
 
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	folder := "test"
@@ -1050,7 +1050,7 @@ loop:
 }
 
 func TestIssue4925(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	folder := "test"
@@ -1077,7 +1077,7 @@ func TestIssue4925(t *testing.T) {
 }
 
 func TestMoveGlobalBack(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	folder := "test"
@@ -1142,7 +1142,7 @@ func TestMoveGlobalBack(t *testing.T) {
 // needed files.
 // https://github.com/syncthing/syncthing/issues/5007
 func TestIssue5007(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	folder := "test"
@@ -1170,7 +1170,7 @@ func TestIssue5007(t *testing.T) {
 // TestNeedDeleted checks that a file that doesn't exist locally isn't needed
 // when the global file is deleted.
 func TestNeedDeleted(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	folder := "test"
@@ -1205,7 +1205,7 @@ func TestNeedDeleted(t *testing.T) {
 }
 
 func TestReceiveOnlyAccounting(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	folder := "test"
@@ -1310,7 +1310,7 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 }
 
 func TestNeedAfterUnignore(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	folder := "test"
@@ -1343,7 +1343,7 @@ func TestNeedAfterUnignore(t *testing.T) {
 func TestRemoteInvalidNotAccounted(t *testing.T) {
 	// Remote files with the invalid bit should not count.
 
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -1363,7 +1363,7 @@ func TestRemoteInvalidNotAccounted(t *testing.T) {
 }
 
 func TestNeedWithNewerInvalid(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	s := db.NewFileSet("default", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
@@ -1402,7 +1402,7 @@ func TestNeedWithNewerInvalid(t *testing.T) {
 }
 
 func TestNeedAfterDeviceRemove(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	file := "foo"
@@ -1430,7 +1430,7 @@ func TestNeedAfterDeviceRemove(t *testing.T) {
 func TestCaseSensitive(t *testing.T) {
 	// Normal case sensitive lookup should work
 
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -1468,7 +1468,7 @@ func TestSequenceIndex(t *testing.T) {
 
 	// Set up a db and a few files that we will manipulate.
 
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
@@ -1562,7 +1562,7 @@ func TestSequenceIndex(t *testing.T) {
 }
 
 func TestIgnoreAfterReceiveOnly(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := db.NewLowlevelDefault(backend.OpenMemory())
 	defer ldb.Close()
 
 	file := "foo"

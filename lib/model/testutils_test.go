@@ -112,7 +112,7 @@ func setupModelWithConnectionFromWrapper(w config.Wrapper) (*model, *fakeConnect
 }
 
 func setupModel(w config.Wrapper) *model {
-	db := db.NewLowlevel(backend.OpenMemory())
+	db := db.NewLowlevelDefault(backend.OpenMemory())
 	m := newModel(w, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
 
