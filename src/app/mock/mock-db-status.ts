@@ -2,7 +2,7 @@ export const dbStatus =
     [
         { "folder": "GXWxf-3zgnU", "state": "active" },
         { "folder": "Tyeho-ncvqp", "state": "idle" },
-        { "folder": "Ihpqp-3zgng", "state": "idle" },
+        { "folder": "Ihpqp-3zgnq", "state": "idle" },
         { "folder": "Abqqp-3zgnU", "state": "idle" },
         { "folder": "Bawer-3zgnU", "state": "idle" },
         { "folder": "Zpohq-3zgnU", "state": "idle" },
