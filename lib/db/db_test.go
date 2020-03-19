@@ -352,7 +352,7 @@ func TestRepairSequence(t *testing.T) {
 	// Loading the metadata for the first time means a "re"calculation happens,
 	// along which the sequences get repaired too.
 	db.gcMut.RLock()
-	_ = loadMetadataTracker(db, folderStr)
+	_ = db.loadMetadataTracker(folderStr)
 	db.gcMut.RUnlock()
 	if err != nil {
 		t.Fatal(err)

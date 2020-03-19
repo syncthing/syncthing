@@ -35,6 +35,7 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
 )
 
@@ -224,9 +225,14 @@ func (a *App) startup() error {
 
 	prevParts := strings.Split(prevVersion, "-")
 	curParts := strings.Split(build.Version, "-")
-	if prevParts[0] != curParts[0] {
+	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
 		if prevVersion != "" {
 			l.Infoln("Detected upgrade from", prevVersion, "to", build.Version)
+			// Check and repair metadata and sequences once immediately
+			// on upgrade, later it will happen periodically as usual.
+			if upgrade.CompareVersions(prevParts[0], "v1.4.2") <= upgrade.Older {
+				a.ll.CheckRepair()
+			}
 		}
 
 		// Drop delta indexes in case we've changed random stuff we
