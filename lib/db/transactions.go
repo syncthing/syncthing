@@ -8,19 +8,13 @@ package db
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-type errDeviceEntryMissing struct {
-	name string
-}
-
-func (err errDeviceEntryMissing) Error() string {
-	return fmt.Sprintf("device present in global list but missing as device/fileinfo entry: %s", err.name)
-}
+var errEntryFromGlobalMissing = errors.New("device present in global list but missing as device/fileinfo entry")
 
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
@@ -364,7 +358,7 @@ func (t *readOnlyTransaction) withNeed(folder, device []byte, truncate bool, fn 
 			return err
 		}
 		if !ok {
-			return errDeviceEntryMissing{string(name)}
+			return errEntryFromGlobalMissing
 		}
 		if !need(gf, have, haveFV.Version) {
 			continue
@@ -632,7 +626,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 			return nil, err
 		}
 		if f, ok, err := t.getFileByKey(keyBuf); err != nil {
-			return keyBuf, nil
+			return nil, err
 		} else if ok {
 			meta.removeFile(protocol.GlobalDeviceID, f)
 		}
@@ -658,8 +652,11 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 			return nil, err
 		}
 		global, ok, err := t.getFileByKey(keyBuf)
-		if err != nil || !ok {
-			return keyBuf, err
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, errEntryFromGlobalMissing
 		}
 		keyBuf, err = t.updateLocalNeed(keyBuf, folder, file, fl, global)
 		if err != nil {
