@@ -267,6 +267,12 @@ angular.module('syncthing.core')
             }
 
             PushNotifications.setEnabled($scope.config.gui.enableNotifications);
+
+            $scope.config.devices.forEach(function(device) {
+                device.pendingFolders.forEach(function(pendingFolder) {
+                    PushNotifications.notify(`${device.name} want to share folder "${pendingFolder.label}" (${pendingFolder.id})`);
+                });
+            });
         });
 
         $scope.$on(Events.CONFIG_SAVED, function (event, arg) {
