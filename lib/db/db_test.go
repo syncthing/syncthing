@@ -261,11 +261,11 @@ func TestRepairSequence(t *testing.T) {
 	short := protocol.LocalDeviceID.Short()
 
 	files := []protocol.FileInfo{
-		{Name: "fine"},
-		{Name: "duplicate"},
-		{Name: "missing"},
-		{Name: "overwriting"},
-		{Name: "inconsistent"},
+		{Name: "fine", Blocks: genBlocks(1)},
+		{Name: "duplicate", Blocks: genBlocks(2)},
+		{Name: "missing", Blocks: genBlocks(3)},
+		{Name: "overwriting", Blocks: genBlocks(4)},
+		{Name: "inconsistent", Blocks: genBlocks(5)},
 	}
 	for i, f := range files {
 		files[i].Version = f.Version.Update(short)
@@ -282,7 +282,7 @@ func TestRepairSequence(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := trans.putFile(dk, f); err != nil {
+		if err := trans.putFile(dk, f, false); err != nil {
 			t.Fatal(err)
 		}
 		sk, err := trans.keyer.GenerateSequenceKey(nil, folder, seq)
@@ -399,15 +399,19 @@ func TestRepairSequence(t *testing.T) {
 	}
 	defer it.Release()
 	for it.Next() {
-		fi, ok, err := ro.getFileTrunc(it.Value(), true)
+		intf, ok, err := ro.getFileTrunc(it.Value(), false)
 		if err != nil {
 			t.Fatal(err)
 		}
+		fi := intf.(protocol.FileInfo)
 		seq := ro.keyer.SequenceFromSequenceKey(it.Key())
 		if !ok {
 			t.Errorf("Sequence entry %v points at nothing", seq)
 		} else if fi.SequenceNo() != seq {
 			t.Errorf("Inconsistent sequence entry for %v: %v != %v", fi.FileName(), fi.SequenceNo(), seq)
+		}
+		if len(fi.Blocks) == 0 {
+			t.Error("Missing blocks in", fi.FileName())
 		}
 	}
 	if err := it.Error(); err != nil {
