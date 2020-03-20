@@ -282,7 +282,7 @@ func TestRepairSequence(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := trans.putFile(dk, f); err != nil {
+		if err := trans.putFile(dk, f, false); err != nil {
 			t.Fatal(err)
 		}
 		sk, err := trans.keyer.GenerateSequenceKey(nil, folder, seq)

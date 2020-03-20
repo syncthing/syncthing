@@ -465,7 +465,7 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 		if fi.Blocks == nil {
 			continue
 		}
-		if err := t.putFile(it.Key(), fi); err != nil {
+		if err := t.putFile(it.Key(), fi, false); err != nil {
 			return err
 		}
 		if err := t.Checkpoint(); err != nil {
