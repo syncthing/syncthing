@@ -13,25 +13,25 @@ import Folder from './folder'
   providedIn: 'root'
 })
 export class DbStatusService {
-  private folderStatus: Object = {};
-  private headers: HttpHeaders;
   private dbStatusUrl = environment.production ? apiURL + 'rest/db/status' : 'api/dbStatus';
+  private statuses: Map<string, Folder.Status>;
 
   constructor(private http: HttpClient, private cookieService: CookieService) {
-    this.headers = new HttpHeaders(this.cookieService.getCSRFHeader())
+    this.statuses = new Map();
   }
 
   getFolderStatus(id: string): Observable<Folder.Status> {
-    let httpOptions: { headers: HttpHeaders } |
-    { headers: HttpHeaders, params: HttpParams };
+    // First check to see if we have a cached value
+    if (this.statuses.has(id)) {
+      return of(this.statuses.get(id));
+    }
+
+    let httpOptions: { params: HttpParams };
     if (id) {
       httpOptions = {
-        headers: this.headers,
         params: new HttpParams().set('folder', id)
       };
-    } else {
-      httpOptions = { headers: this.headers };
-    }
+    } else { }
 
     return this.http
       .get<Folder.Status>(this.dbStatusUrl, httpOptions)
@@ -41,13 +41,13 @@ export class DbStatusService {
           // Remove from array in developement
           // in-memory-web-api returns arrays
           if (!environment.production) {
-            console.log("status res!", res);
             const a: any = res as any;
             if (a.length > 0) {
-              return res[0];
+              res = res[0];
             }
-            return {};
           }
+          // cache result
+          this.statuses.set(id, res)
           return res;
         })
       );

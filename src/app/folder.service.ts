@@ -26,7 +26,7 @@ export class FolderService {
     startIndex = startIndex + 1;
     this.dbStatusService.getFolderStatus(folder.id).subscribe(
       status => {
-        folder["status"] = status;
+        folder.status = status;
         observer.next(folder);
 
         // recursively get the status of the next folder
@@ -41,6 +41,7 @@ export class FolderService {
    */
   getAll(): Observable<Folder> {
     const folderObservable: Observable<Folder> = new Observable((observer) => {
+
       this.systemConfigService.getFolders().subscribe(
         folders => {
           this.folders = folders;
@@ -54,4 +55,3 @@ export class FolderService {
     return folderObservable
   }
 }
-

@@ -21,7 +21,7 @@ export class FolderChartComponent implements OnInit {
 
   ngOnInit(): void {
     for (let state in Folder.StateType) {
-      console.log(state);
+      // console.log(state);
     }
   }
 

@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-import { deviceID } from './api-utils';
 
 @Injectable({
   providedIn: 'root'
@@ -7,14 +6,6 @@ import { deviceID } from './api-utils';
 export class CookieService {
 
   constructor() { }
-
-  getCSRFHeader(): any {
-    const dID: String = deviceID();
-    const csrfCookie = 'CSRF-Token-' + dID
-    const csrfHeader = {};
-    csrfHeader['X-CSRF-Token-' + dID] = this.getCookie(csrfCookie);
-    return csrfHeader;
-  }
 
   getCookie(name: string): string {
     let ca: Array<string> = document.cookie.split(';');

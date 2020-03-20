@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { config } from './mock/mock-config'
-import { dbStatus } from './mock/mock-db-status'
+import { config } from './mocks/mock-config'
+import { dbStatus } from './mocks/mock-db-status'
 
 @Injectable({
   providedIn: 'root'

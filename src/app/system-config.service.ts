@@ -20,17 +20,14 @@ export class SystemConfigService {
   private devicesSubject: Subject<Device[]> = new Subject();
 
   private systemConfigUrl = environment.production ? apiURL + 'rest/system/config' : 'api/config';
-  private httpOptions: any;
 
   private checkInterval: number = 100;
 
-  constructor(private http: HttpClient, private cookieService: CookieService) {
-    this.httpOptions = { headers: new HttpHeaders(this.cookieService.getCSRFHeader()) };
-  }
+  constructor(private http: HttpClient) { }
 
   getSystemConfig(): Observable<any> {
     return this.http
-      .get(this.systemConfigUrl, this.httpOptions)
+      .get(this.systemConfigUrl)
       .pipe(
         retry(apiRetry),
         map(res => {

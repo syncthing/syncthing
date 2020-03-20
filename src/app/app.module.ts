@@ -9,6 +9,7 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { FlexLayoutModule } from '@angular/flex-layout';
 
+import { httpInterceptorProviders } from './http-interceptors';
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 
@@ -28,6 +29,7 @@ import { InMemoryConfigDataService } from './in-memory-config-data.service';
 import { deviceID } from './api-utils';
 import { environment } from '../environments/environment';
 import { ChartItemComponent } from './charts/chart-item/chart-item.component';
+import { CSRFInterceptor } from './http-interceptors/csrf-intercepor';
 
 @NgModule({
   declarations: [
@@ -61,7 +63,7 @@ import { ChartItemComponent } from './charts/chart-item/chart-item.component';
       [] : HttpClientInMemoryWebApiModule.forRoot(InMemoryConfigDataService,
         { dataEncapsulation: false, delay: 200 }),
   ],
-  providers: [],
+  providers: [httpInterceptorProviders],
   bootstrap: [AppComponent]
 })
 
