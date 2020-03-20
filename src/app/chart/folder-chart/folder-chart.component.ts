@@ -12,9 +12,12 @@ import { DonutChartComponent } from '../donut-chart/donut-chart.component';
 export class FolderChartComponent implements OnInit {
   @ViewChild(DonutChartComponent) donutChart: DonutChartComponent;
   chartID: string = 'foldersChart';
+  states: Map<string, number>;
   elevation: string = cardElevation;
 
-  constructor(private folderService: FolderService) { }
+  constructor(private folderService: FolderService) {
+    this.states = new Map();
+  }
 
   ngOnInit(): void {
     for (let state in Folder.StateType) {
@@ -32,7 +35,13 @@ export class FolderChartComponent implements OnInit {
         // Get StateType and convert to string 
         const stateType: Folder.StateType = Folder.getStateType(folder);
         const state: string = Folder.stateTypeToString(stateType);
-        console.log("folder state?", state, folder);
+
+        // Instantiate empty count states
+        if (!this.states.has(state)) {
+          this.states.set(state, 0);
+        }
+        const count: number = this.states.get(state) + 1;
+        this.states.set(state, count);
       }
     );
 

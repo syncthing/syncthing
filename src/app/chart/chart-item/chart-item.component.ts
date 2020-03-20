@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Input } from '@angular/core';
 
 @Component({
   selector: 'app-chart-item',
@@ -6,7 +6,8 @@ import { Component, OnInit } from '@angular/core';
   styleUrls: ['./chart-item.component.scss']
 })
 export class ChartItemComponent implements OnInit {
-  state: string = "test"
+  @Input() state: string;
+  @Input() count: number;
   constructor() { }
 
   ngOnInit(): void {
