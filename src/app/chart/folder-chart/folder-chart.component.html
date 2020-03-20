@@ -1,6 +1,13 @@
 <mat-card class="{{elevation}}">
     <mat-card-title>Folders</mat-card-title>
     <mat-card-content>
-        <app-donut-chart [elementID]="chartID"></app-donut-chart>
+        <div fxLayout="row" fxLayoutAlign="space-between start">
+            <app-donut-chart [elementID]="chartID"></app-donut-chart>
+            <div fxLayout="column" fxLayoutAlign="space-evenly end">
+                <app-chart-item></app-chart-item>
+                <app-chart-item></app-chart-item>
+                <app-chart-item></app-chart-item>
+            </div>
+        </div>
     </mat-card-content>
 </mat-card>
