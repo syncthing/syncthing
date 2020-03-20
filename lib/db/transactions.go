@@ -432,13 +432,19 @@ func (t readWriteTransaction) close() {
 	t.WriteTransaction.Release()
 }
 
-func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
+// putFile stores a file in the database, taking care of indirected fields.
+// Set the truncated flag when putting a file that deliberatly can have an
+// empty block list but a non-empty block list hash. This should normally be
+// false.
+func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo, truncated bool) error {
 	var bkey []byte
 
-	// Always set the blocks hash when there are blocks.
+	// Always set the blocks hash when there are blocks. Leave the blocks
+	// hash alone when there are no blocks and we might be putting a
+	// "truncated" FileInfo (no blocks, but the hash reference is live).
 	if len(fi.Blocks) > 0 {
 		fi.BlocksHash = protocol.BlocksHash(fi.Blocks)
-	} else {
+	} else if !truncated {
 		fi.BlocksHash = nil
 	}
 

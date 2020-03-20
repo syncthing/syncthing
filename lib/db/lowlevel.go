@@ -114,7 +114,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		meta.addFile(devID, f)
 
 		l.Debugf("insert; folder=%q device=%v %v", folder, devID, f)
-		if err := t.putFile(dk, f); err != nil {
+		if err := t.putFile(dk, f, false); err != nil {
 			return err
 		}
 
@@ -201,7 +201,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		meta.addFile(protocol.LocalDeviceID, f)
 
 		l.Debugf("insert (local); folder=%q %v", folder, f)
-		if err := t.putFile(dk, f); err != nil {
+		if err := t.putFile(dk, f, false); err != nil {
 			return err
 		}
 
@@ -643,7 +643,7 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 		var fixed int
 		fixed, err = db.repairSequenceGCLocked(folder, meta)
 		if fixed != 0 {
-			l.Infoln("Repaired %v sequence entries in database", fixed)
+			l.Infof("Repaired %d sequence entries in database", fixed)
 		}
 	}
 
@@ -790,7 +790,7 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 			if err := t.Put(sk, it.Key()); err != nil {
 				return 0, err
 			}
-			if err := t.putFile(it.Key(), fi.copyToFileInfo()); err != nil {
+			if err := t.putFile(it.Key(), fi.copyToFileInfo(), true); err != nil {
 				return 0, err
 			}
 		}
