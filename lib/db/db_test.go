@@ -261,11 +261,11 @@ func TestRepairSequence(t *testing.T) {
 	short := protocol.LocalDeviceID.Short()
 
 	files := []protocol.FileInfo{
-		{Name: "fine", Blocks: genBlocks(4)},
-		{Name: "duplicate", Blocks: genBlocks(4)},
-		{Name: "missing", Blocks: genBlocks(4)},
+		{Name: "fine", Blocks: genBlocks(1)},
+		{Name: "duplicate", Blocks: genBlocks(2)},
+		{Name: "missing", Blocks: genBlocks(3)},
 		{Name: "overwriting", Blocks: genBlocks(4)},
-		{Name: "inconsistent", Blocks: genBlocks(4)},
+		{Name: "inconsistent", Blocks: genBlocks(5)},
 	}
 	for i, f := range files {
 		files[i].Version = f.Version.Update(short)
