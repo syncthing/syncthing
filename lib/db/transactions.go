@@ -435,11 +435,11 @@ func (t readWriteTransaction) close() {
 func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
 	var bkey []byte
 
-	// Always set the blocks hash when there are blocks.
+	// Always set the blocks hash when there are blocks. Leave the blocks
+	// hash alone when there are no blocks, as we might be putting a
+	// "truncated" FileInfo (no blocks, but the hash reference in place.)
 	if len(fi.Blocks) > 0 {
 		fi.BlocksHash = protocol.BlocksHash(fi.Blocks)
-	} else {
-		fi.BlocksHash = nil
 	}
 
 	// Indirect the blocks if the block list is large enough.
