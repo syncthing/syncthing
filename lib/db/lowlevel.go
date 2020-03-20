@@ -643,7 +643,7 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 		var fixed int
 		fixed, err = db.repairSequenceGCLocked(folder, meta)
 		if fixed != 0 {
-			l.Infoln("Repaired %v sequence entries in database", fixed)
+			l.Infof("Repaired %d sequence entries in database", fixed)
 		}
 	}
 
