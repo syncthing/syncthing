@@ -1,0 +1,12 @@
+<mat-card class="{{elevation}}">
+    <mat-card-title>Devices</mat-card-title>
+    <mat-card-content>
+        <div fxLayout="row" fxLayoutAlign="space-between start">
+            <app-donut-chart [elementID]="chartID"></app-donut-chart>
+            <div class="items" fxLayout="column" fxLayoutAlign="space-evenly end">
+                <app-chart-item *ngFor="let state of states | keyvalue" [state]="state.key" [count]="state.value">
+                </app-chart-item>
+            </div>
+        </div>
+    </mat-card-content>
+</mat-card>

@@ -26,7 +26,6 @@ export class FolderChartComponent implements OnInit {
   }
 
   ngAfterViewInit() {
-    // TODO: Find total number of folders
     this.folderService.getAll().subscribe(
       folder => {
         // TODO: Clear existing data
@@ -44,6 +43,5 @@ export class FolderChartComponent implements OnInit {
         this.states.set(state, count);
       }
     );
-
   }
 }

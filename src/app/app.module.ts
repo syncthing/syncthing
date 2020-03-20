@@ -13,12 +13,12 @@ import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
-import { StatusListComponent } from './list/status-list/status-list.component';
-import { FolderListComponent } from './list/folder-list/folder-list.component';
-import { DeviceListComponent } from './list/device-list/device-list.component';
-import { DonutChartComponent } from './chart/donut-chart/donut-chart.component';
-import { DeviceChartComponent } from './chart/device-chart/device-chart.component';
-import { FolderChartComponent } from './chart/folder-chart/folder-chart.component';
+import { StatusListComponent } from './lists/status-list/status-list.component';
+import { FolderListComponent } from './lists/folder-list/folder-list.component';
+import { DeviceListComponent } from './lists/device-list/device-list.component';
+import { DonutChartComponent } from './charts/donut-chart/donut-chart.component';
+import { DeviceChartComponent } from './charts/device-chart/device-chart.component';
+import { FolderChartComponent } from './charts/folder-chart/folder-chart.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { ListToggleComponent } from './list-toggle/list-toggle.component';
 
@@ -27,7 +27,7 @@ import { InMemoryConfigDataService } from './in-memory-config-data.service';
 
 import { deviceID } from './api-utils';
 import { environment } from '../environments/environment';
-import { ChartItemComponent } from './chart/chart-item/chart-item.component';
+import { ChartItemComponent } from './charts/chart-item/chart-item.component';
 
 @NgModule({
   declarations: [
