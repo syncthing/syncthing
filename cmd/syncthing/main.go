@@ -65,6 +65,12 @@ I.e. to prefix each log line with date and time, set -logflags=3 (1 + 2 from
 above). The value 0 is used to disable all of the above. The default is to
 show time only (2).
 
+Logging always happens to the command line (stdout) and optionally to the
+file at the path specified by -logfile=path. In addition to an path, the special
+values "default" and "-" may be used. The former logs to DATADIR/syncthing.log
+(see -data-dir), which is the default on Windows, and the latter only to stdout,
+no file, which is the default anywhere else.
+
 
 Development Settings
 --------------------
@@ -149,7 +155,9 @@ var (
 
 type RuntimeOptions struct {
 	syncthing.Options
+	homeDir          string
 	confDir          string
+	dataDir          string
 	resetDatabase    bool
 	showVersion      bool
 	showPaths        bool
@@ -197,11 +205,13 @@ func defaultRuntimeOptions() RuntimeOptions {
 		options.logFlags = logger.DebugFlags
 	}
 
-	if runtime.GOOS != "windows" {
-		// On non-Windows, we explicitly default to "-" which means stdout. On
-		// Windows, the blank options.logFile will later be replaced with the
-		// default path, unless the user has manually specified "-" or
-		// something else.
+	// On non-Windows, we explicitly default to "-" which means stdout. On
+	// Windows, the "default" options.logFile will later be replaced with the
+	// default path, unless the user has manually specified "-" or
+	// something else.
+	if runtime.GOOS == "windows" {
+		options.logFile = "default"
+	} else {
 		options.logFile = "-"
 	}
 
@@ -214,7 +224,9 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.StringVar(&options.generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&options.guiAddress, "gui-address", options.guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
 	flag.StringVar(&options.guiAPIKey, "gui-apikey", options.guiAPIKey, "Override GUI API key")
-	flag.StringVar(&options.confDir, "home", "", "Set configuration directory")
+	flag.StringVar(&options.homeDir, "home", "", "Set configuration and data directory")
+	flag.StringVar(&options.confDir, "config", "", "Set configuration directory (config and keys)")
+	flag.StringVar(&options.dataDir, "data", "", "Set data directory (database and logs)")
 	flag.IntVar(&options.logFlags, "logflags", options.logFlags, "Select information in log line prefix (see below)")
 	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
@@ -232,7 +244,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.Verbose, "verbose", false, "Print verbose log output")
 	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
-	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout).")
+	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (see below).")
 	flag.IntVar(&options.logMaxSize, "log-max-size", options.logMaxSize, "Maximum size of any file (zero to disable log rotation).")
 	flag.IntVar(&options.logMaxFiles, "log-max-old-files", options.logMaxFiles, "Number of old files to keep (zero to keep only current).")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
@@ -254,6 +266,17 @@ func parseCommandLineOptions() RuntimeOptions {
 	return options
 }
 
+func setLocation(enum locations.BaseDirEnum, loc string) error {
+	if !filepath.IsAbs(loc) {
+		var err error
+		loc, err = filepath.Abs(loc)
+		if err != nil {
+			return err
+		}
+	}
+	return locations.SetBaseDir(enum, loc)
+}
+
 func main() {
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
@@ -271,25 +294,33 @@ func main() {
 		osutil.HideConsole()
 	}
 
-	if options.confDir != "" {
-		// Not set as default above because the string can be really long.
-		if !filepath.IsAbs(options.confDir) {
-			var err error
-			options.confDir, err = filepath.Abs(options.confDir)
-			if err != nil {
-				l.Warnln("Failed to make options path absolute:", err)
-				os.Exit(syncthing.ExitError.AsInt())
-			}
+	// Not set as default above because the strings can be really long.
+	var err error
+	homeSet := options.homeDir != ""
+	confSet := options.confDir != ""
+	dataSet := options.dataDir != ""
+	switch {
+	case dataSet != confSet:
+		err = errors.New("either both or none of -conf and -data must be given, use -home to set both at once")
+	case homeSet && dataSet:
+		err = errors.New("-home must not be used together with -conf and -data")
+	case homeSet:
+		if err = setLocation(locations.ConfigBaseDir, options.homeDir); err == nil {
+			err = setLocation(locations.DataBaseDir, options.homeDir)
 		}
-		if err := locations.SetBaseDir(locations.ConfigBaseDir, options.confDir); err != nil {
-			l.Warnln(err)
-			os.Exit(syncthing.ExitError.AsInt())
+	case dataSet:
+		if err = setLocation(locations.ConfigBaseDir, options.confDir); err == nil {
+			err = setLocation(locations.DataBaseDir, options.dataDir)
 		}
 	}
+	if err != nil {
+		l.Warnln("Command line options:", err)
+		os.Exit(syncthing.ExitError.AsInt())
+	}
 
-	if options.logFile == "" {
-		// Blank means use the default logfile location. We must set this
-		// *after* expandLocations above.
+	if options.logFile == "default" || options.logFile == "" {
+		// We must set this *after* expandLocations above.
+		// Handling an empty value is for backwards compatibility (<1.4.1).
 		options.logFile = locations.Get(locations.LogFile)
 	}
 

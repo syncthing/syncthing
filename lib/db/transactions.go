@@ -8,19 +8,13 @@ package db
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-type errDeviceEntryMissing struct {
-	name string
-}
-
-func (err errDeviceEntryMissing) Error() string {
-	return fmt.Sprintf("device present in global list but missing as device/fileinfo entry: %s", err.name)
-}
+var errEntryFromGlobalMissing = errors.New("device present in global list but missing as device/fileinfo entry")
 
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
@@ -368,7 +362,7 @@ func (t *readOnlyTransaction) withNeed(folder, device []byte, truncate bool, fn 
 			return err
 		}
 		if !ok {
-			return errDeviceEntryMissing{string(name)}
+			return errEntryFromGlobalMissing
 		}
 		l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.Invalid, haveFV.Version, globalFV.Version, globalFV.Device)
 		if !fn(gf) {
@@ -439,13 +433,19 @@ func (t readWriteTransaction) close() {
 	t.WriteTransaction.Release()
 }
 
-func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
+// putFile stores a file in the database, taking care of indirected fields.
+// Set the truncated flag when putting a file that deliberatly can have an
+// empty block list but a non-empty block list hash. This should normally be
+// false.
+func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo, truncated bool) error {
 	var bkey []byte
 
-	// Always set the blocks hash when there are blocks.
+	// Always set the blocks hash when there are blocks. Leave the blocks
+	// hash alone when there are no blocks and we might be putting a
+	// "truncated" FileInfo (no blocks, but the hash reference is live).
 	if len(fi.Blocks) > 0 {
 		fi.BlocksHash = protocol.BlocksHash(fi.Blocks)
-	} else {
+	} else if !truncated {
 		fi.BlocksHash = nil
 	}
 
@@ -487,10 +487,6 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	fl, removedFV, removedAt, insertedAt, err := fl.update(folder, device, file, t.readOnlyTransaction)
 	if err != nil {
 		return nil, false, err
-	}
-	if insertedAt == -1 {
-		l.Debugln("update global; same version, global unchanged")
-		return keyBuf, false, nil
 	}
 
 	name := []byte(file.Name)
@@ -655,7 +651,7 @@ func (t readWriteTransaction) updateGlobalGetGlobal(keyBuf, folder, name []byte,
 		return nil, err
 	}
 	if !ok {
-		return nil, errDeviceEntryMissing{string(name)}
+		return nil, errEntryFromGlobalMissing
 	}
 	return global, nil
 }
@@ -671,7 +667,7 @@ func (t readWriteTransaction) updateGlobalGetOldGlobal(keyBuf, folder, name []by
 		return nil, err
 	}
 	if !ok {
-		return nil, errDeviceEntryMissing{string(name)}
+		return nil, errEntryFromGlobalMissing
 	}
 	return oldGlobal, nil
 }
@@ -750,9 +746,9 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 	}
 	f, ok, err := t.getFileByKey(keyBuf)
 	if err != nil {
-		return keyBuf, nil
+		return nil, err
 	} else if !ok {
-		return nil, errDeviceEntryMissing{string(file)}
+		return nil, errEntryFromGlobalMissing
 	}
 	meta.removeFile(protocol.GlobalDeviceID, f)
 
@@ -784,8 +780,11 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 		return nil, err
 	}
 	global, ok, err := t.getFileByKey(keyBuf)
-	if err != nil || !ok {
-		return keyBuf, err
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errEntryFromGlobalMissing
 	}
 	meta.addFile(protocol.GlobalDeviceID, global)
 
