@@ -156,7 +156,7 @@ angular.module('syncthing.core')
             $('#networkError').modal('hide');
             $('#restarting').modal('hide');
             $('#shutdown').modal('hide');
-            PushNotifications.notify('App is back online');
+            PushNotifications.notify($translate.instant('App is back online'));
         });
 
         $scope.$on(Events.OFFLINE, function () {
@@ -168,7 +168,7 @@ angular.module('syncthing.core')
             online = false;
             if (!restarting) {
                 $('#networkError').modal();
-                PushNotifications.notify('App is offline ;(')
+                PushNotifications.notify($translate.instant('App is offline'));
             }
         });
 
@@ -209,7 +209,7 @@ angular.module('syncthing.core')
                 }
 
                 if (['syncing', 'sync-preparing'].includes(data.from) && data.to === 'idle') {
-                    PushNotifications.notify(`Folder ${$scope.folders[data.folder].label} was synced`)
+                    PushNotifications.notify($translate.instant(`Folder ${$scope.folders[data.folder].label} was synced`))
                 }
 
                 // If a folder finished scanning, then refresh folder stats
@@ -269,9 +269,9 @@ angular.module('syncthing.core')
 
             PushNotifications.setEnabled($scope.config.gui.enableNotifications);
 
-            $scope.config.devices.forEach(function(device) {
-                device.pendingFolders.forEach(function(pendingFolder) {
-                    PushNotifications.notify(`${device.name} want to share folder "${pendingFolder.label}" (${pendingFolder.id})`);
+            $scope.config.devices.forEach(function (device) {
+                device.pendingFolders.forEach(function (pendingFolder) {
+                    PushNotifications.notify($translate.instant(`${device.name} want to share folder "${pendingFolder.label}" (${pendingFolder.id})`));
                 });
             });
         });
@@ -516,7 +516,7 @@ angular.module('syncthing.core')
                     $scope.deviceNeeds[device][folder] = 0;
 
                 if (items == 0 && $scope.deviceNeeds[device][folder] > 0) {
-                    PushNotifications.notify(`Sent ${$scope.deviceNeeds[device][folder]} items to ${$scope.friendlyNameFromID(device)} from folder ${$scope.folders[folder].label}.`);
+                    PushNotifications.notify($translate.instant(`Sent ${$scope.deviceNeeds[device][folder]} items to ${$scope.friendlyNameFromID(device)} from folder ${$scope.folders[folder].label}.`));
                     $scope.deviceNeeds[device][folder] = 0;
                 } else
                     $scope.deviceNeeds[device][folder] = Math.max($scope.deviceNeeds[device][folder], items);
