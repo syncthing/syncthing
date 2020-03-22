@@ -172,8 +172,9 @@ func (f *receiveOnlyFolder) pull() {
 		if !fi.IsDeleted() || !fi.IsReceiveOnlyChanged() || len(snap.Availability(fi.FileName())) > 0 {
 			return true
 		}
-		file := fi.(db.FileInfoTruncated).CopyToFileInfo()
+		file := fi.(db.FileInfoTruncated).ConvertDeletedToFileInfo()
 		file.LocalFlags = 0
+		file.Version = protocol.Vector{}
 		batch = append(batch, file)
 		batchSizeBytes += file.ProtoSize()
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {

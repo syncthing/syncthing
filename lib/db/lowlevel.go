@@ -675,7 +675,7 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 			if err := t.Put(sk, it.Key()); err != nil {
 				return 0, err
 			}
-			if err := t.putFile(it.Key(), fi.CopyToFileInfo()); err != nil {
+			if err := t.putFile(it.Key(), fi.copyToFileInfo()); err != nil {
 				return 0, err
 			}
 		}
