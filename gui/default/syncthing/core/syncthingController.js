@@ -51,7 +51,7 @@ angular.module('syncthing.core')
         $scope.themes = [];
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
-        $scope.authWarningDismissed = true; 
+        $scope.authWarningDismissed = false; 
         $scope.folderPathErrors = {};
         $scope.currentFolder = {};
         resetRemoteNeed();
@@ -61,7 +61,7 @@ angular.module('syncthing.core')
         } catch (exception) { }
         try {
             if(typeof window.localStorage["authWarningDismissed"] != 'undefined'){
-                $scope.authWarningDismissed = (window.localStorage["authWarningDismissed"] == "true");
+                $scope.authWarningDismissed = window.localStorage["authWarningDismissed"] == "true";
             }
         } catch (exception) { }
 
@@ -458,7 +458,7 @@ angular.module('syncthing.core')
                 && guiCfg.authMode !== 'ldap'
                 && !guiCfg.insecureAdminAccess;
 
-            $scope.noAuth = ($scope.authWarningDismissed || checkAuthDate())
+            $scope.noAuth = (!$scope.authWarningDismissed || checkAuthDate())
                 && (!guiCfg.user || !guiCfg.password);
         }
 
@@ -693,9 +693,9 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.authenticationDontWant = function () {
+        $scope.dismissAuthenticationSetupSuggestion = function () {
             try {
-                window.localStorage["authWarningDismissed"] = false;
+                window.localStorage["authWarningDismissed"] = true;
                 var expire = 7*24*60*60*1000;  // Miliseconds (7 days * 24 hours * 60 mins * 60 secs * 1000 miliseconds)
                 window.localStorage["authWarningDismissedTime"] = new Date().getTime() + expire; 
             } catch (exception) { }
@@ -710,15 +710,11 @@ angular.module('syncthing.core')
                 var expire = Number(window.localStorage["authWarningDismissedTime"]);
                 var now = new Date().getTime();
 
-                if(now > expire){
-                    return true;
-                } else {
-                    return false;
-                }
-            } catch (exception) { }
+                return now > expire;
+            } catch (exception) {
+                return false;
+            }
         };
-
-
 
         $scope.neededPageChanged = function (page) {
             $scope.neededCurrentPage = page;
