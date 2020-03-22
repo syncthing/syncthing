@@ -54,6 +54,7 @@ angular.module('syncthing.core')
         $scope.folderPathErrors = {};
         $scope.currentFolder = {};
         resetRemoteNeed();
+        $scope.deviceNeeds = {};
 
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
@@ -508,6 +509,17 @@ angular.module('syncthing.core')
                 needed += $scope.completion[device][folder].needBytes;
                 items += $scope.completion[device][folder].needItems;
                 deletes += $scope.completion[device][folder].needDeletes;
+
+                if (!$scope.deviceNeeds[device])
+                    $scope.deviceNeeds[device] = {};
+                if (!$scope.deviceNeeds[device][folder])
+                    $scope.deviceNeeds[device][folder] = 0;
+
+                if (items == 0 && $scope.deviceNeeds[device][folder] > 0) {
+                    PushNotifications.notify(`Sent ${$scope.deviceNeeds[device][folder]} items to ${$scope.friendlyNameFromID(device)} from folder ${$scope.folders[folder].label}.`);
+                    $scope.deviceNeeds[device][folder] = 0;
+                } else
+                    $scope.deviceNeeds[device][folder] = Math.max($scope.deviceNeeds[device][folder], items);
             }
             if (total == 0) {
                 $scope.completion[device]._total = 100;
