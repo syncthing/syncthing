@@ -460,8 +460,6 @@ angular.module('syncthing.core')
 
             $scope.noAuth = ($scope.authWarningDismissed || checkAuthDate())
                 && (!guiCfg.user || !guiCfg.password);
-            $scope.noAuth = true;
-
         }
 
 
