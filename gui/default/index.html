@@ -405,7 +405,7 @@
                     <tr ng-if="folder.type == 'receiveonly' && canRevert(folder.id)">
                       <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Locally Changed Items</span></th>
                       <td class="text-right">
-                        <a href="" ng-click="showLocalChanged(folder.id)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyBytes | binary}}B</a>
+                        <a href="" ng-click="showLocalChanged(folder.id)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'sendreceive'">
