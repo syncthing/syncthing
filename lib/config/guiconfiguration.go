@@ -27,7 +27,7 @@ type GUIConfiguration struct {
 	Debugging                 bool     `xml:"debugging,attr" json:"debugging"`
 	InsecureSkipHostCheck     bool     `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
 	InsecureAllowFrameLoading bool     `xml:"insecureAllowFrameLoading,omitempty" json:"insecureAllowFrameLoading"`
-	EnableNotifications 	  bool     `xml:"enableNotifications,omitempty" json:"enableNotifications"`
+	EnableNotifications       bool     `xml:"enableNotifications,omitempty" json:"enableNotifications"`
 }
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
