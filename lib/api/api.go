@@ -244,6 +244,8 @@ func (s *service) serve(ctx context.Context) {
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
+	getRestMux.HandleFunc("/rest/cluster/pendingDevices", s.getPendingDevices)   // -
+	getRestMux.HandleFunc("/rest/cluster/pendingFolders", s.getPendingFolders)   // [device]
 	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // device folder
 	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
@@ -596,6 +598,18 @@ func (s *service) whenDebugging(h http.Handler) http.Handler {
 
 		http.Error(w, "Debugging disabled", http.StatusForbidden)
 	})
+}
+
+func (s *service) getPendingDevices(w http.ResponseWriter, r *http.Request) {
+	devices, err := s.model.PendingDevices()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	sendJSON(w, toJsonPendingDeviceSlice(devices))
+}
+
+func (s *service) getPendingFolders(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) restPing(w http.ResponseWriter, r *http.Request) {
@@ -1617,6 +1631,16 @@ func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonFileInfoTrunc {
 	return res
 }
 
+func toJsonPendingDeviceSlice(devices map[protocol.DeviceID]db.ObservedDevice) []jsonPendingDevice {
+	res := make([]jsonPendingDevice, len(devices))
+	i := 0
+	for id, meta := range devices {
+		res[i] = jsonPendingDevice{id.String(), meta}
+		i++
+	}
+	return res
+}
+
 // Type wrappers for nice JSON serialization
 
 type jsonFileInfo protocol.FileInfo
@@ -1665,6 +1689,11 @@ func (v jsonVersionVector) MarshalJSON() ([]byte, error) {
 		res[i] = fmt.Sprintf("%v:%d", c.ID, c.Value)
 	}
 	return json.Marshal(res)
+}
+
+type jsonPendingDevice struct {
+	ID string `json:"deviceID"`
+	db.ObservedDevice
 }
 
 func dirNames(dir string) []string {
