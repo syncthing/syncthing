@@ -104,6 +104,9 @@ type Model interface {
 	FolderStatistics() (map[string]stats.FolderStatistics, error)
 	UsageReportingStats(version int, preview bool) map[string]interface{}
 
+	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) //FIXME use string as key, like for DeviceStatistics?
+	//PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error) //FIXME use string as key, like for DeviceStatistics?
+
 	StartDeadlockDetector(timeout time.Duration)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
 }
@@ -2584,6 +2587,10 @@ func (m *model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folde
 		return errors.New("folder is not shared with device")
 	}
 	return nil
+}
+
+func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
+	return db.ListPendingDevices(m.db)
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given
