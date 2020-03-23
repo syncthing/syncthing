@@ -39,7 +39,7 @@ func init() {
 func setup() (*Lowlevel, *BlockFinder) {
 	// Setup
 
-	db := NewLowlevelDefault(backend.OpenMemory())
+	db := NewLowlevel(backend.OpenMemory())
 	return db, NewBlockFinder(db)
 }
 

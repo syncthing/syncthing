@@ -51,11 +51,7 @@ type Lowlevel struct {
 	databaseRecheckInterval time.Duration
 }
 
-func NewLowlevelDefault(backend backend.Backend) *Lowlevel {
-	return NewLowlevel(backend, 0, 0)
-}
-
-func NewLowlevel(backend backend.Backend, indirectGCInterval, databaseRecheckInterval time.Duration) *Lowlevel {
+func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 	db := &Lowlevel{
 		Backend:                 backend,
 		folderIdx:               newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
@@ -65,15 +61,33 @@ func NewLowlevel(backend backend.Backend, indirectGCInterval, databaseRecheckInt
 		indirectGCInterval:      indirectGCDefaultInterval,
 		databaseRecheckInterval: databaseRecheckDefaultInterval,
 	}
-	if indirectGCInterval != 0 {
-		db.indirectGCInterval = indirectGCInterval
-	}
-	if databaseRecheckInterval != 0 {
-		db.databaseRecheckInterval = databaseRecheckInterval
+	for _, opt := range opts {
+		opt(db)
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
 	go db.gcRunner()
 	return db
+}
+
+type Option func(*Lowlevel)
+
+// RecheckIntervalOpt sets the time interval in between metadata recalculations
+// and consistency checks.
+func RecheckIntervalOpt(dur time.Duration) Option {
+	return func(db *Lowlevel) {
+		if dur != 0 {
+			db.databaseRecheckInterval = dur
+		}
+	}
+}
+
+// IndirectGCIntervalOpt sets the time interval in between GC runs.
+func IndirectGCIntervalOpt(dur time.Duration) Option {
+	return func(db *Lowlevel) {
+		if dur != 0 {
+			db.indirectGCInterval = dur
+		}
+	}
 }
 
 func (db *Lowlevel) Close() error {

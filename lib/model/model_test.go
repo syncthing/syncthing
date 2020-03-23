@@ -307,7 +307,7 @@ func TestDeviceRename(t *testing.T) {
 	}
 	cfg := config.Wrap("testdata/tmpconfig.xml", rawCfg, events.NoopLogger)
 
-	db := db.NewLowlevelDefault(backend.OpenMemory())
+	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(cfg, myID, "syncthing", "dev", db, nil)
 
 	if cfg.Devices()[device1].Name != "" {
@@ -403,7 +403,7 @@ func TestClusterConfig(t *testing.T) {
 		},
 	}
 
-	db := db.NewLowlevelDefault(backend.OpenMemory())
+	db := db.NewLowlevel(backend.OpenMemory())
 
 	wrapper := createTmpWrapper(cfg)
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
@@ -1576,7 +1576,7 @@ func waitForState(t *testing.T, sub events.Subscription, folder, expected string
 func TestROScanRecovery(t *testing.T) {
 	testOs := &fatalOs{t}
 
-	ldb := db.NewLowlevelDefault(backend.OpenMemory())
+	ldb := db.NewLowlevel(backend.OpenMemory())
 	set := db.NewFileSet("default", defaultFs, ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
@@ -1629,7 +1629,7 @@ func TestROScanRecovery(t *testing.T) {
 func TestRWScanRecovery(t *testing.T) {
 	testOs := &fatalOs{t}
 
-	ldb := db.NewLowlevelDefault(backend.OpenMemory())
+	ldb := db.NewLowlevel(backend.OpenMemory())
 	set := db.NewFileSet("default", defaultFs, ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
@@ -1680,7 +1680,7 @@ func TestRWScanRecovery(t *testing.T) {
 }
 
 func TestGlobalDirectoryTree(t *testing.T) {
-	db := db.NewLowlevelDefault(backend.OpenMemory())
+	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
 	m.removeFolder(defaultFolderConfig)
@@ -1933,7 +1933,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 }
 
 func TestGlobalDirectorySelfFixing(t *testing.T) {
-	db := db.NewLowlevelDefault(backend.OpenMemory())
+	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
 	m.removeFolder(defaultFolderConfig)
@@ -2110,7 +2110,7 @@ func BenchmarkTree_100_10(b *testing.B) {
 }
 
 func benchmarkTree(b *testing.B, n1, n2 int) {
-	db := db.NewLowlevelDefault(backend.OpenMemory())
+	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
 	m.removeFolder(defaultFolderConfig)
@@ -2175,7 +2175,7 @@ func TestIssue3028(t *testing.T) {
 }
 
 func TestIssue4357(t *testing.T) {
-	db := db.NewLowlevelDefault(backend.OpenMemory())
+	db := db.NewLowlevel(backend.OpenMemory())
 	cfg := defaultCfgWrapper.RawCopy()
 	// Create a separate wrapper not to pollute other tests.
 	wrapper := createTmpWrapper(config.Configuration{})
@@ -2298,7 +2298,7 @@ func TestIssue2782(t *testing.T) {
 }
 
 func TestIndexesForUnknownDevicesDropped(t *testing.T) {
-	dbi := db.NewLowlevelDefault(backend.OpenMemory())
+	dbi := db.NewLowlevel(backend.OpenMemory())
 
 	files := db.NewFileSet("default", defaultFs, dbi)
 	files.Drop(device1)
@@ -2726,7 +2726,7 @@ func TestInternalScan(t *testing.T) {
 func TestCustomMarkerName(t *testing.T) {
 	testOs := &fatalOs{t}
 
-	ldb := db.NewLowlevelDefault(backend.OpenMemory())
+	ldb := db.NewLowlevel(backend.OpenMemory())
 	set := db.NewFileSet("default", defaultFs, ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile"},
@@ -3103,7 +3103,7 @@ func TestPausedFolders(t *testing.T) {
 func TestIssue4094(t *testing.T) {
 	testOs := &fatalOs{t}
 
-	db := db.NewLowlevelDefault(backend.OpenMemory())
+	db := db.NewLowlevel(backend.OpenMemory())
 	// Create a separate wrapper not to pollute other tests.
 	wrapper := createTmpWrapper(config.Configuration{})
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
@@ -3139,7 +3139,7 @@ func TestIssue4094(t *testing.T) {
 func TestIssue4903(t *testing.T) {
 	testOs := &fatalOs{t}
 
-	db := db.NewLowlevelDefault(backend.OpenMemory())
+	db := db.NewLowlevel(backend.OpenMemory())
 	// Create a separate wrapper not to pollute other tests.
 	wrapper := createTmpWrapper(config.Configuration{})
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)

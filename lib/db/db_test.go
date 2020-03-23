@@ -33,7 +33,7 @@ func TestIgnoredFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := NewLowlevelDefault(ldb)
+	db := NewLowlevel(ldb)
 	defer db.Close()
 	if err := UpdateSchema(db); err != nil {
 		t.Fatal(err)
@@ -162,7 +162,7 @@ func TestUpdate0to3(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	db := NewLowlevelDefault(ldb)
+	db := NewLowlevel(ldb)
 	defer db.Close()
 	updater := schemaUpdater{db}
 
@@ -252,7 +252,7 @@ func TestUpdate0to3(t *testing.T) {
 
 // TestRepairSequence checks that a few hand-crafted messed-up sequence entries get fixed.
 func TestRepairSequence(t *testing.T) {
-	db := NewLowlevelDefault(backend.OpenMemory())
+	db := NewLowlevel(backend.OpenMemory())
 	defer db.Close()
 
 	folderStr := "test"
@@ -421,7 +421,7 @@ func TestRepairSequence(t *testing.T) {
 }
 
 func TestDowngrade(t *testing.T) {
-	db := NewLowlevelDefault(backend.OpenMemory())
+	db := NewLowlevel(backend.OpenMemory())
 	defer db.Close()
 	// sets the min version etc
 	if err := UpdateSchema(db); err != nil {
@@ -446,7 +446,7 @@ func TestDowngrade(t *testing.T) {
 }
 
 func TestCheckGlobals(t *testing.T) {
-	db := NewLowlevelDefault(backend.OpenMemory())
+	db := NewLowlevel(backend.OpenMemory())
 	defer db.Close()
 
 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
