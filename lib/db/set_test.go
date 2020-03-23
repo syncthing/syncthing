@@ -1662,15 +1662,10 @@ func filesToCounts(files []protocol.FileInfo) db.Counts {
 	return cp
 }
 
-// countsEqual compares the numbers only, not sequence/dev/flags.
-func countsEqual(a, b db.Counts) bool {
-	return a.Files == b.Files && a.Directories == b.Directories && a.Symlinks == b.Symlinks && a.Deleted == b.Deleted && a.Bytes == b.Bytes
-}
-
 func checkNeed(t testing.TB, s *db.FileSet, dev protocol.DeviceID, expected []protocol.FileInfo) {
 	t.Helper()
 	counts := needSize(s, dev)
-	if exp := filesToCounts(expected); !countsEqual(exp, counts) {
+	if exp := filesToCounts(expected); !exp.Equal(counts) {
 		t.Errorf("Count incorrect (%v): expected %v, got %v", dev, exp, counts)
 	}
 }

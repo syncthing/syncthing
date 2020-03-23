@@ -112,24 +112,36 @@ func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
 	return nil
 }
 
-func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool, error) {
+func (t readOnlyTransaction) getGlobalVL(keyBuf, folder, file []byte) (VersionList, error) {
 	var err error
 	keyBuf, err = t.keyer.GenerateGlobalVersionKey(keyBuf, folder, file)
 	if err != nil {
-		return nil, nil, false, err
+		return VersionList{}, err
 	}
 
 	bs, err := t.Get(keyBuf)
 	if backend.IsNotFound(err) {
-		return keyBuf, nil, false, nil
+		return VersionList{}, nil
 	}
 	if err != nil {
-		return nil, nil, false, err
+		return VersionList{}, err
 	}
 
 	var vl VersionList
 	if err := vl.Unmarshal(bs); err != nil {
+		return VersionList{}, err
+	}
+
+	return vl, nil
+}
+
+func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool, error) {
+	vl, err := t.getGlobalVL(keyBuf, folder, file)
+	if err != nil {
 		return nil, nil, false, err
+	}
+	if len(vl.Versions) == 0 {
+		return nil, nil, false, nil
 	}
 
 	keyBuf, err = t.keyer.GenerateDeviceFileKey(keyBuf, folder, vl.Versions[0].Device, file)
@@ -291,20 +303,8 @@ func (t *readOnlyTransaction) withGlobal(folder, prefix []byte, truncate bool, f
 }
 
 func (t *readOnlyTransaction) availability(folder, file []byte) ([]protocol.DeviceID, error) {
-	k, err := t.keyer.GenerateGlobalVersionKey(nil, folder, file)
+	vl, err := t.getGlobalVL(nil, folder, file)
 	if err != nil {
-		return nil, err
-	}
-	bs, err := t.Get(k)
-	if backend.IsNotFound(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	var vl VersionList
-	if err := vl.Unmarshal(bs); err != nil {
 		return nil, err
 	}
 
