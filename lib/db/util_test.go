@@ -10,11 +10,11 @@ import (
 	"encoding/json"
 	"io"
 	"os"
-	"testing"
+	// "testing"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
-	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/protocol"
+	// "github.com/syncthing/syncthing/lib/fs"
+	// "github.com/syncthing/syncthing/lib/protocol"
 )
 
 // writeJSONS serializes the database to a JSON stream that can be checked
