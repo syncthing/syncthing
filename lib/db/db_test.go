@@ -490,6 +490,8 @@ func TestUpdateTo10(t *testing.T) {
 	db := NewLowlevel(ldb)
 	defer db.Close()
 
+	UpdateSchema(db)
+
 	folder := "test"
 
 	// We manually load the metadatatracker to prevent recalculation
