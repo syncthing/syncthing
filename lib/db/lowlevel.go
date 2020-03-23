@@ -31,7 +31,7 @@ const (
 	// Use indirection for the block list when it exceeds this many entries
 	blocksIndirectionCutoff = 3
 
-	databaseRecheckDefaultInterval = 30 * 24 * time.Hour
+	recheckDefaultInterval = 30 * 24 * time.Hour
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
@@ -41,25 +41,25 @@ const (
 // any given backend.
 type Lowlevel struct {
 	backend.Backend
-	folderIdx               *smallIndex
-	deviceIdx               *smallIndex
-	keyer                   keyer
-	gcMut                   sync.RWMutex
-	gcKeyCount              int
-	gcStop                  chan struct{}
-	indirectGCInterval      time.Duration
-	databaseRecheckInterval time.Duration
+	folderIdx          *smallIndex
+	deviceIdx          *smallIndex
+	keyer              keyer
+	gcMut              sync.RWMutex
+	gcKeyCount         int
+	gcStop             chan struct{}
+	indirectGCInterval time.Duration
+	recheckInterval    time.Duration
 }
 
 func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 	db := &Lowlevel{
-		Backend:                 backend,
-		folderIdx:               newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
-		deviceIdx:               newSmallIndex(backend, []byte{KeyTypeDeviceIdx}),
-		gcMut:                   sync.NewRWMutex(),
-		gcStop:                  make(chan struct{}),
-		indirectGCInterval:      indirectGCDefaultInterval,
-		databaseRecheckInterval: databaseRecheckDefaultInterval,
+		Backend:            backend,
+		folderIdx:          newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
+		deviceIdx:          newSmallIndex(backend, []byte{KeyTypeDeviceIdx}),
+		gcMut:              sync.NewRWMutex(),
+		gcStop:             make(chan struct{}),
+		indirectGCInterval: indirectGCDefaultInterval,
+		recheckInterval:    recheckDefaultInterval,
 	}
 	for _, opt := range opts {
 		opt(db)
@@ -76,7 +76,7 @@ type Option func(*Lowlevel)
 func RecheckIntervalOpt(dur time.Duration) Option {
 	return func(db *Lowlevel) {
 		if dur != 0 {
-			db.databaseRecheckInterval = dur
+			db.recheckInterval = dur
 		}
 	}
 }
@@ -690,7 +690,7 @@ func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
 		return db.getMetaAndCheck(folder)
 	}
 
-	if age := time.Since(meta.Created()); age > db.databaseRecheckInterval {
+	if age := time.Since(meta.Created()); age > db.recheckInterval {
 		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, age)
 		return db.getMetaAndCheck(folder)
 	}
