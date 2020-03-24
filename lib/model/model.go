@@ -104,8 +104,8 @@ type Model interface {
 	FolderStatistics() (map[string]stats.FolderStatistics, error)
 	UsageReportingStats(version int, preview bool) map[string]interface{}
 
-	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) //FIXME use string as key, like for DeviceStatistics?
-	//PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error) //FIXME use string as key, like for DeviceStatistics?
+	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error)
+	//PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error)
 
 	StartDeadlockDetector(timeout time.Duration)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
