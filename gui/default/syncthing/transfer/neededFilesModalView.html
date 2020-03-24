@@ -14,7 +14,7 @@
 
     <table class="table table-striped table-condensed">
 
-      <tr dir-paginate="f in needed | itemsPerPage: neededPageSize" current-page="neededCurrentPage" total-items="model[neededFolder].needTotalItems" pagination-id="needed">
+      <tr dir-paginate="f in needed.items | itemsPerPage: needed.perpage" current-page="needed.page" total-items="model[neededFolder].needTotalItems" pagination-id="needed">
 
         <!-- Icon -->
         <td class="small-data col-xs-2">
@@ -56,10 +56,10 @@
       </tr>
     </table>
 
-    <dir-pagination-controls on-page-change="neededPageChanged(newPageNumber)" pagination-id="needed"></dir-pagination-controls>
+    <dir-pagination-controls on-page-change="refreshNeed(newPageNumber, needed.perpage)" pagination-id="needed" ></dir-pagination-controls>
     <ul class="pagination pull-right">
-      <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: neededPageSize == option }">
-        <a href="#" ng-click="neededChangePageSize(option)">{{option}}</a>
+      <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: needed.perpage == option }">
+        <a href="#" ng-click="refreshNeed(needed.page, option)">{{option}}</a>
       </li>
     </ul>
     <div class="clearfix"></div>
