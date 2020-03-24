@@ -111,7 +111,7 @@ type keyer interface {
 	FolderFromPendingFolderKey(key []byte) []byte
 	DeviceFromPendingFolderKey(key []byte) ([]byte, bool)
 	GeneratePendingDeviceKey(key, device []byte) pendingDeviceKey
-	DeviceFromPendingDeviceKey(key []byte) ([]byte, bool)
+	DeviceFromPendingDeviceKey(key []byte) []byte
 }
 
 // defaultKeyer implements our key scheme. It needs folder and device
@@ -350,8 +350,8 @@ func (k defaultKeyer) GeneratePendingDeviceKey(key, device []byte) pendingDevice
 	return key
 }
 
-func (k defaultKeyer) DeviceFromPendingDeviceKey(key []byte) ([]byte, bool) {
-	return k.deviceIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
+func (k defaultKeyer) DeviceFromPendingDeviceKey(key []byte) []byte {
+	return key[keyPrefixLen:]
 }
 
 // resize returns a byte slice of the specified size, reusing bs if possible

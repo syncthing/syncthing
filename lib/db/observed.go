@@ -22,9 +22,9 @@ func ListPendingDevices(db *Lowlevel) (map[protocol.DeviceID]ObservedDevice, err
 		if err != nil {
 			return nil, err
 		}
-		deviceID, ok := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
-		if !ok {
-			// Not having the device in the index is bad. Clear it. FIXME?
+		deviceID := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
+		if len(deviceID) != protocol.DeviceIDLength {
+			l.Warnln("Invalid pending device ID, deleting from database")
 			if err := db.Delete(iter.Key()); err != nil {
 				return nil, err
 			}
