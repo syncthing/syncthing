@@ -75,7 +75,7 @@ type Option func(*Lowlevel)
 // and consistency checks.
 func WithRecheckInterval(dur time.Duration) Option {
 	return func(db *Lowlevel) {
-		if dur != 0 {
+		if dur > 0 {
 			db.recheckInterval = dur
 		}
 	}
@@ -84,7 +84,7 @@ func WithRecheckInterval(dur time.Duration) Option {
 // WithIndirectGCInterval sets the time interval in between GC runs.
 func WithIndirectGCInterval(dur time.Duration) Option {
 	return func(db *Lowlevel) {
-		if dur != 0 {
+		if dur > 0 {
 			db.indirectGCInterval = dur
 		}
 	}
