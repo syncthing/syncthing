@@ -93,7 +93,7 @@ type App struct {
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
 	a := &App{
 		cfg:      cfg,
-		ll:       db.NewLowlevel(dbBackend, db.RecheckIntervalOpt(opts.DBRecheckInterval), db.IndirectGCIntervalOpt(opts.DBIndirectGCInterval)),
+		ll:       db.NewLowlevel(dbBackend, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval)),
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,

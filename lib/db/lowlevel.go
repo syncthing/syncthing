@@ -71,9 +71,9 @@ func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 
 type Option func(*Lowlevel)
 
-// RecheckIntervalOpt sets the time interval in between metadata recalculations
+// WithRecheckInterval sets the time interval in between metadata recalculations
 // and consistency checks.
-func RecheckIntervalOpt(dur time.Duration) Option {
+func WithRecheckInterval(dur time.Duration) Option {
 	return func(db *Lowlevel) {
 		if dur != 0 {
 			db.recheckInterval = dur
@@ -81,8 +81,8 @@ func RecheckIntervalOpt(dur time.Duration) Option {
 	}
 }
 
-// IndirectGCIntervalOpt sets the time interval in between GC runs.
-func IndirectGCIntervalOpt(dur time.Duration) Option {
+// WithIndirectGCInterval sets the time interval in between GC runs.
+func WithIndirectGCInterval(dur time.Duration) Option {
 	return func(db *Lowlevel) {
 		if dur != 0 {
 			db.indirectGCInterval = dur
