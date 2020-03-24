@@ -97,6 +97,8 @@ func (f *sendOnlyFolder) pull() bool {
 }
 
 func (f *sendOnlyFolder) Override() {
+	l.Infof("Overriding global state on folder %v", f.Description)
+
 	f.setState(FolderScanning)
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
