@@ -48,15 +48,15 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 			return nil, err
 		}
 		deviceID := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
-		if len(deviceID) != protocol.DeviceIDLength {
-			l.Warnln("Invalid pending device ID, deleting from database")
+		var od ObservedDevice
+		err = od.Unmarshal(bs)
+		if len(deviceID) != protocol.DeviceIDLength || err != nil {
+			l.Warnln("Invalid pending device entry, deleting from database")
 			if err := db.Delete(iter.Key()); err != nil {
 				return nil, err
 			}
 			continue
 		}
-		var od ObservedDevice
-		od.Unmarshal(bs)//FIXME error check?
 		res[protocol.DeviceIDFromBytes(deviceID)] = od
 	}
 	return res, nil
