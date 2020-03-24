@@ -670,6 +670,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		secs, _ := strconv.Atoi(t)
 		appOpts.DeadlockTimeoutS = secs
 	}
+	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
+		appOpts.DBRecheckInterval = dur
+	}
+	if dur, err := time.ParseDuration(os.Getenv("STGCINDIRECTEVERY")); err == nil {
+		appOpts.DBIndirectGCInterval = dur
+	}
 
 	app := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
 

@@ -70,6 +70,9 @@ type Options struct {
 	ProfilerURL      string
 	ResetDeltaIdxs   bool
 	Verbose          bool
+	// null duration means use default value
+	DBRecheckInterval    time.Duration
+	DBIndirectGCInterval time.Duration
 }
 
 type App struct {
@@ -90,7 +93,7 @@ type App struct {
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
 	a := &App{
 		cfg:      cfg,
-		ll:       db.NewLowlevel(dbBackend),
+		ll:       db.NewLowlevel(dbBackend, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval)),
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,
