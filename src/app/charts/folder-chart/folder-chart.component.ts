@@ -12,11 +12,11 @@ import { DonutChartComponent } from '../donut-chart/donut-chart.component';
 export class FolderChartComponent implements OnInit {
   @ViewChild(DonutChartComponent) donutChart: DonutChartComponent;
   chartID: string = 'foldersChart';
-  states: Map<string, number>;
+  states: { label: string, count: number }[];
   elevation: string = cardElevation;
 
   constructor(private folderService: FolderService) {
-    this.states = new Map();
+    this.states = [];
   }
 
   ngOnInit(): void {
@@ -28,19 +28,28 @@ export class FolderChartComponent implements OnInit {
   ngAfterViewInit() {
     this.folderService.getAll().subscribe(
       folder => {
-        // TODO: Clear existing data
-        this.donutChart.data([40]);
-
         // Get StateType and convert to string 
         const stateType: Folder.StateType = Folder.getStateType(folder);
         const state: string = Folder.stateTypeToString(stateType);
 
-        // Instantiate empty count states
-        if (!this.states.has(state)) {
-          this.states.set(state, 0);
+        // Check if state exists
+        let found: boolean = false;
+        this.states.forEach(s => {
+          if (s.label === state) {
+            s.count = s.count + 1;
+            found = true;
+            console.log("increase count", s.count);
+          }
+        });
+
+        if (!found) {
+          this.states.push({ label: state, count: 1 });
         }
-        const count: number = this.states.get(state) + 1;
-        this.states.set(state, count);
+
+        this.donutChart.updateData(this.states);
+      },
+      err => console.error('Observer got an error: ' + err),
+      () => {
       }
     );
   }
