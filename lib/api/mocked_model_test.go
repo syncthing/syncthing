@@ -116,6 +116,10 @@ func (m *mockedModel) UsageReportingStats(version int, preview bool) map[string]
 	return nil
 }
 
+func (m *mockedModel) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
+	return nil, nil
+}
+
 func (m *mockedModel) FolderErrors(folder string) ([]model.FileError, error) {
 	return nil, nil
 }
