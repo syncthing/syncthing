@@ -45,12 +45,14 @@ export class SystemConfigService {
     const folderObservable: Observable<Folder[]> = new Observable((observer) => {
       if (this.folders) {
         observer.next(this.folders);
+        observer.complete();
       } else {
         // create timer to keep checking for folders
         let t = setInterval(() => {
           if (this.folders) {
             clearInterval(t);
-            observer.next(this.folders);
+            observer.next(this.folders)
+            observer.complete();
           }
         }, this.checkInterval);
       }

@@ -19,7 +19,8 @@ export class FolderService {
   getFolderStatusInOrder(observer: Subscriber<Folder>, startIndex: number) {
     // Return if there aren't any folders at the index
     if (startIndex >= (this.folders.length - 1)) {
-      return
+      observer.complete();
+      return;
     }
 
     const folder: Folder = this.folders[startIndex];
@@ -41,7 +42,6 @@ export class FolderService {
    */
   getAll(): Observable<Folder> {
     const folderObservable: Observable<Folder> = new Observable((observer) => {
-
       this.systemConfigService.getFolders().subscribe(
         folders => {
           this.folders = folders;
@@ -49,7 +49,8 @@ export class FolderService {
           // Synchronously get the status of each folder
           this.getFolderStatusInOrder(observer, 0);
         },
-        err => { console.log("getAll error!", err) }
+        err => { console.log("getAll error!", err) },
+        () => { console.log("get all complete!") }
       );
     });
     return folderObservable
