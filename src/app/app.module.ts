@@ -29,7 +29,6 @@ import { InMemoryConfigDataService } from './in-memory-config-data.service';
 import { deviceID } from './api-utils';
 import { environment } from '../environments/environment';
 import { ChartItemComponent } from './charts/chart-item/chart-item.component';
-import { CSRFInterceptor } from './http-interceptors/csrf-intercepor';
 
 @NgModule({
   declarations: [

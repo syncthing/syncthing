@@ -14,18 +14,10 @@ import Folder from './folder'
 })
 export class DbStatusService {
   private dbStatusUrl = environment.production ? apiURL + 'rest/db/status' : 'api/dbStatus';
-  private statuses: Map<string, Folder.Status>;
 
-  constructor(private http: HttpClient, private cookieService: CookieService) {
-    this.statuses = new Map();
-  }
+  constructor(private http: HttpClient, private cookieService: CookieService) { }
 
   getFolderStatus(id: string): Observable<Folder.Status> {
-    // First check to see if we have a cached value
-    if (this.statuses.has(id)) {
-      return of(this.statuses.get(id));
-    }
-
     let httpOptions: { params: HttpParams };
     if (id) {
       httpOptions = {
@@ -46,8 +38,6 @@ export class DbStatusService {
               res = res[0];
             }
           }
-          // cache result
-          this.statuses.set(id, res)
           return res;
         })
       );

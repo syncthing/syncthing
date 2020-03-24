@@ -38,7 +38,6 @@ export class FolderChartComponent implements OnInit {
           if (s.label === state) {
             s.count = s.count + 1;
             found = true;
-            console.log("increase count", s.count);
           }
         });
 

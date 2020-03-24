@@ -34,7 +34,6 @@ export class DeviceListComponent implements AfterViewInit, OnInit {
 
     this.systemConfigService.getDevices().subscribe(
       data => {
-        console.log("get data??", data)
         this.dataSource.data = data;
         this.dataSource.dataSubject.next(data);
       }
