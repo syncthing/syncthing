@@ -1752,7 +1752,7 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 
 	cfg, ok := m.cfg.Device(remoteID)
 	if !ok {
-		db.AddOrUpdatePendingDevice(m.db, remoteID, hello.DeviceName, addr.String())
+		m.db.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String())
 		m.evLogger.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),
@@ -2589,7 +2589,7 @@ func (m *model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folde
 }
 
 func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
-	return db.ListPendingDevices(m.db)
+	return m.db.PendingDevices()
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given

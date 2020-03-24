@@ -12,7 +12,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func AddOrUpdatePendingDevice(db *Lowlevel, device protocol.DeviceID, name, address string) {
+func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {
 	//FIXME locking? m.mut.Lock()
 	//FIXME locking? defer m.mut.Unlock()
 
@@ -35,7 +35,7 @@ func AddOrUpdatePendingDevice(db *Lowlevel, device protocol.DeviceID, name, addr
 	}
 }
 
-func ListPendingDevices(db *Lowlevel) (map[protocol.DeviceID]ObservedDevice, error) {
+func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
 		return nil, err
