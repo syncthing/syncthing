@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { Chart } from 'chart.js'
+import { LabelOptions } from '@angular/material/core';
 
 @Component({
   selector: 'app-donut-chart',
@@ -23,12 +24,30 @@ export class DonutChartComponent {
     }
   }
 
+  updateData(data: { label: string, count: number }[]): void {
+    //Using object destructuring
+    for (let i = 0; i < data.length; i++) {
+      let s = data[i];
+      this.chart.data.labels[i] = s.label;
+      this.chart.data.datasets[0].data[i] = s.count;
+    }
+    this.chart.update();
+  }
+
   addData(data: number): void {
     //    this.chart.data.labels.push(label);
     this.chart.data.datasets.forEach((dataset) => {
       dataset.data.push(data);
     });
     this.chart.update();
+  }
+
+  removeAllData(withAnimation: boolean): void {
+    this.chart.data.labels.pop();
+    this.chart.data.datasets.forEach((dataset) => {
+      dataset.data = [];
+    });
+    this.chart.update(withAnimation);
   }
 
   ngAfterViewInit(): void {
