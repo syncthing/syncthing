@@ -7,8 +7,33 @@
 package db
 
 import (
+	"time"
+
 	"github.com/syncthing/syncthing/lib/protocol"
 )
+
+func AddOrUpdatePendingDevice(db *Lowlevel, device protocol.DeviceID, name, address string) {
+	//FIXME locking? m.mut.Lock()
+	//FIXME locking? defer m.mut.Unlock()
+
+	key := db.keyer.GeneratePendingDeviceKey(nil, device[:])
+	timestamp := time.Now().Round(time.Second)
+	od := ObservedDevice{
+		Time: &timestamp,
+		Name: name,
+		Address: address,
+	}
+	bs, err := od.Marshal()
+	if err != nil {
+		//FIXME
+		return
+	}
+	err = db.Put(key, bs)
+	if err != nil {
+		//FIXME
+		return
+	}
+}
 
 func ListPendingDevices(db *Lowlevel) (map[protocol.DeviceID]ObservedDevice, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
