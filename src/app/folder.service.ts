@@ -18,11 +18,10 @@ export class FolderService {
 
   getFolderStatusInOrder(observer: Subscriber<Folder>, startIndex: number) {
     // Return if there aren't any folders at the index
-    if (startIndex >= (this.folders.length - 1)) {
+    if (startIndex >= (this.folders.length)) {
       observer.complete();
       return;
     }
-
     const folder: Folder = this.folders[startIndex];
     startIndex = startIndex + 1;
     this.dbStatusService.getFolderStatus(folder.id).subscribe(
