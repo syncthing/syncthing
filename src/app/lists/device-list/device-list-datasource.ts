@@ -4,7 +4,7 @@ import { MatSort } from '@angular/material/sort';
 
 import { map } from 'rxjs/operators';
 import { Observable, of as observableOf, merge, Subject } from 'rxjs';
-import { Device } from '../../device';
+import Device from '../../device';
 import { SystemConfigService } from '../../services/system-config.service';
 
 /**

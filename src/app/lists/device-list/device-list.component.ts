@@ -4,11 +4,10 @@ import { MatSort } from '@angular/material/sort';
 import { MatTable } from '@angular/material/table';
 
 import { DeviceListDataSource } from './device-list-datasource';
-import { Device } from '../../device';
+import Device from '../../device';
 import { SystemConfigService } from '../../services/system-config.service';
 import { dataTableElevation } from '../../style';
 import { Subject } from 'rxjs';
-
 
 @Component({
   selector: 'app-device-list',

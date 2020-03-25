@@ -1,4 +1,4 @@
-import { Device } from './device';
+import Device from './device';
 
 interface Folder {
     id: string;
@@ -6,6 +6,7 @@ interface Folder {
     devices: Device[];
     status: Folder.Status;
     paused: boolean;
+    completion: number;
 }
 
 namespace Folder {
@@ -158,11 +159,4 @@ namespace Folder {
         version: number;
     }
 }
-
 export default Folder;
-
-
-
-
-
-

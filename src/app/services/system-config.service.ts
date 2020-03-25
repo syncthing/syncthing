@@ -5,8 +5,7 @@ import { Observable, Subject } from 'rxjs';
 import { map, retry } from 'rxjs/operators';
 
 import Folder from '../folder';
-import { Device } from '../device';
-import { CookieService } from './cookie.service';
+import Device from '../device';
 import { environment } from '../../environments/environment'
 import { apiURL, apiRetry } from '../api-utils'
 
