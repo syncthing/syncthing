@@ -5,7 +5,7 @@ import { MatSort } from '@angular/material/sort';
 import { map } from 'rxjs/operators';
 import { Observable, of as observableOf, merge, Subject } from 'rxjs';
 import Folder from '../../folder';
-import { SystemConfigService } from '../../system-config.service';
+import { SystemConfigService } from '../../services/system-config.service';
 
 /**
  * Data source for the FolderList view. This class should

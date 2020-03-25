@@ -4,11 +4,11 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, Subject } from 'rxjs';
 import { map, retry } from 'rxjs/operators';
 
-import Folder from './folder';
-import { Device } from './device';
+import Folder from '../folder';
+import { Device } from '../device';
 import { CookieService } from './cookie.service';
-import { environment } from '../environments/environment'
-import { apiURL, apiRetry } from './api-utils'
+import { environment } from '../../environments/environment'
+import { apiURL, apiRetry } from '../api-utils'
 
 @Injectable({
   providedIn: 'root'

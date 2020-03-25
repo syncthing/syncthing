@@ -4,7 +4,7 @@ import {
   HttpInterceptor, HttpHandler, HttpRequest, HttpHeaders
 } from '@angular/common/http';
 
-import { CookieService } from '../cookie.service';
+import { CookieService } from '../services/cookie.service';
 
 
 @Injectable()

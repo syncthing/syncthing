@@ -24,7 +24,7 @@ import { DashboardComponent } from './dashboard/dashboard.component';
 import { ListToggleComponent } from './list-toggle/list-toggle.component';
 
 import { HttpClientInMemoryWebApiModule } from 'angular-in-memory-web-api';
-import { InMemoryConfigDataService } from './in-memory-config-data.service';
+import { InMemoryConfigDataService } from './services/in-memory-config-data.service';
 
 import { deviceID } from './api-utils';
 import { environment } from '../environments/environment';

@@ -1,8 +1,7 @@
 import { Injectable } from '@angular/core';
 import { SystemConfigService } from './system-config.service';
 import { Observable, Subscriber } from 'rxjs';
-import { map } from 'rxjs/operators';
-import Folder from './folder';
+import Folder from '../folder';
 import { DbStatusService } from './db-status.service';
 
 @Injectable({

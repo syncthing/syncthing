@@ -5,9 +5,9 @@ import { CookieService } from './cookie.service';
 import { Observable, of } from 'rxjs';
 import { map, retry, catchError } from 'rxjs/operators';
 
-import { environment } from '../environments/environment'
-import { apiURL, apiRetry } from './api-utils'
-import Folder from './folder'
+import { environment } from '../../environments/environment'
+import { apiURL, apiRetry } from '../api-utils'
+import Folder from '../folder'
 
 @Injectable({
   providedIn: 'root'

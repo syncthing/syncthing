@@ -2,7 +2,7 @@ import { Component, OnInit, ViewChild } from '@angular/core';
 import { cardElevation } from '../../style';
 import { DonutChartComponent } from '../donut-chart/donut-chart.component';
 import Folder from '../../folder'
-import { FolderService } from 'src/app/folder.service';
+import { FolderService } from 'src/app/services/folder.service';
 
 @Component({
   selector: 'app-device-chart',

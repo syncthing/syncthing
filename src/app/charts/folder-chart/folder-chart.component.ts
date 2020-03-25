@@ -1,7 +1,7 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import Folder from '../../folder'
 import { cardElevation } from '../../style'
-import { FolderService } from 'src/app/folder.service';
+import { FolderService } from 'src/app/services/folder.service';
 import { DonutChartComponent } from '../donut-chart/donut-chart.component';
 
 @Component({
