@@ -12,12 +12,10 @@ import { DonutChartComponent } from '../donut-chart/donut-chart.component';
 export class FolderChartComponent implements OnInit {
   @ViewChild(DonutChartComponent) donutChart: DonutChartComponent;
   chartID: string = 'foldersChart';
-  states: { label: string, count: number }[];
+  states: { label: string, count: number }[] = [];
   elevation: string = cardElevation;
 
-  constructor(private folderService: FolderService) {
-    this.states = [];
-  }
+  constructor(private folderService: FolderService) { }
 
   ngOnInit(): void {
     for (let state in Folder.StateType) {
