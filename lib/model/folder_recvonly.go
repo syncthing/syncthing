@@ -64,6 +64,14 @@ func newReceiveOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 }
 
 func (f *receiveOnlyFolder) Revert() {
+	done := make(chan struct{})
+	select {
+	case f.syncChan <- done:
+		defer close(done)
+	case <-f.ctx.Done():
+		return
+	}
+
 	l.Infof("Reverting folder %v", f.Description)
 
 	f.setState(FolderScanning)

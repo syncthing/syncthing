@@ -57,6 +57,7 @@ type folder struct {
 	scanErrorsMut       sync.Mutex
 
 	pullScheduled chan struct{}
+	syncChan      chan chan struct{}
 
 	watchCancel      context.CancelFunc
 	watchChan        chan []string
@@ -96,6 +97,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		scanErrorsMut:       sync.NewMutex(),
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
+		syncChan:      make(chan chan struct{}),
 
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
@@ -145,6 +147,13 @@ func (f *folder) serve(ctx context.Context) {
 	}
 
 	for {
+		// Do Revert/Override with priority
+		select {
+		case done := <-f.syncChan:
+			<-done
+		default:
+		}
+
 		select {
 		case <-f.ctx.Done():
 			return
@@ -187,6 +196,10 @@ func (f *folder) serve(ctx context.Context) {
 		case <-f.restartWatchChan:
 			l.Debugln(f, "Restart watcher")
 			f.restartWatch()
+
+		// Revert/Override
+		case done := <-f.syncChan:
+			<-done
 		}
 	}
 }

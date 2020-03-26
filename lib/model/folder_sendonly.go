@@ -97,6 +97,14 @@ func (f *sendOnlyFolder) pull() bool {
 }
 
 func (f *sendOnlyFolder) Override() {
+	done := make(chan struct{})
+	select {
+	case f.syncChan <- done:
+		defer close(done)
+	case <-f.ctx.Done():
+		return
+	}
+
 	l.Infof("Overriding global state on folder %v", f.Description)
 
 	f.setState(FolderScanning)
