@@ -3,6 +3,7 @@ import Device from '../device';
 import { Observable } from 'rxjs';
 import { SystemConfigService } from './system-config.service';
 import { SystemConnectionsService } from './system-connections.service';
+import { DbCompletionService } from './db-completion.service';
 
 @Injectable({
   providedIn: 'root'
@@ -11,7 +12,8 @@ export class DeviceService {
   private devices: Device[];
   constructor(
     private systemConfigService: SystemConfigService,
-    private systemConnectionsService: SystemConnectionsService
+    private systemConnectionsService: SystemConnectionsService,
+    private dbCompletionService: DbCompletionService
   ) { }
 
   getAll(): Observable<Device> {
@@ -40,9 +42,16 @@ export class DeviceService {
                 connections => {
                   // TODO: check connection and request total
                   this.devices.forEach(device => {
-                    observer.next(device);
+                    // TODO make this synchronous
+                    this.dbCompletionService.getDeviceCompletion(device.deviceID).subscribe(
+                      c => {
+                        device.completion = c.completion;
+                        observer.next(device);
+                      });
+
+                    //TODO complete observer when finished
+                    // observer.complete();
                   });
-                  observer.complete();
                 }
               );
 

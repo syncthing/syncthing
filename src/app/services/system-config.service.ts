@@ -59,10 +59,9 @@ export class SystemConfigService {
     return folderObservable;
   }
 
-  // TODO switch to devices
   getDevices(): Observable<Device[]> {
     const deviceObserverable: Observable<Device[]> = new Observable((observer) => {
-      if (this.folders) {
+      if (this.devices) {
         observer.next(this.devices);
       } else {
         let t = setInterval(() => {

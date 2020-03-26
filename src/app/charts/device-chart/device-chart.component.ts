@@ -20,9 +20,10 @@ export class DeviceChartComponent implements OnInit {
   ngOnInit(): void { }
 
   ngAfterViewInit(): void {
-    // TODO switch to deviceService
     this.deviceService.getAll().subscribe(
       device => {
+        console.log("device", device);
+
         // Get StateType and convert to string 
         const stateType: Device.StateType = Device.getStateType(device);
         const state: string = Device.stateTypeToString(stateType);

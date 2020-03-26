@@ -15,7 +15,7 @@ import Folder from '../folder'
 export class DbStatusService {
   private dbStatusUrl = environment.production ? apiURL + 'rest/db/status' : 'api/dbStatus';
 
-  constructor(private http: HttpClient, private cookieService: CookieService) { }
+  constructor(private http: HttpClient) { }
 
   getFolderStatus(id: string): Observable<Folder.Status> {
     let httpOptions: { params: HttpParams };
