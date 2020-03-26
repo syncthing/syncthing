@@ -215,7 +215,6 @@ found in the LICENSE file.
     var locations = [];
     {{range $location, $weight := .locations}}
     locations.push({lat:{{- $location.Latitude -}},lng:{{- $location.Longitude -}},count:{{- $weight -}}});
-    // locations.push({location: new google.maps.LatLng({{- $location.Latitude -}}, {{- $location.Longitude -}}), weight: {{- $weight -}}});
     {{- end}}
 
     function drawHeatMap() {
