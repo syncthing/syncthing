@@ -18,9 +18,7 @@ export class FolderChartComponent implements OnInit {
   constructor(private folderService: FolderService) { }
 
   ngOnInit(): void {
-    for (let state in Folder.StateType) {
-      // console.log(state);
-    }
+    // for (let state in Folder.StateType) { }
   }
 
   ngAfterViewInit() {

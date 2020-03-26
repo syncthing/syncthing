@@ -1,8 +1,8 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { cardElevation } from '../../style';
 import { DonutChartComponent } from '../donut-chart/donut-chart.component';
-import Folder from '../../folder'
-import { FolderService } from 'src/app/services/folder.service';
+import { DeviceService } from 'src/app/services/device.service';
+import Device from '../../device';
 
 @Component({
   selector: 'app-device-chart',
@@ -15,19 +15,17 @@ export class DeviceChartComponent implements OnInit {
   elevation: string = cardElevation;
   states: { label: string, count: number }[] = [];
 
-  constructor(private folderService: FolderService) { }
+  constructor(private deviceService: DeviceService) { }
 
-  ngOnInit(): void {
-
-  }
+  ngOnInit(): void { }
 
   ngAfterViewInit(): void {
     // TODO switch to deviceService
-    this.folderService.getAll().subscribe(
-      folder => {
+    this.deviceService.getAll().subscribe(
+      device => {
         // Get StateType and convert to string 
-        const stateType: Folder.StateType = Folder.getStateType(folder);
-        const state: string = Folder.stateTypeToString(stateType);
+        const stateType: Device.StateType = Device.getStateType(device);
+        const state: string = Device.stateTypeToString(stateType);
 
         // Check if state exists
         let found: boolean = false;
