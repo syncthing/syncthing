@@ -1,23 +1,57 @@
 import { Injectable } from '@angular/core';
 import Device from '../device';
-import { Observable } from 'rxjs';
+import { Observable, Subscriber } from 'rxjs';
 import { SystemConfigService } from './system-config.service';
 import { SystemConnectionsService } from './system-connections.service';
 import { DbCompletionService } from './db-completion.service';
+import { SystemConnections } from '../connections';
 
 @Injectable({
   providedIn: 'root'
 })
 export class DeviceService {
   private devices: Device[];
+  private sysConns: SystemConnections;
+
   constructor(
     private systemConfigService: SystemConfigService,
     private systemConnectionsService: SystemConnectionsService,
     private dbCompletionService: DbCompletionService
   ) { }
 
+  getDeviceStatusInOrder(observer: Subscriber<Device>, startIndex: number) {
+    // Return if there aren't any device at the index
+    if (startIndex >= (this.devices.length)) {
+      observer.complete();
+      return;
+    }
+    const device: Device = this.devices[startIndex];
+    startIndex = startIndex + 1;
+
+    // Check if device in the connections
+    if (this.sysConns.connections[device.deviceID] === undefined) {
+      console.log(this.sysConns.connections)
+      console.log("connections undefined", device.deviceID);
+      device.state = Device.StateType.Unknown;
+    } else {
+      // Set connected
+      device.connected = this.sysConns.connections[device.deviceID].connected;
+    }
+
+    this.dbCompletionService.getDeviceCompletion(device.deviceID).subscribe(
+      c => {
+        device.completion = c.completion;
+        observer.next(device);
+
+        // recursively get the status of the next folder
+        this.getDeviceStatusInOrder(observer, startIndex);
+      });
+  }
+
   getAll(): Observable<Device> {
     const deviceObservable: Observable<Device> = new Observable((observer) => {
+      // TODO return devices if cached
+
       this.systemConfigService.getDevices().subscribe(
         devices => {
           this.devices = devices;
@@ -25,7 +59,6 @@ export class DeviceService {
           // Check folder devices to see if the device is used
           this.systemConfigService.getFolders().subscribe(
             folders => {
-              // TODO: streamline
               // Loop through all folder devices to see if the device is used
               this.devices.forEach(device => {
                 folders.forEach(folder => {
@@ -39,24 +72,13 @@ export class DeviceService {
 
               // See if the connection is connected or undefined 
               this.systemConnectionsService.getSystemConnections().subscribe(
-                connections => {
-                  // TODO: check connection and request total
-                  this.devices.forEach(device => {
-                    // TODO make this synchronous
-                    this.dbCompletionService.getDeviceCompletion(device.deviceID).subscribe(
-                      c => {
-                        device.completion = c.completion;
-                        observer.next(device);
-                      });
+                c => {
+                  this.sysConns = c;
 
-                    //TODO complete observer when finished
-                    // observer.complete();
-                  });
+                  // Synchronously get the status of each device 
+                  this.getDeviceStatusInOrder(observer, 0);
                 }
               );
-
-              // Synchronously get the status of each device 
-              // this.getDeviceStatusInOrder(observer, 0);
             }
           )
         },

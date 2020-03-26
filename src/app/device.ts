@@ -42,12 +42,10 @@ namespace Device {
     }
 
     export function getStateType(d: Device): StateType {
-        // TODO
-        /*
-        if (typeof $scope.connections[deviceCfg.deviceID] === 'undefined') {
-            return 'unknown';
+        // StateType Unknown is set in DeviceService
+        if (d.state === StateType.Unknown) {
+            return StateType.Unknown;
         }
-        */
 
         if (d.paused) {
             return d.used ? StateType.Paused : StateType.UnusedPaused;

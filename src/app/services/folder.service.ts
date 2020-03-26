@@ -39,6 +39,8 @@ export class FolderService {
    * set all their statuses
    */
   getAll(): Observable<Folder> {
+    // TODO return this.folders if cached
+
     const folderObservable: Observable<Folder> = new Observable((observer) => {
       this.systemConfigService.getFolders().subscribe(
         folders => {
