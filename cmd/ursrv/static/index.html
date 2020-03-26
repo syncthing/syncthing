@@ -214,7 +214,7 @@ found in the LICENSE file.
 
     var locations = [];
     {{range $location, $weight := .locations}}
-    locations.push({lat:{{- $location.Latitude -}},lng:{{- $location.Longitude -}},count:{{- $weight -}}});
+    locations.push({lat:{{- $location.Latitude -}},lng:{{- $location.Longitude -}},count:Math.min(25, {{- $weight -}})});
     {{- end}}
 
     function drawHeatMap() {
@@ -232,7 +232,7 @@ found in the LICENSE file.
         }
       );
       var cfg = {
-        "radius": 8,
+        "radius": 1,
         "maxOpacity": .8,
         "scaleRadius": true,
         "useLocalExtrema": true,
@@ -240,7 +240,7 @@ found in the LICENSE file.
         lngField: 'lng',
         valueField: 'count',
         gradient: {
-            '.5': 'cyan',
+            '.1': 'cyan',
             '.8': 'blue',
             '.95': 'red'
           }
@@ -248,8 +248,8 @@ found in the LICENSE file.
       var heatmapLayer = new HeatmapOverlay(cfg);
 
       var map = new L.Map('map', {
-        center: new L.LatLng(25.6586, -80.3568),
-        zoom: 2,
+        center: new L.LatLng(25, 0),
+        zoom: 1,
         layers: [baseLayer, heatmapLayer]
       });
       heatmapLayer.setData(testData);
@@ -297,7 +297,7 @@ found in the LICENSE file.
         {{if .locations}}
         <div class="img-thumbnail" id="map" style="width: 1130px; height: 400px; padding: 10px;"></div>
         <p class="text-muted">
-         Heatmap max intensity is capped at 20 reports within a location.
+         Heatmap max intensity is capped at 25 reports within a location.
         </p>
         <div class="panel panel-default">
           <div class="panel-heading">
