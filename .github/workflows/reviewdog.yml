@@ -7,7 +7,7 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - uses: actions/setup-go@v1
-      - run: go generate ./...
+      - run: go run build.go assets
       - name: golangci-runner
         uses: reviewdog/action-golangci-lint@v1
         with:
