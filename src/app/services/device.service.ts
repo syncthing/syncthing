@@ -39,6 +39,11 @@ export class DeviceService {
     } else {
       // Set connected
       device.connected = this.sysConns.connections[device.deviceID].connected;
+
+      // TODO ? temporarily set to connected
+      if (device.deviceID === this.thisDevice.deviceID) {
+        device.connected = true;
+      }
     }
 
     this.dbCompletionService.getDeviceCompletion(device.deviceID).subscribe(
