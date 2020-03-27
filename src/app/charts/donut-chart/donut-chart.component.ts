@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { Chart } from 'chart.js'
-import { LabelOptions } from '@angular/material/core';
+import { tooltip } from '../tooltip'
 
 @Component({
   selector: 'app-donut-chart',
@@ -71,6 +71,11 @@ export class DonutChartComponent {
         responsive: false,
         legend: {
           display: false
+        },
+        tooltips: {
+          // Disable the on-canvas tooltip
+          enabled: false,
+          custom: tooltip(),
         }
       }
     });
