@@ -64,6 +64,10 @@ func newReceiveOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 }
 
 func (f *receiveOnlyFolder) Revert() {
+	f.doInSync(func() error { f.revert(); return nil })
+}
+
+func (f *receiveOnlyFolder) revert() {
 	l.Infof("Reverting folder %v", f.Description)
 
 	f.setState(FolderScanning)
