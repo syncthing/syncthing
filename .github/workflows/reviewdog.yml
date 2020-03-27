@@ -5,8 +5,9 @@ jobs:
     name: golangci-lint
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
-        uses: actions/checkout@v1
+      - uses: actions/checkout@v1
+      - uses: actions/setup-go@v1
+      - run: go generate ./...
       - name: golangci-runner
         uses: reviewdog/action-golangci-lint@v1
         with:
