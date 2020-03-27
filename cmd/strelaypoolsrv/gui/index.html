@@ -9,6 +9,7 @@
     <meta name="author" content=""/>
 
     <title>Relay stats</title>
+    <link rel="stylesheet" href="//use.fontawesome.com/releases/v5.0.13/css/all.css"/>
     <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet"/>
     <link rel="stylesheet" href="//use.fontawesome.com/releases/v5.0.13/css/all.css"/>
     <link rel="stylesheet" href="//unpkg.com/leaflet@1.6.0/dist/leaflet.css"
@@ -48,7 +49,7 @@
         <p>Please wait while we gather data</p>
       </div>
       <div>
-        <div ng-show="relays === undefined" class="ng-hide">
+        <div ng-show="relays !== undefined" class="ng-hide">
           <p>
             Currently {{ relays.length }} relays online ({{ totals.goMaxProcs }} cores in total).
           </p>
