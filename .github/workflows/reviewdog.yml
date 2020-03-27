@@ -6,10 +6,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - uses: actions/setup-go@v1
+      - uses: docker://golang:latest
         with:
-          go-version: "1.14"
-      - run: go run build.go assets
+          args: go run build.go assets
       - name: golangci-runner
         uses: reviewdog/action-golangci-lint@v1
         with:
