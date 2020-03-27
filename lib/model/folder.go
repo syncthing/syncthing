@@ -234,7 +234,7 @@ func (f *folder) Scan(subdirs []string) error {
 func (f *folder) doInSync(fn func() error) error {
 	req := syncRequest{
 		fn:  fn,
-		err: make(chan error),
+		err: make(chan error, 1),
 	}
 
 	select {
