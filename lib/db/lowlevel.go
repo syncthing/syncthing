@@ -380,11 +380,15 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 
 	var dk []byte
 	for dbi.Next() {
+		name := db.keyer.NameFromGlobalVersionKey(dbi.Key())
+
 		var vl VersionList
 		if err := vl.Unmarshal(dbi.Value()); err != nil || len(vl.Versions) == 0 {
+			l.Debugf("empty/corrupt global; folder=%s file=%s", folder, name)
 			if err := t.Delete(dbi.Key()); err != nil {
 				return err
 			}
+			continue
 		}
 
 		// Check the global version list for consistency. An issue in previous
@@ -392,7 +396,6 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 		// there are global entries pointing to no longer existing files. Here
 		// we find those and clear them out.
 
-		name := db.keyer.NameFromGlobalVersionKey(dbi.Key())
 		var newVL VersionList
 		for i, version := range vl.Versions {
 			dk, err = db.keyer.GenerateDeviceFileKey(dk, folder, version.Device, name)
@@ -401,6 +404,7 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 			}
 			_, err := t.Get(dk)
 			if backend.IsNotFound(err) {
+				l.Debugf("entry not found for global; folder=%s device=%v file=%s version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(version.Device), name, version.Version, version.Invalid)
 				continue
 			}
 			if err != nil {
@@ -418,10 +422,12 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 		}
 
 		if newLen := len(newVL.Versions); newLen == 0 {
+			l.Debugf("empty global; folder=%s file=%s", folder, name)
 			if err := t.Delete(dbi.Key()); err != nil {
 				return err
 			}
 		} else if newLen != len(vl.Versions) {
+			l.Debugf("changed global; folder=%s file=%s old=%v new=%v", folder, name, vl, newVL)
 			if err := t.Put(dbi.Key(), mustMarshal(&newVL)); err != nil {
 				return err
 			}
