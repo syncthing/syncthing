@@ -50,14 +50,14 @@ type folder struct {
 
 	scanInterval        time.Duration
 	scanTimer           *time.Timer
-	scanNow             chan rescanRequest
 	scanDelay           chan time.Duration
 	initialScanFinished chan struct{}
 	scanErrors          []FileError
 	scanErrorsMut       sync.Mutex
 
 	pullScheduled chan struct{}
-	syncChan      chan chan struct{}
+
+	doInSyncChan chan syncRequest
 
 	watchCancel      context.CancelFunc
 	watchChan        chan []string
@@ -68,9 +68,9 @@ type folder struct {
 	puller puller
 }
 
-type rescanRequest struct {
-	subdirs []string
-	err     chan error
+type syncRequest struct {
+	fn  func() error
+	err chan error
 }
 
 type puller interface {
@@ -91,13 +91,13 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 
 		scanInterval:        time.Duration(cfg.RescanIntervalS) * time.Second,
 		scanTimer:           time.NewTimer(time.Millisecond), // The first scan should be done immediately.
-		scanNow:             make(chan rescanRequest),
 		scanDelay:           make(chan time.Duration),
 		initialScanFinished: make(chan struct{}),
 		scanErrorsMut:       sync.NewMutex(),
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
-		syncChan:      make(chan chan struct{}),
+
+		doInSyncChan: make(chan syncRequest),
 
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
@@ -147,13 +147,6 @@ func (f *folder) serve(ctx context.Context) {
 	}
 
 	for {
-		// Do Revert/Override with priority
-		select {
-		case done := <-f.syncChan:
-			<-done
-		default:
-		}
-
 		select {
 		case <-f.ctx.Done():
 			return
@@ -181,9 +174,9 @@ func (f *folder) serve(ctx context.Context) {
 			l.Debugln(f, "Scanning due to timer")
 			f.scanTimerFired()
 
-		case req := <-f.scanNow:
-			l.Debugln(f, "Scanning due to request")
-			req.err <- f.scanSubdirs(req.subdirs)
+		case req := <-f.doInSyncChan:
+			l.Debugln(f, "Running something due to request")
+			req.err <- req.fn()
 
 		case next := <-f.scanDelay:
 			l.Debugln(f, "Delaying scan")
@@ -196,10 +189,6 @@ func (f *folder) serve(ctx context.Context) {
 		case <-f.restartWatchChan:
 			l.Debugln(f, "Restart watcher")
 			f.restartWatch()
-
-		// Revert/Override
-		case done := <-f.syncChan:
-			<-done
 		}
 	}
 }
@@ -237,13 +226,19 @@ func (f *folder) Jobs(_, _ int) ([]string, []string, int) {
 
 func (f *folder) Scan(subdirs []string) error {
 	<-f.initialScanFinished
-	req := rescanRequest{
-		subdirs: subdirs,
-		err:     make(chan error),
+	return f.doInSync(func() error { return f.scanSubdirs(subdirs) })
+}
+
+// doInSync allows to run functions synchronously in folder.serve from exported,
+// asynchronously called methods.
+func (f *folder) doInSync(fn func() error) error {
+	req := syncRequest{
+		fn:  fn,
+		err: make(chan error),
 	}
 
 	select {
-	case f.scanNow <- req:
+	case f.doInSyncChan <- req:
 		return <-req.err
 	case <-f.ctx.Done():
 		return f.ctx.Err()
