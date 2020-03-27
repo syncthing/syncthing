@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { config } from '../mocks/mock-config'
+import { config } from '../mocks/mock-system-config'
 import { dbStatus } from '../mocks/mock-db-status'
-import { connections } from '../mocks/mock-connections'
+import { connections } from '../mocks/mock-system-connections'
 import { dbCompletion } from '../mocks/mock-db-completion'
 
 @Injectable({
