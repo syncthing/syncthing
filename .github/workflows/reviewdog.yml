@@ -7,6 +7,8 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - uses: actions/setup-go@v1
+        with:
+          go-version: "1.14"
       - run: go run build.go assets
       - name: golangci-runner
         uses: reviewdog/action-golangci-lint@v1
