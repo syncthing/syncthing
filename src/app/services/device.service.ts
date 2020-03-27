@@ -5,6 +5,7 @@ import { SystemConfigService } from './system-config.service';
 import { SystemConnectionsService } from './system-connections.service';
 import { DbCompletionService } from './db-completion.service';
 import { SystemConnections } from '../connections';
+import { SystemStatusService } from './system-status.service';
 
 @Injectable({
   providedIn: 'root'
@@ -12,11 +13,13 @@ import { SystemConnections } from '../connections';
 export class DeviceService {
   private devices: Device[];
   private sysConns: SystemConnections;
+  thisDevice: Device;
 
   constructor(
     private systemConfigService: SystemConfigService,
     private systemConnectionsService: SystemConnectionsService,
-    private dbCompletionService: DbCompletionService
+    private dbCompletionService: DbCompletionService,
+    private systemStatusService: SystemStatusService
   ) { }
 
   getDeviceStatusInOrder(observer: Subscriber<Device>, startIndex: number) {
@@ -56,29 +59,42 @@ export class DeviceService {
         devices => {
           this.devices = devices;
 
-          // Check folder devices to see if the device is used
-          this.systemConfigService.getFolders().subscribe(
-            folders => {
-              // Loop through all folder devices to see if the device is used
+          // First check to see which device is local 'thisDevice'
+          this.systemStatusService.getSystemStatus().subscribe(
+            status => {
               this.devices.forEach(device => {
-                folders.forEach(folder => {
-                  folder.devices.forEach(fdevice => {
-                    if (device.deviceID === fdevice.deviceID) {
-                      device.used = true;
-                    }
-                  });
-                });
+                if (device.deviceID === status.myID) {
+                  console.log("found thisDevice!", device);
+                  this.thisDevice = device;
+                }
               });
 
-              // See if the connection is connected or undefined 
-              this.systemConnectionsService.getSystemConnections().subscribe(
-                c => {
-                  this.sysConns = c;
+              // TODO Determine if it should ignore thisDevice
 
-                  // Synchronously get the status of each device 
-                  this.getDeviceStatusInOrder(observer, 0);
-                }
-              );
+              // Check folder devices to see if the device is used
+              this.systemConfigService.getFolders().subscribe(
+                folders => {
+                  // Loop through all folder devices to see if the device is used
+                  this.devices.forEach(device => {
+                    folders.forEach(folder => {
+                      folder.devices.forEach(fdevice => {
+                        if (device.deviceID === fdevice.deviceID) {
+                          device.used = true;
+                        }
+                      });
+                    });
+                  });
+
+                  // See if the connection is connected or undefined 
+                  this.systemConnectionsService.getSystemConnections().subscribe(
+                    c => {
+                      this.sysConns = c;
+
+                      // Synchronously get the status of each device 
+                      this.getDeviceStatusInOrder(observer, 0);
+                    }
+                  );
+                });
             }
           )
         },
