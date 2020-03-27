@@ -1,0 +1,14 @@
+name: reviewdog
+on: [pull_request]
+jobs:
+  golangci-lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v1
+      - name: golangci-runner
+        uses: reviewdog/action-golangci-lint@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+
