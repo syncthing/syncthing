@@ -931,6 +931,7 @@ func cleanConfigDirectory() {
 			l.Infoln("Cleaning:", err)
 			continue
 		}
+		err = nil // ineff?
 
 		for _, file := range files {
 			info, err := fs.Lstat(file)
