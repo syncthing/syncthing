@@ -1,3 +1,5 @@
+import { colors } from './style';
+
 interface Device {
     deviceID: string;
     name: string;
@@ -38,6 +40,31 @@ namespace Device {
                 return 'Disconnected';
             case StateType.UnusedDisconnected:
                 return 'Disconnected (Unused)';
+        }
+    }
+
+    /**
+     * stateTypeToColor looks up a hex color string based on StateType 
+     * @param s StateType 
+     */
+    export function stateTypeToColor(s: StateType): string {
+        switch (s) {
+            case StateType.Insync:
+                return colors.get("green");
+            case StateType.UnusedInsync:
+                return colors.get("grey");
+            case StateType.Unknown:
+                return colors.get("grey");
+            case StateType.Syncing:
+                return colors.get("blue");
+            case StateType.Paused:
+                return colors.get("grey");
+            case StateType.UnusedPaused:
+                return colors.get("grey");
+            case StateType.Disconnected:
+                return colors.get("yellow");
+            case StateType.UnusedDisconnected:
+                return colors.get("grey");
         }
     }
 

@@ -13,7 +13,7 @@ export class DeviceChartComponent implements OnInit {
   @ViewChild(DonutChartComponent) donutChart: DonutChartComponent;
   chartID: string = 'devicesChart';
   elevation: string = cardElevation;
-  states: { label: string, count: number }[] = [];
+  states: { label: string, count: number, color: string }[] = [];
 
   constructor(private deviceService: DeviceService) { }
 
@@ -30,6 +30,7 @@ export class DeviceChartComponent implements OnInit {
         // Get StateType and convert to string 
         const stateType: Device.StateType = Device.getStateType(device);
         const state: string = Device.stateTypeToString(stateType);
+        const color: string = Device.stateTypeToColor(stateType);
 
         // Check if state exists
         let found: boolean = false;
@@ -41,7 +42,7 @@ export class DeviceChartComponent implements OnInit {
         });
 
         if (!found) {
-          this.states.push({ label: state, count: 1 });
+          this.states.push({ label: state, count: 1, color: color });
         }
 
         this.donutChart.updateData(this.states);

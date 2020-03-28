@@ -17,29 +17,14 @@ export class DonutChartComponent {
 
   constructor() { }
 
-  data(val: number[]) {
-    if (this.chart) {
-      val.forEach((v) => {
-        this.addData(v)
-      });
-    }
-  }
-
-  updateData(data: { label: string, count: number }[]): void {
-    //Using object destructuring
+  updateData(data: { label: string, count: number, color: string }[]): void {
+    // Using object destructuring
     for (let i = 0; i < data.length; i++) {
       let s = data[i];
       this.chart.data.labels[i] = s.label;
       this.chart.data.datasets[0].data[i] = s.count;
+      this.chart.data.datasets[0].backgroundColor[i] = s.color;
     }
-    this.chart.update();
-  }
-
-  addData(data: number): void {
-    //    this.chart.data.labels.push(label);
-    this.chart.data.datasets.forEach((dataset) => {
-      dataset.data.push(data);
-    });
     this.chart.update();
   }
 
@@ -59,11 +44,7 @@ export class DonutChartComponent {
       data: {
         datasets: [{
           data: [],
-          backgroundColor: [
-            '#56C568',
-            'rgba(54, 162, 235, 1)',
-            'rgba(255, 206, 86, 1)'
-          ],
+          backgroundColor: [],
           borderWidth: 1
         }]
       },

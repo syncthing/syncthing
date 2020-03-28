@@ -1,4 +1,5 @@
 import Device from './device';
+import { colors } from './style';
 
 interface Folder {
     id: string;
@@ -63,7 +64,42 @@ namespace Folder {
     }
 
     /**
-     * getStatusType looks at a folder and determines the correct
+     * stateTypeToColor looks up a hex color string based on StateType 
+     * @param s StateType 
+     */
+    export function stateTypeToColor(s: StateType): string {
+        switch (s) {
+            case StateType.Paused:
+                return colors.get("grey");
+            case StateType.Unknown:
+                return colors.get("grey");
+            case StateType.Unshared:
+                return colors.get("grey");
+            case StateType.WaitingToSync:
+                return colors.get("yellow");
+            case StateType.Stopped:
+                return colors.get("grey");
+            case StateType.Scanning:
+                return colors.get("grey");
+            case StateType.Idle:
+                return colors.get("green");
+            case StateType.LocalAdditions:
+                return colors.get("grey");
+            case StateType.WaitingToScan:
+                return colors.get("grey");
+            case StateType.PreparingToSync:
+                return colors.get("grey");
+            case StateType.Syncing:
+                return colors.get("blue");
+            case StateType.OutOfSync:
+                return colors.get("grey");
+            case StateType.FailedItems:
+                return colors.get("red");
+        }
+    }
+
+    /**
+     * getStateType looks at a folder and determines the correct
      * StateType to return
      * 
      * Possible state values from API

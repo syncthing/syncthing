@@ -12,7 +12,7 @@ import { DonutChartComponent } from '../donut-chart/donut-chart.component';
 export class FolderChartComponent implements OnInit {
   @ViewChild(DonutChartComponent) donutChart: DonutChartComponent;
   chartID: string = 'foldersChart';
-  states: { label: string, count: number }[] = [];
+  states: { label: string, count: number, color: string }[] = [];
   elevation: string = cardElevation;
 
   constructor(private folderService: FolderService) { }
@@ -32,6 +32,7 @@ export class FolderChartComponent implements OnInit {
         // Get StateType and convert to string 
         const stateType: Folder.StateType = Folder.getStateType(folder);
         const state: string = Folder.stateTypeToString(stateType);
+        const color: string = Folder.stateTypeToColor(stateType);
 
         // Check if state exists
         let found: boolean = false;
@@ -43,7 +44,8 @@ export class FolderChartComponent implements OnInit {
         });
 
         if (!found) {
-          this.states.push({ label: state, count: 1 });
+          console.log(color, "look!!!")
+          this.states.push({ label: state, count: 1, color: color });
         }
 
         this.donutChart.updateData(this.states);
