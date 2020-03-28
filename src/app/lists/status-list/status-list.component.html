@@ -1,10 +1,10 @@
-<mat-card class="{{elevation}}">
+<div class="{{elevation}} tui-card">
     <div fxLayout="row" fxLayoutAlign="space-between start">
-        <mat-card-title>Status</mat-card-title>
-        <app-list-toggle (listTypeEvent)="onToggle($event)"></app-list-toggle>
+        <div class="tui-card-title">Status</div>
+        <app-list-toggle (listTypeEvent)="onToggle($event)" class="tui-card-content"></app-list-toggle>
     </div>
-    <mat-card-content>
+    <div class="tui-card-content">
         <app-folder-list *ngIf="currentListType===listType.Folders"></app-folder-list>
         <app-device-list *ngIf="currentListType===listType.Devices"></app-device-list>
-    </mat-card-content>
-</mat-card>
+    </div>
+</div>

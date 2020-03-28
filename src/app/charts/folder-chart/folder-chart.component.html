@@ -1,6 +1,6 @@
-<mat-card class="{{elevation}}">
-    <mat-card-title>Folders</mat-card-title>
-    <mat-card-content>
+<div class="{{elevation}} tui-card">
+    <div class="tui-card-title">Folders</div>
+    <div class="tui-card-content">
         <div fxLayout="row" fxLayoutAlign="space-between start">
             <app-donut-chart [elementID]="chartID"></app-donut-chart>
             <div class="items" fxLayout="column" fxLayoutAlign="space-evenly end">
@@ -8,5 +8,5 @@
                 </app-chart-item>
             </div>
         </div>
-    </mat-card-content>
-</mat-card>
+    </div>
+</div>

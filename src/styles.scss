@@ -78,6 +78,18 @@ html, body {
     font-family: mat-font-family($tech-ui-typography);
     line-height: mat-line-height($tech-ui-typography, body-1);
 }
-.mat-card-title {
+
+.tui-card {
+    background-color: white;
+    border-radius: 4px;
+    height: 100%;
+}
+
+.tui-card-title {
+    padding: 16px 16px 0 16px;
     font-size: mat-font-size($tech-ui-typography, subheading-2)
+}
+
+.tui-card-content {
+    padding: 16px;
 }
