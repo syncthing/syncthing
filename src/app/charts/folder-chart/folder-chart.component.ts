@@ -22,8 +22,13 @@ export class FolderChartComponent implements OnInit {
   }
 
   ngAfterViewInit() {
+    let totalCount: number = 0;
     this.folderService.getAll().subscribe(
       folder => {
+        // Count the number of folders and set chart
+        totalCount++;
+        this.donutChart.count = totalCount;
+
         // Get StateType and convert to string 
         const stateType: Folder.StateType = Folder.getStateType(folder);
         const state: string = Folder.stateTypeToString(stateType);

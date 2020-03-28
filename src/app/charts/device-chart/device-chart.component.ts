@@ -20,9 +20,12 @@ export class DeviceChartComponent implements OnInit {
   ngOnInit(): void { }
 
   ngAfterViewInit(): void {
+    let totalCount: number = 0;
     this.deviceService.getAll().subscribe(
       device => {
-        console.log("device", device);
+        // Count the number of folders and set chart
+        totalCount++;
+        this.donutChart.count = totalCount;
 
         // Get StateType and convert to string 
         const stateType: Device.StateType = Device.getStateType(device);

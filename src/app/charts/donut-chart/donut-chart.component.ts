@@ -9,6 +9,7 @@ import { tooltip } from '../tooltip'
 })
 export class DonutChartComponent {
   @Input() elementID: string;
+  count: number;
 
   private canvas: any;
   private ctx: any;
@@ -56,7 +57,6 @@ export class DonutChartComponent {
     this.chart = new Chart(this.ctx, {
       type: 'doughnut',
       data: {
-        labels: ["Up to Date", "Syncing", "Waiting to Sync", "Out of Sync", "Failed Items"],
         datasets: [{
           data: [],
           backgroundColor: [
@@ -68,6 +68,7 @@ export class DonutChartComponent {
         }]
       },
       options: {
+        cutoutPercentage: 70,
         responsive: false,
         legend: {
           display: false
