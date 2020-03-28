@@ -1,15 +1,12 @@
-<div class="grid-container" gdAreas="header header | folders devices | status-list status-list | footer footer"
-  gdGap="16px" gdRows="auto auto auto">
-  <div gdArea="header">
-    <h1>Tech UI</h1>
-  </div>
-  <div gdArea="folders">
-    <app-folder-chart></app-folder-chart>
-  </div>
-  <div gdArea="devices">
-    <app-device-chart></app-device-chart>
+<!--<div class="grid-container" gdAreas="header header | folders devices | status-list status-list | footer footer"
+  gdGap="16px" gdRows="auto auto auto"> -->
+<!--<div class="grid-container" fxLayout="row" fxLayoutGap="16px grid" fxLayoutAlign="stretch">-->
+<div fxLayout="column" fxLayoutGap="16px" class="grid-container">
+  <h1>Tech UI</h1>
+  <div fxLayout="row" fxLayoutGap="16px" fxLayoutAlign="space-between stretch">
+    <app-folder-chart fxFlex="50"></app-folder-chart>
+    <app-device-chart fxFlex="50"></app-device-chart>
   </div>
   <app-status-list gdArea="status-list"></app-status-list>
-  <div gdArea="footer">
-  </div>
+  <div></div>
 </div>
