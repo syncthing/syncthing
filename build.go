@@ -631,14 +631,18 @@ func buildSnap(target target) {
 
 func shouldBuildSyso(dir string) (string, error) {
 	type M map[string]interface{}
-	major, minor, patch, build := semanticVersion()
+	major, minor, patch := semanticVersion()
 	bs, err := json.Marshal(M{
 		"FixedFileInfo": M{
 			"FileVersion": M{
 				"Major": major,
 				"Minor": minor,
 				"Patch": patch,
-				"Build": build,
+			},
+			"ProductVersion": M{
+				"Major": major,
+				"Minor": minor,
+				"Patch": patch,
 			},
 		},
 		"StringFileInfo": M{
@@ -864,22 +868,18 @@ func getVersion() string {
 	return "unknown-dev"
 }
 
-func semanticVersion() (major, minor, patch, build int) {
-	r := regexp.MustCompile(`v(?P<Major>\d+)\.(?P<Minor>\d+).(?P<Patch>\d+).*\+(?P<CommitsAhead>\d+)`)
+func semanticVersion() (major, minor, patch int) {
+	r := regexp.MustCompile(`v(\d+)\.(\d+).(\d+)`)
 	matches := r.FindStringSubmatch(getVersion())
-	if len(matches) != 5 {
-		return 0, 0, 0, 0
+	if len(matches) != 4 {
+		return 0, 0, 0
 	}
 
-	var ints [4]int
-	for i := 1; i < 5; i++ {
-		value, err := strconv.Atoi(matches[i])
-		if err != nil {
-			return 0, 0, 0, 0
-		}
-		ints[i-1] = value
+	var ints [3]int
+	for i, s := range matches[1:] {
+		ints[i], _ = strconv.Atoi(s)
 	}
-	return ints[0], ints[1], ints[2], ints[3]
+	return ints[0], ints[1], ints[2]
 }
 
 func getBranchSuffix() string {
