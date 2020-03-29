@@ -328,3 +328,19 @@ func BenchmarkGlobalTruncated(b *testing.B) {
 
 	b.ReportAllocs()
 }
+
+func BenchmarkNeedCount(b *testing.B) {
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
+
+	benchS.Update(protocol.LocalDeviceID, changed100)
+
+	snap := benchS.Snapshot()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = snap.NeedSize(protocol.LocalDeviceID)
+	}
+	snap.Release()
+
+	b.ReportAllocs()
+}
