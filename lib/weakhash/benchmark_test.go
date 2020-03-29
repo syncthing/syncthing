@@ -93,7 +93,7 @@ func BenchmarkBlock(b *testing.B) {
 						test.hash.Reset()
 					}
 
-					bbb.SetBytes(int64(len(buf)))
+					bbb.SetBytes(testSize)
 					bbb.ReportAllocs()
 				})
 
