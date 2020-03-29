@@ -631,6 +631,8 @@ func buildSnap(target target) {
 
 func shouldBuildSyso(dir string) (string, error) {
 	type M map[string]interface{}
+	version := getVersion()
+	version = strings.TrimPrefix(version, "v")
 	major, minor, patch := semanticVersion()
 	bs, err := json.Marshal(M{
 		"FixedFileInfo": M{
@@ -648,7 +650,8 @@ func shouldBuildSyso(dir string) (string, error) {
 		"StringFileInfo": M{
 			"FileDescription": "Open Source Continuous File Synchronization",
 			"LegalCopyright":  "The Syncthing Authors",
-			"ProductVersion":  getVersion(),
+			"FileVersion":     version,
+			"ProductVersion":  version,
 			"ProductName":     "Syncthing",
 		},
 		"IconPath": "assets/logo.ico",
