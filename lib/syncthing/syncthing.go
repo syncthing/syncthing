@@ -70,6 +70,9 @@ type Options struct {
 	ProfilerURL      string
 	ResetDeltaIdxs   bool
 	Verbose          bool
+	// null duration means use default value
+	DBRecheckInterval    time.Duration
+	DBIndirectGCInterval time.Duration
 }
 
 type App struct {
@@ -90,7 +93,7 @@ type App struct {
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
 	a := &App{
 		cfg:      cfg,
-		ll:       db.NewLowlevel(dbBackend),
+		ll:       db.NewLowlevel(dbBackend, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval)),
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,
@@ -233,9 +236,6 @@ func (a *App) startup() error {
 		// Drop delta indexes in case we've changed random stuff we
 		// shouldn't have. We will resend our index on next connect.
 		db.DropDeltaIndexIDs(a.ll)
-
-		// Remember the new version.
-		miscDB.PutString("prevVersion", build.Version)
 	}
 
 	// Check and repair metadata and sequences on every upgrade including RCs.
@@ -244,6 +244,11 @@ func (a *App) startup() error {
 	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
 		l.Infoln("Checking db due to upgrade - this may take a while...")
 		a.ll.CheckRepair()
+	}
+
+	if build.Version != prevVersion {
+		// Remember the new version.
+		miscDB.PutString("prevVersion", build.Version)
 	}
 
 	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)

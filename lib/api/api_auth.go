@@ -11,6 +11,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -130,10 +131,16 @@ func authStatic(username string, password string, configUser string, configPassw
 
 func authLDAP(username string, password string, cfg config.LDAPConfiguration) bool {
 	address := cfg.Address
+	hostname, _, err := net.SplitHostPort(address)
+	if err != nil {
+		hostname = address
+	}
 	var connection *ldap.Conn
-	var err error
 	if cfg.Transport == config.LDAPTransportTLS {
-		connection, err = ldap.DialTLS("tcp", address, &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify})
+		connection, err = ldap.DialTLS("tcp", address, &tls.Config{
+			ServerName:         hostname,
+			InsecureSkipVerify: cfg.InsecureSkipVerify,
+		})
 	} else {
 		connection, err = ldap.Dial("tcp", address)
 	}

@@ -108,10 +108,7 @@ are mostly useful for developers. Use with care.
  STLOCKTHRESHOLD   Used for debugging internal deadlocks; sets debug
                    sensitivity.  Use only under direction of a developer.
 
- STNORESTART       Equivalent to the -no-restart argument. Disable the
-                   Syncthing monitor process which handles restarts for some
-                   configuration changes, upgrades, crashes and also log file
-                   writing (stdout is still written).
+ STNORESTART       Equivalent to the -no-restart argument.
 
  STNOUPGRADE       Disable automatic upgrades.
 
@@ -147,7 +144,7 @@ The following are valid values for the STTRACE variable:
 
 var (
 	// Environment options
-	innerProcess    = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
+	innerProcess    = os.Getenv("STMONITORED") != ""
 	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
 
 	errConcurrentUpgrade = errors.New("upgrade prevented by other running Syncthing instance")
@@ -230,7 +227,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.IntVar(&options.logFlags, "logflags", options.logFlags, "Select information in log line prefix (see below)")
 	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
-	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Disable monitor process, managed restarts and log file writing")
+	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash")
 	flag.BoolVar(&options.resetDatabase, "reset-database", false, "Reset the database, forcing a full rescan and resync")
 	flag.BoolVar(&options.ResetDeltaIdxs, "reset-deltas", false, "Reset delta index IDs, forcing a full index exchange")
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
@@ -672,6 +669,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
 		secs, _ := strconv.Atoi(t)
 		appOpts.DeadlockTimeoutS = secs
+	}
+	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
+		appOpts.DBRecheckInterval = dur
+	}
+	if dur, err := time.ParseDuration(os.Getenv("STGCINDIRECTEVERY")); err == nil {
+		appOpts.DBIndirectGCInterval = dur
 	}
 
 	app := syncthing.New(cfg, ldb, evLogger, cert, appOpts)

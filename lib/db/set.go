@@ -13,7 +13,6 @@
 package db
 
 import (
-	"os"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -61,14 +60,6 @@ type FileIntf interface {
 // FileInfoTruncated (depending on the method) and returns true to
 // continue iteration, false to stop.
 type Iterator func(f FileIntf) bool
-
-var databaseRecheckInterval = 30 * 24 * time.Hour
-
-func init() {
-	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
-		databaseRecheckInterval = dur
-	}
-}
 
 func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 	return &FileSet{

@@ -9,7 +9,6 @@ package db
 import (
 	"bytes"
 	"encoding/binary"
-	"os"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -31,15 +30,9 @@ const (
 
 	// Use indirection for the block list when it exceeds this many entries
 	blocksIndirectionCutoff = 3
+
+	recheckDefaultInterval = 30 * 24 * time.Hour
 )
-
-var indirectGCInterval = indirectGCDefaultInterval
-
-func init() {
-	if dur, err := time.ParseDuration(os.Getenv("STGCINDIRECTEVERY")); err == nil {
-		indirectGCInterval = dur
-	}
-}
 
 // Lowlevel is the lowest level database interface. It has a very simple
 // purpose: hold the actual backend database, and the in-memory state
@@ -48,25 +41,53 @@ func init() {
 // any given backend.
 type Lowlevel struct {
 	backend.Backend
-	folderIdx  *smallIndex
-	deviceIdx  *smallIndex
-	keyer      keyer
-	gcMut      sync.RWMutex
-	gcKeyCount int
-	gcStop     chan struct{}
+	folderIdx          *smallIndex
+	deviceIdx          *smallIndex
+	keyer              keyer
+	gcMut              sync.RWMutex
+	gcKeyCount         int
+	gcStop             chan struct{}
+	indirectGCInterval time.Duration
+	recheckInterval    time.Duration
 }
 
-func NewLowlevel(backend backend.Backend) *Lowlevel {
+func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 	db := &Lowlevel{
-		Backend:   backend,
-		folderIdx: newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
-		deviceIdx: newSmallIndex(backend, []byte{KeyTypeDeviceIdx}),
-		gcMut:     sync.NewRWMutex(),
-		gcStop:    make(chan struct{}),
+		Backend:            backend,
+		folderIdx:          newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
+		deviceIdx:          newSmallIndex(backend, []byte{KeyTypeDeviceIdx}),
+		gcMut:              sync.NewRWMutex(),
+		gcStop:             make(chan struct{}),
+		indirectGCInterval: indirectGCDefaultInterval,
+		recheckInterval:    recheckDefaultInterval,
+	}
+	for _, opt := range opts {
+		opt(db)
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
 	go db.gcRunner()
 	return db
+}
+
+type Option func(*Lowlevel)
+
+// WithRecheckInterval sets the time interval in between metadata recalculations
+// and consistency checks.
+func WithRecheckInterval(dur time.Duration) Option {
+	return func(db *Lowlevel) {
+		if dur > 0 {
+			db.recheckInterval = dur
+		}
+	}
+}
+
+// WithIndirectGCInterval sets the time interval in between GC runs.
+func WithIndirectGCInterval(dur time.Duration) Option {
+	return func(db *Lowlevel) {
+		if dur > 0 {
+			db.indirectGCInterval = dur
+		}
+	}
 }
 
 func (db *Lowlevel) Close() error {
@@ -498,7 +519,7 @@ func (db *Lowlevel) gcRunner() {
 	// directly, give the system a while to get up and running and do other
 	// stuff first. (We might have migrations and stuff which would be
 	// better off running before GC.)
-	next := db.timeUntil(indirectGCTimeKey, indirectGCInterval)
+	next := db.timeUntil(indirectGCTimeKey, db.indirectGCInterval)
 	if next < time.Minute {
 		next = time.Minute
 	}
@@ -515,7 +536,7 @@ func (db *Lowlevel) gcRunner() {
 				l.Warnln("Database indirection GC failed:", err)
 			}
 			db.recordTime(indirectGCTimeKey)
-			t.Reset(db.timeUntil(indirectGCTimeKey, indirectGCInterval))
+			t.Reset(db.timeUntil(indirectGCTimeKey, db.indirectGCInterval))
 		}
 	}
 }
@@ -669,7 +690,7 @@ func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
 		return db.getMetaAndCheck(folder)
 	}
 
-	if age := time.Since(meta.Created()); age > databaseRecheckInterval {
+	if age := time.Since(meta.Created()); age > db.recheckInterval {
 		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, age)
 		return db.getMetaAndCheck(folder)
 	}
