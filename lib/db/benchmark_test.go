@@ -335,12 +335,12 @@ func BenchmarkNeedCount(b *testing.B) {
 
 	benchS.Update(protocol.LocalDeviceID, changed100)
 
-	snap := benchS.Snapshot()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		snap := benchS.Snapshot()
 		_ = snap.NeedSize(protocol.LocalDeviceID)
+		snap.Release()
 	}
-	snap.Release()
 
 	b.ReportAllocs()
 }
