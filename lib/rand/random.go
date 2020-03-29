@@ -20,16 +20,16 @@ import (
 // Reader is the standard crypto/rand.Reader, re-exported for convenience
 var Reader = cryptoRand.Reader
 
-// randomCharset contains the characters that can make up a randomString().
+// randomCharset contains the characters that can make up a rand.String().
 const randomCharset = "2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ"
 
 var (
 	// defaultSecureSource is a concurrency safe math/rand.Source with a
 	// cryptographically sound base.
-	defaltSecureSource = newSecureSource()
+	defaultSecureSource = newSecureSource()
 
 	// defaultSecureRand is a math/rand.Rand based on the secure source.
-	defaultSecureRand = mathRand.New(defaltSecureSource)
+	defaultSecureRand = mathRand.New(defaultSecureSource)
 )
 
 // String returns a strongly random string of characters (taken from
@@ -43,12 +43,12 @@ func String(l int) string {
 	return string(bs)
 }
 
-// Int63 returns a strongly random int63
+// Int63 returns a strongly random int63.
 func Int63() int64 {
-	return defaltSecureSource.Int63()
+	return defaultSecureSource.Int63()
 }
 
-// Int64 returns a strongly random int64
+// Int64 returns a strongly random int64.
 func Int64() int64 {
 	var bs [8]byte
 	_, err := io.ReadFull(cryptoRand.Reader, bs[:])
@@ -75,7 +75,7 @@ func SeedFromBytes(bs []byte) int64 {
 	return int64(binary.BigEndian.Uint64(s[0:]) ^ binary.BigEndian.Uint64(s[8:]))
 }
 
-// Shuffle the order of elements
+// Shuffle the order of elements in slice.
 func Shuffle(slice interface{}) {
 	rv := reflect.ValueOf(slice)
 	swap := reflect.Swapper(slice)
