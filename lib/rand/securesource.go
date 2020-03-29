@@ -37,6 +37,10 @@ func (s *secureSource) Seed(int64) {
 }
 
 func (s *secureSource) Int63() int64 {
+	return int64(s.Uint64() & (1<<63 - 1))
+}
+
+func (s *secureSource) Uint64() uint64 {
 	var buf [8]byte
 
 	// Read eight bytes of entropy from the buffered, secure random number
@@ -50,8 +54,5 @@ func (s *secureSource) Int63() int64 {
 	}
 
 	// Grab those bytes as an uint64
-	v := binary.BigEndian.Uint64(buf[:])
-
-	// Mask of the high bit and return the resulting int63
-	return int64(v & (1<<63 - 1))
+	return binary.BigEndian.Uint64(buf[:])
 }
