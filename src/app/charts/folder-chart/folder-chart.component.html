@@ -1,9 +1,9 @@
 <div class="{{elevation}} tui-card">
     <div class="tui-card-title">Folders</div>
     <div class="tui-card-content">
-        <div fxLayout="row" fxLayoutAlign="space-between start">
-            <app-donut-chart [elementID]="chartID"></app-donut-chart>
-            <div class="items" fxLayout="column" fxLayoutAlign="space-evenly end">
+        <div fxLayout="row" fxLayoutAlign="space-between stretch">
+            <app-donut-chart [elementID]="chartID" fxFlex="30"></app-donut-chart>
+            <div class="items" fxLayout="column" fxLayoutAlign="start none" fxFlex="70">
                 <app-chart-item *ngFor="let state of states" [state]="state.label" [count]="state.count">
                 </app-chart-item>
             </div>

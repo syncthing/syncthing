@@ -49,8 +49,8 @@ export class DonutChartComponent {
         }]
       },
       options: {
-        cutoutPercentage: 70,
-        responsive: false,
+        cutoutPercentage: 75,
+        responsive: true,
         legend: {
           display: false
         },
