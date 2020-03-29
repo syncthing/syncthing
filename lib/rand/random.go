@@ -12,7 +12,6 @@ import (
 	"crypto/md5"
 	cryptoRand "crypto/rand"
 	"encoding/binary"
-	"io"
 	mathRand "math/rand"
 	"reflect"
 )
@@ -50,12 +49,7 @@ func Int63() int64 {
 
 // Int64 returns a strongly random int64.
 func Int64() int64 {
-	var bs [8]byte
-	_, err := io.ReadFull(cryptoRand.Reader, bs[:])
-	if err != nil {
-		panic("randomness failure: " + err.Error())
-	}
-	return int64(binary.BigEndian.Uint64(bs[:]))
+	return int64(defaultSecureSource.Uint64())
 }
 
 // Intn returns, as an int, a non-negative strongly random number in [0,n).
