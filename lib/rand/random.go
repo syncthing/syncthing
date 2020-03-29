@@ -9,9 +9,7 @@
 package rand
 
 import (
-	"crypto/md5"
 	cryptoRand "crypto/rand"
-	"encoding/binary"
 	mathRand "math/rand"
 	"reflect"
 )
@@ -56,17 +54,6 @@ func Int64() int64 {
 // It panics if n <= 0.
 func Intn(n int) int {
 	return defaultSecureRand.Intn(n)
-}
-
-// SeedFromBytes calculates a weak 64 bit hash from the given byte slice,
-// suitable for use a predictable random seed.
-func SeedFromBytes(bs []byte) int64 {
-	h := md5.New()
-	h.Write(bs)
-	s := h.Sum(nil)
-	// The MD5 hash of the byte slice is 16 bytes long. We interpret it as two
-	// uint64s and XOR them together.
-	return int64(binary.BigEndian.Uint64(s[0:]) ^ binary.BigEndian.Uint64(s[8:]))
 }
 
 // Shuffle the order of elements in slice.
