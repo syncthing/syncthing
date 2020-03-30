@@ -14,6 +14,7 @@ export class FolderChartComponent implements OnInit {
   chartID: string = 'foldersChart';
   states: { label: string, count: number, color: string }[] = [];
   elevation: string = cardElevation;
+  title: string = "Folders";
 
   constructor(private folderService: FolderService) { }
 

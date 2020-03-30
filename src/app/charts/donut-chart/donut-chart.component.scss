@@ -6,9 +6,38 @@
 
 .center {
     position: absolute;
-    left: 0;
-    top: 40%;
-    width: 100%;
-    text-align: center;
-    font-size:1.8rem;
+    top: 0; left: 0; bottom: 0; right: 0;
+    width: 50%;
+    height: 50%;
+    overflow: auto;
+    margin: auto;
+}
+
+.count {
+  font-size: calc(1rem + 0.625vw);
+}
+
+.title {
+  font-size: calc(0.5rem + 0.625vw);
+  display:none;
+}
+
+@media (max-width: 640px) {
+
+}
+@media (min-width: 640px) and (max-width: 1000px) {
+  .title {
+    display:none;
+   font-size: calc(0.35rem + 0.625vw);
+  }
+
+  .count {
+   font-size: calc(1.35rem + 0.625vw);
+  }
+}
+
+@media (min-width:1000px) {
+  .title {
+    display: inline;
+  }
 }

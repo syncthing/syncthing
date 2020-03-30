@@ -9,6 +9,7 @@ import { tooltip } from '../tooltip'
 })
 export class DonutChartComponent {
   @Input() elementID: string;
+  @Input() title: number;
   count: number;
 
   private canvas: any;

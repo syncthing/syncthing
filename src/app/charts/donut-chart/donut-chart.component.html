@@ -1,4 +1,7 @@
-<div class="chart-container" fxLayout="column" fxLayoutAlign="space-around">
+<div class="chart-container">
     <canvas id={{elementID}} width="100px" height="100px"></canvas>
-    <div class="center">{{count}}</div>
+    <div class="center" fxLayout="column" fxLayoutAlign="center center">
+        <div class="count">{{count}}</div>
+        <div class="title">{{title}}</div>
+    </div>
 </div>

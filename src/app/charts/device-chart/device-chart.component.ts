@@ -14,6 +14,7 @@ export class DeviceChartComponent implements OnInit {
   chartID: string = 'devicesChart';
   elevation: string = cardElevation;
   states: { label: string, count: number, color: string }[] = [];
+  title: string = "Devices";
 
   constructor(private deviceService: DeviceService) { }
 
