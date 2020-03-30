@@ -1028,8 +1028,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
-			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
-			changed = true
+			m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
 			m.evLogger.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
