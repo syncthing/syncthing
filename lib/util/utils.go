@@ -255,8 +255,12 @@ func (s *service) Stop() {
 	default:
 		s.cancel()
 	}
+
+	// Cache s.stopped in a variable while we hold the mutex
+	// to prevent a data race with Serve's resetting it.
+	stopped := s.stopped
 	s.mut.Unlock()
-	<-s.stopped
+	<-stopped
 }
 
 func (s *service) Error() error {
