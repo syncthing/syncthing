@@ -1727,8 +1727,8 @@ type jsonPendingDevice struct {
 }
 
 type jsonPendingFolder struct {
-	ID string `json:"id"`
-	OfferedBy []jsonOfferingDevice
+	ID        string               `json:"id"`
+	OfferedBy []jsonOfferingDevice `json:"offeredBy"`
 }
 
 type jsonOfferingDevice struct {
