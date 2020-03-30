@@ -94,7 +94,8 @@ func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (FileIntf, er
 	return fi, nil
 }
 
-// fillFileInfo follows the (possible) indirection of blocks and fills it out.
+// fillFileInfo follows the (possible) indirection of blocks and version
+// vector and fills it out.
 func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
 	var key []byte
 
@@ -133,19 +134,20 @@ func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
 func (t readOnlyTransaction) fillTruncated(fi *FileInfoTruncated) error {
 	var key []byte
 
-	if len(fi.VersionHash) != 0 {
-		key = t.keyer.GenerateVersionKey(key, fi.VersionHash)
-		bs, err := t.Get(key)
-		if err != nil {
-			return err
-		}
-		var v protocol.Vector
-		if err := v.Unmarshal(bs); err != nil {
-			return err
-		}
-		fi.Version = v
+	if len(fi.VersionHash) == 0 {
+		return nil
 	}
 
+	key = t.keyer.GenerateVersionKey(key, fi.VersionHash)
+	bs, err := t.Get(key)
+	if err != nil {
+		return err
+	}
+	var v protocol.Vector
+	if err := v.Unmarshal(bs); err != nil {
+		return err
+	}
+	fi.Version = v
 	return nil
 }
 
