@@ -1,6 +1,6 @@
 <div class="{{elevation}} tui-card">
     <div fxLayout="row" fxLayoutAlign="space-between start">
-        <div class="tui-card-title">Status</div>
+        <div class="tui-card-title">{{title | uppercase}}</div>
         <app-list-toggle (listTypeEvent)="onToggle($event)" class="tui-card-content"></app-list-toggle>
     </div>
     <div class="tui-card-content">

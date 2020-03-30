@@ -50,13 +50,13 @@ namespace Device {
     export function stateTypeToColor(s: StateType): string {
         switch (s) {
             case StateType.Insync:
-                return colors.get("green");
+                return colors.get("blue");
             case StateType.UnusedInsync:
                 return colors.get("grey");
             case StateType.Unknown:
                 return colors.get("grey");
             case StateType.Syncing:
-                return colors.get("blue");
+                return colors.get("green");
             case StateType.Paused:
                 return colors.get("grey");
             case StateType.UnusedPaused:

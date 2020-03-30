@@ -82,7 +82,7 @@ namespace Folder {
             case StateType.Scanning:
                 return colors.get("grey");
             case StateType.Idle:
-                return colors.get("green");
+                return colors.get("blue");
             case StateType.LocalAdditions:
                 return colors.get("grey");
             case StateType.WaitingToScan:
@@ -90,7 +90,7 @@ namespace Folder {
             case StateType.PreparingToSync:
                 return colors.get("grey");
             case StateType.Syncing:
-                return colors.get("blue");
+                return colors.get("green");
             case StateType.OutOfSync:
                 return colors.get("grey");
             case StateType.FailedItems:
