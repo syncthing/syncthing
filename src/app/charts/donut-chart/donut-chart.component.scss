@@ -13,25 +13,30 @@
     margin: auto;
 }
 
-.count {
-  font-size: calc(1rem + 0.625vw);
-}
-
 .title {
   font-size: calc(0.5rem + 0.625vw);
   display:none;
 }
 
-@media (max-width: 640px) {
-
+.count-total {
+  font-size: calc(1rem + 0.625vw);
 }
-@media (min-width: 640px) and (max-width: 1000px) {
+
+.large-count-total {
+  font-size: calc(0.5rem + 0.625vw);
+}
+
+@media (max-width: 800px) {
+  .count-total {
+   font-size: calc(1.00rem + 0.625vw);
+  }
+}
+@media (min-width: 800px) and (max-width: 1000px) {
   .title {
-    display:none;
    font-size: calc(0.35rem + 0.625vw);
   }
 
-  .count {
+  .count-total {
    font-size: calc(1.35rem + 0.625vw);
   }
 }

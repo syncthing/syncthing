@@ -10,7 +10,14 @@ import { tooltip } from '../tooltip'
 export class DonutChartComponent {
   @Input() elementID: string;
   @Input() title: number;
-  count: number;
+  _count: number;
+  _countClass = "count-total";
+  set count(n: number) {
+    if (n >= 1000) { // use a smaller font
+      this._countClass = "large-count-total"
+    }
+    this._count = n;
+  }
 
   private canvas: any;
   private ctx: any;
@@ -50,7 +57,7 @@ export class DonutChartComponent {
         }]
       },
       options: {
-        cutoutPercentage: 75,
+        cutoutPercentage: 77,
         responsive: true,
         legend: {
           display: false
