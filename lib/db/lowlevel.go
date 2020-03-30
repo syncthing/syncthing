@@ -378,6 +378,7 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 	}
 	defer dbi.Release()
 
+	l.Debugf("checkGlobals iterating over %s", key.WithoutName())
 	var dk []byte
 	for dbi.Next() {
 		name := db.keyer.NameFromGlobalVersionKey(dbi.Key())
@@ -411,6 +412,7 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 				return err
 			}
 			newVL.Versions = append(newVL.Versions, version)
+			l.Debugf("entry found for global; folder=%s device=%v file=%s version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(version.Device), name, version.Version, version.Invalid)
 
 			if i == 0 {
 				if fi, ok, err := t.getFileByKey(dk); err != nil {
@@ -431,6 +433,8 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 			if err := t.Put(dbi.Key(), mustMarshal(&newVL)); err != nil {
 				return err
 			}
+		} else {
+			l.Debugf("unchanged global; folder=%s file=%s old=%v new=%v", folder, name, vl, newVL)
 		}
 	}
 	if err := dbi.Error(); err != nil {
@@ -654,6 +658,7 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 	}
 
 	if backend.IsClosed(err) {
+		l.Debugln("couldn't get metadata, db closed")
 		return nil
 	} else if err != nil {
 		panic(err)
@@ -748,6 +753,8 @@ func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) bool {
 // match those in the corresponding file entries. It returns the amount of fixed
 // entries.
 func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTracker) (int, error) {
+	l.Debugln("Reparing sequences on folder", folderStr)
+
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return 0, err
