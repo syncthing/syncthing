@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { SystemConfigService } from '../services/system-config.service';
+import { ChartType } from '../chart';
 
 @Component({
   selector: 'app-dashboard',
@@ -7,7 +8,8 @@ import { SystemConfigService } from '../services/system-config.service';
   styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent {
-
+  folderChart: ChartType = ChartType.Folder;
+  deviceChart: ChartType = ChartType.Device;
 
   constructor(private systemConfigService: SystemConfigService) { }
 

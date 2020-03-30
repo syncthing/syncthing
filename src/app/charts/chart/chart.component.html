@@ -1,5 +1,5 @@
 <div class="{{elevation}} tui-card">
-    <div class="tui-card-title">{{title}}</div>
+    <div class="tui-card-title">{{title | uppercase}}</div>
     <div class="tui-card-content">
         <div fxLayout="row" fxLayoutAlign="space-between stretch">
             <app-donut-chart [elementID]="chartID" fxFlex="30" [title]="title"></app-donut-chart>

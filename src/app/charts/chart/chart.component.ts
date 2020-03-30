@@ -1,0 +1,91 @@
+import { Component, OnInit, ViewChild, Input } from '@angular/core';
+import Folder from '../../folder'
+import { cardElevation } from '../../style'
+import { FolderService } from 'src/app/services/folder.service';
+import { DonutChartComponent } from '../donut-chart/donut-chart.component';
+import { DeviceService } from 'src/app/services/device.service';
+import Device from 'src/app/device';
+import { ChartType } from '../../chart';
+
+
+
+@Component({
+  selector: 'app-chart',
+  templateUrl: './chart.component.html',
+  styleUrls: ['./chart.component.scss']
+})
+
+export class ChartComponent implements OnInit {
+  @ViewChild(DonutChartComponent) donutChart: DonutChartComponent;
+  @Input() type: ChartType;
+  title: string;
+  chartID: string;
+  states: { label: string, count: number, color: string }[] = [];
+  elevation: string = cardElevation;
+  service: any;
+  namespace: any;
+
+  constructor(private folderService: FolderService, private deviceServce: DeviceService) { }
+
+  ngOnInit(): void {
+    switch (this.type) {
+      case ChartType.Folder:
+        this.title = "Folders";
+        this.chartID = 'foldersChart';
+        this.service = this.folderService;
+        break;
+      case ChartType.Device:
+        this.title = "Devices";
+        this.chartID = 'devicesChart';
+        this.service = this.deviceServce;
+        break;
+    }
+  }
+
+  ngAfterViewInit() {
+    let totalCount: number = 0;
+    this.service.getAll().subscribe(
+      folder => {
+        // Count the number of folders and set chart
+        totalCount++;
+        this.donutChart.count = totalCount;
+
+        // Get StateType and convert to string 
+        let stateType;
+        let state: string;
+        let color;
+        switch (this.type) {
+          case ChartType.Folder:
+            stateType = Folder.getStateType(folder);
+            state = Folder.stateTypeToString(stateType);
+            color = Folder.stateTypeToColor(stateType);
+            break;
+          case ChartType.Device:
+            stateType = Device.getStateType(folder);
+            state = Device.stateTypeToString(stateType);
+            color = Device.stateTypeToColor(stateType);
+            break;
+        }
+
+        // Check if state exists
+        let found: boolean = false;
+        this.states.forEach(s => {
+          if (s.label === state) {
+            s.count = s.count + 1;
+            found = true;
+          }
+        });
+
+        if (!found) {
+          console.log(color, "look!!!")
+          this.states.push({ label: state, count: 1, color: color });
+        }
+
+        this.donutChart.updateData(this.states);
+      },
+      err => console.error('Observer got an error: ' + err),
+      () => {
+      }
+    );
+  }
+}

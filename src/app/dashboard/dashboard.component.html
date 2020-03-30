@@ -4,8 +4,8 @@
 <div fxLayout="column" fxLayoutGap="16px" class="grid-container">
   <h1>Tech UI</h1>
   <div fxLayout="row" fxLayoutGap="16px" fxLayoutAlign="space-between stretch">
-    <app-folder-chart fxFlex="50"></app-folder-chart>
-    <app-device-chart fxFlex="50"></app-device-chart>
+    <app-chart [type]=folderChart fxFlex="50"></app-chart>
+    <app-chart [type]=deviceChart fxFlex="50"></app-chart>
   </div>
   <app-status-list gdArea="status-list"></app-status-list>
   <div></div>

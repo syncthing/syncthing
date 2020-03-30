@@ -18,8 +18,6 @@ import { StatusListComponent } from './lists/status-list/status-list.component';
 import { FolderListComponent } from './lists/folder-list/folder-list.component';
 import { DeviceListComponent } from './lists/device-list/device-list.component';
 import { DonutChartComponent } from './charts/donut-chart/donut-chart.component';
-import { DeviceChartComponent } from './charts/device-chart/device-chart.component';
-import { FolderChartComponent } from './charts/folder-chart/folder-chart.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { ListToggleComponent } from './list-toggle/list-toggle.component';
 
@@ -29,6 +27,7 @@ import { InMemoryConfigDataService } from './services/in-memory-config-data.serv
 import { deviceID } from './api-utils';
 import { environment } from '../environments/environment';
 import { ChartItemComponent } from './charts/chart-item/chart-item.component';
+import { ChartComponent } from './charts/chart/chart.component';
 
 @NgModule({
   declarations: [
@@ -39,8 +38,7 @@ import { ChartItemComponent } from './charts/chart-item/chart-item.component';
     ListToggleComponent,
     DashboardComponent,
     DonutChartComponent,
-    DeviceChartComponent,
-    FolderChartComponent,
+    ChartComponent,
     ChartItemComponent,
   ],
   imports: [
