@@ -1847,7 +1847,7 @@ angular.module('syncthing.core')
                     }
                 };
                 delete folderCfg.trashcanFileVersioning;
-                delete folderCfg.trashcanClean;
+                
             } else if (folderCfg.fileVersioningSelector === "simple") {
                 folderCfg.versioning = {
                     'Type': 'simple',
