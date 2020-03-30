@@ -110,6 +110,7 @@ type keyer interface {
 	GeneratePendingFolderKey(key, folder, device []byte) (pendingFolderKey, error)
 	FolderFromPendingFolderKey(key []byte) []byte
 	DeviceFromPendingFolderKey(key []byte) ([]byte, bool)
+
 	GeneratePendingDeviceKey(key, device []byte) pendingDeviceKey
 	DeviceFromPendingDeviceKey(key []byte) []byte
 }

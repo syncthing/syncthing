@@ -1648,31 +1648,25 @@ func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonFileInfoTrunc {
 }
 
 func toJsonPendingDeviceSlice(devices map[protocol.DeviceID]db.ObservedDevice) []jsonPendingDevice {
-	res := make([]jsonPendingDevice, len(devices))
-	i := 0
+	res := make([]jsonPendingDevice, 0, len(devices))
 	for id, meta := range devices {
-		res[i] = jsonPendingDevice{id.String(), meta}
-		i++
+		res = append(res, jsonPendingDevice{id.String(), meta})
 	}
 	return res
 }
 
 func toJsonObservedFolderSlice(folders map[string]map[protocol.DeviceID]db.ObservedFolder) []jsonPendingFolder {
-	res := make([]jsonPendingFolder, len(folders))
-	i := 0
+	res := make([]jsonPendingFolder, 0, len(folders))
 	for id, devices := range folders {
-		res[i] = jsonPendingFolder{id, toJsonOfferingDeviceSlice(devices)}
-		i++
+		res = append(res, jsonPendingFolder{id, toJsonOfferingDeviceSlice(devices)})
 	}
 	return res
 }
 
 func toJsonOfferingDeviceSlice(devices map[protocol.DeviceID]db.ObservedFolder) []jsonOfferingDevice {
-	res := make([]jsonOfferingDevice, len(devices))
-	i := 0
+	res := make([]jsonOfferingDevice, 0, len(devices))
 	for id, meta := range devices {
-		res[i] = jsonOfferingDevice{id.String(), meta}
-		i++
+		res = append(res, jsonOfferingDevice{id.String(), meta})
 	}
 	return res
 }
