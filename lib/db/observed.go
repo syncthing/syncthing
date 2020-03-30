@@ -19,19 +19,16 @@ func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, add
 	key := db.keyer.GeneratePendingDeviceKey(nil, device[:])
 	timestamp := time.Now().Round(time.Second)
 	od := ObservedDevice{
-		Time: &timestamp,
-		Name: name,
+		Time:    &timestamp,
+		Name:    name,
 		Address: address,
 	}
 	bs, err := od.Marshal()
-	if err != nil {
-		//FIXME
-		return
+	if err == nil {
+		err = db.Put(key, bs)
 	}
-	err = db.Put(key, bs)
 	if err != nil {
-		//FIXME
-		return
+		l.Warnf("Failed to store pending device entry: %v", err)
 	}
 }
 
