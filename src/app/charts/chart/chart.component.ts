@@ -5,7 +5,7 @@ import { FolderService } from 'src/app/services/folder.service';
 import { DonutChartComponent } from '../donut-chart/donut-chart.component';
 import { DeviceService } from 'src/app/services/device.service';
 import Device from 'src/app/device';
-import { ChartType } from '../../chart';
+import { Type } from '../../type';
 
 
 
@@ -17,7 +17,7 @@ import { ChartType } from '../../chart';
 
 export class ChartComponent implements OnInit {
   @ViewChild(DonutChartComponent) donutChart: DonutChartComponent;
-  @Input() type: ChartType;
+  @Input() type: Type;
   title: string;
   chartID: string;
   states: { label: string, count: number, color: string }[] = [];
@@ -29,12 +29,12 @@ export class ChartComponent implements OnInit {
 
   ngOnInit(): void {
     switch (this.type) {
-      case ChartType.Folder:
+      case Type.Folder:
         this.title = "Folders";
         this.chartID = 'foldersChart';
         this.service = this.folderService;
         break;
-      case ChartType.Device:
+      case Type.Device:
         this.title = "Devices";
         this.chartID = 'devicesChart';
         this.service = this.deviceServce;
@@ -55,12 +55,12 @@ export class ChartComponent implements OnInit {
         let state: string;
         let color;
         switch (this.type) {
-          case ChartType.Folder:
+          case Type.Folder:
             stateType = Folder.getStateType(folder);
             state = Folder.stateTypeToString(stateType);
             color = Folder.stateTypeToColor(stateType);
             break;
-          case ChartType.Device:
+          case Type.Device:
             stateType = Device.getStateType(folder);
             state = Device.stateTypeToString(stateType);
             color = Device.stateTypeToColor(stateType);

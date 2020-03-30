@@ -4,7 +4,7 @@
         <app-list-toggle (listTypeEvent)="onToggle($event)" class="tui-card-content"></app-list-toggle>
     </div>
     <div class="tui-card-content">
-        <app-folder-list *ngIf="currentListType===listType.Folders"></app-folder-list>
-        <app-device-list *ngIf="currentListType===listType.Devices"></app-device-list>
+        <app-folder-list *ngIf="currentListType===listType.Folder"></app-folder-list>
+        <app-device-list *ngIf="currentListType===listType.Device"> </app-device-list>
     </div>
 </div>
