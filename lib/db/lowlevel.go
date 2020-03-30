@@ -32,7 +32,8 @@ const (
 	blocksIndirectionCutoff = 3
 	// Use indirection for the version vector when it exceeds this many entries
 	versionIndirectionCutoff = 10
-	recheckDefaultInterval   = 30 * 24 * time.Hour
+
+	recheckDefaultInterval = 30 * 24 * time.Hour
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
