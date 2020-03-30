@@ -5,6 +5,7 @@ import { HttpClientModule, HttpClientXsrfModule } from '@angular/common/http';
 import { MatTableModule } from '@angular/material/table';
 import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatSortModule } from '@angular/material/sort';
+import { MatInputModule } from '@angular/material/input';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { FlexLayoutModule } from '@angular/flex-layout';
@@ -15,7 +16,6 @@ import { AppComponent } from './app.component';
 
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { StatusListComponent } from './lists/status-list/status-list.component';
-import { FolderListComponent } from './lists/folder-list/folder-list.component';
 import { DeviceListComponent } from './lists/device-list/device-list.component';
 import { DonutChartComponent } from './charts/donut-chart/donut-chart.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
@@ -28,23 +28,25 @@ import { deviceID } from './api-utils';
 import { environment } from '../environments/environment';
 import { ChartItemComponent } from './charts/chart-item/chart-item.component';
 import { ChartComponent } from './charts/chart/chart.component';
+import { FolderListComponent } from './lists/folder-list/folder-list.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     StatusListComponent,
-    FolderListComponent,
     DeviceListComponent,
     ListToggleComponent,
     DashboardComponent,
     DonutChartComponent,
     ChartComponent,
     ChartItemComponent,
+    FolderListComponent,
   ],
   imports: [
     BrowserModule,
     AppRoutingModule,
     BrowserAnimationsModule,
+    MatInputModule,
     MatTableModule,
     MatPaginatorModule,
     MatSortModule,

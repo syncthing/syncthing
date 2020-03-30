@@ -1,13 +1,10 @@
-import { AfterViewInit, Component, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, OnInit, ViewChild, Input } from '@angular/core';
 import { MatPaginator } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
-import { MatTable } from '@angular/material/table';
+import { MatTable, MatTableDataSource } from '@angular/material/table';
 
-import { FolderListDataSource } from './folder-list-datasource';
 import Folder from '../../folder';
 import { SystemConfigService } from '../../services/system-config.service';
-import { dataTableElevation } from '../../style';
-import { Subject } from 'rxjs';
 
 @Component({
   selector: 'app-folder-list',
@@ -18,8 +15,12 @@ export class FolderListComponent implements AfterViewInit, OnInit {
   @ViewChild(MatPaginator) paginator: MatPaginator;
   @ViewChild(MatSort) sort: MatSort;
   @ViewChild(MatTable) table: MatTable<Folder>;
-  dataSource: FolderListDataSource;
-  elevation: string = dataTableElevation;
+  dataSource: MatTableDataSource<Folder>;
+
+  applyFilter(event: Event) {
+    const filterValue = (event.target as HTMLInputElement).value;
+    this.dataSource.filter = filterValue.trim().toLowerCase();
+  }
 
   /** Columns displayed in the table. Columns IDs can be added, removed, or reordered. */
   displayedColumns = ['id', 'label'];
@@ -27,14 +28,12 @@ export class FolderListComponent implements AfterViewInit, OnInit {
   constructor(private systemConfigService: SystemConfigService) { };
 
   ngOnInit() {
-    this.dataSource = new FolderListDataSource(this.systemConfigService);
-    this.dataSource.dataSubject = new Subject<Folder[]>();
+    this.dataSource = new MatTableDataSource();
     this.dataSource.data = [];
 
     this.systemConfigService.getFolders().subscribe(
       data => {
         this.dataSource.data = data;
-        this.dataSource.dataSubject.next(data);
       }
     );
   }
