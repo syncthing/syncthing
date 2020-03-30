@@ -56,6 +56,7 @@ var (
 		{regexp.MustCompile("snap@build.syncthing.net"), "Snapcraft"},
 		{regexp.MustCompile("android-.*vagrant@basebox-stretch64"), "F-Droid"},
 		{regexp.MustCompile("builduser@svetlemodry"), "Arch (3rd party)"},
+		{regexp.MustCompile("synology@kastelo.net"), "Synology (Kastelo)"},
 		{regexp.MustCompile("@debian"), "Debian (3rd party)"},
 		{regexp.MustCompile("@fedora"), "Fedora (3rd party)"},
 		{regexp.MustCompile(`\bbrew@`), "Homebrew (3rd party)"},
@@ -266,10 +267,10 @@ type report struct {
 
 func (r *report) Validate() error {
 	if r.UniqueID == "" || r.Version == "" || r.Platform == "" {
-		return fmt.Errorf("missing required field")
+		return errors.New("missing required field")
 	}
 	if len(r.Date) != 8 {
-		return fmt.Errorf("date not initialized")
+		return errors.New("date not initialized")
 	}
 
 	// Some fields may not be null.
@@ -753,6 +754,7 @@ func main() {
 	http.HandleFunc("/movement.json", withDB(db, movementHandler))
 	http.HandleFunc("/performance.json", withDB(db, performanceHandler))
 	http.HandleFunc("/blockstats.json", withDB(db, blockStatsHandler))
+	http.HandleFunc("/locations.json", withDB(db, locationsHandler))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	go cacheRefresher(db)
@@ -764,9 +766,10 @@ func main() {
 }
 
 var (
-	cacheData []byte
-	cacheTime time.Time
-	cacheMut  sync.Mutex
+	cachedIndex     []byte
+	cachedLocations []byte
+	cacheTime       time.Time
+	cacheMut        sync.Mutex
 )
 
 const maxCacheTime = 15 * time.Minute
@@ -790,8 +793,15 @@ func refreshCacheLocked(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	cacheData = buf.Bytes()
+	cachedIndex = buf.Bytes()
 	cacheTime = time.Now()
+
+	locs := rep["locations"].(map[location]int)
+	wlocs := make([]weightedLocation, 0, len(locs))
+	for loc, w := range locs {
+		wlocs = append(wlocs, weightedLocation{loc, w})
+	}
+	cachedLocations, _ = json.Marshal(wlocs)
 	return nil
 }
 
@@ -809,11 +819,27 @@ func rootHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(cacheData)
+		w.Write(cachedIndex)
 	} else {
 		http.Error(w, "Not found", 404)
 		return
 	}
+}
+
+func locationsHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+	cacheMut.Lock()
+	defer cacheMut.Unlock()
+
+	if time.Since(cacheTime) > maxCacheTime {
+		if err := refreshCacheLocked(db); err != nil {
+			log.Println(err)
+			http.Error(w, "Template Error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Write(cachedLocations)
 }
 
 func newDataHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
@@ -1015,8 +1041,13 @@ func inc(storage map[string]int, key string, i interface{}) {
 }
 
 type location struct {
-	Latitude  float64
-	Longitude float64
+	Latitude  float64 `json:"lat"`
+	Longitude float64 `json:"lon"`
+}
+
+type weightedLocation struct {
+	location
+	Weight int `json:"weight"`
 }
 
 func getReport(db *sql.DB) map[string]interface{} {
@@ -1419,7 +1450,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 	r["platforms"] = group(byPlatform, analyticsFor(platforms, 2000), 10)
 	r["compilers"] = group(byCompiler, analyticsFor(compilers, 2000), 5)
 	r["builders"] = analyticsFor(builders, 12)
-	r["distributions"] = analyticsFor(distributions, 10)
+	r["distributions"] = analyticsFor(distributions, len(knownDistributions))
 	r["featureOrder"] = featureOrder
 	r["locations"] = locations
 	r["contries"] = countryList

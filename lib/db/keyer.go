@@ -127,6 +127,10 @@ func (k deviceFileKey) WithoutNameAndDevice() []byte {
 	return k[:keyPrefixLen+keyFolderLen]
 }
 
+func (k deviceFileKey) WithoutName() []byte {
+	return k[:keyPrefixLen+keyFolderLen+keyDeviceLen]
+}
+
 func (k defaultKeyer) GenerateDeviceFileKey(key, folder, device, name []byte) (deviceFileKey, error) {
 	folderID, err := k.folderIdx.ID(folder)
 	if err != nil {

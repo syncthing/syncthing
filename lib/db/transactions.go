@@ -8,10 +8,13 @@ package db
 
 import (
 	"bytes"
+	"errors"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
+
+var errEntryFromGlobalMissing = errors.New("device present in global list but missing as device/fileinfo entry")
 
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
@@ -161,9 +164,9 @@ func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate boo
 		return nil, nil, false, err
 	}
 
-	vl, ok := unmarshalVersionList(bs)
-	if !ok {
-		return keyBuf, nil, false, nil
+	var vl VersionList
+	if err := vl.Unmarshal(bs); err != nil {
+		return nil, nil, false, err
 	}
 
 	keyBuf, err = t.keyer.GenerateDeviceFileKey(keyBuf, folder, vl.Versions[0].Device, file)
@@ -296,9 +299,9 @@ func (t *readOnlyTransaction) withGlobal(folder, prefix []byte, truncate bool, f
 			return nil
 		}
 
-		vl, ok := unmarshalVersionList(dbi.Value())
-		if !ok {
-			continue
+		var vl VersionList
+		if err := vl.Unmarshal(dbi.Value()); err != nil {
+			return err
 		}
 
 		dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, name)
@@ -337,9 +340,9 @@ func (t *readOnlyTransaction) availability(folder, file []byte) ([]protocol.Devi
 		return nil, err
 	}
 
-	vl, ok := unmarshalVersionList(bs)
-	if !ok {
-		return nil, nil
+	var vl VersionList
+	if err := vl.Unmarshal(bs); err != nil {
+		return nil, err
 	}
 
 	var devices []protocol.DeviceID
@@ -375,59 +378,31 @@ func (t *readOnlyTransaction) withNeed(folder, device []byte, truncate bool, fn 
 	var dk []byte
 	devID := protocol.DeviceIDFromBytes(device)
 	for dbi.Next() {
-		vl, ok := unmarshalVersionList(dbi.Value())
-		if !ok {
-			continue
+		var vl VersionList
+		if err := vl.Unmarshal(dbi.Value()); err != nil {
+			return err
 		}
 
 		haveFV, have := vl.Get(device)
-		// XXX: This marks Concurrent (i.e. conflicting) changes as
-		// needs. Maybe we should do that, but it needs special
-		// handling in the puller.
-		if have && haveFV.Version.GreaterEqual(vl.Versions[0].Version) {
-			continue
-		}
 
 		name := t.keyer.NameFromGlobalVersionKey(dbi.Key())
-		needVersion := vl.Versions[0].Version
-		needDevice := protocol.DeviceIDFromBytes(vl.Versions[0].Device)
-
-		for i := range vl.Versions {
-			if !vl.Versions[i].Version.Equal(needVersion) {
-				// We haven't found a valid copy of the file with the needed version.
-				break
-			}
-
-			if vl.Versions[i].Invalid {
-				// The file is marked invalid, don't use it.
-				continue
-			}
-
-			dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[i].Device, name)
-			if err != nil {
-				return err
-			}
-			gf, ok, err := t.getFileTrunc(dk, truncate)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				continue
-			}
-
-			if gf.IsDeleted() && !have {
-				// We don't need deleted files that we don't have
-				break
-			}
-
-			l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.Invalid, haveFV.Version, needVersion, needDevice)
-
-			if !fn(gf) {
-				return nil
-			}
-
-			// This file is handled, no need to look further in the version list
-			break
+		dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, name)
+		if err != nil {
+			return err
+		}
+		gf, ok, err := t.getFileTrunc(dk, truncate)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errEntryFromGlobalMissing
+		}
+		if !need(gf, have, haveFV.Version) {
+			continue
+		}
+		l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.Invalid, haveFV.Version, vl.Versions[0].Version, vl.Versions[0].Device)
+		if !fn(gf) {
+			return dbi.Error()
 		}
 	}
 	return dbi.Error()
@@ -494,13 +469,19 @@ func (t readWriteTransaction) close() {
 	t.WriteTransaction.Release()
 }
 
-func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
+// putFile stores a file in the database, taking care of indirected fields.
+// Set the truncated flag when putting a file that deliberatly can have an
+// empty block list but a non-empty block list hash. This should normally be
+// false.
+func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo, truncated bool) error {
 	var bkey []byte
 
-	// Always set the blocks hash when there are blocks.
+	// Always set the blocks hash when there are blocks. Leave the blocks
+	// hash alone when there are no blocks and we might be putting a
+	// "truncated" FileInfo (no blocks, but the hash reference is live).
 	if len(fi.Blocks) > 0 {
 		fi.BlocksHash = protocol.BlocksHash(fi.Blocks)
-	} else {
+	} else if !truncated {
 		fi.BlocksHash = nil
 	}
 
@@ -558,10 +539,6 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	fl, removedFV, removedAt, insertedAt, err := fl.update(folder, device, file, t.readOnlyTransaction)
 	if err != nil {
 		return nil, false, err
-	}
-	if insertedAt == -1 {
-		l.Debugln("update global; same version, global unchanged")
-		return keyBuf, false, nil
 	}
 
 	name := []byte(file.Name)
@@ -710,7 +687,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 			return nil, err
 		}
 		if f, ok, err := t.getFileByKey(keyBuf); err != nil {
-			return keyBuf, nil
+			return nil, err
 		} else if ok {
 			meta.removeFile(protocol.GlobalDeviceID, f)
 		}
@@ -736,8 +713,11 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 			return nil, err
 		}
 		global, ok, err := t.getFileByKey(keyBuf)
-		if err != nil || !ok {
-			return keyBuf, err
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, errEntryFromGlobalMissing
 		}
 		keyBuf, err = t.updateLocalNeed(keyBuf, folder, file, fl, global)
 		if err != nil {

@@ -232,7 +232,7 @@ func (p *Process) Events(since int) ([]Event, error) {
 	dec.UseNumber()
 	err = dec.Decode(&evs)
 	if err != nil {
-		return nil, fmt.Errorf("Events: %s in %q", err, bs)
+		return nil, fmt.Errorf("events: %w in %q", err, bs)
 	}
 	return evs, err
 }
@@ -398,7 +398,7 @@ func (p *Process) readResponse(resp *http.Response) ([]byte, error) {
 		return bs, err
 	}
 	if resp.StatusCode != 200 {
-		return bs, fmt.Errorf("%s", resp.Status)
+		return bs, errors.New(resp.Status)
 	}
 	return bs, nil
 }
@@ -612,7 +612,6 @@ func (p *Process) Connections() (map[string]ConnectionStats, error) {
 
 type SystemStatus struct {
 	Alloc         int64
-	CPUPercent    float64
 	Goroutines    int
 	MyID          protocol.DeviceID
 	PathSeparator string

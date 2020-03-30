@@ -345,7 +345,7 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 		var err error
 		ver, err = versioner.New(ffs, cfg.Versioning)
 		if err != nil {
-			panic(fmt.Errorf("creating versioner: %v", err))
+			panic(fmt.Errorf("creating versioner: %w", err))
 		}
 		if service, ok := ver.(suture.Service); ok {
 			// The versioner implements the suture.Service interface, so
@@ -1689,7 +1689,7 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	if !cfgOk {
 		cfg, cfgOk = m.cfg.Folders()[folder]
 		if !cfgOk {
-			return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
+			return nil, nil, fmt.Errorf("folder %s does not exist", folder)
 		}
 	}
 
@@ -1990,9 +1990,21 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 			if fi.SequenceNo() < s.prevSequence+1 {
 				panic(fmt.Sprintln("sequence lower than requested, got:", fi.SequenceNo(), ", asked to start at:", s.prevSequence+1))
 			}
-			if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
-				panic(fmt.Sprintln("non-increasing sequence, current:", fi.SequenceNo(), "<= previous:", f.Sequence))
-			}
+		}
+
+		if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
+			l.Warnln("Non-increasing sequence detected: Checking and repairing the db...")
+			// Abort this round of index sending - the next one will pick
+			// up from the last successful one with the repeaired db.
+			defer func() {
+				if fixed, dbErr := s.fset.RepairSequence(); dbErr != nil {
+					l.Warnln("Failed repairing sequence entries:", dbErr)
+					panic("Failed repairing sequence entries")
+				} else {
+					l.Infoln("Repaired %v sequence entries in database", fixed)
+				}
+			}()
+			return false
 		}
 
 		f = fi.(protocol.FileInfo)
@@ -2552,30 +2564,6 @@ func (m *model) checkFolderRunningLocked(folder string) error {
 	}
 
 	return errFolderNotRunning
-}
-
-// checkFolderDeviceStatusLocked first checks the folder and then whether the
-// given device is connected and shares this folder.
-// Need to hold (read) lock on both m.fmut and m.pmut when calling this.
-func (m *model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folder string) error {
-	if err := m.checkFolderRunningLocked(folder); err != nil {
-		return err
-	}
-
-	if cfg, ok := m.cfg.Device(device); !ok {
-		return errDeviceUnknown
-	} else if cfg.Paused {
-		return errDevicePaused
-	}
-
-	if _, ok := m.conn[device]; !ok {
-		return errors.New("device is not connected")
-	}
-
-	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(device) {
-		return errors.New("folder is not shared with device")
-	}
-	return nil
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given

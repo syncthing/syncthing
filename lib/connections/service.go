@@ -941,7 +941,7 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	if remoteID == s.myID {
 		l.Infof("Connected to myself (%s) at %s - should not happen", remoteID, c)
 		c.Close()
-		return fmt.Errorf("connected to self")
+		return errors.New("connected to self")
 	}
 
 	// We should see the expected device ID

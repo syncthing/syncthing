@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -836,7 +837,7 @@ func verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
 	bs := make([]byte, 1)
 	n, err := r.Read(bs)
 	if n != 0 || err != io.EOF {
-		return fmt.Errorf("file continues past end of blocks")
+		return errors.New("file continues past end of blocks")
 	}
 
 	return nil

@@ -13,7 +13,6 @@
 package db
 
 import (
-	"os"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -62,111 +61,14 @@ type FileIntf interface {
 // continue iteration, false to stop.
 type Iterator func(f FileIntf) bool
 
-var databaseRecheckInterval = 30 * 24 * time.Hour
-
-func init() {
-	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
-		databaseRecheckInterval = dur
-	}
-}
-
 func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 	return &FileSet{
 		folder:      folder,
 		fs:          fs,
 		db:          db,
-		meta:        loadMetadataTracker(db, folder),
+		meta:        db.loadMetadataTracker(folder),
 		updateMutex: sync.NewMutex(),
 	}
-}
-
-func loadMetadataTracker(db *Lowlevel, folder string) *metadataTracker {
-	meta := newMetadataTracker()
-
-	recalc := func() *metadataTracker {
-		if err := recalcMeta(meta, db, folder); backend.IsClosed(err) {
-			return nil
-		} else if err != nil {
-			panic(err)
-		}
-		return meta
-	}
-
-	if err := meta.fromDB(db, []byte(folder)); err != nil {
-		l.Infof("No stored folder metadata for %q; recalculating", folder)
-		return recalc()
-	}
-
-	if metaOK := verifyLocalSequence(meta, db, folder); !metaOK {
-		l.Infof("Stored folder metadata for %q is out of date after crash; recalculating", folder)
-		return recalc()
-	}
-
-	if age := time.Since(meta.Created()); age > databaseRecheckInterval {
-		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, age)
-		return recalc()
-	}
-
-	return meta
-}
-
-func recalcMeta(meta *metadataTracker, db *Lowlevel, folder string) error {
-	if err := db.checkGlobals([]byte(folder), meta); err != nil {
-		return err
-	}
-
-	t, err := db.newReadWriteTransaction()
-	if err != nil {
-		return err
-	}
-	defer t.close()
-
-	var deviceID protocol.DeviceID
-	err = t.withAllFolderTruncated([]byte(folder), func(device []byte, f FileInfoTruncated) bool {
-		copy(deviceID[:], device)
-		meta.addFile(deviceID, f)
-		return true
-	})
-	if err != nil {
-		return err
-	}
-
-	meta.SetCreated()
-	if err := meta.toDB(t, []byte(folder)); err != nil {
-		return err
-	}
-	return t.Commit()
-}
-
-// Verify the local sequence number from actual sequence entries. Returns
-// true if it was all good, or false if a fixup was necessary.
-func verifyLocalSequence(meta *metadataTracker, db *Lowlevel, folder string) bool {
-	// Walk the sequence index from the current (supposedly) highest
-	// sequence number and raise the alarm if we get anything. This recovers
-	// from the occasion where we have written sequence entries to disk but
-	// not yet written new metadata to disk.
-	//
-	// Note that we can have the same thing happen for remote devices but
-	// there it's not a problem -- we'll simply advertise a lower sequence
-	// number than we've actually seen and receive some duplicate updates
-	// and then be in sync again.
-
-	curSeq := meta.Sequence(protocol.LocalDeviceID)
-
-	t, err := db.newReadOnlyTransaction()
-	if err != nil {
-		panic(err)
-	}
-	ok := true
-	if err := t.withHaveSequence([]byte(folder), curSeq+1, func(fi FileIntf) bool {
-		ok = false // we got something, which we should not have
-		return false
-	}); err != nil && !backend.IsClosed(err) {
-		panic(err)
-	}
-	t.close()
-
-	return ok
 }
 
 func (s *FileSet) Drop(device protocol.DeviceID) {
@@ -526,6 +428,18 @@ func (s *FileSet) MtimeFS() *fs.MtimeFS {
 
 func (s *FileSet) ListDevices() []protocol.DeviceID {
 	return s.meta.devices()
+}
+
+func (s *FileSet) RepairSequence() (int, error) {
+	s.updateAndGCMutexLock() // Ensures consistent locking order
+	defer s.updateMutex.Unlock()
+	defer s.db.gcMut.RUnlock()
+	return s.db.repairSequenceGCLocked(s.folder, s.meta)
+}
+
+func (s *FileSet) updateAndGCMutexLock() {
+	s.updateMutex.Lock()
+	s.db.gcMut.RLock()
 }
 
 // DropFolder clears out all information related to the given folder from the

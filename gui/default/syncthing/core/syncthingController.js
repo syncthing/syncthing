@@ -938,8 +938,10 @@ angular.module('syncthing.core')
         };
 
         $scope.deviceStatus = function (deviceCfg) {
+            var status = '';
+
             if ($scope.deviceFolders(deviceCfg).length === 0) {
-                return 'unused';
+                status = 'unused-';
             }
 
             if (typeof $scope.connections[deviceCfg.deviceID] === 'undefined') {
@@ -947,27 +949,22 @@ angular.module('syncthing.core')
             }
 
             if (deviceCfg.paused) {
-                return 'paused';
+                return status + 'paused';
             }
 
             if ($scope.connections[deviceCfg.deviceID].connected) {
                 if ($scope.completion[deviceCfg.deviceID] && $scope.completion[deviceCfg.deviceID]._total === 100) {
-                    return 'insync';
+                    return status + 'insync';
                 } else {
                     return 'syncing';
                 }
             }
 
             // Disconnected
-            return 'disconnected';
+            return status + 'disconnected';
         };
 
         $scope.deviceClass = function (deviceCfg) {
-            if ($scope.deviceFolders(deviceCfg).length === 0) {
-                // Unused
-                return 'warning';
-            }
-
             if (typeof $scope.connections[deviceCfg.deviceID] === 'undefined') {
                 return 'info';
             }

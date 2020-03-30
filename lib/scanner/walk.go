@@ -536,7 +536,7 @@ func (w *walker) handleError(ctx context.Context, context, path string, err erro
 	l.Infof("Scanner (folder %s, item %q): %s: %v", w.Folder, path, context, err)
 	select {
 	case finishedChan <- ScanResult{
-		Err:  fmt.Errorf("%s: %s", context, err.Error()),
+		Err:  fmt.Errorf("%s: %w", context, err),
 		Path: path,
 	}:
 	case <-ctx.Done():

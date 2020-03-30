@@ -35,6 +35,7 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
 )
 
@@ -69,6 +70,9 @@ type Options struct {
 	ProfilerURL      string
 	ResetDeltaIdxs   bool
 	Verbose          bool
+	// null duration means use default value
+	DBRecheckInterval    time.Duration
+	DBIndirectGCInterval time.Duration
 }
 
 type App struct {
@@ -89,7 +93,7 @@ type App struct {
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
 	a := &App{
 		cfg:      cfg,
-		ll:       db.NewLowlevel(dbBackend),
+		ll:       db.NewLowlevel(dbBackend, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval)),
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,
@@ -224,7 +228,7 @@ func (a *App) startup() error {
 
 	prevParts := strings.Split(prevVersion, "-")
 	curParts := strings.Split(build.Version, "-")
-	if prevParts[0] != curParts[0] {
+	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
 		if prevVersion != "" {
 			l.Infoln("Detected upgrade from", prevVersion, "to", build.Version)
 		}
@@ -232,7 +236,17 @@ func (a *App) startup() error {
 		// Drop delta indexes in case we've changed random stuff we
 		// shouldn't have. We will resend our index on next connect.
 		db.DropDeltaIndexIDs(a.ll)
+	}
 
+	// Check and repair metadata and sequences on every upgrade including RCs.
+	prevParts = strings.Split(prevVersion, "+")
+	curParts = strings.Split(build.Version, "+")
+	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
+		l.Infoln("Checking db due to upgrade - this may take a while...")
+		a.ll.CheckRepair()
+	}
+
+	if build.Version != prevVersion {
 		// Remember the new version.
 		miscDB.PutString("prevVersion", build.Version)
 	}
@@ -420,13 +434,10 @@ func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscri
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	cpu := newCPUService()
-	a.mainService.Add(cpu)
-
 	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID, a.evLogger)
 	a.mainService.Add(summaryService)
 
-	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, &controller{a}, a.opts.NoUpgrade)
+	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, &controller{a}, a.opts.NoUpgrade)
 	a.mainService.Add(apiSvc)
 
 	if err := apiSvc.WaitForStart(); err != nil {
