@@ -62,3 +62,64 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 	}
 	return res, nil
 }
+
+func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {
+	//FIXME locking? m.mut.Lock()
+	//FIXME locking? defer m.mut.Unlock()
+
+	key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), device[:])
+	if err == nil {
+		timestamp := time.Now().Round(time.Second)
+		of := ObservedFolder{
+			Time:  &timestamp,
+			Label: label,
+		}
+		bs, err := of.Marshal()
+		if err == nil {
+			err = db.Put(key, bs)
+		}
+	}
+	if err != nil {
+		l.Warnf("Failed to store pending folder entry: %v", err)
+	}
+}
+
+func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]ObservedFolder, error) {
+	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
+	if err != nil {
+		return nil, err
+	}
+	res := make(map[string]map[protocol.DeviceID]ObservedFolder)
+	defer iter.Release()
+	for iter.Next() {
+		bs, err := db.Get(iter.Key())
+		if err != nil {
+			return nil, err
+		}
+		if keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key()); ok {
+			deviceID := protocol.DeviceIDFromBytes(keyDev)
+			if device != protocol.EmptyDeviceID && device != deviceID {
+				continue
+			}
+			var of ObservedFolder
+			folderID := string(db.keyer.FolderFromPendingFolderKey(iter.Key()))
+			if len(folderID) < 1 {
+				goto deleteKey
+			}
+			if err := of.Unmarshal(bs); err != nil {
+				goto deleteKey
+			}
+			if _, ok := res[folderID]; !ok {
+				res[folderID] = make(map[protocol.DeviceID]ObservedFolder)
+			}
+			res[folderID][deviceID] = of
+			continue
+		}
+	deleteKey:
+		l.Warnln("Invalid pending folder entry, deleting from database")
+		if err := db.Delete(iter.Key()); err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
