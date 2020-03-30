@@ -44,17 +44,21 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 		if err != nil {
 			return nil, err
 		}
-		deviceID := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
 		var od ObservedDevice
-		err = od.Unmarshal(bs)
-		if len(deviceID) != protocol.DeviceIDLength || err != nil {
-			l.Warnln("Invalid pending device entry, deleting from database")
-			if err := db.Delete(iter.Key()); err != nil {
-				return nil, err
-			}
-			continue
+		deviceID := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
+		if len(deviceID) != protocol.DeviceIDLength {
+			goto deleteKey
+		}
+		if err := od.Unmarshal(bs); err != nil {
+			goto deleteKey
 		}
 		res[protocol.DeviceIDFromBytes(deviceID)] = od
+		continue
+	deleteKey:
+		l.Warnln("Invalid pending device entry, deleting from database")
+		if err := db.Delete(iter.Key()); err != nil {
+			return nil, err
+		}
 	}
 	return res, nil
 }
