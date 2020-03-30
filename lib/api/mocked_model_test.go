@@ -120,6 +120,10 @@ func (m *mockedModel) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice,
 	return nil, nil
 }
 
+func (m *mockedModel) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error) {
+	return nil, nil
+}
+
 func (m *mockedModel) FolderErrors(folder string) ([]model.FileError, error) {
 	return nil, nil
 }

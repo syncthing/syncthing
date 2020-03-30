@@ -105,7 +105,7 @@ type Model interface {
 	UsageReportingStats(version int, preview bool) map[string]interface{}
 
 	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error)
-	//PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error)
+	PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error)
 
 	StartDeadlockDetector(timeout time.Duration)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
@@ -2590,6 +2590,10 @@ func (m *model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folde
 
 func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
 	return m.db.PendingDevices()
+}
+
+func (m *model) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error) {
+	return m.db.PendingFolders(device)
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given

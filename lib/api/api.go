@@ -610,6 +610,22 @@ func (s *service) getPendingDevices(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getPendingFolders(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	device := qs.Get("device")
+	deviceID, err := protocol.DeviceIDFromString(device)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	folders, err := s.model.PendingFolders(deviceID)
+	//FIXME could filter for the device ID here, but it's most efficient in the model / DB layer
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	sendJSON(w, toJsonObservedFolderSlice(folders))
 }
 
 func (s *service) restPing(w http.ResponseWriter, r *http.Request) {
@@ -1641,6 +1657,26 @@ func toJsonPendingDeviceSlice(devices map[protocol.DeviceID]db.ObservedDevice) [
 	return res
 }
 
+func toJsonObservedFolderSlice(folders map[string]map[protocol.DeviceID]db.ObservedFolder) []jsonPendingFolder {
+	res := make([]jsonPendingFolder, len(folders))
+	i := 0
+	for id, devices := range folders {
+		res[i] = jsonPendingFolder{id, toJsonOfferingDeviceSlice(devices)}
+		i++
+	}
+	return res
+}
+
+func toJsonOfferingDeviceSlice(devices map[protocol.DeviceID]db.ObservedFolder) []jsonOfferingDevice {
+	res := make([]jsonOfferingDevice, len(devices))
+	i := 0
+	for id, meta := range devices {
+		res[i] = jsonOfferingDevice{id.String(), meta}
+		i++
+	}
+	return res
+}
+
 // Type wrappers for nice JSON serialization
 
 type jsonFileInfo protocol.FileInfo
@@ -1694,6 +1730,16 @@ func (v jsonVersionVector) MarshalJSON() ([]byte, error) {
 type jsonPendingDevice struct {
 	ID string `json:"deviceID"`
 	db.ObservedDevice
+}
+
+type jsonPendingFolder struct {
+	ID string `json:"id"`
+	OfferedBy []jsonOfferingDevice
+}
+
+type jsonOfferingDevice struct {
+	ID string `json:"deviceID"`
+	db.ObservedFolder
 }
 
 func dirNames(dir string) []string {
