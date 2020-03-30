@@ -22,6 +22,7 @@ import (
 //   6: v0.14.50
 //   7: v0.14.53
 //   8-9: v1.4.0
+//   10: v1.5.0
 const (
 	dbVersion             = 10
 	dbMinSyncthingVersion = "v1.5.0"
@@ -84,7 +85,6 @@ func (db *schemaUpdater) updateSchema() error {
 		{5, db.updateSchemaTo5},
 		{6, db.updateSchema5to6},
 		{7, db.updateSchema6to7},
-		{9, db.updateSchemato9},
 		{10, db.updateSchemato10},
 	}
 
@@ -434,9 +434,9 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) updateSchemato9(prev int) error {
-	// Loads and rewrites all files with blocks, to deduplicate block lists.
-	// Checks for missing or incorrect sequence entries and rewrites those.
+func (db *schemaUpdater) updateSchemato10(prev int) error {
+	// Loads and rewrites all files, to deduplicate block lists and version
+	// vectors.
 
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
@@ -444,6 +444,13 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 	}
 	defer t.close()
 
+	if err := db.rewriteFiles(t); err != nil {
+		return err
+	}
+	return t.Commit()
+}
+
+func (db *schemaUpdater) rewriteFiles(t readWriteTransaction) error {
 	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
 		return err
@@ -463,9 +470,6 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 			return err
 		}
 		fi := intf.(protocol.FileInfo)
-		if fi.Blocks == nil {
-			continue
-		}
 		if err := t.putFile(it.Key(), fi, false); err != nil {
 			return err
 		}
@@ -474,55 +478,5 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 		}
 	}
 	it.Release()
-	if err := it.Error(); err != nil {
-		return err
-	}
-
-	db.recordTime(indirectGCTimeKey)
-
-	return t.Commit()
-}
-
-func (db *schemaUpdater) updateSchemato10(prev int) error {
-	// Loads and rewrites all files, to update indirection (blocks &
-	// versions) where necessary.
-
-	if prev < 8 {
-		// The migration to 8 or 9 will have already rewritten the files with the latest code.
-		return nil
-	}
-
-	t, err := db.newReadWriteTransaction()
-	if err != nil {
-		return err
-	}
-	defer t.close()
-
-	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
-	if err != nil {
-		return err
-	}
-	for it.Next() {
-		intf, err := t.unmarshalTrunc(it.Value(), false)
-		if err != nil {
-			return err
-		}
-		fi := intf.(protocol.FileInfo)
-		if err := t.putFile(it.Key(), fi, false); err != nil {
-			return err
-		}
-	}
-	it.Release()
-	if err := it.Error(); err != nil {
-		return err
-	}
-
-	// We might have moved blocks from being indirect to being direct, so GC.
-	if err := db.gcIndirect(); err != nil {
-		return err
-	}
-
-	db.recordTime(indirectGCTimeKey)
-
-	return t.Commit()
+	return it.Error()
 }
