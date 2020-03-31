@@ -167,7 +167,7 @@ func reset(n *NamespacedKV) {
 	}
 	defer tr.Release()
 
-	it, err := tr.NewPrefixIterator(n.prefix)
+	it, err := tr.NewPrefixIterator([]byte(n.prefix))
 	if err != nil {
 		return
 	}
