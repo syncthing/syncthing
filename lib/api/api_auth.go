@@ -11,16 +11,17 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 
+	ldap "github.com/go-ldap/ldap/v3"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/crypto/bcrypt"
-	ldap "gopkg.in/ldap.v2"
 )
 
 var (
@@ -130,10 +131,16 @@ func authStatic(username string, password string, configUser string, configPassw
 
 func authLDAP(username string, password string, cfg config.LDAPConfiguration) bool {
 	address := cfg.Address
+	hostname, _, err := net.SplitHostPort(address)
+	if err != nil {
+		hostname = address
+	}
 	var connection *ldap.Conn
-	var err error
 	if cfg.Transport == config.LDAPTransportTLS {
-		connection, err = ldap.DialTLS("tcp", address, &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify})
+		connection, err = ldap.DialTLS("tcp", address, &tls.Config{
+			ServerName:         hostname,
+			InsecureSkipVerify: cfg.InsecureSkipVerify,
+		})
 	} else {
 		connection, err = ldap.Dial("tcp", address)
 	}

@@ -8,23 +8,6 @@ package rand
 
 import "testing"
 
-func TestSeedFromBytes(t *testing.T) {
-	// should always return the same seed for the same bytes
-	tcs := []struct {
-		bs []byte
-		v  int64
-	}{
-		{[]byte("hello world"), -3639725434188061933},
-		{[]byte("hello worlx"), -2539100776074091088},
-	}
-
-	for _, tc := range tcs {
-		if v := SeedFromBytes(tc.bs); v != tc.v {
-			t.Errorf("Unexpected seed value %d != %d", v, tc.v)
-		}
-	}
-}
-
 func TestRandomString(t *testing.T) {
 	for _, l := range []int{0, 1, 2, 3, 4, 8, 42} {
 		s := String(l)

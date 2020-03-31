@@ -109,6 +109,12 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 
 	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"], res["localTotalItems"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
 
+	fcfg, haveFcfg := c.cfg.Folder(folder)
+
+	if haveFcfg && fcfg.IgnoreDelete {
+		need.Deleted = 0
+	}
+
 	need.Bytes -= c.model.FolderProgressBytesCompleted(folder)
 	// This may happen if we are in progress of pulling files that were
 	// deleted globally after the pull started.
@@ -117,13 +123,7 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	}
 	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
 
-	fcfg, ok := c.cfg.Folder(folder)
-
-	if ok && fcfg.IgnoreDelete {
-		res["needDeletes"] = 0
-	}
-
-	if ok && fcfg.Type == config.FolderTypeReceiveOnly {
+	if haveFcfg && fcfg.Type == config.FolderTypeReceiveOnly {
 		// Add statistics for things that have changed locally in a receive
 		// only folder.
 		res["receiveOnlyChangedFiles"] = ro.Files
