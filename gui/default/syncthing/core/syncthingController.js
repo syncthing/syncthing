@@ -117,6 +117,7 @@ angular.module('syncthing.core')
             console.log('UIOnline');
 
             refreshSystem();
+            refreshCluster();
             refreshDiscoveryCache();
             refreshConfig();
             refreshConnectionStats();
@@ -239,6 +240,14 @@ angular.module('syncthing.core')
                     _needItems: 0
                 };
             }
+        });
+
+        $scope.$on(Events.DEVICE_REJECTED, function (event, arg) {
+            refreshCluster();
+        });
+
+        $scope.$on(Events.FOLDER_REJECTED, function (event, arg) {
+            refreshCluster();
         });
 
         $scope.$on('ConfigLoaded', function () {
@@ -451,6 +460,16 @@ angular.module('syncthing.core')
                 && !guiCfg.insecureAdminAccess;
         }
 
+        function refreshCluster() {
+            $http.get(urlbase + '/cluster/pendingDevices').success(function (data) {
+                $scope.pendingDevices = data;
+                console.log("refreshCluster devices", data);
+            }).error($scope.emitHTTPError);
+            $http.get(urlbase + '/cluster/pendingFolders').success(function (data) {
+                $scope.pendingFolders = data;
+                console.log("refreshCluster folders", data);
+            }).error($scope.emitHTTPError);
+        }
 
         function refreshDiscoveryCache() {
             $http.get(urlbase + '/system/discovery').success(function (data) {
