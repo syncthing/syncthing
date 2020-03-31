@@ -12,6 +12,7 @@ require (
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/getsentry/raven-go v0.2.0
+	github.com/go-ldap/ldap/v3 v3.1.7
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.1
@@ -45,9 +46,7 @@ require (
 	golang.org/x/sys v0.0.0-20191224085550-c709ea063b76
 	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
-	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
-	gopkg.in/ldap.v2 v2.5.1
 )
 
 go 1.13
