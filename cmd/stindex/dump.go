@@ -105,6 +105,21 @@ func dump(ldb backend.Backend) {
 		case db.KeyTypeBlockList:
 			fmt.Printf("[blocklist] H:%x\n", it.Key()[1:])
 
+		case db.KeyTypePendingFolder:
+			folderEnd := len(it.Key()) - 4
+			folder := string(it.Key()[1:folderEnd])
+			device := binary.BigEndian.Uint32(key[folderEnd:])
+			var of db.ObservedFolder
+			of.Unmarshal(it.Value())
+			fmt.Printf("[pendingFolder] F:%s D:%x V:%v\n", folder, device, of)
+
+		case db.KeyTypePendingDevice:
+			device := protocol.DeviceIDFromBytes(it.Key()[1:])
+			var od db.ObservedDevice
+			od.Unmarshal(it.Value())
+			fmt.Printf("[pendingDevice] D:%v V:%v\n", device, od)
+
+
 		default:
 			fmt.Printf("[???]\n  %x\n  %x\n", it.Key(), it.Value())
 		}
