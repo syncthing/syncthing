@@ -35,7 +35,7 @@ export class DeviceService {
     if (this.sysConns.connections[device.deviceID] === undefined) {
       console.log(this.sysConns.connections)
       console.log("connections undefined", device.deviceID);
-      device.state = Device.StateType.Unknown;
+      device.stateType = Device.StateType.Unknown;
     } else {
       // Set connected
       device.connected = this.sysConns.connections[device.deviceID].connected;
@@ -49,6 +49,8 @@ export class DeviceService {
     this.dbCompletionService.getDeviceCompletion(device.deviceID).subscribe(
       c => {
         device.completion = c.completion;
+        device.stateType = Device.getStateType(device);
+        device.state = Device.stateTypeToString(device.stateType);
         observer.next(device);
 
         // recursively get the status of the next folder

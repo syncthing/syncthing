@@ -11,6 +11,12 @@
     <td mat-cell *matCellDef="let row">{{row.name}}</td>
   </ng-container>
 
+  <!-- Status Column -->
+  <ng-container matColumnDef="state">
+    <th mat-header-cell *matHeaderCellDef mat-sort-header>State</th>
+    <td mat-cell *matCellDef="let row">{{row.state}}</td>
+  </ng-container>
+
   <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
   <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
 </table>

@@ -26,6 +26,8 @@ export class FolderService {
     this.dbStatusService.getFolderStatus(folder.id).subscribe(
       status => {
         folder.status = status;
+        folder.stateType = Folder.getStateType(folder);
+        folder.state = Folder.stateTypeToString(folder.stateType);
         observer.next(folder);
 
         // recursively get the status of the next folder

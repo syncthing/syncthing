@@ -45,24 +45,20 @@ export class ChartComponent implements OnInit {
   ngAfterViewInit() {
     let totalCount: number = 0;
     this.service.getAll().subscribe(
-      folder => {
+      t => {
         // Count the number of folders and set chart
         totalCount++;
         this.donutChart.count = totalCount;
 
         // Get StateType and convert to string 
-        let stateType;
-        let state: string;
+        const stateType = t.stateType;
+        const state = t.state;
         let color;
         switch (this.type) {
           case Type.Folder:
-            stateType = Folder.getStateType(folder);
-            state = Folder.stateTypeToString(stateType);
-            color = Folder.stateTypeToColor(stateType);
+            color = Folder.stateTypeToColor(t.stateType);
             break;
           case Type.Device:
-            stateType = Device.getStateType(folder);
-            state = Device.stateTypeToString(stateType);
             color = Device.stateTypeToColor(stateType);
             break;
         }

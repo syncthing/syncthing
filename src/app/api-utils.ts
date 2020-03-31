@@ -6,5 +6,4 @@ export const deviceID = (): String => {
 }
 
 export const apiURL: String = '/'
-
 export const apiRetry: number = 3;

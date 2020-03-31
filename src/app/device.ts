@@ -3,7 +3,8 @@ import { colors } from './style';
 interface Device {
     deviceID: string;
     name: string;
-    state: Device.StateType;
+    stateType: Device.StateType;
+    state: string;
     paused: boolean;
     connected: boolean;
     completion: number;
@@ -70,7 +71,7 @@ namespace Device {
 
     export function getStateType(d: Device): StateType {
         // StateType Unknown is set in DeviceService
-        if (d.state === StateType.Unknown) {
+        if (d.stateType === StateType.Unknown) {
             return StateType.Unknown;
         }
 

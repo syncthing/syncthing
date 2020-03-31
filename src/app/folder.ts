@@ -6,8 +6,11 @@ interface Folder {
     label: string;
     devices: Device[];
     status: Folder.Status;
+    stateType: Folder.StateType;
+    state: string;
     paused: boolean;
     completion: number;
+    path: string;
 }
 
 namespace Folder {

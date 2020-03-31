@@ -23,7 +23,7 @@ export class FolderListComponent implements AfterViewInit, OnInit {
   }
 
   /** Columns displayed in the table. Columns IDs can be added, removed, or reordered. */
-  displayedColumns = ['id', 'label'];
+  displayedColumns = ['id', 'label', 'path', 'state'];
 
   constructor(private systemConfigService: SystemConfigService) { };
 

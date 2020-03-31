@@ -52,11 +52,10 @@ $tech-ui-typography: mat-typography-config(
 // Be sure that you only ever include this mixin once!
 @include mat-core($tech-ui-typography);
 
-
 // Define the palettes for your theme using the Material Design palettes available in palette.scss
 // (imported above). For each palette, you can optionally specify a default, lighter, and darker
 // hue. Available color palettes: https://material.io/design/color/
-$tech-ui-primary: mat-palette($mat-indigo);
+$tech-ui-primary: mat-palette($mat-blue);
 $tech-ui-accent: mat-palette($mat-blue, A200, A100, A400);
 
 // The warn palette is optional (defaults to red).
@@ -93,4 +92,8 @@ html, body {
 
 .tui-card-content {
     padding: 16px;
+}
+
+.tui-button-toggle .mat-button-toggle-appearance-standard .mat-button-toggle-label-content  {
+    line-height: 34px;
 }
