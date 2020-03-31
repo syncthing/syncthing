@@ -11,11 +11,26 @@ In production we serve the UI through Syncthing itself. The easiest way to
 do that is to simply put the built assets in the `gui` subdirectory of
 Syncthing's config directory.
 
-- `npm run build -- --prod`
-- `rsync -va --delete dist/tech-ui/ ~/.config/syncthing/gui/default/tech-ui/`
+```
+$ npm run build -- --prod
+$ rsync -va --delete dist/tech-ui/ ~/.config/syncthing/gui/default/tech-ui/
+```
 
 Adjust for your actual Syncthing config dir if different. Navigate to
 `http://localhost:8384/tech-ui/`.
+
+Another option is to start Syncthing with the STGUIASSETS environment
+variable pointing to the distribution directory.
+
+```
+$ npm run build -- --prod
+$ ln -sf . dist/default
+$ export STGUIASSETS=$(pwd)/dist
+$ syncthing
+```
+
+The magic is symlink is because Syncthing will look for the GUI in the
+`default` subdirectory. Navigate to `http://localhost:8384/tech-ui/`.
 
 ## Code scaffolding
 
