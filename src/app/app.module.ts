@@ -60,7 +60,7 @@ import { FolderListComponent } from './lists/folder-list/folder-list.component';
     }),
     environment.production ?
       [] : HttpClientInMemoryWebApiModule.forRoot(InMemoryConfigDataService,
-        { dataEncapsulation: false, delay: 200 }),
+        { dataEncapsulation: false, delay: 10 }),
   ],
   providers: [httpInterceptorProviders],
   bootstrap: [AppComponent]
