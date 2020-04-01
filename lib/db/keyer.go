@@ -334,11 +334,17 @@ func (k defaultKeyer) GeneratePendingFolderKey(key, folder, device []byte) (pend
 
 func (k defaultKeyer) FolderFromPendingFolderKey(key []byte) []byte {
 	folderEnd := len(key) - keyDeviceLen
+	if folderEnd < keyPrefixLen {
+		return nil
+	}
 	return key[keyPrefixLen:folderEnd]
 }
 
 func (k defaultKeyer) DeviceFromPendingFolderKey(key []byte) ([]byte, bool) {
 	folderEnd := len(key) - keyDeviceLen
+	if folderEnd < keyPrefixLen {
+		return nil, false
+	}
 	return k.deviceIdx.Val(binary.BigEndian.Uint32(key[folderEnd:]))
 }
 
