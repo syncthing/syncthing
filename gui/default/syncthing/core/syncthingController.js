@@ -1847,7 +1847,9 @@ angular.module('syncthing.core')
                     }
                 };
                 delete folderCfg.trashcanFileVersioning;
-                
+                $('#editFolder').on('hidden.bs.modal', function (e) {
+                    delete folderCfg.trashcanClean;
+                })
             } else if (folderCfg.fileVersioningSelector === "simple") {
                 folderCfg.versioning = {
                     'Type': 'simple',
