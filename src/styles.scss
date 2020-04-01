@@ -1,32 +1,6 @@
-// Chart.js styles
-#chartjs-tooltip {
-    /* max z-index value */
-    z-index: 2147483647;
-    opacity: 0;
-    position: absolute;
-    background: rgba(0, 0, 0, .7);
-    color: white;
-    border-radius: 3px;
-    -webkit-transition: opacity .3s ease;
-    transition: opacity .3s ease;
-    pointer-events: none;
-    -webkit-transform: translate(-50%, 0);
-    transform: translate(-50%, 0);
-}
-
-.chartjs-tooltip-key {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    margin-right: 10px;
-}
-
-
 // Custom Theming for Angular Material
 // For more information: https://material.angular.io/guide/theming
 @import '~@angular/material/theming';
-// Plus imports for other components in your app.
-
 
 // Custom typography
 $tech-ui-typography: mat-typography-config(
@@ -55,8 +29,42 @@ $tech-ui-typography: mat-typography-config(
 // Define the palettes for your theme using the Material Design palettes available in palette.scss
 // (imported above). For each palette, you can optionally specify a default, lighter, and darker
 // hue. Available color palettes: https://material.io/design/color/
-$tech-ui-primary: mat-palette($mat-blue);
-$tech-ui-accent: mat-palette($mat-blue, A200, A100, A400);
+$tech-ui-red: #EB5757;
+$tech-ui-blue: (
+  50: #0891D1,
+  100: #0891D1,
+  200: #0891D1,
+  300: #0891D1,
+  400: #0891D1,
+  500: #0891D1,
+  600: #0891D1,
+  700: #0891D1,
+  800: #0891D1,
+  900: #0891D1,
+  A100: #0891D1,
+  A200: #0891D1,
+  A400: #0891D1,
+  A700: #0891D1,
+  contrast: (
+    50: $dark-primary-text,
+    100: $dark-primary-text,
+    200: $dark-primary-text,
+    300: $dark-primary-text,
+    400: $dark-primary-text,
+    500: $light-primary-text,
+    600: $light-primary-text,
+    700: $light-primary-text,
+    800: $light-primary-text,
+    900: $light-primary-text,
+    A100: $dark-primary-text,
+    A200: $light-primary-text,
+    A400: $light-primary-text,
+    A700: $light-primary-text,
+  )
+);
+
+$tech-ui-primary: mat-palette($tech-ui-blue);
+$tech-ui-accent: mat-palette($tech-ui-blue, A200, A100, A400);
 
 // The warn palette is optional (defaults to red).
 $tech-ui-warn: mat-palette($mat-red);
@@ -87,7 +95,7 @@ html, body {
 .tui-card-title {
     padding: 16px 16px 0 16px;
     font-size: mat-font-size($tech-ui-typography, subheading-2);
-    color: #0891D1;
+    color: mat-color($tech-ui-primary);
 }
 
 .tui-card-content {
@@ -96,4 +104,27 @@ html, body {
 
 .tui-button-toggle .mat-button-toggle-appearance-standard .mat-button-toggle-label-content  {
     line-height: 34px;
+}
+
+// Chart.js styles
+#chartjs-tooltip {
+    /* max z-index value */
+    z-index: 2147483647;
+    opacity: 0;
+    position: absolute;
+    background: rgba(0, 0, 0, .7);
+    color: white;
+    border-radius: 3px;
+    -webkit-transition: opacity .3s ease;
+    transition: opacity .3s ease;
+    pointer-events: none;
+    -webkit-transform: translate(-50%, 0);
+    transform: translate(-50%, 0);
+}
+
+.chartjs-tooltip-key {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 10px;
 }

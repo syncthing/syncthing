@@ -8,4 +8,4 @@ export const colors: Map<string, string> = new Map([
     ["green", "#56C568"],
     ["grey", "#DDDDDD"],
     ["red", "#EB5757"]
-]); 
+]);

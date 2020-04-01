@@ -13,7 +13,6 @@ export class StatusListComponent implements OnInit {
   listType = Type; // used in html
   elevation: string = cardElevation;
   title: string = 'Status';
-  folderList: Type = Type.Folder;
 
   constructor() { }
 

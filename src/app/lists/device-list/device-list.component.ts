@@ -22,6 +22,11 @@ export class DeviceListComponent implements AfterViewInit, OnInit {
 
   constructor(private systemConfigService: SystemConfigService) { };
 
+  applyFilter(event: Event) {
+    const filterValue = (event.target as HTMLInputElement).value;
+    this.dataSource.filter = filterValue.trim().toLowerCase();
+  }
+
   ngOnInit() {
     this.dataSource = new MatTableDataSource();
     this.dataSource.data = [];

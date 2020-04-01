@@ -17,15 +17,15 @@ export class FolderListComponent implements AfterViewInit, OnInit {
   @ViewChild(MatTable) table: MatTable<Folder>;
   dataSource: MatTableDataSource<Folder>;
 
-  applyFilter(event: Event) {
-    const filterValue = (event.target as HTMLInputElement).value;
-    this.dataSource.filter = filterValue.trim().toLowerCase();
-  }
-
   /** Columns displayed in the table. Columns IDs can be added, removed, or reordered. */
   displayedColumns = ['id', 'label', 'path', 'state'];
 
   constructor(private systemConfigService: SystemConfigService) { };
+
+  applyFilter(event: Event) {
+    const filterValue = (event.target as HTMLInputElement).value;
+    this.dataSource.filter = filterValue.trim().toLowerCase();
+  }
 
   ngOnInit() {
     this.dataSource = new MatTableDataSource();
