@@ -248,12 +248,6 @@ func (a *App) startup() error {
 
 	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
 
-	if a.opts.DeadlockTimeoutS > 0 {
-		m.StartDeadlockDetector(time.Duration(a.opts.DeadlockTimeoutS) * time.Second)
-	} else if !build.IsRelease || build.IsBeta {
-		m.StartDeadlockDetector(20 * time.Minute)
-	}
-
 	a.mainService.Add(m)
 
 	// Start discovery

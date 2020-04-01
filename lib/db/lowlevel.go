@@ -412,7 +412,6 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 				return err
 			}
 			newVL.Versions = append(newVL.Versions, version)
-			l.Debugf("entry found for global; folder=%s device=%v file=%s version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(version.Device), name, version.Version, version.Invalid)
 
 			if i == 0 {
 				if fi, ok, err := t.getFileByKey(dk); err != nil {
