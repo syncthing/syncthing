@@ -31,6 +31,11 @@ func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, add
 	}
 }
 
+// List unknown devices that tried to connect.  As a side-effect, any
+// invalid entries are dropped from the database after a warning log
+// message.  That's the only possible "repair" measure and appropriate
+// for the importance of pending entries.  They will come back soon if
+// still relevant.
 func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
@@ -45,6 +50,8 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 		}
 		var od ObservedDevice
 		deviceID := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
+		//FIXME: DeviceIDFromBytes() panics when given a wrong length input.
+		//       It should rather return an error which we'd check for here.
 		if len(deviceID) != protocol.DeviceIDLength {
 			goto deleteKey
 		}
@@ -82,6 +89,11 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 	}
 }
 
+// List folders that we don't yet share with the offering devices.  As
+// a side-effect, any invalid entries are dropped from the database
+// after a warning log message.  That's the only possible "repair"
+// measure and appropriate for the importance of pending entries.
+// They will come back soon if still relevant.
 func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]ObservedFolder, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {
@@ -95,6 +107,7 @@ func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[pro
 			return nil, err
 		}
 		if keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key()); ok {
+			// Here we expect the length to match, coming from the device index.
 			deviceID := protocol.DeviceIDFromBytes(keyDev)
 			if device != protocol.EmptyDeviceID && device != deviceID {
 				continue
