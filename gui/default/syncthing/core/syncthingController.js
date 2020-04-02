@@ -42,9 +42,8 @@ angular.module('syncthing.core')
         $scope.folderStats = {};
         $scope.progress = {};
         $scope.version = {};
-        $scope.needed = [];
-        $scope.neededCurrentPage = 1;
-        $scope.neededPageSize = 10;
+        $scope.needed = {}
+        $scope.neededFolder = '';
         $scope.failed = {};
         $scope.localChanged = {};
         $scope.scanProgress = {};
@@ -299,12 +298,12 @@ angular.module('syncthing.core')
             for (var folder in $scope.progress) {
                 if (!(folder in progress)) {
                     if ($scope.neededFolder === folder) {
-                        refreshNeed(folder);
+                        refreshNeed($scope.needed.page, $scope.needed.perpage);
                     }
                 } else if ($scope.neededFolder === folder) {
                     for (file in $scope.progress[folder]) {
                         if (!(file in progress[folder])) {
-                            refreshNeed(folder);
+                            refreshNeed($scope.needed.page, $scope.needed.perpage);
                             break;
                         }
                     }
@@ -580,18 +579,16 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         }
 
-        function refreshNeed(folder) {
+        $scope.refreshNeed = function (page, perpage) {
             if (!$scope.neededFolder) {
                 return;
             }
-            var url = urlbase + "/db/need?folder=" + encodeURIComponent(folder);
-            url += "&page=" + $scope.neededCurrentPage;
-            url += "&perpage=" + $scope.neededPageSize;
+            var url = urlbase + "/db/need?folder=" + encodeURIComponent($scope.neededFolder);
+            url += "&page=" + page;
+            url += "&perpage=" + perpage;
             $http.get(url).success(function (data) {
-                if ($scope.neededFolder === folder) {
-                    console.log("refreshNeed", folder, data);
-                    parseNeeded(data);
-                }
+                console.log("refreshNeed", $scope.neededFolder, data);
+                parseNeeded(data);
             }).error($scope.emitHTTPError);
         }
 
@@ -611,6 +608,7 @@ angular.module('syncthing.core')
         }
 
         function parseNeeded(data) {
+            $scope.needed = data;
             var merged = [];
             data.progress.forEach(function (item) {
                 item.type = "progress";
@@ -627,7 +625,7 @@ angular.module('syncthing.core')
                 item.action = needAction(item);
                 merged.push(item);
             });
-            $scope.needed = merged;
+            $scope.needed.items = merged;
         }
 
         function pathJoin(base, name) {
@@ -680,16 +678,6 @@ angular.module('syncthing.core')
                     cb();
                 }
             });
-        };
-
-        $scope.neededPageChanged = function (page) {
-            $scope.neededCurrentPage = page;
-            refreshNeed($scope.neededFolder);
-        };
-
-        $scope.neededChangePageSize = function (perpage) {
-            $scope.neededPageSize = perpage;
-            refreshNeed($scope.neededFolder);
         };
 
         $scope.refreshFailed = function (page, perpage) {
@@ -2223,11 +2211,10 @@ angular.module('syncthing.core')
 
         $scope.showNeed = function (folder) {
             $scope.neededFolder = folder;
-            refreshNeed(folder);
+            $scope.refreshNeed(1, 10);
             $('#needed').modal().one('hidden.bs.modal', function () {
-                $scope.neededFolder = undefined;
                 $scope.needed = undefined;
-                $scope.neededCurrentPage = 1;
+                $scope.neededFolder = '';
             });
         };
 
@@ -2377,8 +2364,8 @@ angular.module('syncthing.core')
         $scope.bumpFile = function (folder, file) {
             var url = urlbase + "/db/prio?folder=" + encodeURIComponent(folder) + "&file=" + encodeURIComponent(file);
             // In order to get the right view of data in the response.
-            url += "&page=" + $scope.neededCurrentPage;
-            url += "&perpage=" + $scope.neededPageSize;
+            url += "&page=" + $scope.needed.page;
+            url += "&perpage=" + $scope.needed.perpage;
             $http.post(url).success(function (data) {
                 if ($scope.neededFolder === folder) {
                     console.log("bumpFile", folder, data);
