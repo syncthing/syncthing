@@ -14,7 +14,6 @@ import (
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/willf/bloom"
 )
 
 const (
@@ -590,7 +589,7 @@ func (db *Lowlevel) gcIndirect() error {
 	if db.gcKeyCount > capacity {
 		capacity = db.gcKeyCount
 	}
-	blockFilter := bloom.NewWithEstimates(uint(capacity), indirectGCBloomFalsePositiveRate)
+	blockFilter := newBloomfilter(capacity, indirectGCBloomFalsePositiveRate)
 
 	// Iterate the FileInfos, unmarshal the block and version hashes and
 	// add them to the filter.

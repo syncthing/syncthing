@@ -4,16 +4,20 @@ import (
 	"crypto/sha256"
 	"math/rand"
 	"testing"
-
-	"github.com/willf/bloom"
 )
 
 func TestBloomfilter(t *testing.T) {
 	const n = 100000
 
-	bf := bloom.NewWithEstimates(n, .01)
+	// For p = .01, n = 100000, the optimal number of bits is 958505.84
+	// is 15127.39.
+	bf := newBloomfilter(n, .01)
+	if bf.nbits() < 958506 {
+		t.Fatalf("bloom filter with %d bits too small", bf.nbits())
+	}
 
-	t.Logf("k = %d", bf.K())
+	t.Logf("k = %d; m/n = %d/%d = %.3f",
+		bf.nhashes, bf.nbits(), n, float64(bf.nbits())/n)
 
 	// Assume that 100k random SHA-256 values are all distinct.
 	r := rand.New(rand.NewSource(0xb1007))
@@ -49,7 +53,7 @@ func TestBloomfilter(t *testing.T) {
 	}
 }
 
-func benchmarkBloomfilterAdd(b *testing.B, n uint) {
+func benchmarkBloomfilterAdd(b *testing.B, n int) {
 	hash := make([]byte, n*sha256.Size)
 
 	r := rand.New(rand.NewSource(98621))
@@ -59,7 +63,7 @@ func benchmarkBloomfilterAdd(b *testing.B, n uint) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		bf := bloom.NewWithEstimates(n, .01)
+		bf := newBloomfilter(n, .01)
 		for len(hash) > 0 {
 			bf.Add(hash[:sha256.Size])
 			hash = hash[sha256.Size:]
@@ -71,12 +75,12 @@ func BenchmarkBloomfilterAdd1e5(b *testing.B) { benchmarkBloomfilterAdd(b, 1e5) 
 func BenchmarkBloomfilterAdd1e6(b *testing.B) { benchmarkBloomfilterAdd(b, 1e6) }
 func BenchmarkBloomfilterAdd1e7(b *testing.B) { benchmarkBloomfilterAdd(b, 1e7) }
 
-func benchmarkBloomfilterTest(b *testing.B, n uint) {
+func benchmarkBloomfilterTest(b *testing.B, n int) {
 	hash := make([]byte, n*sha256.Size)
 	r := rand.New(rand.NewSource(0xa58a7))
 	r.Read(hash)
 
-	bf := bloom.NewWithEstimates(n, .01)
+	bf := newBloomfilter(n, .01)
 
 	b.SetBytes(sha256.Size)
 
