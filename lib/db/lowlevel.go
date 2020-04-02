@@ -12,12 +12,12 @@ import (
 	"encoding/binary"
 	"time"
 
+	"github.com/greatroar/blobloom"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture"
-	"github.com/willf/bloom"
 )
 
 const (
@@ -27,7 +27,8 @@ const (
 	// than 100k. For fewer than 100k items we will just get better false
 	// positive rate instead.
 	indirectGCBloomCapacity          = 100000
-	indirectGCBloomFalsePositiveRate = 0.01 // 1%
+	indirectGCBloomFalsePositiveRate = 0.01    // 1%
+	indirectGCBloomMaxMem            = 8 << 22 // Use at most 32MiB memory
 	indirectGCDefaultInterval        = 13 * time.Hour
 	indirectGCTimeKey                = "lastIndirectGCTime"
 
@@ -595,7 +596,11 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	if db.gcKeyCount > capacity {
 		capacity = db.gcKeyCount
 	}
-	blockFilter := bloom.NewWithEstimates(uint(capacity), indirectGCBloomFalsePositiveRate)
+	blockFilter := blobloom.NewOptimized(blobloom.Config{
+		FPRate:  indirectGCBloomFalsePositiveRate,
+		MaxBits: 8 * indirectGCBloomMaxMem,
+		NKeys:   capacity,
+	})
 
 	// Iterate the FileInfos, unmarshal the block and version hashes and
 	// add them to the filter.
@@ -617,7 +622,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 			return err
 		}
 		if len(bl.BlocksHash) > 0 {
-			blockFilter.Add(bl.BlocksHash)
+			blockFilter.Add64(bloomHash(bl.BlocksHash))
 		}
 	}
 	it.Release()
@@ -642,7 +647,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		}
 
 		key := blockListKey(it.Key())
-		if blockFilter.Test(key.BlocksHash()) {
+		if blockFilter.Has64(bloomHash(key)) {
 			matchedBlocks++
 			continue
 		}
@@ -663,6 +668,12 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	}
 
 	return db.Compact()
+}
+
+// Hash function for the bloomfilter: first eight bytes of the SHA-256.
+// Big or little-endian makes no difference, as long as we're consistent.
+func bloomHash(key blockListKey) uint64 {
+	return binary.BigEndian.Uint64(key.BlocksHash())
 }
 
 // CheckRepair checks folder metadata and sequences for miscellaneous errors.
