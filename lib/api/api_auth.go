@@ -176,9 +176,9 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 		return false
 	}
 
-	// If a search filter or search base is set we do an LDAP search for the
-	// user. If this matches precisely one user then we are good to go. The
-	// search filter uses the same %s interpolation as the bind DN.
+	// If a search filter and search base is set we do an LDAP search for
+	// the user. If this matches precisely one user then we are good to go.
+	// The search filter uses the same %s interpolation as the bind DN.
 
 	searchString := fmt.Sprintf(cfg.SearchFilter, username)
 	const sizeLimit = 2  // we search for up to two users -- we only want to match one, so getting any number >1 is a failure.
