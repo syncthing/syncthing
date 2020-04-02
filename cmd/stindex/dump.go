@@ -119,7 +119,6 @@ func dump(ldb backend.Backend) {
 			od.Unmarshal(it.Value())
 			fmt.Printf("[pendingDevice] D:%v V:%v\n", device, od)
 
-
 		default:
 			fmt.Printf("[???]\n  %x\n  %x\n", it.Key(), it.Value())
 		}
