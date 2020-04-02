@@ -166,6 +166,34 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 		return false
 	}
 
+	if cfg.SearchFilter == "" && cfg.SearchBaseDN == "" {
+		// We're done here.
+		return true
+	}
+
+	// If a search filter or search base is set we do an LDAP search for the
+	// user. If this matches precisely one user then we are good to go. The
+	// search filter uses the same %s interpolation as the bind DN. In
+	// practice it is required to set both the search base DN and the
+	// filter, but we run this code as soon as either is set in order to
+	// minimize false positives (i.e., a filter being configured so it looks
+	// active, but actually in use).
+
+	searchString := fmt.Sprintf(cfg.SearchFilter, username)
+	const sizeLimit = 2  // we search for up to two users -- we only want to match one, so getting any number >1 is a failure.
+	const timeLimit = 60 // Search for up to a minute...
+	searchReq := ldap.NewSearchRequest(cfg.SearchBaseDN, ldap.ScopeWholeSubtree, ldap.DerefFindingBaseObj, sizeLimit, timeLimit, false, searchString, nil, nil)
+
+	res, err := connection.Search(searchReq)
+	if err != nil {
+		l.Warnln("LDAP Search:", err)
+		return false
+	}
+	if len(res.Entries) != 1 {
+		l.Infof("Wrong number of LDAP search results, %d != 1", len(res.Entries))
+		return false
+	}
+
 	return true
 }
 
