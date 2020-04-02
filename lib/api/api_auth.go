@@ -16,12 +16,12 @@ import (
 	"strings"
 	"time"
 
+	ldap "github.com/go-ldap/ldap/v3"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/crypto/bcrypt"
-	ldap "gopkg.in/ldap.v2"
 )
 
 var (

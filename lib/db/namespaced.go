@@ -17,20 +17,15 @@ import (
 // a leveldb.
 type NamespacedKV struct {
 	db     *Lowlevel
-	prefix []byte
+	prefix string
 }
 
 // NewNamespacedKV returns a new NamespacedKV that lives in the namespace
 // specified by the prefix.
 func NewNamespacedKV(db *Lowlevel, prefix string) *NamespacedKV {
-	prefixBs := []byte(prefix)
-	// After the conversion from string the cap will be larger than the len (in Go 1.11.5,
-	// 32 bytes cap for small strings). We need to cut it down to ensure append() calls
-	// on the prefix make a new allocation.
-	prefixBs = prefixBs[:len(prefixBs):len(prefixBs)]
 	return &NamespacedKV{
 		db:     db,
-		prefix: prefixBs,
+		prefix: prefix,
 	}
 }
 
@@ -130,7 +125,7 @@ func (n NamespacedKV) Delete(key string) error {
 }
 
 func (n NamespacedKV) prefixedKey(key string) []byte {
-	return append(n.prefix, []byte(key)...)
+	return []byte(n.prefix + key)
 }
 
 // Well known namespaces that can be instantiated without knowing the key

@@ -140,6 +140,14 @@ func (f FileInfoTruncated) ConvertToDeletedFileInfo(by protocol.ShortID) protoco
 	return file
 }
 
+// ConvertDeletedToFileInfo converts a deleted truncated file info to a regular file info
+func (f FileInfoTruncated) ConvertDeletedToFileInfo() protocol.FileInfo {
+	if !f.Deleted {
+		panic("ConvertDeletedToFileInfo must only be called on deleted items")
+	}
+	return f.copyToFileInfo()
+}
+
 // copyToFileInfo just copies all members of FileInfoTruncated to protocol.FileInfo
 func (f FileInfoTruncated) copyToFileInfo() protocol.FileInfo {
 	return protocol.FileInfo{
