@@ -2,8 +2,9 @@
     <div class="tui-card-title">{{title | uppercase}}</div>
     <div class="tui-card-content">
         <div fxLayout="row" fxLayoutAlign="space-between stretch">
-            <app-donut-chart [elementID]="chartID" fxFlex="30" [title]="title"></app-donut-chart>
-            <div class="items" fxLayout="column" fxLayoutAlign="start end" fxFlex="70">
+            <app-donut-chart [elementID]="chartID" fxFlex="30" [title]="title" (stateEvent)="onItemSelect($event)">
+            </app-donut-chart>
+            <div class=" items" fxLayout="column" fxLayoutAlign="start end" fxFlex="70">
                 <app-chart-item *ngFor="let state of states" (click)="onItemSelect(state.label)" [state]="state.label"
                     [count]="state.count">
                 </app-chart-item>

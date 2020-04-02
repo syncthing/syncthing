@@ -1,4 +1,4 @@
-import { Component, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, ViewChild, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { StType } from '../../type';
 import { cardElevation } from '../../style';
 import { FilterService } from 'src/app/services/filter.service';
@@ -17,7 +17,10 @@ export class StatusListComponent {
   elevation: string = cardElevation;
   title: string = 'Status';
 
-  constructor(private filterService: FilterService) { }
+  constructor(
+    private filterService: FilterService,
+    private cdr: ChangeDetectorRef,
+  ) { }
 
   ngAfterViewInit() {
     // Listen for filter changes from other components
@@ -34,6 +37,8 @@ export class StatusListComponent {
             break;
         }
       });
+
+    this.cdr.detectChanges(); // manually detect changes
   }
 
   onToggle(t: StType) {
