@@ -1822,7 +1822,7 @@ angular.module('syncthing.core')
 
         $scope.saveFolder = function () {
             $('#editFolder').modal('hide');
-            var folderCfg = $scope.currentFolder;
+            var folderCfg = angular.copy($scope.currentFolder);
             folderCfg.devices = [];
             folderCfg.selectedDevices[$scope.myID] = true;
             for (var deviceID in folderCfg.selectedDevices) {
