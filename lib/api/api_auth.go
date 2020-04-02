@@ -177,7 +177,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	// practice it is required to set both the search base DN and the
 	// filter, but we run this code as soon as either is set in order to
 	// minimize false positives (i.e., a filter being configured so it looks
-	// active, but actually in use).
+	// active, but actually isn't used at all).
 
 	searchString := fmt.Sprintf(cfg.SearchFilter, username)
 	const sizeLimit = 2  // we search for up to two users -- we only want to match one, so getting any number >1 is a failure.
