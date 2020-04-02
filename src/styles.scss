@@ -86,6 +86,11 @@ html, body {
     line-height: mat-line-height($tech-ui-typography, body-1);
 }
 
+a {
+    text-decoration: underline;
+    color: mat-color($tech-ui-primary);
+}
+
 .tui-card {
     background-color: white;
     border-radius: 4px;
