@@ -30,7 +30,9 @@ export class DeviceListComponent implements AfterViewInit, OnInit {
   ) { };
 
   applyFilter(event: Event) {
+    // Set previous filter value
     const filterValue = (event.target as HTMLInputElement).value;
+    this.filterService.previousInputs.set(StType.Device, filterValue);
     this.dataSource.filter = filterValue.trim().toLowerCase();
   }
 
@@ -50,13 +52,20 @@ export class DeviceListComponent implements AfterViewInit, OnInit {
     this.dataSource.paginator = this.paginator;
     this.table.dataSource = this.dataSource;
 
+    const changeText = (text: string) => {
+      this.dataSource.filter = text.trim().toLowerCase();
+      this.filterValue = text;
+      this.cdr.detectChanges();
+    }
+
+    // Set previous value
+    changeText(this.filterService.previousInputs.get(StType.Device));
+
     // Listen for filter changes from other components
     this.filterService.filterChanged$.subscribe(
       input => {
         if (input.type === StType.Device) {
-          this.dataSource.filter = input.text.trim().toLowerCase();
-          this.filterValue = input.text;
-          this.cdr.detectChanges();
+          changeText(input.text);
         }
       });
   }

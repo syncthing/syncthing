@@ -1,5 +1,6 @@
-import { Component, EventEmitter, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
 import { StType } from '../type';
+import { MatButtonToggleGroup } from '@angular/material/button-toggle';
 
 
 
@@ -10,8 +11,9 @@ import { StType } from '../type';
 })
 
 export class ListToggleComponent implements OnInit {
+  @ViewChild(MatButtonToggleGroup) group: MatButtonToggleGroup;
   public listType = StType;
-  public toggleValue: string = "folders";
+  // public toggleValue: string = "folders";
   @Output() listTypeEvent = new EventEmitter<StType>();
 
   constructor() { }

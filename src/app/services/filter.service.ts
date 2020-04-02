@@ -12,6 +12,13 @@ export interface FilterInput {
 }
 
 export class FilterService {
+  previousInputs = new Map<StType, string>(
+    [
+      [StType.Folder, ""],
+      [StType.Device, ""],
+    ]
+
+  )
 
   constructor() { }
 
@@ -20,6 +27,7 @@ export class FilterService {
   filterChanged$ = this.filterChangeSource.asObservable();
 
   changeFilter(input: FilterInput) {
+    this.previousInputs.set(input.type, input.text)
     this.filterChangeSource.next(input);
   }
 }

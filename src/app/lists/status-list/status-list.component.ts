@@ -27,10 +27,10 @@ export class StatusListComponent {
 
         switch (input.type) {
           case StType.Folder:
-            this.toggle.toggleValue = "folders";
+            this.toggle.group.value = "folders";
             break;
           case StType.Device:
-            this.toggle.toggleValue = "devices";
+            this.toggle.group.value = "devices";
             break;
         }
       });

@@ -32,6 +32,7 @@ export class FolderListComponent implements AfterViewInit, OnInit {
 
   applyFilter(event: Event) {
     const filterValue = (event.target as HTMLInputElement).value;
+    this.filterService.previousInputs.set(StType.Folder, filterValue);
     this.dataSource.filter = filterValue.trim().toLowerCase();
   }
 
@@ -51,14 +52,21 @@ export class FolderListComponent implements AfterViewInit, OnInit {
     this.dataSource.paginator = this.paginator;
     this.table.dataSource = this.dataSource;
 
+    const changeText = (text: string) => {
+      this.dataSource.filter = text.trim().toLowerCase();
+      this.filterValue = text;
+      this.cdr.detectChanges();
+    }
+
+    // Set previous value
+    changeText(this.filterService.previousInputs.get(StType.Folder));
+
     // Listen for filter changes from other components
     this.filterService.filterChanged$
       .subscribe(
         input => {
           if (input.type === StType.Folder) {
-            this.dataSource.filter = input.text.trim().toLowerCase();
-            this.filterValue = input.text;
-            this.cdr.detectChanges();
+            changeText(input.text);
           }
         });
   }
