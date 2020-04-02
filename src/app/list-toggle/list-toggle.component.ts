@@ -1,5 +1,5 @@
 import { Component, EventEmitter, OnInit, Output } from '@angular/core';
-import { Type } from '../type';
+import { StType } from '../type';
 
 
 
@@ -10,22 +10,15 @@ import { Type } from '../type';
 })
 
 export class ListToggleComponent implements OnInit {
-  public listType = Type;
-  @Output() listTypeEvent = new EventEmitter<Type>();
+  public listType = StType;
+  public toggleValue: string = "folders";
+  @Output() listTypeEvent = new EventEmitter<StType>();
 
   constructor() { }
   ngOnInit(): void {
   }
 
-  onSelect(t: Type): void {
+  onSelect(t: StType): void {
     this.listTypeEvent.emit(t);
-    switch (t) {
-      case Type.Folder:
-        console.log("folder action");
-        break;
-      case Type.Device:
-        console.log("Device action");
-        break;
-    }
   }
 }

@@ -4,7 +4,8 @@
         <div fxLayout="row" fxLayoutAlign="space-between stretch">
             <app-donut-chart [elementID]="chartID" fxFlex="30" [title]="title"></app-donut-chart>
             <div class="items" fxLayout="column" fxLayoutAlign="start end" fxFlex="70">
-                <app-chart-item *ngFor="let state of states" [state]="state.label" [count]="state.count">
+                <app-chart-item *ngFor="let state of states" (click)="onItemSelect(state.label)" [state]="state.label"
+                    [count]="state.count">
                 </app-chart-item>
             </div>
         </div>

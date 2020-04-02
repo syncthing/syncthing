@@ -1,15 +1,17 @@
 import { Component, OnInit } from '@angular/core';
 import { SystemConfigService } from '../services/system-config.service';
-import { Type } from '../type';
+import { StType } from '../type';
+import { FilterService } from '../services/filter.service';
 
 @Component({
   selector: 'app-dashboard',
   templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.scss']
+  styleUrls: ['./dashboard.component.scss'],
+  providers: [FilterService]
 })
 export class DashboardComponent {
-  folderChart: Type = Type.Folder;
-  deviceChart: Type = Type.Device;
+  folderChart: StType = StType.Folder;
+  deviceChart: StType = StType.Device;
 
   constructor(private systemConfigService: SystemConfigService) { }
 

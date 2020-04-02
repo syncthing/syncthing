@@ -1,4 +1,4 @@
-export enum Type {
+export enum StType {
     Folder = 1,
     Device,
 }

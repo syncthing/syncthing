@@ -5,7 +5,8 @@ import { FolderService } from 'src/app/services/folder.service';
 import { DonutChartComponent } from '../donut-chart/donut-chart.component';
 import { DeviceService } from 'src/app/services/device.service';
 import Device from 'src/app/device';
-import { Type } from '../../type';
+import { StType } from '../../type';
+import { FilterService } from 'src/app/services/filter.service';
 
 
 
@@ -17,7 +18,7 @@ import { Type } from '../../type';
 
 export class ChartComponent implements OnInit {
   @ViewChild(DonutChartComponent) donutChart: DonutChartComponent;
-  @Input() type: Type;
+  @Input() type: StType;
   title: string;
   chartID: string;
   states: { label: string, count: number, color: string }[] = [];
@@ -25,16 +26,25 @@ export class ChartComponent implements OnInit {
   service: any;
   namespace: any;
 
-  constructor(private folderService: FolderService, private deviceServce: DeviceService) { }
+  constructor(
+    private folderService: FolderService,
+    private deviceServce: DeviceService,
+    private filterService: FilterService,
+  ) { }
+
+  onItemSelect(state: string) {
+    // Send chart item state to filter
+    this.filterService.changeFilter({ type: this.type, text: state });
+  }
 
   ngOnInit(): void {
     switch (this.type) {
-      case Type.Folder:
+      case StType.Folder:
         this.title = "Folders";
         this.chartID = 'foldersChart';
         this.service = this.folderService;
         break;
-      case Type.Device:
+      case StType.Device:
         this.title = "Devices";
         this.chartID = 'devicesChart';
         this.service = this.deviceServce;
@@ -55,10 +65,10 @@ export class ChartComponent implements OnInit {
         const state = t.state;
         let color;
         switch (this.type) {
-          case Type.Folder:
+          case StType.Folder:
             color = Folder.stateTypeToColor(t.stateType);
             break;
-          case Type.Device:
+          case StType.Device:
             color = Device.stateTypeToColor(stateType);
             break;
         }
@@ -73,7 +83,6 @@ export class ChartComponent implements OnInit {
         });
 
         if (!found) {
-          console.log(color, "look!!!")
           this.states.push({ label: state, count: 1, color: color });
         }
 
