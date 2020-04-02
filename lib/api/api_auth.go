@@ -172,7 +172,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	}
 
 	if cfg.SearchFilter == "" || cfg.SearchBaseDN == "" {
-		l.Warnln("LDAP Configuration: both searchFilter and searchBaseDN must be set, or neither.")
+		l.Warnln("LDAP configuration: both searchFilter and searchBaseDN must be set, or neither.")
 		return false
 	}
 
