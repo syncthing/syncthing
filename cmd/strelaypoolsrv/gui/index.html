@@ -325,14 +325,22 @@
           shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
         });
 
-      var marker = new L.marker(new L.latLng(locParts[0], locParts[1]),{icon})
-        .bindPopup($compile($scope.tooltipTemplate)(scope)[0],{})
-        .on('mouseover', function (e) {
-            this.openPopup();
-        }).on('mouseout', function (e) {
-            this.closePopup();
-        }).addTo($scope.map);
+        relay.marker = new L.marker(new L.latLng(locParts[0], locParts[1]),{icon})
+                            .bindPopup($compile($scope.tooltipTemplate)(scope)[0],{})
+                            .on('mouseover', function (e) {
+                                this.openPopup();
+                            }).on('mouseout', function (e) {
+                                this.closePopup();
+                            }).addTo($scope.map);
+
+        relay.showMarker = function() {
+          relay.marker.openPopup();
         }
+        
+        relay.hideMarker = function() {
+          relay.marker.closePopup();
+        }
+      }
 
 
     function addCircleToMap(relay) {
