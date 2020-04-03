@@ -8,6 +8,12 @@ import { Component, Input } from '@angular/core';
 export class ChartItemComponent {
   @Input() state: string;
   @Input() count: number;
+  @Input('selected')
+  set selected(s: boolean) {
+    this._selected = s;
+  }
+
+  _selected: boolean = true;
 
   constructor() { }
 }

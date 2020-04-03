@@ -5,8 +5,8 @@
             <app-donut-chart [elementID]="chartID" fxFlex="30" [title]="title" (stateEvent)="onItemSelect($event)">
             </app-donut-chart>
             <div class=" items" fxLayout="column" fxLayoutAlign="start end" fxFlex="70">
-                <app-chart-item *ngFor="let state of states" (click)="onItemSelect(state.label)" [state]="state.label"
-                    [count]="state.count">
+                <app-chart-item *ngFor="let state of states" (click)="onItemSelect(state)" [state]="state.label"
+                    [count]="state.count" [selected]="state.selected">
                 </app-chart-item>
             </div>
         </div>

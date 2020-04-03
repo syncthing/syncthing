@@ -1,3 +1,13 @@
 .item {
     cursor: pointer;
+    padding: 3px;
+    border-radius: 4px;
+}
+
+.selected {
+    background-color: #DDDDDD;
+}
+.selected a {
+    color: #000000;
+    text-decoration: none;
 }

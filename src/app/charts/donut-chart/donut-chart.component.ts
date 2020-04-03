@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { Chart } from 'chart.js'
 import { tooltip } from '../tooltip'
 import { FilterService } from 'src/app/services/filter.service';
-import { StType } from 'src/app/type';
+import { ChartItemState } from '../chart/chart.component';
 
 @Component({
   selector: 'app-donut-chart',
@@ -12,7 +12,7 @@ import { StType } from 'src/app/type';
 export class DonutChartComponent {
   @Input() elementID: string;
   @Input() title: number;
-  @Output() stateEvent = new EventEmitter<string>();;
+  @Output() stateEvent = new EventEmitter<ChartItemState>();;
 
   _count: number;
   _countClass = "count-total";
@@ -26,13 +26,15 @@ export class DonutChartComponent {
   private canvas: any;
   private ctx: any;
   private chart: Chart;
+  private states: ChartItemState[];
 
   constructor(private filterService: FilterService) { }
 
-  updateData(data: { label: string, count: number, color: string }[]): void {
+  updateData(states: ChartItemState[]): void {
+    this.states = states;
     // Using object destructuring
-    for (let i = 0; i < data.length; i++) {
-      let s = data[i];
+    for (let i = 0; i < states.length; i++) {
+      let s = states[i];
       this.chart.data.labels[i] = s.label;
       this.chart.data.datasets[0].data[i] = s.count;
       this.chart.data.datasets[0].backgroundColor[i] = s.color;
@@ -67,9 +69,7 @@ export class DonutChartComponent {
           var activePoints = this.chart.getElementsAtEvent(e);
           if (activePoints.length > 0) {
             const index = activePoints[0]["_index"];
-            const label = this.chart.data.labels[index];
-
-            this.stateEvent.emit(label);
+            this.stateEvent.emit(this.states[index]);
           }
         },
         legend: {

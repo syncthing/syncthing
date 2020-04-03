@@ -9,7 +9,12 @@ import { StType } from '../../type';
 import { FilterService } from 'src/app/services/filter.service';
 
 
-
+export interface ChartItemState {
+  label: string,
+  count: number,
+  color: string,
+  selected: boolean,
+}
 @Component({
   selector: 'app-chart',
   templateUrl: './chart.component.html',
@@ -21,10 +26,11 @@ export class ChartComponent implements OnInit {
   @Input() type: StType;
   title: string;
   chartID: string;
-  states: { label: string, count: number, color: string }[] = [];
+  states: ChartItemState[] = [];
   elevation: string = cardElevation;
-  service: any;
-  namespace: any;
+
+  private service: any;
+  private activeChartState: ChartItemState;
 
   constructor(
     private folderService: FolderService,
@@ -32,9 +38,30 @@ export class ChartComponent implements OnInit {
     private filterService: FilterService,
   ) { }
 
-  onItemSelect(state: string) {
+  onItemSelect(s: ChartItemState) {
     // Send chart item state to filter
-    this.filterService.changeFilter({ type: this.type, text: state });
+    this.filterService.changeFilter({ type: this.type, text: s.label });
+
+    // Deselect all other items
+    this.states.forEach(s => {
+      s.selected = false;
+    });
+
+    // Select item only
+    if (s !== this.activeChartState) {
+      s.selected = true;
+      this.activeChartState = s;
+    } else {
+      this.activeChartState = null;
+      this.filterService.changeFilter({ type: this.type, text: "" })
+      console.log("change filter", this.type)
+    }
+
+    /*
+    const index = this.states.indexOf(s);
+    if (index >= 0) {
+    }
+    */
   }
 
   ngOnInit(): void {
@@ -83,7 +110,7 @@ export class ChartComponent implements OnInit {
         });
 
         if (!found) {
-          this.states.push({ label: state, count: 1, color: color });
+          this.states.push({ label: state, count: 1, color: color, selected: false });
         }
 
         this.donutChart.updateData(this.states);

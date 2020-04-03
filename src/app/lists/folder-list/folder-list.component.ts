@@ -54,9 +54,6 @@ export class FolderListComponent implements AfterViewInit, OnInit, OnDestroy {
     this.table.dataSource = this.dataSource;
 
     const changeText = (text: string) => {
-      if (!text)
-        return;
-
       this.dataSource.filter = text.trim().toLowerCase();
       this.input.value = text;
       this.cdr.detectChanges();
