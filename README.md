@@ -38,6 +38,10 @@ Run `ng generate component component-name` to generate a new component. You
 can also use `ng generate
 directive|pipe|service|class|guard|interface|enum|module`.
 
-# License
+## License
 
-MIT
+MPLv2
+
+## Copyright
+
+Copyright (c) 2020 Kastelo Inc.
