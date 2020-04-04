@@ -142,6 +142,7 @@ func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[pro
 	return res, nil
 }
 
+// Remove entries for specific folder / device combinations
 func (db *Lowlevel) RemovePendingFolder(id string, devices []protocol.DeviceID) {
 	for _, dev := range devices {
 		key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), dev[:])
@@ -149,6 +150,28 @@ func (db *Lowlevel) RemovePendingFolder(id string, devices []protocol.DeviceID) 
 			if err := db.Delete(key); err != nil {
 				l.Warnf("Failed to remove pending folder entry: %v", err)
 			}
+		}
+	}
+}
+
+// Remove all pending folder entries not matching a given set of device IDs
+func (db *Lowlevel) CleanPendingFolders(keepDevices map[protocol.DeviceID]bool) {
+	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
+	if err != nil {
+		l.Warnf("Could not iterate through pending folder entries for cleanup: %v", err)
+		return
+	}
+	defer iter.Release()
+	for iter.Next() {
+		if keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key()); ok {
+			// Valid entries are looked up in the set, invalid ones cleaned up
+			deviceID := protocol.DeviceIDFromBytes(keyDev)
+			if keep := keepDevices[deviceID]; keep  {
+				continue
+			}
+		}
+		if err := db.Delete(iter.Key()); err != nil {
+			l.Warnf("Failed to remove pending folder entry: %v", err)
 		}
 	}
 }
