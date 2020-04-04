@@ -52,6 +52,15 @@ func TestCreateAtomicCreate(t *testing.T) {
 }
 
 func TestCreateAtomicReplace(t *testing.T) {
+	testCreateAtomicReplace(t, 0644)
+}
+func TestCreateAtomicReplaceReadOnly(t *testing.T) {
+	testCreateAtomicReplace(t, 0400)
+}
+
+func testCreateAtomicReplace(t *testing.T, oldPerms os.FileMode) {
+	t.Helper()
+
 	os.RemoveAll("testdata")
 	defer os.RemoveAll("testdata")
 
@@ -59,7 +68,7 @@ func TestCreateAtomicReplace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := ioutil.WriteFile("testdata/file", []byte("some old data"), 0644); err != nil {
+	if err := ioutil.WriteFile("testdata/file", []byte("some old data"), oldPerms); err != nil {
 		t.Fatal(err)
 	}
 
