@@ -68,6 +68,7 @@
           </a>
           <ul class="dropdown-menu">
             <li><a href="" ng-click="showSettings()"><span class="fas fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
+            <li><a href="" ng-click="showLogin()"><span class="fas fa-fw fa-user"></span>&nbsp;<span translate>Login</span></a></li>
             <li><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
             <li class="divider" aria-hidden="true"></li>
             <li><a href="" ng-click="shutdown()"><span class="fas fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
@@ -816,7 +817,8 @@
       </ul>
     </div>
   </nav>
-
+  
+  <ng-include src="'syncthing/login/loginModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/networkErrorDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/httpErrorDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/restartingDialogView.html'"></ng-include>
