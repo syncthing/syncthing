@@ -94,25 +94,27 @@ type result struct {
 }
 
 var (
-	testCert        tls.Certificate
-	knownRelaysFile = filepath.Join(os.TempDir(), "strelaypoolsrv_known_relays")
-	listen          = ":80"
-	dir             string
-	evictionTime    = time.Hour
-	debug           bool
-	getLRUSize      = 10 << 10
-	getLimitBurst   = 10
-	getLimitAvg     = 2
-	postLRUSize     = 1 << 10
-	postLimitBurst  = 2
-	postLimitAvg    = 2
-	getLimit        time.Duration
-	postLimit       time.Duration
-	permRelaysFile  string
-	ipHeader        string
-	geoipPath       string
-	proto           string
-	statsRefresh    = time.Minute / 2
+	testCert          tls.Certificate
+	knownRelaysFile   = filepath.Join(os.TempDir(), "strelaypoolsrv_known_relays")
+	listen            = ":80"
+	dir               string
+	evictionTime      = time.Hour
+	debug             bool
+	getLRUSize        = 10 << 10
+	getLimitBurst     = 10
+	getLimitAvg       = 2
+	postLRUSize       = 1 << 10
+	postLimitBurst    = 2
+	postLimitAvg      = 2
+	getLimit          time.Duration
+	postLimit         time.Duration
+	permRelaysFile    string
+	ipHeader          string
+	geoipPath         string
+	proto             string
+	statsRefresh      = time.Minute / 2
+	requestQueueLen   = 10
+	requestProcessors = 1
 
 	getMut      = sync.NewRWMutex()
 	getLRUCache *lru.Cache
@@ -120,7 +122,7 @@ var (
 	postMut      = sync.NewRWMutex()
 	postLRUCache *lru.Cache
 
-	requests = make(chan request, 10)
+	requests chan request
 
 	mut             = sync.NewRWMutex()
 	knownRelays     = make([]*relay, 0)
@@ -133,6 +135,9 @@ const (
 )
 
 func main() {
+	log.SetOutput(os.Stdout)
+	log.SetFlags(log.Lshortfile)
+
 	flag.StringVar(&listen, "listen", listen, "Listen address")
 	flag.StringVar(&dir, "keys", dir, "Directory where http-cert.pem and http-key.pem is stored for TLS listening")
 	flag.BoolVar(&debug, "debug", debug, "Enable debug output")
@@ -148,8 +153,12 @@ func main() {
 	flag.StringVar(&geoipPath, "geoip", "GeoLite2-City.mmdb", "Path to GeoLite2-City database")
 	flag.StringVar(&proto, "protocol", "tcp", "Protocol used for listening. 'tcp' for IPv4 and IPv6, 'tcp4' for IPv4, 'tcp6' for IPv6")
 	flag.DurationVar(&statsRefresh, "stats-refresh", statsRefresh, "Interval at which to refresh relay stats")
+	flag.IntVar(&requestQueueLen, "request-queue", requestQueueLen, "Queue length for incoming test requests")
+	flag.IntVar(&requestProcessors, "request-processors", requestProcessors, "Number of request processor routines")
 
 	flag.Parse()
+
+	requests = make(chan request, requestQueueLen)
 
 	getLimit = 10 * time.Second / time.Duration(getLimitAvg)
 	postLimit = time.Minute / time.Duration(postLimitAvg)
@@ -166,7 +175,9 @@ func main() {
 
 	testCert = createTestCertificate()
 
-	go requestProcessor()
+	for i := 0; i < requestProcessors; i++ {
+		go requestProcessor()
+	}
 
 	// Load relays from cache in the background.
 	// Load them in a serial fashion to make sure any genuine requests
