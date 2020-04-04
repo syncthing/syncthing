@@ -111,7 +111,7 @@ func dump(ldb backend.Backend) {
 			device := binary.BigEndian.Uint32(key[folderEnd:])
 			var of db.ObservedFolder
 			of.Unmarshal(it.Value())
-			fmt.Printf("[pendingFolder] F:%s D:%x V:%v\n", folder, device, of)
+			fmt.Printf("[pendingFolder] F:%s D:%d V:%v\n", folder, device, of)
 
 		case db.KeyTypePendingDevice:
 			device := protocol.DeviceIDFromBytes(it.Key()[1:])
