@@ -14,6 +14,21 @@ angular.module('syncthing.core')
 
         function initController() {
             LocaleService.autoConfigLocale();
+            checkLoginAndStart();
+        }
+
+        function checkLoginAndStart() {
+            $http.get(urlbase + '/login').success(function() {
+                loginSuccessfull()
+            }).error(function(){
+               
+                $http.post(urlbase + "/login?username=Mmg&password=123456").success(loginSuccessfull).error(function(){
+                    $('#login').modal('show');
+                })
+            })
+        }
+
+        function loginSuccessfull(){
             setInterval($scope.refresh, 10000);
             Events.start();
         }
@@ -53,6 +68,7 @@ angular.module('syncthing.core')
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
         $scope.currentFolder = {};
+        // $scope.user = {}
         resetRemoteNeed();
 
         try {
@@ -1136,6 +1152,7 @@ angular.module('syncthing.core')
         $scope.showDiscoveryFailures = function () {
             $('#discovery-failures').modal();
         };
+
 
         $scope.logging = {
             facilities: {},
@@ -2293,6 +2310,11 @@ angular.module('syncthing.core')
         $scope.advanced = function () {
             $scope.advancedConfig = angular.copy($scope.config);
             $('#advanced').modal('show');
+        };
+
+         // show login modal
+         $scope.showLogin = function () {
+            $('#login').modal('show');
         };
 
         $scope.showReportPreview = function () {
