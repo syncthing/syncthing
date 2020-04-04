@@ -116,10 +116,10 @@ var (
 	requestQueueLen   = 10
 	requestProcessors = 1
 
-	getMut      = sync.NewRWMutex()
+	getMut      = sync.NewMutex()
 	getLRUCache *lru.Cache
 
-	postMut      = sync.NewRWMutex()
+	postMut      = sync.NewMutex()
 	postLRUCache *lru.Cache
 
 	requests chan request
@@ -583,22 +583,21 @@ func evict(relay *relay) func() {
 	}
 }
 
-func limit(addr string, cache *lru.Cache, lock sync.RWMutex, intv time.Duration, burst int) bool {
+func limit(addr string, cache *lru.Cache, lock sync.Mutex, intv time.Duration, burst int) bool {
 	if host, _, err := net.SplitHostPort(addr); err == nil {
 		addr = host
 	}
 
-	lock.RLock()
+	lock.Lock()
 	bkt, ok := cache.Get(addr)
-	lock.RUnlock()
 	if ok {
+		lock.Unlock()
 		bkt := bkt.(*rate.Limiter)
 		if !bkt.Allow() {
 			// Rate limit
 			return true
 		}
 	} else {
-		lock.Lock()
 		cache.Add(addr, rate.NewLimiter(rate.Every(intv), burst))
 		lock.Unlock()
 	}
