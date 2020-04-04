@@ -256,7 +256,7 @@ func (m *model) onServe() {
 		// Forget pending folders that are now added
 		m.db.RemovePendingFolder(folderCfg.ID, folderCfg.DeviceIDs())
 	}
-	for deviceID, _ := range m.cfg.Devices() {
+	for deviceID := range m.cfg.Devices() {
 		// Forget pending devices that are now added
 		m.db.RemovePendingDevice(deviceID)
 	}
