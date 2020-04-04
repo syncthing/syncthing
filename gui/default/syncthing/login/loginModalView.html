@@ -1,0 +1,17 @@
+<modal id="login" status="default" icon="{{'fas fa-user'}}" heading="{{'Login' | translate}}" large="yes" closeable="yes">
+  <div class="modal-body">
+    <form role="form" action="/rest/login" method="POST">
+      <div class="form-group">
+          <label for="">Username</label>
+          <input class="form-control" type="text" name="username" id="">
+      </div>
+      <div class="form-group">
+          <label for="">Password</label>
+          <input class="form-control" type="password" name="password" id="">
+      </div>
+      
+      <input type="submit" class="btn btn-primary" value="Connexion">
+    </form>
+  </div>
+</modal>
+  
