@@ -256,10 +256,15 @@ func (m *model) onServe() {
 		// Forget pending folders that are now added
 		m.db.RemovePendingFolder(folderCfg.ID, folderCfg.DeviceIDs())
 	}
+	// Unique set of device IDs for which we'd like to keep pending folder entries
+	keepPendingFoldersFor := make(map[protocol.DeviceID]bool, len(m.cfg.Devices()))
 	for deviceID := range m.cfg.Devices() {
 		// Forget pending devices that are now added
 		m.db.RemovePendingDevice(deviceID)
+		keepPendingFoldersFor[deviceID] = true
 	}
+	// Clean pending folder entries for devices no longer known
+	m.db.CleanPendingFolders(keepPendingFoldersFor)
 	m.cfg.Subscribe(m)
 }
 
@@ -2508,7 +2513,10 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// Pausing a device, unpausing is handled by the connection service.
 	fromDevices := from.DeviceMap()
 	toDevices := to.DeviceMap()
+	// Unique set of device IDs for which we'd like to keep pending folder entries
+	keepPendingFoldersFor := make(map[protocol.DeviceID]bool, len(toDevices))
 	for deviceID, toCfg := range toDevices {
+		keepPendingFoldersFor[deviceID] = true
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
 			sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
@@ -2544,13 +2552,18 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	m.fmut.Lock()
 	for deviceID := range fromDevices {
 		delete(m.deviceStatRefs, deviceID)
+		// Forget all pending folders for removed devices
+		keepPendingFoldersFor[deviceID] = false  //not really needed
 	}
 	m.fmut.Unlock()
 
 	// Forget pending devices that are now ignored
 	for _, ignDevice := range to.IgnoredDevices {
 		m.db.RemovePendingDevice(ignDevice.ID)
+		keepPendingFoldersFor[ignDevice.ID] = false  //not really needed
 	}
+	// Forget all pending folders for removed or ignored devices
+	m.db.CleanPendingFolders(keepPendingFoldersFor)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
