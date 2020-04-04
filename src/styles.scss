@@ -29,13 +29,12 @@ $tech-ui-typography: mat-typography-config(
 // Define the palettes for your theme using the Material Design palettes available in palette.scss
 // (imported above). For each palette, you can optionally specify a default, lighter, and darker
 // hue. Available color palettes: https://material.io/design/color/
-$tech-ui-red: #EB5757;
 $tech-ui-blue: (
-  50: #0891D1,
-  100: #0891D1,
-  200: #0891D1,
-  300: #0891D1,
-  400: #0891D1,
+  50: #a5e0fc,
+  100: #8fd5f7,
+  200: #74c7ef,
+  300: #51beed,
+  400: #3eafe3,
   500: #0891D1,
   600: #0891D1,
   700: #0891D1,
