@@ -334,10 +334,10 @@ func mimeTypeForFile(file string) string {
 func handleRequest(w http.ResponseWriter, r *http.Request) {
 	timer := prometheus.NewTimer(apiRequestsSeconds.WithLabelValues(r.Method))
 
-	lw := NewLoggingResponseWriter(w)
-
+	w = NewLoggingResponseWriter(w)
 	defer func() {
 		timer.ObserveDuration()
+		lw := w.(*loggingResponseWriter)
 		apiRequestsTotal.WithLabelValues(r.Method, strconv.Itoa(lw.statusCode)).Inc()
 	}()
 
@@ -397,7 +397,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		if debug {
 			log.Println("Failed to parse payload")
 		}
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -406,7 +406,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		if debug {
 			log.Println("Failed to parse URI", newRelay.URL)
 		}
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -415,7 +415,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		if debug {
 			log.Println("Failed to split URI", newRelay.URL)
 		}
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
