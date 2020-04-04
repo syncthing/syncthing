@@ -35,14 +35,21 @@ func emitLoginAttempt(success bool, username string, evLogger events.Logger) {
 	})
 }
 
-func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
+type authAndSessionMiddleware struct {
+	cookieName string
+	guiCfg     config.GUIConfiguration
+	ldapCfg    config.LDAPConfiguration
+	evLogger   events.Logger
+}
+
+func (mw authAndSessionMiddleware) handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
+		if mw.guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		cookie, err := r.Cookie(cookieName)
+		cookie, err := r.Cookie(mw.cookieName)
 		if err == nil && cookie != nil {
 			sessionsMut.Lock()
 			_, ok := sessions[cookie.Value]
@@ -52,8 +59,6 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 				return
 			}
 		}
-
-		l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
 
 		error := func() {
 			time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
@@ -83,34 +88,72 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 		username := string(fields[0])
 		password := string(fields[1])
 
-		authOk := auth(username, password, guiCfg, ldapCfg)
+		l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
+		authOk := auth(username, password, mw.guiCfg, mw.ldapCfg)
 		if !authOk {
 			usernameIso := string(iso88591ToUTF8([]byte(username)))
 			passwordIso := string(iso88591ToUTF8([]byte(password)))
-			authOk = auth(usernameIso, passwordIso, guiCfg, ldapCfg)
+			authOk = auth(usernameIso, passwordIso, mw.guiCfg, mw.ldapCfg)
 			if authOk {
 				username = usernameIso
 			}
 		}
 
 		if !authOk {
-			emitLoginAttempt(false, username, evLogger)
+			emitLoginAttempt(false, username, mw.evLogger)
 			error()
 			return
 		}
-
-		sessionid := rand.String(32)
-		sessionsMut.Lock()
-		sessions[sessionid] = true
-		sessionsMut.Unlock()
-		http.SetCookie(w, &http.Cookie{
-			Name:   cookieName,
-			Value:  sessionid,
-			MaxAge: 0,
-		})
-
-		emitLoginAttempt(true, username, evLogger)
+		mw.setAuthCookie(w)
+		emitLoginAttempt(true, username, mw.evLogger)
 		next.ServeHTTP(w, r)
+	})
+}
+
+func (mw authAndSessionMiddleware) loginHandler(w http.ResponseWriter, r *http.Request) {
+	error := func() {
+		time.Sleep(time.Duration(rand.Intn(100)+100) * time.Millisecond)
+		http.Error(w, "Not access authorized", http.StatusForbidden)
+	}
+
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+
+	if username == "" || password == "" {
+		error()
+		return
+	}
+
+	authOk := auth(username, password, mw.guiCfg, mw.ldapCfg)
+
+	if !authOk {
+		emitLoginAttempt(false, username, mw.evLogger)
+		error()
+		return
+	}
+
+	mw.setAuthCookie(w)
+	emitLoginAttempt(true, username, mw.evLogger)
+	mw.noopHandler(w, r)
+
+}
+
+func (mw authAndSessionMiddleware) noopHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("location", "/")
+	w.WriteHeader(http.StatusTemporaryRedirect)
+}
+
+func (mw authAndSessionMiddleware) setAuthCookie(w http.ResponseWriter) {
+	sessionid := rand.String(32)
+	sessionsMut.Lock()
+	sessions[sessionid] = true
+	sessionsMut.Unlock()
+	http.SetCookie(w, &http.Cookie{
+		Name:     mw.cookieName,
+		Value:    sessionid,
+		Path:     "/",
+		MaxAge:   86400,
+		SameSite: http.SameSiteStrictMode,
 	})
 }
 
