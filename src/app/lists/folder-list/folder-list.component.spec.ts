@@ -1,6 +1,8 @@
 import { async, ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { FolderListComponent } from './folder-list.component';
+import { HttpClientModule } from '@angular/common/http';
+import { ChangeDetectorRef } from '@angular/core';
 
 describe('FolderListComponent', () => {
   let component: FolderListComponent;
@@ -8,16 +10,14 @@ describe('FolderListComponent', () => {
 
   beforeEach(async(() => {
     TestBed.configureTestingModule({
-      declarations: [ FolderListComponent ]
+      declarations: [FolderListComponent],
+      imports: [HttpClientModule],
+      providers: [FolderListComponent, ChangeDetectorRef]
     })
-    .compileComponents();
-  }));
+      .compileComponents();
 
-  beforeEach(() => {
-    fixture = TestBed.createComponent(FolderListComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
+    component = TestBed.inject(FolderListComponent);
+  }));
 
   it('should create', () => {
     expect(component).toBeTruthy();

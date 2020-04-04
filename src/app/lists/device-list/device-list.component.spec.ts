@@ -5,6 +5,8 @@ import { MatSortModule } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
 
 import { DeviceListComponent } from './device-list.component';
+import { HttpClientModule } from '@angular/common/http';
+import { ChangeDetectorRef } from '@angular/core';
 
 describe('DeviceListComponent', () => {
   let component: DeviceListComponent;
@@ -13,20 +15,12 @@ describe('DeviceListComponent', () => {
   beforeEach(async(() => {
     TestBed.configureTestingModule({
       declarations: [DeviceListComponent],
-      imports: [
-        NoopAnimationsModule,
-        MatPaginatorModule,
-        MatSortModule,
-        MatTableModule,
-      ]
+      imports: [HttpClientModule],
+      providers: [DeviceListComponent, ChangeDetectorRef]
     }).compileComponents();
-  }));
 
-  beforeEach(() => {
-    fixture = TestBed.createComponent(DeviceListComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
+    component = TestBed.inject(DeviceListComponent);
+  }));
 
   it('should compile', () => {
     expect(component).toBeTruthy();

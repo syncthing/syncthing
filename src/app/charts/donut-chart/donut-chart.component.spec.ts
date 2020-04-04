@@ -1,23 +1,19 @@
 import { async, ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { DonutChartComponent } from './donut-chart.component';
+import { HttpClientModule } from '@angular/common/http';
 
 describe('DonutChartComponent', () => {
   let component: DonutChartComponent;
-  let fixture: ComponentFixture<DonutChartComponent>;
 
   beforeEach(async(() => {
     TestBed.configureTestingModule({
-      declarations: [ DonutChartComponent ]
-    })
-    .compileComponents();
-  }));
+      declarations: [DonutChartComponent],
+      providers: [DonutChartComponent]
+    }).compileComponents();
 
-  beforeEach(() => {
-    fixture = TestBed.createComponent(DonutChartComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
+    component = TestBed.inject(DonutChartComponent);
+  }));
 
   it('should create', () => {
     expect(component).toBeTruthy();
