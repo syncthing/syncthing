@@ -279,6 +279,8 @@ func (s *service) serve(ctx context.Context) {
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
+
+	postRestMux.HandleFunc("/rest/login", s.restLogin)
 	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
 	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                    // folder
 	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)                  // folder
@@ -312,6 +314,17 @@ func (s *service) serve(ctx context.Context) {
 
 	// The main routing handler
 	mux := http.NewServeMux()
+
+	guiCfg := s.cfg.GUI()
+	auth := authAndSessionMiddleware{"sessionid-" + s.id.String()[:5], guiCfg, s.cfg.LDAP(), s.evLogger}
+
+	if guiCfg.IsAuthEnabled() {
+		restMux = auth.handler(restMux)
+		mux.HandleFunc("/rest/login", auth.loginHandler)
+	} else {
+		mux.HandleFunc("/rest/login", auth.noopHandler)
+	}
+
 	mux.Handle("/rest/", restMux)
 	mux.HandleFunc("/qr/", s.getQR)
 
@@ -321,7 +334,7 @@ func (s *service) serve(ctx context.Context) {
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
 
-	guiCfg := s.cfg.GUI()
+	// guiCfg := s.cfg.GUI()
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
@@ -331,9 +344,9 @@ func (s *service) serve(ctx context.Context) {
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in basic auth, if user/password is set.
-	if guiCfg.IsAuthEnabled() {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
-	}
+	// if guiCfg.IsAuthEnabled() {
+	// 	handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+	// }
 
 	// Redirect to HTTPS if we are supposed to
 	if guiCfg.UseTLS() {
@@ -402,6 +415,11 @@ func (s *service) serve(ctx context.Context) {
 		l.Warnln("GUI/API:", err, "(restarting)")
 	}
 	srv.Close()
+}
+
+func (s *service) restLogin(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("location", "/")
+	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor
