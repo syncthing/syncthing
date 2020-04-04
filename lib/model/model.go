@@ -253,6 +253,12 @@ func (m *model) onServe() {
 			continue
 		}
 		m.newFolder(folderCfg)
+		// Forget pending folders that are now added
+		m.db.RemovePendingFolder(folderCfg.ID, folderCfg.DeviceIDs())
+	}
+	for deviceID, _ := range m.cfg.Devices() {
+		// Forget pending devices that are now added
+		m.db.RemovePendingDevice(deviceID)
 	}
 	m.cfg.Subscribe(m)
 }
@@ -2458,6 +2464,10 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				m.newFolder(cfg)
 			}
 		}
+		// Even if the folder was not just added, it may have
+		// been shared to additional devices.  Forget pending
+		// folder/device combinations that are now shared.
+		m.db.RemovePendingFolder(cfg.ID, cfg.DeviceIDs())
 	}
 
 	for folderID, fromCfg := range fromFolders {
@@ -2505,9 +2515,15 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			m.fmut.Lock()
 			m.deviceStatRefs[deviceID] = sr
 			m.fmut.Unlock()
+			// Forget pending devices that are now added
+			m.db.RemovePendingDevice(deviceID)
 			continue
 		}
 		delete(fromDevices, deviceID)
+		// Forget pending folder/device combinations that are now ignored
+		for _, ignFolder := range toCfg.IgnoredFolders {
+			m.db.RemovePendingFolder(ignFolder.ID, []protocol.DeviceID{deviceID})
+		}
 		if fromCfg.Paused == toCfg.Paused {
 			continue
 		}
@@ -2530,6 +2546,11 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		delete(m.deviceStatRefs, deviceID)
 	}
 	m.fmut.Unlock()
+
+	// Forget pending devices that are now ignored
+	for _, ignDevice := range to.IgnoredDevices {
+		m.db.RemovePendingDevice(ignDevice.ID)
+	}
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
