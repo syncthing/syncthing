@@ -400,6 +400,7 @@ angular.module('syncthing.core')
                 });
             });
 
+            refreshCluster();
             refreshNoAuthWarning();
             setDefaultTheme();
 
