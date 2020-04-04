@@ -10,7 +10,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -491,11 +490,11 @@ func handleRelayTest(request request) {
 	if debug {
 		log.Println("Request for", request.relay)
 	}
-	if !client.TestRelay(context.TODO(), request.relay.uri, []tls.Certificate{testCert}, time.Second, 2*time.Second, 3) {
+	if err := client.TestRelay(context.TODO(), request.relay.uri, []tls.Certificate{testCert}, time.Second, 2*time.Second, 3); err != nil {
 		if debug {
-			log.Println("Test for relay", request.relay, "failed")
+			log.Println("Test for relay", request.relay, "failed:", err)
 		}
-		request.result <- result{errors.New("connection test failed"), 0}
+		request.result <- result{err, 0}
 		return
 	}
 
