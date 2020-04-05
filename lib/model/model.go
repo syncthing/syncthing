@@ -2553,14 +2553,14 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	for deviceID := range fromDevices {
 		delete(m.deviceStatRefs, deviceID)
 		// Forget all pending folders for removed devices
-		keepPendingFoldersFor[deviceID] = false  //not really needed
+		keepPendingFoldersFor[deviceID] = false //not really needed
 	}
 	m.fmut.Unlock()
 
 	// Forget pending devices that are now ignored
 	for _, ignDevice := range to.IgnoredDevices {
 		m.db.RemovePendingDevice(ignDevice.ID)
-		keepPendingFoldersFor[ignDevice.ID] = false  //not really needed
+		keepPendingFoldersFor[ignDevice.ID] = false //not really needed
 	}
 	// Forget all pending folders for removed or ignored devices
 	m.db.CleanPendingFolders(keepPendingFoldersFor)
