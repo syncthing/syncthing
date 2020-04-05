@@ -615,14 +615,13 @@ func (s *service) getPendingFolders(w http.ResponseWriter, r *http.Request) {
 	device := qs.Get("device")
 	deviceID, err := protocol.DeviceIDFromString(device)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	folders, err := s.model.PendingFolders(deviceID)
-	//FIXME could filter for the device ID here, but it's most efficient in the model / DB layer
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	sendJSON(w, toJsonObservedFolderSlice(folders))
