@@ -30,6 +30,10 @@ type BasicFilesystem struct {
 }
 
 func newBasicFilesystem(root string) *BasicFilesystem {
+	if root == "" {
+		root = "." // Otherwise "" becomes "/" below
+	}
+
 	// The reason it's done like this:
 	// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)
 	// C:\somedir  ->  C:\somedir\    ->  C:\somedir

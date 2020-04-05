@@ -9,7 +9,6 @@ package osutil
 import (
 	"errors"
 	"path/filepath"
-	"runtime"
 
 	"github.com/syncthing/syncthing/lib/fs"
 )
@@ -91,16 +90,6 @@ func (w *AtomicWriter) Close() error {
 	if err := w.next.Close(); err != nil {
 		w.err = err
 		return err
-	}
-
-	// Remove the destination file, on Windows only. If it fails, and not due
-	// to the file not existing, we won't be able to complete the rename
-	// either. Return this error because it may be more informative. On non-
-	// Windows we want the atomic rename behavior so we don't attempt remove.
-	if runtime.GOOS == "windows" {
-		if err := w.fs.Remove(w.path); err != nil && !fs.IsNotExist(err) {
-			return err
-		}
 	}
 
 	if err := w.fs.Rename(w.next.Name(), w.path); err != nil {
