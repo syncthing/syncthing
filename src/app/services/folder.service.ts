@@ -3,6 +3,7 @@ import { SystemConfigService } from './system-config.service';
 import { Observable, Subscriber } from 'rxjs';
 import Folder from '../folder';
 import { DbStatusService } from './db-status.service';
+import { ProgressService } from './progress.service';
 
 @Injectable({
   providedIn: 'root'
@@ -12,7 +13,8 @@ export class FolderService {
 
   constructor(
     private systemConfigService: SystemConfigService,
-    private dbStatusService: DbStatusService
+    private dbStatusService: DbStatusService,
+    private progressService: ProgressService,
   ) { }
 
   getFolderStatusInOrder(observer: Subscriber<Folder>, startIndex: number) {
@@ -29,6 +31,9 @@ export class FolderService {
         folder.stateType = Folder.getStateType(folder);
         folder.state = Folder.stateTypeToString(folder.stateType);
         observer.next(folder);
+
+        // Add one to the progress service
+        this.progressService.addToProgress(1);
 
         // recursively get the status of the next folder
         this.getFolderStatusInOrder(observer, startIndex);

@@ -54,14 +54,7 @@ export class ChartComponent implements OnInit {
     } else {
       this.activeChartState = null;
       this.filterService.changeFilter({ type: this.type, text: "" })
-      console.log("change filter", this.type)
     }
-
-    /*
-    const index = this.states.indexOf(s);
-    if (index >= 0) {
-    }
-    */
   }
 
   ngOnInit(): void {

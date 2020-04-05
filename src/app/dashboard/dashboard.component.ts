@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ViewChild, AfterViewChecked } from '@angular/core';
 import {
   trigger,
   state,
@@ -9,6 +9,8 @@ import {
 import { SystemConfigService } from '../services/system-config.service';
 import { StType } from '../type';
 import { FilterService } from '../services/filter.service';
+import { ProgressService } from '../services/progress.service';
+import { MatProgressBar } from '@angular/material/progress-bar';
 
 @Component({
   selector: 'app-dashboard',
@@ -18,26 +20,48 @@ import { FilterService } from '../services/filter.service';
   animations: [
     trigger('loading', [
       state('start', style({
-        marginTop: '100px',
+        marginTop: '20px',
       })),
       state('done', style({
         marginTop: '0px',
       })),
-      transition('open => closed', [
-        animate('1s')
+      transition('start => done', [
+        animate('0.2s 0.2s')
       ]),
-      transition('closed => open', [
-        animate('0.5s')
+      transition('done => start', [
+        animate('0.2s 0.2s')
+      ]),
+    ]),
+    trigger('progressBar', [
+      state('start', style({
+        opacity: 100,
+        visibility: 'visible'
+      })),
+      state('done', style({
+        opacity: 0,
+        visibility: 'hidden'
+      })),
+      transition('start => done', [
+        animate('0.35s')
+      ]),
+      transition('done => start', [
+        animate('0.35s')
       ]),
     ]),
   ]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, AfterViewInit {
+  @ViewChild(MatProgressBar) progressBar: MatProgressBar;
   folderChart: StType = StType.Folder;
   deviceChart: StType = StType.Device;
-  isLoading: boolean = true;
+  progressValue: number = 0;
+  isLoading = true;
 
-  constructor(private systemConfigService: SystemConfigService) { }
+
+  constructor(
+    private systemConfigService: SystemConfigService,
+    private progressService: ProgressService,
+  ) { }
 
   ngOnInit() {
     this.systemConfigService.getSystemConfig().subscribe(
@@ -46,6 +70,20 @@ export class DashboardComponent implements OnInit {
       () => console.log('Observer got a complete notification')
     );
 
-    this.isLoading = false;
+  }
+
+  ngAfterViewInit() {
+    this.isLoading = true;
+
+    // Listen for progress service changes
+    let t = setInterval(() => {
+      if (this.progressService.isComplete()) {
+        clearInterval(t);
+        this.progressValue = 100;
+        this.isLoading = false;
+      }
+      this.progressValue = this.progressService.percentValue;
+    }, 100);
+
   }
 }

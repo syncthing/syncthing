@@ -19,15 +19,15 @@ describe('ProgressService', () => {
     interface iTest {
       total: number,
       progress: number,
-      expected: string
+      expected: number,
     }
     const tests: Map<string, iTest> = new Map([
-      ["default", { total: 0, progress: 0, expected: '0' }],
-      ["NaN return 0", { total: 0, progress: 100, expected: '0' }],
-      ["greater than 100 return 100", { total: 10, progress: 100, expected: '100' }],
-      ["valid", { total: 100, progress: 100, expected: '100' }],
-      ["valid", { total: 100, progress: 50, expected: '50' }],
-      ["test floor", { total: 133, progress: 41, expected: '30' }],
+      ["default", { total: 0, progress: 0, expected: 0 }],
+      ["NaN return 0", { total: 0, progress: 100, expected: 0 }],
+      ["greater than 100 return 100", { total: 10, progress: 100, expected: 100 }],
+      ["valid", { total: 100, progress: 100, expected: 100 }],
+      ["valid", { total: 100, progress: 50, expected: 50 }],
+      ["test floor", { total: 133, progress: 41, expected: 30 }],
     ]);
 
     service = new ProgressService();

@@ -6,6 +6,7 @@ import { SystemConnectionsService } from './system-connections.service';
 import { DbCompletionService } from './db-completion.service';
 import { SystemConnections } from '../connections';
 import { SystemStatusService } from './system-status.service';
+import { ProgressService } from './progress.service';
 
 @Injectable({
   providedIn: 'root'
@@ -19,7 +20,8 @@ export class DeviceService {
     private systemConfigService: SystemConfigService,
     private systemConnectionsService: SystemConnectionsService,
     private dbCompletionService: DbCompletionService,
-    private systemStatusService: SystemStatusService
+    private systemStatusService: SystemStatusService,
+    private progressService: ProgressService,
   ) { }
 
   getDeviceStatusInOrder(observer: Subscriber<Device>, startIndex: number) {
@@ -52,6 +54,8 @@ export class DeviceService {
         device.stateType = Device.getStateType(device);
         device.state = Device.stateTypeToString(device.stateType);
         observer.next(device);
+
+        this.progressService.addToProgress(1);
 
         // recursively get the status of the next folder
         this.getDeviceStatusInOrder(observer, startIndex);

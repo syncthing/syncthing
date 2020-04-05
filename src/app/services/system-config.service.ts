@@ -8,6 +8,7 @@ import Folder from '../folder';
 import Device from '../device';
 import { environment } from '../../environments/environment'
 import { apiURL, apiRetry } from '../api-utils'
+import { ProgressService } from './progress.service';
 
 @Injectable({
   providedIn: 'root'
@@ -22,7 +23,10 @@ export class SystemConfigService {
 
   private checkInterval: number = 100;
 
-  constructor(private http: HttpClient) { }
+  constructor(
+    private http: HttpClient,
+    private progressService: ProgressService,
+  ) { }
 
   getSystemConfig(): Observable<any> {
     return this.http
@@ -32,6 +36,10 @@ export class SystemConfigService {
         map(res => {
           this.folders = res['folders'];
           this.devices = res['devices'];
+
+          // Set the total for the progress service
+          this.progressService.total = this.folders.length + this.devices.length;
+
           this.foldersSubject.next(this.folders);
           this.devicesSubject.next(this.devices);
 
