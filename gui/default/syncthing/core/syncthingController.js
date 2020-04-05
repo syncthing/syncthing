@@ -116,7 +116,6 @@ angular.module('syncthing.core')
             console.log('UIOnline');
 
             refreshSystem();
-            refreshCluster();
             refreshDiscoveryCache();
             refreshConfig();
             refreshConnectionStats();
