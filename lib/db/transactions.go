@@ -631,7 +631,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 		if err != nil {
 			return nil, err
 		}
-		if f, ok, err := t.getFileByKey(keyBuf); err != nil {
+		if f, ok, err := t.getFileTrunc(keyBuf, true); err != nil {
 			return nil, err
 		} else if ok {
 			meta.removeFile(protocol.GlobalDeviceID, f)
