@@ -589,19 +589,15 @@ func limit(addr string, cache *lru.Cache, lock sync.Mutex, intv time.Duration, b
 	}
 
 	lock.Lock()
-	bkt, ok := cache.Get(addr)
-	if ok {
-		lock.Unlock()
-		bkt := bkt.(*rate.Limiter)
-		if !bkt.Allow() {
-			// Rate limit
-			return true
-		}
-	} else {
-		cache.Add(addr, rate.NewLimiter(rate.Every(intv), burst))
-		lock.Unlock()
+	v, _ := cache.Get(addr)
+	bkt, ok := v.(*rate.Limiter)
+	if !ok {
+		bkt = rate.NewLimiter(rate.Every(intv), burst)
+		cache.Add(addr, bkt)
 	}
-	return false
+	lock.Unlock()
+
+	return !bkt.Allow()
 }
 
 func loadRelays(file string) []*relay {
