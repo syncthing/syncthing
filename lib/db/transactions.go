@@ -554,7 +554,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 // updateLocalNeed checks whether the given file is still needed on the local
 // device according to the version list and global FileInfo given and updates
 // the db accordingly.
-func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, fl VersionList, global protocol.FileInfo) ([]byte, error) {
+func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, fl VersionList, global FileIntf) ([]byte, error) {
 	var err error
 	keyBuf, err = t.keyer.GenerateNeedFileKey(keyBuf, folder, name)
 	if err != nil {
@@ -657,7 +657,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 		if err != nil {
 			return nil, err
 		}
-		global, ok, err := t.getFileByKey(keyBuf)
+		global, ok, err := t.getFileTrunc(keyBuf, true)
 		if err != nil {
 			return nil, err
 		}

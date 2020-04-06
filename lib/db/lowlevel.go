@@ -406,6 +406,7 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 			if err := t.Delete(dbi.Key()); err != nil {
 				return err
 			}
+			continue
 		}
 
 		// Check the global version list for consistency. An issue in previous
