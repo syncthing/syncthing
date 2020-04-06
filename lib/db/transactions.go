@@ -488,7 +488,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 
 	name := []byte(file.Name)
 
-	var global protocol.FileInfo
+	var global FileIntf
 	if insertedAt == 0 {
 		// Inserted a new newest version
 		global = file
@@ -497,7 +497,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 		if err != nil {
 			return nil, false, err
 		}
-		new, ok, err := t.getFileByKey(keyBuf)
+		new, ok, err := t.getFileTrunc(keyBuf, true)
 		if err != nil || !ok {
 			return keyBuf, false, err
 		}
@@ -530,7 +530,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	if err != nil {
 		return nil, false, err
 	}
-	oldFile, ok, err := t.getFileByKey(keyBuf)
+	oldFile, ok, err := t.getFileTrunc(keyBuf, true)
 	if err != nil {
 		return nil, false, err
 	}
