@@ -440,8 +440,6 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 }
 
 func TestLZ4Compression(t *testing.T) {
-	c := new(rawConnection)
-
 	for i := 0; i < 10; i++ {
 		dataLen := 150 + rand.Intn(150)
 		data := make([]byte, dataLen)
@@ -449,13 +447,13 @@ func TestLZ4Compression(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		comp, err := c.lz4Compress(data)
+		comp, err := lz4Compress(data)
 		if err != nil {
 			t.Errorf("compressing %d bytes: %v", dataLen, err)
 			continue
 		}
 
-		res, err := c.lz4Decompress(comp)
+		res, err := lz4Decompress(comp)
 		if err != nil {
 			t.Errorf("decompressing %d bytes to %d: %v", len(comp), dataLen, err)
 			continue
@@ -471,7 +469,6 @@ func TestLZ4Compression(t *testing.T) {
 }
 
 func TestStressLZ4CompressGrows(t *testing.T) {
-	c := new(rawConnection)
 	success := 0
 	for i := 0; i < 100; i++ {
 		// Create a slize that is precisely one min block size, fill it with
@@ -482,7 +479,7 @@ func TestStressLZ4CompressGrows(t *testing.T) {
 			t.Fatal("randomness failure")
 		}
 
-		comp, err := c.lz4Compress(data)
+		comp, err := lz4Compress(data)
 		if err != nil {
 			t.Fatal("unexpected compression error: ", err)
 		}

@@ -523,7 +523,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 		// Nothing
 
 	case MessageCompressionLZ4:
-		decomp, err := c.lz4Decompress(buf)
+		decomp, err := lz4Decompress(buf)
 		BufferPool.Put(buf)
 		if err != nil {
 			return nil, errors.Wrap(err, "decompressing message")
@@ -754,7 +754,7 @@ func (c *rawConnection) writeCompressedMessage(msg message) error {
 		return errors.Wrap(err, "marshalling message")
 	}
 
-	compressed, err := c.lz4Compress(buf)
+	compressed, err := lz4Compress(buf)
 	if err != nil {
 		BufferPool.Put(buf)
 		return errors.Wrap(err, "compressing message")
@@ -1018,7 +1018,7 @@ func (c *rawConnection) Statistics() Statistics {
 	}
 }
 
-func (c *rawConnection) lz4Compress(src []byte) ([]byte, error) {
+func lz4Compress(src []byte) ([]byte, error) {
 	var err error
 	buf := BufferPool.Get(lz4.CompressBound(len(src)))
 	compressed, err := lz4.Encode(buf, src)
@@ -1034,7 +1034,7 @@ func (c *rawConnection) lz4Compress(src []byte) ([]byte, error) {
 	return compressed, nil
 }
 
-func (c *rawConnection) lz4Decompress(src []byte) ([]byte, error) {
+func lz4Decompress(src []byte) ([]byte, error) {
 	size := binary.BigEndian.Uint32(src)
 	binary.LittleEndian.PutUint32(src, size)
 	var err error
