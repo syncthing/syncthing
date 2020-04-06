@@ -1110,10 +1110,10 @@ func TestSkipIgnoredDirs(t *testing.T) {
 		{`!/t*t`, true},
 		{`!/t?t`, true},
 		{`!/**`, true},
-		{`!/parent/test`, true},
-		{`!/parent/t[eih]t`, true},
-		{`!/parent/t*t`, true},
-		{`!/parent/t?t`, true},
+		{`!/parent/test`, false},
+		{`!/parent/t[eih]t`, false},
+		{`!/parent/t*t`, false},
+		{`!/parent/t?t`, false},
 		{`!/**.mp3`, false},
 		{`!/pa*nt/test`, false},
 		{`!/pa[sdf]nt/t[eih]t`, false},
@@ -1149,6 +1149,17 @@ func TestSkipIgnoredDirs(t *testing.T) {
 	}
 	if !pats.SkipIgnoredDirs() {
 		t.Error("SkipIgnoredDirs should be true")
+	}
+
+	stignore = `
+	!/foo/ign*
+	*
+	`
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if pats.SkipIgnoredDirs() {
+		t.Error("SkipIgnoredDirs should be false")
 	}
 }
 
