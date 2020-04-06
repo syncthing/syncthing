@@ -5,6 +5,7 @@ import { apiURL, apiRetry } from '../api-utils';
 import { Completion } from '../completion';
 import { retry, map } from 'rxjs/operators';
 import { Observable } from 'rxjs';
+import { StType } from '../type';
 
 @Injectable({
   providedIn: 'root'
@@ -14,12 +15,21 @@ export class DbCompletionService {
 
   constructor(private http: HttpClient) { }
 
-  getDeviceCompletion(id: string): Observable<Completion> {
+  getCompletion(type: StType, id: string): Observable<Completion> {
     let httpOptions: { params: HttpParams };
     if (id) {
-      httpOptions = {
-        params: new HttpParams().set('device', id)
-      };
+      switch (type) {
+        case StType.Device:
+          httpOptions = {
+            params: new HttpParams().set('device', id)
+          };
+          break;
+        case StType.Folder:
+          httpOptions = {
+            params: new HttpParams().set('folder', id)
+          };
+          break;
+      }
     } else { }
 
     return this.http
@@ -38,6 +48,5 @@ export class DbCompletionService {
           return res;
         })
       );
-
   }
 }

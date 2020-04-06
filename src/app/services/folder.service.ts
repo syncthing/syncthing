@@ -4,6 +4,8 @@ import { Observable, Subscriber } from 'rxjs';
 import Folder from '../folder';
 import { DbStatusService } from './db-status.service';
 import { ProgressService } from './progress.service';
+import { DbCompletionService } from './db-completion.service';
+import { StType } from '../type';
 
 @Injectable({
   providedIn: 'root'
@@ -14,6 +16,7 @@ export class FolderService {
   constructor(
     private systemConfigService: SystemConfigService,
     private dbStatusService: DbStatusService,
+    private dbCompletionService: DbCompletionService,
     private progressService: ProgressService,
   ) { }
 
@@ -28,15 +31,19 @@ export class FolderService {
     this.dbStatusService.getFolderStatus(folder.id).subscribe(
       status => {
         folder.status = status;
-        folder.stateType = Folder.getStateType(folder);
-        folder.state = Folder.stateTypeToString(folder.stateType);
-        observer.next(folder);
 
-        // Add one to the progress service
-        this.progressService.addToProgress(1);
+        this.dbCompletionService.getCompletion(StType.Folder, folder.id).subscribe(
+          c => {
+            folder.completion = c;
+            folder.stateType = Folder.getStateType(folder);
+            folder.state = Folder.stateTypeToString(folder.stateType);
+            observer.next(folder);
 
-        // recursively get the status of the next folder
-        this.getFolderStatusInOrder(observer, startIndex);
+            this.progressService.addToProgress(1);
+
+            // recursively get the status of the next folder
+            this.getFolderStatusInOrder(observer, startIndex);
+          });
       }
     );
   }

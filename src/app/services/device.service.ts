@@ -7,6 +7,7 @@ import { DbCompletionService } from './db-completion.service';
 import { SystemConnections } from '../connections';
 import { SystemStatusService } from './system-status.service';
 import { ProgressService } from './progress.service';
+import { StType } from '../type';
 
 @Injectable({
   providedIn: 'root'
@@ -48,16 +49,17 @@ export class DeviceService {
       }
     }
 
-    this.dbCompletionService.getDeviceCompletion(device.deviceID).subscribe(
+    this.dbCompletionService.getCompletion(StType.Device, device.deviceID).subscribe(
       c => {
-        device.completion = c.completion;
+        device.completion = c;
+        Device.recalcCompletion(device);
         device.stateType = Device.getStateType(device);
         device.state = Device.stateTypeToString(device.stateType);
         observer.next(device);
 
         this.progressService.addToProgress(1);
 
-        // recursively get the status of the next folder
+        // recursively get the status of the next device 
         this.getDeviceStatusInOrder(observer, startIndex);
       });
   }
@@ -75,22 +77,29 @@ export class DeviceService {
             status => {
               this.devices.forEach(device => {
                 if (device.deviceID === status.myID) {
-                  console.log("found thisDevice!", device);
+                  // TODO Determine if it should ignore thisDevice
                   this.thisDevice = device;
                 }
               });
-
-              // TODO Determine if it should ignore thisDevice
 
               // Check folder devices to see if the device is used
               this.systemConfigService.getFolders().subscribe(
                 folders => {
                   // Loop through all folder devices to see if the device is used
                   this.devices.forEach(device => {
+                    // Alloc array if needed
+                    if (!device.folders) {
+                      device.folders = [];
+                    }
+
                     folders.forEach(folder => {
                       folder.devices.forEach(fdevice => {
                         if (device.deviceID === fdevice.deviceID) {
+                          // The device is used by a folder
                           device.used = true;
+
+                          // Add a reference to the folder to the device
+                          device.folders.push(folder);
                         }
                       });
                     });

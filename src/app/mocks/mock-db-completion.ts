@@ -5,13 +5,15 @@ export const dbCompletion =
             "completion": 100,
             "globalBytes": 156793013575,
             "needBytes": 0,
-            "needDeletes": 0
+            "needDeletes": 0,
+            "needItems": 0
         },
         {
             "completion": 80,
             "globalBytes": 3013575,
             "needBytes": 100,
-            "needDeletes": 0
+            "needDeletes": 0,
+            "needItems": 0
         }
     ]
 /*

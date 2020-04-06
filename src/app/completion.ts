@@ -3,4 +3,5 @@ export interface Completion {
   globalBytes: number;
   needBytes: number;
   needDeletes: number;
+  needItems: number;
 }

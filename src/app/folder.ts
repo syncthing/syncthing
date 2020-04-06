@@ -1,5 +1,6 @@
 import Device from './device';
 import { colors } from './style';
+import { Completion } from './completion';
 
 interface Folder {
     id: string;
@@ -9,7 +10,7 @@ interface Folder {
     stateType: Folder.StateType;
     state: string;
     paused: boolean;
-    completion: number;
+    completion: Completion;
     path: string;
 }
 
@@ -144,18 +145,13 @@ namespace Folder {
                 return StateType.Unknown;
         }
 
-        const needTotalItems = fs.needDeletes + fs.needDirectories +
-            fs.needFiles + fs.needSymlinks;
-        const receiveOnlyTotalItems = fs.receiveOnlyChangedDeletes + fs.receiveOnlyChangedDirectories +
-            fs.receiveOnlyChangedFiles + fs.receiveOnlyChangedSymlinks;
-
-        if (needTotalItems > 0) {
+        if (fs.needTotalItems > 0) {
             return StateType.OutOfSync;
         }
-        if (f.status.pullErrors > 0) {
+        if (fs.pullErrors > 0) {
             return StateType.FailedItems;
         }
-        if (receiveOnlyTotalItems > 0) {
+        if (fs.receiveOnlyTotalItems > 0) {
             return StateType.LocalAdditions;
         }
         if (f.devices.length <= 1) {
@@ -172,6 +168,7 @@ namespace Folder {
         globalDirectories: number;
         globalFiles: number;
         globalSymlinks: number;
+        globalTotalItems: number;
         ignorePatterns: boolean;
         inSyncBytes: number;
         inSyncFiles: number;
@@ -186,12 +183,14 @@ namespace Folder {
         needDirectories: number;
         needFiles: number;
         needSymlinks: number;
+        needTotalItems: number;
         pullErrors: number;
         receiveOnlyChangedBytes: number;
         receiveOnlyChangedDeletes: number;
         receiveOnlyChangedDirectories: number;
         receiveOnlyChangedFiles: number;
         receiveOnlyChangedSymlinks: number;
+        receiveOnlyTotalItems: number;
         sequence: number;
         state: string;
         stateChanged: string;
