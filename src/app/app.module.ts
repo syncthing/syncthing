@@ -30,6 +30,7 @@ import { environment } from '../environments/environment';
 import { ChartItemComponent } from './charts/chart-item/chart-item.component';
 import { ChartComponent } from './charts/chart/chart.component';
 import { FolderListComponent } from './lists/folder-list/folder-list.component';
+import { DialogComponent } from './dialog/dialog.component';
 
 @NgModule({
   declarations: [
@@ -42,6 +43,7 @@ import { FolderListComponent } from './lists/folder-list/folder-list.component';
     ChartComponent,
     ChartItemComponent,
     FolderListComponent,
+    DialogComponent,
   ],
   imports: [
     BrowserModule,
