@@ -488,7 +488,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 
 	name := []byte(file.Name)
 
-	var global protocol.FileInfo
+	var global FileIntf
 	if insertedAt == 0 {
 		// Inserted a new newest version
 		global = file
@@ -497,7 +497,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 		if err != nil {
 			return nil, false, err
 		}
-		new, ok, err := t.getFileByKey(keyBuf)
+		new, ok, err := t.getFileTrunc(keyBuf, true)
 		if err != nil || !ok {
 			return keyBuf, false, err
 		}
@@ -530,7 +530,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	if err != nil {
 		return nil, false, err
 	}
-	oldFile, ok, err := t.getFileByKey(keyBuf)
+	oldFile, ok, err := t.getFileTrunc(keyBuf, true)
 	if err != nil {
 		return nil, false, err
 	}
@@ -554,7 +554,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 // updateLocalNeed checks whether the given file is still needed on the local
 // device according to the version list and global FileInfo given and updates
 // the db accordingly.
-func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, fl VersionList, global protocol.FileInfo) ([]byte, error) {
+func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, fl VersionList, global FileIntf) ([]byte, error) {
 	var err error
 	keyBuf, err = t.keyer.GenerateNeedFileKey(keyBuf, folder, name)
 	if err != nil {
@@ -631,7 +631,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 		if err != nil {
 			return nil, err
 		}
-		if f, ok, err := t.getFileByKey(keyBuf); err != nil {
+		if f, ok, err := t.getFileTrunc(keyBuf, true); err != nil {
 			return nil, err
 		} else if ok {
 			meta.removeFile(protocol.GlobalDeviceID, f)
@@ -657,7 +657,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 		if err != nil {
 			return nil, err
 		}
-		global, ok, err := t.getFileByKey(keyBuf)
+		global, ok, err := t.getFileTrunc(keyBuf, true)
 		if err != nil {
 			return nil, err
 		}
