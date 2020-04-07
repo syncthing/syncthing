@@ -385,6 +385,7 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 			if err := t.Delete(dbi.Key()); err != nil {
 				return err
 			}
+			continue
 		}
 
 		// Check the global version list for consistency. An issue in previous
@@ -409,7 +410,7 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 			newVL.Versions = append(newVL.Versions, version)
 
 			if i == 0 {
-				if fi, ok, err := t.getFileByKey(dk); err != nil {
+				if fi, ok, err := t.getFileTrunc(dk, true); err != nil {
 					return err
 				} else if ok {
 					meta.addFile(protocol.GlobalDeviceID, fi)
