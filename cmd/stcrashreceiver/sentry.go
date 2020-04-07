@@ -31,11 +31,13 @@ var (
 	clientsMut sync.Mutex
 )
 
-func sendReport(dsn, path string, report []byte) error {
+func sendReport(dsn, path string, report []byte, userID string) error {
 	pkt, err := parseReport(path, report)
 	if err != nil {
 		return err
 	}
+
+	pkt.Interfaces = append(pkt.Interfaces, &raven.User{ID: userID})
 
 	clientsMut.Lock()
 	defer clientsMut.Unlock()
