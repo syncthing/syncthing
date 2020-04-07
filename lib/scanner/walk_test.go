@@ -809,7 +809,7 @@ func TestSkipIgnoredDirs(t *testing.T) {
 func TestIncludedSubdir(t *testing.T) {
 	fss := fs.NewFilesystem(fs.FilesystemTypeFake, "")
 
-	name := "foo/bar/included"
+	name := filepath.Clean("foo/bar/included")
 	err := fss.MkdirAll(name, 0777)
 	if err != nil {
 		t.Fatal(err)
