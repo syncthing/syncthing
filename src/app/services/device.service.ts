@@ -36,8 +36,6 @@ export class DeviceService {
 
     // Check if device in the connections
     if (this.sysConns.connections[device.deviceID] === undefined) {
-      console.log(this.sysConns.connections)
-      console.log("connections undefined", device.deviceID);
       device.stateType = Device.StateType.Unknown;
     } else {
       // Set connected
