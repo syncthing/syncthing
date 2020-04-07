@@ -1,0 +1,39 @@
+<modal id="defaultIgnore" status="default" icon="{{'fas fa-filter'}}" heading="{{'Default Ignore Patterns' | translate}}" large="yes" closeable="yes">
+  <div class="modal-body">
+    <form role="form" name="folderEditor">
+      <div class="tab-content">
+        <div id="default-ignores" class="tab-pane in active">
+          <p translate>Enter ignore patterns, one per line.</p>
+          <textarea id="defaultIgnorePatterns" class="form-control" rows="5" ng-model="tmpOptions.defaultIgnorePatterns"></textarea>
+          <hr />
+          <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://docs.syncthing.net/users/ignoring.html" target="_blank" translate>full documentation</a>):</p>
+          <dl class="dl-horizontal dl-narrow small">
+            <dt><code>(?d)</code></dt>
+            <dd><b><span translate>Prefix indicating that the file can be deleted if preventing directory removal</span></b></dd>
+            <dt><code>(?i)</code></dt>
+            <dd><span translate>Prefix indicating that the pattern should be matched without case sensitivity</span></dd>
+            <dt><code>!</code></dt>
+            <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
+            <dt><code>*</code></dt>
+            <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
+            <dt><code>**</code></dt>
+            <dd><span translate>Multi level wildcard (matches multiple directory levels)</span></dd>
+            <dt><code>//</code></dt>
+            <dd><span translate>Comment, when used at the start of a line</span></dd>
+          </dl>
+          <!-- <hr /> -->
+          <!-- <span translate ng-show="editingExisting" translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span>
+          <span translate ng-show="!editingExisting" translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Creating ignore patterns, overwriting an existing file at {%path%}.</span> -->
+        </div>
+      </div>
+    </form>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-primary btn-sm" ng-click="saveDefaultIgnorePatterns()" ng-disabled="folderEditor.$invalid">
+      <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
+    </button>
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
+    </button>
+  </div>
+</modal>

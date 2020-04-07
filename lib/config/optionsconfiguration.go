@@ -53,6 +53,7 @@ type OptionsConfiguration struct {
 	UnackedNotificationIDs  []string `xml:"unackedNotificationID" json:"unackedNotificationIDs"`
 	TrafficClass            int      `xml:"trafficClass" json:"trafficClass"`
 	DefaultFolderPath       string   `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
+	DefaultIgnorePatterns   string   `xml:"defaultIgnorePatterns" json:"defaultIgnorePatterns"`
 	SetLowPriority          bool     `xml:"setLowPriority" json:"setLowPriority" default:"true"`
 	RawMaxFolderConcurrency int      `xml:"maxFolderConcurrency" json:"maxFolderConcurrency"`
 	CRURL                   string   `xml:"crashReportingURL" json:"crURL" default:"https://crash.syncthing.net/newcrash"` // crash reporting URL

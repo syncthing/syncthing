@@ -1768,10 +1768,44 @@ angular.module('syncthing.core')
                 })
                 .error(function (err) {
                     $('#folder-ignores textarea').val($translate.instant("Failed to load ignore patterns."));
+                    $('#folder-ignores textarea').removeAttr('disabled');
                     $scope.emitHTTPError(err);
                 });
 
             $scope.editFolderModal();
+        };
+
+        $scope.defaultIgnorePatternsModal = function () {
+            console.log($('#default-ignores textarea').val());
+            console.log($scope.config.options.defaultIgnorePatterns);
+            $scope.folderEditor.$setPristine();
+            $('#defaultIgnore').modal().one('shown.bs.tab', function (e) {
+                if (e.target.attributes.href.value === "#default-ignores") {
+                    $('#default-ignores textarea').focus();
+                }
+            }).one('hidden.bs.modal', function () {
+                $('.nav-tabs a[href="#folder-general"]').tab('show');
+                window.location.hash = "";
+            });
+        };
+
+        $scope.defaultIgnorePatterns = function (folderCfg) {
+
+            // console.log($('#default-ignores textarea').val());
+            // $('#folder-ignores textarea').val($translate.instant("Loading..."));
+            // $('#folder-ignores textarea').attr('disabled', 'disabled');
+            // $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
+            //     .success(function (data) {
+            //         $scope.currentFolder.ignores = data.ignore || [];
+            //         $('#folder-ignores textarea').val($scope.currentFolder.ignores.join('\n'));
+            //         $('#folder-ignores textarea').removeAttr('disabled');
+            //     })
+            //     .error(function (err) {
+            //         $('#folder-ignores textarea').val($translate.instant("Failed to load ignore patterns."));
+            //         $scope.emitHTTPError(err);
+            //     });
+
+            $scope.defaultIgnorePatternsModal();
         };
 
         $scope.selectAllSharedDevices = function (state) {
@@ -1909,6 +1943,37 @@ angular.module('syncthing.core')
                 }
             });
         };
+
+        $scope.saveDefaultIgnorePatterns = function () {
+            $('#defaultIgnore').modal('hide');
+            // var ignoresLoaded = !$('#default-ignores textarea').is(':disabled');
+            var ignores = $('#default-ignores textarea').val().split('\n');
+            $scope.config.options.defaultIgnorePatterns = ignores;
+
+            // Split always returns a minimum 1-length array even for no patterns
+            // if (ignores.length === 1 && ignores[0] === "") {
+            //     ignores = [];
+            // }
+            // if (!$scope.editingExisting && ignores.length) {
+            //     folderCfg.paused = true;
+            // };
+
+            // $scope.folders[folderCfg.id] = folderCfg;
+            // $scope.config.folders = folderList($scope.folders);
+
+            // if (ignoresLoaded && $scope.editingExisting && ignores !== folderCfg.ignores) {
+            //     saveIgnores(ignores);
+            // };
+
+            // $scope.saveConfig(function () {
+            //     if (!$scope.editingExisting && ignores.length) {
+            //         saveIgnores(ignores, function () {
+            //             $scope.setFolderPause(folderCfg.id, false);
+            //         });
+            //     }
+            // });
+        };
+
 
         $scope.ignoreFolder = function (device, pendingFolder) {
             pendingFolder = angular.copy(pendingFolder);
