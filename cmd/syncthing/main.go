@@ -30,6 +30,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -147,7 +148,15 @@ var (
 	innerProcess    = os.Getenv("STMONITORED") != ""
 	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
 
-	errConcurrentUpgrade = errors.New("upgrade prevented by other running Syncthing instance")
+	errConcurrentUpgrade    = errors.New("upgrade prevented by other running Syncthing instance")
+	errTooEarlyUpgradeCheck = fmt.Errorf("last upgrade check happened less than %v ago, skipping", upgradeCheckInterval)
+	errTooEarlyUpgrade      = fmt.Errorf("last upgrade happened less than %v ago, skipping", upgradeInterval)
+
+	upgradeCheckInterval = time.Minute
+	upgradeInterval      = time.Hour
+	upgradeCheckKey      = "lastUpgradeCheck"
+	upgradeTimeKey       = "lastUpgradeTime"
+	upgradeVersionKey    = "lastUpgradeVersion"
 )
 
 type RuntimeOptions struct {
@@ -399,7 +408,14 @@ func main() {
 	if options.doUpgrade {
 		release, err := checkUpgrade()
 		if err == nil {
-			err = performUpgrade(release)
+			// Use leveldb database locks to protect against concurrent upgrades
+			ldb, err := syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto)
+			if err != nil {
+				err = upgradeViaRest()
+			} else {
+				_ = ldb.Close()
+				err = upgrade.To(release)
+			}
 		}
 		if err != nil {
 			l.Warnln("Upgrade:", err)
@@ -526,25 +542,6 @@ func checkUpgrade() (upgrade.Release, error) {
 	return release, nil
 }
 
-func performUpgradeDirect(release upgrade.Release) error {
-	// Use leveldb database locks to protect against concurrent upgrades
-	if _, err := syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto); err != nil {
-		return errConcurrentUpgrade
-	}
-	return upgrade.To(release)
-}
-
-func performUpgrade(release upgrade.Release) error {
-	if err := performUpgradeDirect(release); err != nil {
-		if err != errConcurrentUpgrade {
-			return err
-		}
-		l.Infoln("Attempting upgrade through running Syncthing...")
-		return upgradeViaRest()
-	}
-	return nil
-}
-
 func upgradeViaRest() error {
 	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
 	u, err := url.Parse(cfg.GUI().URL())
@@ -627,25 +624,29 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// not, as otherwise they cannot step off the candidate channel.
 	}
 
+	dbFile := locations.Get(locations.Database)
+	ldb, err := syncthing.OpenDBBackend(dbFile, cfg.Options().DatabaseTuning)
+	if err != nil {
+		l.Warnln("Error opening database:", err)
+		os.Exit(1)
+	}
+
 	// Check if auto-upgrades should be done and if yes, do an initial
 	// upgrade immedately. The auto-upgrade routine can only be started
 	// later after App is initialised.
 
 	shouldAutoUpgrade := shouldUpgrade(cfg, runtimeOptions)
 	if shouldAutoUpgrade {
-		// Try to do upgrade directly
-		release, err := checkUpgrade()
-		if err == nil {
-			if err = performUpgradeDirect(release); err == nil {
-				l.Infof("Upgraded to %q, exiting now.", release.Tag)
-				os.Exit(syncthing.ExitUpgrade.AsInt())
-			}
-		}
-		// Log the error if relevant.
-		if err != nil {
-			if _, ok := err.(errNoUpgrade); !ok {
+		// try to do upgrade directly and log the error if relevant.
+		if release, err := initialAutoUpgrade(db.NewMiscDataNamespace(ldb)); err != nil {
+			if _, ok := err.(errNoUpgrade); ok || err == errTooEarlyUpgradeCheck || err == errTooEarlyUpgrade {
+				l.Debugln("Initial automatic upgrade:", err)
+			} else {
 				l.Infoln("Initial automatic upgrade:", err)
 			}
+		} else {
+			l.Infof("Upgraded to %q, exiting now.", release.Tag)
+			os.Exit(syncthing.ExitUpgrade.AsInt())
 		}
 	}
 
@@ -653,13 +654,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		setPauseState(cfg, false)
 	} else if runtimeOptions.paused {
 		setPauseState(cfg, true)
-	}
-
-	dbFile := locations.Get(locations.Database)
-	ldb, err := syncthing.OpenDBBackend(dbFile, cfg.Options().DatabaseTuning)
-	if err != nil {
-		l.Warnln("Error opening database:", err)
-		os.Exit(1)
 	}
 
 	appOpts := runtimeOptions.Options
@@ -852,7 +846,7 @@ func shouldUpgrade(cfg config.Wrapper, runtimeOptions RuntimeOptions) bool {
 }
 
 func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger) {
-	timer := time.NewTimer(0)
+	timer := time.NewTimer(upgradeCheckInterval)
 	sub := evLogger.Subscribe(events.DeviceConnected)
 	for {
 		select {
@@ -905,6 +899,32 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 		app.Stop(syncthing.ExitUpgrade)
 		return
 	}
+}
+
+func initialAutoUpgrade(misc *db.NamespacedKV) (upgrade.Release, error) {
+	if last, ok, err := misc.Time(upgradeCheckKey); err != nil {
+		return upgrade.Release{}, err
+	} else if ok && time.Since(last) < upgradeCheckInterval {
+		return upgrade.Release{}, errTooEarlyUpgradeCheck
+	}
+	_ = misc.PutTime(upgradeCheckKey, time.Now())
+	release, err := checkUpgrade()
+	if err != nil {
+		return upgrade.Release{}, err
+	}
+	if lastVersion, ok, err := misc.String(upgradeVersionKey); err != nil {
+		return upgrade.Release{}, err
+	} else if ok && lastVersion == release.Tag {
+		// Only check time if we try to upgrade to the same release.
+		if lastTime, ok, err := misc.Time(upgradeTimeKey); err != nil {
+			return upgrade.Release{}, err
+		} else if ok && time.Since(lastTime) < upgradeInterval {
+			return upgrade.Release{}, errTooEarlyUpgrade
+		}
+	}
+	_ = misc.PutString(upgradeVersionKey, release.Tag)
+	_ = misc.PutTime(upgradeTimeKey, time.Now())
+	return release, upgrade.To(release)
 }
 
 // cleanConfigDirectory removes old, unused configuration and index formats, a
