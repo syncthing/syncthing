@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -52,27 +53,45 @@ func TestCreateAtomicCreate(t *testing.T) {
 }
 
 func TestCreateAtomicReplace(t *testing.T) {
-	testCreateAtomicReplace(t, 0644)
+	testCreateAtomicReplace(t, 0666)
 }
 func TestCreateAtomicReplaceReadOnly(t *testing.T) {
-	testCreateAtomicReplace(t, 0400)
+	testCreateAtomicReplace(t, 0444) // windows compatible read-only bits
 }
 
 func testCreateAtomicReplace(t *testing.T, oldPerms os.FileMode) {
 	t.Helper()
 
-	os.RemoveAll("testdata")
-	defer os.RemoveAll("testdata")
+	testdir, err := ioutil.TempDir("", "syncthing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	testfile := filepath.Join(testdir, "testfile")
 
-	if err := os.Mkdir("testdata", 0755); err != nil {
+	os.RemoveAll(testdir)
+	defer os.RemoveAll(testdir)
+
+	if err := os.Mkdir(testdir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := ioutil.WriteFile("testdata/file", []byte("some old data"), oldPerms); err != nil {
+	if err := ioutil.WriteFile(testfile, []byte("some old data"), oldPerms); err != nil {
 		t.Fatal(err)
 	}
 
-	w, err := CreateAtomic("testdata/file")
+	// Go < 1.14 has a bug in WriteFile where it does not use the requested
+	// permissions on Windows. Chmod to make sure.
+	if err := os.Chmod(testfile, oldPerms); err != nil {
+		t.Fatal(err)
+	}
+	// Trust, but verify.
+	if info, err := os.Stat(testfile); err != nil {
+		t.Fatal(err)
+	} else if info.Mode() != oldPerms {
+		t.Fatalf("Wrong perms 0%o", info.Mode())
+	}
+
+	w, err := CreateAtomic(testfile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,7 +103,7 @@ func testCreateAtomicReplace(t *testing.T, oldPerms os.FileMode) {
 		t.Fatal(err)
 	}
 
-	bs, err := ioutil.ReadFile("testdata/file")
+	bs, err := ioutil.ReadFile(testfile)
 	if err != nil {
 		t.Fatal(err)
 	}
