@@ -21,10 +21,7 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/login').success(function() {
                 loginSuccessfull()
             }).error(function(){
-               
-                $http.post(urlbase + "/login?username=Mmg&password=123456").success(loginSuccessfull).error(function(){
-                    $('#login').modal('show');
-                })
+                $('#login').modal('show');
             })
         }
 
@@ -32,6 +29,24 @@ angular.module('syncthing.core')
             setInterval($scope.refresh, 10000);
             Events.start();
         }
+
+        $scope.login = function () {
+            var username = $scope.currentFolder.username
+            var password = $scope.currentFolder.password
+
+            $http.post(urlbase + "/login?usename="+username+"&password="+password).success(function(){
+                loginSuccessfull();
+                $('#login').modal('hide')
+            }).error(function(){
+                checkLoginAndStart()
+            })
+        }
+
+          // show login modal
+        $scope.showLogin = function () {
+            $('#login').modal('show');
+        };
+
 
         // public/scope definitions
 
@@ -172,6 +187,7 @@ angular.module('syncthing.core')
             $('#restarting').modal('hide');
             $('#shutdown').modal('hide');
         });
+
 
         $scope.$on(Events.OFFLINE, function () {
             if (navigatingAway || !online) {
@@ -2310,11 +2326,6 @@ angular.module('syncthing.core')
         $scope.advanced = function () {
             $scope.advancedConfig = angular.copy($scope.config);
             $('#advanced').modal('show');
-        };
-
-         // show login modal
-         $scope.showLogin = function () {
-            $('#login').modal('show');
         };
 
         $scope.showReportPreview = function () {
