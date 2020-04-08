@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Mar 31, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Apr 06, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -756,7 +756,8 @@ folder. Takes \fBdevice\fP and \fBfolder\fP parameters.
   "completion": 100,
   "globalBytes": 156793013575,
   "needBytes": 0,
-  "needDeletes": 0
+  "needDeletes": 0,
+  "needItems": 0
 }
 .ft P
 .fi
@@ -1020,6 +1021,7 @@ Parameters: \fBfolder\fP, the ID of a folder.
   "globalDirectories": 0,
   "globalFiles": 0,
   "globalSymlinks": 0,
+  "globalTotalItems": 0,
   "ignorePatterns": false,
   "inSyncBytes": 0,
   "inSyncFiles": 0,
@@ -1029,17 +1031,20 @@ Parameters: \fBfolder\fP, the ID of a folder.
   "localDirectories": 0,
   "localFiles": 0,
   "localSymlinks": 0,
+  "localTotalItems": 0,
   "needBytes": 0,
   "needDeletes": 0,
   "needDirectories": 0,
   "needFiles": 0,
   "needSymlinks": 0,
+  "needTotalItems": 0,
   "pullErrors": 0,
   "receiveOnlyChangedBytes": 0,
   "receiveOnlyChangedDeletes": 0,
   "receiveOnlyChangedDirectories": 0,
   "receiveOnlyChangedFiles": 0,
   "receiveOnlyChangedSymlinks": 0,
+  "receiveOnlyTotalItems": 0,
   "sequence": 0,
   "state": "idle",
   "stateChanged": "2018\-08\-08T07:04:57.301064781+02:00",
