@@ -12,7 +12,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {
+func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) error {
 	key := db.keyer.GeneratePendingDeviceKey(nil, device[:])
 	od := ObservedDevice{
 		Time:    time.Now().Round(time.Second),
@@ -26,6 +26,7 @@ func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, add
 	if err != nil {
 		l.Warnf("Failed to store pending device entry: %v", err)
 	}
+	return err
 }
 
 // PendingDevices lists unknown devices that tried to connect.  As a
@@ -73,7 +74,7 @@ func (db *Lowlevel) RemovePendingDevice(device protocol.DeviceID) {
 	}
 }
 
-func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {
+func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) error {
 	key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), device[:])
 	if err == nil {
 		of := ObservedFolder{
@@ -88,6 +89,7 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 	if err != nil {
 		l.Warnf("Failed to store pending folder entry: %v", err)
 	}
+	return err
 }
 
 // PendingFolders lists folders that we don't yet share with the
