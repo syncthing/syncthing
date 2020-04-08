@@ -13,9 +13,6 @@ import (
 )
 
 func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {
-	//FIXME locking? m.mut.Lock()
-	//FIXME locking? defer m.mut.Unlock()
-
 	key := db.keyer.GeneratePendingDeviceKey(nil, device[:])
 	od := ObservedDevice{
 		Time:    time.Now().Round(time.Second),
@@ -77,9 +74,6 @@ func (db *Lowlevel) RemovePendingDevice(device protocol.DeviceID) {
 }
 
 func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {
-	//FIXME locking? m.mut.Lock()
-	//FIXME locking? defer m.mut.Unlock()
-
 	key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), device[:])
 	if err == nil {
 		of := ObservedFolder{
