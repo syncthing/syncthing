@@ -31,11 +31,11 @@ func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, add
 	}
 }
 
-// List unknown devices that tried to connect.  As a side-effect, any
-// invalid entries are dropped from the database after a warning log
-// message.  That's the only possible "repair" measure and appropriate
-// for the importance of pending entries.  They will come back soon if
-// still relevant.
+// PendingDevices lists unknown devices that tried to connect.  As a
+// side-effect, any invalid entries are dropped from the database
+// after a warning log message.  That's the only possible "repair"
+// measure and appropriate for the importance of pending entries.
+// They will come back soon if still relevant.
 func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
@@ -96,11 +96,11 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 	}
 }
 
-// List folders that we don't yet share with the offering devices.  As
-// a side-effect, any invalid entries are dropped from the database
-// after a warning log message.  That's the only possible "repair"
-// measure and appropriate for the importance of pending entries.
-// They will come back soon if still relevant.
+// PendingFolders lists folders that we don't yet share with the
+// offering devices.  As a side-effect, any invalid entries are
+// dropped from the database after a warning log message.  That's the
+// only possible "repair" measure and appropriate for the importance
+// of pending entries.  They will come back soon if still relevant.
 func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]ObservedFolder, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {
@@ -142,19 +142,21 @@ func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[pro
 	return res, nil
 }
 
-// Remove entries for specific folder / device combinations
+// RemovePendingFolder removes entries for specific folder / device combinations
 func (db *Lowlevel) RemovePendingFolder(id string, devices []protocol.DeviceID) {
 	for _, dev := range devices {
 		key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), dev[:])
-		if err == nil {
-			if err := db.Delete(key); err != nil {
-				l.Warnf("Failed to remove pending folder entry: %v", err)
-			}
+		if err != nil {
+			continue
+		}
+		if err := db.Delete(key); err != nil {
+			l.Warnf("Failed to remove pending folder entry: %v", err)
 		}
 	}
 }
 
-// Remove all pending folder entries not matching a given set of device IDs
+// CleanPendingFolders removes all pending folder entries not matching
+// a given set of device IDs.
 func (db *Lowlevel) CleanPendingFolders(keepDevices map[protocol.DeviceID]bool) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {
