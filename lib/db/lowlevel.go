@@ -577,21 +577,6 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	// Indirection GC needs to run when there are no modifications to the
 	// FileInfos or indirected items.
 
-	// checkCtx is a helper that periodically checks the ctx for Done() and
-	// if so returns an error.
-	i := 0
-	checkCtx := func() error {
-		i++
-		if i%100 == 0 {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-			}
-		}
-		return nil
-	}
-
 	db.gcMut.Lock()
 	defer db.gcMut.Unlock()
 
@@ -621,8 +606,10 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	}
 	defer it.Release()
 	for it.Next() {
-		if err := checkCtx(); err != nil {
-			return err
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 		}
 
 		var bl BlocksHashOnly
@@ -648,8 +635,10 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	defer it.Release()
 	matchedBlocks := 0
 	for it.Next() {
-		if err := checkCtx(); err != nil {
-			return err
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 		}
 
 		key := blockListKey(it.Key())
