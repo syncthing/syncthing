@@ -67,6 +67,6 @@ export class FolderService {
         () => { console.log("get all complete!") }
       );
     });
-    return folderObservable
+    return folderObservable;
   }
 }
