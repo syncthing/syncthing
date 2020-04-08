@@ -280,16 +280,18 @@
       });
 
       // After the totals were calculated, add circles.
-      angular.forEach($scope.relays, function(relay) {
-        if (relay.stats) {
+      var relays2=$scope.relays.filter(r=>r.stats != null);
+      
+      angular.forEach(relays2, function(relay) {
+        console.log(relay.location.latitude,relay.location.longitude)
           addCircleToMap(relay);
-        }
       });
+
 
       if ($scope.relays.length == 1) {
         //Center to only relay with zoom
-        $scope.map.panTo(new L.LatLng(relays[0].location.latitude, relays[0].location.longitude));
-        $scope.map.setZoom(13);
+        //$scope.map.panTo(new L.LatLng(relays[0].location.latitude, relays[0].location.longitude));
+        //$scope.map.setZoom(13);
       }
     });
 
@@ -331,10 +333,17 @@
                                 this.openPopup();
                             }).on('mouseout', function (e) {
                                 this.closePopup();
-                            }).addTo($scope.map);
-
+                            })
+                            .addTo($scope.map);
+        if(relay.stats){
+          relay.circle=L.circle([ locParts[0], locParts[1]], 
+              {
+                radius: ((relay.stats.bytesProxied * 100) / $scope.totals.bytesProxied) * 10000,
+              }).addTo($scope.map);
+        }
+        
         relay.showMarker = function() {
-          relay.marker.openPopup();
+          relay.marker.openPopup( );
         }
         
         relay.hideMarker = function() {
@@ -344,14 +353,11 @@
 
 
     function addCircleToMap(relay) {
-      console.log(relay.location.latitude)
-      L.circle([relay.location.latitude, relay.location.longitude], 
-        {
-          radius: ((relay.stats.bytesProxied * 100) / $scope.totals.bytesProxied) * 10000,
-          color: "FF0000",
-          fillColor: "#FF0000",
-          fillOpacity: 0.35,
-        }).addTo($scope.map);
+      //L.marker(new L.latLng(relay.location.latitude, relay.location.longitude)).addTo($scope.map)
+      // relay.circleu=L.circle([ relay.location.longitude,relay.location.latitude], 
+      //   {
+      //     radius: ((relay.stats.bytesProxied * 100) / $scope.totals.bytesProxied) * 10000,
+      //    }).addTo($scope.map);
     }
 
     function constructURI(url) {
