@@ -11,6 +11,7 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialogModule } from '@angular/material/dialog';
+import { MatListModule } from '@angular/material/list'
 import { FlexLayoutModule } from '@angular/flex-layout';
 
 import { httpInterceptorProviders } from './http-interceptors';
@@ -32,6 +33,7 @@ import { ChartItemComponent } from './charts/chart-item/chart-item.component';
 import { ChartComponent } from './charts/chart/chart.component';
 import { FolderListComponent } from './lists/folder-list/folder-list.component';
 import { DialogComponent } from './dialog/dialog.component';
+import { CardComponent, CardTitleComponent, CardContentComponent } from './card/card.component';
 
 @NgModule({
   declarations: [
@@ -45,6 +47,9 @@ import { DialogComponent } from './dialog/dialog.component';
     ChartItemComponent,
     FolderListComponent,
     DialogComponent,
+    CardComponent,
+    CardTitleComponent,
+    CardContentComponent,
   ],
   imports: [
     BrowserModule,
@@ -58,6 +63,7 @@ import { DialogComponent } from './dialog/dialog.component';
     MatCardModule,
     MatProgressBarModule,
     MatDialogModule,
+    MatListModule,
     FlexLayoutModule,
     HttpClientModule,
     HttpClientXsrfModule.withOptions({

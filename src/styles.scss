@@ -1,10 +1,13 @@
 // Custom Theming for Angular Material
 // For more information: https://material.angular.io/guide/theming
 @import '~@angular/material/theming';
+@import './app/card/card.component.scss';
+@import './app/charts/chart-item/chart-item.component.scss';
+
 
 // Custom typography
 $tech-ui-typography: mat-typography-config(
-    $font-family: '"Courier New", Courier, monospace',
+    $font-family: '"Lucida Console", Monaco, monospace',
     $display-4:     mat-typography-level(112px, 112px, 300),
     $display-3:     mat-typography-level(56px, 56px, 400),
     $display-2:     mat-typography-level(45px, 48px, 400),
@@ -70,45 +73,43 @@ $tech-ui-warn: mat-palette($mat-red);
 
 // Create the theme object (a Sass map containing all of the palettes).
 $tech-ui-theme: mat-light-theme($tech-ui-primary, $tech-ui-accent, $tech-ui-warn);
-
+$tech-ui-dark-theme: mat-dark-theme($tech-ui-primary, $tech-ui-accent, $tech-ui-warn);
+    
 // Include theme styles for core and each component used in your app.
 // Alternatively, you can import and @include the theme mixins for each component
 // that you are using.
-@include angular-material-theme($tech-ui-theme);
+    @include angular-material-theme($tech-ui-theme);
+    @include tui-card-theme($tech-ui-theme);
+    @include chart-item-theme($tech-ui-theme);
 
-/* You can add global styles to this file, and also import other style files */
-html, body { 
-    height: 100%; 
-    background-color: #eeeeee;
-    font-size: mat-font-size($tech-ui-typography, body-1);
-    font-family: mat-font-family($tech-ui-typography);
-    line-height: mat-line-height($tech-ui-typography, body-1);
-}
+   
+ html, body { 
+        height: 100%; 
+        background-color: #eeeeee;
+        font-size: mat-font-size($tech-ui-typography, body-1);
+        font-family: mat-font-family($tech-ui-typography);
+        line-height: mat-line-height($tech-ui-typography, body-1);
+        color: #303030;
+    }
 
-a {
-    text-decoration: underline;
-    color: #000000;
-}
+    a {
+        text-decoration: underline;
+        color: #303030;
+    }
+@media (prefers-color-scheme: dark) {
+    @include angular-material-theme($tech-ui-dark-theme);
+    @include tui-card-theme($tech-ui-dark-theme);
+    @include chart-item-theme($tech-ui-dark-theme);
+    
+    html, body {
+        background-color: #303030;
+        color: white; 
+    }
 
-.tui-card {
-    background-color: white;
-    border-radius: 4px;
-    height: 100%;
-}
-
-.tui-card-title {
-    padding: 16px 16px 0 16px;
-    font-size: mat-font-size($tech-ui-typography, subheading-2);
-    color: mat-color($tech-ui-primary);
-}
-
-.tui-card-content {
-    padding: 16px;
-}
-
-.tui-button-toggle .mat-button-toggle-appearance-standard .mat-button-toggle-label-content  {
-    line-height: 34px;
-}
+    a {
+        color: white; 
+    }
+} 
 
 // Chart.js styles
 #chartjs-tooltip {

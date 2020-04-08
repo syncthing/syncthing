@@ -1,6 +1,5 @@
 import { Component, OnInit, ViewChild, Input } from '@angular/core';
 import Folder from '../../folder'
-import { cardElevation } from '../../style'
 import { FolderService } from 'src/app/services/folder.service';
 import { DonutChartComponent } from '../donut-chart/donut-chart.component';
 import { DeviceService } from 'src/app/services/device.service';
@@ -27,7 +26,6 @@ export class ChartComponent implements OnInit {
   title: string;
   chartID: string;
   states: ChartItemState[] = [];
-  elevation: string = cardElevation;
 
   private service: any;
   private activeChartState: ChartItemState;

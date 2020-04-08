@@ -1,5 +1,5 @@
 import { Component, OnInit, Inject } from '@angular/core';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MessageService } from '../services/message.service';
 
 export interface DialogData {
@@ -13,7 +13,14 @@ export interface DialogData {
 })
 export class DialogComponent implements OnInit {
 
-  constructor(public messageService: MessageService) { }
+  constructor(
+    public dialogRef: MatDialogRef<DialogComponent>,
+    public messageService: MessageService
+  ) { }
 
   ngOnInit(): void { }
+
+  onNoClick(): void {
+    this.dialogRef.close();
+  }
 }

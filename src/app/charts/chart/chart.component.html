@@ -1,6 +1,6 @@
-<div class="{{elevation}} tui-card">
-    <div class="tui-card-title">{{title | uppercase}}</div>
-    <div class="tui-card-content">
+<app-card>
+    <app-card-title>{{title | uppercase}}</app-card-title>
+    <app-card-content>
         <div fxLayout="row" fxLayoutAlign="space-between stretch">
             <app-donut-chart [elementID]="chartID" fxFlex="30" [title]="title" (stateEvent)="onItemSelect($event)">
             </app-donut-chart>
@@ -10,5 +10,5 @@
                 </app-chart-item>
             </div>
         </div>
-    </div>
-</div>
+    </app-card-content>
+</app-card>

@@ -1,10 +1,10 @@
-<div class="{{elevation}} tui-card">
+<app-card>
     <div fxLayout="row" fxLayoutAlign="space-between start">
-        <div class="tui-card-title">{{title | uppercase}}</div>
+        <app-card-title>{{title | uppercase}}</app-card-title>
         <app-list-toggle (listTypeEvent)="onToggle($event)" class="tui-card-toggle"></app-list-toggle>
     </div>
-    <div class="tui-card-content">
+    <app-card-content>
         <app-folder-list *ngIf="currentListType===listType.Folder"></app-folder-list>
         <app-device-list *ngIf="currentListType===listType.Device"> </app-device-list>
-    </div>
-</div>
+    </app-card-content>
+</app-card>

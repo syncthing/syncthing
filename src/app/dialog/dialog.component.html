@@ -1,6 +1,6 @@
-<h1 mat-dialog-title>Error</h1>
 <div mat-dialog-content>
-    <ul>
-        <li *ngFor='let message of messageService.messages'> {{message}} </li>
-    </ul>
+    <mat-list dense>
+        <mat-list-item *ngFor='let message of messageService.messages'>{{message}}</mat-list-item>
+    </mat-list>
+    <button mat-button [mat-dialog-close] cdkFocusInitial>Close</button>
 </div>
