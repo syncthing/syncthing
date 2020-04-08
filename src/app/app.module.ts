@@ -10,6 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatDialogModule } from '@angular/material/dialog';
 import { FlexLayoutModule } from '@angular/flex-layout';
 
 import { httpInterceptorProviders } from './http-interceptors';
@@ -56,6 +57,7 @@ import { DialogComponent } from './dialog/dialog.component';
     MatButtonToggleModule,
     MatCardModule,
     MatProgressBarModule,
+    MatDialogModule,
     FlexLayoutModule,
     HttpClientModule,
     HttpClientXsrfModule.withOptions({

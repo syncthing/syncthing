@@ -9,11 +9,12 @@ import {
 import { Observable, throwError } from 'rxjs';
 import { apiRetry } from '../api-utils';
 import { retry, catchError } from 'rxjs/operators';
+import { MessageService } from '../services/message.service';
 
 @Injectable()
 export class ErrorInterceptor implements HttpInterceptor {
 
-  constructor() { }
+  constructor(private messageService: MessageService) { }
 
   intercept(request: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     return next.handle(request)
@@ -29,6 +30,8 @@ export class ErrorInterceptor implements HttpInterceptor {
             errorMsg = `Error Status: ${error.status}\nMessage: ${error.message}`;
           }
           console.log(errorMsg);
+
+          this.messageService.add(errorMsg);
           return throwError(errorMsg);
         })
       )

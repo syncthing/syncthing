@@ -11,6 +11,9 @@ import { StType } from '../type';
 import { FilterService } from '../services/filter.service';
 import { ProgressService } from '../services/progress.service';
 import { MatProgressBar } from '@angular/material/progress-bar';
+import { MessageService } from '../services/message.service';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { DialogComponent } from '../dialog/dialog.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -56,11 +59,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   deviceChart: StType = StType.Device;
   progressValue: number = 0;
   isLoading = true;
+  private dialogRef: MatDialogRef<DialogComponent>;
 
 
   constructor(
     private systemConfigService: SystemConfigService,
     private progressService: ProgressService,
+    private messageService: MessageService,
+    public dialog: MatDialog
   ) { }
 
   ngOnInit() {
@@ -85,5 +91,20 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       this.progressValue = this.progressService.percentValue;
     }, 100);
 
+    // Listen for messages from other services/components
+    this.messageService.messageAdded$
+      .subscribe(
+        _ => {
+          // Open dialog
+          if (!this.dialogRef)
+            this.dialogRef = this.dialog.open(DialogComponent);
+
+          this.dialogRef.afterClosed().subscribe(
+            _ => {
+              this.dialogRef = null;
+              this.messageService.clear();
+            }
+          );
+        });
   }
 }

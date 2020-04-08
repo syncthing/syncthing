@@ -15,7 +15,5 @@ export class DialogComponent implements OnInit {
 
   constructor(public messageService: MessageService) { }
 
-  ngOnInit(): void {
-  }
-
+  ngOnInit(): void { }
 }
