@@ -1,12 +1,11 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { CookieService } from './cookie.service';
 
-import { Observable, of } from 'rxjs';
-import { map, retry, catchError } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment'
-import { apiURL, apiRetry } from '../api-utils'
+import { apiURL } from '../api-utils'
 import Folder from '../folder'
 
 @Injectable({
@@ -28,7 +27,6 @@ export class DbStatusService {
     return this.http
       .get<Folder.Status>(this.dbStatusUrl, httpOptions)
       .pipe(
-        retry(apiRetry),
         map(res => {
           // Remove from array in developement
           // in-memory-web-api returns arrays

@@ -2,12 +2,12 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 
 import { Observable, Subject } from 'rxjs';
-import { map, retry } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 
 import Folder from '../folder';
 import Device from '../device';
 import { environment } from '../../environments/environment'
-import { apiURL, apiRetry } from '../api-utils'
+import { apiURL } from '../api-utils'
 import { ProgressService } from './progress.service';
 
 @Injectable({
@@ -32,7 +32,6 @@ export class SystemConfigService {
     return this.http
       .get(this.systemConfigUrl)
       .pipe(
-        retry(apiRetry),
         map(res => {
           this.folders = res['folders'];
           this.devices = res['devices'];

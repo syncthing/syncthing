@@ -1,9 +1,9 @@
 import { Injectable } from '@angular/core';
 import { environment } from 'src/environments/environment';
-import { apiURL, apiRetry } from '../api-utils';
+import { apiURL } from '../api-utils';
 import { Observable } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
-import { retry, map } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 import { SystemStatus } from '../system-status';
 
 @Injectable({
@@ -19,7 +19,6 @@ export class SystemStatusService {
     return this.http
       .get<SystemStatus>(this.systemStatusUrl)
       .pipe(
-        retry(apiRetry),
         map(res => {
           return res;
         })
