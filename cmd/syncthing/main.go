@@ -148,15 +148,15 @@ var (
 	innerProcess    = os.Getenv("STMONITORED") != ""
 	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
 
-	errConcurrentUpgrade    = errors.New("upgrade prevented by other running Syncthing instance")
-	errTooEarlyUpgradeCheck = fmt.Errorf("last upgrade check happened less than %v ago, skipping", upgradeCheckInterval)
-	errTooEarlyUpgrade      = fmt.Errorf("last upgrade happened less than %v ago, skipping", upgradeInterval)
-
-	upgradeCheckInterval = time.Minute
-	upgradeInterval      = time.Hour
+	upgradeCheckInterval = 5 * time.Minute
+	upgradeRetryInterval = time.Hour
 	upgradeCheckKey      = "lastUpgradeCheck"
 	upgradeTimeKey       = "lastUpgradeTime"
 	upgradeVersionKey    = "lastUpgradeVersion"
+
+	errConcurrentUpgrade    = errors.New("upgrade prevented by other running Syncthing instance")
+	errTooEarlyUpgradeCheck = fmt.Errorf("last upgrade check happened less than %v ago, skipping", upgradeCheckInterval)
+	errTooEarlyUpgrade      = fmt.Errorf("last upgrade happened less than %v ago, skipping", upgradeRetryInterval)
 )
 
 type RuntimeOptions struct {
@@ -638,7 +638,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	shouldAutoUpgrade := shouldUpgrade(cfg, runtimeOptions)
 	if shouldAutoUpgrade {
 		// try to do upgrade directly and log the error if relevant.
-		if release, err := initialAutoUpgrade(db.NewMiscDataNamespace(ldb)); err != nil {
+		release, err := initialAutoUpgradeCheck(db.NewMiscDataNamespace(ldb))
+		if err == nil {
+			err = upgrade.To(release)
+		}
+		if err != nil {
 			if _, ok := err.(errNoUpgrade); ok || err == errTooEarlyUpgradeCheck || err == errTooEarlyUpgrade {
 				l.Debugln("Initial automatic upgrade:", err)
 			} else {
@@ -901,10 +905,8 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 	}
 }
 
-func initialAutoUpgrade(misc *db.NamespacedKV) (upgrade.Release, error) {
-	if last, ok, err := misc.Time(upgradeCheckKey); err != nil {
-		return upgrade.Release{}, err
-	} else if ok && time.Since(last) < upgradeCheckInterval {
+func initialAutoUpgradeCheck(misc *db.NamespacedKV) (upgrade.Release, error) {
+	if last, ok, err := misc.Time(upgradeCheckKey); err == nil && ok && time.Since(last) < upgradeCheckInterval {
 		return upgrade.Release{}, errTooEarlyUpgradeCheck
 	}
 	_ = misc.PutTime(upgradeCheckKey, time.Now())
@@ -912,19 +914,15 @@ func initialAutoUpgrade(misc *db.NamespacedKV) (upgrade.Release, error) {
 	if err != nil {
 		return upgrade.Release{}, err
 	}
-	if lastVersion, ok, err := misc.String(upgradeVersionKey); err != nil {
-		return upgrade.Release{}, err
-	} else if ok && lastVersion == release.Tag {
+	if lastVersion, ok, err := misc.String(upgradeVersionKey); err == nil && ok && lastVersion == release.Tag {
 		// Only check time if we try to upgrade to the same release.
-		if lastTime, ok, err := misc.Time(upgradeTimeKey); err != nil {
-			return upgrade.Release{}, err
-		} else if ok && time.Since(lastTime) < upgradeInterval {
+		if lastTime, ok, err := misc.Time(upgradeTimeKey); err == nil && ok && time.Since(lastTime) < upgradeRetryInterval {
 			return upgrade.Release{}, errTooEarlyUpgrade
 		}
 	}
 	_ = misc.PutString(upgradeVersionKey, release.Tag)
 	_ = misc.PutTime(upgradeTimeKey, time.Now())
-	return release, upgrade.To(release)
+	return release, nil
 }
 
 // cleanConfigDirectory removes old, unused configuration and index formats, a
