@@ -35,10 +35,8 @@ angular.module('syncthing.core')
             var password = $scope.currentFolder.password
 
             $('#login').modal('hide');
-            // alert("/"+urlbase + "/login?usename="+username+"&password="+password);
             $http.post(urlbase+"/login?usename="+username+"&password="+password).success(
                 function(){
-                    alert("c'est bon cette fois")
                     loginSuccessfull()
                 }).error(function(){
                     alert('Error!')
