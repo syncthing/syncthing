@@ -12,6 +12,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatListModule } from '@angular/material/list'
+import { MatButtonModule } from '@angular/material/button';
 import { FlexLayoutModule } from '@angular/flex-layout';
 
 import { httpInterceptorProviders } from './http-interceptors';
@@ -64,6 +65,7 @@ import { CardComponent, CardTitleComponent, CardContentComponent } from './card/
     MatProgressBarModule,
     MatDialogModule,
     MatListModule,
+    MatButtonModule,
     FlexLayoutModule,
     HttpClientModule,
     HttpClientXsrfModule.withOptions({
