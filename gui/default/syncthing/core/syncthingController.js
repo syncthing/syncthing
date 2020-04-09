@@ -34,17 +34,21 @@ angular.module('syncthing.core')
             var username = $scope.currentFolder.username
             var password = $scope.currentFolder.password
 
-            $http.post(urlbase + "/login?usename="+username+"&password="+password).success(function(){
-                loginSuccessfull();
-                $('#login').modal('hide')
-            }).error(function(){
-                checkLoginAndStart()
-            })
+            $('#login').modal('hide');
+            // alert("/"+urlbase + "/login?usename="+username+"&password="+password);
+            $http.post(urlbase+"/login?usename="+username+"&password="+password).success(
+                function(){
+                    alert("c'est bon cette fois")
+                    loginSuccessfull()
+                }).error(function(){
+                    alert('Error!')
+                    $('#login').modal('show');
+                })
         }
 
-          // show login modal
-        $scope.showLogin = function () {
-            $('#login').modal('show');
+          // logout function
+        $scope.logout = function () {
+            // here we'll place the logout code
         };
 
 
