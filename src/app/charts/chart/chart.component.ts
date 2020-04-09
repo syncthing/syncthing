@@ -72,7 +72,7 @@ export class ChartComponent implements OnInit {
 
   ngAfterViewInit() {
     let totalCount: number = 0;
-    this.service.getAll().subscribe(
+    this.service.getEach().subscribe(
       t => {
         // Count the number of folders and set chart
         totalCount++;

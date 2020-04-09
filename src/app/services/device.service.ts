@@ -62,7 +62,10 @@ export class DeviceService {
       });
   }
 
-  getAll(): Observable<Device> {
+  /**
+   * getEach() returns each device 
+   */
+  getEach(): Observable<Device> {
     const deviceObservable: Observable<Device> = new Observable((observer) => {
       // TODO return devices if cached
 
@@ -116,8 +119,8 @@ export class DeviceService {
             }
           )
         },
-        err => { console.log("getAll error!", err) },
-        () => { console.log("get all complete!") }
+        err => { console.log("getEach error!", err) },
+        () => { console.log("getEach complete!") }
       );
     });
     return deviceObservable

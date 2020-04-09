@@ -49,10 +49,11 @@ export class FolderService {
   }
 
   /**
-   * getAll() finds all folders and uses db status service to 
-   * set all their statuses
+   * getEach() returns each folder and uses db status service to 
+   * set all their statuses and db completion service to find
+   * completion
    */
-  getAll(): Observable<Folder> {
+  getEach(): Observable<Folder> {
     // TODO return this.folders if cached
 
     const folderObservable: Observable<Folder> = new Observable((observer) => {
@@ -63,8 +64,8 @@ export class FolderService {
           // Synchronously get the status of each folder
           this.getFolderStatusInOrder(observer, 0);
         },
-        err => { console.log("getAll error!", err) },
-        () => { console.log("get all complete!") }
+        err => { console.log("getEach error!", err) },
+        () => { console.log("getEach complete!") }
       );
     });
     return folderObservable;

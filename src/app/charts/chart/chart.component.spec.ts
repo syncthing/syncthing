@@ -4,7 +4,7 @@ import { ChartComponent } from './chart.component';
 import { HttpClientModule } from '@angular/common/http';
 
 class MockService {
-  getAll() {
+  getEach() {
     // unimplemented
   }
 };
