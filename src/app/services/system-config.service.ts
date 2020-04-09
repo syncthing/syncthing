@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 
-import { Observable, Subject } from 'rxjs';
+import { Observable, ReplaySubject } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 import Folder from '../folder';
@@ -16,12 +16,10 @@ import { ProgressService } from './progress.service';
 export class SystemConfigService {
   private folders: Folder[];
   private devices: Device[];
-  private foldersSubject: Subject<Folder[]> = new Subject();
-  private devicesSubject: Subject<Device[]> = new Subject();
+  private foldersSubject: ReplaySubject<Folder[]> = new ReplaySubject(1);
+  private devicesSubject: ReplaySubject<Device[]> = new ReplaySubject(1);
 
   private systemConfigUrl = environment.production ? apiURL + 'rest/system/config' : 'api/config';
-
-  private checkInterval: number = 100;
 
   constructor(
     private http: HttpClient,
@@ -48,37 +46,10 @@ export class SystemConfigService {
   }
 
   getFolders(): Observable<Folder[]> {
-    const folderObservable: Observable<Folder[]> = new Observable((observer) => {
-      if (this.folders) {
-        observer.next(this.folders);
-        observer.complete();
-      } else {
-        // create timer to keep checking for folders
-        let t = setInterval(() => {
-          if (this.folders) {
-            clearInterval(t);
-            observer.next(this.folders)
-            observer.complete();
-          }
-        }, this.checkInterval);
-      }
-    });
-    return folderObservable;
+    return this.foldersSubject.asObservable();
   }
 
   getDevices(): Observable<Device[]> {
-    const deviceObserverable: Observable<Device[]> = new Observable((observer) => {
-      if (this.devices) {
-        observer.next(this.devices);
-      } else {
-        let t = setInterval(() => {
-          if (this.devices) {
-            clearInterval(t);
-            observer.next(this.devices);
-          }
-        }, this.checkInterval);
-      }
-    });
-    return deviceObserverable;
+    return this.devicesSubject.asObservable();
   }
 }
