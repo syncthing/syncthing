@@ -1793,13 +1793,19 @@ angular.module('syncthing.core')
         $scope.addFolder = function () {
             $('#folderLabel').change(function() {
                 var path = $('#folderPath').val();
-                $http.get(urlbase + '/db/chemin?path=' + encodeURIComponent(path))
+                $http.get(urlbase + '/db/path?path=' + encodeURIComponent(path))
                 .success(function (data) {
-                    console.log(data);
+                    if(data.ignore){
+                        $('#folder-ignores textarea').val(data.ignore);
+                    } else{
+                        $('#folder-ignores textarea').val($scope.config.options.defaultIgnorePatterns);
+                        $('#folder-ignores textarea').removeAttr('disabled');
+                    }
                 })
                 .error(
                     function(err){
-                        console.log(err);
+                        $('#folder-ignores textarea').val($scope.config.options.defaultIgnorePatterns);
+                        $('#folder-ignores textarea').removeAttr('disabled');
                     }
                 )
             })
@@ -1809,8 +1815,6 @@ angular.module('syncthing.core')
                 $scope.currentFolder = angular.copy($scope.folderDefaults);
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $scope.currentFolder.unrelatedDevices = $scope.otherDevices();
-                $('#folder-ignores textarea').val($scope.config.options.defaultIgnorePatterns);
-                $('#folder-ignores textarea').removeAttr('disabled');
                 $scope.editFolderModal();
             });
         };
