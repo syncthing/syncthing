@@ -1705,6 +1705,7 @@ angular.module('syncthing.core')
         };
 
         $scope.editFolder = function (folderCfg) {
+            console.log($scope.config);
             $scope.editingExisting = true;
             $scope.currentFolder = angular.copy(folderCfg);
             if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
@@ -1790,12 +1791,24 @@ angular.module('syncthing.core')
         };
 
         $scope.addFolder = function () {
+            $('#folderLabel').change(function() {
+                var path = $('#folderPath').val();
+                $http.get(urlbase + '/db/chemin?path=' + encodeURIComponent(path))
+                .success(function (data) {
+                    console.log(data);
+                })
+                .error(
+                    function(err){
+                        console.log(err);
+                    }
+                )
+            })
+
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.editingExisting = false;
                 $scope.currentFolder = angular.copy($scope.folderDefaults);
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $scope.currentFolder.unrelatedDevices = $scope.otherDevices();
-                console.log($scope.config.options.defaultIgnorePatterns);
                 $('#folder-ignores textarea').val($scope.config.options.defaultIgnorePatterns);
                 $('#folder-ignores textarea').removeAttr('disabled');
                 $scope.editFolderModal();

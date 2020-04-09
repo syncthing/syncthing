@@ -247,6 +247,7 @@ func (s *service) serve(ctx context.Context) {
 	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // device folder
 	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
+	getRestMux.HandleFunc("/rest/db/chemin", s.getCheckFolder)                    	 // folder
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/remoteneed", s.getDBRemoteNeed)              // device folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/localchanged", s.getDBLocalChanged)          // folder
@@ -1171,6 +1172,31 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 		"ignore":   ignores,
 		"expanded": patterns,
 	})
+}
+
+func (s *service) getCheckFolder(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	path := qs.Get("path")
+	finalPath := path +"/.stignore"
+	fmt.Println(finalPath)
+	if _, err := os.Stat(finalPath); !os.IsNotExist(err) {
+		ignores, patterns, err := s.model.GetIgnores(finalPath)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+	
+		sendJSON(w, map[string][]string{
+			"ignore":   ignores,
+			"expanded": patterns,
+		})
+
+	}
+	if _, err := os.Stat(finalPath); os.IsNotExist(err) {
+		fmt.Println("Oups !!!!")
+	}
+	fmt.Println(path)
 }
 
 func (s *service) postDBIgnores(w http.ResponseWriter, r *http.Request) {
