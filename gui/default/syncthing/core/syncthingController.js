@@ -928,6 +928,9 @@ angular.module('syncthing.core')
         $scope.deviceStatus = function (deviceCfg) {
             var status = '';
 
+            if( deviceCfg.deviceID === this.myID){
+                return '';
+            }
             if ($scope.deviceFolders(deviceCfg).length === 0) {
                 status = 'unused-';
             }
@@ -987,6 +990,9 @@ angular.module('syncthing.core')
                     case 'syncing':
                         syncCount++;
                         break;
+                    case 'paused':
+                        pauseCount++;
+                        break;
                     case 'stopped':
                     case 'unknown':
                     case 'outofsync':
@@ -1000,17 +1006,16 @@ angular.module('syncthing.core')
             var deviceCount = $scope.devices.length;
             var pendingFolders = 0;
             for (var i = 0; i < $scope.devices.length; i++) {
-                var status = $scope.deviceStatus({
-                    deviceID: $scope.devices[i].deviceID
-                });
+                var status = $scope.deviceStatus($scope.devices[i]);
                 switch (status) {
                     case 'unknown':
+                    case 'disconnected':
                         notifyCount++;
                         break;
                     case 'paused':
                         pauseCount++;
                         break;
-                    case 'unused':
+                    case 'unused-':
                         deviceCount--;
                         break;
                 }
