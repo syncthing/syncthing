@@ -95,7 +95,6 @@ export class DeviceService {
                   // Alloc array if needed
                   if (!device.folders) {
                     device.folders = [];
-                    device.folderNames = [];
                   }
 
                   folders.forEach(folder => {
@@ -106,9 +105,6 @@ export class DeviceService {
 
                         // Add a reference to the folder to the device
                         device.folders.push(folder);
-
-                        // Add string folder name
-                        device.folderNames.push(folder.label);
                       }
                     });
                   });

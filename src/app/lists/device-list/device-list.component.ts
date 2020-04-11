@@ -23,7 +23,7 @@ export class DeviceListComponent implements AfterViewInit, OnInit, OnDestroy {
   dataSource: MatTableDataSource<Device>;
 
   /** Columns displayed in the table. Columns IDs can be added, removed, or reordered. */
-  displayedColumns = ['id', 'name', 'state', 'folders'];
+  displayedColumns = ['id', 'name', 'state'];
 
   constructor(
     private deviceService: DeviceService,
