@@ -14,6 +14,8 @@ import { MatProgressBar } from '@angular/material/progress-bar';
 import { MessageService } from '../services/message.service';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { DialogComponent } from '../dialog/dialog.component';
+import { FolderService } from '../services/folder.service';
+import { DeviceService } from '../services/device.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -64,16 +66,21 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   constructor(
     private systemConfigService: SystemConfigService,
+    private folderService: FolderService,
+    private deviceService: DeviceService,
     private progressService: ProgressService,
     private messageService: MessageService,
     public dialog: MatDialog
   ) { }
 
   ngOnInit() {
+    // Request data from Rest API
     this.systemConfigService.getSystemConfig().subscribe(
-      x => console.log('Observer got a next value: ' + x),
-      err => console.error('Observer got an error: ' + err),
-      () => console.log('Observer got a complete notification')
+      _ => {
+        // Request devices and folders for charts and lists
+        this.folderService.requestFolders();
+        this.deviceService.requestDevices();
+      }
     );
 
   }

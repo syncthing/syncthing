@@ -8,6 +8,7 @@ import { SystemConfigService } from '../../services/system-config.service';
 import { FilterService } from 'src/app/services/filter.service';
 import { StType } from 'src/app/type';
 import { MatInput } from '@angular/material/input';
+import { DeviceService } from 'src/app/services/device.service';
 
 @Component({
   selector: 'app-device-list',
@@ -22,10 +23,10 @@ export class DeviceListComponent implements AfterViewInit, OnInit, OnDestroy {
   dataSource: MatTableDataSource<Device>;
 
   /** Columns displayed in the table. Columns IDs can be added, removed, or reordered. */
-  displayedColumns = ['id', 'name', 'state'];
+  displayedColumns = ['id', 'name', 'state', 'folders'];
 
   constructor(
-    private systemConfigService: SystemConfigService,
+    private deviceService: DeviceService,
     private filterService: FilterService,
     private cdr: ChangeDetectorRef,
   ) { };
@@ -41,9 +42,19 @@ export class DeviceListComponent implements AfterViewInit, OnInit, OnDestroy {
     this.dataSource = new MatTableDataSource();
     this.dataSource.data = [];
 
-    this.systemConfigService.getDevices().subscribe(
-      data => {
-        this.dataSource.data = data;
+    // Replace all data when requests are finished
+    this.deviceService.devicesUpdated$.subscribe(
+      devices => {
+        this.dataSource.data = devices;
+      }
+    );
+
+    // Add device as they come in 
+    let devices: Device[] = [];
+    this.deviceService.deviceAdded$.subscribe(
+      device => {
+        devices.push(device);
+        this.dataSource.data = devices;
       }
     );
   }

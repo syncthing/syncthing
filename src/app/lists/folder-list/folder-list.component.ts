@@ -25,7 +25,7 @@ export class FolderListComponent implements AfterViewInit, OnInit, OnDestroy {
   displayedColumns = ['id', 'label', 'path', 'state'];
 
   constructor(
-    private systemConfigService: SystemConfigService,
+    private folderService: FolderService,
     private filterService: FilterService,
     private cdr: ChangeDetectorRef,
   ) {
@@ -41,11 +41,21 @@ export class FolderListComponent implements AfterViewInit, OnInit, OnDestroy {
     this.dataSource = new MatTableDataSource();
     this.dataSource.data = [];
 
-    this.systemConfigService.getFolders().subscribe(
-      data => {
-        this.dataSource.data = data;
+    // Replace all data when requests are finished
+    this.folderService.foldersUpdated$.subscribe(
+      folders => {
+        this.dataSource.data = folders;
       }
     );
+
+    // Add device as they come in 
+    let folders: Folder[] = [];
+    this.folderService.folderAdded$.subscribe(
+      folder => {
+        folders.push(folder);
+        this.dataSource.data = folders;
+      }
+    );;
   }
 
   ngAfterViewInit() {

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { SystemConfigService } from './system-config.service';
-import { Observable, Subscriber } from 'rxjs';
+import { Observable, Subscriber, Subject, ReplaySubject } from 'rxjs';
 import Folder from '../folder';
 import { DbStatusService } from './db-status.service';
 import { ProgressService } from './progress.service';
@@ -12,6 +12,10 @@ import { StType } from '../type';
 })
 export class FolderService {
   private folders: Folder[];
+  private foldersSubject: ReplaySubject<Folder[]> = new ReplaySubject(1);
+  foldersUpdated$ = this.foldersSubject.asObservable();
+  private folderAddedSource = new Subject<Folder>();
+  folderAdded$ = this.folderAddedSource.asObservable();
 
   constructor(
     private systemConfigService: SystemConfigService,
@@ -20,10 +24,11 @@ export class FolderService {
     private progressService: ProgressService,
   ) { }
 
-  getFolderStatusInOrder(observer: Subscriber<Folder>, startIndex: number) {
+  getFolderStatusInOrder(startIndex: number) {
     // Return if there aren't any folders at the index
     if (startIndex >= (this.folders.length)) {
-      observer.complete();
+      this.foldersSubject.next(this.folders);
+      // this.folderAddedSource.complete();
       return;
     }
     const folder: Folder = this.folders[startIndex];
@@ -37,37 +42,31 @@ export class FolderService {
             folder.completion = c;
             folder.stateType = Folder.getStateType(folder);
             folder.state = Folder.stateTypeToString(folder.stateType);
-            observer.next(folder);
 
+            this.folderAddedSource.next(folder);
             this.progressService.addToProgress(1);
 
             // recursively get the status of the next folder
-            this.getFolderStatusInOrder(observer, startIndex);
+            this.getFolderStatusInOrder(startIndex);
           });
       }
     );
   }
 
   /**
-   * getEach() returns each folder and uses db status service to 
+   * requestFolders() requests each folder and uses db status service to 
    * set all their statuses and db completion service to find
-   * completion
+   * completion in order. Updating folderAdded$ and foldersUpdate$
+   * observers
    */
-  getEach(): Observable<Folder> {
-    // TODO return this.folders if cached
+  requestFolders() {
+    this.systemConfigService.getFolders().subscribe(
+      folders => {
+        this.folders = folders;
 
-    const folderObservable: Observable<Folder> = new Observable((observer) => {
-      this.systemConfigService.getFolders().subscribe(
-        folders => {
-          this.folders = folders;
-
-          // Synchronously get the status of each folder
-          this.getFolderStatusInOrder(observer, 0);
-        },
-        err => { console.log("getEach error!", err) },
-        () => { console.log("getEach complete!") }
-      );
-    });
-    return folderObservable;
+        // Synchronously get the status of each folder
+        this.getFolderStatusInOrder(0);
+      }
+    );
   }
 }

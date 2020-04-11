@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import Device from '../device';
-import { Observable, Subscriber } from 'rxjs';
+import { Observable, Subscriber, ReplaySubject, Subject } from 'rxjs';
 import { SystemConfigService } from './system-config.service';
 import { SystemConnectionsService } from './system-connections.service';
 import { DbCompletionService } from './db-completion.service';
@@ -15,7 +15,12 @@ import { StType } from '../type';
 export class DeviceService {
   private devices: Device[];
   private sysConns: SystemConnections;
-  thisDevice: Device;
+  private devicesSubject: ReplaySubject<Device[]> = new ReplaySubject(1);
+  devicesUpdated$ = this.devicesSubject.asObservable();
+  private thisDevice: Device;
+
+  private deviceAddedSource = new Subject<Device>();
+  deviceAdded$ = this.deviceAddedSource.asObservable();
 
   constructor(
     private systemConfigService: SystemConfigService,
@@ -25,10 +30,12 @@ export class DeviceService {
     private progressService: ProgressService,
   ) { }
 
-  getDeviceStatusInOrder(observer: Subscriber<Device>, startIndex: number) {
+  getDeviceStatusInOrder(startIndex: number) {
     // Return if there aren't any device at the index
     if (startIndex >= (this.devices.length)) {
-      observer.complete();
+      this.devicesSubject.next(this.devices);
+      // this.devicesSubject.complete();
+      // this.deviceAddedSource.complete();
       return;
     }
     const device: Device = this.devices[startIndex];
@@ -53,76 +60,73 @@ export class DeviceService {
         Device.recalcCompletion(device);
         device.stateType = Device.getStateType(device);
         device.state = Device.stateTypeToString(device.stateType);
-        observer.next(device);
 
+        this.deviceAddedSource.next(device);
         this.progressService.addToProgress(1);
 
         // recursively get the status of the next device 
-        this.getDeviceStatusInOrder(observer, startIndex);
+        this.getDeviceStatusInOrder(startIndex);
       });
   }
 
   /**
    * getEach() returns each device 
    */
-  getEach(): Observable<Device> {
-    const deviceObservable: Observable<Device> = new Observable((observer) => {
-      // TODO return devices if cached
+  requestDevices() {
+    this.systemConfigService.getDevices().subscribe(
+      devices => {
+        this.devices = devices;
 
-      this.systemConfigService.getDevices().subscribe(
-        devices => {
-          this.devices = devices;
+        // First check to see which device is local 'thisDevice'
+        this.systemStatusService.getSystemStatus().subscribe(
+          status => {
+            this.devices.forEach(device => {
+              if (device.deviceID === status.myID) {
+                // TODO Determine if it should ignore thisDevice
+                this.thisDevice = device;
+              }
+            });
 
-          // First check to see which device is local 'thisDevice'
-          this.systemStatusService.getSystemStatus().subscribe(
-            status => {
-              this.devices.forEach(device => {
-                if (device.deviceID === status.myID) {
-                  // TODO Determine if it should ignore thisDevice
-                  this.thisDevice = device;
-                }
-              });
+            // Check folder devices to see if the device is used
+            this.systemConfigService.getFolders().subscribe(
+              folders => {
+                // Loop through all folder devices to see if the device is used
+                this.devices.forEach(device => {
+                  // Alloc array if needed
+                  if (!device.folders) {
+                    device.folders = [];
+                    device.folderNames = [];
+                  }
 
-              // Check folder devices to see if the device is used
-              this.systemConfigService.getFolders().subscribe(
-                folders => {
-                  // Loop through all folder devices to see if the device is used
-                  this.devices.forEach(device => {
-                    // Alloc array if needed
-                    if (!device.folders) {
-                      device.folders = [];
-                    }
+                  folders.forEach(folder => {
+                    folder.devices.forEach(fdevice => {
+                      if (device.deviceID === fdevice.deviceID) {
+                        // The device is used by a folder
+                        device.used = true;
 
-                    folders.forEach(folder => {
-                      folder.devices.forEach(fdevice => {
-                        if (device.deviceID === fdevice.deviceID) {
-                          // The device is used by a folder
-                          device.used = true;
+                        // Add a reference to the folder to the device
+                        device.folders.push(folder);
 
-                          // Add a reference to the folder to the device
-                          device.folders.push(folder);
-                        }
-                      });
+                        // Add string folder name
+                        device.folderNames.push(folder.label);
+                      }
                     });
                   });
-
-                  // See if the connection is connected or undefined 
-                  this.systemConnectionsService.getSystemConnections().subscribe(
-                    c => {
-                      this.sysConns = c;
-
-                      // Synchronously get the status of each device 
-                      this.getDeviceStatusInOrder(observer, 0);
-                    }
-                  );
                 });
-            }
-          )
-        },
-        err => { console.log("getEach error!", err) },
-        () => { console.log("getEach complete!") }
-      );
-    });
-    return deviceObservable
+
+                // See if the connection is connected or undefined 
+                this.systemConnectionsService.getSystemConnections().subscribe(
+                  c => {
+                    this.sysConns = c;
+
+                    // Synchronously get the status of each device 
+                    this.getDeviceStatusInOrder(0);
+                  }
+                );
+              });
+          }
+        )
+      }
+    );
   }
 }

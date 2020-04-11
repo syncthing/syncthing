@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, Input } from '@angular/core';
+import { Component, OnInit, ViewChild, Input, Type } from '@angular/core';
 import Folder from '../../folder'
 import { FolderService } from 'src/app/services/folder.service';
 import { DonutChartComponent } from '../donut-chart/donut-chart.component';
@@ -6,6 +6,7 @@ import { DeviceService } from 'src/app/services/device.service';
 import Device from 'src/app/device';
 import { StType } from '../../type';
 import { FilterService } from 'src/app/services/filter.service';
+import { Observable } from 'rxjs';
 
 
 export interface ChartItemState {
@@ -27,12 +28,12 @@ export class ChartComponent implements OnInit {
   chartID: string;
   states: ChartItemState[] = [];
 
-  private service: any;
+  private observer: Observable<any>;
   private activeChartState: ChartItemState;
 
   constructor(
     private folderService: FolderService,
-    private deviceServce: DeviceService,
+    private deviceService: DeviceService,
     private filterService: FilterService,
   ) { }
 
@@ -60,19 +61,19 @@ export class ChartComponent implements OnInit {
       case StType.Folder:
         this.title = "Folders";
         this.chartID = 'foldersChart';
-        this.service = this.folderService;
+        this.observer = this.folderService.folderAdded$;
         break;
       case StType.Device:
         this.title = "Devices";
         this.chartID = 'devicesChart';
-        this.service = this.deviceServce;
+        this.observer = this.deviceService.deviceAdded$;
         break;
     }
   }
 
   ngAfterViewInit() {
     let totalCount: number = 0;
-    this.service.getEach().subscribe(
+    this.observer.subscribe(
       t => {
         // Count the number of folders and set chart
         totalCount++;
