@@ -8,11 +8,20 @@ import { SystemConfigService } from '../../services/system-config.service';
 import { FilterService } from 'src/app/services/filter.service';
 import { StType } from 'src/app/type';
 import { MatInput } from '@angular/material/input';
+import { FolderService } from 'src/app/services/folder.service';
+import { trigger, state, style, transition, animate } from '@angular/animations';
 
 @Component({
   selector: 'app-folder-list',
   templateUrl: './folder-list.component.html',
-  styleUrls: ['./folder-list.component.scss']
+  styleUrls: ['./folder-list.component.scss'],
+  animations: [
+    trigger('detailExpand', [
+      state('collapsed', style({ height: '0px', minHeight: '0' })),
+      state('expanded', style({ height: '*' })),
+      transition('expanded <=> collapsed', animate('225ms cubic-bezier(0.4, 0.0, 0.2, 1)')),
+    ]),
+  ],
 })
 export class FolderListComponent implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild(MatPaginator) paginator: MatPaginator;
@@ -23,6 +32,7 @@ export class FolderListComponent implements AfterViewInit, OnInit, OnDestroy {
 
   /** Columns displayed in the table. Columns IDs can be added, removed, or reordered. */
   displayedColumns = ['id', 'label', 'path', 'state'];
+  expandedFolder: Folder | null;
 
   constructor(
     private folderService: FolderService,
