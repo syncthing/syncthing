@@ -11,13 +11,15 @@ tr.detail-row {
   height: 0;
 }
 
-tr.folder-row:not(.example-expanded-row):hover {
+tr.folder-row:not(.expanded-row):hover {
   background: whitesmoke;
 }
 
+/*
 tr.folder-row:not(.folder-row):active {
   background: #efefef;
 }
+*/
 
 .folder-row td {
   border-bottom-width: 0;
@@ -32,15 +34,11 @@ tr.folder-row:not(.folder-row):active {
   padding-bottom: 16px;
 }
 
-.device-name:not(:first-child) {
-  margin-left: -.3em;  
-}
-
 // Hide empty name
 .device-name:empty {
   display: none;
 }
 
-.device-name:not(:first-child):before {
+.device-name:not(:last-child):after {
   content: ", ";
 }

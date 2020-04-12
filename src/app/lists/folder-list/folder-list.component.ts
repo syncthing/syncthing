@@ -31,7 +31,13 @@ export class FolderListComponent implements AfterViewInit, OnInit, OnDestroy {
   dataSource: MatTableDataSource<Folder>;
 
   /** Columns displayed in the table. Columns IDs can be added, removed, or reordered. */
-  displayedColumns = ['id', 'label', 'path', 'state'];
+  displayedColumns = [
+    "id",
+    "label",
+    "path",
+    "state"
+  ];
+
   expandedFolder: Folder | null;
 
   constructor(

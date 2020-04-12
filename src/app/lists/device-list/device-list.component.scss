@@ -1,8 +1,44 @@
 .full-width-table {
-  width: 100%;
+    width: 100%;
+}
+  
+.mat-form-field {
+    font-size: 14px;
+    width: 100%;
 }
 
-.mat-form-field {
-  font-size: 14px;
-  width: 100%;
+tr.detail-row {
+  height: 0;
+}
+
+tr.device-row:not(.expanded-row):hover {
+  background: whitesmoke;
+}
+
+/*
+tr.device-row:not(.device-row):active {
+  background: #efefef;
+}
+*/
+
+.device-row td {
+  border-bottom-width: 0;
+}
+
+.device-detail {
+  overflow: hidden;
+  display: flex;
+}
+
+.device-folders {
+  padding-bottom: 16px;
+}
+
+// Hide empty name
+.folder-name:empty {
+  display: none;
+}
+
+.folder-name:not(:last-child):after {
+  content: ", ";
 }

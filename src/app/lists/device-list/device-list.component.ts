@@ -9,11 +9,19 @@ import { FilterService } from 'src/app/services/filter.service';
 import { StType } from 'src/app/type';
 import { MatInput } from '@angular/material/input';
 import { DeviceService } from 'src/app/services/device.service';
+import { trigger, state, style, transition, animate } from '@angular/animations';
 
 @Component({
   selector: 'app-device-list',
   templateUrl: './device-list.component.html',
-  styleUrls: ['./device-list.component.scss']
+  styleUrls: ['./device-list.component.scss'],
+  animations: [
+    trigger('detailExpand', [
+      state('collapsed', style({ height: '0px', minHeight: '0' })),
+      state('expanded', style({ height: '*' })),
+      transition('expanded <=> collapsed', animate('225ms cubic-bezier(0.4, 0.0, 0.2, 1)')),
+    ]),
+  ],
 })
 export class DeviceListComponent implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild(MatPaginator) paginator: MatPaginator;
@@ -23,7 +31,8 @@ export class DeviceListComponent implements AfterViewInit, OnInit, OnDestroy {
   dataSource: MatTableDataSource<Device>;
 
   /** Columns displayed in the table. Columns IDs can be added, removed, or reordered. */
-  displayedColumns = ['id', 'name', 'state'];
+  displayedColumns = ['deviceID', 'name', 'state'];
+  expandedDevice: Device | null;
 
   constructor(
     private deviceService: DeviceService,

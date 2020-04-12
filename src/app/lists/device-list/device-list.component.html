@@ -2,27 +2,28 @@
   <mat-label>Filter</mat-label>
   <input matInput (keyup)="applyFilter($event)" placeholder="Ex. Up to Date">
 </mat-form-field>
-<table mat-table class="full-width-table" matSort aria-label="Elements">
-  <!-- Id Column -->
-  <ng-container matColumnDef="id">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Id</th>
-    <td mat-cell *matCellDef="let row">{{row.deviceID}}</td>
+<table mat-table class="full-width-table" matSort aria-label="Devices" multiTemplateDataRows>
+  <ng-container matColumnDef="{{column}}" *ngFor="let column of displayedColumns">
+    <th mat-header-cell *matHeaderCellDef> {{column}} </th>
+    <td mat-cell *matCellDef="let device"> {{device[column]}} </td>
   </ng-container>
-
-  <!-- Name Column -->
-  <ng-container matColumnDef="name">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
-    <td mat-cell *matCellDef="let row">{{row.name}}</td>
-  </ng-container>
-
-  <!-- Status Column -->
-  <ng-container matColumnDef="state">
-    <th mat-header-cell *matHeaderCellDef mat-sort-header>State</th>
-    <td mat-cell *matCellDef="let row">{{row.state}}</td>
+  <ng-container matColumnDef="expandedDetail">
+    <td mat-cell *matCellDef="let device" [attr.colspan]="displayedColumns.length">
+      <div class="device-detail" [@detailExpand]="device == expandedDevice ? 'expanded' : 'collapsed'">
+        <div class="device-folders">
+          <span>Folders: </span>
+          <span class="folder-name" *ngFor="let folder of device.folders">{{folder.label | trim}}</span>
+        </div>
+      </div>
+    </td>
   </ng-container>
 
   <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-  <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+  <tr mat-row *matRowDef="let device; columns: displayedColumns;" class="device-row"
+    [class.expanded-row]="expandedDevice === device"
+    (click)="expandedDevice = expandedDevice === device ? null : device">
+  </tr>
+  <tr mat-row *matRowDef="let row; columns: ['expandedDetail']" class="detail-row"></tr>
 </table>
 
 <mat-paginator #paginator [length]="dataSource?.data.length" [pageIndex]="0" [pageSize]="25"
