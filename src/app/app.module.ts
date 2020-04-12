@@ -35,6 +35,7 @@ import { ChartComponent } from './charts/chart/chart.component';
 import { FolderListComponent } from './lists/folder-list/folder-list.component';
 import { DialogComponent } from './dialog/dialog.component';
 import { CardComponent, CardTitleComponent, CardContentComponent } from './card/card.component';
+import { TrimPipe } from './trim.pipe';
 
 @NgModule({
   declarations: [
@@ -51,6 +52,7 @@ import { CardComponent, CardTitleComponent, CardContentComponent } from './card/
     CardComponent,
     CardTitleComponent,
     CardContentComponent,
+    TrimPipe,
   ],
   imports: [
     BrowserModule,
