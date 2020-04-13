@@ -556,6 +556,20 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				batch.append(nf)
 				changes++
 			}
+
+			// Check for deleted, locally changed items that noone else has.
+			if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
+				return true
+			}
+			if !fi.IsDeleted() || !fi.IsReceiveOnlyChanged() || len(snap.Availability(fi.FileName())) > 0 {
+				return true
+			}
+			nf := fi.(db.FileInfoTruncated).ConvertDeletedToFileInfo()
+			nf.LocalFlags = 0
+			nf.Version = protocol.Vector{}
+			batch.append(nf)
+			changes++
+
 			return true
 		})
 

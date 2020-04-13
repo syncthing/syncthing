@@ -318,9 +318,7 @@ func (s *Snapshot) NeedSize(device protocol.DeviceID) Counts {
 	return s.meta.Counts(device, needFlag)
 }
 
-// LocalChangedFiles returns a paginated list of currently needed files in
-// progress, queued, and to be queued on next puller iteration, as well as the
-// total number of files currently needed.
+// LocalChangedFiles returns a paginated list of files that were changed locally.
 func (s *Snapshot) LocalChangedFiles(page, perpage int) []FileInfoTruncated {
 	if s.ReceiveOnlyChangedSize().TotalItems() == 0 {
 		return nil

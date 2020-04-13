@@ -744,7 +744,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 	if err != nil {
 		return nil, err
 	}
-	f, ok, err := t.getFileByKey(keyBuf)
+	f, ok, err := t.getFileTrunc(keyBuf, true)
 	if err != nil {
 		return nil, err
 	} else if !ok {
@@ -779,7 +779,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 	if err != nil {
 		return nil, err
 	}
-	global, ok, err := t.getFileByKey(keyBuf)
+	global, ok, err := t.getFileTrunc(keyBuf, true)
 	if err != nil {
 		return nil, err
 	}

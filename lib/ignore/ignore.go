@@ -67,16 +67,11 @@ func (p Pattern) allowsSkippingIgnoredDirs() bool {
 	if p.pattern[0] != '/' {
 		return false
 	}
-	// Double asterisk everywhere in the path except at the end is bad
-	if strings.Contains(strings.TrimSuffix(p.pattern, "**"), "**") {
+	if strings.Contains(p.pattern[1:], "/") {
 		return false
 	}
-	// Any wildcards anywhere except for the last path component are bad
-	lastSep := strings.LastIndex(p.pattern, "/")
-	if lastSep == -1 {
-		return true
-	}
-	return p.pattern[:lastSep] == glob.QuoteMeta(p.pattern[:lastSep])
+	// Double asterisk everywhere in the path except at the end is bad
+	return !strings.Contains(strings.TrimSuffix(p.pattern, "**"), "**")
 }
 
 type Result uint8
