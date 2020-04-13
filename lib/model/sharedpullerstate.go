@@ -21,17 +21,18 @@ import (
 // updated along the way.
 type sharedPullerState struct {
 	// Immutable, does not require locking
-	file        protocol.FileInfo // The new file (desired end state)
-	fs          fs.Filesystem
-	folder      string
-	tempName    string
-	realName    string
-	reused      int // Number of blocks reused from temporary file
-	ignorePerms bool
-	hasCurFile  bool              // Whether curFile is set
-	curFile     protocol.FileInfo // The file as it exists now in our database
-	sparse      bool
-	created     time.Time
+	file         protocol.FileInfo // The new file (desired end state)
+	fs           fs.Filesystem
+	folder       string
+	tempName     string
+	realName     string
+	reused       int // Number of blocks reused from temporary file
+	ignorePerms  bool
+	hasCurFile   bool              // Whether curFile is set
+	curFile      protocol.FileInfo // The file as it exists now in our database
+	sparse       bool
+	created      time.Time
+	hideDotFiles bool
 
 	// Mutable, must be locked for access
 	err               error           // The first error we hit
@@ -49,7 +50,7 @@ type sharedPullerState struct {
 	mut               sync.RWMutex    // Protects the above
 }
 
-func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, tempName string, blocks []protocol.BlockInfo, reused []int32, ignorePerms, hasCurFile bool, curFile protocol.FileInfo, sparse bool) *sharedPullerState {
+func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, tempName string, blocks []protocol.BlockInfo, reused []int32, ignorePerms, hasCurFile bool, curFile protocol.FileInfo, sparse, hideDotFiles bool) *sharedPullerState {
 	return &sharedPullerState{
 		file:             file,
 		fs:               fs,
@@ -67,6 +68,7 @@ func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, te
 		curFile:          curFile,
 		mut:              sync.NewRWMutex(),
 		sparse:           sparse,
+		hideDotFiles:     hideDotFiles,
 		created:          time.Now(),
 	}
 }

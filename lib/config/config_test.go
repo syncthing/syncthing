@@ -126,6 +126,7 @@ func TestDeviceConfig(t *testing.T) {
 				},
 				WeakHashThresholdPct: 25,
 				MarkerName:           DefaultMarkerName,
+				HideDotFiles:         false,
 			},
 		}
 

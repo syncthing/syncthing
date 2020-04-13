@@ -57,6 +57,7 @@ type FolderConfiguration struct {
 	MarkerName              string                      `xml:"markerName" json:"markerName"`
 	CopyOwnershipFromParent bool                        `xml:"copyOwnershipFromParent" json:"copyOwnershipFromParent"`
 	RawModTimeWindowS       int                         `xml:"modTimeWindowS" json:"modTimeWindowS"`
+	HideDotFiles            bool                        `xml:"hideDotFiles" json:"hideDotFiles"`
 
 	cachedFilesystem    fs.Filesystem
 	cachedModTimeWindow time.Duration
