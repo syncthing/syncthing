@@ -6,6 +6,7 @@ import { DbStatusService } from './db-status.service';
 import { ProgressService } from './progress.service';
 import { DbCompletionService } from './db-completion.service';
 import { StType } from '../type';
+import { DeviceService } from './device.service';
 
 @Injectable({
   providedIn: 'root'
@@ -19,6 +20,7 @@ export class FolderService {
 
   constructor(
     private systemConfigService: SystemConfigService,
+    private deviceService: DeviceService,
     private dbStatusService: DbStatusService,
     private dbCompletionService: DbCompletionService,
     private progressService: ProgressService,
@@ -33,24 +35,48 @@ export class FolderService {
     }
     const folder: Folder = this.folders[startIndex];
     startIndex = startIndex + 1;
-    this.dbStatusService.getFolderStatus(folder.id).subscribe(
-      status => {
-        folder.status = status;
 
-        this.dbCompletionService.getCompletion(StType.Folder, folder.id).subscribe(
-          c => {
-            folder.completion = c;
-            folder.stateType = Folder.getStateType(folder);
-            folder.state = Folder.stateTypeToString(folder.stateType);
+    // Folder devices array only has deviceID 
+    // and we want all the device info
+    this.systemConfigService.getDevices().subscribe(
+      devices => {
+        devices.forEach(device => {
+          // Update any device this folder
+          // has reference to
+          folder.devices.forEach((folderDevice, index) => {
+            if (folderDevice.deviceID === device.deviceID) {
+              console.log("find device match?", device.name)
+              folder.devices[index] = device;
 
-            this.folderAddedSource.next(folder);
-            this.progressService.addToProgress(1);
-
-            // recursively get the status of the next folder
-            this.getFolderStatusInOrder(startIndex);
+              console.log("update?", folder.devices);
+            }
           });
+        });
+
+        // Gather the folder information from the status and
+        // completion services
+        this.dbStatusService.getFolderStatus(folder.id).subscribe(
+          status => {
+            folder.status = status;
+
+            this.dbCompletionService.getCompletion(StType.Folder, folder.id).subscribe(
+              c => {
+                folder.completion = c;
+                folder.stateType = Folder.getStateType(folder);
+                folder.state = Folder.stateTypeToString(folder.stateType);
+
+                this.folderAddedSource.next(folder);
+                this.progressService.addToProgress(1);
+
+                // Now that we have all the folder information
+                // recursively get the status of the next folder
+                this.getFolderStatusInOrder(startIndex);
+              });
+          }
+        );
       }
-    );
+    )
+
   }
 
   /**
