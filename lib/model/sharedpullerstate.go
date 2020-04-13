@@ -8,6 +8,8 @@ package model
 
 import (
 	"io"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -318,7 +320,16 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	// immediately be renamed to the final name. If this is a failed temp
 	// file we will also unhide it, but I'm fine with that as we're now
 	// leaving it around for potentially quite a while.
-	s.fs.Unhide(s.tempName)
+	if runtime.GOOS == "windows" && s.hideDotFiles {
+		// On windows only we want to keep dot files hidden
+		// when the folder's configuration is set to hide them
+		if !strings.HasPrefix(s.realName, ".") {
+			// Unhide all files except dot files
+			s.fs.Unhide(s.tempName)
+		}
+	} else {
+		s.fs.Unhide(s.tempName)
+	}
 
 	return true, s.err
 }
