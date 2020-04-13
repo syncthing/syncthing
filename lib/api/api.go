@@ -281,6 +281,7 @@ func (s *service) serve(ctx context.Context) {
 	postRestMux := http.NewServeMux()
 
 	postRestMux.HandleFunc("/rest/login", s.restLogin)
+	postRestMux.HandleFunc("/rest/logout", s.restLogout)
 	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
 	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                    // folder
 	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)                  // folder
@@ -418,8 +419,29 @@ func (s *service) serve(ctx context.Context) {
 }
 
 func (s *service) restLogin(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Nous sommes la")
 	w.Header().Set("location", "/")
 	w.WriteHeader(http.StatusTemporaryRedirect)
+}
+
+func (s *service) restLogout(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("On est la")
+	mux := http.NewServeMux()
+	guiCfg := s.cfg.GUI()
+	auth := authAndSessionMiddleware{"sessionid-" + s.id.String()[:5], guiCfg, s.cfg.LDAP(), s.evLogger}
+	fmt.Println(auth.cookieName)
+
+	c := &http.Cookie{
+		Name:     auth.cookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   86400,
+		SameSite: http.SameSiteStrictMode,
+	}
+
+	http.SetCookie(w, c)
+	fmt.Println("Nous sommes la")
+	mux.HandleFunc("/rest/login", auth.loginHandler)
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor

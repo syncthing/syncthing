@@ -15,14 +15,23 @@ angular.module('syncthing.core')
         function initController() {
             LocaleService.autoConfigLocale();
             checkLoginAndStart();
+            // loginSuccessfull()
         }
 
         function checkLoginAndStart() {
             $http.get(urlbase + '/login').success(function() {
+                // We are logged in, or don't need to log in
                 loginSuccessfull()
             }).error(function(){
+                 // We must log in.
+                 // We Show the login prompt. Then try to log in:
                 $('#login').modal('show');
             })
+        }
+
+        function logoutSuccessfull(){
+            setInterval($scope.refresh, 10000);
+            Events.startOf;
         }
 
         function loginSuccessfull(){
@@ -35,11 +44,11 @@ angular.module('syncthing.core')
             var password = $scope.currentFolder.password
 
             $('#login').modal('hide');
-            $http.post(urlbase+"/login?usename="+username+"&password="+password).success(
+            $http.post("rest/login?username="+username+"&password="+password).success(
                 function(){
                     loginSuccessfull()
                 }).error(function(){
-                    alert('Error!')
+                    alert('Error! your credentials are not correct!\n Retry please...')
                     $('#login').modal('show');
                 })
         }
@@ -47,6 +56,12 @@ angular.module('syncthing.core')
           // logout function
         $scope.logout = function () {
             // here we'll place the logout code
+            // $http.get(urlbase+"/logout").success(checkLoginAndStart).error(function(){
+                $http.post(urlbase+"/logout").success(
+                    function(){
+                       checkLoginAndStart();
+                    })
+            // })
         };
 
 

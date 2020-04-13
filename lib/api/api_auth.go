@@ -116,6 +116,7 @@ func (mw authAndSessionMiddleware) loginHandler(w http.ResponseWriter, r *http.R
 		http.Error(w, "Not access authorized", http.StatusForbidden)
 	}
 
+	// Get the post values
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
