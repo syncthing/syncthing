@@ -391,7 +391,7 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 		err := t.withNeedLocal(folder, false, func(f FileIntf) bool {
 			name := []byte(f.FileName())
 			global := f.(protocol.FileInfo)
-			fl, err := t.getGlobalVL(gk, folder, name)
+			fl, err := t.getGlobalVersions(gk, folder, name)
 			if backend.IsNotFound(err) {
 				// If there is no global list, we hardly need it.
 				key, err := t.keyer.GenerateNeedFileKey(nk, folder, name)

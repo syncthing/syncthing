@@ -112,16 +112,16 @@ func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
 	return nil
 }
 
-func (t readOnlyTransaction) getGlobalVL(keyBuf, folder, file []byte) (VersionList, error) {
+func (t readOnlyTransaction) getGlobalVersions(keyBuf, folder, file []byte) (VersionList, error) {
 	var err error
 	keyBuf, err = t.keyer.GenerateGlobalVersionKey(keyBuf, folder, file)
 	if err != nil {
 		return VersionList{}, err
 	}
-	return t.getGlobalVLByKey(keyBuf)
+	return t.getGlobalVersionsByKey(keyBuf)
 }
 
-func (t readOnlyTransaction) getGlobalVLByKey(key []byte) (VersionList, error) {
+func (t readOnlyTransaction) getGlobalVersionsByKey(key []byte) (VersionList, error) {
 	bs, err := t.Get(key)
 	if err != nil {
 		return VersionList{}, err
@@ -136,7 +136,7 @@ func (t readOnlyTransaction) getGlobalVLByKey(key []byte) (VersionList, error) {
 }
 
 func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool, error) {
-	vl, err := t.getGlobalVL(keyBuf, folder, file)
+	vl, err := t.getGlobalVersions(keyBuf, folder, file)
 	if backend.IsNotFound(err) {
 		return nil, nil, false, nil
 	} else if err != nil {
@@ -302,7 +302,7 @@ func (t *readOnlyTransaction) withGlobal(folder, prefix []byte, truncate bool, f
 }
 
 func (t *readOnlyTransaction) availability(folder, file []byte) ([]protocol.DeviceID, error) {
-	vl, err := t.getGlobalVL(nil, folder, file)
+	vl, err := t.getGlobalVersions(nil, folder, file)
 	if backend.IsNotFound(err) {
 		return nil, nil
 	}
@@ -475,7 +475,7 @@ func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo, truncat
 func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) ([]byte, bool, error) {
 	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.IsInvalid())
 
-	fl, err := t.getGlobalVLByKey(gk)
+	fl, err := t.getGlobalVersionsByKey(gk)
 	if err != nil && !backend.IsNotFound(err) {
 		return nil, false, err
 	}
@@ -602,7 +602,7 @@ func need(global FileIntf, haveLocal bool, localVersion protocol.Vector) bool {
 func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte, file []byte, meta *metadataTracker) ([]byte, error) {
 	l.Debugf("remove from global; folder=%q device=%v file=%q", folder, protocol.DeviceIDFromBytes(device), file)
 
-	fl, err := t.getGlobalVLByKey(gk)
+	fl, err := t.getGlobalVersionsByKey(gk)
 	if backend.IsNotFound(err) {
 		// We might be called to "remove" a global version that doesn't exist
 		// if the first update for the file is already marked invalid.
