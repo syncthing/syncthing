@@ -50,20 +50,15 @@ angular.module('syncthing.core')
         $scope.themes = [];
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
-        $scope.authWarningDismissed = false; 
         $scope.folderPathErrors = {};
         $scope.currentFolder = {};
+
         resetRemoteNeed();
 
+        
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
         } catch (exception) { }
-        try {
-            if(typeof window.localStorage["authWarningDismissed"] != 'undefined'){
-                $scope.authWarningDismissed = window.localStorage["authWarningDismissed"] == "true";
-            }
-        } catch (exception) { }
-
 
 
         $scope.folderDefaults = {
@@ -150,6 +145,9 @@ angular.module('syncthing.core')
                     $('#ur').modal();
                 }
             }).error($scope.emitHTTPError);
+
+            $scope.config.options.unackedNotificationIDs =  ["authenticationUserAndPassword"];
+        	$scope.saveConfig();
 
             $http.get(urlbase + '/system/upgrade').success(function (data) {
                 $scope.upgradeInfo = data;
@@ -457,8 +455,9 @@ angular.module('syncthing.core')
                 && guiCfg.authMode !== 'ldap'
                 && !guiCfg.insecureAdminAccess;
 
-            $scope.noAuth = (!$scope.authWarningDismissed || checkAuthDate())
-                && (!guiCfg.user || !guiCfg.password);
+            if (guiCfg.user && guiCfg.password) {
+            	dismissNotification('authenticationUserAndPassword');
+            }
         }
 
 
