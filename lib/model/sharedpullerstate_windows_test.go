@@ -38,6 +38,7 @@ func TestHideDotFiles(t *testing.T) {
 		s := sharedPullerState{
 			fs:           fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir),
 			tempName:     test.filename,
+			realName:     test.filename,
 			mut:          sync.NewRWMutex(),
 			hideDotFiles: test.hideDotFiles,
 		}
