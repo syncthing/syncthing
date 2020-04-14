@@ -691,42 +691,6 @@ angular.module('syncthing.core')
             });
         };
 
-<<<<<<< HEAD
-=======
-        $scope.dismissAuthenticationSetupSuggestion = function () {
-            try {
-                window.localStorage["authWarningDismissed"] = true;
-                var expire = 7*24*60*60*1000;  // Miliseconds (7 days * 24 hours * 60 mins * 60 secs * 1000 miliseconds)
-                window.localStorage["authWarningDismissedTime"] = new Date().getTime() + expire; 
-            } catch (exception) { }
-        };
-
-        function checkAuthDate(){
-            try {
-                if (typeof window.localStorage["authWarningDismissedTime"] == 'undefined'){
-                    return true;
-                }
-
-                var expire = Number(window.localStorage["authWarningDismissedTime"]);
-                var now = new Date().getTime();
-
-                return now > expire;
-            } catch (exception) {
-                return false;
-            }
-        };
-
-        $scope.neededPageChanged = function (page) {
-            $scope.neededCurrentPage = page;
-            refreshNeed($scope.neededFolder);
-        };
-
-        $scope.neededChangePageSize = function (perpage) {
-            $scope.neededPageSize = perpage;
-            refreshNeed($scope.neededFolder);
-        };
-
->>>>>>> 5d2d3c683be14919a34f6807f6fe1ba0f6382839
         $scope.refreshFailed = function (page, perpage) {
             if (!$scope.failed || !$scope.failed.folder) {
                 return;
