@@ -79,6 +79,7 @@ angular.module('syncthing.core')
             externalCommand: "",
             autoNormalize: true,
             path: "",
+            hideDotFiles: true,
         };
 
         $scope.localStateTotal = {

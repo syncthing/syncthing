@@ -168,10 +168,22 @@
         <div id="folder-advanced" class="tab-pane">
           <div class="row form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
             <div class="col-md-12">
-              <label translate>Scanning</label>
-              &nbsp;<a href="https://docs.syncthing.net/users/syncing.html#scanning" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a></br>
+              <div class="row" ng-if="version.os === 'windows'">
+                <div class="col-md-12">
+                  <label translate>Dot Files</label><br />
+                  <input type="checkbox" ng-model="currentFolder.hideDotFiles" /> <span translate>Hide dot files</span>
+                  <p translate class="help-block">
+		    When syncing a dotfile (files matching .*) to a Windows systems the file is hidden.
+                  </p>
+                </div>
+              </div>
 
               <div class="row">
+                <div class="col-md-12">
+                  <label translate>Scanning</label>
+                  &nbsp;<a href="https://docs.syncthing.net/users/syncing.html#scanning" target="_blank"><span
+                      class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a></br>
+                </div>
                 <div class="col-md-6">
                   <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="fsWatcherToggled()" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
                   <p translate class="help-block">Watching for changes discovers most changes without periodic scanning.</p>
