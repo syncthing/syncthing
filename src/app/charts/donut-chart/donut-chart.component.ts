@@ -79,7 +79,8 @@ export class DonutChartComponent {
           // Disable the on-canvas tooltip
           enabled: false,
           custom: tooltip(),
-        }
+        },
+        animation: false
       }
     });
   }
