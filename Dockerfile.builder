@@ -1,13 +1,4 @@
-# We will grab the Go compiler from the latest Go image.
-FROM golang:1.13 as go
-
-# Otherwise we base on the snapcraft container as that is by far the
-# most complex and tricky thing to get installed and working...
-FROM snapcore/snapcraft
-
-# Go
-COPY --from=go /usr/local/go /usr/local/go
-ENV PATH="/usr/local/go/bin:$PATH"
+FROM golang:1.13
 
 # FPM to build Debian packages
 RUN apt-get update && apt-get install -y --no-install-recommends \

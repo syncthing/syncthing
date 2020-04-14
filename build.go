@@ -31,7 +31,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 )
 
@@ -323,9 +322,6 @@ func runCommand(cmd string, target target) {
 	case "deb":
 		buildDeb(target)
 
-	case "snap":
-		buildSnap(target)
-
 	case "vet":
 		metalintShort()
 
@@ -586,47 +582,6 @@ func buildDeb(target target) {
 		args = append(args, "--before-install", target.debpre)
 	}
 	runPrint("fpm", args...)
-}
-
-func buildSnap(target target) {
-	os.RemoveAll("snap")
-
-	tmpl, err := template.ParseFiles("snapcraft.yaml.template")
-	if err != nil {
-		log.Fatal(err)
-	}
-	f, err := os.Create("snapcraft.yaml")
-	defer f.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	snaparch := goarch
-	if snaparch == "armhf" {
-		goarch = "arm"
-	} else if snaparch == "i386" {
-		goarch = "386"
-	}
-	snapver := version
-	if strings.HasPrefix(snapver, "v") {
-		snapver = snapver[1:]
-	}
-	snapgrade := "devel"
-	if matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+(-rc.\d+)?$`, snapver); matched {
-		snapgrade = "stable"
-	}
-	err = tmpl.Execute(f, map[string]string{
-		"Version":            snapver,
-		"HostArchitecture":   runtime.GOARCH,
-		"TargetArchitecture": snaparch,
-		"Grade":              snapgrade,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	runPrint("snapcraft", "clean")
-	build(target, []string{"noupgrade"})
-	runPrint("snapcraft")
 }
 
 func shouldBuildSyso(dir string) (string, error) {
