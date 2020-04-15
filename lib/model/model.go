@@ -253,17 +253,19 @@ func (m *model) onServe() {
 			continue
 		}
 		m.newFolder(folderCfg)
-		// Forget pending folders that are now added
+		// Forget pending folder device associations that are now added
 		m.db.RemovePendingFolder(folderCfg.ID, folderCfg.DeviceIDs())
 	}
-	// Unique set of device IDs for which we'd like to keep pending folder entries
+	// Unique set of device IDs for which we'd like to keep pending folder entries.
+	// We cannot use a positive list of folder / device combinations to drop here,
+	// because there may be entries for devices which we now longer know about at all.
 	keepPendingFoldersFor := make(map[protocol.DeviceID]bool, len(m.cfg.Devices()))
 	for deviceID := range m.cfg.Devices() {
 		// Forget pending devices that are now added
 		m.db.RemovePendingDevice(deviceID)
 		keepPendingFoldersFor[deviceID] = true
 	}
-	// Clean pending folder entries for devices no longer known
+	// Clean pending folder entries for devices no longer known or now ignored
 	m.db.CleanPendingFolders(keepPendingFoldersFor)
 	m.cfg.Subscribe(m)
 }
