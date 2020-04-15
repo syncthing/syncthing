@@ -9,17 +9,17 @@
   </ng-container>
   <ng-container matColumnDef="expandedDetail">
     <td mat-cell *matCellDef="let device" [attr.colspan]="displayedColumns.length">
-      <div class="device-detail" [@detailExpand]="device == expandedDevice ? 'expanded' : 'collapsed'">
-        <div class="device-folders">
+      <div class="table-detail" [@detailExpand]="device == expandedDevice ? 'expanded' : 'collapsed'">
+        <div class="detail-items">
           <span>Folders: </span>
-          <span class="folder-name" *ngFor="let folder of device.folders">{{folder.label | trim}}</span>
+          <span class="item-name" *ngFor="let folder of device.folders">{{folder.label | trim}}</span>
         </div>
       </div>
     </td>
   </ng-container>
 
   <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-  <tr mat-row *matRowDef="let device; columns: displayedColumns;" class="device-row"
+  <tr mat-row *matRowDef="let device; columns: displayedColumns;" class="table-row"
     [class.expanded-row]="expandedDevice === device"
     (click)="expandedDevice = expandedDevice === device ? null : device">
   </tr>

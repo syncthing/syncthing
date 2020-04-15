@@ -3,6 +3,7 @@
 @import '~@angular/material/theming';
 @import './app/card/card.component.scss';
 @import './app/charts/chart-item/chart-item.component.scss';
+@import './app/lists/status-list/status-list.component.scss';
 
 
 // Custom typography
@@ -81,7 +82,6 @@ $tech-ui-dark-theme: mat-dark-theme($tech-ui-primary, $tech-ui-accent, $tech-ui-
 @include angular-material-theme($tech-ui-theme);
 @include tui-card-theme($tech-ui-theme);
 @include chart-item-theme($tech-ui-theme);
-
    
 html, body { 
     height: 100%; 

@@ -14,7 +14,7 @@ import { trigger, state, style, transition, animate } from '@angular/animations'
 @Component({
   selector: 'app-device-list',
   templateUrl: './device-list.component.html',
-  styleUrls: ['./device-list.component.scss'],
+  styleUrls: ['../status-list/status-list.component.scss'],
   animations: [
     trigger('detailExpand', [
       state('collapsed', style({ height: '0px', minHeight: '0' })),
