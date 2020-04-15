@@ -164,7 +164,7 @@ func (db *Lowlevel) CleanPendingFolders(keepDevices map[protocol.DeviceID]bool) 
 		if keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key()); ok {
 			// Valid entries are looked up in the set, invalid ones cleaned up
 			deviceID := protocol.DeviceIDFromBytes(keyDev)
-			if keep := keepDevices[deviceID]; keep {
+			if keepDevices[deviceID] {
 				continue
 			}
 		}
