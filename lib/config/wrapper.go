@@ -82,6 +82,7 @@ type Wrapper interface {
 
 	AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string)
 	AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID)
+	IgnoredDevices() []ObservedDevice
 	IgnoredDevice(id protocol.DeviceID) bool
 	IgnoredFolder(device protocol.DeviceID, folder string) bool
 
@@ -373,6 +374,15 @@ func (w *wrapper) IgnoredDevice(id protocol.DeviceID) bool {
 		}
 	}
 	return false
+}
+
+// IgnoredDevices returns a slice of observed devices.
+func (w *wrapper) IgnoredDevices() []ObservedDevice {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	res := make([]ObservedDevice, len(w.cfg.IgnoredDevices))
+	copy(res, w.cfg.IgnoredDevices)
+	return res
 }
 
 // IgnoredFolder returns whether or not share attempts for the given
