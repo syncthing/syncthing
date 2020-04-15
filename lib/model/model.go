@@ -260,10 +260,20 @@ func (m *model) onServe() {
 	// We cannot use a positive list of folder / device combinations to drop here,
 	// because there may be entries for devices which we now longer know about at all.
 	keepPendingFoldersFor := make(map[protocol.DeviceID]bool, len(m.cfg.Devices()))
-	for deviceID := range m.cfg.Devices() {
+	for deviceID, deviceCfg := range m.cfg.Devices() {
 		// Forget pending devices that are now added
 		m.db.RemovePendingDevice(deviceID)
+		// Forget pending folders that are now ignored for added devices
+		for _, ignoredFolder := range deviceCfg.IgnoredFolders {
+			m.db.RemovePendingFolder(ignoredFolder.ID, []protocol.DeviceID{deviceID})
+		}
 		keepPendingFoldersFor[deviceID] = true
+	}
+	// Forget pending devices that are now ignored
+	for _, ignoredDevice := range m.cfg.IgnoredDevices() {
+		m.db.RemovePendingDevice(ignoredDevice.ID)
+		// Pending folders will be cleaned up by not listing in keepPendingFoldersFor
+		//keepPendingFoldersFor[ignoredDevice.ID] = false //not really needed
 	}
 	// Clean pending folder entries for devices no longer known or now ignored
 	m.db.CleanPendingFolders(keepPendingFoldersFor)
