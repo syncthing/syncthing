@@ -677,6 +677,8 @@ func (f *folder) monitorWatch(ctx context.Context) {
 	var eventChan <-chan fs.Event
 	var errChan <-chan error
 	warnedOutside := false
+	var lastWatch time.Time
+	pause := time.Minute
 	for {
 		select {
 		case <-failTimer.C:
@@ -686,9 +688,13 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			f.scanOnWatchErr()
 			f.setWatchError(err)
 			if err != nil {
-				failTimer.Reset(time.Minute)
+				failTimer.Reset(pause)
+				if pause < 60*time.Minute {
+					pause *= 2
+				}
 				continue
 			}
+			lastWatch = time.Now()
 			watchaggregator.Aggregate(aggrCtx, eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, f.evLogger)
 			l.Debugln("Started filesystem watcher for folder", f.Description())
 		case err = <-errChan:
@@ -704,7 +710,15 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			aggrCancel()
 			errChan = nil
 			aggrCtx, aggrCancel = context.WithCancel(ctx)
-			failTimer.Reset(time.Minute)
+			if dur := time.Since(lastWatch); dur > pause {
+				pause = time.Minute
+				failTimer.Reset(0)
+			} else {
+				failTimer.Reset(pause - dur)
+				if pause < 60*time.Minute {
+					pause *= 2
+				}
+			}
 		case <-ctx.Done():
 			return
 		}
