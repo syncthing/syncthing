@@ -25,7 +25,6 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -405,12 +404,9 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	for _, pkg := range target.buildPkgs {
-		args := []string{"install", "-v"}
-		args = appendParameters(args, tags, pkg)
-
-		runPrint(goCmd, args...)
-	}
+	args := []string{"install", "-v"}
+	args = appendParameters(args, tags, target.buildPkgs...)
+	runPrint(goCmd, args...)
 }
 
 func build(target target, tags []string) {
@@ -438,15 +434,12 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	for _, pkg := range target.buildPkgs {
-		args := []string{"build", "-v"}
-		args = appendParameters(args, tags, pkg)
-
-		runPrint(goCmd, args...)
-	}
+	args := []string{"build", "-v"}
+	args = appendParameters(args, tags, target.buildPkgs...)
+	runPrint(goCmd, args...)
 }
 
-func appendParameters(args []string, tags []string, pkg string) []string {
+func appendParameters(args []string, tags []string, pkgs ...string) []string {
 	if pkgdir != "" {
 		args = append(args, "-pkgdir", pkgdir)
 	}
@@ -462,7 +455,7 @@ func appendParameters(args []string, tags []string, pkg string) []string {
 
 	if !debugBinary {
 		// Regular binaries get version tagged and skip some debug symbols
-		args = append(args, "-ldflags", ldflags(path.Base(pkg)))
+		args = append(args, "-ldflags", ldflags())
 	} else {
 		// -gcflags to disable optimizations and inlining. Skip -ldflags
 		// because `Could not launch program: decoding dwarf section info at
@@ -471,7 +464,7 @@ func appendParameters(args []string, tags []string, pkg string) []string {
 		args = append(args, "-gcflags", "-N -l")
 	}
 
-	return append(args, pkg)
+	return append(args, pkgs...)
 }
 
 func buildTar(target target) {
@@ -765,14 +758,13 @@ func transifex() {
 	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
 }
 
-func ldflags(program string) string {
+func ldflags() string {
 	b := new(strings.Builder)
 	b.WriteString("-w")
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version=%s", version)
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp=%d", buildStamp())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User=%s", buildUser())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host=%s", buildHost())
-	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Program=%s", program)
 	if v := os.Getenv("EXTRA_LDFLAGS"); v != "" {
 		fmt.Fprintf(b, " %s", v)
 	}
