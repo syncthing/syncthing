@@ -56,12 +56,11 @@ angular.module('syncthing.core')
           // logout function
         $scope.logout = function () {
             // here we'll place the logout code
-            // $http.get(urlbase+"/logout").success(checkLoginAndStart).error(function(){
-                $http.post(urlbase+"/logout").success(
-                    function(){
-                       checkLoginAndStart();
-                    })
-            // })
+            $http.get(urlbase+"/logout").success(
+                function(){
+                    checkLoginAndStart();
+                }
+            )
         };
 
 

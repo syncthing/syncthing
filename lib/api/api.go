@@ -244,7 +244,8 @@ func (s *service) serve(ctx context.Context) {
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
-	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // device folder
+	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion) // device folder
+	getRestMux.HandleFunc("/rest/logout", s.restLogout)
 	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
@@ -281,7 +282,7 @@ func (s *service) serve(ctx context.Context) {
 	postRestMux := http.NewServeMux()
 
 	postRestMux.HandleFunc("/rest/login", s.restLogin)
-	postRestMux.HandleFunc("/rest/logout", s.restLogout)
+	// postRestMux.HandleFunc("/rest/logout", s.restLogout)
 	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
 	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                    // folder
 	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)                  // folder
@@ -419,13 +420,11 @@ func (s *service) serve(ctx context.Context) {
 }
 
 func (s *service) restLogin(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Nous sommes la")
 	w.Header().Set("location", "/")
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 func (s *service) restLogout(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("On est la")
 	mux := http.NewServeMux()
 	guiCfg := s.cfg.GUI()
 	auth := authAndSessionMiddleware{"sessionid-" + s.id.String()[:5], guiCfg, s.cfg.LDAP(), s.evLogger}
@@ -440,7 +439,6 @@ func (s *service) restLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, c)
-	fmt.Println("Nous sommes la")
 	mux.HandleFunc("/rest/login", auth.loginHandler)
 }
 
