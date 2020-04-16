@@ -82,12 +82,8 @@ github.com/golang/snappy v0.0.1/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEW
 github.com/google/go-cmp v0.3.0 h1:crn/baboCvb5fXaQ0IJ1SGTsTVrWpDsCWC8EGETZijY=
 github.com/google/go-cmp v0.3.0/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
-github.com/greatroar/blobloom v0.0.0-20200410135207-d9e639c8f551 h1:D3g392VDtmyaQh3tuylbJvkzhqjxL4OxbZASP64nRZ0=
-github.com/greatroar/blobloom v0.0.0-20200410135207-d9e639c8f551/go.mod h1:we9vO6GNYMmsNvCWINtZnQbcGEHUT6hGBAznNHd6RlE=
-github.com/greatroar/blobloom v0.0.0-20200411184339-55f2ce117a24 h1:X1Taoheoi/J8G7FxN2B1E9znOAXzqPhz0ZcPJcEoNTI=
-github.com/greatroar/blobloom v0.0.0-20200411184339-55f2ce117a24/go.mod h1:we9vO6GNYMmsNvCWINtZnQbcGEHUT6hGBAznNHd6RlE=
-github.com/greatroar/blobloom v0.0.0-20200415102502-8d5f2edbae4b h1:sh80mW8yViOIgn6G6nxdkKcGFiOYofn9eazbkv6/uhY=
-github.com/greatroar/blobloom v0.0.0-20200415102502-8d5f2edbae4b/go.mod h1:we9vO6GNYMmsNvCWINtZnQbcGEHUT6hGBAznNHd6RlE=
+github.com/greatroar/blobloom v0.0.0-20200416084947-36d5bf1a4e53 h1:A6KOo8OOZb+mjFqwDhiUcNPxZVSsK3GGJtfZWh2SqJk=
+github.com/greatroar/blobloom v0.0.0-20200416084947-36d5bf1a4e53/go.mod h1:we9vO6GNYMmsNvCWINtZnQbcGEHUT6hGBAznNHd6RlE=
 github.com/hpcloud/tail v1.0.0 h1:nfCOvKYfkgYP8hkirhJocXT2+zOD8yUNjXaWfTlyFKI=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/jackpal/gateway v1.0.6 h1:/MJORKvJEwNVldtGVJC2p2cwCnsSoLn3hl3zxmZT7tk=
@@ -196,6 +192,7 @@ github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJyk=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
+github.com/stretchr/testify v1.5.1 h1:nOGnQDM7FYENwehXlg/kFVnos3rEvtKTjRvOWSzb6H4=
 github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5cxcmMvtA=
 github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2 h1:6tuEEEpg+mxM82E0YingzoXzXXISYR/o/7I9n573LWI=
 github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2/go.mod h1:Sn4ChoS7e4FxjCN1XHPVBT43AgnRLbuaB8pEc1Zcdjg=
