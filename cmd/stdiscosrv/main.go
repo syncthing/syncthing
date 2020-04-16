@@ -92,7 +92,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "Show version")
 	flag.Parse()
 
-	log.Println(build.LongVersion)
+	log.Println(build.LongVersionFor("stdiscosrv"))
 	if *showVersion {
 		return
 	}
