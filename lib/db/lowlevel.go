@@ -28,7 +28,7 @@ const (
 	// positive rate instead.
 	indirectGCBloomCapacity          = 100000
 	indirectGCBloomFalsePositiveRate = 0.01     // 1%
-	indirectGCBloomMaxMem            = 32 << 20 // Use at most 32MiB memory, which covers our desired FP rate at 27 M items
+	indirectGCBloomMaxBytes          = 32 << 20 // Use at most 32MiB memory, which covers our desired FP rate at 27 M items
 	indirectGCDefaultInterval        = 13 * time.Hour
 	indirectGCTimeKey                = "lastIndirectGCTime"
 
@@ -598,7 +598,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	}
 	blockFilter := blobloom.NewOptimized(blobloom.Config{
 		FPRate:  indirectGCBloomFalsePositiveRate,
-		MaxBits: 8 * indirectGCBloomMaxMem,
+		MaxBits: 8 * indirectGCBloomMaxBytes,
 		NKeys:   uint64(capacity),
 	})
 
