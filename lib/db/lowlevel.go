@@ -28,7 +28,7 @@ const (
 	// positive rate instead.
 	indirectGCBloomCapacity          = 100000
 	indirectGCBloomFalsePositiveRate = 0.01    // 1%
-	indirectGCBloomMaxMem            = 8 << 22 // Use at most 32MiB memory
+	indirectGCBloomMaxMem            = 32 << 20 // Use at most 32MiB memory, which covers our desired FP rate at 27 M items
 	indirectGCDefaultInterval        = 13 * time.Hour
 	indirectGCTimeKey                = "lastIndirectGCTime"
 
