@@ -2000,7 +2000,7 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 					l.Warnln("Failed repairing sequence entries:", dbErr)
 					panic("Failed repairing sequence entries")
 				} else {
-					l.Infoln("Repaired %v sequence entries in database", fixed)
+					l.Infof("Repaired %v sequence entries in database", fixed)
 				}
 			}()
 			return false
