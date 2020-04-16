@@ -159,10 +159,8 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 			// Purposely pass nil file name to remove from global list,
 			// but don't touch meta and needs
 			buf, err = t.removeFromGlobal(gk, buf, folder, device, nil, nil)
-			if err != nil {
-				if err != errEntryFromGlobalMissing {
-					return err
-				}
+			if err != nil && err != errEntryFromGlobalMissing {
+				return err
 			}
 			if err := t.Delete(dbi.Key()); err != nil {
 				return err
