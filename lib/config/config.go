@@ -107,6 +107,8 @@ func New(myID protocol.DeviceID) Configuration {
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
 
+	cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
+
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
 		l.Warnln("bug: error in preparing new folder:", err)
@@ -417,7 +419,7 @@ nextPendingDevice:
 		cfg.Options.AlwaysLocalNets = []string{}
 	}
 	if cfg.Options.UnackedNotificationIDs == nil {
-		cfg.Options.UnackedNotificationIDs = []string{}
+		cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
 	}
 
 	return nil
