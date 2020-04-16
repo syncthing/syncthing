@@ -220,7 +220,7 @@ func TestOverriddenValues(t *testing.T) {
 		AlwaysLocalNets:         []string{},
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
-		UnackedNotificationIDs:  []string{"asdfasdf"},
+		UnackedNotificationIDs:  []string{"asdfasdf", "authenticationUserAndPassword"},
 		DefaultFolderPath:       "/media/syncthing",
 		SetLowPriority:          false,
 		CRURL:                   "https://localhost/newcrash",
