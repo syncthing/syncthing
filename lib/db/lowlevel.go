@@ -8,13 +8,15 @@ package db
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
-	"os"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
+	"github.com/thejerf/suture"
 	"github.com/willf/bloom"
 )
 
@@ -31,15 +33,9 @@ const (
 
 	// Use indirection for the block list when it exceeds this many entries
 	blocksIndirectionCutoff = 3
+
+	recheckDefaultInterval = 30 * 24 * time.Hour
 )
-
-var indirectGCInterval = indirectGCDefaultInterval
-
-func init() {
-	if dur, err := time.ParseDuration(os.Getenv("STGCINDIRECTEVERY")); err == nil {
-		indirectGCInterval = dur
-	}
-}
 
 // Lowlevel is the lowest level database interface. It has a very simple
 // purpose: hold the actual backend database, and the in-memory state
@@ -47,31 +43,60 @@ func init() {
 // database can only be opened once, there should be only one Lowlevel for
 // any given backend.
 type Lowlevel struct {
+	*suture.Supervisor
 	backend.Backend
-	folderIdx  *smallIndex
-	deviceIdx  *smallIndex
-	keyer      keyer
-	gcMut      sync.RWMutex
-	gcKeyCount int
-	gcStop     chan struct{}
+	folderIdx          *smallIndex
+	deviceIdx          *smallIndex
+	keyer              keyer
+	gcMut              sync.RWMutex
+	gcKeyCount         int
+	indirectGCInterval time.Duration
+	recheckInterval    time.Duration
 }
 
-func NewLowlevel(backend backend.Backend) *Lowlevel {
+func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 	db := &Lowlevel{
-		Backend:   backend,
-		folderIdx: newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
-		deviceIdx: newSmallIndex(backend, []byte{KeyTypeDeviceIdx}),
-		gcMut:     sync.NewRWMutex(),
-		gcStop:    make(chan struct{}),
+		Supervisor: suture.New("db.Lowlevel", suture.Spec{
+			// Only log restarts in debug mode.
+			Log: func(line string) {
+				l.Debugln(line)
+			},
+			PassThroughPanics: true,
+		}),
+		Backend:            backend,
+		folderIdx:          newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
+		deviceIdx:          newSmallIndex(backend, []byte{KeyTypeDeviceIdx}),
+		gcMut:              sync.NewRWMutex(),
+		indirectGCInterval: indirectGCDefaultInterval,
+		recheckInterval:    recheckDefaultInterval,
+	}
+	for _, opt := range opts {
+		opt(db)
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
-	go db.gcRunner()
+	db.Add(util.AsService(db.gcRunner, "db.Lowlevel/gcRunner"))
 	return db
 }
 
-func (db *Lowlevel) Close() error {
-	close(db.gcStop)
-	return db.Backend.Close()
+type Option func(*Lowlevel)
+
+// WithRecheckInterval sets the time interval in between metadata recalculations
+// and consistency checks.
+func WithRecheckInterval(dur time.Duration) Option {
+	return func(db *Lowlevel) {
+		if dur > 0 {
+			db.recheckInterval = dur
+		}
+	}
+}
+
+// WithIndirectGCInterval sets the time interval in between GC runs.
+func WithIndirectGCInterval(dur time.Duration) Option {
+	return func(db *Lowlevel) {
+		if dur > 0 {
+			db.indirectGCInterval = dur
+		}
+	}
 }
 
 // ListFolders returns the list of folders currently in the database
@@ -114,7 +139,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		meta.addFile(devID, f)
 
 		l.Debugf("insert; folder=%q device=%v %v", folder, devID, f)
-		if err := t.putFile(dk, f); err != nil {
+		if err := t.putFile(dk, f, false); err != nil {
 			return err
 		}
 
@@ -201,7 +226,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		meta.addFile(protocol.LocalDeviceID, f)
 
 		l.Debugf("insert (local); folder=%q %v", folder, f)
-		if err := t.putFile(dk, f); err != nil {
+		if err := t.putFile(dk, f, false); err != nil {
 			return err
 		}
 
@@ -380,8 +405,11 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 
 	var dk []byte
 	for dbi.Next() {
-		vl, ok := unmarshalVersionList(dbi.Value())
-		if !ok {
+		var vl VersionList
+		if err := vl.Unmarshal(dbi.Value()); err != nil || len(vl.Versions) == 0 {
+			if err := t.Delete(dbi.Key()); err != nil {
+				return err
+			}
 			continue
 		}
 
@@ -407,7 +435,7 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 			newVL.Versions = append(newVL.Versions, version)
 
 			if i == 0 {
-				if fi, ok, err := t.getFileByKey(dk); err != nil {
+				if fi, ok, err := t.getFileTrunc(dk, true); err != nil {
 					return err
 				} else if ok {
 					meta.addFile(protocol.GlobalDeviceID, fi)
@@ -415,7 +443,11 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 			}
 		}
 
-		if len(newVL.Versions) != len(vl.Versions) {
+		if newLen := len(newVL.Versions); newLen == 0 {
+			if err := t.Delete(dbi.Key()); err != nil {
+				return err
+			}
+		} else if newLen != len(vl.Versions) {
 			if err := t.Put(dbi.Key(), mustMarshal(&newVL)); err != nil {
 				return err
 			}
@@ -487,12 +519,12 @@ func (db *Lowlevel) dropPrefix(prefix []byte) error {
 	return t.Commit()
 }
 
-func (db *Lowlevel) gcRunner() {
+func (db *Lowlevel) gcRunner(ctx context.Context) {
 	// Calculate the time for the next GC run. Even if we should run GC
 	// directly, give the system a while to get up and running and do other
 	// stuff first. (We might have migrations and stuff which would be
 	// better off running before GC.)
-	next := db.timeUntil(indirectGCTimeKey, indirectGCInterval)
+	next := db.timeUntil(indirectGCTimeKey, db.indirectGCInterval)
 	if next < time.Minute {
 		next = time.Minute
 	}
@@ -502,14 +534,14 @@ func (db *Lowlevel) gcRunner() {
 
 	for {
 		select {
-		case <-db.gcStop:
+		case <-ctx.Done():
 			return
 		case <-t.C:
-			if err := db.gcIndirect(); err != nil {
+			if err := db.gcIndirect(ctx); err != nil {
 				l.Warnln("Database indirection GC failed:", err)
 			}
 			db.recordTime(indirectGCTimeKey)
-			t.Reset(db.timeUntil(indirectGCTimeKey, indirectGCInterval))
+			t.Reset(db.timeUntil(indirectGCTimeKey, db.indirectGCInterval))
 		}
 	}
 }
@@ -534,7 +566,7 @@ func (db *Lowlevel) timeUntil(key string, every time.Duration) time.Duration {
 	return sleepTime
 }
 
-func (db *Lowlevel) gcIndirect() error {
+func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	// The indirection GC uses bloom filters to track used block lists and
 	// versions. This means iterating over all items, adding their hashes to
 	// the filter, then iterating over the indirected items and removing
@@ -574,6 +606,12 @@ func (db *Lowlevel) gcIndirect() error {
 	}
 	defer it.Release()
 	for it.Next() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		var bl BlocksHashOnly
 		if err := bl.Unmarshal(it.Value()); err != nil {
 			return err
@@ -597,6 +635,12 @@ func (db *Lowlevel) gcIndirect() error {
 	defer it.Release()
 	matchedBlocks := 0
 	for it.Next() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		key := blockListKey(it.Key())
 		if blockFilter.Test(key.BlocksHash()) {
 			matchedBlocks++
@@ -621,17 +665,227 @@ func (db *Lowlevel) gcIndirect() error {
 	return db.Compact()
 }
 
-func unmarshalVersionList(data []byte) (VersionList, bool) {
-	var vl VersionList
-	if err := vl.Unmarshal(data); err != nil {
-		l.Debugln("unmarshal error:", err)
-		return VersionList{}, false
+// CheckRepair checks folder metadata and sequences for miscellaneous errors.
+func (db *Lowlevel) CheckRepair() {
+	for _, folder := range db.ListFolders() {
+		_ = db.getMetaAndCheck(folder)
 	}
-	if len(vl.Versions) == 0 {
-		l.Debugln("empty version list")
-		return VersionList{}, false
+}
+
+func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
+	db.gcMut.RLock()
+	defer db.gcMut.RUnlock()
+
+	meta, err := db.recalcMeta(folder)
+	if err == nil {
+		var fixed int
+		fixed, err = db.repairSequenceGCLocked(folder, meta)
+		if fixed != 0 {
+			l.Infof("Repaired %d sequence entries in database", fixed)
+		}
 	}
-	return vl, true
+
+	if backend.IsClosed(err) {
+		return nil
+	} else if err != nil {
+		panic(err)
+	}
+
+	return meta
+}
+
+func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
+	meta := newMetadataTracker()
+	if err := meta.fromDB(db, []byte(folder)); err != nil {
+		l.Infof("No stored folder metadata for %q; recalculating", folder)
+		return db.getMetaAndCheck(folder)
+	}
+
+	curSeq := meta.Sequence(protocol.LocalDeviceID)
+	if metaOK := db.verifyLocalSequence(curSeq, folder); !metaOK {
+		l.Infof("Stored folder metadata for %q is out of date after crash; recalculating", folder)
+		return db.getMetaAndCheck(folder)
+	}
+
+	if age := time.Since(meta.Created()); age > db.recheckInterval {
+		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, age)
+		return db.getMetaAndCheck(folder)
+	}
+
+	return meta
+}
+
+func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
+	meta := newMetadataTracker()
+	if err := db.checkGlobals([]byte(folder), meta); err != nil {
+		return nil, err
+	}
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return nil, err
+	}
+	defer t.close()
+
+	var deviceID protocol.DeviceID
+	err = t.withAllFolderTruncated([]byte(folder), func(device []byte, f FileInfoTruncated) bool {
+		copy(deviceID[:], device)
+		meta.addFile(deviceID, f)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	meta.SetCreated()
+	if err := meta.toDB(t, []byte(folder)); err != nil {
+		return nil, err
+	}
+	if err := t.Commit(); err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+// Verify the local sequence number from actual sequence entries. Returns
+// true if it was all good, or false if a fixup was necessary.
+func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) bool {
+	// Walk the sequence index from the current (supposedly) highest
+	// sequence number and raise the alarm if we get anything. This recovers
+	// from the occasion where we have written sequence entries to disk but
+	// not yet written new metadata to disk.
+	//
+	// Note that we can have the same thing happen for remote devices but
+	// there it's not a problem -- we'll simply advertise a lower sequence
+	// number than we've actually seen and receive some duplicate updates
+	// and then be in sync again.
+
+	t, err := db.newReadOnlyTransaction()
+	if err != nil {
+		panic(err)
+	}
+	ok := true
+	if err := t.withHaveSequence([]byte(folder), curSeq+1, func(fi FileIntf) bool {
+		ok = false // we got something, which we should not have
+		return false
+	}); err != nil && !backend.IsClosed(err) {
+		panic(err)
+	}
+	t.close()
+
+	return ok
+}
+
+// repairSequenceGCLocked makes sure the sequence numbers in the sequence keys
+// match those in the corresponding file entries. It returns the amount of fixed
+// entries.
+func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTracker) (int, error) {
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return 0, err
+	}
+	defer t.close()
+
+	fixed := 0
+
+	folder := []byte(folderStr)
+
+	// First check that every file entry has a matching sequence entry
+	// (this was previously db schema upgrade to 9).
+
+	dk, err := t.keyer.GenerateDeviceFileKey(nil, folder, protocol.LocalDeviceID[:], nil)
+	if err != nil {
+		return 0, err
+	}
+	it, err := t.NewPrefixIterator(dk.WithoutName())
+	if err != nil {
+		return 0, err
+	}
+	defer it.Release()
+
+	var sk sequenceKey
+	for it.Next() {
+		intf, err := t.unmarshalTrunc(it.Value(), true)
+		if err != nil {
+			return 0, err
+		}
+		fi := intf.(FileInfoTruncated)
+		if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
+			return 0, err
+		}
+		switch dk, err = t.Get(sk); {
+		case err != nil:
+			if !backend.IsNotFound(err) {
+				return 0, err
+			}
+			fallthrough
+		case !bytes.Equal(it.Key(), dk):
+			fixed++
+			fi.Sequence = meta.nextLocalSeq()
+			if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
+				return 0, err
+			}
+			if err := t.Put(sk, it.Key()); err != nil {
+				return 0, err
+			}
+			if err := t.putFile(it.Key(), fi.copyToFileInfo(), true); err != nil {
+				return 0, err
+			}
+		}
+		if err := t.Checkpoint(func() error {
+			return meta.toDB(t, folder)
+		}); err != nil {
+			return 0, err
+		}
+	}
+	if err := it.Error(); err != nil {
+		return 0, err
+	}
+
+	it.Release()
+
+	// Secondly check there's no sequence entries pointing at incorrect things.
+
+	sk, err = t.keyer.GenerateSequenceKey(sk, folder, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	it, err = t.NewPrefixIterator(sk.WithoutSequence())
+	if err != nil {
+		return 0, err
+	}
+	defer it.Release()
+
+	for it.Next() {
+		// Check that the sequence from the key matches the
+		// sequence in the file.
+		fi, ok, err := t.getFileTrunc(it.Value(), true)
+		if err != nil {
+			return 0, err
+		}
+		if ok {
+			if seq := t.keyer.SequenceFromSequenceKey(it.Key()); seq == fi.SequenceNo() {
+				continue
+			}
+		}
+		// Either the file is missing or has a different sequence number
+		fixed++
+		if err := t.Delete(it.Key()); err != nil {
+			return 0, err
+		}
+	}
+	if err := it.Error(); err != nil {
+		return 0, err
+	}
+
+	it.Release()
+
+	if err := meta.toDB(t, folder); err != nil {
+		return 0, err
+	}
+
+	return fixed, t.Commit()
 }
 
 // unchanged checks if two files are the same and thus don't need to be updated.

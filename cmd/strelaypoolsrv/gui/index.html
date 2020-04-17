@@ -279,10 +279,13 @@
         }
       });
 
+
+     
+
       if ($scope.relays.length == 1) {
         //Center to only relay with zoom
-        //$scope.map.panTo(new L.LatLng(relays[0].location.latitude, relays[0].location.longitude));
-        //$scope.map.setZoom(13);
+        $scope.map.panTo(new L.LatLng(relays[0].location.latitude, relays[0].location.longitude));
+        $scope.map.setZoom(13);
       }
     });
 
@@ -319,21 +322,24 @@
         });
 
         relay.marker = new L.marker([locParts[0], locParts[1]],{icon})
+
                             .bindPopup($compile($scope.tooltipTemplate)(scope)[0],{})
                             .on('mouseover', function (e) {
                                 this.openPopup();
                             }).on('mouseout', function (e) {
                                 this.closePopup();
-                            })
-                            .addTo($scope.map);
+
+                            }).addTo($scope.map);
+
         relay.showMarker = function() {
-          relay.marker.openPopup( );
+          relay.marker.openPopup();
         }
         
         relay.hideMarker = function() {
           relay.marker.closePopup();
         }
       }
+
 
 
     function constructURI(url) {

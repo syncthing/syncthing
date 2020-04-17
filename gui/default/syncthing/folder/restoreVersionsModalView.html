@@ -1,4 +1,4 @@
-<modal id="restoreVersions" status="default" icon="fas fa-undo" heading="{{'Restore Versions' | translate}}" large="yes" closeable="yes">
+<modal id="restoreVersions" status="default" icon="fas fa-undo" heading="{{'Restore Versions' | translate}} ({{folderLabel(restoreVersions.folder)}})" large="yes" closeable="yes">
   <div class="modal-body">
     <span translate ng-if="!restoreVersions.versions && !restoreVersions.errors">Loading data...</span>
     <div ng-if="restoreVersions.versions">

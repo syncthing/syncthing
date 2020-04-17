@@ -16,14 +16,19 @@ import (
 	"bytes"
 	"compress/gzip"
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 const maxRequestSize = 1 << 20 // 1 MiB
@@ -145,9 +150,12 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 
 	// Send the report to Sentry
 	if r.dsn != "" {
+		// Remote ID
+		user := userIDFor(req)
+
 		go func() {
 			// There's no need for the client to have to wait for this part.
-			if err := sendReport(r.dsn, reportID, bs); err != nil {
+			if err := sendReport(r.dsn, reportID, bs, user); err != nil {
 				log.Println("Failed to send report:", err)
 			}
 		}()
@@ -157,4 +165,21 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 // 01234567890abcdef... => 01/23
 func (r *crashReceiver) dirFor(base string) string {
 	return filepath.Join(base[0:2], base[2:4])
+}
+
+// userIDFor returns a string we can use as the user ID for the purpose of
+// counting affected users. It's the truncated hash of a salt, the user
+// remote IP, and the current month.
+func userIDFor(req *http.Request) string {
+	addr := req.RemoteAddr
+	if fwd := req.Header.Get("x-forwarded-for"); fwd != "" {
+		addr = fwd
+	}
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		addr = host
+	}
+	now := time.Now().Format("200601")
+	salt := "stcrashreporter"
+	hash := sha256.Sum256([]byte(salt + addr + now))
+	return fmt.Sprintf("%x", hash[:8])
 }

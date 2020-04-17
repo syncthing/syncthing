@@ -324,7 +324,7 @@ func (b BlockInfo) IsEmpty() bool {
 type IndexID uint64
 
 func (i IndexID) String() string {
-	return fmt.Sprintf("0x%16X", uint64(i))
+	return fmt.Sprintf("0x%016X", uint64(i))
 }
 
 func (i IndexID) Marshal() ([]byte, error) {
