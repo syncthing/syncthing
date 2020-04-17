@@ -68,7 +68,6 @@
           </a>
           <ul class="dropdown-menu">
             <li><a href="" ng-click="showSettings()"><span class="fas fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
-            <li><a href="" ng-click="logout()"><span class="fas fa-fw fa-sign-out"></span>&nbsp;<span translate>Logout</span></a></li>
             <li><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
             <li class="divider" aria-hidden="true"></li>
             <li><a href="" ng-click="shutdown()"><span class="fas fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
@@ -83,6 +82,7 @@
             <li class="divider" aria-hidden="true"></li>
             <li><a href="" ng-click="advanced()"><span class="fas fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
             <li><a href="" ng-click="logging.show()"><span class="far fa-fw fa-file-alt"></span>&nbsp;<span translate>Logs</span></a></li>
+            <li id="logout"></li>
             <li class="divider" aria-hidden="true" ng-if="config.gui.debugging"></li>
             <li><a href="/rest/debug/support" target="_blank" ng-if="config.gui.debugging"><span class="fa fa-user-md"></span>&nbsp;<span translate>Support Bundle</span></a></li>
           </ul>
@@ -850,6 +850,7 @@
   <!-- vendor scripts -->
   <script type="text/javascript" src="vendor/jquery/jquery-2.2.2.js"></script>
   <script type="text/javascript" src="vendor/angular/angular.js"></script>
+  <script type="text/javascript" src="vendor/angular/angular-cookies.js"></script>
   <script type="text/javascript" src="vendor/angular/angular-sanitize.js"></script>
   <script type="text/javascript" src="vendor/angular/angular-translate.js"></script>
   <script type="text/javascript" src="vendor/angular/angular-translate-loader-static-files.js"></script>

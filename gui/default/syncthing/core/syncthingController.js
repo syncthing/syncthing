@@ -43,13 +43,26 @@ angular.module('syncthing.core')
             var username = $scope.currentFolder.username
             var password = $scope.currentFolder.password
 
-            $('#login').modal('hide');
             $http.post("rest/login?username="+username+"&password="+password).success(
                 function(){
-                    loginSuccessfull()
+                    
+                    $('#login').modal('hide');
+                $('#logout').html(` <a href="" ng-click="logout()" >
+                                        <span class="fas fa-fw fa-sign-out"></span>&nbsp;
+                                        <span translate>Logout</span>
+                                    </a>`)
+                    loginSuccessfull();
+
                 }).error(function(){
-                    alert('Error! your credentials are not correct!\n Retry please...')
-                    $('#login').modal('show');
+                    setTimeout(function(){
+                        $('#erreur').hide('slow');
+                    }, 5000);
+
+                    $('#erreur').html(`<div class="alert alert-danger" role="alert" id="erreur">
+                                            <p style="color: #fff">Error! your credentials are not correct!\n Retry please...</p>
+                                        </div>`);
+
+                    checkLoginAndStart();
                 })
         }
 
