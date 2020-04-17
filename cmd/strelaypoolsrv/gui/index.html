@@ -257,7 +257,7 @@
       return a.value > b.value ? 1 : -1;
     }
 
-    $http.get("/endpoint").then(function(response) {
+    $http.get("https://relays.syncthing.net/endpoint").then(function(response) {
       $scope.relays = response.data.relays;
 
       angular.forEach($scope.relays, function(relay) {
@@ -278,15 +278,6 @@
           });
         }
       });
-
-      // After the totals were calculated, add circles.
-      var relays2=$scope.relays.filter(r=>r.stats != null);
-      
-      angular.forEach(relays2, function(relay) {
-        console.log(relay.location.latitude,relay.location.longitude)
-          addCircleToMap(relay);
-      });
-
 
       if ($scope.relays.length == 1) {
         //Center to only relay with zoom
@@ -327,7 +318,7 @@
           shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
         });
 
-        relay.marker = new L.marker(new L.latLng(locParts[0], locParts[1]),{icon})
+        relay.marker = new L.marker([locParts[0], locParts[1]],{icon})
                             .bindPopup($compile($scope.tooltipTemplate)(scope)[0],{})
                             .on('mouseover', function (e) {
                                 this.openPopup();
@@ -335,13 +326,6 @@
                                 this.closePopup();
                             })
                             .addTo($scope.map);
-        if(relay.stats){
-          relay.circle=L.circle([ locParts[0], locParts[1]], 
-              {
-                radius: ((relay.stats.bytesProxied * 100) / $scope.totals.bytesProxied) * 10000,
-              }).addTo($scope.map);
-        }
-        
         relay.showMarker = function() {
           relay.marker.openPopup( );
         }
@@ -351,14 +335,6 @@
         }
       }
 
-
-    function addCircleToMap(relay) {
-      //L.marker(new L.latLng(relay.location.latitude, relay.location.longitude)).addTo($scope.map)
-      // relay.circleu=L.circle([ relay.location.longitude,relay.location.latitude], 
-      //   {
-      //     radius: ((relay.stats.bytesProxied * 100) / $scope.totals.bytesProxied) * 10000,
-      //    }).addTo($scope.map);
-    }
 
     function constructURI(url) {
       var uri = document.createElement('a');
