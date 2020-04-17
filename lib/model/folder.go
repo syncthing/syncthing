@@ -634,7 +634,7 @@ func (f *folder) stopWatch() {
 	f.watchMut.Lock()
 	f.watchCancel()
 	f.watchMut.Unlock()
-	f.setWatchError(nil)
+	f.setWatchError(nil, 0)
 }
 
 // scheduleWatchRestart makes sure watching is restarted from the main for loop
@@ -677,22 +677,39 @@ func (f *folder) monitorWatch(ctx context.Context) {
 	var eventChan <-chan fs.Event
 	var errChan <-chan error
 	warnedOutside := false
+	var lastWatch time.Time
+	pause := time.Minute
 	for {
 		select {
 		case <-failTimer.C:
 			eventChan, errChan, err = f.Filesystem().Watch(".", f.ignores, ctx, f.IgnorePerms)
-			// We do this at most once per minute which is the
-			// default rescan time without watcher.
+			// We do this once per minute initially increased to
+			// max one hour in case of repeat failures.
 			f.scanOnWatchErr()
-			f.setWatchError(err)
+			f.setWatchError(err, pause)
 			if err != nil {
-				failTimer.Reset(time.Minute)
+				failTimer.Reset(pause)
+				if pause < 60*time.Minute {
+					pause *= 2
+				}
 				continue
 			}
+			lastWatch = time.Now()
 			watchaggregator.Aggregate(aggrCtx, eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, f.evLogger)
 			l.Debugln("Started filesystem watcher for folder", f.Description())
 		case err = <-errChan:
-			f.setWatchError(err)
+			var next time.Duration
+			if dur := time.Since(lastWatch); dur > pause {
+				pause = time.Minute
+				next = 0
+			} else {
+				next = pause - dur
+				if pause < 60*time.Minute {
+					pause *= 2
+				}
+			}
+			failTimer.Reset(next)
+			f.setWatchError(err, next)
 			// This error was previously a panic and should never occur, so generate
 			// a warning, but don't do it repetitively.
 			if !warnedOutside {
@@ -704,7 +721,6 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			aggrCancel()
 			errChan = nil
 			aggrCtx, aggrCancel = context.WithCancel(ctx)
-			failTimer.Reset(time.Minute)
 		case <-ctx.Done():
 			return
 		}
@@ -713,7 +729,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 
 // setWatchError sets the current error state of the watch and should be called
 // regardless of whether err is nil or not.
-func (f *folder) setWatchError(err error) {
+func (f *folder) setWatchError(err error, nextTryIn time.Duration) {
 	f.watchMut.Lock()
 	prevErr := f.watchErr
 	f.watchErr = err
@@ -733,7 +749,7 @@ func (f *folder) setWatchError(err error) {
 	if err == nil {
 		return
 	}
-	msg := fmt.Sprintf("Error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
+	msg := fmt.Sprintf("Error while trying to start filesystem watcher for folder %s, trying again in %v: %v", f.Description(), nextTryIn, err)
 	if prevErr != err {
 		l.Infof(msg)
 		return
