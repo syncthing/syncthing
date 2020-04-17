@@ -1,5 +1,23 @@
 # Syncthing Tech UI
 
+## Usage
+
+This is a very bare bones read-only GUI for viewing the status of large
+setups. Download a [release
+zip](https://github.com/kastelo/syncthing-tech-ui/releases) and unpack it
+into the GUI override directory (assuming default Linux setup):
+
+```
+$ cd ~/.config/syncthing
+$ mkdir -p gui/default
+$ cd gui/default
+$ unzip ~/tech-ui-v1.0.0.zip
+```
+
+Then load the GUI via http://localhost:8384/tech-ui/ or similar. You should see something like this:
+
+![Screenshot](screenshot.png)
+
 ## Development server
 
 Run `npm run serve` for a dev server. Navigate to `http://localhost:4200/`. The
