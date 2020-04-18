@@ -276,7 +276,7 @@ func (s *service) handle(ctx context.Context) {
 		ct, connected := s.model.Connection(remoteID)
 
 		// Lower priority is better, just like nice etc.
-		if connected && ct.Priority() > c.priority {
+		if connected && (ct.Priority() > c.priority || time.Since(ct.Statistics().StartedAt) > 5 * time.Second) {
 			l.Debugf("Switching connections %s (existing: %s new: %s)", remoteID, ct, c)
 		} else if connected {
 			// We should not already be connected to the other party. TODO: This
