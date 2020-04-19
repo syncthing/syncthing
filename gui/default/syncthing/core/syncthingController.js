@@ -685,6 +685,8 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshFailed = function (page, perpage) {
+            $scope.neededCurrentPage = page;
+            $scope.neededPageSize = perpage;
             if (!$scope.failed || !$scope.failed.folder) {
                 return;
             }
@@ -696,6 +698,8 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshRemoteNeed = function (folder, page, perpage) {
+            $scope.neededCurrentPage = page;
+            $scope.neededPageSize = perpage;
             if (!$scope.remoteNeedDevice) {
                 return;
             }
@@ -711,6 +715,8 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshLocalChanged = function (page, perpage) {
+            $scope.neededCurrentPage = page;
+            $scope.neededPageSize = perpage;
             if (!$scope.localChangedFolder) {
                 return;
             }
