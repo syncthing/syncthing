@@ -42,7 +42,9 @@ angular.module('syncthing.core')
         $scope.folderStats = {};
         $scope.progress = {};
         $scope.version = {};
-        $scope.needed = {}
+        $scope.needed = {};
+        $scope.neededCurrentPage = 1;
+        $scope.neededPageSize = 10;
         $scope.neededFolder = '';
         $scope.failed = {};
         $scope.localChanged = {};
@@ -580,6 +582,8 @@ angular.module('syncthing.core')
         }
 
         $scope.refreshNeed = function (page, perpage) {
+            $scope.neededCurrentPage = page;
+            $scope.neededPageSize = perpage;
             if (!$scope.neededFolder) {
                 return;
             }
@@ -2211,7 +2215,7 @@ angular.module('syncthing.core')
 
         $scope.showNeed = function (folder) {
             $scope.neededFolder = folder;
-            $scope.refreshNeed(1, 10);
+            $scope.refreshNeed($scope.neededCurrentPage, $scope.neededPageSize);
             $('#needed').modal().one('hidden.bs.modal', function () {
                 $scope.needed = undefined;
                 $scope.neededFolder = '';
@@ -2227,7 +2231,7 @@ angular.module('syncthing.core')
                     return;
                 }
                 $scope.remoteNeedFolders.push(folder);
-                $scope.refreshRemoteNeed(folder, 1, 10);
+                $scope.refreshRemoteNeed(folder, $scope.neededCurrentPage, $scope.neededPageSize);
             });
             $('#remoteNeed').modal().one('hidden.bs.modal', function () {
                 resetRemoteNeed();
@@ -2236,7 +2240,7 @@ angular.module('syncthing.core')
 
         $scope.showFailed = function (folder) {
             $scope.failed.folder = folder;
-            $scope.failed = $scope.refreshFailed(1, 10);
+            $scope.failed = $scope.refreshFailed($scope.neededCurrentPage, $scope.neededPageSize);
             $('#failed').modal().one('hidden.bs.modal', function () {
                 $scope.failed = {};
             });
@@ -2255,7 +2259,7 @@ angular.module('syncthing.core')
 
         $scope.showLocalChanged = function (folder) {
             $scope.localChangedFolder = folder;
-            $scope.localChanged = $scope.refreshLocalChanged(1, 10);
+            $scope.localChanged = $scope.refreshLocalChanged($scope.neededCurrentPage, $scope.neededPageSize);
             $('#localChanged').modal().one('hidden.bs.modal', function () {
                 $scope.localChanged = {};
                 $scope.localChangedFolder = undefined;
