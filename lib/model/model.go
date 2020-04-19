@@ -253,7 +253,7 @@ func (m *model) onServe() {
 			continue
 		}
 		m.newFolder(folderCfg)
-		// Forget pending folder device associations that are now added
+		// Forget pending folder/device combinations that are now shared
 		m.db.RemovePendingFolder(folderCfg.ID, folderCfg.DeviceIDs())
 	}
 	// Unique set of device IDs for which we'd like to keep pending folder entries.
@@ -273,7 +273,7 @@ func (m *model) onServe() {
 	for _, ignoredDevice := range m.cfg.IgnoredDevices() {
 		m.db.RemovePendingDevice(ignoredDevice.ID)
 		// Pending folders will be cleaned up by not listing in keepPendingFoldersFor
-		//keepPendingFoldersFor[ignoredDevice.ID] = false //not really needed
+		//keepPendingFoldersFor[ignoredDevice.ID] = false //not really needed, avoid realloc
 	}
 	// Clean pending folder entries for devices no longer known or now ignored
 	m.db.CleanPendingFolders(keepPendingFoldersFor)
@@ -2495,9 +2495,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			// Forget pending folder device associations as well, assuming the
 			// folder is no longer of interest at all (but might become
 			// pending again).
-			for _, folderDev := range fromCfg.DeviceIDs() {
-				m.db.RemovePendingFolder(folderID, []protocol.DeviceID{folderDev})
-			}
+			m.db.RemovePendingFolder(folderID, fromCfg.DeviceIDs())
 			continue
 		}
 
@@ -2532,7 +2530,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	fromDevices := from.DeviceMap()
 	toDevices := to.DeviceMap()
 	// Unique set of device IDs for which we'd like to keep pending folder entries
-	keepPendingFoldersFor := make(map[protocol.DeviceID]bool, len(toDevices))
+	keepPendingFoldersFor := make(map[protocol.DeviceID]bool, len(toDevices)+len(to.IgnoredDevices))
 	for deviceID, toCfg := range toDevices {
 		keepPendingFoldersFor[deviceID] = true
 		fromCfg, ok := fromDevices[deviceID]
@@ -2577,7 +2575,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		m.db.RemovePendingDevice(deviceID)
 		// Pending folders for removed devices will be cleaned up by not listing
 		// in keepPendingFoldersFor
-		keepPendingFoldersFor[deviceID] = false //not really needed
+		//keepPendingFoldersFor[deviceID] = false //not really needed, avoid realloc
 	}
 	m.fmut.Unlock()
 
