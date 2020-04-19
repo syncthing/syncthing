@@ -2492,6 +2492,12 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		if !ok {
 			// The folder was removed.
 			m.removeFolder(fromCfg)
+			// Forget pending folder device associations as well, assuming the
+			// folder is no longer of interest at all (but might become
+			// pending again).
+			for _, folderDev := range fromCfg.DeviceIDs() {
+				m.db.RemovePendingFolder(folderID, []protocol.DeviceID{folderDev})
+			}
 			continue
 		}
 
@@ -2561,10 +2567,16 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
+	// Clean up after removed devices.  Associated pending folders
+	// will be discarded later.
 	m.fmut.Lock()
 	for deviceID := range fromDevices {
 		delete(m.deviceStatRefs, deviceID)
-		// Forget all pending folders for removed devices
+		// Previously known devices cannot have a pending device entry, but clean
+		// up for sure
+		m.db.RemovePendingDevice(deviceID)
+		// Pending folders for removed devices will be cleaned up by not listing
+		// in keepPendingFoldersFor
 		keepPendingFoldersFor[deviceID] = false //not really needed
 	}
 	m.fmut.Unlock()
@@ -2572,6 +2584,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// Forget pending devices that are now ignored
 	for _, ignDevice := range to.IgnoredDevices {
 		m.db.RemovePendingDevice(ignDevice.ID)
+		// Pending folders for ignored devices will be cleaned up by not listing
+		// in keepPendingFoldersFor
 		keepPendingFoldersFor[ignDevice.ID] = false //not really needed
 	}
 	// Forget all pending folders for removed or ignored devices
