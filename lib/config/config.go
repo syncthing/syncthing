@@ -190,11 +190,12 @@ type Configuration struct {
 	LDAP           LDAPConfiguration     `xml:"ldap" json:"ldap"`
 	Options        OptionsConfiguration  `xml:"options" json:"options"`
 	IgnoredDevices []ObservedDevice      `xml:"remoteIgnoredDevice" json:"remoteIgnoredDevices"`
-	PendingDevices []ObservedDevice      `xml:"pendingDevice" json:"pendingDevices"`
 	XMLName        xml.Name              `xml:"configuration" json:"-"`
 
 	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
 	OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
+
+	DeprecatedPendingDevices []ObservedDevice `xml:"pendingDevice" json:"pendingDevices"`
 }
 
 func (cfg Configuration) Copy() Configuration {
@@ -218,9 +219,6 @@ func (cfg Configuration) Copy() Configuration {
 	// DeviceIDs are values
 	newCfg.IgnoredDevices = make([]ObservedDevice, len(cfg.IgnoredDevices))
 	copy(newCfg.IgnoredDevices, cfg.IgnoredDevices)
-
-	newCfg.PendingDevices = make([]ObservedDevice, len(cfg.PendingDevices))
-	copy(newCfg.PendingDevices, cfg.PendingDevices)
 
 	return newCfg
 }
@@ -370,29 +368,6 @@ func (cfg *Configuration) clean() error {
 	}
 	cfg.IgnoredDevices = newIgnoredDevices
 
-	// The list of pending devices should not contain devices that were added manually, nor should it contain
-	// ignored devices.
-
-	// Sort by time, so that in case of duplicates latest "time" is used.
-	sort.Slice(cfg.PendingDevices, func(i, j int) bool {
-		return cfg.PendingDevices[i].Time.Before(cfg.PendingDevices[j].Time)
-	})
-
-	var newPendingDevices []ObservedDevice
-nextPendingDevice:
-	for _, pendingDevice := range cfg.PendingDevices {
-		if !existingDevices[pendingDevice.ID] && !ignoredDevices[pendingDevice.ID] {
-			// Deduplicate
-			for _, existingPendingDevice := range newPendingDevices {
-				if existingPendingDevice.ID == pendingDevice.ID {
-					continue nextPendingDevice
-				}
-			}
-			newPendingDevices = append(newPendingDevices, pendingDevice)
-		}
-	}
-	cfg.PendingDevices = newPendingDevices
-
 	// Deprecated protocols are removed from the list of listeners and
 	// device addresses. So far just kcp*.
 	for _, prefix := range []string{"kcp"} {
@@ -409,9 +384,6 @@ nextPendingDevice:
 	}
 	if cfg.IgnoredDevices == nil {
 		cfg.IgnoredDevices = []ObservedDevice{}
-	}
-	if cfg.PendingDevices == nil {
-		cfg.PendingDevices = []ObservedDevice{}
 	}
 	if cfg.Options.AlwaysLocalNets == nil {
 		cfg.Options.AlwaysLocalNets = []string{}

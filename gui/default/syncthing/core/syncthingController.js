@@ -1468,7 +1468,6 @@ angular.module('syncthing.core')
                         compression: 'metadata',
                         introducer: false,
                         selectedFolders: {},
-                        pendingFolders: [],
                         ignoredFolders: []
                     };
                     $scope.editingExisting = false;
