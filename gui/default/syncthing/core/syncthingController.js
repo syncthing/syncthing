@@ -450,7 +450,7 @@ angular.module('syncthing.core')
                 && !guiCfg.insecureAdminAccess;
 
             if (guiCfg.user && guiCfg.password) {
-            	dismissNotification('authenticationUserAndPassword');
+                dismissNotification('authenticationUserAndPassword');
             }
         }
 
