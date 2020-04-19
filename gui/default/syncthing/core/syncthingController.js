@@ -40,6 +40,8 @@ angular.module('syncthing.core')
         $scope.upgradeInfo = null;
         $scope.deviceStats = {};
         $scope.folderStats = {};
+        $scope.pendingDevices = [];
+        $scope.pendingFolders = [];
         $scope.progress = {};
         $scope.version = {};
         $scope.needed = {}
