@@ -788,6 +788,12 @@
         </div>
         <div class="form-group">
           <span class="pull-right">
+            <button type="button" class="btn btn-sm btn-default" ng-click="setAllDevicesPause(true)" ng-if="isAtleastOneDevicePausedStateSetTo(false)">
+             <span class="fas fa-pause"></span>&nbsp;<span translate>Pause All</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-default" ng-click="setAllDevicesPause(false)" ng-if="isAtleastOneDevicePausedStateSetTo(true)">
+             <span class="fas fa-play"></span>&nbsp;<span translate>Resume All</span>
+            </button>
             <button type="button" class="btn btn-sm btn-default" ng-click="globalChanges()">
               <span class="fas fa-fw fa-info-circle"></span>&nbsp;<span translate>Recent Changes</span>
             </button>
