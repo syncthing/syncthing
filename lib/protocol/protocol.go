@@ -145,9 +145,10 @@ type Connection interface {
 }
 
 type rawConnection struct {
-	id       DeviceID
-	name     string
-	receiver Model
+	id        DeviceID
+	name      string
+	receiver  Model
+	startTime time.Time
 
 	cr *countingReader
 	cw *countingWriter
@@ -236,6 +237,7 @@ func (c *rawConnection) Start() {
 	go c.writerLoop()
 	go c.pingSender()
 	go c.pingReceiver()
+	c.startTime = time.Now()
 }
 
 func (c *rawConnection) ID() DeviceID {
@@ -958,6 +960,7 @@ type Statistics struct {
 	At            time.Time
 	InBytesTotal  int64
 	OutBytesTotal int64
+	StartedAt     time.Time
 }
 
 func (c *rawConnection) Statistics() Statistics {
@@ -965,6 +968,7 @@ func (c *rawConnection) Statistics() Statistics {
 		At:            time.Now(),
 		InBytesTotal:  c.cr.Tot(),
 		OutBytesTotal: c.cw.Tot(),
+		StartedAt:     c.startTime,
 	}
 }
 
