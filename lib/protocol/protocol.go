@@ -289,6 +289,7 @@ func (c *rawConnection) Request(ctx context.Context, folder string, name string,
 
 	c.awaitingMut.Lock()
 	if _, ok := c.awaiting[id]; ok {
+		c.awaitingMut.Unlock()
 		panic("id taken")
 	}
 	rc := make(chan asyncResult, 1)
