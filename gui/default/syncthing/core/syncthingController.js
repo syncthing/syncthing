@@ -42,9 +42,10 @@ angular.module('syncthing.core')
         $scope.folderStats = {};
         $scope.progress = {};
         $scope.version = {};
-        $scope.needed = {};
-        $scope.neededCurrentPage = 1;
-        $scope.neededPageSize = 10;
+        $scope.needed = {
+            page: 1,
+            perpage: 10
+        };
         $scope.neededFolder = '';
         $scope.failed = {};
         $scope.localChanged = {};
@@ -582,8 +583,8 @@ angular.module('syncthing.core')
         }
 
         $scope.refreshNeed = function (page, perpage) {
-            $scope.neededCurrentPage = page;
-            $scope.neededPageSize = perpage;
+            $scope.needed.page = page;
+            $scope.needed.perpage = perpage;
             if (!$scope.neededFolder) {
                 return;
             }
@@ -685,8 +686,6 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshFailed = function (page, perpage) {
-            $scope.neededCurrentPage = page;
-            $scope.neededPageSize = perpage;
             if (!$scope.failed || !$scope.failed.folder) {
                 return;
             }
@@ -698,8 +697,6 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshRemoteNeed = function (folder, page, perpage) {
-            $scope.neededCurrentPage = page;
-            $scope.neededPageSize = perpage;
             if (!$scope.remoteNeedDevice) {
                 return;
             }
@@ -715,8 +712,6 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshLocalChanged = function (page, perpage) {
-            $scope.neededCurrentPage = page;
-            $scope.neededPageSize = perpage;
             if (!$scope.localChangedFolder) {
                 return;
             }
@@ -2221,9 +2216,12 @@ angular.module('syncthing.core')
 
         $scope.showNeed = function (folder) {
             $scope.neededFolder = folder;
-            $scope.refreshNeed($scope.neededCurrentPage, $scope.neededPageSize);
+            $scope.refreshNeed($scope.needed.page, $scope.needed.perpage);
             $('#needed').modal().one('hidden.bs.modal', function () {
-                $scope.needed = undefined;
+                $scope.needed = {
+                    page: $scope.needed.page,
+                    perpage: $scope.needed.perpage
+                };
                 $scope.neededFolder = '';
             });
         };
@@ -2237,7 +2235,7 @@ angular.module('syncthing.core')
                     return;
                 }
                 $scope.remoteNeedFolders.push(folder);
-                $scope.refreshRemoteNeed(folder, $scope.neededCurrentPage, $scope.neededPageSize);
+                $scope.refreshRemoteNeed(folder, 1, 10);
             });
             $('#remoteNeed').modal().one('hidden.bs.modal', function () {
                 resetRemoteNeed();
@@ -2246,7 +2244,7 @@ angular.module('syncthing.core')
 
         $scope.showFailed = function (folder) {
             $scope.failed.folder = folder;
-            $scope.failed = $scope.refreshFailed($scope.neededCurrentPage, $scope.neededPageSize);
+            $scope.failed = $scope.refreshFailed(1, 10);
             $('#failed').modal().one('hidden.bs.modal', function () {
                 $scope.failed = {};
             });
@@ -2265,7 +2263,7 @@ angular.module('syncthing.core')
 
         $scope.showLocalChanged = function (folder) {
             $scope.localChangedFolder = folder;
-            $scope.localChanged = $scope.refreshLocalChanged($scope.neededCurrentPage, $scope.neededPageSize);
+            $scope.localChanged = $scope.refreshLocalChanged(1, 10);
             $('#localChanged').modal().one('hidden.bs.modal', function () {
                 $scope.localChanged = {};
                 $scope.localChangedFolder = undefined;
