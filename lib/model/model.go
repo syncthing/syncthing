@@ -54,7 +54,6 @@ type service interface {
 	Scan(subs []string) error
 	Serve()
 	Stop()
-	CheckHealth() error
 	Errors() []FileError
 	WatchError() error
 	ForceRescan(file protocol.FileInfo) error
