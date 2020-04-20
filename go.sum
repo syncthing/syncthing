@@ -82,8 +82,8 @@ github.com/golang/snappy v0.0.1/go.mod h1:/XxbfmMg8lxefKM7IXC3fBNl/7bRcc72aCRzEW
 github.com/google/go-cmp v0.3.0 h1:crn/baboCvb5fXaQ0IJ1SGTsTVrWpDsCWC8EGETZijY=
 github.com/google/go-cmp v0.3.0/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
-github.com/greatroar/blobloom v0.0.0-20200416084947-36d5bf1a4e53 h1:A6KOo8OOZb+mjFqwDhiUcNPxZVSsK3GGJtfZWh2SqJk=
-github.com/greatroar/blobloom v0.0.0-20200416084947-36d5bf1a4e53/go.mod h1:we9vO6GNYMmsNvCWINtZnQbcGEHUT6hGBAznNHd6RlE=
+github.com/greatroar/blobloom v0.1.1 h1:6sz3aX6Dk2NVvMV50a4G8EyN4UUs7+4wFcIvUpe1a+k=
+github.com/greatroar/blobloom v0.1.1/go.mod h1:we9vO6GNYMmsNvCWINtZnQbcGEHUT6hGBAznNHd6RlE=
 github.com/hpcloud/tail v1.0.0 h1:nfCOvKYfkgYP8hkirhJocXT2+zOD8yUNjXaWfTlyFKI=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/jackpal/gateway v1.0.6 h1:/MJORKvJEwNVldtGVJC2p2cwCnsSoLn3hl3zxmZT7tk=

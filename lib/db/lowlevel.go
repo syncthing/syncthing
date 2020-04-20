@@ -597,9 +597,9 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		capacity = db.gcKeyCount
 	}
 	blockFilter := blobloom.NewOptimized(blobloom.Config{
-		FPRate:  indirectGCBloomFalsePositiveRate,
-		MaxBits: 8 * indirectGCBloomMaxBytes,
-		NKeys:   uint64(capacity),
+		Capacity: uint64(capacity),
+		FPRate:   indirectGCBloomFalsePositiveRate,
+		MaxBits:  8 * indirectGCBloomMaxBytes,
 	})
 
 	// Iterate the FileInfos, unmarshal the block and version hashes and
@@ -622,7 +622,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 			return err
 		}
 		if len(bl.BlocksHash) > 0 {
-			blockFilter.Add64(bloomHash(bl.BlocksHash))
+			blockFilter.Add(bloomHash(bl.BlocksHash))
 		}
 	}
 	it.Release()
@@ -647,7 +647,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		}
 
 		key := blockListKey(it.Key())
-		if blockFilter.Has64(bloomHash(key)) {
+		if blockFilter.Has(bloomHash(key)) {
 			matchedBlocks++
 			continue
 		}
