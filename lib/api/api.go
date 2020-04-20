@@ -247,7 +247,6 @@ func (s *service) serve(ctx context.Context) {
 	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // device folder
 	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
-	getRestMux.HandleFunc("/rest/db/path", s.getIgnoresFromDeletedFolder)        // folder
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/remoteneed", s.getDBRemoteNeed)              // device folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/localchanged", s.getDBLocalChanged)          // folder
@@ -1174,29 +1173,6 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *service) getIgnoresFromDeletedFolder(w http.ResponseWriter, r *http.Request) {
-	qs := r.URL.Query()
-
-	path := qs.Get("path")
-	finalPath := path + "/.stignore"
-	if _, err := os.Stat(finalPath); !os.IsNotExist(err) {
-
-		file, err := os.Open(finalPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer file.Close()
-
-		b, err := ioutil.ReadAll(file)
-
-		finalData := string(b[:len(b)])
-
-		sendJSON(w, map[string]string{
-			"ignore": finalData,
-		})
-	}
-
-}
 
 func (s *service) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
