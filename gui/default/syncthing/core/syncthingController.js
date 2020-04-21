@@ -1789,6 +1789,22 @@ angular.module('syncthing.core')
         };
 
         $scope.addFolder = function () {
+            $('#folderLabel').change(function() {
+                var path = $('#folderPath').val();
+                $http.get(urlbase + '/system/raw-ignore?raw-ignore=' + encodeURIComponent(path))
+                .success(function (data) {
+                    if(data.ignore){
+                        $('#folder-ignores textarea').val(data.ignore);
+                    } else{
+                        $('#folder-ignores textarea').val($scope.config.options.defaultIgnorePatterns);
+                    }
+                })
+                .error(
+                    function(err){
+                        $('#folder-ignores textarea').val($scope.config.options.defaultIgnorePatterns);
+                    }
+                )
+            })
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.editingExisting = false;
                 $scope.currentFolder = angular.copy($scope.folderDefaults);
