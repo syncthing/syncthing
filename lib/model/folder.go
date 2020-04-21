@@ -123,7 +123,7 @@ func (f *folder) serve(ctx context.Context) {
 	pullFailTimer := time.NewTimer(0)
 	<-pullFailTimer.C
 
-	if f.FSWatcherEnabled && f.CheckHealth() == nil {
+	if f.FSWatcherEnabled && f.getHealthErrorAndLoadIgnores() == nil {
 		f.startWatch()
 	}
 
@@ -260,15 +260,17 @@ func (f *folder) Delay(next time.Duration) {
 	f.scanDelay <- next
 }
 
-// CheckHealth checks the folder for common errors, updates the folder state
-// and returns the current folder error, or nil if the folder is healthy.
-func (f *folder) CheckHealth() error {
-	err := f.getHealthError()
-	f.setError(err)
-	return err
+func (f *folder) getHealthErrorAndLoadIgnores() error {
+	if err := f.getHealthErrorWithoutIgnores(); err != nil {
+		return err
+	}
+	if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+		return errors.Wrap(err, "loading ignores")
+	}
+	return nil
 }
 
-func (f *folder) getHealthError() error {
+func (f *folder) getHealthErrorWithoutIgnores() error {
 	// Check for folder errors, with the most serious and specific first and
 	// generic ones like out of space on the home disk later.
 
@@ -318,19 +320,15 @@ func (f *folder) pull() bool {
 }
 
 func (f *folder) scanSubdirs(subDirs []string) error {
-	if err := f.getHealthError(); err != nil {
+	oldHash := f.ignores.Hash()
+
+	err := f.getHealthErrorAndLoadIgnores()
+	f.setError(err)
+	if err != nil {
 		// If there is a health error we set it as the folder error. We do not
 		// clear the folder error if there is no health error, as there might be
 		// an *other* folder error (failed to load ignores, for example). Hence
 		// we do not use the CheckHealth() convenience function here.
-		f.setError(err)
-		return err
-	}
-
-	oldHash := f.ignores.Hash()
-	if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		err = errors.Wrap(err, "loading ignores")
-		f.setError(err)
 		return err
 	}
 
@@ -345,9 +343,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		}
 	}()
 
-	// We've passed all health checks so now mark ourselves healthy and queued
-	// for scanning.
-	f.setError(nil)
 	f.setState(FolderScanWaiting)
 
 	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
@@ -402,7 +397,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	})
 
 	batchFn := func(fs []protocol.FileInfo) error {
-		if err := f.CheckHealth(); err != nil {
+		if err := f.getHealthErrorWithoutIgnores(); err != nil {
 			l.Debugf("Stopping scan of folder %s due to: %s", f.Description(), err)
 			return err
 		}
