@@ -298,12 +298,12 @@ angular.module('syncthing.core')
             for (var folder in $scope.progress) {
                 if (!(folder in progress)) {
                     if ($scope.neededFolder === folder) {
-                        refreshNeed($scope.needed.page, $scope.needed.perpage);
+                        $scope.refreshNeed($scope.needed.page, $scope.needed.perpage);
                     }
                 } else if ($scope.neededFolder === folder) {
                     for (file in $scope.progress[folder]) {
                         if (!(file in progress[folder])) {
-                            refreshNeed($scope.needed.page, $scope.needed.perpage);
+                            $scope.refreshNeed($scope.needed.page, $scope.needed.perpage);
                             break;
                         }
                     }
