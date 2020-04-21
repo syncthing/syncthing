@@ -1179,22 +1179,14 @@ func (s *service) getIgnoresRaw(w http.ResponseWriter, r *http.Request) {
 
 	path := qs.Get("raw-ignore")
 	finalPath := path + "/.stignore"
-	if _, err := os.Stat(finalPath); !os.IsNotExist(err) {
-
-		file, err := os.Open(finalPath)
-		if err != nil {
-			http.Error(w, "Not found", http.StatusNotFound)
-  			return
-		}
-		defer file.Close()
-
-		bs, err := ioutil.ReadAll(file)
-
-		sendJSON(w, map[string]string{
-			"ignore": string(bs),
-		})
+	bs, err := ioutil.ReadFile(finalPath)
+	if err != nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
 	}
-
+	sendJSON(w, map[string]string{
+		"ignore": string(bs),
+	})
 }
 
 func (s *service) postDBIgnores(w http.ResponseWriter, r *http.Request) {
