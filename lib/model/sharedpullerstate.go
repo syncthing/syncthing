@@ -49,6 +49,28 @@ type sharedPullerState struct {
 	mut               sync.RWMutex    // Protects the above
 }
 
+func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, tempName string, blocks []protocol.BlockInfo, reused []int32, ignorePerms, hasCurFile bool, curFile protocol.FileInfo, sparse bool) *sharedPullerState {
+	return &sharedPullerState{
+		file:             file,
+		fs:               fs,
+		folder:           folderID,
+		tempName:         tempName,
+		realName:         file.Name,
+		copyTotal:        len(blocks),
+		copyNeeded:       len(blocks),
+		reused:           len(reused),
+		updated:          time.Now(),
+		available:        reused,
+		availableUpdated: time.Now(),
+		ignorePerms:      ignorePerms,
+		hasCurFile:       hasCurFile,
+		curFile:          curFile,
+		mut:              sync.NewRWMutex(),
+		sparse:           sparse,
+		created:          time.Now(),
+	}
+}
+
 // A momentary state representing the progress of the puller
 type pullerProgress struct {
 	Total                   int   `json:"total"`
