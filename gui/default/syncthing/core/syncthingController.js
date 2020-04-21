@@ -1705,7 +1705,6 @@ angular.module('syncthing.core')
         };
 
         $scope.editFolder = function (folderCfg) {
-            console.log($scope.config);
             $scope.editingExisting = true;
             $scope.currentFolder = angular.copy(folderCfg);
             if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
@@ -1769,7 +1768,6 @@ angular.module('syncthing.core')
                 })
                 .error(function (err) {
                     $('#folder-ignores textarea').val($translate.instant("Failed to load ignore patterns."));
-                    $('#folder-ignores textarea').removeAttr('disabled');
                     $scope.emitHTTPError(err);
                 });
 
@@ -1797,7 +1795,6 @@ angular.module('syncthing.core')
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $scope.currentFolder.unrelatedDevices = $scope.otherDevices();
                 $('#folder-ignores textarea').val($scope.config.options.defaultIgnorePatterns);
-                $('#folder-ignores textarea').removeAttr('disabled');
                 $scope.editFolderModal();
             });
         };
