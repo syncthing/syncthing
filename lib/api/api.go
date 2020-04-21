@@ -247,7 +247,7 @@ func (s *service) serve(ctx context.Context) {
 	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // device folder
 	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
-	getRestMux.HandleFunc("/rest/system/raw-ignore", s.getIgnoresRaw) 		     // folder
+	getRestMux.HandleFunc("/rest/db/ignores/raw", s.getIgnoresRaw) 		     	 // folder
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/remoteneed", s.getDBRemoteNeed)              // device folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/localchanged", s.getDBLocalChanged)          // folder
@@ -1177,9 +1177,9 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 func (s *service) getIgnoresRaw(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
-	path := qs.Get("raw-ignore")
-	finalPath := path + "/.stignore"
-	bs, err := ioutil.ReadFile(finalPath)
+	folderPath := qs.Get("raw-ignore")
+	ignoresPath := filepath.Join(folderPath, ".stignore")
+	bs, err := ioutil.ReadFile(ignoresPath)
 	if err != nil {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
