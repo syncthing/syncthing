@@ -163,6 +163,7 @@
     "Introducer": "作为中介",
     "Inversion of the given condition (i.e. do not exclude)": "对本条件取反（例如：不要排除某项）",
     "Keep Versions": "保留版本数量",
+    "LDAP": "LDAP",
     "Largest First": "大文件优先",
     "Last File Received": "最后接收的文件",
     "Last Scan": "最后扫描",

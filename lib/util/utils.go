@@ -251,6 +251,7 @@ func (s *service) Stop() {
 	s.mut.Lock()
 	select {
 	case <-s.ctx.Done():
+		s.mut.Unlock()
 		panic(fmt.Sprintf("Stop called more than once on %v", s))
 	default:
 		s.cancel()

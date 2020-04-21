@@ -547,6 +547,7 @@ func (p *Process) eventLoop() {
 				}
 				device := p.id.String()
 				if device == "" {
+					p.eventMut.Unlock()
 					panic("race, or startup not complete")
 				}
 				m[device] = version

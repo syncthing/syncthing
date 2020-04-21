@@ -163,6 +163,7 @@
     "Introducer": "紹介者デバイス",
     "Inversion of the given condition (i.e. do not exclude)": "条件の否定 (つまり、無視しないという意味になります)",
     "Keep Versions": "保持するバージョン数",
+    "LDAP": "LDAP",
     "Largest First": "大きい順",
     "Last File Received": "最後に受信したファイル",
     "Last Scan": "最終スキャン日時",

@@ -8,13 +8,16 @@ package db
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"time"
 
+	"github.com/greatroar/blobloom"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/willf/bloom"
+	"github.com/syncthing/syncthing/lib/util"
+	"github.com/thejerf/suture"
 )
 
 const (
@@ -24,7 +27,8 @@ const (
 	// than 100k. For fewer than 100k items we will just get better false
 	// positive rate instead.
 	indirectGCBloomCapacity          = 100000
-	indirectGCBloomFalsePositiveRate = 0.01 // 1%
+	indirectGCBloomFalsePositiveRate = 0.01     // 1%
+	indirectGCBloomMaxBytes          = 32 << 20 // Use at most 32MiB memory, which covers our desired FP rate at 27 M items
 	indirectGCDefaultInterval        = 13 * time.Hour
 	indirectGCTimeKey                = "lastIndirectGCTime"
 
@@ -40,24 +44,30 @@ const (
 // database can only be opened once, there should be only one Lowlevel for
 // any given backend.
 type Lowlevel struct {
+	*suture.Supervisor
 	backend.Backend
 	folderIdx          *smallIndex
 	deviceIdx          *smallIndex
 	keyer              keyer
 	gcMut              sync.RWMutex
 	gcKeyCount         int
-	gcStop             chan struct{}
 	indirectGCInterval time.Duration
 	recheckInterval    time.Duration
 }
 
 func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 	db := &Lowlevel{
+		Supervisor: suture.New("db.Lowlevel", suture.Spec{
+			// Only log restarts in debug mode.
+			Log: func(line string) {
+				l.Debugln(line)
+			},
+			PassThroughPanics: true,
+		}),
 		Backend:            backend,
 		folderIdx:          newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
 		deviceIdx:          newSmallIndex(backend, []byte{KeyTypeDeviceIdx}),
 		gcMut:              sync.NewRWMutex(),
-		gcStop:             make(chan struct{}),
 		indirectGCInterval: indirectGCDefaultInterval,
 		recheckInterval:    recheckDefaultInterval,
 	}
@@ -65,7 +75,7 @@ func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 		opt(db)
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
-	go db.gcRunner()
+	db.Add(util.AsService(db.gcRunner, "db.Lowlevel/gcRunner"))
 	return db
 }
 
@@ -88,11 +98,6 @@ func WithIndirectGCInterval(dur time.Duration) Option {
 			db.indirectGCInterval = dur
 		}
 	}
-}
-
-func (db *Lowlevel) Close() error {
-	close(db.gcStop)
-	return db.Backend.Close()
 }
 
 // ListFolders returns the list of folders currently in the database
@@ -406,6 +411,7 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 			if err := t.Delete(dbi.Key()); err != nil {
 				return err
 			}
+			continue
 		}
 
 		// Check the global version list for consistency. An issue in previous
@@ -430,7 +436,7 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 			newVL.Versions = append(newVL.Versions, version)
 
 			if i == 0 {
-				if fi, ok, err := t.getFileByKey(dk); err != nil {
+				if fi, ok, err := t.getFileTrunc(dk, true); err != nil {
 					return err
 				} else if ok {
 					meta.addFile(protocol.GlobalDeviceID, fi)
@@ -514,7 +520,7 @@ func (db *Lowlevel) dropPrefix(prefix []byte) error {
 	return t.Commit()
 }
 
-func (db *Lowlevel) gcRunner() {
+func (db *Lowlevel) gcRunner(ctx context.Context) {
 	// Calculate the time for the next GC run. Even if we should run GC
 	// directly, give the system a while to get up and running and do other
 	// stuff first. (We might have migrations and stuff which would be
@@ -529,10 +535,10 @@ func (db *Lowlevel) gcRunner() {
 
 	for {
 		select {
-		case <-db.gcStop:
+		case <-ctx.Done():
 			return
 		case <-t.C:
-			if err := db.gcIndirect(); err != nil {
+			if err := db.gcIndirect(ctx); err != nil {
 				l.Warnln("Database indirection GC failed:", err)
 			}
 			db.recordTime(indirectGCTimeKey)
@@ -561,7 +567,7 @@ func (db *Lowlevel) timeUntil(key string, every time.Duration) time.Duration {
 	return sleepTime
 }
 
-func (db *Lowlevel) gcIndirect() error {
+func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	// The indirection GC uses bloom filters to track used block lists and
 	// versions. This means iterating over all items, adding their hashes to
 	// the filter, then iterating over the indirected items and removing
@@ -590,7 +596,11 @@ func (db *Lowlevel) gcIndirect() error {
 	if db.gcKeyCount > capacity {
 		capacity = db.gcKeyCount
 	}
-	blockFilter := bloom.NewWithEstimates(uint(capacity), indirectGCBloomFalsePositiveRate)
+	blockFilter := blobloom.NewOptimized(blobloom.Config{
+		Capacity: uint64(capacity),
+		FPRate:   indirectGCBloomFalsePositiveRate,
+		MaxBits:  8 * indirectGCBloomMaxBytes,
+	})
 
 	// Iterate the FileInfos, unmarshal the block and version hashes and
 	// add them to the filter.
@@ -601,12 +611,18 @@ func (db *Lowlevel) gcIndirect() error {
 	}
 	defer it.Release()
 	for it.Next() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		var bl BlocksHashOnly
 		if err := bl.Unmarshal(it.Value()); err != nil {
 			return err
 		}
 		if len(bl.BlocksHash) > 0 {
-			blockFilter.Add(bl.BlocksHash)
+			blockFilter.Add(bloomHash(bl.BlocksHash))
 		}
 	}
 	it.Release()
@@ -624,8 +640,14 @@ func (db *Lowlevel) gcIndirect() error {
 	defer it.Release()
 	matchedBlocks := 0
 	for it.Next() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		key := blockListKey(it.Key())
-		if blockFilter.Test(key.BlocksHash()) {
+		if blockFilter.Has(bloomHash(key)) {
 			matchedBlocks++
 			continue
 		}
@@ -646,6 +668,12 @@ func (db *Lowlevel) gcIndirect() error {
 	}
 
 	return db.Compact()
+}
+
+// Hash function for the bloomfilter: first eight bytes of the SHA-256.
+// Big or little-endian makes no difference, as long as we're consistent.
+func bloomHash(key blockListKey) uint64 {
+	return binary.BigEndian.Uint64(key.BlocksHash())
 }
 
 // CheckRepair checks folder metadata and sequences for miscellaneous errors.

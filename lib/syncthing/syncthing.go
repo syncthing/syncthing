@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -126,6 +128,7 @@ func (a *App) startup() error {
 		},
 		PassThroughPanics: true,
 	})
+	a.mainService.Add(a.ll)
 	a.mainService.ServeBackground()
 
 	if a.opts.AuditWriter != nil {
@@ -371,6 +374,10 @@ func (a *App) startup() error {
 func (a *App) run() {
 	<-a.stop
 
+	if shouldDebug() {
+		l.Debugln("Services before stop:")
+		printServiceTree(os.Stdout, a.mainService, 0)
+	}
 	a.mainService.Stop()
 
 	done := make(chan struct{})
@@ -474,4 +481,38 @@ func (e *controller) Shutdown() {
 
 func (e *controller) ExitUpgrading() {
 	e.Stop(ExitUpgrade)
+}
+
+type supervisor interface{ Services() []suture.Service }
+
+func printServiceTree(w io.Writer, sup supervisor, level int) {
+	printService(w, sup, level)
+
+	svcs := sup.Services()
+	sort.Slice(svcs, func(a, b int) bool {
+		return fmt.Sprint(svcs[a]) < fmt.Sprint(svcs[b])
+	})
+
+	for _, svc := range svcs {
+		if sub, ok := svc.(supervisor); ok {
+			printServiceTree(w, sub, level+1)
+		} else {
+			printService(w, svc, level+1)
+		}
+	}
+}
+
+func printService(w io.Writer, svc interface{}, level int) {
+	type errorer interface{ Error() error }
+
+	t := "-"
+	if _, ok := svc.(supervisor); ok {
+		t = "+"
+	}
+	fmt.Fprintln(w, strings.Repeat("  ", level), t, svc)
+	if es, ok := svc.(errorer); ok {
+		if err := es.Error(); err != nil {
+			fmt.Fprintln(w, strings.Repeat("  ", level), "  ->", err)
+		}
+	}
 }
