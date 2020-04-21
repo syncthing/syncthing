@@ -2471,7 +2471,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	fromFolders := mapFolders(from.Folders)
 	toFolders := mapFolders(to.Folders)
 	for folderID, cfg := range toFolders {
-		if _, ok := fromFolders[folderID]; !ok {
+		if fromCfg, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
 				l.Infoln("Paused folder", cfg.Description())
@@ -2479,11 +2479,28 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				l.Infoln("Adding folder", cfg.Description())
 				m.newFolder(cfg)
 			}
+			// Forget pending folder/device combinations that are now shared
+			m.db.RemovePendingFolder(cfg.ID, cfg.DeviceIDs())
+		} else {
+			// The folder was not just added, but may have been shared to
+			// additional devices.  Collect previous associations in a map for
+			// efficient lookups.
+			fromShared := make(map[protocol.DeviceID]struct{}, len(fromCfg.Devices))
+			for _, device := range fromCfg.Devices {
+				fromShared[device.DeviceID] = struct{}{}
+			}
+			dropList := make([]protocol.DeviceID, 0, len(cfg.Devices))
+			for _, device := range cfg.Devices {
+				// Skip previously shared devices and our own association
+				if _, ok := fromShared[device.DeviceID]; !ok && device.DeviceID != to.MyID {
+					dropList = append(dropList, device.DeviceID)
+				}
+			}
+			if len(dropList) > 0 {
+				// Forget pending folder/device combinations that are newly shared
+				m.db.RemovePendingFolder(cfg.ID, dropList)
+			}
 		}
-		// Even if the folder was not just added, it may have
-		// been shared to additional devices.  Forget pending
-		// folder/device combinations that are now shared.
-		m.db.RemovePendingFolder(cfg.ID, cfg.DeviceIDs())
 	}
 
 	for folderID, fromCfg := range fromFolders {
