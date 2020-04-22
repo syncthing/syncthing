@@ -196,7 +196,7 @@ func defaultRuntimeOptions() RuntimeOptions {
 	options := RuntimeOptions{
 		Options: syncthing.Options{
 			AssetDir:    os.Getenv("STGUIASSETS"),
-			NoUpgrade:   os.Getenv("STNOUPGRADE") != "",
+			NoUpgrade:   os.Getenv("STNOUPGRADE") != "" || build.Version == "unknnown-dev",
 			ProfilerURL: os.Getenv("STPROFILER"),
 		},
 		noRestart:    os.Getenv("STNORESTART") != "",
@@ -527,6 +527,10 @@ func (e errNoUpgrade) Error() string {
 }
 
 func checkUpgrade() (upgrade.Release, error) {
+	if build.Version == "unknown-dev" {
+		return upgrade.Release{}, errNoUpgrade{build.Version, "any"}
+	}
+
 	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
