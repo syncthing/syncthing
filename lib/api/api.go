@@ -1177,7 +1177,7 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 func (s *service) getIgnoresRaw(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
-	folderPath := qs.Get("raw-ignore")
+	folderPath := qs.Get("path")
 	ignoresPath := filepath.Join(folderPath, ".stignore")
 	bs, err := ioutil.ReadFile(ignoresPath)
 	if err != nil {

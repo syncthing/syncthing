@@ -1791,7 +1791,7 @@ angular.module('syncthing.core')
         $scope.addFolder = function () {
             $('#folderLabel').change(function() {
                 var path = $('#folderPath').val();
-                $http.get(urlbase + '/db/ignores/raw?raw-ignore=' + encodeURIComponent(path))
+                $http.get(urlbase + '/db/ignores/raw?path=' + encodeURIComponent(path))
                 .success(function (data) {
                     if(data.ignore){
                         $('#folder-ignores textarea').val(data.ignore);
