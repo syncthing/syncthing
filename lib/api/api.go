@@ -244,8 +244,7 @@ func (s *service) serve(ctx context.Context) {
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
-	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion) // device folder
-	getRestMux.HandleFunc("/rest/logout", s.restLogout)
+	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // device folder
 	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
@@ -277,6 +276,7 @@ func (s *service) serve(ctx context.Context) {
 	getRestMux.HandleFunc("/rest/system/debug", s.getSystemDebug)                // -
 	getRestMux.HandleFunc("/rest/system/log", s.getSystemLog)                    // [since]
 	getRestMux.HandleFunc("/rest/system/log.txt", s.getSystemLogTxt)             // [since]
+	getRestMux.HandleFunc("/rest/system/logout", s.restLogout)
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
@@ -346,9 +346,11 @@ func (s *service) serve(ctx context.Context) {
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in basic auth, if user/password is set.
-	// if guiCfg.IsAuthEnabled() {
-	// 	handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
-	// }
+	if guiCfg.IsAuthEnabled() {
+		cookieName := "sessionid-" + s.id.String()[:5]
+		mux.Handle("/rest/system/logout", logoutHandler(cookieName))
+		handler = basicAuthAndSessionMiddleware(cookieName, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
+	}
 
 	// Redirect to HTTPS if we are supposed to
 	if guiCfg.UseTLS() {
@@ -425,21 +427,8 @@ func (s *service) restLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) restLogout(w http.ResponseWriter, r *http.Request) {
-	mux := http.NewServeMux()
-	guiCfg := s.cfg.GUI()
-	auth := authAndSessionMiddleware{"sessionid-" + s.id.String()[:5], guiCfg, s.cfg.LDAP(), s.evLogger}
-	fmt.Println(auth.cookieName)
-
-	c := &http.Cookie{
-		Name:     auth.cookieName,
-		Value:    "",
-		Path:     "/",
-		MaxAge:   86400,
-		SameSite: http.SameSiteStrictMode,
-	}
-
-	http.SetCookie(w, c)
-	mux.HandleFunc("/rest/login", auth.loginHandler)
+	w.Header().Set("location", "/")
+	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor

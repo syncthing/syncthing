@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
+    .controller('SyncthingController', function ($scope, $window, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
@@ -15,11 +15,14 @@ angular.module('syncthing.core')
         function initController() {
             LocaleService.autoConfigLocale();
             checkLoginAndStart();
-            // loginSuccessfull()
         }
 
         function checkLoginAndStart() {
             $http.get(urlbase + '/login').success(function() {
+                $('#logout').html(` <a href="" ng-click="logout()" >
+                                        <span class="fas fa-fw fa-sign-out"></span>&nbsp;
+                                        <span translate>Logout</span>
+                                    </a>`)
                 // We are logged in, or don't need to log in
                 loginSuccessfull()
             }).error(function(){
@@ -27,11 +30,6 @@ angular.module('syncthing.core')
                  // We Show the login prompt. Then try to log in:
                 $('#login').modal('show');
             })
-        }
-
-        function logoutSuccessfull(){
-            setInterval($scope.refresh, 10000);
-            Events.startOf;
         }
 
         function loginSuccessfull(){
@@ -47,10 +45,10 @@ angular.module('syncthing.core')
                 function(){
                     
                     $('#login').modal('hide');
-                $('#logout').html(` <a href="" ng-click="logout()" >
+                    $('#logout').html(`
                                         <span class="fas fa-fw fa-sign-out"></span>&nbsp;
                                         <span translate>Logout</span>
-                                    </a>`)
+                                    `)
                     loginSuccessfull();
 
                 }).error(function(){
@@ -69,8 +67,10 @@ angular.module('syncthing.core')
           // logout function
         $scope.logout = function () {
             // here we'll place the logout code
-            $http.get(urlbase+"/logout").success(
+
+            $http.get(urlbase+"/system/logout").success(
                 function(){
+                    $window.location.reload()
                     checkLoginAndStart();
                 }
             )
