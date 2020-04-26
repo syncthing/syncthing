@@ -107,6 +107,7 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 		},
 
 		queue:         newJobQueue(),
+		writeLimiter:  newByteSemaphore(2),
 		pullErrors:    make(map[string]string),
 		pullErrorsMut: sync.NewMutex(),
 	}
