@@ -452,13 +452,13 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		batch.append(res.File)
 		changes++
 
-		if res.Previous != nil && !res.Previous.IsDeleted() {
-			// Not a "new" file
-			continue
-		}
-
-		// New file
 		err := snap.WithPathsMatchingBlocksHash(res.File.BlocksHash, func(path string) bool {
+			select {
+			case <-f.ctx.Done():
+				return false
+			default:
+			}
+
 			cf, ok := snap.Get(protocol.LocalDeviceID, path)
 			if !ok {
 				return true
@@ -471,23 +471,25 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				l.Debugf("Found something of unexpected type in block map list: %s", cf)
 				return true
 			}
+			if f.ignores.Match(cf.Name).IsIgnored() {
+				return true
+			}
 			if !cf.BlocksEqual(res.File) || res.File.Size != cf.Size {
 				return true
 			}
-
 			if !osutil.IsDeleted(mtimefs, cf.Name) {
 				return true
 			}
-
-			cf.SetDeleted(f.shortID)
-			cf.LocalFlags = f.localFlags
+			nf := cf
+			nf.SetDeleted(f.shortID)
+			nf.LocalFlags = f.localFlags
 			if cf.ShouldConflict() {
 				// We do not want to override the global version with
 				// the deleted file. Setting to an empty version makes
 				// sure the file gets in sync on the following pull.
-				cf.Version = protocol.Vector{}
+				nf.Version = protocol.Vector{}
 			}
-			batch.append(cf)
+			batch.append(nf)
 			changes++
 			return false
 		})
