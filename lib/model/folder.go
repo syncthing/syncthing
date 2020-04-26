@@ -440,7 +440,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}()
 
 	f.clearScanErrors(subDirs)
-	alreadyDeleted := make(map[string]struct{})
 	for res := range fchan {
 		if res.Err != nil {
 			f.newScanError(res.Path, res.Err)
@@ -488,7 +487,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				// sure the file gets in sync on the following pull.
 				cf.Version = protocol.Vector{}
 			}
-			alreadyDeleted[cf.Name] = struct{}{}
 			batch.append(cf)
 			changes++
 			return false
@@ -583,9 +581,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 						toIgnore = toIgnore[:0]
 						ignoredParent = ""
 					}
-					return true
-				}
-				if _, ok := alreadyDeleted[file.Name]; ok {
 					return true
 				}
 				nf := file.ConvertToDeletedFileInfo(f.shortID)
