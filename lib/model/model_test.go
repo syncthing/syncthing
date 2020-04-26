@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -3553,4 +3554,191 @@ func TestFolderAPIErrors(t *testing.T) {
 			t.Errorf(`Expected "%v", got "%v" (method no %v)`, errFolderMissing, err, i)
 		}
 	}
+}
+
+func TestFileInfoBatchDoesNotCountDeletedFiles(t *testing.T) {
+	file := protocol.FileInfo{
+		Deleted: true,
+	}
+
+	b := newFileInfoBatch(func(infos []protocol.FileInfo) error {
+		t.Error("unexpected flush")
+		return nil
+	})
+
+	for i := maxBatchSizeFiles * 2; i >= 0; i-- {
+		b.append(file)
+		if i%100 == 0 {
+			if err := b.flushIfFull(); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+func TestFileInfoBatchCountsNonDeletedFiles(t *testing.T) {
+	file := protocol.FileInfo{}
+
+	callCount := 0
+	b := newFileInfoBatch(func(infos []protocol.FileInfo) error {
+		callCount++
+		return nil
+	})
+
+	for i := maxBatchSizeFiles * 2; i >= 0; i-- {
+		b.append(file)
+		if i%100 == 0 {
+			if err := b.flushIfFull(); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	if callCount != 2 {
+		t.Errorf("unexpected call count: %d != 2", callCount)
+	}
+}
+
+func TestRenameSequenceOrder(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	ffs := fcfg.Filesystem()
+	must(t, writeFile(ffs, "b", []byte("b"), 0644))
+	must(t, writeFile(ffs, "c", []byte("c"), 0644))
+
+	m.ScanFolders()
+
+	// Reach info the model, grab the fileset.
+
+	m.fmut.RLock()
+	fset := m.folderFiles["default"]
+	m.fmut.RUnlock()
+
+	var localFiles []string
+	snap := fset.Snapshot()
+	snap.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
+		localFiles = append(localFiles, i.FileName())
+		return true
+	})
+	snap.Release()
+
+	expected := []string{"b", "c"}
+	if !equalStringsInAnyOrder(localFiles, expected) {
+		t.Errorf("expected %q got %q", expected, localFiles)
+	}
+
+	// Rename to bring it to front lexically
+	must(t, ffs.Rename("c", "a"))
+	// "Modify"
+	must(t, ffs.Remove("b"))
+	must(t, writeFile(ffs, "b", []byte("new b"), 0644))
+
+	// Scan
+	m.ScanFolders()
+
+	// Verify sequence of a appearing is followed by c disappearing.
+	snap = fset.Snapshot()
+	defer snap.Release()
+	snap.WithHaveSequence(0, func(i db.FileIntf) bool {
+		switch i.SequenceNo() {
+		case 3:
+			assert(t, i.FileName() == "a" && !i.IsDeleted())
+		case 4:
+			assert(t, i.FileName() == "c" && i.IsDeleted())
+		case 5:
+			assert(t, i.FileName() == "b" && !i.IsDeleted())
+		default:
+			t.Errorf("Unexpected sequence %d", i.SequenceNo())
+		}
+		return true
+	})
+}
+
+func TestBlockMapList(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	ffs := fcfg.Filesystem()
+	must(t, writeFile(ffs, "one", []byte("content"), 0644))
+	must(t, writeFile(ffs, "two", []byte("content"), 0644))
+	must(t, writeFile(ffs, "three", []byte("content"), 0644))
+	must(t, writeFile(ffs, "four", []byte("content"), 0644))
+	must(t, writeFile(ffs, "five", []byte("content"), 0644))
+
+	m.ScanFolders()
+
+	// Reach info the model, grab the fileset.
+
+	m.fmut.RLock()
+	fset := m.folderFiles["default"]
+	m.fmut.RUnlock()
+
+	snap := fset.Snapshot()
+	defer snap.Release()
+	fi, ok := snap.Get(protocol.LocalDeviceID, "one")
+	if !ok {
+		t.Error("failed to find existing file")
+	}
+	var paths []string
+
+	must(t, snap.WithPathsMatchingBlocksHash(fi.BlocksHash, func(path string) bool {
+		paths = append(paths, path)
+		return true
+	}))
+	snap.Release()
+
+	expected := []string{"one", "two", "three", "four", "five"}
+	if !equalStringsInAnyOrder(paths, expected) {
+		t.Errorf("expected %q got %q", expected, paths)
+	}
+
+	// Fudge the files around
+	// Remove
+	must(t, ffs.Remove("one"))
+
+	// Modify
+	must(t, ffs.Remove("two"))
+	must(t, writeFile(ffs, "two", []byte("mew-content"), 0644))
+
+	// Rename
+	must(t, ffs.Rename("three", "new-three"))
+
+	// Change type
+	must(t, ffs.Remove("four"))
+	must(t, ffs.Mkdir("four", 0644))
+
+	m.ScanFolders()
+
+	// Check we're left with 2 of the 5
+	snap = fset.Snapshot()
+	defer snap.Release()
+
+	paths = paths[:0]
+	must(t, snap.WithPathsMatchingBlocksHash(fi.BlocksHash, func(path string) bool {
+		paths = append(paths, path)
+		return true
+	}))
+	snap.Release()
+
+	expected = []string{"new-three", "five"}
+	if !equalStringsInAnyOrder(paths, expected) {
+		t.Errorf("expected %q got %q", expected, paths)
+	}
+}
+
+func equalStringsInAnyOrder(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	sort.Strings(a)
+	sort.Strings(b)
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

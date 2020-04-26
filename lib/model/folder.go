@@ -7,6 +7,7 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -439,6 +440,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}()
 
 	f.clearScanErrors(subDirs)
+	alreadyDeleted := make(map[string]struct{})
 	for res := range fchan {
 		if res.Err != nil {
 			f.newScanError(res.Path, res.Err)
@@ -450,6 +452,50 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 		batch.append(res.File)
 		changes++
+
+		if res.Previous != nil && !res.Previous.IsDeleted() {
+			// Not a "new" file
+			continue
+		}
+
+		// New file
+		err := snap.WithPathsMatchingBlocksHash(res.File.BlocksHash, func(path string) bool {
+			cf, ok := snap.Get(protocol.LocalDeviceID, path)
+			if !ok {
+				return true
+			}
+			if !bytes.Equal(cf.BlocksHash, res.File.BlocksHash) {
+				l.Debugf("Mismatching block map list hashes: got %x expected %x", cf.BlocksHash, res.File.BlocksHash)
+				return true
+			}
+			if cf.IsDeleted() || cf.IsInvalid() || cf.IsIgnored() || cf.IsUnsupported() || cf.IsDirectory() || cf.IsSymlink() {
+				l.Debugf("Found something of unexpected type in block map list: %s", cf)
+				return true
+			}
+			if !cf.BlocksEqual(res.File) || res.File.Size != cf.Size {
+				return true
+			}
+
+			if !osutil.IsDeleted(mtimefs, cf.Name) {
+				return true
+			}
+
+			cf.SetDeleted(f.shortID)
+			cf.LocalFlags = f.localFlags
+			if cf.ShouldConflict() {
+				// We do not want to override the global version with
+				// the deleted file. Setting to an empty version makes
+				// sure the file gets in sync on the following pull.
+				cf.Version = protocol.Vector{}
+			}
+			alreadyDeleted[cf.Name] = struct{}{}
+			batch.append(cf)
+			changes++
+			return false
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := batch.flush(); err != nil {
@@ -537,6 +583,9 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 						toIgnore = toIgnore[:0]
 						ignoredParent = ""
 					}
+					return true
+				}
+				if _, ok := alreadyDeleted[file.Name]; ok {
 					return true
 				}
 				nf := file.ConvertToDeletedFileInfo(f.shortID)

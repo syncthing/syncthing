@@ -61,6 +61,8 @@ type FileIntf interface {
 // continue iteration, false to stop.
 type Iterator func(f FileIntf) bool
 
+type StringIterator func(s string) bool
+
 func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 	return &FileSet{
 		folder:      folder,
@@ -378,6 +380,29 @@ func (s *Snapshot) RemoteNeedFolderFiles(device protocol.DeviceID, page, perpage
 		return get > 0
 	})
 	return files
+}
+
+func (s *Snapshot) WithPathsMatchingBlocksHash(hash []byte, iterator StringIterator) error {
+	key, err := s.t.keyer.GenerateBlockMapListKey(nil, []byte(s.folder), hash, nil)
+
+	key, err = s.t.keyer.GenerateBlockMapListKey(key, []byte(s.folder), hash, nil)
+	if err != nil {
+		return err
+	}
+	iter, err := s.t.NewPrefixIterator(key)
+	if err != nil {
+		return err
+	}
+
+	for iter.Next() {
+		file := string(s.t.keyer.NameFromBlockMapListKey(iter.Key()))
+		if !iterator(file) {
+			break
+		}
+	}
+
+	iter.Release()
+	return iter.Error()
 }
 
 func (s *FileSet) Sequence(device protocol.DeviceID) int64 {

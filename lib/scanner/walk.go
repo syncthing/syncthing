@@ -67,9 +67,15 @@ type CurrentFiler interface {
 }
 
 type ScanResult struct {
-	File protocol.FileInfo
-	Err  error
-	Path string // to be set in case Err != nil and File == nil
+	File     protocol.FileInfo
+	Previous *protocol.FileInfo
+	Err      error
+	Path     string // to be set in case Err != nil and File == nil
+}
+
+type hashRequest struct {
+	file     protocol.FileInfo
+	previous *protocol.FileInfo
 }
 
 func Walk(ctx context.Context, cfg Config) chan ScanResult {
@@ -103,7 +109,7 @@ type walker struct {
 func (w *walker) walk(ctx context.Context) chan ScanResult {
 	l.Debugln("Walk", w.Subs, w.Matcher)
 
-	toHashChan := make(chan protocol.FileInfo)
+	toHashChan := make(chan hashRequest)
 	finishedChan := make(chan ScanResult)
 
 	// A routine which walks the filesystem tree, and sends files which have
@@ -146,15 +152,15 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	// Parallel hasher is stopped by this routine when we close the channel over
 	// which it receives the files we ask it to hash.
 	go func() {
-		var filesToHash []protocol.FileInfo
+		var hashRequests []hashRequest
 		var total int64 = 1
 
-		for file := range toHashChan {
-			filesToHash = append(filesToHash, file)
-			total += file.Size
+		for request := range toHashChan {
+			hashRequests = append(hashRequests, request)
+			total += request.file.Size
 		}
 
-		realToHashChan := make(chan protocol.FileInfo)
+		realToHashChan := make(chan hashRequest)
 		done := make(chan struct{})
 		progress := newByteCounter()
 
@@ -189,10 +195,10 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		}()
 
 	loop:
-		for _, file := range filesToHash {
-			l.Debugln("real to hash:", file.Name)
+		for _, request := range hashRequests {
+			l.Debugln("real to hash:", request.file.Name)
 			select {
-			case realToHashChan <- file:
+			case realToHashChan <- request:
 			case <-ctx.Done():
 				break loop
 			}
@@ -203,7 +209,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	return finishedChan
 }
 
-func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) fs.WalkFunc {
+func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- hashRequest, finishedChan chan<- ScanResult) fs.WalkFunc {
 	now := time.Now()
 	ignoredParent := ""
 
@@ -294,7 +300,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 	}
 }
 
-func (w *walker) handleItem(ctx context.Context, path string, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult, skip error) error {
+func (w *walker) handleItem(ctx context.Context, path string, toHashChan chan<- hashRequest, finishedChan chan<- ScanResult, skip error) error {
 	info, err := w.Filesystem.Lstat(path)
 	// An error here would be weird as we've already gotten to this point, but act on it nonetheless
 	if err != nil {
@@ -330,7 +336,7 @@ func (w *walker) handleItem(ctx context.Context, path string, toHashChan chan<- 
 	return err
 }
 
-func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo) error {
+func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan<- hashRequest) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	blockSize := protocol.BlockSize(info.Size())
@@ -354,7 +360,13 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	f.NoPermissions = w.IgnorePerms
 	f.RawBlockSize = int32(blockSize)
 
+	request := hashRequest{
+		file:     f,
+		previous: nil,
+	}
+
 	if hasCurFile {
+		request.previous = &curFile
 		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
@@ -372,7 +384,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	l.Debugln("to hash:", relPath, f)
 
 	select {
-	case toHashChan <- f:
+	case toHashChan <- request:
 	case <-ctx.Done():
 		return ctx.Err()
 	}

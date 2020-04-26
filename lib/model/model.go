@@ -2643,9 +2643,10 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 }
 
 type fileInfoBatch struct {
-	infos   []protocol.FileInfo
-	size    int
-	flushFn func([]protocol.FileInfo) error
+	infos         []protocol.FileInfo
+	size          int
+	nonEmptyInfos int
+	flushFn       func([]protocol.FileInfo) error
 }
 
 func newFileInfoBatch(fn func([]protocol.FileInfo) error) *fileInfoBatch {
@@ -2657,11 +2658,14 @@ func newFileInfoBatch(fn func([]protocol.FileInfo) error) *fileInfoBatch {
 
 func (b *fileInfoBatch) append(f protocol.FileInfo) {
 	b.infos = append(b.infos, f)
-	b.size += f.ProtoSize()
+	if !f.IsDeleted() {
+		b.nonEmptyInfos++
+		b.size += f.ProtoSize()
+	}
 }
 
 func (b *fileInfoBatch) flushIfFull() error {
-	if len(b.infos) >= maxBatchSizeFiles || b.size >= maxBatchSizeBytes {
+	if b.nonEmptyInfos >= maxBatchSizeFiles || b.size >= maxBatchSizeBytes {
 		return b.flush()
 	}
 	return nil
@@ -2681,6 +2685,7 @@ func (b *fileInfoBatch) flush() error {
 func (b *fileInfoBatch) reset() {
 	b.infos = b.infos[:0]
 	b.size = 0
+	b.nonEmptyInfos = 0
 }
 
 // syncMutexMap is a type safe wrapper for a sync.Map that holds mutexes
