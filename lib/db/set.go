@@ -383,7 +383,7 @@ func (s *Snapshot) RemoteNeedFolderFiles(device protocol.DeviceID, page, perpage
 }
 
 func (s *Snapshot) WithPathsMatchingBlocksHash(hash []byte, iterator StringIterator) error {
-	key, err := s.t.keyer.GenerateBlockMapListKey(key, []byte(s.folder), hash, nil)
+	key, err := s.t.keyer.GenerateBlockMapListKey(nil, []byte(s.folder), hash, nil)
 	if err != nil {
 		return err
 	}
