@@ -63,7 +63,7 @@ const (
 	// KeyTypeBlockList <block list hash> = BlockList
 	KeyTypeBlockList = 13
 
-	// KeyTypeBlockMapList <block list hash> = PathList
+	// KeyTypeBlockMapList <int32 folder ID> <block list hash> <file name> = <nothing>
 	KeyTypeBlockMapList = 14
 )
 
