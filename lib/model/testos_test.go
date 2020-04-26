@@ -28,13 +28,6 @@ func must(f fatal, err error) {
 	}
 }
 
-func assert(f fatal, condition bool) {
-	f.Helper()
-	if !condition {
-		f.Fatal("assertion failed")
-	}
-}
-
 func (f *fatalOs) Chmod(name string, mode os.FileMode) {
 	f.Helper()
 	must(f, os.Chmod(name, mode))

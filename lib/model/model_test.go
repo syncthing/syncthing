@@ -3605,8 +3605,10 @@ func TestRenameSequenceOrder(t *testing.T) {
 	defer cleanupModel(m)
 
 	ffs := fcfg.Filesystem()
-	must(t, writeFile(ffs, "b", []byte("b"), 0644))
-	must(t, writeFile(ffs, "c", []byte("c"), 0644))
+	for i := 0; i < 10; i++ {
+		v := fmt.Sprintf("%d", i)
+		must(t, writeFile(ffs, v, []byte(v), 0644))
+	}
 
 	m.ScanFolders()
 
@@ -3616,24 +3618,28 @@ func TestRenameSequenceOrder(t *testing.T) {
 	fset := m.folderFiles["default"]
 	m.fmut.RUnlock()
 
-	var localFiles []string
+	count := 0
 	snap := fset.Snapshot()
 	snap.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
-		localFiles = append(localFiles, i.FileName())
+		count++
 		return true
 	})
 	snap.Release()
 
-	expected := []string{"b", "c"}
-	if !equalStringsInAnyOrder(localFiles, expected) {
-		t.Errorf("expected %q got %q", expected, localFiles)
+	if count != 10 {
+		t.Errorf("Unexpected count: %d != 10", count)
 	}
 
-	// Rename to bring it to front lexically
-	must(t, ffs.Rename("c", "a"))
-	// "Modify"
-	must(t, ffs.Remove("b"))
-	must(t, writeFile(ffs, "b", []byte("new b"), 0644))
+	// Modify all the files, other than the ones we expect to rename
+	for i := 0; i < 10; i++ {
+		if i == 3 || i == 7 {
+			continue
+		}
+		v := fmt.Sprintf("%d", i)
+		must(t, writeFile(ffs, v, []byte(v + "-new"), 0644))
+	}
+	// Rename
+	must(t, ffs.Rename("3", "7"))
 
 	// Scan
 	m.ScanFolders()
@@ -3641,23 +3647,22 @@ func TestRenameSequenceOrder(t *testing.T) {
 	// Verify sequence of a appearing is followed by c disappearing.
 	snap = fset.Snapshot()
 	defer snap.Release()
+
+	var expectedSequence int64
+	failed := false
 	snap.WithHaveSequence(0, func(i db.FileIntf) bool {
 		t.Log(i)
-		return true
-	})
-	snap.WithHaveSequence(0, func(i db.FileIntf) bool {
-		switch i.SequenceNo() {
-		case 3:
-			assert(t, i.FileName() == "a" && !i.IsDeleted())
-		case 4:
-			assert(t, i.FileName() == "c" && i.IsDeleted())
-		case 5:
-			assert(t, i.FileName() == "b" && !i.IsDeleted())
-		default:
-			t.Errorf("Unexpected sequence %d", i.SequenceNo())
+		if i.FileName() == "7" {
+			expectedSequence = i.SequenceNo() + 1
+		}
+		if i.FileName() == "3" {
+			failed = i.SequenceNo() != expectedSequence
 		}
 		return true
 	})
+	if failed {
+		t.Fail()
+	}
 }
 
 func TestBlockMapList(t *testing.T) {
