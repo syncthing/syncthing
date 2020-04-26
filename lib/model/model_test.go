@@ -3643,6 +3643,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 	defer snap.Release()
 	snap.WithHaveSequence(0, func(i db.FileIntf) bool {
 		t.Log(i)
+		return true
 	})
 	snap.WithHaveSequence(0, func(i db.FileIntf) bool {
 		switch i.SequenceNo() {
