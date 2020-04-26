@@ -3604,8 +3604,10 @@ func TestRenameSequenceOrder(t *testing.T) {
 	m := setupModel(wcfg)
 	defer cleanupModel(m)
 
+	numFiles := 20
+
 	ffs := fcfg.Filesystem()
-	for i := 0; i < 10; i++ {
+	for i := 0; i < numFiles; i++ {
 		v := fmt.Sprintf("%d", i)
 		must(t, writeFile(ffs, v, []byte(v), 0644))
 	}
@@ -3626,20 +3628,21 @@ func TestRenameSequenceOrder(t *testing.T) {
 	})
 	snap.Release()
 
-	if count != 10 {
-		t.Errorf("Unexpected count: %d != 10", count)
+	if count != numFiles {
+		t.Errorf("Unexpected count: %d != %d", count, numFiles)
 	}
 
 	// Modify all the files, other than the ones we expect to rename
-	for i := 0; i < 10; i++ {
-		if i == 3 || i == 7 {
+	for i := 0; i < numFiles; i++ {
+		if i == 3 || i == 17 || i == 16 || i == 4 {
 			continue
 		}
 		v := fmt.Sprintf("%d", i)
-		must(t, writeFile(ffs, v, []byte(v + "-new"), 0644))
+		must(t, writeFile(ffs, v, []byte(v+"-new"), 0644))
 	}
 	// Rename
-	must(t, ffs.Rename("3", "7"))
+	must(t, ffs.Rename("3", "17"))
+	must(t, ffs.Rename("16", "4"))
 
 	// Scan
 	m.ScanFolders()
@@ -3648,15 +3651,22 @@ func TestRenameSequenceOrder(t *testing.T) {
 	snap = fset.Snapshot()
 	defer snap.Release()
 
-	var expectedSequence int64
+	var firstExpectedSequence int64
+	var secondExpectedSequence int64
 	failed := false
 	snap.WithHaveSequence(0, func(i db.FileIntf) bool {
 		t.Log(i)
-		if i.FileName() == "7" {
-			expectedSequence = i.SequenceNo() + 1
+		if i.FileName() == "17" {
+			firstExpectedSequence = i.SequenceNo() + 1
+		}
+		if i.FileName() == "4" {
+			secondExpectedSequence = i.SequenceNo() + 1
 		}
 		if i.FileName() == "3" {
-			failed = i.SequenceNo() != expectedSequence
+			failed = i.SequenceNo() != firstExpectedSequence || failed
+		}
+		if i.FileName() == "16" {
+			failed = i.SequenceNo() != secondExpectedSequence || failed
 		}
 		return true
 	})
