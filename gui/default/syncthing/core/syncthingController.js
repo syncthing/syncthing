@@ -1588,6 +1588,24 @@ angular.module('syncthing.core')
             return devices;
         };
 
+        $scope.setAllDevicesPause = function (pause) {
+            $scope.devices.forEach(function (cfg) {
+                cfg.paused = pause;
+            });
+            $scope.config.devices = $scope.devices;
+            $scope.saveConfig();
+        }
+
+        $scope.isAtleastOneDevicePausedStateSetTo = function (pause) {
+            for (var i = 0; i < $scope.devices.length; i++) {
+                if ($scope.devices[i].paused == pause) {
+                    return true;
+                }
+            }
+
+            return false
+        }
+
         $scope.errorList = function () {
             if (!$scope.errors) {
                 return [];
