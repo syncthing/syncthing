@@ -85,7 +85,6 @@ type keyer interface {
 	GenerateBlockMapListKey(key, folder, hash, name []byte) (blockMapListKey, error)
 	NameFromBlockMapListKey(key []byte) []byte
 
-
 	// file need index
 	GenerateNeedFileKey(key, folder, name []byte) (needFileKey, error)
 
