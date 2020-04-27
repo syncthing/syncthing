@@ -117,15 +117,9 @@ func (mw authAndSessionMiddleware) handler(next http.Handler) http.Handler {
 			return
 		}
 
-		cookie, err := r.Cookie(mw.cookieName)
-		if err == nil && cookie != nil {
-			sessionsMut.Lock()
-			_, ok := sessions[cookie.Value]
-			sessionsMut.Unlock()
-			if ok {
-				next.ServeHTTP(w, r)
-				return
-			}
+		if mw.checkAuthCookie(r) {
+			next.ServeHTTP(w, r)
+			return
 		}
 
 		error := func() {
@@ -184,6 +178,12 @@ func (mw authAndSessionMiddleware) loginHandler(w http.ResponseWriter, r *http.R
 		http.Error(w, "Not access authorized", http.StatusForbidden)
 	}
 
+	if mw.checkAuthCookie(r) {
+		// Already logged in
+		mw.noopHandler(w, r)
+		return
+	}
+
 	// Get the post values
 	username := r.FormValue("username")
 	password := r.FormValue("password")
@@ -232,6 +232,17 @@ func (mw authAndSessionMiddleware) setAuthCookie(w http.ResponseWriter) {
 		MaxAge:   86400,
 		SameSite: http.SameSiteStrictMode,
 	})
+}
+
+func (mw authAndSessionMiddleware) checkAuthCookie(r *http.Request) bool {
+	cookie, err := r.Cookie(mw.cookieName)
+	if err == nil && cookie != nil {
+		sessionsMut.Lock()
+		_, ok := sessions[cookie.Value]
+		sessionsMut.Unlock()
+		return ok
+	}
+	return false
 }
 
 func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {
