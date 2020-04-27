@@ -204,7 +204,15 @@ func (mw authAndSessionMiddleware) loginHandler(w http.ResponseWriter, r *http.R
 	mw.setAuthCookie(w)
 	emitLoginAttempt(true, username, mw.evLogger)
 	mw.noopHandler(w, r)
+}
 
+func (mw authAndSessionMiddleware) logoutHandler(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie(mw.cookieName)
+	if err == nil && cookie != nil {
+		sessionsMut.Lock()
+		delete(sessions, cookie.Value)
+		sessionsMut.Unlock()
+	}
 }
 
 func (mw authAndSessionMiddleware) noopHandler(w http.ResponseWriter, r *http.Request) {
@@ -223,18 +231,6 @@ func (mw authAndSessionMiddleware) setAuthCookie(w http.ResponseWriter) {
 		Path:     "/",
 		MaxAge:   86400,
 		SameSite: http.SameSiteStrictMode,
-	})
-}
-
-func logoutHandler(cookieName string) http.Handler {
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(cookieName)
-		if err == nil && cookie != nil {
-			sessionsMut.Lock()
-			delete(sessions, cookie.Value)
-			sessionsMut.Unlock()
-		}
 	})
 }
 

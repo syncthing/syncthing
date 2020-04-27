@@ -323,8 +323,10 @@ func (s *service) serve(ctx context.Context) {
 	if guiCfg.IsAuthEnabled() {
 		restMux = auth.handler(restMux)
 		mux.HandleFunc("/rest/login", auth.loginHandler)
+		mux.HandleFunc("/rest/logout", auth.logoutHandler)
 	} else {
 		mux.HandleFunc("/rest/login", auth.noopHandler)
+		mux.HandleFunc("/rest/logout", auth.noopHandler)
 	}
 
 	mux.Handle("/rest/", restMux)
@@ -344,13 +346,6 @@ func (s *service) serve(ctx context.Context) {
 
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
-
-	// Wrap everything in basic auth, if user/password is set.
-	if guiCfg.IsAuthEnabled() {
-		cookieName := "sessionid-" + s.id.String()[:5]
-		mux.Handle("/rest/system/logout", logoutHandler(cookieName))
-		handler = basicAuthAndSessionMiddleware(cookieName, guiCfg, s.cfg.LDAP(), handler, s.evLogger)
-	}
 
 	// Redirect to HTTPS if we are supposed to
 	if guiCfg.UseTLS() {
