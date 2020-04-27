@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -457,9 +458,15 @@ func TestHTTPLogin(t *testing.T) {
 	}
 	defer sup.Stop()
 
+	csrfTokenName, csrfTokenValue, err := getCSRFToken(baseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Verify rejection when not using authorization
 
-	req, _ := http.NewRequest("GET", baseURL, nil)
+	req, _ := http.NewRequest("GET", baseURL+"/rest/system/status", nil)
+	req.Header.Set("X-"+csrfTokenName, csrfTokenValue)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -554,6 +561,21 @@ func startHTTP(cfg *mockedConfig) (string, *suture.Supervisor, error) {
 	return baseURL, supervisor, nil
 }
 
+func getCSRFToken(url string) (string, string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", "", err
+	}
+
+	for _, cookie := range resp.Cookies() {
+		if strings.HasPrefix(cookie.Name, "CSRF-Token") {
+			return cookie.Name, cookie.Value, nil
+		}
+	}
+
+	return "", "", errors.New("No cookie")
+}
+
 func TestCSRFRequired(t *testing.T) {
 	t.Parallel()
 
@@ -583,13 +605,9 @@ func TestCSRFRequired(t *testing.T) {
 
 	// Find the returned CSRF token for future use
 
-	var csrfTokenName, csrfTokenValue string
-	for _, cookie := range resp.Cookies() {
-		if strings.HasPrefix(cookie.Name, "CSRF-Token") {
-			csrfTokenName = cookie.Name
-			csrfTokenValue = cookie.Value
-			break
-		}
+	csrfTokenName, csrfTokenValue, err := getCSRFToken(baseURL)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	// Calling on /rest without a token should fail
