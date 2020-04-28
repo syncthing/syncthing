@@ -19,10 +19,10 @@ angular.module('syncthing.core')
 
         function checkLoginAndStart() {
             $http.get(urlbase + '/login').success(function() {
-                $('#logout').html(` <a href="" ng-click="logout()" >
-                                        <span class="fas fa-fw fa-sign-out"></span>&nbsp;
-                                        <span translate>Logout</span>
-                                    </a>`)
+                $('#logout').html(`
+                                    <span class="fas fa-fw fa-sign-out"></span>&nbsp;
+                                    <span translate>Logout</span>
+                                `)
                 // We are logged in, or don't need to log in
                 loginSuccessfull()
             }).error(function(){
@@ -52,26 +52,23 @@ angular.module('syncthing.core')
                     loginSuccessfull();
 
                 }).error(function(){
-                    setTimeout(function(){
-                        $('#erreur').hide('slow');
+                    setTimeout(function(){	                        
+                        $('#erreur').html("");
                     }, 5000);
+                    checkLoginAndStart();
 
                     $('#erreur').html(`<div class="alert alert-danger" role="alert" id="erreur">
                                             <p style="color: #fff">Error! your credentials are not correct!\n Retry please...</p>
                                         </div>`);
-
-                    checkLoginAndStart();
                 })
         }
 
           // logout function
         $scope.logout = function () {
-            // here we'll place the logout code
-
-            $http.get(urlbase+"/system/logout").success(
+            $http.post(urlbase+"/logout").success(
                 function(){
+                    // when the post request has been sended we reload a page
                     $window.location.reload()
-                    checkLoginAndStart();
                 }
             )
         };

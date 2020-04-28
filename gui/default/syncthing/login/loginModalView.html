@@ -1,8 +1,7 @@
 <modal id="login" status="default" icon="{{'fas fa-user'}}" heading="{{'Log in' | translate}}" large="yes" closeable="yes">
   <div class="modal-body form-login">
+    <p id="erreur"></p>
     <form role="form" name="loginForm">
-      <p id="erreur"></p>
-
       <div class="form-group">
           <label for=""><span translate>GUI Authentication User</span></label>
           <input class="form-control" type="text" name="username" id="username" ng-model="currentFolder.username">

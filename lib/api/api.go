@@ -276,13 +276,13 @@ func (s *service) serve(ctx context.Context) {
 	getRestMux.HandleFunc("/rest/system/debug", s.getSystemDebug)                // -
 	getRestMux.HandleFunc("/rest/system/log", s.getSystemLog)                    // [since]
 	getRestMux.HandleFunc("/rest/system/log.txt", s.getSystemLogTxt)             // [since]
-	getRestMux.HandleFunc("/rest/system/logout", s.restLogout)
+	// getRestMux.HandleFunc("/rest/logout", s.restLogout)
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
 
 	postRestMux.HandleFunc("/rest/login", s.restLogin)
-	// postRestMux.HandleFunc("/rest/logout", s.restLogout)
+	postRestMux.HandleFunc("/rest/logout", s.restLogout)
 	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
 	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                    // folder
 	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)                  // folder
@@ -417,13 +417,12 @@ func (s *service) serve(ctx context.Context) {
 }
 
 func (s *service) restLogin(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("location", "/")
-	w.WriteHeader(http.StatusTemporaryRedirect)
+	// w.Header().Set("location", "/")
+	// w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 func (s *service) restLogout(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("location", "/")
-	w.WriteHeader(http.StatusTemporaryRedirect)
+
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor
