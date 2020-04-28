@@ -23,11 +23,11 @@ import (
 
 var (
 	myID, device1, device2, device3, device4, device5, device6 protocol.DeviceID
-	defaultCfgWrapper      config.Wrapper
-	defaultFolderConfig    config.FolderConfiguration
-	defaultFs              fs.Filesystem
-	defaultCfg             config.Configuration
-	defaultAutoAcceptCfg   config.Configuration
+	defaultCfgWrapper                                          config.Wrapper
+	defaultFolderConfig                                        config.FolderConfiguration
+	defaultFs                                                  fs.Filesystem
+	defaultCfg                                                 config.Configuration
+	defaultAutoAcceptCfg                                       config.Configuration
 )
 
 func init() {
