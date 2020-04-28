@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	myID, device1, device2 protocol.DeviceID
+	myID, device1, device2, device3, device4, device5, device6 protocol.DeviceID
 	defaultCfgWrapper      config.Wrapper
 	defaultFolderConfig    config.FolderConfiguration
 	defaultFs              fs.Filesystem
@@ -34,6 +34,10 @@ func init() {
 	myID, _ = protocol.DeviceIDFromString("ZNWFSWE-RWRV2BD-45BLMCV-LTDE2UR-4LJDW6J-R5BPWEB-TXD27XJ-IZF5RA4")
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
+	device3 = protocol.NewDeviceID([]byte{0x1})
+	device4 = protocol.NewDeviceID([]byte{0x2})
+	device5 = protocol.NewDeviceID([]byte{0x3})
+	device6 = protocol.NewDeviceID([]byte{0x4})
 
 	defaultFs = fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
 

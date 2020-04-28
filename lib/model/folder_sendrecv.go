@@ -486,19 +486,26 @@ nextFile:
 			}
 		}
 
-		devices := snap.Availability(fileName)
-		var connected []protocol.DeviceID
-		for _, dev := range devices {
-			if _, ok := f.model.Connection(dev); ok && f.FolderConfiguration.SharedWith(dev) {
-				connected = append(connected, dev)
+		var connectedSharingFolder []protocol.DeviceID
+		for dev := range commonDevices {
+			if _, ok := f.model.Connection(dev); ok {
+				connectedSharingFolder = append(connectedSharingFolder, dev)
 			}
 		}
-		if len(connected) == 0 {
+
+		var connectedWithFile []protocol.DeviceID
+		for _, dev := range snap.Availability(fileName) {
+			if _, ok := f.model.Connection(dev); ok {
+				connectedWithFile = append(connectedWithFile, dev)
+			}
+		}
+
+		if len(connectedWithFile) == 0 {
 			f.newPullError(fileName, errNotAvailable)
 			f.queue.Done(fileName)
 		} else {
 			// Handle the file normally, by coping and pulling, etc.
-			f.handleFile(fi, snap, copyChan, pullSchedule, connected)
+			f.handleFile(fi, snap, copyChan, pullSchedule, connectedWithFile, connectedSharingFolder)
 		}
 	}
 
@@ -1031,7 +1038,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState, pullSchedule pullSchedule, connected []protocol.DeviceID) {
+func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState, pullSchedule pullSchedule, connectedWithFile, connectedSharingFolder []protocol.DeviceID) {
 	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
 
 	have, _ := blockDiff(curFile.Blocks, file.Blocks)
@@ -1080,7 +1087,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 	}
 
 	// Reorder blocks according to the pull schedule.
-	pullSchedule.Reorder(connected, blocks)
+	blocks = pullSchedule.Reorder(connectedWithFile, connectedSharingFolder, blocks)
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
