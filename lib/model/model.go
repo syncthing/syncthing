@@ -1979,9 +1979,15 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 	var f protocol.FileInfo
 	snap := s.fset.Snapshot()
 	defer snap.Release()
+	previousWasDelete := false
 	snap.WithHaveSequence(s.prevSequence+1, func(fi db.FileIntf) bool {
-		if err = batch.flushIfFull(); err != nil {
-			return false
+		// This is to make sure that renames (which is an add followed by a delete) land in the same batch.
+		// Even if the batch is full, we allow a last delete to slip in, we do this by making sure that
+		// the batch ends with a non-delete, or that the last item in the batch is already a delete
+		if batch.full() && (!fi.IsDeleted() || previousWasDelete) {
+			if err = batch.flush(); err != nil {
+				return false
+			}
 		}
 
 		if shouldDebug() {
@@ -2016,6 +2022,8 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 			f.Version = protocol.Vector{}
 		}
 		f.LocalFlags = 0 // never sent externally
+
+		previousWasDelete = f.IsDeleted()
 
 		batch.append(f)
 		return true
@@ -2643,10 +2651,9 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 }
 
 type fileInfoBatch struct {
-	infos         []protocol.FileInfo
-	size          int
-	nonEmptyInfos int
-	flushFn       func([]protocol.FileInfo) error
+	infos   []protocol.FileInfo
+	size    int
+	flushFn func([]protocol.FileInfo) error
 }
 
 func newFileInfoBatch(fn func([]protocol.FileInfo) error) *fileInfoBatch {
@@ -2658,14 +2665,15 @@ func newFileInfoBatch(fn func([]protocol.FileInfo) error) *fileInfoBatch {
 
 func (b *fileInfoBatch) append(f protocol.FileInfo) {
 	b.infos = append(b.infos, f)
-	if !f.IsDeleted() {
-		b.nonEmptyInfos++
-		b.size += f.ProtoSize()
-	}
+	b.size += f.ProtoSize()
+}
+
+func (b *fileInfoBatch) full() bool {
+	return len(b.infos) >= maxBatchSizeFiles || b.size >= maxBatchSizeBytes
 }
 
 func (b *fileInfoBatch) flushIfFull() error {
-	if b.nonEmptyInfos >= maxBatchSizeFiles || b.size >= maxBatchSizeBytes {
+	if b.full() {
 		return b.flush()
 	}
 	return nil
@@ -2685,7 +2693,6 @@ func (b *fileInfoBatch) flush() error {
 func (b *fileInfoBatch) reset() {
 	b.infos = b.infos[:0]
 	b.size = 0
-	b.nonEmptyInfos = 0
 }
 
 // syncMutexMap is a type safe wrapper for a sync.Map that holds mutexes
