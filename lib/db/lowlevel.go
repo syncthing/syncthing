@@ -209,7 +209,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 					}
 				}
 				if !blocksHashSame {
-					keyBuf, err := db.keyer.GenerateBlockMapListKey(keyBuf, folder, ef.BlocksHash, name)
+					keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, ef.BlocksHash, name)
 					if err != nil {
 						return err
 					}
@@ -271,7 +271,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 				}
 			}
 			if !blocksHashSame {
-				keyBuf, err := db.keyer.GenerateBlockMapListKey(keyBuf, folder, f.BlocksHash, name)
+				keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, f.BlocksHash, name)
 				if err != nil {
 					return err
 				}
@@ -350,7 +350,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 		return err
 	}
 
-	k5, err := db.keyer.GenerateBlockMapListKey(nil, folder, nil, nil)
+	k5, err := db.keyer.GenerateBlockListMapKey(nil, folder, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -410,7 +410,7 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 		if err := t.deleteKeyPrefix(key.WithoutHashAndName()); err != nil {
 			return err
 		}
-		key2, err := db.keyer.GenerateBlockMapListKey(nil, folder, nil, nil)
+		key2, err := db.keyer.GenerateBlockListMapKey(nil, folder, nil, nil)
 		if err != nil {
 			return err
 		}

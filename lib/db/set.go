@@ -13,6 +13,7 @@
 package db
 
 import (
+	"bytes"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -60,8 +61,6 @@ type FileIntf interface {
 // FileInfoTruncated (depending on the method) and returns true to
 // continue iteration, false to stop.
 type Iterator func(f FileIntf) bool
-
-type StringIterator func(s string) bool
 
 func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 	return &FileSet{
@@ -382,24 +381,41 @@ func (s *Snapshot) RemoteNeedFolderFiles(device protocol.DeviceID, page, perpage
 	return files
 }
 
-func (s *Snapshot) WithPathsMatchingBlocksHash(hash []byte, iterator StringIterator) error {
-	key, err := s.t.keyer.GenerateBlockMapListKey(nil, []byte(s.folder), hash, nil)
+func (s *Snapshot) WithPathsMatchingBlocksHash(hash []byte, iterator Iterator) error {
+	key, err := s.t.keyer.GenerateBlockListMapKey(nil, []byte(s.folder), hash, nil)
 	if err != nil {
 		return err
 	}
+
 	iter, err := s.t.NewPrefixIterator(key)
 	if err != nil {
 		return err
 	}
+	defer iter.Release()
 
 	for iter.Next() {
-		file := string(s.t.keyer.NameFromBlockMapListKey(iter.Key()))
-		if !iterator(file) {
+		file := string(s.t.keyer.NameFromBlockListMapKey(iter.Key()))
+		fi, ok := s.Get(protocol.LocalDeviceID, file)
+		if !ok {
+			continue
+		}
+
+		if !bytes.Equal(fi.BlocksHash, hash) {
+			// Perhaps should be at least info?
+			l.Debugf("Mismatching block map list hashes: got %x expected %x", fi.BlocksHash, hash)
+			continue
+		}
+
+		if fi.IsDeleted() || fi.IsInvalid() || fi.IsIgnored() || fi.IsUnsupported() || fi.IsDirectory() || fi.IsSymlink() {
+			l.Debugf("Found something of unexpected type in block map list: %s", fi)
+			continue
+		}
+
+		if !iterator(fi) {
 			break
 		}
 	}
 
-	iter.Release()
 	return iter.Error()
 }
 

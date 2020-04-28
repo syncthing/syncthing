@@ -7,7 +7,6 @@
 package model
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -452,38 +451,31 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		batch.append(res.File)
 		changes++
 
-		err := snap.WithPathsMatchingBlocksHash(res.File.BlocksHash, func(path string) bool {
+		err := snap.WithPathsMatchingBlocksHash(res.File.BlocksHash, func(ifi db.FileIntf) bool {
+			fi := ifi.(protocol.FileInfo)
+
 			select {
 			case <-f.ctx.Done():
 				return false
 			default:
 			}
 
-			cf, ok := snap.Get(protocol.LocalDeviceID, path)
-			if !ok {
+			if f.ignores.Match(fi.Name).IsIgnored() {
 				return true
 			}
-			if !bytes.Equal(cf.BlocksHash, res.File.BlocksHash) {
-				l.Debugf("Mismatching block map list hashes: got %x expected %x", cf.BlocksHash, res.File.BlocksHash)
+
+			if !fi.BlocksEqual(res.File) || res.File.Size != fi.Size {
 				return true
 			}
-			if cf.IsDeleted() || cf.IsInvalid() || cf.IsIgnored() || cf.IsUnsupported() || cf.IsDirectory() || cf.IsSymlink() {
-				l.Debugf("Found something of unexpected type in block map list: %s", cf)
+
+			if !osutil.IsDeleted(mtimefs, fi.Name) {
 				return true
 			}
-			if f.ignores.Match(cf.Name).IsIgnored() {
-				return true
-			}
-			if !cf.BlocksEqual(res.File) || res.File.Size != cf.Size {
-				return true
-			}
-			if !osutil.IsDeleted(mtimefs, cf.Name) {
-				return true
-			}
-			nf := cf
+
+			nf := fi
 			nf.SetDeleted(f.shortID)
 			nf.LocalFlags = f.localFlags
-			if cf.ShouldConflict() {
+			if fi.ShouldConflict() {
 				// We do not want to override the global version with
 				// the deleted file. Setting to an empty version makes
 				// sure the file gets in sync on the following pull.

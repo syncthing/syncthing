@@ -3675,7 +3675,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 	}
 }
 
-func TestBlockMapList(t *testing.T) {
+func TestBlockListMap(t *testing.T) {
 	wcfg, fcfg := tmpDefaultWrapper()
 	m := setupModel(wcfg)
 	defer cleanupModel(m)
@@ -3703,8 +3703,8 @@ func TestBlockMapList(t *testing.T) {
 	}
 	var paths []string
 
-	must(t, snap.WithPathsMatchingBlocksHash(fi.BlocksHash, func(path string) bool {
-		paths = append(paths, path)
+	must(t, snap.WithPathsMatchingBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
+		paths = append(paths, fi.FileName())
 		return true
 	}))
 	snap.Release()
@@ -3736,8 +3736,8 @@ func TestBlockMapList(t *testing.T) {
 	defer snap.Release()
 
 	paths = paths[:0]
-	must(t, snap.WithPathsMatchingBlocksHash(fi.BlocksHash, func(path string) bool {
-		paths = append(paths, path)
+	must(t, snap.WithPathsMatchingBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
+		paths = append(paths, fi.FileName())
 		return true
 	}))
 	snap.Release()
