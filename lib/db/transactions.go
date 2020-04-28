@@ -138,7 +138,7 @@ func (t readOnlyTransaction) getGlobalVersionsByKey(key []byte) (VersionList, er
 func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool, error) {
 	vl, err := t.getGlobalVersions(keyBuf, folder, file)
 	if backend.IsNotFound(err) {
-		return nil, nil, false, nil
+		return keyBuf, nil, false, nil
 	} else if err != nil {
 		return nil, nil, false, err
 	}
