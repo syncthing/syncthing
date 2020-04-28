@@ -148,6 +148,7 @@ type model struct {
 	connRequestLimiters map[protocol.DeviceID]*byteSemaphore
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.HelloResult
+	ccMessages          map[protocol.DeviceID]protocol.ClusterConfig
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
 	remotePausedFolders map[protocol.DeviceID][]string // deviceID -> folders
 
@@ -219,6 +220,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		conn:                make(map[protocol.DeviceID]connections.Connection),
 		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
+		ccMessages:          make(map[protocol.DeviceID]protocol.ClusterConfig),
 		helloMessages:       make(map[protocol.DeviceID]protocol.HelloResult),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remotePausedFolders: make(map[protocol.DeviceID][]string),
@@ -1140,6 +1142,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	m.pmut.Lock()
 	m.remotePausedFolders[deviceID] = paused
+	m.ccMessages[deviceID] = cm
 	m.pmut.Unlock()
 
 	// This breaks if we send multiple CM messages during the same connection.
@@ -1378,6 +1381,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	}
 	delete(m.conn, device)
 	delete(m.connRequestLimiters, device)
+	delete(m.ccMessages, device)
 	delete(m.helloMessages, device)
 	delete(m.deviceDownloads, device)
 	delete(m.remotePausedFolders, device)

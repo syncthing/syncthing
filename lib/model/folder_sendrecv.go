@@ -25,7 +25,6 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -421,6 +420,10 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 		f.queue.SortNewestFirst()
 	}
 
+	// Create the pull schedule
+	commonDevices := f.model.getCommonDevicesSharingTheFolder(f.folderID)
+	pullSchedule := newPullSchedule(f.FolderConfiguration.PullSchedule, f.model.id, commonDevices)
+
 	// Process the file queue.
 
 nextFile:
@@ -484,15 +487,19 @@ nextFile:
 		}
 
 		devices := snap.Availability(fileName)
+		var connected []protocol.DeviceID
 		for _, dev := range devices {
-			if _, ok := f.model.Connection(dev); ok {
-				// Handle the file normally, by coping and pulling, etc.
-				f.handleFile(fi, snap, copyChan)
-				continue nextFile
+			if _, ok := f.model.Connection(dev); ok && f.FolderConfiguration.SharedWith(dev) {
+				connected = append(connected, dev)
 			}
 		}
-		f.newPullError(fileName, errNotAvailable)
-		f.queue.Done(fileName)
+		if len(connected) == 0 {
+			f.newPullError(fileName, errNotAvailable)
+			f.queue.Done(fileName)
+		} else {
+			// Handle the file normally, by coping and pulling, etc.
+			f.handleFile(fi, snap, copyChan, pullSchedule, connected)
+		}
 	}
 
 	return changed, fileDeletions, dirDeletions, nil
@@ -1024,7 +1031,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState) {
+func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState, pullSchedule pullSchedule, connected []protocol.DeviceID) {
 	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
 
 	have, _ := blockDiff(curFile.Blocks, file.Blocks)
@@ -1072,8 +1079,8 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 		blocks = append(blocks, file.Blocks...)
 	}
 
-	// Shuffle the blocks
-	rand.Shuffle(blocks)
+	// Reorder blocks according to the pull schedule.
+	pullSchedule.Reorder(connected, blocks)
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
