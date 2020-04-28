@@ -3703,7 +3703,7 @@ func TestBlockListMap(t *testing.T) {
 	}
 	var paths []string
 
-	must(t, snap.WithBlockListHash(fi.BlocksHash, func(fi db.FileIntf) bool {
+	must(t, snap.WithBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
 		paths = append(paths, fi.FileName())
 		return true
 	}))
@@ -3736,7 +3736,7 @@ func TestBlockListMap(t *testing.T) {
 	defer snap.Release()
 
 	paths = paths[:0]
-	must(t, snap.WithBlockListHash(fi.BlocksHash, func(fi db.FileIntf) bool {
+	must(t, snap.WithBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
 		paths = append(paths, fi.FileName())
 		return true
 	}))

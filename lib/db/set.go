@@ -381,7 +381,7 @@ func (s *Snapshot) RemoteNeedFolderFiles(device protocol.DeviceID, page, perpage
 	return files
 }
 
-func (s *Snapshot) WithBlockListHash(hash []byte, iterator Iterator) error {
+func (s *Snapshot) WithBlocksHash(hash []byte, iterator Iterator) error {
 	key, err := s.t.keyer.GenerateBlockListMapKey(nil, []byte(s.folder), hash, nil)
 	if err != nil {
 		return err
