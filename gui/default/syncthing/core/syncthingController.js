@@ -52,9 +52,7 @@ angular.module('syncthing.core')
                     loginSuccessfull();
 
                 }).error(function(){
-                    setTimeout(function(){	                        
-                        $('#erreur').html("");
-                    }, 5000);
+                    
                     checkLoginAndStart();
 
                     $('#erreur').html(`<div class="alert alert-danger" role="alert" id="erreur">
