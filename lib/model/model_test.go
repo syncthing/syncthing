@@ -3556,49 +3556,6 @@ func TestFolderAPIErrors(t *testing.T) {
 	}
 }
 
-func TestFileInfoBatchDoesNotCountDeletedFiles(t *testing.T) {
-	file := protocol.FileInfo{
-		Deleted: true,
-	}
-
-	b := newFileInfoBatch(func(infos []protocol.FileInfo) error {
-		t.Error("unexpected flush")
-		return nil
-	})
-
-	for i := maxBatchSizeFiles * 2; i >= 0; i-- {
-		b.append(file)
-		if i%100 == 0 {
-			if err := b.flushIfFull(); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-}
-
-func TestFileInfoBatchCountsNonDeletedFiles(t *testing.T) {
-	file := protocol.FileInfo{}
-
-	callCount := 0
-	b := newFileInfoBatch(func(infos []protocol.FileInfo) error {
-		callCount++
-		return nil
-	})
-
-	for i := maxBatchSizeFiles * 2; i >= 0; i-- {
-		b.append(file)
-		if i%100 == 0 {
-			if err := b.flushIfFull(); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-
-	if callCount != 2 {
-		t.Errorf("unexpected call count: %d != 2", callCount)
-	}
-}
-
 func TestRenameSequenceOrder(t *testing.T) {
 	wcfg, fcfg := tmpDefaultWrapper()
 	m := setupModel(wcfg)
