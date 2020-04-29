@@ -227,7 +227,6 @@ func TestCopyMatching(t *testing.T) {
 	}
 }
 
-<<<<<<< HEAD
 type mockedAddr struct {
 	network string
 	addr    string
@@ -255,7 +254,6 @@ func TestInspecifiedAddressLess(t *testing.T) {
 	}
 
 	for i, testCase := range cases {
-
 		addrs := []mockedAddr{
 			{testCase.netA, testCase.addrA},
 			{testCase.netB, testCase.addrB},
