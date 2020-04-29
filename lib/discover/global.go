@@ -197,7 +197,7 @@ func (c *globalClient) serve(ctx context.Context) {
 		return
 	}
 
-	timer := time.NewTimer(0)
+	timer := time.NewTimer(5 * time.Second)
 	defer timer.Stop()
 
 	eventSub := c.evLogger.Subscribe(events.ListenAddressesChanged)
