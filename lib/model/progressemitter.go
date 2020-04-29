@@ -149,7 +149,7 @@ func (t *ProgressEmitter) sendDownloadProgressMessagesLocked(ctx context.Context
 			updates := state.update(folder, activePullers)
 
 			if len(updates) > 0 {
-				conn.DownloadProgress(ctx, folder, updates)
+				go conn.DownloadProgress(ctx, folder, updates)
 			}
 		}
 	}
