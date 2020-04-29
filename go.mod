@@ -34,7 +34,8 @@ require (
 	github.com/prometheus/client_golang v1.2.1
 	github.com/rcrowley/go-metrics v0.0.0-20190826022208-cac0b30c2563
 	github.com/sasha-s/go-deadlock v0.2.0
-	github.com/shirou/gopsutil v0.0.0-20190714054239-47ef3260b6bf
+	github.com/shirou/gopsutil v2.20.3+incompatible
+	github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4 // indirect
 	github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2
 	github.com/syndtr/goleveldb v1.0.1-0.20190923125748-758128399b1d
 	github.com/thejerf/suture v3.0.2+incompatible
