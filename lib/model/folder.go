@@ -179,7 +179,7 @@ func (f *folder) serve(ctx context.Context) {
 			}
 
 		case <-f.forcedRescanRequested:
-			f.forceRescan()
+			f.handleForcedRescans()
 
 		case <-f.scanTimer.C:
 			l.Debugln(f, "Scanning due to timer")
@@ -935,14 +935,13 @@ func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events
 	}
 }
 
-func (f *folder) forceRescan() {
-	paths := make([]string, 0, len(f.forcedRescanPaths))
-
+func (f *folder) handleForcedRescans() {
 	f.forcedRescanPathsMut.Lock()
+	paths := make([]string, 0, len(f.forcedRescanPaths))
 	for path := range f.forcedRescanPaths {
 		paths = append(paths, path)
-		delete(f.forcedRescanPaths, path)
 	}
+	f.forcedRescanPaths = make(map[string]struct{})
 	f.forcedRescanPathsMut.Unlock()
 
 	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
