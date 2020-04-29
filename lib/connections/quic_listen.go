@@ -145,7 +145,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 		cancel()
 		if err != nil {
 			l.Debugf("failed to accept stream from %s: %v", session.RemoteAddr(), err)
-			_ = session.Close()
+			_ = session.CloseWithError(0, err.Error())
 			continue
 		}
 
