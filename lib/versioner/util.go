@@ -7,7 +7,6 @@
 package versioner
 
 import (
-	"fmt"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -20,11 +19,13 @@ import (
 	"github.com/syncthing/syncthing/lib/util"
 )
 
-var errDirectory = fmt.Errorf("cannot restore on top of a directory")
-var errNotFound = fmt.Errorf("version not found")
-var errFileAlreadyExists = fmt.Errorf("file already exists")
+var (
+	errDirectory         = errors.New("cannot restore on top of a directory")
+	errNotFound          = errors.New("version not found")
+	errFileAlreadyExists = errors.New("file already exists")
+)
 
-// Inserts ~tag just before the extension of the filename.
+// TagFilename inserts ~tag just before the extension of the filename.
 func TagFilename(name, tag string) string {
 	dir, file := filepath.Dir(name), filepath.Base(name)
 	ext := filepath.Ext(file)
@@ -34,8 +35,8 @@ func TagFilename(name, tag string) string {
 
 var tagExp = regexp.MustCompile(`.*~([^~.]+)(?:\.[^.]+)?$`)
 
-// Returns the tag from a filename, whether at the end or middle.
-func ExtractTag(path string) string {
+// extractTag returns the tag from a filename, whether at the end or middle.
+func extractTag(path string) string {
 	match := tagExp.FindStringSubmatch(path)
 	// match is []string{"whole match", "submatch"} when successful
 
@@ -45,9 +46,10 @@ func ExtractTag(path string) string {
 	return match[1]
 }
 
+// UntagFilename returns the filename without tag, and the extracted tag
 func UntagFilename(path string) (string, string) {
 	ext := filepath.Ext(path)
-	versionTag := ExtractTag(path)
+	versionTag := extractTag(path)
 
 	// Files tagged with old style tags cannot be untagged.
 	if versionTag == "" {
@@ -276,7 +278,7 @@ func findAllVersions(fs fs.Filesystem, filePath string) []string {
 	file := filepath.Base(filePath)
 
 	// Glob according to the new file~timestamp.ext pattern.
-	pattern := filepath.Join(inFolderPath, TagFilename(file, TimeGlob))
+	pattern := filepath.Join(inFolderPath, TagFilename(file, timeGlob))
 	versions, err := fs.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)

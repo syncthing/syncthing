@@ -111,6 +111,7 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 			}
 
 			f.Blocks = blocks
+			f.BlocksHash = protocol.BlocksHash(blocks)
 
 			// The size we saw when initially deciding to hash the file
 			// might not have been the size it actually had when we hashed

@@ -21,7 +21,7 @@ import (
 var backendBuffer = 500
 
 func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
-	watchPath, root, err := f.watchPaths(name)
+	watchPath, roots, err := f.watchPaths(name)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -36,7 +36,7 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 
 	if ignore.SkipIgnoredDirs() {
 		absShouldIgnore := func(absPath string) bool {
-			rel, err := f.unrootedChecked(absPath, root)
+			rel, err := f.unrootedChecked(absPath, roots)
 			if err != nil {
 				return true
 			}
@@ -55,12 +55,12 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 	}
 
 	errChan := make(chan error)
-	go f.watchLoop(name, root, backendChan, outChan, errChan, ignore, ctx)
+	go f.watchLoop(ctx, name, roots, backendChan, outChan, errChan, ignore)
 
 	return outChan, errChan, nil
 }
 
-func (f *BasicFilesystem) watchLoop(name, evalRoot string, backendChan chan notify.EventInfo, outChan chan<- Event, errChan chan<- error, ignore Matcher, ctx context.Context) {
+func (f *BasicFilesystem) watchLoop(ctx context.Context, name string, roots []string, backendChan chan notify.EventInfo, outChan chan<- Event, errChan chan<- error, ignore Matcher) {
 	for {
 		// Detect channel overflow
 		if len(backendChan) == backendBuffer {
@@ -79,7 +79,7 @@ func (f *BasicFilesystem) watchLoop(name, evalRoot string, backendChan chan noti
 
 		select {
 		case ev := <-backendChan:
-			relPath, err := f.unrootedChecked(ev.Path(), evalRoot)
+			relPath, err := f.unrootedChecked(ev.Path(), roots)
 			if err != nil {
 				select {
 				case errChan <- err:

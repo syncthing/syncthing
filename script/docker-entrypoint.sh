@@ -2,7 +2,6 @@
 
 set -eu
 
-chown "${PUID}:${PGID}" /var/syncthing \
+chown "${PUID}:${PGID}" "${HOME}" \
   && exec su-exec "${PUID}:${PGID}" \
-     env HOME=/var/syncthing \
-     /bin/syncthing "$@"
+     env HOME="$HOME" "$@"

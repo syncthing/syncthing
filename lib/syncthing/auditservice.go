@@ -7,7 +7,9 @@
 package syncthing
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/thejerf/suture"
@@ -21,27 +23,27 @@ import (
 type auditService struct {
 	suture.Service
 	w   io.Writer // audit destination
-	sub *events.Subscription
+	sub events.Subscription
 }
 
-func newAuditService(w io.Writer) *auditService {
+func newAuditService(w io.Writer, evLogger events.Logger) *auditService {
 	s := &auditService{
 		w:   w,
-		sub: events.Default.Subscribe(events.AllEvents),
+		sub: evLogger.Subscribe(events.AllEvents),
 	}
-	s.Service = util.AsService(s.serve)
+	s.Service = util.AsService(s.serve, s.String())
 	return s
 }
 
 // serve runs the audit service.
-func (s *auditService) serve(stop chan struct{}) {
+func (s *auditService) serve(ctx context.Context) {
 	enc := json.NewEncoder(s.w)
 
 	for {
 		select {
 		case ev := <-s.sub.C():
 			enc.Encode(ev)
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -50,5 +52,9 @@ func (s *auditService) serve(stop chan struct{}) {
 // Stop stops the audit service.
 func (s *auditService) Stop() {
 	s.Service.Stop()
-	events.Default.Unsubscribe(s.sub)
+	s.sub.Unsubscribe()
+}
+
+func (s *auditService) String() string {
+	return fmt.Sprintf("auditService@%p", s)
 }

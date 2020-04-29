@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Jun 11, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Apr 24, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -42,7 +42,7 @@ generated in the GUI, or set in the \fBconfiguration/gui/apikey\fP element in
 the configuration file. To use an API key, set the request header
 \fBX\-API\-Key\fP to the API key value. For example, \fBcurl \-X POST \-H
 "X\-API\-Key: abc123" http://localhost:8384/rest/...\fP can be used to invoke
-with \fBcurl\fP\&.
+with \fBcurl\fP (add \fB\-k\fP flag when using HTTPS with a Syncthing generated or self signed certificate).
 .SH SYSTEM ENDPOINTS
 .SS GET /rest/system/browse
 .sp
@@ -96,108 +96,160 @@ Returns the current configuration.
 .nf
 .ft C
 {
+  "version": 30,
+  "folders": [
     {
-      "version": 15,
-      "folders": [
-        {
-          "id": "GXWxf\-3zgnU",
-          "label": "MyFolder",
-          "path": "...",
-          "type": "sendreceive",
-          "devices": [
-            {
-              "deviceID": "..."
-            }
-          ],
-          "rescanIntervalS": 60,
-          "ignorePerms": false,
-          "autoNormalize": true,
-          "minDiskFreePct": 1,
-          "versioning": {
-            "type": "simple",
-            "params": {
-              "keep": "5"
-            }
-          },
-          "copiers": 0,
-          "pullers": 0,
-          "hashers": 0,
-          "order": "random",
-          "ignoreDelete": false,
-          "scanProgressIntervalS": 0,
-          "pullerSleepS": 0,
-          "pullerPauseS": 0,
-          "maxConflicts": 10,
-          "disableSparseFiles": false,
-          "disableTempIndexes": false,
-          "fsync": false,
-          "invalid": ""
-        }
-      ],
+      "id": "GXWxf\-3zgnU",
+      "label": "MyFolder",
+      "filesystemType": "basic",
+      "path": "...",
+      "type": "sendreceive",
       "devices": [
         {
           "deviceID": "...",
-          "name": "Laptop",
-          "addresses": [
-            "dynamic",
-            "tcp://192.168.1.2:22000"
-          ],
-          "compression": "metadata",
-          "certName": "",
-          "introducer": false
+          "introducedBy": ""
         }
       ],
-      "gui": {
-        "enabled": true,
-        "address": "127.0.0.1:8384",
-        "user": "Username",
-        "password": "$2a$10$ZFws69T4FlvWwsqeIwL.TOo5zOYqsa/.TxlUnsGYS.j3JvjFTmxo6",
-        "useTLS": false,
-        "apiKey": "pGahcht56664QU5eoFQW6szbEG6Ec2Cr",
-        "insecureAdminAccess": false,
-        "theme": "default"
+      "rescanIntervalS": 60,
+      "fsWatcherEnabled": false,
+      "fsWatcherDelayS": 10,
+      "ignorePerms": false,
+      "autoNormalize": true,
+      "minDiskFree": {
+        "value": 1,
+        "unit": "%"
       },
-      "options": {
-        "listenAddresses": [
-          "default"
-        ],
-        "globalAnnounceServers": [
-          "default"
-        ],
-        "globalAnnounceEnabled": true,
-        "localAnnounceEnabled": true,
-        "localAnnouncePort": 21027,
-        "localAnnounceMCAddr": "[ff12::8384]:21027",
-        "maxSendKbps": 0,
-        "maxRecvKbps": 0,
-        "reconnectionIntervalS": 60,
-        "relaysEnabled": true,
-        "relayReconnectIntervalM": 10,
-        "startBrowser": false,
-        "natEnabled": true,
-        "natLeaseMinutes": 60,
-        "natRenewalMinutes": 30,
-        "natTimeoutSeconds": 10,
-        "urAccepted": \-1,
-        "urUniqueId": "",
-        "urURL": "https://data.syncthing.net/newdata",
-        "urPostInsecurely": false,
-        "urInitialDelayS": 1800,
-        "restartOnWakeup": true,
-        "autoUpgradeIntervalH": 12,
-        "keepTemporariesH": 24,
-        "cacheIgnoredFiles": false,
-        "progressUpdateIntervalS": 5,
-        "limitBandwidthInLan": false,
-        "minHomeDiskFreePct": 1,
-        "releasesURL": "https://upgrades.syncthing.net/meta.json",
-        "alwaysLocalNets": [],
-        "overwriteRemoteDeviceNamesOnConnect": false,
-        "tempIndexMinBlocks": 10
+      "versioning": {
+        "type": "simple",
+        "params": {
+          "keep": "5"
+        }
       },
-      "ignoredDevices": [],
-      "ignoredFolders": []
+      "copiers": 0,
+      "pullerMaxPendingKiB": 0,
+      "hashers": 0,
+      "order": "random",
+      "ignoreDelete": false,
+      "scanProgressIntervalS": 0,
+      "pullerPauseS": 0,
+      "maxConflicts": 10,
+      "disableSparseFiles": false,
+      "disableTempIndexes": false,
+      "paused": false,
+      "weakHashThresholdPct": 25,
+      "markerName": ".stfolder",
+      "copyOwnershipFromParent": false,
+      "modTimeWindowS": 0
     }
+  ],
+  "devices": [
+    {
+      "deviceID": "...",
+      "name": "Laptop",
+      "addresses": [
+        "dynamic",
+        "tcp://192.168.1.2:22000"
+      ],
+      "compression": "metadata",
+      "certName": "",
+      "introducer": false,
+      "skipIntroductionRemovals": false,
+      "introducedBy": "",
+      "paused": false,
+      "allowedNetworks": [],
+      "autoAcceptFolders": false,
+      "maxSendKbps": 0,
+      "maxRecvKbps": 0,
+      "ignoredFolders": [],
+      "pendingFolders": [
+        {
+          "time": "2019\-06\-05T10:21:22+02:00",
+          "id": "cpkn4\-57ysy",
+          "label": "SomeonesFolder"
+        }
+      ],
+      "maxRequestKiB": 0
+    }
+  ],
+  "gui": {
+    "enabled": true,
+    "address": "127.0.0.1:8384",
+    "user": "Username",
+    "password": "$2a$10$ZFws69T4FlvWwsqeIwL.TOo5zOYqsa/.TxlUnsGYS.j3JvjFTmxo6",
+    "authMode": "static",
+    "useTLS": false,
+    "apiKey": "pGahcht56664QU5eoFQW6szbEG6Ec2Cr",
+    "insecureAdminAccess": false,
+    "theme": "default",
+    "debugging": false,
+    "insecureSkipHostcheck": false,
+    "insecureAllowFrameLoading": false
+  },
+  "ldap": {
+    "addresd": "",
+    "bindDN": "",
+    "transport": "plain",
+    "insecureSkipVerify": false
+  },
+  "options": {
+    "listenAddresses": [
+      "default"
+    ],
+    "globalAnnounceServers": [
+      "default"
+    ],
+    "globalAnnounceEnabled": true,
+    "localAnnounceEnabled": true,
+    "localAnnouncePort": 21027,
+    "localAnnounceMCAddr": "[ff12::8384]:21027",
+    "maxSendKbps": 0,
+    "maxRecvKbps": 0,
+    "reconnectionIntervalS": 60,
+    "relaysEnabled": true,
+    "relayReconnectIntervalM": 10,
+    "startBrowser": false,
+    "natEnabled": true,
+    "natLeaseMinutes": 60,
+    "natRenewalMinutes": 30,
+    "natTimeoutSeconds": 10,
+    "urAccepted": \-1,
+    "urSeen": 2,
+    "urUniqueId": "",
+    "urURL": "https://data.syncthing.net/newdata",
+    "urPostInsecurely": false,
+    "urInitialDelayS": 1800,
+    "restartOnWakeup": true,
+    "autoUpgradeIntervalH": 12,
+    "upgradeToPreReleases": false,
+    "keepTemporariesH": 24,
+    "cacheIgnoredFiles": false,
+    "progressUpdateIntervalS": 5,
+    "limitBandwidthInLan": false,
+    "minHomeDiskFree": {
+      "value": 1,
+      "unit": "%"
+    },
+    "releasesURL": "https://upgrades.syncthing.net/meta.json",
+    "alwaysLocalNets": [],
+    "overwriteRemoteDeviceNamesOnConnect": false,
+    "tempIndexMinBlocks": 10,
+    "unackedNotificationIDs": [],
+    "trafficClass": 0,
+    "defaultFolderPath": "~",
+    "setLowPriority": true,
+    "maxFolderConcurrency": 0,
+    "crURL": "https://crash.syncthing.net/newcrash",
+    "crashReportingEnabled": true,
+    "stunKeepaliveStartS": 180,
+    "stunKeepaliveMinS": 20,
+    "stunServers": [
+      "default"
+    ],
+    "databaseTuning": "auto",
+    "maxConcurrentIncomingRequestKiB": 0
+  },
+  "remoteIgnoredDevices": [],
+  "pendingDevices": []
 }
 .ft P
 .fi
@@ -222,8 +274,13 @@ configuration is the same as that on disk.
 .SS POST /rest/system/config
 .sp
 Post the full contents of the configuration, in the same format as returned by
-the corresponding GET request. The configuration will be saved to disk and the
-\fBconfigInSync\fP flag set to false. Restart Syncthing to activate.
+the corresponding GET request. When posting the configuration succeeds,
+the posted configuration is immediately applied, except for changes that require a restart. Query
+rest\-config\-insync to check if a restart is required.
+.sp
+This endpoint is the main point to control Syncthing, even if the change only
+concerns a very small part of the config: The usual workflow is to get the
+config, modify the needed parts and post it again.
 .SS GET /rest/system/connections
 .sp
 \fBNOTE:\fP
@@ -504,7 +561,7 @@ resumes all devices.  Returns status 200 and no content upon success, or status
 Post with empty body to cause Syncthing to exit and not restart.
 .SS GET /rest/system/status
 .sp
-Returns information about current system status and resource usage.
+Returns information about current system status and resource usage. The CPU percent value has been deprecated from the API and will always report 0.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -532,7 +589,7 @@ Returns information about current system status and resource usage.
       ]
     }
   },
-  "cpuPercent": 0.006944836512046966,
+  "cpuPercent": 0,
   "discoveryEnabled": true,
   "discoveryErrors": {
     "global@https://discovery\-v4\-1.syncthing.net/v2/": "500 Internal Server Error",
@@ -699,7 +756,8 @@ folder. Takes \fBdevice\fP and \fBfolder\fP parameters.
   "completion": 100,
   "globalBytes": 156793013575,
   "needBytes": 0,
-  "needDeletes": 0
+  "needDeletes": 0,
+  "needItems": 0
 }
 .ft P
 .fi
@@ -963,6 +1021,7 @@ Parameters: \fBfolder\fP, the ID of a folder.
   "globalDirectories": 0,
   "globalFiles": 0,
   "globalSymlinks": 0,
+  "globalTotalItems": 0,
   "ignorePatterns": false,
   "inSyncBytes": 0,
   "inSyncFiles": 0,
@@ -972,17 +1031,20 @@ Parameters: \fBfolder\fP, the ID of a folder.
   "localDirectories": 0,
   "localFiles": 0,
   "localSymlinks": 0,
+  "localTotalItems": 0,
   "needBytes": 0,
   "needDeletes": 0,
   "needDirectories": 0,
   "needFiles": 0,
   "needSymlinks": 0,
+  "needTotalItems": 0,
   "pullErrors": 0,
   "receiveOnlyChangedBytes": 0,
   "receiveOnlyChangedDeletes": 0,
   "receiveOnlyChangedDirectories": 0,
   "receiveOnlyChangedFiles": 0,
   "receiveOnlyChangedSymlinks": 0,
+  "receiveOnlyTotalItems": 0,
   "sequence": 0,
   "state": "idle",
   "stateChanged": "2018\-08\-08T07:04:57.301064781+02:00",
@@ -1056,9 +1118,9 @@ in the event IDs.
 If no new events are produced since \fB<lastSeenID>\fP, the HTTP call blocks and
 waits for new events to happen before returning. By default it times out after
 60 seconds returning an empty array. The time out duration can be customized
-with the optional parameter \fBtimeout=seconds\fP\&.
+with the optional parameter \fBtimeout=<seconds>\fP\&.
 .sp
-To receive only a limited number of events, add the \fBlimit=n\fP parameter with a
+To receive only a limited number of events, add the \fBlimit=<n>\fP parameter with a
 suitable value for \fBn\fP and only the \fIlast\fP \fBn\fP events will be returned. This
 can be used to catch up with the latest event ID after a disconnection for
 example: \fB/rest/events?since=0&limit=1\fP\&.

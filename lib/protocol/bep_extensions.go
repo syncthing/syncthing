@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 const (
@@ -124,6 +125,18 @@ func (f FileInfo) FileVersion() Vector {
 	return f.Version
 }
 
+func (f FileInfo) FileType() FileInfoType {
+	return f.Type
+}
+
+func (f FileInfo) FilePermissions() uint32 {
+	return f.Permissions
+}
+
+func (f FileInfo) FileModifiedBy() ShortID {
+	return f.ModifiedBy
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func (f FileInfo) WinsConflict(other FileInfo) bool {
@@ -203,7 +216,7 @@ func (f FileInfo) isEquivalent(other FileInfo, modTimeWindow time.Duration, igno
 
 	switch f.Type {
 	case FileInfoTypeFile:
-		return f.Size == other.Size && ModTimeEqual(f.ModTime(), other.ModTime(), modTimeWindow) && (ignoreBlocks || BlocksEqual(f.Blocks, other.Blocks))
+		return f.Size == other.Size && ModTimeEqual(f.ModTime(), other.ModTime(), modTimeWindow) && (ignoreBlocks || f.BlocksEqual(other))
 	case FileInfoTypeSymlink:
 		return f.SymlinkTarget == other.SymlinkTarget
 	case FileInfoTypeDirectory:
@@ -236,9 +249,20 @@ func PermsEqual(a, b uint32) bool {
 	}
 }
 
-// BlocksEqual returns whether two slices of blocks are exactly the same hash
+// BlocksEqual returns true when the two files have identical block lists.
+func (f FileInfo) BlocksEqual(other FileInfo) bool {
+	// If both sides have blocks hashes then we can just compare those.
+	if len(f.BlocksHash) > 0 && len(other.BlocksHash) > 0 {
+		return bytes.Equal(f.BlocksHash, other.BlocksHash)
+	}
+
+	// Actually compare the block lists in full.
+	return blocksEqual(f.Blocks, other.Blocks)
+}
+
+// blocksEqual returns whether two slices of blocks are exactly the same hash
 // and index pair wise.
-func BlocksEqual(a, b []BlockInfo) bool {
+func blocksEqual(a, b []BlockInfo) bool {
 	if len(b) != len(a) {
 		return false
 	}
@@ -253,24 +277,36 @@ func BlocksEqual(a, b []BlockInfo) bool {
 }
 
 func (f *FileInfo) SetMustRescan(by ShortID) {
-	f.LocalFlags = FlagLocalMustRescan
-	f.ModifiedBy = by
-	f.Blocks = nil
-	f.Sequence = 0
+	f.setLocalFlags(by, FlagLocalMustRescan)
 }
 
 func (f *FileInfo) SetIgnored(by ShortID) {
-	f.LocalFlags = FlagLocalIgnored
-	f.ModifiedBy = by
-	f.Blocks = nil
-	f.Sequence = 0
+	f.setLocalFlags(by, FlagLocalIgnored)
 }
 
 func (f *FileInfo) SetUnsupported(by ShortID) {
-	f.LocalFlags = FlagLocalUnsupported
+	f.setLocalFlags(by, FlagLocalUnsupported)
+}
+
+func (f *FileInfo) SetDeleted(by ShortID) {
 	f.ModifiedBy = by
+	f.Deleted = true
+	f.Version = f.Version.Update(by)
+	f.ModifiedS = time.Now().Unix()
+	f.setNoContent()
+}
+
+func (f *FileInfo) setLocalFlags(by ShortID, flags uint32) {
+	f.RawInvalid = false
+	f.LocalFlags = flags
+	f.ModifiedBy = by
+	f.setNoContent()
+}
+
+func (f *FileInfo) setNoContent() {
 	f.Blocks = nil
-	f.Sequence = 0
+	f.BlocksHash = nil
+	f.Size = 0
 }
 
 func (b BlockInfo) String() string {
@@ -288,7 +324,7 @@ func (b BlockInfo) IsEmpty() bool {
 type IndexID uint64
 
 func (i IndexID) String() string {
-	return fmt.Sprintf("0x%16X", uint64(i))
+	return fmt.Sprintf("0x%016X", uint64(i))
 }
 
 func (i IndexID) Marshal() ([]byte, error) {
@@ -315,4 +351,12 @@ func (f Folder) Description() string {
 		return f.ID
 	}
 	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
+}
+
+func BlocksHash(bs []BlockInfo) []byte {
+	h := sha256.New()
+	for _, b := range bs {
+		_, _ = h.Write(b.Hash)
+	}
+	return h.Sum(nil)
 }

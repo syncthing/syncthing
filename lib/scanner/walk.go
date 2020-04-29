@@ -21,6 +21,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/text/unicode/norm"
 )
@@ -56,6 +57,8 @@ type Config struct {
 	LocalFlags uint32
 	// Modification time is to be considered unchanged if the difference is lower.
 	ModTimeWindow time.Duration
+	// Event logger to which the scan progress events are sent
+	EventLogger events.Logger
 }
 
 type CurrentFiler interface {
@@ -111,6 +114,10 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			w.Filesystem.Walk(".", hashFiles)
 		} else {
 			for _, sub := range w.Subs {
+				if err := osutil.TraversesSymlink(w.Filesystem, filepath.Dir(sub)); err != nil {
+					l.Debugf("Skip walking %v as it is below a symlink", sub)
+					continue
+				}
 				w.Filesystem.Walk(sub, hashFiles)
 			}
 		}
@@ -168,7 +175,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 					current := progress.Total()
 					rate := progress.Rate()
 					l.Debugf("Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
-					events.Default.Log(events.FolderScanProgress, map[string]interface{}{
+					w.EventLogger.Log(events.FolderScanProgress, map[string]interface{}{
 						"folder":  w.Folder,
 						"current": current,
 						"total":   total,
@@ -529,7 +536,7 @@ func (w *walker) handleError(ctx context.Context, context, path string, err erro
 	l.Infof("Scanner (folder %s, item %q): %s: %v", w.Folder, path, context, err)
 	select {
 	case finishedChan <- ScanResult{
-		Err:  fmt.Errorf("%s: %s", context, err.Error()),
+		Err:  fmt.Errorf("%s: %w", context, err),
 		Path: path,
 	}:
 	case <-ctx.Done():

@@ -12,18 +12,18 @@ type nativeModel struct {
 	Model
 }
 
-func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
+func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo) error {
 	for i := range files {
 		files[i].Name = norm.NFD.String(files[i].Name)
 	}
-	m.Model.Index(deviceID, folder, files)
+	return m.Model.Index(deviceID, folder, files)
 }
 
-func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
+func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error {
 	for i := range files {
 		files[i].Name = norm.NFD.String(files[i].Name)
 	}
-	m.Model.IndexUpdate(deviceID, folder, files)
+	return m.Model.IndexUpdate(deviceID, folder, files)
 }
 
 func (m nativeModel) Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {

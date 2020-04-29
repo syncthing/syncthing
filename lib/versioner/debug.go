@@ -7,16 +7,9 @@
 package versioner
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	l = logger.DefaultLogger.NewFacility("versioner", "File versioning")
 )
-
-func init() {
-	l.SetDebug("versioner", strings.Contains(os.Getenv("STTRACE"), "versioner") || os.Getenv("STTRACE") == "all")
-}

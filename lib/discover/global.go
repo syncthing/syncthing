@@ -8,6 +8,7 @@ package discover
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -35,12 +36,13 @@ type globalClient struct {
 	queryClient    httpClient
 	noAnnounce     bool
 	noLookup       bool
+	evLogger       events.Logger
 	errorHolder
 }
 
 type httpClient interface {
-	Get(url string) (*http.Response, error)
-	Post(url, ctype string, data io.Reader) (*http.Response, error)
+	Get(ctx context.Context, url string) (*http.Response, error)
+	Post(ctx context.Context, url, ctype string, data io.Reader) (*http.Response, error)
 }
 
 const (
@@ -70,7 +72,7 @@ func (e lookupError) CacheFor() time.Duration {
 	return e.cacheFor
 }
 
-func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (FinderService, error) {
+func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLogger events.Logger) (FinderService, error) {
 	server, opts, err := parseOptions(server)
 	if err != nil {
 		return nil, err
@@ -87,7 +89,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (Fin
 	// The http.Client used for announcements. It needs to have our
 	// certificate to prove our identity, and may or may not verify the server
 	// certificate depending on the insecure setting.
-	var announceClient httpClient = &http.Client{
+	var announceClient httpClient = &contextClient{&http.Client{
 		Timeout: requestTimeout,
 		Transport: &http.Transport{
 			DialContext: dialer.DialContextReusePort,
@@ -97,14 +99,14 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (Fin
 				Certificates:       []tls.Certificate{cert},
 			},
 		},
-	}
+	}}
 	if opts.id != "" {
 		announceClient = newIDCheckingHTTPClient(announceClient, devID)
 	}
 
 	// The http.Client used for queries. We don't need to present our
 	// certificate here, so lets not include it. May be insecure if requested.
-	var queryClient httpClient = &http.Client{
+	var queryClient httpClient = &contextClient{&http.Client{
 		Timeout: requestTimeout,
 		Transport: &http.Transport{
 			DialContext: dialer.DialContext,
@@ -113,7 +115,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (Fin
 				InsecureSkipVerify: opts.insecure,
 			},
 		},
-	}
+	}}
 	if opts.id != "" {
 		queryClient = newIDCheckingHTTPClient(queryClient, devID)
 	}
@@ -125,8 +127,9 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (Fin
 		queryClient:    queryClient,
 		noAnnounce:     opts.noAnnounce,
 		noLookup:       opts.noLookup,
+		evLogger:       evLogger,
 	}
-	cl.Service = util.AsService(cl.serve)
+	cl.Service = util.AsService(cl.serve, cl.String())
 	if !opts.noAnnounce {
 		// If we are supposed to annonce, it's an error until we've done so.
 		cl.setError(errors.New("not announced"))
@@ -136,7 +139,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (Fin
 }
 
 // Lookup returns the list of addresses where the given device is available
-func (c *globalClient) Lookup(device protocol.DeviceID) (addresses []string, err error) {
+func (c *globalClient) Lookup(ctx context.Context, device protocol.DeviceID) (addresses []string, err error) {
 	if c.noLookup {
 		return nil, lookupError{
 			error:    errors.New("lookups not supported"),
@@ -153,7 +156,7 @@ func (c *globalClient) Lookup(device protocol.DeviceID) (addresses []string, err
 	q.Set("device", device.String())
 	qURL.RawQuery = q.Encode()
 
-	resp, err := c.queryClient.Get(qURL.String())
+	resp, err := c.queryClient.Get(ctx, qURL.String())
 	if err != nil {
 		l.Debugln("globalClient.Lookup", qURL, err)
 		return nil, err
@@ -186,19 +189,19 @@ func (c *globalClient) String() string {
 	return "global@" + c.server
 }
 
-func (c *globalClient) serve(stop chan struct{}) {
+func (c *globalClient) serve(ctx context.Context) {
 	if c.noAnnounce {
 		// We're configured to not do announcements, only lookups. To maintain
 		// the same interface, we just pause here if Serve() is run.
-		<-stop
+		<-ctx.Done()
 		return
 	}
 
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
-	eventSub := events.Default.Subscribe(events.ListenAddressesChanged)
-	defer events.Default.Unsubscribe(eventSub)
+	eventSub := c.evLogger.Subscribe(events.ListenAddressesChanged)
+	defer eventSub.Unsubscribe()
 
 	for {
 		select {
@@ -208,15 +211,15 @@ func (c *globalClient) serve(stop chan struct{}) {
 			timer.Reset(2 * time.Second)
 
 		case <-timer.C:
-			c.sendAnnouncement(timer)
+			c.sendAnnouncement(ctx, timer)
 
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (c *globalClient) sendAnnouncement(timer *time.Timer) {
+func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) {
 	var ann announcement
 	if c.addrList != nil {
 		ann.Addresses = c.addrList.ExternalAddresses()
@@ -236,7 +239,7 @@ func (c *globalClient) sendAnnouncement(timer *time.Timer) {
 
 	l.Debugf("Announcement: %s", postData)
 
-	resp, err := c.announceClient.Post(c.server, "application/json", bytes.NewReader(postData))
+	resp, err := c.announceClient.Post(ctx, c.server, "application/json", bytes.NewReader(postData))
 	if err != nil {
 		l.Debugln("announce POST:", err)
 		c.setError(err)
@@ -359,8 +362,8 @@ func (c *idCheckingHTTPClient) check(resp *http.Response) error {
 	return nil
 }
 
-func (c *idCheckingHTTPClient) Get(url string) (*http.Response, error) {
-	resp, err := c.httpClient.Get(url)
+func (c *idCheckingHTTPClient) Get(ctx context.Context, url string) (*http.Response, error) {
+	resp, err := c.httpClient.Get(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -371,8 +374,8 @@ func (c *idCheckingHTTPClient) Get(url string) (*http.Response, error) {
 	return resp, nil
 }
 
-func (c *idCheckingHTTPClient) Post(url, ctype string, data io.Reader) (*http.Response, error) {
-	resp, err := c.httpClient.Post(url, ctype, data)
+func (c *idCheckingHTTPClient) Post(ctx context.Context, url, ctype string, data io.Reader) (*http.Response, error) {
+	resp, err := c.httpClient.Post(ctx, url, ctype, data)
 	if err != nil {
 		return nil, err
 	}
@@ -399,4 +402,33 @@ func (e *errorHolder) Error() error {
 	err := e.err
 	e.mut.Unlock()
 	return err
+}
+
+type contextClient struct {
+	*http.Client
+}
+
+func (c *contextClient) Get(ctx context.Context, url string) (*http.Response, error) {
+	// For <go1.13 compatibility. Use the following commented line once that
+	// isn't required anymore.
+	// req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Cancel = ctx.Done()
+	return c.Client.Do(req)
+}
+
+func (c *contextClient) Post(ctx context.Context, url, ctype string, data io.Reader) (*http.Response, error) {
+	// For <go1.13 compatibility. Use the following commented line once that
+	// isn't required anymore.
+	// req, err := http.NewRequestWithContext(ctx, "POST", url, data)
+	req, err := http.NewRequest("POST", url, data)
+	if err != nil {
+		return nil, err
+	}
+	req.Cancel = ctx.Done()
+	req.Header.Set("Content-Type", ctype)
+	return c.Client.Do(req)
 }

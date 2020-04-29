@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"text/tabwriter"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/urfave/cli"
@@ -43,12 +42,6 @@ func dumpOutput(url string) cli.ActionFunc {
 		}
 		return prettyPrintResponse(c, response)
 	}
-}
-
-func newTableWriter() *tabwriter.Writer {
-	writer := new(tabwriter.Writer)
-	writer.Init(os.Stdout, 0, 8, 0, '\t', 0)
-	return writer
 }
 
 func getConfig(c *APIClient) (config.Configuration, error) {

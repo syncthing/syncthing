@@ -1,4 +1,4 @@
-<modal id="editDevice" status="default" icon="{{editingExisting ? 'fas fa-pencil-alt' : 'fas fa-desktop'}}" heading="{{editingExisting ? 'Edit Device' : 'Add Device' | translate}}" large="yes" closeable="yes">
+<modal id="editDevice" status="default" icon="{{editingExisting ? 'fas fa-pencil-alt' : 'fas fa-desktop'}}" heading="{{editingExisting ? 'Edit Device' : 'Add Device' | translate}} {{currentDevice.name}}" large="yes" closeable="yes">
   <div class="modal-body">
     <form role="form" name="deviceEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(deviceEditor)">
@@ -15,10 +15,10 @@
               <datalist id="discovery-list">
                 <option ng-repeat="id in discovery" value="{{id}}" />
               </datalist>
-              <p class="help-block" ng-if="discovery">
+              <p class="help-block" ng-if="discovery && discovery.length !== 0">
                 <span translate>You can also select one of these nearby devices:</span>
                 <ul>
-                  <li ng-repeat="id in discovery"><a ng-click="currentDevice.deviceID = id">{{id}}</a></li>
+                  <li ng-repeat="id in discovery"><a href="#" ng-click="currentDevice.deviceID = id">{{id}}</a></li>
                 </ul>
               </p>
               <p class="help-block">

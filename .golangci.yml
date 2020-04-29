@@ -12,9 +12,15 @@ linters:
     - gochecknoglobals
     - gofmt
     - scopelint
+    - gocyclo
+    - funlen
+    - wsl
+    - gocognit
+    - godox
 
 service:
-  golangci-lint-version: 1.16.x
+  golangci-lint-version: 1.21.x
   prepare:
+    - rm -f go.sum # 1.12 -> 1.13 issues with QUIC-go
     - GO111MODULE=on go mod vendor
     - go run build.go assets

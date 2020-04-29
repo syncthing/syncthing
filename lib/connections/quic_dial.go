@@ -16,13 +16,20 @@ import (
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
+	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const quicPriority = 100
+const (
+	quicPriority = 100
+
+	// The timeout for connecting, accepting and creating the various
+	// streams.
+	quicOperationTimeout = 10 * time.Second
+)
 
 func init() {
 	factory := &quicDialerFactory{}
@@ -32,11 +39,10 @@ func init() {
 }
 
 type quicDialer struct {
-	cfg    config.Wrapper
-	tlsCfg *tls.Config
+	commonDialer
 }
 
-func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, error) {
+func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri, config.DefaultQUICPort)
 
 	addr, err := net.ResolveUDPAddr("udp", uri.Host)
@@ -60,46 +66,28 @@ func (d *quicDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, err
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
 	defer cancel()
+
 	session, err := quic.DialContext(ctx, conn, addr, uri.Host, d.tlsCfg, quicConfig)
 	if err != nil {
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}
-		return internalConn{}, err
+		return internalConn{}, errors.Wrap(err, "dial")
 	}
 
-	// OpenStreamSync is blocks, but we want to make sure the connection is usable
-	// before we start killing off other connections, so do the dance.
-	ok := make(chan struct{})
-	go func() {
-		select {
-		case <-ok:
-			return
-		case <-time.After(10 * time.Second):
-			l.Debugln("timed out waiting for OpenStream on", session.RemoteAddr())
-			// This will unblock OpenStreamSync
-			_ = session.Close()
-		}
-	}()
-
-	stream, err := session.OpenStreamSync()
-	close(ok)
+	stream, err := session.OpenStreamSync(ctx)
 	if err != nil {
 		// It's ok to close these, this does not close the underlying packetConn.
 		_ = session.Close()
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}
-		return internalConn{}, err
+		return internalConn{}, errors.Wrap(err, "open stream")
 	}
 
 	return internalConn{&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, quicPriority}, nil
-}
-
-func (d *quicDialer) RedialFrequency() time.Duration {
-	return time.Duration(d.cfg.Options().ReconnectIntervalS) * time.Second
 }
 
 type quicDialerFactory struct {
@@ -107,11 +95,11 @@ type quicDialerFactory struct {
 	tlsCfg *tls.Config
 }
 
-func (quicDialerFactory) New(cfg config.Wrapper, tlsCfg *tls.Config) genericDialer {
-	return &quicDialer{
-		cfg:    cfg,
-		tlsCfg: tlsCfg,
-	}
+func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
+	return &quicDialer{commonDialer{
+		reconnectInterval: time.Duration(opts.ReconnectIntervalS) * time.Second,
+		tlsCfg:            tlsCfg,
+	}}
 }
 
 func (quicDialerFactory) Priority() int {

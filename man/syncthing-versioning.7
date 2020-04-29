@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-VERSIONING" "7" "Jun 11, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-VERSIONING" "7" "Apr 24, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-versioning \- Keep automatic backups of deleted files by other nodes
 .
@@ -36,6 +36,17 @@ replaced with a newer version from the cluster. This is called “file
 versioning” and uses one of the available \fIversioning strategies\fP described
 below. File versioning is configured per folder, on a per\-device basis, and
 defaults to “no file versioning”, i.e. no old copies of files are kept.
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Versioning applies to changes received \fIfrom other devices\fP\&. That is, if
+Alice has versioning turned on and Bob changes a file, the old version
+will be archived on Alice’s computer when that change is synced from
+Bob. If Alice changes a file locally on her own computer Syncthing will
+not and can not archive the old version.
+.UNINDENT
+.UNINDENT
 .SH TRASH CAN FILE VERSIONING
 .sp
 This versioning strategy emulates the common “trash can” approach. When a file

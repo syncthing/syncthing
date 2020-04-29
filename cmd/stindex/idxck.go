@@ -10,8 +10,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"log"
+	"sort"
 
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -31,7 +34,7 @@ type sequenceKey struct {
 	sequence uint64
 }
 
-func idxck(ldb *db.Lowlevel) (success bool) {
+func idxck(ldb backend.Backend) (success bool) {
 	folders := make(map[uint32]string)
 	devices := make(map[uint32]string)
 	deviceToIDs := make(map[string]uint32)
@@ -39,10 +42,15 @@ func idxck(ldb *db.Lowlevel) (success bool) {
 	globals := make(map[globalKey]db.VersionList)
 	sequences := make(map[sequenceKey]string)
 	needs := make(map[globalKey]struct{})
+	blocklists := make(map[string]struct{})
+	usedBlocklists := make(map[string]struct{})
 	var localDeviceKey uint32
 	success = true
 
-	it := ldb.NewIterator(nil, nil)
+	it, err := ldb.NewPrefixIterator(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 	for it.Next() {
 		key := it.Key()
 		switch key[0] {
@@ -94,6 +102,10 @@ func idxck(ldb *db.Lowlevel) (success bool) {
 			folder := binary.BigEndian.Uint32(key[1:])
 			name := nulString(key[1+4:])
 			needs[globalKey{folder, name}] = struct{}{}
+
+		case db.KeyTypeBlockList:
+			hash := string(key[1:])
+			blocklists[hash] = struct{}{}
 		}
 	}
 
@@ -103,6 +115,7 @@ func idxck(ldb *db.Lowlevel) (success bool) {
 		return
 	}
 
+	var missingSeq []sequenceKey
 	for fk, fi := range fileInfos {
 		if fk.name != fi.Name {
 			fmt.Printf("Mismatching FileInfo name, %q (key) != %q (actual)\n", fk.name, fi.Name)
@@ -121,9 +134,11 @@ func idxck(ldb *db.Lowlevel) (success bool) {
 		}
 
 		if fk.device == localDeviceKey {
-			name, ok := sequences[sequenceKey{fk.folder, uint64(fi.Sequence)}]
+			sk := sequenceKey{fk.folder, uint64(fi.Sequence)}
+			name, ok := sequences[sk]
 			if !ok {
 				fmt.Printf("Sequence entry missing for FileInfo %q, folder %q, seq %d\n", fi.Name, folder, fi.Sequence)
+				missingSeq = append(missingSeq, sk)
 				success = false
 				continue
 			}
@@ -132,6 +147,41 @@ func idxck(ldb *db.Lowlevel) (success bool) {
 				success = false
 			}
 		}
+
+		if len(fi.Blocks) == 0 && len(fi.BlocksHash) != 0 {
+			key := string(fi.BlocksHash)
+			if _, ok := blocklists[key]; !ok {
+				fmt.Printf("Missing block list for file %q, block list hash %x\n", fi.Name, fi.BlocksHash)
+				success = false
+			} else {
+				usedBlocklists[key] = struct{}{}
+			}
+		}
+	}
+
+	// Aggregate the ranges of missing sequence entries, print them
+
+	sort.Slice(missingSeq, func(a, b int) bool {
+		if missingSeq[a].folder != missingSeq[b].folder {
+			return missingSeq[a].folder < missingSeq[b].folder
+		}
+		return missingSeq[a].sequence < missingSeq[b].sequence
+	})
+
+	var folder uint32
+	var startSeq, prevSeq uint64
+	for _, sk := range missingSeq {
+		if folder != sk.folder || sk.sequence != prevSeq+1 {
+			if folder != 0 {
+				fmt.Printf("Folder %d missing %d sequence entries: #%d - #%d\n", folder, prevSeq-startSeq+1, startSeq, prevSeq)
+			}
+			startSeq = sk.sequence
+			folder = sk.folder
+		}
+		prevSeq = sk.sequence
+	}
+	if folder != 0 {
+		fmt.Printf("Folder %d missing %d sequence entries: #%d - #%d\n", folder, prevSeq-startSeq+1, startSeq, prevSeq)
 	}
 
 	for gk, vl := range globals {
@@ -222,6 +272,10 @@ func idxck(ldb *db.Lowlevel) (success bool) {
 			fmt.Printf("Need entry for file we don't need, %q, folder %q\n", nk.name, folder)
 			success = false
 		}
+	}
+
+	if d := len(blocklists) - len(usedBlocklists); d > 0 {
+		fmt.Printf("%d block list entries out of %d needs GC\n", d, len(blocklists))
 	}
 
 	return

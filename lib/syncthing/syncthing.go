@@ -7,11 +7,14 @@
 package syncthing
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +26,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
@@ -33,24 +37,31 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
 )
 
 const (
-	bepProtocolName      = "bep/1.0"
-	tlsDefaultCommonName = "syncthing"
-	maxSystemErrors      = 5
-	initialSystemLog     = 10
-	maxSystemLog         = 250
+	bepProtocolName        = "bep/1.0"
+	tlsDefaultCommonName   = "syncthing"
+	maxSystemErrors        = 5
+	initialSystemLog       = 10
+	maxSystemLog           = 250
+	deviceCertLifetimeDays = 20 * 365
 )
 
 type ExitStatus int
 
+func (s ExitStatus) AsInt() int {
+	return int(s)
+}
+
 const (
-	ExitSuccess ExitStatus = 0
-	ExitError   ExitStatus = 1
-	ExitRestart ExitStatus = 3
-	ExitUpgrade ExitStatus = 4
+	ExitSuccess            ExitStatus = 0
+	ExitError              ExitStatus = 1
+	ExitNoUpgradeAvailable ExitStatus = 2
+	ExitRestart            ExitStatus = 3
+	ExitUpgrade            ExitStatus = 4
 )
 
 type Options struct {
@@ -61,6 +72,9 @@ type Options struct {
 	ProfilerURL      string
 	ResetDeltaIdxs   bool
 	Verbose          bool
+	// null duration means use default value
+	DBRecheckInterval    time.Duration
+	DBIndirectGCInterval time.Duration
 }
 
 type App struct {
@@ -68,46 +82,41 @@ type App struct {
 	mainService *suture.Supervisor
 	cfg         config.Wrapper
 	ll          *db.Lowlevel
+	evLogger    events.Logger
 	cert        tls.Certificate
 	opts        Options
 	exitStatus  ExitStatus
 	err         error
-	startOnce   sync.Once
+	stopOnce    sync.Once
 	stop        chan struct{}
 	stopped     chan struct{}
 }
 
-func New(cfg config.Wrapper, ll *db.Lowlevel, cert tls.Certificate, opts Options) *App {
-	return &App{
-		cfg:     cfg,
-		ll:      ll,
-		opts:    opts,
-		cert:    cert,
-		stop:    make(chan struct{}),
-		stopped: make(chan struct{}),
+func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
+	a := &App{
+		cfg:      cfg,
+		ll:       db.NewLowlevel(dbBackend, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval)),
+		evLogger: evLogger,
+		opts:     opts,
+		cert:     cert,
+		stop:     make(chan struct{}),
+		stopped:  make(chan struct{}),
 	}
-}
-
-// Run does the same as start, but then does not return until the app stops. It
-// is equivalent to calling Start and then Wait.
-func (a *App) Run() ExitStatus {
-	a.Start()
-	return a.Wait()
+	close(a.stopped) // Hasn't been started, so shouldn't block on Wait.
+	return a
 }
 
 // Start executes the app and returns once all the startup operations are done,
 // e.g. the API is ready for use.
-func (a *App) Start() {
-	a.startOnce.Do(func() {
-		if err := a.startup(); err != nil {
-			close(a.stop)
-			a.exitStatus = ExitError
-			a.err = err
-			close(a.stopped)
-			return
-		}
-		go a.run()
-	})
+// Must be called once only.
+func (a *App) Start() error {
+	if err := a.startup(); err != nil {
+		a.stopWithErr(ExitError, err)
+		return err
+	}
+	a.stopped = make(chan struct{})
+	go a.run()
+	return nil
 }
 
 func (a *App) startup() error {
@@ -119,14 +128,15 @@ func (a *App) startup() error {
 		},
 		PassThroughPanics: true,
 	})
+	a.mainService.Add(a.ll)
 	a.mainService.ServeBackground()
 
 	if a.opts.AuditWriter != nil {
-		a.mainService.Add(newAuditService(a.opts.AuditWriter))
+		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
 	}
 
 	if a.opts.Verbose {
-		a.mainService.Add(newVerboseService())
+		a.mainService.Add(newVerboseService(a.evLogger))
 	}
 
 	errors := logger.NewRecorder(l, logger.LevelWarn, maxSystemErrors, 0)
@@ -135,8 +145,8 @@ func (a *App) startup() error {
 	// Event subscription for the API; must start early to catch the early
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
-	defaultSub := events.NewBufferedSubscription(events.Default.Subscribe(api.DefaultEventMask), api.EventSubBufferSize)
-	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(api.DiskEventMask), api.EventSubBufferSize)
+	defaultSub := events.NewBufferedSubscription(a.evLogger.Subscribe(api.DefaultEventMask), api.EventSubBufferSize)
+	diskSub := events.NewBufferedSubscription(a.evLogger.Subscribe(api.DiskEventMask), api.EventSubBufferSize)
 
 	// Attempt to increase the limit on number of open files to the maximum
 	// allowed, in case we have many peers. We don't really care enough to
@@ -155,7 +165,7 @@ func (a *App) startup() error {
 
 	// Emit the Starting event, now that we know who we are.
 
-	events.Default.Log(events.Starting, map[string]string{
+	a.evLogger.Log(events.Starting, map[string]string{
 		"home": locations.GetBaseDir(locations.ConfigBaseDir),
 		"myID": a.myID.String(),
 	})
@@ -177,7 +187,7 @@ func (a *App) startup() error {
 		}()
 	}
 
-	perf := ur.CpuBench(3, 150*time.Millisecond, true)
+	perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond, true)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	if err := db.UpdateSchema(a.ll); err != nil {
@@ -209,7 +219,11 @@ func (a *App) startup() error {
 	// Grab the previously running version string from the database.
 
 	miscDB := db.NewMiscDataNamespace(a.ll)
-	prevVersion, _ := miscDB.String("prevVersion")
+	prevVersion, _, err := miscDB.String("prevVersion")
+	if err != nil {
+		l.Warnln("Database:", err)
+		return err
+	}
 
 	// Strip away prerelease/beta stuff and just compare the release
 	// numbers. 0.14.44 to 0.14.45-banana is an upgrade, 0.14.45-banana to
@@ -217,7 +231,7 @@ func (a *App) startup() error {
 
 	prevParts := strings.Split(prevVersion, "-")
 	curParts := strings.Split(build.Version, "-")
-	if prevParts[0] != curParts[0] {
+	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
 		if prevVersion != "" {
 			l.Infoln("Detected upgrade from", prevVersion, "to", build.Version)
 		}
@@ -225,27 +239,27 @@ func (a *App) startup() error {
 		// Drop delta indexes in case we've changed random stuff we
 		// shouldn't have. We will resend our index on next connect.
 		db.DropDeltaIndexIDs(a.ll)
+	}
 
+	// Check and repair metadata and sequences on every upgrade including RCs.
+	prevParts = strings.Split(prevVersion, "+")
+	curParts = strings.Split(build.Version, "+")
+	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
+		l.Infoln("Checking db due to upgrade - this may take a while...")
+		a.ll.CheckRepair()
+	}
+
+	if build.Version != prevVersion {
 		// Remember the new version.
 		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles)
+	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
 
 	if a.opts.DeadlockTimeoutS > 0 {
 		m.StartDeadlockDetector(time.Duration(a.opts.DeadlockTimeoutS) * time.Second)
 	} else if !build.IsRelease || build.IsBeta {
 		m.StartDeadlockDetector(20 * time.Minute)
-	}
-
-	// Add and start folders
-	for _, folderCfg := range a.cfg.Folders() {
-		if folderCfg.Paused {
-			folderCfg.CreateRoot()
-			continue
-		}
-		m.AddFolder(folderCfg)
-		m.StartFolder(folderCfg.ID)
 	}
 
 	a.mainService.Add(m)
@@ -267,13 +281,13 @@ func (a *App) startup() error {
 
 	// Start connection management
 
-	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName)
+	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName, a.evLogger)
 	a.mainService.Add(connectionsService)
 
 	if a.cfg.Options().GlobalAnnEnabled {
-		for _, srv := range a.cfg.GlobalDiscoveryServers() {
+		for _, srv := range a.cfg.Options().GlobalDiscoveryServers() {
 			l.Infoln("Using discovery server", srv)
-			gd, err := discover.NewGlobal(srv, a.cert, connectionsService)
+			gd, err := discover.NewGlobal(srv, a.cert, connectionsService, a.evLogger)
 			if err != nil {
 				l.Warnln("Global discovery:", err)
 				continue
@@ -288,14 +302,14 @@ func (a *App) startup() error {
 
 	if a.cfg.Options().LocalAnnEnabled {
 		// v4 broadcasts
-		bcd, err := discover.NewLocal(a.myID, fmt.Sprintf(":%d", a.cfg.Options().LocalAnnPort), connectionsService)
+		bcd, err := discover.NewLocal(a.myID, fmt.Sprintf(":%d", a.cfg.Options().LocalAnnPort), connectionsService, a.evLogger)
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
 			cachedDiscovery.Add(bcd, 0, 0)
 		}
 		// v6 multicasts
-		mcd, err := discover.NewLocal(a.myID, a.cfg.Options().LocalAnnMCAddr, connectionsService)
+		mcd, err := discover.NewLocal(a.myID, a.cfg.Options().LocalAnnMCAddr, connectionsService, a.evLogger)
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
@@ -344,7 +358,7 @@ func (a *App) startup() error {
 		l.Warnln("Syncthing should not run as a privileged or system user. Please consider using a normal user account.")
 	}
 
-	events.Default.Log(events.StartupComplete, map[string]string{
+	a.evLogger.Log(events.StartupComplete, map[string]string{
 		"myID": a.myID.String(),
 	})
 
@@ -360,6 +374,10 @@ func (a *App) startup() error {
 func (a *App) run() {
 	<-a.stop
 
+	if shouldDebug() {
+		l.Debugln("Services before stop:")
+		printServiceTree(os.Stdout, a.mainService, 0)
+	}
 	a.mainService.Stop()
 
 	done := make(chan struct{})
@@ -378,7 +396,8 @@ func (a *App) run() {
 	close(a.stopped)
 }
 
-// Wait blocks until the app stops running.
+// Wait blocks until the app stops running. Also returns if the app hasn't been
+// started yet.
 func (a *App) Wait() ExitStatus {
 	<-a.stopped
 	return a.exitStatus
@@ -388,28 +407,26 @@ func (a *App) Wait() ExitStatus {
 // for the app to stop before returning.
 func (a *App) Error() error {
 	select {
-	case <-a.stopped:
-		return nil
+	case <-a.stop:
+		return a.err
 	default:
 	}
-	return a.err
+	return nil
 }
 
 // Stop stops the app and sets its exit status to given reason, unless the app
 // was already stopped before. In any case it returns the effective exit status.
 func (a *App) Stop(stopReason ExitStatus) ExitStatus {
-	select {
-	case <-a.stopped:
-	case <-a.stop:
-	default:
-		// ExitSuccess is the default value for a.exitStatus. If another status
-		// was already set, ignore the stop reason given as argument to Stop.
-		if a.exitStatus == ExitSuccess {
-			a.exitStatus = stopReason
-		}
+	return a.stopWithErr(stopReason, nil)
+}
+
+func (a *App) stopWithErr(stopReason ExitStatus, err error) ExitStatus {
+	a.stopOnce.Do(func() {
+		a.exitStatus = stopReason
+		a.err = err
 		close(a.stop)
-		<-a.stopped
-	}
+	})
+	<-a.stopped
 	return a.exitStatus
 }
 
@@ -424,13 +441,10 @@ func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscri
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	cpu := newCPUService()
-	a.mainService.Add(cpu)
-
-	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID)
+	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID, a.evLogger)
 	a.mainService.Add(summaryService)
 
-	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, &controller{a}, a.opts.NoUpgrade)
+	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, &controller{a}, a.opts.NoUpgrade)
 	a.mainService.Add(apiSvc)
 
 	if err := apiSvc.WaitForStart(); err != nil {
@@ -467,4 +481,38 @@ func (e *controller) Shutdown() {
 
 func (e *controller) ExitUpgrading() {
 	e.Stop(ExitUpgrade)
+}
+
+type supervisor interface{ Services() []suture.Service }
+
+func printServiceTree(w io.Writer, sup supervisor, level int) {
+	printService(w, sup, level)
+
+	svcs := sup.Services()
+	sort.Slice(svcs, func(a, b int) bool {
+		return fmt.Sprint(svcs[a]) < fmt.Sprint(svcs[b])
+	})
+
+	for _, svc := range svcs {
+		if sub, ok := svc.(supervisor); ok {
+			printServiceTree(w, sub, level+1)
+		} else {
+			printService(w, svc, level+1)
+		}
+	}
+}
+
+func printService(w io.Writer, svc interface{}, level int) {
+	type errorer interface{ Error() error }
+
+	t := "-"
+	if _, ok := svc.(supervisor); ok {
+		t = "+"
+	}
+	fmt.Fprintln(w, strings.Repeat("  ", level), t, svc)
+	if es, ok := svc.(errorer); ok {
+		if err := es.Error(); err != nil {
+			fmt.Fprintln(w, strings.Repeat("  ", level), "  ->", err)
+		}
+	}
 }

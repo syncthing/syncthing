@@ -11,22 +11,26 @@ import (
 	"io"
 	"os"
 
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
-	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/syncthing/syncthing/lib/db/backend"
 )
 
 // writeJSONS serializes the database to a JSON stream that can be checked
 // in to the repo and used for tests.
-func writeJSONS(w io.Writer, db *leveldb.DB) {
-	it := db.NewIterator(&util.Range{}, nil)
+func writeJSONS(w io.Writer, db backend.Backend) {
+	it, err := db.NewPrefixIterator(nil)
+	if err != nil {
+		panic(err)
+	}
 	defer it.Release()
 	enc := json.NewEncoder(w)
 	for it.Next() {
-		enc.Encode(map[string][]byte{
+		err := enc.Encode(map[string][]byte{
 			"k": it.Key(),
 			"v": it.Value(),
 		})
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -34,15 +38,15 @@ func writeJSONS(w io.Writer, db *leveldb.DB) {
 // here and the linter to not complain.
 var _ = writeJSONS
 
-// openJSONS reads a JSON stream file into a leveldb.DB
-func openJSONS(file string) (*leveldb.DB, error) {
+// openJSONS reads a JSON stream file into a backend DB
+func openJSONS(file string) (backend.Backend, error) {
 	fd, err := os.Open(file)
 	if err != nil {
 		return nil, err
 	}
 	dec := json.NewDecoder(fd)
 
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db := backend.OpenMemory()
 
 	for {
 		var row map[string][]byte
@@ -54,7 +58,9 @@ func openJSONS(file string) (*leveldb.DB, error) {
 			return nil, err
 		}
 
-		db.Put(row["k"], row["v"], nil)
+		if err := db.Put(row["k"], row["v"]); err != nil {
+			return nil, err
+		}
 	}
 
 	return db, nil

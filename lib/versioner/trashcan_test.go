@@ -53,7 +53,7 @@ func TestTrashcanCleanout(t *testing.T) {
 		}
 	}
 
-	versioner := NewTrashcan("default", fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), map[string]string{"cleanoutDays": "7"}).(*Trashcan)
+	versioner := newTrashcan(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), map[string]string{"cleanoutDays": "7"}).(*trashcan)
 	if err := versioner.cleanoutArchive(); err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestTrashcanArchiveRestoreSwitcharoo(t *testing.T) {
 
 	writeFile(t, folderFs, "file", "A")
 
-	versioner := NewTrashcan("", folderFs, map[string]string{
+	versioner := newTrashcan(folderFs, map[string]string{
 		"fsType": "basic",
 		"fsPath": tmpDir2,
 	})

@@ -6,7 +6,11 @@
 
 package util
 
-import "testing"
+import (
+	"context"
+	"strings"
+	"testing"
+)
 
 type Defaulter struct {
 	Value string
@@ -223,6 +227,7 @@ func TestCopyMatching(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 type mockedAddr struct {
 	network string
 	addr    string
@@ -266,4 +271,21 @@ func TestInspecifiedAddressLess(t *testing.T) {
 			t.Error(i, "unexpected")
 		}
 	}
+}
+
+func TestUtilStopTwicePanic(t *testing.T) {
+	name := "foo"
+	s := AsService(func(ctx context.Context) {
+		<-ctx.Done()
+	}, name)
+
+	go s.Serve()
+	s.Stop()
+
+	defer func() {
+		if r := recover(); r == nil || !strings.Contains(r.(string), name) {
+			t.Fatalf(`expected panic containing "%v", got "%v"`, name, r)
+		}
+	}()
+	s.Stop()
 }

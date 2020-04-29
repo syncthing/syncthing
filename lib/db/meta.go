@@ -15,23 +15,29 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-// metadataTracker keeps metadata on a per device, per local flag basis.
-type metadataTracker struct {
-	mut     sync.RWMutex
+type countsMap struct {
 	counts  CountsSet
 	indexes map[metaKey]int // device ID + local flags -> index in counts
-	dirty   bool
+}
+
+// metadataTracker keeps metadata on a per device, per local flag basis.
+type metadataTracker struct {
+	countsMap
+	mut   sync.RWMutex
+	dirty bool
 }
 
 type metaKey struct {
-	dev   protocol.DeviceID
-	flags uint32
+	dev  protocol.DeviceID
+	flag uint32
 }
 
 func newMetadataTracker() *metadataTracker {
 	return &metadataTracker{
-		mut:     sync.NewRWMutex(),
-		indexes: make(map[metaKey]int),
+		mut: sync.NewRWMutex(),
+		countsMap: countsMap{
+			indexes: make(map[metaKey]int),
+		},
 	}
 }
 
@@ -49,15 +55,18 @@ func (m *metadataTracker) Unmarshal(bs []byte) error {
 	return nil
 }
 
-// Unmarshal returns the protobuf representation of the metadataTracker
+// Marshal returns the protobuf representation of the metadataTracker
 func (m *metadataTracker) Marshal() ([]byte, error) {
 	return m.counts.Marshal()
 }
 
 // toDB saves the marshalled metadataTracker to the given db, under the key
 // corresponding to the given folder
-func (m *metadataTracker) toDB(db *instance, folder []byte) error {
-	key := db.keyer.GenerateFolderMetaKey(nil, folder)
+func (m *metadataTracker) toDB(t readWriteTransaction, folder []byte) error {
+	key, err := t.keyer.GenerateFolderMetaKey(nil, folder)
+	if err != nil {
+		return err
+	}
 
 	m.mut.RLock()
 	defer m.mut.RUnlock()
@@ -70,7 +79,7 @@ func (m *metadataTracker) toDB(db *instance, folder []byte) error {
 	if err != nil {
 		return err
 	}
-	err = db.Put(key, bs, nil)
+	err = t.Put(key, bs)
 	if err == nil {
 		m.dirty = false
 	}
@@ -80,9 +89,12 @@ func (m *metadataTracker) toDB(db *instance, folder []byte) error {
 
 // fromDB initializes the metadataTracker from the marshalled data found in
 // the database under the key corresponding to the given folder
-func (m *metadataTracker) fromDB(db *instance, folder []byte) error {
-	key := db.keyer.GenerateFolderMetaKey(nil, folder)
-	bs, err := db.Get(key, nil)
+func (m *metadataTracker) fromDB(db *Lowlevel, folder []byte) error {
+	key, err := db.keyer.GenerateFolderMetaKey(nil, folder)
+	if err != nil {
+		return err
+	}
+	bs, err := db.Get(key)
 	if err != nil {
 		return err
 	}
@@ -91,14 +103,18 @@ func (m *metadataTracker) fromDB(db *instance, folder []byte) error {
 
 // countsPtr returns a pointer to the corresponding Counts struct, if
 // necessary allocating one in the process
-func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flags uint32) *Counts {
+func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *Counts {
 	// must be called with the mutex held
 
-	key := metaKey{dev, flags}
+	if bits.OnesCount32(flag) > 1 {
+		panic("incorrect usage: set at most one bit in flag")
+	}
+
+	key := metaKey{dev, flag}
 	idx, ok := m.indexes[key]
 	if !ok {
 		idx = len(m.counts.Counts)
-		m.counts.Counts = append(m.counts.Counts, Counts{DeviceID: dev[:], LocalFlags: flags})
+		m.counts.Counts = append(m.counts.Counts, Counts{DeviceID: dev[:], LocalFlags: flag})
 		m.indexes[key] = idx
 	}
 	return &m.counts.Counts[idx]
@@ -145,8 +161,8 @@ func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f FileIntf) {
 	}
 }
 
-func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flags uint32, f FileIntf) {
-	cp := m.countsPtr(dev, flags)
+func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f FileIntf) {
+	cp := m.countsPtr(dev, flag)
 
 	switch {
 	case f.IsDeleted():
@@ -184,8 +200,8 @@ func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
 	}
 }
 
-func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flags uint32, f FileIntf) {
-	cp := m.countsPtr(dev, f.FileLocalFlags())
+func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flag uint32, f FileIntf) {
+	cp := m.countsPtr(dev, flag)
 
 	switch {
 	case f.IsDeleted():
@@ -254,15 +270,10 @@ func (m *metadataTracker) resetCounts(dev protocol.DeviceID) {
 	m.mut.Unlock()
 }
 
-// Counts returns the counts for the given device ID and flag. `flag` should
-// be zero or have exactly one bit set.
-func (m *metadataTracker) Counts(dev protocol.DeviceID, flag uint32) Counts {
+func (m *countsMap) Counts(dev protocol.DeviceID, flag uint32) Counts {
 	if bits.OnesCount32(flag) > 1 {
 		panic("incorrect usage: set at most one bit in flag")
 	}
-
-	m.mut.RLock()
-	defer m.mut.RUnlock()
 
 	idx, ok := m.indexes[metaKey{dev, flag}]
 	if !ok {
@@ -270,6 +281,37 @@ func (m *metadataTracker) Counts(dev protocol.DeviceID, flag uint32) Counts {
 	}
 
 	return m.counts.Counts[idx]
+}
+
+// Counts returns the counts for the given device ID and flag. `flag` should
+// be zero or have exactly one bit set.
+func (m *metadataTracker) Counts(dev protocol.DeviceID, flag uint32) Counts {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+
+	return m.countsMap.Counts(dev, flag)
+}
+
+// Snapshot returns a copy of the metadata for reading.
+func (m *metadataTracker) Snapshot() *countsMap {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+
+	c := &countsMap{
+		counts: CountsSet{
+			Counts:  make([]Counts, len(m.counts.Counts)),
+			Created: m.counts.Created,
+		},
+		indexes: make(map[metaKey]int, len(m.indexes)),
+	}
+	for k, v := range m.indexes {
+		c.indexes[k] = v
+	}
+	for i := range m.counts.Counts {
+		c.counts.Counts[i] = m.counts.Counts[i]
+	}
+
+	return c
 }
 
 // nextLocalSeq allocates a new local sequence number
@@ -285,26 +327,25 @@ func (m *metadataTracker) nextLocalSeq() int64 {
 // devices returns the list of devices tracked, excluding the local device
 // (which we don't know the ID of)
 func (m *metadataTracker) devices() []protocol.DeviceID {
-	devs := make(map[protocol.DeviceID]struct{}, len(m.counts.Counts))
-
 	m.mut.RLock()
+	defer m.mut.RUnlock()
+	return m.countsMap.devices()
+}
+
+func (m *countsMap) devices() []protocol.DeviceID {
+	devs := make([]protocol.DeviceID, 0, len(m.counts.Counts))
+
 	for _, dev := range m.counts.Counts {
 		if dev.Sequence > 0 {
 			id := protocol.DeviceIDFromBytes(dev.DeviceID)
 			if id == protocol.GlobalDeviceID || id == protocol.LocalDeviceID {
 				continue
 			}
-			devs[id] = struct{}{}
+			devs = append(devs, id)
 		}
 	}
-	m.mut.RUnlock()
 
-	devList := make([]protocol.DeviceID, 0, len(devs))
-	for dev := range devs {
-		devList = append(devList, dev)
-	}
-
-	return devList
+	return devs
 }
 
 func (m *metadataTracker) Created() time.Time {

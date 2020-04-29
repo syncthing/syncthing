@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/syncthing/syncthing/lib/dialer"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
@@ -40,12 +42,12 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 		messageTimeout: time.Minute * 2,
 		connectTimeout: timeout,
 	}
-	c.commonClient = newCommonClient(invitations, c.serve)
+	c.commonClient = newCommonClient(invitations, c.serve, c.String())
 	return c
 }
 
-func (c *staticClient) serve(stop chan struct{}) error {
-	if err := c.connect(); err != nil {
+func (c *staticClient) serve(ctx context.Context) error {
+	if err := c.connect(ctx); err != nil {
 		l.Infof("Could not connect to relay %s: %s", c.uri, err)
 		return err
 	}
@@ -71,9 +73,9 @@ func (c *staticClient) serve(stop chan struct{}) error {
 	c.mut.Unlock()
 
 	messages := make(chan interface{})
-	errors := make(chan error, 1)
+	errorsc := make(chan error, 1)
 
-	go messageReader(c.conn, messages, errors, stop)
+	go messageReader(ctx, c.conn, messages, errorsc)
 
 	timeout := time.NewTimer(c.messageTimeout)
 
@@ -100,24 +102,24 @@ func (c *staticClient) serve(stop chan struct{}) error {
 
 			case protocol.RelayFull:
 				l.Infof("Disconnected from relay %s due to it becoming full.", c.uri)
-				return fmt.Errorf("relay full")
+				return errors.New("relay full")
 
 			default:
 				l.Infoln("Relay: protocol error: unexpected message %v", msg)
 				return fmt.Errorf("protocol error: unexpected message %v", msg)
 			}
 
-		case <-stop:
+		case <-ctx.Done():
 			l.Debugln(c, "stopping")
 			return nil
 
-		case err := <-errors:
+		case err := <-errorsc:
 			l.Infof("Disconnecting from relay %s due to error: %s", c.uri, err)
 			return err
 
 		case <-timeout.C:
 			l.Debugln(c, "timed out")
-			return fmt.Errorf("timed out")
+			return errors.New("timed out")
 		}
 	}
 }
@@ -144,15 +146,15 @@ func (c *staticClient) URI() *url.URL {
 	return c.uri
 }
 
-func (c *staticClient) connect() error {
+func (c *staticClient) connect(ctx context.Context) error {
 	if c.uri.Scheme != "relay" {
 		return fmt.Errorf("unsupported relay scheme: %v", c.uri.Scheme)
 	}
 
 	t0 := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), c.connectTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, c.connectTimeout)
 	defer cancel()
-	tcpConn, err := dialer.DialContext(ctx, "tcp", c.uri.Host)
+	tcpConn, err := dialer.DialContext(timeoutCtx, "tcp", c.uri.Host)
 	if err != nil {
 		return err
 	}
@@ -199,11 +201,11 @@ func (c *staticClient) join() error {
 	switch msg := message.(type) {
 	case protocol.Response:
 		if msg.Code != 0 {
-			return fmt.Errorf("incorrect response code %d: %s", msg.Code, msg.Message)
+			return incorrectResponseCodeErr{msg.Code, msg.Message}
 		}
 
 	case protocol.RelayFull:
-		return fmt.Errorf("relay full")
+		return errors.New("relay full")
 
 	default:
 		return fmt.Errorf("protocol error: expecting response got %v", msg)
@@ -219,7 +221,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 
 	cs := conn.ConnectionState()
 	if !cs.NegotiatedProtocolIsMutual || cs.NegotiatedProtocol != protocol.ProtocolName {
-		return fmt.Errorf("protocol negotiation error")
+		return errors.New("protocol negotiation error")
 	}
 
 	q := uri.Query()
@@ -227,7 +229,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	if relayIDs != "" {
 		relayID, err := syncthingprotocol.DeviceIDFromString(relayIDs)
 		if err != nil {
-			return fmt.Errorf("relay address contains invalid verification id: %s", err)
+			return errors.Wrap(err, "relay address contains invalid verification id")
 		}
 
 		certs := cs.PeerCertificates
@@ -244,7 +246,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	return nil
 }
 
-func messageReader(conn net.Conn, messages chan<- interface{}, errors chan<- error, stop chan struct{}) {
+func messageReader(ctx context.Context, conn net.Conn, messages chan<- interface{}, errors chan<- error) {
 	for {
 		msg, err := protocol.ReadMessage(conn)
 		if err != nil {
@@ -253,7 +255,7 @@ func messageReader(conn net.Conn, messages chan<- interface{}, errors chan<- err
 		}
 		select {
 		case messages <- msg:
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}

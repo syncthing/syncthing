@@ -33,7 +33,7 @@ func TestSubscriber(t *testing.T) {
 	go l.Serve()
 
 	s := l.Subscribe(0)
-	defer l.Unsubscribe(s)
+	defer s.Unsubscribe()
 	if s == nil {
 		t.Fatal("Unexpected nil Subscription")
 	}
@@ -45,7 +45,7 @@ func TestTimeout(t *testing.T) {
 	go l.Serve()
 
 	s := l.Subscribe(0)
-	defer l.Unsubscribe(s)
+	defer s.Unsubscribe()
 	_, err := s.Poll(timeout)
 	if err != ErrTimeout {
 		t.Fatal("Unexpected non-Timeout error:", err)
@@ -59,7 +59,7 @@ func TestEventBeforeSubscribe(t *testing.T) {
 
 	l.Log(DeviceConnected, "foo")
 	s := l.Subscribe(0)
-	defer l.Unsubscribe(s)
+	defer s.Unsubscribe()
 
 	_, err := s.Poll(timeout)
 	if err != ErrTimeout {
@@ -73,7 +73,7 @@ func TestEventAfterSubscribe(t *testing.T) {
 	go l.Serve()
 
 	s := l.Subscribe(AllEvents)
-	defer l.Unsubscribe(s)
+	defer s.Unsubscribe()
 	l.Log(DeviceConnected, "foo")
 
 	ev, err := s.Poll(timeout)
@@ -100,7 +100,7 @@ func TestEventAfterSubscribeIgnoreMask(t *testing.T) {
 	go l.Serve()
 
 	s := l.Subscribe(DeviceDisconnected)
-	defer l.Unsubscribe(s)
+	defer s.Unsubscribe()
 	l.Log(DeviceConnected, "foo")
 
 	_, err := s.Poll(timeout)
@@ -115,7 +115,7 @@ func TestBufferOverflow(t *testing.T) {
 	go l.Serve()
 
 	s := l.Subscribe(AllEvents)
-	defer l.Unsubscribe(s)
+	defer s.Unsubscribe()
 
 	// The first BufferSize events will be logged pretty much
 	// instantaneously. The next BufferSize events will each block for up to
@@ -147,7 +147,7 @@ func TestUnsubscribe(t *testing.T) {
 		t.Fatal("Unexpected error:", err)
 	}
 
-	l.Unsubscribe(s)
+	s.Unsubscribe()
 	l.Log(DeviceConnected, "foo")
 
 	_, err = s.Poll(timeout)
@@ -162,7 +162,7 @@ func TestGlobalIDs(t *testing.T) {
 	go l.Serve()
 
 	s := l.Subscribe(AllEvents)
-	defer l.Unsubscribe(s)
+	defer s.Unsubscribe()
 	l.Log(DeviceConnected, "foo")
 	l.Subscribe(AllEvents)
 	l.Log(DeviceConnected, "bar")
@@ -194,7 +194,7 @@ func TestSubscriptionIDs(t *testing.T) {
 	go l.Serve()
 
 	s := l.Subscribe(DeviceConnected)
-	defer l.Unsubscribe(s)
+	defer s.Unsubscribe()
 
 	l.Log(DeviceDisconnected, "a")
 	l.Log(DeviceConnected, "b")
@@ -236,7 +236,7 @@ func TestBufferedSub(t *testing.T) {
 	go l.Serve()
 
 	s := l.Subscribe(AllEvents)
-	defer l.Unsubscribe(s)
+	defer s.Unsubscribe()
 	bs := NewBufferedSubscription(s, 10*BufferSize)
 
 	go func() {
@@ -267,7 +267,7 @@ func BenchmarkBufferedSub(b *testing.B) {
 	go l.Serve()
 
 	s := l.Subscribe(AllEvents)
-	defer l.Unsubscribe(s)
+	defer s.Unsubscribe()
 	bufferSize := BufferSize
 	bs := NewBufferedSubscription(s, bufferSize)
 
@@ -323,7 +323,7 @@ func TestSinceUsesSubscriptionId(t *testing.T) {
 	go l.Serve()
 
 	s := l.Subscribe(DeviceConnected)
-	defer l.Unsubscribe(s)
+	defer s.Unsubscribe()
 	bs := NewBufferedSubscription(s, 10*BufferSize)
 
 	l.Log(DeviceConnected, "a") // SubscriptionID = 1
@@ -390,7 +390,7 @@ func TestUnsubscribeContention(t *testing.T) {
 			defer listenerWg.Done()
 
 			s := l.Subscribe(AllEvents)
-			defer l.Unsubscribe(s)
+			defer s.Unsubscribe()
 
 			for {
 				select {
@@ -449,7 +449,7 @@ func BenchmarkLogEvent(b *testing.B) {
 	go l.Serve()
 
 	s := l.Subscribe(AllEvents)
-	defer l.Unsubscribe(s)
+	defer s.Unsubscribe()
 	NewBufferedSubscription(s, 1) // runs in the background
 
 	for i := 0; i < b.N; i++ {

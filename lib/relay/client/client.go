@@ -3,6 +3,7 @@
 package client
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net/url"
@@ -37,7 +38,7 @@ type RelayClient interface {
 func NewClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) (RelayClient, error) {
 	factory, ok := supportedSchemes[uri.Scheme]
 	if !ok {
-		return nil, fmt.Errorf("Unsupported scheme: %s", uri.Scheme)
+		return nil, fmt.Errorf("unsupported scheme: %s", uri.Scheme)
 	}
 
 	return factory(uri, certs, invitations, timeout), nil
@@ -51,16 +52,16 @@ type commonClient struct {
 	mut                      sync.RWMutex
 }
 
-func newCommonClient(invitations chan protocol.SessionInvitation, serve func(chan struct{}) error) commonClient {
+func newCommonClient(invitations chan protocol.SessionInvitation, serve func(context.Context) error, creator string) commonClient {
 	c := commonClient{
 		invitations: invitations,
 		mut:         sync.NewRWMutex(),
 	}
-	newServe := func(stop chan struct{}) error {
+	newServe := func(ctx context.Context) error {
 		defer c.cleanup()
-		return serve(stop)
+		return serve(ctx)
 	}
-	c.ServiceWithError = util.AsServiceWithError(newServe)
+	c.ServiceWithError = util.AsServiceWithError(newServe, creator)
 	if c.invitations == nil {
 		c.closeInvitationsOnFinish = true
 		c.invitations = make(chan protocol.SessionInvitation)

@@ -3,8 +3,10 @@
 package client
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -32,11 +34,11 @@ func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan pr
 		certs:    certs,
 		timeout:  timeout,
 	}
-	c.commonClient = newCommonClient(invitations, c.serve)
+	c.commonClient = newCommonClient(invitations, c.serve, fmt.Sprintf("dynamicClient@%p", c))
 	return c
 }
 
-func (c *dynamicClient) serve(stop chan struct{}) error {
+func (c *dynamicClient) serve(ctx context.Context) error {
 	uri := *c.pooladdr
 
 	// Trim off the `dynamic+` prefix
@@ -44,7 +46,13 @@ func (c *dynamicClient) serve(stop chan struct{}) error {
 
 	l.Debugln(c, "looking up dynamic relays")
 
-	data, err := http.Get(uri.String())
+	req, err := http.NewRequest("GET", uri.String(), nil)
+	if err != nil {
+		l.Debugln(c, "failed to lookup dynamic relays", err)
+		return err
+	}
+	req.Cancel = ctx.Done()
+	data, err := http.DefaultClient.Do(req)
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
 		return err
@@ -69,9 +77,9 @@ func (c *dynamicClient) serve(stop chan struct{}) error {
 		addrs = append(addrs, ruri.String())
 	}
 
-	for _, addr := range relayAddressesOrder(addrs, stop) {
+	for _, addr := range relayAddressesOrder(ctx, addrs) {
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			l.Debugln(c, "stopping")
 			return nil
 		default:
@@ -93,7 +101,7 @@ func (c *dynamicClient) serve(stop chan struct{}) error {
 		}
 	}
 	l.Debugln(c, "could not find a connectable relay")
-	return fmt.Errorf("could not find a connectable relay")
+	return errors.New("could not find a connectable relay")
 }
 
 func (c *dynamicClient) Stop() {
@@ -148,11 +156,11 @@ type dynamicAnnouncement struct {
 // the closest 50ms, and puts them in buckets of 50ms latency ranges. Then
 // shuffles each bucket, and returns all addresses starting with the ones from
 // the lowest latency bucket, ending with the highest latency buceket.
-func relayAddressesOrder(input []string, stop chan struct{}) []string {
+func relayAddressesOrder(ctx context.Context, input []string) []string {
 	buckets := make(map[int][]string)
 
 	for _, relay := range input {
-		latency, err := osutil.GetLatencyForURL(relay)
+		latency, err := osutil.GetLatencyForURL(ctx, relay)
 		if err != nil {
 			latency = time.Hour
 		}
@@ -162,7 +170,7 @@ func relayAddressesOrder(input []string, stop chan struct{}) []string {
 		buckets[id] = append(buckets[id], relay)
 
 		select {
-		case <-stop:
+		case <-ctx.Done():
 			return nil
 		default:
 		}

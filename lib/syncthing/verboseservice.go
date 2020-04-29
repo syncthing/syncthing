@@ -7,6 +7,7 @@
 package syncthing
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/thejerf/suture"
@@ -19,19 +20,19 @@ import (
 // verbose format to the console using INFO level.
 type verboseService struct {
 	suture.Service
-	sub *events.Subscription
+	sub events.Subscription
 }
 
-func newVerboseService() *verboseService {
+func newVerboseService(evLogger events.Logger) *verboseService {
 	s := &verboseService{
-		sub: events.Default.Subscribe(events.AllEvents),
+		sub: evLogger.Subscribe(events.AllEvents),
 	}
-	s.Service = util.AsService(s.serve)
+	s.Service = util.AsService(s.serve, s.String())
 	return s
 }
 
 // serve runs the verbose logging service.
-func (s *verboseService) serve(stop chan struct{}) {
+func (s *verboseService) serve(ctx context.Context) {
 	for {
 		select {
 		case ev := <-s.sub.C():
@@ -39,7 +40,7 @@ func (s *verboseService) serve(stop chan struct{}) {
 			if formatted != "" {
 				l.Verboseln(formatted)
 			}
-		case <-stop:
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -48,7 +49,7 @@ func (s *verboseService) serve(stop chan struct{}) {
 // Stop stops the verbose logging service.
 func (s *verboseService) Stop() {
 	s.Service.Stop()
-	events.Default.Unsubscribe(s.sub)
+	s.sub.Unsubscribe()
 
 }
 
@@ -186,4 +187,8 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 	}
 
 	return fmt.Sprintf("%s %#v", ev.Type, ev)
+}
+
+func (s *verboseService) String() string {
+	return fmt.Sprintf("verboseService@%p", s)
 }

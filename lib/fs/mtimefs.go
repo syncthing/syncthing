@@ -12,9 +12,9 @@ import (
 
 // The database is where we store the virtual mtimes
 type database interface {
-	Bytes(key string) (data []byte, ok bool)
-	PutBytes(key string, data []byte)
-	Delete(key string)
+	Bytes(key string) (data []byte, ok bool, err error)
+	PutBytes(key string, data []byte) error
+	Delete(key string) error
 }
 
 // The MtimeFS is a filesystem with nanosecond mtime precision, regardless
@@ -72,7 +72,10 @@ func (f *MtimeFS) Stat(name string) (FileInfo, error) {
 		return nil, err
 	}
 
-	real, virtual := f.load(name)
+	real, virtual, err := f.load(name)
+	if err != nil {
+		return nil, err
+	}
 	if real == info.ModTime() {
 		info = mtimeFileInfo{
 			FileInfo: info,
@@ -89,7 +92,10 @@ func (f *MtimeFS) Lstat(name string) (FileInfo, error) {
 		return nil, err
 	}
 
-	real, virtual := f.load(name)
+	real, virtual, err := f.load(name)
+	if err != nil {
+		return nil, err
+	}
 	if real == info.ModTime() {
 		info = mtimeFileInfo{
 			FileInfo: info,
@@ -103,7 +109,11 @@ func (f *MtimeFS) Lstat(name string) (FileInfo, error) {
 func (f *MtimeFS) Walk(root string, walkFn WalkFunc) error {
 	return f.Filesystem.Walk(root, func(path string, info FileInfo, err error) error {
 		if info != nil {
-			real, virtual := f.load(path)
+			real, virtual, loadErr := f.load(path)
+			if loadErr != nil && err == nil {
+				// The iterator gets to deal with the error
+				err = loadErr
+			}
 			if real == info.ModTime() {
 				info = mtimeFileInfo{
 					FileInfo: info,
@@ -162,22 +172,24 @@ func (f *MtimeFS) save(name string, real, virtual time.Time) {
 	f.db.PutBytes(name, bs)
 }
 
-func (f *MtimeFS) load(name string) (real, virtual time.Time) {
+func (f *MtimeFS) load(name string) (real, virtual time.Time, err error) {
 	if f.caseInsensitive {
 		name = UnicodeLowercase(name)
 	}
 
-	data, exists := f.db.Bytes(name)
-	if !exists {
-		return
+	data, exists, err := f.db.Bytes(name)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	} else if !exists {
+		return time.Time{}, time.Time{}, nil
 	}
 
 	var mtime dbMtime
 	if err := mtime.Unmarshal(data); err != nil {
-		return
+		return time.Time{}, time.Time{}, err
 	}
 
-	return mtime.real, mtime.virtual
+	return mtime.real, mtime.virtual, nil
 }
 
 // The mtimeFileInfo is an os.FileInfo that lies about the ModTime().
@@ -202,7 +214,10 @@ func (f *mtimeFile) Stat() (FileInfo, error) {
 		return nil, err
 	}
 
-	real, virtual := f.fs.load(f.Name())
+	real, virtual, err := f.fs.load(f.Name())
+	if err != nil {
+		return nil, err
+	}
 	if real == info.ModTime() {
 		info = mtimeFileInfo{
 			FileInfo: info,

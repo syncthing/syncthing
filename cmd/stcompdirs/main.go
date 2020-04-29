@@ -60,7 +60,7 @@ func compareDirectories(dirs ...string) error {
 				} else if res[i].name > res[0].name {
 					return fmt.Errorf("%s missing %v (present in %s)", dirs[i], res[0], dirs[0])
 				}
-				return fmt.Errorf("Mismatch; %v (%s) != %v (%s)", res[i], dirs[i], res[0], dirs[0])
+				return fmt.Errorf("mismatch; %v (%s) != %v (%s)", res[i], dirs[i], res[0], dirs[0])
 			}
 		}
 

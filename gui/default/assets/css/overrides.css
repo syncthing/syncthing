@@ -247,6 +247,14 @@ a.toggler:hover {
 }
 
 /**
+ * Panel padding decrease
+ */
+
+.panel-collapse .panel-body {
+    padding: 5px;
+}
+
+/**
  * Progress bars with centered text
  */
 
@@ -348,6 +356,12 @@ ul.three-columns li, ul.two-columns li {
         * columns. */
         white-space: normal;
     }
+
+    .two-columns {
+        -webkit-column-count: 1;
+        -moz-column-count: 1;
+        column-count: 1;
+    }
 }
 
 @media (max-width:479px) {
@@ -392,7 +406,7 @@ ul.three-columns li, ul.two-columns li {
         max-width: 100%;
         width: 100%;
     }
-    
+
     /* all buttons, except panel headings, get bottom margin, as they won't fit
        beside each other anymore */
     .btn:not(.panel-heading),

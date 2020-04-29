@@ -11,16 +11,17 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
 
+	ldap "github.com/go-ldap/ldap/v3"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/crypto/bcrypt"
-	ldap "gopkg.in/ldap.v2"
 )
 
 var (
@@ -28,14 +29,14 @@ var (
 	sessionsMut = sync.NewMutex()
 )
 
-func emitLoginAttempt(success bool, username string) {
-	events.Default.Log(events.LoginAttempt, map[string]interface{}{
+func emitLoginAttempt(success bool, username string, evLogger events.Logger) {
+	evLogger.Log(events.LoginAttempt, map[string]interface{}{
 		"success":  success,
 		"username": username,
 	})
 }
 
-func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler) http.Handler {
+func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)
@@ -94,7 +95,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 		}
 
 		if !authOk {
-			emitLoginAttempt(false, username)
+			emitLoginAttempt(false, username, evLogger)
 			error()
 			return
 		}
@@ -109,7 +110,7 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 			MaxAge: 0,
 		})
 
-		emitLoginAttempt(true, username)
+		emitLoginAttempt(true, username, evLogger)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -130,10 +131,16 @@ func authStatic(username string, password string, configUser string, configPassw
 
 func authLDAP(username string, password string, cfg config.LDAPConfiguration) bool {
 	address := cfg.Address
+	hostname, _, err := net.SplitHostPort(address)
+	if err != nil {
+		hostname = address
+	}
 	var connection *ldap.Conn
-	var err error
 	if cfg.Transport == config.LDAPTransportTLS {
-		connection, err = ldap.DialTLS("tcp", address, &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify})
+		connection, err = ldap.DialTLS("tcp", address, &tls.Config{
+			ServerName:         hostname,
+			InsecureSkipVerify: cfg.InsecureSkipVerify,
+		})
 	} else {
 		connection, err = ldap.Dial("tcp", address)
 	}
@@ -156,6 +163,35 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	err = connection.Bind(fmt.Sprintf(cfg.BindDN, username), password)
 	if err != nil {
 		l.Warnln("LDAP Bind:", err)
+		return false
+	}
+
+	if cfg.SearchFilter == "" && cfg.SearchBaseDN == "" {
+		// We're done here.
+		return true
+	}
+
+	if cfg.SearchFilter == "" || cfg.SearchBaseDN == "" {
+		l.Warnln("LDAP configuration: both searchFilter and searchBaseDN must be set, or neither.")
+		return false
+	}
+
+	// If a search filter and search base is set we do an LDAP search for
+	// the user. If this matches precisely one user then we are good to go.
+	// The search filter uses the same %s interpolation as the bind DN.
+
+	searchString := fmt.Sprintf(cfg.SearchFilter, username)
+	const sizeLimit = 2  // we search for up to two users -- we only want to match one, so getting any number >1 is a failure.
+	const timeLimit = 60 // Search for up to a minute...
+	searchReq := ldap.NewSearchRequest(cfg.SearchBaseDN, ldap.ScopeWholeSubtree, ldap.DerefFindingBaseObj, sizeLimit, timeLimit, false, searchString, nil, nil)
+
+	res, err := connection.Search(searchReq)
+	if err != nil {
+		l.Warnln("LDAP Search:", err)
+		return false
+	}
+	if len(res.Entries) != 1 {
+		l.Infof("Wrong number of LDAP search results, %d != 1", len(res.Entries))
 		return false
 	}
 

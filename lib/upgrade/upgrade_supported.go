@@ -15,6 +15,7 @@ import (
 	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -223,8 +224,8 @@ func readRelease(archiveName, dir, url string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	switch runtime.GOOS {
-	case "windows":
+	switch path.Ext(archiveName) {
+	case ".zip":
 		return readZip(archiveName, dir, io.LimitReader(resp.Body, maxArchiveSize))
 	default:
 		return readTarGz(archiveName, dir, io.LimitReader(resp.Body, maxArchiveSize))
@@ -366,10 +367,10 @@ func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, archive
 
 func verifyUpgrade(archiveName, tempName string, sig []byte) error {
 	if tempName == "" {
-		return fmt.Errorf("no upgrade found")
+		return errors.New("no upgrade found")
 	}
 	if sig == nil {
-		return fmt.Errorf("no signature found")
+		return errors.New("no signature found")
 	}
 
 	l.Debugf("checking signature\n%s", sig)

@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -1076,6 +1077,105 @@ func TestSpecialChars(t *testing.T) {
 	for _, c := range cases {
 		if !pats.Match(c).IsIgnored() {
 			t.Errorf("%q should be ignored", c)
+		}
+	}
+}
+
+func TestPartialIncludeLine(t *testing.T) {
+	// Loading a partial #include line (no file mentioned) should error but not crash.
+
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+	cases := []string{
+		"#include",
+		"#include\n",
+		"#include ",
+		"#include \n",
+		"#include   \n\n\n",
+	}
+
+	for _, tc := range cases {
+		if err := pats.Parse(bytes.NewBufferString(tc), ".stignore"); err == nil {
+			t.Fatal("should error out")
+		}
+	}
+}
+
+func TestSkipIgnoredDirs(t *testing.T) {
+	tcs := []struct {
+		pattern  string
+		expected bool
+	}{
+		{`!/test`, true},
+		{`!/t[eih]t`, true},
+		{`!/t*t`, true},
+		{`!/t?t`, true},
+		{`!/**`, true},
+		{`!/parent/test`, false},
+		{`!/parent/t[eih]t`, false},
+		{`!/parent/t*t`, false},
+		{`!/parent/t?t`, false},
+		{`!/**.mp3`, false},
+		{`!/pa*nt/test`, false},
+		{`!/pa[sdf]nt/t[eih]t`, false},
+		{`!/lowest/pa[sdf]nt/test`, false},
+		{`!/lo*st/parent/test`, false},
+		{`/pa*nt/test`, true},
+		{`test`, true},
+		{`*`, true},
+	}
+
+	for _, tc := range tcs {
+		pats, err := parseLine(tc.pattern)
+		if err != nil {
+			t.Error(err)
+		}
+		for _, pat := range pats {
+			if got := pat.allowsSkippingIgnoredDirs(); got != tc.expected {
+				t.Errorf(`Pattern "%v": got %v, expected %v`, pat, got, tc.expected)
+			}
+		}
+	}
+
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), WithCache(true))
+
+	stignore := `
+	/foo/ign*
+	!/f*
+	!/bar
+	*
+	`
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if !pats.SkipIgnoredDirs() {
+		t.Error("SkipIgnoredDirs should be true")
+	}
+
+	stignore = `
+	!/foo/ign*
+	*
+	`
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if pats.SkipIgnoredDirs() {
+		t.Error("SkipIgnoredDirs should be false")
+	}
+}
+
+func TestEmptyPatterns(t *testing.T) {
+	// These patterns are all invalid and should be rejected as such (without panicking...)
+	tcs := []string{
+		"!",
+		"(?d)",
+		"(?i)",
+	}
+
+	for _, tc := range tcs {
+		m := New(fs.NewFilesystem(fs.FilesystemTypeFake, ""))
+		err := m.Parse(strings.NewReader(tc), ".stignore")
+		if err == nil {
+			t.Error("Should reject invalid pattern", tc)
 		}
 	}
 }

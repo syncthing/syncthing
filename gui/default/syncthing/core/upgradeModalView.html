@@ -1,0 +1,18 @@
+<modal id="upgrade" status="warning" icon="fas fa-arrow-circle-up" heading="{{'Upgrade' | translate}}" large="no" closeable="yes">
+    <div class="modal-body">
+      <p>
+        <span translate>Are you sure you want to upgrade?</span>
+      </p>
+      <p>
+        <a ng-href="https://github.com/syncthing/syncthing/releases/tag/{{upgradeInfo.latest}}" target="_blank" translate>Release Notes</a>
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary btn-sm" ng-click="upgrade()">
+        <span class="fas fa-check"></span>&nbsp;<span translate>Upgrade</span>
+      </button>
+      <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+        <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
+      </button>
+    </div>
+  </modal>

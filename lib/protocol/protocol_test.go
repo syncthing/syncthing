@@ -4,6 +4,7 @@ package protocol
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -74,10 +75,12 @@ func TestClose(t *testing.T) {
 		t.Error("Ping should not return true")
 	}
 
-	c0.Index("default", nil)
-	c0.Index("default", nil)
+	ctx := context.Background()
 
-	if _, err := c0.Request("default", "foo", 0, 0, nil, 0, false); err == nil {
+	c0.Index(ctx, "default", nil)
+	c0.Index(ctx, "default", nil)
+
+	if _, err := c0.Request(ctx, "default", "foo", 0, 0, nil, 0, false); err == nil {
 		t.Error("Request should return an error")
 	}
 }
@@ -151,7 +154,7 @@ func TestCloseRace(t *testing.T) {
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
 
-	c1.Index("default", nil)
+	c1.Index(context.Background(), "default", nil)
 	select {
 	case <-indexReceived:
 	case <-time.After(time.Second):
@@ -194,7 +197,7 @@ func TestClusterConfigFirst(t *testing.T) {
 	c.ClusterConfig(ClusterConfig{})
 
 	done := make(chan struct{})
-	if ok := c.send(&Ping{}, done); !ok {
+	if ok := c.send(context.Background(), &Ping{}, done); !ok {
 		t.Fatal("send ping after cluster config returned false")
 	}
 	select {
@@ -431,6 +434,38 @@ func TestLZ4Compression(t *testing.T) {
 			t.Error("Incorrect decompressed data")
 		}
 		t.Logf("OK #%d, %d -> %d -> %d", i, dataLen, len(comp), dataLen)
+	}
+}
+
+func TestStressLZ4CompressGrows(t *testing.T) {
+	c := new(rawConnection)
+	success := 0
+	for i := 0; i < 100; i++ {
+		// Create a slize that is precisely one min block size, fill it with
+		// random data. This shouldn't compress at all, so will in fact
+		// become larger when LZ4 does its thing.
+		data := make([]byte, MinBlockSize)
+		if _, err := rand.Reader.Read(data); err != nil {
+			t.Fatal("randomness failure")
+		}
+
+		comp, err := c.lz4Compress(data)
+		if err != nil {
+			t.Fatal("unexpected compression error: ", err)
+		}
+		if len(comp) < len(data) {
+			// data size should grow. We must have been really unlucky in
+			// the random generation, try again.
+			continue
+		}
+
+		// Putting it into the buffer pool shouldn't panic because the block
+		// should come from there to begin with.
+		BufferPool.Put(comp)
+		success++
+	}
+	if success == 0 {
+		t.Fatal("unable to find data that grows when compressed")
 	}
 }
 
@@ -830,5 +865,61 @@ func TestDispatcherToCloseDeadlock(t *testing.T) {
 	case <-c.dispatcherLoopStopped:
 	case <-time.After(time.Second):
 		t.Fatal("timed out before dispatcher loop terminated")
+	}
+}
+
+func TestBlocksEqual(t *testing.T) {
+	blocksOne := []BlockInfo{{Hash: []byte{1, 2, 3, 4}}}
+	blocksTwo := []BlockInfo{{Hash: []byte{5, 6, 7, 8}}}
+	hashOne := []byte{42, 42, 42, 42}
+	hashTwo := []byte{29, 29, 29, 29}
+
+	cases := []struct {
+		b1 []BlockInfo
+		h1 []byte
+		b2 []BlockInfo
+		h2 []byte
+		eq bool
+	}{
+		{blocksOne, hashOne, blocksOne, hashOne, true},  // everything equal
+		{blocksOne, hashOne, blocksTwo, hashTwo, false}, // nothing equal
+		{blocksOne, hashOne, blocksOne, nil, true},      // blocks compared
+		{blocksOne, nil, blocksOne, nil, true},          // blocks compared
+		{blocksOne, nil, blocksTwo, nil, false},         // blocks compared
+		{blocksOne, hashOne, blocksTwo, hashOne, true},  // hashes equal, blocks not looked at
+		{blocksOne, hashOne, blocksOne, hashTwo, false}, // hashes different, blocks not looked at
+		{blocksOne, hashOne, nil, nil, false},           // blocks is different from no blocks
+		{blocksOne, nil, nil, nil, false},               // blocks is different from no blocks
+		{nil, hashOne, nil, nil, true},                  // nil blocks are equal, even of one side has a hash
+	}
+
+	for _, tc := range cases {
+		f1 := FileInfo{Blocks: tc.b1, BlocksHash: tc.h1}
+		f2 := FileInfo{Blocks: tc.b2, BlocksHash: tc.h2}
+
+		if !f1.BlocksEqual(f1) {
+			t.Error("f1 is always equal to itself", f1)
+		}
+		if !f2.BlocksEqual(f2) {
+			t.Error("f2 is always equal to itself", f2)
+		}
+		if res := f1.BlocksEqual(f2); res != tc.eq {
+			t.Log("f1", f1.BlocksHash, f1.Blocks)
+			t.Log("f2", f2.BlocksHash, f2.Blocks)
+			t.Errorf("f1.BlocksEqual(f2) == %v but should be %v", res, tc.eq)
+		}
+		if res := f2.BlocksEqual(f1); res != tc.eq {
+			t.Log("f1", f1.BlocksHash, f1.Blocks)
+			t.Log("f2", f2.BlocksHash, f2.Blocks)
+			t.Errorf("f2.BlocksEqual(f1) == %v but should be %v", res, tc.eq)
+		}
+	}
+}
+
+func TestIndexIDString(t *testing.T) {
+	// Index ID is a 64 bit, zero padded hex integer.
+	var i IndexID = 42
+	if i.String() != "0x000000000000002A" {
+		t.Error(i.String())
 	}
 }

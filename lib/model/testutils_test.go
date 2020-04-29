@@ -9,12 +9,16 @@ package model
 import (
 	"io/ioutil"
 	"os"
+	"testing"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 var (
@@ -83,6 +87,13 @@ func testFolderConfig(path string) config.FolderConfiguration {
 	return cfg
 }
 
+func testFolderConfigFake() config.FolderConfiguration {
+	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true")
+	cfg.FSWatcherEnabled = false
+	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
+	return cfg
+}
+
 func setupModelWithConnection() (*model, *fakeConnection, config.FolderConfiguration) {
 	w, fcfg := tmpDefaultWrapper()
 	m, fc := setupModelWithConnectionFromWrapper(w)
@@ -101,15 +112,9 @@ func setupModelWithConnectionFromWrapper(w config.Wrapper) (*model, *fakeConnect
 }
 
 func setupModel(w config.Wrapper) *model {
-	db := db.OpenMemory()
+	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(w, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	for id, cfg := range w.Folders() {
-		if !cfg.Paused {
-			m.AddFolder(cfg)
-			m.StartFolder(id)
-		}
-	}
 
 	m.ScanFolders()
 
@@ -117,12 +122,16 @@ func setupModel(w config.Wrapper) *model {
 }
 
 func newModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) *model {
-	return NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles).(*model)
+	evLogger := events.NewLogger()
+	m := NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles, evLogger).(*model)
+	go evLogger.Serve()
+	return m
 }
 
 func cleanupModel(m *model) {
 	m.Stop()
 	m.db.Close()
+	m.evLogger.Stop()
 	os.Remove(m.cfg.ConfigPath())
 }
 
@@ -170,4 +179,41 @@ func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
 
 func (c *alwaysChanged) Changed() bool {
 	return true
+}
+
+func localSize(t *testing.T, m Model, folder string) db.Counts {
+	t.Helper()
+	snap := dbSnapshot(t, m, folder)
+	defer snap.Release()
+	return snap.LocalSize()
+}
+
+func globalSize(t *testing.T, m Model, folder string) db.Counts {
+	t.Helper()
+	snap := dbSnapshot(t, m, folder)
+	defer snap.Release()
+	return snap.GlobalSize()
+}
+
+func receiveOnlyChangedSize(t *testing.T, m Model, folder string) db.Counts {
+	t.Helper()
+	snap := dbSnapshot(t, m, folder)
+	defer snap.Release()
+	return snap.ReceiveOnlyChangedSize()
+}
+
+func needSize(t *testing.T, m Model, folder string) db.Counts {
+	t.Helper()
+	snap := dbSnapshot(t, m, folder)
+	defer snap.Release()
+	return snap.NeedSize()
+}
+
+func dbSnapshot(t *testing.T, m Model, folder string) *db.Snapshot {
+	t.Helper()
+	snap, err := m.DBSnapshot(folder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap
 }

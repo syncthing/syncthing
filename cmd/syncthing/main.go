@@ -30,6 +30,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -45,19 +46,9 @@ import (
 )
 
 const (
-	exitSuccess            = 0
-	exitError              = 1
-	exitNoUpgradeAvailable = 2
-	exitRestarting         = 3
-	exitUpgrading          = 4
-)
-
-const (
-	bepProtocolName      = "bep/1.0"
-	tlsDefaultCommonName = "syncthing"
-	maxSystemErrors      = 5
-	initialSystemLog     = 10
-	maxSystemLog         = 250
+	tlsDefaultCommonName   = "syncthing"
+	deviceCertLifetimeDays = 20 * 365
+	sigTerm                = syscall.Signal(15)
 )
 
 const (
@@ -74,6 +65,12 @@ The -logflags value is a sum of the following:
 I.e. to prefix each log line with date and time, set -logflags=3 (1 + 2 from
 above). The value 0 is used to disable all of the above. The default is to
 show time only (2).
+
+Logging always happens to the command line (stdout) and optionally to the
+file at the path specified by -logfile=path. In addition to an path, the special
+values "default" and "-" may be used. The former logs to DATADIR/syncthing.log
+(see -data-dir), which is the default on Windows, and the latter only to stdout,
+no file, which is the default anywhere else.
 
 
 Development Settings
@@ -112,10 +109,7 @@ are mostly useful for developers. Use with care.
  STLOCKTHRESHOLD   Used for debugging internal deadlocks; sets debug
                    sensitivity.  Use only under direction of a developer.
 
- STNORESTART       Equivalent to the -no-restart argument. Disable the
-                   Syncthing monitor process which handles restarts for some
-                   configuration changes, upgrades, crashes and also log file
-                   writing (stdout is still written).
+ STNORESTART       Equivalent to the -no-restart argument.
 
  STNOUPGRADE       Disable automatic upgrades.
 
@@ -128,6 +122,10 @@ are mostly useful for developers. Use with care.
                    check interval of 30 days (720h). The interval understands
                    "h", "m" and "s" abbreviations for hours minutes and seconds.
                    Valid values are like "720h", "30s", etc.
+
+ STGCINDIRECTEVERY Set to a time interval to override the default database
+                   indirection GC interval of 13 hours. Same format as the
+                   STRECHECKDBEVERY variable.
 
  GOMAXPROCS        Set the maximum number of CPU cores to use. Defaults to all
                    available CPU cores.
@@ -145,15 +143,27 @@ The following are valid values for the STTRACE variable:
 %s`
 )
 
-// Environment options
 var (
-	innerProcess    = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
+	// Environment options
+	innerProcess    = os.Getenv("STMONITORED") != ""
 	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
+
+	upgradeCheckInterval = 5 * time.Minute
+	upgradeRetryInterval = time.Hour
+	upgradeCheckKey      = "lastUpgradeCheck"
+	upgradeTimeKey       = "lastUpgradeTime"
+	upgradeVersionKey    = "lastUpgradeVersion"
+
+	errConcurrentUpgrade    = errors.New("upgrade prevented by other running Syncthing instance")
+	errTooEarlyUpgradeCheck = fmt.Errorf("last upgrade check happened less than %v ago, skipping", upgradeCheckInterval)
+	errTooEarlyUpgrade      = fmt.Errorf("last upgrade happened less than %v ago, skipping", upgradeRetryInterval)
 )
 
 type RuntimeOptions struct {
 	syncthing.Options
+	homeDir          string
 	confDir          string
+	dataDir          string
 	resetDatabase    bool
 	showVersion      bool
 	showPaths        bool
@@ -165,6 +175,8 @@ type RuntimeOptions struct {
 	browserOnly      bool
 	hideConsole      bool
 	logFile          string
+	logMaxSize       int
+	logMaxFiles      int
 	auditEnabled     bool
 	auditFile        string
 	paused           bool
@@ -191,17 +203,21 @@ func defaultRuntimeOptions() RuntimeOptions {
 		cpuProfile:   os.Getenv("STCPUPROFILE") != "",
 		stRestarting: os.Getenv("STRESTART") != "",
 		logFlags:     log.Ltime,
+		logMaxSize:   10 << 20, // 10 MiB
+		logMaxFiles:  3,        // plus the current one
 	}
 
 	if os.Getenv("STTRACE") != "" {
 		options.logFlags = logger.DebugFlags
 	}
 
-	if runtime.GOOS != "windows" {
-		// On non-Windows, we explicitly default to "-" which means stdout. On
-		// Windows, the blank options.logFile will later be replaced with the
-		// default path, unless the user has manually specified "-" or
-		// something else.
+	// On non-Windows, we explicitly default to "-" which means stdout. On
+	// Windows, the "default" options.logFile will later be replaced with the
+	// default path, unless the user has manually specified "-" or
+	// something else.
+	if runtime.GOOS == "windows" {
+		options.logFile = "default"
+	} else {
 		options.logFile = "-"
 	}
 
@@ -214,11 +230,13 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.StringVar(&options.generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&options.guiAddress, "gui-address", options.guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
 	flag.StringVar(&options.guiAPIKey, "gui-apikey", options.guiAPIKey, "Override GUI API key")
-	flag.StringVar(&options.confDir, "home", "", "Set configuration directory")
+	flag.StringVar(&options.homeDir, "home", "", "Set configuration and data directory")
+	flag.StringVar(&options.confDir, "config", "", "Set configuration directory (config and keys)")
+	flag.StringVar(&options.dataDir, "data", "", "Set data directory (database and logs)")
 	flag.IntVar(&options.logFlags, "logflags", options.logFlags, "Select information in log line prefix (see below)")
 	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
-	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Disable monitor process, managed restarts and log file writing")
+	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash")
 	flag.BoolVar(&options.resetDatabase, "reset-database", false, "Reset the database, forcing a full rescan and resync")
 	flag.BoolVar(&options.ResetDeltaIdxs, "reset-deltas", false, "Reset delta index IDs, forcing a full index exchange")
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
@@ -232,7 +250,9 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.Verbose, "verbose", false, "Print verbose log output")
 	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
-	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
+	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (see below).")
+	flag.IntVar(&options.logMaxSize, "log-max-size", options.logMaxSize, "Maximum size of any file (zero to disable log rotation).")
+	flag.IntVar(&options.logMaxFiles, "log-max-old-files", options.logMaxFiles, "Number of old files to keep (zero to keep only current).")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
 	flag.BoolVar(&options.allowNewerConfig, "allow-newer-config", false, "Allow loading newer than current config version")
 	if runtime.GOOS == "windows" {
@@ -252,6 +272,17 @@ func parseCommandLineOptions() RuntimeOptions {
 	return options
 }
 
+func setLocation(enum locations.BaseDirEnum, loc string) error {
+	if !filepath.IsAbs(loc) {
+		var err error
+		loc, err = filepath.Abs(loc)
+		if err != nil {
+			return err
+		}
+	}
+	return locations.SetBaseDir(enum, loc)
+}
+
 func main() {
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
@@ -265,38 +296,37 @@ func main() {
 		os.Setenv("STGUIAPIKEY", options.guiAPIKey)
 	}
 
-	// Check for options which are not compatible with each other. We have
-	// to check logfile before it's set to the default below - we only want
-	// to complain if they set -logfile explicitly, not if it's set to its
-	// default location
-	if options.noRestart && (options.logFile != "" && options.logFile != "-") {
-		l.Warnln("-logfile may not be used with -no-restart or STNORESTART")
-		os.Exit(exitError)
-	}
-
 	if options.hideConsole {
 		osutil.HideConsole()
 	}
 
-	if options.confDir != "" {
-		// Not set as default above because the string can be really long.
-		if !filepath.IsAbs(options.confDir) {
-			var err error
-			options.confDir, err = filepath.Abs(options.confDir)
-			if err != nil {
-				l.Warnln("Failed to make options path absolute:", err)
-				os.Exit(exitError)
-			}
+	// Not set as default above because the strings can be really long.
+	var err error
+	homeSet := options.homeDir != ""
+	confSet := options.confDir != ""
+	dataSet := options.dataDir != ""
+	switch {
+	case dataSet != confSet:
+		err = errors.New("either both or none of -conf and -data must be given, use -home to set both at once")
+	case homeSet && dataSet:
+		err = errors.New("-home must not be used together with -conf and -data")
+	case homeSet:
+		if err = setLocation(locations.ConfigBaseDir, options.homeDir); err == nil {
+			err = setLocation(locations.DataBaseDir, options.homeDir)
 		}
-		if err := locations.SetBaseDir(locations.ConfigBaseDir, options.confDir); err != nil {
-			l.Warnln(err)
-			os.Exit(exitError)
+	case dataSet:
+		if err = setLocation(locations.ConfigBaseDir, options.confDir); err == nil {
+			err = setLocation(locations.DataBaseDir, options.dataDir)
 		}
 	}
+	if err != nil {
+		l.Warnln("Command line options:", err)
+		os.Exit(syncthing.ExitError.AsInt())
+	}
 
-	if options.logFile == "" {
-		// Blank means use the default logfile location. We must set this
-		// *after* expandLocations above.
+	if options.logFile == "default" || options.logFile == "" {
+		// We must set this *after* expandLocations above.
+		// Handling an empty value is for backwards compatibility (<1.4.1).
 		options.logFile = locations.Get(locations.LogFile)
 	}
 
@@ -328,7 +358,7 @@ func main() {
 		)
 		if err != nil {
 			l.Warnln("Error reading device ID:", err)
-			os.Exit(exitError)
+			os.Exit(syncthing.ExitError.AsInt())
 		}
 
 		fmt.Println(protocol.NewDeviceID(cert.Certificate[0]))
@@ -338,7 +368,7 @@ func main() {
 	if options.browserOnly {
 		if err := openGUI(protocol.EmptyDeviceID); err != nil {
 			l.Warnln("Failed to open web UI:", err)
-			os.Exit(exitError)
+			os.Exit(syncthing.ExitError.AsInt())
 		}
 		return
 	}
@@ -346,7 +376,7 @@ func main() {
 	if options.generateDir != "" {
 		if err := generate(options.generateDir); err != nil {
 			l.Warnln("Failed to generate config and keys:", err)
-			os.Exit(exitError)
+			os.Exit(syncthing.ExitError.AsInt())
 		}
 		return
 	}
@@ -354,39 +384,57 @@ func main() {
 	// Ensure that our home directory exists.
 	if err := ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
 		l.Warnln("Failure on home directory:", err)
-		os.Exit(exitError)
+		os.Exit(syncthing.ExitError.AsInt())
 	}
 
 	if options.upgradeTo != "" {
 		err := upgrade.ToURL(options.upgradeTo)
 		if err != nil {
 			l.Warnln("Error while Upgrading:", err)
-			os.Exit(exitError)
+			os.Exit(syncthing.ExitError.AsInt())
 		}
 		l.Infoln("Upgraded from", options.upgradeTo)
 		return
 	}
 
 	if options.doUpgradeCheck {
-		checkUpgrade()
+		if _, err := checkUpgrade(); err != nil {
+			l.Warnln("Checking for upgrade:", err)
+			os.Exit(exitCodeForUpgrade(err))
+		}
 		return
 	}
 
 	if options.doUpgrade {
-		release := checkUpgrade()
-		performUpgrade(release)
-		return
+		release, err := checkUpgrade()
+		if err == nil {
+			// Use leveldb database locks to protect against concurrent upgrades
+			ldb, err := syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto)
+			if err != nil {
+				err = upgradeViaRest()
+			} else {
+				_ = ldb.Close()
+				err = upgrade.To(release)
+			}
+		}
+		if err != nil {
+			l.Warnln("Upgrade:", err)
+			os.Exit(exitCodeForUpgrade(err))
+		}
+		l.Infof("Upgraded to %q", release.Tag)
+		os.Exit(syncthing.ExitUpgrade.AsInt())
 	}
 
 	if options.resetDatabase {
 		if err := resetDB(); err != nil {
 			l.Warnln("Resetting database:", err)
-			os.Exit(exitError)
+			os.Exit(syncthing.ExitError.AsInt())
 		}
+		l.Infoln("Successfully reset database - it will be rebuilt after next start.")
 		return
 	}
 
-	if innerProcess || options.noRestart {
+	if innerProcess {
 		syncthingMain(options)
 	} else {
 		monitorMain(options)
@@ -394,7 +442,7 @@ func main() {
 }
 
 func openGUI(myID protocol.DeviceID) error {
-	cfg, err := loadOrDefaultConfig(myID)
+	cfg, err := loadOrDefaultConfig(myID, events.NoopLogger)
 	if err != nil {
 		return err
 	}
@@ -424,7 +472,7 @@ func generate(generateDir string) error {
 	if err == nil {
 		l.Warnln("Key exists; will not overwrite.")
 	} else {
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName)
+		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, deviceCertLifetimeDays)
 		if err != nil {
 			return errors.Wrap(err, "create certificate")
 		}
@@ -437,7 +485,7 @@ func generate(generateDir string) error {
 		l.Warnln("Config exists; will not overwrite.")
 		return nil
 	}
-	cfg, err := syncthing.DefaultConfig(cfgFile, myID, noDefaultFolder)
+	cfg, err := syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder)
 	if err != nil {
 		return err
 	}
@@ -470,49 +518,32 @@ func debugFacilities() string {
 	return b.String()
 }
 
-func checkUpgrade() upgrade.Release {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID)
+type errNoUpgrade struct {
+	current, latest string
+}
+
+func (e errNoUpgrade) Error() string {
+	return fmt.Sprintf("no upgrade available (current %q >= latest %q).", e.current, e.latest)
+}
+
+func checkUpgrade() (upgrade.Release, error) {
+	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
-		l.Warnln("Upgrade:", err)
-		os.Exit(exitError)
+		return upgrade.Release{}, err
 	}
 
 	if upgrade.CompareVersions(release.Tag, build.Version) <= 0 {
-		noUpgradeMessage := "No upgrade available (current %q >= latest %q)."
-		l.Infof(noUpgradeMessage, build.Version, release.Tag)
-		os.Exit(exitNoUpgradeAvailable)
+		return upgrade.Release{}, errNoUpgrade{build.Version, release.Tag}
 	}
 
 	l.Infof("Upgrade available (current %q < latest %q)", build.Version, release.Tag)
-	return release
-}
-
-func performUpgrade(release upgrade.Release) {
-	// Use leveldb database locks to protect against concurrent upgrades
-	_, err := syncthing.OpenGoleveldb(locations.Get(locations.Database))
-	if err == nil {
-		err = upgrade.To(release)
-		if err != nil {
-			l.Warnln("Upgrade:", err)
-			os.Exit(exitError)
-		}
-		l.Infof("Upgraded to %q", release.Tag)
-	} else {
-		l.Infoln("Attempting upgrade through running Syncthing...")
-		err = upgradeViaRest()
-		if err != nil {
-			l.Warnln("Upgrade:", err)
-			os.Exit(exitError)
-		}
-		l.Infoln("Syncthing upgrading")
-		os.Exit(exitUpgrading)
-	}
+	return release, nil
 }
 
 func upgradeViaRest() error {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID)
+	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
 	u, err := url.Parse(cfg.GUI().URL())
 	if err != nil {
 		return err
@@ -566,56 +597,14 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		os.Exit(1)
 	}
 
-	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, runtimeOptions.allowNewerConfig, noDefaultFolder)
+	evLogger := events.NewLogger()
+	go evLogger.Serve()
+	defer evLogger.Stop()
+
+	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
-		os.Exit(exitError)
-	}
-
-	if runtimeOptions.unpaused {
-		setPauseState(cfg, false)
-	} else if runtimeOptions.paused {
-		setPauseState(cfg, true)
-	}
-
-	dbFile := locations.Get(locations.Database)
-	ldb, err := syncthing.OpenGoleveldb(dbFile)
-	if err != nil {
-		l.Warnln("Error opening database:", err)
-		os.Exit(1)
-	}
-
-	appOpts := runtimeOptions.Options
-	if runtimeOptions.auditEnabled {
-		appOpts.AuditWriter = auditWriter(runtimeOptions.auditFile)
-	}
-	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
-		secs, _ := strconv.Atoi(t)
-		appOpts.DeadlockTimeoutS = secs
-	}
-
-	app := syncthing.New(cfg, ldb, cert, appOpts)
-
-	setupSignalHandling(app)
-
-	if len(os.Getenv("GOMAXPROCS")) == 0 {
-		runtime.GOMAXPROCS(runtime.NumCPU())
-	}
-
-	if runtimeOptions.cpuProfile {
-		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
-		if err != nil {
-			l.Warnln("Creating profile:", err)
-			os.Exit(exitError)
-		}
-		if err := pprof.StartCPUProfile(f); err != nil {
-			l.Warnln("Starting profile:", err)
-			os.Exit(exitError)
-		}
-	}
-
-	if opts := cfg.Options(); opts.RestartOnWakeup {
-		go standbyMonitor(app)
+		os.Exit(syncthing.ExitError.AsInt())
 	}
 
 	// Candidate builds should auto upgrade. Make sure the option is set,
@@ -635,15 +624,88 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// not, as otherwise they cannot step off the candidate channel.
 	}
 
-	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
-		if runtimeOptions.NoUpgrade {
-			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
+	dbFile := locations.Get(locations.Database)
+	ldb, err := syncthing.OpenDBBackend(dbFile, cfg.Options().DatabaseTuning)
+	if err != nil {
+		l.Warnln("Error opening database:", err)
+		os.Exit(1)
+	}
+
+	// Check if auto-upgrades should be done and if yes, do an initial
+	// upgrade immedately. The auto-upgrade routine can only be started
+	// later after App is initialised.
+
+	shouldAutoUpgrade := shouldUpgrade(cfg, runtimeOptions)
+	if shouldAutoUpgrade {
+		// try to do upgrade directly and log the error if relevant.
+		release, err := initialAutoUpgradeCheck(db.NewMiscDataNamespace(ldb))
+		if err == nil {
+			err = upgrade.To(release)
+		}
+		if err != nil {
+			if _, ok := err.(errNoUpgrade); ok || err == errTooEarlyUpgradeCheck || err == errTooEarlyUpgrade {
+				l.Debugln("Initial automatic upgrade:", err)
+			} else {
+				l.Infoln("Initial automatic upgrade:", err)
+			}
 		} else {
-			go autoUpgrade(cfg, app)
+			l.Infof("Upgraded to %q, exiting now.", release.Tag)
+			os.Exit(syncthing.ExitUpgrade.AsInt())
 		}
 	}
 
-	app.Start()
+	if runtimeOptions.unpaused {
+		setPauseState(cfg, false)
+	} else if runtimeOptions.paused {
+		setPauseState(cfg, true)
+	}
+
+	appOpts := runtimeOptions.Options
+	if runtimeOptions.auditEnabled {
+		appOpts.AuditWriter = auditWriter(runtimeOptions.auditFile)
+	}
+	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
+		secs, _ := strconv.Atoi(t)
+		appOpts.DeadlockTimeoutS = secs
+	}
+	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
+		appOpts.DBRecheckInterval = dur
+	}
+	if dur, err := time.ParseDuration(os.Getenv("STGCINDIRECTEVERY")); err == nil {
+		appOpts.DBIndirectGCInterval = dur
+	}
+
+	app := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
+
+	if shouldAutoUpgrade {
+		go autoUpgrade(cfg, app, evLogger)
+	}
+
+	setupSignalHandling(app)
+
+	if len(os.Getenv("GOMAXPROCS")) == 0 {
+		runtime.GOMAXPROCS(runtime.NumCPU())
+	}
+
+	if runtimeOptions.cpuProfile {
+		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
+		if err != nil {
+			l.Warnln("Creating profile:", err)
+			os.Exit(syncthing.ExitError.AsInt())
+		}
+		if err := pprof.StartCPUProfile(f); err != nil {
+			l.Warnln("Starting profile:", err)
+			os.Exit(syncthing.ExitError.AsInt())
+		}
+	}
+
+	if opts := cfg.Options(); opts.RestartOnWakeup {
+		go standbyMonitor(app)
+	}
+
+	if err := app.Start(); err != nil {
+		os.Exit(syncthing.ExitError.AsInt())
+	}
 
 	cleanConfigDirectory()
 
@@ -676,7 +738,6 @@ func setupSignalHandling(app *syncthing.App) {
 	// Exit with "success" code (no restart) on INT/TERM
 
 	stopSign := make(chan os.Signal, 1)
-	sigTerm := syscall.Signal(15)
 	signal.Notify(stopSign, os.Interrupt, sigTerm)
 	go func() {
 		<-stopSign
@@ -684,12 +745,12 @@ func setupSignalHandling(app *syncthing.App) {
 	}()
 }
 
-func loadOrDefaultConfig(myID protocol.DeviceID) (config.Wrapper, error) {
+func loadOrDefaultConfig(myID protocol.DeviceID, evLogger events.Logger) (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
-	cfg, err := config.Load(cfgFile, myID)
+	cfg, err := config.Load(cfgFile, myID, evLogger)
 
 	if err != nil {
-		cfg, err = syncthing.DefaultConfig(cfgFile, myID, noDefaultFolder)
+		cfg, err = syncthing.DefaultConfig(cfgFile, myID, evLogger, noDefaultFolder)
 	}
 
 	return cfg, err
@@ -717,7 +778,7 @@ func auditWriter(auditFile string) io.Writer {
 		fd, err = os.OpenFile(auditFile, auditFlags, 0600)
 		if err != nil {
 			l.Warnln("Audit:", err)
-			os.Exit(exitError)
+			os.Exit(syncthing.ExitError.AsInt())
 		}
 		auditDest = auditFile
 	}
@@ -774,9 +835,23 @@ func standbyMonitor(app *syncthing.App) {
 	}
 }
 
-func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
-	timer := time.NewTimer(0)
-	sub := events.Default.Subscribe(events.DeviceConnected)
+func shouldUpgrade(cfg config.Wrapper, runtimeOptions RuntimeOptions) bool {
+	if upgrade.DisabledByCompilation {
+		return false
+	}
+	if opts := cfg.Options(); opts.AutoUpgradeIntervalH < 0 {
+		return false
+	}
+	if runtimeOptions.NoUpgrade {
+		l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
+		return false
+	}
+	return true
+}
+
+func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger) {
+	timer := time.NewTimer(upgradeCheckInterval)
+	sub := evLogger.Subscribe(events.DeviceConnected)
 	for {
 		select {
 		case event := <-sub.C():
@@ -798,7 +873,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
 
 		rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
-			events.Default.Unsubscribe(sub)
+			sub.Unsubscribe()
 			return
 		}
 		if err != nil {
@@ -822,12 +897,32 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App) {
 			timer.Reset(checkInterval)
 			continue
 		}
-		events.Default.Unsubscribe(sub)
+		sub.Unsubscribe()
 		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
 		time.Sleep(time.Minute)
 		app.Stop(syncthing.ExitUpgrade)
 		return
 	}
+}
+
+func initialAutoUpgradeCheck(misc *db.NamespacedKV) (upgrade.Release, error) {
+	if last, ok, err := misc.Time(upgradeCheckKey); err == nil && ok && time.Since(last) < upgradeCheckInterval {
+		return upgrade.Release{}, errTooEarlyUpgradeCheck
+	}
+	_ = misc.PutTime(upgradeCheckKey, time.Now())
+	release, err := checkUpgrade()
+	if err != nil {
+		return upgrade.Release{}, err
+	}
+	if lastVersion, ok, err := misc.String(upgradeVersionKey); err == nil && ok && lastVersion == release.Tag {
+		// Only check time if we try to upgrade to the same release.
+		if lastTime, ok, err := misc.Time(upgradeTimeKey); err == nil && ok && time.Since(lastTime) < upgradeRetryInterval {
+			return upgrade.Release{}, errTooEarlyUpgrade
+		}
+	}
+	_ = misc.PutString(upgradeVersionKey, release.Tag)
+	_ = misc.PutTime(upgradeTimeKey, time.Now())
+	return release, nil
 }
 
 // cleanConfigDirectory removes old, unused configuration and index formats, a
@@ -893,6 +988,13 @@ func setPauseState(cfg config.Wrapper, paused bool) {
 	}
 	if _, err := cfg.Replace(raw); err != nil {
 		l.Warnln("Cannot adjust paused state:", err)
-		os.Exit(exitError)
+		os.Exit(syncthing.ExitError.AsInt())
 	}
+}
+
+func exitCodeForUpgrade(err error) int {
+	if _, ok := err.(errNoUpgrade); ok {
+		return syncthing.ExitNoUpgradeAvailable.AsInt()
+	}
+	return syncthing.ExitError.AsInt()
 }

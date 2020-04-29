@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "Jun 11, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Apr 24, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -128,12 +128,6 @@ firewall\-setup to enable direct connections.
 Second, if one of the devices is a very low powered machine (a Raspberry Pi,
 or a phone, or a NAS, or similar) you are likely constrained by the CPU on
 that device. See the next question for reasons Syncthing likes a faster CPU.
-You can verify this by looking at the CPU utilization in the GUI. If it is
-constantly at or close to 100%, you are limited by the CPU speed. In some
-cases a lower CPU usage number can also indicate being limited by the CPU \-
-for example constant 25% usage on a four core CPU likely means that
-Syncthing is doing something that is not parallellizable and thus limited to
-a single CPU core.
 .sp
 Third, verify that the network connection is OK. Tools such as iperf or just
 an Internet speed test can be used to verify the performance here.
@@ -253,7 +247,8 @@ to configure listening ports such that they do not overlap (see config).
 .sp
 No. Syncthing is not designed to sync locally and the overhead involved in
 doing so using Syncthing’s method would be wasteful. There are better
-programs to achieve this such as rsync or Unison.
+programs to achieve this such as [rsync](\fI\%https://rsync.samba.org/\fP) or
+[Unison](\fI\%https://www.cis.upenn.edu/~bcpierce/unison\fP).
 .SH WHEN I DO HAVE TWO DISTINCT SYNCTHING-MANAGED FOLDERS ON TWO HOSTS, HOW DOES SYNCTHING HANDLE MOVING FILES BETWEEN THEM?
 .sp
 Syncthing does not specially handle this case, and most files most likely get
@@ -556,20 +551,23 @@ sudo sh \-c \(aqecho 204800 > /proc/sys/fs/inotify/max_user_watches\(aq
 .sp
 If you’ve forgotten/lost the GUI password, you can remove it by deleting the \fB<user>\fP and \fB<password>\fP XML tags from the \fB<gui>\fP block in file \fBconfig.xml\fP\&. This should be done while Syncthing is not running. The location of the file depends on OS and is described in the configuration documentation.
 .sp
-For example the two lines \fBin bold\fP below would be removed from the file.
-.nf
-<gui enabled=”true” tls=”false” debugging=”false”>
-.in +2
-<address>127.0.0.1:8384</address>
-\fB<user>syncguy</user>\fP
-\fB<password>$2a$10$s9wWHOQetp46Cq7GPye69.KqKantdUrbHCeLnZ9A6VlzkEPPYHDAC</password>\fP
-<apikey>9RCKohqCAyrj5RjpyZdR2wXmQ9PyQFeN</apikey>
-<theme>default</theme>
-.in -2
-</gui>
-
-.fi
+For example, the two emphasized lines below would be removed from the file.
+.INDENT 0.0
+.INDENT 3.5
 .sp
+.nf
+.ft C
+<gui enabled="true" tls="false" debugging="false">
+   <address>127.0.0.1:8384</address>
+   <user>syncguy</user>
+   <password>$2a$10$s9wWHOQe...Cq7GPye69</password>
+   <apikey>9RCKohqCAyrj5RjpyZdR2wXmQ9PyQFeN</apikey>
+   <theme>default</theme>
+</gui>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

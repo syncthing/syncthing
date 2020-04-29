@@ -7,120 +7,66 @@
 package beacon
 
 import (
-	"fmt"
+	"context"
 	"net"
 	"time"
-
-	"github.com/thejerf/suture"
-
-	"github.com/syncthing/syncthing/lib/util"
 )
 
-type Broadcast struct {
-	*suture.Supervisor
-	port   int
-	inbox  chan []byte
-	outbox chan recv
-	br     *broadcastReader
-	bw     *broadcastWriter
+func NewBroadcast(port int) Interface {
+	c := newCast("broadcastBeacon")
+	c.addReader(func(ctx context.Context) error {
+		return readBroadcasts(ctx, c.outbox, port)
+	})
+	c.addWriter(func(ctx context.Context) error {
+		return writeBroadcasts(ctx, c.inbox, port)
+	})
+	return c
 }
 
-func NewBroadcast(port int) *Broadcast {
-	b := &Broadcast{
-		Supervisor: suture.New("broadcastBeacon", suture.Spec{
-			// Don't retry too frenetically: an error to open a socket or
-			// whatever is usually something that is either permanent or takes
-			// a while to get solved...
-			FailureThreshold: 2,
-			FailureBackoff:   60 * time.Second,
-			// Only log restarts in debug mode.
-			Log: func(line string) {
-				l.Debugln(line)
-			},
-			PassThroughPanics: true,
-		}),
-		port:   port,
-		inbox:  make(chan []byte),
-		outbox: make(chan recv, 16),
-	}
-
-	b.br = &broadcastReader{
-		port:   port,
-		outbox: b.outbox,
-	}
-	b.br.ServiceWithError = util.AsServiceWithError(b.br.serve)
-	b.Add(b.br)
-	b.bw = &broadcastWriter{
-		port:  port,
-		inbox: b.inbox,
-	}
-	b.bw.ServiceWithError = util.AsServiceWithError(b.bw.serve)
-	b.Add(b.bw)
-
-	return b
-}
-
-func (b *Broadcast) Send(data []byte) {
-	b.inbox <- data
-}
-
-func (b *Broadcast) Recv() ([]byte, net.Addr) {
-	recv := <-b.outbox
-	return recv.data, recv.src
-}
-
-func (b *Broadcast) Error() error {
-	if err := b.br.Error(); err != nil {
-		return err
-	}
-	return b.bw.Error()
-}
-
-type broadcastWriter struct {
-	util.ServiceWithError
-	port  int
-	inbox chan []byte
-}
-
-func (w *broadcastWriter) serve(stop chan struct{}) error {
-	l.Debugln(w, "starting")
-	defer l.Debugln(w, "stopping")
-
+func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 	conn, err := net.ListenUDP("udp4", nil)
 	if err != nil {
 		l.Debugln(err)
 		return err
 	}
-	done := make(chan struct{})
-	defer close(done)
+	doneCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		select {
-		case <-stop:
-		case <-done:
-		}
+		<-doneCtx.Done()
 		conn.Close()
 	}()
 
 	for {
 		var bs []byte
 		select {
-		case bs = <-w.inbox:
-		case <-stop:
+		case bs = <-inbox:
+		case <-doneCtx.Done():
 			return nil
 		}
 
-		addrs, err := net.InterfaceAddrs()
+		intfs, err := net.Interfaces()
 		if err != nil {
 			l.Debugln(err)
-			w.SetError(err)
-			continue
+			return err
 		}
 
 		var dsts []net.IP
-		for _, addr := range addrs {
-			if iaddr, ok := addr.(*net.IPNet); ok && len(iaddr.IP) >= 4 && iaddr.IP.IsGlobalUnicast() && iaddr.IP.To4() != nil {
-				baddr := bcast(iaddr)
-				dsts = append(dsts, baddr.IP)
+		for _, intf := range intfs {
+			if intf.Flags&net.FlagBroadcast == 0 {
+				continue
+			}
+
+			addrs, err := intf.Addrs()
+			if err != nil {
+				l.Debugln(err)
+				return err
+			}
+
+			for _, addr := range addrs {
+				if iaddr, ok := addr.(*net.IPNet); ok && len(iaddr.IP) >= 4 && iaddr.IP.IsGlobalUnicast() && iaddr.IP.To4() != nil {
+					baddr := bcast(iaddr)
+					dsts = append(dsts, baddr.IP)
+				}
 			}
 		}
 
@@ -133,13 +79,13 @@ func (w *broadcastWriter) serve(stop chan struct{}) error {
 
 		success := 0
 		for _, ip := range dsts {
-			dst := &net.UDPAddr{IP: ip, Port: w.port}
+			dst := &net.UDPAddr{IP: ip, Port: port}
 
 			conn.SetWriteDeadline(time.Now().Add(time.Second))
-			_, err := conn.WriteTo(bs, dst)
+			_, err = conn.WriteTo(bs, dst)
 			conn.SetWriteDeadline(time.Time{})
 
-			if err, ok := err.(net.Error); ok && err.Timeout() {
+			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
 				// Write timeouts should not happen. We treat it as a fatal
 				// error on the socket.
 				l.Debugln(err)
@@ -149,7 +95,6 @@ func (w *broadcastWriter) serve(stop chan struct{}) error {
 			if err != nil {
 				// Some other error that we don't expect. Debug and continue.
 				l.Debugln(err)
-				w.SetError(err)
 				continue
 			}
 
@@ -157,38 +102,24 @@ func (w *broadcastWriter) serve(stop chan struct{}) error {
 			success++
 		}
 
-		if success > 0 {
-			w.SetError(nil)
+		if success == 0 {
+			l.Debugln("couldn't send any braodcasts")
+			return err
 		}
 	}
 }
 
-func (w *broadcastWriter) String() string {
-	return fmt.Sprintf("broadcastWriter@%p", w)
-}
-
-type broadcastReader struct {
-	util.ServiceWithError
-	port   int
-	outbox chan recv
-}
-
-func (r *broadcastReader) serve(stop chan struct{}) error {
-	l.Debugln(r, "starting")
-	defer l.Debugln(r, "stopping")
-
-	conn, err := net.ListenUDP("udp4", &net.UDPAddr{Port: r.port})
+func readBroadcasts(ctx context.Context, outbox chan<- recv, port int) error {
+	conn, err := net.ListenUDP("udp4", &net.UDPAddr{Port: port})
 	if err != nil {
 		l.Debugln(err)
 		return err
 	}
-	done := make(chan struct{})
-	defer close(done)
+
+	doneCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	go func() {
-		select {
-		case <-stop:
-		case <-done:
-		}
+		<-doneCtx.Done()
 		conn.Close()
 	}()
 
@@ -200,24 +131,18 @@ func (r *broadcastReader) serve(stop chan struct{}) error {
 			return err
 		}
 
-		r.SetError(nil)
-
 		l.Debugf("recv %d bytes from %s", n, addr)
 
 		c := make([]byte, n)
 		copy(c, bs)
 		select {
-		case r.outbox <- recv{c, addr}:
-		case <-stop:
+		case outbox <- recv{c, addr}:
+		case <-doneCtx.Done():
 			return nil
 		default:
 			l.Debugln("dropping message")
 		}
 	}
-}
-
-func (r *broadcastReader) String() string {
-	return fmt.Sprintf("broadcastReader@%p", r)
 }
 
 func bcast(ip *net.IPNet) *net.IPNet {

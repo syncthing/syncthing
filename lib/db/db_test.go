@@ -7,19 +7,37 @@
 package db
 
 import (
+	"bytes"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
+
+func genBlocks(n int) []protocol.BlockInfo {
+	b := make([]protocol.BlockInfo, n)
+	for i := range b {
+		h := make([]byte, 32)
+		for j := range h {
+			h[j] = byte(i + j)
+		}
+		b[i].Size = int32(i)
+		b[i].Hash = h
+	}
+	return b
+}
 
 func TestIgnoredFiles(t *testing.T) {
 	ldb, err := openJSONS("testdata/v0.14.48-ignoredfiles.db.jsons")
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := NewLowlevel(ldb, "<memory>")
-	UpdateSchema(db)
+	db := NewLowlevel(ldb)
+	defer db.Close()
+	if err := UpdateSchema(db); err != nil {
+		t.Fatal(err)
+	}
 
 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 
@@ -56,7 +74,9 @@ func TestIgnoredFiles(t *testing.T) {
 	// Local files should have the "ignored" bit in addition to just being
 	// generally invalid if we want to look at the simulation of that bit.
 
-	fi, ok := fs.Get(protocol.LocalDeviceID, "foo")
+	snap := fs.Snapshot()
+	defer snap.Release()
+	fi, ok := snap.Get(protocol.LocalDeviceID, "foo")
 	if !ok {
 		t.Fatal("foo should exist")
 	}
@@ -67,7 +87,7 @@ func TestIgnoredFiles(t *testing.T) {
 		t.Error("foo should be ignored")
 	}
 
-	fi, ok = fs.Get(protocol.LocalDeviceID, "bar")
+	fi, ok = snap.Get(protocol.LocalDeviceID, "bar")
 	if !ok {
 		t.Fatal("bar should exist")
 	}
@@ -81,7 +101,7 @@ func TestIgnoredFiles(t *testing.T) {
 	// Remote files have the invalid bit as usual, and the IsInvalid() method
 	// should pick this up too.
 
-	fi, ok = fs.Get(protocol.DeviceID{42}, "baz")
+	fi, ok = snap.Get(protocol.DeviceID{42}, "baz")
 	if !ok {
 		t.Fatal("baz should exist")
 	}
@@ -92,7 +112,7 @@ func TestIgnoredFiles(t *testing.T) {
 		t.Error("baz should be invalid")
 	}
 
-	fi, ok = fs.Get(protocol.DeviceID{42}, "quux")
+	fi, ok = snap.Get(protocol.DeviceID{42}, "quux")
 	if !ok {
 		t.Fatal("quux should exist")
 	}
@@ -142,25 +162,46 @@ func TestUpdate0to3(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	db := newInstance(NewLowlevel(ldb, "<memory>"))
+	db := NewLowlevel(ldb)
+	defer db.Close()
 	updater := schemaUpdater{db}
 
 	folder := []byte(update0to3Folder)
 
-	updater.updateSchema0to1()
+	if err := updater.updateSchema0to1(0); err != nil {
+		t.Fatal(err)
+	}
 
-	if _, ok := db.getFileDirty(folder, protocol.LocalDeviceID[:], []byte(slashPrefixed)); ok {
+	trans, err := db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trans.Release()
+	if _, ok, err := trans.getFile(folder, protocol.LocalDeviceID[:], []byte(slashPrefixed)); err != nil {
+		t.Fatal(err)
+	} else if ok {
 		t.Error("File prefixed by '/' was not removed during transition to schema 1")
 	}
 
-	if _, err := db.Get(db.keyer.GenerateGlobalVersionKey(nil, folder, []byte(invalid)), nil); err != nil {
+	key, err := db.keyer.GenerateGlobalVersionKey(nil, folder, []byte(invalid))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Get(key); err != nil {
 		t.Error("Invalid file wasn't added to global list")
 	}
 
-	updater.updateSchema1to2()
+	if err := updater.updateSchema1to2(1); err != nil {
+		t.Fatal(err)
+	}
 
 	found := false
-	db.withHaveSequence(folder, 0, func(fi FileIntf) bool {
+	trans, err = db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trans.Release()
+	_ = trans.withHaveSequence(folder, 0, func(fi FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		l.Infoln(f)
 		if found {
@@ -178,14 +219,21 @@ func TestUpdate0to3(t *testing.T) {
 		t.Error("Local file wasn't added to sequence bucket", err)
 	}
 
-	updater.updateSchema2to3()
+	if err := updater.updateSchema2to3(2); err != nil {
+		t.Fatal(err)
+	}
 
 	need := map[string]protocol.FileInfo{
 		haveUpdate0to3[remoteDevice0][0].Name: haveUpdate0to3[remoteDevice0][0],
 		haveUpdate0to3[remoteDevice1][0].Name: haveUpdate0to3[remoteDevice1][0],
 		haveUpdate0to3[remoteDevice0][2].Name: haveUpdate0to3[remoteDevice0][2],
 	}
-	db.withNeed(folder, protocol.LocalDeviceID[:], false, func(fi FileIntf) bool {
+	trans, err = db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trans.Release()
+	_ = trans.withNeed(folder, protocol.LocalDeviceID[:], false, func(fi FileIntf) bool {
 		e, ok := need[fi.FileName()]
 		if !ok {
 			t.Error("Got unexpected needed file:", fi.FileName())
@@ -202,13 +250,189 @@ func TestUpdate0to3(t *testing.T) {
 	}
 }
 
+// TestRepairSequence checks that a few hand-crafted messed-up sequence entries get fixed.
+func TestRepairSequence(t *testing.T) {
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+
+	folderStr := "test"
+	folder := []byte(folderStr)
+	id := protocol.LocalDeviceID
+	short := protocol.LocalDeviceID.Short()
+
+	files := []protocol.FileInfo{
+		{Name: "fine", Blocks: genBlocks(1)},
+		{Name: "duplicate", Blocks: genBlocks(2)},
+		{Name: "missing", Blocks: genBlocks(3)},
+		{Name: "overwriting", Blocks: genBlocks(4)},
+		{Name: "inconsistent", Blocks: genBlocks(5)},
+	}
+	for i, f := range files {
+		files[i].Version = f.Version.Update(short)
+	}
+
+	trans, err := db.newReadWriteTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trans.close()
+
+	addFile := func(f protocol.FileInfo, seq int64) {
+		dk, err := trans.keyer.GenerateDeviceFileKey(nil, folder, id[:], []byte(f.Name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := trans.putFile(dk, f, false); err != nil {
+			t.Fatal(err)
+		}
+		sk, err := trans.keyer.GenerateSequenceKey(nil, folder, seq)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := trans.Put(sk, dk); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Plain normal entry
+	var seq int64 = 1
+	files[0].Sequence = 1
+	addFile(files[0], seq)
+
+	// Second entry once updated with original sequence still in place
+	f := files[1]
+	f.Sequence = int64(len(files) + 1)
+	addFile(f, f.Sequence)
+	// Original sequence entry
+	seq++
+	sk, err := trans.keyer.GenerateSequenceKey(nil, folder, seq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dk, err := trans.keyer.GenerateDeviceFileKey(nil, folder, id[:], []byte(f.Name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := trans.Put(sk, dk); err != nil {
+		t.Fatal(err)
+	}
+
+	// File later overwritten thus missing sequence entry
+	seq++
+	files[2].Sequence = seq
+	addFile(files[2], seq)
+
+	// File overwriting previous sequence entry (no seq bump)
+	seq++
+	files[3].Sequence = seq
+	addFile(files[3], seq)
+
+	// Inconistent file
+	seq++
+	files[4].Sequence = 101
+	addFile(files[4], seq)
+
+	// And a sequence entry pointing at nothing because why not
+	sk, err = trans.keyer.GenerateSequenceKey(nil, folder, 100001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dk, err = trans.keyer.GenerateDeviceFileKey(nil, folder, id[:], []byte("nonexisting"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := trans.Put(sk, dk); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := trans.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Loading the metadata for the first time means a "re"calculation happens,
+	// along which the sequences get repaired too.
+	db.gcMut.RLock()
+	_ = db.loadMetadataTracker(folderStr)
+	db.gcMut.RUnlock()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check the db
+	ro, err := db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ro.close()
+
+	it, err := ro.NewPrefixIterator([]byte{KeyTypeDevice})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer it.Release()
+	for it.Next() {
+		fi, err := ro.unmarshalTrunc(it.Value(), true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if sk, err = ro.keyer.GenerateSequenceKey(sk, folder, fi.SequenceNo()); err != nil {
+			t.Fatal(err)
+		}
+		dk, err := ro.Get(sk)
+		if backend.IsNotFound(err) {
+			t.Error("Missing sequence entry for", fi.FileName())
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(it.Key(), dk) {
+			t.Errorf("Wrong key for %v, expected %s, got %s", f.FileName(), it.Key(), dk)
+		}
+	}
+	if err := it.Error(); err != nil {
+		t.Fatal(err)
+	}
+	it.Release()
+
+	it, err = ro.NewPrefixIterator([]byte{KeyTypeSequence})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer it.Release()
+	for it.Next() {
+		intf, ok, err := ro.getFileTrunc(it.Value(), false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fi := intf.(protocol.FileInfo)
+		seq := ro.keyer.SequenceFromSequenceKey(it.Key())
+		if !ok {
+			t.Errorf("Sequence entry %v points at nothing", seq)
+		} else if fi.SequenceNo() != seq {
+			t.Errorf("Inconsistent sequence entry for %v: %v != %v", fi.FileName(), fi.SequenceNo(), seq)
+		}
+		if len(fi.Blocks) == 0 {
+			t.Error("Missing blocks in", fi.FileName())
+		}
+	}
+	if err := it.Error(); err != nil {
+		t.Fatal(err)
+	}
+	it.Release()
+}
+
 func TestDowngrade(t *testing.T) {
-	db := OpenMemory()
-	UpdateSchema(db) // sets the min version etc
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+	// sets the min version etc
+	if err := UpdateSchema(db); err != nil {
+		t.Fatal(err)
+	}
 
 	// Bump the database version to something newer than we actually support
 	miscDB := NewMiscDataNamespace(db)
-	miscDB.PutInt64("dbVersion", dbVersion+1)
+	if err := miscDB.PutInt64("dbVersion", dbVersion+1); err != nil {
+		t.Fatal(err)
+	}
 	l.Infoln(dbVersion)
 
 	// Pretend we just opened the DB and attempt to update it again
@@ -218,5 +442,42 @@ func TestDowngrade(t *testing.T) {
 		t.Fatal("Expected error due to database downgrade, got", err)
 	} else if err.minSyncthingVersion != dbMinSyncthingVersion {
 		t.Fatalf("Error has %v as min Syncthing version, expected %v", err.minSyncthingVersion, dbMinSyncthingVersion)
+	}
+}
+
+func TestCheckGlobals(t *testing.T) {
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+
+	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+
+	// Add any file
+	name := "foo"
+	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+		{
+			Name:    name,
+			Type:    protocol.FileInfoTypeFile,
+			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1001}}},
+		},
+	})
+
+	// Remove just the file entry
+	if err := db.dropPrefix([]byte{KeyTypeDevice}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Clean up global entry of the now missing file
+	if err := db.checkGlobals([]byte(fs.folder), fs.meta); err != nil {
+		t.Fatal(err)
+	}
+
+	// Check that the global entry is gone
+	gk, err := db.keyer.GenerateGlobalVersionKey(nil, []byte(fs.folder), []byte(name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Get(gk)
+	if !backend.IsNotFound(err) {
+		t.Error("Expected key missing error, got", err)
 	}
 }

@@ -9,13 +9,12 @@ package model
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -27,18 +26,18 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	// Get us a model up and running
 
-	m, f := setupROFolder()
+	m, f := setupROFolder(t)
 	ffs := f.Filesystem()
-	defer cleanupModelAndRemoveDir(m, ffs.URI())
+	defer cleanupModel(m)
 
 	// Create some test data
 
 	for _, dir := range []string{".stfolder", "ignDir", "unknownDir"} {
 		must(t, ffs.MkdirAll(dir, 0755))
 	}
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "ignDir/ignFile"), []byte("hello\n"), 0644))
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "unknownDir/unknownFile"), []byte("hello\n"), 0644))
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), ".stignore"), []byte("ignDir\n"), 0644))
+	must(t, writeFile(ffs, "ignDir/ignFile", []byte("hello\n"), 0644))
+	must(t, writeFile(ffs, "unknownDir/unknownFile", []byte("hello\n"), 0644))
+	must(t, writeFile(ffs, ".stignore", []byte("ignDir\n"), 0644))
 
 	knownFiles := setupKnownFiles(t, ffs, []byte("hello\n"))
 
@@ -47,27 +46,30 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	m.Index(device1, "ro", knownFiles)
 	f.updateLocalsFromScanning(knownFiles)
 
-	size := m.GlobalSize("ro")
+	m.fmut.RLock()
+	snap := m.folderFiles["ro"].Snapshot()
+	m.fmut.RUnlock()
+	size := snap.GlobalSize()
+	snap.Release()
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
 
-	// Start the folder. This will cause a scan, should discover the other stuff in the folder
+	// Scan, should discover the other stuff in the folder
 
-	m.StartFolder("ro")
-	m.ScanFolder("ro")
+	must(t, m.ScanFolder("ro"))
 
 	// We should now have two files and two directories.
 
-	size = m.GlobalSize("ro")
+	size = globalSize(t, m, "ro")
 	if size.Files != 2 || size.Directories != 2 {
 		t.Fatalf("Global: expected 2 files and 2 directories: %+v", size)
 	}
-	size = m.LocalSize("ro")
+	size = localSize(t, m, "ro")
 	if size.Files != 2 || size.Directories != 2 {
 		t.Fatalf("Local: expected 2 files and 2 directories: %+v", size)
 	}
-	size = m.ReceiveOnlyChangedSize("ro")
+	size = receiveOnlyChangedSize(t, m, "ro")
 	if size.Files+size.Directories == 0 {
 		t.Fatalf("ROChanged: expected something: %+v", size)
 	}
@@ -92,11 +94,11 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	// We should now have one file and directory again.
 
-	size = m.GlobalSize("ro")
+	size = globalSize(t, m, "ro")
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 files and 1 directories: %+v", size)
 	}
-	size = m.LocalSize("ro")
+	size = localSize(t, m, "ro")
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 files and 1 directories: %+v", size)
 	}
@@ -108,9 +110,9 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// Get us a model up and running
 
-	m, f := setupROFolder()
+	m, f := setupROFolder(t)
 	ffs := f.Filesystem()
-	defer cleanupModelAndRemoveDir(m, ffs.URI())
+	defer cleanupModel(m)
 
 	// Create some test data
 
@@ -123,26 +125,25 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	m.Index(device1, "ro", knownFiles)
 	f.updateLocalsFromScanning(knownFiles)
 
-	// Start the folder. This will cause a scan.
+	// Scan the folder.
 
-	m.StartFolder("ro")
-	m.ScanFolder("ro")
+	must(t, m.ScanFolder("ro"))
 
 	// Everything should be in sync.
 
-	size := m.GlobalSize("ro")
+	size := globalSize(t, m, "ro")
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
-	size = m.LocalSize("ro")
+	size = localSize(t, m, "ro")
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
 	}
-	size = m.NeedSize("ro")
+	size = needSize(t, m, "ro")
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
-	size = m.ReceiveOnlyChangedSize("ro")
+	size = receiveOnlyChangedSize(t, m, "ro")
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("ROChanged: expected nothing: %+v", size)
 	}
@@ -150,7 +151,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	// Update the file.
 
 	newData := []byte("totally different data\n")
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), newData, 0644))
+	must(t, writeFile(ffs, "knownDir/knownFile", newData, 0644))
 
 	// Rescan.
 
@@ -158,20 +159,20 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// We now have a newer file than the rest of the cluster. Global state should reflect this.
 
-	size = m.GlobalSize("ro")
+	size = globalSize(t, m, "ro")
 	const sizeOfDir = 128
 	if size.Files != 1 || size.Bytes != sizeOfDir+int64(len(oldData)) {
 		t.Fatalf("Global: expected no change due to the new file: %+v", size)
 	}
-	size = m.LocalSize("ro")
+	size = localSize(t, m, "ro")
 	if size.Files != 1 || size.Bytes != sizeOfDir+int64(len(newData)) {
 		t.Fatalf("Local: expected the new file to be reflected: %+v", size)
 	}
-	size = m.NeedSize("ro")
+	size = needSize(t, m, "ro")
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
-	size = m.ReceiveOnlyChangedSize("ro")
+	size = receiveOnlyChangedSize(t, m, "ro")
 	if size.Files+size.Directories == 0 {
 		t.Fatalf("ROChanged: expected something: %+v", size)
 	}
@@ -180,28 +181,26 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	m.Revert("ro")
 
-	size = m.GlobalSize("ro")
+	size = globalSize(t, m, "ro")
 	if size.Files != 1 || size.Bytes != sizeOfDir+int64(len(oldData)) {
 		t.Fatalf("Global: expected the global size to revert: %+v", size)
 	}
-	size = m.LocalSize("ro")
+	size = localSize(t, m, "ro")
 	if size.Files != 1 || size.Bytes != sizeOfDir+int64(len(newData)) {
 		t.Fatalf("Local: expected the local size to remain: %+v", size)
 	}
-	size = m.NeedSize("ro")
+	size = needSize(t, m, "ro")
 	if size.Files != 1 || size.Bytes != int64(len(oldData)) {
 		t.Fatalf("Local: expected to need the old file data: %+v", size)
 	}
 }
 
 func TestRecvOnlyUndoChanges(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	// Get us a model up and running
 
-	m, f := setupROFolder()
+	m, f := setupROFolder(t)
 	ffs := f.Filesystem()
-	defer cleanupModelAndRemoveDir(m, ffs.URI())
+	defer cleanupModel(m)
 
 	// Create some test data
 
@@ -209,65 +208,121 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, ffs, oldData)
 
-	m.fmut.Lock()
-	fset := m.folderFiles["ro"]
-	m.fmut.Unlock()
-	folderFs := fset.MtimeFS()
-
-	// Send and index update for the known stuff
+	// Send an index update for the known stuff
 
 	m.Index(device1, "ro", knownFiles)
 	f.updateLocalsFromScanning(knownFiles)
 
-	// Start the folder. This will cause a scan.
+	// Scan the folder.
 
-	m.StartFolder("ro")
-	m.ScanFolder("ro")
+	must(t, m.ScanFolder("ro"))
 
 	// Everything should be in sync.
 
-	size := m.GlobalSize("ro")
+	size := globalSize(t, m, "ro")
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
-	size = m.LocalSize("ro")
+	size = localSize(t, m, "ro")
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
 	}
-	size = m.NeedSize("ro")
+	size = needSize(t, m, "ro")
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
-	size = m.ReceiveOnlyChangedSize("ro")
+	size = receiveOnlyChangedSize(t, m, "ro")
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("ROChanged: expected nothing: %+v", size)
 	}
 
 	// Create a file and modify another
 
-	file := filepath.Join(ffs.URI(), "foo")
-	must(t, ioutil.WriteFile(file, []byte("hello\n"), 0644))
+	const file = "foo"
+	must(t, writeFile(ffs, file, []byte("hello\n"), 0644))
+	must(t, writeFile(ffs, "knownDir/knownFile", []byte("bye\n"), 0644))
 
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), []byte("bye\n"), 0644))
+	must(t, m.ScanFolder("ro"))
 
-	m.ScanFolder("ro")
-
-	size = m.ReceiveOnlyChangedSize("ro")
+	size = receiveOnlyChangedSize(t, m, "ro")
 	if size.Files != 2 {
 		t.Fatalf("Receive only: expected 2 files: %+v", size)
 	}
 
 	// Remove the file again and undo the modification
 
-	testOs.Remove(file)
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), oldData, 0644))
-	folderFs.Chtimes("knownDir/knownFile", knownFiles[1].ModTime(), knownFiles[1].ModTime())
+	must(t, ffs.Remove(file))
+	must(t, writeFile(ffs, "knownDir/knownFile", oldData, 0644))
+	must(t, ffs.Chtimes("knownDir/knownFile", knownFiles[1].ModTime(), knownFiles[1].ModTime()))
 
-	m.ScanFolder("ro")
+	must(t, m.ScanFolder("ro"))
 
-	size = m.ReceiveOnlyChangedSize("ro")
+	size = receiveOnlyChangedSize(t, m, "ro")
 	if size.Files+size.Directories+size.Deleted != 0 {
 		t.Fatalf("Receive only: expected all zero: %+v", size)
+	}
+}
+
+func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
+	// Get us a model up and running
+
+	m, f := setupROFolder(t)
+	ffs := f.Filesystem()
+	defer cleanupModel(m)
+
+	// Create some test data
+
+	must(t, ffs.MkdirAll(".stfolder", 0755))
+	oldData := []byte("hello\n")
+	knownFiles := setupKnownFiles(t, ffs, oldData)
+
+	// Send an index update for the known stuff
+
+	m.Index(device1, "ro", knownFiles)
+	f.updateLocalsFromScanning(knownFiles)
+
+	// Scan the folder.
+
+	must(t, m.ScanFolder("ro"))
+
+	// Everything should be in sync.
+
+	size := globalSize(t, m, "ro")
+	if size.Files != 1 || size.Directories != 1 {
+		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
+	}
+	size = localSize(t, m, "ro")
+	if size.Files != 1 || size.Directories != 1 {
+		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
+	}
+	size = needSize(t, m, "ro")
+	if size.Files+size.Directories > 0 {
+		t.Fatalf("Need: expected nothing: %+v", size)
+	}
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Files+size.Directories > 0 {
+		t.Fatalf("ROChanged: expected nothing: %+v", size)
+	}
+
+	// Delete our file
+
+	must(t, ffs.Remove(knownFiles[1].Name))
+
+	must(t, m.ScanFolder("ro"))
+
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Deleted != 1 {
+		t.Fatalf("Receive only: expected 1 deleted: %+v", size)
+	}
+
+	// Drop the remote
+
+	f.fset.Drop(device1)
+	must(t, m.ScanFolder("ro"))
+
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Deleted != 0 {
+		t.Fatalf("Receive only: expected no deleted: %+v", size)
 	}
 }
 
@@ -275,7 +330,7 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 	t.Helper()
 
 	must(t, ffs.MkdirAll("knownDir", 0755))
-	must(t, ioutil.WriteFile(filepath.Join(ffs.URI(), "knownDir/knownFile"), data, 0644))
+	must(t, writeFile(ffs, "knownDir/knownFile", data, 0644))
 
 	t0 := time.Now().Add(-1 * time.Minute)
 	must(t, ffs.Chtimes("knownDir/knownFile", t0, t0))
@@ -309,24 +364,40 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 	return knownFiles
 }
 
-func setupROFolder() (*model, *sendOnlyFolder) {
+func setupROFolder(t *testing.T) (*model, *receiveOnlyFolder) {
+	t.Helper()
+
 	w := createTmpWrapper(defaultCfg)
-	fcfg := testFolderConfigTmp()
+	cfg := w.RawCopy()
+	fcfg := testFolderConfigFake()
 	fcfg.ID = "ro"
+	fcfg.Label = "ro"
 	fcfg.Type = config.FolderTypeReceiveOnly
-	w.SetFolder(fcfg)
+	cfg.Folders = []config.FolderConfiguration{fcfg}
+	w.Replace(cfg)
 
-	m := newModel(w, myID, "syncthing", "dev", db.OpenMemory(), nil)
-	m.AddFolder(fcfg)
-
-	f := &sendOnlyFolder{
-		folder: folder{
-			fset:                m.folderFiles[fcfg.ID],
-			FolderConfiguration: fcfg,
-		},
-	}
-
+	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
 	m.ServeBackground()
+	must(t, m.ScanFolder("ro"))
+
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+	f := m.folderRunners["ro"].(*receiveOnlyFolder)
 
 	return m, f
+}
+
+func writeFile(fs fs.Filesystem, filename string, data []byte, perm fs.FileMode) error {
+	fd, err := fs.Create(filename)
+	if err != nil {
+		return err
+	}
+	_, err = fd.Write(data)
+	if err != nil {
+		return err
+	}
+	if err := fd.Close(); err != nil {
+		return err
+	}
+	return fs.Chmod(filename, perm)
 }

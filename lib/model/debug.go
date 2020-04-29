@@ -7,19 +7,12 @@
 package model
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	l = logger.DefaultLogger.NewFacility("model", "The root hub")
 )
-
-func init() {
-	l.SetDebug("model", strings.Contains(os.Getenv("STTRACE"), "model") || os.Getenv("STTRACE") == "all")
-}
 
 func shouldDebug() bool {
 	return l.ShouldDebug("model")

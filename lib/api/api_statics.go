@@ -23,21 +23,25 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
+const themePrefix = "theme-assets/"
+
 type staticsServer struct {
 	assetDir        string
 	assets          map[string][]byte
 	availableThemes []string
 
-	mut   sync.RWMutex
-	theme string
+	mut             sync.RWMutex
+	theme           string
+	lastThemeChange time.Time
 }
 
 func newStaticsServer(theme, assetDir string) *staticsServer {
 	s := &staticsServer{
-		assetDir: assetDir,
-		assets:   auto.Assets(),
-		mut:      sync.NewRWMutex(),
-		theme:    theme,
+		assetDir:        assetDir,
+		assets:          auto.Assets(),
+		mut:             sync.NewRWMutex(),
+		theme:           theme,
+		lastThemeChange: time.Now().UTC(),
 	}
 
 	seen := make(map[string]struct{})
@@ -86,7 +90,22 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 
 	s.mut.RLock()
 	theme := s.theme
+	modificationTime := s.lastThemeChange
 	s.mut.RUnlock()
+
+	// If path starts with special prefix, get theme and file from path
+	if strings.HasPrefix(file, themePrefix) {
+		path := file[len(themePrefix):]
+		i := strings.IndexRune(path, '/')
+
+		if i == -1 {
+			http.NotFound(w, r)
+			return
+		}
+
+		theme = path[:i]
+		file = path[i+1:]
+	}
 
 	// Check for an override for the current theme.
 	if s.assetDir != "" {
@@ -125,14 +144,12 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	etag := fmt.Sprintf("%d", auto.Generated)
-	modified := time.Unix(auto.Generated, 0).UTC()
-
-	w.Header().Set("Last-Modified", modified.Format(http.TimeFormat))
+	etag := fmt.Sprintf("%d", modificationTime.Unix())
+	w.Header().Set("Last-Modified", modificationTime.Format(http.TimeFormat))
 	w.Header().Set("Etag", etag)
 
 	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil {
-		if modified.Equal(t) || modified.Before(t) {
+		if modificationTime.Equal(t) || modificationTime.Before(t) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
@@ -199,6 +216,7 @@ func (s *staticsServer) mimeTypeForFile(file string) string {
 func (s *staticsServer) setTheme(theme string) {
 	s.mut.Lock()
 	s.theme = theme
+	s.lastThemeChange = time.Now().UTC()
 	s.mut.Unlock()
 }
 

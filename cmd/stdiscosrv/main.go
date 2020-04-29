@@ -9,17 +9,15 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
-	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -66,24 +64,6 @@ var levelDBOptions = &opt.Options{
 }
 
 var (
-	Version    string
-	BuildStamp string
-	BuildUser  string
-	BuildHost  string
-
-	BuildDate   time.Time
-	LongVersion string
-)
-
-func init() {
-	stamp, _ := strconv.Atoi(BuildStamp)
-	BuildDate = time.Unix(int64(stamp), 0)
-
-	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
-	LongVersion = fmt.Sprintf(`stdiscosrv %s (%s %s-%s) %s@%s %s`, Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
-}
-
-var (
 	debug = false
 )
 
@@ -109,19 +89,24 @@ func main() {
 	flag.StringVar(&metricsListen, "metrics-listen", "", "Metrics listen address")
 	flag.StringVar(&replicationPeers, "replicate", "", "Replication peers, id@address, comma separated")
 	flag.StringVar(&replicationListen, "replication-listen", ":19200", "Replication listen address")
+	showVersion := flag.Bool("version", false, "Show version")
 	flag.Parse()
 
-	log.Println(LongVersion)
+	log.Println(build.LongVersionFor("stdiscosrv"))
+	if *showVersion {
+		return
+	}
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
+	if os.IsNotExist(err) {
 		log.Println("Failed to load keypair. Generating one, this might take a while...")
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv")
+		cert, err = tlsutil.NewCertificate(certFile, keyFile, "stdiscosrv", 20*365)
 		if err != nil {
 			log.Fatalln("Failed to generate X509 key pair:", err)
 		}
+	} else if err != nil {
+		log.Fatalln("Failed to load keypair:", err)
 	}
-
 	devID := protocol.NewDeviceID(cert.Certificate[0])
 	log.Println("Server device ID is", devID)
 

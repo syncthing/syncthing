@@ -7,16 +7,9 @@
 package connections
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	l = logger.DefaultLogger.NewFacility("connections", "Connection handling")
 )
-
-func init() {
-	l.SetDebug("connections", strings.Contains(os.Getenv("STTRACE"), "connections") || os.Getenv("STTRACE") == "all")
-}

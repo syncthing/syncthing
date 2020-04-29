@@ -11,18 +11,19 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 var files, oneFile, firstHalf, secondHalf []protocol.FileInfo
-var benchS *db.FileSet
 
-func lazyInitBenchFileSet() {
-	if benchS != nil {
+func lazyInitBenchFiles() {
+	if files != nil {
 		return
 	}
 
+	files = make([]protocol.FileInfo, 0, 1000)
 	for i := 0; i < 1000; i++ {
 		files = append(files, protocol.FileInfo{
 			Name:    fmt.Sprintf("file%d", i),
@@ -35,15 +36,21 @@ func lazyInitBenchFileSet() {
 	firstHalf = files[:middle]
 	secondHalf = files[middle:]
 	oneFile = firstHalf[middle-1 : middle]
+}
 
-	ldb := db.OpenMemory()
-	benchS = db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+func getBenchFileSet() (*db.Lowlevel, *db.FileSet) {
+	lazyInitBenchFiles()
+
+	ldb := db.NewLowlevel(backend.OpenMemory())
+	benchS := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	replace(benchS, remoteDevice0, files)
 	replace(benchS, protocol.LocalDeviceID, firstHalf)
+
+	return ldb, benchS
 }
 
 func BenchmarkReplaceAll(b *testing.B) {
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 
 	b.ResetTimer()
@@ -56,7 +63,8 @@ func BenchmarkReplaceAll(b *testing.B) {
 }
 
 func BenchmarkUpdateOneChanged(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	changed := make([]protocol.FileInfo, 1)
 	changed[0] = oneFile[0]
@@ -75,7 +83,8 @@ func BenchmarkUpdateOneChanged(b *testing.B) {
 }
 
 func BenchmarkUpdate100Changed(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	unchanged := files[100:200]
 	changed := append([]protocol.FileInfo{}, unchanged...)
@@ -96,7 +105,8 @@ func BenchmarkUpdate100Changed(b *testing.B) {
 }
 
 func BenchmarkUpdate100ChangedRemote(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	unchanged := files[100:200]
 	changed := append([]protocol.FileInfo{}, unchanged...)
@@ -117,7 +127,8 @@ func BenchmarkUpdate100ChangedRemote(b *testing.B) {
 }
 
 func BenchmarkUpdateOneUnchanged(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -128,15 +139,18 @@ func BenchmarkUpdateOneUnchanged(b *testing.B) {
 }
 
 func BenchmarkNeedHalf(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		benchS.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap := benchS.Snapshot()
+		snap.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(secondHalf) {
 			b.Errorf("wrong length %d != %d", count, len(secondHalf))
 		}
@@ -146,9 +160,7 @@ func BenchmarkNeedHalf(b *testing.B) {
 }
 
 func BenchmarkNeedHalfRemote(b *testing.B) {
-	lazyInitBenchFileSet()
-
-	ldb := db.OpenMemory()
+	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
 	fset := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	replace(fset, remoteDevice0, firstHalf)
@@ -157,10 +169,12 @@ func BenchmarkNeedHalfRemote(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		fset.WithNeed(remoteDevice0, func(fi db.FileIntf) bool {
+		snap := fset.Snapshot()
+		snap.WithNeed(remoteDevice0, func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(secondHalf) {
 			b.Errorf("wrong length %d != %d", count, len(secondHalf))
 		}
@@ -170,15 +184,18 @@ func BenchmarkNeedHalfRemote(b *testing.B) {
 }
 
 func BenchmarkHave(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		benchS.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap := benchS.Snapshot()
+		snap.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(firstHalf) {
 			b.Errorf("wrong length %d != %d", count, len(firstHalf))
 		}
@@ -188,15 +205,18 @@ func BenchmarkHave(b *testing.B) {
 }
 
 func BenchmarkGlobal(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		benchS.WithGlobal(func(fi db.FileIntf) bool {
+		snap := benchS.Snapshot()
+		snap.WithGlobal(func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(files) {
 			b.Errorf("wrong length %d != %d", count, len(files))
 		}
@@ -206,15 +226,18 @@ func BenchmarkGlobal(b *testing.B) {
 }
 
 func BenchmarkNeedHalfTruncated(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		benchS.WithNeedTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap := benchS.Snapshot()
+		snap.WithNeedTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(secondHalf) {
 			b.Errorf("wrong length %d != %d", count, len(secondHalf))
 		}
@@ -224,15 +247,18 @@ func BenchmarkNeedHalfTruncated(b *testing.B) {
 }
 
 func BenchmarkHaveTruncated(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		benchS.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap := benchS.Snapshot()
+		snap.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(firstHalf) {
 			b.Errorf("wrong length %d != %d", count, len(firstHalf))
 		}
@@ -242,15 +268,18 @@ func BenchmarkHaveTruncated(b *testing.B) {
 }
 
 func BenchmarkGlobalTruncated(b *testing.B) {
-	lazyInitBenchFileSet()
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		count := 0
-		benchS.WithGlobalTruncated(func(fi db.FileIntf) bool {
+		snap := benchS.Snapshot()
+		snap.WithGlobalTruncated(func(fi db.FileIntf) bool {
 			count++
 			return true
 		})
+		snap.Release()
 		if count != len(files) {
 			b.Errorf("wrong length %d != %d", count, len(files))
 		}

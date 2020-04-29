@@ -131,12 +131,27 @@ func TestRelUnrootedCheckedWindows(t *testing.T) {
 		// on these test cases.
 		for _, root := range []string{tc.root, strings.ToLower(tc.root), strings.ToUpper(tc.root)} {
 			fs := BasicFilesystem{root: root}
-			if res, err := fs.unrootedChecked(tc.abs, tc.root); err != nil {
+			if res, err := fs.unrootedChecked(tc.abs, []string{tc.root}); err != nil {
 				t.Errorf(`Unexpected error from unrootedChecked("%v", "%v"): %v (fs.root: %v)`, tc.abs, tc.root, err, root)
 			} else if res != tc.expectedRel {
 				t.Errorf(`unrootedChecked("%v", "%v") == "%v", expected "%v" (fs.root: %v)`, tc.abs, tc.root, res, tc.expectedRel, root)
 			}
 		}
+	}
+}
+
+// TestMultipleRoot checks that fs.unrootedChecked returns the correct path
+// when given more than one possible root path.
+func TestMultipleRoot(t *testing.T) {
+	root := `c:\foO`
+	roots := []string{root, `d:\`}
+	rel := `bar`
+	path := filepath.Join(root, rel)
+	fs := BasicFilesystem{root: root}
+	if res, err := fs.unrootedChecked(path, roots); err != nil {
+		t.Errorf(`Unexpected error from unrootedChecked("%v", "%v"): %v (fs.root: %v)`, path, roots, err, root)
+	} else if res != rel {
+		t.Errorf(`unrootedChecked("%v", "%v") == "%v", expected "%v" (fs.root: %v)`, path, roots, res, rel, root)
 	}
 }
 
