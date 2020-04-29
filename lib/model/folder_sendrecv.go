@@ -1581,17 +1581,17 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 		// sync directories
 		for dir := range changedDirs {
 			delete(changedDirs, dir)
-			fd, err := f.fs.Open(dir)
-			if err != nil {
-				l.Debugf("fsync %q failed: %v", dir, err)
-				continue
-			}
 			if !f.FolderConfiguration.DisableFsync {
+				fd, err := f.fs.Open(dir)
+				if err != nil {
+					l.Debugf("fsync %q failed: %v", dir, err)
+					continue
+				}
 				if err := fd.Sync(); err != nil {
 					l.Debugf("fsync %q failed: %v", dir, err)
 				}
+				fd.Close()
 			}
-			fd.Close()
 		}
 
 		// All updates to file/folder objects that originated remotely
