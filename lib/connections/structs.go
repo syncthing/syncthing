@@ -174,6 +174,12 @@ type listenerFactory interface {
 	Valid(config.Configuration) error
 }
 
+type ListenerAddresses struct {
+	URI          *url.URL
+	WANAddresses []*url.URL
+	LANAddresses []*url.URL
+}
+
 type genericListener interface {
 	Serve()
 	Stop()
@@ -188,7 +194,7 @@ type genericListener interface {
 	WANAddresses() []*url.URL
 	LANAddresses() []*url.URL
 	Error() error
-	OnAddressesChanged(func(genericListener))
+	OnAddressesChanged(func(ListenerAddresses))
 	String() string
 	Factory() listenerFactory
 	NATType() string
@@ -203,14 +209,28 @@ type Model interface {
 }
 
 type onAddressesChangedNotifier struct {
-	callbacks []func(genericListener)
+	callbacks []func(ListenerAddresses)
 }
 
-func (o *onAddressesChangedNotifier) OnAddressesChanged(callback func(genericListener)) {
+func (o *onAddressesChangedNotifier) OnAddressesChanged(callback func(ListenerAddresses)) {
 	o.callbacks = append(o.callbacks, callback)
 }
 
 func (o *onAddressesChangedNotifier) notifyAddressesChanged(l genericListener) {
+	o.notifyAddresses(ListenerAddresses{
+		URI:          l.URI(),
+		WANAddresses: l.WANAddresses(),
+		LANAddresses: l.LANAddresses(),
+	})
+}
+
+func (o *onAddressesChangedNotifier) clearAddresses(uri *url.URL) {
+	o.notifyAddresses(ListenerAddresses{
+		URI: uri,
+	})
+}
+
+func (o *onAddressesChangedNotifier) notifyAddresses(l ListenerAddresses) {
 	for _, callback := range o.callbacks {
 		callback(l)
 	}

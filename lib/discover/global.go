@@ -237,7 +237,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 	// The marshal doesn't fail, I promise.
 	postData, _ := json.Marshal(ann)
 
-	l.Debugf("Announcement: %s", postData)
+	l.Debugf("Announcement: %v", ann)
 
 	resp, err := c.announceClient.Post(ctx, c.server, "application/json", bytes.NewReader(postData))
 	if err != nil {
