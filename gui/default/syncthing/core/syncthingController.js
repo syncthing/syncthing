@@ -19,10 +19,6 @@ angular.module('syncthing.core')
 
         function checkLoginAndStart() {
             $http.get(urlbase + '/login').success(function() {
-                $('#logout').html(`
-                                    <span class="fas fa-fw fa-sign-out"></span>&nbsp;
-                                    <span translate>Logout</span>
-                                `)
                 // We are logged in, or don't need to log in
                 loginSuccessfull()
             }).error(function(){
@@ -38,32 +34,23 @@ angular.module('syncthing.core')
         }
 
         $scope.login = function () {
-            var username = $scope.currentFolder.username
-            var password = $scope.currentFolder.password
+            var username = $scope.login.username
+            var password = $scope.login.password
 
-            $http.post("rest/login?username="+username+"&password="+password).success(
+            $http.post(urlbase + "/login?username="+username+"&password="+password).success(
                 function(){
                     
                     $('#login').modal('hide');
-                    $('#logout').html(`
-                                        <span class="fas fa-fw fa-sign-out"></span>&nbsp;
-                                        <span translate>Logout</span>
-                                    `)
                     loginSuccessfull();
 
                 }).error(function(){
-                    
-                    checkLoginAndStart();
-
-                    $('#error').html(`<div class="alert alert-danger" role="alert" id="error">
-                                            <p style="color: #fff">Error! your credentials are not correct!\n Retry please...</p>
-                                        </div>`);
+                    $('#errorLogin').modal('show')
                 })
         }
 
           // logout function
         $scope.logout = function () {
-            $http.post(urlbase+"/logout").success(
+            $http.post(urlbase + "/logout").success(
                 function(){
                     // when the post request has been sended we reload a page
                     $window.location.reload()
