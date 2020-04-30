@@ -950,7 +950,6 @@ func (f *folder) handleForcedRescans() {
 	})
 
 	snap := f.fset.Snapshot()
-	defer snap.Release()
 
 	for _, path := range paths {
 		_ = batch.flushIfFull()
@@ -962,6 +961,8 @@ func (f *folder) handleForcedRescans() {
 		fi.SetMustRescan(f.shortID)
 		batch.append(fi)
 	}
+
+	snap.Release()
 
 	_ = batch.flush()
 
