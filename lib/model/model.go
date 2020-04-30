@@ -1701,8 +1701,15 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 		ignores = ignore.New(fs.NewFilesystem(cfg.FilesystemType, cfg.Path))
 	}
 
-	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		return nil, nil, err
+	_, err := cfg.Filesystem().Open(".stignore")
+	if err != nil {
+		if err := ignores.Load(".stfolder/ignores.txt"); err != nil && !fs.IsNotExist(err) {
+			return nil, nil, err
+		}
+	} else {
+		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+			return nil, nil, err
+		}
 	}
 
 	return ignores.Lines(), ignores.Patterns(), nil
@@ -1725,9 +1732,22 @@ func (m *model) SetIgnores(folder string, content []string) error {
 		return err
 	}
 
-	if err := ignore.WriteIgnores(cfg.Filesystem(), ".stignore", content); err != nil {
-		l.Warnln("Saving .stignore:", err)
-		return err
+	fs := cfg.Filesystem()
+	fd, err := fs.Open(".stignore")
+	if err != nil {
+		fmt.Println(fd)
+		if err = cfg.CreateMarker(); err != nil {
+			return errors.Wrap(err, "failed to create folder marker")
+		}
+		if err := ignore.WriteIgnores(cfg.Filesystem(), ".stfolder/ignores.txt", content); err != nil {
+			l.Warnln("Saving .stfolder/ignores.txt:", err)
+			return err
+		}
+	} else {
+		if err := ignore.WriteIgnores(cfg.Filesystem(), ".stignore", content); err != nil {
+			l.Warnln("Saving .stignore:", err)
+			return err
+		}
 	}
 
 	m.fmut.RLock()
