@@ -417,12 +417,13 @@ func (s *service) serve(ctx context.Context) {
 }
 
 func (s *service) restLogin(w http.ResponseWriter, r *http.Request) {
-	// w.Header().Set("location", "/")
-	// w.WriteHeader(http.StatusTemporaryRedirect)
+	w.Header().Set("location", "/")
+	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 func (s *service) restLogout(w http.ResponseWriter, r *http.Request) {
-
+	w.Header().Set("location", "/")
+	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor

@@ -207,7 +207,6 @@ func (mw authAndSessionMiddleware) loginHandler(w http.ResponseWriter, r *http.R
 }
 
 func (mw authAndSessionMiddleware) logoutHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Nous passons par la")
 	cookie, err := r.Cookie(mw.cookieName)
 	if err == nil && cookie != nil {
 		sessionsMut.Lock()

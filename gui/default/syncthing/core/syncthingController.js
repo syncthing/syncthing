@@ -55,7 +55,7 @@ angular.module('syncthing.core')
                     
                     checkLoginAndStart();
 
-                    $('#erreur').html(`<div class="alert alert-danger" role="alert" id="erreur">
+                    $('#error').html(`<div class="alert alert-danger" role="alert" id="error">
                                             <p style="color: #fff">Error! your credentials are not correct!\n Retry please...</p>
                                         </div>`);
                 })
@@ -70,7 +70,6 @@ angular.module('syncthing.core')
                 }
             )
         };
-
 
         // public/scope definitions
 
@@ -107,7 +106,7 @@ angular.module('syncthing.core')
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
         $scope.currentFolder = {};
-        // $scope.user = {}
+        
         resetRemoteNeed();
 
         try {
