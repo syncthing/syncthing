@@ -34,10 +34,8 @@ angular.module('syncthing.core')
         }
 
         $scope.login = function () {
-            var username = $scope.login.username
-            var password = $scope.login.password
 
-            $http.post(urlbase + "/login?username="+username+"&password="+password).success(
+            $http.post(urlbase + "/login?username="+$scope.login.username+"&password="+$scope.login.password).success(
                 function(){
                     
                     $('#login').modal('hide');
