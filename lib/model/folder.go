@@ -852,7 +852,7 @@ func (f *folder) Errors() []FileError {
 	return append([]FileError{}, f.scanErrors...)
 }
 
-// ScheduleForceRescan marks the file such that it gets rehashed on next scan, and schedules a scan when possible.
+// ScheduleForceRescan marks the file such that it gets rehashed on next scan, and schedules a scan.
 func (f *folder) ScheduleForceRescan(path string) {
 	f.forcedRescanPathsMut.Lock()
 	f.forcedRescanPaths[path] = struct{}{}
