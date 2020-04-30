@@ -80,7 +80,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	stream, err := session.OpenStreamSync(ctx)
 	if err != nil {
 		// It's ok to close these, this does not close the underlying packetConn.
-		_ = session.CloseWithError(0, err.Error())
+		_ = session.CloseWithError(1, err.Error())
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}
