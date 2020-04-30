@@ -391,8 +391,12 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 		err := t.withNeedLocal(folder, false, func(f FileIntf) bool {
 			name := []byte(f.FileName())
 			global := f.(protocol.FileInfo)
-			fl, err := t.getGlobalVersions(gk, folder, name)
-			if backend.IsNotFound(err) {
+			gk, delErr = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
+			if delErr != nil {
+				return false
+			}
+			svl, err := t.Get(gk)
+			if err != nil {
 				// If there is no global list, we hardly need it.
 				key, err := t.keyer.GenerateNeedFileKey(nk, folder, name)
 				if err != nil {
@@ -401,9 +405,13 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 				}
 				delErr = t.Delete(key)
 				return delErr == nil
-			} else if err != nil {
-				delErr = err
-				return false
+			}
+			var fl VersionList
+			err = fl.Unmarshal(svl)
+			if err != nil {
+				// This can't happen, but it's ignored everywhere else too,
+				// so lets not act on it.
+				return true
 			}
 			if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); !need(global, haveLocalFV, localFV.Version) {
 				key, err := t.keyer.GenerateNeedFileKey(nk, folder, name)
