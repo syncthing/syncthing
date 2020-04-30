@@ -1,14 +1,14 @@
-<modal id="login" status="default" icon="{{'fas fa-user'}}" heading="{{'Log in' | translate}}" large="yes" closeable="yes">
+<modal id="login" status="default" icon="{{'fas fa-user'}}" heading="{{'Log in' | translate}}" large="yes" closeable="no">
   <div class="modal-body form-login">
     <p id="error"></p>
     <form role="form" name="loginForm">
       <div class="form-group">
           <label for=""><span translate>GUI Authentication User</span></label>
-          <input class="form-control" type="text" name="username" id="username" ng-model="currentFolder.username">
+          <input class="form-control" type="text" name="username" id="username" ng-model="login.username">
       </div>
       <div class="form-group">
           <label for=""><span  translate>GUI Authentication Password</span></label>
-          <input class="form-control" type="password" name="password" id="password" ng-model="currentFolder.password">
+          <input class="form-control" type="password" name="password" id="password" ng-model="login.password">
       </div>
       <button type="button" class="btn btn-primary" ng-click="login()"><span translate>Log in</span></button>
     </form>
