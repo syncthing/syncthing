@@ -145,9 +145,10 @@ type Connection interface {
 }
 
 type rawConnection struct {
-	id       DeviceID
-	name     string
-	receiver Model
+	id        DeviceID
+	name      string
+	receiver  Model
+	startTime time.Time
 
 	cr *countingReader
 	cw *countingWriter
@@ -236,6 +237,7 @@ func (c *rawConnection) Start() {
 	go c.writerLoop()
 	go c.pingSender()
 	go c.pingReceiver()
+	c.startTime = time.Now()
 }
 
 func (c *rawConnection) ID() DeviceID {
@@ -287,6 +289,7 @@ func (c *rawConnection) Request(ctx context.Context, folder string, name string,
 
 	c.awaitingMut.Lock()
 	if _, ok := c.awaiting[id]; ok {
+		c.awaitingMut.Unlock()
 		panic("id taken")
 	}
 	rc := make(chan asyncResult, 1)
@@ -958,6 +961,7 @@ type Statistics struct {
 	At            time.Time
 	InBytesTotal  int64
 	OutBytesTotal int64
+	StartedAt     time.Time
 }
 
 func (c *rawConnection) Statistics() Statistics {
@@ -965,6 +969,7 @@ func (c *rawConnection) Statistics() Statistics {
 		At:            time.Now(),
 		InBytesTotal:  c.cr.Tot(),
 		OutBytesTotal: c.cw.Tot(),
+		StartedAt:     c.startTime,
 	}
 }
 

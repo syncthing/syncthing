@@ -525,7 +525,7 @@ func TestUpdateTo10(t *testing.T) {
 	}
 	defer trans.Release()
 	// a
-	vl, err := trans.getGlobalVL(nil, []byte(folder), []byte("a"))
+	vl, err := trans.getGlobalVersions(nil, []byte(folder), []byte("a"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -535,7 +535,7 @@ func TestUpdateTo10(t *testing.T) {
 		}
 	}
 	// b
-	vl, err = trans.getGlobalVL(nil, []byte(folder), []byte("b"))
+	vl, err = trans.getGlobalVersions(nil, []byte(folder), []byte("b"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -546,7 +546,7 @@ func TestUpdateTo10(t *testing.T) {
 		t.Error("vl.Versions[1] deleted for b")
 	}
 	// c
-	vl, err = trans.getGlobalVL(nil, []byte(folder), []byte("c"))
+	vl, err = trans.getGlobalVersions(nil, []byte(folder), []byte("c"))
 	if err != nil {
 		t.Fatal(err)
 	}

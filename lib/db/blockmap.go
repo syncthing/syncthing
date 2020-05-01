@@ -13,17 +13,11 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 )
 
-var blockFinder *BlockFinder
-
 type BlockFinder struct {
 	db *Lowlevel
 }
 
 func NewBlockFinder(db *Lowlevel) *BlockFinder {
-	if blockFinder != nil {
-		return blockFinder
-	}
-
 	return &BlockFinder{
 		db: db,
 	}

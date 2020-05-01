@@ -46,8 +46,9 @@ var (
 )
 
 const (
-	perDeviceWarningIntv = 15 * time.Minute
-	tlsHandshakeTimeout  = 10 * time.Second
+	perDeviceWarningIntv    = 15 * time.Minute
+	tlsHandshakeTimeout     = 10 * time.Second
+	minConnectionReplaceAge = 10 * time.Second
 )
 
 // From go/src/crypto/tls/cipher_suites.go
@@ -276,7 +277,7 @@ func (s *service) handle(ctx context.Context) {
 		ct, connected := s.model.Connection(remoteID)
 
 		// Lower priority is better, just like nice etc.
-		if connected && ct.Priority() > c.priority {
+		if connected && (ct.Priority() > c.priority || time.Since(ct.Statistics().StartedAt) > minConnectionReplaceAge) {
 			l.Debugf("Switching connections %s (existing: %s new: %s)", remoteID, ct, c)
 		} else if connected {
 			// We should not already be connected to the other party. TODO: This

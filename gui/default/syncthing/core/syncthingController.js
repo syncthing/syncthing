@@ -298,12 +298,12 @@ angular.module('syncthing.core')
             for (var folder in $scope.progress) {
                 if (!(folder in progress)) {
                     if ($scope.neededFolder === folder) {
-                        refreshNeed($scope.needed.page, $scope.needed.perpage);
+                        $scope.refreshNeed($scope.needed.page, $scope.needed.perpage);
                     }
                 } else if ($scope.neededFolder === folder) {
                     for (file in $scope.progress[folder]) {
                         if (!(file in progress[folder])) {
-                            refreshNeed($scope.needed.page, $scope.needed.perpage);
+                            $scope.refreshNeed($scope.needed.page, $scope.needed.perpage);
                             break;
                         }
                     }
@@ -1587,6 +1587,24 @@ angular.module('syncthing.core')
             devices.push($scope.thisDevice());
             return devices;
         };
+
+        $scope.setAllDevicesPause = function (pause) {
+            $scope.devices.forEach(function (cfg) {
+                cfg.paused = pause;
+            });
+            $scope.config.devices = $scope.devices;
+            $scope.saveConfig();
+        }
+
+        $scope.isAtleastOneDevicePausedStateSetTo = function (pause) {
+            for (var i = 0; i < $scope.devices.length; i++) {
+                if ($scope.devices[i].paused == pause) {
+                    return true;
+                }
+            }
+
+            return false
+        }
 
         $scope.errorList = function () {
             if (!$scope.errors) {

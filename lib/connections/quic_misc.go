@@ -9,6 +9,7 @@
 package connections
 
 import (
+	"crypto/tls"
 	"net"
 
 	"github.com/lucas-clemente/quic-go"
@@ -30,7 +31,7 @@ type quicTlsConn struct {
 
 func (q *quicTlsConn) Close() error {
 	sterr := q.Stream.Close()
-	seerr := q.Session.Close()
+	seerr := q.Session.CloseWithError(0, "closing")
 	var pcerr error
 	if q.createdConn != nil {
 		pcerr = q.createdConn.Close()
@@ -42,6 +43,24 @@ func (q *quicTlsConn) Close() error {
 		return seerr
 	}
 	return pcerr
+}
+
+func (q *quicTlsConn) ConnectionState() tls.ConnectionState {
+	qcs := q.Session.ConnectionState()
+	return tls.ConnectionState{
+		Version:                     qcs.Version,
+		HandshakeComplete:           qcs.HandshakeComplete,
+		DidResume:                   qcs.DidResume,
+		CipherSuite:                 qcs.CipherSuite,
+		NegotiatedProtocol:          qcs.NegotiatedProtocol,
+		NegotiatedProtocolIsMutual:  qcs.NegotiatedProtocolIsMutual,
+		ServerName:                  qcs.ServerName,
+		PeerCertificates:            qcs.PeerCertificates,
+		VerifiedChains:              qcs.VerifiedChains,
+		SignedCertificateTimestamps: qcs.SignedCertificateTimestamps,
+		OCSPResponse:                qcs.OCSPResponse,
+		TLSUnique:                   qcs.TLSUnique,
+	}
 }
 
 // Sort available packet connections by ip address, preferring unspecified local address.

@@ -14,11 +14,11 @@ import (
 	"net"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"runtime"
 	"strings"
 	stdsync "sync"
 	"time"
+	"unicode"
 
 	"github.com/pkg/errors"
 	"github.com/thejerf/suture"
@@ -54,10 +54,9 @@ type service interface {
 	Scan(subs []string) error
 	Serve()
 	Stop()
-	CheckHealth() error
 	Errors() []FileError
 	WatchError() error
-	ForceRescan(file protocol.FileInfo) error
+	ScheduleForceRescan(path string)
 	GetStatistics() (stats.FolderStatistics, error)
 
 	getState() (folderState, time.Time, error)
@@ -1549,7 +1548,7 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, size in
 	}
 
 	if !scanner.Validate(res.data, hash, weakHash) {
-		m.recheckFile(deviceID, folderFs, folder, name, size, offset, hash)
+		m.recheckFile(deviceID, folder, name, offset, hash)
 		l.Debugf("%v REQ(in) failed validating data (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
 	}
@@ -1583,7 +1582,7 @@ func newLimitedRequestResponse(size int, limiters ...*byteSemaphore) *requestRes
 	return res
 }
 
-func (m *model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, folder, name string, size int32, offset int64, hash []byte) {
+func (m *model) recheckFile(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte) {
 	cf, ok := m.CurrentFolderFile(folder, name)
 	if !ok {
 		l.Debugf("%v recheckFile: %s: %q / %q: no current file", m, deviceID, folder, name)
@@ -1620,10 +1619,9 @@ func (m *model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 		l.Debugf("%v recheckFile: %s: %q / %q: Folder stopped before rescan could be scheduled", m, deviceID, folder, name)
 		return
 	}
-	if err := runner.ForceRescan(cf); err != nil {
-		l.Debugf("%v recheckFile: %s: %q / %q rescan: %s", m, deviceID, folder, name, err)
-		return
-	}
+
+	runner.ScheduleForceRescan(name)
+
 	l.Debugf("%v recheckFile: %s: %q / %q", m, deviceID, folder, name)
 }
 
@@ -1983,7 +1981,7 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 					l.Warnln("Failed repairing sequence entries:", dbErr)
 					panic("Failed repairing sequence entries")
 				} else {
-					l.Infoln("Repaired %v sequence entries in database", fixed)
+					l.Infof("Repaired %v sequence entries in database", fixed)
 				}
 			}()
 			return false
@@ -2680,8 +2678,11 @@ func (m *syncMutexMap) Get(key string) sync.Mutex {
 // sanitizePath takes a string that might contain all kinds of special
 // characters and makes a valid, similar, path name out of it.
 //
-// Spans of invalid characters are replaced by a single space. Invalid
-// characters are control characters, the things not allowed in file names
+// Spans of invalid characters, whitespace and/or non-UTF-8 sequences are
+// replaced by a single space. The result is always UTF-8 and contains only
+// printable characters, as determined by unicode.IsPrint.
+//
+// Invalid characters are non-printing runes, things not allowed in file names
 // in Windows, and common shell metacharacters. Even if asterisks and pipes
 // and stuff are allowed on Unixes in general they might not be allowed by
 // the filesystem and may surprise the user and cause shell oddness. This
@@ -2692,6 +2693,20 @@ func (m *syncMutexMap) Get(key string) sync.Mutex {
 // whitespace is collapsed to a single space. Additionally, whitespace at
 // either end is removed.
 func sanitizePath(path string) string {
-	invalid := regexp.MustCompile(`([[:cntrl:]]|[<>:"'/\\|?*\n\r\t \[\]\{\};:!@$%&^#])+`)
-	return strings.TrimSpace(invalid.ReplaceAllString(path, " "))
+	var b strings.Builder
+
+	prev := ' '
+	for _, c := range path {
+		if !unicode.IsPrint(c) || c == unicode.ReplacementChar ||
+			strings.ContainsRune(`<>:"'/\|?*[]{};:!@$%&^#`, c) {
+			c = ' '
+		}
+
+		if !(c == ' ' && prev == ' ') {
+			b.WriteRune(c)
+		}
+		prev = c
+	}
+
+	return strings.TrimSpace(b.String())
 }

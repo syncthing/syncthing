@@ -437,6 +437,9 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 			}
 			return delErr == nil
 		})
+		if delErr != nil {
+			return delErr
+		}
 		if err != nil {
 			return err
 		}

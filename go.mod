@@ -17,12 +17,14 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
+	github.com/golang/protobuf v1.4.0 // indirect
+	github.com/greatroar/blobloom v0.2.0
 	github.com/jackpal/gateway v1.0.6
 	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.2.0
-	github.com/lucas-clemente/quic-go v0.14.4
+	github.com/lucas-clemente/quic-go v0.15.5
 	github.com/maruel/panicparse v1.3.0
 	github.com/mattn/go-isatty v0.0.11
 	github.com/minio/sha256-simd v0.1.1
@@ -33,23 +35,17 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20190826022208-cac0b30c2563
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/shirou/gopsutil v0.0.0-20190714054239-47ef3260b6bf
-	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2
 	github.com/syndtr/goleveldb v1.0.1-0.20190923125748-758128399b1d
 	github.com/thejerf/suture v3.0.2+incompatible
 	github.com/urfave/cli v1.22.2
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
-	github.com/willf/bitset v1.1.10 // indirect
-	github.com/willf/bloom v2.0.3+incompatible
-	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d
+	golang.org/x/crypto v0.0.0-20200423211502-4bdfaf469ed5
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
-	golang.org/x/sys v0.0.0-20191224085550-c709ea063b76
+	golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae
 	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 )
 
 go 1.13
-
-// https://github.com/spaolacci/murmur3/pull/30
-replace github.com/spaolacci/murmur3 v1.1.0 => github.com/twmb/murmur3 v1.1.3

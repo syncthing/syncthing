@@ -25,13 +25,11 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 )
 
@@ -323,9 +321,6 @@ func runCommand(cmd string, target target) {
 	case "deb":
 		buildDeb(target)
 
-	case "snap":
-		buildSnap(target)
-
 	case "vet":
 		metalintShort()
 
@@ -409,12 +404,9 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	for _, pkg := range target.buildPkgs {
-		args := []string{"install", "-v"}
-		args = appendParameters(args, tags, pkg)
-
-		runPrint(goCmd, args...)
-	}
+	args := []string{"install", "-v"}
+	args = appendParameters(args, tags, target.buildPkgs...)
+	runPrint(goCmd, args...)
 }
 
 func build(target target, tags []string) {
@@ -442,15 +434,12 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	for _, pkg := range target.buildPkgs {
-		args := []string{"build", "-v"}
-		args = appendParameters(args, tags, pkg)
-
-		runPrint(goCmd, args...)
-	}
+	args := []string{"build", "-v"}
+	args = appendParameters(args, tags, target.buildPkgs...)
+	runPrint(goCmd, args...)
 }
 
-func appendParameters(args []string, tags []string, pkg string) []string {
+func appendParameters(args []string, tags []string, pkgs ...string) []string {
 	if pkgdir != "" {
 		args = append(args, "-pkgdir", pkgdir)
 	}
@@ -466,7 +455,7 @@ func appendParameters(args []string, tags []string, pkg string) []string {
 
 	if !debugBinary {
 		// Regular binaries get version tagged and skip some debug symbols
-		args = append(args, "-ldflags", ldflags(path.Base(pkg)))
+		args = append(args, "-ldflags", ldflags())
 	} else {
 		// -gcflags to disable optimizations and inlining. Skip -ldflags
 		// because `Could not launch program: decoding dwarf section info at
@@ -475,7 +464,7 @@ func appendParameters(args []string, tags []string, pkg string) []string {
 		args = append(args, "-gcflags", "-N -l")
 	}
 
-	return append(args, pkg)
+	return append(args, pkgs...)
 }
 
 func buildTar(target target) {
@@ -586,47 +575,6 @@ func buildDeb(target target) {
 		args = append(args, "--before-install", target.debpre)
 	}
 	runPrint("fpm", args...)
-}
-
-func buildSnap(target target) {
-	os.RemoveAll("snap")
-
-	tmpl, err := template.ParseFiles("snapcraft.yaml.template")
-	if err != nil {
-		log.Fatal(err)
-	}
-	f, err := os.Create("snapcraft.yaml")
-	defer f.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	snaparch := goarch
-	if snaparch == "armhf" {
-		goarch = "arm"
-	} else if snaparch == "i386" {
-		goarch = "386"
-	}
-	snapver := version
-	if strings.HasPrefix(snapver, "v") {
-		snapver = snapver[1:]
-	}
-	snapgrade := "devel"
-	if matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+(-rc.\d+)?$`, snapver); matched {
-		snapgrade = "stable"
-	}
-	err = tmpl.Execute(f, map[string]string{
-		"Version":            snapver,
-		"HostArchitecture":   runtime.GOARCH,
-		"TargetArchitecture": snaparch,
-		"Grade":              snapgrade,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	runPrint("snapcraft", "clean")
-	build(target, []string{"noupgrade"})
-	runPrint("snapcraft")
 }
 
 func shouldBuildSyso(dir string) (string, error) {
@@ -810,14 +758,13 @@ func transifex() {
 	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
 }
 
-func ldflags(program string) string {
+func ldflags() string {
 	b := new(strings.Builder)
 	b.WriteString("-w")
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version=%s", version)
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp=%d", buildStamp())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User=%s", buildUser())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host=%s", buildHost())
-	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Program=%s", program)
 	if v := os.Getenv("EXTRA_LDFLAGS"); v != "" {
 		fmt.Fprintf(b, " %s", v)
 	}
