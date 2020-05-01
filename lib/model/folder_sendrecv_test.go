@@ -107,6 +107,7 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 		},
 
 		queue:         newJobQueue(),
+		writeLimiter:  newByteSemaphore(2),
 		pullErrors:    make(map[string]string),
 		pullErrorsMut: sync.NewMutex(),
 	}
@@ -1011,6 +1012,49 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	}
 	if _, err := destFs.Stat("file"); err != nil {
 		t.Errorf("Expected no error when stating file behind symlink, got %v", err)
+	}
+}
+
+// Reproduces https://github.com/syncthing/syncthing/issues/6559
+func TestPullCtxCancel(t *testing.T) {
+	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
+
+	pullChan := make(chan pullBlockState)
+	finisherChan := make(chan *sharedPullerState)
+
+	var cancel context.CancelFunc
+	f.ctx, cancel = context.WithCancel(context.Background())
+
+	go f.pullerRoutine(pullChan, finisherChan)
+	defer close(pullChan)
+
+	emptyState := func() pullBlockState {
+		return pullBlockState{
+			sharedPullerState: newSharedPullerState(protocol.FileInfo{}, nil, f.folderID, "", nil, nil, false, false, protocol.FileInfo{}, false),
+			block:             protocol.BlockInfo{},
+		}
+	}
+
+	cancel()
+
+	done := make(chan struct{})
+	defer close(done)
+	for i := 0; i < 2; i++ {
+		go func() {
+			select {
+			case pullChan <- emptyState():
+			case <-done:
+			}
+		}()
+		select {
+		case s := <-finisherChan:
+			if s.failed() == nil {
+				t.Errorf("state %v not failed", i)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("timed out before receiving state %v on finisherChan", i)
+		}
 	}
 }
 

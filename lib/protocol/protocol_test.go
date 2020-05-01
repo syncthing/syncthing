@@ -915,3 +915,11 @@ func TestBlocksEqual(t *testing.T) {
 		}
 	}
 }
+
+func TestIndexIDString(t *testing.T) {
+	// Index ID is a 64 bit, zero padded hex integer.
+	var i IndexID = 42
+	if i.String() != "0x000000000000002A" {
+		t.Error(i.String())
+	}
+}

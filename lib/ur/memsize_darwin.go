@@ -6,26 +6,9 @@
 
 package ur
 
-import (
-	"errors"
-	"os/exec"
-	"strconv"
-	"strings"
-)
+import "golang.org/x/sys/unix"
 
 func memorySize() (int64, error) {
-	cmd := exec.Command("sysctl", "hw.memsize")
-	out, err := cmd.Output()
-	if err != nil {
-		return 0, err
-	}
-	fs := strings.Fields(string(out))
-	if len(fs) != 2 {
-		return 0, errors.New("sysctl parse error")
-	}
-	bytes, err := strconv.ParseInt(fs[1], 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return bytes, nil
+	mem, err := unix.SysctlUint64("hw.memsize")
+	return int64(mem), err
 }

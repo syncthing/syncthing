@@ -754,7 +754,10 @@ func (f *fakeFile) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (f *fakeFile) Write(p []byte) (int, error) {
-	return f.WriteAt(p, f.offset)
+	f.mut.Lock()
+	offs := f.offset
+	f.mut.Unlock()
+	return f.WriteAt(p, offs)
 }
 
 func (f *fakeFile) WriteAt(p []byte, off int64) (int, error) {

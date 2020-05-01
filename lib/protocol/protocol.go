@@ -145,9 +145,10 @@ type Connection interface {
 }
 
 type rawConnection struct {
-	id       DeviceID
-	name     string
-	receiver Model
+	id        DeviceID
+	name      string
+	receiver  Model
+	startTime time.Time
 
 	cr *countingReader
 	cw *countingWriter
@@ -165,7 +166,6 @@ type rawConnection struct {
 	closeBox              chan asyncMessage
 	clusterConfigBox      chan *ClusterConfig
 	dispatcherLoopStopped chan struct{}
-	preventSends          chan struct{}
 	closed                chan struct{}
 	closeOnce             sync.Once
 	sendCloseOnce         sync.Once
@@ -219,7 +219,6 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		closeBox:              make(chan asyncMessage),
 		clusterConfigBox:      make(chan *ClusterConfig),
 		dispatcherLoopStopped: make(chan struct{}),
-		preventSends:          make(chan struct{}),
 		closed:                make(chan struct{}),
 		compression:           compress,
 	}
@@ -238,6 +237,7 @@ func (c *rawConnection) Start() {
 	go c.writerLoop()
 	go c.pingSender()
 	go c.pingReceiver()
+	c.startTime = time.Now()
 }
 
 func (c *rawConnection) ID() DeviceID {
@@ -289,6 +289,7 @@ func (c *rawConnection) Request(ctx context.Context, folder string, name string,
 
 	c.awaitingMut.Lock()
 	if _, ok := c.awaiting[id]; ok {
+		c.awaitingMut.Unlock()
 		panic("id taken")
 	}
 	rc := make(chan asyncResult, 1)
@@ -656,7 +657,6 @@ func (c *rawConnection) send(ctx context.Context, msg message, done chan struct{
 	select {
 	case c.outbox <- asyncMessage{msg, done}:
 		return true
-	case <-c.preventSends:
 	case <-c.closed:
 	case <-ctx.Done():
 	}
@@ -961,6 +961,7 @@ type Statistics struct {
 	At            time.Time
 	InBytesTotal  int64
 	OutBytesTotal int64
+	StartedAt     time.Time
 }
 
 func (c *rawConnection) Statistics() Statistics {
@@ -968,6 +969,7 @@ func (c *rawConnection) Statistics() Statistics {
 		At:            time.Now(),
 		InBytesTotal:  c.cr.Tot(),
 		OutBytesTotal: c.cw.Tot(),
+		StartedAt:     c.startTime,
 	}
 }
 

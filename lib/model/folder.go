@@ -50,13 +50,14 @@ type folder struct {
 
 	scanInterval        time.Duration
 	scanTimer           *time.Timer
-	scanNow             chan rescanRequest
 	scanDelay           chan time.Duration
 	initialScanFinished chan struct{}
 	scanErrors          []FileError
 	scanErrorsMut       sync.Mutex
 
 	pullScheduled chan struct{}
+
+	doInSyncChan chan syncRequest
 
 	watchCancel      context.CancelFunc
 	watchChan        chan []string
@@ -67,9 +68,9 @@ type folder struct {
 	puller puller
 }
 
-type rescanRequest struct {
-	subdirs []string
-	err     chan error
+type syncRequest struct {
+	fn  func() error
+	err chan error
 }
 
 type puller interface {
@@ -90,12 +91,13 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 
 		scanInterval:        time.Duration(cfg.RescanIntervalS) * time.Second,
 		scanTimer:           time.NewTimer(time.Millisecond), // The first scan should be done immediately.
-		scanNow:             make(chan rescanRequest),
 		scanDelay:           make(chan time.Duration),
 		initialScanFinished: make(chan struct{}),
 		scanErrorsMut:       sync.NewMutex(),
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
+
+		doInSyncChan: make(chan syncRequest),
 
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
@@ -121,7 +123,7 @@ func (f *folder) serve(ctx context.Context) {
 	pullFailTimer := time.NewTimer(0)
 	<-pullFailTimer.C
 
-	if f.FSWatcherEnabled && f.CheckHealth() == nil {
+	if f.FSWatcherEnabled && f.getHealthErrorAndLoadIgnores() == nil {
 		f.startWatch()
 	}
 
@@ -172,9 +174,9 @@ func (f *folder) serve(ctx context.Context) {
 			l.Debugln(f, "Scanning due to timer")
 			f.scanTimerFired()
 
-		case req := <-f.scanNow:
-			l.Debugln(f, "Scanning due to request")
-			req.err <- f.scanSubdirs(req.subdirs)
+		case req := <-f.doInSyncChan:
+			l.Debugln(f, "Running something due to request")
+			req.err <- req.fn()
 
 		case next := <-f.scanDelay:
 			l.Debugln(f, "Delaying scan")
@@ -224,13 +226,19 @@ func (f *folder) Jobs(_, _ int) ([]string, []string, int) {
 
 func (f *folder) Scan(subdirs []string) error {
 	<-f.initialScanFinished
-	req := rescanRequest{
-		subdirs: subdirs,
-		err:     make(chan error),
+	return f.doInSync(func() error { return f.scanSubdirs(subdirs) })
+}
+
+// doInSync allows to run functions synchronously in folder.serve from exported,
+// asynchronously called methods.
+func (f *folder) doInSync(fn func() error) error {
+	req := syncRequest{
+		fn:  fn,
+		err: make(chan error, 1),
 	}
 
 	select {
-	case f.scanNow <- req:
+	case f.doInSyncChan <- req:
 		return <-req.err
 	case <-f.ctx.Done():
 		return f.ctx.Err()
@@ -252,15 +260,17 @@ func (f *folder) Delay(next time.Duration) {
 	f.scanDelay <- next
 }
 
-// CheckHealth checks the folder for common errors, updates the folder state
-// and returns the current folder error, or nil if the folder is healthy.
-func (f *folder) CheckHealth() error {
-	err := f.getHealthError()
-	f.setError(err)
-	return err
+func (f *folder) getHealthErrorAndLoadIgnores() error {
+	if err := f.getHealthErrorWithoutIgnores(); err != nil {
+		return err
+	}
+	if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+		return errors.Wrap(err, "loading ignores")
+	}
+	return nil
 }
 
-func (f *folder) getHealthError() error {
+func (f *folder) getHealthErrorWithoutIgnores() error {
 	// Check for folder errors, with the most serious and specific first and
 	// generic ones like out of space on the home disk later.
 
@@ -310,19 +320,15 @@ func (f *folder) pull() bool {
 }
 
 func (f *folder) scanSubdirs(subDirs []string) error {
-	if err := f.getHealthError(); err != nil {
+	oldHash := f.ignores.Hash()
+
+	err := f.getHealthErrorAndLoadIgnores()
+	f.setError(err)
+	if err != nil {
 		// If there is a health error we set it as the folder error. We do not
 		// clear the folder error if there is no health error, as there might be
 		// an *other* folder error (failed to load ignores, for example). Hence
 		// we do not use the CheckHealth() convenience function here.
-		f.setError(err)
-		return err
-	}
-
-	oldHash := f.ignores.Hash()
-	if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		err = errors.Wrap(err, "loading ignores")
-		f.setError(err)
 		return err
 	}
 
@@ -337,9 +343,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		}
 	}()
 
-	// We've passed all health checks so now mark ourselves healthy and queued
-	// for scanning.
-	f.setError(nil)
 	f.setState(FolderScanWaiting)
 
 	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
@@ -394,7 +397,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	})
 
 	batchFn := func(fs []protocol.FileInfo) error {
-		if err := f.CheckHealth(); err != nil {
+		if err := f.getHealthErrorWithoutIgnores(); err != nil {
 			l.Debugf("Stopping scan of folder %s due to: %s", f.Description(), err)
 			return err
 		}
@@ -548,6 +551,20 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				batch.append(nf)
 				changes++
 			}
+
+			// Check for deleted, locally changed items that noone else has.
+			if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
+				return true
+			}
+			if !fi.IsDeleted() || !fi.IsReceiveOnlyChanged() || len(snap.Availability(fi.FileName())) > 0 {
+				return true
+			}
+			nf := fi.(db.FileInfoTruncated).ConvertDeletedToFileInfo()
+			nf.LocalFlags = 0
+			nf.Version = protocol.Vector{}
+			batch.append(nf)
+			changes++
+
 			return true
 		})
 
@@ -612,7 +629,7 @@ func (f *folder) stopWatch() {
 	f.watchMut.Lock()
 	f.watchCancel()
 	f.watchMut.Unlock()
-	f.setWatchError(nil)
+	f.setWatchError(nil, 0)
 }
 
 // scheduleWatchRestart makes sure watching is restarted from the main for loop
@@ -655,22 +672,39 @@ func (f *folder) monitorWatch(ctx context.Context) {
 	var eventChan <-chan fs.Event
 	var errChan <-chan error
 	warnedOutside := false
+	var lastWatch time.Time
+	pause := time.Minute
 	for {
 		select {
 		case <-failTimer.C:
 			eventChan, errChan, err = f.Filesystem().Watch(".", f.ignores, ctx, f.IgnorePerms)
-			// We do this at most once per minute which is the
-			// default rescan time without watcher.
+			// We do this once per minute initially increased to
+			// max one hour in case of repeat failures.
 			f.scanOnWatchErr()
-			f.setWatchError(err)
+			f.setWatchError(err, pause)
 			if err != nil {
-				failTimer.Reset(time.Minute)
+				failTimer.Reset(pause)
+				if pause < 60*time.Minute {
+					pause *= 2
+				}
 				continue
 			}
+			lastWatch = time.Now()
 			watchaggregator.Aggregate(aggrCtx, eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, f.evLogger)
 			l.Debugln("Started filesystem watcher for folder", f.Description())
 		case err = <-errChan:
-			f.setWatchError(err)
+			var next time.Duration
+			if dur := time.Since(lastWatch); dur > pause {
+				pause = time.Minute
+				next = 0
+			} else {
+				next = pause - dur
+				if pause < 60*time.Minute {
+					pause *= 2
+				}
+			}
+			failTimer.Reset(next)
+			f.setWatchError(err, next)
 			// This error was previously a panic and should never occur, so generate
 			// a warning, but don't do it repetitively.
 			if !warnedOutside {
@@ -682,7 +716,6 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			aggrCancel()
 			errChan = nil
 			aggrCtx, aggrCancel = context.WithCancel(ctx)
-			failTimer.Reset(time.Minute)
 		case <-ctx.Done():
 			return
 		}
@@ -691,7 +724,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 
 // setWatchError sets the current error state of the watch and should be called
 // regardless of whether err is nil or not.
-func (f *folder) setWatchError(err error) {
+func (f *folder) setWatchError(err error, nextTryIn time.Duration) {
 	f.watchMut.Lock()
 	prevErr := f.watchErr
 	f.watchErr = err
@@ -711,7 +744,7 @@ func (f *folder) setWatchError(err error) {
 	if err == nil {
 		return
 	}
-	msg := fmt.Sprintf("Error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
+	msg := fmt.Sprintf("Error while trying to start filesystem watcher for folder %s, trying again in %v: %v", f.Description(), nextTryIn, err)
 	if prevErr != err {
 		l.Infof(msg)
 		return

@@ -14,11 +14,11 @@ import (
 	"net"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"runtime"
 	"strings"
 	stdsync "sync"
 	"time"
+	"unicode"
 
 	"github.com/pkg/errors"
 	"github.com/thejerf/suture"
@@ -54,7 +54,6 @@ type service interface {
 	Scan(subs []string) error
 	Serve()
 	Stop()
-	CheckHealth() error
 	Errors() []FileError
 	WatchError() error
 	ForceRescan(file protocol.FileInfo) error
@@ -1989,9 +1988,21 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 			if fi.SequenceNo() < s.prevSequence+1 {
 				panic(fmt.Sprintln("sequence lower than requested, got:", fi.SequenceNo(), ", asked to start at:", s.prevSequence+1))
 			}
-			if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
-				panic(fmt.Sprintln("non-increasing sequence, current:", fi.SequenceNo(), "<= previous:", f.Sequence))
-			}
+		}
+
+		if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
+			l.Warnln("Non-increasing sequence detected: Checking and repairing the db...")
+			// Abort this round of index sending - the next one will pick
+			// up from the last successful one with the repeaired db.
+			defer func() {
+				if fixed, dbErr := s.fset.RepairSequence(); dbErr != nil {
+					l.Warnln("Failed repairing sequence entries:", dbErr)
+					panic("Failed repairing sequence entries")
+				} else {
+					l.Infof("Repaired %v sequence entries in database", fixed)
+				}
+			}()
+			return false
 		}
 
 		f = fi.(protocol.FileInfo)
@@ -2550,30 +2561,6 @@ func (m *model) checkFolderRunningLocked(folder string) error {
 	return errFolderNotRunning
 }
 
-// checkFolderDeviceStatusLocked first checks the folder and then whether the
-// given device is connected and shares this folder.
-// Need to hold (read) lock on both m.fmut and m.pmut when calling this.
-func (m *model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folder string) error {
-	if err := m.checkFolderRunningLocked(folder); err != nil {
-		return err
-	}
-
-	if cfg, ok := m.cfg.Device(device); !ok {
-		return errDeviceUnknown
-	} else if cfg.Paused {
-		return errDevicePaused
-	}
-
-	if _, ok := m.conn[device]; !ok {
-		return errors.New("device is not connected")
-	}
-
-	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(device) {
-		return errors.New("folder is not shared with device")
-	}
-	return nil
-}
-
 // mapFolders returns a map of folder ID to folder configuration for the given
 // slice of folder configurations.
 func mapFolders(folders []config.FolderConfiguration) map[string]config.FolderConfiguration {
@@ -2709,8 +2696,11 @@ func (m *syncMutexMap) Get(key string) sync.Mutex {
 // sanitizePath takes a string that might contain all kinds of special
 // characters and makes a valid, similar, path name out of it.
 //
-// Spans of invalid characters are replaced by a single space. Invalid
-// characters are control characters, the things not allowed in file names
+// Spans of invalid characters, whitespace and/or non-UTF-8 sequences are
+// replaced by a single space. The result is always UTF-8 and contains only
+// printable characters, as determined by unicode.IsPrint.
+//
+// Invalid characters are non-printing runes, things not allowed in file names
 // in Windows, and common shell metacharacters. Even if asterisks and pipes
 // and stuff are allowed on Unixes in general they might not be allowed by
 // the filesystem and may surprise the user and cause shell oddness. This
@@ -2721,6 +2711,20 @@ func (m *syncMutexMap) Get(key string) sync.Mutex {
 // whitespace is collapsed to a single space. Additionally, whitespace at
 // either end is removed.
 func sanitizePath(path string) string {
-	invalid := regexp.MustCompile(`([[:cntrl:]]|[<>:"'/\\|?*\n\r\t \[\]\{\};:!@$%&^#])+`)
-	return strings.TrimSpace(invalid.ReplaceAllString(path, " "))
+	var b strings.Builder
+
+	prev := ' '
+	for _, c := range path {
+		if !unicode.IsPrint(c) || c == unicode.ReplacementChar ||
+			strings.ContainsRune(`<>:"'/\|?*[]{};:!@$%&^#`, c) {
+			c = ' '
+		}
+
+		if !(c == ' ' && prev == ' ') {
+			b.WriteRune(c)
+		}
+		prev = c
+	}
+
+	return strings.TrimSpace(b.String())
 }

@@ -7,8 +7,6 @@
 package db
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -20,21 +18,13 @@ import (
 //   0: v0.14.0
 //   1: v0.14.46
 //   2: v0.14.48
-//   3: v0.14.49
-//   4: v0.14.49
-//   5: v0.14.49
+//   3-5: v0.14.49
 //   6: v0.14.50
 //   7: v0.14.53
-//   8: v1.4.0
-//   9: v1.4.0
+//   8-9: v1.4.0
 const (
 	dbVersion             = 9
 	dbMinSyncthingVersion = "v1.4.0"
-)
-
-var (
-	errFolderIdxMissing = errors.New("folder db index missing")
-	errDeviceIdxMissing = errors.New("device db index missing")
 )
 
 type databaseDowngradeError struct {
@@ -211,6 +201,9 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 				ignAdded++
 			}
 		}
+		if err := t.Checkpoint(); err != nil {
+			return err
+		}
 	}
 
 	for folder := range changedFolders {
@@ -349,7 +342,7 @@ func (db *schemaUpdater) updateSchema5to6(_ int) error {
 
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
-		var putErr error
+		var iterErr error
 		err := t.withHave(folder, protocol.LocalDeviceID[:], nil, false, func(f FileIntf) bool {
 			if !f.IsInvalid() {
 				return true
@@ -360,16 +353,18 @@ func (db *schemaUpdater) updateSchema5to6(_ int) error {
 			fi.LocalFlags = protocol.FlagLocalIgnored
 			bs, _ := fi.Marshal()
 
-			dk, putErr = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], []byte(fi.Name))
-			if putErr != nil {
+			dk, iterErr = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], []byte(fi.Name))
+			if iterErr != nil {
 				return false
 			}
-			putErr = t.Put(dk, bs)
-
-			return putErr == nil
+			if iterErr = t.Put(dk, bs); iterErr != nil {
+				return false
+			}
+			iterErr = t.Checkpoint()
+			return iterErr == nil
 		})
-		if putErr != nil {
-			return putErr
+		if iterErr != nil {
+			return iterErr
 		}
 		if err != nil {
 			return err
@@ -428,7 +423,13 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 			}
 			return delErr == nil
 		})
+		if delErr != nil {
+			return delErr
+		}
 		if err != nil {
+			return err
+		}
+		if err := t.Checkpoint(); err != nil {
 			return err
 		}
 	}
@@ -445,12 +446,10 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 	}
 	defer t.close()
 
-	var sk []byte
 	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
 		return err
 	}
-	metas := make(map[string]*metadataTracker)
 	for it.Next() {
 		intf, err := t.unmarshalTrunc(it.Value(), false)
 		if backend.IsNotFound(err) {
@@ -466,64 +465,19 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 			return err
 		}
 		fi := intf.(protocol.FileInfo)
-		device, ok := t.keyer.DeviceFromDeviceFileKey(it.Key())
-		if !ok {
-			return errDeviceIdxMissing
-		}
-		if bytes.Equal(device, protocol.LocalDeviceID[:]) {
-			folder, ok := t.keyer.FolderFromDeviceFileKey(it.Key())
-			if !ok {
-				return errFolderIdxMissing
-			}
-			if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
-				return err
-			}
-			switch dk, err := t.Get(sk); {
-			case err != nil:
-				if !backend.IsNotFound(err) {
-					return err
-				}
-				fallthrough
-			case !bytes.Equal(it.Key(), dk):
-				folderStr := string(folder)
-				meta, ok := metas[folderStr]
-				if !ok {
-					meta = loadMetadataTracker(db.Lowlevel, folderStr)
-					metas[folderStr] = meta
-				}
-				fi.Sequence = meta.nextLocalSeq()
-				if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
-					return err
-				}
-				if err := t.Put(sk, it.Key()); err != nil {
-					return err
-				}
-				if err := t.putFile(it.Key(), fi); err != nil {
-					return err
-				}
-				continue
-			}
-		}
-		if prev == 8 {
-			// The transition to 8 already did the changes below.
-			continue
-		}
 		if fi.Blocks == nil {
 			continue
 		}
-		if err := t.putFile(it.Key(), fi); err != nil {
+		if err := t.putFile(it.Key(), fi, false); err != nil {
+			return err
+		}
+		if err := t.Checkpoint(); err != nil {
 			return err
 		}
 	}
 	it.Release()
 	if err := it.Error(); err != nil {
 		return err
-	}
-
-	for folder, meta := range metas {
-		if err := meta.toDB(t, []byte(folder)); err != nil {
-			return err
-		}
 	}
 
 	db.recordTime(indirectGCTimeKey)
