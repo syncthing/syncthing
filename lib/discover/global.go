@@ -30,13 +30,14 @@ import (
 
 type globalClient struct {
 	suture.Service
-	server         string
-	addrList       AddressLister
-	announceClient httpClient
-	queryClient    httpClient
-	noAnnounce     bool
-	noLookup       bool
-	evLogger       events.Logger
+	server           string
+	addrList         AddressLister
+	announceClient   httpClient
+	queryClient      httpClient
+	noAnnounce       bool
+	noLookup         bool
+	evLogger         events.Logger
+	nextAnnouncement time.Time
 	errorHolder
 }
 
@@ -121,13 +122,14 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 	}
 
 	cl := &globalClient{
-		server:         server,
-		addrList:       addrList,
-		announceClient: announceClient,
-		queryClient:    queryClient,
-		noAnnounce:     opts.noAnnounce,
-		noLookup:       opts.noLookup,
-		evLogger:       evLogger,
+		server:           server,
+		addrList:         addrList,
+		announceClient:   announceClient,
+		queryClient:      queryClient,
+		noAnnounce:       opts.noAnnounce,
+		noLookup:         opts.noLookup,
+		evLogger:         evLogger,
+		nextAnnouncement: time.Now(),
 	}
 	cl.Service = util.AsService(cl.serve, cl.String())
 	if !opts.noAnnounce {
@@ -211,7 +213,9 @@ func (c *globalClient) serve(ctx context.Context) {
 			timer.Reset(2 * time.Second)
 
 		case <-timer.C:
-			c.sendAnnouncement(ctx, timer)
+			if c.nextAnnouncement.Before(time.Now()) {
+				c.sendAnnouncement(ctx, timer)
+			}
 
 		case <-ctx.Done():
 			return
@@ -257,8 +261,10 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 			// The server has a recommendation on when we should
 			// retry. Follow it.
 			if secs, err := strconv.Atoi(h); err == nil && secs > 0 {
-				l.Debugln("announce Retry-After:", secs, err)
-				timer.Reset(time.Duration(secs) * time.Second)
+				delay := time.Duration(secs) * time.Second
+				l.Debugln("announce Retry-After:", delay, err)
+				c.nextAnnouncement = time.Now().Add(delay)
+				timer.Reset(delay)
 				return
 			}
 		}
@@ -273,8 +279,10 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 		// The server has a recommendation on when we should
 		// reannounce. Follow it.
 		if secs, err := strconv.Atoi(h); err == nil && secs > 0 {
-			l.Debugln("announce Reannounce-After:", secs, err)
-			timer.Reset(time.Duration(secs) * time.Second)
+			delay := time.Duration(secs) * time.Second
+			l.Debugln("announce Reannounce-After:", delay, err)
+			c.nextAnnouncement = time.Now().Add(delay)
+			timer.Reset(delay)
 			return
 		}
 	}
