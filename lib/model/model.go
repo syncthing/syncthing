@@ -56,7 +56,7 @@ type service interface {
 	Stop()
 	Errors() []FileError
 	WatchError() error
-	ForceRescan(file protocol.FileInfo) error
+	ScheduleForceRescan(path string)
 	GetStatistics() (stats.FolderStatistics, error)
 
 	getState() (folderState, time.Time, error)
@@ -1565,7 +1565,7 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, size in
 	}
 
 	if !scanner.Validate(res.data, hash, weakHash) {
-		m.recheckFile(deviceID, folderFs, folder, name, size, offset, hash)
+		m.recheckFile(deviceID, folder, name, offset, hash)
 		l.Debugf("%v REQ(in) failed validating data (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
 	}
@@ -1599,7 +1599,7 @@ func newLimitedRequestResponse(size int, limiters ...*byteSemaphore) *requestRes
 	return res
 }
 
-func (m *model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, folder, name string, size int32, offset int64, hash []byte) {
+func (m *model) recheckFile(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte) {
 	cf, ok := m.CurrentFolderFile(folder, name)
 	if !ok {
 		l.Debugf("%v recheckFile: %s: %q / %q: no current file", m, deviceID, folder, name)
@@ -1636,10 +1636,9 @@ func (m *model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 		l.Debugf("%v recheckFile: %s: %q / %q: Folder stopped before rescan could be scheduled", m, deviceID, folder, name)
 		return
 	}
-	if err := runner.ForceRescan(cf); err != nil {
-		l.Debugf("%v recheckFile: %s: %q / %q rescan: %s", m, deviceID, folder, name, err)
-		return
-	}
+
+	runner.ScheduleForceRescan(name)
+
 	l.Debugf("%v recheckFile: %s: %q / %q", m, deviceID, folder, name)
 }
 

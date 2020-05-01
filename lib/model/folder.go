@@ -59,6 +59,10 @@ type folder struct {
 
 	doInSyncChan chan syncRequest
 
+	forcedRescanRequested chan struct{}
+	forcedRescanPaths     map[string]struct{}
+	forcedRescanPathsMut  sync.Mutex
+
 	watchCancel      context.CancelFunc
 	watchChan        chan []string
 	restartWatchChan chan struct{}
@@ -98,6 +102,10 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
 		doInSyncChan: make(chan syncRequest),
+
+		forcedRescanRequested: make(chan struct{}, 1),
+		forcedRescanPaths:     make(map[string]struct{}),
+		forcedRescanPathsMut:  sync.NewMutex(),
 
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
@@ -169,6 +177,9 @@ func (f *folder) serve(ctx context.Context) {
 				// Pulling failed, try again later.
 				pullFailTimer.Reset(pause)
 			}
+
+		case <-f.forcedRescanRequested:
+			f.handleForcedRescans()
 
 		case <-f.scanTimer.C:
 			l.Debugln(f, "Scanning due to timer")
@@ -841,13 +852,16 @@ func (f *folder) Errors() []FileError {
 	return append([]FileError{}, f.scanErrors...)
 }
 
-// ForceRescan marks the file such that it gets rehashed on next scan and then
-// immediately executes that scan.
-func (f *folder) ForceRescan(file protocol.FileInfo) error {
-	file.SetMustRescan(f.shortID)
-	f.fset.Update(protocol.LocalDeviceID, []protocol.FileInfo{file})
+// ScheduleForceRescan marks the file such that it gets rehashed on next scan, and schedules a scan.
+func (f *folder) ScheduleForceRescan(path string) {
+	f.forcedRescanPathsMut.Lock()
+	f.forcedRescanPaths[path] = struct{}{}
+	f.forcedRescanPathsMut.Unlock()
 
-	return f.Scan([]string{file.Name})
+	select {
+	case f.forcedRescanRequested <- struct{}{}:
+	default:
+	}
 }
 
 func (f *folder) updateLocalsFromScanning(fs []protocol.FileInfo) {
@@ -919,6 +933,40 @@ func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events
 			"modifiedBy": file.ModifiedBy.String(),
 		})
 	}
+}
+
+func (f *folder) handleForcedRescans() {
+	f.forcedRescanPathsMut.Lock()
+	paths := make([]string, 0, len(f.forcedRescanPaths))
+	for path := range f.forcedRescanPaths {
+		paths = append(paths, path)
+	}
+	f.forcedRescanPaths = make(map[string]struct{})
+	f.forcedRescanPathsMut.Unlock()
+
+	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
+		f.fset.Update(protocol.LocalDeviceID, fs)
+		return nil
+	})
+
+	snap := f.fset.Snapshot()
+
+	for _, path := range paths {
+		_ = batch.flushIfFull()
+
+		fi, ok := snap.Get(protocol.LocalDeviceID, path)
+		if !ok {
+			continue
+		}
+		fi.SetMustRescan(f.shortID)
+		batch.append(fi)
+	}
+
+	snap.Release()
+
+	_ = batch.flush()
+
+	_ = f.scanSubdirs(paths)
 }
 
 // The exists function is expected to return true for all known paths

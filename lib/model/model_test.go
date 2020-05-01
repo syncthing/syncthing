@@ -3190,9 +3190,9 @@ func TestIssue5002(t *testing.T) {
 	}
 	blockSize := int32(file.BlockSize())
 
-	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", blockSize, file.Size-int64(blockSize), []byte{1, 2, 3, 4})
-	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", blockSize, file.Size, []byte{1, 2, 3, 4}) // panic
-	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", blockSize, file.Size+int64(blockSize), []byte{1, 2, 3, 4})
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size-int64(blockSize), []byte{1, 2, 3, 4})
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size, []byte{1, 2, 3, 4}) // panic
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size+int64(blockSize), []byte{1, 2, 3, 4})
 }
 
 func TestParentOfUnignored(t *testing.T) {
