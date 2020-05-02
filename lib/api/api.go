@@ -1161,7 +1161,7 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 
 	folder := qs.Get("folder")
 
-	ignores, patterns, err := s.model.GetIgnores(folder)
+	ignores, patterns, fileName, err := s.model.GetIgnores(folder)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -1170,6 +1170,7 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, map[string][]string{
 		"ignore":   ignores,
 		"expanded": patterns,
+		"fileName": fileName,
 	})
 }
 
