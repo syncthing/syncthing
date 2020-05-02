@@ -275,22 +275,22 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 	detector.Watch("pmut", m.pmut)
 }
 
-// startFolder constructs the folder service and starts it.
-func (m *model) startFolder(folder string) {
-	m.fmut.RLock()
-	folderCfg := m.folderCfgs[folder]
-	m.fmut.RUnlock()
+// Need to hold lock on m.fmut when calling this.
+func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
+	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
+	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+		l.Warnln("Loading ignores:", err)
+	}
 
-	// Close connections to affected devices
-	m.closeConns(folderCfg.DeviceIDs(), fmt.Errorf("started folder %v", folderCfg.Description()))
-
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
-	m.startFolderLocked(folderCfg)
+	m.addAndStartFolderLockedWithIgnores(cfg, fset, ignores)
 }
 
-// Need to hold lock on m.fmut when calling this.
-func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
+// Only needed for testing, use addAndStartFolderLocked instead.
+func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguration, fset *db.FileSet, ignores *ignore.Matcher) {
+	m.folderCfgs[cfg.ID] = cfg
+	m.folderFiles[cfg.ID] = fset
+	m.folderIgnores[cfg.ID] = ignores
+
 	_, ok := m.folderRunners[cfg.ID]
 	if ok {
 		l.Warnln("Cannot start already running folder", cfg.Description())
@@ -303,8 +303,6 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	}
 
 	folder := cfg.ID
-
-	fset := m.folderFiles[folder]
 
 	// Find any devices for which we hold the index in the db, but the folder
 	// is not shared, and drop it.
@@ -356,8 +354,6 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	}
 	m.folderVersioners[folder] = ver
 
-	ignores := m.folderIgnores[folder]
-
 	p := folderFactory(m, fset, ignores, cfg, ver, ffs, m.evLogger, m.folderIOLimiter)
 
 	m.folderRunners[folder] = p
@@ -403,35 +399,6 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 	}
 }
 
-func (m *model) addFolder(cfg config.FolderConfiguration) {
-	if len(cfg.ID) == 0 {
-		panic("cannot add empty folder id")
-	}
-
-	if len(cfg.Path) == 0 {
-		panic("cannot add empty folder path")
-	}
-
-	// Creating the fileset can take a long time (metadata calculation) so
-	// we do it outside of the lock.
-	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
-
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
-	m.addFolderLocked(cfg, fset)
-}
-
-func (m *model) addFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
-	m.folderCfgs[cfg.ID] = cfg
-	m.folderFiles[cfg.ID] = fset
-
-	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
-	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		l.Warnln("Loading ignores:", err)
-	}
-	m.folderIgnores[cfg.ID] = ignores
-}
-
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
 	m.stopFolder(cfg, fmt.Errorf("removing folder %v", cfg.Description()))
 
@@ -449,7 +416,7 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 		cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
 	}
 
-	m.removeFolderLocked(cfg)
+	m.deleteFolderEntriesLocked(cfg)
 
 	m.fmut.Unlock()
 
@@ -474,7 +441,7 @@ func (m *model) stopFolder(cfg config.FolderConfiguration, err error) {
 }
 
 // Need to hold lock on m.fmut when calling this.
-func (m *model) removeFolderLocked(cfg config.FolderConfiguration) {
+func (m *model) deleteFolderEntriesLocked(cfg config.FolderConfiguration) {
 	// Clean up our config maps
 	delete(m.folderCfgs, cfg.ID)
 	delete(m.folderFiles, cfg.ID)
@@ -529,10 +496,9 @@ func (m *model) restartFolder(from, to config.FolderConfiguration) {
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
-	m.removeFolderLocked(from)
+	m.deleteFolderEntriesLocked(from)
 	if !to.Paused {
-		m.addFolderLocked(to, fset)
-		m.startFolderLocked(to)
+		m.addAndStartFolderLocked(to, fset)
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
 }
@@ -547,8 +513,7 @@ func (m *model) newFolder(cfg config.FolderConfiguration) {
 
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
-	m.addFolderLocked(cfg, fset)
-	m.startFolderLocked(cfg)
+	m.addAndStartFolderLocked(cfg, fset)
 }
 
 func (m *model) UsageReportingStats(version int, preview bool) map[string]interface{} {
