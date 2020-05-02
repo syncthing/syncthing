@@ -78,7 +78,6 @@ func (v *simple) serve(ctx context.Context) {
 
 	// Do the first cleanup one minute after startup.
 	timer := time.NewTimer(time.Minute)
-	fmt.Println(timer, " : Nous sommes les enfants du monde")
 	defer timer.Stop()
 
 	for {
@@ -120,8 +119,10 @@ func (v *simple) cleanOutArchive() error {
 			dirTracker.addDir(path)
 			return nil
 		}
-
-		if info.ModTime().Before(cutoff) {
+		
+		versionTime, err := time.ParseInLocation(TimeFormat, extractTag(path), time.Local)
+		
+		if versionTime.Before(cutoff) {
 			// The file is too old; remove it.
 			err = v.versionsFs.Remove(path)
 		} else {
