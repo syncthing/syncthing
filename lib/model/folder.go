@@ -56,6 +56,8 @@ type folder struct {
 	scanErrorsMut       sync.Mutex
 
 	pullScheduled chan struct{}
+	pullPause     time.Duration
+	pullFailTimer *time.Timer
 
 	doInSyncChan chan syncRequest
 
@@ -82,7 +84,7 @@ type puller interface {
 }
 
 func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore) folder {
-	return folder{
+	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
 		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
@@ -111,6 +113,10 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		restartWatchChan: make(chan struct{}, 1),
 		watchMut:         sync.NewMutex(),
 	}
+	f.pullPause = f.pullBasePause()
+	f.pullFailTimer = time.NewTimer(0)
+	<-f.pullFailTimer.C
+	return f
 }
 
 func (f *folder) serve(ctx context.Context) {
@@ -127,32 +133,11 @@ func (f *folder) serve(ctx context.Context) {
 		f.setState(FolderIdle)
 	}()
 
-	pause := f.basePause()
-	pullFailTimer := time.NewTimer(0)
-	<-pullFailTimer.C
-
 	if f.FSWatcherEnabled && f.getHealthErrorAndLoadIgnores() == nil {
 		f.startWatch()
 	}
 
 	initialCompleted := f.initialScanFinished
-
-	pull := func() {
-		startTime := time.Now()
-		if f.pull() {
-			// We're good. Don't schedule another pull and reset
-			// the pause interval.
-			pause = f.basePause()
-			return
-		}
-		// Pulling failed, try again later.
-		delay := pause + time.Since(startTime)
-		l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), delay)
-		pullFailTimer.Reset(delay)
-		if pause < 60*f.basePause() {
-			pause *= 2
-		}
-	}
 
 	for {
 		select {
@@ -160,23 +145,15 @@ func (f *folder) serve(ctx context.Context) {
 			return
 
 		case <-f.pullScheduled:
-			pullFailTimer.Stop()
-			select {
-			case <-pullFailTimer.C:
-			default:
-			}
-			pull()
+			f.pull()
 
-		case <-pullFailTimer.C:
-			pull()
+		case <-f.pullFailTimer.C:
+			f.pull()
 
 		case <-initialCompleted:
 			// Initial scan has completed, we should do a pull
 			initialCompleted = nil // never hit this case again
-			if !f.pull() {
-				// Pulling failed, try again later.
-				pullFailTimer.Reset(pause)
-			}
+			f.pull()
 
 		case <-f.forcedRescanRequested:
 			f.handleForcedRescans()
@@ -300,6 +277,12 @@ func (f *folder) getHealthErrorWithoutIgnores() error {
 }
 
 func (f *folder) pull() bool {
+	f.pullFailTimer.Stop()
+	select {
+	case <-f.pullFailTimer.C:
+	default:
+	}
+
 	select {
 	case <-f.initialScanFinished:
 	default:
@@ -327,7 +310,27 @@ func (f *folder) pull() bool {
 	}
 	defer f.ioLimiter.give(1)
 
-	return f.puller.pull()
+	startTime := time.Now()
+
+	success := f.puller.pull()
+
+	basePause := f.pullBasePause()
+
+	if success {
+		// We're good. Don't schedule another pull and reset
+		// the pause interval.
+		f.pullPause = basePause
+		return true
+	}
+
+	// Pulling failed, try again later.
+	delay := f.pullPause + time.Since(startTime)
+	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), delay)
+	f.pullFailTimer.Reset(delay)
+	if f.pullPause < 60*basePause {
+		f.pullPause *= 2
+	}
+	return false
 }
 
 func (f *folder) scanSubdirs(subDirs []string) error {
@@ -806,7 +809,7 @@ func (f *folder) setError(err error) {
 	f.stateTracker.setError(err)
 }
 
-func (f *folder) basePause() time.Duration {
+func (f *folder) pullBasePause() time.Duration {
 	if f.PullerPauseS == 0 {
 		return defaultPullerPause
 	}
