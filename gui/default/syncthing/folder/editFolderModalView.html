@@ -115,6 +115,16 @@
               <span translate ng-if="folderEditor.simpleKeep.$error.required && folderEditor.simpleKeep.$dirty">The number of versions must be a number and cannot be blank.</span>
               <span translate ng-if="folderEditor.simpleKeep.$error.min && folderEditor.simpleKeep.$dirty">You must keep at least one version.</span>
             </p>
+            <label translate for="simpleClean">Clean out after</label>
+            <div class="input-group">
+              <input name="simpleClean" id="simpleClean" class="form-control text-right" type="number" ng-model="currentFolder.simpleClean" required="" aria-required="true" min="0" />
+              <div class="input-group-addon" translate>days</div>
+            </div>
+            <p class="help-block">
+              <span translate ng-if="folderEditor.trashcanClean.$valid || folderEditor.trashcanClean.$pristine">The number of days to keep files in the trash can. Zero means forever.</span>
+              <span translate ng-if="folderEditor.trashcanClean.$error.required && folderEditor.trashcanClean.$dirty">The number of days must be a number and cannot be blank.</span>
+              <span translate ng-if="folderEditor.trashcanClean.$error.min && folderEditor.trashcanClean.$dirty">A negative number of days doesn't make sense.</span>
+            </p>
           </div>
           <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='staggered'" ng-class="{'has-error': folderEditor.staggeredMaxAge.$invalid && folderEditor.staggeredMaxAge.$dirty}">
             <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>

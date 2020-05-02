@@ -73,6 +73,7 @@ angular.module('syncthing.core')
             order: "random",
             fileVersioningSelector: "none",
             trashcanClean: 0,
+            simpleClean: 0,
             simpleKeep: 5,
             staggeredMaxAge: 365,
             staggeredCleanInterval: 3600,
@@ -1732,6 +1733,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder.simpleFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "simple";
                 $scope.currentFolder.simpleKeep = +$scope.currentFolder.versioning.params.keep;
+                $scope.currentFolder.simpleClean = +$scope.currentFolder.versioning.params.cleanOutDays;
             } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "staggered") {
                 $scope.currentFolder.staggeredFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "staggered";
@@ -1746,6 +1748,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder.fileVersioningSelector = "none";
             }
             $scope.currentFolder.trashcanClean = $scope.currentFolder.trashcanClean || 0; // weeds out nulls and undefineds
+            $scope.currentFolder.simpleClean = $scope.currentFolder.simpleClean || 0;
             $scope.currentFolder.simpleKeep = $scope.currentFolder.simpleKeep || 5;
             $scope.currentFolder.staggeredCleanInterval = $scope.currentFolder.staggeredCleanInterval || 3600;
             $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.staggeredVersionsPath || "";
@@ -1852,11 +1855,13 @@ angular.module('syncthing.core')
                 folderCfg.versioning = {
                     'Type': 'simple',
                     'Params': {
-                        'keep': '' + folderCfg.simpleKeep
+                        'keep': '' + folderCfg.simpleKeep,
+                        'cleanoutDays': '' + folderCfg.simpleClean
                     }
                 };
                 delete folderCfg.simpleFileVersioning;
                 delete folderCfg.simpleKeep;
+                delete folderCfg.simpleClean;
             } else if (folderCfg.fileVersioningSelector === "staggered") {
                 folderCfg.versioning = {
                     'type': 'staggered',
