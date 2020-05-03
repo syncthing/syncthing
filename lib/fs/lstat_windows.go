@@ -9,108 +9,65 @@
 package fs
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"syscall"
-	"time"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
-
-//
-// Most of the code below has been extracted from internal Golang packages.
-// As the code in internal packages is uncallable, we had to copy or adapt the code here.
-//
-
-var (
-	_                                unsafe.Pointer
-	modkernel32                      = syscall.NewLazyDLL("kernel32.dll")
-	procGetFileInformationByHandleEx = modkernel32.NewProc("GetFileInformationByHandleEx")
-)
-
-func GetFileInformationByHandleEx(handle syscall.Handle, class uint32, info *byte, bufsize uint32) (err error) {
-	r1, _, e1 := syscall.Syscall6(procGetFileInformationByHandleEx.Addr(), 4, uintptr(handle), uintptr(class), uintptr(unsafe.Pointer(info)), uintptr(bufsize), 0, 0)
-	if r1 == 0 {
-		if e1 != 0 {
-			err = e1
-		} else {
-			err = syscall.EINVAL
-		}
-	}
-	return
-}
 
 func fixLongPath(path string) string {
-	//TODO: extract the implementation from https://golang.org/src/os/path_windows.go; probably not necessary
+	//TODO: extract the implementation from https://golang.org/src/os/path_windows.go
+	//Probably not necessary, as all walked paths are Canonicalize()-d.
 	return path
-}
-
-const (
-	ERROR_INVALID_PARAMETER    syscall.Errno = 87
-	FileAttributeTagInfo                     = 9 // FILE_ATTRIBUTE_TAG_INFO
-	IO_REPARSE_TAG_MOUNT_POINT               = 0xA0000003
-	IO_REPARSE_TAG_SYMLINK                   = 0xA000000C
-)
-
-type FILE_ATTRIBUTE_TAG_INFO struct {
-	FileAttributes uint32
-	ReparseTag     uint32
 }
 
 func isDirectoryJunction(path string) (bool, error) {
 	namep, err := syscall.UTF16PtrFromString(fixLongPath(path))
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("UTF16PtrFromString ERROR: %s\n", err))
+		return false, fmt.Errorf("syscall.UTF16PtrFromString failed with: %s", err)
 	}
 	attrs := uint32(syscall.FILE_FLAG_BACKUP_SEMANTICS | syscall.FILE_FLAG_OPEN_REPARSE_POINT)
 	h, err := syscall.CreateFile(namep, 0, 0, nil, syscall.OPEN_EXISTING, attrs, 0)
 	if err != nil {
-		return false, errors.New(fmt.Sprintf("syscall.CreateFile ERROR: %s\n", err))
+		return false, fmt.Errorf("syscall.CreateFile failed with: %s", err)
 	}
 	defer syscall.CloseHandle(h)
 
+	//https://docs.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_attribute_tag_info
+	const fileAttributeTagInfo = 9
+	type FILE_ATTRIBUTE_TAG_INFO struct {
+		FileAttributes uint32
+		ReparseTag     uint32
+	}
+
 	var ti FILE_ATTRIBUTE_TAG_INFO
-	err = GetFileInformationByHandleEx(h, FileAttributeTagInfo, (*byte)(unsafe.Pointer(&ti)), uint32(unsafe.Sizeof(ti)))
+	err = windows.GetFileInformationByHandleEx(windows.Handle(h), fileAttributeTagInfo, (*byte)(unsafe.Pointer(&ti)), uint32(unsafe.Sizeof(ti)))
 	if err != nil {
-		if errno, ok := err.(syscall.Errno); ok && errno == ERROR_INVALID_PARAMETER {
+		if errno, ok := err.(syscall.Errno); ok && errno == windows.ERROR_INVALID_PARAMETER {
 			// It appears calling GetFileInformationByHandleEx with
 			// FILE_ATTRIBUTE_TAG_INFO fails on FAT file system with
 			// ERROR_INVALID_PARAMETER. Clear ti.ReparseTag in that
 			// instance to indicate no symlinks are possible.
 			ti.ReparseTag = 0
 		} else {
-			return false, errors.New(fmt.Sprintf("GetFileInformationByHandleEx ERROR: %s\n", err))
+			return false, fmt.Errorf("windows.GetFileInformationByHandleEx failed with: %s", err)
 		}
 	}
-	return ti.ReparseTag == IO_REPARSE_TAG_MOUNT_POINT, nil
+	return ti.ReparseTag == windows.IO_REPARSE_TAG_MOUNT_POINT, nil
 }
 
-type dirJuncFileInfo struct {
-	fileInfo *os.FileInfo
+type dirJunctFileInfo struct {
+	os.FileInfo
 }
 
-func (fi *dirJuncFileInfo) Name() string {
-	return (*fi.fileInfo).Name()
+func (fi *dirJunctFileInfo) Mode() os.FileMode {
+	return fi.FileInfo.Mode() ^ os.ModeSymlink | os.ModeDir
 }
 
-func (fi *dirJuncFileInfo) Size() int64 {
-	return (*fi.fileInfo).Size()
-}
-
-func (fi *dirJuncFileInfo) Mode() os.FileMode {
-	return (*fi.fileInfo).Mode() ^ os.ModeSymlink | os.ModeDir
-}
-
-func (fi *dirJuncFileInfo) ModTime() time.Time {
-	return (*fi.fileInfo).ModTime()
-}
-
-func (fi *dirJuncFileInfo) IsDir() bool {
+func (fi *dirJunctFileInfo) IsDir() bool {
 	return true
-}
-
-func (fi *dirJuncFileInfo) Sys() interface{} {
-	return (*fi.fileInfo).Sys()
 }
 
 func underlyingLstat(name string) (os.FileInfo, error) {
@@ -122,10 +79,7 @@ func underlyingLstat(name string) (os.FileInfo, error) {
 		var isJunct bool
 		isJunct, err = isDirectoryJunction(name)
 		if err == nil && isJunct {
-			var fi2 = &dirJuncFileInfo{
-				fileInfo: &fi,
-			}
-			return fi2, nil
+			return &dirJunctFileInfo{fi}, nil
 		}
 	}
 	return fi, err
