@@ -10,7 +10,55 @@
 
 package fs
 
-import "path/filepath"
+import (
+	"fmt"
+	"path/filepath"
+)
+
+func newAncestorDirList() *ancestorDirList {
+	l.Debugf("ancestorDirList: new")
+	return &ancestorDirList{list: make([]FileInfo, 0, 20)}
+}
+
+type ancestorDirList struct {
+	list []FileInfo
+}
+
+func (ancestors *ancestorDirList) AppendUnlessPresent(info FileInfo) bool {
+	l.Debugf("ancestorDirList: AppendUnlessPresent '%s'", info.Name())
+	for _, ancestor := range ancestors.list {
+		if SameFile(info, ancestor) {
+			return false
+		}
+	}
+	aLen := len(ancestors.list)
+	if aLen == cap(ancestors.list) {
+		t := make([]FileInfo, aLen, aLen*2)
+		copy(t, ancestors.list)
+		ancestors.list = t
+		l.Debugf("ancestorDirList: capacity increased to %d", cap(ancestors.list))
+	}
+	ancestors.list = append(ancestors.list, info)
+	return true
+}
+
+func (ancestors *ancestorDirList) Remove(info FileInfo) bool {
+	l.Debugf("ancestorDirList: Remove '%s'", info.Name())
+	aLen := len(ancestors.list)
+	if aLen == 0 {
+		panic(fmt.Sprintf("Removal of item '%s' attempted on empty ancestorDirList", info.Name()))
+		//return false
+	} else if info.Name() != ancestors.list[aLen-1].Name() { //!SameFile(info, ancestors.list[aLen-1]) may fail
+		panic(fmt.Sprintf("ancestorDirList.Remove attempted for item '%s', but the topmost ancestor is '%s'", info.Name(), ancestors.list[aLen-1]))
+		//return false
+	}
+	ancestors.list = ancestors.list[:aLen-1]
+	return true
+}
+
+func (ancestors *ancestorDirList) Count() int {
+	return len(ancestors.list)
+}
 
 // WalkFunc is the type of the function called for each file or directory
 // visited by Walk. The path argument contains the argument to Walk as a
@@ -37,7 +85,8 @@ func NewWalkFilesystem(next Filesystem) Filesystem {
 }
 
 // walk recursively descends path, calling walkFn.
-func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error {
+func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc, ancestors *ancestorDirList) error {
+	l.Debugf("walk: path=%s", path)
 	path, err := Canonicalize(path)
 	if err != nil {
 		return err
@@ -55,6 +104,13 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error
 		return nil
 	}
 
+	if ancestors.AppendUnlessPresent(info) {
+		defer ancestors.Remove(info)
+	} else {
+		l.Warnf("Infinite filesystem recursion detected on path '%s', not walking further down", path)
+		return nil
+	}
+
 	names, err := f.DirNames(path)
 	if err != nil {
 		return walkFn(path, info, err)
@@ -68,7 +124,7 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error
 				return err
 			}
 		} else {
-			err = f.walk(filename, fileInfo, walkFn)
+			err = f.walk(filename, fileInfo, walkFn, ancestors)
 			if err != nil {
 				if !fileInfo.IsDir() || err != SkipDir {
 					return err
@@ -90,5 +146,10 @@ func (f *walkFilesystem) Walk(root string, walkFn WalkFunc) error {
 	if err != nil {
 		return walkFn(root, nil, err)
 	}
-	return f.walk(root, info, walkFn)
+	ancestors := newAncestorDirList()
+	err = f.walk(root, info, walkFn, ancestors)
+	if ancestors.Count() != 0 {
+		panic(fmt.Sprintf("fs.Walk finished with %d unremoved ancestors", ancestors.Count()))
+	}
+	return err
 }
