@@ -416,7 +416,7 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 		cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
 	}
 
-	m.deleteFolderEntriesLocked(cfg)
+	m.cleanupFolderLocked(cfg)
 
 	m.fmut.Unlock()
 
@@ -441,7 +441,7 @@ func (m *model) stopFolder(cfg config.FolderConfiguration, err error) {
 }
 
 // Need to hold lock on m.fmut when calling this.
-func (m *model) deleteFolderEntriesLocked(cfg config.FolderConfiguration) {
+func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	// Clean up our config maps
 	delete(m.folderCfgs, cfg.ID)
 	delete(m.folderFiles, cfg.ID)
@@ -496,7 +496,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration) {
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
-	m.deleteFolderEntriesLocked(from)
+	m.cleanupFolderLocked(from)
 	if !to.Paused {
 		m.addAndStartFolderLocked(to, fset)
 	}
