@@ -208,23 +208,33 @@ func (vl VersionList) String() string {
 }
 
 // update brings the VersionList up to date with file. It returns the updated
-// VersionList, a potentially removed old FileVersion and its index, as well as
-// the index where the new FileVersion was inserted.
-func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t readOnlyTransaction) (_ VersionList, removedFV FileVersion, removedAt int, insertedAt int, err error) {
-	vl, removedFV, removedAt = vl.pop(device)
-
+// VersionList, a device that has the global/newest version, a device that previously
+// had the global/newest version, a boolean indicating if the global version has
+// changed and if any error occurred (only possible in db interaction).
+func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t readOnlyTransaction) (VersionList, FileVersion, FileVersion, FileVersion, bool, bool, bool, error) {
 	nv := FileVersion{
 		Device:  device,
 		Version: file.Version,
 		Invalid: file.IsInvalid(),
 		Deleted: file.IsDeleted(),
 	}
+
+	if len(vl.Versions) == 0 {
+		vl.Versions = append(vl.Versions, nv)
+		return vl, nv, FileVersion{}, FileVersion{}, false, false, true, nil
+	}
+
+	vl, removedFV, removedAt := vl.pop(device)
+
+	// Find position and insert the file in
 	i := 0
+	// Always sort invalid files behind valid ones regardless of version
 	if nv.Invalid {
 		i = sort.Search(len(vl.Versions), func(j int) bool {
 			return vl.Versions[j].Invalid
 		})
 	}
+outer:
 	for ; i < len(vl.Versions); i++ {
 		switch vl.Versions[i].Version.Compare(file.Version) {
 		case protocol.Equal:
@@ -234,7 +244,7 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t re
 			// The version at this point in the list is equal to or lesser
 			// ("older") than us. We insert ourselves in front of it.
 			vl = vl.insertAt(i, nv)
-			return vl, removedFV, removedAt, i, nil
+			break outer
 
 		case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
 			// The version at this point is in conflict with us. We must pull
@@ -246,18 +256,41 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t re
 			//
 			// A surprise missing file entry here is counted as a win for us.
 			if of, ok, err := t.getFile(folder, vl.Versions[i].Device, []byte(file.Name)); err != nil {
-				return vl, removedFV, removedAt, i, err
+				return vl, FileVersion{}, FileVersion{}, FileVersion{}, false, false, false, err
 			} else if !ok || protocol.WinsConflict(file, of) {
 				vl = vl.insertAt(i, nv)
-				return vl, removedFV, removedAt, i, nil
+				break outer
 			}
 		}
 	}
+	if i == len(vl.Versions) {
+		// We didn't find a position for an insert above, so append to the end.
+		vl.Versions = append(vl.Versions, nv)
+	}
 
-	// We didn't find a position for an insert above, so append to the end.
-	vl.Versions = append(vl.Versions, nv)
+	// Nothing has changed regarding the global (first) version
+	if i != 0 && removedAt != 0 {
+		return vl, vl.Versions[0], vl.Versions[0], removedFV, true, removedAt != -1, false, nil
+	}
 
-	return vl, removedFV, removedAt, len(vl.Versions) - 1, nil
+	var newFV, oldFV FileVersion
+	if i == 0 && removedAt == 0 {
+		newFV = nv
+		oldFV = removedFV
+	} else if i == 0 {
+		newFV = nv
+		oldFV = vl.Versions[1]
+	} else { // removedAt == 0
+		oldFV = removedFV
+		newFV = vl.Versions[0]
+	}
+
+	globalChanged := true
+	if oldFV.Invalid == newFV.Invalid && oldFV.Version.Equal(newFV.Version) {
+		globalChanged = false
+	}
+
+	return vl, newFV, oldFV, removedFV, true, removedAt != -1, globalChanged, nil
 }
 
 func (vl VersionList) insertAt(i int, v FileVersion) VersionList {
