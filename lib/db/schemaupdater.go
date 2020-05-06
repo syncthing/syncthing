@@ -506,27 +506,16 @@ func (db *schemaUpdater) updateSchemato10(_ int) error {
 	}
 	defer t.close()
 
-	// Delete all global lists
-	if err := t.deleteKeyPrefix([]byte{KeyTypeGlobal}); err != nil {
-		return err
-	}
+	var buf []byte
 
-	var gk, buf []byte
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
 
-		// Update the existing metadata if it can be read, otherwise
-		// it will get recreated later in normal operations.
-		meta := newMetadataTracker()
-		metaErr := meta.fromDB(db.Lowlevel, []byte(folder))
-		meta.resetAll(protocol.GlobalDeviceID) // Is rewritten in updateGlobal
-
-		buf, err = t.keyer.GenerateDeviceFileKey(buf, folder, nil, nil)
+		buf, err = t.keyer.GenerateGlobalVersionKey(buf, folder, nil)
 		if err != nil {
 			return err
 		}
-		buf = deviceFileKey(buf).WithoutNameAndDevice()
-
+		buf = globalVersionKey(buf).WithoutName()
 		dbi, err := t.NewPrefixIterator(buf)
 		if err != nil {
 			return err
@@ -534,29 +523,42 @@ func (db *schemaUpdater) updateSchemato10(_ int) error {
 		defer dbi.Release()
 
 		for dbi.Next() {
-			name := t.keyer.NameFromDeviceFileKey(dbi.Key())
-			device, _ := t.keyer.DeviceFromDeviceFileKey(dbi.Key())
+			var vl VersionList
+			if err := vl.Unmarshal(dbi.Value()); err != nil {
+				return err
+			}
 
-			f, err := t.unmarshalTrunc(dbi.Value(), false)
-			if err != nil {
-				return err
+			changed := false
+			name := t.keyer.NameFromGlobalVersionKey(dbi.Key())
+
+			for i, fv := range vl.Versions {
+				buf, err = t.keyer.GenerateDeviceFileKey(buf, folder, fv.Device, name)
+				if err != nil {
+					return err
+				}
+				f, ok, err := t.getFileTrunc(buf, true)
+				if !ok {
+					return errEntryFromGlobalMissing
+				}
+				if err != nil {
+					return err
+				}
+				if f.IsDeleted() {
+					vl.Versions[i].Deleted = true
+					changed = true
+				}
 			}
-			gk, err = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-			if err != nil {
-				return err
-			}
-			if buf, _, err = t.updateGlobal(gk, buf, folder, device, f.(protocol.FileInfo), meta); err != nil {
-				return err
+
+			if changed {
+				if err := t.Put(dbi.Key(), mustMarshal(&vl)); err != nil {
+					return err
+				}
+				if err := t.Checkpoint(); err != nil {
+					return err
+				}
 			}
 		}
-
 		dbi.Release()
-
-		if metaErr == nil {
-			if err = meta.toDB(t, folder); err != nil {
-				return err
-			}
-		}
 	}
 
 	return t.Commit()

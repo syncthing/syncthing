@@ -122,12 +122,16 @@ func openJSONS(file string) (backend.Backend, error) {
 // 	db := NewLowlevel(backend.OpenMemory())
 // 	defer db.Close()
 
+// 	if err := UpdateSchema(db); err != nil {
+// 		t.Fatal(err)
+// 	}
+
 // 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
 
 // 	files := []protocol.FileInfo{
-// 		{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Deleted: true},
-// 		{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2)},
-// 		{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Deleted: true},
+// 		{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Deleted: true, Sequence: 1},
+// 		{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2), Sequence: 2},
+// 		{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Deleted: true, Sequence: 3},
 // 	}
 // 	fs.Update(protocol.LocalDeviceID, files)
 // 	files[1].Version = files[1].Version.Update(remoteDevice0.Short())

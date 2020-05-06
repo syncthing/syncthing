@@ -494,11 +494,7 @@ func TestUpdateTo10(t *testing.T) {
 
 	folder := "test"
 
-	// We manually load the metadatatracker to prevent recalculation
-	meta := newMetadataTracker()
-	if err := meta.fromDB(db, []byte(folder)); err != nil {
-		t.Fatal(err)
-	}
+	meta := db.getMetaAndCheck(folder)
 
 	empty := Counts{}
 
@@ -551,9 +547,9 @@ func TestUpdateTo10(t *testing.T) {
 		t.Fatal(err)
 	}
 	if vl.Versions[0].Deleted {
-		t.Error("vl.Versions[0] deleted for b")
+		t.Error("vl.Versions[0] deleted for c")
 	}
 	if !vl.Versions[1].Deleted {
-		t.Error("vl.Versions[1] not deleted for b")
+		t.Error("vl.Versions[1] not deleted for c")
 	}
 }
