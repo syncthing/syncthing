@@ -15,45 +15,27 @@ import (
 	"path/filepath"
 )
 
-func newAncestorDirList() *ancestorDirList {
-	l.Debugf("ancestorDirList: new")
-	return &ancestorDirList{list: make([]FileInfo, 0, 20)}
-}
-
 type ancestorDirList struct {
 	list []FileInfo
 }
 
-func (ancestors *ancestorDirList) AppendUnlessPresent(info FileInfo) bool {
-	l.Debugf("ancestorDirList: AppendUnlessPresent '%s'", info.Name())
+func (ancestors *ancestorDirList) PushUnlessPresent(info FileInfo) bool {
+	l.Debugf("ancestorDirList: PushUnlessPresent '%s'", info.Name())
 	for _, ancestor := range ancestors.list {
 		if SameFile(info, ancestor) {
 			return false
 		}
 	}
-	aLen := len(ancestors.list)
-	if aLen == cap(ancestors.list) {
-		t := make([]FileInfo, aLen, aLen*2)
-		copy(t, ancestors.list)
-		ancestors.list = t
-		l.Debugf("ancestorDirList: capacity increased to %d", cap(ancestors.list))
-	}
 	ancestors.list = append(ancestors.list, info)
 	return true
 }
 
-func (ancestors *ancestorDirList) Remove(info FileInfo) bool {
-	l.Debugf("ancestorDirList: Remove '%s'", info.Name())
+func (ancestors *ancestorDirList) Pop() FileInfo {
 	aLen := len(ancestors.list)
-	if aLen == 0 {
-		panic(fmt.Sprintf("Removal of item '%s' attempted on empty ancestorDirList", info.Name()))
-		//return false
-	} else if info.Name() != ancestors.list[aLen-1].Name() { //!SameFile(info, ancestors.list[aLen-1]) may fail
-		panic(fmt.Sprintf("ancestorDirList.Remove attempted for item '%s', but the topmost ancestor is '%s'", info.Name(), ancestors.list[aLen-1]))
-		//return false
-	}
+	info := ancestors.list[aLen-1]
+	l.Debugf("ancestorDirList: Pop '%s'", info.Name())
 	ancestors.list = ancestors.list[:aLen-1]
-	return true
+	return info
 }
 
 func (ancestors *ancestorDirList) Count() int {
@@ -104,8 +86,16 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc, ances
 		return nil
 	}
 
-	if ancestors.AppendUnlessPresent(info) {
-		defer ancestors.Remove(info)
+	if ancestors.PushUnlessPresent(info) {
+		defer func() {
+			if ancestors.Count() == 0 {
+				panic(fmt.Sprintf("ancestorDirList.Pop needed for item '%s', but ancestorDirList is empty", info.Name()))
+			}
+			popped := ancestors.Pop()
+			if popped.Name() != info.Name() { //!SameFile(popped, info) may fail
+				panic(fmt.Sprintf("ancestorDirList.Pop returned item '%s', but '%s' was expected", popped.Name(), info.Name()))
+			}
+		}()
 	} else {
 		l.Warnf("Infinite filesystem recursion detected on path '%s', not walking further down", path)
 		return nil
@@ -146,7 +136,7 @@ func (f *walkFilesystem) Walk(root string, walkFn WalkFunc) error {
 	if err != nil {
 		return walkFn(root, nil, err)
 	}
-	ancestors := newAncestorDirList()
+	ancestors := &ancestorDirList{}
 	err = f.walk(root, info, walkFn, ancestors)
 	if ancestors.Count() != 0 {
 		panic(fmt.Sprintf("fs.Walk finished with %d unremoved ancestors", ancestors.Count()))
