@@ -374,7 +374,6 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 			if f.IsInvalid() {
 				t.Errorf("File %v is still marked as invalid", f.Name)
 			}
-			ev := protocol.Vector{}
 			if f.Name == ign {
 				// The unignored deleted file should have an
 				// empty version, to make it not override
@@ -382,17 +381,19 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 				if !f.Deleted {
 					t.Errorf("File %v was not marked as deleted", f.Name)
 				}
+				if len(f.Version.Counters) != 0 {
+					t.Errorf("File %v has version %v, expected empty", f.Name, f.Version)
+				}
 			} else {
 				// The unignored existing file should have a
 				// version with only a local counter, to make
 				// it conflict changed global files.
-				ev = protocol.Vector{}.Update(myID.Short())
 				if f.Deleted {
 					t.Errorf("File %v is marked as deleted", f.Name)
 				}
-			}
-			if v := f.Version; !v.Equal(ev) {
-				t.Errorf("File %v has version %v, expected %v", f.Name, v, ev)
+				if len(f.Version.Counters) != 1 || f.Version.Counter(myID.Short()) == 0 {
+					t.Errorf("File %v has version %v, expected one entry for ourselves", f.Name, f.Version)
+				}
 			}
 			delete(expected, f.Name)
 		}
