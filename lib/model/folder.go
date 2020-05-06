@@ -904,19 +904,8 @@ func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events
 		objType := "file"
 		action := "modified"
 
-		switch {
-		case file.IsDeleted():
+		if file.IsDeleted() {
 			action = "deleted"
-
-		// If our local vector is version 1 AND it is the only version
-		// vector so far seen for this file then it is a new file.  Else if
-		// it is > 1 it's not new, and if it is 1 but another shortId
-		// version vector exists then it is new for us but created elsewhere
-		// so the file is still not new but modified by us. Only if it is
-		// truly new do we change this to 'added', else we leave it as
-		// 'modified'.
-		case len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1:
-			action = "added"
 		}
 
 		if file.IsSymlink() {
