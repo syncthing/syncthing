@@ -813,7 +813,7 @@ func (m *model) Completion(device protocol.DeviceID, folder string) FolderComple
 	return FolderCompletion{
 		CompletionPct: completionPct,
 		NeedBytes:     need.Bytes,
-		NeedItems:     need.Files + need.Directories + need.Files,
+		NeedItems:     need.Files + need.Directories + need.Symlinks,
 		GlobalBytes:   tot,
 		NeedDeletes:   need.Deleted,
 	}
