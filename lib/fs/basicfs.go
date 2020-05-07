@@ -297,7 +297,7 @@ func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
 		return false
 	}
 
-	return os.SameFile(f1.FileInfo, f2.FileInfo)
+	return os.SameFile(f1.fileStat(), f2.fileStat())
 }
 
 // basicFile implements the fs.File interface on top of an os.File

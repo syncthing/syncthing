@@ -17,12 +17,13 @@ import (
 
 type ancestorDirList struct {
 	list []FileInfo
+	fs   Filesystem
 }
 
 func (ancestors *ancestorDirList) PushUnlessPresent(info FileInfo) bool {
 	l.Debugf("ancestorDirList: PushUnlessPresent '%s'", info.Name())
 	for _, ancestor := range ancestors.list {
-		if SameFile(info, ancestor) {
+		if ancestors.fs.SameFile(info, ancestor) {
 			return false
 		}
 	}
@@ -136,7 +137,7 @@ func (f *walkFilesystem) Walk(root string, walkFn WalkFunc) error {
 	if err != nil {
 		return walkFn(root, nil, err)
 	}
-	ancestors := &ancestorDirList{}
+	ancestors := &ancestorDirList{fs: f.Filesystem}
 	err = f.walk(root, info, walkFn, ancestors)
 	if ancestors.Count() != 0 {
 		panic(fmt.Sprintf("fs.Walk finished with %d unremoved ancestors", ancestors.Count()))
