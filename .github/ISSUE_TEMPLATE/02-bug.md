@@ -1,6 +1,7 @@
 ---
 name: Bug report
 about: If you're actually looking for support, see "ask a question".
+labels: bug, needs-triage
 ---
 
 ### Does your log mention database corruption?
