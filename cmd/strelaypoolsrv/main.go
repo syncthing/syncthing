@@ -1,11 +1,8 @@
 // Copyright (C) 2015 Audrius Butkevicius and Contributors (see the CONTRIBUTORS file).
 
-//go:generate go run ../../script/genassets.go gui >auto/gui.go
-
 package main
 
 import (
-	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/tls"
@@ -302,16 +299,15 @@ func handleAssets(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Length", strconv.Itoa(len(bs)))
+		io.WriteString(w, bs)
 	} else {
 		// ungzip if browser not send gzip accepted header
 		var gr *gzip.Reader
-		gr, _ = gzip.NewReader(bytes.NewReader(bs))
-		bs, _ = ioutil.ReadAll(gr)
+		gr, _ = gzip.NewReader(strings.NewReader(bs))
+		io.Copy(w, gr)
 		gr.Close()
 	}
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-
-	w.Write(bs)
 }
 
 func mimeTypeForFile(file string) string {

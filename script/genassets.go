@@ -29,8 +29,8 @@ package auto
 
 const Generated int64 = {{.Generated}}
 
-func Assets() map[string][]byte {
-	var assets = make(map[string][]byte, {{.Assets | len}})
+func Assets() map[string]string {
+	var assets = make(map[string]string, {{.Assets | len}})
 {{range $asset := .Assets}}
 	assets["{{$asset.Name}}"] = {{$asset.Data}}{{end}}
 	return assets
@@ -72,7 +72,7 @@ func walkerFor(basePath string) filepath.WalkFunc {
 			name, _ = filepath.Rel(basePath, name)
 			assets = append(assets, asset{
 				Name: filepath.ToSlash(name),
-				Data: fmt.Sprintf("[]byte(%q)", buf.String()),
+				Data: fmt.Sprintf("%q", buf.String()),
 			})
 		}
 

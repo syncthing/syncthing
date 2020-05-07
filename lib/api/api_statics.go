@@ -7,14 +7,14 @@
 package api
 
 import (
-	"bytes"
 	"compress/gzip"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,7 +27,7 @@ const themePrefix = "theme-assets/"
 
 type staticsServer struct {
 	assetDir        string
-	assets          map[string][]byte
+	assets          map[string]string
 	availableThemes []string
 
 	mut             sync.RWMutex
@@ -168,16 +168,15 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Length", strconv.Itoa(len(bs)))
+		io.WriteString(w, bs)
 	} else {
 		// ungzip if browser not send gzip accepted header
 		var gr *gzip.Reader
-		gr, _ = gzip.NewReader(bytes.NewReader(bs))
-		bs, _ = ioutil.ReadAll(gr)
+		gr, _ = gzip.NewReader(strings.NewReader(bs))
+		io.Copy(w, gr)
 		gr.Close()
 	}
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-
-	w.Write(bs)
 }
 
 func (s *staticsServer) serveThemes(w http.ResponseWriter, r *http.Request) {
