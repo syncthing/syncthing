@@ -1458,7 +1458,6 @@ angular.module('syncthing.core')
                     $scope.editingExisting = false;
                     $scope.deviceEditor.$setPristine();
                     $('#editDevice').modal();
-                    // $scope.saveDevice()
                 });
         };
 
