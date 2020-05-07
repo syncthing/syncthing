@@ -16,6 +16,7 @@ import (
 )
 
 type OptionsConfiguration struct {
+	AutoAcceptFoldersDef	bool	 `xml:"autoAcceptFoldersDefaultValue" json:"autoAcceptFoldersDefaultValue" default:"false"`
 	RawListenAddresses      []string `xml:"listenAddress" json:"listenAddresses" default:"default"`
 	RawGlobalAnnServers     []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" default:"default" restart:"true"`
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true" restart:"true"`
