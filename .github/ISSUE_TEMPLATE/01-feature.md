@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: If you're just not sure how to do something, see "ask a question"
+about: If you're just not sure how to do something, see "ask a question".
 ---
 
 ### Include required information

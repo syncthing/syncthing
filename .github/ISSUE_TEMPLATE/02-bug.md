@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: If you're actually looking for support, see "ask a question"
+about: If you're actually looking for support, see "ask a question".
 ---
 
 ### Does your log mention database corruption?
