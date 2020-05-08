@@ -24,6 +24,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -408,10 +410,6 @@ func TestClusterConfig(t *testing.T) {
 	wrapper := createTmpWrapper(cfg)
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	for _, fcfg := range cfg.Folders {
-		m.removeFolder(fcfg)
-		m.addFolder(fcfg)
-	}
 	defer cleanupModel(m)
 
 	cm := m.generateClusterConfig(device2)
@@ -1458,16 +1456,7 @@ func TestIgnores(t *testing.T) {
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
 
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
-	// Reach in and update the ignore matcher to one that always does
-	// reloads when asked to, instead of checking file mtimes. This is
-	// because we will be changing the files on disk often enough that the
-	// mtimes will be unreliable to determine change status.
-	m.fmut.Lock()
-	m.folderIgnores["default"] = ignore.New(defaultFs, ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
-	m.fmut.Unlock()
-	m.startFolder("default")
+	folderIgnoresAlwaysReload(m, defaultFolderConfig)
 
 	// Make sure the initial scan has finished (ScanFolders is blocking)
 	m.ScanFolders()
@@ -1490,7 +1479,13 @@ func TestIgnores(t *testing.T) {
 	}
 
 	// Invalid path, marker should be missing, hence returns an error.
-	m.addFolder(config.FolderConfiguration{ID: "fresh", Path: "XXX"})
+	fcfg := config.FolderConfiguration{ID: "fresh", Path: "XXX"}
+	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
+	m.fmut.Lock()
+	m.folderCfgs[fcfg.ID] = fcfg
+	m.folderIgnores[fcfg.ID] = ignores
+	m.fmut.Unlock()
+
 	_, _, err = m.GetIgnores("fresh")
 	if err == nil {
 		t.Error("No error")
@@ -1523,9 +1518,6 @@ func TestEmptyIgnores(t *testing.T) {
 
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
-
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
 
 	if err := m.SetIgnores("default", []string{}); err != nil {
 		t.Error(err)
@@ -1683,8 +1675,6 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
@@ -1936,8 +1926,6 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
@@ -2113,8 +2101,6 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	m.ScanFolder("default")
@@ -2292,8 +2278,8 @@ func TestIssue2782(t *testing.T) {
 	m.fmut.Lock()
 	runner := m.folderRunners["default"]
 	m.fmut.Unlock()
-	if err := runner.CheckHealth(); err != nil {
-		t.Error("health check error:", err)
+	if _, _, err := runner.getState(); err != nil {
+		t.Error("folder error:", err)
 	}
 }
 
@@ -2311,8 +2297,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	}
 
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", dbi, nil)
-	m.addFolder(defaultFolderConfig)
-	m.startFolder("default")
+	m.newFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	// Remote sequence is cached, hence need to recreated.
@@ -3188,9 +3173,9 @@ func TestIssue5002(t *testing.T) {
 	}
 	blockSize := int32(file.BlockSize())
 
-	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", blockSize, file.Size-int64(blockSize), []byte{1, 2, 3, 4})
-	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", blockSize, file.Size, []byte{1, 2, 3, 4}) // panic
-	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", blockSize, file.Size+int64(blockSize), []byte{1, 2, 3, 4})
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size-int64(blockSize), []byte{1, 2, 3, 4})
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size, []byte{1, 2, 3, 4}) // panic
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size+int64(blockSize), []byte{1, 2, 3, 4})
 }
 
 func TestParentOfUnignored(t *testing.T) {
@@ -3306,12 +3291,37 @@ func TestSanitizePath(t *testing.T) {
 		{`Räk \/ smörgås`, "Räk smörgås"},
 		{"هذا هو *\x07?اسم الملف", "هذا هو اسم الملف"},
 		{`../foo.txt`, `.. foo.txt`},
+		{"  \t \n filename in  \t space\r", "filename in space"},
+		{"你\xff好", `你 好`},
+		{"\000 foo", "foo"},
 	}
 
 	for _, tc := range cases {
 		res := sanitizePath(tc[0])
 		if res != tc[1] {
 			t.Errorf("sanitizePath(%q) => %q, expected %q", tc[0], res, tc[1])
+		}
+	}
+}
+
+// Fuzz test: sanitizePath must always return strings of printable UTF-8
+// characters when fed random data.
+//
+// Note that space is considered printable, but other whitespace runes are not.
+func TestSanitizePathFuzz(t *testing.T) {
+	buf := make([]byte, 128)
+
+	for i := 0; i < 100; i++ {
+		rand.Read(buf)
+		path := sanitizePath(string(buf))
+		if !utf8.ValidString(path) {
+			t.Errorf("sanitizePath(%q) => %q, not valid UTF-8", buf, path)
+			continue
+		}
+		for _, c := range path {
+			if !unicode.IsPrint(c) {
+				t.Errorf("non-printable rune %q in sanitized path", c)
+			}
 		}
 	}
 }

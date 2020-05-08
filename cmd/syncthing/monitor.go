@@ -311,6 +311,11 @@ func copyStdout(stdout io.Reader, dst io.Writer) {
 }
 
 func restartMonitor(args []string) error {
+	// Set the STRESTART environment variable to indicate to the next
+	// process that this is a restart and not initial start. This prevents
+	// opening the browser on startup.
+	os.Setenv("STRESTART", "yes")
+
 	if runtime.GOOS != "windows" {
 		// syscall.Exec is the cleanest way to restart on Unixes as it
 		// replaces the current process with the new one, keeping the pid and

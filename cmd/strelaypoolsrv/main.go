@@ -1,16 +1,12 @@
 // Copyright (C) 2015 Audrius Butkevicius and Contributors (see the CONTRIBUTORS file).
 
-//go:generate go run ../../script/genassets.go gui >auto/gui.go
-
 package main
 
 import (
-	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -95,33 +91,35 @@ type result struct {
 }
 
 var (
-	testCert        tls.Certificate
-	knownRelaysFile = filepath.Join(os.TempDir(), "strelaypoolsrv_known_relays")
-	listen          = ":80"
-	dir             string
-	evictionTime    = time.Hour
-	debug           bool
-	getLRUSize      = 10 << 10
-	getLimitBurst   = 10
-	getLimitAvg     = 2
-	postLRUSize     = 1 << 10
-	postLimitBurst  = 2
-	postLimitAvg    = 2
-	getLimit        time.Duration
-	postLimit       time.Duration
-	permRelaysFile  string
-	ipHeader        string
-	geoipPath       string
-	proto           string
-	statsRefresh    = time.Minute / 2
+	testCert          tls.Certificate
+	knownRelaysFile   = filepath.Join(os.TempDir(), "strelaypoolsrv_known_relays")
+	listen            = ":80"
+	dir               string
+	evictionTime      = time.Hour
+	debug             bool
+	getLRUSize        = 10 << 10
+	getLimitBurst     = 10
+	getLimitAvg       = 2
+	postLRUSize       = 1 << 10
+	postLimitBurst    = 2
+	postLimitAvg      = 2
+	getLimit          time.Duration
+	postLimit         time.Duration
+	permRelaysFile    string
+	ipHeader          string
+	geoipPath         string
+	proto             string
+	statsRefresh      = time.Minute / 2
+	requestQueueLen   = 10
+	requestProcessors = 1
 
-	getMut      = sync.NewRWMutex()
+	getMut      = sync.NewMutex()
 	getLRUCache *lru.Cache
 
-	postMut      = sync.NewRWMutex()
+	postMut      = sync.NewMutex()
 	postLRUCache *lru.Cache
 
-	requests = make(chan request, 10)
+	requests chan request
 
 	mut             = sync.NewRWMutex()
 	knownRelays     = make([]*relay, 0)
@@ -134,6 +132,9 @@ const (
 )
 
 func main() {
+	log.SetOutput(os.Stdout)
+	log.SetFlags(log.Lshortfile)
+
 	flag.StringVar(&listen, "listen", listen, "Listen address")
 	flag.StringVar(&dir, "keys", dir, "Directory where http-cert.pem and http-key.pem is stored for TLS listening")
 	flag.BoolVar(&debug, "debug", debug, "Enable debug output")
@@ -149,8 +150,12 @@ func main() {
 	flag.StringVar(&geoipPath, "geoip", "GeoLite2-City.mmdb", "Path to GeoLite2-City database")
 	flag.StringVar(&proto, "protocol", "tcp", "Protocol used for listening. 'tcp' for IPv4 and IPv6, 'tcp4' for IPv4, 'tcp6' for IPv6")
 	flag.DurationVar(&statsRefresh, "stats-refresh", statsRefresh, "Interval at which to refresh relay stats")
+	flag.IntVar(&requestQueueLen, "request-queue", requestQueueLen, "Queue length for incoming test requests")
+	flag.IntVar(&requestProcessors, "request-processors", requestProcessors, "Number of request processor routines")
 
 	flag.Parse()
+
+	requests = make(chan request, requestQueueLen)
 
 	getLimit = 10 * time.Second / time.Duration(getLimitAvg)
 	postLimit = time.Minute / time.Duration(postLimitAvg)
@@ -167,7 +172,9 @@ func main() {
 
 	testCert = createTestCertificate()
 
-	go requestProcessor()
+	for i := 0; i < requestProcessors; i++ {
+		go requestProcessor()
+	}
 
 	// Load relays from cache in the background.
 	// Load them in a serial fashion to make sure any genuine requests
@@ -292,16 +299,15 @@ func handleAssets(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Length", strconv.Itoa(len(bs)))
+		io.WriteString(w, bs)
 	} else {
 		// ungzip if browser not send gzip accepted header
 		var gr *gzip.Reader
-		gr, _ = gzip.NewReader(bytes.NewReader(bs))
-		bs, _ = ioutil.ReadAll(gr)
+		gr, _ = gzip.NewReader(strings.NewReader(bs))
+		io.Copy(w, gr)
 		gr.Close()
 	}
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-
-	w.Write(bs)
 }
 
 func mimeTypeForFile(file string) string {
@@ -334,10 +340,10 @@ func mimeTypeForFile(file string) string {
 func handleRequest(w http.ResponseWriter, r *http.Request) {
 	timer := prometheus.NewTimer(apiRequestsSeconds.WithLabelValues(r.Method))
 
-	lw := NewLoggingResponseWriter(w)
-
+	w = NewLoggingResponseWriter(w)
 	defer func() {
 		timer.ObserveDuration()
+		lw := w.(*loggingResponseWriter)
 		apiRequestsTotal.WithLabelValues(r.Method, strconv.Itoa(lw.statusCode)).Inc()
 	}()
 
@@ -397,7 +403,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		if debug {
 			log.Println("Failed to parse payload")
 		}
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -406,7 +412,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		if debug {
 			log.Println("Failed to parse URI", newRelay.URL)
 		}
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -415,7 +421,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		if debug {
 			log.Println("Failed to split URI", newRelay.URL)
 		}
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -491,11 +497,11 @@ func handleRelayTest(request request) {
 	if debug {
 		log.Println("Request for", request.relay)
 	}
-	if !client.TestRelay(context.TODO(), request.relay.uri, []tls.Certificate{testCert}, time.Second, 2*time.Second, 3) {
+	if err := client.TestRelay(context.TODO(), request.relay.uri, []tls.Certificate{testCert}, time.Second, 2*time.Second, 3); err != nil {
 		if debug {
-			log.Println("Test for relay", request.relay, "failed")
+			log.Println("Test for relay", request.relay, "failed:", err)
 		}
-		request.result <- result{errors.New("connection test failed"), 0}
+		request.result <- result{err, 0}
 		return
 	}
 
@@ -573,26 +579,21 @@ func evict(relay *relay) func() {
 	}
 }
 
-func limit(addr string, cache *lru.Cache, lock sync.RWMutex, intv time.Duration, burst int) bool {
+func limit(addr string, cache *lru.Cache, lock sync.Mutex, intv time.Duration, burst int) bool {
 	if host, _, err := net.SplitHostPort(addr); err == nil {
 		addr = host
 	}
 
-	lock.RLock()
-	bkt, ok := cache.Get(addr)
-	lock.RUnlock()
-	if ok {
-		bkt := bkt.(*rate.Limiter)
-		if !bkt.Allow() {
-			// Rate limit
-			return true
-		}
-	} else {
-		lock.Lock()
-		cache.Add(addr, rate.NewLimiter(rate.Every(intv), burst))
-		lock.Unlock()
+	lock.Lock()
+	v, _ := cache.Get(addr)
+	bkt, ok := v.(*rate.Limiter)
+	if !ok {
+		bkt = rate.NewLimiter(rate.Every(intv), burst)
+		cache.Add(addr, bkt)
 	}
-	return false
+	lock.Unlock()
+
+	return !bkt.Allow()
 }
 
 func loadRelays(file string) []*relay {

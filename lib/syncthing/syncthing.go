@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +37,7 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
 )
 
@@ -69,6 +72,9 @@ type Options struct {
 	ProfilerURL      string
 	ResetDeltaIdxs   bool
 	Verbose          bool
+	// null duration means use default value
+	DBRecheckInterval    time.Duration
+	DBIndirectGCInterval time.Duration
 }
 
 type App struct {
@@ -89,7 +95,7 @@ type App struct {
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
 	a := &App{
 		cfg:      cfg,
-		ll:       db.NewLowlevel(dbBackend),
+		ll:       db.NewLowlevel(dbBackend, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval)),
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,
@@ -122,6 +128,7 @@ func (a *App) startup() error {
 		},
 		PassThroughPanics: true,
 	})
+	a.mainService.Add(a.ll)
 	a.mainService.ServeBackground()
 
 	if a.opts.AuditWriter != nil {
@@ -224,7 +231,7 @@ func (a *App) startup() error {
 
 	prevParts := strings.Split(prevVersion, "-")
 	curParts := strings.Split(build.Version, "-")
-	if prevParts[0] != curParts[0] {
+	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
 		if prevVersion != "" {
 			l.Infoln("Detected upgrade from", prevVersion, "to", build.Version)
 		}
@@ -232,7 +239,17 @@ func (a *App) startup() error {
 		// Drop delta indexes in case we've changed random stuff we
 		// shouldn't have. We will resend our index on next connect.
 		db.DropDeltaIndexIDs(a.ll)
+	}
 
+	// Check and repair metadata and sequences on every upgrade including RCs.
+	prevParts = strings.Split(prevVersion, "+")
+	curParts = strings.Split(build.Version, "+")
+	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
+		l.Infoln("Checking db due to upgrade - this may take a while...")
+		a.ll.CheckRepair()
+	}
+
+	if build.Version != prevVersion {
 		// Remember the new version.
 		miscDB.PutString("prevVersion", build.Version)
 	}
@@ -357,6 +374,10 @@ func (a *App) startup() error {
 func (a *App) run() {
 	<-a.stop
 
+	if shouldDebug() {
+		l.Debugln("Services before stop:")
+		printServiceTree(os.Stdout, a.mainService, 0)
+	}
 	a.mainService.Stop()
 
 	done := make(chan struct{})
@@ -460,4 +481,38 @@ func (e *controller) Shutdown() {
 
 func (e *controller) ExitUpgrading() {
 	e.Stop(ExitUpgrade)
+}
+
+type supervisor interface{ Services() []suture.Service }
+
+func printServiceTree(w io.Writer, sup supervisor, level int) {
+	printService(w, sup, level)
+
+	svcs := sup.Services()
+	sort.Slice(svcs, func(a, b int) bool {
+		return fmt.Sprint(svcs[a]) < fmt.Sprint(svcs[b])
+	})
+
+	for _, svc := range svcs {
+		if sub, ok := svc.(supervisor); ok {
+			printServiceTree(w, sub, level+1)
+		} else {
+			printService(w, svc, level+1)
+		}
+	}
+}
+
+func printService(w io.Writer, svc interface{}, level int) {
+	type errorer interface{ Error() error }
+
+	t := "-"
+	if _, ok := svc.(supervisor); ok {
+		t = "+"
+	}
+	fmt.Fprintln(w, strings.Repeat("  ", level), t, svc)
+	if es, ok := svc.(errorer); ok {
+		if err := es.Error(); err != nil {
+			fmt.Fprintln(w, strings.Repeat("  ", level), "  ->", err)
+		}
+	}
 }

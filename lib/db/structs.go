@@ -140,6 +140,14 @@ func (f FileInfoTruncated) ConvertToDeletedFileInfo(by protocol.ShortID) protoco
 	return file
 }
 
+// ConvertDeletedToFileInfo converts a deleted truncated file info to a regular file info
+func (f FileInfoTruncated) ConvertDeletedToFileInfo() protocol.FileInfo {
+	if !f.Deleted {
+		panic("ConvertDeletedToFileInfo must only be called on deleted items")
+	}
+	return f.copyToFileInfo()
+}
+
 // copyToFileInfo just copies all members of FileInfoTruncated to protocol.FileInfo
 func (f FileInfoTruncated) copyToFileInfo() protocol.FileInfo {
 	return protocol.FileInfo{
@@ -257,14 +265,13 @@ func (vl VersionList) insertAt(i int, v FileVersion) VersionList {
 // as the removed FileVersion and the position, where that FileVersion was.
 // If there is no FileVersion for the given device, the position is -1.
 func (vl VersionList) pop(device []byte) (VersionList, FileVersion, int) {
-	removedAt := -1
 	for i, v := range vl.Versions {
 		if bytes.Equal(v.Device, device) {
 			vl.Versions = append(vl.Versions[:i], vl.Versions[i+1:]...)
 			return vl, v, i
 		}
 	}
-	return vl, FileVersion{}, removedAt
+	return vl, FileVersion{}, -1
 }
 
 func (vl VersionList) Get(device []byte) (FileVersion, bool) {

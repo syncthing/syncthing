@@ -18,7 +18,6 @@ import (
 
 var (
 	// Injected by build script
-	Program = "syncthing"
 	Version = "unknown-dev"
 	Host    = "unknown"
 	User    = "unknown"
@@ -72,11 +71,16 @@ func setBuildData() {
 
 	stamp, _ := strconv.Atoi(Stamp)
 	Date = time.Unix(int64(stamp), 0)
+	LongVersion = LongVersionFor("syncthing")
+}
 
+// LongVersionFor returns the long version string for the given program name.
+func LongVersionFor(program string) string {
+	// This string and date format is essentially part of our external API. Never change it.
 	date := Date.UTC().Format("2006-01-02 15:04:05 MST")
-	LongVersion = fmt.Sprintf(`%s %s "%s" (%s %s-%s) %s@%s %s`, Program, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, User, Host, date)
-
+	v := fmt.Sprintf(`%s %s "%s" (%s %s-%s) %s@%s %s`, program, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, User, Host, date)
 	if len(Tags) > 0 {
-		LongVersion = fmt.Sprintf("%s [%s]", LongVersion, strings.Join(Tags, ", "))
+		v = fmt.Sprintf("%s [%s]", v, strings.Join(Tags, ", "))
 	}
+	return v
 }
