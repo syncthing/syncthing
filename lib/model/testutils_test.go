@@ -17,6 +17,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -216,4 +217,17 @@ func dbSnapshot(t *testing.T, m Model, folder string) *db.Snapshot {
 		t.Fatal(err)
 	}
 	return snap
+}
+
+// Reach in and update the ignore matcher to one that always does
+// reloads when asked to, instead of checking file mtimes. This is
+// because we will be changing the files on disk often enough that the
+// mtimes will be unreliable to determine change status.
+func folderIgnoresAlwaysReload(m *model, fcfg config.FolderConfiguration) {
+	m.removeFolder(fcfg)
+	fset := db.NewFileSet(fcfg.ID, fcfg.Filesystem(), m.db)
+	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
+	m.fmut.Lock()
+	m.addAndStartFolderLockedWithIgnores(fcfg, fset, ignores)
+	m.fmut.Unlock()
 }

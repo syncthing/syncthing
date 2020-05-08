@@ -1,4 +1,5 @@
-FROM golang:1.13
+ARG GOVERSION=latest
+FROM golang:$GOVERSION
 
 # FPM to build Debian packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
