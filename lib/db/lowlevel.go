@@ -410,7 +410,7 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 		if err := t.deleteKeyPrefix(key.WithoutHashAndName()); err != nil {
 			return err
 		}
-		key2, err := db.keyer.GenerateBlockListMapKey(nil, folder, nil, nil)
+		key2, err := db.keyer.GenerateBlockListMapKey(key, folder, nil, nil)
 		if err != nil {
 			return err
 		}
