@@ -183,7 +183,9 @@ func TestUpdate0to3(t *testing.T) {
 		t.Error("File prefixed by '/' was not removed during transition to schema 1")
 	}
 
-	key, err := db.keyer.GenerateGlobalVersionKey(nil, folder, []byte(invalid))
+	var key []byte
+
+	key, err = db.keyer.GenerateGlobalVersionKey(nil, folder, []byte(invalid))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,12 +230,42 @@ func TestUpdate0to3(t *testing.T) {
 		haveUpdate0to3[remoteDevice1][0].Name: haveUpdate0to3[remoteDevice1][0],
 		haveUpdate0to3[remoteDevice0][2].Name: haveUpdate0to3[remoteDevice0][2],
 	}
+
 	trans, err = db.newReadOnlyTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer trans.Release()
-	_ = trans.withNeed(folder, protocol.LocalDeviceID[:], false, func(fi protocol.FileIntf) bool {
+
+	key, err = trans.keyer.GenerateNeedFileKey(nil, folder, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbi, err := trans.NewPrefixIterator(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dbi.Release()
+
+	for dbi.Next() {
+		name := trans.keyer.NameFromGlobalVersionKey(dbi.Key())
+		key, err = trans.keyer.GenerateGlobalVersionKey(key, folder, name)
+		bs, err := trans.Get(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var vl VersionList
+		if err := vl.Unmarshal(bs); err != nil {
+			t.Fatal(err)
+		}
+		key, err = trans.keyer.GenerateDeviceFileKey(key, folder, vl.Versions[0].Device, name)
+		fi, ok, err := trans.getFileTrunc(key, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			t.Fatal("surprise missing global file", string(name), protocol.DeviceIDFromBytes(vl.Versions[0].Device))
+		}
 		e, ok := need[fi.FileName()]
 		if !ok {
 			t.Error("Got unexpected needed file:", fi.FileName())
@@ -243,8 +275,11 @@ func TestUpdate0to3(t *testing.T) {
 		if !f.IsEquivalentOptional(e, 0, true, true, 0) {
 			t.Errorf("Wrong needed file, got %v, expected %v", f, e)
 		}
-		return true
-	})
+	}
+	if dbi.Error() != nil {
+		t.Fatal(err)
+	}
+
 	for n := range need {
 		t.Errorf(`Missing needed file "%v"`, n)
 	}
