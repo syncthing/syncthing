@@ -6,41 +6,41 @@
 
 package config
 
-type PullSchedule int
+type BlockPullOrder int
 
 const (
-	PullScheduleStandard PullSchedule = iota // default is standard
-	PullScheduleRandom
-	PullScheduleInOrder
+	BlockPullOrderStandard BlockPullOrder = iota // default is standard
+	BlockPullOrderRandom
+	BlockPullOrderInOrder
 )
 
-func (o PullSchedule) String() string {
+func (o BlockPullOrder) String() string {
 	switch o {
-	case PullScheduleStandard:
+	case BlockPullOrderStandard:
 		return "standard"
-	case PullScheduleRandom:
+	case BlockPullOrderRandom:
 		return "random"
-	case PullScheduleInOrder:
+	case BlockPullOrderInOrder:
 		return "inOrder"
 	default:
 		return "unknown"
 	}
 }
 
-func (o PullSchedule) MarshalText() ([]byte, error) {
+func (o BlockPullOrder) MarshalText() ([]byte, error) {
 	return []byte(o.String()), nil
 }
 
-func (o *PullSchedule) UnmarshalText(bs []byte) error {
+func (o *BlockPullOrder) UnmarshalText(bs []byte) error {
 	switch string(bs) {
 	case "standard":
-		*o = PullScheduleStandard
+		*o = BlockPullOrderStandard
 	case "random":
-		*o = PullScheduleRandom
+		*o = BlockPullOrderRandom
 	case "inOrder":
-		*o = PullScheduleInOrder
+		*o = BlockPullOrderInOrder
 	default:
-		*o = PullScheduleStandard
+		*o = BlockPullOrderStandard
 	}
 	return nil
 }

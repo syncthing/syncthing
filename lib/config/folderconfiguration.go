@@ -58,7 +58,7 @@ type FolderConfiguration struct {
 	CopyOwnershipFromParent bool                        `xml:"copyOwnershipFromParent" json:"copyOwnershipFromParent"`
 	RawModTimeWindowS       int                         `xml:"modTimeWindowS" json:"modTimeWindowS"`
 	MaxConcurrentWrites     int                         `xml:"maxConcurrentWrites" json:"maxConcurrentWrites" default:"2"`
-	PullSchedule            PullSchedule                `xml:"pullSchedule" json:"pullSchedule"`
+	BlockPullOrder          BlockPullOrder              `xml:"blockPullOrder" json:"blockPullOrder"`
 
 	cachedFilesystem    fs.Filesystem
 	cachedModTimeWindow time.Duration

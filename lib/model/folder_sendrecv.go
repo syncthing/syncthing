@@ -102,8 +102,9 @@ type sendReceiveFolder struct {
 	fs        fs.Filesystem
 	versioner versioner.Versioner
 
-	queue        *jobQueue
-	writeLimiter *byteSemaphore
+	queue              *jobQueue
+	blockPullReorderer blockPullReorderer
+	writeLimiter       *byteSemaphore
 
 	pullErrors    map[string]string // errors for most recent/current iteration
 	oldPullErrors map[string]string // errors from previous iterations for log filtering only
@@ -112,12 +113,13 @@ type sendReceiveFolder struct {
 
 func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger, ioLimiter *byteSemaphore) service {
 	f := &sendReceiveFolder{
-		folder:        newFolder(model, fset, ignores, cfg, evLogger, ioLimiter),
-		fs:            fs,
-		versioner:     ver,
-		queue:         newJobQueue(),
-		writeLimiter:  newByteSemaphore(cfg.MaxConcurrentWrites),
-		pullErrorsMut: sync.NewMutex(),
+		folder:             newFolder(model, fset, ignores, cfg, evLogger, ioLimiter),
+		fs:                 fs,
+		versioner:          ver,
+		queue:              newJobQueue(),
+		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
+		writeLimiter:       newByteSemaphore(cfg.MaxConcurrentWrites),
+		pullErrorsMut:      sync.NewMutex(),
 	}
 	f.folder.puller = f
 	f.folder.Service = util.AsService(f.serve, f.String())
@@ -420,10 +422,6 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 		f.queue.SortNewestFirst()
 	}
 
-	// Create the pull schedule
-	commonDevices := f.model.getCommonDevicesSharingTheFolder(f.folderID)
-	pullSchedule := newPullSchedule(f.FolderConfiguration.PullSchedule, f.model.id, commonDevices)
-
 	// Process the file queue.
 
 nextFile:
@@ -486,27 +484,16 @@ nextFile:
 			}
 		}
 
-		var connectedSharingFolder []protocol.DeviceID
-		for dev := range commonDevices {
+		devices := snap.Availability(fileName)
+		for _, dev := range devices {
 			if _, ok := f.model.Connection(dev); ok {
-				connectedSharingFolder = append(connectedSharingFolder, dev)
+				// Handle the file normally, by coping and pulling, etc.
+				f.handleFile(fi, snap, copyChan)
+				continue nextFile
 			}
 		}
-
-		var connectedWithFile []protocol.DeviceID
-		for _, dev := range snap.Availability(fileName) {
-			if _, ok := f.model.Connection(dev); ok {
-				connectedWithFile = append(connectedWithFile, dev)
-			}
-		}
-
-		if len(connectedWithFile) == 0 {
-			f.newPullError(fileName, errNotAvailable)
-			f.queue.Done(fileName)
-		} else {
-			// Handle the file normally, by coping and pulling, etc.
-			f.handleFile(fi, snap, copyChan, pullSchedule, connectedWithFile, connectedSharingFolder)
-		}
+		f.newPullError(fileName, errNotAvailable)
+		f.queue.Done(fileName)
 	}
 
 	return changed, fileDeletions, dirDeletions, nil
@@ -1038,7 +1025,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState, pullSchedule pullSchedule, connectedWithFile, connectedSharingFolder []protocol.DeviceID) {
+func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState) {
 	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
 
 	have, _ := blockDiff(curFile.Blocks, file.Blocks)
@@ -1086,8 +1073,8 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 		blocks = append(blocks, file.Blocks...)
 	}
 
-	// Reorder blocks according to the pull schedule.
-	blocks = pullSchedule.Reorder(connectedWithFile, connectedSharingFolder, blocks)
+	// Reorder blocks
+	blocks = f.blockPullReorderer.Reorder(blocks)
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,

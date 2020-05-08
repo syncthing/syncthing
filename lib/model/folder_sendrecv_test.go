@@ -106,10 +106,11 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 			FolderConfiguration: fcfg,
 		},
 
-		queue:         newJobQueue(),
-		writeLimiter:  newByteSemaphore(2),
-		pullErrors:    make(map[string]string),
-		pullErrorsMut: sync.NewMutex(),
+		queue:              newJobQueue(),
+		blockPullReorderer: inOrderBlockPullReorderer{},
+		writeLimiter:       newByteSemaphore(2),
+		pullErrors:         make(map[string]string),
+		pullErrorsMut:      sync.NewMutex(),
 	}
 	f.fs = fs.NewMtimeFS(f.Filesystem(), db.NewNamespacedKV(model.db, "mtime"))
 
@@ -150,7 +151,7 @@ func TestHandleFile(t *testing.T) {
 
 	copyChan := make(chan copyBlocksState, 1)
 
-	f.handleFile(requiredFile, f.fset.Snapshot(), copyChan, inOrderPullSchedule{}, nil, nil)
+	f.handleFile(requiredFile, f.fset.Snapshot(), copyChan)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -196,7 +197,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 
 	copyChan := make(chan copyBlocksState, 1)
 
-	f.handleFile(requiredFile, f.fset.Snapshot(), copyChan, inOrderPullSchedule{}, nil, nil)
+	f.handleFile(requiredFile, f.fset.Snapshot(), copyChan)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -251,7 +252,7 @@ func TestCopierFinder(t *testing.T) {
 	go f.copierRoutine(copyChan, pullChan, finisherChan)
 	defer close(copyChan)
 
-	f.handleFile(requiredFile, f.fset.Snapshot(), copyChan, inOrderPullSchedule{}, nil, nil)
+	f.handleFile(requiredFile, f.fset.Snapshot(), copyChan)
 
 	timeout := time.After(10 * time.Second)
 	pulls := make([]pullBlockState, 4)
@@ -383,7 +384,7 @@ func TestWeakHash(t *testing.T) {
 
 	// Test 1 - no weak hashing, file gets fully repulled (`expectBlocks` pulls).
 	fo.WeakHashThresholdPct = 101
-	fo.handleFile(desiredFile, fo.fset.Snapshot(), copyChan, inOrderPullSchedule{}, nil, nil)
+	fo.handleFile(desiredFile, fo.fset.Snapshot(), copyChan)
 
 	var pulls []pullBlockState
 	timeout := time.After(10 * time.Second)
@@ -412,7 +413,7 @@ func TestWeakHash(t *testing.T) {
 
 	// Test 2 - using weak hash, expectPulls blocks pulled.
 	fo.WeakHashThresholdPct = -1
-	fo.handleFile(desiredFile, fo.fset.Snapshot(), copyChan, inOrderPullSchedule{}, nil, nil)
+	fo.handleFile(desiredFile, fo.fset.Snapshot(), copyChan)
 
 	pulls = pulls[:0]
 	for len(pulls) < expectPulls {
@@ -505,7 +506,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		close(finisherChan)
 	}()
 
-	f.handleFile(file, snap, copyChan, inOrderPullSchedule{}, nil, nil)
+	f.handleFile(file, snap, copyChan)
 
 	// Receive a block at puller, to indicate that at least a single copier
 	// loop has been performed.
@@ -611,7 +612,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		close(finisherChan)
 	}()
 
-	f.handleFile(file, snap, copyChan, inOrderPullSchedule{}, nil, nil)
+	f.handleFile(file, snap, copyChan)
 
 	// Receive at finisher, we should error out as puller has nowhere to pull
 	// from.
@@ -867,7 +868,7 @@ func TestCopyOwner(t *testing.T) {
 		close(finisherChan)
 	}()
 
-	f.handleFile(file, snap, copierChan, inOrderPullSchedule{}, nil, nil)
+	f.handleFile(file, snap, copierChan)
 	<-dbUpdateChan
 
 	info, err = f.fs.Lstat("foo/bar/baz")
