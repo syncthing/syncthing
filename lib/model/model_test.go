@@ -3571,14 +3571,8 @@ func TestRenameSequenceOrder(t *testing.T) {
 
 	m.ScanFolders()
 
-	// Reach info the model, grab the fileset.
-
-	m.fmut.RLock()
-	fset := m.folderFiles["default"]
-	m.fmut.RUnlock()
-
 	count := 0
-	snap := fset.Snapshot()
+	snap := dbSnapshot(t, m, "default")
 	snap.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
 		count++
 		return true
@@ -3605,7 +3599,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 	m.ScanFolders()
 
 	// Verify sequence of a appearing is followed by c disappearing.
-	snap = fset.Snapshot()
+	snap = dbSnapshot(t, m, "default")
 	defer snap.Release()
 
 	var firstExpectedSequence int64
@@ -3646,13 +3640,7 @@ func TestBlockListMap(t *testing.T) {
 
 	m.ScanFolders()
 
-	// Reach info the model, grab the fileset.
-
-	m.fmut.RLock()
-	fset := m.folderFiles["default"]
-	m.fmut.RUnlock()
-
-	snap := fset.Snapshot()
+	snap := dbSnapshot(t, m, "default")
 	defer snap.Release()
 	fi, ok := snap.Get(protocol.LocalDeviceID, "one")
 	if !ok {
@@ -3660,10 +3648,10 @@ func TestBlockListMap(t *testing.T) {
 	}
 	var paths []string
 
-	must(t, snap.WithBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
+	snap.WithBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
 		paths = append(paths, fi.FileName())
 		return true
-	}))
+	})
 	snap.Release()
 
 	expected := []string{"one", "two", "three", "four", "five"}
@@ -3689,14 +3677,14 @@ func TestBlockListMap(t *testing.T) {
 	m.ScanFolders()
 
 	// Check we're left with 2 of the 5
-	snap = fset.Snapshot()
+	snap = dbSnapshot(t, m, "default")
 	defer snap.Release()
 
 	paths = paths[:0]
-	must(t, snap.WithBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
+	snap.WithBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
 		paths = append(paths, fi.FileName())
 		return true
-	}))
+	})
 	snap.Release()
 
 	expected = []string{"new-three", "five"}

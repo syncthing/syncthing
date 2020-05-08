@@ -451,7 +451,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		batch.append(res.File)
 		changes++
 
-		err := snap.WithBlocksHash(res.File.BlocksHash, func(ifi db.FileIntf) bool {
+		snap.WithBlocksHash(res.File.BlocksHash, func(ifi db.FileIntf) bool {
 			fi := ifi.(protocol.FileInfo)
 
 			select {
@@ -485,9 +485,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			changes++
 			return false
 		})
-		if err != nil {
-			return err
-		}
 	}
 
 	if err := batch.flush(); err != nil {

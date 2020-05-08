@@ -315,7 +315,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove all sequences related to the folder
-	k1, err := db.keyer.GenerateSequenceKey(nil, folder, 0)
+	k1, err := db.keyer.GenerateSequenceKey(k0, folder, 0)
 	if err != nil {
 		return err
 	}
@@ -324,7 +324,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove all items related to the given folder from the global bucket
-	k2, err := db.keyer.GenerateGlobalVersionKey(nil, folder, nil)
+	k2, err := db.keyer.GenerateGlobalVersionKey(k1, folder, nil)
 	if err != nil {
 		return err
 	}
@@ -333,7 +333,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove all needs related to the folder
-	k3, err := db.keyer.GenerateNeedFileKey(nil, folder, nil)
+	k3, err := db.keyer.GenerateNeedFileKey(k2, folder, nil)
 	if err != nil {
 		return err
 	}
@@ -342,7 +342,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove the blockmap of the folder
-	k4, err := db.keyer.GenerateBlockMapKey(nil, folder, nil, nil)
+	k4, err := db.keyer.GenerateBlockMapKey(k3, folder, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -350,7 +350,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 		return err
 	}
 
-	k5, err := db.keyer.GenerateBlockListMapKey(nil, folder, nil, nil)
+	k5, err := db.keyer.GenerateBlockListMapKey(k4, folder, nil, nil)
 	if err != nil {
 		return err
 	}
