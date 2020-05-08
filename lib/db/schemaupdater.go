@@ -22,8 +22,9 @@ import (
 //   6: v0.14.50
 //   7: v0.14.53
 //   8-9: v1.4.0
+//   10: v1.6.0
 const (
-	dbVersion             = 9
+	dbVersion             = 10
 	dbMinSyncthingVersion = "v1.4.0"
 )
 
@@ -84,7 +85,8 @@ func (db *schemaUpdater) updateSchema() error {
 		{5, db.updateSchemaTo5},
 		{6, db.updateSchema5to6},
 		{7, db.updateSchema6to7},
-		{9, db.updateSchemato9},
+		{9, db.updateSchemaTo9},
+		{10, db.updateSchemaTo10},
 	}
 
 	for _, m := range migrations {
@@ -436,7 +438,7 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) updateSchemato9(prev int) error {
+func (db *schemaUpdater) updateSchemaTo9(prev int) error {
 	// Loads and rewrites all files with blocks, to deduplicate block lists.
 	// Checks for missing or incorrect sequence entries and rewrites those.
 
@@ -482,5 +484,43 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 
 	db.recordTime(indirectGCTimeKey)
 
+	return t.Commit()
+}
+
+func (db *schemaUpdater) updateSchemaTo10(prev int) error {
+	// Populates block list map for every folder.
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	var dk []byte
+	for _, folderStr := range db.ListFolders() {
+		folder := []byte(folderStr)
+		var putErr error
+		err := t.withHave(folder, protocol.LocalDeviceID[:], nil, true, func(fi FileIntf) bool {
+			f := fi.(FileInfoTruncated)
+			if f.IsDirectory() || f.IsDeleted() || f.IsInvalid() || f.BlocksHash == nil {
+				return true
+			}
+
+			name := []byte(f.FileName())
+			dk, putErr = db.keyer.GenerateBlockListMapKey(dk, folder, f.BlocksHash, name)
+			if putErr != nil {
+				return false
+			}
+
+			putErr = t.Put(dk, nil)
+			return putErr == nil
+		})
+		if putErr != nil {
+			return putErr
+		}
+		if err != nil {
+			return err
+		}
+	}
 	return t.Commit()
 }
