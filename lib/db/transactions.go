@@ -306,10 +306,8 @@ func (t *readOnlyTransaction) withBlocksHash(folder, hash []byte, iterator Itera
 	for iter.Next() {
 		file := string(t.keyer.NameFromBlockListMapKey(iter.Key()))
 		f, ok, err := t.getFile(folder, protocol.LocalDeviceID[:], []byte(osutil.NormalizedFilename(file)))
-		if backend.IsClosed(err) {
+		if err != nil {
 			return err
-		} else if err != nil {
-			panic(err)
 		}
 		if !ok {
 			continue
@@ -322,7 +320,7 @@ func (t *readOnlyTransaction) withBlocksHash(folder, hash []byte, iterator Itera
 		}
 
 		if f.IsDeleted() || f.IsInvalid() || f.IsDirectory() || f.IsSymlink() {
-			l.Debugf("Found something of unexpected type in block map list: %s", f)
+			l.Warnf("Found something of unexpected type in block list map: %s", f)
 			continue
 		}
 
