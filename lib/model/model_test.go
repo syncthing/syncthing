@@ -138,7 +138,7 @@ func TestRequest(t *testing.T) {
 	// Existing, shared file
 	res, err := m.Request(device1, "default", "foo", 6, 0, nil, 0, false)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	bs := res.Data()
 	if !bytes.Equal(bs, []byte("foobar")) {
