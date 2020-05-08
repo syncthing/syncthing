@@ -9,6 +9,7 @@ package model
 import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -66,6 +67,13 @@ func Test_inOrderBlockPullReorderer_Reorder(t *testing.T) {
 }
 
 func Test_standardBlockPullReorderer_Reorder(t *testing.T) {
+	// Order the devices, so we know their ordering ahead of time.
+	devices := []protocol.DeviceID{myID, device1, device2}
+	sort.Slice(devices, func(i, j int) bool {
+		return devices[i].Compare(devices[j]) == -1
+	})
+
+
 	blocks := func(i ...int) []protocol.BlockInfo {
 		b := make([]protocol.BlockInfo, 0, len(i))
 		for _, v := range i {
@@ -80,11 +88,11 @@ func Test_standardBlockPullReorderer_Reorder(t *testing.T) {
 		blocks  []protocol.BlockInfo
 		want []protocol.BlockInfo
 	}{
-		{"front", device3, []protocol.DeviceID{device4, device5}, blocks(1, 2, 3), blocks(1, 2, 3)},
-		{"back", device5, []protocol.DeviceID{device3, device4}, blocks(1, 2, 3), blocks(3, 1, 2)},
-		{"few-blocks", device5, []protocol.DeviceID{device3, device4}, blocks(1), blocks(1)},
-		{"more-than-one-block", device4, []protocol.DeviceID{device3}, blocks(1, 2, 3, 4), blocks(3, 4, 1, 2)},
-		{"empty-blocks", device3, []protocol.DeviceID{device4}, blocks(), blocks()},
+		{"front", devices[0], []protocol.DeviceID{devices[1], devices[2]}, blocks(1, 2, 3), blocks(1, 2, 3)},
+		{"back", devices[2], []protocol.DeviceID{devices[0], devices[1]}, blocks(1, 2, 3), blocks(3, 1, 2)},
+		{"few-blocks", devices[2], []protocol.DeviceID{devices[0], devices[1]}, blocks(1), blocks(1)},
+		{"more-than-one-block", devices[1], []protocol.DeviceID{devices[0]}, blocks(1, 2, 3, 4), blocks(3, 4, 1, 2)},
+		{"empty-blocks", devices[0], []protocol.DeviceID{devices[1]}, blocks(), blocks()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
