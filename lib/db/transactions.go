@@ -320,6 +320,7 @@ func (t *readOnlyTransaction) withGlobal(folder, prefix []byte, truncate bool, f
 		if err := vl.Unmarshal(dbi.Value()); err != nil {
 			return err
 		}
+		l.Infoln("withGlobal", string(name))
 
 		dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, name)
 		if err != nil {
@@ -800,8 +801,8 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 
 	oldGlobalFV := fl.Versions[0]
 
-	fl, removedFV, removedAt := fl.pop(device)
-	if removedAt == -1 {
+	fl, removedFV, haveRemoved, globalChanged := fl.pop(device)
+	if !haveRemoved {
 		// There is no version for the given device
 		return keyBuf, nil
 	}
@@ -810,7 +811,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 	var gotGlobal, ok bool
 
 	// Add potential needs of the removed device
-	if len(fl.Versions) != 0 && !fl.Versions[0].Invalid && need(fl.Versions[0], false, protocol.Vector{}) && !need(oldGlobalFV, removedAt != -1, removedFV.Version) {
+	if len(fl.Versions) != 0 && !fl.Versions[0].Invalid && need(fl.Versions[0], false, protocol.Vector{}) && !need(oldGlobalFV, haveRemoved, removedFV.Version) {
 		keyBuf, err = t.keyer.GenerateDeviceFileKey(keyBuf, folder, fl.Versions[0].Device, file)
 		if err != nil {
 			return nil, err
@@ -831,7 +832,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 	}
 
 	// Global hasn't changed, abort early
-	if removedAt != 0 {
+	if !globalChanged {
 		l.Debugf("new global after remove: %v", fl)
 		if err := t.Put(gk, mustMarshal(&fl)); err != nil {
 			return nil, err

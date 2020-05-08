@@ -224,7 +224,8 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t re
 		return vl, nv, FileVersion{}, FileVersion{}, false, false, true, nil
 	}
 
-	vl, removedFV, removedAt := vl.pop(device)
+	oldFV := vl.Versions[0]
+	vl, removedFV, haveRemoved, globalChanged := vl.pop(device)
 
 	// Find position and insert the file in
 	i := 0
@@ -269,28 +270,18 @@ outer:
 	}
 
 	// Nothing has changed regarding the global (first) version
-	if i != 0 && removedAt != 0 {
-		return vl, vl.Versions[0], vl.Versions[0], removedFV, true, removedAt != -1, false, nil
+	if i != 0 && !globalChanged {
+		return vl, vl.Versions[0], vl.Versions[0], removedFV, true, haveRemoved, false, nil
 	}
 
-	var newFV, oldFV FileVersion
-	if i == 0 && removedAt == 0 {
-		newFV = nv
-		oldFV = removedFV
-	} else if i == 0 {
-		newFV = nv
-		oldFV = vl.Versions[1]
-	} else { // removedAt == 0
-		oldFV = removedFV
-		newFV = vl.Versions[0]
-	}
+	newFV := vl.Versions[0]
 
-	globalChanged := true
+	globalChanged = true
 	if oldFV.Invalid == newFV.Invalid && oldFV.Version.Equal(newFV.Version) {
 		globalChanged = false
 	}
 
-	return vl, newFV, oldFV, removedFV, true, removedAt != -1, globalChanged, nil
+	return vl, newFV, oldFV, removedFV, true, haveRemoved, globalChanged, nil
 }
 
 func (vl VersionList) insertAt(i int, v FileVersion) VersionList {
@@ -301,16 +292,30 @@ func (vl VersionList) insertAt(i int, v FileVersion) VersionList {
 }
 
 // pop returns the VersionList without the entry for the given device, as well
-// as the removed FileVersion and the position, where that FileVersion was.
-// If there is no FileVersion for the given device, the position is -1.
-func (vl VersionList) pop(device []byte) (VersionList, FileVersion, int) {
-	for i, v := range vl.Versions {
-		if bytes.Equal(v.Device, device) {
-			vl.Versions = append(vl.Versions[:i], vl.Versions[i+1:]...)
-			return vl, v, i
+// as the removed FileVersion, whether it was found/removed at all and whether
+// the global changed in the process.
+func (vl VersionList) pop(device []byte) (VersionList, FileVersion, bool, bool) {
+	i := 0
+	for ; i < len(vl.Versions); i++ {
+		if bytes.Equal(vl.Versions[i].Device, device) {
+			break
 		}
 	}
-	return vl, FileVersion{}, -1
+	if i == len(vl.Versions) {
+		return vl, FileVersion{}, false, false
+	}
+	if i != 0 {
+		removedFV := vl.Versions[i]
+		vl.Versions = append(vl.Versions[:i], vl.Versions[i+1:]...)
+		return vl, removedFV, true, false
+	}
+	if len(vl.Versions) == 1 {
+		return VersionList{}, vl.Versions[0], true, true
+	}
+	removedFV := vl.Versions[0]
+	unchanged := vl.Versions[0].Invalid == vl.Versions[1].Invalid && vl.Versions[0].Version.Equal(vl.Versions[1].Version)
+	vl.Versions = vl.Versions[1:]
+	return vl, removedFV, true, !unchanged
 }
 
 func (vl VersionList) Get(device []byte) (FileVersion, bool) {
