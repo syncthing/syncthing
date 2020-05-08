@@ -54,7 +54,7 @@ func (t readOnlyTransaction) getFileByKey(key []byte) (protocol.FileInfo, bool, 
 	return f.(protocol.FileInfo), true, nil
 }
 
-func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, bool, error) {
+func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (protocol.FileIntf, bool, error) {
 	bs, err := t.Get(key)
 	if backend.IsNotFound(err) {
 		return nil, false, nil
@@ -72,7 +72,7 @@ func (t readOnlyTransaction) getFileTrunc(key []byte, trunc bool) (FileIntf, boo
 	return f, true, nil
 }
 
-func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (FileIntf, error) {
+func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (protocol.FileIntf, error) {
 	if trunc {
 		var tf FileInfoTruncated
 		err := tf.Unmarshal(bs)
@@ -175,7 +175,7 @@ func (t readOnlyTransaction) getGlobalVersionsByKey(key []byte) (VersionList, er
 	return vl, nil
 }
 
-func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate bool) ([]byte, FileIntf, bool, error) {
+func (t readOnlyTransaction) getGlobal(keyBuf, folder, file []byte, truncate bool) ([]byte, protocol.FileIntf, bool, error) {
 	vl, err := t.getGlobalVersions(keyBuf, folder, file)
 	if backend.IsNotFound(err) {
 		return keyBuf, nil, false, nil
@@ -470,7 +470,7 @@ func (t *readOnlyTransaction) withNeedLocal(folder []byte, truncate bool, fn Ite
 	defer dbi.Release()
 
 	var keyBuf []byte
-	var f FileIntf
+	var f protocol.FileIntf
 	var ok bool
 	for dbi.Next() {
 		keyBuf, f, ok, err = t.getGlobal(keyBuf, folder, t.keyer.NameFromGlobalVersionKey(dbi.Key()), truncate)
@@ -600,7 +600,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	// Only load those from db if actually needed
 
 	var gotGlobal, gotOldGlobal bool
-	var global, oldGlobal FileIntf
+	var global, oldGlobal protocol.FileIntf
 
 	globalFV := fl.Versions[0]
 	var oldGlobalFV FileVersion
@@ -735,7 +735,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	return keyBuf, true, nil
 }
 
-func (t readWriteTransaction) updateGlobalGetGlobal(keyBuf, folder, name []byte, file protocol.FileInfo, insertedAt int, fl VersionList) (FileIntf, error) {
+func (t readWriteTransaction) updateGlobalGetGlobal(keyBuf, folder, name []byte, file protocol.FileInfo, insertedAt int, fl VersionList) (protocol.FileIntf, error) {
 	if insertedAt == 0 {
 		// Inserted a new newest version
 		return file, nil
@@ -755,7 +755,7 @@ func (t readWriteTransaction) updateGlobalGetGlobal(keyBuf, folder, name []byte,
 	return global, nil
 }
 
-func (t readWriteTransaction) updateGlobalGetOldGlobal(keyBuf, folder, name []byte, oldGlobalFV FileVersion) (FileIntf, error) {
+func (t readWriteTransaction) updateGlobalGetOldGlobal(keyBuf, folder, name []byte, oldGlobalFV FileVersion) (protocol.FileIntf, error) {
 	var err error
 	keyBuf, err = t.keyer.GenerateDeviceFileKey(keyBuf, folder, oldGlobalFV.Device, name)
 	if err != nil {

@@ -13,8 +13,6 @@
 package db
 
 import (
-	"time"
-
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -31,35 +29,10 @@ type FileSet struct {
 	updateMutex sync.Mutex // protects database updates and the corresponding metadata changes
 }
 
-// FileIntf is the set of methods implemented by both protocol.FileInfo and
-// FileInfoTruncated.
-type FileIntf interface {
-	FileSize() int64
-	FileName() string
-	FileLocalFlags() uint32
-	IsDeleted() bool
-	IsInvalid() bool
-	IsIgnored() bool
-	IsUnsupported() bool
-	MustRescan() bool
-	IsReceiveOnlyChanged() bool
-	IsDirectory() bool
-	IsSymlink() bool
-	ShouldConflict() bool
-	HasPermissionBits() bool
-	SequenceNo() int64
-	BlockSize() int
-	FileVersion() protocol.Vector
-	FileType() protocol.FileInfoType
-	FilePermissions() uint32
-	FileModifiedBy() protocol.ShortID
-	ModTime() time.Time
-}
-
 // The Iterator is called with either a protocol.FileInfo or a
 // FileInfoTruncated (depending on the method) and returns true to
 // continue iteration, false to stop.
-type Iterator func(f FileIntf) bool
+type Iterator func(f protocol.FileIntf) bool
 
 func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 	return &FileSet{
@@ -329,7 +302,7 @@ func (s *Snapshot) LocalChangedFiles(page, perpage int) []FileInfoTruncated {
 	skip := (page - 1) * perpage
 	get := perpage
 
-	s.WithHaveTruncated(protocol.LocalDeviceID, func(f FileIntf) bool {
+	s.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
 		if !f.IsReceiveOnlyChanged() {
 			return true
 		}
@@ -353,7 +326,7 @@ func (s *Snapshot) RemoteNeedFolderFiles(device protocol.DeviceID, page, perpage
 	files := make([]FileInfoTruncated, 0, perpage)
 	skip := (page - 1) * perpage
 	get := perpage
-	s.WithNeedTruncated(device, func(f FileIntf) bool {
+	s.WithNeedTruncated(device, func(f protocol.FileIntf) bool {
 		if skip > 0 {
 			skip--
 			return true
@@ -477,7 +450,7 @@ func normalizeFilenames(fs []protocol.FileInfo) {
 }
 
 func nativeFileIterator(fn Iterator) Iterator {
-	return func(fi FileIntf) bool {
+	return func(fi protocol.FileIntf) bool {
 		switch f := fi.(type) {
 		case protocol.FileInfo:
 			f.Name = osutil.NativeFilename(f.Name)

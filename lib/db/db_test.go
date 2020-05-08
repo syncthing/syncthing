@@ -201,7 +201,7 @@ func TestUpdate0to3(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer trans.Release()
-	_ = trans.withHaveSequence(folder, 0, func(fi FileIntf) bool {
+	_ = trans.withHaveSequence(folder, 0, func(fi protocol.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		l.Infoln(f)
 		if found {
@@ -233,7 +233,7 @@ func TestUpdate0to3(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer trans.Release()
-	_ = trans.withNeed(folder, protocol.LocalDeviceID[:], false, func(fi FileIntf) bool {
+	_ = trans.withNeed(folder, protocol.LocalDeviceID[:], false, func(fi protocol.FileIntf) bool {
 		e, ok := need[fi.FileName()]
 		if !ok {
 			t.Error("Got unexpected needed file:", fi.FileName())

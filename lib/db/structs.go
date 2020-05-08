@@ -247,7 +247,7 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t re
 			// A surprise missing file entry here is counted as a win for us.
 			if of, ok, err := t.getFile(folder, vl.Versions[i].Device, []byte(file.Name)); err != nil {
 				return vl, removedFV, removedAt, i, err
-			} else if !ok || file.WinsConflict(of) {
+			} else if !ok || protocol.WinsConflict(file, of) {
 				vl = vl.insertAt(i, nv)
 				return vl, removedFV, removedAt, i, nil
 			}

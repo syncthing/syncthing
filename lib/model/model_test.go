@@ -2426,7 +2426,7 @@ func TestIssue3496(t *testing.T) {
 	m.fmut.RUnlock()
 	var localFiles []protocol.FileInfo
 	snap := fs.Snapshot()
-	snap.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
 		localFiles = append(localFiles, i.(protocol.FileInfo))
 		return true
 	})
@@ -3556,7 +3556,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 
 	count := 0
 	snap := dbSnapshot(t, m, "default")
-	snap.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
 		count++
 		return true
 	})
@@ -3588,7 +3588,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 	var firstExpectedSequence int64
 	var secondExpectedSequence int64
 	failed := false
-	snap.WithHaveSequence(0, func(i db.FileIntf) bool {
+	snap.WithHaveSequence(0, func(i protocol.FileIntf) bool {
 		t.Log(i)
 		if i.FileName() == "17" {
 			firstExpectedSequence = i.SequenceNo() + 1
@@ -3631,7 +3631,7 @@ func TestBlockListMap(t *testing.T) {
 	}
 	var paths []string
 
-	snap.WithBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
+	snap.WithBlocksHash(fi.BlocksHash, func(fi protocol.FileIntf) bool {
 		paths = append(paths, fi.FileName())
 		return true
 	})
@@ -3664,7 +3664,7 @@ func TestBlockListMap(t *testing.T) {
 	defer snap.Release()
 
 	paths = paths[:0]
-	snap.WithBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
+	snap.WithBlocksHash(fi.BlocksHash, func(fi protocol.FileIntf) bool {
 		paths = append(paths, fi.FileName())
 		return true
 	})

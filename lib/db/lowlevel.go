@@ -829,7 +829,7 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 	}
 
 	meta.emptyNeeded(protocol.LocalDeviceID)
-	err = t.withNeed([]byte(folder), protocol.LocalDeviceID[:], true, func(f FileIntf) bool {
+	err = t.withNeed([]byte(folder), protocol.LocalDeviceID[:], true, func(f protocol.FileIntf) bool {
 		meta.addNeeded(protocol.LocalDeviceID, f)
 		return true
 	})
@@ -838,7 +838,7 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 	}
 	for _, device := range meta.devices() {
 		meta.emptyNeeded(device)
-		err = t.withNeed([]byte(folder), device[:], true, func(f FileIntf) bool {
+		err = t.withNeed([]byte(folder), device[:], true, func(f protocol.FileIntf) bool {
 			meta.addNeeded(device, f)
 			return true
 		})
@@ -875,7 +875,7 @@ func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) bool {
 		panic(err)
 	}
 	ok := true
-	if err := t.withHaveSequence([]byte(folder), curSeq+1, func(fi FileIntf) bool {
+	if err := t.withHaveSequence([]byte(folder), curSeq+1, func(fi protocol.FileIntf) bool {
 		ok = false // we got something, which we should not have
 		return false
 	}); err != nil && !backend.IsClosed(err) {
@@ -1001,6 +1001,6 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 // unchanged checks if two files are the same and thus don't need to be updated.
 // Local flags or the invalid bit might change without the version
 // being bumped.
-func unchanged(nf, ef FileIntf) bool {
+func unchanged(nf, ef protocol.FileIntf) bool {
 	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid() && ef.FileLocalFlags() == nf.FileLocalFlags()
 }
