@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"sync/atomic"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -27,6 +28,7 @@ type limiter struct {
 	limitsLAN           atomicBool
 	deviceReadLimiters  map[protocol.DeviceID]*rate.Limiter
 	deviceWriteLimiters map[protocol.DeviceID]*rate.Limiter
+	timer               *time.Timer
 }
 
 type waiter interface {
@@ -47,6 +49,7 @@ func newLimiter(cfg config.Wrapper) *limiter {
 		mu:                  sync.NewMutex(),
 		deviceReadLimiters:  make(map[protocol.DeviceID]*rate.Limiter),
 		deviceWriteLimiters: make(map[protocol.DeviceID]*rate.Limiter),
+		timer:               nil,
 	}
 
 	cfg.Subscribe(l)
@@ -124,6 +127,82 @@ func (lim *limiter) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
 
+func timeDiff(now time.Time, day, hour, minute int) time.Duration {
+	then := time.Date(now.Year(), now.Month(), day, hour, minute, 0, 0, now.Location())
+	return then.Sub(now)
+}
+
+func correspondingEndDay(beginDay, beginHour, beginMinute, hour, minute int) int {
+	if hour < beginHour || (hour == beginHour && minute < beginMinute) {
+		return beginDay + 1
+	}
+
+	return beginDay
+}
+
+func nextChange(beginHour, beginMinute, endHour, endMinute int) (bool, time.Duration) {
+	beginDay := time.Now().Day()
+	tillBegin := timeDiff(time.Now(), beginDay, beginHour, beginMinute)
+
+	if tillBegin >= 0 {
+		return true, tillBegin
+	}
+
+	endDay := correspondingEndDay(beginDay, beginHour, beginMinute, endHour, endMinute)
+
+	tillEnd := timeDiff(time.Now(), endDay, endHour, endMinute)
+	if tillEnd >= 0 {
+		return false, tillEnd
+	}
+
+	beginDay += 1
+
+	return true, timeDiff(time.Now(), beginDay, beginHour, beginMinute)
+
+}
+
+func (lim *limiter) changeLimits(sendLimitValue, recvLimitValue int) {
+	sendLimitStr := "is unlimited"
+	recvLimitStr := "is unlimited"
+
+	// The rate variables are in KiB/s in the config (despite the camel casing
+	// of the name). We multiply by 1024 to get bytes/s.
+	if recvLimitValue <= 0 {
+		lim.read.SetLimit(rate.Inf)
+	} else {
+		lim.read.SetLimit(1024 * rate.Limit(recvLimitValue))
+		recvLimitStr = fmt.Sprintf("limit is %d KiB/s", recvLimitValue)
+	}
+
+	if sendLimitValue <= 0 {
+		lim.write.SetLimit(rate.Inf)
+	} else {
+		lim.write.SetLimit(1024 * rate.Limit(sendLimitValue))
+		sendLimitStr = fmt.Sprintf("limit is %d KiB/s", sendLimitValue)
+	}
+
+	l.Infof("Overall send rate %s, receive rate %s", sendLimitStr, recvLimitStr)
+}
+
+func (lim *limiter) timerLoop(timer *time.Timer, opt config.OptionsConfiguration, status bool) {
+	nextStatus := status
+	var waitTime time.Duration
+
+	for range timer.C {
+		lim.mu.Lock()
+		defer lim.mu.Unlock()
+
+		if nextStatus {
+			lim.changeLimits(opt.MaxScheduledSendKbps, opt.MaxScheduledRecvKbps)
+		} else {
+			lim.changeLimits(opt.MaxSendKbps, opt.MaxRecvKbps)
+		}
+
+		nextStatus, waitTime = nextChange(opt.ScheduledRatesFromHour, opt.ScheduledRatesFromMinute, opt.ScheduledRatesToHour, opt.ScheduledRatesToMinute)
+		timer.Reset(waitTime)
+	}
+}
+
 func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	// to ensure atomic update of configuration
 	lim.mu.Lock()
@@ -134,37 +213,30 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 
 	if from.Options.MaxRecvKbps == to.Options.MaxRecvKbps &&
 		from.Options.MaxSendKbps == to.Options.MaxSendKbps &&
-		from.Options.LimitBandwidthInLan == to.Options.LimitBandwidthInLan {
+		from.Options.LimitBandwidthInLan == to.Options.LimitBandwidthInLan &&
+		lim.timer == nil && !to.Options.ScheduledRatesEnabled {
 		return true
 	}
 
-	limited := false
-	sendLimitStr := "is unlimited"
-	recvLimitStr := "is unlimited"
-
-	// The rate variables are in KiB/s in the config (despite the camel casing
-	// of the name). We multiply by 1024 to get bytes/s.
-	if to.Options.MaxRecvKbps <= 0 {
-		lim.read.SetLimit(rate.Inf)
-	} else {
-		lim.read.SetLimit(1024 * rate.Limit(to.Options.MaxRecvKbps))
-		recvLimitStr = fmt.Sprintf("limit is %d KiB/s", to.Options.MaxRecvKbps)
-		limited = true
+	if lim.timer != nil {
+		if !lim.timer.Stop() {
+			<-lim.timer.C
+		}
+		lim.timer = nil
 	}
 
-	if to.Options.MaxSendKbps <= 0 {
-		lim.write.SetLimit(rate.Inf)
+	if to.Options.ScheduledRatesEnabled {
+		opt := to.Options
+		status, waitTime := nextChange(opt.ScheduledRatesFromHour, opt.ScheduledRatesFromMinute, opt.ScheduledRatesToHour, opt.ScheduledRatesToMinute)
+		lim.timer = time.NewTimer(waitTime)
+		go lim.timerLoop(lim.timer, opt, status)
 	} else {
-		lim.write.SetLimit(1024 * rate.Limit(to.Options.MaxSendKbps))
-		sendLimitStr = fmt.Sprintf("limit is %d KiB/s", to.Options.MaxSendKbps)
-		limited = true
+		lim.changeLimits(to.Options.MaxSendKbps, to.Options.MaxRecvKbps)
 	}
 
 	lim.limitsLAN.set(to.Options.LimitBandwidthInLan)
 
-	l.Infof("Overall send rate %s, receive rate %s", sendLimitStr, recvLimitStr)
-
-	if limited {
+	if to.Options.MaxRecvKbps > 0 || to.Options.MaxSendKbps > 0 || to.Options.ScheduledRatesEnabled {
 		if to.Options.LimitBandwidthInLan {
 			l.Infoln("Rate limits apply to LAN connections")
 		} else {
