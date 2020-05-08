@@ -203,14 +203,27 @@ func (c *globalClient) serve(ctx context.Context) {
 	eventSub := c.evLogger.Subscribe(events.ListenAddressesChanged)
 	defer eventSub.Unsubscribe()
 
+	timerResetCount := 0
+
 	for {
 		select {
 		case <-eventSub.C():
-			// Defer announcement by 2 seconds, essentially debouncing
-			// if we have a stream of events incoming in quick succession.
-			timer.Reset(2 * time.Second)
-
+			if timerResetCount < 10 {
+				// Defer announcement by 2 seconds, essentially debouncing
+				// if we have a stream of events incoming in quick succession.
+				timer.Reset(2 * time.Second)
+			} else if timerResetCount == 10 {
+				// Yet only do it if we haven't had to reset 10 times in a row, so if
+				// something is flip-flopping within 2 seconds, we don't end up in a permanent reset loop.
+				l.Warnf("Detected a flip-flopping listener")
+				c.setError(errors.New("flip flopping listener"))
+				// Incrementing the count above 10 will prevent us from warning or setting the error again
+				// It will also suppress event based resets until we've had a proper round after announceErrorRetryInterval
+				timer.Reset(announceErrorRetryInterval)
+			}
+			timerResetCount++
 		case <-timer.C:
+			timerResetCount = 0
 			c.sendAnnouncement(ctx, timer)
 
 		case <-ctx.Done():
