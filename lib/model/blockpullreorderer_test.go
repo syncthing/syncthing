@@ -50,9 +50,9 @@ func Test_inOrderBlockPullReorderer_Reorder(t *testing.T) {
 		blocks []protocol.BlockInfo
 	}
 	tests := []struct {
-		name string
+		name   string
 		blocks []protocol.BlockInfo
-		want []protocol.BlockInfo
+		want   []protocol.BlockInfo
 	}{
 		{"basic", someBlocks, someBlocks},
 	}
@@ -73,7 +73,6 @@ func Test_standardBlockPullReorderer_Reorder(t *testing.T) {
 		return devices[i].Compare(devices[j]) == -1
 	})
 
-
 	blocks := func(i ...int) []protocol.BlockInfo {
 		b := make([]protocol.BlockInfo, 0, len(i))
 		for _, v := range i {
@@ -82,11 +81,11 @@ func Test_standardBlockPullReorderer_Reorder(t *testing.T) {
 		return b
 	}
 	tests := []struct {
-		name string
-		myId protocol.DeviceID
+		name    string
+		myId    protocol.DeviceID
 		devices []protocol.DeviceID
 		blocks  []protocol.BlockInfo
-		want []protocol.BlockInfo
+		want    []protocol.BlockInfo
 	}{
 		{"front", devices[0], []protocol.DeviceID{devices[1], devices[2]}, blocks(1, 2, 3), blocks(1, 2, 3)},
 		{"back", devices[2], []protocol.DeviceID{devices[0], devices[1]}, blocks(1, 2, 3), blocks(3, 1, 2)},

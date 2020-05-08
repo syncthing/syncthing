@@ -61,15 +61,15 @@ func newStandardBlockPullReorderer(id protocol.DeviceID, otherDevices []protocol
 	}
 	return &standardBlockPullReorderer{
 		myIndex: myIndex,
-		count: len(allDevices),
+		count:   len(allDevices),
 		shuffle: rand.Shuffle,
 	}
 }
 
 type standardBlockPullReorderer struct {
 	myIndex int
-	count int
-	shuffle    func(interface{}) // Used for test
+	count   int
+	shuffle func(interface{}) // Used for test
 }
 
 func (p *standardBlockPullReorderer) Reorder(blocks []protocol.BlockInfo) []protocol.BlockInfo {
