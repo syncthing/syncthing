@@ -60,6 +60,13 @@ func (i *smallIndex) load() {
 	}
 }
 
+func (i *smallIndex) HasID(val []byte) bool {
+	i.mut.Lock()
+	_, ok := i.val2id[string(val)]
+	i.mut.Unlock()
+	return ok
+}
+
 // ID returns the index number for the given byte slice, allocating a new one
 // and persisting this to the database if necessary.
 func (i *smallIndex) ID(val []byte) (uint32, error) {

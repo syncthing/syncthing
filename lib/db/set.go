@@ -23,10 +23,11 @@ import (
 )
 
 type FileSet struct {
-	folder string
-	fs     fs.Filesystem
-	db     *Lowlevel
-	meta   *metadataTracker
+	folder      string
+	folderIsNew bool
+	fs          fs.Filesystem
+	db          *Lowlevel
+	meta        *metadataTracker
 
 	updateMutex sync.Mutex // protects database updates and the corresponding metadata changes
 }
@@ -64,11 +65,16 @@ type Iterator func(f FileIntf) bool
 func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 	return &FileSet{
 		folder:      folder,
+		folderIsNew: !db.folderIdx.HasID([]byte(folder)),
 		fs:          fs,
 		db:          db,
 		meta:        db.loadMetadataTracker(folder),
 		updateMutex: sync.NewMutex(),
 	}
+}
+
+func (s *FileSet) FolderIsNew() bool {
+	return s.folderIsNew
 }
 
 func (s *FileSet) Drop(device protocol.DeviceID) {

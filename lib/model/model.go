@@ -314,10 +314,9 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		}
 	}
 
-	v, ok := fset.Sequence(protocol.LocalDeviceID), true
-	indexHasFiles := ok && v > 0
-	if !indexHasFiles {
-		// It's a blank folder, so this may the first time we're looking at
+	if fset.FolderIsNew() {
+		// There has been no account of this folder in the db before
+		// now, so this is likely the first time we're looking at
 		// it. Attempt to create and tag with our marker as appropriate. We
 		// don't really do anything with errors at this point except warn -
 		// if these things don't work, we still want to start the folder and

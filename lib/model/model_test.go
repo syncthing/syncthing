@@ -1386,6 +1386,8 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 }
 
 func changeIgnores(t *testing.T, m *model, expected []string) {
+	t.Helper()
+
 	arrEqual := func(a, b []string) bool {
 		if len(a) != len(b) {
 			return false
@@ -1401,7 +1403,7 @@ func changeIgnores(t *testing.T, m *model, expected []string) {
 
 	ignores, _, err := m.GetIgnores("default")
 	if err != nil {
-		t.Error(err)
+		t.Error("Failed getting ignores before changing:", err)
 	}
 
 	if !arrEqual(ignores, expected) {
@@ -1412,16 +1414,16 @@ func changeIgnores(t *testing.T, m *model, expected []string) {
 
 	err = m.SetIgnores("default", ignores)
 	if err != nil {
-		t.Error(err)
+		t.Error("Failed setting ignores on first change:", err)
 	}
 
 	ignores2, _, err := m.GetIgnores("default")
 	if err != nil {
-		t.Error(err)
+		t.Error("Failed getting ignores after first change:", err)
 	}
 
 	if !arrEqual(ignores, ignores2) {
-		t.Errorf("Incorrect ignores: %v != %v", ignores2, ignores)
+		t.Errorf("Incorrect ignores after first change: %v != %v", ignores2, ignores)
 	}
 
 	if runtime.GOOS == "darwin" {
@@ -1432,16 +1434,16 @@ func changeIgnores(t *testing.T, m *model, expected []string) {
 	}
 	err = m.SetIgnores("default", expected)
 	if err != nil {
-		t.Error(err)
+		t.Error("Failed setting ignores on second change:", err)
 	}
 
 	ignores, _, err = m.GetIgnores("default")
 	if err != nil {
-		t.Error(err)
+		t.Error("Failed getting ignores after second change:", err)
 	}
 
 	if !arrEqual(ignores, expected) {
-		t.Errorf("Incorrect ignores: %v != %v", ignores, expected)
+		t.Errorf("Incorrect ignores after second change: %v != %v", ignores, expected)
 	}
 }
 

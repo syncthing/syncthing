@@ -56,7 +56,11 @@ func TestRequestSimple(t *testing.T) {
 	contents := []byte("test file contents\n")
 	fc.addFile("testfile", 0644, protocol.FileInfoTypeFile, contents)
 	fc.sendIndexUpdate()
-	<-done
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out")
+	}
 
 	// Verify the contents
 	if err := equalContents(filepath.Join(tfs.URI(), "testfile"), contents); err != nil {
@@ -98,7 +102,11 @@ func TestSymlinkTraversalRead(t *testing.T) {
 	contents := []byte("..")
 	fc.addFile("symlink", 0644, protocol.FileInfoTypeSymlink, contents)
 	fc.sendIndexUpdate()
-	<-done
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out")
+	}
 
 	// Request a file by traversing the symlink
 	res, err := m.Request(device1, "default", "symlink/requests_test.go", 10, 0, nil, 0, false)
@@ -148,7 +156,11 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 	contents := []byte("..")
 	fc.addFile("symlink", 0644, protocol.FileInfoTypeSymlink, contents)
 	fc.sendIndexUpdate()
-	<-done
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out")
+	}
 
 	// Send an update for things behind the symlink, wait for requests for
 	// blocks for any of them to come back, or index entries. Hopefully none
