@@ -106,6 +106,8 @@ func New(myID protocol.DeviceID) Configuration {
 	util.SetDefaults(&cfg)
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
+	util.SetDefaults(&cfg.Defaults.Device)
+	util.SetDefaults(&cfg.Defaults.Folder)
 
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
@@ -147,6 +149,8 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	util.SetDefaults(&cfg)
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
+	util.SetDefaults(&cfg.Defaults.Device)
+	util.SetDefaults(&cfg.Defaults.Folder)
 
 	if err := xml.NewDecoder(r).Decode(&cfg); err != nil {
 		return Configuration{}, err
@@ -165,6 +169,8 @@ func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	util.SetDefaults(&cfg)
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
+	util.SetDefaults(&cfg.Defaults.Device)
+	util.SetDefaults(&cfg.Defaults.Folder)
 
 	bs, err := ioutil.ReadAll(r)
 	if err != nil {

@@ -85,6 +85,8 @@ type Wrapper interface {
 	IgnoredDevice(id protocol.DeviceID) bool
 	IgnoredFolder(device protocol.DeviceID, folder string) bool
 
+	Defaults() DefaultConfiguration
+
 	Subscribe(c Committer)
 	Unsubscribe(c Committer)
 }
@@ -407,6 +409,10 @@ func (w *wrapper) Folder(id string) (FolderConfiguration, bool) {
 		}
 	}
 	return FolderConfiguration{}, false
+}
+
+func (w *wrapper) Defaults() DefaultConfiguration {
+	return w.cfg.Defaults
 }
 
 // Save writes the configuration to disk, and generates a ConfigSaved event.

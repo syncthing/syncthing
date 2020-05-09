@@ -73,7 +73,7 @@ type FolderDeviceConfiguration struct {
 	IntroducedBy protocol.DeviceID `xml:"introducedBy,attr" json:"introducedBy"`
 }
 
-func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
+func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string, defCfg DefaultConfiguration) FolderConfiguration {
 	f := FolderConfiguration{
 		ID:             id,
 		Label:          label,
@@ -83,6 +83,7 @@ func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.
 	}
 
 	util.SetDefaults(&f)
+	defCfg.SetDefaultFolderConf(f)
 
 	f.prepare()
 	return f
