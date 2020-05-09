@@ -7,17 +7,14 @@
 package api
 
 import (
-	"compress/gzip"
 	"fmt"
-	"io"
-	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/api/assets"
 	"github.com/syncthing/syncthing/lib/auto"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -111,7 +108,7 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	if s.assetDir != "" {
 		p := filepath.Join(s.assetDir, theme, filepath.FromSlash(file))
 		if _, err := os.Stat(p); err == nil {
-			mtype := s.mimeTypeForFile(file)
+			mtype := assets.MimeTypeForFile(file)
 			if len(mtype) != 0 {
 				w.Header().Set("Content-Type", mtype)
 			}
@@ -127,7 +124,7 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		if s.assetDir != "" {
 			p := filepath.Join(s.assetDir, config.DefaultTheme, filepath.FromSlash(file))
 			if _, err := os.Stat(p); err == nil {
-				mtype := s.mimeTypeForFile(file)
+				mtype := assets.MimeTypeForFile(file)
 				if len(mtype) != 0 {
 					w.Header().Set("Content-Type", mtype)
 				}
@@ -144,72 +141,17 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	etag := fmt.Sprintf("%d", modificationTime.Unix())
-	w.Header().Set("Last-Modified", modificationTime.Format(http.TimeFormat))
-	w.Header().Set("Etag", etag)
-
-	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil {
-		if modificationTime.Equal(t) || modificationTime.Before(t) {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-	}
-
-	if match := r.Header.Get("If-None-Match"); match != "" {
-		if strings.Contains(match, etag) {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-	}
-
-	mtype := s.mimeTypeForFile(file)
-	if len(mtype) != 0 {
-		w.Header().Set("Content-Type", mtype)
-	}
-	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-		w.Header().Set("Content-Encoding", "gzip")
-		w.Header().Set("Content-Length", strconv.Itoa(len(bs)))
-		io.WriteString(w, bs)
-	} else {
-		// ungzip if browser not send gzip accepted header
-		var gr *gzip.Reader
-		gr, _ = gzip.NewReader(strings.NewReader(bs))
-		io.Copy(w, gr)
-		gr.Close()
-	}
+	assets.Serve(w, r, assets.Asset{
+		ContentGz: bs,
+		Filename:  file,
+		Modified:  modificationTime,
+	})
 }
 
 func (s *staticsServer) serveThemes(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, map[string][]string{
 		"themes": s.availableThemes,
 	})
-}
-
-func (s *staticsServer) mimeTypeForFile(file string) string {
-	// We use a built in table of the common types since the system
-	// TypeByExtension might be unreliable. But if we don't know, we delegate
-	// to the system. All our files are UTF-8.
-	ext := filepath.Ext(file)
-	switch ext {
-	case ".htm", ".html":
-		return "text/html; charset=utf-8"
-	case ".css":
-		return "text/css; charset=utf-8"
-	case ".js":
-		return "application/javascript; charset=utf-8"
-	case ".json":
-		return "application/json; charset=utf-8"
-	case ".png":
-		return "image/png"
-	case ".ttf":
-		return "application/x-font-ttf"
-	case ".woff":
-		return "application/x-font-woff"
-	case ".svg":
-		return "image/svg+xml; charset=utf-8"
-	default:
-		return mime.TypeByExtension(ext)
-	}
 }
 
 func (s *staticsServer) setTheme(theme string) {
