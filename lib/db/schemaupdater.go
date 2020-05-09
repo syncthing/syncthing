@@ -487,7 +487,7 @@ func (db *schemaUpdater) updateSchemaTo9(prev int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) updateSchemaTo10(prev int) error {
+func (db *schemaUpdater) updateSchemaTo10(_ int) error {
 	// Populates block list map for every folder.
 
 	t, err := db.newReadWriteTransaction()
@@ -512,7 +512,10 @@ func (db *schemaUpdater) updateSchemaTo10(prev int) error {
 				return false
 			}
 
-			putErr = t.Put(dk, nil)
+			if putErr = t.Put(dk, nil); putErr != nil {
+				return false
+			}
+			putErr = t.Checkpoint()
 			return putErr == nil
 		})
 		if putErr != nil {
