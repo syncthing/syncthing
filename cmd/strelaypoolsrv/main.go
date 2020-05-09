@@ -26,7 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto"
-	"github.com/syncthing/syncthing/lib/api/assets"
+	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/sync"

@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/api/assets"
-	"github.com/syncthing/syncthing/lib/auto"
+	"github.com/syncthing/syncthing/lib/api/auto"
+	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/sync"
 )
