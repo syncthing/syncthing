@@ -36,3 +36,11 @@ func (defCfg DefaultConfiguration) SetDefaultFolderConf(conf FolderConfiguration
 	conf.Order = defCfg.Folder.Order
 	conf.MinDiskFree = defCfg.Folder.MinDiskFree
 }
+
+func (defCfg DefaultConfiguration) SetDefaultDeviceConf(cfg DeviceConfiguration) {
+	cfg.Compression = defCfg.Device.Compression
+	cfg.Introducer = defCfg.Device.Introducer
+	cfg.AutoAcceptFolders = defCfg.Device.AutoAcceptFolders
+	cfg.MaxSendKbps = defCfg.Device.MaxSendKbps
+	cfg.MaxRecvKbps = defCfg.Device.MaxRecvKbps
+}

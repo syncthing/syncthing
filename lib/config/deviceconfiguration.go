@@ -32,13 +32,14 @@ type DeviceConfiguration struct {
 	MaxRequestKiB            int                  `xml:"maxRequestKiB" json:"maxRequestKiB"`
 }
 
-func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfiguration {
+func NewDeviceConfiguration(id protocol.DeviceID, name string, defCfg DefaultConfiguration) DeviceConfiguration {
 	d := DeviceConfiguration{
 		DeviceID: id,
 		Name:     name,
 	}
 
 	util.SetDefaults(&d)
+	defCfg.SetDefaultDeviceConf(d)
 
 	d.prepare(nil)
 	return d

@@ -1452,8 +1452,7 @@ angular.module('syncthing.core')
                         introducer: false,
                         selectedFolders: {},
                         pendingFolders: [],
-                        ignoredFolders: [],
-                        autoAcceptFolders: $scope.config.options.autoAcceptFoldersDefaultValue
+                        ignoredFolders: []
                     };
                     $scope.editingExisting = false;
                     $scope.deviceEditor.$setPristine();
