@@ -9,6 +9,7 @@ package fs
 import (
 	"fmt"
 	osexec "os/exec"
+	"path/filepath"
 	"runtime"
 	"testing"
 )
@@ -57,13 +58,13 @@ func testWalkTraverseDirJunct(t *testing.T, fsType FilesystemType, uri string) {
 
 	fs := NewFilesystem(fsType, uri)
 
-	if err := fs.MkdirAll("target\\foo", 0); err != nil {
+	if err := fs.MkdirAll("target/foo", 0); err != nil {
 		t.Fatal(err)
 	}
 	if err := fs.Mkdir("towalk", 0); err != nil {
 		t.Fatal(err)
 	}
-	if err := createDirJunct(uri+"\\target", uri+"\\towalk\\dirjunct"); err != nil {
+	if err := createDirJunct(filepath.Join(uri, "target"), filepath.Join(uri, "towalk/dirjunct")); err != nil {
 		t.Fatal(err)
 	}
 	traversed := false
@@ -90,16 +91,16 @@ func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) 
 
 	fs := NewFilesystem(fsType, uri)
 
-	if err := fs.MkdirAll("target\\foo", 0); err != nil {
+	if err := fs.MkdirAll("target/foo", 0); err != nil {
 		t.Fatal(err)
 	}
 	if err := fs.Mkdir("towalk", 0); err != nil {
 		t.Fatal(err)
 	}
-	if err := createDirJunct(uri+"\\target", uri+"\\towalk\\dirjunct"); err != nil {
+	if err := createDirJunct(filepath.Join(uri, "target"), filepath.Join(uri, "towalk/dirjunct")); err != nil {
 		t.Fatal(err)
 	}
-	if err := createDirJunct(uri+"\\towalk", uri+"\\target\\foo\\recurse"); err != nil {
+	if err := createDirJunct(filepath.Join(uri, "towalk"), filepath.Join(uri, "target/foo/recurse")); err != nil {
 		t.Fatal(err)
 	}
 	dirjunctCnt := 0
