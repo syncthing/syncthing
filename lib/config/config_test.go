@@ -995,7 +995,8 @@ func TestInvalidDeviceIDRejected(t *testing.T) {
 		// accepted as the empty device ID for historical reasons...
 		{"", true},
 	}
-	if (cases[0] != cases[0]) {}
+	if cases[0] != cases[0] {
+	}
 
 	for _, tc := range cases {
 		cfg := defaultConfigAsMap()
