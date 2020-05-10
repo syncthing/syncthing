@@ -62,6 +62,10 @@ func (c *mockedConfig) SetDevices([]config.DeviceConfiguration) (config.Waiter, 
 	return noopWaiter{}, nil
 }
 
+func (c* mockedConfig) Defaults() config.DefaultConfiguration {
+	return c.Defaults()
+}
+
 func (c *mockedConfig) Save() error {
 	return nil
 }

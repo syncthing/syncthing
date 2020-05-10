@@ -796,7 +796,7 @@ func TestCopyOwner(t *testing.T) {
 
 	m, f := setupSendReceiveFolder()
 	defer cleanupSRFolder(f, m)
-	f.folder.FolderConfiguration = config.NewFolderConfiguration(m.id, f.ID, f.Label, fs.FilesystemTypeFake, "/TestCopyOwner")
+	f.folder.FolderConfiguration = config.NewFolderConfiguration(m.id, f.ID, f.Label, fs.FilesystemTypeFake, "/TestCopyOwner", defaultCfg.Defaults)
 	f.folder.FolderConfiguration.CopyOwnershipFromParent = true
 
 	f.fs = f.Filesystem()

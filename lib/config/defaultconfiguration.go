@@ -6,7 +6,10 @@
 
 package config
 
-import "github.com/syncthing/syncthing/lib/protocol"
+import (
+	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/util"
+)
 
 type DefaultConfiguration struct {
 	Folder FolderDefaultConfig `xml:"folder" json:"folder"`
@@ -27,6 +30,13 @@ type DeviceDefaultConfig struct {
 	AutoAcceptFolders bool                 `xml:"autoAcceptFolders" json:"autoAcceptFolders"`
 	MaxSendKbps       int                  `xml:"maxSendKbps" json:"maxSendKbps"`
 	MaxRecvKbps       int                  `xml:"maxRecvKbps" json:"maxRecvKbps"`
+}
+
+func NewDefaultConfiguration() DefaultConfiguration {
+	defCfg := DefaultConfiguration{}
+	util.SetDefaults(&defCfg.Device)
+	util.SetDefaults(&defCfg.Folder)
+	return defCfg
 }
 
 func (defCfg DefaultConfiguration) SetDefaultFolderConf(conf FolderConfiguration) {

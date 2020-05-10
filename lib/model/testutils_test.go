@@ -41,7 +41,7 @@ func init() {
 	defaultFolderConfig = testFolderConfig("testdata")
 
 	defaultCfgWrapper = createTmpWrapper(config.New(myID))
-	_, _ = defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
+	_, _ = defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1", config.NewDefaultConfiguration()))
 	_, _ = defaultCfgWrapper.SetFolder(defaultFolderConfig)
 	opts := defaultCfgWrapper.Options()
 	opts.KeepTemporariesH = 1
@@ -82,14 +82,14 @@ func testFolderConfigTmp() config.FolderConfiguration {
 }
 
 func testFolderConfig(path string) config.FolderConfiguration {
-	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, path)
+	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, path, defaultCfg.Defaults)
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg
 }
 
 func testFolderConfigFake() config.FolderConfiguration {
-	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true")
+	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true", defaultCfg.Defaults)
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg

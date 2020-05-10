@@ -131,4 +131,16 @@
         <maxConcurrentScans>0</maxConcurrentScans>
         <minHomeDiskFreePct>0</minHomeDiskFreePct>
     </options>
+    <defaults>
+        <folder rescanIntervalS="3600" type="sendreceive">
+            <versioning></versioning>
+            <order>random</order>
+            <minDiskFree unit="%">1</minDiskFree>
+        </folder>
+        <device compression="metadata" introducer="false">
+            <autoAcceptFolders>false</autoAcceptFolders>
+            <maxSendKbps>0</maxSendKbps>
+            <maxRecvKbps>0</maxRecvKbps>
+        </device>
+    </defaults>
 </configuration>

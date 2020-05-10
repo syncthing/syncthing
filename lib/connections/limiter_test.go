@@ -31,10 +31,10 @@ func init() {
 
 func initConfig() config.Wrapper {
 	cfg := config.Wrap("/dev/null", config.New(device1), events.NoopLogger)
-	dev1Conf = config.NewDeviceConfiguration(device1, "device1")
-	dev2Conf = config.NewDeviceConfiguration(device2, "device2")
-	dev3Conf = config.NewDeviceConfiguration(device3, "device3")
-	dev4Conf = config.NewDeviceConfiguration(device4, "device4")
+	dev1Conf = config.NewDeviceConfiguration(device1, "device1", cfg.Defaults())
+	dev2Conf = config.NewDeviceConfiguration(device2, "device2", cfg.Defaults())
+	dev3Conf = config.NewDeviceConfiguration(device3, "device3", cfg.Defaults())
+	dev4Conf = config.NewDeviceConfiguration(device4, "device4", cfg.Defaults())
 
 	dev2Conf.MaxRecvKbps = rand.Int() % 100000
 	dev2Conf.MaxSendKbps = rand.Int() % 100000
@@ -132,7 +132,7 @@ func TestAddDevice(t *testing.T) {
 	lim := newLimiter(cfg)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
-	addDevConf := config.NewDeviceConfiguration(addedDevice, "addedDevice")
+	addDevConf := config.NewDeviceConfiguration(addedDevice, "addedDevice", cfg.Defaults())
 	addDevConf.MaxRecvKbps = 120
 	addDevConf.MaxSendKbps = 240
 
@@ -163,7 +163,7 @@ func TestAddAndRemove(t *testing.T) {
 	lim := newLimiter(cfg)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
-	addDevConf := config.NewDeviceConfiguration(addedDevice, "addedDevice")
+	addDevConf := config.NewDeviceConfiguration(addedDevice, "addedDevice", cfg.Defaults())
 	addDevConf.MaxRecvKbps = 120
 	addDevConf.MaxSendKbps = 240
 
