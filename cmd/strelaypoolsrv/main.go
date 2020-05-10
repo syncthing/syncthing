@@ -12,7 +12,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"mime"
 	"net"
 	"net/http"
 	"net/url"
@@ -27,6 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto"
+	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -263,78 +263,22 @@ func handleMetrics(w http.ResponseWriter, r *http.Request) {
 func handleAssets(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
 
-	assets := auto.Assets()
 	path := r.URL.Path[1:]
 	if path == "" {
 		path = "index.html"
 	}
 
-	bs, ok := assets[path]
+	content, ok := auto.Assets()[path]
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	etag := fmt.Sprintf("%d", auto.Generated)
-	modified := time.Unix(auto.Generated, 0).UTC()
-
-	w.Header().Set("Last-Modified", modified.Format(http.TimeFormat))
-	w.Header().Set("Etag", etag)
-
-	mtype := mimeTypeForFile(path)
-	if len(mtype) != 0 {
-		w.Header().Set("Content-Type", mtype)
-	}
-
-	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil && modified.Add(time.Second).After(t) {
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
-
-	if match := r.Header.Get("If-None-Match"); match != "" {
-		if strings.Contains(match, etag) {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-	}
-	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-		w.Header().Set("Content-Encoding", "gzip")
-		w.Header().Set("Content-Length", strconv.Itoa(len(bs)))
-		io.WriteString(w, bs)
-	} else {
-		// ungzip if browser not send gzip accepted header
-		var gr *gzip.Reader
-		gr, _ = gzip.NewReader(strings.NewReader(bs))
-		io.Copy(w, gr)
-		gr.Close()
-	}
-}
-
-func mimeTypeForFile(file string) string {
-	// We use a built in table of the common types since the system
-	// TypeByExtension might be unreliable. But if we don't know, we delegate
-	// to the system.
-	ext := filepath.Ext(file)
-	switch ext {
-	case ".htm", ".html":
-		return "text/html"
-	case ".css":
-		return "text/css"
-	case ".js":
-		return "application/javascript"
-	case ".json":
-		return "application/json"
-	case ".png":
-		return "image/png"
-	case ".ttf":
-		return "application/x-font-ttf"
-	case ".woff":
-		return "application/x-font-woff"
-	case ".svg":
-		return "image/svg+xml"
-	default:
-		return mime.TypeByExtension(ext)
-	}
+	assets.Serve(w, r, assets.Asset{
+		ContentGz: content,
+		Filename:  path,
+		Modified:  time.Unix(auto.Generated, 0).UTC(),
+	})
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {
