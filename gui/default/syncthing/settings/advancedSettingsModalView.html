@@ -65,6 +65,44 @@
         </div>
       </div>
 
+      <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="defaultDeviceHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#defaultDeviceConfig" aria-expanded="false" aria-controls="defaultDeviceConfig" style="cursor: pointer;">
+          <h4 class="panel-title" tabindex="0" translate>Default values for new devices</h4>
+        </div>
+        <div id="defaultDeviceConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="optionsHeading">
+          <div class="panel-body">
+            <form class="form-horizontal" role="form">
+              <div ng-repeat="(key, value) in advancedConfig.defaults.device" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                <label for="optionsInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
+                <div class="col-sm-8">
+                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="advancedConfig.defaults.device[key]" ng-list />
+                  <input ng-if="inputTypeFor(key, value) != 'list'" id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.defaults.device[key]" />
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="defaultFolderHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#defaultFolderConfig" aria-expanded="false" aria-controls="defaultFolderConfig" style="cursor: pointer;">
+          <h4 class="panel-title" tabindex="0" translate>Default values for new folders</h4>
+        </div>
+        <div id="defaultFolderConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="optionsHeading">
+          <div class="panel-body">
+            <form class="form-horizontal" role="form">
+              <div ng-repeat="(key, value) in advancedConfig.defaults.folder" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                <label for="optionsInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
+                <div class="col-sm-8">
+                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="advancedConfig.defaults.folder[key]" ng-list />
+                  <input ng-if="inputTypeFor(key, value) != 'list'" id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.defaults.folder[key]" />
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
       <div class="panel panel-default" ng-repeat="folder in advancedConfig.folders">
         <div class="panel-heading" role="tab" id="folder{{$index}}Heading" data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{$index}}Config" aria-expanded="false" aria-controls="folder{{$index}}Config" style="cursor: pointer;">
           <h4 ng-if="folder.label.length == 0" class="panel-title" tabindex="0">
