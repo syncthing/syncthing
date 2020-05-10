@@ -63,9 +63,16 @@ type FileIntf interface {
 type Iterator func(f FileIntf) bool
 
 func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
+	// Before accessing the db in any way, check if the folder ID exists and
+	// then make sure it exists (.ID will create it if missing).
+	folderIsNew := !db.folderIdx.HasID([]byte(folder))
+	_, err := db.folderIdx.ID([]byte(folder))
+	if err != nil && !backend.IsClosed(err) {
+		panic(err)
+	}
 	return &FileSet{
 		folder:      folder,
-		folderIsNew: !db.folderIdx.HasID([]byte(folder)),
+		folderIsNew: folderIsNew,
 		fs:          fs,
 		db:          db,
 		meta:        db.loadMetadataTracker(folder),
