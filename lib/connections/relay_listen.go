@@ -62,7 +62,7 @@ func (t *relayListener) serve(ctx context.Context) error {
 
 	l.Infof("Relay listener (%v) starting", t)
 	defer l.Infof("Relay listener (%v) shutting down", t)
-	defer t.clearAddresses(t.uri)
+	defer t.clearAddresses(t)
 
 	for {
 		select {

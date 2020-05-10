@@ -46,9 +46,10 @@ type httpClient interface {
 }
 
 const (
-	defaultReannounceInterval  = 30 * time.Minute
-	announceErrorRetryInterval = 5 * time.Minute
-	requestTimeout             = 5 * time.Second
+	defaultReannounceInterval             = 30 * time.Minute
+	announceErrorRetryInterval            = 5 * time.Minute
+	requestTimeout                        = 5 * time.Second
+	maxAddressChangesBetweenAnnouncements = 10
 )
 
 type announcement struct {
@@ -208,7 +209,7 @@ func (c *globalClient) serve(ctx context.Context) {
 	for {
 		select {
 		case <-eventSub.C():
-			if timerResetCount < 10 {
+			if timerResetCount < maxAddressChangesBetweenAnnouncements {
 				// Defer announcement by 2 seconds, essentially debouncing
 				// if we have a stream of events incoming in quick succession.
 				timer.Reset(2 * time.Second)

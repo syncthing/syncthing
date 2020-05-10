@@ -224,9 +224,9 @@ func (o *onAddressesChangedNotifier) notifyAddressesChanged(l genericListener) {
 	})
 }
 
-func (o *onAddressesChangedNotifier) clearAddresses(uri *url.URL) {
+func (o *onAddressesChangedNotifier) clearAddresses(l genericListener) {
 	o.notifyAddresses(ListenerAddresses{
-		URI: uri,
+		URI: l.URI(),
 	})
 }
 

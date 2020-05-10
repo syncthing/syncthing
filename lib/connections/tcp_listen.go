@@ -57,7 +57,7 @@ func (t *tcpListener) serve(ctx context.Context) error {
 	}
 	t.notifyAddressesChanged(t)
 	defer listener.Close()
-	defer t.clearAddresses(t.uri)
+	defer t.clearAddresses(t)
 
 	l.Infof("TCP listener (%v) starting", listener.Addr())
 	defer l.Infof("TCP listener (%v) shutting down", listener.Addr())
