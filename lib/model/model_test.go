@@ -1049,7 +1049,7 @@ func TestAutoAcceptNewFolderPremutationsNoPanic(t *testing.T) {
 				for _, dev2folder := range premutations {
 					cfg := defaultAutoAcceptCfg.Copy()
 					if localFolder.Label != "" {
-						fcfg := config.NewFolderConfiguration(myID, localFolder.ID, localFolder.Label, fs.FilesystemTypeBasic, localFolder.ID, defaultCfg.Defaults)
+						fcfg := config.NewFolderConfiguration(myID, localFolder.ID, localFolder.Label, fs.FilesystemTypeBasic, localFolder.ID, config.NewDefaultConfiguration())
 						fcfg.Paused = localFolderPaused
 						cfg.Folders = append(cfg.Folders, fcfg)
 					}
@@ -1282,7 +1282,7 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 	defer os.RemoveAll(idOther)
 
 	tcfg := defaultAutoAcceptCfg.Copy()
-	fcfg := config.NewFolderConfiguration(myID, id, "", fs.FilesystemTypeBasic, idOther, defaultCfg.Defaults)
+	fcfg := config.NewFolderConfiguration(myID, id, "", fs.FilesystemTypeBasic, idOther, config.NewDefaultConfiguration())
 	fcfg.Paused = true
 	// The order of devices here is wrong (cfg.clean() sorts them), which will cause the folder to restart.
 	// Because of the restart, folder gets removed from m.deviceFolder, which means that generateClusterConfig will not panic.
@@ -2310,7 +2310,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 
 func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	wcfg := createTmpWrapper(defaultCfg)
-	wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2", wcfg.Defaults()))
+	wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2", config.NewDefaultConfiguration()))
 	fcfg := wcfg.FolderList()[0]
 	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 	wcfg.SetFolder(fcfg)
@@ -2506,7 +2506,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	t.Skip("broken, fails randomly, #3843")
 
 	wcfg := createTmpWrapper(defaultCfg)
-	wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2", wcfg.Defaults()))
+	wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2", config.NewDefaultConfiguration()))
 	fcfg := wcfg.FolderList()[0]
 	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 	wcfg.SetFolder(fcfg)
@@ -2875,7 +2875,7 @@ func TestVersionRestore(t *testing.T) {
 	must(t, err)
 	defer os.RemoveAll(dir)
 
-	fcfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, dir, defaultCfg.Defaults)
+	fcfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, dir, config.NewDefaultConfiguration())
 	fcfg.Versioning.Type = "simple"
 	fcfg.FSWatcherEnabled = false
 	filesystem := fcfg.Filesystem()
