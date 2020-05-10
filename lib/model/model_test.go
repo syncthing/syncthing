@@ -3539,3 +3539,48 @@ func TestFolderAPIErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestFolderMarkerCreation(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	fss := fcfg.Filesystem()
+	fcfg.Paused = true
+	wcfg.SetFolder(fcfg)
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	// No folder marker should be created when adding a paused folder.
+	if _, err := fss.Stat(".stfolder"); !fs.IsNotExist(err) {
+		t.Fatal("Expected missing folder marker, got", err)
+	}
+
+	fcfg.Paused = false
+	w, err := wcfg.SetFolder(fcfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.Wait()
+
+	if _, err := fss.Stat(".stfolder"); err != nil {
+		t.Fatal("Expected folder marker to be created, got", err)
+	}
+
+	fcfg.Paused = true
+	w, err = wcfg.SetFolder(fcfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.Wait()
+
+	must(t, fss.RemoveAll(".stfolder"))
+
+	fcfg.Paused = false
+	w, err = wcfg.SetFolder(fcfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.Wait()
+
+	if _, err := fss.Stat(".stfolder"); !fs.IsNotExist(err) {
+		t.Fatal("Expected missing folder marker after restart, got", err)
+	}
+}
