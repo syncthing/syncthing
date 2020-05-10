@@ -427,6 +427,10 @@ nextPendingDevice:
 		cfg.Options.UnackedNotificationIDs = []string{}
 	}
 
+	if cfg.Defaults.Folder.Versioning.Params == nil {
+		cfg.Defaults.Folder.Versioning.Params = map[string]string{}
+	}
+
 	return nil
 }
 
