@@ -11,7 +11,6 @@
 package fs
 
 import (
-	"fmt"
 	"path/filepath"
 )
 
@@ -20,15 +19,9 @@ type ancestorDirList struct {
 	fs   Filesystem
 }
 
-func (ancestors *ancestorDirList) PushUnlessPresent(info FileInfo) bool {
-	l.Debugf("ancestorDirList: PushUnlessPresent '%s'", info.Name())
-	for _, ancestor := range ancestors.list {
-		if ancestors.fs.SameFile(info, ancestor) {
-			return false
-		}
-	}
+func (ancestors *ancestorDirList) Push(info FileInfo) {
+	l.Debugf("ancestorDirList: Push '%s'", info.Name())
 	ancestors.list = append(ancestors.list, info)
-	return true
 }
 
 func (ancestors *ancestorDirList) Pop() FileInfo {
@@ -39,8 +32,14 @@ func (ancestors *ancestorDirList) Pop() FileInfo {
 	return info
 }
 
-func (ancestors *ancestorDirList) Count() int {
-	return len(ancestors.list)
+func (ancestors *ancestorDirList) Contains(info FileInfo) bool {
+	l.Debugf("ancestorDirList: Contains '%s'", info.Name())
+	for _, ancestor := range ancestors.list {
+		if ancestors.fs.SameFile(info, ancestor) {
+			return true
+		}
+	}
+	return false
 }
 
 // WalkFunc is the type of the function called for each file or directory
@@ -87,16 +86,9 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc, ances
 		return nil
 	}
 
-	if ancestors.PushUnlessPresent(info) {
-		defer func() {
-			if ancestors.Count() == 0 {
-				panic(fmt.Sprintf("ancestorDirList.Pop needed for item '%s', but ancestorDirList is empty", info.Name()))
-			}
-			popped := ancestors.Pop()
-			if popped.Name() != info.Name() { //!SameFile(popped, info) may fail
-				panic(fmt.Sprintf("ancestorDirList.Pop returned item '%s', but '%s' was expected", popped.Name(), info.Name()))
-			}
-		}()
+	if !ancestors.Contains(info) {
+		ancestors.Push(info)
+		defer ancestors.Pop()
 	} else {
 		l.Warnf("Infinite filesystem recursion detected on path '%s', not walking further down", path)
 		return nil
@@ -138,9 +130,5 @@ func (f *walkFilesystem) Walk(root string, walkFn WalkFunc) error {
 		return walkFn(root, nil, err)
 	}
 	ancestors := &ancestorDirList{fs: f.Filesystem}
-	err = f.walk(root, info, walkFn, ancestors)
-	if ancestors.Count() != 0 {
-		panic(fmt.Sprintf("fs.Walk finished with %d unremoved ancestors", ancestors.Count()))
-	}
-	return err
+	return f.walk(root, info, walkFn, ancestors)
 }

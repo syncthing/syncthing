@@ -33,6 +33,6 @@ func (e basicFileInfo) Group() int {
 
 // fileStat converts e to os.FileInfo that is suitable
 // to be passed to os.SameFile. Non-trivial on Windows.
-func (e *basicFileInfo) fileStat() os.FileInfo {
+func (e *basicFileInfo) osFileInfo() os.FileInfo {
 	return e.FileInfo
 }
