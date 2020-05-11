@@ -451,40 +451,12 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		batch.append(res.File)
 		changes++
 
-		snap.WithBlocksHash(res.File.BlocksHash, func(ifi db.FileIntf) bool {
-			fi := ifi.(protocol.FileInfo)
-
-			select {
-			case <-f.ctx.Done():
-				return false
-			default:
+		if f.localFlags & protocol.FlagLocalReceiveOnly == 0 {
+			if nf, ok := f.findRename(snap, mtimefs, res.File); ok {
+				batch.append(nf)
+				changes++
 			}
-
-			if f.ignores.Match(fi.Name).IsIgnored() {
-				return true
-			}
-
-			if !fi.BlocksEqual(res.File) || res.File.Size != fi.Size {
-				return true
-			}
-
-			if !osutil.IsDeleted(mtimefs, fi.Name) {
-				return true
-			}
-
-			nf := fi
-			nf.SetDeleted(f.shortID)
-			nf.LocalFlags = f.localFlags
-			if fi.ShouldConflict() {
-				// We do not want to override the global version with
-				// the deleted file. Setting to an empty version makes
-				// sure the file gets in sync on the following pull.
-				nf.Version = protocol.Vector{}
-			}
-			batch.append(nf)
-			changes++
-			return false
-		})
+		}
 	}
 
 	if err := batch.flush(); err != nil {
@@ -634,6 +606,48 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	f.ScanCompleted()
 	f.setState(FolderIdle)
 	return nil
+}
+
+func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file protocol.FileInfo) (protocol.FileInfo, bool) {
+	found := false
+	nf := protocol.FileInfo{}
+
+	snap.WithBlocksHash(file.BlocksHash, func(ifi db.FileIntf) bool {
+		fi := ifi.(protocol.FileInfo)
+
+		select {
+		case <-f.ctx.Done():
+			return false
+		default:
+		}
+
+		if fi.ShouldConflict() {
+			return true
+		}
+
+		if f.ignores.Match(fi.Name).IsIgnored() {
+			return true
+		}
+
+		// Only check the size.
+		// No point checking block equality, as that uses BlocksHash comparison if that is set (which it will be).
+		// No point checking BlocksHash comparison as WithBlocksHash already does that.
+		if file.Size != fi.Size {
+			return true
+		}
+
+		if !osutil.IsDeleted(mtimefs, fi.Name) {
+			return true
+		}
+
+		nf = fi
+		nf.SetDeleted(f.shortID)
+		nf.LocalFlags = f.localFlags
+		found = true
+		return false
+	})
+
+	return nf, found
 }
 
 func (f *folder) scanTimerFired() {

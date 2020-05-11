@@ -456,28 +456,26 @@ nextFile:
 		// we can just do a rename instead.
 		key := string(fi.BlocksHash)
 		for i, candidate := range buckets[key] {
-			if candidate.BlocksEqual(fi) {
-				// Remove the candidate from the bucket
-				lidx := len(buckets[key]) - 1
-				buckets[key][i] = buckets[key][lidx]
-				buckets[key] = buckets[key][:lidx]
+			// Remove the candidate from the bucket
+			lidx := len(buckets[key]) - 1
+			buckets[key][i] = buckets[key][lidx]
+			buckets[key] = buckets[key][:lidx]
 
-				// candidate is our current state of the file, where as the
-				// desired state with the delete bit set is in the deletion
-				// map.
-				desired := fileDeletions[candidate.Name]
-				if err := f.renameFile(candidate, desired, fi, snap, dbUpdateChan, scanChan); err != nil {
-					// Failed to rename, try to handle files as separate
-					// deletions and updates.
-					break
-				}
-
-				// Remove the pending deletion (as we performed it by renaming)
-				delete(fileDeletions, candidate.Name)
-
-				f.queue.Done(fileName)
-				continue nextFile
+			// candidate is our current state of the file, where as the
+			// desired state with the delete bit set is in the deletion
+			// map.
+			desired := fileDeletions[candidate.Name]
+			if err := f.renameFile(candidate, desired, fi, snap, dbUpdateChan, scanChan); err != nil {
+				l.Debugln("rename shortcut for %s failed: %S", fi.Name, err.Error())
+				// Failed to rename, try next one.
+				continue
 			}
+
+			// Remove the pending deletion (as we performed it by renaming)
+			delete(fileDeletions, candidate.Name)
+
+			f.queue.Done(fileName)
+			continue nextFile
 		}
 
 		devices := snap.Availability(fileName)
