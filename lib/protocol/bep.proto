@@ -190,6 +190,7 @@ message FileDownloadProgressUpdate {
     string                         name          = 2;
     Vector                         version       = 3 [(gogoproto.nullable) = false];
     repeated int32                 block_indexes = 4 [packed=false];
+    int32                          block_size    = 5;
 }
 
 enum FileDownloadProgressUpdateType {

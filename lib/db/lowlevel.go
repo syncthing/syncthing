@@ -748,6 +748,25 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 		return nil, err
 	}
 
+	meta.emptyNeeded(protocol.LocalDeviceID)
+	err = t.withNeed([]byte(folder), protocol.LocalDeviceID[:], true, func(f FileIntf) bool {
+		meta.addNeeded(protocol.LocalDeviceID, f)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, device := range meta.devices() {
+		meta.emptyNeeded(device)
+		err = t.withNeed([]byte(folder), device[:], true, func(f FileIntf) bool {
+			meta.addNeeded(device, f)
+			return true
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	meta.SetCreated()
 	if err := meta.toDB(t, []byte(folder)); err != nil {
 		return nil, err
