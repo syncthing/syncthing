@@ -1144,7 +1144,7 @@ func macosCodesign(file string) {
 	}
 
 	if id := os.Getenv("CODESIGN_IDENTITY"); id != "" {
-		bs, err := runError("codesign", "-s", id, file)
+		bs, err := runError("codesign", "--options=runtime", "-s", id, file)
 		if err != nil {
 			log.Println("Codesign: signing failed:", string(bs))
 			return
