@@ -17,6 +17,19 @@ type blockPullReorderer interface {
 	Reorder(blocks []protocol.BlockInfo) []protocol.BlockInfo
 }
 
+func newBlockPullReorderer(order config.BlockPullOrder, id protocol.DeviceID, otherDevices []protocol.DeviceID) blockPullReorderer {
+	switch order {
+	case config.BlockPullOrderRandom:
+		return randomOrderBlockPullReorderer{}
+	case config.BlockPullOrderInOrder:
+		return inOrderBlockPullReorderer{}
+	case config.BlockPullOrderStandard:
+		fallthrough
+	default:
+		return newStandardBlockPullReorderer(id, otherDevices)
+	}
+}
+
 type inOrderBlockPullReorderer struct{}
 
 func (inOrderBlockPullReorderer) Reorder(blocks []protocol.BlockInfo) []protocol.BlockInfo {
@@ -30,17 +43,10 @@ func (randomOrderBlockPullReorderer) Reorder(blocks []protocol.BlockInfo) []prot
 	return blocks
 }
 
-func newBlockPullReorderer(order config.BlockPullOrder, id protocol.DeviceID, otherDevices []protocol.DeviceID) blockPullReorderer {
-	switch order {
-	case config.BlockPullOrderRandom:
-		return randomOrderBlockPullReorderer{}
-	case config.BlockPullOrderInOrder:
-		return inOrderBlockPullReorderer{}
-	case config.BlockPullOrderStandard:
-		fallthrough
-	default:
-		return newStandardBlockPullReorderer(id, otherDevices)
-	}
+type standardBlockPullReorderer struct {
+	myIndex int
+	count   int
+	shuffle func(interface{}) // Used for test
 }
 
 func newStandardBlockPullReorderer(id protocol.DeviceID, otherDevices []protocol.DeviceID) *standardBlockPullReorderer {
@@ -64,12 +70,6 @@ func newStandardBlockPullReorderer(id protocol.DeviceID, otherDevices []protocol
 		count:   len(allDevices),
 		shuffle: rand.Shuffle,
 	}
-}
-
-type standardBlockPullReorderer struct {
-	myIndex int
-	count   int
-	shuffle func(interface{}) // Used for test
 }
 
 func (p *standardBlockPullReorderer) Reorder(blocks []protocol.BlockInfo) []protocol.BlockInfo {
