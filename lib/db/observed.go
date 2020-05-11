@@ -176,6 +176,34 @@ func (dl DropListObserved) MarkFolder(folder string, devices []protocol.DeviceID
 	}
 }
 
+// CleanPendingDevices removes all pending device entries matching a given set of device IDs
+func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) error {
+	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
+	if err != nil {
+		l.Warnf("Could not iterate through pending device entries for cleanup: %v", err)
+		return err
+	}
+	defer iter.Release()
+	for iter.Next() {
+		_, err := db.Get(iter.Key())
+		if err != nil {
+			return err
+		}
+		if keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key()); ok {
+			// Valid entries are looked up in the drop-list, invalid ones cleaned up
+			deviceID := protocol.DeviceIDFromBytes(keyDev)
+			_, dropDev := dropList[deviceID]
+			if !dropDev {
+				continue
+			}
+		}
+		if err := db.Delete(iter.Key()); err != nil {
+			l.Warnf("Failed to remove pending device entry: %v", err)
+		}
+	}
+	return nil
+}
+
 // CleanPendingFolders removes all pending folder entries not matching a given set of
 // device IDs, or matching the set of folder IDs associated with those given devices.
 func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) error {
