@@ -195,6 +195,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		if ok && unchanged(f, ef) {
 			continue
 		}
+		blocksHashSame := ok && bytes.Equal(ef.BlocksHash, f.BlocksHash)
 
 		if ok {
 			if !ef.IsDirectory() && !ef.IsDeleted() && !ef.IsInvalid() {
@@ -204,6 +205,15 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 						return err
 					}
 					if err := t.Delete(keyBuf); err != nil {
+						return err
+					}
+				}
+				if !blocksHashSame {
+					keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, ef.BlocksHash, name)
+					if err != nil {
+						return err
+					}
+					if err = t.Delete(keyBuf); err != nil {
 						return err
 					}
 				}
@@ -260,6 +270,15 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 					return err
 				}
 			}
+			if !blocksHashSame {
+				keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, f.BlocksHash, name)
+				if err != nil {
+					return err
+				}
+				if err = t.Put(keyBuf, nil); err != nil {
+					return err
+				}
+			}
 		}
 
 		if err := t.Checkpoint(func() error {
@@ -296,7 +315,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove all sequences related to the folder
-	k1, err := db.keyer.GenerateSequenceKey(nil, folder, 0)
+	k1, err := db.keyer.GenerateSequenceKey(k0, folder, 0)
 	if err != nil {
 		return err
 	}
@@ -305,7 +324,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove all items related to the given folder from the global bucket
-	k2, err := db.keyer.GenerateGlobalVersionKey(nil, folder, nil)
+	k2, err := db.keyer.GenerateGlobalVersionKey(k1, folder, nil)
 	if err != nil {
 		return err
 	}
@@ -314,7 +333,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove all needs related to the folder
-	k3, err := db.keyer.GenerateNeedFileKey(nil, folder, nil)
+	k3, err := db.keyer.GenerateNeedFileKey(k2, folder, nil)
 	if err != nil {
 		return err
 	}
@@ -323,11 +342,19 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove the blockmap of the folder
-	k4, err := db.keyer.GenerateBlockMapKey(nil, folder, nil, nil)
+	k4, err := db.keyer.GenerateBlockMapKey(k3, folder, nil, nil)
 	if err != nil {
 		return err
 	}
 	if err := t.deleteKeyPrefix(k4.WithoutHashAndName()); err != nil {
+		return err
+	}
+
+	k5, err := db.keyer.GenerateBlockListMapKey(k4, folder, nil, nil)
+	if err != nil {
+		return err
+	}
+	if err := t.deleteKeyPrefix(k5.WithoutHashAndName()); err != nil {
 		return err
 	}
 
@@ -381,6 +408,13 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 			return err
 		}
 		if err := t.deleteKeyPrefix(key.WithoutHashAndName()); err != nil {
+			return err
+		}
+		key2, err := db.keyer.GenerateBlockListMapKey(key, folder, nil, nil)
+		if err != nil {
+			return err
+		}
+		if err := t.deleteKeyPrefix(key2.WithoutHashAndName()); err != nil {
 			return err
 		}
 	}

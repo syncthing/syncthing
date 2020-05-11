@@ -9,6 +9,7 @@ package db
 import (
 	"bytes"
 	"errors"
+	"github.com/syncthing/syncthing/lib/osutil"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -302,6 +303,47 @@ func (t *readOnlyTransaction) withGlobal(folder, prefix []byte, truncate bool, f
 		return err
 	}
 	return dbi.Error()
+}
+
+func (t *readOnlyTransaction) withBlocksHash(folder, hash []byte, iterator Iterator) error {
+	key, err := t.keyer.GenerateBlockListMapKey(nil, folder, hash, nil)
+	if err != nil {
+		return err
+	}
+
+	iter, err := t.NewPrefixIterator(key)
+	if err != nil {
+		return err
+	}
+	defer iter.Release()
+
+	for iter.Next() {
+		file := string(t.keyer.NameFromBlockListMapKey(iter.Key()))
+		f, ok, err := t.getFile(folder, protocol.LocalDeviceID[:], []byte(osutil.NormalizedFilename(file)))
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		f.Name = osutil.NativeFilename(f.Name)
+
+		if !bytes.Equal(f.BlocksHash, hash) {
+			l.Warnf("Mismatching block map list hashes: got %x expected %x", f.BlocksHash, hash)
+			continue
+		}
+
+		if f.IsDeleted() || f.IsInvalid() || f.IsDirectory() || f.IsSymlink() {
+			l.Warnf("Found something of unexpected type in block list map: %s", f)
+			continue
+		}
+
+		if !iterator(f) {
+			break
+		}
+	}
+
+	return iter.Error()
 }
 
 func (t *readOnlyTransaction) availability(folder, file []byte) ([]protocol.DeviceID, error) {

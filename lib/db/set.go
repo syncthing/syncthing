@@ -365,6 +365,13 @@ func (s *Snapshot) RemoteNeedFolderFiles(device protocol.DeviceID, page, perpage
 	return files
 }
 
+func (s *Snapshot) WithBlocksHash(hash []byte, fn Iterator) {
+	l.Debugf(`%s WithBlocksHash("%x")`, s.folder, hash)
+	if err := s.t.withBlocksHash([]byte(s.folder), hash, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
+		panic(err)
+	}
+}
+
 func (s *FileSet) Sequence(device protocol.DeviceID) int64 {
 	return s.meta.Sequence(device)
 }

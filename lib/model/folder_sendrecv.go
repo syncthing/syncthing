@@ -355,7 +355,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
 					fileDeletions[file.Name] = file
 					// Put files into buckets per first hash
-					key := string(df.Blocks[0].Hash)
+					key := string(df.BlocksHash)
 					buckets[key] = append(buckets[key], df)
 				} else {
 					f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
@@ -458,30 +458,28 @@ nextFile:
 
 		// Check our list of files to be removed for a match, in which case
 		// we can just do a rename instead.
-		key := string(fi.Blocks[0].Hash)
+		key := string(fi.BlocksHash)
 		for i, candidate := range buckets[key] {
-			if candidate.BlocksEqual(fi) {
-				// Remove the candidate from the bucket
-				lidx := len(buckets[key]) - 1
-				buckets[key][i] = buckets[key][lidx]
-				buckets[key] = buckets[key][:lidx]
+			// Remove the candidate from the bucket
+			lidx := len(buckets[key]) - 1
+			buckets[key][i] = buckets[key][lidx]
+			buckets[key] = buckets[key][:lidx]
 
-				// candidate is our current state of the file, where as the
-				// desired state with the delete bit set is in the deletion
-				// map.
-				desired := fileDeletions[candidate.Name]
-				if err := f.renameFile(candidate, desired, fi, snap, dbUpdateChan, scanChan); err != nil {
-					// Failed to rename, try to handle files as separate
-					// deletions and updates.
-					break
-				}
-
-				// Remove the pending deletion (as we performed it by renaming)
-				delete(fileDeletions, candidate.Name)
-
-				f.queue.Done(fileName)
-				continue nextFile
+			// candidate is our current state of the file, where as the
+			// desired state with the delete bit set is in the deletion
+			// map.
+			desired := fileDeletions[candidate.Name]
+			if err := f.renameFile(candidate, desired, fi, snap, dbUpdateChan, scanChan); err != nil {
+				l.Debugln("rename shortcut for %s failed: %S", fi.Name, err.Error())
+				// Failed to rename, try next one.
+				continue
 			}
+
+			// Remove the pending deletion (as we performed it by renaming)
+			delete(fileDeletions, candidate.Name)
+
+			f.queue.Done(fileName)
+			continue nextFile
 		}
 
 		devices := snap.Availability(fileName)
@@ -1181,6 +1179,16 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		protocol.BufferPool.Put(buf)
 	}()
 
+	folderFilesystems := make(map[string]fs.Filesystem)
+	// Hope that it's usually in the same folder, so start with that one.
+	folders := []string{f.folderID}
+	for folder, cfg := range f.model.cfg.Folders() {
+		folderFilesystems[folder] = cfg.Filesystem()
+		if folder != f.folderID {
+			folders = append(folders, folder)
+		}
+	}
+
 	for state := range in {
 		if err := f.CheckAvailableSpace(state.file.Size); err != nil {
 			state.fail(err)
@@ -1197,13 +1205,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		}
 
 		f.model.progressEmitter.Register(state.sharedPullerState)
-
-		folderFilesystems := make(map[string]fs.Filesystem)
-		var folders []string
-		for folder, cfg := range f.model.cfg.Folders() {
-			folderFilesystems[folder] = cfg.Filesystem()
-			folders = append(folders, folder)
-		}
 
 		var file fs.File
 		var weakHashFinder *weakhash.Finder

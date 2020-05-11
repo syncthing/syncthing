@@ -1926,9 +1926,15 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 	var f protocol.FileInfo
 	snap := s.fset.Snapshot()
 	defer snap.Release()
+	previousWasDelete := false
 	snap.WithHaveSequence(s.prevSequence+1, func(fi db.FileIntf) bool {
-		if err = batch.flushIfFull(); err != nil {
-			return false
+		// This is to make sure that renames (which is an add followed by a delete) land in the same batch.
+		// Even if the batch is full, we allow a last delete to slip in, we do this by making sure that
+		// the batch ends with a non-delete, or that the last item in the batch is already a delete
+		if batch.full() && (!fi.IsDeleted() || previousWasDelete) {
+			if err = batch.flush(); err != nil {
+				return false
+			}
 		}
 
 		if shouldDebug() {
@@ -1963,6 +1969,8 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 			f.Version = protocol.Vector{}
 		}
 		f.LocalFlags = 0 // never sent externally
+
+		previousWasDelete = f.IsDeleted()
 
 		batch.append(f)
 		return true
@@ -2607,8 +2615,12 @@ func (b *fileInfoBatch) append(f protocol.FileInfo) {
 	b.size += f.ProtoSize()
 }
 
+func (b *fileInfoBatch) full() bool {
+	return len(b.infos) >= maxBatchSizeFiles || b.size >= maxBatchSizeBytes
+}
+
 func (b *fileInfoBatch) flushIfFull() error {
-	if len(b.infos) >= maxBatchSizeFiles || b.size >= maxBatchSizeBytes {
+	if b.full() {
 		return b.flush()
 	}
 	return nil
