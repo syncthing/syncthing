@@ -25,7 +25,7 @@ import (
 //   10: v1.5.0
 const (
 	dbVersion             = 10
-	dbMinSyncthingVersion = "v1.5.0"
+	dbMinSyncthingVersion = "v1.6.0"
 )
 
 type databaseDowngradeError struct {
