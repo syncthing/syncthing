@@ -176,25 +176,36 @@ func (dl DropListObserved) MarkFolder(folder string, devices []protocol.DeviceID
 	}
 }
 
-// CleanPendingFolders removes all pending folder entries not matching
-// a given set of device IDs.
-func (db *Lowlevel) CleanPendingFolders(keepDevices map[protocol.DeviceID]bool) {
+// CleanPendingFolders removes all pending folder entries not matching a given set of
+// device IDs, or matching the set of folder IDs associated with those given devices.
+func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) error {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {
 		l.Warnf("Could not iterate through pending folder entries for cleanup: %v", err)
-		return
+		return err
 	}
 	defer iter.Release()
 	for iter.Next() {
+		_, err := db.Get(iter.Key())
+		if err != nil {
+			return err
+		}
 		if keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key()); ok {
-			// Valid entries are looked up in the set, invalid ones cleaned up
+			// Valid entries are looked up in the drop-list, invalid ones cleaned up
 			deviceID := protocol.DeviceIDFromBytes(keyDev)
-			if keepDevices[deviceID] {
-				continue
+			folders, keepDev := dropList[deviceID]
+			// Check the associated set of folders if provided, otherwise drop.
+			if keepDev && folders != nil {
+				folderID := db.keyer.FolderFromPendingFolderKey(iter.Key())
+				// Remove only mentioned folder IDs
+				if !folders[string(folderID)] {
+					continue
+				}
 			}
 		}
 		if err := db.Delete(iter.Key()); err != nil {
 			l.Warnf("Failed to remove pending folder entry: %v", err)
 		}
 	}
+	return nil
 }
