@@ -19,6 +19,7 @@ type sentFolderFileDownloadState struct {
 	version      protocol.Vector
 	updated      time.Time
 	created      time.Time
+	blockSize    int
 }
 
 // sentFolderDownloadState represents a state of what we've announced as available
@@ -43,6 +44,7 @@ func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protoco
 		pullerVersion := puller.file.Version
 		pullerBlockIndexesUpdated := puller.AvailableUpdated()
 		pullerCreated := puller.created
+		pullerBlockSize := int32(puller.file.BlockSize())
 
 		localFile, ok := s.files[name]
 
@@ -55,6 +57,7 @@ func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protoco
 					updated:      pullerBlockIndexesUpdated,
 					version:      pullerVersion,
 					created:      pullerCreated,
+					blockSize:    int(pullerBlockSize),
 				}
 
 				updates = append(updates, protocol.FileDownloadProgressUpdate{
@@ -62,6 +65,7 @@ func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protoco
 					Version:      pullerVersion,
 					UpdateType:   protocol.UpdateTypeAppend,
 					BlockIndexes: pullerBlockIndexes,
+					BlockSize:    pullerBlockSize,
 				})
 			}
 			continue
@@ -86,11 +90,13 @@ func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protoco
 				Version:      pullerVersion,
 				UpdateType:   protocol.UpdateTypeAppend,
 				BlockIndexes: pullerBlockIndexes,
+				BlockSize:    pullerBlockSize,
 			})
 			localFile.blockIndexes = pullerBlockIndexes
 			localFile.updated = pullerBlockIndexesUpdated
 			localFile.version = pullerVersion
 			localFile.created = pullerCreated
+			localFile.blockSize = int(pullerBlockSize)
 			continue
 		}
 
@@ -108,6 +114,7 @@ func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protoco
 				Version:      localFile.version,
 				UpdateType:   protocol.UpdateTypeAppend,
 				BlockIndexes: newBlocks,
+				BlockSize:    pullerBlockSize,
 			})
 		}
 	}

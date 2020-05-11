@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/syncthing/syncthing/lib/auto"
+	"github.com/syncthing/syncthing/lib/api/auto"
 )
 
 func TestAssets(t *testing.T) {

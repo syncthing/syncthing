@@ -62,6 +62,9 @@ const (
 
 	// KeyTypeBlockList <block list hash> = BlockList
 	KeyTypeBlockList = 13
+
+	// KeyTypeBlockListMap <int32 folder ID> <block list hash> <file name> = <nothing>
+	KeyTypeBlockListMap = 14
 )
 
 type keyer interface {
@@ -79,6 +82,8 @@ type keyer interface {
 	// block map key stuff (former BlockMap)
 	GenerateBlockMapKey(key, folder, hash, name []byte) (blockMapKey, error)
 	NameFromBlockMapKey(key []byte) []byte
+	GenerateBlockListMapKey(key, folder, hash, name []byte) (blockListMapKey, error)
+	NameFromBlockListMapKey(key []byte) []byte
 
 	// file need index
 	GenerateNeedFileKey(key, folder, name []byte) (needFileKey, error)
@@ -200,6 +205,29 @@ func (k defaultKeyer) NameFromBlockMapKey(key []byte) []byte {
 }
 
 func (k blockMapKey) WithoutHashAndName() []byte {
+	return k[:keyPrefixLen+keyFolderLen]
+}
+
+type blockListMapKey []byte
+
+func (k defaultKeyer) GenerateBlockListMapKey(key, folder, hash, name []byte) (blockListMapKey, error) {
+	folderID, err := k.folderIdx.ID(folder)
+	if err != nil {
+		return nil, err
+	}
+	key = resize(key, keyPrefixLen+keyFolderLen+keyHashLen+len(name))
+	key[0] = KeyTypeBlockListMap
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
+	copy(key[keyPrefixLen+keyFolderLen:], hash)
+	copy(key[keyPrefixLen+keyFolderLen+keyHashLen:], name)
+	return key, nil
+}
+
+func (k defaultKeyer) NameFromBlockListMapKey(key []byte) []byte {
+	return key[keyPrefixLen+keyFolderLen+keyHashLen:]
+}
+
+func (k blockListMapKey) WithoutHashAndName() []byte {
 	return k[:keyPrefixLen+keyFolderLen]
 }
 

@@ -565,11 +565,11 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 	return true
 }
 
-func (s *service) logListenAddressesChangedEvent(l genericListener) {
+func (s *service) logListenAddressesChangedEvent(l ListenerAddresses) {
 	s.evLogger.Log(events.ListenAddressesChanged, map[string]interface{}{
-		"address": l.URI(),
-		"lan":     l.LANAddresses(),
-		"wan":     l.WANAddresses(),
+		"address": l.URI,
+		"lan":     l.LANAddresses,
+		"wan":     l.WANAddresses,
 	})
 }
 

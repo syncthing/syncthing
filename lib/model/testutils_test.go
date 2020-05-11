@@ -207,7 +207,7 @@ func needSize(t *testing.T, m Model, folder string) db.Counts {
 	t.Helper()
 	snap := dbSnapshot(t, m, folder)
 	defer snap.Release()
-	return snap.NeedSize()
+	return snap.NeedSize(protocol.LocalDeviceID)
 }
 
 func dbSnapshot(t *testing.T, m Model, folder string) *db.Snapshot {
