@@ -561,5 +561,10 @@ func (db *schemaUpdater) updateSchemato10(_ int) error {
 		dbi.Release()
 	}
 
+	// Trigger metadata recalc
+	if err := t.deleteKeyPrefix([]byte{KeyTypeFolderMeta}); err != nil {
+		return err
+	}
+
 	return t.Commit()
 }
