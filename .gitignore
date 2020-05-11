@@ -15,6 +15,5 @@ coverage.xml
 syncthing.sig
 RELEASE
 deb
-lib/auto/gui.files.go
 *.bz2
 /repos

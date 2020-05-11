@@ -152,19 +152,19 @@ func TestAssetsDir(t *testing.T) {
 	gw := gzip.NewWriter(buf)
 	gw.Write([]byte("default"))
 	gw.Close()
-	def := buf.Bytes()
+	def := buf.String()
 
 	buf = new(bytes.Buffer)
 	gw = gzip.NewWriter(buf)
 	gw.Write([]byte("foo"))
 	gw.Close()
-	foo := buf.Bytes()
+	foo := buf.String()
 
 	e := &staticsServer{
 		theme:    "foo",
 		mut:      sync.NewRWMutex(),
 		assetDir: "testdata",
-		assets: map[string][]byte{
+		assets: map[string]string{
 			"foo/a":     foo, // overridden in foo/a
 			"foo/b":     foo,
 			"default/a": def, // overridden in default/a (but foo/a takes precedence)

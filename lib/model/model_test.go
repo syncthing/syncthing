@@ -139,7 +139,7 @@ func TestRequest(t *testing.T) {
 	// Existing, shared file
 	res, err := m.Request(device1, "default", "foo", 6, 0, nil, 0, false)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	bs := res.Data()
 	if !bytes.Equal(bs, []byte("foobar")) {
@@ -411,10 +411,6 @@ func TestClusterConfig(t *testing.T) {
 	wrapper := createTmpWrapper(cfg)
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	for _, fcfg := range cfg.Folders {
-		m.removeFolder(fcfg)
-		m.addFolder(fcfg)
-	}
 	defer cleanupModel(m)
 
 	cm := m.generateClusterConfig(device2)
@@ -1461,16 +1457,7 @@ func TestIgnores(t *testing.T) {
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
 
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
-	// Reach in and update the ignore matcher to one that always does
-	// reloads when asked to, instead of checking file mtimes. This is
-	// because we will be changing the files on disk often enough that the
-	// mtimes will be unreliable to determine change status.
-	m.fmut.Lock()
-	m.folderIgnores["default"] = ignore.New(defaultFs, ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
-	m.fmut.Unlock()
-	m.startFolder("default")
+	folderIgnoresAlwaysReload(m, defaultFolderConfig)
 
 	// Make sure the initial scan has finished (ScanFolders is blocking)
 	m.ScanFolders()
@@ -1493,7 +1480,13 @@ func TestIgnores(t *testing.T) {
 	}
 
 	// Invalid path, marker should be missing, hence returns an error.
-	m.addFolder(config.FolderConfiguration{ID: "fresh", Path: "XXX"})
+	fcfg := config.FolderConfiguration{ID: "fresh", Path: "XXX"}
+	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
+	m.fmut.Lock()
+	m.folderCfgs[fcfg.ID] = fcfg
+	m.folderIgnores[fcfg.ID] = ignores
+	m.fmut.Unlock()
+
 	_, _, err = m.GetIgnores("fresh")
 	if err == nil {
 		t.Error("No error")
@@ -1526,9 +1519,6 @@ func TestEmptyIgnores(t *testing.T) {
 
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
-
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
 
 	if err := m.SetIgnores("default", []string{}); err != nil {
 		t.Error(err)
@@ -1686,8 +1676,6 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
@@ -1939,8 +1927,6 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
@@ -2116,8 +2102,6 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	m.ScanFolder("default")
@@ -2314,8 +2298,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	}
 
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", dbi, nil)
-	m.addFolder(defaultFolderConfig)
-	m.startFolder("default")
+	m.newFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	// Remote sequence is cached, hence need to recreated.
@@ -3191,9 +3174,9 @@ func TestIssue5002(t *testing.T) {
 	}
 	blockSize := int32(file.BlockSize())
 
-	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", blockSize, file.Size-int64(blockSize), []byte{1, 2, 3, 4})
-	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", blockSize, file.Size, []byte{1, 2, 3, 4}) // panic
-	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", blockSize, file.Size+int64(blockSize), []byte{1, 2, 3, 4})
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size-int64(blockSize), []byte{1, 2, 3, 4})
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size, []byte{1, 2, 3, 4}) // panic
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size+int64(blockSize), []byte{1, 2, 3, 4})
 }
 
 func TestParentOfUnignored(t *testing.T) {

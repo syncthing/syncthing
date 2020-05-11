@@ -461,6 +461,10 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 
 func sendMsgs(p *ProgressEmitter) {
 	p.mut.Lock()
-	defer p.mut.Unlock()
-	p.sendDownloadProgressMessagesLocked(context.Background())
+	updates := p.computeProgressUpdates()
+	p.mut.Unlock()
+	ctx := context.Background()
+	for _, update := range updates {
+		update.send(ctx)
+	}
 }

@@ -56,7 +56,7 @@ type service interface {
 	Stop()
 	Errors() []FileError
 	WatchError() error
-	ForceRescan(file protocol.FileInfo) error
+	ScheduleForceRescan(path string)
 	GetStatistics() (stats.FolderStatistics, error)
 
 	getState() (folderState, time.Time, error)
@@ -275,22 +275,22 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 	detector.Watch("pmut", m.pmut)
 }
 
-// startFolder constructs the folder service and starts it.
-func (m *model) startFolder(folder string) {
-	m.fmut.RLock()
-	folderCfg := m.folderCfgs[folder]
-	m.fmut.RUnlock()
+// Need to hold lock on m.fmut when calling this.
+func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
+	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
+	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+		l.Warnln("Loading ignores:", err)
+	}
 
-	// Close connections to affected devices
-	m.closeConns(folderCfg.DeviceIDs(), fmt.Errorf("started folder %v", folderCfg.Description()))
-
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
-	m.startFolderLocked(folderCfg)
+	m.addAndStartFolderLockedWithIgnores(cfg, fset, ignores)
 }
 
-// Need to hold lock on m.fmut when calling this.
-func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
+// Only needed for testing, use addAndStartFolderLocked instead.
+func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguration, fset *db.FileSet, ignores *ignore.Matcher) {
+	m.folderCfgs[cfg.ID] = cfg
+	m.folderFiles[cfg.ID] = fset
+	m.folderIgnores[cfg.ID] = ignores
+
 	_, ok := m.folderRunners[cfg.ID]
 	if ok {
 		l.Warnln("Cannot start already running folder", cfg.Description())
@@ -303,8 +303,6 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	}
 
 	folder := cfg.ID
-
-	fset := m.folderFiles[folder]
 
 	// Find any devices for which we hold the index in the db, but the folder
 	// is not shared, and drop it.
@@ -356,8 +354,6 @@ func (m *model) startFolderLocked(cfg config.FolderConfiguration) {
 	}
 	m.folderVersioners[folder] = ver
 
-	ignores := m.folderIgnores[folder]
-
 	p := folderFactory(m, fset, ignores, cfg, ver, ffs, m.evLogger, m.folderIOLimiter)
 
 	m.folderRunners[folder] = p
@@ -403,35 +399,6 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 	}
 }
 
-func (m *model) addFolder(cfg config.FolderConfiguration) {
-	if len(cfg.ID) == 0 {
-		panic("cannot add empty folder id")
-	}
-
-	if len(cfg.Path) == 0 {
-		panic("cannot add empty folder path")
-	}
-
-	// Creating the fileset can take a long time (metadata calculation) so
-	// we do it outside of the lock.
-	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
-
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
-	m.addFolderLocked(cfg, fset)
-}
-
-func (m *model) addFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
-	m.folderCfgs[cfg.ID] = cfg
-	m.folderFiles[cfg.ID] = fset
-
-	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
-	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		l.Warnln("Loading ignores:", err)
-	}
-	m.folderIgnores[cfg.ID] = ignores
-}
-
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
 	m.stopFolder(cfg, fmt.Errorf("removing folder %v", cfg.Description()))
 
@@ -449,7 +416,7 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 		cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
 	}
 
-	m.removeFolderLocked(cfg)
+	m.cleanupFolderLocked(cfg)
 
 	m.fmut.Unlock()
 
@@ -474,7 +441,7 @@ func (m *model) stopFolder(cfg config.FolderConfiguration, err error) {
 }
 
 // Need to hold lock on m.fmut when calling this.
-func (m *model) removeFolderLocked(cfg config.FolderConfiguration) {
+func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	// Clean up our config maps
 	delete(m.folderCfgs, cfg.ID)
 	delete(m.folderFiles, cfg.ID)
@@ -529,10 +496,9 @@ func (m *model) restartFolder(from, to config.FolderConfiguration) {
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
-	m.removeFolderLocked(from)
+	m.cleanupFolderLocked(from)
 	if !to.Paused {
-		m.addFolderLocked(to, fset)
-		m.startFolderLocked(to)
+		m.addAndStartFolderLocked(to, fset)
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
 }
@@ -547,8 +513,7 @@ func (m *model) newFolder(cfg config.FolderConfiguration) {
 
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
-	m.addFolderLocked(cfg, fset)
-	m.startFolderLocked(cfg)
+	m.addAndStartFolderLocked(cfg, fset)
 }
 
 func (m *model) UsageReportingStats(version int, preview bool) map[string]interface{} {
@@ -749,9 +714,9 @@ func (m *model) FolderStatistics() (map[string]stats.FolderStatistics, error) {
 type FolderCompletion struct {
 	CompletionPct float64
 	NeedBytes     int64
-	NeedItems     int64
 	GlobalBytes   int64
-	NeedDeletes   int64
+	NeedItems     int32
+	NeedDeletes   int32
 }
 
 // Map returns the members as a map, e.g. used in api to serialize as Json.
@@ -787,52 +752,35 @@ func (m *model) Completion(device protocol.DeviceID, folder string) FolderComple
 	}
 
 	m.pmut.RLock()
-	counts := m.deviceDownloads[device].GetBlockCounts(folder)
+	downloaded := m.deviceDownloads[device].BytesDownloaded(folder)
 	m.pmut.RUnlock()
 
-	var need, items, fileNeed, downloaded, deletes int64
-	snap.WithNeedTruncated(device, func(f db.FileIntf) bool {
-		ft := f.(db.FileInfoTruncated)
+	need := snap.NeedSize(device)
+	need.Bytes -= downloaded
+	// This might might be more than it really is, because some blocks can be of a smaller size.
+	if need.Bytes < 0 {
+		need.Bytes = 0
+	}
 
-		// If the file is deleted, we account it only in the deleted column.
-		if ft.Deleted {
-			deletes++
-			return true
-		}
-
-		// This might might be more than it really is, because some blocks can be of a smaller size.
-		downloaded = int64(counts[ft.Name]) * int64(ft.BlockSize())
-
-		fileNeed = ft.FileSize() - downloaded
-		if fileNeed < 0 {
-			fileNeed = 0
-		}
-
-		need += fileNeed
-		items++
-
-		return true
-	})
-
-	needRatio := float64(need) / float64(tot)
+	needRatio := float64(need.Bytes) / float64(tot)
 	completionPct := 100 * (1 - needRatio)
 
 	// If the completion is 100% but there are deletes we need to handle,
 	// drop it down a notch. Hack for consumers that look only at the
 	// percentage (our own GUI does the same calculation as here on its own
 	// and needs the same fixup).
-	if need == 0 && deletes > 0 {
+	if need.Bytes == 0 && need.Deleted > 0 {
 		completionPct = 95 // chosen by fair dice roll
 	}
 
-	l.Debugf("%v Completion(%s, %q): %f (%d / %d = %f)", m, device, folder, completionPct, need, tot, needRatio)
+	l.Debugf("%v Completion(%s, %q): %f (%d / %d = %f)", m, device, folder, completionPct, need.Bytes, tot, needRatio)
 
 	return FolderCompletion{
 		CompletionPct: completionPct,
-		NeedBytes:     need,
-		NeedItems:     items,
+		NeedBytes:     need.Bytes,
+		NeedItems:     need.Files + need.Directories + need.Symlinks,
 		GlobalBytes:   tot,
-		NeedDeletes:   deletes,
+		NeedDeletes:   need.Deleted,
 	}
 }
 
@@ -1565,7 +1513,7 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, size in
 	}
 
 	if !scanner.Validate(res.data, hash, weakHash) {
-		m.recheckFile(deviceID, folderFs, folder, name, size, offset, hash)
+		m.recheckFile(deviceID, folder, name, offset, hash)
 		l.Debugf("%v REQ(in) failed validating data (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
 	}
@@ -1599,7 +1547,7 @@ func newLimitedRequestResponse(size int, limiters ...*byteSemaphore) *requestRes
 	return res
 }
 
-func (m *model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, folder, name string, size int32, offset int64, hash []byte) {
+func (m *model) recheckFile(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte) {
 	cf, ok := m.CurrentFolderFile(folder, name)
 	if !ok {
 		l.Debugf("%v recheckFile: %s: %q / %q: no current file", m, deviceID, folder, name)
@@ -1636,10 +1584,9 @@ func (m *model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 		l.Debugf("%v recheckFile: %s: %q / %q: Folder stopped before rescan could be scheduled", m, deviceID, folder, name)
 		return
 	}
-	if err := runner.ForceRescan(cf); err != nil {
-		l.Debugf("%v recheckFile: %s: %q / %q rescan: %s", m, deviceID, folder, name, err)
-		return
-	}
+
+	runner.ScheduleForceRescan(name)
+
 	l.Debugf("%v recheckFile: %s: %q / %q", m, deviceID, folder, name)
 }
 

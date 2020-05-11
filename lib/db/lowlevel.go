@@ -681,7 +681,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		}
 
 		key := blockListKey(it.Key())
-		if blockFilter.Has(bloomHash(key)) {
+		if blockFilter.Has(bloomHash(key.BlocksHash())) {
 			matchedBlocks++
 			continue
 		}
@@ -706,8 +706,8 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 
 // Hash function for the bloomfilter: first eight bytes of the SHA-256.
 // Big or little-endian makes no difference, as long as we're consistent.
-func bloomHash(key blockListKey) uint64 {
-	return binary.BigEndian.Uint64(key.BlocksHash())
+func bloomHash(key []byte) uint64 {
+	return binary.BigEndian.Uint64(key)
 }
 
 // CheckRepair checks folder metadata and sequences for miscellaneous errors.
@@ -780,6 +780,25 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	meta.emptyNeeded(protocol.LocalDeviceID)
+	err = t.withNeed([]byte(folder), protocol.LocalDeviceID[:], true, func(f FileIntf) bool {
+		meta.addNeeded(protocol.LocalDeviceID, f)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, device := range meta.devices() {
+		meta.emptyNeeded(device)
+		err = t.withNeed([]byte(folder), device[:], true, func(f FileIntf) bool {
+			meta.addNeeded(device, f)
+			return true
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	meta.SetCreated()

@@ -687,11 +687,11 @@ func listFiles(dir string) []string {
 
 func rebuildAssets() {
 	os.Setenv("SOURCE_DATE_EPOCH", fmt.Sprint(buildStamp()))
-	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/auto", "github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto")
+	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/api/auto", "github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto")
 }
 
 func lazyRebuildAssets() {
-	if shouldRebuildAssets("lib/auto/gui.files.go", "gui") || shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.files.go", "cmd/strelaypoolsrv/auto/gui") {
+	if shouldRebuildAssets("lib/api/auto/gui.files.go", "gui") || shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.files.go", "cmd/strelaypoolsrv/auto/gui") {
 		rebuildAssets()
 	}
 }
@@ -1144,7 +1144,7 @@ func macosCodesign(file string) {
 	}
 
 	if id := os.Getenv("CODESIGN_IDENTITY"); id != "" {
-		bs, err := runError("codesign", "-s", id, file)
+		bs, err := runError("codesign", "--options=runtime", "-s", id, file)
 		if err != nil {
 			log.Println("Codesign: signing failed:", string(bs))
 			return

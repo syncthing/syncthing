@@ -2,6 +2,8 @@
 
 package protocol
 
+import "time"
+
 // The Vector type represents a version vector. The zero value is a usable
 // version vector. The vector has slice semantics and some operations on it
 // are "append-like" in that they may return the same vector modified, or v
@@ -13,23 +15,39 @@ package protocol
 // one. If it is possible, the vector v is updated and returned. If it is not,
 // a copy will be created, updated and returned.
 func (v Vector) Update(id ShortID) Vector {
+	now := uint64(time.Now().Unix())
+	return v.updateWithNow(id, now)
+}
+
+func (v Vector) updateWithNow(id ShortID, now uint64) Vector {
 	for i := range v.Counters {
 		if v.Counters[i].ID == id {
 			// Update an existing index
-			v.Counters[i].Value++
+			v.Counters[i].Value = max(v.Counters[i].Value+1, now)
 			return v
 		} else if v.Counters[i].ID > id {
 			// Insert a new index
 			nv := make([]Counter, len(v.Counters)+1)
 			copy(nv, v.Counters[:i])
 			nv[i].ID = id
-			nv[i].Value = 1
+			nv[i].Value = max(1, now)
 			copy(nv[i+1:], v.Counters[i:])
 			return Vector{Counters: nv}
 		}
 	}
+
 	// Append a new index
-	return Vector{Counters: append(v.Counters, Counter{ID: id, Value: 1})}
+	return Vector{Counters: append(v.Counters, Counter{
+		ID:    id,
+		Value: max(1, now),
+	})}
+}
+
+func max(a, b uint64) uint64 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // Merge returns the vector containing the maximum indexes from v and b. If it

@@ -32,6 +32,8 @@ type metaKey struct {
 	flag uint32
 }
 
+const needFlag uint32 = 1 << 31 // Last bit, as early ones are local flags
+
 func newMetadataTracker() *metadataTracker {
 	return &metadataTracker{
 		mut: sync.NewRWMutex(),
@@ -116,8 +118,24 @@ func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *Counts 
 		idx = len(m.counts.Counts)
 		m.counts.Counts = append(m.counts.Counts, Counts{DeviceID: dev[:], LocalFlags: flag})
 		m.indexes[key] = idx
+		if flag == needFlag {
+			// Initially a new device needs everything, except deletes
+			m.counts.Counts[idx] = m.allNeededCounts(dev)
+		}
 	}
 	return &m.counts.Counts[idx]
+}
+
+// allNeeded makes sure there is a counts in case the device needs everything.
+func (m *countsMap) allNeededCounts(dev protocol.DeviceID) Counts {
+	counts := Counts{}
+	if idx, ok := m.indexes[metaKey{protocol.GlobalDeviceID, 0}]; ok {
+		counts = m.counts.Counts[idx]
+		counts.Deleted = 0 // Don't need deletes if having nothing
+	}
+	counts.DeviceID = dev[:]
+	counts.LocalFlags = needFlag
+	return counts
 }
 
 // addFile adds a file to the counts, adjusting the sequence number as
@@ -144,6 +162,30 @@ func (m *metadataTracker) addFile(dev protocol.DeviceID, f FileIntf) {
 			m.addFileLocked(dev, flag, f)
 		})
 	}
+}
+
+// emptyNeeded makes sure there is a zero counts in case the device needs nothing.
+func (m *metadataTracker) emptyNeeded(dev protocol.DeviceID) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	m.dirty = true
+
+	m.indexes[metaKey{dev, needFlag}] = len(m.counts.Counts)
+	m.counts.Counts = append(m.counts.Counts, Counts{
+		DeviceID:   dev[:],
+		LocalFlags: needFlag,
+	})
+}
+
+// addNeeded adds a file to the needed counts
+func (m *metadataTracker) addNeeded(dev protocol.DeviceID, f FileIntf) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	m.dirty = true
+
+	m.addFileLocked(dev, needFlag, f)
 }
 
 func (m *metadataTracker) Sequence(dev protocol.DeviceID) int64 {
@@ -198,6 +240,16 @@ func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
 			m.removeFileLocked(dev, flag, f)
 		})
 	}
+}
+
+// removeNeeded removes a file from the needed counts
+func (m *metadataTracker) removeNeeded(dev protocol.DeviceID, f FileIntf) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	m.dirty = true
+
+	m.removeFileLocked(dev, needFlag, f)
 }
 
 func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flag uint32, f FileIntf) {
@@ -277,19 +329,15 @@ func (m *countsMap) Counts(dev protocol.DeviceID, flag uint32) Counts {
 
 	idx, ok := m.indexes[metaKey{dev, flag}]
 	if !ok {
+		if flag == needFlag {
+			// If there's nothing about a device in the index yet,
+			// it needs everything.
+			return m.allNeededCounts(dev)
+		}
 		return Counts{}
 	}
 
 	return m.counts.Counts[idx]
-}
-
-// Counts returns the counts for the given device ID and flag. `flag` should
-// be zero or have exactly one bit set.
-func (m *metadataTracker) Counts(dev protocol.DeviceID, flag uint32) Counts {
-	m.mut.RLock()
-	defer m.mut.RUnlock()
-
-	return m.countsMap.Counts(dev, flag)
 }
 
 // Snapshot returns a copy of the metadata for reading.
