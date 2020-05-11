@@ -647,7 +647,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		}
 
 		key := blockListKey(it.Key())
-		if blockFilter.Has(bloomHash(key)) {
+		if blockFilter.Has(bloomHash(key.BlocksHash())) {
 			matchedBlocks++
 			continue
 		}
@@ -672,8 +672,8 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 
 // Hash function for the bloomfilter: first eight bytes of the SHA-256.
 // Big or little-endian makes no difference, as long as we're consistent.
-func bloomHash(key blockListKey) uint64 {
-	return binary.BigEndian.Uint64(key.BlocksHash())
+func bloomHash(key []byte) uint64 {
+	return binary.BigEndian.Uint64(key)
 }
 
 // CheckRepair checks folder metadata and sequences for miscellaneous errors.

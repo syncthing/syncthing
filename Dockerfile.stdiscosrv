@@ -1,4 +1,5 @@
-FROM golang:1.13 AS builder
+ARG GOVERSION=latest
+FROM golang:$GOVERSION AS builder
 
 WORKDIR /src
 COPY . .

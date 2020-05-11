@@ -170,7 +170,7 @@ func (t *readOnlyTransaction) withHave(folder, device, prefix []byte, truncate b
 		if err != nil {
 			return err
 		}
-		if f, ok, err := t.getFileTrunc(key, true); err != nil {
+		if f, ok, err := t.getFileTrunc(key, truncate); err != nil {
 			return err
 		} else if ok && !fn(f) {
 			return nil
