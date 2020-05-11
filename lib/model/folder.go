@@ -465,7 +465,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		batch.append(res.File)
 		changes++
 
-		if f.localFlags & protocol.FlagLocalReceiveOnly == 0 {
+		if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
 			if nf, ok := f.findRename(snap, mtimefs, res.File); ok {
 				batch.append(nf)
 				changes++
