@@ -424,7 +424,7 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 	return t.Commit()
 }
 
-func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
+func (db *Lowlevel) checkGlobals(folder []byte) error {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -458,7 +458,7 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 
 		name := db.keyer.NameFromGlobalVersionKey(dbi.Key())
 		var newVL VersionList
-		for i, version := range vl.Versions {
+		for _, version := range vl.Versions {
 			dk, err = db.keyer.GenerateDeviceFileKey(dk, folder, version.Device, name)
 			if err != nil {
 				return err
@@ -471,14 +471,6 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 				return err
 			}
 			newVL.Versions = append(newVL.Versions, version)
-
-			if i == 0 {
-				if fi, ok, err := t.getFileTrunc(dk, true); err != nil {
-					return err
-				} else if ok {
-					meta.addFile(protocol.GlobalDeviceID, fi)
-				}
-			}
 		}
 
 		if newLen := len(newVL.Versions); newLen == 0 {
@@ -808,7 +800,7 @@ func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
 
 func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 	meta := newMetadataTracker()
-	if err := db.checkGlobals([]byte(folder), meta); err != nil {
+	if err := db.checkGlobals([]byte(folder)); err != nil {
 		return nil, err
 	}
 
@@ -827,6 +819,11 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	err = t.withGlobal([]byte(folder), nil, true, func(f protocol.FileIntf) bool {
+		meta.addFile(protocol.GlobalDeviceID, f)
+		return true
+	})
 
 	meta.emptyNeeded(protocol.LocalDeviceID)
 	err = t.withNeed([]byte(folder), protocol.LocalDeviceID[:], true, func(f protocol.FileIntf) bool {
