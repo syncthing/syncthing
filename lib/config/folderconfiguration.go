@@ -59,6 +59,7 @@ type FolderConfiguration struct {
 	RawModTimeWindowS       int                         `xml:"modTimeWindowS" json:"modTimeWindowS"`
 	MaxConcurrentWrites     int                         `xml:"maxConcurrentWrites" json:"maxConcurrentWrites" default:"2"`
 	DisableFsync            bool                        `xml:"disableFsync" json:"disableFsync"`
+	BlockPullOrder          BlockPullOrder              `xml:"blockPullOrder" json:"blockPullOrder"`
 
 	cachedFilesystem    fs.Filesystem
 	cachedModTimeWindow time.Duration
