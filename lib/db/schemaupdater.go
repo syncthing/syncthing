@@ -22,7 +22,7 @@ import (
 //   6: v0.14.50
 //   7: v0.14.53
 //   8-9: v1.4.0
-//   10: v1.5.0
+//   10: v1.6.0
 const (
 	dbVersion             = 10
 	dbMinSyncthingVersion = "v1.6.0"
