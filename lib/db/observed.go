@@ -151,6 +151,31 @@ func (db *Lowlevel) RemovePendingFolder(id string, devices []protocol.DeviceID) 
 	}
 }
 
+// Set of devices for which pending folders are allowed, but not specific folder IDs
+type DropListObserved map[protocol.DeviceID]map[string]bool
+
+func (dl DropListObserved) MarkDevice(device protocol.DeviceID) map[string]bool {
+	folders, ok := dl[device]
+	if !ok {
+		dl[device] = nil
+	}
+	return folders
+}
+
+func (dl DropListObserved) MarkFolder(folder string, devices []protocol.DeviceID, myID protocol.DeviceID) {
+	for _, dev := range devices {
+		if dev == myID {
+			continue
+		}
+		folders := dl.MarkDevice(dev)
+		if folders == nil {
+			folders = make(map[string]bool)
+			dl[dev] = folders
+		}
+		folders[folder] = true
+	}
+}
+
 // CleanPendingFolders removes all pending folder entries not matching
 // a given set of device IDs.
 func (db *Lowlevel) CleanPendingFolders(keepDevices map[protocol.DeviceID]bool) {
