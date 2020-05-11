@@ -10,9 +10,10 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io/ioutil"
+	"strings"
 	"testing"
 
-	"github.com/syncthing/syncthing/lib/auto"
+	"github.com/syncthing/syncthing/lib/api/auto"
 )
 
 func TestAssets(t *testing.T) {
@@ -23,10 +24,10 @@ func TestAssets(t *testing.T) {
 	}
 
 	var gr *gzip.Reader
-	gr, _ = gzip.NewReader(bytes.NewReader(idx))
-	idx, _ = ioutil.ReadAll(gr)
+	gr, _ = gzip.NewReader(strings.NewReader(idx))
+	html, _ := ioutil.ReadAll(gr)
 
-	if !bytes.Contains(idx, []byte("<html")) {
+	if !bytes.Contains(html, []byte("<html")) {
 		t.Fatal("No html in index.html")
 	}
 }

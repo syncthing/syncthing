@@ -17,6 +17,7 @@ message FileVersion {
     protocol.Vector version = 1 [(gogoproto.nullable) = false];
     bytes           device  = 2;
     bool            invalid = 3;
+    bool            deleted = 4;
 }
 
 message VersionList {

@@ -481,3 +481,75 @@ func TestCheckGlobals(t *testing.T) {
 		t.Error("Expected key missing error, got", err)
 	}
 }
+
+func TestUpdateTo10(t *testing.T) {
+	ldb, err := openJSONS("./testdata/v1.4.0-updateTo10.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := NewLowlevel(ldb)
+	defer db.Close()
+
+	UpdateSchema(db)
+
+	folder := "test"
+
+	meta := db.getMetaAndCheck(folder)
+
+	empty := Counts{}
+
+	c := meta.Counts(protocol.LocalDeviceID, needFlag)
+	if c.Files != 1 {
+		t.Error("Expected 1 needed file locally, got", c.Files)
+	}
+	c.Files = 0
+	if c.Deleted != 1 {
+		t.Error("Expected 1 needed deletion locally, got", c.Deleted)
+	}
+	c.Deleted = 0
+	if !c.Equal(empty) {
+		t.Error("Expected all counts to be zero, got", c)
+	}
+	c = meta.Counts(remoteDevice0, needFlag)
+	if !c.Equal(empty) {
+		t.Error("Expected all counts to be zero, got", c)
+	}
+
+	trans, err := db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trans.Release()
+	// a
+	vl, err := trans.getGlobalVersions(nil, []byte(folder), []byte("a"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range vl.Versions {
+		if !v.Deleted {
+			t.Error("Unexpected undeleted global version for a")
+		}
+	}
+	// b
+	vl, err = trans.getGlobalVersions(nil, []byte(folder), []byte("b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !vl.Versions[0].Deleted {
+		t.Error("vl.Versions[0] not deleted for b")
+	}
+	if vl.Versions[1].Deleted {
+		t.Error("vl.Versions[1] deleted for b")
+	}
+	// c
+	vl, err = trans.getGlobalVersions(nil, []byte(folder), []byte("c"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if vl.Versions[0].Deleted {
+		t.Error("vl.Versions[0] deleted for c")
+	}
+	if !vl.Versions[1].Deleted {
+		t.Error("vl.Versions[1] not deleted for c")
+	}
+}

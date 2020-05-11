@@ -51,6 +51,12 @@ func (s *byteSemaphore) take(bytes int) {
 }
 
 func (s *byteSemaphore) takeInner(ctx context.Context, bytes int) error {
+	// Checking context for bytes <= s.available is required for testing and doesn't do any harm.
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	if bytes > s.max {
