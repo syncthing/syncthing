@@ -246,6 +246,7 @@ func (m *model) ServeBackground() {
 
 func (m *model) onServe() {
 	// Add and start folders
+	forgetPending := make(db.DropListObserved)
 	for _, folderCfg := range m.cfg.Folders() {
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
@@ -253,29 +254,27 @@ func (m *model) onServe() {
 		}
 		m.newFolder(folderCfg)
 		// Forget pending folder/device combinations that are now shared
-		m.db.RemovePendingFolder(folderCfg.ID, folderCfg.DeviceIDs())
+		forgetPending.MarkFolder(folderCfg.ID, folderCfg.DeviceIDs(), protocol.EmptyDeviceID)
 	}
-	// Unique set of device IDs for which we'd like to keep pending folder entries.
-	// We cannot use a positive list of folder / device combinations to drop here,
-	// because there may be entries for devices which we now longer know about at all.
-	keepPendingFoldersFor := make(map[protocol.DeviceID]bool, len(m.cfg.Devices()))
 	for deviceID, deviceCfg := range m.cfg.Devices() {
 		// Forget pending devices that are now added
-		m.db.RemovePendingDevice(deviceID)
+		forgetPending.MarkDevice(deviceID)
 		// Forget pending folders that are now ignored for added devices
 		for _, ignoredFolder := range deviceCfg.IgnoredFolders {
-			m.db.RemovePendingFolder(ignoredFolder.ID, []protocol.DeviceID{deviceID})
+			forgetPending.MarkFolder(ignoredFolder.ID, []protocol.DeviceID{deviceID}, protocol.EmptyDeviceID)
 		}
-		keepPendingFoldersFor[deviceID] = true
-	}
-	// Forget pending devices that are now ignored
-	for _, ignoredDevice := range m.cfg.IgnoredDevices() {
-		m.db.RemovePendingDevice(ignoredDevice.ID)
-		// Pending folders will be cleaned up by not listing in keepPendingFoldersFor
-		//keepPendingFoldersFor[ignoredDevice.ID] = false //not really needed, avoid realloc
 	}
 	// Clean pending folder entries for devices no longer known or now ignored
-	m.db.CleanPendingFolders(keepPendingFoldersFor)
+	m.db.CleanPendingFolders(forgetPending)
+
+	// Forget pending devices that are now ignored
+	for _, ignoredDevice := range m.cfg.IgnoredDevices() {
+		forgetPending.MarkDevice(ignoredDevice.ID)
+		// Associated pending folders have already been cleaned up by not listing
+		// in forgetPending before.
+	}
+	m.db.CleanPendingDevices(forgetPending)
+
 	m.cfg.Subscribe(m)
 }
 
@@ -2425,35 +2424,19 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	fromFolders := mapFolders(from.Folders)
 	toFolders := mapFolders(to.Folders)
+	forgetPending := make(db.DropListObserved)
 	for folderID, cfg := range toFolders {
-		if fromCfg, ok := fromFolders[folderID]; !ok {
+		// Record shared devices of this folder to remove possibly pending entries
+		for _, device := range cfg.Devices {
+			forgetPending.MarkFolder(cfg.ID, []protocol.DeviceID{device.DeviceID}, to.MyID)
+		}
+		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
 				l.Infoln("Paused folder", cfg.Description())
 			} else {
 				l.Infoln("Adding folder", cfg.Description())
 				m.newFolder(cfg)
-			}
-			// Forget pending folder/device combinations that are now shared
-			m.db.RemovePendingFolder(cfg.ID, cfg.DeviceIDs())
-		} else {
-			// The folder was not just added, but may have been shared to
-			// additional devices.  Collect previous associations in a map for
-			// efficient lookups.
-			fromShared := make(map[protocol.DeviceID]struct{}, len(fromCfg.Devices))
-			for _, device := range fromCfg.Devices {
-				fromShared[device.DeviceID] = struct{}{}
-			}
-			dropList := make([]protocol.DeviceID, 0, len(cfg.Devices))
-			for _, device := range cfg.Devices {
-				// Skip previously shared devices and our own association
-				if _, ok := fromShared[device.DeviceID]; !ok && device.DeviceID != to.MyID {
-					dropList = append(dropList, device.DeviceID)
-				}
-			}
-			if len(dropList) > 0 {
-				// Forget pending folder/device combinations that are newly shared
-				m.db.RemovePendingFolder(cfg.ID, dropList)
 			}
 		}
 	}
@@ -2466,7 +2449,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			// Forget pending folder device associations as well, assuming the
 			// folder is no longer of interest at all (but might become
 			// pending again).
-			m.db.RemovePendingFolder(folderID, fromCfg.DeviceIDs())
+			for _, device := range fromCfg.Devices {
+				forgetPending.MarkFolder(folderID, []protocol.DeviceID{device.DeviceID}, to.MyID)
+			}
 			continue
 		}
 
@@ -2500,10 +2485,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// Pausing a device, unpausing is handled by the connection service.
 	fromDevices := from.DeviceMap()
 	toDevices := to.DeviceMap()
-	// Unique set of device IDs for which we'd like to keep pending folder entries
-	keepPendingFoldersFor := make(map[protocol.DeviceID]bool, len(toDevices)+len(to.IgnoredDevices))
 	for deviceID, toCfg := range toDevices {
-		keepPendingFoldersFor[deviceID] = true
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
 			sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
@@ -2517,7 +2499,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		delete(fromDevices, deviceID)
 		// Forget pending folder/device combinations that are now ignored
 		for _, ignFolder := range toCfg.IgnoredFolders {
-			m.db.RemovePendingFolder(ignFolder.ID, []protocol.DeviceID{deviceID})
+			forgetPending.MarkFolder(ignFolder.ID, []protocol.DeviceID{deviceID}, to.MyID)
 		}
 		if fromCfg.Paused == toCfg.Paused {
 			continue
@@ -2536,29 +2518,23 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
-	// Clean up after removed devices.  Associated pending folders
-	// will be discarded later.
+	// Clean up after removed devices
 	m.fmut.Lock()
 	for deviceID := range fromDevices {
 		delete(m.deviceStatRefs, deviceID)
-		// Previously known devices cannot have a pending device entry, but clean
-		// up for sure
-		m.db.RemovePendingDevice(deviceID)
-		// Pending folders for removed devices will be cleaned up by not listing
-		// in keepPendingFoldersFor
-		//keepPendingFoldersFor[deviceID] = false //not really needed, avoid realloc
 	}
 	m.fmut.Unlock()
 
+	// Forget pending folder/device combinations that are now shared or ignored
+	m.db.CleanPendingFolders(forgetPending)
+
 	// Forget pending devices that are now ignored
 	for _, ignDevice := range to.IgnoredDevices {
-		m.db.RemovePendingDevice(ignDevice.ID)
-		// Pending folders for ignored devices will be cleaned up by not listing
-		// in keepPendingFoldersFor
-		keepPendingFoldersFor[ignDevice.ID] = false //not really needed
+		forgetPending.MarkDevice(ignDevice.ID)
+		// Associated pending folders have already been cleaned up by not listing
+		// in forgetPending before.
 	}
-	// Forget all pending folders for removed or ignored devices
-	m.db.CleanPendingFolders(keepPendingFoldersFor)
+	m.db.CleanPendingDevices(forgetPending)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
