@@ -1008,17 +1008,17 @@ func TestInvalidDeviceIDRejected(t *testing.T) {
 		dev0["deviceID"] = tc.id
 		devs[0] = dev0
 
-		//invalidJSON, err := json.Marshal(cfg)
-		//if err != nil {
-		//	t.Fatal(err)
-		//}
+		invalidJSON, err := json.Marshal(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-		//_, err = ReadJSON(bytes.NewReader(invalidJSON), device1)
-		//if tc.ok && err != nil {
-		//	t.Errorf("unexpected error for device ID %q: %v", tc.id, err)
-		//} else if !tc.ok && err == nil {
-		//	t.Errorf("device ID %q, expected error but got nil", tc.id)
-		//}
+		_, err = ReadJSON(bytes.NewReader(invalidJSON), device1)
+		if tc.ok && err != nil {
+			t.Errorf("unexpected error for device ID %q: %v", tc.id, err)
+		} else if !tc.ok && err == nil {
+			t.Errorf("device ID %q, expected error but got nil", tc.id)
+		}
 	}
 }
 
