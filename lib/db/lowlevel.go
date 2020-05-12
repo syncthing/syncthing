@@ -442,9 +442,10 @@ func (db *Lowlevel) checkGlobals(folder []byte) error {
 	defer dbi.Release()
 
 	var dk []byte
+	ro := t.readOnlyTransaction
 	for dbi.Next() {
 		var vl VersionList
-		if err := vl.Unmarshal(dbi.Value()); err != nil || len(vl.Versions) == 0 {
+		if err := vl.Unmarshal(dbi.Value()); err != nil || vl.Empty() {
 			if err := t.Delete(dbi.Key()); err != nil {
 				return err
 			}
@@ -458,26 +459,26 @@ func (db *Lowlevel) checkGlobals(folder []byte) error {
 
 		name := db.keyer.NameFromGlobalVersionKey(dbi.Key())
 		var newVL VersionList
-		for _, version := range vl.Versions {
-			dk, err = db.keyer.GenerateDeviceFileKey(dk, folder, version.Device, name)
+		var changed, changedHere bool
+		for _, fv := range vl.RawVersions {
+			newVL, changedHere, err = checkGlobalsFilterDevices(dk, folder, name, fv.Devices, newVL, ro)
 			if err != nil {
 				return err
 			}
-			_, err := t.Get(dk)
-			if backend.IsNotFound(err) {
-				continue
-			}
+			changed = changed || changedHere
+
+			newVL, changedHere, err = checkGlobalsFilterDevices(dk, folder, name, fv.InvalidDevices, newVL, ro)
 			if err != nil {
 				return err
 			}
-			newVL.Versions = append(newVL.Versions, version)
+			changed = changed || changedHere
 		}
 
-		if newLen := len(newVL.Versions); newLen == 0 {
+		if newVL.Empty() {
 			if err := t.Delete(dbi.Key()); err != nil {
 				return err
 			}
-		} else if newLen != len(vl.Versions) {
+		} else if changed {
 			if err := t.Put(dbi.Key(), mustMarshal(&newVL)); err != nil {
 				return err
 			}
@@ -489,6 +490,30 @@ func (db *Lowlevel) checkGlobals(folder []byte) error {
 
 	l.Debugf("db check completed for %q", folder)
 	return t.Commit()
+}
+
+func checkGlobalsFilterDevices(dk, folder, name []byte, devices [][]byte, vl VersionList, t readOnlyTransaction) (VersionList, bool, error) {
+	var changed bool
+	var err error
+	for _, device := range devices {
+		dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, device, name)
+		if err != nil {
+			return vl, false, err
+		}
+		f, ok, err := t.getFileTrunc(dk, true)
+		if err != nil {
+			return vl, false, err
+		}
+		if !ok {
+			changed = true
+			continue
+		}
+		vl, _, _, _, _, _, _, err = vl.update(folder, device, f, t)
+		if err != nil {
+			return vl, false, err
+		}
+	}
+	return vl, changed, nil
 }
 
 func (db *Lowlevel) getIndexID(device, folder []byte) (protocol.IndexID, error) {

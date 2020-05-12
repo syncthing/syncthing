@@ -12,7 +12,6 @@ package db
 import (
 	"bytes"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -196,12 +195,27 @@ func (vl VersionList) String() string {
 	var b bytes.Buffer
 	var id protocol.DeviceID
 	b.WriteString("{")
-	for i, v := range vl.Versions {
+	for i, v := range vl.RawVersions {
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		copy(id[:], v.Device)
-		fmt.Fprintf(&b, "{%v, %v}", v.Version, id)
+		fmt.Fprintf(&b, "{%v, {", v.Version)
+		for j, dev := range v.Devices {
+			if j > 0 {
+				b.WriteString(", ")
+			}
+			copy(id[:], dev)
+			fmt.Fprint(&b, id.Short())
+		}
+		b.WriteString("}, {")
+		for j, dev := range v.InvalidDevices {
+			if j > 0 {
+				b.WriteString(", ")
+			}
+			copy(id[:], dev)
+			fmt.Fprint(&b, id.Short())
+		}
+		fmt.Fprint(&b, "}}")
 	}
 	b.WriteString("}")
 	return b.String()
@@ -211,114 +225,157 @@ func (vl VersionList) String() string {
 // VersionList, a device that has the global/newest version, a device that previously
 // had the global/newest version, a boolean indicating if the global version has
 // changed and if any error occurred (only possible in db interaction).
-func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t readOnlyTransaction) (VersionList, FileVersion, FileVersion, FileVersion, bool, bool, bool, error) {
-	if len(vl.Versions) == 0 {
-		nv := newFileVersion(device, file.Version, file.IsInvalid(), file.IsDeleted())
-		vl.Versions = append(vl.Versions, nv)
+func (vl VersionList) update(folder, device []byte, file protocol.FileIntf, t readOnlyTransaction) (VersionList, FileVersion, FileVersion, FileVersion, bool, bool, bool, error) {
+	if len(vl.RawVersions) == 0 {
+		nv := newFileVersion(device, file.FileVersion(), file.IsInvalid(), file.IsDeleted())
+		vl.RawVersions = append(vl.RawVersions, nv)
 		return vl, nv, FileVersion{}, FileVersion{}, false, false, true, nil
 	}
 
-	oldFV := vl.Versions[0]
-	vl, removedFV, haveRemoved, globalChanged := vl.pop(device)
+	// Get the current global (before updating)
+	oldFV, haveOldGlobal := vl.GetGlobal()
 
-	var err error
-	var i int
-	vl, i, err = vl.insert(folder, device, file, t)
+	// Remove ourselves first
+	vl, removedFV, haveRemoved, _, err := vl.pop(folder, device, []byte(file.FileName()), t)
+	if err == nil {
+		// Find position and insert the file
+		vl, err = vl.insert(folder, device, file, t)
+	}
 	if err != nil {
 		return vl, FileVersion{}, FileVersion{}, FileVersion{}, false, false, false, err
 	}
 
-	// Nothing has changed regarding the global (first) version
-	if i != 0 && !globalChanged {
-		return vl, vl.Versions[0], vl.Versions[0], removedFV, true, haveRemoved, false, nil
+	newFV, _ := vl.GetGlobal() // We just inserted something above, can't be empty
+
+	if !haveOldGlobal {
+		return vl, newFV, FileVersion{}, removedFV, false, haveRemoved, true, nil
 	}
 
-	newFV := vl.Versions[0]
-
-	globalChanged = true
-	if oldFV.Invalid == newFV.Invalid && oldFV.Version.Equal(newFV.Version) {
+	globalChanged := true
+	if oldFV.IsInvalid() == newFV.IsInvalid() && oldFV.Version.Equal(newFV.Version) {
 		globalChanged = false
 	}
 
 	return vl, newFV, oldFV, removedFV, true, haveRemoved, globalChanged, nil
 }
 
-func (vl VersionList) insert(folder, device []byte, file protocol.FileIntf, t readOnlyTransaction) (VersionList, int, error) {
-	// Find position and insert the file in
+func (vl VersionList) insert(folder, device []byte, file protocol.FileIntf, t readOnlyTransaction) (VersionList, error) {
 	var added bool
 	var err error
 	i := 0
-	// Always sort invalid files behind valid ones regardless of version
-	if file.IsInvalid() {
-		i = sort.Search(len(vl.Versions), func(j int) bool {
-			return vl.Versions[j].Invalid
-		})
-	}
-	for ; i < len(vl.Versions); i++ {
+	for ; i < len(vl.RawVersions); i++ {
 		// Insert our new version
 		vl, added, err = vl.checkInsertAt(i, folder, device, []byte(file.FileName()), file.FileVersion(), file.IsInvalid(), file.IsDeleted(), file, true, t)
 		if err != nil {
-			return vl, -1, err
+			return vl, err
 		}
 		if added {
 			break
 		}
 	}
-	if i == len(vl.Versions) {
-		// We didn't find a position for an insert above, so append to the end.
-		nv := newFileVersion(device, file.FileVersion(), file.IsInvalid(), file.IsDeleted())
-		vl.Versions = append(vl.Versions, nv)
+	if i == len(vl.RawVersions) {
+		// Append to the end
+		vl.RawVersions = append(vl.RawVersions, newFileVersion(device, file.FileVersion(), file.IsInvalid(), file.IsDeleted()))
 	}
-	return vl, i, nil
+	return vl, nil
 }
 
 func (vl VersionList) insertAt(i int, v FileVersion) VersionList {
-	vl.Versions = append(vl.Versions, FileVersion{})
-	copy(vl.Versions[i+1:], vl.Versions[i:])
-	vl.Versions[i] = v
+	vl.RawVersions = append(vl.RawVersions, FileVersion{})
+	copy(vl.RawVersions[i+1:], vl.RawVersions[i:])
+	vl.RawVersions[i] = v
 	return vl
 }
 
 // pop returns the VersionList without the entry for the given device, as well
 // as the removed FileVersion, whether it was found/removed at all and whether
 // the global changed in the process.
-func (vl VersionList) pop(device []byte) (VersionList, FileVersion, bool, bool) {
-	i := 0
-	for ; i < len(vl.Versions); i++ {
-		if bytes.Equal(vl.Versions[i].Device, device) {
-			break
-		}
+func (vl VersionList) pop(folder, device, name []byte, t readOnlyTransaction) (VersionList, FileVersion, bool, bool, error) {
+	invDevice, i, j, ok := vl.findDevice(device)
+	if !ok {
+		return vl, FileVersion{}, false, false, nil
 	}
-	if i == len(vl.Versions) {
-		return vl, FileVersion{}, false, false
+	globalPos := vl.findGlobal()
+
+	if vl.RawVersions[i].deviceCount() == 1 {
+		fv := vl.RawVersions[i]
+		vl.RawVersions = popVersionAt(vl.RawVersions, i)
+		return vl, fv, true, globalPos == i, nil
 	}
-	if i != 0 {
-		removedFV := vl.Versions[i]
-		vl.Versions = append(vl.Versions[:i], vl.Versions[i+1:]...)
-		return vl, removedFV, true, false
+
+	if invDevice {
+		vl.RawVersions[i].InvalidDevices = popDeviceAt(vl.RawVersions[i].InvalidDevices, j)
+	} else {
+		vl.RawVersions[i].Devices = popDeviceAt(vl.RawVersions[i].Devices, j)
 	}
-	if len(vl.Versions) == 1 {
-		return VersionList{}, vl.Versions[0], true, true
+	// If the last valid device of the previous global was removed above,
+	// the next entry is now the global entry (unless all entries are invalid).
+	if len(vl.RawVersions[i].Devices) == 0 && globalPos == i {
+		return vl, vl.RawVersions[i], true, globalPos == vl.findGlobal(), nil
 	}
-	removedFV := vl.Versions[0]
-	unchanged := vl.Versions[0].Invalid == vl.Versions[1].Invalid && vl.Versions[0].Version.Equal(vl.Versions[1].Version)
-	vl.Versions = vl.Versions[1:]
-	return vl, removedFV, true, !unchanged
+	return vl, vl.RawVersions[i], true, false, nil
 }
 
+// Get returns a FileVersion that contains the given device and whether it has
+// been found at all.
 func (vl VersionList) Get(device []byte) (FileVersion, bool) {
-	for _, v := range vl.Versions {
-		if bytes.Equal(v.Device, device) {
-			return v, true
+	_, i, _, ok := vl.findDevice(device)
+	if !ok {
+		return FileVersion{}, false
+	}
+	return vl.RawVersions[i], true
+}
+
+func (vl VersionList) GetGlobal() (FileVersion, bool) {
+	i := vl.findGlobal()
+	if i == -1 {
+		return FileVersion{}, false
+	}
+	return vl.RawVersions[i], true
+}
+
+func (vl VersionList) Empty() bool {
+	return len(vl.RawVersions) == 0
+}
+
+func (vl VersionList) findGlobal() int {
+	for i, fv := range vl.RawVersions {
+		if !fv.IsInvalid() {
+			return i
 		}
 	}
+	if len(vl.RawVersions) == 0 {
+		return -1
+	}
+	return 0
+}
 
-	return FileVersion{}, false
+// findDevices returns whether the device is in InvalidVersions or Versions and
+// in InvalidDevices or Devices (true for invalid), the positions in the version
+// and device slices and whether it has been found at all.
+func (vl VersionList) findDevice(device []byte) (bool, int, int, bool) {
+	for i, v := range vl.RawVersions {
+		if j := deviceIndex(v.Devices, device); j != -1 {
+			return false, i, j, true
+		}
+		if j := deviceIndex(v.InvalidDevices, device); j != -1 {
+			return true, i, j, true
+		}
+	}
+	return false, -1, -1, false
 }
 
 func (vl VersionList) checkInsertAt(i int, folder, device, name []byte, version protocol.Vector, invalid, deleted bool, file protocol.FileIntf, haveFile bool, t readOnlyTransaction) (VersionList, bool, error) {
-	ordering := vl.Versions[i].Version.Compare(version)
-	insert, err := shouldInsertBefore(ordering, folder, device, vl.Versions[i].Device, name, version, file, haveFile, t)
+	ordering := vl.RawVersions[i].Version.Compare(version)
+	if ordering == protocol.Equal {
+		if !invalid {
+			vl.RawVersions[i].Devices = append(vl.RawVersions[i].Devices, device)
+		} else {
+			vl.RawVersions[i].InvalidDevices = append(vl.RawVersions[i].InvalidDevices, device)
+		}
+		return vl, true, nil
+	}
+	insert, err := shouldInsertBefore(ordering, folder, device, vl.RawVersions[i].Devices[0], name, version, file, haveFile, t)
 	if err != nil {
 		return vl, false, err
 	}
@@ -331,8 +388,8 @@ func (vl VersionList) checkInsertAt(i int, folder, device, name []byte, version 
 
 func shouldInsertBefore(ordering protocol.Ordering, folder, device, existingDevice, name []byte, version protocol.Vector, file protocol.FileIntf, haveFile bool, t readOnlyTransaction) (bool, error) {
 	switch ordering {
-	case protocol.Equal, protocol.Lesser:
-		// The version at this point in the list is equal to or lesser
+	case protocol.Lesser:
+		// The version at this point in the list is lesser
 		// ("older") than us. We insert ourselves in front of it.
 		return true, nil
 
@@ -367,13 +424,78 @@ func shouldInsertBefore(ordering protocol.Ordering, folder, device, existingDevi
 	return false, nil
 }
 
+func deviceIndex(devices [][]byte, device []byte) int {
+	for i, dev := range devices {
+		if bytes.Equal(device, dev) {
+			return i
+		}
+	}
+	return -1
+}
+
+func popDeviceAt(devices [][]byte, i int) [][]byte {
+	return append(devices[:i], devices[i+1:]...)
+}
+
+func popDevice(devices [][]byte, device []byte) ([][]byte, bool) {
+	i := deviceIndex(devices, device)
+	if i == -1 {
+		return devices, false
+	}
+	return popDeviceAt(devices, i), true
+}
+
+func versionIndex(versions []FileVersion, version protocol.Vector) int {
+	for i, v := range versions {
+		if version.Equal(v.Version) {
+			return i
+		}
+	}
+	return -1
+}
+
+func popVersionAt(versions []FileVersion, i int) []FileVersion {
+	return append(versions[:i], versions[i+1:]...)
+}
+
+func popVersion(versions []FileVersion, version protocol.Vector) ([]FileVersion, FileVersion, bool) {
+	i := versionIndex(versions, version)
+	if i == -1 {
+		return versions, FileVersion{}, false
+	}
+	fv := versions[i]
+	return popVersionAt(versions, i), fv, true
+}
+
 func newFileVersion(device []byte, version protocol.Vector, invalid, deleted bool) FileVersion {
-	return FileVersion{
-		Device:  device,
+	fv := FileVersion{
 		Version: version,
-		Invalid: invalid,
 		Deleted: deleted,
 	}
+	if invalid {
+		fv.InvalidDevices = [][]byte{device}
+	} else {
+		fv.Devices = [][]byte{device}
+	}
+	return fv
+}
+
+func (fv FileVersion) FirstDevice() ([]byte, bool) {
+	if len(fv.Devices) != 0 {
+		return fv.Devices[0], true
+	}
+	if len(fv.InvalidDevices) != 0 {
+		return fv.InvalidDevices[0], true
+	}
+	return nil, false
+}
+
+func (fv FileVersion) IsInvalid() bool {
+	return len(fv.Devices) == 0
+}
+
+func (fv FileVersion) deviceCount() int {
+	return len(fv.Devices) + len(fv.InvalidDevices)
 }
 
 type fileList []protocol.FileInfo

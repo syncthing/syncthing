@@ -254,7 +254,7 @@ func TestUpdate0to3(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var vl VersionList
+		var vl VersionListDeprecated
 		if err := vl.Unmarshal(bs); err != nil {
 			t.Fatal(err)
 		}
@@ -560,7 +560,7 @@ func TestUpdateTo10(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, v := range vl.Versions {
+	for _, v := range vl.RawVersions {
 		if !v.Deleted {
 			t.Error("Unexpected undeleted global version for a")
 		}
@@ -570,10 +570,10 @@ func TestUpdateTo10(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !vl.Versions[0].Deleted {
+	if !vl.RawVersions[0].Deleted {
 		t.Error("vl.Versions[0] not deleted for b")
 	}
-	if vl.Versions[1].Deleted {
+	if vl.RawVersions[1].Deleted {
 		t.Error("vl.Versions[1] deleted for b")
 	}
 	// c
@@ -581,10 +581,10 @@ func TestUpdateTo10(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if vl.Versions[0].Deleted {
+	if vl.RawVersions[0].Deleted {
 		t.Error("vl.Versions[0] deleted for c")
 	}
-	if !vl.Versions[1].Deleted {
+	if !vl.RawVersions[1].Deleted {
 		t.Error("vl.Versions[1] not deleted for c")
 	}
 }
