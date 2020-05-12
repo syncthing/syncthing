@@ -603,18 +603,13 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	// even if both new and old are invalid, due to potential change in
 	// LocalFlags.
 
+	// Neither the global state nor the needs of any devices, except the one
+	// updated, changed.
 	if globalUnaffected {
-		// Neither the global state nor the needs of any devices, except
-		// the one updated, changed.
 		return keyBuf, true, nil
 	}
 
-	if !gotGlobal {
-		if global, err = t.updateGlobalGetGlobal(keyBuf, folder, name, file, insertedAt, fl); err != nil {
-			return nil, false, err
-		}
-		gotGlobal = true
-	}
+	// Remove the old global from the global size counter
 	if haveOldGlobal {
 		if !gotOldGlobal {
 			if oldGlobal, err = t.updateGlobalGetOldGlobal(keyBuf, folder, name, oldGlobalFV); err != nil {
@@ -622,11 +617,16 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 			}
 			gotOldGlobal = true
 		}
-		// Remove the old global from the global size counter
 		meta.removeFile(protocol.GlobalDeviceID, oldGlobal)
 	}
 
 	// Add the new global to the global size counter
+	if !gotGlobal {
+		if global, err = t.updateGlobalGetGlobal(keyBuf, folder, name, file, insertedAt, fl); err != nil {
+			return nil, false, err
+		}
+		gotGlobal = true
+	}
 	meta.addFile(protocol.GlobalDeviceID, global)
 
 	// If global changed, but both the new and old are invalid, noone needed
