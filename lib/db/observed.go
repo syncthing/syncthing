@@ -199,6 +199,9 @@ func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) error {
 			if !dropDev {
 				continue
 			}
+			l.Debugf("Removing marked pending device %v", deviceID)
+		} else {
+			l.Warnln("Invalid pending device entry, deleting from database: %v", keyDev)
 		}
 		if err := db.Delete(iter.Key()); err != nil {
 			l.Warnf("Failed to remove pending device entry: %v", err)
@@ -235,7 +238,12 @@ func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) error {
 				if !folders[string(folderID)] {
 					continue
 				}
+				l.Debugf("Removing marked pending folder %v for %v", string(folderID), deviceID)
+			} else {
+				l.Debugf("Removing pending folder offered by %v", deviceID)
 			}
+		} else {
+			l.Warnln("Invalid pending folder entry, deleting from database: %v", keyDev)
 		}
 		if err := db.Delete(iter.Key()); err != nil {
 			l.Warnf("Failed to remove pending folder entry: %v", err)
