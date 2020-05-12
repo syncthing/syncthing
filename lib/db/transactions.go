@@ -810,6 +810,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 		return keyBuf, nil
 	}
 
+	// Add to global
 	globalFV := fl.Versions[0]
 	keyBuf, err = t.keyer.GenerateDeviceFileKey(keyBuf, folder, globalFV.Device, file)
 	if err != nil {
@@ -824,17 +825,15 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device []byte
 	}
 	meta.addFile(protocol.GlobalDeviceID, global)
 
+	// Add potential needs for the removed device
 	if !globalFV.Invalid {
-		if fv, have := fl.Get(protocol.LocalDeviceID[:]); need(globalFV, have, fv.Version) {
+		if fv, have := fl.Get(device); need(globalFV, have, fv.Version) {
+			if bytes.Equal(protocol.LocalDeviceID[:], device) {
+				if keyBuf, err = t.updateLocalNeed(keyBuf, folder, file, true); err != nil {
+					return nil, err
+				}
+			}
 			meta.addNeeded(deviceID, global)
-			if keyBuf, err = t.updateLocalNeed(keyBuf, folder, file, true); err != nil {
-				return nil, err
-			}
-		}
-		for _, dev := range meta.devices() {
-			if fv, have := fl.Get(dev[:]); need(globalFV, have, fv.Version) {
-				meta.addNeeded(deviceID, global)
-			}
 		}
 	}
 
