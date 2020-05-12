@@ -212,14 +212,8 @@ func (vl VersionList) String() string {
 // had the global/newest version, a boolean indicating if the global version has
 // changed and if any error occurred (only possible in db interaction).
 func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t readOnlyTransaction) (VersionList, FileVersion, FileVersion, FileVersion, bool, bool, bool, error) {
-	nv := FileVersion{
-		Device:  device,
-		Version: file.Version,
-		Invalid: file.IsInvalid(),
-		Deleted: file.IsDeleted(),
-	}
-
 	if len(vl.Versions) == 0 {
+		nv := newFileVersion(device, file.Version, file.IsInvalid(), file.IsDeleted())
 		vl.Versions = append(vl.Versions, nv)
 		return vl, nv, FileVersion{}, FileVersion{}, false, false, true, nil
 	}
@@ -227,46 +221,11 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t re
 	oldFV := vl.Versions[0]
 	vl, removedFV, haveRemoved, globalChanged := vl.pop(device)
 
-	// Find position and insert the file in
-	i := 0
-	// Always sort invalid files behind valid ones regardless of version
-	if nv.Invalid {
-		i = sort.Search(len(vl.Versions), func(j int) bool {
-			return vl.Versions[j].Invalid
-		})
-	}
-outer:
-	for ; i < len(vl.Versions); i++ {
-		switch vl.Versions[i].Version.Compare(file.Version) {
-		case protocol.Equal:
-			fallthrough
-
-		case protocol.Lesser:
-			// The version at this point in the list is equal to or lesser
-			// ("older") than us. We insert ourselves in front of it.
-			vl = vl.insertAt(i, nv)
-			break outer
-
-		case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
-			// The version at this point is in conflict with us. We must pull
-			// the actual file metadata to determine who wins. If we win, we
-			// insert ourselves in front of the loser here. (The "Lesser" and
-			// "Greater" in the condition above is just based on the device
-			// IDs in the version vector, which is not the only thing we use
-			// to determine the winner.)
-			//
-			// A surprise missing file entry here is counted as a win for us.
-			if of, ok, err := t.getFile(folder, vl.Versions[i].Device, []byte(file.Name)); err != nil {
-				return vl, FileVersion{}, FileVersion{}, FileVersion{}, false, false, false, err
-			} else if !ok || protocol.WinsConflict(file, of) {
-				vl = vl.insertAt(i, nv)
-				break outer
-			}
-		}
-	}
-	if i == len(vl.Versions) {
-		// We didn't find a position for an insert above, so append to the end.
-		vl.Versions = append(vl.Versions, nv)
+	var err error
+	var i int
+	vl, i, err = vl.insert(folder, device, file, t)
+	if err != nil {
+		return vl, FileVersion{}, FileVersion{}, FileVersion{}, false, false, false, err
 	}
 
 	// Nothing has changed regarding the global (first) version
@@ -282,6 +241,35 @@ outer:
 	}
 
 	return vl, newFV, oldFV, removedFV, true, haveRemoved, globalChanged, nil
+}
+
+func (vl VersionList) insert(folder, device []byte, file protocol.FileIntf, t readOnlyTransaction) (VersionList, int, error) {
+	// Find position and insert the file in
+	var added bool
+	var err error
+	i := 0
+	// Always sort invalid files behind valid ones regardless of version
+	if file.IsInvalid() {
+		i = sort.Search(len(vl.Versions), func(j int) bool {
+			return vl.Versions[j].Invalid
+		})
+	}
+	for ; i < len(vl.Versions); i++ {
+		// Insert our new version
+		vl, added, err = vl.checkInsertAt(i, folder, device, []byte(file.FileName()), file.FileVersion(), file.IsInvalid(), file.IsDeleted(), file, true, t)
+		if err != nil {
+			return vl, -1, err
+		}
+		if added {
+			break
+		}
+	}
+	if i == len(vl.Versions) {
+		// We didn't find a position for an insert above, so append to the end.
+		nv := newFileVersion(device, file.FileVersion(), file.IsInvalid(), file.IsDeleted())
+		vl.Versions = append(vl.Versions, nv)
+	}
+	return vl, i, nil
 }
 
 func (vl VersionList) insertAt(i int, v FileVersion) VersionList {
@@ -326,6 +314,66 @@ func (vl VersionList) Get(device []byte) (FileVersion, bool) {
 	}
 
 	return FileVersion{}, false
+}
+
+func (vl VersionList) checkInsertAt(i int, folder, device, name []byte, version protocol.Vector, invalid, deleted bool, file protocol.FileIntf, haveFile bool, t readOnlyTransaction) (VersionList, bool, error) {
+	ordering := vl.Versions[i].Version.Compare(version)
+	insert, err := shouldInsertBefore(ordering, folder, device, vl.Versions[i].Device, name, version, file, haveFile, t)
+	if err != nil {
+		return vl, false, err
+	}
+	if insert {
+		vl = vl.insertAt(i, newFileVersion(device, version, invalid, deleted))
+		return vl, true, nil
+	}
+	return vl, false, nil
+}
+
+func shouldInsertBefore(ordering protocol.Ordering, folder, device, existingDevice, name []byte, version protocol.Vector, file protocol.FileIntf, haveFile bool, t readOnlyTransaction) (bool, error) {
+	switch ordering {
+	case protocol.Equal, protocol.Lesser:
+		// The version at this point in the list is equal to or lesser
+		// ("older") than us. We insert ourselves in front of it.
+		return true, nil
+
+	case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
+		// The version in conflict with us. We must pull
+		// the actual file metadata to determine who wins. If we win, we
+		// insert ourselves in front of the loser here. (The "Lesser" and
+		// "Greater" in the condition above is just based on the device
+		// IDs in the version vector, which is not the only thing we use
+		// to determine the winner.)
+		of, ok, err := t.getFile(folder, existingDevice, name)
+		if err != nil {
+			return false, err
+		}
+		// A surprise missing file entry here is counted as a win for us.
+		if !ok {
+			return true, nil
+		}
+		if !haveFile {
+			file, ok, err = t.getFile(folder, device, name)
+			if !ok {
+				return false, errEntryFromGlobalMissing
+			}
+		}
+		if err != nil {
+			return false, err
+		}
+		if protocol.WinsConflict(file, of) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func newFileVersion(device []byte, version protocol.Vector, invalid, deleted bool) FileVersion {
+	return FileVersion{
+		Device:  device,
+		Version: version,
+		Invalid: invalid,
+		Deleted: deleted,
+	}
 }
 
 type fileList []protocol.FileInfo
