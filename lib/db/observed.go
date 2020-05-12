@@ -226,7 +226,10 @@ func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) error {
 			deviceID := protocol.DeviceIDFromBytes(keyDev)
 			folders, keepDev := dropList[deviceID]
 			// Check the associated set of folders if provided, otherwise drop.
-			if keepDev && folders != nil {
+			if keepDev {
+				if len(folders) == 0 {
+					continue
+				}
 				folderID := db.keyer.FolderFromPendingFolderKey(iter.Key())
 				// Remove only mentioned folder IDs
 				if !folders[string(folderID)] {
