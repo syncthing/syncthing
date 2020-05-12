@@ -189,7 +189,10 @@ func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) error {
 		if err != nil {
 			return err
 		}
-		if keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key()); ok {
+		keyDev := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
+		//FIXME: DeviceIDFromBytes() panics when given a wrong length input.
+		//       It should rather return an error which we'd check for here.
+		if len(keyDev) == protocol.DeviceIDLength {
 			// Valid entries are looked up in the drop-list, invalid ones cleaned up
 			deviceID := protocol.DeviceIDFromBytes(keyDev)
 			_, dropDev := dropList[deviceID]
