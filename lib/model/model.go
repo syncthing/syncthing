@@ -2484,14 +2484,16 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	fromDevices := from.DeviceMap()
 	toDevices := to.DeviceMap()
 	for deviceID, toCfg := range toDevices {
+		if deviceID != to.MyID {
+			// Forget pending devices that are now added
+			forgetPending.MarkDevice(deviceID)
+		}
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
 			sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
 			m.fmut.Lock()
 			m.deviceStatRefs[deviceID] = sr
 			m.fmut.Unlock()
-			// Forget pending devices that are now added
-			forgetPending.MarkDevice(deviceID)
 			continue
 		}
 		delete(fromDevices, deviceID)
