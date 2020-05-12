@@ -2449,8 +2449,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			// Forget pending folder device associations as well, assuming the
 			// folder is no longer of interest at all (but might become
 			// pending again).
-			for _, device := range fromCfg.Devices {
-				forgetPending.MarkFolder(folderID, []protocol.DeviceID{device.DeviceID}, to.MyID)
+			for _, dev := range from.Devices {
+				forgetPending.MarkFolder(folderID, []protocol.DeviceID{dev.DeviceID}, to.MyID)
 			}
 			continue
 		}
