@@ -2427,9 +2427,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	forgetPending := make(db.DropListObserved)
 	for folderID, cfg := range toFolders {
 		// Record shared devices of this folder to remove possibly pending entries
-		for _, device := range cfg.Devices {
-			forgetPending.MarkFolder(cfg.ID, []protocol.DeviceID{device.DeviceID}, to.MyID)
-		}
+		forgetPending.MarkFolder(cfg.ID, cfg.DeviceIDs(), to.MyID)
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
