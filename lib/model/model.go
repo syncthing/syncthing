@@ -2493,7 +2493,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			m.deviceStatRefs[deviceID] = sr
 			m.fmut.Unlock()
 			// Forget pending devices that are now added
-			m.db.RemovePendingDevice(deviceID)
+			forgetPending.MarkDevice(deviceID)
 			continue
 		}
 		delete(fromDevices, deviceID)
