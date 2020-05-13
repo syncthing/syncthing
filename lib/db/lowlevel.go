@@ -198,7 +198,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		blocksHashSame := ok && bytes.Equal(ef.BlocksHash, f.BlocksHash)
 
 		if ok {
-			if !ef.IsDirectory() && !ef.IsDeleted() && !ef.IsInvalid() {
+			if len(ef.Blocks) != 0 {
 				for _, block := range ef.Blocks {
 					keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
 					if err != nil {
@@ -259,7 +259,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		}
 		l.Debugf("adding sequence; folder=%q sequence=%v %v", folder, f.Sequence, f.Name)
 
-		if !f.IsDirectory() && !f.IsDeleted() && !f.IsInvalid() {
+		if len(f.Blocks) != 0 {
 			for i, block := range f.Blocks {
 				binary.BigEndian.PutUint32(blockBuf, uint32(i))
 				keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
