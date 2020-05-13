@@ -17,14 +17,8 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func fixLongPath(path string) string {
-	//TODO: extract the implementation from https://golang.org/src/os/path_windows.go
-	//Probably not necessary, as all walked paths are Canonicalize()-d.
-	return path
-}
-
 func isDirectoryJunction(path string) (bool, error) {
-	namep, err := syscall.UTF16PtrFromString(fixLongPath(path))
+	namep, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
 		return false, fmt.Errorf("syscall.UTF16PtrFromString failed with: %s", err)
 	}
