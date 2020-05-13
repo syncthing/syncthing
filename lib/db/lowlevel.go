@@ -642,6 +642,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		FPRate:   indirectGCBloomFalsePositiveRate,
 		MaxBits:  8 * indirectGCBloomMaxBytes,
 	})
+
 	// Iterate the FileInfos, unmarshal the block and version hashes and
 	// add them to the filter.
 

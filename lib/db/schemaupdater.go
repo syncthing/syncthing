@@ -454,7 +454,7 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 }
 
 func (db *schemaUpdater) updateSchemaTo9(prev int) error {
-	// Loads and rewrites all files, to deduplicate block lists.
+	// Loads and rewrites all files with blocks, to deduplicate block lists.
 
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
@@ -465,6 +465,9 @@ func (db *schemaUpdater) updateSchemaTo9(prev int) error {
 	if err := db.rewriteFiles(t); err != nil {
 		return err
 	}
+
+	db.recordTime(indirectGCTimeKey)
+
 	return t.Commit()
 }
 
@@ -488,6 +491,9 @@ func (db *schemaUpdater) rewriteFiles(t readWriteTransaction) error {
 			return err
 		}
 		fi := intf.(protocol.FileInfo)
+		if fi.Blocks == nil {
+			continue
+		}
 		if err := t.putFile(it.Key(), fi, false); err != nil {
 			return err
 		}
@@ -622,5 +628,6 @@ func (db *schemaUpdater) updateSchemaTo12(_ int) error {
 	if err := db.rewriteFiles(t); err != nil {
 		return err
 	}
+
 	return t.Commit()
 }
