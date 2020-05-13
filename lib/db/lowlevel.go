@@ -15,6 +15,7 @@ import (
 	"github.com/greatroar/blobloom"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture"
@@ -632,16 +633,8 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	if db.gcKeyCount > capacity {
 		capacity = db.gcKeyCount
 	}
-	blockFilter := blobloom.NewOptimized(blobloom.Config{
-		Capacity: uint64(capacity),
-		FPRate:   indirectGCBloomFalsePositiveRate,
-		MaxBits:  8 * indirectGCBloomMaxBytes,
-	})
-	versionFilter := blobloom.NewOptimized(blobloom.Config{
-		Capacity: uint64(capacity),
-		FPRate:   indirectGCBloomFalsePositiveRate,
-		MaxBits:  8 * indirectGCBloomMaxBytes,
-	})
+	blockFilter := newBloomFilter(capacity)
+	versionFilter := newBloomFilter(capacity)
 
 	// Iterate the FileInfos, unmarshal the block and version hashes and
 	// add them to the filter.
@@ -691,7 +684,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		}
 
 		key := blockListKey(it.Key())
-		if blockFilter.Has(bloomHash(key.BlocksHash())) {
+		if blockFilter.Has(bloomHash(key.Hash())) {
 			matchedBlocks++
 			continue
 		}
@@ -713,8 +706,14 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	}
 	matchedVersions := 0
 	for it.Next() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		key := versionKey(it.Key())
-		if versionFilter.Has(bloomHash(key.VersionHash())) {
+		if versionFilter.Has(bloomHash(key.Hash())) {
 			matchedVersions++
 			continue
 		}
@@ -740,9 +739,20 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	return db.Compact()
 }
 
+func newBloomFilter(capacity int) *blobloom.Filter {
+	return blobloom.NewOptimized(blobloom.Config{
+		Capacity: uint64(capacity),
+		FPRate:   indirectGCBloomFalsePositiveRate,
+		MaxBits:  8 * indirectGCBloomMaxBytes,
+	})
+}
+
 // Hash function for the bloomfilter: first eight bytes of the SHA-256.
 // Big or little-endian makes no difference, as long as we're consistent.
 func bloomHash(key []byte) uint64 {
+	if len(key) != sha256.Size {
+		panic("bug: bloomHash passed something not a SHA256 hash")
+	}
 	return binary.BigEndian.Uint64(key)
 }
 

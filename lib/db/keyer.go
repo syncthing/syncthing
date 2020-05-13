@@ -334,7 +334,7 @@ func (k defaultKeyer) GenerateBlockListKey(key []byte, hash []byte) blockListKey
 	return key
 }
 
-func (k blockListKey) BlocksHash() []byte {
+func (k blockListKey) Hash() []byte {
 	return k[keyPrefixLen:]
 }
 
@@ -347,7 +347,7 @@ func (k defaultKeyer) GenerateVersionKey(key []byte, hash []byte) versionKey {
 	return key
 }
 
-func (k versionKey) VersionHash() []byte {
+func (k versionKey) Hash() []byte {
 	return k[keyPrefixLen:]
 }
 
