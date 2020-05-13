@@ -471,7 +471,7 @@ nextFile:
 			// map.
 			desired := fileDeletions[candidate.Name]
 			if err := f.renameFile(candidate, desired, fi, snap, dbUpdateChan, scanChan); err != nil {
-				l.Debugln("rename shortcut for %s failed: %S", fi.Name, err.Error())
+				l.Debugf("rename shortcut for %s failed: %S", fi.Name, err.Error())
 				// Failed to rename, try next one.
 				continue
 			}
