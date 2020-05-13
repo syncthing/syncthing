@@ -7,13 +7,16 @@
 package fs
 
 import (
+	"fmt"
+	osexec "os/exec"
+	"path/filepath"
 	"runtime"
 	"testing"
 )
 
 func testWalkSkipSymlink(t *testing.T, fsType FilesystemType, uri string) {
 	if runtime.GOOS == "windows" {
-		t.Skip("Symlinks on windows")
+		t.Skip("Symlinks skipping is not tested on windows")
 	}
 
 	fs := NewFilesystem(fsType, uri)
@@ -37,5 +40,85 @@ func testWalkSkipSymlink(t *testing.T, fsType FilesystemType, uri string) {
 		return nil
 	}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func createDirJunct(target string, name string) error {
+	output, err := osexec.Command("cmd", "/c", "mklink", "/J", name, target).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Failed to run mklink %v %v: %v %q", name, target, err, output)
+	}
+	return nil
+}
+
+func testWalkTraverseDirJunct(t *testing.T, fsType FilesystemType, uri string) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Directory junctions are available and tested on windows only")
+	}
+
+	fs := NewFilesystem(fsType, uri)
+
+	if err := fs.MkdirAll("target/foo", 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.Mkdir("towalk", 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := createDirJunct(filepath.Join(uri, "target"), filepath.Join(uri, "towalk/dirjunct")); err != nil {
+		t.Fatal(err)
+	}
+	traversed := false
+	if err := fs.Walk("towalk", func(path string, info FileInfo, err error) error {
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Name() == "foo" {
+			traversed = true
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !traversed {
+		t.Fatal("Directory junction was not traversed")
+	}
+}
+
+func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Infinite recursion detection is tested on windows only")
+	}
+
+	fs := NewFilesystem(fsType, uri)
+
+	if err := fs.MkdirAll("target/foo", 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.Mkdir("towalk", 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := createDirJunct(filepath.Join(uri, "target"), filepath.Join(uri, "towalk/dirjunct")); err != nil {
+		t.Fatal(err)
+	}
+	if err := createDirJunct(filepath.Join(uri, "towalk"), filepath.Join(uri, "target/foo/recurse")); err != nil {
+		t.Fatal(err)
+	}
+	dirjunctCnt := 0
+	fooCnt := 0
+	if err := fs.Walk("towalk", func(path string, info FileInfo, err error) error {
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Name() == "dirjunct" {
+			dirjunctCnt++
+		} else if info.Name() == "foo" {
+			fooCnt++
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if dirjunctCnt != 2 || fooCnt != 1 {
+		t.Fatal("Infinite recursion not detected correctly")
 	}
 }

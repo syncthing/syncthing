@@ -577,3 +577,15 @@ func TestBasicWalkSkipSymlink(t *testing.T) {
 	defer os.RemoveAll(dir)
 	testWalkSkipSymlink(t, FilesystemTypeBasic, dir)
 }
+
+func TestWalkTraverseDirJunct(t *testing.T) {
+	_, dir := setup(t)
+	defer os.RemoveAll(dir)
+	testWalkTraverseDirJunct(t, FilesystemTypeBasic, dir)
+}
+
+func TestWalkInfiniteRecursion(t *testing.T) {
+	_, dir := setup(t)
+	defer os.RemoveAll(dir)
+	testWalkInfiniteRecursion(t, FilesystemTypeBasic, dir)
+}
