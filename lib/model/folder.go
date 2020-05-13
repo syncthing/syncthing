@@ -623,6 +623,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 }
 
 func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file protocol.FileInfo) (protocol.FileInfo, bool) {
+	if len(file.Blocks) == 0 {
+		return protocol.FileInfo{}, false
+	}
+
 	found := false
 	nf := protocol.FileInfo{}
 
