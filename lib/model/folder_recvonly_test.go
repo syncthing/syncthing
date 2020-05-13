@@ -9,7 +9,7 @@ package model
 import (
 	"bytes"
 	"context"
-	"path"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -371,7 +371,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	// Create a file and modify another
 
 	const file = "foo"
-	knownFile := path.Join("knownDir", "knownFile")
+	knownFile := filepath.Join("knownDir", "knownFile")
 	must(t, writeFile(ffs, file, []byte("hello\n"), 0644))
 	must(t, writeFile(ffs, knownFile, []byte("bye\n"), 0644))
 
