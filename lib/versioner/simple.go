@@ -103,10 +103,6 @@ func (v *simple) String() string {
 }
 
 func (v *simple) cleanOutArchive() error {
-	if _, err := v.versionsFs.Lstat("."); fs.IsNotExist(err) {
-		return nil
-	}
-
 	cutoff := time.Now().Add(time.Duration(-24*v.cleanOutDays) * time.Hour)
 	dirTracker := make(emptyDirTracker)
 
@@ -121,6 +117,10 @@ func (v *simple) cleanOutArchive() error {
 		}
 		
 		versionTime, err := time.ParseInLocation(TimeFormat, extractTag(path), time.Local)
+
+		if err != nil{
+			return nil
+		}
 		
 		if versionTime.Before(cutoff) {
 			// The file is too old; remove it.
