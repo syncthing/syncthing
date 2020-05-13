@@ -19,8 +19,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -90,35 +88,19 @@ func createFile(t *testing.T, name string, fs fs.Filesystem) protocol.FileInfo {
 	return file
 }
 
+// Sets up a folder and model, but makes sure the services aren't actually running.
 func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFolder) {
-	w := createTmpWrapper(defaultCfg)
-	model := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
-	fcfg := testFolderConfigTmp()
-	model.addFolder(fcfg)
-
-	f := &sendReceiveFolder{
-		folder: folder{
-			stateTracker:        newStateTracker("default", model.evLogger),
-			model:               model,
-			fset:                model.folderFiles[fcfg.ID],
-			initialScanFinished: make(chan struct{}),
-			ctx:                 context.TODO(),
-			FolderConfiguration: fcfg,
-		},
-
-		queue:         newJobQueue(),
-		pullErrors:    make(map[string]string),
-		pullErrorsMut: sync.NewMutex(),
-	}
-	f.fs = fs.NewMtimeFS(f.Filesystem(), db.NewNamespacedKV(model.db, "mtime"))
+	w, fcfg := tmpDefaultWrapper()
+	model := setupModel(w)
+	model.Supervisor.Stop()
+	f := model.folderRunners[fcfg.ID].(*sendReceiveFolder)
+	f.pullErrors = make(map[string]string)
+	f.ctx = context.Background()
 
 	// Update index
 	if files != nil {
 		f.updateLocalsFromScanning(files)
 	}
-
-	// Folders are never actually started, so no initial scan will be done
-	close(f.initialScanFinished)
 
 	return model, f
 }
@@ -391,7 +373,7 @@ func TestWeakHash(t *testing.T) {
 		case pull := <-pullChan:
 			pulls = append(pulls, pull)
 		case <-timeout:
-			t.Errorf("timed out, got %d pulls expected %d", len(pulls), expectPulls)
+			t.Fatalf("timed out, got %d pulls expected %d", len(pulls), expectPulls)
 		}
 	}
 	finish := <-finisherChan
@@ -419,7 +401,7 @@ func TestWeakHash(t *testing.T) {
 		case pull := <-pullChan:
 			pulls = append(pulls, pull)
 		case <-time.After(10 * time.Second):
-			t.Errorf("timed out, got %d pulls expected %d", len(pulls), expectPulls)
+			t.Fatalf("timed out, got %d pulls expected %d", len(pulls), expectPulls)
 		}
 	}
 
@@ -488,7 +470,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	}
 
 	pullChan := make(chan pullBlockState)
-	finisherBufferChan := make(chan *sharedPullerState)
+	finisherBufferChan := make(chan *sharedPullerState, 1)
 	finisherChan := make(chan *sharedPullerState)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 	snap := f.fset.Snapshot()
@@ -508,7 +490,12 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 	// Receive a block at puller, to indicate that at least a single copier
 	// loop has been performed.
-	toPull := <-pullChan
+	var toPull pullBlockState
+	select {
+	case toPull = <-pullChan:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
 
 	// Unblock copier
 	go func() {
@@ -1011,6 +998,49 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	}
 	if _, err := destFs.Stat("file"); err != nil {
 		t.Errorf("Expected no error when stating file behind symlink, got %v", err)
+	}
+}
+
+// Reproduces https://github.com/syncthing/syncthing/issues/6559
+func TestPullCtxCancel(t *testing.T) {
+	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
+
+	pullChan := make(chan pullBlockState)
+	finisherChan := make(chan *sharedPullerState)
+
+	var cancel context.CancelFunc
+	f.ctx, cancel = context.WithCancel(context.Background())
+
+	go f.pullerRoutine(pullChan, finisherChan)
+	defer close(pullChan)
+
+	emptyState := func() pullBlockState {
+		return pullBlockState{
+			sharedPullerState: newSharedPullerState(protocol.FileInfo{}, nil, f.folderID, "", nil, nil, false, false, protocol.FileInfo{}, false, false),
+			block:             protocol.BlockInfo{},
+		}
+	}
+
+	cancel()
+
+	done := make(chan struct{})
+	defer close(done)
+	for i := 0; i < 2; i++ {
+		go func() {
+			select {
+			case pullChan <- emptyState():
+			case <-done:
+			}
+		}()
+		select {
+		case s := <-finisherChan:
+			if s.failed() == nil {
+				t.Errorf("state %v not failed", i)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("timed out before receiving state %v on finisherChan", i)
+		}
 	}
 }
 

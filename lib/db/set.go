@@ -314,28 +314,11 @@ func (s *Snapshot) GlobalSize() Counts {
 	return global.Add(recvOnlyChanged)
 }
 
-func (s *Snapshot) NeedSize() Counts {
-	var result Counts
-	s.WithNeedTruncated(protocol.LocalDeviceID, func(f FileIntf) bool {
-		switch {
-		case f.IsDeleted():
-			result.Deleted++
-		case f.IsDirectory():
-			result.Directories++
-		case f.IsSymlink():
-			result.Symlinks++
-		default:
-			result.Files++
-			result.Bytes += f.FileSize()
-		}
-		return true
-	})
-	return result
+func (s *Snapshot) NeedSize(device protocol.DeviceID) Counts {
+	return s.meta.Counts(device, needFlag)
 }
 
-// LocalChangedFiles returns a paginated list of currently needed files in
-// progress, queued, and to be queued on next puller iteration, as well as the
-// total number of files currently needed.
+// LocalChangedFiles returns a paginated list of files that were changed locally.
 func (s *Snapshot) LocalChangedFiles(page, perpage int) []FileInfoTruncated {
 	if s.ReceiveOnlyChangedSize().TotalItems() == 0 {
 		return nil
@@ -380,6 +363,13 @@ func (s *Snapshot) RemoteNeedFolderFiles(device protocol.DeviceID, page, perpage
 		return get > 0
 	})
 	return files
+}
+
+func (s *Snapshot) WithBlocksHash(hash []byte, fn Iterator) {
+	l.Debugf(`%s WithBlocksHash("%x")`, s.folder, hash)
+	if err := s.t.withBlocksHash([]byte(s.folder), hash, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
+		panic(err)
+	}
 }
 
 func (s *FileSet) Sequence(device protocol.DeviceID) int64 {

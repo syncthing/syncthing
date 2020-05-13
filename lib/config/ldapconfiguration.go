@@ -11,6 +11,8 @@ type LDAPConfiguration struct {
 	BindDN             string        `xml:"bindDN,omitempty" json:"bindDN"`
 	Transport          LDAPTransport `xml:"transport,omitempty" json:"transport"`
 	InsecureSkipVerify bool          `xml:"insecureSkipVerify,omitempty" json:"insecureSkipVerify" default:"false"`
+	SearchBaseDN       string        `xml:"searchBaseDN,omitempty" json:"searchBaseDN"`
+	SearchFilter       string        `xml:"searchFilter,omitempty" json:"searchFilter"`
 }
 
 func (c LDAPConfiguration) Copy() LDAPConfiguration {

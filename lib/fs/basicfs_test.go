@@ -514,6 +514,10 @@ func TestNewBasicFilesystem(t *testing.T) {
 		t.Skip("non-windows root paths")
 	}
 
+	currentDir, err := filepath.Abs(".")
+	if err != nil {
+		t.Fatal(err)
+	}
 	testCases := []struct {
 		input        string
 		expectedRoot string
@@ -521,7 +525,8 @@ func TestNewBasicFilesystem(t *testing.T) {
 	}{
 		{"/foo/bar/baz", "/foo/bar/baz", "/foo/bar/baz"},
 		{"/foo/bar/baz/", "/foo/bar/baz", "/foo/bar/baz"},
-		{"", "/", "/"},
+		{"", currentDir, currentDir},
+		{".", currentDir, currentDir},
 		{"/", "/", "/"},
 	}
 

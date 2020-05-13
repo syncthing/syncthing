@@ -9,6 +9,7 @@ package model
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -24,7 +25,6 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -63,9 +63,10 @@ const retainBits = fs.ModeSetgid | fs.ModeSetuid | fs.ModeSticky
 var (
 	activity                  = newDeviceActivity()
 	errNoDevice               = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
-	errDirHasToBeScanned      = errors.New("directory contains unexpected files, scheduling scan")
-	errDirHasIgnored          = errors.New("directory contains ignored files (see ignore documentation for (?d) prefix)")
-	errDirNotEmpty            = errors.New("directory is not empty; files within are probably ignored on connected devices only")
+	errDirPrefix              = "directory has been deleted on a remote device but "
+	errDirHasToBeScanned      = errors.New(errDirPrefix + "contains unexpected files, scheduling scan")
+	errDirHasIgnored          = errors.New(errDirPrefix + "contains ignored files (see ignore documentation for (?d) prefix)")
+	errDirNotEmpty            = errors.New(errDirPrefix + "is not empty; the contents are probably ignored on that remote device, but not locally")
 	errNotAvailable           = errors.New("no connected device has the required version of this file")
 	errModified               = errors.New("file modified but not rescanned; will try again later")
 	errUnexpectedDirOnFileDel = errors.New("encountered directory when trying to remove file/symlink")
@@ -102,7 +103,9 @@ type sendReceiveFolder struct {
 	fs        fs.Filesystem
 	versioner versioner.Versioner
 
-	queue *jobQueue
+	queue              *jobQueue
+	blockPullReorderer blockPullReorderer
+	writeLimiter       *byteSemaphore
 
 	pullErrors    map[string]string // errors for most recent/current iteration
 	oldPullErrors map[string]string // errors from previous iterations for log filtering only
@@ -111,11 +114,13 @@ type sendReceiveFolder struct {
 
 func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger, ioLimiter *byteSemaphore) service {
 	f := &sendReceiveFolder{
-		folder:        newFolder(model, fset, ignores, cfg, evLogger, ioLimiter),
-		fs:            fs,
-		versioner:     ver,
-		queue:         newJobQueue(),
-		pullErrorsMut: sync.NewMutex(),
+		folder:             newFolder(model, fset, ignores, cfg, evLogger, ioLimiter),
+		fs:                 fs,
+		versioner:          ver,
+		queue:              newJobQueue(),
+		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
+		writeLimiter:       newByteSemaphore(cfg.MaxConcurrentWrites),
+		pullErrorsMut:      sync.NewMutex(),
 	}
 	f.folder.puller = f
 	f.folder.Service = util.AsService(f.serve, f.String())
@@ -140,11 +145,6 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 // pull returns true if it manages to get all needed items from peers, i.e. get
 // the device in sync with the global state.
 func (f *sendReceiveFolder) pull() bool {
-	if err := f.CheckHealth(); err != nil {
-		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-		return false
-	}
-
 	// Check if the ignore patterns changed.
 	oldHash := f.ignores.Hash()
 	defer func() {
@@ -152,9 +152,10 @@ func (f *sendReceiveFolder) pull() bool {
 			f.ignoresUpdated()
 		}
 	}()
-	if err := f.ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		err = errors.Wrap(err, "loading ignores")
-		f.setError(err)
+	err := f.getHealthErrorAndLoadIgnores()
+	f.setError(err)
+	if err != nil {
+		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
 		return false
 	}
 
@@ -355,7 +356,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
 					fileDeletions[file.Name] = file
 					// Put files into buckets per first hash
-					key := string(df.Blocks[0].Hash)
+					key := string(df.BlocksHash)
 					buckets[key] = append(buckets[key], df)
 				} else {
 					f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
@@ -458,30 +459,28 @@ nextFile:
 
 		// Check our list of files to be removed for a match, in which case
 		// we can just do a rename instead.
-		key := string(fi.Blocks[0].Hash)
+		key := string(fi.BlocksHash)
 		for i, candidate := range buckets[key] {
-			if candidate.BlocksEqual(fi) {
-				// Remove the candidate from the bucket
-				lidx := len(buckets[key]) - 1
-				buckets[key][i] = buckets[key][lidx]
-				buckets[key] = buckets[key][:lidx]
+			// Remove the candidate from the bucket
+			lidx := len(buckets[key]) - 1
+			buckets[key][i] = buckets[key][lidx]
+			buckets[key] = buckets[key][:lidx]
 
-				// candidate is our current state of the file, where as the
-				// desired state with the delete bit set is in the deletion
-				// map.
-				desired := fileDeletions[candidate.Name]
-				if err := f.renameFile(candidate, desired, fi, snap, dbUpdateChan, scanChan); err != nil {
-					// Failed to rename, try to handle files as separate
-					// deletions and updates.
-					break
-				}
-
-				// Remove the pending deletion (as we performed it by renaming)
-				delete(fileDeletions, candidate.Name)
-
-				f.queue.Done(fileName)
-				continue nextFile
+			// candidate is our current state of the file, where as the
+			// desired state with the delete bit set is in the deletion
+			// map.
+			desired := fileDeletions[candidate.Name]
+			if err := f.renameFile(candidate, desired, fi, snap, dbUpdateChan, scanChan); err != nil {
+				l.Debugln("rename shortcut for %s failed: %S", fi.Name, err.Error())
+				// Failed to rename, try next one.
+				continue
 			}
+
+			// Remove the pending deletion (as we performed it by renaming)
+			delete(fileDeletions, candidate.Name)
+
+			f.queue.Done(fileName)
+			continue nextFile
 		}
 
 		devices := snap.Availability(fileName)
@@ -784,7 +783,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 	}()
 
 	if err = f.deleteDirOnDisk(file.Name, snap, scanChan); err != nil {
-		f.newPullError(file.Name, errors.Wrap(err, "delete dir"))
+		f.newPullError(file.Name, err)
 		return
 	}
 
@@ -1073,8 +1072,8 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 		blocks = append(blocks, file.Blocks...)
 	}
 
-	// Shuffle the blocks
-	rand.Shuffle(blocks)
+	// Reorder blocks
+	blocks = f.blockPullReorderer.Reorder(blocks)
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
@@ -1083,30 +1082,12 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 		"action": "update",
 	})
 
-	s := sharedPullerState{
-		file:             file,
-		fs:               f.fs,
-		folder:           f.folderID,
-		tempName:         tempName,
-		realName:         file.Name,
-		copyTotal:        len(blocks),
-		copyNeeded:       len(blocks),
-		reused:           len(reused),
-		updated:          time.Now(),
-		available:        reused,
-		availableUpdated: time.Now(),
-		ignorePerms:      f.IgnorePerms || file.NoPermissions,
-		hasCurFile:       hasCurFile,
-		curFile:          curFile,
-		mut:              sync.NewRWMutex(),
-		sparse:           !f.DisableSparseFiles,
-		created:          time.Now(),
-	}
+	s := newSharedPullerState(file, f.fs, f.folderID, tempName, blocks, reused, f.IgnorePerms || file.NoPermissions, hasCurFile, curFile, !f.DisableSparseFiles, !f.DisableFsync)
 
 	l.Debugf("%v need file %s; copy %d, reused %v", f, file.Name, len(blocks), len(reused))
 
 	cs := copyBlocksState{
-		sharedPullerState: &s,
+		sharedPullerState: s,
 		blocks:            blocks,
 		have:              len(have),
 	}
@@ -1199,6 +1180,16 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		protocol.BufferPool.Put(buf)
 	}()
 
+	folderFilesystems := make(map[string]fs.Filesystem)
+	// Hope that it's usually in the same folder, so start with that one.
+	folders := []string{f.folderID}
+	for folder, cfg := range f.model.cfg.Folders() {
+		folderFilesystems[folder] = cfg.Filesystem()
+		if folder != f.folderID {
+			folders = append(folders, folder)
+		}
+	}
+
 	for state := range in {
 		if err := f.CheckAvailableSpace(state.file.Size); err != nil {
 			state.fail(err)
@@ -1215,13 +1206,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		}
 
 		f.model.progressEmitter.Register(state.sharedPullerState)
-
-		folderFilesystems := make(map[string]fs.Filesystem)
-		var folders []string
-		for folder, cfg := range f.model.cfg.Folders() {
-			folderFilesystems[folder] = cfg.Filesystem()
-			folders = append(folders, folder)
-		}
 
 		var file fs.File
 		var weakHashFinder *weakhash.Finder
@@ -1283,10 +1267,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					return true
 				}
 
-				_, err = dstFd.WriteAt(buf, block.Offset)
+				_, err = f.limitedWriteAt(dstFd, buf, block.Offset)
 				if err != nil {
 					state.fail(errors.Wrap(err, "dst write"))
-
 				}
 				if offset == block.Offset {
 					state.copiedFromOrigin()
@@ -1319,7 +1302,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						return false
 					}
 
-					_, err = dstFd.WriteAt(buf, block.Offset)
+					_, err = f.limitedWriteAt(dstFd, buf, block.Offset)
 					if err != nil {
 						state.fail(errors.Wrap(err, "dst write"))
 					}
@@ -1359,14 +1342,9 @@ func verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 	if len(buf) != int(block.Size) {
 		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
 	}
-	hf := sha256.New()
-	_, err := hf.Write(buf)
-	if err != nil {
-		return err
-	}
-	hash := hf.Sum(nil)
 
-	if !bytes.Equal(hash, block.Hash) {
+	hash := sha256.Sum256(buf)
+	if !bytes.Equal(hash[:], block.Hash) {
 		return fmt.Errorf("hash mismatch %x != %x", hash, block.Hash)
 	}
 
@@ -1393,7 +1371,9 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 		bytes := int(state.block.Size)
 
 		if err := requestLimiter.takeWithContext(f.ctx, bytes); err != nil {
-			break
+			state.fail(err)
+			out <- state.sharedPullerState
+			continue
 		}
 
 		wg.Add(1)
@@ -1471,7 +1451,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 		}
 
 		// Save the block data we got from the cluster
-		_, err = fd.WriteAt(buf, state.block.Offset)
+		_, err = f.limitedWriteAt(fd, buf, state.block.Offset)
 		if err != nil {
 			state.fail(errors.Wrap(err, "save"))
 		} else {
@@ -1604,15 +1584,17 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 		// sync directories
 		for dir := range changedDirs {
 			delete(changedDirs, dir)
-			fd, err := f.fs.Open(dir)
-			if err != nil {
-				l.Debugf("fsync %q failed: %v", dir, err)
-				continue
+			if !f.FolderConfiguration.DisableFsync {
+				fd, err := f.fs.Open(dir)
+				if err != nil {
+					l.Debugf("fsync %q failed: %v", dir, err)
+					continue
+				}
+				if err := fd.Sync(); err != nil {
+					l.Debugf("fsync %q failed: %v", dir, err)
+				}
+				fd.Close()
 			}
-			if err := fd.Sync(); err != nil {
-				l.Debugf("fsync %q failed: %v", dir, err)
-			}
-			fd.Close()
 		}
 
 		// All updates to file/folder objects that originated remotely
@@ -1959,6 +1941,14 @@ func (f *sendReceiveFolder) maybeCopyOwner(path string) error {
 
 func (f *sendReceiveFolder) inWritableDir(fn func(string) error, path string) error {
 	return inWritableDir(fn, f.fs, path, f.IgnorePerms)
+}
+
+func (f *sendReceiveFolder) limitedWriteAt(fd io.WriterAt, data []byte, offset int64) (int, error) {
+	if err := f.writeLimiter.takeWithContext(f.ctx, 1); err != nil {
+		return 0, err
+	}
+	defer f.writeLimiter.give(1)
+	return fd.WriteAt(data, offset)
 }
 
 // A []FileError is sent as part of an event and will be JSON serialized.

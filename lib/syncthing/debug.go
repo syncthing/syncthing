@@ -13,3 +13,7 @@ import (
 var (
 	l = logger.DefaultLogger.NewFacility("app", "Main run facility")
 )
+
+func shouldDebug() bool {
+	return l.ShouldDebug("app")
+}

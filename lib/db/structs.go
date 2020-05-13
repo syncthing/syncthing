@@ -140,6 +140,14 @@ func (f FileInfoTruncated) ConvertToDeletedFileInfo(by protocol.ShortID) protoco
 	return file
 }
 
+// ConvertDeletedToFileInfo converts a deleted truncated file info to a regular file info
+func (f FileInfoTruncated) ConvertDeletedToFileInfo() protocol.FileInfo {
+	if !f.Deleted {
+		panic("ConvertDeletedToFileInfo must only be called on deleted items")
+	}
+	return f.copyToFileInfo()
+}
+
 // copyToFileInfo just copies all members of FileInfoTruncated to protocol.FileInfo
 func (f FileInfoTruncated) copyToFileInfo() protocol.FileInfo {
 	return protocol.FileInfo{
@@ -179,6 +187,11 @@ func (c Counts) TotalItems() int32 {
 	return c.Files + c.Directories + c.Symlinks + c.Deleted
 }
 
+// Equal compares the numbers only, not sequence/dev/flags.
+func (c Counts) Equal(o Counts) bool {
+	return c.Files == o.Files && c.Directories == o.Directories && c.Symlinks == o.Symlinks && c.Deleted == o.Deleted && c.Bytes == o.Bytes
+}
+
 func (vl VersionList) String() string {
 	var b bytes.Buffer
 	var id protocol.DeviceID
@@ -204,6 +217,7 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t re
 		Device:  device,
 		Version: file.Version,
 		Invalid: file.IsInvalid(),
+		Deleted: file.IsDeleted(),
 	}
 	i := 0
 	if nv.Invalid {
