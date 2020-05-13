@@ -22,10 +22,10 @@ import (
 //   6: v0.14.50
 //   7: v0.14.53
 //   8-9: v1.4.0
-//   10-11: v1.6.0
-//   12: v1.7.0
+//   10-13: v1.6.0
+//   14: v1.7.0
 const (
-	dbVersion             = 12
+	dbVersion             = 14
 	dbMinSyncthingVersion = "v1.7.0"
 )
 
@@ -89,7 +89,8 @@ func (db *schemaUpdater) updateSchema() error {
 		{9, db.updateSchemaTo9},
 		{10, db.updateSchemaTo10},
 		{11, db.updateSchemaTo11},
-		{12, db.updateSchemaTo12},
+		{13, db.updateSchemaTo13},
+		{14, db.updateSchemaTo14},
 	}
 
 	for _, m := range migrations {
@@ -590,7 +591,7 @@ func (db *schemaUpdater) updateSchemaTo11(_ int) error {
 		var putErr error
 		err := t.withHave(folder, protocol.LocalDeviceID[:], nil, true, func(fi FileIntf) bool {
 			f := fi.(FileInfoTruncated)
-			if f.IsDirectory() || f.IsDeleted() || f.IsInvalid() || f.BlocksHash == nil {
+			if f.IsDirectory() || f.IsDeleted() || f.IsSymlink() || f.IsInvalid() || f.BlocksHash == nil {
 				return true
 			}
 
@@ -616,7 +617,61 @@ func (db *schemaUpdater) updateSchemaTo11(_ int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) updateSchemaTo12(_ int) error {
+// Skipping 12 because of master-release interactions
+
+func (db *schemaUpdater) updateSchemaTo13(prev int) error {
+	// Removes incorrect blocksmap entries for symlinks introduced in v1.6.0-rc.1
+	// https://github.com/syncthing/syncthing/issues/6637
+
+	if prev != 11 {
+		return nil
+	}
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	var key []byte
+	for _, folderStr := range db.ListFolders() {
+		folder := []byte(folderStr)
+
+		key, err := t.keyer.GenerateBlockListMapKey(key, folder, nil, nil)
+		if err != nil {
+			return err
+		}
+		dbi, err := t.NewPrefixIterator(key.WithoutHashAndName())
+		if err != nil {
+			return err
+		}
+		defer dbi.Release()
+
+		for dbi.Next() {
+			file := t.keyer.NameFromBlockListMapKey(dbi.Key())
+			key, err := t.keyer.GenerateDeviceFileKey(key, folder, protocol.LocalDeviceID[:], file)
+			f, ok, err := t.getFileTrunc(key, true)
+			if err != nil {
+				return err
+			}
+			if !ok || f.IsSymlink() {
+				if err := t.Delete(dbi.Key()); err != nil {
+					return err
+				}
+			}
+		}
+		if err := dbi.Error(); err != nil {
+			return err
+		}
+		dbi.Release()
+		if err := t.Checkpoint(); err != nil {
+			return err
+		}
+	}
+	return t.Commit()
+}
+
+func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 	// Loads and rewrites all files, to deduplicate version vectors.
 
 	t, err := db.newReadWriteTransaction()
