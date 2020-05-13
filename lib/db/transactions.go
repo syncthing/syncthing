@@ -79,6 +79,9 @@ func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (FileIntf, er
 		if err != nil {
 			return nil, err
 		}
+		if err := t.fillTruncated(&tf); err != nil {
+			return nil, err
+		}
 		return tf, nil
 	}
 
@@ -92,7 +95,8 @@ func (t readOnlyTransaction) unmarshalTrunc(bs []byte, trunc bool) (FileIntf, er
 	return fi, nil
 }
 
-// fillFileInfo follows the (possible) indirection of blocks and fills it out.
+// fillFileInfo follows the (possible) indirection of blocks and version
+// vector and fills it out.
 func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
 	var key []byte
 
@@ -110,6 +114,41 @@ func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
 		fi.Blocks = bl.Blocks
 	}
 
+	if len(fi.VersionHash) != 0 {
+		key = t.keyer.GenerateVersionKey(key, fi.VersionHash)
+		bs, err := t.Get(key)
+		if err != nil {
+			return err
+		}
+		var v protocol.Vector
+		if err := v.Unmarshal(bs); err != nil {
+			return err
+		}
+		fi.Version = v
+	}
+
+	return nil
+}
+
+// fillTruncated follows the (possible) indirection of version vector and
+// fills it.
+func (t readOnlyTransaction) fillTruncated(fi *FileInfoTruncated) error {
+	var key []byte
+
+	if len(fi.VersionHash) == 0 {
+		return nil
+	}
+
+	key = t.keyer.GenerateVersionKey(key, fi.VersionHash)
+	bs, err := t.Get(key)
+	if err != nil {
+		return err
+	}
+	var v protocol.Vector
+	if err := v.Unmarshal(bs); err != nil {
+		return err
+	}
+	fi.Version = v
 	return nil
 }
 
@@ -509,6 +548,24 @@ func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo, truncat
 			return err
 		}
 		fi.Blocks = nil
+	}
+
+	// Indirect the version vector if it's large enough.
+	if len(fi.Version.Counters) > versionIndirectionCutoff {
+		fi.VersionHash = protocol.VectorHash(fi.Version)
+		bkey = t.keyer.GenerateVersionKey(bkey, fi.VersionHash)
+		if _, err := t.Get(bkey); backend.IsNotFound(err) {
+			// Marshal the version vector and save it
+			versionBs := mustMarshal(&fi.Version)
+			if err := t.Put(bkey, versionBs); err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
+		}
+		fi.Version = protocol.Vector{}
+	} else {
+		fi.VersionHash = nil
 	}
 
 	fiBs := mustMarshal(&fi)
