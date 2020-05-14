@@ -164,6 +164,7 @@ var (
 	errDeviceUnknown     = errors.New("unknown device")
 	errDevicePaused      = errors.New("device is paused")
 	errDeviceIgnored     = errors.New("device is ignored")
+	errDeviceRemoved     = errors.New("device has been removed")
 	ErrFolderPaused      = errors.New("folder is paused")
 	errFolderNotRunning  = errors.New("folder is not running")
 	errFolderMissing     = errors.New("no such folder")
@@ -2482,11 +2483,14 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
+	removedDevices := make([]protocol.DeviceID, 0, len(fromDevices))
 	m.fmut.Lock()
 	for deviceID := range fromDevices {
 		delete(m.deviceStatRefs, deviceID)
+		removedDevices = append(removedDevices, deviceID)
 	}
 	m.fmut.Unlock()
+	m.closeConns(removedDevices, errDeviceRemoved)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
