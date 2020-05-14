@@ -29,11 +29,10 @@ func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, add
 	return err
 }
 
-// PendingDevices lists unknown devices that tried to connect.  As a
-// side-effect, any invalid entries are dropped from the database
-// after a warning log message.  That's the only possible "repair"
-// measure and appropriate for the importance of pending entries.
-// They will come back soon if still relevant.
+// PendingDevices drops any invalid entries from the database after a
+// warning log message, as a side-effect.  That's the only possible
+// "repair" measure and appropriate for the importance of pending
+// entries.  They will come back soon if still relevant.
 func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
@@ -92,11 +91,10 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 	return err
 }
 
-// PendingFolders lists folders that we don't yet share with the
-// offering devices.  As a side-effect, any invalid entries are
-// dropped from the database after a warning log message.  That's the
-// only possible "repair" measure and appropriate for the importance
-// of pending entries.  They will come back soon if still relevant.
+// PendingFolders drops any invalid entries from the database after a
+// warning log message, as a side-effect.  That's the only possible
+// "repair" measure and appropriate for the importance of pending
+// entries.  They will come back soon if still relevant.
 func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]ObservedFolder, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {

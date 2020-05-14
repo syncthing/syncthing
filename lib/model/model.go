@@ -2566,10 +2566,14 @@ func (m *model) checkFolderRunningLocked(folder string) error {
 	return errFolderNotRunning
 }
 
+// PendingDevices lists unknown devices that tried to connect.
 func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
 	return m.db.PendingDevices()
 }
 
+// PendingFolders lists folders that we don't yet share with the offering devices.  It
+// returns the entries grouped by folder and filters for a given device unless the
+// argument is specified as EmptyDeviceID.
 func (m *model) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error) {
 	return m.db.PendingFolders(device)
 }
