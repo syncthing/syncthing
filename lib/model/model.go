@@ -248,13 +248,13 @@ func (m *model) onServe() {
 	// Add and start folders
 	forgetPending := make(db.DropListObserved)
 	for _, folderCfg := range m.cfg.Folders() {
+		// Forget pending folder/device combinations that are now shared
+		forgetPending.MarkFolder(folderCfg.ID, folderCfg.DeviceIDs(), protocol.EmptyDeviceID)
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
 		}
 		m.newFolder(folderCfg)
-		// Forget pending folder/device combinations that are now shared
-		forgetPending.MarkFolder(folderCfg.ID, folderCfg.DeviceIDs(), protocol.EmptyDeviceID)
 	}
 	for deviceID, deviceCfg := range m.cfg.Devices() {
 		// Forget pending devices that are now added
@@ -2488,6 +2488,10 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			// Forget pending devices that are now added
 			forgetPending.MarkDevice(deviceID)
 		}
+		// Forget pending folder/device combinations that are now ignored
+		for _, ignFolder := range toCfg.IgnoredFolders {
+			forgetPending.MarkFolder(ignFolder.ID, []protocol.DeviceID{deviceID}, to.MyID)
+		}
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
 			sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
@@ -2497,10 +2501,6 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 		delete(fromDevices, deviceID)
-		// Forget pending folder/device combinations that are now ignored
-		for _, ignFolder := range toCfg.IgnoredFolders {
-			forgetPending.MarkFolder(ignFolder.ID, []protocol.DeviceID{deviceID}, to.MyID)
-		}
 		if fromCfg.Paused == toCfg.Paused {
 			continue
 		}
