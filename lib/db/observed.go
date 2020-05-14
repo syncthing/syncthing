@@ -162,11 +162,8 @@ func (dl DropListObserved) MarkDevice(device protocol.DeviceID) map[string]struc
 	return folders
 }
 
-func (dl DropListObserved) MarkFolder(folder string, devices []protocol.DeviceID, myID protocol.DeviceID) {
+func (dl DropListObserved) MarkFolder(folder string, devices []protocol.DeviceID) {
 	for _, dev := range devices {
-		if dev == myID {
-			continue
-		}
 		folders := dl.MarkDevice(dev)
 		if folders == nil {
 			folders = make(map[string]struct{})

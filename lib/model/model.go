@@ -249,7 +249,7 @@ func (m *model) onServe() {
 	forgetPending := make(db.DropListObserved)
 	for _, folderCfg := range m.cfg.Folders() {
 		// Forget pending folder/device combinations that are now shared
-		forgetPending.MarkFolder(folderCfg.ID, folderCfg.DeviceIDs(), protocol.EmptyDeviceID)
+		forgetPending.MarkFolder(folderCfg.ID, folderCfg.DeviceIDs())
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
@@ -257,14 +257,13 @@ func (m *model) onServe() {
 		m.newFolder(folderCfg)
 	}
 	for deviceID, deviceCfg := range m.cfg.Devices() {
-		// Forget pending devices that are now added
+		// Forget pending devices that are now added, along with their ignored folders
 		forgetPending.MarkDevice(deviceID)
-		// Forget pending folders that are now ignored for added devices
 		for _, ignoredFolder := range deviceCfg.IgnoredFolders {
-			forgetPending.MarkFolder(ignoredFolder.ID, []protocol.DeviceID{deviceID}, protocol.EmptyDeviceID)
+			forgetPending.MarkFolder(ignoredFolder.ID, []protocol.DeviceID{deviceID})
 		}
 	}
-	// Clean pending folder entries for devices no longer known or now ignored
+	// Clean pending folder entries as collected above
 	m.db.CleanPendingFolders(forgetPending)
 
 	// Forget pending devices that are now ignored
@@ -2427,7 +2426,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	forgetPending := make(db.DropListObserved)
 	for folderID, cfg := range toFolders {
 		// Record shared devices of this folder to remove possibly pending entries
-		forgetPending.MarkFolder(cfg.ID, cfg.DeviceIDs(), to.MyID)
+		forgetPending.MarkFolder(cfg.ID, cfg.DeviceIDs())
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
@@ -2448,7 +2447,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			// folder is no longer of interest at all (but might become
 			// pending again).
 			for _, dev := range from.Devices {
-				forgetPending.MarkFolder(folderID, []protocol.DeviceID{dev.DeviceID}, to.MyID)
+				forgetPending.MarkFolder(folderID, []protocol.DeviceID{dev.DeviceID})
 			}
 			continue
 		}
@@ -2484,13 +2483,10 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	fromDevices := from.DeviceMap()
 	toDevices := to.DeviceMap()
 	for deviceID, toCfg := range toDevices {
-		if deviceID != to.MyID {
-			// Forget pending devices that are now added
-			forgetPending.MarkDevice(deviceID)
-		}
-		// Forget pending folder/device combinations that are now ignored
+		// Forget pending devices that are now added, along with their ignored folders
+		forgetPending.MarkDevice(deviceID)
 		for _, ignFolder := range toCfg.IgnoredFolders {
-			forgetPending.MarkFolder(ignFolder.ID, []protocol.DeviceID{deviceID}, to.MyID)
+			forgetPending.MarkFolder(ignFolder.ID, []protocol.DeviceID{deviceID})
 		}
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
@@ -2534,6 +2530,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		// Associated pending folders have already been cleaned up by not listing
 		// in forgetPending before.
 	}
+	// Make sure we don't keep our local device as pending (which should not even exist)
+	delete(forgetPending, to.MyID)
 	m.db.CleanPendingDevices(forgetPending)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
