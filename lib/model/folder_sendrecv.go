@@ -61,17 +61,18 @@ type copyBlocksState struct {
 const retainBits = fs.ModeSetgid | fs.ModeSetuid | fs.ModeSticky
 
 var (
-	activity                  = newDeviceActivity()
-	errNoDevice               = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
-	errDirPrefix              = "directory has been deleted on a remote device but "
-	errDirHasToBeScanned      = errors.New(errDirPrefix + "contains unexpected files, scheduling scan")
-	errDirHasIgnored          = errors.New(errDirPrefix + "contains ignored files (see ignore documentation for (?d) prefix)")
-	errDirNotEmpty            = errors.New(errDirPrefix + "is not empty; the contents are probably ignored on that remote device, but not locally")
-	errNotAvailable           = errors.New("no connected device has the required version of this file")
-	errModified               = errors.New("file modified but not rescanned; will try again later")
-	errUnexpectedDirOnFileDel = errors.New("encountered directory when trying to remove file/symlink")
-	errIncompatibleSymlink    = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
-	contextRemovingOldItem    = "removing item to be replaced"
+	activity                    = newDeviceActivity()
+	errNoDevice                 = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
+	errDirPrefix                = "directory has been deleted on a remote device but "
+	errDirHasToBeScanned        = errors.New(errDirPrefix + "contains unexpected files, scheduling scan")
+	errDirHasIgnored            = errors.New(errDirPrefix + "contains ignored files (see ignore documentation for (?d) prefix)")
+	errDirHasReceiveOnlyChanged = errors.New(errDirPrefix + "contains locally changed files")
+	errDirNotEmpty              = errors.New(errDirPrefix + "is not empty; the contents are probably ignored on that remote device, but not locally")
+	errNotAvailable             = errors.New("no connected device has the required version of this file")
+	errModified                 = errors.New("file modified but not rescanned; will try again later")
+	errUnexpectedDirOnFileDel   = errors.New("encountered directory when trying to remove file/symlink")
+	errIncompatibleSymlink      = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
+	contextRemovingOldItem      = "removing item to be replaced"
 )
 
 const (
@@ -1814,9 +1815,7 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 
 	toBeDeleted := make([]string, 0, len(files))
 
-	hasIgnored := false
-	hasKnown := false
-	hasToBeScanned := false
+	var hasIgnored, hasKnown, hasToBeScanned, hasReceiveOnlyChanged bool
 
 	for _, dirFile := range files {
 		fullDirFile := filepath.Join(dir, dirFile)
@@ -1825,14 +1824,13 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 		} else if f.ignores != nil && f.ignores.Match(fullDirFile).IsIgnored() {
 			hasIgnored = true
 		} else if cf, ok := snap.Get(protocol.LocalDeviceID, fullDirFile); !ok || cf.IsDeleted() || cf.IsInvalid() {
+			if f.Type == config.FolderTypeReceiveOnly && cf.IsReceiveOnlyChanged() {
+				hasReceiveOnlyChanged = true
+			}
 			// Something appeared in the dir that we either are not aware of
 			// at all, that we think should be deleted or that is invalid,
-			// but not currently ignored -> schedule scan. The scanChan
-			// might be nil, in which case we trust the scanning to be
-			// handled later as a result of our error return.
-			if scanChan != nil {
-				scanChan <- fullDirFile
-			}
+			// but not currently ignored -> schedule scan.
+			scanChan <- fullDirFile
 			hasToBeScanned = true
 		} else {
 			// Dir contains file that is valid according to db and
@@ -1846,6 +1844,9 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 	}
 	if hasIgnored {
 		return errDirHasIgnored
+	}
+	if hasReceiveOnlyChanged {
+		return errDirHasReceiveOnlyChanged
 	}
 	if hasKnown {
 		return errDirNotEmpty
