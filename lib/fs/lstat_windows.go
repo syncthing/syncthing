@@ -57,7 +57,7 @@ type dirJunctFileInfo struct {
 }
 
 func (fi *dirJunctFileInfo) Mode() os.FileMode {
-	return fi.FileInfo.Mode() ^ os.ModeSymlink | os.ModeDir
+	return fi.FileInfo.Mode() ^ os.ModeSymlink | os.ModeDir | 0111
 }
 
 func (fi *dirJunctFileInfo) IsDir() bool {
