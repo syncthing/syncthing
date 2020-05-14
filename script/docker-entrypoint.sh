@@ -2,6 +2,6 @@
 
 set -eu
 
-chown "${PUID}:${PGID}" "${HOME}" \
+chown -R "${PUID}:${PGID}" "${HOME}" \
   && exec su-exec "${PUID}:${PGID}" \
      env HOME="$HOME" "$@"
