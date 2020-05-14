@@ -174,17 +174,17 @@ func (dl DropListObserved) MarkFolder(folder string, devices []protocol.DeviceID
 }
 
 // CleanPendingDevices removes all pending device entries matching a given set of device IDs
-func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) error {
+func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
 		l.Warnf("Could not iterate through pending device entries for cleanup: %v", err)
-		return err
+		return
 	}
 	defer iter.Release()
 	for iter.Next() {
-		_, err := db.Get(iter.Key())
-		if err != nil {
-			return err
+		if _, err := db.Get(iter.Key()); err != nil {
+			l.Warnf("Inaccessible pending device entry during cleanup: %v", err)
+			continue
 		}
 		keyDev := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
 		//FIXME: DeviceIDFromBytes() panics when given a wrong length input.
@@ -198,28 +198,27 @@ func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) error {
 			}
 			l.Debugf("Removing marked pending device %v", deviceID)
 		} else {
-			l.Warnln("Invalid pending device entry, deleting from database: %v", keyDev)
+			l.Warnf("Invalid pending device entry, deleting from database: %v", keyDev)
 		}
 		if err := db.Delete(iter.Key()); err != nil {
 			l.Warnf("Failed to remove pending device entry: %v", err)
 		}
 	}
-	return nil
 }
 
 // CleanPendingFolders removes all pending folder entries not matching a given set of
 // device IDs, or matching the set of folder IDs associated with those given devices.
-func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) error {
+func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {
 		l.Warnf("Could not iterate through pending folder entries for cleanup: %v", err)
-		return err
+		return
 	}
 	defer iter.Release()
 	for iter.Next() {
-		_, err := db.Get(iter.Key())
-		if err != nil {
-			return err
+		if _, err := db.Get(iter.Key()); err != nil {
+			l.Warnf("Inaccessible pending folder entry during cleanup: %v", err)
+			continue
 		}
 		if keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key()); ok {
 			// Valid entries are looked up in the drop-list, invalid ones cleaned up
@@ -240,11 +239,10 @@ func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) error {
 				l.Debugf("Removing pending folder offered by %v", deviceID)
 			}
 		} else {
-			l.Warnln("Invalid pending folder entry, deleting from database: %v", keyDev)
+			l.Warnf("Invalid pending folder entry, deleting from database: %v", keyDev)
 		}
 		if err := db.Delete(iter.Key()); err != nil {
 			l.Warnf("Failed to remove pending folder entry: %v", err)
 		}
 	}
-	return nil
 }
