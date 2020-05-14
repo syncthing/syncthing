@@ -373,7 +373,7 @@ func (w *wrapper) IgnoredDevice(id protocol.DeviceID) bool {
 	return false
 }
 
-// IgnoredDevices returns a slice of observed devices.
+// IgnoredDevices returns a slice of ignored devices.
 func (w *wrapper) IgnoredDevices() []ObservedDevice {
 	w.mut.Lock()
 	defer w.mut.Unlock()
