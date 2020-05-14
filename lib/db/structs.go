@@ -187,6 +187,11 @@ func (c Counts) TotalItems() int32 {
 	return c.Files + c.Directories + c.Symlinks + c.Deleted
 }
 
+// Equal compares the numbers only, not sequence/dev/flags.
+func (c Counts) Equal(o Counts) bool {
+	return c.Files == o.Files && c.Directories == o.Directories && c.Symlinks == o.Symlinks && c.Deleted == o.Deleted && c.Bytes == o.Bytes
+}
+
 func (vl VersionList) String() string {
 	var b bytes.Buffer
 	var id protocol.DeviceID
@@ -212,6 +217,7 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, t re
 		Device:  device,
 		Version: file.Version,
 		Invalid: file.IsInvalid(),
+		Deleted: file.IsDeleted(),
 	}
 	i := 0
 	if nv.Invalid {

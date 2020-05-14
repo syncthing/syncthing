@@ -136,6 +136,11 @@ table.table-auto td {
     max-width: 0px;
 }
 
+/* Wrap long file paths to prevent text overflow. See issue #6268. */
+.file-path {
+    word-break: break-all;
+}
+
 .folder-advanced {
     padding: 1rem;
     margin-bottom: 15px;

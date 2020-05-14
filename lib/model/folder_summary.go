@@ -86,7 +86,7 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 		if snap, err = c.model.DBSnapshot(folder); err == nil {
 			global = snap.GlobalSize()
 			local = snap.LocalSize()
-			need = snap.NeedSize()
+			need = snap.NeedSize(protocol.LocalDeviceID)
 			ro = snap.ReceiveOnlyChangedSize()
 			ourSeq = snap.Sequence(protocol.LocalDeviceID)
 			remoteSeq = snap.Sequence(protocol.GlobalDeviceID)

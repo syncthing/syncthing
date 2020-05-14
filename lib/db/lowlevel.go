@@ -15,6 +15,7 @@ import (
 	"github.com/greatroar/blobloom"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture"
@@ -34,6 +35,8 @@ const (
 
 	// Use indirection for the block list when it exceeds this many entries
 	blocksIndirectionCutoff = 3
+	// Use indirection for the version vector when it exceeds this many entries
+	versionIndirectionCutoff = 10
 
 	recheckDefaultInterval = 30 * 24 * time.Hour
 )
@@ -195,15 +198,25 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		if ok && unchanged(f, ef) {
 			continue
 		}
+		blocksHashSame := ok && bytes.Equal(ef.BlocksHash, f.BlocksHash)
 
 		if ok {
-			if !ef.IsDirectory() && !ef.IsDeleted() && !ef.IsInvalid() {
+			if len(ef.Blocks) != 0 && !ef.IsInvalid() {
 				for _, block := range ef.Blocks {
 					keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
 					if err != nil {
 						return err
 					}
 					if err := t.Delete(keyBuf); err != nil {
+						return err
+					}
+				}
+				if !blocksHashSame {
+					keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, ef.BlocksHash, name)
+					if err != nil {
+						return err
+					}
+					if err = t.Delete(keyBuf); err != nil {
 						return err
 					}
 				}
@@ -249,7 +262,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		}
 		l.Debugf("adding sequence; folder=%q sequence=%v %v", folder, f.Sequence, f.Name)
 
-		if !f.IsDirectory() && !f.IsDeleted() && !f.IsInvalid() {
+		if len(f.Blocks) != 0 && !f.IsInvalid() {
 			for i, block := range f.Blocks {
 				binary.BigEndian.PutUint32(blockBuf, uint32(i))
 				keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
@@ -257,6 +270,15 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 					return err
 				}
 				if err := t.Put(keyBuf, blockBuf); err != nil {
+					return err
+				}
+			}
+			if !blocksHashSame {
+				keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, f.BlocksHash, name)
+				if err != nil {
+					return err
+				}
+				if err = t.Put(keyBuf, nil); err != nil {
 					return err
 				}
 			}
@@ -296,7 +318,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove all sequences related to the folder
-	k1, err := db.keyer.GenerateSequenceKey(nil, folder, 0)
+	k1, err := db.keyer.GenerateSequenceKey(k0, folder, 0)
 	if err != nil {
 		return err
 	}
@@ -305,7 +327,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove all items related to the given folder from the global bucket
-	k2, err := db.keyer.GenerateGlobalVersionKey(nil, folder, nil)
+	k2, err := db.keyer.GenerateGlobalVersionKey(k1, folder, nil)
 	if err != nil {
 		return err
 	}
@@ -314,7 +336,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove all needs related to the folder
-	k3, err := db.keyer.GenerateNeedFileKey(nil, folder, nil)
+	k3, err := db.keyer.GenerateNeedFileKey(k2, folder, nil)
 	if err != nil {
 		return err
 	}
@@ -323,11 +345,19 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove the blockmap of the folder
-	k4, err := db.keyer.GenerateBlockMapKey(nil, folder, nil, nil)
+	k4, err := db.keyer.GenerateBlockMapKey(k3, folder, nil, nil)
 	if err != nil {
 		return err
 	}
 	if err := t.deleteKeyPrefix(k4.WithoutHashAndName()); err != nil {
+		return err
+	}
+
+	k5, err := db.keyer.GenerateBlockListMapKey(k4, folder, nil, nil)
+	if err != nil {
+		return err
+	}
+	if err := t.deleteKeyPrefix(k5.WithoutHashAndName()); err != nil {
 		return err
 	}
 
@@ -381,6 +411,13 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 			return err
 		}
 		if err := t.deleteKeyPrefix(key.WithoutHashAndName()); err != nil {
+			return err
+		}
+		key2, err := db.keyer.GenerateBlockListMapKey(key, folder, nil, nil)
+		if err != nil {
+			return err
+		}
+		if err := t.deleteKeyPrefix(key2.WithoutHashAndName()); err != nil {
 			return err
 		}
 	}
@@ -596,11 +633,8 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	if db.gcKeyCount > capacity {
 		capacity = db.gcKeyCount
 	}
-	blockFilter := blobloom.NewOptimized(blobloom.Config{
-		Capacity: uint64(capacity),
-		FPRate:   indirectGCBloomFalsePositiveRate,
-		MaxBits:  8 * indirectGCBloomMaxBytes,
-	})
+	blockFilter := newBloomFilter(capacity)
+	versionFilter := newBloomFilter(capacity)
 
 	// Iterate the FileInfos, unmarshal the block and version hashes and
 	// add them to the filter.
@@ -617,12 +651,15 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		default:
 		}
 
-		var bl BlocksHashOnly
-		if err := bl.Unmarshal(it.Value()); err != nil {
+		var hashes IndirectionHashesOnly
+		if err := hashes.Unmarshal(it.Value()); err != nil {
 			return err
 		}
-		if len(bl.BlocksHash) > 0 {
-			blockFilter.Add(bloomHash(bl.BlocksHash))
+		if len(hashes.BlocksHash) > 0 {
+			blockFilter.Add(bloomHash(hashes.BlocksHash))
+		}
+		if len(hashes.VersionHash) > 0 {
+			versionFilter.Add(bloomHash(hashes.VersionHash))
 		}
 	}
 	it.Release()
@@ -647,8 +684,37 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		}
 
 		key := blockListKey(it.Key())
-		if blockFilter.Has(bloomHash(key)) {
+		if blockFilter.Has(bloomHash(key.Hash())) {
 			matchedBlocks++
+			continue
+		}
+		if err := t.Delete(key); err != nil {
+			return err
+		}
+	}
+	it.Release()
+	if err := it.Error(); err != nil {
+		return err
+	}
+
+	// Iterate over version lists, removing keys with hashes that don't match
+	// the filter.
+
+	it, err = db.NewPrefixIterator([]byte{KeyTypeVersion})
+	if err != nil {
+		return err
+	}
+	matchedVersions := 0
+	for it.Next() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		key := versionKey(it.Key())
+		if versionFilter.Has(bloomHash(key.Hash())) {
+			matchedVersions++
 			continue
 		}
 		if err := t.Delete(key); err != nil {
@@ -662,6 +728,9 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 
 	// Remember the number of unique keys we kept until the next pass.
 	db.gcKeyCount = matchedBlocks
+	if matchedVersions > matchedBlocks {
+		db.gcKeyCount = matchedVersions
+	}
 
 	if err := t.Commit(); err != nil {
 		return err
@@ -670,10 +739,21 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	return db.Compact()
 }
 
+func newBloomFilter(capacity int) *blobloom.Filter {
+	return blobloom.NewOptimized(blobloom.Config{
+		Capacity: uint64(capacity),
+		FPRate:   indirectGCBloomFalsePositiveRate,
+		MaxBits:  8 * indirectGCBloomMaxBytes,
+	})
+}
+
 // Hash function for the bloomfilter: first eight bytes of the SHA-256.
 // Big or little-endian makes no difference, as long as we're consistent.
-func bloomHash(key blockListKey) uint64 {
-	return binary.BigEndian.Uint64(key.BlocksHash())
+func bloomHash(key []byte) uint64 {
+	if len(key) != sha256.Size {
+		panic("bug: bloomHash passed something not a SHA256 hash")
+	}
+	return binary.BigEndian.Uint64(key)
 }
 
 // CheckRepair checks folder metadata and sequences for miscellaneous errors.
@@ -746,6 +826,25 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	meta.emptyNeeded(protocol.LocalDeviceID)
+	err = t.withNeed([]byte(folder), protocol.LocalDeviceID[:], true, func(f FileIntf) bool {
+		meta.addNeeded(protocol.LocalDeviceID, f)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, device := range meta.devices() {
+		meta.emptyNeeded(device)
+		err = t.withNeed([]byte(folder), device[:], true, func(f FileIntf) bool {
+			meta.addNeeded(device, f)
+			return true
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	meta.SetCreated()

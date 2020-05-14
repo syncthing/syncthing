@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -138,7 +139,7 @@ func TestRequest(t *testing.T) {
 	// Existing, shared file
 	res, err := m.Request(device1, "default", "foo", 6, 0, nil, 0, false)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	bs := res.Data()
 	if !bytes.Equal(bs, []byte("foobar")) {
@@ -410,10 +411,6 @@ func TestClusterConfig(t *testing.T) {
 	wrapper := createTmpWrapper(cfg)
 	m := newModel(wrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	for _, fcfg := range cfg.Folders {
-		m.removeFolder(fcfg)
-		m.addFolder(fcfg)
-	}
 	defer cleanupModel(m)
 
 	cm := m.generateClusterConfig(device2)
@@ -1460,16 +1457,7 @@ func TestIgnores(t *testing.T) {
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
 
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
-	// Reach in and update the ignore matcher to one that always does
-	// reloads when asked to, instead of checking file mtimes. This is
-	// because we will be changing the files on disk often enough that the
-	// mtimes will be unreliable to determine change status.
-	m.fmut.Lock()
-	m.folderIgnores["default"] = ignore.New(defaultFs, ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
-	m.fmut.Unlock()
-	m.startFolder("default")
+	folderIgnoresAlwaysReload(m, defaultFolderConfig)
 
 	// Make sure the initial scan has finished (ScanFolders is blocking)
 	m.ScanFolders()
@@ -1492,7 +1480,13 @@ func TestIgnores(t *testing.T) {
 	}
 
 	// Invalid path, marker should be missing, hence returns an error.
-	m.addFolder(config.FolderConfiguration{ID: "fresh", Path: "XXX"})
+	fcfg := config.FolderConfiguration{ID: "fresh", Path: "XXX"}
+	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
+	m.fmut.Lock()
+	m.folderCfgs[fcfg.ID] = fcfg
+	m.folderIgnores[fcfg.ID] = ignores
+	m.fmut.Unlock()
+
 	_, _, err = m.GetIgnores("fresh")
 	if err == nil {
 		t.Error("No error")
@@ -1525,9 +1519,6 @@ func TestEmptyIgnores(t *testing.T) {
 
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
-
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
 
 	if err := m.SetIgnores("default", []string{}); err != nil {
 		t.Error(err)
@@ -1685,8 +1676,6 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
@@ -1938,8 +1927,6 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
@@ -2115,8 +2102,6 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	m.removeFolder(defaultFolderConfig)
-	m.addFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	m.ScanFolder("default")
@@ -2313,8 +2298,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	}
 
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", dbi, nil)
-	m.addFolder(defaultFolderConfig)
-	m.startFolder("default")
+	m.newFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	// Remote sequence is cached, hence need to recreated.
@@ -3190,9 +3174,9 @@ func TestIssue5002(t *testing.T) {
 	}
 	blockSize := int32(file.BlockSize())
 
-	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", blockSize, file.Size-int64(blockSize), []byte{1, 2, 3, 4})
-	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", blockSize, file.Size, []byte{1, 2, 3, 4}) // panic
-	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", blockSize, file.Size+int64(blockSize), []byte{1, 2, 3, 4})
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size-int64(blockSize), []byte{1, 2, 3, 4})
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size, []byte{1, 2, 3, 4}) // panic
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size+int64(blockSize), []byte{1, 2, 3, 4})
 }
 
 func TestParentOfUnignored(t *testing.T) {
@@ -3553,4 +3537,155 @@ func TestFolderAPIErrors(t *testing.T) {
 			t.Errorf(`Expected "%v", got "%v" (method no %v)`, errFolderMissing, err, i)
 		}
 	}
+}
+
+func TestRenameSequenceOrder(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	numFiles := 20
+
+	ffs := fcfg.Filesystem()
+	for i := 0; i < numFiles; i++ {
+		v := fmt.Sprintf("%d", i)
+		must(t, writeFile(ffs, v, []byte(v), 0644))
+	}
+
+	m.ScanFolders()
+
+	count := 0
+	snap := dbSnapshot(t, m, "default")
+	snap.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
+		count++
+		return true
+	})
+	snap.Release()
+
+	if count != numFiles {
+		t.Errorf("Unexpected count: %d != %d", count, numFiles)
+	}
+
+	// Modify all the files, other than the ones we expect to rename
+	for i := 0; i < numFiles; i++ {
+		if i == 3 || i == 17 || i == 16 || i == 4 {
+			continue
+		}
+		v := fmt.Sprintf("%d", i)
+		must(t, writeFile(ffs, v, []byte(v+"-new"), 0644))
+	}
+	// Rename
+	must(t, ffs.Rename("3", "17"))
+	must(t, ffs.Rename("16", "4"))
+
+	// Scan
+	m.ScanFolders()
+
+	// Verify sequence of a appearing is followed by c disappearing.
+	snap = dbSnapshot(t, m, "default")
+	defer snap.Release()
+
+	var firstExpectedSequence int64
+	var secondExpectedSequence int64
+	failed := false
+	snap.WithHaveSequence(0, func(i db.FileIntf) bool {
+		t.Log(i)
+		if i.FileName() == "17" {
+			firstExpectedSequence = i.SequenceNo() + 1
+		}
+		if i.FileName() == "4" {
+			secondExpectedSequence = i.SequenceNo() + 1
+		}
+		if i.FileName() == "3" {
+			failed = i.SequenceNo() != firstExpectedSequence || failed
+		}
+		if i.FileName() == "16" {
+			failed = i.SequenceNo() != secondExpectedSequence || failed
+		}
+		return true
+	})
+	if failed {
+		t.Fail()
+	}
+}
+
+func TestBlockListMap(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	ffs := fcfg.Filesystem()
+	must(t, writeFile(ffs, "one", []byte("content"), 0644))
+	must(t, writeFile(ffs, "two", []byte("content"), 0644))
+	must(t, writeFile(ffs, "three", []byte("content"), 0644))
+	must(t, writeFile(ffs, "four", []byte("content"), 0644))
+	must(t, writeFile(ffs, "five", []byte("content"), 0644))
+
+	m.ScanFolders()
+
+	snap := dbSnapshot(t, m, "default")
+	defer snap.Release()
+	fi, ok := snap.Get(protocol.LocalDeviceID, "one")
+	if !ok {
+		t.Error("failed to find existing file")
+	}
+	var paths []string
+
+	snap.WithBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
+		paths = append(paths, fi.FileName())
+		return true
+	})
+	snap.Release()
+
+	expected := []string{"one", "two", "three", "four", "five"}
+	if !equalStringsInAnyOrder(paths, expected) {
+		t.Errorf("expected %q got %q", expected, paths)
+	}
+
+	// Fudge the files around
+	// Remove
+	must(t, ffs.Remove("one"))
+
+	// Modify
+	must(t, ffs.Remove("two"))
+	must(t, writeFile(ffs, "two", []byte("mew-content"), 0644))
+
+	// Rename
+	must(t, ffs.Rename("three", "new-three"))
+
+	// Change type
+	must(t, ffs.Remove("four"))
+	must(t, ffs.Mkdir("four", 0644))
+
+	m.ScanFolders()
+
+	// Check we're left with 2 of the 5
+	snap = dbSnapshot(t, m, "default")
+	defer snap.Release()
+
+	paths = paths[:0]
+	snap.WithBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
+		paths = append(paths, fi.FileName())
+		return true
+	})
+	snap.Release()
+
+	expected = []string{"new-three", "five"}
+	if !equalStringsInAnyOrder(paths, expected) {
+		t.Errorf("expected %q got %q", expected, paths)
+	}
+}
+
+func equalStringsInAnyOrder(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	sort.Strings(a)
+	sort.Strings(b)
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
