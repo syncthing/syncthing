@@ -182,10 +182,6 @@ func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) {
 	}
 	defer iter.Release()
 	for iter.Next() {
-		if _, err := db.Get(iter.Key()); err != nil {
-			l.Warnf("Inaccessible pending device entry during cleanup: %v", err)
-			continue
-		}
 		keyDev := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
 		//FIXME: DeviceIDFromBytes() panics when given a wrong length input.
 		//       It should rather return an error which we'd check for here.
@@ -216,10 +212,6 @@ func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) {
 	}
 	defer iter.Release()
 	for iter.Next() {
-		if _, err := db.Get(iter.Key()); err != nil {
-			l.Warnf("Inaccessible pending folder entry during cleanup: %v", err)
-			continue
-		}
 		if keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key()); ok {
 			// Valid entries are looked up in the drop-list, invalid ones cleaned up
 			deviceID := protocol.DeviceIDFromBytes(keyDev)
