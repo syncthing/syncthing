@@ -66,13 +66,6 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 	return res, nil
 }
 
-func (db *Lowlevel) RemovePendingDevice(device protocol.DeviceID) {
-	key := db.keyer.GeneratePendingDeviceKey(nil, device[:])
-	if err := db.Delete(key); err != nil {
-		l.Warnf("Failed to remove pending device entry: %v", err)
-	}
-}
-
 func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) error {
 	key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), device[:])
 	if err == nil {
@@ -134,19 +127,6 @@ func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[pro
 		}
 	}
 	return res, nil
-}
-
-// RemovePendingFolder removes entries for specific folder / device combinations
-func (db *Lowlevel) RemovePendingFolder(id string, devices []protocol.DeviceID) {
-	for _, dev := range devices {
-		key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), dev[:])
-		if err != nil {
-			continue
-		}
-		if err := db.Delete(key); err != nil {
-			l.Warnf("Failed to remove pending folder entry: %v", err)
-		}
-	}
 }
 
 // Set of devices for which pending folders are allowed, but not specific folder IDs
