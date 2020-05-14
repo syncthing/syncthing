@@ -66,6 +66,9 @@ const (
 	// KeyTypeBlockListMap <int32 folder ID> <block list hash> <file name> = <nothing>
 	KeyTypeBlockListMap = 14
 
+	// KeyTypeVersion <version hash> = Vector
+	KeyTypeVersion = 15
+
 	// KeyTypePendingFolder <folder ID as string> <int32 device ID> = ObservedFolder
 	KeyTypePendingFolder = 15
 
@@ -110,6 +113,9 @@ type keyer interface {
 
 	// Block lists
 	GenerateBlockListKey(key []byte, hash []byte) blockListKey
+
+	// Version vectors
+	GenerateVersionKey(key []byte, hash []byte) versionKey
 
 	// Pending (unshared) folders and devices
 	GeneratePendingFolderKey(key, folder, device []byte) (pendingFolderKey, error)
@@ -342,7 +348,20 @@ func (k defaultKeyer) GenerateBlockListKey(key []byte, hash []byte) blockListKey
 	return key
 }
 
-func (k blockListKey) BlocksHash() []byte {
+func (k blockListKey) Hash() []byte {
+	return k[keyPrefixLen:]
+}
+
+type versionKey []byte
+
+func (k defaultKeyer) GenerateVersionKey(key []byte, hash []byte) versionKey {
+	key = resize(key, keyPrefixLen+len(hash))
+	key[0] = KeyTypeVersion
+	copy(key[keyPrefixLen:], hash)
+	return key
+}
+
+func (k versionKey) Hash() []byte {
 	return k[keyPrefixLen:]
 }
 

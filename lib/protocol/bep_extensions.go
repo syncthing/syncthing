@@ -360,3 +360,16 @@ func BlocksHash(bs []BlockInfo) []byte {
 	}
 	return h.Sum(nil)
 }
+
+func VectorHash(v Vector) []byte {
+	h := sha256.New()
+	for _, c := range v.Counters {
+		if err := binary.Write(h, binary.BigEndian, c.ID); err != nil {
+			panic("impossible: failed to write c.ID to hash function: " + err.Error())
+		}
+		if err := binary.Write(h, binary.BigEndian, c.Value); err != nil {
+			panic("impossible: failed to write c.Value to hash function: " + err.Error())
+		}
+	}
+	return h.Sum(nil)
+}

@@ -167,6 +167,7 @@ var (
 	errDeviceUnknown     = errors.New("unknown device")
 	errDevicePaused      = errors.New("device is paused")
 	errDeviceIgnored     = errors.New("device is ignored")
+	errDeviceRemoved     = errors.New("device has been removed")
 	ErrFolderPaused      = errors.New("folder is paused")
 	errFolderNotRunning  = errors.New("folder is not running")
 	errFolderMissing     = errors.New("no such folder")
@@ -948,6 +949,7 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 		// The local attributes should never be transmitted over the wire.
 		// Make sure they look like they weren't.
 		fs[i].LocalFlags = 0
+		fs[i].VersionHash = nil
 	}
 	files.Update(deviceID, fs)
 
@@ -1990,7 +1992,10 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 		if f.IsReceiveOnlyChanged() {
 			f.Version = protocol.Vector{}
 		}
-		f.LocalFlags = 0 // never sent externally
+
+		// never sent externally
+		f.LocalFlags = 0
+		f.VersionHash = nil
 
 		previousWasDelete = f.IsDeleted()
 
@@ -2515,11 +2520,14 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 	// Clean up after removed devices
+	removedDevices := make([]protocol.DeviceID, 0, len(fromDevices))
 	m.fmut.Lock()
 	for deviceID := range fromDevices {
 		delete(m.deviceStatRefs, deviceID)
+		removedDevices = append(removedDevices, deviceID)
 	}
 	m.fmut.Unlock()
+	m.closeConns(removedDevices, errDeviceRemoved)
 
 	// Forget pending folder/device combinations that are now shared or ignored
 	m.db.CleanPendingFolders(forgetPending)
