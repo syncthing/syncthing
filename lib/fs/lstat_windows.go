@@ -57,6 +57,8 @@ type dirJunctFileInfo struct {
 }
 
 func (fi *dirJunctFileInfo) Mode() os.FileMode {
+	// Simulate a directory and not a symlink; also set the execute
+	// bits so the directory can be traversed Unix-side.
 	return fi.FileInfo.Mode() ^ os.ModeSymlink | os.ModeDir | 0111
 }
 
