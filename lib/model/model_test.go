@@ -3614,7 +3614,6 @@ func TestRenameSameFile(t *testing.T) {
 	m := setupModel(wcfg)
 	defer cleanupModel(m)
 
-
 	ffs := fcfg.Filesystem()
 	must(t, writeFile(ffs, "file", []byte("file"), 0644))
 
@@ -3684,7 +3683,7 @@ func TestRenameEmptyFile(t *testing.T) {
 	}
 
 	count := 0
-	snap.WithBlocksHash(empty.BlocksHash, func (_ db.FileIntf) bool {
+	snap.WithBlocksHash(empty.BlocksHash, func(_ db.FileIntf) bool {
 		count++
 		return true
 	})
@@ -3694,7 +3693,7 @@ func TestRenameEmptyFile(t *testing.T) {
 	}
 
 	count = 0
-	snap.WithBlocksHash(file.BlocksHash, func (_ db.FileIntf) bool {
+	snap.WithBlocksHash(file.BlocksHash, func(_ db.FileIntf) bool {
 		count++
 		return true
 	})
@@ -3702,7 +3701,6 @@ func TestRenameEmptyFile(t *testing.T) {
 	if count != 1 {
 		t.Fatalf("Found %d entries for non-empty file, expected 1", count)
 	}
-
 
 	must(t, ffs.Rename("file", "new-file"))
 	must(t, ffs.Rename("empty", "new-empty"))
@@ -3714,7 +3712,7 @@ func TestRenameEmptyFile(t *testing.T) {
 	defer snap.Release()
 
 	count = 0
-	snap.WithBlocksHash(empty.BlocksHash, func (_ db.FileIntf) bool {
+	snap.WithBlocksHash(empty.BlocksHash, func(_ db.FileIntf) bool {
 		count++
 		return true
 	})
@@ -3724,7 +3722,7 @@ func TestRenameEmptyFile(t *testing.T) {
 	}
 
 	count = 0
-	snap.WithBlocksHash(file.BlocksHash, func (i db.FileIntf) bool {
+	snap.WithBlocksHash(file.BlocksHash, func(i db.FileIntf) bool {
 		count++
 		if i.FileName() != "new-file" {
 			t.Fatalf("unexpected file name %s, expected new-file", i.FileName())
