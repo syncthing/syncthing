@@ -460,8 +460,13 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			continue
 		}
 
-		if err := batch.flushIfFull(); err != nil {
-			return err
+		if batch.full() {
+			if err := batch.flush(); err != nil {
+				return err
+			}
+			snap.Release()
+			snap = f.fset.Snapshot()
+			alreadyUsed = make(map[string]struct{})
 		}
 
 		batch.append(res.File)
