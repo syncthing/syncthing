@@ -478,17 +478,19 @@ func DropDeltaIndexIDs(db *Lowlevel) {
 
 func normalizeFilenamesAndDropDuplicates(fs []protocol.FileInfo) []protocol.FileInfo {
 	positions := make(map[string]int, len(fs))
-	newFs := fs[:0]
-	for _, f := range fs {
+	duplicates := make([]int, 0, len(fs))
+	for i, f := range fs {
 		norm := osutil.NormalizedFilename(f.Name)
-		if i, ok := positions[norm]; ok {
-			newFs = append(newFs[:i], newFs[i+1:]...)
+		if pos, ok := positions[norm]; ok {
+			duplicates = append(duplicates, pos)
 		}
-		positions[norm] = len(newFs)
-		f.Name = norm
-		newFs = append(newFs, f)
+		positions[norm] = i
+		fs[i].Name = norm
 	}
-	return newFs
+	for _, pos := range duplicates {
+		fs = append(fs[:pos], fs[pos+1:]...)
+	}
+	return fs
 }
 
 func nativeFileIterator(fn Iterator) Iterator {
