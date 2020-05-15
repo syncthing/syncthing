@@ -213,6 +213,7 @@ func TestCopierFinder(t *testing.T) {
 
 	existingBlocks := []int{0, 2, 3, 4, 0, 0, 7, 0}
 	existingFile := setupFile(fs.TempName("file"), existingBlocks)
+	existingFile.Size = 1
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 	requiredFile.Name = "file2"
@@ -422,6 +423,7 @@ func TestCopierCleanup(t *testing.T) {
 
 	// Create a file
 	file := setupFile("test", []int{0})
+	file.Size = 1
 	m, f := setupSendReceiveFolder(file)
 	defer cleanupSRFolder(f, m)
 
