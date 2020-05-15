@@ -553,3 +553,39 @@ func TestUpdateTo10(t *testing.T) {
 		t.Error("vl.Versions[1] not deleted for c")
 	}
 }
+
+func TestDropDuplicates(t *testing.T) {
+	names := []string{
+		"foo",
+		"bar",
+		"dcxvoijnds",
+		"3d/dsfase/4/ss2",
+	}
+	tcs := []struct{ in, out []int }{
+		{[]int{0}, []int{0}},
+		{[]int{0, 1}, []int{0, 1}},
+		{[]int{0, 1, 0, 1}, []int{0, 1}},
+		{[]int{0, 1, 1, 1, 1}, []int{0, 1}},
+		{[]int{0, 0, 0, 1}, []int{0, 1}},
+		{[]int{0, 1, 2, 3}, []int{0, 1, 2, 3}},
+		{[]int{0, 1, 2, 3, 0, 1, 2, 3}, []int{0, 1, 2, 3}},
+		{[]int{0, 1, 1, 3, 0, 1, 0, 1, 2, 3}, []int{0, 1, 3, 2}},
+	}
+
+	for _, tc := range tcs {
+		inp := make([]protocol.FileInfo, len(tc.in))
+		for i, j := range tc.in {
+			inp[i] = protocol.FileInfo{Name: names[j]}
+		}
+		outp := normalizeFilenamesAndDropDuplicates(inp)
+		if len(outp) != len(tc.out) {
+			t.Errorf("Expected %v entries, got %v", len(tc.out), len(outp))
+			continue
+		}
+		for i, f := range outp {
+			if exp := names[tc.out[i]]; exp != f.Name {
+				t.Errorf("Got file %v at pos %v, expected %v", f.Name, i, exp)
+			}
+		}
+	}
+}
