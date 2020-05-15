@@ -569,22 +569,22 @@ func TestDropDuplicates(t *testing.T) {
 		{[]int{0, 0, 0, 1}, []int{0, 1}},
 		{[]int{0, 1, 2, 3}, []int{0, 1, 2, 3}},
 		{[]int{0, 1, 2, 3, 0, 1, 2, 3}, []int{0, 1, 2, 3}},
-		{[]int{0, 1, 1, 3, 0, 1, 0, 1, 2, 3}, []int{0, 1, 3, 2}},
+		{[]int{0, 1, 1, 3, 0, 1, 0, 1, 2, 3}, []int{0, 1, 2, 3}},
 	}
 
-	for _, tc := range tcs {
+	for tci, tc := range tcs {
 		inp := make([]protocol.FileInfo, len(tc.in))
 		for i, j := range tc.in {
 			inp[i] = protocol.FileInfo{Name: names[j]}
 		}
 		outp := normalizeFilenamesAndDropDuplicates(inp)
 		if len(outp) != len(tc.out) {
-			t.Errorf("Expected %v entries, got %v", len(tc.out), len(outp))
+			t.Errorf("tc %v: Expected %v entries, got %v", tci, len(tc.out), len(outp))
 			continue
 		}
 		for i, f := range outp {
 			if exp := names[tc.out[i]]; exp != f.Name {
-				t.Errorf("Got file %v at pos %v, expected %v", f.Name, i, exp)
+				t.Errorf("tc %v: Got file %v at pos %v, expected %v", tci, f.Name, i, exp)
 			}
 		}
 	}
