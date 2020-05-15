@@ -15,6 +15,7 @@ import (
 	"github.com/greatroar/blobloom"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture"
@@ -34,6 +35,8 @@ const (
 
 	// Use indirection for the block list when it exceeds this many entries
 	blocksIndirectionCutoff = 3
+	// Use indirection for the version vector when it exceeds this many entries
+	versionIndirectionCutoff = 10
 
 	recheckDefaultInterval = 30 * 24 * time.Hour
 )
@@ -198,7 +201,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		blocksHashSame := ok && bytes.Equal(ef.BlocksHash, f.BlocksHash)
 
 		if ok {
-			if !ef.IsDirectory() && !ef.IsDeleted() && !ef.IsInvalid() && ef.Size > 0 {
+			if len(ef.Blocks) != 0 && !ef.IsInvalid() && ef.Size > 0 {
 				for _, block := range ef.Blocks {
 					keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
 					if err != nil {
@@ -259,7 +262,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		}
 		l.Debugf("adding sequence; folder=%q sequence=%v %v", folder, f.Sequence, f.Name)
 
-		if !f.IsDirectory() && !f.IsDeleted() && !f.IsInvalid() && f.Size > 0 {
+		if len(f.Blocks) != 0 && !f.IsInvalid() && f.Size > 0 {
 			for i, block := range f.Blocks {
 				binary.BigEndian.PutUint32(blockBuf, uint32(i))
 				keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
@@ -630,11 +633,8 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	if db.gcKeyCount > capacity {
 		capacity = db.gcKeyCount
 	}
-	blockFilter := blobloom.NewOptimized(blobloom.Config{
-		Capacity: uint64(capacity),
-		FPRate:   indirectGCBloomFalsePositiveRate,
-		MaxBits:  8 * indirectGCBloomMaxBytes,
-	})
+	blockFilter := newBloomFilter(capacity)
+	versionFilter := newBloomFilter(capacity)
 
 	// Iterate the FileInfos, unmarshal the block and version hashes and
 	// add them to the filter.
@@ -651,12 +651,15 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		default:
 		}
 
-		var bl BlocksHashOnly
-		if err := bl.Unmarshal(it.Value()); err != nil {
+		var hashes IndirectionHashesOnly
+		if err := hashes.Unmarshal(it.Value()); err != nil {
 			return err
 		}
-		if len(bl.BlocksHash) > 0 {
-			blockFilter.Add(bloomHash(bl.BlocksHash))
+		if len(hashes.BlocksHash) > 0 {
+			blockFilter.Add(bloomHash(hashes.BlocksHash))
+		}
+		if len(hashes.VersionHash) > 0 {
+			versionFilter.Add(bloomHash(hashes.VersionHash))
 		}
 	}
 	it.Release()
@@ -681,8 +684,37 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		}
 
 		key := blockListKey(it.Key())
-		if blockFilter.Has(bloomHash(key.BlocksHash())) {
+		if blockFilter.Has(bloomHash(key.Hash())) {
 			matchedBlocks++
+			continue
+		}
+		if err := t.Delete(key); err != nil {
+			return err
+		}
+	}
+	it.Release()
+	if err := it.Error(); err != nil {
+		return err
+	}
+
+	// Iterate over version lists, removing keys with hashes that don't match
+	// the filter.
+
+	it, err = db.NewPrefixIterator([]byte{KeyTypeVersion})
+	if err != nil {
+		return err
+	}
+	matchedVersions := 0
+	for it.Next() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		key := versionKey(it.Key())
+		if versionFilter.Has(bloomHash(key.Hash())) {
+			matchedVersions++
 			continue
 		}
 		if err := t.Delete(key); err != nil {
@@ -696,6 +728,9 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 
 	// Remember the number of unique keys we kept until the next pass.
 	db.gcKeyCount = matchedBlocks
+	if matchedVersions > matchedBlocks {
+		db.gcKeyCount = matchedVersions
+	}
 
 	if err := t.Commit(); err != nil {
 		return err
@@ -704,9 +739,20 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	return db.Compact()
 }
 
+func newBloomFilter(capacity int) *blobloom.Filter {
+	return blobloom.NewOptimized(blobloom.Config{
+		Capacity: uint64(capacity),
+		FPRate:   indirectGCBloomFalsePositiveRate,
+		MaxBits:  8 * indirectGCBloomMaxBytes,
+	})
+}
+
 // Hash function for the bloomfilter: first eight bytes of the SHA-256.
 // Big or little-endian makes no difference, as long as we're consistent.
 func bloomHash(key []byte) uint64 {
+	if len(key) != sha256.Size {
+		panic("bug: bloomHash passed something not a SHA256 hash")
+	}
 	return binary.BigEndian.Uint64(key)
 }
 

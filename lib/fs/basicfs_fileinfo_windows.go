@@ -56,3 +56,13 @@ func (e basicFileInfo) Owner() int {
 func (e basicFileInfo) Group() int {
 	return -1
 }
+
+// osFileInfo converts e to os.FileInfo that is suitable
+// to be passed to os.SameFile.
+func (e *basicFileInfo) osFileInfo() os.FileInfo {
+	fi := e.FileInfo
+	if fi, ok := fi.(*dirJunctFileInfo); ok {
+		return fi.FileInfo
+	}
+	return fi
+}

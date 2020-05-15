@@ -171,6 +171,11 @@ func TestWatchWinRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	done := make(chan struct{})
+	defer func() {
+		cancel()
+		<-done
+	}()
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -179,6 +184,7 @@ func TestWatchWinRoot(t *testing.T) {
 			cancel()
 		}()
 		fs.watchLoop(ctx, ".", roots, backendChan, outChan, errChan, fakeMatcher{})
+		close(done)
 	}()
 
 	// filepath.Dir as watch has a /... suffix
@@ -214,12 +220,19 @@ func expectErrorForPath(t *testing.T, path string) {
 	errChan := make(chan error)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// testFs is Filesystem, but we need BasicFilesystem here
 	fs := newBasicFilesystem(testDirAbs)
 
-	go fs.watchLoop(ctx, ".", []string{testDirAbs}, backendChan, outChan, errChan, fakeMatcher{})
+	done := make(chan struct{})
+	go func() {
+		fs.watchLoop(ctx, ".", []string{testDirAbs}, backendChan, outChan, errChan, fakeMatcher{})
+		close(done)
+	}()
+	defer func() {
+		cancel()
+		<-done
+	}()
 
 	backendChan <- fakeEventInfo(path)
 
@@ -244,7 +257,15 @@ func TestWatchSubpath(t *testing.T) {
 	fs := newBasicFilesystem(testDirAbs)
 
 	abs, _ := fs.rooted("sub")
-	go fs.watchLoop(ctx, "sub", []string{testDirAbs}, backendChan, outChan, errChan, fakeMatcher{})
+	done := make(chan struct{})
+	go func() {
+		fs.watchLoop(ctx, "sub", []string{testDirAbs}, backendChan, outChan, errChan, fakeMatcher{})
+		close(done)
+	}()
+	defer func() {
+		cancel()
+		<-done
+	}()
 
 	backendChan <- fakeEventInfo(filepath.Join(abs, "file"))
 

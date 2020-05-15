@@ -467,7 +467,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		batch.append(res.File)
 		changes++
 
-		if f.localFlags&protocol.FlagLocalReceiveOnly == 0 && res.File.Size > 0 {
+		if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
 			if nf, ok := f.findRename(snap, mtimefs, res.File, alreadyUsed); ok {
 				batch.append(nf)
 				changes++
@@ -625,6 +625,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 }
 
 func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file protocol.FileInfo, alreadyUsed map[string]struct{}) (protocol.FileInfo, bool) {
+	if len(file.Blocks) == 0 || file.Size == 0{
+		return protocol.FileInfo{}, false
+	}
+
 	found := false
 	nf := protocol.FileInfo{}
 

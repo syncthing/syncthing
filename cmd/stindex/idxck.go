@@ -43,7 +43,9 @@ func idxck(ldb backend.Backend) (success bool) {
 	sequences := make(map[sequenceKey]string)
 	needs := make(map[globalKey]struct{})
 	blocklists := make(map[string]struct{})
+	versions := make(map[string]protocol.Vector)
 	usedBlocklists := make(map[string]struct{})
+	usedVersions := make(map[string]struct{})
 	var localDeviceKey uint32
 	success = true
 
@@ -106,6 +108,16 @@ func idxck(ldb backend.Backend) (success bool) {
 		case db.KeyTypeBlockList:
 			hash := string(key[1:])
 			blocklists[hash] = struct{}{}
+
+		case db.KeyTypeVersion:
+			hash := string(key[1:])
+			var v protocol.Vector
+			if err := v.Unmarshal(it.Value()); err != nil {
+				fmt.Println("Unable to unmarshal Vector:", err)
+				success = false
+				continue
+			}
+			versions[hash] = v
 		}
 	}
 
@@ -157,6 +169,23 @@ func idxck(ldb backend.Backend) (success bool) {
 				usedBlocklists[key] = struct{}{}
 			}
 		}
+
+		if fi.VersionHash != nil {
+			key := string(fi.VersionHash)
+			if _, ok := versions[key]; !ok {
+				fmt.Printf("Missing version vector for file %q, version hash %x\n", fi.Name, fi.VersionHash)
+				success = false
+			} else {
+				usedVersions[key] = struct{}{}
+			}
+		}
+
+		_, ok := globals[globalKey{fk.folder, fk.name}]
+		if !ok {
+			fmt.Printf("Missing global for file %q\n", fi.Name)
+			success = false
+			continue
+		}
 	}
 
 	// Aggregate the ranges of missing sequence entries, print them
@@ -201,7 +230,12 @@ func idxck(ldb backend.Backend) (success bool) {
 				fmt.Printf("VersionList %q, folder %q, entry %d refers to unknown FileInfo\n", gk.name, folder, i)
 				success = false
 			}
-			if !fi.Version.Equal(fv.Version) {
+
+			fiv := fi.Version
+			if fi.VersionHash != nil {
+				fiv = versions[string(fi.VersionHash)]
+			}
+			if !fiv.Equal(fv.Version) {
 				fmt.Printf("VersionList %q, folder %q, entry %d, FileInfo version mismatch, %v (VersionList) != %v (FileInfo)\n", gk.name, folder, i, fv.Version, fi.Version)
 				success = false
 			}
@@ -276,6 +310,9 @@ func idxck(ldb backend.Backend) (success bool) {
 
 	if d := len(blocklists) - len(usedBlocklists); d > 0 {
 		fmt.Printf("%d block list entries out of %d needs GC\n", d, len(blocklists))
+	}
+	if d := len(versions) - len(usedVersions); d > 0 {
+		fmt.Printf("%d version entries out of %d needs GC\n", d, len(versions))
 	}
 
 	return
