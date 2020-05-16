@@ -105,6 +105,15 @@ func dump(ldb backend.Backend) {
 		case db.KeyTypeBlockList:
 			fmt.Printf("[blocklist] H:%x\n", key[1:])
 
+		case db.KeyTypeBlockListMap:
+			folder := binary.BigEndian.Uint32(key[1:])
+			hash := key[5:37]
+			fileName := string(key[37:])
+			fmt.Printf("[blocklistmap] F:%d H:%x N:%s\n", folder, hash, fileName)
+
+		case db.KeyTypeVersion:
+			fmt.Printf("[version] H:%x\n", key[1:])
+
 		default:
 			fmt.Printf("[??? %d]\n  %x\n  %x\n", key[0], key, it.Value())
 		}
