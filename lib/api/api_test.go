@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -152,19 +153,25 @@ func TestAssetsDir(t *testing.T) {
 	gw := gzip.NewWriter(buf)
 	gw.Write([]byte("default"))
 	gw.Close()
-	def := buf.String()
+	def := assets.Asset{
+		Content: buf.String(),
+		Gzipped: true,
+	}
 
 	buf = new(bytes.Buffer)
 	gw = gzip.NewWriter(buf)
 	gw.Write([]byte("foo"))
 	gw.Close()
-	foo := buf.String()
+	foo := assets.Asset{
+		Content: buf.String(),
+		Gzipped: true,
+	}
 
 	e := &staticsServer{
 		theme:    "foo",
 		mut:      sync.NewRWMutex(),
 		assetDir: "testdata",
-		assets: map[string]string{
+		assets: map[string]assets.Asset{
 			"foo/a":     foo, // overridden in foo/a
 			"foo/b":     foo,
 			"default/a": def, // overridden in default/a (but foo/a takes precedence)

@@ -24,7 +24,7 @@ const themePrefix = "theme-assets/"
 
 type staticsServer struct {
 	assetDir        string
-	assets          map[string]string
+	assets          map[string]assets.Asset
 	availableThemes []string
 
 	mut             sync.RWMutex
@@ -118,7 +118,7 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for a compiled in asset for the current theme.
-	bs, ok := s.assets[theme+"/"+file]
+	as, ok := s.assets[theme+"/"+file]
 	if !ok {
 		// Check for an overridden default asset.
 		if s.assetDir != "" {
@@ -134,18 +134,15 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Check for a compiled in default asset.
-		bs, ok = s.assets[config.DefaultTheme+"/"+file]
+		as, ok = s.assets[config.DefaultTheme+"/"+file]
 		if !ok {
 			http.NotFound(w, r)
 			return
 		}
 	}
 
-	assets.Serve(w, r, assets.Asset{
-		ContentGz: bs,
-		Filename:  file,
-		Modified:  modificationTime,
-	})
+	as.Modified = modificationTime
+	assets.Serve(w, r, as)
 }
 
 func (s *staticsServer) serveThemes(w http.ResponseWriter, r *http.Request) {
