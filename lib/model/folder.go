@@ -453,20 +453,27 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}()
 
 	f.clearScanErrors(subDirs)
+	alreadyUsed := make(map[string]struct{})
 	for res := range fchan {
 		if res.Err != nil {
 			f.newScanError(res.Path, res.Err)
 			continue
 		}
-		if err := batch.flushIfFull(); err != nil {
-			return err
+
+		if batch.full() {
+			if err := batch.flush(); err != nil {
+				return err
+			}
+			snap.Release()
+			snap = f.fset.Snapshot()
+			alreadyUsed = make(map[string]struct{})
 		}
 
 		batch.append(res.File)
 		changes++
 
 		if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
-			if nf, ok := f.findRename(snap, mtimefs, res.File); ok {
+			if nf, ok := f.findRename(snap, mtimefs, res.File, alreadyUsed); ok {
 				batch.append(nf)
 				changes++
 			}
@@ -622,8 +629,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	return nil
 }
 
-func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file protocol.FileInfo) (protocol.FileInfo, bool) {
-	if len(file.Blocks) == 0 {
+func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file protocol.FileInfo, alreadyUsed map[string]struct{}) (protocol.FileInfo, bool) {
+	if len(file.Blocks) == 0 || file.Size == 0 {
 		return protocol.FileInfo{}, false
 	}
 
@@ -637,6 +644,10 @@ func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file proto
 		case <-f.ctx.Done():
 			return false
 		default:
+		}
+
+		if _, ok := alreadyUsed[fi.Name]; ok {
+			return true
 		}
 
 		if fi.ShouldConflict() {
@@ -657,6 +668,8 @@ func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file proto
 		if !osutil.IsDeleted(mtimefs, fi.Name) {
 			return true
 		}
+
+		alreadyUsed[fi.Name] = struct{}{}
 
 		nf = fi
 		nf.SetDeleted(f.shortID)
