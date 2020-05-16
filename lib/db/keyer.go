@@ -70,10 +70,10 @@ const (
 	KeyTypeVersion = 15
 
 	// KeyTypePendingFolder <folder ID as string> <int32 device ID> = ObservedFolder
-	KeyTypePendingFolder = 15
+	KeyTypePendingFolder = 16
 
 	// KeyTypePendingDevice <device ID in wire format> = ObservedDevice
-	KeyTypePendingDevice = 16
+	KeyTypePendingDevice = 17
 )
 
 type keyer interface {
