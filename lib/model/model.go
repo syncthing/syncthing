@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -84,7 +85,7 @@ type Model interface {
 	Override(folder string)
 	Revert(folder string)
 	BringToFront(folder, file string)
-	GetIgnores(folder string) ([]string, []string, error)
+	GetIgnores(folder string) ([]string, []string, []string, error)
 	SetIgnores(folder string, content []string) error
 
 	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
@@ -590,7 +591,7 @@ func (m *model) UsageReportingStats(version int, preview bool) map[string]interf
 		}
 		var seenPrefix [3]bool
 		for folder := range m.cfg.Folders() {
-			lines, _, err := m.GetIgnores(folder)
+			lines, _, _, err := m.GetIgnores(folder)
 			if err != nil {
 				continue
 			}
@@ -1679,7 +1680,7 @@ func (m *model) Connection(deviceID protocol.DeviceID) (connections.Connection, 
 	return cn, ok
 }
 
-func (m *model) GetIgnores(folder string) ([]string, []string, error) {
+func (m *model) GetIgnores(folder string) ([]string, []string, []string, error) {
 	m.fmut.RLock()
 	cfg, cfgOk := m.folderCfgs[folder]
 	ignores, ignoresOk := m.folderIgnores[folder]
@@ -1688,24 +1689,34 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	if !cfgOk {
 		cfg, cfgOk = m.cfg.Folders()[folder]
 		if !cfgOk {
-			return nil, nil, fmt.Errorf("folder %s does not exist", folder)
+			return nil, nil, nil, fmt.Errorf("folder %s does not exist", folder)
 		}
 	}
 
 	// On creation a new folder with ignore patterns validly has no marker yet.
 	if err := cfg.CheckPath(); err != nil && err != config.ErrMarkerMissing {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	if !ignoresOk {
 		ignores = ignore.New(fs.NewFilesystem(cfg.FilesystemType, cfg.Path))
 	}
 
-	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		return nil, nil, err
+	var fileName = []string{}
+	
+	if _, err := cfg.Filesystem().Open(filepath.Join(cfg.MarkerName, "ignores.txt")); !os.IsNotExist(err) {
+		if err := ignores.Load(filepath.Join(cfg.MarkerName, "ignores.txt")); err != nil && !fs.IsNotExist(err) {
+			return nil, nil, nil, err
+		}
+		fileName = []string{filepath.Join(cfg.MarkerName, "ignores.txt")}
+	} else {
+		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+			return nil, nil, nil, err
+		}
+		fileName = []string{".stignore"}
 	}
-
-	return ignores.Lines(), ignores.Patterns(), nil
+	
+	return ignores.Lines(), ignores.Patterns(), fileName, nil
 }
 
 func (m *model) SetIgnores(folder string, content []string) error {
@@ -1725,10 +1736,41 @@ func (m *model) SetIgnores(folder string, content []string) error {
 		return err
 	}
 
-	if err := ignore.WriteIgnores(cfg.Filesystem(), ".stignore", content); err != nil {
-		l.Warnln("Saving .stignore:", err)
+	fs := cfg.Filesystem()
+	fd, err := fs.Open(cfg.MarkerName + "/ignores.txt")
+	if err == nil {
+		if cfg.CheckPath() != nil {
+			if err = cfg.CreateMarker(); err != nil {
+				return errors.Wrap(err, "failed to create folder marker")
+			}
+		} else {
+			if err := ignore.WriteIgnores(cfg.Filesystem(), cfg.MarkerName + "/ignores.txt", content); err != nil {
+				l.Warnln("Saving ignores.txt:", err)
+				return err
+			}
+		}
 		return err
+	} else {
+		fd, err := fs.Open(".stignore")
+		if err == nil {
+			if err := ignore.WriteIgnores(cfg.Filesystem(), ".stignore", content); err != nil {
+				l.Warnln("Saving .stignore:", err)
+				return err
+			}
+			return err
+		} else {
+			if err = cfg.CreateMarker(); err != nil {
+				return errors.Wrap(err, "failed to create folder marker")
+			}
+			if err := ignore.WriteIgnores(cfg.Filesystem(), cfg.MarkerName + "/ignores.txt", content); err != nil {
+				l.Warnln("Saving ignores.txt:", err)
+				return err
+			}
+		}
+		defer fd.Close()
+		
 	}
+	defer fd.Close()
 
 	m.fmut.RLock()
 	runner, ok := m.folderRunners[folder]
