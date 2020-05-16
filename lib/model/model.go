@@ -2529,17 +2529,20 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	m.fmut.Unlock()
 	m.closeConns(removedDevices, errDeviceRemoved)
 
-	// Forget pending folder/device combinations that are now shared or ignored
+	// Forget pending folder/device combinations that are now shared or ignored, plus
+	// any for our own device ID (should not happen, treat us like an unknown device)
+	delete(forgetPending, to.MyID)
 	m.db.CleanPendingFolders(forgetPending)
 
 	// Forget pending devices that are now ignored
 	for _, ignDevice := range to.IgnoredDevices {
 		forgetPending.MarkDevice(ignDevice.ID)
 		// Associated pending folders have already been cleaned up by not listing
-		// in forgetPending before.
+		// these devices in forgetPending before.
 	}
-	// Make sure we don't keep our local device as pending (which should not even exist)
-	delete(forgetPending, to.MyID)
+	// Make sure we don't keep our local device as pending (should not happen, treat
+	// us like a known device)
+	forgetPending.MarkDevice(to.MyID)
 	m.db.CleanPendingDevices(forgetPending)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
