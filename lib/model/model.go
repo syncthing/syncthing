@@ -2540,6 +2540,10 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		// Associated pending folders have already been cleaned up by not listing
 		// these devices in forgetPending before.
 	}
+	// Forget stale pending devices which were just removed (should not happen)
+	for _, remDevice := range removedDevices {
+		forgetPending.MarkDevice(remDevice)
+	}
 	// Make sure we don't keep our local device as pending (should not happen, treat
 	// us like a known device)
 	forgetPending.MarkDevice(to.MyID)
