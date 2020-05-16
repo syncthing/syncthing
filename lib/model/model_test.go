@@ -3609,6 +3609,132 @@ func TestRenameSequenceOrder(t *testing.T) {
 	}
 }
 
+func TestRenameSameFile(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	ffs := fcfg.Filesystem()
+	must(t, writeFile(ffs, "file", []byte("file"), 0644))
+
+	m.ScanFolders()
+
+	count := 0
+	snap := dbSnapshot(t, m, "default")
+	snap.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
+		count++
+		return true
+	})
+	snap.Release()
+
+	if count != 1 {
+		t.Errorf("Unexpected count: %d != %d", count, 1)
+	}
+
+	must(t, ffs.Rename("file", "file1"))
+	must(t, osutil.Copy(ffs, ffs, "file1", "file0"))
+	must(t, osutil.Copy(ffs, ffs, "file1", "file2"))
+	must(t, osutil.Copy(ffs, ffs, "file1", "file3"))
+	must(t, osutil.Copy(ffs, ffs, "file1", "file4"))
+
+	m.ScanFolders()
+
+	snap = dbSnapshot(t, m, "default")
+	defer snap.Release()
+
+	prevSeq := int64(0)
+	seen := false
+	snap.WithHaveSequence(0, func(i db.FileIntf) bool {
+		if i.SequenceNo() <= prevSeq {
+			t.Fatalf("non-increasing sequences: %d <= %d", i.SequenceNo(), prevSeq)
+		}
+		if i.FileName() == "file" {
+			if seen {
+				t.Fatal("already seen file")
+			}
+			seen = true
+		}
+		prevSeq = i.SequenceNo()
+		return true
+	})
+}
+
+func TestRenameEmptyFile(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	ffs := fcfg.Filesystem()
+
+	must(t, writeFile(ffs, "file", []byte("data"), 0644))
+	must(t, writeFile(ffs, "empty", nil, 0644))
+
+	m.ScanFolders()
+
+	snap := dbSnapshot(t, m, "default")
+	defer snap.Release()
+	empty, eok := snap.Get(protocol.LocalDeviceID, "empty")
+	if !eok {
+		t.Fatal("failed to find empty file")
+	}
+	file, fok := snap.Get(protocol.LocalDeviceID, "file")
+	if !fok {
+		t.Fatal("failed to find non-empty file")
+	}
+
+	count := 0
+	snap.WithBlocksHash(empty.BlocksHash, func(_ db.FileIntf) bool {
+		count++
+		return true
+	})
+
+	if count != 0 {
+		t.Fatalf("Found %d entries for empty file, expected 0", count)
+	}
+
+	count = 0
+	snap.WithBlocksHash(file.BlocksHash, func(_ db.FileIntf) bool {
+		count++
+		return true
+	})
+
+	if count != 1 {
+		t.Fatalf("Found %d entries for non-empty file, expected 1", count)
+	}
+
+	must(t, ffs.Rename("file", "new-file"))
+	must(t, ffs.Rename("empty", "new-empty"))
+
+	// Scan
+	m.ScanFolders()
+
+	snap = dbSnapshot(t, m, "default")
+	defer snap.Release()
+
+	count = 0
+	snap.WithBlocksHash(empty.BlocksHash, func(_ db.FileIntf) bool {
+		count++
+		return true
+	})
+
+	if count != 0 {
+		t.Fatalf("Found %d entries for empty file, expected 0", count)
+	}
+
+	count = 0
+	snap.WithBlocksHash(file.BlocksHash, func(i db.FileIntf) bool {
+		count++
+		if i.FileName() != "new-file" {
+			t.Fatalf("unexpected file name %s, expected new-file", i.FileName())
+		}
+		return true
+	})
+
+	if count != 1 {
+		t.Fatalf("Found %d entries for non-empty file, expected 1", count)
+	}
+}
+
 func TestBlockListMap(t *testing.T) {
 	wcfg, fcfg := tmpDefaultWrapper()
 	m := setupModel(wcfg)
