@@ -1615,6 +1615,44 @@ func TestIgnoreAfterReceiveOnly(t *testing.T) {
 	}
 }
 
+// https://github.com/syncthing/syncthing/issues/6650
+func TestUpdateWithOneFileTwice(t *testing.T) {
+	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
+
+	file := "foo"
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+
+	fs := fileList{{
+		Name:     file,
+		Version:  protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}},
+		Sequence: 1,
+	}}
+
+	s.Update(protocol.LocalDeviceID, fs)
+
+	fs = append(fs, fs[0])
+	for i := range fs {
+		fs[i].Sequence++
+		fs[i].Version = fs[i].Version.Update(myID)
+	}
+	fs[1].Sequence++
+	fs[1].Version = fs[1].Version.Update(myID)
+
+	s.Update(protocol.LocalDeviceID, fs)
+
+	snap := s.Snapshot()
+	defer snap.Release()
+	count := 0
+	snap.WithHaveSequence(0, func(f db.FileIntf) bool {
+		count++
+		return true
+	})
+	if count != 1 {
+		t.Error("Expected to have one file, got", count)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
