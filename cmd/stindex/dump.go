@@ -106,7 +106,7 @@ func dump(ldb backend.Backend) {
 			fmt.Printf("[blocklist] H:%x\n", key[1:])
 
 		default:
-			fmt.Printf("[???]\n  %x\n  %x\n", key, it.Value())
+			fmt.Printf("[??? %d]\n  %x\n  %x\n", key[0], key, it.Value())
 		}
 	}
 }
