@@ -58,7 +58,7 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 		res[protocol.DeviceIDFromBytes(deviceID)] = od
 		continue
 	deleteKey:
-		l.Warnln("Invalid pending device entry, deleting from database")
+		l.Warnf("Invalid pending device entry, deleting from database: %x", iter.Key())
 		if err := db.Delete(iter.Key()); err != nil {
 			return nil, err
 		}
@@ -121,7 +121,7 @@ func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[pro
 			continue
 		}
 	deleteKey:
-		l.Warnln("Invalid pending folder entry, deleting from database")
+		l.Warnf("Invalid pending folder entry, deleting from database: %x", iter.Key())
 		if err := db.Delete(iter.Key()); err != nil {
 			return nil, err
 		}
@@ -164,7 +164,7 @@ func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) {
 		//FIXME: DeviceIDFromBytes() panics when given a wrong length input.
 		//       It should rather return an error which we'd check for here.
 		if len(keyDev) != protocol.DeviceIDLength {
-			l.Warnf("Invalid pending device entry, deleting from database: %v", keyDev)
+			l.Warnf("Invalid pending device entry, deleting from database: %x", iter.Key())
 		} else {
 			// Valid entries are looked up in the drop-list, invalid ones cleaned up
 			deviceID := protocol.DeviceIDFromBytes(keyDev)
@@ -191,7 +191,7 @@ func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) {
 	defer iter.Release()
 	for iter.Next() {
 		if keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key()); !ok {
-			l.Warnf("Invalid pending folder entry, deleting from database: %v", keyDev)
+			l.Warnf("Invalid pending folder entry, deleting from database: %x", iter.Key())
 		} else {
 			// Valid entries are looked up in the drop-list, invalid ones cleaned up
 			deviceID := protocol.DeviceIDFromBytes(keyDev)
@@ -207,7 +207,7 @@ func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) {
 				if _, dropFolder := folders[string(folderID)]; !dropFolder {
 					continue
 				}
-				l.Debugf("Removing marked pending folder %v for %v", string(folderID), deviceID)
+				l.Debugf("Removing marked pending folder %s for %v", folderID, deviceID)
 			}
 		}
 		if err := db.Delete(iter.Key()); err != nil {
