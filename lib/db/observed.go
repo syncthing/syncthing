@@ -151,6 +151,35 @@ func (dl DropListObserved) MarkFolder(folder string, devices []protocol.DeviceID
 	}
 }
 
+// shouldDropPendingFolder defines how the drop-list is interpreted for pending folders,
+// which is different and more nested than for devices
+func (dropList DropListObserved) shouldDropPendingFolder(key []byte, keyer keyer) bool {
+	keyDev, ok := keyer.DeviceFromPendingFolderKey(key)
+	if !ok {
+		l.Warnf("Invalid pending folder entry, deleting from database: %x", key)
+		return true
+	}
+	// Valid entries are looked up in the drop-list, invalid ones cleaned up
+	deviceID := protocol.DeviceIDFromBytes(keyDev)
+	dropFolders, allowDevice := dropList[deviceID]
+	// Check the associated set of folders if provided, otherwise drop.
+	if !allowDevice {
+		l.Debugf("Removing pending folder offered by %v", deviceID)
+		return true
+	}
+	if len(dropFolders) == 0 {
+		// Map is empty or nil, skip lookup
+		return false
+	}
+	folderID := keyer.FolderFromPendingFolderKey(key)
+	// Drop only mentioned folder IDs
+	if _, dropFolder := dropFolders[string(folderID)]; !dropFolder {
+		return false
+	}
+	l.Debugf("Removing marked pending folder %s for %v", folderID, deviceID)
+	return true
+}
+
 // CleanPendingDevices removes all pending device entries matching a given set of device IDs
 func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
@@ -190,28 +219,10 @@ func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) {
 	}
 	defer iter.Release()
 	for iter.Next() {
-		if keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key()); !ok {
-			l.Warnf("Invalid pending folder entry, deleting from database: %x", iter.Key())
-		} else {
-			// Valid entries are looked up in the drop-list, invalid ones cleaned up
-			deviceID := protocol.DeviceIDFromBytes(keyDev)
-			folders, keepDev := dropList[deviceID]
-			// Check the associated set of folders if provided, otherwise drop.
-			if !keepDev {
-				l.Debugf("Removing pending folder offered by %v", deviceID)
-			} else if len(folders) == 0 {
-				continue
-			} else {
-				folderID := db.keyer.FolderFromPendingFolderKey(iter.Key())
-				// Remove only mentioned folder IDs
-				if _, dropFolder := folders[string(folderID)]; !dropFolder {
-					continue
-				}
-				l.Debugf("Removing marked pending folder %s for %v", folderID, deviceID)
+		if dropList.shouldDropPendingFolder(iter.Key(), db.keyer) {
+			if err := db.Delete(iter.Key()); err != nil {
+				l.Warnf("Failed to remove pending folder entry: %v", err)
 			}
-		}
-		if err := db.Delete(iter.Key()); err != nil {
-			l.Warnf("Failed to remove pending folder entry: %v", err)
 		}
 	}
 }
