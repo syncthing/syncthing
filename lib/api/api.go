@@ -624,7 +624,7 @@ func (s *service) getPendingFolders(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	sendJSON(w, toJsonObservedFolderSlice(folders))
+	sendJSON(w, toJsonPendingFolderSlice(folders))
 }
 
 func (s *service) restPing(w http.ResponseWriter, r *http.Request) {
@@ -1654,7 +1654,7 @@ func toJsonPendingDeviceSlice(devices map[protocol.DeviceID]db.ObservedDevice) [
 	return res
 }
 
-func toJsonObservedFolderSlice(folders map[string]map[protocol.DeviceID]db.ObservedFolder) []jsonPendingFolder {
+func toJsonPendingFolderSlice(folders map[string]map[protocol.DeviceID]db.ObservedFolder) []jsonPendingFolder {
 	res := make([]jsonPendingFolder, 0, len(folders))
 	for id, devices := range folders {
 		res = append(res, jsonPendingFolder{id, toJsonOfferingDeviceSlice(devices)})
