@@ -151,6 +151,24 @@ func (dl DropListObserved) MarkFolder(folder string, devices []protocol.DeviceID
 	}
 }
 
+// shouldDropPendingDevice defines how the drop-list is interpreted for pending devices
+func (dropList DropListObserved) shouldDropPendingDevice(key []byte, keyer keyer) bool {
+	keyDev := keyer.DeviceFromPendingDeviceKey(key)
+	//FIXME: DeviceIDFromBytes() panics when given a wrong length input.
+	//       It should rather return an error which we'd check for here.
+	if len(keyDev) != protocol.DeviceIDLength {
+		l.Warnf("Invalid pending device entry, deleting from database: %x", key)
+		return true
+	}
+	// Valid entries are looked up in the drop-list, invalid ones cleaned up
+	deviceID := protocol.DeviceIDFromBytes(keyDev)
+	_, dropDev := dropList[deviceID]
+	if dropDev {
+		l.Debugf("Removing marked pending device %v", deviceID)
+	}
+	return dropDev
+}
+
 // shouldDropPendingFolder defines how the drop-list is interpreted for pending folders,
 // which is different and more nested than for devices
 func (dropList DropListObserved) shouldDropPendingFolder(key []byte, keyer keyer) bool {
@@ -189,22 +207,10 @@ func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) {
 	}
 	defer iter.Release()
 	for iter.Next() {
-		keyDev := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
-		//FIXME: DeviceIDFromBytes() panics when given a wrong length input.
-		//       It should rather return an error which we'd check for here.
-		if len(keyDev) != protocol.DeviceIDLength {
-			l.Warnf("Invalid pending device entry, deleting from database: %x", iter.Key())
-		} else {
-			// Valid entries are looked up in the drop-list, invalid ones cleaned up
-			deviceID := protocol.DeviceIDFromBytes(keyDev)
-			_, dropDev := dropList[deviceID]
-			if !dropDev {
-				continue
+		if dropList.shouldDropPendingDevice(iter.Key(), db.keyer) {
+			if err := db.Delete(iter.Key()); err != nil {
+				l.Warnf("Failed to remove pending device entry: %v", err)
 			}
-			l.Debugf("Removing marked pending device %v", deviceID)
-		}
-		if err := db.Delete(iter.Key()); err != nil {
-			l.Warnf("Failed to remove pending device entry: %v", err)
 		}
 	}
 }
