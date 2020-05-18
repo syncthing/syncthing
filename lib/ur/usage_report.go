@@ -385,15 +385,17 @@ func (s *Service) sendUsageReport(ctx context.Context) error {
 		},
 	}
 	req, err := http.NewRequest("POST", s.cfg.Options().URURL, &b)
-	if err == nil {
-		req.Header.Set("Content-Type", "application/json")
-		req.Cancel = ctx.Done()
-		var resp *http.Response
-		resp, err = client.Do(req)
-		resp.Body.Close()
+	if err != nil {
+		return err
 	}
-
-	return err
+	req.Header.Set("Content-Type", "application/json")
+	req.Cancel = ctx.Done()
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
 }
 
 func (s *Service) serve(ctx context.Context) {

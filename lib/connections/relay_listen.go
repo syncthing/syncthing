@@ -57,10 +57,12 @@ func (t *relayListener) serve(ctx context.Context) error {
 	defer clnt.Stop()
 	t.mut.Unlock()
 
-	oldURI := clnt.URI()
+	// Start with nil, so that we send a addresses changed notification as soon as we connect somewhere.
+	var oldURI *url.URL
 
 	l.Infof("Relay listener (%v) starting", t)
 	defer l.Infof("Relay listener (%v) shutting down", t)
+	defer t.clearAddresses(t)
 
 	for {
 		select {

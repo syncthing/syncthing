@@ -46,9 +46,10 @@ type httpClient interface {
 }
 
 const (
-	defaultReannounceInterval  = 30 * time.Minute
-	announceErrorRetryInterval = 5 * time.Minute
-	requestTimeout             = 5 * time.Second
+	defaultReannounceInterval             = 30 * time.Minute
+	announceErrorRetryInterval            = 5 * time.Minute
+	requestTimeout                        = 5 * time.Second
+	maxAddressChangesBetweenAnnouncements = 10
 )
 
 type announcement struct {
@@ -197,20 +198,33 @@ func (c *globalClient) serve(ctx context.Context) {
 		return
 	}
 
-	timer := time.NewTimer(0)
+	timer := time.NewTimer(5 * time.Second)
 	defer timer.Stop()
 
 	eventSub := c.evLogger.Subscribe(events.ListenAddressesChanged)
 	defer eventSub.Unsubscribe()
 
+	timerResetCount := 0
+
 	for {
 		select {
 		case <-eventSub.C():
-			// Defer announcement by 2 seconds, essentially debouncing
-			// if we have a stream of events incoming in quick succession.
-			timer.Reset(2 * time.Second)
-
+			if timerResetCount < maxAddressChangesBetweenAnnouncements {
+				// Defer announcement by 2 seconds, essentially debouncing
+				// if we have a stream of events incoming in quick succession.
+				timer.Reset(2 * time.Second)
+			} else if timerResetCount == maxAddressChangesBetweenAnnouncements {
+				// Yet only do it if we haven't had to reset maxAddressChangesBetweenAnnouncements times in a row,
+				// so if something is flip-flopping within 2 seconds, we don't end up in a permanent reset loop.
+				l.Warnf("Detected a flip-flopping listener")
+				c.setError(errors.New("flip flopping listener"))
+				// Incrementing the count above 10 will prevent us from warning or setting the error again
+				// It will also suppress event based resets until we've had a proper round after announceErrorRetryInterval
+				timer.Reset(announceErrorRetryInterval)
+			}
+			timerResetCount++
 		case <-timer.C:
+			timerResetCount = 0
 			c.sendAnnouncement(ctx, timer)
 
 		case <-ctx.Done():
@@ -237,7 +251,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 	// The marshal doesn't fail, I promise.
 	postData, _ := json.Marshal(ann)
 
-	l.Debugf("Announcement: %s", postData)
+	l.Debugf("Announcement: %v", ann)
 
 	resp, err := c.announceClient.Post(ctx, c.server, "application/json", bytes.NewReader(postData))
 	if err != nil {

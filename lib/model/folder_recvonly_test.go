@@ -263,6 +263,69 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	}
 }
 
+func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
+	// Get us a model up and running
+
+	m, f := setupROFolder(t)
+	ffs := f.Filesystem()
+	defer cleanupModel(m)
+
+	// Create some test data
+
+	must(t, ffs.MkdirAll(".stfolder", 0755))
+	oldData := []byte("hello\n")
+	knownFiles := setupKnownFiles(t, ffs, oldData)
+
+	// Send an index update for the known stuff
+
+	m.Index(device1, "ro", knownFiles)
+	f.updateLocalsFromScanning(knownFiles)
+
+	// Scan the folder.
+
+	must(t, m.ScanFolder("ro"))
+
+	// Everything should be in sync.
+
+	size := globalSize(t, m, "ro")
+	if size.Files != 1 || size.Directories != 1 {
+		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
+	}
+	size = localSize(t, m, "ro")
+	if size.Files != 1 || size.Directories != 1 {
+		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
+	}
+	size = needSize(t, m, "ro")
+	if size.Files+size.Directories > 0 {
+		t.Fatalf("Need: expected nothing: %+v", size)
+	}
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Files+size.Directories > 0 {
+		t.Fatalf("ROChanged: expected nothing: %+v", size)
+	}
+
+	// Delete our file
+
+	must(t, ffs.Remove(knownFiles[1].Name))
+
+	must(t, m.ScanFolder("ro"))
+
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Deleted != 1 {
+		t.Fatalf("Receive only: expected 1 deleted: %+v", size)
+	}
+
+	// Drop the remote
+
+	f.fset.Drop(device1)
+	must(t, m.ScanFolder("ro"))
+
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Deleted != 0 {
+		t.Fatalf("Receive only: expected no deleted: %+v", size)
+	}
+}
+
 func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.FileInfo {
 	t.Helper()
 
@@ -305,11 +368,13 @@ func setupROFolder(t *testing.T) (*model, *receiveOnlyFolder) {
 	t.Helper()
 
 	w := createTmpWrapper(defaultCfg)
+	cfg := w.RawCopy()
 	fcfg := testFolderConfigFake()
 	fcfg.ID = "ro"
 	fcfg.Label = "ro"
 	fcfg.Type = config.FolderTypeReceiveOnly
-	w.SetFolder(fcfg)
+	cfg.Folders = []config.FolderConfiguration{fcfg}
+	w.Replace(cfg)
 
 	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
 	m.ServeBackground()

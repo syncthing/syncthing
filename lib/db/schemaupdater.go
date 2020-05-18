@@ -7,8 +7,6 @@
 package db
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -20,21 +18,15 @@ import (
 //   0: v0.14.0
 //   1: v0.14.46
 //   2: v0.14.48
-//   3: v0.14.49
-//   4: v0.14.49
-//   5: v0.14.49
+//   3-5: v0.14.49
 //   6: v0.14.50
 //   7: v0.14.53
-//   8: v1.4.0
-//   9: v1.4.0
+//   8-9: v1.4.0
+//   10-11: v1.6.0
+//   12: v1.7.0
 const (
-	dbVersion             = 9
-	dbMinSyncthingVersion = "v1.4.0"
-)
-
-var (
-	errFolderIdxMissing = errors.New("folder db index missing")
-	errDeviceIdxMissing = errors.New("device db index missing")
+	dbVersion             = 12
+	dbMinSyncthingVersion = "v1.7.0"
 )
 
 type databaseDowngradeError struct {
@@ -94,7 +86,10 @@ func (db *schemaUpdater) updateSchema() error {
 		{5, db.updateSchemaTo5},
 		{6, db.updateSchema5to6},
 		{7, db.updateSchema6to7},
-		{9, db.updateSchemato9},
+		{9, db.updateSchemaTo9},
+		{10, db.updateSchemaTo10},
+		{11, db.updateSchemaTo11},
+		{12, db.updateSchemaTo12},
 	}
 
 	for _, m := range migrations {
@@ -164,8 +159,10 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 			if err != nil {
 				return err
 			}
+			// Purposely pass nil file name to remove from global list,
+			// but don't touch meta and needs
 			buf, err = t.removeFromGlobal(gk, buf, folder, device, nil, nil)
-			if err != nil {
+			if err != nil && err != errEntryFromGlobalMissing {
 				return err
 			}
 			if err := t.Delete(dbi.Key()); err != nil {
@@ -210,6 +207,9 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 				}
 				ignAdded++
 			}
+		}
+		if err := t.Checkpoint(); err != nil {
+			return err
 		}
 	}
 
@@ -285,7 +285,12 @@ func (db *schemaUpdater) updateSchema2to3(_ int) error {
 			if ok {
 				v = haveFile.FileVersion()
 			}
-			if !need(f, ok, v) {
+			fv := FileVersion{
+				Version: f.FileVersion(),
+				Invalid: f.IsInvalid(),
+				Deleted: f.IsDeleted(),
+			}
+			if !need(fv, ok, v) {
 				return true
 			}
 			nk, putErr = t.keyer.GenerateNeedFileKey(nk, folder, []byte(f.FileName()))
@@ -349,7 +354,7 @@ func (db *schemaUpdater) updateSchema5to6(_ int) error {
 
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
-		var putErr error
+		var iterErr error
 		err := t.withHave(folder, protocol.LocalDeviceID[:], nil, false, func(f FileIntf) bool {
 			if !f.IsInvalid() {
 				return true
@@ -360,16 +365,18 @@ func (db *schemaUpdater) updateSchema5to6(_ int) error {
 			fi.LocalFlags = protocol.FlagLocalIgnored
 			bs, _ := fi.Marshal()
 
-			dk, putErr = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], []byte(fi.Name))
-			if putErr != nil {
+			dk, iterErr = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], []byte(fi.Name))
+			if iterErr != nil {
 				return false
 			}
-			putErr = t.Put(dk, bs)
-
-			return putErr == nil
+			if iterErr = t.Put(dk, bs); iterErr != nil {
+				return false
+			}
+			iterErr = t.Checkpoint()
+			return iterErr == nil
 		})
-		if putErr != nil {
-			return putErr
+		if iterErr != nil {
+			return iterErr
 		}
 		if err != nil {
 			return err
@@ -395,7 +402,6 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 		var delErr error
 		err := t.withNeedLocal(folder, false, func(f FileIntf) bool {
 			name := []byte(f.FileName())
-			global := f.(protocol.FileInfo)
 			gk, delErr = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
 			if delErr != nil {
 				return false
@@ -418,7 +424,13 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 				// so lets not act on it.
 				return true
 			}
-			if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); !need(global, haveLocalFV, localFV.Version) {
+			globalFV := FileVersion{
+				Version: f.FileVersion(),
+				Invalid: f.IsInvalid(),
+				Deleted: f.IsDeleted(),
+			}
+
+			if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); !need(globalFV, haveLocalFV, localFV.Version) {
 				key, err := t.keyer.GenerateNeedFileKey(nk, folder, name)
 				if err != nil {
 					delErr = err
@@ -428,16 +440,21 @@ func (db *schemaUpdater) updateSchema6to7(_ int) error {
 			}
 			return delErr == nil
 		})
+		if delErr != nil {
+			return delErr
+		}
 		if err != nil {
+			return err
+		}
+		if err := t.Checkpoint(); err != nil {
 			return err
 		}
 	}
 	return t.Commit()
 }
 
-func (db *schemaUpdater) updateSchemato9(prev int) error {
+func (db *schemaUpdater) updateSchemaTo9(prev int) error {
 	// Loads and rewrites all files with blocks, to deduplicate block lists.
-	// Checks for missing or incorrect sequence entries and rewrites those.
 
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
@@ -445,12 +462,20 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 	}
 	defer t.close()
 
-	var sk []byte
+	if err := db.rewriteFiles(t); err != nil {
+		return err
+	}
+
+	db.recordTime(indirectGCTimeKey)
+
+	return t.Commit()
+}
+
+func (db *schemaUpdater) rewriteFiles(t readWriteTransaction) error {
 	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
 		return err
 	}
-	metas := make(map[string]*metadataTracker)
 	for it.Next() {
 		intf, err := t.unmarshalTrunc(it.Value(), false)
 		if backend.IsNotFound(err) {
@@ -466,67 +491,143 @@ func (db *schemaUpdater) updateSchemato9(prev int) error {
 			return err
 		}
 		fi := intf.(protocol.FileInfo)
-		device, ok := t.keyer.DeviceFromDeviceFileKey(it.Key())
-		if !ok {
-			return errDeviceIdxMissing
-		}
-		if bytes.Equal(device, protocol.LocalDeviceID[:]) {
-			folder, ok := t.keyer.FolderFromDeviceFileKey(it.Key())
-			if !ok {
-				return errFolderIdxMissing
-			}
-			if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
-				return err
-			}
-			switch dk, err := t.Get(sk); {
-			case err != nil:
-				if !backend.IsNotFound(err) {
-					return err
-				}
-				fallthrough
-			case !bytes.Equal(it.Key(), dk):
-				folderStr := string(folder)
-				meta, ok := metas[folderStr]
-				if !ok {
-					meta = loadMetadataTracker(db.Lowlevel, folderStr)
-					metas[folderStr] = meta
-				}
-				fi.Sequence = meta.nextLocalSeq()
-				if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
-					return err
-				}
-				if err := t.Put(sk, it.Key()); err != nil {
-					return err
-				}
-				if err := t.putFile(it.Key(), fi); err != nil {
-					return err
-				}
-				continue
-			}
-		}
-		if prev == 8 {
-			// The transition to 8 already did the changes below.
-			continue
-		}
 		if fi.Blocks == nil {
 			continue
 		}
-		if err := t.putFile(it.Key(), fi); err != nil {
+		if err := t.putFile(it.Key(), fi, false); err != nil {
+			return err
+		}
+		if err := t.Checkpoint(); err != nil {
 			return err
 		}
 	}
 	it.Release()
-	if err := it.Error(); err != nil {
+	return it.Error()
+}
+
+func (db *schemaUpdater) updateSchemaTo10(_ int) error {
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	var buf []byte
+
+	for _, folderStr := range db.ListFolders() {
+		folder := []byte(folderStr)
+
+		buf, err = t.keyer.GenerateGlobalVersionKey(buf, folder, nil)
+		if err != nil {
+			return err
+		}
+		buf = globalVersionKey(buf).WithoutName()
+		dbi, err := t.NewPrefixIterator(buf)
+		if err != nil {
+			return err
+		}
+		defer dbi.Release()
+
+		for dbi.Next() {
+			var vl VersionList
+			if err := vl.Unmarshal(dbi.Value()); err != nil {
+				return err
+			}
+
+			changed := false
+			name := t.keyer.NameFromGlobalVersionKey(dbi.Key())
+
+			for i, fv := range vl.Versions {
+				buf, err = t.keyer.GenerateDeviceFileKey(buf, folder, fv.Device, name)
+				if err != nil {
+					return err
+				}
+				f, ok, err := t.getFileTrunc(buf, true)
+				if !ok {
+					return errEntryFromGlobalMissing
+				}
+				if err != nil {
+					return err
+				}
+				if f.IsDeleted() {
+					vl.Versions[i].Deleted = true
+					changed = true
+				}
+			}
+
+			if changed {
+				if err := t.Put(dbi.Key(), mustMarshal(&vl)); err != nil {
+					return err
+				}
+				if err := t.Checkpoint(); err != nil {
+					return err
+				}
+			}
+		}
+		dbi.Release()
+	}
+
+	// Trigger metadata recalc
+	if err := t.deleteKeyPrefix([]byte{KeyTypeFolderMeta}); err != nil {
 		return err
 	}
 
-	for folder, meta := range metas {
-		if err := meta.toDB(t, []byte(folder)); err != nil {
+	return t.Commit()
+}
+
+func (db *schemaUpdater) updateSchemaTo11(_ int) error {
+	// Populates block list map for every folder.
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	var dk []byte
+	for _, folderStr := range db.ListFolders() {
+		folder := []byte(folderStr)
+		var putErr error
+		err := t.withHave(folder, protocol.LocalDeviceID[:], nil, true, func(fi FileIntf) bool {
+			f := fi.(FileInfoTruncated)
+			if f.IsDirectory() || f.IsDeleted() || f.IsSymlink() || f.IsInvalid() || f.BlocksHash == nil {
+				return true
+			}
+
+			name := []byte(f.FileName())
+			dk, putErr = db.keyer.GenerateBlockListMapKey(dk, folder, f.BlocksHash, name)
+			if putErr != nil {
+				return false
+			}
+
+			if putErr = t.Put(dk, nil); putErr != nil {
+				return false
+			}
+			putErr = t.Checkpoint()
+			return putErr == nil
+		})
+		if putErr != nil {
+			return putErr
+		}
+		if err != nil {
 			return err
 		}
 	}
+	return t.Commit()
+}
 
-	db.recordTime(indirectGCTimeKey)
+func (db *schemaUpdater) updateSchemaTo12(_ int) error {
+	// Loads and rewrites all files, to deduplicate version vectors.
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	if err := db.rewriteFiles(t); err != nil {
+		return err
+	}
 
 	return t.Commit()
 }

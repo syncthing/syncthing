@@ -60,10 +60,10 @@ func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 		folderFs:      folderFs,
 		versionsFs:    versionsFs,
 		interval: [4]interval{
-			{30, 3600},       // first hour -> 30 sec between versions
-			{3600, 86400},    // next day -> 1 h between versions
-			{86400, 592000},  // next 30 days -> 1 day between versions
-			{604800, maxAge}, // next year -> 1 week between versions
+			{30, 60 * 60},                     // first hour -> 30 sec between versions
+			{60 * 60, 24 * 60 * 60},           // next day -> 1 h between versions
+			{24 * 60 * 60, 30 * 24 * 60 * 60}, // next 30 days -> 1 day between versions
+			{7 * 24 * 60 * 60, maxAge},        // next year -> 1 week between versions
 		},
 		mutex: sync.NewMutex(),
 	}

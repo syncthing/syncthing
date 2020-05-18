@@ -405,7 +405,7 @@
                     <tr ng-if="folder.type == 'receiveonly' && canRevert(folder.id)">
                       <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Locally Changed Items</span></th>
                       <td class="text-right">
-                        <a href="" ng-click="showLocalChanged(folder.id)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyBytes | binary}}B</a>
+                        <a href="" ng-click="showLocalChanged(folder.id)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'sendreceive'">
@@ -515,7 +515,7 @@
                   <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type">
                     <span class="fas fa-undo"></span>&nbsp;<span translate>Versions</span>
                   </button>
-                  <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync', 'faileditems'].indexOf(folderStatus(folder)) < 0">
+                  <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder)) < 0">
                     <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="editFolder(folder)">
@@ -656,12 +656,14 @@
                 <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
                 <span ng-switch="deviceStatus(deviceCfg)" class="pull-right text-{{deviceClass(deviceCfg)}}">
                   <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs" aria-label="{{'Up to Date' | translate}}"><i class="fas fa-fw fa-check"></i></span></span>
+                  <span ng-switch-when="unused-insync"><span class="hidden-xs" translate>Connected (Unused)</span><span class="visible-xs" aria-label="{{'Connected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span> ({{completion[deviceCfg.deviceID]._total | percent}}, {{completion[deviceCfg.deviceID]._needBytes | binary}}B)
                   </span>
                   <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
+                  <span ng-switch-when="unused-paused"><span class="hidden-xs" translate>Paused (Unused)</span><span class="visible-xs" aria-label="{{'Paused (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                   <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs" aria-label="{{'Disconnected' | translate}}"><i class="fas fa-fw fa-power-off"></i></span></span>
-                  <span ng-switch-when="unused"><span class="hidden-xs" translate>Unused</span><span class="visible-xs" aria-label="{{'Unused' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
+                  <span ng-switch-when="unused-disconnected"><span class="hidden-xs" translate>Disconnected (Unused)</span><span class="visible-xs" aria-label="{{'Disconnected (Unused)' | translate}}"><i class="fas fa-fw fa-unlink"></i></span></span>
                 </span>
                 <span>{{deviceName(deviceCfg)}}</span>
               </h4>
@@ -786,6 +788,12 @@
         </div>
         <div class="form-group">
           <span class="pull-right">
+            <button type="button" class="btn btn-sm btn-default" ng-click="setAllDevicesPause(true)" ng-if="isAtleastOneDevicePausedStateSetTo(false)">
+              <span class="fas fa-pause"></span>&nbsp;<span translate>Pause All</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-default" ng-click="setAllDevicesPause(false)" ng-if="isAtleastOneDevicePausedStateSetTo(true)">
+              <span class="fas fa-play"></span>&nbsp;<span translate>Resume All</span>
+            </button>
             <button type="button" class="btn btn-sm btn-default" ng-click="globalChanges()">
               <span class="fas fa-fw fa-info-circle"></span>&nbsp;<span translate>Recent Changes</span>
             </button>

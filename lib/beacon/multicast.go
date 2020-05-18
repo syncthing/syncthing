@@ -67,6 +67,10 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 
 		success := 0
 		for _, intf := range intfs {
+			if intf.Flags&net.FlagMulticast == 0 {
+				continue
+			}
+
 			wcm.IfIndex = intf.Index
 			pconn.SetWriteDeadline(time.Now().Add(time.Second))
 			_, err = pconn.WriteTo(bs, wcm, gaddr)
