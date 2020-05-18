@@ -10,7 +10,37 @@
 
 package fs
 
-import "path/filepath"
+import (
+	"path/filepath"
+)
+
+type ancestorDirList struct {
+	list []FileInfo
+	fs   Filesystem
+}
+
+func (ancestors *ancestorDirList) Push(info FileInfo) {
+	l.Debugf("ancestorDirList: Push '%s'", info.Name())
+	ancestors.list = append(ancestors.list, info)
+}
+
+func (ancestors *ancestorDirList) Pop() FileInfo {
+	aLen := len(ancestors.list)
+	info := ancestors.list[aLen-1]
+	l.Debugf("ancestorDirList: Pop '%s'", info.Name())
+	ancestors.list = ancestors.list[:aLen-1]
+	return info
+}
+
+func (ancestors *ancestorDirList) Contains(info FileInfo) bool {
+	l.Debugf("ancestorDirList: Contains '%s'", info.Name())
+	for _, ancestor := range ancestors.list {
+		if ancestors.fs.SameFile(info, ancestor) {
+			return true
+		}
+	}
+	return false
+}
 
 // WalkFunc is the type of the function called for each file or directory
 // visited by Walk. The path argument contains the argument to Walk as a
@@ -37,7 +67,8 @@ func NewWalkFilesystem(next Filesystem) Filesystem {
 }
 
 // walk recursively descends path, calling walkFn.
-func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error {
+func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc, ancestors *ancestorDirList) error {
+	l.Debugf("walk: path=%s", path)
 	path, err := Canonicalize(path)
 	if err != nil {
 		return err
@@ -55,6 +86,14 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error
 		return nil
 	}
 
+	if !ancestors.Contains(info) {
+		ancestors.Push(info)
+		defer ancestors.Pop()
+	} else {
+		l.Warnf("Infinite filesystem recursion detected on path '%s', not walking further down", path)
+		return nil
+	}
+
 	names, err := f.DirNames(path)
 	if err != nil {
 		return walkFn(path, info, err)
@@ -68,7 +107,7 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error
 				return err
 			}
 		} else {
-			err = f.walk(filename, fileInfo, walkFn)
+			err = f.walk(filename, fileInfo, walkFn, ancestors)
 			if err != nil {
 				if !fileInfo.IsDir() || err != SkipDir {
 					return err
@@ -90,5 +129,6 @@ func (f *walkFilesystem) Walk(root string, walkFn WalkFunc) error {
 	if err != nil {
 		return walkFn(root, nil, err)
 	}
-	return f.walk(root, info, walkFn)
+	ancestors := &ancestorDirList{fs: f.Filesystem}
+	return f.walk(root, info, walkFn, ancestors)
 }

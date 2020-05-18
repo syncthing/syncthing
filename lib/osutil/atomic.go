@@ -93,17 +93,15 @@ func (w *AtomicWriter) Close() error {
 		return err
 	}
 
-	// Remove the destination file, on Windows only. If it fails, and not due
-	// to the file not existing, we won't be able to complete the rename
-	// either. Return this error because it may be more informative. On non-
-	// Windows we want the atomic rename behavior so we don't attempt remove.
-	if runtime.GOOS == "windows" {
-		if err := w.fs.Remove(w.path); err != nil && !fs.IsNotExist(err) {
-			return err
-		}
+	err := w.fs.Rename(w.next.Name(), w.path)
+	if runtime.GOOS == "windows" && fs.IsPermission(err) {
+		// On Windows, we might not be allowed to rename over the file
+		// because it's read-only. Get us some write permissions and try
+		// again.
+		_ = w.fs.Chmod(w.path, 0644)
+		err = w.fs.Rename(w.next.Name(), w.path)
 	}
-
-	if err := w.fs.Rename(w.next.Name(), w.path); err != nil {
+	if err != nil {
 		w.err = err
 		return err
 	}

@@ -767,16 +767,10 @@ func TestNotExistingError(t *testing.T) {
 }
 
 func TestSkipIgnoredDirs(t *testing.T) {
-	tmp, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmp)
-
-	fss := fs.NewFilesystem(fs.FilesystemTypeBasic, tmp)
+	fss := fs.NewFilesystem(fs.FilesystemTypeFake, "")
 
 	name := "foo/ignored"
-	err = fss.MkdirAll(name, 0777)
+	err := fss.MkdirAll(name, 0777)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -808,6 +802,50 @@ func TestSkipIgnoredDirs(t *testing.T) {
 
 	if err := fn(name, stat, nil); err != fs.SkipDir {
 		t.Errorf("Expected %v, got %v", fs.SkipDir, err)
+	}
+}
+
+// https://github.com/syncthing/syncthing/issues/6487
+func TestIncludedSubdir(t *testing.T) {
+	fss := fs.NewFilesystem(fs.FilesystemTypeFake, "")
+
+	name := filepath.Clean("foo/bar/included")
+	err := fss.MkdirAll(name, 0777)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pats := ignore.New(fss, ignore.WithCache(true))
+
+	stignore := `
+	!/foo/bar
+	*
+	`
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+
+	fchan := Walk(context.TODO(), Config{
+		CurrentFiler: make(fakeCurrentFiler),
+		Filesystem:   fss,
+		Matcher:      pats,
+	})
+
+	found := false
+	for f := range fchan {
+		if f.Err != nil {
+			t.Fatalf("Error while scanning %v: %v", f.Err, f.Path)
+		}
+		if f.File.IsIgnored() {
+			t.Error("File is ignored:", f.File.Name)
+		}
+		if f.File.Name == name {
+			found = true
+		}
+	}
+
+	if !found {
+		t.Errorf("File not present in scan results")
 	}
 }
 

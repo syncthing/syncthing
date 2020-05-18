@@ -32,6 +32,7 @@ type sharedPullerState struct {
 	curFile     protocol.FileInfo // The file as it exists now in our database
 	sparse      bool
 	created     time.Time
+	fsync       bool
 
 	// Mutable, must be locked for access
 	err               error           // The first error we hit
@@ -47,6 +48,29 @@ type sharedPullerState struct {
 	available         []int32         // Indexes of the blocks that are available in the temporary file
 	availableUpdated  time.Time       // Time when list of available blocks was last updated
 	mut               sync.RWMutex    // Protects the above
+}
+
+func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, tempName string, blocks []protocol.BlockInfo, reused []int32, ignorePerms, hasCurFile bool, curFile protocol.FileInfo, sparse bool, fsync bool) *sharedPullerState {
+	return &sharedPullerState{
+		file:             file,
+		fs:               fs,
+		folder:           folderID,
+		tempName:         tempName,
+		realName:         file.Name,
+		copyTotal:        len(blocks),
+		copyNeeded:       len(blocks),
+		reused:           len(reused),
+		updated:          time.Now(),
+		available:        reused,
+		availableUpdated: time.Now(),
+		ignorePerms:      ignorePerms,
+		hasCurFile:       hasCurFile,
+		curFile:          curFile,
+		mut:              sync.NewRWMutex(),
+		sparse:           sparse,
+		fsync:            fsync,
+		created:          time.Now(),
+	}
 }
 
 // A momentary state representing the progress of the puller
@@ -79,13 +103,15 @@ func (w *lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
 
 // SyncClose ensures that no more writes are happening before going ahead and
 // syncing and closing the fd, thus needs to acquire a write-lock.
-func (w *lockedWriterAt) SyncClose() error {
+func (w *lockedWriterAt) SyncClose(fsync bool) error {
 	w.mut.Lock()
 	defer w.mut.Unlock()
-	if err := w.fd.Sync(); err != nil {
-		// Sync() is nice if it works but not worth failing the
-		// operation over if it fails.
-		l.Debugf("fsync failed: %v", err)
+	if fsync {
+		if err := w.fd.Sync(); err != nil {
+			// Sync() is nice if it works but not worth failing the
+			// operation over if it fails.
+			l.Debugf("fsync failed: %v", err)
+		}
 	}
 	return w.fd.Close()
 }
@@ -281,7 +307,7 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	}
 
 	if s.writer != nil {
-		if err := s.writer.SyncClose(); err != nil && s.err == nil {
+		if err := s.writer.SyncClose(s.fsync); err != nil && s.err == nil {
 			// This is our error as we weren't errored before.
 			s.err = err
 		}

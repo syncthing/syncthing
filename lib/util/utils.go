@@ -251,12 +251,17 @@ func (s *service) Stop() {
 	s.mut.Lock()
 	select {
 	case <-s.ctx.Done():
+		s.mut.Unlock()
 		panic(fmt.Sprintf("Stop called more than once on %v", s))
 	default:
 		s.cancel()
 	}
+
+	// Cache s.stopped in a variable while we hold the mutex
+	// to prevent a data race with Serve's resetting it.
+	stopped := s.stopped
 	s.mut.Unlock()
-	<-s.stopped
+	<-stopped
 }
 
 func (s *service) Error() error {

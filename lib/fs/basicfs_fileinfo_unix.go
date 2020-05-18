@@ -8,7 +8,10 @@
 
 package fs
 
-import "syscall"
+import (
+	"os"
+	"syscall"
+)
 
 func (e basicFileInfo) Mode() FileMode {
 	return FileMode(e.FileInfo.Mode())
@@ -26,4 +29,10 @@ func (e basicFileInfo) Group() int {
 		return int(st.Gid)
 	}
 	return -1
+}
+
+// fileStat converts e to os.FileInfo that is suitable
+// to be passed to os.SameFile. Non-trivial on Windows.
+func (e *basicFileInfo) osFileInfo() os.FileInfo {
+	return e.FileInfo
 }
