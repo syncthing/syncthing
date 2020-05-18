@@ -152,7 +152,7 @@ func (dl DropListObserved) MarkFolder(folder string, devices []protocol.DeviceID
 }
 
 // shouldDropPendingDevice defines how the drop-list is interpreted for pending devices
-func (dropList DropListObserved) shouldDropPendingDevice(key []byte, keyer keyer) bool {
+func (dl DropListObserved) shouldDropPendingDevice(key []byte, keyer keyer) bool {
 	keyDev := keyer.DeviceFromPendingDeviceKey(key)
 	//FIXME: DeviceIDFromBytes() panics when given a wrong length input.
 	//       It should rather return an error which we'd check for here.
@@ -162,16 +162,16 @@ func (dropList DropListObserved) shouldDropPendingDevice(key []byte, keyer keyer
 	}
 	// Valid entries are looked up in the drop-list, invalid ones cleaned up
 	deviceID := protocol.DeviceIDFromBytes(keyDev)
-	_, dropDev := dropList[deviceID]
-	if dropDev {
+	_, dropDevice := dl[deviceID]
+	if dropDevice {
 		l.Debugf("Removing marked pending device %v", deviceID)
 	}
-	return dropDev
+	return dropDevice
 }
 
 // shouldDropPendingFolder defines how the drop-list is interpreted for pending folders,
 // which is different and more nested than for devices
-func (dropList DropListObserved) shouldDropPendingFolder(key []byte, keyer keyer) bool {
+func (dl DropListObserved) shouldDropPendingFolder(key []byte, keyer keyer) bool {
 	keyDev, ok := keyer.DeviceFromPendingFolderKey(key)
 	if !ok {
 		l.Warnf("Invalid pending folder entry, deleting from database: %x", key)
@@ -179,7 +179,7 @@ func (dropList DropListObserved) shouldDropPendingFolder(key []byte, keyer keyer
 	}
 	// Valid entries are looked up in the drop-list, invalid ones cleaned up
 	deviceID := protocol.DeviceIDFromBytes(keyDev)
-	dropFolders, allowDevice := dropList[deviceID]
+	dropFolders, allowDevice := dl[deviceID]
 	// Check the associated set of folders if provided, otherwise drop.
 	if !allowDevice {
 		l.Debugf("Removing pending folder offered by %v", deviceID)
@@ -191,11 +191,11 @@ func (dropList DropListObserved) shouldDropPendingFolder(key []byte, keyer keyer
 	}
 	folderID := keyer.FolderFromPendingFolderKey(key)
 	// Drop only mentioned folder IDs
-	if _, dropFolder := dropFolders[string(folderID)]; !dropFolder {
-		return false
+	_, dropFolder := dropFolders[string(folderID)]
+	if dropFolder {
+		l.Debugf("Removing marked pending folder %s for %v", folderID, deviceID)
 	}
-	l.Debugf("Removing marked pending folder %s for %v", folderID, deviceID)
-	return true
+	return dropFolder
 }
 
 // CleanPendingDevices removes all pending device entries matching a given set of device IDs
