@@ -124,7 +124,13 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	// do not modify fs in place, it is still used in outer scope
 	fs = append([]protocol.FileInfo(nil), fs...)
 
-	normalizeFilenames(fs)
+	// If one file info is present multiple times, only keep the last.
+	// Updating the same file multiple times is problematic, because the
+	// previous updates won't yet be represented in the db when we update it
+	// again. Additionally even if that problem was taken care of, it would
+	// be pointless because we remove the previously added file info again
+	// right away.
+	fs = normalizeFilenamesAndDropDuplicates(fs)
 
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
@@ -470,10 +476,24 @@ func DropDeltaIndexIDs(db *Lowlevel) {
 	}
 }
 
-func normalizeFilenames(fs []protocol.FileInfo) {
-	for i := range fs {
-		fs[i].Name = osutil.NormalizedFilename(fs[i].Name)
+func normalizeFilenamesAndDropDuplicates(fs []protocol.FileInfo) []protocol.FileInfo {
+	positions := make(map[string]int, len(fs))
+	for i, f := range fs {
+		norm := osutil.NormalizedFilename(f.Name)
+		if pos, ok := positions[norm]; ok {
+			fs[pos] = protocol.FileInfo{}
+		}
+		positions[norm] = i
+		fs[i].Name = norm
 	}
+	for i := 0; i < len(fs); {
+		if fs[i].Name == "" {
+			fs = append(fs[:i], fs[i+1:]...)
+			continue
+		}
+		i++
+	}
+	return fs
 }
 
 func nativeFileIterator(fn Iterator) Iterator {

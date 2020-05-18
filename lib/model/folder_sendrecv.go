@@ -460,12 +460,7 @@ nextFile:
 		// Check our list of files to be removed for a match, in which case
 		// we can just do a rename instead.
 		key := string(fi.BlocksHash)
-		for i, candidate := range buckets[key] {
-			// Remove the candidate from the bucket
-			lidx := len(buckets[key]) - 1
-			buckets[key][i] = buckets[key][lidx]
-			buckets[key] = buckets[key][:lidx]
-
+		for candidate, ok := popCandidate(buckets, key); ok; candidate, ok = popCandidate(buckets, key) {
 			// candidate is our current state of the file, where as the
 			// desired state with the delete bit set is in the deletion
 			// map.
@@ -496,6 +491,16 @@ nextFile:
 	}
 
 	return changed, fileDeletions, dirDeletions, nil
+}
+
+func popCandidate(buckets map[string][]protocol.FileInfo, key string) (protocol.FileInfo, bool) {
+	cands := buckets[key]
+	if len(cands) == 0 {
+		return protocol.FileInfo{}, false
+	}
+
+	buckets[key] = cands[1:]
+	return cands[0], true
 }
 
 func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
