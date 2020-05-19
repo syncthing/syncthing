@@ -332,9 +332,13 @@ type badgerIterator struct {
 	last      []byte
 	releaseFn func()
 	didSeek   bool
+	err       error
 }
 
 func (i *badgerIterator) Next() bool {
+	if i.err != nil {
+		return false
+	}
 	for {
 		if !i.didSeek {
 			i.it.Seek(i.prefix)
@@ -366,19 +370,25 @@ func (i *badgerIterator) Next() bool {
 }
 
 func (i *badgerIterator) Key() []byte {
+	if i.err != nil {
+		return nil
+	}
 	return i.it.Item().Key()
 }
 
 func (i *badgerIterator) Value() []byte {
+	if i.err != nil {
+		return nil
+	}
 	val, err := i.it.Item().ValueCopy(nil)
 	if err != nil {
-		panic("unexpected iteration failure: " + err.Error())
+		i.err = err
 	}
 	return val
 }
 
 func (i *badgerIterator) Error() error {
-	return nil // ???
+	return wrapBadgerErr(i.err)
 }
 
 func (i *badgerIterator) Release() {
