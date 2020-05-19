@@ -142,6 +142,7 @@ type model struct {
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderRestartMuts  syncMutexMap                                           // folder -> restart mutex
 	folderVersioners   map[string]versioner.Versioner                         // folder -> versioner (may be nil)
+	folderEncPwTokens  map[string][]byte                                      // folder -> encryption token (may be missing, and only for encryption type folders)
 
 	// fields protected by pmut
 	pmut                sync.RWMutex
@@ -175,6 +176,10 @@ var (
 	errIgnoredFolderRemoved = errors.New("folder no longer ignored")
 	errReplacingConnection  = errors.New("replacing connection")
 	errStopped              = errors.New("Syncthing is being stopped")
+	errEncBoth              = errors.New("both folder and connection configured to be encrypted")
+	errEncNotEncryptedUs    = errors.New("folder is announced as encrypted, but not configured thus")
+	errEncNotEncrypted      = errors.New("folder is configured to be encrypted but not announced thus")
+	errEncPW                = errors.New("different passwords used")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -338,6 +343,16 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	_ = ffs.Hide(config.DefaultMarkerName)
 	_ = ffs.Hide(".stversions")
 	_ = ffs.Hide(".stignore")
+
+	encTokenName := encTokenPath(cfg)
+	encToken, err := fs.ReadFile(ffs, encTokenName)
+	if err != nil {
+		if !fs.IsNotExist(err) {
+			l.Warnf(`Failed to read encryption token at "%v": %v`, filepath.Join(ffs.URI(), encTokenName), err)
+		}
+	} else {
+		m.folderEncPwTokens[folder] = encToken
+	}
 
 	var ver versioner.Versioner
 	if cfg.Versioning.Type != "" {
@@ -968,13 +983,18 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	m.fmut.RLock()
 	var paused []string
+	var folderDevice config.FolderDeviceConfiguration
 	for _, folder := range cm.Folders {
 		cfg, ok := m.cfg.Folder(folder.ID)
-		if !ok || !cfg.SharedWith(deviceID) {
+		if ok {
+			folderDevice, ok = cfg.Device(deviceID)
+		}
+		if !ok {
 			if deviceCfg.IgnoredFolder(folder.ID) {
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
+			// Todo: handle encryption
 			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
 			changed = true
 			m.evLogger.Log(events.FolderRejected, map[string]string{
@@ -1013,6 +1033,10 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			if foundDevice && foundUs {
 				break
 			}
+		}
+
+		if err := m.ccCheckEncryptionLocked(cfg, folderDevice, ccDevice, ccDeviceUs, foundDevice, foundUs); err != nil {
+			return err
 		}
 
 		// Handle indexes
@@ -1146,6 +1170,83 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 	}
 
+	return nil
+}
+
+// requires fmut read-lock
+func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDevice, ccDeviceUs protocol.Device, foundDevice, foundUs bool) error {
+	hasTokenDev := foundDevice && len(ccDevice.EncPwToken) > 0
+	hasTokenUs := foundUs && len(ccDeviceUs.EncPwToken) > 0
+	isEncDev := folderDevice.EncryptionPassword != ""
+	isEncUs := fcfg.Type == config.FolderTypeEncrypted
+
+	if !(hasTokenDev || hasTokenUs || isEncDev || isEncUs) {
+		// Noone cares about encryption here
+		return nil
+	}
+
+	if (isEncDev && isEncUs) || (hasTokenDev && hasTokenUs) {
+		// Should never happen, but config racyness and be safe.
+		return errEncBoth
+	}
+
+	if !(hasTokenDev || hasTokenUs) {
+		return errEncNotEncrypted
+	}
+
+	if !(isEncDev || isEncUs) {
+		if hasTokenUs {
+			// indicate that we should be encrypted
+		} else {
+			// hasTokenDev == true
+			// indicate the we should encrypt or be encrypted
+		}
+		return errEncNotEncryptedUs
+	}
+
+	if isEncDev {
+		pwToken := protocol.PasswordToken(fcfg.ID, folderDevice.EncryptionPassword)
+		match := false
+		if hasTokenUs {
+			match = !bytes.Equal(pwToken, ccDeviceUs.EncPwToken)
+		} else {
+			// hasTokenDev == true
+			match = !bytes.Equal(pwToken, ccDevice.EncPwToken)
+		}
+		if !match {
+			// indicate pw mismatch
+			return errEncPW
+		}
+		return nil
+	}
+
+	// isEncUs == true
+
+	var ccToken []byte
+	if hasTokenUs {
+		ccToken = ccDeviceUs.EncPwToken
+	} else {
+		// hasTokenDev == true
+		ccToken = ccDevice.EncPwToken
+	}
+	token, ok := m.folderEncPwTokens[fcfg.ID]
+	if !ok {
+		ffs := fcfg.Filesystem()
+		tokenName := encTokenPath(fcfg)
+		fd, err := ffs.OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666)
+		if err != nil {
+			l.Warnf(`Failed to create encryption token at "%v": %v`, filepath.Join(ffs.URI(), tokenName), err)
+			return err
+		}
+		if _, err := fd.Write(ccToken); err != nil {
+			l.Warnf(`Failed to write encryption token at "%v": %v`, filepath.Join(ffs.URI(), tokenName), err)
+			return err
+		}
+		return nil
+	}
+	if !bytes.Equal(token, ccToken) {
+		return errEncPW
+	}
 	return nil
 }
 
@@ -2132,6 +2233,17 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			continue
 		}
 
+		var encToken []byte
+		var hasEncToken bool
+		if folderCfg.Type == config.FolderTypeEncrypted {
+			if encToken, hasEncToken = m.folderEncPwTokens[folderCfg.ID]; !hasEncToken {
+				// We haven't gotten a token for us yet and without
+				// one the other side can't validate us - pretend
+				// we don't have the folder yet.
+				continue
+			}
+		}
+
 		protocolFolder := protocol.Folder{
 			ID:                 folderCfg.ID,
 			Label:              folderCfg.Label,
@@ -2157,6 +2269,12 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 				Compression: deviceCfg.Compression,
 				CertName:    deviceCfg.CertName,
 				Introducer:  deviceCfg.Introducer,
+			}
+
+			if deviceCfg.DeviceID == m.id && hasEncToken {
+				protocolDevice.EncPwToken = encToken
+			} else if device.EncryptionPassword != "" {
+				protocolDevice.EncPwToken = protocol.PasswordToken(folderCfg.ID, device.EncryptionPassword)
 			}
 
 			if fs != nil {
@@ -2715,4 +2833,8 @@ func sanitizePath(path string) string {
 	}
 
 	return strings.TrimSpace(b.String())
+}
+
+func encTokenPath(cfg config.FolderConfiguration) string {
+	return filepath.Join(cfg.MarkerName, "syncthing-enc_pw_token")
 }
