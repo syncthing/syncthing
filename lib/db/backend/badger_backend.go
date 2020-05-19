@@ -16,11 +16,12 @@ import (
 
 const (
 	checkpointFlushMinSize = 1 << 20
+	maxCacheSize           = 64 << MiB
 )
 
 func OpenBadger(path string) (Backend, error) {
 	opts := badger.DefaultOptions(path + ".badger") // temporary path safety
-	opts = opts.WithMaxCacheSize(64 << MiB).WithCompactL0OnClose(false)
+	opts = opts.WithMaxCacheSize(maxCacheSize).WithCompactL0OnClose(false)
 	opts.Logger = nil
 	bdb, err := badger.Open(opts)
 	if err != nil {
