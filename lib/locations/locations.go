@@ -82,6 +82,14 @@ func GetBaseDir(baseDir BaseDirEnum) string {
 
 var databaseDirname = "index-v0.14.0.db"
 
+func init() {
+	if os.Getenv("USE_BADGER") != "" {
+		// XXX: HACK
+		databaseDirname = "indexdb.badger"
+		locationTemplates[Database] = "${data}/indexdb.badger"
+	}
+}
+
 // Use the variables from baseDirs here
 var locationTemplates = map[LocationEnum]string{
 	ConfigFile:    "${config}/config.xml",

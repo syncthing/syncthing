@@ -20,7 +20,7 @@ const (
 )
 
 func OpenBadger(path string) (Backend, error) {
-	opts := badger.DefaultOptions(path + ".badger") // temporary path safety
+	opts := badger.DefaultOptions(path)
 	opts = opts.WithMaxCacheSize(maxCacheSize).WithCompactL0OnClose(false)
 	opts.Logger = nil
 	bdb, err := badger.Open(opts)
