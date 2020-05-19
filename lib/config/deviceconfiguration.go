@@ -30,7 +30,7 @@ type DeviceConfiguration struct {
 	IgnoredFolders           []ObservedFolder     `xml:"ignoredFolder" json:"ignoredFolders"`
 	MaxRequestKiB            int                  `xml:"maxRequestKiB" json:"maxRequestKiB"`
 
-	DeprecatedPendingFolders []ObservedFolder `xml:"pendingFolder" json:"pendingFolders"`
+	DeprecatedPendingFolders []ObservedFolder `xml:"pendingFolder,omitempty" json:"-"`
 }
 
 func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfiguration {

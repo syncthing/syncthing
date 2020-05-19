@@ -195,7 +195,7 @@ type Configuration struct {
 	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
 	OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
 
-	DeprecatedPendingDevices []ObservedDevice `xml:"pendingDevice" json:"pendingDevices"`
+	DeprecatedPendingDevices []ObservedDevice `xml:"pendingDevice,omitempty" json:"-"`
 }
 
 func (cfg Configuration) Copy() Configuration {
