@@ -999,13 +999,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			continue
 		}
 
-		if !folder.DisableTempIndexes {
-			tempIndexFolders = append(tempIndexFolders, folder.ID)
-		}
-
-		myIndexID := fs.IndexID(protocol.LocalDeviceID)
-		mySequence := fs.Sequence(protocol.LocalDeviceID)
-		var startSequence int64
 		var ccDevice, ccDeviceUs protocol.Device
 		var foundDevice, foundUs bool
 
@@ -1022,28 +1015,36 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 		}
 
+		// Handle indexes
+
+		if !folder.DisableTempIndexes {
+			tempIndexFolders = append(tempIndexFolders, folder.ID)
+		}
+
+		myIndexID := fs.IndexID(protocol.LocalDeviceID)
+		mySequence := fs.Sequence(protocol.LocalDeviceID)
+		var startSequence int64
+
 		// This is the other side's description of what it knows
 		// about us. Lets check to see if we can start sending index
 		// updates directly or need to send the index from start...
 
-		if !foundUs {
+		if foundUs && ccDeviceUs.IndexID == myIndexID && ccDeviceUs.MaxSequence <= mySequence {
+			// They say they've seen our index ID before and their
+			// max sequence is consistent with ours, so we can
+			// send a delta update only.
+			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", deviceID, folder.Description(), ccDeviceUs.MaxSequence)
+			startSequence = ccDeviceUs.MaxSequence
+		} else if !foundUs {
 			l.Debugf("Device %v folder %s sent no info about us", deviceID, folder.Description())
 		} else if ccDeviceUs.IndexID == myIndexID {
-			// They say they've seen our index ID before, so we can
-			// send a delta update only.
-
-			if ccDeviceUs.MaxSequence > mySequence {
-				// Safety check. They claim to have more or newer
-				// index data than we have - either we have lost
-				// index data, or reset the index without resetting
-				// the IndexID, or something else weird has
-				// happened. We send a full index to reset the
-				// situation.
-				l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", deviceID, folder.Description())
-			} else {
-				l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", deviceID, folder.Description(), ccDeviceUs.MaxSequence)
-				startSequence = ccDeviceUs.MaxSequence
-			}
+			// Safety check above failed: They claim to have more or newer
+			// index data than we have - either we have lost
+			// index data, or reset the index without resetting
+			// the IndexID, or something else weird has
+			// happened. We send a full index to reset the
+			// situation.
+			l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", deviceID, folder.Description())
 		} else if ccDeviceUs.IndexID != 0 {
 			// They say they've seen an index ID from us, but it's
 			// not the right one. Either they are confused or we
