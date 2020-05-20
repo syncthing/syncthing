@@ -1653,6 +1653,24 @@ func TestUpdateWithOneFileTwice(t *testing.T) {
 	}
 }
 
+// https://github.com/syncthing/syncthing/issues/6668
+func TestNeedRemoteOnly(t *testing.T) {
+	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
+
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+
+	remote0Have := fileList{
+		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
+	}
+	s.Update(remoteDevice0, remote0Have)
+
+	need := needSize(s, remoteDevice0)
+	if !need.Equal(db.Counts{}) {
+		t.Error("Expected nothing needed, got", need)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
