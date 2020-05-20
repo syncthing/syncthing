@@ -67,7 +67,7 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 }
 
 func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) error {
-	key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), device[:])
+	key, err := db.keyer.GeneratePendingFolderKey(nil, device[:], []byte(id))
 	if err == nil {
 		of := ObservedFolder{
 			Time:  time.Now().Round(time.Second),

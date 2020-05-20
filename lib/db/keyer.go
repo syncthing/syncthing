@@ -69,7 +69,7 @@ const (
 	// KeyTypeVersion <version hash> = Vector
 	KeyTypeVersion = 15
 
-	// KeyTypePendingFolder <folder ID as string> <int32 device ID> = ObservedFolder
+	// KeyTypePendingFolder <int32 device ID> <folder ID as string> = ObservedFolder
 	KeyTypePendingFolder = 16
 
 	// KeyTypePendingDevice <device ID in wire format> = ObservedDevice
@@ -118,7 +118,7 @@ type keyer interface {
 	GenerateVersionKey(key []byte, hash []byte) versionKey
 
 	// Pending (unshared) folders and devices
-	GeneratePendingFolderKey(key, folder, device []byte) (pendingFolderKey, error)
+	GeneratePendingFolderKey(key, device, folder []byte) (pendingFolderKey, error)
 	FolderFromPendingFolderKey(key []byte) []byte
 	DeviceFromPendingFolderKey(key []byte) ([]byte, bool)
 
@@ -367,32 +367,24 @@ func (k versionKey) Hash() []byte {
 
 type pendingFolderKey []byte
 
-func (k defaultKeyer) GeneratePendingFolderKey(key, folder, device []byte) (pendingFolderKey, error) {
+func (k defaultKeyer) GeneratePendingFolderKey(key, device, folder []byte) (pendingFolderKey, error) {
 	deviceID, err := k.deviceIdx.ID(device)
 	if err != nil {
 		return nil, err
 	}
-	key = resize(key, keyPrefixLen+len(folder)+keyDeviceLen)
+	key = resize(key, keyPrefixLen+keyDeviceLen+len(folder))
 	key[0] = KeyTypePendingFolder
-	copy(key[keyPrefixLen:], folder)
-	binary.BigEndian.PutUint32(key[keyPrefixLen+len(folder):], deviceID)
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], deviceID)
+	copy(key[keyPrefixLen+keyDeviceLen:], folder)
 	return key, nil
 }
 
 func (k defaultKeyer) FolderFromPendingFolderKey(key []byte) []byte {
-	folderEnd := len(key) - keyDeviceLen
-	if folderEnd < keyPrefixLen {
-		return nil
-	}
-	return key[keyPrefixLen:folderEnd]
+	return key[keyPrefixLen+keyDeviceLen:]
 }
 
 func (k defaultKeyer) DeviceFromPendingFolderKey(key []byte) ([]byte, bool) {
-	folderEnd := len(key) - keyDeviceLen
-	if folderEnd < keyPrefixLen {
-		return nil, false
-	}
-	return k.deviceIdx.Val(binary.BigEndian.Uint32(key[folderEnd:]))
+	return k.deviceIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
 }
 
 type pendingDeviceKey []byte
