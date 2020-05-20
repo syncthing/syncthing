@@ -1006,69 +1006,85 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		myIndexID := fs.IndexID(protocol.LocalDeviceID)
 		mySequence := fs.Sequence(protocol.LocalDeviceID)
 		var startSequence int64
+		var ccDevice, ccDeviceUs protocol.Device
+		var foundDevice, foundUs bool
 
 		for _, dev := range folder.Devices {
 			if dev.ID == m.id {
-				// This is the other side's description of what it knows
-				// about us. Lets check to see if we can start sending index
-				// updates directly or need to send the index from start...
-
-				if dev.IndexID == myIndexID {
-					// They say they've seen our index ID before, so we can
-					// send a delta update only.
-
-					if dev.MaxSequence > mySequence {
-						// Safety check. They claim to have more or newer
-						// index data than we have - either we have lost
-						// index data, or reset the index without resetting
-						// the IndexID, or something else weird has
-						// happened. We send a full index to reset the
-						// situation.
-						l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", deviceID, folder.Description())
-						startSequence = 0
-						continue
-					}
-
-					l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", deviceID, folder.Description(), dev.MaxSequence)
-					startSequence = dev.MaxSequence
-				} else if dev.IndexID != 0 {
-					// They say they've seen an index ID from us, but it's
-					// not the right one. Either they are confused or we
-					// must have reset our database since last talking to
-					// them. We'll start with a full index transfer.
-					l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", deviceID, folder.Description(), dev.IndexID, myIndexID)
-					startSequence = 0
-				}
+				ccDeviceUs = dev
+				foundUs = true
 			} else if dev.ID == deviceID {
-				// This is the other side's description of themselves. We
-				// check to see that it matches the IndexID we have on file,
-				// otherwise we drop our old index data and expect to get a
-				// completely new set.
+				ccDevice = dev
+				foundDevice = true
+			}
+			if foundDevice && foundUs {
+				break
+			}
+		}
 
-				theirIndexID := fs.IndexID(deviceID)
-				if dev.IndexID == 0 {
-					// They're not announcing an index ID. This means they
-					// do not support delta indexes and we should clear any
-					// information we have from them before accepting their
-					// index, which will presumably be a full index.
-					fs.Drop(deviceID)
-				} else if dev.IndexID != theirIndexID {
-					// The index ID we have on file is not what they're
-					// announcing. They must have reset their database and
-					// will probably send us a full index. We drop any
-					// information we have and remember this new index ID
-					// instead.
-					l.Infof("Device %v folder %s has a new index ID (%v)", deviceID, folder.Description(), dev.IndexID)
-					fs.Drop(deviceID)
-					fs.SetIndexID(deviceID, dev.IndexID)
-				} else {
-					// They're sending a recognized index ID and will most
-					// likely use delta indexes. We might already have files
-					// that we need to pull so let the folder runner know
-					// that it should recheck the index data.
-					if runner := m.folderRunners[folder.ID]; runner != nil {
-						defer runner.SchedulePull()
-					}
+		// This is the other side's description of what it knows
+		// about us. Lets check to see if we can start sending index
+		// updates directly or need to send the index from start...
+
+		if !foundUs {
+			l.Debugf("Device %v folder %s sent no info about us", deviceID, folder.Description())
+		} else if ccDeviceUs.IndexID == myIndexID {
+			// They say they've seen our index ID before, so we can
+			// send a delta update only.
+
+			if ccDeviceUs.MaxSequence > mySequence {
+				// Safety check. They claim to have more or newer
+				// index data than we have - either we have lost
+				// index data, or reset the index without resetting
+				// the IndexID, or something else weird has
+				// happened. We send a full index to reset the
+				// situation.
+				l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", deviceID, folder.Description())
+			} else {
+				l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", deviceID, folder.Description(), ccDeviceUs.MaxSequence)
+				startSequence = ccDeviceUs.MaxSequence
+			}
+		} else if ccDeviceUs.IndexID != 0 {
+			// They say they've seen an index ID from us, but it's
+			// not the right one. Either they are confused or we
+			// must have reset our database since last talking to
+			// them. We'll start with a full index transfer.
+			l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", deviceID, folder.Description(), ccDeviceUs.IndexID, myIndexID)
+		}
+
+		// This is the other side's description of themselves. We
+		// check to see that it matches the IndexID we have on file,
+		// otherwise we drop our old index data and expect to get a
+		// completely new set.
+
+		switch {
+		case !foundDevice:
+			l.Debugf("Device %v folder %s sent no info about themselves", deviceID, folder.Description())
+			fallthrough
+		case ccDevice.IndexID == 0:
+			// They're not announcing an index ID. This means they
+			// do not support delta indexes and we should clear any
+			// information we have from them before accepting their
+			// index, which will presumably be a full index.
+			fs.Drop(deviceID)
+		default:
+			theirIndexID := fs.IndexID(deviceID)
+			if ccDevice.IndexID != theirIndexID {
+				// The index ID we have on file is not what they're
+				// announcing. They must have reset their database and
+				// will probably send us a full index. We drop any
+				// information we have and remember this new index ID
+				// instead.
+				l.Infof("Device %v folder %s has a new index ID (%v)", deviceID, folder.Description(), ccDevice.IndexID)
+				fs.Drop(deviceID)
+				fs.SetIndexID(deviceID, ccDevice.IndexID)
+			} else {
+				// They're sending a recognized index ID and will most
+				// likely use delta indexes. We might already have files
+				// that we need to pull so let the folder runner know
+				// that it should recheck the index data.
+				if runner := m.folderRunners[folder.ID]; runner != nil {
+					defer runner.SchedulePull()
 				}
 			}
 		}
