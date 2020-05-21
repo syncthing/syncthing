@@ -2590,7 +2590,11 @@ func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error
 // returns the entries grouped by folder and filters for a given device unless the
 // argument is specified as EmptyDeviceID.
 func (m *model) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error) {
-	return m.db.PendingFolders(device)
+	if device == protocol.EmptyDeviceID {
+		return m.db.PendingFolders()
+	} else {
+		return m.db.PendingFoldersForDevice(device)
+	}
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given
