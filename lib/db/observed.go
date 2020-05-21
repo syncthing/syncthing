@@ -38,8 +38,8 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 	if err != nil {
 		return nil, err
 	}
-	res := make(map[protocol.DeviceID]ObservedDevice)
 	defer iter.Release()
+	res := make(map[protocol.DeviceID]ObservedDevice)
 	for iter.Next() {
 		bs, err := db.Get(iter.Key())
 		if err != nil {
@@ -93,8 +93,8 @@ func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[pro
 	if err != nil {
 		return nil, err
 	}
-	res := make(map[string]map[protocol.DeviceID]ObservedFolder)
 	defer iter.Release()
+	res := make(map[string]map[protocol.DeviceID]ObservedFolder)
 	for iter.Next() {
 		bs, err := db.Get(iter.Key())
 		if err != nil {
