@@ -243,11 +243,43 @@ angular.module('syncthing.core')
         });
 
         $scope.$on(Events.DEVICE_REJECTED, function (event, arg) {
-            refreshCluster();
+            var pendingDevice = {
+                deviceID: arg.data.device,
+                time: arg.time,
+                name: arg.data.name,
+                address: arg.data.address
+            };
+            console.log("rejected device:", pendingDevice);
+
+            const i = $scope.pendingDevices.findIndex(function (d) {
+                return d.deviceID === pendingDevice.deviceID;
+            });
+            if (i > -1) $scope.pendingDevices[i] = pendingDevice;
+            else $scope.pendingDevices.push(pendingDevice);
         });
 
         $scope.$on(Events.FOLDER_REJECTED, function (event, arg) {
-            refreshCluster();
+            var offeringDevice = {
+                deviceID: arg.data.device,
+                time: arg.time,
+                label: arg.data.folderLabel
+            };
+            console.log("rejected folder", arg.data.folder, "from device:", offeringDevice);
+
+            const i = $scope.pendingFolders.findIndex(function (f) {
+                return f.id === arg.data.folder;
+            });
+            if (i > -1) {
+                var offers = $scope.pendingFolders[i].offeredBy;
+                const j = offers.findIndex(function (d) {
+                    return d.deviceID === offeringDevice.deviceID;
+                });
+                if (j > -1) offers[j] = offeringDevice;
+                else offers[j].push(offeringDevice);
+            } else $scope.pendingFolders.push({
+                id: arg.data.folder,
+                offeredBy: [ offeringDevice ]
+            });
         });
 
         $scope.$on('ConfigLoaded', function () {
