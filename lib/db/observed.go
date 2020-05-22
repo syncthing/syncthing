@@ -162,12 +162,20 @@ func (db *Lowlevel) deleteInvalidPendingFolder(key []byte) error {
 // Set of devices for which pending folders are allowed, but not specific folder IDs
 type DropListObserved map[protocol.DeviceID]map[string]struct{}
 
+func NewDropListObserved() DropListObserved {
+	return make(DropListObserved)
+}
+
 func (dl DropListObserved) MarkDevice(device protocol.DeviceID) map[string]struct{} {
 	folders, ok := dl[device]
 	if !ok {
 		dl[device] = nil
 	}
 	return folders
+}
+
+func (dl DropListObserved) UnmarkDevice(device protocol.DeviceID) {
+	delete(dl, device)
 }
 
 func (dl DropListObserved) MarkFolder(folder string, devices []protocol.DeviceID) {

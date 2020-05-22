@@ -2428,7 +2428,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	fromFolders := mapFolders(from.Folders)
 	toFolders := mapFolders(to.Folders)
-	forgetPending := make(db.DropListObserved)
+	forgetPending := db.NewDropListObserved()
 	for folderID, cfg := range toFolders {
 		// Record shared devices of this folder to remove possibly pending entries
 		forgetPending.MarkFolder(cfg.ID, cfg.DeviceIDs())
@@ -2531,7 +2531,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	// Forget pending folder/device combinations that are now shared or ignored, plus
 	// any for our own device ID (should not happen, treat us like an unknown device)
-	delete(forgetPending, to.MyID)
+	forgetPending.UnmarkDevice(to.MyID)
 	m.db.CleanPendingFolders(forgetPending)
 
 	// Forget pending devices that are now ignored
