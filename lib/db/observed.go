@@ -122,8 +122,7 @@ func (db *Lowlevel) PendingFoldersForDevice(device protocol.DeviceID) (map[strin
 	defer iter.Release()
 	res := make(map[string]map[protocol.DeviceID]ObservedFolder)
 	for iter.Next() {
-		err := db.collectPendingFolder(iter.Key(), device, res)
-		if err != nil {
+		if err := db.collectPendingFolder(iter.Key(), device, res); err != nil {
 			return nil, err
 		}
 	}
