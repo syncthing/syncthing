@@ -998,7 +998,9 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
-			m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
+			if err := m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID); err != nil {
+				l.Warnf("Failed to persist pending folder entry to database: %v", err)
+			}
 			m.evLogger.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -1720,7 +1722,9 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 
 	cfg, ok := m.cfg.Device(remoteID)
 	if !ok {
-		m.db.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String())
+		if err := m.db.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String()); err != nil {
+			l.Warnf("Failed to persist pending device entry to database: %v", err)
+		}
 		m.evLogger.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),

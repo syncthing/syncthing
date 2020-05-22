@@ -23,9 +23,6 @@ func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, add
 	if err == nil {
 		err = db.Put(key, bs)
 	}
-	if err != nil {
-		l.Warnf("Failed to store pending device entry: %v", err)
-	}
 	return err
 }
 
@@ -77,9 +74,6 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 		if err == nil {
 			err = db.Put(key, bs)
 		}
-	}
-	if err != nil {
-		l.Warnf("Failed to store pending folder entry: %v", err)
 	}
 	return err
 }
