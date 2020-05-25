@@ -56,8 +56,14 @@ type folder struct {
 	scanErrorsMut       sync.Mutex
 
 	pullScheduled chan struct{}
+	pullPause     time.Duration
+	pullFailTimer *time.Timer
 
 	doInSyncChan chan syncRequest
+
+	forcedRescanRequested chan struct{}
+	forcedRescanPaths     map[string]struct{}
+	forcedRescanPathsMut  sync.Mutex
 
 	watchCancel      context.CancelFunc
 	watchChan        chan []string
@@ -78,7 +84,7 @@ type puller interface {
 }
 
 func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore) folder {
-	return folder{
+	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
 		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
@@ -99,10 +105,18 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 
 		doInSyncChan: make(chan syncRequest),
 
+		forcedRescanRequested: make(chan struct{}, 1),
+		forcedRescanPaths:     make(map[string]struct{}),
+		forcedRescanPathsMut:  sync.NewMutex(),
+
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
 		watchMut:         sync.NewMutex(),
 	}
+	f.pullPause = f.pullBasePause()
+	f.pullFailTimer = time.NewTimer(0)
+	<-f.pullFailTimer.C
+	return f
 }
 
 func (f *folder) serve(ctx context.Context) {
@@ -119,32 +133,11 @@ func (f *folder) serve(ctx context.Context) {
 		f.setState(FolderIdle)
 	}()
 
-	pause := f.basePause()
-	pullFailTimer := time.NewTimer(0)
-	<-pullFailTimer.C
-
 	if f.FSWatcherEnabled && f.getHealthErrorAndLoadIgnores() == nil {
 		f.startWatch()
 	}
 
 	initialCompleted := f.initialScanFinished
-
-	pull := func() {
-		startTime := time.Now()
-		if f.pull() {
-			// We're good. Don't schedule another pull and reset
-			// the pause interval.
-			pause = f.basePause()
-			return
-		}
-		// Pulling failed, try again later.
-		delay := pause + time.Since(startTime)
-		l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), delay)
-		pullFailTimer.Reset(delay)
-		if pause < 60*f.basePause() {
-			pause *= 2
-		}
-	}
 
 	for {
 		select {
@@ -152,23 +145,18 @@ func (f *folder) serve(ctx context.Context) {
 			return
 
 		case <-f.pullScheduled:
-			pullFailTimer.Stop()
-			select {
-			case <-pullFailTimer.C:
-			default:
-			}
-			pull()
+			f.pull()
 
-		case <-pullFailTimer.C:
-			pull()
+		case <-f.pullFailTimer.C:
+			f.pull()
 
 		case <-initialCompleted:
 			// Initial scan has completed, we should do a pull
 			initialCompleted = nil // never hit this case again
-			if !f.pull() {
-				// Pulling failed, try again later.
-				pullFailTimer.Reset(pause)
-			}
+			f.pull()
+
+		case <-f.forcedRescanRequested:
+			f.handleForcedRescans()
 
 		case <-f.scanTimer.C:
 			l.Debugln(f, "Scanning due to timer")
@@ -289,6 +277,12 @@ func (f *folder) getHealthErrorWithoutIgnores() error {
 }
 
 func (f *folder) pull() bool {
+	f.pullFailTimer.Stop()
+	select {
+	case <-f.pullFailTimer.C:
+	default:
+	}
+
 	select {
 	case <-f.initialScanFinished:
 	default:
@@ -316,7 +310,27 @@ func (f *folder) pull() bool {
 	}
 	defer f.ioLimiter.give(1)
 
-	return f.puller.pull()
+	startTime := time.Now()
+
+	success := f.puller.pull()
+
+	basePause := f.pullBasePause()
+
+	if success {
+		// We're good. Don't schedule another pull and reset
+		// the pause interval.
+		f.pullPause = basePause
+		return true
+	}
+
+	// Pulling failed, try again later.
+	delay := f.pullPause + time.Since(startTime)
+	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), delay)
+	f.pullFailTimer.Reset(delay)
+	if f.pullPause < 60*basePause {
+		f.pullPause *= 2
+	}
+	return false
 }
 
 func (f *folder) scanSubdirs(subDirs []string) error {
@@ -439,17 +453,26 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}()
 
 	f.clearScanErrors(subDirs)
+	alreadyUsed := make(map[string]struct{})
 	for res := range fchan {
 		if res.Err != nil {
 			f.newScanError(res.Path, res.Err)
 			continue
 		}
+
 		if err := batch.flushIfFull(); err != nil {
 			return err
 		}
 
 		batch.append(res.File)
 		changes++
+
+		if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
+			if nf, ok := f.findRename(snap, mtimefs, res.File, alreadyUsed); ok {
+				batch.append(nf)
+				changes++
+			}
+		}
 	}
 
 	if err := batch.flush(); err != nil {
@@ -599,6 +622,58 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	f.ScanCompleted()
 	f.setState(FolderIdle)
 	return nil
+}
+
+func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file protocol.FileInfo, alreadyUsed map[string]struct{}) (protocol.FileInfo, bool) {
+	if len(file.Blocks) == 0 || file.Size == 0 {
+		return protocol.FileInfo{}, false
+	}
+
+	found := false
+	nf := protocol.FileInfo{}
+
+	snap.WithBlocksHash(file.BlocksHash, func(ifi db.FileIntf) bool {
+		fi := ifi.(protocol.FileInfo)
+
+		select {
+		case <-f.ctx.Done():
+			return false
+		default:
+		}
+
+		if _, ok := alreadyUsed[fi.Name]; ok {
+			return true
+		}
+
+		if fi.ShouldConflict() {
+			return true
+		}
+
+		if f.ignores.Match(fi.Name).IsIgnored() {
+			return true
+		}
+
+		// Only check the size.
+		// No point checking block equality, as that uses BlocksHash comparison if that is set (which it will be).
+		// No point checking BlocksHash comparison as WithBlocksHash already does that.
+		if file.Size != fi.Size {
+			return true
+		}
+
+		if !osutil.IsDeleted(mtimefs, fi.Name) {
+			return true
+		}
+
+		alreadyUsed[fi.Name] = struct{}{}
+
+		nf = fi
+		nf.SetDeleted(f.shortID)
+		nf.LocalFlags = f.localFlags
+		found = true
+		return false
+	})
+
+	return nf, found
 }
 
 func (f *folder) scanTimerFired() {
@@ -795,7 +870,7 @@ func (f *folder) setError(err error) {
 	f.stateTracker.setError(err)
 }
 
-func (f *folder) basePause() time.Duration {
+func (f *folder) pullBasePause() time.Duration {
 	if f.PullerPauseS == 0 {
 		return defaultPullerPause
 	}
@@ -841,13 +916,16 @@ func (f *folder) Errors() []FileError {
 	return append([]FileError{}, f.scanErrors...)
 }
 
-// ForceRescan marks the file such that it gets rehashed on next scan and then
-// immediately executes that scan.
-func (f *folder) ForceRescan(file protocol.FileInfo) error {
-	file.SetMustRescan(f.shortID)
-	f.fset.Update(protocol.LocalDeviceID, []protocol.FileInfo{file})
+// ScheduleForceRescan marks the file such that it gets rehashed on next scan, and schedules a scan.
+func (f *folder) ScheduleForceRescan(path string) {
+	f.forcedRescanPathsMut.Lock()
+	f.forcedRescanPaths[path] = struct{}{}
+	f.forcedRescanPathsMut.Unlock()
 
-	return f.Scan([]string{file.Name})
+	select {
+	case f.forcedRescanRequested <- struct{}{}:
+	default:
+	}
 }
 
 func (f *folder) updateLocalsFromScanning(fs []protocol.FileInfo) {
@@ -887,19 +965,8 @@ func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events
 		objType := "file"
 		action := "modified"
 
-		switch {
-		case file.IsDeleted():
+		if file.IsDeleted() {
 			action = "deleted"
-
-		// If our local vector is version 1 AND it is the only version
-		// vector so far seen for this file then it is a new file.  Else if
-		// it is > 1 it's not new, and if it is 1 but another shortId
-		// version vector exists then it is new for us but created elsewhere
-		// so the file is still not new but modified by us. Only if it is
-		// truly new do we change this to 'added', else we leave it as
-		// 'modified'.
-		case len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1:
-			action = "added"
 		}
 
 		if file.IsSymlink() {
@@ -919,6 +986,40 @@ func (f *folder) emitDiskChangeEvents(fs []protocol.FileInfo, typeOfEvent events
 			"modifiedBy": file.ModifiedBy.String(),
 		})
 	}
+}
+
+func (f *folder) handleForcedRescans() {
+	f.forcedRescanPathsMut.Lock()
+	paths := make([]string, 0, len(f.forcedRescanPaths))
+	for path := range f.forcedRescanPaths {
+		paths = append(paths, path)
+	}
+	f.forcedRescanPaths = make(map[string]struct{})
+	f.forcedRescanPathsMut.Unlock()
+
+	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
+		f.fset.Update(protocol.LocalDeviceID, fs)
+		return nil
+	})
+
+	snap := f.fset.Snapshot()
+
+	for _, path := range paths {
+		_ = batch.flushIfFull()
+
+		fi, ok := snap.Get(protocol.LocalDeviceID, path)
+		if !ok {
+			continue
+		}
+		fi.SetMustRescan(f.shortID)
+		batch.append(fi)
+	}
+
+	snap.Release()
+
+	_ = batch.flush()
+
+	_ = f.scanSubdirs(paths)
 }
 
 // The exists function is expected to return true for all known paths

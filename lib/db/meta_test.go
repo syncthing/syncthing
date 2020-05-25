@@ -175,3 +175,9 @@ func TestRecalcMeta(t *testing.T) {
 		t.Fatalf("Wrong fixed global byte count, %d != 3000", gs.Bytes)
 	}
 }
+
+func TestMetaKeyCollisions(t *testing.T) {
+	if protocol.LocalAllFlags&needFlag != 0 {
+		t.Error("Collision between need flag and protocol local file flags")
+	}
+}

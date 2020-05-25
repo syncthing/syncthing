@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "STDISCOSRV" "1" "Apr 24, 2020" "v1" "Syncthing"
+.TH "STDISCOSRV" "1" "May 16, 2020" "v1" "Syncthing"
 .SH NAME
 stdiscosrv \- Syncthing Discovery Server
 .
@@ -286,18 +286,30 @@ Use of a subdomain name without requiring a port number added to the URL
 .IP \(bu 2
 Sharing an SSL certificate with multiple services on the same server
 .UNINDENT
+.sp
+Note that after this configuration, if the proxy uses a valid HTTPS
+certificate, \fBclients should omit the\fP \fB?id=...\fP \fBparameter from the
+discovery server URL on their configuration\fP\&. Client\-side validation will be
+done by checking the visible proxy server’s HTTPS certificate. If, however, the
+proxy uses a self\-signed or somehow invalid certificate, clients must still set
+the \fB?id=...\fP parameter with the computed hash of the proxy’s
+certificate. Using such setup is discouraged and is not covered in this page.
+Always favour using valid and widely recognised certificates.
 .SS Requirements
 .INDENT 0.0
 .IP \(bu 2
-Run the discovery server using the \-http flag  \fBstdiscosrv \-http\fP\&.
+Run the discovery server using the \-http flag: \fBstdiscosrv \-http\fP\&.
 .IP \(bu 2
-SSL certificate/key configured for the reverse proxy
+SSL certificate/key configured for the reverse proxy.
 .IP \(bu 2
-The “X\-Forwarded\-For” http header must be passed through with the client’s
-real IP address
+The “X\-Forwarded\-For” HTTP header must be passed through with the client’s
+real IP address.
 .IP \(bu 2
-The “X\-SSL\-Cert” must be passed through with the PEM\-encoded client SSL
-certificate
+The “X\-SSL\-Cert” HTTP header must be passed through with the PEM\-encoded
+client SSL certificate. This will be present in POST requests and may be empty
+in GET requests from clients. If you see syncthing\-discosrv outputting
+\fBno certificates\fP when receiving POST requests, that’s because the proxy
+is not passing this header through.
 .IP \(bu 2
 The proxy must request the client SSL certificate but not require it to be
 signed by a trusted CA.
@@ -372,6 +384,43 @@ server {
 .sp
 An example of automating the SSL certificates and reverse\-proxying the Discovery
 Server and Syncthing using Nginx, \fI\%Let’s Encrypt\fP <\fBhttps://letsencrypt.org/\fP> and Docker can be found \fI\%here\fP <\fBhttps://forum.syncthing.net/t/docker-syncthing-and-syncthing-discovery-behind-nginx-reverse-proxy-with-lets-encrypt/6880\fP>\&.
+.SS Apache
+.sp
+The following lines must be added to the configuration:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+SSLProxyEngine On
+SSLVerifyClient optional_no_ca
+RequestHeader set X\-SSL\-Cert "%{SSL_CLIENT_CERT}s"
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The following was observed to not be required at least under
+Apache httpd 2.4.38, as the proxy module adds the needed header by default.
+If you need to explicitly add the following directive, make sure to issue
+\fBa2enmod remoteip\fP first. Then, add the following to your Apache httpd
+configuration:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+RemoteIPHeader X\-Forwarded\-For
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+For more details, see also the recommendations in the
+\fI\%Reverse Proxy Setup\fP <\fBhttps://docs.syncthing.net/users/reverseproxy.html\fP>
+page. Note that that page is directed at setting up a proxy for the
+Syncthing web UI. You should do the proper path and port adjustments to proxying
+the discovery server and your particular setup.
 .SH SEE ALSO
 .sp
 \fBsyncthing\-networking(7)\fP, \fBsyncthing\-faq(7)\fP

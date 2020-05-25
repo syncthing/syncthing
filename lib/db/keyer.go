@@ -62,6 +62,12 @@ const (
 
 	// KeyTypeBlockList <block list hash> = BlockList
 	KeyTypeBlockList = 13
+
+	// KeyTypeBlockListMap <int32 folder ID> <block list hash> <file name> = <nothing>
+	KeyTypeBlockListMap = 14
+
+	// KeyTypeVersion <version hash> = Vector
+	KeyTypeVersion = 15
 )
 
 type keyer interface {
@@ -79,6 +85,8 @@ type keyer interface {
 	// block map key stuff (former BlockMap)
 	GenerateBlockMapKey(key, folder, hash, name []byte) (blockMapKey, error)
 	NameFromBlockMapKey(key []byte) []byte
+	GenerateBlockListMapKey(key, folder, hash, name []byte) (blockListMapKey, error)
+	NameFromBlockListMapKey(key []byte) []byte
 
 	// file need index
 	GenerateNeedFileKey(key, folder, name []byte) (needFileKey, error)
@@ -99,6 +107,9 @@ type keyer interface {
 
 	// Block lists
 	GenerateBlockListKey(key []byte, hash []byte) blockListKey
+
+	// Version vectors
+	GenerateVersionKey(key []byte, hash []byte) versionKey
 }
 
 // defaultKeyer implements our key scheme. It needs folder and device
@@ -203,6 +214,29 @@ func (k blockMapKey) WithoutHashAndName() []byte {
 	return k[:keyPrefixLen+keyFolderLen]
 }
 
+type blockListMapKey []byte
+
+func (k defaultKeyer) GenerateBlockListMapKey(key, folder, hash, name []byte) (blockListMapKey, error) {
+	folderID, err := k.folderIdx.ID(folder)
+	if err != nil {
+		return nil, err
+	}
+	key = resize(key, keyPrefixLen+keyFolderLen+keyHashLen+len(name))
+	key[0] = KeyTypeBlockListMap
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
+	copy(key[keyPrefixLen+keyFolderLen:], hash)
+	copy(key[keyPrefixLen+keyFolderLen+keyHashLen:], name)
+	return key, nil
+}
+
+func (k defaultKeyer) NameFromBlockListMapKey(key []byte) []byte {
+	return key[keyPrefixLen+keyFolderLen+keyHashLen:]
+}
+
+func (k blockListMapKey) WithoutHashAndName() []byte {
+	return k[:keyPrefixLen+keyFolderLen]
+}
+
 type needFileKey []byte
 
 func (k needFileKey) WithoutName() []byte {
@@ -300,7 +334,20 @@ func (k defaultKeyer) GenerateBlockListKey(key []byte, hash []byte) blockListKey
 	return key
 }
 
-func (k blockListKey) BlocksHash() []byte {
+func (k blockListKey) Hash() []byte {
+	return k[keyPrefixLen:]
+}
+
+type versionKey []byte
+
+func (k defaultKeyer) GenerateVersionKey(key []byte, hash []byte) versionKey {
+	key = resize(key, keyPrefixLen+len(hash))
+	key[0] = KeyTypeVersion
+	copy(key[keyPrefixLen:], hash)
+	return key
+}
+
+func (k versionKey) Hash() []byte {
 	return k[keyPrefixLen:]
 }
 
