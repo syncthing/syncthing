@@ -146,7 +146,7 @@ func archiveFile(srcFs, dstFs fs.Filesystem, filePath string, tagger fileTagger)
 	if err != nil {
 		if fs.IsNotExist(err) {
 			l.Debugln("creating versions dir")
-			err := dstFs.Mkdir(".", 0755)
+			err := dstFs.MkdirAll(".", 0755)
 			if err != nil {
 				return err
 			}

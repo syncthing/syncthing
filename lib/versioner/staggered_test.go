@@ -7,6 +7,7 @@
 package versioner
 
 import (
+	"io/ioutil"
 	"sort"
 	"strconv"
 	"testing"
@@ -74,4 +75,24 @@ func parseTime(in string) time.Time {
 		panic(err.Error())
 	}
 	return t
+}
+
+func TestCreateVersionPath(t *testing.T) {
+	file := "myfile"
+
+	tmpDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	folderFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+
+	versioner := newStaggered(folderFs, map[string]string{
+		"fsType": "",
+		"fsPath": file,
+	})
+
+	if err := versioner.Archive(file); err != nil {
+		t.Fatal(err)
+	}
 }
