@@ -143,6 +143,7 @@ type model struct {
 	folderRestartMuts  syncMutexMap                                           // folder -> restart mutex
 	folderVersioners   map[string]versioner.Versioner                         // folder -> versioner (may be nil)
 	folderEncPwTokens  map[string][]byte                                      // folder -> encryption token (may be missing, and only for encryption type folders)
+	folderEncFailures  map[string]map[protocol.DeviceID]error                 // folder -> device -> error regarding encryption consistency (may be missing)
 
 	// fields protected by pmut
 	pmut                sync.RWMutex
@@ -1036,7 +1037,28 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 
 		if err := m.ccCheckEncryptionLocked(cfg, folderDevice, ccDevice, ccDeviceUs, foundDevice, foundUs); err != nil {
+			sameError := false
+			if devs, ok := m.folderEncFailures[folder.ID]; ok {
+				sameError = devs[deviceID] == err
+			} else {
+				m.folderEncFailures[folder.ID] = make(map[protocol.DeviceID]error)
+			}
+			m.folderEncFailures[folder.ID][deviceID] = err
+			msg := fmt.Sprintf("Failure checking encryption consistency with device %v for folder $s: %v", deviceID, folder, err)
+			if sameError {
+				l.Debugln(msg)
+			} else {
+				l.Warnln(msg)
+			}
+
 			return err
+		}
+		if devErrs, ok := m.folderEncFailures[folder.ID]; ok {
+			if len(devErrs) == 1 {
+				delete(m.folderEncFailures, folder.ID)
+			} else {
+				delete(m.folderEncFailures[folder.ID], deviceID)
+			}
 		}
 
 		// Handle indexes
@@ -1195,12 +1217,6 @@ func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderD
 	}
 
 	if !(isEncDev || isEncUs) {
-		if hasTokenUs {
-			// indicate that we should be encrypted
-		} else {
-			// hasTokenDev == true
-			// indicate the we should encrypt or be encrypted
-		}
 		return errEncNotEncryptedUs
 	}
 
@@ -1235,11 +1251,9 @@ func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderD
 		tokenName := encTokenPath(fcfg)
 		fd, err := ffs.OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666)
 		if err != nil {
-			l.Warnf(`Failed to create encryption token at "%v": %v`, filepath.Join(ffs.URI(), tokenName), err)
 			return err
 		}
 		if _, err := fd.Write(ccToken); err != nil {
-			l.Warnf(`Failed to write encryption token at "%v": %v`, filepath.Join(ffs.URI(), tokenName), err)
 			return err
 		}
 		return nil
