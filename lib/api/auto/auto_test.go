@@ -22,9 +22,12 @@ func TestAssets(t *testing.T) {
 	if !ok {
 		t.Fatal("No index.html in compiled in assets")
 	}
+	if !idx.Gzipped {
+		t.Fatal("default/index.html should be compressed")
+	}
 
 	var gr *gzip.Reader
-	gr, _ = gzip.NewReader(strings.NewReader(idx))
+	gr, _ = gzip.NewReader(strings.NewReader(idx.Content))
 	html, _ := ioutil.ReadAll(gr)
 
 	if !bytes.Contains(html, []byte("<html")) {
