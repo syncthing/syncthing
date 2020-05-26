@@ -630,7 +630,7 @@ func (db *schemaUpdater) updateSchemaTo11(_ int) error {
 		var putErr error
 		err := t.withHave(folder, protocol.LocalDeviceID[:], nil, true, func(fi protocol.FileIntf) bool {
 			f := fi.(FileInfoTruncated)
-			if f.IsDirectory() || f.IsDeleted() || f.IsInvalid() || f.BlocksHash == nil {
+			if f.IsDirectory() || f.IsDeleted() || f.IsSymlink() || f.IsInvalid() || f.BlocksHash == nil {
 				return true
 			}
 

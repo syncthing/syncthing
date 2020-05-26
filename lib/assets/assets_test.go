@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -38,15 +39,23 @@ func decompress(p []byte) (out []byte) {
 	return out
 }
 
-func TestServe(t *testing.T) {
-	indexHTML := `<html>Hello, world!</html>`
-	indexGz := compress(indexHTML)
+func TestServe(t *testing.T)     { testServe(t, false) }
+func TestServeGzip(t *testing.T) { testServe(t, true) }
+
+func testServe(t *testing.T, gzip bool) {
+	const indexHTML = `<html>Hello, world!</html>`
+	content := indexHTML
+	if gzip {
+		content = compress(indexHTML)
+	}
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		Serve(w, r, Asset{
-			ContentGz: indexGz,
-			Filename:  r.URL.Path[1:],
-			Modified:  time.Unix(0, 0),
+			Content:  content,
+			Gzipped:  gzip,
+			Length:   len(indexHTML),
+			Filename: r.URL.Path[1:],
+			Modified: time.Unix(0, 0),
 		})
 	}
 
@@ -73,7 +82,17 @@ func TestServe(t *testing.T) {
 		}
 
 		body, _ := ioutil.ReadAll(res.Body)
-		if acceptGzip {
+
+		// Content-Length is the number of bytes in the encoded (compressed) body
+		// (https://stackoverflow.com/a/3819303).
+		n, err := strconv.Atoi(res.Header.Get("Content-Length"))
+		if err != nil {
+			t.Errorf("malformed Content-Length %q", res.Header.Get("Content-Length"))
+		} else if n != len(body) {
+			t.Errorf("wrong Content-Length %d, should be %d", n, len(body))
+		}
+
+		if gzip && acceptGzip {
 			body = decompress(body)
 		}
 		if string(body) != indexHTML {

@@ -527,7 +527,10 @@ func (e errNoUpgrade) Error() string {
 }
 
 func checkUpgrade() (upgrade.Release, error) {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	if err != nil {
+		return upgrade.Release{}, err
+	}
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {

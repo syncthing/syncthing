@@ -588,3 +588,44 @@ func TestUpdateTo10(t *testing.T) {
 		t.Error("vl.Versions[1] not deleted for c")
 	}
 }
+
+func TestDropDuplicates(t *testing.T) {
+	names := []string{
+		"foo",
+		"bar",
+		"dcxvoijnds",
+		"3d/dsfase/4/ss2",
+	}
+	tcs := []struct{ in, out []int }{
+		{[]int{0}, []int{0}},
+		{[]int{0, 1}, []int{0, 1}},
+		{[]int{0, 1, 0, 1}, []int{0, 1}},
+		{[]int{0, 1, 1, 1, 1}, []int{0, 1}},
+		{[]int{0, 0, 0, 1}, []int{0, 1}},
+		{[]int{0, 1, 2, 3}, []int{0, 1, 2, 3}},
+		{[]int{3, 2, 1, 0, 0, 1, 2, 3}, []int{0, 1, 2, 3}},
+		{[]int{0, 1, 1, 3, 0, 1, 0, 1, 2, 3}, []int{0, 1, 2, 3}},
+	}
+
+	for tci, tc := range tcs {
+		inp := make([]protocol.FileInfo, len(tc.in))
+		expSeq := make(map[string]int)
+		for i, j := range tc.in {
+			inp[i] = protocol.FileInfo{Name: names[j], Sequence: int64(i)}
+			expSeq[names[j]] = i
+		}
+		outp := normalizeFilenamesAndDropDuplicates(inp)
+		if len(outp) != len(tc.out) {
+			t.Errorf("tc %v: Expected %v entries, got %v", tci, len(tc.out), len(outp))
+			continue
+		}
+		for i, f := range outp {
+			if exp := names[tc.out[i]]; exp != f.Name {
+				t.Errorf("tc %v: Got file %v at pos %v, expected %v", tci, f.Name, i, exp)
+			}
+			if exp := int64(expSeq[outp[i].Name]); exp != f.Sequence {
+				t.Errorf("tc %v: Got sequence %v at pos %v, expected %v", tci, f.Sequence, i, exp)
+			}
+		}
+	}
+}

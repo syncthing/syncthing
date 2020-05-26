@@ -213,6 +213,7 @@ func TestCopierFinder(t *testing.T) {
 
 	existingBlocks := []int{0, 2, 3, 4, 0, 0, 7, 0}
 	existingFile := setupFile(fs.TempName("file"), existingBlocks)
+	existingFile.Size = 1
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 	requiredFile.Name = "file2"
@@ -422,6 +423,7 @@ func TestCopierCleanup(t *testing.T) {
 
 	// Create a file
 	file := setupFile("test", []int{0})
+	file.Size = 1
 	m, f := setupSendReceiveFolder(file)
 	defer cleanupSRFolder(f, m)
 
@@ -816,9 +818,14 @@ func TestCopyOwner(t *testing.T) {
 	// owner/group.
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
+	scanChan := make(chan string)
 	defer close(dbUpdateChan)
-	f.handleDir(dir, f.fset.Snapshot(), dbUpdateChan, nil)
-	<-dbUpdateChan // empty the channel for later
+	f.handleDir(dir, f.fset.Snapshot(), dbUpdateChan, scanChan)
+	select {
+	case <-dbUpdateChan: // empty the channel for later
+	case toScan := <-scanChan:
+		t.Fatal("Unexpected receive on scanChan:", toScan)
+	}
 
 	info, err := f.fs.Lstat("foo/bar")
 	if err != nil {
@@ -872,8 +879,12 @@ func TestCopyOwner(t *testing.T) {
 		SymlinkTarget: "over the rainbow",
 	}
 
-	f.handleSymlink(symlink, snap, dbUpdateChan, nil)
-	<-dbUpdateChan
+	f.handleSymlink(symlink, snap, dbUpdateChan, scanChan)
+	select {
+	case <-dbUpdateChan:
+	case toScan := <-scanChan:
+		t.Fatal("Unexpected receive on scanChan:", toScan)
+	}
 
 	info, err = f.fs.Lstat("foo/bar/sym")
 	if err != nil {
