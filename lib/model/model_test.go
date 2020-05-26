@@ -132,6 +132,29 @@ func newState(cfg config.Configuration) *model {
 	return m
 }
 
+func createClusterConfig(remote protocol.DeviceID, ids ...string) protocol.ClusterConfig {
+	cc := protocol.ClusterConfig{
+		Folders: make([]protocol.Folder, len(ids)),
+	}
+	for _, id := range ids {
+		cc.Folders = append(cc.Folders, protocol.Folder{
+			ID:    id,
+			Label: id,
+		})
+	}
+	return addFolderDevicesToClusterConfig(cc, remote)
+}
+
+func addFolderDevicesToClusterConfig(cc protocol.ClusterConfig, remote protocol.DeviceID) protocol.ClusterConfig {
+	for i := range cc.Folders {
+		cc.Folders[i].Devices = []protocol.Device{
+			{ID: myID},
+			{ID: remote},
+		}
+	}
+	return cc
+}
+
 func TestRequest(t *testing.T) {
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
@@ -883,14 +906,7 @@ func TestIssue5063(t *testing.T) {
 	wg := sync.WaitGroup{}
 
 	addAndVerify := func(id string) {
-		m.ClusterConfig(device1, protocol.ClusterConfig{
-			Folders: []protocol.Folder{
-				{
-					ID:    id,
-					Label: id,
-				},
-			},
-		})
+		m.ClusterConfig(device1, createClusterConfig(device1, id))
 		if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 			t.Error("expected shared", id)
 		}
@@ -933,14 +949,7 @@ func TestAutoAcceptRejected(t *testing.T) {
 	defer cleanupModel(m)
 	id := srand.String(8)
 	defer os.RemoveAll(id)
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID:    id,
-				Label: id,
-			},
-		},
-	})
+	m.ClusterConfig(device1, createClusterConfig(device1, id))
 
 	if cfg, ok := m.cfg.Folder(id); ok && cfg.SharedWith(device1) {
 		t.Error("unexpected shared", id)
@@ -953,14 +962,7 @@ func TestAutoAcceptNewFolder(t *testing.T) {
 	defer cleanupModel(m)
 	id := srand.String(8)
 	defer os.RemoveAll(id)
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID:    id,
-				Label: id,
-			},
-		},
-	})
+	m.ClusterConfig(device1, createClusterConfig(device1, id))
 	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id)
 	}
@@ -971,28 +973,14 @@ func TestAutoAcceptNewFolderFromTwoDevices(t *testing.T) {
 	defer cleanupModel(m)
 	id := srand.String(8)
 	defer os.RemoveAll(id)
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID:    id,
-				Label: id,
-			},
-		},
-	})
+	m.ClusterConfig(device1, createClusterConfig(device1, id))
 	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id)
 	}
 	if fcfg, ok := m.cfg.Folder(id); !ok || fcfg.SharedWith(device2) {
 		t.Error("unexpected expected shared", id)
 	}
-	m.ClusterConfig(device2, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID:    id,
-				Label: id,
-			},
-		},
-	})
+	m.ClusterConfig(device2, createClusterConfig(device2, id))
 	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device2) {
 		t.Error("expected shared", id)
 	}
@@ -1005,28 +993,14 @@ func TestAutoAcceptNewFolderFromOnlyOneDevice(t *testing.T) {
 	id := srand.String(8)
 	defer os.RemoveAll(id)
 	defer cleanupModel(m)
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID:    id,
-				Label: id,
-			},
-		},
-	})
+	m.ClusterConfig(device1, createClusterConfig(device1, id))
 	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id)
 	}
 	if fcfg, ok := m.cfg.Folder(id); !ok || fcfg.SharedWith(device2) {
 		t.Error("unexpected expected shared", id)
 	}
-	m.ClusterConfig(device2, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID:    id,
-				Label: id,
-			},
-		},
-	})
+	m.ClusterConfig(device2, createClusterConfig(device2, id))
 	if fcfg, ok := m.cfg.Folder(id); !ok || fcfg.SharedWith(device2) {
 		t.Error("unexpected shared", id)
 	}
@@ -1082,18 +1056,7 @@ func TestAutoAcceptMultipleFolders(t *testing.T) {
 	defer os.RemoveAll(id2)
 	m := newState(defaultAutoAcceptCfg)
 	defer cleanupModel(m)
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID:    id1,
-				Label: id1,
-			},
-			{
-				ID:    id2,
-				Label: id2,
-			},
-		},
-	})
+	m.ClusterConfig(device1, createClusterConfig(device1, id1, id2))
 	if fcfg, ok := m.cfg.Folder(id1); !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id1)
 	}
@@ -1121,14 +1084,7 @@ func TestAutoAcceptExistingFolder(t *testing.T) {
 	if fcfg, ok := m.cfg.Folder(id); !ok || fcfg.SharedWith(device1) {
 		t.Error("missing folder, or shared", id)
 	}
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID:    id,
-				Label: id,
-			},
-		},
-	})
+	m.ClusterConfig(device1, createClusterConfig(device1, id))
 
 	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) || fcfg.Path != idOther {
 		t.Error("missing folder, or unshared, or path changed", id)
@@ -1154,18 +1110,7 @@ func TestAutoAcceptNewAndExistingFolder(t *testing.T) {
 	if fcfg, ok := m.cfg.Folder(id1); !ok || fcfg.SharedWith(device1) {
 		t.Error("missing folder, or shared", id1)
 	}
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID:    id1,
-				Label: id1,
-			},
-			{
-				ID:    id2,
-				Label: id2,
-			},
-		},
-	})
+	m.ClusterConfig(device1, createClusterConfig(device1, id1, id2))
 
 	for i, id := range []string{id1, id2} {
 		if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
@@ -1195,14 +1140,7 @@ func TestAutoAcceptAlreadyShared(t *testing.T) {
 	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID:    id,
-				Label: id,
-			},
-		},
-	})
+	m.ClusterConfig(device1, createClusterConfig(device1, id))
 
 	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
@@ -1241,14 +1179,14 @@ func TestAutoAcceptPrefersLabel(t *testing.T) {
 	defer os.RemoveAll(id)
 	defer os.RemoveAll(label)
 	defer cleanupModel(m)
-	m.ClusterConfig(device1, protocol.ClusterConfig{
+	m.ClusterConfig(device1, addFolderDevicesToClusterConfig(protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID:    id,
 				Label: label,
 			},
 		},
-	})
+	}, device1))
 	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) || !strings.HasSuffix(fcfg.Path, label) {
 		t.Error("expected shared, or wrong path", id, label, fcfg.Path)
 	}
@@ -1266,14 +1204,14 @@ func TestAutoAcceptFallsBackToID(t *testing.T) {
 	defer os.RemoveAll(label)
 	defer os.RemoveAll(id)
 	defer cleanupModel(m)
-	m.ClusterConfig(device1, protocol.ClusterConfig{
+	m.ClusterConfig(device1, addFolderDevicesToClusterConfig(protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID:    id,
 				Label: label,
 			},
 		},
-	})
+	}, device1))
 	if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) || !strings.HasSuffix(fcfg.Path, id) {
 		t.Error("expected shared, or wrong path", id, label, fcfg.Path)
 	}
@@ -1305,14 +1243,7 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 		t.Fatal("folder running?")
 	}
 
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID:    id,
-				Label: id,
-			},
-		},
-	})
+	m.ClusterConfig(device1, createClusterConfig(device1, id))
 	m.generateClusterConfig(device1)
 
 	if fcfg, ok := m.cfg.Folder(id); !ok {
@@ -1362,14 +1293,7 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 		t.Fatal("folder running?")
 	}
 
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID:    id,
-				Label: id,
-			},
-		},
-	})
+	m.ClusterConfig(device1, createClusterConfig(device1, id))
 	m.generateClusterConfig(device1)
 
 	if fcfg, ok := m.cfg.Folder(id); !ok {

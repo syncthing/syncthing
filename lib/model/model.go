@@ -983,10 +983,30 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	changed := false
 	deviceCfg := m.cfg.Devices()[deviceID]
 
+	// Assemble the device information from the connected device about
+	// themselves and us for all folders.
+	ccDevices := make(map[string]protocol.Device, len(cm.Folders))
+	ccDevicesUs := make(map[string]protocol.Device, len(cm.Folders))
+	for _, folder := range cm.Folders {
+		var foundDevice, foundUs bool
+		for _, dev := range folder.Devices {
+			if dev.ID == m.id {
+				ccDevicesUs[folder.ID] = dev
+				foundUs = true
+			} else if dev.ID == deviceID {
+				ccDevices[folder.ID] = dev
+				foundDevice = true
+			}
+			if foundDevice && foundUs {
+				break
+			}
+		}
+	}
+
 	// Needs to happen outside of the fmut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
 		for _, folder := range cm.Folders {
-			changed = m.handleAutoAccepts(deviceCfg, folder) || changed
+			changed = m.handleAutoAccepts(deviceCfg, folder, ccDevices, ccDevicesUs) || changed
 		}
 	}
 
@@ -1003,7 +1023,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
-			// Todo: handle encryption
 			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
 			changed = true
 			m.evLogger.Log(events.FolderRejected, map[string]string{
@@ -1028,23 +1047,10 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			continue
 		}
 
-		var ccDevice, ccDeviceUs protocol.Device
-		var foundDevice, foundUs bool
+		ccDevice, hasDevice := ccDevices[folder.ID]
+		ccDeviceUs, hasDeviceUs := ccDevices[folder.ID]
 
-		for _, dev := range folder.Devices {
-			if dev.ID == m.id {
-				ccDeviceUs = dev
-				foundUs = true
-			} else if dev.ID == deviceID {
-				ccDevice = dev
-				foundDevice = true
-			}
-			if foundDevice && foundUs {
-				break
-			}
-		}
-
-		if err := m.ccCheckEncryptionLocked(cfg, folderDevice, ccDevice, ccDeviceUs, foundDevice, foundUs); err != nil {
+		if err := m.ccCheckEncryptionLocked(cfg, folderDevice, ccDevice, ccDeviceUs, hasDevice, hasDeviceUs); err != nil {
 			sameError := false
 			if devs, ok := m.folderEncFailures[folder.ID]; ok {
 				sameError = devs[deviceID] == err
@@ -1052,7 +1058,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				m.folderEncFailures[folder.ID] = make(map[protocol.DeviceID]error)
 			}
 			m.folderEncFailures[folder.ID][deviceID] = err
-			msg := fmt.Sprintf("Failure checking encryption consistency with device %v for folder $s: %v", deviceID, folder, err)
+			msg := fmt.Sprintf("Failure checking encryption consistency with device %v for folder %v: %v", deviceID, cfg.Description(), err)
 			if sameError {
 				l.Debugln(msg)
 			} else {
@@ -1083,13 +1089,13 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		// about us. Lets check to see if we can start sending index
 		// updates directly or need to send the index from start...
 
-		if foundUs && ccDeviceUs.IndexID == myIndexID && ccDeviceUs.MaxSequence <= mySequence {
+		if hasDeviceUs && ccDeviceUs.IndexID == myIndexID && ccDeviceUs.MaxSequence <= mySequence {
 			// They say they've seen our index ID before and their
 			// max sequence is consistent with ours, so we can
 			// send a delta update only.
 			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", deviceID, folder.Description(), ccDeviceUs.MaxSequence)
 			startSequence = ccDeviceUs.MaxSequence
-		} else if !foundUs {
+		} else if !hasDeviceUs {
 			l.Debugf("Device %v folder %s sent no info about us", deviceID, folder.Description())
 		} else if ccDeviceUs.IndexID == myIndexID {
 			// Safety check above failed: They claim to have more or newer
@@ -1113,7 +1119,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		// completely new set.
 
 		switch {
-		case !foundDevice:
+		case !hasDevice:
 			l.Debugf("Device %v folder %s sent no info about themselves", deviceID, folder.Description())
 			fallthrough
 		case ccDevice.IndexID == 0:
@@ -1204,9 +1210,9 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 }
 
 // requires fmut read-lock
-func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDevice, ccDeviceUs protocol.Device, foundDevice, foundUs bool) error {
-	hasTokenDev := foundDevice && len(ccDevice.EncPwToken) > 0
-	hasTokenUs := foundUs && len(ccDeviceUs.EncPwToken) > 0
+func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDevice, ccDeviceUs protocol.Device, hasDevice, hasUs bool) error {
+	hasTokenDev := hasDevice && len(ccDevice.EncPwToken) > 0
+	hasTokenUs := hasUs && len(ccDeviceUs.EncPwToken) > 0
 	isEncDev := folderDevice.EncryptionPassword != ""
 	isEncUs := fcfg.Type == config.FolderTypeEncrypted
 
@@ -1406,8 +1412,17 @@ func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
-func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder protocol.Folder) bool {
+func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder protocol.Folder, ccDevices, ccDevicesUs map[string]protocol.Device) bool {
+	ccDevice, hasDevice := ccDevices[folder.ID]
+	ccDeviceUs, hasDeviceUs := ccDevices[folder.ID]
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
+		if !hasDevice || !hasDeviceUs {
+			l.Infof("Failed to auto-accept folder %s from %s due to missing information on encryption from remote device", folder.Description(), deviceCfg.DeviceID)
+			return false
+		}
+		if len(ccDevice.EncPwToken) > 0 || len(ccDeviceUs.EncPwToken) > 0 {
+			l.Infof("Failed to auto-accept folder %s from %s due to encryption, which requires manual configuration.", folder.Description(), deviceCfg.DeviceID)
+		}
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
 		pathAlternatives := []string{
@@ -1439,6 +1454,21 @@ func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 		for _, device := range cfg.DeviceIDs() {
 			if device == deviceCfg.DeviceID {
 				// Already shared nothing todo.
+				return false
+			}
+		}
+		if !hasDevice || !hasDeviceUs {
+			l.Infof("Failed to auto-accept folder %s from %s due to missing information on encryption from remote device", folder.Description(), deviceCfg.DeviceID)
+			return false
+		}
+		if cfg.Type == config.FolderTypeEncrypted {
+			if len(ccDevice.EncPwToken) == 0 && len(ccDeviceUs.EncPwToken) == 0 {
+				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us un-encrypted data, but we are encrypted", folder.Description(), deviceCfg.DeviceID)
+				return false
+			}
+		} else {
+			if len(ccDevice.EncPwToken) > 0 || len(ccDeviceUs.EncPwToken) > 0 {
+				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us encrypted data, but we are not encrypted", folder.Description(), deviceCfg.DeviceID)
 				return false
 			}
 		}
