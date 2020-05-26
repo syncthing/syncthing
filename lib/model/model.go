@@ -960,8 +960,30 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	// Needs to happen outside of the fmut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
+		changedFolders := make(map[string]config.FolderConfiguration, len(cm.Folders))
 		for _, folder := range cm.Folders {
-			changed = m.handleAutoAccepts(deviceCfg, folder) || changed
+			if fcfg, fchanged := m.handleAutoAccepts(deviceCfg, folder); fchanged {
+				changedFolders[fcfg.ID] = fcfg
+			}
+		}
+		if len(changedFolders) > 0 {
+			changed = true
+			cfg := m.cfg.RawCopy()
+			for i, fcfg := range cfg.Folders {
+				if newCfg, ok := changedFolders[fcfg.ID]; ok {
+					cfg.Folders[i] = newCfg
+					delete(changedFolders, fcfg.ID)
+				}
+			}
+			for _, fcfg := range changedFolders {
+				cfg.Folders = append(cfg.Folders, fcfg)
+			}
+			// Need to wait for the waiter, as this calls CommitConfiguration,
+			// which sets up the folder and as we return from this call,
+			// ClusterConfig starts poking at m.folderFiles and other things
+			// that might not exist until the config is committed.
+			w, _ := m.cfg.Replace(cfg)
+			w.Wait()
 		}
 	}
 
@@ -1242,7 +1264,7 @@ func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
-func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder protocol.Folder) bool {
+func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder protocol.Folder) (config.FolderConfiguration, bool) {
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
@@ -1259,32 +1281,24 @@ func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
 				DeviceID: deviceCfg.DeviceID,
 			})
-			// Need to wait for the waiter, as this calls CommitConfiguration,
-			// which sets up the folder and as we return from this call,
-			// ClusterConfig starts poking at m.folderFiles and other things
-			// that might not exist until the config is committed.
-			w, _ := m.cfg.SetFolder(fcfg)
-			w.Wait()
 
 			l.Infof("Auto-accepted %s folder %s at path %s", deviceCfg.DeviceID, folder.Description(), fcfg.Path)
-			return true
+			return fcfg, true
 		}
 		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceCfg.DeviceID)
-		return false
+		return config.FolderConfiguration{}, false
 	} else {
 		for _, device := range cfg.DeviceIDs() {
 			if device == deviceCfg.DeviceID {
 				// Already shared nothing todo.
-				return false
+				return config.FolderConfiguration{}, false
 			}
 		}
 		cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{
 			DeviceID: deviceCfg.DeviceID,
 		})
-		w, _ := m.cfg.SetFolder(cfg)
-		w.Wait()
 		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
-		return true
+		return cfg, true
 	}
 }
 
