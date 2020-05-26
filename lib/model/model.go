@@ -340,6 +340,14 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	ffs := fset.MtimeFS()
 
+	if cfg.Type == config.FolderTypeEncrypted {
+		if encToken, err := fs.ReadFile(ffs, encTokenPath(cfg)); err == nil {
+			m.folderEncPwTokens[folder] = encToken
+		} else if !fs.IsNotExist(err) {
+			l.Warnf("Failed to read encryption token: %v", err)
+		}
+	}
+
 	// These are our metadata files, and they should always be hidden.
 	_ = ffs.Hide(config.DefaultMarkerName)
 	_ = ffs.Hide(".stversions")
@@ -1247,16 +1255,39 @@ func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderD
 	}
 	token, ok := m.folderEncPwTokens[fcfg.ID]
 	if !ok {
+		var err error
 		ffs := fcfg.Filesystem()
-		tokenName := encTokenPath(fcfg)
-		fd, err := ffs.OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666)
-		if err != nil {
+		token, err = fs.ReadFile(ffs, encTokenPath(fcfg))
+		if err != nil && !fs.IsNotExist(err) {
 			return err
 		}
-		if _, err := fd.Write(ccToken); err != nil {
-			return err
+		if fs.IsNotExist(err) {
+			tokenName := encTokenPath(fcfg)
+			fd, err := ffs.OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666)
+			if err != nil {
+				// If the default marker name is in use, check
+				// if it's a file and if so, replace with a dir.
+				if fcfg.MarkerName != config.DefaultMarkerName {
+					return err
+				}
+				if stat, serr := ffs.Lstat(fcfg.MarkerName); serr != nil || !stat.IsRegular() {
+					return err
+				}
+				if derr := ffs.Remove(fcfg.MarkerName); derr != nil {
+					return err
+				}
+				if err = fcfg.CreateMarker(); err != nil {
+					return err
+				}
+				if fd, err = ffs.OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666); err != nil {
+					return err
+				}
+			}
+			if _, err := fd.Write(ccToken); err != nil {
+				return err
+			}
+			return nil
 		}
-		return nil
 	}
 	if !bytes.Equal(token, ccToken) {
 		return errEncPW
