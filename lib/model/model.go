@@ -960,29 +960,18 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	// Needs to happen outside of the fmut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
-		changedFolders := make(map[string]config.FolderConfiguration, len(cm.Folders))
+		changedFolders := make([]config.FolderConfiguration, 0, len(cm.Folders))
 		for _, folder := range cm.Folders {
 			if fcfg, fchanged := m.handleAutoAccepts(deviceCfg, folder); fchanged {
-				changedFolders[fcfg.ID] = fcfg
+				changedFolders = append(changedFolders, fcfg)
 			}
 		}
 		if len(changedFolders) > 0 {
-			changed = true
-			cfg := m.cfg.RawCopy()
-			for i, fcfg := range cfg.Folders {
-				if newCfg, ok := changedFolders[fcfg.ID]; ok {
-					cfg.Folders[i] = newCfg
-					delete(changedFolders, fcfg.ID)
-				}
-			}
-			for _, fcfg := range changedFolders {
-				cfg.Folders = append(cfg.Folders, fcfg)
-			}
 			// Need to wait for the waiter, as this calls CommitConfiguration,
 			// which sets up the folder and as we return from this call,
 			// ClusterConfig starts poking at m.folderFiles and other things
 			// that might not exist until the config is committed.
-			w, _ := m.cfg.Replace(cfg)
+			w, _ := m.cfg.SetFolders(changedFolders)
 			w.Wait()
 		}
 	}
