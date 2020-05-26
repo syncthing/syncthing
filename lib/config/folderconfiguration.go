@@ -26,7 +26,10 @@ var (
 	ErrMarkerMissing    = errors.New("folder marker missing (this indicates potential data loss, search docs/forum to get information about how to proceed)")
 )
 
-const DefaultMarkerName = ".stfolder"
+const (
+	DefaultMarkerName          = ".stfolder"
+	DefaultMarkerNameEncrypted = ".stfolder-encrypted"
+)
 
 type FolderConfiguration struct {
 	ID                      string                      `xml:"id,attr" json:"id"`
@@ -231,7 +234,9 @@ func (f *FolderConfiguration) prepare() {
 		f.WeakHashThresholdPct = 25
 	}
 
-	if f.MarkerName == "" {
+	if f.Type == FolderTypeEncrypted {
+		f.MarkerName = DefaultMarkerNameEncrypted
+	} else if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
 	}
 
