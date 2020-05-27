@@ -118,9 +118,16 @@ func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *Counts 
 		idx = len(m.counts.Counts)
 		m.counts.Counts = append(m.counts.Counts, Counts{DeviceID: dev[:], LocalFlags: flag})
 		m.indexes[key] = idx
-		if flag == needFlag {
+		// Need bucket must be initialized when a device first occurs in
+		// the metadatatracker, even if there's no change to the need
+		// bucket itself.
+		nkey := metaKey{dev, needFlag}
+		nidx, ok := m.indexes[nkey]
+		if !ok {
 			// Initially a new device needs everything, except deletes
-			m.counts.Counts[idx] = m.allNeededCounts(dev)
+			nidx = len(m.counts.Counts)
+			m.counts.Counts = append(m.counts.Counts, m.allNeededCounts(dev))
+			m.indexes[nkey] = nidx
 		}
 	}
 	return &m.counts.Counts[idx]

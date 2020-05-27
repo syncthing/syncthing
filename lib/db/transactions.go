@@ -272,8 +272,7 @@ func (t *readOnlyTransaction) withHaveSequence(folder []byte, startSeq int64, fn
 
 		if shouldDebug() {
 			if seq := t.keyer.SequenceFromSequenceKey(dbi.Key()); f.Sequence != seq {
-				l.Warnf("Sequence index corruption (folder %v, file %v): sequence %d != expected %d", string(folder), f.Name, f.Sequence, seq)
-				panic("sequence index corruption")
+				l.Debugf("Sequence index corruption (folder %v, file %v): sequence %d != expected %d", string(folder), f.Name, f.Sequence, seq)
 			}
 		}
 		if !fn(f) {
