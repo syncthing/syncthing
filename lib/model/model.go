@@ -1039,7 +1039,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 
 		ccDevice, hasDevice := ccDevices[folder.ID]
-		ccDeviceUs, hasDeviceUs := ccDevices[folder.ID]
+		ccDeviceUs, hasDeviceUs := ccDevicesUs[folder.ID]
 
 		if err := m.ccCheckEncryptionLocked(cfg, folderDevice, ccDevice, ccDeviceUs, hasDevice, hasDeviceUs); err != nil {
 			sameError := false
@@ -1229,13 +1229,12 @@ func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderD
 		pwToken := protocol.PasswordToken(fcfg.ID, folderDevice.EncryptionPassword)
 		match := false
 		if hasTokenUs {
-			match = !bytes.Equal(pwToken, ccDeviceUs.EncPwToken)
+			match = bytes.Equal(pwToken, ccDeviceUs.EncPwToken)
 		} else {
 			// hasTokenDev == true
-			match = !bytes.Equal(pwToken, ccDevice.EncPwToken)
+			match = bytes.Equal(pwToken, ccDevice.EncPwToken)
 		}
 		if !match {
-			// indicate pw mismatch
 			return errEncPW
 		}
 		return nil
