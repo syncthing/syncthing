@@ -514,6 +514,7 @@ func (db *schemaUpdater) rewriteFiles(t readWriteTransaction) error {
 	if err != nil {
 		return err
 	}
+	defer it.Release()
 	for it.Next() {
 		intf, err := t.unmarshalTrunc(it.Value(), false)
 		if backend.IsNotFound(err) {
@@ -681,6 +682,7 @@ func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {
 	if err != nil {
 		return err
 	}
+	defer it.Release()
 	for it.Next() {
 		var vl VersionListDeprecated
 		if err := vl.Unmarshal(it.Value()); err != nil {
@@ -698,63 +700,9 @@ func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {
 			}
 		}
 
-		var newVl VersionList
-		newPos := -1
-		oldPos := 0
-		var lastVersion protocol.Vector
-		for _, fv := range vl.Versions {
-			if fv.Invalid {
-				break
-			}
-			oldPos++
-			if lastVersion.Equal(fv.Version) {
-				newVl.RawVersions[newPos].Devices = append(newVl.RawVersions[newPos].Devices, fv.Device)
-				continue
-			}
-			newVl.RawVersions = append(newVl.RawVersions, newFileVersion(fv.Device, fv.Version, false, fv.Deleted))
-			lastVersion = fv.Version
-			newPos++
-		}
-		if oldPos == len(vl.Versions) {
-			if err := t.Put(it.Key(), mustMarshal(&newVl)); err != nil {
-				return err
-			}
-			continue
-		}
-		if len(newVl.RawVersions) == 0 {
-			fv := vl.Versions[oldPos]
-			newVl.RawVersions = []FileVersion{newFileVersion(fv.Device, fv.Version, true, fv.Deleted)}
-		}
-		newPos = 0
-	outer:
-		for _, fv := range vl.Versions[oldPos:] {
-			for _, nfv := range newVl.RawVersions[newPos:] {
-				insertBefore := false
-				switch nfv.Version.Compare(fv.Version) {
-				case protocol.Equal:
-					newVl.RawVersions[newPos].InvalidDevices = append(newVl.RawVersions[newPos].InvalidDevices, fv.Device)
-					lastVersion = fv.Version
-					continue outer
-				case protocol.Lesser:
-					insertBefore = true
-				case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
-					insertBefore, err = shouldInsertBeforeConflictBefore11(it.Key(), fv, nfv, t.readOnlyTransaction)
-					if err != nil {
-						return err
-					}
-				}
-				if insertBefore {
-					newVl = newVl.insertAt(newPos, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
-					lastVersion = fv.Version
-					continue outer
-				}
-				newPos++
-			}
-			// Couldn't insert into any existing versions
-			newVl.RawVersions = append(newVl.RawVersions, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
-			lastVersion = fv.Version
-			newPos++
-
+		newVl, err := convertVersionList(vl, it.Key(), t.readOnlyTransaction)
+		if err != nil {
+			return err
 		}
 		if err := t.Put(it.Key(), mustMarshal(&newVl)); err != nil {
 			return err
@@ -765,6 +713,68 @@ func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {
 	}
 	it.Release()
 	return it.Error()
+}
+
+func convertVersionList(vl VersionListDeprecated, gk []byte, t readOnlyTransaction) (VersionList, error) {
+	var newVl VersionList
+	var newPos, oldPos int
+	var lastVersion protocol.Vector
+
+	for _, fv := range vl.Versions {
+		if fv.Invalid {
+			break
+		}
+		oldPos++
+		if lastVersion.Equal(fv.Version) {
+			newVl.RawVersions[newPos].Devices = append(newVl.RawVersions[newPos].Devices, fv.Device)
+			continue
+		}
+		newPos = len(newVl.RawVersions)
+		newVl.RawVersions = append(newVl.RawVersions, newFileVersion(fv.Device, fv.Version, false, fv.Deleted))
+		lastVersion = fv.Version
+	}
+
+	if oldPos == len(vl.Versions) {
+		return newVl, nil
+	}
+
+	if len(newVl.RawVersions) == 0 {
+		fv := vl.Versions[oldPos]
+		newVl.RawVersions = []FileVersion{newFileVersion(fv.Device, fv.Version, true, fv.Deleted)}
+	}
+	newPos = 0
+outer:
+	for _, fv := range vl.Versions[oldPos:] {
+		for _, nfv := range newVl.RawVersions[newPos:] {
+			insertBefore := false
+			switch nfv.Version.Compare(fv.Version) {
+			case protocol.Equal:
+				newVl.RawVersions[newPos].InvalidDevices = append(newVl.RawVersions[newPos].InvalidDevices, fv.Device)
+				lastVersion = fv.Version
+				continue outer
+			case protocol.Lesser:
+				insertBefore = true
+			case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
+				var err error
+				insertBefore, err = shouldInsertBeforeConflictBefore11(gk, fv, nfv, t)
+				if err != nil {
+					return VersionList{}, err
+				}
+			}
+			if insertBefore {
+				newVl = newVl.insertAt(newPos, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
+				lastVersion = fv.Version
+				continue outer
+			}
+			newPos++
+		}
+		// Couldn't insert into any existing versions
+		newVl.RawVersions = append(newVl.RawVersions, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
+		lastVersion = fv.Version
+		newPos++
+	}
+
+	return newVl, nil
 }
 
 func shouldInsertBeforeConflictBefore11(gk []byte, fv FileVersionDeprecated, nfv FileVersion, t readOnlyTransaction) (bool, error) {
