@@ -956,7 +956,11 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	changed := false
-	deviceCfg := m.cfg.Devices()[deviceID]
+	deviceCfg, ok := m.cfg.Devices()[deviceID]
+	if !ok {
+		l.Debugln("Device disappeared from config while processing cluster-config")
+		return errDeviceUnknown
+	}
 
 	// Needs to happen outside of the fmut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
