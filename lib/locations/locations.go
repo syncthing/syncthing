@@ -80,13 +80,18 @@ func GetBaseDir(baseDir BaseDirEnum) string {
 	return baseDirs[baseDir]
 }
 
-var databaseDirname = "index-v0.14.0.db"
+const (
+	LevelDBDirname = "index-v0.14.0.db"
+	BadgerDirname  = "indexdb.badger"
+)
+
+var databaseDirname = LevelDBDirname
 
 func init() {
 	if os.Getenv("USE_BADGER") != "" {
 		// XXX: HACK
-		databaseDirname = "indexdb.badger"
-		locationTemplates[Database] = "${data}/indexdb.badger"
+		databaseDirname = BadgerDirname
+		locationTemplates[Database] = "${data}/" + BadgerDirname
 	}
 }
 
