@@ -3730,6 +3730,127 @@ func TestBlockListMap(t *testing.T) {
 	}
 }
 
+func TestCcCheckEncryption(t *testing.T) {
+	w, fcfg := tmpDefaultWrapper()
+	m := setupModel(w)
+	m.Stop()
+	defer cleanupModel(m)
+
+	pw := "foo"
+	token := protocol.PasswordToken(fcfg.ID, pw)
+	m.folderEncPwTokens[fcfg.ID] = token
+
+	testCases := []struct {
+		tokenThem, tokenUs []byte
+		isEncThem, isEncUs bool
+		expectedErr        error
+	}{
+		{
+			tokenThem:   token,
+			tokenUs:     token,
+			expectedErr: errEncBoth,
+		},
+		{
+			isEncThem:   true,
+			isEncUs:     true,
+			expectedErr: errEncBoth,
+		},
+		{
+			tokenThem:   token,
+			tokenUs:     nil,
+			isEncThem:   false,
+			isEncUs:     false,
+			expectedErr: errEncNotEncryptedUs,
+		},
+		{
+			tokenThem:   token,
+			tokenUs:     nil,
+			isEncThem:   true,
+			isEncUs:     false,
+			expectedErr: nil,
+		},
+		{
+			tokenThem:   token,
+			tokenUs:     nil,
+			isEncThem:   false,
+			isEncUs:     true,
+			expectedErr: nil,
+		},
+		{
+			tokenThem:   nil,
+			tokenUs:     token,
+			isEncThem:   true,
+			isEncUs:     false,
+			expectedErr: nil,
+		},
+		{
+			tokenThem:   nil,
+			tokenUs:     token,
+			isEncThem:   false,
+			isEncUs:     true,
+			expectedErr: nil,
+		},
+		{
+			tokenThem:   nil,
+			tokenUs:     token,
+			isEncThem:   false,
+			isEncUs:     false,
+			expectedErr: errEncNotEncryptedUs,
+		},
+		{
+			tokenThem:   nil,
+			tokenUs:     nil,
+			isEncThem:   true,
+			isEncUs:     false,
+			expectedErr: errEncNotEncrypted,
+		},
+		{
+			tokenThem:   nil,
+			tokenUs:     nil,
+			isEncThem:   false,
+			isEncUs:     true,
+			expectedErr: errEncNotEncrypted,
+		},
+		{
+			tokenThem:   nil,
+			tokenUs:     nil,
+			isEncThem:   false,
+			isEncUs:     false,
+			expectedErr: nil,
+		},
+	}
+
+	for i, tc := range testCases {
+		tfcfg := fcfg.Copy()
+		if tc.isEncUs {
+			tfcfg.Type = config.FolderTypeEncrypted
+			m.folderEncPwTokens[fcfg.ID] = token
+		}
+		dcfg := config.FolderDeviceConfiguration{DeviceID: device1}
+		if tc.isEncThem {
+			dcfg.EncryptionPassword = pw
+		}
+		ccDevice := protocol.Device{ID: device1, EncPwToken: tc.tokenThem}
+		ccDeviceUs := protocol.Device{ID: myID, EncPwToken: tc.tokenUs}
+		err := m.ccCheckEncryptionLocked(tfcfg, dcfg, ccDevice, ccDeviceUs, true, true)
+		if err != tc.expectedErr {
+			t.Errorf("Testcase %v: Expected error %v, got %v", i, tc.expectedErr, err)
+		}
+		if err != nil || (!tc.isEncThem && !tc.isEncUs) {
+			continue
+		}
+		if tc.isEncUs {
+			m.folderEncPwTokens[fcfg.ID] = []byte("notAMatch")
+		} else {
+			dcfg.EncryptionPassword = "notAMatch"
+		}
+		err = m.ccCheckEncryptionLocked(tfcfg, dcfg, ccDevice, ccDeviceUs, true, true)
+		if err != errEncPW {
+			t.Errorf("Testcase %v: Expected error %v, got %v", i, errEncPW, err)
+		}
+	}
+}
+
 func equalStringsInAnyOrder(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

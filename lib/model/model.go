@@ -221,6 +221,8 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		folderRunners:      make(map[string]service),
 		folderRunnerTokens: make(map[string][]suture.ServiceToken),
 		folderVersioners:   make(map[string]versioner.Versioner),
+		folderEncPwTokens:  make(map[string][]byte),
+		folderEncFailures:  make(map[string]map[protocol.DeviceID]error),
 
 		// fields protected by pmut
 		pmut:                sync.NewRWMutex(),
