@@ -125,6 +125,9 @@ func (b *badgerBackend) Get(key []byte) ([]byte, error) {
 		return nil, errClosed{}
 	}
 
+	b.closeWG.Add(1)
+	defer b.closeWG.Done()
+
 	txn := b.bdb.NewTransaction(false)
 	defer txn.Discard()
 	item, err := txn.Get(key)
@@ -145,9 +148,12 @@ func (b *badgerBackend) NewPrefixIterator(prefix []byte) (Iterator, error) {
 		return nil, errClosed{}
 	}
 
+	b.closeWG.Add(1)
+
 	txn := b.bdb.NewTransaction(false)
 	it := badgerPrefixIterator(txn, prefix)
 	it.releaseFn = func() {
+		defer b.closeWG.Done()
 		txn.Discard()
 	}
 	return it, nil
@@ -160,9 +166,12 @@ func (b *badgerBackend) NewRangeIterator(first, last []byte) (Iterator, error) {
 		return nil, errClosed{}
 	}
 
+	b.closeWG.Add(1)
+
 	txn := b.bdb.NewTransaction(false)
 	it := badgerRangeIterator(txn, first, last)
 	it.releaseFn = func() {
+		defer b.closeWG.Done()
 		txn.Discard()
 	}
 	return it, nil
@@ -174,6 +183,9 @@ func (b *badgerBackend) Put(key, val []byte) error {
 	if b.closed {
 		return errClosed{}
 	}
+
+	b.closeWG.Add(1)
+	defer b.closeWG.Done()
 
 	txn := b.bdb.NewTransaction(true)
 	if err := txn.Set(key, val); err != nil {
@@ -190,6 +202,9 @@ func (b *badgerBackend) Delete(key []byte) error {
 		return errClosed{}
 	}
 
+	b.closeWG.Add(1)
+	defer b.closeWG.Done()
+
 	txn := b.bdb.NewTransaction(true)
 	if err := txn.Delete(key); err != nil {
 		txn.Discard()
@@ -204,6 +219,9 @@ func (b *badgerBackend) Compact() error {
 	if b.closed {
 		return errClosed{}
 	}
+
+	b.closeWG.Add(1)
+	defer b.closeWG.Done()
 
 	// XXX: check if this is appropriate or if we also need Flatten and
 	// whatnot.
@@ -250,8 +268,6 @@ func (l badgerSnapshot) Release() {
 	l.txn.Discard()
 }
 
-// badgerTransaction implements backend.WriteTransaction using a batch (not
-// an actual badger transaction)
 type badgerTransaction struct {
 	badgerSnapshot
 	txn  *badger.Txn
@@ -342,7 +358,13 @@ func (i *badgerIterator) Next() bool {
 	}
 	for {
 		if !i.didSeek {
-			i.it.Seek(i.prefix)
+			if i.first != nil {
+				// Range iterator
+				i.it.Seek(i.first)
+			} else {
+				// Prefix iterator
+				i.it.Seek(i.prefix)
+			}
 			i.didSeek = true
 		} else {
 			i.it.Next()
@@ -358,10 +380,6 @@ func (i *badgerIterator) Next() bool {
 		}
 
 		key := i.it.Item().Key()
-		if bytes.Compare(key, i.first) < 0 {
-			// Key is before range first
-			continue
-		}
 		if bytes.Compare(key, i.last) > 0 {
 			// Key is after range last
 			return false
@@ -414,15 +432,20 @@ func wrapBadgerErr(err error) error {
 }
 
 func badgerPrefixIterator(txn *badger.Txn, prefix []byte) *badgerIterator {
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
-	bpit := &badgerIterator{it: it, prefix: prefix}
-	return bpit
+	it := iteratorForPrefix(txn, prefix)
+	return &badgerIterator{it: it, prefix: prefix}
 }
 
 func badgerRangeIterator(txn *badger.Txn, first, last []byte) *badgerIterator {
 	prefix := commonPrefix(first, last)
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	it := iteratorForPrefix(txn, prefix)
 	return &badgerIterator{it: it, prefix: prefix, first: first, last: last}
+}
+
+func iteratorForPrefix(txn *badger.Txn, prefix []byte) *badger.Iterator {
+	opts := badger.DefaultIteratorOptions
+	opts.Prefix = prefix
+	return txn.NewIterator(opts)
 }
 
 func commonPrefix(a, b []byte) []byte {
