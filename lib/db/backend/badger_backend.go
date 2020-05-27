@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	checkpointFlushMinSize = 1 << 20
+	checkpointFlushMinSize = 128 << KiB
 	maxCacheSize           = 64 << MiB
 )
 
