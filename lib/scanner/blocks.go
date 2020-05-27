@@ -108,10 +108,12 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 	return blocks, nil
 }
 
+// Validate quickly validates buf against the cryptohash hash (if len(hash)>0)
+// and the 32-bit hash weakHash (if not zero). It is satisfied if either hash
+// matches, or neither is given.
 func Validate(buf, hash []byte, weakHash uint32) bool {
-	if weakHash != 0 && adler32.Checksum(buf) == weakHash {
-		return true
-		// On mismatch, go to next algo.
+	if weakHash != 0 {
+		return adler32.Checksum(buf) == weakHash
 	}
 
 	if len(hash) > 0 {
@@ -119,7 +121,6 @@ func Validate(buf, hash []byte, weakHash uint32) bool {
 		return bytes.Equal(hbuf[:], hash)
 	}
 
-	// No hashes were specified. Assume it's all good.
 	return true
 }
 
