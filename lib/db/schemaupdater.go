@@ -26,9 +26,9 @@ import (
 //   7: v0.14.53
 //   8-9: v1.4.0
 //   10-11: v1.6.0
-//   12: v1.7.0
+//   12-13: v1.7.0
 const (
-	dbVersion             = 12
+	dbVersion             = 13
 	dbMinSyncthingVersion = "v1.7.0"
 )
 
@@ -94,7 +94,7 @@ func (db *schemaUpdater) updateSchema() error {
 		{9, db.updateSchemaTo9},
 		{10, db.updateSchemaTo10},
 		{11, db.updateSchemaTo11},
-		{12, db.updateSchemaTo12},
+		{13, db.updateSchemaTo13},
 	}
 
 	for _, m := range migrations {
@@ -657,7 +657,7 @@ func (db *schemaUpdater) updateSchemaTo11(_ int) error {
 	return t.Commit()
 }
 
-func (db *schemaUpdater) updateSchemaTo12(_ int) error {
+func (db *schemaUpdater) updateSchemaTo13(prev int) error {
 	// Loads and rewrites all files, to deduplicate version vectors.
 
 	t, err := db.newReadWriteTransaction()
@@ -666,8 +666,10 @@ func (db *schemaUpdater) updateSchemaTo12(_ int) error {
 	}
 	defer t.close()
 
-	if err := db.rewriteFiles(t); err != nil {
-		return err
+	if prev < 12 {
+		if err := db.rewriteFiles(t); err != nil {
+			return err
+		}
 	}
 
 	if err := db.rewriteGlobals(t); err != nil {
