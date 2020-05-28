@@ -22,7 +22,7 @@ case "${1:-default}" in
 		;;
 
 	prerelease)
-		go run script/authors.go
+		script authors
 		build transifex
 		pushd man ; ./refresh.sh ; popd
 		git add -A gui man AUTHORS

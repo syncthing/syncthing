@@ -1,8 +1,3 @@
-function script {
-    $cmd, $rest = $args
-    go run ".\script\$cmd.go" @rest
-}
-
 function build {
     go run build.go @args
 }
