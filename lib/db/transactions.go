@@ -341,7 +341,6 @@ func (t *readOnlyTransaction) withGlobal(folder, prefix []byte, truncate bool, f
 		if err := vl.Unmarshal(dbi.Value()); err != nil {
 			return err
 		}
-		l.Infoln("withGlobal", string(name))
 
 		var f protocol.FileIntf
 		dk, f, _, err = t.getGlobalFromVersionList(dk, folder, name, truncate, vl)

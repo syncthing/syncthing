@@ -700,7 +700,7 @@ func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {
 			}
 		}
 
-		newVl, err := convertVersionList(vl, it.Key())
+		newVl, err := convertVersionList(vl)
 		if err != nil {
 			return err
 		}
@@ -715,7 +715,7 @@ func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {
 	return it.Error()
 }
 
-func convertVersionList(vl VersionListDeprecated, gk []byte) (VersionList, error) {
+func convertVersionList(vl VersionListDeprecated) (VersionList, error) {
 	var newVl VersionList
 	var newPos, oldPos int
 	var lastVersion protocol.Vector
