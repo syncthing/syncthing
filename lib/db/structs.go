@@ -265,7 +265,7 @@ func (vl VersionList) insert(folder, device []byte, file protocol.FileIntf, t re
 	i := 0
 	for ; i < len(vl.RawVersions); i++ {
 		// Insert our new version
-		vl, added, err = vl.checkInsertAt(i, folder, device, []byte(file.FileName()), file.FileVersion(), file.IsInvalid(), file.IsDeleted(), file, true, t)
+		vl, added, err = vl.checkInsertAt(i, folder, device, file, t)
 		if err != nil {
 			return vl, err
 		}
@@ -365,28 +365,29 @@ func (vl VersionList) findDevice(device []byte) (bool, int, int, bool) {
 	return false, -1, -1, false
 }
 
-func (vl VersionList) checkInsertAt(i int, folder, device, name []byte, version protocol.Vector, invalid, deleted bool, file protocol.FileIntf, haveFile bool, t readOnlyTransaction) (VersionList, bool, error) {
-	ordering := vl.RawVersions[i].Version.Compare(version)
+func (vl VersionList) checkInsertAt(i int, folder, device []byte, file protocol.FileIntf, t readOnlyTransaction) (VersionList, bool, error) {
+	ordering := vl.RawVersions[i].Version.Compare(file.FileVersion())
 	if ordering == protocol.Equal {
-		if !invalid {
+		if !file.IsInvalid() {
 			vl.RawVersions[i].Devices = append(vl.RawVersions[i].Devices, device)
 		} else {
 			vl.RawVersions[i].InvalidDevices = append(vl.RawVersions[i].InvalidDevices, device)
 		}
 		return vl, true, nil
 	}
-	insert, err := shouldInsertBefore(ordering, folder, device, vl.RawVersions[i].Devices[0], name, version, file, haveFile, t)
+	existingDevice, _ := vl.RawVersions[i].FirstDevice()
+	insert, err := shouldInsertBefore(ordering, folder, existingDevice, vl.RawVersions[i].IsInvalid(), file, t)
 	if err != nil {
 		return vl, false, err
 	}
 	if insert {
-		vl = vl.insertAt(i, newFileVersion(device, version, invalid, deleted))
+		vl = vl.insertAt(i, newFileVersion(device, file.FileVersion(), file.IsInvalid(), file.IsDeleted()))
 		return vl, true, nil
 	}
 	return vl, false, nil
 }
 
-func shouldInsertBefore(ordering protocol.Ordering, folder, device, existingDevice, name []byte, version protocol.Vector, file protocol.FileIntf, haveFile bool, t readOnlyTransaction) (bool, error) {
+func shouldInsertBefore(ordering protocol.Ordering, folder, existingDevice []byte, existingInvalid bool, file protocol.FileIntf, t readOnlyTransaction) (bool, error) {
 	switch ordering {
 	case protocol.Lesser:
 		// The version at this point in the list is lesser
@@ -394,25 +395,23 @@ func shouldInsertBefore(ordering protocol.Ordering, folder, device, existingDevi
 		return true, nil
 
 	case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
-		// The version in conflict with us. We must pull
-		// the actual file metadata to determine who wins. If we win, we
-		// insert ourselves in front of the loser here. (The "Lesser" and
-		// "Greater" in the condition above is just based on the device
-		// IDs in the version vector, which is not the only thing we use
-		// to determine the winner.)
-		of, ok, err := t.getFile(folder, existingDevice, name)
+		// The version in conflict with us.
+		// Check if we can shortcut due to one being invalid.
+		if existingInvalid != file.IsInvalid() {
+			return existingInvalid, nil
+		}
+		// We must pull the actual file metadata to determine who wins.
+		// If we win, we insert ourselves in front of the loser here.
+		// (The "Lesser" and "Greater" in the condition above is just
+		// based on the device IDs in the version vector, which is not
+		// the only thing we use to determine the winner.)
+		of, ok, err := t.getFile(folder, existingDevice, []byte(file.FileName()))
 		if err != nil {
 			return false, err
 		}
 		// A surprise missing file entry here is counted as a win for us.
 		if !ok {
 			return true, nil
-		}
-		if !haveFile {
-			file, ok, err = t.getFile(folder, device, name)
-			if !ok {
-				return false, errEntryFromGlobalMissing
-			}
 		}
 		if err != nil {
 			return false, err

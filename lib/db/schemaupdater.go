@@ -227,7 +227,7 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 				ordering := fl.Versions[i].Version.Compare(f.Version)
 				shouldInsert := ordering == protocol.Equal
 				if !shouldInsert {
-					shouldInsert, err = shouldInsertBefore(ordering, folder, device, fl.Versions[i].Device, name, f.Version, f, true, ro)
+					shouldInsert, err = shouldInsertBefore(ordering, folder, fl.Versions[i].Device, true, f, ro)
 					if err != nil {
 						return err
 					}
