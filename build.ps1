@@ -15,6 +15,6 @@ switch ($cmd) {
     }
 
     default {
-        build @args
+        build @rest
     }
 }
