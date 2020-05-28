@@ -103,6 +103,8 @@ func New(myID protocol.DeviceID) Configuration {
 	cfg.Version = CurrentVersion
 	cfg.OriginalVersion = CurrentVersion
 
+	cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
+
 	util.SetDefaults(&cfg)
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
@@ -240,19 +242,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 	var myName string
 
 	cfg.MyID = myID
-
-	if cfg.GUI.User == "" && cfg.GUI.Password == "" {
-		aware := false
-		for _, key := range cfg.Options.UnackedNotificationIDs {
-			if key == "authenticationUserAndPassword" {
-				aware = true
-				break
-			}
-		}
-		if !aware {
-			cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "authenticationUserAndPassword")
-		}
-	}
 
 	// Ensure this device is present in the config
 	for _, device := range cfg.Devices {
