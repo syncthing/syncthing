@@ -424,6 +424,7 @@ nextPendingDevice:
 		for i, key := range cfg.Options.UnackedNotificationIDs {
 			if key == "authenticationUserAndPassword" {
 				cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs[:i], cfg.Options.UnackedNotificationIDs[i+1:]...)
+				break
 			}
 		}
 	}
