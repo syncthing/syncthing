@@ -107,8 +107,6 @@ func New(myID protocol.DeviceID) Configuration {
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
 
-	cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
-
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
 		l.Warnln("bug: error in preparing new folder:", err)
@@ -242,6 +240,19 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 	var myName string
 
 	cfg.MyID = myID
+
+	if cfg.GUI.User == "" && cfg.GUI.Password == "" {
+		aware := false
+		for _, key := range cfg.Options.UnackedNotificationIDs {
+			if key == "authenticationUserAndPassword" {
+				aware = true
+				break
+			}
+		}
+		if !aware {
+			cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "authenticationUserAndPassword")
+		}
+	}
 
 	// Ensure this device is present in the config
 	for _, device := range cfg.Devices {
@@ -419,7 +430,13 @@ nextPendingDevice:
 		cfg.Options.AlwaysLocalNets = []string{}
 	}
 	if cfg.Options.UnackedNotificationIDs == nil {
-		cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
+		cfg.Options.UnackedNotificationIDs = []string{}
+	} else if cfg.GUI.User != "" && cfg.GUI.Password != "" {
+		for i, key := range cfg.Options.UnackedNotificationIDs {
+			if key == "authenticationUserAndPassword" {
+				cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs[:i], cfg.Options.UnackedNotificationIDs[i+1:]...)
+			}
+		}
 	}
 
 	return nil
