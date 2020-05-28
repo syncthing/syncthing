@@ -57,6 +57,7 @@ type folder struct {
 
 	pullScheduled chan struct{}
 	pullPause     time.Duration
+	lastPull      time.Time
 	pullFailTimer *time.Timer
 
 	doInSyncChan chan syncRequest
@@ -325,11 +326,13 @@ func (f *folder) pull() bool {
 
 	// Pulling failed, try again later.
 	delay := f.pullPause + time.Since(startTime)
-	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), delay)
+	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), delay.Truncate(time.Second))
 	f.pullFailTimer.Reset(delay)
-	if f.pullPause < 60*basePause {
+	if f.pullPause < 60*basePause && time.Since(f.lastPull) > f.pullPause {
 		f.pullPause *= 2
 	}
+	f.lastPull = time.Now()
+
 	return false
 }
 
