@@ -700,7 +700,7 @@ func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {
 			}
 		}
 
-		newVl, err := convertVersionList(vl, it.Key(), t.readOnlyTransaction)
+		newVl, err := convertVersionList(vl, it.Key())
 		if err != nil {
 			return err
 		}
@@ -715,7 +715,7 @@ func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {
 	return it.Error()
 }
 
-func convertVersionList(vl VersionListDeprecated, gk []byte, t readOnlyTransaction) (VersionList, error) {
+func convertVersionList(vl VersionListDeprecated, gk []byte) (VersionList, error) {
 	var newVl VersionList
 	var newPos, oldPos int
 	var lastVersion protocol.Vector
@@ -746,25 +746,18 @@ func convertVersionList(vl VersionListDeprecated, gk []byte, t readOnlyTransacti
 outer:
 	for _, fv := range vl.Versions[oldPos:] {
 		for _, nfv := range newVl.RawVersions[newPos:] {
-			insertBefore := false
 			switch nfv.Version.Compare(fv.Version) {
 			case protocol.Equal:
 				newVl.RawVersions[newPos].InvalidDevices = append(newVl.RawVersions[newPos].InvalidDevices, fv.Device)
 				lastVersion = fv.Version
 				continue outer
 			case protocol.Lesser:
-				insertBefore = true
-			case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
-				var err error
-				insertBefore, err = shouldInsertBeforeConflictBefore11(gk, fv, nfv, t)
-				if err != nil {
-					return VersionList{}, err
-				}
-			}
-			if insertBefore {
 				newVl = newVl.insertAt(newPos, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
 				lastVersion = fv.Version
 				continue outer
+			case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
+				// The version is invalid, i.e. it looses anyway,
+				// no need to check/get the conflicting file.
 			}
 			newPos++
 		}
@@ -775,37 +768,6 @@ outer:
 	}
 
 	return newVl, nil
-}
-
-func shouldInsertBeforeConflictBefore11(gk []byte, fv FileVersionDeprecated, nfv FileVersion, t readOnlyTransaction) (bool, error) {
-	// The version in conflict with us. We must pull
-	// the actual file metadata to determine who wins. If we win, we
-	// insert ourselves in front of the loser here. (The "Lesser" and
-	// "Greater" in the condition above is just based on the device
-	// IDs in the version vector, which is not the only thing we use
-	// to determine the winner.)
-	folder, ok := t.keyer.FolderFromGlobalVersionKey(gk)
-	if !ok {
-		return false, errFolderMissing
-	}
-	name := t.keyer.NameFromGlobalVersionKey(gk)
-	odev, _ := nfv.FirstDevice() // Just added, thus not empty
-	of, ok, err := t.getFile(folder, odev, name)
-	if err != nil {
-		return false, err
-	}
-	// A surprise missing file entry here is counted as a win for us.
-	if !ok {
-		return true, nil
-	}
-	file, ok, err := t.getFile(folder, fv.Device, name)
-	if err != nil {
-		return false, err
-	}
-	if !ok {
-		return false, errEntryFromGlobalMissing
-	}
-	return protocol.WinsConflict(file, of), nil
 }
 
 func getGlobalVersionsByKeyBefore11(key []byte, t readOnlyTransaction) (VersionListDeprecated, error) {
