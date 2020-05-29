@@ -295,8 +295,7 @@ func (f *folder) pull() (success bool) {
 
 	defer func() {
 		if success {
-			// We're good. Don't schedule another pull and reset
-			// the pause interval.
+			// We're good, reset the pause interval.
 			f.pullPause = f.pullBasePause()
 		}
 	}()
