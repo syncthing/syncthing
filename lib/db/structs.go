@@ -191,7 +191,7 @@ func (c Counts) Equal(o Counts) bool {
 	return c.Files == o.Files && c.Directories == o.Directories && c.Symlinks == o.Symlinks && c.Deleted == o.Deleted && c.Bytes == o.Bytes
 }
 
-func (vl *VersionList) String() string {
+func (vl VersionList) String() string {
 	var b bytes.Buffer
 	var id protocol.DeviceID
 	b.WriteString("{")
