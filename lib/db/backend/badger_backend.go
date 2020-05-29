@@ -9,7 +9,6 @@ package backend
 import (
 	"bytes"
 	"errors"
-	"sync"
 
 	badger "github.com/dgraph-io/badger/v2"
 )
@@ -23,9 +22,28 @@ func OpenBadger(path string) (Backend, error) {
 	opts := badger.DefaultOptions(path)
 	opts = opts.WithMaxCacheSize(maxCacheSize).WithCompactL0OnClose(false)
 	opts.Logger = nil
+	return openBadger(opts)
+}
+
+func OpenBadgerMemory() Backend {
+	opts := badger.DefaultOptions("").WithInMemory(true)
+	opts.Logger = nil
+	backend, err := openBadger(opts)
+	if err != nil {
+		// Opening in-memory should never be able to fail, and is anyway
+		// used just by tests.
+		panic(err)
+	}
+	return backend
+}
+
+func openBadger(opts badger.Options) (Backend, error) {
+	// XXX: We should find good values for memory utilization in the "small"
+	// and "large" cases we support for LevelDB. Some notes here:
+	// https://github.com/dgraph-io/badger/tree/v2.0.3#memory-usage
 	bdb, err := badger.Open(opts)
 	if err != nil {
-		return nil, err
+		return nil, wrapBadgerErr(err)
 	}
 	return &badgerBackend{
 		bdb:     bdb,
@@ -33,35 +51,13 @@ func OpenBadger(path string) (Backend, error) {
 	}, nil
 }
 
-func OpenBadgerMemory() Backend {
-	opts := badger.DefaultOptions("").WithInMemory(true)
-	opts.Logger = nil
-	bdb, err := badger.Open(opts)
-	if err != nil {
-		panic(err)
-	}
-	return &badgerBackend{
-		bdb:     bdb,
-		closeWG: &closeWaitGroup{},
-	}
-}
-
 // badgerBackend implements Backend on top of a badger
 type badgerBackend struct {
 	bdb     *badger.DB
 	closeWG *closeWaitGroup
-
-	closedMut sync.RWMutex
-	closed    bool
 }
 
 func (b *badgerBackend) NewReadTransaction() (ReadTransaction, error) {
-	b.closedMut.RLock()
-	defer b.closedMut.RUnlock()
-	if b.closed {
-		return nil, errClosed{}
-	}
-
 	rel, err := newReleaser(b.closeWG)
 	if err != nil {
 		return nil, err
@@ -73,12 +69,6 @@ func (b *badgerBackend) NewReadTransaction() (ReadTransaction, error) {
 }
 
 func (b *badgerBackend) NewWriteTransaction() (WriteTransaction, error) {
-	b.closedMut.RLock()
-	defer b.closedMut.RUnlock()
-	if b.closed {
-		return nil, errClosed{}
-	}
-
 	rel1, err := newReleaser(b.closeWG)
 	if err != nil {
 		return nil, err
@@ -106,26 +96,14 @@ func (b *badgerBackend) NewWriteTransaction() (WriteTransaction, error) {
 }
 
 func (b *badgerBackend) Close() error {
-	b.closedMut.Lock()
-	defer b.closedMut.Unlock()
-	if b.closed {
-		return errClosed{}
-	}
-
 	b.closeWG.CloseWait()
-	err := b.bdb.Close()
-	b.closed = true
-	return wrapBadgerErr(err)
+	return wrapBadgerErr(b.bdb.Close())
 }
 
 func (b *badgerBackend) Get(key []byte) ([]byte, error) {
-	b.closedMut.RLock()
-	defer b.closedMut.RUnlock()
-	if b.closed {
-		return nil, errClosed{}
+	if err := b.closeWG.Add(1); err != nil {
+		return nil, err
 	}
-
-	b.closeWG.Add(1)
 	defer b.closeWG.Done()
 
 	txn := b.bdb.NewTransaction(false)
@@ -142,13 +120,9 @@ func (b *badgerBackend) Get(key []byte) ([]byte, error) {
 }
 
 func (b *badgerBackend) NewPrefixIterator(prefix []byte) (Iterator, error) {
-	b.closedMut.RLock()
-	defer b.closedMut.RUnlock()
-	if b.closed {
-		return nil, errClosed{}
+	if err := b.closeWG.Add(1); err != nil {
+		return nil, err
 	}
-
-	b.closeWG.Add(1)
 
 	txn := b.bdb.NewTransaction(false)
 	it := badgerPrefixIterator(txn, prefix)
@@ -160,13 +134,9 @@ func (b *badgerBackend) NewPrefixIterator(prefix []byte) (Iterator, error) {
 }
 
 func (b *badgerBackend) NewRangeIterator(first, last []byte) (Iterator, error) {
-	b.closedMut.RLock()
-	defer b.closedMut.RUnlock()
-	if b.closed {
-		return nil, errClosed{}
+	if err := b.closeWG.Add(1); err != nil {
+		return nil, err
 	}
-
-	b.closeWG.Add(1)
 
 	txn := b.bdb.NewTransaction(false)
 	it := badgerRangeIterator(txn, first, last)
@@ -178,13 +148,9 @@ func (b *badgerBackend) NewRangeIterator(first, last []byte) (Iterator, error) {
 }
 
 func (b *badgerBackend) Put(key, val []byte) error {
-	b.closedMut.RLock()
-	defer b.closedMut.RUnlock()
-	if b.closed {
-		return errClosed{}
+	if err := b.closeWG.Add(1); err != nil {
+		return err
 	}
-
-	b.closeWG.Add(1)
 	defer b.closeWG.Done()
 
 	txn := b.bdb.NewTransaction(true)
@@ -196,13 +162,9 @@ func (b *badgerBackend) Put(key, val []byte) error {
 }
 
 func (b *badgerBackend) Delete(key []byte) error {
-	b.closedMut.RLock()
-	defer b.closedMut.RUnlock()
-	if b.closed {
-		return errClosed{}
+	if err := b.closeWG.Add(1); err != nil {
+		return err
 	}
-
-	b.closeWG.Add(1)
 	defer b.closeWG.Done()
 
 	txn := b.bdb.NewTransaction(true)
@@ -214,20 +176,31 @@ func (b *badgerBackend) Delete(key []byte) error {
 }
 
 func (b *badgerBackend) Compact() error {
-	b.closedMut.RLock()
-	defer b.closedMut.RUnlock()
-	if b.closed {
-		return errClosed{}
+	if err := b.closeWG.Add(1); err != nil {
+		return err
 	}
-
-	b.closeWG.Add(1)
 	defer b.closeWG.Done()
 
-	// XXX: check if this is appropriate or if we also need Flatten and
-	// whatnot.
-	err := b.bdb.RunValueLogGC(0.5)
+	// This weird looking loop is as recommended in the README
+	// (https://github.com/dgraph-io/badger/tree/v2.0.3#garbage-collection).
+	// Basically, the RunValueLogGC will pick some promising thing to
+	// garbage collect at random and return nil if it improved the
+	// situation, then return ErrNoRewrite when there is nothing more to GC.
+	// The 0.5 is the discard ratio, for which the method docs say they
+	// "recommend setting discardRatio to 0.5, thus indicating that a file
+	// be rewritten if half the space can be discarded".
+	var err error
+	for err == nil {
+		err = b.bdb.RunValueLogGC(0.5)
+	}
+
 	if errors.Is(err, badger.ErrNoRewrite) {
 		// GC did nothing, because nothing needed to be done
+		return nil
+	}
+	if errors.Is(err, badger.ErrRejected) {
+		// GC was already running (could possibly happen), or the database
+		// is closed (can't happen).
 		return nil
 	}
 	if errors.Is(err, badger.ErrGCInMemoryMode) {
