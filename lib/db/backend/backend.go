@@ -125,13 +125,13 @@ const (
 func Open(path string, tuning Tuning) (Backend, error) {
 	if os.Getenv("USE_BADGER") != "" {
 		l.Warnln("Using experimental badger db")
-		if err := maybeCopyDatabase(path, strings.Replace(path, locations.BadgerDirname, locations.LevelDBDirname, 1), OpenBadger, OpenLevelDBRO); err != nil {
+		if err := maybeCopyDatabase(path, strings.Replace(path, locations.BadgerDir, locations.LevelDBDir, 1), OpenBadger, OpenLevelDBRO); err != nil {
 			return nil, err
 		}
 		return OpenBadger(path)
 	}
 
-	if err := maybeCopyDatabase(path, strings.Replace(path, locations.LevelDBDirname, locations.BadgerDirname, 1), OpenLevelDBAuto, OpenBadger); err != nil {
+	if err := maybeCopyDatabase(path, strings.Replace(path, locations.LevelDBDir, locations.BadgerDir, 1), OpenLevelDBAuto, OpenBadger); err != nil {
 		return nil, err
 	}
 	return OpenLevelDB(path, tuning)

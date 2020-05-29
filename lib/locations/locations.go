@@ -44,12 +44,20 @@ const (
 	DataBaseDir   BaseDirEnum = "data"
 	// User's home directory, *not* -home flag
 	UserHomeBaseDir BaseDirEnum = "userHome"
+
+	LevelDBDir = "index-v0.14.0.db"
+	BadgerDir  = "indexdb.badger"
 )
 
 // Platform dependent directories
 var baseDirs = make(map[BaseDirEnum]string, 3)
 
 func init() {
+	if os.Getenv("USE_BADGER") != "" {
+		// XXX: Replace the leveldb name with the badger name.
+		locationTemplates[Database] = strings.Replace(locationTemplates[Database], LevelDBDir, BadgerDir, 1)
+	}
+
 	userHome := userHomeDir()
 	config := defaultConfigDir(userHome)
 	baseDirs[UserHomeBaseDir] = userHome
@@ -80,21 +88,6 @@ func GetBaseDir(baseDir BaseDirEnum) string {
 	return baseDirs[baseDir]
 }
 
-const (
-	LevelDBDirname = "index-v0.14.0.db"
-	BadgerDirname  = "indexdb.badger"
-)
-
-var databaseDirname = LevelDBDirname
-
-func init() {
-	if os.Getenv("USE_BADGER") != "" {
-		// XXX: HACK
-		databaseDirname = BadgerDirname
-		locationTemplates[Database] = "${data}/" + BadgerDirname
-	}
-}
-
 // Use the variables from baseDirs here
 var locationTemplates = map[LocationEnum]string{
 	ConfigFile:    "${config}/config.xml",
@@ -102,7 +95,7 @@ var locationTemplates = map[LocationEnum]string{
 	KeyFile:       "${config}/key.pem",
 	HTTPSCertFile: "${config}/https-cert.pem",
 	HTTPSKeyFile:  "${config}/https-key.pem",
-	Database:      "${data}/" + databaseDirname,
+	Database:      "${data}/" + LevelDBDir,
 	LogFile:       "${data}/syncthing.log", // -logfile on Windows
 	CsrfTokens:    "${data}/csrftokens.txt",
 	PanicLog:      "${data}/panic-${timestamp}.log",
@@ -163,7 +156,14 @@ func defaultDataDir(userHome, config string) string {
 
 	default:
 		// If a database exists at the "normal" location, use that anyway.
-		if _, err := os.Lstat(filepath.Join(config, databaseDirname)); err == nil {
+		// We look for both LevelDB and Badger variants here regardless of
+		// what we're currently configured to use, because we might be
+		// starting up in Badger mode with only a LevelDB database present
+		// (will be converted), or vice versa.
+		if _, err := os.Lstat(filepath.Join(config, LevelDBDir)); err == nil {
+			return config
+		}
+		if _, err := os.Lstat(filepath.Join(config, BadgerDir)); err == nil {
 			return config
 		}
 		// Always use this env var, as it's explicitly set by the user
