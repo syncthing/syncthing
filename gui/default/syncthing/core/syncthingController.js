@@ -1722,9 +1722,11 @@ angular.module('syncthing.core')
             var devMap = deviceMap($scope.devices)
             $scope.currentFolder.sharedDevices = [];
             $scope.currentFolder.selectedDevices = {};
+            $scope.currentFolder.shareStatus = {};
             $scope.currentFolder.devices.forEach(function (n) {
                 if (n.deviceID !== $scope.myID) {
                     $scope.currentFolder.sharedDevices.push(devMap[n.deviceID]);
+                    $scope.currentFolder.shareStatus[n.deviceID] = 'Shared';
                 }
                 $scope.currentFolder.selectedDevices[n.deviceID] = true;
             });
