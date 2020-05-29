@@ -420,3 +420,11 @@ ul.three-columns li, ul.two-columns li {
         margin-bottom: 1rem;
     }
 }
+
+.form-horizontal .form-group {
+    margin-bottom: 5px;
+}
+
+.form-horizontal {
+    margin-bottom: +10px;
+}

@@ -44,27 +44,26 @@
           </div>
         </div>
         <div id="folder-sharing" class="tab-pane">
-          <div class="form-group" ng-if="currentFolder.sharedDevices.length">
+          <div class="form-horizontal" ng-if="currentFolder.sharedDevices.length">
             <label translate>Currently Shared With Devices</label>
-            <div class="row form-group" ng-repeat="device in currentFolder.sharedDevices">
-              <div class="col-xs-12 col-md-6 form-group">
-                <div class="col-xs-4">
-                  <select class="form-control" ng-model="currentFolder.shareStatus[device.deviceID]" label="deviceStatus-{{device.deviceID}}">
+            <div class="form-group" ng-repeat="device in currentFolder.sharedDevices">
+              <div class="col-md-6">
+                {{deviceName(device)}}
+              </div>
+              <div class="col-md-6" ng-switch="currentFolder.shareStatus[device.deviceID] === 'Encrypted'">
+                <div class="col-xs-5" ng-model="currentFolder.shareStatus[device.deviceID]" label="deviceStatus-{{device.deviceID}}">
+                  <select class="form-control input-sm" ng-model="currentFolder.shareStatus[device.deviceID]" label="deviceStatus-{{device.deviceID}}">
                     <option ng-repeat="status in ['Shared', 'Encrypted', 'Unshared']" value="{{status}}" translate-value-statustrans="{{status}}" translate>{%statustrans%}</option>
                   </select>
                 </div>
-                <label for="deviceStatus-{{device.deviceID}}" class="col-xs-8">{{deviceName(device)}}</label>
-              </div>
-              <div class="col-xs-12 col-md-6 form-group" ng-class="currentFolder.shareStatus[device.deviceID] !== 'Encrypted' ? 'visible-md visible-lg' : ''">
-                <div class="col-xs-4 visible-xs visible-sm" />
-                <div class="col-xs-8 col-md-12" ng-switch="currentFolder.shareStatus[device.deviceID] === 'Encrypted'">
+                <div class="col-xs-7">
                   <div ng-switch-when='true' class="input-group">
                     <span class="input-group-addon"><span class="fas fa-fw fa-lock" /></span>
-                    <input class="form-control" type="text" ng-model="device.encryptionPassword" placeholder="{{'Enter encryption password.' | translate}}" />
+                    <input class="form-control input-sm" type="password" ng-model="device.encryptionPassword" placeholder="{{'Enter encryption password.' | translate}}" />
                   </div>
                   <div ng-switch-when='false' class="input-group">
                     <span class="input-group-addon"><span class="fa fa-fw fa-unlock" /></span>
-                    <input class="form-control" type="text" placeholder="{{'Encryption disabled' | translate}}" disabled />
+                    <input class="form-control input-sm" type="text" placeholder="{{'Encryption disabled' | translate}}" disabled />
                   </div>
                 </div>
               </div>
