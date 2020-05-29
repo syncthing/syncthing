@@ -47,24 +47,26 @@
           <div class="form-horizontal" ng-if="currentFolder.sharedDevices.length">
             <label translate>Currently Shared With Devices</label>
             <div class="form-group" ng-repeat="device in currentFolder.sharedDevices">
-              <div class="col-md-6">
-                {{deviceName(device)}}
+              <div class="col-md-6 checkbox">
+                <label for="sharedwith-{{device.deviceID}}">
+                  <input id="sharedwith-{{device.deviceID}}" ng-model="currentFolder.sharedStatus[device.deviceID]" type="checkbox" />
+                  {{deviceName(device)}}
+                </label>
               </div>
-              <div class="col-md-6" ng-switch="currentFolder.shareStatus[device.deviceID] === 'Encrypted'">
-                <div class="col-xs-5" ng-model="currentFolder.shareStatus[device.deviceID]" label="deviceStatus-{{device.deviceID}}">
-                  <select class="form-control input-sm" ng-model="currentFolder.shareStatus[device.deviceID]" label="deviceStatus-{{device.deviceID}}">
-                    <option ng-repeat="status in ['Shared', 'Encrypted', 'Unshared']" value="{{status}}" translate-value-statustrans="{{status}}" translate>{%statustrans%}</option>
-                  </select>
-                </div>
-                <div class="col-xs-7">
-                  <div ng-switch-when='true' class="input-group">
-                    <span class="input-group-addon"><span class="fas fa-fw fa-lock" /></span>
-                    <input class="form-control input-sm" type="password" ng-model="device.encryptionPassword" placeholder="{{'Enter encryption password.' | translate}}" />
-                  </div>
-                  <div ng-switch-when='false' class="input-group">
-                    <span class="input-group-addon"><span class="fa fa-fw fa-unlock" /></span>
-                    <input class="form-control input-sm" type="text" placeholder="{{'Encryption disabled' | translate}}" disabled />
-                  </div>
+              <div class="col-md-6">
+                <div class="input-group">
+                  <span class="input-group-addon" ng-switch="!device.encryptionPassword || device.encryptionPassword === ''">
+                    <span ng-switch-when='true' class="fas fa-fw fa-unlock" />
+                    <span ng-switch-when='false' class="fas fa-fw fa-lock" />
+                  </span>
+                  <span ng-switch="currentFolder.sharedStatus[device.deviceID]">
+                    <span ng-switch-when='true'>
+                      <input class="form-control input-sm" type="password" ng-model="device.encryptionPassword" placeholder="{{'Enter encryption password.' | translate}}" />
+                    </span>
+                    <span ng-switch-when='false'>
+                      <input class="form-control input-sm" type="password" placeholder="Folder is not shared." disabled />
+                    </span>
+                  </span>
                 </div>
               </div>
             </div>
