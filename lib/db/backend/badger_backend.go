@@ -9,6 +9,7 @@ package backend
 import (
 	"bytes"
 	"errors"
+	"time"
 
 	badger "github.com/dgraph-io/badger/v2"
 )
@@ -190,7 +191,12 @@ func (b *badgerBackend) Compact() error {
 	// "recommend setting discardRatio to 0.5, thus indicating that a file
 	// be rewritten if half the space can be discarded".
 	var err error
+	t0 := time.Now()
 	for err == nil {
+		if time.Since(t0) > time.Hour {
+			l.Warnln("Database compaction is taking a long time, performance may be impacted. Consider investigating and/or opening an issue if this warning repeats.")
+			t0 = time.Now()
+		}
 		err = b.bdb.RunValueLogGC(0.5)
 	}
 
