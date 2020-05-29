@@ -299,7 +299,7 @@ func (vl VersionList) pop(folder, device, name []byte, t readOnlyTransaction) (V
 
 	if vl.RawVersions[i].deviceCount() == 1 {
 		fv := vl.RawVersions[i]
-		vl.RawVersions = popVersionAt(vl.RawVersions, i)
+		vl = vl.popVersionAt(i)
 		return vl, fv, true, globalPos == i, nil
 	}
 
@@ -326,6 +326,9 @@ func (vl VersionList) Get(device []byte) (FileVersion, bool) {
 	return vl.RawVersions[i], true
 }
 
+// GetGlobal returns the current global FileVersion. The returned FileVersion
+// may be invalid, if all FileVersions are invalid. Returns false only if
+// VersionList is empty.
 func (vl VersionList) GetGlobal() (FileVersion, bool) {
 	i := vl.findGlobal()
 	if i == -1 {
@@ -338,6 +341,8 @@ func (vl VersionList) Empty() bool {
 	return len(vl.RawVersions) == 0
 }
 
+// findGlobal returns the first version that isn't invalid, or if all versions are
+// invalid just the first version (i.e. 0) or -1, if there's no versions at all.
 func (vl VersionList) findGlobal() int {
 	for i, fv := range vl.RawVersions {
 		if !fv.IsInvalid() {
@@ -365,6 +370,32 @@ func (vl VersionList) findDevice(device []byte) (bool, int, int, bool) {
 	return false, -1, -1, false
 }
 
+func (vl VersionList) popVersion(version protocol.Vector) (VersionList, FileVersion, bool) {
+	i := vl.versionIndex(version)
+	if i == -1 {
+		return vl, FileVersion{}, false
+	}
+	fv := vl.RawVersions[i]
+	return vl.popVersionAt(i), fv, true
+}
+
+func (vl VersionList) versionIndex(version protocol.Vector) int {
+	for i, v := range vl.RawVersions {
+		if version.Equal(v.Version) {
+			return i
+		}
+	}
+	return -1
+}
+
+func (vl VersionList) popVersionAt(i int) VersionList {
+	vl.RawVersions = append(vl.RawVersions[:i], vl.RawVersions[i+1:]...)
+	return vl
+}
+
+// checkInsertAt determines if the given device and associated file should be
+// inserted into the FileVersion at position i or into a new FileVersion at
+// position i.
 func (vl VersionList) checkInsertAt(i int, folder, device []byte, file protocol.FileIntf, t readOnlyTransaction) (VersionList, bool, error) {
 	ordering := vl.RawVersions[i].Version.Compare(file.FileVersion())
 	if ordering == protocol.Equal {
@@ -387,6 +418,9 @@ func (vl VersionList) checkInsertAt(i int, folder, device []byte, file protocol.
 	return vl, false, nil
 }
 
+// shouldInsertBefore determines whether the file comes before an existing
+// entry, given the version ordering (existing compared to new one), existing
+// device and if the existing version is invalid.
 func shouldInsertBefore(ordering protocol.Ordering, folder, existingDevice []byte, existingInvalid bool, file protocol.FileIntf, t readOnlyTransaction) (bool, error) {
 	switch ordering {
 	case protocol.Lesser:
@@ -442,28 +476,6 @@ func popDevice(devices [][]byte, device []byte) ([][]byte, bool) {
 		return devices, false
 	}
 	return popDeviceAt(devices, i), true
-}
-
-func versionIndex(versions []FileVersion, version protocol.Vector) int {
-	for i, v := range versions {
-		if version.Equal(v.Version) {
-			return i
-		}
-	}
-	return -1
-}
-
-func popVersionAt(versions []FileVersion, i int) []FileVersion {
-	return append(versions[:i], versions[i+1:]...)
-}
-
-func popVersion(versions []FileVersion, version protocol.Vector) ([]FileVersion, FileVersion, bool) {
-	i := versionIndex(versions, version)
-	if i == -1 {
-		return versions, FileVersion{}, false
-	}
-	fv := versions[i]
-	return popVersionAt(versions, i), fv, true
 }
 
 func newFileVersion(device []byte, version protocol.Vector, invalid, deleted bool) FileVersion {

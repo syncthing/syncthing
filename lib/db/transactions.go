@@ -626,12 +626,10 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 	}
 	needNow := need(globalFV, true, file.Version)
 	if needBefore {
-		if !gotOldGlobal {
-			if keyBuf, oldGlobal, err = t.getGlobalFromFileVersion(keyBuf, folder, name, true, oldGlobalFV); err != nil {
-				return nil, false, err
-			}
-			gotOldGlobal = true
+		if keyBuf, oldGlobal, err = t.getGlobalFromFileVersion(keyBuf, folder, name, true, oldGlobalFV); err != nil {
+			return nil, false, err
 		}
+		gotOldGlobal = true
 		meta.removeNeeded(deviceID, oldGlobal)
 		if !needNow && bytes.Equal(device, protocol.LocalDeviceID[:]) {
 			if keyBuf, err = t.updateLocalNeed(keyBuf, folder, name, false); err != nil {
@@ -640,12 +638,10 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 		}
 	}
 	if needNow {
-		if !gotGlobal {
-			if keyBuf, global, err = t.updateGlobalGetGlobal(keyBuf, folder, name, file, globalFV); err != nil {
-				return nil, false, err
-			}
-			gotGlobal = true
+		if keyBuf, global, err = t.updateGlobalGetGlobal(keyBuf, folder, name, file, globalFV); err != nil {
+			return nil, false, err
 		}
+		gotGlobal = true
 		meta.addNeeded(deviceID, global)
 		if !needBefore && bytes.Equal(device, protocol.LocalDeviceID[:]) {
 			if keyBuf, err = t.updateLocalNeed(keyBuf, folder, name, true); err != nil {
