@@ -33,7 +33,7 @@ const (
 	MiB = 20
 )
 
-// Open attempts to open the database at the given location, and runs
+// OpenLevelDB attempts to open the database at the given location, and runs
 // recovery on it if opening fails. Worst case, if recovery is not possible,
 // the database is erased and created from scratch.
 func OpenLevelDB(location string, tuning Tuning) (Backend, error) {
@@ -45,7 +45,13 @@ func OpenLevelDB(location string, tuning Tuning) (Backend, error) {
 	return newLeveldbBackend(ldb), nil
 }
 
-// OpenRO attempts to open the database at the given location, read only.
+// OpenLevelDBAuto is OpenLevelDB with TuningAuto tuning.
+func OpenLevelDBAuto(location string) (Backend, error) {
+	return OpenLevelDB(location, TuningAuto)
+}
+
+// OpenLevelDBRO attempts to open the database at the given location, read
+// only.
 func OpenLevelDBRO(location string) (Backend, error) {
 	opts := &opt.Options{
 		OpenFilesCacheCapacity: dbMaxOpenFiles,

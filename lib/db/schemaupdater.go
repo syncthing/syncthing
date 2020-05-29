@@ -212,6 +212,10 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 			return err
 		}
 	}
+	dbi.Release()
+	if err != dbi.Error() {
+		return err
+	}
 
 	for folder := range changedFolders {
 		if err := db.dropFolderMeta([]byte(folder)); err != nil {

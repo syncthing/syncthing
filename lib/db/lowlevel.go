@@ -382,6 +382,8 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 	if err != nil {
 		return err
 	}
+	defer dbi.Release()
+
 	var gk, keyBuf []byte
 	for dbi.Next() {
 		name := db.keyer.NameFromDeviceFileKey(dbi.Key())
@@ -400,10 +402,10 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 			return err
 		}
 	}
+	dbi.Release()
 	if err := dbi.Error(); err != nil {
 		return err
 	}
-	dbi.Release()
 
 	if bytes.Equal(device, protocol.LocalDeviceID[:]) {
 		key, err := db.keyer.GenerateBlockMapKey(nil, folder, nil, nil)
@@ -491,6 +493,7 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 			}
 		}
 	}
+	dbi.Release()
 	if err := dbi.Error(); err != nil {
 		return err
 	}

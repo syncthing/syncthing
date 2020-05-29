@@ -509,7 +509,9 @@ func (db *Lowlevel) newReadWriteTransaction() (readWriteTransaction, error) {
 }
 
 func (t readWriteTransaction) Commit() error {
-	t.readOnlyTransaction.close()
+	// The readOnlyTransaction must close after commit, because they may be
+	// backed by the same actual lower level transaction.
+	defer t.readOnlyTransaction.close()
 	return t.WriteTransaction.Commit()
 }
 
