@@ -458,16 +458,16 @@ func (db *Lowlevel) checkGlobals(folder []byte) error {
 		// we find those and clear them out.
 
 		name := db.keyer.NameFromGlobalVersionKey(dbi.Key())
-		var newVL VersionList
+		newVL := &VersionList{}
 		var changed, changedHere bool
 		for _, fv := range vl.RawVersions {
-			newVL, changedHere, err = checkGlobalsFilterDevices(dk, folder, name, fv.Devices, newVL, ro)
+			changedHere, err = checkGlobalsFilterDevices(dk, folder, name, fv.Devices, newVL, ro)
 			if err != nil {
 				return err
 			}
 			changed = changed || changedHere
 
-			newVL, changedHere, err = checkGlobalsFilterDevices(dk, folder, name, fv.InvalidDevices, newVL, ro)
+			changedHere, err = checkGlobalsFilterDevices(dk, folder, name, fv.InvalidDevices, newVL, ro)
 			if err != nil {
 				return err
 			}
@@ -479,7 +479,7 @@ func (db *Lowlevel) checkGlobals(folder []byte) error {
 				return err
 			}
 		} else if changed {
-			if err := t.Put(dbi.Key(), mustMarshal(&newVL)); err != nil {
+			if err := t.Put(dbi.Key(), mustMarshal(newVL)); err != nil {
 				return err
 			}
 		}
@@ -492,28 +492,28 @@ func (db *Lowlevel) checkGlobals(folder []byte) error {
 	return t.Commit()
 }
 
-func checkGlobalsFilterDevices(dk, folder, name []byte, devices [][]byte, vl VersionList, t readOnlyTransaction) (VersionList, bool, error) {
+func checkGlobalsFilterDevices(dk, folder, name []byte, devices [][]byte, vl *VersionList, t readOnlyTransaction) (bool, error) {
 	var changed bool
 	var err error
 	for _, device := range devices {
 		dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, device, name)
 		if err != nil {
-			return vl, false, err
+			return false, err
 		}
 		f, ok, err := t.getFileTrunc(dk, true)
 		if err != nil {
-			return vl, false, err
+			return false, err
 		}
 		if !ok {
 			changed = true
 			continue
 		}
-		vl, _, _, _, _, _, _, err = vl.update(folder, device, f, t)
+		_, _, _, _, _, _, err = vl.update(folder, device, f, t)
 		if err != nil {
-			return vl, false, err
+			return false, err
 		}
 	}
-	return vl, changed, nil
+	return changed, nil
 }
 
 func (db *Lowlevel) getIndexID(device, folder []byte) (protocol.IndexID, error) {

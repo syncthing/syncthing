@@ -174,7 +174,7 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 			} else if err != nil {
 				return err
 			}
-			fl, _, _ = fl.pop(device)
+			_, _ = fl.pop(device)
 			if len(fl.Versions) == 0 {
 				err = t.Delete(gk)
 			} else {
@@ -238,7 +238,7 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 						Version: f.Version,
 						Invalid: true,
 					}
-					fl = fl.insertAt(i, nv)
+					fl.insertAt(i, nv)
 					if err := t.Put(gk, mustMarshal(&fl)); err != nil {
 						return err
 					}
@@ -754,7 +754,7 @@ outer:
 				lastVersion = fv.Version
 				continue outer
 			case protocol.Lesser:
-				newVl = newVl.insertAt(newPos, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
+				newVl.insertAt(newPos, newFileVersion(fv.Device, fv.Version, true, fv.Deleted))
 				lastVersion = fv.Version
 				continue outer
 			case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
@@ -887,7 +887,7 @@ func getGlobalBefore11(keyBuf, folder, file []byte, truncate bool, t readOnlyTra
 	return keyBuf, fi, true, nil
 }
 
-func (vl VersionListDeprecated) String() string {
+func (vl *VersionListDeprecated) String() string {
 	var b bytes.Buffer
 	var id protocol.DeviceID
 	b.WriteString("{")
@@ -902,17 +902,17 @@ func (vl VersionListDeprecated) String() string {
 	return b.String()
 }
 
-func (vl VersionListDeprecated) pop(device []byte) (VersionListDeprecated, FileVersionDeprecated, int) {
+func (vl *VersionListDeprecated) pop(device []byte) (FileVersionDeprecated, int) {
 	for i, v := range vl.Versions {
 		if bytes.Equal(v.Device, device) {
 			vl.Versions = append(vl.Versions[:i], vl.Versions[i+1:]...)
-			return vl, v, i
+			return v, i
 		}
 	}
-	return vl, FileVersionDeprecated{}, -1
+	return FileVersionDeprecated{}, -1
 }
 
-func (vl VersionListDeprecated) Get(device []byte) (FileVersionDeprecated, bool) {
+func (vl *VersionListDeprecated) Get(device []byte) (FileVersionDeprecated, bool) {
 	for _, v := range vl.Versions {
 		if bytes.Equal(v.Device, device) {
 			return v, true
@@ -922,11 +922,10 @@ func (vl VersionListDeprecated) Get(device []byte) (FileVersionDeprecated, bool)
 	return FileVersionDeprecated{}, false
 }
 
-func (vl VersionListDeprecated) insertAt(i int, v FileVersionDeprecated) VersionListDeprecated {
+func (vl *VersionListDeprecated) insertAt(i int, v FileVersionDeprecated) {
 	vl.Versions = append(vl.Versions, FileVersionDeprecated{})
 	copy(vl.Versions[i+1:], vl.Versions[i:])
 	vl.Versions[i] = v
-	return vl
 }
 
 func needDeprecated(global FileVersionDeprecated, haveLocal bool, localVersion protocol.Vector) bool {
