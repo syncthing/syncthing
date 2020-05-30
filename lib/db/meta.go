@@ -147,7 +147,7 @@ func (m *countsMap) allNeededCounts(dev protocol.DeviceID) Counts {
 
 // addFile adds a file to the counts, adjusting the sequence number as
 // appropriate
-func (m *metadataTracker) addFile(dev protocol.DeviceID, f FileIntf) {
+func (m *metadataTracker) addFile(dev protocol.DeviceID, f protocol.FileIntf) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -186,7 +186,7 @@ func (m *metadataTracker) emptyNeeded(dev protocol.DeviceID) {
 }
 
 // addNeeded adds a file to the needed counts
-func (m *metadataTracker) addNeeded(dev protocol.DeviceID, f FileIntf) {
+func (m *metadataTracker) addNeeded(dev protocol.DeviceID, f protocol.FileIntf) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -201,7 +201,7 @@ func (m *metadataTracker) Sequence(dev protocol.DeviceID) int64 {
 	return m.countsPtr(dev, 0).Sequence
 }
 
-func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f FileIntf) {
+func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f protocol.FileIntf) {
 	if dev == protocol.GlobalDeviceID {
 		return
 	}
@@ -210,7 +210,7 @@ func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f FileIntf) {
 	}
 }
 
-func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f FileIntf) {
+func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f protocol.FileIntf) {
 	cp := m.countsPtr(dev, flag)
 
 	switch {
@@ -227,7 +227,7 @@ func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f Fi
 }
 
 // removeFile removes a file from the counts
-func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
+func (m *metadataTracker) removeFile(dev protocol.DeviceID, f protocol.FileIntf) {
 	if f.IsInvalid() && f.FileLocalFlags() == 0 {
 		// This is a remote invalid file; it does not count.
 		return
@@ -250,7 +250,7 @@ func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
 }
 
 // removeNeeded removes a file from the needed counts
-func (m *metadataTracker) removeNeeded(dev protocol.DeviceID, f FileIntf) {
+func (m *metadataTracker) removeNeeded(dev protocol.DeviceID, f protocol.FileIntf) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -259,7 +259,7 @@ func (m *metadataTracker) removeNeeded(dev protocol.DeviceID, f FileIntf) {
 	m.removeFileLocked(dev, needFlag, f)
 }
 
-func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flag uint32, f FileIntf) {
+func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flag uint32, f protocol.FileIntf) {
 	cp := m.countsPtr(dev, flag)
 
 	switch {

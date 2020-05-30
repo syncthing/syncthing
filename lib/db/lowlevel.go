@@ -426,7 +426,7 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 	return t.Commit()
 }
 
-func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
+func (db *Lowlevel) checkGlobals(folder []byte) error {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -444,9 +444,10 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 	defer dbi.Release()
 
 	var dk []byte
+	ro := t.readOnlyTransaction
 	for dbi.Next() {
 		var vl VersionList
-		if err := vl.Unmarshal(dbi.Value()); err != nil || len(vl.Versions) == 0 {
+		if err := vl.Unmarshal(dbi.Value()); err != nil || vl.Empty() {
 			if err := t.Delete(dbi.Key()); err != nil {
 				return err
 			}
@@ -459,36 +460,28 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 		// we find those and clear them out.
 
 		name := db.keyer.NameFromGlobalVersionKey(dbi.Key())
-		var newVL VersionList
-		for i, version := range vl.Versions {
-			dk, err = db.keyer.GenerateDeviceFileKey(dk, folder, version.Device, name)
+		newVL := &VersionList{}
+		var changed, changedHere bool
+		for _, fv := range vl.RawVersions {
+			changedHere, err = checkGlobalsFilterDevices(dk, folder, name, fv.Devices, newVL, ro)
 			if err != nil {
 				return err
 			}
-			_, err := t.Get(dk)
-			if backend.IsNotFound(err) {
-				continue
-			}
-			if err != nil {
-				return err
-			}
-			newVL.Versions = append(newVL.Versions, version)
+			changed = changed || changedHere
 
-			if i == 0 {
-				if fi, ok, err := t.getFileTrunc(dk, true); err != nil {
-					return err
-				} else if ok {
-					meta.addFile(protocol.GlobalDeviceID, fi)
-				}
+			changedHere, err = checkGlobalsFilterDevices(dk, folder, name, fv.InvalidDevices, newVL, ro)
+			if err != nil {
+				return err
 			}
+			changed = changed || changedHere
 		}
 
-		if newLen := len(newVL.Versions); newLen == 0 {
+		if newVL.Empty() {
 			if err := t.Delete(dbi.Key()); err != nil {
 				return err
 			}
-		} else if newLen != len(vl.Versions) {
-			if err := t.Put(dbi.Key(), mustMarshal(&newVL)); err != nil {
+		} else if changed {
+			if err := t.Put(dbi.Key(), mustMarshal(newVL)); err != nil {
 				return err
 			}
 		}
@@ -500,6 +493,30 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 
 	l.Debugf("db check completed for %q", folder)
 	return t.Commit()
+}
+
+func checkGlobalsFilterDevices(dk, folder, name []byte, devices [][]byte, vl *VersionList, t readOnlyTransaction) (bool, error) {
+	var changed bool
+	var err error
+	for _, device := range devices {
+		dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, device, name)
+		if err != nil {
+			return false, err
+		}
+		f, ok, err := t.getFileTrunc(dk, true)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			changed = true
+			continue
+		}
+		_, _, _, _, _, _, err = vl.update(folder, device, f, t)
+		if err != nil {
+			return false, err
+		}
+	}
+	return changed, nil
 }
 
 func (db *Lowlevel) getIndexID(device, folder []byte) (protocol.IndexID, error) {
@@ -811,7 +828,7 @@ func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
 
 func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 	meta := newMetadataTracker()
-	if err := db.checkGlobals([]byte(folder), meta); err != nil {
+	if err := db.checkGlobals([]byte(folder)); err != nil {
 		return nil, err
 	}
 
@@ -831,8 +848,13 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 		return nil, err
 	}
 
+	err = t.withGlobal([]byte(folder), nil, true, func(f protocol.FileIntf) bool {
+		meta.addFile(protocol.GlobalDeviceID, f)
+		return true
+	})
+
 	meta.emptyNeeded(protocol.LocalDeviceID)
-	err = t.withNeed([]byte(folder), protocol.LocalDeviceID[:], true, func(f FileIntf) bool {
+	err = t.withNeed([]byte(folder), protocol.LocalDeviceID[:], true, func(f protocol.FileIntf) bool {
 		meta.addNeeded(protocol.LocalDeviceID, f)
 		return true
 	})
@@ -841,7 +863,7 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 	}
 	for _, device := range meta.devices() {
 		meta.emptyNeeded(device)
-		err = t.withNeed([]byte(folder), device[:], true, func(f FileIntf) bool {
+		err = t.withNeed([]byte(folder), device[:], true, func(f protocol.FileIntf) bool {
 			meta.addNeeded(device, f)
 			return true
 		})
@@ -878,7 +900,7 @@ func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) bool {
 		panic(err)
 	}
 	ok := true
-	if err := t.withHaveSequence([]byte(folder), curSeq+1, func(fi FileIntf) bool {
+	if err := t.withHaveSequence([]byte(folder), curSeq+1, func(fi protocol.FileIntf) bool {
 		ok = false // we got something, which we should not have
 		return false
 	}); err != nil && !backend.IsClosed(err) {
@@ -1004,6 +1026,6 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 // unchanged checks if two files are the same and thus don't need to be updated.
 // Local flags or the invalid bit might change without the version
 // being bumped.
-func unchanged(nf, ef FileIntf) bool {
+func unchanged(nf, ef protocol.FileIntf) bool {
 	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid() && ef.FileLocalFlags() == nf.FileLocalFlags()
 }

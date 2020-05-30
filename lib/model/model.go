@@ -851,7 +851,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	}
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
-	snap.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+	snap.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
 		if cfg.IgnoreDelete && f.IsDeleted() {
 			return true
 		}
@@ -1936,7 +1936,7 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 	snap := s.fset.Snapshot()
 	defer snap.Release()
 	previousWasDelete := false
-	snap.WithHaveSequence(s.prevSequence+1, func(fi db.FileIntf) bool {
+	snap.WithHaveSequence(s.prevSequence+1, func(fi protocol.FileIntf) bool {
 		// This is to make sure that renames (which is an add followed by a delete) land in the same batch.
 		// Even if the batch is full, we allow a last delete to slip in, we do this by making sure that
 		// the batch ends with a non-delete, or that the last item in the batch is already a delete
@@ -2248,7 +2248,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 
 	snap := files.Snapshot()
 	defer snap.Release()
-	snap.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
+	snap.WithPrefixedGlobalTruncated(prefix, func(fi protocol.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 
 		// Don't include the prefix itself.

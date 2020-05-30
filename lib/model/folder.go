@@ -303,7 +303,7 @@ func (f *folder) pull() (success bool) {
 	// If there is nothing to do, don't even enter sync-waiting state.
 	abort := true
 	snap := f.fset.Snapshot()
-	snap.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+	snap.WithNeed(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
 		abort = false
 		return false
 	})
@@ -499,7 +499,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	for _, sub := range subDirs {
 		var iterError error
 
-		snap.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
+		snap.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi protocol.FileIntf) bool {
 			select {
 			case <-f.ctx.Done():
 				return false
@@ -634,7 +634,7 @@ func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file proto
 	found := false
 	nf := protocol.FileInfo{}
 
-	snap.WithBlocksHash(file.BlocksHash, func(ifi db.FileIntf) bool {
+	snap.WithBlocksHash(file.BlocksHash, func(ifi protocol.FileIntf) bool {
 		fi := ifi.(protocol.FileInfo)
 
 		select {
