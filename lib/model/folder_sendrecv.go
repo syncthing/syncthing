@@ -1315,6 +1315,10 @@ func (f *sendReceiveFolder) copyByWeakHash(state copyBlocksState, w io.WriterAt)
 
 	byWeakhash := make(map[uint32][]int) // Block indices by weak hash.
 	for i, block := range state.blocks {
+		if int(block.Size) != len(buf) {
+			// Skip the last block if it isn't block.Size bytes.
+			continue
+		}
 		if h := block.WeakHash; h != 0 {
 			finder.Add(h)
 			byWeakhash[h] = append(byWeakhash[h], i)
