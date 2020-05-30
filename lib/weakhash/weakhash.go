@@ -23,34 +23,30 @@ type Finder struct {
 
 	hf *adler32.Adler32
 
-	r    io.ReaderAt
-	sr   *io.SectionReader
-	br   *bufio.Reader
-	size int64 // File size.
+	r  io.ReaderAt
+	br *bufio.Reader
 
 	// Last matching hash value.
 	match uint32
 }
 
-const int64Max = 1<<63 - 1
+type Reader interface {
+	io.ReaderAt
+	io.Reader
+}
 
 // NewFinder returns a Finder that initially has no hashes.
 // Call Add before Next to add hashes.
 //
 // The buffer buf will be filled for each match found. Its length is taken
 // to be the block size.
-func NewFinder(r io.ReaderAt, buf []byte) *Finder {
-	rr, ok := r.(io.Reader)
-	if !ok {
-		rr = io.NewSectionReader(r, 0, int64Max)
-	}
-
+func NewFinder(r Reader, buf []byte) *Finder {
 	f := &Finder{
 		buf:    buf,
 		hashes: make(map[uint32]struct{}),
 		hf:     adler32.New(),
 		r:      r,
-		br:     bufio.NewReader(rr),
+		br:     bufio.NewReader(r),
 	}
 
 	return f
