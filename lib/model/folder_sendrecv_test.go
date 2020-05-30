@@ -411,7 +411,7 @@ func TestWeakHash(t *testing.T) {
 
 	expectShifted := expectBlocks - expectPulls
 	if finish.copyOriginShifted != expectShifted {
-		t.Errorf("did not copy %d shifted", expectShifted)
+		t.Errorf("copied %d shifted, expected %d", finish.copyOriginShifted, expectShifted)
 	}
 }
 

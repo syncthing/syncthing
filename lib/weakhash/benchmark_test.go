@@ -8,7 +8,6 @@ package weakhash
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"hash"
 	vadler32 "hash/adler32"
@@ -34,8 +33,10 @@ func BenchmarkFind1MFile(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		_, err = Find(context.Background(), fd, []uint32{0, 1, 2}, size)
-		if err != nil {
+		finder := NewFinder(fd, make([]byte, size))
+		for finder.Next() {
+		}
+		if err := finder.Err(); err != nil {
 			b.Fatal(err)
 		}
 		fd.Close()

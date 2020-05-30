@@ -11,59 +11,43 @@ package weakhash
 
 import (
 	"bytes"
-	"context"
-	"io"
-	"io/ioutil"
-	"os"
-	"reflect"
 	"testing"
 )
 
 var payload = []byte("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz")
 
 func TestFinder(t *testing.T) {
-	f, err := ioutil.TempFile("", "")
-	if err != nil {
-		t.Error(err)
-	}
-	defer os.Remove(f.Name())
-	defer f.Close()
+	f := bytes.NewReader(payload)
 
-	if _, err := f.Write(payload); err != nil {
-		t.Error(err)
-	}
-	if _, err := f.Seek(0, io.SeekStart); err != nil {
-		t.Error(err)
-	}
-
+	b := make([]byte, 4)
+	finder := NewFinder(f, b)
 	hashes := []uint32{65143183, 65798547}
-	finder, err := NewFinder(context.Background(), f, 4, hashes)
-	if err != nil {
-		t.Error(err)
+	for _, h := range hashes {
+		finder.Add(h)
 	}
 
-	expected := map[uint32][]int64{
+	offsets := map[uint32][]int64{
 		65143183: {1, 27, 53, 79},
 		65798547: {2, 28, 54, 80},
 	}
-	actual := make(map[uint32][]int64)
 
-	b := make([]byte, Size)
-
-	for _, hash := range hashes {
-		_, err := finder.Iterate(hash, b[:4], func(offset int64) bool {
-			if !bytes.Equal(b, payload[offset:offset+4]) {
-				t.Errorf("Not equal at %d: %s != %s", offset, string(b), string(payload[offset:offset+4]))
-			}
-			actual[hash] = append(actual[hash], offset)
-			return true
-		})
-		if err != nil {
-			t.Error(err)
+	for finder.Next() {
+		h, offset := finder.Match()
+		if offset != offsets[h][0] {
+			t.Fatalf("expected %08x at %d, found it at %d",
+				h, offsets[h][0], offset)
 		}
+		if !bytes.Equal(b, payload[offset:offset+4]) {
+			t.Errorf("Not equal at %d: %s != %s", offset, string(b),
+				string(payload[offset:offset+4]))
+		}
+
+		offsets[h] = offsets[h][1:]
 	}
 
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("Not equal: %#v != %#v", actual, expected)
+	for h, off := range offsets {
+		if len(off) > 0 {
+			t.Errorf("didn't find all matches for %08x: %v left", h, off)
+		}
 	}
 }
