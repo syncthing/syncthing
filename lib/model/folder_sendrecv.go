@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/greatroar/rolling"
+	"github.com/greatroar/rolling/adler32"
 	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -30,7 +32,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
-	"github.com/syncthing/syncthing/lib/weakhash"
 )
 
 var (
@@ -1234,32 +1235,15 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 		f.model.progressEmitter.Register(state.sharedPullerState)
 
-		var file fs.File
-		var weakHashFinder *weakhash.Finder
-
 		blocksPercentChanged := 0
 		if tot := len(state.file.Blocks); tot > 0 {
 			blocksPercentChanged = (tot - state.have) * 100 / tot
 		}
 
 		if blocksPercentChanged >= f.WeakHashThresholdPct {
-			hashesToFind := make([]uint32, 0, len(state.blocks))
-			for _, block := range state.blocks {
-				if block.WeakHash != 0 {
-					hashesToFind = append(hashesToFind, block.WeakHash)
-				}
-			}
-
-			if len(hashesToFind) > 0 {
-				file, err = f.fs.Open(state.file.Name)
-				if err == nil {
-					weakHashFinder, err = weakhash.NewFinder(f.ctx, file, state.file.BlockSize(), hashesToFind)
-					if err != nil {
-						l.Debugln("weak hasher", err)
-					}
-				}
-			} else {
-				l.Debugf("not weak hashing %s. file did not contain any weak hashes", state.file.Name)
+			state, err = f.copyByWeakHash(state, dstFd)
+			if err != nil {
+				state.fail(err)
 			}
 		} else {
 			l.Debugf("not weak hashing %s. not enough changed %.02f < %d", state.file.Name, blocksPercentChanged, f.WeakHashThresholdPct)
@@ -1289,65 +1273,42 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
 
-			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
-				if verifyBuffer(buf, block) != nil {
-					return true
+			found := f.model.finder.Iterate(folders, block.Hash, func(folder, path string, index int32) bool {
+				ffs := folderFilesystems[folder]
+				fd, err := ffs.Open(path)
+				if err != nil {
+					return false
 				}
 
-				err = f.limitedWriteAt(dstFd, buf, block.Offset)
+				srcOffset := int64(state.file.BlockSize()) * int64(index)
+				_, err = fd.ReadAt(buf, srcOffset)
+				fd.Close()
+				if err != nil {
+					return false
+				}
+
+				if err := verifyBuffer(buf, block); err != nil {
+					l.Debugln("Finder failed to verify buffer", err)
+					return false
+				}
+
+				if f.CopyRangeMethod != fs.CopyRangeMethodStandard {
+					err = f.withLimiter(func() error {
+						dstFd.mut.Lock()
+						defer dstFd.mut.Unlock()
+						return fs.CopyRange(f.CopyRangeMethod, fd, dstFd.fd, srcOffset, block.Offset, int64(block.Size))
+					})
+				} else {
+					err = f.limitedWriteAt(dstFd, buf, block.Offset)
+				}
 				if err != nil {
 					state.fail(errors.Wrap(err, "dst write"))
 				}
-				if offset == block.Offset {
+				if path == state.file.Name {
 					state.copiedFromOrigin()
-				} else {
-					state.copiedFromOriginShifted()
 				}
-
-				return false
+				return true
 			})
-			if err != nil {
-				l.Debugln("weak hasher iter", err)
-			}
-
-			if !found {
-				found = f.model.finder.Iterate(folders, block.Hash, func(folder, path string, index int32) bool {
-					ffs := folderFilesystems[folder]
-					fd, err := ffs.Open(path)
-					if err != nil {
-						return false
-					}
-
-					srcOffset := int64(state.file.BlockSize()) * int64(index)
-					_, err = fd.ReadAt(buf, srcOffset)
-					fd.Close()
-					if err != nil {
-						return false
-					}
-
-					if err := verifyBuffer(buf, block); err != nil {
-						l.Debugln("Finder failed to verify buffer", err)
-						return false
-					}
-
-					if f.CopyRangeMethod != fs.CopyRangeMethodStandard {
-						err = f.withLimiter(func() error {
-							dstFd.mut.Lock()
-							defer dstFd.mut.Unlock()
-							return fs.CopyRange(f.CopyRangeMethod, fd, dstFd.fd, srcOffset, block.Offset, int64(block.Size))
-						})
-					} else {
-						err = f.limitedWriteAt(dstFd, buf, block.Offset)
-					}
-					if err != nil {
-						state.fail(errors.Wrap(err, "dst write"))
-					}
-					if path == state.file.Name {
-						state.copiedFromOrigin()
-					}
-					return true
-				})
-			}
 
 			if state.failed() != nil {
 				break
@@ -1364,14 +1325,99 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				state.copyDone(block)
 			}
 		}
-		if file != nil {
-			// os.File used to return invalid argument if nil.
-			// fs.File panics as it's an interface.
-			file.Close()
-		}
 
 		out <- state.sharedPullerState
 	}
+}
+
+// copyByWeakHash copies all blocks that can be found by their weak hash.
+// It returns an updated state with these blocks removed.
+func (f *sendReceiveFolder) copyByWeakHash(state copyBlocksState, w io.WriterAt) (copyBlocksState, error) {
+	file, err := f.fs.Open(state.file.Name)
+	if err != nil {
+		return state, err
+	}
+	defer file.Close()
+
+	buf := protocol.BufferPool.Get(state.file.BlockSize())
+	defer protocol.BufferPool.Put(buf)
+
+	h := adler32.NewRolling(uint32(state.file.BlockSize()))
+	r := &contextReader{f.ctx, file}
+	finder := rolling.NewScanner(r, h)
+
+	byWeakhash := make(map[uint32][]int) // Block indices by weak hash.
+	for i, block := range state.blocks {
+		if int(block.Size) != len(buf) {
+			// Skip the last block if it isn't state.file.BlockSize() bytes.
+			continue
+		}
+		if h := block.WeakHash; h != 0 {
+			finder.Add(h)
+			byWeakhash[h] = append(byWeakhash[h], i)
+		}
+	}
+
+	if len(byWeakhash) == 0 {
+		l.Debugf("not weak hashing %s. file did not contain any weak hashes", state.file.Name)
+		return state, nil
+	}
+
+	done := make([]bool, len(state.blocks))
+
+	for finder.Scan() {
+		h, offset := finder.Match(buf)
+		sha := sha256.Sum256(buf)
+
+		candidates := byWeakhash[h]
+		for i, blockIdx := range candidates {
+			block := &state.blocks[blockIdx]
+			if !bytes.Equal(block.Hash, sha[:]) {
+				continue
+			}
+
+			err = f.limitedWriteAt(w, buf, offset)
+			if err != nil {
+				state.fail(errors.Wrap(err, "dst write"))
+				return state, err
+			}
+
+			if offset == block.Offset {
+				state.copiedFromOrigin()
+			} else {
+				state.copiedFromOriginShifted()
+			}
+			done[blockIdx] = true
+
+			// Remove this block from the candidates for h, and remove
+			// h from finder if no candidates for it remain.
+			if len(candidates) == 1 {
+				delete(byWeakhash, h)
+				finder.Remove(h)
+			} else {
+				candidates[i] = candidates[len(candidates)-1]
+				byWeakhash[h] = candidates[:len(candidates)-1]
+			}
+			break
+		}
+	}
+	if err := finder.Err(); err != nil {
+		// Log and continue. The caller can try to find blocks
+		// by some other means.
+		l.Debugln("weak hash finder", err)
+	}
+
+	// Remove the blocks we've done from blocks,
+	// preserving the order of the remaining ones.
+	blocksLeft := state.blocks[:0]
+	for i := range done {
+		if !done[i] {
+			blocksLeft = append(blocksLeft, state.blocks[i])
+		}
+	}
+	state.blocks = blocksLeft
+
+	return state, nil
 }
 
 func verifyBuffer(buf []byte, block protocol.BlockInfo) error {

@@ -9,12 +9,12 @@ package scanner
 import (
 	"bytes"
 	"context"
-	"hash"
-	"hash/adler32"
 	"io"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sha256"
+
+	"github.com/greatroar/rolling/adler32"
 )
 
 var SHA256OfNothing = []uint8{0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55}
@@ -32,7 +32,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 	hf := sha256.New()
 	hashLength := hf.Size()
 
-	var weakHf hash.Hash32 = noopHash{}
+	var weakHf *adler32.Hash
 	var multiHf io.Writer = hf
 	if useWeakHashes {
 		// Use an actual weak hash function, make the multiHf
@@ -83,10 +83,12 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		thisHash, hashes = hashes[:hashLength], hashes[hashLength:]
 
 		b := protocol.BlockInfo{
-			Size:     int32(n),
-			Offset:   offset,
-			Hash:     thisHash,
-			WeakHash: weakHf.Sum32(),
+			Size:   int32(n),
+			Offset: offset,
+			Hash:   thisHash,
+		}
+		if useWeakHashes {
+			b.WeakHash = weakHf.Sum32()
 		}
 
 		blocks = append(blocks, b)
@@ -123,15 +125,6 @@ func Validate(buf, hash []byte, weakHash uint32) bool {
 
 	return true
 }
-
-type noopHash struct{}
-
-func (noopHash) Sum32() uint32             { return 0 }
-func (noopHash) BlockSize() int            { return 0 }
-func (noopHash) Size() int                 { return 0 }
-func (noopHash) Reset()                    {}
-func (noopHash) Sum([]byte) []byte         { return nil }
-func (noopHash) Write([]byte) (int, error) { return 0, nil }
 
 type noopCounter struct{}
 

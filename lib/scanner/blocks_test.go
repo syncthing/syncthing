@@ -16,7 +16,7 @@ import (
 	"testing"
 	"testing/quick"
 
-	rollingAdler32 "github.com/chmduquesne/rollinghash/adler32"
+	rollingAdler32 "github.com/greatroar/rolling/adler32"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sha256"
 )
@@ -145,10 +145,10 @@ func TestAdler32Variants(t *testing.T) {
 	// rolling should have the same result as the individual blocks
 	// themselves.
 
-	windowSize := 128
+	const windowSize = 128
 
-	hf3 := rollingAdler32.New()
-	hf3.Write(data[:windowSize])
+	hf3 := rollingAdler32.NewRolling(windowSize)
+	hf3.WriteInitial(data[:windowSize])
 
 	for i := windowSize; i < len(data); i++ {
 		if i%windowSize == 0 {
@@ -176,7 +176,7 @@ func TestAdler32Variants(t *testing.T) {
 				t.Errorf("Validation failure after roll; i=%d", i)
 			}
 		}
-		hf3.Roll(data[i])
+		hf3.Roll(data[i], data[i-windowSize])
 	}
 }
 

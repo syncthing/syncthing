@@ -25,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -411,7 +412,88 @@ func TestWeakHash(t *testing.T) {
 
 	expectShifted := expectBlocks - expectPulls
 	if finish.copyOriginShifted != expectShifted {
-		t.Errorf("did not copy %d shifted", expectShifted)
+		t.Errorf("copied %d shifted, expected %d", finish.copyOriginShifted, expectShifted)
+	}
+}
+
+func TestWeakHashWrite(t *testing.T) {
+	// End-to-end test: if all blocks can be found by their weak hash,
+	// then the weak hash finder must be able to write a complete file.
+	const nblocks = 3
+	const size = nblocks * protocol.MinBlockSize
+
+	model, fo := setupSendReceiveFolder()
+	defer cleanupSRFolder(fo, model)
+	ffs := fo.Filesystem()
+
+	desired, err := ffs.Create("weakhash")
+	must(t, err)
+	defer desired.Close()
+	_, err = io.CopyN(desired, rand.Reader, size)
+	must(t, err)
+	_, err = desired.Seek(0, os.SEEK_SET)
+	must(t, err)
+
+	blocks, err := scanner.Blocks(context.TODO(), desired,
+		protocol.MinBlockSize, size, nil, true)
+	must(t, err)
+	if len(blocks) != nblocks {
+		t.Fatalf("#blocks = %d", len(blocks))
+	}
+
+	source, err := ffs.Create(fs.TempName("weakhash"))
+	must(t, err)
+	defer source.Close()
+
+	desiredInfo := protocol.FileInfo{
+		Name:   source.Name(),
+		Blocks: blocks,
+		Size:   size,
+	}
+
+	// Change the order of blocks from the desired file.
+	var buf [protocol.MinBlockSize]byte
+	for i := 0; i < nblocks; i++ {
+		shifted := (i + 1) % nblocks
+		_, err := desired.ReadAt(buf[:], int64(shifted*protocol.MinBlockSize))
+		must(t, err)
+		_, err = source.WriteAt(buf[:], int64(i*protocol.MinBlockSize))
+		must(t, err)
+	}
+
+	state := copyBlocksState{
+		blocks: blocks,
+		sharedPullerState: &sharedPullerState{
+			file: desiredInfo,
+			mut:  sync.NewRWMutex(),
+		},
+	}
+
+	dest, err := ffs.Create(fs.TempName("weakhash-out"))
+	must(t, err)
+	defer dest.Close()
+
+	newstate, err := fo.copyByWeakHash(state, dest)
+	must(t, err)
+
+	if len(newstate.blocks) > 0 {
+		t.Errorf("not all blocks copied: %d left", len(newstate.blocks))
+	}
+	if state.copyOriginShifted != nblocks {
+		t.Errorf("expected %d blocks copied shifted, got %d",
+			nblocks, state.copyOriginShifted)
+	}
+
+	_, err = dest.Seek(0, os.SEEK_SET)
+	must(t, err)
+
+	for i := 0; i < nblocks; i++ {
+		_, err := dest.ReadAt(buf[:], int64(i*protocol.MinBlockSize))
+		must(t, err)
+		sha := sha256.Sum256(buf[:])
+		if !bytes.Equal(sha[:], blocks[i].Hash) {
+			t.Errorf("hash mismatch in block %d", i)
+		}
 	}
 }
 

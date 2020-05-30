@@ -9,7 +9,6 @@ require (
 	github.com/calmh/xdr v1.1.0
 	github.com/ccding/go-stun v0.0.0-20180726100737-be486d185f3d
 	github.com/certifi/gocertifi v0.0.0-20190905060710-a5e0173ced67 // indirect
-	github.com/chmduquesne/rollinghash v0.0.0-20180912150627-a60f8e7142b5
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/dchest/siphash v1.2.1
 	github.com/dgraph-io/badger/v2 v2.0.3
@@ -21,6 +20,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
 	github.com/greatroar/blobloom v0.3.0
+	github.com/greatroar/rolling v0.0.0-20200721173028-5fdc4cc67652
 	github.com/jackpal/gateway v1.0.6
 	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
