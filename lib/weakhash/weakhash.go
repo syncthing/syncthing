@@ -85,10 +85,10 @@ func (f *Finder) Next() bool {
 		return false
 	}
 
-	blocksize := int64(len(f.buf))
+	blockSize := int64(len(f.buf))
 
-	if f.offset < blocksize {
-		// Initialize by reading the first blocksize bytes. ReadAt must
+	if f.offset < blockSize {
+		// Initialize by reading the first blockSize bytes. ReadAt must
 		// return an error when it reads less than len(f.buf) bytes.
 		_, err := io.ReadFull(f.br, f.buf)
 		if err != nil {
@@ -97,7 +97,7 @@ func (f *Finder) Next() bool {
 		}
 
 		f.hf.Write(f.buf)
-		f.offset = blocksize
+		f.offset = blockSize
 
 		h := f.hf.Sum32()
 		if _, ok := f.hashes[h]; ok {
@@ -121,7 +121,7 @@ func (f *Finder) Next() bool {
 			// library does not provide access to its buffers. This is wasteful
 			// because the block is already in memory somewhere, but at least
 			// it will likely still be in the disk cache.
-			_, f.err = f.r.ReadAt(f.buf, f.offset-blocksize)
+			_, f.err = f.r.ReadAt(f.buf, f.offset-blockSize)
 			if f.err != nil {
 				return false
 			}

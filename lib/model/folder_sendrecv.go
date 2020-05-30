@@ -1359,13 +1359,12 @@ func (f *sendReceiveFolder) copyByWeakHash(state copyBlocksState, w io.WriterAt)
 		}
 	}
 
-	// Remove the blocks we've done from blocks.
+	// Remove the blocks we've done from blocks,
+	// preserving the order of the remaining ones.
 	blocksleft := state.blocks[:0]
-	for _, indices := range byWeakhash {
-		for _, i := range indices {
-			if !done[i] {
-				blocksleft = append(blocksleft, state.blocks[i])
-			}
+	for i := range done {
+		if !done[i] {
+			blocksleft = append(blocksleft, state.blocks[i])
 		}
 	}
 	state.blocks = blocksleft
