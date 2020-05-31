@@ -1341,7 +1341,7 @@ func (f *sendReceiveFolder) copyByWeakHash(state copyBlocksState, w io.WriterAt)
 				continue
 			}
 
-			_, err = f.limitedWriteAt(w, buf, offset)
+			_, err = f.limitedWriteAt(w, buf, state.blocks[i].Offset)
 			if err != nil {
 				state.fail(errors.Wrap(err, "dst write"))
 				return state, err
