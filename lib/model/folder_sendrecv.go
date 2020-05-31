@@ -1336,23 +1336,35 @@ func (f *sendReceiveFolder) copyByWeakHash(state copyBlocksState, w io.WriterAt)
 		h, offset := finder.Match()
 		sha := sha256.Sum256(buf)
 
-		for _, i := range byWeakhash[h] {
-			if !bytes.Equal(state.blocks[i].Hash, sha[:]) {
+		candidates := byWeakhash[h]
+		for i, blockIdx := range candidates {
+			block := &state.blocks[blockIdx]
+			if !bytes.Equal(block.Hash, sha[:]) {
 				continue
 			}
 
-			_, err = f.limitedWriteAt(w, buf, state.blocks[i].Offset)
+			_, err = f.limitedWriteAt(w, buf, block.Offset)
 			if err != nil {
 				state.fail(errors.Wrap(err, "dst write"))
 				return state, err
 			}
 
-			if offset == state.blocks[i].Offset {
+			if offset == block.Offset {
 				state.copiedFromOrigin()
 			} else {
 				state.copiedFromOriginShifted()
 			}
-			done[i] = true
+			done[blockIdx] = true
+
+			// Remove this block from the candidates for h, and remove
+			// h from the Finder if no candidates for it remain.
+			if len(candidates) == 1 {
+				delete(byWeakhash, h)
+				finder.Remove(h)
+			} else {
+				candidates[i] = candidates[len(candidates)-1]
+				byWeakhash[h] = candidates[:len(candidates)-1]
+			}
 			break
 		}
 

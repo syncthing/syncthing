@@ -126,3 +126,8 @@ func (f *Finder) Next() bool {
 		}
 	}
 }
+
+// Remove tells f to not longer look for h.
+func (f *Finder) Remove(h uint32) {
+	delete(f.hashes, h)
+}
