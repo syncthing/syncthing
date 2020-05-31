@@ -12,6 +12,7 @@ import (
 	"hash"
 	"hash/adler32"
 	"io"
+	"sync"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sha256"
@@ -29,17 +30,8 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		counter = &noopCounter{}
 	}
 
-	hf := sha256.New()
-	hashLength := hf.Size()
-
-	var weakHf hash.Hash32 = noopHash{}
-	var multiHf io.Writer = hf
-	if useWeakHashes {
-		// Use an actual weak hash function, make the multiHf
-		// write to both hash functions.
-		weakHf = adler32.New()
-		multiHf = io.MultiWriter(hf, weakHf)
-	}
+	const hashLength = sha256.Size
+	multiHf := newMultiHash(useWeakHashes)
 
 	var blocks []protocol.BlockInfo
 	var hashes, thisHash []byte
@@ -79,21 +71,20 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 
 		// Carve out a hash-sized chunk of "hashes" to store the hash for this
 		// block.
-		hashes = hf.Sum(hashes)
+		hashes = multiHf.strongSum(hashes)
 		thisHash, hashes = hashes[:hashLength], hashes[hashLength:]
 
 		b := protocol.BlockInfo{
 			Size:     int32(n),
 			Offset:   offset,
 			Hash:     thisHash,
-			WeakHash: weakHf.Sum32(),
+			WeakHash: multiHf.weakSum(),
 		}
 
 		blocks = append(blocks, b)
 		offset += n
 
-		hf.Reset()
-		weakHf.Reset()
+		multiHf.reset()
 	}
 
 	if len(blocks) == 0 {
@@ -105,7 +96,57 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		})
 	}
 
+	multiHashPool.Put(multiHf)
 	return blocks, nil
+}
+
+type multiHash struct {
+	strong hash.Hash
+	weak   hash.Hash32
+}
+
+var multiHashPool sync.Pool
+
+func newMultiHash(useWeakHashes bool) *multiHash {
+	h, ok := multiHashPool.Get().(*multiHash)
+	if !ok {
+		h = &multiHash{strong: sha256.New()}
+	}
+
+	if !useWeakHashes {
+		h.weak = nil
+	} else if h.weak == nil {
+		h.weak = adler32.New()
+	}
+
+	h.reset()
+	return h
+}
+
+func (h *multiHash) reset() {
+	h.strong.Reset()
+	if h.weak != nil {
+		h.weak.Reset()
+	}
+}
+
+func (h *multiHash) strongSum(d []byte) []byte {
+	return h.strong.Sum(d)
+}
+
+func (h *multiHash) weakSum() uint32 {
+	if h.weak == nil {
+		return 0
+	}
+	return h.weak.Sum32()
+}
+
+func (h *multiHash) Write(p []byte) (n int, err error) {
+	h.strong.Write(p)
+	if h.weak != nil {
+		h.weak.Write(p)
+	}
+	return len(p), nil
 }
 
 // Validate quickly validates buf against the cryptohash hash (if len(hash)>0)
@@ -123,15 +164,6 @@ func Validate(buf, hash []byte, weakHash uint32) bool {
 
 	return true
 }
-
-type noopHash struct{}
-
-func (noopHash) Sum32() uint32             { return 0 }
-func (noopHash) BlockSize() int            { return 0 }
-func (noopHash) Size() int                 { return 0 }
-func (noopHash) Reset()                    {}
-func (noopHash) Sum([]byte) []byte         { return nil }
-func (noopHash) Write([]byte) (int, error) { return 0, nil }
 
 type noopCounter struct{}
 
