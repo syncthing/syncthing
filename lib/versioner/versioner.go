@@ -21,6 +21,7 @@ type Versioner interface {
 	Archive(filePath string) error
 	GetVersions() (map[string][]FileVersion, error)
 	Restore(filePath string, versionTime time.Time) error
+	Clean() error
 }
 
 type FileVersion struct {

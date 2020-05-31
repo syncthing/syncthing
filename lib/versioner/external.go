@@ -114,3 +114,7 @@ func (v external) GetVersions() (map[string][]FileVersion, error) {
 func (v external) Restore(filePath string, versionTime time.Time) error {
 	return ErrRestorationNotSupported
 }
+
+func (v external) Clean() error {
+	return nil
+}

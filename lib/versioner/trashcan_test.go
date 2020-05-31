@@ -54,7 +54,7 @@ func TestTrashcanCleanout(t *testing.T) {
 	}
 
 	versioner := newTrashcan(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), map[string]string{"cleanoutDays": "7"}).(*trashcan)
-	if err := versioner.cleanoutArchive(); err != nil {
+	if err := versioner.Clean(); err != nil {
 		t.Fatal(err)
 	}
 

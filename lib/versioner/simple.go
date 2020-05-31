@@ -70,3 +70,7 @@ func (v simple) GetVersions() (map[string][]FileVersion, error) {
 func (v simple) Restore(filepath string, versionTime time.Time) error {
 	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }
+
+func (v simple) Clean() error {
+	return nil
+}

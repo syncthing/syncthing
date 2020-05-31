@@ -7,17 +7,13 @@
 package versioner
 
 import (
-	"context"
 	"fmt"
 	"sort"
 	"strconv"
 	"time"
 
-	"github.com/thejerf/suture"
-
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -31,7 +27,6 @@ type interval struct {
 }
 
 type staggered struct {
-	suture.Service
 	cleanInterval int64
 	folderFs      fs.Filesystem
 	versionsFs    fs.Filesystem
@@ -67,31 +62,12 @@ func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 		},
 		mutex: sync.NewMutex(),
 	}
-	s.Service = util.AsService(s.serve, s.String())
 
 	l.Debugf("instantiated %#v", s)
 	return s
 }
 
-func (v *staggered) serve(ctx context.Context) {
-	v.clean()
-	if v.testCleanDone != nil {
-		close(v.testCleanDone)
-	}
-
-	tck := time.NewTicker(time.Duration(v.cleanInterval) * time.Second)
-	defer tck.Stop()
-	for {
-		select {
-		case <-tck.C:
-			v.clean()
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-func (v *staggered) clean() {
+func (v *staggered) Clean() error {
 	l.Debugln("Versioner clean: Waiting for lock on", v.versionsFs)
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
@@ -99,7 +75,7 @@ func (v *staggered) clean() {
 
 	if _, err := v.versionsFs.Stat("."); fs.IsNotExist(err) {
 		// There is no need to clean a nonexistent dir.
-		return
+		return nil
 	}
 
 	versionsPerFile := make(map[string][]string)
@@ -130,7 +106,7 @@ func (v *staggered) clean() {
 
 	if err := v.versionsFs.Walk(".", walkFn); err != nil {
 		l.Warnln("Versioner: error scanning versions dir", err)
-		return
+		return err
 	}
 
 	for _, versionList := range versionsPerFile {
@@ -140,6 +116,7 @@ func (v *staggered) clean() {
 	dirTracker.deleteEmptyDirs(v.versionsFs)
 
 	l.Debugln("Cleaner: Finished cleaning", v.versionsFs)
+	return nil
 }
 
 func (v *staggered) expire(versions []string) {

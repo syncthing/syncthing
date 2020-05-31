@@ -7,15 +7,11 @@
 package versioner
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"time"
 
-	"github.com/thejerf/suture"
-
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -24,7 +20,6 @@ func init() {
 }
 
 type trashcan struct {
-	suture.Service
 	folderFs     fs.Filesystem
 	versionsFs   fs.Filesystem
 	cleanoutDays int
@@ -39,7 +34,6 @@ func newTrashcan(folderFs fs.Filesystem, params map[string]string) Versioner {
 		versionsFs:   fsFromParams(folderFs, params),
 		cleanoutDays: cleanoutDays,
 	}
-	s.Service = util.AsService(s.serve, s.String())
 
 	l.Debugf("instantiated %#v", s)
 	return s
@@ -53,37 +47,11 @@ func (t *trashcan) Archive(filePath string) error {
 	})
 }
 
-func (t *trashcan) serve(ctx context.Context) {
-	l.Debugln(t, "starting")
-	defer l.Debugln(t, "stopping")
-
-	// Do the first cleanup one minute after startup.
-	timer := time.NewTimer(time.Minute)
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		case <-timer.C:
-			if t.cleanoutDays > 0 {
-				if err := t.cleanoutArchive(); err != nil {
-					l.Infoln("Cleaning trashcan:", err)
-				}
-			}
-
-			// Cleanups once a day should be enough.
-			timer.Reset(24 * time.Hour)
-		}
-	}
-}
-
 func (t *trashcan) String() string {
 	return fmt.Sprintf("trashcan@%p", t)
 }
 
-func (t *trashcan) cleanoutArchive() error {
+func (t *trashcan) Clean() error {
 	if _, err := t.versionsFs.Lstat("."); fs.IsNotExist(err) {
 		return nil
 	}

@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 
 	"github.com/thejerf/suture"
@@ -71,7 +72,8 @@ type folder struct {
 	watchErr         error
 	watchMut         sync.Mutex
 
-	puller puller
+	puller    puller
+	versioner versioner.Versioner
 }
 
 type syncRequest struct {
@@ -80,10 +82,10 @@ type syncRequest struct {
 }
 
 type puller interface {
-	pull() bool // true when successfull and should not be retried
+	pull() bool // true when successful and should not be retried
 }
 
-func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore) folder {
+func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore, ver versioner.Versioner) folder {
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -112,6 +114,8 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
 		watchMut:         sync.NewMutex(),
+
+		versioner: ver,
 	}
 	f.pullPause = f.pullBasePause()
 	f.pullFailTimer = time.NewTimer(0)
@@ -690,6 +694,12 @@ func (f *folder) scanTimerFired() {
 		}
 		l.Infoln(status, "initial scan of", f.Type.String(), "folder", f.Description())
 		close(f.initialScanFinished)
+	}
+
+	if f.versioner != nil {
+		if err := f.versioner.Clean(); err != nil {
+			l.Infoln("Failed to clean versions in %s: %v", f.Description(), err)
+		}
 	}
 
 	f.Reschedule()
