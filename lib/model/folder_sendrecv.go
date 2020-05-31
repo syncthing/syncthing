@@ -1221,7 +1221,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		if blocksPercentChanged >= f.WeakHashThresholdPct {
 			state, err = f.copyByWeakHash(state, dstFd)
 			if err != nil {
-				l.Debugln("weak hasher finder", err)
+				state.fail(err)
 			}
 		} else {
 			l.Debugf("not weak hashing %s. not enough changed %.02f < %d", state.file.Name, blocksPercentChanged, f.WeakHashThresholdPct)
@@ -1299,7 +1299,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	}
 }
 
-// copyByWeakHash copies all blocks that can be found from their weak hash.
+// copyByWeakHash copies all blocks that can be found by their weak hash.
 // It returns an updated state with these blocks removed.
 func (f *sendReceiveFolder) copyByWeakHash(state copyBlocksState, w io.WriterAt) (copyBlocksState, error) {
 	file, err := f.fs.Open(state.file.Name)
@@ -1362,18 +1362,23 @@ func (f *sendReceiveFolder) copyByWeakHash(state copyBlocksState, w io.WriterAt)
 		default:
 		}
 	}
+	if err := finder.Err(); err != nil {
+		// Log and continue; the caller can try to find blocks
+		// by some other means.
+		l.Debugln("weak hash finder", err)
+	}
 
 	// Remove the blocks we've done from blocks,
 	// preserving the order of the remaining ones.
-	blocksleft := state.blocks[:0]
+	blocksLeft := state.blocks[:0]
 	for i := range done {
 		if !done[i] {
-			blocksleft = append(blocksleft, state.blocks[i])
+			blocksLeft = append(blocksLeft, state.blocks[i])
 		}
 	}
-	state.blocks = blocksleft
+	state.blocks = blocksLeft
 
-	return state, finder.Err()
+	return state, nil
 }
 
 func verifyBuffer(buf []byte, block protocol.BlockInfo) error {
