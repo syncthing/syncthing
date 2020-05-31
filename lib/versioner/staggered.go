@@ -27,13 +27,10 @@ type interval struct {
 }
 
 type staggered struct {
-	cleanInterval int64
-	folderFs      fs.Filesystem
-	versionsFs    fs.Filesystem
-	interval      [4]interval
-	mutex         sync.Mutex
-
-	testCleanDone chan struct{}
+	folderFs   fs.Filesystem
+	versionsFs fs.Filesystem
+	interval   [4]interval
+	mutex      sync.Mutex
 }
 
 func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
@@ -41,19 +38,14 @@ func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 	if err != nil {
 		maxAge = 31536000 // Default: ~1 year
 	}
-	cleanInterval, err := strconv.ParseInt(params["cleanInterval"], 10, 0)
-	if err != nil {
-		cleanInterval = 3600 // Default: clean once per hour
-	}
 
 	// Backwards compatibility
 	params["fsPath"] = params["versionsPath"]
 	versionsFs := fsFromParams(folderFs, params)
 
 	s := &staggered{
-		cleanInterval: cleanInterval,
-		folderFs:      folderFs,
-		versionsFs:    versionsFs,
+		folderFs:   folderFs,
+		versionsFs: versionsFs,
 		interval: [4]interval{
 			{30, 60 * 60},                     // first hour -> 30 sec between versions
 			{60 * 60, 24 * 60 * 60},           // next day -> 1 h between versions
