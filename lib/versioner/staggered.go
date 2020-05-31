@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 func init() {
@@ -30,7 +29,6 @@ type staggered struct {
 	folderFs   fs.Filesystem
 	versionsFs fs.Filesystem
 	interval   [4]interval
-	mutex      sync.Mutex
 }
 
 func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
@@ -52,7 +50,6 @@ func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 			{24 * 60 * 60, 30 * 24 * 60 * 60}, // next 30 days -> 1 day between versions
 			{7 * 24 * 60 * 60, maxAge},        // next year -> 1 week between versions
 		},
-		mutex: sync.NewMutex(),
 	}
 
 	l.Debugf("instantiated %#v", s)
@@ -60,9 +57,6 @@ func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 }
 
 func (v *staggered) Clean() error {
-	l.Debugln("Versioner clean: Waiting for lock on", v.versionsFs)
-	v.mutex.Lock()
-	defer v.mutex.Unlock()
 	l.Debugln("Versioner clean: Cleaning", v.versionsFs)
 
 	if _, err := v.versionsFs.Stat("."); fs.IsNotExist(err) {
@@ -181,10 +175,6 @@ func (v *staggered) toRemove(versions []string, now time.Time) []string {
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (v *staggered) Archive(filePath string) error {
-	l.Debugln("Waiting for lock on ", v.versionsFs)
-	v.mutex.Lock()
-	defer v.mutex.Unlock()
-
 	if err := archiveFile(v.folderFs, v.versionsFs, filePath, TagFilename); err != nil {
 		return err
 	}
