@@ -11,6 +11,7 @@ package weakhash
 
 import (
 	"bytes"
+	"context"
 	"testing"
 )
 
@@ -31,7 +32,7 @@ func TestFinder(t *testing.T) {
 		65798547: {2, 28, 54, 80},
 	}
 
-	for finder.Next() {
+	for finder.Next(context.TODO()) {
 		h, offset := finder.Match()
 		if offset != offsets[h][0] {
 			t.Fatalf("expected %08x at %d, found it at %d",

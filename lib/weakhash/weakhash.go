@@ -8,6 +8,7 @@ package weakhash
 
 import (
 	"bufio"
+	"context"
 	"io"
 
 	"github.com/chmduquesne/rollinghash/adler32"
@@ -76,7 +77,7 @@ func (f *Finder) Match() (h uint32, offset int64) {
 //
 // When Next has returned true, the contents of the block found are in the
 // buffer handed to NewFinder.
-func (f *Finder) Next() bool {
+func (f *Finder) Next(ctx context.Context) bool {
 	if len(f.hashes) == 0 {
 		return false
 	}
@@ -123,6 +124,17 @@ func (f *Finder) Next() bool {
 			}
 			f.match = h
 			return true
+		}
+
+		// Periodically check whether the context has expired.
+		// The 16kB period is entirely arbitrary.
+		if f.offset%16384 == 0 {
+			select {
+			case <-ctx.Done():
+				f.err = ctx.Err()
+				return false
+			default:
+			}
 		}
 	}
 }

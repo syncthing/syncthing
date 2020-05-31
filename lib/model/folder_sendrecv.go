@@ -1332,7 +1332,7 @@ func (f *sendReceiveFolder) copyByWeakHash(state copyBlocksState, w io.WriterAt)
 
 	done := make([]bool, len(state.blocks))
 
-	for finder.Next() {
+	for finder.Next(f.ctx) {
 		h, offset := finder.Match()
 		sha := sha256.Sum256(buf)
 
@@ -1366,12 +1366,6 @@ func (f *sendReceiveFolder) copyByWeakHash(state copyBlocksState, w io.WriterAt)
 				byWeakhash[h] = candidates[:len(candidates)-1]
 			}
 			break
-		}
-
-		select {
-		case <-f.ctx.Done():
-			return state, f.ctx.Err()
-		default:
 		}
 	}
 	if err := finder.Err(); err != nil {
