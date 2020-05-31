@@ -52,6 +52,11 @@ func (t *trashcan) String() string {
 }
 
 func (t *trashcan) Clean() error {
+	if t.cleanoutDays <= 0 {
+		// no cleanout requested
+		return nil
+	}
+
 	if _, err := t.versionsFs.Lstat("."); fs.IsNotExist(err) {
 		return nil
 	}
