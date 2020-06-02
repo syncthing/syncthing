@@ -731,7 +731,7 @@ func convertVersionList(vl VersionListDeprecated) (VersionList, error) {
 			break
 		}
 		oldPos++
-		if lastVersion.Equal(fv.Version) {
+		if len(newVl.RawVersions) > 0 && lastVersion.Equal(fv.Version) {
 			newVl.RawVersions[newPos].Devices = append(newVl.RawVersions[newPos].Devices, fv.Device)
 			continue
 		}
@@ -747,6 +747,7 @@ func convertVersionList(vl VersionListDeprecated) (VersionList, error) {
 	if len(newVl.RawVersions) == 0 {
 		fv := vl.Versions[oldPos]
 		newVl.RawVersions = []FileVersion{newFileVersion(fv.Device, fv.Version, true, fv.Deleted)}
+		oldPos++
 	}
 	newPos = 0
 outer:
