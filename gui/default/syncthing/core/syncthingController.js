@@ -59,6 +59,7 @@ angular.module('syncthing.core')
         } catch (exception) { }
 
         $scope.folderDefaults = {
+            devices: [],
             sharedDevices: {},
             selectedDevices: {},
             unrelatedDevices: {},
