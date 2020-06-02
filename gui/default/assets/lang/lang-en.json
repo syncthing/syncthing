@@ -405,10 +405,11 @@
    "You must keep at least one version.": "You must keep at least one version.",
    "days": "days",
    "directories": "directories",
+   "enter password to encrypt": "enter password to encrypt",
    "files": "files",
    "full documentation": "full documentation",
    "items": "items",
+   "not shared": "not shared",
    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wants to share folder \"{{folder}}\".",
-   "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}}).",
-   "{%statustrans%}": "{{statustrans}}"
+   "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }

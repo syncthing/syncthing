@@ -49,7 +49,7 @@
             <div class="form-group" ng-repeat="device in currentFolder.sharedDevices">
               <div class="col-md-6 checkbox">
                 <label for="sharedwith-{{device.deviceID}}">
-                  <input id="sharedwith-{{device.deviceID}}" ng-model="currentFolder.sharedStatus[device.deviceID]" type="checkbox" />
+                  <input id="sharedwith-{{device.deviceID}}" ng-model="currentFolder.selectedDevices[device.deviceID]" type="checkbox" />
                   {{deviceName(device)}}
                 </label>
               </div>
@@ -59,16 +59,16 @@
                     <span ng-switch-when='true' class="fas fa-fw fa-unlock" />
                     <span ng-switch-when='false' class="fas fa-fw fa-lock" />
                   </span>
-                  <span ng-switch="currentFolder.sharedStatus[device.deviceID]">
+                  <span ng-switch="currentFolder.selectedDevices[device.deviceID]">
                     <span ng-switch-when='true'>
-                      <input class="form-control input-sm" id="enc-pw-{{device.deviceID}}" type="password" ng-model="device.encryptionPassword" placeholder="{{'Enter encryption password.' | translate}}" />
+                      <input class="form-control input-sm" id="enc-pw-{{device.deviceID}}" type="password" ng-model="device.encryptionPassword" placeholder="{{'enter password to encrypt' | translate}}" />
                     </span>
                     <span ng-switch-when='false'>
-                      <input class="form-control input-sm" type="password" placeholder="Folder is not shared." disabled />
+                      <input class="form-control input-sm" type="password" placeholder="{{'not shared' | translate}}" disabled />
                     </span>
                   </span>
                   <span class="input-group-addon">
-                    <span class="button fas fa-fw fa-eye-slash" ng-click="togglePW('enc-pw-' + device.deviceID)" />
+                    <span class="button fas fa-fw fa-eye" ng-click="togglePW('enc-pw-' + device.deviceID)" />
                   </span>
                 </div>
               </div>
