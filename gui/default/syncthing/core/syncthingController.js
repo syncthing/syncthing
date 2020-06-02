@@ -2514,4 +2514,14 @@ angular.module('syncthing.core')
                     address.startsWith('unix://') ||
                     address.startsWith('unixs://'));
         }
+
+        $scope.togglePW = function (id) {
+            var el = document.getElementById(id);
+            if (el.type === 'password') {
+                el.type = 'text';
+            } else {
+                el.type = 'password';
+            }
+        }
+
     });

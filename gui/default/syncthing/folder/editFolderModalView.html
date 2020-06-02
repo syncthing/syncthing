@@ -61,11 +61,14 @@
                   </span>
                   <span ng-switch="currentFolder.sharedStatus[device.deviceID]">
                     <span ng-switch-when='true'>
-                      <input class="form-control input-sm" type="password" ng-model="device.encryptionPassword" placeholder="{{'Enter encryption password.' | translate}}" />
+                      <input class="form-control input-sm" id="enc-pw-{{device.deviceID}}" type="password" ng-model="device.encryptionPassword" placeholder="{{'Enter encryption password.' | translate}}" />
                     </span>
                     <span ng-switch-when='false'>
                       <input class="form-control input-sm" type="password" placeholder="Folder is not shared." disabled />
                     </span>
+                  </span>
+                  <span class="input-group-addon">
+                    <span class="button fas fa-fw fa-eye-slash" ng-click="togglePW('enc-pw-' + device.deviceID)" />
                   </span>
                 </div>
               </div>
