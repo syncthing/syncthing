@@ -108,26 +108,19 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 	return blocks, nil
 }
 
+// Validate quickly validates buf against the cryptohash hash (if len(hash)>0)
+// and the 32-bit hash weakHash (if not zero). It is satisfied if either hash
+// matches, or neither is given.
 func Validate(buf, hash []byte, weakHash uint32) bool {
-	rd := bytes.NewReader(buf)
 	if weakHash != 0 {
-		whf := adler32.New()
-		if _, err := io.Copy(whf, rd); err == nil && whf.Sum32() == weakHash {
-			return true
-		}
-		// Copy error or mismatch, go to next algo.
-		rd.Seek(0, io.SeekStart)
+		return adler32.Checksum(buf) == weakHash
 	}
 
 	if len(hash) > 0 {
-		hf := sha256.New()
-		if _, err := io.Copy(hf, rd); err == nil {
-			// Sum allocates, so let's hope we don't hit this often.
-			return bytes.Equal(hf.Sum(nil), hash)
-		}
+		hbuf := sha256.Sum256(buf)
+		return bytes.Equal(hbuf[:], hash)
 	}
 
-	// Both algos failed or no hashes were specified. Assume it's all good.
 	return true
 }
 

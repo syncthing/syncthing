@@ -87,7 +87,7 @@ func (f *receiveOnlyFolder) revert() {
 	batchSizeBytes := 0
 	snap := f.fset.Snapshot()
 	defer snap.Release()
-	snap.WithHave(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+	snap.WithHave(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
 		fi := intf.(protocol.FileInfo)
 		if !fi.IsReceiveOnlyChanged() {
 			// We're only interested in files that have changed locally in
