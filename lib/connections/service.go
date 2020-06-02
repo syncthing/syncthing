@@ -601,14 +601,25 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
-		if _, ok := s.listeners[addr]; ok {
-			seen[addr] = struct{}{}
-			continue
-		}
-
 		uri, err := url.Parse(addr)
 		if err != nil {
 			l.Infof("Parsing listener address %s: %v", addr, err)
+			continue
+		}
+
+		// Make sure we always have the canonical representation of the URL.
+		// This is for consistency as we use it as a map key, but also to
+		// avoid misunderstandings. We do not just use the canonicalized
+		// version, because an URL that looks very similar to a human might
+		// mean something entirely different to the computer (e.g.,
+		// tcp:/127.0.0.1:22000 in fact being equivalent to tcp://:22000).
+		if canonical := uri.String(); canonical != addr {
+			l.Warnf("Skipping malformed listener URL %q", addr)
+			continue
+		}
+
+		if _, ok := s.listeners[addr]; ok {
+			seen[addr] = struct{}{}
 			continue
 		}
 
