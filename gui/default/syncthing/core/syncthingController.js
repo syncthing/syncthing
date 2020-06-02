@@ -448,6 +448,10 @@ angular.module('syncthing.core')
                 && (!guiCfg.user || !guiCfg.password)
                 && guiCfg.authMode !== 'ldap'
                 && !guiCfg.insecureAdminAccess;
+
+            if (guiCfg.user && guiCfg.password) {
+                dismissNotification('authenticationUserAndPassword');
+            }
         }
 
 
