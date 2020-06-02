@@ -13,8 +13,6 @@
 package db
 
 import (
-	"time"
-
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -31,35 +29,10 @@ type FileSet struct {
 	updateMutex sync.Mutex // protects database updates and the corresponding metadata changes
 }
 
-// FileIntf is the set of methods implemented by both protocol.FileInfo and
-// FileInfoTruncated.
-type FileIntf interface {
-	FileSize() int64
-	FileName() string
-	FileLocalFlags() uint32
-	IsDeleted() bool
-	IsInvalid() bool
-	IsIgnored() bool
-	IsUnsupported() bool
-	MustRescan() bool
-	IsReceiveOnlyChanged() bool
-	IsDirectory() bool
-	IsSymlink() bool
-	ShouldConflict() bool
-	HasPermissionBits() bool
-	SequenceNo() int64
-	BlockSize() int
-	FileVersion() protocol.Vector
-	FileType() protocol.FileInfoType
-	FilePermissions() uint32
-	FileModifiedBy() protocol.ShortID
-	ModTime() time.Time
-}
-
 // The Iterator is called with either a protocol.FileInfo or a
 // FileInfoTruncated (depending on the method) and returns true to
 // continue iteration, false to stop.
-type Iterator func(f FileIntf) bool
+type Iterator func(f protocol.FileIntf) bool
 
 func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 	return &FileSet{
@@ -124,7 +97,13 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	// do not modify fs in place, it is still used in outer scope
 	fs = append([]protocol.FileInfo(nil), fs...)
 
-	normalizeFilenames(fs)
+	// If one file info is present multiple times, only keep the last.
+	// Updating the same file multiple times is problematic, because the
+	// previous updates won't yet be represented in the db when we update it
+	// again. Additionally even if that problem was taken care of, it would
+	// be pointless because we remove the previously added file info again
+	// right away.
+	fs = normalizeFilenamesAndDropDuplicates(fs)
 
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
@@ -329,7 +308,7 @@ func (s *Snapshot) LocalChangedFiles(page, perpage int) []FileInfoTruncated {
 	skip := (page - 1) * perpage
 	get := perpage
 
-	s.WithHaveTruncated(protocol.LocalDeviceID, func(f FileIntf) bool {
+	s.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
 		if !f.IsReceiveOnlyChanged() {
 			return true
 		}
@@ -353,7 +332,7 @@ func (s *Snapshot) RemoteNeedFolderFiles(device protocol.DeviceID, page, perpage
 	files := make([]FileInfoTruncated, 0, perpage)
 	skip := (page - 1) * perpage
 	get := perpage
-	s.WithNeedTruncated(device, func(f FileIntf) bool {
+	s.WithNeedTruncated(device, func(f protocol.FileIntf) bool {
 		if skip > 0 {
 			skip--
 			return true
@@ -470,14 +449,28 @@ func DropDeltaIndexIDs(db *Lowlevel) {
 	}
 }
 
-func normalizeFilenames(fs []protocol.FileInfo) {
-	for i := range fs {
-		fs[i].Name = osutil.NormalizedFilename(fs[i].Name)
+func normalizeFilenamesAndDropDuplicates(fs []protocol.FileInfo) []protocol.FileInfo {
+	positions := make(map[string]int, len(fs))
+	for i, f := range fs {
+		norm := osutil.NormalizedFilename(f.Name)
+		if pos, ok := positions[norm]; ok {
+			fs[pos] = protocol.FileInfo{}
+		}
+		positions[norm] = i
+		fs[i].Name = norm
 	}
+	for i := 0; i < len(fs); {
+		if fs[i].Name == "" {
+			fs = append(fs[:i], fs[i+1:]...)
+			continue
+		}
+		i++
+	}
+	return fs
 }
 
 func nativeFileIterator(fn Iterator) Iterator {
-	return func(fi FileIntf) bool {
+	return func(fi protocol.FileIntf) bool {
 		switch f := fi.(type) {
 		case protocol.FileInfo:
 			f.Name = osutil.NativeFilename(f.Name)

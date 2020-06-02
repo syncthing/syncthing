@@ -22,11 +22,13 @@ import (
 	"time"
 )
 
-// Asset is the type of arguments to Serve.
+// An Asset is an embedded file to be served over HTTP.
 type Asset struct {
-	ContentGz string    // gzipped contents of asset.
-	Filename  string    // Original filename, determines Content-Type.
-	Modified  time.Time // Determines ETag and Last-Modified.
+	Content  string // Contents of asset, possibly gzipped.
+	Gzipped  bool
+	Length   int       // Length of (decompressed) Content.
+	Filename string    // Original filename, determines Content-Type.
+	Modified time.Time // Determines ETag and Last-Modified.
 }
 
 // Serve writes a gzipped asset to w.
@@ -53,14 +55,19 @@ func Serve(w http.ResponseWriter, r *http.Request, asset Asset) {
 		return
 	}
 
-	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+	switch {
+	case !asset.Gzipped:
+		header.Set("Content-Length", strconv.Itoa(len(asset.Content)))
+		io.WriteString(w, asset.Content)
+	case strings.Contains(r.Header.Get("Accept-Encoding"), "gzip"):
 		header.Set("Content-Encoding", "gzip")
-		header.Set("Content-Length", strconv.Itoa(len(asset.ContentGz)))
-		io.WriteString(w, asset.ContentGz)
-	} else {
+		header.Set("Content-Length", strconv.Itoa(len(asset.Content)))
+		io.WriteString(w, asset.Content)
+	default:
+		header.Set("Content-Length", strconv.Itoa(asset.Length))
 		// gunzip for browsers that don't want gzip.
 		var gr *gzip.Reader
-		gr, _ = gzip.NewReader(strings.NewReader(asset.ContentGz))
+		gr, _ = gzip.NewReader(strings.NewReader(asset.Content))
 		io.Copy(w, gr)
 		gr.Close()
 	}

@@ -183,7 +183,9 @@ func TestUpdate0to3(t *testing.T) {
 		t.Error("File prefixed by '/' was not removed during transition to schema 1")
 	}
 
-	key, err := db.keyer.GenerateGlobalVersionKey(nil, folder, []byte(invalid))
+	var key []byte
+
+	key, err = db.keyer.GenerateGlobalVersionKey(nil, folder, []byte(invalid))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +203,7 @@ func TestUpdate0to3(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer trans.Release()
-	_ = trans.withHaveSequence(folder, 0, func(fi FileIntf) bool {
+	_ = trans.withHaveSequence(folder, 0, func(fi protocol.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		l.Infoln(f)
 		if found {
@@ -228,12 +230,42 @@ func TestUpdate0to3(t *testing.T) {
 		haveUpdate0to3[remoteDevice1][0].Name: haveUpdate0to3[remoteDevice1][0],
 		haveUpdate0to3[remoteDevice0][2].Name: haveUpdate0to3[remoteDevice0][2],
 	}
+
 	trans, err = db.newReadOnlyTransaction()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer trans.Release()
-	_ = trans.withNeed(folder, protocol.LocalDeviceID[:], false, func(fi FileIntf) bool {
+
+	key, err = trans.keyer.GenerateNeedFileKey(nil, folder, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbi, err := trans.NewPrefixIterator(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dbi.Release()
+
+	for dbi.Next() {
+		name := trans.keyer.NameFromGlobalVersionKey(dbi.Key())
+		key, err = trans.keyer.GenerateGlobalVersionKey(key, folder, name)
+		bs, err := trans.Get(key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var vl VersionListDeprecated
+		if err := vl.Unmarshal(bs); err != nil {
+			t.Fatal(err)
+		}
+		key, err = trans.keyer.GenerateDeviceFileKey(key, folder, vl.Versions[0].Device, name)
+		fi, ok, err := trans.getFileTrunc(key, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			t.Fatal("surprise missing global file", string(name), protocol.DeviceIDFromBytes(vl.Versions[0].Device))
+		}
 		e, ok := need[fi.FileName()]
 		if !ok {
 			t.Error("Got unexpected needed file:", fi.FileName())
@@ -243,8 +275,11 @@ func TestUpdate0to3(t *testing.T) {
 		if !f.IsEquivalentOptional(e, 0, true, true, 0) {
 			t.Errorf("Wrong needed file, got %v, expected %v", f, e)
 		}
-		return true
-	})
+	}
+	if dbi.Error() != nil {
+		t.Fatal(err)
+	}
+
 	for n := range need {
 		t.Errorf(`Missing needed file "%v"`, n)
 	}
@@ -467,7 +502,7 @@ func TestCheckGlobals(t *testing.T) {
 	}
 
 	// Clean up global entry of the now missing file
-	if err := db.checkGlobals([]byte(fs.folder), fs.meta); err != nil {
+	if err := db.checkGlobals([]byte(fs.folder)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -525,7 +560,7 @@ func TestUpdateTo10(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, v := range vl.Versions {
+	for _, v := range vl.RawVersions {
 		if !v.Deleted {
 			t.Error("Unexpected undeleted global version for a")
 		}
@@ -535,10 +570,10 @@ func TestUpdateTo10(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !vl.Versions[0].Deleted {
+	if !vl.RawVersions[0].Deleted {
 		t.Error("vl.Versions[0] not deleted for b")
 	}
-	if vl.Versions[1].Deleted {
+	if vl.RawVersions[1].Deleted {
 		t.Error("vl.Versions[1] deleted for b")
 	}
 	// c
@@ -546,10 +581,51 @@ func TestUpdateTo10(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if vl.Versions[0].Deleted {
+	if vl.RawVersions[0].Deleted {
 		t.Error("vl.Versions[0] deleted for c")
 	}
-	if !vl.Versions[1].Deleted {
+	if !vl.RawVersions[1].Deleted {
 		t.Error("vl.Versions[1] not deleted for c")
+	}
+}
+
+func TestDropDuplicates(t *testing.T) {
+	names := []string{
+		"foo",
+		"bar",
+		"dcxvoijnds",
+		"3d/dsfase/4/ss2",
+	}
+	tcs := []struct{ in, out []int }{
+		{[]int{0}, []int{0}},
+		{[]int{0, 1}, []int{0, 1}},
+		{[]int{0, 1, 0, 1}, []int{0, 1}},
+		{[]int{0, 1, 1, 1, 1}, []int{0, 1}},
+		{[]int{0, 0, 0, 1}, []int{0, 1}},
+		{[]int{0, 1, 2, 3}, []int{0, 1, 2, 3}},
+		{[]int{3, 2, 1, 0, 0, 1, 2, 3}, []int{0, 1, 2, 3}},
+		{[]int{0, 1, 1, 3, 0, 1, 0, 1, 2, 3}, []int{0, 1, 2, 3}},
+	}
+
+	for tci, tc := range tcs {
+		inp := make([]protocol.FileInfo, len(tc.in))
+		expSeq := make(map[string]int)
+		for i, j := range tc.in {
+			inp[i] = protocol.FileInfo{Name: names[j], Sequence: int64(i)}
+			expSeq[names[j]] = i
+		}
+		outp := normalizeFilenamesAndDropDuplicates(inp)
+		if len(outp) != len(tc.out) {
+			t.Errorf("tc %v: Expected %v entries, got %v", tci, len(tc.out), len(outp))
+			continue
+		}
+		for i, f := range outp {
+			if exp := names[tc.out[i]]; exp != f.Name {
+				t.Errorf("tc %v: Got file %v at pos %v, expected %v", tci, f.Name, i, exp)
+			}
+			if exp := int64(expSeq[outp[i].Name]); exp != f.Sequence {
+				t.Errorf("tc %v: Got sequence %v at pos %v, expected %v", tci, f.Sequence, i, exp)
+			}
+		}
 	}
 }

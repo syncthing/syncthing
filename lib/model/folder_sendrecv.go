@@ -62,17 +62,18 @@ type copyBlocksState struct {
 const retainBits = fs.ModeSetgid | fs.ModeSetuid | fs.ModeSticky
 
 var (
-	activity                  = newDeviceActivity()
-	errNoDevice               = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
-	errDirPrefix              = "directory has been deleted on a remote device but "
-	errDirHasToBeScanned      = errors.New(errDirPrefix + "contains unexpected files, scheduling scan")
-	errDirHasIgnored          = errors.New(errDirPrefix + "contains ignored files (see ignore documentation for (?d) prefix)")
-	errDirNotEmpty            = errors.New(errDirPrefix + "is not empty; the contents are probably ignored on that remote device, but not locally")
-	errNotAvailable           = errors.New("no connected device has the required version of this file")
-	errModified               = errors.New("file modified but not rescanned; will try again later")
-	errUnexpectedDirOnFileDel = errors.New("encountered directory when trying to remove file/symlink")
-	errIncompatibleSymlink    = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
-	contextRemovingOldItem    = "removing item to be replaced"
+	activity                    = newDeviceActivity()
+	errNoDevice                 = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
+	errDirPrefix                = "directory has been deleted on a remote device but "
+	errDirHasToBeScanned        = errors.New(errDirPrefix + "contains changed files, scheduling scan")
+	errDirHasIgnored            = errors.New(errDirPrefix + "contains ignored files (see ignore documentation for (?d) prefix)")
+	errDirHasReceiveOnlyChanged = errors.New(errDirPrefix + "contains locally changed files")
+	errDirNotEmpty              = errors.New(errDirPrefix + "is not empty; the contents are probably ignored on that remote device, but not locally")
+	errNotAvailable             = errors.New("no connected device has the required version of this file")
+	errModified                 = errors.New("file modified but not rescanned; will try again later")
+	errUnexpectedDirOnFileDel   = errors.New("encountered directory when trying to remove file/symlink")
+	errIncompatibleSymlink      = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
+	contextRemovingOldItem      = "removing item to be replaced"
 )
 
 const (
@@ -305,7 +306,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
-	snap.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+	snap.WithNeed(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
 		select {
 		case <-f.ctx.Done():
 			return false
@@ -461,12 +462,7 @@ nextFile:
 		// Check our list of files to be removed for a match, in which case
 		// we can just do a rename instead.
 		key := string(fi.BlocksHash)
-		for i, candidate := range buckets[key] {
-			// Remove the candidate from the bucket
-			lidx := len(buckets[key]) - 1
-			buckets[key][i] = buckets[key][lidx]
-			buckets[key] = buckets[key][:lidx]
-
+		for candidate, ok := popCandidate(buckets, key); ok; candidate, ok = popCandidate(buckets, key) {
 			// candidate is our current state of the file, where as the
 			// desired state with the delete bit set is in the deletion
 			// map.
@@ -497,6 +493,16 @@ nextFile:
 	}
 
 	return changed, fileDeletions, dirDeletions, nil
+}
+
+func popCandidate(buckets map[string][]protocol.FileInfo, key string) (protocol.FileInfo, bool) {
+	cands := buckets[key]
+	if len(cands) == 0 {
+		return protocol.FileInfo{}, false
+	}
+
+	buckets[key] = cands[1:]
+	return cands[0], true
 }
 
 func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
@@ -1861,31 +1867,52 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 
 	toBeDeleted := make([]string, 0, len(files))
 
-	hasIgnored := false
-	hasKnown := false
-	hasToBeScanned := false
+	var hasIgnored, hasKnown, hasToBeScanned, hasReceiveOnlyChanged bool
 
 	for _, dirFile := range files {
 		fullDirFile := filepath.Join(dir, dirFile)
-		if fs.IsTemporary(dirFile) || f.ignores.Match(fullDirFile).IsDeletable() {
+		switch {
+		case fs.IsTemporary(dirFile) || f.ignores.Match(fullDirFile).IsDeletable():
 			toBeDeleted = append(toBeDeleted, fullDirFile)
-		} else if f.ignores != nil && f.ignores.Match(fullDirFile).IsIgnored() {
+			continue
+		case f.ignores != nil && f.ignores.Match(fullDirFile).IsIgnored():
 			hasIgnored = true
-		} else if cf, ok := snap.Get(protocol.LocalDeviceID, fullDirFile); !ok || cf.IsDeleted() || cf.IsInvalid() {
-			// Something appeared in the dir that we either are not aware of
-			// at all, that we think should be deleted or that is invalid,
-			// but not currently ignored -> schedule scan. The scanChan
-			// might be nil, in which case we trust the scanning to be
-			// handled later as a result of our error return.
-			if scanChan != nil {
-				scanChan <- fullDirFile
-			}
-			hasToBeScanned = true
-		} else {
-			// Dir contains file that is valid according to db and
-			// not ignored -> something weird is going on
-			hasKnown = true
+			continue
 		}
+		cf, ok := snap.Get(protocol.LocalDeviceID, fullDirFile)
+		switch {
+		case !ok || cf.IsDeleted():
+			// Something appeared in the dir that we either are not
+			// aware of at all or that we think should be deleted
+			// -> schedule scan.
+			scanChan <- fullDirFile
+			hasToBeScanned = true
+			continue
+		case ok && f.Type == config.FolderTypeReceiveOnly && cf.IsReceiveOnlyChanged():
+			hasReceiveOnlyChanged = true
+			continue
+		}
+		info, err := f.fs.Lstat(fullDirFile)
+		var diskFile protocol.FileInfo
+		if err == nil {
+			diskFile, err = scanner.CreateFileInfo(info, fullDirFile, f.fs)
+		}
+		if err != nil {
+			// Lets just assume the file has changed.
+			scanChan <- fullDirFile
+			hasToBeScanned = true
+			continue
+		}
+		if !cf.IsEquivalentOptional(diskFile, f.ModTimeWindow(), f.IgnorePerms, true, protocol.LocalAllFlags) {
+			// File on disk changed compared to what we have in db
+			// -> schedule scan.
+			scanChan <- fullDirFile
+			hasToBeScanned = true
+			continue
+		}
+		// Dir contains file that is valid according to db and
+		// not ignored -> something weird is going on
+		hasKnown = true
 	}
 
 	if hasToBeScanned {
@@ -1893,6 +1920,9 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 	}
 	if hasIgnored {
 		return errDirHasIgnored
+	}
+	if hasReceiveOnlyChanged {
+		return errDirHasReceiveOnlyChanged
 	}
 	if hasKnown {
 		return errDirNotEmpty

@@ -48,7 +48,7 @@ func globalList(s *db.FileSet) []protocol.FileInfo {
 	var fs []protocol.FileInfo
 	snap := s.Snapshot()
 	defer snap.Release()
-	snap.WithGlobal(func(fi db.FileIntf) bool {
+	snap.WithGlobal(func(fi protocol.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		fs = append(fs, f)
 		return true
@@ -59,7 +59,7 @@ func globalListPrefixed(s *db.FileSet, prefix string) []db.FileInfoTruncated {
 	var fs []db.FileInfoTruncated
 	snap := s.Snapshot()
 	defer snap.Release()
-	snap.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
+	snap.WithPrefixedGlobalTruncated(prefix, func(fi protocol.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 		fs = append(fs, f)
 		return true
@@ -71,7 +71,7 @@ func haveList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
 	snap := s.Snapshot()
 	defer snap.Release()
-	snap.WithHave(n, func(fi db.FileIntf) bool {
+	snap.WithHave(n, func(fi protocol.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		fs = append(fs, f)
 		return true
@@ -83,7 +83,7 @@ func haveListPrefixed(s *db.FileSet, n protocol.DeviceID, prefix string) []db.Fi
 	var fs []db.FileInfoTruncated
 	snap := s.Snapshot()
 	defer snap.Release()
-	snap.WithPrefixedHaveTruncated(n, prefix, func(fi db.FileIntf) bool {
+	snap.WithPrefixedHaveTruncated(n, prefix, func(fi protocol.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 		fs = append(fs, f)
 		return true
@@ -95,7 +95,7 @@ func needList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
 	snap := s.Snapshot()
 	defer snap.Release()
-	snap.WithNeed(n, func(fi db.FileIntf) bool {
+	snap.WithNeed(n, func(fi protocol.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		fs = append(fs, f)
 		return true
@@ -484,11 +484,11 @@ func TestUpdateToInvalid(t *testing.T) {
 	f := db.NewBlockFinder(ldb)
 
 	localHave := fileList{
-		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
-		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
-		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(5), LocalFlags: protocol.FlagLocalIgnored},
-		protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7)},
-		protocol.FileInfo{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, LocalFlags: protocol.FlagLocalIgnored},
+		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1), Size: 1},
+		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2), Size: 1},
+		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(5), LocalFlags: protocol.FlagLocalIgnored, Size: 1},
+		protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7), Size: 1},
+		protocol.FileInfo{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, LocalFlags: protocol.FlagLocalIgnored, Size: 1},
 	}
 
 	replace(s, protocol.LocalDeviceID, localHave)
@@ -998,7 +998,7 @@ func TestWithHaveSequence(t *testing.T) {
 	i := 2
 	snap := s.Snapshot()
 	defer snap.Release()
-	snap.WithHaveSequence(int64(i), func(fi db.FileIntf) bool {
+	snap.WithHaveSequence(int64(i), func(fi protocol.FileIntf) bool {
 		if f := fi.(protocol.FileInfo); !f.IsEquivalent(localHave[i-1], 0) {
 			t.Fatalf("Got %v\nExpected %v", f, localHave[i-1])
 		}
@@ -1049,7 +1049,7 @@ loop:
 		default:
 		}
 		snap := s.Snapshot()
-		snap.WithHaveSequence(prevSeq+1, func(fi db.FileIntf) bool {
+		snap.WithHaveSequence(prevSeq+1, func(fi protocol.FileIntf) bool {
 			if fi.SequenceNo() < prevSeq+1 {
 				t.Fatal("Skipped ", prevSeq+1, fi.SequenceNo())
 			}
@@ -1527,8 +1527,8 @@ func TestSequenceIndex(t *testing.T) {
 
 	// Start a routine to walk the sequence index and inspect the result.
 
-	seen := make(map[string]db.FileIntf)
-	latest := make([]db.FileIntf, 0, len(local))
+	seen := make(map[string]protocol.FileIntf)
+	latest := make([]protocol.FileIntf, 0, len(local))
 	var seq int64
 	t0 := time.Now()
 
@@ -1539,7 +1539,7 @@ func TestSequenceIndex(t *testing.T) {
 		// update has happened since our last iteration.
 		latest = latest[:0]
 		snap := s.Snapshot()
-		snap.WithHaveSequence(seq+1, func(f db.FileIntf) bool {
+		snap.WithHaveSequence(seq+1, func(f protocol.FileIntf) bool {
 			seen[f.FileName()] = f
 			latest = append(latest, f)
 			seq = f.SequenceNo()
@@ -1612,6 +1612,62 @@ func TestIgnoreAfterReceiveOnly(t *testing.T) {
 		t.Error("File is still receive-only changed")
 	} else if !f.IsIgnored() {
 		t.Error("File is not ignored")
+	}
+}
+
+// https://github.com/syncthing/syncthing/issues/6650
+func TestUpdateWithOneFileTwice(t *testing.T) {
+	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
+
+	file := "foo"
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+
+	fs := fileList{{
+		Name:     file,
+		Version:  protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}},
+		Sequence: 1,
+	}}
+
+	s.Update(protocol.LocalDeviceID, fs)
+
+	fs = append(fs, fs[0])
+	for i := range fs {
+		fs[i].Sequence++
+		fs[i].Version = fs[i].Version.Update(myID)
+	}
+	fs[1].Sequence++
+	fs[1].Version = fs[1].Version.Update(myID)
+
+	s.Update(protocol.LocalDeviceID, fs)
+
+	snap := s.Snapshot()
+	defer snap.Release()
+	count := 0
+	snap.WithHaveSequence(0, func(f protocol.FileIntf) bool {
+		count++
+		return true
+	})
+	if count != 1 {
+		t.Error("Expected to have one file, got", count)
+	}
+}
+
+// https://github.com/syncthing/syncthing/issues/6668
+func TestNeedRemoteOnly(t *testing.T) {
+	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
+
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+
+	remote0Have := fileList{
+		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
+	}
+	s.Update(remoteDevice0, remote0Have)
+
+	need := needSize(s, remoteDevice0)
+	if !need.Equal(db.Counts{}) {
+		t.Error("Expected nothing needed, got", need)
 	}
 }
 
