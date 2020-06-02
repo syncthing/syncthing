@@ -335,7 +335,7 @@ func runCommand(cmd string, target target) {
 		fmt.Println(getVersion())
 
 	case "changelog":
-		vers, err := currentAndLatestVersions(8)
+		vers, err := currentAndLatestVersions(numVersions)
 		if err != nil {
 			log.Fatal(err)
 		}
