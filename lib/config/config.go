@@ -133,7 +133,7 @@ func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
 		cfg.Options.RawListenAddresses = []string{"default"}
 	} else {
 		cfg.Options.RawListenAddresses = []string{
-			fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
+			util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
 			"dynamic+https://relays.syncthing.net/endpoint",
 			util.Address("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
 		}
