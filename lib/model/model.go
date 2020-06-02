@@ -963,8 +963,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	// Also, collect a list of folders we do share, and if he's interested in
 	// temporary indexes, subscribe the connection.
 
-	tempIndexFolders := make([]string, 0, len(cm.Folders))
-
 	m.pmut.RLock()
 	conn, ok := m.conn[deviceID]
 	closed := m.closed[deviceID]
@@ -1004,7 +1002,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	if deviceCfg.AutoAcceptFolders {
 		changedFolders := make([]config.FolderConfiguration, 0, len(cm.Folders))
 		for _, folder := range cm.Folders {
-			if fcfg, fchanged := m.handleAutoAccepts(deviceCfg, folder, ccDevices, ccDevicesUs); fchanged {
+			if fcfg, fchanged := m.handleAutoAccepts(deviceID, folder, ccDevices, ccDevicesUs); fchanged {
 				changedFolders = append(changedFolders, fcfg)
 			}
 		}
@@ -1019,9 +1017,64 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	m.fmut.RLock()
-	var paused []string
+	changedHere, tempIndexFolders, paused, err := m.ccHandleFoldersLocked(cm.Folders, deviceCfg, ccDevices, ccDevicesUs, conn, closed)
+	m.fmut.RUnlock()
+	if err != nil {
+		return err
+	}
+	changed = changed || changedHere
+
+	m.pmut.Lock()
+	m.remotePausedFolders[deviceID] = paused
+	m.pmut.Unlock()
+
+	// This breaks if we send multiple CM messages during the same connection.
+	if len(tempIndexFolders) > 0 {
+		m.pmut.RLock()
+		conn, ok := m.conn[deviceID]
+		m.pmut.RUnlock()
+		// In case we've got ClusterConfig, and the connection disappeared
+		// from infront of our nose.
+		if ok {
+			m.progressEmitter.temporaryIndexSubscribe(conn, tempIndexFolders)
+		}
+	}
+
+	if deviceCfg.Introducer {
+		folders, devices, foldersDevices, introduced := m.handleIntroductions(deviceCfg, cm)
+		folders, devices, deintroduced := m.handleDeintroductions(deviceCfg, foldersDevices, folders, devices)
+		if introduced || deintroduced {
+			changed = true
+			cfg := m.cfg.RawCopy()
+			cfg.Folders = make([]config.FolderConfiguration, 0, len(folders))
+			for _, fcfg := range folders {
+				cfg.Folders = append(cfg.Folders, fcfg)
+			}
+			cfg.Devices = make([]config.DeviceConfiguration, len(devices))
+			for _, dcfg := range devices {
+				cfg.Devices = append(cfg.Devices, dcfg)
+			}
+			m.cfg.Replace(cfg)
+		}
+	}
+
+	if changed {
+		if err := m.cfg.Save(); err != nil {
+			l.Warnln("Failed to save config", err)
+		}
+	}
+
+	return nil
+}
+
+// requires read-lock on m.fmut
+func (m *model) ccHandleFoldersLocked(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDevices, ccDevicesUs map[string]protocol.Device, conn protocol.Connection, closed chan struct{}) (bool, []string, []string, error) {
+	var changed bool
 	var folderDevice config.FolderDeviceConfiguration
-	for _, folder := range cm.Folders {
+	tempIndexFolders := make([]string, 0, len(folders))
+	paused := make([]string, 0, len(folders))
+	deviceID := deviceCfg.DeviceID
+	for _, folder := range folders {
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if ok {
 			folderDevice, ok = cfg.Device(deviceID)
@@ -1073,7 +1126,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				l.Warnln(msg)
 			}
 
-			return err
+			return changed, tempIndexFolders, paused, err
 		}
 		if devErrs, ok := m.folderEncFailures[folder.ID]; ok {
 			if len(devErrs) == 1 {
@@ -1172,49 +1225,8 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		// implementing suture.IsCompletable).
 		m.Add(is)
 	}
-	m.fmut.RUnlock()
 
-	m.pmut.Lock()
-	m.remotePausedFolders[deviceID] = paused
-	m.pmut.Unlock()
-
-	// This breaks if we send multiple CM messages during the same connection.
-	if len(tempIndexFolders) > 0 {
-		m.pmut.RLock()
-		conn, ok := m.conn[deviceID]
-		m.pmut.RUnlock()
-		// In case we've got ClusterConfig, and the connection disappeared
-		// from infront of our nose.
-		if ok {
-			m.progressEmitter.temporaryIndexSubscribe(conn, tempIndexFolders)
-		}
-	}
-
-	if deviceCfg.Introducer {
-		folders, devices, foldersDevices, introduced := m.handleIntroductions(deviceCfg, cm)
-		folders, devices, deintroduced := m.handleDeintroductions(deviceCfg, foldersDevices, folders, devices)
-		if introduced || deintroduced {
-			changed = true
-			cfg := m.cfg.RawCopy()
-			cfg.Folders = make([]config.FolderConfiguration, 0, len(folders))
-			for _, fcfg := range folders {
-				cfg.Folders = append(cfg.Folders, fcfg)
-			}
-			cfg.Devices = make([]config.DeviceConfiguration, len(devices))
-			for _, dcfg := range devices {
-				cfg.Devices = append(cfg.Devices, dcfg)
-			}
-			m.cfg.Replace(cfg)
-		}
-	}
-
-	if changed {
-		if err := m.cfg.Save(); err != nil {
-			l.Warnln("Failed to save config", err)
-		}
-	}
-
-	return nil
+	return changed, tempIndexFolders, paused, nil
 }
 
 // requires fmut read-lock
@@ -1403,16 +1415,13 @@ func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
-func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder protocol.Folder, ccDevices, ccDevicesUs map[string]protocol.Device) (config.FolderConfiguration, bool) {
+func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDevices, ccDevicesUs map[string]protocol.Device) (config.FolderConfiguration, bool) {
 	ccDevice, hasDevice := ccDevices[folder.ID]
-	ccDeviceUs, hasDeviceUs := ccDevices[folder.ID]
+	ccDeviceUs, hasDeviceUs := ccDevicesUs[folder.ID]
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
 		if !hasDevice || !hasDeviceUs {
-			l.Infof("Failed to auto-accept folder %s from %s due to missing information on encryption from remote device", folder.Description(), deviceCfg.DeviceID)
+			l.Infof("Failed to auto-accept folder %s from %s due to missing information on encryption from remote device", folder.Description(), deviceID)
 			return config.FolderConfiguration{}, false
-		}
-		if len(ccDevice.EncPwToken) > 0 || len(ccDeviceUs.EncPwToken) > 0 {
-			l.Infof("Failed to auto-accept folder %s from %s due to encryption, which requires manual configuration.", folder.Description(), deviceCfg.DeviceID)
 		}
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
@@ -1427,40 +1436,44 @@ func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 
 			fcfg := config.NewFolderConfiguration(m.id, folder.ID, folder.Label, fs.FilesystemTypeBasic, filepath.Join(defaultPath, path))
 			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
-				DeviceID: deviceCfg.DeviceID,
+				DeviceID: deviceID,
 			})
 
-			l.Infof("Auto-accepted %s folder %s at path %s", deviceCfg.DeviceID, folder.Description(), fcfg.Path)
+			if len(ccDevice.EncPwToken) > 0 || len(ccDeviceUs.EncPwToken) > 0 {
+				fcfg.Type = config.FolderTypeEncrypted
+			}
+
+			l.Infof("Auto-accepted %s folder %s at path %s", deviceID, folder.Description(), fcfg.Path)
 			return fcfg, true
 		}
-		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceCfg.DeviceID)
+		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceID)
 		return config.FolderConfiguration{}, false
 	} else {
 		for _, device := range cfg.DeviceIDs() {
-			if device == deviceCfg.DeviceID {
+			if device == deviceID {
 				// Already shared nothing todo.
 				return config.FolderConfiguration{}, false
 			}
 		}
 		if !hasDevice || !hasDeviceUs {
-			l.Infof("Failed to auto-accept folder %s from %s due to missing information on encryption from remote device", folder.Description(), deviceCfg.DeviceID)
+			l.Infof("Failed to auto-accept folder %s from %s due to missing information on encryption from remote device", folder.Description(), deviceID)
 			return config.FolderConfiguration{}, false
 		}
 		if cfg.Type == config.FolderTypeEncrypted {
 			if len(ccDevice.EncPwToken) == 0 && len(ccDeviceUs.EncPwToken) == 0 {
-				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us un-encrypted data, but we are encrypted", folder.Description(), deviceCfg.DeviceID)
+				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us un-encrypted data, but we are encrypted", folder.Description(), deviceID)
 				return config.FolderConfiguration{}, false
 			}
 		} else {
 			if len(ccDevice.EncPwToken) > 0 || len(ccDeviceUs.EncPwToken) > 0 {
-				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us encrypted data, but we are not encrypted", folder.Description(), deviceCfg.DeviceID)
+				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us encrypted data, but we are not encrypted", folder.Description(), deviceID)
 				return config.FolderConfiguration{}, false
 			}
 		}
 		cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{
-			DeviceID: deviceCfg.DeviceID,
+			DeviceID: deviceID,
 		})
-		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
+		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceID)
 		return cfg, true
 	}
 }

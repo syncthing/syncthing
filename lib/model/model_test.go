@@ -136,11 +136,11 @@ func createClusterConfig(remote protocol.DeviceID, ids ...string) protocol.Clust
 	cc := protocol.ClusterConfig{
 		Folders: make([]protocol.Folder, len(ids)),
 	}
-	for _, id := range ids {
-		cc.Folders = append(cc.Folders, protocol.Folder{
+	for i, id := range ids {
+		cc.Folders[i] = protocol.Folder{
 			ID:    id,
 			Label: id,
-		})
+		}
 	}
 	return addFolderDevicesToClusterConfig(cc, remote)
 }
@@ -1311,6 +1311,113 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 
 	if _, ok := m.folderRunners[id]; ok {
 		t.Error("folder started")
+	}
+}
+
+func TestAutoAcceptEnc(t *testing.T) {
+	tcfg := defaultAutoAcceptCfg.Copy()
+	m := newState(tcfg)
+	defer cleanupModel(m)
+
+	id := srand.String(8)
+	defer os.RemoveAll(id)
+
+	token := []byte("token")
+	basicCC := func() protocol.ClusterConfig {
+		return protocol.ClusterConfig{
+			Folders: []protocol.Folder{{
+				ID:    id,
+				Label: id,
+			}}}
+	}
+
+	// Earlier tests might cause the connection to get closed, thus ClusterConfig
+	// would panic.
+	clusterConfig := func(deviceID protocol.DeviceID, cm protocol.ClusterConfig) {
+		m.AddConnection(&fakeConnection{id: deviceID, model: m}, protocol.HelloResult{})
+		m.ClusterConfig(deviceID, cm)
+	}
+
+	clusterConfig(device1, basicCC())
+	if _, ok := m.cfg.Folder(id); ok {
+		t.Fatal("unexpected added")
+	}
+	cc := basicCC()
+	cc.Folders[0].Devices = []protocol.Device{{ID: device1}}
+	clusterConfig(device1, cc)
+	if _, ok := m.cfg.Folder(id); ok {
+		t.Fatal("unexpected added")
+	}
+	cc = basicCC()
+	cc.Folders[0].Devices = []protocol.Device{{ID: myID}}
+	clusterConfig(device1, cc)
+	if _, ok := m.cfg.Folder(id); ok {
+		t.Fatal("unexpected added")
+	}
+
+	// New folder, enc -> add as enc
+
+	cc = createClusterConfig(device1, id)
+	cc.Folders[0].Devices[1].EncPwToken = token
+	clusterConfig(device1, cc)
+	if cfg, ok := m.cfg.Folder(id); !ok {
+		t.Fatal("unexpected unadded")
+	} else {
+		if !cfg.SharedWith(device1) {
+			t.Fatal("unexpected unshared")
+		}
+		if cfg.Type != config.FolderTypeEncrypted {
+			t.Fatal("Folder not added as encrypted")
+		}
+	}
+
+	// New device, unenc on enc folder -> reject
+
+	clusterConfig(device2, createClusterConfig(device2, id))
+	if cfg, _ := m.cfg.Folder(id); cfg.SharedWith(device2) {
+		t.Fatal("unexpected shared")
+	}
+
+	// New device, enc on enc folder -> share
+
+	cc = createClusterConfig(device2, id)
+	cc.Folders[0].Devices[1].EncPwToken = token
+	clusterConfig(device2, cc)
+	if cfg, _ := m.cfg.Folder(id); !cfg.SharedWith(device2) {
+		t.Fatal("unexpected unshared")
+	}
+
+	// New folder, no enc -> add "normal"
+
+	id = srand.String(8)
+	defer os.RemoveAll(id)
+
+	clusterConfig(device1, createClusterConfig(device1, id))
+	if cfg, ok := m.cfg.Folder(id); !ok {
+		t.Fatal("unexpected unadded")
+	} else {
+		if !cfg.SharedWith(device1) {
+			t.Fatal("unexpected unshared")
+		}
+		if cfg.Type != config.FolderTypeSendReceive {
+			t.Fatal("Folder not added as send-receive")
+		}
+	}
+
+	// New device, enc on unenc folder -> reject
+
+	cc = createClusterConfig(device2, id)
+	cc.Folders[0].Devices[1].EncPwToken = token
+	clusterConfig(device2, cc)
+	if cfg, _ := m.cfg.Folder(id); cfg.SharedWith(device2) {
+		t.Fatal("unexpected shared")
+	}
+
+	// New device, unenc on unenc folder -> share
+
+	clusterConfig(device2, createClusterConfig(device2, id))
+	if cfg, _ := m.cfg.Folder(id); !cfg.SharedWith(device2) {
+		t.Fatal("unexpected unshared")
 	}
 }
 
