@@ -603,7 +603,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 		uri, err := url.Parse(addr)
 		if err != nil {
-			l.Infof("Parsing listener address %s: %v", addr, err)
+			l.Warnf("Skipping malformed listener URL %q: %v", addr, err)
 			continue
 		}
 
@@ -614,7 +614,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 		// mean something entirely different to the computer (e.g.,
 		// tcp:/127.0.0.1:22000 in fact being equivalent to tcp://:22000).
 		if canonical := uri.String(); canonical != addr {
-			l.Warnf("Skipping malformed listener URL %q", addr)
+			l.Warnf("Skipping malformed listener URL %q (not canonical)", addr)
 			continue
 		}
 
