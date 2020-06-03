@@ -148,22 +148,26 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 	if version.commit != "" {
 		pkt.Tags = append(pkt.Tags, raven.Tag{Key: "commit", Value: version.commit})
 	}
+	for _, tag := range version.extra {
+		pkt.Tags = append(pkt.Tags, raven.Tag{Key: "extra", Value: tag})
+	}
 
 	return pkt, nil
 }
 
-// syncthing v1.1.4-rc.1+30-g6aaae618-dirty-crashrep "Erbium Earthworm" (go1.12.5 darwin-amd64) jb@kvin.kastelo.net 2019-05-23 16:08:14 UTC
-var longVersionRE = regexp.MustCompile(`syncthing\s+(v[^\s]+)\s+"([^"]+)"\s\(([^\s]+)\s+([^-]+)-([^)]+)\)\s+([^\s]+)`)
+// syncthing v1.1.4-rc.1+30-g6aaae618-dirty-crashrep "Erbium Earthworm" (go1.12.5 darwin-amd64) jb@kvin.kastelo.net 2019-05-23 16:08:14 UTC [foo, bar]
+var longVersionRE = regexp.MustCompile(`syncthing\s+(v[^\s]+)\s+"([^"]+)"\s\(([^\s]+)\s+([^-]+)-([^)]+)\)\s+([^\s]+)[^\[]*(?:\[(.+)\])?$`)
 
 type version struct {
-	version  string // "v1.1.4-rc.1+30-g6aaae618-dirty-crashrep"
-	tag      string // "v1.1.4-rc.1"
-	commit   string // "6aaae618", blank when absent
-	codename string // "Erbium Earthworm"
-	runtime  string // "go1.12.5"
-	goos     string // "darwin"
-	goarch   string // "amd64"
-	builder  string // "jb@kvin.kastelo.net"
+	version  string   // "v1.1.4-rc.1+30-g6aaae618-dirty-crashrep"
+	tag      string   // "v1.1.4-rc.1"
+	commit   string   // "6aaae618", blank when absent
+	codename string   // "Erbium Earthworm"
+	runtime  string   // "go1.12.5"
+	goos     string   // "darwin"
+	goarch   string   // "amd64"
+	builder  string   // "jb@kvin.kastelo.net"
+	extra    []string // "foo", "bar"
 }
 
 func (v version) environment() string {
@@ -193,6 +197,7 @@ func parseVersion(line string) (version, error) {
 		goarch:   m[5],
 		builder:  m[6],
 	}
+
 	parts := strings.Split(v.version, "+")
 	v.tag = parts[0]
 	if len(parts) > 1 {
@@ -200,6 +205,14 @@ func parseVersion(line string) (version, error) {
 		if len(fields) >= 2 && strings.HasPrefix(fields[1], "g") {
 			v.commit = fields[1][1:]
 		}
+	}
+
+	if len(m) >= 8 && m[7] != "" {
+		tags := strings.Split(m[7], ",")
+		for i := range tags {
+			tags[i] = strings.TrimSpace(tags[i])
+		}
+		v.extra = tags
 	}
 
 	return v, nil
