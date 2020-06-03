@@ -149,7 +149,7 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 		pkt.Tags = append(pkt.Tags, raven.Tag{Key: "commit", Value: version.commit})
 	}
 	for _, tag := range version.extra {
-		pkt.Tags = append(pkt.Tags, raven.Tag{Key: "extra", Value: tag})
+		pkt.Tags = append(pkt.Tags, raven.Tag{Key: tag, Value: "1"})
 	}
 
 	return pkt, nil
