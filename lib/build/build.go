@@ -89,7 +89,7 @@ func LongVersionFor(program string) string {
 	date := Date.UTC().Format("2006-01-02 15:04:05 MST")
 	v := fmt.Sprintf(`%s %s "%s" (%s %s-%s) %s@%s %s`, program, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, User, Host, date)
 	for _, envVar := range envTags {
-		if v := os.Getenv(envVar); v != "" {
+		if os.Getenv(envVar) != "" {
 			Tags = append(Tags, strings.ToLower(envVar))
 		}
 	}
