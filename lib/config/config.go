@@ -244,6 +244,10 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 
 	cfg.MyID = myID
 
+	if len(cfg.Options.ScheduledRates.Entries) > 1 {
+		cfg.Options.ScheduledRates.Entries = cfg.Options.ScheduledRates.Entries[1:2]
+	}
+
 	// Ensure this device is present in the config
 	for _, device := range cfg.Devices {
 		if device.DeviceID == myID {
