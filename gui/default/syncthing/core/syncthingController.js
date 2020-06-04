@@ -60,9 +60,6 @@ angular.module('syncthing.core')
 
         $scope.folderDefaults = {
             devices: [],
-            sharedDevices: {},
-            selectedDevices: {},
-            unrelatedDevices: {},
             type: "sendreceive",
             rescanIntervalS: 3600,
             fsWatcherDelayS: 10,
@@ -1722,9 +1719,13 @@ angular.module('syncthing.core')
             var devMap = deviceMap($scope.devices)
             $scope.currentFolder.sharedDevices = [];
             $scope.currentFolder.selectedDevices = {};
+            $scope.currentFolder.encPWs = {};
             $scope.currentFolder.devices.forEach(function (n) {
                 if (n.deviceID !== $scope.myID) {
                     $scope.currentFolder.sharedDevices.push(devMap[n.deviceID]);
+                }
+                if (n.encryptionPassword !== '') {
+                    $scope.currentFolder.encPWs[n.deviceID] = n.encryptionPassword;
                 }
                 $scope.currentFolder.selectedDevices[n.deviceID] = true;
             });
@@ -1838,15 +1839,25 @@ angular.module('syncthing.core')
             var newDevices = [];
             folderCfg.devices.forEach(function (dev) {
                 if (folderCfg.selectedDevices[dev.deviceID] === true) {
+                    if (folderCfg.encPWs[dev.deviceID]) {
+                        dev.encryptionPassword = folderCfg.encPWs[dev.deviceID];
+                    }
                     newDevices.push(dev);
                     delete folderCfg.selectedDevices[dev.deviceID];
                 };
             });
             for (var deviceID in folderCfg.selectedDevices) {
                 if (folderCfg.selectedDevices[deviceID] === true) {
-                    newDevices.push({
-                        deviceID: deviceID
-                    });
+                    var dev = {deviceID: deviceID};
+                    if (folderCfg.encPWs[dev.deviceID]) {
+                        dev.encryptionPassword = folderCfg.encPWs[dev.deviceID];
+                    }
+                    newDevices.push(dev);
+                }
+            }
+            for (var k in folderCfg.encPWs) {
+                if (folderCfg.encPWs[k] !== '') {
+                    continue
                 }
             }
             folderCfg.devices = newDevices;
