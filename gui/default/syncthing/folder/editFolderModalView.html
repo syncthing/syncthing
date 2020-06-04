@@ -234,7 +234,7 @@
                 <div class="col-md-6 form-group">
                   <label translate>Permissions</label><br />
                   <input type="checkbox" ng-model="currentFolder.ignorePerms" /> <span translate>Ignore</span>
-                  <p translate class="help-block">Access permissions are ignored when looking for changes. Useful on systems without (e.g. FAT) or incompatible permissions (e.g. synology).</p>
+                  <p translate class="help-block">File permissions are ignored when looking for changes. Use on systems with non-standard permissions (e.g. FAT, synology).</p>
                   <p class="col-xs-12 help-block" ng-show="folderEditor.minDiskFree.$invalid">
                     <span translate>Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.</span>
                   </p>
