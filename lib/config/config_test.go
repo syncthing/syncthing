@@ -46,7 +46,7 @@ func TestDefaultValues(t *testing.T) {
 		MaxSendKbps:             0,
 		MaxRecvKbps:             0,
 		ScheduledRatesEnabled:   false,
-		ScheduledRates:          Schedule{[]ScheduleEntry{ScheduleEntry{0, 0, 0, 23, 59, 0, 100, 100}}},
+		ScheduledRates:          Schedule{[]ScheduleEntry{{0, 0, 0, 23, 59, 0, 100, 100}}},
 		ReconnectIntervalS:      60,
 		RelaysEnabled:           true,
 		RelayReconnectIntervalM: 10,
@@ -199,7 +199,7 @@ func TestOverriddenValues(t *testing.T) {
 		MaxSendKbps:             1234,
 		MaxRecvKbps:             2341,
 		ScheduledRatesEnabled:   true,
-		ScheduledRates:          Schedule{[]ScheduleEntry{ScheduleEntry{6, 15, 0, 12, 30, 0, 500, 800}}},
+		ScheduledRates:          Schedule{[]ScheduleEntry{{6, 15, 0, 12, 30, 0, 500, 800}}},
 		ReconnectIntervalS:      6000,
 		RelaysEnabled:           false,
 		RelayReconnectIntervalM: 20,
@@ -751,7 +751,7 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		// config to start with...
 		{
 			{"tcp://0.0.0.0:22000"}, // old listen addrs
-			{""}, // old relay addrs
+			{""},                    // old relay addrs
 			{"tcp://0.0.0.0:22000"}, // new listen addrs
 		},
 		// Default listen plus non-default relays gets copied verbatim
