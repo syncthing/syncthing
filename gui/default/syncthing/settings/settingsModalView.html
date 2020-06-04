@@ -277,25 +277,25 @@
               <div class="col-md-2">
                 <div class="form-group">
                   <label class="small" translate for="ScheduledRatesFromHour">From (Hour)</label>
-                  <input id="ScheduledRatesFromHour" name="ScheduledRatesFromHour" class="form-control" type="number" ng-model="tmpOptions.scheduledRatesFromHour" min="0" max="23"/>
+                  <input id="ScheduledRatesFromHour" name="ScheduledRatesFromHour" class="form-control" type="number" ng-model="tmpOptions.scheduledRates.entry[0].startHour" min="0" max="23"/>
                 </div>
               </div>
               <div class="col-md-2">
                 <div class="form-group">
                   <label class="small" translate for="ScheduledRatesFromMinute">From (Minute)</label>
-                  <input id="ScheduledRatesFromMinute" name="ScheduledRatesFromMinute" class="form-control" type="number" ng-model="tmpOptions.scheduledRatesFromMinute" min="0" max="59"/>
+                  <input id="ScheduledRatesFromMinute" name="ScheduledRatesFromMinute" class="form-control" type="number" ng-model="tmpOptions.scheduledRates.entry[0].startMinute" min="0" max="59"/>
                 </div>
               </div>
               <div class="col-md-2">
                 <div class="form-group">
                   <label class="small" translate for="ScheduledRatesToHour">To (Hour)</label>
-                  <input id="ScheduledRatesToHour" name="ScheduledRatesToHour" class="form-control" type="number" ng-model="tmpOptions.scheduledRatesToHour" min="0" max="23"/>
+                  <input id="ScheduledRatesToHour" name="ScheduledRatesToHour" class="form-control" type="number" ng-model="tmpOptions.scheduledRates.entry[0].endHour" min="0" max="23"/>
                 </div>
               </div>
               <div class="col-md-2">
                 <div class="form-group">
                   <label class="small" translate for="ScheduledRatesToMinute">To (Minute)</label>
-                  <input id="ScheduledRatesToMinute" name="ScheduledRatesToMinute" class="form-control" type="number" ng-model="tmpOptions.scheduledRatesToMinute" min="0" max="59"/>
+                  <input id="ScheduledRatesToMinute" name="ScheduledRatesToMinute" class="form-control" type="number" ng-model="tmpOptions.scheduledRates.entry[0].endMinute" min="0" max="59"/>
                 </div>
               </div>
             </div>
@@ -303,23 +303,23 @@
           <div ng-if="tmpOptions.scheduledRatesEnabled">
             <div class="row">
               <div class="col-md-6">
-                <div class="form-group" ng-class="{'has-error': settingsEditor.MaxRecvKbps.$invalid && settingsEditor.MaxRecvKbps.$dirty}">
-                  <label translate for="MaxScheduledRecvKbps">Scheduled Rate Limit (KiB/s)</label>
-                  <input id="MaxScheduledRecvKbps" name="MaxScheduledRecvKbps" class="form-control" type="number" ng-model="tmpOptions.maxScheduledRecvKbps" min="0" />
+                <div class="form-group" ng-class="{'has-error': settingsEditor.MaxScheduledRecvKbps.$invalid && settingsEditor.MaxScheduledRecvKbps.$dirty}">
+                  <label translate for="MaxScheduledRecvKbps">Scheduled Incoming Rate Limit (KiB/s)</label>
+                  <input id="MaxScheduledRecvKbps" name="MaxScheduledRecvKbps" class="form-control" type="number" ng-model="tmpOptions.scheduledRates.entry[0].maxRecvKbps" min="0" />
                   <p class="help-block">
                     <span translate ng-if="settingsEditor.MaxScheduledRecvKbps.$error.min && settingsEditor.MaxScheduledRecvKbps.$dirty">The rate limit must be a non-negative number (0: no limit)</span>
                   </p>
                 </div>
               </div>
               <div class="col-md-6">
-                <div class="form-group" ng-class="{'has-error': settingsEditor.MaxSendKbps.$invalid && settingsEditor.MaxSendKbps.$dirty}">
+                <div class="form-group" ng-class="{'has-error': settingsEditor.MaxScheduledSendKbps.$invalid && settingsEditor.MaxScheduledSendKbps.$dirty}">
                   <label translate for="MaxScheduledSendKbps">Scheduled Outgoing Rate Limit (KiB/s)</label>
-                  <input id="MaxScheduledSendKbps" name="MaxScheduledSendKbps" class="form-control" type="number" ng-model="tmpOptions.maxScheduledSendKbps" min="0" />
+                  <input id="MaxScheduledSendKbps" name="MaxScheduledSendKbps" class="form-control" type="number" ng-model="tmpOptions.scheduledRates.entry[0].maxSendKbps" min="0" />
                   <p class="help-block">
                     <span translate ng-if="settingsEditor.MaxScheduledSendKbps.$error.min && settingsEditor.MaxScheduledSendKbps.$dirty">The rate limit must be a non-negative number (0: no limit)</span>
                   </p>
                 </div>
-              </div>
+              </div> 
             </div>
           </div>
         </div>

@@ -184,7 +184,7 @@ func (lim *limiter) changeLimits(sendLimitValue, recvLimitValue int) {
 	l.Infof("Overall send rate %s, receive rate %s", sendLimitStr, recvLimitStr)
 }
 
-func (lim *limiter) timerLoop(timer *time.Timer, opt config.OptionsConfiguration, status bool) {
+func (lim *limiter) timerLoop(timer *time.Timer, opt config.ScheduleEntry, status bool, normalMaxSendKbps, normalMaxRecvKbps int) {
 	nextStatus := status
 	var waitTime time.Duration
 
@@ -193,12 +193,12 @@ func (lim *limiter) timerLoop(timer *time.Timer, opt config.OptionsConfiguration
 		defer lim.mu.Unlock()
 
 		if nextStatus {
-			lim.changeLimits(opt.MaxScheduledSendKbps, opt.MaxScheduledRecvKbps)
-		} else {
 			lim.changeLimits(opt.MaxSendKbps, opt.MaxRecvKbps)
+		} else {
+			lim.changeLimits(normalMaxSendKbps, normalMaxRecvKbps)
 		}
 
-		nextStatus, waitTime = nextChange(opt.ScheduledRatesFromHour, opt.ScheduledRatesFromMinute, opt.ScheduledRatesToHour, opt.ScheduledRatesToMinute)
+		nextStatus, waitTime = nextChange(opt.StartHour, opt.StartMinute, opt.EndHour, opt.EndMinute)
 		timer.Reset(waitTime)
 	}
 }
@@ -226,10 +226,15 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	if to.Options.ScheduledRatesEnabled {
-		opt := to.Options
-		status, waitTime := nextChange(opt.ScheduledRatesFromHour, opt.ScheduledRatesFromMinute, opt.ScheduledRatesToHour, opt.ScheduledRatesToMinute)
+		opt := to.Options.ScheduledRates.Entries[0]
+		status, waitTime := nextChange(opt.StartHour, opt.StartMinute, opt.EndHour, opt.EndMinute)
+		if status {
+			lim.changeLimits(to.Options.MaxSendKbps, to.Options.MaxRecvKbps)
+		} else {
+			lim.changeLimits(opt.MaxSendKbps, opt.MaxRecvKbps)
+		}
 		lim.timer = time.NewTimer(waitTime)
-		go lim.timerLoop(lim.timer, opt, status)
+		go lim.timerLoop(lim.timer, opt, status, to.Options.MaxSendKbps, to.Options.MaxRecvKbps)
 	} else {
 		lim.changeLimits(to.Options.MaxSendKbps, to.Options.MaxRecvKbps)
 	}
