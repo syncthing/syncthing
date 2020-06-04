@@ -55,7 +55,7 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 		res[protocol.DeviceIDFromBytes(deviceID)] = od
 		continue
 	deleteKey:
-		l.Warnf("Invalid pending device entry, deleting from database: %x", iter.Key())
+		l.Infof("Invalid pending device entry, deleting from database: %x", iter.Key())
 		if err := db.Delete(iter.Key()); err != nil {
 			return nil, err
 		}
@@ -147,7 +147,7 @@ func (db *Lowlevel) collectPendingFolder(key []byte, device protocol.DeviceID, r
 // That's the only possible "repair" measure and appropriate for the importance of pending
 // entries.  They will come back soon if still relevant.
 func (db *Lowlevel) deleteInvalidPendingFolder(key []byte) error {
-	l.Warnf("Invalid pending folder entry, deleting from database: %x", key)
+	l.Infof("Invalid pending folder entry, deleting from database: %x", key)
 	err := db.Delete(key)
 	return err
 }
@@ -188,7 +188,7 @@ func (dl DropListObserved) shouldDropPendingDevice(key []byte, keyer keyer) bool
 	//FIXME: DeviceIDFromBytes() panics when given a wrong length input.
 	//       It should rather return an error which we'd check for here.
 	if len(keyDev) != protocol.DeviceIDLength {
-		l.Warnf("Invalid pending device entry, deleting from database: %x", key)
+		l.Infof("Invalid pending device entry, deleting from database: %x", key)
 		return true
 	}
 	// Valid entries are looked up in the drop-list, invalid ones cleaned up
@@ -205,7 +205,7 @@ func (dl DropListObserved) shouldDropPendingDevice(key []byte, keyer keyer) bool
 func (dl DropListObserved) shouldDropPendingFolder(key []byte, keyer keyer) bool {
 	keyDev, ok := keyer.DeviceFromPendingFolderKey(key)
 	if !ok {
-		l.Warnf("Invalid pending folder entry, deleting from database: %x", key)
+		l.Infof("Invalid pending folder entry, deleting from database: %x", key)
 		return true
 	}
 	// Valid entries are looked up in the drop-list, invalid ones cleaned up
@@ -233,7 +233,7 @@ func (dl DropListObserved) shouldDropPendingFolder(key []byte, keyer keyer) bool
 func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
-		l.Warnf("Could not iterate through pending device entries for cleanup: %v", err)
+		l.Infof("Could not iterate through pending device entries for cleanup: %v", err)
 		return
 	}
 	defer iter.Release()
@@ -251,7 +251,7 @@ func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) {
 func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {
-		l.Warnf("Could not iterate through pending folder entries for cleanup: %v", err)
+		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
 		return
 	}
 	defer iter.Release()
