@@ -244,8 +244,8 @@ func (s *service) serve(ctx context.Context) {
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
-	getRestMux.HandleFunc("/rest/cluster/pendingDevices", s.getPendingDevices)   // -
-	getRestMux.HandleFunc("/rest/cluster/pendingFolders", s.getPendingFolders)   // [device]
+	getRestMux.HandleFunc("/rest/cluster/pendingdevices", s.getPendingDevices)   // -
+	getRestMux.HandleFunc("/rest/cluster/pendingfolders", s.getPendingFolders)   // [device]
 	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // device folder
 	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
