@@ -177,7 +177,8 @@ var (
 	errIgnoredFolderRemoved = errors.New("folder no longer ignored")
 	errReplacingConnection  = errors.New("replacing connection")
 	errStopped              = errors.New("Syncthing is being stopped")
-	errEncBoth              = errors.New("both folder and connection configured to be encrypted")
+	errEncInvConfigLocal    = errors.New("can't encrypt data for a device when the folder type is vault")
+	errEncInvConfigRemote   = errors.New("remote has encrypted data and encrypts that data for us - this is impossible")
 	errEncNotEncryptedUs    = errors.New("folder is announced as encrypted, but not configured thus")
 	errEncNotEncrypted      = errors.New("folder is configured to be encrypted but not announced thus")
 	errEncPW                = errors.New("different passwords used")
@@ -1241,9 +1242,13 @@ func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderD
 		return nil
 	}
 
-	if (isEncDev && isEncUs) || (hasTokenDev && hasTokenUs) {
+	if isEncDev && isEncUs {
 		// Should never happen, but config racyness and be safe.
-		return errEncBoth
+		return errEncInvConfigLocal
+	}
+
+	if hasTokenDev && hasTokenUs {
+		return errEncInvConfigRemote
 	}
 
 	if !(hasTokenDev || hasTokenUs) {

@@ -3855,12 +3855,12 @@ func TestCcCheckEncryption(t *testing.T) {
 		{
 			tokenThem:   token,
 			tokenUs:     token,
-			expectedErr: errEncBoth,
+			expectedErr: errEncInvConfigRemote,
 		},
 		{
 			isEncThem:   true,
 			isEncUs:     true,
-			expectedErr: errEncBoth,
+			expectedErr: errEncInvConfigLocal,
 		},
 		{
 			tokenThem:   token,
