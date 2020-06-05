@@ -24,8 +24,6 @@ type OptionsConfiguration struct {
 	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027" restart:"true"`
 	MaxSendKbps             int      `xml:"maxSendKbps" json:"maxSendKbps"`
 	MaxRecvKbps             int      `xml:"maxRecvKbps" json:"maxRecvKbps"`
-	ScheduledRatesEnabled   bool     `xml:"scheduledRatesEnabled" json:"scheduledRatesEnabled" default:"false"`
-	ScheduledRates          Schedule `xml:"scheduledRates" json:"scheduledRates" default:"0:0-23:59 100 100"`
 	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
 	RelaysEnabled           bool     `xml:"relaysEnabled" json:"relaysEnabled" default:"true"`
 	RelayReconnectIntervalM int      `xml:"relayReconnectIntervalM" json:"relayReconnectIntervalM" default:"10"`

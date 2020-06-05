@@ -83,3 +83,15 @@ func (s *Schedule) ParseDefault(str string) error {
 	*s = sz
 	return err
 }
+
+func (s Schedule) IsEnabled() bool {
+	return len(s.Entries) > 0
+}
+
+func (s Schedule) Enable() {
+	s.Entries = []ScheduleEntry{{}}
+}
+
+func (s Schedule) Disable() {
+	s.Entries = nil
+}

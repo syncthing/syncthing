@@ -10,19 +10,6 @@
         <parallelRequests>32</parallelRequests>
         <maxSendKbps>1234</maxSendKbps>
         <maxRecvKbps>2341</maxRecvKbps>
-        <scheduledRatesEnabled>true</scheduledRatesEnabled>
-        <scheduledRates>
-            <entry>
-                <startHour>6</startHour>
-                <startMinute>15</startMinute>
-                <startDay>0</startDay>
-                <endHour>12</endHour>
-                <endMinute>30</endMinute>
-                <endDay>0</endDay>
-                <maxSendKbps>500</maxSendKbps>
-                <maxRecvKbps>800</maxRecvKbps>
-            </entry>
-        </scheduledRates>
         <reconnectionIntervalS>6000</reconnectionIntervalS>
         <relaysEnabled>false</relaysEnabled>
         <relayReconnectIntervalM>20</relayReconnectIntervalM>

@@ -1233,6 +1233,7 @@ angular.module('syncthing.core')
             $scope.tmpGUI = angular.copy($scope.config.gui);
             $scope.tmpRemoteIgnoredDevices = angular.copy($scope.config.remoteIgnoredDevices);
             $scope.tmpDevices = angular.copy($scope.config.devices);
+            $scope.tmpScheduledRates = angular.copy($scope.config.scheduledRates);
             $('#settings').modal("show");
             $("#settings a[href='#settings-general']").tab("show");
             $("#settings").on('hide.bs.modal', function (event) {
@@ -1274,6 +1275,34 @@ angular.module('syncthing.core')
             return result;
         };
 
+        $scope.switchScheduledRates = function () {
+            if ($scope.tmpScheduledRates.entry != null && $scope.tmpScheduledRates.entry.length > 0) {
+                $scope.tmpScheduledRates.entry = [];
+                return
+            } 
+            
+            $scope.tmpScheduledRates = {
+                entry: [{
+                    startHour: 0,
+                    startMinute: 0,
+                    startDay: 0,
+                    endHour: 23,
+                    endMinute: 59,
+                    endDay: 0,
+                    maxRecvKbps: 100,
+                    maxSendKbps: 100
+                }]
+            };
+        };
+
+        $scope.isScheduledRatesEnabled = function () {
+            if ($scope.tmpScheduledRates != null && $scope.tmpScheduledRates.entry != null && $scope.tmpScheduledRates.entry.length > 0) {
+                return true
+            }
+
+            return false
+        };
+
         $scope.settingsModified = function () {
             // Options has artificial properties injected into the temp config.
             // Need to recompute them before we can check equality
@@ -1290,8 +1319,9 @@ angular.module('syncthing.core')
             var guiEquals = angular.equals($scope.config.gui, $scope.tmpGUI);
             var ignoredDevicesEquals = angular.equals($scope.config.remoteIgnoredDevices, $scope.tmpRemoteIgnoredDevices);
             var ignoredFoldersEquals = angular.equals($scope.config.devices, $scope.tmpDevices);
-            console.log("settings equals - options: " + optionsEqual + " gui: " + guiEquals + " ignDev: " + ignoredDevicesEquals + " ignFol: " + ignoredFoldersEquals);
-            return !optionsEqual || !guiEquals || !ignoredDevicesEquals || !ignoredFoldersEquals;
+            var scheduledRatesEquals = angular.equals($scope.config.scheduledRates, $scope.tmpScheduledRates);
+            console.log("settings equals - options: " + optionsEqual + " gui: " + guiEquals + " ignDev: " + ignoredDevicesEquals + " ignFol: " + ignoredFoldersEquals + " scheduledRates: " + scheduledRatesEquals);
+            return !optionsEqual || !guiEquals || !ignoredDevicesEquals || !ignoredFoldersEquals || !scheduledRatesEquals;
         };
 
         $scope.saveSettings = function () {
@@ -1334,6 +1364,7 @@ angular.module('syncthing.core')
                 $scope.config.gui = angular.copy($scope.tmpGUI);
                 $scope.config.remoteIgnoredDevices = angular.copy($scope.tmpRemoteIgnoredDevices);
                 $scope.config.devices = angular.copy($scope.tmpDevices);
+                $scope.config.scheduledRates = angular.copy($scope.tmpScheduledRates);
                 // $scope.devices is updated by updateLocalConfig based on
                 // the config changed event, but settingsModified will look
                 // at it before that and conclude that the settings are

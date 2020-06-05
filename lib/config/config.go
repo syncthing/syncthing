@@ -195,6 +195,7 @@ type Configuration struct {
 	IgnoredDevices []ObservedDevice      `xml:"remoteIgnoredDevice" json:"remoteIgnoredDevices"`
 	PendingDevices []ObservedDevice      `xml:"pendingDevice" json:"pendingDevices"`
 	XMLName        xml.Name              `xml:"configuration" json:"-"`
+	ScheduledRates Schedule              `xml:"scheduledRates" json:"scheduledRates"`
 
 	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
 	OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
@@ -243,10 +244,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 	var myName string
 
 	cfg.MyID = myID
-
-	if len(cfg.Options.ScheduledRates.Entries) > 1 {
-		cfg.Options.ScheduledRates.Entries = cfg.Options.ScheduledRates.Entries[1:2]
-	}
 
 	// Ensure this device is present in the config
 	for _, device := range cfg.Devices {
