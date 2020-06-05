@@ -151,7 +151,11 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 			case protocol.ConnectRequest:
 				requestedPeer, err := syncthingprotocol.DeviceIDFromBytes(msg.ID)
 				if err != nil {
-					panic(err)
+					if debug {
+						log.Println(id, "is looking for an invalid peer ID")
+					}
+					conn.Close()
+					continue
 				}
 				outboxesMut.RLock()
 				peerOutbox, ok := outboxes[requestedPeer]
