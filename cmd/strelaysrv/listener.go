@@ -154,6 +154,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 					if debug {
 						log.Println(id, "is looking for an invalid peer ID")
 					}
+					protocol.WriteMessage(conn, protocol.ResponseNotFound)
 					conn.Close()
 					continue
 				}
