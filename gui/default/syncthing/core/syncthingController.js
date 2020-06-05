@@ -682,6 +682,14 @@ angular.module('syncthing.core')
             });
         };
 
+        function initCurrentFolder(folder) {
+            $scope.currentFolder = angular.copy(folder);
+            $scope.currentFolder.sharedDevices = [];
+            $scope.currentFolder.unrelatedDevices = [];
+            $scope.currentFolder.selectedDevices = {};
+            $scope.currentFolder.encPWs = {};
+        };
+
         $scope.refreshFailed = function (page, perpage) {
             if (!$scope.failed || !$scope.failed.folder) {
                 return;
@@ -1727,16 +1735,12 @@ angular.module('syncthing.core')
 
         $scope.editFolder = function (folderCfg) {
             $scope.editingExisting = true;
-            $scope.currentFolder = angular.copy(folderCfg);
+            initCurrentFolder(folderCfg);
             if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
             }
             // Cache complete device objects indexed by ID for lookups
             var devMap = deviceMap($scope.devices)
-            $scope.currentFolder.sharedDevices = [];
-            $scope.currentFolder.unrelatedDevices = [];
-            $scope.currentFolder.selectedDevices = {};
-            $scope.currentFolder.encPWs = {};
             $scope.currentFolder.devices.forEach(function (n) {
                 if (n.deviceID !== $scope.myID) {
                     $scope.currentFolder.sharedDevices.push(devMap[n.deviceID]);
@@ -1817,7 +1821,7 @@ angular.module('syncthing.core')
         $scope.addFolder = function () {
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.editingExisting = false;
-                $scope.currentFolder = angular.copy($scope.folderDefaults);
+                initCurrentFolder($scope.folderDefaults);
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $scope.currentFolder.unrelatedDevices = $scope.otherDevices();
                 $('#folder-ignores textarea').val("");
@@ -1828,7 +1832,7 @@ angular.module('syncthing.core')
 
         $scope.addFolderAndShare = function (folder, folderLabel, device) {
             $scope.editingExisting = false;
-            $scope.currentFolder = angular.copy($scope.folderDefaults);
+            initCurrentFolder($scope.folderDefaults);
             $scope.currentFolder.id = folder;
             $scope.currentFolder.label = folderLabel;
             $scope.currentFolder.viewFlags = {
