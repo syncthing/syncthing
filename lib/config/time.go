@@ -78,12 +78,12 @@ func (s Schedule) String() string {
 		s.Entries[0].EndHour, s.Entries[0].EndMinute, s.Entries[0].MaxSendKbps, s.Entries[0].MaxRecvKbps)
 }
 
+func (s Schedule) IsEnabled() bool {
+	return len(s.Entries) > 0
+}
+
 func (s *Schedule) ParseDefault(str string) error {
 	sz, err := ParseSchedule(str)
 	*s = sz
 	return err
-}
-
-func (s Schedule) IsEnabled() bool {
-	return len(s.Entries) > 0
 }
