@@ -7,7 +7,6 @@
 package fs
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -251,22 +250,4 @@ func Canonicalize(file string) (string, error) {
 	}
 
 	return file, nil
-}
-
-func ReadFile(fs Filesystem, name string) ([]byte, error) {
-	fd, err := fs.Open(name)
-	if err != nil {
-		return nil, err
-	}
-	defer fd.Close()
-	stat, err := fd.Stat()
-	if err != nil {
-		return nil, err
-	}
-	buf := bytes.NewBuffer(make([]byte, 0, stat.Size()))
-	_, err = buf.ReadFrom(fd)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
 }

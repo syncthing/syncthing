@@ -344,7 +344,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	ffs := fset.MtimeFS()
 
 	if cfg.Type == config.FolderTypeVault {
-		if encToken, err := fs.ReadFile(ffs, encTokenPath(cfg)); err == nil {
+		if encToken, err := readEncToken(cfg); err == nil {
 			m.folderEncPwTokens[folder] = encToken
 		} else if !fs.IsNotExist(err) {
 			l.Warnf("Failed to read encryption token: %v", err)
@@ -1286,21 +1286,12 @@ func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderD
 	token, ok := m.folderEncPwTokens[fcfg.ID]
 	if !ok {
 		var err error
-		ffs := fcfg.Filesystem()
-		token, err = fs.ReadFile(ffs, encTokenPath(fcfg))
+		token, err := readEncToken(fcfg)
 		if err != nil && !fs.IsNotExist(err) {
 			return err
 		}
 		if fs.IsNotExist(err) {
-			tokenName := encTokenPath(fcfg)
-			fd, err := ffs.OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666)
-			if err != nil {
-				return err
-			}
-			if _, err := fd.Write(ccToken); err != nil {
-				return err
-			}
-			return nil
+			return writeEncToken(token, fcfg)
 		}
 	}
 	if !bytes.Equal(token, ccToken) {
@@ -2913,4 +2904,35 @@ func sanitizePath(path string) string {
 
 func encTokenPath(cfg config.FolderConfiguration) string {
 	return filepath.Join(cfg.MarkerName, "syncthing-enc_pw_token")
+}
+
+type storedEncToken struct {
+	folderID string
+	token    []byte
+}
+
+func readEncToken(cfg config.FolderConfiguration) ([]byte, error) {
+	fd, err := cfg.Filesystem().Open(encTokenPath(cfg))
+	if err != nil {
+		return nil, err
+	}
+	defer fd.Close()
+	var stored storedEncToken
+	if err := json.NewDecoder(fd).Decode(&stored); err != nil {
+		return nil, err
+	}
+	return stored.token, nil
+}
+
+func writeEncToken(token []byte, cfg config.FolderConfiguration) error {
+	tokenName := encTokenPath(cfg)
+	fd, err := cfg.Filesystem().OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+	return json.NewEncoder(fd).Encode(storedEncToken{
+		folderID: cfg.ID,
+		token:    token,
+	})
 }
