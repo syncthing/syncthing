@@ -10,7 +10,7 @@
       <span ng-switch-when='true' class="fas fa-fw fa-unlock" />
       <span ng-switch-when='false' class="fas fa-fw fa-lock" />
     </span>
-    <span ng-switch="currentFolder.type === 'encrypted'">
+    <span ng-switch="currentFolder.type === 'vault'">
       <span ng-switch-when='true'>
         <input class="form-control input-sm" type="password" placeholder="{{'folder is encrypted' | translate}}" disabled />
       </span>

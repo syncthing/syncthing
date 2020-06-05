@@ -308,7 +308,7 @@
                   <span ng-if="folder.type == 'sendreceive'" class="fas fa-fw fa-folder"></span>
                   <span ng-if="folder.type == 'sendonly'" class="fas fa-fw fa-upload"></span>
                   <span ng-if="folder.type == 'receiveonly'" class="fas fa-fw fa-download"></span>
-                  <span ng-if="folder.type == 'encrypted'" class="fas fa-fw fa-lock"></span>
+                  <span ng-if="folder.type == 'vault'" class="fas fa-fw fa-lock"></span>
                 </div>
                 <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs" aria-label="{{'Paused' | translate}}"><i class="fas fa-fw fa-pause"></i></span></span>
@@ -414,7 +414,7 @@
                       <td class="text-right">
                         <span ng-if="folder.type == 'sendonly'" translate>Send Only</span>
                         <span ng-if="folder.type == 'receiveonly'" translate>Receive Only</span>
-                        <span ng-if="folder.type == 'encrypted'" translate>Encrypted</span>
+                        <span ng-if="folder.type == 'vault'" translate>Vault</span>
                       </td>
                     </tr>
                     <tr ng-if="folder.ignorePerms">
