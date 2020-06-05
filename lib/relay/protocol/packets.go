@@ -56,11 +56,11 @@ type SessionInvitation struct {
 }
 
 func (i SessionInvitation) String() string {
-	address, err := syncthingprotocol.DeviceIDFromBytes(i.From)
-	if err != nil {
-		panic(err)
+	device := "<invalid>"
+	if address, err := syncthingprotocol.DeviceIDFromBytes(i.From); err == nil {
+		device = address.String()
 	}
-	return fmt.Sprintf("%s@%s", address, i.AddressString())
+	return fmt.Sprintf("%s@%s", device, i.AddressString())
 }
 
 func (i SessionInvitation) GoString() string {
