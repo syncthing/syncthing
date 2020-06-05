@@ -1839,7 +1839,9 @@ angular.module('syncthing.core')
             var newDevices = [];
             folderCfg.devices.forEach(function (dev) {
                 if (folderCfg.selectedDevices[dev.deviceID] === true) {
-                    if (folderCfg.encPWs[dev.deviceID]) {
+                    if (!folderCfg.encPWs[dev.deviceID]) {
+                        dev.encryptionPassword = '';
+                    } else {
                         dev.encryptionPassword = folderCfg.encPWs[dev.deviceID];
                     }
                     newDevices.push(dev);
@@ -1849,7 +1851,9 @@ angular.module('syncthing.core')
             for (var deviceID in folderCfg.selectedDevices) {
                 if (folderCfg.selectedDevices[deviceID] === true) {
                     var dev = {deviceID: deviceID};
-                    if (folderCfg.encPWs[dev.deviceID]) {
+                    if (!folderCfg.encPWs[dev.deviceID]) {
+                        dev.encryptionPassword = '';
+                    } else {
                         dev.encryptionPassword = folderCfg.encPWs[dev.deviceID];
                     }
                     newDevices.push(dev);
@@ -2474,7 +2478,6 @@ angular.module('syncthing.core')
         $scope.modalLoaded = function () {
             // once all modal elements have been processed
             if ($('modal').length === 0) {
-
                 // pseudo main. called on all definitions assigned
                 initController();
             }
