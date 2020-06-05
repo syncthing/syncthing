@@ -52,41 +52,10 @@
                 <a href="#" ng-click="selectAllSharedDevices(false)" translate>Deselect All</a></small>
             </p>
             <div class="form-group" ng-repeat="device in currentFolder.sharedDevices">
-              <div class="col-md-6 checkbox">
-                <label for="sharedwith-{{device.deviceID}}">
-                  <input id="sharedwith-{{device.deviceID}}" ng-model="currentFolder.selectedDevices[device.deviceID]" type="checkbox" />
-                  {{deviceName(device)}}
-                </label>
-              </div>
-              <div class="col-md-6">
-                <div class="input-group">
-                  <span class="input-group-addon" ng-switch="!currentFolder.encPWs[device.deviceID] || currentFolder.encPWs[device.deviceID] === ''">
-                    <span ng-switch-when='true' class="fas fa-fw fa-unlock" />
-                    <span ng-switch-when='false' class="fas fa-fw fa-lock" />
-                  </span>
-                  <span ng-switch="currentFolder.type == 'encrypted'">
-                    <span ng-switch-when='false' ng-switch="currentFolder.selectedDevices[device.deviceID]">
-                      <span ng-switch-when='true'>
-                        <input class="form-control input-sm" id="enc-pw-{{device.deviceID}}" type="password" ng-model="currentFolder.encPWs[device.deviceID]" placeholder="{{'enter password to encrypt' | translate}}" />
-                      </span>
-                      <span ng-switch-when='false'>
-                        <input class="form-control input-sm" type="password" placeholder="{{'not shared' | translate}}" disabled />
-                      </span>
-                    </span>
-                    <span ng-switch-when='true'>
-                      <span ng-switch-when='false'>
-                        <input class="form-control input-sm" type="password" placeholder="{{'folder is encrypted' | translate}}" disabled />
-                      </span>
-                    </span>
-                  </span>
-                  <span class="input-group-addon">
-                    <span class="button fas fa-fw fa-eye" ng-click="togglePW('enc-pw-' + device.deviceID)" />
-                  </span>
-                </div>
-              </div>
+              <ng-include src="'syncthing/folder/editFolderShareWithTemplate.html'" />
             </div>
           </div>
-          <div class="form-group" ng-if="currentFolder.unrelatedDevices.length || otherDevices().length <= 0">
+          <div class="form-horizontal" ng-if="currentFolder.unrelatedDevices.length || otherDevices().length <= 0">
             <label translate>Unshared Devices</label>
             <p class="help-block" ng-if="otherDevices().length > 0">
               <span translate>Select additional devices to share this folder with.</span>&emsp;
@@ -96,14 +65,8 @@
             <p class="help-block" ng-if="otherDevices().length <= 0">
               <span translate>There are no devices to share this folder with.</span>
             </p>
-            <div class="row">
-              <div class="col-md-4" ng-repeat="device in currentFolder.unrelatedDevices">
-                <div class="checkbox">
-                  <label>
-                    <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]" /> {{deviceName(device)}}
-                  </label>
-                </div>
-              </div>
+            <div class="form-group" ng-repeat="device in currentFolder.unrelatedDevices">
+              <ng-include src="'syncthing/folder/editFolderShareWithTemplate.html'" />
             </div>
           </div>
         </div>
