@@ -12,7 +12,7 @@ const (
 	FolderTypeSendReceive FolderType = iota // default is sendreceive
 	FolderTypeSendOnly
 	FolderTypeReceiveOnly
-	FolderTypeEncrypted
+	FolderTypeVault
 )
 
 func (t FolderType) String() string {
@@ -23,8 +23,8 @@ func (t FolderType) String() string {
 		return "sendonly"
 	case FolderTypeReceiveOnly:
 		return "receiveonly"
-	case FolderTypeEncrypted:
-		return "encrypted"
+	case FolderTypeVault:
+		return "vault"
 	default:
 		return "unknown"
 	}
@@ -42,8 +42,8 @@ func (t *FolderType) UnmarshalText(bs []byte) error {
 		*t = FolderTypeSendOnly
 	case "receiveonly":
 		*t = FolderTypeReceiveOnly
-	case "encrypted":
-		*t = FolderTypeEncrypted
+	case "vault":
+		*t = FolderTypeVault
 	default:
 		*t = FolderTypeSendReceive
 	}

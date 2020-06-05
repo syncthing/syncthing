@@ -442,7 +442,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			}
 			return oldBatchFn(fs)
 		}
-	} else if f.Type == config.FolderTypeEncrypted {
+	} else if f.Type == config.FolderTypeVault {
 		oldBatchFn := batchFn // can't reference batchFn directly (recursion)
 		batchFn = func(fs []protocol.FileInfo) error {
 			// Delete all changed items and set zero version vector

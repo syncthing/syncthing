@@ -342,7 +342,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	ffs := fset.MtimeFS()
 
-	if cfg.Type == config.FolderTypeEncrypted {
+	if cfg.Type == config.FolderTypeVault {
 		if encToken, err := fs.ReadFile(ffs, encTokenPath(cfg)); err == nil {
 			m.folderEncPwTokens[folder] = encToken
 		} else if !fs.IsNotExist(err) {
@@ -352,7 +352,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	// These are our metadata files, and they should always be hidden.
 	_ = ffs.Hide(config.DefaultMarkerName)
-	_ = ffs.Hide(config.DefaultMarkerNameEncrypted)
+	_ = ffs.Hide(config.DefaultMarkerNameVault)
 	_ = ffs.Hide(".stversions")
 	_ = ffs.Hide(".stignore")
 
@@ -1234,7 +1234,7 @@ func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderD
 	hasTokenDev := hasDevice && len(ccDevice.EncPwToken) > 0
 	hasTokenUs := hasUs && len(ccDeviceUs.EncPwToken) > 0
 	isEncDev := folderDevice.EncryptionPassword != ""
-	isEncUs := fcfg.Type == config.FolderTypeEncrypted
+	isEncUs := fcfg.Type == config.FolderTypeVault
 
 	if !(hasTokenDev || hasTokenUs || isEncDev || isEncUs) {
 		// Noone cares about encryption here
@@ -1440,7 +1440,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 			})
 
 			if len(ccDevice.EncPwToken) > 0 || len(ccDeviceUs.EncPwToken) > 0 {
-				fcfg.Type = config.FolderTypeEncrypted
+				fcfg.Type = config.FolderTypeVault
 			}
 
 			l.Infof("Auto-accepted %s folder %s at path %s", deviceID, folder.Description(), fcfg.Path)
@@ -1459,7 +1459,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 			l.Infof("Failed to auto-accept folder %s from %s due to missing information on encryption from remote device", folder.Description(), deviceID)
 			return config.FolderConfiguration{}, false
 		}
-		if cfg.Type == config.FolderTypeEncrypted {
+		if cfg.Type == config.FolderTypeVault {
 			if len(ccDevice.EncPwToken) == 0 && len(ccDeviceUs.EncPwToken) == 0 {
 				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us un-encrypted data, but we are encrypted", folder.Description(), deviceID)
 				return config.FolderConfiguration{}, false
@@ -2306,7 +2306,7 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 
 		var encToken []byte
 		var hasEncToken bool
-		if folderCfg.Type == config.FolderTypeEncrypted {
+		if folderCfg.Type == config.FolderTypeVault {
 			if encToken, hasEncToken = m.folderEncPwTokens[folderCfg.ID]; !hasEncToken {
 				// We haven't gotten a token for us yet and without
 				// one the other side can't validate us - pretend

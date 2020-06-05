@@ -28,7 +28,7 @@ var (
 
 const (
 	DefaultMarkerName          = ".stfolder"
-	DefaultMarkerNameEncrypted = ".stfolder-encrypted"
+	DefaultMarkerNameVault = ".stfolder-vault"
 )
 
 type FolderConfiguration struct {
@@ -119,7 +119,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 	if err := f.CheckPath(); err != ErrMarkerMissing {
 		return err
 	}
-	if f.MarkerName != DefaultMarkerName && f.MarkerName != DefaultMarkerNameEncrypted {
+	if f.MarkerName != DefaultMarkerName && f.MarkerName != DefaultMarkerNameVault {
 		// Folder uses a non-default marker so we shouldn't mess with it.
 		// Pretend we created it and let the subsequent health checks sort
 		// out the actual situation.
@@ -234,8 +234,8 @@ func (f *FolderConfiguration) prepare() {
 		f.WeakHashThresholdPct = 25
 	}
 
-	if f.Type == FolderTypeEncrypted {
-		f.MarkerName = DefaultMarkerNameEncrypted
+	if f.Type == FolderTypeVault {
+		f.MarkerName = DefaultMarkerNameVault
 	} else if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
 	}
