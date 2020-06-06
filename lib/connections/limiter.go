@@ -184,7 +184,7 @@ func (lim *limiter) changeLimits(sendLimitValue, recvLimitValue int) {
 	l.Infof("Overall send rate %s, receive rate %s", sendLimitStr, recvLimitStr)
 }
 
-func (lim *limiter) timerLoop(timer *time.Timer, opt config.ScheduleEntry, status bool, normalMaxSendKbps, normalMaxRecvKbps int) {
+func (lim *limiter) timerLoop(timer *time.Timer, opt config.RatesSchedule, status bool, normalMaxSendKbps, normalMaxRecvKbps int) {
 	nextStatus := status
 	var waitTime time.Duration
 
@@ -198,7 +198,7 @@ func (lim *limiter) timerLoop(timer *time.Timer, opt config.ScheduleEntry, statu
 			lim.changeLimits(normalMaxSendKbps, normalMaxRecvKbps)
 		}
 
-		nextStatus, waitTime = nextChange(opt.StartHour, opt.StartMinute, opt.EndHour, opt.EndMinute)
+		nextStatus, waitTime = nextChange(opt.Time.StartHour, opt.Time.StartMinute, opt.Time.EndHour, opt.Time.EndMinute)
 		timer.Reset(waitTime)
 	}
 }
@@ -214,7 +214,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.MaxRecvKbps == to.Options.MaxRecvKbps &&
 		from.Options.MaxSendKbps == to.Options.MaxSendKbps &&
 		from.Options.LimitBandwidthInLan == to.Options.LimitBandwidthInLan &&
-		lim.timer == nil && !to.ScheduledRates.IsEnabled() {
+		lim.timer == nil && !to.Schedules.IsEnabled() {
 		return true
 	}
 
@@ -225,9 +225,9 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 		lim.timer = nil
 	}
 
-	if to.ScheduledRates.IsEnabled() {
-		opt := to.ScheduledRates.Entries[0]
-		status, waitTime := nextChange(opt.StartHour, opt.StartMinute, opt.EndHour, opt.EndMinute)
+	if to.Schedules.IsEnabled() {
+		opt := to.Schedules.RatesSchedule
+		status, waitTime := nextChange(opt.Time.StartHour, opt.Time.StartMinute, opt.Time.EndHour, opt.Time.EndMinute)
 		if status {
 			lim.changeLimits(to.Options.MaxSendKbps, to.Options.MaxRecvKbps)
 		} else {
@@ -241,7 +241,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 
 	lim.limitsLAN.set(to.Options.LimitBandwidthInLan)
 
-	if to.Options.MaxRecvKbps > 0 || to.Options.MaxSendKbps > 0 || to.ScheduledRates.IsEnabled() {
+	if to.Options.MaxRecvKbps > 0 || to.Options.MaxSendKbps > 0 || to.Schedules.IsEnabled() {
 		if to.Options.LimitBandwidthInLan {
 			l.Infoln("Rate limits apply to LAN connections")
 		} else {

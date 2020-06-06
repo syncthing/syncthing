@@ -12,36 +12,36 @@ import (
 	"github.com/syncthing/syncthing/lib/util"
 )
 
-type TestScheduleStruct struct {
-	Schedule Schedule `default:"06:15-12:30 100 0"`
+type TestSchedulesStruct struct {
+	Schedules Schedules `default:"06:15-12:30 100 0"`
 }
 
-func TestScheduleDefaults(t *testing.T) {
-	x := &TestScheduleStruct{}
+func TestSchedulesDefaults(t *testing.T) {
+	x := &TestSchedulesStruct{}
 
 	util.SetDefaults(x)
 
-	if x.Schedule.Entries[0].StartHour != 6 {
+	if x.Schedules.RatesSchedule.Time.StartHour != 6 {
 		t.Error("not six")
 	}
-	if x.Schedule.Entries[0].StartMinute != 15 {
+	if x.Schedules.RatesSchedule.Time.StartMinute != 15 {
 		t.Error("not fifteen")
 	}
-	if x.Schedule.Entries[0].EndHour != 12 {
+	if x.Schedules.RatesSchedule.Time.EndHour != 12 {
 		t.Error("not twelve")
 	}
-	if x.Schedule.Entries[0].EndMinute != 30 {
+	if x.Schedules.RatesSchedule.Time.EndMinute != 30 {
 		t.Error("not thirty")
 	}
-	if x.Schedule.Entries[0].MaxSendKbps != 100 {
+	if x.Schedules.RatesSchedule.MaxSendKbps != 100 {
 		t.Error("not hundred")
 	}
-	if x.Schedule.Entries[0].MaxRecvKbps != 0 {
+	if x.Schedules.RatesSchedule.MaxRecvKbps != 0 {
 		t.Error("not zero")
 	}
 }
 
-func TestParseSchedule(t *testing.T) {
+func TestParseSchedules(t *testing.T) {
 	cases := []struct {
 		in string
 		ok bool
@@ -58,7 +58,7 @@ func TestParseSchedule(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		_, err := ParseSchedule(tc.in)
+		_, err := ParseSchedules(tc.in)
 
 		if !tc.ok {
 			if err == nil {

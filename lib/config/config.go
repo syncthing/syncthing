@@ -195,7 +195,7 @@ type Configuration struct {
 	IgnoredDevices []ObservedDevice      `xml:"remoteIgnoredDevice" json:"remoteIgnoredDevices"`
 	PendingDevices []ObservedDevice      `xml:"pendingDevice" json:"pendingDevices"`
 	XMLName        xml.Name              `xml:"configuration" json:"-"`
-	ScheduledRates Schedule              `xml:"scheduledRates" json:"scheduledRates"`
+	Schedules      Schedules             `xml:"schedules" json:"schedules"`
 
 	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
 	OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion

@@ -12,78 +12,86 @@ import (
 	"strings"
 )
 
-type Schedule struct {
-	Entries []ScheduleEntry `json:"entry" xml:"entry"`
+type Schedules struct {
+	RatesSchedule RatesSchedule `json:"ratesSchedule" xml:"ratesSchedule"`
 }
 
-type ScheduleEntry struct {
+type RatesSchedule struct {
+	Time        TimeFrame `json:"time" xml:"time"`
+	MaxSendKbps int       `json:"maxSendKbps" xml:"maxSendKbps"`
+	MaxRecvKbps int       `json:"maxRecvKbps" xml:"maxRecvKbps"`
+}
+
+type TimeFrame struct {
 	StartHour   int `json:"startHour" xml:"startHour"`
 	StartMinute int `json:"startMinute" xml:"startMinute"`
-	StartDay    int `json:"startDay" xml:"startDay"`
 	EndHour     int `json:"endHour" xml:"endHour"`
 	EndMinute   int `json:"endMinute" xml:"endMinute"`
-	EndDay      int `json:"endDay" xml:"endDay"`
-	MaxSendKbps int `json:"maxSendKbps" xml:"maxSendKbps"`
-	MaxRecvKbps int `json:"maxRecvKbps" xml:"maxRecvKbps"`
 }
 
-func ParseSchedule(s string) (Schedule, error) {
+func ParseSchedules(s string) (Schedules, error) {
 	fields := strings.Split(s, " ")
 	if len(fields) != 3 {
-		return Schedule{}, fmt.Errorf("Wrong Schedule format")
+		return Schedules{}, fmt.Errorf("Wrong Schedules format")
 	}
 
 	times := strings.Split(fields[0], "-")
 	if len(times) != 2 {
-		return Schedule{}, fmt.Errorf("Wrong Schedule format")
+		return Schedules{}, fmt.Errorf("Wrong Schedules format")
 	}
 
 	begin := strings.Split(times[0], ":")
 	if len(begin) != 2 {
-		return Schedule{}, fmt.Errorf("Wrong Schedule format")
+		return Schedules{}, fmt.Errorf("Wrong Schedules format")
 	}
 
 	end := strings.Split(times[1], ":")
 	if len(end) != 2 {
-		return Schedule{}, fmt.Errorf("Wrong Schedule format")
+		return Schedules{}, fmt.Errorf("Wrong Schedules format")
 	}
 
-	sch := ScheduleEntry{}
+	tf := TimeFrame{}
 	var err error
 
-	if sch.StartHour, err = strconv.Atoi(begin[0]); err != nil {
-		return Schedule{}, err
+	if tf.StartHour, err = strconv.Atoi(begin[0]); err != nil {
+		return Schedules{}, err
 	}
-	if sch.StartMinute, err = strconv.Atoi(begin[1]); err != nil {
-		return Schedule{}, err
+	if tf.StartMinute, err = strconv.Atoi(begin[1]); err != nil {
+		return Schedules{}, err
 	}
-	if sch.EndHour, err = strconv.Atoi(end[0]); err != nil {
-		return Schedule{}, err
+	if tf.EndHour, err = strconv.Atoi(end[0]); err != nil {
+		return Schedules{}, err
 	}
-	if sch.EndMinute, err = strconv.Atoi(end[1]); err != nil {
-		return Schedule{}, err
-	}
-	if sch.MaxSendKbps, err = strconv.Atoi(fields[1]); err != nil {
-		return Schedule{}, err
-	}
-	if sch.MaxRecvKbps, err = strconv.Atoi(fields[2]); err != nil {
-		return Schedule{}, err
+	if tf.EndMinute, err = strconv.Atoi(end[1]); err != nil {
+		return Schedules{}, err
 	}
 
-	return Schedule{[]ScheduleEntry{sch}}, nil
+	rs := RatesSchedule{
+		Time: tf,
+	}
+
+	if rs.MaxSendKbps, err = strconv.Atoi(fields[1]); err != nil {
+		return Schedules{}, err
+	}
+	if rs.MaxRecvKbps, err = strconv.Atoi(fields[2]); err != nil {
+		return Schedules{}, err
+	}
+
+	return Schedules{rs}, nil
 }
 
-func (s Schedule) String() string {
-	return fmt.Sprintf("%d:%d-%d:%d %d %d", s.Entries[0].StartHour, s.Entries[0].StartMinute,
-		s.Entries[0].EndHour, s.Entries[0].EndMinute, s.Entries[0].MaxSendKbps, s.Entries[0].MaxRecvKbps)
+func (s Schedules) String() string {
+	return fmt.Sprintf("%d:%d-%d:%d %d %d", s.RatesSchedule.Time.StartHour, s.RatesSchedule.Time.StartMinute,
+		s.RatesSchedule.Time.EndHour, s.RatesSchedule.Time.EndMinute, s.RatesSchedule.MaxSendKbps, s.RatesSchedule.MaxRecvKbps)
 }
 
-func (s Schedule) IsEnabled() bool {
-	return len(s.Entries) > 0
+func (s Schedules) IsEnabled() bool {
+	t := s.RatesSchedule.Time
+	return t.StartHour != t.EndHour || t.StartMinute != t.EndMinute
 }
 
-func (s *Schedule) ParseDefault(str string) error {
-	sz, err := ParseSchedule(str)
+func (s *Schedules) ParseDefault(str string) error {
+	sz, err := ParseSchedules(str)
 	*s = sz
 	return err
 }
