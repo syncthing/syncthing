@@ -36,7 +36,7 @@ var (
 		// Custom copy size
 		copySize int64
 		// Expected failure
-		expectedErrors []error
+		expectedErrors map[CopyRangeMethod]error
 	}{
 		{
 			name:                     "append to end",
@@ -123,7 +123,13 @@ var (
 			expectedDstSizeAfterCopy: -11, // Does not matter, should fail.
 			copySize:                 defaultCopySize * 10,
 			// ioctl returns syscall.EINVAL, rest are wrapped
-			expectedErrors: []error{io.ErrUnexpectedEOF, syscall.EINVAL},
+			expectedErrors: map[CopyRangeMethod]error{
+				CopyRangeMethodIoctl:           syscall.EINVAL,
+				CopyRangeMethodStandard:        io.ErrUnexpectedEOF,
+				CopyRangeMethodCopyFileRange:   io.ErrUnexpectedEOF,
+				CopyRangeMethodSendFile:        io.ErrUnexpectedEOF,
+				CopyRangeMethodAllWithFallback: io.ErrUnexpectedEOF,
+			},
 		},
 		// Non block sized file
 		{
@@ -136,7 +142,10 @@ var (
 			dstStartingPos:           0,
 			expectedDstSizeAfterCopy: generationSize + 1,
 			copySize:                 generationSize + 1,
-			expectedErrors:           nil,
+			// Only fails for ioctl
+			expectedErrors: map[CopyRangeMethod]error{
+				CopyRangeMethodIoctl: syscall.EINVAL,
+			},
 		},
 		// Last block that starts on a nice boundary
 		{
@@ -149,7 +158,8 @@ var (
 			dstStartingPos:           0,
 			expectedDstSizeAfterCopy: 2,
 			copySize:                 2,
-			expectedErrors:           nil,
+			// Succeeds on all, as long as the offset is file-system block aligned.
+			expectedErrors: nil,
 		},
 		// Copy whole file
 		{
@@ -239,13 +249,11 @@ func TestCopyRange(ttt *testing.T) {
 							// Test runner can adjust directory in which to run the tests, that allow broader tests.
 							t.Skip("Not supported on the current filesystem, set STFSTESTPATH env var.")
 						}
-						for _, expectedErr := range testCase.expectedErrors {
-							if expectedErr == err {
-								return
-							}
+						if testCase.expectedErrors[copyMethod] == err {
+							return
 						}
 						t.Fatal(err)
-					} else if testCase.expectedErrors != nil {
+					} else if testCase.expectedErrors[copyMethod] != nil {
 						t.Fatal("did not get expected error")
 					}
 
