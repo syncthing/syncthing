@@ -38,6 +38,8 @@ func TestUnicodeLowercase(t *testing.T) {
 		{"汉语/漢語 or 中文", "汉语/漢語 or 中文"},
 		// Niether katakana as far as I can tell.
 		{"チャーハン", "チャーハン"},
+		// Some special unicode characters, however, are folded by OSes
+		{"\u212A", "k"},
 	}
 	for _, tc := range cases {
 		res := UnicodeLowercase(tc[0])

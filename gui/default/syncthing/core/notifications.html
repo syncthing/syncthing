@@ -31,7 +31,7 @@
       <p><a href="https://docs.syncthing.net/users/releases.html"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
     </div>
     <div class="panel-footer">
-      <button type="button" class="btn btn-sm btn-default pull-right" ng-click="editSettings(); dismissNotification('channelNotification')">
+      <button type="button" class="btn btn-sm btn-default pull-right" ng-click="showSettings(); dismissNotification('channelNotification')">
         <span class="fas fa-cog"></span>&nbsp;<span translate>Settings</span>
       </button>
       <button type="button" class="btn btn-sm btn-default" ng-click="dismissNotification('channelNotification')">
@@ -65,6 +65,78 @@
           <span class="fas fa-times"></span>&nbsp;<span translate>No</span>
         </button>
       </div>
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</notification>
+
+<notification id="crAutoEnabled">
+  <div class="panel panel-success">
+    <div class="panel-heading">
+      <h3 class="panel-title"><span class="fas fa-bolt"></span>&ensp;<span translate>Automatic Crash Reporting</span></h3>
+    </div>
+    <div class="panel-body">
+      <p translate>Syncthing now supports automatically reporting crashes to the developers. This feature is enabled by default.</p>
+      <p><a href="https://docs.syncthing.net/users/crashrep.html"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
+    </div>
+    <div class="panel-footer clearfix">
+      <div class="pull-right">
+        <button type="button" class="btn btn-danger" ng-click="setCrashReportingEnabled(false); dismissNotification('crAutoEnabled')">
+          <span class="fas fa-times"></span>&nbsp;<span translate>Disable Crash Reporting</span>
+        </button>
+        <button type="button" class="btn btn-default" ng-click="dismissNotification('crAutoEnabled')">
+          <span class="fas fa-check"></span>&nbsp;<span translate>OK</span>
+        </button>
+      </div>
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</notification>
+
+<notification id="crAutoDisabled">
+  <div class="panel panel-success">
+    <div class="panel-heading">
+      <h3 class="panel-title"><span class="fas fa-bolt"></span>&ensp;<span translate>Automatic Crash Reporting</span></h3>
+    </div>
+    <div class="panel-body">
+      <p translate>Syncthing now supports automatically reporting crashes to the developers. This feature is enabled by default.</p>
+      <p translate>However, your current settings indicate you might not want it enabled. We have disabled automatic crash reporting for you.</p>
+      <p><a href="https://docs.syncthing.net/users/crashrep.html"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
+    </div>
+    <div class="panel-footer clearfix">
+      <div class="pull-right">
+        <button type="button" class="btn btn-success" ng-click="setCrashReportingEnabled(true); dismissNotification('crAutoDisabled')">
+          <span class="fas fa-check"></span>&nbsp;<span translate>Enable Crash Reporting</span>
+        </button>
+        <button type="button" class="btn btn-default" ng-click="dismissNotification('crAutoDisabled')">
+          <span class="fas fa-times"></span>&nbsp;<span translate>OK</span>
+        </button>
+      </div>
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</notification>
+
+<notification id="authenticationUserAndPassword">
+  <div class="panel panel-success">
+    <div class="panel-heading">
+      <h3 class="panel-title"><span class="fas fa-bolt"></span>&nbsp;<span translate>GUI Authentication: Set User and Password</span></h3>
+    </div>
+    <div class="panel-body">
+      <p>
+        <span translate>Username/Password has not been set for the GUI authentication. Please consider setting it up.</span>
+      </p>
+      <p>
+        <span translate>If you want to prevent other users on this computer from accessing Syncthing and through it your files, consider setting up authentication.</span>
+      </p>
+    </div>
+    <div class="panel-footer">
+      <button type="button" class="btn btn-sm btn-default pull-right" ng-click="showSettings()">
+        <span class="fas fa-cog"></span>&nbsp;<span translate>Settings</span>
+      </button>
+      <button type="button" class="btn btn-sm btn-default pull-left" ng-click="dismissNotification('authenticationUserAndPassword')">
+        <span class="fa fa-check-circle"></span>&nbsp;<span translate>OK</span>
+      </button>
       <div class="clearfix"></div>
     </div>
   </div>

@@ -10,7 +10,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/model"
@@ -37,24 +36,20 @@ func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.Fi
 	return nil, nil, nil
 }
 
-func (m *mockedModel) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
-	return nil, nil
-}
-
-func (m *mockedModel) NeedSize(folder string) db.Counts {
-	return db.Counts{}
+func (m *mockedModel) FolderProgressBytesCompleted(_ string) int64 {
+	return 0
 }
 
 func (m *mockedModel) ConnectionStats() map[string]interface{} {
 	return nil
 }
 
-func (m *mockedModel) DeviceStatistics() map[string]stats.DeviceStatistics {
-	return nil
+func (m *mockedModel) DeviceStatistics() (map[string]stats.DeviceStatistics, error) {
+	return nil, nil
 }
 
-func (m *mockedModel) FolderStatistics() map[string]stats.FolderStatistics {
-	return nil
+func (m *mockedModel) FolderStatistics() (map[string]stats.FolderStatistics, error) {
+	return nil, nil
 }
 
 func (m *mockedModel) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
@@ -113,26 +108,6 @@ func (m *mockedModel) Connection(deviceID protocol.DeviceID) (connections.Connec
 	return nil, false
 }
 
-func (m *mockedModel) GlobalSize(folder string) db.Counts {
-	return db.Counts{}
-}
-
-func (m *mockedModel) LocalSize(folder string) db.Counts {
-	return db.Counts{}
-}
-
-func (m *mockedModel) ReceiveOnlyChangedSize(folder string) db.Counts {
-	return db.Counts{}
-}
-
-func (m *mockedModel) CurrentSequence(folder string) (int64, bool) {
-	return 0, false
-}
-
-func (m *mockedModel) RemoteSequence(folder string) (int64, bool) {
-	return 0, false
-}
-
 func (m *mockedModel) State(folder string) (string, time.Time, error) {
 	return "", time.Time{}, nil
 }
@@ -149,25 +124,29 @@ func (m *mockedModel) WatchError(folder string) error {
 	return nil
 }
 
-func (m *mockedModel) LocalChangedFiles(folder string, page, perpage int) []db.FileInfoTruncated {
+func (m *mockedModel) Serve() {}
+func (m *mockedModel) Stop()  {}
+
+func (m *mockedModel) Index(deviceID protocol.DeviceID, folder string, files []protocol.FileInfo) error {
 	return nil
 }
 
-func (m *mockedModel) Serve()                                                                     {}
-func (m *mockedModel) Stop()                                                                      {}
-func (m *mockedModel) Index(deviceID protocol.DeviceID, folder string, files []protocol.FileInfo) {}
-func (m *mockedModel) IndexUpdate(deviceID protocol.DeviceID, folder string, files []protocol.FileInfo) {
+func (m *mockedModel) IndexUpdate(deviceID protocol.DeviceID, folder string, files []protocol.FileInfo) error {
+	return nil
 }
 
 func (m *mockedModel) Request(deviceID protocol.DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (protocol.RequestResponse, error) {
 	return nil, nil
 }
 
-func (m *mockedModel) ClusterConfig(deviceID protocol.DeviceID, config protocol.ClusterConfig) {}
+func (m *mockedModel) ClusterConfig(deviceID protocol.DeviceID, config protocol.ClusterConfig) error {
+	return nil
+}
 
 func (m *mockedModel) Closed(conn protocol.Connection, err error) {}
 
-func (m *mockedModel) DownloadProgress(deviceID protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) {
+func (m *mockedModel) DownloadProgress(deviceID protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) error {
+	return nil
 }
 
 func (m *mockedModel) AddConnection(conn connections.Connection, hello protocol.HelloResult) {}
@@ -180,10 +159,20 @@ func (m *mockedModel) GetHello(protocol.DeviceID) protocol.HelloIntf {
 	return nil
 }
 
-func (m *mockedModel) AddFolder(cfg config.FolderConfiguration) {}
-
-func (m *mockedModel) RestartFolder(from, to config.FolderConfiguration) {}
-
-func (m *mockedModel) StartFolder(folder string) {}
-
 func (m *mockedModel) StartDeadlockDetector(timeout time.Duration) {}
+
+func (m *mockedModel) DBSnapshot(_ string) (*db.Snapshot, error) {
+	return nil, nil
+}
+
+type mockedFolderSummaryService struct{}
+
+func (m *mockedFolderSummaryService) Serve() {}
+
+func (m *mockedFolderSummaryService) Stop() {}
+
+func (m *mockedFolderSummaryService) Summary(folder string) (map[string]interface{}, error) {
+	return map[string]interface{}{"mocked": true}, nil
+}
+
+func (m *mockedFolderSummaryService) OnEventRequest() {}

@@ -20,9 +20,10 @@ func ftToDuration(ft *syscall.Filetime) time.Duration {
 	return time.Duration(n*100) * time.Nanosecond
 }
 
-func printUsage(name string, proc *os.ProcessState) {
+func printUsage(name string, proc *os.ProcessState, total int64) {
 	if rusage, ok := proc.SysUsage().(*syscall.Rusage); ok {
-		log.Printf("%s: Utime: %s", name, ftToDuration(&rusage.UserTime))
-		log.Printf("%s: Stime: %s", name, ftToDuration(&rusage.KernelTime))
+		mib := total / 1024 / 1024
+		log.Printf("%s: Utime: %s / MiB", name, time.Duration(&rusage.UserTime/mib))
+		log.Printf("%s: Stime: %s / MiB", name, time.Duration(&rusage.KernelTime/mib))
 	}
 }

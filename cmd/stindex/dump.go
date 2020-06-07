@@ -13,11 +13,15 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func dump(ldb *db.Lowlevel) {
-	it := ldb.NewIterator(nil, nil)
+func dump(ldb backend.Backend) {
+	it, err := ldb.NewPrefixIterator(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 	for it.Next() {
 		key := it.Key()
 		switch key[0] {
@@ -48,10 +52,10 @@ func dump(ldb *db.Lowlevel) {
 			fmt.Printf("[block] F:%d H:%x N:%q I:%d\n", folder, hash, name, binary.BigEndian.Uint32(it.Value()))
 
 		case db.KeyTypeDeviceStatistic:
-			fmt.Printf("[dstat] K:%x V:%x\n", it.Key(), it.Value())
+			fmt.Printf("[dstat] K:%x V:%x\n", key, it.Value())
 
 		case db.KeyTypeFolderStatistic:
-			fmt.Printf("[fstat] K:%x V:%x\n", it.Key(), it.Value())
+			fmt.Printf("[fstat] K:%x V:%x\n", key, it.Value())
 
 		case db.KeyTypeVirtualMtime:
 			folder := binary.BigEndian.Uint32(key[1:])
@@ -63,21 +67,59 @@ func dump(ldb *db.Lowlevel) {
 			fmt.Printf("[mtime] F:%d N:%q R:%v V:%v\n", folder, name, real, virt)
 
 		case db.KeyTypeFolderIdx:
-			key := binary.BigEndian.Uint32(it.Key()[1:])
+			key := binary.BigEndian.Uint32(key[1:])
 			fmt.Printf("[folderidx] K:%d V:%q\n", key, it.Value())
 
 		case db.KeyTypeDeviceIdx:
-			key := binary.BigEndian.Uint32(it.Key()[1:])
+			key := binary.BigEndian.Uint32(key[1:])
 			val := it.Value()
-			if len(val) == 0 {
-				fmt.Printf("[deviceidx] K:%d V:<nil>\n", key)
-			} else {
-				dev := protocol.DeviceIDFromBytes(val)
-				fmt.Printf("[deviceidx] K:%d V:%s\n", key, dev)
+			device := "<nil>"
+			if len(val) > 0 {
+				dev, err := protocol.DeviceIDFromBytes(val)
+				if err != nil {
+					device = fmt.Sprintf("<invalid %d bytes>", len(val))
+				} else {
+					device = dev.String()
+				}
 			}
+			fmt.Printf("[deviceidx] K:%d V:%s\n", key, device)
+
+		case db.KeyTypeIndexID:
+			device := binary.BigEndian.Uint32(key[1:])
+			folder := binary.BigEndian.Uint32(key[5:])
+			fmt.Printf("[indexid] D:%d F:%d I:%x\n", device, folder, it.Value())
+
+		case db.KeyTypeFolderMeta:
+			folder := binary.BigEndian.Uint32(key[1:])
+			fmt.Printf("[foldermeta] F:%d V:%x\n", folder, it.Value())
+
+		case db.KeyTypeMiscData:
+			fmt.Printf("[miscdata] K:%q V:%q\n", key[1:], it.Value())
+
+		case db.KeyTypeSequence:
+			folder := binary.BigEndian.Uint32(key[1:])
+			seq := binary.BigEndian.Uint64(key[5:])
+			fmt.Printf("[sequence] F:%d S:%d V:%q\n", folder, seq, it.Value())
+
+		case db.KeyTypeNeed:
+			folder := binary.BigEndian.Uint32(key[1:])
+			file := string(key[5:])
+			fmt.Printf("[need] F:%d V:%q\n", folder, file)
+
+		case db.KeyTypeBlockList:
+			fmt.Printf("[blocklist] H:%x\n", key[1:])
+
+		case db.KeyTypeBlockListMap:
+			folder := binary.BigEndian.Uint32(key[1:])
+			hash := key[5:37]
+			fileName := string(key[37:])
+			fmt.Printf("[blocklistmap] F:%d H:%x N:%s\n", folder, hash, fileName)
+
+		case db.KeyTypeVersion:
+			fmt.Printf("[version] H:%x\n", key[1:])
 
 		default:
-			fmt.Printf("[???]\n  %x\n  %x\n", it.Key(), it.Value())
+			fmt.Printf("[??? %d]\n  %x\n  %x\n", key[0], key, it.Value())
 		}
 	}
 }

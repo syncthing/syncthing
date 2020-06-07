@@ -18,6 +18,7 @@ import (
 type deviceFolderFileDownloadState struct {
 	blockIndexes []int32
 	version      protocol.Vector
+	blockSize    int
 }
 
 // deviceFolderDownloadState holds current download state of all files that
@@ -62,16 +63,32 @@ func (p *deviceFolderDownloadState) Update(updates []protocol.FileDownloadProgre
 				local = deviceFolderFileDownloadState{
 					blockIndexes: update.BlockIndexes,
 					version:      update.Version,
+					blockSize:    int(update.BlockSize),
 				}
 			} else if !local.version.Equal(update.Version) {
 				local.blockIndexes = append(local.blockIndexes[:0], update.BlockIndexes...)
 				local.version = update.Version
+				local.blockSize = int(update.BlockSize)
 			} else {
 				local.blockIndexes = append(local.blockIndexes, update.BlockIndexes...)
 			}
 			p.files[update.Name] = local
 		}
 	}
+}
+
+func (p *deviceFolderDownloadState) BytesDownloaded() int64 {
+	var res int64
+	for _, state := range p.files {
+		// BlockSize is a new field introduced in 1.4.1, thus a fallback
+		// is required (will potentially underrepresent downloaded bytes).
+		if state.blockSize != 0 {
+			res += int64(len(state.blockIndexes) * state.blockSize)
+		} else {
+			res += int64(len(state.blockIndexes) * protocol.MinBlockSize)
+		}
+	}
+	return res
 }
 
 // GetBlockCounts returns a map filename -> number of blocks downloaded.
@@ -148,6 +165,22 @@ func (t *deviceDownloadState) GetBlockCounts(folder string) map[string]int {
 		}
 	}
 	return nil
+}
+
+func (t *deviceDownloadState) BytesDownloaded(folder string) int64 {
+	if t == nil {
+		return 0
+	}
+
+	t.mut.RLock()
+	defer t.mut.RUnlock()
+
+	for name, state := range t.folders {
+		if name == folder {
+			return state.BytesDownloaded()
+		}
+	}
+	return 0
 }
 
 func newDeviceDownloadState() *deviceDownloadState {

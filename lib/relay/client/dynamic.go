@@ -3,56 +3,42 @@
 package client
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"sort"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type dynamicClient struct {
-	pooladdr                 *url.URL
-	certs                    []tls.Certificate
-	invitations              chan protocol.SessionInvitation
-	closeInvitationsOnFinish bool
-	timeout                  time.Duration
+	commonClient
 
-	mut    sync.RWMutex
-	err    error
+	pooladdr *url.URL
+	certs    []tls.Certificate
+	timeout  time.Duration
+
 	client RelayClient
-	stop   chan struct{}
 }
 
 func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) RelayClient {
-	closeInvitationsOnFinish := false
-	if invitations == nil {
-		closeInvitationsOnFinish = true
-		invitations = make(chan protocol.SessionInvitation)
+	c := &dynamicClient{
+		pooladdr: uri,
+		certs:    certs,
+		timeout:  timeout,
 	}
-	return &dynamicClient{
-		pooladdr:                 uri,
-		certs:                    certs,
-		invitations:              invitations,
-		closeInvitationsOnFinish: closeInvitationsOnFinish,
-		timeout:                  timeout,
-
-		mut: sync.NewRWMutex(),
-	}
+	c.commonClient = newCommonClient(invitations, c.serve, fmt.Sprintf("dynamicClient@%p", c))
+	return c
 }
 
-func (c *dynamicClient) Serve() {
-	defer c.cleanup()
-	c.mut.Lock()
-	c.stop = make(chan struct{})
-	c.mut.Unlock()
-
+func (c *dynamicClient) serve(ctx context.Context) error {
 	uri := *c.pooladdr
 
 	// Trim off the `dynamic+` prefix
@@ -60,11 +46,16 @@ func (c *dynamicClient) Serve() {
 
 	l.Debugln(c, "looking up dynamic relays")
 
-	data, err := http.Get(uri.String())
+	req, err := http.NewRequest("GET", uri.String(), nil)
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
-		c.setError(err)
-		return
+		return err
+	}
+	req.Cancel = ctx.Done()
+	data, err := http.DefaultClient.Do(req)
+	if err != nil {
+		l.Debugln(c, "failed to lookup dynamic relays", err)
+		return err
 	}
 
 	var ann dynamicAnnouncement
@@ -72,8 +63,7 @@ func (c *dynamicClient) Serve() {
 	data.Body.Close()
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
-		c.setError(err)
-		return
+		return err
 	}
 
 	var addrs []string
@@ -87,22 +77,18 @@ func (c *dynamicClient) Serve() {
 		addrs = append(addrs, ruri.String())
 	}
 
-	for _, addr := range relayAddressesOrder(addrs) {
+	for _, addr := range relayAddressesOrder(ctx, addrs) {
 		select {
-		case <-c.stop:
+		case <-ctx.Done():
 			l.Debugln(c, "stopping")
-			c.setError(nil)
-			return
+			return nil
 		default:
 			ruri, err := url.Parse(addr)
 			if err != nil {
 				l.Debugln(c, "skipping relay", addr, err)
 				continue
 			}
-			client, err := NewClient(ruri, c.certs, c.invitations, c.timeout)
-			if err != nil {
-				continue
-			}
+			client := newStaticClient(ruri, c.certs, c.invitations, c.timeout)
 			c.mut.Lock()
 			c.client = client
 			c.mut.Unlock()
@@ -115,24 +101,23 @@ func (c *dynamicClient) Serve() {
 		}
 	}
 	l.Debugln(c, "could not find a connectable relay")
-	c.setError(fmt.Errorf("could not find a connectable relay"))
+	return errors.New("could not find a connectable relay")
 }
 
 func (c *dynamicClient) Stop() {
 	c.mut.RLock()
-	defer c.mut.RUnlock()
-	close(c.stop)
-	if c.client == nil {
-		return
+	if c.client != nil {
+		c.client.Stop()
 	}
-	c.client.Stop()
+	c.mut.RUnlock()
+	c.commonClient.Stop()
 }
 
 func (c *dynamicClient) Error() error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	if c.client == nil {
-		return c.err
+		return c.commonClient.Error()
 	}
 	return c.client.Error()
 }
@@ -159,28 +144,6 @@ func (c *dynamicClient) URI() *url.URL {
 	return c.client.URI()
 }
 
-func (c *dynamicClient) Invitations() chan protocol.SessionInvitation {
-	c.mut.RLock()
-	inv := c.invitations
-	c.mut.RUnlock()
-	return inv
-}
-
-func (c *dynamicClient) cleanup() {
-	c.mut.Lock()
-	if c.closeInvitationsOnFinish {
-		close(c.invitations)
-		c.invitations = make(chan protocol.SessionInvitation)
-	}
-	c.mut.Unlock()
-}
-
-func (c *dynamicClient) setError(err error) {
-	c.mut.Lock()
-	c.err = err
-	c.mut.Unlock()
-}
-
 // This is the announcement received from the relay server;
 // {"relays": [{"url": "relay://10.20.30.40:5060"}, ...]}
 type dynamicAnnouncement struct {
@@ -193,11 +156,11 @@ type dynamicAnnouncement struct {
 // the closest 50ms, and puts them in buckets of 50ms latency ranges. Then
 // shuffles each bucket, and returns all addresses starting with the ones from
 // the lowest latency bucket, ending with the highest latency buceket.
-func relayAddressesOrder(input []string) []string {
+func relayAddressesOrder(ctx context.Context, input []string) []string {
 	buckets := make(map[int][]string)
 
 	for _, relay := range input {
-		latency, err := osutil.GetLatencyForURL(relay)
+		latency, err := osutil.GetLatencyForURL(ctx, relay)
 		if err != nil {
 			latency = time.Hour
 		}
@@ -205,28 +168,26 @@ func relayAddressesOrder(input []string) []string {
 		id := int(latency/time.Millisecond) / 50
 
 		buckets[id] = append(buckets[id], relay)
+
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
 	}
 
 	var ids []int
 	for id, bucket := range buckets {
-		shuffle(bucket)
+		rand.Shuffle(bucket)
 		ids = append(ids, id)
 	}
 
 	sort.Ints(ids)
 
-	addresses := make([]string, len(input))
-
+	addresses := make([]string, 0, len(input))
 	for _, id := range ids {
 		addresses = append(addresses, buckets[id]...)
 	}
 
 	return addresses
-}
-
-func shuffle(slice []string) {
-	for i := len(slice) - 1; i > 0; i-- {
-		j := rand.Intn(i + 1)
-		slice[i], slice[j] = slice[j], slice[i]
-	}
 }

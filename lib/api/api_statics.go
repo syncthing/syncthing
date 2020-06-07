@@ -7,37 +7,38 @@
 package api
 
 import (
-	"bytes"
-	"compress/gzip"
 	"fmt"
-	"io/ioutil"
-	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/auto"
+	"github.com/syncthing/syncthing/lib/api/auto"
+	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
+const themePrefix = "theme-assets/"
+
 type staticsServer struct {
 	assetDir        string
-	assets          map[string][]byte
+	assets          map[string]assets.Asset
 	availableThemes []string
 
-	mut   sync.RWMutex
-	theme string
+	mut             sync.RWMutex
+	theme           string
+	lastThemeChange time.Time
 }
 
 func newStaticsServer(theme, assetDir string) *staticsServer {
 	s := &staticsServer{
-		assetDir: assetDir,
-		assets:   auto.Assets(),
-		mut:      sync.NewRWMutex(),
-		theme:    theme,
+		assetDir:        assetDir,
+		assets:          auto.Assets(),
+		mut:             sync.NewRWMutex(),
+		theme:           theme,
+		lastThemeChange: time.Now().UTC(),
 	}
 
 	seen := make(map[string]struct{})
@@ -86,13 +87,28 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 
 	s.mut.RLock()
 	theme := s.theme
+	modificationTime := s.lastThemeChange
 	s.mut.RUnlock()
+
+	// If path starts with special prefix, get theme and file from path
+	if strings.HasPrefix(file, themePrefix) {
+		path := file[len(themePrefix):]
+		i := strings.IndexRune(path, '/')
+
+		if i == -1 {
+			http.NotFound(w, r)
+			return
+		}
+
+		theme = path[:i]
+		file = path[i+1:]
+	}
 
 	// Check for an override for the current theme.
 	if s.assetDir != "" {
 		p := filepath.Join(s.assetDir, theme, filepath.FromSlash(file))
 		if _, err := os.Stat(p); err == nil {
-			mtype := s.mimeTypeForFile(file)
+			mtype := assets.MimeTypeForFile(file)
 			if len(mtype) != 0 {
 				w.Header().Set("Content-Type", mtype)
 			}
@@ -102,13 +118,13 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for a compiled in asset for the current theme.
-	bs, ok := s.assets[theme+"/"+file]
+	as, ok := s.assets[theme+"/"+file]
 	if !ok {
 		// Check for an overridden default asset.
 		if s.assetDir != "" {
 			p := filepath.Join(s.assetDir, config.DefaultTheme, filepath.FromSlash(file))
 			if _, err := os.Stat(p); err == nil {
-				mtype := s.mimeTypeForFile(file)
+				mtype := assets.MimeTypeForFile(file)
 				if len(mtype) != 0 {
 					w.Header().Set("Content-Type", mtype)
 				}
@@ -118,49 +134,15 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Check for a compiled in default asset.
-		bs, ok = s.assets[config.DefaultTheme+"/"+file]
+		as, ok = s.assets[config.DefaultTheme+"/"+file]
 		if !ok {
 			http.NotFound(w, r)
 			return
 		}
 	}
 
-	etag := fmt.Sprintf("%d", auto.Generated)
-	modified := time.Unix(auto.Generated, 0).UTC()
-
-	w.Header().Set("Last-Modified", modified.Format(http.TimeFormat))
-	w.Header().Set("Etag", etag)
-
-	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil {
-		if modified.Equal(t) || modified.Before(t) {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-	}
-
-	if match := r.Header.Get("If-None-Match"); match != "" {
-		if strings.Contains(match, etag) {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
-	}
-
-	mtype := s.mimeTypeForFile(file)
-	if len(mtype) != 0 {
-		w.Header().Set("Content-Type", mtype)
-	}
-	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-		w.Header().Set("Content-Encoding", "gzip")
-	} else {
-		// ungzip if browser not send gzip accepted header
-		var gr *gzip.Reader
-		gr, _ = gzip.NewReader(bytes.NewReader(bs))
-		bs, _ = ioutil.ReadAll(gr)
-		gr.Close()
-	}
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-
-	w.Write(bs)
+	as.Modified = modificationTime
+	assets.Serve(w, r, as)
 }
 
 func (s *staticsServer) serveThemes(w http.ResponseWriter, r *http.Request) {
@@ -169,36 +151,10 @@ func (s *staticsServer) serveThemes(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *staticsServer) mimeTypeForFile(file string) string {
-	// We use a built in table of the common types since the system
-	// TypeByExtension might be unreliable. But if we don't know, we delegate
-	// to the system. All our files are UTF-8.
-	ext := filepath.Ext(file)
-	switch ext {
-	case ".htm", ".html":
-		return "text/html; charset=utf-8"
-	case ".css":
-		return "text/css; charset=utf-8"
-	case ".js":
-		return "application/javascript; charset=utf-8"
-	case ".json":
-		return "application/json; charset=utf-8"
-	case ".png":
-		return "image/png"
-	case ".ttf":
-		return "application/x-font-ttf"
-	case ".woff":
-		return "application/x-font-woff"
-	case ".svg":
-		return "image/svg+xml; charset=utf-8"
-	default:
-		return mime.TypeByExtension(ext)
-	}
-}
-
 func (s *staticsServer) setTheme(theme string) {
 	s.mut.Lock()
 	s.theme = theme
+	s.lastThemeChange = time.Now().UTC()
 	s.mut.Unlock()
 }
 

@@ -7,6 +7,8 @@
 package discover
 
 import (
+	"context"
+	"sort"
 	stdsync "sync"
 	"time"
 
@@ -72,7 +74,7 @@ func (m *cachingMux) Add(finder Finder, cacheTime, negCacheTime time.Duration) {
 
 // Lookup attempts to resolve the device ID using any of the added Finders,
 // while obeying the cache settings.
-func (m *cachingMux) Lookup(deviceID protocol.DeviceID) (addresses []string, err error) {
+func (m *cachingMux) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
 	m.mut.RLock()
 	for i, finder := range m.finders {
 		if cacheEntry, ok := m.caches[i].Get(deviceID); ok {
@@ -98,7 +100,7 @@ func (m *cachingMux) Lookup(deviceID protocol.DeviceID) (addresses []string, err
 		}
 
 		// Perform the actual lookup and cache the result.
-		if addrs, err := finder.Lookup(deviceID); err == nil {
+		if addrs, err := finder.Lookup(ctx, deviceID); err == nil {
 			l.Debugln("lookup for", deviceID, "at", finder)
 			l.Debugln("  addresses:", addrs)
 			addresses = append(addresses, addrs...)
@@ -121,10 +123,11 @@ func (m *cachingMux) Lookup(deviceID protocol.DeviceID) (addresses []string, err
 	}
 	m.mut.RUnlock()
 
+	addresses = util.UniqueTrimmedStrings(addresses)
+	sort.Strings(addresses)
+
 	l.Debugln("lookup results for", deviceID)
 	l.Debugln("  addresses: ", addresses)
-
-	addresses = util.UniqueStrings(addresses)
 
 	return addresses, nil
 }
@@ -185,7 +188,7 @@ func (m *cachingMux) Cache() map[protocol.DeviceID]CacheEntry {
 	m.mut.RUnlock()
 
 	for k, v := range res {
-		v.Addresses = util.UniqueStrings(v.Addresses)
+		v.Addresses = util.UniqueTrimmedStrings(v.Addresses)
 		res[k] = v
 	}
 

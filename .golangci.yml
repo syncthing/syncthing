@@ -1,5 +1,26 @@
+linters-settings:
+  maligned:
+    suggest-new: true
+
+linters:
+  enable-all: true
+  disable:
+    - goimports
+    - depguard
+    - lll
+    - gochecknoinits
+    - gochecknoglobals
+    - gofmt
+    - scopelint
+    - gocyclo
+    - funlen
+    - wsl
+    - gocognit
+    - godox
+
 service:
-  golangci-lint-version: 1.13.x
+  golangci-lint-version: 1.21.x
   prepare:
-    - go run build.go assets
+    - rm -f go.sum # 1.12 -> 1.13 issues with QUIC-go
     - GO111MODULE=on go mod vendor
+    - go run build.go assets

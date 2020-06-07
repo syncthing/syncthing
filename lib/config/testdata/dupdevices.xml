@@ -15,7 +15,7 @@
         <!-- duplicate, will be removed -->
         <address>192.0.2.5</address>
     </device>
-    <folder id="f2" directory="testdata/">
+    <folder id="f2" path="testdata/">
         <device id="AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR"></device>
         <device id="GYRZZQBIRNPV4T7TC52WEQYJ3TFDQW6MWDFLMU4SSSU6EMFBK2VA"></device>
         <!-- duplicate device, will be removed -->

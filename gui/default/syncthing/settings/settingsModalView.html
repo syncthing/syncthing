@@ -94,7 +94,7 @@
                 <p class="help-block" ng-if="!upgradeInfo">
                   <span translate>Unavailable/Disabled by administrator or maintainer</span>
                 </p>
-                <p class="help-block" ng-if="version.isCandidate"">
+                <p class="help-block" ng-if="version.isCandidate && upgradeInfo"">
                   <span translate>Automatic upgrades are always enabled for candidate releases.</span>
                 </p>
               </div>
@@ -172,6 +172,13 @@
               </div>
             </div>
             <div class="col-md-6">
+              <div ng-if="isUnixAddress(tmpGUI.address)" class="form-group" ng-class="{'has-error': settingsEditor.UnixSocketPermissions.$invalid && settingsEditor.UnixSocketPermissions.$dirty}">
+                <label translate>UNIX Permissions</label>
+                <input id="UnixSocketPermissions" name="UnixSocketPermissions" class="form-control" type="text" ng-model="tmpGUI.unixSocketPermissions" ng-pattern="/^0?[0-7]{0,3}$/" />
+                <p class="help-block" ng-show="settingsEditor.UnixSocketPermissions.$invalid" translate>
+                  Enter up to three octal digits.
+                </p>
+              </div>
             </div>
           </div>
         </div>

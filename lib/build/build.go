@@ -9,6 +9,7 @@ package build
 import (
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -19,12 +20,12 @@ import (
 var (
 	// Injected by build script
 	Version = "unknown-dev"
-	Host    = "unknown" // Set by build script
-	User    = "unknown" // Set by build script
-	Stamp   = "0"       // Set by build script
+	Host    = "unknown"
+	User    = "unknown"
+	Stamp   = "0"
 
 	// Static
-	Codename = "Erbium Earthworm"
+	Codename = "Fermium Flea"
 
 	// Set by init()
 	Date        time.Time
@@ -37,6 +38,14 @@ var (
 	Tags []string
 
 	allowedVersionExp = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\.\d+)*(\+\d+-g[0-9a-f]+)?(-[^\s]+)?$`)
+
+	envTags = []string{
+		"STGUIASSETS",
+		"STHASHING",
+		"STNORESTART",
+		"STNOUPGRADE",
+		"USE_BADGER",
+	}
 )
 
 func init() {
@@ -71,11 +80,21 @@ func setBuildData() {
 
 	stamp, _ := strconv.Atoi(Stamp)
 	Date = time.Unix(int64(stamp), 0)
+	LongVersion = LongVersionFor("syncthing")
+}
 
+// LongVersionFor returns the long version string for the given program name.
+func LongVersionFor(program string) string {
+	// This string and date format is essentially part of our external API. Never change it.
 	date := Date.UTC().Format("2006-01-02 15:04:05 MST")
-	LongVersion = fmt.Sprintf(`syncthing %s "%s" (%s %s-%s) %s@%s %s`, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, User, Host, date)
-
-	if len(Tags) > 0 {
-		LongVersion = fmt.Sprintf("%s [%s]", LongVersion, strings.Join(Tags, ", "))
+	v := fmt.Sprintf(`%s %s "%s" (%s %s-%s) %s@%s %s`, program, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, User, Host, date)
+	for _, envVar := range envTags {
+		if os.Getenv(envVar) != "" {
+			Tags = append(Tags, strings.ToLower(envVar))
+		}
 	}
+	if len(Tags) > 0 {
+		v = fmt.Sprintf("%s [%s]", v, strings.Join(Tags, ", "))
+	}
+	return v
 }

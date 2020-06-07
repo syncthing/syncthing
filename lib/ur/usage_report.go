@@ -28,6 +28,9 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/util"
+
+	"github.com/thejerf/suture"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
@@ -38,14 +41,12 @@ const Version = 3
 var StartTime = time.Now()
 
 type Service struct {
+	suture.Service
 	cfg                config.Wrapper
 	model              model.Model
 	connectionsService connections.Service
 	noUpgrade          bool
 	forceRun           chan struct{}
-	stop               chan struct{}
-	stopped            chan struct{}
-	stopMut            sync.RWMutex
 }
 
 func New(cfg config.Wrapper, m model.Model, connectionsService connections.Service, noUpgrade bool) *Service {
@@ -54,28 +55,26 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 		model:              m,
 		connectionsService: connectionsService,
 		noUpgrade:          noUpgrade,
-		forceRun:           make(chan struct{}),
-		stop:               make(chan struct{}),
-		stopped:            make(chan struct{}),
+		forceRun:           make(chan struct{}, 1), // Buffered to prevent locking
 	}
-	close(svc.stopped) // Not yet running, dont block on Stop()
-	cfg.Subscribe(svc)
+	svc.Service = util.AsService(svc.serve, svc.String())
 	return svc
 }
 
 // ReportData returns the data to be sent in a usage report with the currently
 // configured usage reporting version.
-func (s *Service) ReportData() map[string]interface{} {
-	return s.reportData(Version, false)
+func (s *Service) ReportData(ctx context.Context) map[string]interface{} {
+	urVersion := s.cfg.Options().URAccepted
+	return s.reportData(ctx, urVersion, false)
 }
 
 // ReportDataPreview returns a preview of the data to be sent in a usage report
 // with the given version.
-func (s *Service) ReportDataPreview(urVersion int) map[string]interface{} {
-	return s.reportData(urVersion, true)
+func (s *Service) ReportDataPreview(ctx context.Context, urVersion int) map[string]interface{} {
+	return s.reportData(ctx, urVersion, true)
 }
 
-func (s *Service) reportData(urVersion int, preview bool) map[string]interface{} {
+func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) map[string]interface{} {
 	opts := s.cfg.Options()
 	res := make(map[string]interface{})
 	res["urVersion"] = urVersion
@@ -89,7 +88,12 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
 	for folderID := range s.cfg.Folders() {
-		global := s.model.GlobalSize(folderID)
+		snap, err := s.model.DBSnapshot(folderID)
+		if err != nil {
+			continue
+		}
+		global := snap.GlobalSize()
+		snap.Release()
 		totFiles += int(global.Files)
 		totBytes += global.Bytes
 		if int(global.Files) > maxFiles {
@@ -108,8 +112,8 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 	res["memoryUsageMiB"] = (mem.Sys - mem.HeapReleased) / 1024 / 1024
-	res["sha256Perf"] = CpuBench(5, 125*time.Millisecond, false)
-	res["hashPerf"] = CpuBench(5, 125*time.Millisecond, true)
+	res["sha256Perf"] = CpuBench(ctx, 5, 125*time.Millisecond, false)
+	res["hashPerf"] = CpuBench(ctx, 5, 125*time.Millisecond, true)
 
 	bytes, err := memorySize()
 	if err == nil {
@@ -192,7 +196,7 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 	res["deviceUses"] = deviceUses
 
 	defaultAnnounceServersDNS, defaultAnnounceServersIP, otherAnnounceServers := 0, 0, 0
-	for _, addr := range opts.GlobalAnnServers {
+	for _, addr := range opts.RawGlobalAnnServers {
 		if addr == "default" || addr == "default-v4" || addr == "default-v6" {
 			defaultAnnounceServersDNS++
 		} else {
@@ -208,7 +212,7 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 	}
 
 	defaultRelayServers, otherRelayServers := 0, 0
-	for _, addr := range s.cfg.ListenAddresses() {
+	for _, addr := range s.cfg.Options().ListenAddresses() {
 		switch {
 		case addr == "dynamic+https://relays.syncthing.net/endpoint":
 			defaultRelayServers++
@@ -364,8 +368,8 @@ func (s *Service) UptimeS() int {
 	return int(time.Since(StartTime).Seconds())
 }
 
-func (s *Service) sendUsageReport() error {
-	d := s.ReportData()
+func (s *Service) sendUsageReport(ctx context.Context) error {
+	d := s.ReportData(ctx)
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(d); err != nil {
 		return err
@@ -373,37 +377,41 @@ func (s *Service) sendUsageReport() error {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			Dial:  dialer.Dial,
-			Proxy: http.ProxyFromEnvironment,
+			DialContext: dialer.DialContext,
+			Proxy:       http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: s.cfg.Options().URPostInsecurely,
 			},
 		},
 	}
-	_, err := client.Post(s.cfg.Options().URURL, "application/json", &b)
-	return err
+	req, err := http.NewRequest("POST", s.cfg.Options().URURL, &b)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Cancel = ctx.Done()
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
 }
 
-func (s *Service) Serve() {
-	s.stopMut.Lock()
-	s.stop = make(chan struct{})
-	s.stopped = make(chan struct{})
-	s.stopMut.Unlock()
+func (s *Service) serve(ctx context.Context) {
+	s.cfg.Subscribe(s)
+	defer s.cfg.Unsubscribe(s)
+
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
-	s.stopMut.RLock()
-	defer func() {
-		close(s.stopped)
-		s.stopMut.RUnlock()
-	}()
 	for {
 		select {
-		case <-s.stop:
+		case <-ctx.Done():
 			return
 		case <-s.forceRun:
 			t.Reset(0)
 		case <-t.C:
 			if s.cfg.Options().URAccepted >= 2 {
-				err := s.sendUsageReport()
+				err := s.sendUsageReport(ctx)
 				if err != nil {
 					l.Infoln("Usage report:", err)
 				} else {
@@ -421,36 +429,37 @@ func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
 
 func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
-		s.stopMut.RLock()
 		select {
 		case s.forceRun <- struct{}{}:
-		case <-s.stop:
+		default:
+			// s.forceRun is one buffered, so even though nothing
+			// was sent, a run will still happen after this point.
 		}
-		s.stopMut.RUnlock()
 	}
 	return true
-}
-
-func (s *Service) Stop() {
-	s.stopMut.RLock()
-	close(s.stop)
-	<-s.stopped
-	s.stopMut.RUnlock()
 }
 
 func (*Service) String() string {
 	return "ur.Service"
 }
 
+var (
+	blocksResult    []protocol.BlockInfo // so the result is not optimized away
+	blocksResultMut sync.Mutex
+)
+
 // CpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
-func CpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 {
+func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWeakHash bool) float64 {
+	blocksResultMut.Lock()
+	defer blocksResultMut.Unlock()
+
 	dataSize := 16 * protocol.MinBlockSize
 	bs := make([]byte, dataSize)
 	rand.Reader.Read(bs)
 
 	var perf float64
 	for i := 0; i < iterations; i++ {
-		if v := cpuBenchOnce(duration, useWeakHash, bs); v > perf {
+		if v := cpuBenchOnce(ctx, duration, useWeakHash, bs); v > perf {
 			perf = v
 		}
 	}
@@ -458,14 +467,16 @@ func CpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 
 	return perf
 }
 
-var blocksResult []protocol.BlockInfo // so the result is not optimized away
-
-func cpuBenchOnce(duration time.Duration, useWeakHash bool, bs []byte) float64 {
+func cpuBenchOnce(ctx context.Context, duration time.Duration, useWeakHash bool, bs []byte) float64 {
 	t0 := time.Now()
 	b := 0
+	var err error
 	for time.Since(t0) < duration {
 		r := bytes.NewReader(bs)
-		blocksResult, _ = scanner.Blocks(context.TODO(), r, protocol.MinBlockSize, int64(len(bs)), nil, useWeakHash)
+		blocksResult, err = scanner.Blocks(ctx, r, protocol.MinBlockSize, int64(len(bs)), nil, useWeakHash)
+		if err != nil {
+			return 0 // Context done
+		}
 		b += len(bs)
 	}
 	d := time.Since(t0)

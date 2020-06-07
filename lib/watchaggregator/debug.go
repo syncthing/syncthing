@@ -7,18 +7,9 @@
 package watchaggregator
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var facilityName = "watchaggregator"
-
 var (
-	l = logger.DefaultLogger.NewFacility(facilityName, "Filesystem event watcher")
+	l = logger.DefaultLogger.NewFacility("watchaggregator", "Filesystem event watcher")
 )
-
-func init() {
-	l.SetDebug(facilityName, strings.Contains(os.Getenv("STTRACE"), facilityName) || os.Getenv("STTRACE") == "all")
-}

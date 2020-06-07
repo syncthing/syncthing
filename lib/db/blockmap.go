@@ -11,23 +11,15 @@ import (
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/osutil"
-
-	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-var blockFinder *BlockFinder
-
 type BlockFinder struct {
-	db *instance
+	db *Lowlevel
 }
 
 func NewBlockFinder(db *Lowlevel) *BlockFinder {
-	if blockFinder != nil {
-		return blockFinder
-	}
-
 	return &BlockFinder{
-		db: newInstance(db),
+		db: db,
 	}
 }
 
@@ -41,13 +33,22 @@ func (f *BlockFinder) String() string {
 // reason. The iterator finally returns the result, whether or not a
 // satisfying block was eventually found.
 func (f *BlockFinder) Iterate(folders []string, hash []byte, iterFn func(string, string, int32) bool) bool {
-	t := f.db.newReadOnlyTransaction()
+	t, err := f.db.newReadOnlyTransaction()
+	if err != nil {
+		return false
+	}
 	defer t.close()
 
 	var key []byte
 	for _, folder := range folders {
-		key = f.db.keyer.GenerateBlockMapKey(key, []byte(folder), hash, nil)
-		iter := t.NewIterator(util.BytesPrefix(key), nil)
+		key, err = f.db.keyer.GenerateBlockMapKey(key, []byte(folder), hash, nil)
+		if err != nil {
+			return false
+		}
+		iter, err := t.NewPrefixIterator(key)
+		if err != nil {
+			return false
+		}
 
 		for iter.Next() && iter.Error() == nil {
 			file := string(f.db.keyer.NameFromBlockMapKey(iter.Key()))

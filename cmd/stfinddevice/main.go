@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"flag"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/discover"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -82,7 +84,7 @@ func checkServers(deviceID protocol.DeviceID, servers ...string) {
 }
 
 func checkServer(deviceID protocol.DeviceID, server string) checkResult {
-	disco, err := discover.NewGlobal(server, tls.Certificate{}, nil)
+	disco, err := discover.NewGlobal(server, tls.Certificate{}, nil, events.NoopLogger)
 	if err != nil {
 		return checkResult{error: err}
 	}
@@ -94,7 +96,7 @@ func checkServer(deviceID protocol.DeviceID, server string) checkResult {
 	})
 
 	go func() {
-		addresses, err := disco.Lookup(deviceID)
+		addresses, err := disco.Lookup(context.Background(), deviceID)
 		res <- checkResult{addresses: addresses, error: err}
 	}()
 

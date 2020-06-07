@@ -8,13 +8,14 @@ package fs
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/calmh/du"
+	"github.com/shirou/gopsutil/disk"
 )
 
 var (
@@ -29,6 +30,10 @@ type BasicFilesystem struct {
 }
 
 func newBasicFilesystem(root string) *BasicFilesystem {
+	if root == "" {
+		root = "." // Otherwise "" becomes "/" below
+	}
+
 	// The reason it's done like this:
 	// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)
 	// C:\somedir  ->  C:\somedir\    ->  C:\somedir
@@ -265,11 +270,14 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 	if err != nil {
 		return Usage{}, err
 	}
-	u, err := du.Get(name)
+	u, err := disk.Usage(name)
+	if err != nil {
+		return Usage{}, err
+	}
 	return Usage{
-		Free:  u.FreeBytes,
-		Total: u.TotalBytes,
-	}, err
+		Free:  int64(u.Free),
+		Total: int64(u.Total),
+	}, nil
 }
 
 func (f *BasicFilesystem) Type() FilesystemType {
@@ -289,7 +297,7 @@ func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
 		return false
 	}
 
-	return os.SameFile(f1.FileInfo, f2.FileInfo)
+	return os.SameFile(f1.osFileInfo(), f2.osFileInfo())
 }
 
 // basicFile implements the fs.File interface on top of an os.File
@@ -333,4 +341,14 @@ func longFilenameSupport(path string) string {
 		return `\\?\` + path
 	}
 	return path
+}
+
+type ErrWatchEventOutsideRoot struct{ msg string }
+
+func (e *ErrWatchEventOutsideRoot) Error() string {
+	return e.msg
+}
+
+func (f *BasicFilesystem) newErrWatchEventOutsideRoot(absPath string, roots []string) *ErrWatchEventOutsideRoot {
+	return &ErrWatchEventOutsideRoot{fmt.Sprintf("Watching for changes encountered an event outside of the filesystem root: f.root==%v, roots==%v, path==%v. This should never happen, please report this message to forum.syncthing.net.", f.root, roots, absPath)}
 }

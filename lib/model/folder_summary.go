@@ -7,15 +7,19 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/thejerf/suture"
+
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/thejerf/suture"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 const minSummaryInterval = time.Minute
@@ -34,7 +38,7 @@ type folderSummaryService struct {
 	cfg       config.Wrapper
 	model     Model
 	id        protocol.DeviceID
-	stop      chan struct{}
+	evLogger  events.Logger
 	immediate chan string
 
 	// For keeping track of folders to recalculate for
@@ -46,7 +50,7 @@ type folderSummaryService struct {
 	lastEventReqMut sync.Mutex
 }
 
-func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID) FolderSummaryService {
+func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
 	service := &folderSummaryService{
 		Supervisor: suture.New("folderSummaryService", suture.Spec{
 			PassThroughPanics: true,
@@ -54,22 +58,17 @@ func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID) 
 		cfg:             cfg,
 		model:           m,
 		id:              id,
-		stop:            make(chan struct{}),
+		evLogger:        evLogger,
 		immediate:       make(chan string),
 		folders:         make(map[string]struct{}),
 		foldersMut:      sync.NewMutex(),
 		lastEventReqMut: sync.NewMutex(),
 	}
 
-	service.Add(serviceFunc(service.listenForUpdates))
-	service.Add(serviceFunc(service.calculateSummaries))
+	service.Add(util.AsService(service.listenForUpdates, fmt.Sprintf("%s/listenForUpdates", service)))
+	service.Add(util.AsService(service.calculateSummaries, fmt.Sprintf("%s/calculateSummaries", service)))
 
 	return service
-}
-
-func (c *folderSummaryService) Stop() {
-	c.Supervisor.Stop()
-	close(c.stop)
 }
 
 func (c *folderSummaryService) String() string {
@@ -79,29 +78,54 @@ func (c *folderSummaryService) String() string {
 func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, error) {
 	var res = make(map[string]interface{})
 
+	var local, global, need, ro db.Counts
+	var ourSeq, remoteSeq int64
 	errors, err := c.model.FolderErrors(folder)
-	if err != nil && err != ErrFolderPaused {
-		// Stats from the db can still be obtained if the folder is just paused
+	if err == nil {
+		var snap *db.Snapshot
+		if snap, err = c.model.DBSnapshot(folder); err == nil {
+			global = snap.GlobalSize()
+			local = snap.LocalSize()
+			need = snap.NeedSize(protocol.LocalDeviceID)
+			ro = snap.ReceiveOnlyChangedSize()
+			ourSeq = snap.Sequence(protocol.LocalDeviceID)
+			remoteSeq = snap.Sequence(protocol.GlobalDeviceID)
+			snap.Release()
+		}
+	}
+	// For API backwards compatibility (SyncTrayzor needs it) an empty folder
+	// summary is returned for not running folders, an error might actually be
+	// more appropriate
+	if err != nil && err != ErrFolderPaused && err != errFolderNotRunning {
 		return nil, err
 	}
+
 	res["errors"] = len(errors)
 	res["pullErrors"] = len(errors) // deprecated
 
 	res["invalid"] = "" // Deprecated, retains external API for now
 
-	global := c.model.GlobalSize(folder)
 	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"], res["globalTotalItems"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
 
-	local := c.model.LocalSize(folder)
 	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"], res["localTotalItems"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
 
-	need := c.model.NeedSize(folder)
+	fcfg, haveFcfg := c.cfg.Folder(folder)
+
+	if haveFcfg && fcfg.IgnoreDelete {
+		need.Deleted = 0
+	}
+
+	need.Bytes -= c.model.FolderProgressBytesCompleted(folder)
+	// This may happen if we are in progress of pulling files that were
+	// deleted globally after the pull started.
+	if need.Bytes < 0 {
+		need.Bytes = 0
+	}
 	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
 
-	if c.cfg.Folders()[folder].Type == config.FolderTypeReceiveOnly {
+	if haveFcfg && fcfg.Type == config.FolderTypeReceiveOnly {
 		// Add statistics for things that have changed locally in a receive
 		// only folder.
-		ro := c.model.ReceiveOnlyChangedSize(folder)
 		res["receiveOnlyChangedFiles"] = ro.Files
 		res["receiveOnlyChangedDirectories"] = ro.Directories
 		res["receiveOnlyChangedSymlinks"] = ro.Symlinks
@@ -116,9 +140,6 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	if err != nil {
 		res["error"] = err.Error()
 	}
-
-	ourSeq, _ := c.model.CurrentSequence(folder)
-	remoteSeq, _ := c.model.RemoteSequence(folder)
 
 	res["version"] = ourSeq + remoteSeq  // legacy
 	res["sequence"] = ourSeq + remoteSeq // new name
@@ -148,80 +169,99 @@ func (c *folderSummaryService) OnEventRequest() {
 
 // listenForUpdates subscribes to the event bus and makes note of folders that
 // need their data recalculated.
-func (c *folderSummaryService) listenForUpdates() {
-	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged)
-	defer events.Default.Unsubscribe(sub)
+func (c *folderSummaryService) listenForUpdates(ctx context.Context) {
+	sub := c.evLogger.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged | events.DownloadProgress)
+	defer sub.Unsubscribe()
 
 	for {
 		// This loop needs to be fast so we don't miss too many events.
 
 		select {
 		case ev := <-sub.C():
-			if ev.Type == events.DeviceConnected {
-				// When a device connects we schedule a refresh of all
-				// folders shared with that device.
-
-				data := ev.Data.(map[string]string)
-				deviceID, _ := protocol.DeviceIDFromString(data["id"])
-
-				c.foldersMut.Lock()
-			nextFolder:
-				for _, folder := range c.cfg.Folders() {
-					for _, dev := range folder.Devices {
-						if dev.DeviceID == deviceID {
-							c.folders[folder.ID] = struct{}{}
-							continue nextFolder
-						}
-					}
-				}
-				c.foldersMut.Unlock()
-
-				continue
-			}
-
-			// The other events all have a "folder" attribute that they
-			// affect. Whenever the local or remote index is updated for a
-			// given folder we make a note of it.
-
-			data := ev.Data.(map[string]interface{})
-			folder := data["folder"].(string)
-
-			switch ev.Type {
-			case events.StateChanged:
-				if data["to"].(string) == "idle" && data["from"].(string) == "syncing" {
-					// The folder changed to idle from syncing. We should do an
-					// immediate refresh to update the GUI. The send to
-					// c.immediate must be nonblocking so that we can continue
-					// handling events.
-
-					c.foldersMut.Lock()
-					select {
-					case c.immediate <- folder:
-						delete(c.folders, folder)
-					default:
-						c.folders[folder] = struct{}{}
-					}
-					c.foldersMut.Unlock()
-				}
-
-			default:
-				// This folder needs to be refreshed whenever we do the next
-				// refresh.
-
-				c.foldersMut.Lock()
-				c.folders[folder] = struct{}{}
-				c.foldersMut.Unlock()
-			}
-
-		case <-c.stop:
+			c.processUpdate(ev)
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
+func (c *folderSummaryService) processUpdate(ev events.Event) {
+	var folder string
+
+	switch ev.Type {
+	case events.DeviceConnected:
+		// When a device connects we schedule a refresh of all
+		// folders shared with that device.
+
+		data := ev.Data.(map[string]string)
+		deviceID, _ := protocol.DeviceIDFromString(data["id"])
+
+		c.foldersMut.Lock()
+	nextFolder:
+		for _, folder := range c.cfg.Folders() {
+			for _, dev := range folder.Devices {
+				if dev.DeviceID == deviceID {
+					c.folders[folder.ID] = struct{}{}
+					continue nextFolder
+				}
+			}
+		}
+		c.foldersMut.Unlock()
+
+		return
+
+	case events.DownloadProgress:
+		data := ev.Data.(map[string]map[string]*pullerProgress)
+		c.foldersMut.Lock()
+		for folder := range data {
+			c.folders[folder] = struct{}{}
+		}
+		c.foldersMut.Unlock()
+		return
+
+	case events.StateChanged:
+		data := ev.Data.(map[string]interface{})
+		if data["to"].(string) != "idle" {
+			return
+		}
+		if from := data["from"].(string); from != "syncing" && from != "sync-preparing" {
+			return
+		}
+
+		// The folder changed to idle from syncing. We should do an
+		// immediate refresh to update the GUI. The send to
+		// c.immediate must be nonblocking so that we can continue
+		// handling events.
+
+		folder = data["folder"].(string)
+		select {
+		case c.immediate <- folder:
+			c.foldersMut.Lock()
+			delete(c.folders, folder)
+			c.foldersMut.Unlock()
+			return
+		default:
+			// Refresh whenever we do the next summary.
+		}
+
+	default:
+		// The other events all have a "folder" attribute that they
+		// affect. Whenever the local or remote index is updated for a
+		// given folder we make a note of it.
+		// This folder needs to be refreshed whenever we do the next
+		// refresh.
+
+		folder = ev.Data.(map[string]interface{})["folder"].(string)
+	}
+
+	c.foldersMut.Lock()
+	c.folders[folder] = struct{}{}
+	c.foldersMut.Unlock()
+}
+
 // calculateSummaries periodically recalculates folder summaries and
 // completion percentage, and sends the results on the event bus.
-func (c *folderSummaryService) calculateSummaries() {
+func (c *folderSummaryService) calculateSummaries(ctx context.Context) {
 	const pumpInterval = 2 * time.Second
 	pump := time.NewTimer(pumpInterval)
 
@@ -230,7 +270,12 @@ func (c *folderSummaryService) calculateSummaries() {
 		case <-pump.C:
 			t0 := time.Now()
 			for _, folder := range c.foldersToHandle() {
-				c.sendSummary(folder)
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+				c.sendSummary(ctx, folder)
 			}
 
 			// We don't want to spend all our time calculating summaries. Lets
@@ -240,9 +285,9 @@ func (c *folderSummaryService) calculateSummaries() {
 			pump.Reset(wait)
 
 		case folder := <-c.immediate:
-			c.sendSummary(folder)
+			c.sendSummary(ctx, folder)
 
-		case <-c.stop:
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -273,19 +318,25 @@ func (c *folderSummaryService) foldersToHandle() []string {
 }
 
 // sendSummary send the summary events for a single folder
-func (c *folderSummaryService) sendSummary(folder string) {
+func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 	// The folder summary contains how many bytes, files etc
 	// are in the folder and how in sync we are.
 	data, err := c.Summary(folder)
 	if err != nil {
 		return
 	}
-	events.Default.Log(events.FolderSummary, map[string]interface{}{
+	c.evLogger.Log(events.FolderSummary, map[string]interface{}{
 		"folder":  folder,
 		"summary": data,
 	})
 
 	for _, devCfg := range c.cfg.Folders()[folder].Devices {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		if devCfg.DeviceID.Equals(c.id) {
 			// We already know about ourselves.
 			continue
@@ -300,13 +351,6 @@ func (c *folderSummaryService) sendSummary(folder string) {
 		comp := c.model.Completion(devCfg.DeviceID, folder).Map()
 		comp["folder"] = folder
 		comp["device"] = devCfg.DeviceID.String()
-		events.Default.Log(events.FolderCompletion, comp)
+		c.evLogger.Log(events.FolderCompletion, comp)
 	}
 }
-
-// serviceFunc wraps a function to create a suture.Service without stop
-// functionality.
-type serviceFunc func()
-
-func (f serviceFunc) Serve() { f() }
-func (f serviceFunc) Stop()  {}

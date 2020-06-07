@@ -10,16 +10,15 @@ import (
 	"encoding/binary"
 	"sort"
 
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 // A smallIndex is an in memory bidirectional []byte to uint32 map. It gives
 // fast lookups in both directions and persists to the database. Don't use for
 // storing more items than fit comfortably in RAM.
 type smallIndex struct {
-	db     *leveldb.DB
+	db     backend.Backend
 	prefix []byte
 	id2val map[uint32]string
 	val2id map[string]uint32
@@ -27,7 +26,7 @@ type smallIndex struct {
 	mut    sync.Mutex
 }
 
-func newSmallIndex(db *leveldb.DB, prefix []byte) *smallIndex {
+func newSmallIndex(db backend.Backend, prefix []byte) *smallIndex {
 	idx := &smallIndex{
 		db:     db,
 		prefix: prefix,
@@ -42,7 +41,10 @@ func newSmallIndex(db *leveldb.DB, prefix []byte) *smallIndex {
 // load iterates over the prefix space in the database and populates the in
 // memory maps.
 func (i *smallIndex) load() {
-	it := i.db.NewIterator(util.BytesPrefix(i.prefix), nil)
+	it, err := i.db.NewPrefixIterator(i.prefix)
+	if err != nil {
+		panic("loading small index: " + err.Error())
+	}
 	defer it.Release()
 	for it.Next() {
 		val := string(it.Value())
@@ -60,7 +62,7 @@ func (i *smallIndex) load() {
 
 // ID returns the index number for the given byte slice, allocating a new one
 // and persisting this to the database if necessary.
-func (i *smallIndex) ID(val []byte) uint32 {
+func (i *smallIndex) ID(val []byte) (uint32, error) {
 	i.mut.Lock()
 	// intentionally avoiding defer here as we want this call to be as fast as
 	// possible in the general case (folder ID already exists). The map lookup
@@ -69,7 +71,7 @@ func (i *smallIndex) ID(val []byte) uint32 {
 	// here.
 	if id, ok := i.val2id[string(val)]; ok {
 		i.mut.Unlock()
-		return id
+		return id, nil
 	}
 
 	id := i.nextID
@@ -82,10 +84,13 @@ func (i *smallIndex) ID(val []byte) uint32 {
 	key := make([]byte, len(i.prefix)+8) // prefix plus uint32 id
 	copy(key, i.prefix)
 	binary.BigEndian.PutUint32(key[len(i.prefix):], id)
-	i.db.Put(key, val, nil)
+	if err := i.db.Put(key, val); err != nil {
+		i.mut.Unlock()
+		return 0, err
+	}
 
 	i.mut.Unlock()
-	return id
+	return id, nil
 }
 
 // Val returns the value for the given index number, or (nil, false) if there
@@ -101,7 +106,7 @@ func (i *smallIndex) Val(id uint32) ([]byte, bool) {
 	return []byte(val), true
 }
 
-func (i *smallIndex) Delete(val []byte) {
+func (i *smallIndex) Delete(val []byte) error {
 	i.mut.Lock()
 	defer i.mut.Unlock()
 
@@ -115,7 +120,9 @@ func (i *smallIndex) Delete(val []byte) {
 		// Put an empty value into the database. This indicates that the
 		// entry does not exist any more and prevents the ID from being
 		// reused in the future.
-		i.db.Put(key, []byte{}, nil)
+		if err := i.db.Put(key, []byte{}); err != nil {
+			return err
+		}
 
 		// Delete reverse mapping.
 		delete(i.id2val, id)
@@ -123,6 +130,7 @@ func (i *smallIndex) Delete(val []byte) {
 
 	// Delete forward mapping.
 	delete(i.val2id, string(val))
+	return nil
 }
 
 // Values returns the set of values in the index

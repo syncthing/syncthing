@@ -1,0 +1,5 @@
+# Default settings for syncthing-relaysrv (strelaysrv).
+NAT=true
+
+## Add Options here:
+RELAYSRV_OPTS=

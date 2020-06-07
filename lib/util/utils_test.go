@@ -6,7 +6,11 @@
 
 package util
 
-import "testing"
+import (
+	"context"
+	"strings"
+	"testing"
+)
 
 type Defaulter struct {
 	Value string
@@ -75,17 +79,13 @@ func TestUniqueStrings(t *testing.T) {
 			nil,
 		},
 		{
-			[]string{"b", "a"},
-			[]string{"a", "b"},
-		},
-		{
 			[]string{"       a     ", "     a  ", "b        ", "    b"},
 			[]string{"a", "b"},
 		},
 	}
 
 	for _, test := range tests {
-		result := UniqueStrings(test.input)
+		result := UniqueTrimmedStrings(test.input)
 		if len(result) != len(test.expected) {
 			t.Errorf("%s != %s", result, test.expected)
 		}
@@ -225,4 +225,21 @@ func TestCopyMatching(t *testing.T) {
 	if to.NoCopy != 44 {
 		t.Error("NoCopy")
 	}
+}
+
+func TestUtilStopTwicePanic(t *testing.T) {
+	name := "foo"
+	s := AsService(func(ctx context.Context) {
+		<-ctx.Done()
+	}, name)
+
+	go s.Serve()
+	s.Stop()
+
+	defer func() {
+		if r := recover(); r == nil || !strings.Contains(r.(string), name) {
+			t.Fatalf(`expected panic containing "%v", got "%v"`, name, r)
+		}
+	}()
+	s.Stop()
 }

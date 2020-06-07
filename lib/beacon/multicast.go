@@ -7,98 +7,43 @@
 package beacon
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"net"
 	"time"
 
-	"github.com/thejerf/suture"
 	"golang.org/x/net/ipv6"
 )
 
-type Multicast struct {
-	*suture.Supervisor
-	inbox  chan []byte
-	outbox chan recv
-	mr     *multicastReader
-	mw     *multicastWriter
+func NewMulticast(addr string) Interface {
+	c := newCast("multicastBeacon")
+	c.addReader(func(ctx context.Context) error {
+		return readMulticasts(ctx, c.outbox, addr)
+	})
+	c.addWriter(func(ctx context.Context) error {
+		return writeMulticasts(ctx, c.inbox, addr)
+	})
+	return c
 }
 
-func NewMulticast(addr string) *Multicast {
-	m := &Multicast{
-		Supervisor: suture.New("multicastBeacon", suture.Spec{
-			// Don't retry too frenetically: an error to open a socket or
-			// whatever is usually something that is either permanent or takes
-			// a while to get solved...
-			FailureThreshold: 2,
-			FailureBackoff:   60 * time.Second,
-			// Only log restarts in debug mode.
-			Log: func(line string) {
-				l.Debugln(line)
-			},
-			PassThroughPanics: true,
-		}),
-		inbox:  make(chan []byte),
-		outbox: make(chan recv, 16),
-	}
-
-	m.mr = &multicastReader{
-		addr:   addr,
-		outbox: m.outbox,
-		stop:   make(chan struct{}),
-	}
-	m.Add(m.mr)
-
-	m.mw = &multicastWriter{
-		addr:  addr,
-		inbox: m.inbox,
-		stop:  make(chan struct{}),
-	}
-	m.Add(m.mw)
-
-	return m
-}
-
-func (m *Multicast) Send(data []byte) {
-	m.inbox <- data
-}
-
-func (m *Multicast) Recv() ([]byte, net.Addr) {
-	recv := <-m.outbox
-	return recv.data, recv.src
-}
-
-func (m *Multicast) Error() error {
-	if err := m.mr.Error(); err != nil {
-		return err
-	}
-	return m.mw.Error()
-}
-
-type multicastWriter struct {
-	addr  string
-	inbox <-chan []byte
-	errorHolder
-	stop chan struct{}
-}
-
-func (w *multicastWriter) Serve() {
-	l.Debugln(w, "starting")
-	defer l.Debugln(w, "stopping")
-
-	gaddr, err := net.ResolveUDPAddr("udp6", w.addr)
+func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) error {
+	gaddr, err := net.ResolveUDPAddr("udp6", addr)
 	if err != nil {
 		l.Debugln(err)
-		w.setError(err)
-		return
+		return err
 	}
 
 	conn, err := net.ListenPacket("udp6", ":0")
 	if err != nil {
 		l.Debugln(err)
-		w.setError(err)
-		return
+		return err
 	}
+	doneCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		<-doneCtx.Done()
+		conn.Close()
+	}()
 
 	pconn := ipv6.NewPacketConn(conn)
 
@@ -106,16 +51,26 @@ func (w *multicastWriter) Serve() {
 		HopLimit: 1,
 	}
 
-	for bs := range w.inbox {
+	for {
+		var bs []byte
+		select {
+		case bs = <-inbox:
+		case <-doneCtx.Done():
+			return nil
+		}
+
 		intfs, err := net.Interfaces()
 		if err != nil {
 			l.Debugln(err)
-			w.setError(err)
-			return
+			return err
 		}
 
 		success := 0
 		for _, intf := range intfs {
+			if intf.Flags&net.FlagMulticast == 0 {
+				continue
+			}
+
 			wcm.IfIndex = intf.Index
 			pconn.SetWriteDeadline(time.Now().Add(time.Second))
 			_, err = pconn.WriteTo(bs, wcm, gaddr)
@@ -123,62 +78,49 @@ func (w *multicastWriter) Serve() {
 
 			if err != nil {
 				l.Debugln(err, "on write to", gaddr, intf.Name)
-				w.setError(err)
 				continue
 			}
 
 			l.Debugf("sent %d bytes to %v on %s", len(bs), gaddr, intf.Name)
 
 			success++
+
+			select {
+			case <-doneCtx.Done():
+				return nil
+			default:
+			}
 		}
 
-		if success > 0 {
-			w.setError(nil)
-		} else {
-			l.Debugln(err)
-			w.setError(err)
+		if success == 0 {
+			return err
 		}
 	}
 }
 
-func (w *multicastWriter) Stop() {
-	close(w.stop)
-}
-
-func (w *multicastWriter) String() string {
-	return fmt.Sprintf("multicastWriter@%p", w)
-}
-
-type multicastReader struct {
-	addr   string
-	outbox chan<- recv
-	errorHolder
-	stop chan struct{}
-}
-
-func (r *multicastReader) Serve() {
-	l.Debugln(r, "starting")
-	defer l.Debugln(r, "stopping")
-
-	gaddr, err := net.ResolveUDPAddr("udp6", r.addr)
+func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error {
+	gaddr, err := net.ResolveUDPAddr("udp6", addr)
 	if err != nil {
 		l.Debugln(err)
-		r.setError(err)
-		return
+		return err
 	}
 
-	conn, err := net.ListenPacket("udp6", r.addr)
+	conn, err := net.ListenPacket("udp6", addr)
 	if err != nil {
 		l.Debugln(err)
-		r.setError(err)
-		return
+		return err
 	}
+	doneCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		<-doneCtx.Done()
+		conn.Close()
+	}()
 
 	intfs, err := net.Interfaces()
 	if err != nil {
 		l.Debugln(err)
-		r.setError(err)
-		return
+		return err
 	}
 
 	pconn := ipv6.NewPacketConn(conn)
@@ -195,34 +137,29 @@ func (r *multicastReader) Serve() {
 
 	if joined == 0 {
 		l.Debugln("no multicast interfaces available")
-		r.setError(errors.New("no multicast interfaces available"))
-		return
+		return errors.New("no multicast interfaces available")
 	}
 
 	bs := make([]byte, 65536)
 	for {
+		select {
+		case <-doneCtx.Done():
+			return nil
+		default:
+		}
 		n, _, addr, err := pconn.ReadFrom(bs)
 		if err != nil {
 			l.Debugln(err)
-			r.setError(err)
-			continue
+			return err
 		}
 		l.Debugf("recv %d bytes from %s", n, addr)
 
 		c := make([]byte, n)
 		copy(c, bs)
 		select {
-		case r.outbox <- recv{c, addr}:
+		case outbox <- recv{c, addr}:
 		default:
 			l.Debugln("dropping message")
 		}
 	}
-}
-
-func (r *multicastReader) Stop() {
-	close(r.stop)
-}
-
-func (r *multicastReader) String() string {
-	return fmt.Sprintf("multicastReader@%p", r)
 }

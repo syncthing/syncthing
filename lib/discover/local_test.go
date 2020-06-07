@@ -11,11 +11,12 @@ import (
 	"net"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func TestLocalInstanceID(t *testing.T) {
-	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{})
+	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{}, events.NoopLogger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +39,7 @@ func TestLocalInstanceID(t *testing.T) {
 }
 
 func TestLocalInstanceIDShouldTriggerNew(t *testing.T) {
-	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{})
+	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{}, events.NoopLogger)
 	if err != nil {
 		t.Fatal(err)
 	}

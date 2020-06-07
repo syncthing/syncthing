@@ -10,23 +10,30 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	// "testing"
 
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/storage"
-	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/syncthing/syncthing/lib/db/backend"
+	// "github.com/syncthing/syncthing/lib/fs"
+	// "github.com/syncthing/syncthing/lib/protocol"
 )
 
 // writeJSONS serializes the database to a JSON stream that can be checked
 // in to the repo and used for tests.
-func writeJSONS(w io.Writer, db *leveldb.DB) {
-	it := db.NewIterator(&util.Range{}, nil)
+func writeJSONS(w io.Writer, db backend.Backend) {
+	it, err := db.NewPrefixIterator(nil)
+	if err != nil {
+		panic(err)
+	}
 	defer it.Release()
 	enc := json.NewEncoder(w)
 	for it.Next() {
-		enc.Encode(map[string][]byte{
+		err := enc.Encode(map[string][]byte{
 			"k": it.Key(),
 			"v": it.Value(),
 		})
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -34,15 +41,15 @@ func writeJSONS(w io.Writer, db *leveldb.DB) {
 // here and the linter to not complain.
 var _ = writeJSONS
 
-// openJSONS reads a JSON stream file into a leveldb.DB
-func openJSONS(file string) (*leveldb.DB, error) {
+// openJSONS reads a JSON stream file into a backend DB
+func openJSONS(file string) (backend.Backend, error) {
 	fd, err := os.Open(file)
 	if err != nil {
 		return nil, err
 	}
 	dec := json.NewDecoder(fd)
 
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
+	db := backend.OpenMemory()
 
 	for {
 		var row map[string][]byte
@@ -54,7 +61,9 @@ func openJSONS(file string) (*leveldb.DB, error) {
 			return nil, err
 		}
 
-		db.Put(row["k"], row["v"], nil)
+		if err := db.Put(row["k"], row["v"]); err != nil {
+			return nil, err
+		}
 	}
 
 	return db, nil
@@ -107,4 +116,35 @@ func openJSONS(file string) (*leveldb.DB, error) {
 // 		fs.Update(devID, files)
 // 	}
 // 	writeJSONS(os.Stdout, db.DB)
+// }
+
+// func TestGenerateUpdateTo10(t *testing.T) {
+// 	db := NewLowlevel(backend.OpenMemory())
+// 	defer db.Close()
+
+// 	if err := UpdateSchema(db); err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+
+// 	files := []protocol.FileInfo{
+// 		{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Deleted: true, Sequence: 1},
+// 		{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2), Sequence: 2},
+// 		{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Deleted: true, Sequence: 3},
+// 	}
+// 	fs.Update(protocol.LocalDeviceID, files)
+// 	files[1].Version = files[1].Version.Update(remoteDevice0.Short())
+// 	files[1].Deleted = true
+// 	files[2].Version = files[2].Version.Update(remoteDevice0.Short())
+// 	files[2].Blocks = genBlocks(1)
+// 	files[2].Deleted = false
+// 	fs.Update(remoteDevice0, files)
+
+// 	fd, err := os.Create("./testdata/v1.4.0-updateTo10.json")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	defer fd.Close()
+// 	writeJSONS(fd, db)
 // }

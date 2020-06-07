@@ -14,6 +14,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"flag"
 	"fmt"
 	"math/big"
@@ -191,7 +192,7 @@ func pemBlockForKey(priv interface{}) (*pem.Block, error) {
 		}
 		return &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}, nil
 	default:
-		return nil, fmt.Errorf("unknown key type")
+		return nil, errors.New("unknown key type")
 	}
 }
 

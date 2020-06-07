@@ -23,6 +23,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,19 +34,41 @@ import (
 )
 
 var (
-	useHTTP          = os.Getenv("UR_USE_HTTP") != ""
-	debug            = os.Getenv("UR_DEBUG") != ""
-	keyFile          = getEnvDefault("UR_KEY_FILE", "key.pem")
-	certFile         = getEnvDefault("UR_CRT_FILE", "crt.pem")
-	dbConn           = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
-	listenAddr       = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
-	geoIPPath        = getEnvDefault("UR_GEOIP", "GeoLite2-City.mmdb")
-	tpl              *template.Template
-	compilerRe       = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
-	progressBarClass = []string{"", "progress-bar-success", "progress-bar-info", "progress-bar-warning", "progress-bar-danger"}
-	featureOrder     = []string{"Various", "Folder", "Device", "Connection", "GUI"}
-	knownVersions    = []string{"v2", "v3"}
+	useHTTP            = os.Getenv("UR_USE_HTTP") != ""
+	debug              = os.Getenv("UR_DEBUG") != ""
+	keyFile            = getEnvDefault("UR_KEY_FILE", "key.pem")
+	certFile           = getEnvDefault("UR_CRT_FILE", "crt.pem")
+	dbConn             = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
+	listenAddr         = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
+	geoIPPath          = getEnvDefault("UR_GEOIP", "GeoLite2-City.mmdb")
+	tpl                *template.Template
+	compilerRe         = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
+	progressBarClass   = []string{"", "progress-bar-success", "progress-bar-info", "progress-bar-warning", "progress-bar-danger"}
+	featureOrder       = []string{"Various", "Folder", "Device", "Connection", "GUI"}
+	knownVersions      = []string{"v2", "v3"}
+	knownDistributions = []distributionMatch{
+		// Maps well known builders to the official distribution method that
+		// they represent
+		{regexp.MustCompile("android-.*teamcity@build.syncthing.net"), "Google Play"},
+		{regexp.MustCompile("teamcity@build.syncthing.net"), "GitHub"},
+		{regexp.MustCompile("deb@build.syncthing.net"), "APT"},
+		{regexp.MustCompile("docker@syncthing.net"), "Docker Hub"},
+		{regexp.MustCompile("jenkins@build.syncthing.net"), "GitHub"},
+		{regexp.MustCompile("snap@build.syncthing.net"), "Snapcraft"},
+		{regexp.MustCompile("android-.*vagrant@basebox-stretch64"), "F-Droid"},
+		{regexp.MustCompile("builduser@svetlemodry"), "Arch (3rd party)"},
+		{regexp.MustCompile("synology@kastelo.net"), "Synology (Kastelo)"},
+		{regexp.MustCompile("@debian"), "Debian (3rd party)"},
+		{regexp.MustCompile("@fedora"), "Fedora (3rd party)"},
+		{regexp.MustCompile(`\bbrew@`), "Homebrew (3rd party)"},
+		{regexp.MustCompile("."), "Others"},
+	}
 )
+
+type distributionMatch struct {
+	matcher      *regexp.Regexp
+	distribution string
+}
 
 var funcs = map[string]interface{}{
 	"commatize":  commatize,
@@ -245,10 +268,10 @@ type report struct {
 
 func (r *report) Validate() error {
 	if r.UniqueID == "" || r.Version == "" || r.Platform == "" {
-		return fmt.Errorf("missing required field")
+		return errors.New("missing required field")
 	}
 	if len(r.Date) != 8 {
-		return fmt.Errorf("date not initialized")
+		return errors.New("date not initialized")
 	}
 
 	// Some fields may not be null.
@@ -705,7 +728,8 @@ func main() {
 	if useHTTP {
 		listener, err = net.Listen("tcp", listenAddr)
 	} else {
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		var cert tls.Certificate
+		cert, err = tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
 			log.Fatalln("tls:", err)
 		}
@@ -731,7 +755,10 @@ func main() {
 	http.HandleFunc("/movement.json", withDB(db, movementHandler))
 	http.HandleFunc("/performance.json", withDB(db, performanceHandler))
 	http.HandleFunc("/blockstats.json", withDB(db, blockStatsHandler))
+	http.HandleFunc("/locations.json", withDB(db, locationsHandler))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+
+	go cacheRefresher(db)
 
 	err = srv.Serve(listener)
 	if err != nil {
@@ -740,12 +767,44 @@ func main() {
 }
 
 var (
-	cacheData []byte
-	cacheTime time.Time
-	cacheMut  sync.Mutex
+	cachedIndex     []byte
+	cachedLocations []byte
+	cacheTime       time.Time
+	cacheMut        sync.Mutex
 )
 
-const maxCacheTime = 5 * 60 * time.Second
+const maxCacheTime = 15 * time.Minute
+
+func cacheRefresher(db *sql.DB) {
+	ticker := time.NewTicker(maxCacheTime - time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		cacheMut.Lock()
+		if err := refreshCacheLocked(db); err != nil {
+			log.Println(err)
+		}
+		cacheMut.Unlock()
+	}
+}
+
+func refreshCacheLocked(db *sql.DB) error {
+	rep := getReport(db)
+	buf := new(bytes.Buffer)
+	err := tpl.Execute(buf, rep)
+	if err != nil {
+		return err
+	}
+	cachedIndex = buf.Bytes()
+	cacheTime = time.Now()
+
+	locs := rep["locations"].(map[location]int)
+	wlocs := make([]weightedLocation, 0, len(locs))
+	for loc, w := range locs {
+		wlocs = append(wlocs, weightedLocation{loc, w})
+	}
+	cachedLocations, _ = json.Marshal(wlocs)
+	return nil
+}
 
 func rootHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/" || r.URL.Path == "/index.html" {
@@ -753,24 +812,35 @@ func rootHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		defer cacheMut.Unlock()
 
 		if time.Since(cacheTime) > maxCacheTime {
-			rep := getReport(db)
-			buf := new(bytes.Buffer)
-			err := tpl.Execute(buf, rep)
-			if err != nil {
+			if err := refreshCacheLocked(db); err != nil {
 				log.Println(err)
 				http.Error(w, "Template Error", http.StatusInternalServerError)
 				return
 			}
-			cacheData = buf.Bytes()
-			cacheTime = time.Now()
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(cacheData)
+		w.Write(cachedIndex)
 	} else {
 		http.Error(w, "Not found", 404)
 		return
 	}
+}
+
+func locationsHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+	cacheMut.Lock()
+	defer cacheMut.Unlock()
+
+	if time.Since(cacheTime) > maxCacheTime {
+		if err := refreshCacheLocked(db); err != nil {
+			log.Println(err)
+			http.Error(w, "Template Error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Write(cachedLocations)
 }
 
 func newDataHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
@@ -831,7 +901,8 @@ func newDataHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 }
 
 func summaryHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
-	s, err := getSummary(db)
+	min, _ := strconv.Atoi(r.URL.Query().Get("min"))
+	s, err := getSummary(db, min)
 	if err != nil {
 		log.Println("summaryHandler:", err)
 		http.Error(w, "Database Error", http.StatusInternalServerError)
@@ -972,8 +1043,13 @@ func inc(storage map[string]int, key string, i interface{}) {
 }
 
 type location struct {
-	Latitude  float64
-	Longitude float64
+	Latitude  float64 `json:"lat"`
+	Longitude float64 `json:"lon"`
+}
+
+type weightedLocation struct {
+	location
+	Weight int `json:"weight"`
 }
 
 func getReport(db *sql.DB) map[string]interface{} {
@@ -1001,6 +1077,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 	var uptime []int
 	var compilers []string
 	var builders []string
+	var distributions []string
 	locations := make(map[location]int)
 	countries := make(map[string]int)
 
@@ -1070,10 +1147,19 @@ func getReport(db *sql.DB) map[string]interface{} {
 		nodes++
 		versions = append(versions, transformVersion(rep.Version))
 		platforms = append(platforms, rep.Platform)
+
 		if m := compilerRe.FindStringSubmatch(rep.LongVersion); len(m) == 3 {
 			compilers = append(compilers, m[1])
 			builders = append(builders, m[2])
+		loop:
+			for _, d := range knownDistributions {
+				if d.matcher.MatchString(rep.LongVersion) {
+					distributions = append(distributions, d.distribution)
+					break loop
+				}
+			}
 		}
+
 		if rep.NumFolders > 0 {
 			numFolders = append(numFolders, rep.NumFolders)
 		}
@@ -1363,23 +1449,15 @@ func getReport(db *sql.DB) map[string]interface{} {
 	r["categories"] = categories
 	r["versions"] = group(byVersion, analyticsFor(versions, 2000), 10)
 	r["versionPenetrations"] = penetrationLevels(analyticsFor(versions, 2000), []float64{50, 75, 90, 95})
-	r["platforms"] = group(byPlatform, analyticsFor(platforms, 2000), 5)
+	r["platforms"] = group(byPlatform, analyticsFor(platforms, 2000), 10)
 	r["compilers"] = group(byCompiler, analyticsFor(compilers, 2000), 5)
 	r["builders"] = analyticsFor(builders, 12)
+	r["distributions"] = analyticsFor(distributions, len(knownDistributions))
 	r["featureOrder"] = featureOrder
 	r["locations"] = locations
 	r["contries"] = countryList
 
 	return r
-}
-
-func ensureDir(dir string, mode int) {
-	fi, err := os.Stat(dir)
-	if os.IsNotExist(err) {
-		os.MkdirAll(dir, 0700)
-	} else if mode >= 0 && err == nil && int(fi.Mode()&0777) != mode {
-		os.Chmod(dir, os.FileMode(mode))
-	}
 }
 
 var (
@@ -1482,7 +1560,21 @@ func (s *summary) MarshalJSON() ([]byte, error) {
 	return json.Marshal(table)
 }
 
-func getSummary(db *sql.DB) (summary, error) {
+// filter removes versions that never reach the specified min count.
+func (s *summary) filter(min int) {
+	// We cheat and just remove the versions from the "index" and leave the
+	// data points alone. The version index is used to build the table when
+	// we do the serialization, so at that point the data points are
+	// filtered out as well.
+	for ver := range s.versions {
+		if s.max[ver] < min {
+			delete(s.versions, ver)
+			delete(s.max, ver)
+		}
+	}
+}
+
+func getSummary(db *sql.DB, min int) (summary, error) {
 	s := newSummary()
 
 	rows, err := db.Query(`SELECT Day, Version, Count FROM VersionSummary WHERE Day > now() - '2 year'::INTERVAL;`)
@@ -1513,6 +1605,7 @@ func getSummary(db *sql.DB) (summary, error) {
 		s.setCount(day.Format("2006-01-02"), ver, num)
 	}
 
+	s.filter(min)
 	return s, nil
 }
 

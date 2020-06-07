@@ -9,26 +9,24 @@
 package rand
 
 import (
-	"crypto/md5"
 	cryptoRand "crypto/rand"
-	"encoding/binary"
-	"io"
 	mathRand "math/rand"
+	"reflect"
 )
 
 // Reader is the standard crypto/rand.Reader, re-exported for convenience
 var Reader = cryptoRand.Reader
 
-// randomCharset contains the characters that can make up a randomString().
+// randomCharset contains the characters that can make up a rand.String().
 const randomCharset = "2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ"
 
 var (
 	// defaultSecureSource is a concurrency safe math/rand.Source with a
 	// cryptographically sound base.
-	defaltSecureSource = newSecureSource()
+	defaultSecureSource = newSecureSource()
 
 	// defaultSecureRand is a math/rand.Rand based on the secure source.
-	defaultSecureRand = mathRand.New(defaltSecureSource)
+	defaultSecureRand = mathRand.New(defaultSecureSource)
 )
 
 // String returns a strongly random string of characters (taken from
@@ -42,19 +40,14 @@ func String(l int) string {
 	return string(bs)
 }
 
-// Int63 returns a strongly random int63
+// Int63 returns a strongly random int63.
 func Int63() int64 {
-	return defaltSecureSource.Int63()
+	return defaultSecureSource.Int63()
 }
 
-// Int64 returns a strongly random int64
+// Int64 returns a strongly random int64.
 func Int64() int64 {
-	var bs [8]byte
-	_, err := io.ReadFull(cryptoRand.Reader, bs[:])
-	if err != nil {
-		panic("randomness failure: " + err.Error())
-	}
-	return int64(binary.BigEndian.Uint64(bs[:]))
+	return int64(defaultSecureSource.Uint64())
 }
 
 // Intn returns, as an int, a non-negative strongly random number in [0,n).
@@ -63,13 +56,13 @@ func Intn(n int) int {
 	return defaultSecureRand.Intn(n)
 }
 
-// SeedFromBytes calculates a weak 64 bit hash from the given byte slice,
-// suitable for use a predictable random seed.
-func SeedFromBytes(bs []byte) int64 {
-	h := md5.New()
-	h.Write(bs)
-	s := h.Sum(nil)
-	// The MD5 hash of the byte slice is 16 bytes long. We interpret it as two
-	// uint64s and XOR them together.
-	return int64(binary.BigEndian.Uint64(s[0:]) ^ binary.BigEndian.Uint64(s[8:]))
+// Shuffle the order of elements in slice.
+func Shuffle(slice interface{}) {
+	rv := reflect.ValueOf(slice)
+	swap := reflect.Swapper(slice)
+	length := rv.Len()
+	if length < 2 {
+		return
+	}
+	defaultSecureRand.Shuffle(length, swap)
 }

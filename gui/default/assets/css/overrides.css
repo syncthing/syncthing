@@ -136,6 +136,11 @@ table.table-auto td {
     max-width: 0px;
 }
 
+/* Wrap long file paths to prevent text overflow. See issue #6268. */
+.file-path {
+    word-break: break-all;
+}
+
 .folder-advanced {
     padding: 1rem;
     margin-bottom: 15px;
@@ -247,6 +252,14 @@ a.toggler:hover {
 }
 
 /**
+ * Panel padding decrease
+ */
+
+.panel-collapse .panel-body {
+    padding: 5px;
+}
+
+/**
  * Progress bars with centered text
  */
 
@@ -348,6 +361,12 @@ ul.three-columns li, ul.two-columns li {
         * columns. */
         white-space: normal;
     }
+
+    .two-columns {
+        -webkit-column-count: 1;
+        -moz-column-count: 1;
+        column-count: 1;
+    }
 }
 
 @media (max-width:479px) {
@@ -371,4 +390,33 @@ ul.three-columns li, ul.two-columns li {
 
 .fancytree-ext-table {
     width: 100% !important;
+}
+
+@media (max-width: 419px) {
+    /* the selectors are build to target only the content of folder and device
+       panels as it would "destroy" e.g. out of sync or recent changes listings */
+    div[id^='device-'].panel-collapse table,
+    div[id^='folder-'].panel-collapse table,
+    div[id^='device-'].panel-collapse tbody,
+    div[id^='folder-'].panel-collapse tbody,
+    div[id^='device-'].panel-collapse tr,
+    div[id^='folder-'].panel-collapse tr {
+        display: block;
+    }
+    div[id^='device-'].panel-collapse th,
+    div[id^='folder-'].panel-collapse th,
+    div[id^='device-'].panel-collapse td,
+    div[id^='folder-'].panel-collapse td {
+        display: block;
+        max-width: 100%;
+        width: 100%;
+    }
+
+    /* all buttons, except panel headings, get bottom margin, as they won't fit
+       beside each other anymore */
+    .btn:not(.panel-heading),
+    /* this "+"-selector is needed to override some bootstrap defaults */
+    .btn:not(.panel-heading) + .btn:not(.panel-heading) {
+        margin-bottom: 1rem;
+    }
 }

@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -279,6 +280,10 @@ func (s *apiSrv) handleAnnounce(remote net.IP, deviceID protocol.DeviceID, addre
 		dbAddrs[i].Expires = expire
 	}
 
+	// The address slice must always be sorted for database merges to work
+	// properly.
+	sort.Sort(databaseAddressOrder(dbAddrs))
+
 	seen := now.UnixNano()
 	if s.repl != nil {
 		s.repl.send(key, dbAddrs, seen)
@@ -295,28 +300,66 @@ func certificateBytes(req *http.Request) []byte {
 		return req.TLS.PeerCertificates[0].Raw
 	}
 
+	var bs []byte
+
 	if hdr := req.Header.Get("X-SSL-Cert"); hdr != "" {
-		bs := []byte(hdr)
-		// The certificate is in PEM format but with spaces for newlines. We
-		// need to reinstate the newlines for the PEM decoder. But we need to
-		// leave the spaces in the BEGIN and END lines - the first and last
-		// space - alone.
-		firstSpace := bytes.Index(bs, []byte(" "))
-		lastSpace := bytes.LastIndex(bs, []byte(" "))
-		for i := firstSpace + 1; i < lastSpace; i++ {
-			if bs[i] == ' ' {
-				bs[i] = '\n'
+		if strings.Contains(hdr, "%") {
+			// Nginx using $ssl_client_escaped_cert
+			// The certificate is in PEM format with url encoding.
+			// We need to decode for the PEM decoder
+			hdr, err := url.QueryUnescape(hdr)
+			if err != nil {
+				// Decoding failed
+				return nil
+			}
+
+			bs = []byte(hdr)
+		} else {
+			// Nginx using $ssl_client_cert
+			// The certificate is in PEM format but with spaces for newlines. We
+			// need to reinstate the newlines for the PEM decoder. But we need to
+			// leave the spaces in the BEGIN and END lines - the first and last
+			// space - alone.
+			bs = []byte(hdr)
+			firstSpace := bytes.Index(bs, []byte(" "))
+			lastSpace := bytes.LastIndex(bs, []byte(" "))
+			for i := firstSpace + 1; i < lastSpace; i++ {
+				if bs[i] == ' ' {
+					bs[i] = '\n'
+				}
 			}
 		}
-		block, _ := pem.Decode(bs)
-		if block == nil {
+	} else if hdr := req.Header.Get("X-Forwarded-Tls-Client-Cert"); hdr != "" {
+		// Traefik 2 passtlsclientcert
+		// The certificate is in PEM format with url encoding but without newlines
+		// and start/end statements. We need to decode, reinstate the newlines every 64
+		// character and add statements for the PEM decoder
+		hdr, err := url.QueryUnescape(hdr)
+		if err != nil {
 			// Decoding failed
 			return nil
 		}
-		return block.Bytes
+
+		for i := 64; i < len(hdr); i += 65 {
+			hdr = hdr[:i] + "\n" + hdr[i:]
+		}
+
+		hdr = "-----BEGIN CERTIFICATE-----\n" + hdr
+		hdr = hdr + "\n-----END CERTIFICATE-----\n"
+		bs = []byte(hdr)
 	}
 
-	return nil
+	if bs == nil {
+		return nil
+	}
+
+	block, _ := pem.Decode(bs)
+	if block == nil {
+		// Decoding failed
+		return nil
+	}
+
+	return block.Bytes
 }
 
 // fixupAddresses checks the list of addresses, removing invalid ones and

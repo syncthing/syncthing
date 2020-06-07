@@ -6,7 +6,10 @@
 
 package config
 
-import "encoding/xml"
+import (
+	"encoding/xml"
+	"sort"
+)
 
 type VersioningConfiguration struct {
 	Type   string            `xml:"type,attr" json:"type"`
@@ -38,6 +41,9 @@ func (c *VersioningConfiguration) MarshalXML(e *xml.Encoder, start xml.StartElem
 	for k, v := range c.Params {
 		tmp.Params = append(tmp.Params, InternalParam{k, v})
 	}
+	sort.Slice(tmp.Params, func(a, b int) bool {
+		return tmp.Params[a].Key < tmp.Params[b].Key
+	})
 
 	return e.EncodeElement(tmp, start)
 

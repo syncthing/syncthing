@@ -7,16 +7,9 @@
 package pmp
 
 import (
-	"os"
-	"strings"
-
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	l = logger.DefaultLogger.NewFacility("pmp", "NAT-PMP discovery and port mapping")
 )
-
-func init() {
-	l.SetDebug("pmp", strings.Contains(os.Getenv("STTRACE"), "pmp") || os.Getenv("STTRACE") == "all")
-}

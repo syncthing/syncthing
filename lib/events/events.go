@@ -8,12 +8,17 @@
 package events
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"runtime"
 	"time"
 
+	"github.com/thejerf/suture"
+
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type EventType int
@@ -51,7 +56,10 @@ const (
 	AllEvents = (1 << iota) - 1
 )
 
-var runningTests = false
+var (
+	runningTests = false
+	errNoop      = errors.New("method of a noop object called")
+)
 
 const eventLogTimeout = 15 * time.Millisecond
 
@@ -199,13 +207,21 @@ func UnmarshalEventType(s string) EventType {
 
 const BufferSize = 64
 
-type Logger struct {
-	subs                []*Subscription
+type Logger interface {
+	suture.Service
+	Log(t EventType, data interface{})
+	Subscribe(mask EventType) Subscription
+}
+
+type logger struct {
+	suture.Service
+	subs                []*subscription
 	nextSubscriptionIDs []int
 	nextGlobalID        int
 	timeout             *time.Timer
 	events              chan Event
-	funcs               chan func()
+	funcs               chan func(context.Context)
+	toUnsubscribe       chan *subscription
 	stop                chan struct{}
 }
 
@@ -219,19 +235,18 @@ type Event struct {
 	Data     interface{} `json:"data"`
 }
 
-type Subscription struct {
-	mask    EventType
-	events  chan Event
-	timeout *time.Timer
+type Subscription interface {
+	C() <-chan Event
+	Poll(timeout time.Duration) (Event, error)
+	Unsubscribe()
 }
 
-var Default = NewLogger()
-
-func init() {
-	// The default logger never stops. To ensure this we nil out the stop
-	// channel so any attempt to stop it will panic.
-	Default.stop = nil
-	go Default.Serve()
+type subscription struct {
+	mask          EventType
+	events        chan Event
+	toUnsubscribe chan *subscription
+	timeout       *time.Timer
+	ctx           context.Context
 }
 
 var (
@@ -239,13 +254,14 @@ var (
 	ErrClosed  = errors.New("closed")
 )
 
-func NewLogger() *Logger {
-	l := &Logger{
-		timeout: time.NewTimer(time.Second),
-		events:  make(chan Event, BufferSize),
-		funcs:   make(chan func()),
-		stop:    make(chan struct{}),
+func NewLogger() Logger {
+	l := &logger{
+		timeout:       time.NewTimer(time.Second),
+		events:        make(chan Event, BufferSize),
+		funcs:         make(chan func(context.Context)),
+		toUnsubscribe: make(chan *subscription),
 	}
+	l.Service = util.AsService(l.serve, l.String())
 	// Make sure the timer is in the stopped state and hasn't fired anything
 	// into the channel.
 	if !l.timeout.Stop() {
@@ -254,7 +270,7 @@ func NewLogger() *Logger {
 	return l
 }
 
-func (l *Logger) Serve() {
+func (l *logger) serve(ctx context.Context) {
 loop:
 	for {
 		select {
@@ -263,10 +279,13 @@ loop:
 			l.sendEvent(e)
 
 		case fn := <-l.funcs:
-			// Subscriptions etc are handled here.
-			fn()
+			// Subscriptions are handled here.
+			fn(ctx)
 
-		case <-l.stop:
+		case s := <-l.toUnsubscribe:
+			l.unsubscribe(s)
+
+		case <-ctx.Done():
 			break loop
 		}
 	}
@@ -279,11 +298,7 @@ loop:
 	}
 }
 
-func (l *Logger) Stop() {
-	close(l.stop)
-}
-
-func (l *Logger) Log(t EventType, data interface{}) {
+func (l *logger) Log(t EventType, data interface{}) {
 	l.events <- Event{
 		Time: time.Now(),
 		Type: t,
@@ -292,7 +307,7 @@ func (l *Logger) Log(t EventType, data interface{}) {
 	}
 }
 
-func (l *Logger) sendEvent(e Event) {
+func (l *logger) sendEvent(e Event) {
 	l.nextGlobalID++
 	dl.Debugln("log", l.nextGlobalID, e.Type, e.Data)
 
@@ -323,15 +338,17 @@ func (l *Logger) sendEvent(e Event) {
 	}
 }
 
-func (l *Logger) Subscribe(mask EventType) *Subscription {
-	res := make(chan *Subscription)
-	l.funcs <- func() {
+func (l *logger) Subscribe(mask EventType) Subscription {
+	res := make(chan Subscription)
+	l.funcs <- func(ctx context.Context) {
 		dl.Debugln("subscribe", mask)
 
-		s := &Subscription{
-			mask:    mask,
-			events:  make(chan Event, BufferSize),
-			timeout: time.NewTimer(0),
+		s := &subscription{
+			mask:          mask,
+			events:        make(chan Event, BufferSize),
+			toUnsubscribe: l.toUnsubscribe,
+			timeout:       time.NewTimer(0),
+			ctx:           ctx,
 		}
 
 		// We need to create the timeout timer in the stopped, non-fired state so
@@ -355,32 +372,34 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 	return <-res
 }
 
-func (l *Logger) Unsubscribe(s *Subscription) {
-	l.funcs <- func() {
-		dl.Debugln("unsubscribe")
-		for i, ss := range l.subs {
-			if s == ss {
-				last := len(l.subs) - 1
+func (l *logger) unsubscribe(s *subscription) {
+	dl.Debugln("unsubscribe", s.mask)
+	for i, ss := range l.subs {
+		if s == ss {
+			last := len(l.subs) - 1
 
-				l.subs[i] = l.subs[last]
-				l.subs[last] = nil
-				l.subs = l.subs[:last]
+			l.subs[i] = l.subs[last]
+			l.subs[last] = nil
+			l.subs = l.subs[:last]
 
-				l.nextSubscriptionIDs[i] = l.nextSubscriptionIDs[last]
-				l.nextSubscriptionIDs[last] = 0
-				l.nextSubscriptionIDs = l.nextSubscriptionIDs[:last]
+			l.nextSubscriptionIDs[i] = l.nextSubscriptionIDs[last]
+			l.nextSubscriptionIDs[last] = 0
+			l.nextSubscriptionIDs = l.nextSubscriptionIDs[:last]
 
-				break
-			}
+			break
 		}
-		close(s.events)
 	}
+	close(s.events)
+}
+
+func (l *logger) String() string {
+	return fmt.Sprintf("events.Logger/@%p", l)
 }
 
 // Poll returns an event from the subscription or an error if the poll times
 // out of the event channel is closed. Poll should not be called concurrently
 // from multiple goroutines for a single subscription.
-func (s *Subscription) Poll(timeout time.Duration) (Event, error) {
+func (s *subscription) Poll(timeout time.Duration) (Event, error) {
 	dl.Debugln("poll", timeout)
 
 	s.timeout.Reset(timeout)
@@ -409,12 +428,19 @@ func (s *Subscription) Poll(timeout time.Duration) (Event, error) {
 	}
 }
 
-func (s *Subscription) C() <-chan Event {
+func (s *subscription) C() <-chan Event {
 	return s.events
 }
 
+func (s *subscription) Unsubscribe() {
+	select {
+	case s.toUnsubscribe <- s:
+	case <-s.ctx.Done():
+	}
+}
+
 type bufferedSubscription struct {
-	sub  *Subscription
+	sub  Subscription
 	buf  []Event
 	next int
 	cur  int // Current SubscriptionID
@@ -426,7 +452,7 @@ type BufferedSubscription interface {
 	Since(id int, into []Event, timeout time.Duration) []Event
 }
 
-func NewBufferedSubscription(s *Subscription, size int) BufferedSubscription {
+func NewBufferedSubscription(s Subscription, size int) BufferedSubscription {
 	bs := &bufferedSubscription{
 		sub: s,
 		buf: make([]Event, size),
@@ -489,3 +515,29 @@ func Error(err error) *string {
 	str := err.Error()
 	return &str
 }
+
+type noopLogger struct{}
+
+var NoopLogger Logger = &noopLogger{}
+
+func (*noopLogger) Serve() {}
+
+func (*noopLogger) Stop() {}
+
+func (*noopLogger) Log(t EventType, data interface{}) {}
+
+func (*noopLogger) Subscribe(mask EventType) Subscription {
+	return &noopSubscription{}
+}
+
+type noopSubscription struct{}
+
+func (*noopSubscription) C() <-chan Event {
+	return nil
+}
+
+func (*noopSubscription) Poll(timeout time.Duration) (Event, error) {
+	return Event{}, errNoop
+}
+
+func (*noopSubscription) Unsubscribe() {}

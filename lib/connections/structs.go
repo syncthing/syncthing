@@ -7,8 +7,10 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"time"
@@ -43,10 +45,19 @@ func (c completeConn) Close(err error) {
 	c.internalConn.Close()
 }
 
+type tlsConn interface {
+	io.ReadWriteCloser
+	ConnectionState() tls.ConnectionState
+	RemoteAddr() net.Addr
+	SetDeadline(time.Time) error
+	SetWriteDeadline(time.Time) error
+	LocalAddr() net.Addr
+}
+
 // internalConn is the raw TLS connection plus some metadata on where it
 // came from (type, priority).
 type internalConn struct {
-	*tls.Conn
+	tlsConn
 	connType connType
 	priority int
 }
@@ -58,6 +69,8 @@ const (
 	connTypeRelayServer
 	connTypeTCPClient
 	connTypeTCPServer
+	connTypeQUICClient
+	connTypeQUICServer
 )
 
 func (t connType) String() string {
@@ -70,6 +83,10 @@ func (t connType) String() string {
 		return "tcp-client"
 	case connTypeTCPServer:
 		return "tcp-server"
+	case connTypeQUICClient:
+		return "quic-client"
+	case connTypeQUICServer:
+		return "quic-server"
 	default:
 		return "unknown-type"
 	}
@@ -81,6 +98,8 @@ func (t connType) Transport() string {
 		return "relay"
 	case connTypeTCPClient, connTypeTCPServer:
 		return "tcp"
+	case connTypeQUICClient, connTypeQUICServer:
+		return "quic"
 	default:
 		return "unknown"
 	}
@@ -90,8 +109,8 @@ func (c internalConn) Close() {
 	// *tls.Conn.Close() does more than it says on the tin. Specifically, it
 	// sends a TLS alert message, which might block forever if the
 	// connection is dead and we don't have a deadline set.
-	c.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
-	c.Conn.Close()
+	_ = c.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
+	_ = c.tlsConn.Close()
 }
 
 func (c internalConn) Type() string {
@@ -128,21 +147,37 @@ func (c internalConn) String() string {
 }
 
 type dialerFactory interface {
-	New(config.Wrapper, *tls.Config) genericDialer
+	New(config.OptionsConfiguration, *tls.Config) genericDialer
 	Priority() int
 	AlwaysWAN() bool
 	Valid(config.Configuration) error
 	String() string
 }
 
+type commonDialer struct {
+	trafficClass      int
+	reconnectInterval time.Duration
+	tlsCfg            *tls.Config
+}
+
+func (d *commonDialer) RedialFrequency() time.Duration {
+	return d.reconnectInterval
+}
+
 type genericDialer interface {
-	Dial(protocol.DeviceID, *url.URL) (internalConn, error)
+	Dial(context.Context, protocol.DeviceID, *url.URL) (internalConn, error)
 	RedialFrequency() time.Duration
 }
 
 type listenerFactory interface {
 	New(*url.URL, config.Wrapper, *tls.Config, chan internalConn, *nat.Service) genericListener
 	Valid(config.Configuration) error
+}
+
+type ListenerAddresses struct {
+	URI          *url.URL
+	WANAddresses []*url.URL
+	LANAddresses []*url.URL
 }
 
 type genericListener interface {
@@ -159,7 +194,7 @@ type genericListener interface {
 	WANAddresses() []*url.URL
 	LANAddresses() []*url.URL
 	Error() error
-	OnAddressesChanged(func(genericListener))
+	OnAddressesChanged(func(ListenerAddresses))
 	String() string
 	Factory() listenerFactory
 	NATType() string
@@ -173,41 +208,43 @@ type Model interface {
 	GetHello(protocol.DeviceID) protocol.HelloIntf
 }
 
-// serviceFunc wraps a function to create a suture.Service without stop
-// functionality.
-type serviceFunc func()
-
-func (f serviceFunc) Serve() { f() }
-func (f serviceFunc) Stop()  {}
-
 type onAddressesChangedNotifier struct {
-	callbacks []func(genericListener)
+	callbacks []func(ListenerAddresses)
 }
 
-func (o *onAddressesChangedNotifier) OnAddressesChanged(callback func(genericListener)) {
+func (o *onAddressesChangedNotifier) OnAddressesChanged(callback func(ListenerAddresses)) {
 	o.callbacks = append(o.callbacks, callback)
 }
 
 func (o *onAddressesChangedNotifier) notifyAddressesChanged(l genericListener) {
+	o.notifyAddresses(ListenerAddresses{
+		URI:          l.URI(),
+		WANAddresses: l.WANAddresses(),
+		LANAddresses: l.LANAddresses(),
+	})
+}
+
+func (o *onAddressesChangedNotifier) clearAddresses(l genericListener) {
+	o.notifyAddresses(ListenerAddresses{
+		URI: l.URI(),
+	})
+}
+
+func (o *onAddressesChangedNotifier) notifyAddresses(l ListenerAddresses) {
 	for _, callback := range o.callbacks {
 		callback(l)
 	}
 }
 
 type dialTarget struct {
+	addr     string
 	dialer   genericDialer
 	priority int
 	uri      *url.URL
 	deviceID protocol.DeviceID
 }
 
-func (t dialTarget) Dial() (internalConn, error) {
+func (t dialTarget) Dial(ctx context.Context) (internalConn, error) {
 	l.Debugln("dialing", t.deviceID, t.uri, "prio", t.priority)
-	conn, err := t.dialer.Dial(t.deviceID, t.uri)
-	if err != nil {
-		l.Debugln("dialing", t.deviceID, t.uri, "error:", err)
-	} else {
-		l.Debugln("dialing", t.deviceID, t.uri, "success:", conn)
-	}
-	return conn, err
+	return t.dialer.Dial(ctx, t.deviceID, t.uri)
 }

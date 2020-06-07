@@ -7,11 +7,12 @@
 package nat
 
 import (
+	"context"
 	"sync"
 	"time"
 )
 
-type DiscoverFunc func(renewal, timeout time.Duration) []Device
+type DiscoverFunc func(ctx context.Context, renewal, timeout time.Duration) []Device
 
 var providers []DiscoverFunc
 
@@ -19,7 +20,7 @@ func Register(provider DiscoverFunc) {
 	providers = append(providers, provider)
 }
 
-func discoverAll(renewal, timeout time.Duration) map[string]Device {
+func discoverAll(ctx context.Context, renewal, timeout time.Duration) map[string]Device {
 	wg := &sync.WaitGroup{}
 	wg.Add(len(providers))
 
@@ -28,20 +29,32 @@ func discoverAll(renewal, timeout time.Duration) map[string]Device {
 
 	for _, discoverFunc := range providers {
 		go func(f DiscoverFunc) {
-			for _, dev := range f(renewal, timeout) {
-				c <- dev
+			defer wg.Done()
+			for _, dev := range f(ctx, renewal, timeout) {
+				select {
+				case c <- dev:
+				case <-ctx.Done():
+					return
+				}
 			}
-			wg.Done()
 		}(discoverFunc)
 	}
 
 	nats := make(map[string]Device)
 
 	go func() {
-		for dev := range c {
-			nats[dev.ID()] = dev
+		defer close(done)
+		for {
+			select {
+			case dev, ok := <-c:
+				if !ok {
+					return
+				}
+				nats[dev.ID()] = dev
+			case <-ctx.Done():
+				return
+			}
 		}
-		close(done)
 	}()
 
 	wg.Wait()

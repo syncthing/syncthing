@@ -35,45 +35,69 @@ func NewFolderStatisticsReference(ldb *db.Lowlevel, folder string) *FolderStatis
 	}
 }
 
-func (s *FolderStatisticsReference) GetLastFile() LastFile {
-	at, ok := s.ns.Time("lastFileAt")
-	if !ok {
-		return LastFile{}
+func (s *FolderStatisticsReference) GetLastFile() (LastFile, error) {
+	at, ok, err := s.ns.Time("lastFileAt")
+	if err != nil {
+		return LastFile{}, err
+	} else if !ok {
+		return LastFile{}, nil
 	}
-	file, ok := s.ns.String("lastFileName")
-	if !ok {
-		return LastFile{}
+	file, ok, err := s.ns.String("lastFileName")
+	if err != nil {
+		return LastFile{}, err
+	} else if !ok {
+		return LastFile{}, nil
 	}
-	deleted, _ := s.ns.Bool("lastFileDeleted")
+	deleted, _, err := s.ns.Bool("lastFileDeleted")
+	if err != nil {
+		return LastFile{}, err
+	}
 	return LastFile{
 		At:       at,
 		Filename: file,
 		Deleted:  deleted,
-	}
+	}, nil
 }
 
-func (s *FolderStatisticsReference) ReceivedFile(file string, deleted bool) {
+func (s *FolderStatisticsReference) ReceivedFile(file string, deleted bool) error {
 	l.Debugln("stats.FolderStatisticsReference.ReceivedFile:", s.folder, file)
-	s.ns.PutTime("lastFileAt", time.Now())
-	s.ns.PutString("lastFileName", file)
-	s.ns.PutBool("lastFileDeleted", deleted)
-}
-
-func (s *FolderStatisticsReference) ScanCompleted() {
-	s.ns.PutTime("lastScan", time.Now())
-}
-
-func (s *FolderStatisticsReference) GetLastScanTime() time.Time {
-	lastScan, ok := s.ns.Time("lastScan")
-	if !ok {
-		return time.Time{}
+	if err := s.ns.PutTime("lastFileAt", time.Now()); err != nil {
+		return err
 	}
-	return lastScan
+	if err := s.ns.PutString("lastFileName", file); err != nil {
+		return err
+	}
+	if err := s.ns.PutBool("lastFileDeleted", deleted); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (s *FolderStatisticsReference) GetStatistics() FolderStatistics {
+func (s *FolderStatisticsReference) ScanCompleted() error {
+	return s.ns.PutTime("lastScan", time.Now())
+}
+
+func (s *FolderStatisticsReference) GetLastScanTime() (time.Time, error) {
+	lastScan, ok, err := s.ns.Time("lastScan")
+	if err != nil {
+		return time.Time{}, err
+	} else if !ok {
+		return time.Time{}, nil
+	}
+	return lastScan, nil
+}
+
+func (s *FolderStatisticsReference) GetStatistics() (FolderStatistics, error) {
+	lastFile, err := s.GetLastFile()
+	if err != nil {
+		return FolderStatistics{}, err
+	}
+	lastScanTime, err := s.GetLastScanTime()
+	if err != nil {
+		return FolderStatistics{}, err
+	}
 	return FolderStatistics{
-		LastFile: s.GetLastFile(),
-		LastScan: s.GetLastScanTime(),
-	}
+		LastFile: lastFile,
+		LastScan: lastScanTime,
+	}, nil
 }

@@ -8,7 +8,6 @@ package model
 
 import (
 	"io"
-	"path/filepath"
 	"time"
 
 	"github.com/pkg/errors"
@@ -33,21 +32,45 @@ type sharedPullerState struct {
 	curFile     protocol.FileInfo // The file as it exists now in our database
 	sparse      bool
 	created     time.Time
+	fsync       bool
 
 	// Mutable, must be locked for access
-	err               error        // The first error we hit
-	fd                fs.File      // The fd of the temp file
-	copyTotal         int          // Total number of copy actions for the whole job
-	pullTotal         int          // Total number of pull actions for the whole job
-	copyOrigin        int          // Number of blocks copied from the original file
-	copyOriginShifted int          // Number of blocks copied from the original file but shifted
-	copyNeeded        int          // Number of copy actions still pending
-	pullNeeded        int          // Number of block pulls still pending
-	updated           time.Time    // Time when any of the counters above were last updated
-	closed            bool         // True if the file has been finalClosed.
-	available         []int32      // Indexes of the blocks that are available in the temporary file
-	availableUpdated  time.Time    // Time when list of available blocks was last updated
-	mut               sync.RWMutex // Protects the above
+	err               error           // The first error we hit
+	writer            *lockedWriterAt // Wraps fd to prevent fd closing at the same time as writing
+	copyTotal         int             // Total number of copy actions for the whole job
+	pullTotal         int             // Total number of pull actions for the whole job
+	copyOrigin        int             // Number of blocks copied from the original file
+	copyOriginShifted int             // Number of blocks copied from the original file but shifted
+	copyNeeded        int             // Number of copy actions still pending
+	pullNeeded        int             // Number of block pulls still pending
+	updated           time.Time       // Time when any of the counters above were last updated
+	closed            bool            // True if the file has been finalClosed.
+	available         []int32         // Indexes of the blocks that are available in the temporary file
+	availableUpdated  time.Time       // Time when list of available blocks was last updated
+	mut               sync.RWMutex    // Protects the above
+}
+
+func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, tempName string, blocks []protocol.BlockInfo, reused []int32, ignorePerms, hasCurFile bool, curFile protocol.FileInfo, sparse bool, fsync bool) *sharedPullerState {
+	return &sharedPullerState{
+		file:             file,
+		fs:               fs,
+		folder:           folderID,
+		tempName:         tempName,
+		realName:         file.Name,
+		copyTotal:        len(blocks),
+		copyNeeded:       len(blocks),
+		reused:           len(reused),
+		updated:          time.Now(),
+		available:        reused,
+		availableUpdated: time.Now(),
+		ignorePerms:      ignorePerms,
+		hasCurFile:       hasCurFile,
+		curFile:          curFile,
+		mut:              sync.NewRWMutex(),
+		sparse:           sparse,
+		fsync:            fsync,
+		created:          time.Now(),
+	}
 }
 
 // A momentary state representing the progress of the puller
@@ -63,17 +86,34 @@ type pullerProgress struct {
 	BytesTotal              int64 `json:"bytesTotal"`
 }
 
-// A lockedWriterAt synchronizes WriteAt calls with an external mutex.
+// lockedWriterAt adds a lock to protect from closing the fd at the same time as writing.
 // WriteAt() is goroutine safe by itself, but not against for example Close().
 type lockedWriterAt struct {
-	mut *sync.RWMutex
-	wr  io.WriterAt
+	mut sync.RWMutex
+	fd  fs.File
 }
 
-func (w lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
-	(*w.mut).Lock()
-	defer (*w.mut).Unlock()
-	return w.wr.WriteAt(p, off)
+// WriteAt itself is goroutine safe, thus just needs to acquire a read-lock to
+// prevent closing concurrently (see SyncClose).
+func (w *lockedWriterAt) WriteAt(p []byte, off int64) (n int, err error) {
+	w.mut.RLock()
+	defer w.mut.RUnlock()
+	return w.fd.WriteAt(p, off)
+}
+
+// SyncClose ensures that no more writes are happening before going ahead and
+// syncing and closing the fd, thus needs to acquire a write-lock.
+func (w *lockedWriterAt) SyncClose(fsync bool) error {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	if fsync {
+		if err := w.fd.Sync(); err != nil {
+			// Sync() is nice if it works but not worth failing the
+			// operation over if it fails.
+			l.Debugf("fsync failed: %v", err)
+		}
+	}
+	return w.fd.Close()
 }
 
 // tempFile returns the fd for the temporary file, reusing an open fd
@@ -88,29 +128,20 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	}
 
 	// If the temp file is already open, return the file descriptor
-	if s.fd != nil {
-		return lockedWriterAt{&s.mut, s.fd}, nil
+	if s.writer != nil {
+		return s.writer, nil
 	}
 
-	// Ensure that the parent directory is writable. This is
-	// osutil.InWritableDir except we need to do more stuff so we duplicate it
-	// here.
-	dir := filepath.Dir(s.tempName)
-	if info, err := s.fs.Stat(dir); err != nil {
-		s.failLocked(errors.Wrap(err, "ensuring parent dir is writeable"))
+	if err := inWritableDir(s.tempFileInWritableDir, s.fs, s.tempName, s.ignorePerms); err != nil {
+		s.failLocked(err)
 		return nil, err
-	} else if info.Mode()&0200 == 0 {
-		err := s.fs.Chmod(dir, 0755)
-		if !s.ignorePerms && err == nil {
-			defer func() {
-				err := s.fs.Chmod(dir, info.Mode()&fs.ModePerm)
-				if err != nil {
-					panic(err)
-				}
-			}()
-		}
 	}
 
+	return s.writer, nil
+}
+
+// tempFileInWritableDir should only be called from tempFile.
+func (s *sharedPullerState) tempFileInWritableDir(_ string) error {
 	// The permissions to use for the temporary file should be those of the
 	// final file, except we need user read & write at minimum. The
 	// permissions will be set to the final value later, but in the meantime
@@ -140,14 +171,12 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		// what the umask dictates.
 
 		if err := s.fs.Chmod(s.tempName, mode); err != nil {
-			s.failLocked(errors.Wrap(err, "setting perms on temp file"))
-			return nil, err
+			return errors.Wrap(err, "setting perms on temp file")
 		}
 	}
 	fd, err := s.fs.OpenFile(s.tempName, flags, mode)
 	if err != nil {
-		s.failLocked(errors.Wrap(err, "opening temp file"))
-		return nil, err
+		return errors.Wrap(err, "opening temp file")
 	}
 
 	// Hide the temporary file
@@ -177,16 +206,14 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 					l.Debugln("failed to remove temporary file:", remErr)
 				}
 
-				s.failLocked(err)
-				return nil, err
+				return err
 			}
 		}
 	}
 
 	// Same fd will be used by all writers
-	s.fd = fd
-
-	return lockedWriterAt{&s.mut, s.fd}, nil
+	s.writer = &lockedWriterAt{sync.NewRWMutex(), fd}
+	return nil
 }
 
 // fail sets the error on the puller state compose of error, and marks the
@@ -279,16 +306,12 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 		return false, nil
 	}
 
-	if s.fd != nil {
-		// This is our error if we weren't errored before. Otherwise we
-		// keep the earlier error.
-		if fsyncErr := s.fd.Sync(); fsyncErr != nil && s.err == nil {
-			s.err = fsyncErr
+	if s.writer != nil {
+		if err := s.writer.SyncClose(s.fsync); err != nil && s.err == nil {
+			// This is our error as we weren't errored before.
+			s.err = err
 		}
-		if closeErr := s.fd.Close(); closeErr != nil && s.err == nil {
-			s.err = closeErr
-		}
-		s.fd = nil
+		s.writer = nil
 	}
 
 	s.closed = true

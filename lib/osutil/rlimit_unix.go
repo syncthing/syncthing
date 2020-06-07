@@ -8,7 +8,14 @@
 
 package osutil
 
-import "syscall"
+import (
+	"runtime"
+	"syscall"
+)
+
+const (
+	darwinOpenMax = 10240
+)
 
 // MaximizeOpenFileLimit tries to set the resource limit RLIMIT_NOFILE (number
 // of open file descriptors) to the max (hard limit), if the current (soft
@@ -24,6 +31,12 @@ func MaximizeOpenFileLimit() (int, error) {
 	// If we're already at max, there's no need to try to raise the limit.
 	if lim.Cur >= lim.Max {
 		return int(lim.Cur), nil
+	}
+
+	// macOS doesn't like a soft limit greater then OPEN_MAX
+	// See also: man setrlimit
+	if runtime.GOOS == "darwin" && lim.Max > darwinOpenMax {
+		lim.Cur = darwinOpenMax
 	}
 
 	// Try to increase the limit to the max.

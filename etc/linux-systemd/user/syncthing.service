@@ -5,12 +5,11 @@ Documentation=man:syncthing(1)
 [Service]
 ExecStart=/usr/bin/syncthing -no-browser -no-restart -logflags=0
 Restart=on-failure
+RestartSec=5
 SuccessExitStatus=3 4
 RestartForceExitStatus=3 4
 
 # Hardening
-ProtectSystem=full
-PrivateTmp=true
 SystemCallArchitectures=native
 MemoryDenyWriteExecute=true
 NoNewPrivileges=true

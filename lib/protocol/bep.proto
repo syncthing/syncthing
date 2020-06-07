@@ -96,27 +96,36 @@ message IndexUpdate {
 
 message FileInfo {
     option (gogoproto.goproto_stringer) = false;
+
+    // The field ordering here optimizes for struct size / alignment --
+    // large types come before smaller ones.
+
     string             name           = 1;
-    FileInfoType       type           = 2;
     int64              size           = 3;
-    uint32             permissions    = 4;
     int64              modified_s     = 5;
-    int32              modified_ns    = 11;
     uint64             modified_by    = 12 [(gogoproto.customtype) = "ShortID", (gogoproto.nullable) = false];
-    bool               deleted        = 6;
-    bool               invalid        = 7 [(gogoproto.customname) = "RawInvalid"];
-    bool               no_permissions = 8;
     Vector             version        = 9 [(gogoproto.nullable) = false];
     int64              sequence       = 10;
-    int32              block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
-    repeated BlockInfo Blocks         = 16 [(gogoproto.nullable) = false];
+    repeated BlockInfo blocks         = 16 [(gogoproto.nullable) = false];
     string             symlink_target = 17;
+    bytes              blocks_hash    = 18;
+    FileInfoType       type           = 2;
+    uint32             permissions    = 4;
+    int32              modified_ns    = 11;
+    int32              block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
 
     // The local_flags fields stores flags that are relevant to the local
     // host only. It is not part of the protocol, doesn't get sent or
     // received (we make sure to zero it), nonetheless we need it on our
     // struct and to be able to serialize it to/from the database.
     uint32 local_flags = 1000;
+    // The version_hash is an implementation detail and not part of the wire
+    // format.
+    bytes version_hash = 1001;
+
+    bool deleted        = 6;
+    bool invalid        = 7 [(gogoproto.customname) = "RawInvalid"];
+    bool no_permissions = 8;
 }
 
 enum FileInfoType {
@@ -129,9 +138,9 @@ enum FileInfoType {
 
 message BlockInfo {
     option (gogoproto.goproto_stringer) = false;
+    bytes  hash      = 3;
     int64  offset    = 1;
     int32  size      = 2;
-    bytes  hash      = 3;
     uint32 weak_hash = 4;
 }
 
@@ -184,6 +193,7 @@ message FileDownloadProgressUpdate {
     string                         name          = 2;
     Vector                         version       = 3 [(gogoproto.nullable) = false];
     repeated int32                 block_indexes = 4 [packed=false];
+    int32                          block_size    = 5;
 }
 
 enum FileDownloadProgressUpdateType {

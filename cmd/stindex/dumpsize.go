@@ -10,8 +10,10 @@ import (
 	"container/heap"
 	"encoding/binary"
 	"fmt"
+	"log"
 
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 )
 
 type SizedElement struct {
@@ -37,11 +39,14 @@ func (h *ElementHeap) Pop() interface{} {
 	return x
 }
 
-func dumpsize(ldb *db.Lowlevel) {
+func dumpsize(ldb backend.Backend) {
 	h := &ElementHeap{}
 	heap.Init(h)
 
-	it := ldb.NewIterator(nil, nil)
+	it, err := ldb.NewPrefixIterator(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 	var ele SizedElement
 	for it.Next() {
 		key := it.Key()

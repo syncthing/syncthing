@@ -7,36 +7,8 @@
 package osutil
 
 import (
-	"bytes"
 	"net"
 )
-
-// ResolveInterfaceAddresses returns available addresses of the given network
-// type for a given interface.
-func ResolveInterfaceAddresses(network, nameOrMac string) []string {
-	intf, err := net.InterfaceByName(nameOrMac)
-	if err == nil {
-		return interfaceAddresses(network, intf)
-	}
-
-	mac, err := net.ParseMAC(nameOrMac)
-	if err != nil {
-		return []string{nameOrMac}
-	}
-
-	intfs, err := net.Interfaces()
-	if err != nil {
-		return []string{nameOrMac}
-	}
-
-	for _, intf := range intfs {
-		if bytes.Equal(intf.HardwareAddr, mac) {
-			return interfaceAddresses(network, &intf)
-		}
-	}
-
-	return []string{nameOrMac}
-}
 
 func interfaceAddresses(network string, intf *net.Interface) []string {
 	var out []string

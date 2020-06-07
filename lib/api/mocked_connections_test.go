@@ -6,9 +6,17 @@
 
 package api
 
+import (
+	"github.com/syncthing/syncthing/lib/connections"
+)
+
 type mockedConnections struct{}
 
-func (m *mockedConnections) Status() map[string]interface{} {
+func (m *mockedConnections) ListenerStatus() map[string]connections.ListenerStatusEntry {
+	return nil
+}
+
+func (m *mockedConnections) ConnectionStatus() map[string]connections.ConnectionStatusEntry {
 	return nil
 }
 
@@ -19,3 +27,7 @@ func (m *mockedConnections) NATType() string {
 func (m *mockedConnections) Serve() {}
 
 func (m *mockedConnections) Stop() {}
+
+func (m *mockedConnections) ExternalAddresses() []string { return nil }
+
+func (m *mockedConnections) AllAddresses() []string { return nil }

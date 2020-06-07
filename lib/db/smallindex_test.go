@@ -6,11 +6,15 @@
 
 package db
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/syncthing/syncthing/lib/db/backend"
+)
 
 func TestSmallIndex(t *testing.T) {
-	db := OpenMemory()
-	idx := newSmallIndex(db.DB, []byte{12, 34})
+	db := NewLowlevel(backend.OpenMemory())
+	idx := newSmallIndex(db, []byte{12, 34})
 
 	// ID zero should be unallocated
 	if val, ok := idx.Val(0); ok || val != nil {
@@ -18,7 +22,9 @@ func TestSmallIndex(t *testing.T) {
 	}
 
 	// A new key should get ID zero
-	if id := idx.ID([]byte("hello")); id != 0 {
+	if id, err := idx.ID([]byte("hello")); err != nil {
+		t.Fatal(err)
+	} else if id != 0 {
 		t.Fatal("Expected 0, not", id)
 	}
 	// Looking up ID zero should work
@@ -30,23 +36,29 @@ func TestSmallIndex(t *testing.T) {
 	idx.Delete([]byte("hello"))
 
 	// Next ID should be one
-	if id := idx.ID([]byte("key2")); id != 1 {
+	if id, err := idx.ID([]byte("key2")); err != nil {
+		t.Fatal(err)
+	} else if id != 1 {
 		t.Fatal("Expected 1, not", id)
 	}
 
 	// Now lets create a new index instance based on what's actually serialized to the database.
-	idx = newSmallIndex(db.DB, []byte{12, 34})
+	idx = newSmallIndex(db, []byte{12, 34})
 
 	// Status should be about the same as before.
 	if val, ok := idx.Val(0); ok || val != nil {
 		t.Fatal("Unexpected return for deleted ID 0")
 	}
-	if id := idx.ID([]byte("key2")); id != 1 {
+	if id, err := idx.ID([]byte("key2")); err != nil {
+		t.Fatal(err)
+	} else if id != 1 {
 		t.Fatal("Expected 1, not", id)
 	}
 
 	// Setting "hello" again should get us ID 2, not 0 as it was originally.
-	if id := idx.ID([]byte("hello")); id != 2 {
+	if id, err := idx.ID([]byte("hello")); err != nil {
+		t.Fatal(err)
+	} else if id != 2 {
 		t.Fatal("Expected 2, not", id)
 	}
 }

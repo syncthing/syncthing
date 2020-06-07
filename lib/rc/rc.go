@@ -26,6 +26,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -154,13 +155,18 @@ func (p *Process) Stop() (*os.ProcessState, error) {
 	return p.cmd.ProcessState, p.stopErr
 }
 
+// Stopped returns a channel that will be closed when Syncthing has stopped.
+func (p *Process) Stopped() chan struct{} {
+	return p.stopped
+}
+
 // Get performs an HTTP GET and returns the bytes and/or an error. Any non-200
 // return code is returned as an error.
 func (p *Process) Get(path string) ([]byte, error) {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
-			Dial:              dialer.Dial,
+			DialContext:       dialer.DialContext,
 			Proxy:             http.ProxyFromEnvironment,
 			DisableKeepAlives: true,
 		},
@@ -226,7 +232,7 @@ func (p *Process) Events(since int) ([]Event, error) {
 	dec.UseNumber()
 	err = dec.Decode(&evs)
 	if err != nil {
-		return nil, fmt.Errorf("Events: %s in %q", err, bs)
+		return nil, fmt.Errorf("events: %w in %q", err, bs)
 	}
 	return evs, err
 }
@@ -392,7 +398,7 @@ func (p *Process) readResponse(resp *http.Response) ([]byte, error) {
 		return bs, err
 	}
 	if resp.StatusCode != 200 {
-		return bs, fmt.Errorf("%s", resp.Status)
+		return bs, errors.New(resp.Status)
 	}
 	return bs, nil
 }
@@ -455,7 +461,7 @@ func (p *Process) eventLoop() {
 		default:
 		}
 
-		events, err := p.Events(since)
+		evs, err := p.Events(since)
 		if err != nil {
 			if time.Since(start) < 5*time.Second {
 				// The API has probably not started yet, lets give it some time.
@@ -473,7 +479,7 @@ func (p *Process) eventLoop() {
 			continue
 		}
 
-		for _, ev := range events {
+		for _, ev := range evs {
 			if ev.ID != since+1 {
 				l.Warnln("Event ID jumped", since, "to", ev.ID)
 			}
@@ -493,7 +499,7 @@ func (p *Process) eventLoop() {
 				p.id = id
 
 				home := data["home"].(string)
-				w, err := config.Load(filepath.Join(home, "config.xml"), protocol.LocalDeviceID)
+				w, err := config.Load(filepath.Join(home, "config.xml"), protocol.LocalDeviceID, events.NoopLogger)
 				if err != nil {
 					log.Println("eventLoop: Starting:", err)
 					continue
@@ -541,6 +547,7 @@ func (p *Process) eventLoop() {
 				}
 				device := p.id.String()
 				if device == "" {
+					p.eventMut.Unlock()
 					panic("race, or startup not complete")
 				}
 				m[device] = version
@@ -606,7 +613,6 @@ func (p *Process) Connections() (map[string]ConnectionStats, error) {
 
 type SystemStatus struct {
 	Alloc         int64
-	CPUPercent    float64
 	Goroutines    int
 	MyID          protocol.DeviceID
 	PathSeparator string

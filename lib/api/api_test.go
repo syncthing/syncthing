@@ -18,26 +18,33 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
 	"github.com/thejerf/suture"
 )
 
+var (
+	confDir = filepath.Join("testdata", "config")
+	token   = filepath.Join(confDir, "csrftokens.txt")
+)
+
 func TestMain(m *testing.M) {
 	orig := locations.GetBaseDir(locations.ConfigBaseDir)
-	locations.SetBaseDir(locations.ConfigBaseDir, "testdata/config")
+	locations.SetBaseDir(locations.ConfigBaseDir, confDir)
 
 	exitCode := m.Run()
 
@@ -47,48 +54,62 @@ func TestMain(m *testing.M) {
 }
 
 func TestCSRFToken(t *testing.T) {
-	t1 := newCsrfToken()
-	t2 := newCsrfToken()
+	t.Parallel()
 
-	t3 := newCsrfToken()
-	if !validCsrfToken(t3) {
+	max := 250
+	int := 5
+	if testing.Short() {
+		max = 20
+		int = 2
+	}
+
+	m := newCsrfManager("unique", "prefix", config.GUIConfiguration{}, nil, "")
+
+	t1 := m.newToken()
+	t2 := m.newToken()
+
+	t3 := m.newToken()
+	if !m.validToken(t3) {
 		t.Fatal("t3 should be valid")
 	}
 
-	for i := 0; i < 250; i++ {
-		if i%5 == 0 {
+	for i := 0; i < max; i++ {
+		if i%int == 0 {
 			// t1 and t2 should remain valid by virtue of us checking them now
 			// and then.
-			if !validCsrfToken(t1) {
+			if !m.validToken(t1) {
 				t.Fatal("t1 should be valid at iteration", i)
 			}
-			if !validCsrfToken(t2) {
+			if !m.validToken(t2) {
 				t.Fatal("t2 should be valid at iteration", i)
 			}
 		}
 
 		// The newly generated token is always valid
-		t4 := newCsrfToken()
-		if !validCsrfToken(t4) {
+		t4 := m.newToken()
+		if !m.validToken(t4) {
 			t.Fatal("t4 should be valid at iteration", i)
 		}
 	}
 
-	if validCsrfToken(t3) {
+	if m.validToken(t3) {
 		t.Fatal("t3 should have expired by now")
 	}
 }
 
 func TestStopAfterBrokenConfig(t *testing.T) {
+	t.Parallel()
+
 	cfg := config.Configuration{
 		GUI: config.GUIConfiguration{
 			RawAddress: "127.0.0.1:0",
 			RawUseTLS:  false,
 		},
 	}
-	w := config.Wrap("/dev/null", cfg)
+	w := config.Wrap("/dev/null", cfg, events.NoopLogger)
 
-	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	defer os.Remove(token)
 	srv.started = make(chan string)
 
 	sup := suture.New("test", suture.Spec{
@@ -119,6 +140,8 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 }
 
 func TestAssetsDir(t *testing.T) {
+	t.Parallel()
+
 	// For any given request to $FILE, we should return the first found of
 	//  - assetsdir/$THEME/$FILE
 	//  - compiled in asset $THEME/$FILE
@@ -130,19 +153,25 @@ func TestAssetsDir(t *testing.T) {
 	gw := gzip.NewWriter(buf)
 	gw.Write([]byte("default"))
 	gw.Close()
-	def := buf.Bytes()
+	def := assets.Asset{
+		Content: buf.String(),
+		Gzipped: true,
+	}
 
 	buf = new(bytes.Buffer)
 	gw = gzip.NewWriter(buf)
 	gw.Write([]byte("foo"))
 	gw.Close()
-	foo := buf.Bytes()
+	foo := assets.Asset{
+		Content: buf.String(),
+		Gzipped: true,
+	}
 
 	e := &staticsServer{
 		theme:    "foo",
 		mut:      sync.NewRWMutex(),
 		assetDir: "testdata",
-		assets: map[string][]byte{
+		assets: map[string]assets.Asset{
 			"foo/a":     foo, // overridden in foo/a
 			"foo/b":     foo,
 			"default/a": def, // overridden in default/a (but foo/a takes precedence)
@@ -193,6 +222,8 @@ func expectURLToContain(t *testing.T, url, exp string) {
 }
 
 func TestDirNames(t *testing.T) {
+	t.Parallel()
+
 	names := dirNames("testdata")
 	expected := []string{"config", "default", "foo", "testfolder"}
 	if diff, equal := messagediff.PrettyDiff(expected, names); !equal {
@@ -209,13 +240,16 @@ type httpTestCase struct {
 }
 
 func TestAPIServiceRequests(t *testing.T) {
+	t.Parallel()
+
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 
 	cases := []httpTestCase{
 		// /rest/db
@@ -419,13 +453,16 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey strin
 }
 
 func TestHTTPLogin(t *testing.T) {
+	t.Parallel()
+
 	cfg := new(mockedConfig)
 	cfg.gui.User = "üser"
 	cfg.gui.Password = "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq" // bcrypt of "räksmörgås" in UTF-8
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 
 	// Verify rejection when not using authorization
 
@@ -483,7 +520,7 @@ func TestHTTPLogin(t *testing.T) {
 	}
 }
 
-func startHTTP(cfg *mockedConfig) (string, error) {
+func startHTTP(cfg *mockedConfig) (string, *suture.Supervisor, error) {
 	m := new(mockedModel)
 	assetDir := "../../gui"
 	eventSub := new(mockedEventSub)
@@ -492,13 +529,12 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	connections := new(mockedConnections)
 	errorLog := new(mockedLoggerRecorder)
 	systemLog := new(mockedLoggerRecorder)
-	cpu := new(mockedCPUService)
 	addrChan := make(chan string)
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
-	summaryService := model.NewFolderSummaryService(cfg, m, protocol.LocalDeviceID)
-	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, discoverer, connections, urService, summaryService, errorLog, systemLog, cpu, nil, false).(*service)
+	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, &mockedFolderSummaryService{}, errorLog, systemLog, nil, false).(*service)
+	defer os.Remove(token)
 	svc.started = addrChan
 
 	// Actually start the API service
@@ -512,7 +548,8 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	addr := <-addrChan
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
-		return "", fmt.Errorf("Weird address from API service: %v", err)
+		supervisor.Stop()
+		return "", nil, fmt.Errorf("weird address from API service: %w", err)
 	}
 
 	host, _, _ := net.SplitHostPort(cfg.gui.RawAddress)
@@ -521,20 +558,23 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	}
 	baseURL := fmt.Sprintf("http://%s", net.JoinHostPort(host, strconv.Itoa(tcpAddr.Port)))
 
-	return baseURL, nil
+	return baseURL, supervisor, nil
 }
 
 func TestCSRFRequired(t *testing.T) {
+	t.Parallel()
+
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal("Unexpected error from getting base URL:", err)
 	}
+	defer sup.Stop()
 
 	cli := &http.Client{
-		Timeout: time.Second,
+		Timeout: time.Minute,
 	}
 
 	// Getting the base URL (i.e. "/") should succeed.
@@ -598,13 +638,16 @@ func TestCSRFRequired(t *testing.T) {
 }
 
 func TestRandomString(t *testing.T) {
+	t.Parallel()
+
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 	cli := &http.Client{
 		Timeout: time.Second,
 	}
@@ -647,10 +690,15 @@ func TestRandomString(t *testing.T) {
 }
 
 func TestConfigPostOK(t *testing.T) {
+	t.Parallel()
+
 	cfg := bytes.NewBuffer([]byte(`{
 		"version": 15,
 		"folders": [
-			{"id": "foo"}
+			{
+				"id": "foo",
+				"path": "TestConfigPostOK"
+			}
 		]
 	}`))
 
@@ -661,9 +709,12 @@ func TestConfigPostOK(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Error("Expected 200 OK, not", resp.Status)
 	}
+	os.RemoveAll("TestConfigPostOK")
 }
 
 func TestConfigPostDupFolder(t *testing.T) {
+	t.Parallel()
+
 	cfg := bytes.NewBuffer([]byte(`{
 		"version": 15,
 		"folders": [
@@ -685,10 +736,11 @@ func testConfigPost(data io.Reader) (*http.Response, error) {
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		return nil, err
 	}
+	defer sup.Stop()
 	cli := &http.Client{
 		Timeout: time.Second,
 	}
@@ -699,14 +751,17 @@ func testConfigPost(data io.Reader) (*http.Response, error) {
 }
 
 func TestHostCheck(t *testing.T) {
+	t.Parallel()
+
 	// An API service bound to localhost should reject non-localhost host Headers
 
 	cfg := new(mockedConfig)
 	cfg.gui.RawAddress = "127.0.0.1:0"
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 
 	// A normal HTTP get to the localhost-bound service should succeed
 
@@ -763,10 +818,11 @@ func TestHostCheck(t *testing.T) {
 	cfg = new(mockedConfig)
 	cfg.gui.RawAddress = "127.0.0.1:0"
 	cfg.gui.InsecureSkipHostCheck = true
-	baseURL, err = startHTTP(cfg)
+	baseURL, sup, err = startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 
 	// A request with a suspicious Host header should be allowed
 
@@ -786,10 +842,11 @@ func TestHostCheck(t *testing.T) {
 	cfg = new(mockedConfig)
 	cfg.gui.RawAddress = "0.0.0.0:0"
 	cfg.gui.InsecureSkipHostCheck = true
-	baseURL, err = startHTTP(cfg)
+	baseURL, sup, err = startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 
 	// A request with a suspicious Host header should be allowed
 
@@ -806,12 +863,18 @@ func TestHostCheck(t *testing.T) {
 
 	// This should all work over IPv6 as well
 
+	if runningInContainer() {
+		// Working IPv6 in Docker can't be taken for granted.
+		return
+	}
+
 	cfg = new(mockedConfig)
 	cfg.gui.RawAddress = "[::1]:0"
-	baseURL, err = startHTTP(cfg)
+	baseURL, sup, err = startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 
 	// A normal HTTP get to the localhost-bound service should succeed
 
@@ -852,6 +915,8 @@ func TestHostCheck(t *testing.T) {
 }
 
 func TestAddressIsLocalhost(t *testing.T) {
+	t.Parallel()
+
 	testcases := []struct {
 		address string
 		result  bool
@@ -895,13 +960,16 @@ func TestAddressIsLocalhost(t *testing.T) {
 }
 
 func TestAccessControlAllowOriginHeader(t *testing.T) {
+	t.Parallel()
+
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 	cli := &http.Client{
 		Timeout: time.Second,
 	}
@@ -923,13 +991,16 @@ func TestAccessControlAllowOriginHeader(t *testing.T) {
 }
 
 func TestOptionsRequest(t *testing.T) {
+	t.Parallel()
+
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
-	baseURL, err := startHTTP(cfg)
+	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer sup.Stop()
 	cli := &http.Client{
 		Timeout: time.Second,
 	}
@@ -956,10 +1027,13 @@ func TestOptionsRequest(t *testing.T) {
 }
 
 func TestEventMasks(t *testing.T) {
+	t.Parallel()
+
 	cfg := new(mockedConfig)
 	defSub := new(mockedEventSub)
 	diskSub := new(mockedEventSub)
-	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	defer os.Remove(token)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
 		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(DefaultEventMask))
@@ -987,6 +1061,8 @@ func TestEventMasks(t *testing.T) {
 }
 
 func TestBrowse(t *testing.T) {
+	t.Parallel()
+
 	pathSep := string(os.PathSeparator)
 
 	tmpDir, err := ioutil.TempDir("", "syncthing")
@@ -1039,6 +1115,8 @@ func TestBrowse(t *testing.T) {
 }
 
 func TestPrefixMatch(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct {
 		s        string
 		prefix   string
@@ -1058,6 +1136,44 @@ func TestPrefixMatch(t *testing.T) {
 	}
 }
 
+func TestCheckExpiry(t *testing.T) {
+	dir, err := ioutil.TempDir("", "syncthing-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	// Self signed certificates expiring in less than a month are errored so we
+	// can regenerate in time.
+	crt, err := tlsutil.NewCertificate(filepath.Join(dir, "crt"), filepath.Join(dir, "key"), "foo.example.com", 29)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkExpiry(crt); err == nil {
+		t.Error("expected expiry error")
+	}
+
+	// Certificates with at least 31 days of life left are fine.
+	crt, err = tlsutil.NewCertificate(filepath.Join(dir, "crt"), filepath.Join(dir, "key"), "foo.example.com", 31)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := checkExpiry(crt); err != nil {
+		t.Error("expected no error:", err)
+	}
+
+	if runtime.GOOS == "darwin" {
+		// Certificates with too long an expiry time are not allowed on macOS
+		crt, err = tlsutil.NewCertificate(filepath.Join(dir, "crt"), filepath.Join(dir, "key"), "foo.example.com", 1000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := checkExpiry(crt); err == nil {
+			t.Error("expected expiry error")
+		}
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -1068,4 +1184,25 @@ func equalStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// runningInContainer returns true if we are inside Docker or LXC. It might
+// be prone to false negatives if things change in the future, but likely
+// not false positives.
+func runningInContainer() bool {
+	if runtime.GOOS != "linux" {
+		return false
+	}
+
+	bs, err := ioutil.ReadFile("/proc/1/cgroup")
+	if err != nil {
+		return false
+	}
+	if bytes.Contains(bs, []byte("/docker/")) {
+		return true
+	}
+	if bytes.Contains(bs, []byte("/lxc/")) {
+		return true
+	}
+	return false
 }

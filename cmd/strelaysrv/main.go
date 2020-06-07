@@ -14,12 +14,13 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -32,24 +33,6 @@ import (
 
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 )
-
-var (
-	Version    string
-	BuildStamp string
-	BuildUser  string
-	BuildHost  string
-
-	BuildDate   time.Time
-	LongVersion string
-)
-
-func init() {
-	stamp, _ := strconv.Atoi(BuildStamp)
-	BuildDate = time.Unix(int64(stamp), 0)
-
-	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
-	LongVersion = fmt.Sprintf(`strelaysrv %s (%s %s-%s) %s@%s %s`, Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
-}
 
 var (
 	listen string
@@ -116,7 +99,14 @@ func main() {
 	flag.IntVar(&natTimeout, "nat-timeout", 10, "NAT discovery timeout in seconds")
 	flag.BoolVar(&pprofEnabled, "pprof", false, "Enable the built in profiling on the status server")
 	flag.IntVar(&networkBufferSize, "network-buffer", 2048, "Network buffer size (two of these per proxied connection)")
+	showVersion := flag.Bool("version", false, "Show version")
 	flag.Parse()
+
+	longVer := build.LongVersionFor("strelaysrv")
+	if *showVersion {
+		fmt.Println(longVer)
+		return
+	}
 
 	if extAddress == "" {
 		extAddress = listen
@@ -146,7 +136,7 @@ func main() {
 		}
 	}
 
-	log.Println(LongVersion)
+	log.Println(longVer)
 
 	maxDescriptors, err := osutil.MaximizeOpenFileLimit()
 	if maxDescriptors > 0 {
@@ -166,7 +156,7 @@ func main() {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		log.Println("Failed to load keypair. Generating one, this might take a while...")
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, "strelaysrv")
+		cert, err = tlsutil.NewCertificate(certFile, keyFile, "strelaysrv", 20*365)
 		if err != nil {
 			log.Fatalln("Failed to generate X509 key pair:", err)
 		}
@@ -194,7 +184,7 @@ func main() {
 		log.Println("ID:", id)
 	}
 
-	wrapper := config.Wrap("config", config.New(id))
+	wrapper := config.Wrap("config", config.New(id), events.NoopLogger)
 	wrapper.SetOptions(config.OptionsConfiguration{
 		NATLeaseM:   natLease,
 		NATRenewalM: natRenewal,

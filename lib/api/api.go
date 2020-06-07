@@ -8,11 +8,15 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -28,6 +32,10 @@ import (
 	"time"
 
 	metrics "github.com/rcrowley/go-metrics"
+	"github.com/thejerf/suture"
+	"github.com/vitrun/qart/qr"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -44,49 +52,46 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/thejerf/suture"
-	"github.com/vitrun/qart/qr"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 // matches a bcrypt hash and not too much else
 var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 
 const (
-	DefaultEventMask    = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
-	DiskEventMask       = events.LocalChangeDetected | events.RemoteChangeDetected
-	EventSubBufferSize  = 1000
-	defaultEventTimeout = time.Minute
+	DefaultEventMask      = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
+	DiskEventMask         = events.LocalChangeDetected | events.RemoteChangeDetected
+	EventSubBufferSize    = 1000
+	defaultEventTimeout   = time.Minute
+	httpsCertLifetimeDays = 820
 )
 
 type service struct {
+	suture.Service
+
 	id                   protocol.DeviceID
 	cfg                  config.Wrapper
 	statics              *staticsServer
 	model                model.Model
 	eventSubs            map[events.EventType]events.BufferedSubscription
 	eventSubsMut         sync.Mutex
+	evLogger             events.Logger
 	discoverer           discover.CachingMux
 	connectionsService   connections.Service
 	fss                  model.FolderSummaryService
 	urService            *ur.Service
 	systemConfigMut      sync.Mutex // serializes posts to /rest/system/config
-	cpu                  Rater
 	contr                Controller
 	noUpgrade            bool
 	tlsDefaultCommonName string
-	stop                 chan struct{} // signals intentional stop
 	configChanged        chan struct{} // signals intentional listener close due to config change
 	started              chan string   // signals startup complete by sending the listener address, for testing only
 	startedOnce          chan struct{} // the service has started successfully at least once
 	startupErr           error
+	listenerAddr         net.Addr
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
-}
-
-type Rater interface {
-	Rate() float64
 }
 
 type Controller interface {
@@ -101,8 +106,8 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, cpu Rater, contr Controller, noUpgrade bool) Service {
-	return &service{
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, contr Controller, noUpgrade bool) Service {
+	s := &service{
 		id:      id,
 		cfg:     cfg,
 		statics: newStaticsServer(cfg.GUI().Theme, assetDir),
@@ -112,6 +117,7 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 			DiskEventMask:    diskSub,
 		},
 		eventSubsMut:         sync.NewMutex(),
+		evLogger:             evLogger,
 		discoverer:           discoverer,
 		connectionsService:   connectionsService,
 		fss:                  fss,
@@ -119,14 +125,14 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		systemConfigMut:      sync.NewMutex(),
 		guiErrors:            errors,
 		systemLog:            systemLog,
-		cpu:                  cpu,
 		contr:                contr,
 		noUpgrade:            noUpgrade,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		stop:                 make(chan struct{}),
 		configChanged:        make(chan struct{}),
 		startedOnce:          make(chan struct{}),
 	}
+	s.Service = util.AsService(s.serve, s.String())
+	return s
 }
 
 func (s *service) WaitForStart() error {
@@ -138,6 +144,12 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 	httpsCertFile := locations.Get(locations.HTTPSCertFile)
 	httpsKeyFile := locations.Get(locations.HTTPSKeyFile)
 	cert, err := tls.LoadX509KeyPair(httpsCertFile, httpsKeyFile)
+
+	// If the certificate has expired or will expire in the next month, fail
+	// it and generate a new one.
+	if err == nil {
+		err = checkExpiry(cert)
+	}
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
 		l.Infoln("Creating new HTTPS certificate")
@@ -150,7 +162,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 			name = s.tlsDefaultCommonName
 		}
 
-		cert, err = tlsutil.NewCertificate(httpsCertFile, httpsKeyFile, name)
+		cert, err = tlsutil.NewCertificate(httpsCertFile, httpsKeyFile, name, httpsCertLifetimeDays)
 	}
 	if err != nil {
 		return nil, err
@@ -167,6 +179,15 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 	rawListener, err := net.Listen(guiCfg.Network(), guiCfg.Address())
 	if err != nil {
 		return nil, err
+	}
+
+	if guiCfg.Network() == "unix" && guiCfg.UnixSocketPermissions() != 0 {
+		// We should error if this fails under the assumption that these permissions are
+		// required for operation.
+		err = os.Chmod(guiCfg.Address(), guiCfg.UnixSocketPermissions())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	listener := &tlsutil.DowngradingListener{
@@ -190,7 +211,7 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 	fmt.Fprintf(w, "%s\n", bs)
 }
 
-func (s *service) Serve() {
+func (s *service) serve(ctx context.Context) {
 	listener, err := s.getListener(s.cfg.GUI())
 	if err != nil {
 		select {
@@ -215,6 +236,7 @@ func (s *service) Serve() {
 		return
 	}
 
+	s.listenerAddr = listener.Addr()
 	defer listener.Close()
 
 	s.cfg.Subscribe(s)
@@ -303,14 +325,14 @@ func (s *service) Serve() {
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
-	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg, mux)
+	var handler http.Handler = newCsrfManager(s.id.String()[:5], "/rest", guiCfg, mux, locations.Get(locations.CsrfTokens))
 
 	// Add our version and ID as a header to responses
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in basic auth, if user/password is set.
 	if guiCfg.IsAuthEnabled() {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler)
+		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler, s.evLogger)
 	}
 
 	// Redirect to HTTPS if we are supposed to
@@ -333,13 +355,19 @@ func (s *service) Serve() {
 		// ReadTimeout must be longer than SyncthingController $scope.refresh
 		// interval to avoid HTTP keepalive/GUI refresh race.
 		ReadTimeout: 15 * time.Second,
+		// Prevent the HTTP server from logging stuff on its own. The things we
+		// care about we log ourselves from the handlers.
+		ErrorLog: log.New(ioutil.Discard, "", 0),
 	}
 
 	l.Infoln("GUI and API listening on", listener.Addr())
 	l.Infoln("Access the GUI via the following URL:", guiCfg.URL())
 	if s.started != nil {
 		// only set when run by the tests
-		s.started <- listener.Addr().String()
+		select {
+		case <-ctx.Done(): // Shouldn't return directly due to cleanup below
+		case s.started <- listener.Addr().String():
+		}
 	}
 
 	// Indicate successful initial startup, to ourselves and to interested
@@ -354,13 +382,16 @@ func (s *service) Serve() {
 
 	serveError := make(chan error, 1)
 	go func() {
-		serveError <- srv.Serve(listener)
+		select {
+		case serveError <- srv.Serve(listener):
+		case <-ctx.Done():
+		}
 	}()
 
 	// Wait for stop, restart or error signals
 
 	select {
-	case <-s.stop:
+	case <-ctx.Done():
 		// Shutting down permanently
 		l.Debugln("shutting down (stop)")
 	case <-s.configChanged:
@@ -370,6 +401,7 @@ func (s *service) Serve() {
 		// Restart due to listen/serve failure
 		l.Warnln("GUI/API:", err, "(restarting)")
 	}
+	srv.Close()
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor
@@ -378,15 +410,9 @@ func (s *service) Complete() bool {
 	select {
 	case <-s.startedOnce:
 		return s.startupErr != nil
-	case <-s.stop:
-		return true
 	default:
 	}
 	return false
-}
-
-func (s *service) Stop() {
-	close(s.stop)
 }
 
 func (s *service) String() string {
@@ -720,15 +746,18 @@ func (s *service) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
 
 	page, perpage := getPagingParams(qs)
 
-	if files, err := s.model.RemoteNeedFolderFiles(deviceID, folder, page, perpage); err != nil {
+	snap, err := s.model.DBSnapshot(folder)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
-	} else {
-		sendJSON(w, map[string]interface{}{
-			"files":   toJsonFileInfoSlice(files),
-			"page":    page,
-			"perpage": perpage,
-		})
+		return
 	}
+	defer snap.Release()
+	files := snap.RemoteNeedFolderFiles(deviceID, page, perpage)
+	sendJSON(w, map[string]interface{}{
+		"files":   toJsonFileInfoSlice(files),
+		"page":    page,
+		"perpage": perpage,
+	})
 }
 
 func (s *service) getDBLocalChanged(w http.ResponseWriter, r *http.Request) {
@@ -738,7 +767,13 @@ func (s *service) getDBLocalChanged(w http.ResponseWriter, r *http.Request) {
 
 	page, perpage := getPagingParams(qs)
 
-	files := s.model.LocalChangedFiles(folder, page, perpage)
+	snap, err := s.model.DBSnapshot(folder)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	defer snap.Release()
+	files := snap.LocalChangedFiles(page, perpage)
 
 	sendJSON(w, map[string]interface{}{
 		"files":   toJsonFileInfoSlice(files),
@@ -752,11 +787,21 @@ func (s *service) getSystemConnections(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getDeviceStats(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, s.model.DeviceStatistics())
+	stats, err := s.model.DeviceStatistics()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	sendJSON(w, stats)
 }
 
 func (s *service) getFolderStats(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, s.model.FolderStatistics())
+	stats, err := s.model.FolderStatistics()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	sendJSON(w, stats)
 }
 
 func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
@@ -898,15 +943,15 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 		res["discoveryErrors"] = discoErrors
 	}
 
-	res["connectionServiceStatus"] = s.connectionsService.Status()
-	// cpuUsage.Rate() is in milliseconds per second, so dividing by ten
-	// gives us percent
-	res["cpuPercent"] = s.cpu.Rate() / 10 / float64(runtime.NumCPU())
+	res["connectionServiceStatus"] = s.connectionsService.ListenerStatus()
+	res["lastDialStatus"] = s.connectionsService.ConnectionStatus()
+	res["cpuPercent"] = 0 // deprecated from API
 	res["pathSeparator"] = string(filepath.Separator)
 	res["urVersionMax"] = ur.Version
 	res["uptime"] = s.urService.UptimeS()
 	res["startTime"] = ur.StartTime
 	res["guiAddressOverridden"] = s.cfg.GUI().IsOverridden()
+	res["guiAddressUsed"] = s.listenerAddr.String()
 
 	sendJSON(w, res)
 }
@@ -960,10 +1005,10 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	var files []fileEntry
 
 	// Redacted configuration as a JSON
-	if jsonConfig, err := json.MarshalIndent(getRedactedConfig(s), "", "  "); err == nil {
-		files = append(files, fileEntry{name: "config.json.txt", data: jsonConfig})
-	} else {
+	if jsonConfig, err := json.MarshalIndent(getRedactedConfig(s), "", "  "); err != nil {
 		l.Warnln("Support bundle: failed to create config.json:", err)
+	} else {
+		files = append(files, fileEntry{name: "config.json.txt", data: jsonConfig})
 	}
 
 	// Log as a text
@@ -976,9 +1021,9 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	// Errors as a JSON
 	if errs := s.guiErrors.Since(time.Time{}); len(errs) > 0 {
 		if jsonError, err := json.MarshalIndent(errs, "", "  "); err != nil {
-			files = append(files, fileEntry{name: "errors.json.txt", data: jsonError})
-		} else {
 			l.Warnln("Support bundle: failed to create errors.json:", err)
+		} else {
+			files = append(files, fileEntry{name: "errors.json.txt", data: jsonError})
 		}
 	}
 
@@ -1013,7 +1058,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Report Data as a JSON
-	if usageReportingData, err := json.MarshalIndent(s.urService.ReportData(), "", "  "); err != nil {
+	if usageReportingData, err := json.MarshalIndent(s.urService.ReportData(context.TODO()), "", "  "); err != nil {
 		l.Warnln("Support bundle: failed to create versionPlatform.json:", err)
 	} else {
 		files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
@@ -1098,7 +1143,7 @@ func (s *service) getReport(w http.ResponseWriter, r *http.Request) {
 	if val, _ := strconv.Atoi(r.URL.Query().Get("version")); val > 0 {
 		version = val
 	}
-	sendJSON(w, s.urService.ReportDataPreview(version))
+	sendJSON(w, s.urService.ReportDataPreview(context.TODO(), version))
 }
 
 func (s *service) getRandomString(w http.ResponseWriter, r *http.Request) {
@@ -1211,7 +1256,7 @@ func (s *service) getEventSub(mask events.EventType) events.BufferedSubscription
 	s.eventSubsMut.Lock()
 	bufsub, ok := s.eventSubs[mask]
 	if !ok {
-		evsub := events.Default.Subscribe(mask)
+		evsub := s.evLogger.Subscribe(mask)
 		bufsub = events.NewBufferedSubscription(evsub, EventSubBufferSize)
 		s.eventSubs[mask] = bufsub
 	}
@@ -1222,7 +1267,7 @@ func (s *service) getEventSub(mask events.EventType) events.BufferedSubscription
 
 func (s *service) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 	if s.noUpgrade {
-		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
+		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusServiceUnavailable)
 		return
 	}
 	opts := s.cfg.Options()
@@ -1564,10 +1609,10 @@ func (s *service) getHeapProf(w http.ResponseWriter, r *http.Request) {
 	pprof.WriteHeapProfile(w)
 }
 
-func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
-	res := make([]jsonDBFileInfo, len(fs))
+func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonFileInfoTrunc {
+	res := make([]jsonFileInfoTrunc, len(fs))
 	for i, f := range fs {
-		res[i] = jsonDBFileInfo(f)
+		res[i] = jsonFileInfoTrunc(f)
 	}
 	return res
 }
@@ -1577,45 +1622,39 @@ func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
 type jsonFileInfo protocol.FileInfo
 
 func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"name":          f.Name,
-		"type":          f.Type,
-		"size":          f.Size,
-		"permissions":   fmt.Sprintf("%#o", f.Permissions),
-		"deleted":       f.Deleted,
-		"invalid":       protocol.FileInfo(f).IsInvalid(),
-		"ignored":       protocol.FileInfo(f).IsIgnored(),
-		"mustRescan":    protocol.FileInfo(f).MustRescan(),
-		"noPermissions": f.NoPermissions,
-		"modified":      protocol.FileInfo(f).ModTime(),
-		"modifiedBy":    f.ModifiedBy.String(),
-		"sequence":      f.Sequence,
-		"numBlocks":     len(f.Blocks),
-		"version":       jsonVersionVector(f.Version),
-		"localFlags":    f.LocalFlags,
-	})
+	m := fileIntfJSONMap(protocol.FileInfo(f))
+	m["numBlocks"] = len(f.Blocks)
+	return json.Marshal(m)
 }
 
-type jsonDBFileInfo db.FileInfoTruncated
+type jsonFileInfoTrunc db.FileInfoTruncated
 
-func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"name":          f.Name,
-		"type":          f.Type.String(),
-		"size":          f.Size,
-		"permissions":   fmt.Sprintf("%#o", f.Permissions),
-		"deleted":       f.Deleted,
-		"invalid":       db.FileInfoTruncated(f).IsInvalid(),
-		"ignored":       db.FileInfoTruncated(f).IsIgnored(),
-		"mustRescan":    db.FileInfoTruncated(f).MustRescan(),
-		"noPermissions": f.NoPermissions,
-		"modified":      db.FileInfoTruncated(f).ModTime(),
-		"modifiedBy":    f.ModifiedBy.String(),
-		"sequence":      f.Sequence,
-		"numBlocks":     nil, // explicitly unknown
-		"version":       jsonVersionVector(f.Version),
-		"localFlags":    f.LocalFlags,
-	})
+func (f jsonFileInfoTrunc) MarshalJSON() ([]byte, error) {
+	m := fileIntfJSONMap(db.FileInfoTruncated(f))
+	m["numBlocks"] = nil // explicitly unknown
+	return json.Marshal(m)
+}
+
+func fileIntfJSONMap(f protocol.FileIntf) map[string]interface{} {
+	out := map[string]interface{}{
+		"name":          f.FileName(),
+		"type":          f.FileType().String(),
+		"size":          f.FileSize(),
+		"deleted":       f.IsDeleted(),
+		"invalid":       f.IsInvalid(),
+		"ignored":       f.IsIgnored(),
+		"mustRescan":    f.MustRescan(),
+		"noPermissions": !f.HasPermissionBits(),
+		"modified":      f.ModTime(),
+		"modifiedBy":    f.FileModifiedBy().String(),
+		"sequence":      f.SequenceNo(),
+		"version":       jsonVersionVector(f.FileVersion()),
+		"localFlags":    f.FileLocalFlags(),
+	}
+	if f.HasPermissionBits() {
+		out["permissions"] = fmt.Sprintf("%#o", f.FilePermissions())
+	}
+	return out
 }
 
 type jsonVersionVector protocol.Vector
@@ -1668,4 +1707,46 @@ func addressIsLocalhost(addr string) bool {
 		}
 		return ip.IsLoopback()
 	}
+}
+
+func checkExpiry(cert tls.Certificate) error {
+	leaf := cert.Leaf
+	if leaf == nil {
+		// Leaf can be nil or not, depending on how parsed the certificate
+		// was when we got it.
+		if len(cert.Certificate) < 1 {
+			// can't happen
+			return errors.New("no certificate in certificate")
+		}
+		var err error
+		leaf, err = x509.ParseCertificate(cert.Certificate[0])
+		if err != nil {
+			return err
+		}
+	}
+
+	if leaf.Subject.String() != leaf.Issuer.String() ||
+		len(leaf.DNSNames) != 0 || len(leaf.IPAddresses) != 0 {
+		// The certificate is not self signed, or has DNS/IP attributes we don't
+		// add, so we leave it alone.
+		return nil
+	}
+
+	if leaf.NotAfter.Before(time.Now()) {
+		return errors.New("certificate has expired")
+	}
+	if leaf.NotAfter.Before(time.Now().Add(30 * 24 * time.Hour)) {
+		return errors.New("certificate will soon expire")
+	}
+
+	// On macOS, check for certificates issued on or after July 1st, 2019,
+	// with a longer validity time than 825 days.
+	cutoff := time.Date(2019, 7, 1, 0, 0, 0, 0, time.UTC)
+	if runtime.GOOS == "darwin" &&
+		leaf.NotBefore.After(cutoff) &&
+		leaf.NotAfter.Sub(leaf.NotBefore) > 825*24*time.Hour {
+		return errors.New("certificate incompatible with macOS 10.15 (Catalina)")
+	}
+
+	return nil
 }

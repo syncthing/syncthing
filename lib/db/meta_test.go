@@ -11,6 +11,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -99,5 +101,83 @@ func TestMetaSequences(t *testing.T) {
 	}
 	if seq := meta.Sequence(protocol.LocalDeviceID); seq != 4 {
 		t.Error("sequence of first device should be 4, not", seq)
+	}
+}
+
+func TestRecalcMeta(t *testing.T) {
+	ldb := NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
+
+	// Add some files
+	s1 := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, "fake"), ldb)
+	files := []protocol.FileInfo{
+		{Name: "a", Size: 1000},
+		{Name: "b", Size: 2000},
+	}
+	s1.Update(protocol.LocalDeviceID, files)
+
+	// Verify local/global size
+	snap := s1.Snapshot()
+	ls := snap.LocalSize()
+	gs := snap.GlobalSize()
+	snap.Release()
+	if ls.Bytes != 3000 {
+		t.Fatalf("Wrong initial local byte count, %d != 3000", ls.Bytes)
+	}
+	if gs.Bytes != 3000 {
+		t.Fatalf("Wrong initial global byte count, %d != 3000", gs.Bytes)
+	}
+
+	// Reach into the database to make the metadata tracker intentionally
+	// wrong and out of date
+	curSeq := s1.meta.Sequence(protocol.LocalDeviceID)
+	tran, err := ldb.newReadWriteTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s1.meta.mut.Lock()
+	s1.meta.countsPtr(protocol.LocalDeviceID, 0).Sequence = curSeq - 1 // too low
+	s1.meta.countsPtr(protocol.LocalDeviceID, 0).Bytes = 1234          // wrong
+	s1.meta.countsPtr(protocol.GlobalDeviceID, 0).Bytes = 1234         // wrong
+	s1.meta.dirty = true
+	s1.meta.mut.Unlock()
+	if err := s1.meta.toDB(tran, []byte("test")); err != nil {
+		t.Fatal(err)
+	}
+	if err := tran.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify that our bad data "took"
+	snap = s1.Snapshot()
+	ls = snap.LocalSize()
+	gs = snap.GlobalSize()
+	snap.Release()
+	if ls.Bytes != 1234 {
+		t.Fatalf("Wrong changed local byte count, %d != 1234", ls.Bytes)
+	}
+	if gs.Bytes != 1234 {
+		t.Fatalf("Wrong changed global byte count, %d != 1234", gs.Bytes)
+	}
+
+	// Create a new fileset, which will realize the inconsistency and recalculate
+	s2 := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, "fake"), ldb)
+
+	// Verify local/global size
+	snap = s2.Snapshot()
+	ls = snap.LocalSize()
+	gs = snap.GlobalSize()
+	snap.Release()
+	if ls.Bytes != 3000 {
+		t.Fatalf("Wrong fixed local byte count, %d != 3000", ls.Bytes)
+	}
+	if gs.Bytes != 3000 {
+		t.Fatalf("Wrong fixed global byte count, %d != 3000", gs.Bytes)
+	}
+}
+
+func TestMetaKeyCollisions(t *testing.T) {
+	if protocol.LocalAllFlags&needFlag != 0 {
+		t.Error("Collision between need flag and protocol local file flags")
 	}
 }

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-STIGNORE" "5" "Apr 13, 2019" "v1" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "May 16, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .
@@ -43,12 +43,13 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .UNINDENT
 .SH DESCRIPTION
 .sp
-If some files should not be synchronized to other devices, a file called
+If some files should not be synchronized to (or from) other devices, a file called
 \fB\&.stignore\fP can be created containing file patterns to ignore. The
 \fB\&.stignore\fP file must be placed in the root of the folder. The
 \fB\&.stignore\fP file itself will never be synced to other devices, although it can
 \fB#include\fP files that \fIare\fP synchronized between devices. All patterns are
 relative to the folder root.
+The contents of the \fB\&.stignore\fP file must be UTF\-8 encoded.
 .sp
 \fBNOTE:\fP
 .INDENT 0.0
@@ -81,7 +82,7 @@ separator. \fBte??st\fP matches \fBtebest\fP but not \fBteb/st\fP or
 .IP \(bu 2
 Characters enclosed in square brackets \fB[]\fP are interpreted as a character range \fB[a\-z]\fP\&. Before using this syntax you should have a basic understanding of regular expression character classes.
 .IP \(bu 2
-A pattern beginning with \fB/\fP matches in the current directory only.
+A pattern beginning with \fB/\fP matches in the root of the folder only.
 \fB/foo\fP matches \fBfoo\fP but not \fBsubdir/foo\fP\&.
 .IP \(bu 2
 A pattern beginning with \fB#include\fP results in loading patterns
@@ -115,6 +116,19 @@ Windows does not support escaping \fB\e[foo \- bar\e]\fP\&.
 .INDENT 3.5
 Prefixes can be specified in any order (e.g. “(?d)(?i)”), but cannot be in a
 single pair of parentheses (not “(?di)”).
+.UNINDENT
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Include patterns (that begin with \fB!\fP) cause Syncthing to traverse and
+watch the entire directory tree regardless of other
+ignore patterns.
+.sp
+Top\-level include patterns are treated as special cases and will not force Syncthing to
+scan the entire directory tree. For example: \fB!/foo\fP is a top\-level include
+pattern, while \fB!/foo/bar\fP is not.
 .UNINDENT
 .UNINDENT
 .SH EXAMPLE
@@ -174,9 +188,9 @@ bar/          # synced
     baz       # synced
     quux      # ignored, matches "qu*"
     quuz      # synced, matches "qu*" but is excluded by the preceding "!quuz"
-bar2/         # ignored, matched "*2"
+bar2/         # synced, despite matching "*2" due to child frobble
     baz       # ignored, due to parent being ignored
-    frobble   # ignored, due to parent being ignored; "!frobble" doesn\(aqt help
+    frobble   # synced, due to "!frobble"
 My Pictures/  # ignored, matched case insensitive "(?i)my pictures" pattern
     Img15.PNG # ignored, due to parent being ignored
 .ft P
@@ -193,26 +207,6 @@ directory itself. If you want the pattern to match the directory and its
 content, make sure it does not have a \fB/\fP at the end of the pattern.
 .UNINDENT
 .UNINDENT
-.SH EFFECTS ON “IN SYNC” STATUS
-.sp
-Currently the effects on who is in sync with what can be a bit confusing
-when using ignore patterns. This should be cleared up in a future
-version…
-.sp
-Assume two devices, Alice and Bob, where Alice has 100 files to share, but
-Bob ignores 25 of these. From Alice’s point of view Bob will become
-about 75% in sync (the actual number depends on the sizes of the
-individual files) and remain in “Syncing” state even though it is in
-fact not syncing anything (\fI\%issue #623\fP <\fBhttps://github.com/syncthing/syncthing/issues/623\fP>). From Bob’s point of view, it’s
-100% up to date but will show fewer files in both the local and global
-view.
-.sp
-If Bob adds files that have already been synced to the ignore list, they
-will remain in the “global” view but disappear from the “local” view.
-The end result is more files in the global folder than in the local,
-but still 100% in sync (\fI\%issue #624\fP <\fBhttps://github.com/syncthing/syncthing/issues/624\fP>). From Alice’s point of view, Bob
-will remain 100% in sync until the next reconnect, because Bob has
-already announced that he has the files that are now suddenly ignored.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

@@ -66,6 +66,14 @@ function folderCompare(a, b) {
     return labelA > labelB;
 }
 
+function deviceMap(l) {
+    var m = {};
+    l.forEach(function (r) {
+        m[r.deviceID] = r;
+    });
+    return m;
+}
+
 function folderMap(l) {
     var m = {};
     l.forEach(function (r) {

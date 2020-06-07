@@ -7,32 +7,30 @@
 package versioner
 
 import (
-	"path/filepath"
 	"strconv"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
 	// Register the constructor for this type of versioner with the name "simple"
-	Factories["simple"] = NewSimple
+	factories["simple"] = newSimple
 }
 
-type Simple struct {
+type simple struct {
 	keep       int
 	folderFs   fs.Filesystem
 	versionsFs fs.Filesystem
 }
 
-func NewSimple(folderID string, folderFs fs.Filesystem, params map[string]string) Versioner {
+func newSimple(folderFs fs.Filesystem, params map[string]string) Versioner {
 	keep, err := strconv.Atoi(params["keep"])
 	if err != nil {
 		keep = 5 // A reasonable default
 	}
 
-	s := Simple{
+	s := simple{
 		keep:       keep,
 		folderFs:   folderFs,
 		versionsFs: fsFromParams(folderFs, params),
@@ -44,35 +42,14 @@ func NewSimple(folderID string, folderFs fs.Filesystem, params map[string]string
 
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
-func (v Simple) Archive(filePath string) error {
+func (v simple) Archive(filePath string) error {
 	err := archiveFile(v.folderFs, v.versionsFs, filePath, TagFilename)
 	if err != nil {
 		return err
 	}
 
-	file := filepath.Base(filePath)
-	dir := filepath.Dir(filePath)
-
-	// Glob according to the new file~timestamp.ext pattern.
-	pattern := filepath.Join(dir, TagFilename(file, TimeGlob))
-	newVersions, err := v.versionsFs.Glob(pattern)
-	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
-		return nil
-	}
-
-	// Also according to the old file.ext~timestamp pattern.
-	pattern = filepath.Join(dir, file+"~"+TimeGlob)
-	oldVersions, err := v.versionsFs.Glob(pattern)
-	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
-		return nil
-	}
-
-	// Use all the found filenames. "~" sorts after "." so all old pattern
-	// files will be deleted before any new, which is as it should be.
-	versions := util.UniqueStrings(append(oldVersions, newVersions...))
-
+	// Versions are sorted by timestamp in the file name, oldest first.
+	versions := findAllVersions(v.versionsFs, filePath)
 	if len(versions) > v.keep {
 		for _, toRemove := range versions[:len(versions)-v.keep] {
 			l.Debugln("cleaning out", toRemove)
@@ -86,10 +63,10 @@ func (v Simple) Archive(filePath string) error {
 	return nil
 }
 
-func (v Simple) GetVersions() (map[string][]FileVersion, error) {
+func (v simple) GetVersions() (map[string][]FileVersion, error) {
 	return retrieveVersions(v.versionsFs)
 }
 
-func (v Simple) Restore(filepath string, versionTime time.Time) error {
+func (v simple) Restore(filepath string, versionTime time.Time) error {
 	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }

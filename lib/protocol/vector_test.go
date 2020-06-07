@@ -12,8 +12,8 @@ func TestUpdate(t *testing.T) {
 
 	// Append
 
-	v = v.Update(42)
-	expected := Vector{Counters: []Counter{{ID: 42, Value: 1}}}
+	v = v.updateWithNow(42, 5)
+	expected := Vector{Counters: []Counter{{ID: 42, Value: 5}}}
 
 	if v.Compare(expected) != Equal {
 		t.Errorf("Update error, %+v != %+v", v, expected)
@@ -21,17 +21,17 @@ func TestUpdate(t *testing.T) {
 
 	// Insert at front
 
-	v = v.Update(36)
-	expected = Vector{Counters: []Counter{{ID: 36, Value: 1}, {ID: 42, Value: 1}}}
+	v = v.updateWithNow(36, 6)
+	expected = Vector{Counters: []Counter{{ID: 36, Value: 6}, {ID: 42, Value: 5}}}
 
 	if v.Compare(expected) != Equal {
 		t.Errorf("Update error, %+v != %+v", v, expected)
 	}
 
-	// Insert in moddle
+	// Insert in middle
 
-	v = v.Update(37)
-	expected = Vector{Counters: []Counter{{ID: 36, Value: 1}, {ID: 37, Value: 1}, {ID: 42, Value: 1}}}
+	v = v.updateWithNow(37, 7)
+	expected = Vector{Counters: []Counter{{ID: 36, Value: 6}, {ID: 37, Value: 7}, {ID: 42, Value: 5}}}
 
 	if v.Compare(expected) != Equal {
 		t.Errorf("Update error, %+v != %+v", v, expected)
@@ -39,8 +39,26 @@ func TestUpdate(t *testing.T) {
 
 	// Update existing
 
-	v = v.Update(37)
-	expected = Vector{Counters: []Counter{{ID: 36, Value: 1}, {ID: 37, Value: 2}, {ID: 42, Value: 1}}}
+	v = v.updateWithNow(37, 1)
+	expected = Vector{Counters: []Counter{{ID: 36, Value: 6}, {ID: 37, Value: 8}, {ID: 42, Value: 5}}}
+
+	if v.Compare(expected) != Equal {
+		t.Errorf("Update error, %+v != %+v", v, expected)
+	}
+
+	// Update existing with higher current time
+
+	v = v.updateWithNow(37, 100)
+	expected = Vector{Counters: []Counter{{ID: 36, Value: 6}, {ID: 37, Value: 100}, {ID: 42, Value: 5}}}
+
+	if v.Compare(expected) != Equal {
+		t.Errorf("Update error, %+v != %+v", v, expected)
+	}
+
+	// Update existing with lower current time
+
+	v = v.updateWithNow(37, 50)
+	expected = Vector{Counters: []Counter{{ID: 36, Value: 6}, {ID: 37, Value: 101}, {ID: 42, Value: 5}}}
 
 	if v.Compare(expected) != Equal {
 		t.Errorf("Update error, %+v != %+v", v, expected)

@@ -265,7 +265,7 @@ func scSyncAndCompare(p []*rc.Process, expected [][]fileInfo) error {
 			return err
 		}
 		if err := compareDirectoryContents(actual, expected[0]); err != nil {
-			return fmt.Errorf("%s: %v", dir, err)
+			return fmt.Errorf("%s: %w", dir, err)
 		}
 	}
 
@@ -276,7 +276,7 @@ func scSyncAndCompare(p []*rc.Process, expected [][]fileInfo) error {
 				return err
 			}
 			if err := compareDirectoryContents(actual, expected[1]); err != nil {
-				return fmt.Errorf("%s: %v", dir, err)
+				return fmt.Errorf("%s: %w", dir, err)
 			}
 		}
 	}
@@ -288,7 +288,7 @@ func scSyncAndCompare(p []*rc.Process, expected [][]fileInfo) error {
 				return err
 			}
 			if err := compareDirectoryContents(actual, expected[2]); err != nil {
-				return fmt.Errorf("%s: %v", dir, err)
+				return fmt.Errorf("%s: %w", dir, err)
 			}
 		}
 	}

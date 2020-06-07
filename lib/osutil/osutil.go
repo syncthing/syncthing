@@ -8,7 +8,6 @@
 package osutil
 
 import (
-	"errors"
 	"io"
 	"path/filepath"
 	"runtime"
@@ -79,38 +78,6 @@ func Copy(src, dst fs.Filesystem, from, to string) (err error) {
 	return withPreparedTarget(dst, from, to, func() error {
 		return copyFileContents(src, dst, from, to)
 	})
-}
-
-// InWritableDir calls fn(path), while making sure that the directory
-// containing `path` is writable for the duration of the call.
-func InWritableDir(fn func(string) error, fs fs.Filesystem, path string) error {
-	dir := filepath.Dir(path)
-	info, err := fs.Stat(dir)
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() {
-		return errors.New("Not a directory: " + path)
-	}
-	if info.Mode()&0200 == 0 {
-		// A non-writeable directory (for this user; we assume that's the
-		// relevant part). Temporarily change the mode so we can delete the
-		// file or directory inside it.
-		err = fs.Chmod(dir, 0755)
-		if err == nil {
-			defer func() {
-				err = fs.Chmod(dir, info.Mode())
-				if err != nil {
-					// We managed to change the permission bits like a
-					// millisecond ago, so it'd be bizarre if we couldn't
-					// change it back.
-					panic(err)
-				}
-			}()
-		}
-	}
-
-	return fn(path)
 }
 
 // Tries hard to succeed on various systems by temporarily tweaking directory

@@ -35,8 +35,8 @@ package upnp
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -46,6 +46,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
@@ -83,7 +85,7 @@ func (e UnsupportedDeviceTypeError) Error() string {
 
 // Discover discovers UPnP InternetGatewayDevices.
 // The order in which the devices appear in the results list is not deterministic.
-func Discover(renewal, timeout time.Duration) []nat.Device {
+func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device {
 	var results []nat.Device
 
 	interfaces, err := net.Interfaces()
@@ -105,7 +107,7 @@ func Discover(renewal, timeout time.Duration) []nat.Device {
 		for _, deviceType := range []string{"urn:schemas-upnp-org:device:InternetGatewayDevice:1", "urn:schemas-upnp-org:device:InternetGatewayDevice:2"} {
 			wg.Add(1)
 			go func(intf net.Interface, deviceType string) {
-				discover(&intf, deviceType, timeout, resultChan)
+				discover(ctx, &intf, deviceType, timeout, resultChan)
 				wg.Done()
 			}(intf, deviceType)
 		}
@@ -117,11 +119,10 @@ func Discover(renewal, timeout time.Duration) []nat.Device {
 	}()
 
 	seenResults := make(map[string]bool)
-nextResult:
 	for result := range resultChan {
 		if seenResults[result.ID()] {
 			l.Debugf("Skipping duplicate result %s", result.ID())
-			continue nextResult
+			continue
 		}
 
 		results = append(results, result)
@@ -133,9 +134,9 @@ nextResult:
 	return results
 }
 
-// Search for UPnP InternetGatewayDevices for <timeout> seconds, ignoring responses from any devices listed in knownDevices.
+// Search for UPnP InternetGatewayDevices for <timeout> seconds.
 // The order in which the devices appear in the result list is not deterministic
-func discover(intf *net.Interface, deviceType string, timeout time.Duration, results chan<- nat.Device) {
+func discover(ctx context.Context, intf *net.Interface, deviceType string, timeout time.Duration, results chan<- nat.Device) {
 	ssdp := &net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
 
 	tpl := `M-SEARCH * HTTP/1.1
@@ -148,7 +149,7 @@ USER-AGENT: syncthing/1.0
 `
 	searchStr := fmt.Sprintf(tpl, deviceType, timeout/time.Second)
 
-	search := []byte(strings.Replace(searchStr, "\n", "\r\n", -1))
+	search := []byte(strings.Replace(searchStr, "\n", "\r\n", -1) + "\r\n")
 
 	l.Debugln("Starting discovery of device type", deviceType, "on", intf.Name)
 
@@ -158,12 +159,6 @@ USER-AGENT: syncthing/1.0
 		return
 	}
 	defer socket.Close() // Make sure our socket gets closed
-
-	err = socket.SetDeadline(time.Now().Add(timeout))
-	if err != nil {
-		l.Debugln("UPnP discovery: setting socket deadline:", err)
-		return
-	}
 
 	l.Debugln("Sending search request for device type", deviceType, "on", intf.Name)
 
@@ -177,23 +172,42 @@ USER-AGENT: syncthing/1.0
 
 	l.Debugln("Listening for UPnP response for device type", deviceType, "on", intf.Name)
 
-	// Listen for responses until a timeout is reached
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Listen for responses until a timeout is reached or the context is
+	// cancelled
+	resp := make([]byte, 65536)
+loop:
 	for {
-		resp := make([]byte, 65536)
-		n, _, err := socket.ReadFrom(resp)
-		if err != nil {
-			if e, ok := err.(net.Error); !ok || !e.Timeout() {
-				l.Infoln("UPnP read:", err) //legitimate error, not a timeout.
-			}
+		if err := socket.SetDeadline(time.Now().Add(250 * time.Millisecond)); err != nil {
+			l.Infoln("UPnP socket:", err)
 			break
 		}
-		igds, err := parseResponse(deviceType, resp[:n])
+
+		n, _, err := socket.ReadFrom(resp)
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				break loop
+			default:
+			}
+			if e, ok := err.(net.Error); ok && e.Timeout() {
+				continue // continue reading
+			}
+			l.Infoln("UPnP read:", err) //legitimate error, not a timeout.
+			break
+		}
+
+		igds, err := parseResponse(ctx, deviceType, resp[:n])
 		if err != nil {
 			switch err.(type) {
 			case *UnsupportedDeviceTypeError:
 				l.Debugln(err.Error())
 			default:
-				l.Infoln("UPnP parse:", err)
+				if errors.Cause(err) != context.Canceled {
+					l.Infoln("UPnP parse:", err)
+				}
 			}
 			continue
 		}
@@ -205,7 +219,7 @@ USER-AGENT: syncthing/1.0
 	l.Debugln("Discovery for device type", deviceType, "on", intf.Name, "finished.")
 }
 
-func parseResponse(deviceType string, resp []byte) ([]IGDService, error) {
+func parseResponse(ctx context.Context, deviceType string, resp []byte) ([]IGDService, error) {
 	l.Debugln("Handling UPnP response:\n\n" + string(resp))
 
 	reader := bufio.NewReader(bytes.NewBuffer(resp))
@@ -257,7 +271,7 @@ func parseResponse(deviceType string, resp []byte) ([]IGDService, error) {
 	// We do this in a fairly roundabout way by connecting to the IGD and
 	// checking the address of the local end of the socket. I'm open to
 	// suggestions on a better way to do this...
-	localIPAddress, err := localIP(deviceDescriptionURL)
+	localIPAddress, err := localIP(ctx, deviceDescriptionURL)
 	if err != nil {
 		return nil, err
 	}
@@ -270,8 +284,10 @@ func parseResponse(deviceType string, resp []byte) ([]IGDService, error) {
 	return services, nil
 }
 
-func localIP(url *url.URL) (net.IP, error) {
-	conn, err := dialer.DialTimeout("tcp", url.Host, time.Second)
+func localIP(ctx context.Context, url *url.URL) (net.IP, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	conn, err := dialer.DialContext(timeoutCtx, "tcp", url.Host)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +423,7 @@ func replaceRawPath(u *url.URL, rp string) {
 	}
 }
 
-func soapRequest(url, service, function, message string) ([]byte, error) {
+func soapRequest(ctx context.Context, url, service, function, message string) ([]byte, error) {
 	tpl := `<?xml version="1.0" ?>
 	<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
 	<s:Body>%s</s:Body>
@@ -421,6 +437,7 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 	if err != nil {
 		return resp, err
 	}
+	req.Cancel = ctx.Done()
 	req.Close = true
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
 	req.Header.Set("User-Agent", "syncthing/1.0")

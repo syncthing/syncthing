@@ -15,7 +15,6 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // The Committer interface is implemented by objects that need to know about
@@ -74,6 +73,7 @@ type Wrapper interface {
 	Folders() map[string]FolderConfiguration
 	FolderList() []FolderConfiguration
 	SetFolder(fld FolderConfiguration) (Waiter, error)
+	SetFolders(folders []FolderConfiguration) (Waiter, error)
 
 	Device(id protocol.DeviceID) (DeviceConfiguration, bool)
 	Devices() map[protocol.DeviceID]DeviceConfiguration
@@ -86,19 +86,17 @@ type Wrapper interface {
 	IgnoredDevice(id protocol.DeviceID) bool
 	IgnoredFolder(device protocol.DeviceID, folder string) bool
 
-	ListenAddresses() []string
-	GlobalDiscoveryServers() []string
-
 	Subscribe(c Committer)
 	Unsubscribe(c Committer)
 }
 
 type wrapper struct {
-	cfg  Configuration
-	path string
+	cfg      Configuration
+	path     string
+	evLogger events.Logger
 
+	waiter    Waiter // Latest ongoing config change
 	deviceMap map[protocol.DeviceID]DeviceConfiguration
-	folderMap map[string]FolderConfiguration
 	subs      []Committer
 	mut       sync.Mutex
 
@@ -107,18 +105,20 @@ type wrapper struct {
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
 // disk.
-func Wrap(path string, cfg Configuration) Wrapper {
+func Wrap(path string, cfg Configuration, evLogger events.Logger) Wrapper {
 	w := &wrapper{
-		cfg:  cfg,
-		path: path,
-		mut:  sync.NewMutex(),
+		cfg:      cfg,
+		path:     path,
+		evLogger: evLogger,
+		waiter:   noopWaiter{}, // Noop until first config change
+		mut:      sync.NewMutex(),
 	}
 	return w
 }
 
 // Load loads an existing file on disk and returns a new configuration
 // wrapper.
-func Load(path string, myID protocol.DeviceID) (Wrapper, error) {
+func Load(path string, myID protocol.DeviceID, evLogger events.Logger) (Wrapper, error) {
 	fd, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func Load(path string, myID protocol.DeviceID) (Wrapper, error) {
 		return nil, err
 	}
 
-	return Wrap(path, cfg), nil
+	return Wrap(path, cfg, evLogger), nil
 }
 
 func (w *wrapper) ConfigPath() string {
@@ -146,7 +146,8 @@ func (w *wrapper) Subscribe(c Committer) {
 }
 
 // Unsubscribe de-registers the given handler from any future calls to
-// configuration changes
+// configuration changes and only returns after a potential ongoing config
+// change is done.
 func (w *wrapper) Unsubscribe(c Committer) {
 	w.mut.Lock()
 	for i := range w.subs {
@@ -157,7 +158,11 @@ func (w *wrapper) Unsubscribe(c Committer) {
 			break
 		}
 	}
+	waiter := w.waiter
 	w.mut.Unlock()
+	// Waiting mustn't be done under lock, as the goroutines in notifyListener
+	// may dead-lock when trying to access lock on config read operations.
+	waiter.Wait()
 }
 
 // RawCopy returns a copy of the currently wrapped Configuration object.
@@ -191,9 +196,10 @@ func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {
 
 	w.cfg = to
 	w.deviceMap = nil
-	w.folderMap = nil
 
-	return w.notifyListeners(from.Copy(), to.Copy()), nil
+	w.waiter = w.notifyListeners(from.Copy(), to.Copy())
+
+	return w.waiter, nil
 }
 
 func (w *wrapper) notifyListeners(from, to Configuration) Waiter {
@@ -281,13 +287,11 @@ func (w *wrapper) RemoveDevice(id protocol.DeviceID) (Waiter, error) {
 func (w *wrapper) Folders() map[string]FolderConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
-	if w.folderMap == nil {
-		w.folderMap = make(map[string]FolderConfiguration, len(w.cfg.Folders))
-		for _, fld := range w.cfg.Folders {
-			w.folderMap[fld.ID] = fld.Copy()
-		}
+	folderMap := make(map[string]FolderConfiguration, len(w.cfg.Folders))
+	for _, fld := range w.cfg.Folders {
+		folderMap[fld.ID] = fld.Copy()
 	}
-	return w.folderMap
+	return folderMap
 }
 
 // FolderList returns a slice of folders.
@@ -300,19 +304,30 @@ func (w *wrapper) FolderList() []FolderConfiguration {
 // SetFolder adds a new folder to the configuration, or overwrites an existing
 // folder with the same ID.
 func (w *wrapper) SetFolder(fld FolderConfiguration) (Waiter, error) {
+	return w.SetFolders([]FolderConfiguration{fld})
+}
+
+// SetFolders adds new folders to the configuration, or overwrites existing
+// folders with the same ID.
+func (w *wrapper) SetFolders(folders []FolderConfiguration) (Waiter, error) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
 	newCfg := w.cfg.Copy()
 
-	for i := range newCfg.Folders {
-		if newCfg.Folders[i].ID == fld.ID {
-			newCfg.Folders[i] = fld
-			return w.replaceLocked(newCfg)
+	inds := make(map[string]int, len(w.cfg.Folders))
+	for i, folder := range newCfg.Folders {
+		inds[folder.ID] = i
+	}
+	filtered := folders[:0]
+	for _, folder := range folders {
+		if i, ok := inds[folder.ID]; ok {
+			newCfg.Folders[i] = folder
+		} else {
+			filtered = append(filtered, folder)
 		}
 	}
-
-	newCfg.Folders = append(newCfg.Folders, fld)
+	newCfg.Folders = append(newCfg.Folders, filtered...)
 
 	return w.replaceLocked(newCfg)
 }
@@ -424,38 +439,8 @@ func (w *wrapper) Save() error {
 		return err
 	}
 
-	events.Default.Log(events.ConfigSaved, w.cfg)
+	w.evLogger.Log(events.ConfigSaved, w.cfg)
 	return nil
-}
-
-func (w *wrapper) GlobalDiscoveryServers() []string {
-	var servers []string
-	for _, srv := range w.Options().GlobalAnnServers {
-		switch srv {
-		case "default":
-			servers = append(servers, DefaultDiscoveryServers...)
-		case "default-v4":
-			servers = append(servers, DefaultDiscoveryServersV4...)
-		case "default-v6":
-			servers = append(servers, DefaultDiscoveryServersV6...)
-		default:
-			servers = append(servers, srv)
-		}
-	}
-	return util.UniqueStrings(servers)
-}
-
-func (w *wrapper) ListenAddresses() []string {
-	var addresses []string
-	for _, addr := range w.Options().ListenAddresses {
-		switch addr {
-		case "default":
-			addresses = append(addresses, DefaultListenAddresses...)
-		default:
-			addresses = append(addresses, addr)
-		}
-	}
-	return util.UniqueStrings(addresses)
 }
 
 func (w *wrapper) RequiresRestart() bool {
@@ -475,8 +460,6 @@ func (w *wrapper) MyName() string {
 }
 
 func (w *wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {
-	defer w.Save()
-
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -498,8 +481,6 @@ func (w *wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, addre
 }
 
 func (w *wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {
-	defer w.Save()
-
 	w.mut.Lock()
 	defer w.mut.Unlock()
 

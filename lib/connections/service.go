@@ -7,8 +7,8 @@
 package connections
 
 import (
+	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -30,6 +30,7 @@ import (
 	_ "github.com/syncthing/syncthing/lib/pmp"
 	_ "github.com/syncthing/syncthing/lib/upnp"
 
+	"github.com/pkg/errors"
 	"github.com/thejerf/suture"
 	"golang.org/x/time/rate"
 )
@@ -45,8 +46,9 @@ var (
 )
 
 const (
-	perDeviceWarningIntv = 15 * time.Minute
-	tlsHandshakeTimeout  = 10 * time.Second
+	perDeviceWarningIntv    = 15 * time.Minute
+	tlsHandshakeTimeout     = 10 * time.Second
+	minConnectionReplaceAge = 10 * time.Second
 )
 
 // From go/src/crypto/tls/cipher_suites.go
@@ -83,19 +85,34 @@ var tlsCipherSuiteNames = map[uint16]string{
 
 var tlsVersionNames = map[uint16]string{
 	tls.VersionTLS12: "TLS1.2",
-	772:              "TLS1.3", // tls.VersionTLS13 constant available in Go 1.12+
+	tls.VersionTLS13: "TLS1.3",
 }
 
 // Service listens and dials all configured unconnected devices, via supported
 // dialers. Successful connections are handed to the model.
 type Service interface {
 	suture.Service
-	Status() map[string]interface{}
+	discover.AddressLister
+	ListenerStatus() map[string]ListenerStatusEntry
+	ConnectionStatus() map[string]ConnectionStatusEntry
 	NATType() string
+}
+
+type ListenerStatusEntry struct {
+	Error        *string  `json:"error"`
+	LANAddresses []string `json:"lanAddresses"`
+	WANAddresses []string `json:"wanAddresses"`
+}
+
+type ConnectionStatusEntry struct {
+	When  time.Time `json:"when"`
+	Error *string   `json:"error"`
 }
 
 type service struct {
 	*suture.Supervisor
+	connectionStatusHandler
+
 	cfg                  config.Wrapper
 	myID                 protocol.DeviceID
 	model                Model
@@ -107,6 +124,7 @@ type service struct {
 	limiter              *limiter
 	natService           *nat.Service
 	natServiceToken      *suture.ServiceToken
+	evLogger             events.Logger
 
 	listenersMut       sync.RWMutex
 	listeners          map[string]genericListener
@@ -114,9 +132,7 @@ type service struct {
 	listenerSupervisor *suture.Supervisor
 }
 
-func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
-	bepProtocolName string, tlsDefaultCommonName string) *service {
-
+func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
 	service := &service{
 		Supervisor: suture.New("connections.Service", suture.Spec{
 			Log: func(line string) {
@@ -124,6 +140,8 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 			},
 			PassThroughPanics: true,
 		}),
+		connectionStatusHandler: newConnectionStatusHandler(),
+
 		cfg:                  cfg,
 		myID:                 myID,
 		model:                mdl,
@@ -134,6 +152,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		limiter:              newLimiter(cfg),
 		natService:           nat.NewService(myID, cfg),
+		evLogger:             evLogger,
 
 		listenersMut:   sync.NewRWMutex(),
 		listeners:      make(map[string]genericListener),
@@ -166,16 +185,28 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 	// the common handling regardless of whether the connection was
 	// incoming or outgoing.
 
-	service.Add(serviceFunc(service.connect))
-	service.Add(serviceFunc(service.handle))
+	service.Add(util.AsService(service.connect, fmt.Sprintf("%s/connect", service)))
+	service.Add(util.AsService(service.handle, fmt.Sprintf("%s/handle", service)))
 	service.Add(service.listenerSupervisor)
 
 	return service
 }
 
-func (s *service) handle() {
-next:
-	for c := range s.conns {
+func (s *service) Stop() {
+	s.cfg.Unsubscribe(s.limiter)
+	s.cfg.Unsubscribe(s)
+	s.Supervisor.Stop()
+}
+
+func (s *service) handle(ctx context.Context) {
+	var c internalConn
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case c = <-s.conns:
+		}
+
 		cs := c.ConnectionState()
 
 		// We should have negotiated the next level protocol "bep/1.0" as part
@@ -207,7 +238,7 @@ next:
 			continue
 		}
 
-		c.SetDeadline(time.Now().Add(20 * time.Second))
+		_ = c.SetDeadline(time.Now().Add(20 * time.Second))
 		hello, err := protocol.ExchangeHello(c, s.model.GetHello(remoteID))
 		if err != nil {
 			if protocol.IsVersionMismatch(err) {
@@ -231,7 +262,7 @@ next:
 			c.Close()
 			continue
 		}
-		c.SetDeadline(time.Time{})
+		_ = c.SetDeadline(time.Time{})
 
 		// The Model will return an error for devices that we don't want to
 		// have a connection with for whatever reason, for example unknown devices.
@@ -246,7 +277,7 @@ next:
 		ct, connected := s.model.Connection(remoteID)
 
 		// Lower priority is better, just like nice etc.
-		if connected && ct.Priority() > c.priority {
+		if connected && (ct.Priority() > c.priority || time.Since(ct.Statistics().StartedAt) > minConnectionReplaceAge) {
 			l.Debugf("Switching connections %s (existing: %s new: %s)", remoteID, ct, c)
 		} else if connected {
 			// We should not already be connected to the other party. TODO: This
@@ -280,7 +311,7 @@ next:
 			// config. Warn instead of Info.
 			l.Warnf("Bad certificate from %s at %s: %v", remoteID, c, err)
 			c.Close()
-			continue next
+			continue
 		}
 
 		// Wrap the connection in rate limiters. The limiter itself will
@@ -295,11 +326,11 @@ next:
 		l.Infof("Established secure connection to %s at %s", remoteID, c)
 
 		s.model.AddConnection(modelConn, hello)
-		continue next
+		continue
 	}
 }
 
-func (s *service) connect() {
+func (s *service) connect(ctx context.Context) {
 	nextDial := make(map[string]time.Time)
 
 	// Used as delay for the first few connection attempts, increases
@@ -328,6 +359,12 @@ func (s *service) connect() {
 		var seen []string
 
 		for _, deviceCfg := range cfg.Devices {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			deviceID := deviceCfg.DeviceID
 			if deviceID == s.myID {
 				continue
@@ -348,7 +385,7 @@ func (s *service) connect() {
 			for _, addr := range deviceCfg.Addresses {
 				if addr == "dynamic" {
 					if s.discoverer != nil {
-						if t, err := s.discoverer.Lookup(deviceID); err == nil {
+						if t, err := s.discoverer.Lookup(ctx, deviceID); err == nil {
 							addrs = append(addrs, t...)
 						}
 					}
@@ -357,7 +394,7 @@ func (s *service) connect() {
 				}
 			}
 
-			addrs = util.UniqueStrings(addrs)
+			addrs = util.UniqueTrimmedStrings(addrs)
 
 			l.Debugln("Reconnect loop for", deviceID, addrs)
 
@@ -378,18 +415,23 @@ func (s *service) connect() {
 
 				uri, err := url.Parse(addr)
 				if err != nil {
+					s.setConnectionStatus(addr, err)
 					l.Infof("Parsing dialer address %s: %v", addr, err)
 					continue
 				}
 
 				if len(deviceCfg.AllowedNetworks) > 0 {
 					if !IsAllowedNetwork(uri.Host, deviceCfg.AllowedNetworks) {
+						s.setConnectionStatus(addr, errors.New("network disallowed"))
 						l.Debugln("Network for", uri, "is disallowed")
 						continue
 					}
 				}
 
 				dialerFactory, err := getDialerFactory(cfg, uri)
+				if err != nil {
+					s.setConnectionStatus(addr, err)
+				}
 				switch err {
 				case nil:
 					// all good
@@ -411,7 +453,7 @@ func (s *service) connect() {
 					continue
 				}
 
-				dialer := dialerFactory.New(s.cfg, s.tlsCfg)
+				dialer := dialerFactory.New(s.cfg.Options(), s.tlsCfg)
 				nextDial[nextDialKey] = now.Add(dialer.RedialFrequency())
 
 				// For LAN addresses, increase the priority so that we
@@ -424,6 +466,7 @@ func (s *service) connect() {
 				}
 
 				dialTargets = append(dialTargets, dialTarget{
+					addr:     addr,
 					dialer:   dialer,
 					priority: priority,
 					deviceID: deviceID,
@@ -431,7 +474,7 @@ func (s *service) connect() {
 				})
 			}
 
-			conn, ok := dialParallel(deviceCfg.DeviceID, dialTargets)
+			conn, ok := s.dialParallel(ctx, deviceCfg.DeviceID, dialTargets)
 			if ok {
 				s.conns <- conn
 			}
@@ -441,11 +484,16 @@ func (s *service) connect() {
 
 		if initialRampup < sleep {
 			l.Debugln("initial rampup; sleep", initialRampup, "and update to", initialRampup*2)
-			time.Sleep(initialRampup)
+			sleep = initialRampup
 			initialRampup *= 2
 		} else {
 			l.Debugln("sleep until next dial", sleep)
-			time.Sleep(sleep)
+		}
+
+		select {
+		case <-time.After(sleep):
+		case <-ctx.Done():
+			return
 		}
 	}
 }
@@ -517,11 +565,11 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 	return true
 }
 
-func (s *service) logListenAddressesChangedEvent(l genericListener) {
-	events.Default.Log(events.ListenAddressesChanged, map[string]interface{}{
-		"address": l.URI(),
-		"lan":     l.LANAddresses(),
-		"wan":     l.WANAddresses(),
+func (s *service) logListenAddressesChangedEvent(l ListenerAddresses) {
+	s.evLogger.Log(events.ListenAddressesChanged, map[string]interface{}{
+		"address": l.URI,
+		"lan":     l.LANAddresses,
+		"wan":     l.WANAddresses,
 	})
 }
 
@@ -545,7 +593,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
-	for _, addr := range config.Wrap("", to).ListenAddresses() {
+	for _, addr := range to.Options.ListenAddresses() {
 		if addr == "" {
 			// We can get an empty address if there is an empty listener
 			// element in the config, indicating no listeners should be
@@ -553,14 +601,25 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
-		if _, ok := s.listeners[addr]; ok {
-			seen[addr] = struct{}{}
+		uri, err := url.Parse(addr)
+		if err != nil {
+			l.Warnf("Skipping malformed listener URL %q: %v", addr, err)
 			continue
 		}
 
-		uri, err := url.Parse(addr)
-		if err != nil {
-			l.Infof("Parsing listener address %s: %v", addr, err)
+		// Make sure we always have the canonical representation of the URL.
+		// This is for consistency as we use it as a map key, but also to
+		// avoid misunderstandings. We do not just use the canonicalized
+		// version, because an URL that looks very similar to a human might
+		// mean something entirely different to the computer (e.g.,
+		// tcp:/127.0.0.1:22000 in fact being equivalent to tcp://:22000).
+		if canonical := uri.String(); canonical != addr {
+			l.Warnf("Skipping malformed listener URL %q (not canonical)", addr)
+			continue
+		}
+
+		if _, ok := s.listeners[addr]; ok {
+			seen[addr] = struct{}{}
 			continue
 		}
 
@@ -618,7 +677,7 @@ func (s *service) AllAddresses() []string {
 		}
 	}
 	s.listenersMut.RUnlock()
-	return util.UniqueStrings(addrs)
+	return util.UniqueTrimmedStrings(addrs)
 }
 
 func (s *service) ExternalAddresses() []string {
@@ -630,27 +689,65 @@ func (s *service) ExternalAddresses() []string {
 		}
 	}
 	s.listenersMut.RUnlock()
-	return util.UniqueStrings(addrs)
+	return util.UniqueTrimmedStrings(addrs)
 }
 
-func (s *service) Status() map[string]interface{} {
+func (s *service) ListenerStatus() map[string]ListenerStatusEntry {
+	result := make(map[string]ListenerStatusEntry)
 	s.listenersMut.RLock()
-	result := make(map[string]interface{})
 	for addr, listener := range s.listeners {
-		status := make(map[string]interface{})
+		var status ListenerStatusEntry
 
-		err := listener.Error()
-		if err != nil {
-			status["error"] = err.Error()
+		if err := listener.Error(); err != nil {
+			errStr := err.Error()
+			status.Error = &errStr
 		}
 
-		status["lanAddresses"] = urlsToStrings(listener.LANAddresses())
-		status["wanAddresses"] = urlsToStrings(listener.WANAddresses())
+		status.LANAddresses = urlsToStrings(listener.LANAddresses())
+		status.WANAddresses = urlsToStrings(listener.WANAddresses())
 
 		result[addr] = status
 	}
 	s.listenersMut.RUnlock()
 	return result
+}
+
+type connectionStatusHandler struct {
+	connectionStatusMut sync.RWMutex
+	connectionStatus    map[string]ConnectionStatusEntry // address -> latest error/status
+}
+
+func newConnectionStatusHandler() connectionStatusHandler {
+	return connectionStatusHandler{
+		connectionStatusMut: sync.NewRWMutex(),
+		connectionStatus:    make(map[string]ConnectionStatusEntry),
+	}
+}
+
+func (s *connectionStatusHandler) ConnectionStatus() map[string]ConnectionStatusEntry {
+	result := make(map[string]ConnectionStatusEntry)
+	s.connectionStatusMut.RLock()
+	for k, v := range s.connectionStatus {
+		result[k] = v
+	}
+	s.connectionStatusMut.RUnlock()
+	return result
+}
+
+func (s *connectionStatusHandler) setConnectionStatus(address string, err error) {
+	if errors.Cause(err) == context.Canceled {
+		return
+	}
+
+	status := ConnectionStatusEntry{When: time.Now().UTC().Truncate(time.Second)}
+	if err != nil {
+		errStr := err.Error()
+		status.Error = &errStr
+	}
+
+	s.connectionStatusMut.Lock()
+	s.connectionStatus[address] = status
+	s.connectionStatusMut.Unlock()
 }
 
 func (s *service) NATType() string {
@@ -769,7 +866,7 @@ func IsAllowedNetwork(host string, allowed []string) bool {
 	return false
 }
 
-func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (internalConn, bool) {
+func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, dialTargets []dialTarget) (internalConn, bool) {
 	// Group targets into buckets by priority
 	dialTargetBuckets := make(map[int][]dialTarget, len(dialTargets))
 	for _, tgt := range dialTargets {
@@ -792,8 +889,16 @@ func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (interna
 		for _, tgt := range tgts {
 			wg.Add(1)
 			go func(tgt dialTarget) {
-				conn, err := tgt.Dial()
+				conn, err := tgt.Dial(ctx)
 				if err == nil {
+					// Closes the connection on error
+					err = s.validateIdentity(conn, deviceID)
+				}
+				s.setConnectionStatus(tgt.addr, err)
+				if err != nil {
+					l.Debugln("dialing", deviceID, tgt.uri, "error:", err)
+				} else {
+					l.Debugln("dialing", deviceID, tgt.uri, "success:", conn)
 					res <- conn
 				}
 				wg.Done()
@@ -825,4 +930,37 @@ func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (interna
 		l.Debugln("failed to connect to", deviceID, prio)
 	}
 	return internalConn{}, false
+}
+
+func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID) error {
+	cs := c.ConnectionState()
+
+	// We should have received exactly one certificate from the other
+	// side. If we didn't, they don't have a device ID and we drop the
+	// connection.
+	certs := cs.PeerCertificates
+	if cl := len(certs); cl != 1 {
+		l.Infof("Got peer certificate list of length %d != 1 from peer at %s; protocol error", cl, c)
+		c.Close()
+		return fmt.Errorf("expected 1 certificate, got %d", cl)
+	}
+	remoteCert := certs[0]
+	remoteID := protocol.NewDeviceID(remoteCert.Raw)
+
+	// The device ID should not be that of ourselves. It can happen
+	// though, especially in the presence of NAT hairpinning, multiple
+	// clients between the same NAT gateway, and global discovery.
+	if remoteID == s.myID {
+		l.Infof("Connected to myself (%s) at %s - should not happen", remoteID, c)
+		c.Close()
+		return errors.New("connected to self")
+	}
+
+	// We should see the expected device ID
+	if !remoteID.Equals(expectedID) {
+		c.Close()
+		return fmt.Errorf("unexpected device id, expected %s got %s", expectedID, remoteID)
+	}
+
+	return nil
 }

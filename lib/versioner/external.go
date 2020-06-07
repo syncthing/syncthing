@@ -21,22 +21,22 @@ import (
 
 func init() {
 	// Register the constructor for this type of versioner with the name "external"
-	Factories["external"] = NewExternal
+	factories["external"] = newExternal
 }
 
-type External struct {
+type external struct {
 	command    string
 	filesystem fs.Filesystem
 }
 
-func NewExternal(folderID string, filesystem fs.Filesystem, params map[string]string) Versioner {
+func newExternal(filesystem fs.Filesystem, params map[string]string) Versioner {
 	command := params["command"]
 
 	if runtime.GOOS == "windows" {
 		command = strings.Replace(command, `\`, `\\`, -1)
 	}
 
-	s := External{
+	s := external{
 		command:    command,
 		filesystem: filesystem,
 	}
@@ -47,7 +47,7 @@ func NewExternal(folderID string, filesystem fs.Filesystem, params map[string]st
 
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
-func (v External) Archive(filePath string) error {
+func (v external) Archive(filePath string) error {
 	info, err := v.filesystem.Lstat(filePath)
 	if fs.IsNotExist(err) {
 		l.Debugln("not archiving nonexistent file", filePath)
@@ -77,9 +77,11 @@ func (v External) Archive(filePath string) error {
 	}
 
 	for i, word := range words {
-		if replacement, ok := context[word]; ok {
-			words[i] = replacement
+		for key, val := range context {
+			word = strings.Replace(word, key, val, -1)
 		}
+
+		words[i] = word
 	}
 
 	cmd := exec.Command(words[0], words[1:]...)
@@ -105,10 +107,10 @@ func (v External) Archive(filePath string) error {
 	return errors.New("Versioner: file was not removed by external script")
 }
 
-func (v External) GetVersions() (map[string][]FileVersion, error) {
+func (v external) GetVersions() (map[string][]FileVersion, error) {
 	return nil, ErrRestorationNotSupported
 }
 
-func (v External) Restore(filePath string, versionTime time.Time) error {
+func (v external) Restore(filePath string, versionTime time.Time) error {
 	return ErrRestorationNotSupported
 }
