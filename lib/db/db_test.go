@@ -264,7 +264,11 @@ func TestUpdate0to3(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !ok {
-			t.Fatal("surprise missing global file", string(name), protocol.DeviceIDFromBytes(vl.Versions[0].Device))
+			device := "<invalid>"
+			if dev, err := protocol.DeviceIDFromBytes(vl.Versions[0].Device); err != nil {
+				device = dev.String()
+			}
+			t.Fatal("surprise missing global file", string(name), device)
 		}
 		e, ok := need[fi.FileName()]
 		if !ok {
