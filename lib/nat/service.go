@@ -45,21 +45,34 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 		mut:   sync.NewRWMutex(),
 	}
 	s.Service = util.AsService(s.serve, s.String())
+	cfg.Subscribe(s)
 	return s
 }
 
-func (s *Service) Enable() {
-	s.mut.Lock()
-	s.timer.Reset(0)
-	s.mut.Unlock()
+func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
+	return nil
 }
 
-func (s *Service) Disable() {
-	s.mut.Lock()
-	if !s.timer.Stop() {
-		<-s.timer.C
+func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
+	if !from.Options.NATEnabled && to.Options.NATEnabled {
+		s.mut.Lock()
+		l.Debugln("Starting NAT service")
+		s.timer.Reset(0)
+		s.mut.Unlock()
+	} else if from.Options.NATEnabled && !to.Options.NATEnabled {
+		s.mut.Lock()
+		l.Debugln("Stopping NAT service")
+		if !s.timer.Stop() {
+			<-s.timer.C
+		}
+		s.mut.Unlock()
 	}
-	s.mut.Unlock()
+	return true
+}
+
+func (s *Service) Stop() {
+	s.cfg.Unsubscribe(s)
+	s.Service.Stop()
 }
 
 func (s *Service) serve(ctx context.Context) {
