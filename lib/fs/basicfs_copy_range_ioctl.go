@@ -45,7 +45,7 @@ func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error 
 
 	// https://www.man7.org/linux/man-pages/man2/ioctl_ficlonerange.2.html
 	// If src_length is zero, the ioctl reflinks to the end of the source file.
-	if size == fi.Size() {
+	if srcOffset+size == fi.Size() {
 		size = 0
 	}
 
