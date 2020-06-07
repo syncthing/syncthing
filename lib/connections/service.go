@@ -187,6 +187,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 	service.Add(util.AsService(service.connect, fmt.Sprintf("%s/connect", service)))
 	service.Add(util.AsService(service.handle, fmt.Sprintf("%s/handle", service)))
 	service.Add(service.listenerSupervisor)
+	service.Add(service.natService)
 
 	return service
 }
