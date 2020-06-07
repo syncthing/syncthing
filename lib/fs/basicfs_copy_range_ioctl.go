@@ -14,10 +14,7 @@ import (
 )
 
 func init() {
-	registerCopyRangeImplementation(copyRangeImplementation{
-		name: "ioctl",
-		impl: copyRangeIoctl,
-	})
+	registerCopyRangeImplementation(CopyRangeTypeIoctl, copyRangeIoctl)
 }
 
 const FICLONERANGE = 0x4020940d
@@ -48,7 +45,7 @@ func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error 
 	}
 	_, _, e1 := syscall.Syscall(syscall.SYS_IOCTL, dst.Fd(), FICLONERANGE, uintptr(unsafe.Pointer(&params)))
 	if e1 != 0 {
-		return syscall.Errno(e1)
+		return e1
 	}
 	return nil
 }

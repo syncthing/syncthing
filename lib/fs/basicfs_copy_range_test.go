@@ -108,8 +108,8 @@ func TestCopyRange(ttt *testing.T) {
 	srcBuf := make([]byte, generationSize)
 	dstBuf := make([]byte, generationSize*3)
 	randSrc := rand.New(rand.NewSource(rand.Int63()))
-	for _, copyRangeImplementation := range copyRangeImplementations {
-		ttt.Run(copyRangeImplementation.name, func(tt *testing.T) {
+	for copyType, impl := range copyRangeImplementations {
+		ttt.Run(copyType.String(), func(tt *testing.T) {
 			for _, testCase := range testCases {
 				name := fmt.Sprintf("%d_%d_%d_%d_%d_%d_%t",
 					testCase.srcOffset/defaultCopySize,
@@ -168,7 +168,7 @@ func TestCopyRange(ttt *testing.T) {
 						t.Fatal(err)
 					}
 
-					if err := copyRangeImplementation.impl(src.(basicFile), dst.(basicFile), testCase.srcOffset, testCase.dstOffset, testCase.copySize); err != nil {
+					if err := impl(src.(basicFile), dst.(basicFile), testCase.srcOffset, testCase.dstOffset, testCase.copySize); err != nil {
 						if err == syscall.ENOTSUP {
 							// Test runner can adjust directory in which to run the tests, that allow broader tests.
 							t.Skip("Not supported on the current filesystem, set STFSTESTPATH env var.")

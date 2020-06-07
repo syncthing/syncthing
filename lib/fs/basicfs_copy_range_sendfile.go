@@ -14,10 +14,7 @@ import (
 )
 
 func init() {
-	registerCopyRangeImplementation(copyRangeImplementation{
-		name: "sendfile",
-		impl: copyRangeSendFile,
-	})
+	registerCopyRangeImplementation(CopyRangeTypeSendFile, copyRangeSendFile)
 }
 
 func copyRangeSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) error {
@@ -33,15 +30,15 @@ func copyRangeSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) err
 	// Record old dst offset.
 	oldDstOffset, err := dst.Seek(0, io.SeekCurrent)
 	if err != nil {
-		return nil
+		return err
 	}
+	defer func() { _, _ = dst.Seek(oldDstOffset, io.SeekStart) }()
 
 	// Seek to the offset we expect to write
 	if oldDstOffset != dstOffset {
 		if n, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
 			return err
 		} else if n != dstOffset {
-			_, _ = dst.Seek(oldDstOffset, io.SeekStart)
 			return io.ErrUnexpectedEOF
 		}
 	}
@@ -59,17 +56,12 @@ func copyRangeSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) err
 			err = io.ErrUnexpectedEOF
 		}
 		if err != nil && err != syscall.EAGAIN {
-			// Best effort
-			_, _ = dst.Seek(oldDstOffset, io.SeekStart)
 			return err
 		}
 
 		size -= int64(n)
 	}
-
-	if _, err := dst.Seek(oldDstOffset, io.SeekStart); err != nil {
-		return err
-	}
-
-	return nil
+	
+	_, err = dst.Seek(oldDstOffset, io.SeekStart)
+	return err
 }

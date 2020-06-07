@@ -16,10 +16,7 @@ import (
 )
 
 func init() {
-	registerCopyRangeImplementation(copyRangeImplementation{
-		name: "copy_file_range",
-		impl: copyRangeCopyFileRange,
-	})
+	registerCopyRangeImplementation(CopyRangeTypeCopyFileRange, copyRangeCopyFileRange)
 }
 
 func copyRangeCopyFileRange(src, dst basicFile, srcOffset, dstOffset, size int64) error {

@@ -294,12 +294,3 @@ func CallWithContext(ctx context.Context, fn func() error) error {
 		return ctx.Err()
 	}
 }
-
-func StringIndex(slice []string, search string) int {
-	for i, item := range slice {
-		if item == search {
-			return i
-		}
-	}
-	return -1
-}
