@@ -48,16 +48,13 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 	return s
 }
 
-func (s *Service) Enable(ctx context.Context) {
+func (s *Service) Enable() {
 	s.mut.Lock()
-	if !s.timer.Stop() {
-		<-s.timer.C
-	}
 	s.timer.Reset(0)
 	s.mut.Unlock()
 }
 
-func (s *Service) Disable(ctx context.Context) {
+func (s *Service) Disable() {
 	s.mut.Lock()
 	if !s.timer.Stop() {
 		<-s.timer.C

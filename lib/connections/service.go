@@ -654,9 +654,11 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 	if to.Options.NATEnabled && !s.natServiceEnabled {
 		l.Debugln("Starting NAT service")
+		s.natService.Enable()
 		s.natServiceEnabled = true
 	} else if !to.Options.NATEnabled && s.natServiceEnabled {
 		l.Debugln("Stopping NAT service")
+		s.natService.Disable()
 		s.natServiceEnabled = false
 	}
 
