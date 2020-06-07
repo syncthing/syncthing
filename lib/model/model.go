@@ -247,7 +247,7 @@ func (m *model) ServeBackground() {
 
 func (m *model) onServe() {
 	// Add and start folders
-	forgetPending := make(db.DropListObserved)
+	forgetPending := db.NewDropListObserved()
 	for _, folderCfg := range m.cfg.Folders() {
 		// Forget pending folder/device combinations that are now shared
 		forgetPending.MarkFolder(folderCfg.ID, folderCfg.DeviceIDs())
