@@ -138,6 +138,19 @@ var (
 			copySize:                 generationSize + 1,
 			expectedErrors:           nil,
 		},
+		// Last block that starts on a nice boundary
+		{
+			name:                     "last block",
+			srcSize:                  generationSize + 2,
+			dstSize:                  0,
+			srcOffset:                generationSize,
+			dstOffset:                0,
+			srcStartingPos:           0,
+			dstStartingPos:           0,
+			expectedDstSizeAfterCopy: 2,
+			copySize:                 2,
+			expectedErrors:           nil,
+		},
 		// Copy whole file
 		{
 			name:                     "whole file copy block aligned",
@@ -274,6 +287,7 @@ func TestCopyRange(ttt *testing.T) {
 					}
 
 					// Check not copied content does not get corrupted
+
 					if testCase.dstOffset > testCase.dstSize {
 						if !bytes.Equal(dstBuf[:testCase.dstSize], resultBuf[:testCase.dstSize]) {
 							t.Error("region before copy region not equals")
