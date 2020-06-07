@@ -48,6 +48,23 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 	return s
 }
 
+func (s *Service) Enable(ctx context.Context) {
+	s.mut.Lock()
+	if !s.timer.Stop() {
+		<-s.timer.C
+	}
+	s.timer.Reset(0)
+	s.mut.Unlock()
+}
+
+func (s *Service) Disable(ctx context.Context) {
+	s.mut.Lock()
+	if !s.timer.Stop() {
+		<-s.timer.C
+	}
+	s.mut.Unlock()
+}
+
 func (s *Service) serve(ctx context.Context) {
 	announce := stdsync.Once{}
 
