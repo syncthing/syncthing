@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	registerCopyRangeImplementation(CopyRangeTypeCopyFileRange, copyRangeCopyFileRange)
+	registerCopyRangeImplementation(CopyRangeMethodCopyFileRange, copyRangeImplementationForBasicFile(copyRangeCopyFileRange))
 }
 
 func copyRangeCopyFileRange(src, dst basicFile, srcOffset, dstOffset, size int64) error {

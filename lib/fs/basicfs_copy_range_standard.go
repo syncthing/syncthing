@@ -11,10 +11,10 @@ import (
 )
 
 func init() {
-	registerCopyRangeImplementation(CopyRangeTypeStandard, copyRangeStandard)
+	registerCopyRangeImplementation(CopyRangeMethodStandard, copyRangeStandard)
 }
 
-func copyRangeStandard(src, dst basicFile, srcOffset, dstOffset, size int64) error {
+func copyRangeStandard(src, dst File, srcOffset, dstOffset, size int64) error {
 	// Check that the destination file has sufficient space
 	if fi, err := dst.Stat(); err != nil {
 		return err

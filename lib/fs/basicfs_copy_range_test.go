@@ -168,8 +168,8 @@ var (
 
 func TestCopyRange(ttt *testing.T) {
 	randSrc := rand.New(rand.NewSource(rand.Int63()))
-	for copyType, impl := range copyRangeImplementations {
-		ttt.Run(copyType.String(), func(tt *testing.T) {
+	for copyMethod, impl := range copyRangeMethods {
+		ttt.Run(copyMethod.String(), func(tt *testing.T) {
 			for _, testCase := range testCases {
 				tt.Run(testCase.name, func(t *testing.T) {
 					srcBuf := make([]byte, testCase.srcSize)

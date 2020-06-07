@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	registerCopyRangeImplementation(CopyRangeTypeIoctl, copyRangeIoctl)
+	registerCopyRangeImplementation(CopyRangeMethodIoctl, copyRangeImplementationForBasicFile(copyRangeIoctl))
 }
 
 const FICLONE = 0x40049409

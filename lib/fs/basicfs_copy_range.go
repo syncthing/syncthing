@@ -13,22 +13,23 @@ import (
 )
 
 var (
-	copyRangeImplementations = make(map[CopyRangeType]copyRangeImplementation)
-	mut                      = sync.NewMutex()
+	copyRangeMethods = make(map[CopyRangeMethod]copyRangeImplementation)
+	mut              = sync.NewMutex()
 )
 
-type copyRangeImplementation func(src, dst basicFile, srcOffset, dstOffset, size int64) error
+type copyRangeImplementation func(src, dst File, srcOffset, dstOffset, size int64) error
+type copyRangeImplementationBasicFile func(src, dst basicFile, srcOffset, dstOffset, size int64) error
 
-func registerCopyRangeImplementation(copyType CopyRangeType, impl copyRangeImplementation) {
+func registerCopyRangeImplementation(copyMethod CopyRangeMethod, impl copyRangeImplementation) {
 	mut.Lock()
 	defer mut.Unlock()
 
-	l.Debugln("Registering " + copyType.String() + " copyRange implementation")
+	l.Debugln("Registering " + copyMethod.String() + " copyRange method")
 
-	copyRangeImplementations[copyType] = impl
+	copyRangeMethods[copyMethod] = impl
 }
 
-// CopyRange tries to use the most optimal way to copy data between two files.
+// CopyRange tries copy the datto use the most optimal way to copy data between two files.
 // Takes size bytes at offset srcOffset from the source file, and copies the data to destination file at offset
 // dstOffset. If required, adjusts the size of the destination file to fit that much data.
 //
@@ -39,16 +40,21 @@ func registerCopyRangeImplementation(copyType CopyRangeType, impl copyRangeImple
 // oppose to user space copy, if those system calls are available and supported for the source and target in question.
 //
 // CopyRange does it's best to have no effect on src and dst file offsets (copy operation should not affect it).
-func CopyRange(copyType CopyRangeType, src, dst File, srcOffset, dstOffset, size int64) error {
-	srcFile, srcOk := src.(basicFile)
-	dstFile, dstOk := dst.(basicFile)
-	if !srcOk || !dstOk {
-		return syscall.ENOTSUP
-	}
-
-	if impl, ok := copyRangeImplementations[copyType]; !ok {
+func CopyRange(copyMethod CopyRangeMethod, src, dst File, srcOffset, dstOffset, size int64) error {
+	if impl, ok := copyRangeMethods[copyMethod]; !ok {
 		return syscall.ENOTSUP
 	} else {
+		return impl(src, dst, srcOffset, dstOffset, size)
+	}
+}
+
+func copyRangeImplementationForBasicFile(impl copyRangeImplementationBasicFile) copyRangeImplementation {
+	return func(src, dst File, srcOffset, dstOffset, size int64) error {
+		srcFile, srcOk := src.(basicFile)
+		dstFile, dstOk := dst.(basicFile)
+		if !srcOk || !dstOk {
+			return syscall.ENOTSUP
+		}
 		return impl(srcFile, dstFile, srcOffset, dstOffset, size)
 	}
 }

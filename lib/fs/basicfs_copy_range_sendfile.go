@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	registerCopyRangeImplementation(CopyRangeTypeSendFile, copyRangeSendFile)
+	registerCopyRangeImplementation(CopyRangeMethodSendFile, copyRangeImplementationForBasicFile(copyRangeSendFile))
 }
 
 func copyRangeSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) error {
@@ -61,7 +61,7 @@ func copyRangeSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) err
 
 		size -= int64(n)
 	}
-	
+
 	_, err = dst.Seek(oldDstOffset, io.SeekStart)
 	return err
 }

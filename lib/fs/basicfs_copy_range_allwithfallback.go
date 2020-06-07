@@ -7,12 +7,12 @@
 package fs
 
 func init() {
-	registerCopyRangeImplementation(CopyRangeTypeAllWithFallback, copyRangeAllWithFallback)
+	registerCopyRangeImplementation(CopyRangeMethodAllWithFallback, copyRangeAllWithFallback)
 }
 
-func copyRangeAllWithFallback(src, dst basicFile, srcOffset, dstOffset, size int64) error {
+func copyRangeAllWithFallback(src, dst File, srcOffset, dstOffset, size int64) error {
 	var err error
-	for _, method := range []CopyRangeType{CopyRangeTypeIoctl, CopyRangeTypeCopyFileRange, CopyRangeTypeSendFile, CopyRangeTypeStandard} {
+	for _, method := range []CopyRangeMethod{CopyRangeMethodIoctl, CopyRangeMethodCopyFileRange, CopyRangeMethodSendFile, CopyRangeMethodStandard} {
 		if err = CopyRange(method, src, dst, srcOffset, dstOffset, size); err == nil {
 			return nil
 		}
