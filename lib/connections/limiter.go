@@ -214,7 +214,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.MaxRecvKbps == to.Options.MaxRecvKbps &&
 		from.Options.MaxSendKbps == to.Options.MaxSendKbps &&
 		from.Options.LimitBandwidthInLan == to.Options.LimitBandwidthInLan &&
-		lim.timer == nil && !to.Schedules.IsEnabled() {
+		lim.timer == nil && !to.Schedules.IsRatesScheduleEnabled() {
 		return true
 	}
 
@@ -225,7 +225,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 		lim.timer = nil
 	}
 
-	if to.Schedules.IsEnabled() {
+	if to.Schedules.IsRatesScheduleEnabled() {
 		opt := to.Schedules.RatesSchedule
 		status, waitTime := nextChange(opt.Time.StartHour, opt.Time.StartMinute, opt.Time.EndHour, opt.Time.EndMinute)
 		if status {
@@ -241,7 +241,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 
 	lim.limitsLAN.set(to.Options.LimitBandwidthInLan)
 
-	if to.Options.MaxRecvKbps > 0 || to.Options.MaxSendKbps > 0 || to.Schedules.IsEnabled() {
+	if to.Options.MaxRecvKbps > 0 || to.Options.MaxSendKbps > 0 || to.Schedules.IsRatesScheduleEnabled() {
 		if to.Options.LimitBandwidthInLan {
 			l.Infoln("Rate limits apply to LAN connections")
 		} else {
