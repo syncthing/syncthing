@@ -8,7 +8,6 @@ package fs
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -22,105 +21,159 @@ var (
 	defaultCopySize int64 = 1 << 20
 
 	testCases = []struct {
+		name string
+		// Starting size of files
+		srcSize int64
+		dstSize int64
 		// Offset from which to read
 		srcOffset int64
 		dstOffset int64
 		// Cursor position before the copy
-		srcPos int64
-		dstPos int64
+		srcStartingPos int64
+		dstStartingPos int64
 		// Expected destination size
-		expectedDstSize int64
+		expectedDstSizeAfterCopy int64
 		// Custom copy size
 		copySize int64
 		// Expected failure
 		expectedErrors []error
 	}{
 		{
-			srcOffset:       0,
-			dstOffset:       generationSize,
-			srcPos:          generationSize,
-			dstPos:          generationSize,
-			expectedDstSize: generationSize + defaultCopySize,
-			copySize:        defaultCopySize,
-			expectedErrors:  nil,
+			name:                     "append to end",
+			srcSize:                  generationSize,
+			dstSize:                  generationSize,
+			srcOffset:                0,
+			dstOffset:                generationSize,
+			srcStartingPos:           generationSize,
+			dstStartingPos:           generationSize,
+			expectedDstSizeAfterCopy: generationSize + defaultCopySize,
+			copySize:                 defaultCopySize,
+			expectedErrors:           nil,
 		},
 		{
-			srcOffset:       0,
-			dstOffset:       generationSize,
-			srcPos:          0, // We seek back to start, and expect src not to move after copy
-			dstPos:          0, // Seek back, but expect dst pos to not change
-			expectedDstSize: generationSize + defaultCopySize,
-			copySize:        defaultCopySize,
-			expectedErrors:  nil,
+			name:                     "append to end, offsets at start",
+			srcSize:                  generationSize,
+			dstSize:                  generationSize,
+			srcOffset:                0,
+			dstOffset:                generationSize,
+			srcStartingPos:           0, // We seek back to start, and expect src not to move after copy
+			dstStartingPos:           0, // Seek back, but expect dst pos to not change
+			expectedDstSizeAfterCopy: generationSize + defaultCopySize,
+			copySize:                 defaultCopySize,
+			expectedErrors:           nil,
 		},
 		{
-			srcOffset:       defaultCopySize,
-			dstOffset:       generationSize,
-			srcPos:          generationSize,
-			dstPos:          generationSize,
-			expectedDstSize: generationSize + defaultCopySize,
-			copySize:        defaultCopySize,
-			expectedErrors:  nil,
+			name:                     "overwrite part of destination region",
+			srcSize:                  generationSize,
+			dstSize:                  generationSize,
+			srcOffset:                defaultCopySize,
+			dstOffset:                generationSize,
+			srcStartingPos:           generationSize,
+			dstStartingPos:           generationSize,
+			expectedDstSizeAfterCopy: generationSize + defaultCopySize,
+			copySize:                 defaultCopySize,
+			expectedErrors:           nil,
 		},
 		{
-			srcOffset:       0,
-			dstOffset:       0,
-			srcPos:          generationSize,
-			dstPos:          generationSize,
-			expectedDstSize: generationSize,
-			copySize:        defaultCopySize,
-			expectedErrors:  nil,
+			name:                     "overwrite all of destination",
+			srcSize:                  generationSize,
+			dstSize:                  generationSize,
+			srcOffset:                0,
+			dstOffset:                0,
+			srcStartingPos:           generationSize,
+			dstStartingPos:           generationSize,
+			expectedDstSizeAfterCopy: generationSize,
+			copySize:                 defaultCopySize,
+			expectedErrors:           nil,
 		},
 		{
-			srcOffset:       defaultCopySize,
-			dstOffset:       0,
-			srcPos:          generationSize,
-			dstPos:          generationSize,
-			expectedDstSize: generationSize,
-			copySize:        defaultCopySize,
-			expectedErrors:  nil,
+			name:                     "overwrite part of destination",
+			srcSize:                  generationSize,
+			dstSize:                  generationSize,
+			srcOffset:                defaultCopySize,
+			dstOffset:                0,
+			srcStartingPos:           generationSize,
+			dstStartingPos:           generationSize,
+			expectedDstSizeAfterCopy: generationSize,
+			copySize:                 defaultCopySize,
+			expectedErrors:           nil,
 		},
 		// Write way past the end of the file
 		{
-			srcOffset:       0,
-			dstOffset:       generationSize * 2,
-			srcPos:          generationSize,
-			dstPos:          generationSize,
-			expectedDstSize: generationSize*2 + defaultCopySize,
-			copySize:        defaultCopySize,
-			expectedErrors:  nil,
+			name:                     "destination gets expanded as it's being written to",
+			srcSize:                  generationSize,
+			dstSize:                  generationSize,
+			srcOffset:                0,
+			dstOffset:                generationSize * 2,
+			srcStartingPos:           generationSize,
+			dstStartingPos:           generationSize,
+			expectedDstSizeAfterCopy: generationSize*2 + defaultCopySize,
+			copySize:                 defaultCopySize,
+			expectedErrors:           nil,
 		},
 		// Source file does not have enough bytes to copy in that range, should result in an unexpected eof.
 		{
-			srcOffset:       0,
-			dstOffset:       0,
-			srcPos:          0,
-			dstPos:          0,
-			expectedDstSize: -11, // Does not matter, should fail.
-			copySize:        defaultCopySize * 10,
+			name:                     "source file too small",
+			srcSize:                  generationSize,
+			dstSize:                  generationSize,
+			srcOffset:                0,
+			dstOffset:                0,
+			srcStartingPos:           0,
+			dstStartingPos:           0,
+			expectedDstSizeAfterCopy: -11, // Does not matter, should fail.
+			copySize:                 defaultCopySize * 10,
 			// ioctl returns syscall.EINVAL, rest are wrapped
 			expectedErrors: []error{io.ErrUnexpectedEOF, syscall.EINVAL},
+		},
+		// Non block sized file
+		{
+			name:                     "not block aligned write",
+			srcSize:                  generationSize + 2,
+			dstSize:                  0,
+			srcOffset:                1,
+			dstOffset:                0,
+			srcStartingPos:           0,
+			dstStartingPos:           0,
+			expectedDstSizeAfterCopy: generationSize + 1,
+			copySize:                 generationSize + 1,
+			expectedErrors:           nil,
+		},
+		// Copy whole file
+		{
+			name:                     "whole file copy, block aligned",
+			srcSize:                  generationSize,
+			dstSize:                  0,
+			srcOffset:                0,
+			dstOffset:                0,
+			srcStartingPos:           0,
+			dstStartingPos:           0,
+			expectedDstSizeAfterCopy: generationSize,
+			copySize:                 generationSize,
+			expectedErrors:           nil,
+		},
+		{
+			name:                     "whole file copy, not block aligned",
+			srcSize:                  generationSize + 1,
+			dstSize:                  0,
+			srcOffset:                0,
+			dstOffset:                0,
+			srcStartingPos:           0,
+			dstStartingPos:           0,
+			expectedDstSizeAfterCopy: generationSize + 1,
+			copySize:                 generationSize + 1,
+			expectedErrors:           nil,
 		},
 	}
 )
 
 func TestCopyRange(ttt *testing.T) {
-	srcBuf := make([]byte, generationSize)
-	dstBuf := make([]byte, generationSize*3)
 	randSrc := rand.New(rand.NewSource(rand.Int63()))
 	for copyType, impl := range copyRangeImplementations {
 		ttt.Run(copyType.String(), func(tt *testing.T) {
 			for _, testCase := range testCases {
-				name := fmt.Sprintf("%d_%d_%d_%d_%d_%d_%t",
-					testCase.srcOffset/defaultCopySize,
-					testCase.dstOffset/defaultCopySize,
-					testCase.srcPos/defaultCopySize,
-					testCase.dstPos/defaultCopySize,
-					testCase.expectedDstSize/defaultCopySize,
-					testCase.copySize/defaultCopySize,
-					testCase.expectedErrors == nil,
-				)
-				tt.Run(name, func(t *testing.T) {
+				tt.Run(testCase.name, func(t *testing.T) {
+					srcBuf := make([]byte, testCase.srcSize)
+					dstBuf := make([]byte, testCase.dstSize)
 					td, err := ioutil.TempDir(os.Getenv("STFSTESTPATH"), "")
 					if err != nil {
 						t.Fatal(err)
@@ -132,7 +185,7 @@ func TestCopyRange(ttt *testing.T) {
 						t.Fatal(err)
 					}
 
-					if _, err := io.ReadFull(randSrc, dstBuf[:generationSize]); err != nil {
+					if _, err := io.ReadFull(randSrc, dstBuf); err != nil {
 						t.Fatal(err)
 					}
 
@@ -154,17 +207,17 @@ func TestCopyRange(ttt *testing.T) {
 						t.Fatal(err)
 					}
 
-					if _, err := dst.Write(dstBuf[:generationSize]); err != nil {
+					if _, err := dst.Write(dstBuf); err != nil {
 						t.Fatal(err)
 					}
 
 					// Set the offsets
 
-					if n, err := src.Seek(testCase.srcPos, io.SeekStart); err != nil || n != testCase.srcPos {
+					if n, err := src.Seek(testCase.srcStartingPos, io.SeekStart); err != nil || n != testCase.srcStartingPos {
 						t.Fatal(err)
 					}
 
-					if n, err := dst.Seek(testCase.dstPos, io.SeekStart); err != nil || n != testCase.dstPos {
+					if n, err := dst.Seek(testCase.dstStartingPos, io.SeekStart); err != nil || n != testCase.dstStartingPos {
 						t.Fatal(err)
 					}
 
@@ -187,14 +240,22 @@ func TestCopyRange(ttt *testing.T) {
 
 					if srcCurPos, err := src.Seek(0, io.SeekCurrent); err != nil {
 						t.Fatal(err)
-					} else if srcCurPos != testCase.srcPos {
-						t.Errorf("src pos expected %d got %d", testCase.srcPos, srcCurPos)
+					} else if srcCurPos != testCase.srcStartingPos {
+						t.Errorf("src pos expected %d got %d", testCase.srcStartingPos, srcCurPos)
 					}
 
 					if dstCurPos, err := dst.Seek(0, io.SeekCurrent); err != nil {
 						t.Fatal(err)
-					} else if dstCurPos != testCase.dstPos {
-						t.Errorf("dst pos expected %d got %d", testCase.dstPos, dstCurPos)
+					} else if dstCurPos != testCase.dstStartingPos {
+						t.Errorf("dst pos expected %d got %d", testCase.dstStartingPos, dstCurPos)
+					}
+
+					// Check dst size
+
+					if fi, err := dst.Stat(); err != nil {
+						t.Fatal(err)
+					} else if fi.Size() != testCase.expectedDstSizeAfterCopy {
+						t.Errorf("expected %d size, got %d", testCase.expectedDstSizeAfterCopy, fi.Size())
 					}
 
 					// Check the data is as expected
@@ -203,22 +264,13 @@ func TestCopyRange(ttt *testing.T) {
 						t.Fatal(err)
 					}
 
-					dstBuf = dstBuf[:testCase.expectedDstSize]
-
-					if _, err := io.ReadFull(dst, dstBuf); err != nil {
+					resultBuf := make([]byte, testCase.expectedDstSizeAfterCopy)
+					if _, err := io.ReadFull(dst, resultBuf); err != nil {
 						t.Fatal(err)
 					}
 
-					if !bytes.Equal(srcBuf[testCase.srcOffset:testCase.srcOffset+testCase.copySize], dstBuf[testCase.dstOffset:testCase.dstOffset+testCase.copySize]) {
+					if !bytes.Equal(srcBuf[testCase.srcOffset:testCase.srcOffset+testCase.copySize], resultBuf[testCase.dstOffset:testCase.dstOffset+testCase.copySize]) {
 						t.Errorf("Not equal")
-					}
-
-					// Check dst size
-
-					if fi, err := dst.Stat(); err != nil {
-						t.Fatal(err)
-					} else if fi.Size() != testCase.expectedDstSize {
-						t.Errorf("expected %d size, got %d", testCase.expectedDstSize, fi.Size())
 					}
 				})
 			}

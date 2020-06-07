@@ -17,6 +17,7 @@ func init() {
 	registerCopyRangeImplementation(CopyRangeTypeIoctl, copyRangeIoctl)
 }
 
+const FICLONE = 0x40049409
 const FICLONERANGE = 0x4020940d
 
 /*
@@ -37,6 +38,26 @@ type fileCloneRange struct {
 }
 
 func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error {
+	fi, err := src.Stat()
+	if err != nil {
+		return err
+	}
+
+	// https://www.man7.org/linux/man-pages/man2/ioctl_ficlonerange.2.html
+	// If src_length is zero, the ioctl reflinks to the end of the source file.
+	if size == fi.Size() {
+		size = 0
+	}
+
+	if srcOffset == 0 && dstOffset == 0 && size == 0 {
+		// Optimization for whole file copies.
+		_, _, e1 := syscall.Syscall(syscall.SYS_IOCTL, dst.Fd(), FICLONE, src.Fd())
+		if e1 != 0 {
+			return e1
+		}
+		return nil
+	}
+
 	params := fileCloneRange{
 		srcFd:     int64(src.Fd()),
 		srcOffset: uint64(srcOffset),
