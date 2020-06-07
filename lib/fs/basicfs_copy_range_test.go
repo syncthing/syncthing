@@ -100,7 +100,7 @@ var (
 		},
 		// Write way past the end of the file
 		{
-			name:                     "destination gets expanded as it's being written to",
+			name:                     "destination gets expanded as it is being written to",
 			srcSize:                  generationSize,
 			dstSize:                  generationSize,
 			srcOffset:                0,
@@ -140,7 +140,7 @@ var (
 		},
 		// Copy whole file
 		{
-			name:                     "whole file copy, block aligned",
+			name:                     "whole file copy block aligned",
 			srcSize:                  generationSize,
 			dstSize:                  0,
 			srcOffset:                0,
@@ -152,7 +152,7 @@ var (
 			expectedErrors:           nil,
 		},
 		{
-			name:                     "whole file copy, not block aligned",
+			name:                     "whole file copy not block aligned",
 			srcSize:                  generationSize + 1,
 			dstSize:                  0,
 			srcOffset:                0,
@@ -271,6 +271,27 @@ func TestCopyRange(ttt *testing.T) {
 
 					if !bytes.Equal(srcBuf[testCase.srcOffset:testCase.srcOffset+testCase.copySize], resultBuf[testCase.dstOffset:testCase.dstOffset+testCase.copySize]) {
 						t.Errorf("Not equal")
+					}
+
+					// Check not copied content does not get corrupted
+					if testCase.dstOffset > testCase.dstSize {
+						if !bytes.Equal(dstBuf[:testCase.dstSize], resultBuf[:testCase.dstSize]) {
+							t.Error("region before copy region not equals")
+						}
+						if !bytes.Equal(resultBuf[testCase.dstSize:testCase.dstOffset], make([]byte, testCase.dstOffset-testCase.dstSize)) {
+							t.Error("found non zeroes in expected zero region")
+						}
+					} else {
+						if !bytes.Equal(dstBuf[:testCase.dstOffset], resultBuf[:testCase.dstOffset]) {
+							t.Error("region before copy region not equals")
+						}
+						afterCopyStart := testCase.dstOffset + testCase.copySize
+
+						if afterCopyStart < testCase.dstSize {
+							if !bytes.Equal(dstBuf[afterCopyStart:], resultBuf[afterCopyStart:len(dstBuf)]) {
+								t.Error("region after copy region not equals")
+							}
+						}
 					}
 				})
 			}
