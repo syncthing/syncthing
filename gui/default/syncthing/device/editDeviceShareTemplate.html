@@ -1,0 +1,30 @@
+<div class="col-md-6 checkbox">
+  <label for="shared-{{folder.id}}">
+    <input id="shared-{{folder.id}}" ng-model="currentDevice.selectedFolders[folder.id]" type="checkbox" />
+   <span tooltip data-original-title="{{folder.id}}">{{folderLabel(folder.id)}}</span>
+  </label>
+</div>
+<div class="col-md-6">
+  <div class="input-group">
+    <span class="input-group-addon" ng-switch="!currentDevice.encPWs[folder.id] || currentDevice.encPWs[folder.id] === ''">
+      <span ng-switch-when='true' class="fas fa-fw fa-unlock" />
+      <span ng-switch-when='false' class="fas fa-fw fa-lock" />
+    </span>
+    <span ng-switch="currentDevice.selectedFolders[folder.id]">
+      <span ng-switch-when='true' ng-switch="folder.type === 'vault'">
+        <span ng-switch-when='true'>
+          <input class="form-control input-sm" type="password" placeholder="{{'folder is encrypted' | translate}}" disabled />
+        </span>
+        <span ng-switch-when='false'>
+          <input class="form-control input-sm" id="enc-pw-{{folder.id}}" type="password" ng-model="currentDevice.encPWs[folder.id]" placeholder="{{'enter password to encrypt' | translate}}" />
+        </span>
+      </span>
+      <span ng-switch-default>
+        <input class="form-control input-sm" type="password" placeholder="{{'not shared' | translate}}" disabled />
+      </span>
+    </span>
+    <span class="input-group-addon">
+      <span class="button fas fa-fw fa-eye" ng-click="togglePW('enc-pw-' + folder.id)" />
+    </span>
+  </div>
+</div>

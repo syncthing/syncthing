@@ -52,7 +52,7 @@
                 <a href="#" ng-click="selectAllSharedDevices(false)" translate>Deselect All</a></small>
             </p>
             <div class="form-group" ng-repeat="device in currentFolder.sharedDevices">
-              <ng-include src="'syncthing/folder/editFolderShareWithTemplate.html'" />
+              <ng-include src="'syncthing/folder/editFolderShareTemplate.html'" />
             </div>
           </div>
           <div class="form-horizontal" ng-if="currentFolder.unrelatedDevices.length || otherDevices().length <= 0">
@@ -66,7 +66,7 @@
               <span translate>There are no devices to share this folder with.</span>
             </p>
             <div class="form-group" ng-repeat="device in currentFolder.unrelatedDevices">
-              <ng-include src="'syncthing/folder/editFolderShareWithTemplate.html'" />
+              <ng-include src="'syncthing/folder/editFolderShareTemplate.html'" />
             </div>
           </div>
         </div>
