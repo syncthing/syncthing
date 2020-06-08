@@ -51,7 +51,9 @@
       <div>
         <div ng-show="relays !== undefined" class="ng-hide">
           <p>
-            Currently {{ relays.length }} relays online ({{ totals.goMaxProcs }} cores in total).
+            The relays listed on this page are not managed or vetted by the Syncthing project.
+            Each relay is the responsibility of the relay operator.
+            Currently {{ relays.length }} relays online.
           </p>
         </div>
         <div id="map"></div> <!-- Can't hide the map, otherwise it freaks out -->

@@ -123,7 +123,6 @@ type service struct {
 	tlsDefaultCommonName string
 	limiter              *limiter
 	natService           *nat.Service
-	natServiceToken      *suture.ServiceToken
 	evLogger             events.Logger
 
 	listenersMut       sync.RWMutex
@@ -188,6 +187,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 	service.Add(util.AsService(service.connect, fmt.Sprintf("%s/connect", service)))
 	service.Add(util.AsService(service.handle, fmt.Sprintf("%s/handle", service)))
 	service.Add(service.listenerSupervisor)
+	service.Add(service.natService)
 
 	return service
 }
@@ -651,16 +651,6 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 	s.listenersMut.Unlock()
-
-	if to.Options.NATEnabled && s.natServiceToken == nil {
-		l.Debugln("Starting NAT service")
-		token := s.Add(s.natService)
-		s.natServiceToken = &token
-	} else if !to.Options.NATEnabled && s.natServiceToken != nil {
-		l.Debugln("Stopping NAT service")
-		s.Remove(*s.natServiceToken)
-		s.natServiceToken = nil
-	}
 
 	return true
 }
