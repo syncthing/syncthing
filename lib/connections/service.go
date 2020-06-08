@@ -123,7 +123,6 @@ type service struct {
 	tlsDefaultCommonName string
 	limiter              *limiter
 	natService           *nat.Service
-	natServiceToken      *suture.ServiceToken
 	evLogger             events.Logger
 
 	listenersMut       sync.RWMutex
@@ -188,6 +187,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 	service.Add(util.AsService(service.connect, fmt.Sprintf("%s/connect", service)))
 	service.Add(util.AsService(service.handle, fmt.Sprintf("%s/handle", service)))
 	service.Add(service.listenerSupervisor)
+	service.Add(service.natService)
 
 	return service
 }
@@ -607,14 +607,25 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
-		if _, ok := s.listeners[addr]; ok {
-			seen[addr] = struct{}{}
+		uri, err := url.Parse(addr)
+		if err != nil {
+			l.Warnf("Skipping malformed listener URL %q: %v", addr, err)
 			continue
 		}
 
-		uri, err := url.Parse(addr)
-		if err != nil {
-			l.Infof("Parsing listener address %s: %v", addr, err)
+		// Make sure we always have the canonical representation of the URL.
+		// This is for consistency as we use it as a map key, but also to
+		// avoid misunderstandings. We do not just use the canonicalized
+		// version, because an URL that looks very similar to a human might
+		// mean something entirely different to the computer (e.g.,
+		// tcp:/127.0.0.1:22000 in fact being equivalent to tcp://:22000).
+		if canonical := uri.String(); canonical != addr {
+			l.Warnf("Skipping malformed listener URL %q (not canonical)", addr)
+			continue
+		}
+
+		if _, ok := s.listeners[addr]; ok {
+			seen[addr] = struct{}{}
 			continue
 		}
 
@@ -646,16 +657,6 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 	s.listenersMut.Unlock()
-
-	if to.Options.NATEnabled && s.natServiceToken == nil {
-		l.Debugln("Starting NAT service")
-		token := s.Add(s.natService)
-		s.natServiceToken = &token
-	} else if !to.Options.NATEnabled && s.natServiceToken != nil {
-		l.Debugln("Stopping NAT service")
-		s.Remove(*s.natServiceToken)
-		s.natServiceToken = nil
-	}
 
 	return true
 }

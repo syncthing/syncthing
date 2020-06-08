@@ -31,7 +31,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 30
+	CurrentVersion       = 31
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -103,6 +103,8 @@ func New(myID protocol.DeviceID) Configuration {
 	cfg.Version = CurrentVersion
 	cfg.OriginalVersion = CurrentVersion
 
+	cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
+
 	util.SetDefaults(&cfg)
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
@@ -133,8 +135,9 @@ func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
 		cfg.Options.RawListenAddresses = []string{"default"}
 	} else {
 		cfg.Options.RawListenAddresses = []string{
-			fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
+			util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
 			"dynamic+https://relays.syncthing.net/endpoint",
+			util.Address("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
 		}
 	}
 
@@ -418,6 +421,13 @@ nextPendingDevice:
 	}
 	if cfg.Options.UnackedNotificationIDs == nil {
 		cfg.Options.UnackedNotificationIDs = []string{}
+	} else if cfg.GUI.User != "" && cfg.GUI.Password != "" {
+		for i, key := range cfg.Options.UnackedNotificationIDs {
+			if key == "authenticationUserAndPassword" {
+				cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs[:i], cfg.Options.UnackedNotificationIDs[i+1:]...)
+				break
+			}
+		}
 	}
 
 	return nil
