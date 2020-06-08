@@ -268,17 +268,13 @@ func handleAssets(w http.ResponseWriter, r *http.Request) {
 		path = "index.html"
 	}
 
-	content, ok := auto.Assets()[path]
+	as, ok := auto.Assets()[path]
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	assets.Serve(w, r, assets.Asset{
-		ContentGz: content,
-		Filename:  path,
-		Modified:  time.Unix(auto.Generated, 0).UTC(),
-	})
+	assets.Serve(w, r, as)
 }
 
 func handleRequest(w http.ResponseWriter, r *http.Request) {

@@ -43,16 +43,15 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 			return nil, err
 		}
 		var od ObservedDevice
-		deviceID := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
-		//FIXME: DeviceIDFromBytes() panics when given a wrong length input.
-		//       It should rather return an error which we'd check for here.
-		if len(deviceID) != protocol.DeviceIDLength {
+		keyDev := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
+		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
+		if err != nil {
 			goto deleteKey
 		}
 		if err := od.Unmarshal(bs); err != nil {
 			goto deleteKey
 		}
-		res[protocol.DeviceIDFromBytes(deviceID)] = od
+		res[deviceID] = od
 		continue
 	deleteKey:
 		l.Infof("Invalid pending device entry, deleting from database: %x", iter.Key())
@@ -88,14 +87,13 @@ func (db *Lowlevel) PendingFolders() (map[string]map[protocol.DeviceID]ObservedF
 	res := make(map[string]map[protocol.DeviceID]ObservedFolder)
 	for iter.Next() {
 		keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key())
-		if !ok {
+		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
+		if !ok || err != nil {
 			if err := db.deleteInvalidPendingFolder(iter.Key()); err != nil {
 				return nil, err
 			}
 			continue
 		}
-		// Here we expect the length to match, coming from the device index.
-		deviceID := protocol.DeviceIDFromBytes(keyDev)
 		if err := db.collectPendingFolder(iter.Key(), deviceID, res); err != nil {
 			return nil, err
 		}
@@ -189,14 +187,12 @@ func (dl decisionMap) DropFolder(folder string, devices []protocol.DeviceID) {
 // shouldDropPendingDevice defines how the decisionMap is interpreted for pending devices
 func (dl decisionMap) shouldDropPendingDevice(key []byte, keyer keyer) bool {
 	keyDev := keyer.DeviceFromPendingDeviceKey(key)
-	//FIXME: DeviceIDFromBytes() panics when given a wrong length input.
-	//       It should rather return an error which we'd check for here.
-	if len(keyDev) != protocol.DeviceIDLength {
+	deviceID, err := protocol.DeviceIDFromBytes(keyDev)
+	if err != nil {
 		l.Infof("Invalid pending device entry, deleting from database: %x", key)
 		return true
 	}
 	// Valid entries are looked up in the drop-list, invalid ones cleaned up
-	deviceID := protocol.DeviceIDFromBytes(keyDev)
 	_, dropDevice := dl[deviceID]
 	if dropDevice {
 		l.Debugf("Removing marked pending device %v", deviceID)
@@ -208,12 +204,12 @@ func (dl decisionMap) shouldDropPendingDevice(key []byte, keyer keyer) bool {
 // which is different and more nested than for devices
 func (dl decisionMap) shouldDropPendingFolder(key []byte, keyer keyer) bool {
 	keyDev, ok := keyer.DeviceFromPendingFolderKey(key)
-	if !ok {
+	deviceID, err := protocol.DeviceIDFromBytes(keyDev)
+	if !ok || err != nil {
 		l.Infof("Invalid pending folder entry, deleting from database: %x", key)
 		return true
 	}
 	// Valid entries are looked up in the drop-list, invalid ones cleaned up
-	deviceID := protocol.DeviceIDFromBytes(keyDev)
 	dropFolders, allowDevice := dl[deviceID]
 	// Check the associated set of folders if provided, otherwise drop.
 	if !allowDevice {

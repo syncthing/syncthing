@@ -73,12 +73,16 @@ func dump(ldb backend.Backend) {
 		case db.KeyTypeDeviceIdx:
 			key := binary.BigEndian.Uint32(key[1:])
 			val := it.Value()
-			if len(val) == 0 {
-				fmt.Printf("[deviceidx] K:%d V:<nil>\n", key)
-			} else {
-				dev := protocol.DeviceIDFromBytes(val)
-				fmt.Printf("[deviceidx] K:%d V:%s\n", key, dev)
+			device := "<nil>"
+			if len(val) > 0 {
+				dev, err := protocol.DeviceIDFromBytes(val)
+				if err != nil {
+					device = fmt.Sprintf("<invalid %d bytes>", len(val))
+				} else {
+					device = dev.String()
+				}
 			}
+			fmt.Printf("[deviceidx] K:%d V:%s\n", key, device)
 
 		case db.KeyTypeIndexID:
 			device := binary.BigEndian.Uint32(key[1:])
@@ -122,7 +126,11 @@ func dump(ldb backend.Backend) {
 			fmt.Printf("[pendingFolder] D:%d F:%s V:%v\n", device, folder, of)
 
 		case db.KeyTypePendingDevice:
-			device := protocol.DeviceIDFromBytes(it.Key()[1:])
+			device := "<invalid>"
+			dev, err := protocol.DeviceIDFromBytes(it.Key()[1:])
+			if err == nil {
+				device = dev.String()
+			}
 			var od db.ObservedDevice
 			od.Unmarshal(it.Value())
 			fmt.Printf("[pendingDevice] D:%v V:%v\n", device, od)

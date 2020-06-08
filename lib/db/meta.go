@@ -52,7 +52,11 @@ func (m *metadataTracker) Unmarshal(bs []byte) error {
 
 	// Initialize the index map
 	for i, c := range m.counts.Counts {
-		m.indexes[metaKey{protocol.DeviceIDFromBytes(c.DeviceID), c.LocalFlags}] = i
+		dev, err := protocol.DeviceIDFromBytes(c.DeviceID)
+		if err != nil {
+			return err
+		}
+		m.indexes[metaKey{dev, c.LocalFlags}] = i
 	}
 	return nil
 }
@@ -118,9 +122,16 @@ func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *Counts 
 		idx = len(m.counts.Counts)
 		m.counts.Counts = append(m.counts.Counts, Counts{DeviceID: dev[:], LocalFlags: flag})
 		m.indexes[key] = idx
-		if flag == needFlag {
+		// Need bucket must be initialized when a device first occurs in
+		// the metadatatracker, even if there's no change to the need
+		// bucket itself.
+		nkey := metaKey{dev, needFlag}
+		nidx, ok := m.indexes[nkey]
+		if !ok {
 			// Initially a new device needs everything, except deletes
-			m.counts.Counts[idx] = m.allNeededCounts(dev)
+			nidx = len(m.counts.Counts)
+			m.counts.Counts = append(m.counts.Counts, m.allNeededCounts(dev))
+			m.indexes[nkey] = nidx
 		}
 	}
 	return &m.counts.Counts[idx]
@@ -140,7 +151,7 @@ func (m *countsMap) allNeededCounts(dev protocol.DeviceID) Counts {
 
 // addFile adds a file to the counts, adjusting the sequence number as
 // appropriate
-func (m *metadataTracker) addFile(dev protocol.DeviceID, f FileIntf) {
+func (m *metadataTracker) addFile(dev protocol.DeviceID, f protocol.FileIntf) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -179,7 +190,7 @@ func (m *metadataTracker) emptyNeeded(dev protocol.DeviceID) {
 }
 
 // addNeeded adds a file to the needed counts
-func (m *metadataTracker) addNeeded(dev protocol.DeviceID, f FileIntf) {
+func (m *metadataTracker) addNeeded(dev protocol.DeviceID, f protocol.FileIntf) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -194,7 +205,7 @@ func (m *metadataTracker) Sequence(dev protocol.DeviceID) int64 {
 	return m.countsPtr(dev, 0).Sequence
 }
 
-func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f FileIntf) {
+func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f protocol.FileIntf) {
 	if dev == protocol.GlobalDeviceID {
 		return
 	}
@@ -203,7 +214,7 @@ func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f FileIntf) {
 	}
 }
 
-func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f FileIntf) {
+func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f protocol.FileIntf) {
 	cp := m.countsPtr(dev, flag)
 
 	switch {
@@ -220,7 +231,7 @@ func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f Fi
 }
 
 // removeFile removes a file from the counts
-func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
+func (m *metadataTracker) removeFile(dev protocol.DeviceID, f protocol.FileIntf) {
 	if f.IsInvalid() && f.FileLocalFlags() == 0 {
 		// This is a remote invalid file; it does not count.
 		return
@@ -243,7 +254,7 @@ func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
 }
 
 // removeNeeded removes a file from the needed counts
-func (m *metadataTracker) removeNeeded(dev protocol.DeviceID, f FileIntf) {
+func (m *metadataTracker) removeNeeded(dev protocol.DeviceID, f protocol.FileIntf) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -252,7 +263,7 @@ func (m *metadataTracker) removeNeeded(dev protocol.DeviceID, f FileIntf) {
 	m.removeFileLocked(dev, needFlag, f)
 }
 
-func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flag uint32, f FileIntf) {
+func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flag uint32, f protocol.FileIntf) {
 	cp := m.countsPtr(dev, flag)
 
 	switch {
@@ -385,7 +396,10 @@ func (m *countsMap) devices() []protocol.DeviceID {
 
 	for _, dev := range m.counts.Counts {
 		if dev.Sequence > 0 {
-			id := protocol.DeviceIDFromBytes(dev.DeviceID)
+			id, err := protocol.DeviceIDFromBytes(dev.DeviceID)
+			if err != nil {
+				panic(err)
+			}
 			if id == protocol.GlobalDeviceID || id == protocol.LocalDeviceID {
 				continue
 			}

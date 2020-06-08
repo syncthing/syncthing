@@ -61,6 +61,7 @@ angular.module('syncthing.core')
         } catch (exception) { }
 
         $scope.folderDefaults = {
+            devices: [],
             sharedDevices: {},
             selectedDevices: {},
             unrelatedDevices: {},
@@ -499,6 +500,10 @@ angular.module('syncthing.core')
                 && (!guiCfg.user || !guiCfg.password)
                 && guiCfg.authMode !== 'ldap'
                 && !guiCfg.insecureAdminAccess;
+
+            if (guiCfg.user && guiCfg.password) {
+                $scope.dismissNotification('authenticationUserAndPassword');
+            }
         }
 
         function refreshCluster() {
@@ -1885,15 +1890,22 @@ angular.module('syncthing.core')
         $scope.saveFolder = function () {
             $('#editFolder').modal('hide');
             var folderCfg = angular.copy($scope.currentFolder);
-            folderCfg.devices = [];
             folderCfg.selectedDevices[$scope.myID] = true;
+            var newDevices = [];
+            folderCfg.devices.forEach(function (dev) {
+                if (folderCfg.selectedDevices[dev.deviceID] === true) {
+                    newDevices.push(dev);
+                    delete folderCfg.selectedDevices[dev.deviceID];
+                };
+            });
             for (var deviceID in folderCfg.selectedDevices) {
                 if (folderCfg.selectedDevices[deviceID] === true) {
-                    folderCfg.devices.push({
+                    newDevices.push({
                         deviceID: deviceID
                     });
                 }
             }
+            folderCfg.devices = newDevices;
             delete folderCfg.sharedDevices;
             delete folderCfg.selectedDevices;
             delete folderCfg.unrelatedDevices;

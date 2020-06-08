@@ -148,7 +148,10 @@ func (f *folder) serve(ctx context.Context) {
 			f.pull()
 
 		case <-f.pullFailTimer.C:
-			f.pull()
+			if !f.pull() && f.pullPause < 60*f.pullBasePause() {
+				// Back off from retrying to pull
+				f.pullPause *= 2
+			}
 
 		case <-initialCompleted:
 			// Initial scan has completed, we should do a pull
@@ -276,7 +279,7 @@ func (f *folder) getHealthErrorWithoutIgnores() error {
 	return nil
 }
 
-func (f *folder) pull() bool {
+func (f *folder) pull() (success bool) {
 	f.pullFailTimer.Stop()
 	select {
 	case <-f.pullFailTimer.C:
@@ -290,10 +293,17 @@ func (f *folder) pull() bool {
 		return true
 	}
 
+	defer func() {
+		if success {
+			// We're good, reset the pause interval.
+			f.pullPause = f.pullBasePause()
+		}
+	}()
+
 	// If there is nothing to do, don't even enter sync-waiting state.
 	abort := true
 	snap := f.fset.Snapshot()
-	snap.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+	snap.WithNeed(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
 		abort = false
 		return false
 	})
@@ -312,24 +322,16 @@ func (f *folder) pull() bool {
 
 	startTime := time.Now()
 
-	success := f.puller.pull()
-
-	basePause := f.pullBasePause()
+	success = f.puller.pull()
 
 	if success {
-		// We're good. Don't schedule another pull and reset
-		// the pause interval.
-		f.pullPause = basePause
 		return true
 	}
 
 	// Pulling failed, try again later.
 	delay := f.pullPause + time.Since(startTime)
-	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), delay)
+	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), delay.Truncate(time.Second))
 	f.pullFailTimer.Reset(delay)
-	if f.pullPause < 60*basePause {
-		f.pullPause *= 2
-	}
 	return false
 }
 
@@ -497,7 +499,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	for _, sub := range subDirs {
 		var iterError error
 
-		snap.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
+		snap.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi protocol.FileIntf) bool {
 			select {
 			case <-f.ctx.Done():
 				return false
@@ -632,7 +634,7 @@ func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file proto
 	found := false
 	nf := protocol.FileInfo{}
 
-	snap.WithBlocksHash(file.BlocksHash, func(ifi db.FileIntf) bool {
+	snap.WithBlocksHash(file.BlocksHash, func(ifi protocol.FileIntf) bool {
 		fi := ifi.(protocol.FileInfo)
 
 		select {

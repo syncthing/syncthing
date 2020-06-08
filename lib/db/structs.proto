@@ -14,15 +14,15 @@ option (gogoproto.goproto_unrecognized_all) = false;
 option (gogoproto.goproto_sizecache_all) = false;
 
 message FileVersion {
-    protocol.Vector version = 1 [(gogoproto.nullable) = false];
-    bytes           device  = 2;
-    bool            invalid = 3;
-    bool            deleted = 4;
+    protocol.Vector version         = 1 [(gogoproto.nullable) = false];
+    bool            deleted         = 2;
+    repeated bytes  devices         = 3;
+    repeated bytes  invalid_devices = 4;
 }
 
 message VersionList {
     option (gogoproto.goproto_stringer) = false;
-    repeated FileVersion versions = 1 [(gogoproto.nullable) = false];
+    repeated FileVersion versions = 1 [(gogoproto.customname) = "RawVersions", (gogoproto.nullable) = false];
 }
 
 // Must be the same as FileInfo but without the blocks field
@@ -79,6 +79,18 @@ message Counts {
 message CountsSet {
     repeated Counts counts  = 1  [(gogoproto.nullable) = false];
     int64           created = 2; // unix nanos
+}
+
+message FileVersionDeprecated {
+    protocol.Vector version = 1 [(gogoproto.nullable) = false];
+    bytes           device  = 2;
+    bool            invalid = 3;
+    bool            deleted = 4;
+}
+
+message VersionListDeprecated {
+    option (gogoproto.goproto_stringer) = false;
+    repeated FileVersionDeprecated versions = 1 [(gogoproto.nullable) = false];
 }
 
 message ObservedFolder {

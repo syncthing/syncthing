@@ -86,7 +86,6 @@ type keyer interface {
 	// global version key stuff
 	GenerateGlobalVersionKey(key, folder, name []byte) (globalVersionKey, error)
 	NameFromGlobalVersionKey(key []byte) []byte
-	FolderFromGlobalVersionKey(key []byte) ([]byte, bool)
 
 	// block map key stuff (former BlockMap)
 	GenerateBlockMapKey(key, folder, hash, name []byte) (blockMapKey, error)
@@ -103,7 +102,6 @@ type keyer interface {
 
 	// index IDs
 	GenerateIndexIDKey(key, device, folder []byte) (indexIDKey, error)
-	DeviceFromIndexIDKey(key []byte) ([]byte, bool)
 
 	// Mtimes
 	GenerateMtimesKey(key, folder []byte) (mtimesKey, error)
@@ -199,10 +197,6 @@ func (k defaultKeyer) GenerateGlobalVersionKey(key, folder, name []byte) (global
 
 func (k defaultKeyer) NameFromGlobalVersionKey(key []byte) []byte {
 	return key[keyPrefixLen+keyFolderLen:]
-}
-
-func (k defaultKeyer) FolderFromGlobalVersionKey(key []byte) ([]byte, bool) {
-	return k.folderIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
 }
 
 type blockMapKey []byte
@@ -307,10 +301,6 @@ func (k defaultKeyer) GenerateIndexIDKey(key, device, folder []byte) (indexIDKey
 	binary.BigEndian.PutUint32(key[keyPrefixLen:], deviceID)
 	binary.BigEndian.PutUint32(key[keyPrefixLen+keyDeviceLen:], folderID)
 	return key, nil
-}
-
-func (k defaultKeyer) DeviceFromIndexIDKey(key []byte) ([]byte, bool) {
-	return k.deviceIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
 }
 
 type mtimesKey []byte

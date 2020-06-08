@@ -67,7 +67,7 @@ func TestDefaultValues(t *testing.T) {
 		AlwaysLocalNets:         []string{},
 		OverwriteRemoteDevNames: false,
 		TempIndexMinBlocks:      10,
-		UnackedNotificationIDs:  []string{},
+		UnackedNotificationIDs:  []string{"authenticationUserAndPassword"},
 		DefaultFolderPath:       "~",
 		SetLowPriority:          true,
 		CRURL:                   "https://crash.syncthing.net/newcrash",

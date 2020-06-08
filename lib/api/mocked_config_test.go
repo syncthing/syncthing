@@ -102,6 +102,10 @@ func (c *mockedConfig) SetFolder(fld config.FolderConfiguration) (config.Waiter,
 	return noopWaiter{}, nil
 }
 
+func (c *mockedConfig) SetFolders(folders []config.FolderConfiguration) (config.Waiter, error) {
+	return noopWaiter{}, nil
+}
+
 func (c *mockedConfig) Device(id protocol.DeviceID) (config.DeviceConfiguration, bool) {
 	return config.DeviceConfiguration{}, false
 }

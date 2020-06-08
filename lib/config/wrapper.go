@@ -72,6 +72,7 @@ type Wrapper interface {
 	Folders() map[string]FolderConfiguration
 	FolderList() []FolderConfiguration
 	SetFolder(fld FolderConfiguration) (Waiter, error)
+	SetFolders(folders []FolderConfiguration) (Waiter, error)
 
 	Device(id protocol.DeviceID) (DeviceConfiguration, bool)
 	Devices() map[protocol.DeviceID]DeviceConfiguration
@@ -94,7 +95,6 @@ type wrapper struct {
 
 	waiter    Waiter // Latest ongoing config change
 	deviceMap map[protocol.DeviceID]DeviceConfiguration
-	folderMap map[string]FolderConfiguration
 	subs      []Committer
 	mut       sync.Mutex
 
@@ -194,7 +194,6 @@ func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {
 
 	w.cfg = to
 	w.deviceMap = nil
-	w.folderMap = nil
 
 	w.waiter = w.notifyListeners(from.Copy(), to.Copy())
 
@@ -286,13 +285,11 @@ func (w *wrapper) RemoveDevice(id protocol.DeviceID) (Waiter, error) {
 func (w *wrapper) Folders() map[string]FolderConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
-	if w.folderMap == nil {
-		w.folderMap = make(map[string]FolderConfiguration, len(w.cfg.Folders))
-		for _, fld := range w.cfg.Folders {
-			w.folderMap[fld.ID] = fld.Copy()
-		}
+	folderMap := make(map[string]FolderConfiguration, len(w.cfg.Folders))
+	for _, fld := range w.cfg.Folders {
+		folderMap[fld.ID] = fld.Copy()
 	}
-	return w.folderMap
+	return folderMap
 }
 
 // FolderList returns a slice of folders.
@@ -305,19 +302,30 @@ func (w *wrapper) FolderList() []FolderConfiguration {
 // SetFolder adds a new folder to the configuration, or overwrites an existing
 // folder with the same ID.
 func (w *wrapper) SetFolder(fld FolderConfiguration) (Waiter, error) {
+	return w.SetFolders([]FolderConfiguration{fld})
+}
+
+// SetFolders adds new folders to the configuration, or overwrites existing
+// folders with the same ID.
+func (w *wrapper) SetFolders(folders []FolderConfiguration) (Waiter, error) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
 	newCfg := w.cfg.Copy()
 
-	for i := range newCfg.Folders {
-		if newCfg.Folders[i].ID == fld.ID {
-			newCfg.Folders[i] = fld
-			return w.replaceLocked(newCfg)
+	inds := make(map[string]int, len(w.cfg.Folders))
+	for i, folder := range newCfg.Folders {
+		inds[folder.ID] = i
+	}
+	filtered := folders[:0]
+	for _, folder := range folders {
+		if i, ok := inds[folder.ID]; ok {
+			newCfg.Folders[i] = folder
+		} else {
+			filtered = append(filtered, folder)
 		}
 	}
-
-	newCfg.Folders = append(newCfg.Folders, fld)
+	newCfg.Folders = append(newCfg.Folders, filtered...)
 
 	return w.replaceLocked(newCfg)
 }
