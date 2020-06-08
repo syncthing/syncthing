@@ -74,6 +74,7 @@ type Wrapper interface {
 	FolderList() []FolderConfiguration
 	SetFolder(fld FolderConfiguration) (Waiter, error)
 	SetFolders(folders []FolderConfiguration) (Waiter, error)
+	FolderPasswords(device protocol.DeviceID) map[string]string
 
 	Device(id protocol.DeviceID) (DeviceConfiguration, bool)
 	Devices() map[protocol.DeviceID]DeviceConfiguration
@@ -330,6 +331,14 @@ func (w *wrapper) SetFolders(folders []FolderConfiguration) (Waiter, error) {
 	newCfg.Folders = append(newCfg.Folders, filtered...)
 
 	return w.replaceLocked(newCfg)
+}
+
+// FolderPasswords returns the folder passwords set for this device, for
+// folders that have an encryption password set.
+func (w *wrapper) FolderPasswords(device protocol.DeviceID) map[string]string {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.cfg.FolderPasswords(device)
 }
 
 // Options returns the current options configuration object.

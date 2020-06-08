@@ -106,6 +106,10 @@ func (c *mockedConfig) SetFolders(folders []config.FolderConfiguration) (config.
 	return noopWaiter{}, nil
 }
 
+func (c *mockedConfig) FolderPasswords(device protocol.DeviceID) map[string]string {
+	return nil
+}
+
 func (c *mockedConfig) Device(id protocol.DeviceID) (config.DeviceConfiguration, bool) {
 	return config.DeviceConfiguration{}, false
 }
