@@ -81,6 +81,7 @@
    "Disabled periodic scanning and disabled watching for changes": "Disabled periodic scanning and disabled watching for changes",
    "Disabled periodic scanning and enabled watching for changes": "Disabled periodic scanning and enabled watching for changes",
    "Disabled periodic scanning and failed setting up watching for changes, retrying every 1m:": "Disabled periodic scanning and failed setting up watching for changes, retrying every 1m:",
+   "Disables comparing and syncing file permissions. Useful on systems with nonexistent or custom permissions (e.g. FAT, exFAT, Synology, Android).": "Disables comparing and syncing file permissions. Useful on systems with nonexistent or custom permissions (e.g. FAT, exFAT, Synology, Android).",
    "Discard": "Discard",
    "Disconnected": "Disconnected",
    "Disconnected (Unused)": "Disconnected (Unused)",
