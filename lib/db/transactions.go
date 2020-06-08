@@ -414,7 +414,11 @@ func (t *readOnlyTransaction) availability(folder, file []byte) ([]protocol.Devi
 	}
 	devices := make([]protocol.DeviceID, len(fv.Devices))
 	for i, dev := range fv.Devices {
-		devices[i] = protocol.DeviceIDFromBytes(dev)
+		n, err := protocol.DeviceIDFromBytes(dev)
+		if err != nil {
+			return nil, err
+		}
+		devices[i] = n
 	}
 
 	return devices, nil
@@ -436,7 +440,10 @@ func (t *readOnlyTransaction) withNeed(folder, device []byte, truncate bool, fn 
 	defer dbi.Release()
 
 	var dk []byte
-	devID := protocol.DeviceIDFromBytes(device)
+	devID, err := protocol.DeviceIDFromBytes(device)
+	if err != nil {
+		return err
+	}
 	for dbi.Next() {
 		var vl VersionList
 		if err := vl.Unmarshal(dbi.Value()); err != nil {
@@ -592,7 +599,10 @@ func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo, truncat
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
 func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) ([]byte, bool, error) {
-	deviceID := protocol.DeviceIDFromBytes(device)
+	deviceID, err := protocol.DeviceIDFromBytes(device)
+	if err != nil {
+		return nil, false, err
+	}
 
 	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, deviceID, file.Name, file.Version, file.IsInvalid())
 
@@ -768,7 +778,10 @@ func need(global FileVersion, haveLocal bool, localVersion protocol.Vector) bool
 // given file. If the version list is empty after this, the file entry is
 // removed entirely.
 func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device, file []byte, meta *metadataTracker) ([]byte, error) {
-	deviceID := protocol.DeviceIDFromBytes(device)
+	deviceID, err := protocol.DeviceIDFromBytes(device)
+	if err != nil {
+		return nil, err
+	}
 
 	l.Debugf("remove from global; folder=%q device=%v file=%q", folder, deviceID, file)
 

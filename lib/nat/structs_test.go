@@ -7,9 +7,13 @@
 package nat
 
 import (
+	"io/ioutil"
 	"net"
+	"os"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -56,7 +60,15 @@ func TestMappingValidGateway(t *testing.T) {
 }
 
 func TestMappingClearAddresses(t *testing.T) {
-	natSvc := NewService(protocol.EmptyDeviceID, nil)
+	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := config.Wrap(tmpFile.Name(), config.Configuration{}, events.NoopLogger)
+	defer os.RemoveAll(tmpFile.Name())
+	tmpFile.Close()
+
+	natSvc := NewService(protocol.EmptyDeviceID, w)
 	// Mock a mapped port; avoids the need to actually map a port
 	ip := net.ParseIP("192.168.0.1")
 	m := natSvc.NewMapping(TCP, ip, 1024)
