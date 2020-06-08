@@ -247,10 +247,10 @@ func (m *model) ServeBackground() {
 
 func (m *model) onServe() {
 	// Add and start folders
-	forgetPending := db.NewDropListObserved()
+	forgetPending := db.NewCleanPendingDecisions()
 	for _, folderCfg := range m.cfg.Folders() {
 		// Forget pending folder/device combinations that are now shared
-		forgetPending.MarkFolder(folderCfg.ID, folderCfg.DeviceIDs())
+		forgetPending.DropFolder(folderCfg.ID, folderCfg.DeviceIDs())
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
@@ -259,9 +259,9 @@ func (m *model) onServe() {
 	}
 	for deviceID, deviceCfg := range m.cfg.Devices() {
 		// Forget pending devices that are now added, along with their ignored folders
-		forgetPending.MarkDevice(deviceID)
+		forgetPending.KnownDevice(deviceID)
 		for _, ignoredFolder := range deviceCfg.IgnoredFolders {
-			forgetPending.MarkFolder(ignoredFolder.ID, []protocol.DeviceID{deviceID})
+			forgetPending.DropFolder(ignoredFolder.ID, []protocol.DeviceID{deviceID})
 		}
 	}
 	// Clean pending folder entries as collected above
@@ -269,7 +269,7 @@ func (m *model) onServe() {
 
 	// Forget pending devices that are now ignored
 	for _, ignoredDevice := range m.cfg.IgnoredDevices() {
-		forgetPending.MarkDevice(ignoredDevice.ID)
+		forgetPending.KnownDevice(ignoredDevice.ID)
 		// Associated pending folders have already been cleaned up by not listing
 		// in forgetPending before.
 	}
@@ -2432,10 +2432,10 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	fromFolders := mapFolders(from.Folders)
 	toFolders := mapFolders(to.Folders)
-	forgetPending := db.NewDropListObserved()
+	forgetPending := db.NewCleanPendingDecisions()
 	for folderID, cfg := range toFolders {
 		// Record shared devices of this folder to remove possibly pending entries
-		forgetPending.MarkFolder(cfg.ID, cfg.DeviceIDs())
+		forgetPending.DropFolder(cfg.ID, cfg.DeviceIDs())
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
@@ -2456,7 +2456,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			// folder is no longer of interest at all (but might become
 			// pending again).
 			for _, dev := range from.Devices {
-				forgetPending.MarkFolder(folderID, []protocol.DeviceID{dev.DeviceID})
+				forgetPending.DropFolder(folderID, []protocol.DeviceID{dev.DeviceID})
 			}
 			continue
 		}
@@ -2493,9 +2493,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	toDevices := to.DeviceMap()
 	for deviceID, toCfg := range toDevices {
 		// Forget pending devices that are now added, along with their ignored folders
-		forgetPending.MarkDevice(deviceID)
+		forgetPending.KnownDevice(deviceID)
 		for _, ignFolder := range toCfg.IgnoredFolders {
-			forgetPending.MarkFolder(ignFolder.ID, []protocol.DeviceID{deviceID})
+			forgetPending.DropFolder(ignFolder.ID, []protocol.DeviceID{deviceID})
 		}
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
@@ -2535,22 +2535,22 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	// Forget pending folder/device combinations that are now shared or ignored, plus
 	// any for our own device ID (should not happen, treat us like an unknown device)
-	forgetPending.UnmarkDevice(to.MyID)
+	forgetPending.UnknownDevice(to.MyID)
 	m.db.CleanPendingFolders(forgetPending)
 
 	// Forget pending devices that are now ignored
 	for _, ignDevice := range to.IgnoredDevices {
-		forgetPending.MarkDevice(ignDevice.ID)
+		forgetPending.KnownDevice(ignDevice.ID)
 		// Associated pending folders have already been cleaned up by not listing
 		// these devices in forgetPending before.
 	}
 	// Forget stale pending devices which were just removed (should not happen)
 	for _, remDevice := range removedDevices {
-		forgetPending.MarkDevice(remDevice)
+		forgetPending.KnownDevice(remDevice)
 	}
 	// Make sure we don't keep our local device as pending (should not happen, treat
 	// us like a known device)
-	forgetPending.MarkDevice(to.MyID)
+	forgetPending.KnownDevice(to.MyID)
 	m.db.CleanPendingDevices(forgetPending)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())

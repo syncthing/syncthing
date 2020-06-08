@@ -152,14 +152,18 @@ func (db *Lowlevel) deleteInvalidPendingFolder(key []byte) error {
 	return err
 }
 
-// Set of devices for which pending folders are allowed, but not specific folder IDs
-type DropListObserved map[protocol.DeviceID]map[string]struct{}
+// decisionMap collects the information about what devices and folders can be pending, for
+// making decisions in CleanPendingFolders() and CleanPendingDevices(). It enumerates a
+// set of device IDs which should not be pending **devices**, but for which **folders**
+// can be pending.  For each device, specific folder IDs are enumerated for which the
+// device+folder combination should not be pending, although the device alone would allow.
+type decisionMap map[protocol.DeviceID]map[string]struct{}
 
-func NewDropListObserved() DropListObserved {
-	return make(DropListObserved)
+func NewCleanPendingDecisions() decisionMap {
+	return make(decisionMap)
 }
 
-func (dl DropListObserved) MarkDevice(device protocol.DeviceID) map[string]struct{} {
+func (dl decisionMap) KnownDevice(device protocol.DeviceID) map[string]struct{} {
 	folders, ok := dl[device]
 	if !ok {
 		dl[device] = nil
@@ -167,13 +171,13 @@ func (dl DropListObserved) MarkDevice(device protocol.DeviceID) map[string]struc
 	return folders
 }
 
-func (dl DropListObserved) UnmarkDevice(device protocol.DeviceID) {
+func (dl decisionMap) UnknownDevice(device protocol.DeviceID) {
 	delete(dl, device)
 }
 
-func (dl DropListObserved) MarkFolder(folder string, devices []protocol.DeviceID) {
+func (dl decisionMap) DropFolder(folder string, devices []protocol.DeviceID) {
 	for _, dev := range devices {
-		folders := dl.MarkDevice(dev)
+		folders := dl.KnownDevice(dev)
 		if folders == nil {
 			folders = make(map[string]struct{})
 			dl[dev] = folders
@@ -182,8 +186,8 @@ func (dl DropListObserved) MarkFolder(folder string, devices []protocol.DeviceID
 	}
 }
 
-// shouldDropPendingDevice defines how the drop-list is interpreted for pending devices
-func (dl DropListObserved) shouldDropPendingDevice(key []byte, keyer keyer) bool {
+// shouldDropPendingDevice defines how the decisionMap is interpreted for pending devices
+func (dl decisionMap) shouldDropPendingDevice(key []byte, keyer keyer) bool {
 	keyDev := keyer.DeviceFromPendingDeviceKey(key)
 	//FIXME: DeviceIDFromBytes() panics when given a wrong length input.
 	//       It should rather return an error which we'd check for here.
@@ -200,9 +204,9 @@ func (dl DropListObserved) shouldDropPendingDevice(key []byte, keyer keyer) bool
 	return dropDevice
 }
 
-// shouldDropPendingFolder defines how the drop-list is interpreted for pending folders,
+// shouldDropPendingFolder defines how the decisionMap is interpreted for pending folders,
 // which is different and more nested than for devices
-func (dl DropListObserved) shouldDropPendingFolder(key []byte, keyer keyer) bool {
+func (dl decisionMap) shouldDropPendingFolder(key []byte, keyer keyer) bool {
 	keyDev, ok := keyer.DeviceFromPendingFolderKey(key)
 	if !ok {
 		l.Infof("Invalid pending folder entry, deleting from database: %x", key)
@@ -229,8 +233,9 @@ func (dl DropListObserved) shouldDropPendingFolder(key []byte, keyer keyer) bool
 	return dropFolder
 }
 
-// CleanPendingDevices removes all pending device entries matching a given set of device IDs
-func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) {
+// CleanPendingDevices removes pending device entries according to the device IDs
+// enumerated in the decisionMap.
+func (db *Lowlevel) CleanPendingDevices(dropList decisionMap) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
 		l.Infof("Could not iterate through pending device entries for cleanup: %v", err)
@@ -246,9 +251,9 @@ func (db *Lowlevel) CleanPendingDevices(dropList DropListObserved) {
 	}
 }
 
-// CleanPendingFolders removes all pending folder entries not matching a given set of
-// device IDs, or matching the set of folder IDs associated with those given devices.
-func (db *Lowlevel) CleanPendingFolders(dropList DropListObserved) {
+// CleanPendingFolders removes pending folder entries according to the device and folder
+// IDs enumerated in the decisionMap.
+func (db *Lowlevel) CleanPendingFolders(dropList decisionMap) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
