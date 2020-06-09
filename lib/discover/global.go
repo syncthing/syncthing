@@ -65,11 +65,13 @@ type serverOptions struct {
 
 // A lookupError is any other error but with a cache validity time attached.
 type lookupError struct {
-	error
+	msg      string
 	cacheFor time.Duration
 }
 
-func (e lookupError) CacheFor() time.Duration {
+func (e *lookupError) Error() string { return e.msg }
+
+func (e *lookupError) CacheFor() time.Duration {
 	return e.cacheFor
 }
 
@@ -142,8 +144,8 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 // Lookup returns the list of addresses where the given device is available
 func (c *globalClient) Lookup(ctx context.Context, device protocol.DeviceID) (addresses []string, err error) {
 	if c.noLookup {
-		return nil, lookupError{
-			error:    errors.New("lookups not supported"),
+		return nil, &lookupError{
+			msg:      "lookups not supported",
 			cacheFor: time.Hour,
 		}
 	}
@@ -167,8 +169,8 @@ func (c *globalClient) Lookup(ctx context.Context, device protocol.DeviceID) (ad
 		l.Debugln("globalClient.Lookup", qURL, resp.Status)
 		err := errors.New(resp.Status)
 		if secs, atoiErr := strconv.Atoi(resp.Header.Get("Retry-After")); atoiErr == nil && secs > 0 {
-			err = lookupError{
-				error:    err,
+			err = &lookupError{
+				msg:      resp.Status,
 				cacheFor: time.Duration(secs) * time.Second,
 			}
 		}
