@@ -1366,8 +1366,8 @@ func TestAutoAcceptEnc(t *testing.T) {
 		if !cfg.SharedWith(device1) {
 			t.Fatal("unexpected unshared")
 		}
-		if cfg.Type != config.FolderTypeReceiveEncryptedOnly {
-			t.Fatal("Folder not added as receiveEncryptedOnly")
+		if cfg.Type != config.FolderTypeReceiveEncrypted {
+			t.Fatal("Folder not added as receiveEncrypted")
 		}
 	}
 
@@ -3930,7 +3930,7 @@ func TestCcCheckEncryption(t *testing.T) {
 	for i, tc := range testCases {
 		tfcfg := fcfg.Copy()
 		if tc.isEncUs {
-			tfcfg.Type = config.FolderTypeReceiveEncryptedOnly
+			tfcfg.Type = config.FolderTypeReceiveEncrypted
 			m.folderEncPwTokens[fcfg.ID] = token
 		}
 		dcfg := config.FolderDeviceConfiguration{DeviceID: device1}

@@ -410,7 +410,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		LocalFlags:            f.localFlags,
 		ModTimeWindow:         f.ModTimeWindow(),
 		EventLogger:           f.evLogger,
-		DetectChangesOnly:     f.Type == config.FolderTypeReceiveEncryptedOnly,
+		DetectChangesOnly:     f.Type == config.FolderTypeReceiveEncrypted,
 	})
 
 	batchFn := func(fs []protocol.FileInfo) error {
@@ -443,7 +443,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			}
 			return oldBatchFn(fs)
 		}
-	} else if f.Type == config.FolderTypeReceiveEncryptedOnly {
+	} else if f.Type == config.FolderTypeReceiveEncrypted {
 		oldBatchFn := batchFn // can't reference batchFn directly (recursion)
 		batchFn = func(fs []protocol.FileInfo) error {
 			// Delete all changed items and set zero version vector

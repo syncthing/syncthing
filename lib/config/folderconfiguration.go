@@ -27,8 +27,8 @@ var (
 )
 
 const (
-	DefaultMarkerName                     = ".stfolder"
-	DefaultMarkerNameReceiveEncryptedOnly = ".stfolder-receive_encrypted_only"
+	DefaultMarkerName                 = ".stfolder"
+	DefaultMarkerNameReceiveEncrypted = ".stfolder-receive_encrypted"
 )
 
 type FolderConfiguration struct {
@@ -119,7 +119,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 	if err := f.CheckPath(); err != ErrMarkerMissing {
 		return err
 	}
-	if f.MarkerName != DefaultMarkerName && f.MarkerName != DefaultMarkerNameReceiveEncryptedOnly {
+	if f.MarkerName != DefaultMarkerName && f.MarkerName != DefaultMarkerNameReceiveEncrypted {
 		// Folder uses a non-default marker so we shouldn't mess with it.
 		// Pretend we created it and let the subsequent health checks sort
 		// out the actual situation.
@@ -234,8 +234,8 @@ func (f *FolderConfiguration) prepare() {
 		f.WeakHashThresholdPct = 25
 	}
 
-	if f.Type == FolderTypeReceiveEncryptedOnly {
-		f.MarkerName = DefaultMarkerNameReceiveEncryptedOnly
+	if f.Type == FolderTypeReceiveEncrypted {
+		f.MarkerName = DefaultMarkerNameReceiveEncrypted
 	} else if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
 	}
