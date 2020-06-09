@@ -58,21 +58,9 @@ func TestGlobalKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fld2, ok := db.keyer.FolderFromGlobalVersionKey(key)
-	if !ok {
-		t.Error("should have been found")
-	}
-	if !bytes.Equal(fld2, fld) {
-		t.Errorf("wrong folder %q != %q", fld2, fld)
-	}
 	name2 := db.keyer.NameFromGlobalVersionKey(key)
 	if !bytes.Equal(name2, name) {
 		t.Errorf("wrong name %q != %q", name2, name)
-	}
-
-	_, ok = db.keyer.FolderFromGlobalVersionKey([]byte{1, 2, 3, 4, 5})
-	if ok {
-		t.Error("should not have been found")
 	}
 }
 

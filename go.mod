@@ -19,19 +19,17 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
-	github.com/golang/mock v1.3.1 // indirect
 	github.com/greatroar/blobloom v0.2.1
-	github.com/jackpal/gateway v1.0.5
+	github.com/jackpal/gateway v1.0.6
 	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
+	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.2.0
-	github.com/lucas-clemente/quic-go v0.12.1
+	github.com/lucas-clemente/quic-go v0.16.1
 	github.com/maruel/panicparse v1.3.0
 	github.com/mattn/go-isatty v0.0.11
 	github.com/minio/sha256-simd v0.1.1
-	github.com/miscreant/miscreant.go v0.0.0-20190903041724-6bebe170cbaf
-	github.com/onsi/ginkgo v1.9.0 // indirect
-	github.com/onsi/gomega v1.6.0 // indirect
+	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.4.0
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1
@@ -44,14 +42,11 @@ require (
 	github.com/thejerf/suture v3.0.2+incompatible
 	github.com/urfave/cli v1.22.2
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
-	golang.org/x/crypto v0.0.0-20191205180655-e7c4368fe9dd
+	golang.org/x/crypto v0.0.0-20200423211502-4bdfaf469ed5
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
-	golang.org/x/sys v0.0.0-20191224085550-c709ea063b76
+	golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae
 	golang.org/x/text v0.3.2
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 )
 
 go 1.13
-
-// https://github.com/spaolacci/murmur3/pull/30
-replace github.com/spaolacci/murmur3 v1.1.0 => github.com/calmh/murmur3 v1.1.1-0.20200226160057-74e9af8f47ac
