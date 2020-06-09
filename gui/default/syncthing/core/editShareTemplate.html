@@ -1,0 +1,33 @@
+<div class="col-md-6 checkbox">
+  <label for="sharedwith-{{id}}" ng-switch="currentSharing.editing">
+    <input id="sharedwith-{{id}}" ng-model="currentSharing.selected[id]" type="checkbox" />
+    <span tooltip data-original-title="{{id}}">
+      <span ng-switch-when="device">{{folderLabel(id)}}</span>
+      <span ng-switch-when="folder">{{deviceName(findDevice(id))}}</span>
+    </span>
+  </label>
+</div>
+<div class="col-md-6">
+  <div class="input-group">
+    <span class="input-group-addon" ng-switch="!currentSharing.encPWs[id] || currentSharing.encPWs[id] === ''">
+      <span ng-switch-when='true' class="fas fa-fw fa-unlock" />
+      <span ng-switch-when='false' class="fas fa-fw fa-lock" />
+    </span>
+    <span ng-switch="currentSharing.selected[id]">
+      <span ng-switch-when='true' ng-switch="folder.type === 'receiveEncrypted'">
+        <span ng-switch-when='true'>
+          <input class="form-control input-sm" type="password" placeholder="{{'received data is already encrypted' | translate}}" disabled />
+        </span>
+        <span ng-switch-when='false'>
+          <input class="form-control input-sm" id="enc-pw-{{id}}" type="password" ng-model="currentSharing.encPWs[id]" placeholder="{{'enter password to encrypt sent data' | translate}}" />
+        </span>
+      </span>
+      <span ng-switch-default>
+        <input class="form-control input-sm" type="password" placeholder="{{'not shared' | translate}}" disabled />
+      </span>
+    </span>
+    <span class="input-group-addon">
+      <span class="button fas fa-fw fa-eye" ng-click="togglePW('enc-pw-' + id)" />
+    </span>
+  </div>
+</div>

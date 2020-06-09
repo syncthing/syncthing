@@ -682,12 +682,13 @@ angular.module('syncthing.core')
             });
         };
 
-        function initCurrentFolder(folder) {
-            $scope.currentFolder = angular.copy(folder);
-            $scope.currentFolder.sharedDevices = [];
-            $scope.currentFolder.unrelatedDevices = [];
-            $scope.currentFolder.selectedDevices = {};
-            $scope.currentFolder.encPWs = {};
+        function initShareEditing(editing) {
+            $scope.currentSharing = {};
+            $scope.currentSharing.editing = editing;
+            $scope.currentSharing.shared = [];
+            $scope.currentSharing.unrelated = [];
+            $scope.currentSharing.selected = {};
+            $scope.currentSharing.encPWs = {};
         };
 
         $scope.refreshFailed = function (page, perpage) {
@@ -1417,21 +1418,19 @@ angular.module('syncthing.core')
             }
             $scope.currentDevice._addressesStr = deviceCfg.addresses.join(', ');
 
-            $scope.currentDevice.sharedFolders = $scope.deviceFolders($scope.currentDevice);
-            $scope.currentDevice.unrelatedFolders = [];
-            $scope.currentDevice.selectedFolders = {};
-            $scope.currentDevice.encPWs = {};
-            $scope.currentDevice.sharedFolders.forEach(function (folder) {
+            initShareEditing('device');
+            $scope.currentSharing.shared = $scope.deviceFolders($scope.currentDevice);
+            $scope.currentSharing.shared.forEach(function (folder) {
                 for (var i = 0; i < folder.devices.length; i++) {
                     if (folder.devices[i].deviceID === deviceCfg.deviceID) {
-                        $scope.currentDevice.encPWs[folder.id] = folder.devices[i].encryptionPassword;
+                        $scope.currentSharing.encPWs[folder.id] = folder.devices[i].encryptionPassword;
                         break;
                     }
                 }
-                $scope.currentDevice.selectedFolders[folder.id] = true;
+                $scope.currentSharing.selected[folder.id] = true;
             });
-            $scope.currentDevice.unrelatedFolders = $scope.folderList().filter(function (n) {
-                return !$scope.currentDevice.selectedFolders[n.id]
+            $scope.currentSharing.unrelated = $scope.folderList().filter(function (n) {
+                return !$scope.currentSharing.selected[n.id]
             });
 
             $scope.deviceEditor.$setPristine();
@@ -1439,16 +1438,16 @@ angular.module('syncthing.core')
         };
 
         $scope.selectAllSharedFolders = function (state) {
-            var devices = $scope.currentDevice.sharedFolders;
+            var devices = $scope.currentSharing.shared;
             for (var i = 0; i < devices.length; i++) {
-                $scope.currentDevice.selectedFolders[devices[i].deviceID] = !!state;
+                $scope.currentSharing.selected[devices[i].deviceID] = !!state;
             }
         };
 
         $scope.selectAllUnrelatedFolders = function (state) {
-            var devices = $scope.currentDevice.unrelatedFolders;
+            var devices = $scope.currentSharing.unrelated;
             for (var i = 0; i < devices.length; i++) {
-                $scope.currentDevice.selectedFolders[devices[i].deviceID] = !!state;
+                $scope.currentSharing.selected[devices[i].deviceID] = !!state;
             }
         };
 
@@ -1531,27 +1530,35 @@ angular.module('syncthing.core')
             $scope.devices.sort(deviceCompare);
             $scope.config.devices = $scope.devices;
 
-            for (var id in deviceCfg.selectedFolders) {
-                if (deviceCfg.selectedFolders[id]) {
-                    var found = false;
-                    for (i = 0; i < $scope.folders[id].devices.length; i++) {
-                        if ($scope.folders[id].devices[i].deviceID === deviceCfg.deviceID) {
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if (!found) {
-                        $scope.folders[id].devices.push({
-                            deviceID: deviceCfg.deviceID
-                        });
-                    }
-                } else {
+            $scope.currentSharing.shared.forEach(function (folder) {
+                var id = folder.id;
+                if ($scope.currentSharing.selected[id] !== true) {
+                    // Remove device from folder
                     $scope.folders[id].devices = $scope.folders[id].devices.filter(function (n) {
                         return n.deviceID !== deviceCfg.deviceID;
                     });
+                    return;
                 }
-            }
+                // Update encryption pw
+                for (i = 0; i < $scope.folders[id].devices.length; i++) {
+                    if ($scope.folders[id].devices[i].deviceID === deviceCfg.deviceID) {
+                        $scope.folders[id].devices[i].encryptionPassword = $scope.currentSharing.encPWs[id];
+                        break;
+                    }
+                }
+            });
+            $scope.currentSharing.unrelated.forEach(function (folder) {
+                if ($scope.currentSharing.selected[folder.id] === true) {
+                    $scope.folders[folder.id].devices.push({
+                        deviceID: deviceCfg.deviceID,
+                        encryptionPassword: $scope.currentSharing.encPWs[folder.id],
+                    });
+                }
+            });
+
+            delete $scope.currentSharing;
+
+            $scope.config.folders = folderList($scope.folders);
 
             $scope.saveConfig();
         };
@@ -1735,24 +1742,24 @@ angular.module('syncthing.core')
 
         $scope.editFolder = function (folderCfg) {
             $scope.editingExisting = true;
-            initCurrentFolder(folderCfg);
+            $scope.currentFolder = angular.copy(folderCfg);
             if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
             }
             // Cache complete device objects indexed by ID for lookups
             var devMap = deviceMap($scope.devices)
+            initShareEditing('folder');
             $scope.currentFolder.devices.forEach(function (n) {
                 if (n.deviceID !== $scope.myID) {
-                    $scope.currentFolder.sharedDevices.push(devMap[n.deviceID]);
+                    $scope.currentSharing.shared.push(devMap[n.deviceID]);
                 }
                 if (n.encryptionPassword !== '') {
-                    $scope.currentFolder.encPWs[n.deviceID] = n.encryptionPassword;
+                    $scope.currentSharing.encPWs[n.deviceID] = n.encryptionPassword;
                 }
-                $scope.currentFolder.selectedDevices[n.deviceID] = true;
+                $scope.currentSharing.selected[n.deviceID] = true;
             });
-            $scope.currentFolder.unrelatedDevices = $scope.devices.filter(function (n) {
-                return n.deviceID !== $scope.myID
-                    && ! $scope.currentFolder.selectedDevices[n.deviceID]
+            $scope.currentSharing.unrelated = $scope.devices.filter(function (n) {
+                return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID]
             });
             if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "trashcan") {
                 $scope.currentFolder.trashcanFileVersioning = true;
@@ -1805,25 +1812,26 @@ angular.module('syncthing.core')
         };
 
         $scope.selectAllSharedDevices = function (state) {
-            var devices = $scope.currentFolder.sharedDevices;
+            var devices = $scope.currentSharing.shared;
             for (var i = 0; i < devices.length; i++) {
-                $scope.currentFolder.selectedDevices[devices[i].deviceID] = !!state;
+                $scope.currentSharing.selected[devices[i].deviceID] = !!state;
             }
         };
 
         $scope.selectAllUnrelatedDevices = function (state) {
-            var devices = $scope.currentFolder.unrelatedDevices;
+            var devices = $scope.currentSharing.unrelated;
             for (var i = 0; i < devices.length; i++) {
-                $scope.currentFolder.selectedDevices[devices[i].deviceID] = !!state;
+                $scope.currentSharing.selected[devices[i].deviceID] = !!state;
             }
         };
 
         $scope.addFolder = function () {
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.editingExisting = false;
-                initCurrentFolder($scope.folderDefaults);
+                $scope.currentFolder = angular.copy($scope.folderDefaults);
+                initShareEditing('folder');
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
-                $scope.currentFolder.unrelatedDevices = $scope.otherDevices();
+                $scope.currentSharing.unrelated = $scope.otherDevices();
                 $('#folder-ignores textarea').val("");
                 $('#folder-ignores textarea').removeAttr('disabled');
                 $scope.editFolderModal();
@@ -1832,14 +1840,17 @@ angular.module('syncthing.core')
 
         $scope.addFolderAndShare = function (folder, folderLabel, device) {
             $scope.editingExisting = false;
-            initCurrentFolder($scope.folderDefaults);
+            $scope.currentFolder = angular.copy($scope.folderDefaults);
             $scope.currentFolder.id = folder;
             $scope.currentFolder.label = folderLabel;
             $scope.currentFolder.viewFlags = {
                 importFromOtherDevice: true
             };
-            $scope.currentFolder.selectedDevices[device] = true;
-            $scope.currentFolder.unrelatedDevices = $scope.otherDevices();
+            initShareEditing('folder');
+            $scope.currentSharing.selected[device] = true;
+            $scope.currentSharing.unrelated = $scope.devices.filter(function (n) {
+                return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID]
+            });
             $('#folder-ignores textarea').val("");
             $('#folder-ignores textarea').removeAttr('disabled');
             $scope.editFolderModal();
@@ -1856,39 +1867,25 @@ angular.module('syncthing.core')
         $scope.saveFolder = function () {
             $('#editFolder').modal('hide');
             var folderCfg = angular.copy($scope.currentFolder);
-            folderCfg.selectedDevices[$scope.myID] = true;
+            $scope.currentSharing.selected[$scope.myID] = true;
             var newDevices = [];
             folderCfg.devices.forEach(function (dev) {
-                if (folderCfg.selectedDevices[dev.deviceID] === true) {
-                    if (!folderCfg.encPWs[dev.deviceID]) {
-                        dev.encryptionPassword = '';
-                    } else {
-                        dev.encryptionPassword = folderCfg.encPWs[dev.deviceID];
-                    }
+                if ($scope.currentSharing.selected[dev.deviceID] === true) {
+                    dev.encryptionPassword = $scope.currentSharing.encPWs[dev.deviceID];
                     newDevices.push(dev);
-                    delete folderCfg.selectedDevices[dev.deviceID];
+                    delete $scope.currentSharing.selected[dev.deviceID];
                 };
             });
-            for (var deviceID in folderCfg.selectedDevices) {
-                if (folderCfg.selectedDevices[deviceID] === true) {
-                    var dev = {deviceID: deviceID};
-                    if (!folderCfg.encPWs[dev.deviceID]) {
-                        dev.encryptionPassword = '';
-                    } else {
-                        dev.encryptionPassword = folderCfg.encPWs[dev.deviceID];
-                    }
-                    newDevices.push(dev);
-                }
-            }
-            for (var k in folderCfg.encPWs) {
-                if (folderCfg.encPWs[k] !== '') {
-                    continue
+            for (var deviceID in $scope.currentSharing.selected) {
+                if ($scope.currentSharing.selected[deviceID] === true) {
+                    newDevices.push({
+                        deviceID: deviceID,
+                        encryptionPassword: $scope.currentSharing.encPWs[deviceID],
+                    });
                 }
             }
             folderCfg.devices = newDevices;
-            delete folderCfg.sharedDevices;
-            delete folderCfg.selectedDevices;
-            delete folderCfg.unrelatedDevices;
+            delete $scope.currentSharing;
 
             if (folderCfg.fileVersioningSelector === "trashcan") {
                 folderCfg.versioning = {

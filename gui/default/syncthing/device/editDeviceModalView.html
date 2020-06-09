@@ -64,26 +64,26 @@
             </div>
           </div>
           <div class="form-group">
-            <div class="form-horizontal" ng-if="currentDevice.sharedFolders.length">
+            <div class="form-horizontal" ng-if="currentSharing.shared.length">
               <label translate for="folders">Shared Folders</label>
               <p class="help-block">
                 <span translate>Select the folders to share with this device.</span>&emsp;
                 <small><a href="#" ng-click="selectAllSharedFolders(true)" translate>Select All</a>&emsp;
                   <a href="#" ng-click="selectAllSharedFolders(false)" translate>Deselect All</a></small>
               </p>
-              <div class="form-group" ng-repeat="folder in currentDevice.sharedFolders">
-                <ng-include src="'syncthing/device/editDeviceShareTemplate.html'" />
+              <div class="form-group" ng-repeat="folder in currentSharing.shared" ng-init="id = folder.id">
+                <ng-include src="'syncthing/core/editShareTemplate.html'" />
               </div>
             </div>
-            <div class="form-horizontal" ng-if="currentDevice.unrelatedFolders.length">
+            <div class="form-horizontal" ng-if="currentSharing.unrelated.length">
               <label translate>Unshared Folders</label>
               <p class="help-block">
                 <span translate>Select additional folders to share with this device.</span>&emsp;
                 <small><a href="#" ng-click="selectAllUnrelatedFolders(true)" translate>Select All</a>&emsp;
                   <a href="#" ng-click="selectAllUnrelatedFolders(false)" translate>Deselect All</a></small>
               </p>
-              <div class="form-group" ng-repeat="folder in currentDevice.unrelatedFolders">
-                <ng-include src="'syncthing/device/editDeviceShareTemplate.html'" />
+              <div class="form-group" ng-repeat="folder in currentSharing.unrelated" ng-init="id = folder.id">
+                <ng-include src="'syncthing/core/editShareTemplate.html'" />
               </div>
             </div>
           </div>

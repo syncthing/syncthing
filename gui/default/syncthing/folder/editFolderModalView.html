@@ -44,18 +44,18 @@
           </div>
         </div>
         <div id="folder-sharing" class="tab-pane">
-          <div class="form-horizontal" ng-if="currentFolder.sharedDevices.length">
+          <div class="form-horizontal" ng-if="currentSharing.shared.length">
             <label translate>Currently Shared With Devices</label>
             <p class="help-block">
               <span translate>Deselect devices to stop sharing this folder with.</span>&emsp;
               <small><a href="#" ng-click="selectAllSharedDevices(true)" translate>Select All</a>&emsp;
                 <a href="#" ng-click="selectAllSharedDevices(false)" translate>Deselect All</a></small>
             </p>
-            <div class="form-group" ng-repeat="device in currentFolder.sharedDevices">
-              <ng-include src="'syncthing/folder/editFolderShareTemplate.html'" />
+            <div class="form-group" ng-repeat="device in currentSharing.shared" ng-init="id = device.deviceID; folder = currentFolder">
+              <ng-include src="'syncthing/core/editShareTemplate.html'" />
             </div>
           </div>
-          <div class="form-horizontal" ng-if="currentFolder.unrelatedDevices.length || otherDevices().length <= 0">
+          <div class="form-horizontal" ng-if="currentSharing.unrelated.length || otherDevices().length <= 0">
             <label translate>Unshared Devices</label>
             <p class="help-block" ng-if="otherDevices().length > 0">
               <span translate>Select additional devices to share this folder with.</span>&emsp;
@@ -65,8 +65,8 @@
             <p class="help-block" ng-if="otherDevices().length <= 0">
               <span translate>There are no devices to share this folder with.</span>
             </p>
-            <div class="form-group" ng-repeat="device in currentFolder.unrelatedDevices">
-              <ng-include src="'syncthing/folder/editFolderShareTemplate.html'" />
+            <div class="form-group" ng-repeat="device in currentSharing.unrelated" ng-init="id = device.deviceID; folder = currentFolder">
+              <ng-include src="'syncthing/core/editShareTemplate.html'" />
             </div>
           </div>
         </div>
@@ -185,8 +185,8 @@
                   </select>
                   <p ng-if="currentFolder.type == 'sendonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
                   <p ng-if="currentFolder.type == 'receiveonly'" translate class="help-block">Files are synchronized from the cluster, but any changes made locally will not be sent to other devices.</p>
-                  <p ng-if="currentFolder.type == 'receiveEncrypted'" translate class="help-block">Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type Receive Encrypted too.</p>
-                  <p ng-if="editingExisting" translate class="help-block">Folder type Receive Encrypted cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.</p>
+                  <p ng-if="currentFolder.type == 'receiveEncrypted'" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type "{%receiveEncrypted%}" too.</p>
+                  <p ng-if="editingExisting" translate class="help-block" translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">Folder type "{%receiveEncrypted%}" cannot be changed after adding the folder. You need to remove the folder, delete or decrypt the data on disk, and add the folder again.</p>
                 </div>
                 <div class="col-md-6 form-group">
                   <label translate>File Pull Order</label>
