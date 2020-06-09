@@ -59,6 +59,9 @@ type Config struct {
 	ModTimeWindow time.Duration
 	// Event logger to which the scan progress events are sent
 	EventLogger events.Logger
+	// If true doesn't hash any file and and thus ScanResults.File does not
+	// contain any blocks.
+	DetectChangesOnly bool
 }
 
 type CurrentFiler interface {
@@ -123,6 +126,16 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		}
 		close(toHashChan)
 	}()
+
+	if w.DetectChangesOnly {
+		go func() {
+			for file := range toHashChan {
+				finishedChan <- ScanResult{File: file}
+			}
+			close(finishedChan)
+		}()
+		return finishedChan
+	}
 
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
@@ -224,12 +237,6 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 
 		if !utf8.ValidString(path) {
 			w.handleError(ctx, "scan", path, errUTF8Invalid, finishedChan)
-			return skip
-		}
-
-		// If the directory is an encrypted data container it can't currently be
-		// scanned. (Special handling here in the future?)
-		if filepath.Ext(path) == protocol.EncryptedDirExtension {
 			return skip
 		}
 
