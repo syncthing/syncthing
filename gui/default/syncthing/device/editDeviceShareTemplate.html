@@ -11,7 +11,7 @@
       <span ng-switch-when='false' class="fas fa-fw fa-lock" />
     </span>
     <span ng-switch="currentDevice.selectedFolders[folder.id]">
-      <span ng-switch-when='true' ng-switch="folder.type === 'receiveEncryptedOnly'">
+      <span ng-switch-when='true' ng-switch="folder.type === 'receiveEncrypted'">
         <span ng-switch-when='true'>
           <input class="form-control input-sm" type="password" placeholder="{{'folder is encrypted' | translate}}" disabled />
         </span>

@@ -10,13 +10,13 @@
       <span ng-switch-when='true' class="fas fa-fw fa-unlock" />
       <span ng-switch-when='false' class="fas fa-fw fa-lock" />
     </span>
-    <span ng-switch="currentFolder.type === 'receiveEncryptedOnly'">
+    <span ng-switch="currentFolder.type === 'receiveEncrypted'">
       <span ng-switch-when='true'>
-        <input class="form-control input-sm" type="password" placeholder="{{'folder is encrypted' | translate}}" disabled />
+        <input class="form-control input-sm" type="password" placeholder="{{'received data is already encrypted' | translate}}" disabled />
       </span>
       <span ng-switch-when='false' ng-switch="currentFolder.selectedDevices[device.deviceID]">
         <span ng-switch-when='true'>
-          <input class="form-control input-sm" id="enc-pw-{{device.deviceID}}" type="password" ng-model="currentFolder.encPWs[device.deviceID]" placeholder="{{'enter password to encrypt' | translate}}" />
+          <input class="form-control input-sm" id="enc-pw-{{device.deviceID}}" type="password" ng-model="currentFolder.encPWs[device.deviceID]" placeholder="{{'enter password to encrypt sent data' | translate}}" />
         </span>
         <span ng-switch-default>
           <input class="form-control input-sm" type="password" placeholder="{{'not shared' | translate}}" disabled />
