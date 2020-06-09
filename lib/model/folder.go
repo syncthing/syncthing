@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -399,12 +400,13 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	scanCtx, scanCancel := context.WithCancel(f.ctx)
 	defer scanCancel()
 	mtimefs := f.fset.MtimeFS()
-	fchan := scanner.Walk(scanCtx, scanner.Config{
+	scanCfg := scanner.Config{
 		Folder:                f.ID,
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
 		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          cFiler{snap},
+		Have:                  haveWalker{snap},
+		Global:                globaler{snap},
 		Filesystem:            mtimefs,
 		IgnorePerms:           f.IgnorePerms,
 		AutoNormalize:         f.AutoNormalize,
@@ -414,7 +416,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		LocalFlags:            f.localFlags,
 		ModTimeWindow:         f.ModTimeWindow(),
 		EventLogger:           f.evLogger,
-	})
+		Deletions:             false,
+	}
 
 	batchFn := func(fs []protocol.FileInfo) error {
 		if err := f.getHealthErrorWithoutIgnores(); err != nil {
@@ -459,8 +462,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}()
 
 	f.clearScanErrors(subDirs)
+
 	alreadyUsed := make(map[string]struct{})
-	for res := range fchan {
+	var delDirStack []protocol.FileInfo
+	for res := range scanner.Walk(scanCtx, scanCfg) {
 		if res.Err != nil {
 			f.newScanError(res.Path, res.Err)
 			continue
@@ -470,155 +475,75 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			return err
 		}
 
-		batch.append(res.File)
-		changes++
-
-		if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
-			if nf, ok := f.findRename(snap, mtimefs, res.File, alreadyUsed); ok {
+		// Append deleted dirs from stack if the current file isn't a child,
+		// which means all children were already processed.
+		for len(delDirStack) != 0 && !strings.HasPrefix(res.New.Name, delDirStack[len(delDirStack)-1].Name+string(fs.PathSeparator)) {
+			lastDelDir := delDirStack[len(delDirStack)-1]
+			batch.append(lastDelDir)
+			changes++
+			if nf, ok := f.findRename(snap, mtimefs, res.New, alreadyUsed); ok {
 				batch.append(nf)
 				changes++
 			}
+			if err := batch.flushIfFull(); err != nil {
+				return err
+			}
+			delDirStack = delDirStack[:len(delDirStack)-1]
+		}
+
+		// Delay appending deleted dirs until all its children are processed
+		if res.Old.IsDirectory() && (res.New.Deleted || !res.New.IsDirectory()) {
+			delDirStack = append(delDirStack, res.New)
+			continue
+		}
+
+		batch.append(res.New)
+		changes++
+
+		if nf, ok := f.findRename(snap, mtimefs, res.New, alreadyUsed); ok {
+			batch.append(nf)
+			changes++
 		}
 	}
+
+	// Append remaining deleted dirs.
+	for i := len(delDirStack) - 1; i >= 0; i-- {
+		if err := batch.flushIfFull(); err != nil {
+			return err
+		}
+		batch.append(delDirStack[i])
+		changes++
+		if nf, ok := f.findRename(snap, mtimefs, delDirStack[i], alreadyUsed); ok {
+			batch.append(nf)
+			changes++
+		}
+	}
+
+	alreadyUsed = nil
 
 	if err := batch.flush(); err != nil {
 		return err
 	}
 
-	if len(subDirs) == 0 {
-		// If we have no specific subdirectories to traverse, set it to one
-		// empty prefix so we traverse the entire folder contents once.
-		subDirs = []string{""}
-	}
-
-	// Do a scan of the database for each prefix, to check for deleted and
-	// ignored files.
-	var toIgnore []db.FileInfoTruncated
-	ignoredParent := ""
-
 	snap.Release()
 	snap = f.fset.Snapshot()
 	defer snap.Release()
 
-	for _, sub := range subDirs {
-		var iterError error
-
-		snap.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi protocol.FileIntf) bool {
-			select {
-			case <-f.ctx.Done():
-				return false
-			default:
-			}
-
-			file := fi.(db.FileInfoTruncated)
-
-			if err := batch.flushIfFull(); err != nil {
-				iterError = err
-				return false
-			}
-
-			if ignoredParent != "" && !fs.IsParent(file.Name, ignoredParent) {
-				for _, file := range toIgnore {
-					l.Debugln("marking file as ignored", file)
-					nf := file.ConvertToIgnoredFileInfo(f.shortID)
-					batch.append(nf)
-					changes++
-					if err := batch.flushIfFull(); err != nil {
-						iterError = err
-						return false
-					}
-				}
-				toIgnore = toIgnore[:0]
-				ignoredParent = ""
-			}
-
-			switch ignored := f.ignores.Match(file.Name).IsIgnored(); {
-			case !file.IsIgnored() && ignored:
-				// File was not ignored at last pass but has been ignored.
-				if file.IsDirectory() {
-					// Delay ignoring as a child might be unignored.
-					toIgnore = append(toIgnore, file)
-					if ignoredParent == "" {
-						// If the parent wasn't ignored already, set
-						// this path as the "highest" ignored parent
-						ignoredParent = file.Name
-					}
-					return true
-				}
-
-				l.Debugln("marking file as ignored", file)
-				nf := file.ConvertToIgnoredFileInfo(f.shortID)
-				batch.append(nf)
-				changes++
-
-			case file.IsIgnored() && !ignored:
-				// Successfully scanned items are already un-ignored during
-				// the scan, so check whether it is deleted.
-				fallthrough
-			case !file.IsIgnored() && !file.IsDeleted() && !file.IsUnsupported():
-				// The file is not ignored, deleted or unsupported. Lets check if
-				// it's still here. Simply stat:ing it wont do as there are
-				// tons of corner cases (e.g. parent dir->symlink, missing
-				// permissions)
-				if !osutil.IsDeleted(mtimefs, file.Name) {
-					if ignoredParent != "" {
-						// Don't ignore parents of this not ignored item
-						toIgnore = toIgnore[:0]
-						ignoredParent = ""
-					}
-					return true
-				}
-				nf := file.ConvertToDeletedFileInfo(f.shortID)
-				nf.LocalFlags = f.localFlags
-				if file.ShouldConflict() {
-					// We do not want to override the global version with
-					// the deleted file. Setting to an empty version makes
-					// sure the file gets in sync on the following pull.
-					nf.Version = protocol.Vector{}
-				}
-
-				batch.append(nf)
-				changes++
-			}
-
-			// Check for deleted, locally changed items that noone else has.
-			if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
-				return true
-			}
-			if !fi.IsDeleted() || !fi.IsReceiveOnlyChanged() || len(snap.Availability(fi.FileName())) > 0 {
-				return true
-			}
-			nf := fi.(db.FileInfoTruncated).ConvertDeletedToFileInfo()
-			nf.LocalFlags = 0
-			nf.Version = protocol.Vector{}
-			batch.append(nf)
-			changes++
-
-			return true
-		})
-
-		select {
-		case <-f.ctx.Done():
-			return f.ctx.Err()
-		default:
+	scanCfg.Have = haveWalker{snap}
+	scanCfg.Global = globaler{snap}
+	scanCfg.Deletions = true
+	for res := range scanner.Walk(scanCtx, scanCfg) {
+		if res.Err != nil {
+			f.newScanError(res.Path, res.Err)
+			continue
 		}
 
-		if iterError == nil && len(toIgnore) > 0 {
-			for _, file := range toIgnore {
-				l.Debugln("marking file as ignored", f)
-				nf := file.ConvertToIgnoredFileInfo(f.shortID)
-				batch.append(nf)
-				changes++
-				if iterError = batch.flushIfFull(); iterError != nil {
-					break
-				}
-			}
-			toIgnore = toIgnore[:0]
+		if err := batch.flushIfFull(); err != nil {
+			return err
 		}
 
-		if iterError != nil {
-			return iterError
-		}
+		batch.append(res.New)
+		changes++
 	}
 
 	if err := batch.flush(); err != nil {
@@ -632,6 +557,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file protocol.FileInfo, alreadyUsed map[string]struct{}) (protocol.FileInfo, bool) {
 	if len(file.Blocks) == 0 || file.Size == 0 {
+		return protocol.FileInfo{}, false
+	}
+
+	if f.localFlags&protocol.FlagLocalReceiveOnly != 0 {
 		return protocol.FileInfo{}, false
 	}
 
@@ -1063,11 +992,28 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	return dirs
 }
 
-type cFiler struct {
+type globaler struct {
 	*db.Snapshot
 }
 
-// Implements scanner.CurrentFiler
-func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
-	return cf.Get(protocol.LocalDeviceID, file)
+// Implements scanner.TruncatedGlobaler
+func (g globaler) GlobalTruncated(file string) (protocol.FileIntf, bool) {
+	return g.GetGlobalTruncated(file)
+}
+
+type haveWalker struct {
+	*db.Snapshot
+}
+
+// Implements scanner.HaveWalker
+func (h haveWalker) Walk(prefix string, ctx context.Context, out chan<- protocol.FileInfo) {
+	h.WithPrefixedHave(protocol.LocalDeviceID, prefix, func(fi protocol.FileIntf) bool {
+		f := fi.(protocol.FileInfo)
+		select {
+		case out <- f:
+		case <-ctx.Done():
+			return false
+		}
+		return true
+	})
 }
