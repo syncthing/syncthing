@@ -885,6 +885,7 @@ func (f *folder) String() string {
 
 func (f *folder) newScanError(path string, err error) {
 	f.scanErrorsMut.Lock()
+	l.Infof("Scanner (folder %s, item %q): %v", f.Description(), path, err)
 	f.scanErrors = append(f.scanErrors, FileError{
 		Err:  err.Error(),
 		Path: path,
