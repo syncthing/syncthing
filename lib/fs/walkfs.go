@@ -12,6 +12,7 @@ package fs
 
 import (
 	"path/filepath"
+	"sort"
 )
 
 type ancestorDirList struct {
@@ -98,6 +99,7 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc, ances
 	if err != nil {
 		return walkFn(path, info, err)
 	}
+	sort.Strings(names)
 
 	for _, name := range names {
 		filename := filepath.Join(path, name)
