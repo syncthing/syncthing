@@ -50,7 +50,7 @@ func TestRealCase(t *testing.T) {
 		{filepath.Join("foo", "bar", "BAZ"), 3},
 		{filepath.Join("Foo", "bar", "bAz"), 3},
 	} {
-		out, err := osutil.RealCase(tmpDir, tc.in)
+		out, err := osutil.RealCase(testFs, tc.in)
 		if err != nil {
 			t.Error(err)
 		} else if exp := filepath.Join(comps[:tc.len]...); out != exp {

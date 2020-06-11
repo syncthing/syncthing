@@ -16,8 +16,8 @@ import (
 
 // RealCase returns the correct case for the given name, which is a relative
 // path below root, as it exists on disk.
-func RealCase(root, name string) (string, error) {
-	path := root
+func RealCase(ffs fs.Filesystem, name string) (string, error) {
+	path := ffs.URI()
 	comps := strings.Split(name, string(fs.PathSeparator))
 	var err error
 	for i, comp := range comps {
