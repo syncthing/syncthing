@@ -75,6 +75,14 @@ var (
 	contextRemovingOldItem      = "removing item to be replaced"
 )
 
+type errCaseConflict struct {
+	name, onDisk string
+}
+
+func (e *errCaseConflict) Error() string {
+	return fmt.Sprintf("name to sync (%v) conflicts with name on disk (%v)", e.name, e.onDisk)
+}
+
 type dbUpdateType int
 
 func (d dbUpdateType) String() string {
@@ -584,12 +592,24 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
-	info, err := f.fs.Lstat(file.Name)
-	switch {
+	info, err := f.statAndCheckCase(file.Name)
+
+	if err != nil && !fs.IsNotExist(err) {
+		f.newPullError(file.Name, errors.Wrap(err, "checking for existing dir"))
+		return
+	}
+
+	// The directory doesn't exist, so we create it with the right
+	// mode bits from the start.
+	if fs.IsNotExist(err) {
+		f.createDir(file, info, mode, dbUpdateChan)
+		return
+	}
+
 	// There is already something under that name, we need to handle that.
 	// Unless it already is a directory, as we only track permissions,
 	// that don't result in a conflict.
-	case err == nil && !info.IsDir():
+	if !info.IsDir() {
 		// Check that it is what we have in the database.
 		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
 		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
@@ -617,45 +637,8 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 			f.newPullError(file.Name, err)
 			return
 		}
-		fallthrough
-	// The directory doesn't exist, so we create it with the right
-	// mode bits from the start.
-	case err != nil && fs.IsNotExist(err):
-		// We declare a function that acts on only the path name, so
-		// we can pass it to InWritableDir. We use a regular Mkdir and
-		// not MkdirAll because the parent should already exist.
-		mkdir := func(path string) error {
-			err = f.fs.Mkdir(path, mode)
-			if err != nil || f.IgnorePerms || file.NoPermissions {
-				return err
-			}
 
-			// Copy the parent owner and group, if we are supposed to do that.
-			if err := f.maybeCopyOwner(path); err != nil {
-				return err
-			}
-
-			// Stat the directory so we can check its permissions.
-			info, err := f.fs.Lstat(path)
-			if err != nil {
-				return err
-			}
-
-			// Mask for the bits we want to preserve and add them in to the
-			// directories permissions.
-			return f.fs.Chmod(path, mode|(info.Mode()&retainBits))
-		}
-
-		if err = f.inWritableDir(mkdir, file.Name); err == nil {
-			dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleDir}
-		} else {
-			f.newPullError(file.Name, errors.Wrap(err, "creating directory"))
-		}
-		return
-	// Weird error when stat()'ing the dir. Probably won't work to do
-	// anything else with it if we can't even stat() it.
-	case err != nil:
-		f.newPullError(file.Name, errors.Wrap(err, "checking file to be replaced"))
+		f.createDir(file, info, mode, dbUpdateChan)
 		return
 	}
 
@@ -669,6 +652,55 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 		}
 	}
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleDir}
+}
+
+func (f *sendReceiveFolder) statAndCheckCase(name string) (fs.FileInfo, error) {
+	info, err := f.fs.Lstat(name)
+	if err != nil {
+		return nil, err
+	}
+
+	if realName, err := osutil.RealCase(f.fs, name); err != nil {
+		// An error here would be mighty surprising given the stat worked
+		return nil, err
+	} else if realName != name {
+		return nil, &errCaseConflict{name, realName}
+	}
+
+	return info, nil
+}
+
+func (f *sendReceiveFolder) createDir(file protocol.FileInfo, info fs.FileInfo, mode fs.FileMode, dbUpdateChan chan<- dbUpdateJob) {
+	// We declare a function that acts on only the path name, so
+	// we can pass it to InWritableDir. We use a regular Mkdir and
+	// not MkdirAll because the parent should already exist.
+	mkdir := func(path string) error {
+		err := f.fs.Mkdir(path, mode)
+		if err != nil || f.IgnorePerms || file.NoPermissions {
+			return err
+		}
+
+		// Copy the parent owner and group, if we are supposed to do that.
+		if err := f.maybeCopyOwner(path); err != nil {
+			return err
+		}
+
+		// Stat the directory so we can check its permissions.
+		info, err := f.fs.Lstat(path)
+		if err != nil {
+			return err
+		}
+
+		// Mask for the bits we want to preserve and add them in to the
+		// directories permissions.
+		return f.fs.Chmod(path, mode|(info.Mode()&retainBits))
+	}
+
+	if err := f.inWritableDir(mkdir, file.Name); err == nil {
+		dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleDir}
+	} else {
+		f.newPullError(file.Name, errors.Wrap(err, "creating directory"))
+	}
 }
 
 // checkParent verifies that the thing we are handling lives inside a directory,
@@ -740,8 +772,15 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		return
 	}
 
+	info, err := f.statAndCheckCase(file.Name)
+
+	if err != nil && !fs.IsNotExist(err) {
+		f.newPullError(file.Name, errors.Wrap(err, "checking for existing symlink"))
+		return
+	}
+
 	// There is already something under that name, we need to handle that.
-	if info, err := f.fs.Lstat(file.Name); err == nil {
+	if err == nil {
 		// Check that it is what we have in the database.
 		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
 		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
@@ -952,7 +991,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	}
 	// Check that the target corresponds to what we have in the DB
 	curTarget, ok := snap.Get(protocol.LocalDeviceID, target.Name)
-	switch stat, serr := f.fs.Lstat(target.Name); {
+	switch stat, serr := f.statAndCheckCase(target.Name); {
 	case serr != nil && fs.IsNotExist(serr):
 		if !ok || curTarget.IsDeleted() {
 			break
@@ -1058,12 +1097,19 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 
 	have, _ := blockDiff(curFile.Blocks, file.Blocks)
 
-	tempName := fs.TempName(file.Name)
-
 	populateOffsets(file.Blocks)
 
 	blocks := make([]protocol.BlockInfo, 0, len(file.Blocks))
 	reused := make([]int32, 0, len(file.Blocks))
+
+	tempName := fs.TempName(file.Name)
+
+	// Check for case conflicts.
+	if _, err := f.statAndCheckCase(tempName); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		f.newPullError(file.Name, fmt.Errorf("checking temporary sync path: %w", err))
+		f.queue.Done(file.Name)
+		return
+	}
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
@@ -1504,7 +1550,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		return err
 	}
 
-	if stat, err := f.fs.Lstat(file.Name); err == nil {
+	if stat, err := f.statAndCheckCase(file.Name); err == nil {
 		// There is an old file or directory already in place. We need to
 		// handle that.
 
@@ -1868,6 +1914,8 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 			hasReceiveOnlyChanged = true
 			continue
 		}
+		// No need to check for the correct case here as the dir path has
+		// already been checked and the last component comes from DirNames.
 		info, err := f.fs.Lstat(fullDirFile)
 		var diskFile protocol.FileInfo
 		if err == nil {
@@ -1965,7 +2013,7 @@ func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur
 		return fs.ErrNotExist
 	}
 
-	stat, err := f.fs.Lstat(file.Name)
+	stat, err := f.statAndCheckCase(file.Name)
 	if !fs.IsNotExist(err) && err != nil {
 		return err
 	}
