@@ -61,6 +61,10 @@ type Config struct {
 	ModTimeWindow time.Duration
 	// Event logger to which the scan progress events are sent
 	EventLogger events.Logger
+	// If false, it returns changes to items existing on the filesystem If
+	// true, it returns items existing in the db, but not existing on the
+	// filesystem.
+	Deletions bool
 }
 
 type HaveWalker interface {
@@ -127,7 +131,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 
 	toHashChan := make(chan ScanResult)
 	finishedChan := make(chan ScanResult)
-	go w.processWalkResults(ctx, fsChan, haveChan, toHashChan, finishedChan)
+	go w.processWalkResults(ctx, fsChan, haveChan, toHashChan, finishedChan, haveCancel)
 
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
@@ -301,7 +305,10 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 		}
 
 		if err != nil {
-			fsWalkError(ctx, fsChan, path, err)
+			// Only happens when the sub-path given to fs.Walk doesn't exit.
+			if !fs.IsNotExist(err) {
+				fsWalkError(ctx, fsChan, path, err)
+			}
 			return skip
 		}
 
@@ -382,7 +389,9 @@ func fsWalkError(ctx context.Context, fsChan chan<- fsWalkResult, path string, e
 	}
 }
 
-func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkResult, haveChan <-chan protocol.FileInfo, toHashChan, finishedChan chan<- ScanResult) {
+func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkResult, haveChan <-chan protocol.FileInfo, toHashChan, finishedChan chan<- ScanResult, haveCancel context.CancelFunc) {
+	defer close(toHashChan)
+
 	ctxChan := ctx.Done()
 	fsRes, fsChanOpen := <-fsChan
 	currDBFile, haveChanOpen := <-haveChan
@@ -400,8 +409,10 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 			// walking the filesystem tree, except on error (see
 			// above) or if they are ignored.
 			if currDBFile.Name < fsRes.path {
-				l.Debugln(w, "detected deleted", currDBFile.Name)
-				w.checkIgnoredAndDelete(currDBFile, finishedChan, ctxChan)
+				if w.Deletions {
+					l.Debugln(w, "detected deleted", currDBFile.Name, fsRes.path)
+					w.checkIgnoredAndDelete(currDBFile, finishedChan, ctxChan)
+				}
 				currDBFile, haveChanOpen = <-haveChan
 				continue
 			}
@@ -415,28 +426,19 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 			currDBFile, haveChanOpen = <-haveChan
 		}
 
+		if w.Deletions {
+			fsRes, fsChanOpen = <-fsChan
+			continue
+		}
+
 		if fsRes.err != nil {
-			if errors.Is(fsRes.err, fs.ErrNotExist) && !oldFile.IsEmpty() && !oldFile.Deleted {
-				nf := oldFile.DeletedCopy(w.ShortID)
-				nf.LocalFlags = w.LocalFlags
-				select {
-				case finishedChan <- ScanResult{
-					New: nf,
-					Old: oldFile,
-				}:
-				case <-ctx.Done():
-					return
-				}
-			}
-			if !errors.Is(fsRes.err, fs.ErrNotExist) {
-				select {
-				case finishedChan <- ScanResult{
-					Err:  fsRes.err,
-					Path: fsRes.path,
-				}:
-				case <-ctx.Done():
-					return
-				}
+			select {
+			case finishedChan <- ScanResult{
+				Err:  fsRes.err,
+				Path: fsRes.path,
+			}:
+			case <-ctx.Done():
+				return
 			}
 			fsRes, fsChanOpen = <-fsChan
 			continue
@@ -458,14 +460,17 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 
 	// Filesystem tree walking finished, if there is anything left in the
 	// db, mark it as deleted, except when it's ignored.
-	if haveChanOpen {
-		w.checkIgnoredAndDelete(currDBFile, finishedChan, ctxChan)
-		for currDBFile = range haveChan {
-			w.checkIgnoredAndDelete(currDBFile, finishedChan, ctxChan)
-		}
+	if !haveChanOpen {
+		return
 	}
-
-	close(toHashChan)
+	if !w.Deletions {
+		haveCancel()
+		return
+	}
+	w.checkIgnoredAndDelete(currDBFile, finishedChan, ctxChan)
+	for currDBFile = range haveChan {
+		w.checkIgnoredAndDelete(currDBFile, finishedChan, ctxChan)
+	}
 }
 
 func (w *walker) checkIgnoredAndDelete(f protocol.FileInfo, finishedChan chan<- ScanResult, done <-chan struct{}) {

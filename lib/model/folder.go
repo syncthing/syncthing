@@ -400,7 +400,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	scanCtx, scanCancel := context.WithCancel(f.ctx)
 	defer scanCancel()
 	mtimefs := f.fset.MtimeFS()
-	fchan := scanner.Walk(scanCtx, scanner.Config{
+	scanCfg := scanner.Config{
 		Folder:                f.ID,
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
@@ -416,7 +416,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		LocalFlags:            f.localFlags,
 		ModTimeWindow:         f.ModTimeWindow(),
 		EventLogger:           f.evLogger,
-	})
+		Deletions:             false,
+	}
 
 	batchFn := func(fs []protocol.FileInfo) error {
 		if err := f.getHealthErrorWithoutIgnores(); err != nil {
@@ -461,9 +462,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}()
 
 	f.clearScanErrors(subDirs)
+
 	alreadyUsed := make(map[string]struct{})
 	var delDirStack []protocol.FileInfo
-	for res := range fchan {
+	for res := range scanner.Walk(scanCtx, scanCfg) {
 		if res.Err != nil {
 			f.newScanError(res.Path, res.Err)
 			continue
@@ -502,7 +504,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			batch.append(nf)
 			changes++
 		}
-
 	}
 
 	// Append remaining deleted dirs.
@@ -516,6 +517,33 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			batch.append(nf)
 			changes++
 		}
+	}
+
+	alreadyUsed = nil
+
+	if err := batch.flush(); err != nil {
+		return err
+	}
+
+	snap.Release()
+	snap = f.fset.Snapshot()
+	defer snap.Release()
+
+	scanCfg.Have = haveWalker{snap}
+	scanCfg.Global = globaler{snap}
+	scanCfg.Deletions = true
+	for res := range scanner.Walk(scanCtx, scanCfg) {
+		if res.Err != nil {
+			f.newScanError(res.Path, res.Err)
+			continue
+		}
+
+		if err := batch.flushIfFull(); err != nil {
+			return err
+		}
+
+		batch.append(res.New)
+		changes++
 	}
 
 	if err := batch.flush(); err != nil {
@@ -532,7 +560,7 @@ func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file proto
 		return protocol.FileInfo{}, false
 	}
 
-	if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
+	if f.localFlags&protocol.FlagLocalReceiveOnly != 0 {
 		return protocol.FileInfo{}, false
 	}
 
@@ -964,12 +992,11 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	return dirs
 }
 
-// Implements scanner.TruncatedGlobaler
 type globaler struct {
 	*db.Snapshot
 }
 
-// Implements scanner.CurrentFiler
+// Implements scanner.TruncatedGlobaler
 func (g globaler) GlobalTruncated(file string) (protocol.FileIntf, bool) {
 	return g.GetGlobalTruncated(file)
 }
@@ -978,6 +1005,7 @@ type haveWalker struct {
 	*db.Snapshot
 }
 
+// Implements scanner.HaveWalker
 func (h haveWalker) Walk(prefix string, ctx context.Context, out chan<- protocol.FileInfo) {
 	h.WithPrefixedHave(protocol.LocalDeviceID, prefix, func(fi protocol.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
