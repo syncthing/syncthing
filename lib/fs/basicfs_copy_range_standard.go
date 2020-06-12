@@ -15,43 +15,29 @@ func init() {
 }
 
 func copyRangeStandard(src, dst File, srcOffset, dstOffset, size int64) error {
-	// Check that the destination file has sufficient space
-	if fi, err := dst.Stat(); err != nil {
-		return err
-	} else if fi.Size() < dstOffset+size {
-		if err := dst.Truncate(dstOffset + size); err != nil {
+	const bufSize = 4 << 20
+
+	buf := make([]byte, bufSize)
+
+	// ReadAt and WriteAt does not modify the position of the file.
+	for size > 0 {
+		if size < bufSize {
+			buf = buf[:size]
+		}
+		n, err := src.ReadAt(buf, srcOffset)
+		if err != nil {
+			if err == io.EOF {
+				return io.ErrUnexpectedEOF
+			}
 			return err
 		}
-	}
-
-	// Record old offsets, defer seeking back, best effort.
-	oldDstOffset, err := dst.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return err
-	}
-	defer func() { _, _ = dst.Seek(oldDstOffset, io.SeekStart) }()
-
-	oldSrcOffset, err := src.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return err
-	}
-	defer func() { _, _ = src.Seek(oldSrcOffset, io.SeekStart) }()
-
-	// Seek to target offsets.
-	if srcOffset != oldSrcOffset {
-		if _, err := src.Seek(srcOffset, io.SeekStart); err != nil {
+		if _, err = dst.WriteAt(buf[:n], dstOffset); err != nil {
 			return err
 		}
-	}
-	if dstOffset != oldDstOffset {
-		if _, err := dst.Seek(dstOffset, io.SeekStart); err != nil {
-			return err
-		}
+		srcOffset += int64(n)
+		dstOffset += int64(n)
+		size -= int64(n)
 	}
 
-	if _, err = io.CopyN(dst, src, size); err == io.EOF {
-		return io.ErrUnexpectedEOF
-	} else {
-		return err
-	}
+	return nil
 }
