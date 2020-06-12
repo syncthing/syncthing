@@ -61,13 +61,13 @@ func (t *tcpListener) serve(ctx context.Context) error {
 		return err
 	}
 	t.notifyAddressesChanged(t)
-	registry.Register(t.uri.Scheme, tcaddr)  
-  
+	registry.Register(t.uri.Scheme, tcaddr)
+
 	defer listener.Close()
-  	defer t.clearAddresses(t)
+	defer t.clearAddresses(t)
 	defer registry.Unregister(t.uri.Scheme, tcaddr)
 
-  	l.Infof("TCP listener (%v) starting", listener.Addr())
+	l.Infof("TCP listener (%v) starting", listener.Addr())
 	defer l.Infof("TCP listener (%v) shutting down", listener.Addr())
 
 	mapping := t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
