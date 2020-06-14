@@ -606,7 +606,7 @@ func (s *service) getPendingDevices(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	sendJSON(w, toJsonPendingDeviceSlice(devices))
+	sendJSON(w, devices)
 }
 
 func (s *service) getPendingFolders(w http.ResponseWriter, r *http.Request) {
@@ -624,7 +624,7 @@ func (s *service) getPendingFolders(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	sendJSON(w, toJsonPendingFolderSlice(folders))
+	sendJSON(w, toJsonPendingFolderMap(folders))
 }
 
 func (s *service) restPing(w http.ResponseWriter, r *http.Request) {
@@ -1646,26 +1646,12 @@ func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonFileInfoTrunc {
 	return res
 }
 
-func toJsonPendingDeviceSlice(devices map[protocol.DeviceID]db.ObservedDevice) []jsonPendingDevice {
-	res := make([]jsonPendingDevice, 0, len(devices))
-	for id, meta := range devices {
-		res = append(res, jsonPendingDevice{id.String(), meta})
-	}
-	return res
-}
-
-func toJsonPendingFolderSlice(folders map[string]map[protocol.DeviceID]db.ObservedFolder) []jsonPendingFolder {
-	res := make([]jsonPendingFolder, 0, len(folders))
+func toJsonPendingFolderMap(folders map[string]map[protocol.DeviceID]db.ObservedFolder) map[string]interface{} {
+	res := make(map[string]interface{}, len(folders))
 	for id, devices := range folders {
-		res = append(res, jsonPendingFolder{id, toJsonOfferingDeviceSlice(devices)})
-	}
-	return res
-}
-
-func toJsonOfferingDeviceSlice(devices map[protocol.DeviceID]db.ObservedFolder) []jsonOfferingDevice {
-	res := make([]jsonOfferingDevice, 0, len(devices))
-	for id, meta := range devices {
-		res = append(res, jsonOfferingDevice{id.String(), meta})
+		res[id] = map[string]interface{}{
+			"offeredBy": devices,
+		}
 	}
 	return res
 }
@@ -1718,21 +1704,6 @@ func (v jsonVersionVector) MarshalJSON() ([]byte, error) {
 		res[i] = fmt.Sprintf("%v:%d", c.ID, c.Value)
 	}
 	return json.Marshal(res)
-}
-
-type jsonPendingDevice struct {
-	ID string `json:"deviceID"`
-	db.ObservedDevice
-}
-
-type jsonPendingFolder struct {
-	ID        string               `json:"id"`
-	OfferedBy []jsonOfferingDevice `json:"offeredBy"`
-}
-
-type jsonOfferingDevice struct {
-	ID string `json:"deviceID"`
-	db.ObservedFolder
 }
 
 func dirNames(dir string) []string {

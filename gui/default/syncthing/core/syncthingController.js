@@ -40,8 +40,8 @@ angular.module('syncthing.core')
         $scope.upgradeInfo = null;
         $scope.deviceStats = {};
         $scope.folderStats = {};
-        $scope.pendingDevices = [];
-        $scope.pendingFolders = [];
+        $scope.pendingDevices = {};
+        $scope.pendingFolders = {};
         $scope.progress = {};
         $scope.version = {};
         $scope.needed = {}
@@ -245,50 +245,30 @@ angular.module('syncthing.core')
 
         $scope.$on(Events.DEVICE_REJECTED, function (event, arg) {
             var pendingDevice = {
-                deviceID: arg.data.device,
                 time: arg.time,
                 name: arg.data.name,
                 address: arg.data.address
             };
-            console.log("rejected device:", pendingDevice);
+            console.log("rejected device:", arg.data.device, pendingDevice);
 
-            const i = $scope.pendingDevices.findIndex(function (d) {
-                return d.deviceID === pendingDevice.deviceID;
-            });
-            if (i > -1) {
-		$scope.pendingDevices[i] = pendingDevice;
-	    } else {
-		$scope.pendingDevices.push(pendingDevice);
-	    }
+	    $scope.pendingDevices[arg.data.device] = pendingDevice;
         });
 
         $scope.$on(Events.FOLDER_REJECTED, function (event, arg) {
             var offeringDevice = {
-                deviceID: arg.data.device,
                 time: arg.time,
                 label: arg.data.folderLabel
             };
-            console.log("rejected folder", arg.data.folder, "from device:", offeringDevice);
+            console.log("rejected folder", arg.data.folder, "from device:", arg.data.device, offeringDevice);
 
-            const i = $scope.pendingFolders.findIndex(function (f) {
-                return f.id === arg.data.folder;
-            });
-            if (i > -1) {
-                var offers = $scope.pendingFolders[i].offeredBy;
-                const j = offers.findIndex(function (d) {
-                    return d.deviceID === offeringDevice.deviceID;
-                });
-                if (j > -1) {
-		    offers[j] = offeringDevice;
-                } else {
-		    offers[j].push(offeringDevice);
-		}
-            } else {
-		$scope.pendingFolders.push({
-                    id: arg.data.folder,
-                    offeredBy: [ offeringDevice ]
-		});
+            var pendingFolder = $scope.pendingFolders[arg.data.folder];
+	    if (pendingFolder === undefined) {
+                pendingFolder = {
+		    offeredBy: {}
+		};
 	    }
+	    pendingFolder.offeredBy[arg.data.device] = offeringDevice;
+	    $scope.pendingFolders[arg.data.folder] = pendingFolder;
         });
 
         $scope.$on('ConfigLoaded', function () {
@@ -1591,11 +1571,12 @@ angular.module('syncthing.core')
             $scope.saveConfig();
         };
 
-        $scope.ignoreDevice = function (pendingDevice) {
-            pendingDevice = angular.copy(pendingDevice);
+        $scope.ignoreDevice = function (deviceID, pendingDevice) {
+            var ignoredDevice = angular.copy(pendingDevice);
+            ignoredDevice.deviceID = deviceID;
             // Bump time
-            pendingDevice.time = (new Date()).toISOString();
-            $scope.config.remoteIgnoredDevices.push(pendingDevice);
+            ignoredDevice.time = (new Date()).toISOString();
+            $scope.config.remoteIgnoredDevices.push(ignoredDevice);
             $scope.saveConfig();
         };
 
@@ -1981,14 +1962,17 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.ignoreFolder = function (device, pendingFolder) {
-            pendingFolder = angular.copy(pendingFolder);
-            // Bump time
-            pendingFolder.time = (new Date()).toISOString();
+        $scope.ignoreFolder = function (device, folderID, offeringDevice) {
+            var ignoredFolder = {
+		id: folderID,
+		label: offeringDevice.label,
+		// Bump time
+		time: (new Date()).toISOString()
+	    }
 
             for (var i = 0; i < $scope.devices.length; i++) {
                 if ($scope.devices[i].deviceID == device) {
-                    $scope.devices[i].ignoredFolders.push(pendingFolder);
+                    $scope.devices[i].ignoredFolders.push(ignoredFolder);
                     $scope.saveConfig();
                     return;
                 }
