@@ -135,5 +135,10 @@ func IsDeleted(ffs fs.Filesystem, name string) bool {
 	case *NotADirectoryError, *TraversesSymlinkError:
 		return true
 	}
+	if real, err := RealCase(ffs, name); err != nil {
+		return fs.IsNotExist(err)
+	} else if real != name {
+		return true
+	}
 	return false
 }
