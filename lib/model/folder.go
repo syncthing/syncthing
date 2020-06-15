@@ -406,7 +406,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		Matcher:               f.ignores,
 		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
 		Have:                  haveWalker{snap},
-		Global:                globaler{snap},
+		Global:                globaler{snap, scanCtx},
 		Filesystem:            mtimefs,
 		IgnorePerms:           f.IgnorePerms,
 		AutoNormalize:         f.AutoNormalize,
@@ -530,7 +530,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	defer snap.Release()
 
 	scanCfg.Have = haveWalker{snap}
-	scanCfg.Global = globaler{snap}
+	scanCfg.Global = globaler{snap, scanCtx}
 	scanCfg.Deletions = true
 	for res := range scanner.Walk(scanCtx, scanCfg) {
 		if res.Err != nil {
@@ -994,11 +994,17 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 
 type globaler struct {
 	*db.Snapshot
+	ctx context.Context
 }
 
 // Implements scanner.TruncatedGlobaler
 func (g globaler) GlobalTruncated(file string) (protocol.FileIntf, bool) {
-	return g.GetGlobalTruncated(file)
+	select {
+	case <-g.ctx.Done():
+		return nil, false
+	default:
+		return g.GetGlobalTruncated(file)
+	}
 }
 
 type haveWalker struct {
@@ -1007,6 +1013,11 @@ type haveWalker struct {
 
 // Implements scanner.HaveWalker
 func (h haveWalker) Walk(prefix string, ctx context.Context, out chan<- protocol.FileInfo) {
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
 	h.WithPrefixedHave(protocol.LocalDeviceID, prefix, func(fi protocol.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		select {
