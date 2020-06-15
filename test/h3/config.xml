@@ -1,4 +1,4 @@
-<configuration version="29">
+<configuration version="31">
     <folder id="default" label="" path="s3" type="sendreceive" rescanIntervalS="20" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <filesystemType>basic</filesystemType>
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" introducedBy=""></device>
@@ -23,6 +23,9 @@
         <markerName>.stfolder</markerName>
         <copyOwnershipFromParent>false</copyOwnershipFromParent>
         <modTimeWindowS>0</modTimeWindowS>
+        <maxConcurrentWrites>0</maxConcurrentWrites>
+        <disableFsync>false</disableFsync>
+        <blockPullOrder>standard</blockPullOrder>
     </folder>
     <folder id="s23" label="" path="s23-3" type="sendreceive" rescanIntervalS="20" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <filesystemType>basic</filesystemType>
@@ -45,6 +48,9 @@
         <markerName>.stfolder</markerName>
         <copyOwnershipFromParent>false</copyOwnershipFromParent>
         <modTimeWindowS>0</modTimeWindowS>
+        <maxConcurrentWrites>0</maxConcurrentWrites>
+        <disableFsync>false</disableFsync>
+        <blockPullOrder>standard</blockPullOrder>
     </folder>
     <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22001</address>
@@ -111,14 +117,17 @@
         <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>10</tempIndexMinBlocks>
+        <unackedNotificationID>authenticationUserAndPassword</unackedNotificationID>
         <trafficClass>0</trafficClass>
         <defaultFolderPath>~</defaultFolderPath>
         <setLowPriority>true</setLowPriority>
-        <maxConcurrentScans>0</maxConcurrentScans>
+        <maxFolderConcurrency>0</maxFolderConcurrency>
         <crashReportingURL>https://crash.syncthing.net/newcrash</crashReportingURL>
         <crashReportingEnabled>true</crashReportingEnabled>
         <stunKeepaliveStartS>180</stunKeepaliveStartS>
         <stunKeepaliveMinS>20</stunKeepaliveMinS>
         <stunServer>default</stunServer>
+        <databaseTuning>auto</databaseTuning>
+        <maxConcurrentIncomingRequestKiB>0</maxConcurrentIncomingRequestKiB>
     </options>
 </configuration>
