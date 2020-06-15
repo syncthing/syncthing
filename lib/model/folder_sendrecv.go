@@ -1217,36 +1217,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 		f.model.progressEmitter.Register(state.sharedPullerState)
 
-		var file fs.File
-		var weakHashFinder *weakhash.Finder
-
-		blocksPercentChanged := 0
-		if tot := len(state.file.Blocks); tot > 0 {
-			blocksPercentChanged = (tot - state.have) * 100 / tot
-		}
-
-		if blocksPercentChanged >= f.WeakHashThresholdPct {
-			hashesToFind := make([]uint32, 0, len(state.blocks))
-			for _, block := range state.blocks {
-				if block.HashIsSHA256() && block.WeakHash != 0 {
-					hashesToFind = append(hashesToFind, block.WeakHash)
-				}
-			}
-
-			if len(hashesToFind) > 0 {
-				file, err = f.fs.Open(state.file.Name)
-				if err == nil {
-					weakHashFinder, err = weakhash.NewFinder(f.ctx, file, state.file.BlockSize(), hashesToFind)
-					if err != nil {
-						l.Debugln("weak hasher", err)
-					}
-				}
-			} else {
-				l.Debugf("not weak hashing %s. file did not contain any weak hashes", state.file.Name)
-			}
-		} else {
-			l.Debugf("not weak hashing %s. not enough changed %.02f < %d", state.file.Name, blocksPercentChanged, f.WeakHashThresholdPct)
-		}
+		weakHashFinder, file := f.initWeakHashFinder(state)
 
 	blocks:
 		for _, block := range state.blocks {
@@ -1273,9 +1244,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
 
 			var found bool
-			if block.HashIsSHA256() {
+			if f.Type != config.FolderTypeReceiveEncrypted {
 				found, err = weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
-					if verifyBuffer(buf, block) != nil {
+					if f.verifyBuffer(buf, block) != nil {
 						return true
 					}
 
@@ -1310,7 +1281,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						return false
 					}
 
-					if err := verifyBuffer(buf, block); err != nil {
+					if err := f.verifyBuffer(buf, block); err != nil {
 						l.Debugln("Finder failed to verify buffer", err)
 						return false
 					}
@@ -1351,11 +1322,53 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	}
 }
 
-func verifyBuffer(buf []byte, block protocol.BlockInfo) error {
+func (f *sendReceiveFolder) initWeakHashFinder(state copyBlocksState) (*weakhash.Finder, fs.File) {
+	if f.Type == config.FolderTypeReceiveEncrypted {
+		l.Debugln("not weak hashing due to folder type", f.Type)
+		return nil, nil
+	}
+
+	blocksPercentChanged := 0
+	if tot := len(state.file.Blocks); tot > 0 {
+		blocksPercentChanged = (tot - state.have) * 100 / tot
+	}
+
+	if blocksPercentChanged < f.WeakHashThresholdPct {
+		l.Debugf("not weak hashing %s. not enough changed %.02f < %d", state.file.Name, blocksPercentChanged, f.WeakHashThresholdPct)
+		return nil, nil
+	}
+
+	hashesToFind := make([]uint32, 0, len(state.blocks))
+	for _, block := range state.blocks {
+		if block.WeakHash != 0 {
+			hashesToFind = append(hashesToFind, block.WeakHash)
+		}
+	}
+
+	if len(hashesToFind) == 0 {
+		l.Debugf("not weak hashing %s. file did not contain any weak hashes", state.file.Name)
+		return nil, nil
+	}
+
+	file, err := f.fs.Open(state.file.Name)
+	if err != nil {
+		l.Debugln("weak hasher", err)
+		return nil, nil
+	}
+
+	weakHashFinder, err := weakhash.NewFinder(f.ctx, file, state.file.BlockSize(), hashesToFind)
+	if err != nil {
+		l.Debugln("weak hasher", err)
+		return nil, file
+	}
+	return weakHashFinder, file
+}
+
+func (f *sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 	if len(buf) != int(block.Size) {
 		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
 	}
-	if !block.HashIsSHA256() {
+	if f.Type == config.FolderTypeReceiveEncrypted {
 		// If the hash is not SHA256 it's an encrypted hash token. In that
 		// case we can't verify the block integrity so we'll take it on
 		// trust. (The other side can and will verify.)
@@ -1464,7 +1477,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 
 		// Verify that the received block matches the desired hash, if not
 		// try pulling it from another device.
-		lastError = verifyBuffer(buf, state.block)
+		lastError = f.verifyBuffer(buf, state.block)
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
 			continue
