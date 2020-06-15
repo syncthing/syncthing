@@ -32,11 +32,12 @@ type interval struct {
 
 type staggered struct {
 	suture.Service
-	cleanInterval int64
-	folderFs      fs.Filesystem
-	versionsFs    fs.Filesystem
-	interval      [4]interval
-	mutex         sync.Mutex
+	cleanInterval   int64
+	folderFs        fs.Filesystem
+	versionsFs      fs.Filesystem
+	interval        [4]interval
+	copyRangeMethod fs.CopyRangeMethod
+	mutex           sync.Mutex
 
 	testCleanDone chan struct{}
 }
@@ -68,6 +69,8 @@ func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 		mutex: sync.NewMutex(),
 	}
 	s.Service = util.AsService(s.serve, s.String())
+	// Never fails
+	_ = s.copyRangeMethod.UnmarshalText([]byte(params["copyRangeMethod"]))
 
 	l.Debugf("instantiated %#v", s)
 	return s
@@ -216,7 +219,7 @@ func (v *staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	if err := archiveFile(v.folderFs, v.versionsFs, filePath, TagFilename); err != nil {
+	if err := archiveFile(v.copyRangeMethod, v.folderFs, v.versionsFs, filePath, TagFilename); err != nil {
 		return err
 	}
 
@@ -230,7 +233,7 @@ func (v *staggered) GetVersions() (map[string][]FileVersion, error) {
 }
 
 func (v *staggered) Restore(filepath string, versionTime time.Time) error {
-	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
+	return restoreFile(v.copyRangeMethod, v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }
 
 func (v *staggered) String() string {

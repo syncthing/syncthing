@@ -129,7 +129,7 @@ func retrieveVersions(fileSystem fs.Filesystem) (map[string][]FileVersion, error
 
 type fileTagger func(string, string) string
 
-func archiveFile(srcFs, dstFs fs.Filesystem, filePath string, tagger fileTagger) error {
+func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath string, tagger fileTagger) error {
 	filePath = osutil.NativeFilename(filePath)
 	info, err := srcFs.Lstat(filePath)
 	if fs.IsNotExist(err) {
@@ -170,7 +170,7 @@ func archiveFile(srcFs, dstFs fs.Filesystem, filePath string, tagger fileTagger)
 	ver := tagger(file, now.Format(TimeFormat))
 	dst := filepath.Join(inFolderPath, ver)
 	l.Debugln("archiving", filePath, "moving to", dst)
-	err = osutil.RenameOrCopy(srcFs, dstFs, filePath, dst)
+	err = osutil.RenameOrCopy(method, srcFs, dstFs, filePath, dst)
 
 	mtime := info.ModTime()
 	// If it's a trashcan versioner type thing, then it does not have version time in the name
@@ -184,7 +184,7 @@ func archiveFile(srcFs, dstFs fs.Filesystem, filePath string, tagger fileTagger)
 	return err
 }
 
-func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time, tagger fileTagger) error {
+func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath string, versionTime time.Time, tagger fileTagger) error {
 	tag := versionTime.In(time.Local).Truncate(time.Second).Format(TimeFormat)
 	taggedFilePath := tagger(filePath, tag)
 
@@ -200,7 +200,7 @@ func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time,
 				return errors.Wrap(err, "removing existing symlink")
 			}
 		case info.IsRegular():
-			if err := archiveFile(dst, src, filePath, tagger); err != nil {
+			if err := archiveFile(method, dst, src, filePath, tagger); err != nil {
 				return errors.Wrap(err, "archiving existing file")
 			}
 		default:
@@ -247,7 +247,7 @@ func restoreFile(src, dst fs.Filesystem, filePath string, versionTime time.Time,
 	}
 
 	_ = dst.MkdirAll(filepath.Dir(filePath), 0755)
-	err := osutil.RenameOrCopy(src, dst, sourceFile, filePath)
+	err := osutil.RenameOrCopy(method, src, dst, sourceFile, filePath)
 	_ = dst.Chtimes(filePath, sourceMtime, sourceMtime)
 	return err
 }

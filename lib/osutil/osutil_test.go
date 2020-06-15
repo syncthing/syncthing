@@ -139,7 +139,7 @@ func TestRenameOrCopy(t *testing.T) {
 			content = string(buf)
 		}
 
-		err := osutil.RenameOrCopy(test.src, test.dst, test.file, "new")
+		err := osutil.RenameOrCopy(fs.CopyRangeMethodStandard, test.src, test.dst, test.file, "new")
 		if err != nil {
 			t.Fatal(err)
 		}

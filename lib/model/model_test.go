@@ -3632,10 +3632,10 @@ func TestRenameSameFile(t *testing.T) {
 	}
 
 	must(t, ffs.Rename("file", "file1"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file0"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file2"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file3"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file4"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file0"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file2"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file3"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file4"))
 
 	m.ScanFolders()
 

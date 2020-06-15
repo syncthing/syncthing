@@ -19,9 +19,10 @@ func init() {
 }
 
 type simple struct {
-	keep       int
-	folderFs   fs.Filesystem
-	versionsFs fs.Filesystem
+	keep            int
+	folderFs        fs.Filesystem
+	versionsFs      fs.Filesystem
+	copyRangeMethod fs.CopyRangeMethod
 }
 
 func newSimple(folderFs fs.Filesystem, params map[string]string) Versioner {
@@ -35,6 +36,8 @@ func newSimple(folderFs fs.Filesystem, params map[string]string) Versioner {
 		folderFs:   folderFs,
 		versionsFs: fsFromParams(folderFs, params),
 	}
+	// Never fails
+	_ = s.copyRangeMethod.UnmarshalText([]byte(params["copyRangeMethod"]))
 
 	l.Debugf("instantiated %#v", s)
 	return s
@@ -43,7 +46,7 @@ func newSimple(folderFs fs.Filesystem, params map[string]string) Versioner {
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (v simple) Archive(filePath string) error {
-	err := archiveFile(v.folderFs, v.versionsFs, filePath, TagFilename)
+	err := archiveFile(v.copyRangeMethod, v.folderFs, v.versionsFs, filePath, TagFilename)
 	if err != nil {
 		return err
 	}
@@ -68,5 +71,5 @@ func (v simple) GetVersions() (map[string][]FileVersion, error) {
 }
 
 func (v simple) Restore(filepath string, versionTime time.Time) error {
-	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
+	return restoreFile(v.copyRangeMethod, v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }

@@ -54,3 +54,7 @@ func (o *CopyRangeMethod) UnmarshalText(bs []byte) error {
 	}
 	return nil
 }
+
+func (o *CopyRangeMethod) ParseDefault(str string) error {
+	return o.UnmarshalText([]byte(str))
+}
