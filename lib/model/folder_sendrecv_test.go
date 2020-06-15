@@ -674,6 +674,8 @@ func TestIssue3164(t *testing.T) {
 		Name: "issue3164",
 	}
 
+	must(t, f.scanSubdirs(nil))
+
 	matcher := ignore.New(ffs)
 	must(t, matcher.Parse(bytes.NewBufferString("(?d)oktodelete"), ""))
 	f.ignores = matcher
@@ -767,9 +769,10 @@ func TestDeleteIgnorePerms(t *testing.T) {
 	must(t, err)
 	ffs.Chmod(name, 0600)
 	scanChan := make(chan string)
+	dbUpdateChan := make(chan dbUpdateJob)
 	finished := make(chan struct{})
 	go func() {
-		err = f.checkToBeDeleted(fi, scanChan)
+		err = f.checkToBeDeleted(fi, fi, true, dbUpdateDeleteFile, dbUpdateChan, scanChan)
 		close(finished)
 	}()
 	select {
