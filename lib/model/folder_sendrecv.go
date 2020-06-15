@@ -1361,13 +1361,8 @@ func verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 		// trust. (The other side can and will verify.)
 		return nil
 	}
-	hf := sha256.New()
-	_, err := hf.Write(buf)
-	if err != nil {
-		return err
-	}
-	hash := hf.Sum(nil)
 
+	hash := sha256.Sum256(buf)
 	if !bytes.Equal(hash[:], block.Hash) {
 		return fmt.Errorf("hash mismatch %x != %x", hash, block.Hash)
 	}
