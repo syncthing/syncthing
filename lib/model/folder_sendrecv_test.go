@@ -1055,6 +1055,35 @@ func TestPullCtxCancel(t *testing.T) {
 	}
 }
 
+func TestPullDeleteUnscannedDir(t *testing.T) {
+	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
+	ffs := f.Filesystem()
+
+	dir := "foobar"
+	must(t, ffs.MkdirAll(dir, 0777))
+	fi := protocol.FileInfo{
+		Name: dir,
+	}
+
+	scanChan := make(chan string, 1)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+
+	f.deleteDir(fi, f.fset.Snapshot(), dbUpdateChan, scanChan)
+
+	if _, err := ffs.Stat(dir); fs.IsNotExist(err) {
+		t.Error("directory has been deleted")
+	}
+	select {
+	case toScan := <-scanChan:
+		if toScan != dir {
+			t.Errorf("expected %v to be scanned, got %v", dir, toScan)
+		}
+	default:
+		t.Error("nothing was scheduled for scanning")
+	}
+}
+
 func cleanupSharedPullerState(s *sharedPullerState) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
