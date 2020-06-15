@@ -142,6 +142,8 @@ type model struct {
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderRestartMuts  syncMutexMap                                           // folder -> restart mutex
 	folderVersioners   map[string]versioner.Versioner                         // folder -> versioner (may be nil)
+	folderEncPwTokens  map[string][]byte                                      // folder -> encryption token (may be missing, and only for encryption type folders)
+	folderEncFailures  map[string]map[protocol.DeviceID]error                 // folder -> device -> error regarding encryption consistency (may be missing)
 
 	// fields protected by pmut
 	pmut                sync.RWMutex
@@ -175,6 +177,11 @@ var (
 	errIgnoredFolderRemoved = errors.New("folder no longer ignored")
 	errReplacingConnection  = errors.New("replacing connection")
 	errStopped              = errors.New("Syncthing is being stopped")
+	errEncInvConfigLocal    = errors.New("can't encrypt data for a device when the folder type is receiveEncrypted")
+	errEncInvConfigRemote   = errors.New("remote has encrypted data and encrypts that data for us - this is impossible")
+	errEncNotEncryptedUs    = errors.New("folder is announced as encrypted, but not configured thus")
+	errEncNotEncrypted      = errors.New("folder is configured to be encrypted but not announced thus")
+	errEncPW                = errors.New("different passwords used")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -215,6 +222,8 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		folderRunners:      make(map[string]service),
 		folderRunnerTokens: make(map[string][]suture.ServiceToken),
 		folderVersioners:   make(map[string]versioner.Versioner),
+		folderEncPwTokens:  make(map[string][]byte),
+		folderEncFailures:  make(map[string]map[protocol.DeviceID]error),
 
 		// fields protected by pmut
 		pmut:                sync.NewRWMutex(),
@@ -334,8 +343,17 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	ffs := fset.MtimeFS()
 
+	if cfg.Type == config.FolderTypeReceiveEncrypted {
+		if encToken, err := readEncToken(cfg); err == nil {
+			m.folderEncPwTokens[folder] = encToken
+		} else if !fs.IsNotExist(err) {
+			l.Warnf("Failed to read encryption token: %v", err)
+		}
+	}
+
 	// These are our metadata files, and they should always be hidden.
 	_ = ffs.Hide(config.DefaultMarkerName)
+	_ = ffs.Hide(config.DefaultMarkerNameReceiveEncrypted)
 	_ = ffs.Hide(".stversions")
 	_ = ffs.Hide(".stignore")
 
@@ -946,8 +964,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	// Also, collect a list of folders we do share, and if he's interested in
 	// temporary indexes, subscribe the connection.
 
-	tempIndexFolders := make([]string, 0, len(cm.Folders))
-
 	m.pmut.RLock()
 	conn, ok := m.conn[deviceID]
 	closed := m.closed[deviceID]
@@ -963,11 +979,31 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		return errDeviceUnknown
 	}
 
+	// Assemble the device information from the connected device about
+	// themselves and us for all folders.
+	ccDevices := make(map[string]protocol.Device, len(cm.Folders))
+	ccDevicesUs := make(map[string]protocol.Device, len(cm.Folders))
+	for _, folder := range cm.Folders {
+		var foundDevice, foundUs bool
+		for _, dev := range folder.Devices {
+			if dev.ID == m.id {
+				ccDevicesUs[folder.ID] = dev
+				foundUs = true
+			} else if dev.ID == deviceID {
+				ccDevices[folder.ID] = dev
+				foundDevice = true
+			}
+			if foundDevice && foundUs {
+				break
+			}
+		}
+	}
+
 	// Needs to happen outside of the fmut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
 		changedFolders := make([]config.FolderConfiguration, 0, len(cm.Folders))
 		for _, folder := range cm.Folders {
-			if fcfg, fchanged := m.handleAutoAccepts(deviceCfg, folder); fchanged {
+			if fcfg, fchanged := m.handleAutoAccepts(deviceID, folder, ccDevices, ccDevicesUs); fchanged {
 				changedFolders = append(changedFolders, fcfg)
 			}
 		}
@@ -982,127 +1018,12 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	m.fmut.RLock()
-	var paused []string
-	for _, folder := range cm.Folders {
-		cfg, ok := m.cfg.Folder(folder.ID)
-		if !ok || !cfg.SharedWith(deviceID) {
-			if deviceCfg.IgnoredFolder(folder.ID) {
-				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
-				continue
-			}
-			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
-			changed = true
-			m.evLogger.Log(events.FolderRejected, map[string]string{
-				"folder":      folder.ID,
-				"folderLabel": folder.Label,
-				"device":      deviceID.String(),
-			})
-			l.Infof("Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
-			continue
-		}
-		if folder.Paused {
-			paused = append(paused, folder.ID)
-			continue
-		}
-		if cfg.Paused {
-			continue
-		}
-		fs, ok := m.folderFiles[folder.ID]
-		if !ok {
-			// Shouldn't happen because !cfg.Paused, but might happen
-			// if the folder is about to be unpaused, but not yet.
-			continue
-		}
-
-		if !folder.DisableTempIndexes {
-			tempIndexFolders = append(tempIndexFolders, folder.ID)
-		}
-
-		myIndexID := fs.IndexID(protocol.LocalDeviceID)
-		mySequence := fs.Sequence(protocol.LocalDeviceID)
-		var startSequence int64
-
-		for _, dev := range folder.Devices {
-			if dev.ID == m.id {
-				// This is the other side's description of what it knows
-				// about us. Lets check to see if we can start sending index
-				// updates directly or need to send the index from start...
-
-				if dev.IndexID == myIndexID {
-					// They say they've seen our index ID before, so we can
-					// send a delta update only.
-
-					if dev.MaxSequence > mySequence {
-						// Safety check. They claim to have more or newer
-						// index data than we have - either we have lost
-						// index data, or reset the index without resetting
-						// the IndexID, or something else weird has
-						// happened. We send a full index to reset the
-						// situation.
-						l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", deviceID, folder.Description())
-						startSequence = 0
-						continue
-					}
-
-					l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", deviceID, folder.Description(), dev.MaxSequence)
-					startSequence = dev.MaxSequence
-				} else if dev.IndexID != 0 {
-					// They say they've seen an index ID from us, but it's
-					// not the right one. Either they are confused or we
-					// must have reset our database since last talking to
-					// them. We'll start with a full index transfer.
-					l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", deviceID, folder.Description(), dev.IndexID, myIndexID)
-					startSequence = 0
-				}
-			} else if dev.ID == deviceID {
-				// This is the other side's description of themselves. We
-				// check to see that it matches the IndexID we have on file,
-				// otherwise we drop our old index data and expect to get a
-				// completely new set.
-
-				theirIndexID := fs.IndexID(deviceID)
-				if dev.IndexID == 0 {
-					// They're not announcing an index ID. This means they
-					// do not support delta indexes and we should clear any
-					// information we have from them before accepting their
-					// index, which will presumably be a full index.
-					fs.Drop(deviceID)
-				} else if dev.IndexID != theirIndexID {
-					// The index ID we have on file is not what they're
-					// announcing. They must have reset their database and
-					// will probably send us a full index. We drop any
-					// information we have and remember this new index ID
-					// instead.
-					l.Infof("Device %v folder %s has a new index ID (%v)", deviceID, folder.Description(), dev.IndexID)
-					fs.Drop(deviceID)
-					fs.SetIndexID(deviceID, dev.IndexID)
-				} else {
-					// They're sending a recognized index ID and will most
-					// likely use delta indexes. We might already have files
-					// that we need to pull so let the folder runner know
-					// that it should recheck the index data.
-					if runner := m.folderRunners[folder.ID]; runner != nil {
-						defer runner.SchedulePull()
-					}
-				}
-			}
-		}
-
-		is := &indexSender{
-			conn:         conn,
-			connClosed:   closed,
-			folder:       folder.ID,
-			fset:         fs,
-			prevSequence: startSequence,
-			evLogger:     m.evLogger,
-		}
-		is.Service = util.AsService(is.serve, is.String())
-		// The token isn't tracked as the service stops when the connection
-		// terminates and is automatically removed from supervisor (by
-		// implementing suture.IsCompletable).
-		m.Add(is)
-	}
+	changedHere, tempIndexFolders, paused, err := m.ccHandleFoldersLocked(cm.Folders, deviceCfg, ccDevices, ccDevicesUs, conn, closed)
 	m.fmut.RUnlock()
+	if err != nil {
+		return err
+	}
+	changed = changed || changedHere
 
 	m.pmut.Lock()
 	m.remotePausedFolders[deviceID] = paused
@@ -1144,6 +1065,238 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 	}
 
+	return nil
+}
+
+// requires read-lock on m.fmut
+func (m *model) ccHandleFoldersLocked(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDevices, ccDevicesUs map[string]protocol.Device, conn protocol.Connection, closed chan struct{}) (bool, []string, []string, error) {
+	var changed bool
+	var folderDevice config.FolderDeviceConfiguration
+	tempIndexFolders := make([]string, 0, len(folders))
+	paused := make([]string, 0, len(folders))
+	deviceID := deviceCfg.DeviceID
+	for _, folder := range folders {
+		cfg, ok := m.cfg.Folder(folder.ID)
+		if ok {
+			folderDevice, ok = cfg.Device(deviceID)
+		}
+		if !ok {
+			if deviceCfg.IgnoredFolder(folder.ID) {
+				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
+				continue
+			}
+			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
+			changed = true
+			m.evLogger.Log(events.FolderRejected, map[string]string{
+				"folder":      folder.ID,
+				"folderLabel": folder.Label,
+				"device":      deviceID.String(),
+			})
+			l.Infof("Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
+			continue
+		}
+		if folder.Paused {
+			paused = append(paused, folder.ID)
+			continue
+		}
+		if cfg.Paused {
+			continue
+		}
+		fs, ok := m.folderFiles[folder.ID]
+		if !ok {
+			// Shouldn't happen because !cfg.Paused, but might happen
+			// if the folder is about to be unpaused, but not yet.
+			continue
+		}
+
+		ccDevice, hasDevice := ccDevices[folder.ID]
+		ccDeviceUs, hasDeviceUs := ccDevicesUs[folder.ID]
+
+		if err := m.ccCheckEncryptionLocked(cfg, folderDevice, ccDevice, ccDeviceUs, hasDevice, hasDeviceUs); err != nil {
+			sameError := false
+			if devs, ok := m.folderEncFailures[folder.ID]; ok {
+				sameError = devs[deviceID] == err
+			} else {
+				m.folderEncFailures[folder.ID] = make(map[protocol.DeviceID]error)
+			}
+			m.folderEncFailures[folder.ID][deviceID] = err
+			msg := fmt.Sprintf("Failure checking encryption consistency with device %v for folder %v: %v", deviceID, cfg.Description(), err)
+			if sameError {
+				l.Debugln(msg)
+			} else {
+				l.Warnln(msg)
+			}
+
+			return changed, tempIndexFolders, paused, err
+		}
+		if devErrs, ok := m.folderEncFailures[folder.ID]; ok {
+			if len(devErrs) == 1 {
+				delete(m.folderEncFailures, folder.ID)
+			} else {
+				delete(m.folderEncFailures[folder.ID], deviceID)
+			}
+		}
+
+		// Handle indexes
+
+		if !folder.DisableTempIndexes {
+			tempIndexFolders = append(tempIndexFolders, folder.ID)
+		}
+
+		myIndexID := fs.IndexID(protocol.LocalDeviceID)
+		mySequence := fs.Sequence(protocol.LocalDeviceID)
+		var startSequence int64
+
+		// This is the other side's description of what it knows
+		// about us. Lets check to see if we can start sending index
+		// updates directly or need to send the index from start...
+
+		if hasDeviceUs && ccDeviceUs.IndexID == myIndexID && ccDeviceUs.MaxSequence <= mySequence {
+			// They say they've seen our index ID before and their
+			// max sequence is consistent with ours, so we can
+			// send a delta update only.
+			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", deviceID, folder.Description(), ccDeviceUs.MaxSequence)
+			startSequence = ccDeviceUs.MaxSequence
+		} else if !hasDeviceUs {
+			l.Debugf("Device %v folder %s sent no info about us", deviceID, folder.Description())
+		} else if ccDeviceUs.IndexID == myIndexID {
+			// Safety check above failed: They claim to have more or newer
+			// index data than we have - either we have lost
+			// index data, or reset the index without resetting
+			// the IndexID, or something else weird has
+			// happened. We send a full index to reset the
+			// situation.
+			l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", deviceID, folder.Description())
+		} else if ccDeviceUs.IndexID != 0 {
+			// They say they've seen an index ID from us, but it's
+			// not the right one. Either they are confused or we
+			// must have reset our database since last talking to
+			// them. We'll start with a full index transfer.
+			l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", deviceID, folder.Description(), ccDeviceUs.IndexID, myIndexID)
+		}
+
+		// This is the other side's description of themselves. We
+		// check to see that it matches the IndexID we have on file,
+		// otherwise we drop our old index data and expect to get a
+		// completely new set.
+
+		switch {
+		case !hasDevice:
+			l.Debugf("Device %v folder %s sent no info about themselves", deviceID, folder.Description())
+			fallthrough
+		case ccDevice.IndexID == 0:
+			// They're not announcing an index ID. This means they
+			// do not support delta indexes and we should clear any
+			// information we have from them before accepting their
+			// index, which will presumably be a full index.
+			fs.Drop(deviceID)
+		default:
+			theirIndexID := fs.IndexID(deviceID)
+			if ccDevice.IndexID != theirIndexID {
+				// The index ID we have on file is not what they're
+				// announcing. They must have reset their database and
+				// will probably send us a full index. We drop any
+				// information we have and remember this new index ID
+				// instead.
+				l.Infof("Device %v folder %s has a new index ID (%v)", deviceID, folder.Description(), ccDevice.IndexID)
+				fs.Drop(deviceID)
+				fs.SetIndexID(deviceID, ccDevice.IndexID)
+			} else {
+				// They're sending a recognized index ID and will most
+				// likely use delta indexes. We might already have files
+				// that we need to pull so let the folder runner know
+				// that it should recheck the index data.
+				if runner := m.folderRunners[folder.ID]; runner != nil {
+					defer runner.SchedulePull()
+				}
+			}
+		}
+
+		is := &indexSender{
+			conn:         conn,
+			connClosed:   closed,
+			folder:       folder.ID,
+			fset:         fs,
+			prevSequence: startSequence,
+			evLogger:     m.evLogger,
+		}
+		is.Service = util.AsService(is.serve, is.String())
+		// The token isn't tracked as the service stops when the connection
+		// terminates and is automatically removed from supervisor (by
+		// implementing suture.IsCompletable).
+		m.Add(is)
+	}
+
+	return changed, tempIndexFolders, paused, nil
+}
+
+// requires fmut read-lock
+func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDevice, ccDeviceUs protocol.Device, hasDevice, hasUs bool) error {
+	hasTokenDev := hasDevice && len(ccDevice.EncPwToken) > 0
+	hasTokenUs := hasUs && len(ccDeviceUs.EncPwToken) > 0
+	isEncDev := folderDevice.EncryptionPassword != ""
+	isEncUs := fcfg.Type == config.FolderTypeReceiveEncrypted
+
+	if !(hasTokenDev || hasTokenUs || isEncDev || isEncUs) {
+		// Noone cares about encryption here
+		return nil
+	}
+
+	if isEncDev && isEncUs {
+		// Should never happen, but config racyness and be safe.
+		return errEncInvConfigLocal
+	}
+
+	if hasTokenDev && hasTokenUs {
+		return errEncInvConfigRemote
+	}
+
+	if !(hasTokenDev || hasTokenUs) {
+		return errEncNotEncrypted
+	}
+
+	if !(isEncDev || isEncUs) {
+		return errEncNotEncryptedUs
+	}
+
+	if isEncDev {
+		pwToken := protocol.PasswordToken(fcfg.ID, folderDevice.EncryptionPassword)
+		match := false
+		if hasTokenUs {
+			match = bytes.Equal(pwToken, ccDeviceUs.EncPwToken)
+		} else {
+			// hasTokenDev == true
+			match = bytes.Equal(pwToken, ccDevice.EncPwToken)
+		}
+		if !match {
+			return errEncPW
+		}
+		return nil
+	}
+
+	// isEncUs == true
+
+	var ccToken []byte
+	if hasTokenUs {
+		ccToken = ccDeviceUs.EncPwToken
+	} else {
+		// hasTokenDev == true
+		ccToken = ccDevice.EncPwToken
+	}
+	token, ok := m.folderEncPwTokens[fcfg.ID]
+	if !ok {
+		var err error
+		token, err := readEncToken(fcfg)
+		if err != nil && !fs.IsNotExist(err) {
+			return err
+		}
+		if fs.IsNotExist(err) {
+			return writeEncToken(token, fcfg)
+		}
+	}
+	if !bytes.Equal(token, ccToken) {
+		return errEncPW
+	}
 	return nil
 }
 
@@ -1258,8 +1411,14 @@ func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
-func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder protocol.Folder) (config.FolderConfiguration, bool) {
+func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDevices, ccDevicesUs map[string]protocol.Device) (config.FolderConfiguration, bool) {
+	ccDevice, hasDevice := ccDevices[folder.ID]
+	ccDeviceUs, hasDeviceUs := ccDevicesUs[folder.ID]
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
+		if !hasDevice || !hasDeviceUs {
+			l.Infof("Failed to auto-accept folder %s from %s due to missing information on encryption from remote device", folder.Description(), deviceID)
+			return config.FolderConfiguration{}, false
+		}
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
 		pathAlternatives := []string{
@@ -1273,25 +1432,44 @@ func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 
 			fcfg := config.NewFolderConfiguration(m.id, folder.ID, folder.Label, fs.FilesystemTypeBasic, filepath.Join(defaultPath, path))
 			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
-				DeviceID: deviceCfg.DeviceID,
+				DeviceID: deviceID,
 			})
 
-			l.Infof("Auto-accepted %s folder %s at path %s", deviceCfg.DeviceID, folder.Description(), fcfg.Path)
+			if len(ccDevice.EncPwToken) > 0 || len(ccDeviceUs.EncPwToken) > 0 {
+				fcfg.Type = config.FolderTypeReceiveEncrypted
+			}
+
+			l.Infof("Auto-accepted %s folder %s at path %s", deviceID, folder.Description(), fcfg.Path)
 			return fcfg, true
 		}
-		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceCfg.DeviceID)
+		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceID)
 		return config.FolderConfiguration{}, false
 	} else {
 		for _, device := range cfg.DeviceIDs() {
-			if device == deviceCfg.DeviceID {
+			if device == deviceID {
 				// Already shared nothing todo.
 				return config.FolderConfiguration{}, false
 			}
 		}
+		if !hasDevice || !hasDeviceUs {
+			l.Infof("Failed to auto-accept folder %s from %s due to missing information on encryption from remote device", folder.Description(), deviceID)
+			return config.FolderConfiguration{}, false
+		}
+		if cfg.Type == config.FolderTypeReceiveEncrypted {
+			if len(ccDevice.EncPwToken) == 0 && len(ccDeviceUs.EncPwToken) == 0 {
+				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us un-encrypted data, but we are encrypted", folder.Description(), deviceID)
+				return config.FolderConfiguration{}, false
+			}
+		} else {
+			if len(ccDevice.EncPwToken) > 0 || len(ccDeviceUs.EncPwToken) > 0 {
+				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us encrypted data, but we are not encrypted", folder.Description(), deviceID)
+				return config.FolderConfiguration{}, false
+			}
+		}
 		cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{
-			DeviceID: deviceCfg.DeviceID,
+			DeviceID: deviceID,
 		})
-		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
+		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceID)
 		return cfg, true
 	}
 }
@@ -2122,6 +2300,17 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			continue
 		}
 
+		var encToken []byte
+		var hasEncToken bool
+		if folderCfg.Type == config.FolderTypeReceiveEncrypted {
+			if encToken, hasEncToken = m.folderEncPwTokens[folderCfg.ID]; !hasEncToken {
+				// We haven't gotten a token for us yet and without
+				// one the other side can't validate us - pretend
+				// we don't have the folder yet.
+				continue
+			}
+		}
+
 		protocolFolder := protocol.Folder{
 			ID:                 folderCfg.ID,
 			Label:              folderCfg.Label,
@@ -2147,6 +2336,12 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 				Compression: deviceCfg.Compression,
 				CertName:    deviceCfg.CertName,
 				Introducer:  deviceCfg.Introducer,
+			}
+
+			if deviceCfg.DeviceID == m.id && hasEncToken {
+				protocolDevice.EncPwToken = encToken
+			} else if device.EncryptionPassword != "" {
+				protocolDevice.EncPwToken = protocol.PasswordToken(folderCfg.ID, device.EncryptionPassword)
 			}
 
 			if fs != nil {
@@ -2705,4 +2900,39 @@ func sanitizePath(path string) string {
 	}
 
 	return strings.TrimSpace(b.String())
+}
+
+func encTokenPath(cfg config.FolderConfiguration) string {
+	return filepath.Join(cfg.MarkerName, "syncthing-enc_pw_token")
+}
+
+type storedEncToken struct {
+	folderID string
+	token    []byte
+}
+
+func readEncToken(cfg config.FolderConfiguration) ([]byte, error) {
+	fd, err := cfg.Filesystem().Open(encTokenPath(cfg))
+	if err != nil {
+		return nil, err
+	}
+	defer fd.Close()
+	var stored storedEncToken
+	if err := json.NewDecoder(fd).Decode(&stored); err != nil {
+		return nil, err
+	}
+	return stored.token, nil
+}
+
+func writeEncToken(token []byte, cfg config.FolderConfiguration) error {
+	tokenName := encTokenPath(cfg)
+	fd, err := cfg.Filesystem().OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+	return json.NewEncoder(fd).Encode(storedEncToken{
+		folderID: cfg.ID,
+		token:    token,
+	})
 }

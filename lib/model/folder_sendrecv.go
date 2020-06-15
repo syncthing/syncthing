@@ -41,6 +41,9 @@ var (
 
 func init() {
 	folderFactories[config.FolderTypeSendReceive] = newSendReceiveFolder
+	// An receiveEncrypted folder behaves just like send-receive folder, except
+	// for scanning which is handled in folder.
+	folderFactories[config.FolderTypeReceiveEncrypted] = newSendReceiveFolder
 }
 
 // A pullBlockState is passed to the puller routine for each block that needs

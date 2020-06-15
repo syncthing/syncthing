@@ -74,6 +74,7 @@ message Device {
     bool            introducer                 = 7;
     uint64          index_id                   = 8 [(gogoproto.customname) = "IndexID", (gogoproto.customtype) = "IndexID", (gogoproto.nullable) = false];
     bool            skip_introduction_removals = 9;
+    bytes           enc_pw_token               = 10;
 }
 
 enum Compression {

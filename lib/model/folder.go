@@ -410,6 +410,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		LocalFlags:            f.localFlags,
 		ModTimeWindow:         f.ModTimeWindow(),
 		EventLogger:           f.evLogger,
+		DetectChangesOnly:     f.Type == config.FolderTypeReceiveEncrypted,
 	})
 
 	batchFn := func(fs []protocol.FileInfo) error {
@@ -439,6 +440,19 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 					// cares about that).
 					fs[i].LocalFlags &^= protocol.FlagLocalReceiveOnly
 				}
+			}
+			return oldBatchFn(fs)
+		}
+	} else if f.Type == config.FolderTypeReceiveEncrypted {
+		oldBatchFn := batchFn // can't reference batchFn directly (recursion)
+		batchFn = func(fs []protocol.FileInfo) error {
+			// Delete all changed items and set zero version vector
+			// such that we get a correct copy again.
+			for i := range fs {
+				if err := mtimefs.RemoveAll(fs[i].Name); err != nil {
+					l.Debugf(`%v Failed to remove changed item "%v": %v`, f.Description(), fs[i].Name, err)
+				}
+				fs[i].Version = protocol.Vector{}
 			}
 			return oldBatchFn(fs)
 		}

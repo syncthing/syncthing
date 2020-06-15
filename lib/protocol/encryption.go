@@ -418,10 +418,14 @@ func keysFromPasswords(passwords map[string]string) map[string]*[keySize]byte {
 	return res
 }
 
+func knownBytes(folderID string) []byte {
+	return []byte("syncthing" + folderID)
+}
+
 // KeyFromPassword uses key derivation to generate a stronger key from a
 // probably weak password.
 func KeyFromPassword(folderID, password string) *[keySize]byte {
-	bs, err := scrypt.Key([]byte(password), []byte("syncthing"+folderID), 32768, 8, 1, keySize)
+	bs, err := scrypt.Key([]byte(password), knownBytes(folderID), 32768, 8, 1, keySize)
 	if err != nil {
 		panic("key derivation failure: " + err.Error())
 	}
@@ -441,6 +445,10 @@ func FileKey(filename string, folderKey *[keySize]byte) *[keySize]byte {
 		panic("hkdf failure")
 	}
 	return &fileKey
+}
+
+func PasswordToken(folderID, password string) []byte {
+	return encryptDeterministic(knownBytes(folderID), KeyFromPassword(folderID, password))
 }
 
 // slashify inserts slashes (and file extension) in the string to create an
