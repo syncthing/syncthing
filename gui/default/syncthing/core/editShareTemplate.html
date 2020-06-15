@@ -9,7 +9,7 @@
 </div>
 <div class="col-md-6">
   <div class="input-group">
-    <span class="input-group-addon" ng-switch="!currentSharing.encPWs[id] || currentSharing.encPWs[id] === ''">
+    <span class="input-group-addon" ng-switch="folder.type !== 'receiveEncrypted' && (!currentSharing.encPWs[id] || currentSharing.encPWs[id] === '')">
       <span ng-switch-when='true' class="fas fa-fw fa-unlock" />
       <span ng-switch-when='false' class="fas fa-fw fa-lock" />
     </span>
