@@ -163,8 +163,14 @@ var SkipDir = filepath.SkipDir
 // IsExist is the equivalent of os.IsExist
 var IsExist = os.IsExist
 
+// IsExist is the equivalent of os.ErrExist
+var ErrExist = os.ErrExist
+
 // IsNotExist is the equivalent of os.IsNotExist
 var IsNotExist = os.IsNotExist
+
+// ErrNotExist is the equivalent of os.ErrNotExist
+var ErrNotExist = os.ErrNotExist
 
 // IsPermission is the equivalent of os.IsPermission
 var IsPermission = os.IsPermission
