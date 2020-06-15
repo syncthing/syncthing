@@ -233,7 +233,7 @@ func encryptFileInfo(fi FileInfo, folderKey *[keySize]byte) FileInfo {
 	// Very small blocks will be padded upwards to minPaddedSize.
 	//
 	// The encrypted hash becomes just a "token" for the data -- it doesn't
-	// help verifying it, but it lets the encrypted device to block level
+	// help verifying it, but it lets the encrypted device do block level
 	// diffs and data reuse properly when it gets a new version of a file.
 
 	var offset int64
