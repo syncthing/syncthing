@@ -51,9 +51,9 @@ func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error 
 
 	if srcOffset == 0 && dstOffset == 0 && size == 0 {
 		// Optimization for whole file copies.
-		_, _, e1 := syscall.Syscall(syscall.SYS_IOCTL, dst.Fd(), FICLONE, src.Fd())
-		if e1 != 0 {
-			return e1
+		_, _, errNo := syscall.Syscall(syscall.SYS_IOCTL, dst.Fd(), FICLONE, src.Fd())
+		if errNo != 0 {
+			return errNo
 		}
 		return nil
 	}
@@ -64,9 +64,9 @@ func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error 
 		srcLength: uint64(size),
 		dstOffset: uint64(dstOffset),
 	}
-	_, _, e1 := syscall.Syscall(syscall.SYS_IOCTL, dst.Fd(), FICLONERANGE, uintptr(unsafe.Pointer(&params)))
-	if e1 != 0 {
-		return e1
+	_, _, errNo := syscall.Syscall(syscall.SYS_IOCTL, dst.Fd(), FICLONERANGE, uintptr(unsafe.Pointer(&params)))
+	if errNo != 0 {
+		return errNo
 	}
 	return nil
 }

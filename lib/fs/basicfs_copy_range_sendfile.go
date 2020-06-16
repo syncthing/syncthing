@@ -55,10 +55,9 @@ func copyRangeSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) err
 		if n == 0 && err == nil {
 			err = io.ErrUnexpectedEOF
 		}
-		if err != nil && err != syscall.EAGAIN {
+		if err != nil {
 			return err
 		}
-
 		size -= int64(n)
 	}
 

@@ -29,23 +29,20 @@ func registerCopyRangeImplementation(copyMethod CopyRangeMethod, impl copyRangeI
 	copyRangeMethods[copyMethod] = impl
 }
 
-// CopyRange tries copy the datto use the most optimal way to copy data between two files.
+// CopyRange tries to use the specified method to copy data between two files.
 // Takes size bytes at offset srcOffset from the source file, and copies the data to destination file at offset
 // dstOffset. If required, adjusts the size of the destination file to fit that much data.
 //
-// On Linux/BSD it tries to use ioctl and copy_file_range system calls, which if the underlying filesystem supports it
-// tries referencing existing data in the source file, instead of making a copy and taking up additional space.
+// On Linux/BSD you can ask it to use ioctl and copy_file_range system calls, which if the underlying filesystem supports
+// it tries referencing existing data in the source file, instead of making a copy and taking up additional space.
 //
-// If that is not possible, the data will be copied using an in-kernel copy (copy_file_range fallback, sendfile),
-// oppose to user space copy, if those system calls are available and supported for the source and target in question.
-//
-// CopyRange does it's best to have no effect on src and dst file offsets (copy operation should not affect it).
+// CopyRange does its best to have no effect on src and dst file offsets (copy operation should not affect it).
 func CopyRange(copyMethod CopyRangeMethod, src, dst File, srcOffset, dstOffset, size int64) error {
-	if impl, ok := copyRangeMethods[copyMethod]; !ok {
-		return syscall.ENOTSUP
-	} else {
+	if impl, ok := copyRangeMethods[copyMethod]; ok {
 		return impl(src, dst, srcOffset, dstOffset, size)
 	}
+
+	return syscall.ENOTSUP
 }
 
 func copyRangeImplementationForBasicFile(impl copyRangeImplementationBasicFile) copyRangeImplementation {
