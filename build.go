@@ -46,6 +46,8 @@ var (
 	installSuffix string
 	pkgdir        string
 	cc            string
+	run           string
+	benchRun      string
 	debugBinary   bool
 	coverage      bool
 	timeout       = "120s"
@@ -301,6 +303,12 @@ func runCommand(cmd string, target target) {
 	case "bench":
 		bench("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
+	case "integration":
+		integration(false)
+
+	case "integrationbench":
+		integration(true)
+
 	case "assets":
 		rebuildAssets()
 
@@ -367,6 +375,8 @@ func parseFlags() {
 	flag.BoolVar(&debugBinary, "debug-binary", debugBinary, "Create unoptimized binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
 	flag.BoolVar(&coverage, "coverage", coverage, "Write coverage profile of tests to coverage.txt")
 	flag.IntVar(&numVersions, "num-versions", numVersions, "Number of versions for changelog command")
+	flag.StringVar(&run, "run", "", "Specify which tests to run")
+	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
 	flag.Parse()
 }
 
@@ -386,12 +396,49 @@ func test(pkgs ...string) {
 		args = append(args, "-covermode", "atomic", "-coverprofile", "coverage.txt", "-coverpkg", strings.Join(pkgs, ","))
 	}
 
+	args = append(args, runArgs()...)
+
 	runPrint(goCmd, append(args, pkgs...)...)
 }
 
 func bench(pkgs ...string) {
 	lazyRebuildAssets()
-	runPrint(goCmd, append([]string{"test", "-run", "NONE", "-bench", "."}, pkgs...)...)
+	args := append([]string{"test", "-run", "NONE"}, benchArgs()...)
+	runPrint(goCmd, append(args, pkgs...)...)
+}
+
+func integration(bench bool) {
+	lazyRebuildAssets()
+	args := []string{"test", "-v", "-timeout", "60m", "-tags"}
+	tags := "purego,integration"
+	if bench {
+		tags += ",benchmark"
+	}
+	args = append(args, tags)
+	args = append(args, runArgs()...)
+	if bench {
+		if run == "" {
+			args = append(args, "-run", "Benchmark")
+		}
+		args = append(args, benchArgs()...)
+	}
+	args = append(args, "./test")
+	fmt.Println(args)
+	runPrint(goCmd, args...)
+}
+
+func runArgs() []string {
+	if run == "" {
+		return nil
+	}
+	return []string{"-run", run}
+}
+
+func benchArgs() []string {
+	if benchRun == "" {
+		return []string{"-bench", "."}
+	}
+	return []string{"-bench", benchRun}
 }
 
 func install(target target, tags []string) {
