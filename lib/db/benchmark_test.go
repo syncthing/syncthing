@@ -187,7 +187,7 @@ func BenchmarkNeedHalf(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := benchS.Snapshot()
-		snap.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap.WithNeed(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -211,7 +211,7 @@ func BenchmarkNeedHalfRemote(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := fset.Snapshot()
-		snap.WithNeed(remoteDevice0, func(fi db.FileIntf) bool {
+		snap.WithNeed(remoteDevice0, func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -232,7 +232,7 @@ func BenchmarkHave(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := benchS.Snapshot()
-		snap.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap.WithHave(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -253,7 +253,7 @@ func BenchmarkGlobal(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := benchS.Snapshot()
-		snap.WithGlobal(func(fi db.FileIntf) bool {
+		snap.WithGlobal(func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -274,7 +274,7 @@ func BenchmarkNeedHalfTruncated(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := benchS.Snapshot()
-		snap.WithNeedTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap.WithNeedTruncated(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -295,7 +295,7 @@ func BenchmarkHaveTruncated(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := benchS.Snapshot()
-		snap.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap.WithHaveTruncated(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -316,7 +316,7 @@ func BenchmarkGlobalTruncated(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := benchS.Snapshot()
-		snap.WithGlobalTruncated(func(fi db.FileIntf) bool {
+		snap.WithGlobalTruncated(func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})

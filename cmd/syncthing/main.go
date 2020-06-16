@@ -842,7 +842,7 @@ func shouldUpgrade(cfg config.Wrapper, runtimeOptions RuntimeOptions) bool {
 	if upgrade.DisabledByCompilation {
 		return false
 	}
-	if opts := cfg.Options(); opts.AutoUpgradeIntervalH < 0 {
+	if !cfg.Options().ShouldAutoUpgrade() {
 		return false
 	}
 	if runtimeOptions.NoUpgrade {

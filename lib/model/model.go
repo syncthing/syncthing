@@ -851,7 +851,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	}
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
-	snap.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+	snap.WithNeedTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
 		if cfg.IgnoreDelete && f.IsDeleted() {
 			return true
 		}
@@ -964,8 +964,19 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	// Needs to happen outside of the fmut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
+		changedFolders := make([]config.FolderConfiguration, 0, len(cm.Folders))
 		for _, folder := range cm.Folders {
-			changed = m.handleAutoAccepts(deviceCfg, folder) || changed
+			if fcfg, fchanged := m.handleAutoAccepts(deviceCfg, folder); fchanged {
+				changedFolders = append(changedFolders, fcfg)
+			}
+		}
+		if len(changedFolders) > 0 {
+			// Need to wait for the waiter, as this calls CommitConfiguration,
+			// which sets up the folder and as we return from this call,
+			// ClusterConfig starts poking at m.folderFiles and other things
+			// that might not exist until the config is committed.
+			w, _ := m.cfg.SetFolders(changedFolders)
+			w.Wait()
 		}
 	}
 
@@ -1246,7 +1257,7 @@ func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
-func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder protocol.Folder) bool {
+func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder protocol.Folder) (config.FolderConfiguration, bool) {
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
@@ -1263,32 +1274,24 @@ func (m *model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
 				DeviceID: deviceCfg.DeviceID,
 			})
-			// Need to wait for the waiter, as this calls CommitConfiguration,
-			// which sets up the folder and as we return from this call,
-			// ClusterConfig starts poking at m.folderFiles and other things
-			// that might not exist until the config is committed.
-			w, _ := m.cfg.SetFolder(fcfg)
-			w.Wait()
 
 			l.Infof("Auto-accepted %s folder %s at path %s", deviceCfg.DeviceID, folder.Description(), fcfg.Path)
-			return true
+			return fcfg, true
 		}
 		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceCfg.DeviceID)
-		return false
+		return config.FolderConfiguration{}, false
 	} else {
 		for _, device := range cfg.DeviceIDs() {
 			if device == deviceCfg.DeviceID {
 				// Already shared nothing todo.
-				return false
+				return config.FolderConfiguration{}, false
 			}
 		}
 		cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{
 			DeviceID: deviceCfg.DeviceID,
 		})
-		w, _ := m.cfg.SetFolder(cfg)
-		w.Wait()
 		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
-		return true
+		return cfg, true
 	}
 }
 
@@ -1933,7 +1936,7 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 	snap := s.fset.Snapshot()
 	defer snap.Release()
 	previousWasDelete := false
-	snap.WithHaveSequence(s.prevSequence+1, func(fi db.FileIntf) bool {
+	snap.WithHaveSequence(s.prevSequence+1, func(fi protocol.FileIntf) bool {
 		// This is to make sure that renames (which is an add followed by a delete) land in the same batch.
 		// Even if the batch is full, we allow a last delete to slip in, we do this by making sure that
 		// the batch ends with a non-delete, or that the last item in the batch is already a delete
@@ -2245,7 +2248,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 
 	snap := files.Snapshot()
 	defer snap.Release()
-	snap.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
+	snap.WithPrefixedGlobalTruncated(prefix, func(fi protocol.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 
 		// Don't include the prefix itself.

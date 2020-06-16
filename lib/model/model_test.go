@@ -2426,7 +2426,7 @@ func TestIssue3496(t *testing.T) {
 	m.fmut.RUnlock()
 	var localFiles []protocol.FileInfo
 	snap := fs.Snapshot()
-	snap.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
 		localFiles = append(localFiles, i.(protocol.FileInfo))
 		return true
 	})
@@ -3389,36 +3389,40 @@ func TestModTimeWindow(t *testing.T) {
 
 	m.ScanFolders()
 
-	v := protocol.Vector{}
-	v = v.Update(myID.Short())
+	// Get current version
+
 	fi, ok := m.CurrentFolderFile("default", name)
 	if !ok {
 		t.Fatal("File missing")
 	}
-	if !fi.Version.Equal(v) {
-		t.Fatalf("Got version %v, expected %v", fi.Version, v)
-	}
+	v := fi.Version
+
+	// Update time on disk 1s
 
 	err = tfs.Chtimes(name, time.Now(), modTime.Add(time.Second))
 	must(t, err)
 
 	m.ScanFolders()
 
-	// No change due to window
+	// No change due to within window
+
 	fi, _ = m.CurrentFolderFile("default", name)
 	if !fi.Version.Equal(v) {
 		t.Fatalf("Got version %v, expected %v", fi.Version, v)
 	}
+
+	// Update to be outside window
 
 	err = tfs.Chtimes(name, time.Now(), modTime.Add(2*time.Second))
 	must(t, err)
 
 	m.ScanFolders()
 
-	v = v.Update(myID.Short())
+	// Version should have updated
+
 	fi, _ = m.CurrentFolderFile("default", name)
-	if !fi.Version.Equal(v) {
-		t.Fatalf("Got version %v, expected %v", fi.Version, v)
+	if fi.Version.Compare(v) != protocol.Greater {
+		t.Fatalf("Got result %v, expected %v", fi.Version.Compare(v), protocol.Greater)
 	}
 }
 
@@ -3556,7 +3560,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 
 	count := 0
 	snap := dbSnapshot(t, m, "default")
-	snap.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
 		count++
 		return true
 	})
@@ -3588,7 +3592,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 	var firstExpectedSequence int64
 	var secondExpectedSequence int64
 	failed := false
-	snap.WithHaveSequence(0, func(i db.FileIntf) bool {
+	snap.WithHaveSequence(0, func(i protocol.FileIntf) bool {
 		t.Log(i)
 		if i.FileName() == "17" {
 			firstExpectedSequence = i.SequenceNo() + 1
@@ -3621,7 +3625,7 @@ func TestRenameSameFile(t *testing.T) {
 
 	count := 0
 	snap := dbSnapshot(t, m, "default")
-	snap.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
 		count++
 		return true
 	})
@@ -3644,7 +3648,7 @@ func TestRenameSameFile(t *testing.T) {
 
 	prevSeq := int64(0)
 	seen := false
-	snap.WithHaveSequence(0, func(i db.FileIntf) bool {
+	snap.WithHaveSequence(0, func(i protocol.FileIntf) bool {
 		if i.SequenceNo() <= prevSeq {
 			t.Fatalf("non-increasing sequences: %d <= %d", i.SequenceNo(), prevSeq)
 		}
@@ -3683,7 +3687,7 @@ func TestRenameEmptyFile(t *testing.T) {
 	}
 
 	count := 0
-	snap.WithBlocksHash(empty.BlocksHash, func(_ db.FileIntf) bool {
+	snap.WithBlocksHash(empty.BlocksHash, func(_ protocol.FileIntf) bool {
 		count++
 		return true
 	})
@@ -3693,7 +3697,7 @@ func TestRenameEmptyFile(t *testing.T) {
 	}
 
 	count = 0
-	snap.WithBlocksHash(file.BlocksHash, func(_ db.FileIntf) bool {
+	snap.WithBlocksHash(file.BlocksHash, func(_ protocol.FileIntf) bool {
 		count++
 		return true
 	})
@@ -3712,7 +3716,7 @@ func TestRenameEmptyFile(t *testing.T) {
 	defer snap.Release()
 
 	count = 0
-	snap.WithBlocksHash(empty.BlocksHash, func(_ db.FileIntf) bool {
+	snap.WithBlocksHash(empty.BlocksHash, func(_ protocol.FileIntf) bool {
 		count++
 		return true
 	})
@@ -3722,7 +3726,7 @@ func TestRenameEmptyFile(t *testing.T) {
 	}
 
 	count = 0
-	snap.WithBlocksHash(file.BlocksHash, func(i db.FileIntf) bool {
+	snap.WithBlocksHash(file.BlocksHash, func(i protocol.FileIntf) bool {
 		count++
 		if i.FileName() != "new-file" {
 			t.Fatalf("unexpected file name %s, expected new-file", i.FileName())
@@ -3757,7 +3761,7 @@ func TestBlockListMap(t *testing.T) {
 	}
 	var paths []string
 
-	snap.WithBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
+	snap.WithBlocksHash(fi.BlocksHash, func(fi protocol.FileIntf) bool {
 		paths = append(paths, fi.FileName())
 		return true
 	})
@@ -3790,7 +3794,7 @@ func TestBlockListMap(t *testing.T) {
 	defer snap.Release()
 
 	paths = paths[:0]
-	snap.WithBlocksHash(fi.BlocksHash, func(fi db.FileIntf) bool {
+	snap.WithBlocksHash(fi.BlocksHash, func(fi protocol.FileIntf) bool {
 		paths = append(paths, fi.FileName())
 		return true
 	})

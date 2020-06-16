@@ -46,13 +46,13 @@ func DeviceIDFromString(s string) (DeviceID, error) {
 	return n, err
 }
 
-func DeviceIDFromBytes(bs []byte) DeviceID {
+func DeviceIDFromBytes(bs []byte) (DeviceID, error) {
 	var n DeviceID
 	if len(bs) != len(n) {
-		panic("incorrect length of byte slice representing device ID")
+		return n, fmt.Errorf("incorrect length of byte slice representing device ID")
 	}
 	copy(n[:], bs)
-	return n
+	return n, nil
 }
 
 // String returns the canonical string representation of the device ID

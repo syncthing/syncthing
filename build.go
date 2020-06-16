@@ -49,6 +49,7 @@ var (
 	debugBinary   bool
 	coverage      bool
 	timeout       = "120s"
+	numVersions   = 5
 )
 
 type target struct {
@@ -333,6 +334,20 @@ func runCommand(cmd string, target target) {
 	case "version":
 		fmt.Println(getVersion())
 
+	case "changelog":
+		vers, err := currentAndLatestVersions(numVersions)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, ver := range vers {
+			underline := strings.Repeat("=", len(ver))
+			msg, err := tagMessage(ver)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("%s\n%s\n\n%s\n\n", ver, underline, msg)
+		}
+
 	default:
 		log.Fatalf("Unknown command %q", cmd)
 	}
@@ -351,6 +366,7 @@ func parseFlags() {
 	flag.StringVar(&cc, "cc", os.Getenv("CC"), "Set CC environment variable for `go build`")
 	flag.BoolVar(&debugBinary, "debug-binary", debugBinary, "Create unoptimized binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
 	flag.BoolVar(&coverage, "coverage", coverage, "Write coverage profile of tests to coverage.txt")
+	flag.IntVar(&numVersions, "num-versions", numVersions, "Number of versions for changelog command")
 	flag.Parse()
 }
 
@@ -691,7 +707,7 @@ func rebuildAssets() {
 }
 
 func lazyRebuildAssets() {
-	if shouldRebuildAssets("lib/api/auto/gui.files.go", "gui") || shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.files.go", "cmd/strelaypoolsrv/auto/gui") {
+	if shouldRebuildAssets("lib/api/auto/gui.files.go", "gui") || shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.files.go", "cmd/strelaypoolsrv/gui") {
 		rebuildAssets()
 	}
 }
@@ -868,7 +884,7 @@ func getBranchSuffix() string {
 
 	branch = parts[len(parts)-1]
 	switch branch {
-	case "master", "release":
+	case "master", "release", "main":
 		// these are not special
 		return ""
 	}
@@ -1239,4 +1255,63 @@ func protobufVersion() string {
 		log.Fatal("Getting protobuf version:", err)
 	}
 	return string(bs)
+}
+
+func currentAndLatestVersions(n int) ([]string, error) {
+	bs, err := runError("git", "tag", "--sort", "taggerdate")
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(string(bs), "\n")
+	reverseStrings(lines)
+
+	// The one at the head is the latest version. We always keep that one.
+	// Then we filter out remaining ones with dashes (pre-releases etc).
+
+	latest := lines[:1]
+	nonPres := filterStrings(lines[1:], func(s string) bool { return !strings.Contains(s, "-") })
+	vers := append(latest, nonPres...)
+	return vers[:n], nil
+}
+
+func reverseStrings(ss []string) {
+	for i := 0; i < len(ss)/2; i++ {
+		ss[i], ss[len(ss)-1-i] = ss[len(ss)-1-i], ss[i]
+	}
+}
+
+func filterStrings(ss []string, op func(string) bool) []string {
+	n := ss[:0]
+	for _, s := range ss {
+		if op(s) {
+			n = append(n, s)
+		}
+	}
+	return n
+}
+
+func tagMessage(tag string) (string, error) {
+	hash, err := runError("git", "rev-parse", tag)
+	if err != nil {
+		return "", err
+	}
+	obj, err := runError("git", "cat-file", "-p", string(hash))
+	if err != nil {
+		return "", err
+	}
+	return trimTagMessage(string(obj), tag), nil
+}
+
+func trimTagMessage(msg, tag string) string {
+	firstBlank := strings.Index(msg, "\n\n")
+	if firstBlank > 0 {
+		msg = msg[firstBlank+2:]
+	}
+	msg = strings.TrimPrefix(msg, tag)
+	beginSig := strings.Index(msg, "-----BEGIN PGP")
+	if beginSig > 0 {
+		msg = msg[:beginSig]
+	}
+	return strings.TrimSpace(msg)
 }
