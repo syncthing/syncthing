@@ -121,11 +121,11 @@ Relay related libraries used by this repo
 ----
 ##### Relay protocol definition.
 
-[Available here](https://github.com/syncthing/syncthing/tree/master/lib/relay/protocol)
+[Available here](https://github.com/syncthing/syncthing/tree/main/lib/relay/protocol)
 
 
 ##### Relay client
 
 Only used by the testutil.
 
-[Available here](https://github.com/syncthing/syncthing/tree/master/lib/relay/client)
+[Available here](https://github.com/syncthing/syncthing/tree/main/lib/relay/client)

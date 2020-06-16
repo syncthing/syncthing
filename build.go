@@ -884,7 +884,7 @@ func getBranchSuffix() string {
 
 	branch = parts[len(parts)-1]
 	switch branch {
-	case "master", "release":
+	case "master", "release", "main":
 		// these are not special
 		return ""
 	}
