@@ -402,10 +402,10 @@ func wrapBadgerErr(err error) error {
 		return nil
 	}
 	if err == badger.ErrDiscardedTxn {
-		return errClosed{}
+		return &errClosed{}
 	}
 	if err == badger.ErrKeyNotFound {
-		return errNotFound{}
+		return &errNotFound{}
 	}
 	return err
 }

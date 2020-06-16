@@ -149,12 +149,12 @@ func open(location string, opts *opt.Options) (*leveldb.DB, error) {
 		// the database and reindexing...
 		l.Infoln("Database corruption detected, unable to recover. Reinitializing...")
 		if err := os.RemoveAll(location); err != nil {
-			return nil, errorSuggestion{err, "failed to delete corrupted database"}
+			return nil, &errorSuggestion{err, "failed to delete corrupted database"}
 		}
 		db, err = leveldb.OpenFile(location, opts)
 	}
 	if err != nil {
-		return nil, errorSuggestion{err, "is another instance of Syncthing running?"}
+		return nil, &errorSuggestion{err, "is another instance of Syncthing running?"}
 	}
 
 	if debugEnvValue("CompactEverything", 0) != 0 {
@@ -227,6 +227,6 @@ type errorSuggestion struct {
 	suggestion string
 }
 
-func (e errorSuggestion) Error() string {
+func (e *errorSuggestion) Error() string {
 	return fmt.Sprintf("%s (%s)", e.inner.Error(), e.suggestion)
 }

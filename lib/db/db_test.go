@@ -477,7 +477,7 @@ func TestDowngrade(t *testing.T) {
 	// Pretend we just opened the DB and attempt to update it again
 	err := UpdateSchema(db)
 
-	if err, ok := err.(databaseDowngradeError); !ok {
+	if err, ok := err.(*databaseDowngradeError); !ok {
 		t.Fatal("Expected error due to database downgrade, got", err)
 	} else if err.minSyncthingVersion != dbMinSyncthingVersion {
 		t.Fatalf("Error has %v as min Syncthing version, expected %v", err.minSyncthingVersion, dbMinSyncthingVersion)
