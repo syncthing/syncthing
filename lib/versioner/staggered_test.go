@@ -7,6 +7,7 @@
 package versioner
 
 import (
+	"github.com/syncthing/syncthing/lib/config"
 	"sort"
 	"strconv"
 	"testing"
@@ -96,9 +97,17 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 	}
 	sort.Strings(delete)
 
-	v := newStaggered(fs.NewFilesystem(fs.FilesystemTypeFake, "testdata"), map[string]string{
-		"maxAge": strconv.Itoa(365 * 86400),
-	}).(*staggered)
+	cfg := config.FolderConfiguration{
+		FilesystemType: fs.FilesystemTypeBasic,
+		Path:           "testdata",
+		Versioning: config.VersioningConfiguration{
+			Params: map[string]string{
+				"maxAge": strconv.Itoa(365 * 86400),
+			},
+		},
+	}
+
+	v := newStaggered(cfg).(*staggered)
 	rem := v.toRemove(versionsWithMtime, now)
 	sort.Strings(rem)
 
