@@ -114,7 +114,7 @@ func TestDeviceConfig(t *testing.T) {
 				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				Type:             FolderTypeSendOnly,
 				RescanIntervalS:  600,
-				FSWatcherEnabled: false,
+				FSWatcherEnabled: true,
 				FSWatcherDelayS:  10,
 				Copiers:          0,
 				Hashers:          0,
@@ -126,6 +126,7 @@ func TestDeviceConfig(t *testing.T) {
 				},
 				WeakHashThresholdPct: 25,
 				MarkerName:           DefaultMarkerName,
+				MaxConcurrentWrites:  2,
 			},
 		}
 
@@ -1151,6 +1152,56 @@ func TestMaxConcurrentFolders(t *testing.T) {
 			t.Errorf("Wrong MaxFolderConcurrency, %d => %d, expected %d", tc.input, res, tc.output)
 		}
 	}
+}
+
+func TestUnmarshalJSONDefaults(t *testing.T) {
+	// This is the minimal-est config imaginable. Defaults should be applied.
+	json := fmt.Sprintf(`{
+		"version":%d,
+		"folders":[{"id":"default","filesystemType":"fake","path":"fake","type":"sendreceive"}],
+		"devices":[{"deviceID":"%s"}],
+		"gui":{},
+		"options":{}
+	}`, CurrentVersion, device1.String())
+
+	// Load it.
+	cfg, err := ReadJSON(strings.NewReader(json), device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testVerifyDefaults(t, cfg)
+}
+
+func TestUnmarshalXMLDefaults(t *testing.T) {
+	// This is the minimal-est config imaginable. Defaults should be applied.
+	xml := fmt.Sprintf(`<configuration version="%d">
+		<folder id="default" filesystemType="fake" path="fake" type="sendreceive"></folder>
+		<device id="%s"></device>
+		<options></options>
+		<gui></gui>
+		</configuration>`, CurrentVersion, device1.String())
+
+	// Load it.
+	cfg, err := ReadXML(strings.NewReader(xml), device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testVerifyDefaults(t, cfg)
+}
+
+func testVerifyDefaults(t *testing.T, cfg Configuration) {
+	// Verify that some well known defaults have been applied.
+	if cfg.Options.ReconnectIntervalS != 60 {
+		t.Error("bad Options.ReconnectIntervalS:", cfg.Options.ReconnectIntervalS)
+	}
+	if cfg.Folders[0].RescanIntervalS != 3600 {
+		t.Error("bad Folders[0].RescanIntervalS:", cfg.Folders[0].RescanIntervalS)
+	}
+
+	// DeviceConfiguration lacks non-slice default values, and slices are
+	// not set during SetDefaults.
 }
 
 // defaultConfigAsMap returns a valid default config as a JSON-decoded

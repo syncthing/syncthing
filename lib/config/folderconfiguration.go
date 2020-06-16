@@ -7,6 +7,8 @@
 package config
 
 import (
+	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"runtime"
@@ -95,6 +97,20 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 	copy(c.Devices, f.Devices)
 	c.Versioning = f.Versioning.Copy()
 	return c
+}
+
+func (cfg *FolderConfiguration) UnmarshalJSON(data []byte) error {
+	util.SetDefaults(cfg)
+	type noCustomUnmarshal FolderConfiguration
+	ptr := (*noCustomUnmarshal)(cfg)
+	return json.Unmarshal(data, ptr)
+}
+
+func (cfg *FolderConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	util.SetDefaults(cfg)
+	type noCustomUnmarshal FolderConfiguration
+	ptr := (*noCustomUnmarshal)(cfg)
+	return d.DecodeElement(ptr, &start)
 }
 
 func (f FolderConfiguration) Filesystem() fs.Filesystem {

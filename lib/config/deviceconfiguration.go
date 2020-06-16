@@ -7,6 +7,8 @@
 package config
 
 import (
+	"encoding/json"
+	"encoding/xml"
 	"sort"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -55,6 +57,20 @@ func (cfg DeviceConfiguration) Copy() DeviceConfiguration {
 	c.PendingFolders = make([]ObservedFolder, len(cfg.PendingFolders))
 	copy(c.PendingFolders, cfg.PendingFolders)
 	return c
+}
+
+func (cfg *DeviceConfiguration) UnmarshalJSON(data []byte) error {
+	util.SetDefaults(cfg)
+	type noCustomUnmarshal DeviceConfiguration
+	ptr := (*noCustomUnmarshal)(cfg)
+	return json.Unmarshal(data, ptr)
+}
+
+func (cfg *DeviceConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	util.SetDefaults(cfg)
+	type noCustomUnmarshal DeviceConfiguration
+	ptr := (*noCustomUnmarshal)(cfg)
+	return d.DecodeElement(ptr, &start)
 }
 
 func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
