@@ -14,6 +14,7 @@ import (
 
 	"github.com/thejerf/suture"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/util"
 )
@@ -31,18 +32,17 @@ type trashcan struct {
 	copyRangeMethod fs.CopyRangeMethod
 }
 
-func newTrashcan(folderFs fs.Filesystem, params map[string]string) Versioner {
-	cleanoutDays, _ := strconv.Atoi(params["cleanoutDays"])
+func newTrashcan(cfg config.FolderConfiguration) Versioner {
+	cleanoutDays, _ := strconv.Atoi(cfg.Versioning.Params["cleanoutDays"])
 	// On error we default to 0, "do not clean out the trash can"
 
 	s := &trashcan{
-		folderFs:     folderFs,
-		versionsFs:   fsFromParams(folderFs, params),
-		cleanoutDays: cleanoutDays,
+		folderFs:        cfg.Filesystem(),
+		versionsFs:      versionerFsFromFolderCfg(cfg),
+		cleanoutDays:    cleanoutDays,
+		copyRangeMethod: cfg.CopyRangeMethod,
 	}
 	s.Service = util.AsService(s.serve, s.String())
-	// Never fails
-	_ = s.copyRangeMethod.UnmarshalText([]byte(params["copyRangeMethod"]))
 
 	l.Debugf("instantiated %#v", s)
 	return s

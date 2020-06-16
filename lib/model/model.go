@@ -341,7 +341,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	var ver versioner.Versioner
 	if cfg.Versioning.Type != "" {
 		var err error
-		ver, err = versioner.New(ffs, cfg.Versioning)
+		ver, err = versioner.New(cfg)
 		if err != nil {
 			panic(fmt.Errorf("creating versioner: %w", err))
 		}

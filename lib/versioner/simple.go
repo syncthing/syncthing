@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -25,19 +26,18 @@ type simple struct {
 	copyRangeMethod fs.CopyRangeMethod
 }
 
-func newSimple(folderFs fs.Filesystem, params map[string]string) Versioner {
-	keep, err := strconv.Atoi(params["keep"])
+func newSimple(cfg config.FolderConfiguration) Versioner {
+	var keep, err = strconv.Atoi(cfg.Versioning.Params["keep"])
 	if err != nil {
 		keep = 5 // A reasonable default
 	}
 
 	s := simple{
-		keep:       keep,
-		folderFs:   folderFs,
-		versionsFs: fsFromParams(folderFs, params),
+		keep:            keep,
+		folderFs:        cfg.Filesystem(),
+		versionsFs:      versionerFsFromFolderCfg(cfg),
+		copyRangeMethod: cfg.CopyRangeMethod,
 	}
-	// Never fails
-	_ = s.copyRangeMethod.UnmarshalText([]byte(params["copyRangeMethod"]))
 
 	l.Debugf("instantiated %#v", s)
 	return s

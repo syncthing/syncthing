@@ -15,6 +15,7 @@ import (
 
 	"github.com/thejerf/suture"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
@@ -42,7 +43,8 @@ type staggered struct {
 	testCleanDone chan struct{}
 }
 
-func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
+func newStaggered(cfg config.FolderConfiguration) Versioner {
+	params := cfg.Versioning.Params
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
 		maxAge = 31536000 // Default: ~1 year
@@ -54,11 +56,11 @@ func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 
 	// Backwards compatibility
 	params["fsPath"] = params["versionsPath"]
-	versionsFs := fsFromParams(folderFs, params)
+	versionsFs := versionerFsFromFolderCfg(cfg)
 
 	s := &staggered{
 		cleanInterval: cleanInterval,
-		folderFs:      folderFs,
+		folderFs:      cfg.Filesystem(),
 		versionsFs:    versionsFs,
 		interval: [4]interval{
 			{30, 60 * 60},                     // first hour -> 30 sec between versions
@@ -66,11 +68,10 @@ func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 			{24 * 60 * 60, 30 * 24 * 60 * 60}, // next 30 days -> 1 day between versions
 			{7 * 24 * 60 * 60, maxAge},        // next year -> 1 week between versions
 		},
-		mutex: sync.NewMutex(),
+		copyRangeMethod: cfg.CopyRangeMethod,
+		mutex:           sync.NewMutex(),
 	}
 	s.Service = util.AsService(s.serve, s.String())
-	// Never fails
-	_ = s.copyRangeMethod.UnmarshalText([]byte(params["copyRangeMethod"]))
 
 	l.Debugf("instantiated %#v", s)
 	return s
