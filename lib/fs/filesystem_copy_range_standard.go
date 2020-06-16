@@ -19,7 +19,7 @@ func copyRangeStandard(src, dst File, srcOffset, dstOffset, size int64) error {
 
 	buf := make([]byte, bufSize)
 
-	// TODO: In go 1.15, we should use file.ReadFrom
+	// TODO: In go 1.15, we should use file.ReadFrom that uses copy_file_range underneath.
 
 	// ReadAt and WriteAt does not modify the position of the file.
 	for size > 0 {
