@@ -75,8 +75,30 @@ var (
 	contextRemovingOldItem      = "removing item to be replaced"
 )
 
+type dbUpdateType int
+
+func (d dbUpdateType) String() string {
+	switch d {
+	case dbUpdateHandleDir:
+		return "dbUpdateHandleDir"
+	case dbUpdateDeleteDir:
+		return "dbUpdateDeleteDir"
+	case dbUpdateHandleFile:
+		return "dbUpdateHandleFile"
+	case dbUpdateDeleteFile:
+		return "dbUpdateDeleteFile"
+	case dbUpdateShortcutFile:
+		return "dbUpdateShourtcutFile"
+	case dbUpdateHandleSymlink:
+		return "dbUpdateHandleSymlink"
+	case dbUpdateInvalidate:
+		return "dbUpdateHandleInvalidate"
+	}
+	panic(fmt.Sprintf("unknown dbUpdateType %d", d))
+}
+
 const (
-	dbUpdateHandleDir = iota
+	dbUpdateHandleDir dbUpdateType = iota
 	dbUpdateDeleteDir
 	dbUpdateHandleFile
 	dbUpdateDeleteFile
@@ -95,7 +117,7 @@ const (
 
 type dbUpdateJob struct {
 	file    protocol.FileInfo
-	jobType int
+	jobType dbUpdateType
 }
 
 type sendReceiveFolder struct {
@@ -570,7 +592,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	case err == nil && !info.IsDir():
 		// Check that it is what we have in the database.
 		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
-		if err := f.scanIfItemChanged(info, curFile, hasCurFile, scanChan); err != nil {
+		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
 			err = errors.Wrap(err, "handling dir")
 			f.newPullError(file.Name, err)
 			return
@@ -722,7 +744,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 	if info, err := f.fs.Lstat(file.Name); err == nil {
 		// Check that it is what we have in the database.
 		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
-		if err := f.scanIfItemChanged(info, curFile, hasCurFile, scanChan); err != nil {
+		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
 			err = errors.Wrap(err, "handling symlink")
 			f.newPullError(file.Name, err)
 			return
@@ -779,6 +801,9 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 	})
 
 	defer func() {
+		if err != nil {
+			f.newPullError(file.Name, errors.Wrap(err, "delete dir"))
+		}
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   file.Name,
@@ -788,8 +813,16 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 		})
 	}()
 
+	cur, hasCur := snap.Get(protocol.LocalDeviceID, file.Name)
+
+	if err = f.checkToBeDeleted(file, cur, hasCur, dbUpdateDeleteDir, dbUpdateChan, scanChan); err != nil {
+		if fs.IsNotExist(err) {
+			err = nil
+		}
+		return
+	}
+
 	if err = f.deleteDirOnDisk(file.Name, snap, scanChan); err != nil {
-		f.newPullError(file.Name, err)
 		return
 	}
 
@@ -829,20 +862,10 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 		})
 	}()
 
-	if !hasCur {
-		// We should never try to pull a deletion for a file we don't have in the DB.
-		l.Debugln(f, "not deleting file we don't have, but update db", file.Name)
-		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
-		return
-	}
-
-	if err = osutil.TraversesSymlink(f.fs, filepath.Dir(file.Name)); err != nil {
-		l.Debugln(f, "not deleting file behind symlink on disk, but update db", file.Name)
-		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
-		return
-	}
-
-	if err = f.checkToBeDeleted(cur, scanChan); err != nil {
+	if err = f.checkToBeDeleted(file, cur, hasCur, dbUpdateDeleteFile, dbUpdateChan, scanChan); err != nil {
+		if fs.IsNotExist(err) {
+			err = nil
+		}
 		return
 	}
 
@@ -924,7 +947,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	l.Debugln(f, "taking rename shortcut", source.Name, "->", target.Name)
 
 	// Check that source is compatible with what we have in the DB
-	if err = f.checkToBeDeleted(cur, scanChan); err != nil {
+	if err = f.checkToBeDeleted(source, cur, true, dbUpdateDeleteFile, dbUpdateChan, scanChan); err != nil {
 		return err
 	}
 	// Check that the target corresponds to what we have in the DB
@@ -1485,7 +1508,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		// There is an old file or directory already in place. We need to
 		// handle that.
 
-		if err := f.scanIfItemChanged(stat, curFile, hasCurFile, scanChan); err != nil {
+		if err := f.scanIfItemChanged(file.Name, stat, curFile, hasCurFile, scanChan); err != nil {
 			err = errors.Wrap(err, "handling file")
 			f.newPullError(file.Name, err)
 			return err
@@ -1904,10 +1927,10 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 // scanIfItemChanged schedules the given file for scanning and returns errModified
 // if it differs from the information in the database. Returns nil if the file has
 // not changed.
-func (f *sendReceiveFolder) scanIfItemChanged(stat fs.FileInfo, item protocol.FileInfo, hasItem bool, scanChan chan<- string) (err error) {
+func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, item protocol.FileInfo, hasItem bool, scanChan chan<- string) (err error) {
 	defer func() {
 		if err == errModified {
-			scanChan <- item.Name
+			scanChan <- name
 		}
 	}()
 
@@ -1935,18 +1958,28 @@ func (f *sendReceiveFolder) scanIfItemChanged(stat fs.FileInfo, item protocol.Fi
 // checkToBeDeleted makes sure the file on disk is compatible with what there is
 // in the DB before the caller proceeds with actually deleting it.
 // I.e. non-nil error status means "Do not delete!".
-func (f *sendReceiveFolder) checkToBeDeleted(cur protocol.FileInfo, scanChan chan<- string) error {
-	stat, err := f.fs.Lstat(cur.Name)
-	if err != nil {
-		if fs.IsNotExist(err) {
-			// File doesn't exist to start with.
-			return nil
-		}
-		// We can't check whether the file changed as compared to the db,
-		// do not delete.
+func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur bool, updateType dbUpdateType, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
+	if err := osutil.TraversesSymlink(f.fs, filepath.Dir(file.Name)); err != nil {
+		l.Debugln(f, "not deleting item behind symlink on disk, but update db", file.Name)
+		dbUpdateChan <- dbUpdateJob{file, updateType}
+		return fs.ErrNotExist
+	}
+
+	stat, err := f.fs.Lstat(file.Name)
+	if !fs.IsNotExist(err) && err != nil {
 		return err
 	}
-	return f.scanIfItemChanged(stat, cur, true, scanChan)
+	if fs.IsNotExist(err) {
+		if hasCur && !cur.Deleted {
+			scanChan <- file.Name
+			return errModified
+		}
+		l.Debugln(f, "not deleting item we don't have, but update db", file.Name)
+		dbUpdateChan <- dbUpdateJob{file, updateType}
+		return fs.ErrNotExist
+	}
+
+	return f.scanIfItemChanged(file.Name, stat, cur, hasCur, scanChan)
 }
 
 func (f *sendReceiveFolder) maybeCopyOwner(path string) error {
