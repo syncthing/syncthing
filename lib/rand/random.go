@@ -45,9 +45,9 @@ func Int63() int64 {
 	return defaultSecureSource.Int63()
 }
 
-// Int64 returns a strongly random int64.
-func Int64() int64 {
-	return int64(defaultSecureSource.Uint64())
+// Uint64 returns a strongly random uint64.
+func Uint64() uint64 {
+	return defaultSecureSource.Uint64()
 }
 
 // Intn returns, as an int, a non-negative strongly random number in [0,n).
