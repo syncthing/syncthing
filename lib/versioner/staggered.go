@@ -7,6 +7,7 @@
 package versioner
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -56,7 +57,7 @@ func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 	return s
 }
 
-func (v *staggered) Clean() error {
+func (v *staggered) Clean(ctx context.Context) error {
 	l.Debugln("Versioner clean: Cleaning", v.versionsFs)
 
 	if _, err := v.versionsFs.Stat("."); fs.IsNotExist(err) {
@@ -70,6 +71,11 @@ func (v *staggered) Clean() error {
 	walkFn := func(path string, f fs.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 		}
 
 		if f.IsDir() && !f.IsSymlink() {
@@ -96,6 +102,11 @@ func (v *staggered) Clean() error {
 	}
 
 	for _, versionList := range versionsPerFile {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		v.expire(versionList)
 	}
 

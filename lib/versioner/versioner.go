@@ -9,6 +9,7 @@
 package versioner
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -21,7 +22,7 @@ type Versioner interface {
 	Archive(filePath string) error
 	GetVersions() (map[string][]FileVersion, error)
 	Restore(filePath string, versionTime time.Time) error
-	Clean() error
+	Clean(context.Context) error
 }
 
 type FileVersion struct {

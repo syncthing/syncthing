@@ -7,6 +7,7 @@
 package versioner
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -51,7 +52,7 @@ func (t *trashcan) String() string {
 	return fmt.Sprintf("trashcan@%p", t)
 }
 
-func (t *trashcan) Clean() error {
+func (t *trashcan) Clean(ctx context.Context) error {
 	if t.cleanoutDays <= 0 {
 		// no cleanout requested
 		return nil
@@ -67,6 +68,11 @@ func (t *trashcan) Clean() error {
 	walkFn := func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 		}
 
 		if info.IsDir() && !info.IsSymlink() {

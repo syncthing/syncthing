@@ -7,6 +7,7 @@
 package versioner
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -115,6 +116,6 @@ func (v external) Restore(filePath string, versionTime time.Time) error {
 	return ErrRestorationNotSupported
 }
 
-func (v external) Clean() error {
+func (v external) Clean(_ context.Context) error {
 	return nil
 }

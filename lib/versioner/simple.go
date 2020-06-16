@@ -7,6 +7,7 @@
 package versioner
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -71,6 +72,6 @@ func (v simple) Restore(filepath string, versionTime time.Time) error {
 	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }
 
-func (v simple) Clean() error {
+func (v simple) Clean(_ context.Context) error {
 	return nil
 }
