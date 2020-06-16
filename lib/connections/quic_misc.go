@@ -13,6 +13,7 @@ import (
 	"net"
 
 	"github.com/lucas-clemente/quic-go"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 var (
@@ -65,21 +66,5 @@ func (q *quicTlsConn) ConnectionState() tls.ConnectionState {
 
 // Sort available packet connections by ip address, preferring unspecified local address.
 func packetConnLess(i interface{}, j interface{}) bool {
-	iIsUnspecified := false
-	jIsUnspecified := false
-	iLocalAddr := i.(net.PacketConn).LocalAddr()
-	jLocalAddr := j.(net.PacketConn).LocalAddr()
-
-	if host, _, err := net.SplitHostPort(iLocalAddr.String()); err == nil {
-		iIsUnspecified = host == "" || net.ParseIP(host).IsUnspecified()
-	}
-	if host, _, err := net.SplitHostPort(jLocalAddr.String()); err == nil {
-		jIsUnspecified = host == "" || net.ParseIP(host).IsUnspecified()
-	}
-
-	if jIsUnspecified == iIsUnspecified {
-		return len(iLocalAddr.Network()) < len(jLocalAddr.Network())
-	}
-
-	return iIsUnspecified
+	return util.AddressUnspecifiedLess(i.(net.PacketConn).LocalAddr(), j.(net.PacketConn).LocalAddr())
 }

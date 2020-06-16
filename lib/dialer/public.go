@@ -13,6 +13,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 	"golang.org/x/net/proxy"
@@ -120,4 +121,23 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 // and the proxy connection is returned if successful.
 func DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	return dialContextWithFallback(ctx, proxy.Direct, network, addr)
+}
+
+// DialContextReusePort tries dialing via proxy if a proxy is configured, and falls back to
+// a direct connection reusing the port from the connections registry, if no proxy is defined, or connecting via proxy
+// fails. If the context has a timeout, the timeout might be applied twice.
+func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, error) {
+	dialer := &net.Dialer{
+		Control: ReusePortControl,
+	}
+	localAddrInterface := registry.Get(network, tcpAddrLess)
+	if localAddrInterface != nil {
+		if addr, ok := localAddrInterface.(*net.TCPAddr); !ok {
+			return nil, errUnexpectedInterfaceType
+		} else {
+			dialer.LocalAddr = addr
+		}
+	}
+
+	return dialContextWithFallback(ctx, dialer, network, addr)
 }
