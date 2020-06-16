@@ -104,8 +104,8 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		scanDelay:              make(chan time.Duration),
 		initialScanFinished:    make(chan struct{}),
 		scanErrorsMut:          sync.NewMutex(),
-		versionCleanupInterval: time.Duration(cfg.VersionCleanupIntervalS) * time.Second,
-		versionCleanupTimer:    time.NewTimer(time.Duration(cfg.VersionCleanupIntervalS) * time.Second),
+		versionCleanupInterval: time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second,
+		versionCleanupTimer:    time.NewTimer(time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second),
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 

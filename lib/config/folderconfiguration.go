@@ -42,8 +42,7 @@ type FolderConfiguration struct {
 	AutoNormalize           bool                        `xml:"autoNormalize,attr" json:"autoNormalize" default:"true"`
 	MinDiskFree             Size                        `xml:"minDiskFree" json:"minDiskFree" default:"1%"`
 	Versioning              VersioningConfiguration     `xml:"versioning" json:"versioning"`
-	VersionCleanupIntervalS int                         `xml:"versionCleanupIntervalS" json:"versionCleanupIntervalS" default:"3600"` // Follows same min/max as scan interval
-	Copiers                 int                         `xml:"copiers" json:"copiers"`                                                // This defines how many files are handled concurrently.
+	Copiers                 int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
 	PullerMaxPendingKiB     int                         `xml:"pullerMaxPendingKiB" json:"pullerMaxPendingKiB"`
 	Hashers                 int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
 	Order                   PullOrder                   `xml:"order" json:"order"`
@@ -217,11 +216,6 @@ func (f *FolderConfiguration) prepare() {
 	} else if f.RescanIntervalS < 0 {
 		f.RescanIntervalS = 0
 	}
-	if f.VersionCleanupIntervalS > MaxRescanIntervalS {
-		f.VersionCleanupIntervalS = MaxRescanIntervalS
-	} else if f.VersionCleanupIntervalS < 0 {
-		f.VersionCleanupIntervalS = 0
-	}
 
 	if f.FSWatcherDelayS <= 0 {
 		f.FSWatcherEnabled = false
@@ -230,6 +224,11 @@ func (f *FolderConfiguration) prepare() {
 
 	if f.Versioning.Params == nil {
 		f.Versioning.Params = make(map[string]string)
+	}
+	if f.Versioning.CleanupIntervalS > MaxRescanIntervalS {
+		f.Versioning.CleanupIntervalS = MaxRescanIntervalS
+	} else if f.Versioning.CleanupIntervalS < 0 {
+		f.Versioning.CleanupIntervalS = 0
 	}
 
 	if f.WeakHashThresholdPct == 0 {
