@@ -7,6 +7,8 @@
 package config
 
 import (
+	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"runtime"
 
@@ -203,4 +205,18 @@ func (opts OptionsConfiguration) MaxConcurrentIncomingRequestKiB() int {
 
 func (opts OptionsConfiguration) ShouldAutoUpgrade() bool {
 	return opts.AutoUpgradeIntervalH > 0
+}
+
+func (opts *OptionsConfiguration) UnmarshalJSON(data []byte) error {
+	util.SetDefaults(opts)
+	type noCustomUnmarshal OptionsConfiguration
+	ptr := (*noCustomUnmarshal)(opts)
+	return json.Unmarshal(data, ptr)
+}
+
+func (opts *OptionsConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	util.SetDefaults(opts)
+	type noCustomUnmarshal OptionsConfiguration
+	ptr := (*noCustomUnmarshal)(opts)
+	return d.DecodeElement(ptr, &start)
 }

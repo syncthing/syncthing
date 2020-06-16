@@ -12,7 +12,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
@@ -109,8 +108,8 @@ func New(myID protocol.DeviceID) Configuration {
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
 
-	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
+		// Can't happen.
 		l.Warnln("bug: error in preparing new folder:", err)
 		panic("error in preparing new folder")
 	}
@@ -146,15 +145,9 @@ func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
 
 func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	var cfg Configuration
-
-	util.SetDefaults(&cfg)
-	util.SetDefaults(&cfg.Options)
-	util.SetDefaults(&cfg.GUI)
-
 	if err := xml.NewDecoder(r).Decode(&cfg); err != nil {
 		return Configuration{}, err
 	}
-	cfg.OriginalVersion = cfg.Version
 
 	if err := cfg.prepare(myID); err != nil {
 		return Configuration{}, err
@@ -164,20 +157,9 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 
 func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	var cfg Configuration
-
-	util.SetDefaults(&cfg)
-	util.SetDefaults(&cfg.Options)
-	util.SetDefaults(&cfg.GUI)
-
-	bs, err := ioutil.ReadAll(r)
-	if err != nil {
+	if err := json.NewDecoder(r).Decode(&cfg); err != nil {
 		return Configuration{}, err
 	}
-
-	if err := json.Unmarshal(bs, &cfg); err != nil {
-		return Configuration{}, err
-	}
-	cfg.OriginalVersion = cfg.Version
 
 	if err := cfg.prepare(myID); err != nil {
 		return Configuration{}, err
@@ -243,6 +225,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 	var myName string
 
 	cfg.MyID = myID
+	cfg.OriginalVersion = cfg.Version
 
 	// Ensure this device is present in the config
 	for _, device := range cfg.Devices {
@@ -440,6 +423,20 @@ func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration 
 		m[dev.DeviceID] = dev
 	}
 	return m
+}
+
+func (cfg *Configuration) UnmarshalJSON(data []byte) error {
+	util.SetDefaults(cfg)
+	type noCustomUnmarshal Configuration
+	ptr := (*noCustomUnmarshal)(cfg)
+	return json.Unmarshal(data, ptr)
+}
+
+func (cfg *Configuration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	util.SetDefaults(cfg)
+	type noCustomUnmarshal Configuration
+	ptr := (*noCustomUnmarshal)(cfg)
+	return d.DecodeElement(ptr, &start)
 }
 
 func ensureDevicePresent(devices []FolderDeviceConfiguration, myID protocol.DeviceID) []FolderDeviceConfiguration {

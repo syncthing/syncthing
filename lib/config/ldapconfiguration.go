@@ -6,6 +6,13 @@
 
 package config
 
+import (
+	"encoding/json"
+	"encoding/xml"
+
+	"github.com/syncthing/syncthing/lib/util"
+)
+
 type LDAPConfiguration struct {
 	Address            string        `xml:"address,omitempty" json:"address"`
 	BindDN             string        `xml:"bindDN,omitempty" json:"bindDN"`
@@ -17,4 +24,18 @@ type LDAPConfiguration struct {
 
 func (c LDAPConfiguration) Copy() LDAPConfiguration {
 	return c
+}
+
+func (c *LDAPConfiguration) UnmarshalJSON(data []byte) error {
+	util.SetDefaults(c)
+	type noCustomUnmarshal LDAPConfiguration
+	ptr := (*noCustomUnmarshal)(c)
+	return json.Unmarshal(data, ptr)
+}
+
+func (c *LDAPConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	util.SetDefaults(c)
+	type noCustomUnmarshal LDAPConfiguration
+	ptr := (*noCustomUnmarshal)(c)
+	return d.DecodeElement(ptr, &start)
 }
