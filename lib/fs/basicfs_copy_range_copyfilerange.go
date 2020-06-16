@@ -10,6 +10,7 @@ package fs
 
 import (
 	"io"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 )
@@ -32,10 +33,13 @@ func copyRangeCopyFileRange(src, dst basicFile, srcOffset, dstOffset, size int64
 		if n == 0 && err == nil {
 			return io.ErrUnexpectedEOF
 		}
-		if err != nil {
+		if err != nil && err != syscall.EAGAIN {
 			return err
 		}
-		size -= int64(n)
+		// Handle case where err == EAGAIN and n == -1 (it's not clear if that can happen)
+		if n > 0 {
+			size -= int64(n)
+		}
 	}
 	return nil
 }

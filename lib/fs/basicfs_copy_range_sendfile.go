@@ -55,10 +55,13 @@ func copyRangeSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) err
 		if n == 0 && err == nil {
 			err = io.ErrUnexpectedEOF
 		}
-		if err != nil {
+		if err != nil && err != syscall.EAGAIN {
 			return err
 		}
-		size -= int64(n)
+		// Handle case where err == EAGAIN and n == -1 (it's not clear if that can happen)
+		if n > 0 {
+			size -= int64(n)
+		}
 	}
 
 	_, err = dst.Seek(oldDstOffset, io.SeekStart)
