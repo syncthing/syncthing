@@ -121,7 +121,10 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 	defer t.close()
 
 	var dk, gk, keyBuf []byte
-	devID := protocol.DeviceIDFromBytes(device)
+	devID, err := protocol.DeviceIDFromBytes(device)
+	if err != nil {
+		return err
+	}
 	for _, f := range fs {
 		name := []byte(f.Name)
 		dk, err = db.keyer.GenerateDeviceFileKey(dk, folder, device, name)

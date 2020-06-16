@@ -51,7 +51,7 @@ func poolHandler(pool string, uri *url.URL, mapping mapping) {
 			var x struct {
 				EvictionIn time.Duration `json:"evictionIn"`
 			}
-			if err := json.NewDecoder(resp.Body).Decode(&x); err == nil {
+			if err := json.Unmarshal(bs, &x); err == nil {
 				rejoin := x.EvictionIn - (x.EvictionIn / 5)
 				log.Printf("Joined pool %s, rejoining in %v", pool, rejoin)
 				time.Sleep(rejoin)

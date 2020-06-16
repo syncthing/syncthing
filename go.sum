@@ -183,6 +183,12 @@ github.com/lucas-clemente/quic-go v0.15.6 h1:2l7g4fjjjwqmM3NirLiBtszMaR7aDTSsiiX
 github.com/lucas-clemente/quic-go v0.15.6/go.mod h1:Myi1OyS0FOjL3not4BxT7KN29bRkcMUV5JVVFLKtDp8=
 github.com/lucas-clemente/quic-go v0.15.7 h1:Pu7To5/G9JoP1mwlrcIvfV8ByPBlCzif3MCl8+1W83I=
 github.com/lucas-clemente/quic-go v0.15.7/go.mod h1:Myi1OyS0FOjL3not4BxT7KN29bRkcMUV5JVVFLKtDp8=
+github.com/lucas-clemente/quic-go v0.16.0 h1:jJw36wfzGJhmOhAOaOC2lS36WgeqXQszH47A7spo1LI=
+github.com/lucas-clemente/quic-go v0.16.0/go.mod h1:I0+fcNTdb9eS1ZcjQZbDVPGchJ86chcIxPALn9lEJqE=
+github.com/lucas-clemente/quic-go v0.16.1 h1:hleW5QcJCNjGS10ggod6tQQy7XjVtagS6UIdzBMAWpg=
+github.com/lucas-clemente/quic-go v0.16.1/go.mod h1:I0+fcNTdb9eS1ZcjQZbDVPGchJ86chcIxPALn9lEJqE=
+github.com/lucas-clemente/quic-go v0.17.1 h1:ezsH76xpn6hKugfsXUy6voIJBFmAOwnM/Oy9F4b/n+M=
+github.com/lucas-clemente/quic-go v0.17.1/go.mod h1:I0+fcNTdb9eS1ZcjQZbDVPGchJ86chcIxPALn9lEJqE=
 github.com/lunixbochs/vtclean v1.0.0/go.mod h1:pHhQNgMf3btfWnGBVipUOjRYhoOsdGqdm/+2c2E2WMI=
 github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/mailru/easyjson v0.0.0-20190312143242-1de009706dbe/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
@@ -445,6 +451,8 @@ google.golang.org/protobuf v0.0.0-20200228230310-ab0ca4ff8a60/go.mod h1:cfTl7dwQ
 google.golang.org/protobuf v1.20.1-0.20200309200217-e05f789c0967/go.mod h1:A+miEFZTKqfCUM6K7xSMQL9OKL/b6hQv+e19PK+JZNE=
 google.golang.org/protobuf v1.21.0 h1:qdOKuR/EIArgaWNjetjgTzgVTAZ+S/WXVrq9HW9zimw=
 google.golang.org/protobuf v1.21.0/go.mod h1:47Nbq4nVaFHyn7ilMalzfO3qCViNmqZ2kzikPIcrTAo=
+google.golang.org/protobuf v1.23.0 h1:4MY060fB1DLGMB/7MBTLnwQUY6+F09GEiz6SsrNqyzM=
+google.golang.org/protobuf v1.23.0/go.mod h1:EGpADcykh3NcUnDUJcl1+ZksZNG86OlYog2l/sGQquU=
 gopkg.in/alecthomas/kingpin.v2 v2.2.6 h1:jMFz6MfLP0/4fUyZle81rXUoxOBFi19VUFKVDOQfozc=
 gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLkstjWtayDeSgw=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

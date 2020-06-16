@@ -52,7 +52,11 @@ func (m *metadataTracker) Unmarshal(bs []byte) error {
 
 	// Initialize the index map
 	for i, c := range m.counts.Counts {
-		m.indexes[metaKey{protocol.DeviceIDFromBytes(c.DeviceID), c.LocalFlags}] = i
+		dev, err := protocol.DeviceIDFromBytes(c.DeviceID)
+		if err != nil {
+			return err
+		}
+		m.indexes[metaKey{dev, c.LocalFlags}] = i
 	}
 	return nil
 }
@@ -392,7 +396,10 @@ func (m *countsMap) devices() []protocol.DeviceID {
 
 	for _, dev := range m.counts.Counts {
 		if dev.Sequence > 0 {
-			id := protocol.DeviceIDFromBytes(dev.DeviceID)
+			id, err := protocol.DeviceIDFromBytes(dev.DeviceID)
+			if err != nil {
+				panic(err)
+			}
 			if id == protocol.GlobalDeviceID || id == protocol.LocalDeviceID {
 				continue
 			}
