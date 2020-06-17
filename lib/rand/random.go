@@ -21,17 +21,17 @@ var Reader = cryptoRand.Reader
 const randomCharset = "2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ"
 
 var (
-	// defaultSecureSource is a concurrency safe math/rand.Source with a
-	// cryptographically sound base.
+	// defaultSecureSource is a concurrency-safe, cryptographically secure
+	// math/rand.Source.
 	defaultSecureSource = newSecureSource()
 
 	// defaultSecureRand is a math/rand.Rand based on the secure source.
 	defaultSecureRand = mathRand.New(defaultSecureSource)
 )
 
-// String returns a strongly random string of characters (taken from
-// randomCharset) of the specified length. The returned string contains ~5.8
-// bits of entropy per character, due to the character set used.
+// String returns a cryptographically secure random string of characters
+// (taken from randomCharset) of the specified length. The returned string
+// contains ~5.8 bits of entropy per character, due to the character set used.
 func String(l int) string {
 	bs := make([]byte, l)
 	for i := range bs {
@@ -40,18 +40,18 @@ func String(l int) string {
 	return string(bs)
 }
 
-// Int63 returns a strongly random int63.
+// Int63 returns a cryptographically secure random int63.
 func Int63() int64 {
 	return defaultSecureSource.Int63()
 }
 
-// Int64 returns a strongly random int64.
-func Int64() int64 {
-	return int64(defaultSecureSource.Uint64())
+// Uint64 returns a cryptographically secure strongly random uint64.
+func Uint64() uint64 {
+	return defaultSecureSource.Uint64()
 }
 
-// Intn returns, as an int, a non-negative strongly random number in [0,n).
-// It panics if n <= 0.
+// Intn returns, as an int, a cryptographically secure non-negative
+// random number in [0,n). It panics if n <= 0.
 func Intn(n int) int {
 	return defaultSecureRand.Intn(n)
 }

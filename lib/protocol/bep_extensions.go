@@ -367,7 +367,7 @@ func (i *IndexID) Unmarshal(bs []byte) error {
 }
 
 func NewIndexID() IndexID {
-	return IndexID(rand.Int64())
+	return IndexID(rand.Uint64())
 }
 
 func (f Folder) Description() string {
