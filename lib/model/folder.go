@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 
 	"github.com/thejerf/suture"
