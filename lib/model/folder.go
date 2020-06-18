@@ -190,6 +190,8 @@ func (f *folder) Override() {}
 
 func (f *folder) Revert() {}
 
+func (f *folder) CleanEnc() {}
+
 func (f *folder) DelayScan(next time.Duration) {
 	f.Delay(next)
 }
@@ -428,37 +430,41 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// Resolve items which are identical with the global state.
 	if f.localFlags&protocol.FlagLocalReceiveOnly != 0 {
 		oldBatchFn := batchFn // can't reference batchFn directly (recursion)
-		batchFn = func(fs []protocol.FileInfo) error {
-			for i := range fs {
-				switch gf, ok := snap.GetGlobal(fs[i].Name); {
+		batchFn = func(fis []protocol.FileInfo) error {
+			for i := range fis {
+				switch gf, ok := snap.GetGlobal(fis[i].Name); {
 				case !ok:
 					continue
-				case gf.IsEquivalentOptional(fs[i], f.ModTimeWindow(), false, false, protocol.FlagLocalReceiveOnly):
+				case gf.IsEquivalentOptional(fis[i], f.ModTimeWindow(), false, false, protocol.FlagLocalReceiveOnly):
 					// What we have locally is equivalent to the global file.
-					fs[i].Version = fs[i].Version.Merge(gf.Version)
+					fis[i].Version = fis[i].Version.Merge(gf.Version)
 					fallthrough
-				case fs[i].IsDeleted() && gf.IsReceiveOnlyChanged():
+				case fis[i].IsDeleted() && gf.IsReceiveOnlyChanged():
 					// Our item is deleted and the global item is our own
 					// receive only file. We can't delete file infos, so
 					// we just pretend it is a normal deleted file (nobody
 					// cares about that).
-					fs[i].LocalFlags &^= protocol.FlagLocalReceiveOnly
+					fis[i].LocalFlags &^= protocol.FlagLocalReceiveOnly
 				}
 			}
-			return oldBatchFn(fs)
+			return oldBatchFn(fis)
 		}
 	} else if f.Type == config.FolderTypeReceiveEncrypted {
 		oldBatchFn := batchFn // can't reference batchFn directly (recursion)
-		batchFn = func(fs []protocol.FileInfo) error {
-			// Delete all changed items and set zero version vector
-			// such that we get a correct copy again.
-			for i := range fs {
-				if err := mtimefs.RemoveAll(fs[i].Name); err != nil {
-					l.Debugf(`%v Failed to remove changed item "%v": %v`, f.Description(), fs[i].Name, err)
+		batchFn = func(fis []protocol.FileInfo) error {
+			for i := range fis {
+				if protocol.IsEncryptedPath(fis[i].Name) {
+					// Delete changed, encrypted items.
+					if err := mtimefs.RemoveAll(fis[i].Name); err != nil && !fs.IsNotExist(err) {
+						f.newScanError(fis[i].Name, fmt.Errorf("removing changed item: %w", err))
+					}
+				} else {
+					fis[i].LocalFlags = protocol.FlagLocalReceiveOnly
 				}
-				fs[i].Version = protocol.Vector{}
+				// Set zero version for good measure.
+				fis[i].Version = protocol.Vector{}
 			}
-			return oldBatchFn(fs)
+			return oldBatchFn(fis)
 		}
 	}
 	batch := newFileInfoBatch(batchFn)
