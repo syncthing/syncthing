@@ -1656,11 +1656,15 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 		ignores = ignore.New(fs.NewFilesystem(cfg.FilesystemType, cfg.Path))
 	}
 
-	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		return nil, nil, err
+	err := ignores.Load(".stignore")
+	if fs.IsNotExist(err) {
+		// Having no ignores is not an error.
+		return nil, nil, nil
 	}
 
-	return ignores.Lines(), ignores.Patterns(), nil
+	// Return lines and patterns, which may have some meaning even when err
+	// != nil, depending on the specific error.
+	return ignores.Lines(), ignores.Patterns(), err
 }
 
 func (m *model) SetIgnores(folder string, content []string) error {
