@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 
 	"github.com/thejerf/suture"
@@ -330,7 +331,7 @@ func (f *folder) pull() (success bool) {
 
 	// Pulling failed, try again later.
 	delay := f.pullPause + time.Since(startTime)
-	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), delay.Truncate(time.Second))
+	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), util.NiceDurationString(delay))
 	f.pullFailTimer.Reset(delay)
 	return false
 }

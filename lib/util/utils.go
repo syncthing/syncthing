@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/sync"
 
@@ -313,4 +314,20 @@ func CallWithContext(ctx context.Context, fn func() error) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func NiceDurationString(d time.Duration) string {
+	switch {
+	case d > 24*time.Hour:
+		d = d.Round(time.Hour)
+	case d > time.Hour:
+		d = d.Round(time.Minute)
+	case d > time.Minute:
+		d = d.Round(time.Second)
+	case d > time.Second:
+		d = d.Round(time.Millisecond)
+	case d > time.Millisecond:
+		d = d.Round(time.Microsecond)
+	}
+	return d.String()
 }
