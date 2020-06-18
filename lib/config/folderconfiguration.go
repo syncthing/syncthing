@@ -307,3 +307,7 @@ func (f *FolderConfiguration) CheckAvailableSpace(req int64) error {
 	}
 	return fmt.Errorf("insufficient space in %v %v", fs.Type(), fs.URI())
 }
+
+func (f *FolderConfiguration) HasPlaintextData() bool {
+	return f.Type != FolderTypeReceiveEncrypted
+}

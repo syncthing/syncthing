@@ -346,10 +346,6 @@ func (b BlockInfo) IsEmpty() bool {
 	return false
 }
 
-func (b BlockInfo) HashIsSHA256() bool {
-	return len(b.Hash) == 32
-}
-
 type IndexID uint64
 
 func (i IndexID) String() string {
