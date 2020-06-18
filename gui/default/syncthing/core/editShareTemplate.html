@@ -9,12 +9,12 @@
 </div>
 <div class="col-md-6">
   <div class="input-group">
-    <span class="input-group-addon" ng-switch="folder.type !== 'receiveEncrypted' && (!currentSharing.encPWs[id] || currentSharing.encPWs[id] === '')">
+    <span class="input-group-addon" ng-switch="folder.type !== 'receiveencrypted' && (!currentSharing.encPWs[id] || currentSharing.encPWs[id] === '')">
       <span ng-switch-when='true' class="fas fa-fw fa-unlock" />
       <span ng-switch-when='false' class="fas fa-fw fa-lock" />
     </span>
     <span ng-switch="currentSharing.selected[id]">
-      <span ng-switch-when='true' ng-switch="folder.type === 'receiveEncrypted'">
+      <span ng-switch-when='true' ng-switch="folder.type === 'receiveencrypted'">
         <span ng-switch-when='true'>
           <input class="form-control input-sm" type="password" placeholder="{{'received data is already encrypted' | translate}}" disabled />
         </span>

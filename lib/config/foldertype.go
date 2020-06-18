@@ -24,7 +24,7 @@ func (t FolderType) String() string {
 	case FolderTypeReceiveOnly:
 		return "receiveonly"
 	case FolderTypeReceiveEncrypted:
-		return "receiveEncrypted"
+		return "receiveencrypted"
 	default:
 		return "unknown"
 	}
@@ -42,7 +42,7 @@ func (t *FolderType) UnmarshalText(bs []byte) error {
 		*t = FolderTypeSendOnly
 	case "receiveonly":
 		*t = FolderTypeReceiveOnly
-	case "receiveEncrypted":
+	case "receiveencrypted":
 		*t = FolderTypeReceiveEncrypted
 	default:
 		*t = FolderTypeSendReceive
