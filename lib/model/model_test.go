@@ -3424,36 +3424,40 @@ func TestModTimeWindow(t *testing.T) {
 
 	m.ScanFolders()
 
-	v := protocol.Vector{}
-	v = v.Update(myID.Short())
+	// Get current version
+
 	fi, ok := m.CurrentFolderFile("default", name)
 	if !ok {
 		t.Fatal("File missing")
 	}
-	if !fi.Version.Equal(v) {
-		t.Fatalf("Got version %v, expected %v", fi.Version, v)
-	}
+	v := fi.Version
+
+	// Update time on disk 1s
 
 	err = tfs.Chtimes(name, time.Now(), modTime.Add(time.Second))
 	must(t, err)
 
 	m.ScanFolders()
 
-	// No change due to window
+	// No change due to within window
+
 	fi, _ = m.CurrentFolderFile("default", name)
 	if !fi.Version.Equal(v) {
 		t.Fatalf("Got version %v, expected %v", fi.Version, v)
 	}
+
+	// Update to be outside window
 
 	err = tfs.Chtimes(name, time.Now(), modTime.Add(2*time.Second))
 	must(t, err)
 
 	m.ScanFolders()
 
-	v = v.Update(myID.Short())
+	// Version should have updated
+
 	fi, _ = m.CurrentFolderFile("default", name)
-	if !fi.Version.Equal(v) {
-		t.Fatalf("Got version %v, expected %v", fi.Version, v)
+	if fi.Version.Compare(v) != protocol.Greater {
+		t.Fatalf("Got result %v, expected %v", fi.Version.Compare(v), protocol.Greater)
 	}
 }
 
@@ -3667,10 +3671,10 @@ func TestRenameSameFile(t *testing.T) {
 	}
 
 	must(t, ffs.Rename("file", "file1"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file0"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file2"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file3"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file4"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file0"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file2"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file3"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file4"))
 
 	m.ScanFolders()
 

@@ -674,6 +674,8 @@ func TestIssue3164(t *testing.T) {
 		Name: "issue3164",
 	}
 
+	must(t, f.scanSubdirs(nil))
+
 	matcher := ignore.New(ffs)
 	must(t, matcher.Parse(bytes.NewBufferString("(?d)oktodelete"), ""))
 	f.ignores = matcher
@@ -767,9 +769,10 @@ func TestDeleteIgnorePerms(t *testing.T) {
 	must(t, err)
 	ffs.Chmod(name, 0600)
 	scanChan := make(chan string)
+	dbUpdateChan := make(chan dbUpdateJob)
 	finished := make(chan struct{})
 	go func() {
-		err = f.checkToBeDeleted(fi, scanChan)
+		err = f.checkToBeDeleted(fi, fi, true, dbUpdateDeleteFile, dbUpdateChan, scanChan)
 		close(finished)
 	}()
 	select {
@@ -977,7 +980,7 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	must(t, ffs.MkdirAll(link, 0755))
 	fi := createFile(t, file, ffs)
 	f.updateLocalsFromScanning([]protocol.FileInfo{fi})
-	must(t, osutil.RenameOrCopy(ffs, destFs, file, "file"))
+	must(t, osutil.RenameOrCopy(fs.CopyRangeMethodStandard, ffs, destFs, file, "file"))
 	must(t, ffs.RemoveAll(link))
 
 	if err := osutil.DebugSymlinkForTestsOnly(destFs.URI(), filepath.Join(ffs.URI(), link)); err != nil {
@@ -1052,6 +1055,35 @@ func TestPullCtxCancel(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Fatalf("timed out before receiving state %v on finisherChan", i)
 		}
+	}
+}
+
+func TestPullDeleteUnscannedDir(t *testing.T) {
+	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
+	ffs := f.Filesystem()
+
+	dir := "foobar"
+	must(t, ffs.MkdirAll(dir, 0777))
+	fi := protocol.FileInfo{
+		Name: dir,
+	}
+
+	scanChan := make(chan string, 1)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+
+	f.deleteDir(fi, f.fset.Snapshot(), dbUpdateChan, scanChan)
+
+	if _, err := ffs.Stat(dir); fs.IsNotExist(err) {
+		t.Error("directory has been deleted")
+	}
+	select {
+	case toScan := <-scanChan:
+		if toScan != dir {
+			t.Errorf("expected %v to be scanned, got %v", dir, toScan)
+		}
+	default:
+		t.Error("nothing was scheduled for scanning")
 	}
 }
 

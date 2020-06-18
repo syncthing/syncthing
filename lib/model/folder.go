@@ -394,8 +394,12 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 	f.setState(FolderScanning)
 
+	// If we return early e.g. due to a folder health error, the scan needs
+	// to be cancelled.
+	scanCtx, scanCancel := context.WithCancel(f.ctx)
+	defer scanCancel()
 	mtimefs := f.fset.MtimeFS()
-	fchan := scanner.Walk(f.ctx, scanner.Config{
+	fchan := scanner.Walk(scanCtx, scanner.Config{
 		Folder:                f.ID,
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
@@ -899,6 +903,7 @@ func (f *folder) String() string {
 
 func (f *folder) newScanError(path string, err error) {
 	f.scanErrorsMut.Lock()
+	l.Infof("Scanner (folder %s, item %q): %v", f.Description(), path, err)
 	f.scanErrors = append(f.scanErrors, FileError{
 		Err:  err.Error(),
 		Path: path,

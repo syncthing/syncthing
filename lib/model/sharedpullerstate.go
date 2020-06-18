@@ -7,7 +7,6 @@
 package model
 
 import (
-	"io"
 	"time"
 
 	"github.com/pkg/errors"
@@ -118,7 +117,7 @@ func (w *lockedWriterAt) SyncClose(fsync bool) error {
 
 // tempFile returns the fd for the temporary file, reusing an open fd
 // or creating the file as necessary.
-func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
+func (s *sharedPullerState) tempFile() (*lockedWriterAt, error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 

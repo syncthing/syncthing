@@ -8,12 +8,15 @@ package db
 
 import (
 	"bytes"
+	"errors"
 	"math/bits"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
+
+var errMetaInconsistent = errors.New("inconsistent counts detected")
 
 type countsMap struct {
 	counts  CountsSet
@@ -104,7 +107,13 @@ func (m *metadataTracker) fromDB(db *Lowlevel, folder []byte) error {
 	if err != nil {
 		return err
 	}
-	return m.Unmarshal(bs)
+	if err = m.Unmarshal(bs); err != nil {
+		return err
+	}
+	if m.counts.Created == 0 {
+		return errMetaInconsistent
+	}
+	return nil
 }
 
 // countsPtr returns a pointer to the corresponding Counts struct, if

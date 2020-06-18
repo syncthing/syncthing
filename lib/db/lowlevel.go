@@ -811,7 +811,12 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
 	meta := newMetadataTracker()
 	if err := meta.fromDB(db, []byte(folder)); err != nil {
-		l.Infof("No stored folder metadata for %q; recalculating", folder)
+		if err == errMetaInconsistent {
+			l.Infof("Stored folder metadata for %q is inconsistent; recalculating", folder)
+		} else {
+			l.Infof("No stored folder metadata for %q; recalculating", folder)
+
+		}
 		return db.getMetaAndCheck(folder)
 	}
 

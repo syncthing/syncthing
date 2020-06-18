@@ -102,7 +102,7 @@ func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls
 	// NOTE: update checkExpiry() appropriately if you add or change attributes
 	// in here, especially DNSNames or IPAddresses.
 	template := x509.Certificate{
-		SerialNumber: new(big.Int).SetInt64(rand.Int63()),
+		SerialNumber: new(big.Int).SetUint64(rand.Uint64()),
 		Subject: pkix.Name{
 			CommonName: commonName,
 		},

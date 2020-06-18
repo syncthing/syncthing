@@ -14,7 +14,7 @@ import (
 
 func TestFixupAddresses(t *testing.T) {
 	cases := []struct {
-		remote net.IP
+		remote *net.TCPAddr
 		in     []string
 		out    []string
 	}{
@@ -22,37 +22,53 @@ func TestFixupAddresses(t *testing.T) {
 			in:  []string{"tcp://1.2.3.4:22000"},
 			out: []string{"tcp://1.2.3.4:22000"},
 		}, { // unspecified replaced by remote
-			remote: net.ParseIP("1.2.3.4"),
+			remote: addr("1.2.3.4", 22000),
 			in:     []string{"tcp://:22000", "tcp://192.0.2.42:22000"},
 			out:    []string{"tcp://1.2.3.4:22000", "tcp://192.0.2.42:22000"},
 		}, { // unspecified not used as replacement
-			remote: net.ParseIP("0.0.0.0"),
+			remote: addr("0.0.0.0", 22000),
 			in:     []string{"tcp://:22000", "tcp://192.0.2.42:22000"},
 			out:    []string{"tcp://192.0.2.42:22000"},
 		}, { // unspecified not used as replacement
-			remote: net.ParseIP("::"),
+			remote: addr("::", 22000),
 			in:     []string{"tcp://:22000", "tcp://192.0.2.42:22000"},
 			out:    []string{"tcp://192.0.2.42:22000"},
 		}, { // localhost not used as replacement
-			remote: net.ParseIP("127.0.0.1"),
+			remote: addr("127.0.0.1", 22000),
 			in:     []string{"tcp://:22000", "tcp://192.0.2.42:22000"},
 			out:    []string{"tcp://192.0.2.42:22000"},
 		}, { // localhost not used as replacement
-			remote: net.ParseIP("::1"),
+			remote: addr("::1", 22000),
 			in:     []string{"tcp://:22000", "tcp://192.0.2.42:22000"},
 			out:    []string{"tcp://192.0.2.42:22000"},
 		}, { // multicast not used as replacement
-			remote: net.ParseIP("224.0.0.1"),
+			remote: addr("224.0.0.1", 22000),
 			in:     []string{"tcp://:22000", "tcp://192.0.2.42:22000"},
 			out:    []string{"tcp://192.0.2.42:22000"},
 		}, { // multicast not used as replacement
-			remote: net.ParseIP("ff80::42"),
+			remote: addr("ff80::42", 22000),
 			in:     []string{"tcp://:22000", "tcp://192.0.2.42:22000"},
 			out:    []string{"tcp://192.0.2.42:22000"},
 		}, { // explicitly announced weirdness is also filtered
-			remote: net.ParseIP("192.0.2.42"),
+			remote: addr("192.0.2.42", 22000),
 			in:     []string{"tcp://:22000", "tcp://127.1.2.3:22000", "tcp://[::1]:22000", "tcp://[ff80::42]:22000"},
 			out:    []string{"tcp://192.0.2.42:22000"},
+		}, { // port remapping
+			remote: addr("123.123.123.123", 9000),
+			in:     []string{"tcp://0.0.0.0:0"},
+			out:    []string{"tcp://123.123.123.123:9000"},
+		}, { // unspecified port remapping
+			remote: addr("123.123.123.123", 9000),
+			in:     []string{"tcp://:0"},
+			out:    []string{"tcp://123.123.123.123:9000"},
+		}, { // empty remapping
+			remote: addr("123.123.123.123", 9000),
+			in:     []string{"tcp://"},
+			out:    []string{},
+		}, { // port only remapping
+			remote: addr("123.123.123.123", 9000),
+			in:     []string{"tcp://44.44.44.44:0"},
+			out:    []string{"tcp://44.44.44.44:9000"},
 		},
 	}
 
@@ -61,5 +77,12 @@ func TestFixupAddresses(t *testing.T) {
 		if fmt.Sprint(out) != fmt.Sprint(tc.out) {
 			t.Errorf("fixupAddresses(%v, %v) => %v, expected %v", tc.remote, tc.in, out, tc.out)
 		}
+	}
+}
+
+func addr(host string, port int) *net.TCPAddr {
+	return &net.TCPAddr{
+		IP:   net.ParseIP(host),
+		Port: port,
 	}
 }
