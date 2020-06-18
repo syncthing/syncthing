@@ -360,6 +360,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}()
 
 	f.setState(FolderScanWaiting)
+	defer f.setState(FolderIdle)
 
 	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
 		return err
@@ -626,7 +627,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}
 
 	f.ScanCompleted()
-	f.setState(FolderIdle)
 	return nil
 }
 
