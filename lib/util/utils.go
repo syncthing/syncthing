@@ -314,3 +314,19 @@ func CallWithContext(ctx context.Context, fn func() error) error {
 		return ctx.Err()
 	}
 }
+
+func NiceDurationString(d time.Duration) string {
+	switch {
+	case d > 24*time.Hour:
+		t = t.Round(time.Hour)
+	case d > time.Hour:
+		t = t.Round(time.Minute)
+	case d > time.Minute:
+		t = t.Round(time.Second)
+	case d > time.Second:
+		t = t.Round(time.Millisecond)
+	case d > time.Millisecond:
+		t = t.Round(time.Microsecond)
+	}
+	return t.String()
+}
