@@ -48,6 +48,16 @@ func init() {
 	upgradeUnlocked <- true
 }
 
+// parsedVersion contains a version broken down into comparable parts. The
+// release is assumed to be all digits and represented as such. The elements
+// in prerelease and metadata parts are either integer or string. So, for
+// v1.2.3-rc.4+22.g1234567-foo we get ...
+type parsedVersion struct {
+	release    []int         // 1, 2, 3
+	prerelease []interface{} // "rc", 4
+	metadata   []interface{} // 22, "g1234567-foo"
+}
+
 func To(rel Release) error {
 	select {
 	case <-upgradeUnlocked:
@@ -98,20 +108,42 @@ const (
 
 // CompareVersions returns a relation describing how a compares to b.
 func CompareVersions(a, b string) Relation {
-	arel, apre := versionParts(a)
-	brel, bpre := versionParts(b)
+	ap := parseVersion(a)
+	bp := parseVersion(b)
 
-	minlen := len(arel)
-	if l := len(brel); l < minlen {
+	if rel := compareReleaseDigits(ap.release, bp.release); rel != Equal {
+		return rel
+	}
+
+	// If only one of the two versions is a prerelease, it's older. (Which
+	// is different from the longer-is-newer default we would get by not
+	// special-casing this.)
+	if len(ap.prerelease) == 0 && len(bp.prerelease) > 0 {
+		return Newer
+	}
+	if len(ap.prerelease) > 0 && len(bp.prerelease) == 0 {
+		return Older
+	}
+
+	if rel := compareVariable(ap.prerelease, bp.prerelease); rel != Equal {
+		return rel
+	}
+
+	return compareVariable(ap.metadata, bp.metadata)
+}
+
+func compareReleaseDigits(a, b []int) Relation {
+	minlen := len(a)
+	if l := len(b); l < minlen {
 		minlen = l
 	}
 
 	// First compare major-minor-patch versions
 	for i := 0; i < minlen; i++ {
-		if arel[i] < brel[i] {
+		if a[i] < b[i] {
 			if i == 0 {
 				// major version difference
-				if arel[0] == 0 && brel[0] == 1 {
+				if a[0] == 0 && b[0] == 1 {
 					// special case, v0.x is equivalent in majorness to v1.x.
 					return Older
 				}
@@ -120,10 +152,10 @@ func CompareVersions(a, b string) Relation {
 			// minor or patch version difference
 			return Older
 		}
-		if arel[i] > brel[i] {
+		if a[i] > b[i] {
 			if i == 0 {
 				// major version difference
-				if arel[0] == 1 && brel[0] == 0 {
+				if a[0] == 1 && b[0] == 0 {
 					// special case, v0.x is equivalent in majorness to v1.x.
 					return Newer
 				}
@@ -135,100 +167,115 @@ func CompareVersions(a, b string) Relation {
 	}
 
 	// Longer version is newer, when the preceding parts are equal
-	if len(arel) < len(brel) {
+	if len(a) < len(b) {
 		return Older
 	}
-	if len(arel) > len(brel) {
+	if len(a) > len(b) {
 		return Newer
 	}
 
-	// Prerelease versions are older, if the versions are the same
-	if len(apre) == 0 && len(bpre) > 0 {
-		return Newer
-	}
-	if len(apre) > 0 && len(bpre) == 0 {
-		return Older
-	}
+	return Equal
+}
 
-	minlen = len(apre)
-	if l := len(bpre); l < minlen {
+func compareVariable(a, b []interface{}) Relation {
+	minlen := len(a)
+	if l := len(b); l < minlen {
 		minlen = l
 	}
 
-	// Compare prerelease strings
 	for i := 0; i < minlen; i++ {
-		switch av := apre[i].(type) {
-		case int:
-			switch bv := bpre[i].(type) {
-			case int:
-				if av < bv {
+		switch ap := a[i].(type) {
+		case string:
+			switch bp := b[i].(type) {
+			case string:
+				if ap < bp {
 					return Older
 				}
-				if av > bv {
+				if ap > bp {
 					return Newer
 				}
+			case int: // strings are newer than ints...
+				return Newer
+			}
+
+		case int:
+			switch bp := b[i].(type) {
 			case string:
 				return Older
-			}
-		case string:
-			switch bv := bpre[i].(type) {
-			case int:
-				return Newer
-			case string:
-				if av < bv {
+
+			case int: // a and b are both ints
+				if ap < bp {
 					return Older
 				}
-				if av > bv {
+				if ap > bp {
 					return Newer
 				}
 			}
 		}
 	}
 
-	// If all else is equal, longer prerelease string is newer
-	if len(apre) < len(bpre) {
+	// Longer is newer, when the preceding parts are equal
+	if len(a) < len(b) {
 		return Older
 	}
-	if len(apre) > len(bpre) {
+	if len(a) > len(b) {
 		return Newer
 	}
 
-	// Looks like they're actually the same
 	return Equal
 }
 
-// Split a version into parts.
-// "1.2.3-beta.2" -> []int{1, 2, 3}, []interface{}{"beta", 2}
-func versionParts(v string) ([]int, []interface{}) {
+func parseVersion(v string) parsedVersion {
 	if strings.HasPrefix(v, "v") || strings.HasPrefix(v, "V") {
 		// Strip initial 'v' or 'V' prefix if present.
 		v = v[1:]
 	}
-	parts := strings.SplitN(v, "+", 2)
-	parts = strings.SplitN(parts[0], "-", 2)
-	fields := strings.Split(parts[0], ".")
 
-	release := make([]int, len(fields))
-	for i, s := range fields {
-		v, _ := strconv.Atoi(s)
-		release[i] = v
+	release, postPlus := splitOnFirst(v, "+")
+	release, postDash := splitOnFirst(release, "-")
+
+	return parsedVersion{
+		release:    parseDigits(release),
+		prerelease: parseVariable(postDash),
+		metadata:   parseVariable(postPlus),
 	}
+}
 
-	var prerelease []interface{}
-	if len(parts) > 1 {
-		fields = strings.Split(parts[1], ".")
-		prerelease = make([]interface{}, len(fields))
-		for i, s := range fields {
-			v, err := strconv.Atoi(s)
-			if err == nil {
-				prerelease[i] = v
-			} else {
-				prerelease[i] = s
-			}
+func splitOnFirst(s, sep string) (string, string) {
+	parts := strings.SplitN(s, sep, 2)
+	if len(parts) == 1 {
+		return parts[0], ""
+	}
+	return parts[0], parts[1]
+}
+
+func parseDigits(s string) []int {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ".")
+	res := make([]int, len(parts))
+	for i, str := range parts {
+		res[i], _ = strconv.Atoi(str)
+	}
+	return res
+}
+
+func parseVariable(s string) []interface{} {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ".")
+	res := make([]interface{}, len(parts))
+	for i, str := range parts {
+		num, err := strconv.Atoi(str)
+		if err == nil {
+			res[i] = num
+		} else {
+			res[i] = str
 		}
 	}
-
-	return release, prerelease
+	return res
 }
 
 func releaseNames(tag string) []string {

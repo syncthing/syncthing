@@ -858,7 +858,7 @@ func getGitVersion() (string, error) {
 	}
 	v = versionRe.ReplaceAllFunc(v, func(s []byte) []byte {
 		s[0] = '+'
-		return s
+		return bytes.ReplaceAll(s, []byte("-"), []byte("."))
 	})
 	return string(v), nil
 }
