@@ -43,6 +43,7 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
@@ -1161,15 +1162,16 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 
 	folder := qs.Get("folder")
 
-	ignores, patterns, err := s.model.GetIgnores(folder)
-	if err != nil {
+	lines, patterns, err := s.model.GetIgnores(folder)
+	if err != nil && !ignore.IsParseError(err) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	sendJSON(w, map[string][]string{
-		"ignore":   ignores,
+	sendJSON(w, map[string]interface{}{
+		"ignore":   lines,
 		"expanded": patterns,
+		"error":    errorString(err),
 	})
 }
 
@@ -1748,5 +1750,13 @@ func checkExpiry(cert tls.Certificate) error {
 		return errors.New("certificate incompatible with macOS 10.15 (Catalina)")
 	}
 
+	return nil
+}
+
+func errorString(err error) *string {
+	if err != nil {
+		msg := err.Error()
+		return &msg
+	}
 	return nil
 }
