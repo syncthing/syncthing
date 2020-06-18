@@ -827,7 +827,7 @@ func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
 	}
 
 	if age := time.Since(meta.Created()); age > db.recheckInterval {
-		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, age)
+		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, util.NiceDurationString(age))
 		return db.getMetaAndCheck(folder)
 	}
 

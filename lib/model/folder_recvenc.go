@@ -29,14 +29,14 @@ type receiveEncryptedFolder struct {
 }
 
 func newReceiveEncryptedFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger, ioLimiter *byteSemaphore) service {
-	return &receiveOnlyFolder{newSendReceiveFolder(model, fset, ignores, cfg, ver, fs, evLogger, ioLimiter).(*sendReceiveFolder)}
+	return &receiveEncryptedFolder{newSendReceiveFolder(model, fset, ignores, cfg, ver, fs, evLogger, ioLimiter).(*sendReceiveFolder)}
 }
 
-func (f *receiveOnlyFolder) CleanEnc() {
-	f.doInSync(func() error { f.revert(); return nil })
+func (f *receiveEncryptedFolder) CleanEnc() {
+	f.doInSync(func() error { f.cleanEnc(); return nil })
 }
 
-func (f *receiveOnlyFolder) cleanEnc() {
+func (f *receiveEncryptedFolder) cleanEnc() {
 	l.Infof("Cleaning not encrypted items from folder %v", f.Description)
 
 	f.setState(FolderScanning)

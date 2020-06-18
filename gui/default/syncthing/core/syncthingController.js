@@ -52,6 +52,11 @@ angular.module('syncthing.core')
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
         $scope.currentFolder = {};
+        $scope.ignores = {
+            text: '',
+            error: null,
+            disabled: false,
+        };
         resetRemoteNeed();
 
         try {
@@ -430,8 +435,8 @@ angular.module('syncthing.core')
         }
 
         function refreshNoAuthWarning() {
-            if (!$scope.system || !$scope.config) {
-                // We need both to be able to determine the state.
+            if (!$scope.system || !$scope.config || !$scope.config.gui) {
+                // We need all to be able to determine the state.
                 return
             }
 
@@ -1800,16 +1805,18 @@ angular.module('syncthing.core')
             }
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
-            $('#folder-ignores textarea').val($translate.instant("Loading..."));
-            $('#folder-ignores textarea').attr('disabled', 'disabled');
+            $scope.ignores.text = 'Loading...';
+            $scope.ignores.error = null;
+            $scope.ignores.disabled = true;
             $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
                 .success(function (data) {
                     $scope.currentFolder.ignores = data.ignore || [];
-                    $('#folder-ignores textarea').val($scope.currentFolder.ignores.join('\n'));
-                    $('#folder-ignores textarea').removeAttr('disabled');
+                    $scope.ignores.text = $scope.currentFolder.ignores.join('\n');
+                    $scope.ignores.error = data.error;
+                    $scope.ignores.disabled = false;
                 })
                 .error(function (err) {
-                    $('#folder-ignores textarea').val($translate.instant("Failed to load ignore patterns."));
+                    $scope.ignores.text = $translate.instant("Failed to load ignore patterns.");
                     $scope.emitHTTPError(err);
                 });
 
@@ -1837,8 +1844,9 @@ angular.module('syncthing.core')
                 initShareEditing('folder');
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $scope.currentSharing.unrelated = $scope.otherDevices();
-                $('#folder-ignores textarea').val("");
-                $('#folder-ignores textarea').removeAttr('disabled');
+                $scope.ignores.text = '';
+                $scope.ignores.error = null;
+                $scope.ignores.disabled = false;
                 $scope.editFolderModal();
             });
         };
@@ -1856,8 +1864,9 @@ angular.module('syncthing.core')
             $scope.currentSharing.unrelated = $scope.devices.filter(function (n) {
                 return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID]
             });
-            $('#folder-ignores textarea').val("");
-            $('#folder-ignores textarea').removeAttr('disabled');
+            $scope.ignores.text = '';
+            $scope.ignores.error = null;
+            $scope.ignores.disabled = false;
             $scope.editFolderModal();
         };
 
@@ -1937,8 +1946,8 @@ angular.module('syncthing.core')
                 delete folderCfg.versioning;
             }
 
-            var ignoresLoaded = !$('#folder-ignores textarea').is(':disabled');
-            var ignores = $('#folder-ignores textarea').val().split('\n');
+            var ignoresLoaded = !$scope.ignores.disabled;
+            var ignores = $scope.ignores.text.split('\n');
             // Split always returns a minimum 1-length array even for no patterns
             if (ignores.length === 1 && ignores[0] === "") {
                 ignores = [];
