@@ -3802,6 +3802,58 @@ func TestBlockListMap(t *testing.T) {
 	}
 }
 
+func TestScanRenameCaseOnly(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	ffs := fcfg.Filesystem()
+	name := "foo"
+	must(t, writeFile(ffs, name, []byte("contents"), 0644))
+
+	m.ScanFolders()
+
+	snap := dbSnapshot(t, m, fcfg.ID)
+	defer snap.Release()
+	found := false
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
+		if found {
+			t.Fatal("got more than one file")
+		}
+		if i.FileName() != name {
+			t.Fatalf("got file %v, expected %v", i.FileName(), name)
+		}
+		found = true
+		return true
+	})
+	snap.Release()
+
+	upper := strings.ToUpper(name)
+	must(t, ffs.Rename(name, upper))
+	m.ScanFolders()
+
+	snap = dbSnapshot(t, m, fcfg.ID)
+	defer snap.Release()
+	found = false
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
+		if i.FileName() == name {
+			if i.IsDeleted() {
+				return true
+			}
+			t.Fatal("renamed file not deleted")
+		}
+		if i.FileName() != upper {
+			t.Fatalf("got file %v, expected %v", i.FileName(), upper)
+		}
+		if found {
+			t.Fatal("got more than the expected files")
+		}
+		found = true
+		return true
+	})
+	snap.Release()
+}
+
 func equalStringsInAnyOrder(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
