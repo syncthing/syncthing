@@ -1540,6 +1540,8 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		if err != nil {
 			return err
 		}
+	} else if !fs.IsNotExist(err) {
+		return err
 	}
 
 	// Replace the original content with the new one. If it didn't work,
