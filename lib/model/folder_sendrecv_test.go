@@ -10,11 +10,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -1084,6 +1086,105 @@ func TestPullDeleteUnscannedDir(t *testing.T) {
 		}
 	default:
 		t.Error("nothing was scheduled for scanning")
+	}
+}
+
+func TestPullCaseOnlyPerformFinish(t *testing.T) {
+	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
+	ffs := f.Filesystem()
+
+	name := "foo"
+	contents := []byte("contents")
+	must(t, writeFile(ffs, name, contents, 0644))
+	must(t, f.scanSubdirs(nil))
+
+	var cur protocol.FileInfo
+	hasCur := false
+	snap := dbSnapshot(t, m, f.ID)
+	defer snap.Release()
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
+		if hasCur {
+			t.Fatal("got more than one file")
+		}
+		cur = i.(protocol.FileInfo)
+		hasCur = true
+		return true
+	})
+	if !hasCur {
+		t.Fatal("file is missing")
+	}
+
+	remote := *(&cur)
+	remote.Version = protocol.Vector{}.Update(device1.Short())
+	remote.Name = strings.ToUpper(cur.Name)
+	temp := fs.TempName(remote.Name)
+	must(t, writeFile(ffs, temp, contents, 0644))
+	scanChan := make(chan string, 1)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+
+	err := f.performFinish(remote, cur, hasCur, temp, snap, dbUpdateChan, scanChan)
+
+	select {
+	case <-dbUpdateChan: // boring case sensitive filesystem
+		return
+	case <-scanChan:
+		t.Error("no need to scan anything here")
+	}
+
+	var caseErr *errCaseConflict
+	if !errors.As(err, &caseErr) {
+		t.Error("Expected case conflict error, got", err)
+	}
+}
+
+func TestPullCaseOnlyDirAndSymlink(t *testing.T) {
+	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
+	ffs := f.Filesystem()
+
+	dir := "dir"
+	must(t, ffs.Mkdir(dir, 0777))
+	link := "link"
+	must(t, ffs.CreateSymlink(dir, link))
+	must(t, f.scanSubdirs(nil))
+
+	curItems := make([]protocol.FileInfo, 0, 2)
+	snap := dbSnapshot(t, m, f.ID)
+	defer snap.Release()
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
+		if len(curItems) == 2 {
+			t.Fatal("got more than two items")
+		}
+		curItems = append(curItems, i.(protocol.FileInfo))
+		return true
+	})
+	if len(curItems) != 2 {
+		t.Fatal("items missing")
+	}
+
+	scanChan := make(chan string, 1)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+	for _, cur := range curItems {
+		remote := *(&cur)
+		remote.Version = protocol.Vector{}.Update(device1.Short())
+		remote.Name = strings.ToUpper(cur.Name)
+		if cur.IsDirectory() {
+			f.handleDir(remote, snap, dbUpdateChan, scanChan)
+		} else {
+			f.handleSymlink(remote, snap, dbUpdateChan, scanChan)
+		}
+		select {
+		case <-dbUpdateChan: // boring case sensitive filesystem
+			continue
+		case <-scanChan:
+			t.Error("no need to scan anything here")
+		}
+		if errStr, ok := f.pullErrors[remote.Name]; !ok {
+			t.Error("missing error for", remote.Name)
+		} else if !strings.Contains(errStr, "conflicts with name") {
+			t.Error("unexpected error", errStr, "for", remote.Name)
+		}
 	}
 }
 
