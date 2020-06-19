@@ -1130,6 +1130,7 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 		return
 	case <-scanChan:
 		t.Error("no need to scan anything here")
+	default:
 	}
 
 	var caseErr *errCaseConflict
@@ -1143,6 +1144,9 @@ func TestPullCaseOnlyDir(t *testing.T) {
 }
 
 func TestPullCaseOnlySymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks not supported on windows")
+	}
 	testPullCaseOnlyDirOrSymlink(t, false)
 }
 
@@ -1155,9 +1159,7 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 	if dir {
 		must(t, ffs.Mkdir(name, 0777))
 	} else {
-		if err := osutil.DebugSymlinkForTestsOnly("target", name); err != nil {
-			t.Skip("symlinks not supported")
-		}
+		must(t, ffs.CreateSymlink("target", name))
 	}
 
 	must(t, f.scanSubdirs(nil))
@@ -1194,6 +1196,7 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 		return
 	case <-scanChan:
 		t.Error("no need to scan anything here")
+	default:
 	}
 	if errStr, ok := f.pullErrors[remote.Name]; !ok {
 		t.Error("missing error for", remote.Name)
