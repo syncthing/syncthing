@@ -38,7 +38,7 @@ type databaseDowngradeError struct {
 	minSyncthingVersion string
 }
 
-func (e databaseDowngradeError) Error() string {
+func (e *databaseDowngradeError) Error() string {
 	if e.minSyncthingVersion == "" {
 		return "newer Syncthing required"
 	}
@@ -67,7 +67,7 @@ func (db *schemaUpdater) updateSchema() error {
 	}
 
 	if prevVersion > dbVersion {
-		err := databaseDowngradeError{}
+		err := &databaseDowngradeError{}
 		if minSyncthingVersion, ok, dbErr := miscDB.String("dbMinSyncthingVersion"); dbErr != nil {
 			return dbErr
 		} else if ok {

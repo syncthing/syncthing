@@ -982,7 +982,7 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	must(t, ffs.MkdirAll(link, 0755))
 	fi := createFile(t, file, ffs)
 	f.updateLocalsFromScanning([]protocol.FileInfo{fi})
-	must(t, osutil.RenameOrCopy(ffs, destFs, file, "file"))
+	must(t, osutil.RenameOrCopy(fs.CopyRangeMethodStandard, ffs, destFs, file, "file"))
 	must(t, ffs.RemoveAll(link))
 
 	if err := osutil.DebugSymlinkForTestsOnly(destFs.URI(), filepath.Join(ffs.URI(), link)); err != nil {

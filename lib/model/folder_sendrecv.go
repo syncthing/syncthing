@@ -1025,13 +1025,13 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	if f.versioner != nil {
 		err = f.CheckAvailableSpace(source.Size)
 		if err == nil {
-			err = osutil.Copy(f.fs, f.fs, source.Name, tempName)
+			err = osutil.Copy(f.CopyRangeMethod, f.fs, f.fs, source.Name, tempName)
 			if err == nil {
 				err = f.inWritableDir(f.versioner.Archive, source.Name)
 			}
 		}
 	} else {
-		err = osutil.RenameOrCopy(f.fs, f.fs, source.Name, tempName)
+		err = osutil.RenameOrCopy(f.CopyRangeMethod, f.fs, f.fs, source.Name, tempName)
 	}
 	if err != nil {
 		return err
@@ -1342,7 +1342,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					return true
 				}
 
-				_, err = f.limitedWriteAt(dstFd, buf, block.Offset)
+				err = f.limitedWriteAt(dstFd, buf, block.Offset)
 				if err != nil {
 					state.fail(errors.Wrap(err, "dst write"))
 				}
@@ -1360,13 +1360,14 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 			if !found {
 				found = f.model.finder.Iterate(folders, block.Hash, func(folder, path string, index int32) bool {
-					fs := folderFilesystems[folder]
-					fd, err := fs.Open(path)
+					ffs := folderFilesystems[folder]
+					fd, err := ffs.Open(path)
 					if err != nil {
 						return false
 					}
 
-					_, err = fd.ReadAt(buf, int64(state.file.BlockSize())*int64(index))
+					srcOffset := int64(state.file.BlockSize()) * int64(index)
+					_, err = fd.ReadAt(buf, srcOffset)
 					fd.Close()
 					if err != nil {
 						return false
@@ -1377,7 +1378,15 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						return false
 					}
 
-					_, err = f.limitedWriteAt(dstFd, buf, block.Offset)
+					if f.CopyRangeMethod != fs.CopyRangeMethodStandard {
+						err = f.withLimiter(func() error {
+							dstFd.mut.Lock()
+							defer dstFd.mut.Unlock()
+							return fs.CopyRange(f.CopyRangeMethod, fd, dstFd.fd, srcOffset, block.Offset, int64(block.Size))
+						})
+					} else {
+						err = f.limitedWriteAt(dstFd, buf, block.Offset)
+					}
 					if err != nil {
 						state.fail(errors.Wrap(err, "dst write"))
 					}
@@ -1526,7 +1535,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 		}
 
 		// Save the block data we got from the cluster
-		_, err = f.limitedWriteAt(fd, buf, state.block.Offset)
+		err = f.limitedWriteAt(fd, buf, state.block.Offset)
 		if err != nil {
 			state.fail(errors.Wrap(err, "save"))
 		} else {
@@ -1581,7 +1590,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 
 	// Replace the original content with the new one. If it didn't work,
 	// leave the temp file in place for reuse.
-	if err := osutil.RenameOrCopy(f.fs, f.fs, tempName, file.Name); err != nil {
+	if err := osutil.RenameOrCopy(f.CopyRangeMethod, f.fs, f.fs, tempName, file.Name); err != nil {
 		return err
 	}
 
@@ -2054,12 +2063,19 @@ func (f *sendReceiveFolder) inWritableDir(fn func(string) error, path string) er
 	return inWritableDir(fn, f.fs, path, f.IgnorePerms)
 }
 
-func (f *sendReceiveFolder) limitedWriteAt(fd io.WriterAt, data []byte, offset int64) (int, error) {
+func (f *sendReceiveFolder) limitedWriteAt(fd io.WriterAt, data []byte, offset int64) error {
+	return f.withLimiter(func() error {
+		_, err := fd.WriteAt(data, offset)
+		return err
+	})
+}
+
+func (f *sendReceiveFolder) withLimiter(fn func() error) error {
 	if err := f.writeLimiter.takeWithContext(f.ctx, 1); err != nil {
-		return 0, err
+		return err
 	}
 	defer f.writeLimiter.give(1)
-	return fd.WriteAt(data, offset)
+	return fn()
 }
 
 // A []FileError is sent as part of an event and will be JSON serialized.

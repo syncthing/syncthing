@@ -60,6 +60,7 @@ type FolderConfiguration struct {
 	MaxConcurrentWrites     int                         `xml:"maxConcurrentWrites" json:"maxConcurrentWrites" default:"2"`
 	DisableFsync            bool                        `xml:"disableFsync" json:"disableFsync"`
 	BlockPullOrder          BlockPullOrder              `xml:"blockPullOrder" json:"blockPullOrder"`
+	CopyRangeMethod         fs.CopyRangeMethod          `xml:"copyRangeMethod" json:"copyRangeMethod" default:"standard"`
 
 	cachedFilesystem    fs.Filesystem
 	cachedModTimeWindow time.Duration

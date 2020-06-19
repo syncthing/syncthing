@@ -5,7 +5,6 @@ package client
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -22,7 +21,7 @@ type incorrectResponseCodeErr struct {
 	msg  string
 }
 
-func (e incorrectResponseCodeErr) Error() string {
+func (e *incorrectResponseCodeErr) Error() string {
 	return fmt.Sprintf("incorrect response code %d: %s", e.code, e.msg)
 }
 
@@ -62,7 +61,7 @@ func GetInvitationFromRelay(ctx context.Context, uri *url.URL, id syncthingproto
 
 	switch msg := message.(type) {
 	case protocol.Response:
-		return protocol.SessionInvitation{}, incorrectResponseCodeErr{msg.Code, msg.Message}
+		return protocol.SessionInvitation{}, &incorrectResponseCodeErr{msg.Code, msg.Message}
 	case protocol.SessionInvitation:
 		l.Debugln("Received invitation", msg, "via", conn.LocalAddr())
 		ip := net.IP(msg.Address)
@@ -132,7 +131,7 @@ func TestRelay(ctx context.Context, uri *url.URL, certs []tls.Certificate, sleep
 		if err == nil {
 			return nil
 		}
-		if !errors.As(err, &incorrectResponseCodeErr{}) {
+		if _, ok := err.(*incorrectResponseCodeErr); !ok {
 			return fmt.Errorf("getting invitation: %w", err)
 		}
 		time.Sleep(sleep)

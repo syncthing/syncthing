@@ -734,6 +734,20 @@ func (w *walker) updateFileInfo(file, curFile protocol.FileInfo) protocol.FileIn
 	return file
 }
 
+func (w *walker) handleError(ctx context.Context, context, path string, err error, finishedChan chan<- ScanResult) {
+	// Ignore missing items, as deletions are not handled by the scanner.
+	if fs.IsNotExist(err) {
+		return
+	}
+	select {
+	case finishedChan <- ScanResult{
+		Err:  fmt.Errorf("%s: %w", context, err),
+		Path: path,
+	}:
+	case <-ctx.Done():
+	}
+}
+
 func (w *walker) String() string {
 	return fmt.Sprintf("walker/%s@%p", w.Folder, w)
 }

@@ -9,10 +9,12 @@ package util
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/sync"
 
@@ -176,6 +178,25 @@ func Address(network, host string) string {
 	return u.String()
 }
 
+// AddressUnspecifiedLess is a comparator function preferring least specific network address (most widely listening,
+// namely preferring 0.0.0.0 over some IP), if both IPs are equal, it prefers the less restrictive network (prefers tcp
+// over tcp4)
+func AddressUnspecifiedLess(a, b net.Addr) bool {
+	aIsUnspecified := false
+	bIsUnspecified := false
+	if host, _, err := net.SplitHostPort(a.String()); err == nil {
+		aIsUnspecified = host == "" || net.ParseIP(host).IsUnspecified()
+	}
+	if host, _, err := net.SplitHostPort(b.String()); err == nil {
+		bIsUnspecified = host == "" || net.ParseIP(host).IsUnspecified()
+	}
+
+	if aIsUnspecified == bIsUnspecified {
+		return len(a.Network()) < len(b.Network())
+	}
+	return aIsUnspecified
+}
+
 // AsService wraps the given function to implement suture.Service by calling
 // that function on serve and closing the passed channel when Stop is called.
 func AsService(fn func(ctx context.Context), creator string) suture.Service {
@@ -293,4 +314,20 @@ func CallWithContext(ctx context.Context, fn func() error) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func NiceDurationString(d time.Duration) string {
+	switch {
+	case d > 24*time.Hour:
+		d = d.Round(time.Hour)
+	case d > time.Hour:
+		d = d.Round(time.Minute)
+	case d > time.Minute:
+		d = d.Round(time.Second)
+	case d > time.Second:
+		d = d.Round(time.Millisecond)
+	case d > time.Millisecond:
+		d = d.Round(time.Microsecond)
+	}
+	return d.String()
 }

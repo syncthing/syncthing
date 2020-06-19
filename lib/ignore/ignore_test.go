@@ -195,6 +195,9 @@ func TestBadPatterns(t *testing.T) {
 		if err == nil {
 			t.Errorf("No error for pattern %q", pat)
 		}
+		if !IsParseError(err) {
+			t.Error("Should have been a parse error:", err)
+		}
 	}
 }
 
@@ -1006,10 +1009,13 @@ func TestIssue4901(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		err := pats.Load(".stignore")
 		if err == nil {
-			t.Fatalf("expected an error")
+			t.Fatal("expected an error")
 		}
 		if fs.IsNotExist(err) {
-			t.Fatalf("unexpected error type")
+			t.Fatal("unexpected error type")
+		}
+		if !IsParseError(err) {
+			t.Fatal("failure to load included file should be a parse error")
 		}
 	}
 
@@ -1094,8 +1100,12 @@ func TestPartialIncludeLine(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if err := pats.Parse(bytes.NewBufferString(tc), ".stignore"); err == nil {
+		err := pats.Parse(bytes.NewBufferString(tc), ".stignore")
+		if err == nil {
 			t.Fatal("should error out")
+		}
+		if !IsParseError(err) {
+			t.Fatal("failure to load included file should be a parse error")
 		}
 	}
 }
@@ -1176,6 +1186,9 @@ func TestEmptyPatterns(t *testing.T) {
 		err := m.Parse(strings.NewReader(tc), ".stignore")
 		if err == nil {
 			t.Error("Should reject invalid pattern", tc)
+		}
+		if !IsParseError(err) {
+			t.Fatal("bad pattern should be a parse error")
 		}
 	}
 }

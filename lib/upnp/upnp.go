@@ -79,7 +79,7 @@ type UnsupportedDeviceTypeError struct {
 	deviceType string
 }
 
-func (e UnsupportedDeviceTypeError) Error() string {
+func (e *UnsupportedDeviceTypeError) Error() string {
 	return fmt.Sprintf("Unsupported UPnP device of type %s", e.deviceType)
 }
 
