@@ -34,7 +34,6 @@ import (
 )
 
 var (
-	versionRe     = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
 	goarch        string
 	goos          string
 	noupgrade     bool
@@ -852,15 +851,36 @@ func getReleaseVersion() (string, error) {
 }
 
 func getGitVersion() (string, error) {
-	v, err := runError("git", "describe", "--always", "--dirty")
+	// The current version as Git sees it
+	bs, err := runError("git", "describe", "--always", "--dirty")
 	if err != nil {
 		return "", err
 	}
-	v = versionRe.ReplaceAllFunc(v, func(s []byte) []byte {
-		s[0] = '+'
-		return s
-	})
-	return string(v), nil
+	vcur := string(bs)
+
+	// The closest current tag name
+	bs, err = runError("git", "describe", "--always", "--abbrev=0")
+	if err != nil {
+		return "", err
+	}
+	v0 := string(bs)
+
+	versionRe := regexp.MustCompile(`-([0-9]{1,3}-g[0-9a-f]{5,10})`)
+	if m := versionRe.FindStringSubmatch(vcur); len(m) > 0 {
+		suffix := strings.ReplaceAll(m[1], "-", ".")
+
+		if strings.Contains(v0, "-") {
+			// We're based of a tag with a prerelease string. We can just
+			// add our dev stuff directly.
+			return fmt.Sprintf("%s.dev.%s", v0, suffix), nil
+		}
+
+		// We're based on a release version. We need to bump the patch
+		// version and then add a -dev prerelease string.
+		next := nextPatchVersion(v0)
+		return fmt.Sprintf("%s-dev.%s", next, suffix), nil
+	}
+	return vcur, nil
 }
 
 func getVersion() string {
@@ -1361,4 +1381,12 @@ func trimTagMessage(msg, tag string) string {
 		msg = msg[:beginSig]
 	}
 	return strings.TrimSpace(msg)
+}
+
+func nextPatchVersion(ver string) string {
+	parts := strings.SplitN(ver, "-", 2)
+	digits := strings.Split(parts[0], ".")
+	n, _ := strconv.Atoi(digits[len(digits)-1])
+	digits[len(digits)-1] = strconv.Itoa(n + 1)
+	return strings.Join(digits, ".")
 }
