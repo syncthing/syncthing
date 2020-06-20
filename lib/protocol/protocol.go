@@ -602,7 +602,7 @@ func checkFilename(name string) error {
 	cleanedName := path.Clean(name)
 	if cleanedName != name {
 		// The filename on the wire should be in canonical format. If
-		// ClearForVersion() managed to clean it up, there was something wrong with
+		// Clean() managed to clean it up, there was something wrong with
 		// it.
 		return errUncleanFilename
 	}
@@ -618,7 +618,7 @@ func checkFilename(name string) error {
 	}
 	if strings.HasPrefix(name, "../") {
 		// Starting with a dotdot is not allowed. Any other dotdots would
-		// have been handled by the ClearForVersion() call at the top.
+		// have been handled by the Clean() call at the top.
 		return errInvalidFilename
 	}
 	return nil
