@@ -42,7 +42,7 @@ func (p *IntMap) Scan(src interface{}) error {
 
 type Report struct {
 	// Generated
-	Received time.Time // Only from DB
+	Received time.Time `json:"-"` // Only from DB
 	Date     string    `json:"date,omitempty"`
 	Address  string    `json:"address,omitempty"`
 
@@ -410,7 +410,9 @@ func (r *Report) FieldNames() []string {
 }
 
 func (r Report) Value() (driver.Value, error) {
-	return json.Marshal(r)
+	// This needs to be string, yet we read back bytes..
+	bs, err := json.Marshal(r)
+	return string(bs), err
 }
 
 func (r *Report) Scan(value interface{}) error {

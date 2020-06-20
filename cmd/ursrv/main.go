@@ -304,7 +304,7 @@ const maxCacheTime = 15 * time.Minute
 func cacheRefresher(db *sql.DB) {
 	ticker := time.NewTicker(maxCacheTime - time.Minute)
 	defer ticker.Stop()
-	for range ticker.C {
+	for ; true; <-ticker.C {
 		cacheMut.Lock()
 		if err := refreshCacheLocked(db); err != nil {
 			log.Println(err)
