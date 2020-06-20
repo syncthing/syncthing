@@ -13,6 +13,7 @@ const (
 	CopyRangeMethodIoctl
 	CopyRangeMethodCopyFileRange
 	CopyRangeMethodSendFile
+	CopyRangeMethodDuplicateExtents
 	CopyRangeMethodAllWithFallback
 )
 
@@ -26,6 +27,8 @@ func (o CopyRangeMethod) String() string {
 		return "copy_file_range"
 	case CopyRangeMethodSendFile:
 		return "sendfile"
+	case CopyRangeMethodDuplicateExtents:
+		return "duplicate_extents"
 	case CopyRangeMethodAllWithFallback:
 		return "all"
 	default:
@@ -47,6 +50,8 @@ func (o *CopyRangeMethod) UnmarshalText(bs []byte) error {
 		*o = CopyRangeMethodCopyFileRange
 	case "sendfile":
 		*o = CopyRangeMethodSendFile
+	case "duplicate_extents":
+		*o = CopyRangeMethodDuplicateExtents
 	case "all":
 		*o = CopyRangeMethodAllWithFallback
 	default:
