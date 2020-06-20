@@ -140,7 +140,9 @@ func setupDB(db *sql.DB) error {
 		}
 		defer tx.Rollback()
 
-		stmt, err := tx.Prepare(pq.CopyIn("ReportsJson", "Received", "Report"))
+		// These much be lower case, because we don't quote them when creating, so postgres creates them lower case.
+		// Yet pg.CopyIn quotes them, which makes them case sensitive.
+		stmt, err := tx.Prepare(pq.CopyIn("reportsjson", "received", "report"))
 		if err != nil {
 			log.Println("sql:", err)
 			return err
@@ -148,7 +150,7 @@ func setupDB(db *sql.DB) error {
 
 		var rep contract.Report
 
-		rows, err := tx.Query(`DELETE FROM Reports RETURNING ` + strings.Join(rep.FieldNames(), ", "))
+		rows, err := db.Query(`SELECT ` + strings.Join(rep.FieldNames(), ", ") + ` FROM Reports`)
 		if err != nil {
 			log.Println("sql:", err)
 			return err
