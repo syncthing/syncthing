@@ -451,9 +451,7 @@ func install(target target, tags []string) {
 	}
 	os.Setenv("GOBIN", filepath.Join(cwd, "bin"))
 
-	os.Setenv("GOOS", goos)
-	os.Setenv("GOARCH", goarch)
-	os.Setenv("CC", cc)
+	setBuildEnvVars()
 
 	// On Windows generate a special file which the Go compiler will
 	// automatically use when generating Windows binaries to set things like
@@ -477,9 +475,7 @@ func build(target target, tags []string) {
 
 	rmr(target.BinaryName())
 
-	os.Setenv("GOOS", goos)
-	os.Setenv("GOARCH", goarch)
-	os.Setenv("CC", cc)
+	setBuildEnvVars()
 
 	// On Windows generate a special file which the Go compiler will
 	// automatically use when generating Windows binaries to set things like
@@ -499,6 +495,16 @@ func build(target target, tags []string) {
 	args := []string{"build", "-v"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
+}
+
+func setBuildEnvVars() {
+	os.Setenv("GOOS", goos)
+	os.Setenv("GOARCH", goarch)
+	if goos == "windows" {
+		os.Setenv("CGO_ENABLED", "0")
+	} else {
+		os.Setenv("CC", cc)
+	}
 }
 
 func appendParameters(args []string, tags []string, pkgs ...string) []string {
