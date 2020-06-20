@@ -13,5 +13,5 @@ func memorySize() int64 {
 	if err != nil {
 		return 0
 	}
-	return mem
+	return int64(mem)
 }
