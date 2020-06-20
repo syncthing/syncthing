@@ -12,7 +12,7 @@ func init() {
 
 func copyRangeAllWithFallback(src, dst File, srcOffset, dstOffset, size int64) error {
 	var err error
-	for _, method := range []CopyRangeMethod{CopyRangeMethodIoctl, CopyRangeMethodCopyFileRange, CopyRangeMethodSendFile, CopyRangeMethodStandard} {
+	for _, method := range []CopyRangeMethod{CopyRangeMethodIoctl, CopyRangeMethodCopyFileRange, CopyRangeMethodSendFile, CopyRangeMethodDuplicateExtents, CopyRangeMethodStandard} {
 		if err = CopyRange(method, src, dst, srcOffset, dstOffset, size); err == nil {
 			return nil
 		}
