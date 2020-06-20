@@ -415,8 +415,8 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	expectEmpty()
 
 	// Device is no longer subscribed to a particular folder
-	delete(p.registry["folder"], "1")  // Clean up first
-	delete(p.registry["folder2"], "2") // Clean up first
+	delete(p.registry["folder"], "1")  // ClearForVersion up first
+	delete(p.registry["folder2"], "2") // ClearForVersion up first
 
 	sendMsgs(p)
 	expect(-1, state1, protocol.UpdateTypeForget, v1, nil, true)

@@ -10,9 +10,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"database/sql"
-	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -29,8 +27,9 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/lib/pq"
 	geoip2 "github.com/oschwald/geoip2-golang"
+
+	"github.com/syncthing/syncthing/lib/ur/contract"
 )
 
 var (
@@ -101,376 +100,6 @@ func getEnvDefault(key, def string) string {
 		return val
 	}
 	return def
-}
-
-type IntMap map[string]int
-
-func (p IntMap) Value() (driver.Value, error) {
-	return json.Marshal(p)
-}
-
-func (p *IntMap) Scan(src interface{}) error {
-	source, ok := src.([]byte)
-	if !ok {
-		return errors.New("Type assertion .([]byte) failed.")
-	}
-
-	var i map[string]int
-	err := json.Unmarshal(source, &i)
-	if err != nil {
-		return err
-	}
-
-	*p = i
-	return nil
-}
-
-type report struct {
-	Received time.Time // Only from DB
-
-	UniqueID       string
-	Version        string
-	LongVersion    string
-	Platform       string
-	NumFolders     int
-	NumDevices     int
-	TotFiles       int
-	FolderMaxFiles int
-	TotMiB         int
-	FolderMaxMiB   int
-	MemoryUsageMiB int
-	SHA256Perf     float64
-	MemorySize     int
-
-	// v2 fields
-
-	URVersion  int
-	NumCPU     int
-	FolderUses struct {
-		SendOnly            int
-		ReceiveOnly         int
-		IgnorePerms         int
-		IgnoreDelete        int
-		AutoNormalize       int
-		SimpleVersioning    int
-		ExternalVersioning  int
-		StaggeredVersioning int
-		TrashcanVersioning  int
-	}
-	DeviceUses struct {
-		Introducer       int
-		CustomCertName   int
-		CompressAlways   int
-		CompressMetadata int
-		CompressNever    int
-		DynamicAddr      int
-		StaticAddr       int
-	}
-	Announce struct {
-		GlobalEnabled     bool
-		LocalEnabled      bool
-		DefaultServersDNS int
-		DefaultServersIP  int
-		OtherServers      int
-	}
-	Relays struct {
-		Enabled        bool
-		DefaultServers int
-		OtherServers   int
-	}
-	UsesRateLimit        bool
-	UpgradeAllowedManual bool
-	UpgradeAllowedAuto   bool
-
-	// V2.5 fields (fields that were in v2 but never added to the database
-	UpgradeAllowedPre bool
-	RescanIntvs       pq.Int64Array
-
-	// v3 fields
-
-	Uptime                     int
-	NATType                    string
-	AlwaysLocalNets            bool
-	CacheIgnoredFiles          bool
-	OverwriteRemoteDeviceNames bool
-	ProgressEmitterEnabled     bool
-	CustomDefaultFolderPath    bool
-	WeakHashSelection          string
-	CustomTrafficClass         bool
-	CustomTempIndexMinBlocks   bool
-	TemporariesDisabled        bool
-	TemporariesCustom          bool
-	LimitBandwidthInLan        bool
-	CustomReleaseURL           bool
-	RestartOnWakeup            bool
-	CustomStunServers          bool
-
-	FolderUsesV3 struct {
-		ScanProgressDisabled    int
-		ConflictsDisabled       int
-		ConflictsUnlimited      int
-		ConflictsOther          int
-		DisableSparseFiles      int
-		DisableTempIndexes      int
-		AlwaysWeakHash          int
-		CustomWeakHashThreshold int
-		FsWatcherEnabled        int
-		PullOrder               IntMap
-		FilesystemType          IntMap
-		FsWatcherDelays         pq.Int64Array
-	}
-
-	GUIStats struct {
-		Enabled                   int
-		UseTLS                    int
-		UseAuth                   int
-		InsecureAdminAccess       int
-		Debugging                 int
-		InsecureSkipHostCheck     int
-		InsecureAllowFrameLoading int
-		ListenLocal               int
-		ListenUnspecified         int
-		Theme                     IntMap
-	}
-
-	BlockStats struct {
-		Total             int
-		Renamed           int
-		Reused            int
-		Pulled            int
-		CopyOrigin        int
-		CopyOriginShifted int
-		CopyElsewhere     int
-	}
-
-	TransportStats IntMap
-
-	IgnoreStats struct {
-		Lines           int
-		Inverts         int
-		Folded          int
-		Deletable       int
-		Rooted          int
-		Includes        int
-		EscapedIncludes int
-		DoubleStars     int
-		Stars           int
-	}
-
-	// V3 fields added late in the RC
-	WeakHashEnabled bool
-
-	// Generated
-
-	Date    string
-	Address string
-}
-
-func (r *report) Validate() error {
-	if r.UniqueID == "" || r.Version == "" || r.Platform == "" {
-		return errors.New("missing required field")
-	}
-	if len(r.Date) != 8 {
-		return errors.New("date not initialized")
-	}
-
-	// Some fields may not be null.
-	if r.RescanIntvs == nil {
-		r.RescanIntvs = []int64{}
-	}
-	if r.FolderUsesV3.FsWatcherDelays == nil {
-		r.FolderUsesV3.FsWatcherDelays = []int64{}
-	}
-
-	return nil
-}
-
-func (r *report) FieldPointers() []interface{} {
-	// All the fields of the report, in the same order as the database fields.
-	return []interface{}{
-		&r.Received, &r.UniqueID, &r.Version, &r.LongVersion, &r.Platform,
-		&r.NumFolders, &r.NumDevices, &r.TotFiles, &r.FolderMaxFiles,
-		&r.TotMiB, &r.FolderMaxMiB, &r.MemoryUsageMiB, &r.SHA256Perf,
-		&r.MemorySize, &r.Date,
-		// V2
-		&r.URVersion, &r.NumCPU, &r.FolderUses.SendOnly, &r.FolderUses.IgnorePerms,
-		&r.FolderUses.IgnoreDelete, &r.FolderUses.AutoNormalize, &r.DeviceUses.Introducer,
-		&r.DeviceUses.CustomCertName, &r.DeviceUses.CompressAlways,
-		&r.DeviceUses.CompressMetadata, &r.DeviceUses.CompressNever,
-		&r.DeviceUses.DynamicAddr, &r.DeviceUses.StaticAddr,
-		&r.Announce.GlobalEnabled, &r.Announce.LocalEnabled,
-		&r.Announce.DefaultServersDNS, &r.Announce.DefaultServersIP,
-		&r.Announce.OtherServers, &r.Relays.Enabled, &r.Relays.DefaultServers,
-		&r.Relays.OtherServers, &r.UsesRateLimit, &r.UpgradeAllowedManual,
-		&r.UpgradeAllowedAuto, &r.FolderUses.SimpleVersioning,
-		&r.FolderUses.ExternalVersioning, &r.FolderUses.StaggeredVersioning,
-		&r.FolderUses.TrashcanVersioning,
-
-		// V2.5
-		&r.UpgradeAllowedPre, &r.RescanIntvs,
-
-		// V3
-		&r.Uptime, &r.NATType, &r.AlwaysLocalNets, &r.CacheIgnoredFiles,
-		&r.OverwriteRemoteDeviceNames, &r.ProgressEmitterEnabled, &r.CustomDefaultFolderPath,
-		&r.WeakHashSelection, &r.CustomTrafficClass, &r.CustomTempIndexMinBlocks,
-		&r.TemporariesDisabled, &r.TemporariesCustom, &r.LimitBandwidthInLan,
-		&r.CustomReleaseURL, &r.RestartOnWakeup, &r.CustomStunServers,
-
-		&r.FolderUsesV3.ScanProgressDisabled, &r.FolderUsesV3.ConflictsDisabled,
-		&r.FolderUsesV3.ConflictsUnlimited, &r.FolderUsesV3.ConflictsOther,
-		&r.FolderUsesV3.DisableSparseFiles, &r.FolderUsesV3.DisableTempIndexes,
-		&r.FolderUsesV3.AlwaysWeakHash, &r.FolderUsesV3.CustomWeakHashThreshold,
-		&r.FolderUsesV3.FsWatcherEnabled,
-
-		&r.FolderUsesV3.PullOrder, &r.FolderUsesV3.FilesystemType,
-		&r.FolderUsesV3.FsWatcherDelays,
-
-		&r.GUIStats.Enabled, &r.GUIStats.UseTLS, &r.GUIStats.UseAuth,
-		&r.GUIStats.InsecureAdminAccess,
-		&r.GUIStats.Debugging, &r.GUIStats.InsecureSkipHostCheck,
-		&r.GUIStats.InsecureAllowFrameLoading, &r.GUIStats.ListenLocal,
-		&r.GUIStats.ListenUnspecified, &r.GUIStats.Theme,
-
-		&r.BlockStats.Total, &r.BlockStats.Renamed,
-		&r.BlockStats.Reused, &r.BlockStats.Pulled, &r.BlockStats.CopyOrigin,
-		&r.BlockStats.CopyOriginShifted, &r.BlockStats.CopyElsewhere,
-
-		&r.TransportStats,
-
-		&r.IgnoreStats.Lines, &r.IgnoreStats.Inverts, &r.IgnoreStats.Folded,
-		&r.IgnoreStats.Deletable, &r.IgnoreStats.Rooted, &r.IgnoreStats.Includes,
-		&r.IgnoreStats.EscapedIncludes, &r.IgnoreStats.DoubleStars, &r.IgnoreStats.Stars,
-
-		// V3 added late in the RC
-		&r.WeakHashEnabled,
-		&r.Address,
-
-		// Receive only folders
-		&r.FolderUses.ReceiveOnly,
-	}
-}
-
-func (r *report) FieldNames() []string {
-	// The database fields that back this struct in PostgreSQL
-	return []string{
-		// V1
-		"Received",
-		"UniqueID",
-		"Version",
-		"LongVersion",
-		"Platform",
-		"NumFolders",
-		"NumDevices",
-		"TotFiles",
-		"FolderMaxFiles",
-		"TotMiB",
-		"FolderMaxMiB",
-		"MemoryUsageMiB",
-		"SHA256Perf",
-		"MemorySize",
-		"Date",
-		// V2
-		"ReportVersion",
-		"NumCPU",
-		"FolderRO",
-		"FolderIgnorePerms",
-		"FolderIgnoreDelete",
-		"FolderAutoNormalize",
-		"DeviceIntroducer",
-		"DeviceCustomCertName",
-		"DeviceCompressAlways",
-		"DeviceCompressMetadata",
-		"DeviceCompressNever",
-		"DeviceDynamicAddr",
-		"DeviceStaticAddr",
-		"AnnounceGlobalEnabled",
-		"AnnounceLocalEnabled",
-		"AnnounceDefaultServersDNS",
-		"AnnounceDefaultServersIP",
-		"AnnounceOtherServers",
-		"RelayEnabled",
-		"RelayDefaultServers",
-		"RelayOtherServers",
-		"RateLimitEnabled",
-		"UpgradeAllowedManual",
-		"UpgradeAllowedAuto",
-		// v0.12.19+
-		"FolderSimpleVersioning",
-		"FolderExternalVersioning",
-		"FolderStaggeredVersioning",
-		"FolderTrashcanVersioning",
-		// V2.5
-		"UpgradeAllowedPre",
-		"RescanIntvs",
-		// V3
-		"Uptime",
-		"NATType",
-		"AlwaysLocalNets",
-		"CacheIgnoredFiles",
-		"OverwriteRemoteDeviceNames",
-		"ProgressEmitterEnabled",
-		"CustomDefaultFolderPath",
-		"WeakHashSelection",
-		"CustomTrafficClass",
-		"CustomTempIndexMinBlocks",
-		"TemporariesDisabled",
-		"TemporariesCustom",
-		"LimitBandwidthInLan",
-		"CustomReleaseURL",
-		"RestartOnWakeup",
-		"CustomStunServers",
-
-		"FolderScanProgressDisabled",
-		"FolderConflictsDisabled",
-		"FolderConflictsUnlimited",
-		"FolderConflictsOther",
-		"FolderDisableSparseFiles",
-		"FolderDisableTempIndexes",
-		"FolderAlwaysWeakHash",
-		"FolderCustomWeakHashThreshold",
-		"FolderFsWatcherEnabled",
-		"FolderPullOrder",
-		"FolderFilesystemType",
-		"FolderFsWatcherDelays",
-
-		"GUIEnabled",
-		"GUIUseTLS",
-		"GUIUseAuth",
-		"GUIInsecureAdminAccess",
-		"GUIDebugging",
-		"GUIInsecureSkipHostCheck",
-		"GUIInsecureAllowFrameLoading",
-		"GUIListenLocal",
-		"GUIListenUnspecified",
-		"GUITheme",
-
-		"BlocksTotal",
-		"BlocksRenamed",
-		"BlocksReused",
-		"BlocksPulled",
-		"BlocksCopyOrigin",
-		"BlocksCopyOriginShifted",
-		"BlocksCopyElsewhere",
-
-		"Transport",
-
-		"IgnoreLines",
-		"IgnoreInverts",
-		"IgnoreFolded",
-		"IgnoreDeletable",
-		"IgnoreRooted",
-		"IgnoreIncludes",
-		"IgnoreEscapedIncludes",
-		"IgnoreDoubleStars",
-		"IgnoreStars",
-
-		// V3 added late in the RC
-		"WeakHashEnabled",
-		"Address",
-
-		// Receive only folders
-		"FolderRecvOnly",
-	}
 }
 
 func setupDB(db *sql.DB) error {
@@ -673,8 +302,9 @@ func setupDB(db *sql.DB) error {
 	return nil
 }
 
-func insertReport(db *sql.DB, r report) error {
-	r.Received = time.Now().UTC()
+func insertReport(db *sql.DB, r contract.Report) error {
+	time := time.Now().UTC()
+	r.Received = &time
 	fields := r.FieldPointers()
 	params := make([]string, len(fields))
 	for i := range params {
@@ -861,7 +491,7 @@ func newDataHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		addr = ""
 	}
 
-	var rep report
+	var rep contract.Report
 	rep.Date = time.Now().UTC().Format("20060102")
 	rep.Address = addr
 
@@ -1069,11 +699,11 @@ func getReport(db *sql.DB) map[string]interface{} {
 	var numDevices []int
 	var totFiles []int
 	var maxFiles []int
-	var totMiB []int
-	var maxMiB []int
-	var memoryUsage []int
+	var totMiB []int64
+	var maxMiB []int64
+	var memoryUsage []int64
 	var sha256Perf []float64
-	var memorySize []int
+	var memorySize []int64
 	var uptime []int
 	var compilers []string
 	var builders []string
@@ -1112,7 +742,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 
 	var numCPU []int
 
-	var rep report
+	var rep contract.Report
 
 	rows, err := db.Query(`SELECT ` + strings.Join(rep.FieldNames(), ",") + ` FROM Reports WHERE Received > now() - '1 day'::INTERVAL`)
 	if err != nil {
@@ -1173,19 +803,19 @@ func getReport(db *sql.DB) map[string]interface{} {
 			maxFiles = append(maxFiles, rep.FolderMaxFiles)
 		}
 		if rep.TotMiB > 0 {
-			totMiB = append(totMiB, rep.TotMiB*(1<<20))
+			totMiB = append(totMiB, int64(rep.TotMiB)*(1<<20))
 		}
 		if rep.FolderMaxMiB > 0 {
-			maxMiB = append(maxMiB, rep.FolderMaxMiB*(1<<20))
+			maxMiB = append(maxMiB, int64(rep.FolderMaxMiB)*(1<<20))
 		}
 		if rep.MemoryUsageMiB > 0 {
-			memoryUsage = append(memoryUsage, rep.MemoryUsageMiB*(1<<20))
+			memoryUsage = append(memoryUsage, int64(rep.MemoryUsageMiB)*(1<<20))
 		}
 		if rep.SHA256Perf > 0 {
 			sha256Perf = append(sha256Perf, rep.SHA256Perf*(1<<20))
 		}
 		if rep.MemorySize > 0 {
-			memorySize = append(memorySize, rep.MemorySize*(1<<20))
+			memorySize = append(memorySize, int64(rep.MemorySize)*(1<<20))
 		}
 		if rep.Uptime > 0 {
 			uptime = append(uptime, rep.Uptime)
@@ -1336,14 +966,14 @@ func getReport(db *sql.DB) map[string]interface{} {
 	})
 
 	categories = append(categories, category{
-		Values: statsForInts(totMiB),
+		Values: statsForInt64s(totMiB),
 		Descr:  "Data Managed per Device",
 		Unit:   "B",
 		Type:   NumberBinary,
 	})
 
 	categories = append(categories, category{
-		Values: statsForInts(maxMiB),
+		Values: statsForInt64s(maxMiB),
 		Descr:  "Data in Largest Folder",
 		Unit:   "B",
 		Type:   NumberBinary,
@@ -1360,14 +990,14 @@ func getReport(db *sql.DB) map[string]interface{} {
 	})
 
 	categories = append(categories, category{
-		Values: statsForInts(memoryUsage),
+		Values: statsForInt64s(memoryUsage),
 		Descr:  "Memory Usage",
 		Unit:   "B",
 		Type:   NumberBinary,
 	})
 
 	categories = append(categories, category{
-		Values: statsForInts(memorySize),
+		Values: statsForInt64s(memorySize),
 		Descr:  "System Memory",
 		Unit:   "B",
 		Type:   NumberBinary,

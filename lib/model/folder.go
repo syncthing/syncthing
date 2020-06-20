@@ -386,7 +386,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// and it's ok to release twice.
 	defer snap.Release()
 
-	// Clean the list of subitems to ensure that we start at a known
+	// ClearForVersion the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
 	subDirs = unifySubs(subDirs, func(file string) bool {

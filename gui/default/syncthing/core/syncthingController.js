@@ -32,8 +32,6 @@ angular.module('syncthing.core')
         $scope.protocolChanged = false;
         $scope.reportData = {};
         $scope.reportDataPreview = '';
-        $scope.reportDataPreviewVersion = '';
-        $scope.reportDataPreviewDiff = false;
         $scope.reportPreview = false;
         $scope.folders = {};
         $scope.seenError = '';
@@ -2322,13 +2320,13 @@ angular.module('syncthing.core')
             $scope.reportPreview = true;
         };
 
-        $scope.refreshReportDataPreview = function () {
+        $scope.refreshReportDataPreview = function (ver, diff) {
             $scope.reportDataPreview = '';
-            if (!$scope.reportDataPreviewVersion) {
+            if (!ver) {
                 return;
             }
-            var version = parseInt($scope.reportDataPreviewVersion);
-            if ($scope.reportDataPreviewDiff && version > 2) {
+            var version = parseInt(ver);
+            if (diff && version > 2) {
                 $q.all([
                     $http.get(urlbase + '/svc/report?version=' + version),
                     $http.get(urlbase + '/svc/report?version=' + (version - 1)),

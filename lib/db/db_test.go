@@ -505,7 +505,7 @@ func TestCheckGlobals(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Clean up global entry of the now missing file
+	// ClearForVersion up global entry of the now missing file
 	if err := db.checkGlobals([]byte(fs.folder)); err != nil {
 		t.Fatal(err)
 	}

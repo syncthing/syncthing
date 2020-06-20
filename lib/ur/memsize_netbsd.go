@@ -7,25 +7,24 @@
 package ur
 
 import (
-	"errors"
 	"os/exec"
 	"strconv"
 	"strings"
 )
 
-func memorySize() (int64, error) {
+func memorySize() int64 {
 	cmd := exec.Command("/sbin/sysctl", "hw.physmem64")
 	out, err := cmd.Output()
 	if err != nil {
-		return 0, err
+		return 0
 	}
 	fs := strings.Fields(string(out))
 	if len(fs) != 3 {
-		return 0, errors.New("sysctl parse error")
+		return 0
 	}
 	bytes, err := strconv.ParseInt(fs[2], 10, 64)
 	if err != nil {
-		return 0, err
+		return 0
 	}
-	return bytes, nil
+	return bytes
 }

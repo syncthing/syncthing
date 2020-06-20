@@ -8,32 +8,31 @@ package ur
 
 import (
 	"bufio"
-	"errors"
 	"os"
 	"strconv"
 	"strings"
 )
 
-func memorySize() (int64, error) {
+func memorySize() int64 {
 	f, err := os.Open("/proc/meminfo")
 	if err != nil {
-		return 0, err
+		return 0
 	}
 
 	s := bufio.NewScanner(f)
 	if !s.Scan() {
-		return 0, errors.New("/proc/meminfo parse error 1")
+		return 0
 	}
 
 	l := s.Text()
 	fs := strings.Fields(l)
 	if len(fs) != 3 || fs[2] != "kB" {
-		return 0, errors.New("/proc/meminfo parse error 2")
+		return 0
 	}
 
 	kb, err := strconv.ParseInt(fs[1], 10, 64)
 	if err != nil {
-		return 0, err
+		return 0
 	}
-	return kb * 1024, nil
+	return kb * 1024
 }

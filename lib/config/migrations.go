@@ -183,7 +183,7 @@ func migrateToConfigV21(cfg *Configuration) {
 		}
 		switch folder.Versioning.Type {
 		case "simple", "trashcan":
-			// Clean out symlinks in the known place
+			// ClearForVersion out symlinks in the known place
 			cleanSymlinks(folder.Filesystem(), ".stversions")
 		case "staggered":
 			versionDir := folder.Versioning.Params["versionsPath"]

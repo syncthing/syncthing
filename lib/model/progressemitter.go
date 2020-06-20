@@ -179,7 +179,7 @@ func (t *ProgressEmitter) computeProgressUpdates() []progressUpdate {
 		}
 	}
 
-	// Clean up sentDownloadStates for devices which we are no longer connected to.
+	// ClearForVersion up sentDownloadStates for devices which we are no longer connected to.
 	for id := range t.sentDownloadStates {
 		_, ok := t.connections[id]
 		if !ok {

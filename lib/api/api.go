@@ -1059,10 +1059,15 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Report Data as a JSON
-	if usageReportingData, err := json.MarshalIndent(s.urService.ReportData(context.TODO()), "", "  "); err != nil {
-		l.Warnln("Support bundle: failed to create versionPlatform.json:", err)
+	if r, err := s.urService.ReportData(context.TODO()); err != nil {
+		l.Warnln("Support bundle: failed to create usage-reporting.json.txt:", err)
 	} else {
-		files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
+		if usageReportingData, err := json.MarshalIndent(r, "", "  "); err != nil {
+			l.Warnln("Support bundle: failed to serialize usage-reporting.json.txt", err)
+		} else {
+			files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
+
+		}
 	}
 
 	// Heap and CPU Proofs as a pprof extension
@@ -1144,7 +1149,13 @@ func (s *service) getReport(w http.ResponseWriter, r *http.Request) {
 	if val, _ := strconv.Atoi(r.URL.Query().Get("version")); val > 0 {
 		version = val
 	}
-	sendJSON(w, s.urService.ReportDataPreview(context.TODO(), version))
+	if r, err := s.urService.ReportDataPreview(context.TODO(), version); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	} else {
+		sendJSON(w, r)
+	}
+
 }
 
 func (s *service) getRandomString(w http.ResponseWriter, r *http.Request) {
