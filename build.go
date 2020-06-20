@@ -684,7 +684,11 @@ func shouldBuildSyso(dir string) (string, error) {
 
 	sysoPath := filepath.Join(dir, "cmd", "syncthing", "resource.syso")
 
-	if _, err := runError("goversioninfo", "-o", sysoPath); err != nil {
+	args := []string{"-o", sysoPath}
+	if goarch == "amd64" {
+		args = append(args, "-64")
+	}
+	if _, err := runError("goversioninfo", args...); err != nil {
 		return "", errors.New("failed to create " + sysoPath + ": " + err.Error())
 	}
 
