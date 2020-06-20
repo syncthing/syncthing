@@ -42,9 +42,9 @@ func (p *IntMap) Scan(src interface{}) error {
 
 type Report struct {
 	// Generated
-	Received *time.Time `json:"received,omitempty"` // Only from DB
-	Date     string     `json:"date,omitempty"`
-	Address  string     `json:"address,omitempty"`
+	Received time.Time // Only from DB
+	Date     string    `json:"date,omitempty"`
+	Address  string    `json:"address,omitempty"`
 
 	// v1 fields
 
@@ -407,6 +407,19 @@ func (r *Report) FieldNames() []string {
 		// Receive only folders
 		"FolderRecvOnly",
 	}
+}
+
+func (r Report) Value() (driver.Value, error) {
+	return json.Marshal(r)
+}
+
+func (r *Report) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(b, &r)
 }
 
 func clear(v interface{}, since int) error {
