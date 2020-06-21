@@ -11,34 +11,9 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
-	"sort"
 	"strconv"
 	"time"
-
-	"github.com/lib/pq"
 )
-
-type IntMap map[string]int
-
-func (p IntMap) Value() (driver.Value, error) {
-	return json.Marshal(p)
-}
-
-func (p *IntMap) Scan(src interface{}) error {
-	source, ok := src.([]byte)
-	if !ok {
-		return errors.New("Type assertion .([]byte) failed.")
-	}
-
-	var i map[string]int
-	err := json.Unmarshal(source, &i)
-	if err != nil {
-		return err
-	}
-
-	*p = i
-	return nil
-}
 
 type Report struct {
 	// Generated
@@ -109,8 +84,8 @@ type Report struct {
 	UpgradeAllowedAuto   bool `json:"upgradeAllowedAuto,omitempty" since:"2"`
 
 	// V2.5 fields (fields that were in v2 but never added to the database
-	UpgradeAllowedPre bool          `json:"upgradeAllowedPre,omitempty" since:"2"`
-	RescanIntvs       pq.Int64Array `json:"rescanIntvs,omitempty" since:"2"`
+	UpgradeAllowedPre bool  `json:"upgradeAllowedPre,omitempty" since:"2"`
+	RescanIntvs       []int `json:"rescanIntvs,omitempty" since:"2"`
 
 	// v3 fields
 
@@ -132,31 +107,31 @@ type Report struct {
 	CustomStunServers          bool   `json:"customStunServers,omitempty" since:"3"`
 
 	FolderUsesV3 struct {
-		ScanProgressDisabled    int           `json:"scanProgressDisabled,omitempty" since:"3"`
-		ConflictsDisabled       int           `json:"conflictsDisabled,omitempty" since:"3"`
-		ConflictsUnlimited      int           `json:"conflictsUnlimited,omitempty" since:"3"`
-		ConflictsOther          int           `json:"conflictsOther,omitempty" since:"3"`
-		DisableSparseFiles      int           `json:"disableSparseFiles,omitempty" since:"3"`
-		DisableTempIndexes      int           `json:"disableTempIndexes,omitempty" since:"3"`
-		AlwaysWeakHash          int           `json:"alwaysWeakHash,omitempty" since:"3"`
-		CustomWeakHashThreshold int           `json:"customWeakHashThreshold,omitempty" since:"3"`
-		FsWatcherEnabled        int           `json:"fsWatcherEnabled,omitempty" since:"3"`
-		PullOrder               IntMap        `json:"pullOrder,omitempty" since:"3"`
-		FilesystemType          IntMap        `json:"filesystemType,omitempty" since:"3"`
-		FsWatcherDelays         pq.Int64Array `json:"fsWatcherDelays,omitempty" since:"3"`
+		ScanProgressDisabled    int            `json:"scanProgressDisabled,omitempty" since:"3"`
+		ConflictsDisabled       int            `json:"conflictsDisabled,omitempty" since:"3"`
+		ConflictsUnlimited      int            `json:"conflictsUnlimited,omitempty" since:"3"`
+		ConflictsOther          int            `json:"conflictsOther,omitempty" since:"3"`
+		DisableSparseFiles      int            `json:"disableSparseFiles,omitempty" since:"3"`
+		DisableTempIndexes      int            `json:"disableTempIndexes,omitempty" since:"3"`
+		AlwaysWeakHash          int            `json:"alwaysWeakHash,omitempty" since:"3"`
+		CustomWeakHashThreshold int            `json:"customWeakHashThreshold,omitempty" since:"3"`
+		FsWatcherEnabled        int            `json:"fsWatcherEnabled,omitempty" since:"3"`
+		PullOrder               map[string]int `json:"pullOrder,omitempty" since:"3"`
+		FilesystemType          map[string]int `json:"filesystemType,omitempty" since:"3"`
+		FsWatcherDelays         []int          `json:"fsWatcherDelays,omitempty" since:"3"`
 	} `json:"folderUsesV3,omitempty" since:"3"`
 
 	GUIStats struct {
-		Enabled                   int    `json:"enabled,omitempty" since:"3"`
-		UseTLS                    int    `json:"useTLS,omitempty" since:"3"`
-		UseAuth                   int    `json:"useAuth,omitempty" since:"3"`
-		InsecureAdminAccess       int    `json:"insecureAdminAccess,omitempty" since:"3"`
-		Debugging                 int    `json:"debugging,omitempty" since:"3"`
-		InsecureSkipHostCheck     int    `json:"insecureSkipHostCheck,omitempty" since:"3"`
-		InsecureAllowFrameLoading int    `json:"insecureAllowFrameLoading,omitempty" since:"3"`
-		ListenLocal               int    `json:"listenLocal,omitempty" since:"3"`
-		ListenUnspecified         int    `json:"listenUnspecified,omitempty" since:"3"`
-		Theme                     IntMap `json:"theme,omitempty" since:"3"`
+		Enabled                   int            `json:"enabled,omitempty" since:"3"`
+		UseTLS                    int            `json:"useTLS,omitempty" since:"3"`
+		UseAuth                   int            `json:"useAuth,omitempty" since:"3"`
+		InsecureAdminAccess       int            `json:"insecureAdminAccess,omitempty" since:"3"`
+		Debugging                 int            `json:"debugging,omitempty" since:"3"`
+		InsecureSkipHostCheck     int            `json:"insecureSkipHostCheck,omitempty" since:"3"`
+		InsecureAllowFrameLoading int            `json:"insecureAllowFrameLoading,omitempty" since:"3"`
+		ListenLocal               int            `json:"listenLocal,omitempty" since:"3"`
+		ListenUnspecified         int            `json:"listenUnspecified,omitempty" since:"3"`
+		Theme                     map[string]int `json:"theme,omitempty" since:"3"`
 	} `json:"guiStats,omitempty" since:"3"`
 
 	BlockStats struct {
@@ -169,7 +144,7 @@ type Report struct {
 		CopyElsewhere     int `json:"copyElsewhere,omitempty" since:"3"`
 	} `json:"blockStats,omitempty" since:"3"`
 
-	TransportStats IntMap `json:"transportStats,omitempty" since:"3"`
+	TransportStats map[string]int `json:"transportStats,omitempty" since:"3"`
 
 	IgnoreStats struct {
 		Lines           int `json:"lines,omitempty" since:"3"`
@@ -189,12 +164,12 @@ type Report struct {
 
 func New() *Report {
 	r := &Report{}
-	r.FolderUsesV3.PullOrder = make(IntMap)
-	r.FolderUsesV3.FilesystemType = make(IntMap)
-	r.GUIStats.Theme = make(IntMap)
-	r.TransportStats = make(IntMap)
-	r.RescanIntvs = make(pq.Int64Array, 0)
-	r.FolderUsesV3.FsWatcherDelays = make(pq.Int64Array, 0)
+	r.FolderUsesV3.PullOrder = make(map[string]int)
+	r.FolderUsesV3.FilesystemType = make(map[string]int)
+	r.GUIStats.Theme = make(map[string]int)
+	r.TransportStats = make(map[string]int)
+	r.RescanIntvs = make([]int, 0)
+	r.FolderUsesV3.FsWatcherDelays = make([]int, 0)
 	return r
 }
 
@@ -208,10 +183,10 @@ func (r *Report) Validate() error {
 
 	// Some fields may not be null.
 	if r.RescanIntvs == nil {
-		r.RescanIntvs = []int64{}
+		r.RescanIntvs = []int{}
 	}
 	if r.FolderUsesV3.FsWatcherDelays == nil {
-		r.FolderUsesV3.FsWatcherDelays = []int64{}
+		r.FolderUsesV3.FsWatcherDelays = []int{}
 	}
 
 	return nil
@@ -243,7 +218,7 @@ func (r *Report) FieldPointers() []interface{} {
 		&r.FolderUses.TrashcanVersioning,
 
 		// V2.5
-		&r.UpgradeAllowedPre, &r.RescanIntvs,
+		&r.UpgradeAllowedPre,
 
 		// V3
 		&r.Uptime, &r.NATType, &r.AlwaysLocalNets, &r.CacheIgnoredFiles,
@@ -258,20 +233,15 @@ func (r *Report) FieldPointers() []interface{} {
 		&r.FolderUsesV3.AlwaysWeakHash, &r.FolderUsesV3.CustomWeakHashThreshold,
 		&r.FolderUsesV3.FsWatcherEnabled,
 
-		&r.FolderUsesV3.PullOrder, &r.FolderUsesV3.FilesystemType,
-		&r.FolderUsesV3.FsWatcherDelays,
-
 		&r.GUIStats.Enabled, &r.GUIStats.UseTLS, &r.GUIStats.UseAuth,
 		&r.GUIStats.InsecureAdminAccess,
 		&r.GUIStats.Debugging, &r.GUIStats.InsecureSkipHostCheck,
 		&r.GUIStats.InsecureAllowFrameLoading, &r.GUIStats.ListenLocal,
-		&r.GUIStats.ListenUnspecified, &r.GUIStats.Theme,
+		&r.GUIStats.ListenUnspecified,
 
 		&r.BlockStats.Total, &r.BlockStats.Renamed,
 		&r.BlockStats.Reused, &r.BlockStats.Pulled, &r.BlockStats.CopyOrigin,
 		&r.BlockStats.CopyOriginShifted, &r.BlockStats.CopyElsewhere,
-
-		&r.TransportStats,
 
 		&r.IgnoreStats.Lines, &r.IgnoreStats.Inverts, &r.IgnoreStats.Folded,
 		&r.IgnoreStats.Deletable, &r.IgnoreStats.Rooted, &r.IgnoreStats.Includes,
@@ -337,7 +307,6 @@ func (r *Report) FieldNames() []string {
 		"FolderTrashcanVersioning",
 		// V2.5
 		"UpgradeAllowedPre",
-		"RescanIntvs",
 		// V3
 		"Uptime",
 		"NATType",
@@ -365,9 +334,6 @@ func (r *Report) FieldNames() []string {
 		"FolderAlwaysWeakHash",
 		"FolderCustomWeakHashThreshold",
 		"FolderFsWatcherEnabled",
-		"FolderPullOrder",
-		"FolderFilesystemType",
-		"FolderFsWatcherDelays",
 
 		"GUIEnabled",
 		"GUIUseTLS",
@@ -378,7 +344,6 @@ func (r *Report) FieldNames() []string {
 		"GUIInsecureAllowFrameLoading",
 		"GUIListenLocal",
 		"GUIListenUnspecified",
-		"GUITheme",
 
 		"BlocksTotal",
 		"BlocksRenamed",
@@ -387,8 +352,6 @@ func (r *Report) FieldNames() []string {
 		"BlocksCopyOrigin",
 		"BlocksCopyOriginShifted",
 		"BlocksCopyElsewhere",
-
-		"Transport",
 
 		"IgnoreLines",
 		"IgnoreInverts",
@@ -459,10 +422,4 @@ func clear(v interface{}, since int) error {
 		}
 	}
 	return nil
-}
-
-func SortPqInt64Array(slice pq.Int64Array) {
-	sort.Slice(slice, func(a, b int) bool {
-		return slice[a] < slice[b]
-	})
 }

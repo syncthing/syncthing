@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -119,7 +120,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 	report.NumCPU = runtime.NumCPU()
 
 	for _, cfg := range s.cfg.Folders() {
-		report.RescanIntvs = append(report.RescanIntvs, int64(cfg.RescanIntervalS))
+		report.RescanIntvs = append(report.RescanIntvs, cfg.RescanIntervalS)
 
 		switch cfg.Type {
 		case config.FolderTypeSendOnly:
@@ -153,7 +154,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			l.Warnf("Unhandled versioning type for usage reports: %s", cfg.Versioning.Type)
 		}
 	}
-	contract.SortPqInt64Array(report.RescanIntvs)
+	sort.Ints(report.RescanIntvs)
 
 	for _, cfg := range s.cfg.Devices() {
 		if cfg.Introducer {
@@ -254,9 +255,9 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			}
 			report.FolderUsesV3.PullOrder[cfg.Order.String()]++
 			report.FolderUsesV3.FilesystemType[cfg.FilesystemType.String()]++
-			report.FolderUsesV3.FsWatcherDelays = append(report.FolderUsesV3.FsWatcherDelays, int64(cfg.FSWatcherDelayS))
+			report.FolderUsesV3.FsWatcherDelays = append(report.FolderUsesV3.FsWatcherDelays, cfg.FSWatcherDelayS)
 		}
-		contract.SortPqInt64Array(report.FolderUsesV3.FsWatcherDelays)
+		sort.Ints(report.FolderUsesV3.FsWatcherDelays)
 
 		guiCfg := s.cfg.GUI()
 		// Anticipate multiple GUI configs in the future, hence store counts.

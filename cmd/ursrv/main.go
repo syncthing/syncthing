@@ -26,7 +26,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/lib/pq"
 	"github.com/oschwald/geoip2-golang"
 
 	"github.com/syncthing/syncthing/lib/ur/contract"
@@ -131,76 +130,8 @@ func setupDB(db *sql.DB) error {
 	}
 
 	// Migrate from old schema to new schema if the table exists.
-	var count uint64
-	if err := db.QueryRow(`SELECT COUNT(1) FROM Reports`).Scan(&count); err == nil && count > 0 {
-		tx, err := db.Begin()
-		if err != nil {
-			log.Println("sql:", err)
-			return err
-		}
-		defer tx.Rollback()
-
-		// These much be lower case, because we don't quote them when creating, so postgres creates them lower case.
-		// Yet pg.CopyIn quotes them, which makes them case sensitive.
-		stmt, err := tx.Prepare(pq.CopyIn("reportsjson", "received", "report"))
-		if err != nil {
-			log.Println("sql:", err)
-			return err
-		}
-
-		var rep contract.Report
-
-		rows, err := db.Query(`SELECT ` + strings.Join(rep.FieldNames(), ", ") + ` FROM Reports`)
-		if err != nil {
-			log.Println("sql:", err)
-			return err
-		}
-		defer rows.Close()
-
-		var done uint64
-		pct := count / 100
-
-		for rows.Next() {
-			err := rows.Scan(rep.FieldPointers()...)
-			if err != nil {
-				log.Println("sql scan:", err)
-				return err
-			}
-			_, err = stmt.Exec(rep.Received, rep)
-			if err != nil {
-				log.Println("sql insert:", err)
-				return err
-			}
-			done++
-			if done%pct == 0 {
-				log.Printf("Migration progress %d/%d (%d%%)", done, count, (100*done)/count)
-			}
-		}
-
-		// Tell the driver bulk copy is finished
-		_, err = stmt.Exec()
-		if err != nil {
-			log.Println("sql stmt exec:", err)
-			return err
-		}
-
-		err = stmt.Close()
-		if err != nil {
-			log.Println("sql stmt close:", err)
-			return err
-		}
-
-		_, err = tx.Exec("DROP TABLE Reports")
-		if err != nil {
-			log.Println("sql drop:", err)
-			return err
-		}
-
-		err = tx.Commit()
-		if err != nil {
-			log.Println("sql commit:", err)
-			return err
-		}
+	if err := migrate(db); err != nil {
+		return err
 	}
 
 	return nil
