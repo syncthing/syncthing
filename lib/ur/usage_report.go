@@ -153,7 +153,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			l.Warnf("Unhandled versioning type for usage reports: %s", cfg.Versioning.Type)
 		}
 	}
-	report.RescanIntvs.Sort()
+	contract.SortPqInt64Array(report.RescanIntvs)
 
 	for _, cfg := range s.cfg.Devices() {
 		if cfg.Introducer {
@@ -256,7 +256,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			report.FolderUsesV3.FilesystemType[cfg.FilesystemType.String()]++
 			report.FolderUsesV3.FsWatcherDelays = append(report.FolderUsesV3.FsWatcherDelays, int64(cfg.FSWatcherDelayS))
 		}
-		report.FolderUsesV3.FsWatcherDelays.Sort()
+		contract.SortPqInt64Array(report.FolderUsesV3.FsWatcherDelays)
 
 		guiCfg := s.cfg.GUI()
 		// Anticipate multiple GUI configs in the future, hence store counts.

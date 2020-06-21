@@ -7,14 +7,38 @@
 package contract
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type IntMap map[string]int
+
+func (p IntMap) Value() (driver.Value, error) {
+	return json.Marshal(p)
+}
+
+func (p *IntMap) Scan(src interface{}) error {
+	source, ok := src.([]byte)
+	if !ok {
+		return errors.New("Type assertion .([]byte) failed.")
+	}
+
+	var i map[string]int
+	err := json.Unmarshal(source, &i)
+	if err != nil {
+		return err
+	}
+
+	*p = i
+	return nil
+}
 
 type Report struct {
 	// Generated
@@ -85,8 +109,8 @@ type Report struct {
 	UpgradeAllowedAuto   bool `json:"upgradeAllowedAuto,omitempty" since:"2"`
 
 	// V2.5 fields (fields that were in v2 but never added to the database
-	UpgradeAllowedPre bool       `json:"upgradeAllowedPre,omitempty" since:"2"`
-	RescanIntvs       Int64Array `json:"rescanIntvs,omitempty" since:"2"`
+	UpgradeAllowedPre bool          `json:"upgradeAllowedPre,omitempty" since:"2"`
+	RescanIntvs       pq.Int64Array `json:"rescanIntvs,omitempty" since:"2"`
 
 	// v3 fields
 
@@ -108,18 +132,18 @@ type Report struct {
 	CustomStunServers          bool   `json:"customStunServers,omitempty" since:"3"`
 
 	FolderUsesV3 struct {
-		ScanProgressDisabled    int        `json:"scanProgressDisabled,omitempty" since:"3"`
-		ConflictsDisabled       int        `json:"conflictsDisabled,omitempty" since:"3"`
-		ConflictsUnlimited      int        `json:"conflictsUnlimited,omitempty" since:"3"`
-		ConflictsOther          int        `json:"conflictsOther,omitempty" since:"3"`
-		DisableSparseFiles      int        `json:"disableSparseFiles,omitempty" since:"3"`
-		DisableTempIndexes      int        `json:"disableTempIndexes,omitempty" since:"3"`
-		AlwaysWeakHash          int        `json:"alwaysWeakHash,omitempty" since:"3"`
-		CustomWeakHashThreshold int        `json:"customWeakHashThreshold,omitempty" since:"3"`
-		FsWatcherEnabled        int        `json:"fsWatcherEnabled,omitempty" since:"3"`
-		PullOrder               IntMap     `json:"pullOrder,omitempty" since:"3"`
-		FilesystemType          IntMap     `json:"filesystemType,omitempty" since:"3"`
-		FsWatcherDelays         Int64Array `json:"fsWatcherDelays,omitempty" since:"3"`
+		ScanProgressDisabled    int           `json:"scanProgressDisabled,omitempty" since:"3"`
+		ConflictsDisabled       int           `json:"conflictsDisabled,omitempty" since:"3"`
+		ConflictsUnlimited      int           `json:"conflictsUnlimited,omitempty" since:"3"`
+		ConflictsOther          int           `json:"conflictsOther,omitempty" since:"3"`
+		DisableSparseFiles      int           `json:"disableSparseFiles,omitempty" since:"3"`
+		DisableTempIndexes      int           `json:"disableTempIndexes,omitempty" since:"3"`
+		AlwaysWeakHash          int           `json:"alwaysWeakHash,omitempty" since:"3"`
+		CustomWeakHashThreshold int           `json:"customWeakHashThreshold,omitempty" since:"3"`
+		FsWatcherEnabled        int           `json:"fsWatcherEnabled,omitempty" since:"3"`
+		PullOrder               IntMap        `json:"pullOrder,omitempty" since:"3"`
+		FilesystemType          IntMap        `json:"filesystemType,omitempty" since:"3"`
+		FsWatcherDelays         pq.Int64Array `json:"fsWatcherDelays,omitempty" since:"3"`
 	} `json:"folderUsesV3,omitempty" since:"3"`
 
 	GUIStats struct {
@@ -169,8 +193,8 @@ func New() *Report {
 	r.FolderUsesV3.FilesystemType = make(IntMap)
 	r.GUIStats.Theme = make(IntMap)
 	r.TransportStats = make(IntMap)
-	r.RescanIntvs = make(Int64Array, 0)
-	r.FolderUsesV3.FsWatcherDelays = make(Int64Array, 0)
+	r.RescanIntvs = make(pq.Int64Array, 0)
+	r.FolderUsesV3.FsWatcherDelays = make(pq.Int64Array, 0)
 	return r
 }
 
@@ -385,6 +409,21 @@ func (r *Report) FieldNames() []string {
 	}
 }
 
+func (r Report) Value() (driver.Value, error) {
+	// This needs to be string, yet we read back bytes..
+	bs, err := json.Marshal(r)
+	return string(bs), err
+}
+
+func (r *Report) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(b, &r)
+}
+
 func clear(v interface{}, since int) error {
 	s := reflect.ValueOf(v).Elem()
 	t := s.Type()
@@ -422,8 +461,8 @@ func clear(v interface{}, since int) error {
 	return nil
 }
 
-func (arr Int64Array) Sort() {
-	sort.Slice(arr, func(a, b int) bool {
-		return arr[a] < arr[b]
+func SortPqInt64Array(slice pq.Int64Array) {
+	sort.Slice(slice, func(a, b int) bool {
+		return slice[a] < slice[b]
 	})
 }
