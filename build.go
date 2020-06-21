@@ -60,7 +60,7 @@ type target struct {
 	debpre            string
 	debpost           string
 	description       string
-	buildPkgs         []string
+	buildPkg          string
 	binaryName        string
 	archiveFiles      []archiveFile
 	systemdServices   []string
@@ -74,132 +74,140 @@ type archiveFile struct {
 	perm os.FileMode
 }
 
-var targets = map[string]target{
+var targets = map[string][]target{
 	"all": {
 		// Only valid for the "build" and "install" commands as it lacks all
 		// the archive creation stuff. buildPkgs gets filled out in init()
-		tags: []string{"purego"},
 	},
 	"syncthing": {
-		// The default target for "build", "install", "tar", "zip", "deb", etc.
-		name:        "syncthing",
-		debname:     "syncthing",
-		debdeps:     []string{"libc6", "procps"},
-		debpost:     "script/post-upgrade",
-		description: "Open Source Continuous File Synchronization",
-		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/syncthing"},
-		binaryName:  "syncthing", // .exe will be added automatically for Windows builds
-		archiveFiles: []archiveFile{
-			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
-			{src: "README.md", dst: "README.txt", perm: 0644},
-			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
-			// All files from etc/ and extra/ added automatically in init().
-		},
-		installationFiles: []archiveFile{
-			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "README.md", dst: "deb/usr/share/doc/syncthing/README.txt", perm: 0644},
-			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing/AUTHORS.txt", perm: 0644},
-			{src: "man/syncthing.1", dst: "deb/usr/share/man/man1/syncthing.1", perm: 0644},
-			{src: "man/syncthing-config.5", dst: "deb/usr/share/man/man5/syncthing-config.5", perm: 0644},
-			{src: "man/syncthing-stignore.5", dst: "deb/usr/share/man/man5/syncthing-stignore.5", perm: 0644},
-			{src: "man/syncthing-device-ids.7", dst: "deb/usr/share/man/man7/syncthing-device-ids.7", perm: 0644},
-			{src: "man/syncthing-event-api.7", dst: "deb/usr/share/man/man7/syncthing-event-api.7", perm: 0644},
-			{src: "man/syncthing-faq.7", dst: "deb/usr/share/man/man7/syncthing-faq.7", perm: 0644},
-			{src: "man/syncthing-networking.7", dst: "deb/usr/share/man/man7/syncthing-networking.7", perm: 0644},
-			{src: "man/syncthing-rest-api.7", dst: "deb/usr/share/man/man7/syncthing-rest-api.7", perm: 0644},
-			{src: "man/syncthing-security.7", dst: "deb/usr/share/man/man7/syncthing-security.7", perm: 0644},
-			{src: "man/syncthing-versioning.7", dst: "deb/usr/share/man/man7/syncthing-versioning.7", perm: 0644},
-			{src: "etc/linux-systemd/system/syncthing@.service", dst: "deb/lib/systemd/system/syncthing@.service", perm: 0644},
-			{src: "etc/linux-systemd/system/syncthing-resume.service", dst: "deb/lib/systemd/system/syncthing-resume.service", perm: 0644},
-			{src: "etc/linux-systemd/user/syncthing.service", dst: "deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
-			{src: "etc/firewall-ufw/syncthing", dst: "deb/etc/ufw/applications.d/syncthing", perm: 0644},
-			{src: "etc/linux-desktop/syncthing-start.desktop", dst: "deb/usr/share/applications/syncthing-start.desktop", perm: 0644},
-			{src: "etc/linux-desktop/syncthing-ui.desktop", dst: "deb/usr/share/applications/syncthing-ui.desktop", perm: 0644},
-			{src: "assets/logo-32.png", dst: "deb/usr/share/icons/hicolor/32x32/apps/syncthing.png", perm: 0644},
-			{src: "assets/logo-64.png", dst: "deb/usr/share/icons/hicolor/64x64/apps/syncthing.png", perm: 0644},
-			{src: "assets/logo-128.png", dst: "deb/usr/share/icons/hicolor/128x128/apps/syncthing.png", perm: 0644},
-			{src: "assets/logo-256.png", dst: "deb/usr/share/icons/hicolor/256x256/apps/syncthing.png", perm: 0644},
-			{src: "assets/logo-512.png", dst: "deb/usr/share/icons/hicolor/512x512/apps/syncthing.png", perm: 0644},
-			{src: "assets/logo-only.svg", dst: "deb/usr/share/icons/hicolor/scalable/apps/syncthing.svg", perm: 0644},
+
+		{
+			// The default target for "build", "install", "tar", "zip", "deb", etc.
+			name:        "syncthing",
+			debname:     "syncthing",
+			debdeps:     []string{"libc6", "procps"},
+			debpost:     "script/post-upgrade",
+			description: "Open Source Continuous File Synchronization",
+			buildPkg:    "github.com/syncthing/syncthing/cmd/syncthing",
+			binaryName:  "syncthing", // .exe will be added automatically for Windows builds
+			archiveFiles: []archiveFile{
+				{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
+				{src: "README.md", dst: "README.txt", perm: 0644},
+				{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
+				{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+				// All files from etc/ and extra/ added automatically in init().
+			},
+			installationFiles: []archiveFile{
+				{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
+				{src: "README.md", dst: "deb/usr/share/doc/syncthing/README.txt", perm: 0644},
+				{src: "LICENSE", dst: "deb/usr/share/doc/syncthing/LICENSE.txt", perm: 0644},
+				{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing/AUTHORS.txt", perm: 0644},
+				{src: "man/syncthing.1", dst: "deb/usr/share/man/man1/syncthing.1", perm: 0644},
+				{src: "man/syncthing-config.5", dst: "deb/usr/share/man/man5/syncthing-config.5", perm: 0644},
+				{src: "man/syncthing-stignore.5", dst: "deb/usr/share/man/man5/syncthing-stignore.5", perm: 0644},
+				{src: "man/syncthing-device-ids.7", dst: "deb/usr/share/man/man7/syncthing-device-ids.7", perm: 0644},
+				{src: "man/syncthing-event-api.7", dst: "deb/usr/share/man/man7/syncthing-event-api.7", perm: 0644},
+				{src: "man/syncthing-faq.7", dst: "deb/usr/share/man/man7/syncthing-faq.7", perm: 0644},
+				{src: "man/syncthing-networking.7", dst: "deb/usr/share/man/man7/syncthing-networking.7", perm: 0644},
+				{src: "man/syncthing-rest-api.7", dst: "deb/usr/share/man/man7/syncthing-rest-api.7", perm: 0644},
+				{src: "man/syncthing-security.7", dst: "deb/usr/share/man/man7/syncthing-security.7", perm: 0644},
+				{src: "man/syncthing-versioning.7", dst: "deb/usr/share/man/man7/syncthing-versioning.7", perm: 0644},
+				{src: "etc/linux-systemd/system/syncthing@.service", dst: "deb/lib/systemd/system/syncthing@.service", perm: 0644},
+				{src: "etc/linux-systemd/system/syncthing-resume.service", dst: "deb/lib/systemd/system/syncthing-resume.service", perm: 0644},
+				{src: "etc/linux-systemd/user/syncthing.service", dst: "deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
+				{src: "etc/firewall-ufw/syncthing", dst: "deb/etc/ufw/applications.d/syncthing", perm: 0644},
+				{src: "etc/linux-desktop/syncthing-start.desktop", dst: "deb/usr/share/applications/syncthing-start.desktop", perm: 0644},
+				{src: "etc/linux-desktop/syncthing-ui.desktop", dst: "deb/usr/share/applications/syncthing-ui.desktop", perm: 0644},
+				{src: "assets/logo-32.png", dst: "deb/usr/share/icons/hicolor/32x32/apps/syncthing.png", perm: 0644},
+				{src: "assets/logo-64.png", dst: "deb/usr/share/icons/hicolor/64x64/apps/syncthing.png", perm: 0644},
+				{src: "assets/logo-128.png", dst: "deb/usr/share/icons/hicolor/128x128/apps/syncthing.png", perm: 0644},
+				{src: "assets/logo-256.png", dst: "deb/usr/share/icons/hicolor/256x256/apps/syncthing.png", perm: 0644},
+				{src: "assets/logo-512.png", dst: "deb/usr/share/icons/hicolor/512x512/apps/syncthing.png", perm: 0644},
+				{src: "assets/logo-only.svg", dst: "deb/usr/share/icons/hicolor/scalable/apps/syncthing.svg", perm: 0644},
+			},
 		},
 	},
 	"stdiscosrv": {
-		name:        "stdiscosrv",
-		debname:     "syncthing-discosrv",
-		debdeps:     []string{"libc6"},
-		debpre:      "cmd/stdiscosrv/scripts/preinst",
-		description: "Syncthing Discovery Server",
-		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stdiscosrv"},
-		binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
-		archiveFiles: []archiveFile{
-			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
-			{src: "cmd/stdiscosrv/README.md", dst: "README.txt", perm: 0644},
-			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+		{
+			name:        "stdiscosrv",
+			debname:     "syncthing-discosrv",
+			debdeps:     []string{"libc6"},
+			debpre:      "cmd/stdiscosrv/scripts/preinst",
+			description: "Syncthing Discovery Server",
+			buildPkg:    "github.com/syncthing/syncthing/cmd/stdiscosrv",
+			binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
+			archiveFiles: []archiveFile{
+				{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
+				{src: "cmd/stdiscosrv/README.md", dst: "README.txt", perm: 0644},
+				{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
+				{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+			},
+			systemdServices: []string{
+				"cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service",
+			},
+			installationFiles: []archiveFile{
+				{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
+				{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/syncthing-discosrv/README.txt", perm: 0644},
+				{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-discosrv/LICENSE.txt", perm: 0644},
+				{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-discosrv/AUTHORS.txt", perm: 0644},
+				{src: "man/stdiscosrv.1", dst: "deb/usr/share/man/man1/stdiscosrv.1", perm: 0644},
+				{src: "cmd/stdiscosrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-discosrv", perm: 0644},
+				{src: "cmd/stdiscosrv/etc/firewall-ufw/stdiscosrv", dst: "deb/etc/ufw/applications.d/stdiscosrv", perm: 0644},
+			},
+			tags: []string{"purego"},
 		},
-		systemdServices: []string{
-			"cmd/stdiscosrv/etc/linux-systemd/stdiscosrv.service",
-		},
-		installationFiles: []archiveFile{
-			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/syncthing-discosrv/README.txt", perm: 0644},
-			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-discosrv/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-discosrv/AUTHORS.txt", perm: 0644},
-			{src: "man/stdiscosrv.1", dst: "deb/usr/share/man/man1/stdiscosrv.1", perm: 0644},
-			{src: "cmd/stdiscosrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-discosrv", perm: 0644},
-			{src: "cmd/stdiscosrv/etc/firewall-ufw/stdiscosrv", dst: "deb/etc/ufw/applications.d/stdiscosrv", perm: 0644},
-		},
-		tags: []string{"purego"},
 	},
 	"strelaysrv": {
-		name:        "strelaysrv",
-		debname:     "syncthing-relaysrv",
-		debdeps:     []string{"libc6"},
-		debpre:      "cmd/strelaysrv/scripts/preinst",
-		description: "Syncthing Relay Server",
-		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/strelaysrv"},
-		binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
-		archiveFiles: []archiveFile{
-			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
-			{src: "cmd/strelaysrv/README.md", dst: "README.txt", perm: 0644},
-			{src: "cmd/strelaysrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
-			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
-		},
-		systemdServices: []string{
-			"cmd/strelaysrv/etc/linux-systemd/strelaysrv.service",
-		},
-		installationFiles: []archiveFile{
-			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/syncthing-relaysrv/README.txt", perm: 0644},
-			{src: "cmd/strelaysrv/LICENSE", dst: "deb/usr/share/doc/syncthing-relaysrv/LICENSE.txt", perm: 0644},
-			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-relaysrv/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaysrv/AUTHORS.txt", perm: 0644},
-			{src: "man/strelaysrv.1", dst: "deb/usr/share/man/man1/strelaysrv.1", perm: 0644},
-			{src: "cmd/strelaysrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-relaysrv", perm: 0644},
-			{src: "cmd/strelaysrv/etc/firewall-ufw/strelaysrv", dst: "deb/etc/ufw/applications.d/strelaysrv", perm: 0644},
+		{
+			name:        "strelaysrv",
+			debname:     "syncthing-relaysrv",
+			debdeps:     []string{"libc6"},
+			debpre:      "cmd/strelaysrv/scripts/preinst",
+			description: "Syncthing Relay Server",
+			buildPkg:    "github.com/syncthing/syncthing/cmd/strelaysrv",
+			binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
+			archiveFiles: []archiveFile{
+				{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
+				{src: "cmd/strelaysrv/README.md", dst: "README.txt", perm: 0644},
+				{src: "cmd/strelaysrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
+				{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
+				{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+			},
+			systemdServices: []string{
+				"cmd/strelaysrv/etc/linux-systemd/strelaysrv.service",
+			},
+			installationFiles: []archiveFile{
+				{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
+				{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/syncthing-relaysrv/README.txt", perm: 0644},
+				{src: "cmd/strelaysrv/LICENSE", dst: "deb/usr/share/doc/syncthing-relaysrv/LICENSE.txt", perm: 0644},
+				{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-relaysrv/LICENSE.txt", perm: 0644},
+				{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaysrv/AUTHORS.txt", perm: 0644},
+				{src: "man/strelaysrv.1", dst: "deb/usr/share/man/man1/strelaysrv.1", perm: 0644},
+				{src: "cmd/strelaysrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-relaysrv", perm: 0644},
+				{src: "cmd/strelaysrv/etc/firewall-ufw/strelaysrv", dst: "deb/etc/ufw/applications.d/strelaysrv", perm: 0644},
+			},
 		},
 	},
 	"strelaypoolsrv": {
-		name:        "strelaypoolsrv",
-		debname:     "syncthing-relaypoolsrv",
-		debdeps:     []string{"libc6"},
-		description: "Syncthing Relay Pool Server",
-		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/strelaypoolsrv"},
-		binaryName:  "strelaypoolsrv", // .exe will be added automatically for Windows builds
-		archiveFiles: []archiveFile{
-			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
-			{src: "cmd/strelaypoolsrv/README.md", dst: "README.txt", perm: 0644},
-			{src: "cmd/strelaypoolsrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
-		},
-		installationFiles: []archiveFile{
-			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/strelaypoolsrv/README.md", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/README.txt", perm: 0644},
-			{src: "cmd/strelaypoolsrv/LICENSE", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/AUTHORS.txt", perm: 0644},
+		{
+			name:        "strelaypoolsrv",
+			debname:     "syncthing-relaypoolsrv",
+			debdeps:     []string{"libc6"},
+			description: "Syncthing Relay Pool Server",
+			buildPkg:    "github.com/syncthing/syncthing/cmd/strelaypoolsrv",
+			binaryName:  "strelaypoolsrv", // .exe will be added automatically for Windows builds
+			archiveFiles: []archiveFile{
+				{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
+				{src: "cmd/strelaypoolsrv/README.md", dst: "README.txt", perm: 0644},
+				{src: "cmd/strelaypoolsrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
+				{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+			},
+			installationFiles: []archiveFile{
+				{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
+				{src: "cmd/strelaypoolsrv/README.md", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/README.txt", perm: 0644},
+				{src: "cmd/strelaypoolsrv/LICENSE", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/LICENSE.txt", perm: 0644},
+				{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/AUTHORS.txt", perm: 0644},
+			},
 		},
 	},
 }
@@ -225,23 +233,29 @@ func init() {
 			// ignore dotfiles
 			continue
 		}
-		all.buildPkgs = append(all.buildPkgs, fmt.Sprintf("github.com/syncthing/syncthing/cmd/%s", pkg))
+		all = append(all, target{
+			name:       pkg,
+			buildPkg:   fmt.Sprintf("github.com/syncthing/syncthing/cmd/%s", pkg),
+			binaryName: pkg,
+			tags:       []string{"purego"},
+		})
 	}
 	targets["all"] = all
 
 	// The "syncthing" target includes a few more files found in the "etc"
 	// and "extra" dirs.
-	syncthingPkg := targets["syncthing"]
-	for _, file := range listFiles("etc") {
-		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile{src: file, dst: file, perm: 0644})
+	for i, syncthingPkg := range targets["syncthing"] {
+		for _, file := range listFiles("etc") {
+			syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile{src: file, dst: file, perm: 0644})
+		}
+		for _, file := range listFiles("extra") {
+			syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile{src: file, dst: file, perm: 0644})
+		}
+		for _, file := range listFiles("extra") {
+			syncthingPkg.installationFiles = append(syncthingPkg.installationFiles, archiveFile{src: file, dst: "deb/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0644})
+		}
+		targets["syncthing"][i] = syncthingPkg
 	}
-	for _, file := range listFiles("extra") {
-		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile{src: file, dst: file, perm: 0644})
-	}
-	for _, file := range listFiles("extra") {
-		syncthingPkg.installationFiles = append(syncthingPkg.installationFiles, archiveFile{src: file, dst: "deb/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0644})
-	}
-	targets["syncthing"] = syncthingPkg
 }
 
 func main() {
@@ -277,7 +291,7 @@ func main() {
 	}
 }
 
-func runCommand(cmd string, target target) {
+func runCommand(cmd string, targets []target) {
 	switch cmd {
 	case "install":
 		var tags []string
@@ -285,7 +299,9 @@ func runCommand(cmd string, target target) {
 			tags = []string{"noupgrade"}
 		}
 		tags = append(tags, strings.Fields(extraTags)...)
-		install(target, tags)
+		for _, target := range targets {
+			install(target, tags)
+		}
 		metalintShort()
 
 	case "build":
@@ -294,7 +310,9 @@ func runCommand(cmd string, target target) {
 			tags = []string{"noupgrade"}
 		}
 		tags = append(tags, strings.Fields(extraTags)...)
-		build(target, tags)
+		for _, target := range targets {
+			build(target, tags)
+		}
 
 	case "test":
 		test("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
@@ -321,13 +339,19 @@ func runCommand(cmd string, target target) {
 		transifex()
 
 	case "tar":
-		buildTar(target)
+		for _, target := range targets {
+			buildTar(target)
+		}
 
 	case "zip":
-		buildZip(target)
+		for _, target := range targets {
+			buildZip(target)
+		}
 
 	case "deb":
-		buildDeb(target)
+		for _, target := range targets {
+			buildDeb(target)
+		}
 
 	case "vet":
 		metalintShort()
@@ -444,6 +468,7 @@ func install(target target, tags []string) {
 	lazyRebuildAssets()
 
 	tags = append(target.tags, tags...)
+	tags = append(tags, target.name)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -467,13 +492,14 @@ func install(target target, tags []string) {
 	}
 
 	args := []string{"install", "-v"}
-	args = appendParameters(args, tags, target.buildPkgs...)
+	args = appendParameters(args, tags, target.buildPkg)
 	runPrint(goCmd, args...)
 }
 
 func build(target target, tags []string) {
 	lazyRebuildAssets()
 	tags = append(target.tags, tags...)
+	tags = append(tags, target.name)
 
 	rmr(target.BinaryName())
 
@@ -497,7 +523,7 @@ func build(target target, tags []string) {
 	}
 
 	args := []string{"build", "-v"}
-	args = appendParameters(args, tags, target.buildPkgs...)
+	args = appendParameters(args, tags, target.buildPkg)
 	runPrint(goCmd, args...)
 }
 
