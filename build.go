@@ -80,6 +80,7 @@ var targets = map[string][]target{
 		// the archive creation stuff. buildPkgs gets filled out in init()
 	},
 	"syncthing": {
+
 		{
 			// The default target for "build", "install", "tar", "zip", "deb", etc.
 			name:        "syncthing",
