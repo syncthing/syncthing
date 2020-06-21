@@ -1213,7 +1213,9 @@ func (s *service) getDiskEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
-	s.fss.OnEventRequest()
+	if eventSub.Mask()&events.FolderSummary != 0 {
+		s.fss.OnEventRequest()
+	}
 
 	qs := r.URL.Query()
 	sinceStr := qs.Get("since")

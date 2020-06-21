@@ -238,6 +238,7 @@ type Event struct {
 type Subscription interface {
 	C() <-chan Event
 	Poll(timeout time.Duration) (Event, error)
+	Mask() EventType
 	Unsubscribe()
 }
 
@@ -432,6 +433,10 @@ func (s *subscription) C() <-chan Event {
 	return s.events
 }
 
+func (s *subscription) Mask() EventType {
+	return s.mask
+}
+
 func (s *subscription) Unsubscribe() {
 	select {
 	case s.toUnsubscribe <- s:
@@ -450,6 +455,7 @@ type bufferedSubscription struct {
 
 type BufferedSubscription interface {
 	Since(id int, into []Event, timeout time.Duration) []Event
+	Mask() EventType
 }
 
 func NewBufferedSubscription(s Subscription, size int) BufferedSubscription {
@@ -505,6 +511,10 @@ func (s *bufferedSubscription) Since(id int, into []Event, timeout time.Duration
 	return into
 }
 
+func (s *bufferedSubscription) Mask() EventType {
+	return s.sub.Mask()
+}
+
 // Error returns a string pointer suitable for JSON marshalling errors. It
 // retains the "null on success" semantics, but ensures the error result is a
 // string regardless of the underlying concrete error type.
@@ -538,6 +548,10 @@ func (*noopSubscription) C() <-chan Event {
 
 func (*noopSubscription) Poll(timeout time.Duration) (Event, error) {
 	return Event{}, errNoop
+}
+
+func (s *noopSubscription) Mask() EventType {
+	return 0
 }
 
 func (*noopSubscription) Unsubscribe() {}
