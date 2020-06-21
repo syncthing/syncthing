@@ -225,7 +225,6 @@ loop:
 			case <-ctx.Done():
 				return
 			}
-
 		}
 	}
 	l.Debugln("Discovery for device type", deviceType, "on", intf.Name, "finished.")
