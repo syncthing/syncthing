@@ -500,10 +500,13 @@ func build(target target, tags []string) {
 func setBuildEnvVars() {
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
-	if goos == "windows" {
-		os.Setenv("CGO_ENABLED", "0")
-	} else {
-		os.Setenv("CC", cc)
+	os.Setenv("CC", cc)
+	if os.Getenv("CGO_ENABLED") == "" {
+		switch goos {
+		case "darwin", "solaris":
+		default:
+			os.Setenv("CGO_ENABLED", "0")
+		}
 	}
 }
 
