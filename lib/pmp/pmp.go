@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackpal/gateway"
 	"github.com/jackpal/go-nat-pmp"
+	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/util"
@@ -44,10 +45,18 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 	c := natpmp.NewClientWithTimeout(ip, timeout)
 	// Try contacting the gateway, if it does not respond, assume it does not
 	// speak NAT-PMP.
-	_, err = c.GetExternalAddress()
-	if err != nil && strings.Contains(err.Error(), "Timed out") {
-		l.Debugln("Timeout trying to get external address, assume no NAT-PMP available")
-		return nil
+	err = util.CallWithContext(ctx, func() error {
+		_, ierr := c.GetExternalAddress()
+		return ierr
+	})
+	if err != nil {
+		if errors.Cause(err) == context.Canceled {
+			return nil
+		}
+		if strings.Contains(err.Error(), "Timed out") {
+			l.Debugln("Timeout trying to get external address, assume no NAT-PMP available")
+			return nil
+		}
 	}
 
 	var localIP net.IP
