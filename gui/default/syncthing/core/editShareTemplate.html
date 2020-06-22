@@ -3,7 +3,7 @@
     <input id="sharedwith-{{id}}" ng-model="currentSharing.selected[id]" type="checkbox" />
     <span tooltip data-original-title="{{id}}">
       <span ng-switch-when="device">{{folderLabel(id)}}</span>
-      <span ng-switch-when="folder">{{deviceName(findDevice(id))}}</span>
+      <span ng-switch-when="folder">{{deviceName(devices[id])}}</span>
     </span>
   </label>
 </div>
