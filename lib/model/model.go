@@ -493,6 +493,8 @@ func (m *model) restartFolder(from, to config.FolderConfiguration) {
 	}
 
 	m.stopFolder(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
+	// Need to send CC change to both from and to devices.
+	m.stopFolder(to, fmt.Errorf("%v folder %v", errMsg, to.Description()))
 
 	m.fmut.Lock()
 	defer m.fmut.Unlock()

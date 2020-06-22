@@ -3806,6 +3806,121 @@ func TestBlockListMap(t *testing.T) {
 	}
 }
 
+func TestConnectionTerminationOnFolderAdd(t *testing.T) {
+	testConfigChangeClosesConnections(t, false, true, nil, func(cfg config.Wrapper) {
+		fcfg := testFolderConfigTmp()
+		fcfg.ID = "second"
+		fcfg.Label = "second"
+		fcfg.Devices = []config.FolderDeviceConfiguration{{device2, protocol.EmptyDeviceID}}
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderShare(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, true, nil, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Devices = []config.FolderDeviceConfiguration{{device2, protocol.EmptyDeviceID}}
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderUnshare(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, false, nil, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Devices = nil
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderRemove(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, false, nil, func(cfg config.Wrapper) {
+		rcfg := cfg.RawCopy()
+		rcfg.Folders = nil
+		if w, err := cfg.Replace(rcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderPause(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, false, nil, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Paused = true
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderUnpause(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, false, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Paused = true
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	}, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Paused = false
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func testConfigChangeClosesConnections(t *testing.T, expectFirstClosed, expectSecondClosed bool, pre func(config.Wrapper), fn func(config.Wrapper)) {
+	t.Helper()
+	wcfg, _ := tmpDefaultWrapper()
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	_, err := wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if pre != nil {
+		pre(wcfg)
+	}
+
+	fc1 := &fakeConnection{id: device1, model: m}
+	fc2 := &fakeConnection{id: device2, model: m}
+	m.AddConnection(fc1, protocol.HelloResult{})
+	m.AddConnection(fc2, protocol.HelloResult{})
+
+	t.Log("Applying config change")
+
+	fn(wcfg)
+
+	if expectFirstClosed != fc1.closed {
+		t.Errorf("first connection state mismatch: %t (expected) != %t", expectFirstClosed, fc1.closed)
+	}
+
+	if expectSecondClosed != fc2.closed {
+		t.Errorf("second connection state mismatch: %t (expected) != %t", expectSecondClosed, fc2.closed)
+	}
+}
+
 func equalStringsInAnyOrder(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
