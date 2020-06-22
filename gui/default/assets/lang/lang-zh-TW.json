@@ -208,7 +208,7 @@
     "Permissions": "權限",
     "Please consult the release notes before performing a major upgrade.": "執行重大升級前請先參閱版本資訊。",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "請在設定對話框內設置 GUI 使用者認證名稱及密碼。",
-    "Please wait": "請稍後",
+    "Please wait": "請稍候",
     "Prefix indicating that the file can be deleted if preventing directory removal": "前綴表示當此檔案阻礙了資料夾刪除時，可一併刪除此檔",
     "Prefix indicating that the pattern should be matched without case sensitivity": "前綴表示此樣式不區分大小寫",
     "Preparing to Sync": "Preparing to Sync",
