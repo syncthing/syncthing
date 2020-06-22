@@ -17,3 +17,5 @@ type mockedEventSub struct{}
 func (s *mockedEventSub) Since(id int, into []events.Event, timeout time.Duration) []events.Event {
 	select {}
 }
+
+func (s *mockedEventSub) Mask() events.EventType { return 0 }
