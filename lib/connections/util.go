@@ -18,10 +18,15 @@ func fixupPort(uri *url.URL, defaultPort int) *url.URL {
 
 	host, port, err := net.SplitHostPort(uri.Host)
 	if err != nil && strings.Contains(err.Error(), "missing port") {
-		// addr is on the form "1.2.3.4"
-		copyURI.Host = net.JoinHostPort(uri.Host, strconv.Itoa(defaultPort))
+		// addr is on the form "1.2.3.4" or "[fe80::1]"
+		host = uri.Host
+		if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+			// net.JoinHostPort will add the brackets again
+			host = host[1 : len(host)-1]
+		}
+		copyURI.Host = net.JoinHostPort(host, strconv.Itoa(defaultPort))
 	} else if err == nil && port == "" {
-		// addr is on the form "1.2.3.4:"
+		// addr is on the form "1.2.3.4:" or "[fe80::1]:"
 		copyURI.Host = net.JoinHostPort(host, strconv.Itoa(defaultPort))
 	}
 
