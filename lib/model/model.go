@@ -495,7 +495,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration) {
 	err := fmt.Errorf("%v folder %v", errMsg, to.Description())
 	m.stopFolder(from, err)
 	// Need to send CC change to both from and to devices.
-	m.closeConns(to.DeviceIDs, err)
+	m.closeConns(to.DeviceIDs(), err)
 
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
