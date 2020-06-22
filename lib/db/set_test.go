@@ -1671,6 +1671,32 @@ func TestNeedRemoteOnly(t *testing.T) {
 	}
 }
 
+// https://github.com/syncthing/syncthing/issues/6784
+func TestNeedRemoteAfterReset(t *testing.T) {
+	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
+
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+
+	files := fileList{
+		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
+	}
+	s.Update(protocol.LocalDeviceID, files)
+	s.Update(remoteDevice0, files)
+
+	need := needSize(s, remoteDevice0)
+	if !need.Equal(db.Counts{}) {
+		t.Error("Expected nothing needed, got", need)
+	}
+
+	s.Drop(remoteDevice0)
+
+	need = needSize(s, remoteDevice0)
+	if exp := (db.Counts{Files: 1}); !need.Equal(exp) {
+		t.Errorf("Expected %v, got %v", exp, need)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
