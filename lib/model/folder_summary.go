@@ -22,7 +22,7 @@ import (
 	"github.com/syncthing/syncthing/lib/util"
 )
 
-const maxDurSinceLastEventReq = time.Minute
+const maxDurationSinceLastEventReq = time.Minute
 
 type FolderSummaryService interface {
 	suture.Service
@@ -303,7 +303,7 @@ func (c *folderSummaryService) foldersToHandle() []string {
 	c.lastEventReqMut.Lock()
 	last := c.lastEventReq
 	c.lastEventReqMut.Unlock()
-	if time.Since(last) > maxDurSinceLastEventReq {
+	if time.Since(last) > maxDurationSinceLastEventReq {
 		return nil
 	}
 
