@@ -166,11 +166,8 @@ var (
 	errDeviceIgnored     = errors.New("device is ignored")
 	errDeviceRemoved     = errors.New("device has been removed")
 	ErrFolderPaused      = errors.New("folder is paused")
-	errFolderUnpaused    = errors.New("folder is unpaused")
 	errFolderNotRunning  = errors.New("folder is not running")
 	errFolderMissing     = errors.New("no such folder")
-	errFolderRemoved     = errors.New("folder removed")
-	errFolderShared      = errors.New("folder (un)shared")
 	errNetworkNotAllowed = errors.New("network not allowed")
 	errNoVersioner       = errors.New("folder has no versioner")
 	// errors about why a connection is closed
@@ -2429,7 +2426,6 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				l.Infoln("Adding folder", cfg.Description())
 				m.newFolder(cfg)
 			}
-			m.closeConns(cfg.DeviceIDs(), errFolderShared)
 		}
 	}
 
@@ -2438,7 +2434,6 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		if !ok {
 			// The folder was removed.
 			m.removeFolder(fromCfg)
-			m.closeConns(fromCfg.DeviceIDs(), errFolderRemoved)
 			continue
 		}
 
@@ -2450,9 +2445,6 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		// Check if anything differs that requires a restart.
 		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) {
 			m.restartFolder(fromCfg, toCfg)
-			if diff := difference(fromCfg.DeviceIDs(), toCfg.DeviceIDs()); len(diff) > 0 {
-				m.closeConns(diff, errFolderShared)
-			}
 		}
 
 		// Emit the folder pause/resume event
@@ -2460,9 +2452,6 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			eventType := events.FolderResumed
 			if toCfg.Paused {
 				eventType = events.FolderPaused
-				m.closeConns(toCfg.DeviceIDs(), ErrFolderPaused)
-			} else {
-				m.closeConns(toCfg.DeviceIDs(), errFolderUnpaused)
 			}
 			m.evLogger.Log(eventType, map[string]string{"id": toCfg.ID, "label": toCfg.Label})
 		}
@@ -2716,32 +2705,4 @@ func sanitizePath(path string) string {
 	}
 
 	return strings.TrimSpace(b.String())
-}
-
-func difference(slice1 []protocol.DeviceID, slice2 []protocol.DeviceID) []protocol.DeviceID {
-	var diff []protocol.DeviceID
-
-	// Loop two times, first to find slice1 not in slice2,
-	// second loop to find slice2 not in slice1
-	for i := 0; i < 2; i++ {
-		for _, s1 := range slice1 {
-			found := false
-			for _, s2 := range slice2 {
-				if s1 == s2 {
-					found = true
-					break
-				}
-			}
-			// String not found. We add it to return slice
-			if !found {
-				diff = append(diff, s1)
-			}
-		}
-		// Swap the slices, only if it was the first loop
-		if i == 0 {
-			slice1, slice2 = slice2, slice1
-		}
-	}
-
-	return diff
 }
