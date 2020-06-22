@@ -21,10 +21,21 @@ func TestFixupPort(t *testing.T) {
 		{"tcp://1.2.3.4:5", "tcp://1.2.3.4:5"},
 		{"tcp://1.2.3.4:", "tcp://1.2.3.4:22000"},
 		{"tcp://1.2.3.4", "tcp://1.2.3.4:22000"},
+		{"tcp://[fe80::1]", "tcp://[fe80::1]:22000"},
+		{"tcp://[fe80::1]:", "tcp://[fe80::1]:22000"},
+		{"tcp://[fe80::1]:22000", "tcp://[fe80::1]:22000"},
+		{"tcp://[fe80::1]:22000", "tcp://[fe80::1]:22000"},
+		{"tcp://[fe80::1%25abc]", "tcp://[fe80::1%25abc]:22000"},
+		{"tcp://[fe80::1%25abc]:", "tcp://[fe80::1%25abc]:22000"},
+		{"tcp://[fe80::1%25abc]:22000", "tcp://[fe80::1%25abc]:22000"},
+		{"tcp://[fe80::1%25abc]:22000", "tcp://[fe80::1%25abc]:22000"},
 	}
 
 	for _, tc := range cases {
-		u0, _ := url.Parse(tc[0])
+		u0, err := url.Parse(tc[0])
+		if err != nil {
+			t.Fatal(err)
+		}
 		u1 := fixupPort(u0, 22000).String()
 		if u1 != tc[1] {
 			t.Errorf("fixupPort(%q, 22000) => %q, expected %q", tc[0], u1, tc[1])

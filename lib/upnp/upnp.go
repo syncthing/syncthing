@@ -119,19 +119,26 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 	}()
 
 	seenResults := make(map[string]bool)
-	for result := range resultChan {
-		if seenResults[result.ID()] {
-			l.Debugf("Skipping duplicate result %s", result.ID())
-			continue
+
+	for {
+		select {
+		case result, ok := <-resultChan:
+			if !ok {
+				return results
+			}
+			if seenResults[result.ID()] {
+				l.Debugf("Skipping duplicate result %s", result.ID())
+				continue
+			}
+
+			results = append(results, result)
+			seenResults[result.ID()] = true
+
+			l.Debugf("UPnP discovery result %s", result.ID())
+		case <-ctx.Done():
+			return nil
 		}
-
-		results = append(results, result)
-		seenResults[result.ID()] = true
-
-		l.Debugf("UPnP discovery result %s", result.ID())
 	}
-
-	return results
 }
 
 // Search for UPnP InternetGatewayDevices for <timeout> seconds.
@@ -213,7 +220,11 @@ loop:
 		}
 		for _, igd := range igds {
 			igd := igd // Copy before sending pointer to the channel.
-			results <- &igd
+			select {
+			case results <- &igd:
+			case <-ctx.Done():
+				return
+			}
 		}
 	}
 	l.Debugln("Discovery for device type", deviceType, "on", intf.Name, "finished.")

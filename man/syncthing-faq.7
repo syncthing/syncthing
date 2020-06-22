@@ -1,1 +1,576 @@
-404 Not Found
+.\" Man page generated from reStructuredText.
+.
+.TH "SYNCTHING-FAQ" "7" "Jun 19, 2020" "v1" "Syncthing"
+.SH NAME
+syncthing-faq \- Frequently Asked Questions
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH WHAT IS SYNCTHING?
+.sp
+Syncthing is an application that lets you synchronize your files across multiple
+devices. This means the creation, modification or deletion of files on one
+machine will automatically be replicated to your other devices. We believe your
+data is your data alone and you deserve to choose where it is stored. Therefore
+Syncthing does not upload your data to the cloud but exchanges your data across
+your machines as soon as they are online at the same time.
+.SH IS IT “SYNCTHING”, “SYNCTHING” OR “SYNCTHING”?
+.sp
+It’s \fBSyncthing\fP, although the command and source repository is spelled
+\fBsyncthing\fP so it may be referred to in that way as well. It’s definitely not
+SyncThing, even though the abbreviation \fBst\fP is used in some
+circumstances and file names.
+.SH HOW DOES SYNCTHING DIFFER FROM BITTORRENT/RESILIO SYNC?
+.sp
+The two are different and not related. Syncthing and BitTorrent/Resilio Sync accomplish
+some of the same things, namely syncing files between two or more computers.
+.sp
+BitTorrent Sync, now called Resilio Sync, is a proprietary peer\-to\-peer file
+synchronization tool available for Windows, Mac, Linux, Android, iOS, Windows
+Phone, Amazon Kindle Fire and BSD. [1] Syncthing is an open source file
+synchronization tool.
+.sp
+Syncthing uses an open and documented protocol, and likewise the security
+mechanisms in use are well defined and visible in the source code. Resilio
+Sync uses an undocumented, closed protocol with unknown security properties.
+.IP [1] 5
+\fI\%https://en.wikipedia.org/wiki/Resilio_Sync\fP
+.SH WHAT THINGS ARE SYNCED?
+.sp
+The following things are \fIalways\fP synchronized:
+.INDENT 0.0
+.IP \(bu 2
+File contents
+.IP \(bu 2
+File modification times
+.UNINDENT
+.sp
+The following may be synchronized or not, depending:
+.INDENT 0.0
+.IP \(bu 2
+File permissions (when supported by file system; on Windows only the
+read only bit is synchronized)
+.IP \(bu 2
+Symbolic links (synced, except on Windows, but never followed)
+.UNINDENT
+.sp
+The following are \fInot\fP synchronized;
+.INDENT 0.0
+.IP \(bu 2
+File or directory owners and Groups (not preserved)
+.IP \(bu 2
+Directory modification times (not preserved)
+.IP \(bu 2
+Hard links and Windows directory junctions (followed, not preserved)
+.IP \(bu 2
+Extended attributes, resource forks (not preserved)
+.IP \(bu 2
+Windows, POSIX or NFS ACLs (not preserved)
+.IP \(bu 2
+Devices, FIFOs, and other specials (ignored)
+.IP \(bu 2
+Sparse file sparseness (will become sparse, when supported by the OS & filesystem)
+.UNINDENT
+.SH IS SYNCHRONIZATION FAST?
+.sp
+Syncthing segments files into pieces, called blocks, to transfer data from one
+device to another. Therefore, multiple devices can share the synchronization
+load, in a similar way to the torrent protocol. The more devices you have online,
+the faster an additional device will receive the data
+because small blocks will be fetched from all devices in parallel.
+.sp
+Syncthing handles renaming files and updating their metadata in an efficient
+manner. This means that renaming a large file will not cause a retransmission of
+that file. Additionally, appending data to existing large files should be
+handled efficiently as well.
+.sp
+Temporary files are used to store partial data
+downloaded from other devices. They are automatically removed whenever a file
+transfer has been completed or after the configured amount of time which is set
+in the configuration file (24 hours by default).
+.SH WHY IS THE SYNC SO SLOW?
+.sp
+When troubleshooting a slow sync, there are a number of things to check.
+.sp
+First of all, verify that you are not connected via a relay. In the “Remote
+Devices” list on the right side of the GUI, double check that you see
+“Address: <some address>” and \fInot\fP “Relay: <some address>”.
+[image]
+.sp
+If you are connected via a relay, this is because a direct connection could
+not be established. Double check and follow the suggestions in
+firewall\-setup to enable direct connections.
+.sp
+Second, if one of the devices is a very low powered machine (a Raspberry Pi,
+or a phone, or a NAS, or similar) you are likely constrained by the CPU on
+that device. See the next question for reasons Syncthing likes a faster CPU.
+.sp
+Third, verify that the network connection is OK. Tools such as iperf or just
+an Internet speed test can be used to verify the performance here.
+.SH WHY DOES IT USE SO MUCH CPU?
+.INDENT 0.0
+.IP 1. 3
+When new or changed files are detected, or Syncthing starts for the
+first time, your files are hashed using SHA\-256.
+.IP 2. 3
+Data that is sent over the network is compressed (optionally) and
+encrypted (always). When receiving data it must be decrypted and then (if
+compressed) decompressed.
+.IP 3. 3
+There is a certain amount of housekeeping that must be done to track the
+current and available versions of each file in the index database.
+.IP 4. 3
+By default Syncthing uses periodic scanning every hour when watching for
+changes or every minute if that’s disabled to detect
+file changes. This means checking every file’s modification time and
+comparing it to the database. This can cause spikes of CPU usage for large
+folders.
+.UNINDENT
+.sp
+Hashing, compression and encryption cost CPU time. Also, using the GUI
+causes a certain amount of extra CPU usage to calculate the summary data it
+presents. Note however that once things are \fIin sync\fP CPU usage should be
+negligible.
+.sp
+To minimize the impact of this, Syncthing attempts to lower the
+process priority when starting up.
+.sp
+To further limit the amount of CPU used when syncing and scanning, set the
+environment variable \fBGOMAXPROCS\fP to the maximum number of CPU cores
+Syncthing should use at any given moment. For example, \fBGOMAXPROCS=2\fP on a
+machine with four cores will limit Syncthing to no more than half the
+system’s CPU power.
+.SH SHOULD I KEEP MY DEVICE IDS SECRET?
+.sp
+No. The IDs are not sensitive. Given a device ID it’s possible to find the IP
+address for that device, if global discovery is enabled on it. Knowing the device
+ID doesn’t help you actually establish a connection to that device or get a list
+of files, etc.
+.sp
+For a connection to be established, both devices need to know about the other’s
+device ID. It’s not possible (in practice) to forge a device ID. (To forge a
+device ID you need to create a TLS certificate with that specific SHA\-256 hash.
+If you can do that, you can spoof any TLS certificate. The world is your
+oyster!)
+.sp
+\fBSEE ALSO:\fP
+.INDENT 0.0
+.INDENT 3.5
+device\-ids
+.UNINDENT
+.UNINDENT
+.SH WHAT IF THERE IS A CONFLICT?
+.sp
+Syncthing does recognize conflicts. When a file has been modified on two devices
+simultaneously and the content actually differs, one of the files will be
+renamed to \fB<filename>.sync\-conflict\-<date>\-<time>\-<modifiedBy>.<ext>\fP\&. The file with the
+older modification time will be marked as the conflicting file and thus be
+renamed. If the modification times are equal, the file originating from the
+device which has the larger value of the first 63 bits for his device ID will be
+marked as the conflicting file.
+If the conflict is between a modification and a deletion of the file, the
+modified file always wins and is resurrected without renaming on the
+device where it was deleted.
+.sp
+Beware that the \fB<filename>.sync\-conflict\-<date>\-<time>\-<modifiedBy>.<ext>\fP files are
+treated as normal files after they are created, so they are propagated between
+devices. We do this because the conflict is detected and resolved on one device,
+creating the \fBsync\-conflict\fP file, but it’s just as much of a conflict
+everywhere else and we don’t know which of the conflicting files is the “best”
+from the user point of view.
+.SH HOW DO I SERVE A FOLDER FROM A READ ONLY FILESYSTEM?
+.sp
+Syncthing requires a “folder marker” to indicate that the folder is present
+and healthy. By default this is a directory called \fB\&.stfolder\fP that is
+created by Syncthing when the folder is added. If this folder can’t be
+created (you are serving files from a CD or something) you can instead set
+the advanced config \fBMarker Name\fP to the name of some file or folder that
+you know will always exist in the folder.
+.SH I REALLY HATE THE .STFOLDER DIRECTORY, CAN I REMOVE IT?
+.sp
+See the previous question.
+.SH AM I ABLE TO NEST SHARED FOLDERS IN SYNCTHING?
+.sp
+Sharing a folder that is within an already shared folder is possible, but it has
+its caveats. What you must absolutely avoid are circular shares. This is just
+one example, there may be other undesired effects. Nesting shared folders is not
+supported, recommended or coded for, but it can be done successfully when you
+know what you’re doing \- you have been warned.
+.SH HOW DO I RENAME/MOVE A SYNCED FOLDER?
+.sp
+Syncthing doesn’t have a direct way to do this, as it’s potentially
+dangerous to do so if you’re not careful \- it may result in data loss if
+something goes wrong during the move and is synchronized to your other
+devices.
+.sp
+The easy way to rename or move a synced folder on the local system is to
+remove the folder in the Syncthing UI, move it on disk, then re\-add it using
+the new path.
+.sp
+It’s best to do this when the folder is already in sync between your
+devices, as it is otherwise unpredictable which changes will “win” after the
+move. Changes made on other devices may be overwritten, or changes made
+locally may be overwritten by those on other devices.
+.sp
+An alternative way is to shut down Syncthing, move the folder on disk (including
+the \fB\&.stfolder\fP marker), edit the path directly in \fBconfig.xml\fP in the
+configuration folder (see config) and then start Syncthing again.
+.SH HOW DO I CONFIGURE MULTIPLE USERS ON A SINGLE MACHINE?
+.sp
+Each user should run their own Syncthing instance. Be aware that you might need
+to configure listening ports such that they do not overlap (see config).
+.SH DOES SYNCTHING SUPPORT SYNCING BETWEEN FOLDERS ON THE SAME SYSTEM?
+.sp
+No. Syncthing is not designed to sync locally and the overhead involved in
+doing so using Syncthing’s method would be wasteful. There are better
+programs to achieve this such as [rsync](\fI\%https://rsync.samba.org/\fP) or
+[Unison](\fI\%https://www.cis.upenn.edu/~bcpierce/unison\fP).
+.SH WHEN I DO HAVE TWO DISTINCT SYNCTHING-MANAGED FOLDERS ON TWO HOSTS, HOW DOES SYNCTHING HANDLE MOVING FILES BETWEEN THEM?
+.sp
+Syncthing does not specially handle this case, and most files most likely get
+re\-downloaded.
+.sp
+In detail, the behavior depends on the scan order. If you have folder A and B,
+and move files from A to B, if A gets scanned first, it will announce removal of
+the files to others who will remove the files. As you rescan B, B will
+announce addition of new files, and other peers will have nowhere to get
+them from apart from re\-downloading them.
+.sp
+If B gets rescanned first, B will announce additions first, remote
+peers will reconstruct the files (not rename, more like copy block by
+block) from A, and then as A gets rescanned remove the files from A.
+.sp
+A workaround would be to copy first from A to B, rescan B, wait for B to
+rebuild on remote ends, and then delete from A.
+.SH IS SYNCTHING MY IDEAL BACKUP APPLICATION?
+.sp
+No. Syncthing is not a great backup application because all changes to your
+files (modifications, deletions, etc.) will be propagated to all your
+devices. You can enable versioning, but we encourage the use of other tools
+to keep your data safe from your (or our) mistakes.
+.SH WHY IS THERE NO IOS CLIENT?
+.sp
+There is an alternative implementation of Syncthing (using the same network
+protocol) called \fBfsync()\fP\&. There are no plans by the current Syncthing
+team to support iOS in the foreseeable future, as the code required to do so
+would be quite different from what Syncthing is today.
+.SH HOW CAN I EXCLUDE FILES WITH BRACKETS ([]) IN THE NAME?
+.sp
+The patterns in .stignore are glob patterns, where brackets are used to
+denote character ranges. That is, the pattern \fBq[abc]x\fP will match the
+files \fBqax\fP, \fBqbx\fP and \fBqcx\fP\&.
+.sp
+To match an actual file \fIcalled\fP \fBq[abc]x\fP the pattern needs to “escape”
+the brackets, like so: \fBq\e[abc\e]x\fP\&.
+.sp
+On Windows, escaping special characters is not supported as the \fB\e\fP
+character is used as a path separator. On the other hand, special characters
+such as \fB[\fP and \fB?\fP are not allowed in file names on Windows.
+.SH WHY IS THE SETUP MORE COMPLICATED THAN BITTORRENT/RESILIO SYNC?
+.sp
+Security over convenience. In Syncthing you have to setup both sides to
+connect two devices. An attacker can’t do much with a stolen device ID, because
+you have to add the device on the other side too. You have better control
+where your files are transferred.
+.sp
+This is an area that we are working to improve in the long term.
+.SH HOW DO I ACCESS THE WEB GUI FROM ANOTHER COMPUTER?
+.sp
+The default listening address is 127.0.0.1:8384, so you can only access the
+GUI from the same machine. This is for security reasons. Change the \fBGUI
+listen address\fP through the web UI from \fB127.0.0.1:8384\fP to
+\fB0.0.0.0:8384\fP or change the config.xml:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<gui enabled="true" tls="false">
+  <address>127.0.0.1:8384</address>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+to
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<gui enabled="true" tls="false">
+  <address>0.0.0.0:8384</address>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Then the GUI is accessible from everywhere. You should set a password and
+enable HTTPS with this configuration. You can do this from inside the GUI.
+.sp
+If both your computers are Unix\-like (Linux, Mac, etc.) you can also leave the
+GUI settings at default and use an ssh port forward to access it. For
+example,
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ ssh \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+will log you into othercomputer.example.com, and present the \fIremote\fP
+Syncthing GUI on \fI\%http://localhost:9090\fP on your \fIlocal\fP computer.
+.sp
+If you only want to access the remote gui and don’t want the terminal
+session, use this example,
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ ssh \-N \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+If only your remote computer is Unix\-like,
+you can still access it with ssh from Windows.
+.sp
+Under Windows 10 (64 bit) you can use the same ssh command if you install
+the Windows Subsystem for Linux.
+\fI\%https://msdn.microsoft.com/en\-gb/commandline/wsl/install_guide\fP
+.sp
+Another Windows way to run ssh is to install gow.
+(Gnu On Windows) \fI\%https://github.com/bmatzelle/gow\fP
+.sp
+The easiest way to install gow is with chocolatey.
+\fI\%https://chocolatey.org/\fP
+.SH WHY DO I GET “HOST CHECK ERROR” IN THE GUI/API?
+.sp
+Since version 0.14.6 Syncthing does an extra security check when the GUI/API
+is bound to localhost \- namely that the browser is talking to localhost.
+This protects against most forms of \fI\%DNS rebinding attack\fP <\fBhttps://en.wikipedia.org/wiki/DNS_rebinding\fP> against the GUI.
+.sp
+To pass this test, ensure that you are accessing the GUI using an URL that
+begins with \fIhttp://localhost\fP, \fIhttp://127.0.0.1\fP or \fIhttp://[::1]\fP\&. HTTPS
+is fine too, of course.
+.sp
+If you are using a proxy in front of Syncthing you may need to disable this
+check, after ensuring that the proxy provides sufficient authentication to
+protect against unauthorized access. Either:
+.INDENT 0.0
+.IP \(bu 2
+Make sure the proxy sets a \fIHost\fP header containing \fIlocalhost\fP, or
+.IP \(bu 2
+Set \fIinsecureSkipHostcheck\fP in the advanced settings, or
+.IP \(bu 2
+Bind the GUI/API to a non\-localhost listen port.
+.UNINDENT
+.sp
+In all cases, username/password authentication and HTTPS should be used.
+.SH MY SYNCTHING DATABASE IS CORRUPT
+.sp
+This is almost always a result of bad RAM, storage device or other hardware. When the index database is found to be corrupt Syncthing cannot operate and will note this in the logs and exit. To overcome this delete the \fI\%database folder\fP <\fBhttps://docs.syncthing.net/users/config.html#description\fP> inside Syncthing’s home directory and re\-start Syncthing. It will then need to perform a full re\-hashing of all shared folders. You should check your system in case the underlying cause is indeed faulty hardware which may put the system at risk of further data loss.
+.SH I DON’T LIKE THE GUI OR THE THEME. CAN IT BE CHANGED?
+.sp
+You can change the theme in the settings. Syncthing ships with other themes
+than the default.
+.sp
+If you want a custom theme or a completely different GUI, you can add your
+own.
+By default, Syncthing will look for a directory \fBgui\fP inside the Syncthing
+home folder. To change the directory to look for themes, you need to set the
+STGUIASSETS environment variable. To get the concrete directory, run
+syncthing with the \fB\-paths\fP parameter. It will print all the relevant paths,
+including the “GUI override directory”.
+.sp
+To add e.g. a red theme, you can create the file \fBred/assets/css/theme.css\fP
+inside the GUI override directory to override the default CSS styles.
+.sp
+To create a whole new GUI, you should checkout the files at
+\fI\%https://github.com/syncthing/syncthing/tree/main/gui/default\fP
+to get an idea how to do that.
+.SH WHY DO I SEE SYNCTHING TWICE IN TASK MANAGER?
+.sp
+One process manages the other, to capture logs and manage restarts. This
+makes it easier to handle upgrades from within Syncthing itself, and also
+ensures that we get a nice log file to help us narrow down the cause for
+crashes and other bugs.
+.SH WHERE DO SYNCTHING LOGS GO TO?
+.sp
+Syncthing logs to stdout by default. On Windows Syncthing by default also
+creates \fBsyncthing.log\fP in Syncthing’s home directory (run \fBsyncthing
+\-paths\fP to see where that is). Command line option \fB\-logfile\fP can be used
+to specify a user\-defined logfile.
+.SH HOW CAN I VIEW THE HISTORY OF CHANGES?
+.sp
+The web GUI contains a \fBGlobal Changes\fP button under the device list which
+displays changes since the last (re)start of Syncthing. With the \fB\-audit\fP
+option you can enable a persistent, detailed log of changes and most
+activities, which contains a \fBJSON\fP formatted  sequence of events in the
+\fB~/.config/syncthing/audit\-_date_\-_time_.log\fP file.
+.SH DOES THE AUDIT LOG CONTAIN EVERY CHANGE?
+.sp
+The audit log (and the \fBGlobal Changes\fP window) sees the changes that your
+Syncthing sees. When Syncthing is continuously connected it usually sees every change
+happening immediately and thus knows which node initiated the change.
+When topology gets complex or when your node reconnects after some time offline,
+Syncthing synchronises with its neighbours: It gets the latest synchronised state
+from the neighbour, which is the \fIresult\fP of all the changes between the last
+known state (before disconnect or network delay) and the current state at the
+neighbour, and if there were updates, deletes, creates, conflicts, which were
+overlapping we only see the \fIlatest change\fP for a given file or directory (and
+the node where that latest change occurred). When we connect to multiple neighbours
+Syncthing decides which neighbor has the latest state, or if the states conflict
+it initiates the conflict resolution procedure, which in the end results in a consistent
+up\-to\-date state with all the neighbours.
+.SH HOW DO I UPGRADE SYNCTHING?
+.sp
+If you use a package manager such as Debian’s apt\-get, you should upgrade
+using the package manager. If you use the binary packages linked from
+Syncthing.net, you can use Syncthing built in automatic upgrades.
+.INDENT 0.0
+.IP \(bu 2
+If automatic upgrades is enabled (which is the default), Syncthing will
+upgrade itself automatically within 24 hours of a new release.
+.IP \(bu 2
+The upgrade button appears in the web GUI when a new version has been
+released. Pressing it will perform an upgrade.
+.IP \(bu 2
+To force an upgrade from the command line, run \fBsyncthing \-upgrade\fP\&.
+.UNINDENT
+.sp
+Note that your system should have CA certificates installed which allow a
+secure connection to GitHub (e.g. FreeBSD requires \fBsudo pkg install
+ca_root_nss\fP). If \fBcurl\fP or \fBwget\fP works with normal HTTPS sites, then
+so should Syncthing.
+.SH WHERE DO I FIND THE LATEST RELEASE?
+.sp
+We release new versions through GitHub. The latest release is always found
+\fI\%on the release page\fP <\fBhttps://github.com/syncthing/syncthing/releases/latest\fP>\&. Unfortunately
+GitHub does not provide a single URL to automatically download the latest
+version. We suggest to use the GitHub API at
+\fI\%https://api.github.com/repos/syncthing/syncthing/releases/latest\fP and parsing
+the JSON response.
+.SH HOW DO I RUN SYNCTHING AS A DAEMON PROCESS ON LINUX?
+.sp
+If you’re using systemd, runit, or upstart, we already ship examples, check
+\fI\%https://github.com/syncthing/syncthing/tree/main/etc\fP for example
+configurations.
+.sp
+If however you’re not using one of these tools, you have a couple of options.
+If your system has a tool called \fBstart\-stop\-daemon\fP installed (that’s the name
+of the command, not the package), look into the local documentation for that, it
+will almost certainly cover 100% of what you want to do.  If you don’t have
+\fBstart\-stop\-daemon\fP, there are a bunch of other software packages you could use
+to do this.  The most well known is called daemontools, and can be found in the
+standard package repositories for  almost every modern Linux distribution.
+Other popular tools with similar functionality include S6 and the aforementioned
+runit.
+.SH HOW DO I INCREASE THE INOTIFY LIMIT TO GET MY FILESYSTEM WATCHER TO WORK?
+.sp
+You are probably reading this because you encountered the following error with
+the filesystem watcher on linux:
+.INDENT 0.0
+.INDENT 3.5
+Failed to start filesystem watcher for folder yourLabel (yourID): failed to
+setup inotify handler. Please increase inotify limits, see
+\fI\%https://docs.syncthing.net/users/faq.html#inotify\-limits\fP
+.UNINDENT
+.UNINDENT
+.sp
+Linux typically restricts the amount of watches per user (usually 8192). When
+you have more directories you need to adjust that number.
+.sp
+On many Linux distributions you can run the following to fix it:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+echo "fs.inotify.max_user_watches=204800" | sudo tee \-a /etc/sysctl.conf
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+On Arch Linux and potentially others it is preferred to write this line into a
+separate file, i.e. you should run:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+echo "fs.inotify.max_user_watches=204800" | sudo tee \-a /etc/sysctl.d/90\-override.conf
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+This only takes effect after a reboot. To adjust the limit immediately, run:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+sudo sh \-c \(aqecho 204800 > /proc/sys/fs/inotify/max_user_watches\(aq
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH HOW DO I RESET THE GUI PASSWORD?
+.sp
+If you’ve forgotten/lost the GUI password, you can remove it by deleting the \fB<user>\fP and \fB<password>\fP XML tags from the \fB<gui>\fP block in file \fBconfig.xml\fP\&. This should be done while Syncthing is not running. The location of the file depends on OS and is described in the configuration documentation.
+.sp
+For example, the two emphasized lines below would be removed from the file.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<gui enabled="true" tls="false" debugging="false">
+   <address>127.0.0.1:8384</address>
+   <user>syncguy</user>
+   <password>$2a$10$s9wWHOQe...Cq7GPye69</password>
+   <apikey>9RCKohqCAyrj5RjpyZdR2wXmQ9PyQFeN</apikey>
+   <theme>default</theme>
+</gui>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2014-2019, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.
