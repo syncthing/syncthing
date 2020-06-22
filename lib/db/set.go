@@ -187,13 +187,6 @@ func (s *Snapshot) WithPrefixedHaveTruncated(device protocol.DeviceID, prefix st
 	}
 }
 
-func (s *Snapshot) WithPrefixedHave(device protocol.DeviceID, prefix string, fn Iterator) {
-	l.Debugf("%s WithPrefixedHave(%v)", s.folder, device)
-	if err := s.t.withHave([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(prefix)), false, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {
-		panic(err)
-	}
-}
-
 func (s *Snapshot) WithGlobal(fn Iterator) {
 	l.Debugf("%s WithGlobal()", s.folder)
 	if err := s.t.withGlobal([]byte(s.folder), nil, false, nativeFileIterator(fn)); err != nil && !backend.IsClosed(err) {

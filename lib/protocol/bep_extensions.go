@@ -334,18 +334,6 @@ func (f *FileInfo) setNoContent() {
 	f.Size = 0
 }
 
-func (f *FileInfo) IgnoredCopy(invalidatedBy ShortID) FileInfo {
-	copy := *f
-	copy.SetIgnored(invalidatedBy)
-	return copy
-}
-
-func (f *FileInfo) DeletedCopy(deletedBy ShortID) FileInfo {
-	copy := *f
-	copy.SetDeleted(deletedBy)
-	return copy
-}
-
 func (b BlockInfo) String() string {
 	return fmt.Sprintf("Block{%d/%d/%d/%x}", b.Offset, b.Size, b.WeakHash, b.Hash)
 }

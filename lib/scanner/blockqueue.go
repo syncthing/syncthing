@@ -65,13 +65,13 @@ type parallelHasher struct {
 	fs      fs.Filesystem
 	workers int
 	outbox  chan<- ScanResult
-	inbox   <-chan ScanResult
+	inbox   <-chan protocol.FileInfo
 	counter Counter
 	done    chan<- struct{}
 	wg      sync.WaitGroup
 }
 
-func newParallelHasher(ctx context.Context, fs fs.Filesystem, workers int, outbox chan<- ScanResult, inbox <-chan ScanResult, counter Counter, done chan<- struct{}) {
+func newParallelHasher(ctx context.Context, fs fs.Filesystem, workers int, outbox chan<- ScanResult, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}) {
 	ph := &parallelHasher{
 		fs:      fs,
 		workers: workers,
@@ -100,30 +100,30 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 				return
 			}
 
-			if f.New.IsDirectory() || f.New.IsDeleted() {
+			if f.IsDirectory() || f.IsDeleted() {
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			blocks, err := HashFile(ctx, ph.fs, f.New.Name, f.New.BlockSize(), ph.counter, true)
+			blocks, err := HashFile(ctx, ph.fs, f.Name, f.BlockSize(), ph.counter, true)
 			if err != nil {
-				l.Debugln("hash error:", f.New.Name, err)
+				l.Debugln("hash error:", f.Name, err)
 				continue
 			}
 
-			f.New.Blocks = blocks
-			f.New.BlocksHash = protocol.BlocksHash(blocks)
+			f.Blocks = blocks
+			f.BlocksHash = protocol.BlocksHash(blocks)
 
 			// The size we saw when initially deciding to hash the file
 			// might not have been the size it actually had when we hashed
 			// it. Update the size from the block list.
 
-			f.New.Size = 0
+			f.Size = 0
 			for _, b := range blocks {
-				f.New.Size += int64(b.Size)
+				f.Size += int64(b.Size)
 			}
 
 			select {
-			case ph.outbox <- f:
+			case ph.outbox <- ScanResult{File: f}:
 			case <-ctx.Done():
 				return
 			}

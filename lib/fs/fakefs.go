@@ -285,6 +285,12 @@ func (fs *fakefs) DirNames(name string) ([]string, error) {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
 
+	var err error
+	name, err = Canonicalize(name)
+	if err != nil {
+		return nil, err
+	}
+
 	entry := fs.entryForName(name)
 	if entry == nil {
 		return nil, os.ErrNotExist

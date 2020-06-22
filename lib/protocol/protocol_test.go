@@ -923,30 +923,3 @@ func TestIndexIDString(t *testing.T) {
 		t.Error(i.String())
 	}
 }
-
-func TestCopyFileInfo(t *testing.T) {
-	f := FileInfo{
-		Name:        "aName",
-		Type:        FileInfoTypeFile,
-		Size:        1234,
-		Permissions: 0666,
-		ModifiedS:   time.Now().Unix(),
-		Version:     Vector{Counters: []Counter{{ID: 1 << 60, Value: 1}, {ID: 2 << 60, Value: 1}}},
-	}
-
-	del := f.DeletedCopy(LocalDeviceID.Short())
-	if f.Deleted {
-		t.Errorf("Source file info was deleted on copy")
-	}
-	if !del.Deleted {
-		t.Errorf("Returned file info was not deleted on copy")
-	}
-
-	inv := f.IgnoredCopy(LocalDeviceID.Short())
-	if f.IsIgnored() {
-		t.Errorf("Source file info was invalid on copy")
-	}
-	if !inv.IsIgnored() {
-		t.Errorf("Returned file info was not invalid on copy")
-	}
-}

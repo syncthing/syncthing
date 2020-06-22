@@ -22,7 +22,7 @@ import (
 // the same name if both "Foo" and "foo" exist on disk, "foo" is returned. It may
 // also return fs.ErrNotExist.
 func RealCase(ffs fs.Filesystem, name string) (string, error) {
-	var out string
+	out := "."
 	inComps := strings.Split(name, string(fs.PathSeparator))
 	inCompsLower := strings.Split(fs.UnicodeLowercase(name), string(fs.PathSeparator))
 outer:
