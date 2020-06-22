@@ -492,7 +492,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration) {
 		fset = db.NewFileSet(to.ID, to.Filesystem(), m.db)
 	}
 
-	err := fmt.Errorf("%v folder %v", errMsg, to.Description()))
+	err := fmt.Errorf("%v folder %v", errMsg, to.Description())
 	m.stopFolder(from, err)
 	// Need to send CC change to both from and to devices.
 	m.closeConns(to.DeviceIDs, err)
