@@ -421,38 +421,39 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		Deletions:             false,
 	}
 
-	batchFn := func(fs []protocol.FileInfo) error {
+	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := f.getHealthErrorWithoutIgnores(); err != nil {
 			l.Debugf("Stopping scan of folder %s due to: %s", f.Description(), err)
 			return err
 		}
 		f.updateLocalsFromScanning(fs)
 		return nil
-	}
+	})
+
+	var batchAppend func(protocol.FileInfo, *db.Snapshot)
 	// Resolve items which are identical with the global state.
-	if f.localFlags&protocol.FlagLocalReceiveOnly != 0 {
-		oldBatchFn := batchFn // can't reference batchFn directly (recursion)
-		batchFn = func(fs []protocol.FileInfo) error {
-			for i := range fs {
-				switch gf, ok := snap.GetGlobal(fs[i].Name); {
-				case !ok:
-					continue
-				case gf.IsEquivalentOptional(fs[i], f.ModTimeWindow(), false, false, protocol.FlagLocalReceiveOnly):
-					// What we have locally is equivalent to the global file.
-					fs[i].Version = fs[i].Version.Merge(gf.Version)
-					fallthrough
-				case fs[i].IsDeleted() && gf.IsReceiveOnlyChanged():
-					// Our item is deleted and the global item is our own
-					// receive only file. We can't delete file infos, so
-					// we just pretend it is a normal deleted file (nobody
-					// cares about that).
-					fs[i].LocalFlags &^= protocol.FlagLocalReceiveOnly
-				}
+	if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
+		batchAppend = func(fi protocol.FileInfo, _ *db.Snapshot) {
+			batch.append(fi)
+		}
+	} else {
+		batchAppend = func(fi protocol.FileInfo, snap *db.Snapshot) {
+			switch gf, ok := snap.GetGlobal(fi.Name); {
+			case !ok:
+			case gf.IsEquivalentOptional(fi, f.ModTimeWindow(), false, false, protocol.FlagLocalReceiveOnly):
+				// What we have locally is equivalent to the global file.
+				fi.Version = fi.Version.Merge(gf.Version)
+				fallthrough
+			case fi.IsDeleted() && gf.IsReceiveOnlyChanged():
+				// Our item is deleted and the global item is our own
+				// receive only file. We can't delete file infos, so
+				// we just pretend it is a normal deleted file (nobody
+				// cares about that).
+				fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 			}
-			return oldBatchFn(fs)
+			batch.append(fi)
 		}
 	}
-	batch := newFileInfoBatch(batchFn)
 
 	// Schedule a pull after scanning, but only if we actually detected any
 	// changes.
@@ -481,10 +482,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		// which means all children were already processed.
 		for len(delDirStack) != 0 && !strings.HasPrefix(res.New.Name, delDirStack[len(delDirStack)-1].Name+string(fs.PathSeparator)) {
 			lastDelDir := delDirStack[len(delDirStack)-1]
-			batch.append(lastDelDir)
+			batchAppend(lastDelDir, snap)
 			changes++
 			if nf, ok := f.findRename(snap, mtimefs, res.New, alreadyUsed); ok {
-				batch.append(nf)
+				batchAppend(nf, snap)
 				changes++
 			}
 			if err := batch.flushIfFull(); err != nil {
@@ -499,11 +500,11 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			continue
 		}
 
-		batch.append(res.New)
+		batchAppend(res.New, snap)
 		changes++
 
 		if nf, ok := f.findRename(snap, mtimefs, res.New, alreadyUsed); ok {
-			batch.append(nf)
+			batchAppend(nf, snap)
 			changes++
 		}
 	}
@@ -513,10 +514,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		if err := batch.flushIfFull(); err != nil {
 			return err
 		}
-		batch.append(delDirStack[i])
+		batchAppend(delDirStack[i], snap)
 		changes++
 		if nf, ok := f.findRename(snap, mtimefs, delDirStack[i], alreadyUsed); ok {
-			batch.append(nf)
+			batchAppend(nf, snap)
 			changes++
 		}
 	}
@@ -544,7 +545,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			return err
 		}
 
-		batch.append(res.New)
+		batchAppend(res.New, snap)
 		changes++
 	}
 
