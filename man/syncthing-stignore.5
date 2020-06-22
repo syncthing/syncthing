@@ -1,1 +1,222 @@
-404 Not Found
+.\" Man page generated from reStructuredText.
+.
+.TH "SYNCTHING-STIGNORE" "5" "Jun 19, 2020" "v1" "Syncthing"
+.SH NAME
+syncthing-stignore \- Prevent files from being synchronized to other nodes
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+\&.stignore
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH DESCRIPTION
+.sp
+If some files should not be synchronized to (or from) other devices, a file called
+\fB\&.stignore\fP can be created containing file patterns to ignore. The
+\fB\&.stignore\fP file must be placed in the root of the folder. The
+\fB\&.stignore\fP file itself will never be synced to other devices, although it can
+\fB#include\fP files that \fIare\fP synchronized between devices. All patterns are
+relative to the folder root.
+The contents of the \fB\&.stignore\fP file must be UTF\-8 encoded.
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Note that ignored files can block removal of an otherwise empty directory.
+See below for the (?d) prefix to allow deletion of ignored files.
+.UNINDENT
+.UNINDENT
+.SH PATTERNS
+.sp
+The \fB\&.stignore\fP file contains a list of file or path patterns. The
+\fIfirst\fP pattern that matches will decide the fate of a given file.
+.INDENT 0.0
+.IP \(bu 2
+Regular file names match themselves, i.e. the pattern \fBfoo\fP matches
+the files \fBfoo\fP, \fBsubdir/foo\fP as well as any directory named
+\fBfoo\fP\&. Spaces are treated as regular characters.
+.IP \(bu 2
+\fBAsterisk\fP (\fB*\fP) matches zero or more characters in a filename, but does not
+match the directory separator. \fBte*ne\fP matches \fBtelephone\fP,
+\fBsubdir/telephone\fP but not \fBtele/phone\fP\&.
+.IP \(bu 2
+\fBDouble asterisk\fP (\fB**\fP) matches as above, but also directory separators.
+\fBte**ne\fP matches \fBtelephone\fP, \fBsubdir/telephone\fP and
+\fBtele/sub/dir/phone\fP\&.
+.IP \(bu 2
+\fBQuestion mark\fP (\fB?\fP) matches a single character that is not the directory
+separator. \fBte??st\fP matches \fBtebest\fP but not \fBteb/st\fP or
+\fBtest\fP\&.
+.IP \(bu 2
+\fBSquare brackets\fP (\fB[]\fP) denote a character range: \fB[a\-z]\fP matches
+any lower case character.
+.IP \(bu 2
+\fBCurly brackets\fP (\fB{}\fP) denote a set of comma separated alternatives:
+\fB{banana,pineapple}\fP matches either \fBbanana\fP or \fBpineapple\fP\&.
+.IP \(bu 2
+\fBBackslash\fP (\fB\e\fP) “escapes” a special character so that it loses its
+special meaning. For example, \fB\e{banana\e}\fP matches \fB{banana}\fP exactly
+and does not denote a set of alternatives as above. \fIEscaped characters
+are not supported on Windows.\fP
+.IP \(bu 2
+A pattern beginning with \fB/\fP matches in the root of the folder only.
+\fB/foo\fP matches \fBfoo\fP but not \fBsubdir/foo\fP\&.
+.IP \(bu 2
+A pattern beginning with \fB#include\fP results in loading patterns
+from the named file. It is an error for a file to not exist or be
+included more than once. Note that while this can be used to include
+patterns from a file in a subdirectory, the patterns themselves are
+still relative to the folder \fIroot\fP\&. Example:
+\fB#include more\-patterns.txt\fP\&.
+.IP \(bu 2
+A pattern beginning with a \fB!\fP prefix negates the pattern: matching files
+are \fIincluded\fP (that is, \fInot\fP ignored). This can be used to override
+more general patterns that follow.
+.IP \(bu 2
+A pattern beginning with a \fB(?i)\fP prefix enables case\-insensitive pattern
+matching. \fB(?i)test\fP matches \fBtest\fP, \fBTEST\fP and \fBtEsT\fP\&. The
+\fB(?i)\fP prefix can be combined with other patterns, for example the
+pattern \fB(?i)!picture*.png\fP indicates that \fBPicture1.PNG\fP should
+be synchronized. On Mac OS and Windows, patterns are always case\-insensitive.
+.IP \(bu 2
+A pattern beginning with a \fB(?d)\fP prefix enables removal of these files if
+they are preventing directory deletion. This prefix should be used by any OS
+generated files which you are happy to be removed.
+.IP \(bu 2
+A line beginning with \fB//\fP is a comment and has no effect.
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Prefixes can be specified in any order (e.g. “(?d)(?i)”), but cannot be in a
+single pair of parentheses (not “(?di)”).
+.UNINDENT
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Include patterns (that begin with \fB!\fP) cause Syncthing to traverse and
+watch the entire directory tree regardless of other
+ignore patterns.
+.sp
+Top\-level include patterns are treated as special cases and will not force Syncthing to
+scan the entire directory tree. For example: \fB!/foo\fP is a top\-level include
+pattern, while \fB!/foo/bar\fP is not.
+.UNINDENT
+.UNINDENT
+.SH EXAMPLE
+.sp
+Given a directory layout:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+\&.DS_Store
+foo
+foofoo
+bar/
+    baz
+    quux
+    quuz
+bar2/
+    baz
+    frobble
+My Pictures/
+    Img15.PNG
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+and an \fB\&.stignore\fP file with the contents:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+(?d).DS_Store
+!frobble
+!quuz
+foo
+*2
+qu*
+(?i)my pictures
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+all files and directories called “foo”, ending in a “2” or starting with
+“qu” will be ignored. The end result becomes:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+\&.DS_Store     # ignored, will be deleted if gets in the way of parent directory removal
+foo           # ignored, matches "foo"
+foofoo        # synced, does not match "foo" but would match "foo*" or "*foo"
+bar/          # synced
+    baz       # synced
+    quux      # ignored, matches "qu*"
+    quuz      # synced, matches "qu*" but is excluded by the preceding "!quuz"
+bar2/         # synced, despite matching "*2" due to child frobble
+    baz       # ignored, due to parent being ignored
+    frobble   # synced, due to "!frobble"
+My Pictures/  # ignored, matched case insensitive "(?i)my pictures" pattern
+    Img15.PNG # ignored, due to parent being ignored
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Please note that directory patterns ending with a slash
+\fBsome/directory/\fP matches the content of the directory, but not the
+directory itself. If you want the pattern to match the directory and its
+content, make sure it does not have a \fB/\fP at the end of the pattern.
+.UNINDENT
+.UNINDENT
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2014-2019, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.
