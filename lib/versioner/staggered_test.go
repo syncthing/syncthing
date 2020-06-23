@@ -8,6 +8,7 @@ package versioner
 
 import (
 	"io/ioutil"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"testing"
@@ -78,21 +79,35 @@ func parseTime(in string) time.Time {
 }
 
 func TestCreateVersionPath(t *testing.T) {
-	file := "myfile"
+	const (
+		versionsDir = "some/nested/dir"
+		archiveFile = "testfile"
+	)
 
+	// Create a test dir and file
 	tmpDir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	folderFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
-
-	versioner := newStaggered(folderFs, map[string]string{
-		"fsType": "",
-		"fsPath": file,
-	})
-
-	if err := versioner.Archive(file); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(tmpDir, archiveFile), []byte("sup"), 0644); err != nil {
 		t.Fatal(err)
+	}
+
+	// Archive the file
+	folderFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+	versioner := newStaggered(folderFs, map[string]string{
+		"versionsPath": versionsDir,
+	})
+	if err := versioner.Archive(archiveFile); err != nil {
+		t.Fatal(err)
+	}
+
+	// Look for files named like the test file, in the archive dir.
+	files, err := filepath.Glob(filepath.Join(tmpDir, versionsDir, archiveFile) + "*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) == 0 {
+		t.Error("expected file to have been archived")
 	}
 }
