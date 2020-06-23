@@ -128,3 +128,27 @@ func expect(t *testing.T, since int, b interface{}) {
 		t.Errorf("%#v != %#v", x, b)
 	}
 }
+
+func TestMarshallingBehaviour(t *testing.T) {
+	r := Report{}
+
+	if err := r.Scan([]byte(`{"folderUses":{"sendonly": 100}}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	if r.FolderUses.SendOnly != 100 {
+		t.Errorf("%d != 100", r.FolderUses.SendOnly)
+	}
+
+	if err := r.Scan([]byte(`{"folderUses":{"sendreceive": 200}}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	if r.FolderUses.SendReceive != 200 {
+		t.Errorf("%d != 200", r.FolderUses.SendReceive)
+	}
+
+	if r.FolderUses.SendOnly != 0 {
+		t.Errorf("%d != 0", r.FolderUses.SendOnly)
+	}
+}
