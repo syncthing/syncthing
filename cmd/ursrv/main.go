@@ -343,7 +343,7 @@ func newDataHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := insertReport(db, rep); err != nil {
-		if err.Error() == `pq: duplicate key value violates unique constraint "uniqueidindex"` {
+		if err.Error() == `pq: duplicate key value violates unique constraint "uniqueidjsonindex"` {
 			// We already have a report today for the same unique ID; drop
 			// this one without complaining.
 			return
