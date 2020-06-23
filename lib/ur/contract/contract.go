@@ -380,6 +380,8 @@ func (r Report) Value() (driver.Value, error) {
 
 func (r *Report) Scan(value interface{}) error {
 	// Zero out the previous value
+	// JSON unmarshaller does not touch fields that are not in the payload, so we carry over values from a previous
+	// scan.
 	*r = Report{}
 	b, ok := value.([]byte)
 	if !ok {
