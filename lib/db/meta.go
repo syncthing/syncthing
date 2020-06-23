@@ -314,9 +314,13 @@ func (m *metadataTracker) resetAll(dev protocol.DeviceID) {
 	m.dirty = true
 	for i, c := range m.counts.Counts {
 		if bytes.Equal(c.DeviceID, dev[:]) {
-			m.counts.Counts[i] = Counts{
-				DeviceID:   c.DeviceID,
-				LocalFlags: c.LocalFlags,
+			if c.LocalFlags != needFlag {
+				m.counts.Counts[i] = Counts{
+					DeviceID:   c.DeviceID,
+					LocalFlags: c.LocalFlags,
+				}
+			} else {
+				m.counts.Counts[i] = m.allNeededCounts(dev)
 			}
 		}
 	}
