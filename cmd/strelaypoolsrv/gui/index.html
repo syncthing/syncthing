@@ -9,8 +9,15 @@
     <meta name="author" content=""/>
 
     <title>Relay stats</title>
-    <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet"/>
-    <link rel="stylesheet" href="//use.fontawesome.com/releases/v5.0.13/css/all.css"/>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css"/>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+  integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+  crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+  integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+  crossorigin=""></script>
 
     <style>
       #map {
@@ -38,13 +45,15 @@
     <div class="container">
       <h1>Relay Pool Data</h1>
       <div ng-if="relays === undefined" class="text-center">
-        <img src="//cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif" alt=""/>
+        <img src="https://cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif" alt=""/>
         <p>Please wait while we gather data</p>
       </div>
       <div>
         <div ng-show="relays !== undefined" class="ng-hide">
           <p>
-            Currently {{ relays.length }} relays online ({{ totals.goMaxProcs }} cores in total).
+            The relays listed on this page are not managed or vetted by the Syncthing project.
+            Each relay is the responsibility of the relay operator.
+            Currently {{ relays.length }} relays online.
           </p>
         </div>
         <div id="map"></div> <!-- Can't hide the map, otherwise it freaks out -->
@@ -184,10 +193,9 @@
     </div>
 
 
-    <script type="text/javascript" src="//code.jquery.com/jquery-2.1.4.min.js"></script>
-    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular.min.js"></script>
-    <script type="text/javascript" src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
-    <script type="text/javascript" src="//maps.googleapis.com/maps/api/js?key=AIzaSyDk5WJ8s7ueLKb99X5DbQ-vkWtPDAKqYs0"></script>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular.min.js"></script>
+    <script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
   </body>
 
   <script>
@@ -228,11 +236,12 @@
       numProxies: 0,
       uptimeSeconds: 0,
     };
-    $scope.map = new google.maps.Map(document.getElementById('map'), {
-      zoom: 1,
-      mapTypeId: google.maps.MapTypeId.ROADMAP
-    });
-    $scope.mapBounds = new google.maps.LatLngBounds();
+    $scope.map = L.map('map').setView([40.90296, 1.90925], 2);
+    L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      attribution: 'Leaflet',
+      maxZoom: 17
+    }).addTo($scope.map);
     $scope.tooltipTemplate = $('#infoTemplate').html();
     $scope.usedLocations = {};
     $scope.sortType = 'stats.numActiveSessions';
@@ -279,8 +288,9 @@
         }
       });
 
-      $scope.map.fitBounds($scope.mapBounds);
       if ($scope.relays.length == 1) {
+        //Center to only relay with zoom
+        $scope.map.panTo(new L.LatLng(relays[0].location.latitude, relays[0].location.longitude));
         $scope.map.setZoom(13);
       }
     });
@@ -300,44 +310,50 @@
 
         var locParts = loc.split(',');
 
-        relay.marker = new google.maps.Marker({
-          map: $scope.map,
-          position: new google.maps.LatLng(locParts[0], locParts[1]),
+        relay.marker = new L.Marker([relay.location.latitude, relay.location.longitude],{
           title: relay.url,
         });
 
         var scope = $rootScope.$new(true);
         scope.relay = relay;
 
-        relay.marker.info = new google.maps.InfoWindow({
-          content: $compile($scope.tooltipTemplate)(scope)[0],
+        var icon = new L.Icon({
+          iconSize:     [18, 28], // size of the icon
+          iconAnchor:   [9, 28], // point of the icon which will correspond to marker's location
+          shadowAnchor: [0, 0],  // the same for the shadow
+          popupAnchor:  [0, -27], // popup anchor
+          shadowSize:   [0,0],
+          iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
         });
 
+        relay.marker = new L.marker(new L.latLng(locParts[0], locParts[1]),{icon})
+                            .bindPopup($compile($scope.tooltipTemplate)(scope)[0],{})
+                            .on('mouseover', function (e) {
+                                this.openPopup();
+                            }).on('mouseout', function (e) {
+                                this.closePopup();
+                            }).addTo($scope.map);
+
         relay.showMarker = function() {
-          relay.marker.info.open($scope.map, relay.marker);
+          relay.marker.openPopup();
         }
-
+        
         relay.hideMarker = function() {
-          relay.marker.info.close();
+          relay.marker.closePopup();
         }
+      }
 
-        relay.marker.addListener('mouseover', relay.showMarker);
-        relay.marker.addListener('mouseout', relay.hideMarker);
-
-        $scope.mapBounds.extend(relay.marker.position);
-    }
 
     function addCircleToMap(relay) {
-      relay.marker.circle = new google.maps.Circle({
-        strokeColor: '#FF0000',
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-        fillColor: '#FF0000',
-        fillOpacity: 0.35,
-        map: $scope.map,
-        center: relay.marker.position,
-        radius: ((relay.stats.bytesProxied * 100) / $scope.totals.bytesProxied) * 10000
-      });
+      console.log(relay.location.latitude)
+      L.circle([relay.location.latitude, relay.location.longitude], 
+        {
+          radius: ((relay.stats.bytesProxied * 100) / $scope.totals.bytesProxied) * 10000,
+          color: "FF0000",
+          fillColor: "#FF0000",
+          fillOpacity: 0.35,
+        }).addTo($scope.map);
     }
 
     function constructURI(url) {

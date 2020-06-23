@@ -17,7 +17,11 @@ found in the LICENSE file.
   <link href="static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
   <script type="text/javascript" src="static/bootstrap/js/bootstrap.min.js"></script>
-  <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?libraries=visualization&key=AIzaSyDk5WJ8s7ueLKb99X5DbQ-vkWtPDAKqYs0"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/leaflet.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/heatmapjs@2.0.2/heatmap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet-heatmap@1.0.0/leaflet-heatmap.js"></script>
+
   <style type="text/css">
     body {
       margin: 40px;
@@ -36,23 +40,25 @@ found in the LICENSE file.
     }
   </style>
   <script type="text/javascript"
-          src="https://www.google.com/jsapi?autoload={
-            'modules':[{
-              'name':'visualization',
-              'version':'1',
-              'packages':['corechart']
+          src='https://www.google.com/jsapi?autoload={
+            "modules":[{
+              "name":"visualization",
+              "version":"1",
+              "packages":["corechart"]
             }]
-          }"></script>
+          }'></script>
 
   <script type="text/javascript">
     google.setOnLoadCallback(drawVersionChart);
     google.setOnLoadCallback(drawMovementChart);
     google.setOnLoadCallback(drawBlockStatsChart);
     google.setOnLoadCallback(drawPerformanceCharts);
-    google.setOnLoadCallback(drawHeatMap);
 
     function drawVersionChart() {
-      var jsonData = $.ajax({url: "summary.json", dataType:"json", async: false}).responseText;
+      // Summary version chart for versions that at some point in the chart
+      // reaches 250 devices. This filters out versions that are old and
+      // uninteresting yet linger forever with like four users.
+      var jsonData = $.ajax({url: "summary.json?min=250", dataType:"json", async: false}).responseText;
       var rows = JSON.parse(jsonData);
 
       var data = new google.visualization.DataTable();
@@ -211,47 +217,46 @@ found in the LICENSE file.
 
     var locations = [];
     {{range $location, $weight := .locations}}
-    locations.push({location: new google.maps.LatLng({{- $location.Latitude -}}, {{- $location.Longitude -}}), weight: {{- $weight -}}});
+    locations.push({lat:{{- $location.Latitude -}},lng:{{- $location.Longitude -}},count:Math.min(100, {{- $weight -}})});
     {{- end}}
 
     function drawHeatMap() {
       if (locations.length == 0) {
         return;
       }
-      var mapBounds = new google.maps.LatLngBounds();
-      var map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 1,
-        mapTypeId: google.maps.MapTypeId.ROADMAP
-      });
-      var heatmap = new google.maps.visualization.HeatmapLayer({
+      var testData = {
         data: locations
+      };
+
+      var baseLayer = L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+          attribution: '...',
+          maxZoom: 18
+        }
+      );
+      var cfg = {
+        "radius": 1,
+        "minOpacity": .25,
+        "maxOpacity": .8,
+        "scaleRadius": true,
+        "useLocalExtrema": true,
+        latField: 'lat',
+        lngField: 'lng',
+        valueField: 'count',
+        gradient: {
+            '.1': 'cyan',
+            '.8': 'blue',
+            '.95': 'red'
+          }
+      };
+      var heatmapLayer = new HeatmapOverlay(cfg);
+
+      var map = new L.Map('map', {
+        center: new L.LatLng(25, 0),
+        zoom: 1,
+        layers: [baseLayer, heatmapLayer]
       });
-      heatmap.set('radius', 10);
-      heatmap.set('maxIntensity', 20);
-      heatmap.set('gradient', [
-        'rgba(0, 255, 255, 0)',
-        'rgba(0, 255, 255, 1)',
-        'rgba(0, 191, 255, 1)',
-        'rgba(0, 127, 255, 1)',
-        'rgba(0, 63, 255, 1)',
-        'rgba(0, 0, 255, 1)',
-        'rgba(0, 0, 223, 1)',
-        'rgba(0, 0, 191, 1)',
-        'rgba(0, 0, 159, 1)',
-        'rgba(0, 0, 127, 1)',
-        'rgba(63, 0, 91, 1)',
-        'rgba(127, 0, 63, 1)',
-        'rgba(191, 0, 31, 1)',
-        'rgba(255, 0, 0, 1)'
-      ]);
-      heatmap.setMap(map);
-      for (var x = 0; x < locations.length; x++) {
-        mapBounds.extend(locations[x].location);
-      }
-      map.fitBounds(mapBounds);
-      if (locations.length == 1) {
-        map.setZoom(13);
-      }
+      heatmapLayer.setData(testData);
     }
   </script>
 </head>
@@ -296,7 +301,7 @@ found in the LICENSE file.
         {{if .locations}}
         <div class="img-thumbnail" id="map" style="width: 1130px; height: 400px; padding: 10px;"></div>
         <p class="text-muted">
-         Heatmap max intensity is capped at 20 reports within a location.
+         Heatmap max intensity is capped at 100 reports within a location.
         </p>
         <div class="panel panel-default">
           <div class="panel-heading">
@@ -651,6 +656,7 @@ found in the LICENSE file.
   </p>
   <script type="text/javascript">
     $('[data-toggle="tooltip"]').tooltip({html:true});
+    drawHeatMap();
   </script>
 </body>
 </html>

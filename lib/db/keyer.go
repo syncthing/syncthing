@@ -22,46 +22,52 @@ const (
 
 const (
 	// KeyTypeDevice <int32 folder ID> <int32 device ID> <file name> = FileInfo
-	KeyTypeDevice = 0
+	KeyTypeDevice byte = 0
 
 	// KeyTypeGlobal <int32 folder ID> <file name> = VersionList
-	KeyTypeGlobal = 1
+	KeyTypeGlobal byte = 1
 
 	// KeyTypeBlock <int32 folder ID> <32 bytes hash> <§file name> = int32 (block index)
-	KeyTypeBlock = 2
+	KeyTypeBlock byte = 2
 
 	// KeyTypeDeviceStatistic <device ID as string> <some string> = some value
-	KeyTypeDeviceStatistic = 3
+	KeyTypeDeviceStatistic byte = 3
 
 	// KeyTypeFolderStatistic <folder ID as string> <some string> = some value
-	KeyTypeFolderStatistic = 4
+	KeyTypeFolderStatistic byte = 4
 
 	// KeyTypeVirtualMtime <int32 folder ID> <file name> = dbMtime
-	KeyTypeVirtualMtime = 5
+	KeyTypeVirtualMtime byte = 5
 
 	// KeyTypeFolderIdx <int32 id> = string value
-	KeyTypeFolderIdx = 6
+	KeyTypeFolderIdx byte = 6
 
 	// KeyTypeDeviceIdx <int32 id> = string value
-	KeyTypeDeviceIdx = 7
+	KeyTypeDeviceIdx byte = 7
 
 	// KeyTypeIndexID <int32 device ID> <int32 folder ID> = protocol.IndexID
-	KeyTypeIndexID = 8
+	KeyTypeIndexID byte = 8
 
 	// KeyTypeFolderMeta <int32 folder ID> = CountsSet
-	KeyTypeFolderMeta = 9
+	KeyTypeFolderMeta byte = 9
 
 	// KeyTypeMiscData <some string> = some value
-	KeyTypeMiscData = 10
+	KeyTypeMiscData byte = 10
 
 	// KeyTypeSequence <int32 folder ID> <int64 sequence number> = KeyTypeDevice key
-	KeyTypeSequence = 11
+	KeyTypeSequence byte = 11
 
 	// KeyTypeNeed <int32 folder ID> <file name> = <nothing>
-	KeyTypeNeed = 12
+	KeyTypeNeed byte = 12
 
 	// KeyTypeBlockList <block list hash> = BlockList
-	KeyTypeBlockList = 13
+	KeyTypeBlockList byte = 13
+
+	// KeyTypeBlockListMap <int32 folder ID> <block list hash> <file name> = <nothing>
+	KeyTypeBlockListMap byte = 14
+
+	// KeyTypeVersion <version hash> = Vector
+	KeyTypeVersion byte = 15
 )
 
 type keyer interface {
@@ -74,11 +80,12 @@ type keyer interface {
 	// global version key stuff
 	GenerateGlobalVersionKey(key, folder, name []byte) (globalVersionKey, error)
 	NameFromGlobalVersionKey(key []byte) []byte
-	FolderFromGlobalVersionKey(key []byte) ([]byte, bool)
 
 	// block map key stuff (former BlockMap)
 	GenerateBlockMapKey(key, folder, hash, name []byte) (blockMapKey, error)
 	NameFromBlockMapKey(key []byte) []byte
+	GenerateBlockListMapKey(key, folder, hash, name []byte) (blockListMapKey, error)
+	NameFromBlockListMapKey(key []byte) []byte
 
 	// file need index
 	GenerateNeedFileKey(key, folder, name []byte) (needFileKey, error)
@@ -89,7 +96,6 @@ type keyer interface {
 
 	// index IDs
 	GenerateIndexIDKey(key, device, folder []byte) (indexIDKey, error)
-	DeviceFromIndexIDKey(key []byte) ([]byte, bool)
 
 	// Mtimes
 	GenerateMtimesKey(key, folder []byte) (mtimesKey, error)
@@ -99,6 +105,9 @@ type keyer interface {
 
 	// Block lists
 	GenerateBlockListKey(key []byte, hash []byte) blockListKey
+
+	// Version vectors
+	GenerateVersionKey(key []byte, hash []byte) versionKey
 }
 
 // defaultKeyer implements our key scheme. It needs folder and device
@@ -176,10 +185,6 @@ func (k defaultKeyer) NameFromGlobalVersionKey(key []byte) []byte {
 	return key[keyPrefixLen+keyFolderLen:]
 }
 
-func (k defaultKeyer) FolderFromGlobalVersionKey(key []byte) ([]byte, bool) {
-	return k.folderIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
-}
-
 type blockMapKey []byte
 
 func (k defaultKeyer) GenerateBlockMapKey(key, folder, hash, name []byte) (blockMapKey, error) {
@@ -200,6 +205,29 @@ func (k defaultKeyer) NameFromBlockMapKey(key []byte) []byte {
 }
 
 func (k blockMapKey) WithoutHashAndName() []byte {
+	return k[:keyPrefixLen+keyFolderLen]
+}
+
+type blockListMapKey []byte
+
+func (k defaultKeyer) GenerateBlockListMapKey(key, folder, hash, name []byte) (blockListMapKey, error) {
+	folderID, err := k.folderIdx.ID(folder)
+	if err != nil {
+		return nil, err
+	}
+	key = resize(key, keyPrefixLen+keyFolderLen+keyHashLen+len(name))
+	key[0] = KeyTypeBlockListMap
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], folderID)
+	copy(key[keyPrefixLen+keyFolderLen:], hash)
+	copy(key[keyPrefixLen+keyFolderLen+keyHashLen:], name)
+	return key, nil
+}
+
+func (k defaultKeyer) NameFromBlockListMapKey(key []byte) []byte {
+	return key[keyPrefixLen+keyFolderLen+keyHashLen:]
+}
+
+func (k blockListMapKey) WithoutHashAndName() []byte {
 	return k[:keyPrefixLen+keyFolderLen]
 }
 
@@ -261,10 +289,6 @@ func (k defaultKeyer) GenerateIndexIDKey(key, device, folder []byte) (indexIDKey
 	return key, nil
 }
 
-func (k defaultKeyer) DeviceFromIndexIDKey(key []byte) ([]byte, bool) {
-	return k.deviceIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
-}
-
 type mtimesKey []byte
 
 func (k defaultKeyer) GenerateMtimesKey(key, folder []byte) (mtimesKey, error) {
@@ -300,7 +324,20 @@ func (k defaultKeyer) GenerateBlockListKey(key []byte, hash []byte) blockListKey
 	return key
 }
 
-func (k blockListKey) BlocksHash() []byte {
+func (k blockListKey) Hash() []byte {
+	return k[keyPrefixLen:]
+}
+
+type versionKey []byte
+
+func (k defaultKeyer) GenerateVersionKey(key []byte, hash []byte) versionKey {
+	key = resize(key, keyPrefixLen+len(hash))
+	key[0] = KeyTypeVersion
+	copy(key[keyPrefixLen:], hash)
+	return key
+}
+
+func (k versionKey) Hash() []byte {
 	return k[keyPrefixLen:]
 }
 

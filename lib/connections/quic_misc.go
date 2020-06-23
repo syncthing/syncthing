@@ -9,9 +9,11 @@
 package connections
 
 import (
+	"crypto/tls"
 	"net"
 
 	"github.com/lucas-clemente/quic-go"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 var (
@@ -30,7 +32,7 @@ type quicTlsConn struct {
 
 func (q *quicTlsConn) Close() error {
 	sterr := q.Stream.Close()
-	seerr := q.Session.Close()
+	seerr := q.Session.CloseWithError(0, "closing")
 	var pcerr error
 	if q.createdConn != nil {
 		pcerr = q.createdConn.Close()
@@ -44,23 +46,25 @@ func (q *quicTlsConn) Close() error {
 	return pcerr
 }
 
+func (q *quicTlsConn) ConnectionState() tls.ConnectionState {
+	qcs := q.Session.ConnectionState()
+	return tls.ConnectionState{
+		Version:                     qcs.Version,
+		HandshakeComplete:           qcs.HandshakeComplete,
+		DidResume:                   qcs.DidResume,
+		CipherSuite:                 qcs.CipherSuite,
+		NegotiatedProtocol:          qcs.NegotiatedProtocol,
+		NegotiatedProtocolIsMutual:  qcs.NegotiatedProtocolIsMutual,
+		ServerName:                  qcs.ServerName,
+		PeerCertificates:            qcs.PeerCertificates,
+		VerifiedChains:              qcs.VerifiedChains,
+		SignedCertificateTimestamps: qcs.SignedCertificateTimestamps,
+		OCSPResponse:                qcs.OCSPResponse,
+		TLSUnique:                   qcs.TLSUnique,
+	}
+}
+
 // Sort available packet connections by ip address, preferring unspecified local address.
 func packetConnLess(i interface{}, j interface{}) bool {
-	iIsUnspecified := false
-	jIsUnspecified := false
-	iLocalAddr := i.(net.PacketConn).LocalAddr()
-	jLocalAddr := j.(net.PacketConn).LocalAddr()
-
-	if host, _, err := net.SplitHostPort(iLocalAddr.String()); err == nil {
-		iIsUnspecified = host == "" || net.ParseIP(host).IsUnspecified()
-	}
-	if host, _, err := net.SplitHostPort(jLocalAddr.String()); err == nil {
-		jIsUnspecified = host == "" || net.ParseIP(host).IsUnspecified()
-	}
-
-	if jIsUnspecified == iIsUnspecified {
-		return len(iLocalAddr.Network()) < len(jLocalAddr.Network())
-	}
-
-	return iIsUnspecified
+	return util.AddressUnspecifiedLess(i.(net.PacketConn).LocalAddr(), j.(net.PacketConn).LocalAddr())
 }

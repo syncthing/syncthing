@@ -43,6 +43,7 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
@@ -620,6 +621,10 @@ func (s *service) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 		"isBeta":      build.IsBeta,
 		"isCandidate": build.IsCandidate,
 		"isRelease":   build.IsRelease,
+		"date":        build.Date,
+		"tags":        build.Tags,
+		"stamp":       build.Stamp,
+		"user":        build.User,
 	})
 }
 
@@ -1161,15 +1166,16 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 
 	folder := qs.Get("folder")
 
-	ignores, patterns, err := s.model.GetIgnores(folder)
-	if err != nil {
+	lines, patterns, err := s.model.GetIgnores(folder)
+	if err != nil && !ignore.IsParseError(err) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	sendJSON(w, map[string][]string{
-		"ignore":   ignores,
+	sendJSON(w, map[string]interface{}{
+		"ignore":   lines,
 		"expanded": patterns,
+		"error":    errorString(err),
 	})
 }
 
@@ -1267,7 +1273,7 @@ func (s *service) getEventSub(mask events.EventType) events.BufferedSubscription
 
 func (s *service) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 	if s.noUpgrade {
-		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
+		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), http.StatusServiceUnavailable)
 		return
 	}
 	opts := s.cfg.Options()
@@ -1635,7 +1641,7 @@ func (f jsonFileInfoTrunc) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-func fileIntfJSONMap(f db.FileIntf) map[string]interface{} {
+func fileIntfJSONMap(f protocol.FileIntf) map[string]interface{} {
 	out := map[string]interface{}{
 		"name":          f.FileName(),
 		"type":          f.FileType().String(),
@@ -1748,5 +1754,13 @@ func checkExpiry(cert tls.Certificate) error {
 		return errors.New("certificate incompatible with macOS 10.15 (Catalina)")
 	}
 
+	return nil
+}
+
+func errorString(err error) *string {
+	if err != nil {
+		msg := err.Error()
+		return &msg
+	}
 	return nil
 }

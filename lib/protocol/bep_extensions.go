@@ -23,6 +23,31 @@ const (
 	Version13HelloMagic    uint32 = 0x9F79BC40 // old
 )
 
+// FileIntf is the set of methods implemented by both FileInfo and
+// db.FileInfoTruncated.
+type FileIntf interface {
+	FileSize() int64
+	FileName() string
+	FileLocalFlags() uint32
+	IsDeleted() bool
+	IsInvalid() bool
+	IsIgnored() bool
+	IsUnsupported() bool
+	MustRescan() bool
+	IsReceiveOnlyChanged() bool
+	IsDirectory() bool
+	IsSymlink() bool
+	ShouldConflict() bool
+	HasPermissionBits() bool
+	SequenceNo() int64
+	BlockSize() int
+	FileVersion() Vector
+	FileType() FileInfoType
+	FilePermissions() uint32
+	FileModifiedBy() ShortID
+	ModTime() time.Time
+}
+
 func (m Hello) Magic() uint32 {
 	return HelloMessageMagic
 }
@@ -139,7 +164,7 @@ func (f FileInfo) FileModifiedBy() ShortID {
 
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
-func (f FileInfo) WinsConflict(other FileInfo) bool {
+func WinsConflict(f, other FileIntf) bool {
 	// If only one of the files is invalid, that one loses.
 	if f.IsInvalid() != other.IsInvalid() {
 		return !f.IsInvalid()
@@ -164,7 +189,7 @@ func (f FileInfo) WinsConflict(other FileInfo) bool {
 
 	// The modification times were equal. Use the device ID in the version
 	// vector as tie breaker.
-	return f.Version.Compare(other.Version) == ConcurrentGreater
+	return f.FileVersion().Compare(other.FileVersion()) == ConcurrentGreater
 }
 
 func (f FileInfo) IsEmpty() bool {
@@ -342,7 +367,7 @@ func (i *IndexID) Unmarshal(bs []byte) error {
 }
 
 func NewIndexID() IndexID {
-	return IndexID(rand.Int64())
+	return IndexID(rand.Uint64())
 }
 
 func (f Folder) Description() string {
@@ -357,6 +382,19 @@ func BlocksHash(bs []BlockInfo) []byte {
 	h := sha256.New()
 	for _, b := range bs {
 		_, _ = h.Write(b.Hash)
+	}
+	return h.Sum(nil)
+}
+
+func VectorHash(v Vector) []byte {
+	h := sha256.New()
+	for _, c := range v.Counters {
+		if err := binary.Write(h, binary.BigEndian, c.ID); err != nil {
+			panic("impossible: failed to write c.ID to hash function: " + err.Error())
+		}
+		if err := binary.Write(h, binary.BigEndian, c.Value); err != nil {
+			panic("impossible: failed to write c.Value to hash function: " + err.Error())
+		}
 	}
 	return h.Sum(nil)
 }

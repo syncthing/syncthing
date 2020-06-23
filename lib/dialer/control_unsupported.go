@@ -1,10 +1,17 @@
-// Copyright (C) 2014 The Syncthing Authors.
+// Copyright (C) 2019 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate go run ../../script/genassets.go -o gui.files.go ../../gui
+// +build solaris
 
-// Package auto contains auto generated files for web assets.
-package auto
+package dialer
+
+import "syscall"
+
+var SupportsReusePort = false
+
+func ReusePortControl(_, _ string, _ syscall.RawConn) error {
+	return nil
+}

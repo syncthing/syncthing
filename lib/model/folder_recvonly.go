@@ -64,6 +64,12 @@ func newReceiveOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 }
 
 func (f *receiveOnlyFolder) Revert() {
+	f.doInSync(func() error { f.revert(); return nil })
+}
+
+func (f *receiveOnlyFolder) revert() {
+	l.Infof("Reverting folder %v", f.Description)
+
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
 
@@ -81,7 +87,7 @@ func (f *receiveOnlyFolder) Revert() {
 	batchSizeBytes := 0
 	snap := f.fset.Snapshot()
 	defer snap.Release()
-	snap.WithHave(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+	snap.WithHave(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
 		fi := intf.(protocol.FileInfo)
 		if !fi.IsReceiveOnlyChanged() {
 			// We're only interested in files that have changed locally in
@@ -89,6 +95,7 @@ func (f *receiveOnlyFolder) Revert() {
 			return true
 		}
 
+		fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 		if len(fi.Version.Counters) == 1 && fi.Version.Counters[0].ID == f.shortID {
 			// We are the only device mentioned in the version vector so the
 			// file must originate here. A revert then means to delete it.
@@ -113,7 +120,6 @@ func (f *receiveOnlyFolder) Revert() {
 			// either, so we will not create a conflict copy of our local
 			// changes.
 			fi.Version = protocol.Vector{}
-			fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 		}
 
 		batch = append(batch, fi)

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -31,37 +32,84 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 	versionsWithMtime := []string{
 		// 14:00:00 is "now"
 		"test~20160415-140000", // 0 seconds ago
+
 		"test~20160415-135959", // 1 second ago
-		"test~20160415-135958", // 2 seconds ago
-		"test~20160415-135900", // 1 minute ago
-		"test~20160415-135859", // 1 minute 1 second ago
-		"test~20160415-135830", // 1 minute 30 seconds ago
-		"test~20160415-135829", // 1 minute 31 seconds ago
-		"test~20160415-135700", // 3 minutes ago
-		"test~20160415-135630", // 3 minutes 30 seconds ago
-		"test~20160415-133000", // 30 minutes ago
-		"test~20160415-132900", // 31 minutes ago
-		"test~20160415-132500", // 35 minutes ago
-		"test~20160415-132000", // 40 minutes ago
-		"test~20160415-130000", // 60 minutes ago
-		"test~20160415-124000", // 80 minutes ago
-		"test~20160415-122000", // 100 minutes ago
-		"test~20160415-110000", // 120 minutes ago
+		"test~20160415-135931", // 29 seconds ago
+		"test~20160415-135930", // 30 seconds ago
+
+		"test~20160415-130059", // 59 minutes 01 seconds ago
+		"test~20160415-130030", // 59 minutes 30 seconds ago
+
+		"test~20160415-130000", // 1 hour ago
+		"test~20160415-120001", // 1 hour 59:59 ago
+
+		"test~20160414-155959", // 22 hours 1 second ago
+		"test~20160414-150001", // 22 hours 59 seconds ago
+		"test~20160414-150000", // 23 hours ago
+
+		"test~20160414-140000", // 1 day ago
+		"test~20160414-130001", // 1 days 59:59 second ago
+
+		"test~20160409-135959", // 6 days 1 second ago
+		"test~20160408-140001", // 6 days 23:59:59 second ago
+		"test~20160408-140000", // 7 days ago
+
+		"test~20160408-135959", // 7 days 1 second ago
+		"test~20160407-140001", // 7 days 23:59:59 ago
+		"test~20160407-140000", // 8 days ago
+
+		"test~20160317-140000", // 29 days ago
+		"test~20160317-135959", // 29 days 1 second ago
+		"test~20160316-140000", // 30 days ago
+
+		"test~20160308-135959", // 37 days 1 second ago
+		"test~20160301-140000", // 44 days ago
+
+		"test~20160223-140000", // 51 days ago
+
+		"test~20150423-140000", // 358 days ago (!!! 2016 was a leap year !!!)
+
+		"test~20150417-140000", // 364 days ago
+		"test~20150416-140000", // 365 days ago
+
+		// exceeds maxAge
+		"test~20150416-135959", // 365 days 1 second ago
+		"test~20150416-135958", // 365 days 2 seconds ago
+		"test~20150414-140000", // 367 days ago
 	}
 
 	delete := []string{
-		"test~20160415-140000", // 0 seconds ago
 		"test~20160415-135959", // 1 second ago
-		"test~20160415-135900", // 1 minute ago
-		"test~20160415-135830", // 1 minute 30 second ago
-		"test~20160415-130000", // 60 minutes ago
-		"test~20160415-124000", // 80 minutes ago
+		"test~20160415-135931", // 29 seconds ago
+		"test~20160415-130059", // 59 minutes 01 seconds ago
+		"test~20160415-130000", // 1 hour ago
+		"test~20160414-155959", // 22 hours 1 second ago
+		"test~20160414-150001", // 22 hours 59 seconds ago
+		"test~20160414-140000", // 1 day ago
+		"test~20160409-135959", // 6 days 1 second ago
+		"test~20160408-140001", // 6 days 23:59:59 second ago
+		"test~20160408-135959", // 7 days 1 second ago
+		"test~20160407-140001", // 7 days 23:59:59 ago
+		"test~20160317-135959", // 29 days 1 second ago
+		"test~20160308-135959", // 37 days 1 second ago
+		"test~20150417-140000", // 364 days ago
+		"test~20150416-135959", // 365 days 1 second ago
+		"test~20150416-135958", // 365 days 2 seconds ago
+		"test~20150414-140000", // 367 days ago
 	}
 	sort.Strings(delete)
 
-	v := newStaggered(fs.NewFilesystem(fs.FilesystemTypeFake, "testdata"), map[string]string{
-		"maxAge": strconv.Itoa(365 * 86400),
-	}).(*staggered)
+	cfg := config.FolderConfiguration{
+		FilesystemType: fs.FilesystemTypeBasic,
+		Path:           "testdata",
+		Versioning: config.VersioningConfiguration{
+			Params: map[string]string{
+				"maxAge": strconv.Itoa(365 * 86400),
+			},
+		},
+	}
+
+	v := newStaggered(cfg).(*staggered)
 	rem := v.toRemove(versionsWithMtime, now)
 	sort.Strings(rem)
 
@@ -93,11 +141,19 @@ func TestCreateVersionPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	folderCfg := config.FolderConfiguration{
+		ID:   "default",
+		Path: tmpDir,
+		Versioning: config.VersioningConfiguration{
+			Type: "staggered",
+			Params: map[string]string{
+				"versionsPath": versionsDir,
+			},
+		},
+	}
+
 	// Archive the file
-	folderFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
-	versioner := newStaggered(folderFs, map[string]string{
-		"versionsPath": versionsDir,
-	})
+	versioner := newStaggered(folderCfg)
 	if err := versioner.Archive(archiveFile); err != nil {
 		t.Fatal(err)
 	}

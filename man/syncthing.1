@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "Mar 17, 2020" "v1" "Syncthing"
+.TH "SYNCTHING" "1" "Jun 19, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -385,9 +385,9 @@ Windows.
 .TP
 .B STRECHECKDBEVERY
 Time before folder statistics (file, dir, … counts) are recalculated from
-scratch. The given duration must be parseable by GO’s time.ParseDuration. If
+scratch. The given duration must be parseable by Go’s time.ParseDuration. If
 missing or not parseable, the default value of 1 month is used. To force
-recalculation on every startup, set it to \fB0\fP\&.
+recalculation on every startup, set it to \fB1s\fP\&.
 .TP
 .B GOMAXPROCS
 Set the maximum number of CPU cores to use. Defaults to all available CPU

@@ -30,6 +30,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -108,10 +109,7 @@ are mostly useful for developers. Use with care.
  STLOCKTHRESHOLD   Used for debugging internal deadlocks; sets debug
                    sensitivity.  Use only under direction of a developer.
 
- STNORESTART       Equivalent to the -no-restart argument. Disable the
-                   Syncthing monitor process which handles restarts for some
-                   configuration changes, upgrades, crashes and also log file
-                   writing (stdout is still written).
+ STNORESTART       Equivalent to the -no-restart argument.
 
  STNOUPGRADE       Disable automatic upgrades.
 
@@ -147,10 +145,18 @@ The following are valid values for the STTRACE variable:
 
 var (
 	// Environment options
-	innerProcess    = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
+	innerProcess    = os.Getenv("STMONITORED") != ""
 	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
 
-	errConcurrentUpgrade = errors.New("upgrade prevented by other running Syncthing instance")
+	upgradeCheckInterval = 5 * time.Minute
+	upgradeRetryInterval = time.Hour
+	upgradeCheckKey      = "lastUpgradeCheck"
+	upgradeTimeKey       = "lastUpgradeTime"
+	upgradeVersionKey    = "lastUpgradeVersion"
+
+	errConcurrentUpgrade    = errors.New("upgrade prevented by other running Syncthing instance")
+	errTooEarlyUpgradeCheck = fmt.Errorf("last upgrade check happened less than %v ago, skipping", upgradeCheckInterval)
+	errTooEarlyUpgrade      = fmt.Errorf("last upgrade happened less than %v ago, skipping", upgradeRetryInterval)
 )
 
 type RuntimeOptions struct {
@@ -230,7 +236,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.IntVar(&options.logFlags, "logflags", options.logFlags, "Select information in log line prefix (see below)")
 	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
-	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Disable monitor process, managed restarts and log file writing")
+	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash")
 	flag.BoolVar(&options.resetDatabase, "reset-database", false, "Reset the database, forcing a full rescan and resync")
 	flag.BoolVar(&options.ResetDeltaIdxs, "reset-deltas", false, "Reset delta index IDs, forcing a full index exchange")
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
@@ -402,7 +408,14 @@ func main() {
 	if options.doUpgrade {
 		release, err := checkUpgrade()
 		if err == nil {
-			err = performUpgrade(release)
+			// Use leveldb database locks to protect against concurrent upgrades
+			ldb, err := syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto)
+			if err != nil {
+				err = upgradeViaRest()
+			} else {
+				_ = ldb.Close()
+				err = upgrade.To(release)
+			}
 		}
 		if err != nil {
 			l.Warnln("Upgrade:", err)
@@ -509,12 +522,15 @@ type errNoUpgrade struct {
 	current, latest string
 }
 
-func (e errNoUpgrade) Error() string {
+func (e *errNoUpgrade) Error() string {
 	return fmt.Sprintf("no upgrade available (current %q >= latest %q).", e.current, e.latest)
 }
 
 func checkUpgrade() (upgrade.Release, error) {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	if err != nil {
+		return upgrade.Release{}, err
+	}
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 	if err != nil {
@@ -522,30 +538,11 @@ func checkUpgrade() (upgrade.Release, error) {
 	}
 
 	if upgrade.CompareVersions(release.Tag, build.Version) <= 0 {
-		return upgrade.Release{}, errNoUpgrade{build.Version, release.Tag}
+		return upgrade.Release{}, &errNoUpgrade{build.Version, release.Tag}
 	}
 
 	l.Infof("Upgrade available (current %q < latest %q)", build.Version, release.Tag)
 	return release, nil
-}
-
-func performUpgradeDirect(release upgrade.Release) error {
-	// Use leveldb database locks to protect against concurrent upgrades
-	if _, err := syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto); err != nil {
-		return errConcurrentUpgrade
-	}
-	return upgrade.To(release)
-}
-
-func performUpgrade(release upgrade.Release) error {
-	if err := performUpgradeDirect(release); err != nil {
-		if err != errConcurrentUpgrade {
-			return err
-		}
-		l.Infoln("Attempting upgrade through running Syncthing...")
-		return upgradeViaRest()
-	}
-	return nil
 }
 
 func upgradeViaRest() error {
@@ -630,25 +627,33 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// not, as otherwise they cannot step off the candidate channel.
 	}
 
+	dbFile := locations.Get(locations.Database)
+	ldb, err := syncthing.OpenDBBackend(dbFile, cfg.Options().DatabaseTuning)
+	if err != nil {
+		l.Warnln("Error opening database:", err)
+		os.Exit(1)
+	}
+
 	// Check if auto-upgrades should be done and if yes, do an initial
 	// upgrade immedately. The auto-upgrade routine can only be started
 	// later after App is initialised.
 
 	shouldAutoUpgrade := shouldUpgrade(cfg, runtimeOptions)
 	if shouldAutoUpgrade {
-		// Try to do upgrade directly
-		release, err := checkUpgrade()
+		// try to do upgrade directly and log the error if relevant.
+		release, err := initialAutoUpgradeCheck(db.NewMiscDataNamespace(ldb))
 		if err == nil {
-			if err = performUpgradeDirect(release); err == nil {
-				l.Infof("Upgraded to %q, exiting now.", release.Tag)
-				os.Exit(syncthing.ExitUpgrade.AsInt())
-			}
+			err = upgrade.To(release)
 		}
-		// Log the error if relevant.
 		if err != nil {
-			if _, ok := err.(errNoUpgrade); !ok {
+			if _, ok := err.(*errNoUpgrade); ok || err == errTooEarlyUpgradeCheck || err == errTooEarlyUpgrade {
+				l.Debugln("Initial automatic upgrade:", err)
+			} else {
 				l.Infoln("Initial automatic upgrade:", err)
 			}
+		} else {
+			l.Infof("Upgraded to %q, exiting now.", release.Tag)
+			os.Exit(syncthing.ExitUpgrade.AsInt())
 		}
 	}
 
@@ -658,13 +663,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		setPauseState(cfg, true)
 	}
 
-	dbFile := locations.Get(locations.Database)
-	ldb, err := syncthing.OpenDBBackend(dbFile, cfg.Options().DatabaseTuning)
-	if err != nil {
-		l.Warnln("Error opening database:", err)
-		os.Exit(1)
-	}
-
 	appOpts := runtimeOptions.Options
 	if runtimeOptions.auditEnabled {
 		appOpts.AuditWriter = auditWriter(runtimeOptions.auditFile)
@@ -672,6 +670,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
 		secs, _ := strconv.Atoi(t)
 		appOpts.DeadlockTimeoutS = secs
+	}
+	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
+		appOpts.DBRecheckInterval = dur
+	}
+	if dur, err := time.ParseDuration(os.Getenv("STGCINDIRECTEVERY")); err == nil {
+		appOpts.DBIndirectGCInterval = dur
 	}
 
 	app := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
@@ -838,7 +842,7 @@ func shouldUpgrade(cfg config.Wrapper, runtimeOptions RuntimeOptions) bool {
 	if upgrade.DisabledByCompilation {
 		return false
 	}
-	if opts := cfg.Options(); opts.AutoUpgradeIntervalH < 0 {
+	if !cfg.Options().ShouldAutoUpgrade() {
 		return false
 	}
 	if runtimeOptions.NoUpgrade {
@@ -849,7 +853,7 @@ func shouldUpgrade(cfg config.Wrapper, runtimeOptions RuntimeOptions) bool {
 }
 
 func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger) {
-	timer := time.NewTimer(0)
+	timer := time.NewTimer(upgradeCheckInterval)
 	sub := evLogger.Subscribe(events.DeviceConnected)
 	for {
 		select {
@@ -902,6 +906,26 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 		app.Stop(syncthing.ExitUpgrade)
 		return
 	}
+}
+
+func initialAutoUpgradeCheck(misc *db.NamespacedKV) (upgrade.Release, error) {
+	if last, ok, err := misc.Time(upgradeCheckKey); err == nil && ok && time.Since(last) < upgradeCheckInterval {
+		return upgrade.Release{}, errTooEarlyUpgradeCheck
+	}
+	_ = misc.PutTime(upgradeCheckKey, time.Now())
+	release, err := checkUpgrade()
+	if err != nil {
+		return upgrade.Release{}, err
+	}
+	if lastVersion, ok, err := misc.String(upgradeVersionKey); err == nil && ok && lastVersion == release.Tag {
+		// Only check time if we try to upgrade to the same release.
+		if lastTime, ok, err := misc.Time(upgradeTimeKey); err == nil && ok && time.Since(lastTime) < upgradeRetryInterval {
+			return upgrade.Release{}, errTooEarlyUpgrade
+		}
+	}
+	_ = misc.PutString(upgradeVersionKey, release.Tag)
+	_ = misc.PutTime(upgradeTimeKey, time.Now())
+	return release, nil
 }
 
 // cleanConfigDirectory removes old, unused configuration and index formats, a
@@ -972,7 +996,7 @@ func setPauseState(cfg config.Wrapper, paused bool) {
 }
 
 func exitCodeForUpgrade(err error) int {
-	if _, ok := err.(errNoUpgrade); ok {
+	if _, ok := err.(*errNoUpgrade); ok {
 		return syncthing.ExitNoUpgradeAvailable.AsInt()
 	}
 	return syncthing.ExitError.AsInt()

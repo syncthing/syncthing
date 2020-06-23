@@ -107,10 +107,10 @@ func main() {
 		connectToStdio(stdin, conn)
 		log.Println("Finished", conn.RemoteAddr(), conn.LocalAddr())
 	} else if test {
-		if client.TestRelay(ctx, uri, []tls.Certificate{cert}, time.Second, 2*time.Second, 4) {
+		if err := client.TestRelay(ctx, uri, []tls.Certificate{cert}, time.Second, 2*time.Second, 4); err == nil {
 			log.Println("OK")
 		} else {
-			log.Println("FAIL")
+			log.Println("FAIL:", err)
 		}
 	} else {
 		log.Fatal("Requires either join or connect")

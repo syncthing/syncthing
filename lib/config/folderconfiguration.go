@@ -57,6 +57,10 @@ type FolderConfiguration struct {
 	MarkerName              string                      `xml:"markerName" json:"markerName"`
 	CopyOwnershipFromParent bool                        `xml:"copyOwnershipFromParent" json:"copyOwnershipFromParent"`
 	RawModTimeWindowS       int                         `xml:"modTimeWindowS" json:"modTimeWindowS"`
+	MaxConcurrentWrites     int                         `xml:"maxConcurrentWrites" json:"maxConcurrentWrites" default:"2"`
+	DisableFsync            bool                        `xml:"disableFsync" json:"disableFsync"`
+	BlockPullOrder          BlockPullOrder              `xml:"blockPullOrder" json:"blockPullOrder"`
+	CopyRangeMethod         fs.CopyRangeMethod          `xml:"copyRangeMethod" json:"copyRangeMethod" default:"standard"`
 
 	cachedFilesystem    fs.Filesystem
 	cachedModTimeWindow time.Duration

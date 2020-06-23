@@ -10,8 +10,11 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	// "testing"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
+	// "github.com/syncthing/syncthing/lib/fs"
+	// "github.com/syncthing/syncthing/lib/protocol"
 )
 
 // writeJSONS serializes the database to a JSON stream that can be checked
@@ -113,4 +116,35 @@ func openJSONS(file string) (backend.Backend, error) {
 // 		fs.Update(devID, files)
 // 	}
 // 	writeJSONS(os.Stdout, db.DB)
+// }
+
+// func TestGenerateUpdateTo10(t *testing.T) {
+// 	db := NewLowlevel(backend.OpenMemory())
+// 	defer db.Close()
+
+// 	if err := UpdateSchema(db); err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+
+// 	files := []protocol.FileInfo{
+// 		{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Deleted: true, Sequence: 1},
+// 		{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2), Sequence: 2},
+// 		{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Deleted: true, Sequence: 3},
+// 	}
+// 	fs.Update(protocol.LocalDeviceID, files)
+// 	files[1].Version = files[1].Version.Update(remoteDevice0.Short())
+// 	files[1].Deleted = true
+// 	files[2].Version = files[2].Version.Update(remoteDevice0.Short())
+// 	files[2].Blocks = genBlocks(1)
+// 	files[2].Deleted = false
+// 	fs.Update(remoteDevice0, files)
+
+// 	fd, err := os.Create("./testdata/v1.4.0-updateTo10.json")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	defer fd.Close()
+// 	writeJSONS(fd, db)
 // }

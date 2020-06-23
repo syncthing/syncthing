@@ -7,7 +7,12 @@
 package backend
 
 import (
+	"os"
+	"strings"
 	"sync"
+	"time"
+
+	"github.com/syncthing/syncthing/lib/locations"
 )
 
 // The Reader interface specifies the read-only operations available on the
@@ -118,39 +123,43 @@ const (
 )
 
 func Open(path string, tuning Tuning) (Backend, error) {
+	if os.Getenv("USE_BADGER") != "" {
+		l.Warnln("Using experimental badger db")
+		if err := maybeCopyDatabase(path, strings.Replace(path, locations.BadgerDir, locations.LevelDBDir, 1), OpenBadger, OpenLevelDBRO); err != nil {
+			return nil, err
+		}
+		return OpenBadger(path)
+	}
+
+	if err := maybeCopyDatabase(path, strings.Replace(path, locations.LevelDBDir, locations.BadgerDir, 1), OpenLevelDBAuto, OpenBadger); err != nil {
+		return nil, err
+	}
 	return OpenLevelDB(path, tuning)
 }
 
 func OpenMemory() Backend {
+	if os.Getenv("USE_BADGER") != "" {
+		return OpenBadgerMemory()
+	}
 	return OpenLevelDBMemory()
 }
 
 type errClosed struct{}
 
-func (errClosed) Error() string { return "database is closed" }
+func (*errClosed) Error() string { return "database is closed" }
 
 type errNotFound struct{}
 
-func (errNotFound) Error() string { return "key not found" }
+func (*errNotFound) Error() string { return "key not found" }
 
 func IsClosed(err error) bool {
-	if _, ok := err.(errClosed); ok {
-		return true
-	}
-	if _, ok := err.(*errClosed); ok {
-		return true
-	}
-	return false
+	_, ok := err.(*errClosed)
+	return ok
 }
 
 func IsNotFound(err error) bool {
-	if _, ok := err.(errNotFound); ok {
-		return true
-	}
-	if _, ok := err.(*errNotFound); ok {
-		return true
-	}
-	return false
+	_, ok := err.(*errNotFound)
+	return ok
 }
 
 // releaser manages counting on top of a waitgroup
@@ -190,7 +199,7 @@ func (cg *closeWaitGroup) Add(i int) error {
 	cg.closeMut.RLock()
 	defer cg.closeMut.RUnlock()
 	if cg.closed {
-		return errClosed{}
+		return &errClosed{}
 	}
 	cg.WaitGroup.Add(i)
 	return nil
@@ -201,4 +210,71 @@ func (cg *closeWaitGroup) CloseWait() {
 	cg.closed = true
 	cg.closeMut.Unlock()
 	cg.WaitGroup.Wait()
+}
+
+type opener func(path string) (Backend, error)
+
+// maybeCopyDatabase copies the database if the destination doesn't exist
+// but the source does.
+func maybeCopyDatabase(toPath, fromPath string, toOpen, fromOpen opener) error {
+	if _, err := os.Lstat(toPath); !os.IsNotExist(err) {
+		// Destination database exists (or is otherwise unavailable), do not
+		// attempt to overwrite it.
+		return nil
+	}
+
+	if _, err := os.Lstat(fromPath); err != nil {
+		// Source database is not available, so nothing to copy
+		return nil
+	}
+
+	fromDB, err := fromOpen(fromPath)
+	if err != nil {
+		return err
+	}
+	defer fromDB.Close()
+
+	toDB, err := toOpen(toPath)
+	if err != nil {
+		// That's odd, but it will be handled & reported in the usual path
+		// so we can ignore it here.
+		return err
+	}
+	defer toDB.Close()
+
+	l.Infoln("Copying database for format conversion...")
+	if err := copyBackend(toDB, fromDB); err != nil {
+		return err
+	}
+
+	// Move the old database out of the way to mark it as migrated.
+	fromDB.Close()
+	_ = os.Rename(fromPath, fromPath+".migrated."+time.Now().Format("20060102150405"))
+	return nil
+}
+
+func copyBackend(to, from Backend) error {
+	srcIt, err := from.NewPrefixIterator(nil)
+	if err != nil {
+		return err
+	}
+	defer srcIt.Release()
+
+	dstTx, err := to.NewWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer dstTx.Release()
+
+	for srcIt.Next() {
+		if err := dstTx.Put(srcIt.Key(), srcIt.Value()); err != nil {
+			return err
+		}
+	}
+	if srcIt.Error() != nil {
+		return err
+	}
+	srcIt.Release()
+
+	return dstTx.Commit()
 }

@@ -12,11 +12,13 @@ import (
 	"crypto/rand"
 	"fmt"
 	origAdler32 "hash/adler32"
+	mrand "math/rand"
 	"testing"
 	"testing/quick"
 
 	rollingAdler32 "github.com/chmduquesne/rollinghash/adler32"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 var blocksTestData = []struct {
@@ -163,5 +165,45 @@ func TestAdler32Variants(t *testing.T) {
 			}
 		}
 		hf3.Roll(data[i])
+	}
+}
+
+func BenchmarkValidate(b *testing.B) {
+	type block struct {
+		data     []byte
+		hash     [sha256.Size]byte
+		weakhash uint32
+	}
+	var blocks []block
+	const blocksPerType = 100
+
+	r := mrand.New(mrand.NewSource(0x136bea689e851))
+
+	// Valid blocks.
+	for i := 0; i < blocksPerType; i++ {
+		var b block
+		b.data = make([]byte, 128<<10)
+		r.Read(b.data[:])
+		b.hash = sha256.Sum256(b.data[:])
+		b.weakhash = origAdler32.Checksum(b.data[:])
+		blocks = append(blocks, b)
+	}
+	// Blocks where the hash matches, but the weakhash doesn't.
+	for i := 0; i < blocksPerType; i++ {
+		var b block
+		b.data = make([]byte, 128<<10)
+		r.Read(b.data[:])
+		b.hash = sha256.Sum256(b.data[:])
+		b.weakhash = 1 // Zeros causes Validate to skip the weakhash.
+		blocks = append(blocks, b)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for _, b := range blocks {
+			Validate(b.data[:], b.hash[:], b.weakhash)
+		}
 	}
 }

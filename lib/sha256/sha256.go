@@ -26,6 +26,7 @@ const (
 	benchmarkingDuration   = 150 * time.Millisecond
 	defaultImpl            = "crypto/sha256"
 	minioImpl              = "minio/sha256-simd"
+	Size                   = cryptoSha256.Size
 )
 
 // May be switched out for another implementation

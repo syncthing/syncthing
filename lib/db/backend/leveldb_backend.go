@@ -13,10 +13,17 @@ import (
 )
 
 const (
-	// Never flush transactions smaller than this, even on Checkpoint()
-	dbFlushBatchMin = 1 << MiB
-	// Once a transaction reaches this size, flush it unconditionally.
-	dbFlushBatchMax = 128 << MiB
+	// Never flush transactions smaller than this, even on Checkpoint().
+	// This just needs to be just large enough to avoid flushing
+	// transactions when they are super tiny, thus creating millions of tiny
+	// transactions unnecessarily.
+	dbFlushBatchMin = 64 << KiB
+	// Once a transaction reaches this size, flush it unconditionally. This
+	// should be large enough to avoid forcing a flush between Checkpoint()
+	// calls in loops where we do those, so in principle just large enough
+	// to hold a FileInfo plus corresponding version list and metadata
+	// updates or two.
+	dbFlushBatchMax = 1 << MiB
 )
 
 // leveldbBackend implements Backend on top of a leveldb
@@ -200,14 +207,11 @@ func (it *leveldbIterator) Error() error {
 
 // wrapLeveldbErr wraps errors so that the backend package can recognize them
 func wrapLeveldbErr(err error) error {
-	if err == nil {
-		return nil
-	}
 	if err == leveldb.ErrClosed {
-		return errClosed{}
+		return &errClosed{}
 	}
 	if err == leveldb.ErrNotFound {
-		return errNotFound{}
+		return &errNotFound{}
 	}
 	return err
 }
