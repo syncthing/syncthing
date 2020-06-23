@@ -1518,8 +1518,6 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		// handle that.
 
 		if err := f.scanIfItemChanged(file.Name, stat, curFile, hasCurFile, scanChan); err != nil {
-			err = errors.Wrap(err, "handling file")
-			f.newPullError(file.Name, err)
 			return err
 		}
 
