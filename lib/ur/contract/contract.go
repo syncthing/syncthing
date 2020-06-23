@@ -379,6 +379,8 @@ func (r Report) Value() (driver.Value, error) {
 }
 
 func (r *Report) Scan(value interface{}) error {
+	// Zero out the previous value
+	*r = Report{}
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.New("type assertion to []byte failed")
