@@ -21,10 +21,12 @@ import (
 
 func migrate(db *sql.DB) error {
 	var count uint64
+	log.Println("Checking old table row count, this might take a while...")
 	if err := db.QueryRow(`SELECT COUNT(1) FROM Reports`).Scan(&count); err != nil || count == 0 {
 		// err != nil most likely means table does not exist.
 		return nil
 	}
+	log.Printf("Found %d records, will perform migration.", count)
 
 	tx, err := db.Begin()
 	if err != nil {

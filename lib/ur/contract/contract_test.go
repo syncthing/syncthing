@@ -12,8 +12,8 @@ import (
 )
 
 type PtrStruct struct {
-	A string `since:"2"`
-	B IntMap `since:"3"`
+	A string         `since:"2"`
+	B map[string]int `since:"3"`
 }
 
 type Nested struct {
