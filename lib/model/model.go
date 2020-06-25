@@ -1525,7 +1525,7 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, size in
 
 	if !scanner.Validate(res.data, hash, weakHash) {
 		m.recheckFile(deviceID, folder, name, offset, hash)
-		l.Debugf("%v REQ(in) failed validating data (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
 	}
 
