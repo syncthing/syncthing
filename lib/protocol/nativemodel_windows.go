@@ -7,6 +7,7 @@ package protocol
 // Windows uses backslashes as file separator
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 )
