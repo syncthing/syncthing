@@ -27,9 +27,10 @@ import (
 //   8-9: v1.4.0
 //   10-11: v1.6.0
 //   12-13: v1.7.0
+//   14: v1.8.0
 const (
-	dbVersion             = 13
-	dbMinSyncthingVersion = "v1.7.0"
+	dbVersion             = 14
+	dbMinSyncthingVersion = "v1.8.0"
 )
 
 var errFolderMissing = errors.New("folder present in global list but missing in keyer index")
@@ -95,6 +96,7 @@ func (db *schemaUpdater) updateSchema() error {
 		{10, db.updateSchemaTo10},
 		{11, db.updateSchemaTo11},
 		{13, db.updateSchemaTo13},
+		{14, db.updateSchemaTo14},
 	}
 
 	for _, m := range migrations {
@@ -678,6 +680,69 @@ func (db *schemaUpdater) updateSchemaTo13(prev int) error {
 
 	if err := db.rewriteGlobals(t); err != nil {
 		return err
+	}
+
+	return t.Commit()
+}
+
+func (db *schemaUpdater) updateSchemaTo14(_ int) error {
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	dbi, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
+	if err != nil {
+		return err
+	}
+	defer dbi.Release()
+
+	var key, folder, name []byte
+	var ok bool
+	for dbi.Next() {
+		fi, err := t.unmarshalTrunc(dbi.Value(), false)
+		if err != nil {
+			return err
+		}
+		f := fi.(protocol.FileInfo)
+		if len(f.Blocks) == 0 {
+			continue
+		}
+
+		// Remove old BlockList and BlockListMap
+		key = t.keyer.GenerateBlockListKey(key, f.BlocksHash)
+		if err = t.Delete(key); err != nil && !backend.IsNotFound(err) {
+			return err
+		}
+		folder, ok = t.keyer.FolderFromDeviceFileKey(dbi.Key())
+		if !ok {
+			// Weird, but whatever
+			if err = t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
+				return err
+			}
+			continue
+		}
+		name = t.keyer.NameFromDeviceFileKey(dbi.Key())
+		key, err = db.keyer.GenerateBlockMapKey(key, folder, f.BlocksHash, name)
+		if err != nil {
+			return err
+		}
+		if err = t.Delete(key); err != nil && !backend.IsNotFound(err) {
+			return err
+		}
+
+		// Insert new file (takes care of BlockList too) and BlockListMap
+		key, err = db.keyer.GenerateBlockMapKey(key, folder, protocol.BlocksHash(f.Blocks), name)
+		if err != nil {
+			return err
+		}
+		if err = t.Put(key, nil); err != nil {
+			return err
+		}
+		if err = t.putFile(dbi.Key(), f, false); err != nil {
+			return err
+		}
 	}
 
 	return t.Commit()
