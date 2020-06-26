@@ -703,6 +703,12 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 	for dbi.Next() {
 		fi, err := t.unmarshalTrunc(dbi.Value(), false)
 		if err != nil {
+			if backend.IsNotFound(err) {
+				if err = t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
+					return err
+				}
+				continue
+			}
 			return err
 		}
 		f := fi.(protocol.FileInfo)
@@ -717,7 +723,6 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 		}
 		folder, ok = t.keyer.FolderFromDeviceFileKey(dbi.Key())
 		if !ok {
-			// Weird, but whatever
 			if err = t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
 				return err
 			}
