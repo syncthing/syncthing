@@ -729,7 +729,7 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 			continue
 		}
 		name = t.keyer.NameFromDeviceFileKey(dbi.Key())
-		key, err = db.keyer.GenerateBlockMapKey(key, folder, f.BlocksHash, name)
+		key, err = db.keyer.GenerateBlockListMapKey(key, folder, f.BlocksHash, name)
 		if err != nil {
 			return err
 		}
@@ -738,7 +738,7 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 		}
 
 		// Insert new file (takes care of BlockList too) and BlockListMap
-		key, err = db.keyer.GenerateBlockMapKey(key, folder, protocol.BlocksHash(f.Blocks), name)
+		key, err = db.keyer.GenerateBlockListMapKey(key, folder, protocol.BlocksHash(f.Blocks), name)
 		if err != nil {
 			return err
 		}
