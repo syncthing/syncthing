@@ -745,6 +745,11 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 		}
 	}
 
+	dbi.Release()
+	if err != dbi.Error() {
+		return err
+	}
+
 	return t.Commit()
 }
 
