@@ -716,6 +716,11 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 			continue
 		}
 
+		newBlocksHash := protocol.BlocksHash(f.Blocks)
+		if bytes.Equal(newBlocksHash, f.BlocksHash) {
+			continue
+		}
+
 		// Remove old BlockList and BlockListMap
 		key = t.keyer.GenerateBlockListKey(key, f.BlocksHash)
 		if err = t.Delete(key); err != nil && !backend.IsNotFound(err) {
@@ -738,7 +743,7 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 		}
 
 		// Insert new file (takes care of BlockList too) and BlockListMap
-		key, err = db.keyer.GenerateBlockListMapKey(key, folder, protocol.BlocksHash(f.Blocks), name)
+		key, err = db.keyer.GenerateBlockListMapKey(key, folder, newBlocksHash, name)
 		if err != nil {
 			return err
 		}
