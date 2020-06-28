@@ -201,7 +201,7 @@ func (c *staticClient) join() error {
 	switch msg := message.(type) {
 	case protocol.Response:
 		if msg.Code != 0 {
-			return incorrectResponseCodeErr{msg.Code, msg.Message}
+			return &incorrectResponseCodeErr{msg.Code, msg.Message}
 		}
 
 	case protocol.RelayFull:

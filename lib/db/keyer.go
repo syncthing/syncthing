@@ -22,58 +22,58 @@ const (
 
 const (
 	// KeyTypeDevice <int32 folder ID> <int32 device ID> <file name> = FileInfo
-	KeyTypeDevice = 0
+	KeyTypeDevice byte = 0
 
 	// KeyTypeGlobal <int32 folder ID> <file name> = VersionList
-	KeyTypeGlobal = 1
+	KeyTypeGlobal byte = 1
 
 	// KeyTypeBlock <int32 folder ID> <32 bytes hash> <§file name> = int32 (block index)
-	KeyTypeBlock = 2
+	KeyTypeBlock byte = 2
 
 	// KeyTypeDeviceStatistic <device ID as string> <some string> = some value
-	KeyTypeDeviceStatistic = 3
+	KeyTypeDeviceStatistic byte = 3
 
 	// KeyTypeFolderStatistic <folder ID as string> <some string> = some value
-	KeyTypeFolderStatistic = 4
+	KeyTypeFolderStatistic byte = 4
 
 	// KeyTypeVirtualMtime <int32 folder ID> <file name> = dbMtime
-	KeyTypeVirtualMtime = 5
+	KeyTypeVirtualMtime byte = 5
 
 	// KeyTypeFolderIdx <int32 id> = string value
-	KeyTypeFolderIdx = 6
+	KeyTypeFolderIdx byte = 6
 
 	// KeyTypeDeviceIdx <int32 id> = string value
-	KeyTypeDeviceIdx = 7
+	KeyTypeDeviceIdx byte = 7
 
 	// KeyTypeIndexID <int32 device ID> <int32 folder ID> = protocol.IndexID
-	KeyTypeIndexID = 8
+	KeyTypeIndexID byte = 8
 
 	// KeyTypeFolderMeta <int32 folder ID> = CountsSet
-	KeyTypeFolderMeta = 9
+	KeyTypeFolderMeta byte = 9
 
 	// KeyTypeMiscData <some string> = some value
-	KeyTypeMiscData = 10
+	KeyTypeMiscData byte = 10
 
 	// KeyTypeSequence <int32 folder ID> <int64 sequence number> = KeyTypeDevice key
-	KeyTypeSequence = 11
+	KeyTypeSequence byte = 11
 
 	// KeyTypeNeed <int32 folder ID> <file name> = <nothing>
-	KeyTypeNeed = 12
+	KeyTypeNeed byte = 12
 
 	// KeyTypeBlockList <block list hash> = BlockList
-	KeyTypeBlockList = 13
+	KeyTypeBlockList byte = 13
 
 	// KeyTypeBlockListMap <int32 folder ID> <block list hash> <file name> = <nothing>
-	KeyTypeBlockListMap = 14
+	KeyTypeBlockListMap byte = 14
 
 	// KeyTypeVersion <version hash> = Vector
-	KeyTypeVersion = 15
+	KeyTypeVersion byte = 15
 
 	// KeyTypePendingFolder <int32 device ID> <folder ID as string> = ObservedFolder
-	KeyTypePendingFolder = 16
+	KeyTypePendingFolder byte = 16
 
 	// KeyTypePendingDevice <device ID in wire format> = ObservedDevice
-	KeyTypePendingDevice = 17
+	KeyTypePendingDevice byte = 17
 )
 
 type keyer interface {

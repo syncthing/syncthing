@@ -111,7 +111,7 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 		loader.LockWithVersion(version.tag)
 	} else {
 		// Last resort
-		loader.LockWithVersion("master")
+		loader.LockWithVersion("main")
 	}
 	defer loader.Unlock()
 

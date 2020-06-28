@@ -19,7 +19,7 @@ type TraversesSymlinkError struct {
 	path string
 }
 
-func (e TraversesSymlinkError) Error() string {
+func (e *TraversesSymlinkError) Error() string {
 	return fmt.Sprintf("traverses symlink: %s", e.path)
 }
 
@@ -28,7 +28,7 @@ type NotADirectoryError struct {
 	path string
 }
 
-func (e NotADirectoryError) Error() string {
+func (e *NotADirectoryError) Error() string {
 	return fmt.Sprintf("not a directory: %s", e.path)
 }
 

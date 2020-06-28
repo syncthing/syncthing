@@ -33,11 +33,7 @@ func repeatedDeviceID(v byte) (d DeviceID) {
 
 // NewDeviceID generates a new device ID from the raw bytes of a certificate
 func NewDeviceID(rawCert []byte) DeviceID {
-	var n DeviceID
-	hf := sha256.New()
-	hf.Write(rawCert)
-	hf.Sum(n[:0])
-	return n
+	return DeviceID(sha256.Sum256(rawCert))
 }
 
 func DeviceIDFromString(s string) (DeviceID, error) {

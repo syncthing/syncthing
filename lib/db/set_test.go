@@ -135,6 +135,12 @@ func setSequence(seq int64, files fileList) int64 {
 	return seq
 }
 
+func setBlocksHash(files fileList) {
+	for i, f := range files {
+		files[i].BlocksHash = protocol.BlocksHash(f.Blocks)
+	}
+}
+
 func TestGlobalSet(t *testing.T) {
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	defer ldb.Close()
@@ -149,6 +155,7 @@ func TestGlobalSet(t *testing.T) {
 		protocol.FileInfo{Name: "z", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(8)},
 	}
 	localSeq := setSequence(0, local0)
+	setBlocksHash(local0)
 	local1 := fileList{
 		protocol.FileInfo{Name: "a", Sequence: 6, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
 		protocol.FileInfo{Name: "b", Sequence: 7, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2)},
@@ -157,6 +164,7 @@ func TestGlobalSet(t *testing.T) {
 		protocol.FileInfo{Name: "z", Sequence: 10, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Deleted: true},
 	}
 	setSequence(localSeq, local1)
+	setBlocksHash(local1)
 	localTot := fileList{
 		local1[0],
 		local1[1],
@@ -171,11 +179,13 @@ func TestGlobalSet(t *testing.T) {
 		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(5)},
 	}
 	remoteSeq := setSequence(0, remote0)
+	setBlocksHash(remote0)
 	remote1 := fileList{
 		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(6)},
 		protocol.FileInfo{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(7)},
 	}
 	setSequence(remoteSeq, remote1)
+	setBlocksHash(remote1)
 	remoteTot := fileList{
 		remote0[0],
 		remote1[0],
@@ -1668,6 +1678,32 @@ func TestNeedRemoteOnly(t *testing.T) {
 	need := needSize(s, remoteDevice0)
 	if !need.Equal(db.Counts{}) {
 		t.Error("Expected nothing needed, got", need)
+	}
+}
+
+// https://github.com/syncthing/syncthing/issues/6784
+func TestNeedRemoteAfterReset(t *testing.T) {
+	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
+
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+
+	files := fileList{
+		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
+	}
+	s.Update(protocol.LocalDeviceID, files)
+	s.Update(remoteDevice0, files)
+
+	need := needSize(s, remoteDevice0)
+	if !need.Equal(db.Counts{}) {
+		t.Error("Expected nothing needed, got", need)
+	}
+
+	s.Drop(remoteDevice0)
+
+	need = needSize(s, remoteDevice0)
+	if exp := (db.Counts{Files: 1}); !need.Equal(exp) {
+		t.Errorf("Expected %v, got %v", exp, need)
 	}
 }
 

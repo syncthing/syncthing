@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 
 	"github.com/thejerf/suture"
@@ -330,7 +331,7 @@ func (f *folder) pull() (success bool) {
 
 	// Pulling failed, try again later.
 	delay := f.pullPause + time.Since(startTime)
-	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), delay.Truncate(time.Second))
+	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), util.NiceDurationString(delay))
 	f.pullFailTimer.Reset(delay)
 	return false
 }
@@ -360,6 +361,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}()
 
 	f.setState(FolderScanWaiting)
+	defer f.setState(FolderIdle)
 
 	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
 		return err
@@ -394,8 +396,12 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 	f.setState(FolderScanning)
 
+	// If we return early e.g. due to a folder health error, the scan needs
+	// to be cancelled.
+	scanCtx, scanCancel := context.WithCancel(f.ctx)
+	defer scanCancel()
 	mtimefs := f.fset.MtimeFS()
-	fchan := scanner.Walk(f.ctx, scanner.Config{
+	fchan := scanner.Walk(scanCtx, scanner.Config{
 		Folder:                f.ID,
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
@@ -412,38 +418,39 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		EventLogger:           f.evLogger,
 	})
 
-	batchFn := func(fs []protocol.FileInfo) error {
+	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := f.getHealthErrorWithoutIgnores(); err != nil {
 			l.Debugf("Stopping scan of folder %s due to: %s", f.Description(), err)
 			return err
 		}
 		f.updateLocalsFromScanning(fs)
 		return nil
-	}
+	})
+
+	var batchAppend func(protocol.FileInfo, *db.Snapshot)
 	// Resolve items which are identical with the global state.
-	if f.localFlags&protocol.FlagLocalReceiveOnly != 0 {
-		oldBatchFn := batchFn // can't reference batchFn directly (recursion)
-		batchFn = func(fs []protocol.FileInfo) error {
-			for i := range fs {
-				switch gf, ok := snap.GetGlobal(fs[i].Name); {
-				case !ok:
-					continue
-				case gf.IsEquivalentOptional(fs[i], f.ModTimeWindow(), false, false, protocol.FlagLocalReceiveOnly):
-					// What we have locally is equivalent to the global file.
-					fs[i].Version = fs[i].Version.Merge(gf.Version)
-					fallthrough
-				case fs[i].IsDeleted() && gf.IsReceiveOnlyChanged():
-					// Our item is deleted and the global item is our own
-					// receive only file. We can't delete file infos, so
-					// we just pretend it is a normal deleted file (nobody
-					// cares about that).
-					fs[i].LocalFlags &^= protocol.FlagLocalReceiveOnly
-				}
+	if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
+		batchAppend = func(fi protocol.FileInfo, _ *db.Snapshot) {
+			batch.append(fi)
+		}
+	} else {
+		batchAppend = func(fi protocol.FileInfo, snap *db.Snapshot) {
+			switch gf, ok := snap.GetGlobal(fi.Name); {
+			case !ok:
+			case gf.IsEquivalentOptional(fi, f.ModTimeWindow(), false, false, protocol.FlagLocalReceiveOnly):
+				// What we have locally is equivalent to the global file.
+				fi.Version = fi.Version.Merge(gf.Version)
+				fallthrough
+			case fi.IsDeleted() && gf.IsReceiveOnlyChanged():
+				// Our item is deleted and the global item is our own
+				// receive only file. We can't delete file infos, so
+				// we just pretend it is a normal deleted file (nobody
+				// cares about that).
+				fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 			}
-			return oldBatchFn(fs)
+			batch.append(fi)
 		}
 	}
-	batch := newFileInfoBatch(batchFn)
 
 	// Schedule a pull after scanning, but only if we actually detected any
 	// changes.
@@ -466,12 +473,12 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			return err
 		}
 
-		batch.append(res.File)
+		batchAppend(res.File, snap)
 		changes++
 
 		if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
 			if nf, ok := f.findRename(snap, mtimefs, res.File, alreadyUsed); ok {
-				batch.append(nf)
+				batchAppend(nf, snap)
 				changes++
 			}
 		}
@@ -517,7 +524,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				for _, file := range toIgnore {
 					l.Debugln("marking file as ignored", file)
 					nf := file.ConvertToIgnoredFileInfo(f.shortID)
-					batch.append(nf)
+					batchAppend(nf, snap)
 					changes++
 					if err := batch.flushIfFull(); err != nil {
 						iterError = err
@@ -544,7 +551,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 				l.Debugln("marking file as ignored", file)
 				nf := file.ConvertToIgnoredFileInfo(f.shortID)
-				batch.append(nf)
+				batchAppend(nf, snap)
 				changes++
 
 			case file.IsIgnored() && !ignored:
@@ -573,7 +580,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 					nf.Version = protocol.Vector{}
 				}
 
-				batch.append(nf)
+				batchAppend(nf, snap)
 				changes++
 			}
 
@@ -587,7 +594,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			nf := fi.(db.FileInfoTruncated).ConvertDeletedToFileInfo()
 			nf.LocalFlags = 0
 			nf.Version = protocol.Vector{}
-			batch.append(nf)
+			batchAppend(nf, snap)
 			changes++
 
 			return true
@@ -603,7 +610,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			for _, file := range toIgnore {
 				l.Debugln("marking file as ignored", f)
 				nf := file.ConvertToIgnoredFileInfo(f.shortID)
-				batch.append(nf)
+				batchAppend(nf, snap)
 				changes++
 				if iterError = batch.flushIfFull(); iterError != nil {
 					break
@@ -622,7 +629,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}
 
 	f.ScanCompleted()
-	f.setState(FolderIdle)
 	return nil
 }
 
@@ -885,6 +891,7 @@ func (f *folder) String() string {
 
 func (f *folder) newScanError(path string, err error) {
 	f.scanErrorsMut.Lock()
+	l.Infof("Scanner (folder %s, item %q): %v", f.Description(), path, err)
 	f.scanErrors = append(f.scanErrors, FileError{
 		Err:  err.Error(),
 		Path: path,
@@ -946,9 +953,13 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 	f.fset.Update(protocol.LocalDeviceID, fs)
 
 	filenames := make([]string, len(fs))
+	f.forcedRescanPathsMut.Lock()
 	for i, file := range fs {
 		filenames[i] = file.Name
+		// No need to rescan a file that was changed since anyway.
+		delete(f.forcedRescanPaths, file.Name)
 	}
+	f.forcedRescanPathsMut.Unlock()
 
 	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":    f.ID,
@@ -998,6 +1009,9 @@ func (f *folder) handleForcedRescans() {
 	}
 	f.forcedRescanPaths = make(map[string]struct{})
 	f.forcedRescanPathsMut.Unlock()
+	if len(paths) == 0 {
+		return
+	}
 
 	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
 		f.fset.Update(protocol.LocalDeviceID, fs)

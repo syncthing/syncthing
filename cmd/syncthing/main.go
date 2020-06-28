@@ -522,7 +522,7 @@ type errNoUpgrade struct {
 	current, latest string
 }
 
-func (e errNoUpgrade) Error() string {
+func (e *errNoUpgrade) Error() string {
 	return fmt.Sprintf("no upgrade available (current %q >= latest %q).", e.current, e.latest)
 }
 
@@ -538,7 +538,7 @@ func checkUpgrade() (upgrade.Release, error) {
 	}
 
 	if upgrade.CompareVersions(release.Tag, build.Version) <= 0 {
-		return upgrade.Release{}, errNoUpgrade{build.Version, release.Tag}
+		return upgrade.Release{}, &errNoUpgrade{build.Version, release.Tag}
 	}
 
 	l.Infof("Upgrade available (current %q < latest %q)", build.Version, release.Tag)
@@ -646,7 +646,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			err = upgrade.To(release)
 		}
 		if err != nil {
-			if _, ok := err.(errNoUpgrade); ok || err == errTooEarlyUpgradeCheck || err == errTooEarlyUpgrade {
+			if _, ok := err.(*errNoUpgrade); ok || err == errTooEarlyUpgradeCheck || err == errTooEarlyUpgrade {
 				l.Debugln("Initial automatic upgrade:", err)
 			} else {
 				l.Infoln("Initial automatic upgrade:", err)
@@ -996,7 +996,7 @@ func setPauseState(cfg config.Wrapper, paused bool) {
 }
 
 func exitCodeForUpgrade(err error) int {
-	if _, ok := err.(errNoUpgrade); ok {
+	if _, ok := err.(*errNoUpgrade); ok {
 		return syncthing.ExitNoUpgradeAvailable.AsInt()
 	}
 	return syncthing.ExitError.AsInt()

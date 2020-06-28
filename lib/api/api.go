@@ -43,6 +43,7 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
@@ -649,6 +650,10 @@ func (s *service) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 		"isBeta":      build.IsBeta,
 		"isCandidate": build.IsCandidate,
 		"isRelease":   build.IsRelease,
+		"date":        build.Date,
+		"tags":        build.Tags,
+		"stamp":       build.Stamp,
+		"user":        build.User,
 	})
 }
 
@@ -1087,10 +1092,15 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Report Data as a JSON
-	if usageReportingData, err := json.MarshalIndent(s.urService.ReportData(context.TODO()), "", "  "); err != nil {
-		l.Warnln("Support bundle: failed to create versionPlatform.json:", err)
+	if r, err := s.urService.ReportData(context.TODO()); err != nil {
+		l.Warnln("Support bundle: failed to create usage-reporting.json.txt:", err)
 	} else {
-		files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
+		if usageReportingData, err := json.MarshalIndent(r, "", "  "); err != nil {
+			l.Warnln("Support bundle: failed to serialize usage-reporting.json.txt", err)
+		} else {
+			files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
+
+		}
 	}
 
 	// Heap and CPU Proofs as a pprof extension
@@ -1172,7 +1182,13 @@ func (s *service) getReport(w http.ResponseWriter, r *http.Request) {
 	if val, _ := strconv.Atoi(r.URL.Query().Get("version")); val > 0 {
 		version = val
 	}
-	sendJSON(w, s.urService.ReportDataPreview(context.TODO(), version))
+	if r, err := s.urService.ReportDataPreview(context.TODO(), version); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	} else {
+		sendJSON(w, r)
+	}
+
 }
 
 func (s *service) getRandomString(w http.ResponseWriter, r *http.Request) {
@@ -1190,15 +1206,16 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 
 	folder := qs.Get("folder")
 
-	ignores, patterns, err := s.model.GetIgnores(folder)
-	if err != nil {
+	lines, patterns, err := s.model.GetIgnores(folder)
+	if err != nil && !ignore.IsParseError(err) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	sendJSON(w, map[string][]string{
-		"ignore":   ignores,
+	sendJSON(w, map[string]interface{}{
+		"ignore":   lines,
 		"expanded": patterns,
+		"error":    errorString(err),
 	})
 }
 
@@ -1229,7 +1246,6 @@ func (s *service) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getIndexEvents(w http.ResponseWriter, r *http.Request) {
-	s.fss.OnEventRequest()
 	mask := s.getEventMask(r.URL.Query().Get("events"))
 	sub := s.getEventSub(mask)
 	s.getEvents(w, r, sub)
@@ -1241,6 +1257,10 @@ func (s *service) getDiskEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
+	if eventSub.Mask()&(events.FolderSummary|events.FolderCompletion) != 0 {
+		s.fss.OnEventRequest()
+	}
+
 	qs := r.URL.Query()
 	sinceStr := qs.Get("since")
 	limitStr := qs.Get("limit")
@@ -1787,5 +1807,13 @@ func checkExpiry(cert tls.Certificate) error {
 		return errors.New("certificate incompatible with macOS 10.15 (Catalina)")
 	}
 
+	return nil
+}
+
+func errorString(err error) *string {
+	if err != nil {
+		msg := err.Error()
+		return &msg
+	}
 	return nil
 }

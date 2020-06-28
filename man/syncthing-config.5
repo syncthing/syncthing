@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "May 16, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Jun 23, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -101,6 +101,10 @@ The following shows an example of the default configuration file (IDs will diffe
         <markerName>.stfolder</markerName>
         <copyOwnershipFromParent>false</copyOwnershipFromParent>
         <modTimeWindowS>0</modTimeWindowS>
+        <maxConcurrentWrites>2</maxConcurrentWrites>
+        <disableFsync>false</disableFsync>
+        <blockPullOrder>standard</blockPullOrder>
+        <copyRangeMethod>standard</copyRangeMethod>
     </folder>
     <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>dynamic</address>
@@ -236,6 +240,10 @@ logged, but there will be no dialog about it in the web GUI.
     <markerName>.stfolder</markerName>
     <copyOwnershipFromParent>false</copyOwnershipFromParent>
     <modTimeWindowS>0</modTimeWindowS>
+    <maxConcurrentWrites>2</maxConcurrentWrites>
+    <disableFsync>false</disableFsync>
+    <blockPullOrder>standard</blockPullOrder>
+    <copyRangeMethod>standard</copyRangeMethod>
 </folder>
 .ft P
 .fi
@@ -400,6 +408,129 @@ to \-1 to always use weak hash. Default value is 25.
 .B markerName
 Name of a directory or file in the folder root to be used as
 marker\-faq\&. Default is “.stfolder”.
+.TP
+.B copyOwnershipFromParent
+On Unix systems, tries to copy file/folder ownership from the parent directory (the directory it’s located in).
+Requires running Syncthing as privileged user, or granting it additional capabilities (e.g. CAP_CHOWN on Linux).
+.TP
+.B modTimeWindowS
+Allowed modification timestamp difference when comparing files for equivalence.
+To be used on systems that have unstable modification timestamps, that might change after being observed after
+the last write operation. Used in Android only.
+.TP
+.B maxConcurrentWrites
+Maximum number of concurrent write operations while syncing. Defaults to 2. Increasing this might increase or
+decrease disk performance, depending on the underlying storage.
+.UNINDENT
+.sp
+disableFsync
+.INDENT 0.0
+.INDENT 3.5
+.sp
+\fBWARNING:\fP
+.INDENT 0.0
+.INDENT 3.5
+This is a known insecure option \- use at your own risk.
+.UNINDENT
+.UNINDENT
+.sp
+Disables committing file operations to disk before recording them in the database.
+Disabling fsync can lead to data corruption.
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B blockPullOrder
+Order in which the blocks of a file are downloaded. This option controls how quickly different parts of the
+file spread between the connected devices, at the cost of causing strain on the storage.
+.sp
+Available options:
+.INDENT 7.0
+.TP
+.B standard (default):
+The blocks of a file are split into N equal continuous sequences, where N is the number of connected
+devices. Each device starts downloading it’s own sequence, after which it picks other devices
+sequences at random. Provides acceptable data distribution and minimal spinning disk strain.
+.TP
+.B random:
+The blocks of a file are downloaded in a random order. Provides great data distribution, but very taxing on
+spinning disk drives.
+.TP
+.B inOrder:
+The blocks of a file are downloaded sequentially, from start to finish. Spinning disk drive friendly, but provides
+no improvements to data distribution.
+.UNINDENT
+.TP
+.B copyRangeMethod
+Provides a choice of method for copying data between files. This can be used to optimise copies on network
+filesystems, improve speed of large copies or clone the data using copy\-on\-write functionality if the underlying
+filesystem supports it.
+.sp
+\fBWARNING:\fP
+.INDENT 7.0
+.INDENT 3.5
+This is an experimental feature, so please use at your own risk.
+.UNINDENT
+.UNINDENT
+.INDENT 7.0
+.TP
+.B standard (default)
+Reads the data from source file into application memory, writes the data from application memory into the
+destination file.
+.sp
+Available on: All platforms
+.TP
+.B copy_file_range
+Uses copy_file_range syscall, which if underlying filesystem supports, uses copy\-on\-write semantics to
+clone the data. Introduced in Linux 4.5 and tested on XFS and BTRFS. Some network filesystems might use this
+to perform server\-side copies.
+.sp
+Tested on: BTRFS, XFS
+Available on: Linux
+.TP
+.B ioctl
+Uses ioctl syscall with FICLONERANGE option, which if underlying filesystem supports, uses copy\-on\-write
+semantics to clone the data. Officially introduced in Linux 4.5, but was previously known as
+BTRFS_IOC_CLONE_RANGE, which was used to provide copy\-on\-write semantics to BTRFS filesystems since Linux 2.6.29.
+Some network filesystems might use this to perform server\-side copies. Will fail if not supported by the
+underlying filesystem.
+.sp
+Tested on: BTRFS
+Not available on: Windows, Solaris, Darwin (OS X)
+.TP
+.B sendfile
+Uses sendfile syscall, which performs in\-kernel copy, avoiding having to copy the data into application memory.
+.sp
+Tested on: BTRFS, XFS
+Not available on: Windows, Darwin (OS X)
+.TP
+.B duplicate_extents
+Uses Windows Block Cloning via FSCTL_DUPLICATE_EXTENTS_TO_FILE, which provides copy\-on\-write semantics to clone
+the data. Requires Windows Server 2016 or later, and a compatible filesystem (ReFS, SMB 3.1.1, CsvFS). Will
+fail if not supported by the underlying filesystem.
+.sp
+\fBWARNING:\fP
+.INDENT 7.0
+.INDENT 3.5
+Completely untested, use at your own risk.
+.UNINDENT
+.UNINDENT
+.sp
+Available on: Windows
+.TP
+.B all
+Tries all of the copy methods in the following order: ioctl, copy_file_range, sendfile, duplicate_extents,
+standard.
+.sp
+Available on: All platforms
+.sp
+\fBWARNING:\fP
+.INDENT 7.0
+.INDENT 3.5
+Not recommended on Windows as it has not been tested, might be very costly on all other platforms.
+.UNINDENT
+.UNINDENT
+.UNINDENT
 .TP
 .B fsync
 Deprecated since version v0.14.37.

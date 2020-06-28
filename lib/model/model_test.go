@@ -3174,9 +3174,9 @@ func TestIssue5002(t *testing.T) {
 	}
 	blockSize := int32(file.BlockSize())
 
-	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size-int64(blockSize), []byte{1, 2, 3, 4})
-	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size, []byte{1, 2, 3, 4}) // panic
-	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size+int64(blockSize), []byte{1, 2, 3, 4})
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size-int64(blockSize), []byte{1, 2, 3, 4}, 0)
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size, []byte{1, 2, 3, 4}, 0) // panic
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size+int64(blockSize), []byte{1, 2, 3, 4}, 0)
 }
 
 func TestParentOfUnignored(t *testing.T) {
@@ -3389,36 +3389,40 @@ func TestModTimeWindow(t *testing.T) {
 
 	m.ScanFolders()
 
-	v := protocol.Vector{}
-	v = v.Update(myID.Short())
+	// Get current version
+
 	fi, ok := m.CurrentFolderFile("default", name)
 	if !ok {
 		t.Fatal("File missing")
 	}
-	if !fi.Version.Equal(v) {
-		t.Fatalf("Got version %v, expected %v", fi.Version, v)
-	}
+	v := fi.Version
+
+	// Update time on disk 1s
 
 	err = tfs.Chtimes(name, time.Now(), modTime.Add(time.Second))
 	must(t, err)
 
 	m.ScanFolders()
 
-	// No change due to window
+	// No change due to within window
+
 	fi, _ = m.CurrentFolderFile("default", name)
 	if !fi.Version.Equal(v) {
 		t.Fatalf("Got version %v, expected %v", fi.Version, v)
 	}
+
+	// Update to be outside window
 
 	err = tfs.Chtimes(name, time.Now(), modTime.Add(2*time.Second))
 	must(t, err)
 
 	m.ScanFolders()
 
-	v = v.Update(myID.Short())
+	// Version should have updated
+
 	fi, _ = m.CurrentFolderFile("default", name)
-	if !fi.Version.Equal(v) {
-		t.Fatalf("Got version %v, expected %v", fi.Version, v)
+	if fi.Version.Compare(v) != protocol.Greater {
+		t.Fatalf("Got result %v, expected %v", fi.Version.Compare(v), protocol.Greater)
 	}
 }
 
@@ -3632,10 +3636,10 @@ func TestRenameSameFile(t *testing.T) {
 	}
 
 	must(t, ffs.Rename("file", "file1"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file0"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file2"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file3"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file4"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file0"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file2"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file3"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file4"))
 
 	m.ScanFolders()
 
@@ -3799,6 +3803,121 @@ func TestBlockListMap(t *testing.T) {
 	expected = []string{"new-three", "five"}
 	if !equalStringsInAnyOrder(paths, expected) {
 		t.Errorf("expected %q got %q", expected, paths)
+	}
+}
+
+func TestConnectionTerminationOnFolderAdd(t *testing.T) {
+	testConfigChangeClosesConnections(t, false, true, nil, func(cfg config.Wrapper) {
+		fcfg := testFolderConfigTmp()
+		fcfg.ID = "second"
+		fcfg.Label = "second"
+		fcfg.Devices = []config.FolderDeviceConfiguration{{device2, protocol.EmptyDeviceID}}
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderShare(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, true, nil, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Devices = []config.FolderDeviceConfiguration{{device2, protocol.EmptyDeviceID}}
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderUnshare(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, false, nil, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Devices = nil
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderRemove(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, false, nil, func(cfg config.Wrapper) {
+		rcfg := cfg.RawCopy()
+		rcfg.Folders = nil
+		if w, err := cfg.Replace(rcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderPause(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, false, nil, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Paused = true
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderUnpause(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, false, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Paused = true
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	}, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Paused = false
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func testConfigChangeClosesConnections(t *testing.T, expectFirstClosed, expectSecondClosed bool, pre func(config.Wrapper), fn func(config.Wrapper)) {
+	t.Helper()
+	wcfg, _ := tmpDefaultWrapper()
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	_, err := wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if pre != nil {
+		pre(wcfg)
+	}
+
+	fc1 := &fakeConnection{id: device1, model: m}
+	fc2 := &fakeConnection{id: device2, model: m}
+	m.AddConnection(fc1, protocol.HelloResult{})
+	m.AddConnection(fc2, protocol.HelloResult{})
+
+	t.Log("Applying config change")
+
+	fn(wcfg)
+
+	if expectFirstClosed != fc1.closed {
+		t.Errorf("first connection state mismatch: %t (expected) != %t", expectFirstClosed, fc1.closed)
+	}
+
+	if expectSecondClosed != fc2.closed {
+		t.Errorf("second connection state mismatch: %t (expected) != %t", expectSecondClosed, fc2.closed)
 	}
 }
 

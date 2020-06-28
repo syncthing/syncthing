@@ -15,6 +15,7 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
+	"github.com/syncthing/syncthing/lib/ur/contract"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -112,8 +113,7 @@ func (m *mockedModel) State(folder string) (string, time.Time, error) {
 	return "", time.Time{}, nil
 }
 
-func (m *mockedModel) UsageReportingStats(version int, preview bool) map[string]interface{} {
-	return nil
+func (m *mockedModel) UsageReportingStats(r *contract.Report, version int, preview bool) {
 }
 
 func (m *mockedModel) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
