@@ -291,6 +291,7 @@
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing pareix que té un problema processant la seua sol·licitud. Per favor, refresque la pàgina o reinicie Syncthing si el problema persistix.",
     "Take me back": "Porta'm enrere",
     "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.": "L'adreça del GUI és sobreescrita per les opcions d'inici. Els canvis ací no surtiràn efecte mentre la sobreescritura estiga en marxa.",
+    "The Syncthing Authors": "The Syncthing Authors",
     "The Syncthing admin interface is configured to allow remote access without a password.": "L'interfície d'administració de Syncthing està configurat per a permetre l'accés remot sense una contrasenya.",
     "The aggregated statistics are publicly available at the URL below.": "Les estadístiques agregades estàn disponibles en la URL que figura a continuació.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "La configuració ha sigut gravada però no activada. Syncthing deu reiniciar per tal d'activar la nova configuració.",

@@ -35,6 +35,7 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/ur/contract"
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
@@ -102,7 +103,7 @@ type Model interface {
 	ConnectionStats() map[string]interface{}
 	DeviceStatistics() (map[string]stats.DeviceStatistics, error)
 	FolderStatistics() (map[string]stats.FolderStatistics, error)
-	UsageReportingStats(version int, preview bool) map[string]interface{}
+	UsageReportingStats(report *contract.Report, version int, preview bool)
 
 	StartDeadlockDetector(timeout time.Duration)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
@@ -462,7 +463,7 @@ func (m *model) stopFolder(cfg config.FolderConfiguration, err error) {
 
 // Need to hold lock on m.fmut when calling this.
 func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
-	// Clean up our config maps
+	// clear up our config maps
 	delete(m.folderCfgs, cfg.ID)
 	delete(m.folderFiles, cfg.ID)
 	delete(m.folderIgnores, cfg.ID)
@@ -511,7 +512,10 @@ func (m *model) restartFolder(from, to config.FolderConfiguration) {
 		fset = db.NewFileSet(to.ID, to.Filesystem(), m.db)
 	}
 
-	m.stopFolder(from, fmt.Errorf("%v folder %v", errMsg, to.Description()))
+	err := fmt.Errorf("%v folder %v", errMsg, to.Description())
+	m.stopFolder(from, err)
+	// Need to send CC change to both from and to devices.
+	m.closeConns(to.DeviceIDs(), err)
 
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
@@ -536,49 +540,49 @@ func (m *model) newFolder(cfg config.FolderConfiguration) {
 	m.addAndStartFolderLocked(cfg, fset)
 }
 
-func (m *model) UsageReportingStats(version int, preview bool) map[string]interface{} {
-	stats := make(map[string]interface{})
+func (m *model) UsageReportingStats(report *contract.Report, version int, preview bool) {
 	if version >= 3 {
 		// Block stats
 		blockStatsMut.Lock()
-		copyBlockStats := make(map[string]int)
 		for k, v := range blockStats {
-			copyBlockStats[k] = v
+			switch k {
+			case "total":
+				report.BlockStats.Total = v
+			case "renamed":
+				report.BlockStats.Renamed = v
+			case "reused":
+				report.BlockStats.Reused = v
+			case "pulled":
+				report.BlockStats.Pulled = v
+			case "copyOrigin":
+				report.BlockStats.CopyOrigin = v
+			case "copyOriginShifted":
+				report.BlockStats.CopyOriginShifted = v
+			case "copyElsewhere":
+				report.BlockStats.CopyElsewhere = v
+			}
+			// Reset counts, as these are incremental
 			if !preview {
 				blockStats[k] = 0
 			}
 		}
 		blockStatsMut.Unlock()
-		stats["blockStats"] = copyBlockStats
 
 		// Transport stats
 		m.pmut.RLock()
-		transportStats := make(map[string]int)
 		for _, conn := range m.conn {
-			transportStats[conn.Transport()]++
+			report.TransportStats[conn.Transport()]++
 		}
 		m.pmut.RUnlock()
-		stats["transportStats"] = transportStats
 
 		// Ignore stats
-		ignoreStats := map[string]int{
-			"lines":           0,
-			"inverts":         0,
-			"folded":          0,
-			"deletable":       0,
-			"rooted":          0,
-			"includes":        0,
-			"escapedIncludes": 0,
-			"doubleStars":     0,
-			"stars":           0,
-		}
 		var seenPrefix [3]bool
 		for folder := range m.cfg.Folders() {
 			lines, _, err := m.GetIgnores(folder)
 			if err != nil {
 				continue
 			}
-			ignoreStats["lines"] += len(lines)
+			report.IgnoreStats.Lines += len(lines)
 
 			for _, line := range lines {
 				// Allow prefixes to be specified in any order, but only once.
@@ -586,15 +590,15 @@ func (m *model) UsageReportingStats(version int, preview bool) map[string]interf
 					if strings.HasPrefix(line, "!") && !seenPrefix[0] {
 						seenPrefix[0] = true
 						line = line[1:]
-						ignoreStats["inverts"] += 1
+						report.IgnoreStats.Inverts++
 					} else if strings.HasPrefix(line, "(?i)") && !seenPrefix[1] {
 						seenPrefix[1] = true
 						line = line[4:]
-						ignoreStats["folded"] += 1
+						report.IgnoreStats.Folded++
 					} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
 						seenPrefix[2] = true
 						line = line[4:]
-						ignoreStats["deletable"] += 1
+						report.IgnoreStats.Deletable++
 					} else {
 						seenPrefix[0] = false
 						seenPrefix[1] = false
@@ -608,28 +612,26 @@ func (m *model) UsageReportingStats(version int, preview bool) map[string]interf
 				line = strings.TrimPrefix(line, "**/")
 
 				if strings.HasPrefix(line, "/") {
-					ignoreStats["rooted"] += 1
+					report.IgnoreStats.Rooted++
 				} else if strings.HasPrefix(line, "#include ") {
-					ignoreStats["includes"] += 1
+					report.IgnoreStats.Includes++
 					if strings.Contains(line, "..") {
-						ignoreStats["escapedIncludes"] += 1
+						report.IgnoreStats.EscapedIncludes++
 					}
 				}
 
 				if strings.Contains(line, "**") {
-					ignoreStats["doubleStars"] += 1
+					report.IgnoreStats.DoubleStars++
 					// Remove not to trip up star checks.
 					line = strings.Replace(line, "**", "", -1)
 				}
 
 				if strings.Contains(line, "*") {
-					ignoreStats["stars"] += 1
+					report.IgnoreStats.Stars++
 				}
 			}
 		}
-		stats["ignoreStats"] = ignoreStats
 	}
-	return stats
 }
 
 type ConnectionInfo struct {
@@ -1704,8 +1706,8 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 	}
 
 	if len(hash) > 0 && !scanner.Validate(res.data, hash, weakHash) {
-		m.recheckFile(deviceID, folder, name, offset, hash)
-		l.Debugf("%v REQ(in) failed validating data (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		m.recheckFile(deviceID, folder, name, offset, hash, weakHash)
+		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
 	}
 
@@ -1738,7 +1740,7 @@ func newLimitedRequestResponse(size int, limiters ...*byteSemaphore) *requestRes
 	return res
 }
 
-func (m *model) recheckFile(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte) {
+func (m *model) recheckFile(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, weakHash uint32) {
 	cf, ok := m.CurrentFolderFile(folder, name)
 	if !ok {
 		l.Debugf("%v recheckFile: %s: %q / %q: no current file", m, deviceID, folder, name)
@@ -1761,6 +1763,10 @@ func (m *model) recheckFile(deviceID protocol.DeviceID, folder, name string, off
 	// Seems to want a different version of the file, whatever.
 	if !bytes.Equal(block.Hash, hash) {
 		l.Debugf("%v recheckFile: %s: %q / %q i=%d: hash mismatch %x != %x", m, deviceID, folder, name, blockIndex, block.Hash, hash)
+		return
+	}
+	if weakHash != 0 && block.WeakHash != weakHash {
+		l.Debugf("%v recheckFile: %s: %q / %q i=%d: weak hash mismatch %v != %v", m, deviceID, folder, name, blockIndex, block.WeakHash, weakHash)
 		return
 	}
 

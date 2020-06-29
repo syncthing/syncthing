@@ -7,13 +7,15 @@
 package versioner
 
 import (
-	"github.com/syncthing/syncthing/lib/config"
+	"io/ioutil"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -122,4 +124,46 @@ func parseTime(in string) time.Time {
 		panic(err.Error())
 	}
 	return t
+}
+
+func TestCreateVersionPath(t *testing.T) {
+	const (
+		versionsDir = "some/nested/dir"
+		archiveFile = "testfile"
+	)
+
+	// Create a test dir and file
+	tmpDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(filepath.Join(tmpDir, archiveFile), []byte("sup"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	folderCfg := config.FolderConfiguration{
+		ID:   "default",
+		Path: tmpDir,
+		Versioning: config.VersioningConfiguration{
+			Type: "staggered",
+			Params: map[string]string{
+				"versionsPath": versionsDir,
+			},
+		},
+	}
+
+	// Archive the file
+	versioner := newStaggered(folderCfg)
+	if err := versioner.Archive(archiveFile); err != nil {
+		t.Fatal(err)
+	}
+
+	// Look for files named like the test file, in the archive dir.
+	files, err := filepath.Glob(filepath.Join(tmpDir, versionsDir, archiveFile) + "*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) == 0 {
+		t.Error("expected file to have been archived")
+	}
 }

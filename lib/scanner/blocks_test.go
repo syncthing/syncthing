@@ -123,7 +123,9 @@ func TestAdler32Variants(t *testing.T) {
 		hf1.Reset()
 		hf2.Reset()
 
-		return sum1 == sum2
+		// Make sure whatever we use in Validate matches too resp. this
+		// tests gets adjusted if we ever switch the weak hash algo.
+		return sum1 == sum2 && Validate(data, nil, sum1)
 	}
 
 	// protocol block sized data
@@ -141,8 +143,7 @@ func TestAdler32Variants(t *testing.T) {
 	}
 
 	// rolling should have the same result as the individual blocks
-	// themselves. Which is not the same as the original non-rollind adler32
-	// blocks.
+	// themselves.
 
 	windowSize := 128
 
@@ -152,16 +153,27 @@ func TestAdler32Variants(t *testing.T) {
 	for i := windowSize; i < len(data); i++ {
 		if i%windowSize == 0 {
 			// let the reference function catch up
+			window := data[i-windowSize : i]
+			hf1.Reset()
+			hf1.Write(window)
 			hf2.Reset()
-			hf2.Write(data[i-windowSize : i])
+			hf2.Write(window)
 
 			// verify that they are in sync with the rolling function
+			sum1 := hf1.Sum32()
 			sum2 := hf2.Sum32()
 			sum3 := hf3.Sum32()
 			t.Logf("At i=%d, sum2=%08x, sum3=%08x", i, sum2, sum3)
 			if sum2 != sum3 {
 				t.Errorf("Mismatch after roll; i=%d, sum2=%08x, sum3=%08x", i, sum2, sum3)
 				break
+			}
+			if sum1 != sum3 {
+				t.Errorf("Mismatch after roll; i=%d, sum1=%08x, sum3=%08x", i, sum1, sum3)
+				break
+			}
+			if !Validate(window, nil, sum1) {
+				t.Errorf("Validation failure after roll; i=%d", i)
 			}
 		}
 		hf3.Roll(data[i])
