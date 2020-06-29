@@ -276,9 +276,11 @@ func PermsEqual(a, b uint32) bool {
 
 // BlocksEqual returns true when the two files have identical block lists.
 func (f FileInfo) BlocksEqual(other FileInfo) bool {
-	// If both sides have blocks hashes then we can just compare those.
-	if len(f.BlocksHash) > 0 && len(other.BlocksHash) > 0 {
-		return bytes.Equal(f.BlocksHash, other.BlocksHash)
+	// If both sides have blocks hashes and they match, we are good. If they
+	// don't match still check individual block hashes to catch differences
+	// in weak hashes only (e.g. after switching weak hash algo).
+	if len(f.BlocksHash) > 0 && len(other.BlocksHash) > 0 && bytes.Equal(f.BlocksHash, other.BlocksHash) {
+		return true
 	}
 
 	// Actually compare the block lists in full.
@@ -382,6 +384,7 @@ func BlocksHash(bs []BlockInfo) []byte {
 	h := sha256.New()
 	for _, b := range bs {
 		_, _ = h.Write(b.Hash)
+		_ = binary.Write(h, binary.BigEndian, b.WeakHash)
 	}
 	return h.Sum(nil)
 }
