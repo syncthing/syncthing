@@ -49,7 +49,6 @@ type service interface {
 	BringToFront(string)
 	Override()
 	Revert()
-	CleanEnc()
 	DelayScan(d time.Duration)
 	SchedulePull()                                    // something relevant changed, we should try a pull
 	Jobs(page, perpage int) ([]string, []string, int) // In progress, Queued, skipped
@@ -84,7 +83,6 @@ type Model interface {
 	WatchError(folder string) error
 	Override(folder string)
 	Revert(folder string)
-	CleanEnc(folder string)
 	BringToFront(folder, file string)
 	GetIgnores(folder string) ([]string, []string, error)
 	SetIgnores(folder string, content []string) error
@@ -2433,19 +2431,6 @@ func (m *model) Revert(folder string) {
 	// Run the revert, taking updates as if they came from scanning.
 
 	runner.Revert()
-}
-
-func (m *model) CleanEnc(folder string) {
-	// Grab the runner and the file set.
-
-	m.fmut.RLock()
-	runner, ok := m.folderRunners[folder]
-	m.fmut.RUnlock()
-	if !ok {
-		return
-	}
-
-	runner.CleanEnc()
 }
 
 func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{} {

@@ -32,12 +32,12 @@ func newReceiveEncryptedFolder(model *model, fset *db.FileSet, ignores *ignore.M
 	return &receiveEncryptedFolder{newSendReceiveFolder(model, fset, ignores, cfg, ver, fs, evLogger, ioLimiter).(*sendReceiveFolder)}
 }
 
-func (f *receiveEncryptedFolder) CleanEnc() {
-	f.doInSync(func() error { f.cleanEnc(); return nil })
+func (f *receiveEncryptedFolder) Revert() {
+	f.doInSync(func() error { f.revert(); return nil })
 }
 
-func (f *receiveEncryptedFolder) cleanEnc() {
-	l.Infof("Cleaning not encrypted items from folder %v", f.Description)
+func (f *receiveEncryptedFolder) revert() {
+	l.Infof("Reverting not encrypted items in folder %v", f.Description)
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)

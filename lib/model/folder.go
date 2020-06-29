@@ -191,8 +191,6 @@ func (f *folder) Override() {}
 
 func (f *folder) Revert() {}
 
-func (f *folder) CleanEnc() {}
-
 func (f *folder) DelayScan(next time.Duration) {
 	f.Delay(next)
 }

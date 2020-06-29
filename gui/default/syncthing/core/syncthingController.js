@@ -2378,29 +2378,11 @@ angular.module('syncthing.core')
             $http.post(urlbase + "/db/revert?folder=" + encodeURIComponent(folder));
         };
 
-        $scope.canRevert = function (folderCfg) {
-            if (!$scope.hasLocalChanged(folderCfg)) {
-                return false;
-            }
-            return folderCfg.type === "receiveonly";
-        };
-
-        $scope.cleanEncModal = function (folderID) {
-            $scope.cleanEncFolder = folderID;
-            $('#clean-enc-confirmation').modal('show').one('hidden.bs.modal', function () {
-                $scope.cleanEncFolder = undefined;
+        $scope.revertEncModal = function (folderID) {
+            $scope.revertEncFolder = folderID;
+            $('#revert-enc-confirmation').modal('show').one('hidden.bs.modal', function () {
+                $scope.revertEncFolder = undefined;
             });
-        };
-
-        $scope.cleanEnc = function () {
-            $http.post(urlbase + "/db/cleanenc?folder=" + encodeURIComponent($scope.cleanEncFolder));
-        };
-
-        $scope.canCleanEnc = function (folderCfg) {
-            if (!$scope.hasLocalChanged(folderCfg)) {
-                return false;
-            }
-            return folderCfg.type === "receiveencrypted";
         };
 
         $scope.advanced = function () {

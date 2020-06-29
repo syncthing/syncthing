@@ -284,7 +284,6 @@ func (s *service) serve(ctx context.Context) {
 	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                    // folder
 	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)                  // folder
 	postRestMux.HandleFunc("/rest/db/revert", s.postDBRevert)                      // folder
-	postRestMux.HandleFunc("/rest/db/cleanenc", s.postDBCleanEnc)                  // folder
 	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                          // folder [sub...] [delay]
 	postRestMux.HandleFunc("/rest/folder/versions", s.postFolderVersionsRestore)   // folder <body>
 	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)              // <body>
@@ -706,12 +705,6 @@ func (s *service) postDBRevert(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
 	go s.model.Revert(folder)
-}
-
-func (s *service) postDBCleanEnc(w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var folder = qs.Get("folder")
-	go s.model.CleanEnc(folder)
 }
 
 func getPagingParams(qs url.Values) (int, int) {
