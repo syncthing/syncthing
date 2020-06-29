@@ -969,9 +969,13 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 	f.fset.Update(protocol.LocalDeviceID, fs)
 
 	filenames := make([]string, len(fs))
+	f.forcedRescanPathsMut.Lock()
 	for i, file := range fs {
 		filenames[i] = file.Name
+		// No need to rescan a file that was changed since anyway.
+		delete(f.forcedRescanPaths, file.Name)
 	}
+	f.forcedRescanPathsMut.Unlock()
 
 	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":    f.ID,
@@ -1021,6 +1025,9 @@ func (f *folder) handleForcedRescans() {
 	}
 	f.forcedRescanPaths = make(map[string]struct{})
 	f.forcedRescanPathsMut.Unlock()
+	if len(paths) == 0 {
+		return
+	}
 
 	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
 		f.fset.Update(protocol.LocalDeviceID, fs)

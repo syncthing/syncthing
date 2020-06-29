@@ -148,7 +148,7 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 	if err != nil {
 		if fs.IsNotExist(err) {
 			l.Debugln("creating versions dir")
-			err := dstFs.Mkdir(".", 0755)
+			err := dstFs.MkdirAll(".", 0755)
 			if err != nil {
 				return err
 			}

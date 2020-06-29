@@ -175,13 +175,13 @@ func aggregateVersionSummary(db *sql.DB, since time.Time) (int64, error) {
 	res, err := db.Exec(`INSERT INTO VersionSummary (
 	SELECT
 		DATE_TRUNC('day', Received) AS Day,
-		SUBSTRING(Version FROM '^v\d.\d+') AS Ver,
+		SUBSTRING(Report->>'version' FROM '^v\d.\d+') AS Ver,
 		COUNT(*) AS Count
-		FROM Reports
+		FROM ReportsJson
 		WHERE
 			DATE_TRUNC('day', Received) > $1
 			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
-			AND Version like 'v_.%'
+			AND Report->>'version' like 'v_.%'
 		GROUP BY Day, Ver
 		);
 	`, since)
@@ -195,11 +195,11 @@ func aggregateVersionSummary(db *sql.DB, since time.Time) (int64, error) {
 func aggregateUserMovement(db *sql.DB) (int64, error) {
 	rows, err := db.Query(`SELECT
 		DATE_TRUNC('day', Received) AS Day,
-		UniqueID
-		FROM Reports
+		Report->>'uniqueID'
+		FROM ReportsJson
 		WHERE
 			DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
-			AND Version like 'v_.%'
+			AND Report->>'version' like 'v_.%'
 		ORDER BY Day
 	`)
 	if err != nil {
@@ -276,16 +276,16 @@ func aggregatePerformance(db *sql.DB, since time.Time) (int64, error) {
 	res, err := db.Exec(`INSERT INTO Performance (
 	SELECT
 		DATE_TRUNC('day', Received) AS Day,
-		AVG(TotFiles) As TotFiles,
-		AVG(TotMiB) As TotMiB,
-		AVG(SHA256Perf) As SHA256Perf,
-		AVG(MemorySize) As MemorySize,
-		AVG(MemoryUsageMiB) As MemoryUsageMiB
-		FROM Reports
+		AVG((Report->>'totFiles')::numeric) As TotFiles,
+		AVG((Report->>'totMiB')::numeric) As TotMiB,
+		AVG((Report->>'sha256Perf')::numeric) As SHA256Perf,
+		AVG((Report->>'memorySize')::numeric) As MemorySize,
+		AVG((Report->>'memoryUsageMiB')::numeric) As MemoryUsageMiB
+		FROM ReportsJson
 		WHERE
 			DATE_TRUNC('day', Received) > $1
 			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
-			AND Version like 'v_.%'
+			AND Report->>'version' like 'v_.%'
 		GROUP BY Day
 		);
 	`, since)
@@ -303,22 +303,22 @@ func aggregateBlockStats(db *sql.DB, since time.Time) (int64, error) {
 	SELECT
 		DATE_TRUNC('day', Received) AS Day,
 		COUNT(1) As Reports,
-		SUM(BlocksTotal) AS Total,
-		SUM(BlocksRenamed) AS Renamed,
-		SUM(BlocksReused) AS Reused,
-		SUM(BlocksPulled) AS Pulled,
-		SUM(BlocksCopyOrigin) AS CopyOrigin,
-		SUM(BlocksCopyOriginShifted) AS CopyOriginShifted,
-		SUM(BlocksCopyElsewhere) AS CopyElsewhere
-		FROM Reports
+		SUM((Report->'blockStats'->>'total')::numeric) AS Total,
+		SUM((Report->'blockStats'->>'renamed')::numeric) AS Renamed,
+		SUM((Report->'blockStats'->>'reused')::numeric) AS Reused,
+		SUM((Report->'blockStats'->>'pulled')::numeric) AS Pulled,
+		SUM((Report->'blockStats'->>'copyOrigin')::numeric) AS CopyOrigin,
+		SUM((Report->'blockStats'->>'copyOriginShifted')::numeric) AS CopyOriginShifted,
+		SUM((Report->'blockStats'->>'copyElsewhere')::numeric) AS CopyElsewhere
+		FROM ReportsJson
 		WHERE
 			DATE_TRUNC('day', Received) > $1
 			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
-			AND ReportVersion = 3
-			AND Version like 'v_.%'
-			AND Version NOT LIKE 'v0.14.40%'
-			AND Version NOT LIKE 'v0.14.39%'
-			AND Version NOT LIKE 'v0.14.38%'
+			AND (Report->>'urVersion')::numeric >= 3
+			AND Report->>'version' like 'v_.%'
+			AND Report->>'version' NOT LIKE 'v0.14.40%'
+			AND Report->>'version' NOT LIKE 'v0.14.39%'
+			AND Report->>'version' NOT LIKE 'v0.14.38%'
 		GROUP BY Day
 	);
 	`, since)
