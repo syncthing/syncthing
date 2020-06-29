@@ -660,6 +660,10 @@ func (f *sendReceiveFolder) statAndCheckCase(name string) (fs.FileInfo, error) {
 		return nil, err
 	}
 
+	if f.CaseSensitiveFS {
+		return info, nil
+	}
+
 	if realName, err := osutil.RealCase(f.fs, name); err != nil {
 		// An error here would be mighty surprising given the stat worked
 		return nil, err

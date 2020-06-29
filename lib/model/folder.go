@@ -563,7 +563,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				// it's still here. Simply stat:ing it wont do as there are
 				// tons of corner cases (e.g. parent dir->symlink, missing
 				// permissions)
-				if !osutil.IsDeleted(mtimefs, file.Name) {
+				if !osutil.IsDeleted(mtimefs, file.Name, f.CaseSensitiveFS) {
 					if ignoredParent != "" {
 						// Don't ignore parents of this not ignored item
 						toIgnore = toIgnore[:0]
@@ -668,7 +668,7 @@ func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file proto
 			return true
 		}
 
-		if !osutil.IsDeleted(mtimefs, fi.Name) {
+		if !osutil.IsDeleted(mtimefs, fi.Name, f.CaseSensitiveFS) {
 			return true
 		}
 

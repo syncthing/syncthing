@@ -130,13 +130,16 @@ func copyFileContents(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, src
 	return
 }
 
-func IsDeleted(ffs fs.Filesystem, name string) bool {
+func IsDeleted(ffs fs.Filesystem, name string, caseSensitiveFS bool) bool {
 	if _, err := ffs.Lstat(name); fs.IsNotExist(err) {
 		return true
 	}
 	switch TraversesSymlink(ffs, filepath.Dir(name)).(type) {
 	case *NotADirectoryError, *TraversesSymlinkError:
 		return true
+	}
+	if caseSensitiveFS {
+		return false
 	}
 	if real, err := RealCase(ffs, name); err != nil {
 		return fs.IsNotExist(err)
