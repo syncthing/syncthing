@@ -8,7 +8,10 @@ package ur
 
 import "golang.org/x/sys/unix"
 
-func memorySize() (int64, error) {
+func memorySize() int64 {
 	mem, err := unix.SysctlUint64("hw.memsize")
-	return int64(mem), err
+	if err != nil {
+		return 0
+	}
+	return int64(mem)
 }

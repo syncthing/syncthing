@@ -7,6 +7,7 @@ package protocol
 // Windows uses backslashes as file separator
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -39,7 +40,13 @@ func fixupFiles(files []FileInfo) []FileInfo {
 	var out []FileInfo
 	for i := range files {
 		if strings.Contains(files[i].Name, `\`) {
-			l.Warnf("Dropping index entry for %s, contains invalid path separator", files[i].Name)
+			msg := fmt.Sprintf("Dropping index entry for %s, contains invalid path separator", files[i].Name)
+			if files[i].Deleted {
+				// Dropping a deleted item doesn't have any consequences.
+				l.Debugln(msg)
+			} else {
+				l.Warnln(msg)
+			}
 			if out == nil {
 				// Most incoming updates won't contain anything invalid, so
 				// we delay the allocation and copy to output slice until we

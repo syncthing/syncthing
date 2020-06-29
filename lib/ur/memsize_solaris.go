@@ -13,16 +13,16 @@ import (
 	"strconv"
 )
 
-func memorySize() (int64, error) {
+func memorySize() int64 {
 	cmd := exec.Command("prtconf", "-m")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return 0, err
+		return 0
 	}
 
 	mb, err := strconv.ParseInt(string(out), 10, 64)
 	if err != nil {
-		return 0, err
+		return 0
 	}
-	return mb * 1024 * 1024, nil
+	return mb * 1024 * 1024
 }
