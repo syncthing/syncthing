@@ -404,10 +404,16 @@
                         <a href="" ng-click="showFailed(folder.id)">{{model[folder.id].pullErrors | alwaysNumber | localeNumber}}&nbsp;<span translate>items</span></a>
                       </td>
                     </tr>
-                    <tr ng-if="hasLocalChanged(folder)">
-                      <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;{{localChangedHeading(folder.type)}}</th>
+                    <tr ng-if="hasReceiveOnlyChanged(folder)">
+                      <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Locally Changed Items</span></th>
                       <td class="text-right">
                         <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
+                      </td>
+                    </tr>
+                    <tr ng-if="hasReceiveEncryptedItems(folder)">
+                      <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Items in Receive Encrypted</span></th>
+                      <td class="text-right">
+                        <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{receiveEncryptedItemsCount(folder) | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'sendreceive'">
@@ -505,11 +511,11 @@
                 <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="override(folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'sendonly'">
                   <span class="fas fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
                 </button>
-                <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revert(folder.id)" ng-if="folder.type === 'receiveonly' && hasLocalChanged(folder)">
+                <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revert(folder.id)" ng-if="hasReceiveOnlyChanged(folder)">
                   <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Revert Local Changes</span>
                 </button>
-                <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertEncModal(folder.id)" ng-if="folder.type === 'receiveencrypted' && hasLocalChanged(folder)">
-                  <span class="fa fa-arrow-lock"></span>&nbsp;<span translate>Revert Not Encrypted Items</span>
+                <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="deleteEncModal(folder.id)" ng-if="hasReceiveEncryptedItems(folder)">
+                  <span class="fa fa-arrow-lock"></span>&nbsp;<span translate>Delete Not Encrypted Items</span>
                 </button>
                 <span class="pull-right">
                   <button ng-if="!folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, true)">
@@ -856,7 +862,7 @@
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/removeFolderDialogView.html'"></ng-include>
-  <ng-include src="'syncthing/folder/revertEncFolderDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/folder/deleteEncFolderDialogView.html'"></ng-include>
   <ng-include src="'syncthing/device/removeDeviceDialogView.html'"></ng-include>
   <ng-include src="'syncthing/core/logViewerModalView.html'"></ng-include>
 

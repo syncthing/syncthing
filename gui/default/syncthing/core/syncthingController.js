@@ -2352,33 +2352,36 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.localChangedHeading = function (type) {
-            switch (type) {
-            case 'receiveencrypted':
-                return $translate.instant('Items in Receive Encrypted');
-            case 'receiveonly':
-                return $translate.instant('Locally Changed Items');
+        $scope.hasReceiveOnlyChanged = function (folderCfg) {
+            if (!folderCfg || folderCfg.type !== "receiveonly") {
+                return false;
             }
+            var counts = $scope.model[folderCfg.id];
+            return counts && counts.receiveOnlyTotalItems > 0;
         };
 
-        $scope.hasLocalChanged = function (folderCfg) {
-            var f = $scope.model[folderCfg.id];
-            if (!f) {
+        $scope.hasReceiveEncryptedItems = function (folderCfg) {
+            if (!folderCfg || folderCfg.type !== "receiveencrypted") {
                 return false;
             }
-            if (folderCfg.type !== "receiveonly" && folderCfg.type !== "receiveencrypted") {
-                return false;
-            }
-            return $scope.model[folderCfg.id].receiveOnlyTotalItems > 0;
+            return $scope.receiveEncryptedItemsCount(folderCfg) > 0;
         };
+
+        $scope.receiveEncryptedItemsCount = function (folderCfg) {
+            var counts = $scope.model[folderCfg.id];
+            if (!counts) {
+                return 0;
+            }
+            return counts.receiveOnlyTotalItems - counts.receiveOnlyChangedDeletes;
+        }
 
         $scope.revert = function (folder) {
             $http.post(urlbase + "/db/revert?folder=" + encodeURIComponent(folder));
         };
 
-        $scope.revertEncModal = function (folderID) {
+        $scope.deleteEncModal = function (folderID) {
             $scope.revertEncFolder = folderID;
-            $('#revert-enc-confirmation').modal('show').one('hidden.bs.modal', function () {
+            $('#delete-enc-confirmation').modal('show').one('hidden.bs.modal', function () {
                 $scope.revertEncFolder = undefined;
             });
         };

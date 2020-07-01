@@ -8,6 +8,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -19,8 +20,6 @@ import (
 )
 
 func init() {
-	// A receiveEncrypted folder behaves just like send-receive folder,
-	// except for scanning which is handled in folder.
 	folderFactories[config.FolderTypeReceiveEncrypted] = newReceiveEncryptedFolder
 }
 
@@ -37,7 +36,7 @@ func (f *receiveEncryptedFolder) Revert() {
 }
 
 func (f *receiveEncryptedFolder) revert() {
-	l.Infof("Reverting not encrypted items in folder %v", f.Description)
+	l.Infof("Reverting unexpected items in folder %v (receive-encrypted)", f.Description)
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
@@ -50,31 +49,63 @@ func (f *receiveEncryptedFolder) revert() {
 	snap := f.fset.Snapshot()
 	defer snap.Release()
 	var iterErr error
+	var dirs []string
 	snap.WithHaveTruncated(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
 		if iterErr = batch.flushIfFull(); iterErr != nil {
 			return false
 		}
 
 		fit := intf.(db.FileInfoTruncated)
-		if !fit.IsReceiveOnlyChanged() || intf.IsDeleted() || protocol.IsEncryptedPath(fit.Name) {
+		if !fit.IsReceiveOnlyChanged() || intf.IsDeleted() {
 			return true
 		}
 
-		if err := f.fs.RemoveAll(fit.Name); err != nil && !fs.IsNotExist(err) {
-			f.newScanError(fit.Name, fmt.Errorf("cleaning not encrypted item: %w", err))
+		if fit.IsDirectory() {
+			dirs = append(dirs, fit.Name)
+			return true
+		}
+
+		if err := f.inWritableDir(f.fs.Remove, fit.Name); err != nil && !fs.IsNotExist(err) {
+			f.newScanError(fit.Name, fmt.Errorf("deleting unexpected item: %w", err))
 		}
 
 		fi := fit.ConvertToDeletedFileInfo(f.shortID)
-		fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
+		// Set version to zero, such that we pull the global version in case
+		// this is a valid filename that was erroneously changed locally.
+		// Should already be zero from scanning, but lets be safe.
+		fi.Version = protocol.Vector{}
+		// Purposely not removing FlagLocalReceiveOnly as the deleted
+		// item should still not be sent in index updates. However being
+		// deleted, it will not show up as an unexpected file in the UI
+		// anymore.
 		batch.append(fi)
 
 		return true
 	})
 
+	f.revertHandleDirs(dirs, snap)
+
 	if iterErr == nil {
 		iterErr = batch.flush()
 	}
 	if iterErr != nil {
-		l.Infoln("Failed to clean not encrypted items:", iterErr)
+		l.Infoln("Failed to delete unexpected items:", iterErr)
+	}
+}
+
+func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapshot) {
+	if len(dirs) == 0 {
+		return
+	}
+
+	scanChan := make(chan string)
+	go f.pullScannerRoutine(scanChan)
+	defer close(scanChan)
+
+	sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
+	for _, dir := range dirs {
+		if err := f.deleteDirOnDisk(dir, snap, scanChan); err != nil {
+			f.newScanError(dir, fmt.Errorf("deleting unexpected dir: %w", err))
+		}
 	}
 }

@@ -450,15 +450,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		}
 	case f.Type == config.FolderTypeReceiveEncrypted:
 		batchAppend = func(fi protocol.FileInfo, _ *db.Snapshot) {
-			if protocol.IsEncryptedPath(fi.Name) {
-				// Delete changed, encrypted items.
-				if err := mtimefs.RemoveAll(fi.Name); err != nil && !fs.IsNotExist(err) {
-					f.newScanError(fi.Name, fmt.Errorf("removing changed item: %w", err))
-				}
-			} else {
-				fi.LocalFlags = protocol.FlagLocalReceiveOnly
-			}
-			// Set zero version for good measure.
+			fi.LocalFlags = protocol.FlagLocalReceiveOnly
 			fi.Version = protocol.Vector{}
 			batch.append(fi)
 		}
