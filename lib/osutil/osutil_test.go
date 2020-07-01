@@ -71,7 +71,7 @@ func TestIsDeleted(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if osutil.IsDeleted(testFs, c.path) != c.isDel {
+		if osutil.IsDeleted(testFs, c.path, false) != c.isDel {
 			t.Errorf("IsDeleted(%v) != %v", c.path, c.isDel)
 		}
 	}
