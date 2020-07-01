@@ -861,7 +861,7 @@ func getReleaseVersion() (string, error) {
 
 func getGitVersion() (string, error) {
 	// The current version as Git sees it
-	bs, err := runError("git", "describe", "--always", "--dirty")
+	bs, err := runError("git", "describe", "--always", "--dirty", "--abbrev=8")
 	if err != nil {
 		return "", err
 	}

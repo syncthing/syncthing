@@ -291,6 +291,7 @@
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Схоже на те, що Syncthing стикнувся з проблемою оброблюючи ваш запит. Будь ласка перезавантажте сторінку в браузері або перезапустіть Syncthing.",
     "Take me back": "Поверніть мене назад",
     "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.": "Адреса графічного інтерфейсу користувача перевизначена стартовими налаштуваннями. Зміни зроблені тут не матимуть ефекту доки існує перевизначення.",
+    "The Syncthing Authors": "The Syncthing Authors",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Інтерфейс адміністрування Syncthing налаштовано на дозвіл віддаленого доступу без пароля.",
     "The aggregated statistics are publicly available at the URL below.": "Зібрана статистика публічно доступна за наступним посиланням.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Конфігурацію збережено, але не активовано. Необхідно перезапустити Syncthing для того, щоби активувати нову конфігурацію.",

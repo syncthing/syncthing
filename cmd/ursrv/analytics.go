@@ -114,6 +114,23 @@ func statsForInts(data []int) [4]float64 {
 	return res
 }
 
+func statsForInt64s(data []int64) [4]float64 {
+	var res [4]float64
+	if len(data) == 0 {
+		return res
+	}
+
+	sort.Slice(data, func(a, b int) bool {
+		return data[a] < data[b]
+	})
+
+	res[0] = float64(data[int(float64(len(data))*0.05)])
+	res[1] = float64(data[len(data)/2])
+	res[2] = float64(data[int(float64(len(data))*0.95)])
+	res[3] = float64(data[len(data)-1])
+	return res
+}
+
 func statsForFloats(data []float64) [4]float64 {
 	var res [4]float64
 	if len(data) == 0 {
