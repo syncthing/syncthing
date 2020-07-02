@@ -3888,6 +3888,22 @@ func TestConnectionTerminationOnFolderUnpause(t *testing.T) {
 	})
 }
 
+func TestAddFolderCompletion(t *testing.T) {
+	// Empty folders are always 100% complete.
+	comp := NewFolderCompletion(0, 0, 0, 0, 0)
+	comp.Add(NewFolderCompletion(0, 0, 0, 0, 0))
+	if comp.CompletionPct != 100 {
+		t.Error(comp.CompletionPct)
+	}
+
+	// Completion is of the whole
+	comp = NewFolderCompletion(100, 0, 0, 0, 0)     // 100% complete
+	comp.Add(NewFolderCompletion(400, 50, 0, 0, 0)) // 82.5% complete
+	if comp.CompletionPct != 90 {                   // 100 * (1 - 50/500)
+		t.Error(comp.CompletionPct)
+	}
+}
+
 func testConfigChangeClosesConnections(t *testing.T, expectFirstClosed, expectSecondClosed bool, pre func(config.Wrapper), fn func(config.Wrapper)) {
 	t.Helper()
 	wcfg, _ := tmpDefaultWrapper()

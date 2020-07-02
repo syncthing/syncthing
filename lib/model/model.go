@@ -745,6 +745,11 @@ func (comp *FolderCompletion) Add(other FolderCompletion) {
 }
 
 func (comp *FolderCompletion) setComplectionPct() {
+	if comp.GlobalBytes == 0 {
+		comp.CompletionPct = 100
+		return
+	}
+
 	needRatio := float64(comp.NeedBytes) / float64(comp.GlobalBytes)
 	comp.CompletionPct = 100 * (1 - needRatio)
 
