@@ -3,7 +3,7 @@
     <input id="sharedwith-{{id}}" ng-model="currentSharing.selected[id]" type="checkbox" />
     <span tooltip data-original-title="{{id}}">
       <span ng-switch-when="device">{{folderLabel(id)}}</span>
-      <span ng-switch-when="folder">{{deviceName(findDevice(id))}}</span>
+      <span ng-switch-when="folder">{{deviceName(devices[id])}}</span>
     </span>
   </label>
 </div>
@@ -18,8 +18,8 @@
         <span ng-switch-when='true'>
           <input class="form-control input-sm" type="password" placeholder="{{'received data is already encrypted' | translate}}" disabled />
         </span>
-        <span ng-switch-when='false'>
-          <input class="form-control input-sm" id="enc-pw-{{id}}" type="password" ng-model="currentSharing.encPWs[id]" placeholder="{{'enter password to encrypt sent data' | translate}}" />
+        <span ng-switch-when='false'  ng-class="{'has-error': device.untrusted && !currentSharing.encPWs[id]}">
+          <input class="form-control input-sm" id="enc-pw-{{id}}" type="password" ng-model="currentSharing.encPWs[id]" ng-required="device.untrusted" placeholder="{{'enter password to encrypt sent data' | translate}}" />
         </span>
       </span>
       <span ng-switch-default>
