@@ -716,19 +716,55 @@ func (m *model) FolderStatistics() (map[string]stats.FolderStatistics, error) {
 
 type FolderCompletion struct {
 	CompletionPct float64
-	NeedBytes     int64
 	GlobalBytes   int64
+	NeedBytes     int64
+	GlobalItems   int32
 	NeedItems     int32
 	NeedDeletes   int32
+}
+
+func NewFolderCompletion(globalBytes, needBytes int64, globalItems, needItems, needDeletes int32) FolderCompletion {
+	comp := FolderCompletion{
+		GlobalBytes: globalBytes,
+		NeedBytes:   needBytes,
+		GlobalItems: globalItems,
+		NeedItems:   needItems,
+		NeedDeletes: needDeletes,
+	}
+	comp.setComplectionPct()
+	return comp
+}
+
+func (comp *FolderCompletion) Add(other FolderCompletion) {
+	comp.GlobalBytes += other.GlobalBytes
+	comp.NeedBytes += other.NeedBytes
+	comp.GlobalItems += other.GlobalItems
+	comp.NeedItems += other.NeedItems
+	comp.NeedDeletes += other.NeedDeletes
+	comp.setComplectionPct()
+}
+
+func (comp *FolderCompletion) setComplectionPct() {
+	needRatio := float64(comp.NeedBytes) / float64(comp.GlobalBytes)
+	comp.CompletionPct = 100 * (1 - needRatio)
+
+	// If the completion is 100% but there are deletes we need to handle,
+	// drop it down a notch. Hack for consumers that look only at the
+	// percentage (our own GUI does the same calculation as here on its own
+	// and needs the same fixup).
+	if comp.NeedBytes == 0 && comp.NeedDeletes > 0 {
+		comp.CompletionPct = 95 // chosen by fair dice roll
+	}
 }
 
 // Map returns the members as a map, e.g. used in api to serialize as Json.
 func (comp FolderCompletion) Map() map[string]interface{} {
 	return map[string]interface{}{
 		"completion":  comp.CompletionPct,
-		"needBytes":   comp.NeedBytes,
-		"needItems":   comp.NeedItems,
 		"globalBytes": comp.GlobalBytes,
+		"needBytes":   comp.NeedBytes,
+		"globalItems": comp.GlobalItems,
+		"needItems":   comp.NeedItems,
 		"needDeletes": comp.NeedDeletes,
 	}
 }
@@ -746,8 +782,8 @@ func (m *model) Completion(device protocol.DeviceID, folder string) FolderComple
 	snap := rf.Snapshot()
 	defer snap.Release()
 
-	tot := snap.GlobalSize().Bytes
-	if tot == 0 {
+	counts := snap.GlobalSize()
+	if counts.Bytes == 0 {
 		// Folder is empty, so we have all of it
 		return FolderCompletion{
 			CompletionPct: 100,
@@ -765,26 +801,10 @@ func (m *model) Completion(device protocol.DeviceID, folder string) FolderComple
 		need.Bytes = 0
 	}
 
-	needRatio := float64(need.Bytes) / float64(tot)
-	completionPct := 100 * (1 - needRatio)
+	comp := NewFolderCompletion(counts.Bytes, need.Bytes, counts.Files+counts.Directories+counts.Symlinks, need.Files+need.Directories+need.Symlinks, need.Deleted)
 
-	// If the completion is 100% but there are deletes we need to handle,
-	// drop it down a notch. Hack for consumers that look only at the
-	// percentage (our own GUI does the same calculation as here on its own
-	// and needs the same fixup).
-	if need.Bytes == 0 && need.Deleted > 0 {
-		completionPct = 95 // chosen by fair dice roll
-	}
-
-	l.Debugf("%v Completion(%s, %q): %f (%d / %d = %f)", m, device, folder, completionPct, need.Bytes, tot, needRatio)
-
-	return FolderCompletion{
-		CompletionPct: completionPct,
-		NeedBytes:     need.Bytes,
-		NeedItems:     need.Files + need.Directories + need.Symlinks,
-		GlobalBytes:   tot,
-		NeedDeletes:   need.Deleted,
-	}
+	l.Debugf("%v Completion(%s, %q): %f (%d / %d)", m, device, folder, comp.CompletionPct, need.Bytes, counts.Bytes)
+	return comp
 }
 
 // DBSnapshot returns a snapshot of the database content relevant to the given folder.

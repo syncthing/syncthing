@@ -676,13 +676,41 @@ func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 	var folder = qs.Get("folder")
 	var deviceStr = qs.Get("device")
 
-	device, err := protocol.DeviceIDFromString(deviceStr)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+	// We will check completion status for either the local device, or a
+	// specific given device ID.
+
+	device := protocol.LocalDeviceID
+	if deviceStr != "" {
+		var err error
+		device, err = protocol.DeviceIDFromString(deviceStr)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
 	}
 
-	sendJSON(w, s.model.Completion(device, folder).Map())
+	// The user specifically asked for our own device ID. Internally that is
+	// known as protocol.LocalDeviceID so translate.
+	if device == s.id {
+		device = protocol.LocalDeviceID
+	}
+
+	var comp model.FolderCompletion
+	if folder != "" {
+		// We want completion for a specific folder.
+		comp = s.model.Completion(device, folder)
+	} else {
+		// We want completion for all folders shared with the device, as an
+		// aggregate. Grab completion for all folders shared with the device
+		// and aggregate.
+		for _, fcfg := range s.cfg.FolderList() {
+			if device == protocol.LocalDeviceID || fcfg.SharedWith(device) {
+				comp.Add(s.model.Completion(device, fcfg.ID))
+			}
+		}
+	}
+
+	sendJSON(w, comp.Map())
 }
 
 func (s *service) getDBStatus(w http.ResponseWriter, r *http.Request) {
