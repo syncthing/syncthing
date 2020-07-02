@@ -58,25 +58,12 @@ type fakefs struct {
 	withContent bool
 }
 
-var (
-	fakefsMut sync.Mutex
-	fakefsFs  = make(map[string]*fakefs)
-)
-
 func newFakeFilesystem(root string) *fakefs {
-	fakefsMut.Lock()
-	defer fakefsMut.Unlock()
-
 	var params url.Values
 	uri, err := url.Parse(root)
 	if err == nil {
 		root = uri.Path
 		params = uri.Query()
-	}
-
-	if fs, ok := fakefsFs[root]; ok {
-		// Already have an fs at this path
-		return fs
 	}
 
 	fs := &fakefs{
@@ -129,7 +116,6 @@ func newFakeFilesystem(root string) *fakefs {
 	// Also create a default folder marker for good measure
 	fs.Mkdir(".stfolder", 0700)
 
-	fakefsFs[root] = fs
 	return fs
 }
 
