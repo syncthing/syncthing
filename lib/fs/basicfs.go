@@ -220,6 +220,7 @@ func (f *BasicFilesystem) Open(name string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
+	setNoatime(fd)
 	return basicFile{fd, name}, err
 }
 
@@ -232,6 +233,7 @@ func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File,
 	if err != nil {
 		return nil, err
 	}
+	setNoatime(fd)
 	return basicFile{fd, name}, err
 }
 
