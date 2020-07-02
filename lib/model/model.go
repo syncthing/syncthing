@@ -175,14 +175,15 @@ var (
 	errNetworkNotAllowed = errors.New("network not allowed")
 	errNoVersioner       = errors.New("folder has no versioner")
 	// errors about why a connection is closed
-	errIgnoredFolderRemoved = errors.New("folder no longer ignored")
-	errReplacingConnection  = errors.New("replacing connection")
-	errStopped              = errors.New("Syncthing is being stopped")
-	errEncInvConfigLocal    = errors.New("can't encrypt data for a device when the folder type is receiveEncrypted")
-	errEncInvConfigRemote   = errors.New("remote has encrypted data and encrypts that data for us - this is impossible")
-	errEncNotEncryptedUs    = errors.New("folder is announced as encrypted, but not configured thus")
-	errEncNotEncrypted      = errors.New("folder is configured to be encrypted but not announced thus")
-	errEncPW                = errors.New("different passwords used")
+	errIgnoredFolderRemoved     = errors.New("folder no longer ignored")
+	errReplacingConnection      = errors.New("replacing connection")
+	errStopped                  = errors.New("Syncthing is being stopped")
+	errEncInvConfigLocal        = errors.New("can't encrypt data for a device when the folder type is receiveEncrypted")
+	errEncInvConfigRemote       = errors.New("remote has encrypted data and encrypts that data for us - this is impossible")
+	errEncNotEncryptedUs        = errors.New("folder is announced as encrypted, but not configured thus")
+	errEncNotEncrypted          = errors.New("folder is configured to be encrypted but not announced thus")
+	errEncNotEncryptedUntrusted = errors.New("device is untrusted, but configured to receive not encrypted data")
+	errEncPW                    = errors.New("different passwords used")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1114,7 +1115,7 @@ func (m *model) ccHandleFoldersLocked(folders []protocol.Folder, deviceCfg confi
 		ccDevice, hasDevice := ccDevices[folder.ID]
 		ccDeviceUs, hasDeviceUs := ccDevicesUs[folder.ID]
 
-		if err := m.ccCheckEncryptionLocked(cfg, folderDevice, ccDevice, ccDeviceUs, hasDevice, hasDeviceUs); err != nil {
+		if err := m.ccCheckEncryptionLocked(cfg, folderDevice, ccDevice, ccDeviceUs, hasDevice, hasDeviceUs, deviceCfg.Untrusted); err != nil {
 			sameError := false
 			if devs, ok := m.folderEncFailures[folder.ID]; ok {
 				sameError = devs[deviceID] == err
@@ -1234,11 +1235,15 @@ func (m *model) ccHandleFoldersLocked(folders []protocol.Folder, deviceCfg confi
 }
 
 // requires fmut read-lock
-func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDevice, ccDeviceUs protocol.Device, hasDevice, hasUs bool) error {
+func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDevice, ccDeviceUs protocol.Device, hasDevice, hasUs, deviceUntrusted bool) error {
 	hasTokenDev := hasDevice && len(ccDevice.EncPwToken) > 0
 	hasTokenUs := hasUs && len(ccDeviceUs.EncPwToken) > 0
 	isEncDev := folderDevice.EncryptionPassword != ""
 	isEncUs := fcfg.Type == config.FolderTypeReceiveEncrypted
+
+	if !isEncDev && !isEncUs && deviceUntrusted {
+		return errEncNotEncryptedUntrusted
+	}
 
 	if !(hasTokenDev || hasTokenUs || isEncDev || isEncUs) {
 		// Noone cares about encryption here

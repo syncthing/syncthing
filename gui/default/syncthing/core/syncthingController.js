@@ -27,7 +27,7 @@ angular.module('syncthing.core')
         $scope.errors = [];
         $scope.model = {};
         $scope.myID = '';
-        $scope.devices = [];
+        $scope.devices = {};
         $scope.discoveryCache = {};
         $scope.protocolChanged = false;
         $scope.reportData = {};
@@ -374,15 +374,14 @@ angular.module('syncthing.core')
             $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
             $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
 
-            $scope.devices = $scope.config.devices;
-            $scope.devices.forEach(function (deviceCfg) {
-                $scope.completion[deviceCfg.deviceID] = {
+            $scope.devices = deviceMap($scope.config.devices);
+            for (var id in $scope.devices) {
+                $scope.completion[id] = {
                     _total: 100,
                     _needBytes: 0,
                     _needItems: 0
                 };
-            });
-            $scope.devices.sort(deviceCompare);
+            };
             $scope.folders = folderMap($scope.config.folders);
             Object.keys($scope.folders).forEach(function (folder) {
                 refreshFolder(folder);
@@ -1016,11 +1015,11 @@ angular.module('syncthing.core')
             }
 
             // loop through all devices
-            var deviceCount = $scope.devices.length;
+            var deviceCount = 0;
             var pendingFolders = 0;
-            for (var i = 0; i < $scope.devices.length; i++) {
+            for (var id in $scope.devices) {
                 var status = $scope.deviceStatus({
-                    deviceID: $scope.devices[i].deviceID
+                    deviceID: id
                 });
                 switch (status) {
                     case 'unknown':
@@ -1033,7 +1032,8 @@ angular.module('syncthing.core')
                         deviceCount--;
                         break;
                 }
-                pendingFolders += $scope.devices[i].pendingFolders.length;
+                pendingFolders += $scope.devices[id].pendingFolders.length;
+                deviceCount++;
             }
 
             // enumerate notifications
@@ -1070,8 +1070,8 @@ angular.module('syncthing.core')
         };
 
         $scope.friendlyNameFromShort = function (shortID) {
-            var matches = $scope.devices.filter(function (n) {
-                return n.deviceID.substr(0, 7) === shortID;
+            var matches = Object.keys($scope.devices).filter(function (id) {
+                return id.substr(0, 7) === shortID;
             });
             if (matches.length !== 1) {
                 return shortID;
@@ -1080,21 +1080,11 @@ angular.module('syncthing.core')
         };
 
         $scope.friendlyNameFromID = function (deviceID) {
-            var match = $scope.findDevice(deviceID);
+            var match = $scope.devices[deviceID];
             if (match) {
                 return $scope.deviceName(match);
             }
             return deviceID.substr(0, 6);
-        };
-
-        $scope.findDevice = function (deviceID) {
-            var matches = $scope.devices.filter(function (n) {
-                return n.deviceID === deviceID;
-            });
-            if (matches.length !== 1) {
-                return undefined;
-            }
-            return matches[0];
         };
 
         $scope.deviceName = function (deviceCfg) {
@@ -1119,12 +1109,12 @@ angular.module('syncthing.core')
         };
 
         $scope.setDevicePause = function (device, pause) {
-            $scope.devices.forEach(function (cfg) {
-                if (cfg.deviceID == device) {
-                    cfg.paused = pause;
+            for (var id in $scope.devices) {
+                if (id == device) {
+                    $scope.devices[id].paused = pause;
                 }
-            });
-            $scope.config.devices = $scope.devices;
+            };
+            $scope.config.devices = $scope.deviceList();
             $scope.saveConfig();
         };
 
@@ -1353,7 +1343,7 @@ angular.module('syncthing.core')
                 // at it before that and conclude that the settings are
                 // modified (even though we just saved) unless we update
                 // here as well...
-                $scope.devices = $scope.config.devices;
+                $scope.devices = deviceMap($scope.config.devices);
 
                 $scope.saveConfig(function () {
                     if (themeChanged) {
@@ -1419,7 +1409,7 @@ angular.module('syncthing.core')
             $scope.editingExisting = true;
             $scope.willBeReintroducedBy = undefined;
             if (deviceCfg.introducedBy) {
-                var introducerDevice = $scope.findDevice(deviceCfg.introducedBy);
+                var introducerDevice = $scope.devices[deviceCfg.introducedBy];
                 if (introducerDevice && introducerDevice.introducer) {
                     $scope.willBeReintroducedBy = $scope.deviceName(introducerDevice);
                 }
@@ -1468,8 +1458,8 @@ angular.module('syncthing.core')
                         if ($scope.discovery.length === 5) {
                             break;
                         }
-                        for (var i = 0; i < $scope.devices.length; i++) {
-                            if ($scope.devices[i].deviceID === id) {
+                        for (var devID in $scope.devices) {
+                            if (devID === id) {
                                 continue outer;
                             }
                         }
@@ -1499,10 +1489,13 @@ angular.module('syncthing.core')
                 return;
             }
 
-            $scope.devices = $scope.devices.filter(function (n) {
-                return n.deviceID !== $scope.currentDevice.deviceID;
-            });
-            $scope.config.devices = $scope.devices;
+            for (var id in $scope.devices) {
+                if (id === $scope.currentDevice.deviceID) {
+                    delete $scope.devices[id];
+                    break;
+                }
+            };
+            $scope.config.devices = deviceList($scope.devices);
 
             for (var id in $scope.folders) {
                 $scope.folders[id].devices = $scope.folders[id].devices.filter(function (n) {
@@ -1523,20 +1516,8 @@ angular.module('syncthing.core')
                 return x.trim();
             });
 
-            var done = false;
-            for (var i = 0; i < $scope.devices.length && !done; i++) {
-                if ($scope.devices[i].deviceID === deviceCfg.deviceID) {
-                    $scope.devices[i] = deviceCfg;
-                    done = true;
-                }
-            }
-
-            if (!done) {
-                $scope.devices.push(deviceCfg);
-            }
-
-            $scope.devices.sort(deviceCompare);
-            $scope.config.devices = $scope.devices;
+            $scope.devices[deviceCfg.deviceID] = deviceCfg;
+            $scope.config.devices = deviceList($scope.devices);
 
             $scope.currentSharing.shared.forEach(function (folder) {
                 var id = folder.id;
@@ -1605,13 +1586,13 @@ angular.module('syncthing.core')
         };
 
         $scope.otherDevices = function () {
-            return $scope.devices.filter(function (n) {
+            return $scope.deviceList().filter(function (n) {
                 return n.deviceID !== $scope.myID;
             });
         };
 
         $scope.thisDevice = function () {
-            return $scope.thisDeviceIn($scope.devices);
+            return $scope.devices[$scope.myID];
         };
 
         $scope.thisDeviceIn = function (l) {
@@ -1630,16 +1611,16 @@ angular.module('syncthing.core')
         };
 
         $scope.setAllDevicesPause = function (pause) {
-            $scope.devices.forEach(function (cfg) {
-                cfg.paused = pause;
-            });
-            $scope.config.devices = $scope.devices;
+            for (var id in $scope.devices) {
+                $scope.devices[id].paused = pause;
+            };
+            $scope.config.devices = deviceList($scope.devices);
             $scope.saveConfig();
         }
 
         $scope.isAtleastOneDevicePausedStateSetTo = function (pause) {
-            for (var i = 0; i < $scope.devices.length; i++) {
-                if ($scope.devices[i].paused == pause) {
+            for (var id in $scope.devices) {
+                if ($scope.devices[id].paused == pause) {
                     return true;
                 }
             }
@@ -1672,15 +1653,18 @@ angular.module('syncthing.core')
         };
 
         $scope.friendlyDevices = function (str) {
-            for (var i = 0; i < $scope.devices.length; i++) {
-                var cfg = $scope.devices[i];
-                str = str.replace(cfg.deviceID, $scope.deviceName(cfg));
+            for (var id in $scope.devices) {
+                str = str.replace(id, $scope.deviceName($scope.devices[id]));
             }
             return str;
         };
 
         $scope.folderList = function () {
             return folderList($scope.folders);
+        };
+
+        $scope.deviceList = function () {
+            return deviceList($scope.devices);
         };
 
         $scope.directoryList = [];
@@ -1755,18 +1739,17 @@ angular.module('syncthing.core')
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
             }
             // Cache complete device objects indexed by ID for lookups
-            var devMap = deviceMap($scope.devices)
             initShareEditing('folder');
             $scope.currentFolder.devices.forEach(function (n) {
                 if (n.deviceID !== $scope.myID) {
-                    $scope.currentSharing.shared.push(devMap[n.deviceID]);
+                    $scope.currentSharing.shared.push($scope.devices[n.deviceID]);
                 }
                 if (n.encryptionPassword !== '') {
                     $scope.currentSharing.encPWs[n.deviceID] = n.encryptionPassword;
                 }
                 $scope.currentSharing.selected[n.deviceID] = true;
             });
-            $scope.currentSharing.unrelated = $scope.devices.filter(function (n) {
+            $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
                 return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID]
             });
             if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "trashcan") {
@@ -1859,7 +1842,7 @@ angular.module('syncthing.core')
             };
             initShareEditing('folder');
             $scope.currentSharing.selected[device] = true;
-            $scope.currentSharing.unrelated = $scope.devices.filter(function (n) {
+            $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
                 return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID]
             });
             $scope.ignores.text = '';
@@ -1975,9 +1958,9 @@ angular.module('syncthing.core')
             // Bump time
             pendingFolder.time = (new Date()).toISOString();
 
-            for (var i = 0; i < $scope.devices.length; i++) {
-                if ($scope.devices[i].deviceID == device) {
-                    $scope.devices[i].ignoredFolders.push(pendingFolder);
+            for (var id in $scope.devices) {
+                if (id == device) {
+                    $scope.devices[id].ignoredFolders.push(pendingFolder);
                     $scope.saveConfig();
                     return;
                 }
@@ -1988,7 +1971,7 @@ angular.module('syncthing.core')
             var names = [];
             folderCfg.devices.forEach(function (device) {
                 if (device.deviceID !== $scope.myID) {
-                    names.push($scope.deviceName($scope.findDevice(device.deviceID)));
+                    names.push($scope.deviceName($scope.devices[device.deviceID]));
                 }
             });
             names.sort();
