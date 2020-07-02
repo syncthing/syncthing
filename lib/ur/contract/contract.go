@@ -241,8 +241,6 @@ func (r *Report) FieldPointers() []interface{} {
 		&r.FolderUsesV3.AlwaysWeakHash, &r.FolderUsesV3.CustomWeakHashThreshold,
 		&r.FolderUsesV3.FsWatcherEnabled,
 
-		&r.DeviceUsesV3.Untrusted,
-
 		&r.GUIStats.Enabled, &r.GUIStats.UseTLS, &r.GUIStats.UseAuth,
 		&r.GUIStats.InsecureAdminAccess,
 		&r.GUIStats.Debugging, &r.GUIStats.InsecureSkipHostCheck,
