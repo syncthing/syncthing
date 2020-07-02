@@ -780,6 +780,12 @@ func (comp FolderCompletion) Map() map[string]interface{} {
 // empty folder string means the aggregate of all folders shared with the
 // given device.
 func (m *model) Completion(device protocol.DeviceID, folder string) FolderCompletion {
+	// The user specifically asked for our own device ID. Internally that is
+	// known as protocol.LocalDeviceID so translate.
+	if device == m.id {
+		device = protocol.LocalDeviceID
+	}
+
 	if folder != "" {
 		// We want completion for a specific folder.
 		return m.folderCompletion(device, folder)

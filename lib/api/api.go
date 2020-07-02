@@ -673,7 +673,7 @@ func (s *service) getDBBrowse(w http.ResponseWriter, r *http.Request) {
 
 func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
-	var folder = qs.Get("folder")    // empty or missing means all folders
+	var folder = qs.Get("folder")    // empty means all folders
 	var deviceStr = qs.Get("device") // empty means local device ID
 
 	// We will check completion status for either the local device, or a
@@ -687,12 +687,6 @@ func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-	}
-
-	// The user specifically asked for our own device ID. Internally that is
-	// known as protocol.LocalDeviceID so translate.
-	if device == s.id {
-		device = protocol.LocalDeviceID
 	}
 
 	sendJSON(w, s.model.Completion(device, folder).Map())
