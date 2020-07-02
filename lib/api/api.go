@@ -684,7 +684,7 @@ func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 		var err error
 		device, err = protocol.DeviceIDFromString(deviceStr)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
