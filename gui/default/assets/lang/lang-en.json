@@ -381,7 +381,6 @@
    "You have no ignored folders.": "You have no ignored folders.",
    "You have unsaved changes. Do you really want to discard them?": "You have unsaved changes. Do you really want to discard them?",
    "You must keep at least one version.": "You must keep at least one version.",
-   "You should never add anything to a \"{%receiveEncrypted%}\" folder.": "You should never add anything to a \"{{receiveEncrypted}}\" folder.",
    "You should never add or change anything locally in a \"{%receiveEncrypted%}\" folder.": "You should never add or change anything locally in a \"{{receiveEncrypted}}\" folder.",
    "days": "days",
    "enter password to encrypt sent data": "enter password to encrypt sent data",
