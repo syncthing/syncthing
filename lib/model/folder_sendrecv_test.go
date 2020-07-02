@@ -97,6 +97,7 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 	model.Supervisor.Stop()
 	f := model.folderRunners[fcfg.ID].(*sendReceiveFolder)
 	f.pullErrors = make(map[string]string)
+	f.tempPullErrors = make(map[string]string)
 	f.ctx = context.Background()
 
 	// Update index
