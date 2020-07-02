@@ -723,13 +723,13 @@ type FolderCompletion struct {
 	NeedDeletes   int32
 }
 
-func NewFolderCompletion(globalBytes, needBytes int64, globalItems, needItems, needDeletes int32) FolderCompletion {
+func newFolderCompletion(global, need db.Counts) FolderCompletion {
 	comp := FolderCompletion{
-		GlobalBytes: globalBytes,
-		NeedBytes:   needBytes,
-		GlobalItems: globalItems,
-		NeedItems:   needItems,
-		NeedDeletes: needDeletes,
+		GlobalBytes: global.Bytes,
+		NeedBytes:   need.Bytes,
+		GlobalItems: global.Files + global.Directories + global.Symlinks,
+		NeedItems:   need.Files + need.Directories + need.Symlinks,
+		NeedDeletes: need.Deleted,
 	}
 	comp.setComplectionPct()
 	return comp
@@ -812,8 +812,8 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) Folder
 	snap := rf.Snapshot()
 	defer snap.Release()
 
-	counts := snap.GlobalSize()
-	if counts.Bytes == 0 {
+	global := snap.GlobalSize()
+	if global.Bytes == 0 {
 		// Folder is empty, so we have all of it
 		return FolderCompletion{
 			CompletionPct: 100,
@@ -831,9 +831,9 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) Folder
 		need.Bytes = 0
 	}
 
-	comp := NewFolderCompletion(counts.Bytes, need.Bytes, counts.Files+counts.Directories+counts.Symlinks, need.Files+need.Directories+need.Symlinks, need.Deleted)
+	comp := newFolderCompletion(global, need)
 
-	l.Debugf("%v Completion(%s, %q): %f (%d / %d)", m, device, folder, comp.CompletionPct, need.Bytes, counts.Bytes)
+	l.Debugf("%v Completion(%s, %q): %v", m, device, folder, comp.Map())
 	return comp
 }
 
