@@ -735,7 +735,7 @@ func NewFolderCompletion(globalBytes, needBytes int64, globalItems, needItems, n
 	return comp
 }
 
-func (comp *FolderCompletion) Add(other FolderCompletion) {
+func (comp *FolderCompletion) add(other FolderCompletion) {
 	comp.GlobalBytes += other.GlobalBytes
 	comp.NeedBytes += other.NeedBytes
 	comp.GlobalItems += other.GlobalItems
@@ -774,9 +774,28 @@ func (comp FolderCompletion) Map() map[string]interface{} {
 	}
 }
 
-// Completion returns the completion status, in percent, for the given device
-// and folder.
+// Completion returns the completion status, in percent with some counters,
+// for the given device and folder. The device can be any known device ID
+// (including the local device) or explicitly protocol.LocalDeviceID. An
+// empty folder string means the aggregate of all folders shared with the
+// given device.
 func (m *model) Completion(device protocol.DeviceID, folder string) FolderCompletion {
+	if folder != "" {
+		// We want completion for a specific folder.
+		return m.folderCompletion(device, folder)
+	}
+
+	// We want completion for all (shared) folders as an aggregate.
+	var comp FolderCompletion
+	for _, fcfg := range m.cfg.FolderList() {
+		if device == protocol.LocalDeviceID || fcfg.SharedWith(device) {
+			comp.add(m.folderCompletion(device, fcfg.ID))
+		}
+	}
+	return comp
+}
+
+func (m *model) folderCompletion(device protocol.DeviceID, folder string) FolderCompletion {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()

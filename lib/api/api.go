@@ -673,8 +673,8 @@ func (s *service) getDBBrowse(w http.ResponseWriter, r *http.Request) {
 
 func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
-	var folder = qs.Get("folder")
-	var deviceStr = qs.Get("device")
+	var folder = qs.Get("folder")    // empty or missing means all folders
+	var deviceStr = qs.Get("device") // empty means local device ID
 
 	// We will check completion status for either the local device, or a
 	// specific given device ID.
@@ -695,20 +695,7 @@ func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 		device = protocol.LocalDeviceID
 	}
 
-	var comp model.FolderCompletion
-	if folder != "" {
-		// We want completion for a specific folder.
-		comp = s.model.Completion(device, folder)
-	} else {
-		// We want completion for all folders as an aggregate.
-		for _, fcfg := range s.cfg.FolderList() {
-			if device == protocol.LocalDeviceID || fcfg.SharedWith(device) {
-				comp.Add(s.model.Completion(device, fcfg.ID))
-			}
-		}
-	}
-
-	sendJSON(w, comp.Map())
+	sendJSON(w, s.model.Completion(device, folder).Map())
 }
 
 func (s *service) getDBStatus(w http.ResponseWriter, r *http.Request) {
