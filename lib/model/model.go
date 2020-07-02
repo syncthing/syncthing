@@ -747,11 +747,10 @@ func (comp *FolderCompletion) add(other FolderCompletion) {
 func (comp *FolderCompletion) setComplectionPct() {
 	if comp.GlobalBytes == 0 {
 		comp.CompletionPct = 100
-		return
+	} else {
+		needRatio := float64(comp.NeedBytes) / float64(comp.GlobalBytes)
+		comp.CompletionPct = 100 * (1 - needRatio)
 	}
-
-	needRatio := float64(comp.NeedBytes) / float64(comp.GlobalBytes)
-	comp.CompletionPct = 100 * (1 - needRatio)
 
 	// If the completion is 100% but there are deletes we need to handle,
 	// drop it down a notch. Hack for consumers that look only at the
