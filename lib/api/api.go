@@ -700,9 +700,7 @@ func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 		// We want completion for a specific folder.
 		comp = s.model.Completion(device, folder)
 	} else {
-		// We want completion for all folders shared with the device, as an
-		// aggregate. Grab completion for all folders shared with the device
-		// and aggregate.
+		// We want completion for all folders as an aggregate.
 		for _, fcfg := range s.cfg.FolderList() {
 			if device == protocol.LocalDeviceID || fcfg.SharedWith(device) {
 				comp.Add(s.model.Completion(device, fcfg.ID))
