@@ -210,12 +210,14 @@ func TestIsDeleted(t *testing.T) {
 			}
 			t.Fatal(err)
 		}
+		l.Infoln("weird thingS", filepath.Join(testFs.URI(), strings.ToLower(n)), filepath.Join(testFs.URI(), "linkTo"+n))
 	}
 
 	f := &folder{FolderConfiguration: tfcfg}
-	rc := fs.NewCachedRealCaser(testFs)
 	for _, c := range cases {
-		if f.isDeleted(testFs, rc, c.path) != c.isDel {
+		if del, err := f.isDeleted(testFs, c.path); err != nil {
+			t.Errorf("IsDeleted(%v) returned error %v", c.path, err)
+		} else if del != c.isDel {
 			t.Errorf("IsDeleted(%v) != %v", c.path, c.isDel)
 		}
 	}

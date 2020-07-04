@@ -401,7 +401,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	scanCtx, scanCancel := context.WithCancel(f.ctx)
 	defer scanCancel()
 	mtimefs := f.fset.MtimeFS()
-	rc := fs.NewCachedRealCaser(mtimefs)
 	fchan := scanner.Walk(scanCtx, scanner.Config{
 		Folder:                f.ID,
 		Subs:                  subDirs,
@@ -478,7 +477,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		changes++
 
 		if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
-			if nf, ok := f.findRename(snap, mtimefs, rc, res.File, alreadyUsed); ok {
+			if nf, ok := f.findRename(snap, mtimefs, res.File, alreadyUsed); ok {
 				batchAppend(nf, snap)
 				changes++
 			}
@@ -564,7 +563,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				// it's still here. Simply stat:ing it wont do as there are
 				// tons of corner cases (e.g. parent dir->symlink, missing
 				// permissions)
-				if !f.isDeleted(mtimefs, rc, file.Name) {
+				if del, err := f.isDeleted(mtimefs, file.Name); err != nil {
+					f.newScanError(file.Name, fmt.Errorf("detecting deletion: %w", err))
+					return true
+				} else if !del {
 					if ignoredParent != "" {
 						// Don't ignore parents of this not ignored item
 						toIgnore = toIgnore[:0]
@@ -633,7 +635,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	return nil
 }
 
-func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, rc *fs.CachedRealCaser, file protocol.FileInfo, alreadyUsed map[string]struct{}) (protocol.FileInfo, bool) {
+func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file protocol.FileInfo, alreadyUsed map[string]struct{}) (protocol.FileInfo, bool) {
 	if len(file.Blocks) == 0 || file.Size == 0 {
 		return protocol.FileInfo{}, false
 	}
@@ -669,7 +671,7 @@ func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, rc *fs.Cac
 			return true
 		}
 
-		if !f.isDeleted(mtimefs, rc, fi.Name) {
+		if del, err := f.isDeleted(mtimefs, fi.Name); err != nil || !del {
 			return true
 		}
 
@@ -685,24 +687,18 @@ func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, rc *fs.Cac
 	return nf, found
 }
 
-func (f *folder) isDeleted(ffs fs.Filesystem, rc *fs.CachedRealCaser, name string) bool {
-	if _, err := ffs.Lstat(name); fs.IsNotExist(err) {
-		return true
+func (f *folder) isDeleted(ffs fs.Filesystem, name string) (bool, error) {
+	if _, err := ffs.Lstat(name); err != nil {
+		if fs.IsNotExist(err) || fs.IsErrCase(err) {
+			return true, nil
+		}
+		return false, err
 	}
 	switch osutil.TraversesSymlink(ffs, filepath.Dir(name)).(type) {
 	case *osutil.NotADirectoryError, *osutil.TraversesSymlinkError:
-		return true
+		return true, nil
 	}
-	if f.CaseSensitiveFS {
-		return false
-	}
-	if real, err := rc.RealCase(name); err != nil {
-		return fs.IsNotExist(err)
-	} else if real != name {
-		return true
-	}
-
-	return false
+	return false, nil
 }
 
 func (f *folder) scanTimerFired() {

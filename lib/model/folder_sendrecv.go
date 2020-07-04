@@ -75,14 +75,6 @@ var (
 	contextRemovingOldItem      = "removing item to be replaced"
 )
 
-type errCaseConflict struct {
-	name, onDisk string
-}
-
-func (e *errCaseConflict) Error() string {
-	return fmt.Sprintf("name to sync (%v) conflicts with name on disk (%v)", e.name, e.onDisk)
-}
-
 type dbUpdateType int
 
 func (d dbUpdateType) String() string {
@@ -260,7 +252,6 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 
 	snap := f.fset.Snapshot()
 	defer snap.Release()
-	rc := fs.NewCachedRealCaser(f.fs)
 
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
@@ -300,11 +291,11 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	doneWg.Add(1)
 	// finisherRoutine finishes when finisherChan is closed
 	go func() {
-		f.finisherRoutine(snap, rc, finisherChan, dbUpdateChan, scanChan)
+		f.finisherRoutine(snap, finisherChan, dbUpdateChan, scanChan)
 		doneWg.Done()
 	}()
 
-	changed, fileDeletions, dirDeletions, err := f.processNeeded(snap, rc, dbUpdateChan, copyChan, scanChan)
+	changed, fileDeletions, dirDeletions, err := f.processNeeded(snap, dbUpdateChan, copyChan, scanChan)
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration. Wait for them to finish.
@@ -319,7 +310,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	doneWg.Wait()
 
 	if err == nil {
-		f.processDeletions(fileDeletions, dirDeletions, snap, rc, dbUpdateChan, scanChan)
+		f.processDeletions(fileDeletions, dirDeletions, snap, dbUpdateChan, scanChan)
 	}
 
 	// Wait for db updates and scan scheduling to complete
@@ -331,7 +322,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	return changed
 }
 
-func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, rc *fs.CachedRealCaser, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
+func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
 	changed := 0
 	var dirDeletions []protocol.FileInfo
 	fileDeletions := map[string]protocol.FileInfo{}
@@ -383,7 +374,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, rc *fs.CachedRealCa
 				// files to delete inside them before we get to that point.
 				dirDeletions = append(dirDeletions, file)
 			} else if file.IsSymlink() {
-				f.deleteFile(file, snap, rc, dbUpdateChan, scanChan)
+				f.deleteFile(file, snap, dbUpdateChan, scanChan)
 			} else {
 				df, ok := snap.Get(protocol.LocalDeviceID, file.Name)
 				// Local file can be already deleted, but with a lower version
@@ -396,7 +387,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, rc *fs.CachedRealCa
 					key := string(df.BlocksHash)
 					buckets[key] = append(buckets[key], df)
 				} else {
-					f.deleteFileWithCurrent(file, df, ok, rc, dbUpdateChan, scanChan)
+					f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
 				}
 			}
 
@@ -420,13 +411,13 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, rc *fs.CachedRealCa
 		case file.IsDirectory() && !file.IsSymlink():
 			l.Debugln(f, "Handling directory", file.Name)
 			if f.checkParent(file.Name, scanChan) {
-				f.handleDir(file, snap, rc, dbUpdateChan, scanChan)
+				f.handleDir(file, snap, dbUpdateChan, scanChan)
 			}
 
 		case file.IsSymlink():
 			l.Debugln(f, "Handling symlink", file.Name)
 			if f.checkParent(file.Name, scanChan) {
-				f.handleSymlink(file, snap, rc, dbUpdateChan, scanChan)
+				f.handleSymlink(file, snap, dbUpdateChan, scanChan)
 			}
 
 		default:
@@ -502,7 +493,7 @@ nextFile:
 			// desired state with the delete bit set is in the deletion
 			// map.
 			desired := fileDeletions[candidate.Name]
-			if err := f.renameFile(candidate, desired, fi, snap, rc, dbUpdateChan, scanChan); err != nil {
+			if err := f.renameFile(candidate, desired, fi, snap, dbUpdateChan, scanChan); err != nil {
 				l.Debugf("rename shortcut for %s failed: %s", fi.Name, err.Error())
 				// Failed to rename, try next one.
 				continue
@@ -519,7 +510,7 @@ nextFile:
 		for _, dev := range devices {
 			if _, ok := f.model.Connection(dev); ok {
 				// Handle the file normally, by coping and pulling, etc.
-				f.handleFile(fi, snap, rc, copyChan)
+				f.handleFile(fi, snap, copyChan)
 				continue nextFile
 			}
 		}
@@ -540,7 +531,7 @@ func popCandidate(buckets map[string][]protocol.FileInfo, key string) (protocol.
 	return cands[0], true
 }
 
-func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, snap *db.Snapshot, rc *fs.CachedRealCaser, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	for _, file := range fileDeletions {
 		select {
 		case <-f.ctx.Done():
@@ -548,7 +539,7 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.F
 		default:
 		}
 
-		f.deleteFile(file, snap, rc, dbUpdateChan, scanChan)
+		f.deleteFile(file, snap, dbUpdateChan, scanChan)
 	}
 
 	// Process in reverse order to delete depth first
@@ -561,12 +552,12 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.F
 
 		dir := dirDeletions[len(dirDeletions)-i-1]
 		l.Debugln(f, "Deleting dir", dir.Name)
-		f.deleteDir(dir, snap, rc, dbUpdateChan, scanChan)
+		f.deleteDir(dir, snap, dbUpdateChan, scanChan)
 	}
 }
 
 // handleDir creates or updates the given directory
-func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot, rc *fs.CachedRealCaser, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -598,7 +589,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
-	info, err := f.statAndCheckCase(file.Name, rc)
+	info, err := f.fs.Lstat(file.Name)
 
 	if err != nil && !fs.IsNotExist(err) {
 		f.newPullError(file.Name, errors.Wrap(err, "checking for existing dir"))
@@ -658,26 +649,6 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 		}
 	}
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleDir}
-}
-
-func (f *sendReceiveFolder) statAndCheckCase(name string, rc *fs.CachedRealCaser) (fs.FileInfo, error) {
-	info, err := f.fs.Lstat(name)
-	if err != nil {
-		return nil, err
-	}
-
-	if f.CaseSensitiveFS {
-		return info, nil
-	}
-
-	if realName, err := rc.RealCase(name); err != nil {
-		// An error here would be mighty surprising given the stat worked
-		return nil, err
-	} else if realName != name {
-		return nil, &errCaseConflict{name, realName}
-	}
-
-	return info, nil
 }
 
 func (f *sendReceiveFolder) createDir(file protocol.FileInfo, info fs.FileInfo, mode fs.FileMode, dbUpdateChan chan<- dbUpdateJob) {
@@ -748,7 +719,7 @@ func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) boo
 }
 
 // handleSymlink creates or updates the given symlink
-func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snapshot, rc *fs.CachedRealCaser, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -782,7 +753,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		return
 	}
 
-	info, err := f.statAndCheckCase(file.Name, rc)
+	info, err := f.fs.Lstat(file.Name)
 
 	if err != nil && !fs.IsNotExist(err) {
 		f.newPullError(file.Name, errors.Wrap(err, "checking for existing symlink"))
@@ -837,7 +808,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 }
 
 // deleteDir attempts to remove a directory that was deleted on a remote
-func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot, rc *fs.CachedRealCaser, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -864,7 +835,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 
 	cur, hasCur := snap.Get(protocol.LocalDeviceID, file.Name)
 
-	if err = f.checkToBeDeleted(file, cur, hasCur, dbUpdateDeleteDir, rc, dbUpdateChan, scanChan); err != nil {
+	if err = f.checkToBeDeleted(file, cur, hasCur, dbUpdateDeleteDir, dbUpdateChan, scanChan); err != nil {
 		if fs.IsNotExist(err) {
 			err = nil
 		}
@@ -879,12 +850,12 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 }
 
 // deleteFile attempts to delete the given file
-func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, snap *db.Snapshot, rc *fs.CachedRealCaser, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	cur, hasCur := snap.Get(protocol.LocalDeviceID, file.Name)
-	f.deleteFileWithCurrent(file, cur, hasCur, rc, dbUpdateChan, scanChan)
+	f.deleteFileWithCurrent(file, cur, hasCur, dbUpdateChan, scanChan)
 }
 
-func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, hasCur bool, rc *fs.CachedRealCaser, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, hasCur bool, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -911,7 +882,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 		})
 	}()
 
-	if err = f.checkToBeDeleted(file, cur, hasCur, dbUpdateDeleteFile, rc, dbUpdateChan, scanChan); err != nil {
+	if err = f.checkToBeDeleted(file, cur, hasCur, dbUpdateDeleteFile, dbUpdateChan, scanChan); err != nil {
 		if fs.IsNotExist(err) {
 			err = nil
 		}
@@ -958,7 +929,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 
 // renameFile attempts to rename an existing file to a destination
 // and set the right attributes on it.
-func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, snap *db.Snapshot, rc *fs.CachedRealCaser, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
+func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -996,12 +967,12 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	l.Debugln(f, "taking rename shortcut", source.Name, "->", target.Name)
 
 	// Check that source is compatible with what we have in the DB
-	if err = f.checkToBeDeleted(source, cur, true, dbUpdateDeleteFile, rc, dbUpdateChan, scanChan); err != nil {
+	if err = f.checkToBeDeleted(source, cur, true, dbUpdateDeleteFile, dbUpdateChan, scanChan); err != nil {
 		return err
 	}
 	// Check that the target corresponds to what we have in the DB
 	curTarget, ok := snap.Get(protocol.LocalDeviceID, target.Name)
-	switch stat, serr := f.statAndCheckCase(target.Name, rc); {
+	switch stat, serr := f.fs.Lstat(target.Name); {
 	case serr != nil && fs.IsNotExist(serr):
 		if !ok || curTarget.IsDeleted() {
 			break
@@ -1057,7 +1028,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	// of the source and the creation of the target temp file. Fix-up the metadata,
 	// update the local index of the target file and rename from temp to real name.
 
-	if err = f.performFinish(target, curTarget, true, tempName, snap, rc, dbUpdateChan, scanChan); err != nil {
+	if err = f.performFinish(target, curTarget, true, tempName, snap, dbUpdateChan, scanChan); err != nil {
 		return err
 	}
 
@@ -1102,7 +1073,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, rc *fs.CachedRealCaser, copyChan chan<- copyBlocksState) {
+func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState) {
 	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
 
 	have, _ := blockDiff(curFile.Blocks, file.Blocks)
@@ -1115,7 +1086,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 	tempName := fs.TempName(file.Name)
 
 	// Check for case conflicts.
-	if _, err := f.statAndCheckCase(tempName, rc); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	if _, err := f.fs.Lstat(tempName); err != nil && !fs.IsNotExist(err) {
 		f.newPullError(file.Name, fmt.Errorf("checking temporary sync path: %w", err))
 		f.queue.Done(file.Name)
 		return
@@ -1556,7 +1527,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 	out <- state.sharedPullerState
 }
 
-func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCurFile bool, tempName string, snap *db.Snapshot, rc *fs.CachedRealCaser, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
+func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCurFile bool, tempName string, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
 	// Set the correct permission bits on the new file
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err := f.fs.Chmod(tempName, fs.FileMode(file.Permissions&0777)); err != nil {
@@ -1569,7 +1540,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		return err
 	}
 
-	if stat, err := f.statAndCheckCase(file.Name, rc); err == nil {
+	if stat, err := f.fs.Lstat(file.Name); err == nil {
 		// There is an old file or directory already in place. We need to
 		// handle that.
 
@@ -1612,7 +1583,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 	return nil
 }
 
-func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, rc *fs.CachedRealCaser, in <-chan *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, in <-chan *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	for state := range in {
 		if closed, err := state.finalClose(); closed {
 			l.Debugln(f, "closing", state.file.Name)
@@ -1620,7 +1591,7 @@ func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, rc *fs.CachedReal
 			f.queue.Done(state.file.Name)
 
 			if err == nil {
-				err = f.performFinish(state.file, state.curFile, state.hasCurFile, state.tempName, snap, rc, dbUpdateChan, scanChan)
+				err = f.performFinish(state.file, state.curFile, state.hasCurFile, state.tempName, snap, dbUpdateChan, scanChan)
 			}
 
 			if err != nil {
@@ -1851,7 +1822,7 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 	errStr := fmt.Sprintln("syncing:", err)
 	f.tempPullErrors[path] = errStr
 
-	l.Debugln("%v new error for %v: %v", f, path, err)
+	l.Debugf("%v new error for %v: %v", f, path, err)
 }
 
 func (f *sendReceiveFolder) Errors() []FileError {
@@ -2019,14 +1990,14 @@ func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, ite
 // checkToBeDeleted makes sure the file on disk is compatible with what there is
 // in the DB before the caller proceeds with actually deleting it.
 // I.e. non-nil error status means "Do not delete!".
-func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur bool, updateType dbUpdateType, rc *fs.CachedRealCaser, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
+func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur bool, updateType dbUpdateType, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
 	if err := osutil.TraversesSymlink(f.fs, filepath.Dir(file.Name)); err != nil {
 		l.Debugln(f, "not deleting item behind symlink on disk, but update db", file.Name)
 		dbUpdateChan <- dbUpdateJob{file, updateType}
 		return fs.ErrNotExist
 	}
 
-	stat, err := f.statAndCheckCase(file.Name, rc)
+	stat, err := f.fs.Lstat(file.Name)
 	if !fs.IsNotExist(err) && err != nil {
 		return err
 	}

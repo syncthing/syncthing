@@ -160,14 +160,22 @@ const OptWriteOnly = os.O_WRONLY
 // as an error by any function.
 var SkipDir = filepath.SkipDir
 
-// IsExist is the equivalent of os.IsExist
-var IsExist = os.IsExist
+func IsExist(err error) bool {
+	if errors.Is(err, os.ErrExist) {
+		return true
+	}
+	return os.IsExist(err)
+}
 
 // IsExist is the equivalent of os.ErrExist
 var ErrExist = os.ErrExist
 
-// IsNotExist is the equivalent of os.IsNotExist
-var IsNotExist = os.IsNotExist
+func IsNotExist(err error) bool {
+	if errors.Is(err, os.ErrNotExist) {
+		return true
+	}
+	return os.IsNotExist(err)
+}
 
 // ErrNotExist is the equivalent of os.ErrNotExist
 var ErrNotExist = os.ErrNotExist
@@ -181,6 +189,8 @@ var IsPathSeparator = os.IsPathSeparator
 func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 	var fs Filesystem
 	switch fsType {
+	case FilesystemTypeCaseBasic:
+		fs = newCaseBasicFilesystem(uri)
 	case FilesystemTypeBasic:
 		fs = newBasicFilesystem(uri)
 	case FilesystemTypeFake:
