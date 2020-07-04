@@ -8,6 +8,7 @@ package util
 
 import (
 	"context"
+	"encoding"
 	"fmt"
 	"net"
 	"net/url"
@@ -43,11 +44,23 @@ func SetDefaults(data interface{}) {
 					}
 					continue
 				}
+				if unmarshaler, ok := f.Interface().(encoding.TextUnmarshaler); ok {
+					if err := unmarshaler.UnmarshalText([]byte(v)); err != nil {
+						panic(err)
+					}
+					continue
+				}
 			}
 
 			if f.CanAddr() && f.Addr().CanInterface() {
 				if parser, ok := f.Addr().Interface().(defaultParser); ok {
 					if err := parser.ParseDefault(v); err != nil {
+						panic(err)
+					}
+					continue
+				}
+				if unmarshaler, ok := f.Addr().Interface().(encoding.TextUnmarshaler); ok {
+					if err := unmarshaler.UnmarshalText([]byte(v)); err != nil {
 						panic(err)
 					}
 					continue

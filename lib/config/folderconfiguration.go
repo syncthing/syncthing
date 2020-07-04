@@ -31,7 +31,7 @@ const DefaultMarkerName = ".stfolder"
 type FolderConfiguration struct {
 	ID                      string                      `xml:"id,attr" json:"id"`
 	Label                   string                      `xml:"label,attr" json:"label" restart:"false"`
-	FilesystemType          fs.FilesystemType           `xml:"filesystemType" json:"filesystemType"`
+	FilesystemType          fs.FilesystemType           `xml:"filesystemType" json:"filesystemType" default:"casebasic"`
 	Path                    string                      `xml:"path,attr" json:"path"`
 	Type                    FolderType                  `xml:"type,attr" json:"type"`
 	Devices                 []FolderDeviceConfiguration `xml:"device" json:"devices"`
@@ -78,14 +78,15 @@ type FolderDeviceConfiguration struct {
 
 func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
 	f := FolderConfiguration{
-		ID:             id,
-		Label:          label,
-		Devices:        []FolderDeviceConfiguration{{DeviceID: myID}},
-		FilesystemType: fsType,
-		Path:           path,
+		ID:      id,
+		Label:   label,
+		Devices: []FolderDeviceConfiguration{{DeviceID: myID}},
+		Path:    path,
 	}
 
 	util.SetDefaults(&f)
+
+	f.FilesystemType = fsType // must happen after defaults
 
 	f.prepare()
 	return f

@@ -40,17 +40,19 @@ type testfile struct {
 
 type testfileList []testfile
 
-var testFs fs.Filesystem
-
-var testdata = testfileList{
-	{"afile", 4, "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"},
-	{"dir1", 128, ""},
-	{filepath.Join("dir1", "dfile"), 5, "49ae93732fcf8d63fe1cce759664982dbd5b23161f007dba8561862adc96d063"},
-	{"dir2", 128, ""},
-	{filepath.Join("dir2", "cfile"), 4, "bf07a7fbb825fc0aae7bf4a1177b2b31fcf8a3feeaf7092761e18c859ee52a9c"},
-	{"excludes", 37, "df90b52f0c55dba7a7a940affe482571563b1ac57bd5be4d8a0291e7de928e06"},
-	{"further-excludes", 5, "7eb0a548094fa6295f7fd9200d69973e5f5ec5c04f2a86d998080ac43ecf89f1"},
-}
+var (
+	testFs     fs.Filesystem
+	testFsType = fs.FilesystemTypeCaseBasic
+	testdata   = testfileList{
+		{"afile", 4, "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"},
+		{"dir1", 128, ""},
+		{filepath.Join("dir1", "dfile"), 5, "49ae93732fcf8d63fe1cce759664982dbd5b23161f007dba8561862adc96d063"},
+		{"dir2", 128, ""},
+		{filepath.Join("dir2", "cfile"), 4, "bf07a7fbb825fc0aae7bf4a1177b2b31fcf8a3feeaf7092761e18c859ee52a9c"},
+		{"excludes", 37, "df90b52f0c55dba7a7a940affe482571563b1ac57bd5be4d8a0291e7de928e06"},
+		{"further-excludes", 5, "7eb0a548094fa6295f7fd9200d69973e5f5ec5c04f2a86d998080ac43ecf89f1"},
+	}
+)
 
 func init() {
 	// This test runs the risk of entering infinite recursion if it fails.
@@ -58,7 +60,7 @@ func init() {
 	// potentially taking down the box...
 	rdebug.SetMaxStack(10 * 1 << 20)
 
-	testFs = fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
+	testFs = fs.NewFilesystem(fs.FilesystemTypeCaseBasic, "testdata")
 }
 
 func TestWalkSub(t *testing.T) {
@@ -270,7 +272,7 @@ func TestWalkSymlinkUnix(t *testing.T) {
 	defer os.RemoveAll("_symlinks")
 	os.Symlink("../testdata", "_symlinks/link")
 
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks")
+	fs := fs.NewFilesystem(testFsType, "_symlinks")
 	for _, path := range []string{".", "link"} {
 		// Scan it
 		files := walkDir(fs, path, nil, nil, 0)
@@ -298,7 +300,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 	os.RemoveAll(name)
 	os.Mkdir(name, 0755)
 	defer os.RemoveAll(name)
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, name)
+	fs := fs.NewFilesystem(testFsType, name)
 	if err := osutil.DebugSymlinkForTestsOnly("../testdata", "_symlinks/link"); err != nil {
 		// Probably we require permissions we don't have.
 		t.Skip(err)
@@ -335,7 +337,7 @@ func TestWalkRootSymlink(t *testing.T) {
 	}
 
 	// Scan root with symlink at FS root
-	files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".", nil, nil, 0)
+	files := walkDir(fs.NewFilesystem(testFsType, link), ".", nil, nil, 0)
 
 	// Verify that we got two files
 	if len(files) != 2 {
@@ -343,7 +345,7 @@ func TestWalkRootSymlink(t *testing.T) {
 	}
 
 	// Scan symlink below FS root
-	files = walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, tmp), "link", nil, nil, 0)
+	files = walkDir(fs.NewFilesystem(testFsType, tmp), "link", nil, nil, 0)
 
 	// Verify that we got the one symlink, except on windows
 	if runtime.GOOS == "windows" {
@@ -355,7 +357,7 @@ func TestWalkRootSymlink(t *testing.T) {
 	}
 
 	// Scan path below symlink
-	files = walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, tmp), filepath.Join("link", "cfile"), nil, nil, 0)
+	files = walkDir(fs.NewFilesystem(testFsType, tmp), filepath.Join("link", "cfile"), nil, nil, 0)
 
 	// Verify that we get nothing
 	if len(files) != 0 {
@@ -554,7 +556,7 @@ func BenchmarkHashFile(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := HashFile(context.TODO(), fs.NewFilesystem(fs.FilesystemTypeBasic, ""), testdataName, protocol.MinBlockSize, nil, true); err != nil {
+		if _, err := HashFile(context.TODO(), fs.NewFilesystem(testFsType, ""), testdataName, protocol.MinBlockSize, nil, true); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -652,7 +654,7 @@ func TestIssue4799(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmp)
+	fs := fs.NewFilesystem(testFsType, tmp)
 
 	fd, err := fs.Create("foo")
 	if err != nil {
@@ -714,7 +716,7 @@ func TestIssue4841(t *testing.T) {
 	}
 	defer os.RemoveAll(tmp)
 
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmp)
+	fs := fs.NewFilesystem(testFsType, tmp)
 
 	fd, err := fs.Create("foo")
 	if err != nil {
