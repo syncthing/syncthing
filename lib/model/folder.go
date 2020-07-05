@@ -633,7 +633,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	return nil
 }
 
-func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, rc *fs.CachedRealCaser, file protocol.FileInfo, alreadyUsed map[string]struct{}) (protocol.FileInfo, bool) {
+func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, rc fs.CachedRealCaser, file protocol.FileInfo, alreadyUsed map[string]struct{}) (protocol.FileInfo, bool) {
 	if len(file.Blocks) == 0 || file.Size == 0 {
 		return protocol.FileInfo{}, false
 	}
@@ -685,7 +685,7 @@ func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, rc *fs.Cac
 	return nf, found
 }
 
-func (f *folder) isDeleted(ffs fs.Filesystem, rc *fs.CachedRealCaser, name string) bool {
+func (f *folder) isDeleted(ffs fs.Filesystem, rc fs.CachedRealCaser, name string) bool {
 	if _, err := ffs.Lstat(name); fs.IsNotExist(err) {
 		return true
 	}

@@ -852,3 +852,9 @@ func (f *fakeFileInfo) Owner() int {
 func (f *fakeFileInfo) Group() int {
 	return f.gid
 }
+
+type fakeCachedRealCaser struct{}
+
+func (*fakeCachedRealCaser) RealCase(name string) (string, error) {
+	return name, nil
+}

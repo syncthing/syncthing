@@ -9,6 +9,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -256,4 +257,33 @@ func Canonicalize(file string) (string, error) {
 	}
 
 	return file, nil
+}
+
+type CachedRealCaser interface {
+	RealCase(name string) (string, error)
+}
+
+func NewCachedRealCaser(fs Filesystem) CachedRealCaser {
+	ufs := fs
+outer:
+	for {
+		switch sfs := ufs.(type) {
+		case *logFilesystem:
+			ufs = sfs.Filesystem
+		case *walkFilesystem:
+			ufs = sfs.Filesystem
+		case *MtimeFS:
+			ufs = sfs.Filesystem
+		default:
+			break outer
+		}
+	}
+	switch sfs := ufs.(type) {
+	case *BasicFilesystem:
+		return newBasicCachedRealCaser(sfs)
+	case *fakefs:
+		return &fakeCachedRealCaser{}
+	default:
+		panic(fmt.Sprintf("CachedRealCaser not supported for filesystem %T", sfs))
+	}
 }
