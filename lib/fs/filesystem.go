@@ -161,22 +161,14 @@ const OptWriteOnly = os.O_WRONLY
 // as an error by any function.
 var SkipDir = filepath.SkipDir
 
-func IsExist(err error) bool {
-	if errors.Is(err, os.ErrExist) {
-		return true
-	}
-	return os.IsExist(err)
-}
+// IsExist is the equivalent of os.IsExist
+var IsExist = os.IsExist
 
 // IsExist is the equivalent of os.ErrExist
 var ErrExist = os.ErrExist
 
-func IsNotExist(err error) bool {
-	if errors.Is(err, os.ErrNotExist) {
-		return true
-	}
-	return os.IsNotExist(err)
-}
+// IsNotExist is the equivalent of os.IsNotExist
+var IsNotExist = os.IsNotExist
 
 // ErrNotExist is the equivalent of os.ErrNotExist
 var ErrNotExist = os.ErrNotExist
