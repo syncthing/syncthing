@@ -24,6 +24,12 @@ const (
 	caseMaxCachedNames = 1 << 20
 )
 
+var casers map[string]*realCaser
+
+func init() {
+	casers = make(map[string]*realCaser)
+}
+
 type ErrCase struct {
 	given, real string
 }
@@ -40,22 +46,25 @@ func IsErrCase(err error) bool {
 // caseBasicFilesystem is a BasicFilesystem with additional checks to make a
 // potentially case insensitive underlying FS behave like it's case-sensitive.
 type caseBasicFilesystem struct {
-	BasicFilesystem
-
-	caseRoot      *caseNode
-	caseCount     int
-	caseTimer     *time.Timer
-	caseTimerStop chan struct{}
-	caseMut       sync.RWMutex
+	*BasicFilesystem
+	*realCaser
 }
 
 func newCaseBasicFilesystem(root string) *caseBasicFilesystem {
 	fs := &caseBasicFilesystem{
-		BasicFilesystem: BasicFilesystem{root},
-		caseRoot:        &caseNode{name: "."},
-		caseTimer:       time.NewTimer(0),
+		BasicFilesystem: newBasicFilesystem(root),
 	}
-	<-fs.caseTimer.C
+	caser, ok := casers[fs.root]
+	if !ok {
+		caser = &realCaser{
+			fs:        fs.BasicFilesystem,
+			caseRoot:  &caseNode{name: "."},
+			caseTimer: time.NewTimer(0),
+		}
+		<-caser.caseTimer.C
+		casers[fs.root] = caser
+	}
+	fs.realCaser = caser
 	return fs
 }
 
@@ -305,38 +314,47 @@ func (f *caseBasicFilesystem) checkCase(name string) error {
 	return nil
 }
 
-func (f *caseBasicFilesystem) realCase(name string) (string, error) {
+type realCaser struct {
+	fs            *BasicFilesystem
+	caseRoot      *caseNode
+	caseCount     int
+	caseTimer     *time.Timer
+	caseTimerStop chan struct{}
+	caseMut       sync.RWMutex
+}
+
+func (r *realCaser) realCase(name string) (string, error) {
 	out := "."
 	if name == out {
 		return out, nil
 	}
 
-	f.caseMut.Lock()
+	r.caseMut.Lock()
 	defer func() {
-		if f.caseCount > caseMaxCachedNames {
+		if r.caseCount > caseMaxCachedNames {
 			select {
-			case f.caseTimerStop <- struct{}{}:
+			case r.caseTimerStop <- struct{}{}:
 			default:
 			}
-			f.cleanCaseLocked()
-		} else if f.caseTimerStop == nil {
-			f.startCaseResetTimerLocked()
+			r.cleanCaseLocked()
+		} else if r.caseTimerStop == nil {
+			r.startCaseResetTimerLocked()
 		}
-		f.caseMut.Unlock()
+		r.caseMut.Unlock()
 	}()
 
-	node := f.caseRoot
+	node := r.caseRoot
 	for _, comp := range strings.Split(name, string(PathSeparator)) {
 		if node.dirNames == nil {
 			// Haven't called DirNames yet
 			var err error
-			node.dirNames, err = f.BasicFilesystem.DirNames(out)
+			node.dirNames, err = r.fs.DirNames(out)
 			if err != nil {
 				return "", err
 			}
 			node.children = make(map[string]*caseNode)
 			node.results = make(map[string]*caseNode)
-			f.caseCount += len(node.dirNames)
+			r.caseCount += len(node.dirNames)
 		} else if child, ok := node.results[comp]; ok {
 			// Check if this exact name has been queried before to shortcut
 			node = child
@@ -346,7 +364,6 @@ func (f *caseBasicFilesystem) realCase(name string) (string, error) {
 		// Actually loop dirNames to search for a match
 		n, err := findCaseInsensitiveMatch(comp, node.dirNames)
 		if err != nil {
-			l.Infoln(comp, node.dirNames)
 			return "", err
 		}
 		child, ok := node.children[n]
@@ -362,33 +379,33 @@ func (f *caseBasicFilesystem) realCase(name string) (string, error) {
 	return out, nil
 }
 
-func (f *caseBasicFilesystem) startCaseResetTimerLocked() {
-	f.caseTimerStop = make(chan struct{})
-	f.caseTimer.Reset(caseCacheTimeout)
+func (r *realCaser) startCaseResetTimerLocked() {
+	r.caseTimerStop = make(chan struct{})
+	r.caseTimer.Reset(caseCacheTimeout)
 	go func() {
 		select {
-		case <-f.caseTimer.C:
-			f.cleanCase()
-		case <-f.caseTimerStop:
-			if !f.caseTimer.Stop() {
-				<-f.caseTimer.C
+		case <-r.caseTimer.C:
+			r.cleanCase()
+		case <-r.caseTimerStop:
+			if !r.caseTimer.Stop() {
+				<-r.caseTimer.C
 			}
-			f.caseMut.Lock()
-			f.caseTimerStop = nil
-			f.caseMut.Unlock()
+			r.caseMut.Lock()
+			r.caseTimerStop = nil
+			r.caseMut.Unlock()
 		}
 	}()
 }
 
-func (f *caseBasicFilesystem) cleanCase() {
-	f.caseMut.Lock()
-	f.cleanCaseLocked()
-	f.caseMut.Unlock()
+func (r *realCaser) cleanCase() {
+	r.caseMut.Lock()
+	r.cleanCaseLocked()
+	r.caseMut.Unlock()
 }
 
-func (f *caseBasicFilesystem) cleanCaseLocked() {
-	f.caseRoot = &caseNode{name: "."}
-	f.caseCount = 0
+func (r *realCaser) cleanCaseLocked() {
+	r.caseRoot = &caseNode{name: "."}
+	r.caseCount = 0
 }
 
 // Both name and the key to children are "Real", case resolved names of the path
