@@ -214,10 +214,8 @@ func TestIsDeleted(t *testing.T) {
 
 	f := &folder{FolderConfiguration: tfcfg}
 	for _, c := range cases {
-		if del, err := f.isDeleted(testFs, c.path); err != nil {
-			t.Errorf("IsDeleted(%v) returned error %v", c.path, err)
-		} else if del != c.isDel {
-			t.Errorf("IsDeleted(%v) != %v", c.path, c.isDel)
+		if f.isDeleted(testFs, c.path) != c.isDel {
+			t.Fatalf("IsDeleted(%v) != %v", c.path, c.isDel)
 		}
 	}
 }
