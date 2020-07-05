@@ -61,7 +61,6 @@ type FolderConfiguration struct {
 	DisableFsync            bool                        `xml:"disableFsync" json:"disableFsync"`
 	BlockPullOrder          BlockPullOrder              `xml:"blockPullOrder" json:"blockPullOrder"`
 	CopyRangeMethod         fs.CopyRangeMethod          `xml:"copyRangeMethod" json:"copyRangeMethod" default:"standard"`
-	CaseSensitiveFS         bool                        `xml:"caseSensitiveFS" json:"caseSensitiveFS"`
 
 	cachedFilesystem    fs.Filesystem
 	cachedModTimeWindow time.Duration
