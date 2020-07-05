@@ -9,6 +9,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -266,4 +267,31 @@ func Canonicalize(file string) (string, error) {
 	}
 
 	return file, nil
+}
+
+func WriteFile(fs Filesystem, name string, content []byte, perm FileMode) error {
+	switch fs := unwrapFilesystem(fs).(type) {
+	case *caseBasicFilesystem:
+		return fs.WriteFile(name, content, perm)
+	case *BasicFilesystem:
+		return fs.WriteFile(name, content, perm)
+	default:
+		panic(fmt.Sprintf("WriteFile not supported for filesystem %T", fs))
+	}
+}
+
+// unwrapFilesystem removes "wrapping" filesystems to expose the underlying filesystem.
+func unwrapFilesystem(fs Filesystem) Filesystem {
+	for {
+		switch sfs := fs.(type) {
+		case *logFilesystem:
+			fs = sfs.Filesystem
+		case *walkFilesystem:
+			fs = sfs.Filesystem
+		case *MtimeFS:
+			fs = sfs.Filesystem
+		default:
+			return sfs
+		}
+	}
 }
