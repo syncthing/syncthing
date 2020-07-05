@@ -170,7 +170,6 @@ func (f *caseBasicFilesystem) Stat(name string) (FileInfo, error) {
 	}
 	stat, err := f.BasicFilesystem.Stat(name)
 	if err != nil {
-		l.Infoln("herarerewrfs", name)
 		return nil, err
 	}
 	realName, err := f.realCase(name)
@@ -298,7 +297,6 @@ func (f *caseBasicFilesystem) checkCase(name string) error {
 	// Stat is necessary for case sensitive FS, as it's then not a conflict
 	// if name is e.g. "foo" and on dir there is "Foo".
 	if _, err := f.BasicFilesystem.Lstat(name); err != nil {
-		l.Infoln("A", name, err)
 		if errors.Is(err, ErrNotExist) {
 			return nil
 		}
