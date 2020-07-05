@@ -207,7 +207,7 @@
                   <p ng-if="currentFolder.type == 'sendonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
                   <p ng-if="currentFolder.type == 'receiveonly'" translate class="help-block">Files are synchronized from the cluster, but any changes made locally will not be sent to other devices.</p>
                 </div>
-                <div class="col-md-6 form-group">
+                <div class="col-md-6 form-group" ng-show="currentFolder.type != 'sendonly'">
                   <label translate>File Pull Order</label>
                   <select class="form-control" ng-model="currentFolder.order">
                     <option value="random" translate>Random</option>
