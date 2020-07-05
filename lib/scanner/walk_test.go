@@ -26,7 +26,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"golang.org/x/text/unicode/norm"
@@ -300,15 +299,15 @@ func TestWalkSymlinkWindows(t *testing.T) {
 	os.RemoveAll(name)
 	os.Mkdir(name, 0755)
 	defer os.RemoveAll(name)
-	fs := fs.NewFilesystem(testFsType, name)
-	if err := osutil.DebugSymlinkForTestsOnly("../testdata", "_symlinks/link"); err != nil {
+	testFs := fs.NewFilesystem(testFsType, name)
+	if err := fs.DebugSymlinkForTestsOnly(testFs, testFs, "../testdata", "link"); err != nil {
 		// Probably we require permissions we don't have.
 		t.Skip(err)
 	}
 
 	for _, path := range []string{".", "link"} {
 		// Scan it
-		files := walkDir(fs, path, nil, nil, 0)
+		files := walkDir(testFs, path, nil, nil, 0)
 
 		// Verify that we got zero symlinks
 		if len(files) != 0 {
@@ -324,10 +323,12 @@ func TestWalkRootSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmp)
+	testFs := fs.NewFilesystem(testFsType, tmp)
 
-	link := filepath.Join(tmp, "link")
+	link := "link"
 	dest, _ := filepath.Abs("testdata/dir1")
-	if err := osutil.DebugSymlinkForTestsOnly(dest, link); err != nil {
+	destFs := fs.NewFilesystem(testFsType, dest)
+	if err := fs.DebugSymlinkForTestsOnly(destFs, testFs, ".", "link"); err != nil {
 		if runtime.GOOS == "windows" {
 			// Probably we require permissions we don't have.
 			t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
@@ -337,15 +338,15 @@ func TestWalkRootSymlink(t *testing.T) {
 	}
 
 	// Scan root with symlink at FS root
-	files := walkDir(fs.NewFilesystem(testFsType, link), ".", nil, nil, 0)
+	files := walkDir(fs.NewFilesystem(testFsType, filepath.Join(testFs.URI(), link)), ".", nil, nil, 0)
 
 	// Verify that we got two files
 	if len(files) != 2 {
-		t.Errorf("expected two files, not %d", len(files))
+		t.Fatalf("expected two files, not %d", len(files))
 	}
 
 	// Scan symlink below FS root
-	files = walkDir(fs.NewFilesystem(testFsType, tmp), "link", nil, nil, 0)
+	files = walkDir(testFs, "link", nil, nil, 0)
 
 	// Verify that we got the one symlink, except on windows
 	if runtime.GOOS == "windows" {

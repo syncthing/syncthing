@@ -2601,7 +2601,7 @@ func TestIssue2571(t *testing.T) {
 
 	must(t, testFs.RemoveAll("toLink"))
 
-	must(t, osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "linkTarget"), filepath.Join(testFs.URI(), "toLink")))
+	must(t, fs.DebugSymlinkForTestsOnly(testFs, testFs, "linkTarget", "toLink"))
 
 	m.ScanFolder("default")
 

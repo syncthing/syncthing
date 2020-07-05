@@ -986,7 +986,7 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	must(t, osutil.RenameOrCopy(fs.CopyRangeMethodStandard, ffs, destFs, file, "file"))
 	must(t, ffs.RemoveAll(link))
 
-	if err := osutil.DebugSymlinkForTestsOnly(destFs.URI(), filepath.Join(ffs.URI(), link)); err != nil {
+	if err := fs.DebugSymlinkForTestsOnly(destFs, ffs, "", link); err != nil {
 		if runtime.GOOS == "windows" {
 			// Probably we require permissions we don't have.
 			t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
