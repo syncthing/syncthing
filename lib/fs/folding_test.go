@@ -6,9 +6,7 @@
 
 package fs
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestUnicodeLowercase(t *testing.T) {
 	cases := [][2]string{
