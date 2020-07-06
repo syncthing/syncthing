@@ -3553,7 +3553,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 	ffs := fcfg.Filesystem()
 	for i := 0; i < numFiles; i++ {
 		v := fmt.Sprintf("%d", i)
-		must(t, fs.WriteFile(ffs, v, []byte(v), 0644))
+		must(t, writeFile(ffs, v, []byte(v), 0644))
 	}
 
 	m.ScanFolders()
@@ -3576,7 +3576,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 			continue
 		}
 		v := fmt.Sprintf("%d", i)
-		must(t, fs.WriteFile(ffs, v, []byte(v+"-new"), 0644))
+		must(t, writeFile(ffs, v, []byte(v+"-new"), 0644))
 	}
 	// Rename
 	must(t, ffs.Rename("3", "17"))
@@ -3619,7 +3619,7 @@ func TestRenameSameFile(t *testing.T) {
 	defer cleanupModel(m)
 
 	ffs := fcfg.Filesystem()
-	must(t, fs.WriteFile(ffs, "file", []byte("file"), 0644))
+	must(t, writeFile(ffs, "file", []byte("file"), 0644))
 
 	m.ScanFolders()
 
@@ -3670,8 +3670,8 @@ func TestRenameEmptyFile(t *testing.T) {
 
 	ffs := fcfg.Filesystem()
 
-	must(t, fs.WriteFile(ffs, "file", []byte("data"), 0644))
-	must(t, fs.WriteFile(ffs, "empty", nil, 0644))
+	must(t, writeFile(ffs, "file", []byte("data"), 0644))
+	must(t, writeFile(ffs, "empty", nil, 0644))
 
 	m.ScanFolders()
 
@@ -3745,11 +3745,11 @@ func TestBlockListMap(t *testing.T) {
 	defer cleanupModel(m)
 
 	ffs := fcfg.Filesystem()
-	must(t, fs.WriteFile(ffs, "one", []byte("content"), 0644))
-	must(t, fs.WriteFile(ffs, "two", []byte("content"), 0644))
-	must(t, fs.WriteFile(ffs, "three", []byte("content"), 0644))
-	must(t, fs.WriteFile(ffs, "four", []byte("content"), 0644))
-	must(t, fs.WriteFile(ffs, "five", []byte("content"), 0644))
+	must(t, writeFile(ffs, "one", []byte("content"), 0644))
+	must(t, writeFile(ffs, "two", []byte("content"), 0644))
+	must(t, writeFile(ffs, "three", []byte("content"), 0644))
+	must(t, writeFile(ffs, "four", []byte("content"), 0644))
+	must(t, writeFile(ffs, "five", []byte("content"), 0644))
 
 	m.ScanFolders()
 
@@ -3778,7 +3778,7 @@ func TestBlockListMap(t *testing.T) {
 
 	// Modify
 	must(t, ffs.Remove("two"))
-	must(t, fs.WriteFile(ffs, "two", []byte("mew-content"), 0644))
+	must(t, writeFile(ffs, "two", []byte("mew-content"), 0644))
 
 	// Rename
 	must(t, ffs.Rename("three", "new-three"))
@@ -3813,7 +3813,7 @@ func TestScanRenameCaseOnly(t *testing.T) {
 
 	ffs := fcfg.Filesystem()
 	name := "foo"
-	must(t, fs.WriteFile(ffs, name, []byte("contents"), 0644))
+	must(t, writeFile(ffs, name, []byte("contents"), 0644))
 
 	m.ScanFolders()
 

@@ -1097,7 +1097,7 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 
 	name := "foo"
 	contents := []byte("contents")
-	must(t, fs.WriteFile(ffs, name, contents, 0644))
+	must(t, writeFile(ffs, name, contents, 0644))
 	must(t, f.scanSubdirs(nil))
 
 	var cur protocol.FileInfo
@@ -1120,7 +1120,7 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 	remote.Version = protocol.Vector{}.Update(device1.Short())
 	remote.Name = strings.ToUpper(cur.Name)
 	temp := fs.TempName(remote.Name)
-	must(t, fs.WriteFile(ffs, temp, contents, 0644))
+	must(t, writeFile(ffs, temp, contents, 0644))
 	scanChan := make(chan string, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 

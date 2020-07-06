@@ -23,11 +23,7 @@ const (
 	caseMaxCachedNames = 1 << 20
 )
 
-var casers map[string]*realCaser
-
-func init() {
-	casers = make(map[string]*realCaser)
-}
+var casers = make(map[string]*realCaser)
 
 type realCaser struct {
 	fs            *BasicFilesystem

@@ -231,3 +231,18 @@ func folderIgnoresAlwaysReload(m *model, fcfg config.FolderConfiguration) {
 	m.addAndStartFolderLockedWithIgnores(fcfg, fset, ignores)
 	m.fmut.Unlock()
 }
+
+func writeFile(fs fs.Filesystem, filename string, data []byte, perm fs.FileMode) error {
+	fd, err := fs.Create(filename)
+	if err != nil {
+		return err
+	}
+	_, err = fd.Write(data)
+	if err != nil {
+		return err
+	}
+	if err := fd.Close(); err != nil {
+		return err
+	}
+	return fs.Chmod(filename, perm)
+}

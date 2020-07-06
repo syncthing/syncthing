@@ -239,17 +239,6 @@ func (f *caseBasicFilesystem) Unhide(name string) error {
 	return f.BasicFilesystem.Unhide(name)
 }
 
-func (f *caseBasicFilesystem) WriteFile(name string, content []byte, perm FileMode) error {
-	if err := f.checkCase(name); err != nil {
-		return err
-	}
-	if err := f.BasicFilesystem.WriteFile(name, content, perm); err != nil {
-		return err
-	}
-	f.cleanCase()
-	return nil
-}
-
 func (f *caseBasicFilesystem) checkCase(name string) error {
 	var err error
 	if name, err = Canonicalize(name); err != nil {

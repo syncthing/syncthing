@@ -323,7 +323,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	fc.deleteFile(invDel)
 	fc.addFile(ign, 0644, protocol.FileInfoTypeFile, contents)
 	fc.addFile(ignExisting, 0644, protocol.FileInfoTypeFile, contents)
-	if err := fs.WriteFile(fss, ignExisting, otherContents, 0644); err != nil {
+	if err := writeFile(fss, ignExisting, otherContents, 0644); err != nil {
 		panic(err)
 	}
 
@@ -470,7 +470,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 
 	payload := []byte("hello")
 
-	must(t, fs.WriteFile(tfs, "foo", payload, 0777))
+	must(t, writeFile(tfs, "foo", payload, 0777))
 
 	received := make(chan []protocol.FileInfo)
 	fc.mut.Lock()
@@ -511,7 +511,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 	payload = []byte("bye")
 	buf = make([]byte, len(payload))
 
-	must(t, fs.WriteFile(tfs, "foo", payload, 0777))
+	must(t, writeFile(tfs, "foo", payload, 0777))
 
 	_, err = m.Request(device1, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err == nil {
@@ -1051,7 +1051,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 	}
 	fc.mut.Unlock()
 
-	if err := fs.WriteFile(fss, file, contents, 0644); err != nil {
+	if err := writeFile(fss, file, contents, 0644); err != nil {
 		panic(err)
 	}
 	m.ScanFolders()

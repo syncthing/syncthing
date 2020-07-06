@@ -35,9 +35,9 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	for _, dir := range []string{".stfolder", "ignDir", "unknownDir"} {
 		must(t, ffs.MkdirAll(dir, 0755))
 	}
-	must(t, fs.WriteFile(ffs, "ignDir/ignFile", []byte("hello\n"), 0644))
-	must(t, fs.WriteFile(ffs, "unknownDir/unknownFile", []byte("hello\n"), 0644))
-	must(t, fs.WriteFile(ffs, ".stignore", []byte("ignDir\n"), 0644))
+	must(t, writeFile(ffs, "ignDir/ignFile", []byte("hello\n"), 0644))
+	must(t, writeFile(ffs, "unknownDir/unknownFile", []byte("hello\n"), 0644))
+	must(t, writeFile(ffs, ".stignore", []byte("ignDir\n"), 0644))
 
 	knownFiles := setupKnownFiles(t, ffs, []byte("hello\n"))
 
@@ -151,7 +151,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	// Update the file.
 
 	newData := []byte("totally different data\n")
-	must(t, fs.WriteFile(ffs, "knownDir/knownFile", newData, 0644))
+	must(t, writeFile(ffs, "knownDir/knownFile", newData, 0644))
 
 	// Rescan.
 
@@ -239,8 +239,8 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	// Create a file and modify another
 
 	const file = "foo"
-	must(t, fs.WriteFile(ffs, file, []byte("hello\n"), 0644))
-	must(t, fs.WriteFile(ffs, "knownDir/knownFile", []byte("bye\n"), 0644))
+	must(t, writeFile(ffs, file, []byte("hello\n"), 0644))
+	must(t, writeFile(ffs, "knownDir/knownFile", []byte("bye\n"), 0644))
 
 	must(t, m.ScanFolder("ro"))
 
@@ -252,7 +252,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 	// Remove the file again and undo the modification
 
 	must(t, ffs.Remove(file))
-	must(t, fs.WriteFile(ffs, "knownDir/knownFile", oldData, 0644))
+	must(t, writeFile(ffs, "knownDir/knownFile", oldData, 0644))
 	must(t, ffs.Chtimes("knownDir/knownFile", knownFiles[1].ModTime(), knownFiles[1].ModTime()))
 
 	must(t, m.ScanFolder("ro"))
@@ -330,7 +330,7 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 	t.Helper()
 
 	must(t, ffs.MkdirAll("knownDir", 0755))
-	must(t, fs.WriteFile(ffs, "knownDir/knownFile", data, 0644))
+	must(t, writeFile(ffs, "knownDir/knownFile", data, 0644))
 
 	t0 := time.Now().Add(-1 * time.Minute)
 	must(t, ffs.Chtimes("knownDir/knownFile", t0, t0))

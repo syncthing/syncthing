@@ -149,32 +149,6 @@ func isVolumeNameOnly(parts []string) bool {
 	return isNormalVolumeName || isUNCVolumeName
 }
 
-func WriteFile(fs Filesystem, name string, content []byte, perm FileMode) error {
-	switch fs := unwrapFilesystem(fs).(type) {
-	case *caseBasicFilesystem:
-		return fs.WriteFile(name, content, perm)
-	case *BasicFilesystem:
-		return fs.WriteFile(name, content, perm)
-	default:
-		return genericWriteFile(fs, name, content, perm)
-	}
-}
-
-func genericWriteFile(fs Filesystem, filename string, data []byte, perm FileMode) error {
-	fd, err := fs.Create(filename)
-	if err != nil {
-		return err
-	}
-	_, err = fd.Write(data)
-	if err != nil {
-		return err
-	}
-	if err := fd.Close(); err != nil {
-		return err
-	}
-	return fs.Chmod(filename, perm)
-}
-
 // unwrapFilesystem removes "wrapping" filesystems to expose the underlying filesystem.
 func unwrapFilesystem(fs Filesystem) Filesystem {
 	for {

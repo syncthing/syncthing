@@ -9,7 +9,6 @@ package fs
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -352,12 +351,4 @@ func (e *ErrWatchEventOutsideRoot) Error() string {
 
 func (f *BasicFilesystem) newErrWatchEventOutsideRoot(absPath string, roots []string) *ErrWatchEventOutsideRoot {
 	return &ErrWatchEventOutsideRoot{fmt.Sprintf("Watching for changes encountered an event outside of the filesystem root: f.root==%v, roots==%v, path==%v. This should never happen, please report this message to forum.syncthing.net.", f.root, roots, absPath)}
-}
-
-func (f *BasicFilesystem) WriteFile(name string, content []byte, perm FileMode) error {
-	name, err := f.rooted(name)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(name, content, os.FileMode(perm))
 }
