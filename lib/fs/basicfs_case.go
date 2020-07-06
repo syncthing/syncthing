@@ -13,16 +13,16 @@ import (
 	"time"
 )
 
-type ErrCase struct {
+type ErrCaseConflict struct {
 	given, real string
 }
 
-func (e *ErrCase) Error() string {
+func (e *ErrCaseConflict) Error() string {
 	return fmt.Sprintf(`given name "%v" differs from name in filesystem "%v"`, e.given, e.real)
 }
 
-func IsErrCase(err error) bool {
-	e := &ErrCase{}
+func IsErrCaseConflict(err error) bool {
+	e := &ErrCaseConflict{}
 	return errors.As(err, &e)
 }
 
@@ -98,7 +98,7 @@ func (f *caseBasicFilesystem) Lstat(name string) (FileInfo, error) {
 		return nil, err
 	}
 	if realName != name {
-		return nil, &ErrCase{name, realName}
+		return nil, &ErrCaseConflict{name, realName}
 	}
 	return stat, nil
 }
@@ -150,7 +150,7 @@ func (f *caseBasicFilesystem) Stat(name string) (FileInfo, error) {
 		return nil, err
 	}
 	if realName != name {
-		return nil, &ErrCase{name, realName}
+		return nil, &ErrCaseConflict{name, realName}
 	}
 	return stat, nil
 }
@@ -257,7 +257,7 @@ func (f *caseBasicFilesystem) checkCase(name string) error {
 		return err
 	}
 	if realName != name {
-		return &ErrCase{name, realName}
+		return &ErrCaseConflict{name, realName}
 	}
 	return nil
 }

@@ -563,7 +563,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				// it's still here. Simply stat:ing it wont do as there are
 				// tons of corner cases (e.g. parent dir->symlink, missing
 				// permissions)
-				if !f.isDeleted(mtimefs, file.Name) {
+				if !osutil.IsDeleted(mtimefs, file.Name) {
 					if ignoredParent != "" {
 						// Don't ignore parents of this not ignored item
 						toIgnore = toIgnore[:0]
@@ -668,7 +668,7 @@ func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file proto
 			return true
 		}
 
-		if !f.isDeleted(mtimefs, fi.Name) {
+		if !osutil.IsDeleted(mtimefs, fi.Name) {
 			return true
 		}
 
@@ -682,19 +682,6 @@ func (f *folder) findRename(snap *db.Snapshot, mtimefs fs.Filesystem, file proto
 	})
 
 	return nf, found
-}
-
-func (f *folder) isDeleted(ffs fs.Filesystem, name string) bool {
-	if _, err := ffs.Lstat(name); err != nil {
-		if fs.IsNotExist(err) || fs.IsErrCase(err) {
-			return true
-		}
-	}
-	switch osutil.TraversesSymlink(ffs, filepath.Dir(name)).(type) {
-	case *osutil.NotADirectoryError, *osutil.TraversesSymlinkError:
-		return true
-	}
-	return false
 }
 
 func (f *folder) scanTimerFired() {

@@ -386,3 +386,18 @@ func setupROFolder(t *testing.T) (*model, *receiveOnlyFolder) {
 
 	return m, f
 }
+
+func writeFile(fs fs.Filesystem, filename string, data []byte, perm fs.FileMode) error {
+	fd, err := fs.Create(filename)
+	if err != nil {
+		return err
+	}
+	_, err = fd.Write(data)
+	if err != nil {
+		return err
+	}
+	if err := fd.Close(); err != nil {
+		return err
+	}
+	return fs.Chmod(filename, perm)
+}

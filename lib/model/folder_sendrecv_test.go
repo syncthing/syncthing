@@ -1134,7 +1134,7 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 	default:
 	}
 
-	var caseErr *fs.ErrCase
+	var caseErr *fs.ErrCaseConflict
 	if !errors.As(err, &caseErr) {
 		t.Error("Expected case conflict error, got", err)
 	}

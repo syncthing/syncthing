@@ -7,16 +7,13 @@
 package model
 
 import (
-	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 
 	"github.com/d4l3k/messagediff"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/fs"
 )
 
 type unifySubsCase struct {
@@ -149,72 +146,6 @@ func BenchmarkUnifySubs(b *testing.B) {
 				return unifyExists(f, tc)
 			}
 			unifySubs(tc.in, exists)
-		}
-	}
-}
-
-func TestIsDeleted(t *testing.T) {
-	type tc struct {
-		path  string
-		isDel bool
-	}
-	cases := []tc{
-		{"del", true},
-		{"del.file", false},
-		{filepath.Join("del", "del"), true},
-		{"file", false},
-		{"linkToFile", false},
-		{"linkToDel", false},
-		{"linkToDir", false},
-		{filepath.Join("linkToDir", "file"), true},
-		{filepath.Join("file", "behindFile"), true},
-		{"dir", false},
-		{"dir.file", false},
-		{filepath.Join("dir", "file"), false},
-		{filepath.Join("dir", "del"), true},
-		{filepath.Join("dir", "del", "del"), true},
-		{filepath.Join("del", "del", "del"), true},
-	}
-
-	tfcfg := testFolderConfigTmp()
-	testFs := tfcfg.Filesystem()
-
-	defer func() {
-		testFs.Chmod("inacc", 0777)
-		os.RemoveAll(testFs.URI())
-	}()
-
-	testFs.MkdirAll("dir", 0777)
-	for _, f := range []string{"file", "del.file", "dir.file", filepath.Join("dir", "file")} {
-		fd, err := testFs.Create(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		fd.Close()
-	}
-	if runtime.GOOS != "windows" {
-		// Can't create unreadable dir on windows
-		testFs.MkdirAll("inacc", 0777)
-		if err := testFs.Chmod("inacc", 0000); err == nil {
-			if _, err := testFs.Lstat(filepath.Join("inacc", "file")); fs.IsPermission(err) {
-				// May fail e.g. if tests are run as root -> just skip
-				cases = append(cases, tc{"inacc", false}, tc{filepath.Join("inacc", "file"), false})
-			}
-		}
-	}
-	for _, n := range []string{"Dir", "File", "Del"} {
-		if err := fs.DebugSymlinkForTestsOnly(testFs, testFs, strings.ToLower(n), "linkTo"+n); err != nil {
-			if runtime.GOOS == "windows" {
-				t.Skip("Symlinks aren't working")
-			}
-			t.Fatal(err)
-		}
-	}
-
-	f := &folder{FolderConfiguration: tfcfg}
-	for _, c := range cases {
-		if f.isDeleted(testFs, c.path) != c.isDel {
-			t.Fatalf("IsDeleted(%v) != %v", c.path, c.isDel)
 		}
 	}
 }

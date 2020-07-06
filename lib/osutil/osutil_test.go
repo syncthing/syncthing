@@ -8,11 +8,77 @@ package osutil_test
 
 import (
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
+
+func TestIsDeleted(t *testing.T) {
+	type tc struct {
+		path  string
+		isDel bool
+	}
+	cases := []tc{
+		{"del", true},
+		{"del.file", false},
+		{filepath.Join("del", "del"), true},
+		{"file", false},
+		{"linkToFile", false},
+		{"linkToDel", false},
+		{"linkToDir", false},
+		{filepath.Join("linkToDir", "file"), true},
+		{filepath.Join("file", "behindFile"), true},
+		{"dir", false},
+		{"dir.file", false},
+		{filepath.Join("dir", "file"), false},
+		{filepath.Join("dir", "del"), true},
+		{filepath.Join("dir", "del", "del"), true},
+		{filepath.Join("del", "del", "del"), true},
+	}
+
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
+
+	testFs.MkdirAll("dir", 0777)
+	for _, f := range []string{"file", "del.file", "dir.file", filepath.Join("dir", "file")} {
+		fd, err := testFs.Create(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fd.Close()
+	}
+	if runtime.GOOS != "windows" {
+		// Can't create unreadable dir on windows
+		testFs.MkdirAll("inacc", 0777)
+		if err := testFs.Chmod("inacc", 0000); err == nil {
+			if _, err := testFs.Lstat(filepath.Join("inacc", "file")); fs.IsPermission(err) {
+				// May fail e.g. if tests are run as root -> just skip
+				cases = append(cases, tc{"inacc", false}, tc{filepath.Join("inacc", "file"), false})
+			}
+		}
+	}
+	for _, n := range []string{"Dir", "File", "Del"} {
+		if err := fs.DebugSymlinkForTestsOnly(testFs, testFs, strings.ToLower(n), "linkTo"+n); err != nil {
+			if runtime.GOOS == "windows" {
+				t.Skip("Symlinks aren't working")
+			}
+			t.Fatal(err)
+		}
+	}
+
+	for _, c := range cases {
+		if osutil.IsDeleted(testFs, c.path) != c.isDel {
+			t.Errorf("IsDeleted(%v) != %v", c.path, c.isDel)
+		}
+	}
+
+	testFs.Chmod("inacc", 0777)
+	os.RemoveAll("testdata")
+}
 
 func TestRenameOrCopy(t *testing.T) {
 	mustTempDir := func() string {
@@ -23,7 +89,7 @@ func TestRenameOrCopy(t *testing.T) {
 		}
 		return tmpDir
 	}
-	sameFs := fs.NewFilesystem(fs.FilesystemTypeBasic, mustTempDir())
+	sameFs := fs.NewFilesystem(fs.FilesystemTypeCaseBasic, mustTempDir())
 	tests := []struct {
 		src  fs.Filesystem
 		dst  fs.Filesystem

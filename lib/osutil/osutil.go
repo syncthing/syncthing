@@ -129,3 +129,16 @@ func copyFileContents(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, src
 	err = fs.CopyRange(method, in, out, 0, 0, inFi.Size())
 	return
 }
+
+func IsDeleted(ffs fs.Filesystem, name string) bool {
+	if _, err := ffs.Lstat(name); err != nil {
+		if fs.IsNotExist(err) || fs.IsErrCaseConflict(err) {
+			return true
+		}
+	}
+	switch TraversesSymlink(ffs, filepath.Dir(name)).(type) {
+	case *NotADirectoryError, *TraversesSymlinkError:
+		return true
+	}
+	return false
+}

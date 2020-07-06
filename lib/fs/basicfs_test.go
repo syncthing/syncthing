@@ -646,7 +646,7 @@ func TestRealCaseSensitive(t *testing.T) {
 	names[1] = strings.ToUpper(names[0])
 	for _, n := range names {
 		if err := testFs.MkdirAll(n, 0777); err != nil {
-			if IsErrCase(err) {
+			if IsErrCaseConflict(err) {
 				t.Skip("Filesystem is case-insensitive")
 			}
 			t.Fatal(err)
