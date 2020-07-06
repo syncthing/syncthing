@@ -44,3 +44,7 @@ func (t *FilesystemType) UnmarshalText(bs []byte) error {
 	}
 	return nil
 }
+
+func (t *FilesystemType) ParseDefault(v string) error {
+	return t.UnmarshalText([]byte(v))
+}
