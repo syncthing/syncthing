@@ -25,6 +25,9 @@ func newRealCaser(fs *BasicFilesystem) *realCaser {
 // RealCase returns the correct case for the given name, which is a relative
 // path below root, as it exists on disk.
 func (r *realCaser) realCase(name string) (string, error) {
+	if name == "." {
+		return ".", nil
+	}
 	path := r.uri
 	comps := strings.Split(name, string(PathSeparator))
 	var err error

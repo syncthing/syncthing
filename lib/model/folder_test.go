@@ -209,7 +209,6 @@ func TestIsDeleted(t *testing.T) {
 			}
 			t.Fatal(err)
 		}
-		l.Infoln("weird thingS", filepath.Join(testFs.URI(), strings.ToLower(n)), filepath.Join(testFs.URI(), "linkTo"+n))
 	}
 
 	f := &folder{FolderConfiguration: tfcfg}

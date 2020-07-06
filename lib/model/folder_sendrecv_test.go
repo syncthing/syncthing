@@ -1199,9 +1199,9 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 		t.Error("no need to scan anything here")
 	default:
 	}
-	if errStr, ok := f.pullErrors[remote.Name]; !ok {
+	if errStr, ok := f.tempPullErrors[remote.Name]; !ok {
 		t.Error("missing error for", remote.Name)
-	} else if !strings.Contains(errStr, "conflicts with name") {
+	} else if !strings.Contains(errStr, "differs from name") {
 		t.Error("unexpected error", errStr, "for", remote.Name)
 	}
 }
