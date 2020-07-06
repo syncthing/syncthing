@@ -8,6 +8,7 @@ package util
 
 import (
 	"context"
+	"encoding"
 	"fmt"
 	"net"
 	"net/url"
@@ -21,10 +22,6 @@ import (
 	"github.com/thejerf/suture"
 )
 
-type defaultParser interface {
-	ParseDefault(string) error
-}
-
 // SetDefaults sets default values on a struct, based on the default annotation.
 func SetDefaults(data interface{}) {
 	s := reflect.ValueOf(data).Elem()
@@ -37,8 +34,8 @@ func SetDefaults(data interface{}) {
 		v := tag.Get("default")
 		if len(v) > 0 {
 			if f.CanInterface() {
-				if parser, ok := f.Interface().(defaultParser); ok {
-					if err := parser.ParseDefault(v); err != nil {
+				if unmarshaler, ok := f.Interface().(encoding.TextUnmarshaler); ok {
+					if err := unmarshaler.UnmarshalText([]byte(v)); err != nil {
 						panic(err)
 					}
 					continue
@@ -46,8 +43,8 @@ func SetDefaults(data interface{}) {
 			}
 
 			if f.CanAddr() && f.Addr().CanInterface() {
-				if parser, ok := f.Addr().Interface().(defaultParser); ok {
-					if err := parser.ParseDefault(v); err != nil {
+				if unmarshaler, ok := f.Addr().Interface().(encoding.TextUnmarshaler); ok {
+					if err := unmarshaler.UnmarshalText([]byte(v)); err != nil {
 						panic(err)
 					}
 					continue

@@ -72,8 +72,8 @@ func (s Size) String() string {
 	return fmt.Sprintf("%v %s", s.Value, s.Unit)
 }
 
-func (s *Size) ParseDefault(str string) error {
-	sz, err := ParseSize(str)
+func (s *Size) UnmarshalText(bs []byte) error {
+	sz, err := ParseSize(string(bs))
 	*s = sz
 	return err
 }

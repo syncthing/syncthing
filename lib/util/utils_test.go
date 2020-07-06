@@ -16,8 +16,8 @@ type Defaulter struct {
 	Value string
 }
 
-func (d *Defaulter) ParseDefault(v string) error {
-	*d = Defaulter{Value: v}
+func (d *Defaulter) UnmarshalText(bs []byte) error {
+	*d = Defaulter{Value: string(bs)}
 	return nil
 }
 
