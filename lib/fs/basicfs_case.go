@@ -239,18 +239,6 @@ func (f *caseBasicFilesystem) Unhide(name string) error {
 	return f.BasicFilesystem.Unhide(name)
 }
 
-type caseBasicFile struct {
-	basicFile
-	caseFS *caseBasicFilesystem
-}
-
-func (f caseBasicFile) Stat() (FileInfo, error) {
-	if err := f.caseFS.checkCase(f.name); err != nil {
-		return nil, err
-	}
-	return f.basicFile.Stat()
-}
-
 func (f *caseBasicFilesystem) WriteFile(name string, content []byte, perm FileMode) error {
 	if err := f.checkCase(name); err != nil {
 		return err
