@@ -18,7 +18,7 @@ import (
 
 // Both values were chosen by magic.
 const (
-	caseCacheTimeout = 10 * time.Second
+	caseCacheTimeout = time.Second
 	// When the number of names (all lengths of []string from DirNames)
 	// exceeds this, we drop the cache.
 	caseMaxCachedNames = 1 << 20
