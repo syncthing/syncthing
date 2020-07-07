@@ -14,17 +14,17 @@ import (
 	"syscall"
 )
 
-type realCaser struct {
+type basicRealCaser struct {
 	uri string
 }
 
-func newRealCaser(fs *BasicFilesystem) *realCaser {
-	return &realCaser{fs.URI()}
+func newRealCaser(fs Filesystem) realCaser {
+	return &basicRealCaser{fs.URI()}
 }
 
 // RealCase returns the correct case for the given name, which is a relative
 // path below root, as it exists on disk.
-func (r *realCaser) realCase(name string) (string, error) {
+func (r *basicRealCaser) realCase(name string) (string, error) {
 	if name == "." {
 		return ".", nil
 	}
@@ -33,7 +33,7 @@ func (r *realCaser) realCase(name string) (string, error) {
 	var err error
 	for i, comp := range comps {
 		path = filepath.Join(path, comp)
-		comps[i], err = realCaseBase(path)
+		comps[i], err = r.realCaseBase(path)
 		if err != nil {
 			return "", err
 		}
@@ -41,7 +41,7 @@ func (r *realCaser) realCase(name string) (string, error) {
 	return filepath.Join(comps...), nil
 }
 
-func realCaseBase(path string) (string, error) {
+func (*basicRealCaser) realCaseBase(path string) (string, error) {
 	p, err := syscall.UTF16PtrFromString(fixLongPath(path))
 	if err != nil {
 		return "", err
@@ -55,4 +55,4 @@ func realCaseBase(path string) (string, error) {
 	return syscall.UTF16ToString(fd.FileName[:]), nil
 }
 
-func (r *realCaser) cleanCase() {}
+func (r *basicRealCaser) dropCache() {}

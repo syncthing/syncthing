@@ -125,8 +125,8 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc, ances
 // large directories Walk can be inefficient.
 // Walk does not follow symbolic links.
 func (f *walkFilesystem) Walk(root string, walkFn WalkFunc) error {
-	if caseFs, ok := unwrapFilesystem(f).(*caseBasicFilesystem); ok {
-		caseFs.cleanCase()
+	if caseFs, ok := unwrapFilesystem(f).(*caseFilesystem); ok {
+		caseFs.dropCache()
 	}
 	info, err := f.Lstat(root)
 	if err != nil {

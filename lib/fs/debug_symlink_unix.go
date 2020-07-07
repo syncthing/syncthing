@@ -21,8 +21,8 @@ func DebugSymlinkForTestsOnly(oldFs, newFs Filesystem, oldname, newname string) 
 	if err := os.Symlink(filepath.Join(oldFs.URI(), oldname), filepath.Join(newFs.URI(), newname)); err != nil {
 		return err
 	}
-	if caseFs, ok := unwrapFilesystem(newFs).(*caseBasicFilesystem); ok {
-		caseFs.cleanCase()
+	if caseFs, ok := unwrapFilesystem(newFs).(*caseFilesystem); ok {
+		caseFs.dropCache()
 	}
 	return nil
 }

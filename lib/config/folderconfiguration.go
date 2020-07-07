@@ -31,7 +31,7 @@ const DefaultMarkerName = ".stfolder"
 type FolderConfiguration struct {
 	ID                      string                      `xml:"id,attr" json:"id"`
 	Label                   string                      `xml:"label,attr" json:"label" restart:"false"`
-	FilesystemType          fs.FilesystemType           `xml:"filesystemType" json:"filesystemType" default:"casebasic"`
+	FilesystemType          fs.FilesystemType           `xml:"filesystemType" json:"filesystemType"`
 	Path                    string                      `xml:"path,attr" json:"path"`
 	Type                    FolderType                  `xml:"type,attr" json:"type"`
 	Devices                 []FolderDeviceConfiguration `xml:"device" json:"devices"`
@@ -61,8 +61,8 @@ type FolderConfiguration struct {
 	DisableFsync            bool                        `xml:"disableFsync" json:"disableFsync"`
 	BlockPullOrder          BlockPullOrder              `xml:"blockPullOrder" json:"blockPullOrder"`
 	CopyRangeMethod         fs.CopyRangeMethod          `xml:"copyRangeMethod" json:"copyRangeMethod" default:"standard"`
+	CaseSensitiveFS         bool                        `xml:"caseSensitiveFS" json:"caseSensitiveFS"`
 
-	cachedFilesystem    fs.Filesystem
 	cachedModTimeWindow time.Duration
 
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
@@ -77,15 +77,14 @@ type FolderDeviceConfiguration struct {
 
 func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
 	f := FolderConfiguration{
-		ID:      id,
-		Label:   label,
-		Devices: []FolderDeviceConfiguration{{DeviceID: myID}},
-		Path:    path,
+		ID:             id,
+		Label:          label,
+		Devices:        []FolderDeviceConfiguration{{DeviceID: myID}},
+		FilesystemType: fsType,
+		Path:           path,
 	}
 
 	util.SetDefaults(&f)
-
-	f.FilesystemType = fsType // must happen after defaults
 
 	f.prepare()
 	return f
@@ -102,11 +101,11 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Filesystem() should be valid.
-	if f.cachedFilesystem == nil {
-		l.Infoln("bug: uncached filesystem call (should only happen in tests)")
-		return fs.NewFilesystem(f.FilesystemType, f.Path)
+	filesystem := fs.NewFilesystem(f.FilesystemType, f.Path)
+	if !f.CaseSensitiveFS {
+		filesystem = fs.NewCaseFilesystem(filesystem)
 	}
-	return f.cachedFilesystem
+	return filesystem
 }
 
 func (f FolderConfiguration) ModTimeWindow() time.Duration {
@@ -211,8 +210,6 @@ func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 }
 
 func (f *FolderConfiguration) prepare() {
-	f.cachedFilesystem = fs.NewFilesystem(f.FilesystemType, f.Path)
-
 	if f.RescanIntervalS > MaxRescanIntervalS {
 		f.RescanIntervalS = MaxRescanIntervalS
 	} else if f.RescanIntervalS < 0 {
@@ -259,7 +256,6 @@ func (f FolderConfiguration) RequiresRestartOnly() FolderConfiguration {
 
 	// Manual handling for things that are not taken care of by the tag
 	// copier, yet should not cause a restart.
-	copy.cachedFilesystem = nil
 
 	blank := FolderConfiguration{}
 	util.CopyMatchingTag(&blank, &copy, "restart", func(v string) bool {

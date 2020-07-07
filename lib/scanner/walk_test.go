@@ -41,7 +41,7 @@ type testfileList []testfile
 
 var (
 	testFs     fs.Filesystem
-	testFsType = fs.FilesystemTypeCaseBasic
+	testFsType = fs.FilesystemTypeBasic
 	testdata   = testfileList{
 		{"afile", 4, "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"},
 		{"dir1", 128, ""},
@@ -59,7 +59,7 @@ func init() {
 	// potentially taking down the box...
 	rdebug.SetMaxStack(10 * 1 << 20)
 
-	testFs = fs.NewFilesystem(fs.FilesystemTypeCaseBasic, "testdata")
+	testFs = fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
 }
 
 func TestWalkSub(t *testing.T) {

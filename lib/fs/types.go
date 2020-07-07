@@ -9,9 +9,8 @@ package fs
 type FilesystemType int
 
 const (
-	FilesystemTypeBasic FilesystemType = iota
+	FilesystemTypeBasic FilesystemType = iota // default is basic
 	FilesystemTypeFake
-	FilesystemTypeCaseBasic // default
 )
 
 func (t FilesystemType) String() string {
@@ -20,8 +19,6 @@ func (t FilesystemType) String() string {
 		return "basic"
 	case FilesystemTypeFake:
 		return "fake"
-	case FilesystemTypeCaseBasic:
-		return "casebasic"
 	default:
 		return "unknown"
 	}
@@ -37,14 +34,8 @@ func (t *FilesystemType) UnmarshalText(bs []byte) error {
 		*t = FilesystemTypeBasic
 	case "fake":
 		*t = FilesystemTypeFake
-	case "casebasic":
-		*t = FilesystemTypeCaseBasic
 	default:
 		*t = FilesystemTypeBasic
 	}
 	return nil
-}
-
-func (t *FilesystemType) ParseDefault(v string) error {
-	return t.UnmarshalText([]byte(v))
 }

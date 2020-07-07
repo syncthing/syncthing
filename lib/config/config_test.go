@@ -128,13 +128,6 @@ func TestDeviceConfig(t *testing.T) {
 			},
 		}
 
-		// The cachedFilesystem will have been resolved to an absolute path,
-		// depending on where the tests are running. Zero it out so we don't
-		// fail based on that.
-		for i := range cfg.Folders {
-			cfg.Folders[i].cachedFilesystem = nil
-		}
-
 		expectedDevices := []DeviceConfiguration{
 			{
 				DeviceID:        device1,
@@ -464,7 +457,7 @@ func TestFolderCheckPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	testFs := fs.NewFilesystem(fs.FilesystemTypeCaseBasic, n)
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, n)
 
 	err = os.MkdirAll(filepath.Join(n, "dir", ".stfolder"), os.FileMode(0777))
 	if err != nil {

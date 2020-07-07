@@ -36,9 +36,8 @@ func init() {
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 
-	defaultFs = fs.NewFilesystem(fs.FilesystemTypeCaseBasic, "testdata")
-
 	defaultFolderConfig = testFolderConfig("testdata")
+	defaultFs = defaultFolderConfig.Filesystem()
 
 	defaultCfgWrapper = createTmpWrapper(config.New(myID))
 	_, _ = defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
@@ -82,7 +81,7 @@ func testFolderConfigTmp() config.FolderConfiguration {
 }
 
 func testFolderConfig(path string) config.FolderConfiguration {
-	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeCaseBasic, path)
+	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, path)
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg

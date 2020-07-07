@@ -89,7 +89,7 @@ func TestRenameOrCopy(t *testing.T) {
 		}
 		return tmpDir
 	}
-	sameFs := fs.NewFilesystem(fs.FilesystemTypeCaseBasic, mustTempDir())
+	sameFs := fs.NewFilesystem(fs.FilesystemTypeBasic, mustTempDir())
 	tests := []struct {
 		src  fs.Filesystem
 		dst  fs.Filesystem
