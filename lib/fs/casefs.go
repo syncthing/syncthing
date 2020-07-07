@@ -137,12 +137,8 @@ func (f *caseFilesystem) Lstat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	realName, err := f.realCase(name)
-	if err != nil {
+	if err = f.checkCaseExisting(name); err != nil {
 		return nil, err
-	}
-	if realName != name {
-		return nil, &ErrCaseConflict{name, realName}
 	}
 	return stat, nil
 }
@@ -189,12 +185,8 @@ func (f *caseFilesystem) Stat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	realName, err := f.realCase(name)
-	if err != nil {
+	if err = f.checkCaseExisting(name); err != nil {
 		return nil, err
-	}
-	if realName != name {
-		return nil, &ErrCaseConflict{name, realName}
 	}
 	return stat, nil
 }
@@ -296,7 +288,18 @@ func (f *caseFilesystem) checkCase(name string) error {
 		}
 		return err
 	}
+	return f.checkCaseExisting(name)
+}
+
+// checkCaseExisting must only be called after successfully canonicalizing and
+// stating the file.
+func (f *caseFilesystem) checkCaseExisting(name string) error {
 	realName, err := f.realCase(name)
+	if IsNotExist(err) {
+		// It did exist just before -> cache is outdated, try again
+		f.dropCache()
+		realName, err = f.realCase(name)
+	}
 	if err != nil {
 		return err
 	}
