@@ -1,7 +1,7 @@
 {
     "A device with that ID is already added.": "Ya se ha agregado un dispositivo con ese ID.",
     "A negative number of days doesn't make sense.": "Un número negativo de días no tiene sentido.",
-    "A new major version may not be compatible with previous versions.": "Una nueva versión con cambios importantes puede no ser compatible con versiones anteriores.",
+    "A new major version may not be compatible with previous versions.": "Una nueva versión principal puede no ser compatible con las versiones anteriores.",
     "API Key": "Clave del API",
     "About": "Acerca de",
     "Action": "Acción",

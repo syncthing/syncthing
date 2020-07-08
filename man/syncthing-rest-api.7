@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Jun 23, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Jul 03, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -745,31 +745,91 @@ This is an expensive call, increasing CPU and RAM usage on the device. Use spari
 .UNINDENT
 .SS GET /rest/db/completion
 .sp
-Returns the completion percentage (0 to 100) for a given device and
-folder. Takes \fBdevice\fP and \fBfolder\fP parameters.
+Returns the completion percentage (0 to 100) and byte / item counts. Takes
+optional \fBdevice\fP and \fBfolder\fP parameters:
+.INDENT 0.0
+.IP \(bu 2
+\fBfolder\fP specifies the folder ID to calculate completion for. An empty
+or absent \fBfolder\fP parameter means all folders as an aggregate.
+.IP \(bu 2
+\fBdevice\fP specifies the device ID to calculate completion for. An empty
+or absent \fBdevice\fP parameter means the local device.
+.UNINDENT
+.sp
+If a device is specified but no folder, completion is calculated for all
+folders shared with that device.
+.SS Example Queries
+.sp
+Completion status for folder \fBabcd\-1234\fP on device \fBI6KAH76\-...\-3PSROAU\fP:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+/rest/db/completion?folder=abcd\-1234&device=I6KAH76\-...\-3PSROAU
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Aggregated completion status for device \fBI6KAH76\-...\-3PSROAU\fP (all folders shared with them):
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+/rest/db/completion?device=I6KAH76\-...\-3PSROAU
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Completion status for folder \fBabcd\-1234\fP on the local device:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+/rest/db/completion?folder=abcd\-1234
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Aggregated completion status for all folders on the local device:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+/rest/db/completion
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Example Response
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
 {
-  "completion": 100,
+  "completion": 99.9937565835,
   "globalBytes": 156793013575,
-  "needBytes": 0,
-  "needDeletes": 0,
-  "needItems": 0
+  "needBytes": 9789241,
+  "globalItems": 7823,
+  "needItems": 412,
+  "needDeletes": 0
 }
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-\fBNOTE:\fP
-.INDENT 0.0
-.INDENT 3.5
-This is an expensive call, increasing CPU and RAM usage on the device. Use sparingly.
-.UNINDENT
-.UNINDENT
+New in version 1.8.0: The ability to aggregate multiple folders by leaving out the folder ID.
+Querying data for the local device by leaving out the device ID. Returning
+the \fBglobalItems\fP counter in the response.
+
 .SS GET /rest/db/file
 .sp
 Returns most data available about a given file, including version and
