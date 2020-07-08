@@ -209,13 +209,16 @@
                 </div>
                 <div class="col-md-6 form-group">
                   <label translate>File Pull Order</label>
-                  <select class="form-control" ng-model="currentFolder.order">
+                  <select class="form-control" ng-model="currentFolder.order" ng-if="currentFolder.type != 'sendonly'">
                     <option value="random" translate>Random</option>
                     <option value="alphabetic" translate>Alphabetic</option>
                     <option value="smallestFirst" translate>Smallest First</option>
                     <option value="largestFirst" translate>Largest First</option>
                     <option value="oldestFirst" translate>Oldest First</option>
                     <option value="newestFirst" translate>Newest First</option>
+                  </select>
+                  <select class="form-control" ng-if="currentFolder.type == 'sendonly'" disabled>
+                    <option value="disabled" translate>Disabled</option>
                   </select>
                 </div>
               </div>
