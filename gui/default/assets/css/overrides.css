@@ -420,3 +420,8 @@ ul.three-columns li, ul.two-columns li {
         margin-bottom: 1rem;
     }
 }
+
+/* removing space above hr added in bootstrap.css */
+hr {
+    margin-top: 0;
+}
