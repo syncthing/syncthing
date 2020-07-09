@@ -28,24 +28,28 @@ import (
 type Service struct {
 	suture.Service
 
-	id  protocol.DeviceID
-	cfg config.Wrapper
+	id               protocol.DeviceID
+	cfg              config.Wrapper
+	processScheduled chan struct{}
 
 	mappings []*Mapping
-	timer    *time.Timer
+	enabled  bool
 	mut      sync.RWMutex
 }
 
 func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 	s := &Service{
-		id:  id,
-		cfg: cfg,
+		id:               id,
+		cfg:              cfg,
+		processScheduled: make(chan struct{}, 1),
 
-		timer: time.NewTimer(0),
-		mut:   sync.NewRWMutex(),
+		mut: sync.NewRWMutex(),
 	}
 	s.Service = util.AsService(s.serve, s.String())
 	cfg.Subscribe(s)
+	s.mut.Lock()
+	s.enabled = cfg.Options().NATEnabled
+	s.mut.Unlock()
 	return s
 }
 
@@ -54,19 +58,16 @@ func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
 }
 
 func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
-	if !from.Options.NATEnabled && to.Options.NATEnabled {
-		s.mut.Lock()
+	s.mut.Lock()
+	if !s.enabled && to.Options.NATEnabled {
 		l.Debugln("Starting NAT service")
-		s.timer.Reset(0)
-		s.mut.Unlock()
-	} else if from.Options.NATEnabled && !to.Options.NATEnabled {
-		s.mut.Lock()
+		s.enabled = true
+		s.scheduleProcess()
+	} else if s.enabled && !to.Options.NATEnabled {
 		l.Debugln("Stopping NAT service")
-		if !s.timer.Stop() {
-			<-s.timer.C
-		}
-		s.mut.Unlock()
+		s.enabled = false
 	}
+	s.mut.Unlock()
 	return true
 }
 
@@ -78,24 +79,17 @@ func (s *Service) Stop() {
 func (s *Service) serve(ctx context.Context) {
 	announce := stdsync.Once{}
 
-	s.mut.Lock()
-	s.timer.Reset(0)
-	s.mut.Unlock()
+	timer := time.NewTimer(0)
 
 	for {
 		select {
-		case <-s.timer.C:
-			if found := s.process(ctx); found != -1 {
-				announce.Do(func() {
-					suffix := "s"
-					if found == 1 {
-						suffix = ""
-					}
-					l.Infoln("Detected", found, "NAT service"+suffix)
-				})
+		case <-timer.C:
+		case <-s.processScheduled:
+			if !timer.Stop() {
+				<-timer.C
 			}
 		case <-ctx.Done():
-			s.timer.Stop()
+			timer.Stop()
 			s.mut.RLock()
 			for _, mapping := range s.mappings {
 				mapping.clearAddresses()
@@ -103,10 +97,27 @@ func (s *Service) serve(ctx context.Context) {
 			s.mut.RUnlock()
 			return
 		}
+		s.mut.RLock()
+		enabled := s.enabled
+		s.mut.RUnlock()
+		if !enabled {
+			continue
+		}
+		found, renewIn := s.process(ctx)
+		timer.Reset(renewIn)
+		if found != -1 {
+			announce.Do(func() {
+				suffix := "s"
+				if found == 1 {
+					suffix = ""
+				}
+				l.Infoln("Detected", found, "NAT service"+suffix)
+			})
+		}
 	}
 }
 
-func (s *Service) process(ctx context.Context) int {
+func (s *Service) process(ctx context.Context) (int, time.Duration) {
 	// toRenew are mappings which are due for renewal
 	// toUpdate are the remaining mappings, which will only be updated if one of
 	// the old IGDs has gone away, or a new IGD has appeared, but only if we
@@ -140,12 +151,11 @@ func (s *Service) process(ctx context.Context) int {
 	// T2: NewMapping releases the lock
 	// T2: NewMapping resets timer to 1s
 	// T1: process resets timer to 30
-	s.timer.Reset(renewIn)
 	s.mut.RUnlock()
 
 	// Don't do anything, unless we really need to renew
 	if len(toRenew) == 0 {
-		return -1
+		return -1, renewIn
 	}
 
 	nats := discoverAll(ctx, time.Duration(s.cfg.Options().NATRenewalM)*time.Minute, time.Duration(s.cfg.Options().NATTimeoutS)*time.Second)
@@ -158,7 +168,14 @@ func (s *Service) process(ctx context.Context) int {
 		s.updateMapping(ctx, mapping, nats, false)
 	}
 
-	return len(nats)
+	return len(nats), renewIn
+}
+
+func (s *Service) scheduleProcess() {
+	select {
+	case s.processScheduled <- struct{}{}: // 1-buffered
+	default:
+	}
 }
 
 func (s *Service) NewMapping(protocol Protocol, ip net.IP, port int) *Mapping {
@@ -174,9 +191,8 @@ func (s *Service) NewMapping(protocol Protocol, ip net.IP, port int) *Mapping {
 
 	s.mut.Lock()
 	s.mappings = append(s.mappings, mapping)
-	// Reset the timer while holding the lock, see process() for explanation
-	s.timer.Reset(time.Second)
 	s.mut.Unlock()
+	s.scheduleProcess()
 
 	return mapping
 }
