@@ -13,6 +13,8 @@ import (
 	"reflect"
 	"strconv"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type Report struct {
@@ -119,6 +121,13 @@ type Report struct {
 		PullOrder               map[string]int `json:"pullOrder,omitempty" since:"3"`
 		FilesystemType          map[string]int `json:"filesystemType,omitempty" since:"3"`
 		FsWatcherDelays         []int          `json:"fsWatcherDelays,omitempty" since:"3"`
+		CustomMarkerName        int            `json:"customMarkerName,omitempty" since:"3"`
+		CopyOwnershipFromParent int            `json:"copyOwnershipFromParent,omitempty" since:"3"`
+		ModTimeWindowS          []int          `json:"modTimeWindowS,omitempty" since:"3"`
+		MaxConcurrentWrites     []int          `json:"maxConcurrentWrites,omitempty" since:"3"`
+		DisableFsync            int            `json:"disableFsync,omitempty" since:"3"`
+		BlockPullOrder          map[string]int `json:"blockPullOrder,omitempty" since:"3"`
+		CopyRangeMethod         map[string]int `json:"copyRangeMethod,omitempty" since:"3"`
 	} `json:"folderUsesV3,omitempty" since:"3"`
 
 	GUIStats struct {
@@ -164,12 +173,7 @@ type Report struct {
 
 func New() *Report {
 	r := &Report{}
-	r.FolderUsesV3.PullOrder = make(map[string]int)
-	r.FolderUsesV3.FilesystemType = make(map[string]int)
-	r.GUIStats.Theme = make(map[string]int)
-	r.TransportStats = make(map[string]int)
-	r.RescanIntvs = make([]int, 0)
-	r.FolderUsesV3.FsWatcherDelays = make([]int, 0)
+	util.FillNil(r)
 	return r
 }
 

@@ -245,7 +245,7 @@ func (s *service) serve(ctx context.Context) {
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
-	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // device folder
+	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // [device] [folder]
 	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
@@ -673,13 +673,20 @@ func (s *service) getDBBrowse(w http.ResponseWriter, r *http.Request) {
 
 func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
-	var folder = qs.Get("folder")
-	var deviceStr = qs.Get("device")
+	var folder = qs.Get("folder")    // empty means all folders
+	var deviceStr = qs.Get("device") // empty means local device ID
 
-	device, err := protocol.DeviceIDFromString(deviceStr)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+	// We will check completion status for either the local device, or a
+	// specific given device ID.
+
+	device := protocol.LocalDeviceID
+	if deviceStr != "" {
+		var err error
+		device, err = protocol.DeviceIDFromString(deviceStr)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	sendJSON(w, s.model.Completion(device, folder).Map())

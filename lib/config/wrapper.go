@@ -95,10 +95,9 @@ type wrapper struct {
 	path     string
 	evLogger events.Logger
 
-	waiter    Waiter // Latest ongoing config change
-	deviceMap map[protocol.DeviceID]DeviceConfiguration
-	subs      []Committer
-	mut       sync.Mutex
+	waiter Waiter // Latest ongoing config change
+	subs   []Committer
+	mut    sync.Mutex
 
 	requiresRestart uint32 // an atomic bool
 }
@@ -195,7 +194,6 @@ func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {
 	}
 
 	w.cfg = to
-	w.deviceMap = nil
 
 	w.waiter = w.notifyListeners(from.Copy(), to.Copy())
 
@@ -226,13 +224,11 @@ func (w *wrapper) notifyListener(sub Committer, from, to Configuration) {
 func (w *wrapper) Devices() map[protocol.DeviceID]DeviceConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
-	if w.deviceMap == nil {
-		w.deviceMap = make(map[protocol.DeviceID]DeviceConfiguration, len(w.cfg.Devices))
-		for _, dev := range w.cfg.Devices {
-			w.deviceMap[dev.DeviceID] = dev.Copy()
-		}
+	deviceMap := make(map[protocol.DeviceID]DeviceConfiguration, len(w.cfg.Devices))
+	for _, dev := range w.cfg.Devices {
+		deviceMap[dev.DeviceID] = dev.Copy()
 	}
-	return w.deviceMap
+	return deviceMap
 }
 
 // SetDevices adds new devices to the configuration, or overwrites existing

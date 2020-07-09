@@ -256,6 +256,19 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			report.FolderUsesV3.PullOrder[cfg.Order.String()]++
 			report.FolderUsesV3.FilesystemType[cfg.FilesystemType.String()]++
 			report.FolderUsesV3.FsWatcherDelays = append(report.FolderUsesV3.FsWatcherDelays, cfg.FSWatcherDelayS)
+			if cfg.MarkerName != config.DefaultMarkerName {
+				report.FolderUsesV3.CustomMarkerName++
+			}
+			if cfg.CopyOwnershipFromParent {
+				report.FolderUsesV3.CopyOwnershipFromParent++
+			}
+			report.FolderUsesV3.ModTimeWindowS = append(report.FolderUsesV3.ModTimeWindowS, int(cfg.ModTimeWindow().Seconds()))
+			report.FolderUsesV3.MaxConcurrentWrites = append(report.FolderUsesV3.MaxConcurrentWrites, cfg.MaxConcurrentWrites)
+			if cfg.DisableFsync {
+				report.FolderUsesV3.DisableFsync++
+			}
+			report.FolderUsesV3.BlockPullOrder[cfg.BlockPullOrder.String()]++
+			report.FolderUsesV3.CopyRangeMethod[cfg.CopyRangeMethod.String()]++
 		}
 		sort.Ints(report.FolderUsesV3.FsWatcherDelays)
 
