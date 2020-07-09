@@ -3992,7 +3992,7 @@ func TestCcCheckEncryption(t *testing.T) {
 			tokenUs:     nil,
 			isEncThem:   false,
 			isEncUs:     false,
-			expectedErr: errEncNotEncryptedUs,
+			expectedErr: errEncNotEncryptedLocal,
 		},
 		{
 			tokenThem:   token,
@@ -4027,21 +4027,21 @@ func TestCcCheckEncryption(t *testing.T) {
 			tokenUs:     token,
 			isEncThem:   false,
 			isEncUs:     false,
-			expectedErr: errEncNotEncryptedUs,
+			expectedErr: errEncNotEncryptedLocal,
 		},
 		{
 			tokenThem:   nil,
 			tokenUs:     nil,
 			isEncThem:   true,
 			isEncUs:     false,
-			expectedErr: errEncNotEncrypted,
+			expectedErr: errEncNotEncryptedRemote,
 		},
 		{
 			tokenThem:   nil,
 			tokenUs:     nil,
 			isEncThem:   false,
 			isEncUs:     true,
-			expectedErr: errEncNotEncrypted,
+			expectedErr: errEncNotEncryptedRemote,
 		},
 		{
 			tokenThem:   nil,
