@@ -47,9 +47,8 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 	}
 	s.Service = util.AsService(s.serve, s.String())
 	cfg.Subscribe(s)
-	s.mut.Lock()
-	s.enabled = cfg.Options().NATEnabled
-	s.mut.Unlock()
+	cfgCopy := cfg.RawCopy()
+	s.CommitConfiguration(cfgCopy, cfgCopy)
 	return s
 }
 
@@ -142,15 +141,6 @@ func (s *Service) process(ctx context.Context) (int, time.Duration) {
 			}
 		}
 	}
-	// Reset the timer while holding the lock, because of the following race:
-	// T1: process acquires lock
-	// T1: process checks the mappings and gets next renewal time in 30m
-	// T2: process releases the lock
-	// T2: NewMapping acquires the lock
-	// T2: NewMapping adds mapping
-	// T2: NewMapping releases the lock
-	// T2: NewMapping resets timer to 1s
-	// T1: process resets timer to 30
 	s.mut.RUnlock()
 
 	// Don't do anything, unless we really need to renew
