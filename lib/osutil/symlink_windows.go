@@ -56,7 +56,7 @@ func DebugSymlinkForTestsOnly(oldname, newname string) error {
 	return nil
 }
 
-// fixLongPath returns the extended-length (\\?\-prefixed) form of
+// FixLongPath returns the extended-length (\\?\-prefixed) form of
 // path when needed, in order to avoid the default 260 character file
 // path limit imposed by Windows. If path is not easily converted to
 // the extended-length form (for example, if path is a relative path

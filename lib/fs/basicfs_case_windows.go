@@ -4,7 +4,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package osutil
+// +build windows
+
+package fs
 
 import (
 	"path/filepath"
@@ -12,10 +14,18 @@ import (
 	"syscall"
 )
 
+type basicCachedRealCaser struct {
+	root string
+}
+
+func newBasicCachedRealCaser(fs *BasicFilesystem) *basicCachedRealCaser {
+	return &basicCachedRealCaser{fs.URI()}
+}
+
 // RealCase returns the correct case for the given name, which is a relative
 // path below root, as it exists on disk.
-func RealCase(fs Filesystem, name string) (string, error) {
-	path := fs.URI()
+func (c *basicCachedRealCaser) RealCase(fs Filesystem, name string) (string, error) {
+	path := c.root
 	comps := strings.Split(name, string(PathSeparator))
 	var err error
 	for i, comp := range comps {
@@ -29,7 +39,7 @@ func RealCase(fs Filesystem, name string) (string, error) {
 }
 
 func realCaseBase(path string) (string, error) {
-	p, err := syscall.UTF16PtrFromString(fixLongPath(path))
+	p, err := syscall.UTF16PtrFromString(path)
 	if err != nil {
 		return "", err
 	}
