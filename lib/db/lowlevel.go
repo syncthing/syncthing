@@ -10,11 +10,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"io"
 	"time"
 
+	"github.com/dchest/siphash"
 	"github.com/greatroar/blobloom"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
@@ -679,10 +682,10 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 			return err
 		}
 		if len(hashes.BlocksHash) > 0 {
-			blockFilter.Add(bloomHash(hashes.BlocksHash))
+			blockFilter.add(hashes.BlocksHash)
 		}
 		if len(hashes.VersionHash) > 0 {
-			versionFilter.Add(bloomHash(hashes.VersionHash))
+			versionFilter.add(hashes.VersionHash)
 		}
 	}
 	it.Release()
@@ -707,7 +710,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		}
 
 		key := blockListKey(it.Key())
-		if blockFilter.Has(bloomHash(key.Hash())) {
+		if blockFilter.has(key.Hash()) {
 			matchedBlocks++
 			continue
 		}
@@ -736,7 +739,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		}
 
 		key := versionKey(it.Key())
-		if versionFilter.Has(bloomHash(key.Hash())) {
+		if versionFilter.has(key.Hash()) {
 			matchedVersions++
 			continue
 		}
@@ -762,21 +765,39 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	return db.Compact()
 }
 
-func newBloomFilter(capacity int) *blobloom.Filter {
-	return blobloom.NewOptimized(blobloom.Config{
-		Capacity: uint64(capacity),
-		FPRate:   indirectGCBloomFalsePositiveRate,
-		MaxBits:  8 * indirectGCBloomMaxBytes,
-	})
+func newBloomFilter(capacity int) bloomFilter {
+	var buf [16]byte
+	io.ReadFull(rand.Reader, buf[:])
+
+	return bloomFilter{
+		f: blobloom.NewOptimized(blobloom.Config{
+			Capacity: uint64(capacity),
+			FPRate:   indirectGCBloomFalsePositiveRate,
+			MaxBits:  8 * indirectGCBloomMaxBytes,
+		}),
+
+		k0: binary.LittleEndian.Uint64(buf[:8]),
+		k1: binary.LittleEndian.Uint64(buf[8:]),
+	}
 }
 
-// Hash function for the bloomfilter: first eight bytes of the SHA-256.
-// Big or little-endian makes no difference, as long as we're consistent.
-func bloomHash(key []byte) uint64 {
-	if len(key) != sha256.Size {
-		panic("bug: bloomHash passed something not a SHA256 hash")
+type bloomFilter struct {
+	f      *blobloom.Filter
+	k0, k1 uint64 // Random key for SipHash.
+}
+
+func (b *bloomFilter) add(id []byte)      { b.f.Add(b.hash(id)) }
+func (b *bloomFilter) has(id []byte) bool { return b.f.Has(b.hash(id)) }
+
+// Hash function for the bloomfilter: SipHash of the SHA-256.
+//
+// The randomization in SipHash means we get different collisions across
+// runs and colliding keys are not kept indefinitely.
+func (b *bloomFilter) hash(id []byte) uint64 {
+	if len(id) != sha256.Size {
+		panic("bug: bloomFilter.hash passed something not a SHA256 hash")
 	}
-	return binary.BigEndian.Uint64(key)
+	return siphash.Hash(b.k0, b.k1, id)
 }
 
 // CheckRepair checks folder metadata and sequences for miscellaneous errors.
