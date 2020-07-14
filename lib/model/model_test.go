@@ -3174,9 +3174,9 @@ func TestIssue5002(t *testing.T) {
 	}
 	blockSize := int32(file.BlockSize())
 
-	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size-int64(blockSize), []byte{1, 2, 3, 4})
-	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size, []byte{1, 2, 3, 4}) // panic
-	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size+int64(blockSize), []byte{1, 2, 3, 4})
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size-int64(blockSize), []byte{1, 2, 3, 4}, 0)
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size, []byte{1, 2, 3, 4}, 0) // panic
+	m.recheckFile(protocol.LocalDeviceID, "default", "foo", file.Size+int64(blockSize), []byte{1, 2, 3, 4}, 0)
 }
 
 func TestParentOfUnignored(t *testing.T) {
@@ -3636,10 +3636,10 @@ func TestRenameSameFile(t *testing.T) {
 	}
 
 	must(t, ffs.Rename("file", "file1"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file0"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file2"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file3"))
-	must(t, osutil.Copy(ffs, ffs, "file1", "file4"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file0"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file2"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file3"))
+	must(t, osutil.Copy(fs.CopyRangeMethodStandard, ffs, ffs, "file1", "file4"))
 
 	m.ScanFolders()
 
@@ -3803,6 +3803,137 @@ func TestBlockListMap(t *testing.T) {
 	expected = []string{"new-three", "five"}
 	if !equalStringsInAnyOrder(paths, expected) {
 		t.Errorf("expected %q got %q", expected, paths)
+	}
+}
+
+func TestConnectionTerminationOnFolderAdd(t *testing.T) {
+	testConfigChangeClosesConnections(t, false, true, nil, func(cfg config.Wrapper) {
+		fcfg := testFolderConfigTmp()
+		fcfg.ID = "second"
+		fcfg.Label = "second"
+		fcfg.Devices = []config.FolderDeviceConfiguration{{device2, protocol.EmptyDeviceID}}
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderShare(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, true, nil, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Devices = []config.FolderDeviceConfiguration{{device2, protocol.EmptyDeviceID}}
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderUnshare(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, false, nil, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Devices = nil
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderRemove(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, false, nil, func(cfg config.Wrapper) {
+		rcfg := cfg.RawCopy()
+		rcfg.Folders = nil
+		if w, err := cfg.Replace(rcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderPause(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, false, nil, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Paused = true
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestConnectionTerminationOnFolderUnpause(t *testing.T) {
+	testConfigChangeClosesConnections(t, true, false, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Paused = true
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	}, func(cfg config.Wrapper) {
+		fcfg := cfg.FolderList()[0]
+		fcfg.Paused = false
+		if w, err := cfg.SetFolder(fcfg); err != nil {
+			t.Fatal(err)
+		} else {
+			w.Wait()
+		}
+	})
+}
+
+func TestAddFolderCompletion(t *testing.T) {
+	// Empty folders are always 100% complete.
+	comp := newFolderCompletion(db.Counts{}, db.Counts{})
+	comp.add(newFolderCompletion(db.Counts{}, db.Counts{}))
+	if comp.CompletionPct != 100 {
+		t.Error(comp.CompletionPct)
+	}
+
+	// Completion is of the whole
+	comp = newFolderCompletion(db.Counts{Bytes: 100}, db.Counts{})             // 100% complete
+	comp.add(newFolderCompletion(db.Counts{Bytes: 400}, db.Counts{Bytes: 50})) // 82.5% complete
+	if comp.CompletionPct != 90 {                                              // 100 * (1 - 50/500)
+		t.Error(comp.CompletionPct)
+	}
+}
+
+func testConfigChangeClosesConnections(t *testing.T, expectFirstClosed, expectSecondClosed bool, pre func(config.Wrapper), fn func(config.Wrapper)) {
+	t.Helper()
+	wcfg, _ := tmpDefaultWrapper()
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	_, err := wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if pre != nil {
+		pre(wcfg)
+	}
+
+	fc1 := &fakeConnection{id: device1, model: m}
+	fc2 := &fakeConnection{id: device2, model: m}
+	m.AddConnection(fc1, protocol.HelloResult{})
+	m.AddConnection(fc2, protocol.HelloResult{})
+
+	t.Log("Applying config change")
+
+	fn(wcfg)
+
+	if expectFirstClosed != fc1.closed {
+		t.Errorf("first connection state mismatch: %t (expected) != %t", expectFirstClosed, fc1.closed)
+	}
+
+	if expectSecondClosed != fc2.closed {
+		t.Errorf("second connection state mismatch: %t (expected) != %t", expectSecondClosed, fc2.closed)
 	}
 }
 

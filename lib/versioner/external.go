@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 
 	"github.com/kballard/go-shellquote"
@@ -30,8 +31,8 @@ type external struct {
 	filesystem fs.Filesystem
 }
 
-func newExternal(filesystem fs.Filesystem, params map[string]string) Versioner {
-	command := params["command"]
+func newExternal(cfg config.FolderConfiguration) Versioner {
+	command := cfg.Versioning.Params["command"]
 
 	if runtime.GOOS == "windows" {
 		command = strings.Replace(command, `\`, `\\`, -1)
@@ -39,7 +40,7 @@ func newExternal(filesystem fs.Filesystem, params map[string]string) Versioner {
 
 	s := external{
 		command:    command,
-		filesystem: filesystem,
+		filesystem: cfg.Filesystem(),
 	}
 
 	l.Debugf("instantiated %#v", s)

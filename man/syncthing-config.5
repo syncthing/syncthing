@@ -1,1 +1,1150 @@
-404 Not Found
+.\" Man page generated from reStructuredText.
+.
+.TH "SYNCTHING-CONFIG" "5" "Jul 03, 2020" "v1" "Syncthing"
+.SH NAME
+syncthing-config \- Syncthing Configuration
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$HOME/.config/syncthing
+$HOME/Library/Application Support/Syncthing
+%LOCALAPPDATA%/Syncthing
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH DESCRIPTION
+.sp
+Syncthing uses a single directory to store configuration, crypto keys
+and index caches. The location defaults to \fB$HOME/.config/syncthing\fP
+(Unix\-like), \fB$HOME/Library/Application Support/Syncthing\fP (Mac),
+or \fB%LOCALAPPDATA%/Syncthing\fP (Windows). It can be changed at runtime
+using the \fB\-home\fP flag. In this directory the following files are
+located:
+.INDENT 0.0
+.TP
+.B \fBconfig.xml\fP
+The configuration file, in XML format.
+.TP
+.B \fBcert.pem\fP, \fBkey.pem\fP
+The device’s ECDSA public and private key. These form the basis for the
+device ID. The key must be kept private.
+.TP
+.B \fBhttps\-cert.pem\fP, \fBhttps\-key.pem\fP
+The certificate and key for HTTPS GUI connections. These may be replaced
+with a custom certificate for HTTPS as desired.
+.TP
+.B \fBindex\-\fP\fI*\fP\fB\&.db\fP
+A directory holding the database with metadata and hashes of the files
+currently on disk and available from peers.
+.TP
+.B \fBcsrftokens.txt\fP
+A list of recently issued CSRF tokens (for protection against browser cross
+site request forgery).
+.UNINDENT
+.SH CONFIG FILE FORMAT
+.sp
+The following shows an example of the default configuration file (IDs will differ):
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<configuration version="30">
+    <folder id="default" label="Default Folder" path="/Users/jb/Sync/" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+        <filesystemType>basic</filesystemType>
+        <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ"></device>
+        <minDiskFree unit="%">1</minDiskFree>
+        <versioning></versioning>
+        <copiers>0</copiers>
+        <pullerMaxPendingKiB>0</pullerMaxPendingKiB>
+        <hashers>0</hashers>
+        <order>random</order>
+        <ignoreDelete>false</ignoreDelete>
+        <scanProgressIntervalS>0</scanProgressIntervalS>
+        <pullerPauseS>0</pullerPauseS>
+        <maxConflicts>\-1</maxConflicts>
+        <disableSparseFiles>false</disableSparseFiles>
+        <disableTempIndexes>false</disableTempIndexes>
+        <paused>false</paused>
+        <weakHashThresholdPct>25</weakHashThresholdPct>
+        <markerName>.stfolder</markerName>
+        <copyOwnershipFromParent>false</copyOwnershipFromParent>
+        <modTimeWindowS>0</modTimeWindowS>
+        <maxConcurrentWrites>2</maxConcurrentWrites>
+        <disableFsync>false</disableFsync>
+        <blockPullOrder>standard</blockPullOrder>
+        <copyRangeMethod>standard</copyRangeMethod>
+    </folder>
+    <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
+        <address>dynamic</address>
+        <paused>false</paused>
+        <autoAcceptFolders>false</autoAcceptFolders>
+        <maxSendKbps>0</maxSendKbps>
+        <maxRecvKbps>0</maxRecvKbps>
+        <maxRequestKiB>0</maxRequestKiB>
+    </device>
+    <gui enabled="true" tls="false" debugging="false">
+        <address>127.0.0.1:8384</address>
+        <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
+        <theme>default</theme>
+    </gui>
+    <ldap></ldap>
+    <options>
+        <listenAddress>tcp://0.0.0.0:8384</listenAddress>
+        <listenAddress>dynamic+https://relays.syncthing.net/endpoint</listenAddress>
+        <globalAnnounceServer>default</globalAnnounceServer>
+        <globalAnnounceEnabled>true</globalAnnounceEnabled>
+        <localAnnounceEnabled>true</localAnnounceEnabled>
+        <localAnnouncePort>21027</localAnnouncePort>
+        <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
+        <maxSendKbps>0</maxSendKbps>
+        <maxRecvKbps>0</maxRecvKbps>
+        <reconnectionIntervalS>60</reconnectionIntervalS>
+        <relaysEnabled>true</relaysEnabled>
+        <relayReconnectIntervalM>10</relayReconnectIntervalM>
+        <startBrowser>true</startBrowser>
+        <natEnabled>true</natEnabled>
+        <natLeaseMinutes>60</natLeaseMinutes>
+        <natRenewalMinutes>30</natRenewalMinutes>
+        <natTimeoutSeconds>10</natTimeoutSeconds>
+        <urAccepted>0</urAccepted>
+        <urSeen>0</urSeen>
+        <urUniqueID></urUniqueID>
+        <urURL>https://data.syncthing.net/newdata</urURL>
+        <urPostInsecurely>false</urPostInsecurely>
+        <urInitialDelayS>1800</urInitialDelayS>
+        <restartOnWakeup>true</restartOnWakeup>
+        <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
+        <upgradeToPreReleases>false</upgradeToPreReleases>
+        <keepTemporariesH>24</keepTemporariesH>
+        <cacheIgnoredFiles>false</cacheIgnoredFiles>
+        <progressUpdateIntervalS>5</progressUpdateIntervalS>
+        <limitBandwidthInLan>false</limitBandwidthInLan>
+        <minHomeDiskFree unit="%">1</minHomeDiskFree>
+        <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
+        <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
+        <tempIndexMinBlocks>10</tempIndexMinBlocks>
+        <trafficClass>0</trafficClass>
+        <defaultFolderPath>~</defaultFolderPath>
+        <setLowPriority>true</setLowPriority>
+        <maxFolderConcurrency>0</maxFolderConcurrency>
+        <crashReportingURL>https://crash.syncthing.net/newcrash</crashReportingURL>
+        <crashReportingEnabled>true</crashReportingEnabled>
+        <stunKeepaliveStartS>180</stunKeepaliveStartS>
+        <stunKeepaliveMinS>20</stunKeepaliveMinS>
+        <stunServer>default</stunServer>
+        <databaseTuning>auto</databaseTuning>
+        <maxConcurrentIncomingRequestKiB>0</maxConcurrentIncomingRequestKiB>
+    </options>
+</configuration>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH CONFIGURATION ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<configuration version="30">
+    <folder></folder>
+    <device></device>
+    <gui></gui>
+    <ldap></ldap>
+    <options></options>
+    <ignoredDevice>5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU</ignoredDevice>
+    <ignoredFolder>bd7q3\-zskm5</ignoredFolder>
+</configuration>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+This is the root element. It has one attribute:
+.INDENT 0.0
+.TP
+.B version
+The config version. Increments whenever a change is made that requires
+migration from previous formats.
+.UNINDENT
+.sp
+It contains the elements described in the following sections and these two
+additional child elements:
+.INDENT 0.0
+.TP
+.B ignoredDevice
+Contains the ID of the device that should be ignored. Connection attempts
+from this device are logged to the console but never displayed in the web
+GUI.
+.TP
+.B ignoredFolder
+Contains the ID of the folder that should be ignored. This folder will
+always be skipped when advertised from a remote device, i.e. this will be
+logged, but there will be no dialog about it in the web GUI.
+.UNINDENT
+.SH FOLDER ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<folder id="default" label="Default Folder" path="/Users/jb/Sync/" type="sendreceive" rescanIntervalS="3600" fsWatcherEnabled="true" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+    <filesystemType>basic</filesystemType>
+    <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ"></device>
+    <minDiskFree unit="%">1</minDiskFree>
+    <versioning></versioning>
+    <copiers>0</copiers>
+    <pullerMaxPendingKiB>0</pullerMaxPendingKiB>
+    <hashers>0</hashers>
+    <order>random</order>
+    <ignoreDelete>false</ignoreDelete>
+    <scanProgressIntervalS>0</scanProgressIntervalS>
+    <pullerPauseS>0</pullerPauseS>
+    <maxConflicts>\-1</maxConflicts>
+    <disableSparseFiles>false</disableSparseFiles>
+    <disableTempIndexes>false</disableTempIndexes>
+    <paused>false</paused>
+    <weakHashThresholdPct>25</weakHashThresholdPct>
+    <markerName>.stfolder</markerName>
+    <copyOwnershipFromParent>false</copyOwnershipFromParent>
+    <modTimeWindowS>0</modTimeWindowS>
+    <maxConcurrentWrites>2</maxConcurrentWrites>
+    <disableFsync>false</disableFsync>
+    <blockPullOrder>standard</blockPullOrder>
+    <copyRangeMethod>standard</copyRangeMethod>
+</folder>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+One or more \fBfolder\fP elements must be present in the file. Each element
+describes one folder. The following attributes may be set on the \fBfolder\fP
+element:
+.INDENT 0.0
+.TP
+.B id
+The folder ID, must be unique. (mandatory)
+.TP
+.B label
+The label of a folder is a human readable and descriptive local name. May
+be different on each device, empty, and/or identical to other folder
+labels. (optional)
+.TP
+.B path
+The path to the directory where the folder is stored on this
+device; not sent to other devices. (mandatory)
+.TP
+.B type
+Controls how the folder is handled by Syncthing. Possible values are:
+.INDENT 7.0
+.TP
+.B sendreceive
+The folder is in default mode. Sending local and accepting remote changes.
+Note that this type was previously called “readwrite” which is deprecated
+but still accepted in incoming configs.
+.TP
+.B sendonly
+The folder is in “send only” mode – it will not be modified by
+Syncthing on this device.
+Note that this type was previously called “readonly” which is deprecated
+but still accepted in incoming configs.
+.TP
+.B receiveonly
+The folder is in “receive only” mode – it will not propagate
+changes to other devices.
+.UNINDENT
+.TP
+.B rescanIntervalS
+The rescan interval, in seconds. Can be set to zero to disable when external
+plugins are used to trigger rescans.
+.TP
+.B fsWatcherEnabled
+If enabled this detects changes to files in the folder and scans them.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B fsWatcherDelayS
+The duration during which changes detected are accumulated, before a scan is
+scheduled (only takes effect if \fBfsWatcherEnabled\fP is true).
+.TP
+.B ignorePerms
+True if the folder should ignore permissions.
+.TP
+.B autoNormalize
+Automatically correct UTF\-8 normalization errors found in file names.
+.UNINDENT
+.sp
+The following child elements may exist:
+.INDENT 0.0
+.TP
+.B device
+These must have the \fBid\fP attribute and can have an \fBintroducedBy\fP attribute,
+identifying the device that introduced us to share this folder with the given device.
+If the original introducer unshares this folder with this device, our device will follow
+and unshare the folder (subject to skipIntroductionRemovals being false on the introducer device).
+All mentioned devices are those that will be sharing the folder in question.
+Each mentioned device must have a separate \fBdevice\fP element later in the file.
+It is customary that the local device ID is included in all folders.
+Syncthing will currently add this automatically if it is not present in
+the configuration file.
+.TP
+.B minDiskFree
+The minimum required free space that should be available on the disk this folder
+resides. The folder will be stopped when the value drops below the threshold. Accepted units are
+\fB%\fP, \fBkB\fP, \fBMB\fP, \fBGB\fP and \fBTB\fP\&. Set to zero to disable.
+.TP
+.B versioning
+Specifies a versioning configuration.
+.UNINDENT
+.sp
+\fBSEE ALSO:\fP
+.INDENT 0.0
+.INDENT 3.5
+versioning
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B copiers, pullers, hashers
+The number of copier, puller and hasher routines to use, or zero for the
+system determined optimum. These are low level performance options for
+advanced users only; do not change unless requested to or you’ve actually
+read and understood the code yourself. :)
+.TP
+.B order
+The order in which needed files should be pulled from the cluster.
+The possibles values are:
+.INDENT 7.0
+.TP
+.B random
+Pull files in random order. This optimizes for balancing resources among
+the devices in a cluster.
+.TP
+.B alphabetic
+Pull files ordered by file name alphabetically.
+.TP
+.B smallestFirst, largestFirst
+Pull files ordered by file size; smallest and largest first respectively.
+.TP
+.B oldestFirst, newestFirst
+Pull files ordered by modification time; oldest and newest first
+respectively.
+.UNINDENT
+.sp
+Note that the scanned files are sent in batches and the sorting is applied
+only to the already discovered files. This means the sync might start with
+a 1 GB file even if there is 1 KB file available on the source device until
+the 1 KB becomes known to the pulling device.
+.TP
+.B ignoreDelete
+When set to true, this device will pretend not to see instructions to
+delete files from other devices.
+.TP
+.B scanProgressIntervalS
+The interval with which scan progress information is sent to the GUI. Zero
+means the default value (two seconds).
+.TP
+.B pullerPauseS
+Tweak for rate limiting the puller when it retries pulling files. Don’t
+change these unless you know what you’re doing.
+.TP
+.B maxConflicts
+The maximum number of conflict copies to keep around for any given file.
+The default, \-1, means an unlimited number. Setting this to zero disables
+conflict copies altogether.
+.TP
+.B disableSparseFiles
+By default, blocks containing all zeroes are not written, causing files
+to be sparse on filesystems that support the concept. When set to true,
+sparse files will not be created.
+.TP
+.B disableTempIndexes
+By default, devices exchange information about blocks available in
+transfers that are still in progress, which allows other devices to
+download parts of files that are not yet fully downloaded on your own
+device, essentially making transfers more torrent like. When set to
+true, such information is not exchanged for this folder.
+.TP
+.B paused
+True if this folder is (temporarily) suspended.
+.TP
+.B weakHashThresholdPct
+Use weak hash if more than the given percentage of the file has changed. Set
+to \-1 to always use weak hash. Default value is 25.
+.TP
+.B markerName
+Name of a directory or file in the folder root to be used as
+marker\-faq\&. Default is “.stfolder”.
+.TP
+.B copyOwnershipFromParent
+On Unix systems, tries to copy file/folder ownership from the parent directory (the directory it’s located in).
+Requires running Syncthing as privileged user, or granting it additional capabilities (e.g. CAP_CHOWN on Linux).
+.TP
+.B modTimeWindowS
+Allowed modification timestamp difference when comparing files for equivalence.
+To be used on systems that have unstable modification timestamps, that might change after being observed after
+the last write operation. Used in Android only.
+.TP
+.B maxConcurrentWrites
+Maximum number of concurrent write operations while syncing. Defaults to 2. Increasing this might increase or
+decrease disk performance, depending on the underlying storage.
+.UNINDENT
+.sp
+disableFsync
+.INDENT 0.0
+.INDENT 3.5
+.sp
+\fBWARNING:\fP
+.INDENT 0.0
+.INDENT 3.5
+This is a known insecure option \- use at your own risk.
+.UNINDENT
+.UNINDENT
+.sp
+Disables committing file operations to disk before recording them in the database.
+Disabling fsync can lead to data corruption.
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B blockPullOrder
+Order in which the blocks of a file are downloaded. This option controls how quickly different parts of the
+file spread between the connected devices, at the cost of causing strain on the storage.
+.sp
+Available options:
+.INDENT 7.0
+.TP
+.B standard (default):
+The blocks of a file are split into N equal continuous sequences, where N is the number of connected
+devices. Each device starts downloading it’s own sequence, after which it picks other devices
+sequences at random. Provides acceptable data distribution and minimal spinning disk strain.
+.TP
+.B random:
+The blocks of a file are downloaded in a random order. Provides great data distribution, but very taxing on
+spinning disk drives.
+.TP
+.B inOrder:
+The blocks of a file are downloaded sequentially, from start to finish. Spinning disk drive friendly, but provides
+no improvements to data distribution.
+.UNINDENT
+.TP
+.B copyRangeMethod
+Provides a choice of method for copying data between files. This can be used to optimise copies on network
+filesystems, improve speed of large copies or clone the data using copy\-on\-write functionality if the underlying
+filesystem supports it.
+.sp
+\fBWARNING:\fP
+.INDENT 7.0
+.INDENT 3.5
+This is an experimental feature, so please use at your own risk.
+.UNINDENT
+.UNINDENT
+.INDENT 7.0
+.TP
+.B standard (default)
+Reads the data from source file into application memory, writes the data from application memory into the
+destination file.
+.sp
+Available on: All platforms
+.TP
+.B copy_file_range
+Uses copy_file_range syscall, which if underlying filesystem supports, uses copy\-on\-write semantics to
+clone the data. Introduced in Linux 4.5 and tested on XFS and BTRFS. Some network filesystems might use this
+to perform server\-side copies.
+.sp
+Tested on: BTRFS, XFS
+Available on: Linux
+.TP
+.B ioctl
+Uses ioctl syscall with FICLONERANGE option, which if underlying filesystem supports, uses copy\-on\-write
+semantics to clone the data. Officially introduced in Linux 4.5, but was previously known as
+BTRFS_IOC_CLONE_RANGE, which was used to provide copy\-on\-write semantics to BTRFS filesystems since Linux 2.6.29.
+Some network filesystems might use this to perform server\-side copies. Will fail if not supported by the
+underlying filesystem.
+.sp
+Tested on: BTRFS
+Not available on: Windows, Solaris, Darwin (OS X)
+.TP
+.B sendfile
+Uses sendfile syscall, which performs in\-kernel copy, avoiding having to copy the data into application memory.
+.sp
+Tested on: BTRFS, XFS
+Not available on: Windows, Darwin (OS X)
+.TP
+.B duplicate_extents
+Uses Windows Block Cloning via FSCTL_DUPLICATE_EXTENTS_TO_FILE, which provides copy\-on\-write semantics to clone
+the data. Requires Windows Server 2016 or later, and a compatible filesystem (ReFS, SMB 3.1.1, CsvFS). Will
+fail if not supported by the underlying filesystem.
+.sp
+\fBWARNING:\fP
+.INDENT 7.0
+.INDENT 3.5
+Completely untested, use at your own risk.
+.UNINDENT
+.UNINDENT
+.sp
+Available on: Windows
+.TP
+.B all
+Tries all of the copy methods in the following order: ioctl, copy_file_range, sendfile, duplicate_extents,
+standard.
+.sp
+Available on: All platforms
+.sp
+\fBWARNING:\fP
+.INDENT 7.0
+.INDENT 3.5
+Not recommended on Windows as it has not been tested, might be very costly on all other platforms.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.TP
+.B fsync
+Deprecated since version v0.14.37.
+
+.sp
+Transfer updated (from other devices) files to permanent storage before
+committing the changes to the internal database.
+.TP
+.B pullerSleepS
+Deprecated since version v0.14.41.
+
+.sp
+Tweak for rate limiting the puller. Don’t change these unless you know
+what you’re doing.
+.UNINDENT
+.SH DEVICE ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<device id="5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR">
+    <address>dynamic</address>
+    <paused>false</paused>
+    <autoAcceptFolders>false</autoAcceptFolders>
+    <maxSendKbps>0</maxSendKbps>
+    <maxRecvKbps>0</maxRecvKbps>
+    <maxRequestKiB>0</maxRequestKiB>
+</device>
+<device id="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR" name="syno local" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
+    <address>tcp://192.0.2.1:22001</address>
+    <paused>true</paused>
+    <allowedNetwork>192.168.0.0/16</allowedNetwork>
+    <autoAcceptFolders>false</autoAcceptFolders>
+    <maxSendKbps>100</maxSendKbps>
+    <maxRecvKbps>100</maxRecvKbps>
+    <maxRequestKiB>65536</maxRequestKiB>
+</device>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+One or more \fBdevice\fP elements must be present in the file. Each element
+describes a device participating in the cluster. It is customary to include a
+\fBdevice\fP element for the local device; Syncthing will currently add one if
+it is not present. The following attributes may be set on the \fBdevice\fP
+element:
+.INDENT 0.0
+.TP
+.B id
+The device ID. This must be written in canonical form, that is without any
+spaces or dashes. (mandatory)
+.TP
+.B name
+A friendly name for the device. (optional)
+.TP
+.B compression
+Whether to use protocol compression when sending messages to this device.
+The possible values are:
+.INDENT 7.0
+.TP
+.B metadata
+Compress metadata packets, such as index information. Metadata is
+usually very compression friendly so this is a good default.
+.TP
+.B always
+Compress all packets, including file data. This is recommended if the
+folders contents are mainly compressible data such as documents or
+text files.
+.TP
+.B never
+Disable all compression.
+.UNINDENT
+.TP
+.B introducer
+Set to true if this device should be trusted as an introducer, i.e. we
+should copy their list of devices per folder when connecting.
+.UNINDENT
+.sp
+\fBSEE ALSO:\fP
+.INDENT 0.0
+.INDENT 3.5
+introducer
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B skipIntroductionRemovals
+Set to true if you wish to follow only introductions and not de\-introductions.
+For example, if this is set, we would not remove a device that we were introduced
+to even if the original introducer is no longer listing the remote device as known.
+.TP
+.B introducedBy
+Defines which device has introduced us to this device. Used only for following de\-introductions.
+.TP
+.B certName
+The device certificate common name, if it is not the default “syncthing”.
+.UNINDENT
+.sp
+From following child elements at least one \fBaddress\fP child must exist.
+.INDENT 0.0
+.TP
+.B address
+Contains an address or host name to use when attempting to connect to this device.
+Entries other than \fBdynamic\fP must be prefixed with \fBtcp://\fP (dual\-stack),
+\fBtcp4://\fP (IPv4 only) or \fBtcp6://\fP (IPv6 only). Note that IP addresses need
+not use tcp4/tcp6; these are optional. Accepted formats are:
+.INDENT 7.0
+.TP
+.B IPv4 address (\fBtcp://192.0.2.42\fP)
+The default port (22000) is used.
+.TP
+.B IPv4 address and port (\fBtcp://192.0.2.42:12345\fP)
+The address and port is used as given.
+.TP
+.B IPv6 address (\fBtcp://[2001:db8::23:42]\fP)
+The default port (22000) is used. The address must be enclosed in
+square brackets.
+.TP
+.B IPv6 address and port (\fBtcp://[2001:db8::23:42]:12345\fP)
+The address and port is used as given. The address must be enclosed in
+square brackets.
+.TP
+.B Host name (\fBtcp6://fileserver\fP)
+The host name will be used on the default port (22000) and connections
+will be attempted only via IPv6.
+.TP
+.B Host name and port (\fBtcp://fileserver:12345\fP)
+The host name will be used on the given port and connections will be
+attempted via both IPv4 and IPv6, depending on name resolution.
+.TP
+.B \fBdynamic\fP
+The word \fBdynamic\fP (without \fBtcp://\fP prefix) means to use local and
+global discovery to find the device.
+.UNINDENT
+.sp
+You can set multiple addresses \fIand\fP combine it with the \fBdynamic\fP keyword
+for example:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<device id="...">
+    <address>tcp://192.0.2.1:22001</address>
+    <address>tcp://192.0.1.254:22000</address>
+    <address>dynamic</address>
+</device>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.TP
+.B paused
+True if synchronization with this devices is (temporarily) suspended.
+.TP
+.B allowedNetwork
+If given, this restricts connections to this device to only this network
+(see allowed\-networks).
+.TP
+.B maxSendKbps
+Maximum send rate to use for this device. Unit is kibibytes/second, despite
+the config name looking like kilobits/second.
+.TP
+.B maxRecvKbps
+Maximum receive rate to use for this device. Unit is kibibytes/second,
+despite the config name looking like kilobits/second.
+.TP
+.B maxRequestKiB
+Maximum amount of data to have outstanding in requests towards this device.
+Unit is kibibytes.
+.UNINDENT
+.SH GUI ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<gui enabled="true" tls="false" debugging="false">
+    <address>127.0.0.1:8384</address>
+    <apikey>l7jSbCqPD95JYZ0g8vi4ZLAMg3ulnN1b</apikey>
+    <theme>default</theme>
+</gui>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+There must be exactly one \fBgui\fP element. The GUI configuration is also used
+by the rest\-api and the event\-api\&. The following attributes may
+be set on the \fBgui\fP element:
+.INDENT 0.0
+.TP
+.B enabled
+If not \fBtrue\fP, the GUI and API will not be started.
+.TP
+.B tls
+If set to \fBtrue\fP, TLS (HTTPS) will be enforced. Non\-HTTPS requests will
+be redirected to HTTPS. When this is set to \fBfalse\fP, TLS connections are
+still possible but it is not mandatory.
+.TP
+.B debugging
+This enables profiling and additional debugging endpoints in the rest\-api\&.
+.UNINDENT
+.sp
+The following child elements may be present:
+.INDENT 0.0
+.TP
+.B address
+Set the listen address. One address element must be present. Allowed address formats are:
+.INDENT 7.0
+.TP
+.B IPv4 address and port (\fB127.0.0.1:8384\fP)
+The address and port is used as given.
+.TP
+.B IPv6 address and port (\fB[::1]:8384\fP)
+The address and port is used as given. The address must be enclosed in
+square brackets.
+.TP
+.B Wildcard and port (\fB0.0.0.0:12345\fP, \fB[::]:12345\fP, \fB:12345\fP)
+These are equivalent and will result in Syncthing listening on all
+interfaces via both IPv4 and IPv6.
+.TP
+.B UNIX socket location (\fB/var/run/st.sock\fP)
+If the address is an absolute path it is interpreted as the path to a UNIX socket.
+(Added in v0.14.52.)
+.UNINDENT
+.TP
+.B unixSocketPermissions
+In the case that a UNIX socket location is used for \fBaddress\fP, set this to an octal to override the default permissions of the socket.
+.TP
+.B user
+Set to require authentication.
+.TP
+.B password
+Contains the bcrypt hash of the real password.
+.TP
+.B apikey
+If set, this is the API key that enables usage of the REST interface.
+.TP
+.B insecureAdminAccess
+If true, this allows access to the web GUI from outside (i.e. not localhost)
+without authorization. A warning will displayed about this setting on startup.
+.TP
+.B theme
+The name of the theme to use.
+.TP
+.B authMode
+Authentication mode to use. If not present authentication mode (static)
+is controlled by presence of user/passward fields for backward compatibility.
+.INDENT 7.0
+.TP
+.B static
+Authentication using user and password.
+.TP
+.B ldap
+LDAP authentication. Requires ldap top level config section to be present.
+.UNINDENT
+.UNINDENT
+.SH LDAP ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<ldap>
+    <address>localhost:389</address>
+    <bindDN>cn=%s,ou=users,dc=syncthing,dc=net</bindDN>
+    <transport>nontls</transport>
+    <insecureSkipVerify>false</insecureSkipVerify>
+</ldap>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The \fBldap\fP element contains LDAP configuration options.
+.INDENT 0.0
+.TP
+.B address
+LDAP server address (server:port).
+.TP
+.B bindDN
+BindDN for user authentication.
+Special %s variable shoild be used to pass username to LDAP.
+.UNINDENT
+.sp
+transport
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.TP
+.B nontls
+Non secure connection.
+.TP
+.B tls
+TLS secured connection.
+.TP
+.B starttls
+StartTLS connection mode.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B insecureSkipVerify
+Skip verification (true or false).
+.UNINDENT
+.SH OPTIONS ELEMENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<options>
+    <listenAddress>tcp://0.0.0.0:8384</listenAddress>
+    <listenAddress>dynamic+https://relays.syncthing.net/endpoint</listenAddress>
+    <globalAnnounceServer>default</globalAnnounceServer>
+    <globalAnnounceEnabled>true</globalAnnounceEnabled>
+    <localAnnounceEnabled>true</localAnnounceEnabled>
+    <localAnnouncePort>21027</localAnnouncePort>
+    <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
+    <maxSendKbps>0</maxSendKbps>
+    <maxRecvKbps>0</maxRecvKbps>
+    <reconnectionIntervalS>60</reconnectionIntervalS>
+    <relaysEnabled>true</relaysEnabled>
+    <relayReconnectIntervalM>10</relayReconnectIntervalM>
+    <startBrowser>true</startBrowser>
+    <natEnabled>true</natEnabled>
+    <natLeaseMinutes>60</natLeaseMinutes>
+    <natRenewalMinutes>30</natRenewalMinutes>
+    <natTimeoutSeconds>10</natTimeoutSeconds>
+    <urAccepted>0</urAccepted>
+    <urSeen>0</urSeen>
+    <urUniqueID></urUniqueID>
+    <urURL>https://data.syncthing.net/newdata</urURL>
+    <urPostInsecurely>false</urPostInsecurely>
+    <urInitialDelayS>1800</urInitialDelayS>
+    <restartOnWakeup>true</restartOnWakeup>
+    <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
+    <upgradeToPreReleases>false</upgradeToPreReleases>
+    <keepTemporariesH>24</keepTemporariesH>
+    <cacheIgnoredFiles>false</cacheIgnoredFiles>
+    <progressUpdateIntervalS>5</progressUpdateIntervalS>
+    <limitBandwidthInLan>false</limitBandwidthInLan>
+    <minHomeDiskFree unit="%">1</minHomeDiskFree>
+    <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
+    <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
+    <tempIndexMinBlocks>10</tempIndexMinBlocks>
+    <trafficClass>0</trafficClass>
+    <defaultFolderPath>~</defaultFolderPath>
+    <setLowPriority>true</setLowPriority>
+    <maxFolderConcurrency>0</maxFolderConcurrency>
+    <crashReportingURL>https://crash.syncthing.net/newcrash</crashReportingURL>
+    <crashReportingEnabled>true</crashReportingEnabled>
+    <stunKeepaliveStartS>180</stunKeepaliveStartS>
+    <stunKeepaliveMinS>20</stunKeepaliveMinS>
+    <stunServer>default</stunServer>
+    <databaseTuning>auto</databaseTuning>
+    <maxConcurrentIncomingRequestKiB>0</maxConcurrentIncomingRequestKiB>
+</options>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The \fBoptions\fP element contains all other global configuration options.
+.INDENT 0.0
+.TP
+.B listenAddress
+The listen address for incoming sync connections. See
+\fI\%Listen Addresses\fP for allowed syntax.
+.TP
+.B globalAnnounceServer
+A URI to a global announce (discovery) server, or the word \fBdefault\fP to
+include the default servers. Any number of globalAnnounceServer elements
+may be present. The syntax for non\-default entries is that of a HTTP or
+HTTPS URL. A number of options may be added as query options to the URL:
+\fBinsecure\fP to prevent certificate validation (required for HTTP URLs)
+and \fBid=<device ID>\fP to perform certificate pinning. The device ID to
+use is printed by the discovery server on startup.
+.TP
+.B globalAnnounceEnabled
+Whether to announce this device to the global announce (discovery) server,
+and also use it to look up other devices.
+.TP
+.B localAnnounceEnabled
+Whether to send announcements to the local LAN, also use such
+announcements to find other devices.
+.TP
+.B localAnnouncePort
+The port on which to listen and send IPv4 broadcast announcements to.
+.TP
+.B localAnnounceMCAddr
+The group address and port to join and send IPv6 multicast announcements on.
+.TP
+.B maxSendKbps
+Outgoing data rate limit, in kibibytes per second.
+.TP
+.B maxRecvKbps
+Incoming data rate limits, in kibibytes per second.
+.TP
+.B reconnectionIntervalS
+The number of seconds to wait between each attempt to connect to currently
+unconnected devices.
+.TP
+.B relaysEnabled
+When true, relays will be connected to and potentially used for device to device connections.
+.TP
+.B relayReconnectIntervalM
+Sets the interval, in minutes, between relay reconnect attempts.
+.TP
+.B startBrowser
+Whether to attempt to start a browser to show the GUI when Syncthing starts.
+.TP
+.B natEnabled
+Whether to attempt to perform a UPnP and NAT\-PMP port mapping for
+incoming sync connections.
+.TP
+.B natLeaseMinutes
+Request a lease for this many minutes; zero to request a permanent lease.
+.TP
+.B natRenewalMinutes
+Attempt to renew the lease after this many minutes.
+.TP
+.B natTimeoutSeconds
+When scanning for UPnP devices, wait this long for responses.
+.TP
+.B urAccepted
+Whether the user has accepted to submit anonymous usage data. The default,
+\fB0\fP, mean the user has not made a choice, and Syncthing will ask at some
+point in the future. \fB\-1\fP means no, a number above zero means that that
+version of usage reporting has been accepted.
+.TP
+.B urSeen
+The highest usage reporting version that has already been shown in the web GUI.
+.TP
+.B urUniqueID
+The unique ID sent together with the usage report. Generated when usage
+reporting is enabled.
+.TP
+.B urURL
+The URL to post usage report data to, when enabled.
+.TP
+.B urPostInsecurely
+When true, the UR URL can be http instead of https, or have a self\-signed
+certificate. The default is \fBfalse\fP\&.
+.TP
+.B urInitialDelayS
+The time to wait from startup to the first usage report being sent. Allows
+the system to stabilize before reporting statistics.
+.TP
+.B restartOnWakeup
+Whether to perform a restart of Syncthing when it is detected that we are
+waking from sleep mode (i.e. a folded up laptop).
+.TP
+.B autoUpgradeIntervalH
+Check for a newer version after this many hours. Set to zero to disable
+automatic upgrades.
+.TP
+.B upgradeToPreReleases
+If true, automatic upgrades include release candidates (see
+releases).
+.TP
+.B keepTemporariesH
+Keep temporary failed transfers for this many hours. While the temporaries
+are kept, the data they contain need not be transferred again.
+.TP
+.B cacheIgnoredFiles
+Whether to cache the results of ignore pattern evaluation. Performance
+at the price of memory. Defaults to \fBfalse\fP as the cost for evaluating
+ignores is usually not significant.
+.TP
+.B progressUpdateIntervalS
+How often in seconds the progress of ongoing downloads is made available to
+the GUI.
+.TP
+.B limitBandwidthInLan
+Whether to apply bandwidth limits to devices in the same broadcast domain
+as the local device.
+.TP
+.B minHomeDiskFree
+The minimum required free space that should be available on the
+partition holding the configuration and index. Accepted units are \fB%\fP, \fBkB\fP,
+\fBMB\fP, \fBGB\fP and \fBTB\fP\&.
+.TP
+.B releasesURL
+The URL from which release information is loaded, for automatic upgrades.
+.TP
+.B alwaysLocalNet
+Network that should be considered as local given in CIDR notation.
+.TP
+.B overwriteRemoteDeviceNamesOnConnect
+If set, device names will always be overwritten with the name given by
+remote on each connection. By default, the name that the remote device
+announces will only be adopted when a name has not already been set.
+.TP
+.B tempIndexMinBlocks
+When exchanging index information for incomplete transfers, only take
+into account files that have at least this many blocks.
+.TP
+.B unackedNotificationID
+ID of a notification to be displayed in the web GUI. Will be removed once
+the user acknowledged it (e.g. an transition notice on an upgrade).
+.TP
+.B trafficClass
+Specify a type of service (TOS)/traffic class of outgoing packets.
+.TP
+.B stunServer
+Server to be used for STUN, given as ip:port. The keyword \fBdefault\fP gets
+expanded to
+\fBstun.callwithus.com:3478\fP, \fBstun.counterpath.com:3478\fP,
+\fBstun.counterpath.net:3478\fP, \fBstun.ekiga.net:3478\fP,
+\fBstun.ideasip.com:3478\fP, \fBstun.internetcalls.com:3478\fP,
+\fBstun.schlund.de:3478\fP, \fBstun.sipgate.net:10000\fP,
+\fBstun.sipgate.net:3478\fP, \fBstun.voip.aebc.com:3478\fP,
+\fBstun.voiparound.com:3478\fP, \fBstun.voipbuster.com:3478\fP,
+\fBstun.voipstunt.com:3478\fP and \fBstun.xten.com:3478\fP (this is the default).
+.TP
+.B stunKeepaliveSeconds
+Interval in seconds between contacting a STUN server to
+maintain NAT mapping. Default is \fB24\fP and you can set it to \fB0\fP to
+disable contacting STUN servers.
+.TP
+.B defaultFolderPath
+The UI will propose to create new folders at this path. This can be disabled by
+setting this to an empty string.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B setLowPriority
+Syncthing will attempt to lower its process priority at startup.
+Specifically: on Linux, set itself to a separate process group, set the
+niceness level of that process group to nine and the I/O priority to
+best effort level five; on other Unixes, set the process niceness level
+to nine; on Windows, set the process priority class to below normal. To
+disable this behavior, for example to control process priority yourself
+as part of launching Syncthing, set this option to \fBfalse\fP\&.
+.UNINDENT
+.SS Listen Addresses
+.sp
+The following address types are accepted in sync protocol listen addresses. If you want Syncthing to listen on multiple addresses, you can have multiple \fB<listenAddress>\fP tags. The same is achieved in the GUI by entering several addresses separated by comma.
+.INDENT 0.0
+.TP
+.B Default listen addresses (\fBdefault\fP)
+This is equivalent to \fBtcp://0.0.0.0:22000\fP, \fBquic://0.0.0.0:22000\fP
+and \fBdynamic+https://relays.syncthing.net/endpoint\fP\&.
+.TP
+.B TCP wildcard and port (\fBtcp://0.0.0.0:22000\fP, \fBtcp://:22000\fP)
+These are equivalent and will result in Syncthing listening on all
+interfaces, IPv4 and IPv6, on the specified port.
+.TP
+.B TCP IPv4 wildcard and port (\fBtcp4://0.0.0.0:22000\fP, \fBtcp4://:22000\fP)
+These are equivalent and will result in Syncthing listening on all
+interfaces via IPv4 only.
+.TP
+.B TCP IPv4 address and port (\fBtcp4://192.0.2.1:22000\fP)
+This results in Syncthing listening on the specified address and port, IPv4
+only.
+.TP
+.B TCP IPv6 wildcard and port (\fBtcp6://[::]:22000\fP, \fBtcp6://:22000\fP)
+These are equivalent and will result in Syncthing listening on all
+interfaces via IPv6 only.
+.TP
+.B TCP IPv6 address and port (\fBtcp6://[2001:db8::42]:22000\fP)
+This results in Syncthing listening on the specified address and port, IPv6
+only.
+.TP
+.B QUIC address and port (e.g. \fBquic://0.0.0.0:22000\fP)
+Syntax is the same as for TCP, also \fBquic4\fP and \fBquic6\fP can be used.
+.TP
+.B Static relay address (\fBrelay://192.0.2.42:22067?id=abcd123...\fP)
+Syncthing will connect to and listen for incoming connections via the
+specified relay address.
+.INDENT 7.0
+.INDENT 3.5
+.SS Todo
+.sp
+Document available URL parameters.
+.UNINDENT
+.UNINDENT
+.TP
+.B Dynamic relay pool (\fBdynamic+https://192.0.2.42/relays\fP)
+Syncthing will fetch the specified HTTPS URL, parse it for a JSON payload
+describing relays, select a relay from the available ones and listen via
+that as if specified as a static relay above.
+.INDENT 7.0
+.INDENT 3.5
+.SS Todo
+.sp
+Document available URL parameters.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.SH SYNCING CONFIGURATION FILES
+.sp
+Syncing configuration files between devices (such that multiple devices are
+using the same configuration files) can cause issues. This is easy to do
+accidentally if you sync your home folder between devices. A common symptom
+of syncing configuration files is two devices ending up with the same Device ID.
+.sp
+If you want to use Syncthing to backup your configuration files, it is recommended
+that the files you are backing up are in a folder\-sendonly to prevent other
+devices from overwriting the per device configuration. The folder on the remote
+device(s) should not be used as configuration for the remote devices.
+.sp
+If you’d like to sync your home folder in non\-send only mode, you may add the
+folder that stores the configuration files to the ignore list\&.
+If you’d also like to backup your configuration files, add another folder in
+send only mode for just the configuration folder.
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2014-2019, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -27,12 +28,14 @@ type interval struct {
 }
 
 type staggered struct {
-	folderFs   fs.Filesystem
-	versionsFs fs.Filesystem
-	interval   [4]interval
+	folderFs        fs.Filesystem
+	versionsFs      fs.Filesystem
+	interval        [4]interval
+	copyRangeMethod fs.CopyRangeMethod
 }
 
-func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
+func newStaggered(cfg config.FolderConfiguration) Versioner {
+	params := cfg.Versioning.Params
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
 		maxAge = 31536000 // Default: ~1 year
@@ -40,10 +43,10 @@ func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 
 	// Backwards compatibility
 	params["fsPath"] = params["versionsPath"]
-	versionsFs := fsFromParams(folderFs, params)
+	versionsFs := versionerFsFromFolderCfg(cfg)
 
 	s := &staggered{
-		folderFs:   folderFs,
+		folderFs:   cfg.Filesystem(),
 		versionsFs: versionsFs,
 		interval: [4]interval{
 			{30, 60 * 60},                     // first hour -> 30 sec between versions
@@ -51,6 +54,7 @@ func newStaggered(folderFs fs.Filesystem, params map[string]string) Versioner {
 			{24 * 60 * 60, 30 * 24 * 60 * 60}, // next 30 days -> 1 day between versions
 			{7 * 24 * 60 * 60, maxAge},        // next year -> 1 week between versions
 		},
+		copyRangeMethod: cfg.CopyRangeMethod,
 	}
 
 	l.Debugf("instantiated %#v", s)
@@ -186,7 +190,7 @@ func (v *staggered) toRemove(versions []string, now time.Time) []string {
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (v *staggered) Archive(filePath string) error {
-	if err := archiveFile(v.folderFs, v.versionsFs, filePath, TagFilename); err != nil {
+	if err := archiveFile(v.copyRangeMethod, v.folderFs, v.versionsFs, filePath, TagFilename); err != nil {
 		return err
 	}
 
@@ -200,7 +204,7 @@ func (v *staggered) GetVersions() (map[string][]FileVersion, error) {
 }
 
 func (v *staggered) Restore(filepath string, versionTime time.Time) error {
-	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
+	return restoreFile(v.copyRangeMethod, v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }
 
 func (v *staggered) String() string {

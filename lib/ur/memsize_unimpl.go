@@ -8,8 +8,6 @@
 
 package ur
 
-import "errors"
-
-func memorySize() (int64, error) {
-	return 0, errors.New("not implemented")
+func memorySize() int64 {
+	return 0
 }

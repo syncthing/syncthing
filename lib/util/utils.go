@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/sync"
 
@@ -134,6 +135,38 @@ func UniqueTrimmedStrings(ss []string) []string {
 	}
 
 	return us
+}
+
+func FillNil(data interface{}) {
+	s := reflect.ValueOf(data).Elem()
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+
+		for f.Kind() == reflect.Ptr && f.IsZero() && f.CanSet() {
+			newValue := reflect.New(f.Type().Elem())
+			f.Set(newValue)
+			f = f.Elem()
+		}
+
+		if f.CanSet() {
+			if f.IsZero() {
+				switch f.Kind() {
+				case reflect.Map:
+					f.Set(reflect.MakeMap(f.Type()))
+				case reflect.Slice:
+					f.Set(reflect.MakeSlice(f.Type(), 0, 0))
+				case reflect.Chan:
+					f.Set(reflect.MakeChan(f.Type(), 0))
+				}
+			}
+
+			if f.Kind() == reflect.Struct && f.CanAddr() {
+				if addr := f.Addr(); addr.CanInterface() {
+					FillNil(addr.Interface())
+				}
+			}
+		}
+	}
 }
 
 // FillNilSlices sets default value on slices that are still nil.
@@ -313,4 +346,20 @@ func CallWithContext(ctx context.Context, fn func() error) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func NiceDurationString(d time.Duration) string {
+	switch {
+	case d > 24*time.Hour:
+		d = d.Round(time.Hour)
+	case d > time.Hour:
+		d = d.Round(time.Minute)
+	case d > time.Minute:
+		d = d.Round(time.Second)
+	case d > time.Second:
+		d = d.Round(time.Millisecond)
+	case d > time.Millisecond:
+		d = d.Round(time.Microsecond)
+	}
+	return d.String()
 }

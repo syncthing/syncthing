@@ -34,7 +34,6 @@ import (
 )
 
 var (
-	versionRe     = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
 	goarch        string
 	goos          string
 	noupgrade     bool
@@ -46,6 +45,8 @@ var (
 	installSuffix string
 	pkgdir        string
 	cc            string
+	run           string
+	benchRun      string
 	debugBinary   bool
 	coverage      bool
 	timeout       = "120s"
@@ -301,6 +302,12 @@ func runCommand(cmd string, target target) {
 	case "bench":
 		bench("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
+	case "integration":
+		integration(false)
+
+	case "integrationbench":
+		integration(true)
+
 	case "assets":
 		rebuildAssets()
 
@@ -367,6 +374,8 @@ func parseFlags() {
 	flag.BoolVar(&debugBinary, "debug-binary", debugBinary, "Create unoptimized binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
 	flag.BoolVar(&coverage, "coverage", coverage, "Write coverage profile of tests to coverage.txt")
 	flag.IntVar(&numVersions, "num-versions", numVersions, "Number of versions for changelog command")
+	flag.StringVar(&run, "run", "", "Specify which tests to run")
+	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
 	flag.Parse()
 }
 
@@ -386,12 +395,49 @@ func test(pkgs ...string) {
 		args = append(args, "-covermode", "atomic", "-coverprofile", "coverage.txt", "-coverpkg", strings.Join(pkgs, ","))
 	}
 
+	args = append(args, runArgs()...)
+
 	runPrint(goCmd, append(args, pkgs...)...)
 }
 
 func bench(pkgs ...string) {
 	lazyRebuildAssets()
-	runPrint(goCmd, append([]string{"test", "-run", "NONE", "-bench", "."}, pkgs...)...)
+	args := append([]string{"test", "-run", "NONE"}, benchArgs()...)
+	runPrint(goCmd, append(args, pkgs...)...)
+}
+
+func integration(bench bool) {
+	lazyRebuildAssets()
+	args := []string{"test", "-v", "-timeout", "60m", "-tags"}
+	tags := "purego,integration"
+	if bench {
+		tags += ",benchmark"
+	}
+	args = append(args, tags)
+	args = append(args, runArgs()...)
+	if bench {
+		if run == "" {
+			args = append(args, "-run", "Benchmark")
+		}
+		args = append(args, benchArgs()...)
+	}
+	args = append(args, "./test")
+	fmt.Println(args)
+	runPrint(goCmd, args...)
+}
+
+func runArgs() []string {
+	if run == "" {
+		return nil
+	}
+	return []string{"-run", run}
+}
+
+func benchArgs() []string {
+	if benchRun == "" {
+		return []string{"-bench", "."}
+	}
+	return []string{"-bench", benchRun}
 }
 
 func install(target target, tags []string) {
@@ -405,9 +451,7 @@ func install(target target, tags []string) {
 	}
 	os.Setenv("GOBIN", filepath.Join(cwd, "bin"))
 
-	os.Setenv("GOOS", goos)
-	os.Setenv("GOARCH", goarch)
-	os.Setenv("CC", cc)
+	setBuildEnvVars()
 
 	// On Windows generate a special file which the Go compiler will
 	// automatically use when generating Windows binaries to set things like
@@ -431,9 +475,7 @@ func build(target target, tags []string) {
 
 	rmr(target.BinaryName())
 
-	os.Setenv("GOOS", goos)
-	os.Setenv("GOARCH", goarch)
-	os.Setenv("CC", cc)
+	setBuildEnvVars()
 
 	// On Windows generate a special file which the Go compiler will
 	// automatically use when generating Windows binaries to set things like
@@ -453,6 +495,19 @@ func build(target target, tags []string) {
 	args := []string{"build", "-v"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
+}
+
+func setBuildEnvVars() {
+	os.Setenv("GOOS", goos)
+	os.Setenv("GOARCH", goarch)
+	os.Setenv("CC", cc)
+	if os.Getenv("CGO_ENABLED") == "" {
+		switch goos {
+		case "darwin", "solaris":
+		default:
+			os.Setenv("CGO_ENABLED", "0")
+		}
+	}
 }
 
 func appendParameters(args []string, tags []string, pkgs ...string) []string {
@@ -805,15 +860,36 @@ func getReleaseVersion() (string, error) {
 }
 
 func getGitVersion() (string, error) {
-	v, err := runError("git", "describe", "--always", "--dirty")
+	// The current version as Git sees it
+	bs, err := runError("git", "describe", "--always", "--dirty", "--abbrev=8")
 	if err != nil {
 		return "", err
 	}
-	v = versionRe.ReplaceAllFunc(v, func(s []byte) []byte {
-		s[0] = '+'
-		return s
-	})
-	return string(v), nil
+	vcur := string(bs)
+
+	// The closest current tag name
+	bs, err = runError("git", "describe", "--always", "--abbrev=0")
+	if err != nil {
+		return "", err
+	}
+	v0 := string(bs)
+
+	versionRe := regexp.MustCompile(`-([0-9]{1,3}-g[0-9a-f]{5,10})`)
+	if m := versionRe.FindStringSubmatch(vcur); len(m) > 0 {
+		suffix := strings.ReplaceAll(m[1], "-", ".")
+
+		if strings.Contains(v0, "-") {
+			// We're based of a tag with a prerelease string. We can just
+			// add our dev stuff directly.
+			return fmt.Sprintf("%s.dev.%s", v0, suffix), nil
+		}
+
+		// We're based on a release version. We need to bump the patch
+		// version and then add a -dev prerelease string.
+		next := nextPatchVersion(v0)
+		return fmt.Sprintf("%s-dev.%s", next, suffix), nil
+	}
+	return vcur, nil
 }
 
 func getVersion() string {
@@ -1314,4 +1390,12 @@ func trimTagMessage(msg, tag string) string {
 		msg = msg[:beginSig]
 	}
 	return strings.TrimSpace(msg)
+}
+
+func nextPatchVersion(ver string) string {
+	parts := strings.SplitN(ver, "-", 2)
+	digits := strings.Split(parts[0], ".")
+	n, _ := strconv.Atoi(digits[len(digits)-1])
+	digits[len(digits)-1] = strconv.Itoa(n + 1)
+	return strings.Join(digits, ".")
 }

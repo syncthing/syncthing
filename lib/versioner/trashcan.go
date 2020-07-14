@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -21,19 +22,21 @@ func init() {
 }
 
 type trashcan struct {
-	folderFs     fs.Filesystem
-	versionsFs   fs.Filesystem
-	cleanoutDays int
+	folderFs        fs.Filesystem
+	versionsFs      fs.Filesystem
+	cleanoutDays    int
+	copyRangeMethod fs.CopyRangeMethod
 }
 
-func newTrashcan(folderFs fs.Filesystem, params map[string]string) Versioner {
-	cleanoutDays, _ := strconv.Atoi(params["cleanoutDays"])
+func newTrashcan(cfg config.FolderConfiguration) Versioner {
+	cleanoutDays, _ := strconv.Atoi(cfg.Versioning.Params["cleanoutDays"])
 	// On error we default to 0, "do not clean out the trash can"
 
 	s := &trashcan{
-		folderFs:     folderFs,
-		versionsFs:   fsFromParams(folderFs, params),
-		cleanoutDays: cleanoutDays,
+		folderFs:        cfg.Filesystem(),
+		versionsFs:      versionerFsFromFolderCfg(cfg),
+		cleanoutDays:    cleanoutDays,
+		copyRangeMethod: cfg.CopyRangeMethod,
 	}
 
 	l.Debugf("instantiated %#v", s)
@@ -43,7 +46,7 @@ func newTrashcan(folderFs fs.Filesystem, params map[string]string) Versioner {
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (t *trashcan) Archive(filePath string) error {
-	return archiveFile(t.folderFs, t.versionsFs, filePath, func(name, tag string) string {
+	return archiveFile(t.copyRangeMethod, t.folderFs, t.versionsFs, filePath, func(name, tag string) string {
 		return name
 	})
 }
@@ -123,7 +126,7 @@ func (t *trashcan) Restore(filepath string, versionTime time.Time) error {
 		return name
 	}
 
-	err := restoreFile(t.versionsFs, t.folderFs, filepath, versionTime, tagger)
+	err := restoreFile(t.copyRangeMethod, t.versionsFs, t.folderFs, filepath, versionTime, tagger)
 	if taggedName == "" {
 		return err
 	}

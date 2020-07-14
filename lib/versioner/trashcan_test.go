@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -54,7 +55,17 @@ func TestTrashcanCleanout(t *testing.T) {
 		}
 	}
 
-	versioner := newTrashcan(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), map[string]string{"cleanoutDays": "7"}).(*trashcan)
+	cfg := config.FolderConfiguration{
+		FilesystemType: fs.FilesystemTypeBasic,
+		Path:           "testdata",
+		Versioning: config.VersioningConfiguration{
+			Params: map[string]string{
+				"cleanoutDays": "7",
+			},
+		},
+	}
+
+	versioner := newTrashcan(cfg).(*trashcan)
 	if err := versioner.Clean(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -91,15 +102,23 @@ func TestTrashcanArchiveRestoreSwitcharoo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	folderFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir1)
+	cfg := config.FolderConfiguration{
+		FilesystemType: fs.FilesystemTypeBasic,
+		Path:           tmpDir1,
+		Versioning: config.VersioningConfiguration{
+			Params: map[string]string{
+				"fsType": "basic",
+				"fsPath": tmpDir2,
+			},
+		},
+	}
+	folderFs := cfg.Filesystem()
+
 	versionsFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir2)
 
 	writeFile(t, folderFs, "file", "A")
 
-	versioner := newTrashcan(folderFs, map[string]string{
-		"fsType": "basic",
-		"fsPath": tmpDir2,
-	})
+	versioner := newTrashcan(cfg)
 
 	if err := versioner.Archive("file"); err != nil {
 		t.Fatal(err)

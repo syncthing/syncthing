@@ -1,1 +1,172 @@
-404 Not Found
+.\" Man page generated from reStructuredText.
+.
+.TH "SYNCTHING-SECURITY" "7" "Jul 03, 2020" "v1" "Syncthing"
+.SH NAME
+syncthing-security \- Security Principles
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.sp
+Security is one of the primary project goals. This means that it should not be
+possible for an attacker to join a cluster uninvited, and it should not be
+possible to extract private information from intercepted traffic. Currently this
+is implemented as follows.
+.sp
+All device to device traffic is protected by TLS. To prevent uninvited devices
+from joining a cluster, the certificate fingerprint of each device is compared
+to a preset list of acceptable devices at connection establishment. The
+fingerprint is computed as the SHA\-256 hash of the certificate and displayed
+in a human\-friendly encoding, called Device ID.
+.sp
+Incoming requests for file data are verified to the extent that the requested
+file name must exist in the local index and the global model.
+.sp
+For information about ensuring you are running the code you think you are and
+for reporting security vulnerabilities, please see the official \fI\%security page\fP <\fBhttps://syncthing.net/security.html\fP>\&.
+.SH INFORMATION LEAKAGE
+.SS Global Discovery
+.sp
+When global discovery is enabled, Syncthing sends an announcement every 30
+minutes to the global discovery servers so that they can keep a mapping
+between your device ID and external IP. The announcement contain the device
+ID and listening port(s). Also, when connecting to other devices that have
+not been seen on the local network, a query is sent to the global discovery
+servers containing the device ID of the requested device. The connection to
+the discovery server is encrypted using TLS and the discovery server
+certificate is verified, so the contents of the query should be considered
+private between the device and the discovery server. The discovery servers
+are currently hosted by \fI\%@calmh\fP <\fBhttps://github.com/calmh\fP>\&. Global discovery defaults to \fBon\fP\&.
+.sp
+When turned off, devices with dynamic addresses not on the local network cannot
+be found and connected to.
+.sp
+An eavesdropper on the Internet can deduce which machines are running
+Syncthing with global discovery enabled, and what their device IDs are.
+.sp
+The operator of the discovery server can map arbitrary device addresses to
+IP addresses, and deduce which devices are connected to each other.
+.sp
+If a different global discovery server is configured, no data is sent to the
+default global discovery servers.
+.SS Local Discovery
+.sp
+When local discovery is enabled, Syncthing sends broadcast (IPv4) and multicast
+(IPv6) packets to the local network every 30 seconds. The packets contain the
+device ID and listening port. Local discovery defaults to \fBon\fP\&.
+.sp
+An eavesdropper on the local network can deduce which machines are running
+Syncthing with local discovery enabled, and what their device IDs are.
+.sp
+When turned off, devices with dynamic addresses on the local network cannot be
+found and connected to.
+.SS Upgrade Checks
+.sp
+When automatic upgrades are enabled, Syncthing checks for a new version at
+startup and then once every twelve hours. This is by an HTTPS request to the
+download site for releases, currently hosted by \fI\%@calmh\fP <\fBhttps://github.com/calmh\fP>\&.
+Automatic upgrades default to \fBon\fP (unless Syncthing was compiled with
+upgrades disabled).
+.sp
+Even when automatic upgrades are disabled in the configuration, an upgrade check
+as above is done when the GUI is loaded, in order to show the “Upgrade to …”
+button when necessary. This can be disabled only by compiling Syncthing with
+upgrades disabled.
+.sp
+The actual download, should an upgrade be available, is done from
+\fBGitHub\fP, thus exposing the user to them.
+.sp
+The upgrade check (or download) requests \fIdo not\fP contain any identifiable
+information about the user or device.
+.SS Usage Reporting
+.sp
+When usage reporting is enabled, Syncthing reports usage data at startup and
+then every 24 hours. The report is sent as an HTTPS POST to the usage reporting
+server, currently hosted by \fI\%@calmh\fP <\fBhttps://github.com/calmh\fP>\&. The contents of the usage report can
+be seen behind the “Preview” link in settings. Usage reporting defaults to
+\fBoff\fP but the GUI will ask once about enabling it, shortly after the first
+install.
+.sp
+The reported data is protected from eavesdroppers, but the connection to the
+usage reporting server itself may expose the client as running Syncthing.
+.SS Sync Connections (BEP)
+.sp
+Sync connections are attempted to all configured devices, when the address is
+possible to resolve. The sync connection is based on TLS 1.2 or TLS 1.3. The TLS
+certificates can be obtained by an eavesdropper, altough it is more difficult to do so in TLS 1.3. This means that the contents of the certificate are visible, which includes certificate Common Name (by default \fBsyncthing\fP).
+.sp
+An eavesdropper can deduce that this is a Syncthing connection and under certain circumstances calculate the
+device IDs involved based on the hashes of the sent certificates.
+.sp
+Likewise, if the sync port (default 22000) is accessible from the internet, a
+port scanner may discover it, attempt a TLS negotiation and thus obtain the
+device certificate. This provides the same information as in the eavesdropper
+case.
+.SS Relay Connections
+.sp
+When relaying is enabled, Syncthing will look up the pool of public relays
+and establish a connection to one of them (the best, based on an internal
+heuristic). The selected relay server will learn the connecting device’s
+device ID. Relay servers can be run by \fBanyone in the general public\fP\&.
+Relaying defaults to \fBon\fP\&. Syncthing can be configured to disable
+relaying, or only use specific relays.
+.sp
+If a relay connections is required between two devices, the relay will learn
+the other device’s device ID as well.
+.sp
+Any data exchanged between the two devices is encrypted as usual and not
+subject to inspection by the relay.
+.SS Web GUI
+.sp
+If the web GUI is accessible, it exposes the device as running Syncthing. The
+web GUI defaults to being reachable from the \fBlocal host only\fP\&.
+.SH IN SHORT
+.sp
+Parties doing surveillance on your network (whether that be corporate IT, the
+NSA or someone else) will be able to see that you use Syncthing, and your device
+IDs \fI\%are OK to share anyway\fP <\fBhttps://docs.syncthing.net/users/faq.html#should-i-keep-my-device-ids-secret\fP>,
+but the actual transmitted data is protected as well as we can. Knowing your
+device ID can expose your IP address, using global discovery.
+.SH PROTECTING YOUR SYNCTHING KEYS AND IDENTITY
+.sp
+Anyone who can access the Syncthing TLS keys and config file on your device can
+impersonate your device, connect to your peers, and then have access to your
+synced files. Here are some general principles to protect your files:
+.INDENT 0.0
+.IP 1. 3
+If a device of yours is lost, make sure to revoke its access from your other
+devices.
+.IP 2. 3
+If you’re syncing confidential data on an encrypted disk to guard against
+device theft, put the Syncthing config folder on the same encrypted disk to
+avoid leaking keys and metadata. Or, use whole disk encryption.
+.UNINDENT
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2014-2019, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.

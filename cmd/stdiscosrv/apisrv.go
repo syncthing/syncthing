@@ -139,7 +139,7 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 
 	if s.useHTTP {
 		remoteAddr.IP = net.ParseIP(req.Header.Get("X-Forwarded-For"))
-		if parsedPort, err := strconv.ParseInt(req.Header.Get("X-Forwarded-Port"), 10, 0); err == nil {
+		if parsedPort, err := strconv.ParseInt(req.Header.Get("X-Client-Port"), 10, 0); err == nil {
 			remoteAddr.Port = int(parsedPort)
 		}
 	} else {

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -20,21 +21,23 @@ func init() {
 }
 
 type simple struct {
-	keep       int
-	folderFs   fs.Filesystem
-	versionsFs fs.Filesystem
+	keep            int
+	folderFs        fs.Filesystem
+	versionsFs      fs.Filesystem
+	copyRangeMethod fs.CopyRangeMethod
 }
 
-func newSimple(folderFs fs.Filesystem, params map[string]string) Versioner {
-	keep, err := strconv.Atoi(params["keep"])
+func newSimple(cfg config.FolderConfiguration) Versioner {
+	var keep, err = strconv.Atoi(cfg.Versioning.Params["keep"])
 	if err != nil {
 		keep = 5 // A reasonable default
 	}
 
 	s := simple{
-		keep:       keep,
-		folderFs:   folderFs,
-		versionsFs: fsFromParams(folderFs, params),
+		keep:            keep,
+		folderFs:        cfg.Filesystem(),
+		versionsFs:      versionerFsFromFolderCfg(cfg),
+		copyRangeMethod: cfg.CopyRangeMethod,
 	}
 
 	l.Debugf("instantiated %#v", s)
@@ -44,7 +47,7 @@ func newSimple(folderFs fs.Filesystem, params map[string]string) Versioner {
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (v simple) Archive(filePath string) error {
-	err := archiveFile(v.folderFs, v.versionsFs, filePath, TagFilename)
+	err := archiveFile(v.copyRangeMethod, v.folderFs, v.versionsFs, filePath, TagFilename)
 	if err != nil {
 		return err
 	}
@@ -69,7 +72,7 @@ func (v simple) GetVersions() (map[string][]FileVersion, error) {
 }
 
 func (v simple) Restore(filepath string, versionTime time.Time) error {
-	return restoreFile(v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
+	return restoreFile(v.copyRangeMethod, v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }
 
 func (v simple) Clean(_ context.Context) error {

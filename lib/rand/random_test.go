@@ -30,10 +30,10 @@ func TestRandomString(t *testing.T) {
 	}
 }
 
-func TestRandomInt64(t *testing.T) {
-	ints := make([]int64, 1000)
+func TestRandomUint64(t *testing.T) {
+	ints := make([]uint64, 1000)
 	for i := range ints {
-		ints[i] = Int64()
+		ints[i] = Uint64()
 		for j := range ints {
 			if i == j {
 				continue
