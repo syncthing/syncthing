@@ -226,6 +226,11 @@ func (f *FolderConfiguration) prepare() {
 	if f.Versioning.Params == nil {
 		f.Versioning.Params = make(map[string]string)
 	}
+	if f.Versioning.CleanupIntervalS > MaxRescanIntervalS {
+		f.Versioning.CleanupIntervalS = MaxRescanIntervalS
+	} else if f.Versioning.CleanupIntervalS < 0 {
+		f.Versioning.CleanupIntervalS = 0
+	}
 
 	if f.WeakHashThresholdPct == 0 {
 		f.WeakHashThresholdPct = 25

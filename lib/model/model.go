@@ -133,15 +133,15 @@ type model struct {
 	folderIOLimiter *byteSemaphore
 
 	// fields protected by fmut
-	fmut               sync.RWMutex
-	folderCfgs         map[string]config.FolderConfiguration                  // folder -> cfg
-	folderFiles        map[string]*db.FileSet                                 // folder -> files
-	deviceStatRefs     map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
-	folderIgnores      map[string]*ignore.Matcher                             // folder -> matcher object
-	folderRunners      map[string]service                                     // folder -> puller or scanner
-	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
-	folderRestartMuts  syncMutexMap                                           // folder -> restart mutex
-	folderVersioners   map[string]versioner.Versioner                         // folder -> versioner (may be nil)
+	fmut              sync.RWMutex
+	folderCfgs        map[string]config.FolderConfiguration                  // folder -> cfg
+	folderFiles       map[string]*db.FileSet                                 // folder -> files
+	deviceStatRefs    map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
+	folderIgnores     map[string]*ignore.Matcher                             // folder -> matcher object
+	folderRunners     map[string]service                                     // folder -> puller or scanner
+	folderRunnerToken map[string]suture.ServiceToken                         // folder -> token for folder runner
+	folderRestartMuts syncMutexMap                                           // folder -> restart mutex
+	folderVersioners  map[string]versioner.Versioner                         // folder -> versioner (may be nil)
 
 	// fields protected by pmut
 	pmut                sync.RWMutex
@@ -207,14 +207,14 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		folderIOLimiter:      newByteSemaphore(cfg.Options().MaxFolderConcurrency()),
 
 		// fields protected by fmut
-		fmut:               sync.NewRWMutex(),
-		folderCfgs:         make(map[string]config.FolderConfiguration),
-		folderFiles:        make(map[string]*db.FileSet),
-		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
-		folderIgnores:      make(map[string]*ignore.Matcher),
-		folderRunners:      make(map[string]service),
-		folderRunnerTokens: make(map[string][]suture.ServiceToken),
-		folderVersioners:   make(map[string]versioner.Versioner),
+		fmut:              sync.NewRWMutex(),
+		folderCfgs:        make(map[string]config.FolderConfiguration),
+		folderFiles:       make(map[string]*db.FileSet),
+		deviceStatRefs:    make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
+		folderIgnores:     make(map[string]*ignore.Matcher),
+		folderRunners:     make(map[string]service),
+		folderRunnerToken: make(map[string]suture.ServiceToken),
+		folderVersioners:  make(map[string]versioner.Versioner),
 
 		// fields protected by pmut
 		pmut:                sync.NewRWMutex(),
@@ -346,13 +346,6 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		if err != nil {
 			panic(fmt.Errorf("creating versioner: %w", err))
 		}
-		if service, ok := ver.(suture.Service); ok {
-			// The versioner implements the suture.Service interface, so
-			// expects to be run in the background in addition to being called
-			// when files are going to be archived.
-			token := m.Add(service)
-			m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
-		}
 	}
 	m.folderVersioners[folder] = ver
 
@@ -362,8 +355,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	m.warnAboutOverwritingProtectedFiles(cfg, ignores)
 
-	token := m.Add(p)
-	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
+	m.folderRunnerToken[folder] = m.Add(p)
 
 	l.Infof("Ready to synchronize %s (%s)", cfg.Description(), cfg.Type)
 }
@@ -430,11 +422,11 @@ func (m *model) stopFolder(cfg config.FolderConfiguration, err error) {
 	// Stop the services running for this folder and wait for them to finish
 	// stopping to prevent races on restart.
 	m.fmut.RLock()
-	tokens := m.folderRunnerTokens[cfg.ID]
+	token, ok := m.folderRunnerToken[cfg.ID]
 	m.fmut.RUnlock()
 
-	for _, id := range tokens {
-		m.RemoveAndWait(id, 0)
+	if ok {
+		m.RemoveAndWait(token, 0)
 	}
 
 	// Wait for connections to stop to ensure that no more calls to methods
@@ -449,7 +441,7 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	delete(m.folderFiles, cfg.ID)
 	delete(m.folderIgnores, cfg.ID)
 	delete(m.folderRunners, cfg.ID)
-	delete(m.folderRunnerTokens, cfg.ID)
+	delete(m.folderRunnerToken, cfg.ID)
 	delete(m.folderVersioners, cfg.ID)
 }
 
