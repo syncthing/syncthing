@@ -50,12 +50,12 @@ func (c *VersioningConfiguration) UnmarshalJSON(data []byte) error {
 }
 
 func (c *VersioningConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	var int internalVersioningConfiguration
-	util.SetDefaults(&int)
-	if err := d.DecodeElement(&int, &start); err != nil {
+	var intCfg internalVersioningConfiguration
+	util.SetDefaults(&intCfg)
+	if err := d.DecodeElement(&intCfg, &start); err != nil {
 		return err
 	}
-	c.fromInternal(int)
+	c.fromInternal(intCfg)
 	return nil
 }
 
@@ -76,11 +76,11 @@ func (c *VersioningConfiguration) toInternal() internalVersioningConfiguration {
 	return tmp
 }
 
-func (c *VersioningConfiguration) fromInternal(int internalVersioningConfiguration) {
-	c.Type = int.Type
-	c.CleanupIntervalS = int.CleanupIntervalS
-	c.Params = make(map[string]string, len(int.Params))
-	for _, p := range int.Params {
+func (c *VersioningConfiguration) fromInternal(intCfg internalVersioningConfiguration) {
+	c.Type = intCfg.Type
+	c.CleanupIntervalS = intCfg.CleanupIntervalS
+	c.Params = make(map[string]string, len(intCfg.Params))
+	for _, p := range intCfg.Params {
 		c.Params[p.Key] = p.Val
 	}
 }
