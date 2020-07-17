@@ -12,6 +12,7 @@ import (
 	"math/bits"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -25,6 +26,7 @@ type countsMap struct {
 
 // metadataTracker keeps metadata on a per device, per local flag basis.
 type metadataTracker struct {
+	keyer keyer
 	countsMap
 	mut   sync.RWMutex
 	dirty bool
@@ -37,9 +39,10 @@ type metaKey struct {
 
 const needFlag uint32 = 1 << 31 // Last bit, as early ones are local flags
 
-func newMetadataTracker() *metadataTracker {
+func newMetadataTracker(keyer keyer) *metadataTracker {
 	return &metadataTracker{
-		mut: sync.NewRWMutex(),
+		keyer: keyer,
+		mut:   sync.NewRWMutex(),
 		countsMap: countsMap{
 			indexes: make(map[metaKey]int),
 		},
@@ -69,10 +72,16 @@ func (m *metadataTracker) Marshal() ([]byte, error) {
 	return m.counts.Marshal()
 }
 
+func (m *metadataTracker) CommitHook(folder []byte) backend.CommitHook {
+	return func(t backend.WriteTransaction) error {
+		return m.toDB(t, folder)
+	}
+}
+
 // toDB saves the marshalled metadataTracker to the given db, under the key
 // corresponding to the given folder
-func (m *metadataTracker) toDB(t readWriteTransaction, folder []byte) error {
-	key, err := t.keyer.GenerateFolderMetaKey(nil, folder)
+func (m *metadataTracker) toDB(t backend.WriteTransaction, folder []byte) error {
+	key, err := m.keyer.GenerateFolderMetaKey(nil, folder)
 	if err != nil {
 		return err
 	}

@@ -117,7 +117,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
 	if err != nil {
 		return err
 	}
@@ -162,15 +162,9 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 			return err
 		}
 
-		if err := t.Checkpoint(func() error {
-			return meta.toDB(t, folder)
-		}); err != nil {
+		if err := t.Checkpoint(); err != nil {
 			return err
 		}
-	}
-
-	if err := meta.toDB(t, folder); err != nil {
-		return err
 	}
 
 	return t.Commit()
@@ -182,7 +176,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
 	if err != nil {
 		return err
 	}
@@ -290,15 +284,9 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 			}
 		}
 
-		if err := t.Checkpoint(func() error {
-			return meta.toDB(t, folder)
-		}); err != nil {
+		if err := t.Checkpoint(); err != nil {
 			return err
 		}
-	}
-
-	if err := meta.toDB(t, folder); err != nil {
-		return err
 	}
 
 	return t.Commit()
@@ -830,7 +818,7 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 }
 
 func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
-	meta := newMetadataTracker()
+	meta := newMetadataTracker(db.keyer)
 	if err := meta.fromDB(db, []byte(folder)); err != nil {
 		if err == errMetaInconsistent {
 			l.Infof("Stored folder metadata for %q is inconsistent; recalculating", folder)
@@ -856,7 +844,7 @@ func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
 }
 
 func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
-	meta := newMetadataTracker()
+	meta := newMetadataTracker(db.keyer)
 	if err := db.checkGlobals([]byte(folder)); err != nil {
 		return nil, err
 	}
@@ -944,7 +932,7 @@ func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) bool {
 // match those in the corresponding file entries. It returns the amount of fixed
 // entries.
 func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTracker) (int, error) {
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook([]byte(folderStr)))
 	if err != nil {
 		return 0, err
 	}
@@ -996,9 +984,7 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 				return 0, err
 			}
 		}
-		if err := t.Checkpoint(func() error {
-			return meta.toDB(t, folder)
-		}); err != nil {
+		if err := t.Checkpoint(); err != nil {
 			return 0, err
 		}
 	}
@@ -1044,10 +1030,6 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 	}
 
 	it.Release()
-
-	if err := meta.toDB(t, folder); err != nil {
-		return 0, err
-	}
 
 	return fixed, t.Commit()
 }

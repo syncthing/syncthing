@@ -15,6 +15,8 @@ import (
 	"github.com/syncthing/syncthing/lib/locations"
 )
 
+type CommitHook func(WriteTransaction) error
+
 // The Reader interface specifies the read-only operations available on the
 // main database and on read-only transactions (snapshots). Note that when
 // called directly on the database handle these operations may take implicit
@@ -61,7 +63,7 @@ type ReadTransaction interface {
 type WriteTransaction interface {
 	ReadTransaction
 	Writer
-	Checkpoint(...func() error) error
+	Checkpoint() error
 	Commit() error
 }
 
@@ -108,7 +110,7 @@ type Backend interface {
 	Reader
 	Writer
 	NewReadTransaction() (ReadTransaction, error)
-	NewWriteTransaction() (WriteTransaction, error)
+	NewWriteTransaction(hooks ...CommitHook) (WriteTransaction, error)
 	Close() error
 	Compact() error
 }

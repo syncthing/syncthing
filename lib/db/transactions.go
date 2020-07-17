@@ -21,6 +21,8 @@ var (
 	errEmptyFileVersion       = errors.New("no devices in global file version")
 )
 
+type preFlushHook func() error
+
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
 	backend.ReadTransaction
@@ -516,8 +518,8 @@ type readWriteTransaction struct {
 	readOnlyTransaction
 }
 
-func (db *Lowlevel) newReadWriteTransaction() (readWriteTransaction, error) {
-	tran, err := db.NewWriteTransaction()
+func (db *Lowlevel) newReadWriteTransaction(hooks ...backend.CommitHook) (readWriteTransaction, error) {
+	tran, err := db.NewWriteTransaction(hooks...)
 	if err != nil {
 		return readWriteTransaction{}, err
 	}

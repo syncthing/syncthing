@@ -640,7 +640,7 @@ func TestGCIndirect(t *testing.T) {
 
 	db := NewLowlevel(backend.OpenMemory())
 	defer db.Close()
-	meta := newMetadataTracker()
+	meta := newMetadataTracker(db.keyer)
 
 	// Add three files with different block lists
 
