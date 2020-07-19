@@ -52,7 +52,7 @@ func TestEachFlagBit(t *testing.T) {
 func TestMetaDevices(t *testing.T) {
 	d1 := protocol.DeviceID{1}
 	d2 := protocol.DeviceID{2}
-	meta := newMetadataTracker()
+	meta := newMetadataTracker(nil)
 
 	meta.addFile(d1, protocol.FileInfo{Sequence: 1})
 	meta.addFile(d1, protocol.FileInfo{Sequence: 2, LocalFlags: 1})
@@ -85,7 +85,7 @@ func TestMetaDevices(t *testing.T) {
 
 func TestMetaSequences(t *testing.T) {
 	d1 := protocol.DeviceID{1}
-	meta := newMetadataTracker()
+	meta := newMetadataTracker(nil)
 
 	meta.addFile(d1, protocol.FileInfo{Sequence: 1})
 	meta.addFile(d1, protocol.FileInfo{Sequence: 2, RawInvalid: true})
