@@ -16,7 +16,7 @@ import (
 	"testing"
 	"testing/quick"
 
-	rollingAdler32 "github.com/chmduquesne/rollinghash/adler32"
+	rollingAdler32 "github.com/greatroar/rolling/adler32"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sha256"
 )
@@ -144,10 +144,10 @@ func TestAdler32Variants(t *testing.T) {
 	// themselves. Which is not the same as the original non-rollind adler32
 	// blocks.
 
-	windowSize := 128
+	const windowSize = 128
 
-	hf3 := rollingAdler32.New()
-	hf3.Write(data[:windowSize])
+	hf3 := rollingAdler32.NewRolling(windowSize)
+	hf3.WriteInitial(data[:windowSize])
 
 	for i := windowSize; i < len(data); i++ {
 		if i%windowSize == 0 {
@@ -164,7 +164,7 @@ func TestAdler32Variants(t *testing.T) {
 				break
 			}
 		}
-		hf3.Roll(data[i])
+		hf3.Roll(data[i], data[i-windowSize])
 	}
 }
 

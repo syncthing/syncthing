@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/greatroar/rolling"
+	"github.com/greatroar/rolling/adler32"
 	"github.com/pkg/errors"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -30,7 +32,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
-	"github.com/syncthing/syncthing/lib/weakhash"
 )
 
 var (
@@ -1311,7 +1312,9 @@ func (f *sendReceiveFolder) copyByWeakHash(state copyBlocksState, w io.WriterAt)
 	buf := protocol.BufferPool.Get(state.file.BlockSize())
 	defer protocol.BufferPool.Put(buf)
 
-	finder := weakhash.NewFinder(file, buf)
+	h := adler32.NewRolling(uint32(state.file.BlockSize()))
+	r := &contextReader{f.ctx, file}
+	finder := rolling.NewScanner(r, h)
 
 	byWeakhash := make(map[uint32][]int) // Block indices by weak hash.
 	for i, block := range state.blocks {
@@ -1332,8 +1335,8 @@ func (f *sendReceiveFolder) copyByWeakHash(state copyBlocksState, w io.WriterAt)
 
 	done := make([]bool, len(state.blocks))
 
-	for finder.Next(f.ctx) {
-		h, offset := finder.Match()
+	for finder.Scan() {
+		h, offset := finder.Match(buf)
 		sha := sha256.Sum256(buf)
 
 		candidates := byWeakhash[h]

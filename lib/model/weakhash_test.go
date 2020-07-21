@@ -7,21 +7,22 @@
 // The existence of this file means we get 0% test coverage rather than no
 // test coverage at all. Remove when implementing an actual test.
 
-package weakhash
+package model_test
 
 import (
 	"bytes"
-	"context"
 	"testing"
+
+	"github.com/greatroar/rolling"
+	"github.com/greatroar/rolling/adler32"
 )
 
 var payload = []byte("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz")
 
-func TestFinder(t *testing.T) {
+func TestWeakhashFinder(t *testing.T) {
 	f := bytes.NewReader(payload)
 
-	b := make([]byte, 4)
-	finder := NewFinder(f, b)
+	finder := rolling.NewScanner(f, adler32.NewRolling(4))
 	hashes := []uint32{65143183, 65798547}
 	for _, h := range hashes {
 		finder.Add(h)
@@ -32,8 +33,9 @@ func TestFinder(t *testing.T) {
 		65798547: {2, 28, 54, 80},
 	}
 
-	for finder.Next(context.TODO()) {
-		h, offset := finder.Match()
+	b := make([]byte, 4)
+	for finder.Scan() {
+		h, offset := finder.Match(b)
 		if offset != offsets[h][0] {
 			t.Fatalf("expected %08x at %d, found it at %d",
 				h, offsets[h][0], offset)
