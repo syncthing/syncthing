@@ -101,8 +101,7 @@ func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) 
 	if err := createDirJunct(filepath.Join(uri, "target"), filepath.Join(uri, "towalk/dirjunct")); err != nil {
 		t.Fatal(err)
 	}
-	badJunction := "target/foo/recurse"
-	if err := createDirJunct(filepath.Join(uri, "towalk"), filepath.Join(uri, badJunction)); err != nil {
+	if err := createDirJunct(filepath.Join(uri, "towalk"), filepath.Join(uri, "target/foo/recurse")); err != nil {
 		t.Fatal(err)
 	}
 	dirjunctCnt := 0
@@ -110,7 +109,10 @@ func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) 
 	found := false
 	if err := fs.Walk("towalk", func(path string, info FileInfo, err error) error {
 		if err != nil {
-			if path == badJunction && errors.Is(err, ErrInfiniteRecursion) {
+			if errors.Is(err, ErrInfiniteRecursion) {
+				if found {
+					t.Fatal("second infinite recursion detected at", path)
+				}
 				found = true
 				return nil
 			}
