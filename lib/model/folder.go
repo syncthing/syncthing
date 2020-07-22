@@ -334,15 +334,37 @@ func (f *folder) pull() (success bool) {
 		return true
 	}
 
+	// Abort early (before acquiring a token) if there's a folder error
+	err := f.getHealthErrorWithoutIgnores()
+	f.setError(err)
+	if err != nil {
+		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
+		return false
+	}
+
 	f.setState(FolderSyncWaiting)
-	defer f.setState(FolderIdle)
 
 	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
+		f.setError(err)
 		return true
 	}
 	defer f.ioLimiter.give(1)
 
 	startTime := time.Now()
+
+	// Check if the ignore patterns changed.
+	oldHash := f.ignores.Hash()
+	defer func() {
+		if f.ignores.Hash() != oldHash {
+			f.ignoresUpdated()
+		}
+	}()
+	err = f.getHealthErrorAndLoadIgnores()
+	f.setError(err)
+	if err != nil {
+		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
+		return false
+	}
 
 	success = f.puller.pull()
 
