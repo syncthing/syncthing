@@ -11,6 +11,7 @@ require (
 	github.com/certifi/gocertifi v0.0.0-20190905060710-a5e0173ced67 // indirect
 	github.com/chmduquesne/rollinghash v0.0.0-20180912150627-a60f8e7142b5
 	github.com/d4l3k/messagediff v1.2.1
+	github.com/dchest/siphash v1.2.1
 	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/getsentry/raven-go v0.2.0
@@ -19,13 +20,13 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
-	github.com/greatroar/blobloom v0.2.1
+	github.com/greatroar/blobloom v0.3.0
 	github.com/jackpal/gateway v1.0.6
 	github.com/jackpal/go-nat-pmp v1.0.2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.2.0
-	github.com/lucas-clemente/quic-go v0.17.2
+	github.com/lucas-clemente/quic-go v0.17.3
 	github.com/maruel/panicparse v1.3.0
 	github.com/mattn/go-isatty v0.0.11
 	github.com/minio/sha256-simd v0.1.1

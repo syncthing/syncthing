@@ -29,6 +29,7 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 
 	"github.com/thejerf/suture"
@@ -49,12 +50,14 @@ type folder struct {
 	ignores *ignore.Matcher
 	ctx     context.Context
 
-	scanInterval        time.Duration
-	scanTimer           *time.Timer
-	scanDelay           chan time.Duration
-	initialScanFinished chan struct{}
-	scanErrors          []FileError
-	scanErrorsMut       sync.Mutex
+	scanInterval           time.Duration
+	scanTimer              *time.Timer
+	scanDelay              chan time.Duration
+	initialScanFinished    chan struct{}
+	scanErrors             []FileError
+	scanErrorsMut          sync.Mutex
+	versionCleanupInterval time.Duration
+	versionCleanupTimer    *time.Timer
 
 	pullScheduled chan struct{}
 	pullPause     time.Duration
@@ -72,7 +75,8 @@ type folder struct {
 	watchErr         error
 	watchMut         sync.Mutex
 
-	puller puller
+	puller    puller
+	versioner versioner.Versioner
 }
 
 type syncRequest struct {
@@ -81,10 +85,10 @@ type syncRequest struct {
 }
 
 type puller interface {
-	pull() bool // true when successfull and should not be retried
+	pull() bool // true when successful and should not be retried
 }
 
-func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore) folder {
+func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore, ver versioner.Versioner) folder {
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -96,11 +100,13 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		fset:    fset,
 		ignores: ignores,
 
-		scanInterval:        time.Duration(cfg.RescanIntervalS) * time.Second,
-		scanTimer:           time.NewTimer(time.Millisecond), // The first scan should be done immediately.
-		scanDelay:           make(chan time.Duration),
-		initialScanFinished: make(chan struct{}),
-		scanErrorsMut:       sync.NewMutex(),
+		scanInterval:           time.Duration(cfg.RescanIntervalS) * time.Second,
+		scanTimer:              time.NewTimer(0), // The first scan should be done immediately.
+		scanDelay:              make(chan time.Duration),
+		initialScanFinished:    make(chan struct{}),
+		scanErrorsMut:          sync.NewMutex(),
+		versionCleanupInterval: time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second,
+		versionCleanupTimer:    time.NewTimer(time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second),
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
@@ -113,6 +119,8 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
 		watchMut:         sync.NewMutex(),
+
+		versioner: ver,
 	}
 	f.pullPause = f.pullBasePause()
 	f.pullFailTimer = time.NewTimer(0)
@@ -131,11 +139,20 @@ func (f *folder) serve(ctx context.Context) {
 
 	defer func() {
 		f.scanTimer.Stop()
+		f.versionCleanupTimer.Stop()
 		f.setState(FolderIdle)
 	}()
 
 	if f.FSWatcherEnabled && f.getHealthErrorAndLoadIgnores() == nil {
 		f.startWatch()
+	}
+
+	// If we're configured to not do version cleanup, or we don't have a
+	// versioner, cancel and drain that timer now.
+	if f.versionCleanupInterval == 0 || f.versioner == nil {
+		if !f.versionCleanupTimer.Stop() {
+			<-f.versionCleanupTimer.C
+		}
 	}
 
 	initialCompleted := f.initialScanFinished
@@ -181,6 +198,10 @@ func (f *folder) serve(ctx context.Context) {
 		case <-f.restartWatchChan:
 			l.Debugln(f, "Restart watcher")
 			f.restartWatch()
+
+		case <-f.versionCleanupTimer.C:
+			l.Debugln(f, "Doing version cleanup")
+			f.versionCleanupTimerFired()
 		}
 	}
 }
@@ -699,6 +720,24 @@ func (f *folder) scanTimerFired() {
 	}
 
 	f.Reschedule()
+}
+
+func (f *folder) versionCleanupTimerFired() {
+	f.setState(FolderCleanWaiting)
+	defer f.setState(FolderIdle)
+
+	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
+		return
+	}
+	defer f.ioLimiter.give(1)
+
+	f.setState(FolderCleaning)
+
+	if err := f.versioner.Clean(f.ctx); err != nil {
+		l.Infoln("Failed to clean versions in %s: %v", f.Description(), err)
+	}
+
+	f.versionCleanupTimer.Reset(f.versionCleanupInterval)
 }
 
 func (f *folder) WatchError() error {

@@ -123,8 +123,7 @@ type dbUpdateJob struct {
 type sendReceiveFolder struct {
 	folder
 
-	fs        fs.Filesystem
-	versioner versioner.Versioner
+	fs fs.Filesystem
 
 	queue              *jobQueue
 	blockPullReorderer blockPullReorderer
@@ -137,9 +136,8 @@ type sendReceiveFolder struct {
 
 func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger, ioLimiter *byteSemaphore) service {
 	f := &sendReceiveFolder{
-		folder:             newFolder(model, fset, ignores, cfg, evLogger, ioLimiter),
+		folder:             newFolder(model, fset, ignores, cfg, evLogger, ioLimiter, ver),
 		fs:                 fs,
-		versioner:          ver,
 		queue:              newJobQueue(),
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
 		writeLimiter:       newByteSemaphore(cfg.MaxConcurrentWrites),

@@ -8,6 +8,7 @@ package db
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -632,4 +633,110 @@ func TestDropDuplicates(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestGCIndirect(t *testing.T) {
+	// Verify that the gcIndirect run actually removes block lists.
+
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+	meta := newMetadataTracker(db.keyer)
+
+	// Add three files with different block lists
+
+	files := []protocol.FileInfo{
+		{Name: "a", Blocks: genBlocks(100)},
+		{Name: "b", Blocks: genBlocks(200)},
+		{Name: "c", Blocks: genBlocks(300)},
+	}
+
+	db.updateLocalFiles([]byte("folder"), files, meta)
+
+	// Run a GC pass
+
+	db.gcIndirect(context.Background())
+
+	// Verify that we have three different block lists
+
+	n, err := numBlockLists(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != len(files) {
+		t.Fatal("expected each file to have a block list")
+	}
+
+	// Change the block lists for each file
+
+	for i := range files {
+		files[i].Version = files[i].Version.Update(42)
+		files[i].Blocks = genBlocks(len(files[i].Blocks) + 1)
+	}
+
+	db.updateLocalFiles([]byte("folder"), files, meta)
+
+	// Verify that we now have *six* different block lists
+
+	n, err = numBlockLists(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2*len(files) {
+		t.Fatal("expected both old and new block lists to exist")
+	}
+
+	// Run a GC pass
+
+	db.gcIndirect(context.Background())
+
+	// Verify that we now have just the three we need, again
+
+	n, err = numBlockLists(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != len(files) {
+		t.Fatal("expected GC to collect all but the needed ones")
+	}
+
+	// Double check the correctness by loading the block lists and comparing with what we stored
+
+	tr, err := db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal()
+	}
+	defer tr.Release()
+	for _, f := range files {
+		fi, ok, err := tr.getFile([]byte("folder"), protocol.LocalDeviceID[:], []byte(f.Name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			t.Fatal("mysteriously missing")
+		}
+		if len(fi.Blocks) != len(f.Blocks) {
+			t.Fatal("block list mismatch")
+		}
+		for i := range fi.Blocks {
+			if !bytes.Equal(fi.Blocks[i].Hash, f.Blocks[i].Hash) {
+				t.Fatal("hash mismatch")
+			}
+		}
+	}
+}
+
+func numBlockLists(db *Lowlevel) (int, error) {
+	it, err := db.Backend.NewPrefixIterator([]byte{KeyTypeBlockList})
+	if err != nil {
+		return 0, err
+	}
+	defer it.Release()
+	n := 0
+	for it.Next() {
+		n++
+	}
+	if err := it.Error(); err != nil {
+		return 0, err
+	}
+	return n, nil
 }

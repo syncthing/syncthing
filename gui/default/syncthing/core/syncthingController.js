@@ -824,7 +824,7 @@ angular.module('syncthing.core')
             if (status == 'paused') {
                 return 'default';
             }
-            if (status === 'syncing' || status === 'sync-preparing' || status === 'scanning') {
+            if (status === 'syncing' || status === 'sync-preparing' || status === 'scanning' || status === 'cleaning') {
                 return 'primary';
             }
             if (status === 'unknown') {
@@ -833,7 +833,7 @@ angular.module('syncthing.core')
             if (status === 'stopped' || status === 'outofsync' || status === 'error' || status === 'faileditems') {
                 return 'danger';
             }
-            if (status === 'unshared' || status === 'scan-waiting' || status === 'sync-waiting') {
+            if (status === 'unshared' || status === 'scan-waiting' || status === 'sync-waiting' || status === 'clean-waiting') {
                 return 'warning';
             }
 
@@ -1739,6 +1739,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder.trashcanFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "trashcan";
                 $scope.currentFolder.trashcanClean = +$scope.currentFolder.versioning.params.cleanoutDays;
+                $scope.currentFolder.versioningCleanupIntervalS = +$scope.currentFolder.versioning.cleanupIntervalS;
             } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "simple") {
                 $scope.currentFolder.simpleFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "simple";
@@ -1749,6 +1750,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder.staggeredMaxAge = Math.floor(+$scope.currentFolder.versioning.params.maxAge / 86400);
                 $scope.currentFolder.staggeredCleanInterval = +$scope.currentFolder.versioning.params.cleanInterval;
                 $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.versioning.params.versionsPath;
+                $scope.currentFolder.versioningCleanupIntervalS = +$scope.currentFolder.versioning.cleanupIntervalS;
             } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "external") {
                 $scope.currentFolder.externalFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "external";
@@ -1760,6 +1762,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.simpleKeep = $scope.currentFolder.simpleKeep || 5;
             $scope.currentFolder.staggeredCleanInterval = $scope.currentFolder.staggeredCleanInterval || 3600;
             $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.staggeredVersionsPath || "";
+            $scope.currentFolder.versioningCleanupIntervalS = $scope.currentFolder.versioningCleanupIntervalS || 0;
 
             // staggeredMaxAge can validly be zero, which we should not replace
             // with the default value of 365. So only set the default if it's
@@ -1863,19 +1866,21 @@ angular.module('syncthing.core')
 
             if (folderCfg.fileVersioningSelector === "trashcan") {
                 folderCfg.versioning = {
-                    'Type': 'trashcan',
-                    'Params': {
+                    'type': 'trashcan',
+                    'params': {
                         'cleanoutDays': '' + folderCfg.trashcanClean
-                    }
+                    },
+                    'cleanupIntervalS': folderCfg.versioningCleanupIntervalS
                 };
                 delete folderCfg.trashcanFileVersioning;
                 delete folderCfg.trashcanClean;
             } else if (folderCfg.fileVersioningSelector === "simple") {
                 folderCfg.versioning = {
-                    'Type': 'simple',
-                    'Params': {
+                    'type': 'simple',
+                    'params': {
                         'keep': '' + folderCfg.simpleKeep
-                    }
+                    },
+                    'cleanupIntervalS': folderCfg.versioningCleanupIntervalS
                 };
                 delete folderCfg.simpleFileVersioning;
                 delete folderCfg.simpleKeep;
@@ -1886,19 +1891,20 @@ angular.module('syncthing.core')
                         'maxAge': '' + (folderCfg.staggeredMaxAge * 86400),
                         'cleanInterval': '' + folderCfg.staggeredCleanInterval,
                         'versionsPath': '' + folderCfg.staggeredVersionsPath
-                    }
+                    },
+                    'cleanupIntervalS': folderCfg.versioningCleanupIntervalS
                 };
                 delete folderCfg.staggeredFileVersioning;
                 delete folderCfg.staggeredMaxAge;
                 delete folderCfg.staggeredCleanInterval;
                 delete folderCfg.staggeredVersionsPath;
-
             } else if (folderCfg.fileVersioningSelector === "external") {
                 folderCfg.versioning = {
-                    'Type': 'external',
-                    'Params': {
+                    'type': 'external',
+                    'params': {
                         'command': '' + folderCfg.externalCommand
-                    }
+                    },
+                    'cleanupIntervalS': folderCfg.versioningCleanupIntervalS
                 };
                 delete folderCfg.externalFileVersioning;
                 delete folderCfg.externalCommand;

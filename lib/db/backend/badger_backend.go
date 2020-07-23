@@ -69,7 +69,7 @@ func (b *badgerBackend) NewReadTransaction() (ReadTransaction, error) {
 	}, nil
 }
 
-func (b *badgerBackend) NewWriteTransaction() (WriteTransaction, error) {
+func (b *badgerBackend) NewWriteTransaction(hooks ...CommitHook) (WriteTransaction, error) {
 	rel1, err := newReleaser(b.closeWG)
 	if err != nil {
 		return nil, err
@@ -90,9 +90,10 @@ func (b *badgerBackend) NewWriteTransaction() (WriteTransaction, error) {
 			txn: rtxn,
 			rel: rel1,
 		},
-		txn: wtxn,
-		bdb: b.bdb,
-		rel: rel2,
+		txn:         wtxn,
+		bdb:         b.bdb,
+		rel:         rel2,
+		commitHooks: hooks,
 	}, nil
 }
 
@@ -249,10 +250,11 @@ func (l badgerSnapshot) Release() {
 
 type badgerTransaction struct {
 	badgerSnapshot
-	txn  *badger.Txn
-	bdb  *badger.DB
-	rel  *releaser
-	size int
+	txn         *badger.Txn
+	bdb         *badger.DB
+	rel         *releaser
+	size        int
+	commitHooks []CommitHook
 }
 
 func (t *badgerTransaction) Delete(key []byte) error {
@@ -295,15 +297,20 @@ func (t *badgerTransaction) transactionRetried(fn func(*badger.Txn) error) error
 func (t *badgerTransaction) Commit() error {
 	defer t.rel.Release()
 	defer t.badgerSnapshot.Release()
+	for _, hook := range t.commitHooks {
+		if err := hook(t); err != nil {
+			return err
+		}
+	}
 	return wrapBadgerErr(t.txn.Commit())
 }
 
-func (t *badgerTransaction) Checkpoint(preFlush ...func() error) error {
+func (t *badgerTransaction) Checkpoint() error {
 	if t.size < checkpointFlushMinSize {
 		return nil
 	}
-	for _, hook := range preFlush {
-		if err := hook(); err != nil {
+	for _, hook := range t.commitHooks {
+		if err := hook(t); err != nil {
 			return err
 		}
 	}
