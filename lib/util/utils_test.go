@@ -7,8 +7,6 @@
 package util
 
 import (
-	"context"
-	"strings"
 	"testing"
 )
 
@@ -269,23 +267,6 @@ func TestInspecifiedAddressLess(t *testing.T) {
 			t.Error(i, "unexpected")
 		}
 	}
-}
-
-func TestUtilStopTwicePanic(t *testing.T) {
-	name := "foo"
-	s := AsService(func(ctx context.Context) {
-		<-ctx.Done()
-	}, name)
-
-	go s.Serve()
-	s.Stop()
-
-	defer func() {
-		if r := recover(); r == nil || !strings.Contains(r.(string), name) {
-			t.Fatalf(`expected panic containing "%v", got "%v"`, name, r)
-		}
-	}()
-	s.Stop()
 }
 
 func TestFillNil(t *testing.T) {

@@ -19,8 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thejerf/suture"
-
 	"github.com/syncthing/syncthing/lib/api"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -36,6 +34,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
+	"github.com/syncthing/syncthing/lib/suturewrap"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
@@ -48,20 +47,6 @@ const (
 	initialSystemLog       = 10
 	maxSystemLog           = 250
 	deviceCertLifetimeDays = 20 * 365
-)
-
-type ExitStatus int
-
-func (s ExitStatus) AsInt() int {
-	return int(s)
-}
-
-const (
-	ExitSuccess            ExitStatus = 0
-	ExitError              ExitStatus = 1
-	ExitNoUpgradeAvailable ExitStatus = 2
-	ExitRestart            ExitStatus = 3
-	ExitUpgrade            ExitStatus = 4
 )
 
 type Options struct {
@@ -79,14 +64,13 @@ type Options struct {
 
 type App struct {
 	myID        protocol.DeviceID
-	mainService *suture.Supervisor
+	mainService *suturewrap.Supervisor
 	cfg         config.Wrapper
 	ll          *db.Lowlevel
 	evLogger    events.Logger
 	cert        tls.Certificate
 	opts        Options
-	exitStatus  ExitStatus
-	err         error
+	err         *suturewrap.FatalErr
 	stopOnce    sync.Once
 	stop        chan struct{}
 	stopped     chan struct{}
@@ -109,27 +93,21 @@ func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, 
 // Start executes the app and returns once all the startup operations are done,
 // e.g. the API is ready for use.
 // Must be called once only.
-func (a *App) Start() error {
+func (a *App) Start() suturewrap.ExitStatus {
 	if err := a.startup(); err != nil {
-		a.stopWithErr(ExitError, err)
-		return err
+		a.err = &suturewrap.FatalErr{Err: err, Status: suturewrap.ExitError}
+		return a.err.Status
 	}
 	a.stopped = make(chan struct{})
 	go a.run()
-	return nil
+	return suturewrap.ExitSuccess
 }
 
 func (a *App) startup() error {
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
-	a.mainService = suture.New("main", suture.Spec{
-		Log: func(line string) {
-			l.Debugln(line)
-		},
-		PassThroughPanics: true,
-	})
+	a.mainService = suturewrap.New("main")
 	a.mainService.Add(a.ll)
-	a.mainService.ServeBackground()
 
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
@@ -372,13 +350,7 @@ func (a *App) startup() error {
 }
 
 func (a *App) run() {
-	<-a.stop
-
-	if shouldDebug() {
-		l.Debugln("Services before stop:")
-		printServiceTree(os.Stdout, a.mainService, 0)
-	}
-	a.mainService.Stop()
+	a.err = a.mainService.Serve().(*suturewrap.FatalErr)
 
 	done := make(chan struct{})
 	go func() {
@@ -398,9 +370,9 @@ func (a *App) run() {
 
 // Wait blocks until the app stops running. Also returns if the app hasn't been
 // started yet.
-func (a *App) Wait() ExitStatus {
+func (a *App) Wait() suturewrap.ExitStatus {
 	<-a.stopped
-	return a.exitStatus
+	return a.err.Status
 }
 
 // Error returns an error if one occurred while running the app. It does not wait
@@ -414,20 +386,16 @@ func (a *App) Error() error {
 	return nil
 }
 
-// Stop stops the app and sets its exit status to given reason, unless the app
-// was already stopped before. In any case it returns the effective exit status.
-func (a *App) Stop(stopReason ExitStatus) ExitStatus {
-	return a.stopWithErr(stopReason, nil)
-}
-
-func (a *App) stopWithErr(stopReason ExitStatus, err error) ExitStatus {
+// Stop stops the app and returns the exit status.
+func (a *App) Stop() suturewrap.ExitStatus {
 	a.stopOnce.Do(func() {
-		a.exitStatus = stopReason
-		a.err = err
-		close(a.stop)
+		if shouldDebug() {
+			l.Debugln("Services before stop:")
+			printServiceTree(os.Stdout, a.mainService, 0)
+		}
+		a.mainService.Stop()
 	})
-	<-a.stopped
-	return a.exitStatus
+	return a.Wait()
 }
 
 func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
@@ -444,7 +412,7 @@ func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscri
 	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID, a.evLogger)
 	a.mainService.Add(summaryService)
 
-	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, &controller{a}, a.opts.NoUpgrade)
+	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, a.opts.NoUpgrade)
 	a.mainService.Add(apiSvc)
 
 	if err := apiSvc.WaitForStart(); err != nil {
@@ -468,22 +436,7 @@ func checkShortIDs(cfg config.Wrapper) error {
 	return nil
 }
 
-// Implements api.Controller
-type controller struct{ *App }
-
-func (e *controller) Restart() {
-	e.Stop(ExitRestart)
-}
-
-func (e *controller) Shutdown() {
-	e.Stop(ExitSuccess)
-}
-
-func (e *controller) ExitUpgrading() {
-	e.Stop(ExitUpgrade)
-}
-
-type supervisor interface{ Services() []suture.Service }
+type supervisor interface{ Services() []suturewrap.Service }
 
 func printServiceTree(w io.Writer, sup supervisor, level int) {
 	printService(w, sup, level)
