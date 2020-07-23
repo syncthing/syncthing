@@ -20,10 +20,10 @@ func TestIsInternal(t *testing.T) {
 		{".stfolder", true},
 		{".stignore", true},
 		{".stversions", true},
+		{".syncthing", true},
 		{".stfolder/foo", true},
 		{".stignore/foo", true},
 		{".stversions/foo", true},
-		{".syncthing", true},
 		{".syncthing/foo", true},
 
 		{".stfolderfoo", false},

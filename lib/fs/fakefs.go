@@ -132,7 +132,7 @@ func newFakeFilesystem(rootURI string) *fakefs {
 	}
 
 	// Also create a default folder marker for good measure
-	fs.Mkdir(".stfolder", 0700)
+	fs.Mkdir(".syncthing", 0700)
 
 	// We only set the latency after doing the operations required to create
 	// the filesystem initially.

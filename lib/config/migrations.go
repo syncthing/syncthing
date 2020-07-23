@@ -144,7 +144,7 @@ func migrateToConfigV23(cfg *Configuration) {
 		permBits = 0700
 	}
 
-	// Upgrade code remains hardcoded for .stfolder despite configurable
+	// Upgrade code remains hardcoded for .syncthing despite configurable
 	// marker name in later versions.
 
 	for i := range cfg.Folders {

@@ -91,7 +91,7 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) chan er
 		if rn == "." {
 			return nil
 		}
-		if rn == ".stversions" || rn == ".stfolder" {
+		if rn == ".stversions" || rn == ".syncthing" {
 			return filepath.SkipDir
 		}
 

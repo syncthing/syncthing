@@ -26,7 +26,7 @@ var (
 	ErrMarkerMissing    = errors.New("folder marker missing (this indicates potential data loss, search docs/forum to get information about how to proceed)")
 )
 
-const DefaultMarkerName = ".stfolder"
+const DefaultMarkerName = ".syncthing"
 
 type FolderConfiguration struct {
 	ID                      string                      `xml:"id,attr" json:"id"`

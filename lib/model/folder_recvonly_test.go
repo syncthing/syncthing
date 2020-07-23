@@ -32,7 +32,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	// Create some test data
 
-	for _, dir := range []string{".stfolder", "ignDir", "unknownDir"} {
+	for _, dir := range []string{".syncthing", "ignDir", "unknownDir"} {
 		must(t, ffs.MkdirAll(dir, 0755))
 	}
 	must(t, writeFile(ffs, "ignDir/ignFile", []byte("hello\n"), 0644))
@@ -112,7 +112,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// Create some test data
 
-	must(t, ffs.MkdirAll(".stfolder", 0755))
+	must(t, ffs.MkdirAll(".syncthing", 0755))
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, ffs, oldData)
 
@@ -200,7 +200,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Create some test data
 
-	must(t, ffs.MkdirAll(".stfolder", 0755))
+	must(t, ffs.MkdirAll(".syncthing", 0755))
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, ffs, oldData)
 
@@ -268,7 +268,7 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 
 	// Create some test data
 
-	must(t, ffs.MkdirAll(".stfolder", 0755))
+	must(t, ffs.MkdirAll(".syncthing", 0755))
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, ffs, oldData)
 

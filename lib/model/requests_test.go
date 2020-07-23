@@ -803,7 +803,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 			if err := equalContents(filepath.Join(tmpDir, path), otherData); err != nil {
 				t.Error(`Sync conflict of "b" has unexptected content`)
 			}
-		case path == "." || strings.HasPrefix(path, ".stfolder"):
+		case path == "." || strings.HasPrefix(path, ".syncthing"):
 		default:
 			t.Error("Found unexpected file", path)
 		}

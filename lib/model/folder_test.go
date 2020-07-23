@@ -63,18 +63,18 @@ func unifySubsCases() []unifySubsCase {
 			[]string{"usr/lib"},
 		},
 		{
-			// 6. .stignore and .stfolder are special and are passed on
+			// 6. .stignore and .syncthing are special and are passed on
 			// verbatim even though they are unknown
-			[]string{config.DefaultMarkerName, ".stignore"},
+			[]string{".stignore", config.DefaultMarkerName},
 			[]string{},
-			[]string{config.DefaultMarkerName, ".stignore"},
+			[]string{".stignore", config.DefaultMarkerName},
 		},
 		{
 			// 7. but the presence of something else unknown forces an actual
 			// scan
-			[]string{config.DefaultMarkerName, ".stignore", "foo/bar"},
+			[]string{".stignore", config.DefaultMarkerName, "foo/bar"},
 			[]string{},
-			[]string{config.DefaultMarkerName, ".stignore", "foo"},
+			[]string{".stignore", config.DefaultMarkerName, "foo"},
 		},
 		{
 			// 8. explicit request to scan all

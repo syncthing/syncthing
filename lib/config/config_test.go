@@ -460,7 +460,7 @@ func TestFolderCheckPath(t *testing.T) {
 	}
 	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, n)
 
-	err = os.MkdirAll(filepath.Join(n, "dir", ".stfolder"), os.FileMode(0777))
+	err = os.MkdirAll(filepath.Join(n, "dir", ".syncthing"), os.FileMode(0777))
 	if err != nil {
 		t.Fatal(err)
 	}

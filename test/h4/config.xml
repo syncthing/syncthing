@@ -16,7 +16,7 @@
         <disableTempIndexes>false</disableTempIndexes>
         <paused>false</paused>
         <weakHashThresholdPct>25</weakHashThresholdPct>
-        <markerName>.stfolder</markerName>
+        <markerName>.syncthing</markerName>
         <useLargeBlocks>false</useLargeBlocks>
     </folder>
     <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">

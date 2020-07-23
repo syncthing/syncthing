@@ -257,8 +257,8 @@ func createTestDir(t *testing.T) (string, bool) {
 		t.Fatalf("could not create temporary dir for testing: %s", err)
 	}
 
-	if fd, err := os.Create(filepath.Join(testDir, ".stfolder")); err != nil {
-		t.Fatalf("could not create .stfolder: %s", err)
+	if fd, err := os.Create(filepath.Join(testDir, ".syncthing")); err != nil {
+		t.Fatalf("could not create .syncthing: %s", err)
 	} else {
 		fd.Close()
 	}
@@ -379,7 +379,7 @@ func assertDir(t *testing.T, fs Filesystem, directory string, filenames []string
 	}
 
 	if path.Clean(directory) == "/" {
-		filenames = append(filenames, ".stfolder")
+		filenames = append(filenames, ".syncthing")
 	}
 	sort.Strings(filenames)
 	sort.Strings(got)
@@ -928,7 +928,7 @@ func TestReadWriteContent(t *testing.T) {
 func cleanup(fs Filesystem) error {
 	filenames, _ := fs.DirNames("/")
 	for _, filename := range filenames {
-		if filename != ".stfolder" {
+		if filename != ".syncthing" {
 			if err := fs.RemoveAll(filename); err != nil {
 				return err
 			}
