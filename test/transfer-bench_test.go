@@ -14,6 +14,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/rc"
 )
 
 func TestBenchmarkTransferManyFiles(t *testing.T) {
@@ -110,9 +112,9 @@ func benchmarkTransfer(t *testing.T) {
 	sender.ResumeAll()
 	receiver.ResumeAll()
 
-	var t0, t1 time.Time
+	t0 := time.Now()
+	var t1 time.Time
 	lastEvent := 0
-	oneItemFinished := false
 
 loop:
 	for {
@@ -129,32 +131,19 @@ loop:
 
 			switch ev.Type {
 			case "ItemFinished":
-				oneItemFinished = true
-				continue
-
-			case "StateChanged":
-				data := ev.Data.(map[string]interface{})
-				if data["folder"].(string) != "default" {
-					continue
-				}
-
-				switch data["to"].(string) {
-				case "syncing", "sync-preparing":
-					t0 = ev.Time
-					continue
-
-				case "idle":
-					if !oneItemFinished {
-						continue
-					}
-					if !t0.IsZero() {
-						t1 = ev.Time
-						break loop
-					}
-				}
+				break loop
 			}
 		}
 
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	processes := []*rc.Process{sender, receiver}
+	for {
+		if rc.InSync("default", processes...) {
+			t1 = time.Now()
+			break
+		}
 		time.Sleep(250 * time.Millisecond)
 	}
 
