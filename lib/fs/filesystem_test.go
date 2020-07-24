@@ -23,16 +23,21 @@ func TestIsInternal(t *testing.T) {
 		{".stfolder/foo", true},
 		{".stignore/foo", true},
 		{".stversions/foo", true},
+		{".syncthing", true},
+		{".syncthing/foo", true},
 
 		{".stfolderfoo", false},
 		{".stignorefoo", false},
 		{".stversionsfoo", false},
+		{".syncthingfoo", false},
 		{"foo.stfolder", false},
 		{"foo.stignore", false},
 		{"foo.stversions", false},
+		{"foo.syncthing", false},
 		{"foo/.stfolder", false},
 		{"foo/.stignore", false},
 		{"foo/.stversions", false},
+		{"foo/.syncthing", false},
 	}
 
 	for _, tc := range cases {
