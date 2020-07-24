@@ -662,13 +662,11 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 		}
 	}
 
-	// Update global size counter if necessary
-
-	if !globalChanged {
-		// Neither the global state nor the needs of any devices, except
-		// the one updated, changed.
-		return keyBuf, true, nil
-	}
+	// Update global size counter.
+	// It's done regardless of if the global changed, as two files might
+	// both be invalid, but for different reasons i.e. have different flags
+	// (e.g. ignored vs receive only).
+	// https://github.com/syncthing/syncthing/issues/6850
 
 	// Remove the old global from the global size counter
 	if haveOldGlobal {
@@ -690,6 +688,12 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 		gotGlobal = true
 	}
 	meta.addFile(protocol.GlobalDeviceID, global)
+
+	if !globalChanged {
+		// Neither the global state nor the needs of any devices, except
+		// the one updated, changed.
+		return keyBuf, true, nil
+	}
 
 	// check for local (if not already done before)
 	if !bytes.Equal(device, protocol.LocalDeviceID[:]) {
