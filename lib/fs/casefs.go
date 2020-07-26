@@ -360,6 +360,10 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 			if err != nil {
 				return "", err
 			}
+			node.dirNamesLower = make([]string, len(node.dirNames))
+			for i, n := range node.dirNames {
+				node.dirNamesLower[i] = UnicodeLowercase(n)
+			}
 			node.children = make(map[string]*caseNode)
 			node.results = make(map[string]*caseNode)
 			r.caseCount += len(node.dirNames)
@@ -370,7 +374,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 			continue
 		}
 		// Actually loop dirNames to search for a match
-		n, err := findCaseInsensitiveMatch(comp, node.dirNames)
+		n, err := findCaseInsensitiveMatch(comp, node.dirNames, node.dirNamesLower)
 		if err != nil {
 			return "", err
 		}
@@ -421,20 +425,21 @@ func (r *defaultRealCaser) dropCacheLocked() {
 // The key to results is also a path component, but as given to RealCase, not
 // case resolved.
 type caseNode struct {
-	name     string
-	dirNames []string
-	children map[string]*caseNode
-	results  map[string]*caseNode
+	name          string
+	dirNames      []string
+	dirNamesLower []string
+	children      map[string]*caseNode
+	results       map[string]*caseNode
 }
 
-func findCaseInsensitiveMatch(name string, names []string) (string, error) {
+func findCaseInsensitiveMatch(name string, names, namesLower []string) (string, error) {
 	lower := UnicodeLowercase(name)
 	candidate := ""
-	for _, n := range names {
+	for i, n := range names {
 		if n == name {
 			return n, nil
 		}
-		if candidate == "" && UnicodeLowercase(n) == lower {
+		if candidate == "" && namesLower[i] == lower {
 			candidate = n
 		}
 	}
