@@ -1707,6 +1707,38 @@ func TestNeedRemoteAfterReset(t *testing.T) {
 	}
 }
 
+// https://github.com/syncthing/syncthing/issues/6850
+func TestIgnoreLocalChanged(t *testing.T) {
+	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
+
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+
+	// Add locally changed file
+	files := fileList{
+		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2), LocalFlags: protocol.FlagLocalReceiveOnly},
+	}
+	s.Update(protocol.LocalDeviceID, files)
+
+	if c := globalSize(s).Files; c != 1 {
+		t.Error("Expected one global file, got", c)
+	}
+	if c := localSize(s).Files; c != 1 {
+		t.Error("Expected one local file, got", c)
+	}
+
+	// Change file to ignored
+	files[0].LocalFlags = protocol.FlagLocalIgnored
+	s.Update(protocol.LocalDeviceID, files)
+
+	if c := globalSize(s).Files; c != 0 {
+		t.Error("Expected no global file, got", c)
+	}
+	if c := localSize(s).Files; c != 0 {
+		t.Error("Expected no local file, got", c)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
