@@ -1,4 +1,4 @@
-// Copyright (C) 2016 The Syncthing Authors.
+// Copyright (C) 2020 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -62,9 +62,9 @@ type caseFilesystem struct {
 // NewCaseFilesystem ensures that the given, potentially case-insensitive filesystem
 // behaves like a case-sensitive filesystem. Meaning that it takes into account
 // the real casing of a path and returns ErrCaseConflict if the given path differs
-// from the real path. It is save to use with any filesystem, i.e. also a
+// from the real path. It is safe to use with any filesystem, i.e. also a
 // case-sensitive one. However it will add some overhead and thus shouldn't be
-// used if the filesystem is know to already behave case-sensitively.
+// used if the filesystem is known to already behave case-sensitively.
 func NewCaseFilesystem(fs Filesystem) Filesystem {
 	caseFilesystemsMut.Lock()
 	defer caseFilesystemsMut.Unlock()
