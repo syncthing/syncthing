@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -146,5 +147,47 @@ func testCaseFSStat(t *testing.T, fsys Filesystem) {
 		t.Log("pass: case insensitive underlying fs")
 	} else {
 		t.Error("expected ErrCaseConflict, not", err, "for insensitive fs")
+	}
+}
+
+func BenchmarkWalkCaseFakeFS(b *testing.B) {
+	fsys := fakefsForBenchmark(b)
+	benchmarkWalkFakeFS(b, NewCaseFilesystem(fsys))
+	b.ReportAllocs()
+}
+
+func BenchmarkWalkRawFakeFS(b *testing.B) {
+	fsys := fakefsForBenchmark(b)
+	benchmarkWalkFakeFS(b, fsys)
+	b.ReportAllocs()
+}
+
+func fakefsForBenchmark(b *testing.B) Filesystem {
+	return NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%s?files=%d&insens=true", b.Name(), b.N))
+}
+
+func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem) {
+	// Simulate a scanner pass over the filesystem. First walk it to
+	// discover all names, then stat each name individually to check if it's
+	// been deleted or not (pretending that they all existed in the
+	// database).
+
+	b.ResetTimer()
+
+	var paths []string
+	if err := fsys.Walk("/", func(path string, info FileInfo, err error) error {
+		paths = append(paths, path)
+		return err
+	}); err != nil {
+		b.Fatal(err)
+	}
+	if len(paths) < b.N {
+		b.Fatal("didn't find enough stuff")
+	}
+
+	for _, p := range paths {
+		if _, err := fsys.Lstat(p); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

@@ -64,24 +64,25 @@ var (
 	fakefsFs  = make(map[string]*fakefs)
 )
 
-func newFakeFilesystem(root string) *fakefs {
+func newFakeFilesystem(rootURI string) *fakefs {
 	fakefsMut.Lock()
 	defer fakefsMut.Unlock()
 
+	root := rootURI
 	var params url.Values
-	uri, err := url.Parse(root)
+	uri, err := url.Parse(rootURI)
 	if err == nil {
 		root = uri.Path
 		params = uri.Query()
 	}
 
-	if fs, ok := fakefsFs[root]; ok {
+	if fs, ok := fakefsFs[rootURI]; ok {
 		// Already have an fs at this path
 		return fs
 	}
 
 	fs := &fakefs{
-		uri: "fake://" + root,
+		uri: "fake://" + rootURI,
 		root: &fakeEntry{
 			name:      "/",
 			entryType: fakeEntryTypeDir,
