@@ -202,7 +202,7 @@ func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem, paths []string) {
 
 	// We add metrics per path entry
 	b.ReportMetric(float64(t1.Sub(t0))/float64(b.N)/float64(len(paths)), "ns/entry")
-	b.ReportMetric(float64(ms1.Alloc-ms0.Alloc)/float64(b.N)/float64(len(paths)), "allocs/entry")
+	b.ReportMetric(float64(ms1.Mallocs-ms0.Mallocs)/float64(b.N)/float64(len(paths)), "allocs/entry")
 	b.ReportMetric(float64(ms1.TotalAlloc-ms0.TotalAlloc)/float64(b.N)/float64(len(paths)), "B/entry")
 }
 
