@@ -52,6 +52,7 @@ const randomBlockShift = 14 // 128k
 // - Two fakefs:s pointing at the same root path see the same files.
 //
 type fakefs struct {
+	uri         string
 	mut         sync.Mutex
 	root        *fakeEntry
 	insens      bool
@@ -80,6 +81,7 @@ func newFakeFilesystem(root string) *fakefs {
 	}
 
 	fs := &fakefs{
+		uri: "fake://" + root,
 		root: &fakeEntry{
 			name:      "/",
 			entryType: fakeEntryTypeDir,
@@ -578,7 +580,7 @@ func (fs *fakefs) Type() FilesystemType {
 }
 
 func (fs *fakefs) URI() string {
-	return "fake://" + fs.root.name
+	return fs.uri
 }
 
 func (fs *fakefs) SameFile(fi1, fi2 FileInfo) bool {

@@ -14,10 +14,23 @@ import (
 )
 
 func TestRealCase(t *testing.T) {
-	bfs, tmpDir := setup(t)
-	testFs := NewCaseFilesystem(bfs).(*caseFilesystem)
-	defer os.RemoveAll(tmpDir)
+	// Verify realCase lookups on various underlying filesystems.
 
+	t.Run("fake-sensitive", func(t *testing.T) {
+		testRealCase(t, newFakeFilesystem(t.Name()))
+	})
+	t.Run("fake-insensitive", func(t *testing.T) {
+		testRealCase(t, newFakeFilesystem(t.Name()+"?insens=true"))
+	})
+	t.Run("actual", func(t *testing.T) {
+		fsys, tmpDir := setup(t)
+		defer os.RemoveAll(tmpDir)
+		testRealCase(t, fsys)
+	})
+}
+
+func testRealCase(t *testing.T, fsys Filesystem) {
+	testFs := NewCaseFilesystem(fsys).(*caseFilesystem)
 	comps := []string{"Foo", "bar", "BAZ", "bAs"}
 	path := filepath.Join(comps...)
 	testFs.MkdirAll(filepath.Join(comps[:len(comps)-1]...), 0777)
@@ -54,9 +67,21 @@ func TestRealCase(t *testing.T) {
 }
 
 func TestRealCaseSensitive(t *testing.T) {
-	bfs, tmpDir := setup(t)
-	testFs := NewCaseFilesystem(bfs).(*caseFilesystem)
-	defer os.RemoveAll(tmpDir)
+	// Verify that realCase returns the best on-disk case for case sensitive
+	// systems. Test is skipped if the underlying fs is insensitive.
+
+	t.Run("fake-sensitive", func(t *testing.T) {
+		testRealCaseSensitive(t, newFakeFilesystem(t.Name()))
+	})
+	t.Run("actual", func(t *testing.T) {
+		fsys, tmpDir := setup(t)
+		defer os.RemoveAll(tmpDir)
+		testRealCaseSensitive(t, fsys)
+	})
+}
+
+func testRealCaseSensitive(t *testing.T, fsys Filesystem) {
+	testFs := NewCaseFilesystem(fsys).(*caseFilesystem)
 
 	names := make([]string, 2)
 	names[0] = "foo"
@@ -76,5 +101,50 @@ func TestRealCaseSensitive(t *testing.T) {
 		} else if rn != n {
 			t.Errorf("Got %v, expected %v", rn, n)
 		}
+	}
+}
+
+func TestCaseFSStat(t *testing.T) {
+	// Verify that a Stat() lookup behaves in a case sensitive manner
+	// regardless of the underlying fs.
+
+	t.Run("fake-sensitive", func(t *testing.T) {
+		testCaseFSStat(t, newFakeFilesystem(t.Name()))
+	})
+	t.Run("fake-insensitive", func(t *testing.T) {
+		testCaseFSStat(t, newFakeFilesystem(t.Name()+"?insens=true"))
+	})
+	t.Run("actual", func(t *testing.T) {
+		fsys, tmpDir := setup(t)
+		defer os.RemoveAll(tmpDir)
+		testCaseFSStat(t, fsys)
+	})
+}
+
+func testCaseFSStat(t *testing.T, fsys Filesystem) {
+	fd, err := fsys.Create("foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	// Check if the underlying fs is sensitive or not
+	sensitive := true
+	if _, err = fsys.Stat("FOO"); err == nil {
+		sensitive = false
+	}
+
+	testFs := NewCaseFilesystem(fsys)
+	_, err = testFs.Stat("FOO")
+	if sensitive {
+		if IsNotExist(err) {
+			t.Log("pass: case sensitive underlying fs")
+		} else {
+			t.Error("expected NotExist, not", err, "for sensitive fs")
+		}
+	} else if IsErrCaseConflict(err) {
+		t.Log("pass: case insensitive underlying fs")
+	} else {
+		t.Error("expected ErrCaseConflict, not", err, "for insensitive fs")
 	}
 }
