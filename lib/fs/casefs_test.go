@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRealCase(t *testing.T) {
@@ -150,29 +152,21 @@ func testCaseFSStat(t *testing.T, fsys Filesystem) {
 	}
 }
 
-func BenchmarkWalkCaseFakeFS(b *testing.B) {
-	fsys := fakefsForBenchmark(b)
-	benchmarkWalkFakeFS(b, NewCaseFilesystem(fsys))
-	b.ReportAllocs()
+func BenchmarkWalkCaseFakeFS10k(b *testing.B) {
+	nfiles := 10_000
+	fsys, paths := fakefsForBenchmark(b, nfiles)
+	b.Run("raw", func(b *testing.B) {
+		benchmarkWalkFakeFS(b, fsys, paths)
+		b.ReportAllocs()
+	})
+	b.Run("case", func(b *testing.B) {
+		benchmarkWalkFakeFS(b, NewCaseFilesystem(fsys), paths)
+		b.ReportAllocs()
+	})
 }
 
-func BenchmarkWalkRawFakeFS(b *testing.B) {
-	fsys := fakefsForBenchmark(b)
-	benchmarkWalkFakeFS(b, fsys)
-	b.ReportAllocs()
-}
-
-func fakefsForBenchmark(b *testing.B) Filesystem {
-	return NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%s?files=%d&insens=true", b.Name(), b.N))
-}
-
-func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem) {
-	// Simulate a scanner pass over the filesystem. First walk it to
-	// discover all names, then stat each name individually to check if it's
-	// been deleted or not (pretending that they all existed in the
-	// database).
-
-	b.ResetTimer()
+func fakefsForBenchmark(b *testing.B, nfiles int) (Filesystem, []string) {
+	fsys := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("fakefsForBenchmark?files=%d&insens=true", nfiles))
 
 	var paths []string
 	if err := fsys.Walk("/", func(path string, info FileInfo, err error) error {
@@ -185,9 +179,39 @@ func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem) {
 		b.Fatal("didn't find enough stuff")
 	}
 
-	for _, p := range paths {
-		if _, err := fsys.Lstat(p); err != nil {
+	return fsys, paths
+}
+
+func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem, paths []string) {
+	// Simulate a scanner pass over the filesystem. First walk it to
+	// discover all names, then stat each name individually to check if it's
+	// been deleted or not (pretending that they all existed in the
+	// database).
+
+	var ms0 runtime.MemStats
+	runtime.ReadMemStats(&ms0)
+	t0 := time.Now()
+
+	for i := 0; i < b.N; i++ {
+		if err := fsys.Walk("/", func(path string, info FileInfo, err error) error {
+			return err
+		}); err != nil {
 			b.Fatal(err)
 		}
+
+		for _, p := range paths {
+			if _, err := fsys.Lstat(p); err != nil {
+				b.Fatal(err)
+			}
+		}
 	}
+
+	t1 := time.Now()
+	var ms1 runtime.MemStats
+	runtime.ReadMemStats(&ms1)
+
+	// We add metrics per path entry
+	b.ReportMetric(float64(t1.Sub(t0))/float64(b.N)/float64(len(paths)), "ns/entry")
+	b.ReportMetric(float64(ms1.Alloc-ms0.Alloc)/float64(b.N)/float64(len(paths)), "allocs/entry")
+	b.ReportMetric(float64(ms1.TotalAlloc-ms0.TotalAlloc)/float64(b.N)/float64(len(paths)), "B/entry")
 }
