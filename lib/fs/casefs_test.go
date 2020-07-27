@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -153,8 +154,10 @@ func testCaseFSStat(t *testing.T, fsys Filesystem) {
 }
 
 func BenchmarkWalkCaseFakeFS10k(b *testing.B) {
-	nfiles := 10_000
-	fsys, paths := fakefsForBenchmark(b, nfiles)
+	fsys, paths, err := fakefsForBenchmark(10_000)
+	if err != nil {
+		b.Fatal(err)
+	}
 	b.Run("raw", func(b *testing.B) {
 		benchmarkWalkFakeFS(b, fsys, paths)
 		b.ReportAllocs()
@@ -163,23 +166,6 @@ func BenchmarkWalkCaseFakeFS10k(b *testing.B) {
 		benchmarkWalkFakeFS(b, NewCaseFilesystem(fsys), paths)
 		b.ReportAllocs()
 	})
-}
-
-func fakefsForBenchmark(b *testing.B, nfiles int) (Filesystem, []string) {
-	fsys := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("fakefsForBenchmark?files=%d&insens=true", nfiles))
-
-	var paths []string
-	if err := fsys.Walk("/", func(path string, info FileInfo, err error) error {
-		paths = append(paths, path)
-		return err
-	}); err != nil {
-		b.Fatal(err)
-	}
-	if len(paths) < b.N {
-		b.Fatal("didn't find enough stuff")
-	}
-
-	return fsys, paths
 }
 
 func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem, paths []string) {
@@ -193,16 +179,8 @@ func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem, paths []string) {
 	t0 := time.Now()
 
 	for i := 0; i < b.N; i++ {
-		if err := fsys.Walk("/", func(path string, info FileInfo, err error) error {
-			return err
-		}); err != nil {
+		if err := doubleWalkFS(fsys, paths); err != nil {
 			b.Fatal(err)
-		}
-
-		for _, p := range paths {
-			if _, err := fsys.Lstat(p); err != nil {
-				b.Fatal(err)
-			}
 		}
 	}
 
@@ -214,4 +192,76 @@ func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem, paths []string) {
 	b.ReportMetric(float64(t1.Sub(t0))/float64(b.N)/float64(len(paths)), "ns/entry")
 	b.ReportMetric(float64(ms1.Alloc-ms0.Alloc)/float64(b.N)/float64(len(paths)), "allocs/entry")
 	b.ReportMetric(float64(ms1.TotalAlloc-ms0.TotalAlloc)/float64(b.N)/float64(len(paths)), "B/entry")
+}
+
+func TestStressCaseFS(t *testing.T) {
+	// Exercise a bunch of paralell operations for stressing out race
+	// conditions in the realnamer etc.
+
+	const limit = 10 * time.Second
+	if testing.Short() {
+		t.Skip("long test")
+	}
+
+	fsys, paths, err := fakefsForBenchmark(10_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < runtime.NumCPU()/2+1; i++ {
+		t.Run(fmt.Sprintf("walker-%d", i), func(t *testing.T) {
+			// Walk the filesystem and stat everying
+			t.Parallel()
+			t0 := time.Now()
+			for time.Since(t0) < limit {
+				if err := doubleWalkFS(fsys, paths); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+		t.Run(fmt.Sprintf("toucher-%d", i), func(t *testing.T) {
+			// Touch all the things
+			t.Parallel()
+			t0 := time.Now()
+			for time.Since(t0) < limit {
+				for _, p := range paths {
+					now := time.Now()
+					if err := fsys.Chtimes(p, now, now); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+		})
+	}
+}
+
+func doubleWalkFS(fsys Filesystem, paths []string) error {
+	if err := fsys.Walk("/", func(path string, info FileInfo, err error) error {
+		return err
+	}); err != nil {
+		return err
+	}
+
+	for _, p := range paths {
+		if _, err := fsys.Lstat(p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func fakefsForBenchmark(nfiles int) (Filesystem, []string, error) {
+	fsys := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("fakefsForBenchmark?files=%d&insens=true", nfiles))
+
+	var paths []string
+	if err := fsys.Walk("/", func(path string, info FileInfo, err error) error {
+		paths = append(paths, path)
+		return err
+	}); err != nil {
+		return nil, nil, err
+	}
+	if len(paths) < nfiles {
+		return nil, nil, errors.New("didn't find enough stuff")
+	}
+
+	return fsys, paths, nil
 }
