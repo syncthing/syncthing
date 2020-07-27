@@ -313,21 +313,21 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 }
 
 type defaultRealCaser struct {
-	fs            Filesystem
-	caseRoot      *caseNode
-	caseCount     int
-	caseTimer     *time.Timer
-	caseTimerStop chan struct{}
-	caseMut       sync.RWMutex
+	fs        Filesystem
+	root      *caseNode
+	count     int
+	timer     *time.Timer
+	timerStop chan struct{}
+	mut       sync.RWMutex
 }
 
 func newDefaultRealCaser(fs Filesystem) *defaultRealCaser {
 	caser := &defaultRealCaser{
-		fs:        fs,
-		caseRoot:  &caseNode{name: "."},
-		caseTimer: time.NewTimer(0),
+		fs:    fs,
+		root:  &caseNode{name: "."},
+		timer: time.NewTimer(0),
 	}
-	<-caser.caseTimer.C
+	<-caser.timer.C
 	return caser
 }
 
@@ -337,21 +337,19 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 		return out, nil
 	}
 
-	r.caseMut.Lock()
+	r.mut.Lock()
 	defer func() {
-		if r.caseCount > caseMaxCachedNames {
+		if r.count > caseMaxCachedNames {
 			select {
-			case r.caseTimerStop <- struct{}{}:
+			case r.timerStop <- struct{}{}:
 			default:
 			}
 			r.dropCacheLocked()
-		} else if r.caseTimerStop == nil {
-			r.startCaseResetTimerLocked()
 		}
-		r.caseMut.Unlock()
+		r.mut.Unlock()
 	}()
 
-	node := r.caseRoot
+	node := r.root
 	for _, comp := range strings.Split(name, string(PathSeparator)) {
 		if node.dirNames == nil {
 			// Haven't called DirNames yet
@@ -366,7 +364,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 			}
 			node.children = make(map[string]*caseNode)
 			node.results = make(map[string]*caseNode)
-			r.caseCount += len(node.dirNames)
+			r.count += len(node.dirNames)
 		} else if child, ok := node.results[comp]; ok {
 			// Check if this exact name has been queried before to shortcut
 			node = child
@@ -392,32 +390,32 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 }
 
 func (r *defaultRealCaser) startCaseResetTimerLocked() {
-	r.caseTimerStop = make(chan struct{})
-	r.caseTimer.Reset(caseCacheTimeout)
+	r.timerStop = make(chan struct{})
+	r.timer.Reset(caseCacheTimeout)
 	go func() {
 		select {
-		case <-r.caseTimer.C:
+		case <-r.timer.C:
 			r.dropCache()
-		case <-r.caseTimerStop:
-			if !r.caseTimer.Stop() {
-				<-r.caseTimer.C
+		case <-r.timerStop:
+			if !r.timer.Stop() {
+				<-r.timer.C
 			}
-			r.caseMut.Lock()
-			r.caseTimerStop = nil
-			r.caseMut.Unlock()
+			r.mut.Lock()
+			r.timerStop = nil
+			r.mut.Unlock()
 		}
 	}()
 }
 
 func (r *defaultRealCaser) dropCache() {
-	r.caseMut.Lock()
+	r.mut.Lock()
 	r.dropCacheLocked()
-	r.caseMut.Unlock()
+	r.mut.Unlock()
 }
 
 func (r *defaultRealCaser) dropCacheLocked() {
-	r.caseRoot = &caseNode{name: "."}
-	r.caseCount = 0
+	r.root = &caseNode{name: "."}
+	r.count = 0
 }
 
 // Both name and the key to children are "Real", case resolved names of the path
