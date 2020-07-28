@@ -362,7 +362,7 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
 	if err != nil {
 		return err
 	}
@@ -843,20 +843,22 @@ func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
 	return meta
 }
 
-func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
+func (db *Lowlevel) recalcMeta(folderStr string) (*metadataTracker, error) {
+	folder := []byte(folderStr)
+
 	meta := newMetadataTracker(db.keyer)
-	if err := db.checkGlobals([]byte(folder)); err != nil {
+	if err := db.checkGlobals(folder); err != nil {
 		return nil, err
 	}
 
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
 	if err != nil {
 		return nil, err
 	}
 	defer t.close()
 
 	var deviceID protocol.DeviceID
-	err = t.withAllFolderTruncated([]byte(folder), func(device []byte, f FileInfoTruncated) bool {
+	err = t.withAllFolderTruncated(folder, func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
 		meta.addFile(deviceID, f)
 		return true
@@ -865,13 +867,13 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 		return nil, err
 	}
 
-	err = t.withGlobal([]byte(folder), nil, true, func(f protocol.FileIntf) bool {
+	err = t.withGlobal(folder, nil, true, func(f protocol.FileIntf) bool {
 		meta.addFile(protocol.GlobalDeviceID, f)
 		return true
 	})
 
 	meta.emptyNeeded(protocol.LocalDeviceID)
-	err = t.withNeed([]byte(folder), protocol.LocalDeviceID[:], true, func(f protocol.FileIntf) bool {
+	err = t.withNeed(folder, protocol.LocalDeviceID[:], true, func(f protocol.FileIntf) bool {
 		meta.addNeeded(protocol.LocalDeviceID, f)
 		return true
 	})
@@ -880,7 +882,7 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 	}
 	for _, device := range meta.devices() {
 		meta.emptyNeeded(device)
-		err = t.withNeed([]byte(folder), device[:], true, func(f protocol.FileIntf) bool {
+		err = t.withNeed(folder, device[:], true, func(f protocol.FileIntf) bool {
 			meta.addNeeded(device, f)
 			return true
 		})
@@ -890,9 +892,6 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 	}
 
 	meta.SetCreated()
-	if err := meta.toDB(t, []byte(folder)); err != nil {
-		return nil, err
-	}
 	if err := t.Commit(); err != nil {
 		return nil, err
 	}
