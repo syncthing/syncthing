@@ -60,7 +60,11 @@ func (c *VersioningConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartEl
 }
 
 func (c *VersioningConfiguration) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	return e.Encode(c.toInternal())
+	// Using EncodeElement instead of plain Encode ensures that we use the
+	// outer tag name from the VersioningConfiguration (i.e.,
+	// `<versioning>`) rather than whatever the internal representation
+	// would otherwise be.
+	return e.EncodeElement(c.toInternal(), start)
 }
 
 func (c *VersioningConfiguration) toInternal() internalVersioningConfiguration {
