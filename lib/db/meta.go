@@ -173,22 +173,27 @@ func (m *metadataTracker) addFile(dev protocol.DeviceID, f protocol.FileIntf) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	m.dirty = true
-
 	m.updateSeqLocked(dev, f)
 
-	if f.IsInvalid() && f.FileLocalFlags() == 0 {
-		// This is a remote invalid file; it does not count.
+	m.updateFileLocked(dev, f, m.addFileLocked)
+}
+
+func (m *metadataTracker) updateFileLocked(dev protocol.DeviceID, f protocol.FileIntf, fn func(protocol.DeviceID, uint32, protocol.FileIntf)) {
+	m.dirty = true
+
+	if f.IsInvalid() && (f.FileLocalFlags() == 0 || dev == protocol.GlobalDeviceID) {
+		// This is a remote invalid file or concern the global state.
+		// In either case invalid files are not accounted.
 		return
 	}
 
 	if flags := f.FileLocalFlags(); flags == 0 {
 		// Account regular files in the zero-flags bucket.
-		m.addFileLocked(dev, 0, f)
+		fn(dev, 0, f)
 	} else {
 		// Account in flag specific buckets.
 		eachFlagBit(flags, func(flag uint32) {
-			m.addFileLocked(dev, flag, f)
+			fn(dev, flag, f)
 		})
 	}
 }
@@ -250,25 +255,10 @@ func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f pr
 
 // removeFile removes a file from the counts
 func (m *metadataTracker) removeFile(dev protocol.DeviceID, f protocol.FileIntf) {
-	if f.IsInvalid() && f.FileLocalFlags() == 0 {
-		// This is a remote invalid file; it does not count.
-		return
-	}
-
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	m.dirty = true
-
-	if flags := f.FileLocalFlags(); flags == 0 {
-		// Remove regular files from the zero-flags bucket
-		m.removeFileLocked(dev, 0, f)
-	} else {
-		// Remove from flag specific buckets.
-		eachFlagBit(flags, func(flag uint32) {
-			m.removeFileLocked(dev, flag, f)
-		})
-	}
+	m.updateFileLocked(dev, f, m.removeFileLocked)
 }
 
 // removeNeeded removes a file from the needed counts
