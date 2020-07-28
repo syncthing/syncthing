@@ -874,7 +874,10 @@ func getGitVersion() (string, error) {
 	}
 	v0 := string(bs)
 
-	versionRe := regexp.MustCompile(`-([0-9]{1,3}-g[0-9a-f]{5,10})`)
+	// To be more semantic-versionish and ensure proper ordering in our
+	// upgrade process, we make sure there's only one hypen in the version.
+
+	versionRe := regexp.MustCompile(`-([0-9]{1,3}-g[0-9a-f]{5,10}(-dirty)?)`)
 	if m := versionRe.FindStringSubmatch(vcur); len(m) > 0 {
 		suffix := strings.ReplaceAll(m[1], "-", ".")
 
