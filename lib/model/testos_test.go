@@ -9,6 +9,8 @@ package model
 import (
 	"os"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/fs"
 )
 
 // fatal is the required common interface between *testing.B and *testing.T
@@ -24,6 +26,13 @@ type fatalOs struct {
 func must(f fatal, err error) {
 	f.Helper()
 	if err != nil {
+		f.Fatal(err)
+	}
+}
+
+func mustRemove(f fatal, err error) {
+	f.Helper()
+	if err != nil && !fs.IsNotExist(err) {
 		f.Fatal(err)
 	}
 }

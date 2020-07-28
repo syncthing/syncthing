@@ -10,11 +10,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,6 +97,7 @@ func setupSendReceiveFolder(files ...protocol.FileInfo) (*model, *sendReceiveFol
 	model.Supervisor.Stop()
 	f := model.folderRunners[fcfg.ID].(*sendReceiveFolder)
 	f.pullErrors = make(map[string]string)
+	f.tempPullErrors = make(map[string]string)
 	f.ctx = context.Background()
 
 	// Update index
@@ -983,7 +986,7 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	must(t, osutil.RenameOrCopy(fs.CopyRangeMethodStandard, ffs, destFs, file, "file"))
 	must(t, ffs.RemoveAll(link))
 
-	if err := osutil.DebugSymlinkForTestsOnly(destFs.URI(), filepath.Join(ffs.URI(), link)); err != nil {
+	if err := fs.DebugSymlinkForTestsOnly(destFs, ffs, "", link); err != nil {
 		if runtime.GOOS == "windows" {
 			// Probably we require permissions we don't have.
 			t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
@@ -1084,6 +1087,122 @@ func TestPullDeleteUnscannedDir(t *testing.T) {
 		}
 	default:
 		t.Error("nothing was scheduled for scanning")
+	}
+}
+
+func TestPullCaseOnlyPerformFinish(t *testing.T) {
+	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
+	ffs := f.Filesystem()
+
+	name := "foo"
+	contents := []byte("contents")
+	must(t, writeFile(ffs, name, contents, 0644))
+	must(t, f.scanSubdirs(nil))
+
+	var cur protocol.FileInfo
+	hasCur := false
+	snap := dbSnapshot(t, m, f.ID)
+	defer snap.Release()
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
+		if hasCur {
+			t.Fatal("got more than one file")
+		}
+		cur = i.(protocol.FileInfo)
+		hasCur = true
+		return true
+	})
+	if !hasCur {
+		t.Fatal("file is missing")
+	}
+
+	remote := *(&cur)
+	remote.Version = protocol.Vector{}.Update(device1.Short())
+	remote.Name = strings.ToUpper(cur.Name)
+	temp := fs.TempName(remote.Name)
+	must(t, writeFile(ffs, temp, contents, 0644))
+	scanChan := make(chan string, 1)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+
+	err := f.performFinish(remote, cur, hasCur, temp, snap, dbUpdateChan, scanChan)
+
+	select {
+	case <-dbUpdateChan: // boring case sensitive filesystem
+		return
+	case <-scanChan:
+		t.Error("no need to scan anything here")
+	default:
+	}
+
+	var caseErr *fs.ErrCaseConflict
+	if !errors.As(err, &caseErr) {
+		t.Error("Expected case conflict error, got", err)
+	}
+}
+
+func TestPullCaseOnlyDir(t *testing.T) {
+	testPullCaseOnlyDirOrSymlink(t, true)
+}
+
+func TestPullCaseOnlySymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks not supported on windows")
+	}
+	testPullCaseOnlyDirOrSymlink(t, false)
+}
+
+func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
+	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
+	ffs := f.Filesystem()
+
+	name := "foo"
+	if dir {
+		must(t, ffs.Mkdir(name, 0777))
+	} else {
+		must(t, ffs.CreateSymlink("target", name))
+	}
+
+	must(t, f.scanSubdirs(nil))
+	var cur protocol.FileInfo
+	hasCur := false
+	snap := dbSnapshot(t, m, f.ID)
+	defer snap.Release()
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
+		if hasCur {
+			t.Fatal("got more than one file")
+		}
+		cur = i.(protocol.FileInfo)
+		hasCur = true
+		return true
+	})
+	if !hasCur {
+		t.Fatal("file is missing")
+	}
+
+	scanChan := make(chan string, 1)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+	remote := *(&cur)
+	remote.Version = protocol.Vector{}.Update(device1.Short())
+	remote.Name = strings.ToUpper(cur.Name)
+
+	if dir {
+		f.handleDir(remote, snap, dbUpdateChan, scanChan)
+	} else {
+		f.handleSymlink(remote, snap, dbUpdateChan, scanChan)
+	}
+
+	select {
+	case <-dbUpdateChan: // boring case sensitive filesystem
+		return
+	case <-scanChan:
+		t.Error("no need to scan anything here")
+	default:
+	}
+	if errStr, ok := f.tempPullErrors[remote.Name]; !ok {
+		t.Error("missing error for", remote.Name)
+	} else if !strings.Contains(errStr, "differs from name") {
+		t.Error("unexpected error", errStr, "for", remote.Name)
 	}
 }
 

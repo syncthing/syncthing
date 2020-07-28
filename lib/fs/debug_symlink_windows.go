@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package osutil
+package fs
 
 import (
 	"os"
@@ -17,7 +17,10 @@ import (
 // This is not and should not be used in Syncthing code, hence the
 // cumbersome name to make it obvious if this ever leaks. Nonetheless it's
 // useful in tests.
-func DebugSymlinkForTestsOnly(oldname, newname string) error {
+func DebugSymlinkForTestsOnly(oldFs, newFS Filesystem, oldname, newname string) error {
+	oldname = filepath.Join(oldFs.URI(), oldname)
+	newname = filepath.Join(newFS.URI(), newname)
+
 	// CreateSymbolicLink is not supported before Windows Vista
 	if syscall.LoadCreateSymbolicLink() != nil {
 		return &os.LinkError{"symlink", oldname, newname, syscall.EWINDOWS}

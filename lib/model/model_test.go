@@ -270,17 +270,15 @@ func BenchmarkRequestOut(b *testing.B) {
 }
 
 func BenchmarkRequestInSingleFile(b *testing.B) {
-	testOs := &fatalOs{b}
-
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
 
 	buf := make([]byte, 128<<10)
 	rand.Read(buf)
-	testOs.RemoveAll("testdata/request")
-	defer testOs.RemoveAll("testdata/request")
-	testOs.MkdirAll("testdata/request/for/a/file/in/a/couple/of/dirs", 0755)
-	ioutil.WriteFile("testdata/request/for/a/file/in/a/couple/of/dirs/128k", buf, 0644)
+	mustRemove(b, defaultFs.RemoveAll("request"))
+	defer func() { mustRemove(b, defaultFs.RemoveAll("request")) }()
+	must(b, defaultFs.MkdirAll("request/for/a/file/in/a/couple/of/dirs", 0755))
+	writeFile(defaultFs, "request/for/a/file/in/a/couple/of/dirs/128k", buf, 0644)
 
 	b.ResetTimer()
 
@@ -294,13 +292,11 @@ func BenchmarkRequestInSingleFile(b *testing.B) {
 }
 
 func TestDeviceRename(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	hello := protocol.HelloResult{
 		ClientName:    "syncthing",
 		ClientVersion: "v0.9.4",
 	}
-	defer testOs.Remove("testdata/tmpconfig.xml")
+	defer func() { mustRemove(t, defaultFs.Remove("tmpconfig.xml")) }()
 
 	rawCfg := config.New(device1)
 	rawCfg.Devices = []config.DeviceConfiguration{
@@ -1447,12 +1443,10 @@ func changeIgnores(t *testing.T, m *model, expected []string) {
 }
 
 func TestIgnores(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	// Assure a clean start state
-	testOs.RemoveAll(filepath.Join("testdata", config.DefaultMarkerName))
-	testOs.MkdirAll(filepath.Join("testdata", config.DefaultMarkerName), 0644)
-	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
+	mustRemove(t, defaultFs.RemoveAll(config.DefaultMarkerName))
+	mustRemove(t, defaultFs.MkdirAll(config.DefaultMarkerName, 0644))
+	writeFile(defaultFs, ".stignore", []byte(".*\nquux\n"), 0644)
 
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
@@ -1504,18 +1498,16 @@ func TestIgnores(t *testing.T) {
 
 	// Make sure no .stignore file is considered valid
 	defer func() {
-		testOs.Rename("testdata/.stignore.bak", "testdata/.stignore")
+		must(t, defaultFs.Rename(".stignore.bak", ".stignore"))
 	}()
-	testOs.Rename("testdata/.stignore", "testdata/.stignore.bak")
+	must(t, defaultFs.Rename(".stignore", ".stignore.bak"))
 	changeIgnores(t, m, []string{})
 }
 
 func TestEmptyIgnores(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	// Assure a clean start state
-	testOs.RemoveAll(filepath.Join("testdata", config.DefaultMarkerName))
-	testOs.MkdirAll(filepath.Join("testdata", config.DefaultMarkerName), 0644)
+	mustRemove(t, defaultFs.RemoveAll(config.DefaultMarkerName))
+	must(t, defaultFs.MkdirAll(config.DefaultMarkerName, 0644))
 
 	m := setupModel(defaultCfgWrapper)
 	defer cleanupModel(m)
@@ -2117,14 +2109,14 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 }
 
 func TestIssue3028(t *testing.T) {
-	testOs := &fatalOs{t}
-
 	// Create two files that we'll delete, one with a name that is a prefix of the other.
 
-	must(t, ioutil.WriteFile("testdata/testrm", []byte("Hello"), 0644))
-	defer testOs.Remove("testdata/testrm")
-	must(t, ioutil.WriteFile("testdata/testrm2", []byte("Hello"), 0644))
-	defer testOs.Remove("testdata/testrm2")
+	must(t, writeFile(defaultFs, "testrm", []byte("Hello"), 0644))
+	must(t, writeFile(defaultFs, "testrm2", []byte("Hello"), 0644))
+	defer func() {
+		mustRemove(t, defaultFs.Remove("testrm"))
+		mustRemove(t, defaultFs.Remove("testrm2"))
+	}()
 
 	// Create a model and default folder
 
@@ -2138,8 +2130,8 @@ func TestIssue3028(t *testing.T) {
 
 	// Delete and rescan specifically these two
 
-	testOs.Remove("testdata/testrm")
-	testOs.Remove("testdata/testrm2")
+	must(t, defaultFs.Remove("testrm"))
+	must(t, defaultFs.Remove("testrm2"))
 	m.ScanFolderSubdirs("default", []string{"testrm", "testrm2"})
 
 	// Verify that the number of files decreased by two and the number of
@@ -2601,7 +2593,7 @@ func TestIssue2571(t *testing.T) {
 
 	must(t, testFs.RemoveAll("toLink"))
 
-	must(t, osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "linkTarget"), filepath.Join(testFs.URI(), "toLink")))
+	must(t, fs.DebugSymlinkForTestsOnly(testFs, testFs, "linkTarget", "toLink"))
 
 	m.ScanFolder("default")
 
@@ -2718,13 +2710,10 @@ func TestCustomMarkerName(t *testing.T) {
 		{Name: "dummyfile"},
 	})
 
-	fcfg := config.FolderConfiguration{
-		ID:              "default",
-		Path:            "rwtestfolder",
-		Type:            config.FolderTypeSendReceive,
-		RescanIntervalS: 1,
-		MarkerName:      "myfile",
-	}
+	fcfg := testFolderConfigTmp()
+	fcfg.ID = "default"
+	fcfg.RescanIntervalS = 1
+	fcfg.MarkerName = "myfile"
 	cfg := createTmpWrapper(config.Configuration{
 		Folders: []config.FolderConfiguration{fcfg},
 		Devices: []config.DeviceConfiguration{
@@ -2735,13 +2724,12 @@ func TestCustomMarkerName(t *testing.T) {
 	})
 
 	testOs.RemoveAll(fcfg.Path)
-	defer testOs.RemoveAll(fcfg.Path)
 
 	m := newModel(cfg, myID, "syncthing", "dev", ldb, nil)
 	sub := m.evLogger.Subscribe(events.StateChanged)
 	defer sub.Unsubscribe()
 	m.ServeBackground()
-	defer cleanupModel(m)
+	defer cleanupModelAndRemoveDir(m, fcfg.Path)
 
 	waitForState(t, sub, "default", "folder path missing")
 
@@ -3804,6 +3792,57 @@ func TestBlockListMap(t *testing.T) {
 	if !equalStringsInAnyOrder(paths, expected) {
 		t.Errorf("expected %q got %q", expected, paths)
 	}
+}
+
+func TestScanRenameCaseOnly(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	m := setupModel(wcfg)
+	defer cleanupModel(m)
+
+	ffs := fcfg.Filesystem()
+	name := "foo"
+	must(t, writeFile(ffs, name, []byte("contents"), 0644))
+
+	m.ScanFolders()
+
+	snap := dbSnapshot(t, m, fcfg.ID)
+	defer snap.Release()
+	found := false
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
+		if found {
+			t.Fatal("got more than one file")
+		}
+		if i.FileName() != name {
+			t.Fatalf("got file %v, expected %v", i.FileName(), name)
+		}
+		found = true
+		return true
+	})
+	snap.Release()
+
+	upper := strings.ToUpper(name)
+	must(t, ffs.Rename(name, upper))
+	m.ScanFolders()
+
+	snap = dbSnapshot(t, m, fcfg.ID)
+	defer snap.Release()
+	found = false
+	snap.WithHave(protocol.LocalDeviceID, func(i protocol.FileIntf) bool {
+		if i.FileName() == name {
+			if i.IsDeleted() {
+				return true
+			}
+			t.Fatal("renamed file not deleted")
+		}
+		if i.FileName() != upper {
+			t.Fatalf("got file %v, expected %v", i.FileName(), upper)
+		}
+		if found {
+			t.Fatal("got more than the expected files")
+		}
+		found = true
+		return true
+	})
 }
 
 func TestConnectionTerminationOnFolderAdd(t *testing.T) {

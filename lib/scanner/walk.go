@@ -540,6 +540,10 @@ func (w *walker) handleError(ctx context.Context, context, path string, err erro
 	}
 }
 
+func (w *walker) String() string {
+	return fmt.Sprintf("walker/%s@%p", w.Folder, w)
+}
+
 // A byteCounter gets bytes added to it via Update() and then provides the
 // Total() and one minute moving average Rate() in bytes per second.
 type byteCounter struct {
