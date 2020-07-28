@@ -497,7 +497,7 @@ func checkGlobalsFilterDevices(dk, folder, name []byte, devices [][]byte, vl *Ve
 		if err != nil {
 			return false, err
 		}
-		f, ok, err := t.getFileTrunc(dk, true)
+		f, ok, err := t.getFileTrunc(dk, false)
 		if err != nil {
 			return false, err
 		}
