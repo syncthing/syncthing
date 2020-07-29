@@ -3943,6 +3943,47 @@ func TestAddFolderCompletion(t *testing.T) {
 	}
 }
 
+func TestScanDeletedROChangedOnSR(t *testing.T) {
+	w, fcfg := tmpDefaultWrapper()
+	fcfg.Type = config.FolderTypeReceiveOnly
+	waiter, _ := w.SetFolder(fcfg)
+	waiter.Wait()
+	m := setupModel(w)
+	defer cleanupModel(m)
+	name := "foo"
+	ffs := fcfg.Filesystem()
+
+	must(t, writeFile(ffs, name, []byte(name), 0644))
+	m.ScanFolders()
+
+	file, ok := m.CurrentFolderFile(fcfg.ID, name)
+	if !ok {
+		t.Fatal("file missing in db")
+	}
+	// A remote must have the file, otherwise the deletion below is
+	// automatically resolved as not a ro-changed item.
+	m.IndexUpdate(device1, fcfg.ID, []protocol.FileInfo{file})
+
+	must(t, ffs.Remove(name))
+	m.ScanFolders()
+
+	if receiveOnlyChangedSize(t, m, fcfg.ID).Deleted != 1 {
+		t.Fatal("expected one receive only changed deleted item")
+	}
+
+	fcfg.Type = config.FolderTypeSendReceive
+	waiter, _ = w.SetFolder(fcfg)
+	waiter.Wait()
+	m.ScanFolders()
+
+	if receiveOnlyChangedSize(t, m, fcfg.ID).Deleted != 0 {
+		t.Fatal("expected no receive only changed deleted item")
+	}
+	if localSize(t, m, fcfg.ID).Deleted != 1 {
+		t.Fatal("expected one local deleted item")
+	}
+}
+
 func testConfigChangeClosesConnections(t *testing.T, expectFirstClosed, expectSecondClosed bool, pre func(config.Wrapper), fn func(config.Wrapper)) {
 	t.Helper()
 	wcfg, _ := tmpDefaultWrapper()

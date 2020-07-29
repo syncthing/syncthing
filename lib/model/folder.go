@@ -557,6 +557,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			}
 
 			switch ignored := f.ignores.Match(file.Name).IsIgnored(); {
+			case file.IsIgnored() && ignored:
+				return true
 			case !file.IsIgnored() && ignored:
 				// File was not ignored at last pass but has been ignored.
 				if file.IsDirectory() {
@@ -600,23 +602,24 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 					// sure the file gets in sync on the following pull.
 					nf.Version = protocol.Vector{}
 				}
-
+				// Check for deleted, locally changed items that noone else has.
+				if f.localFlags&protocol.FlagLocalReceiveOnly != 0 && len(snap.Availability(file.Name)) == 0 {
+					file.LocalFlags &^= protocol.FlagLocalReceiveOnly
+				}
 				batchAppend(nf, snap)
 				changes++
+			case file.IsDeleted() && file.IsReceiveOnlyChanged() && f.localFlags&protocol.FlagLocalReceiveOnly != 0 && len(snap.Availability(file.Name)) == 0:
+				file.Version = protocol.Vector{}
+				file.LocalFlags &^= protocol.FlagLocalReceiveOnly
+				batchAppend(file.ConvertDeletedToFileInfo(), snap)
+				changes++
+			case file.IsDeleted() && file.LocalFlags != f.localFlags:
+				// No need to bump the version for a file that was
+				// and is deleted and just the local flags changed.
+				file.LocalFlags = f.localFlags
+				batchAppend(file.ConvertDeletedToFileInfo(), snap)
+				changes++
 			}
-
-			// Check for deleted, locally changed items that noone else has.
-			if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
-				return true
-			}
-			if !fi.IsDeleted() || !fi.IsReceiveOnlyChanged() || len(snap.Availability(fi.FileName())) > 0 {
-				return true
-			}
-			nf := fi.(db.FileInfoTruncated).ConvertDeletedToFileInfo()
-			nf.LocalFlags = 0
-			nf.Version = protocol.Vector{}
-			batchAppend(nf, snap)
-			changes++
 
 			return true
 		})
