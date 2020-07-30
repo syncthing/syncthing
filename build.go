@@ -297,10 +297,10 @@ func runCommand(cmd string, target target) {
 		build(target, tags)
 
 	case "test":
-		test("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
+		test(strings.Fields(extraTags), "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "bench":
-		bench("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
+		bench(strings.Fields(extraTags), "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "integration":
 		integration(false)
@@ -379,10 +379,11 @@ func parseFlags() {
 	flag.Parse()
 }
 
-func test(pkgs ...string) {
+func test(tags []string, pkgs ...string) {
 	lazyRebuildAssets()
 
-	args := []string{"test", "-short", "-timeout", timeout, "-tags", "purego"}
+	tags = append(tags, "purego")
+	args := []string{"test", "-short", "-timeout", timeout, "-tags", strings.Join(tags, " ")}
 
 	if runtime.GOARCH == "amd64" {
 		switch runtime.GOOS {
@@ -400,9 +401,9 @@ func test(pkgs ...string) {
 	runPrint(goCmd, append(args, pkgs...)...)
 }
 
-func bench(pkgs ...string) {
+func bench(tags []string, pkgs ...string) {
 	lazyRebuildAssets()
-	args := append([]string{"test", "-run", "NONE"}, benchArgs()...)
+	args := append([]string{"test", "-run", "NONE", "-tags", strings.Join(tags, " ")}, benchArgs()...)
 	runPrint(goCmd, append(args, pkgs...)...)
 }
 
@@ -526,7 +527,7 @@ func appendParameters(args []string, tags []string, pkgs ...string) []string {
 
 	if !debugBinary {
 		// Regular binaries get version tagged and skip some debug symbols
-		args = append(args, "-ldflags", ldflags())
+		args = append(args, "-ldflags", ldflags(tags))
 	} else {
 		// -gcflags to disable optimizations and inlining. Skip -ldflags
 		// because `Could not launch program: decoding dwarf section info at
@@ -829,13 +830,14 @@ func transifex() {
 	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
 }
 
-func ldflags() string {
+func ldflags(tags []string) string {
 	b := new(strings.Builder)
 	b.WriteString("-w")
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version=%s", version)
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp=%d", buildStamp())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User=%s", buildUser())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host=%s", buildHost())
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Tags=%s", strings.Join(tags, ","))
 	if v := os.Getenv("EXTRA_LDFLAGS"); v != "" {
 		fmt.Fprintf(b, " %s", v)
 	}
