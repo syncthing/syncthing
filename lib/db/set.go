@@ -288,9 +288,7 @@ func (s *Snapshot) ReceiveOnlyChangedSize() Counts {
 }
 
 func (s *Snapshot) GlobalSize() Counts {
-	global := s.meta.Counts(protocol.GlobalDeviceID, 0)
-	recvOnlyChanged := s.meta.Counts(protocol.GlobalDeviceID, protocol.FlagLocalReceiveOnly)
-	return global.Add(recvOnlyChanged)
+	return s.meta.Counts(protocol.GlobalDeviceID, 0)
 }
 
 func (s *Snapshot) NeedSize(device protocol.DeviceID) Counts {

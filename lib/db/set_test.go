@@ -1720,8 +1720,8 @@ func TestIgnoreLocalChanged(t *testing.T) {
 	}
 	s.Update(protocol.LocalDeviceID, files)
 
-	if c := globalSize(s).Files; c != 1 {
-		t.Error("Expected one global file, got", c)
+	if c := globalSize(s).Files; c != 0 {
+		t.Error("Expected no global file, got", c)
 	}
 	if c := localSize(s).Files; c != 1 {
 		t.Error("Expected one local file, got", c)

@@ -46,11 +46,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	m.Index(device1, "ro", knownFiles)
 	f.updateLocalsFromScanning(knownFiles)
 
-	m.fmut.RLock()
-	snap := m.folderFiles["ro"].Snapshot()
-	m.fmut.RUnlock()
-	size := snap.GlobalSize()
-	snap.Release()
+	size := globalSize(t, m, "ro")
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
@@ -59,10 +55,10 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	must(t, m.ScanFolder("ro"))
 
-	// We should now have two files and two directories.
+	// We should now have two files and two directories, with global state unchanged.
 
 	size = globalSize(t, m, "ro")
-	if size.Files != 2 || size.Directories != 2 {
+	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 2 files and 2 directories: %+v", size)
 	}
 	size = localSize(t, m, "ro")
