@@ -12,6 +12,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ var (
 	Host    = "unknown"
 	User    = "unknown"
 	Stamp   = "0"
+	Tags    = ""
 
 	// Static
 	Codename = "Fermium Flea"
@@ -33,9 +35,6 @@ var (
 	IsCandidate bool
 	IsBeta      bool
 	LongVersion string
-
-	// Set by Go build tags
-	Tags []string
 
 	allowedVersionExp = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\.\d+)*(\+\d+-g[0-9a-f]+)?(-[^\s]+)?$`)
 
@@ -88,13 +87,19 @@ func LongVersionFor(program string) string {
 	// This string and date format is essentially part of our external API. Never change it.
 	date := Date.UTC().Format("2006-01-02 15:04:05 MST")
 	v := fmt.Sprintf(`%s %s "%s" (%s %s-%s) %s@%s %s`, program, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, User, Host, date)
+
+	tags := strings.Split(Tags, ",")
+	if len(tags) == 1 && tags[0] == "" {
+		tags = tags[:0]
+	}
 	for _, envVar := range envTags {
 		if os.Getenv(envVar) != "" {
-			Tags = append(Tags, strings.ToLower(envVar))
+			tags = append(tags, strings.ToLower(envVar))
 		}
 	}
-	if len(Tags) > 0 {
-		v = fmt.Sprintf("%s [%s]", v, strings.Join(Tags, ", "))
+	if len(tags) > 0 {
+		sort.Strings(tags)
+		v = fmt.Sprintf("%s [%s]", v, strings.Join(tags, ", "))
 	}
 	return v
 }

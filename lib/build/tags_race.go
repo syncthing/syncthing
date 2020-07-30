@@ -9,5 +9,9 @@
 package build
 
 func init() {
-	Tags = append(Tags, "race")
+	if Tags == "" {
+		Tags = "race"
+	} else {
+		Tags = Tags + ",race"
+	}
 }
