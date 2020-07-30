@@ -149,7 +149,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 	// If the certificate has expired or will expire in the next month, fail
 	// it and generate a new one.
 	if err == nil {
-		err = checkExpiry(cert)
+		err = shouldRegenerateCertificate(cert)
 	}
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
@@ -1736,7 +1736,11 @@ func addressIsLocalhost(addr string) bool {
 	}
 }
 
-func checkExpiry(cert tls.Certificate) error {
+// shouldRegenerateCertificate checks for certificate expiry or other known
+// issues with our API/GUI certificate and returns either nil (leave the
+// certificate alone) or an error describing the reason the certificate
+// should be regenerated.
+func shouldRegenerateCertificate(cert tls.Certificate) error {
 	leaf := cert.Leaf
 	if leaf == nil {
 		// Leaf can be nil or not, depending on how parsed the certificate
