@@ -1752,10 +1752,19 @@ func checkExpiry(cert tls.Certificate) error {
 		}
 	}
 
-	if leaf.Subject.String() != leaf.Issuer.String() ||
-		len(leaf.DNSNames) != 0 || len(leaf.IPAddresses) != 0 {
-		// The certificate is not self signed, or has DNS/IP attributes we don't
+	if leaf.Subject.String() != leaf.Issuer.String() || len(leaf.IPAddresses) != 0 {
+		// The certificate is not self signed, or has IP attributes we don't
 		// add, so we leave it alone.
+		return nil
+	}
+	if len(leaf.DNSNames) > 1 {
+		// The certificate has more DNS SANs attributes than we ever add, so
+		// we leave it alone.
+		return nil
+	}
+	if len(leaf.DNSNames) == 1 && leaf.DNSNames[0] != leaf.Issuer.CommonName {
+		// The one SAN is different from the issuer, so it's not one of our
+		// newer self signed certificates.
 		return nil
 	}
 
