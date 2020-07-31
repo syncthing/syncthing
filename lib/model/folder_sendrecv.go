@@ -166,20 +166,6 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 // pull returns true if it manages to get all needed items from peers, i.e. get
 // the device in sync with the global state.
 func (f *sendReceiveFolder) pull() bool {
-	// Check if the ignore patterns changed.
-	oldHash := f.ignores.Hash()
-	defer func() {
-		if f.ignores.Hash() != oldHash {
-			f.ignoresUpdated()
-		}
-	}()
-	err := f.getHealthErrorAndLoadIgnores()
-	f.setError(err)
-	if err != nil {
-		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-		return false
-	}
-
 	l.Debugf("%v pulling", f)
 
 	scanChan := make(chan string)
