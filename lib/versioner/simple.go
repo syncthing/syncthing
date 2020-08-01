@@ -22,6 +22,7 @@ func init() {
 
 type simple struct {
 	keep            int
+	cleanOutDays    int
 	folderFs        fs.Filesystem
 	versionsFs      fs.Filesystem
 	copyRangeMethod fs.CopyRangeMethod
