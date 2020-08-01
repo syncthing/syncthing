@@ -456,7 +456,7 @@
                         </div>
                       </td>
                     </tr>
-                    <tr ng-if="folder.order != 'random'">
+                    <tr ng-if="folder.order != 'random' && folder.type != 'sendonly'">
                       <th><span class="fas fa-fw fa-sort"></span>&nbsp;<span translate>File Pull Order</span></th>
                       <td class="text-right" ng-switch="folder.order">
                         <span ng-switch-when="random" translate>Random</span>
