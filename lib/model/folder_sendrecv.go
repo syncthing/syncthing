@@ -1312,10 +1312,10 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					if err != nil {
 						return false
 					}
+					defer fd.Close()
 
 					srcOffset := int64(state.file.BlockSize()) * int64(index)
 					_, err = fd.ReadAt(buf, srcOffset)
-					fd.Close()
 					if err != nil {
 						return false
 					}
