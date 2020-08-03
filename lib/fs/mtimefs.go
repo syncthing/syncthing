@@ -130,7 +130,7 @@ func (f *MtimeFS) Create(name string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &mtimeFile{fd, f}, nil
+	return mtimeFile{fd, f}, nil
 }
 
 func (f *MtimeFS) Open(name string) (File, error) {
@@ -138,7 +138,7 @@ func (f *MtimeFS) Open(name string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &mtimeFile{fd, f}, nil
+	return mtimeFile{fd, f}, nil
 }
 
 func (f *MtimeFS) OpenFile(name string, flags int, mode FileMode) (File, error) {
@@ -146,7 +146,7 @@ func (f *MtimeFS) OpenFile(name string, flags int, mode FileMode) (File, error) 
 	if err != nil {
 		return nil, err
 	}
-	return &mtimeFile{fd, f}, nil
+	return mtimeFile{fd, f}, nil
 }
 
 // "real" is the on disk timestamp
@@ -208,7 +208,7 @@ type mtimeFile struct {
 	fs *MtimeFS
 }
 
-func (f *mtimeFile) Stat() (FileInfo, error) {
+func (f mtimeFile) Stat() (FileInfo, error) {
 	info, err := f.File.Stat()
 	if err != nil {
 		return nil, err

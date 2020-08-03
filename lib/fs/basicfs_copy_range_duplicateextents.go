@@ -62,7 +62,9 @@ func copyRangeDuplicateExtents(src, dst basicFile, srcOffset, dstOffset, size in
 
 	// Clone first xGiB region.
 	for size > GiB {
-		err = callDuplicateExtentsToFile(src.Fd(), dst.Fd(), srcOffset, dstOffset, GiB)
+		_, err := withFileDescriptors(src, dst, func(srcFd, dstFd uintptr) (int, error) {
+			return 0, callDuplicateExtentsToFile(srcFd, dstFd, srcOffset, dstOffset, GiB)
+		})
 		if err != nil {
 			return wrapError(err)
 		}
@@ -73,7 +75,9 @@ func copyRangeDuplicateExtents(src, dst basicFile, srcOffset, dstOffset, size in
 
 	// Clone tail. First try with 64KiB round up, then fallback to 4KiB.
 	for _, cloneRegionSize := range availableClusterSize {
-		err = callDuplicateExtentsToFile(src.Fd(), dst.Fd(), srcOffset, dstOffset, roundUp(size, cloneRegionSize))
+		_, err := withFileDescriptors(src, dst, func(srcFd, dstFd uintptr) (int, error) {
+			return 0, callDuplicateExtentsToFile(srcFd, dstFd, srcOffset, dstOffset, roundUp(size, cloneRegionSize))
+		})
 		if err != nil {
 			continue
 		}

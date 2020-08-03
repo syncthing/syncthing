@@ -51,7 +51,9 @@ func copyRangeSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) err
 		// following the last byte that was read. If offset is not NULL, then sendfile() does not modify the current
 		// file offset of in_fd; otherwise the current file offset is adjusted to reflect the number of bytes read from
 		// in_fd.
-		n, err := syscall.Sendfile(int(dst.Fd()), int(src.Fd()), &srcOffset, int(size))
+		n, err := withFileDescriptors(dst, src, func (dstFd, srcFd uintptr) (int, error) {
+			return syscall.Sendfile(int(dstFd), int(srcFd), &srcOffset, int(size))
+		})
 		if n == 0 && err == nil {
 			err = io.ErrUnexpectedEOF
 		}
