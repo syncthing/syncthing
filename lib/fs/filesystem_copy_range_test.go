@@ -124,11 +124,12 @@ var (
 			copySize:                 defaultCopySize * 10,
 			// ioctl returns syscall.EINVAL, rest are wrapped
 			expectedErrors: map[CopyRangeMethod]error{
-				CopyRangeMethodIoctl:           syscall.EINVAL,
-				CopyRangeMethodStandard:        io.ErrUnexpectedEOF,
-				CopyRangeMethodCopyFileRange:   io.ErrUnexpectedEOF,
-				CopyRangeMethodSendFile:        io.ErrUnexpectedEOF,
-				CopyRangeMethodAllWithFallback: io.ErrUnexpectedEOF,
+				CopyRangeMethodIoctl:            syscall.EINVAL,
+				CopyRangeMethodStandard:         io.ErrUnexpectedEOF,
+				CopyRangeMethodCopyFileRange:    io.ErrUnexpectedEOF,
+				CopyRangeMethodSendFile:         io.ErrUnexpectedEOF,
+				CopyRangeMethodAllWithFallback:  io.ErrUnexpectedEOF,
+				CopyRangeMethodDuplicateExtents: io.ErrUnexpectedEOF,
 			},
 		},
 		// Non block sized file

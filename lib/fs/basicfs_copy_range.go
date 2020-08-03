@@ -43,7 +43,7 @@ func withFileDescriptors(first, second basicFile, fn func(first, second uintptr)
 	var n int
 	var ferr, serr, fnerr error
 	ferr = fc.Control(func(first uintptr) {
-		serr = sc.Control(func (second uintptr) {
+		serr = sc.Control(func(second uintptr) {
 			n, fnerr = fn(first, second)
 		})
 	})
