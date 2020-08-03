@@ -29,7 +29,7 @@ func copyRangeCopyFileRange(src, dst basicFile, srcOffset, dstOffset, size int64
 		// appropriately.
 		//
 		// Also, even if explicitly not stated, the same is true for dstOffset
-		n, err := withFileDescriptors(src, dst, func (srcFd, dstFd) error {
+		n, err := withFileDescriptors(src, dst, func (srcFd, dstFd uintptr) (int, error) {
 			return unix.CopyFileRange(int(srcFd), &srcOffset, int(dstFd), &dstOffset, int(size), 0)
 		})
 		if n == 0 && err == nil {
