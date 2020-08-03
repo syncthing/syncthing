@@ -202,94 +202,100 @@ func TestHandleFileWithTemp(t *testing.T) {
 }
 
 func TestCopierFinder(t *testing.T) {
-	// After diff between required and existing we should:
-	// Copy: 1, 2, 3, 4, 6, 7, 8
-	// Since there is no existing file, nor a temp file
+	for _, method := range []fs.CopyRangeMethod{fs.CopyRangeMethodStandard, fs.CopyRangeMethodAllWithFallback} {
+		t.Run(method.String(), func(t *testing.T) {
+			// After diff between required and existing we should:
+			// Copy: 1, 2, 3, 4, 6, 7, 8
+			// Since there is no existing file, nor a temp file
 
-	// After dropping out blocks found locally:
-	// Pull: 1, 5, 6, 8
+			// After dropping out blocks found locally:
+			// Pull: 1, 5, 6, 8
 
-	tempFile := fs.TempName("file2")
+			tempFile := fs.TempName("file2")
 
-	existingBlocks := []int{0, 2, 3, 4, 0, 0, 7, 0}
-	existingFile := setupFile(fs.TempName("file"), existingBlocks)
-	existingFile.Size = 1
-	requiredFile := existingFile
-	requiredFile.Blocks = blocks[1:]
-	requiredFile.Name = "file2"
+			existingBlocks := []int{0, 2, 3, 4, 0, 0, 7, 0}
+			existingFile := setupFile(fs.TempName("file"), existingBlocks)
+			existingFile.Size = 1
+			requiredFile := existingFile
+			requiredFile.Blocks = blocks[1:]
+			requiredFile.Name = "file2"
 
-	m, f := setupSendReceiveFolder(existingFile)
-	defer cleanupSRFolder(f, m)
+			m, f := setupSendReceiveFolder(existingFile)
+			f.CopyRangeMethod = method
 
-	if _, err := prepareTmpFile(f.Filesystem()); err != nil {
-		t.Fatal(err)
-	}
+			defer cleanupSRFolder(f, m)
 
-	copyChan := make(chan copyBlocksState)
-	pullChan := make(chan pullBlockState, 4)
-	finisherChan := make(chan *sharedPullerState, 1)
-
-	// Run a single fetcher routine
-	go f.copierRoutine(copyChan, pullChan, finisherChan)
-	defer close(copyChan)
-
-	f.handleFile(requiredFile, f.fset.Snapshot(), copyChan)
-
-	timeout := time.After(10 * time.Second)
-	pulls := make([]pullBlockState, 4)
-	for i := 0; i < 4; i++ {
-		select {
-		case pulls[i] = <-pullChan:
-		case <-timeout:
-			t.Fatalf("Timed out before receiving all 4 states on pullChan (already got %v)", i)
-		}
-	}
-	var finish *sharedPullerState
-	select {
-	case finish = <-finisherChan:
-	case <-timeout:
-		t.Fatal("Timed out before receiving 4 states on pullChan")
-	}
-
-	defer cleanupSharedPullerState(finish)
-
-	select {
-	case <-pullChan:
-		t.Fatal("Pull channel has data to be read")
-	case <-finisherChan:
-		t.Fatal("Finisher channel has data to be read")
-	default:
-	}
-
-	// Verify that the right blocks went into the pull list.
-	// They are pulled in random order.
-	for _, idx := range []int{1, 5, 6, 8} {
-		found := false
-		block := blocks[idx]
-		for _, pulledBlock := range pulls {
-			if string(pulledBlock.block.Hash) == string(block.Hash) {
-				found = true
-				break
+			if _, err := prepareTmpFile(f.Filesystem()); err != nil {
+				t.Fatal(err)
 			}
-		}
-		if !found {
-			t.Errorf("Did not find block %s", block.String())
-		}
-		if string(finish.file.Blocks[idx-1].Hash) != string(blocks[idx].Hash) {
-			t.Errorf("Block %d mismatch: %s != %s", idx, finish.file.Blocks[idx-1].String(), blocks[idx].String())
-		}
-	}
 
-	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(context.TODO(), f.Filesystem(), tempFile, protocol.MinBlockSize, nil, false)
-	if err != nil {
-		t.Log(err)
-	}
+			copyChan := make(chan copyBlocksState)
+			pullChan := make(chan pullBlockState, 4)
+			finisherChan := make(chan *sharedPullerState, 1)
 
-	for _, eq := range []int{2, 3, 4, 7} {
-		if string(blks[eq-1].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block %d mismatch: %s != %s", eq, blks[eq-1].String(), blocks[eq].String())
-		}
+			// Run a single fetcher routine
+			go f.copierRoutine(copyChan, pullChan, finisherChan)
+			defer close(copyChan)
+
+			f.handleFile(requiredFile, f.fset.Snapshot(), copyChan)
+
+			timeout := time.After(10 * time.Second)
+			pulls := make([]pullBlockState, 4)
+			for i := 0; i < 4; i++ {
+				select {
+				case pulls[i] = <-pullChan:
+				case <-timeout:
+					t.Fatalf("Timed out before receiving all 4 states on pullChan (already got %v)", i)
+				}
+			}
+			var finish *sharedPullerState
+			select {
+			case finish = <-finisherChan:
+			case <-timeout:
+				t.Fatal("Timed out before receiving 4 states on pullChan")
+			}
+
+			defer cleanupSharedPullerState(finish)
+
+			select {
+			case <-pullChan:
+				t.Fatal("Pull channel has data to be read")
+			case <-finisherChan:
+				t.Fatal("Finisher channel has data to be read")
+			default:
+			}
+
+			// Verify that the right blocks went into the pull list.
+			// They are pulled in random order.
+			for _, idx := range []int{1, 5, 6, 8} {
+				found := false
+				block := blocks[idx]
+				for _, pulledBlock := range pulls {
+					if string(pulledBlock.block.Hash) == string(block.Hash) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Did not find block %s", block.String())
+				}
+				if string(finish.file.Blocks[idx-1].Hash) != string(blocks[idx].Hash) {
+					t.Errorf("Block %d mismatch: %s != %s", idx, finish.file.Blocks[idx-1].String(), blocks[idx].String())
+				}
+			}
+
+			// Verify that the fetched blocks have actually been written to the temp file
+			blks, err := scanner.HashFile(context.TODO(), f.Filesystem(), tempFile, protocol.MinBlockSize, nil, false)
+			if err != nil {
+				t.Log(err)
+			}
+
+			for _, eq := range []int{2, 3, 4, 7} {
+				if string(blks[eq-1].Hash) != string(blocks[eq].Hash) {
+					t.Errorf("Block %d mismatch: %s != %s", eq, blks[eq-1].String(), blocks[eq].String())
+				}
+			}
+		})
 	}
 }
 
