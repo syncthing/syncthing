@@ -51,26 +51,36 @@ func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error 
 
 	if srcOffset == 0 && dstOffset == 0 && size == 0 {
 		// Optimization for whole file copies.
-		_, errNo = withFileDescriptors(src, dst, func(srcFd, dstFd uintptr) (int, error) {
-			_, _, errNo := syscall.Syscall(syscall.SYS_IOCTL, dstFd, FICLONE, srcFd)
-			return 0, errNo
+		var errNo syscall.Errno
+		_, err := withFileDescriptors(src, dst, func(srcFd, dstFd uintptr) (int, error) {
+			_, _, errNo = syscall.Syscall(syscall.SYS_IOCTL, dstFd, FICLONE, srcFd)
+			return 0, nil
 		})
+		// Failure in withFileDescriptors
+		if err != nil {
+			return err
+		}
 		if errNo != 0 {
 			return errNo
 		}
 		return nil
 	}
 
-	_, errNo = withFileDescriptors(src, dst, func(srcFd, dstFd uintptr) (int, error) {
+	var errNo syscall.Errno
+	_, err = withFileDescriptors(src, dst, func(srcFd, dstFd uintptr) (int, error) {
 		params := fileCloneRange{
 			srcFd:     int64(srcFd),
 			srcOffset: uint64(srcOffset),
 			srcLength: uint64(size),
 			dstOffset: uint64(dstOffset),
 		}
-		_, _, errNo := syscall.Syscall(syscall.SYS_IOCTL, dstFd, FICLONERANGE, uintptr(unsafe.Pointer(&params)))
-		return 0, errNo
+		_, _, errNo = syscall.Syscall(syscall.SYS_IOCTL, dstFd, FICLONERANGE, uintptr(unsafe.Pointer(&params)))
+		return 0, nil
 	})
+	// Failure in withFileDescriptors
+	if err != nil {
+		return err
+	}
 	if errNo != 0 {
 		return errNo
 	}
