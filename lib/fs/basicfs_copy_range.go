@@ -54,4 +54,4 @@ func withFileDescriptors(first, second basicFile, fn func(first, second uintptr)
 		return n, serr
 	}
 	return n, fnerr
-})
+}
