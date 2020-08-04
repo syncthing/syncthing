@@ -202,7 +202,7 @@ func TestCopyRange(tttt *testing.T) {
 		if err != nil {
 			tttt.Fatal(err)
 		}
-		tttt.Cleanup(func() { os.RemoveAll(testPath) })
+		defer os.RemoveAll(testPath)
 		name := path
 		if name == "" {
 			name = "tmp"
@@ -218,7 +218,7 @@ func TestCopyRange(tttt *testing.T) {
 							if err != nil {
 								t.Fatal(err)
 							}
-							t.Cleanup(func() { os.RemoveAll(td) })
+							defer os.RemoveAll(td)
 
 							fs := NewFilesystem(FilesystemTypeBasic, td)
 
