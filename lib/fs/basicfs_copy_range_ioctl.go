@@ -9,6 +9,7 @@
 package fs
 
 import (
+	"io"
 	"syscall"
 	"unsafe"
 )
@@ -41,6 +42,10 @@ func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error 
 	fi, err := src.Stat()
 	if err != nil {
 		return err
+	}
+
+	if srcOffset+size > fi.Size() {
+		return io.ErrUnexpectedEOF
 	}
 
 	// https://www.man7.org/linux/man-pages/man2/ioctl_ficlonerange.2.html

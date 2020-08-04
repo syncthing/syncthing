@@ -125,7 +125,7 @@ var (
 			copySize:                 defaultCopySize * 10,
 			// ioctl returns syscall.EINVAL, rest are wrapped
 			expectedErrors: map[CopyRangeMethod]error{
-				CopyRangeMethodIoctl:            syscall.EINVAL,
+				CopyRangeMethodIoctl:            io.ErrUnexpectedEOF,
 				CopyRangeMethodStandard:         io.ErrUnexpectedEOF,
 				CopyRangeMethodCopyFileRange:    io.ErrUnexpectedEOF,
 				CopyRangeMethodSendFile:         io.ErrUnexpectedEOF,
