@@ -204,6 +204,7 @@ var (
 			expectedDstSizeAfterCopy: generationSize,
 			copySize:                 defaultCopySize + 1,
 			expectedErrors: map[CopyRangeMethod]error{
+				CopyRangeMethodIoctl:            syscall.EINVAL,
 				CopyRangeMethodDuplicateExtents: syscall.EINVAL,
 			},
 		},
