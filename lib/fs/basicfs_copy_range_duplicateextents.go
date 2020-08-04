@@ -9,6 +9,7 @@
 package fs
 
 import (
+	"io"
 	"syscall"
 	"unsafe"
 
@@ -46,13 +47,17 @@ type duplicateExtentsData struct {
 func copyRangeDuplicateExtents(src, dst basicFile, srcOffset, dstOffset, size int64) error {
 	var err error
 	// Check that the destination file has sufficient space
-	if fi, err := dst.Stat(); err != nil {
+	dstFi, err := dst.Stat()
+	if err != nil {
 		return err
-	} else if fi.Size() < dstOffset+size {
+	}
+	dstSize := dstFi.Size()
+	if dstSize < dstOffset+size {
 		// set file size. There is a requirements "The destination region must not extend past the end of file."
 		if err = dst.Truncate(dstOffset + size); err != nil {
 			return err
 		}
+		dstSize = dstOffset + size
 	}
 
 	// The source file has to be big enough
@@ -67,13 +72,19 @@ func copyRangeDuplicateExtents(src, dst basicFile, srcOffset, dstOffset, size in
 	// * cloneRegionSize less than 4GiB.
 	// see https://docs.microsoft.com/windows/win32/fileio/block-cloning
 
-	smallestClusterSize = availableClusterSize[len(availableClusterSize)-1]
+	smallestClusterSize := availableClusterSize[len(availableClusterSize)-1]
 
-	if srcOffset % smallestClusterSize != 0 || dstOffset % smallestClusterSize != 0 {
+	if srcOffset%smallestClusterSize != 0 || dstOffset%smallestClusterSize != 0 {
 		return syscall.EINVAL
 	}
-	// Seems we don't need to check the size, because each file gets allocated multiple of "clusterSize", so copying
-	// last 1 byte, copies the last "cluster", whatever it's size is.
+
+	// Each file gets allocated multiple of "clusterSize" blocks, yet file size determines how much of the last block
+	// is readable/visible.
+	// Copies only happen in block sized chunks, hence you can copy non block sized regions of data to a file, as long
+	// as the regions are copied at the end of the file where the block visibility is adjusted by the file size.
+	if size%smallestClusterSize != 0 && dstOffset+size != dstSize {
+		return syscall.EINVAL
+	}
 
 	// Clone first xGiB region.
 	for size > GiB {
