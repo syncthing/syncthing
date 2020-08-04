@@ -55,10 +55,25 @@ func copyRangeDuplicateExtents(src, dst basicFile, srcOffset, dstOffset, size in
 		}
 	}
 
+	// The source file has to be big enough
+	if fi, err := src.Stat(); err != nil {
+		return err
+	} else if fi.Size() < srcOffset+size {
+		return io.ErrUnexpectedEOF
+	}
+
 	// Requirement
 	// * The source and destination regions must begin and end at a cluster boundary. (4KiB or 64KiB)
 	// * cloneRegionSize less than 4GiB.
 	// see https://docs.microsoft.com/windows/win32/fileio/block-cloning
+
+	smallestClusterSize = availableClusterSize[len(availableClusterSize)-1]
+
+	if srcOffset % smallestClusterSize != 0 || dstOffset % smallestClusterSize != 0 {
+		return syscall.EINVAL
+	}
+	// Seems we don't need to check the size, because each file gets allocated multiple of "clusterSize", so copying
+	// last 1 byte, copies the last "cluster", whatever it's size is.
 
 	// Clone first xGiB region.
 	for size > GiB {
