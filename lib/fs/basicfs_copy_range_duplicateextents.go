@@ -62,7 +62,7 @@ func copyRangeDuplicateExtents(src, dst basicFile, srcOffset, dstOffset, size in
 
 	// Clone first xGiB region.
 	for size > GiB {
-		_, err := withFileDescriptors(src, dst, func(srcFd, dstFd uintptr) (int, error) {
+		_, err = withFileDescriptors(src, dst, func(srcFd, dstFd uintptr) (int, error) {
 			return 0, callDuplicateExtentsToFile(srcFd, dstFd, srcOffset, dstOffset, GiB)
 		})
 		if err != nil {
@@ -75,7 +75,7 @@ func copyRangeDuplicateExtents(src, dst basicFile, srcOffset, dstOffset, size in
 
 	// Clone tail. First try with 64KiB round up, then fallback to 4KiB.
 	for _, cloneRegionSize := range availableClusterSize {
-		_, err := withFileDescriptors(src, dst, func(srcFd, dstFd uintptr) (int, error) {
+		_, err = withFileDescriptors(src, dst, func(srcFd, dstFd uintptr) (int, error) {
 			return 0, callDuplicateExtentsToFile(srcFd, dstFd, srcOffset, dstOffset, roundUp(size, cloneRegionSize))
 		})
 		if err != nil {
@@ -98,7 +98,7 @@ func wrapError(err error) error {
 // see https://docs.microsoft.com/en-us/windows/win32/api/winioctl/ni-winioctl-fsctl_duplicate_extents_to_file
 //
 // memo: Overflow (cloneRegionSize is greater than file ends) is safe and just ignored by windows.
-func callDuplicateExtentsToFile(src, dst uintptr, srcOffset, dstOffset int64, cloneRegionSize int64) (err error) {
+func callDuplicateExtentsToFile(src, dst uintptr, srcOffset, dstOffset int64, cloneRegionSize int64) error {
 	var (
 		bytesReturned uint32
 		overlapped    windows.Overlapped

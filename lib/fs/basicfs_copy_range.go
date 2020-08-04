@@ -14,13 +14,8 @@ type copyRangeImplementationBasicFile func(src, dst basicFile, srcOffset, dstOff
 
 func copyRangeImplementationForBasicFile(impl copyRangeImplementationBasicFile) copyRangeImplementation {
 	return func(src, dst File, srcOffset, dstOffset, size int64) error {
-		// Unwrap mtime first
-		if srcMtime, ok := src.(mtimeFile); ok {
-			src = srcMtime.File
-		}
-		if dstMtime, ok := dst.(mtimeFile); ok {
-			dst = dstMtime.File
-		}
+		src = unwrap(src)
+		dst = unwrap(dst)
 		// Then see if it's basic files
 		srcFile, srcOk := src.(basicFile)
 		dstFile, dstOk := dst.(basicFile)
@@ -54,4 +49,14 @@ func withFileDescriptors(first, second basicFile, fn func(first, second uintptr)
 		return n, serr
 	}
 	return n, fnerr
+}
+
+func unwrap(f File) File {
+	for {
+		if wrapped, ok := f.(interface{ unwrap() File }); ok {
+			f = wrapped.unwrap()
+		} else {
+			return f
+		}
+	}
 }

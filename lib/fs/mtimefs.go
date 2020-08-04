@@ -228,6 +228,10 @@ func (f mtimeFile) Stat() (FileInfo, error) {
 	return info, nil
 }
 
+func (f mtimeFile) unwrap() File {
+	return f.File
+}
+
 // The dbMtime is our database representation
 
 type dbMtime struct {
