@@ -203,7 +203,9 @@ var (
 			dstStartingPos:           0,
 			expectedDstSizeAfterCopy: generationSize,
 			copySize:                 defaultCopySize + 1,
-			expectedErrors:           nil,
+			expectedErrors: map[CopyRangeMethod]error{
+				CopyRangeMethodDuplicateExtents: syscall.EINVAL,
+			},
 		},
 		// Last block that starts on a nice boundary
 		{
