@@ -1744,6 +1744,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder.simpleFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "simple";
                 $scope.currentFolder.simpleKeep = +$scope.currentFolder.versioning.params.keep;
+                $scope.currentFolder.trashcanClean = +$scope.currentFolder.versioning.params.cleanoutDays;
             } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "staggered") {
                 $scope.currentFolder.staggeredFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "staggered";
@@ -1878,7 +1879,8 @@ angular.module('syncthing.core')
                 folderCfg.versioning = {
                     'type': 'simple',
                     'params': {
-                        'keep': '' + folderCfg.simpleKeep
+                        'keep': '' + folderCfg.simpleKeep,
+                        'cleanoutDays': '' + folderCfg.trashcanClean
                     },
                     'cleanupIntervalS': folderCfg.versioningCleanupIntervalS
                 };
