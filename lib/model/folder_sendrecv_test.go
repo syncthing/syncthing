@@ -205,7 +205,11 @@ func TestHandleFileWithTemp(t *testing.T) {
 }
 
 func TestCopierFinder(t *testing.T) {
-	for _, method := range []fs.CopyRangeMethod{fs.CopyRangeMethodStandard, fs.CopyRangeMethodAllWithFallback} {
+	methods := []fs.CopyRangeMethod{fs.CopyRangeMethodStandard, fs.CopyRangeMethodAllWithFallback}
+	if runtime.GOOS == "linux" {
+		methods = append(methods, fs.CopyRangeMethodSendFile)
+	}
+	for _, method := range methods {
 		t.Run(method.String(), func(t *testing.T) {
 			// After diff between required and existing we should:
 			// Copy: 1, 2, 3, 4, 6, 7, 8
