@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"syscall"
 	"testing"
 )
@@ -51,7 +52,7 @@ var (
 			expectedErrors:           nil,
 		},
 		{
-			name:                     "append to end, offsets at start",
+			name:                     "append to end offsets at start",
 			srcSize:                  generationSize,
 			dstSize:                  generationSize,
 			srcOffset:                0,
@@ -124,27 +125,87 @@ var (
 			copySize:                 defaultCopySize * 10,
 			// ioctl returns syscall.EINVAL, rest are wrapped
 			expectedErrors: map[CopyRangeMethod]error{
-				CopyRangeMethodIoctl:           syscall.EINVAL,
-				CopyRangeMethodStandard:        io.ErrUnexpectedEOF,
-				CopyRangeMethodCopyFileRange:   io.ErrUnexpectedEOF,
-				CopyRangeMethodSendFile:        io.ErrUnexpectedEOF,
-				CopyRangeMethodAllWithFallback: io.ErrUnexpectedEOF,
+				CopyRangeMethodIoctl:            io.ErrUnexpectedEOF,
+				CopyRangeMethodStandard:         io.ErrUnexpectedEOF,
+				CopyRangeMethodCopyFileRange:    io.ErrUnexpectedEOF,
+				CopyRangeMethodSendFile:         io.ErrUnexpectedEOF,
+				CopyRangeMethodAllWithFallback:  io.ErrUnexpectedEOF,
+				CopyRangeMethodDuplicateExtents: io.ErrUnexpectedEOF,
 			},
 		},
-		// Non block sized file
 		{
-			name:                     "not block aligned write",
-			srcSize:                  generationSize + 2,
+			name:                     "unaligned source offset unaligned size",
+			srcSize:                  generationSize,
 			dstSize:                  0,
 			srcOffset:                1,
 			dstOffset:                0,
 			srcStartingPos:           0,
 			dstStartingPos:           0,
-			expectedDstSizeAfterCopy: generationSize + 1,
-			copySize:                 generationSize + 1,
-			// Only fails for ioctl
+			expectedDstSizeAfterCopy: defaultCopySize + 1,
+			copySize:                 defaultCopySize + 1,
 			expectedErrors: map[CopyRangeMethod]error{
-				CopyRangeMethodIoctl: syscall.EINVAL,
+				CopyRangeMethodIoctl:            syscall.EINVAL,
+				CopyRangeMethodDuplicateExtents: syscall.EINVAL,
+			},
+		},
+		{
+			name:                     "unaligned source offset aligned size",
+			srcSize:                  generationSize,
+			dstSize:                  0,
+			srcOffset:                1,
+			dstOffset:                0,
+			srcStartingPos:           0,
+			dstStartingPos:           0,
+			expectedDstSizeAfterCopy: defaultCopySize,
+			copySize:                 defaultCopySize,
+			expectedErrors: map[CopyRangeMethod]error{
+				CopyRangeMethodIoctl:            syscall.EINVAL,
+				CopyRangeMethodDuplicateExtents: syscall.EINVAL,
+			},
+		},
+		{
+			name:                     "unaligned destination offset unaligned size",
+			srcSize:                  generationSize,
+			dstSize:                  generationSize,
+			srcOffset:                0,
+			dstOffset:                1,
+			srcStartingPos:           0,
+			dstStartingPos:           0,
+			expectedDstSizeAfterCopy: generationSize,
+			copySize:                 defaultCopySize + 1,
+			expectedErrors: map[CopyRangeMethod]error{
+				CopyRangeMethodIoctl:            syscall.EINVAL,
+				CopyRangeMethodDuplicateExtents: syscall.EINVAL,
+			},
+		},
+		{
+			name:                     "unaligned destination offset aligned size",
+			srcSize:                  generationSize,
+			dstSize:                  generationSize,
+			srcOffset:                0,
+			dstOffset:                1,
+			srcStartingPos:           0,
+			dstStartingPos:           0,
+			expectedDstSizeAfterCopy: generationSize,
+			copySize:                 defaultCopySize,
+			expectedErrors: map[CopyRangeMethod]error{
+				CopyRangeMethodIoctl:            syscall.EINVAL,
+				CopyRangeMethodDuplicateExtents: syscall.EINVAL,
+			},
+		},
+		{
+			name:                     "aligned offsets unaligned size",
+			srcSize:                  generationSize,
+			dstSize:                  generationSize,
+			srcOffset:                0,
+			dstOffset:                0,
+			srcStartingPos:           0,
+			dstStartingPos:           0,
+			expectedDstSizeAfterCopy: generationSize,
+			copySize:                 defaultCopySize + 1,
+			expectedErrors: map[CopyRangeMethod]error{
+				CopyRangeMethodIoctl:            syscall.EINVAL,
+				CopyRangeMethodDuplicateExtents: syscall.EINVAL,
 			},
 		},
 		// Last block that starts on a nice boundary
@@ -189,131 +250,149 @@ var (
 	}
 )
 
-func TestCopyRange(ttt *testing.T) {
+func TestCopyRange(tttt *testing.T) {
 	randSrc := rand.New(rand.NewSource(rand.Int63()))
-	for copyMethod, impl := range copyRangeMethods {
-		ttt.Run(copyMethod.String(), func(tt *testing.T) {
-			for _, testCase := range testCases {
-				tt.Run(testCase.name, func(t *testing.T) {
-					srcBuf := make([]byte, testCase.srcSize)
-					dstBuf := make([]byte, testCase.dstSize)
-					td, err := ioutil.TempDir(os.Getenv("STFSTESTPATH"), "")
-					if err != nil {
-						t.Fatal(err)
-					}
-					defer func() { _ = os.RemoveAll(td) }()
-					fs := NewFilesystem(FilesystemTypeBasic, td)
-
-					if _, err := io.ReadFull(randSrc, srcBuf); err != nil {
-						t.Fatal(err)
-					}
-
-					if _, err := io.ReadFull(randSrc, dstBuf); err != nil {
-						t.Fatal(err)
-					}
-
-					src, err := fs.Create("src")
-					if err != nil {
-						t.Fatal(err)
-					}
-					defer func() { _ = src.Close() }()
-
-					dst, err := fs.Create("dst")
-					if err != nil {
-						t.Fatal(err)
-					}
-					defer func() { _ = dst.Close() }()
-
-					// Write some data
-
-					if _, err := src.Write(srcBuf); err != nil {
-						t.Fatal(err)
-					}
-
-					if _, err := dst.Write(dstBuf); err != nil {
-						t.Fatal(err)
-					}
-
-					// Set the offsets
-
-					if n, err := src.Seek(testCase.srcStartingPos, io.SeekStart); err != nil || n != testCase.srcStartingPos {
-						t.Fatal(err)
-					}
-
-					if n, err := dst.Seek(testCase.dstStartingPos, io.SeekStart); err != nil || n != testCase.dstStartingPos {
-						t.Fatal(err)
-					}
-
-					if err := impl(src.(basicFile), dst.(basicFile), testCase.srcOffset, testCase.dstOffset, testCase.copySize); err != nil {
-						if err == syscall.ENOTSUP {
-							// Test runner can adjust directory in which to run the tests, that allow broader tests.
-							t.Skip("Not supported on the current filesystem, set STFSTESTPATH env var.")
-						}
-						if testCase.expectedErrors[copyMethod] == err {
-							return
-						}
-						t.Fatal(err)
-					} else if testCase.expectedErrors[copyMethod] != nil {
-						t.Fatal("did not get expected error")
-					}
-
-					// Check offsets where we expect them
-
-					if srcCurPos, err := src.Seek(0, io.SeekCurrent); err != nil {
-						t.Fatal(err)
-					} else if srcCurPos != testCase.srcStartingPos {
-						t.Errorf("src pos expected %d got %d", testCase.srcStartingPos, srcCurPos)
-					}
-
-					if dstCurPos, err := dst.Seek(0, io.SeekCurrent); err != nil {
-						t.Fatal(err)
-					} else if dstCurPos != testCase.dstStartingPos {
-						t.Errorf("dst pos expected %d got %d", testCase.dstStartingPos, dstCurPos)
-					}
-
-					// Check dst size
-
-					if fi, err := dst.Stat(); err != nil {
-						t.Fatal(err)
-					} else if fi.Size() != testCase.expectedDstSizeAfterCopy {
-						t.Errorf("expected %d size, got %d", testCase.expectedDstSizeAfterCopy, fi.Size())
-					}
-
-					// Check the data is as expected
-
-					if _, err := dst.Seek(0, io.SeekStart); err != nil {
-						t.Fatal(err)
-					}
-
-					resultBuf := make([]byte, testCase.expectedDstSizeAfterCopy)
-					if _, err := io.ReadFull(dst, resultBuf); err != nil {
-						t.Fatal(err)
-					}
-
-					if !bytes.Equal(srcBuf[testCase.srcOffset:testCase.srcOffset+testCase.copySize], resultBuf[testCase.dstOffset:testCase.dstOffset+testCase.copySize]) {
-						t.Errorf("Not equal")
-					}
-
-					// Check not copied content does not get corrupted
-
-					if testCase.dstOffset > testCase.dstSize {
-						if !bytes.Equal(dstBuf[:testCase.dstSize], resultBuf[:testCase.dstSize]) {
-							t.Error("region before copy region not equals")
-						}
-						if !bytes.Equal(resultBuf[testCase.dstSize:testCase.dstOffset], make([]byte, testCase.dstOffset-testCase.dstSize)) {
-							t.Error("found non zeroes in expected zero region")
-						}
-					} else {
-						if !bytes.Equal(dstBuf[:testCase.dstOffset], resultBuf[:testCase.dstOffset]) {
-							t.Error("region before copy region not equals")
-						}
-						afterCopyStart := testCase.dstOffset + testCase.copySize
-
-						if afterCopyStart < testCase.dstSize {
-							if !bytes.Equal(dstBuf[afterCopyStart:], resultBuf[afterCopyStart:len(dstBuf)]) {
-								t.Error("region after copy region not equals")
+	paths := filepath.SplitList(os.Getenv("STFSTESTPATH"))
+	if len(paths) == 0 {
+		paths = []string{""}
+	}
+	for _, path := range paths {
+		testPath, err := ioutil.TempDir(path, "")
+		if err != nil {
+			tttt.Fatal(err)
+		}
+		defer os.RemoveAll(testPath)
+		name := path
+		if name == "" {
+			name = "tmp"
+		}
+		tttt.Run(name, func(ttt *testing.T) {
+			for copyMethod, impl := range copyRangeMethods {
+				ttt.Run(copyMethod.String(), func(tt *testing.T) {
+					for _, testCase := range testCases {
+						tt.Run(testCase.name, func(t *testing.T) {
+							srcBuf := make([]byte, testCase.srcSize)
+							dstBuf := make([]byte, testCase.dstSize)
+							td, err := ioutil.TempDir(testPath, "")
+							if err != nil {
+								t.Fatal(err)
 							}
-						}
+							defer os.RemoveAll(td)
+
+							fs := NewFilesystem(FilesystemTypeBasic, td)
+
+							if _, err := io.ReadFull(randSrc, srcBuf); err != nil {
+								t.Fatal(err)
+							}
+
+							if _, err := io.ReadFull(randSrc, dstBuf); err != nil {
+								t.Fatal(err)
+							}
+
+							src, err := fs.Create("src")
+							if err != nil {
+								t.Fatal(err)
+							}
+							defer func() { _ = src.Close() }()
+
+							dst, err := fs.Create("dst")
+							if err != nil {
+								t.Fatal(err)
+							}
+							defer func() { _ = dst.Close() }()
+
+							// Write some data
+
+							if _, err := src.Write(srcBuf); err != nil {
+								t.Fatal(err)
+							}
+
+							if _, err := dst.Write(dstBuf); err != nil {
+								t.Fatal(err)
+							}
+
+							// Set the offsets
+
+							if n, err := src.Seek(testCase.srcStartingPos, io.SeekStart); err != nil || n != testCase.srcStartingPos {
+								t.Fatal(err)
+							}
+
+							if n, err := dst.Seek(testCase.dstStartingPos, io.SeekStart); err != nil || n != testCase.dstStartingPos {
+								t.Fatal(err)
+							}
+
+							if err := impl(src.(basicFile), dst.(basicFile), testCase.srcOffset, testCase.dstOffset, testCase.copySize); err != nil {
+								if err == syscall.ENOTSUP {
+									// Test runner can adjust directory in which to run the tests, that allow broader tests.
+									t.Skip("Not supported on the current filesystem, set STFSTESTPATH env var.")
+								}
+								if testCase.expectedErrors[copyMethod] == err {
+									return
+								}
+								t.Fatal(err)
+							} else if testCase.expectedErrors[copyMethod] != nil {
+								t.Fatal("did not get expected error")
+							}
+
+							// Check offsets where we expect them
+
+							if srcCurPos, err := src.Seek(0, io.SeekCurrent); err != nil {
+								t.Fatal(err)
+							} else if srcCurPos != testCase.srcStartingPos {
+								t.Errorf("src pos expected %d got %d", testCase.srcStartingPos, srcCurPos)
+							}
+
+							if dstCurPos, err := dst.Seek(0, io.SeekCurrent); err != nil {
+								t.Fatal(err)
+							} else if dstCurPos != testCase.dstStartingPos {
+								t.Errorf("dst pos expected %d got %d", testCase.dstStartingPos, dstCurPos)
+							}
+
+							// Check dst size
+
+							if fi, err := dst.Stat(); err != nil {
+								t.Fatal(err)
+							} else if fi.Size() != testCase.expectedDstSizeAfterCopy {
+								t.Errorf("expected %d size, got %d", testCase.expectedDstSizeAfterCopy, fi.Size())
+							}
+
+							// Check the data is as expected
+
+							if _, err := dst.Seek(0, io.SeekStart); err != nil {
+								t.Fatal(err)
+							}
+
+							resultBuf := make([]byte, testCase.expectedDstSizeAfterCopy)
+							if _, err := io.ReadFull(dst, resultBuf); err != nil {
+								t.Fatal(err)
+							}
+
+							if !bytes.Equal(srcBuf[testCase.srcOffset:testCase.srcOffset+testCase.copySize], resultBuf[testCase.dstOffset:testCase.dstOffset+testCase.copySize]) {
+								t.Errorf("Not equal")
+							}
+
+							// Check not copied content does not get corrupted
+
+							if testCase.dstOffset > testCase.dstSize {
+								if !bytes.Equal(dstBuf[:testCase.dstSize], resultBuf[:testCase.dstSize]) {
+									t.Error("region before copy region not equals")
+								}
+								if !bytes.Equal(resultBuf[testCase.dstSize:testCase.dstOffset], make([]byte, testCase.dstOffset-testCase.dstSize)) {
+									t.Error("found non zeroes in expected zero region")
+								}
+							} else {
+								if !bytes.Equal(dstBuf[:testCase.dstOffset], resultBuf[:testCase.dstOffset]) {
+									t.Error("region before copy region not equals")
+								}
+								afterCopyStart := testCase.dstOffset + testCase.copySize
+
+								if afterCopyStart < testCase.dstSize {
+									if !bytes.Equal(dstBuf[afterCopyStart:], resultBuf[afterCopyStart:len(dstBuf)]) {
+										t.Error("region after copy region not equals")
+									}
+								}
+							}
+						})
 					}
 				})
 			}
