@@ -55,10 +55,10 @@ type OptionsConfiguration struct {
 	DefaultFolderPath       string   `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 	SetLowPriority          bool     `xml:"setLowPriority" json:"setLowPriority" default:"true"`
 	RawMaxFolderConcurrency int      `xml:"maxFolderConcurrency" json:"maxFolderConcurrency"`
-	CRURL                   string   `xml:"crashReportingURL" json:"crURL" default:"https://crash.syncthing.net/newcrash"`    // crash reporting URL
-	CREnabled               bool     `xml:"crashReportingEnabled" json:"crashReportingEnabled" default:"true" restart:"true"` // Read in the monitor, and monitor only re-reads this on restart of child
-	StunKeepaliveStartS     int      `xml:"stunKeepaliveStartS" json:"stunKeepaliveStartS" default:"180"`                     // 0 for off
-	StunKeepaliveMinS       int      `xml:"stunKeepaliveMinS" json:"stunKeepaliveMinS" default:"20"`                          // 0 for off
+	CRURL                   string   `xml:"crashReportingURL" json:"crURL" default:"https://crash.syncthing.net/newcrash"` // crash reporting URL
+	CREnabled               bool     `xml:"crashReportingEnabled" json:"crashReportingEnabled" default:"true"`             // Read in the monitor, but it's read before every attempt to report stuff, so does not require a restart.
+	StunKeepaliveStartS     int      `xml:"stunKeepaliveStartS" json:"stunKeepaliveStartS" default:"180"`                  // 0 for off
+	StunKeepaliveMinS       int      `xml:"stunKeepaliveMinS" json:"stunKeepaliveMinS" default:"20"`                       // 0 for off
 	RawStunServers          []string `xml:"stunServer" json:"stunServers" default:"default"`
 	DatabaseTuning          Tuning   `xml:"databaseTuning" json:"databaseTuning" restart:"true"` // Can't be adjusted once the database has been opened
 	RawMaxCIRequestKiB      int      `xml:"maxConcurrentIncomingRequestKiB" json:"maxConcurrentIncomingRequestKiB"`
