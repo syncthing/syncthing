@@ -38,7 +38,7 @@ func TestCacheUnique(t *testing.T) {
 	cfg.Options.GlobalAnnEnabled = false
 
 	c := NewManager(protocol.LocalDeviceID, config.Wrap("", cfg, events.NoopLogger), tls.Certificate{}, events.NoopLogger).(*manager)
-	go c.Serve()
+	c.ServeBackground()
 	defer c.Stop()
 
 	// Add a fake discovery service and verify we get its answers through the
@@ -98,7 +98,7 @@ func TestCacheSlowLookup(t *testing.T) {
 	cfg.Options.GlobalAnnEnabled = false
 
 	c := NewManager(protocol.LocalDeviceID, config.Wrap("", cfg, events.NoopLogger), tls.Certificate{}, events.NoopLogger).(*manager)
-	go c.Serve()
+	c.ServeBackground()
 	defer c.Stop()
 
 	// Add a slow discovery service.
