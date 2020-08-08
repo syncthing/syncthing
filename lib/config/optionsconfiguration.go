@@ -38,8 +38,8 @@ type OptionsConfiguration struct {
 	URURL                   string   `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"` // usage reporting URL
 	URPostInsecurely        bool     `xml:"urPostInsecurely" json:"urPostInsecurely" default:"false"`        // For testing
 	URInitialDelayS         int      `xml:"urInitialDelayS" json:"urInitialDelayS" default:"1800"`
-	RestartOnWakeup         bool     `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true" restart:"true"`
-	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12" restart:"true"` // 0 for off
+	RestartOnWakeup         bool     `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true"`
+	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12"` // 0 for off
 	UpgradeToPreReleases    bool     `xml:"upgradeToPreReleases" json:"upgradeToPreReleases"`              // when auto upgrades are enabled
 	KeepTemporariesH        int      `xml:"keepTemporariesH" json:"keepTemporariesH" default:"24"`                        // 0 for off
 	CacheIgnoredFiles       bool     `xml:"cacheIgnoredFiles" json:"cacheIgnoredFiles" default:"false"`
@@ -199,8 +199,4 @@ func (opts OptionsConfiguration) MaxConcurrentIncomingRequestKiB() int {
 
 	// Roll with it.
 	return opts.RawMaxCIRequestKiB
-}
-
-func (opts OptionsConfiguration) ShouldAutoUpgrade() bool {
-	return opts.AutoUpgradeIntervalH > 0
 }

@@ -634,12 +634,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		os.Exit(1)
 	}
 
-	// Check if auto-upgrades should be done and if yes, do an initial
+	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
 	// upgrade immedately. The auto-upgrade routine can only be started
 	// later after App is initialised.
 
-	shouldAutoUpgrade := shouldUpgrade(cfg, runtimeOptions)
-	if shouldAutoUpgrade {
+	autoUpgradePossible := autoUpgradePossible(runtimeOptions)
+	if autoUpgradePossible && cfg.Options().AutoUpgradeIntervalH > 0 {
 		// try to do upgrade directly and log the error if relevant.
 		release, err := initialAutoUpgradeCheck(db.NewMiscDataNamespace(ldb))
 		if err == nil {
@@ -680,7 +680,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	app := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
 
-	if shouldAutoUpgrade {
+	if autoUpgradePossible {
 		go autoUpgrade(cfg, app, evLogger)
 	}
 
@@ -702,9 +702,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	if opts := cfg.Options(); opts.RestartOnWakeup {
-		go standbyMonitor(app)
-	}
+	go standbyMonitor(app, cfg)
 
 	if err := app.Start(); err != nil {
 		os.Exit(syncthing.ExitError.AsInt())
@@ -818,12 +816,12 @@ func ensureDir(dir string, mode fs.FileMode) error {
 	return nil
 }
 
-func standbyMonitor(app *syncthing.App) {
+func standbyMonitor(app *syncthing.App, cfg config.Wrapper) {
 	restartDelay := 60 * time.Second
 	now := time.Now()
 	for {
 		time.Sleep(10 * time.Second)
-		if time.Since(now) > 2*time.Minute {
+		if cfg.Options().RestartOnWakeup && time.Since(now) > 2*time.Minute {
 			l.Infof("Paused state detected, possibly woke up from standby. Restarting in %v.", restartDelay)
 
 			// We most likely just woke from standby. If we restart
@@ -838,11 +836,8 @@ func standbyMonitor(app *syncthing.App) {
 	}
 }
 
-func shouldUpgrade(cfg config.Wrapper, runtimeOptions RuntimeOptions) bool {
+func autoUpgradePossible(runtimeOptions RuntimeOptions) bool {
 	if upgrade.DisabledByCompilation {
-		return false
-	}
-	if !cfg.Options().ShouldAutoUpgrade() {
 		return false
 	}
 	if runtimeOptions.NoUpgrade {
@@ -862,18 +857,19 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], build.Version) != upgrade.Newer {
 				continue
 			}
-			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], build.Version, data["clientVersion"])
+			if cfg.Options().AutoUpgradeIntervalH > 0 {
+				l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], build.Version, data["clientVersion"])
+			}
 		case <-timer.C:
 		}
 
 		opts := cfg.Options()
-		checkInterval := time.Duration(opts.AutoUpgradeIntervalH) * time.Hour
-		if checkInterval < time.Hour {
-			// We shouldn't be here if AutoUpgradeIntervalH < 1, but for
-			// safety's sake.
-			checkInterval = time.Hour
+		autoUpgradeInterval := opts.AutoUpgradeIntervalH
+		if autoUpgradeInterval < 1 {
+			timer.Reset(upgradeCheckInterval)
+			continue
 		}
-
+		checkInterval := time.Duration(autoUpgradeInterval) * time.Hour
 		rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
 			sub.Unsubscribe()
