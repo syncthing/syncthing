@@ -133,7 +133,7 @@ func TestWatchRename(t *testing.T) {
 	destEvent := Event{new, Remove}
 	// Only on these platforms the removed file can be differentiated from
 	// the created file during renaming
-	if runtime.GOOS == "windows" || runtime.GOOS == "linux" || runtime.GOOS == "solaris" {
+	if runtime.GOOS == "windows" || runtime.GOOS == "linux" || runtime.GOOS == "solaris" || runtime.GOOS == "freebsd" {
 		destEvent = Event{new, NonRemove}
 	}
 	expectedEvents := []Event{
