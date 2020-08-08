@@ -821,7 +821,7 @@ func standbyMonitor(app *syncthing.App, cfg config.Wrapper) {
 	now := time.Now()
 	for {
 		time.Sleep(10 * time.Second)
-		if cfg.Options().RestartOnWakeup && time.Since(now) > 2*time.Minute {
+		if time.Since(now) > 2*time.Minute && cfg.Options().RestartOnWakeup {
 			l.Infof("Paused state detected, possibly woke up from standby. Restarting in %v.", restartDelay)
 
 			// We most likely just woke from standby. If we restart
