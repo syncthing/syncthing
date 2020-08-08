@@ -2290,7 +2290,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	}
 
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", dbi, nil)
-	m.newFolder(defaultFolderConfig)
+	m.newFolder(defaultFolderConfig, false)
 	defer cleanupModel(m)
 
 	// Remote sequence is cached, hence need to recreated.

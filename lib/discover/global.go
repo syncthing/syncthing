@@ -12,6 +12,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -189,7 +190,7 @@ func (c *globalClient) Lookup(ctx context.Context, device protocol.DeviceID) (ad
 }
 
 func (c *globalClient) String() string {
-	return "global@" + c.server
+	return "global discovery " + c.server
 }
 
 func (c *globalClient) serve(ctx context.Context) {
@@ -447,4 +448,16 @@ func (c *contextClient) Post(ctx context.Context, url, ctype string, data io.Rea
 	req.Cancel = ctx.Done()
 	req.Header.Set("Content-Type", ctype)
 	return c.Client.Do(req)
+}
+
+func globalDiscoveryIdentity(addr string) string {
+	return "global discovery server " + addr
+}
+
+func ipv4DiscoveryIdentity(port int) string {
+	return fmt.Sprintf("IPv4 local broadcast discovery on port %d", port)
+}
+
+func ipv6DiscoveryIdentity(addr string) string {
+	return fmt.Sprintf("IPv6 local multicast discovery on address %s", addr)
 }

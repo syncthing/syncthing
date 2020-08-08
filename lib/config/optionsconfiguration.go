@@ -17,11 +17,11 @@ import (
 
 type OptionsConfiguration struct {
 	RawListenAddresses      []string `xml:"listenAddress" json:"listenAddresses" default:"default"`
-	RawGlobalAnnServers     []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" default:"default" restart:"true"`
-	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true" restart:"true"`
-	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true" restart:"true"`
-	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027" restart:"true"`
-	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027" restart:"true"`
+	RawGlobalAnnServers     []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" default:"default"`
+	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
+	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
+	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027"`
+	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027"`
 	MaxSendKbps             int      `xml:"maxSendKbps" json:"maxSendKbps"`
 	MaxRecvKbps             int      `xml:"maxRecvKbps" json:"maxRecvKbps"`
 	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
