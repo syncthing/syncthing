@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package config;
+
+import "repos/protobuf/gogoproto/gogo.proto";
+
+option (gogoproto.goproto_enum_stringer_all) = true;
+option (gogoproto.goproto_enum_prefix_all) = false;
+
+enum BlockPullOrder {
+    option (gogoproto.goproto_enum_stringer) = false;
+
+    BLOCK_PULL_ORDER_STANDARD = 0 [(gogoproto.enumvalue_customname) = "BlockPullOrderStandard"];
+    BLOCK_PULL_ORDER_RANDOM   = 1 [(gogoproto.enumvalue_customname) = "BlockPullOrderRandom"];
+    BLOCK_PULL_ORDER_IN_ORDER = 2 [(gogoproto.enumvalue_customname) = "BlockPullOrderInOrder"];
+}

@@ -4,6 +4,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:generate go run ../../script/protofmt.go size.proto
+//go:generate protoc -I ../../ -I . --gogofast_out=. size.proto
+
 package config
 
 import (
@@ -13,11 +16,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/fs"
 )
-
-type Size struct {
-	Value float64 `json:"value" xml:",chardata"`
-	Unit  string  `json:"unit" xml:"unit,attr"`
-}
 
 func ParseSize(s string) (Size, error) {
 	s = strings.TrimSpace(s)

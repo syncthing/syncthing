@@ -4,14 +4,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:generate go run ../../script/protofmt.go types.proto
+//go:generate protoc -I ../../ -I . --gogofast_out=. types.proto
+
 package fs
-
-type FilesystemType int
-
-const (
-	FilesystemTypeBasic FilesystemType = iota // default is basic
-	FilesystemTypeFake
-)
 
 func (t FilesystemType) String() string {
 	switch t {

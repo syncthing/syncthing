@@ -4,15 +4,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:generate go run ../../script/protofmt.go blockpullorder.proto
+//go:generate protoc -I ../../ -I . --gogofast_out=. blockpullorder.proto
+
 package config
-
-type BlockPullOrder int
-
-const (
-	BlockPullOrderStandard BlockPullOrder = iota // default is standard
-	BlockPullOrderRandom
-	BlockPullOrderInOrder
-)
 
 func (o BlockPullOrder) String() string {
 	switch o {

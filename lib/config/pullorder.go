@@ -4,18 +4,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:generate go run ../../script/protofmt.go pullorder.proto
+//go:generate protoc -I ../../ -I . --gogofast_out=. pullorder.proto
+
 package config
-
-type PullOrder int
-
-const (
-	OrderRandom PullOrder = iota // default is random
-	OrderAlphabetic
-	OrderSmallestFirst
-	OrderLargestFirst
-	OrderOldestFirst
-	OrderNewestFirst
-)
 
 func (o PullOrder) String() string {
 	switch o {

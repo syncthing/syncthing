@@ -6,13 +6,8 @@
 
 package config
 
-type FolderType int
-
-const (
-	FolderTypeSendReceive FolderType = iota // default is sendreceive
-	FolderTypeSendOnly
-	FolderTypeReceiveOnly
-)
+//go:generate go run ../../script/protofmt.go foldertype.proto
+//go:generate protoc -I ../../ -I . --gogofast_out=. foldertype.proto
 
 func (t FolderType) String() string {
 	switch t {
