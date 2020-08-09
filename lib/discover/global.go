@@ -190,7 +190,7 @@ func (c *globalClient) Lookup(ctx context.Context, device protocol.DeviceID) (ad
 }
 
 func (c *globalClient) String() string {
-	return "global discovery " + c.server
+	return "global@" + c.server
 }
 
 func (c *globalClient) serve(ctx context.Context) {
