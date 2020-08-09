@@ -489,7 +489,6 @@ func printService(w io.Writer, svc interface{}, level int) {
 	}
 }
 
-
 type lateAddressLister struct {
 	discover.AddressLister
 }
