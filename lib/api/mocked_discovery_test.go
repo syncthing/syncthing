@@ -44,9 +44,6 @@ func (m *mockedCachingMux) Cache() map[protocol.DeviceID]discover.CacheEntry {
 
 // from events.Manager
 
-func (m *mockedCachingMux) SetAddressLister(lister discover.AddressLister) {
-}
-
 func (m *mockedCachingMux) ChildErrors() map[string]error {
 	return nil
 }

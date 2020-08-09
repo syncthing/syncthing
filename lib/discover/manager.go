@@ -30,7 +30,6 @@ import (
 // or negative).
 type Manager interface {
 	FinderService
-	SetAddressLister(lister AddressLister)
 	ChildErrors() map[string]error
 }
 
@@ -42,27 +41,24 @@ type manager struct {
 	evLogger      events.Logger
 	addressLister AddressLister
 
-	finders map[string]cachedFinderEntry
+	finders map[string]cachedFinder
 	mut     sync.RWMutex
 }
 
-func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger) Manager {
+func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister) Manager {
 	return &manager{
 		Supervisor: suture.New("discover.Manager", suture.Spec{
 			PassThroughPanics: true,
 		}),
-		myID:     myID,
-		cfg:      cfg,
-		cert:     cert,
-		evLogger: evLogger,
+		myID:          myID,
+		cfg:           cfg,
+		cert:          cert,
+		evLogger:      evLogger,
+		addressLister: lister,
 
-		finders: make(map[string]cachedFinderEntry),
+		finders: make(map[string]cachedFinder),
 		mut:     sync.NewRWMutex(),
 	}
-}
-
-func (m *manager) SetAddressLister(lister AddressLister) {
-	m.addressLister = lister
 }
 
 func (m *manager) Serve() {
@@ -73,7 +69,7 @@ func (m *manager) Serve() {
 }
 
 func (m *manager) addLocked(identity string, finder Finder, cacheTime, negCacheTime time.Duration) {
-	entry := cachedFinderEntry{
+	entry := cachedFinder{
 		Finder:       finder,
 		cacheTime:    cacheTime,
 		negCacheTime: negCacheTime,
@@ -241,9 +237,8 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 	}
 
 	if to.Options.LocalAnnEnabled {
-		toIdentities[ipv4DiscoveryIdentity(to.Options.LocalAnnPort)] = struct{}{}
-
-		toIdentities[ipv6DiscoveryIdentity(to.Options.LocalAnnMCAddr)] = struct{}{}
+		toIdentities[ipv4Identity(to.Options.LocalAnnPort)] = struct{}{}
+		toIdentities[ipv6Identity(to.Options.LocalAnnMCAddr)] = struct{}{}
 	}
 
 	// Remove things that we're not expected to have.
@@ -276,7 +271,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 
 	if to.Options.LocalAnnEnabled {
 		// v4 broadcasts
-		v4Identity := ipv4DiscoveryIdentity(to.Options.LocalAnnPort)
+		v4Identity := ipv4Identity(to.Options.LocalAnnPort)
 		if _, ok := m.finders[v4Identity]; !ok {
 			bcd, err := NewLocal(m.myID, fmt.Sprintf(":%d", to.Options.LocalAnnPort), m.addressLister, m.evLogger)
 			if err != nil {
@@ -287,7 +282,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 		}
 
 		// v6 multicasts
-		v6Identity := ipv6DiscoveryIdentity(to.Options.LocalAnnMCAddr)
+		v6Identity := ipv6Identity(to.Options.LocalAnnMCAddr)
 		if _, ok := m.finders[v6Identity]; !ok {
 			mcd, err := NewLocal(m.myID, to.Options.LocalAnnMCAddr, m.addressLister, m.evLogger)
 			if err != nil {

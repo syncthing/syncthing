@@ -37,7 +37,7 @@ func TestCacheUnique(t *testing.T) {
 	cfg.Options.LocalAnnEnabled = false
 	cfg.Options.GlobalAnnEnabled = false
 
-	c := NewManager(protocol.LocalDeviceID, config.Wrap("", cfg, events.NoopLogger), tls.Certificate{}, events.NoopLogger).(*manager)
+	c := NewManager(protocol.LocalDeviceID, config.Wrap("", cfg, events.NoopLogger), tls.Certificate{}, events.NoopLogger, nil).(*manager)
 	c.ServeBackground()
 	defer c.Stop()
 
@@ -97,7 +97,7 @@ func TestCacheSlowLookup(t *testing.T) {
 	cfg.Options.LocalAnnEnabled = false
 	cfg.Options.GlobalAnnEnabled = false
 
-	c := NewManager(protocol.LocalDeviceID, config.Wrap("", cfg, events.NoopLogger), tls.Certificate{}, events.NoopLogger).(*manager)
+	c := NewManager(protocol.LocalDeviceID, config.Wrap("", cfg, events.NoopLogger), tls.Certificate{}, events.NoopLogger, nil).(*manager)
 	c.ServeBackground()
 	defer c.Stop()
 

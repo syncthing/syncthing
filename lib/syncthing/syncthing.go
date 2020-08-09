@@ -276,12 +276,15 @@ func (a *App) startup() error {
 
 	// Start discovery and connection management
 
-	discoveryManager := discover.NewManager(a.myID, a.cfg, a.cert, a.evLogger)
-	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, discoveryManager, bepProtocolName, tlsDefaultCommonName, a.evLogger)
 	// Chicken and egg, discovery manager depends on connection service to tell it what addresses it's listening on
 	// Connection service depends on discovery manager to get addresses to connect to.
-	// Wire them first before starting
-	discoveryManager.SetAddressLister(connectionsService)
+	// Create a wrapper that is then wired after they are both setup.
+	addrLister := lateAddressLister{}
+
+	discoveryManager := discover.NewManager(a.myID, a.cfg, a.cert, a.evLogger, addrLister)
+	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, discoveryManager, bepProtocolName, tlsDefaultCommonName, a.evLogger)
+
+	addrLister.AddressLister = connectionsService
 
 	a.mainService.Add(discoveryManager)
 	a.mainService.Add(connectionsService)
@@ -484,4 +487,9 @@ func printService(w io.Writer, svc interface{}, level int) {
 			fmt.Fprintln(w, strings.Repeat("  ", level), "  ->", err)
 		}
 	}
+}
+
+
+type lateAddressLister struct {
+	discover.AddressLister
 }

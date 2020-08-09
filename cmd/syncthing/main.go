@@ -639,7 +639,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// later after App is initialised.
 
 	autoUpgradePossible := autoUpgradePossible(runtimeOptions)
-	if autoUpgradePossible && cfg.Options().AutoUpgradeIntervalH > 0 {
+	if autoUpgradePossible && cfg.Options().AutoUpgradeEnabled() {
 		// try to do upgrade directly and log the error if relevant.
 		release, err := initialAutoUpgradeCheck(db.NewMiscDataNamespace(ldb))
 		if err == nil {
@@ -857,19 +857,19 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], build.Version) != upgrade.Newer {
 				continue
 			}
-			if cfg.Options().AutoUpgradeIntervalH > 0 {
+			if cfg.Options().AutoUpgradeEnabled() {
 				l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], build.Version, data["clientVersion"])
 			}
 		case <-timer.C:
 		}
 
 		opts := cfg.Options()
-		autoUpgradeInterval := opts.AutoUpgradeIntervalH
-		if autoUpgradeInterval < 1 {
+		if !opts.AutoUpgradeEnabled() {
 			timer.Reset(upgradeCheckInterval)
 			continue
 		}
-		checkInterval := time.Duration(autoUpgradeInterval) * time.Hour
+
+		checkInterval := time.Duration(opts.AutoUpgradeIntervalH) * time.Hour
 		rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
 			sub.Unsubscribe()

@@ -200,3 +200,7 @@ func (opts OptionsConfiguration) MaxConcurrentIncomingRequestKiB() int {
 	// Roll with it.
 	return opts.RawMaxCIRequestKiB
 }
+
+func (opts OptionsConfiguration) AutoUpgradeEnabled() bool {
+	return opts.AutoUpgradeIntervalH > 0
+}
