@@ -93,12 +93,12 @@ func (w *AtomicWriter) Close() error {
 		return err
 	}
 
-	info, err := w.fs.Lstat(w.path)
-	if err != nil && !fs.IsNotExist(err) {
-		w.err = err
-		return err
+	info, infoErr := w.fs.Lstat(w.path)
+	if infoErr != nil && !fs.IsNotExist(infoErr) {
+		w.err = infoErr
+		return infoErr
 	}
-	err = w.fs.Rename(w.next.Name(), w.path)
+	err := w.fs.Rename(w.next.Name(), w.path)
 	if runtime.GOOS == "windows" && fs.IsPermission(err) {
 		// On Windows, we might not be allowed to rename over the file
 		// because it's read-only. Get us some write permissions and try
@@ -110,7 +110,7 @@ func (w *AtomicWriter) Close() error {
 		w.err = err
 		return err
 	}
-	if info != nil {
+	if infoErr == nil {
 		if err := w.fs.Chmod(w.path, info.Mode()); err != nil {
 			w.err = err
 			return err
