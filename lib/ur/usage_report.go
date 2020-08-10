@@ -269,6 +269,9 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			}
 			report.FolderUsesV3.BlockPullOrder[cfg.BlockPullOrder.String()]++
 			report.FolderUsesV3.CopyRangeMethod[cfg.CopyRangeMethod.String()]++
+			if cfg.CaseSensitiveFS {
+				report.FolderUsesV3.CaseSensitiveFS++
+			}
 		}
 		sort.Ints(report.FolderUsesV3.FsWatcherDelays)
 

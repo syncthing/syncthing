@@ -516,8 +516,8 @@ type readWriteTransaction struct {
 	readOnlyTransaction
 }
 
-func (db *Lowlevel) newReadWriteTransaction() (readWriteTransaction, error) {
-	tran, err := db.NewWriteTransaction()
+func (db *Lowlevel) newReadWriteTransaction(hooks ...backend.CommitHook) (readWriteTransaction, error) {
+	tran, err := db.NewWriteTransaction(hooks...)
 	if err != nil {
 		return readWriteTransaction{}, err
 	}
@@ -838,15 +838,10 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device, file 
 		return keyBuf, nil
 	}
 
-	keyBuf, err = t.keyer.GenerateDeviceFileKey(keyBuf, folder, device, file)
+	var f protocol.FileIntf
+	keyBuf, f, err = t.getGlobalFromFileVersion(keyBuf, folder, file, true, oldGlobalFV)
 	if err != nil {
 		return nil, err
-	}
-	f, ok, err := t.getFileTrunc(keyBuf, true)
-	if err != nil {
-		return nil, err
-	} else if !ok {
-		return nil, errEntryFromGlobalMissing
 	}
 	meta.removeFile(protocol.GlobalDeviceID, f)
 

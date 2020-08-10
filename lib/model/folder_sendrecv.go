@@ -127,23 +127,21 @@ type dbUpdateJob struct {
 type sendReceiveFolder struct {
 	folder
 
-	fs        fs.Filesystem
-	versioner versioner.Versioner
+	fs fs.Filesystem
 
 	queue              *jobQueue
 	blockPullReorderer blockPullReorderer
 	writeLimiter       *byteSemaphore
 
-	pullErrors    map[string]string // errors for most recent/current iteration
-	oldPullErrors map[string]string // errors from previous iterations for log filtering only
-	pullErrorsMut sync.Mutex
+	pullErrors     map[string]string // actual exposed pull errors
+	tempPullErrors map[string]string // pull errors that might be just transient
+	pullErrorsMut  sync.Mutex
 }
 
 func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger, ioLimiter *byteSemaphore) service {
 	f := &sendReceiveFolder{
-		folder:             newFolder(model, fset, ignores, cfg, evLogger, ioLimiter),
+		folder:             newFolder(model, fset, ignores, cfg, evLogger, ioLimiter, ver),
 		fs:                 fs,
-		versioner:          ver,
 		queue:              newJobQueue(),
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
 		writeLimiter:       newByteSemaphore(cfg.MaxConcurrentWrites),
@@ -172,20 +170,6 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 // pull returns true if it manages to get all needed items from peers, i.e. get
 // the device in sync with the global state.
 func (f *sendReceiveFolder) pull() bool {
-	// Check if the ignore patterns changed.
-	oldHash := f.ignores.Hash()
-	defer func() {
-		if f.ignores.Hash() != oldHash {
-			f.ignoresUpdated()
-		}
-	}()
-	err := f.getHealthErrorAndLoadIgnores()
-	f.setError(err)
-	if err != nil {
-		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-		return false
-	}
-
 	l.Debugf("%v pulling", f)
 
 	scanChan := make(chan string)
@@ -197,6 +181,10 @@ func (f *sendReceiveFolder) pull() bool {
 	}()
 
 	changed := 0
+
+	f.pullErrorsMut.Lock()
+	f.pullErrors = nil
+	f.pullErrorsMut.Unlock()
 
 	for tries := 0; tries < maxPullerIterations; tries++ {
 		select {
@@ -222,8 +210,14 @@ func (f *sendReceiveFolder) pull() bool {
 	}
 
 	f.pullErrorsMut.Lock()
+	f.pullErrors = f.tempPullErrors
+	f.tempPullErrors = nil
+	for path, err := range f.pullErrors {
+		l.Infof("Puller (folder %s, item %q): %v", f.Description(), path, err)
+	}
 	pullErrNum := len(f.pullErrors)
 	f.pullErrorsMut.Unlock()
+
 	if pullErrNum > 0 {
 		l.Infof("%v: Failed to sync %v items", f.Description(), pullErrNum)
 		f.evLogger.Log(events.FolderErrors, map[string]interface{}{
@@ -241,8 +235,7 @@ func (f *sendReceiveFolder) pull() bool {
 // flagged as needed in the folder.
 func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	f.pullErrorsMut.Lock()
-	f.oldPullErrors = f.pullErrors
-	f.pullErrors = make(map[string]string)
+	f.tempPullErrors = make(map[string]string)
 	f.pullErrorsMut.Unlock()
 
 	snap := f.fset.Snapshot()
@@ -311,10 +304,6 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 	// Wait for db updates and scan scheduling to complete
 	close(dbUpdateChan)
 	updateWg.Wait()
-
-	f.pullErrorsMut.Lock()
-	f.oldPullErrors = nil
-	f.pullErrorsMut.Unlock()
 
 	f.queue.Reset()
 
@@ -745,7 +734,11 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 	}
 
 	// There is already something under that name, we need to handle that.
-	if info, err := f.fs.Lstat(file.Name); err == nil {
+	switch info, err := f.fs.Lstat(file.Name); {
+	case err != nil && !fs.IsNotExist(err):
+		f.newPullError(file.Name, errors.Wrap(err, "checking for existing symlink"))
+		return
+	case err == nil:
 		// Check that it is what we have in the database.
 		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
 		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
@@ -1297,10 +1290,10 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					if err != nil {
 						return false
 					}
+					defer fd.Close()
 
 					srcOffset := int64(state.file.BlockSize()) * int64(index)
 					_, err = fd.ReadAt(buf, srcOffset)
-					fd.Close()
 					if err != nil {
 						return false
 					}
@@ -1843,7 +1836,7 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 	// We might get more than one error report for a file (i.e. error on
 	// Write() followed by Close()); we keep the first error as that is
 	// probably closer to the root cause.
-	if _, ok := f.pullErrors[path]; ok {
+	if _, ok := f.tempPullErrors[path]; ok {
 		return
 	}
 
@@ -1851,15 +1844,9 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 	// Use "syncing" as opposed to "pulling" as the latter might be used
 	// for errors occurring specificly in the puller routine.
 	errStr := fmt.Sprintln("syncing:", err)
-	f.pullErrors[path] = errStr
+	f.tempPullErrors[path] = errStr
 
-	if oldErr, ok := f.oldPullErrors[path]; ok && oldErr == errStr {
-		l.Debugf("Repeat error on puller (folder %s, item %q): %v", f.Description(), path, err)
-		delete(f.oldPullErrors, path) // Potential repeats are now caught by f.pullErrors itself
-		return
-	}
-
-	l.Infof("Puller (folder %s, item %q): %v", f.Description(), path, err)
+	l.Debugf("%v new error for %v: %v", f, path, err)
 }
 
 func (f *sendReceiveFolder) Errors() []FileError {

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "Jun 23, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Aug 04, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -190,7 +190,7 @@ simultaneously and the content actually differs, one of the files will be
 renamed to \fB<filename>.sync\-conflict\-<date>\-<time>\-<modifiedBy>.<ext>\fP\&. The file with the
 older modification time will be marked as the conflicting file and thus be
 renamed. If the modification times are equal, the file originating from the
-device which has the larger value of the first 63 bits for his device ID will be
+device which has the larger value of the first 63 bits for its device ID will be
 marked as the conflicting file.
 If the conflict is between a modification and a deletion of the file, the
 modified file always wins and is resurrected without renaming on the
@@ -366,7 +366,7 @@ If only your remote computer is Unix\-like,
 you can still access it with ssh from Windows.
 .sp
 Under Windows 10 (64 bit) you can use the same ssh command if you install
-the \fI\%Windows Subsystem for Linux\fP <\fBhttps://docs.microsoft.com/en-gb/windows/wsl/install-win10\fP>\&.
+the \fI\%Windows Subsystem for Linux\fP <\fBhttps://docs.microsoft.com/windows/wsl/install-win10\fP>\&.
 .sp
 Another Windows way to run ssh is to install \fI\%gow (Gnu On Windows)\fP <\fBhttps://github.com/bmatzelle/gow\fP>\&. The easiest way to install gow is with the \fI\%chocolatey\fP <\fBhttps://chocolatey.org/\fP> package manager.
 .SH WHY DO I GET “HOST CHECK ERROR” IN THE GUI/API?

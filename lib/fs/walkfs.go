@@ -11,8 +11,11 @@
 package fs
 
 import (
+	"errors"
 	"path/filepath"
 )
+
+var ErrInfiniteRecursion = errors.New("infinite filesystem recursion detected")
 
 type ancestorDirList struct {
 	list []FileInfo
@@ -90,8 +93,7 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc, ances
 		ancestors.Push(info)
 		defer ancestors.Pop()
 	} else {
-		l.Warnf("Infinite filesystem recursion detected on path '%s', not walking further down", path)
-		return nil
+		return walkFn(path, info, ErrInfiniteRecursion)
 	}
 
 	names, err := f.DirNames(path)

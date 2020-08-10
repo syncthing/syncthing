@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Jun 23, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Aug 04, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -466,85 +466,7 @@ Provides a choice of method for copying data between files. This can be used to 
 filesystems, improve speed of large copies or clone the data using copy\-on\-write functionality if the underlying
 filesystem supports it.
 .sp
-\fBWARNING:\fP
-.INDENT 7.0
-.INDENT 3.5
-This is an experimental feature, so please use at your own risk.
-.UNINDENT
-.UNINDENT
-.INDENT 7.0
-.TP
-.B standard (default)
-Reads the data from source file into application memory, writes the data from application memory into the
-destination file.
-.sp
-Available on: All platforms
-.TP
-.B copy_file_range
-Uses copy_file_range syscall, which if underlying filesystem supports, uses copy\-on\-write semantics to
-clone the data. Introduced in Linux 4.5 and tested on XFS and BTRFS. Some network filesystems might use this
-to perform server\-side copies.
-.sp
-Tested on: BTRFS, XFS
-Available on: Linux
-.TP
-.B ioctl
-Uses ioctl syscall with FICLONERANGE option, which if underlying filesystem supports, uses copy\-on\-write
-semantics to clone the data. Officially introduced in Linux 4.5, but was previously known as
-BTRFS_IOC_CLONE_RANGE, which was used to provide copy\-on\-write semantics to BTRFS filesystems since Linux 2.6.29.
-Some network filesystems might use this to perform server\-side copies. Will fail if not supported by the
-underlying filesystem.
-.sp
-Tested on: BTRFS
-Not available on: Windows, Solaris, Darwin (OS X)
-.TP
-.B sendfile
-Uses sendfile syscall, which performs in\-kernel copy, avoiding having to copy the data into application memory.
-.sp
-Tested on: BTRFS, XFS
-Not available on: Windows, Darwin (OS X)
-.TP
-.B duplicate_extents
-Uses Windows Block Cloning via FSCTL_DUPLICATE_EXTENTS_TO_FILE, which provides copy\-on\-write semantics to clone
-the data. Requires Windows Server 2016 or later, and a compatible filesystem (ReFS, SMB 3.1.1, CsvFS). Will
-fail if not supported by the underlying filesystem.
-.sp
-\fBWARNING:\fP
-.INDENT 7.0
-.INDENT 3.5
-Completely untested, use at your own risk.
-.UNINDENT
-.UNINDENT
-.sp
-Available on: Windows
-.TP
-.B all
-Tries all of the copy methods in the following order: ioctl, copy_file_range, sendfile, duplicate_extents,
-standard.
-.sp
-Available on: All platforms
-.sp
-\fBWARNING:\fP
-.INDENT 7.0
-.INDENT 3.5
-Not recommended on Windows as it has not been tested, might be very costly on all other platforms.
-.UNINDENT
-.UNINDENT
-.UNINDENT
-.TP
-.B fsync
-Deprecated since version v0.14.37.
-
-.sp
-Transfer updated (from other devices) files to permanent storage before
-committing the changes to the internal database.
-.TP
-.B pullerSleepS
-Deprecated since version v0.14.41.
-
-.sp
-Tweak for rate limiting the puller. Don’t change these unless you know
-what you’re doing.
+See folder\-copyRangeMethod for details.
 .UNINDENT
 .SH DEVICE ELEMENT
 .INDENT 0.0
@@ -781,7 +703,7 @@ The name of the theme to use.
 .TP
 .B authMode
 Authentication mode to use. If not present authentication mode (static)
-is controlled by presence of user/passward fields for backward compatibility.
+is controlled by presence of user/password fields for backward compatibility.
 .INDENT 7.0
 .TP
 .B static
@@ -816,7 +738,7 @@ LDAP server address (server:port).
 .TP
 .B bindDN
 BindDN for user authentication.
-Special %s variable shoild be used to pass username to LDAP.
+Special %s variable should be used to pass username to LDAP.
 .UNINDENT
 .sp
 transport

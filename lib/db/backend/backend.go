@@ -15,6 +15,11 @@ import (
 	"github.com/syncthing/syncthing/lib/locations"
 )
 
+// CommitHook is a function that is executed before a WriteTransaction is
+// committed or before it is flushed to disk, e.g. on calling CheckPoint. The
+// transaction can be accessed via a closure.
+type CommitHook func(WriteTransaction) error
+
 // The Reader interface specifies the read-only operations available on the
 // main database and on read-only transactions (snapshots). Note that when
 // called directly on the database handle these operations may take implicit
@@ -52,16 +57,15 @@ type ReadTransaction interface {
 // A Checkpoint is a potential partial commit of the transaction so far, for
 // purposes of saving memory when transactions are in-RAM. Note that
 // transactions may be checkpointed *anyway* even if this is not called, due to
-// resource constraints, but this gives you a chance to decide when.
-//
-// Functions can be passed to Checkpoint. These are run if and only if the
-// checkpoint will result in a flush, and will run before the flush. The
-// transaction can be accessed via a closure. If an error is returned from
-// these functions the flush will be aborted and the error bubbled.
+// resource constraints, but this gives you a chance to decide when. If, and
+// only if, calling Checkpoint will result in a partial commit/flush, the
+// CommitHooks passed to Backend.NewWriteTransaction are called before
+// committing. If any of those returns an error, committing is aborted and the
+// error bubbled.
 type WriteTransaction interface {
 	ReadTransaction
 	Writer
-	Checkpoint(...func() error) error
+	Checkpoint() error
 	Commit() error
 }
 
@@ -108,7 +112,7 @@ type Backend interface {
 	Reader
 	Writer
 	NewReadTransaction() (ReadTransaction, error)
-	NewWriteTransaction() (WriteTransaction, error)
+	NewWriteTransaction(hooks ...CommitHook) (WriteTransaction, error)
 	Close() error
 	Compact() error
 }

@@ -106,6 +106,7 @@ func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls
 		Subject: pkix.Name{
 			CommonName: commonName,
 		},
+		DNSNames:              []string{commonName},
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
 		SignatureAlgorithm:    x509.ECDSAWithSHA256,

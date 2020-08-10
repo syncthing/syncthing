@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+
 	"github.com/syncthing/syncthing/lib/config"
 )
 

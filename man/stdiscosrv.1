@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "STDISCOSRV" "1" "Jun 23, 2020" "v1" "Syncthing"
+.TH "STDISCOSRV" "1" "Aug 04, 2020" "v1" "Syncthing"
 .SH NAME
 stdiscosrv \- Syncthing Discovery Server
 .
@@ -278,6 +278,9 @@ Syncthing towards this name. The same certificate must be used on both
 discovery servers.
 .SS Reverse Proxy Setup
 .sp
+New in version 1.8.0: A new “X\-Client\-Port” HTTP header was added.
+
+.sp
 The discovery server can be run behind an SSL\-secured reverse proxy. This
 allows:
 .INDENT 0.0
@@ -305,6 +308,8 @@ SSL certificate/key configured for the reverse proxy.
 The “X\-Forwarded\-For” HTTP header must be passed through with the client’s
 real IP address.
 .IP \(bu 2
+The “X\-Client\-Port” HTTP header should be passed through, containing the client’s real connection port.
+.IP \(bu 2
 The “X\-SSL\-Cert” HTTP header must be passed through with the PEM\-encoded
 client SSL certificate. This will be present in POST requests and may be empty
 in GET requests from clients. If you see syncthing\-discosrv outputting
@@ -316,7 +321,7 @@ signed by a trusted CA.
 .UNINDENT
 .SS Nginx
 .sp
-These three lines in the configuration take care of the last three requirements
+These lines in the configuration take care of the last four requirements
 listed above:
 .INDENT 0.0
 .INDENT 3.5
@@ -324,6 +329,7 @@ listed above:
 .nf
 .ft C
 proxy_set_header X\-Forwarded\-For $proxy_add_x_forwarded_for;
+proxy_set_header X\-Client\-Port $remote_port;
 proxy_set_header X\-SSL\-Cert $ssl_client_cert;
 ssl_verify_client optional_no_ca;
 .ft P
@@ -346,6 +352,7 @@ proxy_set_header Host $http_host;
 proxy_set_header Upgrade $http_upgrade;
 proxy_set_header Connection $http_connection;
 proxy_set_header X\-Real\-IP $remote_addr;
+proxy_set_header X\-Client\-Port $remote_port;
 proxy_set_header X\-Forwarded\-For $proxy_add_x_forwarded_for;
 proxy_set_header X\-Forwarded\-Proto $http_x_forwarded_proto;
 proxy_set_header X\-SSL\-Cert $ssl_client_cert;
@@ -361,18 +368,33 @@ server {
 }
 server {
         server_name discovery.example.com;
+
         listen 443 ssl http2;
         access_log /var/log/nginx/access.log vhost;
-        ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
-        ssl_ciphers ECDHE\-RSA\-AES128\-GCM\-SHA256:ECDHE\-ECDSA\-AES128\-GCM\-SHA256:ECDHE\-RSA\-AES256\-GCM\-SHA384:ECDHE\-ECDSA\-AES256\-GCM\-SHA384: DHE\-RSA\-AES128\-GCM\-SHA256:DHE\-DSS\-AES128\-GCM\-SHA256:kEDH+AESGCM:ECDHE\-RSA\-AES128\-SHA256:ECDHE\-ECDSA\-AES128\-SHA256:ECDHE\-RSA\-AES128\-SHA:E CDHE\-ECDSA\-AES128\-SHA:ECDHE\-RSA\-AES256\-SHA384:ECDHE\-ECDSA\-AES256\-SHA384:ECDHE\-RSA\-AES256\-SHA:ECDHE\-ECDSA\-AES256\-SHA:DHE\-RSA\-AES128\-SHA25 6:DHE\-RSA\-AES128\-SHA:DHE\-DSS\-AES128\-SHA256:DHE\-RSA\-AES256\-SHA256:DHE\-DSS\-AES256\-SHA:DHE\-RSA\-AES256\-SHA:AES128\-GCM\-SHA256:AES256\-GCM\-SHA3 84:AES128\-SHA256:AES256\-SHA256:AES128\-SHA:AES256\-SHA:AES:CAMELLIA:DES\-CBC3\-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH\-DSS \-DES\-CBC3\-SHA:!EDH\-RSA\-DES\-CBC3\-SHA:!KRB5\-DES\-CBC3\-SHA;
-        ssl_prefer_server_ciphers on;
+
+        # Mozilla Intermediate configuration (https://wiki.mozilla.org/Security/Server_Side_TLS)
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers ECDHE\-ECDSA\-AES128\-GCM\-SHA256:ECDHE\-RSA\-AES128\-GCM\-SHA256:ECDHE\-ECDSA\-AES256\-GCM\-SHA384:ECDHE\-RSA\-AES256\-GCM\-SHA384:ECDHE\-ECDSA\-CHACHA20\-POLY1305:ECDHE\-RSA\-CHACHA20\-POLY1305:DHE\-RSA\-AES128\-GCM\-SHA256:DHE\-RSA\-AES256\-GCM\-SHA384;
+        ssl_prefer_server_ciphers off;
+        ssl_session_tickets off;
         ssl_session_timeout 5m;
         ssl_session_cache shared:SSL:50m;
+        ssl_verify_client optional_no_ca;
+
+        # OCSP stapling
+        ssl_stapling on;
+        ssl_stapling_verify on;
+
+        # Certificates
         ssl_certificate /etc/nginx/certs/discovery.example.com.crt;
         ssl_certificate_key /etc/nginx/certs/discovery.example.com.key;
-        ssl_dhparam /etc/nginx/certs/discovery.example.com.dhparam.pem;
-        add_header Strict\-Transport\-Security "max\-age=31536000";
-        ssl_verify_client optional_no_ca;
+
+        # curl https://ssl\-config.mozilla.org/ffdhe2048.txt > /path/to/dhparam
+        ssl_dhparam /path/to/dhparam;
+
+        # HSTS (ngx_http_headers_module is required) (63072000 seconds)
+        add_header Strict\-Transport\-Security "max\-age=63072000" always;
+
         location / {
                 proxy_pass http://discovery.example.com;
         }
