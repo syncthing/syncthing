@@ -279,7 +279,7 @@ func (a *App) startup() error {
 	// Chicken and egg, discovery manager depends on connection service to tell it what addresses it's listening on
 	// Connection service depends on discovery manager to get addresses to connect to.
 	// Create a wrapper that is then wired after they are both setup.
-	addrLister := lateAddressLister{}
+	addrLister := &lateAddressLister{}
 
 	discoveryManager := discover.NewManager(a.myID, a.cfg, a.cert, a.evLogger, addrLister)
 	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, discoveryManager, bepProtocolName, tlsDefaultCommonName, a.evLogger)
