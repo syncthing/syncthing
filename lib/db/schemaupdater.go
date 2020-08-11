@@ -537,7 +537,7 @@ func (db *schemaUpdater) rewriteFiles(t readWriteTransaction) error {
 		if fi.Blocks == nil {
 			continue
 		}
-		if err := t.putFile(it.Key(), fi, false); err != nil {
+		if err := t.putFile(it.Key(), fi); err != nil {
 			return err
 		}
 		if err := t.Checkpoint(); err != nil {
