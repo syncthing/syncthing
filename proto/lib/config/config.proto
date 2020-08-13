@@ -4,6 +4,8 @@ package config;
 
 import "repos/protobuf/gogoproto/gogo.proto";
 
+import "lib/config/folderconfiguration.proto";
+
 option (gogoproto.goproto_getters_all) = false;
 option (gogoproto.sizer_all) = false;
 option (gogoproto.protosizer_all) = true;

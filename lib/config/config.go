@@ -4,10 +4,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate go run ../../script/protofmt.go config.proto
-//go:generate protoc -I ../../ -I . --gogofast_out=. config.proto
-
-
 // Package config implements reading and writing of the syncthing configuration file.
 package config
 

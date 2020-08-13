@@ -4,26 +4,20 @@ package config;
 
 import "repos/protobuf/gogoproto/gogo.proto";
 
+import "ext.proto";
+
 import "lib/fs/types.proto";
 import "lib/fs/copyrangemethod.proto";
 
-import "foldertype.proto";
-import "size.proto";
-import "pullorder.proto";
-import "versioningconfiguration.proto";
-import "blockpullorder.proto";
-
-option (gogoproto.goproto_getters_all) = false;
-option (gogoproto.sizer_all) = false;
-option (gogoproto.protosizer_all) = true;
-option (gogoproto.goproto_enum_stringer_all) = true;
-option (gogoproto.goproto_enum_prefix_all) = false;
-option (gogoproto.goproto_unkeyed_all) = false;
-option (gogoproto.goproto_unrecognized_all) = false;
-option (gogoproto.goproto_sizecache_all) = false;
+import "lib/config/foldertype.proto";
+import "lib/config/size.proto";
+import "lib/config/pullorder.proto";
+import "lib/config/versioningconfiguration.proto";
+import "lib/config/blockpullorder.proto";
 
 message FolderDeviceConfiguration {
-
+    bytes device_id     = 1 [(gogoproto.customname) = "DeviceID", (gogoproto.customtype) = "github.com/syncthing/syncthing/lib/protocol.DeviceID"];
+    bytes introduced_by = 2 [(gogoproto.customtype) = "github.com/syncthing/syncthing/lib/protocol.DeviceID"];
 }
 
 message FolderConfiguration {
@@ -62,12 +56,12 @@ message FolderConfiguration {
 	CopyRangeMethod         fs.CopyRangeMethod          `xml:"copyRangeMethod" json:"copyRangeMethod" default:"standard"`
 	CaseSensitiveFS         bool                        `xml:"caseSensitiveFS" json:"caseSensitiveFS"`
     */
-    string                             id                         = 1;
-    string                             label                      = 2;
+    string                             id                         = 1 [(ext.xml) = "id,attr"];
+    string                             label                      = 2 [(ext.xml) = "label,attr", (ext.restart) = false];
     fs.FilesystemType                  filesystem_type            = 3;
     string                             path                       = 4;
     FolderType                         type                       = 5;
-    repeated FolderDeviceConfiguration devices                    = 6 [(gogoproto.nullable) = false];
+    repeated FolderDeviceConfiguration devices                    = 6 [(ext.xml) = "device"];
     int32                              rescan_interval_s          = 7;
     bool                               fs_watcher_enabled         = 8;
     int32                              fs_watcher_delay           = 9;

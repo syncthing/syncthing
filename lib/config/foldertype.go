@@ -6,9 +6,6 @@
 
 package config
 
-//go:generate go run ../../script/protofmt.go foldertype.proto
-//go:generate protoc -I ../../ -I . --gogofast_out=. foldertype.proto
-
 func (t FolderType) String() string {
 	switch t {
 	case FolderTypeSendReceive:

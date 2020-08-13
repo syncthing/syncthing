@@ -1,0 +1,17 @@
+syntax = "proto2";
+package ext;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/syncthing/syncthing/proto/ext";
+
+extend google.protobuf.MessageOptions {
+    optional bool skip_xml = 74001;
+}
+
+extend google.protobuf.FieldOptions {
+    optional string xml     = 75005;
+    optional string json    = 75006;
+    optional string default = 75007;
+    optional bool   restart = 75008;
+}
