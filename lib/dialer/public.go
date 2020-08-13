@@ -125,19 +125,52 @@ func DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 
 // DialContextReusePort tries dialing via proxy if a proxy is configured, and falls back to
 // a direct connection reusing the port from the connections registry, if no proxy is defined, or connecting via proxy
-// fails. If the context has a timeout, the timeout might be applied twice.
+// fails. It also in parallel dials without reusing the port, just in case reusing the port affects routing decisions badly.
 func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, error) {
-	dialer := &net.Dialer{
-		Control: ReusePortControl,
-	}
-	localAddrInterface := registry.Get(network, tcpAddrLess)
-	if localAddrInterface != nil {
-		if addr, ok := localAddrInterface.(*net.TCPAddr); !ok {
-			return nil, errUnexpectedInterfaceType
-		} else {
-			dialer.LocalAddr = addr
-		}
+	// If proxy is configured, there is no point trying to reuse listen addresses.
+	if proxy.FromEnvironment() != proxy.Direct {
+		return DialContext(ctx, network, addr)
 	}
 
-	return dialContextWithFallback(ctx, dialer, network, addr)
+	localAddrInterface := registry.Get(network, tcpAddrLess)
+	if localAddrInterface == nil {
+		// Nothing listening, nothing to reuse.
+		return DialContext(ctx, network, addr)
+	}
+
+	laddr, ok := localAddrInterface.(*net.TCPAddr)
+	if !ok {
+		return nil, errUnexpectedInterfaceType
+	}
+
+	// Dial twice, once reusing the listen address, another time not reusing it, just in case reusing the address
+	// influences routing and we fail to reach our destination.
+	var reuseConn, nonReuseConn net.Conn
+	var reuseErr, nonReuseErr error
+	reuseDone := make(chan struct{})
+	nonReuseDone := make(chan struct{})
+	go func() {
+		dialer := &net.Dialer{
+			Control: ReusePortControl,
+			LocalAddr: laddr,
+		}
+		reuseConn, reuseErr = dialContextWithFallback(ctx, dialer, network, addr)
+		close(reuseDone)
+	}()
+	go func() {
+		nonReuseConn, nonReuseErr = DialContext(ctx, network, addr)
+		close(nonReuseDone)
+	}()
+	<-reuseDone
+	if reuseErr == nil {
+		go func() {
+			<-nonReuseDone
+			if nonReuseErr == nil {
+				_ = nonReuseConn.Close()
+			}
+		}()
+		return reuseConn, nil
+	}
+	<-nonReuseDone
+	return nonReuseConn, nonReuseErr
 }
