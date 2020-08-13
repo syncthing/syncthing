@@ -151,7 +151,7 @@ func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, 
 	nonReuseDone := make(chan struct{})
 	go func() {
 		dialer := &net.Dialer{
-			Control: ReusePortControl,
+			Control:   ReusePortControl,
 			LocalAddr: laddr,
 		}
 		reuseConn, reuseErr = dialContextWithFallback(ctx, dialer, network, addr)
