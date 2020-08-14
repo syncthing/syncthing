@@ -24,7 +24,7 @@ import (
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/stun"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 )
 
 func init() {
@@ -35,7 +35,7 @@ func init() {
 }
 
 type quicListener struct {
-	util.ServiceWithError
+	serviceutil.ServiceWithError
 	nat atomic.Value
 
 	onAddressesChangedNotifier
@@ -203,7 +203,7 @@ func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.
 		conns:   conns,
 		factory: f,
 	}
-	l.ServiceWithError = util.AsServiceWithError(l.serve, l.String())
+	l.ServiceWithError = serviceutil.AsServiceWithError(l.serve, l.String())
 	l.nat.Store(stun.NATUnknown)
 	return l
 }

@@ -25,7 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 )
 
 type globalClient struct {
@@ -132,7 +132,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 		noLookup:       opts.noLookup,
 		evLogger:       evLogger,
 	}
-	cl.Service = util.AsService(cl.serve, cl.String())
+	cl.Service = serviceutil.AsService(cl.serve, cl.String())
 	if !opts.noAnnounce {
 		// If we are supposed to annonce, it's an error until we've done so.
 		cl.setError(errors.New("not announced"))

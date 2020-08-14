@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
-	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -529,7 +528,7 @@ func TestNewSaveLoad(t *testing.T) {
 		t.Error(path, "exists")
 	}
 
-	err := cfg.Save()
+	_, err := cfg.Save()
 	if err != nil {
 		t.Error(err)
 	}
@@ -1168,11 +1167,11 @@ func defaultConfigAsMap() map[string]interface{} {
 }
 
 func load(path string, myID protocol.DeviceID) (Wrapper, error) {
-	return Load(path, myID, events.NoopLogger)
+	return Load(path, myID)
 }
 
 func wrap(path string, cfg Configuration) Wrapper {
-	return Wrap(path, cfg, events.NoopLogger)
+	return Wrap(path, cfg)
 }
 
 func TestInternalVersioningConfiguration(t *testing.T) {

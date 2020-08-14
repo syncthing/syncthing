@@ -18,7 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 )
 
 func init() {
@@ -29,7 +29,7 @@ func init() {
 }
 
 type tcpListener struct {
-	util.ServiceWithError
+	serviceutil.ServiceWithError
 	onAddressesChangedNotifier
 
 	uri     *url.URL
@@ -205,7 +205,7 @@ func (f *tcpListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.C
 		natService: natService,
 		factory:    f,
 	}
-	l.ServiceWithError = util.AsServiceWithError(l.serve, l.String())
+	l.ServiceWithError = serviceutil.AsServiceWithError(l.serve, l.String())
 	return l
 }
 

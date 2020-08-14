@@ -115,7 +115,7 @@ func createTmpWrapper(cfg config.Configuration) config.Wrapper {
 	if err != nil {
 		panic(err)
 	}
-	wrapper := config.Wrap(tmpFile.Name(), cfg, events.NoopLogger)
+	wrapper := config.Wrap(tmpFile.Name(), cfg)
 	tmpFile.Close()
 	return wrapper
 }
@@ -304,7 +304,7 @@ func TestDeviceRename(t *testing.T) {
 			DeviceID: device1,
 		},
 	}
-	cfg := config.Wrap("testdata/tmpconfig.xml", rawCfg, events.NoopLogger)
+	cfg := config.Wrap("testdata/tmpconfig.xml", rawCfg)
 
 	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(cfg, myID, "syncthing", "dev", db, nil)
@@ -340,7 +340,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device name got overwritten")
 	}
 
-	cfgw, err := config.Load("testdata/tmpconfig.xml", myID, events.NoopLogger)
+	cfgw, err := config.Load("testdata/tmpconfig.xml", myID)
 	if err != nil {
 		t.Error(err)
 		return

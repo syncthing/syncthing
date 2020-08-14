@@ -324,7 +324,9 @@ func (a *App) startup() error {
 		if opts.URAccepted != ur.Version {
 			opts.URAccepted = ur.Version
 			a.cfg.SetOptions(opts)
-			a.cfg.Save()
+			if cfg, err := a.cfg.Save(); err == nil { // best effort
+				a.evLogger.Log(events.ConfigSaved, cfg)
+			}
 			// Unique ID will be set and config saved below if necessary.
 		}
 	}
@@ -333,7 +335,9 @@ func (a *App) startup() error {
 	if opts := a.cfg.Options(); opts.URAccepted > 0 && opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
 		a.cfg.SetOptions(opts)
-		a.cfg.Save()
+		if cfg, err := a.cfg.Save(); err == nil { // best effort
+			a.evLogger.Log(events.ConfigSaved, cfg)
+		}
 	}
 
 	usageReportingSvc := ur.New(a.cfg, m, connectionsService, a.opts.NoUpgrade)

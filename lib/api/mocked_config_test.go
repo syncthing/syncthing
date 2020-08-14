@@ -42,7 +42,9 @@ func (c *mockedConfig) Replace(cfg config.Configuration) (config.Waiter, error) 
 	return noopWaiter{}, nil
 }
 
-func (c *mockedConfig) Subscribe(cm config.Committer) {}
+func (c *mockedConfig) Subscribe(cm config.Committer) config.Configuration {
+	return config.Configuration{}
+}
 
 func (c *mockedConfig) Unsubscribe(cm config.Committer) {}
 
@@ -62,8 +64,8 @@ func (c *mockedConfig) SetDevices([]config.DeviceConfiguration) (config.Waiter, 
 	return noopWaiter{}, nil
 }
 
-func (c *mockedConfig) Save() error {
-	return nil
+func (c *mockedConfig) Save() (config.Configuration, error) {
+	return config.Configuration{}, nil
 }
 
 func (c *mockedConfig) RequiresRestart() bool {

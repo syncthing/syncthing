@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/time/rate"
 )
@@ -29,8 +28,8 @@ func init() {
 	device4, _ = protocol.DeviceIDFromString("P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2")
 }
 
-func initConfig() config.Wrapper {
-	cfg := config.Wrap("/dev/null", config.New(device1), events.NoopLogger)
+func initLimiter() (*limiter, config.Wrapper) {
+	cfg := config.Wrap("/dev/null", config.New(device1))
 	dev1Conf = config.NewDeviceConfiguration(device1, "device1")
 	dev2Conf = config.NewDeviceConfiguration(device2, "device2")
 	dev3Conf = config.NewDeviceConfiguration(device3, "device3")
@@ -41,12 +40,17 @@ func initConfig() config.Wrapper {
 
 	waiter, _ := cfg.SetDevices([]config.DeviceConfiguration{dev1Conf, dev2Conf, dev3Conf, dev4Conf})
 	waiter.Wait()
-	return cfg
+
+	lim := newLimiter()
+	copy := cfg.Subscribe(lim)
+	prev := config.Configuration{Options: config.OptionsConfiguration{MaxRecvKbps: -1, MaxSendKbps: -1}}
+	lim.CommitConfiguration(prev, copy)
+	return lim, cfg
 }
 
 func TestLimiterInit(t *testing.T) {
-	cfg := initConfig()
-	lim := newLimiter(cfg)
+	lim, cfg := initLimiter()
+	defer cfg.Unsubscribe(lim)
 
 	device2ReadLimit := dev2Conf.MaxRecvKbps
 	device2WriteLimit := dev2Conf.MaxSendKbps
@@ -70,8 +74,8 @@ func TestLimiterInit(t *testing.T) {
 }
 
 func TestSetDeviceLimits(t *testing.T) {
-	cfg := initConfig()
-	lim := newLimiter(cfg)
+	lim, cfg := initLimiter()
+	defer cfg.Unsubscribe(lim)
 
 	// should still be inf/inf because this is local device
 	dev1ReadLimit := rand.Int() % 100000
@@ -108,8 +112,8 @@ func TestSetDeviceLimits(t *testing.T) {
 }
 
 func TestRemoveDevice(t *testing.T) {
-	cfg := initConfig()
-	lim := newLimiter(cfg)
+	lim, cfg := initLimiter()
+	defer cfg.Unsubscribe(lim)
 
 	waiter, _ := cfg.RemoveDevice(device3)
 	waiter.Wait()
@@ -128,8 +132,8 @@ func TestRemoveDevice(t *testing.T) {
 }
 
 func TestAddDevice(t *testing.T) {
-	cfg := initConfig()
-	lim := newLimiter(cfg)
+	lim, cfg := initLimiter()
+	defer cfg.Unsubscribe(lim)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
 	addDevConf := config.NewDeviceConfiguration(addedDevice, "addedDevice")
@@ -159,8 +163,8 @@ func TestAddDevice(t *testing.T) {
 }
 
 func TestAddAndRemove(t *testing.T) {
-	cfg := initConfig()
-	lim := newLimiter(cfg)
+	lim, cfg := initLimiter()
+	defer cfg.Unsubscribe(lim)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
 	addDevConf := config.NewDeviceConfiguration(addedDevice, "addedDevice")

@@ -32,10 +32,10 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -229,35 +229,24 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
 	}
 	m.Add(m.progressEmitter)
+	m.Add(serviceutil.AsService(m.serve, m.String(), serviceutil.WithConfigSubscription(cfg, m, m.initCfg)))
 
 	return m
 }
 
-func (m *model) Serve() {
-	m.onServe()
-	m.Supervisor.Serve()
-}
-
-func (m *model) ServeBackground() {
-	m.onServe()
-	m.Supervisor.ServeBackground()
-}
-
-func (m *model) onServe() {
+func (m *model) initCfg(cfg config.Configuration) {
 	// Add and start folders
-	for _, folderCfg := range m.cfg.Folders() {
+	for _, folderCfg := range cfg.Folders {
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
 		}
 		m.newFolder(folderCfg)
 	}
-	m.cfg.Subscribe(m)
 }
 
-func (m *model) Stop() {
-	m.cfg.Unsubscribe(m)
-	m.Supervisor.Stop()
+func (m *model) serve(ctx context.Context) {
+	<-ctx.Done()
 	devs := m.cfg.Devices()
 	ids := make([]protocol.DeviceID, 0, len(devs))
 	for id := range devs {
@@ -1138,7 +1127,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			prevSequence: startSequence,
 			evLogger:     m.evLogger,
 		}
-		is.Service = util.AsService(is.serve, is.String())
+		is.Service = serviceutil.AsService(is.serve, is.String())
 		// The token isn't tracked as the service stops when the connection
 		// terminates and is automatically removed from supervisor (by
 		// implementing suture.IsCompletable).
@@ -1181,8 +1170,10 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	if changed {
-		if err := m.cfg.Save(); err != nil {
+		if cfg, err := m.cfg.Save(); err != nil {
 			l.Warnln("Failed to save config", err)
+		} else {
+			m.evLogger.Log(events.ConfigSaved, cfg)
 		}
 	}
 
@@ -1756,7 +1747,9 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 	cfg, ok := m.cfg.Device(remoteID)
 	if !ok {
 		m.cfg.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String())
-		_ = m.cfg.Save() // best effort
+		if cfg, err := m.cfg.Save(); err == nil { // best effort
+			m.evLogger.Log(events.ConfigSaved, cfg)
+		}
 		m.evLogger.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),
@@ -1857,7 +1850,9 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
 		device.Name = hello.DeviceName
 		m.cfg.SetDevice(device)
-		m.cfg.Save()
+		if cfg, err := m.cfg.Save(); err == nil { // best effort
+			m.evLogger.Log(events.ConfigSaved, cfg)
+		}
 	}
 
 	m.deviceWasSeen(deviceID)

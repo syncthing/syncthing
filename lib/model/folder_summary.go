@@ -18,8 +18,8 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 const maxDurationSinceLastEventReq = time.Minute
@@ -65,8 +65,8 @@ func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, 
 		lastEventReqMut: sync.NewMutex(),
 	}
 
-	service.Add(util.AsService(service.listenForUpdates, fmt.Sprintf("%s/listenForUpdates", service)))
-	service.Add(util.AsService(service.calculateSummaries, fmt.Sprintf("%s/calculateSummaries", service)))
+	service.Add(serviceutil.AsService(service.listenForUpdates, fmt.Sprintf("%s/listenForUpdates", service)))
+	service.Add(serviceutil.AsService(service.calculateSummaries, fmt.Sprintf("%s/calculateSummaries", service)))
 
 	return service
 }

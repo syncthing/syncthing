@@ -442,7 +442,7 @@ func main() {
 }
 
 func openGUI(myID protocol.DeviceID) error {
-	cfg, err := loadOrDefaultConfig(myID, events.NoopLogger)
+	cfg, err := loadOrDefaultConfig(myID)
 	if err != nil {
 		return err
 	}
@@ -485,11 +485,11 @@ func generate(generateDir string) error {
 		l.Warnln("Config exists; will not overwrite.")
 		return nil
 	}
-	cfg, err := syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder)
+	cfg, err := syncthing.DefaultConfig(cfgFile, myID, noDefaultFolder)
 	if err != nil {
 		return err
 	}
-	err = cfg.Save()
+	_, err = cfg.Save()
 	if err != nil {
 		return errors.Wrap(err, "save config")
 	}
@@ -527,7 +527,7 @@ func (e *errNoUpgrade) Error() string {
 }
 
 func checkUpgrade() (upgrade.Release, error) {
-	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID)
 	if err != nil {
 		return upgrade.Release{}, err
 	}
@@ -546,7 +546,7 @@ func checkUpgrade() (upgrade.Release, error) {
 }
 
 func upgradeViaRest() error {
-	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	cfg, _ := loadOrDefaultConfig(protocol.EmptyDeviceID)
 	u, err := url.Parse(cfg.GUI().URL())
 	if err != nil {
 		return err
@@ -604,7 +604,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	go evLogger.Serve()
 	defer evLogger.Stop()
 
-	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
+	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, runtimeOptions.allowNewerConfig, noDefaultFolder)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(syncthing.ExitError.AsInt())
@@ -748,12 +748,12 @@ func setupSignalHandling(app *syncthing.App) {
 	}()
 }
 
-func loadOrDefaultConfig(myID protocol.DeviceID, evLogger events.Logger) (config.Wrapper, error) {
+func loadOrDefaultConfig(myID protocol.DeviceID) (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
-	cfg, err := config.Load(cfgFile, myID, evLogger)
+	cfg, err := config.Load(cfgFile, myID)
 
 	if err != nil {
-		cfg, err = syncthing.DefaultConfig(cfgFile, myID, evLogger, noDefaultFolder)
+		cfg, err = syncthing.DefaultConfig(cfgFile, myID, noDefaultFolder)
 	}
 
 	return cfg, err

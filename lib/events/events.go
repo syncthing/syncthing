@@ -17,8 +17,8 @@ import (
 
 	"github.com/thejerf/suture"
 
+	"github.com/syncthing/syncthing/lib/serviceutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 type EventType int
@@ -262,7 +262,7 @@ func NewLogger() Logger {
 		funcs:         make(chan func(context.Context)),
 		toUnsubscribe: make(chan *subscription),
 	}
-	l.Service = util.AsService(l.serve, l.String())
+	l.Service = serviceutil.AsService(l.serve, l.String())
 	// Make sure the timer is in the stopped state and hasn't fired anything
 	// into the channel.
 	if !l.timeout.Stop() {

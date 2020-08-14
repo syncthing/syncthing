@@ -19,7 +19,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/relay/client"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 )
 
 func init() {
@@ -30,7 +30,7 @@ func init() {
 }
 
 type relayListener struct {
-	util.ServiceWithError
+	serviceutil.ServiceWithError
 	onAddressesChangedNotifier
 
 	uri     *url.URL
@@ -185,7 +185,7 @@ func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls
 		conns:   conns,
 		factory: f,
 	}
-	t.ServiceWithError = util.AsServiceWithError(t.serve, t.String())
+	t.ServiceWithError = serviceutil.AsServiceWithError(t.serve, t.String())
 	return t
 }
 

@@ -14,7 +14,7 @@ import (
 
 	"github.com/thejerf/suture"
 
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 )
 
 type recv struct {
@@ -33,8 +33,8 @@ type Interface interface {
 type cast struct {
 	*suture.Supervisor
 	name    string
-	reader  util.ServiceWithError
-	writer  util.ServiceWithError
+	reader  serviceutil.ServiceWithError
+	writer  serviceutil.ServiceWithError
 	outbox  chan recv
 	inbox   chan []byte
 	stopped chan struct{}
@@ -74,8 +74,8 @@ func (c *cast) addWriter(svc func(ctx context.Context) error) {
 	c.Add(c.writer)
 }
 
-func (c *cast) createService(svc func(context.Context) error, suffix string) util.ServiceWithError {
-	return util.AsServiceWithError(func(ctx context.Context) error {
+func (c *cast) createService(svc func(context.Context) error, suffix string) serviceutil.ServiceWithError {
+	return serviceutil.AsServiceWithError(func(ctx context.Context) error {
 		l.Debugln("Starting", c.name, suffix)
 		err := svc(ctx)
 		l.Debugf("Stopped %v %v: %v", c.name, suffix, err)

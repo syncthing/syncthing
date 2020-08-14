@@ -13,7 +13,7 @@ import (
 	"github.com/thejerf/suture"
 
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 )
 
 // The verbose logging service subscribes to events and prints these in
@@ -27,7 +27,7 @@ func newVerboseService(evLogger events.Logger) *verboseService {
 	s := &verboseService{
 		sub: evLogger.Subscribe(events.AllEvents),
 	}
-	s.Service = util.AsService(s.serve, s.String())
+	s.Service = serviceutil.AsService(s.serve, s.String())
 	return s
 }
 

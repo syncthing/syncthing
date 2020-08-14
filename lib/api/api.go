@@ -49,11 +49,11 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // matches a bcrypt hash and not too much else
@@ -132,7 +132,10 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		configChanged:        make(chan struct{}),
 		startedOnce:          make(chan struct{}),
 	}
-	s.Service = util.AsService(s.serve, s.String())
+	s.Service = serviceutil.AsService(s.serve, s.String(), serviceutil.WithConfigSubscription(cfg, s, func(cfg config.Configuration) {
+		s.statics.setTheme(cfg.GUI.Theme)
+	}))
+
 	return s
 }
 
@@ -239,9 +242,6 @@ func (s *service) serve(ctx context.Context) {
 
 	s.listenerAddr = listener.Addr()
 	defer listener.Close()
-
-	s.cfg.Subscribe(s)
-	defer s.cfg.Unsubscribe(s)
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
@@ -877,10 +877,11 @@ func (s *service) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		wg.Wait()
 	}
 
-	if err := s.cfg.Save(); err != nil {
+	if cfg, err := s.cfg.Save(); err != nil {
 		l.Warnln("Saving config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	} else {
+		s.evLogger.Log(events.ConfigSaved, cfg)
 	}
 }
 

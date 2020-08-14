@@ -47,7 +47,7 @@ var (
 	}
 	defaultCfg = config.Wrap("", config.Configuration{
 		Folders: []config.FolderConfiguration{defaultFolderCfg},
-	}, events.NoopLogger)
+	})
 )
 
 // Represents possibly multiple (different event types) expected paths from

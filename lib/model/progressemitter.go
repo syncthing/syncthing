@@ -16,8 +16,8 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 type ProgressEmitter struct {
@@ -60,19 +60,15 @@ func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmi
 		evLogger:           evLogger,
 		mut:                sync.NewMutex(),
 	}
-	t.Service = util.AsService(t.serve, t.String())
-
-	t.CommitConfiguration(config.Configuration{}, cfg.RawCopy())
-
+	t.Service = serviceutil.AsService(t.serve, t.String(), serviceutil.WithConfigSubscription(cfg, t, func(cfg config.Configuration) {
+		t.CommitConfiguration(config.Configuration{}, cfg)
+	}))
 	return t
 }
 
 // serve starts the progress emitter which starts emitting DownloadProgress
 // events as the progress happens.
 func (t *ProgressEmitter) serve(ctx context.Context) {
-	t.cfg.Subscribe(t)
-	defer t.cfg.Unsubscribe(t)
-
 	var lastUpdate time.Time
 	var lastCount, newCount int
 	for {

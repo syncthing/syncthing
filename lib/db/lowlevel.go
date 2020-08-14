@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
@@ -81,7 +82,7 @@ func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 		opt(db)
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
-	db.Add(util.AsService(db.gcRunner, "db.Lowlevel/gcRunner"))
+	db.Add(serviceutil.AsService(db.gcRunner, "db.Lowlevel/gcRunner"))
 	return db
 }
 

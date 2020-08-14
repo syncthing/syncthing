@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 
@@ -149,7 +150,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		conns:                make(chan internalConn),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		limiter:              newLimiter(cfg),
+		limiter:              newLimiter(),
 		natService:           nat.NewService(myID, cfg),
 		evLogger:             evLogger,
 
@@ -170,13 +171,6 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 			PassThroughPanics: true,
 		}),
 	}
-	cfg.Subscribe(service)
-
-	raw := cfg.RawCopy()
-	// Actually starts the listeners and NAT service
-	// Need to start this before service.connect so that any dials that
-	// try punch through already have a listener to cling on.
-	service.CommitConfiguration(raw, raw)
 
 	// There are several moving parts here; one routine per listening address
 	// (handled in configuration changing) to handle incoming connections,
@@ -184,18 +178,23 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 	// the common handling regardless of whether the connection was
 	// incoming or outgoing.
 
-	service.Add(util.AsService(service.connect, fmt.Sprintf("%s/connect", service)))
-	service.Add(util.AsService(service.handle, fmt.Sprintf("%s/handle", service)))
+	// Actually starts the listeners.
+	// This gets called before the supervisor and thus child services are
+	// started. That's necessary before service.connect so that any dials
+	// kicked off by service.connect that try punch through already have a
+	// listener to cling on.
+	service.Add(serviceutil.ConfigSubscriptionService(cfg, service, service.initCfg))
+	service.Add(serviceutil.ConfigSubscriptionService(cfg, service.limiter, service.limiter.initCfg))
+	service.Add(serviceutil.AsService(service.connect, fmt.Sprintf("%s/connect", service)))
+	service.Add(serviceutil.AsService(service.handle, fmt.Sprintf("%s/handle", service)))
 	service.Add(service.listenerSupervisor)
 	service.Add(service.natService)
 
 	return service
 }
 
-func (s *service) Stop() {
-	s.cfg.Unsubscribe(s.limiter)
-	s.cfg.Unsubscribe(s)
-	s.Supervisor.Stop()
+func (s *service) initCfg(cfg config.Configuration) {
+	s.CommitConfiguration(cfg, cfg)
 }
 
 func (s *service) handle(ctx context.Context) {
@@ -957,4 +956,8 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	}
 
 	return nil
+}
+
+func (s *service) String() string {
+	return fmt.Sprintf("connections.Service@%p", s)
 }

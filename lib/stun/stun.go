@@ -17,7 +17,7 @@ import (
 	"github.com/thejerf/suture"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 )
 
 const stunRetryInterval = 5 * time.Minute
@@ -105,7 +105,7 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) (*Servi
 		natType: NATUnknown,
 		addr:    nil,
 	}
-	s.Service = util.AsService(s.serve, s.String())
+	s.Service = serviceutil.AsService(s.serve, s.String())
 	return s, otherDataConn
 }
 
@@ -187,7 +187,7 @@ func (s *Service) runStunForServer(ctx context.Context, addr string) {
 
 	var natType stun.NATType
 	var extAddr *stun.Host
-	err = util.CallWithContext(ctx, func() error {
+	err = serviceutil.CallWithContext(ctx, func() error {
 		natType, extAddr, err = s.client.Discover()
 		return err
 	})

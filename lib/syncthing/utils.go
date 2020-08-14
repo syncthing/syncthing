@@ -17,7 +17,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db/backend"
-	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -41,7 +40,7 @@ func LoadOrGenerateCertificate(certFile, keyFile string) (tls.Certificate, error
 	return cert, nil
 }
 
-func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, noDefaultFolder bool) (config.Wrapper, error) {
+func DefaultConfig(path string, myID protocol.DeviceID, noDefaultFolder bool) (config.Wrapper, error) {
 	newCfg, err := config.NewWithFreePorts(myID)
 	if err != nil {
 		return nil, err
@@ -49,27 +48,27 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 
 	if noDefaultFolder {
 		l.Infoln("We will skip creation of a default folder on first start")
-		return config.Wrap(path, newCfg, evLogger), nil
+		return config.Wrap(path, newCfg), nil
 	}
 
 	newCfg.Folders = append(newCfg.Folders, config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations.Get(locations.DefFolder)))
 	l.Infoln("Default folder created and/or linked to new config")
-	return config.Wrap(path, newCfg, evLogger), nil
+	return config.Wrap(path, newCfg), nil
 }
 
 // LoadConfigAtStartup loads an existing config. If it doesn't yet exist, it
 // creates a default one, without the default folder if noDefaultFolder is ture.
 // Otherwise it checks the version, and archives and upgrades the config if
 // necessary or returns an error, if the version isn't compatible.
-func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logger, allowNewerConfig, noDefaultFolder bool) (config.Wrapper, error) {
+func LoadConfigAtStartup(path string, cert tls.Certificate, allowNewerConfig, noDefaultFolder bool) (config.Wrapper, error) {
 	myID := protocol.NewDeviceID(cert.Certificate[0])
-	cfg, err := config.Load(path, myID, evLogger)
+	cfg, err := config.Load(path, myID)
 	if fs.IsNotExist(err) {
-		cfg, err = DefaultConfig(path, myID, evLogger, noDefaultFolder)
+		cfg, err = DefaultConfig(path, myID, noDefaultFolder)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate default config")
 		}
-		err = cfg.Save()
+		_, err = cfg.Save()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to save default config")
 		}
@@ -105,7 +104,8 @@ func archiveAndSaveConfig(cfg config.Wrapper) error {
 	}
 
 	// Do a regular atomic config sve
-	return cfg.Save()
+	_, err := cfg.Save()
+	return err
 }
 
 func copyFile(src, dst string) error {

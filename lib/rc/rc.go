@@ -26,7 +26,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
-	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -499,7 +498,7 @@ func (p *Process) eventLoop() {
 				p.id = id
 
 				home := data["home"].(string)
-				w, err := config.Load(filepath.Join(home, "config.xml"), protocol.LocalDeviceID, events.NoopLogger)
+				w, err := config.Load(filepath.Join(home, "config.xml"), protocol.LocalDeviceID)
 				if err != nil {
 					log.Println("eventLoop: Starting:", err)
 					continue

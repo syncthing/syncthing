@@ -21,7 +21,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/urfave/cli"
@@ -85,7 +84,7 @@ func main() {
 		myID := protocol.NewDeviceID(cert.Certificate[0])
 
 		// Load the config
-		cfg, err := config.Load(locations.Get(locations.ConfigFile), myID, events.NoopLogger)
+		cfg, err := config.Load(locations.Get(locations.ConfigFile), myID)
 		if err != nil {
 			log.Fatalln(errors.Wrap(err, "loading config"))
 		}

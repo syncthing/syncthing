@@ -40,20 +40,14 @@ const (
 	maxSingleWriteSize = 8 << 10
 )
 
-func newLimiter(cfg config.Wrapper) *limiter {
-	l := &limiter{
+func newLimiter() *limiter {
+	return &limiter{
 		write:               rate.NewLimiter(rate.Inf, limiterBurstSize),
 		read:                rate.NewLimiter(rate.Inf, limiterBurstSize),
 		mu:                  sync.NewMutex(),
 		deviceReadLimiters:  make(map[protocol.DeviceID]*rate.Limiter),
 		deviceWriteLimiters: make(map[protocol.DeviceID]*rate.Limiter),
 	}
-
-	cfg.Subscribe(l)
-	prev := config.Configuration{Options: config.OptionsConfiguration{MaxRecvKbps: -1, MaxSendKbps: -1}}
-
-	l.CommitConfiguration(prev, cfg.RawCopy())
-	return l
 }
 
 // This function sets limiters according to corresponding DeviceConfiguration
@@ -173,6 +167,11 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	return true
+}
+
+func (lim *limiter) initCfg(cfg config.Configuration) {
+	prev := config.Configuration{Options: config.OptionsConfiguration{MaxRecvKbps: -1, MaxSendKbps: -1}}
+	lim.CommitConfiguration(prev, cfg)
 }
 
 func (lim *limiter) String() string {

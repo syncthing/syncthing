@@ -19,8 +19,8 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // Service runs a loop for discovery of IGDs (Internet Gateway Devices) and
@@ -45,18 +45,17 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 
 		mut: sync.NewRWMutex(),
 	}
-	s.Service = util.AsService(s.serve, s.String())
-	cfg.Subscribe(s)
-	cfgCopy := cfg.RawCopy()
-	s.CommitConfiguration(cfgCopy, cfgCopy)
+	s.Service = serviceutil.AsService(s.serve, s.String(), serviceutil.WithConfigSubscription(cfg, s, func(cfg config.Configuration) {
+		s.CommitConfiguration(config.Configuration{}, cfg)
+	}))
 	return s
 }
 
-func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
+func (s *Service) VerifyConfiguration(_, _ config.Configuration) error {
 	return nil
 }
 
-func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
+func (s *Service) CommitConfiguration(_, to config.Configuration) bool {
 	s.mut.Lock()
 	if !s.enabled && to.Options.NATEnabled {
 		l.Debugln("Starting NAT service")
@@ -68,11 +67,6 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	}
 	s.mut.Unlock()
 	return true
-}
-
-func (s *Service) Stop() {
-	s.cfg.Unsubscribe(s)
-	s.Service.Stop()
 }
 
 func (s *Service) serve(ctx context.Context) {

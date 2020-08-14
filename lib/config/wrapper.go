@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -60,7 +59,7 @@ type Wrapper interface {
 	RawCopy() Configuration
 	Replace(cfg Configuration) (Waiter, error)
 	RequiresRestart() bool
-	Save() error
+	Save() (Configuration, error)
 
 	GUI() GUIConfiguration
 	SetGUI(gui GUIConfiguration) (Waiter, error)
@@ -86,14 +85,13 @@ type Wrapper interface {
 	IgnoredDevice(id protocol.DeviceID) bool
 	IgnoredFolder(device protocol.DeviceID, folder string) bool
 
-	Subscribe(c Committer)
+	Subscribe(c Committer) Configuration
 	Unsubscribe(c Committer)
 }
 
 type wrapper struct {
-	cfg      Configuration
-	path     string
-	evLogger events.Logger
+	cfg  Configuration
+	path string
 
 	waiter Waiter // Latest ongoing config change
 	subs   []Committer
@@ -104,20 +102,19 @@ type wrapper struct {
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
 // disk.
-func Wrap(path string, cfg Configuration, evLogger events.Logger) Wrapper {
+func Wrap(path string, cfg Configuration) Wrapper {
 	w := &wrapper{
-		cfg:      cfg,
-		path:     path,
-		evLogger: evLogger,
-		waiter:   noopWaiter{}, // Noop until first config change
-		mut:      sync.NewMutex(),
+		cfg:    cfg,
+		path:   path,
+		waiter: noopWaiter{}, // Noop until first config change
+		mut:    sync.NewMutex(),
 	}
 	return w
 }
 
 // Load loads an existing file on disk and returns a new configuration
 // wrapper.
-func Load(path string, myID protocol.DeviceID, evLogger events.Logger) (Wrapper, error) {
+func Load(path string, myID protocol.DeviceID) (Wrapper, error) {
 	fd, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -129,7 +126,7 @@ func Load(path string, myID protocol.DeviceID, evLogger events.Logger) (Wrapper,
 		return nil, err
 	}
 
-	return Wrap(path, cfg, evLogger), nil
+	return Wrap(path, cfg), nil
 }
 
 func (w *wrapper) ConfigPath() string {
@@ -138,10 +135,11 @@ func (w *wrapper) ConfigPath() string {
 
 // Subscribe registers the given handler to be called on any future
 // configuration changes.
-func (w *wrapper) Subscribe(c Committer) {
+func (w *wrapper) Subscribe(c Committer) Configuration {
 	w.mut.Lock()
+	defer w.mut.Unlock()
 	w.subs = append(w.subs, c)
-	w.mut.Unlock()
+	return w.cfg.Copy()
 }
 
 // Unsubscribe de-registers the given handler from any future calls to
@@ -414,29 +412,28 @@ func (w *wrapper) Folder(id string) (FolderConfiguration, bool) {
 }
 
 // Save writes the configuration to disk, and generates a ConfigSaved event.
-func (w *wrapper) Save() error {
+func (w *wrapper) Save() (Configuration, error) {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
 	fd, err := osutil.CreateAtomic(w.path)
 	if err != nil {
 		l.Debugln("CreateAtomic:", err)
-		return err
+		return Configuration{}, err
 	}
 
 	if err := w.cfg.WriteXML(fd); err != nil {
 		l.Debugln("WriteXML:", err)
 		fd.Close()
-		return err
+		return Configuration{}, err
 	}
 
 	if err := fd.Close(); err != nil {
 		l.Debugln("Close:", err)
-		return err
+		return Configuration{}, err
 	}
 
-	w.evLogger.Log(events.ConfigSaved, w.cfg)
-	return nil
+	return w.cfg.Copy(), nil
 }
 
 func (w *wrapper) RequiresRestart() bool {

@@ -106,7 +106,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 			RawUseTLS:  false,
 		},
 	}
-	w := config.Wrap("/dev/null", cfg, events.NoopLogger)
+	w := config.Wrap("/dev/null", cfg)
 
 	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, nil, false).(*service)
 	defer os.Remove(token)

@@ -32,6 +32,7 @@ func caller(skip int) string {
 }
 
 func expectEvent(w events.Subscription, t *testing.T, size int) {
+	t.Helper()
 	event, err := w.Poll(timeout)
 	if err != nil {
 		t.Fatal("Unexpected error:", err, "at", caller(1))
@@ -66,8 +67,12 @@ func TestProgressEmitter(t *testing.T) {
 	})
 
 	p := NewProgressEmitter(c, evLogger)
-	go p.Serve()
-	defer p.Stop()
+
+	// Directly call p.serve not p.Serve to prevent config intialisation
+	// racying with setting p.inteval below.
+	ctx, cancel := context.WithCancel(context.Background())
+	go p.serve(ctx)
+	defer cancel()
 	p.interval = 0
 
 	expectTimeout(w, t)
@@ -123,6 +128,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	defer evLogger.Stop()
 
 	p := NewProgressEmitter(c, evLogger)
+	p.CommitConfiguration(config.Configuration{}, c.RawCopy())
 	p.temporaryIndexSubscribe(fc, []string{"folder", "folder2"})
 	p.registry["folder"] = make(map[string]*sharedPullerState)
 	p.registry["folder2"] = make(map[string]*sharedPullerState)

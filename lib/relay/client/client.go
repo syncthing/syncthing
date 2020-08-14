@@ -11,7 +11,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 
 	"github.com/thejerf/suture"
 )
@@ -45,7 +45,7 @@ func NewClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.
 }
 
 type commonClient struct {
-	util.ServiceWithError
+	serviceutil.ServiceWithError
 
 	invitations              chan protocol.SessionInvitation
 	closeInvitationsOnFinish bool
@@ -61,7 +61,7 @@ func newCommonClient(invitations chan protocol.SessionInvitation, serve func(con
 		defer c.cleanup()
 		return serve(ctx)
 	}
-	c.ServiceWithError = util.AsServiceWithError(newServe, creator)
+	c.ServiceWithError = serviceutil.AsServiceWithError(newServe, creator)
 	if c.invitations == nil {
 		c.closeInvitationsOnFinish = true
 		c.invitations = make(chan protocol.SessionInvitation)

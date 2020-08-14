@@ -15,7 +15,7 @@ import (
 	"github.com/thejerf/suture"
 
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 )
 
 // The auditService subscribes to events and writes these in JSON format, one
@@ -31,7 +31,7 @@ func newAuditService(w io.Writer, evLogger events.Logger) *auditService {
 		w:   w,
 		sub: evLogger.Subscribe(events.AllEvents),
 	}
-	s.Service = util.AsService(s.serve, s.String())
+	s.Service = serviceutil.AsService(s.serve, s.String())
 	return s
 }
 

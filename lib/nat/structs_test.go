@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -64,7 +63,7 @@ func TestMappingClearAddresses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := config.Wrap(tmpFile.Name(), config.Configuration{}, events.NoopLogger)
+	w := config.Wrap(tmpFile.Name(), config.Configuration{})
 	defer os.RemoveAll(tmpFile.Name())
 	tmpFile.Close()
 

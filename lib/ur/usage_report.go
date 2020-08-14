@@ -27,9 +27,9 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/serviceutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur/contract"
-	"github.com/syncthing/syncthing/lib/util"
 
 	"github.com/thejerf/suture"
 )
@@ -58,7 +58,7 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 		noUpgrade:          noUpgrade,
 		forceRun:           make(chan struct{}, 1), // Buffered to prevent locking
 	}
-	svc.Service = util.AsService(svc.serve, svc.String())
+	svc.Service = serviceutil.AsService(svc.serve, svc.String(), serviceutil.WithConfigSubscription(cfg, svc, func(config.Configuration) {}))
 	return svc
 }
 
@@ -357,9 +357,6 @@ func (s *Service) sendUsageReport(ctx context.Context) error {
 }
 
 func (s *Service) serve(ctx context.Context) {
-	s.cfg.Subscribe(s)
-	defer s.cfg.Unsubscribe(s)
-
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
 	for {
 		select {
