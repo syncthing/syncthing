@@ -370,10 +370,20 @@ func setupROFolder(t *testing.T) (*model, *receiveOnlyFolder) {
 	fcfg.Label = "ro"
 	fcfg.Type = config.FolderTypeReceiveOnly
 	cfg.Folders = []config.FolderConfiguration{fcfg}
-	w.Replace(cfg)
+	waiter, _ := w.Replace(cfg)
+	waiter.Wait()
 
 	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
 	m.ServeBackground()
+	// Ensure the initial cfg setup happened
+	for {
+		m.fmut.RLock()
+		_, ok := m.folderRunnerToken["ro"]
+		m.fmut.RUnlock()
+		if ok {
+			break
+		}
+	}
 	must(t, m.ScanFolder("ro"))
 
 	m.fmut.RLock()
