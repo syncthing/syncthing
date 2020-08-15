@@ -81,49 +81,5 @@ func (v simple) Restore(filepath string, versionTime time.Time) error {
 }
 
 func (v simple) Clean(ctx context.Context) error {
-	if v.cleanoutDays <= 0 {
-		return nil
-	}
-
-	if _, err := v.versionsFs.Lstat("."); fs.IsNotExist(err) {
-		return nil
-	}
-
-	cutoff := time.Now().Add(time.Duration(-24*v.cleanoutDays) * time.Hour)
-	dirTracker := make(emptyDirTracker)
-
-	walkFn := func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		if info.IsDir() && !info.IsSymlink() {
-			dirTracker.addDir(path)
-			return nil
-		}
-
-		if info.ModTime().Before(cutoff) {
-			// The file is too old; remove it.
-			err = v.versionsFs.Remove(path)
-		} else {
-			// Keep this file, and remember it so we don't unnecessarily try
-			// to remove this directory.
-			dirTracker.addFile(path)
-		}
-		return err
-	}
-
-	if err := v.versionsFs.Walk(".", walkFn); err != nil {
-		return err
-	}
-
-	dirTracker.deleteEmptyDirs(v.versionsFs)
-
-	return nil
+	return CleanByDay(v.cleanoutDays, v.folderFs, v.versionsFs, ctx)
 }
