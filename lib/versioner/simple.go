@@ -81,5 +81,5 @@ func (v simple) Restore(filepath string, versionTime time.Time) error {
 }
 
 func (v simple) Clean(ctx context.Context) error {
-	return CleanByDay(v.cleanoutDays, v.folderFs, v.versionsFs, ctx)
+	return cleanByDay(ctx, v.versionsFs, v.cleanoutDays)
 }

@@ -56,7 +56,7 @@ func (t *trashcan) String() string {
 }
 
 func (t *trashcan) Clean(ctx context.Context) error {
-	return CleanByDay(t.cleanoutDays, t.folderFs, t.versionsFs, ctx)
+	return cleanByDay(ctx, t.versionsFs, t.cleanoutDays)
 }
 
 func (t *trashcan) GetVersions() (map[string][]FileVersion, error) {
