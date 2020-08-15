@@ -295,7 +295,7 @@ func findAllVersions(fs fs.Filesystem, filePath string) []string {
 	return versions
 }
 
-func CleanByDay(cleanoutDays int, folderFs fs.Filesystem, versionsFs fs.Filesystem, ctx context.Context) error {
+func cleanByDay(cleanoutDays int, folderFs fs.Filesystem, versionsFs fs.Filesystem, ctx context.Context) error {
 	if cleanoutDays <= 0 {
 		return nil
 	}
