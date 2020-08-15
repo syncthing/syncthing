@@ -44,5 +44,6 @@
         <stunKeepaliveMinS>900</stunKeepaliveMinS>
         <stunServer>foo</stunServer>
         <unackedNotificationID>asdfasdf</unackedNotificationID>
+        <announceLANAddresses>false</announceLANAddresses>
     </options>
 </configuration>

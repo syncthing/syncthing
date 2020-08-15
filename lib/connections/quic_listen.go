@@ -170,7 +170,7 @@ func (t *quicListener) WANAddresses() []*url.URL {
 }
 
 func (t *quicListener) LANAddresses() []*url.URL {
-	return []*url.URL{t.uri}
+	return getUrisForAllAdapters(t.uri)
 }
 
 func (t *quicListener) String() string {

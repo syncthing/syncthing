@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func fixupPort(uri *url.URL, defaultPort int) *url.URL {
@@ -31,4 +33,26 @@ func fixupPort(uri *url.URL, defaultPort int) *url.URL {
 	}
 
 	return &copyURI
+}
+
+func getUrisForAllAdapters(listenUrl *url.URL) []*url.URL {
+	nets, err := osutil.GetLans()
+	if err != nil {
+		// Ignore failure.
+		return []*url.URL{listenUrl}
+	}
+
+	urls := make([]*url.URL, 0, len(nets)+1)
+	urls = append(urls, listenUrl)
+
+	port := listenUrl.Port()
+
+	for _, network := range nets {
+		if network.IP.IsGlobalUnicast() || network.IP.IsLinkLocalUnicast() {
+			newUrl := *listenUrl
+			newUrl.Host = net.JoinHostPort(network.IP.String(), port)
+			urls = append(urls, &newUrl)
+		}
+	}
+	return urls
 }

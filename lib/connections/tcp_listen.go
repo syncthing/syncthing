@@ -179,7 +179,7 @@ func (t *tcpListener) WANAddresses() []*url.URL {
 }
 
 func (t *tcpListener) LANAddresses() []*url.URL {
-	return []*url.URL{t.uri}
+	return getUrisForAllAdapters(t.uri)
 }
 
 func (t *tcpListener) String() string {

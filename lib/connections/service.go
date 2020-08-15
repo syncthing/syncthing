@@ -675,6 +675,9 @@ func (s *service) AllAddresses() []string {
 }
 
 func (s *service) ExternalAddresses() []string {
+	if s.cfg.Options().AnnounceLANAddresses {
+		return s.AllAddresses()
+	}
 	s.listenersMut.RLock()
 	var addrs []string
 	for _, listener := range s.listeners {
