@@ -35,24 +35,57 @@ func fixupPort(uri *url.URL, defaultPort int) *url.URL {
 	return &copyURI
 }
 
-func getUrisForAllAdapters(listenUrl *url.URL) []*url.URL {
+func getURLsForAllAdaptersIfUnspecified(network string, uri *url.URL) []*url.URL {
+	addrs := make([]*url.URL, 0)
+	if ip, port, err := resolve(network, uri.Host); err == nil && port != 0 && (len(ip) == 0 || ip.IsUnspecified()) {
+		for _, hostPort := range getHostPortsForAllAdapters(port) {
+			newUri := *uri
+			newUri.Host = hostPort
+			addrs = append(addrs, &newUri)
+		}
+	}
+	return addrs
+}
+
+func getHostPortsForAllAdapters(port int) []string {
 	nets, err := osutil.GetLans()
 	if err != nil {
 		// Ignore failure.
-		return []*url.URL{listenUrl}
+		return nil
 	}
 
-	urls := make([]*url.URL, 0, len(nets)+1)
-	urls = append(urls, listenUrl)
+	hostPorts := make([]string, 0, len(nets))
 
-	port := listenUrl.Port()
+	portStr := strconv.Itoa(port)
 
 	for _, network := range nets {
 		if network.IP.IsGlobalUnicast() || network.IP.IsLinkLocalUnicast() {
-			newUrl := *listenUrl
-			newUrl.Host = net.JoinHostPort(network.IP.String(), port)
-			urls = append(urls, &newUrl)
+			hostPorts = append(hostPorts, net.JoinHostPort(network.IP.String(), portStr))
 		}
 	}
-	return urls
+	return hostPorts
+}
+
+func resolve(network, hostPort string) (net.IP, int, error) {
+	switch network {
+	case "tcp", "tcp4", "tcp6":
+		if addr, err := net.ResolveTCPAddr(network, hostPort); err != nil {
+			return net.IPv4zero, 0, err
+		} else {
+			return addr.IP, addr.Port, nil
+		}
+	case "udp", "udp4", "udp6":
+		if addr, err := net.ResolveUDPAddr(network, hostPort); err != nil {
+			return net.IPv4zero, 0, err
+		} else {
+			return addr.IP, addr.Port, nil
+		}
+	case "ip", "ip4", "ip6":
+		if addr, err := net.ResolveIPAddr(network, hostPort); err != nil {
+			return net.IPv4zero, 0, err
+		} else {
+			return addr.IP, 0, nil
+		}
+	}
+	return net.IPv4zero, 0, net.UnknownNetworkError(network)
 }
