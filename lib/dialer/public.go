@@ -127,7 +127,7 @@ func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, 
 		Control:   ReusePortControl,
 		LocalAddr: laddr,
 	}
-	return dialTwicePreferFirst(ctx, dialer.DialContext, (net.Dialer{}).DialContext, "reuse", "non-reuse", network, addr)
+	return dialTwicePreferFirst(ctx, dialer.DialContext, (&net.Dialer{}).DialContext, "reuse", "non-reuse", network, addr)
 }
 
 type dialFunc func(ctx context.Context, network, address string) (net.Conn, error)
