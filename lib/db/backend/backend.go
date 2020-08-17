@@ -163,7 +163,7 @@ func IsClosed(err error) bool {
 }
 
 func IsNotFound(err error) bool {
-	var e *errClosed
+	var e *errNotFound
 	return errors.As(err, &e)
 }
 
