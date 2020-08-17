@@ -305,7 +305,8 @@ func TestRepairSequence(t *testing.T) {
 		{Name: "duplicate", Blocks: genBlocks(2)},
 		{Name: "missing", Blocks: genBlocks(3)},
 		{Name: "overwriting", Blocks: genBlocks(4)},
-		{Name: "inconsistent", Blocks: genBlocks(2)},
+		{Name: "inconsistent", Blocks: genBlocks(5)},
+		{Name: "inconsistentNotIndirected", Blocks: genBlocks(2)},
 	}
 	for i, f := range files {
 		files[i].Version = f.Version.Update(short)
@@ -367,10 +368,13 @@ func TestRepairSequence(t *testing.T) {
 	files[3].Sequence = seq
 	addFile(files[3], seq)
 
-	// Inconistent file
+	// Inconistent files
 	seq++
 	files[4].Sequence = 101
 	addFile(files[4], seq)
+	seq++
+	files[5].Sequence = 102
+	addFile(files[5], seq)
 
 	// And a sequence entry pointing at nothing because why not
 	sk, err = trans.keyer.GenerateSequenceKey(nil, folder, 100001)
