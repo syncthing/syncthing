@@ -1510,7 +1510,7 @@ func TestIgnores(t *testing.T) {
 
 	// Invalid path, marker should be missing, hence returns an error.
 	fcfg := config.FolderConfiguration{ID: "fresh", Path: "XXX"}
-	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
+	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(m.cfg.Options().CacheIgnoredFiles))
 	m.fmut.Lock()
 	m.folderCfgs[fcfg.ID] = fcfg
 	m.folderIgnores[fcfg.ID] = ignores
@@ -1525,7 +1525,7 @@ func TestIgnores(t *testing.T) {
 	pausedDefaultFolderConfig := defaultFolderConfig
 	pausedDefaultFolderConfig.Paused = true
 
-	m.restartFolder(defaultFolderConfig, pausedDefaultFolderConfig)
+	m.restartFolder(defaultFolderConfig, pausedDefaultFolderConfig, false)
 	// Here folder initialization is not an issue as a paused folder isn't
 	// added to the model and thus there is no initial scan happening.
 
@@ -2325,7 +2325,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	}
 
 	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", dbi, nil)
-	m.newFolder(defaultFolderConfig)
+	m.newFolder(defaultFolderConfig, false)
 	defer cleanupModel(m)
 
 	// Remote sequence is cached, hence need to recreated.
@@ -3378,7 +3378,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 	newFcfg.Paused = true
 	done := make(chan struct{})
 	go func() {
-		m.restartFolder(fcfg, newFcfg)
+		m.restartFolder(fcfg, newFcfg, false)
 		close(done)
 	}()
 	select {

@@ -306,6 +306,7 @@ func TestRepairSequence(t *testing.T) {
 		{Name: "missing", Blocks: genBlocks(3)},
 		{Name: "overwriting", Blocks: genBlocks(4)},
 		{Name: "inconsistent", Blocks: genBlocks(5)},
+		{Name: "inconsistentNotIndirected", Blocks: genBlocks(2)},
 	}
 	for i, f := range files {
 		files[i].Version = f.Version.Update(short)
@@ -322,7 +323,7 @@ func TestRepairSequence(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := trans.putFile(dk, f, false); err != nil {
+		if err := trans.putFile(dk, f); err != nil {
 			t.Fatal(err)
 		}
 		sk, err := trans.keyer.GenerateSequenceKey(nil, folder, seq)
@@ -367,10 +368,13 @@ func TestRepairSequence(t *testing.T) {
 	files[3].Sequence = seq
 	addFile(files[3], seq)
 
-	// Inconistent file
+	// Inconistent files
 	seq++
 	files[4].Sequence = 101
 	addFile(files[4], seq)
+	seq++
+	files[5].Sequence = 102
+	addFile(files[5], seq)
 
 	// And a sequence entry pointing at nothing because why not
 	sk, err = trans.keyer.GenerateSequenceKey(nil, folder, 100001)
@@ -722,6 +726,72 @@ func TestGCIndirect(t *testing.T) {
 				t.Fatal("hash mismatch")
 			}
 		}
+	}
+}
+
+func TestUpdateTo14(t *testing.T) {
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+
+	folderStr := "default"
+	folder := []byte(folderStr)
+	name := []byte("foo")
+	file := protocol.FileInfo{Name: string(name), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(blocksIndirectionCutoff - 1)}
+	file.BlocksHash = protocol.BlocksHash(file.Blocks)
+	fileWOBlocks := file
+	fileWOBlocks.Blocks = nil
+	meta := db.loadMetadataTracker(folderStr)
+
+	// Initally add the correct file the usual way, all good here.
+	if err := db.updateLocalFiles(folder, []protocol.FileInfo{file}, meta); err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate the previous bug, where .putFile could write a file info without
+	// blocks, even though the file has them (and thus a non-nil BlocksHash).
+	trans, err := db.newReadWriteTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trans.close()
+	key, err := db.keyer.GenerateDeviceFileKey(nil, folder, protocol.LocalDeviceID[:], name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fiBs := mustMarshal(&fileWOBlocks)
+	if err := trans.Put(key, fiBs); err != nil {
+		t.Fatal(err)
+	}
+	if err := trans.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	trans.close()
+
+	// Run migration, pretending were still on schema 13.
+	if err := (&schemaUpdater{db}).updateSchemaTo14(13); err != nil {
+		t.Fatal(err)
+	}
+
+	// checks
+	ro, err := db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ro.close()
+	if f, ok, err := ro.getFileByKey(key); err != nil {
+		t.Fatal(err)
+	} else if !ok {
+		t.Error("file missing")
+	} else if !f.MustRescan() {
+		t.Error("file not marked as MustRescan")
+	}
+
+	if vl, err := ro.getGlobalVersions(nil, folder, name); err != nil {
+		t.Fatal(err)
+	} else if fv, ok := vl.GetGlobal(); !ok {
+		t.Error("missing global")
+	} else if !fv.IsInvalid() {
+		t.Error("global not marked as invalid")
 	}
 }
 
