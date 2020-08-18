@@ -97,7 +97,7 @@ type quicDialerFactory struct {
 
 func (quicDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
 	return &quicDialer{commonDialer{
-		reconnectInterval: time.Duration(opts.ReconnectionIntervalS) * time.Second,
+		reconnectInterval: time.Duration(opts.ReconnectIntervalS) * time.Second,
 		tlsCfg:            tlsCfg,
 	}}
 }

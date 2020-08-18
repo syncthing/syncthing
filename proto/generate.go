@@ -22,5 +22,3 @@ package proto
 
 // Use the standard compiler here. We can revisit this later, but we don't plan on exposing this via any APIs.
 //go:generate protoc -I ../ -I . --gogofast_out=paths=source_relative:.. lib/protocol/*.proto
-
-//go:generate protoc -I ../ -I . -I ../repos/grpc-gateway/third_party/googleapis -I ../repos/grpc-gateway --grpc-gateway_out=logtostderr=true:out lib/api/*.proto

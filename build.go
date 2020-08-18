@@ -798,7 +798,6 @@ func proto() {
 	pv := protobufVersion()
 	dependencyRepos = append(dependencyRepos,
 		dependencyRepo{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: pv},
-		dependencyRepo{path: "grpc-gateway", repo: "https://github.com/grpc-ecosystem/grpc-gateway.git", commit: "26da00784b650f78f36a8e2cc24dc64484b663b6"},
 	)
 
 	runPrint(goCmd, "get", fmt.Sprintf("github.com/gogo/protobuf/protoc-gen-gogofast@%v", pv))

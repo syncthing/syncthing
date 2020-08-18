@@ -341,8 +341,8 @@ func (cfg *Configuration) clean() error {
 	}
 
 	// Very short reconnection intervals are annoying
-	if cfg.Options.ReconnectionIntervalS < 5 {
-		cfg.Options.ReconnectionIntervalS = 5
+	if cfg.Options.ReconnectIntervalS < 5 {
+		cfg.Options.ReconnectIntervalS = 5
 	}
 
 	if cfg.GUI.APIKey == "" {

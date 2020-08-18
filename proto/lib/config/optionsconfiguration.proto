@@ -16,7 +16,7 @@ message OptionsConfiguration {
     string          local_announce_multicast_address         = 6 [(ext.goname) = "LocalAnnMCAddr", (ext.xml) = "localAnnounceMCAddr", (ext.json) = "localAnnounceMCAddr", (ext.default) = "[ff12::8384]:21027", (ext.restart) = true];
     int32           max_send_kbps                            = 7;
     int32           max_recv_kbps                            = 8;
-    int32           reconnection_interval_s                  = 9 [(ext.default) = "60"];
+    int32           reconnection_interval_s                  = 9 [(ext.goname) = "ReconnectIntervalS", (ext.default) = "60"];
     bool            relays_enabled                           = 10 [(ext.default) = "true"];
     int32           relays_reconnect_interval_m              = 11 [(ext.goname) = "RelayReconnectIntervalM", (ext.xml) = "relayReconnectIntervalM", (ext.json) = "relayReconnectIntervalM", (ext.default) = "10"];
     bool            start_browser                            = 12 [(ext.default) = "true"];
