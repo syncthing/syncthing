@@ -57,5 +57,4 @@ message FolderConfiguration {
     bool   read_only         = 9000 [deprecated=true, (ext.xml) = "ro,attr,omitempty"];
     double min_disk_free_pct = 9001 [deprecated=true];
     int32  pullers           = 9002 [deprecated=true];
-
 }

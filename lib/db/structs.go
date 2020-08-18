@@ -5,7 +5,7 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //go:generate go run ../../proto/scripts/protofmt.go structs.proto
-//go:generate protoc -I ../../ -I . --gogofast_out=Mlib/protocol/bep.proto=github.com/syncthing/syncthing/lib/protocol:. structs.proto
+//go:generate protoc -I ../../ -I ../../proto -I . --gogofast_out=Mlib/protocol/bep.proto=github.com/syncthing/syncthing/lib/protocol:. structs.proto
 
 package db
 
