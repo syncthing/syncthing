@@ -133,6 +133,15 @@ func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, 
 type dialFunc func(ctx context.Context, network, address string) (net.Conn, error)
 
 func dialTwicePreferFirst(ctx context.Context, first, second dialFunc, firstName, secondName, network, address string) (net.Conn, error) {
+	// Delay second dial by some time.
+	sleep := time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		timeout := time.Until(deadline)
+		if timeout > 0 {
+			sleep = timeout / 3
+		}
+	}
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -146,6 +155,7 @@ func dialTwicePreferFirst(ctx context.Context, first, second dialFunc, firstName
 		close(firstDone)
 	}()
 	go func() {
+		time.Sleep(sleep)
 		secondConn, secondErr = second(ctx, network, address)
 		l.Debugf("Dialing %s result %s %s: %v %v", secondName, network, address, secondConn, secondErr)
 		close(secondDone)
