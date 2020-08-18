@@ -9,9 +9,10 @@ package db
 import (
 	"bytes"
 	"errors"
-	"github.com/syncthing/syncthing/lib/osutil"
+	"fmt"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -109,7 +110,7 @@ func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
 		key = t.keyer.GenerateBlockListKey(key, fi.BlocksHash)
 		bs, err := t.Get(key)
 		if err != nil {
-			return err
+			return fmt.Errorf("filling Blocks: %w", err)
 		}
 		var bl BlockList
 		if err := bl.Unmarshal(bs); err != nil {
@@ -122,7 +123,7 @@ func (t readOnlyTransaction) fillFileInfo(fi *protocol.FileInfo) error {
 		key = t.keyer.GenerateVersionKey(key, fi.VersionHash)
 		bs, err := t.Get(key)
 		if err != nil {
-			return err
+			return fmt.Errorf("filling Version: %w", err)
 		}
 		var v protocol.Vector
 		if err := v.Unmarshal(bs); err != nil {
@@ -543,18 +544,13 @@ func (t readWriteTransaction) close() {
 }
 
 // putFile stores a file in the database, taking care of indirected fields.
-// Set the truncated flag when putting a file that deliberatly can have an
-// empty block list but a non-empty block list hash. This should normally be
-// false.
-func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo, truncated bool) error {
+func (t readWriteTransaction) putFile(fkey []byte, fi protocol.FileInfo) error {
 	var bkey []byte
 
-	// Always set the blocks hash when there are blocks. Leave the blocks
-	// hash alone when there are no blocks and we might be putting a
-	// "truncated" FileInfo (no blocks, but the hash reference is live).
+	// Always set the blocks hash when there are blocks.
 	if len(fi.Blocks) > 0 {
 		fi.BlocksHash = protocol.BlocksHash(fi.Blocks)
-	} else if !truncated {
+	} else {
 		fi.BlocksHash = nil
 	}
 

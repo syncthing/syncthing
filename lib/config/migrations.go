@@ -215,7 +215,7 @@ func migrateToConfigV18(cfg *Configuration) {
 	// Do channel selection for existing users. Those who have auto upgrades
 	// and usage reporting on default to the candidate channel. Others get
 	// stable.
-	if cfg.Options.URAccepted > 0 && cfg.Options.AutoUpgradeIntervalH > 0 {
+	if cfg.Options.URAccepted > 0 && cfg.Options.AutoUpgradeEnabled() {
 		cfg.Options.UpgradeToPreReleases = true
 	}
 

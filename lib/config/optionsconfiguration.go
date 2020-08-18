@@ -15,18 +15,6 @@ import (
 	"github.com/syncthing/syncthing/lib/util"
 )
 
-type XMLOptionsConfiguration struct {
-	OptionsConfiguration
-
-	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`
-	DeprecatedUPnPLeaseM         int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`
-	DeprecatedUPnPRenewalM       int      `xml:"upnpRenewalMinutes,omitempty" json:"-"`
-	DeprecatedUPnPTimeoutS       int      `xml:"upnpTimeoutSeconds,omitempty" json:"-"`
-	DeprecatedRelayServers       []string `xml:"relayServer,omitempty" json:"-"`
-	DeprecatedMinHomeDiskFreePct float64  `xml:"minHomeDiskFreePct,omitempty" json:"-"`
-	DeprecatedMaxConcurrentScans int      `xml:"maxConcurrentScans,omitempty" json:"-"`
-}
-
 func (opts OptionsConfiguration) Copy() OptionsConfiguration {
 	optsCopy := opts
 	optsCopy.RawListenAddresses = make([]string, len(opts.RawListenAddresses))
@@ -156,6 +144,6 @@ func (opts OptionsConfiguration) MaxConcurrentIncomingRequestKiB() int {
 	return int(opts.RawMaxCIRequestKiB)
 }
 
-func (opts OptionsConfiguration) ShouldAutoUpgrade() bool {
+func (opts OptionsConfiguration) AutoUpgradeEnabled() bool {
 	return opts.AutoUpgradeIntervalH > 0
 }

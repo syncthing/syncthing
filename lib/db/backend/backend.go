@@ -7,6 +7,7 @@
 package backend
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"sync"
@@ -157,13 +158,13 @@ type errNotFound struct{}
 func (*errNotFound) Error() string { return "key not found" }
 
 func IsClosed(err error) bool {
-	_, ok := err.(*errClosed)
-	return ok
+	var e *errClosed
+	return errors.As(err, &e)
 }
 
 func IsNotFound(err error) bool {
-	_, ok := err.(*errNotFound)
-	return ok
+	var e *errNotFound
+	return errors.As(err, &e)
 }
 
 // releaser manages counting on top of a waitgroup

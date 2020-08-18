@@ -93,6 +93,11 @@ func (w *AtomicWriter) Close() error {
 		return err
 	}
 
+	info, infoErr := w.fs.Lstat(w.path)
+	if infoErr != nil && !fs.IsNotExist(infoErr) {
+		w.err = infoErr
+		return infoErr
+	}
 	err := w.fs.Rename(w.next.Name(), w.path)
 	if runtime.GOOS == "windows" && fs.IsPermission(err) {
 		// On Windows, we might not be allowed to rename over the file
@@ -104,6 +109,12 @@ func (w *AtomicWriter) Close() error {
 	if err != nil {
 		w.err = err
 		return err
+	}
+	if infoErr == nil {
+		if err := w.fs.Chmod(w.path, info.Mode()); err != nil {
+			w.err = err
+			return err
+		}
 	}
 
 	// fsync the directory too

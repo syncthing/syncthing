@@ -83,37 +83,15 @@ func dialContextWithFallback(ctx context.Context, fallback proxy.ContextDialer, 
 		return dialerConn{conn, newDialerAddr(network, addr)}, nil
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	var proxyConn, fallbackConn net.Conn
-	var proxyErr, fallbackErr error
-	proxyDone := make(chan struct{})
-	fallbackDone := make(chan struct{})
-	go func() {
-		proxyConn, proxyErr = dialer.DialContext(ctx, network, addr)
-		l.Debugf("Dialing proxy result %s %s: %v %v", network, addr, proxyConn, proxyErr)
-		if proxyErr == nil {
-			proxyConn = dialerConn{proxyConn, newDialerAddr(network, addr)}
+	proxyDialFudgeAddress := func(ctx context.Context, network, address string) (net.Conn, error) {
+		conn, err := dialer.DialContext(ctx, network, addr)
+		if err != nil {
+			return nil, err
 		}
-		close(proxyDone)
-	}()
-	go func() {
-		fallbackConn, fallbackErr = fallback.DialContext(ctx, network, addr)
-		l.Debugf("Dialing fallback result %s %s: %v %v", network, addr, fallbackConn, fallbackErr)
-		close(fallbackDone)
-	}()
-	<-proxyDone
-	if proxyErr == nil {
-		go func() {
-			<-fallbackDone
-			if fallbackErr == nil {
-				_ = fallbackConn.Close()
-			}
-		}()
-		return proxyConn, nil
+		return dialerConn{conn, newDialerAddr(network, addr)}, err
 	}
-	<-fallbackDone
-	return fallbackConn, fallbackErr
+
+	return dialTwicePreferFirst(ctx, proxyDialFudgeAddress, fallback.DialContext, "proxy", "fallback", network, addr)
 }
 
 // DialContext dials via context and/or directly, depending on how it is configured.
@@ -125,19 +103,86 @@ func DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 
 // DialContextReusePort tries dialing via proxy if a proxy is configured, and falls back to
 // a direct connection reusing the port from the connections registry, if no proxy is defined, or connecting via proxy
-// fails. If the context has a timeout, the timeout might be applied twice.
+// fails. It also in parallel dials without reusing the port, just in case reusing the port affects routing decisions badly.
 func DialContextReusePort(ctx context.Context, network, addr string) (net.Conn, error) {
-	dialer := &net.Dialer{
-		Control: ReusePortControl,
+	// If proxy is configured, there is no point trying to reuse listen addresses.
+	if proxy.FromEnvironment() != proxy.Direct {
+		return DialContext(ctx, network, addr)
 	}
+
 	localAddrInterface := registry.Get(network, tcpAddrLess)
-	if localAddrInterface != nil {
-		if addr, ok := localAddrInterface.(*net.TCPAddr); !ok {
-			return nil, errUnexpectedInterfaceType
-		} else {
-			dialer.LocalAddr = addr
+	if localAddrInterface == nil {
+		// Nothing listening, nothing to reuse.
+		return DialContext(ctx, network, addr)
+	}
+
+	laddr, ok := localAddrInterface.(*net.TCPAddr)
+	if !ok {
+		return nil, errUnexpectedInterfaceType
+	}
+
+	// Dial twice, once reusing the listen address, another time not reusing it, just in case reusing the address
+	// influences routing and we fail to reach our destination.
+	dialer := net.Dialer{
+		Control:   ReusePortControl,
+		LocalAddr: laddr,
+	}
+	return dialTwicePreferFirst(ctx, dialer.DialContext, (&net.Dialer{}).DialContext, "reuse", "non-reuse", network, addr)
+}
+
+type dialFunc func(ctx context.Context, network, address string) (net.Conn, error)
+
+func dialTwicePreferFirst(ctx context.Context, first, second dialFunc, firstName, secondName, network, address string) (net.Conn, error) {
+	// Delay second dial by some time.
+	sleep := time.Second
+	if deadline, ok := ctx.Deadline(); ok {
+		timeout := time.Until(deadline)
+		if timeout > 0 {
+			sleep = timeout / 3
 		}
 	}
 
-	return dialContextWithFallback(ctx, dialer, network, addr)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var firstConn, secondConn net.Conn
+	var firstErr, secondErr error
+	firstDone := make(chan struct{})
+	secondDone := make(chan struct{})
+	go func() {
+		firstConn, firstErr = first(ctx, network, address)
+		l.Debugf("Dialing %s result %s %s: %v %v", firstName, network, address, firstConn, firstErr)
+		close(firstDone)
+	}()
+	go func() {
+		select {
+		case <-firstDone:
+			if firstErr == nil {
+				// First succeeded, no point doing anything in second
+				secondErr = errors.New("didn't dial")
+				close(secondDone)
+				return
+			}
+		case <-ctx.Done():
+			secondErr = ctx.Err()
+			close(secondDone)
+			return
+		case <-time.After(sleep):
+		}
+		secondConn, secondErr = second(ctx, network, address)
+		l.Debugf("Dialing %s result %s %s: %v %v", secondName, network, address, secondConn, secondErr)
+		close(secondDone)
+	}()
+	<-firstDone
+	if firstErr == nil {
+		go func() {
+			<-secondDone
+			if secondConn != nil {
+				_ = secondConn.Close()
+			}
+		}()
+		return firstConn, firstErr
+	}
+	<-secondDone
+	return secondConn, secondErr
 }
