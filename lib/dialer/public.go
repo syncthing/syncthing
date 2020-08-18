@@ -155,7 +155,18 @@ func dialTwicePreferFirst(ctx context.Context, first, second dialFunc, firstName
 		close(firstDone)
 	}()
 	go func() {
-		time.Sleep(sleep)
+		select {
+		case <-firstDone:
+			if firstErr == nil {
+				// First succeeded, no point doing anything in second
+				close(secondDone)
+				return
+			}
+		case <-ctx.Done():
+			close(secondDone)
+			return
+		case <-time.After(sleep):
+		}
 		secondConn, secondErr = second(ctx, network, address)
 		l.Debugf("Dialing %s result %s %s: %v %v", secondName, network, address, secondConn, secondErr)
 		close(secondDone)
@@ -164,7 +175,7 @@ func dialTwicePreferFirst(ctx context.Context, first, second dialFunc, firstName
 	if firstErr == nil {
 		go func() {
 			<-secondDone
-			if secondErr == nil {
+			if secondConn != nil {
 				_ = secondConn.Close()
 			}
 		}()
