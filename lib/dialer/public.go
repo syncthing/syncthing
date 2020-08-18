@@ -159,6 +159,7 @@ func dialTwicePreferFirst(ctx context.Context, first, second dialFunc, firstName
 		case <-firstDone:
 			if firstErr == nil {
 				// First succeeded, no point doing anything in second
+				secondErr = errors.New("didn't dial")
 				close(secondDone)
 				return
 			}
