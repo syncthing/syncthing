@@ -32,7 +32,7 @@ func getClient(cfg config.GUIConfiguration) *APIClient {
 				InsecureSkipVerify: true,
 			},
 			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial(cfg.Network(), cfg.Address())
+				return net.Dial(cfg.Network(), cfg.GetAddress())
 			},
 		},
 	}

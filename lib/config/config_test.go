@@ -45,7 +45,7 @@ func TestDefaultValues(t *testing.T) {
 		LocalAnnMCAddr:          "[ff12::8384]:21027",
 		MaxSendKbps:             0,
 		MaxRecvKbps:             0,
-		ReconnectIntervalS:      60,
+		ReconnectionIntervalS:   60,
 		RelaysEnabled:           true,
 		RelayReconnectIntervalM: 10,
 		StartBrowser:            true,
@@ -189,7 +189,7 @@ func TestOverriddenValues(t *testing.T) {
 		LocalAnnMCAddr:          "quux:3232",
 		MaxSendKbps:             1234,
 		MaxRecvKbps:             2341,
-		ReconnectIntervalS:      6000,
+		ReconnectionIntervalS:   6000,
 		RelaysEnabled:           false,
 		RelayReconnectIntervalM: 20,
 		StartBrowser:            false,
@@ -520,10 +520,7 @@ func TestNewSaveLoad(t *testing.T) {
 	}
 
 	intCfg := New(device1)
-	cfg := wrap(path, intCfg)
-
-	// To make the equality pass later
-	cfg.(*wrapper).cfg.XMLName.Local = "configuration"
+	cfg := wrap(path, device1, intCfg)
 
 	if exists(path) {
 		t.Error(path, "exists")
@@ -613,14 +610,14 @@ func TestPullOrder(t *testing.T) {
 		name  string
 		order PullOrder
 	}{
-		{"f1", OrderRandom},        // empty value, default
-		{"f2", OrderRandom},        // explicit
-		{"f3", OrderAlphabetic},    // explicit
-		{"f4", OrderRandom},        // unknown value, default
-		{"f5", OrderSmallestFirst}, // explicit
-		{"f6", OrderLargestFirst},  // explicit
-		{"f7", OrderOldestFirst},   // explicit
-		{"f8", OrderNewestFirst},   // explicit
+		{"f1", PullOrderRandom},        // empty value, default
+		{"f2", PullOrderRandom},        // explicit
+		{"f3", PullOrderAlphabetic},    // explicit
+		{"f4", PullOrderRandom},        // unknown value, default
+		{"f5", PullOrderSmallestFirst}, // explicit
+		{"f6", PullOrderLargestFirst},  // explicit
+		{"f7", PullOrderOldestFirst},   // explicit
+		{"f8", PullOrderNewestFirst},   // explicit
 	}
 
 	// Verify values are deserialized correctly
@@ -639,11 +636,11 @@ func TestPullOrder(t *testing.T) {
 
 	t.Logf("%s", buf.Bytes())
 
-	cfg, err = ReadXML(buf, device1)
+	cfg, _, err = ReadXML(buf, device1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrapper = wrap("testdata/pullorder.xml", cfg)
+	wrapper = wrap("testdata/pullorder.xml", device1, cfg)
 	folders = wrapper.Folders()
 
 	for _, tc := range expected {
@@ -956,7 +953,7 @@ func TestIssue4219(t *testing.T) {
 		t.Errorf("There should be three ignored folders, not %d", ignoredFolders)
 	}
 
-	w := wrap("/tmp/cfg", cfg)
+	w := wrap("/tmp/cfg", protocol.LocalDeviceID, cfg)
 	if !w.IgnoredFolder(device2, "t1") {
 		t.Error("Folder device2 t1 should be ignored")
 	}
@@ -1128,7 +1125,7 @@ func TestRemoveDeviceWithEmptyID(t *testing.T) {
 
 func TestMaxConcurrentFolders(t *testing.T) {
 	cases := []struct {
-		input  int
+		input  int32
 		output int
 	}{
 		{input: -42, output: 0},
@@ -1168,11 +1165,12 @@ func defaultConfigAsMap() map[string]interface{} {
 }
 
 func load(path string, myID protocol.DeviceID) (Wrapper, error) {
-	return Load(path, myID, events.NoopLogger)
+	cfg, _, err := Load(path, myID, events.NoopLogger)
+	return cfg, err
 }
 
-func wrap(path string, cfg Configuration) Wrapper {
-	return Wrap(path, cfg, events.NoopLogger)
+func wrap(path string, myID protocol.DeviceID, cfg Configuration) Wrapper {
+	return Wrap(path, myID, cfg, events.NoopLogger)
 }
 
 func TestInternalVersioningConfiguration(t *testing.T) {

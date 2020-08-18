@@ -55,6 +55,7 @@ func (noopWaiter) Wait() {}
 // notifications of changes to registered Handlers
 type Wrapper interface {
 	MyName() string
+	MyID() protocol.DeviceID
 	ConfigPath() string
 
 	RawCopy() Configuration
@@ -91,9 +92,10 @@ type Wrapper interface {
 }
 
 type wrapper struct {
-	cfg      Configuration
-	path     string
-	evLogger events.Logger
+	cfg             Configuration
+	path            string
+	evLogger        events.Logger
+	myID            protocol.DeviceID
 
 	waiter Waiter // Latest ongoing config change
 	subs   []Committer
@@ -104,32 +106,33 @@ type wrapper struct {
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
 // disk.
-func Wrap(path string, cfg Configuration, evLogger events.Logger) Wrapper {
+func Wrap(path string, myID protocol.DeviceID, cfg Configuration, evLogger events.Logger) Wrapper {
 	w := &wrapper{
-		cfg:      cfg,
-		path:     path,
-		evLogger: evLogger,
-		waiter:   noopWaiter{}, // Noop until first config change
-		mut:      sync.NewMutex(),
+		cfg:             cfg,
+		path:            path,
+		evLogger:        evLogger,
+		myID:            myID,
+		waiter:          noopWaiter{}, // Noop until first config change
+		mut:             sync.NewMutex(),
 	}
 	return w
 }
 
 // Load loads an existing file on disk and returns a new configuration
 // wrapper.
-func Load(path string, myID protocol.DeviceID, evLogger events.Logger) (Wrapper, error) {
+func Load(path string, myID protocol.DeviceID, evLogger events.Logger) (Wrapper, int32, error) {
 	fd, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer fd.Close()
 
-	cfg, err := ReadXML(fd, myID)
+	cfg, originalVersion, err := ReadXML(fd, myID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return Wrap(path, cfg, evLogger), nil
+	return Wrap(path, myID, cfg, evLogger), originalVersion, nil
 }
 
 func (w *wrapper) ConfigPath() string {
@@ -448,11 +451,12 @@ func (w *wrapper) setRequiresRestart() {
 }
 
 func (w *wrapper) MyName() string {
-	w.mut.Lock()
-	myID := w.cfg.MyID
-	w.mut.Unlock()
-	cfg, _ := w.Device(myID)
+	cfg, _ := w.Device(w.myID)
 	return cfg.Name
+}
+
+func (w *wrapper) MyID() protocol.DeviceID {
+	return w.myID
 }
 
 func (w *wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {

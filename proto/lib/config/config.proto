@@ -2,63 +2,22 @@ syntax = "proto3";
 
 package config;
 
-import "repos/protobuf/gogoproto/gogo.proto";
-
 import "lib/config/folderconfiguration.proto";
+import "lib/config/deviceconfiguration.proto";
+import "lib/config/guiconfiguration.proto";
+import "lib/config/ldapconfiguration.proto";
+import "lib/config/optionsconfiguration.proto";
+import "lib/config/observed.proto";
 
-option (gogoproto.goproto_getters_all) = false;
-option (gogoproto.sizer_all) = false;
-option (gogoproto.protosizer_all) = true;
-option (gogoproto.goproto_enum_stringer_all) = true;
-option (gogoproto.goproto_enum_prefix_all) = false;
-option (gogoproto.goproto_unkeyed_all) = false;
-option (gogoproto.goproto_unrecognized_all) = false;
-option (gogoproto.goproto_sizecache_all) = false;
-
-
-message DeviceConfiguration {
-
-}
-
-message GUIConfiguration {
-
-}
-
-message LDAPConfiguration {
-
-}
-
-message OptionsConfiguration {
-
-}
-
-message ObservedDevice {
-
-}
+import "ext.proto";
 
 message Configuration {
-    int32                        version         = 1 [(gogoproto.jsontag) = "version", (gogoproto.moretags) = "xml:\"version,attr\""];
-    repeated FolderConfiguration folders         = 2 [(gogoproto.nullable) = false, (gogoproto.moretags) = "xml:\"folder\""];
-    repeated DeviceConfiguration devices         = 3 [(gogoproto.nullable) = false, (gogoproto.moretags) = "xml:\"device\""];
-    GUIConfiguration             gui             = 4 [(gogoproto.nullable) = false, (gogoproto.moretags) = "xml:\"gui\""];
-    LDAPConfiguration            ldap            = 5 [(gogoproto.nullable) = false, (gogoproto.moretags) = "xml:\"ldap\""];
-    OptionsConfiguration         options         = 6 [(gogoproto.nullable) = false, (gogoproto.moretags) = "xml:\"options\""];
-    repeated ObservedDevice      ignored_devices = 7 [(gogoproto.nullable) = false, (gogoproto.jsontag) = "remoteIgnoredDevices", (gogoproto.moretags) = "xml:\"remoteIgnoredDevice\""];
-    repeated ObservedDevice      pending_devices = 8 [(gogoproto.nullable) = false, (gogoproto.jsontag) = "pendingDevices", (gogoproto.moretags) = "xml:\"pendingDevice\""];
+    int32                        version         = 1 [(ext.xml) = "version,attr"];
+    repeated FolderConfiguration folders         = 2;
+    repeated DeviceConfiguration devices         = 3;
+    GUIConfiguration             gui             = 4 [(ext.goname) = "GUI"];
+    LDAPConfiguration            ldap            = 5 [(ext.goname) = "LDAP"];
+    OptionsConfiguration         options         = 6;
+    repeated ObservedDevice      ignored_devices = 7 [(ext.json) = "remoteIgnoredDevices", (ext.xml) = "remoteIgnoredDevice"];
+    repeated ObservedDevice      pending_devices = 8;
 }
-
-//
-//type Configuration struct {
-//Version        int                   `xml:"version,attr" json:"version"`
-//Folders        []FolderConfiguration `xml:"folder" json:"folders"`
-//Devices        []DeviceConfiguration `xml:"device" json:"devices"`
-//GUI            GUIConfiguration      `xml:"gui" json:"gui"`
-//LDAP           LDAPConfiguration     `xml:"ldap" json:"ldap"`
-//Options        OptionsConfiguration  `xml:"options" json:"options"`
-//IgnoredDevices []ObservedDevice      `xml:"remoteIgnoredDevice" json:"remoteIgnoredDevices"`
-//PendingDevices []ObservedDevice      `xml:"pendingDevice" json:"pendingDevices"`
-//XMLName        xml.Name              `xml:"configuration" json:"-"`
-//
-//MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
-//OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
-//}

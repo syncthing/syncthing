@@ -140,7 +140,7 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 		fs:                 fs,
 		queue:              newJobQueue(),
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
-		writeLimiter:       newByteSemaphore(cfg.MaxConcurrentWrites),
+		writeLimiter:       newByteSemaphore(int(cfg.MaxConcurrentWrites)),
 		pullErrorsMut:      sync.NewMutex(),
 	}
 	f.folder.puller = f
@@ -156,8 +156,8 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 	if f.PullerMaxPendingKiB == 0 {
 		f.PullerMaxPendingKiB = defaultPullerPendingKiB
 	}
-	if blockSizeKiB := protocol.MaxBlockSize / 1024; f.PullerMaxPendingKiB < blockSizeKiB {
-		f.PullerMaxPendingKiB = blockSizeKiB
+	if blockSizeKiB := protocol.MaxBlockSize / 1024; int(f.PullerMaxPendingKiB) < blockSizeKiB {
+		f.PullerMaxPendingKiB = int32(blockSizeKiB)
 	}
 
 	return f
@@ -256,7 +256,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 		updateWg.Done()
 	}()
 
-	for i := 0; i < f.Copiers; i++ {
+	for i := 0; i < int(f.Copiers); i++ {
 		copyWg.Add(1)
 		go func() {
 			// copierRoutine finishes when copyChan is closed
@@ -421,17 +421,17 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 	// Now do the file queue. Reorder it according to configuration.
 
 	switch f.Order {
-	case config.OrderRandom:
+	case config.PullOrderRandom:
 		f.queue.Shuffle()
-	case config.OrderAlphabetic:
+	case config.PullOrderAlphabetic:
 	// The queue is already in alphabetic order.
-	case config.OrderSmallestFirst:
+	case config.PullOrderSmallestFirst:
 		f.queue.SortSmallestFirst()
-	case config.OrderLargestFirst:
+	case config.PullOrderLargestFirst:
 		f.queue.SortLargestFirst()
-	case config.OrderOldestFirst:
+	case config.PullOrderOldestFirst:
 		f.queue.SortOldestFirst()
-	case config.OrderNewestFirst:
+	case config.PullOrderNewestFirst:
 		f.queue.SortNewestFirst()
 	}
 
@@ -1237,7 +1237,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			blocksPercentChanged = (tot - state.have) * 100 / tot
 		}
 
-		if blocksPercentChanged >= f.WeakHashThresholdPct {
+		if blocksPercentChanged >= int(f.WeakHashThresholdPct) {
 			hashesToFind := make([]uint32, 0, len(state.blocks))
 			for _, block := range state.blocks {
 				if block.WeakHash != 0 {
@@ -1383,7 +1383,7 @@ func verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 }
 
 func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
-	requestLimiter := newByteSemaphore(f.PullerMaxPendingKiB * 1024)
+	requestLimiter := newByteSemaphore(int(f.PullerMaxPendingKiB) * 1024)
 	wg := sync.NewWaitGroup()
 
 	for state := range in {
@@ -1751,7 +1751,7 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 	}
 	if f.MaxConflicts > -1 {
 		matches := existingConflicts(name, f.fs)
-		if len(matches) > f.MaxConflicts {
+		if len(matches) > int(f.MaxConflicts) {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[f.MaxConflicts:] {
 				if gerr := f.fs.Remove(match); gerr != nil {

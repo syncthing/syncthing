@@ -17,3 +17,5 @@ RELEASE
 deb
 *.bz2
 /repos
+/proto/scripts/protoc-gen-gosyncthing
+/proto/out/

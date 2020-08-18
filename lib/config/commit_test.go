@@ -9,6 +9,8 @@ package config
 import (
 	"errors"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type requiresRestart struct {
@@ -44,7 +46,7 @@ func (validationError) String() string {
 func TestReplaceCommit(t *testing.T) {
 	t.Skip("broken, fails randomly, #3834")
 
-	w := wrap("/dev/null", Configuration{Version: 0})
+	w := wrap("/dev/null", protocol.LocalDeviceID, Configuration{Version: 0})
 	if w.RawCopy().Version != 0 {
 		t.Fatal("Config incorrect")
 	}

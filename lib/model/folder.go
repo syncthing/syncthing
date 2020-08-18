@@ -455,7 +455,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		AutoNormalize:         f.AutoNormalize,
 		Hashers:               f.model.numHashers(f.ID),
 		ShortID:               f.shortID,
-		ProgressTickIntervalS: f.ScanProgressIntervalS,
+		ProgressTickIntervalS: int(f.ScanProgressIntervalS),
 		LocalFlags:            f.localFlags,
 		ModTimeWindow:         f.ModTimeWindow(),
 		EventLogger:           f.evLogger,

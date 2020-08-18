@@ -36,7 +36,7 @@ func main() {
 	guiCfg := config.GUIConfiguration{}
 
 	flags := flag.NewFlagSet("", flag.ContinueOnError)
-	flags.StringVar(&guiCfg.RawAddress, "gui-address", guiCfg.RawAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
+	flags.StringVar(&guiCfg.Address, "gui-address", guiCfg.Address, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
 	flags.StringVar(&guiCfg.APIKey, "gui-apikey", guiCfg.APIKey, "Override GUI API key")
 	flags.StringVar(&homeBaseDir, "home", homeBaseDir, "Set configuration directory")
 
@@ -45,7 +45,7 @@ func main() {
 	fakeFlags := []cli.Flag{
 		cli.StringFlag{
 			Name:  "gui-address",
-			Value: guiCfg.RawAddress,
+			Value: guiCfg.Address,
 			Usage: "Override GUI address (e.g. \"http://192.0.2.42:8443\")",
 		},
 		cli.StringFlag{
@@ -66,7 +66,7 @@ func main() {
 
 	// Now if the API key and address is not provided (we are not connecting to a remote instance),
 	// try to rip it out of the config.
-	if guiCfg.RawAddress == "" && guiCfg.APIKey == "" {
+	if guiCfg.Address == "" && guiCfg.APIKey == "" {
 		// Update the base directory
 		err := locations.SetBaseDir(locations.ConfigBaseDir, homeBaseDir)
 		if err != nil {
@@ -91,11 +91,11 @@ func main() {
 		}
 
 		guiCfg = cfg.GUI()
-	} else if guiCfg.Address() == "" || guiCfg.APIKey == "" {
+	} else if guiCfg.GetAddress() == "" || guiCfg.APIKey == "" {
 		log.Fatalln("Both -gui-address and -gui-apikey should be specified")
 	}
 
-	if guiCfg.Address() == "" {
+	if guiCfg.GetAddress() == "" {
 		log.Fatalln("Could not find GUI Address")
 	}
 

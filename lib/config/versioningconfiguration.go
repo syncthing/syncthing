@@ -18,7 +18,7 @@ import (
 type internalVersioningConfiguration struct {
 	Type             string          `xml:"type,attr,omitempty"`
 	Params           []internalParam `xml:"param"`
-	CleanupIntervalS int             `xml:"cleanupIntervalS" default:"3600"`
+	CleanupIntervalS int32           `xml:"cleanupIntervalS" default:"3600"`
 }
 
 type internalParam struct {

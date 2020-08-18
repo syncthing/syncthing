@@ -102,8 +102,8 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 
 	cfg := config.Configuration{
 		GUI: config.GUIConfiguration{
-			RawAddress: "127.0.0.1:0",
-			RawUseTLS:  false,
+			Address: "127.0.0.1:0",
+			UseTLS:  false,
 		},
 	}
 	w := config.Wrap("/dev/null", cfg, events.NoopLogger)
@@ -126,8 +126,8 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 
 	newCfg := config.Configuration{
 		GUI: config.GUIConfiguration{
-			RawAddress: "totally not a valid address",
-			RawUseTLS:  false,
+			Address: "totally not a valid address",
+			UseTLS:  false,
 		},
 	}
 	if err := srv.VerifyConfiguration(cfg, newCfg); err == nil {
@@ -552,7 +552,7 @@ func startHTTP(cfg *mockedConfig) (string, *suture.Supervisor, error) {
 		return "", nil, fmt.Errorf("weird address from API service: %w", err)
 	}
 
-	host, _, _ := net.SplitHostPort(cfg.gui.RawAddress)
+	host, _, _ := net.SplitHostPort(cfg.gui.Address)
 	if host == "" || host == "0.0.0.0" {
 		host = "127.0.0.1"
 	}
@@ -756,7 +756,7 @@ func TestHostCheck(t *testing.T) {
 	// An API service bound to localhost should reject non-localhost host Headers
 
 	cfg := new(mockedConfig)
-	cfg.gui.RawAddress = "127.0.0.1:0"
+	cfg.gui.Address = "127.0.0.1:0"
 	baseURL, sup, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -816,7 +816,7 @@ func TestHostCheck(t *testing.T) {
 	// A server with InsecureSkipHostCheck set behaves differently
 
 	cfg = new(mockedConfig)
-	cfg.gui.RawAddress = "127.0.0.1:0"
+	cfg.gui.Address = "127.0.0.1:0"
 	cfg.gui.InsecureSkipHostCheck = true
 	baseURL, sup, err = startHTTP(cfg)
 	if err != nil {
@@ -840,7 +840,7 @@ func TestHostCheck(t *testing.T) {
 	// A server bound to a wildcard address also doesn't do the check
 
 	cfg = new(mockedConfig)
-	cfg.gui.RawAddress = "0.0.0.0:0"
+	cfg.gui.Address = "0.0.0.0:0"
 	cfg.gui.InsecureSkipHostCheck = true
 	baseURL, sup, err = startHTTP(cfg)
 	if err != nil {
@@ -869,7 +869,7 @@ func TestHostCheck(t *testing.T) {
 	}
 
 	cfg = new(mockedConfig)
-	cfg.gui.RawAddress = "[::1]:0"
+	cfg.gui.Address = "[::1]:0"
 	baseURL, sup, err = startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)

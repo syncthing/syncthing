@@ -3186,7 +3186,7 @@ func TestParentOfUnignored(t *testing.T) {
 func TestFolderRestartZombies(t *testing.T) {
 	wrapper := createTmpWrapper(defaultCfg.Copy())
 	opts := wrapper.Options()
-	opts.RawMaxFolderConcurrency = -1
+	opts.MaxFolderConcurrency = -1
 	wrapper.SetOptions(opts)
 	folderCfg, _ := wrapper.Folder("default")
 	folderCfg.FilesystemType = fs.FilesystemTypeFake
@@ -3361,7 +3361,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 func TestModTimeWindow(t *testing.T) {
 	w, fcfg := tmpDefaultWrapper()
 	tfs := fcfg.Filesystem()
-	fcfg.RawModTimeWindowS = 2
+	fcfg.ModTimeWindowS = 2
 	w.SetFolder(fcfg)
 	m := setupModel(w)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())

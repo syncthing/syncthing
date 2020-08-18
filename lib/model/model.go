@@ -1823,7 +1823,7 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	// 0: default, <0: no limiting
 	switch {
 	case device.MaxRequestKiB > 0:
-		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * device.MaxRequestKiB)
+		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * int(device.MaxRequestKiB))
 	case device.MaxRequestKiB == 0:
 		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * defaultPullerPendingKiB)
 	}
@@ -2137,7 +2137,7 @@ func (m *model) numHashers(folder string) int {
 
 	if folderCfg.Hashers > 0 {
 		// Specific value set in the config, use that.
-		return folderCfg.Hashers
+		return int(folderCfg.Hashers)
 	}
 
 	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {

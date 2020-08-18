@@ -3,6 +3,7 @@ syntax = "proto3";
 package config;
 
 import "repos/protobuf/gogoproto/gogo.proto";
+
 import "ext.proto";
 
 message Size {
