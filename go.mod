@@ -20,7 +20,6 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
-	github.com/golang/protobuf v1.4.0
 	github.com/greatroar/blobloom v0.3.0
 	github.com/jackpal/gateway v1.0.6
 	github.com/jackpal/go-nat-pmp v1.0.2
