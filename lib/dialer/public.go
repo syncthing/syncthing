@@ -163,6 +163,7 @@ func dialTwicePreferFirst(ctx context.Context, first, second dialFunc, firstName
 				return
 			}
 		case <-ctx.Done():
+			secondErr = ctx.Err()
 			close(secondDone)
 			return
 		case <-time.After(sleep):
