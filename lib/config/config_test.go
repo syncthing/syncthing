@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -520,7 +521,7 @@ func TestNewSaveLoad(t *testing.T) {
 	}
 
 	intCfg := New(device1)
-	cfg := wrap(path, device1, intCfg)
+	cfg := wrap(path, intCfg)
 
 	if exists(path) {
 		t.Error(path, "exists")
@@ -640,7 +641,7 @@ func TestPullOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrapper = wrap("testdata/pullorder.xml", device1, cfg)
+	wrapper = wrap("testdata/pullorder.xml", cfg)
 	folders = wrapper.Folders()
 
 	for _, tc := range expected {
@@ -953,7 +954,7 @@ func TestIssue4219(t *testing.T) {
 		t.Errorf("There should be three ignored folders, not %d", ignoredFolders)
 	}
 
-	w := wrap("/tmp/cfg", protocol.LocalDeviceID, cfg)
+	w := wrap("/tmp/cfg", cfg)
 	if !w.IgnoredFolder(device2, "t1") {
 		t.Error("Folder device2 t1 should be ignored")
 	}
@@ -1169,8 +1170,8 @@ func load(path string, myID protocol.DeviceID) (Wrapper, error) {
 	return cfg, err
 }
 
-func wrap(path string, myID protocol.DeviceID, cfg Configuration) Wrapper {
-	return Wrap(path, myID, cfg, events.NoopLogger)
+func wrap(path string, cfg Configuration) Wrapper {
+	return Wrap(path, cfg, events.NoopLogger)
 }
 
 func TestInternalVersioningConfiguration(t *testing.T) {

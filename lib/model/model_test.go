@@ -340,7 +340,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device name got overwritten")
 	}
 
-	cfgw, err := config.Load("testdata/tmpconfig.xml", myID, events.NoopLogger)
+	cfgw, _, err := config.Load("testdata/tmpconfig.xml", myID, events.NoopLogger)
 	if err != nil {
 		t.Error(err)
 		return
@@ -3186,7 +3186,7 @@ func TestParentOfUnignored(t *testing.T) {
 func TestFolderRestartZombies(t *testing.T) {
 	wrapper := createTmpWrapper(defaultCfg.Copy())
 	opts := wrapper.Options()
-	opts.MaxFolderConcurrency = -1
+	opts.RawMaxFolderConcurrency = -1
 	wrapper.SetOptions(opts)
 	folderCfg, _ := wrapper.Folder("default")
 	folderCfg.FilesystemType = fs.FilesystemTypeFake
@@ -3213,7 +3213,7 @@ func TestFolderRestartZombies(t *testing.T) {
 			t0 := time.Now()
 			for time.Since(t0) < time.Second {
 				cfg := folderCfg.Copy()
-				cfg.MaxConflicts = rand.Int() // safe change that should cause a folder restart
+				cfg.MaxConflicts = rand.Int31() // safe change that should cause a folder restart
 				w, err := wrapper.SetFolder(cfg)
 				if err != nil {
 					panic(err)
@@ -3361,7 +3361,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 func TestModTimeWindow(t *testing.T) {
 	w, fcfg := tmpDefaultWrapper()
 	tfs := fcfg.Filesystem()
-	fcfg.ModTimeWindowS = 2
+	fcfg.RawModTimeWindowS = 2
 	w.SetFolder(fcfg)
 	m := setupModel(w)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())

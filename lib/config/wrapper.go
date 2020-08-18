@@ -54,8 +54,6 @@ func (noopWaiter) Wait() {}
 // A Wrapper around a Configuration that manages loads, saves and published
 // notifications of changes to registered Handlers
 type Wrapper interface {
-	MyName() string
-	MyID() protocol.DeviceID
 	ConfigPath() string
 
 	RawCopy() Configuration
@@ -92,10 +90,9 @@ type Wrapper interface {
 }
 
 type wrapper struct {
-	cfg             Configuration
-	path            string
-	evLogger        events.Logger
-	myID            protocol.DeviceID
+	cfg      Configuration
+	path     string
+	evLogger events.Logger
 
 	waiter Waiter // Latest ongoing config change
 	subs   []Committer
@@ -106,14 +103,13 @@ type wrapper struct {
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
 // disk.
-func Wrap(path string, myID protocol.DeviceID, cfg Configuration, evLogger events.Logger) Wrapper {
+func Wrap(path string, cfg Configuration, evLogger events.Logger) Wrapper {
 	w := &wrapper{
-		cfg:             cfg,
-		path:            path,
-		evLogger:        evLogger,
-		myID:            myID,
-		waiter:          noopWaiter{}, // Noop until first config change
-		mut:             sync.NewMutex(),
+		cfg:      cfg,
+		path:     path,
+		evLogger: evLogger,
+		waiter:   noopWaiter{}, // Noop until first config change
+		mut:      sync.NewMutex(),
 	}
 	return w
 }
@@ -132,7 +128,7 @@ func Load(path string, myID protocol.DeviceID, evLogger events.Logger) (Wrapper,
 		return nil, 0, err
 	}
 
-	return Wrap(path, myID, cfg, evLogger), originalVersion, nil
+	return Wrap(path, cfg, evLogger), originalVersion, nil
 }
 
 func (w *wrapper) ConfigPath() string {
@@ -448,15 +444,6 @@ func (w *wrapper) RequiresRestart() bool {
 
 func (w *wrapper) setRequiresRestart() {
 	atomic.StoreUint32(&w.requiresRestart, 1)
-}
-
-func (w *wrapper) MyName() string {
-	cfg, _ := w.Device(w.myID)
-	return cfg.Name
-}
-
-func (w *wrapper) MyID() protocol.DeviceID {
-	return w.myID
 }
 
 func (w *wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {

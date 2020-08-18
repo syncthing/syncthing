@@ -184,7 +184,7 @@ func main() {
 		log.Println("ID:", id)
 	}
 
-	wrapper := config.Wrap("config", id, config.New(id), events.NoopLogger)
+	wrapper := config.Wrap("config", config.New(id), events.NoopLogger)
 	wrapper.SetOptions(config.OptionsConfiguration{
 		NATLeaseM:   int32(natLease),
 		NATRenewalM: int32(natRenewal),

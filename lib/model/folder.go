@@ -44,11 +44,12 @@ type folder struct {
 
 	localFlags uint32
 
-	model   *model
-	shortID protocol.ShortID
-	fset    *db.FileSet
-	ignores *ignore.Matcher
-	ctx     context.Context
+	model         *model
+	shortID       protocol.ShortID
+	fset          *db.FileSet
+	ignores       *ignore.Matcher
+	modTimeWindow time.Duration
+	ctx           context.Context
 
 	scanInterval           time.Duration
 	scanTimer              *time.Timer
@@ -95,10 +96,11 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
 		ioLimiter:                 ioLimiter,
 
-		model:   model,
-		shortID: model.shortID,
-		fset:    fset,
-		ignores: ignores,
+		model:         model,
+		shortID:       model.shortID,
+		fset:          fset,
+		ignores:       ignores,
+		modTimeWindow: cfg.ModTimeWindow(),
 
 		scanInterval:           time.Duration(cfg.RescanIntervalS) * time.Second,
 		scanTimer:              time.NewTimer(0), // The first scan should be done immediately.
@@ -457,7 +459,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		ShortID:               f.shortID,
 		ProgressTickIntervalS: int(f.ScanProgressIntervalS),
 		LocalFlags:            f.localFlags,
-		ModTimeWindow:         f.ModTimeWindow(),
+		ModTimeWindow:         f.modTimeWindow,
 		EventLogger:           f.evLogger,
 	})
 
@@ -480,7 +482,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		batchAppend = func(fi protocol.FileInfo, snap *db.Snapshot) {
 			switch gf, ok := snap.GetGlobal(fi.Name); {
 			case !ok:
-			case gf.IsEquivalentOptional(fi, f.ModTimeWindow(), false, false, protocol.FlagLocalReceiveOnly):
+			case gf.IsEquivalentOptional(fi, f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
 				// What we have locally is equivalent to the global file.
 				fi.Version = fi.Version.Merge(gf.Version)
 				fallthrough

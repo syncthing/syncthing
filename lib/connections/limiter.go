@@ -41,9 +41,9 @@ const (
 	maxSingleWriteSize = 8 << 10
 )
 
-func newLimiter(cfg config.Wrapper) *limiter {
+func newLimiter(myId protocol.DeviceID, cfg config.Wrapper) *limiter {
 	l := &limiter{
-		myID:                cfg.MyID(),
+		myID:                myId,
 		write:               rate.NewLimiter(rate.Inf, limiterBurstSize),
 		read:                rate.NewLimiter(rate.Inf, limiterBurstSize),
 		mu:                  sync.NewMutex(),

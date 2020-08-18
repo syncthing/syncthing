@@ -1781,8 +1781,8 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 // GetHello is called when we are about to connect to some remote device.
 func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 	name := ""
-	if _, ok := m.cfg.Device(id); ok {
-		name = m.cfg.MyName()
+	if devCfg, ok := m.cfg.Device(id); ok {
+		name = devCfg.Name
 	}
 	return &protocol.Hello{
 		DeviceName:    name,
