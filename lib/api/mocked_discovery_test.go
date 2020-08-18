@@ -8,7 +8,6 @@ package api
 
 import (
 	"context"
-	"time"
 
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -43,10 +42,7 @@ func (m *mockedCachingMux) Cache() map[protocol.DeviceID]discover.CacheEntry {
 	return nil
 }
 
-// from events.CachingMux
-
-func (m *mockedCachingMux) Add(finder discover.Finder, cacheTime, negCacheTime time.Duration) {
-}
+// from events.Manager
 
 func (m *mockedCachingMux) ChildErrors() map[string]error {
 	return nil

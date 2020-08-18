@@ -37,11 +37,6 @@ type FinderService interface {
 	suture.Service
 }
 
-type FinderMux interface {
-	Finder
-	ChildStatus() map[string]error
-}
-
 // The AddressLister answers questions about what addresses we are listening
 // on.
 type AddressLister interface {

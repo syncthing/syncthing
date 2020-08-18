@@ -121,10 +121,9 @@ type model struct {
 	evLogger       events.Logger
 
 	// constant or concurrency safe fields
-	finder            *db.BlockFinder
-	progressEmitter   *ProgressEmitter
-	shortID           protocol.ShortID
-	cacheIgnoredFiles bool
+	finder          *db.BlockFinder
+	progressEmitter *ProgressEmitter
+	shortID         protocol.ShortID
 	// globalRequestLimiter limits the amount of data in concurrent incoming
 	// requests
 	globalRequestLimiter *byteSemaphore
@@ -202,7 +201,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		finder:               db.NewBlockFinder(ldb),
 		progressEmitter:      NewProgressEmitter(cfg, evLogger),
 		shortID:              id.Short(),
-		cacheIgnoredFiles:    cfg.Options().CacheIgnoredFiles,
 		globalRequestLimiter: newByteSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
 		folderIOLimiter:      newByteSemaphore(cfg.Options().MaxFolderConcurrency()),
 
@@ -245,12 +243,13 @@ func (m *model) ServeBackground() {
 
 func (m *model) onServe() {
 	// Add and start folders
+	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
 	for _, folderCfg := range m.cfg.Folders() {
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
 		}
-		m.newFolder(folderCfg)
+		m.newFolder(folderCfg, cacheIgnoredFiles)
 	}
 	m.cfg.Subscribe(m)
 }
@@ -278,8 +277,8 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 }
 
 // Need to hold lock on m.fmut when calling this.
-func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
-	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(m.cacheIgnoredFiles))
+func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, cacheIgnoredFiles bool) {
+	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(cacheIgnoredFiles))
 	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 		l.Warnln("Loading ignores:", err)
 	}
@@ -445,7 +444,7 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	delete(m.folderVersioners, cfg.ID)
 }
 
-func (m *model) restartFolder(from, to config.FolderConfiguration) {
+func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) {
 	if len(to.ID) == 0 {
 		panic("bug: cannot restart empty folder ID")
 	}
@@ -495,12 +494,12 @@ func (m *model) restartFolder(from, to config.FolderConfiguration) {
 
 	m.cleanupFolderLocked(from)
 	if !to.Paused {
-		m.addAndStartFolderLocked(to, fset)
+		m.addAndStartFolderLocked(to, fset, cacheIgnoredFiles)
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
 }
 
-func (m *model) newFolder(cfg config.FolderConfiguration) {
+func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool) {
 	// Creating the fileset can take a long time (metadata calculation) so
 	// we do it outside of the lock.
 	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
@@ -510,7 +509,7 @@ func (m *model) newFolder(cfg config.FolderConfiguration) {
 
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
-	m.addAndStartFolderLocked(cfg, fset)
+	m.addAndStartFolderLocked(cfg, fset, cacheIgnoredFiles)
 }
 
 func (m *model) UsageReportingStats(report *contract.Report, version int, preview bool) {
@@ -2471,7 +2470,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				l.Infoln("Paused folder", cfg.Description())
 			} else {
 				l.Infoln("Adding folder", cfg.Description())
-				m.newFolder(cfg)
+				m.newFolder(cfg, to.Options.CacheIgnoredFiles)
 			}
 		}
 	}
@@ -2490,8 +2489,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 		// This folder exists on both sides. Settings might have changed.
 		// Check if anything differs that requires a restart.
-		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) {
-			m.restartFolder(fromCfg, toCfg)
+		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) || from.Options.CacheIgnoredFiles != to.Options.CacheIgnoredFiles {
+			m.restartFolder(fromCfg, toCfg, to.Options.CacheIgnoredFiles)
 		}
 
 		// Emit the folder pause/resume event
