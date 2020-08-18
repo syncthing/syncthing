@@ -7,13 +7,14 @@
 package versioner
 
 import (
-	"github.com/syncthing/syncthing/lib/config"
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -65,7 +66,7 @@ func TestTrashcanCleanout(t *testing.T) {
 	}
 
 	versioner := newTrashcan(cfg).(*trashcan)
-	if err := versioner.cleanoutArchive(); err != nil {
+	if err := versioner.Clean(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 

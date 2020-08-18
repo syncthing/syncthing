@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// +build !windows,!darwin
+// +build linux solaris
 
 package fs
 
@@ -51,7 +51,9 @@ func copyRangeSendFile(src, dst basicFile, srcOffset, dstOffset, size int64) err
 		// following the last byte that was read. If offset is not NULL, then sendfile() does not modify the current
 		// file offset of in_fd; otherwise the current file offset is adjusted to reflect the number of bytes read from
 		// in_fd.
-		n, err := syscall.Sendfile(int(dst.Fd()), int(src.Fd()), &srcOffset, int(size))
+		n, err := withFileDescriptors(dst, src, func(dstFd, srcFd uintptr) (int, error) {
+			return syscall.Sendfile(int(dstFd), int(srcFd), &srcOffset, int(size))
+		})
 		if n == 0 && err == nil {
 			err = io.ErrUnexpectedEOF
 		}

@@ -206,8 +206,8 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 
 	report.UsesRateLimit = opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0
 	report.UpgradeAllowedManual = !(upgrade.DisabledByCompilation || s.noUpgrade)
-	report.UpgradeAllowedAuto = !(upgrade.DisabledByCompilation || s.noUpgrade) && opts.AutoUpgradeIntervalH > 0
-	report.UpgradeAllowedPre = !(upgrade.DisabledByCompilation || s.noUpgrade) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
+	report.UpgradeAllowedAuto = !(upgrade.DisabledByCompilation || s.noUpgrade) && opts.AutoUpgradeEnabled()
+	report.UpgradeAllowedPre = !(upgrade.DisabledByCompilation || s.noUpgrade) && opts.AutoUpgradeEnabled() && opts.UpgradeToPreReleases
 
 	// V3
 
@@ -269,6 +269,9 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			}
 			report.FolderUsesV3.BlockPullOrder[cfg.BlockPullOrder.String()]++
 			report.FolderUsesV3.CopyRangeMethod[cfg.CopyRangeMethod.String()]++
+			if cfg.CaseSensitiveFS {
+				report.FolderUsesV3.CaseSensitiveFS++
+			}
 		}
 		sort.Ints(report.FolderUsesV3.FsWatcherDelays)
 

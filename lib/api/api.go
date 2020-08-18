@@ -77,7 +77,7 @@ type service struct {
 	eventSubs            map[events.EventType]events.BufferedSubscription
 	eventSubsMut         sync.Mutex
 	evLogger             events.Logger
-	discoverer           discover.CachingMux
+	discoverer           discover.Manager
 	connectionsService   connections.Service
 	fss                  model.FolderSummaryService
 	urService            *ur.Service
@@ -107,7 +107,7 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, contr Controller, noUpgrade bool) Service {
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, contr Controller, noUpgrade bool) Service {
 	s := &service{
 		id:      id,
 		cfg:     cfg,
@@ -149,7 +149,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 	// If the certificate has expired or will expire in the next month, fail
 	// it and generate a new one.
 	if err == nil {
-		err = checkExpiry(cert)
+		err = shouldRegenerateCertificate(cert)
 	}
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
@@ -245,7 +245,7 @@ func (s *service) serve(ctx context.Context) {
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
-	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // device folder
+	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // [device] [folder]
 	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
@@ -673,13 +673,20 @@ func (s *service) getDBBrowse(w http.ResponseWriter, r *http.Request) {
 
 func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
-	var folder = qs.Get("folder")
-	var deviceStr = qs.Get("device")
+	var folder = qs.Get("folder")    // empty means all folders
+	var deviceStr = qs.Get("device") // empty means local device ID
 
-	device, err := protocol.DeviceIDFromString(deviceStr)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+	// We will check completion status for either the local device, or a
+	// specific given device ID.
+
+	device := protocol.LocalDeviceID
+	if deviceStr != "" {
+		var err error
+		device, err = protocol.DeviceIDFromString(deviceStr)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	sendJSON(w, s.model.Completion(device, folder).Map())
@@ -1729,7 +1736,11 @@ func addressIsLocalhost(addr string) bool {
 	}
 }
 
-func checkExpiry(cert tls.Certificate) error {
+// shouldRegenerateCertificate checks for certificate expiry or other known
+// issues with our API/GUI certificate and returns either nil (leave the
+// certificate alone) or an error describing the reason the certificate
+// should be regenerated.
+func shouldRegenerateCertificate(cert tls.Certificate) error {
 	leaf := cert.Leaf
 	if leaf == nil {
 		// Leaf can be nil or not, depending on how parsed the certificate
@@ -1745,10 +1756,19 @@ func checkExpiry(cert tls.Certificate) error {
 		}
 	}
 
-	if leaf.Subject.String() != leaf.Issuer.String() ||
-		len(leaf.DNSNames) != 0 || len(leaf.IPAddresses) != 0 {
-		// The certificate is not self signed, or has DNS/IP attributes we don't
+	if leaf.Subject.String() != leaf.Issuer.String() || len(leaf.IPAddresses) != 0 {
+		// The certificate is not self signed, or has IP attributes we don't
 		// add, so we leave it alone.
+		return nil
+	}
+	if len(leaf.DNSNames) > 1 {
+		// The certificate has more DNS SANs attributes than we ever add, so
+		// we leave it alone.
+		return nil
+	}
+	if len(leaf.DNSNames) == 1 && leaf.DNSNames[0] != leaf.Issuer.CommonName {
+		// The one SAN is different from the issuer, so it's not one of our
+		// newer self signed certificates.
 		return nil
 	}
 

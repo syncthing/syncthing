@@ -7,21 +7,28 @@
 package config
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"sort"
+
+	"github.com/syncthing/syncthing/lib/util"
 )
 
+// VersioningConfiguration is used in the code and for JSON serialization
 type VersioningConfiguration struct {
-	Type   string            `xml:"type,attr" json:"type"`
-	Params map[string]string `json:"params"`
+	Type             string            `json:"type"`
+	Params           map[string]string `json:"params"`
+	CleanupIntervalS int               `json:"cleanupIntervalS" default:"3600"`
 }
 
-type InternalVersioningConfiguration struct {
-	Type   string          `xml:"type,attr,omitempty"`
-	Params []InternalParam `xml:"param"`
+// internalVersioningConfiguration is used in XML serialization
+type internalVersioningConfiguration struct {
+	Type             string          `xml:"type,attr,omitempty"`
+	Params           []internalParam `xml:"param"`
+	CleanupIntervalS int             `xml:"cleanupIntervalS" default:"3600"`
 }
 
-type InternalParam struct {
+type internalParam struct {
 	Key string `xml:"key,attr"`
 	Val string `xml:"val,attr"`
 }
@@ -35,31 +42,49 @@ func (c VersioningConfiguration) Copy() VersioningConfiguration {
 	return cp
 }
 
+func (c *VersioningConfiguration) UnmarshalJSON(data []byte) error {
+	util.SetDefaults(c)
+	type noCustomUnmarshal VersioningConfiguration
+	ptr := (*noCustomUnmarshal)(c)
+	return json.Unmarshal(data, ptr)
+}
+
+func (c *VersioningConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	var intCfg internalVersioningConfiguration
+	util.SetDefaults(&intCfg)
+	if err := d.DecodeElement(&intCfg, &start); err != nil {
+		return err
+	}
+	c.fromInternal(intCfg)
+	return nil
+}
+
 func (c *VersioningConfiguration) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	var tmp InternalVersioningConfiguration
+	// Using EncodeElement instead of plain Encode ensures that we use the
+	// outer tag name from the VersioningConfiguration (i.e.,
+	// `<versioning>`) rather than whatever the internal representation
+	// would otherwise be.
+	return e.EncodeElement(c.toInternal(), start)
+}
+
+func (c *VersioningConfiguration) toInternal() internalVersioningConfiguration {
+	var tmp internalVersioningConfiguration
 	tmp.Type = c.Type
+	tmp.CleanupIntervalS = c.CleanupIntervalS
 	for k, v := range c.Params {
-		tmp.Params = append(tmp.Params, InternalParam{k, v})
+		tmp.Params = append(tmp.Params, internalParam{k, v})
 	}
 	sort.Slice(tmp.Params, func(a, b int) bool {
 		return tmp.Params[a].Key < tmp.Params[b].Key
 	})
-
-	return e.EncodeElement(tmp, start)
-
+	return tmp
 }
 
-func (c *VersioningConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	var tmp InternalVersioningConfiguration
-	err := d.DecodeElement(&tmp, &start)
-	if err != nil {
-		return err
-	}
-
-	c.Type = tmp.Type
-	c.Params = make(map[string]string, len(tmp.Params))
-	for _, p := range tmp.Params {
+func (c *VersioningConfiguration) fromInternal(intCfg internalVersioningConfiguration) {
+	c.Type = intCfg.Type
+	c.CleanupIntervalS = intCfg.CleanupIntervalS
+	c.Params = make(map[string]string, len(intCfg.Params))
+	for _, p := range intCfg.Params {
 		c.Params[p.Key] = p.Val
 	}
-	return nil
 }

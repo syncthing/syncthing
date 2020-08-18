@@ -27,9 +27,10 @@ import (
 //   8-9: v1.4.0
 //   10-11: v1.6.0
 //   12-13: v1.7.0
+//   14: v1.9.0
 const (
-	dbVersion             = 13
-	dbMinSyncthingVersion = "v1.7.0"
+	dbVersion             = 14
+	dbMinSyncthingVersion = "v1.9.0"
 )
 
 var errFolderMissing = errors.New("folder present in global list but missing in keyer index")
@@ -95,6 +96,7 @@ func (db *schemaUpdater) updateSchema() error {
 		{10, db.updateSchemaTo10},
 		{11, db.updateSchemaTo11},
 		{13, db.updateSchemaTo13},
+		{14, db.updateSchemaTo14},
 	}
 
 	for _, m := range migrations {
@@ -537,7 +539,7 @@ func (db *schemaUpdater) rewriteFiles(t readWriteTransaction) error {
 		if fi.Blocks == nil {
 			continue
 		}
-		if err := t.putFile(it.Key(), fi, false); err != nil {
+		if err := t.putFile(it.Key(), fi); err != nil {
 			return err
 		}
 		if err := t.Checkpoint(); err != nil {
@@ -681,6 +683,70 @@ func (db *schemaUpdater) updateSchemaTo13(prev int) error {
 	}
 
 	return t.Commit()
+}
+
+func (db *schemaUpdater) updateSchemaTo14(_ int) error {
+	// Checks for missing blocks and marks those entries as requiring a
+	// rehash/being invalid. The db is checked/repaired afterwards, i.e.
+	// no care is taken to get metadata and sequences right.
+	// If the corresponding files changed on disk compared to the global
+	// version, this will cause a conflict.
+
+	var key, gk []byte
+	for _, folderStr := range db.ListFolders() {
+		folder := []byte(folderStr)
+		meta := newMetadataTracker(db.keyer)
+		meta.counts.Created = 0 // Recalculate metadata afterwards
+
+		t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
+		if err != nil {
+			return err
+		}
+		defer t.close()
+
+		key, err = t.keyer.GenerateDeviceFileKey(key, folder, protocol.LocalDeviceID[:], nil)
+		it, err := t.NewPrefixIterator(key)
+		if err != nil {
+			return err
+		}
+		defer it.Release()
+		for it.Next() {
+			var fi protocol.FileInfo
+			if err := fi.Unmarshal(it.Value()); err != nil {
+				return err
+			}
+			if len(fi.Blocks) > 0 || len(fi.BlocksHash) == 0 {
+				continue
+			}
+			key = t.keyer.GenerateBlockListKey(key, fi.BlocksHash)
+			_, err := t.Get(key)
+			if err == nil {
+				continue
+			}
+
+			fi.SetMustRescan(protocol.LocalDeviceID.Short())
+			if err = t.putFile(it.Key(), fi); err != nil {
+				return err
+			}
+
+			gk, err = t.keyer.GenerateGlobalVersionKey(gk, folder, []byte(fi.Name))
+			if err != nil {
+				return err
+			}
+			key, _, err = t.updateGlobal(gk, key, folder, protocol.LocalDeviceID[:], fi, meta)
+			if err != nil {
+				return err
+			}
+		}
+		it.Release()
+
+		if err = t.Commit(); err != nil {
+			return err
+		}
+		t.close()
+	}
+
+	return nil
 }
 
 func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {

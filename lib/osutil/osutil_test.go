@@ -62,7 +62,7 @@ func TestIsDeleted(t *testing.T) {
 		}
 	}
 	for _, n := range []string{"Dir", "File", "Del"} {
-		if err := osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), strings.ToLower(n)), filepath.Join(testFs.URI(), "linkTo"+n)); err != nil {
+		if err := fs.DebugSymlinkForTestsOnly(testFs, testFs, strings.ToLower(n), "linkTo"+n); err != nil {
 			if runtime.GOOS == "windows" {
 				t.Skip("Symlinks aren't working")
 			}

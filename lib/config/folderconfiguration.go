@@ -64,8 +64,8 @@ type FolderConfiguration struct {
 	DisableFsync            bool                        `xml:"disableFsync" json:"disableFsync"`
 	BlockPullOrder          BlockPullOrder              `xml:"blockPullOrder" json:"blockPullOrder"`
 	CopyRangeMethod         fs.CopyRangeMethod          `xml:"copyRangeMethod" json:"copyRangeMethod" default:"standard"`
+	CaseSensitiveFS         bool                        `xml:"caseSensitiveFS" json:"caseSensitiveFS"`
 
-	cachedFilesystem    fs.Filesystem
 	cachedModTimeWindow time.Duration
 
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
@@ -105,11 +105,11 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Filesystem() should be valid.
-	if f.cachedFilesystem == nil {
-		l.Infoln("bug: uncached filesystem call (should only happen in tests)")
-		return fs.NewFilesystem(f.FilesystemType, f.Path)
+	filesystem := fs.NewFilesystem(f.FilesystemType, f.Path)
+	if !f.CaseSensitiveFS {
+		filesystem = fs.NewCaseFilesystem(filesystem)
 	}
-	return f.cachedFilesystem
+	return filesystem
 }
 
 func (f FolderConfiguration) ModTimeWindow() time.Duration {
@@ -214,8 +214,6 @@ func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 }
 
 func (f *FolderConfiguration) prepare() {
-	f.cachedFilesystem = fs.NewFilesystem(f.FilesystemType, f.Path)
-
 	if f.RescanIntervalS > MaxRescanIntervalS {
 		f.RescanIntervalS = MaxRescanIntervalS
 	} else if f.RescanIntervalS < 0 {
@@ -229,6 +227,11 @@ func (f *FolderConfiguration) prepare() {
 
 	if f.Versioning.Params == nil {
 		f.Versioning.Params = make(map[string]string)
+	}
+	if f.Versioning.CleanupIntervalS > MaxRescanIntervalS {
+		f.Versioning.CleanupIntervalS = MaxRescanIntervalS
+	} else if f.Versioning.CleanupIntervalS < 0 {
+		f.Versioning.CleanupIntervalS = 0
 	}
 
 	if f.WeakHashThresholdPct == 0 {
@@ -264,7 +267,6 @@ func (f FolderConfiguration) RequiresRestartOnly() FolderConfiguration {
 
 	// Manual handling for things that are not taken care of by the tag
 	// copier, yet should not cause a restart.
-	copy.cachedFilesystem = nil
 
 	blank := FolderConfiguration{}
 	util.CopyMatchingTag(&blank, &copy, "restart", func(v string) bool {

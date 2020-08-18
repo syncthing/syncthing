@@ -743,6 +743,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 			inc(features["Folder"]["v3"], "Weak hash, always", rep.FolderUsesV3.AlwaysWeakHash)
 			inc(features["Folder"]["v3"], "Weak hash, custom threshold", rep.FolderUsesV3.CustomWeakHashThreshold)
 			inc(features["Folder"]["v3"], "Filesystem watcher", rep.FolderUsesV3.FsWatcherEnabled)
+			inc(features["Folder"]["v3"], "Case sensitive FS", rep.FolderUsesV3.CaseSensitiveFS)
 
 			add(featureGroups["Folder"]["v3"], "Conflicts", "Disabled", rep.FolderUsesV3.ConflictsDisabled)
 			add(featureGroups["Folder"]["v3"], "Conflicts", "Unlimited", rep.FolderUsesV3.ConflictsUnlimited)

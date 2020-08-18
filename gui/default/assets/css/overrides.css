@@ -241,6 +241,7 @@ identicon {
 .identicon {
     width: 1em;
     height: 1em;
+    shape-rendering: crispEdges;
 }
 
 a.toggler {

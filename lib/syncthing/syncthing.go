@@ -264,11 +264,6 @@ func (a *App) startup() error {
 
 	a.mainService.Add(m)
 
-	// Start discovery
-
-	cachedDiscovery := discover.NewCachingMux()
-	a.mainService.Add(cachedDiscovery)
-
 	// The TLS configuration is used for both the listening socket and outgoing
 	// connections.
 
@@ -279,43 +274,20 @@ func (a *App) startup() error {
 	tlsCfg.SessionTicketsDisabled = true
 	tlsCfg.InsecureSkipVerify = true
 
-	// Start connection management
+	// Start discovery and connection management
 
-	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName, a.evLogger)
+	// Chicken and egg, discovery manager depends on connection service to tell it what addresses it's listening on
+	// Connection service depends on discovery manager to get addresses to connect to.
+	// Create a wrapper that is then wired after they are both setup.
+	addrLister := &lateAddressLister{}
+
+	discoveryManager := discover.NewManager(a.myID, a.cfg, a.cert, a.evLogger, addrLister)
+	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, discoveryManager, bepProtocolName, tlsDefaultCommonName, a.evLogger)
+
+	addrLister.AddressLister = connectionsService
+
+	a.mainService.Add(discoveryManager)
 	a.mainService.Add(connectionsService)
-
-	if a.cfg.Options().GlobalAnnEnabled {
-		for _, srv := range a.cfg.Options().GlobalDiscoveryServers() {
-			l.Infoln("Using discovery server", srv)
-			gd, err := discover.NewGlobal(srv, a.cert, connectionsService, a.evLogger)
-			if err != nil {
-				l.Warnln("Global discovery:", err)
-				continue
-			}
-
-			// Each global discovery server gets its results cached for five
-			// minutes, and is not asked again for a minute when it's returned
-			// unsuccessfully.
-			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute)
-		}
-	}
-
-	if a.cfg.Options().LocalAnnEnabled {
-		// v4 broadcasts
-		bcd, err := discover.NewLocal(a.myID, fmt.Sprintf(":%d", a.cfg.Options().LocalAnnPort), connectionsService, a.evLogger)
-		if err != nil {
-			l.Warnln("IPv4 local discovery:", err)
-		} else {
-			cachedDiscovery.Add(bcd, 0, 0)
-		}
-		// v6 multicasts
-		mcd, err := discover.NewLocal(a.myID, a.cfg.Options().LocalAnnMCAddr, connectionsService, a.evLogger)
-		if err != nil {
-			l.Warnln("IPv6 local discovery:", err)
-		} else {
-			cachedDiscovery.Add(mcd, 0, 0)
-		}
-	}
 
 	// Candidate builds always run with usage reporting.
 
@@ -341,7 +313,7 @@ func (a *App) startup() error {
 
 	// GUI
 
-	if err := a.setupGUI(m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog); err != nil {
+	if err := a.setupGUI(m, defaultSub, diskSub, discoveryManager, connectionsService, usageReportingSvc, errors, systemLog); err != nil {
 		l.Warnln("Failed starting API:", err)
 		return err
 	}
@@ -430,7 +402,7 @@ func (a *App) stopWithErr(stopReason ExitStatus, err error) ExitStatus {
 	return a.exitStatus
 }
 
-func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
+func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
 	guiCfg := a.cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -515,4 +487,8 @@ func printService(w io.Writer, svc interface{}, level int) {
 			fmt.Fprintln(w, strings.Repeat("  ", level), "  ->", err)
 		}
 	}
+}
+
+type lateAddressLister struct {
+	discover.AddressLister
 }

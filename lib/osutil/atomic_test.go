@@ -110,4 +110,10 @@ func testCreateAtomicReplace(t *testing.T, oldPerms os.FileMode) {
 	if !bytes.Equal(bs, []byte("hello")) {
 		t.Error("incorrect data")
 	}
+
+	if info, err := os.Stat(testfile); err != nil {
+		t.Fatal(err)
+	} else if info.Mode() != oldPerms {
+		t.Fatalf("Perms changed during atomic write: 0%o", info.Mode())
+	}
 }
