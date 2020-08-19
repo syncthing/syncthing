@@ -62,7 +62,7 @@ type FolderConfiguration struct {
 	BlockPullOrder          BlockPullOrder              `xml:"blockPullOrder" json:"blockPullOrder"`
 	CopyRangeMethod         fs.CopyRangeMethod          `xml:"copyRangeMethod" json:"copyRangeMethod" default:"standard"`
 	CaseSensitiveFS         bool                        `xml:"caseSensitiveFS" json:"caseSensitiveFS"`
-	JunctionsAsDirs         bool                        `xml:"junctionsAsDirs" json:"junctionsAsDirs" default:"true"`
+	JunctionsAsDirs         bool                        `xml:"junctionsAsDirs" json:"junctionsAsDirs"`
 
 	cachedModTimeWindow time.Duration
 
