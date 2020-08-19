@@ -116,3 +116,28 @@
     </div>
   </div>
 </notification>
+
+<notification id="authenticationUserAndPassword">
+  <div class="panel panel-success">
+    <div class="panel-heading">
+      <h3 class="panel-title"><span class="fas fa-bolt"></span>&nbsp;<span translate>GUI Authentication: Set User and Password</span></h3>
+    </div>
+    <div class="panel-body">
+      <p>
+        <span translate>Username/Password has not been set for the GUI authentication. Please consider setting it up.</span>
+      </p>
+      <p>
+        <span translate>If you want to prevent other users on this computer from accessing Syncthing and through it your files, consider setting up authentication.</span>
+      </p>
+    </div>
+    <div class="panel-footer">
+      <button type="button" class="btn btn-sm btn-default pull-right" ng-click="showSettings()">
+        <span class="fas fa-cog"></span>&nbsp;<span translate>Settings</span>
+      </button>
+      <button type="button" class="btn btn-sm btn-default pull-left" ng-click="dismissNotification('authenticationUserAndPassword')">
+        <span class="fa fa-check-circle"></span>&nbsp;<span translate>OK</span>
+      </button>
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</notification>

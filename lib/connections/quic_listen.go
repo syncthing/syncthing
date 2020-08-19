@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// +build go1.12
+// +build go1.12,!noquic
 
 package connections
 
@@ -102,7 +102,9 @@ func (t *quicListener) serve(ctx context.Context) error {
 		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
+	t.notifyAddressesChanged(t)
 	defer listener.Close()
+	defer t.clearAddresses(t)
 
 	l.Infof("QUIC listener (%v) starting", packetConn.LocalAddr())
 	defer l.Infof("QUIC listener (%v) shutting down", packetConn.LocalAddr())
@@ -145,7 +147,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 		cancel()
 		if err != nil {
 			l.Debugf("failed to accept stream from %s: %v", session.RemoteAddr(), err)
-			_ = session.Close()
+			_ = session.CloseWithError(1, err.Error())
 			continue
 		}
 

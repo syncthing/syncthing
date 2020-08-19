@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// +build go1.12
+// +build go1.12,!noquic
 
 package connections
 
@@ -80,7 +80,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	stream, err := session.OpenStreamSync(ctx)
 	if err != nil {
 		// It's ok to close these, this does not close the underlying packetConn.
-		_ = session.Close()
+		_ = session.CloseWithError(1, err.Error())
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}

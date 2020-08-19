@@ -41,6 +41,10 @@ const (
 )
 
 func generateFiles(dir string, files, maxexp int, srcname string) error {
+	return generateFilesWithTime(dir, files, maxexp, srcname, time.Now())
+}
+
+func generateFilesWithTime(dir string, files, maxexp int, srcname string, t0 time.Time) error {
 	fd, err := os.Open(srcname)
 	if err != nil {
 		return err
@@ -69,7 +73,7 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 		}
 		s += rand.Int63n(a)
 
-		if err := generateOneFile(fd, p1, s); err != nil {
+		if err := generateOneFile(fd, p1, s, t0); err != nil {
 			return err
 		}
 	}
@@ -77,7 +81,7 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 	return nil
 }
 
-func generateOneFile(fd io.ReadSeeker, p1 string, s int64) error {
+func generateOneFile(fd io.ReadSeeker, p1 string, s int64, t0 time.Time) error {
 	src := io.LimitReader(&inifiteReader{fd}, int64(s))
 	dst, err := os.Create(p1)
 	if err != nil {
@@ -96,7 +100,7 @@ func generateOneFile(fd io.ReadSeeker, p1 string, s int64) error {
 
 	os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
 
-	t := time.Now().Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
+	t := t0.Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
 	err = os.Chtimes(p1, t, t)
 	if err != nil {
 		return err
@@ -330,7 +334,7 @@ func compareDirectories(dirs ...string) error {
 		for i := 1; i < len(res); i++ {
 			if res[i] != res[0] {
 				close(abort)
-				return fmt.Errorf("Mismatch; %#v (%s) != %#v (%s)", res[i], dirs[i], res[0], dirs[0])
+				return fmt.Errorf("mismatch; %#v (%s) != %#v (%s)", res[i], dirs[i], res[0], dirs[0])
 			}
 		}
 
@@ -381,7 +385,7 @@ func compareDirectoryContents(actual, expected []fileInfo) error {
 
 	for i := range actual {
 		if actual[i] != expected[i] {
-			return fmt.Errorf("Mismatch; actual %#v != expected %#v", actual[i], expected[i])
+			return fmt.Errorf("mismatch; actual %#v != expected %#v", actual[i], expected[i])
 		}
 	}
 	return nil

@@ -12,10 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/thejerf/suture"
-
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -24,22 +22,22 @@ func init() {
 }
 
 type trashcan struct {
-	suture.Service
-	folderFs     fs.Filesystem
-	versionsFs   fs.Filesystem
-	cleanoutDays int
+	folderFs        fs.Filesystem
+	versionsFs      fs.Filesystem
+	cleanoutDays    int
+	copyRangeMethod fs.CopyRangeMethod
 }
 
-func newTrashcan(folderFs fs.Filesystem, params map[string]string) Versioner {
-	cleanoutDays, _ := strconv.Atoi(params["cleanoutDays"])
+func newTrashcan(cfg config.FolderConfiguration) Versioner {
+	cleanoutDays, _ := strconv.Atoi(cfg.Versioning.Params["cleanoutDays"])
 	// On error we default to 0, "do not clean out the trash can"
 
 	s := &trashcan{
-		folderFs:     folderFs,
-		versionsFs:   fsFromParams(folderFs, params),
-		cleanoutDays: cleanoutDays,
+		folderFs:        cfg.Filesystem(),
+		versionsFs:      versionerFsFromFolderCfg(cfg),
+		cleanoutDays:    cleanoutDays,
+		copyRangeMethod: cfg.CopyRangeMethod,
 	}
-	s.Service = util.AsService(s.serve, s.String())
 
 	l.Debugf("instantiated %#v", s)
 	return s
@@ -48,42 +46,21 @@ func newTrashcan(folderFs fs.Filesystem, params map[string]string) Versioner {
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (t *trashcan) Archive(filePath string) error {
-	return archiveFile(t.folderFs, t.versionsFs, filePath, func(name, tag string) string {
+	return archiveFile(t.copyRangeMethod, t.folderFs, t.versionsFs, filePath, func(name, tag string) string {
 		return name
 	})
-}
-
-func (t *trashcan) serve(ctx context.Context) {
-	l.Debugln(t, "starting")
-	defer l.Debugln(t, "stopping")
-
-	// Do the first cleanup one minute after startup.
-	timer := time.NewTimer(time.Minute)
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-
-		case <-timer.C:
-			if t.cleanoutDays > 0 {
-				if err := t.cleanoutArchive(); err != nil {
-					l.Infoln("Cleaning trashcan:", err)
-				}
-			}
-
-			// Cleanups once a day should be enough.
-			timer.Reset(24 * time.Hour)
-		}
-	}
 }
 
 func (t *trashcan) String() string {
 	return fmt.Sprintf("trashcan@%p", t)
 }
 
-func (t *trashcan) cleanoutArchive() error {
+func (t *trashcan) Clean(ctx context.Context) error {
+	if t.cleanoutDays <= 0 {
+		// no cleanout requested
+		return nil
+	}
+
 	if _, err := t.versionsFs.Lstat("."); fs.IsNotExist(err) {
 		return nil
 	}
@@ -94,6 +71,11 @@ func (t *trashcan) cleanoutArchive() error {
 	walkFn := func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 		}
 
 		if info.IsDir() && !info.IsSymlink() {
@@ -144,7 +126,7 @@ func (t *trashcan) Restore(filepath string, versionTime time.Time) error {
 		return name
 	}
 
-	err := restoreFile(t.versionsFs, t.folderFs, filepath, versionTime, tagger)
+	err := restoreFile(t.copyRangeMethod, t.versionsFs, t.folderFs, filepath, versionTime, tagger)
 	if taggedName == "" {
 		return err
 	}

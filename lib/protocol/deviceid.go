@@ -33,11 +33,7 @@ func repeatedDeviceID(v byte) (d DeviceID) {
 
 // NewDeviceID generates a new device ID from the raw bytes of a certificate
 func NewDeviceID(rawCert []byte) DeviceID {
-	var n DeviceID
-	hf := sha256.New()
-	hf.Write(rawCert)
-	hf.Sum(n[:0])
-	return n
+	return DeviceID(sha256.Sum256(rawCert))
 }
 
 func DeviceIDFromString(s string) (DeviceID, error) {
@@ -46,13 +42,13 @@ func DeviceIDFromString(s string) (DeviceID, error) {
 	return n, err
 }
 
-func DeviceIDFromBytes(bs []byte) DeviceID {
+func DeviceIDFromBytes(bs []byte) (DeviceID, error) {
 	var n DeviceID
 	if len(bs) != len(n) {
-		panic("incorrect length of byte slice representing device ID")
+		return n, fmt.Errorf("incorrect length of byte slice representing device ID")
 	}
 	copy(n[:], bs)
-	return n
+	return n, nil
 }
 
 // String returns the canonical string representation of the device ID
@@ -165,7 +161,7 @@ func luhnify(s string) (string, error) {
 	for i := 0; i < 4; i++ {
 		p := s[i*13 : (i+1)*13]
 		copy(res[i*(13+1):], p)
-		l, err := luhnBase32.generate(p)
+		l, err := luhn32(p)
 		if err != nil {
 			return "", err
 		}
@@ -183,7 +179,7 @@ func unluhnify(s string) (string, error) {
 	for i := 0; i < 4; i++ {
 		p := s[i*(13+1) : (i+1)*(13+1)-1]
 		copy(res[i*13:], p)
-		l, err := luhnBase32.generate(p)
+		l, err := luhn32(p)
 		if err != nil {
 			return "", err
 		}

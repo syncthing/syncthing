@@ -25,6 +25,7 @@ import (
 // update the config version. The order of migrations doesn't matter here,
 // put the newest on top for readability.
 var migrations = migrationSet{
+	{31, migrateToConfigV31},
 	{30, migrateToConfigV30},
 	{29, migrateToConfigV29},
 	{28, migrateToConfigV28},
@@ -83,6 +84,11 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV31(cfg *Configuration) {
+	// Show a notification about setting User and Password
+	cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "authenticationUserAndPassword")
 }
 
 func migrateToConfigV30(cfg *Configuration) {
@@ -209,7 +215,7 @@ func migrateToConfigV18(cfg *Configuration) {
 	// Do channel selection for existing users. Those who have auto upgrades
 	// and usage reporting on default to the candidate channel. Others get
 	// stable.
-	if cfg.Options.URAccepted > 0 && cfg.Options.AutoUpgradeIntervalH > 0 {
+	if cfg.Options.URAccepted > 0 && cfg.Options.AutoUpgradeEnabled() {
 		cfg.Options.UpgradeToPreReleases = true
 	}
 

@@ -8,35 +8,41 @@ package db
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
-	"os"
+	"io"
 	"time"
 
+	"github.com/dchest/siphash"
+	"github.com/greatroar/blobloom"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/willf/bloom"
+	"github.com/syncthing/syncthing/lib/util"
+	"github.com/thejerf/suture"
 )
 
 const (
-	// We set the bloom filter capacity to handle 100k individual block lists
-	// with a false positive probability of 1% for the first pass. Once we know
-	// how many block lists we have we will use that number instead, if it's
-	// more than 100k. For fewer than 100k block lists we will just get better
-	// false positive rate instead.
-	blockGCBloomCapacity          = 100000
-	blockGCBloomFalsePositiveRate = 0.01 // 1%
-	blockGCDefaultInterval        = 13 * time.Hour
-	blockGCTimeKey                = "lastBlockGCTime"
+	// We set the bloom filter capacity to handle 100k individual items with
+	// a false positive probability of 1% for the first pass. Once we know
+	// how many items we have we will use that number instead, if it's more
+	// than 100k. For fewer than 100k items we will just get better false
+	// positive rate instead.
+	indirectGCBloomCapacity          = 100000
+	indirectGCBloomFalsePositiveRate = 0.01     // 1%
+	indirectGCBloomMaxBytes          = 32 << 20 // Use at most 32MiB memory, which covers our desired FP rate at 27 M items
+	indirectGCDefaultInterval        = 13 * time.Hour
+	indirectGCTimeKey                = "lastIndirectGCTime"
+
+	// Use indirection for the block list when it exceeds this many entries
+	blocksIndirectionCutoff = 3
+	// Use indirection for the version vector when it exceeds this many entries
+	versionIndirectionCutoff = 10
+
+	recheckDefaultInterval = 30 * 24 * time.Hour
 )
-
-var blockGCInterval = blockGCDefaultInterval
-
-func init() {
-	if dur, err := time.ParseDuration(os.Getenv("STGCBLOCKSEVERY")); err == nil {
-		blockGCInterval = dur
-	}
-}
 
 // Lowlevel is the lowest level database interface. It has a very simple
 // purpose: hold the actual backend database, and the in-memory state
@@ -44,31 +50,60 @@ func init() {
 // database can only be opened once, there should be only one Lowlevel for
 // any given backend.
 type Lowlevel struct {
+	*suture.Supervisor
 	backend.Backend
-	folderIdx  *smallIndex
-	deviceIdx  *smallIndex
-	keyer      keyer
-	gcMut      sync.RWMutex
-	gcKeyCount int
-	gcStop     chan struct{}
+	folderIdx          *smallIndex
+	deviceIdx          *smallIndex
+	keyer              keyer
+	gcMut              sync.RWMutex
+	gcKeyCount         int
+	indirectGCInterval time.Duration
+	recheckInterval    time.Duration
 }
 
-func NewLowlevel(backend backend.Backend) *Lowlevel {
+func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 	db := &Lowlevel{
-		Backend:   backend,
-		folderIdx: newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
-		deviceIdx: newSmallIndex(backend, []byte{KeyTypeDeviceIdx}),
-		gcMut:     sync.NewRWMutex(),
-		gcStop:    make(chan struct{}),
+		Supervisor: suture.New("db.Lowlevel", suture.Spec{
+			// Only log restarts in debug mode.
+			Log: func(line string) {
+				l.Debugln(line)
+			},
+			PassThroughPanics: true,
+		}),
+		Backend:            backend,
+		folderIdx:          newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
+		deviceIdx:          newSmallIndex(backend, []byte{KeyTypeDeviceIdx}),
+		gcMut:              sync.NewRWMutex(),
+		indirectGCInterval: indirectGCDefaultInterval,
+		recheckInterval:    recheckDefaultInterval,
+	}
+	for _, opt := range opts {
+		opt(db)
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
-	go db.gcRunner()
+	db.Add(util.AsService(db.gcRunner, "db.Lowlevel/gcRunner"))
 	return db
 }
 
-func (db *Lowlevel) Close() error {
-	close(db.gcStop)
-	return db.Backend.Close()
+type Option func(*Lowlevel)
+
+// WithRecheckInterval sets the time interval in between metadata recalculations
+// and consistency checks.
+func WithRecheckInterval(dur time.Duration) Option {
+	return func(db *Lowlevel) {
+		if dur > 0 {
+			db.recheckInterval = dur
+		}
+	}
+}
+
+// WithIndirectGCInterval sets the time interval in between GC runs.
+func WithIndirectGCInterval(dur time.Duration) Option {
+	return func(db *Lowlevel) {
+		if dur > 0 {
+			db.indirectGCInterval = dur
+		}
+	}
 }
 
 // ListFolders returns the list of folders currently in the database
@@ -82,14 +117,17 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
 	if err != nil {
 		return err
 	}
 	defer t.close()
 
 	var dk, gk, keyBuf []byte
-	devID := protocol.DeviceIDFromBytes(device)
+	devID, err := protocol.DeviceIDFromBytes(device)
+	if err != nil {
+		return err
+	}
 	for _, f := range fs {
 		name := []byte(f.Name)
 		dk, err = db.keyer.GenerateDeviceFileKey(dk, folder, device, name)
@@ -129,7 +167,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		}
 	}
 
-	return t.commit()
+	return t.Commit()
 }
 
 // updateLocalFiles adds fileinfos to the db, and updates the global versionlist,
@@ -138,7 +176,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
 	if err != nil {
 		return err
 	}
@@ -160,15 +198,25 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		if ok && unchanged(f, ef) {
 			continue
 		}
+		blocksHashSame := ok && bytes.Equal(ef.BlocksHash, f.BlocksHash)
 
 		if ok {
-			if !ef.IsDirectory() && !ef.IsDeleted() && !ef.IsInvalid() {
+			if len(ef.Blocks) != 0 && !ef.IsInvalid() && ef.Size > 0 {
 				for _, block := range ef.Blocks {
 					keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
 					if err != nil {
 						return err
 					}
 					if err := t.Delete(keyBuf); err != nil {
+						return err
+					}
+				}
+				if !blocksHashSame {
+					keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, ef.BlocksHash, name)
+					if err != nil {
+						return err
+					}
+					if err = t.Delete(keyBuf); err != nil {
 						return err
 					}
 				}
@@ -214,7 +262,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		}
 		l.Debugf("adding sequence; folder=%q sequence=%v %v", folder, f.Sequence, f.Name)
 
-		if !f.IsDirectory() && !f.IsDeleted() && !f.IsInvalid() {
+		if len(f.Blocks) != 0 && !f.IsInvalid() && f.Size > 0 {
 			for i, block := range f.Blocks {
 				binary.BigEndian.PutUint32(blockBuf, uint32(i))
 				keyBuf, err = db.keyer.GenerateBlockMapKey(keyBuf, folder, block.Hash, name)
@@ -225,6 +273,15 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 					return err
 				}
 			}
+			if !blocksHashSame {
+				keyBuf, err := db.keyer.GenerateBlockListMapKey(keyBuf, folder, f.BlocksHash, name)
+				if err != nil {
+					return err
+				}
+				if err = t.Put(keyBuf, nil); err != nil {
+					return err
+				}
+			}
 		}
 
 		if err := t.Checkpoint(); err != nil {
@@ -232,7 +289,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		}
 	}
 
-	return t.commit()
+	return t.Commit()
 }
 
 func (db *Lowlevel) dropFolder(folder []byte) error {
@@ -255,7 +312,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove all sequences related to the folder
-	k1, err := db.keyer.GenerateSequenceKey(nil, folder, 0)
+	k1, err := db.keyer.GenerateSequenceKey(k0, folder, 0)
 	if err != nil {
 		return err
 	}
@@ -264,7 +321,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove all items related to the given folder from the global bucket
-	k2, err := db.keyer.GenerateGlobalVersionKey(nil, folder, nil)
+	k2, err := db.keyer.GenerateGlobalVersionKey(k1, folder, nil)
 	if err != nil {
 		return err
 	}
@@ -273,7 +330,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove all needs related to the folder
-	k3, err := db.keyer.GenerateNeedFileKey(nil, folder, nil)
+	k3, err := db.keyer.GenerateNeedFileKey(k2, folder, nil)
 	if err != nil {
 		return err
 	}
@@ -282,7 +339,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	}
 
 	// Remove the blockmap of the folder
-	k4, err := db.keyer.GenerateBlockMapKey(nil, folder, nil, nil)
+	k4, err := db.keyer.GenerateBlockMapKey(k3, folder, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -290,14 +347,22 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 		return err
 	}
 
-	return t.commit()
+	k5, err := db.keyer.GenerateBlockListMapKey(k4, folder, nil, nil)
+	if err != nil {
+		return err
+	}
+	if err := t.deleteKeyPrefix(k5.WithoutHashAndName()); err != nil {
+		return err
+	}
+
+	return t.Commit()
 }
 
 func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracker) error {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
 	if err != nil {
 		return err
 	}
@@ -311,6 +376,8 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 	if err != nil {
 		return err
 	}
+	defer dbi.Release()
+
 	var gk, keyBuf []byte
 	for dbi.Next() {
 		name := db.keyer.NameFromDeviceFileKey(dbi.Key())
@@ -329,10 +396,10 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 			return err
 		}
 	}
+	dbi.Release()
 	if err := dbi.Error(); err != nil {
 		return err
 	}
-	dbi.Release()
 
 	if bytes.Equal(device, protocol.LocalDeviceID[:]) {
 		key, err := db.keyer.GenerateBlockMapKey(nil, folder, nil, nil)
@@ -342,11 +409,18 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 		if err := t.deleteKeyPrefix(key.WithoutHashAndName()); err != nil {
 			return err
 		}
+		key2, err := db.keyer.GenerateBlockListMapKey(key, folder, nil, nil)
+		if err != nil {
+			return err
+		}
+		if err := t.deleteKeyPrefix(key2.WithoutHashAndName()); err != nil {
+			return err
+		}
 	}
-	return t.commit()
+	return t.Commit()
 }
 
-func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
+func (db *Lowlevel) checkGlobals(folder []byte) error {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -364,9 +438,13 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 	defer dbi.Release()
 
 	var dk []byte
+	ro := t.readOnlyTransaction
 	for dbi.Next() {
-		vl, ok := unmarshalVersionList(dbi.Value())
-		if !ok {
+		var vl VersionList
+		if err := vl.Unmarshal(dbi.Value()); err != nil || vl.Empty() {
+			if err := t.Delete(dbi.Key()); err != nil {
+				return err
+			}
 			continue
 		}
 
@@ -376,42 +454,63 @@ func (db *Lowlevel) checkGlobals(folder []byte, meta *metadataTracker) error {
 		// we find those and clear them out.
 
 		name := db.keyer.NameFromGlobalVersionKey(dbi.Key())
-		var newVL VersionList
-		for i, version := range vl.Versions {
-			dk, err = db.keyer.GenerateDeviceFileKey(dk, folder, version.Device, name)
+		newVL := &VersionList{}
+		var changed, changedHere bool
+		for _, fv := range vl.RawVersions {
+			changedHere, err = checkGlobalsFilterDevices(dk, folder, name, fv.Devices, newVL, ro)
 			if err != nil {
 				return err
 			}
-			_, err := t.Get(dk)
-			if backend.IsNotFound(err) {
-				continue
-			}
-			if err != nil {
-				return err
-			}
-			newVL.Versions = append(newVL.Versions, version)
+			changed = changed || changedHere
 
-			if i == 0 {
-				if fi, ok, err := t.getFileByKey(dk); err != nil {
-					return err
-				} else if ok {
-					meta.addFile(protocol.GlobalDeviceID, fi)
-				}
+			changedHere, err = checkGlobalsFilterDevices(dk, folder, name, fv.InvalidDevices, newVL, ro)
+			if err != nil {
+				return err
 			}
+			changed = changed || changedHere
 		}
 
-		if len(newVL.Versions) != len(vl.Versions) {
-			if err := t.Put(dbi.Key(), mustMarshal(&newVL)); err != nil {
+		if newVL.Empty() {
+			if err := t.Delete(dbi.Key()); err != nil {
+				return err
+			}
+		} else if changed {
+			if err := t.Put(dbi.Key(), mustMarshal(newVL)); err != nil {
 				return err
 			}
 		}
 	}
+	dbi.Release()
 	if err := dbi.Error(); err != nil {
 		return err
 	}
 
 	l.Debugf("db check completed for %q", folder)
-	return t.commit()
+	return t.Commit()
+}
+
+func checkGlobalsFilterDevices(dk, folder, name []byte, devices [][]byte, vl *VersionList, t readOnlyTransaction) (bool, error) {
+	var changed bool
+	var err error
+	for _, device := range devices {
+		dk, err = t.keyer.GenerateDeviceFileKey(dk, folder, device, name)
+		if err != nil {
+			return false, err
+		}
+		f, ok, err := t.getFileTrunc(dk, false)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			changed = true
+			continue
+		}
+		_, _, _, _, _, _, err = vl.update(folder, device, f, t)
+		if err != nil {
+			return false, err
+		}
+	}
+	return changed, nil
 }
 
 func (db *Lowlevel) getIndexID(device, folder []byte) (protocol.IndexID, error) {
@@ -469,22 +568,32 @@ func (db *Lowlevel) dropPrefix(prefix []byte) error {
 	if err := t.deleteKeyPrefix(prefix); err != nil {
 		return err
 	}
-	return t.commit()
+	return t.Commit()
 }
 
-func (db *Lowlevel) gcRunner() {
-	t := time.NewTimer(db.timeUntil(blockGCTimeKey, blockGCInterval))
+func (db *Lowlevel) gcRunner(ctx context.Context) {
+	// Calculate the time for the next GC run. Even if we should run GC
+	// directly, give the system a while to get up and running and do other
+	// stuff first. (We might have migrations and stuff which would be
+	// better off running before GC.)
+	next := db.timeUntil(indirectGCTimeKey, db.indirectGCInterval)
+	if next < time.Minute {
+		next = time.Minute
+	}
+
+	t := time.NewTimer(next)
 	defer t.Stop()
+
 	for {
 		select {
-		case <-db.gcStop:
+		case <-ctx.Done():
 			return
 		case <-t.C:
-			if err := db.gcBlocks(); err != nil {
-				l.Warnln("Database block GC failed:", err)
+			if err := db.gcIndirect(ctx); err != nil {
+				l.Warnln("Database indirection GC failed:", err)
 			}
-			db.recordTime(blockGCTimeKey)
-			t.Reset(db.timeUntil(blockGCTimeKey, blockGCInterval))
+			db.recordTime(indirectGCTimeKey)
+			t.Reset(db.timeUntil(indirectGCTimeKey, db.indirectGCInterval))
 		}
 	}
 }
@@ -509,15 +618,16 @@ func (db *Lowlevel) timeUntil(key string, every time.Duration) time.Duration {
 	return sleepTime
 }
 
-func (db *Lowlevel) gcBlocks() error {
-	// The block GC uses a bloom filter to track used block lists. This means
-	// iterating over all items, adding their block lists to the filter, then
-	// iterating over the block lists and removing those that don't match the
-	// filter. The filter will give false positives so we will keep around one
-	// percent of block lists that we don't really need (at most).
+func (db *Lowlevel) gcIndirect(ctx context.Context) error {
+	// The indirection GC uses bloom filters to track used block lists and
+	// versions. This means iterating over all items, adding their hashes to
+	// the filter, then iterating over the indirected items and removing
+	// those that don't match the filter. The filter will give false
+	// positives so we will keep around one percent of things that we don't
+	// really need (at most).
 	//
-	// Block GC needs to run when there are no modifications to the FileInfos or
-	// block lists.
+	// Indirection GC needs to run when there are no modifications to the
+	// FileInfos or indirected items.
 
 	db.gcMut.Lock()
 	defer db.gcMut.Unlock()
@@ -528,29 +638,43 @@ func (db *Lowlevel) gcBlocks() error {
 	}
 	defer t.Release()
 
-	// Set up the bloom filter with the initial capacity and false positive
-	// rate, or higher capacity if we've done this before and seen lots of block
-	// lists.
+	// Set up the bloom filters with the initial capacity and false positive
+	// rate, or higher capacity if we've done this before and seen lots of
+	// items. For simplicity's sake we track just one count, which is the
+	// highest of the various indirected items.
 
-	capacity := blockGCBloomCapacity
+	capacity := indirectGCBloomCapacity
 	if db.gcKeyCount > capacity {
 		capacity = db.gcKeyCount
 	}
-	filter := bloom.NewWithEstimates(uint(capacity), blockGCBloomFalsePositiveRate)
+	blockFilter := newBloomFilter(capacity)
+	versionFilter := newBloomFilter(capacity)
 
-	// Iterate the FileInfos, unmarshal the blocks hashes and add them to
-	// the filter.
+	// Iterate the FileInfos, unmarshal the block and version hashes and
+	// add them to the filter.
 
-	it, err := db.NewPrefixIterator([]byte{KeyTypeDevice})
+	it, err := t.NewPrefixIterator([]byte{KeyTypeDevice})
 	if err != nil {
 		return err
 	}
+	defer it.Release()
 	for it.Next() {
-		var bl BlocksHashOnly
-		if err := bl.Unmarshal(it.Value()); err != nil {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		var hashes IndirectionHashesOnly
+		if err := hashes.Unmarshal(it.Value()); err != nil {
 			return err
 		}
-		filter.Add(bl.BlocksHash)
+		if len(hashes.BlocksHash) > 0 {
+			blockFilter.add(hashes.BlocksHash)
+		}
+		if len(hashes.VersionHash) > 0 {
+			versionFilter.add(hashes.VersionHash)
+		}
 	}
 	it.Release()
 	if err := it.Error(); err != nil {
@@ -560,15 +684,51 @@ func (db *Lowlevel) gcBlocks() error {
 	// Iterate over block lists, removing keys with hashes that don't match
 	// the filter.
 
-	it, err = db.NewPrefixIterator([]byte{KeyTypeBlockList})
+	it, err = t.NewPrefixIterator([]byte{KeyTypeBlockList})
 	if err != nil {
 		return err
 	}
-	matched := 0
+	defer it.Release()
+	matchedBlocks := 0
 	for it.Next() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		key := blockListKey(it.Key())
-		if filter.Test(key.BlocksHash()) {
-			matched++
+		if blockFilter.has(key.Hash()) {
+			matchedBlocks++
+			continue
+		}
+		if err := t.Delete(key); err != nil {
+			return err
+		}
+	}
+	it.Release()
+	if err := it.Error(); err != nil {
+		return err
+	}
+
+	// Iterate over version lists, removing keys with hashes that don't match
+	// the filter.
+
+	it, err = db.NewPrefixIterator([]byte{KeyTypeVersion})
+	if err != nil {
+		return err
+	}
+	matchedVersions := 0
+	for it.Next() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		key := versionKey(it.Key())
+		if versionFilter.has(key.Hash()) {
+			matchedVersions++
 			continue
 		}
 		if err := t.Delete(key); err != nil {
@@ -581,7 +741,10 @@ func (db *Lowlevel) gcBlocks() error {
 	}
 
 	// Remember the number of unique keys we kept until the next pass.
-	db.gcKeyCount = matched
+	db.gcKeyCount = matchedBlocks
+	if matchedVersions > matchedBlocks {
+		db.gcKeyCount = matchedVersions
+	}
 
 	if err := t.Commit(); err != nil {
 		return err
@@ -590,22 +753,289 @@ func (db *Lowlevel) gcBlocks() error {
 	return db.Compact()
 }
 
-func unmarshalVersionList(data []byte) (VersionList, bool) {
-	var vl VersionList
-	if err := vl.Unmarshal(data); err != nil {
-		l.Debugln("unmarshal error:", err)
-		return VersionList{}, false
+func newBloomFilter(capacity int) bloomFilter {
+	var buf [16]byte
+	io.ReadFull(rand.Reader, buf[:])
+
+	return bloomFilter{
+		f: blobloom.NewOptimized(blobloom.Config{
+			Capacity: uint64(capacity),
+			FPRate:   indirectGCBloomFalsePositiveRate,
+			MaxBits:  8 * indirectGCBloomMaxBytes,
+		}),
+
+		k0: binary.LittleEndian.Uint64(buf[:8]),
+		k1: binary.LittleEndian.Uint64(buf[8:]),
 	}
-	if len(vl.Versions) == 0 {
-		l.Debugln("empty version list")
-		return VersionList{}, false
+}
+
+type bloomFilter struct {
+	f      *blobloom.Filter
+	k0, k1 uint64 // Random key for SipHash.
+}
+
+func (b *bloomFilter) add(id []byte)      { b.f.Add(b.hash(id)) }
+func (b *bloomFilter) has(id []byte) bool { return b.f.Has(b.hash(id)) }
+
+// Hash function for the bloomfilter: SipHash of the SHA-256.
+//
+// The randomization in SipHash means we get different collisions across
+// runs and colliding keys are not kept indefinitely.
+func (b *bloomFilter) hash(id []byte) uint64 {
+	if len(id) != sha256.Size {
+		panic("bug: bloomFilter.hash passed something not a SHA256 hash")
 	}
-	return vl, true
+	return siphash.Hash(b.k0, b.k1, id)
+}
+
+// CheckRepair checks folder metadata and sequences for miscellaneous errors.
+func (db *Lowlevel) CheckRepair() {
+	for _, folder := range db.ListFolders() {
+		_ = db.getMetaAndCheck(folder)
+	}
+}
+
+func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
+	db.gcMut.RLock()
+	defer db.gcMut.RUnlock()
+
+	meta, err := db.recalcMeta(folder)
+	if err == nil {
+		var fixed int
+		fixed, err = db.repairSequenceGCLocked(folder, meta)
+		if fixed != 0 {
+			l.Infof("Repaired %d sequence entries in database", fixed)
+		}
+	}
+
+	if backend.IsClosed(err) {
+		return nil
+	} else if err != nil {
+		panic(err)
+	}
+
+	return meta
+}
+
+func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
+	meta := newMetadataTracker(db.keyer)
+	if err := meta.fromDB(db, []byte(folder)); err != nil {
+		if err == errMetaInconsistent {
+			l.Infof("Stored folder metadata for %q is inconsistent; recalculating", folder)
+		} else {
+			l.Infof("No stored folder metadata for %q; recalculating", folder)
+
+		}
+		return db.getMetaAndCheck(folder)
+	}
+
+	curSeq := meta.Sequence(protocol.LocalDeviceID)
+	if metaOK := db.verifyLocalSequence(curSeq, folder); !metaOK {
+		l.Infof("Stored folder metadata for %q is out of date after crash; recalculating", folder)
+		return db.getMetaAndCheck(folder)
+	}
+
+	if age := time.Since(meta.Created()); age > db.recheckInterval {
+		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, util.NiceDurationString(age))
+		return db.getMetaAndCheck(folder)
+	}
+
+	return meta
+}
+
+func (db *Lowlevel) recalcMeta(folderStr string) (*metadataTracker, error) {
+	folder := []byte(folderStr)
+
+	meta := newMetadataTracker(db.keyer)
+	if err := db.checkGlobals(folder); err != nil {
+		return nil, err
+	}
+
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
+	if err != nil {
+		return nil, err
+	}
+	defer t.close()
+
+	var deviceID protocol.DeviceID
+	err = t.withAllFolderTruncated(folder, func(device []byte, f FileInfoTruncated) bool {
+		copy(deviceID[:], device)
+		meta.addFile(deviceID, f)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = t.withGlobal(folder, nil, true, func(f protocol.FileIntf) bool {
+		meta.addFile(protocol.GlobalDeviceID, f)
+		return true
+	})
+
+	meta.emptyNeeded(protocol.LocalDeviceID)
+	err = t.withNeed(folder, protocol.LocalDeviceID[:], true, func(f protocol.FileIntf) bool {
+		meta.addNeeded(protocol.LocalDeviceID, f)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, device := range meta.devices() {
+		meta.emptyNeeded(device)
+		err = t.withNeed(folder, device[:], true, func(f protocol.FileIntf) bool {
+			meta.addNeeded(device, f)
+			return true
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	meta.SetCreated()
+	if err := t.Commit(); err != nil {
+		return nil, err
+	}
+	return meta, nil
+}
+
+// Verify the local sequence number from actual sequence entries. Returns
+// true if it was all good, or false if a fixup was necessary.
+func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) bool {
+	// Walk the sequence index from the current (supposedly) highest
+	// sequence number and raise the alarm if we get anything. This recovers
+	// from the occasion where we have written sequence entries to disk but
+	// not yet written new metadata to disk.
+	//
+	// Note that we can have the same thing happen for remote devices but
+	// there it's not a problem -- we'll simply advertise a lower sequence
+	// number than we've actually seen and receive some duplicate updates
+	// and then be in sync again.
+
+	t, err := db.newReadOnlyTransaction()
+	if err != nil {
+		panic(err)
+	}
+	ok := true
+	if err := t.withHaveSequence([]byte(folder), curSeq+1, func(fi protocol.FileIntf) bool {
+		ok = false // we got something, which we should not have
+		return false
+	}); err != nil && !backend.IsClosed(err) {
+		panic(err)
+	}
+	t.close()
+
+	return ok
+}
+
+// repairSequenceGCLocked makes sure the sequence numbers in the sequence keys
+// match those in the corresponding file entries. It returns the amount of fixed
+// entries.
+func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTracker) (int, error) {
+	t, err := db.newReadWriteTransaction(meta.CommitHook([]byte(folderStr)))
+	if err != nil {
+		return 0, err
+	}
+	defer t.close()
+
+	fixed := 0
+
+	folder := []byte(folderStr)
+
+	// First check that every file entry has a matching sequence entry
+	// (this was previously db schema upgrade to 9).
+
+	dk, err := t.keyer.GenerateDeviceFileKey(nil, folder, protocol.LocalDeviceID[:], nil)
+	if err != nil {
+		return 0, err
+	}
+	it, err := t.NewPrefixIterator(dk.WithoutName())
+	if err != nil {
+		return 0, err
+	}
+	defer it.Release()
+
+	var sk sequenceKey
+	for it.Next() {
+		intf, err := t.unmarshalTrunc(it.Value(), false)
+		if err != nil {
+			return 0, err
+		}
+		fi := intf.(protocol.FileInfo)
+		if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
+			return 0, err
+		}
+		switch dk, err = t.Get(sk); {
+		case err != nil:
+			if !backend.IsNotFound(err) {
+				return 0, err
+			}
+			fallthrough
+		case !bytes.Equal(it.Key(), dk):
+			fixed++
+			fi.Sequence = meta.nextLocalSeq()
+			if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
+				return 0, err
+			}
+			if err := t.Put(sk, it.Key()); err != nil {
+				return 0, err
+			}
+			if err := t.putFile(it.Key(), fi); err != nil {
+				return 0, err
+			}
+		}
+		if err := t.Checkpoint(); err != nil {
+			return 0, err
+		}
+	}
+	if err := it.Error(); err != nil {
+		return 0, err
+	}
+
+	it.Release()
+
+	// Secondly check there's no sequence entries pointing at incorrect things.
+
+	sk, err = t.keyer.GenerateSequenceKey(sk, folder, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	it, err = t.NewPrefixIterator(sk.WithoutSequence())
+	if err != nil {
+		return 0, err
+	}
+	defer it.Release()
+
+	for it.Next() {
+		// Check that the sequence from the key matches the
+		// sequence in the file.
+		fi, ok, err := t.getFileTrunc(it.Value(), true)
+		if err != nil {
+			return 0, err
+		}
+		if ok {
+			if seq := t.keyer.SequenceFromSequenceKey(it.Key()); seq == fi.SequenceNo() {
+				continue
+			}
+		}
+		// Either the file is missing or has a different sequence number
+		fixed++
+		if err := t.Delete(it.Key()); err != nil {
+			return 0, err
+		}
+	}
+	if err := it.Error(); err != nil {
+		return 0, err
+	}
+
+	it.Release()
+
+	return fixed, t.Commit()
 }
 
 // unchanged checks if two files are the same and thus don't need to be updated.
 // Local flags or the invalid bit might change without the version
 // being bumped.
-func unchanged(nf, ef FileIntf) bool {
+func unchanged(nf, ef protocol.FileIntf) bool {
 	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid() && ef.FileLocalFlags() == nf.FileLocalFlags()
 }

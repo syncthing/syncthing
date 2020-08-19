@@ -17,7 +17,9 @@ import (
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 var (
@@ -34,9 +36,8 @@ func init() {
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 
-	defaultFs = fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
-
 	defaultFolderConfig = testFolderConfig("testdata")
+	defaultFs = defaultFolderConfig.Filesystem()
 
 	defaultCfgWrapper = createTmpWrapper(config.New(myID))
 	_, _ = defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
@@ -81,6 +82,13 @@ func testFolderConfigTmp() config.FolderConfiguration {
 
 func testFolderConfig(path string) config.FolderConfiguration {
 	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, path)
+	cfg.FSWatcherEnabled = false
+	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
+	return cfg
+}
+
+func testFolderConfigFake() config.FolderConfiguration {
+	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true")
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg
@@ -198,7 +206,7 @@ func needSize(t *testing.T, m Model, folder string) db.Counts {
 	t.Helper()
 	snap := dbSnapshot(t, m, folder)
 	defer snap.Release()
-	return snap.NeedSize()
+	return snap.NeedSize(protocol.LocalDeviceID)
 }
 
 func dbSnapshot(t *testing.T, m Model, folder string) *db.Snapshot {
@@ -208,4 +216,17 @@ func dbSnapshot(t *testing.T, m Model, folder string) *db.Snapshot {
 		t.Fatal(err)
 	}
 	return snap
+}
+
+// Reach in and update the ignore matcher to one that always does
+// reloads when asked to, instead of checking file mtimes. This is
+// because we will be changing the files on disk often enough that the
+// mtimes will be unreliable to determine change status.
+func folderIgnoresAlwaysReload(m *model, fcfg config.FolderConfiguration) {
+	m.removeFolder(fcfg)
+	fset := db.NewFileSet(fcfg.ID, fcfg.Filesystem(), m.db)
+	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
+	m.fmut.Lock()
+	m.addAndStartFolderLockedWithIgnores(fcfg, fset, ignores)
+	m.fmut.Unlock()
 }

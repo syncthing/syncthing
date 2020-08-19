@@ -22,7 +22,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -302,16 +301,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	m := setupModel(w)
 	defer cleanupModelAndRemoveDir(m, fss.URI())
 
-	m.removeFolder(fcfg)
-	m.addFolder(fcfg)
-	// Reach in and update the ignore matcher to one that always does
-	// reloads when asked to, instead of checking file mtimes. This is
-	// because we might be changing the files on disk often enough that the
-	// mtimes will be unreliable to determine change status.
-	m.fmut.Lock()
-	m.folderIgnores["default"] = ignore.New(fss, ignore.WithChangeDetector(newAlwaysChanged()))
-	m.fmut.Unlock()
-	m.startFolder(fcfg.ID)
+	folderIgnoresAlwaysReload(m, fcfg)
 
 	fc := addFakeConn(m, device1)
 	fc.folder = "default"
@@ -333,7 +323,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	fc.deleteFile(invDel)
 	fc.addFile(ign, 0644, protocol.FileInfoTypeFile, contents)
 	fc.addFile(ignExisting, 0644, protocol.FileInfoTypeFile, contents)
-	if err := ioutil.WriteFile(filepath.Join(fss.URI(), ignExisting), otherContents, 0644); err != nil {
+	if err := writeFile(fss, ignExisting, otherContents, 0644); err != nil {
 		panic(err)
 	}
 
@@ -384,7 +374,6 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 			if f.IsInvalid() {
 				t.Errorf("File %v is still marked as invalid", f.Name)
 			}
-			ev := protocol.Vector{}
 			if f.Name == ign {
 				// The unignored deleted file should have an
 				// empty version, to make it not override
@@ -392,17 +381,19 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 				if !f.Deleted {
 					t.Errorf("File %v was not marked as deleted", f.Name)
 				}
+				if len(f.Version.Counters) != 0 {
+					t.Errorf("File %v has version %v, expected empty", f.Name, f.Version)
+				}
 			} else {
 				// The unignored existing file should have a
 				// version with only a local counter, to make
 				// it conflict changed global files.
-				ev = protocol.Vector{}.Update(myID.Short())
 				if f.Deleted {
 					t.Errorf("File %v is marked as deleted", f.Name)
 				}
-			}
-			if v := f.Version; !v.Equal(ev) {
-				t.Errorf("File %v has version %v, expected %v", f.Name, v, ev)
+				if len(f.Version.Counters) != 1 || f.Version.Counter(myID.Short()) == 0 {
+					t.Errorf("File %v has version %v, expected one entry for ourselves", f.Name, f.Version)
+				}
 			}
 			delete(expected, f.Name)
 		}
@@ -474,12 +465,12 @@ func TestIssue4841(t *testing.T) {
 
 func TestRescanIfHaveInvalidContent(t *testing.T) {
 	m, fc, fcfg := setupModelWithConnection()
-	tmpDir := fcfg.Filesystem().URI()
-	defer cleanupModelAndRemoveDir(m, tmpDir)
+	tfs := fcfg.Filesystem()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	payload := []byte("hello")
 
-	must(t, ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777))
+	must(t, writeFile(tfs, "foo", payload, 0777))
 
 	received := make(chan []protocol.FileInfo)
 	fc.mut.Lock()
@@ -520,7 +511,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 	payload = []byte("bye")
 	buf = make([]byte, len(payload))
 
-	must(t, ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777))
+	must(t, writeFile(tfs, "foo", payload, 0777))
 
 	_, err = m.Request(device1, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err == nil {
@@ -729,8 +720,6 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	}
 
 	var gotA, gotB, gotConfl bool
-	bIntermediateVersion := protocol.Vector{}.Update(fc.id.Short()).Update(myID.Short())
-	bFinalVersion := bIntermediateVersion.Copy().Update(fc.id.Short())
 	done := make(chan struct{})
 	fc.mut.Lock()
 	fc.indexFn = func(_ context.Context, folder string, fs []protocol.FileInfo) {
@@ -751,16 +740,12 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 				if gotB {
 					t.Error("Got more than one index update for", f.Name)
 				}
-				if f.Version.Equal(bIntermediateVersion) {
+				if f.Version.Counter(fc.id.Short()) == 0 {
 					// This index entry might be superseeded
 					// by the final one or sent before it separately.
 					break
 				}
-				if f.Version.Equal(bFinalVersion) {
-					gotB = true
-					break
-				}
-				t.Errorf("Got unexpected version %v for file %v in index update", f.Version, f.Name)
+				gotB = true
 			case strings.HasPrefix(f.Name, "b.sync-conflict-"):
 				if gotConfl {
 					t.Error("Got more than one index update for conflicts of", f.Name)
@@ -1039,16 +1024,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 	tmpDir := fss.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
 
-	m.removeFolder(fcfg)
-	m.addFolder(fcfg)
-	// Reach in and update the ignore matcher to one that always does
-	// reloads when asked to, instead of checking file mtimes. This is
-	// because we might be changing the files on disk often enough that the
-	// mtimes will be unreliable to determine change status.
-	m.fmut.Lock()
-	m.folderIgnores["default"] = ignore.New(fss, ignore.WithChangeDetector(newAlwaysChanged()))
-	m.fmut.Unlock()
-	m.startFolder(fcfg.ID)
+	folderIgnoresAlwaysReload(m, fcfg)
 
 	fc := addFakeConn(m, device1)
 	fc.folder = "default"
@@ -1075,7 +1051,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 	}
 	fc.mut.Unlock()
 
-	if err := ioutil.WriteFile(filepath.Join(fss.URI(), file), contents, 0644); err != nil {
+	if err := writeFile(fss, file, contents, 0644); err != nil {
 		panic(err)
 	}
 	m.ScanFolders()

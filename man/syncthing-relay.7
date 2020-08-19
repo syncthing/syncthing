@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-RELAY" "7" "Feb 02, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-RELAY" "7" "Aug 16, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-relay \- Relay Protocol v1
 .
@@ -227,7 +227,7 @@ _
 .SH SESSION MODE
 .sp
 The first and only message the client sends in the session mode is the
-SessionInvitation message which contains the session key identifying which
+JoinSessionRequest message which contains the session key identifying which
 session you are trying to join. The relay responds with one of the following
 Response messages:
 .INDENT 0.0
@@ -578,7 +578,7 @@ Empty/all zero IP should be replaced with the relay’s public IP address that
 was used when establishing the protocol mode connection.
 .TP
 .B : Port
-An optional port on which the relay server is expecting you to connect,
+The port on which the relay server is expecting you to connect,
 in order to start a connection in session mode.
 .TP
 .B : Server Socket

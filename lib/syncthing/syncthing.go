@@ -7,11 +7,14 @@
 package syncthing
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +37,7 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
 )
 
@@ -68,6 +72,9 @@ type Options struct {
 	ProfilerURL      string
 	ResetDeltaIdxs   bool
 	Verbose          bool
+	// null duration means use default value
+	DBRecheckInterval    time.Duration
+	DBIndirectGCInterval time.Duration
 }
 
 type App struct {
@@ -88,7 +95,7 @@ type App struct {
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
 	a := &App{
 		cfg:      cfg,
-		ll:       db.NewLowlevel(dbBackend),
+		ll:       db.NewLowlevel(dbBackend, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval)),
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,
@@ -121,6 +128,7 @@ func (a *App) startup() error {
 		},
 		PassThroughPanics: true,
 	})
+	a.mainService.Add(a.ll)
 	a.mainService.ServeBackground()
 
 	if a.opts.AuditWriter != nil {
@@ -179,7 +187,7 @@ func (a *App) startup() error {
 		}()
 	}
 
-	perf := ur.CpuBench(3, 150*time.Millisecond, true)
+	perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond, true)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	if err := db.UpdateSchema(a.ll); err != nil {
@@ -223,7 +231,7 @@ func (a *App) startup() error {
 
 	prevParts := strings.Split(prevVersion, "-")
 	curParts := strings.Split(build.Version, "-")
-	if prevParts[0] != curParts[0] {
+	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
 		if prevVersion != "" {
 			l.Infoln("Detected upgrade from", prevVersion, "to", build.Version)
 		}
@@ -231,7 +239,17 @@ func (a *App) startup() error {
 		// Drop delta indexes in case we've changed random stuff we
 		// shouldn't have. We will resend our index on next connect.
 		db.DropDeltaIndexIDs(a.ll)
+	}
 
+	// Check and repair metadata and sequences on every upgrade including RCs.
+	prevParts = strings.Split(prevVersion, "+")
+	curParts = strings.Split(build.Version, "+")
+	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
+		l.Infoln("Checking db due to upgrade - this may take a while...")
+		a.ll.CheckRepair()
+	}
+
+	if build.Version != prevVersion {
 		// Remember the new version.
 		miscDB.PutString("prevVersion", build.Version)
 	}
@@ -246,11 +264,6 @@ func (a *App) startup() error {
 
 	a.mainService.Add(m)
 
-	// Start discovery
-
-	cachedDiscovery := discover.NewCachingMux()
-	a.mainService.Add(cachedDiscovery)
-
 	// The TLS configuration is used for both the listening socket and outgoing
 	// connections.
 
@@ -261,43 +274,20 @@ func (a *App) startup() error {
 	tlsCfg.SessionTicketsDisabled = true
 	tlsCfg.InsecureSkipVerify = true
 
-	// Start connection management
+	// Start discovery and connection management
 
-	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName, a.evLogger)
+	// Chicken and egg, discovery manager depends on connection service to tell it what addresses it's listening on
+	// Connection service depends on discovery manager to get addresses to connect to.
+	// Create a wrapper that is then wired after they are both setup.
+	addrLister := &lateAddressLister{}
+
+	discoveryManager := discover.NewManager(a.myID, a.cfg, a.cert, a.evLogger, addrLister)
+	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, discoveryManager, bepProtocolName, tlsDefaultCommonName, a.evLogger)
+
+	addrLister.AddressLister = connectionsService
+
+	a.mainService.Add(discoveryManager)
 	a.mainService.Add(connectionsService)
-
-	if a.cfg.Options().GlobalAnnEnabled {
-		for _, srv := range a.cfg.Options().GlobalDiscoveryServers() {
-			l.Infoln("Using discovery server", srv)
-			gd, err := discover.NewGlobal(srv, a.cert, connectionsService, a.evLogger)
-			if err != nil {
-				l.Warnln("Global discovery:", err)
-				continue
-			}
-
-			// Each global discovery server gets its results cached for five
-			// minutes, and is not asked again for a minute when it's returned
-			// unsuccessfully.
-			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute)
-		}
-	}
-
-	if a.cfg.Options().LocalAnnEnabled {
-		// v4 broadcasts
-		bcd, err := discover.NewLocal(a.myID, fmt.Sprintf(":%d", a.cfg.Options().LocalAnnPort), connectionsService, a.evLogger)
-		if err != nil {
-			l.Warnln("IPv4 local discovery:", err)
-		} else {
-			cachedDiscovery.Add(bcd, 0, 0)
-		}
-		// v6 multicasts
-		mcd, err := discover.NewLocal(a.myID, a.cfg.Options().LocalAnnMCAddr, connectionsService, a.evLogger)
-		if err != nil {
-			l.Warnln("IPv6 local discovery:", err)
-		} else {
-			cachedDiscovery.Add(mcd, 0, 0)
-		}
-	}
 
 	// Candidate builds always run with usage reporting.
 
@@ -323,7 +313,7 @@ func (a *App) startup() error {
 
 	// GUI
 
-	if err := a.setupGUI(m, defaultSub, diskSub, cachedDiscovery, connectionsService, usageReportingSvc, errors, systemLog); err != nil {
+	if err := a.setupGUI(m, defaultSub, diskSub, discoveryManager, connectionsService, usageReportingSvc, errors, systemLog); err != nil {
 		l.Warnln("Failed starting API:", err)
 		return err
 	}
@@ -356,6 +346,10 @@ func (a *App) startup() error {
 func (a *App) run() {
 	<-a.stop
 
+	if shouldDebug() {
+		l.Debugln("Services before stop:")
+		printServiceTree(os.Stdout, a.mainService, 0)
+	}
 	a.mainService.Stop()
 
 	done := make(chan struct{})
@@ -408,7 +402,7 @@ func (a *App) stopWithErr(stopReason ExitStatus, err error) ExitStatus {
 	return a.exitStatus
 }
 
-func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
+func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder) error {
 	guiCfg := a.cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -419,13 +413,10 @@ func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscri
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	cpu := newCPUService()
-	a.mainService.Add(cpu)
-
 	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID, a.evLogger)
 	a.mainService.Add(summaryService)
 
-	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, cpu, &controller{a}, a.opts.NoUpgrade)
+	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, &controller{a}, a.opts.NoUpgrade)
 	a.mainService.Add(apiSvc)
 
 	if err := apiSvc.WaitForStart(); err != nil {
@@ -462,4 +453,42 @@ func (e *controller) Shutdown() {
 
 func (e *controller) ExitUpgrading() {
 	e.Stop(ExitUpgrade)
+}
+
+type supervisor interface{ Services() []suture.Service }
+
+func printServiceTree(w io.Writer, sup supervisor, level int) {
+	printService(w, sup, level)
+
+	svcs := sup.Services()
+	sort.Slice(svcs, func(a, b int) bool {
+		return fmt.Sprint(svcs[a]) < fmt.Sprint(svcs[b])
+	})
+
+	for _, svc := range svcs {
+		if sub, ok := svc.(supervisor); ok {
+			printServiceTree(w, sub, level+1)
+		} else {
+			printService(w, svc, level+1)
+		}
+	}
+}
+
+func printService(w io.Writer, svc interface{}, level int) {
+	type errorer interface{ Error() error }
+
+	t := "-"
+	if _, ok := svc.(supervisor); ok {
+		t = "+"
+	}
+	fmt.Fprintln(w, strings.Repeat("  ", level), t, svc)
+	if es, ok := svc.(errorer); ok {
+		if err := es.Error(); err != nil {
+			fmt.Fprintln(w, strings.Repeat("  ", level), "  ->", err)
+		}
+	}
+}
+
+type lateAddressLister struct {
+	discover.AddressLister
 }

@@ -48,13 +48,17 @@ const randomBlockShift = 14 // 128k
 //     sizeavg=n  to set the average size of random files, in bytes (default 1<<20)
 //     seed=n     to set the initial random seed (default 0)
 //     insens=b   "true" makes filesystem case-insensitive Windows- or OSX-style (default false)
+//     latency=d  to set the amount of time each "disk" operation takes, where d is time.ParseDuration format
 //
 // - Two fakefs:s pointing at the same root path see the same files.
 //
 type fakefs struct {
-	mut    sync.Mutex
-	root   *fakeEntry
-	insens bool
+	uri         string
+	mut         sync.Mutex
+	root        *fakeEntry
+	insens      bool
+	withContent bool
+	latency     time.Duration
 }
 
 var (
@@ -62,23 +66,25 @@ var (
 	fakefsFs  = make(map[string]*fakefs)
 )
 
-func newFakeFilesystem(root string) *fakefs {
+func newFakeFilesystem(rootURI string) *fakefs {
 	fakefsMut.Lock()
 	defer fakefsMut.Unlock()
 
+	root := rootURI
 	var params url.Values
-	uri, err := url.Parse(root)
+	uri, err := url.Parse(rootURI)
 	if err == nil {
 		root = uri.Path
 		params = uri.Query()
 	}
 
-	if fs, ok := fakefsFs[root]; ok {
+	if fs, ok := fakefsFs[rootURI]; ok {
 		// Already have an fs at this path
 		return fs
 	}
 
 	fs := &fakefs{
+		uri: "fake://" + rootURI,
 		root: &fakeEntry{
 			name:      "/",
 			entryType: fakeEntryTypeDir,
@@ -93,9 +99,9 @@ func newFakeFilesystem(root string) *fakefs {
 	sizeavg, _ := strconv.Atoi(params.Get("sizeavg"))
 	seed, _ := strconv.Atoi(params.Get("seed"))
 
-	if params.Get("insens") == "true" {
-		fs.insens = true
-	}
+	fs.insens = params.Get("insens") == "true"
+	fs.withContent = params.Get("content") == "true"
+
 	if sizeavg == 0 {
 		sizeavg = 1 << 20
 	}
@@ -128,6 +134,10 @@ func newFakeFilesystem(root string) *fakefs {
 	// Also create a default folder marker for good measure
 	fs.Mkdir(".stfolder", 0700)
 
+	// We only set the latency after doing the operations required to create
+	// the filesystem initially.
+	fs.latency, _ = time.ParseDuration(params.Get("latency"))
+
 	fakefsFs[root] = fs
 	return fs
 }
@@ -151,6 +161,7 @@ type fakeEntry struct {
 	gid       int
 	mtime     time.Time
 	children  map[string]*fakeEntry
+	content   []byte
 }
 
 func (fs *fakefs) entryForName(name string) *fakeEntry {
@@ -183,6 +194,7 @@ func (fs *fakefs) entryForName(name string) *fakeEntry {
 func (fs *fakefs) Chmod(name string, mode FileMode) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 	entry := fs.entryForName(name)
 	if entry == nil {
 		return os.ErrNotExist
@@ -194,6 +206,7 @@ func (fs *fakefs) Chmod(name string, mode FileMode) error {
 func (fs *fakefs) Lchown(name string, uid, gid int) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 	entry := fs.entryForName(name)
 	if entry == nil {
 		return os.ErrNotExist
@@ -206,6 +219,7 @@ func (fs *fakefs) Lchown(name string, uid, gid int) error {
 func (fs *fakefs) Chtimes(name string, atime time.Time, mtime time.Time) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 	entry := fs.entryForName(name)
 	if entry == nil {
 		return os.ErrNotExist
@@ -217,6 +231,7 @@ func (fs *fakefs) Chtimes(name string, atime time.Time, mtime time.Time) error {
 func (fs *fakefs) create(name string) (*fakeEntry, error) {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 
 	if entry := fs.entryForName(name); entry != nil {
 		if entry.entryType == fakeEntryTypeDir {
@@ -227,6 +242,10 @@ func (fs *fakefs) create(name string) (*fakeEntry, error) {
 		entry.size = 0
 		entry.mtime = time.Now()
 		entry.mode = 0666
+		entry.content = nil
+		if fs.withContent {
+			entry.content = make([]byte, 0)
+		}
 		return entry, nil
 	}
 
@@ -244,6 +263,10 @@ func (fs *fakefs) create(name string) (*fakeEntry, error) {
 
 	if fs.insens {
 		base = UnicodeLowercase(base)
+	}
+
+	if fs.withContent {
+		new.content = make([]byte, 0)
 	}
 
 	entry.children[base] = new
@@ -274,6 +297,7 @@ func (fs *fakefs) CreateSymlink(target, name string) error {
 func (fs *fakefs) DirNames(name string) ([]string, error) {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 
 	entry := fs.entryForName(name)
 	if entry == nil {
@@ -291,6 +315,7 @@ func (fs *fakefs) DirNames(name string) ([]string, error) {
 func (fs *fakefs) Lstat(name string) (FileInfo, error) {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 
 	entry := fs.entryForName(name)
 	if entry == nil {
@@ -308,6 +333,7 @@ func (fs *fakefs) Lstat(name string) (FileInfo, error) {
 func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 
 	dir := filepath.Dir(name)
 	base := filepath.Base(name)
@@ -338,6 +364,10 @@ func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 }
 
 func (fs *fakefs) MkdirAll(name string, perm FileMode) error {
+	fs.mut.Lock()
+	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
+
 	name = filepath.ToSlash(name)
 	name = strings.Trim(name, "/")
 	comps := strings.Split(name, "/")
@@ -372,6 +402,7 @@ func (fs *fakefs) MkdirAll(name string, perm FileMode) error {
 func (fs *fakefs) Open(name string) (File, error) {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 
 	entry := fs.entryForName(name)
 	if entry == nil || entry.entryType != fakeEntryTypeFile {
@@ -391,6 +422,7 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 
 	dir := filepath.Dir(name)
 	base := filepath.Base(name)
@@ -417,6 +449,9 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 		mode:  mode,
 		mtime: time.Now(),
 	}
+	if fs.withContent {
+		newEntry.content = make([]byte, 0)
+	}
 
 	entry.children[key] = newEntry
 	return &fakeFile{fakeEntry: newEntry}, nil
@@ -425,6 +460,7 @@ func (fs *fakefs) OpenFile(name string, flags int, mode FileMode) (File, error) 
 func (fs *fakefs) ReadSymlink(name string) (string, error) {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 
 	entry := fs.entryForName(name)
 	if entry == nil {
@@ -438,6 +474,7 @@ func (fs *fakefs) ReadSymlink(name string) (string, error) {
 func (fs *fakefs) Remove(name string) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 
 	if fs.insens {
 		name = UnicodeLowercase(name)
@@ -459,6 +496,7 @@ func (fs *fakefs) Remove(name string) error {
 func (fs *fakefs) RemoveAll(name string) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 
 	if fs.insens {
 		name = UnicodeLowercase(name)
@@ -478,6 +516,7 @@ func (fs *fakefs) RemoveAll(name string) error {
 func (fs *fakefs) Rename(oldname, newname string) error {
 	fs.mut.Lock()
 	defer fs.mut.Unlock()
+	time.Sleep(fs.latency)
 
 	oldKey := filepath.Base(oldname)
 	newKey := filepath.Base(newname)
@@ -565,7 +604,7 @@ func (fs *fakefs) Type() FilesystemType {
 }
 
 func (fs *fakefs) URI() string {
-	return "fake://" + fs.root.name
+	return fs.uri
 }
 
 func (fs *fakefs) SameFile(fi1, fi2 FileInfo) bool {
@@ -660,6 +699,12 @@ func (f *fakeFile) readShortAt(p []byte, offs int64) (int, error) {
 		return 0, io.EOF
 	}
 
+	if f.content != nil {
+		n := copy(p, f.content[int(offs):])
+		f.offset = offs + int64(n)
+		return n, nil
+	}
+
 	// Lazily calculate our main seed, a simple 64 bit FNV hash our file
 	// name.
 	if f.seed == 0 {
@@ -735,7 +780,10 @@ func (f *fakeFile) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (f *fakeFile) Write(p []byte) (int, error) {
-	return f.WriteAt(p, f.offset)
+	f.mut.Lock()
+	offs := f.offset
+	f.mut.Unlock()
+	return f.WriteAt(p, offs)
 }
 
 func (f *fakeFile) WriteAt(p []byte, off int64) (int, error) {
@@ -744,6 +792,15 @@ func (f *fakeFile) WriteAt(p []byte, off int64) (int, error) {
 
 	if f.entryType == fakeEntryTypeDir {
 		return 0, errors.New("is a directory")
+	}
+
+	if f.content != nil {
+		if len(f.content) < int(off)+len(p) {
+			newc := make([]byte, int(off)+len(p))
+			copy(newc, f.content)
+			f.content = newc
+		}
+		copy(f.content[int(off):], p)
 	}
 
 	f.rng = nil
@@ -765,6 +822,9 @@ func (f *fakeFile) Truncate(size int64) error {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
+	if f.content != nil {
+		f.content = f.content[:int(size)]
+	}
 	f.rng = nil
 	f.size = size
 	if f.offset > size {

@@ -27,7 +27,7 @@ type sendOnlyFolder struct {
 
 func newSendOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, _ versioner.Versioner, _ fs.Filesystem, evLogger events.Logger, ioLimiter *byteSemaphore) service {
 	f := &sendOnlyFolder{
-		folder: newFolder(model, fset, ignores, cfg, evLogger, ioLimiter),
+		folder: newFolder(model, fset, ignores, cfg, evLogger, ioLimiter, nil),
 	}
 	f.folder.puller = f
 	f.folder.Service = util.AsService(f.serve, f.String())
@@ -52,7 +52,7 @@ func (f *sendOnlyFolder) pull() bool {
 
 	snap := f.fset.Snapshot()
 	defer snap.Release()
-	snap.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+	snap.WithNeed(protocol.LocalDeviceID, func(intf protocol.FileIntf) bool {
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 			f.updateLocalsFromPulling(batch)
 			batch = batch[:0]
@@ -97,12 +97,20 @@ func (f *sendOnlyFolder) pull() bool {
 }
 
 func (f *sendOnlyFolder) Override() {
+	f.doInSync(func() error { f.override(); return nil })
+}
+
+func (f *sendOnlyFolder) override() {
+	l.Infof("Overriding global state on folder %v", f.Description)
+
 	f.setState(FolderScanning)
+	defer f.setState(FolderIdle)
+
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
 	snap := f.fset.Snapshot()
 	defer snap.Release()
-	snap.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+	snap.WithNeed(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 			f.updateLocalsFromScanning(batch)
@@ -118,10 +126,7 @@ func (f *sendOnlyFolder) Override() {
 		}
 		if !ok || have.Name != need.Name {
 			// We are missing the file
-			need.Deleted = true
-			need.Blocks = nil
-			need.Version = need.Version.Update(f.shortID)
-			need.Size = 0
+			need.SetDeleted(f.shortID)
 		} else {
 			// We have the file, replace with our version
 			have.Version = have.Version.Merge(need.Version).Update(f.shortID)
@@ -135,5 +140,4 @@ func (f *sendOnlyFolder) Override() {
 	if len(batch) > 0 {
 		f.updateLocalsFromScanning(batch)
 	}
-	f.setState(FolderIdle)
 }

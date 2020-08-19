@@ -4,15 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//+build !windows,!solaris
+//go:generate go run ../../../script/genassets.go -o gui.files.go ../../../gui
 
-package syncthing
-
-import "syscall"
-import "time"
-
-func cpuUsage() time.Duration {
-	var rusage syscall.Rusage
-	syscall.Getrusage(syscall.RUSAGE_SELF, &rusage)
-	return time.Duration(rusage.Utime.Nano() + rusage.Stime.Nano())
-}
+// Package auto contains auto generated files for web assets.
+package auto

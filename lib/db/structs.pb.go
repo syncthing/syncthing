@@ -26,9 +26,10 @@ var _ = math.Inf
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 type FileVersion struct {
-	Version protocol.Vector `protobuf:"bytes,1,opt,name=version,proto3" json:"version"`
-	Device  []byte          `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
-	Invalid bool            `protobuf:"varint,3,opt,name=invalid,proto3" json:"invalid,omitempty"`
+	Version        protocol.Vector `protobuf:"bytes,1,opt,name=version,proto3" json:"version"`
+	Deleted        bool            `protobuf:"varint,2,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	Devices        [][]byte        `protobuf:"bytes,3,rep,name=devices,proto3" json:"devices,omitempty"`
+	InvalidDevices [][]byte        `protobuf:"bytes,4,rep,name=invalid_devices,json=invalidDevices,proto3" json:"invalid_devices,omitempty"`
 }
 
 func (m *FileVersion) Reset()         { *m = FileVersion{} }
@@ -65,7 +66,7 @@ func (m *FileVersion) XXX_DiscardUnknown() {
 var xxx_messageInfo_FileVersion proto.InternalMessageInfo
 
 type VersionList struct {
-	Versions []FileVersion `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions"`
+	RawVersions []FileVersion `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions"`
 }
 
 func (m *VersionList) Reset()      { *m = VersionList{} }
@@ -117,6 +118,7 @@ type FileInfoTruncated struct {
 	RawBlockSize  int32                 `protobuf:"varint,13,opt,name=block_size,json=blockSize,proto3" json:"block_size,omitempty"`
 	// see bep.proto
 	LocalFlags    uint32 `protobuf:"varint,1000,opt,name=local_flags,json=localFlags,proto3" json:"local_flags,omitempty"`
+	VersionHash   []byte `protobuf:"bytes,1001,opt,name=version_hash,json=versionHash,proto3" json:"version_hash,omitempty"`
 	Deleted       bool   `protobuf:"varint,6,opt,name=deleted,proto3" json:"deleted,omitempty"`
 	RawInvalid    bool   `protobuf:"varint,7,opt,name=invalid,proto3" json:"invalid,omitempty"`
 	NoPermissions bool   `protobuf:"varint,8,opt,name=no_permissions,json=noPermissions,proto3" json:"no_permissions,omitempty"`
@@ -192,23 +194,25 @@ func (m *BlockList) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_BlockList proto.InternalMessageInfo
 
-// BlocksHashOnly is used to only unmarshal the block list hash from a FileInfo
-type BlocksHashOnly struct {
-	BlocksHash []byte `protobuf:"bytes,18,opt,name=blocks_hash,json=blocksHash,proto3" json:"blocks_hash,omitempty"`
+// IndirectionHashesOnly is used to only unmarshal the indirection hashes
+// from a FileInfo
+type IndirectionHashesOnly struct {
+	BlocksHash  []byte `protobuf:"bytes,18,opt,name=blocks_hash,json=blocksHash,proto3" json:"blocks_hash,omitempty"`
+	VersionHash []byte `protobuf:"bytes,1001,opt,name=version_hash,json=versionHash,proto3" json:"version_hash,omitempty"`
 }
 
-func (m *BlocksHashOnly) Reset()         { *m = BlocksHashOnly{} }
-func (m *BlocksHashOnly) String() string { return proto.CompactTextString(m) }
-func (*BlocksHashOnly) ProtoMessage()    {}
-func (*BlocksHashOnly) Descriptor() ([]byte, []int) {
+func (m *IndirectionHashesOnly) Reset()         { *m = IndirectionHashesOnly{} }
+func (m *IndirectionHashesOnly) String() string { return proto.CompactTextString(m) }
+func (*IndirectionHashesOnly) ProtoMessage()    {}
+func (*IndirectionHashesOnly) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e774e8f5f348d14d, []int{4}
 }
-func (m *BlocksHashOnly) XXX_Unmarshal(b []byte) error {
+func (m *IndirectionHashesOnly) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *BlocksHashOnly) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *IndirectionHashesOnly) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_BlocksHashOnly.Marshal(b, m, deterministic)
+		return xxx_messageInfo_IndirectionHashesOnly.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -218,17 +222,17 @@ func (m *BlocksHashOnly) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return b[:n], nil
 	}
 }
-func (m *BlocksHashOnly) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BlocksHashOnly.Merge(m, src)
+func (m *IndirectionHashesOnly) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_IndirectionHashesOnly.Merge(m, src)
 }
-func (m *BlocksHashOnly) XXX_Size() int {
+func (m *IndirectionHashesOnly) XXX_Size() int {
 	return m.ProtoSize()
 }
-func (m *BlocksHashOnly) XXX_DiscardUnknown() {
-	xxx_messageInfo_BlocksHashOnly.DiscardUnknown(m)
+func (m *IndirectionHashesOnly) XXX_DiscardUnknown() {
+	xxx_messageInfo_IndirectionHashesOnly.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_BlocksHashOnly proto.InternalMessageInfo
+var xxx_messageInfo_IndirectionHashesOnly proto.InternalMessageInfo
 
 // For each folder and device we keep one of these to track the current
 // counts and sequence. We also keep one for the global state of the folder.
@@ -314,67 +318,152 @@ func (m *CountsSet) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_CountsSet proto.InternalMessageInfo
 
+type FileVersionDeprecated struct {
+	Version protocol.Vector `protobuf:"bytes,1,opt,name=version,proto3" json:"version"`
+	Device  []byte          `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
+	Invalid bool            `protobuf:"varint,3,opt,name=invalid,proto3" json:"invalid,omitempty"`
+	Deleted bool            `protobuf:"varint,4,opt,name=deleted,proto3" json:"deleted,omitempty"`
+}
+
+func (m *FileVersionDeprecated) Reset()         { *m = FileVersionDeprecated{} }
+func (m *FileVersionDeprecated) String() string { return proto.CompactTextString(m) }
+func (*FileVersionDeprecated) ProtoMessage()    {}
+func (*FileVersionDeprecated) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e774e8f5f348d14d, []int{7}
+}
+func (m *FileVersionDeprecated) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FileVersionDeprecated) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FileVersionDeprecated.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *FileVersionDeprecated) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FileVersionDeprecated.Merge(m, src)
+}
+func (m *FileVersionDeprecated) XXX_Size() int {
+	return m.ProtoSize()
+}
+func (m *FileVersionDeprecated) XXX_DiscardUnknown() {
+	xxx_messageInfo_FileVersionDeprecated.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FileVersionDeprecated proto.InternalMessageInfo
+
+type VersionListDeprecated struct {
+	Versions []FileVersionDeprecated `protobuf:"bytes,1,rep,name=versions,proto3" json:"versions"`
+}
+
+func (m *VersionListDeprecated) Reset()      { *m = VersionListDeprecated{} }
+func (*VersionListDeprecated) ProtoMessage() {}
+func (*VersionListDeprecated) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e774e8f5f348d14d, []int{8}
+}
+func (m *VersionListDeprecated) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *VersionListDeprecated) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_VersionListDeprecated.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *VersionListDeprecated) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_VersionListDeprecated.Merge(m, src)
+}
+func (m *VersionListDeprecated) XXX_Size() int {
+	return m.ProtoSize()
+}
+func (m *VersionListDeprecated) XXX_DiscardUnknown() {
+	xxx_messageInfo_VersionListDeprecated.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_VersionListDeprecated proto.InternalMessageInfo
+
 func init() {
 	proto.RegisterType((*FileVersion)(nil), "db.FileVersion")
 	proto.RegisterType((*VersionList)(nil), "db.VersionList")
 	proto.RegisterType((*FileInfoTruncated)(nil), "db.FileInfoTruncated")
 	proto.RegisterType((*BlockList)(nil), "db.BlockList")
-	proto.RegisterType((*BlocksHashOnly)(nil), "db.BlocksHashOnly")
+	proto.RegisterType((*IndirectionHashesOnly)(nil), "db.IndirectionHashesOnly")
 	proto.RegisterType((*Counts)(nil), "db.Counts")
 	proto.RegisterType((*CountsSet)(nil), "db.CountsSet")
+	proto.RegisterType((*FileVersionDeprecated)(nil), "db.FileVersionDeprecated")
+	proto.RegisterType((*VersionListDeprecated)(nil), "db.VersionListDeprecated")
 }
 
 func init() { proto.RegisterFile("structs.proto", fileDescriptor_e774e8f5f348d14d) }
 
 var fileDescriptor_e774e8f5f348d14d = []byte{
-	// 743 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0xcf, 0x6f, 0xe3, 0x44,
-	0x14, 0x8e, 0x37, 0x71, 0x9a, 0x3c, 0x27, 0x61, 0x77, 0x58, 0x55, 0x56, 0x24, 0x1c, 0x2b, 0x08,
-	0xc9, 0xe2, 0x90, 0xb0, 0xdd, 0x1b, 0x48, 0x1c, 0xcc, 0xaa, 0x22, 0x12, 0x62, 0xd1, 0x64, 0xd5,
-	0x13, 0x52, 0xe4, 0x1f, 0x93, 0x64, 0x54, 0xc7, 0x93, 0x7a, 0x26, 0xad, 0xdc, 0x1b, 0xff, 0x01,
-	0x47, 0x8e, 0xfd, 0x73, 0x7a, 0xec, 0x11, 0x71, 0x88, 0x20, 0xe1, 0xc0, 0x9f, 0x81, 0x66, 0xc6,
-	0x76, 0x5c, 0x2e, 0xec, 0x6d, 0xbe, 0xef, 0x3d, 0xfb, 0xbd, 0xf9, 0xbe, 0xcf, 0x86, 0x3e, 0x17,
-	0xd9, 0x2e, 0x12, 0x7c, 0xb2, 0xcd, 0x98, 0x60, 0xe8, 0x45, 0x1c, 0x0e, 0x3f, 0xcf, 0xc8, 0x96,
-	0xf1, 0xa9, 0x22, 0xc2, 0xdd, 0x72, 0xba, 0x62, 0x2b, 0xa6, 0x80, 0x3a, 0xe9, 0xc6, 0xe1, 0x79,
-	0x42, 0x43, 0xdd, 0x12, 0xb1, 0x64, 0x1a, 0x92, 0xad, 0xe6, 0xc7, 0x37, 0x60, 0x5d, 0xd2, 0x84,
-	0x5c, 0x91, 0x8c, 0x53, 0x96, 0xa2, 0xaf, 0xe0, 0xec, 0x56, 0x1f, 0x6d, 0xc3, 0x35, 0x3c, 0xeb,
-	0xe2, 0xe5, 0xa4, 0x7c, 0x68, 0x72, 0x45, 0x22, 0xc1, 0x32, 0xbf, 0xf5, 0xb8, 0x1f, 0x35, 0x70,
-	0xd9, 0x86, 0xce, 0xa1, 0x1d, 0x93, 0x5b, 0x1a, 0x11, 0xfb, 0x85, 0x6b, 0x78, 0x3d, 0x5c, 0x20,
-	0x64, 0xc3, 0x19, 0x4d, 0x6f, 0x83, 0x84, 0xc6, 0x76, 0xd3, 0x35, 0xbc, 0x0e, 0x2e, 0xe1, 0xf8,
-	0x12, 0xac, 0x62, 0xdc, 0x0f, 0x94, 0x0b, 0xf4, 0x06, 0x3a, 0xc5, 0xbb, 0xb8, 0x6d, 0xb8, 0x4d,
-	0xcf, 0xba, 0xf8, 0x64, 0x12, 0x87, 0x93, 0xda, 0x56, 0xc5, 0xc8, 0xaa, 0xed, 0xeb, 0xd6, 0x6f,
-	0x0f, 0xa3, 0xc6, 0xf8, 0x17, 0x13, 0x5e, 0xc9, 0xae, 0x59, 0xba, 0x64, 0x1f, 0xb2, 0x5d, 0x1a,
-	0x05, 0x82, 0xc4, 0x08, 0x41, 0x2b, 0x0d, 0x36, 0x44, 0xad, 0xdf, 0xc5, 0xea, 0x2c, 0x39, 0x4e,
-	0xef, 0x89, 0x5a, 0xa4, 0x89, 0xd5, 0x19, 0x7d, 0x06, 0xb0, 0x61, 0x31, 0x5d, 0x52, 0x12, 0x2f,
-	0xb8, 0x6d, 0xaa, 0x4a, 0xb7, 0x64, 0xe6, 0xe8, 0x67, 0xb0, 0xaa, 0x72, 0x98, 0xdb, 0x3d, 0xd7,
-	0xf0, 0x5a, 0xfe, 0x37, 0x72, 0x8f, 0x3f, 0xf6, 0xa3, 0xb7, 0x2b, 0x2a, 0xd6, 0xbb, 0x70, 0x12,
-	0xb1, 0xcd, 0x94, 0xe7, 0x69, 0x24, 0xd6, 0x34, 0x5d, 0xd5, 0x4e, 0x75, 0xad, 0x27, 0xf3, 0x35,
-	0xcb, 0xc4, 0xec, 0x1d, 0xae, 0xc6, 0xf9, 0x79, 0x5d, 0xe6, 0xee, 0xc7, 0xc9, 0x3c, 0x84, 0x0e,
-	0x27, 0x37, 0x3b, 0x92, 0x46, 0xc4, 0x06, 0xb5, 0x6c, 0x85, 0xd1, 0x17, 0x30, 0xe0, 0xf9, 0x26,
-	0xa1, 0xe9, 0xf5, 0x42, 0x04, 0xd9, 0x8a, 0x08, 0xfb, 0x95, 0xba, 0x7c, 0xbf, 0x60, 0x3f, 0x28,
-	0x12, 0x8d, 0xc0, 0x0a, 0x13, 0x16, 0x5d, 0xf3, 0xc5, 0x3a, 0xe0, 0x6b, 0x1b, 0x29, 0xbb, 0x40,
-	0x53, 0xdf, 0x07, 0x7c, 0x8d, 0xbe, 0x84, 0x96, 0xc8, 0xb7, 0xda, 0xc8, 0xc1, 0xc5, 0xf9, 0x69,
-	0xa5, 0x4a, 0xe5, 0x7c, 0x4b, 0xb0, 0xea, 0x41, 0x2e, 0x58, 0x5b, 0x92, 0x6d, 0x28, 0xd7, 0xc6,
-	0xb5, 0x5c, 0xc3, 0xeb, 0xe3, 0x3a, 0x25, 0xc7, 0x55, 0x0a, 0xa6, 0xdc, 0xb6, 0x5c, 0xc3, 0x33,
-	0x4f, 0x22, 0xfc, 0xc8, 0xd1, 0x14, 0xf4, 0xf0, 0x85, 0xf2, 0xa6, 0x2f, 0xeb, 0xfe, 0xcb, 0xc3,
-	0x7e, 0xd4, 0xc3, 0xc1, 0x9d, 0x2f, 0x0b, 0x73, 0x7a, 0x4f, 0x70, 0x37, 0x2c, 0x8f, 0x72, 0x66,
-	0xc2, 0xa2, 0x20, 0x59, 0x2c, 0x93, 0x60, 0xc5, 0xed, 0x7f, 0xce, 0xd4, 0x50, 0x50, 0xdc, 0xa5,
-	0xa4, 0x64, 0xe8, 0x62, 0x92, 0x10, 0x41, 0x62, 0xbb, 0xad, 0x43, 0x57, 0x40, 0xe4, 0x9d, 0xe2,
-	0x28, 0x1f, 0xeb, 0xf8, 0x83, 0xc3, 0x7e, 0x04, 0x38, 0xb8, 0x9b, 0x69, 0xb6, 0x8a, 0xa7, 0x54,
-	0x33, 0x65, 0x8b, 0xfa, 0xe5, 0x3a, 0xea, 0x55, 0xfd, 0x94, 0xfd, 0x74, 0x22, 0x8b, 0x0c, 0x7e,
-	0x0b, 0x5d, 0xb5, 0x6a, 0x91, 0xe4, 0xb6, 0x02, 0x65, 0x8e, 0x3f, 0x3d, 0x29, 0xa8, 0x78, 0x29,
-	0x61, 0xe1, 0x6b, 0xd1, 0x38, 0x7e, 0x03, 0x03, 0xbf, 0x32, 0xe0, 0x7d, 0x9a, 0xe4, 0xff, 0xeb,
-	0xd2, 0xf8, 0x6f, 0x03, 0xda, 0xdf, 0xb1, 0x5d, 0x2a, 0x38, 0x7a, 0x0d, 0xe6, 0x92, 0x26, 0x84,
-	0xab, 0xb0, 0x9b, 0x58, 0x03, 0x29, 0x53, 0x4c, 0x33, 0x95, 0x22, 0x4a, 0xb8, 0x72, 0xd3, 0xc4,
-	0x75, 0x4a, 0x85, 0x49, 0x47, 0x83, 0xab, 0x6f, 0xc2, 0xc4, 0x15, 0xae, 0x4b, 0xd8, 0x52, 0xa5,
-	0x4a, 0xc2, 0xd7, 0x60, 0x86, 0xb9, 0x20, 0xe5, 0xc7, 0xa2, 0xc1, 0xb3, 0x60, 0xb6, 0xff, 0x13,
-	0xcc, 0x21, 0x74, 0xf4, 0xdf, 0x60, 0xf6, 0x4e, 0x45, 0xb2, 0x87, 0x2b, 0x8c, 0x1c, 0xa8, 0x19,
-	0xa7, 0xae, 0xf9, 0xcc, 0xca, 0xf1, 0x7b, 0xe8, 0xea, 0x5b, 0xce, 0x89, 0x40, 0x1e, 0xb4, 0x23,
-	0x05, 0x0a, 0x65, 0x41, 0xfe, 0x21, 0x74, 0xb9, 0x14, 0x54, 0xd7, 0xe5, 0xfa, 0x51, 0x46, 0xe4,
-	0x9f, 0x40, 0x5d, 0xbc, 0x89, 0x4b, 0xe8, 0xbb, 0x8f, 0x7f, 0x39, 0x8d, 0xc7, 0x83, 0x63, 0x3c,
-	0x1d, 0x1c, 0xe3, 0xcf, 0x83, 0xd3, 0xf8, 0xf5, 0xe8, 0x34, 0x1e, 0x8e, 0x8e, 0xf1, 0x74, 0x74,
-	0x1a, 0xbf, 0x1f, 0x9d, 0x46, 0xd8, 0x56, 0x76, 0xbd, 0xfd, 0x37, 0x00, 0x00, 0xff, 0xff, 0xb8,
-	0xd0, 0x05, 0xba, 0x64, 0x05, 0x00, 0x00,
+	// 861 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0x4f, 0x8f, 0xdb, 0x54,
+	0x10, 0x8f, 0x9b, 0xff, 0xe3, 0x64, 0xdb, 0xbe, 0x76, 0x57, 0x66, 0x25, 0x1c, 0xcb, 0x08, 0x61,
+	0x71, 0x48, 0x60, 0x7b, 0xa3, 0x12, 0x42, 0x61, 0x55, 0x11, 0x09, 0x51, 0xf4, 0xb6, 0xf4, 0x80,
+	0x2a, 0x45, 0xb6, 0xf3, 0x92, 0x3c, 0xd5, 0xf1, 0x0b, 0x7e, 0xce, 0xae, 0xdc, 0x4f, 0xc1, 0x05,
+	0x89, 0x03, 0x87, 0x5e, 0xf8, 0x2e, 0x7b, 0xec, 0x11, 0x71, 0x88, 0x20, 0xcb, 0x01, 0xbe, 0x05,
+	0x7a, 0xf3, 0x6c, 0xc7, 0x1b, 0x0e, 0xb4, 0xb7, 0x99, 0xdf, 0xcc, 0xf3, 0xcc, 0xfc, 0xe6, 0xe7,
+	0x81, 0xbe, 0x4c, 0x93, 0x4d, 0x98, 0xca, 0xe1, 0x3a, 0x11, 0xa9, 0x20, 0x77, 0x66, 0xc1, 0xe9,
+	0x07, 0x09, 0x5b, 0x0b, 0x39, 0x42, 0x20, 0xd8, 0xcc, 0x47, 0x0b, 0xb1, 0x10, 0xe8, 0xa0, 0xa5,
+	0x13, 0x4f, 0x4f, 0x22, 0x1e, 0xe8, 0x94, 0x50, 0x44, 0xa3, 0x80, 0xad, 0x35, 0xee, 0xfe, 0x62,
+	0x80, 0xf9, 0x84, 0x47, 0xec, 0x39, 0x4b, 0x24, 0x17, 0x31, 0xf9, 0x04, 0xda, 0x97, 0xda, 0xb4,
+	0x0c, 0xc7, 0xf0, 0xcc, 0xb3, 0x7b, 0xc3, 0xe2, 0xd5, 0xf0, 0x39, 0x0b, 0x53, 0x91, 0x8c, 0x1b,
+	0xd7, 0xdb, 0x41, 0x8d, 0x16, 0x69, 0xc4, 0x82, 0xf6, 0x8c, 0x45, 0x2c, 0x65, 0x33, 0xeb, 0x8e,
+	0x63, 0x78, 0x1d, 0x5a, 0xb8, 0x3a, 0x72, 0xc9, 0x43, 0x26, 0xad, 0xba, 0x53, 0xf7, 0x7a, 0xb4,
+	0x70, 0xc9, 0x47, 0x70, 0x97, 0xc7, 0x97, 0x7e, 0xc4, 0x67, 0xd3, 0x22, 0xa3, 0x81, 0x19, 0x47,
+	0x39, 0x7c, 0xae, 0x51, 0xf7, 0x3b, 0x30, 0xf3, 0xce, 0xbe, 0xe6, 0x32, 0x25, 0x5f, 0x40, 0x27,
+	0x2f, 0x2b, 0x2d, 0xc3, 0xa9, 0x7b, 0xe6, 0xd9, 0xdd, 0xe1, 0x2c, 0x18, 0x56, 0x06, 0x18, 0x3f,
+	0x50, 0xdd, 0xed, 0xb6, 0x03, 0x93, 0xfa, 0x57, 0x39, 0x26, 0x69, 0xf9, 0xea, 0xb3, 0xc6, 0xcf,
+	0xaf, 0x07, 0x35, 0xf7, 0xd7, 0x26, 0xdc, 0x57, 0x8f, 0x26, 0xf1, 0x5c, 0x3c, 0x4b, 0x36, 0x71,
+	0xe8, 0xab, 0x7e, 0x09, 0x34, 0x62, 0x7f, 0xc5, 0x70, 0xf0, 0x2e, 0x45, 0x5b, 0x61, 0x92, 0xbf,
+	0x62, 0x56, 0xdd, 0x31, 0xbc, 0x3a, 0x45, 0x9b, 0xbc, 0x0f, 0xb0, 0x12, 0x33, 0x3e, 0xe7, 0x6c,
+	0x36, 0x95, 0x56, 0x13, 0x23, 0xdd, 0x02, 0xb9, 0x20, 0x2f, 0xc0, 0x2c, 0xc3, 0x41, 0x66, 0xf5,
+	0x1c, 0xc3, 0x6b, 0x8c, 0x1f, 0xab, 0xb6, 0x7e, 0xdf, 0x0e, 0x1e, 0x2d, 0x78, 0xba, 0xdc, 0x04,
+	0xc3, 0x50, 0xac, 0x46, 0x32, 0x8b, 0xc3, 0x74, 0xc9, 0xe3, 0x45, 0xc5, 0xaa, 0xae, 0x69, 0x78,
+	0xb1, 0x14, 0x49, 0x3a, 0x39, 0xa7, 0x65, 0xb9, 0x71, 0x56, 0x5d, 0x50, 0xf7, 0xed, 0x16, 0x74,
+	0x0a, 0x1d, 0xc9, 0x7e, 0xd8, 0xb0, 0x38, 0x64, 0x16, 0x60, 0xb3, 0xa5, 0x4f, 0x3e, 0x84, 0x23,
+	0x99, 0xad, 0x22, 0x1e, 0xbf, 0x9c, 0xa6, 0x7e, 0xb2, 0x60, 0xa9, 0x75, 0x1f, 0x87, 0xef, 0xe7,
+	0xe8, 0x33, 0x04, 0xc9, 0x00, 0xcc, 0x20, 0x12, 0xe1, 0x4b, 0x39, 0x5d, 0xfa, 0x72, 0x69, 0x11,
+	0xc7, 0xf0, 0x7a, 0x14, 0x34, 0xf4, 0x95, 0x2f, 0x97, 0xe4, 0x63, 0x68, 0xa4, 0xd9, 0x9a, 0xa1,
+	0x02, 0x8e, 0xce, 0x4e, 0xf6, 0x2d, 0x95, 0x2c, 0x67, 0x6b, 0x46, 0x31, 0x87, 0x38, 0x60, 0xae,
+	0x59, 0xb2, 0xe2, 0x52, 0xef, 0xb1, 0xe1, 0x18, 0x5e, 0x9f, 0x56, 0x21, 0x55, 0xae, 0x64, 0x30,
+	0x96, 0x96, 0xe9, 0x18, 0x5e, 0x73, 0x4f, 0xc2, 0x37, 0x92, 0x8c, 0x40, 0x17, 0x9f, 0xe2, 0x6e,
+	0xfa, 0x2a, 0x3e, 0xbe, 0xb7, 0xdb, 0x0e, 0x7a, 0xd4, 0xbf, 0x1a, 0xab, 0xc0, 0x05, 0x7f, 0xc5,
+	0x68, 0x37, 0x28, 0x4c, 0x55, 0x33, 0x12, 0xa1, 0x1f, 0x4d, 0xe7, 0x91, 0xbf, 0x90, 0xd6, 0xdf,
+	0x6d, 0x2c, 0x0a, 0x88, 0x3d, 0x51, 0x10, 0x71, 0xa1, 0x97, 0x13, 0xa6, 0x67, 0xfc, 0xa7, 0x8d,
+	0x43, 0x9a, 0x39, 0x88, 0x53, 0x56, 0xa4, 0xde, 0xba, 0x2d, 0x75, 0x0f, 0xda, 0xb9, 0x72, 0x2d,
+	0xf5, 0xae, 0x33, 0x3e, 0xda, 0x6d, 0x07, 0x40, 0xfd, 0xab, 0x89, 0x46, 0x69, 0x11, 0x56, 0x8c,
+	0xc7, 0x62, 0x5a, 0x25, 0xa0, 0x83, 0x9f, 0xea, 0xc7, 0xe2, 0xdb, 0x3d, 0x98, 0xeb, 0xf4, 0x73,
+	0xe8, 0xe2, 0x38, 0x28, 0xfe, 0x4f, 0xa1, 0x85, 0x4e, 0x21, 0xfd, 0x07, 0x7b, 0x96, 0x11, 0x57,
+	0x34, 0xe7, 0xbb, 0xcf, 0x13, 0xdd, 0x17, 0x70, 0x3c, 0x89, 0x67, 0x3c, 0x61, 0x61, 0x9a, 0xcf,
+	0xc0, 0xe4, 0xd3, 0x38, 0xca, 0xfe, 0x7f, 0xa1, 0x6f, 0x41, 0x87, 0xfb, 0x97, 0x01, 0xad, 0x2f,
+	0xc5, 0x26, 0x4e, 0x25, 0x79, 0x08, 0xcd, 0x39, 0x8f, 0x98, 0xc4, 0x7f, 0xa7, 0x49, 0xb5, 0xa3,
+	0x58, 0xd7, 0xc5, 0x45, 0xc2, 0x99, 0x44, 0x71, 0x34, 0x69, 0x15, 0x42, 0x6d, 0x6a, 0xa5, 0x49,
+	0xfc, 0xc5, 0x9a, 0xb4, 0xf4, 0xab, 0x6c, 0x37, 0x30, 0x54, 0xb2, 0xfd, 0x10, 0x9a, 0x41, 0x96,
+	0xb2, 0xe2, 0xdf, 0xd3, 0xce, 0x2d, 0x9d, 0xb7, 0x0e, 0x74, 0x7e, 0x0a, 0x1d, 0x7d, 0x68, 0x26,
+	0xe7, 0xa8, 0xf0, 0x1e, 0x2d, 0x7d, 0x62, 0x43, 0x45, 0x07, 0x48, 0xc5, 0x2d, 0x65, 0xb8, 0x4f,
+	0xa1, 0xab, 0xa7, 0xbc, 0x60, 0x29, 0xf1, 0xa0, 0x15, 0xa2, 0x93, 0x2f, 0x01, 0xd4, 0xfd, 0xd1,
+	0xe1, 0x82, 0x7b, 0x1d, 0x57, 0xed, 0x87, 0x09, 0xf3, 0x8b, 0xbb, 0x58, 0xa7, 0x85, 0xeb, 0xfe,
+	0x64, 0xc0, 0x71, 0xe5, 0x64, 0x9d, 0xb3, 0x75, 0xc2, 0xf4, 0x05, 0x7a, 0xf7, 0xeb, 0x7b, 0x02,
+	0x2d, 0x3d, 0x08, 0x16, 0xe9, 0xd1, 0xdc, 0x53, 0xd5, 0x0b, 0x41, 0xd6, 0xb5, 0x54, 0x0b, 0x01,
+	0x1e, 0xd0, 0xba, 0x17, 0xb1, 0xfb, 0x3d, 0x1c, 0x57, 0x8e, 0x6d, 0xa5, 0xad, 0xc7, 0xff, 0x39,
+	0xbb, 0xef, 0x1d, 0x9c, 0xdd, 0x7d, 0x72, 0xde, 0xe0, 0xc1, 0xc5, 0x1d, 0x3b, 0xd7, 0x7f, 0xda,
+	0xb5, 0xeb, 0x9d, 0x6d, 0xbc, 0xd9, 0xd9, 0xc6, 0x1f, 0x3b, 0xbb, 0xf6, 0xe3, 0x8d, 0x5d, 0x7b,
+	0x7d, 0x63, 0x1b, 0x6f, 0x6e, 0xec, 0xda, 0x6f, 0x37, 0x76, 0x2d, 0x68, 0xe1, 0xa4, 0x8f, 0xfe,
+	0x0d, 0x00, 0x00, 0xff, 0xff, 0xb9, 0xe1, 0xbd, 0x08, 0xe2, 0x06, 0x00, 0x00,
 }
 
 func (m *FileVersion) Marshal() (dAtA []byte, err error) {
@@ -397,22 +486,33 @@ func (m *FileVersion) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.Invalid {
+	if len(m.InvalidDevices) > 0 {
+		for iNdEx := len(m.InvalidDevices) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.InvalidDevices[iNdEx])
+			copy(dAtA[i:], m.InvalidDevices[iNdEx])
+			i = encodeVarintStructs(dAtA, i, uint64(len(m.InvalidDevices[iNdEx])))
+			i--
+			dAtA[i] = 0x22
+		}
+	}
+	if len(m.Devices) > 0 {
+		for iNdEx := len(m.Devices) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Devices[iNdEx])
+			copy(dAtA[i:], m.Devices[iNdEx])
+			i = encodeVarintStructs(dAtA, i, uint64(len(m.Devices[iNdEx])))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if m.Deleted {
 		i--
-		if m.Invalid {
+		if m.Deleted {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
 		i--
-		dAtA[i] = 0x18
-	}
-	if len(m.Device) > 0 {
-		i -= len(m.Device)
-		copy(dAtA[i:], m.Device)
-		i = encodeVarintStructs(dAtA, i, uint64(len(m.Device)))
-		i--
-		dAtA[i] = 0x12
+		dAtA[i] = 0x10
 	}
 	{
 		size, err := m.Version.MarshalToSizedBuffer(dAtA[:i])
@@ -447,10 +547,10 @@ func (m *VersionList) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.Versions) > 0 {
-		for iNdEx := len(m.Versions) - 1; iNdEx >= 0; iNdEx-- {
+	if len(m.RawVersions) > 0 {
+		for iNdEx := len(m.RawVersions) - 1; iNdEx >= 0; iNdEx-- {
 			{
-				size, err := m.Versions[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				size, err := m.RawVersions[iNdEx].MarshalToSizedBuffer(dAtA[:i])
 				if err != nil {
 					return 0, err
 				}
@@ -484,6 +584,15 @@ func (m *FileInfoTruncated) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.VersionHash) > 0 {
+		i -= len(m.VersionHash)
+		copy(dAtA[i:], m.VersionHash)
+		i = encodeVarintStructs(dAtA, i, uint64(len(m.VersionHash)))
+		i--
+		dAtA[i] = 0x3e
+		i--
+		dAtA[i] = 0xca
+	}
 	if m.LocalFlags != 0 {
 		i = encodeVarintStructs(dAtA, i, uint64(m.LocalFlags))
 		i--
@@ -636,7 +745,7 @@ func (m *BlockList) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *BlocksHashOnly) Marshal() (dAtA []byte, err error) {
+func (m *IndirectionHashesOnly) Marshal() (dAtA []byte, err error) {
 	size := m.ProtoSize()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -646,16 +755,25 @@ func (m *BlocksHashOnly) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *BlocksHashOnly) MarshalTo(dAtA []byte) (int, error) {
+func (m *IndirectionHashesOnly) MarshalTo(dAtA []byte) (int, error) {
 	size := m.ProtoSize()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *BlocksHashOnly) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *IndirectionHashesOnly) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if len(m.VersionHash) > 0 {
+		i -= len(m.VersionHash)
+		copy(dAtA[i:], m.VersionHash)
+		i = encodeVarintStructs(dAtA, i, uint64(len(m.VersionHash)))
+		i--
+		dAtA[i] = 0x3e
+		i--
+		dAtA[i] = 0xca
+	}
 	if len(m.BlocksHash) > 0 {
 		i -= len(m.BlocksHash)
 		copy(dAtA[i:], m.BlocksHash)
@@ -779,6 +897,103 @@ func (m *CountsSet) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *FileVersionDeprecated) Marshal() (dAtA []byte, err error) {
+	size := m.ProtoSize()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *FileVersionDeprecated) MarshalTo(dAtA []byte) (int, error) {
+	size := m.ProtoSize()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FileVersionDeprecated) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Deleted {
+		i--
+		if m.Deleted {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.Invalid {
+		i--
+		if m.Invalid {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.Device) > 0 {
+		i -= len(m.Device)
+		copy(dAtA[i:], m.Device)
+		i = encodeVarintStructs(dAtA, i, uint64(len(m.Device)))
+		i--
+		dAtA[i] = 0x12
+	}
+	{
+		size, err := m.Version.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintStructs(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0xa
+	return len(dAtA) - i, nil
+}
+
+func (m *VersionListDeprecated) Marshal() (dAtA []byte, err error) {
+	size := m.ProtoSize()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *VersionListDeprecated) MarshalTo(dAtA []byte) (int, error) {
+	size := m.ProtoSize()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *VersionListDeprecated) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Versions) > 0 {
+		for iNdEx := len(m.Versions) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Versions[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintStructs(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintStructs(dAtA []byte, offset int, v uint64) int {
 	offset -= sovStructs(v)
 	base := offset
@@ -798,12 +1013,20 @@ func (m *FileVersion) ProtoSize() (n int) {
 	_ = l
 	l = m.Version.ProtoSize()
 	n += 1 + l + sovStructs(uint64(l))
-	l = len(m.Device)
-	if l > 0 {
-		n += 1 + l + sovStructs(uint64(l))
-	}
-	if m.Invalid {
+	if m.Deleted {
 		n += 2
+	}
+	if len(m.Devices) > 0 {
+		for _, b := range m.Devices {
+			l = len(b)
+			n += 1 + l + sovStructs(uint64(l))
+		}
+	}
+	if len(m.InvalidDevices) > 0 {
+		for _, b := range m.InvalidDevices {
+			l = len(b)
+			n += 1 + l + sovStructs(uint64(l))
+		}
 	}
 	return n
 }
@@ -814,8 +1037,8 @@ func (m *VersionList) ProtoSize() (n int) {
 	}
 	var l int
 	_ = l
-	if len(m.Versions) > 0 {
-		for _, e := range m.Versions {
+	if len(m.RawVersions) > 0 {
+		for _, e := range m.RawVersions {
 			l = e.ProtoSize()
 			n += 1 + l + sovStructs(uint64(l))
 		}
@@ -879,6 +1102,10 @@ func (m *FileInfoTruncated) ProtoSize() (n int) {
 	if m.LocalFlags != 0 {
 		n += 2 + sovStructs(uint64(m.LocalFlags))
 	}
+	l = len(m.VersionHash)
+	if l > 0 {
+		n += 2 + l + sovStructs(uint64(l))
+	}
 	return n
 }
 
@@ -897,13 +1124,17 @@ func (m *BlockList) ProtoSize() (n int) {
 	return n
 }
 
-func (m *BlocksHashOnly) ProtoSize() (n int) {
+func (m *IndirectionHashesOnly) ProtoSize() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
 	l = len(m.BlocksHash)
+	if l > 0 {
+		n += 2 + l + sovStructs(uint64(l))
+	}
+	l = len(m.VersionHash)
 	if l > 0 {
 		n += 2 + l + sovStructs(uint64(l))
 	}
@@ -958,6 +1189,42 @@ func (m *CountsSet) ProtoSize() (n int) {
 	}
 	if m.Created != 0 {
 		n += 1 + sovStructs(uint64(m.Created))
+	}
+	return n
+}
+
+func (m *FileVersionDeprecated) ProtoSize() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = m.Version.ProtoSize()
+	n += 1 + l + sovStructs(uint64(l))
+	l = len(m.Device)
+	if l > 0 {
+		n += 1 + l + sovStructs(uint64(l))
+	}
+	if m.Invalid {
+		n += 2
+	}
+	if m.Deleted {
+		n += 2
+	}
+	return n
+}
+
+func (m *VersionListDeprecated) ProtoSize() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Versions) > 0 {
+		for _, e := range m.Versions {
+			l = e.ProtoSize()
+			n += 1 + l + sovStructs(uint64(l))
+		}
 	}
 	return n
 }
@@ -1031,8 +1298,28 @@ func (m *FileVersion) Unmarshal(dAtA []byte) error {
 			}
 			iNdEx = postIndex
 		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Deleted", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStructs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Deleted = bool(v != 0)
+		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Device", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Devices", wireType)
 			}
 			var byteLen int
 			for shift := uint(0); ; shift += 7 {
@@ -1059,16 +1346,14 @@ func (m *FileVersion) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Device = append(m.Device[:0], dAtA[iNdEx:postIndex]...)
-			if m.Device == nil {
-				m.Device = []byte{}
-			}
+			m.Devices = append(m.Devices, make([]byte, postIndex-iNdEx))
+			copy(m.Devices[len(m.Devices)-1], dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
-		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Invalid", wireType)
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field InvalidDevices", wireType)
 			}
-			var v int
+			var byteLen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowStructs
@@ -1078,12 +1363,24 @@ func (m *FileVersion) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= int(b&0x7F) << shift
+				byteLen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			m.Invalid = bool(v != 0)
+			if byteLen < 0 {
+				return ErrInvalidLengthStructs
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthStructs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.InvalidDevices = append(m.InvalidDevices, make([]byte, postIndex-iNdEx))
+			copy(m.InvalidDevices[len(m.InvalidDevices)-1], dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipStructs(dAtA[iNdEx:])
@@ -1139,7 +1436,7 @@ func (m *VersionList) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Versions", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field RawVersions", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1166,8 +1463,8 @@ func (m *VersionList) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Versions = append(m.Versions, FileVersion{})
-			if err := m.Versions[len(m.Versions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.RawVersions = append(m.RawVersions, FileVersion{})
+			if err := m.RawVersions[len(m.RawVersions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1586,6 +1883,40 @@ func (m *FileInfoTruncated) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		case 1001:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field VersionHash", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStructs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthStructs
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthStructs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.VersionHash = append(m.VersionHash[:0], dAtA[iNdEx:postIndex]...)
+			if m.VersionHash == nil {
+				m.VersionHash = []byte{}
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipStructs(dAtA[iNdEx:])
@@ -1697,7 +2028,7 @@ func (m *BlockList) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *BlocksHashOnly) Unmarshal(dAtA []byte) error {
+func (m *IndirectionHashesOnly) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1720,10 +2051,10 @@ func (m *BlocksHashOnly) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: BlocksHashOnly: wiretype end group for non-group")
+			return fmt.Errorf("proto: IndirectionHashesOnly: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: BlocksHashOnly: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: IndirectionHashesOnly: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 18:
@@ -1758,6 +2089,40 @@ func (m *BlocksHashOnly) Unmarshal(dAtA []byte) error {
 			m.BlocksHash = append(m.BlocksHash[:0], dAtA[iNdEx:postIndex]...)
 			if m.BlocksHash == nil {
 				m.BlocksHash = []byte{}
+			}
+			iNdEx = postIndex
+		case 1001:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field VersionHash", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStructs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthStructs
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthStructs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.VersionHash = append(m.VersionHash[:0], dAtA[iNdEx:postIndex]...)
+			if m.VersionHash == nil {
+				m.VersionHash = []byte{}
 			}
 			iNdEx = postIndex
 		default:
@@ -2086,6 +2451,253 @@ func (m *CountsSet) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipStructs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthStructs
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthStructs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *FileVersionDeprecated) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowStructs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: FileVersionDeprecated: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: FileVersionDeprecated: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Version", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStructs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthStructs
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthStructs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Version.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Device", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStructs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthStructs
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthStructs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Device = append(m.Device[:0], dAtA[iNdEx:postIndex]...)
+			if m.Device == nil {
+				m.Device = []byte{}
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Invalid", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStructs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Invalid = bool(v != 0)
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Deleted", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStructs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Deleted = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipStructs(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthStructs
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthStructs
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *VersionListDeprecated) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowStructs
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: VersionListDeprecated: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: VersionListDeprecated: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Versions", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStructs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthStructs
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthStructs
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Versions = append(m.Versions, FileVersionDeprecated{})
+			if err := m.Versions[len(m.Versions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipStructs(dAtA[iNdEx:])

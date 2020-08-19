@@ -68,5 +68,5 @@ func checkCopyright(path string, info os.FileInfo, err error) error {
 		}
 	}
 
-	return fmt.Errorf("Missing copyright in %s?", path)
+	return fmt.Errorf("missing copyright in %s?", path)
 }

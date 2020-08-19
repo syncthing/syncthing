@@ -43,7 +43,9 @@ func idxck(ldb backend.Backend) (success bool) {
 	sequences := make(map[sequenceKey]string)
 	needs := make(map[globalKey]struct{})
 	blocklists := make(map[string]struct{})
+	versions := make(map[string]protocol.Vector)
 	usedBlocklists := make(map[string]struct{})
+	usedVersions := make(map[string]struct{})
 	var localDeviceKey uint32
 	success = true
 
@@ -106,6 +108,16 @@ func idxck(ldb backend.Backend) (success bool) {
 		case db.KeyTypeBlockList:
 			hash := string(key[1:])
 			blocklists[hash] = struct{}{}
+
+		case db.KeyTypeVersion:
+			hash := string(key[1:])
+			var v protocol.Vector
+			if err := v.Unmarshal(it.Value()); err != nil {
+				fmt.Println("Unable to unmarshal Vector:", err)
+				success = false
+				continue
+			}
+			versions[hash] = v
 		}
 	}
 
@@ -148,7 +160,7 @@ func idxck(ldb backend.Backend) (success bool) {
 			}
 		}
 
-		if fi.BlocksHash != nil {
+		if len(fi.Blocks) == 0 && len(fi.BlocksHash) != 0 {
 			key := string(fi.BlocksHash)
 			if _, ok := blocklists[key]; !ok {
 				fmt.Printf("Missing block list for file %q, block list hash %x\n", fi.Name, fi.BlocksHash)
@@ -156,6 +168,23 @@ func idxck(ldb backend.Backend) (success bool) {
 			} else {
 				usedBlocklists[key] = struct{}{}
 			}
+		}
+
+		if fi.VersionHash != nil {
+			key := string(fi.VersionHash)
+			if _, ok := versions[key]; !ok {
+				fmt.Printf("Missing version vector for file %q, version hash %x\n", fi.Name, fi.VersionHash)
+				success = false
+			} else {
+				usedVersions[key] = struct{}{}
+			}
+		}
+
+		_, ok := globals[globalKey{fk.folder, fk.name}]
+		if !ok {
+			fmt.Printf("Missing global for file %q\n", fi.Name)
+			success = false
+			continue
 		}
 	}
 
@@ -190,10 +219,10 @@ func idxck(ldb backend.Backend) (success bool) {
 			fmt.Printf("Unknown folder ID %d for VersionList %q\n", gk.folder, gk.name)
 			success = false
 		}
-		for i, fv := range vl.Versions {
-			dev, ok := deviceToIDs[string(fv.Device)]
+		checkGlobal := func(i int, device []byte, version protocol.Vector, invalid, deleted bool) {
+			dev, ok := deviceToIDs[string(device)]
 			if !ok {
-				fmt.Printf("VersionList %q, folder %q refers to unknown device %q\n", gk.name, folder, fv.Device)
+				fmt.Printf("VersionList %q, folder %q refers to unknown device %q\n", gk.name, folder, device)
 				success = false
 			}
 			fi, ok := fileInfos[fileInfoKey{gk.folder, dev, gk.name}]
@@ -201,13 +230,30 @@ func idxck(ldb backend.Backend) (success bool) {
 				fmt.Printf("VersionList %q, folder %q, entry %d refers to unknown FileInfo\n", gk.name, folder, i)
 				success = false
 			}
-			if !fi.Version.Equal(fv.Version) {
-				fmt.Printf("VersionList %q, folder %q, entry %d, FileInfo version mismatch, %v (VersionList) != %v (FileInfo)\n", gk.name, folder, i, fv.Version, fi.Version)
+
+			fiv := fi.Version
+			if fi.VersionHash != nil {
+				fiv = versions[string(fi.VersionHash)]
+			}
+			if !fiv.Equal(version) {
+				fmt.Printf("VersionList %q, folder %q, entry %d, FileInfo version mismatch, %v (VersionList) != %v (FileInfo)\n", gk.name, folder, i, version, fi.Version)
 				success = false
 			}
-			if fi.IsInvalid() != fv.Invalid {
-				fmt.Printf("VersionList %q, folder %q, entry %d, FileInfo invalid mismatch, %v (VersionList) != %v (FileInfo)\n", gk.name, folder, i, fv.Invalid, fi.IsInvalid())
+			if fi.IsInvalid() != invalid {
+				fmt.Printf("VersionList %q, folder %q, entry %d, FileInfo invalid mismatch, %v (VersionList) != %v (FileInfo)\n", gk.name, folder, i, invalid, fi.IsInvalid())
 				success = false
+			}
+			if fi.IsDeleted() != deleted {
+				fmt.Printf("VersionList %q, folder %q, entry %d, FileInfo deleted mismatch, %v (VersionList) != %v (FileInfo)\n", gk.name, folder, i, deleted, fi.IsDeleted())
+				success = false
+			}
+		}
+		for i, fv := range vl.RawVersions {
+			for _, device := range fv.Devices {
+				checkGlobal(i, device, fv.Version, false, fv.Deleted)
+			}
+			for _, device := range fv.InvalidDevices {
+				checkGlobal(i, device, fv.Version, true, fv.Deleted)
 			}
 		}
 
@@ -217,7 +263,9 @@ func idxck(ldb backend.Backend) (success bool) {
 		if needsLocally(vl) {
 			_, ok := needs[gk]
 			if !ok {
-				dev := deviceToIDs[string(vl.Versions[0].Device)]
+				fv, _ := vl.GetGlobal()
+				devB, _ := fv.FirstDevice()
+				dev := deviceToIDs[string(devB)]
 				fi := fileInfos[fileInfoKey{gk.folder, dev, gk.name}]
 				if !fi.IsDeleted() && !fi.IsIgnored() {
 					fmt.Printf("Missing need entry for needed file %q, folder %q\n", gk.name, folder)
@@ -277,20 +325,18 @@ func idxck(ldb backend.Backend) (success bool) {
 	if d := len(blocklists) - len(usedBlocklists); d > 0 {
 		fmt.Printf("%d block list entries out of %d needs GC\n", d, len(blocklists))
 	}
+	if d := len(versions) - len(usedVersions); d > 0 {
+		fmt.Printf("%d version entries out of %d needs GC\n", d, len(versions))
+	}
 
 	return
 }
 
 func needsLocally(vl db.VersionList) bool {
-	var lv *protocol.Vector
-	for _, fv := range vl.Versions {
-		if bytes.Equal(fv.Device, protocol.LocalDeviceID[:]) {
-			lv = &fv.Version
-			break
-		}
-	}
-	if lv == nil {
+	fv, ok := vl.Get(protocol.LocalDeviceID[:])
+	if !ok {
 		return true // proviosinally, it looks like we need the file
 	}
-	return !lv.GreaterEqual(vl.Versions[0].Version)
+	gfv, _ := vl.GetGlobal() // Can't not have a global if we got something above
+	return !fv.Version.GreaterEqual(gfv.Version)
 }

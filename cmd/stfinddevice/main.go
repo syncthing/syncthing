@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"flag"
@@ -95,7 +96,7 @@ func checkServer(deviceID protocol.DeviceID, server string) checkResult {
 	})
 
 	go func() {
-		addresses, err := disco.Lookup(deviceID)
+		addresses, err := disco.Lookup(context.Background(), deviceID)
 		res <- checkResult{addresses: addresses, error: err}
 	}()
 

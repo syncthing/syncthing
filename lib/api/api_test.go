@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -107,7 +108,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg, events.NoopLogger)
 
-	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, nil, false).(*service)
 	defer os.Remove(token)
 	srv.started = make(chan string)
 
@@ -152,19 +153,25 @@ func TestAssetsDir(t *testing.T) {
 	gw := gzip.NewWriter(buf)
 	gw.Write([]byte("default"))
 	gw.Close()
-	def := buf.Bytes()
+	def := assets.Asset{
+		Content: buf.String(),
+		Gzipped: true,
+	}
 
 	buf = new(bytes.Buffer)
 	gw = gzip.NewWriter(buf)
 	gw.Write([]byte("foo"))
 	gw.Close()
-	foo := buf.Bytes()
+	foo := assets.Asset{
+		Content: buf.String(),
+		Gzipped: true,
+	}
 
 	e := &staticsServer{
 		theme:    "foo",
 		mut:      sync.NewRWMutex(),
 		assetDir: "testdata",
-		assets: map[string][]byte{
+		assets: map[string]assets.Asset{
 			"foo/a":     foo, // overridden in foo/a
 			"foo/b":     foo,
 			"default/a": def, // overridden in default/a (but foo/a takes precedence)
@@ -522,12 +529,11 @@ func startHTTP(cfg *mockedConfig) (string, *suture.Supervisor, error) {
 	connections := new(mockedConnections)
 	errorLog := new(mockedLoggerRecorder)
 	systemLog := new(mockedLoggerRecorder)
-	cpu := new(mockedCPUService)
 	addrChan := make(chan string)
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
-	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, &mockedFolderSummaryService{}, errorLog, systemLog, cpu, nil, false).(*service)
+	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, &mockedFolderSummaryService{}, errorLog, systemLog, nil, false).(*service)
 	defer os.Remove(token)
 	svc.started = addrChan
 
@@ -543,7 +549,7 @@ func startHTTP(cfg *mockedConfig) (string, *suture.Supervisor, error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		supervisor.Stop()
-		return "", nil, fmt.Errorf("Weird address from API service: %v", err)
+		return "", nil, fmt.Errorf("weird address from API service: %w", err)
 	}
 
 	host, _, _ := net.SplitHostPort(cfg.gui.RawAddress)
@@ -1026,7 +1032,7 @@ func TestEventMasks(t *testing.T) {
 	cfg := new(mockedConfig)
 	defSub := new(mockedEventSub)
 	diskSub := new(mockedEventSub)
-	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, nil, nil, false).(*service)
+	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, nil, false).(*service)
 	defer os.Remove(token)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
@@ -1130,7 +1136,7 @@ func TestPrefixMatch(t *testing.T) {
 	}
 }
 
-func TestCheckExpiry(t *testing.T) {
+func TestShouldRegenerateCertificate(t *testing.T) {
 	dir, err := ioutil.TempDir("", "syncthing-test")
 	if err != nil {
 		t.Fatal(err)
@@ -1143,7 +1149,7 @@ func TestCheckExpiry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := checkExpiry(crt); err == nil {
+	if err := shouldRegenerateCertificate(crt); err == nil {
 		t.Error("expected expiry error")
 	}
 
@@ -1152,7 +1158,7 @@ func TestCheckExpiry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := checkExpiry(crt); err != nil {
+	if err := shouldRegenerateCertificate(crt); err != nil {
 		t.Error("expected no error:", err)
 	}
 
@@ -1162,7 +1168,7 @@ func TestCheckExpiry(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := checkExpiry(crt); err == nil {
+		if err := shouldRegenerateCertificate(crt); err == nil {
 			t.Error("expected expiry error")
 		}
 	}

@@ -7,6 +7,8 @@
 package connections
 
 import (
+	"context"
+	"errors"
 	"net/url"
 	"testing"
 
@@ -19,10 +21,21 @@ func TestFixupPort(t *testing.T) {
 		{"tcp://1.2.3.4:5", "tcp://1.2.3.4:5"},
 		{"tcp://1.2.3.4:", "tcp://1.2.3.4:22000"},
 		{"tcp://1.2.3.4", "tcp://1.2.3.4:22000"},
+		{"tcp://[fe80::1]", "tcp://[fe80::1]:22000"},
+		{"tcp://[fe80::1]:", "tcp://[fe80::1]:22000"},
+		{"tcp://[fe80::1]:22000", "tcp://[fe80::1]:22000"},
+		{"tcp://[fe80::1]:22000", "tcp://[fe80::1]:22000"},
+		{"tcp://[fe80::1%25abc]", "tcp://[fe80::1%25abc]:22000"},
+		{"tcp://[fe80::1%25abc]:", "tcp://[fe80::1%25abc]:22000"},
+		{"tcp://[fe80::1%25abc]:22000", "tcp://[fe80::1%25abc]:22000"},
+		{"tcp://[fe80::1%25abc]:22000", "tcp://[fe80::1%25abc]:22000"},
 	}
 
 	for _, tc := range cases {
-		u0, _ := url.Parse(tc[0])
+		u0, err := url.Parse(tc[0])
+		if err != nil {
+			t.Fatal(err)
+		}
 		u1 := fixupPort(u0, 22000).String()
 		if u1 != tc[1] {
 			t.Errorf("fixupPort(%q, 22000) => %q, expected %q", tc[0], u1, tc[1])
@@ -166,4 +179,40 @@ func TestGetDialer(t *testing.T) {
 			t.Errorf("getListenerFactory(%q) => %v, expected %v", tc.uri, err, errDisabled)
 		}
 	}
+}
+
+func TestConnectionStatus(t *testing.T) {
+	s := newConnectionStatusHandler()
+
+	addr := "testAddr"
+	testErr := errors.New("testErr")
+
+	if stats := s.ConnectionStatus(); len(stats) != 0 {
+		t.Fatal("newly created connectionStatusHandler isn't empty:", len(stats))
+	}
+
+	check := func(in, out error) {
+		t.Helper()
+		s.setConnectionStatus(addr, in)
+		switch stat, ok := s.ConnectionStatus()[addr]; {
+		case !ok:
+			t.Fatal("entry missing")
+		case out == nil:
+			if stat.Error != nil {
+				t.Fatal("expected nil error, got", stat.Error)
+			}
+		case *stat.Error != out.Error():
+			t.Fatalf("expected %v error, got %v", out.Error(), *stat.Error)
+		}
+	}
+
+	check(nil, nil)
+
+	check(context.Canceled, nil)
+
+	check(testErr, testErr)
+
+	check(context.Canceled, testErr)
+
+	check(nil, nil)
 }

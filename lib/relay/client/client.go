@@ -38,7 +38,7 @@ type RelayClient interface {
 func NewClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) (RelayClient, error) {
 	factory, ok := supportedSchemes[uri.Scheme]
 	if !ok {
-		return nil, fmt.Errorf("Unsupported scheme: %s", uri.Scheme)
+		return nil, fmt.Errorf("unsupported scheme: %s", uri.Scheme)
 	}
 
 	return factory(uri, certs, invitations, timeout), nil

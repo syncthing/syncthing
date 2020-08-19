@@ -16,7 +16,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-var files, oneFile, firstHalf, secondHalf []protocol.FileInfo
+var files, filesUpdated, oneFile, firstHalf, secondHalf, changed100, unchanged100 []protocol.FileInfo
 
 func lazyInitBenchFiles() {
 	if files != nil {
@@ -36,6 +36,12 @@ func lazyInitBenchFiles() {
 	firstHalf = files[:middle]
 	secondHalf = files[middle:]
 	oneFile = firstHalf[middle-1 : middle]
+
+	unchanged100 := files[100:200]
+	changed100 := append([]protocol.FileInfo{}, unchanged100...)
+	for i := range changed100 {
+		changed100[i].Version = changed100[i].Version.Copy().Update(myID)
+	}
 }
 
 func getBenchFileSet() (*db.Lowlevel, *db.FileSet) {
@@ -86,18 +92,43 @@ func BenchmarkUpdate100Changed(b *testing.B) {
 	ldb, benchS := getBenchFileSet()
 	defer ldb.Close()
 
-	unchanged := files[100:200]
-	changed := append([]protocol.FileInfo{}, unchanged...)
-	for i := range changed {
-		changed[i].Version = changed[i].Version.Copy().Update(myID)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if i%2 == 0 {
+			benchS.Update(protocol.LocalDeviceID, changed100)
+		} else {
+			benchS.Update(protocol.LocalDeviceID, unchanged100)
+		}
 	}
+
+	b.ReportAllocs()
+}
+
+func setup10Remotes(benchS *db.FileSet) {
+	idBase := remoteDevice1.String()[1:]
+	first := 'J'
+	for i := 0; i < 10; i++ {
+		id, _ := protocol.DeviceIDFromString(fmt.Sprintf("%v%s", first+rune(i), idBase))
+		if i%2 == 0 {
+			benchS.Update(id, changed100)
+		} else {
+			benchS.Update(id, unchanged100)
+		}
+	}
+}
+
+func BenchmarkUpdate100Changed10Remotes(b *testing.B) {
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
+
+	setup10Remotes(benchS)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if i%2 == 0 {
-			benchS.Update(protocol.LocalDeviceID, changed)
+			benchS.Update(protocol.LocalDeviceID, changed100)
 		} else {
-			benchS.Update(protocol.LocalDeviceID, unchanged)
+			benchS.Update(protocol.LocalDeviceID, unchanged100)
 		}
 	}
 
@@ -108,18 +139,28 @@ func BenchmarkUpdate100ChangedRemote(b *testing.B) {
 	ldb, benchS := getBenchFileSet()
 	defer ldb.Close()
 
-	unchanged := files[100:200]
-	changed := append([]protocol.FileInfo{}, unchanged...)
-	for i := range changed {
-		changed[i].Version = changed[i].Version.Copy().Update(myID)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if i%2 == 0 {
+			benchS.Update(remoteDevice0, changed100)
+		} else {
+			benchS.Update(remoteDevice0, unchanged100)
+		}
 	}
+
+	b.ReportAllocs()
+}
+
+func BenchmarkUpdate100ChangedRemote10Remotes(b *testing.B) {
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if i%2 == 0 {
-			benchS.Update(remoteDevice0, changed)
+			benchS.Update(remoteDevice0, changed100)
 		} else {
-			benchS.Update(remoteDevice0, unchanged)
+			benchS.Update(remoteDevice0, unchanged100)
 		}
 	}
 
@@ -146,7 +187,7 @@ func BenchmarkNeedHalf(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := benchS.Snapshot()
-		snap.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap.WithNeed(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -170,7 +211,7 @@ func BenchmarkNeedHalfRemote(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := fset.Snapshot()
-		snap.WithNeed(remoteDevice0, func(fi db.FileIntf) bool {
+		snap.WithNeed(remoteDevice0, func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -191,7 +232,7 @@ func BenchmarkHave(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := benchS.Snapshot()
-		snap.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap.WithHave(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -212,7 +253,7 @@ func BenchmarkGlobal(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := benchS.Snapshot()
-		snap.WithGlobal(func(fi db.FileIntf) bool {
+		snap.WithGlobal(func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -233,7 +274,7 @@ func BenchmarkNeedHalfTruncated(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := benchS.Snapshot()
-		snap.WithNeedTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap.WithNeedTruncated(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -254,7 +295,7 @@ func BenchmarkHaveTruncated(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := benchS.Snapshot()
-		snap.WithHaveTruncated(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		snap.WithHaveTruncated(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -275,7 +316,7 @@ func BenchmarkGlobalTruncated(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		count := 0
 		snap := benchS.Snapshot()
-		snap.WithGlobalTruncated(func(fi db.FileIntf) bool {
+		snap.WithGlobalTruncated(func(fi protocol.FileIntf) bool {
 			count++
 			return true
 		})
@@ -283,6 +324,22 @@ func BenchmarkGlobalTruncated(b *testing.B) {
 		if count != len(files) {
 			b.Errorf("wrong length %d != %d", count, len(files))
 		}
+	}
+
+	b.ReportAllocs()
+}
+
+func BenchmarkNeedCount(b *testing.B) {
+	ldb, benchS := getBenchFileSet()
+	defer ldb.Close()
+
+	benchS.Update(protocol.LocalDeviceID, changed100)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		snap := benchS.Snapshot()
+		_ = snap.NeedSize(protocol.LocalDeviceID)
+		snap.Release()
 	}
 
 	b.ReportAllocs()

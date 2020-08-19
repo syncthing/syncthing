@@ -9,17 +9,19 @@
 package versioner
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/fs"
 )
 
 type Versioner interface {
 	Archive(filePath string) error
 	GetVersions() (map[string][]FileVersion, error)
 	Restore(filePath string, versionTime time.Time) error
+	Clean(context.Context) error
 }
 
 type FileVersion struct {
@@ -28,22 +30,22 @@ type FileVersion struct {
 	Size        int64     `json:"size"`
 }
 
-type factory func(filesystem fs.Filesystem, params map[string]string) Versioner
+type factory func(cfg config.FolderConfiguration) Versioner
 
 var factories = make(map[string]factory)
 
-var ErrRestorationNotSupported = fmt.Errorf("version restoration not supported with the current versioner")
+var ErrRestorationNotSupported = errors.New("version restoration not supported with the current versioner")
 
 const (
 	TimeFormat = "20060102-150405"
 	timeGlob   = "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]" // glob pattern matching TimeFormat
 )
 
-func New(fs fs.Filesystem, cfg config.VersioningConfiguration) (Versioner, error) {
-	fac, ok := factories[cfg.Type]
+func New(cfg config.FolderConfiguration) (Versioner, error) {
+	fac, ok := factories[cfg.Versioning.Type]
 	if !ok {
 		return nil, fmt.Errorf("requested versioning type %q does not exist", cfg.Type)
 	}
 
-	return fac(fs, cfg.Params), nil
+	return fac(cfg), nil
 }

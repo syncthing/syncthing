@@ -12,11 +12,13 @@ import (
 	"crypto/rand"
 	"fmt"
 	origAdler32 "hash/adler32"
+	mrand "math/rand"
 	"testing"
 	"testing/quick"
 
 	rollingAdler32 "github.com/chmduquesne/rollinghash/adler32"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 var blocksTestData = []struct {
@@ -121,7 +123,9 @@ func TestAdler32Variants(t *testing.T) {
 		hf1.Reset()
 		hf2.Reset()
 
-		return sum1 == sum2
+		// Make sure whatever we use in Validate matches too resp. this
+		// tests gets adjusted if we ever switch the weak hash algo.
+		return sum1 == sum2 && Validate(data, nil, sum1)
 	}
 
 	// protocol block sized data
@@ -139,8 +143,7 @@ func TestAdler32Variants(t *testing.T) {
 	}
 
 	// rolling should have the same result as the individual blocks
-	// themselves. Which is not the same as the original non-rollind adler32
-	// blocks.
+	// themselves.
 
 	windowSize := 128
 
@@ -150,10 +153,14 @@ func TestAdler32Variants(t *testing.T) {
 	for i := windowSize; i < len(data); i++ {
 		if i%windowSize == 0 {
 			// let the reference function catch up
+			window := data[i-windowSize : i]
+			hf1.Reset()
+			hf1.Write(window)
 			hf2.Reset()
-			hf2.Write(data[i-windowSize : i])
+			hf2.Write(window)
 
 			// verify that they are in sync with the rolling function
+			sum1 := hf1.Sum32()
 			sum2 := hf2.Sum32()
 			sum3 := hf3.Sum32()
 			t.Logf("At i=%d, sum2=%08x, sum3=%08x", i, sum2, sum3)
@@ -161,7 +168,54 @@ func TestAdler32Variants(t *testing.T) {
 				t.Errorf("Mismatch after roll; i=%d, sum2=%08x, sum3=%08x", i, sum2, sum3)
 				break
 			}
+			if sum1 != sum3 {
+				t.Errorf("Mismatch after roll; i=%d, sum1=%08x, sum3=%08x", i, sum1, sum3)
+				break
+			}
+			if !Validate(window, nil, sum1) {
+				t.Errorf("Validation failure after roll; i=%d", i)
+			}
 		}
 		hf3.Roll(data[i])
+	}
+}
+
+func BenchmarkValidate(b *testing.B) {
+	type block struct {
+		data     []byte
+		hash     [sha256.Size]byte
+		weakhash uint32
+	}
+	var blocks []block
+	const blocksPerType = 100
+
+	r := mrand.New(mrand.NewSource(0x136bea689e851))
+
+	// Valid blocks.
+	for i := 0; i < blocksPerType; i++ {
+		var b block
+		b.data = make([]byte, 128<<10)
+		r.Read(b.data[:])
+		b.hash = sha256.Sum256(b.data[:])
+		b.weakhash = origAdler32.Checksum(b.data[:])
+		blocks = append(blocks, b)
+	}
+	// Blocks where the hash matches, but the weakhash doesn't.
+	for i := 0; i < blocksPerType; i++ {
+		var b block
+		b.data = make([]byte, 128<<10)
+		r.Read(b.data[:])
+		b.hash = sha256.Sum256(b.data[:])
+		b.weakhash = 1 // Zeros causes Validate to skip the weakhash.
+		blocks = append(blocks, b)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for _, b := range blocks {
+			Validate(b.data[:], b.hash[:], b.weakhash)
+		}
 	}
 }

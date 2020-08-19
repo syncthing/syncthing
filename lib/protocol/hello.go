@@ -5,7 +5,6 @@ package protocol
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 )
 
@@ -66,7 +65,7 @@ func readHello(c io.Reader) (HelloResult, error) {
 		}
 		msgSize := binary.BigEndian.Uint16(header[:2])
 		if msgSize > 32767 {
-			return HelloResult{}, fmt.Errorf("hello message too big")
+			return HelloResult{}, errors.New("hello message too big")
 		}
 		buf := make([]byte, msgSize)
 		if _, err := io.ReadFull(c, buf); err != nil {

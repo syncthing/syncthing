@@ -102,8 +102,9 @@ func main() {
 	showVersion := flag.Bool("version", false, "Show version")
 	flag.Parse()
 
+	longVer := build.LongVersionFor("strelaysrv")
 	if *showVersion {
-		fmt.Println(build.LongVersion)
+		fmt.Println(longVer)
 		return
 	}
 
@@ -135,7 +136,7 @@ func main() {
 		}
 	}
 
-	log.Println(build.LongVersion)
+	log.Println(longVer)
 
 	maxDescriptors, err := osutil.MaximizeOpenFileLimit()
 	if maxDescriptors > 0 {

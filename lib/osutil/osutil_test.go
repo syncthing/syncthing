@@ -26,25 +26,25 @@ func TestIsDeleted(t *testing.T) {
 	cases := []tc{
 		{"del", true},
 		{"del.file", false},
-		{"del/del", true},
+		{filepath.Join("del", "del"), true},
 		{"file", false},
 		{"linkToFile", false},
 		{"linkToDel", false},
 		{"linkToDir", false},
-		{"linkToDir/file", true},
-		{"file/behindFile", true},
+		{filepath.Join("linkToDir", "file"), true},
+		{filepath.Join("file", "behindFile"), true},
 		{"dir", false},
 		{"dir.file", false},
-		{"dir/file", false},
-		{"dir/del", true},
-		{"dir/del/del", true},
-		{"del/del/del", true},
+		{filepath.Join("dir", "file"), false},
+		{filepath.Join("dir", "del"), true},
+		{filepath.Join("dir", "del", "del"), true},
+		{filepath.Join("del", "del", "del"), true},
 	}
 
 	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
 
 	testFs.MkdirAll("dir", 0777)
-	for _, f := range []string{"file", "del.file", "dir.file", "dir/file"} {
+	for _, f := range []string{"file", "del.file", "dir.file", filepath.Join("dir", "file")} {
 		fd, err := testFs.Create(f)
 		if err != nil {
 			t.Fatal(err)
@@ -55,14 +55,14 @@ func TestIsDeleted(t *testing.T) {
 		// Can't create unreadable dir on windows
 		testFs.MkdirAll("inacc", 0777)
 		if err := testFs.Chmod("inacc", 0000); err == nil {
-			if _, err := testFs.Lstat("inacc/file"); fs.IsPermission(err) {
+			if _, err := testFs.Lstat(filepath.Join("inacc", "file")); fs.IsPermission(err) {
 				// May fail e.g. if tests are run as root -> just skip
-				cases = append(cases, tc{"inacc", false}, tc{"inacc/file", false})
+				cases = append(cases, tc{"inacc", false}, tc{filepath.Join("inacc", "file"), false})
 			}
 		}
 	}
 	for _, n := range []string{"Dir", "File", "Del"} {
-		if err := osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), strings.ToLower(n)), filepath.Join(testFs.URI(), "linkTo"+n)); err != nil {
+		if err := fs.DebugSymlinkForTestsOnly(testFs, testFs, strings.ToLower(n), "linkTo"+n); err != nil {
 			if runtime.GOOS == "windows" {
 				t.Skip("Symlinks aren't working")
 			}
@@ -139,7 +139,7 @@ func TestRenameOrCopy(t *testing.T) {
 			content = string(buf)
 		}
 
-		err := osutil.RenameOrCopy(test.src, test.dst, test.file, "new")
+		err := osutil.RenameOrCopy(fs.CopyRangeMethodStandard, test.src, test.dst, test.file, "new")
 		if err != nil {
 			t.Fatal(err)
 		}

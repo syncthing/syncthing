@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/ur/contract"
 	"github.com/syncthing/syncthing/lib/util"
 
 	"github.com/thejerf/suture"
@@ -63,27 +64,19 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 
 // ReportData returns the data to be sent in a usage report with the currently
 // configured usage reporting version.
-func (s *Service) ReportData() map[string]interface{} {
+func (s *Service) ReportData(ctx context.Context) (*contract.Report, error) {
 	urVersion := s.cfg.Options().URAccepted
-	return s.reportData(urVersion, false)
+	return s.reportData(ctx, urVersion, false)
 }
 
 // ReportDataPreview returns a preview of the data to be sent in a usage report
 // with the given version.
-func (s *Service) ReportDataPreview(urVersion int) map[string]interface{} {
-	return s.reportData(urVersion, true)
+func (s *Service) ReportDataPreview(ctx context.Context, urVersion int) (*contract.Report, error) {
+	return s.reportData(ctx, urVersion, true)
 }
 
-func (s *Service) reportData(urVersion int, preview bool) map[string]interface{} {
+func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (*contract.Report, error) {
 	opts := s.cfg.Options()
-	res := make(map[string]interface{})
-	res["urVersion"] = urVersion
-	res["uniqueID"] = opts.URUniqueID
-	res["version"] = build.Version
-	res["longVersion"] = build.LongVersion
-	res["platform"] = runtime.GOOS + "-" + runtime.GOARCH
-	res["numFolders"] = len(s.cfg.Folders())
-	res["numDevices"] = len(s.cfg.Devices())
 
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
@@ -104,272 +97,238 @@ func (s *Service) reportData(urVersion int, preview bool) map[string]interface{}
 		}
 	}
 
-	res["totFiles"] = totFiles
-	res["folderMaxFiles"] = maxFiles
-	res["totMiB"] = totBytes / 1024 / 1024
-	res["folderMaxMiB"] = maxBytes / 1024 / 1024
-
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
-	res["memoryUsageMiB"] = (mem.Sys - mem.HeapReleased) / 1024 / 1024
-	res["sha256Perf"] = CpuBench(5, 125*time.Millisecond, false)
-	res["hashPerf"] = CpuBench(5, 125*time.Millisecond, true)
 
-	bytes, err := memorySize()
-	if err == nil {
-		res["memorySize"] = bytes / 1024 / 1024
-	}
-	res["numCPU"] = runtime.NumCPU()
+	report := contract.New()
 
-	var rescanIntvs []int
-	folderUses := map[string]int{
-		"sendonly":            0,
-		"sendreceive":         0,
-		"receiveonly":         0,
-		"ignorePerms":         0,
-		"ignoreDelete":        0,
-		"autoNormalize":       0,
-		"simpleVersioning":    0,
-		"externalVersioning":  0,
-		"staggeredVersioning": 0,
-		"trashcanVersioning":  0,
-	}
+	report.URVersion = urVersion
+	report.UniqueID = opts.URUniqueID
+	report.Version = build.Version
+	report.LongVersion = build.LongVersion
+	report.Platform = runtime.GOOS + "-" + runtime.GOARCH
+	report.NumFolders = len(s.cfg.Folders())
+	report.NumDevices = len(s.cfg.Devices())
+	report.TotFiles = totFiles
+	report.FolderMaxFiles = maxFiles
+	report.TotMiB = int(totBytes / 1024 / 1024)
+	report.FolderMaxMiB = int(maxBytes / 1024 / 1024)
+	report.MemoryUsageMiB = int((mem.Sys - mem.HeapReleased) / 1024 / 1024)
+	report.SHA256Perf = CpuBench(ctx, 5, 125*time.Millisecond, false)
+	report.HashPerf = CpuBench(ctx, 5, 125*time.Millisecond, true)
+	report.MemorySize = int(memorySize() / 1024 / 1024)
+	report.NumCPU = runtime.NumCPU()
+
 	for _, cfg := range s.cfg.Folders() {
-		rescanIntvs = append(rescanIntvs, cfg.RescanIntervalS)
+		report.RescanIntvs = append(report.RescanIntvs, cfg.RescanIntervalS)
 
 		switch cfg.Type {
 		case config.FolderTypeSendOnly:
-			folderUses["sendonly"]++
+			report.FolderUses.SendOnly++
 		case config.FolderTypeSendReceive:
-			folderUses["sendreceive"]++
+			report.FolderUses.SendReceive++
 		case config.FolderTypeReceiveOnly:
-			folderUses["receiveonly"]++
+			report.FolderUses.ReceiveOnly++
 		}
 		if cfg.IgnorePerms {
-			folderUses["ignorePerms"]++
+			report.FolderUses.IgnorePerms++
 		}
 		if cfg.IgnoreDelete {
-			folderUses["ignoreDelete"]++
+			report.FolderUses.IgnoreDelete++
 		}
 		if cfg.AutoNormalize {
-			folderUses["autoNormalize"]++
+			report.FolderUses.AutoNormalize++
 		}
-		if cfg.Versioning.Type != "" {
-			folderUses[cfg.Versioning.Type+"Versioning"]++
+		switch cfg.Versioning.Type {
+		case "":
+			// None
+		case "simple":
+			report.FolderUses.SimpleVersioning++
+		case "staggered":
+			report.FolderUses.StaggeredVersioning++
+		case "external":
+			report.FolderUses.ExternalVersioning++
+		case "trashcan":
+			report.FolderUses.TrashcanVersioning++
+		default:
+			l.Warnf("Unhandled versioning type for usage reports: %s", cfg.Versioning.Type)
 		}
 	}
-	sort.Ints(rescanIntvs)
-	res["rescanIntvs"] = rescanIntvs
-	res["folderUses"] = folderUses
+	sort.Ints(report.RescanIntvs)
 
-	deviceUses := map[string]int{
-		"introducer":       0,
-		"customCertName":   0,
-		"compressAlways":   0,
-		"compressMetadata": 0,
-		"compressNever":    0,
-		"dynamicAddr":      0,
-		"staticAddr":       0,
-	}
 	for _, cfg := range s.cfg.Devices() {
 		if cfg.Introducer {
-			deviceUses["introducer"]++
+			report.DeviceUses.Introducer++
 		}
 		if cfg.CertName != "" && cfg.CertName != "syncthing" {
-			deviceUses["customCertName"]++
+			report.DeviceUses.CustomCertName++
 		}
-		if cfg.Compression == protocol.CompressAlways {
-			deviceUses["compressAlways"]++
-		} else if cfg.Compression == protocol.CompressMetadata {
-			deviceUses["compressMetadata"]++
-		} else if cfg.Compression == protocol.CompressNever {
-			deviceUses["compressNever"]++
+		switch cfg.Compression {
+		case protocol.CompressAlways:
+			report.DeviceUses.CompressAlways++
+		case protocol.CompressMetadata:
+			report.DeviceUses.CompressMetadata++
+		case protocol.CompressNever:
+			report.DeviceUses.CompressNever++
+		default:
+			l.Warnf("Unhandled versioning type for usage reports: %s", cfg.Compression)
 		}
+
 		for _, addr := range cfg.Addresses {
 			if addr == "dynamic" {
-				deviceUses["dynamicAddr"]++
+				report.DeviceUses.DynamicAddr++
 			} else {
-				deviceUses["staticAddr"]++
+				report.DeviceUses.StaticAddr++
 			}
 		}
 	}
-	res["deviceUses"] = deviceUses
 
-	defaultAnnounceServersDNS, defaultAnnounceServersIP, otherAnnounceServers := 0, 0, 0
+	report.Announce.GlobalEnabled = opts.GlobalAnnEnabled
+	report.Announce.LocalEnabled = opts.LocalAnnEnabled
 	for _, addr := range opts.RawGlobalAnnServers {
 		if addr == "default" || addr == "default-v4" || addr == "default-v6" {
-			defaultAnnounceServersDNS++
+			report.Announce.DefaultServersDNS++
 		} else {
-			otherAnnounceServers++
+			report.Announce.OtherServers++
 		}
 	}
-	res["announce"] = map[string]interface{}{
-		"globalEnabled":     opts.GlobalAnnEnabled,
-		"localEnabled":      opts.LocalAnnEnabled,
-		"defaultServersDNS": defaultAnnounceServersDNS,
-		"defaultServersIP":  defaultAnnounceServersIP,
-		"otherServers":      otherAnnounceServers,
-	}
 
-	defaultRelayServers, otherRelayServers := 0, 0
+	report.Relays.Enabled = opts.RelaysEnabled
 	for _, addr := range s.cfg.Options().ListenAddresses() {
 		switch {
 		case addr == "dynamic+https://relays.syncthing.net/endpoint":
-			defaultRelayServers++
+			report.Relays.DefaultServers++
 		case strings.HasPrefix(addr, "relay://") || strings.HasPrefix(addr, "dynamic+http"):
-			otherRelayServers++
+			report.Relays.OtherServers++
+
 		}
 	}
-	res["relays"] = map[string]interface{}{
-		"enabled":        defaultRelayServers+otherAnnounceServers > 0,
-		"defaultServers": defaultRelayServers,
-		"otherServers":   otherRelayServers,
-	}
 
-	res["usesRateLimit"] = opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0
+	report.UsesRateLimit = opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0
+	report.UpgradeAllowedManual = !(upgrade.DisabledByCompilation || s.noUpgrade)
+	report.UpgradeAllowedAuto = !(upgrade.DisabledByCompilation || s.noUpgrade) && opts.AutoUpgradeEnabled()
+	report.UpgradeAllowedPre = !(upgrade.DisabledByCompilation || s.noUpgrade) && opts.AutoUpgradeEnabled() && opts.UpgradeToPreReleases
 
-	res["upgradeAllowedManual"] = !(upgrade.DisabledByCompilation || s.noUpgrade)
-	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || s.noUpgrade) && opts.AutoUpgradeIntervalH > 0
-	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || s.noUpgrade) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
+	// V3
 
 	if urVersion >= 3 {
-		res["uptime"] = s.UptimeS()
-		res["natType"] = s.connectionsService.NATType()
-		res["alwaysLocalNets"] = len(opts.AlwaysLocalNets) > 0
-		res["cacheIgnoredFiles"] = opts.CacheIgnoredFiles
-		res["overwriteRemoteDeviceNames"] = opts.OverwriteRemoteDevNames
-		res["progressEmitterEnabled"] = opts.ProgressUpdateIntervalS > -1
-		res["customDefaultFolderPath"] = opts.DefaultFolderPath != "~"
-		res["customTrafficClass"] = opts.TrafficClass != 0
-		res["customTempIndexMinBlocks"] = opts.TempIndexMinBlocks != 10
-		res["temporariesDisabled"] = opts.KeepTemporariesH == 0
-		res["temporariesCustom"] = opts.KeepTemporariesH != 24
-		res["limitBandwidthInLan"] = opts.LimitBandwidthInLan
-		res["customReleaseURL"] = opts.ReleasesURL != "https://upgrades.syncthing.net/meta.json"
-		res["restartOnWakeup"] = opts.RestartOnWakeup
+		report.Uptime = s.UptimeS()
+		report.NATType = s.connectionsService.NATType()
+		report.AlwaysLocalNets = len(opts.AlwaysLocalNets) > 0
+		report.CacheIgnoredFiles = opts.CacheIgnoredFiles
+		report.OverwriteRemoteDeviceNames = opts.OverwriteRemoteDevNames
+		report.ProgressEmitterEnabled = opts.ProgressUpdateIntervalS > -1
+		report.CustomDefaultFolderPath = opts.DefaultFolderPath != "~"
+		report.CustomTrafficClass = opts.TrafficClass != 0
+		report.CustomTempIndexMinBlocks = opts.TempIndexMinBlocks != 10
+		report.TemporariesDisabled = opts.KeepTemporariesH == 0
+		report.TemporariesCustom = opts.KeepTemporariesH != 24
+		report.LimitBandwidthInLan = opts.LimitBandwidthInLan
+		report.CustomReleaseURL = opts.ReleasesURL != "https=//upgrades.syncthing.net/meta.json"
+		report.RestartOnWakeup = opts.RestartOnWakeup
+		report.CustomStunServers = len(opts.RawStunServers) != 1 || opts.RawStunServers[0] != "default"
 
-		folderUsesV3 := map[string]int{
-			"scanProgressDisabled":    0,
-			"conflictsDisabled":       0,
-			"conflictsUnlimited":      0,
-			"conflictsOther":          0,
-			"disableSparseFiles":      0,
-			"disableTempIndexes":      0,
-			"alwaysWeakHash":          0,
-			"customWeakHashThreshold": 0,
-			"fsWatcherEnabled":        0,
-		}
-		pullOrder := make(map[string]int)
-		filesystemType := make(map[string]int)
-		var fsWatcherDelays []int
 		for _, cfg := range s.cfg.Folders() {
 			if cfg.ScanProgressIntervalS < 0 {
-				folderUsesV3["scanProgressDisabled"]++
+				report.FolderUsesV3.ScanProgressDisabled++
 			}
 			if cfg.MaxConflicts == 0 {
-				folderUsesV3["conflictsDisabled"]++
+				report.FolderUsesV3.ConflictsDisabled++
 			} else if cfg.MaxConflicts < 0 {
-				folderUsesV3["conflictsUnlimited"]++
+				report.FolderUsesV3.ConflictsUnlimited++
 			} else {
-				folderUsesV3["conflictsOther"]++
+				report.FolderUsesV3.ConflictsOther++
 			}
 			if cfg.DisableSparseFiles {
-				folderUsesV3["disableSparseFiles"]++
+				report.FolderUsesV3.DisableSparseFiles++
 			}
 			if cfg.DisableTempIndexes {
-				folderUsesV3["disableTempIndexes"]++
+				report.FolderUsesV3.DisableTempIndexes++
 			}
 			if cfg.WeakHashThresholdPct < 0 {
-				folderUsesV3["alwaysWeakHash"]++
+				report.FolderUsesV3.AlwaysWeakHash++
 			} else if cfg.WeakHashThresholdPct != 25 {
-				folderUsesV3["customWeakHashThreshold"]++
+				report.FolderUsesV3.CustomWeakHashThreshold++
 			}
 			if cfg.FSWatcherEnabled {
-				folderUsesV3["fsWatcherEnabled"]++
+				report.FolderUsesV3.FsWatcherEnabled++
 			}
-			pullOrder[cfg.Order.String()]++
-			filesystemType[cfg.FilesystemType.String()]++
-			fsWatcherDelays = append(fsWatcherDelays, cfg.FSWatcherDelayS)
+			report.FolderUsesV3.PullOrder[cfg.Order.String()]++
+			report.FolderUsesV3.FilesystemType[cfg.FilesystemType.String()]++
+			report.FolderUsesV3.FsWatcherDelays = append(report.FolderUsesV3.FsWatcherDelays, cfg.FSWatcherDelayS)
+			if cfg.MarkerName != config.DefaultMarkerName {
+				report.FolderUsesV3.CustomMarkerName++
+			}
+			if cfg.CopyOwnershipFromParent {
+				report.FolderUsesV3.CopyOwnershipFromParent++
+			}
+			report.FolderUsesV3.ModTimeWindowS = append(report.FolderUsesV3.ModTimeWindowS, int(cfg.ModTimeWindow().Seconds()))
+			report.FolderUsesV3.MaxConcurrentWrites = append(report.FolderUsesV3.MaxConcurrentWrites, cfg.MaxConcurrentWrites)
+			if cfg.DisableFsync {
+				report.FolderUsesV3.DisableFsync++
+			}
+			report.FolderUsesV3.BlockPullOrder[cfg.BlockPullOrder.String()]++
+			report.FolderUsesV3.CopyRangeMethod[cfg.CopyRangeMethod.String()]++
+			if cfg.CaseSensitiveFS {
+				report.FolderUsesV3.CaseSensitiveFS++
+			}
 		}
-		sort.Ints(fsWatcherDelays)
-		folderUsesV3Interface := map[string]interface{}{
-			"pullOrder":       pullOrder,
-			"filesystemType":  filesystemType,
-			"fsWatcherDelays": fsWatcherDelays,
-		}
-		for key, value := range folderUsesV3 {
-			folderUsesV3Interface[key] = value
-		}
-		res["folderUsesV3"] = folderUsesV3Interface
+		sort.Ints(report.FolderUsesV3.FsWatcherDelays)
 
 		guiCfg := s.cfg.GUI()
 		// Anticipate multiple GUI configs in the future, hence store counts.
-		guiStats := map[string]int{
-			"enabled":                   0,
-			"useTLS":                    0,
-			"useAuth":                   0,
-			"insecureAdminAccess":       0,
-			"debugging":                 0,
-			"insecureSkipHostCheck":     0,
-			"insecureAllowFrameLoading": 0,
-			"listenLocal":               0,
-			"listenUnspecified":         0,
-		}
-		theme := make(map[string]int)
 		if guiCfg.Enabled {
-			guiStats["enabled"]++
+			report.GUIStats.Enabled++
 			if guiCfg.UseTLS() {
-				guiStats["useTLS"]++
+				report.GUIStats.UseTLS++
 			}
 			if len(guiCfg.User) > 0 && len(guiCfg.Password) > 0 {
-				guiStats["useAuth"]++
+				report.GUIStats.UseAuth++
 			}
 			if guiCfg.InsecureAdminAccess {
-				guiStats["insecureAdminAccess"]++
+				report.GUIStats.InsecureAdminAccess++
 			}
 			if guiCfg.Debugging {
-				guiStats["debugging"]++
+				report.GUIStats.Debugging++
 			}
 			if guiCfg.InsecureSkipHostCheck {
-				guiStats["insecureSkipHostCheck"]++
+				report.GUIStats.InsecureSkipHostCheck++
 			}
 			if guiCfg.InsecureAllowFrameLoading {
-				guiStats["insecureAllowFrameLoading"]++
+				report.GUIStats.InsecureAllowFrameLoading++
 			}
 
 			addr, err := net.ResolveTCPAddr("tcp", guiCfg.Address())
 			if err == nil {
 				if addr.IP.IsLoopback() {
-					guiStats["listenLocal"]++
+					report.GUIStats.ListenLocal++
+
 				} else if addr.IP.IsUnspecified() {
-					guiStats["listenUnspecified"]++
+					report.GUIStats.ListenUnspecified++
 				}
 			}
-
-			theme[guiCfg.Theme]++
+			report.GUIStats.Theme[guiCfg.Theme]++
 		}
-		guiStatsInterface := map[string]interface{}{
-			"theme": theme,
-		}
-		for key, value := range guiStats {
-			guiStatsInterface[key] = value
-		}
-		res["guiStats"] = guiStatsInterface
 	}
 
-	for key, value := range s.model.UsageReportingStats(urVersion, preview) {
-		res[key] = value
+	s.model.UsageReportingStats(report, urVersion, preview)
+
+	if err := report.ClearForVersion(urVersion); err != nil {
+		return nil, err
 	}
 
-	return res
+	return report, nil
 }
 
 func (s *Service) UptimeS() int {
 	return int(time.Since(StartTime).Seconds())
 }
 
-func (s *Service) sendUsageReport() error {
-	d := s.ReportData()
+func (s *Service) sendUsageReport(ctx context.Context) error {
+	d, err := s.ReportData(ctx)
+	if err != nil {
+		return err
+	}
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(d); err != nil {
 		return err
@@ -384,8 +343,17 @@ func (s *Service) sendUsageReport() error {
 			},
 		},
 	}
-	_, err := client.Post(s.cfg.Options().URURL, "application/json", &b)
-	return err
+	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.Options().URURL, &b)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	return nil
 }
 
 func (s *Service) serve(ctx context.Context) {
@@ -401,7 +369,7 @@ func (s *Service) serve(ctx context.Context) {
 			t.Reset(0)
 		case <-t.C:
 			if s.cfg.Options().URAccepted >= 2 {
-				err := s.sendUsageReport()
+				err := s.sendUsageReport(ctx)
 				if err != nil {
 					l.Infoln("Usage report:", err)
 				} else {
@@ -439,7 +407,7 @@ var (
 )
 
 // CpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
-func CpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 {
+func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWeakHash bool) float64 {
 	blocksResultMut.Lock()
 	defer blocksResultMut.Unlock()
 
@@ -449,7 +417,7 @@ func CpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 
 
 	var perf float64
 	for i := 0; i < iterations; i++ {
-		if v := cpuBenchOnce(duration, useWeakHash, bs); v > perf {
+		if v := cpuBenchOnce(ctx, duration, useWeakHash, bs); v > perf {
 			perf = v
 		}
 	}
@@ -457,12 +425,16 @@ func CpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 
 	return perf
 }
 
-func cpuBenchOnce(duration time.Duration, useWeakHash bool, bs []byte) float64 {
+func cpuBenchOnce(ctx context.Context, duration time.Duration, useWeakHash bool, bs []byte) float64 {
 	t0 := time.Now()
 	b := 0
+	var err error
 	for time.Since(t0) < duration {
 		r := bytes.NewReader(bs)
-		blocksResult, _ = scanner.Blocks(context.TODO(), r, protocol.MinBlockSize, int64(len(bs)), nil, useWeakHash)
+		blocksResult, err = scanner.Blocks(ctx, r, protocol.MinBlockSize, int64(len(bs)), nil, useWeakHash)
+		if err != nil {
+			return 0 // Context done
+		}
 		b += len(bs)
 	}
 	d := time.Since(t0)

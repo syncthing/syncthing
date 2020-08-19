@@ -8,12 +8,16 @@ package db
 
 import (
 	"bytes"
+	"errors"
 	"math/bits"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
+
+var errMetaInconsistent = errors.New("inconsistent counts detected")
 
 type countsMap struct {
 	counts  CountsSet
@@ -22,19 +26,23 @@ type countsMap struct {
 
 // metadataTracker keeps metadata on a per device, per local flag basis.
 type metadataTracker struct {
+	keyer keyer
 	countsMap
 	mut   sync.RWMutex
 	dirty bool
 }
 
 type metaKey struct {
-	dev   protocol.DeviceID
-	flags uint32
+	dev  protocol.DeviceID
+	flag uint32
 }
 
-func newMetadataTracker() *metadataTracker {
+const needFlag uint32 = 1 << 31 // Last bit, as early ones are local flags
+
+func newMetadataTracker(keyer keyer) *metadataTracker {
 	return &metadataTracker{
-		mut: sync.NewRWMutex(),
+		keyer: keyer,
+		mut:   sync.NewRWMutex(),
 		countsMap: countsMap{
 			indexes: make(map[metaKey]int),
 		},
@@ -50,7 +58,11 @@ func (m *metadataTracker) Unmarshal(bs []byte) error {
 
 	// Initialize the index map
 	for i, c := range m.counts.Counts {
-		m.indexes[metaKey{protocol.DeviceIDFromBytes(c.DeviceID), c.LocalFlags}] = i
+		dev, err := protocol.DeviceIDFromBytes(c.DeviceID)
+		if err != nil {
+			return err
+		}
+		m.indexes[metaKey{dev, c.LocalFlags}] = i
 	}
 	return nil
 }
@@ -60,10 +72,16 @@ func (m *metadataTracker) Marshal() ([]byte, error) {
 	return m.counts.Marshal()
 }
 
+func (m *metadataTracker) CommitHook(folder []byte) backend.CommitHook {
+	return func(t backend.WriteTransaction) error {
+		return m.toDB(t, folder)
+	}
+}
+
 // toDB saves the marshalled metadataTracker to the given db, under the key
 // corresponding to the given folder
-func (m *metadataTracker) toDB(db *Lowlevel, folder []byte) error {
-	key, err := db.keyer.GenerateFolderMetaKey(nil, folder)
+func (m *metadataTracker) toDB(t backend.WriteTransaction, folder []byte) error {
+	key, err := m.keyer.GenerateFolderMetaKey(nil, folder)
 	if err != nil {
 		return err
 	}
@@ -79,7 +97,7 @@ func (m *metadataTracker) toDB(db *Lowlevel, folder []byte) error {
 	if err != nil {
 		return err
 	}
-	err = db.Put(key, bs)
+	err = t.Put(key, bs)
 	if err == nil {
 		m.dirty = false
 	}
@@ -98,48 +116,110 @@ func (m *metadataTracker) fromDB(db *Lowlevel, folder []byte) error {
 	if err != nil {
 		return err
 	}
-	return m.Unmarshal(bs)
+	if err = m.Unmarshal(bs); err != nil {
+		return err
+	}
+	if m.counts.Created == 0 {
+		return errMetaInconsistent
+	}
+	return nil
 }
 
 // countsPtr returns a pointer to the corresponding Counts struct, if
 // necessary allocating one in the process
-func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flags uint32) *Counts {
+func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *Counts {
 	// must be called with the mutex held
 
-	key := metaKey{dev, flags}
+	if bits.OnesCount32(flag) > 1 {
+		panic("incorrect usage: set at most one bit in flag")
+	}
+
+	key := metaKey{dev, flag}
 	idx, ok := m.indexes[key]
 	if !ok {
 		idx = len(m.counts.Counts)
-		m.counts.Counts = append(m.counts.Counts, Counts{DeviceID: dev[:], LocalFlags: flags})
+		m.counts.Counts = append(m.counts.Counts, Counts{DeviceID: dev[:], LocalFlags: flag})
 		m.indexes[key] = idx
+		// Need bucket must be initialized when a device first occurs in
+		// the metadatatracker, even if there's no change to the need
+		// bucket itself.
+		nkey := metaKey{dev, needFlag}
+		nidx, ok := m.indexes[nkey]
+		if !ok {
+			// Initially a new device needs everything, except deletes
+			nidx = len(m.counts.Counts)
+			m.counts.Counts = append(m.counts.Counts, m.allNeededCounts(dev))
+			m.indexes[nkey] = nidx
+		}
 	}
 	return &m.counts.Counts[idx]
 }
 
+// allNeeded makes sure there is a counts in case the device needs everything.
+func (m *countsMap) allNeededCounts(dev protocol.DeviceID) Counts {
+	counts := Counts{}
+	if idx, ok := m.indexes[metaKey{protocol.GlobalDeviceID, 0}]; ok {
+		counts = m.counts.Counts[idx]
+		counts.Deleted = 0 // Don't need deletes if having nothing
+	}
+	counts.DeviceID = dev[:]
+	counts.LocalFlags = needFlag
+	return counts
+}
+
 // addFile adds a file to the counts, adjusting the sequence number as
 // appropriate
-func (m *metadataTracker) addFile(dev protocol.DeviceID, f FileIntf) {
+func (m *metadataTracker) addFile(dev protocol.DeviceID, f protocol.FileIntf) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	m.dirty = true
-
 	m.updateSeqLocked(dev, f)
 
-	if f.IsInvalid() && f.FileLocalFlags() == 0 {
-		// This is a remote invalid file; it does not count.
+	m.updateFileLocked(dev, f, m.addFileLocked)
+}
+
+func (m *metadataTracker) updateFileLocked(dev protocol.DeviceID, f protocol.FileIntf, fn func(protocol.DeviceID, uint32, protocol.FileIntf)) {
+	m.dirty = true
+
+	if f.IsInvalid() && (f.FileLocalFlags() == 0 || dev == protocol.GlobalDeviceID) {
+		// This is a remote invalid file or concern the global state.
+		// In either case invalid files are not accounted.
 		return
 	}
 
 	if flags := f.FileLocalFlags(); flags == 0 {
 		// Account regular files in the zero-flags bucket.
-		m.addFileLocked(dev, 0, f)
+		fn(dev, 0, f)
 	} else {
 		// Account in flag specific buckets.
 		eachFlagBit(flags, func(flag uint32) {
-			m.addFileLocked(dev, flag, f)
+			fn(dev, flag, f)
 		})
 	}
+}
+
+// emptyNeeded makes sure there is a zero counts in case the device needs nothing.
+func (m *metadataTracker) emptyNeeded(dev protocol.DeviceID) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	m.dirty = true
+
+	m.indexes[metaKey{dev, needFlag}] = len(m.counts.Counts)
+	m.counts.Counts = append(m.counts.Counts, Counts{
+		DeviceID:   dev[:],
+		LocalFlags: needFlag,
+	})
+}
+
+// addNeeded adds a file to the needed counts
+func (m *metadataTracker) addNeeded(dev protocol.DeviceID, f protocol.FileIntf) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	m.dirty = true
+
+	m.addFileLocked(dev, needFlag, f)
 }
 
 func (m *metadataTracker) Sequence(dev protocol.DeviceID) int64 {
@@ -148,7 +228,7 @@ func (m *metadataTracker) Sequence(dev protocol.DeviceID) int64 {
 	return m.countsPtr(dev, 0).Sequence
 }
 
-func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f FileIntf) {
+func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f protocol.FileIntf) {
 	if dev == protocol.GlobalDeviceID {
 		return
 	}
@@ -157,8 +237,8 @@ func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f FileIntf) {
 	}
 }
 
-func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flags uint32, f FileIntf) {
-	cp := m.countsPtr(dev, flags)
+func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f protocol.FileIntf) {
+	cp := m.countsPtr(dev, flag)
 
 	switch {
 	case f.IsDeleted():
@@ -174,30 +254,25 @@ func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flags uint32, f F
 }
 
 // removeFile removes a file from the counts
-func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
-	if f.IsInvalid() && f.FileLocalFlags() == 0 {
-		// This is a remote invalid file; it does not count.
-		return
-	}
+func (m *metadataTracker) removeFile(dev protocol.DeviceID, f protocol.FileIntf) {
+	m.mut.Lock()
+	defer m.mut.Unlock()
 
+	m.updateFileLocked(dev, f, m.removeFileLocked)
+}
+
+// removeNeeded removes a file from the needed counts
+func (m *metadataTracker) removeNeeded(dev protocol.DeviceID, f protocol.FileIntf) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
 	m.dirty = true
 
-	if flags := f.FileLocalFlags(); flags == 0 {
-		// Remove regular files from the zero-flags bucket
-		m.removeFileLocked(dev, 0, f)
-	} else {
-		// Remove from flag specific buckets.
-		eachFlagBit(flags, func(flag uint32) {
-			m.removeFileLocked(dev, flag, f)
-		})
-	}
+	m.removeFileLocked(dev, needFlag, f)
 }
 
-func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flags uint32, f FileIntf) {
-	cp := m.countsPtr(dev, f.FileLocalFlags())
+func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flag uint32, f protocol.FileIntf) {
+	cp := m.countsPtr(dev, flag)
 
 	switch {
 	case f.IsDeleted():
@@ -238,9 +313,13 @@ func (m *metadataTracker) resetAll(dev protocol.DeviceID) {
 	m.dirty = true
 	for i, c := range m.counts.Counts {
 		if bytes.Equal(c.DeviceID, dev[:]) {
-			m.counts.Counts[i] = Counts{
-				DeviceID:   c.DeviceID,
-				LocalFlags: c.LocalFlags,
+			if c.LocalFlags != needFlag {
+				m.counts.Counts[i] = Counts{
+					DeviceID:   c.DeviceID,
+					LocalFlags: c.LocalFlags,
+				}
+			} else {
+				m.counts.Counts[i] = m.allNeededCounts(dev)
 			}
 		}
 	}
@@ -273,19 +352,15 @@ func (m *countsMap) Counts(dev protocol.DeviceID, flag uint32) Counts {
 
 	idx, ok := m.indexes[metaKey{dev, flag}]
 	if !ok {
+		if flag == needFlag {
+			// If there's nothing about a device in the index yet,
+			// it needs everything.
+			return m.allNeededCounts(dev)
+		}
 		return Counts{}
 	}
 
 	return m.counts.Counts[idx]
-}
-
-// Counts returns the counts for the given device ID and flag. `flag` should
-// be zero or have exactly one bit set.
-func (m *metadataTracker) Counts(dev protocol.DeviceID, flag uint32) Counts {
-	m.mut.RLock()
-	defer m.mut.RUnlock()
-
-	return m.countsMap.Counts(dev, flag)
 }
 
 // Snapshot returns a copy of the metadata for reading.
@@ -333,7 +408,10 @@ func (m *countsMap) devices() []protocol.DeviceID {
 
 	for _, dev := range m.counts.Counts {
 		if dev.Sequence > 0 {
-			id := protocol.DeviceIDFromBytes(dev.DeviceID)
+			id, err := protocol.DeviceIDFromBytes(dev.DeviceID)
+			if err != nil {
+				panic(err)
+			}
 			if id == protocol.GlobalDeviceID || id == protocol.LocalDeviceID {
 				continue
 			}

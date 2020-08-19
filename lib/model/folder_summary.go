@@ -15,13 +15,14 @@ import (
 	"github.com/thejerf/suture"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 )
 
-const minSummaryInterval = time.Minute
+const maxDurationSinceLastEventReq = time.Minute
 
 type FolderSummaryService interface {
 	suture.Service
@@ -77,28 +78,43 @@ func (c *folderSummaryService) String() string {
 func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, error) {
 	var res = make(map[string]interface{})
 
-	snap, err := c.model.DBSnapshot(folder)
-	if err != nil {
+	var local, global, need, ro db.Counts
+	var ourSeq, remoteSeq int64
+	errors, err := c.model.FolderErrors(folder)
+	if err == nil {
+		var snap *db.Snapshot
+		if snap, err = c.model.DBSnapshot(folder); err == nil {
+			global = snap.GlobalSize()
+			local = snap.LocalSize()
+			need = snap.NeedSize(protocol.LocalDeviceID)
+			ro = snap.ReceiveOnlyChangedSize()
+			ourSeq = snap.Sequence(protocol.LocalDeviceID)
+			remoteSeq = snap.Sequence(protocol.GlobalDeviceID)
+			snap.Release()
+		}
+	}
+	// For API backwards compatibility (SyncTrayzor needs it) an empty folder
+	// summary is returned for not running folders, an error might actually be
+	// more appropriate
+	if err != nil && err != ErrFolderPaused && err != errFolderNotRunning {
 		return nil, err
 	}
 
-	errors, err := c.model.FolderErrors(folder)
-	if err != nil && err != ErrFolderPaused && err != errFolderNotRunning {
-		// Stats from the db can still be obtained if the folder is just paused/being started
-		return nil, err
-	}
 	res["errors"] = len(errors)
 	res["pullErrors"] = len(errors) // deprecated
 
 	res["invalid"] = "" // Deprecated, retains external API for now
 
-	global := snap.GlobalSize()
 	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"], res["globalTotalItems"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
 
-	local := snap.LocalSize()
 	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"], res["localTotalItems"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
 
-	need := snap.NeedSize()
+	fcfg, haveFcfg := c.cfg.Folder(folder)
+
+	if haveFcfg && fcfg.IgnoreDelete {
+		need.Deleted = 0
+	}
+
 	need.Bytes -= c.model.FolderProgressBytesCompleted(folder)
 	// This may happen if we are in progress of pulling files that were
 	// deleted globally after the pull started.
@@ -107,16 +123,9 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	}
 	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
 
-	fcfg, ok := c.cfg.Folder(folder)
-
-	if ok && fcfg.IgnoreDelete {
-		res["needDeletes"] = 0
-	}
-
-	if ok && fcfg.Type == config.FolderTypeReceiveOnly {
+	if haveFcfg && fcfg.Type == config.FolderTypeReceiveOnly {
 		// Add statistics for things that have changed locally in a receive
 		// only folder.
-		ro := snap.ReceiveOnlyChangedSize()
 		res["receiveOnlyChangedFiles"] = ro.Files
 		res["receiveOnlyChangedDirectories"] = ro.Directories
 		res["receiveOnlyChangedSymlinks"] = ro.Symlinks
@@ -131,9 +140,6 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	if err != nil {
 		res["error"] = err.Error()
 	}
-
-	ourSeq := snap.Sequence(protocol.LocalDeviceID)
-	remoteSeq := snap.Sequence(protocol.GlobalDeviceID)
 
 	res["version"] = ourSeq + remoteSeq  // legacy
 	res["sequence"] = ourSeq + remoteSeq // new name
@@ -264,7 +270,12 @@ func (c *folderSummaryService) calculateSummaries(ctx context.Context) {
 		case <-pump.C:
 			t0 := time.Now()
 			for _, folder := range c.foldersToHandle() {
-				c.sendSummary(folder)
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+				c.sendSummary(ctx, folder)
 			}
 
 			// We don't want to spend all our time calculating summaries. Lets
@@ -274,7 +285,7 @@ func (c *folderSummaryService) calculateSummaries(ctx context.Context) {
 			pump.Reset(wait)
 
 		case folder := <-c.immediate:
-			c.sendSummary(folder)
+			c.sendSummary(ctx, folder)
 
 		case <-ctx.Done():
 			return
@@ -292,7 +303,7 @@ func (c *folderSummaryService) foldersToHandle() []string {
 	c.lastEventReqMut.Lock()
 	last := c.lastEventReq
 	c.lastEventReqMut.Unlock()
-	if time.Since(last) > minSummaryInterval {
+	if time.Since(last) > maxDurationSinceLastEventReq {
 		return nil
 	}
 
@@ -307,7 +318,7 @@ func (c *folderSummaryService) foldersToHandle() []string {
 }
 
 // sendSummary send the summary events for a single folder
-func (c *folderSummaryService) sendSummary(folder string) {
+func (c *folderSummaryService) sendSummary(ctx context.Context, folder string) {
 	// The folder summary contains how many bytes, files etc
 	// are in the folder and how in sync we are.
 	data, err := c.Summary(folder)
@@ -320,6 +331,12 @@ func (c *folderSummaryService) sendSummary(folder string) {
 	})
 
 	for _, devCfg := range c.cfg.Folders()[folder].Devices {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		if devCfg.DeviceID.Equals(c.id) {
 			// We already know about ourselves.
 			continue

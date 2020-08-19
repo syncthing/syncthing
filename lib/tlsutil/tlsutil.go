@@ -14,7 +14,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"fmt"
 	"math/big"
 	"net"
 	"os"
@@ -26,7 +25,7 @@ import (
 )
 
 var (
-	ErrIdentificationFailed = fmt.Errorf("failed to identify socket type")
+	ErrIdentificationFailed = errors.New("failed to identify socket type")
 )
 
 var (
@@ -103,10 +102,11 @@ func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls
 	// NOTE: update checkExpiry() appropriately if you add or change attributes
 	// in here, especially DNSNames or IPAddresses.
 	template := x509.Certificate{
-		SerialNumber: new(big.Int).SetInt64(rand.Int63()),
+		SerialNumber: new(big.Int).SetUint64(rand.Uint64()),
 		Subject: pkix.Name{
 			CommonName: commonName,
 		},
+		DNSNames:              []string{commonName},
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
 		SignatureAlgorithm:    x509.ECDSAWithSHA256,
@@ -239,7 +239,7 @@ func pemBlockForKey(priv interface{}) (*pem.Block, error) {
 		}
 		return &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}, nil
 	default:
-		return nil, fmt.Errorf("unknown key type")
+		return nil, errors.New("unknown key type")
 	}
 }
 

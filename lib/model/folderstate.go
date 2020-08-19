@@ -22,6 +22,8 @@ const (
 	FolderSyncWaiting
 	FolderSyncPreparing
 	FolderSyncing
+	FolderCleaning
+	FolderCleanWaiting
 	FolderError
 )
 
@@ -39,6 +41,10 @@ func (s folderState) String() string {
 		return "sync-preparing"
 	case FolderSyncing:
 		return "syncing"
+	case FolderCleaning:
+		return "cleaning"
+	case FolderCleanWaiting:
+		return "clean-waiting"
 	case FolderError:
 		return "error"
 	default:

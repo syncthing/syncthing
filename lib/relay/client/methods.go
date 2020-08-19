@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -17,9 +16,18 @@ import (
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 )
 
+type incorrectResponseCodeErr struct {
+	code int32
+	msg  string
+}
+
+func (e *incorrectResponseCodeErr) Error() string {
+	return fmt.Sprintf("incorrect response code %d: %s", e.code, e.msg)
+}
+
 func GetInvitationFromRelay(ctx context.Context, uri *url.URL, id syncthingprotocol.DeviceID, certs []tls.Certificate, timeout time.Duration) (protocol.SessionInvitation, error) {
 	if uri.Scheme != "relay" {
-		return protocol.SessionInvitation{}, fmt.Errorf("Unsupported relay scheme: %v", uri.Scheme)
+		return protocol.SessionInvitation{}, fmt.Errorf("unsupported relay scheme: %v", uri.Scheme)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -53,7 +61,7 @@ func GetInvitationFromRelay(ctx context.Context, uri *url.URL, id syncthingproto
 
 	switch msg := message.(type) {
 	case protocol.Response:
-		return protocol.SessionInvitation{}, fmt.Errorf("Incorrect response code %d: %s", msg.Code, msg.Message)
+		return protocol.SessionInvitation{}, &incorrectResponseCodeErr{msg.Code, msg.Message}
 	case protocol.SessionInvitation:
 		l.Debugln("Received invitation", msg, "via", conn.LocalAddr())
 		ip := net.IP(msg.Address)
@@ -96,7 +104,7 @@ func JoinSession(ctx context.Context, invitation protocol.SessionInvitation) (ne
 	switch msg := message.(type) {
 	case protocol.Response:
 		if msg.Code != 0 {
-			return nil, fmt.Errorf("Incorrect response code %d: %s", msg.Code, msg.Message)
+			return nil, fmt.Errorf("incorrect response code %d: %s", msg.Code, msg.Message)
 		}
 		return conn, nil
 	default:
@@ -104,13 +112,13 @@ func JoinSession(ctx context.Context, invitation protocol.SessionInvitation) (ne
 	}
 }
 
-func TestRelay(ctx context.Context, uri *url.URL, certs []tls.Certificate, sleep, timeout time.Duration, times int) bool {
+func TestRelay(ctx context.Context, uri *url.URL, certs []tls.Certificate, sleep, timeout time.Duration, times int) error {
 	id := syncthingprotocol.NewDeviceID(certs[0].Certificate[0])
 	invs := make(chan protocol.SessionInvitation, 1)
 	c, err := NewClient(uri, certs, invs, timeout)
 	if err != nil {
 		close(invs)
-		return false
+		return fmt.Errorf("creating client: %w", err)
 	}
 	go c.Serve()
 	defer func() {
@@ -119,16 +127,17 @@ func TestRelay(ctx context.Context, uri *url.URL, certs []tls.Certificate, sleep
 	}()
 
 	for i := 0; i < times; i++ {
-		_, err := GetInvitationFromRelay(ctx, uri, id, certs, timeout)
+		_, err = GetInvitationFromRelay(ctx, uri, id, certs, timeout)
 		if err == nil {
-			return true
+			return nil
 		}
-		if !strings.Contains(err.Error(), "Incorrect response code") {
-			return false
+		if _, ok := err.(*incorrectResponseCodeErr); !ok {
+			return fmt.Errorf("getting invitation: %w", err)
 		}
 		time.Sleep(sleep)
 	}
-	return false
+
+	return fmt.Errorf("getting invitation: %w", err) // last of the above errors
 }
 
 func configForCerts(certs []tls.Certificate) *tls.Config {

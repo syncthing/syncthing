@@ -185,7 +185,12 @@ func (s *Service) runStunForServer(ctx context.Context, addr string) {
 	}
 	s.client.SetServerAddr(udpAddr.String())
 
-	natType, extAddr, err := s.client.Discover()
+	var natType stun.NATType
+	var extAddr *stun.Host
+	err = util.CallWithContext(ctx, func() error {
+		natType, extAddr, err = s.client.Discover()
+		return err
+	})
 	if err != nil || extAddr == nil {
 		l.Debugf("%s stun discovery on %s: %s", s, addr, err)
 		return

@@ -19,6 +19,7 @@ func TestDeviceKey(t *testing.T) {
 	name := []byte("name")
 
 	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
 
 	key, err := db.keyer.GenerateDeviceFileKey(nil, fld, dev, name)
 	if err != nil {
@@ -50,27 +51,16 @@ func TestGlobalKey(t *testing.T) {
 	name := []byte("name")
 
 	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
 
 	key, err := db.keyer.GenerateGlobalVersionKey(nil, fld, name)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fld2, ok := db.keyer.FolderFromGlobalVersionKey(key)
-	if !ok {
-		t.Error("should have been found")
-	}
-	if !bytes.Equal(fld2, fld) {
-		t.Errorf("wrong folder %q != %q", fld2, fld)
-	}
 	name2 := db.keyer.NameFromGlobalVersionKey(key)
 	if !bytes.Equal(name2, name) {
 		t.Errorf("wrong name %q != %q", name2, name)
-	}
-
-	_, ok = db.keyer.FolderFromGlobalVersionKey([]byte{1, 2, 3, 4, 5})
-	if ok {
-		t.Error("should not have been found")
 	}
 }
 
@@ -78,6 +68,7 @@ func TestSequenceKey(t *testing.T) {
 	fld := []byte("folder6789012345678901234567890123456789012345678901234567890123")
 
 	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
 
 	const seq = 1234567890
 	key, err := db.keyer.GenerateSequenceKey(nil, fld, seq)
