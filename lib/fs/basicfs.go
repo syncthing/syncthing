@@ -9,6 +9,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -25,11 +26,25 @@ var (
 
 // The BasicFilesystem implements all aspects by delegating to package os.
 // All paths are relative to the root and cannot (should not) escape the root directory.
+//
+// The uri given to NewFilesystem can contain URL query-style parameters:
+//     junctionsasdirs=b    "true" lets the filesystem treat directory junctions
+//                          like ordinary directories (default false)
 type BasicFilesystem struct {
-	root string
+	root            string
+	junctionsAsDirs bool
 }
 
 func newBasicFilesystem(root string) *BasicFilesystem {
+	var params url.Values
+	uri, err := url.Parse(root)
+	if err == nil {
+		root = uri.Path
+		params = uri.Query()
+	}
+
+	junctionsAsDirs := params.Get("junctionsasdirs") == "true"
+
 	if root == "" {
 		root = "." // Otherwise "" becomes "/" below
 	}
@@ -64,7 +79,10 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 		root = longFilenameSupport(root)
 	}
 
-	return &BasicFilesystem{root}
+	return &BasicFilesystem{
+		root:            root,
+		junctionsAsDirs: junctionsAsDirs,
+	}
 }
 
 // rooted expands the relative path to the full path that is then used with os
@@ -145,7 +163,7 @@ func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	fi, err := underlyingLstat(name)
+	fi, err := f.underlyingLstat(name)
 	if err != nil {
 		return nil, err
 	}
