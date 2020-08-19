@@ -52,9 +52,7 @@ type folderSummaryService struct {
 
 func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
 	service := &folderSummaryService{
-		Supervisor: suture.New("folderSummaryService", suture.Spec{
-			PassThroughPanics: true,
-		}),
+		Supervisor:      suture.New("folderSummaryService", util.Spec()),
 		cfg:             cfg,
 		model:           m,
 		id:              id,

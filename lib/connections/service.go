@@ -132,13 +132,12 @@ type service struct {
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
+	spec := util.Spec()
+	spec.Log = func(line string) {
+		l.Infoln(line)
+	}
 	service := &service{
-		Supervisor: suture.New("connections.Service", suture.Spec{
-			Log: func(line string) {
-				l.Infoln(line)
-			},
-			PassThroughPanics: true,
-		}),
+		Supervisor:              suture.New("connections.Service", spec),
 		connectionStatusHandler: newConnectionStatusHandler(),
 
 		cfg:                  cfg,

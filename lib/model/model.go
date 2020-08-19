@@ -192,13 +192,12 @@ var (
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger) Model {
+	spec := util.Spec()
+	spec.Log = func(line string) {
+		l.Debugln(line)
+	}
 	m := &model{
-		Supervisor: suture.New("model", suture.Spec{
-			Log: func(line string) {
-				l.Debugln(line)
-			},
-			PassThroughPanics: true,
-		}),
+		Supervisor: suture.New("model", spec),
 
 		// constructor parameters
 		cfg:            cfg,

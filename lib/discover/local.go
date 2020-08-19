@@ -52,9 +52,7 @@ const (
 
 func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogger events.Logger) (FinderService, error) {
 	c := &localClient{
-		Supervisor: suture.New("local", suture.Spec{
-			PassThroughPanics: true,
-		}),
+		Supervisor:      suture.New("local", util.Spec()),
 		myID:            id,
 		addrList:        addrList,
 		evLogger:        evLogger,

@@ -34,6 +34,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture"
 )
 
@@ -117,9 +118,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	defer os.Remove(token)
 	srv.started = make(chan string)
 
-	sup := suture.New("test", suture.Spec{
-		PassThroughPanics: true,
-	})
+	sup := suture.New("test", util.Spec())
 	sup.Add(srv)
 	sup.ServeBackground()
 

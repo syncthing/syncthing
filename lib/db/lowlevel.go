@@ -68,14 +68,13 @@ type Lowlevel struct {
 }
 
 func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
+	spec := util.Spec()
+	// Only log restarts in debug mode.
+	spec.Log = func(line string) {
+		l.Debugln(line)
+	}
 	db := &Lowlevel{
-		Supervisor: suture.New("db.Lowlevel", suture.Spec{
-			// Only log restarts in debug mode.
-			Log: func(line string) {
-				l.Debugln(line)
-			},
-			PassThroughPanics: true,
-		}),
+		Supervisor:         suture.New("db.Lowlevel", spec),
 		Backend:            backend,
 		folderIdx:          newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
 		deviceIdx:          newSmallIndex(backend, []byte{KeyTypeDeviceIdx}),

@@ -44,23 +44,22 @@ type cast struct {
 // caller needs to set reader and writer with the addReader and addWriter
 // methods to get a functional implementation of Interface.
 func newCast(name string) *cast {
+	spec := util.Spec()
+	// Don't retry too frenetically: an error to open a socket or
+	// whatever is usually something that is either permanent or takes
+	// a while to get solved...
+	spec.FailureThreshold = 2
+	spec.FailureBackoff = 60 * time.Second
+	// Only log restarts in debug mode.
+	spec.Log = func(line string) {
+		l.Debugln(line)
+	}
 	return &cast{
-		Supervisor: suture.New(name, suture.Spec{
-			// Don't retry too frenetically: an error to open a socket or
-			// whatever is usually something that is either permanent or takes
-			// a while to get solved...
-			FailureThreshold: 2,
-			FailureBackoff:   60 * time.Second,
-			// Only log restarts in debug mode.
-			Log: func(line string) {
-				l.Debugln(line)
-			},
-			PassThroughPanics: true,
-		}),
-		name:    name,
-		inbox:   make(chan []byte),
-		outbox:  make(chan recv, 16),
-		stopped: make(chan struct{}),
+		Supervisor: suture.New(name, spec),
+		name:       name,
+		inbox:      make(chan []byte),
+		outbox:     make(chan recv, 16),
+		stopped:    make(chan struct{}),
 	}
 }
 

@@ -333,6 +333,12 @@ func (s *service) String() string {
 	return fmt.Sprintf("Service@%p created by %v", s, s.creator)
 }
 
+func Spec() suture.Spec {
+	return suture.Spec{
+		PassThroughPanics: true,
+	}
+}
+
 func CallWithContext(ctx context.Context, fn func() error) error {
 	var err error
 	done := make(chan struct{})

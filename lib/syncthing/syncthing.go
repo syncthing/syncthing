@@ -39,6 +39,7 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 const (
@@ -112,12 +113,11 @@ func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, 
 func (a *App) Start() error {
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
-	a.mainService = suture.New("main", suture.Spec{
-		Log: func(line string) {
-			l.Debugln(line)
-		},
-		PassThroughPanics: true,
-	})
+	spec := util.Spec()
+	spec.Log = func(line string) {
+		l.Debugln(line)
+	}
+	a.mainService = suture.New("main", spec)
 
 	// Start the supervisor and wait for it to stop to handle cleanup.
 	a.stopped = make(chan struct{})
