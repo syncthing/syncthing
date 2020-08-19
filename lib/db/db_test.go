@@ -9,6 +9,7 @@ package db
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -792,6 +793,47 @@ func TestUpdateTo14(t *testing.T) {
 		t.Error("missing global")
 	} else if !fv.IsInvalid() {
 		t.Error("global not marked as invalid")
+	}
+}
+
+func TestFlushRecursion(t *testing.T) {
+	// Verify that a commit hook can write to the transaction without
+	// causing another flush and thus recursion.
+
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+
+	// A commit hook that writes a small piece of data to the transaction.
+	hookFired := 0
+	hook := func(tx backend.WriteTransaction) error {
+		err := tx.Put([]byte(fmt.Sprintf("hook-key-%d", hookFired)), []byte(fmt.Sprintf("hook-value-%d", hookFired)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		hookFired++
+		return nil
+	}
+
+	// A transaction.
+	tx, err := db.NewWriteTransaction(hook)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Release()
+
+	// Write stuff until the transaction flushes, thus firing the hook.
+	i := 0
+	for hookFired == 0 {
+		err := tx.Put([]byte(fmt.Sprintf("key-%d", i)), []byte(fmt.Sprintf("value-%d", i)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		i++
+	}
+
+	// The hook should have fired precisely once.
+	if hookFired != 1 {
+		t.Error("expect one hook fire, not", hookFired)
 	}
 }
 
