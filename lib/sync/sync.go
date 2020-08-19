@@ -34,6 +34,7 @@ type RWMutex interface {
 	Mutex
 	RLock()
 	RUnlock()
+	RLocker() sync.Locker
 }
 
 type WaitGroup interface {

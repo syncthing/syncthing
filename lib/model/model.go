@@ -272,8 +272,8 @@ func (m *model) Stop() {
 func (m *model) StartDeadlockDetector(timeout time.Duration) {
 	l.Infof("Starting deadlock detector with %v timeout", timeout)
 	detector := newDeadlockDetector(timeout)
-	detector.Watch("fmut", m.fmut)
-	detector.Watch("pmut", m.pmut)
+	detector.Watch("fmut", m.fmut.RLocker())
+	detector.Watch("pmut", m.pmut.RLocker())
 }
 
 // Need to hold lock on m.fmut when calling this.
