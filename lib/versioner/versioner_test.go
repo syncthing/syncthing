@@ -20,7 +20,7 @@ import (
 )
 
 func TestVersionerCleanOut(t *testing.T) {
-	simpleCfg := config.FolderConfiguration{
+	cfg := config.FolderConfiguration{
 		FilesystemType: fs.FilesystemTypeBasic,
 		Path:           "testdata",
 		Versioning: config.VersioningConfiguration{
@@ -30,49 +30,37 @@ func TestVersionerCleanOut(t *testing.T) {
 		},
 	}
 
-	trashCfg := config.FolderConfiguration{
-		FilesystemType: fs.FilesystemTypeBasic,
-		Path:           "testdata",
-		Versioning: config.VersioningConfiguration{
-			Params: map[string]string{
-				"cleanoutDays": "7",
-			},
-		},
-	}
-	testCasesVersioner := []Versioner{
-		newSimple(simpleCfg),
-		newTrashcan(trashCfg).(*trashcan),
+	testCasesVersioner := map[string]Versioner{
+		"simple":   newSimple(cfg),
+		"trashcan": newTrashcan(cfg),
 	}
 
-	var testcases = []struct {
-		file         string
-		shouldRemove bool
-	}{
-		{"testdata/.stversions/file1", false},
-		{"testdata/.stversions/file2", true},
-		{"testdata/.stversions/keep1/file1", false},
-		{"testdata/.stversions/keep1/file2", false},
-		{"testdata/.stversions/keep2/file1", false},
-		{"testdata/.stversions/keep2/file2", true},
-		{"testdata/.stversions/keep3/keepsubdir/file1", false},
-		{"testdata/.stversions/remove/file1", true},
-		{"testdata/.stversions/remove/file2", true},
-		{"testdata/.stversions/remove/removesubdir/file1", true},
+	var testcases = map[string]bool{
+		"testdata/.stversions/file1":                     false,
+		"testdata/.stversions/file2":                     true,
+		"testdata/.stversions/keep1/file1":               false,
+		"testdata/.stversions/keep1/file2":               false,
+		"testdata/.stversions/keep2/file1":               false,
+		"testdata/.stversions/keep2/file2":               true,
+		"testdata/.stversions/keep3/keepsubdir/file1":    false,
+		"testdata/.stversions/remove/file1":              true,
+		"testdata/.stversions/remove/file2":              true,
+		"testdata/.stversions/remove/removesubdir/file1": true,
 	}
 
-	for index, versioner := range testCasesVersioner {
-		t.Run(fmt.Sprintf("versioner trashcan clean up %d in %d", index, len(testCasesVersioner)), func(t *testing.T) {
+	for versionerType, versioner := range testCasesVersioner {
+		t.Run(fmt.Sprintf("%v versioner trashcan clean up", versionerType), func(t *testing.T) {
 			os.RemoveAll("testdata")
 			defer os.RemoveAll("testdata")
 
 			oldTime := time.Now().Add(-8 * 24 * time.Hour)
-			for _, tc := range testcases {
-				os.MkdirAll(filepath.Dir(tc.file), 0777)
-				if err := ioutil.WriteFile(tc.file, []byte("data"), 0644); err != nil {
+			for file, shouldRemove := range testcases {
+				os.MkdirAll(filepath.Dir(file), 0777)
+				if err := ioutil.WriteFile(file, []byte("data"), 0644); err != nil {
 					t.Fatal(err)
 				}
-				if tc.shouldRemove {
-					if err := os.Chtimes(tc.file, oldTime, oldTime); err != nil {
+				if shouldRemove {
+					if err := os.Chtimes(file, oldTime, oldTime); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -82,12 +70,12 @@ func TestVersionerCleanOut(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			for _, tc := range testcases {
-				_, err := os.Lstat(tc.file)
-				if tc.shouldRemove && !os.IsNotExist(err) {
-					t.Error(tc.file, "should have been removed")
-				} else if !tc.shouldRemove && err != nil {
-					t.Error(tc.file, "should not have been removed")
+			for file, shouldRemove := range testcases {
+				_, err := os.Lstat(file)
+				if shouldRemove && !os.IsNotExist(err) {
+					t.Error(file, "should have been removed")
+				} else if !shouldRemove && err != nil {
+					t.Error(file, "should not have been removed")
 				}
 			}
 
