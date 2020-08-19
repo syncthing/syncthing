@@ -64,7 +64,7 @@ type tcpDialerFactory struct{}
 
 func (tcpDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
 	return &tcpDialer{commonDialer{
-		trafficClass:      int(opts.TrafficClass),
+		trafficClass:      opts.TrafficClass,
 		reconnectInterval: time.Duration(opts.ReconnectIntervalS) * time.Second,
 		tlsCfg:            tlsCfg,
 	}}

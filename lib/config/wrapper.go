@@ -116,7 +116,7 @@ func Wrap(path string, cfg Configuration, evLogger events.Logger) Wrapper {
 
 // Load loads an existing file on disk and returns a new configuration
 // wrapper.
-func Load(path string, myID protocol.DeviceID, evLogger events.Logger) (Wrapper, int32, error) {
+func Load(path string, myID protocol.DeviceID, evLogger events.Logger) (Wrapper, int, error) {
 	fd, err := os.Open(path)
 	if err != nil {
 		return nil, 0, err

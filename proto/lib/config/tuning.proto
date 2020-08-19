@@ -7,7 +7,7 @@ import "repos/protobuf/gogoproto/gogo.proto";
 enum Tuning {
     option (gogoproto.goproto_enum_stringer) = false;
 
-    TUNiNG_AUTO  = 0;
-    TUNiNG_SMALL = 1;
+    TUNING_AUTO  = 0;
+    TUNING_SMALL = 1;
     TUNING_LARGE = 2;
 }

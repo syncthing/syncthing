@@ -66,7 +66,7 @@ func New(cfg config.Wrapper, m model.Model, connectionsService connections.Servi
 // configured usage reporting version.
 func (s *Service) ReportData(ctx context.Context) (*contract.Report, error) {
 	urVersion := s.cfg.Options().URAccepted
-	return s.reportData(ctx, int(urVersion), false)
+	return s.reportData(ctx, urVersion, false)
 }
 
 // ReportDataPreview returns a preview of the data to be sent in a usage report
@@ -120,7 +120,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 	report.NumCPU = runtime.NumCPU()
 
 	for _, cfg := range s.cfg.Folders() {
-		report.RescanIntvs = append(report.RescanIntvs, int(cfg.RescanIntervalS))
+		report.RescanIntvs = append(report.RescanIntvs, cfg.RescanIntervalS)
 
 		switch cfg.Type {
 		case config.FolderTypeSendOnly:
@@ -255,7 +255,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			}
 			report.FolderUsesV3.PullOrder[cfg.Order.String()]++
 			report.FolderUsesV3.FilesystemType[cfg.FilesystemType.String()]++
-			report.FolderUsesV3.FsWatcherDelays = append(report.FolderUsesV3.FsWatcherDelays, int(cfg.FSWatcherDelayS))
+			report.FolderUsesV3.FsWatcherDelays = append(report.FolderUsesV3.FsWatcherDelays, cfg.FSWatcherDelayS)
 			if cfg.MarkerName != config.DefaultMarkerName {
 				report.FolderUsesV3.CustomMarkerName++
 			}
@@ -263,7 +263,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 				report.FolderUsesV3.CopyOwnershipFromParent++
 			}
 			report.FolderUsesV3.ModTimeWindowS = append(report.FolderUsesV3.ModTimeWindowS, int(cfg.ModTimeWindow().Seconds()))
-			report.FolderUsesV3.MaxConcurrentWrites = append(report.FolderUsesV3.MaxConcurrentWrites, int(cfg.MaxConcurrentWrites))
+			report.FolderUsesV3.MaxConcurrentWrites = append(report.FolderUsesV3.MaxConcurrentWrites, cfg.MaxConcurrentWrites)
 			if cfg.DisableFsync {
 				report.FolderUsesV3.DisableFsync++
 			}

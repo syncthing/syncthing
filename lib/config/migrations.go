@@ -69,7 +69,7 @@ func (ms migrationSet) apply(cfg *Configuration) {
 // to reach that version. The function does not need to change the actual
 // cfg.Version field.
 type migration struct {
-	targetVersion int32
+	targetVersion int
 	convert       func(cfg *Configuration)
 }
 

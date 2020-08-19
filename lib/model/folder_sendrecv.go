@@ -140,7 +140,7 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 		fs:                 fs,
 		queue:              newJobQueue(),
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
-		writeLimiter:       newByteSemaphore(int(cfg.MaxConcurrentWrites)),
+		writeLimiter:       newByteSemaphore(cfg.MaxConcurrentWrites),
 		pullErrorsMut:      sync.NewMutex(),
 	}
 	f.folder.puller = f
@@ -156,8 +156,8 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 	if f.PullerMaxPendingKiB == 0 {
 		f.PullerMaxPendingKiB = defaultPullerPendingKiB
 	}
-	if blockSizeKiB := protocol.MaxBlockSize / 1024; int(f.PullerMaxPendingKiB) < blockSizeKiB {
-		f.PullerMaxPendingKiB = int32(blockSizeKiB)
+	if blockSizeKiB := protocol.MaxBlockSize / 1024; f.PullerMaxPendingKiB < blockSizeKiB {
+		f.PullerMaxPendingKiB = blockSizeKiB
 	}
 
 	return f
@@ -256,7 +256,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
 		updateWg.Done()
 	}()
 
-	for i := 0; i < int(f.Copiers); i++ {
+	for i := 0; i < f.Copiers; i++ {
 		copyWg.Add(1)
 		go func() {
 			// copierRoutine finishes when copyChan is closed
@@ -652,7 +652,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	// don't handle modification times on directories, because that sucks...)
 	// It's OK to change mode bits on stuff within non-writable directories.
 	if !f.IgnorePerms && !file.NoPermissions {
-		if err := f.fs.Chmod(file.Name, mode|(fs.FileMode(info.Mode())&retainBits)); err != nil {
+		if err := f.fs.Chmod(file.Name, mode|(info.Mode()&retainBits)); err != nil {
 			f.newPullError(file.Name, err)
 			return
 		}
@@ -1237,7 +1237,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			blocksPercentChanged = (tot - state.have) * 100 / tot
 		}
 
-		if blocksPercentChanged >= int(f.WeakHashThresholdPct) {
+		if blocksPercentChanged >= f.WeakHashThresholdPct {
 			hashesToFind := make([]uint32, 0, len(state.blocks))
 			for _, block := range state.blocks {
 				if block.WeakHash != 0 {
@@ -1383,7 +1383,7 @@ func verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 }
 
 func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
-	requestLimiter := newByteSemaphore(int(f.PullerMaxPendingKiB) * 1024)
+	requestLimiter := newByteSemaphore(f.PullerMaxPendingKiB * 1024)
 	wg := sync.NewWaitGroup()
 
 	for state := range in {
@@ -1751,7 +1751,7 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 	}
 	if f.MaxConflicts > -1 {
 		matches := existingConflicts(name, f.fs)
-		if len(matches) > int(f.MaxConflicts) {
+		if len(matches) > f.MaxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[f.MaxConflicts:] {
 				if gerr := f.fs.Remove(match); gerr != nil {

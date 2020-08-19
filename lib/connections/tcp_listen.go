@@ -125,7 +125,7 @@ func (t *tcpListener) serve(ctx context.Context) error {
 		}
 
 		if tc := t.cfg.Options().TrafficClass; tc != 0 {
-			if err := dialer.SetTrafficClass(conn, int(tc)); err != nil {
+			if err := dialer.SetTrafficClass(conn, tc); err != nil {
 				l.Debugln("Listen (BEP/tcp): setting traffic class:", err)
 			}
 		}

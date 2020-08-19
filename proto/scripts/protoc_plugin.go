@@ -219,6 +219,10 @@ func HandleCustomExtensions(msg *descriptor.DescriptorProto) {
 		}
 		deprecated := field.Options.Deprecated != nil && *field.Options.Deprecated == true
 
+		if field.Type != nil && *field.Type == descriptor.FieldDescriptorProto_TYPE_INT32 {
+			SetStringFieldOption(field, gogoproto.E_Casttype, "int")
+		}
+
 		if field.TypeName != nil && *field.TypeName == ".google.protobuf.Timestamp" {
 			vanity.SetBoolFieldOption(gogoproto.E_Stdtime, true)(field)
 		}

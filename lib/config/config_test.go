@@ -1126,7 +1126,7 @@ func TestRemoveDeviceWithEmptyID(t *testing.T) {
 
 func TestMaxConcurrentFolders(t *testing.T) {
 	cases := []struct {
-		input  int32
+		input  int
 		output int
 	}{
 		{input: -42, output: 0},

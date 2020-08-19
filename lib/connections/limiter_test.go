@@ -36,8 +36,8 @@ func initConfig() config.Wrapper {
 	dev3Conf = config.NewDeviceConfiguration(device3, "device3")
 	dev4Conf = config.NewDeviceConfiguration(device4, "device4")
 
-	dev2Conf.MaxRecvKbps = rand.Int31() % 100000
-	dev2Conf.MaxSendKbps = rand.Int31() % 100000
+	dev2Conf.MaxRecvKbps = rand.Int() % 100000
+	dev2Conf.MaxSendKbps = rand.Int() % 100000
 
 	waiter, _ := cfg.SetDevices([]config.DeviceConfiguration{dev1Conf, dev2Conf, dev3Conf, dev4Conf})
 	waiter.Wait()
@@ -74,17 +74,17 @@ func TestSetDeviceLimits(t *testing.T) {
 	lim := newLimiter(device1, cfg)
 
 	// should still be inf/inf because this is local device
-	dev1ReadLimit := rand.Int31() % 100000
-	dev1WriteLimit := rand.Int31() % 100000
+	dev1ReadLimit := rand.Int() % 100000
+	dev1WriteLimit := rand.Int() % 100000
 	dev1Conf.MaxRecvKbps = dev1ReadLimit
 	dev1Conf.MaxSendKbps = dev1WriteLimit
 
-	dev2ReadLimit := rand.Int31() % 100000
-	dev2WriteLimit := rand.Int31() % 100000
+	dev2ReadLimit := rand.Int() % 100000
+	dev2WriteLimit := rand.Int() % 100000
 	dev2Conf.MaxRecvKbps = dev2ReadLimit
 	dev2Conf.MaxSendKbps = dev2WriteLimit
 
-	dev3ReadLimit := rand.Int31() % 10000
+	dev3ReadLimit := rand.Int() % 10000
 	dev3Conf.MaxRecvKbps = dev3ReadLimit
 
 	waiter, _ := cfg.SetDevices([]config.DeviceConfiguration{dev1Conf, dev2Conf, dev3Conf, dev4Conf})

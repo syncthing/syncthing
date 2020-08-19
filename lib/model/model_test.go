@@ -3213,7 +3213,7 @@ func TestFolderRestartZombies(t *testing.T) {
 			t0 := time.Now()
 			for time.Since(t0) < time.Second {
 				cfg := folderCfg.Copy()
-				cfg.MaxConflicts = rand.Int31() // safe change that should cause a folder restart
+				cfg.MaxConflicts = rand.Int() // safe change that should cause a folder restart
 				w, err := wrapper.SetFolder(cfg)
 				if err != nil {
 					panic(err)

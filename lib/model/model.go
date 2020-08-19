@@ -1780,8 +1780,10 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 // GetHello is called when we are about to connect to some remote device.
 func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 	name := ""
-	if devCfg, ok := m.cfg.Device(id); ok {
-		name = devCfg.Name
+	if _, ok := m.cfg.Device(id); ok {
+		if myCfg, ok := m.cfg.Device(m.id); ok {
+			name = myCfg.Name
+		}
 	}
 	return &protocol.Hello{
 		DeviceName:    name,
@@ -1822,7 +1824,7 @@ func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	// 0: default, <0: no limiting
 	switch {
 	case device.MaxRequestKiB > 0:
-		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * int(device.MaxRequestKiB))
+		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * device.MaxRequestKiB)
 	case device.MaxRequestKiB == 0:
 		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * defaultPullerPendingKiB)
 	}
@@ -2136,7 +2138,7 @@ func (m *model) numHashers(folder string) int {
 
 	if folderCfg.Hashers > 0 {
 		// Specific value set in the config, use that.
-		return int(folderCfg.Hashers)
+		return folderCfg.Hashers
 	}
 
 	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {

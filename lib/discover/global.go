@@ -454,7 +454,7 @@ func globalDiscoveryIdentity(addr string) string {
 	return "global discovery server " + addr
 }
 
-func ipv4Identity(port int32) string {
+func ipv4Identity(port int) string {
 	return fmt.Sprintf("IPv4 local broadcast discovery on port %d", port)
 }
 

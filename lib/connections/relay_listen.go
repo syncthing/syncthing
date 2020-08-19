@@ -87,7 +87,7 @@ func (t *relayListener) serve(ctx context.Context) error {
 				l.Debugln("Listen (BEP/relay): setting tcp options:", err)
 			}
 
-			err = dialer.SetTrafficClass(conn, int(t.cfg.Options().TrafficClass))
+			err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
 			if err != nil {
 				l.Debugln("Listen (BEP/relay): setting traffic class:", err)
 			}

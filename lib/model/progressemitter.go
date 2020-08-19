@@ -243,7 +243,7 @@ func (t *ProgressEmitter) CommitConfiguration(_, to config.Configuration) bool {
 		t.disabled = true
 		l.Debugln("progress emitter: disabled")
 	}
-	t.minBlocks = int(to.Options.TempIndexMinBlocks)
+	t.minBlocks = to.Options.TempIndexMinBlocks
 	if t.interval < time.Second {
 		// can't happen when we're not disabled, but better safe than sorry.
 		t.interval = time.Second

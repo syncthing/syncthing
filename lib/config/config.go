@@ -148,7 +148,7 @@ type xmlConfiguration struct {
 	XMLName xml.Name `xml:"configuration"`
 }
 
-func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, int32, error) {
+func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, int, error) {
 	var cfg xmlConfiguration
 
 	util.SetDefaults(&cfg)

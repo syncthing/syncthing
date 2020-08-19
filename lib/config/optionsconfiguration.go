@@ -103,7 +103,7 @@ func (opts OptionsConfiguration) GlobalDiscoveryServers() []string {
 func (opts OptionsConfiguration) MaxFolderConcurrency() int {
 	// If a value is set, trust that.
 	if opts.RawMaxFolderConcurrency > 0 {
-		return int(opts.RawMaxFolderConcurrency)
+		return opts.RawMaxFolderConcurrency
 	}
 	if opts.RawMaxFolderConcurrency < 0 {
 		// -1 etc means unlimited, which in the implementation means zero
@@ -141,7 +141,7 @@ func (opts OptionsConfiguration) MaxConcurrentIncomingRequestKiB() int {
 	}
 
 	// Roll with it.
-	return int(opts.RawMaxCIRequestKiB)
+	return opts.RawMaxCIRequestKiB
 }
 
 func (opts OptionsConfiguration) AutoUpgradeEnabled() bool {

@@ -70,7 +70,7 @@ type relayDialerFactory struct{}
 
 func (relayDialerFactory) New(opts config.OptionsConfiguration, tlsCfg *tls.Config) genericDialer {
 	return &relayDialer{commonDialer{
-		trafficClass:      int(opts.TrafficClass),
+		trafficClass:      opts.TrafficClass,
 		reconnectInterval: time.Duration(opts.RelayReconnectIntervalM) * time.Minute,
 		tlsCfg:            tlsCfg,
 	}}

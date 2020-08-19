@@ -96,7 +96,7 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logg
 	return cfg, nil
 }
 
-func archiveAndSaveConfig(cfg config.Wrapper, originalVersion int32) error {
+func archiveAndSaveConfig(cfg config.Wrapper, originalVersion int) error {
 	// Copy the existing config to an archive copy
 	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", originalVersion)
 	l.Infoln("Archiving a copy of old config file format at:", archivePath)
