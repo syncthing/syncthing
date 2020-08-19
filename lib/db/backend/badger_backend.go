@@ -255,6 +255,7 @@ type badgerTransaction struct {
 	rel         *releaser
 	size        int
 	commitHooks []CommitHook
+	inFlush     bool
 }
 
 func (t *badgerTransaction) Delete(key []byte) error {
