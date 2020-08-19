@@ -66,12 +66,12 @@ func (fi *dirJunctFileInfo) IsDir() bool {
 	return true
 }
 
-func underlyingLstat(name string) (os.FileInfo, error) {
+func (f *BasicFilesystem) underlyingLstat(name string) (os.FileInfo, error) {
 	var fi, err = os.Lstat(name)
 
-	// NTFS directory junctions are treated as ordinary directories,
+	// NTFS directory junctions can be treated as ordinary directories,
 	// see https://forum.syncthing.net/t/option-to-follow-directory-junctions-symbolic-links/14750
-	if err == nil && fi.Mode()&os.ModeSymlink != 0 {
+	if err == nil && f.junctionsAsDirs && fi.Mode()&os.ModeSymlink != 0 {
 		var isJunct bool
 		isJunct, err = isDirectoryJunction(name)
 		if err == nil && isJunct {

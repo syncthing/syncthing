@@ -66,7 +66,7 @@ var (
 	fakefsFs  = make(map[string]*fakefs)
 )
 
-func newFakeFilesystem(rootURI string) *fakefs {
+func newFakeFilesystem(rootURI string, _ ...Option) *fakefs {
 	fakefsMut.Lock()
 	defer fakefsMut.Unlock()
 
