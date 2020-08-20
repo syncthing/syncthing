@@ -637,11 +637,11 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				l.Debugln("marking deleted item that doesn't exist anywhere as not receive-only", file)
 				batchAppend(file.ConvertDeletedToFileInfo(), snap)
 				changes++
-			case file.IsDeleted() && file.LocalFlags != f.localFlags:
-				// No need to bump the version for a file that was
-				// and is deleted and just the local flags changed.
-				file.LocalFlags = f.localFlags
-				l.Debugln("changing localflags on deleted item", file)
+			case file.IsDeleted() && file.IsReceiveOnlyChanged() && f.Type != config.FolderTypeReceiveOnly:
+				// No need to bump the version for a file that was and is
+				// deleted and just the folder type/local flags changed.
+				file.LocalFlags &^= protocol.FlagLocalReceiveOnly
+				l.Debugln("removing receive-only flag on deleted item", file)
 				batchAppend(file.ConvertDeletedToFileInfo(), snap)
 				changes++
 			}
