@@ -61,18 +61,17 @@ type copyBlocksState struct {
 const retainBits = fs.ModeSetgid | fs.ModeSetuid | fs.ModeSticky
 
 var (
-	activity                    = newDeviceActivity()
-	errNoDevice                 = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
-	errDirPrefix                = "directory has been deleted on a remote device but "
-	errDirHasToBeScanned        = errors.New(errDirPrefix + "contains changed files, scheduling scan")
-	errDirHasIgnored            = errors.New(errDirPrefix + "contains ignored files (see ignore documentation for (?d) prefix)")
-	errDirHasReceiveOnlyChanged = errors.New(errDirPrefix + "contains locally changed files")
-	errDirNotEmpty              = errors.New(errDirPrefix + "is not empty; the contents are probably ignored on that remote device, but not locally")
-	errNotAvailable             = errors.New("no connected device has the required version of this file")
-	errModified                 = errors.New("file modified but not rescanned; will try again later")
-	errUnexpectedDirOnFileDel   = errors.New("encountered directory when trying to remove file/symlink")
-	errIncompatibleSymlink      = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
-	contextRemovingOldItem      = "removing item to be replaced"
+	activity                  = newDeviceActivity()
+	errNoDevice               = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
+	errDirPrefix              = "directory has been deleted on a remote device but "
+	errDirHasToBeScanned      = errors.New(errDirPrefix + "contains changed files, scheduling scan")
+	errDirHasIgnored          = errors.New(errDirPrefix + "contains ignored files (see ignore documentation for (?d) prefix)")
+	errDirNotEmpty            = errors.New(errDirPrefix + "is not empty; the contents are probably ignored on that remote device, but not locally")
+	errNotAvailable           = errors.New("no connected device has the required version of this file")
+	errModified               = errors.New("file modified but not rescanned; will try again later")
+	errUnexpectedDirOnFileDel = errors.New("encountered directory when trying to remove file/symlink")
+	errIncompatibleSymlink    = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
+	contextRemovingOldItem    = "removing item to be replaced"
 )
 
 type dbUpdateType int
@@ -1894,7 +1893,10 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 		return errDirHasIgnored
 	}
 	if hasReceiveOnlyChanged {
-		return errDirHasReceiveOnlyChanged
+		// Pretend we deleted the directory. It will be resurrected as a
+		// receive-only changed item on scan.
+		scanChan <- dir
+		return nil
 	}
 	if hasKnown {
 		return errDirNotEmpty

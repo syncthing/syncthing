@@ -85,7 +85,10 @@ func (s *Service) serve(ctx context.Context) {
 		case <-timer.C:
 		case <-s.processScheduled:
 			if !timer.Stop() {
-				<-timer.C
+				select {
+				case <-timer.C:
+				default:
+				}
 			}
 		case <-ctx.Done():
 			timer.Stop()

@@ -630,17 +630,20 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				if f.localFlags&protocol.FlagLocalReceiveOnly != 0 && len(snap.Availability(file.Name)) == 0 {
 					file.LocalFlags &^= protocol.FlagLocalReceiveOnly
 				}
+				l.Debugln("marking file as deleted", nf)
 				batchAppend(nf, snap)
 				changes++
 			case file.IsDeleted() && file.IsReceiveOnlyChanged() && f.localFlags&protocol.FlagLocalReceiveOnly != 0 && len(snap.Availability(file.Name)) == 0:
 				file.Version = protocol.Vector{}
 				file.LocalFlags &^= protocol.FlagLocalReceiveOnly
+				l.Debugln("marking deleted item that doesn't exist anywhere as not receive-only", file)
 				batchAppend(file.ConvertDeletedToFileInfo(), snap)
 				changes++
 			case file.IsDeleted() && file.LocalFlags != f.localFlags:
 				// No need to bump the version for a file that was
 				// and is deleted and just the local flags changed.
 				file.LocalFlags = f.localFlags
+				l.Debugln("changing localflags on deleted item", file)
 				batchAppend(file.ConvertDeletedToFileInfo(), snap)
 				changes++
 			}

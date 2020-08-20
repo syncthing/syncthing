@@ -140,6 +140,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 			return err
 		}
 		if ok && unchanged(f, ef) {
+			l.Debugf("not inserting unchanged (remote); folder=%q device=%v %v", folder, devID, f)
 			continue
 		}
 
@@ -148,7 +149,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		}
 		meta.addFile(devID, f)
 
-		l.Debugf("insert; folder=%q device=%v %v", folder, devID, f)
+		l.Debugf("insert (remote); folder=%q device=%v %v", folder, devID, f)
 		if err := t.putFile(dk, f); err != nil {
 			return err
 		}
@@ -196,6 +197,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 			return err
 		}
 		if ok && unchanged(f, ef) {
+			l.Debugf("not inserting unchanged (local); folder=%q %v", folder, f)
 			continue
 		}
 		blocksHashSame := ok && bytes.Equal(ef.BlocksHash, f.BlocksHash)
