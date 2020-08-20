@@ -178,13 +178,15 @@ var IsPermission = os.IsPermission
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
 
-func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
+type Option func(Filesystem)
+
+func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
 	var fs Filesystem
 	switch fsType {
 	case FilesystemTypeBasic:
-		fs = newBasicFilesystem(uri)
+		fs = newBasicFilesystem(uri, opts...)
 	case FilesystemTypeFake:
-		fs = newFakeFilesystem(uri)
+		fs = newFakeFilesystem(uri, opts...)
 	default:
 		l.Debugln("Unknown filesystem", fsType, uri)
 		fs = &errorFilesystem{

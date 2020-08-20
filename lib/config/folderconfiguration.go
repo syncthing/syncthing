@@ -62,6 +62,7 @@ type FolderConfiguration struct {
 	BlockPullOrder          BlockPullOrder              `xml:"blockPullOrder" json:"blockPullOrder"`
 	CopyRangeMethod         fs.CopyRangeMethod          `xml:"copyRangeMethod" json:"copyRangeMethod" default:"standard"`
 	CaseSensitiveFS         bool                        `xml:"caseSensitiveFS" json:"caseSensitiveFS"`
+	JunctionsAsDirs         bool                        `xml:"junctionsAsDirs" json:"junctionsAsDirs"`
 
 	cachedModTimeWindow time.Duration
 
@@ -101,7 +102,11 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Filesystem() should be valid.
-	filesystem := fs.NewFilesystem(f.FilesystemType, f.Path)
+	var opts []fs.Option
+	if f.FilesystemType == fs.FilesystemTypeBasic && f.JunctionsAsDirs {
+		opts = append(opts, fs.WithJunctionsAsDirs())
+	}
+	filesystem := fs.NewFilesystem(f.FilesystemType, f.Path, opts...)
 	if !f.CaseSensitiveFS {
 		filesystem = fs.NewCaseFilesystem(filesystem)
 	}

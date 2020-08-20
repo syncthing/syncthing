@@ -140,6 +140,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 			return err
 		}
 		if ok && unchanged(f, ef) {
+			l.Debugf("not inserting unchanged (remote); folder=%q device=%v %v", folder, devID, f)
 			continue
 		}
 
@@ -148,8 +149,8 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		}
 		meta.addFile(devID, f)
 
-		l.Debugf("insert; folder=%q device=%v %v", folder, devID, f)
-		if err := t.putFile(dk, f, false); err != nil {
+		l.Debugf("insert (remote); folder=%q device=%v %v", folder, devID, f)
+		if err := t.putFile(dk, f); err != nil {
 			return err
 		}
 
@@ -196,6 +197,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 			return err
 		}
 		if ok && unchanged(f, ef) {
+			l.Debugf("not inserting unchanged (local); folder=%q %v", folder, f)
 			continue
 		}
 		blocksHashSame := ok && bytes.Equal(ef.BlocksHash, f.BlocksHash)
@@ -240,7 +242,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		meta.addFile(protocol.LocalDeviceID, f)
 
 		l.Debugf("insert (local); folder=%q %v", folder, f)
-		if err := t.putFile(dk, f, false); err != nil {
+		if err := t.putFile(dk, f); err != nil {
 			return err
 		}
 
@@ -956,11 +958,11 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 
 	var sk sequenceKey
 	for it.Next() {
-		intf, err := t.unmarshalTrunc(it.Value(), true)
+		intf, err := t.unmarshalTrunc(it.Value(), false)
 		if err != nil {
 			return 0, err
 		}
-		fi := intf.(FileInfoTruncated)
+		fi := intf.(protocol.FileInfo)
 		if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
 			return 0, err
 		}
@@ -979,7 +981,7 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 			if err := t.Put(sk, it.Key()); err != nil {
 				return 0, err
 			}
-			if err := t.putFile(it.Key(), fi.copyToFileInfo(), true); err != nil {
+			if err := t.putFile(it.Key(), fi); err != nil {
 				return 0, err
 			}
 		}
