@@ -10,6 +10,6 @@ package fs
 
 import "os"
 
-func underlyingLstat(name string) (fi os.FileInfo, err error) {
+func (*BasicFilesystem) underlyingLstat(name string) (fi os.FileInfo, err error) {
 	return os.Lstat(name)
 }
