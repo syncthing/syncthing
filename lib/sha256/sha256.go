@@ -12,9 +12,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+	"math"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/klauspost/cpuid"
 	minioSha256 "github.com/minio/sha256-simd"
 	"github.com/syncthing/syncthing/lib/logger"
 )
@@ -26,6 +29,7 @@ const (
 	benchmarkingDuration   = 150 * time.Millisecond
 	defaultImpl            = "crypto/sha256"
 	minioImpl              = "minio/sha256-simd"
+	minioAvx512Impl        = "minio/sha256-avx512"
 	Size                   = cryptoSha256.Size
 )
 
@@ -36,23 +40,41 @@ var (
 )
 
 var (
-	selectedImpl = defaultImpl
-	cryptoPerf   float64
-	minioPerf    float64
+	selectedImpl    = defaultImpl
+	cryptoPerf      float64
+	minioPerf       float64
+	minioAvx512Perf float64
+	avx512Server    *minioSha256.Avx512Server
 )
 
 func SelectAlgo() {
+	// See https://github.com/minio/sha256-simd/blob/master/cpuid.go#L114
+	// Sadly they do not expose a way to check support, so we use a separate library for that.
+	if cpuid.CPU.AVX512F() && cpuid.CPU.AVX512DQ() && cpuid.CPU.AVX512BW() && cpuid.CPU.AVX512VL() {
+		l.Infoln("Detected AVX-512 support")
+		avx512Server = minioSha256.NewAvx512Server()
+	}
 	switch os.Getenv("STHASHING") {
 	case "":
 		// When unset, probe for the fastest implementation.
 		benchmark()
-		if minioPerf > cryptoPerf {
+
+		bestPerf := math.Max(math.Max(minioPerf, minioAvx512Perf), cryptoPerf)
+		switch bestPerf {
+		case minioPerf:
 			selectMinio()
+		case minioAvx512Perf:
+			selectMinioAvx512()
+		case cryptoPerf:
+			// Default
 		}
 
 	case "minio":
 		// When set to "minio", use that.
 		selectMinio()
+	case "minio-avx512":
+		// When set to "minio-avx512", use that.
+		selectMinioAvx512()
 
 	default:
 		// When set to anything else, such as "standard", use the default Go
@@ -66,32 +88,38 @@ func SelectAlgo() {
 // Report prints a line with the measured hash performance rates for the
 // selected and alternate implementation.
 func Report() {
-	var otherImpl string
-	var selectedRate, otherRate float64
-
-	switch selectedImpl {
-	case defaultImpl:
-		selectedRate = cryptoPerf
-		otherRate = minioPerf
-		otherImpl = minioImpl
-
-	case minioImpl:
-		selectedRate = minioPerf
-		otherRate = cryptoPerf
-		otherImpl = defaultImpl
+	nameToRate := map[string]float64{
+		defaultImpl:     cryptoPerf,
+		minioImpl:       minioPerf,
+		minioAvx512Impl: minioAvx512Perf,
 	}
 
+	selectedRate := nameToRate[selectedImpl]
+	delete(nameToRate, selectedImpl)
 	if selectedRate == 0 {
 		return
 	}
 
-	l.Infof("Single thread SHA256 performance is %s using %s (%s using %s).", formatRate(selectedRate), selectedImpl, formatRate(otherRate), otherImpl)
+	others := make([]string, 0, len(nameToRate))
+	for name, rate := range nameToRate {
+		if rate > 0 {
+			others = append(others, fmt.Sprintf("%s using %s", formatRate(rate), name))
+		}
+	}
+
+	l.Infof("Single thread SHA256 performance is %s using %s (%s).", formatRate(selectedRate), selectedImpl, strings.Join(others, ", "))
 }
 
 func selectMinio() {
 	New = minioSha256.New
 	Sum256 = minioSha256.Sum256
 	selectedImpl = minioImpl
+}
+
+func selectMinioAvx512() {
+	New = minioAvx512New
+	Sum256 = minioAvx512Sum256
+	selectedImpl = minioAvx512Impl
 }
 
 func benchmark() {
@@ -104,7 +132,25 @@ func benchmark() {
 		if perf := cpuBenchOnce(benchmarkingDuration, minioSha256.New); perf > minioPerf {
 			minioPerf = perf
 		}
+		if avx512Server != nil {
+			if perf := cpuBenchOnce(benchmarkingDuration, minioAvx512New); perf > minioAvx512Perf {
+				minioAvx512Perf = perf
+			}
+		}
 	}
+}
+
+func minioAvx512New() hash.Hash {
+	return minioSha256.NewAvx512(avx512Server)
+}
+
+func minioAvx512Sum256(data []byte) [Size]byte {
+	h := minioAvx512New()
+	h.Write(data)
+	h.Reset()
+	var result [Size]byte
+	h.Sum(result[:])
+	return result
 }
 
 func cpuBenchOnce(duration time.Duration, newFn func() hash.Hash) float64 {
