@@ -148,8 +148,8 @@ func minioAvx512Sum256(data []byte) [Size]byte {
 	h := minioAvx512New()
 	h.Write(data)
 	var result [Size]byte
-	h.Sum(result[:])
-	h.Reset() // Unregisters it from the AVx-512 server.
+	h.Sum(result[:0])
+	h.Reset() // Unregisters it from the AVX-512 server.
 	return result
 }
 
