@@ -59,16 +59,13 @@ func getHostPortsForAllAdapters(port int) []string {
 	portStr := strconv.Itoa(port)
 
 	for _, network := range nets {
-		if !isLocal(network.IP) {
-			continue
-		}
 		// See: https://en.wikipedia.org/wiki/IPv6_address#Modified_EUI-64
 		//      https://tools.ietf.org/html/rfc2464#section-4
 		if len(network.IP) == net.IPv6len && network.IP[11] == 0xFF && network.IP[12] == 0xFE {
 			// Contains a mac address.
 			continue
 		}
-		if network.IP.IsGlobalUnicast() || network.IP.IsLinkLocalUnicast() {
+		if network.IP.IsLinkLocalUnicast() || (isV4Local(network.IP) && network.IP.IsGlobalUnicast()) {
 			hostPorts = append(hostPorts, net.JoinHostPort(network.IP.String(), portStr))
 		}
 	}
@@ -99,13 +96,13 @@ func resolve(network, hostPort string) (net.IP, int, error) {
 	return net.IPv4zero, 0, net.UnknownNetworkError(network)
 }
 
-func isLocal(ip net.IP) bool {
+func isV4Local(ip net.IP) bool {
 	// See https://go-review.googlesource.com/c/go/+/162998/
+	// We only take the V4 part of that.
 	if ip4 := ip.To4(); ip4 != nil {
 		return ip4[0] == 10 ||
 			(ip4[0] == 172 && ip4[1]&0xf0 == 16) ||
 			(ip4[0] == 192 && ip4[1] == 168)
 	}
-	// Local IPv6 addresses are defined in https://tools.ietf.org/html/rfc4193
-	return len(ip) == net.IPv6len && ip[0]&0xfe == 0xfc
+	return false
 }
