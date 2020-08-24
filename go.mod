@@ -27,8 +27,8 @@ require (
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.2.0
 	github.com/lucas-clemente/quic-go v0.18.0
-	github.com/maruel/panicparse v1.3.0
-	github.com/mattn/go-isatty v0.0.11
+	github.com/maruel/panicparse v1.5.1
+	github.com/mattn/go-isatty v0.0.12
 	github.com/minio/sha256-simd v0.1.1
 	github.com/oschwald/geoip2-golang v1.4.0
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
