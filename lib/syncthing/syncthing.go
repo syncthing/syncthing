@@ -110,16 +110,6 @@ func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, 
 // e.g. the API is ready for use.
 // Must be called once only.
 func (a *App) Start() error {
-	if err := a.startup(); err != nil {
-		a.stopWithErr(ExitError, err)
-		return err
-	}
-	a.stopped = make(chan struct{})
-	go a.run()
-	return nil
-}
-
-func (a *App) startup() error {
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
 	a.mainService = suture.New("main", suture.Spec{
@@ -128,8 +118,22 @@ func (a *App) startup() error {
 		},
 		PassThroughPanics: true,
 	})
-	a.mainService.Add(a.ll)
+
+	// Start the supervisor and wait for it to stop to handle cleanup.
+	a.stopped = make(chan struct{})
 	a.mainService.ServeBackground()
+	go a.run()
+
+	if err := a.startup(); err != nil {
+		a.stopWithErr(ExitError, err)
+		return err
+	}
+
+	return nil
+}
+
+func (a *App) startup() error {
+	a.mainService.Add(a.ll)
 
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
