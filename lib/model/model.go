@@ -1781,6 +1781,7 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 	name := ""
 	if _, ok := m.cfg.Device(id); ok {
+		// Set our name (from the config of our device ID) only if we already know about the other side device ID.
 		if myCfg, ok := m.cfg.Device(m.id); ok {
 			name = myCfg.Name
 		}

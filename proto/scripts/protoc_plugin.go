@@ -16,14 +16,11 @@ import (
 
 	"github.com/syncthing/syncthing/proto/ext"
 
+	"github.com/gogo/protobuf/gogoproto"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/vanity"
 	"github.com/gogo/protobuf/vanity/command"
-
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-
-	"github.com/gogo/protobuf/gogoproto"
-
-	"github.com/gogo/protobuf/proto"
 )
 
 func main() {

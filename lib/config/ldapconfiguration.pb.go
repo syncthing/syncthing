@@ -59,7 +59,9 @@ func init() {
 	proto.RegisterType((*LDAPConfiguration)(nil), "config.LDAPConfiguration")
 }
 
-func init() { proto.RegisterFile("lib/config/ldapconfiguration.proto", fileDescriptor_9681ad7e41c73956) }
+func init() {
+	proto.RegisterFile("lib/config/ldapconfiguration.proto", fileDescriptor_9681ad7e41c73956)
+}
 
 var fileDescriptor_9681ad7e41c73956 = []byte{
 	// 498 bytes of a gzipped FileDescriptorProto
