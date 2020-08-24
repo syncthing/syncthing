@@ -36,14 +36,26 @@ func fixupPort(uri *url.URL, defaultPort int) *url.URL {
 }
 
 func getURLsForAllAdaptersIfUnspecified(network string, uri *url.URL) []*url.URL {
-	addrs := make([]*url.URL, 0)
-	if ip, port, err := resolve(network, uri.Host); err == nil && port != 0 && (len(ip) == 0 || ip.IsUnspecified()) {
-		for _, hostPort := range getHostPortsForAllAdapters(port) {
-			newUri := *uri
-			newUri.Host = hostPort
-			addrs = append(addrs, &newUri)
-		}
+	ip, port, err := resolve(network, uri.Host)
+	// Failed to resolve
+	if err != nil || port == 0 {
+		return nil
 	}
+
+	// Not an unspecified address, so no point of substituting with local
+	// interface addresses as it's listening on a specific adapter anyway.
+	if len(ip) != 0 && !ip.IsUnspecified() {
+		return nil
+	}
+
+	hostPorts := getHostPortsForAllAdapters(port)
+	addrs := make([]*url.URL, 0, len(hostPorts))
+	for _, hostPort := range hostPorts {
+		newUri := *uri
+		newUri.Host = hostPort
+		addrs = append(addrs, &newUri)
+	}
+
 	return addrs
 }
 
