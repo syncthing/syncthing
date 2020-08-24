@@ -31,12 +31,7 @@ var (
 	clientsMut sync.Mutex
 )
 
-func sendReport(dsn, path string, report []byte, userID string) error {
-	pkt, err := parseReport(path, report)
-	if err != nil {
-		return err
-	}
-
+func sendReport(dsn string, pkt *raven.Packet, userID string) error {
 	pkt.Interfaces = append(pkt.Interfaces, &raven.User{ID: userID})
 
 	clientsMut.Lock()
@@ -44,6 +39,7 @@ func sendReport(dsn, path string, report []byte, userID string) error {
 
 	cli, ok := clients[dsn]
 	if !ok {
+		var err error
 		cli, err = raven.New(dsn)
 		if err != nil {
 			return err
@@ -62,7 +58,7 @@ func sendReport(dsn, path string, report []byte, userID string) error {
 	return <-errC
 }
 
-func parseReport(path string, report []byte) (*raven.Packet, error) {
+func parseCrashReport(path string, report []byte) (*raven.Packet, error) {
 	parts := bytes.SplitN(report, []byte("\n"), 2)
 	if len(parts) != 2 {
 		return nil, errors.New("no first line")
@@ -126,31 +122,12 @@ func parseReport(path string, report []byte) (*raven.Packet, error) {
 		}
 	}
 
-	pkt := &raven.Packet{
-		Message:     string(subjectLine),
-		Platform:    "go",
-		Release:     version.tag,
-		Environment: version.environment(),
-		Tags: raven.Tags{
-			raven.Tag{Key: "version", Value: version.version},
-			raven.Tag{Key: "tag", Value: version.tag},
-			raven.Tag{Key: "codename", Value: version.codename},
-			raven.Tag{Key: "runtime", Value: version.runtime},
-			raven.Tag{Key: "goos", Value: version.goos},
-			raven.Tag{Key: "goarch", Value: version.goarch},
-			raven.Tag{Key: "builder", Value: version.builder},
-		},
-		Extra: raven.Extra{
-			"url": reportServer + path,
-		},
-		Interfaces: []raven.Interface{&trace},
+	pkt := packet(version)
+	pkt.Message = string(subjectLine)
+	pkt.Extra = raven.Extra{
+		"url": reportServer + path,
 	}
-	if version.commit != "" {
-		pkt.Tags = append(pkt.Tags, raven.Tag{Key: "commit", Value: version.commit})
-	}
-	for _, tag := range version.extra {
-		pkt.Tags = append(pkt.Tags, raven.Tag{Key: tag, Value: "1"})
-	}
+	pkt.Interfaces = []raven.Interface{&trace}
 
 	return pkt, nil
 }
@@ -216,4 +193,28 @@ func parseVersion(line string) (version, error) {
 	}
 
 	return v, nil
+}
+
+func packet(version version) *raven.Packet {
+	pkt := &raven.Packet{
+		Platform:    "go",
+		Release:     version.tag,
+		Environment: version.environment(),
+		Tags: raven.Tags{
+			raven.Tag{Key: "version", Value: version.version},
+			raven.Tag{Key: "tag", Value: version.tag},
+			raven.Tag{Key: "codename", Value: version.codename},
+			raven.Tag{Key: "runtime", Value: version.runtime},
+			raven.Tag{Key: "goos", Value: version.goos},
+			raven.Tag{Key: "goarch", Value: version.goarch},
+			raven.Tag{Key: "builder", Value: version.builder},
+		},
+	}
+	if version.commit != "" {
+		pkt.Tags = append(pkt.Tags, raven.Tag{Key: "commit", Value: version.commit})
+	}
+	for _, tag := range version.extra {
+		pkt.Tags = append(pkt.Tags, raven.Tag{Key: tag, Value: "1"})
+	}
+	return pkt
 }

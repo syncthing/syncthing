@@ -29,6 +29,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/failhandler"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
@@ -128,6 +129,9 @@ func (a *App) startup() error {
 		},
 		PassThroughPanics: true,
 	})
+
+	a.mainService.Add(failhandler.New(a.cfg, a.evLogger))
+
 	a.mainService.Add(a.ll)
 	a.mainService.ServeBackground()
 
