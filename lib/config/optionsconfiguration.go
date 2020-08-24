@@ -17,11 +17,11 @@ import (
 
 type OptionsConfiguration struct {
 	RawListenAddresses      []string `xml:"listenAddress" json:"listenAddresses" default:"default"`
-	RawGlobalAnnServers     []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" default:"default" restart:"true"`
-	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true" restart:"true"`
-	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true" restart:"true"`
-	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027" restart:"true"`
-	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027" restart:"true"`
+	RawGlobalAnnServers     []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" default:"default"`
+	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
+	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
+	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027"`
+	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027"`
 	MaxSendKbps             int      `xml:"maxSendKbps" json:"maxSendKbps"`
 	MaxRecvKbps             int      `xml:"maxRecvKbps" json:"maxRecvKbps"`
 	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
@@ -38,15 +38,15 @@ type OptionsConfiguration struct {
 	URURL                   string   `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"` // usage reporting URL
 	URPostInsecurely        bool     `xml:"urPostInsecurely" json:"urPostInsecurely" default:"false"`        // For testing
 	URInitialDelayS         int      `xml:"urInitialDelayS" json:"urInitialDelayS" default:"1800"`
-	RestartOnWakeup         bool     `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true" restart:"true"`
-	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12" restart:"true"` // 0 for off
-	UpgradeToPreReleases    bool     `xml:"upgradeToPreReleases" json:"upgradeToPreReleases" restart:"true"`              // when auto upgrades are enabled
-	KeepTemporariesH        int      `xml:"keepTemporariesH" json:"keepTemporariesH" default:"24"`                        // 0 for off
-	CacheIgnoredFiles       bool     `xml:"cacheIgnoredFiles" json:"cacheIgnoredFiles" default:"false" restart:"true"`
+	RestartOnWakeup         bool     `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true"`
+	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12"` // 0 for off
+	UpgradeToPreReleases    bool     `xml:"upgradeToPreReleases" json:"upgradeToPreReleases"`              // when auto upgrades are enabled
+	KeepTemporariesH        int      `xml:"keepTemporariesH" json:"keepTemporariesH" default:"24"`         // 0 for off
+	CacheIgnoredFiles       bool     `xml:"cacheIgnoredFiles" json:"cacheIgnoredFiles" default:"false"`
 	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" json:"progressUpdateIntervalS" default:"5"`
 	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
 	MinHomeDiskFree         Size     `xml:"minHomeDiskFree" json:"minHomeDiskFree" default:"1 %"`
-	ReleasesURL             string   `xml:"releasesURL" json:"releasesURL" default:"https://upgrades.syncthing.net/meta.json" restart:"true"`
+	ReleasesURL             string   `xml:"releasesURL" json:"releasesURL" default:"https://upgrades.syncthing.net/meta.json"`
 	AlwaysLocalNets         []string `xml:"alwaysLocalNet" json:"alwaysLocalNets"`
 	OverwriteRemoteDevNames bool     `xml:"overwriteRemoteDeviceNamesOnConnect" json:"overwriteRemoteDeviceNamesOnConnect" default:"false"`
 	TempIndexMinBlocks      int      `xml:"tempIndexMinBlocks" json:"tempIndexMinBlocks" default:"10"`
@@ -56,11 +56,11 @@ type OptionsConfiguration struct {
 	SetLowPriority          bool     `xml:"setLowPriority" json:"setLowPriority" default:"true"`
 	RawMaxFolderConcurrency int      `xml:"maxFolderConcurrency" json:"maxFolderConcurrency"`
 	CRURL                   string   `xml:"crashReportingURL" json:"crURL" default:"https://crash.syncthing.net/newcrash"` // crash reporting URL
-	CREnabled               bool     `xml:"crashReportingEnabled" json:"crashReportingEnabled" default:"true" restart:"true"`
-	StunKeepaliveStartS     int      `xml:"stunKeepaliveStartS" json:"stunKeepaliveStartS" default:"180"` // 0 for off
-	StunKeepaliveMinS       int      `xml:"stunKeepaliveMinS" json:"stunKeepaliveMinS" default:"20"`      // 0 for off
+	CREnabled               bool     `xml:"crashReportingEnabled" json:"crashReportingEnabled" default:"true"`             // Read in the monitor, but it's read before every attempt to report stuff, so does not require a restart.
+	StunKeepaliveStartS     int      `xml:"stunKeepaliveStartS" json:"stunKeepaliveStartS" default:"180"`                  // 0 for off
+	StunKeepaliveMinS       int      `xml:"stunKeepaliveMinS" json:"stunKeepaliveMinS" default:"20"`                       // 0 for off
 	RawStunServers          []string `xml:"stunServer" json:"stunServers" default:"default"`
-	DatabaseTuning          Tuning   `xml:"databaseTuning" json:"databaseTuning" restart:"true"`
+	DatabaseTuning          Tuning   `xml:"databaseTuning" json:"databaseTuning" restart:"true"` // Can't be adjusted once the database has been opened
 	RawMaxCIRequestKiB      int      `xml:"maxConcurrentIncomingRequestKiB" json:"maxConcurrentIncomingRequestKiB"`
 	AnnounceLANAddresses    bool     `xml:"announceLANAddresses" json:"announceLANAddresses" default:"true"`
 
@@ -202,6 +202,6 @@ func (opts OptionsConfiguration) MaxConcurrentIncomingRequestKiB() int {
 	return opts.RawMaxCIRequestKiB
 }
 
-func (opts OptionsConfiguration) ShouldAutoUpgrade() bool {
+func (opts OptionsConfiguration) AutoUpgradeEnabled() bool {
 	return opts.AutoUpgradeIntervalH > 0
 }
