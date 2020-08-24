@@ -22,6 +22,7 @@ func init() {
 
 type simple struct {
 	keep            int
+	cleanoutDays    int
 	folderFs        fs.Filesystem
 	versionsFs      fs.Filesystem
 	copyRangeMethod fs.CopyRangeMethod
@@ -29,12 +30,16 @@ type simple struct {
 
 func newSimple(cfg config.FolderConfiguration) Versioner {
 	var keep, err = strconv.Atoi(cfg.Versioning.Params["keep"])
+	cleanoutDays, _ := strconv.Atoi(cfg.Versioning.Params["cleanoutDays"])
+	// On error we default to 0, "do not clean out the trash can"
+
 	if err != nil {
 		keep = 5 // A reasonable default
 	}
 
 	s := simple{
 		keep:            keep,
+		cleanoutDays:    cleanoutDays,
 		folderFs:        cfg.Filesystem(),
 		versionsFs:      versionerFsFromFolderCfg(cfg),
 		copyRangeMethod: cfg.CopyRangeMethod,
@@ -75,6 +80,6 @@ func (v simple) Restore(filepath string, versionTime time.Time) error {
 	return restoreFile(v.copyRangeMethod, v.versionsFs, v.folderFs, filepath, versionTime, TagFilename)
 }
 
-func (v simple) Clean(_ context.Context) error {
-	return nil
+func (v simple) Clean(ctx context.Context) error {
+	return cleanByDay(ctx, v.versionsFs, v.cleanoutDays)
 }

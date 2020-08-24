@@ -28,8 +28,8 @@ require (
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.2.0
 	github.com/lucas-clemente/quic-go v0.18.0
-	github.com/maruel/panicparse v1.3.0
-	github.com/mattn/go-isatty v0.0.11
+	github.com/maruel/panicparse v1.5.1
+	github.com/mattn/go-isatty v0.0.12
 	github.com/minio/sha256-simd v0.1.1
 	github.com/oschwald/geoip2-golang v1.4.0
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
@@ -39,7 +39,7 @@ require (
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/shirou/gopsutil v2.20.7+incompatible
 	github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2
-	github.com/syndtr/goleveldb v1.0.1-0.20190923125748-758128399b1d
+	github.com/syndtr/goleveldb v1.0.1-0.20200815071216-d9e9293bd0f7
 	github.com/thejerf/suture v3.0.2+incompatible
 	github.com/urfave/cli v1.22.2
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
