@@ -14,11 +14,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
-type Size struct {
-	Value float64 `json:"value" xml:",chardata"`
-	Unit  string  `json:"unit" xml:"unit,attr"`
-}
-
 func ParseSize(s string) (Size, error) {
 	s = strings.TrimSpace(s)
 	if len(s) == 0 {

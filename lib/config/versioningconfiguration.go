@@ -14,13 +14,6 @@ import (
 	"github.com/syncthing/syncthing/lib/util"
 )
 
-// VersioningConfiguration is used in the code and for JSON serialization
-type VersioningConfiguration struct {
-	Type             string            `json:"type"`
-	Params           map[string]string `json:"params"`
-	CleanupIntervalS int               `json:"cleanupIntervalS" default:"3600"`
-}
-
 // internalVersioningConfiguration is used in XML serialization
 type internalVersioningConfiguration struct {
 	Type             string          `xml:"type,attr,omitempty"`

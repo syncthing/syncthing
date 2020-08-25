@@ -6,30 +6,19 @@
 
 package config
 
-type PullOrder int
-
-const (
-	OrderRandom PullOrder = iota // default is random
-	OrderAlphabetic
-	OrderSmallestFirst
-	OrderLargestFirst
-	OrderOldestFirst
-	OrderNewestFirst
-)
-
 func (o PullOrder) String() string {
 	switch o {
-	case OrderRandom:
+	case PullOrderRandom:
 		return "random"
-	case OrderAlphabetic:
+	case PullOrderAlphabetic:
 		return "alphabetic"
-	case OrderSmallestFirst:
+	case PullOrderSmallestFirst:
 		return "smallestFirst"
-	case OrderLargestFirst:
+	case PullOrderLargestFirst:
 		return "largestFirst"
-	case OrderOldestFirst:
+	case PullOrderOldestFirst:
 		return "oldestFirst"
-	case OrderNewestFirst:
+	case PullOrderNewestFirst:
 		return "newestFirst"
 	default:
 		return "unknown"
@@ -43,19 +32,19 @@ func (o PullOrder) MarshalText() ([]byte, error) {
 func (o *PullOrder) UnmarshalText(bs []byte) error {
 	switch string(bs) {
 	case "random":
-		*o = OrderRandom
+		*o = PullOrderRandom
 	case "alphabetic":
-		*o = OrderAlphabetic
+		*o = PullOrderAlphabetic
 	case "smallestFirst":
-		*o = OrderSmallestFirst
+		*o = PullOrderSmallestFirst
 	case "largestFirst":
-		*o = OrderLargestFirst
+		*o = PullOrderLargestFirst
 	case "oldestFirst":
-		*o = OrderOldestFirst
+		*o = PullOrderOldestFirst
 	case "newestFirst":
-		*o = OrderNewestFirst
+		*o = PullOrderNewestFirst
 	default:
-		*o = OrderRandom
+		*o = PullOrderRandom
 	}
 	return nil
 }

@@ -748,7 +748,7 @@ func setupSignalHandling(app *syncthing.App) {
 
 func loadOrDefaultConfig(myID protocol.DeviceID, evLogger events.Logger) (config.Wrapper, error) {
 	cfgFile := locations.Get(locations.ConfigFile)
-	cfg, err := config.Load(cfgFile, myID, evLogger)
+	cfg, _, err := config.Load(cfgFile, myID, evLogger)
 
 	if err != nil {
 		cfg, err = syncthing.DefaultConfig(cfgFile, myID, evLogger, noDefaultFolder)
