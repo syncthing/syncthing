@@ -75,8 +75,9 @@ func (h *handler) serve(ctx context.Context) error {
 	var url string
 	var err error
 	var sub events.Subscription
-	ticker := time.NewTicker(minDelay)
-	for err == nil {
+	timer := time.NewTimer(minDelay)
+outer:
+	for {
 		select {
 		case opts := <-h.optsChan:
 			// Sub nil checks just for safety - config updates can be racy.
@@ -101,8 +102,9 @@ func (h *handler) serve(ctx context.Context) error {
 				last:  e.Time,
 				count: 1,
 			}
-		case now := <-ticker.C:
+		case <-timer.C:
 			reports := make([]Report, 0, len(h.buf))
+			now := time.Now()
 			for descr, stat := range h.buf {
 				if now.Sub(stat.last) > minDelay || now.Sub(stat.first) > maxDelay {
 					reports = append(reports, Report{
@@ -114,10 +116,14 @@ func (h *handler) serve(ctx context.Context) error {
 				}
 			}
 			if len(reports) > 0 {
-				err = sendReports(ctx, reports, url)
+				// Lets keep process events/configs while it might be timing out for a while
+				go func() {
+					sendReports(ctx, reports, url)
+					timer.Reset(minDelay)
+				}()
 			}
 		case <-ctx.Done():
-			err = ctx.Err()
+			break outer
 		}
 	}
 
@@ -142,24 +148,26 @@ func (h *handler) String() string {
 	return "FailHandler"
 }
 
-func sendReports(ctx context.Context, reports []Report, url string) error {
+func sendReports(ctx context.Context, reports []Report, url string) {
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(reports); err != nil {
-		return err
+		panic(err)
 	}
 
 	reqCtx, reqCancel := context.WithTimeout(ctx, sendTimeout)
 	defer reqCancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, &b)
 	if err != nil {
-		return err
+		l.Infoln("Failed to send failure report:", err)
+		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		l.Infoln("Failed to send failure report:", err)
+		return
 	}
 	resp.Body.Close()
-	return nil
+	return
 }
