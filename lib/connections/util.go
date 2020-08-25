@@ -71,10 +71,9 @@ func getHostPortsForAllAdapters(port int) []string {
 	portStr := strconv.Itoa(port)
 
 	for _, network := range nets {
-		// See: https://en.wikipedia.org/wiki/IPv6_address#Modified_EUI-64
-		//      https://tools.ietf.org/html/rfc2464#section-4
-		if len(network.IP) == net.IPv6len && network.IP[11] == 0xFF && network.IP[12] == 0xFE {
-			// Contains a mac address.
+		// Only IPv4 addresses, as v6 link local require an interface identifiers to work correctly
+		// And non link local in theory are globally routable anyway.
+		if network.IP.To4() == nil {
 			continue
 		}
 		if network.IP.IsLinkLocalUnicast() || (isV4Local(network.IP) && network.IP.IsGlobalUnicast()) {
