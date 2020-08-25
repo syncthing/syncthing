@@ -89,7 +89,7 @@ func (h *handler) serve(ctx context.Context) error {
 				sub.Unsubscribe()
 				sub = nil
 			}
-			url = opts.CRURL
+			url = opts.CRURL + "/failure"
 		case e := <-h.evChan:
 			descr := e.Data.(string)
 			if stat, ok := h.buf[descr]; ok {
