@@ -6,14 +6,6 @@
 
 package config
 
-type LDAPTransport int
-
-const (
-	LDAPTransportPlain LDAPTransport = iota // default is plain
-	LDAPTransportTLS
-	LDAPTransportStartTLS
-)
-
 func (t LDAPTransport) String() string {
 	switch t {
 	case LDAPTransportPlain:

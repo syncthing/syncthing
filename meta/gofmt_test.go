@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -25,7 +26,7 @@ func TestCheckGoFmt(t *testing.T) {
 			if path == ".git" {
 				return filepath.SkipDir
 			}
-			if filepath.Ext(path) != ".go" {
+			if filepath.Ext(path) != ".go" || strings.HasSuffix(path, ".pb.go") {
 				return nil
 			}
 			cmd := exec.Command("gofmt", "-s", "-d", path)

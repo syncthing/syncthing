@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package fs;
+
+enum CopyRangeMethod {
+    COPY_RANGE_METHOD_STANDARD          = 0;
+    COPY_RANGE_METHOD_IOCTL             = 1;
+    COPY_RANGE_METHOD_COPY_FILE_RANGE   = 2;
+    COPY_RANGE_METHOD_SEND_FILE         = 3;
+    COPY_RANGE_METHOD_DUPLICATE_EXTENTS = 4;
+    COPY_RANGE_METHOD_ALL_WITH_FALLBACK = 5;
+}

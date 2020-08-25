@@ -6,17 +6,6 @@
 
 package fs
 
-type CopyRangeMethod int
-
-const (
-	CopyRangeMethodStandard CopyRangeMethod = iota
-	CopyRangeMethodIoctl
-	CopyRangeMethodCopyFileRange
-	CopyRangeMethodSendFile
-	CopyRangeMethodDuplicateExtents
-	CopyRangeMethodAllWithFallback
-)
-
 func (o CopyRangeMethod) String() string {
 	switch o {
 	case CopyRangeMethodStandard:

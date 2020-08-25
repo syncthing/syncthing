@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package config;
+
+enum FolderType {
+    FOLDER_TYPE_SEND_RECEIVE = 0;
+    FOLDER_TYPE_SEND_ONLY    = 1;
+    FOLDER_TYPE_RECEIVE_ONLY = 2;
+}

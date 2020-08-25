@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package config;
+
+import "ext.proto";
+
+// VersioningConfiguration is used in the code and for JSON serialization
+message VersioningConfiguration {
+    option (ext.xml_tags) = false;
+
+    string              type               = 1;
+    map<string, string> parameters         = 2 [(ext.goname) = "Params", (ext.json) = "params"];
+    int32               cleanup_interval_s = 3 [(ext.default) = "3600"];
+}

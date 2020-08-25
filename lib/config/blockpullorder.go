@@ -6,14 +6,6 @@
 
 package config
 
-type BlockPullOrder int
-
-const (
-	BlockPullOrderStandard BlockPullOrder = iota // default is standard
-	BlockPullOrderRandom
-	BlockPullOrderInOrder
-)
-
 func (o BlockPullOrder) String() string {
 	switch o {
 	case BlockPullOrderStandard:
