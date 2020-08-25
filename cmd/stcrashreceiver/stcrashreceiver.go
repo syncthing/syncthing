@@ -19,8 +19,6 @@ import (
 	"strings"
 )
 
-const maxCrashRequestSize = 1 << 20 // 1 MiB
-
 type crashReceiver struct {
 	dir string
 	dsn string
@@ -95,9 +93,9 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 		return
 	}
 
-	// Read at most maxCrashRequestSize of report data.
+	// Read at most maxRequestSize of report data.
 	log.Println("Receiving report", reportID)
-	lr := io.LimitReader(req.Body, maxCrashRequestSize)
+	lr := io.LimitReader(req.Body, maxRequestSize)
 	bs, err := ioutil.ReadAll(lr)
 	if err != nil {
 		log.Println("Reading report:", err)

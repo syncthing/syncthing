@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -28,6 +29,8 @@ import (
 
 	raven "github.com/getsentry/raven-go"
 )
+
+const maxRequestSize = 1 << 20 // 1 MiB
 
 func main() {
 	dir := flag.String("dir", ".", "Directory to store reports in")
@@ -55,7 +58,8 @@ func main() {
 
 func handleFailureFn(dsn string) func(w http.ResponseWriter, req *http.Request) {
 	return func(w http.ResponseWriter, req *http.Request) {
-		bs, err := ioutil.ReadAll(req.Body)
+		lr := io.LimitReader(req.Body, maxRequestSize)
+		bs, err := ioutil.ReadAll(lr)
 		req.Body.Close()
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -80,7 +84,7 @@ func handleFailureFn(dsn string) func(w http.ResponseWriter, req *http.Request) 
 		}
 		for _, r := range reports {
 			pkt := packet(version)
-			pkt.Message = r.Descr
+			pkt.Message = r.Description
 			pkt.Extra = raven.Extra{
 				"count": r.Count,
 			}

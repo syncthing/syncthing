@@ -15,6 +15,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/util"
 
@@ -31,9 +32,9 @@ var (
 )
 
 type Report struct {
-	Descr   string
-	Count   int
-	Version string
+	Description string
+	Count       int
+	Version     string
 }
 
 type Handler interface {
@@ -108,9 +109,9 @@ outer:
 			for descr, stat := range h.buf {
 				if now.Sub(stat.last) > minDelay || now.Sub(stat.first) > maxDelay {
 					reports = append(reports, Report{
-						Descr:   descr,
-						Count:   stat.count,
-						Version: build.LongVersion,
+						Description: descr,
+						Count:       stat.count,
+						Version:     build.LongVersion,
 					})
 					delete(h.buf, descr)
 				}
@@ -154,6 +155,13 @@ func sendReports(ctx context.Context, reports []Report, url string) {
 		panic(err)
 	}
 
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: dialer.DialContext,
+			Proxy:       http.ProxyFromEnvironment,
+		},
+	}
+
 	reqCtx, reqCancel := context.WithTimeout(ctx, sendTimeout)
 	defer reqCancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, &b)
@@ -163,7 +171,7 @@ func sendReports(ctx context.Context, reports []Report, url string) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		l.Infoln("Failed to send failure report:", err)
 		return
