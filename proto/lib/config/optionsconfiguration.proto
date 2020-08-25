@@ -54,6 +54,8 @@ message OptionsConfiguration {
     repeated string stun_servers                             = 45 [(ext.goname) = "RawStunServers", (ext.default) = "default"];
     Tuning          database_tuning                          = 46 [(ext.restart) = true];
     int32           max_concurrent_incoming_request_kib      = 47 [(ext.goname) = "RawMaxCIRequestKiB", (ext.xml) = "maxConcurrentIncomingRequestKiB", (ext.json) = "maxConcurrentIncomingRequestKiB"];
+    bool            announce_lan_addresses                   = 48 [(ext.goname)= "AnnounceLANAddresses", (ext.xml) = "announceLANAddresses", (ext.json) = "announceLANAddresses", (ext.default) = "true"];
+
 
     // Legacy deprecated
     bool            upnp_enabled           = 9000 [deprecated = true, (ext.goname) = "DeprecatedUPnPEnabled"];

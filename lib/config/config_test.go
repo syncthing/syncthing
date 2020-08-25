@@ -76,6 +76,7 @@ func TestDefaultValues(t *testing.T) {
 		StunKeepaliveStartS:     180,
 		StunKeepaliveMinS:       20,
 		RawStunServers:          []string{"default"},
+		AnnounceLANAddresses:    true,
 	}
 
 	cfg := New(device1)
