@@ -144,7 +144,7 @@
               <span translate ng-if="folderEditor.externalCommand.$error.required && folderEditor.externalCommand.$dirty">The path cannot be blank.</span>
             </p>
           </div>
-          <div class="form-group" ng-if="currentFolder.fileVersioningSelector == 'none'" ng-class="{'has-error': folderEditor.versioningCleanupIntervalS.$invalid && folderEditor.versioningCleanupIntervalS.$dirty}">
+          <div class="form-group" ng-if="currentFolder.fileVersioningSelector != 'none'" ng-class="{'has-error': folderEditor.versioningCleanupIntervalS.$invalid && folderEditor.versioningCleanupIntervalS.$dirty}">
             <label translate for="versioningCleanupIntervalS">Cleanup Interval</label>
             <div class="input-group">
               <input name="versioningCleanupIntervalS" id="versioningCleanupIntervalS" class="form-control text-right" type="number" ng-model="currentFolder.versioningCleanupIntervalS" required="" min="0" max="31536000" aria-required="true" />
