@@ -61,18 +61,17 @@ type copyBlocksState struct {
 const retainBits = fs.ModeSetgid | fs.ModeSetuid | fs.ModeSticky
 
 var (
-	activity                    = newDeviceActivity()
-	errNoDevice                 = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
-	errDirPrefix                = "directory has been deleted on a remote device but "
-	errDirHasToBeScanned        = errors.New(errDirPrefix + "contains changed files, scheduling scan")
-	errDirHasIgnored            = errors.New(errDirPrefix + "contains ignored files (see ignore documentation for (?d) prefix)")
-	errDirHasReceiveOnlyChanged = errors.New(errDirPrefix + "contains locally changed files")
-	errDirNotEmpty              = errors.New(errDirPrefix + "is not empty; the contents are probably ignored on that remote device, but not locally")
-	errNotAvailable             = errors.New("no connected device has the required version of this file")
-	errModified                 = errors.New("file modified but not rescanned; will try again later")
-	errUnexpectedDirOnFileDel   = errors.New("encountered directory when trying to remove file/symlink")
-	errIncompatibleSymlink      = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
-	contextRemovingOldItem      = "removing item to be replaced"
+	activity                  = newDeviceActivity()
+	errNoDevice               = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
+	errDirPrefix              = "directory has been deleted on a remote device but "
+	errDirHasToBeScanned      = errors.New(errDirPrefix + "contains changed files, scheduling scan")
+	errDirHasIgnored          = errors.New(errDirPrefix + "contains ignored files (see ignore documentation for (?d) prefix)")
+	errDirNotEmpty            = errors.New(errDirPrefix + "is not empty; the contents are probably ignored on that remote device, but not locally")
+	errNotAvailable           = errors.New("no connected device has the required version of this file")
+	errModified               = errors.New("file modified but not rescanned; will try again later")
+	errUnexpectedDirOnFileDel = errors.New("encountered directory when trying to remove file/symlink")
+	errIncompatibleSymlink    = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
+	contextRemovingOldItem    = "removing item to be replaced"
 )
 
 type dbUpdateType int
@@ -421,17 +420,17 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 	// Now do the file queue. Reorder it according to configuration.
 
 	switch f.Order {
-	case config.OrderRandom:
+	case config.PullOrderRandom:
 		f.queue.Shuffle()
-	case config.OrderAlphabetic:
+	case config.PullOrderAlphabetic:
 	// The queue is already in alphabetic order.
-	case config.OrderSmallestFirst:
+	case config.PullOrderSmallestFirst:
 		f.queue.SortSmallestFirst()
-	case config.OrderLargestFirst:
+	case config.PullOrderLargestFirst:
 		f.queue.SortLargestFirst()
-	case config.OrderOldestFirst:
+	case config.PullOrderOldestFirst:
 		f.queue.SortOldestFirst()
-	case config.OrderNewestFirst:
+	case config.PullOrderNewestFirst:
 		f.queue.SortNewestFirst()
 	}
 
@@ -652,7 +651,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	// don't handle modification times on directories, because that sucks...)
 	// It's OK to change mode bits on stuff within non-writable directories.
 	if !f.IgnorePerms && !file.NoPermissions {
-		if err := f.fs.Chmod(file.Name, mode|(fs.FileMode(info.Mode())&retainBits)); err != nil {
+		if err := f.fs.Chmod(file.Name, mode|(info.Mode()&retainBits)); err != nil {
 			f.newPullError(file.Name, err)
 			return
 		}
@@ -963,7 +962,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	default:
 		var fi protocol.FileInfo
 		if fi, err = scanner.CreateFileInfo(stat, target.Name, f.fs); err == nil {
-			if !fi.IsEquivalentOptional(curTarget, f.ModTimeWindow(), f.IgnorePerms, true, protocol.LocalAllFlags) {
+			if !fi.IsEquivalentOptional(curTarget, f.modTimeWindow, f.IgnorePerms, true, protocol.LocalAllFlags) {
 				// Target changed
 				scanChan <- target.Name
 				err = errModified
@@ -1875,7 +1874,7 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 			hasToBeScanned = true
 			continue
 		}
-		if !cf.IsEquivalentOptional(diskFile, f.ModTimeWindow(), f.IgnorePerms, true, protocol.LocalAllFlags) {
+		if !cf.IsEquivalentOptional(diskFile, f.modTimeWindow, f.IgnorePerms, true, protocol.LocalAllFlags) {
 			// File on disk changed compared to what we have in db
 			// -> schedule scan.
 			scanChan <- fullDirFile
@@ -1894,7 +1893,10 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 		return errDirHasIgnored
 	}
 	if hasReceiveOnlyChanged {
-		return errDirHasReceiveOnlyChanged
+		// Pretend we deleted the directory. It will be resurrected as a
+		// receive-only changed item on scan.
+		scanChan <- dir
+		return nil
 	}
 	if hasKnown {
 		return errDirNotEmpty
@@ -1944,7 +1946,7 @@ func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, ite
 		return errors.Wrap(err, "comparing item on disk to db")
 	}
 
-	if !statItem.IsEquivalentOptional(item, f.ModTimeWindow(), f.IgnorePerms, true, protocol.LocalAllFlags) {
+	if !statItem.IsEquivalentOptional(item, f.modTimeWindow, f.IgnorePerms, true, protocol.LocalAllFlags) {
 		return errModified
 	}
 

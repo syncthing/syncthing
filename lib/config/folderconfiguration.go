@@ -28,53 +28,6 @@ var (
 
 const DefaultMarkerName = ".stfolder"
 
-type FolderConfiguration struct {
-	ID                      string                      `xml:"id,attr" json:"id"`
-	Label                   string                      `xml:"label,attr" json:"label" restart:"false"`
-	FilesystemType          fs.FilesystemType           `xml:"filesystemType" json:"filesystemType"`
-	Path                    string                      `xml:"path,attr" json:"path"`
-	Type                    FolderType                  `xml:"type,attr" json:"type"`
-	Devices                 []FolderDeviceConfiguration `xml:"device" json:"devices"`
-	RescanIntervalS         int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS" default:"3600"`
-	FSWatcherEnabled        bool                        `xml:"fsWatcherEnabled,attr" json:"fsWatcherEnabled" default:"true"`
-	FSWatcherDelayS         int                         `xml:"fsWatcherDelayS,attr" json:"fsWatcherDelayS" default:"10"`
-	IgnorePerms             bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
-	AutoNormalize           bool                        `xml:"autoNormalize,attr" json:"autoNormalize" default:"true"`
-	MinDiskFree             Size                        `xml:"minDiskFree" json:"minDiskFree" default:"1%"`
-	Versioning              VersioningConfiguration     `xml:"versioning" json:"versioning"`
-	Copiers                 int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
-	PullerMaxPendingKiB     int                         `xml:"pullerMaxPendingKiB" json:"pullerMaxPendingKiB"`
-	Hashers                 int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
-	Order                   PullOrder                   `xml:"order" json:"order"`
-	IgnoreDelete            bool                        `xml:"ignoreDelete" json:"ignoreDelete"`
-	ScanProgressIntervalS   int                         `xml:"scanProgressIntervalS" json:"scanProgressIntervalS"` // Set to a negative value to disable. Value of 0 will get replaced with value of 2 (default value)
-	PullerPauseS            int                         `xml:"pullerPauseS" json:"pullerPauseS"`
-	MaxConflicts            int                         `xml:"maxConflicts" json:"maxConflicts" default:"-1"`
-	DisableSparseFiles      bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
-	DisableTempIndexes      bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
-	Paused                  bool                        `xml:"paused" json:"paused"`
-	WeakHashThresholdPct    int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
-	MarkerName              string                      `xml:"markerName" json:"markerName"`
-	CopyOwnershipFromParent bool                        `xml:"copyOwnershipFromParent" json:"copyOwnershipFromParent"`
-	RawModTimeWindowS       int                         `xml:"modTimeWindowS" json:"modTimeWindowS"`
-	MaxConcurrentWrites     int                         `xml:"maxConcurrentWrites" json:"maxConcurrentWrites" default:"2"`
-	DisableFsync            bool                        `xml:"disableFsync" json:"disableFsync"`
-	BlockPullOrder          BlockPullOrder              `xml:"blockPullOrder" json:"blockPullOrder"`
-	CopyRangeMethod         fs.CopyRangeMethod          `xml:"copyRangeMethod" json:"copyRangeMethod" default:"standard"`
-	CaseSensitiveFS         bool                        `xml:"caseSensitiveFS" json:"caseSensitiveFS"`
-
-	cachedModTimeWindow time.Duration
-
-	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
-	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
-	DeprecatedPullers        int     `xml:"pullers,omitempty" json:"-"`
-}
-
-type FolderDeviceConfiguration struct {
-	DeviceID     protocol.DeviceID `xml:"id,attr" json:"deviceID"`
-	IntroducedBy protocol.DeviceID `xml:"introducedBy,attr" json:"introducedBy"`
-}
-
 func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
 	f := FolderConfiguration{
 		ID:             id,
@@ -101,7 +54,11 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Filesystem() should be valid.
-	filesystem := fs.NewFilesystem(f.FilesystemType, f.Path)
+	var opts []fs.Option
+	if f.FilesystemType == fs.FilesystemTypeBasic && f.JunctionsAsDirs {
+		opts = append(opts, fs.WithJunctionsAsDirs())
+	}
+	filesystem := fs.NewFilesystem(f.FilesystemType, f.Path, opts...)
 	if !f.CaseSensitiveFS {
 		filesystem = fs.NewCaseFilesystem(filesystem)
 	}
@@ -109,7 +66,19 @@ func (f FolderConfiguration) Filesystem() fs.Filesystem {
 }
 
 func (f FolderConfiguration) ModTimeWindow() time.Duration {
-	return f.cachedModTimeWindow
+	dur := time.Duration(f.RawModTimeWindowS) * time.Second
+	if f.RawModTimeWindowS < 1 && runtime.GOOS == "android" {
+		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil {
+			dur = 2 * time.Second
+			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: err == "%v"`, f.Path, err)
+		} else if usage.Fstype == "" || strings.Contains(strings.ToLower(usage.Fstype), "fat") {
+			dur = 2 * time.Second
+			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: usage.Fstype == "%v"`, f.Path, usage.Fstype)
+		} else {
+			l.Debugf(`Detecting FS at %v on android: Leaving mtime window at 0: usage.Fstype == "%v"`, f.Path, usage.Fstype)
+		}
+	}
+	return dur
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
@@ -236,21 +205,6 @@ func (f *FolderConfiguration) prepare() {
 
 	if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
-	}
-
-	switch {
-	case f.RawModTimeWindowS > 0:
-		f.cachedModTimeWindow = time.Duration(f.RawModTimeWindowS) * time.Second
-	case runtime.GOOS == "android":
-		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil {
-			f.cachedModTimeWindow = 2 * time.Second
-			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: err == "%v"`, f.Path, err)
-		} else if usage.Fstype == "" || strings.Contains(strings.ToLower(usage.Fstype), "fat") {
-			f.cachedModTimeWindow = 2 * time.Second
-			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: usage.Fstype == "%v"`, f.Path, usage.Fstype)
-		} else {
-			l.Debugf(`Detecting FS at %v on android: Leaving mtime window at 0: usage.Fstype == "%v"`, f.Path, usage.Fstype)
-		}
 	}
 }
 
