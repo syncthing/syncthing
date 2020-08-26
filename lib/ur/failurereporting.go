@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package failhandler
+package ur
 
 import (
 	"bytes"
@@ -31,19 +31,19 @@ var (
 	sendTimeout = time.Minute
 )
 
-type Report struct {
+type FailureReport struct {
 	Description string
 	Count       int
 	Version     string
 }
 
-type Handler interface {
+type FailureHandler interface {
 	suture.Service
 	config.Committer
 }
 
-func New(cfg config.Wrapper, evLogger events.Logger) Handler {
-	h := &handler{
+func NewFailureHandler(cfg config.Wrapper, evLogger events.Logger) FailureHandler {
+	h := &failureHandler{
 		cfg:      cfg,
 		evLogger: evLogger,
 		optsChan: make(chan config.OptionsConfiguration),
@@ -52,7 +52,7 @@ func New(cfg config.Wrapper, evLogger events.Logger) Handler {
 	return h
 }
 
-type handler struct {
+type failureHandler struct {
 	suture.Service
 	cfg      config.Wrapper
 	evLogger events.Logger
@@ -66,7 +66,7 @@ type stat struct {
 	count       int
 }
 
-func (h *handler) serve(ctx context.Context) error {
+func (h *failureHandler) serve(ctx context.Context) error {
 	go func() {
 		h.optsChan <- h.cfg.Options()
 	}()
@@ -82,7 +82,7 @@ outer:
 		select {
 		case opts := <-h.optsChan:
 			// Sub nil checks just for safety - config updates can be racy.
-			if opts.CREnabled {
+			if opts.URAccepted > 0 {
 				if sub == nil {
 					sub = h.evLogger.Subscribe(events.Failure)
 					h.evChan = sub.C()
@@ -104,11 +104,11 @@ outer:
 				count: 1,
 			}
 		case <-timer.C:
-			reports := make([]Report, 0, len(h.buf))
+			reports := make([]FailureReport, 0, len(h.buf))
 			now := time.Now()
 			for descr, stat := range h.buf {
 				if now.Sub(stat.last) > minDelay || now.Sub(stat.first) > maxDelay {
-					reports = append(reports, Report{
+					reports = append(reports, FailureReport{
 						Description: descr,
 						Count:       stat.count,
 						Version:     build.LongVersion,
@@ -119,7 +119,7 @@ outer:
 			if len(reports) > 0 {
 				// Lets keep process events/configs while it might be timing out for a while
 				go func() {
-					sendReports(ctx, reports, url)
+					sendFailureReports(ctx, reports, url)
 					timer.Reset(minDelay)
 				}()
 			}
@@ -134,22 +134,22 @@ outer:
 	return err
 }
 
-func (h *handler) VerifyConfiguration(_, _ config.Configuration) error {
+func (h *failureHandler) VerifyConfiguration(_, _ config.Configuration) error {
 	return nil
 }
 
-func (h *handler) CommitConfiguration(from, to config.Configuration) bool {
+func (h *failureHandler) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.CREnabled != to.Options.CREnabled || from.Options.CRURL != to.Options.CRURL {
 		h.optsChan <- to.Options
 	}
 	return true
 }
 
-func (h *handler) String() string {
-	return "FailHandler"
+func (h *failureHandler) String() string {
+	return "FailureHandler"
 }
 
-func sendReports(ctx context.Context, reports []Report, url string) {
+func sendFailureReports(ctx context.Context, reports []FailureReport, url string) {
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(reports); err != nil {
 		panic(err)

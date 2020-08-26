@@ -24,8 +24,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/failhandler"
 	"github.com/syncthing/syncthing/lib/sha256"
+	"github.com/syncthing/syncthing/lib/ur"
 
 	raven "github.com/getsentry/raven-go"
 )
@@ -66,7 +66,7 @@ func handleFailureFn(dsn string) func(w http.ResponseWriter, req *http.Request) 
 			return
 		}
 
-		var reports []failhandler.Report
+		var reports []ur.FailureReport
 		err = json.Unmarshal(bs, &reports)
 		if err != nil {
 			http.Error(w, err.Error(), 400)
