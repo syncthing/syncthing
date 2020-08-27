@@ -1019,6 +1019,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			// that might not exist until the config is committed.
 			w, _ := m.cfg.SetFolders(changedFolders)
 			w.Wait()
+			changed = true
 		}
 	}
 
