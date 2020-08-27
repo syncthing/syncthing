@@ -91,8 +91,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 	svc, conn := stun.New(t.cfg, t, packetConn)
 	defer func() { _ = conn.Close() }()
 
-	go svc.Serve()
-	defer svc.Stop()
+	go svc.Serve(ctx)
 
 	registry.Register(t.uri.Scheme, conn)
 	defer registry.Unregister(t.uri.Scheme, conn)
@@ -206,7 +205,7 @@ func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.
 		conns:   conns,
 		factory: f,
 	}
-	l.ServiceWithError = util.AsServiceWithError(l.serve, l.String())
+	l.ServiceWithError = util.AsService(l.serve, l.String())
 	l.nat.Store(stun.NATUnknown)
 	return l
 }

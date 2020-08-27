@@ -120,7 +120,7 @@ func createTmpWrapper(cfg config.Configuration) config.Wrapper {
 	return wrapper
 }
 
-func newState(cfg config.Configuration) *model {
+func newState(cfg config.Configuration) *testModel {
 	wcfg := createTmpWrapper(cfg)
 
 	m := setupModel(wcfg)
@@ -1396,7 +1396,7 @@ func TestAutoAcceptEnc(t *testing.T) {
 	}
 }
 
-func changeIgnores(t *testing.T, m *model, expected []string) {
+func changeIgnores(t *testing.T, m *testModel, expected []string) {
 	arrEqual := func(a, b []string) bool {
 		if len(a) != len(b) {
 			return false
@@ -4205,7 +4205,7 @@ func TestNeedMetaAfterIndexReset(t *testing.T) {
 func TestCcCheckEncryption(t *testing.T) {
 	w, fcfg := tmpDefaultWrapper()
 	m := setupModel(w)
-	m.Stop()
+	m.cancel()
 	defer cleanupModel(m)
 
 	pw := "foo"

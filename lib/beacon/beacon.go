@@ -12,7 +12,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/util"
 )
@@ -51,16 +51,18 @@ func newCast(name string) *cast {
 	spec.FailureThreshold = 2
 	spec.FailureBackoff = 60 * time.Second
 	// Only log restarts in debug mode.
-	spec.Log = func(line string) {
-		l.Debugln(line)
+	spec.EventHook = func(e suture.Event) {
+		l.Debugln(e)
 	}
-	return &cast{
+	c := &cast{
 		Supervisor: suture.New(name, spec),
 		name:       name,
 		inbox:      make(chan []byte),
 		outbox:     make(chan recv, 16),
 		stopped:    make(chan struct{}),
 	}
+	util.OnSupervisorDone(c.Supervisor, func() { close(c.stopped) })
+	return c
 }
 
 func (c *cast) addReader(svc func(context.Context) error) {
@@ -74,17 +76,7 @@ func (c *cast) addWriter(svc func(ctx context.Context) error) {
 }
 
 func (c *cast) createService(svc func(context.Context) error, suffix string) util.ServiceWithError {
-	return util.AsServiceWithError(func(ctx context.Context) error {
-		l.Debugln("Starting", c.name, suffix)
-		err := svc(ctx)
-		l.Debugf("Stopped %v %v: %v", c.name, suffix, err)
-		return err
-	}, fmt.Sprintf("%s/%s", c, suffix))
-}
-
-func (c *cast) Stop() {
-	c.Supervisor.Stop()
-	close(c.stopped)
+	return util.AsService(svc, fmt.Sprintf("%s/%s", c, suffix))
 }
 
 func (c *cast) String() string {

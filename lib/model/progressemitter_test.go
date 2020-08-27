@@ -53,9 +53,10 @@ func expectTimeout(w events.Subscription, t *testing.T) {
 }
 
 func TestProgressEmitter(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
 	evLogger := events.NewLogger()
-	go evLogger.Serve()
-	defer evLogger.Stop()
+	go evLogger.Serve(ctx)
+	defer cancel()
 
 	w := evLogger.Subscribe(events.DownloadProgress)
 
@@ -66,8 +67,7 @@ func TestProgressEmitter(t *testing.T) {
 	})
 
 	p := NewProgressEmitter(c, evLogger)
-	go p.Serve()
-	defer p.Stop()
+	go p.Serve(ctx)
 	p.interval = 0
 
 	expectTimeout(w, t)
@@ -118,9 +118,10 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 
 	fc := &fakeConnection{}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	evLogger := events.NewLogger()
-	go evLogger.Serve()
-	defer evLogger.Stop()
+	go evLogger.Serve(ctx)
+	defer cancel()
 
 	p := NewProgressEmitter(c, evLogger)
 	p.temporaryIndexSubscribe(fc, []string{"folder", "folder2"})

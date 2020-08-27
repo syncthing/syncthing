@@ -15,19 +15,14 @@ import (
 	stdsync "sync"
 	"time"
 
-	"github.com/thejerf/suture"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // Service runs a loop for discovery of IGDs (Internet Gateway Devices) and
 // setup/renewal of a port mapping.
 type Service struct {
-	suture.Service
-
 	id               protocol.DeviceID
 	cfg              config.Wrapper
 	processScheduled chan struct{}
@@ -45,8 +40,6 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 
 		mut: sync.NewRWMutex(),
 	}
-	s.Service = util.AsService(s.serve, s.String())
-	cfg.Subscribe(s)
 	cfgCopy := cfg.RawCopy()
 	s.CommitConfiguration(cfgCopy, cfgCopy)
 	return s
@@ -70,12 +63,10 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (s *Service) Stop() {
-	s.cfg.Unsubscribe(s)
-	s.Service.Stop()
-}
+func (s *Service) Serve(ctx context.Context) error {
+	s.cfg.Subscribe(s)
+	defer s.cfg.Unsubscribe(s)
 
-func (s *Service) serve(ctx context.Context) {
 	announce := stdsync.Once{}
 
 	timer := time.NewTimer(0)
@@ -97,7 +88,7 @@ func (s *Service) serve(ctx context.Context) {
 				mapping.clearAddresses()
 			}
 			s.mut.RUnlock()
-			return
+			return nil
 		}
 		s.mut.RLock()
 		enabled := s.enabled

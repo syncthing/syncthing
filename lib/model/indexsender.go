@@ -12,17 +12,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 type indexSender struct {
-	suture.Service
 	conn                     protocol.Connection
 	folder                   string
 	folderIsReceiveEncrypted bool
@@ -36,7 +34,7 @@ type indexSender struct {
 	resumeChan               chan *db.FileSet
 }
 
-func (s *indexSender) serve(ctx context.Context) {
+func (s *indexSender) Serve(ctx context.Context) error {
 	var err error
 
 	l.Debugf("Starting indexSender for %s to %s at %s (slv=%d)", s.folder, s.conn.ID(), s.conn, s.prevSequence)
@@ -59,9 +57,9 @@ func (s *indexSender) serve(ctx context.Context) {
 	for err == nil {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		case <-s.connClosed:
-			return
+			return nil
 		default:
 		}
 
@@ -72,9 +70,9 @@ func (s *indexSender) serve(ctx context.Context) {
 		if s.fset.Sequence(protocol.LocalDeviceID) <= s.prevSequence {
 			select {
 			case <-ctx.Done():
-				return
+				return nil
 			case <-s.connClosed:
-				return
+				return nil
 			case <-evChan:
 			case <-ticker.C:
 			case <-s.pauseChan:
@@ -95,6 +93,8 @@ func (s *indexSender) serve(ctx context.Context) {
 		// time to batch them up a little.
 		time.Sleep(250 * time.Millisecond)
 	}
+
+	return nil
 }
 
 // Complete implements the suture.IsCompletable interface. When Serve terminates
@@ -333,7 +333,6 @@ func (r *indexSenderRegistry) startLocked(folderID string, fset *db.FileSet, sta
 		pauseChan:    make(chan struct{}),
 		resumeChan:   make(chan *db.FileSet),
 	}
-	is.Service = util.AsService(is.serve, is.String())
 	is.token = r.sup.Add(is)
 	r.indexSenders[folderID] = is
 }

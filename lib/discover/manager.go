@@ -13,7 +13,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -46,7 +46,7 @@ type manager struct {
 }
 
 func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister) Manager {
-	return &manager{
+	m := &manager{
 		Supervisor:    suture.New("discover.Manager", util.Spec()),
 		myID:          myID,
 		cfg:           cfg,
@@ -57,13 +57,16 @@ func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate
 		finders: make(map[string]cachedFinder),
 		mut:     sync.NewRWMutex(),
 	}
+	m.Add(util.AsService(m.serve, m.String()))
+	return m
 }
 
-func (m *manager) Serve() {
+func (m *manager) serve(ctx context.Context) error {
 	m.cfg.Subscribe(m)
-	defer m.cfg.Unsubscribe(m)
 	m.CommitConfiguration(config.Configuration{}, m.cfg.RawCopy())
-	m.Supervisor.Serve()
+	<-ctx.Done()
+	m.cfg.Unsubscribe(m)
+	return nil
 }
 
 func (m *manager) addLocked(identity string, finder Finder, cacheTime, negCacheTime time.Duration) {

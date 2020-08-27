@@ -7,6 +7,8 @@
 package api
 
 import (
+	"context"
+
 	"github.com/syncthing/syncthing/lib/connections"
 )
 
@@ -24,9 +26,7 @@ func (m *mockedConnections) NATType() string {
 	return ""
 }
 
-func (m *mockedConnections) Serve() {}
-
-func (m *mockedConnections) Stop() {}
+func (m *mockedConnections) Serve(ctx context.Context) error { return nil }
 
 func (m *mockedConnections) ExternalAddresses() []string { return nil }
 

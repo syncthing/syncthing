@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -601,8 +602,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	evLogger := events.NewLogger()
-	go evLogger.Serve()
-	defer evLogger.Stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	go evLogger.Serve(ctx)
+	defer cancel()
 
 	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
 	if err != nil {

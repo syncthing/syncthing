@@ -33,7 +33,7 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	metrics "github.com/rcrowley/go-metrics"
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
 
 	"github.com/syncthing/syncthing/lib/build"
@@ -53,7 +53,6 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // matches a bcrypt hash and not too much else
@@ -108,7 +107,7 @@ type Service interface {
 }
 
 func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, contr Controller, noUpgrade bool) Service {
-	s := &service{
+	return &service{
 		id:      id,
 		cfg:     cfg,
 		statics: newStaticsServer(cfg.GUI().Theme, assetDir, cfg.Options().FeatureFlag(featureFlagUntrusted)),
@@ -131,8 +130,6 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		configChanged:        make(chan struct{}),
 		startedOnce:          make(chan struct{}),
 	}
-	s.Service = util.AsService(s.serve, s.String())
-	return s
 }
 
 func (s *service) WaitForStart() error {
@@ -211,7 +208,7 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 	fmt.Fprintf(w, "%s\n", bs)
 }
 
-func (s *service) serve(ctx context.Context) {
+func (s *service) Serve(ctx context.Context) error {
 	listener, err := s.getListener(s.cfg.GUI())
 	if err != nil {
 		select {
@@ -227,13 +224,13 @@ func (s *service) serve(ctx context.Context) {
 			s.startupErr = err
 			close(s.startedOnce)
 		}
-		return
+		return err
 	}
 
 	if listener == nil {
 		// Not much we can do here other than exit quickly. The supervisor
 		// will log an error at some point.
-		return
+		return nil
 	}
 
 	s.listenerAddr = listener.Addr()
@@ -422,6 +419,8 @@ func (s *service) serve(ctx context.Context) {
 		l.Warnln("GUI/API:", err, "(restarting)")
 	}
 	srv.Close()
+
+	return nil
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor

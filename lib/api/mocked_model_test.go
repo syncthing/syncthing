@@ -7,6 +7,7 @@
 package api
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -124,8 +125,7 @@ func (m *mockedModel) WatchError(folder string) error {
 	return nil
 }
 
-func (m *mockedModel) Serve() {}
-func (m *mockedModel) Stop()  {}
+func (m *mockedModel) Serve(ctx context.Context) error { return nil }
 
 func (m *mockedModel) Index(deviceID protocol.DeviceID, folder string, files []protocol.FileInfo) error {
 	return nil
@@ -167,9 +167,7 @@ func (m *mockedModel) DBSnapshot(_ string) (*db.Snapshot, error) {
 
 type mockedFolderSummaryService struct{}
 
-func (m *mockedFolderSummaryService) Serve() {}
-
-func (m *mockedFolderSummaryService) Stop() {}
+func (m *mockedFolderSummaryService) Serve(context.Context) error { return nil }
 
 func (m *mockedFolderSummaryService) Summary(folder string) (map[string]interface{}, error) {
 	return map[string]interface{}{"mocked": true}, nil
