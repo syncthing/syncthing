@@ -392,6 +392,7 @@ func (m *metadataTracker) nextLocalSeq() int64 {
 
 	c := m.countsPtr(protocol.LocalDeviceID, 0)
 	c.Sequence++
+
 	return c.Sequence
 }
 
