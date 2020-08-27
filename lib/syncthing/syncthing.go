@@ -51,20 +51,6 @@ const (
 	deviceCertLifetimeDays = 20 * 365
 )
 
-type ExitStatus int
-
-func (s ExitStatus) AsInt() int {
-	return int(s)
-}
-
-const (
-	ExitSuccess            ExitStatus = 0
-	ExitError              ExitStatus = 1
-	ExitNoUpgradeAvailable ExitStatus = 2
-	ExitRestart            ExitStatus = 3
-	ExitUpgrade            ExitStatus = 4
-)
-
 type Options struct {
 	AssetDir         string
 	AuditWriter      io.Writer
@@ -86,7 +72,7 @@ type App struct {
 	evLogger          events.Logger
 	cert              tls.Certificate
 	opts              Options
-	exitStatus        ExitStatus
+	exitStatus        util.ExitStatus
 	err               error
 	stopOnce          sync.Once
 	mainServiceCancel context.CancelFunc
@@ -125,7 +111,7 @@ func (a *App) Start() error {
 	go a.run(ctx)
 
 	if err := a.startup(); err != nil {
-		a.stopWithErr(ExitError, err)
+		a.stopWithErr(util.ExitError, err)
 		return err
 	}
 
@@ -348,7 +334,7 @@ func (a *App) run(ctx context.Context) {
 	case nil, context.Canceled:
 	default:
 		a.err = err
-		a.exitStatus = ExitError
+		a.exitStatus = util.ExitError
 	}
 
 	done := make(chan struct{})
@@ -369,7 +355,7 @@ func (a *App) run(ctx context.Context) {
 
 // Wait blocks until the app stops running. Also returns if the app hasn't been
 // started yet.
-func (a *App) Wait() ExitStatus {
+func (a *App) Wait() util.ExitStatus {
 	<-a.stopped
 	return a.exitStatus
 }
@@ -387,11 +373,11 @@ func (a *App) Error() error {
 
 // Stop stops the app and sets its exit status to given reason, unless the app
 // was already stopped before. In any case it returns the effective exit status.
-func (a *App) Stop(stopReason ExitStatus) ExitStatus {
+func (a *App) Stop(stopReason util.ExitStatus) util.ExitStatus {
 	return a.stopWithErr(stopReason, nil)
 }
 
-func (a *App) stopWithErr(stopReason ExitStatus, err error) ExitStatus {
+func (a *App) stopWithErr(stopReason util.ExitStatus, err error) util.ExitStatus {
 	a.stopOnce.Do(func() {
 		a.exitStatus = stopReason
 		a.err = err
@@ -419,7 +405,7 @@ func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscri
 	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID, a.evLogger)
 	a.mainService.Add(summaryService)
 
-	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, &controller{a}, a.opts.NoUpgrade)
+	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, a.opts.NoUpgrade)
 	a.mainService.Add(apiSvc)
 
 	if err := apiSvc.WaitForStart(); err != nil {
@@ -441,21 +427,6 @@ func checkShortIDs(cfg config.Wrapper) error {
 		exists[shortID] = deviceID
 	}
 	return nil
-}
-
-// Implements api.Controller
-type controller struct{ *App }
-
-func (e *controller) Restart() {
-	e.Stop(ExitRestart)
-}
-
-func (e *controller) Shutdown() {
-	e.Stop(ExitSuccess)
-}
-
-func (e *controller) ExitUpgrading() {
-	e.Stop(ExitUpgrade)
 }
 
 type supervisor interface{ Services() []suture.Service }

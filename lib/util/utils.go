@@ -229,6 +229,37 @@ func AddressUnspecifiedLess(a, b net.Addr) bool {
 	return aIsUnspecified
 }
 
+type FatalErr struct {
+	Err    error
+	Status ExitStatus
+}
+
+func (e *FatalErr) Error() string {
+	return e.Err.Error()
+}
+
+func (e *FatalErr) Unwrap() error {
+	return e.Err
+}
+
+func (e *FatalErr) Is(target error) bool {
+	return target == suture.ErrTerminateSupervisorTree
+}
+
+type ExitStatus int
+
+const (
+	ExitSuccess            ExitStatus = 0
+	ExitError              ExitStatus = 1
+	ExitNoUpgradeAvailable ExitStatus = 2
+	ExitRestart            ExitStatus = 3
+	ExitUpgrade            ExitStatus = 4
+)
+
+func (s ExitStatus) AsInt() int {
+	return int(s)
+}
+
 type ServiceWithError interface {
 	suture.Service
 	fmt.Stringer

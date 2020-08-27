@@ -53,6 +53,7 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 // matches a bcrypt hash and not too much else
@@ -81,7 +82,6 @@ type service struct {
 	connectionsService   connections.Service
 	fss                  model.FolderSummaryService
 	urService            *ur.Service
-	contr                Controller
 	noUpgrade            bool
 	tlsDefaultCommonName string
 	configChanged        chan struct{} // signals intentional listener close due to config change
@@ -89,15 +89,10 @@ type service struct {
 	startedOnce          chan struct{} // the service has started successfully at least once
 	startupErr           error
 	listenerAddr         net.Addr
+	exitChan             chan *util.FatalErr
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
-}
-
-type Controller interface {
-	ExitUpgrading()
-	Restart()
-	Shutdown()
 }
 
 type Service interface {
@@ -106,7 +101,7 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, contr Controller, noUpgrade bool) Service {
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, noUpgrade bool) Service {
 	return &service{
 		id:      id,
 		cfg:     cfg,
@@ -124,11 +119,11 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		urService:            urService,
 		guiErrors:            errors,
 		systemLog:            systemLog,
-		contr:                contr,
 		noUpgrade:            noUpgrade,
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		configChanged:        make(chan struct{}),
 		startedOnce:          make(chan struct{}),
+		exitChan:             make(chan *util.FatalErr),
 	}
 }
 
@@ -407,6 +402,7 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Wait for stop, restart or error signals
 
+	err = nil
 	select {
 	case <-ctx.Done():
 		// Shutting down permanently
@@ -414,13 +410,14 @@ func (s *service) Serve(ctx context.Context) error {
 	case <-s.configChanged:
 		// Soft restart due to configuration change
 		l.Debugln("restarting (config changed)")
-	case <-serveError:
+	case err = <-s.exitChan:
+	case err = <-serveError:
 		// Restart due to listen/serve failure
 		l.Warnln("GUI/API:", err, "(restarting)")
 	}
 	srv.Close()
 
-	return nil
+	return err
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor
@@ -873,7 +870,13 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 
 func (s *service) postSystemRestart(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "restarting"}`, w)
-	go s.contr.Restart()
+
+	go func() {
+		s.exitChan <- &util.FatalErr{
+			Err:    errors.New("restart initiated by rest API"),
+			Status: util.ExitRestart,
+		}
+	}()
 }
 
 func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
@@ -899,12 +902,22 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
 
-	go s.contr.Restart()
+	go func() {
+		s.exitChan <- &util.FatalErr{
+			Err:    errors.New("restart after db reset initiated by rest API"),
+			Status: util.ExitRestart,
+		}
+	}()
 }
 
 func (s *service) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "shutting down"}`, w)
-	go s.contr.Shutdown()
+	go func() {
+		s.exitChan <- &util.FatalErr{
+			Err:    errors.New("shutdown after db reset initiated by rest API"),
+			Status: util.ExitSuccess,
+		}
+	}()
 }
 
 func (s *service) flushResponse(resp string, w http.ResponseWriter) {
@@ -1339,7 +1352,12 @@ func (s *service) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.flushResponse(`{"ok": "restarting"}`, w)
-		s.contr.ExitUpgrading()
+		go func() {
+			s.exitChan <- &util.FatalErr{
+				Err:    errors.New("exit after upgrade initiated by rest API"),
+				Status: util.ExitUpgrade,
+			}
+		}()
 	}
 }
 
