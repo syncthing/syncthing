@@ -76,6 +76,7 @@ angular.module('syncthing.core')
             order: "random",
             fileVersioningSelector: "none",
             trashcanClean: 0,
+            versioningCleanupIntervalS: 3600,
             simpleKeep: 5,
             staggeredMaxAge: 365,
             staggeredCleanInterval: 3600,
@@ -1764,7 +1765,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.simpleKeep = $scope.currentFolder.simpleKeep || 5;
             $scope.currentFolder.staggeredCleanInterval = $scope.currentFolder.staggeredCleanInterval || 3600;
             $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.staggeredVersionsPath || "";
-            $scope.currentFolder.versioningCleanupIntervalS = $scope.currentFolder.versioningCleanupIntervalS || 30;
+            $scope.currentFolder.versioningCleanupIntervalS = $scope.currentFolder.versioningCleanupIntervalS || 3600;
 
             // staggeredMaxAge can validly be zero, which we should not replace
             // with the default value of 365. So only set the default if it's
