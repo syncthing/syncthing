@@ -475,8 +475,11 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 	var batchAppend func(protocol.FileInfo, *db.Snapshot)
 	// Resolve items which are identical with the global state.
-	switch {
-	case f.localFlags&protocol.FlagLocalReceiveOnly != 0:
+	if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
+		batchAppend = func(fi protocol.FileInfo, _ *db.Snapshot) {
+			batch.append(fi)
+		}
+	} else {
 		batchAppend = func(fi protocol.FileInfo, snap *db.Snapshot) {
 			switch gf, ok := snap.GetGlobal(fi.Name); {
 			case !ok:
@@ -492,16 +495,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				// cares about that).
 				fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 			}
-			batch.append(fi)
-		}
-	case f.Type == config.FolderTypeReceiveEncrypted:
-		batchAppend = func(fi protocol.FileInfo, _ *db.Snapshot) {
-			fi.LocalFlags = protocol.FlagLocalReceiveOnly
-			fi.Version = protocol.Vector{}
-			batch.append(fi)
-		}
-	default:
-		batchAppend = func(fi protocol.FileInfo, _ *db.Snapshot) {
 			batch.append(fi)
 		}
 	}
@@ -530,7 +523,9 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		batchAppend(res.File, snap)
 		changes++
 
-		if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
+		switch f.Type {
+		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
+		default:
 			if nf, ok := f.findRename(snap, mtimefs, res.File, alreadyUsed); ok {
 				batchAppend(nf, snap)
 				changes++
@@ -638,7 +633,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				l.Debugln("marking file as deleted", nf)
 				batchAppend(nf, snap)
 				changes++
-			case file.IsDeleted() && file.IsReceiveOnlyChanged() && f.localFlags&protocol.FlagLocalReceiveOnly != 0 && len(snap.Availability(file.Name)) == 0:
+			case file.IsDeleted() && file.IsReceiveOnlyChanged() && f.Type == config.FolderTypeReceiveOnly && len(snap.Availability(file.Name)) == 0:
 				file.Version = protocol.Vector{}
 				file.LocalFlags &^= protocol.FlagLocalReceiveOnly
 				l.Debugln("marking deleted item that doesn't exist anywhere as not receive-only", file)
