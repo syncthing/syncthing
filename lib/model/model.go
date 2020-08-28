@@ -183,6 +183,7 @@ var (
 	errEncNotEncryptedRemote    = errors.New("folder is configured to be encrypted but not announced thus")
 	errEncNotEncryptedUntrusted = errors.New("device is untrusted, but configured to receive not encrypted data")
 	errEncPW                    = errors.New("different passwords used")
+	errEncReceivedToken         = errors.New("need to reinitialise after receiving encryption token")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1149,13 +1150,14 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		if !ok {
 			// Shouldn't happen because !cfg.Paused, but might happen
 			// if the folder is about to be unpaused, but not yet.
+			l.Debugln("ccH: no fset", folder.ID)
 			continue
 		}
 
 		ccDeviceRemote, hasDevice := ccDevicesRemote[folder.ID]
 		ccDeviceLocal, hasDeviceLocal := ccDevicesLocal[folder.ID]
 
-		if err := m.ccCheckEncryptionLocked(cfg, folderDevice, ccDeviceRemote, ccDeviceLocal, hasDevice, hasDeviceLocal, deviceCfg.Untrusted); err != nil {
+		if err := m.ccCheckEncryption(cfg, folderDevice, ccDeviceRemote, ccDeviceLocal, hasDevice, hasDeviceLocal, deviceCfg.Untrusted); err != nil {
 			sameError := false
 			if devs, ok := m.folderEncFailures[folder.ID]; ok {
 				sameError = devs[deviceID] == err
@@ -1164,7 +1166,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			}
 			m.folderEncFailures[folder.ID][deviceID] = err
 			msg := fmt.Sprintf("Failure checking encryption consistency with device %v for folder %v: %v", deviceID, cfg.Description(), err)
-			if sameError {
+			if sameError || err == errEncReceivedToken {
 				l.Debugln(msg)
 			} else {
 				l.Warnln(msg)
@@ -1276,8 +1278,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	return changed, tempIndexFolders, paused, nil
 }
 
-// requires fmut read-lock
-func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceRemote, ccDeviceLocal protocol.Device, hasDeviceRemote, hasDeviceLocal, deviceUntrusted bool) error {
+func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceRemote, ccDeviceLocal protocol.Device, hasDeviceRemote, hasDeviceLocal, deviceUntrusted bool) error {
 	hasTokenRemote := hasDeviceRemote && len(ccDeviceRemote.EncPwToken) > 0
 	hasTokenLocal := hasDeviceLocal && len(ccDeviceLocal.EncPwToken) > 0
 	isEncRemote := folderDevice.EncryptionPassword != ""
@@ -1315,7 +1316,7 @@ func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderD
 		if hasTokenLocal {
 			match = bytes.Equal(pwToken, ccDeviceLocal.EncPwToken)
 		} else {
-			// hasTokenDev == true
+			// hasTokenRemote == true
 			match = bytes.Equal(pwToken, ccDeviceRemote.EncPwToken)
 		}
 		if !match {
@@ -1333,15 +1334,30 @@ func (m *model) ccCheckEncryptionLocked(fcfg config.FolderConfiguration, folderD
 		// hasTokenRemote == true
 		ccToken = ccDeviceRemote.EncPwToken
 	}
+	m.fmut.RLock()
 	token, ok := m.folderEncPwTokens[fcfg.ID]
+	m.fmut.RUnlock()
 	if !ok {
 		var err error
-		token, err := readEncToken(fcfg)
+		token, err = readEncToken(fcfg)
 		if err != nil && !fs.IsNotExist(err) {
 			return err
 		}
-		if fs.IsNotExist(err) {
-			return writeEncToken(token, fcfg)
+		if err == nil {
+			m.fmut.Lock()
+			m.folderEncPwTokens[fcfg.ID] = token
+			m.fmut.Unlock()
+		} else {
+			if err := writeEncToken(ccToken, fcfg); err != nil {
+				return err
+			}
+			m.fmut.Lock()
+			m.folderEncPwTokens[fcfg.ID] = ccToken
+			m.fmut.Unlock()
+			// We can only announce ourselfs once we have the token,
+			// thus we need to resend CCs now that we have it.
+			m.closeConns(fcfg.DeviceIDs(), errEncReceivedToken)
+			return errEncReceivedToken
 		}
 	}
 	if !bytes.Equal(token, ccToken) {
@@ -2976,8 +2992,8 @@ func encTokenPath(cfg config.FolderConfiguration) string {
 }
 
 type storedEncToken struct {
-	folderID string
-	token    []byte
+	FolderID string
+	Token    []byte
 }
 
 func readEncToken(cfg config.FolderConfiguration) ([]byte, error) {
@@ -2990,7 +3006,7 @@ func readEncToken(cfg config.FolderConfiguration) ([]byte, error) {
 	if err := json.NewDecoder(fd).Decode(&stored); err != nil {
 		return nil, err
 	}
-	return stored.token, nil
+	return stored.Token, nil
 }
 
 func writeEncToken(token []byte, cfg config.FolderConfiguration) error {
@@ -3001,7 +3017,7 @@ func writeEncToken(token []byte, cfg config.FolderConfiguration) error {
 	}
 	defer fd.Close()
 	return json.NewEncoder(fd).Encode(storedEncToken{
-		folderID: cfg.ID,
-		token:    token,
+		FolderID: cfg.ID,
+		Token:    token,
 	})
 }
