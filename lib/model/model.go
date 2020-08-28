@@ -1256,12 +1256,13 @@ func (m *model) ccHandleFoldersLocked(folders []protocol.Folder, deviceCfg confi
 		}
 
 		is := &indexSender{
-			conn:         conn,
-			connClosed:   closed,
-			folder:       folder.ID,
-			fset:         fs,
-			prevSequence: startSequence,
-			evLogger:     m.evLogger,
+			conn:                     conn,
+			connClosed:               closed,
+			folder:                   folder.ID,
+			folderIsReceiveEncrypted: cfg.Type == config.FolderTypeReceiveEncrypted,
+			fset:                     fs,
+			prevSequence:             startSequence,
+			evLogger:                 m.evLogger,
 		}
 		is.Service = util.AsService(is.serve, is.String())
 		// The token isn't tracked as the service stops when the connection
@@ -2084,13 +2085,14 @@ func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 
 type indexSender struct {
 	suture.Service
-	conn         protocol.Connection
-	folder       string
-	dev          string
-	fset         *db.FileSet
-	prevSequence int64
-	evLogger     events.Logger
-	connClosed   chan struct{}
+	conn                     protocol.Connection
+	folder                   string
+	folderIsReceiveEncrypted bool
+	dev                      string
+	fset                     *db.FileSet
+	prevSequence             int64
+	evLogger                 events.Logger
+	connClosed               chan struct{}
 }
 
 func (s *indexSender) serve(ctx context.Context) {
@@ -2202,6 +2204,13 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 				}
 			}()
 			return false
+		}
+
+		// If this is a folder receiving encrypted files only, we
+		// mustn't ever send locally changed file infos. Those aren't
+		// encrypted and thus would be a protocol error at the remote.
+		if s.folderIsReceiveEncrypted && fi.IsReceiveOnlyChanged() {
+			return true
 		}
 
 		f = fi.(protocol.FileInfo)

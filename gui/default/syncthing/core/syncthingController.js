@@ -811,7 +811,12 @@ angular.module('syncthing.core')
                 return 'faileditems';
             }
             if (folderInfo.receiveOnlyTotalItems) {
-                return 'localadditions';
+                switch (folderCfg.type) {
+                case 'receiveonly':
+                    return 'localadditions';
+                case 'receiveencrypted':
+                    return 'localunencrypted';
+                }
             }
             if (folderCfg.devices.length <= 1) {
                 return 'unshared';
@@ -835,7 +840,7 @@ angular.module('syncthing.core')
             if (status === 'unknown') {
                 return 'info';
             }
-            if (status === 'stopped' || status === 'outofsync' || status === 'error' || status === 'faileditems') {
+            if (status === 'stopped' || status === 'outofsync' || status === 'error' || status === 'faileditems' || status === 'localunencrypted') {
                 return 'danger';
             }
             if (status === 'unshared' || status === 'scan-waiting' || status === 'sync-waiting' || status === 'clean-waiting') {
@@ -2325,25 +2330,49 @@ angular.module('syncthing.core')
             $http.post(urlbase + "/db/override?folder=" + encodeURIComponent(folder));
         };
 
-        $scope.showLocalChanged = function (folder) {
+        $scope.showLocalChanged = function (folder, folderType) {
             $scope.localChangedFolder = folder;
+            $scope.localChangedType = folderType;
             $scope.localChanged = $scope.refreshLocalChanged(1, 10);
             $('#localChanged').modal().one('hidden.bs.modal', function () {
                 $scope.localChanged = {};
                 $scope.localChangedFolder = undefined;
+                $scope.localChangedType = undefined;
             });
         };
+
+        $scope.hasReceiveOnlyChanged = function (folderCfg) {
+            if (!folderCfg || folderCfg.type !== "receiveonly") {
+                return false;
+            }
+            var counts = $scope.model[folderCfg.id];
+            return counts && counts.receiveOnlyTotalItems > 0;
+        };
+
+        $scope.hasReceiveEncryptedItems = function (folderCfg) {
+            if (!folderCfg || folderCfg.type !== "receiveencrypted") {
+                return false;
+            }
+            return $scope.receiveEncryptedItemsCount(folderCfg) > 0;
+        };
+
+        $scope.receiveEncryptedItemsCount = function (folderCfg) {
+            var counts = $scope.model[folderCfg.id];
+            if (!counts) {
+                return 0;
+            }
+            return counts.receiveOnlyTotalItems - counts.receiveOnlyChangedDeletes;
+        }
 
         $scope.revert = function (folder) {
             $http.post(urlbase + "/db/revert?folder=" + encodeURIComponent(folder));
         };
 
-        $scope.canRevert = function (folder) {
-            var f = $scope.model[folder];
-            if (!f) {
-                return false;
-            }
-            return $scope.model[folder].receiveOnlyTotalItems > 0;
+        $scope.deleteEncModal = function (folderID) {
+            $scope.revertEncFolder = folderID;
+            $('#delete-enc-confirmation').modal('show').one('hidden.bs.modal', function () {
+                $scope.revertEncFolder = undefined;
+            });
         };
 
         $scope.advanced = function () {

@@ -30,7 +30,7 @@ const (
 	minPaddedSize         = 1024 // smallest block we'll allow
 	blockOverhead         = tagSize + nonceSize
 	maxPathComponent      = 200              // characters
-	EncryptedDirExtension = ".syncthing-enc" // for top level dirs, stops scans
+	encryptedDirExtension = ".syncthing-enc" // for top level dirs
 	miscreantAlgo         = "AES-SIV"
 )
 
@@ -461,7 +461,7 @@ func slashify(s string) string {
 	// encoding.
 
 	comps := make([]string, 0, len(s)/maxPathComponent+3)
-	comps = append(comps, s[:1]+EncryptedDirExtension)
+	comps = append(comps, s[:1]+encryptedDirExtension)
 	s = s[1:]
 	comps = append(comps, s[:2])
 	s = s[2:]
@@ -479,7 +479,7 @@ func slashify(s string) string {
 // deslashify removes slashes and encrypted file extensions from the string.
 // This is the inverse of slashify().
 func deslashify(s string) string {
-	s = strings.ReplaceAll(s, EncryptedDirExtension, "")
+	s = strings.ReplaceAll(s, encryptedDirExtension, "")
 	return strings.ReplaceAll(s, "/", "")
 }
 
@@ -493,3 +493,9 @@ func (r rawResponse) Data() []byte {
 
 func (r rawResponse) Close() {}
 func (r rawResponse) Wait()  {}
+
+// IsEncryptedPath returns true if the path points at encrypted data. This is
+// determined by checking for a sentinel string in the path.
+func IsEncryptedPath(path string) bool {
+	return strings.Contains(path, encryptedDirExtension)
+}
