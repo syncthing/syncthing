@@ -367,7 +367,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device name got overwritten")
 	}
 
-	cfgw, err := config.Load("testdata/tmpconfig.xml", myID, events.NoopLogger)
+	cfgw, _, err := config.Load("testdata/tmpconfig.xml", myID, events.NoopLogger)
 	if err != nil {
 		t.Error(err)
 		return

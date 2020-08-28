@@ -1057,12 +1057,11 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			// that might not exist until the config is committed.
 			w, _ := m.cfg.SetFolders(changedFolders)
 			w.Wait()
+			changed = true
 		}
 	}
 
-	m.fmut.RLock()
-	changedHere, tempIndexFolders, paused, err := m.ccHandleFoldersLocked(cm.Folders, deviceCfg, ccDevicesRemote, ccDevicesLocal, conn, closed)
-	m.fmut.RUnlock()
+	changedHere, tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDevicesRemote, ccDevicesLocal, conn, closed)
 	if err != nil {
 		return err
 	}
@@ -1111,8 +1110,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	return nil
 }
 
-// requires read-lock on m.fmut
-func (m *model) ccHandleFoldersLocked(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDevicesRemote, ccDevicesLocal map[string]protocol.Device, conn protocol.Connection, closed chan struct{}) (bool, []string, []string, error) {
+func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDevicesRemote, ccDevicesLocal map[string]protocol.Device, conn protocol.Connection, closed chan struct{}) (bool, []string, []string, error) {
 	var changed bool
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
@@ -1145,7 +1143,9 @@ func (m *model) ccHandleFoldersLocked(folders []protocol.Folder, deviceCfg confi
 		if cfg.Paused {
 			continue
 		}
+		m.fmut.RLock()
 		fs, ok := m.folderFiles[folder.ID]
+		m.fmut.RUnlock()
 		if !ok {
 			// Shouldn't happen because !cfg.Paused, but might happen
 			// if the folder is about to be unpaused, but not yet.
@@ -1249,9 +1249,11 @@ func (m *model) ccHandleFoldersLocked(folders []protocol.Folder, deviceCfg confi
 				// likely use delta indexes. We might already have files
 				// that we need to pull so let the folder runner know
 				// that it should recheck the index data.
+				m.fmut.RLock()
 				if runner := m.folderRunners[folder.ID]; runner != nil {
 					defer runner.SchedulePull()
 				}
+				m.fmut.RUnlock()
 			}
 		}
 
@@ -1969,7 +1971,10 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 	name := ""
 	if _, ok := m.cfg.Device(id); ok {
-		name = m.cfg.MyName()
+		// Set our name (from the config of our device ID) only if we already know about the other side device ID.
+		if myCfg, ok := m.cfg.Device(m.id); ok {
+			name = myCfg.Name
+		}
 	}
 	return &protocol.Hello{
 		DeviceName:    name,

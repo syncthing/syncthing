@@ -465,7 +465,7 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"install", "-v"}
+	args := []string{"install", "-v", "-trimpath"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
@@ -493,7 +493,7 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"build", "-v"}
+	args := []string{"build", "-v", "-trimpath"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
@@ -812,6 +812,7 @@ func proto() {
 		runPrintInDir(path, "git", "checkout", dep.commit)
 	}
 	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
+	runPrint(goCmd, "generate", "proto/generate.go")
 }
 
 func translate() {

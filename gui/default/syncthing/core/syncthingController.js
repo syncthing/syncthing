@@ -73,6 +73,7 @@ angular.module('syncthing.core')
             order: "random",
             fileVersioningSelector: "none",
             trashcanClean: 0,
+            versioningCleanupIntervalS: 3600,
             simpleKeep: 5,
             staggeredMaxAge: 365,
             staggeredCleanInterval: 3600,
@@ -659,7 +660,7 @@ angular.module('syncthing.core')
 
 
         function setDefaultTheme() {
-            if (!document.getElementById("fallback-theme-css")){
+            if (!document.getElementById("fallback-theme-css")) {
 
                 // check if no support for prefers-color-scheme
                 var colorSchemeNotSupported = typeof window.matchMedia === "undefined" || window.matchMedia('(prefers-color-scheme: dark)').media === 'not all';
@@ -667,8 +668,8 @@ angular.module('syncthing.core')
                 if ($scope.config.gui.theme === "default" && colorSchemeNotSupported) {
                     document.documentElement.style.display = 'none';
                     document.head.insertAdjacentHTML(
-                      'beforeend',
-                      '<link id="fallback-theme-css" rel="stylesheet" href="theme-assets/light/assets/css/theme.css" onload="document.documentElement.style.display = \'\'">'
+                        'beforeend',
+                        '<link id="fallback-theme-css" rel="stylesheet" href="theme-assets/light/assets/css/theme.css" onload="document.documentElement.style.display = \'\'">'
                     );
                 }
             }
@@ -1761,6 +1762,8 @@ angular.module('syncthing.core')
                 $scope.currentFolder.simpleFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "simple";
                 $scope.currentFolder.simpleKeep = +$scope.currentFolder.versioning.params.keep;
+                $scope.currentFolder.versioningCleanupIntervalS = +$scope.currentFolder.versioning.cleanupIntervalS;
+                $scope.currentFolder.trashcanClean = +$scope.currentFolder.versioning.params.cleanoutDays;
             } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "staggered") {
                 $scope.currentFolder.staggeredFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "staggered";
@@ -1779,7 +1782,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.simpleKeep = $scope.currentFolder.simpleKeep || 5;
             $scope.currentFolder.staggeredCleanInterval = $scope.currentFolder.staggeredCleanInterval || 3600;
             $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.staggeredVersionsPath || "";
-            $scope.currentFolder.versioningCleanupIntervalS = $scope.currentFolder.versioningCleanupIntervalS || 0;
+            $scope.currentFolder.versioningCleanupIntervalS = $scope.currentFolder.versioningCleanupIntervalS || 3600;
 
             // staggeredMaxAge can validly be zero, which we should not replace
             // with the default value of 365. So only set the default if it's
@@ -1899,7 +1902,8 @@ angular.module('syncthing.core')
                 folderCfg.versioning = {
                     'type': 'simple',
                     'params': {
-                        'keep': '' + folderCfg.simpleKeep
+                        'keep': '' + folderCfg.simpleKeep,
+                        'cleanoutDays': '' + folderCfg.trashcanClean
                     },
                     'cleanupIntervalS': folderCfg.versioningCleanupIntervalS
                 };

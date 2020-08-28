@@ -21,6 +21,7 @@ import (
 // limiter manages a read and write rate limit, reacting to config changes
 // as appropriate.
 type limiter struct {
+	myID                protocol.DeviceID
 	mu                  sync.Mutex
 	write               *rate.Limiter
 	read                *rate.Limiter
@@ -40,8 +41,9 @@ const (
 	maxSingleWriteSize = 8 << 10
 )
 
-func newLimiter(cfg config.Wrapper) *limiter {
+func newLimiter(myId protocol.DeviceID, cfg config.Wrapper) *limiter {
 	l := &limiter{
+		myID:                myId,
 		write:               rate.NewLimiter(rate.Inf, limiterBurstSize),
 		read:                rate.NewLimiter(rate.Inf, limiterBurstSize),
 		mu:                  sync.NewMutex(),
@@ -89,7 +91,7 @@ func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configurat
 
 	// Mark devices which should not be removed, create new limiters if needed and assign new limiter rate
 	for _, dev := range to.Devices {
-		if dev.DeviceID == to.MyID {
+		if dev.DeviceID == lim.myID {
 			// This limiter was created for local device. Should skip this device
 			continue
 		}

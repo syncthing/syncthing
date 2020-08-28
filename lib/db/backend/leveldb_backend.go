@@ -75,6 +75,7 @@ func (b *leveldbBackend) NewWriteTransaction(hooks ...CommitHook) (WriteTransact
 		batch:           new(leveldb.Batch),
 		rel:             rel,
 		commitHooks:     hooks,
+		inFlush:         false,
 	}, nil
 }
 
@@ -147,6 +148,7 @@ type leveldbTransaction struct {
 	batch       *leveldb.Batch
 	rel         *releaser
 	commitHooks []CommitHook
+	inFlush     bool
 }
 
 func (t *leveldbTransaction) Delete(key []byte) error {
@@ -177,13 +179,19 @@ func (t *leveldbTransaction) Release() {
 
 // checkFlush flushes and resets the batch if its size exceeds the given size.
 func (t *leveldbTransaction) checkFlush(size int) error {
-	if len(t.batch.Dump()) < size {
+	// Hooks might put values in the database, which triggers a checkFlush which might trigger a flush,
+	// which might trigger the hooks.
+	// Don't recurse...
+	if t.inFlush || len(t.batch.Dump()) < size {
 		return nil
 	}
 	return t.flush()
 }
 
 func (t *leveldbTransaction) flush() error {
+	t.inFlush = true
+	defer func() { t.inFlush = false }()
+
 	for _, hook := range t.commitHooks {
 		if err := hook(t); err != nil {
 			return err

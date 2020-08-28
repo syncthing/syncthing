@@ -6,15 +6,6 @@
 
 package config
 
-type FolderType int
-
-const (
-	FolderTypeSendReceive FolderType = iota // default is sendreceive
-	FolderTypeSendOnly
-	FolderTypeReceiveOnly
-	FolderTypeReceiveEncrypted
-)
-
 func (t FolderType) String() string {
 	switch t {
 	case FolderTypeSendReceive:

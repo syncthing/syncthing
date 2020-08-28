@@ -13,22 +13,6 @@ import (
 	"strings"
 )
 
-type GUIConfiguration struct {
-	Enabled                   bool     `xml:"enabled,attr" json:"enabled" default:"true"`
-	RawAddress                string   `xml:"address" json:"address" default:"127.0.0.1:8384"`
-	RawUnixSocketPermissions  string   `xml:"unixSocketPermissions,omitempty" json:"unixSocketPermissions"`
-	User                      string   `xml:"user,omitempty" json:"user"`
-	Password                  string   `xml:"password,omitempty" json:"password"`
-	AuthMode                  AuthMode `xml:"authMode,omitempty" json:"authMode"`
-	RawUseTLS                 bool     `xml:"tls,attr" json:"useTLS"`
-	APIKey                    string   `xml:"apikey,omitempty" json:"apiKey"`
-	InsecureAdminAccess       bool     `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
-	Theme                     string   `xml:"theme" json:"theme" default:"default"`
-	Debugging                 bool     `xml:"debugging,attr" json:"debugging"`
-	InsecureSkipHostCheck     bool     `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
-	InsecureAllowFrameLoading bool     `xml:"insecureAllowFrameLoading,omitempty" json:"insecureAllowFrameLoading"`
-}
-
 func (c GUIConfiguration) IsAuthEnabled() bool {
 	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
 }

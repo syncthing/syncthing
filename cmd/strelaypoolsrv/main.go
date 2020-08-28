@@ -314,8 +314,11 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 
 func handleGetRequest(rw http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("Content-Type", "application/json; charset=utf-8")
+
 	mut.RLock()
-	relays := append(permanentRelays, knownRelays...)
+	relays := make([]*relay, len(permanentRelays)+len(knownRelays))
+	n := copy(relays, permanentRelays)
+	copy(relays[n:], knownRelays)
 	mut.RUnlock()
 
 	// Shuffle

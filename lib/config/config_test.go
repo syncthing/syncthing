@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -75,6 +76,7 @@ func TestDefaultValues(t *testing.T) {
 		StunKeepaliveStartS:     180,
 		StunKeepaliveMinS:       20,
 		RawStunServers:          []string{"default"},
+		AnnounceLANAddresses:    true,
 	}
 
 	cfg := New(device1)
@@ -126,6 +128,7 @@ func TestDeviceConfig(t *testing.T) {
 				},
 				WeakHashThresholdPct: 25,
 				MarkerName:           DefaultMarkerName,
+				JunctionsAsDirs:      true,
 			},
 		}
 
@@ -522,9 +525,6 @@ func TestNewSaveLoad(t *testing.T) {
 	intCfg := New(device1)
 	cfg := wrap(path, intCfg)
 
-	// To make the equality pass later
-	cfg.(*wrapper).cfg.XMLName.Local = "configuration"
-
 	if exists(path) {
 		t.Error(path, "exists")
 	}
@@ -613,14 +613,14 @@ func TestPullOrder(t *testing.T) {
 		name  string
 		order PullOrder
 	}{
-		{"f1", OrderRandom},        // empty value, default
-		{"f2", OrderRandom},        // explicit
-		{"f3", OrderAlphabetic},    // explicit
-		{"f4", OrderRandom},        // unknown value, default
-		{"f5", OrderSmallestFirst}, // explicit
-		{"f6", OrderLargestFirst},  // explicit
-		{"f7", OrderOldestFirst},   // explicit
-		{"f8", OrderNewestFirst},   // explicit
+		{"f1", PullOrderRandom},        // empty value, default
+		{"f2", PullOrderRandom},        // explicit
+		{"f3", PullOrderAlphabetic},    // explicit
+		{"f4", PullOrderRandom},        // unknown value, default
+		{"f5", PullOrderSmallestFirst}, // explicit
+		{"f6", PullOrderLargestFirst},  // explicit
+		{"f7", PullOrderOldestFirst},   // explicit
+		{"f8", PullOrderNewestFirst},   // explicit
 	}
 
 	// Verify values are deserialized correctly
@@ -639,7 +639,7 @@ func TestPullOrder(t *testing.T) {
 
 	t.Logf("%s", buf.Bytes())
 
-	cfg, err = ReadXML(buf, device1)
+	cfg, _, err = ReadXML(buf, device1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1168,7 +1168,8 @@ func defaultConfigAsMap() map[string]interface{} {
 }
 
 func load(path string, myID protocol.DeviceID) (Wrapper, error) {
-	return Load(path, myID, events.NoopLogger)
+	cfg, _, err := Load(path, myID, events.NoopLogger)
+	return cfg, err
 }
 
 func wrap(path string, cfg Configuration) Wrapper {

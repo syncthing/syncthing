@@ -31,7 +31,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 31
+	CurrentVersion       = 32
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -101,7 +101,6 @@ var (
 func New(myID protocol.DeviceID) Configuration {
 	var cfg Configuration
 	cfg.Version = CurrentVersion
-	cfg.OriginalVersion = CurrentVersion
 
 	cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
 
@@ -144,22 +143,28 @@ func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
 	return cfg, nil
 }
 
-func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
-	var cfg Configuration
+type xmlConfiguration struct {
+	Configuration
+	XMLName xml.Name `xml:"configuration"`
+}
+
+func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, int, error) {
+	var cfg xmlConfiguration
 
 	util.SetDefaults(&cfg)
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
 
 	if err := xml.NewDecoder(r).Decode(&cfg); err != nil {
-		return Configuration{}, err
+		return Configuration{}, 0, err
 	}
-	cfg.OriginalVersion = cfg.Version
+
+	originalVersion := cfg.Version
 
 	if err := cfg.prepare(myID); err != nil {
-		return Configuration{}, err
+		return Configuration{}, originalVersion, err
 	}
-	return cfg, nil
+	return cfg.Configuration, originalVersion, nil
 }
 
 func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
@@ -177,27 +182,11 @@ func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	if err := json.Unmarshal(bs, &cfg); err != nil {
 		return Configuration{}, err
 	}
-	cfg.OriginalVersion = cfg.Version
 
 	if err := cfg.prepare(myID); err != nil {
 		return Configuration{}, err
 	}
 	return cfg, nil
-}
-
-type Configuration struct {
-	Version        int                   `xml:"version,attr" json:"version"`
-	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
-	Devices        []DeviceConfiguration `xml:"device" json:"devices"`
-	GUI            GUIConfiguration      `xml:"gui" json:"gui"`
-	LDAP           LDAPConfiguration     `xml:"ldap" json:"ldap"`
-	Options        OptionsConfiguration  `xml:"options" json:"options"`
-	IgnoredDevices []ObservedDevice      `xml:"remoteIgnoredDevice" json:"remoteIgnoredDevices"`
-	PendingDevices []ObservedDevice      `xml:"pendingDevice" json:"pendingDevices"`
-	XMLName        xml.Name              `xml:"configuration" json:"-"`
-
-	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
-	OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
 }
 
 func (cfg Configuration) Copy() Configuration {
@@ -231,7 +220,8 @@ func (cfg Configuration) Copy() Configuration {
 func (cfg *Configuration) WriteXML(w io.Writer) error {
 	e := xml.NewEncoder(w)
 	e.Indent("", "    ")
-	err := e.Encode(cfg)
+	xmlCfg := xmlConfiguration{Configuration: *cfg}
+	err := e.Encode(xmlCfg)
 	if err != nil {
 		return err
 	}
@@ -241,8 +231,6 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 
 func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 	var myName string
-
-	cfg.MyID = myID
 
 	// Ensure this device is present in the config
 	for _, device := range cfg.Devices {

@@ -78,7 +78,8 @@ func TestStartupFail(t *testing.T) {
 	}, events.NoopLogger)
 	defer os.Remove(cfg.ConfigPath())
 
-	app := New(cfg, backend.OpenMemory(), events.NoopLogger, cert, Options{})
+	db := backend.OpenMemory()
+	app := New(cfg, db, events.NoopLogger, cert, Options{})
 	startErr := app.Start()
 	if startErr == nil {
 		t.Fatal("Expected an error from Start, got nil")
@@ -103,5 +104,12 @@ func TestStartupFail(t *testing.T) {
 
 	if err = app.Error(); err != startErr {
 		t.Errorf(`Got different errors "%v" from Start and "%v" from Error`, startErr, err)
+	}
+
+	if trans, err := db.NewReadTransaction(); err == nil {
+		t.Error("Expected error due to db being closed, got nil")
+		trans.Release()
+	} else if !backend.IsClosed(err) {
+		t.Error("Expected error due to db being closed, got", err)
 	}
 }

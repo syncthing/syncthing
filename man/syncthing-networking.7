@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-NETWORKING" "7" "Aug 08, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-NETWORKING" "7" "Aug 16, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-networking \- Firewall Setup
 .
@@ -30,7 +30,8 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.SH PORT FORWARDS
+.SH ROUTER SETUP
+.SS Port Forwards
 .sp
 If you have a NAT router which supports UPnP, the easiest way to get a working
 port forward is to make sure UPnP setting is enabled on both Syncthing and the
@@ -47,10 +48,10 @@ Created UPnP port mapping for external port XXXXX on UPnP device YYYYY.
 .UNINDENT
 .UNINDENT
 .sp
-If this is not possible or desirable you should set up a port forward for port
-\fB22000/TCP\fP, or the port set in the \fISync Protocol Listen Address\fP setting.
+If this is not possible or desirable, you should set up a port forward for port
+\fB22000/TCP\fP (or whichever port is set in the \fISync Protocol Listen Address\fP setting).
 The external forwarded port and the internal destination port has to be the same
-(i.e. 22000/TCP).
+(e.g. 22000/TCP).
 .sp
 Communication in Syncthing works both ways. Therefore if you set up port
 forwards for one device, other devices will be able to connect to it even when
@@ -59,6 +60,16 @@ they are behind a NAT network or firewall.
 In the absence of port forwarding, relaying may work well enough to get
 devices connected and synced, but will perform poorly in comparison to a
 direct connection.
+.SS Local Discovery
+.sp
+The router needs to allow/forward broad\-/multicasts for local discovery to work.
+Usually these are allowed by default in a single local subnet, but may be
+blocked between different subnets or even between a bridged Wi\-Fi and LAN.
+.sp
+If you are unable to set up your router thus or your firewall as shown below,
+and your devices have static IP addresses, you can specify them directly by
+changing the default \fBdynamic\fP setting for \fIAddresses\fP to something like:
+\fBtcp://192.168.1.xxx:22000, dynamic\fP\&.
 .SH LOCAL FIREWALL
 .sp
 If your PC has a local firewall, you will need to open the following ports for

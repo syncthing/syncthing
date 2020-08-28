@@ -499,7 +499,7 @@ func (p *Process) eventLoop() {
 				p.id = id
 
 				home := data["home"].(string)
-				w, err := config.Load(filepath.Join(home, "config.xml"), protocol.LocalDeviceID, events.NoopLogger)
+				w, _, err := config.Load(filepath.Join(home, "config.xml"), protocol.LocalDeviceID, events.NoopLogger)
 				if err != nil {
 					log.Println("eventLoop: Starting:", err)
 					continue

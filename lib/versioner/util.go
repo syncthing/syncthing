@@ -7,6 +7,7 @@
 package versioner
 
 import (
+	"context"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -292,4 +293,52 @@ func findAllVersions(fs fs.Filesystem, filePath string) []string {
 	sort.Strings(versions)
 
 	return versions
+}
+
+func cleanByDay(ctx context.Context, versionsFs fs.Filesystem, cleanoutDays int) error {
+	if cleanoutDays <= 0 {
+		return nil
+	}
+
+	if _, err := versionsFs.Lstat("."); fs.IsNotExist(err) {
+		return nil
+	}
+
+	cutoff := time.Now().Add(time.Duration(-24*cleanoutDays) * time.Hour)
+	dirTracker := make(emptyDirTracker)
+
+	walkFn := func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if info.IsDir() && !info.IsSymlink() {
+			dirTracker.addDir(path)
+			return nil
+		}
+
+		if info.ModTime().Before(cutoff) {
+			// The file is too old; remove it.
+			err = versionsFs.Remove(path)
+		} else {
+			// Keep this file, and remember it so we don't unnecessarily try
+			// to remove this directory.
+			dirTracker.addFile(path)
+		}
+		return err
+	}
+
+	if err := versionsFs.Walk(".", walkFn); err != nil {
+		return err
+	}
+
+	dirTracker.deleteEmptyDirs(versionsFs)
+
+	return nil
 }

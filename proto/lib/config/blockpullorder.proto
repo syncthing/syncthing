@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package config;
+
+enum BlockPullOrder {
+    BLOCK_PULL_ORDER_STANDARD = 0;
+    BLOCK_PULL_ORDER_RANDOM   = 1;
+    BLOCK_PULL_ORDER_IN_ORDER = 2;
+}
