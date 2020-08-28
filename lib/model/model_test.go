@@ -4160,13 +4160,13 @@ func TestCcCheckEncryption(t *testing.T) {
 		}
 		ccDevice := protocol.Device{ID: device1, EncPwToken: tc.tokenThem}
 		ccDeviceUs := protocol.Device{ID: myID, EncPwToken: tc.tokenUs}
-		err := m.ccCheckEncryptionLocked(tfcfg, dcfg, ccDevice, ccDeviceUs, true, true, false)
+		err := m.ccCheckEncryption(tfcfg, dcfg, ccDevice, ccDeviceUs, true, true, false)
 		if err != tc.expectedErr {
 			t.Errorf("Testcase %v: Expected error %v, got %v", i, tc.expectedErr, err)
 		}
 
 		if tc.expectedErr == nil {
-			err := m.ccCheckEncryptionLocked(tfcfg, dcfg, ccDevice, ccDeviceUs, true, true, true)
+			err := m.ccCheckEncryption(tfcfg, dcfg, ccDevice, ccDeviceUs, true, true, true)
 			if tc.isEncThem || tc.isEncUs {
 				if err != nil {
 					t.Errorf("Testcase %v: Expected no error, got %v", i, err)
@@ -4187,7 +4187,7 @@ func TestCcCheckEncryption(t *testing.T) {
 		} else {
 			dcfg.EncryptionPassword = "notAMatch"
 		}
-		err = m.ccCheckEncryptionLocked(tfcfg, dcfg, ccDevice, ccDeviceUs, true, true, false)
+		err = m.ccCheckEncryption(tfcfg, dcfg, ccDevice, ccDeviceUs, true, true, false)
 		if err != errEncPW {
 			t.Errorf("Testcase %v: Expected error %v, got %v", i, errEncPW, err)
 		}
