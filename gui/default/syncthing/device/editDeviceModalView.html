@@ -71,8 +71,8 @@
                 <small><a href="#" ng-click="selectAllSharedFolders(true)" translate>Select All</a>&emsp;
                   <a href="#" ng-click="selectAllSharedFolders(false)" translate>Deselect All</a></small>
               </p>
-              <div class="form-group" ng-repeat="folder in currentSharing.shared" ng-init="id = folder.id; device = currentDevice"">
-                <ng-include src="'syncthing/core/editShareTemplate.html'" />
+              <div class="form-group" ng-repeat="folder in currentSharing.shared">
+                <share-template selected="currentSharing.selected[folder.id]" encpws="currentSharing.encPWs[folder.id]" id="{{folder.id}}" label="{{folder.label}}" folder-type="{{folder.type}}" untrusted="{{device.untrusted}}" />
               </div>
             </div>
             <div class="form-horizontal" ng-if="currentSharing.unrelated.length">
@@ -82,8 +82,8 @@
                 <small><a href="#" ng-click="selectAllUnrelatedFolders(true)" translate>Select All</a>&emsp;
                   <a href="#" ng-click="selectAllUnrelatedFolders(false)" translate>Deselect All</a></small>
               </p>
-              <div class="form-group" ng-repeat="folder in currentSharing.unrelated" ng-init="id = folder.id; device = currentDevice">
-                <ng-include src="'syncthing/core/editShareTemplate.html'" />
+              <div class="form-group" ng-repeat="folder in currentSharing.unrelated">
+                <share-template selected="currentSharing.selected[folder.id]" encpws="currentSharing.encPWs[folder.id]" id="{{folder.id}}" label="{{folder.label}}" folder-type="{{folder.type}}" untrusted="{{device.untrusted}}" />
               </div>
             </div>
           </div>

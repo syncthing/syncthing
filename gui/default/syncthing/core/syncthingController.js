@@ -2587,13 +2587,23 @@ angular.module('syncthing.core')
                     address.startsWith('unixs://'));
         }
 
-        $scope.togglePW = function (id) {
-            var el = document.getElementById(id);
-            if (el.type === 'password') {
-                el.type = 'text';
-            } else {
-                el.type = 'password';
-            }
+    })
+    .directive('shareTemplate', function () {
+        return {
+            templateUrl: 'syncthing/core/editShareTemplate.html',
+            scope: {
+                selected: '=',
+                encpws: '=',
+                id: '@',
+                label: '@',
+                folderType: '@',
+            },
+            link: function(scope, elem, attrs) {
+                scope.untrusted = attrs.untrusted === 'true';
+                var plain = false;
+                scope.togglePW = function() {
+                    scope.plain = !scope.plain;
+                };
+            },
         }
-
     });

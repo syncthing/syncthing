@@ -1,33 +1,35 @@
 <div class="col-md-6 checkbox">
-  <label for="sharedwith-{{id}}" ng-switch="currentSharing.editing">
-    <input id="sharedwith-{{id}}" ng-model="currentSharing.selected[id]" type="checkbox" />
-    <span tooltip data-original-title="{{id}}">
-      <span ng-switch-when="device">{{folderLabel(id)}}</span>
-      <span ng-switch-when="folder">{{deviceName(devices[id])}}</span>
-    </span>
+  <label for="sharedwith-{{id}}">
+    <input id="sharedwith-{{id}}" ng-model="selected[id]" type="checkbox" />
+    <span tooltip data-original-title="{{id}}">{{label}}</span>
   </label>
 </div>
 <div class="col-md-6">
   <div class="input-group">
-    <span class="input-group-addon" ng-switch="folder.type !== 'receiveencrypted' && (!currentSharing.encPWs[id] || currentSharing.encPWs[id] === '')">
+    <span class="input-group-addon" ng-switch="folderType !== 'receiveencrypted' && !encpws[id]">
       <span ng-switch-when='true' class="fas fa-fw fa-unlock" />
-      <span ng-switch-when='false' class="fas fa-fw fa-lock" />
+      <span ng-switch-default class="fas fa-fw fa-lock" />
     </span>
-    <span ng-switch="currentSharing.selected[id]">
-      <span ng-switch-when='true' ng-switch="folder.type === 'receiveencrypted'">
-        <span ng-switch-when='true'>
-          <input class="form-control input-sm" type="password" placeholder="{{'received data is already encrypted' | translate}}" disabled />
+    <span ng-switch="folderType === 'receiveencrypted'">
+      <span ng-switch-when='true'>
+        <input class="form-control input-sm" type="password" placeholder="{{'received data is already encrypted' | translate}}" disabled />
+      </span>
+      <span ng-switch-default ng-switch="selected[id]">
+        <span ng-switch-when='true' ng-class="{'has-error': untrusted && !encpws[id]}">
+          <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encpws[id]" ng-required="untrusted" placeholder="{{'enter password to encrypt sent data' | translate}}" />
         </span>
-        <span ng-switch-when='false'  ng-class="{'has-error': device.untrusted && !currentSharing.encPWs[id]}">
-          <input class="form-control input-sm" id="enc-pw-{{id}}" type="password" ng-model="currentSharing.encPWs[id]" ng-required="device.untrusted" placeholder="{{'enter password to encrypt sent data' | translate}}" />
+        <span ng-switch-default>
+          <input class="form-control input-sm" type="password" placeholder="{{'not shared' | translate}}" disabled />
         </span>
+      </span>
+    </span>
+    <span ng-switch="selected[id] && folderType !== 'receiveencrypted'" class="input-group-addon">
+      <span ng-switch-when='true'>
+        <span class="button fas fa-fw fa-eye" ng-click="togglePW()" />
       </span>
       <span ng-switch-default>
-        <input class="form-control input-sm" type="password" placeholder="{{'not shared' | translate}}" disabled />
+        <span class="button fas fa-fw fa-eye" disabled />
       </span>
-    </span>
-    <span class="input-group-addon">
-      <span class="button fas fa-fw fa-eye" ng-click="togglePW('enc-pw-' + id)" />
     </span>
   </div>
 </div>
