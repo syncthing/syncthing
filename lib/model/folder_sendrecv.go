@@ -1524,7 +1524,8 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 
 func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCurFile bool, tempName string, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
 	if len(file.Encrypted) > 0 {
-		if err := f.finalizeEncrypted(file, tempName); err != nil {
+		var err error
+		if file, err = f.finalizeEncrypted(file, tempName); err != nil {
 			l.Warnln("Finalize encrypted file:", err)
 		}
 	}
@@ -1588,25 +1589,28 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 // serialized FileInfo and the length of that FileInfo. When initializing a
 // folder from encrypted data we can extract this FileInfo from the end of
 // the file and regain the original metadata.
-func (f *sendReceiveFolder) finalizeEncrypted(file protocol.FileInfo, tempName string) error {
+func (f *sendReceiveFolder) finalizeEncrypted(file protocol.FileInfo, tempName string) (protocol.FileInfo, error) {
 	size := file.ProtoSize()
 	bs := make([]byte, 4+size)
 	n, err := file.MarshalTo(bs)
 	if err != nil {
-		return err
+		return protocol.FileInfo{}, err
 	}
 	binary.BigEndian.PutUint32(bs[n:], uint32(n))
 	bs = bs[:n+4]
 
 	fd, err := f.fs.OpenFile(tempName, fs.OptWriteOnly|fs.OptAppend, 0600)
 	if err != nil {
-		return err
+		return protocol.FileInfo{}, err
 	}
 	if _, err := fd.Write(bs); err != nil {
 		fd.Close()
-		return err
+		return protocol.FileInfo{}, err
 	}
-	return fd.Close()
+
+	file.Size += int64(len(bs))
+
+	return file, fd.Close()
 }
 
 func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, in <-chan *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
