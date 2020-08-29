@@ -497,5 +497,25 @@ func (r rawResponse) Wait()  {}
 // IsEncryptedPath returns true if the path points at encrypted data. This is
 // determined by checking for a sentinel string in the path.
 func IsEncryptedPath(path string) bool {
-	return strings.Contains(path, encryptedDirExtension)
+	comps := strings.Split(path, "/")
+	if len(comps) != 3 {
+		return false
+	}
+	return isEncryptedParent(comps[:2])
+}
+
+// IsEncryptedParent returns true if the path points at a parent directory of
+// encrypted data, i.e. is not a "real" directory. This is determined by
+// checking for a sentinel string in the path.
+func IsEncryptedParent(path string) bool {
+	return isEncryptedParent(strings.Split(path, "/"))
+}
+
+func isEncryptedParent(comps []string) bool {
+	if l := len(comps); l > 2 {
+		return false
+	} else if l == 2 && len(comps[1]) != 2 {
+		return false
+	}
+	return comps[0][1:1+len(encryptedDirExtension)] == encryptedDirExtension
 }

@@ -475,11 +475,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 	var batchAppend func(protocol.FileInfo, *db.Snapshot)
 	// Resolve items which are identical with the global state.
-	if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
-		batchAppend = func(fi protocol.FileInfo, _ *db.Snapshot) {
-			batch.append(fi)
-		}
-	} else {
+	switch f.Type {
+	case config.FolderTypeReceiveOnly:
 		batchAppend = func(fi protocol.FileInfo, snap *db.Snapshot) {
 			switch gf, ok := snap.GetGlobal(fi.Name); {
 			case !ok:
@@ -495,6 +492,26 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				// cares about that).
 				fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 			}
+			batch.append(fi)
+		}
+	case config.FolderTypeReceiveEncrypted:
+		batchAppend = func(fi protocol.FileInfo, _ *db.Snapshot) {
+			// This is a "virtual" parent directory of encrypted files.
+			// We don't track it, but check if anything still exists
+			// within and delete it otherwise.
+			if fi.IsDirectory() && protocol.IsEncryptedParent(fi.Name) {
+				if names, err := mtimefs.DirNames(fi.Name); err == nil && len(names) == 0 {
+					mtimefs.Remove(fi.Name)
+				}
+				return
+			}
+			// Any local change must not be sent as index entry to
+			// remotes and show up as an error in the UI.
+			fi.LocalFlags = protocol.FlagLocalReceiveOnly
+			batch.append(fi)
+		}
+	default:
+		batchAppend = func(fi protocol.FileInfo, _ *db.Snapshot) {
 			batch.append(fi)
 		}
 	}

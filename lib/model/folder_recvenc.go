@@ -28,12 +28,7 @@ type receiveEncryptedFolder struct {
 }
 
 func newReceiveEncryptedFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger, ioLimiter *byteSemaphore) service {
-	f := &receiveEncryptedFolder{newSendReceiveFolder(model, fset, ignores, cfg, ver, fs, evLogger, ioLimiter).(*sendReceiveFolder)}
-	// Nothing should ever get changed in an encrypted folder. Use the flag
-	// to detect if it happens anyway, e.g. to prevent sending those changes
-	// to remotes.
-	f.localFlags = protocol.FlagLocalReceiveOnly
-	return f
+	return &receiveEncryptedFolder{newSendReceiveFolder(model, fset, ignores, cfg, ver, fs, evLogger, ioLimiter).(*sendReceiveFolder)}
 }
 
 func (f *receiveEncryptedFolder) Revert() {

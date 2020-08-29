@@ -2227,14 +2227,14 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 			return false
 		}
 
+		f = fi.(protocol.FileInfo)
+
 		// If this is a folder receiving encrypted files only, we
 		// mustn't ever send locally changed file infos. Those aren't
 		// encrypted and thus would be a protocol error at the remote.
 		if s.folderIsReceiveEncrypted && fi.IsReceiveOnlyChanged() {
 			return true
 		}
-
-		f = fi.(protocol.FileInfo)
 
 		// Mark the file as invalid if any of the local bad stuff flags are set.
 		f.RawInvalid = f.IsInvalid()

@@ -681,16 +681,22 @@ func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) boo
 	// user can then clean up as they like...
 	// This can also occur if an entire tree structure was deleted, but only
 	// a leave has been scanned.
+	//
+	// And if this is an encrypted folder:
+	// Encrypted files have made-up filenames with two synthetic parent
+	// directories which don't have any meaning. Create those if necessary.
 	if _, err := f.fs.Lstat(parent); !fs.IsNotExist(err) {
 		l.Debugf("%v parent not missing %v", f, file)
 		return true
 	}
-	l.Debugf("%v resurrecting parent directory of %v", f, file)
+	l.Debugf("%v creating parent directory of %v", f, file)
 	if err := f.fs.MkdirAll(parent, 0755); err != nil {
-		f.newPullError(file, errors.Wrap(err, "resurrecting parent dir"))
+		f.newPullError(file, errors.Wrap(err, "creating parent dir"))
 		return false
 	}
-	scanChan <- parent
+	if f.Type != config.FolderTypeReceiveEncrypted {
+		scanChan <- parent
+	}
 	return true
 }
 
