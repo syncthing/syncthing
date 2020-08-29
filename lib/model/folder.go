@@ -473,6 +473,15 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		return nil
 	})
 
+	// Schedule a pull after scanning, but only if we actually detected any
+	// changes.
+	changes := 0
+	defer func() {
+		if changes > 0 {
+			f.SchedulePull()
+		}
+	}()
+
 	var batchAppend func(protocol.FileInfo, *db.Snapshot)
 	// Resolve items which are identical with the global state.
 	switch f.Type {
@@ -503,6 +512,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				if names, err := mtimefs.DirNames(fi.Name); err == nil && len(names) == 0 {
 					mtimefs.Remove(fi.Name)
 				}
+				changes--
 				return
 			}
 			// Any local change must not be sent as index entry to
@@ -515,15 +525,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			batch.append(fi)
 		}
 	}
-
-	// Schedule a pull after scanning, but only if we actually detected any
-	// changes.
-	changes := 0
-	defer func() {
-		if changes > 0 {
-			f.SchedulePull()
-		}
-	}()
 
 	f.clearScanErrors(subDirs)
 	alreadyUsed := make(map[string]struct{})
