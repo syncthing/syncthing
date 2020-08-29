@@ -2012,7 +2012,7 @@ angular.module('syncthing.core')
                 filters: {},
                 massAction: function (name, action) {
                     $.each($scope.restoreVersions.versions, function (key) {
-                        if (key.startsWith(name + '/') && (!$scope.restoreVersions.filters.text || key.indexOf($scope.restoreVersions.filters.text) > -1)) {
+                        if (key.indexOf(name + '/') == 0 && (!$scope.restoreVersions.filters.text || key.indexOf($scope.restoreVersions.filters.text) > -1)) {
                             if (action == 'unset') {
                                 delete $scope.restoreVersions.selections[key];
                                 return;
@@ -2525,8 +2525,8 @@ angular.module('syncthing.core')
 
         $scope.isUnixAddress = function (address) {
             return address != null &&
-                (address.startsWith('/') ||
-                    address.startsWith('unix://') ||
-                    address.startsWith('unixs://'));
+                (address.indexOf('/') == 0 ||
+                    address.indexOf('unix://') == 0 ||
+                    address.indexOf('unixs://') == 0);
         }
     });
