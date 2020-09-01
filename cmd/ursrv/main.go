@@ -54,7 +54,7 @@ var (
 		{regexp.MustCompile("jenkins@build.syncthing.net"), "GitHub"},
 		{regexp.MustCompile("snap@build.syncthing.net"), "Snapcraft"},
 		{regexp.MustCompile("android-.*vagrant@basebox-stretch64"), "F-Droid"},
-		{regexp.MustCompile("builduser@svetlemodry"), "Arch (3rd party)"},
+		{regexp.MustCompile("builduser@archlinux"), "Arch (3rd party)"},
 		{regexp.MustCompile("synology@kastelo.net"), "Synology (Kastelo)"},
 		{regexp.MustCompile("@debian"), "Debian (3rd party)"},
 		{regexp.MustCompile("@fedora"), "Fedora (3rd party)"},
