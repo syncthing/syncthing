@@ -801,19 +801,33 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
-	meta, err := db.recalcMeta(folder)
-	if err == nil {
-		var fixed int
-		fixed, err = db.repairSequenceGCLocked(folder, meta)
-		if fixed != 0 {
-			l.Infof("Repaired %d sequence entries in database", fixed)
+	var err error
+	defer func() {
+		if err != nil && !backend.IsClosed(err) {
+			panic(err)
 		}
+	}()
+
+	var fixed int
+	fixed, err = db.checkLocalNeed([]byte(folder))
+	if err != nil {
+		return nil
+	}
+	if fixed != 0 {
+		l.Infof("Repaired %d local need entries for folder %v in database", fixed, folder)
 	}
 
-	if backend.IsClosed(err) {
+	meta, err := db.recalcMeta(folder)
+	if err != nil {
 		return nil
-	} else if err != nil {
-		panic(err)
+	}
+
+	fixed, err = db.repairSequenceGCLocked(folder, meta)
+	if err != nil {
+		return nil
+	}
+	if fixed != 0 {
+		l.Infof("Repaired %d sequence entries for folder %v in database", fixed, folder)
 	}
 
 	return meta
@@ -1033,6 +1047,79 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 	it.Release()
 
 	return fixed, t.Commit()
+}
+
+// Does not take care of metadata - if anything is repaired, the need count
+// needs to be recalculated.
+func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
+	repaired := 0
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return 0, err
+	}
+	defer t.close()
+
+	key, err := t.keyer.GenerateNeedFileKey(nil, folder, nil)
+	if err != nil {
+		return 0, err
+	}
+	dbi, err := t.NewPrefixIterator(key.WithoutName())
+	if err != nil {
+		return 0, err
+	}
+	defer dbi.Release()
+
+	var needName string
+	needDone := !dbi.Next()
+	if !needDone {
+		needName = string(t.keyer.NameFromGlobalVersionKey(dbi.Key()))
+	}
+	t.withNeedIteratingGlobal(folder, protocol.LocalDeviceID[:], true, func(fi protocol.FileIntf) bool {
+		f := fi.(FileInfoTruncated)
+		for !needDone && needName < f.Name {
+			repaired++
+			if err = t.Delete(dbi.Key()); err != nil {
+				return false
+			}
+			l.Debugln("check local need: removing", needName)
+			needDone = dbi.Next()
+			if !needDone {
+				needName = string(t.keyer.NameFromGlobalVersionKey(dbi.Key()))
+			}
+		}
+		if needName != f.Name {
+			repaired++
+			key, err = t.keyer.GenerateNeedFileKey(key, folder, []byte(f.Name))
+			if err != nil {
+				return false
+			}
+			if err = t.Put(key, nil); err != nil {
+				return false
+			}
+			l.Debugln("check local need: adding", f.Name)
+		}
+		return true
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	if !needDone {
+		for dbi.Next() {
+			repaired++
+			if err := t.Delete(dbi.Key()); err != nil {
+				return 0, err
+			}
+			l.Debugln("check local need: removing", string(t.keyer.NameFromGlobalVersionKey(dbi.Key())))
+		}
+	}
+
+	if err = t.Commit(); err != nil {
+		return 0, err
+	}
+
+	return repaired, nil
 }
 
 // unchanged checks if two files are the same and thus don't need to be updated.

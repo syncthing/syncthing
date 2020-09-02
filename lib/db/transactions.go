@@ -429,7 +429,10 @@ func (t *readOnlyTransaction) withNeed(folder, device []byte, truncate bool, fn 
 	if bytes.Equal(device, protocol.LocalDeviceID[:]) {
 		return t.withNeedLocal(folder, truncate, fn)
 	}
+	return t.withNeedIteratingGlobal(folder, device, truncate, fn)
+}
 
+func (t *readOnlyTransaction) withNeedIteratingGlobal(folder, device []byte, truncate bool, fn Iterator) error {
 	key, err := t.keyer.GenerateGlobalVersionKey(nil, folder, nil)
 	if err != nil {
 		return err
@@ -468,11 +471,12 @@ func (t *readOnlyTransaction) withNeed(folder, device []byte, truncate bool, fn 
 			return err
 		}
 
-		globalDev, ok := globalFV.FirstDevice()
-		if !ok {
-			return errEmptyFileVersion
+		if shouldDebug() {
+			if globalDev, ok := globalFV.FirstDevice(); ok {
+				globalID, _ := protocol.DeviceIDFromBytes(globalDev)
+				l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.IsInvalid(), haveFV.Version, gf.FileVersion(), globalID)
+			}
 		}
-		l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.IsInvalid(), haveFV.Version, gf.FileVersion(), globalDev)
 		if !fn(gf) {
 			return dbi.Error()
 		}
