@@ -1117,6 +1117,11 @@ func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
 		next()
 	}
 
+	if err := dbi.Error(); err != nil {
+		return 0, err
+	}
+	dbi.Release()
+
 	if err = t.Commit(); err != nil {
 		return 0, err
 	}
