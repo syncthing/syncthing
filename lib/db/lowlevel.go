@@ -1071,10 +1071,14 @@ func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
 	defer dbi.Release()
 
 	var needName string
-	needDone := !dbi.Next()
-	if !needDone {
-		needName = string(t.keyer.NameFromGlobalVersionKey(dbi.Key()))
+	var needDone bool
+	next := func() {
+		needDone = !dbi.Next()
+		if !needDone {
+			needName = string(t.keyer.NameFromGlobalVersionKey(dbi.Key()))
+		}
 	}
+	next()
 	t.withNeedIteratingGlobal(folder, protocol.LocalDeviceID[:], true, func(fi protocol.FileIntf) bool {
 		f := fi.(FileInfoTruncated)
 		for !needDone && needName < f.Name {
@@ -1083,12 +1087,11 @@ func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
 				return false
 			}
 			l.Debugln("check local need: removing", needName)
-			needDone = dbi.Next()
-			if !needDone {
-				needName = string(t.keyer.NameFromGlobalVersionKey(dbi.Key()))
-			}
+			next()
 		}
-		if needName != f.Name {
+		if needName == f.Name {
+			next()
+		} else {
 			repaired++
 			key, err = t.keyer.GenerateNeedFileKey(key, folder, []byte(f.Name))
 			if err != nil {
@@ -1105,14 +1108,13 @@ func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
 		return 0, err
 	}
 
-	if !needDone {
-		for dbi.Next() {
-			repaired++
-			if err := t.Delete(dbi.Key()); err != nil {
-				return 0, err
-			}
-			l.Debugln("check local need: removing", string(t.keyer.NameFromGlobalVersionKey(dbi.Key())))
+	for !needDone {
+		repaired++
+		if err := t.Delete(dbi.Key()); err != nil {
+			return 0, err
 		}
+		l.Debugln("check local need: removing", needName)
+		next()
 	}
 
 	if err = t.Commit(); err != nil {
