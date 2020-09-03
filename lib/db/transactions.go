@@ -797,7 +797,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device, file 
 		return keyBuf, t.Delete(gk)
 	}
 
-	removedFV, haveRemoved, globalChanged, err := fl.pop(folder, device, file, t.readOnlyTransaction)
+	removedFV, haveRemoved, globalChanged, err := fl.pop(device, file)
 	if err != nil {
 		return nil, err
 	}
