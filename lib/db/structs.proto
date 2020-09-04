@@ -65,6 +65,7 @@ message IndirectionHashesOnly {
 // For each folder and device we keep one of these to track the current
 // counts and sequence. We also keep one for the global state of the folder.
 message Counts {
+    option (gogoproto.goproto_stringer) = false;
     int32  files       = 1;
     int32  directories = 2;
     int32  symlinks    = 3;
