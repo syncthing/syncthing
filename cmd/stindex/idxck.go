@@ -333,10 +333,10 @@ func idxck(ldb backend.Backend) (success bool) {
 }
 
 func needsLocally(vl db.VersionList) bool {
-	fv, ok := vl.Get(protocol.LocalDeviceID[:])
-	if !ok {
-		return true // proviosinally, it looks like we need the file
+	gfv, gok := vl.GetGlobal()
+	if !gok { // That's weird, but we hardly need something non-existant
+		return false
 	}
-	gfv, _ := vl.GetGlobal() // Can't not have a global if we got something above
-	return !fv.Version.GreaterEqual(gfv.Version)
+	fv, ok := vl.Get(protocol.LocalDeviceID[:])
+	return db.Need(gfv, ok, fv.Version)
 }

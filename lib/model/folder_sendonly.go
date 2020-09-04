@@ -40,13 +40,6 @@ func (f *sendOnlyFolder) PullErrors() []FileError {
 
 // pull checks need for files that only differ by metadata (no changes on disk)
 func (f *sendOnlyFolder) pull() bool {
-	select {
-	case <-f.initialScanFinished:
-	default:
-		// Once the initial scan finished, a pull will be scheduled
-		return false
-	}
-
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
 

@@ -843,6 +843,81 @@ func TestFlushRecursion(t *testing.T) {
 	}
 }
 
+func TestCheckLocalNeed(t *testing.T) {
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+
+	folderStr := "test"
+	fs := NewFileSet(folderStr, fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+
+	// Add files such that we are in sync for a and b, and need c and d.
+	files := []protocol.FileInfo{
+		{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}},
+		{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}},
+		{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}},
+		{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}},
+	}
+	fs.Update(protocol.LocalDeviceID, files)
+	files[2].Version = files[2].Version.Update(remoteDevice0.Short())
+	files[3].Version = files[2].Version.Update(remoteDevice0.Short())
+	fs.Update(remoteDevice0, files)
+
+	checkNeed := func() {
+		snap := fs.Snapshot()
+		defer snap.Release()
+		c := snap.NeedSize(protocol.LocalDeviceID)
+		if c.Files != 2 {
+			t.Errorf("Expected 2 needed files locally, got %v in meta", c.Files)
+		}
+		needed := make([]protocol.FileInfo, 0, 2)
+		snap.WithNeed(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
+			needed = append(needed, fi.(protocol.FileInfo))
+			return true
+		})
+		if l := len(needed); l != 2 {
+			t.Errorf("Expected 2 needed files locally, got %v in db", l)
+		} else if needed[0].Name != "c" || needed[1].Name != "d" {
+			t.Errorf("Expected files c and d to be needed, got %v and %v", needed[0].Name, needed[1].Name)
+		}
+	}
+
+	checkNeed()
+
+	trans, err := db.newReadWriteTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trans.close()
+
+	// Add "b" to needed and remove "d"
+	folder := []byte(folderStr)
+	key, err := trans.keyer.GenerateNeedFileKey(nil, folder, []byte(files[1].Name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = trans.Put(key, nil); err != nil {
+		t.Fatal(err)
+	}
+	key, err = trans.keyer.GenerateNeedFileKey(nil, folder, []byte(files[3].Name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = trans.Delete(key); err != nil {
+		t.Fatal(err)
+	}
+	if err := trans.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	if repaired, err := db.checkLocalNeed(folder); err != nil {
+		t.Fatal(err)
+	} else if repaired != 2 {
+		t.Error("Expected 2 repaired local need items, got", repaired)
+	}
+
+	checkNeed()
+}
+
 func numBlockLists(db *Lowlevel) (int, error) {
 	it, err := db.Backend.NewPrefixIterator([]byte{KeyTypeBlockList})
 	if err != nil {
