@@ -199,7 +199,7 @@ func (vl VersionList) String() string {
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		fmt.Fprintf(&b, "{%v, {", v.Version)
+		fmt.Fprintf(&b, "{Version:%v, Deleted:%v, Devices:{", v.Version, v.Deleted)
 		for j, dev := range v.Devices {
 			if j > 0 {
 				b.WriteString(", ")
@@ -207,7 +207,7 @@ func (vl VersionList) String() string {
 			copy(id[:], dev)
 			fmt.Fprint(&b, id.Short())
 		}
-		b.WriteString("}, {")
+		b.WriteString("}, Invalid:{")
 		for j, dev := range v.InvalidDevices {
 			if j > 0 {
 				b.WriteString(", ")

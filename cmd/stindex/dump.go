@@ -116,7 +116,14 @@ func dump(ldb backend.Backend) {
 			fmt.Printf("[blocklistmap] F:%d H:%x N:%s\n", folder, hash, fileName)
 
 		case db.KeyTypeVersion:
-			fmt.Printf("[version] H:%x\n", key[1:])
+			fmt.Printf("[version] H:%x", key[1:])
+			var v protocol.Vector
+			err := v.Unmarshal(it.Value())
+			if err != nil {
+				fmt.Printf(" (invalid)\n")
+			} else {
+				fmt.Printf(" V:%v\n", v)
+			}
 
 		default:
 			fmt.Printf("[??? %d]\n  %x\n  %x\n", key[0], key, it.Value())
