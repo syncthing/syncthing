@@ -703,7 +703,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 				}
 			}
 		}
-		if need(globalFV, haveLocal, localFV.Version) {
+		if needNow {
 			meta.addNeeded(protocol.LocalDeviceID, global)
 			if !needBefore {
 				if keyBuf, err = t.updateLocalNeed(keyBuf, folder, name, true); err != nil {
