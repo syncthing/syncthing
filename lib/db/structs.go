@@ -12,6 +12,7 @@ package db
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -184,6 +185,33 @@ func (c Counts) Add(other Counts) Counts {
 
 func (c Counts) TotalItems() int32 {
 	return c.Files + c.Directories + c.Symlinks + c.Deleted
+}
+
+func (c Counts) String() string {
+	dev, _ := protocol.DeviceIDFromBytes(c.DeviceID)
+	var flags strings.Builder
+	if c.LocalFlags&needFlag != 0 {
+		flags.WriteString("Need")
+	}
+	if c.LocalFlags&protocol.FlagLocalIgnored != 0 {
+		flags.WriteString("Ignored")
+	}
+	if c.LocalFlags&protocol.FlagLocalMustRescan != 0 {
+		flags.WriteString("Rescan")
+	}
+	if c.LocalFlags&protocol.FlagLocalReceiveOnly != 0 {
+		flags.WriteString("Recvonly")
+	}
+	if c.LocalFlags&protocol.FlagLocalUnsupported != 0 {
+		flags.WriteString("Unsupported")
+	}
+	if c.LocalFlags != 0 {
+		flags.WriteString(fmt.Sprintf("(%x)", c.LocalFlags))
+	}
+	if flags.Len() == 0 {
+		flags.WriteString("---")
+	}
+	return fmt.Sprintf("{Device:%v, Files:%d, Dirs:%d, Symlinks:%d, Del:%d, Bytes:%d, Seq:%d, Flags:%s}", dev, c.Files, c.Directories, c.Symlinks, c.Deleted, c.Bytes, c.Sequence, flags.String())
 }
 
 // Equal compares the numbers only, not sequence/dev/flags.
