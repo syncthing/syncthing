@@ -262,9 +262,10 @@ func (vl *VersionList) update(folder, device []byte, file protocol.FileIntf, t r
 
 	// Get the current global (before updating)
 	oldFV, haveOldGlobal := vl.GetGlobal()
+	oldFV = oldFV.copy()
 
 	// Remove ourselves first
-	removedFV, haveRemoved, _, err := vl.pop(folder, device, []byte(file.FileName()), t)
+	removedFV, haveRemoved, _, err := vl.pop(device, []byte(file.FileName()))
 	if err == nil {
 		// Find position and insert the file
 		err = vl.insert(folder, device, file, t)
@@ -314,10 +315,10 @@ func (vl *VersionList) insertAt(i int, v FileVersion) {
 	vl.RawVersions[i] = v
 }
 
-// pop returns the VersionList without the entry for the given device, as well
-// as the removed FileVersion, whether it was found/removed at all and whether
+// pop removes the given device from the VersionList and returns the FileVersion
+// before removing the device, whether it was found/removed at all and whether
 // the global changed in the process.
-func (vl *VersionList) pop(folder, device, name []byte, t readOnlyTransaction) (FileVersion, bool, bool, error) {
+func (vl *VersionList) pop(device, name []byte) (FileVersion, bool, bool, error) {
 	invDevice, i, j, ok := vl.findDevice(device)
 	if !ok {
 		return FileVersion{}, false, false, nil
@@ -330,6 +331,7 @@ func (vl *VersionList) pop(folder, device, name []byte, t readOnlyTransaction) (
 		return fv, true, globalPos == i, nil
 	}
 
+	oldFV := vl.RawVersions[i].copy()
 	if invDevice {
 		vl.RawVersions[i].InvalidDevices = popDeviceAt(vl.RawVersions[i].InvalidDevices, j)
 	} else {
@@ -338,9 +340,9 @@ func (vl *VersionList) pop(folder, device, name []byte, t readOnlyTransaction) (
 	// If the last valid device of the previous global was removed above,
 	// the next entry is now the global entry (unless all entries are invalid).
 	if len(vl.RawVersions[i].Devices) == 0 && globalPos == i {
-		return vl.RawVersions[i], true, globalPos == vl.findGlobal(), nil
+		return oldFV, true, globalPos == vl.findGlobal(), nil
 	}
-	return vl.RawVersions[i], true, false, nil
+	return oldFV, true, false, nil
 }
 
 // Get returns a FileVersion that contains the given device and whether it has
@@ -534,6 +536,14 @@ func (fv FileVersion) IsInvalid() bool {
 
 func (fv FileVersion) deviceCount() int {
 	return len(fv.Devices) + len(fv.InvalidDevices)
+}
+
+func (fv FileVersion) copy() FileVersion {
+	n := fv
+	n.Version = fv.Version.Copy()
+	n.Devices = append([][]byte{}, fv.Devices...)
+	n.InvalidDevices = append([][]byte{}, fv.InvalidDevices...)
+	return n
 }
 
 type fileList []protocol.FileInfo

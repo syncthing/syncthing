@@ -707,7 +707,7 @@ func (t readWriteTransaction) updateGlobal(gk, keyBuf, folder, device []byte, fi
 				}
 			}
 		}
-		if Need(globalFV, haveLocal, localFV.Version) {
+		if needNow {
 			meta.addNeeded(protocol.LocalDeviceID, global)
 			if !needBefore {
 				if keyBuf, err = t.updateLocalNeed(keyBuf, folder, name, true); err != nil {
@@ -801,7 +801,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device, file 
 		return keyBuf, t.Delete(gk)
 	}
 
-	removedFV, haveRemoved, globalChanged, err := fl.pop(folder, device, file, t.readOnlyTransaction)
+	removedFV, haveRemoved, globalChanged, err := fl.pop(device, file)
 	if err != nil {
 		return nil, err
 	}
