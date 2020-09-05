@@ -539,19 +539,8 @@ func (p *Process) eventLoop() {
 			case "LocalIndexUpdated":
 				data := ev.Data.(map[string]interface{})
 				folder := data["folder"].(string)
-				version, _ := data["version"].(json.Number).Int64()
 				p.eventMut.Lock()
-				m := p.sequence[folder]
-				if m == nil {
-					m = make(map[string]int64)
-				}
-				device := p.id.String()
-				if device == "" {
-					p.eventMut.Unlock()
-					panic("race, or startup not complete")
-				}
-				m[device] = version
-				p.sequence[folder] = m
+				m := p.updateSequenceLocked(folder, p.id.String(), data["sequence"])
 				p.done[folder] = false
 				l.Debugf("LocalIndexUpdated %v %v done=false\n\t%+v", p.id, folder, m)
 				p.eventMut.Unlock()
@@ -560,14 +549,8 @@ func (p *Process) eventLoop() {
 				data := ev.Data.(map[string]interface{})
 				device := data["device"].(string)
 				folder := data["folder"].(string)
-				version, _ := data["version"].(json.Number).Int64()
 				p.eventMut.Lock()
-				m := p.sequence[folder]
-				if m == nil {
-					m = make(map[string]int64)
-				}
-				m[device] = version
-				p.sequence[folder] = m
+				m := p.updateSequenceLocked(folder, device, data["sequence"])
 				p.done[folder] = false
 				l.Debugf("RemoteIndexUpdated %v %v done=false\n\t%+v", p.id, folder, m)
 				p.eventMut.Unlock()
@@ -576,15 +559,36 @@ func (p *Process) eventLoop() {
 				data := ev.Data.(map[string]interface{})
 				folder := data["folder"].(string)
 				summary := data["summary"].(map[string]interface{})
-				need, _ := summary["needBytes"].(json.Number).Int64()
+				need, _ := summary["needTotalItems"].(json.Number).Int64()
 				done := need == 0
 				p.eventMut.Lock()
+				m := p.updateSequenceLocked(folder, p.id.String(), summary["sequence"])
 				p.done[folder] = done
-				l.Debugf("Foldersummary %v %v\n\t%+v", p.id, folder, p.done)
+				l.Debugf("FolderSummary %v %v\n\t%+v\n\t%+v", p.id, folder, p.done, m)
+				p.eventMut.Unlock()
+
+			case "FolderCompletion":
+				data := ev.Data.(map[string]interface{})
+				device := data["device"].(string)
+				folder := data["folder"].(string)
+				p.eventMut.Lock()
+				m := p.updateSequenceLocked(folder, device, data["sequence"])
+				l.Debugf("FolderCompletion %v\n\t%+v", p.id, folder, m)
 				p.eventMut.Unlock()
 			}
 		}
 	}
+}
+
+func (p *Process) updateSequenceLocked(folder, device string, sequenceIntf interface{}) map[string]int64 {
+	sequence, _ := sequenceIntf.(json.Number).Int64()
+	m := p.sequence[folder]
+	if m == nil {
+		m = make(map[string]int64)
+	}
+	m[device] = sequence
+	p.sequence[folder] = m
+	return m
 }
 
 type ConnectionStats struct {
