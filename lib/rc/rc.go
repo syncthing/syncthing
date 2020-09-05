@@ -27,6 +27,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -661,4 +662,18 @@ func (p *Process) SystemVersion() (SystemVersion, error) {
 	}
 
 	return res, nil
+}
+
+func (p *Process) RemoteInSync(folder string, dev protocol.DeviceID) (bool, error) {
+	bs, err := p.Get(fmt.Sprintf("/rest/db/completion?folder=%v&device=%v", url.QueryEscape(folder), dev))
+	if err != nil {
+		return false, err
+	}
+
+	var comp model.FolderCompletion
+	if err := json.Unmarshal(bs, &comp); err != nil {
+		return false, err
+	}
+
+	return comp.NeedItems+comp.NeedDeletes == 0, nil
 }

@@ -117,6 +117,10 @@ func testReconnectDuringTransfer(t *testing.T, restartSender, restartReceiver bo
 	log.Println("Comparing directories...")
 	err = compareDirectories("s1", "s2")
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
+	}
+
+	if err := checkRemoteInSync("default", receiver, sender); err != nil {
+		t.Error(err)
 	}
 }
