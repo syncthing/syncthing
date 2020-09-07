@@ -474,7 +474,7 @@ func (t *readOnlyTransaction) withNeedIteratingGlobal(folder, device []byte, tru
 		if shouldDebug() {
 			if globalDev, ok := globalFV.FirstDevice(); ok {
 				globalID, _ := protocol.DeviceIDFromBytes(globalDev)
-				l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, devID, name, have, haveFV.IsInvalid(), haveFV.Version, gf.FileVersion(), globalID)
+				l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v haveDeleted=%v globalV=%v globalDeleted=%v globalDev=%v", folder, devID, name, have, haveFV.IsInvalid(), haveFV.Version, haveFV.Deleted, gf.FileVersion(), globalFV.Deleted, globalID)
 			}
 		}
 		if !fn(gf) {
@@ -759,8 +759,10 @@ func (t readWriteTransaction) updateLocalNeed(keyBuf, folder, name []byte, add b
 }
 
 func Need(global FileVersion, haveLocal bool, localVersion protocol.Vector) bool {
-	// We never need an invalid file.
-	if global.IsInvalid() {
+	// We never need an invalid file or a file without a valid version (just
+	// another way of expressing "invalid", really, until we fix that
+	// part...).
+	if global.IsInvalid() || global.Version.IsEmpty() {
 		return false
 	}
 	// We don't need a deleted file if we don't have it.
