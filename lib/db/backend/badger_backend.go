@@ -16,12 +16,13 @@ import (
 
 const (
 	checkpointFlushMinSize = 128 << KiB
-	maxCacheSize           = 64 << MiB
+	blockCacheSize         = 32 << MiB
+	indexCacheSize         = 32 << MiB
 )
 
 func OpenBadger(path string) (Backend, error) {
 	opts := badger.DefaultOptions(path)
-	opts = opts.WithMaxCacheSize(maxCacheSize).WithCompactL0OnClose(false)
+	opts = opts.WithBlockCacheSize(blockCacheSize).WithIndexCacheSize(indexCacheSize).WithCompactL0OnClose(false)
 	opts.Logger = nil
 	return openBadger(opts)
 }
