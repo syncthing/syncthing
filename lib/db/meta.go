@@ -198,18 +198,24 @@ func (m *metadataTracker) updateFileLocked(dev protocol.DeviceID, f protocol.Fil
 	}
 }
 
-// emptyNeeded makes sure there is a zero counts in case the device needs nothing.
+// emptyNeeded ensures that there is a need count for the given device and that it is empty.
 func (m *metadataTracker) emptyNeeded(dev protocol.DeviceID) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
 	m.dirty = true
 
-	m.indexes[metaKey{dev, needFlag}] = len(m.counts.Counts)
-	m.counts.Counts = append(m.counts.Counts, Counts{
+	empty := Counts{
 		DeviceID:   dev[:],
 		LocalFlags: needFlag,
-	})
+	}
+	key := metaKey{dev, needFlag}
+	if idx, ok := m.indexes[key]; ok {
+		m.counts.Counts[idx] = empty
+		return
+	}
+	m.indexes[key] = len(m.counts.Counts)
+	m.counts.Counts = append(m.counts.Counts, empty)
 }
 
 // addNeeded adds a file to the needed counts
