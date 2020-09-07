@@ -1262,7 +1262,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
 
 			var found bool
-			if f.HasPlaintextData() {
+			if f.Type != config.FolderTypeReceiveEncrypted {
 				found, err = weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
 					if f.verifyBuffer(buf, block) != nil {
 						return true
@@ -1350,7 +1350,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 }
 
 func (f *sendReceiveFolder) initWeakHashFinder(state copyBlocksState) (*weakhash.Finder, fs.File) {
-	if !f.HasPlaintextData() {
+	if f.Type == config.FolderTypeReceiveEncrypted {
 		l.Debugln("not weak hashing due to folder type", f.Type)
 		return nil, nil
 	}
@@ -1395,7 +1395,7 @@ func (f *sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) e
 	if len(buf) != int(block.Size) {
 		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
 	}
-	if !f.HasPlaintextData() {
+	if f.Type == config.FolderTypeReceiveEncrypted {
 		// If the hash is not SHA256 it's an encrypted hash token. In that
 		// case we can't verify the block integrity so we'll take it on
 		// trust. (The other side can and will verify.)
