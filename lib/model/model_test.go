@@ -4164,19 +4164,19 @@ func TestCcCheckEncryption(t *testing.T) {
 		{
 			tokenThem:   token,
 			tokenUs:     token,
-			expectedErr: errEncInvConfigRemote,
+			expectedErr: errEncryptionInvConfigRemote,
 		},
 		{
 			isEncThem:   true,
 			isEncUs:     true,
-			expectedErr: errEncInvConfigLocal,
+			expectedErr: errEncryptionInvConfigLocal,
 		},
 		{
 			tokenThem:   token,
 			tokenUs:     nil,
 			isEncThem:   false,
 			isEncUs:     false,
-			expectedErr: errEncNotEncryptedLocal,
+			expectedErr: errEncryptionNotEncryptedLocal,
 		},
 		{
 			tokenThem:   token,
@@ -4211,21 +4211,21 @@ func TestCcCheckEncryption(t *testing.T) {
 			tokenUs:     token,
 			isEncThem:   false,
 			isEncUs:     false,
-			expectedErr: errEncNotEncryptedLocal,
+			expectedErr: errEncryptionNotEncryptedLocal,
 		},
 		{
 			tokenThem:   nil,
 			tokenUs:     nil,
 			isEncThem:   true,
 			isEncUs:     false,
-			expectedErr: errEncNotEncryptedRemote,
+			expectedErr: errEncryptionNotEncryptedRemote,
 		},
 		{
 			tokenThem:   nil,
 			tokenUs:     nil,
 			isEncThem:   false,
 			isEncUs:     true,
-			expectedErr: errEncNotEncryptedRemote,
+			expectedErr: errEncryptionNotEncryptedRemote,
 		},
 		{
 			tokenThem:   nil,
@@ -4260,8 +4260,8 @@ func TestCcCheckEncryption(t *testing.T) {
 					t.Errorf("Testcase %v: Expected no error, got %v", i, err)
 				}
 			} else {
-				if err != errEncNotEncryptedUntrusted {
-					t.Errorf("Testcase %v: Expected error %v, got %v", i, errEncNotEncryptedUntrusted, err)
+				if err != errEncryptionNotEncryptedUntrusted {
+					t.Errorf("Testcase %v: Expected error %v, got %v", i, errEncryptionNotEncryptedUntrusted, err)
 				}
 			}
 		}
@@ -4276,8 +4276,8 @@ func TestCcCheckEncryption(t *testing.T) {
 			dcfg.EncryptionPassword = "notAMatch"
 		}
 		err = m.ccCheckEncryption(tfcfg, dcfg, ccDevice, ccDeviceUs, true, true, false)
-		if err != errEncPW {
-			t.Errorf("Testcase %v: Expected error %v, got %v", i, errEncPW, err)
+		if err != errEncryptionPassword {
+			t.Errorf("Testcase %v: Expected error %v, got %v", i, errEncryptionPassword, err)
 		}
 	}
 }
