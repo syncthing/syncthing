@@ -808,14 +808,6 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) Folder
 	snap := rf.Snapshot()
 	defer snap.Release()
 
-	global := snap.GlobalSize()
-	if global.Bytes == 0 {
-		// Folder is empty, so we have all of it
-		return FolderCompletion{
-			CompletionPct: 100,
-		}
-	}
-
 	m.pmut.RLock()
 	downloaded := m.deviceDownloads[device].BytesDownloaded(folder)
 	m.pmut.RUnlock()
@@ -827,7 +819,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) Folder
 		need.Bytes = 0
 	}
 
-	comp := newFolderCompletion(global, need, snap.Sequence(device))
+	comp := newFolderCompletion(snap.GlobalSize(), need, snap.Sequence(device))
 
 	l.Debugf("%v Completion(%s, %q): %v", m, device, folder, comp.Map())
 	return comp
