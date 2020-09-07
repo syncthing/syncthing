@@ -334,6 +334,7 @@ type badgerIterator struct {
 	first     []byte
 	last      []byte
 	releaseFn func()
+	released  bool
 	didSeek   bool
 	err       error
 }
@@ -397,6 +398,12 @@ func (i *badgerIterator) Error() error {
 }
 
 func (i *badgerIterator) Release() {
+	if i.released {
+		// We already closed this iterator, no need to do it again
+		// (and the releaseFn might hang if we do).
+		return
+	}
+	i.released = true
 	i.it.Close()
 	if i.releaseFn != nil {
 		i.releaseFn()
