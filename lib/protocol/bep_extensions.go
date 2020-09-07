@@ -189,10 +189,6 @@ func WinsConflict(f, other FileIntf) bool {
 	return f.FileVersion().Compare(other.FileVersion()) == ConcurrentGreater
 }
 
-func (f FileInfo) IsEmpty() bool {
-	return f.Version.Counters == nil
-}
-
 func (f FileInfo) IsEquivalent(other FileInfo, modTimeWindow time.Duration) bool {
 	return f.isEquivalent(other, modTimeWindow, false, false, 0)
 }

@@ -1052,11 +1052,13 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 	}
 	f.forcedRescanPathsMut.Unlock()
 
+	seq := f.fset.Sequence(protocol.LocalDeviceID)
 	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":    f.ID,
 		"items":     len(fs),
 		"filenames": filenames,
-		"version":   f.fset.Sequence(protocol.LocalDeviceID),
+		"sequence":  seq,
+		"version":   seq, // legacy for sequence
 	})
 }
 

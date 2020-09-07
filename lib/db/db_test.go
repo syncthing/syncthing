@@ -918,6 +918,36 @@ func TestCheckLocalNeed(t *testing.T) {
 	checkNeed()
 }
 
+func TestDuplicateNeedCount(t *testing.T) {
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+
+	folder := "test"
+	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, "")
+
+	fs := NewFileSet(folder, testFs, db)
+	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID), Sequence: 1}}
+	fs.Update(protocol.LocalDeviceID, files)
+	files[0].Version = files[0].Version.Update(remoteDevice0.Short())
+	fs.Update(remoteDevice0, files)
+
+	db.CheckRepair()
+
+	fs = NewFileSet(folder, testFs, db)
+	found := false
+	for _, c := range fs.meta.counts.Counts {
+		if bytes.Equal(protocol.LocalDeviceID[:], c.DeviceID) && c.LocalFlags == needFlag {
+			if found {
+				t.Fatal("second need count for local device encountered")
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("no need count for local device encountered")
+	}
+}
+
 func numBlockLists(db *Lowlevel) (int, error) {
 	it, err := db.Backend.NewPrefixIterator([]byte{KeyTypeBlockList})
 	if err != nil {
