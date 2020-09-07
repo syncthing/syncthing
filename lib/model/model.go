@@ -715,15 +715,17 @@ type FolderCompletion struct {
 	GlobalItems   int32
 	NeedItems     int32
 	NeedDeletes   int32
+	Sequence      int64
 }
 
-func newFolderCompletion(global, need db.Counts) FolderCompletion {
+func newFolderCompletion(global, need db.Counts, sequence int64) FolderCompletion {
 	comp := FolderCompletion{
 		GlobalBytes: global.Bytes,
 		NeedBytes:   need.Bytes,
 		GlobalItems: global.Files + global.Directories + global.Symlinks,
 		NeedItems:   need.Files + need.Directories + need.Symlinks,
 		NeedDeletes: need.Deleted,
+		Sequence:    sequence,
 	}
 	comp.setComplectionPct()
 	return comp
@@ -764,6 +766,7 @@ func (comp FolderCompletion) Map() map[string]interface{} {
 		"globalItems": comp.GlobalItems,
 		"needItems":   comp.NeedItems,
 		"needDeletes": comp.NeedDeletes,
+		"sequence":    comp.Sequence,
 	}
 }
 
@@ -824,7 +827,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) Folder
 		need.Bytes = 0
 	}
 
-	comp := newFolderCompletion(global, need)
+	comp := newFolderCompletion(global, need, snap.Sequence(device))
 
 	l.Debugf("%v Completion(%s, %q): %v", m, device, folder, comp.Map())
 	return comp
@@ -974,11 +977,13 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	}
 	files.Update(deviceID, fs)
 
+	seq := files.Sequence(deviceID)
 	m.evLogger.Log(events.RemoteIndexUpdated, map[string]interface{}{
-		"device":  deviceID.String(),
-		"folder":  folder,
-		"items":   len(fs),
-		"version": files.Sequence(deviceID),
+		"device":   deviceID.String(),
+		"folder":   folder,
+		"items":    len(fs),
+		"sequence": seq,
+		"version":  seq, // legacy for sequence
 	})
 
 	return nil

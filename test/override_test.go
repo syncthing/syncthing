@@ -25,7 +25,7 @@ import (
 func TestOverride(t *testing.T) {
 	// Enable "send-only" on s1/default
 	id, _ := protocol.DeviceIDFromString(id1)
-	cfg, _ := config.Load("h1/config.xml", id, events.NoopLogger)
+	cfg, _, _ := config.Load("h1/config.xml", id, events.NoopLogger)
 	fld := cfg.Folders()["default"]
 	fld.Type = config.FolderTypeSendOnly
 	cfg.SetFolder(fld)
@@ -157,7 +157,7 @@ get to completion when in sendOnly/sendRecv mode. Needs fixing.
 func TestOverrideIgnores(t *testing.T) {
 	// Enable "sendOnly" on s1/default
 	id, _ := protocol.DeviceIDFromString(id1)
-	cfg, _ := config.Load("h1/config.xml", id, events.NoopLogger)
+	cfg, _, _ := config.Load("h1/config.xml", id, events.NoopLogger)
 	fld := cfg.Folders()["default"]
 	fld.ReadOnly = true
 	cfg.SetFolder(fld)
