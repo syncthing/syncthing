@@ -4017,6 +4017,77 @@ func testConfigChangeClosesConnections(t *testing.T, expectFirstClosed, expectSe
 	}
 }
 
+// The end result of the tested scenario is that the global version entry has an
+// empty version vector and is not deleted, while everything is actually deleted.
+// That then causes these files to be considered as needed, while they are not.
+// https://github.com/syncthing/syncthing/issues/6961
+func TestIssue6961(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	tfs := fcfg.Filesystem()
+	wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+	fcfg.Type = config.FolderTypeReceiveOnly
+	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
+	wcfg.SetFolder(fcfg)
+	m := setupModel(wcfg)
+	// defer cleanupModelAndRemoveDir(m, tfs.URI())
+	defer cleanupModel(m)
+
+	name := "foo"
+	version := protocol.Vector{}.Update(device1.Short())
+
+	// Remote, valid and existing file
+	m.Index(device1, fcfg.ID, []protocol.FileInfo{{Name: name, Version: version, Sequence: 1}})
+	// Remote, invalid (receive-only) and existing file
+	m.Index(device2, fcfg.ID, []protocol.FileInfo{{Name: name, RawInvalid: true, Sequence: 1}})
+	// Create a local file
+	if fd, err := tfs.OpenFile(name, fs.OptCreate, 0666); err != nil {
+		t.Fatal(err)
+	} else {
+		fd.Close()
+	}
+	if info, err := tfs.Lstat(name); err != nil {
+		t.Fatal(err)
+	} else {
+		l.Infoln("intest", info.Mode)
+	}
+	m.ScanFolders()
+
+	// Get rid of valid global
+	waiter, err := wcfg.RemoveDevice(device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+
+	// Delete the local file
+	must(t, tfs.Remove(name))
+	m.ScanFolders()
+
+	// Drop ther remote index, add some other file.
+	m.Index(device2, fcfg.ID, []protocol.FileInfo{{Name: "bar", RawInvalid: true, Sequence: 1}})
+
+	// Recalculate everything
+	fcfg.Paused = true
+	waiter, err = wcfg.SetFolder(fcfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+	m.db.CheckRepair()
+	fcfg.Paused = false
+	waiter, err = wcfg.SetFolder(fcfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+
+	if comp := m.Completion(device2, fcfg.ID); comp.NeedDeletes != 0 {
+		t.Error("Expected 0 needed deletes, got", comp.NeedDeletes)
+	} else {
+		t.Log(comp)
+	}
+}
+
 func TestCompletionEmptyGlobal(t *testing.T) {
 	wcfg, fcfg := tmpDefaultWrapper()
 	m := setupModel(wcfg)
