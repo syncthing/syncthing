@@ -1354,7 +1354,7 @@ func TestAutoAcceptEnc(t *testing.T) {
 	// New folder, enc -> add as enc
 
 	cc = createClusterConfig(device1, id)
-	cc.Folders[0].Devices[1].EncPwToken = token
+	cc.Folders[0].Devices[1].EncryptionPasswordToken = token
 	clusterConfig(device1, cc)
 	if cfg, ok := m.cfg.Folder(id); !ok {
 		t.Fatal("unexpected unadded")
@@ -1377,7 +1377,7 @@ func TestAutoAcceptEnc(t *testing.T) {
 	// New device, enc on enc folder -> share
 
 	cc = createClusterConfig(device2, id)
-	cc.Folders[0].Devices[1].EncPwToken = token
+	cc.Folders[0].Devices[1].EncryptionPasswordToken = token
 	clusterConfig(device2, cc)
 	if cfg, _ := m.cfg.Folder(id); !cfg.SharedWith(device2) {
 		t.Fatal("unexpected unshared")
@@ -1403,7 +1403,7 @@ func TestAutoAcceptEnc(t *testing.T) {
 	// New device, enc on unenc folder -> reject
 
 	cc = createClusterConfig(device2, id)
-	cc.Folders[0].Devices[1].EncPwToken = token
+	cc.Folders[0].Devices[1].EncryptionPasswordToken = token
 	clusterConfig(device2, cc)
 	if cfg, _ := m.cfg.Folder(id); cfg.SharedWith(device2) {
 		t.Fatal("unexpected shared")
@@ -4158,8 +4158,8 @@ func TestCcCheckEncryption(t *testing.T) {
 		if tc.isEncThem {
 			dcfg.EncryptionPassword = pw
 		}
-		ccDevice := protocol.Device{ID: device1, EncPwToken: tc.tokenThem}
-		ccDeviceUs := protocol.Device{ID: myID, EncPwToken: tc.tokenUs}
+		ccDevice := protocol.Device{ID: device1, EncryptionPasswordToken: tc.tokenThem}
+		ccDeviceUs := protocol.Device{ID: myID, EncryptionPasswordToken: tc.tokenUs}
 		err := m.ccCheckEncryption(tfcfg, dcfg, ccDevice, ccDeviceUs, true, true, false)
 		if err != tc.expectedErr {
 			t.Errorf("Testcase %v: Expected error %v, got %v", i, tc.expectedErr, err)

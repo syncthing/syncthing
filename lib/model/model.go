@@ -174,16 +174,16 @@ var (
 	errNetworkNotAllowed = errors.New("network not allowed")
 	errNoVersioner       = errors.New("folder has no versioner")
 	// errors about why a connection is closed
-	errIgnoredFolderRemoved     = errors.New("folder no longer ignored")
-	errReplacingConnection      = errors.New("replacing connection")
-	errStopped                  = errors.New("Syncthing is being stopped")
-	errEncInvConfigLocal        = errors.New("can't encrypt data for a device when the folder type is receiveEncrypted")
-	errEncInvConfigRemote       = errors.New("remote has encrypted data and encrypts that data for us - this is impossible")
-	errEncNotEncryptedLocal     = errors.New("folder is announced as encrypted, but not configured thus")
-	errEncNotEncryptedRemote    = errors.New("folder is configured to be encrypted but not announced thus")
-	errEncNotEncryptedUntrusted = errors.New("device is untrusted, but configured to receive not encrypted data")
-	errEncPW                    = errors.New("different passwords used")
-	errEncReceivedToken         = errors.New("need to reinitialise after receiving encryption token")
+	errIgnoredFolderRemoved            = errors.New("folder no longer ignored")
+	errReplacingConnection             = errors.New("replacing connection")
+	errStopped                         = errors.New("Syncthing is being stopped")
+	errEncryptionInvConfigLocal        = errors.New("can't encrypt data for a device when the folder type is receiveEncrypted")
+	errEncryptionInvConfigRemote       = errors.New("remote has encrypted data and encrypts that data for us - this is impossible")
+	errEncryptionNotEncryptedLocal     = errors.New("folder is announced as encrypted, but not configured thus")
+	errEncryptionNotEncryptedRemote    = errors.New("folder is configured to be encrypted but not announced thus")
+	errEncryptionNotEncryptedUntrusted = errors.New("device is untrusted, but configured to receive not encrypted data")
+	errEncryptionPassword              = errors.New("different encryption passwords used")
+	errEncryptionReceivedToken         = errors.New("resetting connection to send info on new encrypted folder (new cluster config)")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1031,16 +1031,16 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	ccDevicesRemote := make(map[string]protocol.Device, len(cm.Folders))
 	ccDevicesLocal := make(map[string]protocol.Device, len(cm.Folders))
 	for _, folder := range cm.Folders {
-		var foundDevice, foundUs bool
+		var foundRemote, foundLocal bool
 		for _, dev := range folder.Devices {
 			if dev.ID == m.id {
 				ccDevicesLocal[folder.ID] = dev
-				foundUs = true
+				foundLocal = true
 			} else if dev.ID == deviceID {
 				ccDevicesRemote[folder.ID] = dev
-				foundDevice = true
+				foundRemote = true
 			}
-			if foundDevice && foundUs {
+			if foundRemote && foundLocal {
 				break
 			}
 		}
@@ -1157,10 +1157,10 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			continue
 		}
 
-		ccDeviceRemote, hasDevice := ccDevicesRemote[folder.ID]
-		ccDeviceLocal, hasDeviceLocal := ccDevicesLocal[folder.ID]
+		ccDeviceRemote, hasCCDeviceRemote := ccDevicesRemote[folder.ID]
+		ccDeviceLocal, hasCCDeviceLocal := ccDevicesLocal[folder.ID]
 
-		if err := m.ccCheckEncryption(cfg, folderDevice, ccDeviceRemote, ccDeviceLocal, hasDevice, hasDeviceLocal, deviceCfg.Untrusted); err != nil {
+		if err := m.ccCheckEncryption(cfg, folderDevice, ccDeviceRemote, ccDeviceLocal, hasCCDeviceRemote, hasCCDeviceLocal, deviceCfg.Untrusted); err != nil {
 			sameError := false
 			if devs, ok := m.folderEncFailures[folder.ID]; ok {
 				sameError = devs[deviceID] == err
@@ -1169,7 +1169,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			}
 			m.folderEncFailures[folder.ID][deviceID] = err
 			msg := fmt.Sprintf("Failure checking encryption consistency with device %v for folder %v: %v", deviceID, cfg.Description(), err)
-			if sameError || err == errEncReceivedToken {
+			if sameError || err == errEncryptionReceivedToken {
 				l.Debugln(msg)
 			} else {
 				l.Warnln(msg)
@@ -1199,13 +1199,13 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		// about us. Lets check to see if we can start sending index
 		// updates directly or need to send the index from start...
 
-		if hasDeviceLocal && ccDeviceLocal.IndexID == myIndexID && ccDeviceLocal.MaxSequence <= mySequence {
+		if hasCCDeviceLocal && ccDeviceLocal.IndexID == myIndexID && ccDeviceLocal.MaxSequence <= mySequence {
 			// They say they've seen our index ID before and their
 			// max sequence is consistent with ours, so we can
 			// send a delta update only.
 			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", deviceID, folder.Description(), ccDeviceLocal.MaxSequence)
 			startSequence = ccDeviceLocal.MaxSequence
-		} else if !hasDeviceLocal {
+		} else if !hasCCDeviceLocal {
 			l.Debugf("Device %v folder %s sent no info about us", deviceID, folder.Description())
 		} else if ccDeviceLocal.IndexID == myIndexID {
 			// Safety check above failed: They claim to have more or newer
@@ -1229,7 +1229,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		// completely new set.
 
 		switch {
-		case !hasDevice:
+		case !hasCCDeviceRemote:
 			l.Debugf("Device %v folder %s sent no info about themselves", deviceID, folder.Description())
 			fallthrough
 		case ccDeviceRemote.IndexID == 0:
@@ -1281,14 +1281,14 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	return changed, tempIndexFolders, paused, nil
 }
 
-func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceRemote, ccDeviceLocal protocol.Device, hasDeviceRemote, hasDeviceLocal, deviceUntrusted bool) error {
-	hasTokenRemote := hasDeviceRemote && len(ccDeviceRemote.EncPwToken) > 0
-	hasTokenLocal := hasDeviceLocal && len(ccDeviceLocal.EncPwToken) > 0
+func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceRemote, ccDeviceLocal protocol.Device, hasCCDeviceRemote, hasCCDeviceLocal, deviceUntrusted bool) error {
+	hasTokenRemote := hasCCDeviceRemote && len(ccDeviceRemote.EncryptionPasswordToken) > 0
+	hasTokenLocal := hasCCDeviceLocal && len(ccDeviceLocal.EncryptionPasswordToken) > 0
 	isEncRemote := folderDevice.EncryptionPassword != ""
 	isEncLocal := fcfg.Type == config.FolderTypeReceiveEncrypted
 
 	if !isEncRemote && !isEncLocal && deviceUntrusted {
-		return errEncNotEncryptedUntrusted
+		return errEncryptionNotEncryptedUntrusted
 	}
 
 	if !(hasTokenRemote || hasTokenLocal || isEncRemote || isEncLocal) {
@@ -1298,32 +1298,32 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 
 	if isEncRemote && isEncLocal {
 		// Should never happen, but config racyness and be safe.
-		return errEncInvConfigLocal
+		return errEncryptionInvConfigLocal
 	}
 
 	if hasTokenRemote && hasTokenLocal {
-		return errEncInvConfigRemote
+		return errEncryptionInvConfigRemote
 	}
 
 	if !(hasTokenRemote || hasTokenLocal) {
-		return errEncNotEncryptedRemote
+		return errEncryptionNotEncryptedRemote
 	}
 
 	if !(isEncRemote || isEncLocal) {
-		return errEncNotEncryptedLocal
+		return errEncryptionNotEncryptedLocal
 	}
 
 	if isEncRemote {
 		pwToken := protocol.PasswordToken(fcfg.ID, folderDevice.EncryptionPassword)
 		match := false
 		if hasTokenLocal {
-			match = bytes.Equal(pwToken, ccDeviceLocal.EncPwToken)
+			match = bytes.Equal(pwToken, ccDeviceLocal.EncryptionPasswordToken)
 		} else {
 			// hasTokenRemote == true
-			match = bytes.Equal(pwToken, ccDeviceRemote.EncPwToken)
+			match = bytes.Equal(pwToken, ccDeviceRemote.EncryptionPasswordToken)
 		}
 		if !match {
-			return errEncPW
+			return errEncryptionPassword
 		}
 		return nil
 	}
@@ -1332,10 +1332,10 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 
 	var ccToken []byte
 	if hasTokenLocal {
-		ccToken = ccDeviceLocal.EncPwToken
+		ccToken = ccDeviceLocal.EncryptionPasswordToken
 	} else {
 		// hasTokenRemote == true
-		ccToken = ccDeviceRemote.EncPwToken
+		ccToken = ccDeviceRemote.EncryptionPasswordToken
 	}
 	m.fmut.RLock()
 	token, ok := m.folderEncPwTokens[fcfg.ID]
@@ -1359,12 +1359,12 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 			m.fmut.Unlock()
 			// We can only announce ourselfs once we have the token,
 			// thus we need to resend CCs now that we have it.
-			m.closeConns(fcfg.DeviceIDs(), errEncReceivedToken)
-			return errEncReceivedToken
+			m.closeConns(fcfg.DeviceIDs(), errEncryptionReceivedToken)
+			return errEncryptionReceivedToken
 		}
 	}
 	if !bytes.Equal(token, ccToken) {
-		return errEncPW
+		return errEncryptionPassword
 	}
 	return nil
 }
@@ -1481,10 +1481,10 @@ func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
 func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDevicesRemote, ccDevicesLocal map[string]protocol.Device) (config.FolderConfiguration, bool) {
-	ccDevice, hasDevice := ccDevicesRemote[folder.ID]
-	ccDeviceUs, hasDeviceLocal := ccDevicesLocal[folder.ID]
+	ccDeviceRemote, hasCCDeviceRemote := ccDevicesRemote[folder.ID]
+	ccDeviceLocal, hasCCDeviceLocal := ccDevicesLocal[folder.ID]
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
-		if !hasDevice || !hasDeviceLocal {
+		if !hasCCDeviceRemote || !hasCCDeviceLocal {
 			l.Infof("Failed to auto-accept folder %s from %s due to missing information on encryption from remote device", folder.Description(), deviceID)
 			return config.FolderConfiguration{}, false
 		}
@@ -1504,7 +1504,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 				DeviceID: deviceID,
 			})
 
-			if len(ccDevice.EncPwToken) > 0 || len(ccDeviceUs.EncPwToken) > 0 {
+			if len(ccDeviceRemote.EncryptionPasswordToken) > 0 || len(ccDeviceLocal.EncryptionPasswordToken) > 0 {
 				fcfg.Type = config.FolderTypeReceiveEncrypted
 			}
 
@@ -1520,17 +1520,17 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 				return config.FolderConfiguration{}, false
 			}
 		}
-		if !hasDevice || !hasDeviceLocal {
+		if !hasCCDeviceRemote || !hasCCDeviceLocal {
 			l.Infof("Failed to auto-accept folder %s from %s due to missing information on encryption from remote device", folder.Description(), deviceID)
 			return config.FolderConfiguration{}, false
 		}
 		if cfg.Type == config.FolderTypeReceiveEncrypted {
-			if len(ccDevice.EncPwToken) == 0 && len(ccDeviceUs.EncPwToken) == 0 {
+			if len(ccDeviceRemote.EncryptionPasswordToken) == 0 && len(ccDeviceLocal.EncryptionPasswordToken) == 0 {
 				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us un-encrypted data, but we are encrypted", folder.Description(), deviceID)
 				return config.FolderConfiguration{}, false
 			}
 		} else {
-			if len(ccDevice.EncPwToken) > 0 || len(ccDeviceUs.EncPwToken) > 0 {
+			if len(ccDeviceRemote.EncryptionPasswordToken) > 0 || len(ccDeviceLocal.EncryptionPasswordToken) > 0 {
 				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us encrypted data, but we are not encrypted", folder.Description(), deviceID)
 				return config.FolderConfiguration{}, false
 			}
@@ -2427,9 +2427,9 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			}
 
 			if deviceCfg.DeviceID == m.id && hasEncToken {
-				protocolDevice.EncPwToken = encToken
+				protocolDevice.EncryptionPasswordToken = encToken
 			} else if device.EncryptionPassword != "" {
-				protocolDevice.EncPwToken = protocol.PasswordToken(folderCfg.ID, device.EncryptionPassword)
+				protocolDevice.EncryptionPasswordToken = protocol.PasswordToken(folderCfg.ID, device.EncryptionPassword)
 			}
 
 			if fs != nil {

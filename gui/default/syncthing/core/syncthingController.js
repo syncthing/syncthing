@@ -691,7 +691,7 @@ angular.module('syncthing.core')
             $scope.currentSharing.shared = [];
             $scope.currentSharing.unrelated = [];
             $scope.currentSharing.selected = {};
-            $scope.currentSharing.encPWs = {};
+            $scope.currentSharing.encryptionPasswords = {};
         };
 
         $scope.refreshFailed = function (page, perpage) {
@@ -1422,7 +1422,7 @@ angular.module('syncthing.core')
             $scope.currentSharing.shared.forEach(function (folder) {
                 for (var i = 0; i < folder.devices.length; i++) {
                     if (folder.devices[i].deviceID === deviceCfg.deviceID) {
-                        $scope.currentSharing.encPWs[folder.id] = folder.devices[i].encryptionPassword;
+                        $scope.currentSharing.encryptionPasswords[folder.id] = folder.devices[i].encryptionPassword;
                         break;
                     }
                 }
@@ -1532,7 +1532,7 @@ angular.module('syncthing.core')
                 // Update encryption pw
                 for (i = 0; i < $scope.folders[id].devices.length; i++) {
                     if ($scope.folders[id].devices[i].deviceID === deviceCfg.deviceID) {
-                        $scope.folders[id].devices[i].encryptionPassword = $scope.currentSharing.encPWs[id];
+                        $scope.folders[id].devices[i].encryptionPassword = $scope.currentSharing.encryptionPasswords[id];
                         break;
                     }
                 }
@@ -1541,7 +1541,7 @@ angular.module('syncthing.core')
                 if ($scope.currentSharing.selected[folder.id] === true) {
                     $scope.folders[folder.id].devices.push({
                         deviceID: deviceCfg.deviceID,
-                        encryptionPassword: $scope.currentSharing.encPWs[folder.id],
+                        encryptionPassword: $scope.currentSharing.encryptionPasswords[folder.id],
                     });
                 }
             });
@@ -1746,7 +1746,7 @@ angular.module('syncthing.core')
                     $scope.currentSharing.shared.push($scope.devices[n.deviceID]);
                 }
                 if (n.encryptionPassword !== '') {
-                    $scope.currentSharing.encPWs[n.deviceID] = n.encryptionPassword;
+                    $scope.currentSharing.encryptionPasswords[n.deviceID] = n.encryptionPassword;
                 }
                 $scope.currentSharing.selected[n.deviceID] = true;
             });
@@ -1872,7 +1872,7 @@ angular.module('syncthing.core')
             var newDevices = [];
             folderCfg.devices.forEach(function (dev) {
                 if ($scope.currentSharing.selected[dev.deviceID] === true) {
-                    dev.encryptionPassword = $scope.currentSharing.encPWs[dev.deviceID];
+                    dev.encryptionPassword = $scope.currentSharing.encryptionPasswords[dev.deviceID];
                     newDevices.push(dev);
                     delete $scope.currentSharing.selected[dev.deviceID];
                 };
@@ -1881,7 +1881,7 @@ angular.module('syncthing.core')
                 if ($scope.currentSharing.selected[deviceID] === true) {
                     newDevices.push({
                         deviceID: deviceID,
-                        encryptionPassword: $scope.currentSharing.encPWs[deviceID],
+                        encryptionPassword: $scope.currentSharing.encryptionPasswords[deviceID],
                     });
                 }
             }
@@ -2372,10 +2372,10 @@ angular.module('syncthing.core')
             $http.post(urlbase + "/db/revert?folder=" + encodeURIComponent(folder));
         };
 
-        $scope.deleteEncModal = function (folderID) {
-            $scope.revertEncFolder = folderID;
-            $('#delete-enc-confirmation').modal('show').one('hidden.bs.modal', function () {
-                $scope.revertEncFolder = undefined;
+        $scope.deleteEncryptionModal = function (folderID) {
+            $scope.revertEncryptionFolder = folderID;
+            $('#delete-encryption-confirmation').modal('show').one('hidden.bs.modal', function () {
+                $scope.revertEncryptionFolder = undefined;
             });
         };
 

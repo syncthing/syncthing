@@ -433,7 +433,7 @@ func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration 
 // FolderPasswords returns the folder passwords set for this device, for
 // folders that have an encryption password set.
 func (cfg Configuration) FolderPasswords(device protocol.DeviceID) map[string]string {
-	res := make(map[string]string)
+	res := make(map[string]string, len(cfg.Folders))
 nextFolder:
 	for _, folder := range cfg.Folders {
 		for _, dev := range folder.Devices {

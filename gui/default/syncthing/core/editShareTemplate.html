@@ -16,7 +16,7 @@
       </span>
       <span ng-switch-default ng-switch="selected[id]">
         <span ng-switch-when='true' ng-class="{'has-error': untrusted && !encpws[id]}">
-          <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encpws[id]" ng-required="untrusted" placeholder="{{'enter password to encrypt sent data' | translate}}" />
+          <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encpws[id]" ng-required="untrusted" placeholder="{{'enter password to encrypt data to be sent' | translate}}" />
         </span>
         <span ng-switch-default>
           <input class="form-control input-sm" type="password" placeholder="{{'not shared' | translate}}" disabled />
