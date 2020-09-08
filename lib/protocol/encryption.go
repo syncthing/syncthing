@@ -38,7 +38,7 @@ const (
 // receives encrypted metadata and requests from the untrusted device, so it
 // must decrypt those and answer requests by encrypting the data.
 type encryptedModel struct {
-	Model
+	model      Model
 	folderKeys map[string]*[keySize]byte // folder ID -> key
 }
 
@@ -49,7 +49,7 @@ func (e encryptedModel) Index(deviceID DeviceID, folder string, files []FileInfo
 			return err
 		}
 	}
-	return e.Model.Index(deviceID, folder, files)
+	return e.model.Index(deviceID, folder, files)
 }
 
 func (e encryptedModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) error {
@@ -59,13 +59,13 @@ func (e encryptedModel) IndexUpdate(deviceID DeviceID, folder string, files []Fi
 			return err
 		}
 	}
-	return e.Model.IndexUpdate(deviceID, folder, files)
+	return e.model.IndexUpdate(deviceID, folder, files)
 }
 
 func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
 	folderKey, ok := e.folderKeys[folder]
 	if !ok {
-		return e.Model.Request(deviceID, folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
+		return e.model.Request(deviceID, folder, name, blockNo, size, offset, hash, weakHash, fromTemporary)
 	}
 
 	// Figure out the real file name, offset and size from the encrypted /
@@ -85,7 +85,7 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo,
 	// Perform that request and grab the data. Explicitly zero out the
 	// hashes which are meaningless.
 
-	resp, err := e.Model.Request(deviceID, folder, realName, blockNo, realSize, realOffset, nil, 0, false)
+	resp, err := e.model.Request(deviceID, folder, realName, blockNo, realSize, realOffset, nil, 0, false)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (e encryptedModel) Request(deviceID DeviceID, folder, name string, blockNo,
 
 func (e encryptedModel) DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) error {
 	if _, ok := e.folderKeys[folder]; !ok {
-		return e.Model.DownloadProgress(deviceID, folder, updates)
+		return e.model.DownloadProgress(deviceID, folder, updates)
 	}
 
 	// The updates contain nonsense names and sizes, so we ignore them.
@@ -119,34 +119,50 @@ func (e encryptedModel) DownloadProgress(deviceID DeviceID, folder string, updat
 
 func (e encryptedModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) error {
 	// TODO: Filter/clean the incoming ClusterConfig?
-	return e.Model.ClusterConfig(deviceID, config)
+	return e.model.ClusterConfig(deviceID, config)
+}
+
+func (e encryptedModel) Closed(conn Connection, err error) {
+	e.model.Closed(conn, err)
 }
 
 // The encryptedConnection sits between the model and the encrypted device. It
 // encrypts outgoing metadata and decrypts incoming responses.
 type encryptedConnection struct {
-	Connection
+	conn       Connection
 	folderKeys map[string]*[keySize]byte // folder ID -> key
+}
+
+func (e encryptedConnection) Start() {
+	e.conn.Start()
+}
+
+func (e encryptedConnection) ID() DeviceID {
+	return e.conn.ID()
+}
+
+func (e encryptedConnection) Name() string {
+	return e.conn.Name()
 }
 
 func (e encryptedConnection) Index(ctx context.Context, folder string, files []FileInfo) error {
 	if folderKey, ok := e.folderKeys[folder]; ok {
 		encryptFileInfos(files, folderKey)
 	}
-	return e.Connection.Index(ctx, folder, files)
+	return e.conn.Index(ctx, folder, files)
 }
 
 func (e encryptedConnection) IndexUpdate(ctx context.Context, folder string, files []FileInfo) error {
 	if folderKey, ok := e.folderKeys[folder]; ok {
 		encryptFileInfos(files, folderKey)
 	}
-	return e.Connection.IndexUpdate(ctx, folder, files)
+	return e.conn.IndexUpdate(ctx, folder, files)
 }
 
 func (e encryptedConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	folderKey, ok := e.folderKeys[folder]
 	if !ok {
-		return e.Connection.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
+		return e.conn.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
 	}
 
 	// Encrypt / adjust the request parameters.
@@ -163,7 +179,7 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 
 	// Perform that request, getting back and encrypted block.
 
-	bs, err := e.Connection.Request(ctx, folder, encName, blockNo, encOffset, encSize, nil, 0, false)
+	bs, err := e.conn.Request(ctx, folder, encName, blockNo, encOffset, encSize, nil, 0, false)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +196,7 @@ func (e encryptedConnection) Request(ctx context.Context, folder string, name st
 
 func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string, updates []FileDownloadProgressUpdate) {
 	if _, ok := e.folderKeys[folder]; !ok {
-		e.Connection.DownloadProgress(ctx, folder, updates)
+		e.conn.DownloadProgress(ctx, folder, updates)
 	}
 
 	// No need to send these
@@ -188,7 +204,19 @@ func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string
 
 func (e encryptedConnection) ClusterConfig(config ClusterConfig) {
 	// TODO: Filter/clean the outgoing ClusterConfig?
-	e.Connection.ClusterConfig(config)
+	e.conn.ClusterConfig(config)
+}
+
+func (e encryptedConnection) Close(err error) {
+	e.conn.Close(err)
+}
+
+func (e encryptedConnection) Closed() bool {
+	return e.conn.Closed()
+}
+
+func (e encryptedConnection) Statistics() Statistics {
+	return e.conn.Statistics()
 }
 
 func encryptFileInfos(files []FileInfo, folderKey *[keySize]byte) {

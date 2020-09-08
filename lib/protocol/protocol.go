@@ -215,12 +215,12 @@ func NewEncryptedConnection(passwords map[string]string, deviceID DeviceID, read
 	// Encryption / decryption is first (outermost) before conversion to
 	// native path formats.
 	nm := nativeModel{receiver}
-	em := encryptedModel{Model: nm, folderKeys: keys}
+	em := encryptedModel{model: nm, folderKeys: keys}
 
 	// We do the wire format conversion first (outermost) so that the
 	// metadata is in wire format when it reaches the encryption step.
 	rc := newRawConnection(deviceID, reader, writer, em, name, compress)
-	ec := encryptedConnection{Connection: rc, folderKeys: keys}
+	ec := encryptedConnection{conn: rc, folderKeys: keys}
 	wc := wireFormatConnection{ec}
 
 	return wc
