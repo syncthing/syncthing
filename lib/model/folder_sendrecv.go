@@ -1233,7 +1233,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			continue
 		}
 
-		f.model.progressEmitter.Register(state.sharedPullerState)
+		if f.Type != config.FolderTypeReceiveEncrypted {
+			f.model.progressEmitter.Register(state.sharedPullerState)
+		}
 
 		weakHashFinder, file := f.initWeakHashFinder(state)
 
@@ -1640,7 +1642,9 @@ func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, in <-chan *shared
 				blockStatsMut.Unlock()
 			}
 
-			f.model.progressEmitter.Deregister(state)
+			if f.Type != config.FolderTypeReceiveEncrypted {
+				f.model.progressEmitter.Deregister(state)
+			}
 
 			f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 				"folder": f.folderID,

@@ -113,7 +113,7 @@ func (e encryptedModel) DownloadProgress(deviceID DeviceID, folder string, updat
 		return e.model.DownloadProgress(deviceID, folder, updates)
 	}
 
-	// The updates contain nonsense names and sizes, so we ignore them.
+	// Encrypted devices shouldn't send these - ignore them.
 	return nil
 }
 
