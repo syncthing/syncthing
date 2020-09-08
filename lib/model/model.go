@@ -425,7 +425,13 @@ func (m *model) stopFolder(cfg config.FolderConfiguration, err error) {
 	m.fmut.RUnlock()
 
 	if ok {
-		m.RemoveAndWait(token, 0)
+		if err := m.RemoveAndWait(token, 0); err != nil {
+			if err == suture.ErrTimeout {
+				l.Warnf("Folder %v failed to stop in time", cfg.Description())
+			} else {
+				l.Warnln("Failed to stop folder:", err)
+			}
+		}
 	}
 
 	// Wait for connections to stop to ensure that no more calls to methods
