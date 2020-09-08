@@ -74,8 +74,8 @@ func NewCaseFilesystem(fs Filesystem) Filesystem {
 	}
 	caseFs := &caseFilesystem{
 		Filesystem: fs,
+		realCaser:  newDefaultRealCaser(fs),
 	}
-	caseFs.realCaser = newDefaultRealCaser(fs)
 	caseFilesystems[k] = caseFs
 	return caseFs
 }
