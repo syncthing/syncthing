@@ -74,12 +74,7 @@ func NewCaseFilesystem(fs Filesystem) Filesystem {
 	}
 	caseFs := &caseFilesystem{
 		Filesystem: fs,
-	}
-	switch k.fstype {
-	case FilesystemTypeBasic:
-		caseFs.realCaser = newBasicRealCaser(fs)
-	default:
-		caseFs.realCaser = newDefaultRealCaser(fs)
+		realCaser:  newDefaultRealCaser(fs),
 	}
 	caseFilesystems[k] = caseFs
 	return caseFs
