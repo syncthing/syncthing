@@ -82,6 +82,12 @@ func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
 	db.Add(util.AsService(db.gcRunner, "db.Lowlevel/gcRunner"))
+	misc := NewMiscDataNamespace(db)
+	if ok, _, _ := misc.Bool("repairDB"); ok {
+		l.Infoln("Database was marked for repair - this may take a while")
+		db.CheckRepair()
+		misc.Delete("repairDB")
+	}
 	return db
 }
 

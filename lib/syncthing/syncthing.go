@@ -245,14 +245,6 @@ func (a *App) startup() error {
 		db.DropDeltaIndexIDs(a.ll)
 	}
 
-	// Check and repair metadata and sequences on every upgrade including RCs.
-	prevParts = strings.Split(prevVersion, "+")
-	curParts = strings.Split(build.Version, "+")
-	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
-		l.Infoln("Checking db due to upgrade - this may take a while...")
-		a.ll.CheckRepair()
-	}
-
 	if build.Version != prevVersion {
 		// Remember the new version.
 		miscDB.PutString("prevVersion", build.Version)
