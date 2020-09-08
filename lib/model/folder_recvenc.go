@@ -36,7 +36,7 @@ func (f *receiveEncryptedFolder) Revert() {
 }
 
 func (f *receiveEncryptedFolder) revert() {
-	l.Infof("Reverting unexpected items in folder %v (receive-encrypted)", f.Description)
+	l.Infof("Reverting unexpected items in folder %v (receive-encrypted)", f.Description())
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)

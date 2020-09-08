@@ -4154,7 +4154,7 @@ func TestCcCheckEncryption(t *testing.T) {
 
 	pw := "foo"
 	token := protocol.PasswordToken(fcfg.ID, pw)
-	m.folderEncPwTokens[fcfg.ID] = token
+	m.folderEncryptionPasswordTokens[fcfg.ID] = token
 
 	testCases := []struct {
 		tokenThem, tokenUs []byte
@@ -4240,7 +4240,7 @@ func TestCcCheckEncryption(t *testing.T) {
 		tfcfg := fcfg.Copy()
 		if tc.isEncUs {
 			tfcfg.Type = config.FolderTypeReceiveEncrypted
-			m.folderEncPwTokens[fcfg.ID] = token
+			m.folderEncryptionPasswordTokens[fcfg.ID] = token
 		}
 		dcfg := config.FolderDeviceConfiguration{DeviceID: device1}
 		if tc.isEncThem {
@@ -4271,7 +4271,7 @@ func TestCcCheckEncryption(t *testing.T) {
 		}
 
 		if tc.isEncUs {
-			m.folderEncPwTokens[fcfg.ID] = []byte("notAMatch")
+			m.folderEncryptionPasswordTokens[fcfg.ID] = []byte("notAMatch")
 		} else {
 			dcfg.EncryptionPassword = "notAMatch"
 		}
