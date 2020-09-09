@@ -389,6 +389,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 		case runtime.GOOS == "windows" && file.IsSymlink():
 			if err := f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
 				f.newPullError(file.Name, fmt.Errorf("handling unsupported symlink: %w", err))
+				break
 			}
 			file.SetUnsupported(f.shortID)
 			l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
