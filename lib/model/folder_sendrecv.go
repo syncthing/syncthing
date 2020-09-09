@@ -357,12 +357,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 				// files to delete inside them before we get to that point.
 				dirDeletions = append(dirDeletions, file)
 			} else if file.IsSymlink() {
-				if runtime.GOOS == "windows" {
-					// We never had it, just pretend we deleted it
-					dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
-				} else {
-					f.deleteFile(file, snap, dbUpdateChan, scanChan)
-				}
+				f.deleteFile(file, snap, dbUpdateChan, scanChan)
 			} else {
 				df, ok := snap.Get(protocol.LocalDeviceID, file.Name)
 				// Local file can be already deleted, but with a lower version
@@ -1981,7 +1976,7 @@ func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur
 		return err
 	}
 	if fs.IsNotExist(err) {
-		if hasCur && !cur.Deleted {
+		if hasCur && !cur.Deleted && !cur.IsUnsupported() {
 			scanChan <- file.Name
 			return errModified
 		}
