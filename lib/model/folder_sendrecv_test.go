@@ -1216,6 +1216,32 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 	}
 }
 
+func TestPullTempFileCaseConflict(t *testing.T) {
+	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
+
+	copyChan := make(chan copyBlocksState, 1)
+
+	file := protocol.FileInfo{Name: "foo"}
+	confl := "Foo"
+	tempNameConfl := fs.TempName(confl)
+	if fd, err := f.fs.Create(tempNameConfl); err != nil {
+		t.Fatal(err)
+	} else {
+		if _, err := fd.Write([]byte("data")); err != nil {
+			t.Fatal(err)
+		}
+		fd.Close()
+	}
+
+	f.handleFile(file, f.fset.Snapshot(), copyChan)
+
+	cs := <-copyChan
+	if _, err := cs.tempFile(); err != nil {
+		t.Error(err)
+	}
+}
+
 func cleanupSharedPullerState(s *sharedPullerState) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
