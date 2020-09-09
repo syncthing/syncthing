@@ -25,11 +25,11 @@ const (
 )
 
 type ErrCaseConflict struct {
-	given, real string
+	Given, Real string
 }
 
 func (e *ErrCaseConflict) Error() string {
-	return fmt.Sprintf(`given name "%v" differs from name in filesystem "%v"`, e.given, e.real)
+	return fmt.Sprintf(`given name "%v" differs from name in filesystem "%v"`, e.Given, e.Real)
 }
 
 func IsErrCaseConflict(err error) bool {
