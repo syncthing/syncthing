@@ -11,6 +11,8 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/dchest/siphash"
@@ -42,6 +44,8 @@ const (
 	versionIndirectionCutoff = 10
 
 	recheckDefaultInterval = 30 * 24 * time.Hour
+
+	needsRepairFile = "needsrepair"
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
@@ -82,11 +86,13 @@ func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
 	db.Add(util.AsService(db.gcRunner, "db.Lowlevel/gcRunner"))
-	misc := NewMiscDataNamespace(db)
-	if ok, _, _ := misc.Bool("repairDB"); ok {
-		l.Infoln("Database was marked for repair - this may take a while")
-		db.CheckRepair()
-		misc.Delete("repairDB")
+	if loc := backend.Location(); loc != "" {
+		path := filepath.Join(loc, needsRepairFile)
+		if _, err := os.Lstat(path); err == nil {
+			l.Infoln("Database was marked for repair - this may take a while")
+			db.CheckRepair()
+			os.Remove(path)
+		}
 	}
 	return db
 }

@@ -42,7 +42,7 @@ func OpenLevelDB(location string, tuning Tuning) (Backend, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newLeveldbBackend(ldb), nil
+	return newLeveldbBackend(ldb, location), nil
 }
 
 // OpenLevelDBAuto is OpenLevelDB with TuningAuto tuning.
@@ -61,13 +61,13 @@ func OpenLevelDBRO(location string) (Backend, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newLeveldbBackend(ldb), nil
+	return newLeveldbBackend(ldb, location), nil
 }
 
 // OpenMemory returns a new Backend referencing an in-memory database.
 func OpenLevelDBMemory() Backend {
 	ldb, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	return newLeveldbBackend(ldb)
+	return newLeveldbBackend(ldb, "")
 }
 
 // optsFor returns the database options to use when opening a database with
