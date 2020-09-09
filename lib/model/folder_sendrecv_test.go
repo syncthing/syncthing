@@ -1242,6 +1242,49 @@ func TestPullTempFileCaseConflict(t *testing.T) {
 	}
 }
 
+func TestPullSymlinkOverExistingWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip()
+	}
+
+	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
+
+	name := "foo"
+	if fd, err := f.fs.Create(name); err != nil {
+		t.Fatal(err)
+	} else {
+		if _, err := fd.Write([]byte("data")); err != nil {
+			t.Fatal(err)
+		}
+		fd.Close()
+	}
+
+	must(t, f.scanSubdirs(nil))
+
+	file, ok := m.CurrentFolderFile(f.ID, name)
+	if !ok {
+		t.Fatal("file missing")
+	}
+	m.Index(device1, f.ID, []protocol.FileInfo{{Name: name, Type: protocol.FileInfoTypeSymlink, Version: file.Version.Update(device1.Short())}})
+
+	scanChan := make(chan string)
+
+	changed := f.pullerIteration(scanChan)
+	if changed != 1 {
+		t.Error("Expected one change in pull, got", changed)
+	}
+	if file, ok := m.CurrentFolderFile(f.ID, name); !ok {
+		t.Error("symlink entry missing")
+	} else if !file.IsUnsupported() {
+		t.Error("symlink entry isn't marked as unsupported")
+	}
+	if _, err := f.fs.Lstat(name); err == nil {
+		t.Error("old file still exists on disk")
+	} else if !fs.IsNotExist(err) {
+		t.Error(err)
+	}
+}
 func cleanupSharedPullerState(s *sharedPullerState) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
