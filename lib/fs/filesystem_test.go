@@ -170,3 +170,19 @@ func TestIsParent(t *testing.T) {
 		}
 	}
 }
+
+// unwrapFilesystem removes "wrapping" filesystems to expose the underlying filesystem.
+func unwrapFilesystem(fs Filesystem) Filesystem {
+	for {
+		switch sfs := fs.(type) {
+		case *logFilesystem:
+			fs = sfs.Filesystem
+		case *walkFilesystem:
+			fs = sfs.Filesystem
+		case *MtimeFS:
+			fs = sfs.Filesystem
+		default:
+			return sfs
+		}
+	}
+}
