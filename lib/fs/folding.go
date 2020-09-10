@@ -34,6 +34,9 @@ func UnicodeLowercase(s string) string {
 // Byte index of the first rune r s.t. lower(upper(r)) != r.
 func firstCaseChange(s string) int {
 	for i, r := range s {
+		if r <= unicode.MaxASCII && (r < 'A' || r > 'Z') {
+			continue
+		}
 		if unicode.ToLower(unicode.ToUpper(r)) != r {
 			return i
 		}
