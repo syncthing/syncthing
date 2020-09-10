@@ -16,7 +16,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -526,8 +525,7 @@ func nativeFileIterator(fn Iterator) Iterator {
 func fatalError(err error, opStr string, db *Lowlevel) {
 	if errors.Is(err, errEntryFromGlobalMissing) || errors.Is(err, errEmptyGlobal) {
 		// Inconsistency error, mark db for repair on next start.
-		if loc := db.Location(); loc != "" {
-			path := filepath.Join(loc, needsRepairFile)
+		if path := db.needsRepairPath(); path != "" {
 			if fd, err := os.Create(path); err == nil {
 				fd.Close()
 			}
