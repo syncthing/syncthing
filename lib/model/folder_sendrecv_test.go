@@ -1242,6 +1242,45 @@ func TestPullTempFileCaseConflict(t *testing.T) {
 	}
 }
 
+func TestPullCaseOnlyRename(t *testing.T) {
+	m, f := setupSendReceiveFolder()
+	defer cleanupSRFolder(f, m)
+
+	// tempNameConfl := fs.TempName(confl)
+
+	name := "foo"
+	if fd, err := f.fs.Create(name); err != nil {
+		t.Fatal(err)
+	} else {
+		if _, err := fd.Write([]byte("data")); err != nil {
+			t.Fatal(err)
+		}
+		fd.Close()
+	}
+
+	must(t, f.scanSubdirs(nil))
+
+	cur, ok := m.CurrentFolderFile(f.ID, name)
+	if !ok {
+		t.Fatal("file missing")
+	}
+
+	deleted := cur
+	deleted.SetDeleted(myID.Short())
+
+	confl := cur
+	confl.Name = "Foo"
+	confl.Version = confl.Version.Update(device1.Short())
+
+	dbUpdateChan := make(chan dbUpdateJob, 2)
+	scanChan := make(chan string, 2)
+	snap := f.fset.Snapshot()
+	defer snap.Release()
+	if err := f.renameFile(cur, deleted, confl, snap, dbUpdateChan, scanChan); err != nil {
+		t.Error(err)
+	}
+}
+
 func TestPullSymlinkOverExistingWindows(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip()
@@ -1285,6 +1324,7 @@ func TestPullSymlinkOverExistingWindows(t *testing.T) {
 		t.Error(err)
 	}
 }
+
 func cleanupSharedPullerState(s *sharedPullerState) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
