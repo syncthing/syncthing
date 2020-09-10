@@ -1986,7 +1986,7 @@ func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur
 		return err
 	}
 	if fs.IsNotExist(err) {
-		if hasCur && !cur.Deleted {
+		if hasCur && !cur.Deleted && !cur.IsUnsupported() {
 			scanChan <- file.Name
 			return errModified
 		}
