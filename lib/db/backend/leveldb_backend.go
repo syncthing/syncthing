@@ -28,14 +28,16 @@ const (
 
 // leveldbBackend implements Backend on top of a leveldb
 type leveldbBackend struct {
-	ldb     *leveldb.DB
-	closeWG *closeWaitGroup
+	ldb      *leveldb.DB
+	closeWG  *closeWaitGroup
+	location string
 }
 
-func newLeveldbBackend(ldb *leveldb.DB) *leveldbBackend {
+func newLeveldbBackend(ldb *leveldb.DB, location string) *leveldbBackend {
 	return &leveldbBackend{
-		ldb:     ldb,
-		closeWG: &closeWaitGroup{},
+		ldb:      ldb,
+		closeWG:  &closeWaitGroup{},
+		location: location,
 	}
 }
 
@@ -114,6 +116,10 @@ func (b *leveldbBackend) Compact() error {
 	}
 	defer b.closeWG.Done()
 	return wrapLeveldbErr(b.ldb.CompactRange(util.Range{}))
+}
+
+func (b *leveldbBackend) Location() string {
+	return b.location
 }
 
 // leveldbSnapshot implements backend.ReadTransaction

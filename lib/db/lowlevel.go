@@ -11,11 +11,13 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
+	"os"
 	"time"
 
 	"github.com/dchest/siphash"
 	"github.com/greatroar/blobloom"
 	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
@@ -42,6 +44,8 @@ const (
 	versionIndirectionCutoff = 10
 
 	recheckDefaultInterval = 30 * 24 * time.Hour
+
+	needsRepairSuffix = ".needsrepair"
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
@@ -82,6 +86,13 @@ func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
 	db.Add(util.AsService(db.gcRunner, "db.Lowlevel/gcRunner"))
+	if path := db.needsRepairPath(); path != "" {
+		if _, err := os.Lstat(path); err == nil {
+			l.Infoln("Database was marked for repair - this may take a while")
+			db.checkRepair()
+			os.Remove(path)
+		}
+	}
 	return db
 }
 
@@ -790,8 +801,8 @@ func (b *bloomFilter) hash(id []byte) uint64 {
 	return siphash.Hash(b.k0, b.k1, id)
 }
 
-// CheckRepair checks folder metadata and sequences for miscellaneous errors.
-func (db *Lowlevel) CheckRepair() {
+// checkRepair checks folder metadata and sequences for miscellaneous errors.
+func (db *Lowlevel) checkRepair() {
 	for _, folder := range db.ListFolders() {
 		_ = db.getMetaAndCheck(folder)
 	}
@@ -1127,6 +1138,17 @@ func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
 	}
 
 	return repaired, nil
+}
+
+func (db *Lowlevel) needsRepairPath() string {
+	path := db.Location()
+	if path == "" {
+		return ""
+	}
+	if path[len(path)-1] == fs.PathSeparator {
+		path = path[:len(path)-1]
+	}
+	return path + needsRepairSuffix
 }
 
 // unchanged checks if two files are the same and thus don't need to be updated.
