@@ -757,7 +757,7 @@ func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, s
 	// If there is already something under that name, we need to handle that.
 	info, err := f.fs.Lstat(file.Name)
 	if err != nil {
-		if !fs.IsNotExist(err) {
+		if fs.IsNotExist(err) {
 			return nil
 		}
 		return err
