@@ -945,16 +945,26 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	// Check that the target corresponds to what we have in the DB
 	curTarget, ok := snap.Get(protocol.LocalDeviceID, target.Name)
 	switch stat, serr := f.fs.Lstat(target.Name); {
-	case serr != nil && fs.IsNotExist(serr):
-		if !ok || curTarget.IsDeleted() {
-			break
-		}
-		scanChan <- target.Name
-		err = errModified
 	case serr != nil:
-		// We can't check whether the file changed as compared to the db,
-		// do not delete.
-		err = serr
+		var caseErr *fs.ErrCaseConflict
+		switch {
+		case errors.As(serr, &caseErr):
+			if caseErr.Real != source.Name {
+				err = serr
+				break
+			}
+			fallthrough // This is a case only rename
+		case fs.IsNotExist(serr):
+			if !ok || curTarget.IsDeleted() {
+				break
+			}
+			scanChan <- target.Name
+			err = errModified
+		default:
+			// We can't check whether the file changed as compared to the db,
+			// do not delete.
+			err = serr
+		}
 	case !ok:
 		// Target appeared from nowhere
 		scanChan <- target.Name
