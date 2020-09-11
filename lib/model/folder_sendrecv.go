@@ -813,9 +813,10 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 
 	cur, hasCur := snap.Get(protocol.LocalDeviceID, file.Name)
 
-	if err = f.checkToBeDeleted(file, cur, hasCur, dbUpdateDeleteDir, dbUpdateChan, scanChan); err != nil {
-		if fs.IsNotExist(err) {
+	if err = f.checkToBeDeleted(file, cur, hasCur, scanChan); err != nil {
+		if fs.IsNotExist(err) || fs.IsErrCaseConflict(err) {
 			err = nil
+			dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteDir}
 		}
 		return
 	}
@@ -860,9 +861,10 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 		})
 	}()
 
-	if err = f.checkToBeDeleted(file, cur, hasCur, dbUpdateDeleteFile, dbUpdateChan, scanChan); err != nil {
-		if fs.IsNotExist(err) {
+	if err = f.checkToBeDeleted(file, cur, hasCur, scanChan); err != nil {
+		if fs.IsNotExist(err) || fs.IsErrCaseConflict(err) {
 			err = nil
+			dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
 		}
 		return
 	}
@@ -945,7 +947,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	l.Debugln(f, "taking rename shortcut", source.Name, "->", target.Name)
 
 	// Check that source is compatible with what we have in the DB
-	if err = f.checkToBeDeleted(source, cur, true, dbUpdateDeleteFile, dbUpdateChan, scanChan); err != nil {
+	if err = f.checkToBeDeleted(source, cur, true, scanChan); err != nil {
 		return err
 	}
 	// Check that the target corresponds to what we have in the DB
@@ -1979,26 +1981,25 @@ func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, ite
 
 // checkToBeDeleted makes sure the file on disk is compatible with what there is
 // in the DB before the caller proceeds with actually deleting it.
-// I.e. non-nil error status means "Do not delete!".
-func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur bool, updateType dbUpdateType, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
+// I.e. non-nil error status means "Do not delete!" or "is already deleted".
+func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur bool, scanChan chan<- string) error {
 	if err := osutil.TraversesSymlink(f.fs, filepath.Dir(file.Name)); err != nil {
 		l.Debugln(f, "not deleting item behind symlink on disk, but update db", file.Name)
-		dbUpdateChan <- dbUpdateJob{file, updateType}
 		return fs.ErrNotExist
 	}
 
 	stat, err := f.fs.Lstat(file.Name)
-	if !fs.IsNotExist(err) && err != nil {
+	deleted := fs.IsNotExist(err) || fs.IsErrCaseConflict(err)
+	if !deleted && err != nil {
 		return err
 	}
-	if fs.IsNotExist(err) {
+	if deleted {
 		if hasCur && !cur.Deleted && !cur.IsUnsupported() {
 			scanChan <- file.Name
 			return errModified
 		}
 		l.Debugln(f, "not deleting item we don't have, but update db", file.Name)
-		dbUpdateChan <- dbUpdateJob{file, updateType}
-		return fs.ErrNotExist
+		return err
 	}
 
 	return f.scanIfItemChanged(file.Name, stat, cur, hasCur, scanChan)
