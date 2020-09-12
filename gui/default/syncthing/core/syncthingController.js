@@ -2593,7 +2593,7 @@ angular.module('syncthing.core')
             templateUrl: 'syncthing/core/editShareTemplate.html',
             scope: {
                 selected: '=',
-                encpws: '=',
+                encryptionPasswords: '=',
                 id: '@',
                 label: '@',
                 folderType: '@',
@@ -2601,7 +2601,7 @@ angular.module('syncthing.core')
             link: function(scope, elem, attrs) {
                 scope.untrusted = attrs.untrusted === 'true';
                 var plain = false;
-                scope.togglePW = function() {
+                scope.togglePasswordVisibility = function() {
                     scope.plain = !scope.plain;
                 };
             },

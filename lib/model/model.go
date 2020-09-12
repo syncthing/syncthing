@@ -1281,19 +1281,19 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceRemote, ccDeviceLocal protocol.Device, hasCCDeviceRemote, hasCCDeviceLocal, deviceUntrusted bool) error {
 	hasTokenRemote := hasCCDeviceRemote && len(ccDeviceRemote.EncryptionPasswordToken) > 0
 	hasTokenLocal := hasCCDeviceLocal && len(ccDeviceLocal.EncryptionPasswordToken) > 0
-	isEncRemote := folderDevice.EncryptionPassword != ""
-	isEncLocal := fcfg.Type == config.FolderTypeReceiveEncrypted
+	isEncryptedRemote := folderDevice.EncryptionPassword != ""
+	isEncryptedLocal := fcfg.Type == config.FolderTypeReceiveEncrypted
 
-	if !isEncRemote && !isEncLocal && deviceUntrusted {
+	if !isEncryptedRemote && !isEncryptedLocal && deviceUntrusted {
 		return errEncryptionNotEncryptedUntrusted
 	}
 
-	if !(hasTokenRemote || hasTokenLocal || isEncRemote || isEncLocal) {
+	if !(hasTokenRemote || hasTokenLocal || isEncryptedRemote || isEncryptedLocal) {
 		// Noone cares about encryption here
 		return nil
 	}
 
-	if isEncRemote && isEncLocal {
+	if isEncryptedRemote && isEncryptedLocal {
 		// Should never happen, but config racyness and be safe.
 		return errEncryptionInvConfigLocal
 	}
@@ -1306,11 +1306,11 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 		return errEncryptionNotEncryptedRemote
 	}
 
-	if !(isEncRemote || isEncLocal) {
+	if !(isEncryptedRemote || isEncryptedLocal) {
 		return errEncryptionNotEncryptedLocal
 	}
 
-	if isEncRemote {
+	if isEncryptedRemote {
 		passwordToken := protocol.PasswordToken(fcfg.ID, folderDevice.EncryptionPassword)
 		match := false
 		if hasTokenLocal {
@@ -1325,7 +1325,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 		return nil
 	}
 
-	// isEncLocal == true
+	// isEncryptedLocal == true
 
 	var ccToken []byte
 	if hasTokenLocal {
@@ -1348,7 +1348,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 			m.folderEncryptionPasswordTokens[fcfg.ID] = token
 			m.fmut.Unlock()
 		} else {
-			if err := writeEncToken(ccToken, fcfg); err != nil {
+			if err := writeEncryptionToken(ccToken, fcfg); err != nil {
 				return err
 			}
 			m.fmut.Lock()
@@ -3009,7 +3009,7 @@ func readEncryptionToken(cfg config.FolderConfiguration) ([]byte, error) {
 	return stored.Token, nil
 }
 
-func writeEncToken(token []byte, cfg config.FolderConfiguration) error {
+func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
 	tokenName := encryptionTokenPath(cfg)
 	fd, err := cfg.Filesystem().OpenFile(tokenName, fs.OptReadWrite|fs.OptCreate, 0666)
 	if err != nil {

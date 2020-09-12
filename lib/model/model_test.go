@@ -1351,7 +1351,7 @@ func TestAutoAcceptEnc(t *testing.T) {
 		t.Fatal("unexpected added")
 	}
 
-	// New folder, enc -> add as enc
+	// New folder, encrypted -> add as enc
 
 	cc = createClusterConfig(device1, id)
 	cc.Folders[0].Devices[1].EncryptionPasswordToken = token
@@ -1367,14 +1367,14 @@ func TestAutoAcceptEnc(t *testing.T) {
 		}
 	}
 
-	// New device, unenc on enc folder -> reject
+	// New device, unencrypted on encrypted folder -> reject
 
 	clusterConfig(device2, createClusterConfig(device2, id))
 	if cfg, _ := m.cfg.Folder(id); cfg.SharedWith(device2) {
 		t.Fatal("unexpected shared")
 	}
 
-	// New device, enc on enc folder -> share
+	// New device, encrypted on encrypted folder -> share
 
 	cc = createClusterConfig(device2, id)
 	cc.Folders[0].Devices[1].EncryptionPasswordToken = token
@@ -1383,7 +1383,7 @@ func TestAutoAcceptEnc(t *testing.T) {
 		t.Fatal("unexpected unshared")
 	}
 
-	// New folder, no enc -> add "normal"
+	// New folder, no encrypted -> add "normal"
 
 	id = srand.String(8)
 	defer os.RemoveAll(id)
@@ -1400,7 +1400,7 @@ func TestAutoAcceptEnc(t *testing.T) {
 		}
 	}
 
-	// New device, enc on unenc folder -> reject
+	// New device, encrypted on unencrypted folder -> reject
 
 	cc = createClusterConfig(device2, id)
 	cc.Folders[0].Devices[1].EncryptionPasswordToken = token
@@ -1409,7 +1409,7 @@ func TestAutoAcceptEnc(t *testing.T) {
 		t.Fatal("unexpected shared")
 	}
 
-	// New device, unenc on unenc folder -> share
+	// New device, unencrypted on unencrypted folder -> share
 
 	clusterConfig(device2, createClusterConfig(device2, id))
 	if cfg, _ := m.cfg.Folder(id); !cfg.SharedWith(device2) {
@@ -4157,97 +4157,97 @@ func TestCcCheckEncryption(t *testing.T) {
 	m.folderEncryptionPasswordTokens[fcfg.ID] = token
 
 	testCases := []struct {
-		tokenThem, tokenUs []byte
-		isEncThem, isEncUs bool
-		expectedErr        error
+		tokenRemote, tokenLocal             []byte
+		isEncryptedRemote, isEncryptedLocal bool
+		expectedErr                         error
 	}{
 		{
-			tokenThem:   token,
-			tokenUs:     token,
+			tokenRemote: token,
+			tokenLocal:  token,
 			expectedErr: errEncryptionInvConfigRemote,
 		},
 		{
-			isEncThem:   true,
-			isEncUs:     true,
-			expectedErr: errEncryptionInvConfigLocal,
+			isEncryptedRemote: true,
+			isEncryptedLocal:  true,
+			expectedErr:       errEncryptionInvConfigLocal,
 		},
 		{
-			tokenThem:   token,
-			tokenUs:     nil,
-			isEncThem:   false,
-			isEncUs:     false,
-			expectedErr: errEncryptionNotEncryptedLocal,
+			tokenRemote:       token,
+			tokenLocal:        nil,
+			isEncryptedRemote: false,
+			isEncryptedLocal:  false,
+			expectedErr:       errEncryptionNotEncryptedLocal,
 		},
 		{
-			tokenThem:   token,
-			tokenUs:     nil,
-			isEncThem:   true,
-			isEncUs:     false,
-			expectedErr: nil,
+			tokenRemote:       token,
+			tokenLocal:        nil,
+			isEncryptedRemote: true,
+			isEncryptedLocal:  false,
+			expectedErr:       nil,
 		},
 		{
-			tokenThem:   token,
-			tokenUs:     nil,
-			isEncThem:   false,
-			isEncUs:     true,
-			expectedErr: nil,
+			tokenRemote:       token,
+			tokenLocal:        nil,
+			isEncryptedRemote: false,
+			isEncryptedLocal:  true,
+			expectedErr:       nil,
 		},
 		{
-			tokenThem:   nil,
-			tokenUs:     token,
-			isEncThem:   true,
-			isEncUs:     false,
-			expectedErr: nil,
+			tokenRemote:       nil,
+			tokenLocal:        token,
+			isEncryptedRemote: true,
+			isEncryptedLocal:  false,
+			expectedErr:       nil,
 		},
 		{
-			tokenThem:   nil,
-			tokenUs:     token,
-			isEncThem:   false,
-			isEncUs:     true,
-			expectedErr: nil,
+			tokenRemote:       nil,
+			tokenLocal:        token,
+			isEncryptedRemote: false,
+			isEncryptedLocal:  true,
+			expectedErr:       nil,
 		},
 		{
-			tokenThem:   nil,
-			tokenUs:     token,
-			isEncThem:   false,
-			isEncUs:     false,
-			expectedErr: errEncryptionNotEncryptedLocal,
+			tokenRemote:       nil,
+			tokenLocal:        token,
+			isEncryptedRemote: false,
+			isEncryptedLocal:  false,
+			expectedErr:       errEncryptionNotEncryptedLocal,
 		},
 		{
-			tokenThem:   nil,
-			tokenUs:     nil,
-			isEncThem:   true,
-			isEncUs:     false,
-			expectedErr: errEncryptionNotEncryptedRemote,
+			tokenRemote:       nil,
+			tokenLocal:        nil,
+			isEncryptedRemote: true,
+			isEncryptedLocal:  false,
+			expectedErr:       errEncryptionNotEncryptedRemote,
 		},
 		{
-			tokenThem:   nil,
-			tokenUs:     nil,
-			isEncThem:   false,
-			isEncUs:     true,
-			expectedErr: errEncryptionNotEncryptedRemote,
+			tokenRemote:       nil,
+			tokenLocal:        nil,
+			isEncryptedRemote: false,
+			isEncryptedLocal:  true,
+			expectedErr:       errEncryptionNotEncryptedRemote,
 		},
 		{
-			tokenThem:   nil,
-			tokenUs:     nil,
-			isEncThem:   false,
-			isEncUs:     false,
-			expectedErr: nil,
+			tokenRemote:       nil,
+			tokenLocal:        nil,
+			isEncryptedRemote: false,
+			isEncryptedLocal:  false,
+			expectedErr:       nil,
 		},
 	}
 
 	for i, tc := range testCases {
 		tfcfg := fcfg.Copy()
-		if tc.isEncUs {
+		if tc.isEncryptedLocal {
 			tfcfg.Type = config.FolderTypeReceiveEncrypted
 			m.folderEncryptionPasswordTokens[fcfg.ID] = token
 		}
 		dcfg := config.FolderDeviceConfiguration{DeviceID: device1}
-		if tc.isEncThem {
+		if tc.isEncryptedRemote {
 			dcfg.EncryptionPassword = pw
 		}
-		ccDevice := protocol.Device{ID: device1, EncryptionPasswordToken: tc.tokenThem}
-		ccDeviceUs := protocol.Device{ID: myID, EncryptionPasswordToken: tc.tokenUs}
+		ccDevice := protocol.Device{ID: device1, EncryptionPasswordToken: tc.tokenRemote}
+		ccDeviceUs := protocol.Device{ID: myID, EncryptionPasswordToken: tc.tokenLocal}
 		err := m.ccCheckEncryption(tfcfg, dcfg, ccDevice, ccDeviceUs, true, true, false)
 		if err != tc.expectedErr {
 			t.Errorf("Testcase %v: Expected error %v, got %v", i, tc.expectedErr, err)
@@ -4255,7 +4255,7 @@ func TestCcCheckEncryption(t *testing.T) {
 
 		if tc.expectedErr == nil {
 			err := m.ccCheckEncryption(tfcfg, dcfg, ccDevice, ccDeviceUs, true, true, true)
-			if tc.isEncThem || tc.isEncUs {
+			if tc.isEncryptedRemote || tc.isEncryptedLocal {
 				if err != nil {
 					t.Errorf("Testcase %v: Expected no error, got %v", i, err)
 				}
@@ -4266,11 +4266,11 @@ func TestCcCheckEncryption(t *testing.T) {
 			}
 		}
 
-		if err != nil || (!tc.isEncThem && !tc.isEncUs) {
+		if err != nil || (!tc.isEncryptedRemote && !tc.isEncryptedLocal) {
 			continue
 		}
 
-		if tc.isEncUs {
+		if tc.isEncryptedLocal {
 			m.folderEncryptionPasswordTokens[fcfg.ID] = []byte("notAMatch")
 		} else {
 			dcfg.EncryptionPassword = "notAMatch"
