@@ -1,11 +1,11 @@
-<modal id="delete-encryption-confirmation" status="danger" icon="fas fa-question-circle" heading="{{'Delete Unencrypted Items' | translate}}" large="no" closeable="yes">
+<modal id="delete-encryption-confirmation" status="danger" icon="fas fa-question-circle" heading="{{'Delete Unexpected Items' | translate}}" large="no" closeable="yes">
   <div class="modal-body">
-    <p>
-      <span translate>Items have been added to this folder which are not encrypted.</span>
-      <span translate translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">You should never add or change anything locally in a "{%receiveEncrypted%}" folder.</span>
+    <p translate translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">
+      Unexpected items have been found in this folder.</br>
+      You should never add or change anything locally in a "{%receiveEncrypted%}" folder.
     </p>
-    <p>
-      <span translate>Are you sure you want to permanently delete all these files?</span>
+    <p translate>
+      Are you sure you want to permanently delete all these files?
     </p>
   </div>
   <div class="modal-footer">
