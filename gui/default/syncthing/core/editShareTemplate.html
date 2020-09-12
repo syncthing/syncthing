@@ -12,14 +12,14 @@
     </span>
     <span ng-switch="folderType === 'receiveencrypted'">
       <span ng-switch-when='true'>
-        <input class="form-control input-sm" type="password" placeholder="{{'received data is already encrypted' | translate}}" disabled />
+        <input class="form-control input-sm" type="password" placeholder="{{'Received data is already encrypted' | translate}}" disabled />
       </span>
       <span ng-switch-default ng-switch="selected[id]">
         <span ng-switch-when='true' ng-class="{'has-error': untrusted && !encryption-passwords[id]}">
-          <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encryption-passwords[id]" ng-required="untrusted" placeholder="{{'enter password to encrypt data to be sent' | translate}}" />
+          <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encryption-passwords[id]" ng-required="untrusted" placeholder="{{'Enter encryption password.' | translate}}" />
         </span>
         <span ng-switch-default>
-          <input class="form-control input-sm" type="password" placeholder="{{'not shared' | translate}}" disabled />
+          <input class="form-control input-sm" type="password" placeholder="{{'Not shared' | translate}}" disabled />
         </span>
       </span>
     </span>

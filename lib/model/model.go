@@ -1523,12 +1523,12 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 		}
 		if cfg.Type == config.FolderTypeReceiveEncrypted {
 			if len(ccDeviceRemote.EncryptionPasswordToken) == 0 && len(ccDeviceLocal.EncryptionPasswordToken) == 0 {
-				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us un-encrypted data, but we are encrypted", folder.Description(), deviceID)
+				l.Infof("Failed to auto-accept device %s on existing folder %s as the remote wants to send us unencrypted data, but the folder type is receive-encrypted", folder.Description(), deviceID)
 				return config.FolderConfiguration{}, false
 			}
 		} else {
 			if len(ccDeviceRemote.EncryptionPasswordToken) > 0 || len(ccDeviceLocal.EncryptionPasswordToken) > 0 {
-				l.Infof("Failed to auto-accept folder %s from %s as the remote wants to send us encrypted data, but we are not encrypted", folder.Description(), deviceID)
+				l.Infof("Failed to auto-accept device %s on existing folder %s as the remote wants to send us encrypted data, but the folder type is not receive-encrypted", folder.Description(), deviceID)
 				return config.FolderConfiguration{}, false
 			}
 		}
