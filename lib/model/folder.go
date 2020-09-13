@@ -450,7 +450,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	scanCtx, scanCancel := context.WithCancel(f.ctx)
 	defer scanCancel()
 	mtimefs := f.fset.MtimeFS()
-	fchan := scanner.Walk(scanCtx, scanner.Config{
+
+	scanConfig := scanner.Config{
 		Folder:                f.ID,
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
@@ -465,8 +466,13 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		LocalFlags:            f.localFlags,
 		ModTimeWindow:         f.modTimeWindow,
 		EventLogger:           f.evLogger,
-		DetectChangesOnly:     f.Type == config.FolderTypeReceiveEncrypted,
-	})
+	}
+	var fchan chan scanner.ScanResult
+	if f.Type == config.FolderTypeReceiveEncrypted {
+		fchan = scanner.WalkWithoutHashing(scanCtx, scanConfig)
+	} else {
+		fchan = scanner.Walk(scanCtx, scanConfig)
+	}
 
 	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := f.getHealthErrorWithoutIgnores(); err != nil {
