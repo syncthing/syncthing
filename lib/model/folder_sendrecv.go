@@ -1302,9 +1302,14 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						return false
 					}
 
-					if err := f.verifyBuffer(buf, block); err != nil {
-						l.Debugln("Finder failed to verify buffer", err)
-						return false
+					// Hash is not SHA256 as it's an encrypted hash token. In that
+					// case we can't verify the block integrity so we'll take it on
+					// trust. (The other side can and will verify.)
+					if f.Type != config.FolderTypeReceiveEncrypted {
+						if err := f.verifyBuffer(buf, block); err != nil {
+							l.Debugln("Finder failed to verify buffer", err)
+							return false
+						}
 					}
 
 					if f.CopyRangeMethod != fs.CopyRangeMethodStandard {
@@ -1396,12 +1401,6 @@ func (f *sendReceiveFolder) initWeakHashFinder(state copyBlocksState) (*weakhash
 func (f *sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 	if len(buf) != int(block.Size) {
 		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
-	}
-	if f.Type == config.FolderTypeReceiveEncrypted {
-		// If the hash is not SHA256 it's an encrypted hash token. In that
-		// case we can't verify the block integrity so we'll take it on
-		// trust. (The other side can and will verify.)
-		return nil
 	}
 
 	hash := sha256.Sum256(buf)
@@ -1506,7 +1505,13 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 
 		// Verify that the received block matches the desired hash, if not
 		// try pulling it from another device.
-		lastError = f.verifyBuffer(buf, state.block)
+		// For receive-only folders, the hash is not SHA256 as it's an
+		// encrypted hash token. In that case we can't verify the block
+		// integrity so we'll take it on trust. (The other side can and
+		// will verify.)
+		if f.Type != config.FolderTypeReceiveEncrypted {
+			lastError = f.verifyBuffer(buf, state.block)
+		}
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
 			continue
