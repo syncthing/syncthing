@@ -6,13 +6,6 @@
 
 package fs
 
-type FilesystemType int
-
-const (
-	FilesystemTypeBasic FilesystemType = iota // default is basic
-	FilesystemTypeFake
-)
-
 func (t FilesystemType) String() string {
 	switch t {
 	case FilesystemTypeBasic:

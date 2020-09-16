@@ -7,13 +7,39 @@
 package fs
 
 import (
+	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 func UnicodeLowercase(s string) string {
-	rs := []rune(s)
-	for i, r := range rs {
-		rs[i] = unicode.ToLower(unicode.ToUpper(r))
+	i := firstCaseChange(s)
+	if i == -1 {
+		return s
 	}
-	return string(rs)
+
+	var rs strings.Builder
+	// WriteRune always reserves utf8.UTFMax bytes for non-ASCII runes,
+	// even if it doesn't need all that space. Overallocate now to prevent
+	// it from ever triggering a reallocation.
+	rs.Grow(utf8.UTFMax - 1 + len(s))
+	rs.WriteString(s[:i])
+
+	for _, r := range s[i:] {
+		rs.WriteRune(unicode.ToLower(unicode.ToUpper(r)))
+	}
+	return rs.String()
+}
+
+// Byte index of the first rune r s.t. lower(upper(r)) != r.
+func firstCaseChange(s string) int {
+	for i, r := range s {
+		if r <= unicode.MaxASCII && (r < 'A' || r > 'Z') {
+			continue
+		}
+		if unicode.ToLower(unicode.ToUpper(r)) != r {
+			return i
+		}
+	}
+	return -1
 }

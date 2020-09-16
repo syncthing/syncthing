@@ -44,11 +44,12 @@ type folder struct {
 
 	localFlags uint32
 
-	model   *model
-	shortID protocol.ShortID
-	fset    *db.FileSet
-	ignores *ignore.Matcher
-	ctx     context.Context
+	model         *model
+	shortID       protocol.ShortID
+	fset          *db.FileSet
+	ignores       *ignore.Matcher
+	modTimeWindow time.Duration
+	ctx           context.Context
 
 	scanInterval           time.Duration
 	scanTimer              *time.Timer
@@ -95,10 +96,11 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
 		ioLimiter:                 ioLimiter,
 
-		model:   model,
-		shortID: model.shortID,
-		fset:    fset,
-		ignores: ignores,
+		model:         model,
+		shortID:       model.shortID,
+		fset:          fset,
+		ignores:       ignores,
+		modTimeWindow: cfg.ModTimeWindow(),
 
 		scanInterval:           time.Duration(cfg.RescanIntervalS) * time.Second,
 		scanTimer:              time.NewTimer(0), // The first scan should be done immediately.
@@ -342,13 +344,17 @@ func (f *folder) pull() (success bool) {
 		return false
 	}
 
-	f.setState(FolderSyncWaiting)
+	// Send only folder doesn't do any io, it only checks for out-of-sync
+	// items that differ in metadata and updates those.
+	if f.Type != config.FolderTypeSendOnly {
+		f.setState(FolderSyncWaiting)
 
-	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
-		f.setError(err)
-		return true
+		if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
+			f.setError(err)
+			return true
+		}
+		defer f.ioLimiter.give(1)
 	}
-	defer f.ioLimiter.give(1)
 
 	startTime := time.Now()
 
@@ -457,7 +463,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		ShortID:               f.shortID,
 		ProgressTickIntervalS: f.ScanProgressIntervalS,
 		LocalFlags:            f.localFlags,
-		ModTimeWindow:         f.ModTimeWindow(),
+		ModTimeWindow:         f.modTimeWindow,
 		EventLogger:           f.evLogger,
 	})
 
@@ -480,7 +486,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		batchAppend = func(fi protocol.FileInfo, snap *db.Snapshot) {
 			switch gf, ok := snap.GetGlobal(fi.Name); {
 			case !ok:
-			case gf.IsEquivalentOptional(fi, f.ModTimeWindow(), false, false, protocol.FlagLocalReceiveOnly):
+			case gf.IsEquivalentOptional(fi, f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
 				// What we have locally is equivalent to the global file.
 				fi.Version = fi.Version.Merge(gf.Version)
 				fallthrough
@@ -1027,11 +1033,13 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 	}
 	f.forcedRescanPathsMut.Unlock()
 
+	seq := f.fset.Sequence(protocol.LocalDeviceID)
 	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":    f.ID,
 		"items":     len(fs),
 		"filenames": filenames,
-		"version":   f.fset.Sequence(protocol.LocalDeviceID),
+		"sequence":  seq,
+		"version":   seq, // legacy for sequence
 	})
 }
 

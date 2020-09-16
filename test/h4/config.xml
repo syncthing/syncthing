@@ -1,9 +1,11 @@
-<configuration version="28">
-    <folder id="default" label="" path="s4/" type="readwrite" rescanIntervalS="60" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="false">
+<configuration version="32">
+    <folder id="default" label="" path="s4/" type="sendreceive" rescanIntervalS="60" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="false">
         <filesystemType>basic</filesystemType>
         <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" introducedBy=""></device>
         <minDiskFree unit="%">1</minDiskFree>
-        <versioning></versioning>
+        <versioning>
+            <cleanupIntervalS>3600</cleanupIntervalS>
+        </versioning>
         <copiers>1</copiers>
         <pullerMaxPendingKiB>2048</pullerMaxPendingKiB>
         <hashers>0</hashers>
@@ -17,7 +19,14 @@
         <paused>false</paused>
         <weakHashThresholdPct>25</weakHashThresholdPct>
         <markerName>.stfolder</markerName>
-        <useLargeBlocks>false</useLargeBlocks>
+        <copyOwnershipFromParent>false</copyOwnershipFromParent>
+        <modTimeWindowS>0</modTimeWindowS>
+        <maxConcurrentWrites>0</maxConcurrentWrites>
+        <disableFsync>false</disableFsync>
+        <blockPullOrder>standard</blockPullOrder>
+        <copyRangeMethod>standard</copyRangeMethod>
+        <caseSensitiveFS>false</caseSensitiveFS>
+        <junctionsAsDirs>true</junctionsAsDirs>
     </folder>
     <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>dynamic</address>
@@ -25,12 +34,14 @@
         <autoAcceptFolders>false</autoAcceptFolders>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
+        <maxRequestKiB>0</maxRequestKiB>
     </device>
     <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8084</address>
         <apikey>PMA5yUTG-Mw98nJ0YEtWTCHlM5O4aNi0</apikey>
         <theme>default</theme>
     </gui>
+    <ldap></ldap>
     <options>
         <listenAddress>dynamic+https://relays.syncthing.net/endpoint</listenAddress>
         <listenAddress>tcp://127.0.0.1:22004</listenAddress>
@@ -69,6 +80,14 @@
         <trafficClass>0</trafficClass>
         <defaultFolderPath>~</defaultFolderPath>
         <setLowPriority>true</setLowPriority>
-        <minHomeDiskFreePct>0</minHomeDiskFreePct>
+        <maxFolderConcurrency>0</maxFolderConcurrency>
+        <crashReportingURL>https://crash.syncthing.net/newcrash</crashReportingURL>
+        <crashReportingEnabled>true</crashReportingEnabled>
+        <stunKeepaliveStartS>180</stunKeepaliveStartS>
+        <stunKeepaliveMinS>20</stunKeepaliveMinS>
+        <stunServer>default</stunServer>
+        <databaseTuning>auto</databaseTuning>
+        <maxConcurrentIncomingRequestKiB>0</maxConcurrentIncomingRequestKiB>
+        <announceLANAddresses>true</announceLANAddresses>
     </options>
 </configuration>

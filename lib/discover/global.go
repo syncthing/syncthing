@@ -254,27 +254,27 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 	// The marshal doesn't fail, I promise.
 	postData, _ := json.Marshal(ann)
 
-	l.Debugf("Announcement: %v", ann)
+	l.Debugf("%s Announcement: %v", c, ann)
 
 	resp, err := c.announceClient.Post(ctx, c.server, "application/json", bytes.NewReader(postData))
 	if err != nil {
-		l.Debugln("announce POST:", err)
+		l.Debugln(c, "announce POST:", err)
 		c.setError(err)
 		timer.Reset(announceErrorRetryInterval)
 		return
 	}
-	l.Debugln("announce POST:", resp.Status)
+	l.Debugln(c, "announce POST:", resp.Status)
 	resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		l.Debugln("announce POST:", resp.Status)
+		l.Debugln(c, "announce POST:", resp.Status)
 		c.setError(errors.New(resp.Status))
 
 		if h := resp.Header.Get("Retry-After"); h != "" {
 			// The server has a recommendation on when we should
 			// retry. Follow it.
 			if secs, err := strconv.Atoi(h); err == nil && secs > 0 {
-				l.Debugln("announce Retry-After:", secs, err)
+				l.Debugln(c, "announce Retry-After:", secs, err)
 				timer.Reset(time.Duration(secs) * time.Second)
 				return
 			}
@@ -290,7 +290,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 		// The server has a recommendation on when we should
 		// reannounce. Follow it.
 		if secs, err := strconv.Atoi(h); err == nil && secs > 0 {
-			l.Debugln("announce Reannounce-After:", secs, err)
+			l.Debugln(c, "announce Reannounce-After:", secs, err)
 			timer.Reset(time.Duration(secs) * time.Second)
 			return
 		}

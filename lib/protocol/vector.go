@@ -127,6 +127,11 @@ func (v Vector) Counter(id ShortID) uint64 {
 	return 0
 }
 
+// IsEmpty returns true when there are no counters.
+func (v Vector) IsEmpty() bool {
+	return len(v.Counters) == 0
+}
+
 // DropOthers removes all counters, keeping only the one with given id. If there
 // is no such counter, an empty Vector is returned.
 func (v Vector) DropOthers(id ShortID) Vector {

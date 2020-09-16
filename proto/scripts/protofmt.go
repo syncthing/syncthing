@@ -15,6 +15,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"text/tabwriter"
@@ -22,24 +23,54 @@ import (
 
 func main() {
 	flag.Parse()
-	file := flag.Arg(0)
+	for _, arg := range flag.Args() {
+		matches, err := filepath.Glob(arg)
+		if err != nil {
+			log.Fatal(err)
+		}
+		for _, file := range matches {
+			if stat, err := os.Stat(file); err != nil {
+				log.Fatal(err)
+			} else if stat.IsDir() {
+				err := filepath.Walk(file, func(path string, info os.FileInfo, err error) error {
+					if err != nil {
+						return err
+					}
+					if filepath.Ext(path) == ".proto" {
+						return formatProtoFile(path)
+					}
+					return nil
+				})
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else {
+				if err := formatProtoFile(file); err != nil {
+					log.Fatal(err)
+				}
+			}
+		}
+	}
+}
+
+func formatProtoFile(file string) error {
+	log.Println("Formatting", file)
 	in, err := os.Open(file)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	defer in.Close()
 	out, err := os.Create(file + ".tmp")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-
+	defer out.Close()
 	if err := formatProto(in, out); err != nil {
-		log.Fatal(err)
+		return err
 	}
 	in.Close()
 	out.Close()
-	if err := os.Rename(file+".tmp", file); err != nil {
-		log.Fatal(err)
-	}
+	return os.Rename(file+".tmp", file)
 }
 
 func formatProto(in io.Reader, out io.Writer) error {

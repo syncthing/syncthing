@@ -11,11 +11,13 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
+	"os"
 	"time"
 
 	"github.com/dchest/siphash"
 	"github.com/greatroar/blobloom"
 	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
@@ -42,6 +44,8 @@ const (
 	versionIndirectionCutoff = 10
 
 	recheckDefaultInterval = 30 * 24 * time.Hour
+
+	needsRepairSuffix = ".needsrepair"
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
@@ -82,6 +86,13 @@ func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
 	db.Add(util.AsService(db.gcRunner, "db.Lowlevel/gcRunner"))
+	if path := db.needsRepairPath(); path != "" {
+		if _, err := os.Lstat(path); err == nil {
+			l.Infoln("Database was marked for repair - this may take a while")
+			db.checkRepair()
+			os.Remove(path)
+		}
+	}
 	return db
 }
 
@@ -790,8 +801,8 @@ func (b *bloomFilter) hash(id []byte) uint64 {
 	return siphash.Hash(b.k0, b.k1, id)
 }
 
-// CheckRepair checks folder metadata and sequences for miscellaneous errors.
-func (db *Lowlevel) CheckRepair() {
+// checkRepair checks folder metadata and sequences for miscellaneous errors.
+func (db *Lowlevel) checkRepair() {
 	for _, folder := range db.ListFolders() {
 		_ = db.getMetaAndCheck(folder)
 	}
@@ -801,19 +812,33 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
-	meta, err := db.recalcMeta(folder)
-	if err == nil {
-		var fixed int
-		fixed, err = db.repairSequenceGCLocked(folder, meta)
-		if fixed != 0 {
-			l.Infof("Repaired %d sequence entries in database", fixed)
+	var err error
+	defer func() {
+		if err != nil && !backend.IsClosed(err) {
+			panic(err)
 		}
+	}()
+
+	var fixed int
+	fixed, err = db.checkLocalNeed([]byte(folder))
+	if err != nil {
+		return nil
+	}
+	if fixed != 0 {
+		l.Infof("Repaired %d local need entries for folder %v in database", fixed, folder)
 	}
 
-	if backend.IsClosed(err) {
+	meta, err := db.recalcMeta(folder)
+	if err != nil {
 		return nil
-	} else if err != nil {
-		panic(err)
+	}
+
+	fixed, err = db.repairSequenceGCLocked(folder, meta)
+	if err != nil {
+		return nil
+	}
+	if fixed != 0 {
+		l.Infof("Repaired %d sequence entries for folder %v in database", fixed, folder)
 	}
 
 	return meta
@@ -1033,6 +1058,97 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 	it.Release()
 
 	return fixed, t.Commit()
+}
+
+// Does not take care of metadata - if anything is repaired, the need count
+// needs to be recalculated.
+func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
+	repaired := 0
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return 0, err
+	}
+	defer t.close()
+
+	key, err := t.keyer.GenerateNeedFileKey(nil, folder, nil)
+	if err != nil {
+		return 0, err
+	}
+	dbi, err := t.NewPrefixIterator(key.WithoutName())
+	if err != nil {
+		return 0, err
+	}
+	defer dbi.Release()
+
+	var needName string
+	var needDone bool
+	next := func() {
+		needDone = !dbi.Next()
+		if !needDone {
+			needName = string(t.keyer.NameFromGlobalVersionKey(dbi.Key()))
+		}
+	}
+	next()
+	t.withNeedIteratingGlobal(folder, protocol.LocalDeviceID[:], true, func(fi protocol.FileIntf) bool {
+		f := fi.(FileInfoTruncated)
+		for !needDone && needName < f.Name {
+			repaired++
+			if err = t.Delete(dbi.Key()); err != nil {
+				return false
+			}
+			l.Debugln("check local need: removing", needName)
+			next()
+		}
+		if needName == f.Name {
+			next()
+		} else {
+			repaired++
+			key, err = t.keyer.GenerateNeedFileKey(key, folder, []byte(f.Name))
+			if err != nil {
+				return false
+			}
+			if err = t.Put(key, nil); err != nil {
+				return false
+			}
+			l.Debugln("check local need: adding", f.Name)
+		}
+		return true
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	for !needDone {
+		repaired++
+		if err := t.Delete(dbi.Key()); err != nil {
+			return 0, err
+		}
+		l.Debugln("check local need: removing", needName)
+		next()
+	}
+
+	if err := dbi.Error(); err != nil {
+		return 0, err
+	}
+	dbi.Release()
+
+	if err = t.Commit(); err != nil {
+		return 0, err
+	}
+
+	return repaired, nil
+}
+
+func (db *Lowlevel) needsRepairPath() string {
+	path := db.Location()
+	if path == "" {
+		return ""
+	}
+	if path[len(path)-1] == fs.PathSeparator {
+		path = path[:len(path)-1]
+	}
+	return path + needsRepairSuffix
 }
 
 // unchanged checks if two files are the same and thus don't need to be updated.

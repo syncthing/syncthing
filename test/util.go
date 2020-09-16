@@ -562,3 +562,19 @@ func symlinksSupported() bool {
 	err = os.Symlink("tmp", filepath.Join(tmp, "link"))
 	return err == nil
 }
+
+// checkRemoteInSync checks if the devices associated twith the given processes
+// are in sync according to the remote status on both sides.
+func checkRemoteInSync(folder string, p1, p2 *rc.Process) error {
+	if inSync, err := p1.RemoteInSync(folder, p2.ID()); err != nil {
+		return err
+	} else if !inSync {
+		return fmt.Errorf(`from device %v folder "%v" is not in sync on device %v`, p1.ID(), folder, p2.ID())
+	}
+	if inSync, err := p2.RemoteInSync(folder, p1.ID()); err != nil {
+		return err
+	} else if !inSync {
+		return fmt.Errorf(`from device %v folder "%v" is not in sync on device %v`, p2.ID(), folder, p1.ID())
+	}
+	return nil
+}

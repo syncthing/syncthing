@@ -91,7 +91,13 @@ func dump(ldb backend.Backend) {
 
 		case db.KeyTypeFolderMeta:
 			folder := binary.BigEndian.Uint32(key[1:])
-			fmt.Printf("[foldermeta] F:%d V:%x\n", folder, it.Value())
+			fmt.Printf("[foldermeta] F:%d", folder)
+			var cs db.CountsSet
+			if err := cs.Unmarshal(it.Value()); err != nil {
+				fmt.Printf(" (invalid)\n")
+			} else {
+				fmt.Printf(" V:%v\n", cs)
+			}
 
 		case db.KeyTypeMiscData:
 			fmt.Printf("[miscdata] K:%q V:%q\n", key[1:], it.Value())
@@ -116,7 +122,14 @@ func dump(ldb backend.Backend) {
 			fmt.Printf("[blocklistmap] F:%d H:%x N:%s\n", folder, hash, fileName)
 
 		case db.KeyTypeVersion:
-			fmt.Printf("[version] H:%x\n", key[1:])
+			fmt.Printf("[version] H:%x", key[1:])
+			var v protocol.Vector
+			err := v.Unmarshal(it.Value())
+			if err != nil {
+				fmt.Printf(" (invalid)\n")
+			} else {
+				fmt.Printf(" V:%v\n", v)
+			}
 
 		default:
 			fmt.Printf("[??? %d]\n  %x\n  %x\n", key[0], key, it.Value())

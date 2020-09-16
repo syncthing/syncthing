@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate go run ../../script/protofmt.go local.proto
+//go:generate go run ../../proto/scripts/protofmt.go local.proto
 //go:generate protoc -I ../../ -I . --gogofast_out=. local.proto
 
 package discover
@@ -166,8 +166,11 @@ func (c *localClient) recvAnnouncements(ctx context.Context) {
 		}
 
 		buf, addr := b.Recv()
+		if addr == nil {
+			continue
+		}
 		if len(buf) < 4 {
-			l.Debugf("discover: short packet from %s")
+			l.Debugf("discover: short packet from %s", addr.String())
 			continue
 		}
 

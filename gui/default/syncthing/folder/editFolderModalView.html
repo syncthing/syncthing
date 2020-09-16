@@ -96,7 +96,7 @@
               <option value="external" translate>External File Versioning</option>
             </select>
           </div>
-          <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='trashcan'" ng-class="{'has-error': folderEditor.trashcanClean.$invalid && folderEditor.trashcanClean.$dirty}">
+          <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='trashcan' || currentFolder.fileVersioningSelector=='simple'" ng-class="{'has-error': folderEditor.trashcanClean.$invalid && folderEditor.trashcanClean.$dirty}">
             <p translate class="help-block">Files are moved to .stversions directory when replaced or deleted by Syncthing.</p>
             <label translate for="trashcanClean">Clean out after</label>
             <div class="input-group">
@@ -144,7 +144,7 @@
               <span translate ng-if="folderEditor.externalCommand.$error.required && folderEditor.externalCommand.$dirty">The path cannot be blank.</span>
             </p>
           </div>
-          <div class="form-group" ng-if="currentFolder.fileVersioningSelector == 'staggered' || currentFolder.fileVersioningSelector == 'trashcan'" ng-class="{'has-error': folderEditor.versioningCleanupIntervalS.$invalid && folderEditor.versioningCleanupIntervalS.$dirty}">
+          <div class="form-group" ng-if="currentFolder.fileVersioningSelector != 'none'" ng-class="{'has-error': folderEditor.versioningCleanupIntervalS.$invalid && folderEditor.versioningCleanupIntervalS.$dirty}">
             <label translate for="versioningCleanupIntervalS">Cleanup Interval</label>
             <div class="input-group">
               <input name="versioningCleanupIntervalS" id="versioningCleanupIntervalS" class="form-control text-right" type="number" ng-model="currentFolder.versioningCleanupIntervalS" required="" min="0" max="31536000" aria-required="true" />

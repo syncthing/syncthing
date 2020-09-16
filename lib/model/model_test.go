@@ -340,7 +340,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device name got overwritten")
 	}
 
-	cfgw, err := config.Load("testdata/tmpconfig.xml", myID, events.NoopLogger)
+	cfgw, _, err := config.Load("testdata/tmpconfig.xml", myID, events.NoopLogger)
 	if err != nil {
 		t.Error(err)
 		return
@@ -3929,16 +3929,16 @@ func TestConnectionTerminationOnFolderUnpause(t *testing.T) {
 
 func TestAddFolderCompletion(t *testing.T) {
 	// Empty folders are always 100% complete.
-	comp := newFolderCompletion(db.Counts{}, db.Counts{})
-	comp.add(newFolderCompletion(db.Counts{}, db.Counts{}))
+	comp := newFolderCompletion(db.Counts{}, db.Counts{}, 0)
+	comp.add(newFolderCompletion(db.Counts{}, db.Counts{}, 0))
 	if comp.CompletionPct != 100 {
 		t.Error(comp.CompletionPct)
 	}
 
 	// Completion is of the whole
-	comp = newFolderCompletion(db.Counts{Bytes: 100}, db.Counts{})             // 100% complete
-	comp.add(newFolderCompletion(db.Counts{Bytes: 400}, db.Counts{Bytes: 50})) // 82.5% complete
-	if comp.CompletionPct != 90 {                                              // 100 * (1 - 50/500)
+	comp = newFolderCompletion(db.Counts{Bytes: 100}, db.Counts{}, 0)             // 100% complete
+	comp.add(newFolderCompletion(db.Counts{Bytes: 400}, db.Counts{Bytes: 50}, 0)) // 82.5% complete
+	if comp.CompletionPct != 90 {                                                 // 100 * (1 - 50/500)
 		t.Error(comp.CompletionPct)
 	}
 }
@@ -4014,6 +4014,97 @@ func testConfigChangeClosesConnections(t *testing.T, expectFirstClosed, expectSe
 
 	if expectSecondClosed != fc2.closed {
 		t.Errorf("second connection state mismatch: %t (expected) != %t", expectSecondClosed, fc2.closed)
+	}
+}
+
+// The end result of the tested scenario is that the global version entry has an
+// empty version vector and is not deleted, while everything is actually deleted.
+// That then causes these files to be considered as needed, while they are not.
+// https://github.com/syncthing/syncthing/issues/6961
+func TestIssue6961(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	tfs := fcfg.Filesystem()
+	wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+	fcfg.Type = config.FolderTypeReceiveOnly
+	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
+	wcfg.SetFolder(fcfg)
+	// Always recalc/repair when opening a fileset.
+	// db := db.NewLowlevel(backend.OpenMemory(), db.WithRecheckInterval(time.Millisecond))
+	db := db.NewLowlevel(backend.OpenMemory())
+	m := newModel(wcfg, myID, "syncthing", "dev", db, nil)
+	m.ServeBackground()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+	m.ScanFolders()
+
+	name := "foo"
+	version := protocol.Vector{}.Update(device1.Short())
+
+	// Remote, valid and existing file
+	m.Index(device1, fcfg.ID, []protocol.FileInfo{{Name: name, Version: version, Sequence: 1}})
+	// Remote, invalid (receive-only) and existing file
+	m.Index(device2, fcfg.ID, []protocol.FileInfo{{Name: name, RawInvalid: true, Sequence: 1}})
+	// Create a local file
+	if fd, err := tfs.OpenFile(name, fs.OptCreate, 0666); err != nil {
+		t.Fatal(err)
+	} else {
+		fd.Close()
+	}
+	if info, err := tfs.Lstat(name); err != nil {
+		t.Fatal(err)
+	} else {
+		l.Infoln("intest", info.Mode)
+	}
+	m.ScanFolders()
+
+	// Get rid of valid global
+	waiter, err := wcfg.RemoveDevice(device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+
+	// Delete the local file
+	must(t, tfs.Remove(name))
+	m.ScanFolders()
+
+	// Drop ther remote index, add some other file.
+	m.Index(device2, fcfg.ID, []protocol.FileInfo{{Name: "bar", RawInvalid: true, Sequence: 1}})
+
+	// Pause and unpause folder to create new db.FileSet and thus recalculate everything
+	fcfg.Paused = true
+	waiter, err = wcfg.SetFolder(fcfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+	fcfg.Paused = false
+	waiter, err = wcfg.SetFolder(fcfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+
+	if comp := m.Completion(device2, fcfg.ID); comp.NeedDeletes != 0 {
+		t.Error("Expected 0 needed deletes, got", comp.NeedDeletes)
+	} else {
+		t.Log(comp)
+	}
+}
+
+func TestCompletionEmptyGlobal(t *testing.T) {
+	wcfg, fcfg := tmpDefaultWrapper()
+	m := setupModel(wcfg)
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID.Short()), Sequence: 1}}
+	m.fmut.Lock()
+	m.folderFiles[fcfg.ID].Update(protocol.LocalDeviceID, files)
+	m.fmut.Unlock()
+	files[0].Deleted = true
+	files[0].Version = files[0].Version.Update(device1.Short())
+	m.IndexUpdate(device1, fcfg.ID, files)
+	comp := m.Completion(protocol.LocalDeviceID, fcfg.ID)
+	if comp.CompletionPct != 95 {
+		t.Error("Expected completion of 95%, got", comp.CompletionPct)
 	}
 }
 

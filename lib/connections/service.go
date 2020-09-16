@@ -149,7 +149,7 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		conns:                make(chan internalConn),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		limiter:              newLimiter(cfg),
+		limiter:              newLimiter(myID, cfg),
 		natService:           nat.NewService(myID, cfg),
 		evLogger:             evLogger,
 
@@ -675,6 +675,9 @@ func (s *service) AllAddresses() []string {
 }
 
 func (s *service) ExternalAddresses() []string {
+	if s.cfg.Options().AnnounceLANAddresses {
+		return s.AllAddresses()
+	}
 	s.listenersMut.RLock()
 	var addrs []string
 	for _, listener := range s.listeners {

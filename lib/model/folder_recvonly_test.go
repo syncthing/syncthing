@@ -9,6 +9,7 @@ package model
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -319,6 +320,86 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 	size = receiveOnlyChangedSize(t, m, "ro")
 	if size.Deleted != 0 {
 		t.Fatalf("Receive only: expected no deleted: %+v", size)
+	}
+}
+
+func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
+	// Get us a model up and running
+
+	m, f := setupROFolder(t)
+	ffs := f.Filesystem()
+	defer cleanupModel(m)
+
+	// Create some test data
+
+	must(t, ffs.MkdirAll(".stfolder", 0755))
+	oldData := []byte("hello\n")
+	knownFiles := setupKnownFiles(t, ffs, oldData)
+
+	// Send an index update for the known stuff
+
+	m.Index(device1, "ro", knownFiles)
+	f.updateLocalsFromScanning(knownFiles)
+
+	// Scan the folder.
+
+	must(t, m.ScanFolder("ro"))
+
+	// Everything should be in sync.
+
+	size := globalSize(t, m, "ro")
+	if size.Files != 1 || size.Directories != 1 {
+		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
+	}
+	size = localSize(t, m, "ro")
+	if size.Files != 1 || size.Directories != 1 {
+		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
+	}
+	size = needSize(t, m, "ro")
+	if size.Files+size.Directories > 0 {
+		t.Fatalf("Need: expected nothing: %+v", size)
+	}
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Files+size.Directories > 0 {
+		t.Fatalf("ROChanged: expected nothing: %+v", size)
+	}
+
+	// Create a file and modify another
+
+	const file = "foo"
+	knownFile := filepath.Join("knownDir", "knownFile")
+	must(t, writeFile(ffs, file, []byte("hello\n"), 0644))
+	must(t, writeFile(ffs, knownFile, []byte("bye\n"), 0644))
+
+	must(t, m.ScanFolder("ro"))
+
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Files != 2 {
+		t.Fatalf("Receive only: expected 2 files: %+v", size)
+	}
+
+	// Do the same changes on the remote
+
+	files := make([]protocol.FileInfo, 0, 2)
+	snap := f.fset.Snapshot()
+	snap.WithHave(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
+		if n := fi.FileName(); n != file && n != knownFile {
+			return true
+		}
+		f := fi.(protocol.FileInfo)
+		f.LocalFlags = 0
+		f.Version = protocol.Vector{}.Update(device1.Short())
+		files = append(files, f)
+		return true
+	})
+	snap.Release()
+	m.Index(device1, "ro", files)
+
+	must(t, m.ScanFolder("ro"))
+
+	size = receiveOnlyChangedSize(t, m, "ro")
+	if size.Files+size.Directories+size.Deleted != 0 {
+		t.Fatalf("Receive only: expected all zero: %+v", size)
 	}
 }
 

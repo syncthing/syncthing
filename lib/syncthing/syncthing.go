@@ -110,16 +110,6 @@ func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, 
 // e.g. the API is ready for use.
 // Must be called once only.
 func (a *App) Start() error {
-	if err := a.startup(); err != nil {
-		a.stopWithErr(ExitError, err)
-		return err
-	}
-	a.stopped = make(chan struct{})
-	go a.run()
-	return nil
-}
-
-func (a *App) startup() error {
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
 	a.mainService = suture.New("main", suture.Spec{
@@ -129,10 +119,23 @@ func (a *App) startup() error {
 		PassThroughPanics: true,
 	})
 
+	// Start the supervisor and wait for it to stop to handle cleanup.
+	a.stopped = make(chan struct{})
+	a.mainService.ServeBackground()
+	go a.run()
+
+	if err := a.startup(); err != nil {
+		a.stopWithErr(ExitError, err)
+		return err
+	}
+
+	return nil
+}
+
+func (a *App) startup() error {
 	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
 
 	a.mainService.Add(a.ll)
-	a.mainService.ServeBackground()
 
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
@@ -242,14 +245,6 @@ func (a *App) startup() error {
 		// Drop delta indexes in case we've changed random stuff we
 		// shouldn't have. We will resend our index on next connect.
 		db.DropDeltaIndexIDs(a.ll)
-	}
-
-	// Check and repair metadata and sequences on every upgrade including RCs.
-	prevParts = strings.Split(prevVersion, "+")
-	curParts = strings.Split(build.Version, "+")
-	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
-		l.Infoln("Checking db due to upgrade - this may take a while...")
-		a.ll.CheckRepair()
 	}
 
 	if build.Version != prevVersion {

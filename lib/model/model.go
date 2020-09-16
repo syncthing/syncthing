@@ -452,6 +452,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 		l.Warnf("bug: folder restart cannot change ID %q -> %q", from.ID, to.ID)
 		panic("bug: folder restart cannot change ID")
 	}
+	folder := to.ID
 
 	// This mutex protects the entirety of the restart operation, preventing
 	// there from being more than one folder restart operation in progress
@@ -459,7 +460,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	// because those locks are released while we are waiting for the folder
 	// to shut down (and must be so because the folder might need them as
 	// part of its operations before shutting down).
-	restartMut := m.folderRestartMuts.Get(to.ID)
+	restartMut := m.folderRestartMuts.Get(folder)
 	restartMut.Lock()
 	defer restartMut.Unlock()
 
@@ -477,13 +478,6 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 		errMsg = "restarting"
 	}
 
-	var fset *db.FileSet
-	if !to.Paused {
-		// Creating the fileset can take a long time (metadata calculation)
-		// so we do it outside of the lock.
-		fset = db.NewFileSet(to.ID, to.Filesystem(), m.db)
-	}
-
 	err := fmt.Errorf("%v folder %v", errMsg, to.Description())
 	m.stopFolder(from, err)
 	// Need to send CC change to both from and to devices.
@@ -492,8 +486,17 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
+	// Cache the (maybe) existing fset before it's removed by cleanupFolderLocked
+	fset := m.folderFiles[folder]
+
 	m.cleanupFolderLocked(from)
 	if !to.Paused {
+		if fset == nil {
+			// Create a new fset. Might take a while and we do it under
+			// locking, but it's unsafe to create fset:s concurrently so
+			// that's the price we pay.
+			fset = db.NewFileSet(folder, to.Filesystem(), m.db)
+		}
 		m.addAndStartFolderLocked(to, fset, cacheIgnoredFiles)
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
@@ -712,15 +715,17 @@ type FolderCompletion struct {
 	GlobalItems   int32
 	NeedItems     int32
 	NeedDeletes   int32
+	Sequence      int64
 }
 
-func newFolderCompletion(global, need db.Counts) FolderCompletion {
+func newFolderCompletion(global, need db.Counts, sequence int64) FolderCompletion {
 	comp := FolderCompletion{
 		GlobalBytes: global.Bytes,
 		NeedBytes:   need.Bytes,
 		GlobalItems: global.Files + global.Directories + global.Symlinks,
 		NeedItems:   need.Files + need.Directories + need.Symlinks,
 		NeedDeletes: need.Deleted,
+		Sequence:    sequence,
 	}
 	comp.setComplectionPct()
 	return comp
@@ -761,6 +766,7 @@ func (comp FolderCompletion) Map() map[string]interface{} {
 		"globalItems": comp.GlobalItems,
 		"needItems":   comp.NeedItems,
 		"needDeletes": comp.NeedDeletes,
+		"sequence":    comp.Sequence,
 	}
 }
 
@@ -802,14 +808,6 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) Folder
 	snap := rf.Snapshot()
 	defer snap.Release()
 
-	global := snap.GlobalSize()
-	if global.Bytes == 0 {
-		// Folder is empty, so we have all of it
-		return FolderCompletion{
-			CompletionPct: 100,
-		}
-	}
-
 	m.pmut.RLock()
 	downloaded := m.deviceDownloads[device].BytesDownloaded(folder)
 	m.pmut.RUnlock()
@@ -821,7 +819,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) Folder
 		need.Bytes = 0
 	}
 
-	comp := newFolderCompletion(global, need)
+	comp := newFolderCompletion(snap.GlobalSize(), need, snap.Sequence(device))
 
 	l.Debugf("%v Completion(%s, %q): %v", m, device, folder, comp.Map())
 	return comp
@@ -971,11 +969,13 @@ func (m *model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	}
 	files.Update(deviceID, fs)
 
+	seq := files.Sequence(deviceID)
 	m.evLogger.Log(events.RemoteIndexUpdated, map[string]interface{}{
-		"device":  deviceID.String(),
-		"folder":  folder,
-		"items":   len(fs),
-		"version": files.Sequence(deviceID),
+		"device":   deviceID.String(),
+		"folder":   folder,
+		"items":    len(fs),
+		"sequence": seq,
+		"version":  seq, // legacy for sequence
 	})
 
 	return nil
@@ -1019,10 +1019,10 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			// that might not exist until the config is committed.
 			w, _ := m.cfg.SetFolders(changedFolders)
 			w.Wait()
+			changed = true
 		}
 	}
 
-	m.fmut.RLock()
 	var paused []string
 	for _, folder := range cm.Folders {
 		cfg, ok := m.cfg.Folder(folder.ID)
@@ -1048,7 +1048,9 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		if cfg.Paused {
 			continue
 		}
+		m.fmut.RLock()
 		fs, ok := m.folderFiles[folder.ID]
+		m.fmut.RUnlock()
 		if !ok {
 			// Shouldn't happen because !cfg.Paused, but might happen
 			// if the folder is about to be unpaused, but not yet.
@@ -1122,9 +1124,11 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// likely use delta indexes. We might already have files
 					// that we need to pull so let the folder runner know
 					// that it should recheck the index data.
+					m.fmut.RLock()
 					if runner := m.folderRunners[folder.ID]; runner != nil {
 						defer runner.SchedulePull()
 					}
+					m.fmut.RUnlock()
 				}
 			}
 		}
@@ -1143,7 +1147,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		// implementing suture.IsCompletable).
 		m.Add(is)
 	}
-	m.fmut.RUnlock()
 
 	m.pmut.Lock()
 	m.remotePausedFolders[deviceID] = paused
@@ -1781,7 +1784,10 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 	name := ""
 	if _, ok := m.cfg.Device(id); ok {
-		name = m.cfg.MyName()
+		// Set our name (from the config of our device ID) only if we already know about the other side device ID.
+		if myCfg, ok := m.cfg.Device(m.id); ok {
+			name = myCfg.Name
+		}
 	}
 	return &protocol.Hello{
 		DeviceName:    name,
