@@ -594,11 +594,9 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 		if !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
 			// The new file has been changed in conflict with the existing one. We
 			// should file it away as a conflict instead of just removing or
-			// archiving. Also merge with the version vector we had, to indicate
-			// we have resolved the conflict.
+			// archiving.
 			// Symlinks aren't checked for conflicts.
 
-			file.Version = file.Version.Merge(curFile.Version)
 			err = f.inWritableDir(func(name string) error {
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, curFile.Name)
@@ -772,11 +770,9 @@ func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, s
 	if !curFile.IsDirectory() && !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
 		// The new file has been changed in conflict with the existing one. We
 		// should file it away as a conflict instead of just removing or
-		// archiving. Also merge with the version vector we had, to indicate
-		// we have resolved the conflict.
+		// archiving.
 		// Directories and symlinks aren't checked for conflicts.
 
-		file.Version = file.Version.Merge(curFile.Version)
 		return f.inWritableDir(func(name string) error {
 			return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 		}, curFile.Name)
@@ -1210,10 +1206,6 @@ func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpda
 
 	f.fs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
 
-	// This may have been a conflict. We should merge the version vectors so
-	// that our clock doesn't move backwards.
-	file.Version = file.Version.Merge(curFile.Version)
-
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateShortcutFile}
 }
 
@@ -1540,11 +1532,9 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		if !curFile.IsDirectory() && !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
 			// The new file has been changed in conflict with the existing one. We
 			// should file it away as a conflict instead of just removing or
-			// archiving. Also merge with the version vector we had, to indicate
-			// we have resolved the conflict.
+			// archiving.
 			// Directories and symlinks aren't checked for conflicts.
 
-			file.Version = file.Version.Merge(curFile.Version)
 			err = f.inWritableDir(func(name string) error {
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, curFile.Name)

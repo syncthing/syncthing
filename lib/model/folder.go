@@ -488,7 +488,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			case !ok:
 			case gf.IsEquivalentOptional(fi, f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
 				// What we have locally is equivalent to the global file.
-				fi.Version = fi.Version.Merge(gf.Version)
+				fi.Version = gf.Version
 				fallthrough
 			case fi.IsDeleted() && (gf.IsReceiveOnlyChanged() || gf.IsDeleted()):
 				// Our item is deleted and the global item is our own
