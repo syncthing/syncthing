@@ -34,7 +34,6 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture"
 	"github.com/vitrun/qart/qr"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -81,7 +80,6 @@ type service struct {
 	connectionsService   connections.Service
 	fss                  model.FolderSummaryService
 	urService            *ur.Service
-	systemConfigMut      sync.Mutex // serializes posts to /rest/system/config
 	contr                Controller
 	noUpgrade            bool
 	tlsDefaultCommonName string
@@ -123,7 +121,6 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		connectionsService:   connectionsService,
 		fss:                  fss,
 		urService:            urService,
-		systemConfigMut:      sync.NewMutex(),
 		guiErrors:            errors,
 		systemLog:            systemLog,
 		contr:                contr,
@@ -245,38 +242,36 @@ func (s *service) serve(ctx context.Context) {
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
-	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // [device] [folder]
-	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
-	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
-	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
-	getRestMux.HandleFunc("/rest/db/remoteneed", s.getDBRemoteNeed)              // device folder [perpage] [page]
-	getRestMux.HandleFunc("/rest/db/localchanged", s.getDBLocalChanged)          // folder
-	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
-	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
-	getRestMux.HandleFunc("/rest/folder/versions", s.getFolderVersions)          // folder
-	getRestMux.HandleFunc("/rest/folder/errors", s.getFolderErrors)              // folder
-	getRestMux.HandleFunc("/rest/folder/pullerrors", s.getFolderErrors)          // folder (deprecated)
-	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout] [events]
-	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // [since] [limit] [timeout]
-	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
-	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)                // -
-	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
-	getRestMux.HandleFunc("/rest/svc/lang", s.getLang)                           // -
-	getRestMux.HandleFunc("/rest/svc/report", s.getReport)                       // -
-	getRestMux.HandleFunc("/rest/svc/random/string", s.getRandomString)          // [length]
-	getRestMux.HandleFunc("/rest/system/browse", s.getSystemBrowse)              // current
-	getRestMux.HandleFunc("/rest/system/config", s.getSystemConfig)              // -
-	getRestMux.HandleFunc("/rest/system/config/insync", s.getSystemConfigInsync) // -
-	getRestMux.HandleFunc("/rest/system/connections", s.getSystemConnections)    // -
-	getRestMux.HandleFunc("/rest/system/discovery", s.getSystemDiscovery)        // -
-	getRestMux.HandleFunc("/rest/system/error", s.getSystemError)                // -
-	getRestMux.HandleFunc("/rest/system/ping", s.restPing)                       // -
-	getRestMux.HandleFunc("/rest/system/status", s.getSystemStatus)              // -
-	getRestMux.HandleFunc("/rest/system/upgrade", s.getSystemUpgrade)            // -
-	getRestMux.HandleFunc("/rest/system/version", s.getSystemVersion)            // -
-	getRestMux.HandleFunc("/rest/system/debug", s.getSystemDebug)                // -
-	getRestMux.HandleFunc("/rest/system/log", s.getSystemLog)                    // [since]
-	getRestMux.HandleFunc("/rest/system/log.txt", s.getSystemLogTxt)             // [since]
+	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)           // [device] [folder]
+	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                       // folder file
+	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                 // folder
+	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                       // folder [perpage] [page]
+	getRestMux.HandleFunc("/rest/db/remoteneed", s.getDBRemoteNeed)           // device folder [perpage] [page]
+	getRestMux.HandleFunc("/rest/db/localchanged", s.getDBLocalChanged)       // folder
+	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                   // folder
+	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                   // folder [prefix] [dirsonly] [levels]
+	getRestMux.HandleFunc("/rest/folder/versions", s.getFolderVersions)       // folder
+	getRestMux.HandleFunc("/rest/folder/errors", s.getFolderErrors)           // folder
+	getRestMux.HandleFunc("/rest/folder/pullerrors", s.getFolderErrors)       // folder (deprecated)
+	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                   // [since] [limit] [timeout] [events]
+	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)               // [since] [limit] [timeout]
+	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)             // -
+	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)             // -
+	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                // id
+	getRestMux.HandleFunc("/rest/svc/lang", s.getLang)                        // -
+	getRestMux.HandleFunc("/rest/svc/report", s.getReport)                    // -
+	getRestMux.HandleFunc("/rest/svc/random/string", s.getRandomString)       // [length]
+	getRestMux.HandleFunc("/rest/system/browse", s.getSystemBrowse)           // current
+	getRestMux.HandleFunc("/rest/system/connections", s.getSystemConnections) // -
+	getRestMux.HandleFunc("/rest/system/discovery", s.getSystemDiscovery)     // -
+	getRestMux.HandleFunc("/rest/system/error", s.getSystemError)             // -
+	getRestMux.HandleFunc("/rest/system/ping", s.restPing)                    // -
+	getRestMux.HandleFunc("/rest/system/status", s.getSystemStatus)           // -
+	getRestMux.HandleFunc("/rest/system/upgrade", s.getSystemUpgrade)         // -
+	getRestMux.HandleFunc("/rest/system/version", s.getSystemVersion)         // -
+	getRestMux.HandleFunc("/rest/system/debug", s.getSystemDebug)             // -
+	getRestMux.HandleFunc("/rest/system/log", s.getSystemLog)                 // [since]
+	getRestMux.HandleFunc("/rest/system/log.txt", s.getSystemLogTxt)          // [since]
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
@@ -286,7 +281,6 @@ func (s *service) serve(ctx context.Context) {
 	postRestMux.HandleFunc("/rest/db/revert", s.postDBRevert)                      // folder
 	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                          // folder [sub...] [delay]
 	postRestMux.HandleFunc("/rest/folder/versions", s.postFolderVersionsRestore)   // folder <body>
-	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)              // <body>
 	postRestMux.HandleFunc("/rest/system/error", s.postSystemError)                // <body>
 	postRestMux.HandleFunc("/rest/system/error/clear", s.postSystemErrorClear)     // -
 	postRestMux.HandleFunc("/rest/system/ping", s.restPing)                        // -
@@ -309,7 +303,7 @@ func (s *service) serve(ctx context.Context) {
 
 	// A handler that splits requests between the two above and disables
 	// caching
-	restMux := noCacheMiddleware(metricsMiddleware(getPostHandler(getRestMux, postRestMux)))
+	restMux := noCacheMiddleware(metricsMiddleware(s.addConfigHandler(getPostHandler(getRestMux, postRestMux))))
 
 	// The main routing handler
 	mux := http.NewServeMux()
@@ -444,6 +438,16 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	s.configChanged <- struct{}{}
 
 	return true
+}
+
+func (s *service) addConfigHandler(handler http.Handler) http.Handler {
+	mux := http.NewServeMux()
+	configHandler := newConfigHandler(s.id, s.cfg)
+	mux.Handle(configBase, configHandler)
+	mux.Handle("/rest/system/config", configHandler)        // Legacy
+	mux.Handle("/rest/system/config/insync", configHandler) // Legacy
+	mux.Handle("/rest/", handler)
+	return mux
 }
 
 func getPostHandler(get, post http.Handler) http.Handler {
@@ -835,57 +839,6 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 		"local":        jsonFileInfo(lf),
 		"availability": av,
 	})
-}
-
-func (s *service) getSystemConfig(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, s.cfg.RawCopy())
-}
-
-func (s *service) postSystemConfig(w http.ResponseWriter, r *http.Request) {
-	s.systemConfigMut.Lock()
-	defer s.systemConfigMut.Unlock()
-
-	to, err := config.ReadJSON(r.Body, s.id)
-	r.Body.Close()
-	if err != nil {
-		l.Warnln("Decoding posted config:", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	if to.GUI.Password != s.cfg.GUI().Password {
-		if to.GUI.Password != "" && !bcryptExpr.MatchString(to.GUI.Password) {
-			hash, err := bcrypt.GenerateFromPassword([]byte(to.GUI.Password), 0)
-			if err != nil {
-				l.Warnln("bcrypting password:", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			to.GUI.Password = string(hash)
-		}
-	}
-
-	// Activate and save. Wait for the configuration to become active before
-	// completing the request.
-
-	if wg, err := s.cfg.Replace(to); err != nil {
-		l.Warnln("Replacing config:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	} else {
-		wg.Wait()
-	}
-
-	if err := s.cfg.Save(); err != nil {
-		l.Warnln("Saving config:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func (s *service) getSystemConfigInsync(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, map[string]bool{"configInSync": !s.cfg.RequiresRestart()})
 }
 
 func (s *service) postSystemRestart(w http.ResponseWriter, r *http.Request) {
