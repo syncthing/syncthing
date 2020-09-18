@@ -919,7 +919,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 }
 
 var (
-	plusRe  = regexp.MustCompile(`\+.*$`)
+	plusRe  = regexp.MustCompile(`(\+.*|\.dev\..*)$`)
 	plusStr = "(+dev)"
 )
 
