@@ -94,40 +94,35 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 	defer ph.wg.Done()
 
 	for {
+		f, ok := <-ph.inbox
+		if !ok {
+			return
+		}
+
+		if f.IsDirectory() || f.IsDeleted() {
+			panic("Bug. Asked to hash a directory or a deleted file.")
+		}
+
+		blocks, err := HashFile(ctx, ph.fs, f.Name, f.BlockSize(), ph.counter, true)
+		if err != nil {
+			l.Debugln("hash error:", f.Name, err)
+			continue
+		}
+
+		f.Blocks = blocks
+		f.BlocksHash = protocol.BlocksHash(blocks)
+
+		// The size we saw when initially deciding to hash the file
+		// might not have been the size it actually had when we hashed
+		// it. Update the size from the block list.
+
+		f.Size = 0
+		for _, b := range blocks {
+			f.Size += int64(b.Size)
+		}
+
 		select {
-		case f, ok := <-ph.inbox:
-			if !ok {
-				return
-			}
-
-			if f.IsDirectory() || f.IsDeleted() {
-				panic("Bug. Asked to hash a directory or a deleted file.")
-			}
-
-			blocks, err := HashFile(ctx, ph.fs, f.Name, f.BlockSize(), ph.counter, true)
-			if err != nil {
-				l.Debugln("hash error:", f.Name, err)
-				continue
-			}
-
-			f.Blocks = blocks
-			f.BlocksHash = protocol.BlocksHash(blocks)
-
-			// The size we saw when initially deciding to hash the file
-			// might not have been the size it actually had when we hashed
-			// it. Update the size from the block list.
-
-			f.Size = 0
-			for _, b := range blocks {
-				f.Size += int64(b.Size)
-			}
-
-			select {
-			case ph.outbox <- ScanResult{File: f}:
-			case <-ctx.Done():
-				return
-			}
-
+		case ph.outbox <- ScanResult{File: f}:
 		case <-ctx.Done():
 			return
 		}
