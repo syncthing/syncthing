@@ -931,7 +931,7 @@ func TestDuplicateNeedCount(t *testing.T) {
 	files[0].Version = files[0].Version.Update(remoteDevice0.Short())
 	fs.Update(remoteDevice0, files)
 
-	db.CheckRepair()
+	db.checkRepair()
 
 	fs = NewFileSet(folder, testFs, db)
 	found := false

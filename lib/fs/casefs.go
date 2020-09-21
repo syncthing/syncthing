@@ -16,20 +16,17 @@ import (
 	"time"
 )
 
-// Both values were chosen by magic.
 const (
+	// How long to consider cached dirnames valid
 	caseCacheTimeout = time.Second
-	// When the number of names (all lengths of []string from DirNames)
-	// exceeds this, we drop the cache.
-	caseMaxCachedNames = 1 << 20
 )
 
 type ErrCaseConflict struct {
-	given, real string
+	Given, Real string
 }
 
 func (e *ErrCaseConflict) Error() string {
-	return fmt.Sprintf(`given name "%v" differs from name in filesystem "%v"`, e.given, e.real)
+	return fmt.Sprintf(`given name "%v" differs from name in filesystem "%v"`, e.Given, e.Real)
 }
 
 func IsErrCaseConflict(err error) bool {
@@ -47,10 +44,45 @@ type fskey struct {
 	uri    string
 }
 
-var (
-	caseFilesystems    = make(map[fskey]Filesystem)
-	caseFilesystemsMut sync.Mutex
-)
+// caseFilesystemRegistry caches caseFilesystems and runs a routine to drop
+// their cache every now and then.
+type caseFilesystemRegistry struct {
+	fss          map[fskey]*caseFilesystem
+	mut          sync.Mutex
+	startCleaner sync.Once
+}
+
+func (r *caseFilesystemRegistry) get(fs Filesystem) *caseFilesystem {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+
+	k := fskey{fs.Type(), fs.URI()}
+	caseFs, ok := r.fss[k]
+	if !ok {
+		caseFs = &caseFilesystem{
+			Filesystem: fs,
+			realCaser:  newDefaultRealCaser(fs),
+		}
+		r.fss[k] = caseFs
+		r.startCleaner.Do(func() {
+			go r.cleaner()
+		})
+	}
+
+	return caseFs
+}
+
+func (r *caseFilesystemRegistry) cleaner() {
+	for range time.NewTicker(time.Minute).C {
+		r.mut.Lock()
+		for _, caseFs := range r.fss {
+			caseFs.dropCache()
+		}
+		r.mut.Unlock()
+	}
+}
+
+var globalCaseFilesystemRegistry = caseFilesystemRegistry{fss: make(map[fskey]*caseFilesystem)}
 
 // caseFilesystem is a BasicFilesystem with additional checks to make a
 // potentially case insensitive underlying FS behave like it's case-sensitive.
@@ -66,23 +98,7 @@ type caseFilesystem struct {
 // case-sensitive one. However it will add some overhead and thus shouldn't be
 // used if the filesystem is known to already behave case-sensitively.
 func NewCaseFilesystem(fs Filesystem) Filesystem {
-	caseFilesystemsMut.Lock()
-	defer caseFilesystemsMut.Unlock()
-	k := fskey{fs.Type(), fs.URI()}
-	if caseFs, ok := caseFilesystems[k]; ok {
-		return caseFs
-	}
-	caseFs := &caseFilesystem{
-		Filesystem: fs,
-	}
-	switch k.fstype {
-	case FilesystemTypeBasic:
-		caseFs.realCaser = newBasicRealCaser(fs)
-	default:
-		caseFs.realCaser = newDefaultRealCaser(fs)
-	}
-	caseFilesystems[k] = caseFs
-	return caseFs
+	return globalCaseFilesystemRegistry.get(fs)
 }
 
 func (f *caseFilesystem) Chmod(name string, mode FileMode) error {
@@ -313,21 +329,16 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 }
 
 type defaultRealCaser struct {
-	fs        Filesystem
-	root      *caseNode
-	count     int
-	timer     *time.Timer
-	timerStop chan struct{}
-	mut       sync.RWMutex
+	fs   Filesystem
+	root *caseNode
+	mut  sync.RWMutex
 }
 
 func newDefaultRealCaser(fs Filesystem) *defaultRealCaser {
 	caser := &defaultRealCaser{
-		fs:    fs,
-		root:  &caseNode{name: "."},
-		timer: time.NewTimer(0),
+		fs:   fs,
+		root: &caseNode{name: "."},
 	}
-	<-caser.timer.C
 	return caser
 }
 
@@ -338,84 +349,49 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 	}
 
 	r.mut.Lock()
-	defer func() {
-		if r.count > caseMaxCachedNames {
-			select {
-			case r.timerStop <- struct{}{}:
-			default:
-			}
-			r.dropCacheLocked()
-		}
-		r.mut.Unlock()
-	}()
+	defer r.mut.Unlock()
 
 	node := r.root
 	for _, comp := range strings.Split(name, string(PathSeparator)) {
-		if node.dirNames == nil {
-			// Haven't called DirNames yet
+		if node.dirNames == nil || node.expires.Before(time.Now()) {
+			// Haven't called DirNames yet, or the node has expired
+
 			var err error
 			node.dirNames, err = r.fs.DirNames(out)
 			if err != nil {
 				return "", err
 			}
+
 			node.dirNamesLower = make([]string, len(node.dirNames))
 			for i, n := range node.dirNames {
 				node.dirNamesLower[i] = UnicodeLowercase(n)
 			}
-			node.children = make(map[string]*caseNode)
-			node.results = make(map[string]*caseNode)
-			r.count += len(node.dirNames)
-		} else if child, ok := node.results[comp]; ok {
-			// Check if this exact name has been queried before to shortcut
-			node = child
-			out = filepath.Join(out, child.name)
-			continue
+
+			node.expires = time.Now().Add(caseCacheTimeout)
+			node.child = nil
 		}
-		// Actually loop dirNames to search for a match
-		n, err := findCaseInsensitiveMatch(comp, node.dirNames, node.dirNamesLower)
-		if err != nil {
-			return "", err
+
+		// If we don't already have a correct cached child, try to find it.
+		if node.child == nil || node.child.name != comp {
+			// Actually loop dirNames to search for a match.
+			n, err := findCaseInsensitiveMatch(comp, node.dirNames, node.dirNamesLower)
+			if err != nil {
+				return "", err
+			}
+			node.child = &caseNode{name: n}
 		}
-		child, ok := node.children[n]
-		if !ok {
-			child = &caseNode{name: n}
-		}
-		node.results[comp] = child
-		node.children[n] = child
-		node = child
-		out = filepath.Join(out, n)
+
+		node = node.child
+		out = filepath.Join(out, node.name)
 	}
 
 	return out, nil
 }
 
-func (r *defaultRealCaser) startCaseResetTimerLocked() {
-	r.timerStop = make(chan struct{})
-	r.timer.Reset(caseCacheTimeout)
-	go func() {
-		select {
-		case <-r.timer.C:
-			r.dropCache()
-		case <-r.timerStop:
-			if !r.timer.Stop() {
-				<-r.timer.C
-			}
-			r.mut.Lock()
-			r.timerStop = nil
-			r.mut.Unlock()
-		}
-	}()
-}
-
 func (r *defaultRealCaser) dropCache() {
 	r.mut.Lock()
-	r.dropCacheLocked()
-	r.mut.Unlock()
-}
-
-func (r *defaultRealCaser) dropCacheLocked() {
 	r.root = &caseNode{name: "."}
-	r.count = 0
+	r.mut.Unlock()
 }
 
 // Both name and the key to children are "Real", case resolved names of the path
@@ -424,10 +400,10 @@ func (r *defaultRealCaser) dropCacheLocked() {
 // case resolved.
 type caseNode struct {
 	name          string
+	expires       time.Time
 	dirNames      []string
 	dirNamesLower []string
-	children      map[string]*caseNode
-	results       map[string]*caseNode
+	child         *caseNode
 }
 
 func findCaseInsensitiveMatch(name string, names, namesLower []string) (string, error) {

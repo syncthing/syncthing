@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -153,29 +154,31 @@ func testCaseFSStat(t *testing.T, fsys Filesystem) {
 	}
 }
 
-func BenchmarkWalkCaseFakeFS10k(b *testing.B) {
-	fsys, paths, err := fakefsForBenchmark(10_000, 0)
+func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
+	const entries = 100_000
+	fsys, paths, err := fakefsForBenchmark(entries, 0)
 	if err != nil {
 		b.Fatal(err)
 	}
-	slowsys, paths, err := fakefsForBenchmark(10_000, 100*time.Microsecond)
-	if err != nil {
-		b.Fatal(err)
-	}
-	b.Run("raw-fastfs", func(b *testing.B) {
+	b.Run("rawfs", func(b *testing.B) {
+		fakefs := unwrapFilesystem(fsys).(*fakefs)
+		fakefs.resetCounters()
 		benchmarkWalkFakeFS(b, fsys, paths)
+		fakefs.reportMetricsPerOp(b)
+		fakefs.reportMetricsPer(b, entries, "entry")
 		b.ReportAllocs()
 	})
-	b.Run("case-fastfs", func(b *testing.B) {
-		benchmarkWalkFakeFS(b, NewCaseFilesystem(fsys), paths)
-		b.ReportAllocs()
-	})
-	b.Run("raw-slowfs", func(b *testing.B) {
-		benchmarkWalkFakeFS(b, slowsys, paths)
-		b.ReportAllocs()
-	})
-	b.Run("case-slowfs", func(b *testing.B) {
-		benchmarkWalkFakeFS(b, NewCaseFilesystem(slowsys), paths)
+	b.Run("casefs", func(b *testing.B) {
+		// Construct the casefs manually or it will get cached and the benchmark is invalid.
+		casefs := &caseFilesystem{
+			Filesystem: fsys,
+			realCaser:  newDefaultRealCaser(fsys),
+		}
+		fakefs := unwrapFilesystem(fsys).(*fakefs)
+		fakefs.resetCounters()
+		benchmarkWalkFakeFS(b, casefs, paths)
+		fakefs.reportMetricsPerOp(b)
+		fakefs.reportMetricsPer(b, entries, "entry")
 		b.ReportAllocs()
 	})
 }
@@ -274,6 +277,8 @@ func fakefsForBenchmark(nfiles int, latency time.Duration) (Filesystem, []string
 	if len(paths) < nfiles {
 		return nil, nil, errors.New("didn't find enough stuff")
 	}
+
+	sort.Strings(paths)
 
 	return fsys, paths, nil
 }

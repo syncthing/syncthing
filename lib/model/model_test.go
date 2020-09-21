@@ -4069,9 +4069,13 @@ func TestIssue6961(t *testing.T) {
 	fcfg.Type = config.FolderTypeReceiveOnly
 	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 	wcfg.SetFolder(fcfg)
-	m := setupModel(wcfg)
-	// defer cleanupModelAndRemoveDir(m, tfs.URI())
-	defer cleanupModel(m)
+	// Always recalc/repair when opening a fileset.
+	// db := db.NewLowlevel(backend.OpenMemory(), db.WithRecheckInterval(time.Millisecond))
+	db := db.NewLowlevel(backend.OpenMemory())
+	m := newModel(wcfg, myID, "syncthing", "dev", db, nil)
+	m.ServeBackground()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+	m.ScanFolders()
 
 	name := "foo"
 	version := protocol.Vector{}.Update(device1.Short())
@@ -4107,14 +4111,13 @@ func TestIssue6961(t *testing.T) {
 	// Drop ther remote index, add some other file.
 	m.Index(device2, fcfg.ID, []protocol.FileInfo{{Name: "bar", RawInvalid: true, Sequence: 1}})
 
-	// Recalculate everything
+	// Pause and unpause folder to create new db.FileSet and thus recalculate everything
 	fcfg.Paused = true
 	waiter, err = wcfg.SetFolder(fcfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	waiter.Wait()
-	m.db.CheckRepair()
 	fcfg.Paused = false
 	waiter, err = wcfg.SetFolder(fcfg)
 	if err != nil {

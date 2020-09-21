@@ -388,6 +388,10 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 			}
 
 		case runtime.GOOS == "windows" && file.IsSymlink():
+			if err := f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
+				f.newPullError(file.Name, fmt.Errorf("handling unsupported symlink: %w", err))
+				break
+			}
 			file.SetUnsupported(f.shortID)
 			l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
@@ -735,39 +739,9 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		return
 	}
 
-	// There is already something under that name, we need to handle that.
-	switch info, err := f.fs.Lstat(file.Name); {
-	case err != nil && !fs.IsNotExist(err):
-		f.newPullError(file.Name, errors.Wrap(err, "checking for existing symlink"))
+	if f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
+		f.newPullError(file.Name, fmt.Errorf("handling symlink: %w", err))
 		return
-	case err == nil:
-		// Check that it is what we have in the database.
-		curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
-		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
-			err = errors.Wrap(err, "handling symlink")
-			f.newPullError(file.Name, err)
-			return
-		}
-		// Remove it to replace with the symlink. This also handles the
-		// "change symlink type" path.
-		if !curFile.IsDirectory() && !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
-			// The new file has been changed in conflict with the existing one. We
-			// should file it away as a conflict instead of just removing or
-			// archiving. Also merge with the version vector we had, to indicate
-			// we have resolved the conflict.
-			// Directories and symlinks aren't checked for conflicts.
-
-			file.Version = file.Version.Merge(curFile.Version)
-			err = f.inWritableDir(func(name string) error {
-				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
-			}, curFile.Name)
-		} else {
-			err = f.deleteItemOnDisk(curFile, snap, scanChan)
-		}
-		if err != nil {
-			f.newPullError(file.Name, errors.Wrap(err, "symlink remove"))
-			return
-		}
 	}
 
 	// We declare a function that acts on only the path name, so
@@ -783,6 +757,38 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleSymlink}
 	} else {
 		f.newPullError(file.Name, errors.Wrap(err, "symlink create"))
+	}
+}
+
+func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, snap *db.Snapshot, scanChan chan<- string) error {
+	// If there is already something under that name, we need to handle that.
+	info, err := f.fs.Lstat(file.Name)
+	if err != nil {
+		if fs.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	// Check that it is what we have in the database.
+	curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
+	if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, scanChan); err != nil {
+		return err
+	}
+	// Remove it to replace with the symlink. This also handles the
+	// "change symlink type" path.
+	if !curFile.IsDirectory() && !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
+		// The new file has been changed in conflict with the existing one. We
+		// should file it away as a conflict instead of just removing or
+		// archiving. Also merge with the version vector we had, to indicate
+		// we have resolved the conflict.
+		// Directories and symlinks aren't checked for conflicts.
+
+		file.Version = file.Version.Merge(curFile.Version)
+		return f.inWritableDir(func(name string) error {
+			return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
+		}, curFile.Name)
+	} else {
+		return f.deleteItemOnDisk(curFile, snap, scanChan)
 	}
 }
 
@@ -952,16 +958,26 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	// Check that the target corresponds to what we have in the DB
 	curTarget, ok := snap.Get(protocol.LocalDeviceID, target.Name)
 	switch stat, serr := f.fs.Lstat(target.Name); {
-	case serr != nil && fs.IsNotExist(serr):
-		if !ok || curTarget.IsDeleted() {
-			break
-		}
-		scanChan <- target.Name
-		err = errModified
 	case serr != nil:
-		// We can't check whether the file changed as compared to the db,
-		// do not delete.
-		err = serr
+		var caseErr *fs.ErrCaseConflict
+		switch {
+		case errors.As(serr, &caseErr):
+			if caseErr.Real != source.Name {
+				err = serr
+				break
+			}
+			fallthrough // This is a case only rename
+		case fs.IsNotExist(serr):
+			if !ok || curTarget.IsDeleted() {
+				break
+			}
+			scanChan <- target.Name
+			err = errModified
+		default:
+			// We can't check whether the file changed as compared to the db,
+			// do not delete.
+			err = serr
+		}
 	case !ok:
 		// Target appeared from nowhere
 		scanChan <- target.Name
@@ -1067,6 +1083,14 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
 	tempBlocks, err := scanner.HashFile(f.ctx, f.fs, tempName, file.BlockSize(), nil, false)
+	if err != nil {
+		var caseErr *fs.ErrCaseConflict
+		if errors.As(err, &caseErr) {
+			if rerr := f.fs.Rename(caseErr.Real, tempName); rerr == nil {
+				tempBlocks, err = scanner.HashFile(f.ctx, f.fs, tempName, file.BlockSize(), nil, false)
+			}
+		}
+	}
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := blockDiff(tempBlocks, file.Blocks)
@@ -2042,7 +2066,7 @@ func (f *sendReceiveFolder) checkToBeDeleted(file, cur protocol.FileInfo, hasCur
 		return err
 	}
 	if fs.IsNotExist(err) {
-		if hasCur && !cur.Deleted {
+		if hasCur && !cur.Deleted && !cur.IsUnsupported() {
 			scanChan <- file.Name
 			return errModified
 		}

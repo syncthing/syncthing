@@ -6,45 +6,71 @@
 
 package fs
 
-import "testing"
+import (
+	"testing"
+)
+
+var caseCases = [][2]string{
+	{"", ""},
+	{"hej", "hej"},
+	{"HeJ!@#", "hej!@#"},
+	// Western Europe diacritical stuff is trivial.
+	{"ÜBERRÄKSMÖRGÅS", "überräksmörgås"},
+	// As are ligatures.
+	{"Æglefinus", "æglefinus"},
+	{"Ĳssel", "ĳssel"},
+	// Cyrillic seems regular as well.
+	{"Привет", "привет"},
+	// Greek has multiple lower case characters for things depending on
+	// context; we should always choose the same one.
+	{"Ὀδυσσεύς", "ὀδυσσεύσ"},
+	{"ὈΔΥΣΣΕΎΣ", "ὀδυσσεύσ"},
+	// German ß doesn't really have an upper case variant, and we
+	// shouldn't mess things up when lower casing it either. We don't
+	// attempt to make ß equivalent to "ss".
+	{"Reichwaldstraße", "reichwaldstraße"},
+	// The Turks do their thing with the Is.... Like the Greek example
+	// we pick just the one canonicalized "i" although you can argue
+	// with this... From what I understand most operating systems don't
+	// get this right anyway.
+	{"İI", "ii"},
+	// Arabic doesn't do case folding.
+	{"العَرَبِيَّة", "العَرَبِيَّة"},
+	// Neither does Hebrew.
+	{"עברית", "עברית"},
+	// Nor Chinese, in any variant.
+	{"汉语/漢語 or 中文", "汉语/漢語 or 中文"},
+	// Nor katakana, as far as I can tell.
+	{"チャーハン", "チャーハン"},
+	// Some special Unicode characters, however, are folded by OSes.
+	{"\u212A", "k"},
+}
 
 func TestUnicodeLowercase(t *testing.T) {
-	cases := [][2]string{
-		{"", ""},
-		{"hej", "hej"},
-		{"HeJ!@#", "hej!@#"},
-		// Western Europe diacritical stuff is trivial
-		{"ÜBERRÄKSMÖRGÅS", "überräksmörgås"},
-		// Cyrillic seems regular as well
-		{"Привет", "привет"},
-		// Greek has multiple lower case characters for things depending on
-		// context; we should always choose the right one.
-		{"Ὀδυσσεύς", "ὀδυσσεύσ"},
-		{"ὈΔΥΣΣΕΎΣ", "ὀδυσσεύσ"},
-		// German ß doesn't really have an upper case variant, and we
-		// shouldn't mess things up when lower casing it either. We don't
-		// attempt to make ß equivalent to "ss".
-		{"Reichwaldstraße", "reichwaldstraße"},
-		// The Turks do their thing with the Is.... Like the Greek example
-		// we pick just the one canonicalized "i" although you can argue
-		// with this... From what I understand most operating systems don't
-		// get this right anyway.
-		{"İI", "ii"},
-		// Arabic doesn't do case folding.
-		{"العَرَبِيَّة", "العَرَبِيَّة"},
-		// Neither does Hebrew.
-		{"עברית", "עברית"},
-		// Nor Chinese, in any variant.
-		{"汉语/漢語 or 中文", "汉语/漢語 or 中文"},
-		// Niether katakana as far as I can tell.
-		{"チャーハン", "チャーハン"},
-		// Some special unicode characters, however, are folded by OSes
-		{"\u212A", "k"},
-	}
-	for _, tc := range cases {
+	for _, tc := range caseCases {
 		res := UnicodeLowercase(tc[0])
 		if res != tc[1] {
 			t.Errorf("UnicodeLowercase(%q) => %q, expected %q", tc[0], res, tc[1])
+		}
+	}
+}
+
+func BenchmarkUnicodeLowercaseMaybeChange(b *testing.B) {
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		for _, s := range caseCases {
+			UnicodeLowercase(s[0])
+		}
+	}
+}
+
+func BenchmarkUnicodeLowercaseNoChange(b *testing.B) {
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		for _, s := range caseCases {
+			UnicodeLowercase(s[1])
 		}
 	}
 }

@@ -23,7 +23,12 @@ func OpenBadger(path string) (Backend, error) {
 	opts := badger.DefaultOptions(path)
 	opts = opts.WithMaxCacheSize(maxCacheSize).WithCompactL0OnClose(false)
 	opts.Logger = nil
-	return openBadger(opts)
+	backend, err := openBadger(opts)
+	if err != nil {
+		return nil, err
+	}
+	backend.location = path
+	return backend, nil
 }
 
 func OpenBadgerMemory() Backend {
@@ -38,7 +43,7 @@ func OpenBadgerMemory() Backend {
 	return backend
 }
 
-func openBadger(opts badger.Options) (Backend, error) {
+func openBadger(opts badger.Options) (*badgerBackend, error) {
 	// XXX: We should find good values for memory utilization in the "small"
 	// and "large" cases we support for LevelDB. Some notes here:
 	// https://github.com/dgraph-io/badger/tree/v2.0.3#memory-usage
@@ -54,8 +59,9 @@ func openBadger(opts badger.Options) (Backend, error) {
 
 // badgerBackend implements Backend on top of a badger
 type badgerBackend struct {
-	bdb     *badger.DB
-	closeWG *closeWaitGroup
+	bdb      *badger.DB
+	closeWG  *closeWaitGroup
+	location string
 }
 
 func (b *badgerBackend) NewReadTransaction() (ReadTransaction, error) {
@@ -215,6 +221,10 @@ func (b *badgerBackend) Compact() error {
 		return nil
 	}
 	return err
+}
+
+func (b *badgerBackend) Location() string {
+	return b.location
 }
 
 // badgerSnapshot implements backend.ReadTransaction

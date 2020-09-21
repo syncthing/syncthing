@@ -109,6 +109,8 @@ type Iterator interface {
 // consider always using a transaction of the appropriate type. The
 // transaction isolation level is "read committed" - there are no dirty
 // reads.
+// Location returns the path to the database, as given to Open. The returned string
+// is empty for a db in memory.
 type Backend interface {
 	Reader
 	Writer
@@ -116,6 +118,7 @@ type Backend interface {
 	NewWriteTransaction(hooks ...CommitHook) (WriteTransaction, error)
 	Close() error
 	Compact() error
+	Location() string
 }
 
 type Tuning int
