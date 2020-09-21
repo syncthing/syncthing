@@ -26,10 +26,7 @@ var (
 	ErrMarkerMissing    = errors.New("folder marker missing (this indicates potential data loss, search docs/forum to get information about how to proceed)")
 )
 
-const (
-	DefaultMarkerName                 = ".stfolder"
-	DefaultMarkerNameReceiveEncrypted = ".stfolder-receive_encrypted"
-)
+const DefaultMarkerName = ".stfolder"
 
 func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
 	f := FolderConfiguration{
@@ -88,7 +85,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 	if err := f.CheckPath(); err != ErrMarkerMissing {
 		return err
 	}
-	if f.MarkerName != DefaultMarkerName && f.MarkerName != DefaultMarkerNameReceiveEncrypted {
+	if f.MarkerName != DefaultMarkerName {
 		// Folder uses a non-default marker so we shouldn't mess with it.
 		// Pretend we created it and let the subsequent health checks sort
 		// out the actual situation.
@@ -102,7 +99,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 		permBits = 0700
 	}
 	fs := f.Filesystem()
-	err := fs.Mkdir(f.MarkerName, permBits)
+	err := fs.Mkdir(DefaultMarkerName, permBits)
 	if err != nil {
 		return err
 	}
@@ -111,7 +108,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 	} else if err := dir.Sync(); err != nil {
 		l.Debugln("folder marker: fsync . failed:", err)
 	}
-	fs.Hide(f.MarkerName)
+	fs.Hide(DefaultMarkerName)
 
 	return nil
 }
@@ -206,9 +203,7 @@ func (f *FolderConfiguration) prepare() {
 		f.WeakHashThresholdPct = 25
 	}
 
-	if f.Type == FolderTypeReceiveEncrypted {
-		f.MarkerName = DefaultMarkerNameReceiveEncrypted
-	} else if f.MarkerName == "" {
+	if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
 	}
 }
