@@ -12,6 +12,7 @@ import (
 	"math/bits"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -25,6 +26,7 @@ type countsMap struct {
 
 // metadataTracker keeps metadata on a per device, per local flag basis.
 type metadataTracker struct {
+	keyer keyer
 	countsMap
 	mut   sync.RWMutex
 	dirty bool
@@ -37,9 +39,10 @@ type metaKey struct {
 
 const needFlag uint32 = 1 << 31 // Last bit, as early ones are local flags
 
-func newMetadataTracker() *metadataTracker {
+func newMetadataTracker(keyer keyer) *metadataTracker {
 	return &metadataTracker{
-		mut: sync.NewRWMutex(),
+		keyer: keyer,
+		mut:   sync.NewRWMutex(),
 		countsMap: countsMap{
 			indexes: make(map[metaKey]int),
 		},
@@ -69,10 +72,16 @@ func (m *metadataTracker) Marshal() ([]byte, error) {
 	return m.counts.Marshal()
 }
 
+func (m *metadataTracker) CommitHook(folder []byte) backend.CommitHook {
+	return func(t backend.WriteTransaction) error {
+		return m.toDB(t, folder)
+	}
+}
+
 // toDB saves the marshalled metadataTracker to the given db, under the key
 // corresponding to the given folder
-func (m *metadataTracker) toDB(t readWriteTransaction, folder []byte) error {
-	key, err := t.keyer.GenerateFolderMetaKey(nil, folder)
+func (m *metadataTracker) toDB(t backend.WriteTransaction, folder []byte) error {
+	key, err := m.keyer.GenerateFolderMetaKey(nil, folder)
 	if err != nil {
 		return err
 	}
@@ -164,38 +173,49 @@ func (m *metadataTracker) addFile(dev protocol.DeviceID, f protocol.FileIntf) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	m.dirty = true
-
 	m.updateSeqLocked(dev, f)
 
-	if f.IsInvalid() && f.FileLocalFlags() == 0 {
-		// This is a remote invalid file; it does not count.
+	m.updateFileLocked(dev, f, m.addFileLocked)
+}
+
+func (m *metadataTracker) updateFileLocked(dev protocol.DeviceID, f protocol.FileIntf, fn func(protocol.DeviceID, uint32, protocol.FileIntf)) {
+	m.dirty = true
+
+	if f.IsInvalid() && (f.FileLocalFlags() == 0 || dev == protocol.GlobalDeviceID) {
+		// This is a remote invalid file or concern the global state.
+		// In either case invalid files are not accounted.
 		return
 	}
 
 	if flags := f.FileLocalFlags(); flags == 0 {
 		// Account regular files in the zero-flags bucket.
-		m.addFileLocked(dev, 0, f)
+		fn(dev, 0, f)
 	} else {
 		// Account in flag specific buckets.
 		eachFlagBit(flags, func(flag uint32) {
-			m.addFileLocked(dev, flag, f)
+			fn(dev, flag, f)
 		})
 	}
 }
 
-// emptyNeeded makes sure there is a zero counts in case the device needs nothing.
+// emptyNeeded ensures that there is a need count for the given device and that it is empty.
 func (m *metadataTracker) emptyNeeded(dev protocol.DeviceID) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
 	m.dirty = true
 
-	m.indexes[metaKey{dev, needFlag}] = len(m.counts.Counts)
-	m.counts.Counts = append(m.counts.Counts, Counts{
+	empty := Counts{
 		DeviceID:   dev[:],
 		LocalFlags: needFlag,
-	})
+	}
+	key := metaKey{dev, needFlag}
+	if idx, ok := m.indexes[key]; ok {
+		m.counts.Counts[idx] = empty
+		return
+	}
+	m.indexes[key] = len(m.counts.Counts)
+	m.counts.Counts = append(m.counts.Counts, empty)
 }
 
 // addNeeded adds a file to the needed counts
@@ -241,25 +261,10 @@ func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f pr
 
 // removeFile removes a file from the counts
 func (m *metadataTracker) removeFile(dev protocol.DeviceID, f protocol.FileIntf) {
-	if f.IsInvalid() && f.FileLocalFlags() == 0 {
-		// This is a remote invalid file; it does not count.
-		return
-	}
-
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	m.dirty = true
-
-	if flags := f.FileLocalFlags(); flags == 0 {
-		// Remove regular files from the zero-flags bucket
-		m.removeFileLocked(dev, 0, f)
-	} else {
-		// Remove from flag specific buckets.
-		eachFlagBit(flags, func(flag uint32) {
-			m.removeFileLocked(dev, flag, f)
-		})
-	}
+	m.updateFileLocked(dev, f, m.removeFileLocked)
 }
 
 // removeNeeded removes a file from the needed counts

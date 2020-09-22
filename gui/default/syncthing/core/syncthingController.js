@@ -78,6 +78,7 @@ angular.module('syncthing.core')
             order: "random",
             fileVersioningSelector: "none",
             trashcanClean: 0,
+            versioningCleanupIntervalS: 3600,
             simpleKeep: 5,
             staggeredMaxAge: 365,
             staggeredCleanInterval: 3600,
@@ -704,7 +705,7 @@ angular.module('syncthing.core')
 
 
         function setDefaultTheme() {
-            if (!document.getElementById("fallback-theme-css")){
+            if (!document.getElementById("fallback-theme-css")) {
 
                 // check if no support for prefers-color-scheme
                 var colorSchemeNotSupported = typeof window.matchMedia === "undefined" || window.matchMedia('(prefers-color-scheme: dark)').media === 'not all';
@@ -712,8 +713,8 @@ angular.module('syncthing.core')
                 if ($scope.config.gui.theme === "default" && colorSchemeNotSupported) {
                     document.documentElement.style.display = 'none';
                     document.head.insertAdjacentHTML(
-                      'beforeend',
-                      '<link id="fallback-theme-css" rel="stylesheet" href="theme-assets/light/assets/css/theme.css" onload="document.documentElement.style.display = \'\'">'
+                        'beforeend',
+                        '<link id="fallback-theme-css" rel="stylesheet" href="theme-assets/light/assets/css/theme.css" onload="document.documentElement.style.display = \'\'">'
                     );
                 }
             }
@@ -865,7 +866,7 @@ angular.module('syncthing.core')
             if (status == 'paused') {
                 return 'default';
             }
-            if (status === 'syncing' || status === 'sync-preparing' || status === 'scanning') {
+            if (status === 'syncing' || status === 'sync-preparing' || status === 'scanning' || status === 'cleaning') {
                 return 'primary';
             }
             if (status === 'unknown') {
@@ -874,7 +875,7 @@ angular.module('syncthing.core')
             if (status === 'stopped' || status === 'outofsync' || status === 'error' || status === 'faileditems') {
                 return 'danger';
             }
-            if (status === 'unshared' || status === 'scan-waiting' || status === 'sync-waiting') {
+            if (status === 'unshared' || status === 'scan-waiting' || status === 'sync-waiting' || status === 'clean-waiting') {
                 return 'warning';
             }
 
@@ -1770,22 +1771,26 @@ angular.module('syncthing.core')
             });
             $scope.currentFolder.unrelatedDevices = $scope.devices.filter(function (n) {
                 return n.deviceID !== $scope.myID
-                    && ! $scope.currentFolder.selectedDevices[n.deviceID]
+                    && !$scope.currentFolder.selectedDevices[n.deviceID]
             });
             if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "trashcan") {
                 $scope.currentFolder.trashcanFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "trashcan";
                 $scope.currentFolder.trashcanClean = +$scope.currentFolder.versioning.params.cleanoutDays;
+                $scope.currentFolder.versioningCleanupIntervalS = +$scope.currentFolder.versioning.cleanupIntervalS;
             } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "simple") {
                 $scope.currentFolder.simpleFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "simple";
                 $scope.currentFolder.simpleKeep = +$scope.currentFolder.versioning.params.keep;
+                $scope.currentFolder.versioningCleanupIntervalS = +$scope.currentFolder.versioning.cleanupIntervalS;
+                $scope.currentFolder.trashcanClean = +$scope.currentFolder.versioning.params.cleanoutDays;
             } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "staggered") {
                 $scope.currentFolder.staggeredFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "staggered";
                 $scope.currentFolder.staggeredMaxAge = Math.floor(+$scope.currentFolder.versioning.params.maxAge / 86400);
                 $scope.currentFolder.staggeredCleanInterval = +$scope.currentFolder.versioning.params.cleanInterval;
                 $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.versioning.params.versionsPath;
+                $scope.currentFolder.versioningCleanupIntervalS = +$scope.currentFolder.versioning.cleanupIntervalS;
             } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "external") {
                 $scope.currentFolder.externalFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "external";
@@ -1797,6 +1802,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.simpleKeep = $scope.currentFolder.simpleKeep || 5;
             $scope.currentFolder.staggeredCleanInterval = $scope.currentFolder.staggeredCleanInterval || 3600;
             $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.staggeredVersionsPath || "";
+            $scope.currentFolder.versioningCleanupIntervalS = $scope.currentFolder.versioningCleanupIntervalS || 3600;
 
             // staggeredMaxAge can validly be zero, which we should not replace
             // with the default value of 365. So only set the default if it's
@@ -1900,19 +1906,22 @@ angular.module('syncthing.core')
 
             if (folderCfg.fileVersioningSelector === "trashcan") {
                 folderCfg.versioning = {
-                    'Type': 'trashcan',
-                    'Params': {
+                    'type': 'trashcan',
+                    'params': {
                         'cleanoutDays': '' + folderCfg.trashcanClean
-                    }
+                    },
+                    'cleanupIntervalS': folderCfg.versioningCleanupIntervalS
                 };
                 delete folderCfg.trashcanFileVersioning;
                 delete folderCfg.trashcanClean;
             } else if (folderCfg.fileVersioningSelector === "simple") {
                 folderCfg.versioning = {
-                    'Type': 'simple',
-                    'Params': {
-                        'keep': '' + folderCfg.simpleKeep
-                    }
+                    'type': 'simple',
+                    'params': {
+                        'keep': '' + folderCfg.simpleKeep,
+                        'cleanoutDays': '' + folderCfg.trashcanClean
+                    },
+                    'cleanupIntervalS': folderCfg.versioningCleanupIntervalS
                 };
                 delete folderCfg.simpleFileVersioning;
                 delete folderCfg.simpleKeep;
@@ -1923,19 +1932,20 @@ angular.module('syncthing.core')
                         'maxAge': '' + (folderCfg.staggeredMaxAge * 86400),
                         'cleanInterval': '' + folderCfg.staggeredCleanInterval,
                         'versionsPath': '' + folderCfg.staggeredVersionsPath
-                    }
+                    },
+                    'cleanupIntervalS': folderCfg.versioningCleanupIntervalS
                 };
                 delete folderCfg.staggeredFileVersioning;
                 delete folderCfg.staggeredMaxAge;
                 delete folderCfg.staggeredCleanInterval;
                 delete folderCfg.staggeredVersionsPath;
-
             } else if (folderCfg.fileVersioningSelector === "external") {
                 folderCfg.versioning = {
-                    'Type': 'external',
-                    'Params': {
+                    'type': 'external',
+                    'params': {
                         'command': '' + folderCfg.externalCommand
-                    }
+                    },
+                    'cleanupIntervalS': folderCfg.versioningCleanupIntervalS
                 };
                 delete folderCfg.externalFileVersioning;
                 delete folderCfg.externalCommand;
@@ -2042,7 +2052,7 @@ angular.module('syncthing.core')
                 filters: {},
                 massAction: function (name, action) {
                     $.each($scope.restoreVersions.versions, function (key) {
-                        if (key.startsWith(name + '/') && (!$scope.restoreVersions.filters.text || key.indexOf($scope.restoreVersions.filters.text) > -1)) {
+                        if (key.indexOf(name + '/') == 0 && (!$scope.restoreVersions.filters.text || key.indexOf($scope.restoreVersions.filters.text) > -1)) {
                             if (action == 'unset') {
                                 delete $scope.restoreVersions.selections[key];
                                 return;
@@ -2555,8 +2565,8 @@ angular.module('syncthing.core')
 
         $scope.isUnixAddress = function (address) {
             return address != null &&
-                (address.startsWith('/') ||
-                    address.startsWith('unix://') ||
-                    address.startsWith('unixs://'));
+                (address.indexOf('/') == 0 ||
+                    address.indexOf('unix://') == 0 ||
+                    address.indexOf('unixs://') == 0);
         }
     });

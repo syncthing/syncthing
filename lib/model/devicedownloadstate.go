@@ -78,6 +78,9 @@ func (p *deviceFolderDownloadState) Update(updates []protocol.FileDownloadProgre
 }
 
 func (p *deviceFolderDownloadState) BytesDownloaded() int64 {
+	p.mut.RLock()
+	defer p.mut.RUnlock()
+
 	var res int64
 	for _, state := range p.files {
 		// BlockSize is a new field introduced in 1.4.1, thus a fallback

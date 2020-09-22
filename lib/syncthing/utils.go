@@ -63,7 +63,7 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 // necessary or returns an error, if the version isn't compatible.
 func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logger, allowNewerConfig, noDefaultFolder bool) (config.Wrapper, error) {
 	myID := protocol.NewDeviceID(cert.Certificate[0])
-	cfg, err := config.Load(path, myID, evLogger)
+	cfg, originalVersion, err := config.Load(path, myID, evLogger)
 	if fs.IsNotExist(err) {
 		cfg, err = DefaultConfig(path, myID, evLogger, noDefaultFolder)
 		if err != nil {
@@ -80,14 +80,14 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logg
 		return nil, errors.Wrap(err, "failed to load config")
 	}
 
-	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
-		if cfg.RawCopy().OriginalVersion == config.CurrentVersion+1101 {
+	if originalVersion != config.CurrentVersion {
+		if originalVersion == config.CurrentVersion+1101 {
 			l.Infof("Now, THAT's what we call a config from the future! Don't worry. As long as you hit that wire with the connecting hook at precisely eighty-eight miles per hour the instant the lightning strikes the tower... everything will be fine.")
 		}
-		if cfg.RawCopy().OriginalVersion > config.CurrentVersion && !allowNewerConfig {
-			return nil, fmt.Errorf("config file version (%d) is newer than supported version (%d). If this is expected, use -allow-newer-config to override.", cfg.RawCopy().OriginalVersion, config.CurrentVersion)
+		if originalVersion > config.CurrentVersion && !allowNewerConfig {
+			return nil, fmt.Errorf("config file version (%d) is newer than supported version (%d). If this is expected, use -allow-newer-config to override.", originalVersion, config.CurrentVersion)
 		}
-		err = archiveAndSaveConfig(cfg)
+		err = archiveAndSaveConfig(cfg, originalVersion)
 		if err != nil {
 			return nil, errors.Wrap(err, "config archive")
 		}
@@ -96,9 +96,9 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logg
 	return cfg, nil
 }
 
-func archiveAndSaveConfig(cfg config.Wrapper) error {
+func archiveAndSaveConfig(cfg config.Wrapper, originalVersion int) error {
 	// Copy the existing config to an archive copy
-	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.RawCopy().OriginalVersion)
+	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", originalVersion)
 	l.Infoln("Archiving a copy of old config file format at:", archivePath)
 	if err := copyFile(cfg.ConfigPath(), archivePath); err != nil {
 		return err

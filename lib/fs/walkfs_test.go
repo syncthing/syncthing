@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"errors"
 	"fmt"
 	osexec "os/exec"
 	"path/filepath"
@@ -56,7 +57,7 @@ func testWalkTraverseDirJunct(t *testing.T, fsType FilesystemType, uri string) {
 		t.Skip("Directory junctions are available and tested on windows only")
 	}
 
-	fs := NewFilesystem(fsType, uri)
+	fs := NewFilesystem(fsType, uri, WithJunctionsAsDirs())
 
 	if err := fs.MkdirAll("target/foo", 0); err != nil {
 		t.Fatal(err)
@@ -89,7 +90,7 @@ func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) 
 		t.Skip("Infinite recursion detection is tested on windows only")
 	}
 
-	fs := NewFilesystem(fsType, uri)
+	fs := NewFilesystem(fsType, uri, WithJunctionsAsDirs())
 
 	if err := fs.MkdirAll("target/foo", 0); err != nil {
 		t.Fatal(err)
@@ -105,8 +106,16 @@ func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) 
 	}
 	dirjunctCnt := 0
 	fooCnt := 0
+	found := false
 	if err := fs.Walk("towalk", func(path string, info FileInfo, err error) error {
 		if err != nil {
+			if errors.Is(err, ErrInfiniteRecursion) {
+				if found {
+					t.Fatal("second infinite recursion detected at", path)
+				}
+				found = true
+				return nil
+			}
 			t.Fatal(err)
 		}
 		if info.Name() == "dirjunct" {
@@ -118,7 +127,7 @@ func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) 
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if dirjunctCnt != 2 || fooCnt != 1 {
+	if dirjunctCnt != 2 || fooCnt != 1 || !found {
 		t.Fatal("Infinite recursion not detected correctly")
 	}
 }

@@ -6,15 +6,6 @@
 
 package config
 
-type Tuning int
-
-const (
-	// N.b. these constants must match those in lib/db.Tuning!
-	TuningAuto Tuning = iota // default is auto
-	TuningSmall
-	TuningLarge
-)
-
 func (t Tuning) String() string {
 	switch t {
 	case TuningAuto:

@@ -29,6 +29,7 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 
 	"github.com/thejerf/suture"
@@ -43,18 +44,21 @@ type folder struct {
 
 	localFlags uint32
 
-	model   *model
-	shortID protocol.ShortID
-	fset    *db.FileSet
-	ignores *ignore.Matcher
-	ctx     context.Context
+	model         *model
+	shortID       protocol.ShortID
+	fset          *db.FileSet
+	ignores       *ignore.Matcher
+	modTimeWindow time.Duration
+	ctx           context.Context
 
-	scanInterval        time.Duration
-	scanTimer           *time.Timer
-	scanDelay           chan time.Duration
-	initialScanFinished chan struct{}
-	scanErrors          []FileError
-	scanErrorsMut       sync.Mutex
+	scanInterval           time.Duration
+	scanTimer              *time.Timer
+	scanDelay              chan time.Duration
+	initialScanFinished    chan struct{}
+	scanErrors             []FileError
+	scanErrorsMut          sync.Mutex
+	versionCleanupInterval time.Duration
+	versionCleanupTimer    *time.Timer
 
 	pullScheduled chan struct{}
 	pullPause     time.Duration
@@ -72,7 +76,8 @@ type folder struct {
 	watchErr         error
 	watchMut         sync.Mutex
 
-	puller puller
+	puller    puller
+	versioner versioner.Versioner
 }
 
 type syncRequest struct {
@@ -81,26 +86,29 @@ type syncRequest struct {
 }
 
 type puller interface {
-	pull() bool // true when successfull and should not be retried
+	pull() bool // true when successful and should not be retried
 }
 
-func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore) folder {
+func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore, ver versioner.Versioner) folder {
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
 		FolderStatisticsReference: stats.NewFolderStatisticsReference(model.db, cfg.ID),
 		ioLimiter:                 ioLimiter,
 
-		model:   model,
-		shortID: model.shortID,
-		fset:    fset,
-		ignores: ignores,
+		model:         model,
+		shortID:       model.shortID,
+		fset:          fset,
+		ignores:       ignores,
+		modTimeWindow: cfg.ModTimeWindow(),
 
-		scanInterval:        time.Duration(cfg.RescanIntervalS) * time.Second,
-		scanTimer:           time.NewTimer(time.Millisecond), // The first scan should be done immediately.
-		scanDelay:           make(chan time.Duration),
-		initialScanFinished: make(chan struct{}),
-		scanErrorsMut:       sync.NewMutex(),
+		scanInterval:           time.Duration(cfg.RescanIntervalS) * time.Second,
+		scanTimer:              time.NewTimer(0), // The first scan should be done immediately.
+		scanDelay:              make(chan time.Duration),
+		initialScanFinished:    make(chan struct{}),
+		scanErrorsMut:          sync.NewMutex(),
+		versionCleanupInterval: time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second,
+		versionCleanupTimer:    time.NewTimer(time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second),
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
@@ -113,6 +121,8 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
 		watchMut:         sync.NewMutex(),
+
+		versioner: ver,
 	}
 	f.pullPause = f.pullBasePause()
 	f.pullFailTimer = time.NewTimer(0)
@@ -131,11 +141,20 @@ func (f *folder) serve(ctx context.Context) {
 
 	defer func() {
 		f.scanTimer.Stop()
+		f.versionCleanupTimer.Stop()
 		f.setState(FolderIdle)
 	}()
 
 	if f.FSWatcherEnabled && f.getHealthErrorAndLoadIgnores() == nil {
 		f.startWatch()
+	}
+
+	// If we're configured to not do version cleanup, or we don't have a
+	// versioner, cancel and drain that timer now.
+	if f.versionCleanupInterval == 0 || f.versioner == nil {
+		if !f.versionCleanupTimer.Stop() {
+			<-f.versionCleanupTimer.C
+		}
 	}
 
 	initialCompleted := f.initialScanFinished
@@ -181,6 +200,10 @@ func (f *folder) serve(ctx context.Context) {
 		case <-f.restartWatchChan:
 			l.Debugln(f, "Restart watcher")
 			f.restartWatch()
+
+		case <-f.versionCleanupTimer.C:
+			l.Debugln(f, "Doing version cleanup")
+			f.versionCleanupTimerFired()
 		}
 	}
 }
@@ -313,15 +336,41 @@ func (f *folder) pull() (success bool) {
 		return true
 	}
 
-	f.setState(FolderSyncWaiting)
-	defer f.setState(FolderIdle)
-
-	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
-		return true
+	// Abort early (before acquiring a token) if there's a folder error
+	err := f.getHealthErrorWithoutIgnores()
+	f.setError(err)
+	if err != nil {
+		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
+		return false
 	}
-	defer f.ioLimiter.give(1)
+
+	// Send only folder doesn't do any io, it only checks for out-of-sync
+	// items that differ in metadata and updates those.
+	if f.Type != config.FolderTypeSendOnly {
+		f.setState(FolderSyncWaiting)
+
+		if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
+			f.setError(err)
+			return true
+		}
+		defer f.ioLimiter.give(1)
+	}
 
 	startTime := time.Now()
+
+	// Check if the ignore patterns changed.
+	oldHash := f.ignores.Hash()
+	defer func() {
+		if f.ignores.Hash() != oldHash {
+			f.ignoresUpdated()
+		}
+	}()
+	err = f.getHealthErrorAndLoadIgnores()
+	f.setError(err)
+	if err != nil {
+		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
+		return false
+	}
 
 	success = f.puller.pull()
 
@@ -414,7 +463,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		ShortID:               f.shortID,
 		ProgressTickIntervalS: f.ScanProgressIntervalS,
 		LocalFlags:            f.localFlags,
-		ModTimeWindow:         f.ModTimeWindow(),
+		ModTimeWindow:         f.modTimeWindow,
 		EventLogger:           f.evLogger,
 	})
 
@@ -437,14 +486,15 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		batchAppend = func(fi protocol.FileInfo, snap *db.Snapshot) {
 			switch gf, ok := snap.GetGlobal(fi.Name); {
 			case !ok:
-			case gf.IsEquivalentOptional(fi, f.ModTimeWindow(), false, false, protocol.FlagLocalReceiveOnly):
+			case gf.IsEquivalentOptional(fi, f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
 				// What we have locally is equivalent to the global file.
 				fi.Version = fi.Version.Merge(gf.Version)
 				fallthrough
-			case fi.IsDeleted() && gf.IsReceiveOnlyChanged():
+			case fi.IsDeleted() && (gf.IsReceiveOnlyChanged() || gf.IsDeleted()):
 				// Our item is deleted and the global item is our own
-				// receive only file. We can't delete file infos, so
-				// we just pretend it is a normal deleted file (nobody
+				// receive only file or deleted too. In the former
+				// case we can't delete file infos, so we just
+				// pretend it is a normal deleted file (nobody
 				// cares about that).
 				fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 			}
@@ -536,6 +586,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			}
 
 			switch ignored := f.ignores.Match(file.Name).IsIgnored(); {
+			case file.IsIgnored() && ignored:
+				return true
 			case !file.IsIgnored() && ignored:
 				// File was not ignored at last pass but has been ignored.
 				if file.IsDirectory() {
@@ -579,23 +631,23 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 					// sure the file gets in sync on the following pull.
 					nf.Version = protocol.Vector{}
 				}
-
+				l.Debugln("marking file as deleted", nf)
 				batchAppend(nf, snap)
 				changes++
+			case file.IsDeleted() && file.IsReceiveOnlyChanged() && f.localFlags&protocol.FlagLocalReceiveOnly != 0 && len(snap.Availability(file.Name)) == 0:
+				file.Version = protocol.Vector{}
+				file.LocalFlags &^= protocol.FlagLocalReceiveOnly
+				l.Debugln("marking deleted item that doesn't exist anywhere as not receive-only", file)
+				batchAppend(file.ConvertDeletedToFileInfo(), snap)
+				changes++
+			case file.IsDeleted() && file.IsReceiveOnlyChanged() && f.Type != config.FolderTypeReceiveOnly:
+				// No need to bump the version for a file that was and is
+				// deleted and just the folder type/local flags changed.
+				file.LocalFlags &^= protocol.FlagLocalReceiveOnly
+				l.Debugln("removing receive-only flag on deleted item", file)
+				batchAppend(file.ConvertDeletedToFileInfo(), snap)
+				changes++
 			}
-
-			// Check for deleted, locally changed items that noone else has.
-			if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
-				return true
-			}
-			if !fi.IsDeleted() || !fi.IsReceiveOnlyChanged() || len(snap.Availability(fi.FileName())) > 0 {
-				return true
-			}
-			nf := fi.(db.FileInfoTruncated).ConvertDeletedToFileInfo()
-			nf.LocalFlags = 0
-			nf.Version = protocol.Vector{}
-			batchAppend(nf, snap)
-			changes++
 
 			return true
 		})
@@ -699,6 +751,24 @@ func (f *folder) scanTimerFired() {
 	}
 
 	f.Reschedule()
+}
+
+func (f *folder) versionCleanupTimerFired() {
+	f.setState(FolderCleanWaiting)
+	defer f.setState(FolderIdle)
+
+	if err := f.ioLimiter.takeWithContext(f.ctx, 1); err != nil {
+		return
+	}
+	defer f.ioLimiter.give(1)
+
+	f.setState(FolderCleaning)
+
+	if err := f.versioner.Clean(f.ctx); err != nil {
+		l.Infoln("Failed to clean versions in %s: %v", f.Description(), err)
+	}
+
+	f.versionCleanupTimer.Reset(f.versionCleanupInterval)
 }
 
 func (f *folder) WatchError() error {
@@ -961,11 +1031,13 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) {
 	}
 	f.forcedRescanPathsMut.Unlock()
 
+	seq := f.fset.Sequence(protocol.LocalDeviceID)
 	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":    f.ID,
 		"items":     len(fs),
 		"filenames": filenames,
-		"version":   f.fset.Sequence(protocol.LocalDeviceID),
+		"sequence":  seq,
+		"version":   seq, // legacy for sequence
 	})
 }
 

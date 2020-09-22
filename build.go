@@ -297,10 +297,10 @@ func runCommand(cmd string, target target) {
 		build(target, tags)
 
 	case "test":
-		test("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
+		test(strings.Fields(extraTags), "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "bench":
-		bench("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
+		bench(strings.Fields(extraTags), "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "integration":
 		integration(false)
@@ -379,10 +379,11 @@ func parseFlags() {
 	flag.Parse()
 }
 
-func test(pkgs ...string) {
+func test(tags []string, pkgs ...string) {
 	lazyRebuildAssets()
 
-	args := []string{"test", "-short", "-timeout", timeout, "-tags", "purego"}
+	tags = append(tags, "purego")
+	args := []string{"test", "-short", "-timeout", timeout, "-tags", strings.Join(tags, " ")}
 
 	if runtime.GOARCH == "amd64" {
 		switch runtime.GOOS {
@@ -400,9 +401,9 @@ func test(pkgs ...string) {
 	runPrint(goCmd, append(args, pkgs...)...)
 }
 
-func bench(pkgs ...string) {
+func bench(tags []string, pkgs ...string) {
 	lazyRebuildAssets()
-	args := append([]string{"test", "-run", "NONE"}, benchArgs()...)
+	args := append([]string{"test", "-run", "NONE", "-tags", strings.Join(tags, " ")}, benchArgs()...)
 	runPrint(goCmd, append(args, pkgs...)...)
 }
 
@@ -464,7 +465,7 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"install", "-v"}
+	args := []string{"install", "-v", "-trimpath"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
@@ -492,7 +493,7 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"build", "-v"}
+	args := []string{"build", "-v", "-trimpath"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
@@ -526,7 +527,7 @@ func appendParameters(args []string, tags []string, pkgs ...string) []string {
 
 	if !debugBinary {
 		// Regular binaries get version tagged and skip some debug symbols
-		args = append(args, "-ldflags", ldflags())
+		args = append(args, "-ldflags", ldflags(tags))
 	} else {
 		// -gcflags to disable optimizations and inlining. Skip -ldflags
 		// because `Could not launch program: decoding dwarf section info at
@@ -811,6 +812,7 @@ func proto() {
 		runPrintInDir(path, "git", "checkout", dep.commit)
 	}
 	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
+	runPrint(goCmd, "generate", "proto/generate.go")
 }
 
 func translate() {
@@ -829,13 +831,14 @@ func transifex() {
 	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
 }
 
-func ldflags() string {
+func ldflags(tags []string) string {
 	b := new(strings.Builder)
 	b.WriteString("-w")
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version=%s", version)
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp=%d", buildStamp())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User=%s", buildUser())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host=%s", buildHost())
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Tags=%s", strings.Join(tags, ","))
 	if v := os.Getenv("EXTRA_LDFLAGS"); v != "" {
 		fmt.Fprintf(b, " %s", v)
 	}
@@ -874,7 +877,10 @@ func getGitVersion() (string, error) {
 	}
 	v0 := string(bs)
 
-	versionRe := regexp.MustCompile(`-([0-9]{1,3}-g[0-9a-f]{5,10})`)
+	// To be more semantic-versionish and ensure proper ordering in our
+	// upgrade process, we make sure there's only one hypen in the version.
+
+	versionRe := regexp.MustCompile(`-([0-9]{1,3}-g[0-9a-f]{5,10}(-dirty)?)`)
 	if m := versionRe.FindStringSubmatch(vcur); len(m) > 0 {
 		suffix := strings.ReplaceAll(m[1], "-", ".")
 

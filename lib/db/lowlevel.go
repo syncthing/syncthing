@@ -10,11 +10,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"io"
+	"os"
 	"time"
 
+	"github.com/dchest/siphash"
 	"github.com/greatroar/blobloom"
 	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
@@ -39,6 +44,8 @@ const (
 	versionIndirectionCutoff = 10
 
 	recheckDefaultInterval = 30 * 24 * time.Hour
+
+	needsRepairSuffix = ".needsrepair"
 )
 
 // Lowlevel is the lowest level database interface. It has a very simple
@@ -79,6 +86,13 @@ func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
 	db.Add(util.AsService(db.gcRunner, "db.Lowlevel/gcRunner"))
+	if path := db.needsRepairPath(); path != "" {
+		if _, err := os.Lstat(path); err == nil {
+			l.Infoln("Database was marked for repair - this may take a while")
+			db.checkRepair()
+			os.Remove(path)
+		}
+	}
 	return db
 }
 
@@ -114,7 +128,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
 	if err != nil {
 		return err
 	}
@@ -137,6 +151,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 			return err
 		}
 		if ok && unchanged(f, ef) {
+			l.Debugf("not inserting unchanged (remote); folder=%q device=%v %v", folder, devID, f)
 			continue
 		}
 
@@ -145,8 +160,8 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 		}
 		meta.addFile(devID, f)
 
-		l.Debugf("insert; folder=%q device=%v %v", folder, devID, f)
-		if err := t.putFile(dk, f, false); err != nil {
+		l.Debugf("insert (remote); folder=%q device=%v %v", folder, devID, f)
+		if err := t.putFile(dk, f); err != nil {
 			return err
 		}
 
@@ -159,15 +174,9 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 			return err
 		}
 
-		if err := t.Checkpoint(func() error {
-			return meta.toDB(t, folder)
-		}); err != nil {
+		if err := t.Checkpoint(); err != nil {
 			return err
 		}
-	}
-
-	if err := meta.toDB(t, folder); err != nil {
-		return err
 	}
 
 	return t.Commit()
@@ -179,7 +188,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
 	if err != nil {
 		return err
 	}
@@ -199,6 +208,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 			return err
 		}
 		if ok && unchanged(f, ef) {
+			l.Debugf("not inserting unchanged (local); folder=%q %v", folder, f)
 			continue
 		}
 		blocksHashSame := ok && bytes.Equal(ef.BlocksHash, f.BlocksHash)
@@ -243,7 +253,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 		meta.addFile(protocol.LocalDeviceID, f)
 
 		l.Debugf("insert (local); folder=%q %v", folder, f)
-		if err := t.putFile(dk, f, false); err != nil {
+		if err := t.putFile(dk, f); err != nil {
 			return err
 		}
 
@@ -287,15 +297,9 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 			}
 		}
 
-		if err := t.Checkpoint(func() error {
-			return meta.toDB(t, folder)
-		}); err != nil {
+		if err := t.Checkpoint(); err != nil {
 			return err
 		}
-	}
-
-	if err := meta.toDB(t, folder); err != nil {
-		return err
 	}
 
 	return t.Commit()
@@ -371,7 +375,7 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
 	if err != nil {
 		return err
 	}
@@ -506,7 +510,7 @@ func checkGlobalsFilterDevices(dk, folder, name []byte, devices [][]byte, vl *Ve
 		if err != nil {
 			return false, err
 		}
-		f, ok, err := t.getFileTrunc(dk, true)
+		f, ok, err := t.getFileTrunc(dk, false)
 		if err != nil {
 			return false, err
 		}
@@ -679,10 +683,10 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 			return err
 		}
 		if len(hashes.BlocksHash) > 0 {
-			blockFilter.Add(bloomHash(hashes.BlocksHash))
+			blockFilter.add(hashes.BlocksHash)
 		}
 		if len(hashes.VersionHash) > 0 {
-			versionFilter.Add(bloomHash(hashes.VersionHash))
+			versionFilter.add(hashes.VersionHash)
 		}
 	}
 	it.Release()
@@ -707,7 +711,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		}
 
 		key := blockListKey(it.Key())
-		if blockFilter.Has(bloomHash(key.Hash())) {
+		if blockFilter.has(key.Hash()) {
 			matchedBlocks++
 			continue
 		}
@@ -736,7 +740,7 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 		}
 
 		key := versionKey(it.Key())
-		if versionFilter.Has(bloomHash(key.Hash())) {
+		if versionFilter.has(key.Hash()) {
 			matchedVersions++
 			continue
 		}
@@ -762,25 +766,43 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) error {
 	return db.Compact()
 }
 
-func newBloomFilter(capacity int) *blobloom.Filter {
-	return blobloom.NewOptimized(blobloom.Config{
-		Capacity: uint64(capacity),
-		FPRate:   indirectGCBloomFalsePositiveRate,
-		MaxBits:  8 * indirectGCBloomMaxBytes,
-	})
-}
+func newBloomFilter(capacity int) bloomFilter {
+	var buf [16]byte
+	io.ReadFull(rand.Reader, buf[:])
 
-// Hash function for the bloomfilter: first eight bytes of the SHA-256.
-// Big or little-endian makes no difference, as long as we're consistent.
-func bloomHash(key []byte) uint64 {
-	if len(key) != sha256.Size {
-		panic("bug: bloomHash passed something not a SHA256 hash")
+	return bloomFilter{
+		f: blobloom.NewOptimized(blobloom.Config{
+			Capacity: uint64(capacity),
+			FPRate:   indirectGCBloomFalsePositiveRate,
+			MaxBits:  8 * indirectGCBloomMaxBytes,
+		}),
+
+		k0: binary.LittleEndian.Uint64(buf[:8]),
+		k1: binary.LittleEndian.Uint64(buf[8:]),
 	}
-	return binary.BigEndian.Uint64(key)
 }
 
-// CheckRepair checks folder metadata and sequences for miscellaneous errors.
-func (db *Lowlevel) CheckRepair() {
+type bloomFilter struct {
+	f      *blobloom.Filter
+	k0, k1 uint64 // Random key for SipHash.
+}
+
+func (b *bloomFilter) add(id []byte)      { b.f.Add(b.hash(id)) }
+func (b *bloomFilter) has(id []byte) bool { return b.f.Has(b.hash(id)) }
+
+// Hash function for the bloomfilter: SipHash of the SHA-256.
+//
+// The randomization in SipHash means we get different collisions across
+// runs and colliding keys are not kept indefinitely.
+func (b *bloomFilter) hash(id []byte) uint64 {
+	if len(id) != sha256.Size {
+		panic("bug: bloomFilter.hash passed something not a SHA256 hash")
+	}
+	return siphash.Hash(b.k0, b.k1, id)
+}
+
+// checkRepair checks folder metadata and sequences for miscellaneous errors.
+func (db *Lowlevel) checkRepair() {
 	for _, folder := range db.ListFolders() {
 		_ = db.getMetaAndCheck(folder)
 	}
@@ -790,26 +812,40 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
-	meta, err := db.recalcMeta(folder)
-	if err == nil {
-		var fixed int
-		fixed, err = db.repairSequenceGCLocked(folder, meta)
-		if fixed != 0 {
-			l.Infof("Repaired %d sequence entries in database", fixed)
+	var err error
+	defer func() {
+		if err != nil && !backend.IsClosed(err) {
+			panic(err)
 		}
+	}()
+
+	var fixed int
+	fixed, err = db.checkLocalNeed([]byte(folder))
+	if err != nil {
+		return nil
+	}
+	if fixed != 0 {
+		l.Infof("Repaired %d local need entries for folder %v in database", fixed, folder)
 	}
 
-	if backend.IsClosed(err) {
+	meta, err := db.recalcMeta(folder)
+	if err != nil {
 		return nil
-	} else if err != nil {
-		panic(err)
+	}
+
+	fixed, err = db.repairSequenceGCLocked(folder, meta)
+	if err != nil {
+		return nil
+	}
+	if fixed != 0 {
+		l.Infof("Repaired %d sequence entries for folder %v in database", fixed, folder)
 	}
 
 	return meta
 }
 
 func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
-	meta := newMetadataTracker()
+	meta := newMetadataTracker(db.keyer)
 	if err := meta.fromDB(db, []byte(folder)); err != nil {
 		if err == errMetaInconsistent {
 			l.Infof("Stored folder metadata for %q is inconsistent; recalculating", folder)
@@ -834,20 +870,22 @@ func (db *Lowlevel) loadMetadataTracker(folder string) *metadataTracker {
 	return meta
 }
 
-func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
-	meta := newMetadataTracker()
-	if err := db.checkGlobals([]byte(folder)); err != nil {
+func (db *Lowlevel) recalcMeta(folderStr string) (*metadataTracker, error) {
+	folder := []byte(folderStr)
+
+	meta := newMetadataTracker(db.keyer)
+	if err := db.checkGlobals(folder); err != nil {
 		return nil, err
 	}
 
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
 	if err != nil {
 		return nil, err
 	}
 	defer t.close()
 
 	var deviceID protocol.DeviceID
-	err = t.withAllFolderTruncated([]byte(folder), func(device []byte, f FileInfoTruncated) bool {
+	err = t.withAllFolderTruncated(folder, func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
 		meta.addFile(deviceID, f)
 		return true
@@ -856,13 +894,13 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 		return nil, err
 	}
 
-	err = t.withGlobal([]byte(folder), nil, true, func(f protocol.FileIntf) bool {
+	err = t.withGlobal(folder, nil, true, func(f protocol.FileIntf) bool {
 		meta.addFile(protocol.GlobalDeviceID, f)
 		return true
 	})
 
 	meta.emptyNeeded(protocol.LocalDeviceID)
-	err = t.withNeed([]byte(folder), protocol.LocalDeviceID[:], true, func(f protocol.FileIntf) bool {
+	err = t.withNeed(folder, protocol.LocalDeviceID[:], true, func(f protocol.FileIntf) bool {
 		meta.addNeeded(protocol.LocalDeviceID, f)
 		return true
 	})
@@ -871,7 +909,7 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 	}
 	for _, device := range meta.devices() {
 		meta.emptyNeeded(device)
-		err = t.withNeed([]byte(folder), device[:], true, func(f protocol.FileIntf) bool {
+		err = t.withNeed(folder, device[:], true, func(f protocol.FileIntf) bool {
 			meta.addNeeded(device, f)
 			return true
 		})
@@ -881,9 +919,6 @@ func (db *Lowlevel) recalcMeta(folder string) (*metadataTracker, error) {
 	}
 
 	meta.SetCreated()
-	if err := meta.toDB(t, []byte(folder)); err != nil {
-		return nil, err
-	}
 	if err := t.Commit(); err != nil {
 		return nil, err
 	}
@@ -923,7 +958,7 @@ func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) bool {
 // match those in the corresponding file entries. It returns the amount of fixed
 // entries.
 func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTracker) (int, error) {
-	t, err := db.newReadWriteTransaction()
+	t, err := db.newReadWriteTransaction(meta.CommitHook([]byte(folderStr)))
 	if err != nil {
 		return 0, err
 	}
@@ -948,11 +983,11 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 
 	var sk sequenceKey
 	for it.Next() {
-		intf, err := t.unmarshalTrunc(it.Value(), true)
+		intf, err := t.unmarshalTrunc(it.Value(), false)
 		if err != nil {
 			return 0, err
 		}
-		fi := intf.(FileInfoTruncated)
+		fi := intf.(protocol.FileInfo)
 		if sk, err = t.keyer.GenerateSequenceKey(sk, folder, fi.Sequence); err != nil {
 			return 0, err
 		}
@@ -971,13 +1006,11 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 			if err := t.Put(sk, it.Key()); err != nil {
 				return 0, err
 			}
-			if err := t.putFile(it.Key(), fi.copyToFileInfo(), true); err != nil {
+			if err := t.putFile(it.Key(), fi); err != nil {
 				return 0, err
 			}
 		}
-		if err := t.Checkpoint(func() error {
-			return meta.toDB(t, folder)
-		}); err != nil {
+		if err := t.Checkpoint(); err != nil {
 			return 0, err
 		}
 	}
@@ -1024,11 +1057,98 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 
 	it.Release()
 
-	if err := meta.toDB(t, folder); err != nil {
+	return fixed, t.Commit()
+}
+
+// Does not take care of metadata - if anything is repaired, the need count
+// needs to be recalculated.
+func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
+	repaired := 0
+
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return 0, err
+	}
+	defer t.close()
+
+	key, err := t.keyer.GenerateNeedFileKey(nil, folder, nil)
+	if err != nil {
+		return 0, err
+	}
+	dbi, err := t.NewPrefixIterator(key.WithoutName())
+	if err != nil {
+		return 0, err
+	}
+	defer dbi.Release()
+
+	var needName string
+	var needDone bool
+	next := func() {
+		needDone = !dbi.Next()
+		if !needDone {
+			needName = string(t.keyer.NameFromGlobalVersionKey(dbi.Key()))
+		}
+	}
+	next()
+	t.withNeedIteratingGlobal(folder, protocol.LocalDeviceID[:], true, func(fi protocol.FileIntf) bool {
+		f := fi.(FileInfoTruncated)
+		for !needDone && needName < f.Name {
+			repaired++
+			if err = t.Delete(dbi.Key()); err != nil {
+				return false
+			}
+			l.Debugln("check local need: removing", needName)
+			next()
+		}
+		if needName == f.Name {
+			next()
+		} else {
+			repaired++
+			key, err = t.keyer.GenerateNeedFileKey(key, folder, []byte(f.Name))
+			if err != nil {
+				return false
+			}
+			if err = t.Put(key, nil); err != nil {
+				return false
+			}
+			l.Debugln("check local need: adding", f.Name)
+		}
+		return true
+	})
+	if err != nil {
 		return 0, err
 	}
 
-	return fixed, t.Commit()
+	for !needDone {
+		repaired++
+		if err := t.Delete(dbi.Key()); err != nil {
+			return 0, err
+		}
+		l.Debugln("check local need: removing", needName)
+		next()
+	}
+
+	if err := dbi.Error(); err != nil {
+		return 0, err
+	}
+	dbi.Release()
+
+	if err = t.Commit(); err != nil {
+		return 0, err
+	}
+
+	return repaired, nil
+}
+
+func (db *Lowlevel) needsRepairPath() string {
+	path := db.Location()
+	if path == "" {
+		return ""
+	}
+	if path[len(path)-1] == fs.PathSeparator {
+		path = path[:len(path)-1]
+	}
+	return path + needsRepairSuffix
 }
 
 // unchanged checks if two files are the same and thus don't need to be updated.

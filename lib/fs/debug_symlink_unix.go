@@ -6,16 +6,26 @@
 
 // +build !windows
 
-package osutil
+package fs
 
 import (
 	"os"
+	"path/filepath"
 )
 
 // DebugSymlinkForTestsOnly is not and should not be used in Syncthing code,
 // hence the cumbersome name to make it obvious if this ever leaks. Its
 // reason for existence is the Windows version, which allows creating
 // symlinks when non-elevated.
-func DebugSymlinkForTestsOnly(oldname, newname string) error {
-	return os.Symlink(oldname, newname)
+func DebugSymlinkForTestsOnly(oldFs, newFs Filesystem, oldname, newname string) error {
+	if caseFs, ok := unwrapFilesystem(newFs).(*caseFilesystem); ok {
+		if err := caseFs.checkCase(newname); err != nil {
+			return err
+		}
+		caseFs.dropCache()
+	}
+	if err := os.Symlink(filepath.Join(oldFs.URI(), oldname), filepath.Join(newFs.URI(), newname)); err != nil {
+		return err
+	}
+	return nil
 }

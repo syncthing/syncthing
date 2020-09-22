@@ -41,6 +41,10 @@ const (
 )
 
 func generateFiles(dir string, files, maxexp int, srcname string) error {
+	return generateFilesWithTime(dir, files, maxexp, srcname, time.Now())
+}
+
+func generateFilesWithTime(dir string, files, maxexp int, srcname string, t0 time.Time) error {
 	fd, err := os.Open(srcname)
 	if err != nil {
 		return err
@@ -69,7 +73,7 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 		}
 		s += rand.Int63n(a)
 
-		if err := generateOneFile(fd, p1, s); err != nil {
+		if err := generateOneFile(fd, p1, s, t0); err != nil {
 			return err
 		}
 	}
@@ -77,7 +81,7 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 	return nil
 }
 
-func generateOneFile(fd io.ReadSeeker, p1 string, s int64) error {
+func generateOneFile(fd io.ReadSeeker, p1 string, s int64, t0 time.Time) error {
 	src := io.LimitReader(&inifiteReader{fd}, int64(s))
 	dst, err := os.Create(p1)
 	if err != nil {
@@ -96,7 +100,7 @@ func generateOneFile(fd io.ReadSeeker, p1 string, s int64) error {
 
 	os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
 
-	t := time.Now().Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
+	t := t0.Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
 	err = os.Chtimes(p1, t, t)
 	if err != nil {
 		return err
@@ -557,4 +561,20 @@ func symlinksSupported() bool {
 	defer os.RemoveAll(tmp)
 	err = os.Symlink("tmp", filepath.Join(tmp, "link"))
 	return err == nil
+}
+
+// checkRemoteInSync checks if the devices associated twith the given processes
+// are in sync according to the remote status on both sides.
+func checkRemoteInSync(folder string, p1, p2 *rc.Process) error {
+	if inSync, err := p1.RemoteInSync(folder, p2.ID()); err != nil {
+		return err
+	} else if !inSync {
+		return fmt.Errorf(`from device %v folder "%v" is not in sync on device %v`, p1.ID(), folder, p2.ID())
+	}
+	if inSync, err := p2.RemoteInSync(folder, p1.ID()); err != nil {
+		return err
+	} else if !inSync {
+		return fmt.Errorf(`from device %v folder "%v" is not in sync on device %v`, p2.ID(), folder, p1.ID())
+	}
+	return nil
 }

@@ -9,6 +9,7 @@ package config
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -20,9 +21,9 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -75,6 +76,7 @@ func TestDefaultValues(t *testing.T) {
 		StunKeepaliveStartS:     180,
 		StunKeepaliveMinS:       20,
 		RawStunServers:          []string{"default"},
+		AnnounceLANAddresses:    true,
 	}
 
 	cfg := New(device1)
@@ -126,14 +128,8 @@ func TestDeviceConfig(t *testing.T) {
 				},
 				WeakHashThresholdPct: 25,
 				MarkerName:           DefaultMarkerName,
+				JunctionsAsDirs:      true,
 			},
-		}
-
-		// The cachedFilesystem will have been resolved to an absolute path,
-		// depending on where the tests are running. Zero it out so we don't
-		// fail based on that.
-		for i := range cfg.Folders {
-			cfg.Folders[i].cachedFilesystem = nil
 		}
 
 		expectedDevices := []DeviceConfiguration{
@@ -451,6 +447,7 @@ func TestFolderCheckPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, n)
 
 	err = os.MkdirAll(filepath.Join(n, "dir", ".stfolder"), os.FileMode(0777))
 	if err != nil {
@@ -475,7 +472,7 @@ func TestFolderCheckPath(t *testing.T) {
 		},
 	}
 
-	err = osutil.DebugSymlinkForTestsOnly(filepath.Join(n, "dir"), filepath.Join(n, "link"))
+	err = fs.DebugSymlinkForTestsOnly(testFs, testFs, "dir", "link")
 	if err == nil {
 		t.Log("running with symlink check")
 		testcases = append(testcases, struct {
@@ -513,9 +510,6 @@ func TestNewSaveLoad(t *testing.T) {
 
 	intCfg := New(device1)
 	cfg := wrap(path, intCfg)
-
-	// To make the equality pass later
-	cfg.(*wrapper).cfg.XMLName.Local = "configuration"
 
 	if exists(path) {
 		t.Error(path, "exists")
@@ -605,14 +599,14 @@ func TestPullOrder(t *testing.T) {
 		name  string
 		order PullOrder
 	}{
-		{"f1", OrderRandom},        // empty value, default
-		{"f2", OrderRandom},        // explicit
-		{"f3", OrderAlphabetic},    // explicit
-		{"f4", OrderRandom},        // unknown value, default
-		{"f5", OrderSmallestFirst}, // explicit
-		{"f6", OrderLargestFirst},  // explicit
-		{"f7", OrderOldestFirst},   // explicit
-		{"f8", OrderNewestFirst},   // explicit
+		{"f1", PullOrderRandom},        // empty value, default
+		{"f2", PullOrderRandom},        // explicit
+		{"f3", PullOrderAlphabetic},    // explicit
+		{"f4", PullOrderRandom},        // unknown value, default
+		{"f5", PullOrderSmallestFirst}, // explicit
+		{"f6", PullOrderLargestFirst},  // explicit
+		{"f7", PullOrderOldestFirst},   // explicit
+		{"f8", PullOrderNewestFirst},   // explicit
 	}
 
 	// Verify values are deserialized correctly
@@ -631,7 +625,7 @@ func TestPullOrder(t *testing.T) {
 
 	t.Logf("%s", buf.Bytes())
 
-	cfg, err = ReadXML(buf, device1)
+	cfg, _, err = ReadXML(buf, device1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1156,9 +1150,43 @@ func defaultConfigAsMap() map[string]interface{} {
 }
 
 func load(path string, myID protocol.DeviceID) (Wrapper, error) {
-	return Load(path, myID, events.NoopLogger)
+	cfg, _, err := Load(path, myID, events.NoopLogger)
+	return cfg, err
 }
 
 func wrap(path string, cfg Configuration) Wrapper {
 	return Wrap(path, cfg, events.NoopLogger)
+}
+
+func TestInternalVersioningConfiguration(t *testing.T) {
+	// Verify that the versioning configuration XML seralizes to something
+	// reasonable.
+
+	cfg := New(device1)
+	cfg.Folders = append(cfg.Folders, NewFolderConfiguration(device1, "default", "default", fs.FilesystemTypeBasic, "/tmp"))
+	cfg.Folders[0].Versioning = VersioningConfiguration{
+		Type:             "foo",
+		Params:           map[string]string{"bar": "baz"},
+		CleanupIntervalS: 42,
+	}
+
+	// These things should all be present in the serialized version.
+	expected := []string{
+		`<versioning type="foo">`,
+		`<param key="bar" val="baz"`,
+		`<cleanupIntervalS>42<`,
+		`</versioning>`,
+	}
+
+	bs, err := xml.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, exp := range expected {
+		if !strings.Contains(string(bs), exp) {
+			t.Logf("%s", bs)
+			t.Fatal("bad serializion of versioning parameters")
+		}
+	}
 }

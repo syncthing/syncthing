@@ -1,6 +1,6 @@
 // Copyright (C) 2014 The Protocol Authors.
 
-//go:generate go run ../../script/protofmt.go deviceid_test.proto
+//go:generate go run ../../proto/scripts/protofmt.go deviceid_test.proto
 //go:generate protoc -I ../../ -I . --gogofast_out=. deviceid_test.proto
 
 package protocol

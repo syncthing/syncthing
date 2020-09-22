@@ -85,7 +85,7 @@ func main() {
 		myID := protocol.NewDeviceID(cert.Certificate[0])
 
 		// Load the config
-		cfg, err := config.Load(locations.Get(locations.ConfigFile), myID, events.NoopLogger)
+		cfg, _, err := config.Load(locations.Get(locations.ConfigFile), myID, events.NoopLogger)
 		if err != nil {
 			log.Fatalln(errors.Wrap(err, "loading config"))
 		}

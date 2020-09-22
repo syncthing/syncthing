@@ -4,11 +4,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// +build !windows,!solaris,!darwin
+// +build linux,!ppc,!ppc64,!ppc64le
 
 package fs
 
 import (
+	"io"
 	"syscall"
 	"unsafe"
 )
@@ -43,6 +44,10 @@ func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error 
 		return err
 	}
 
+	if srcOffset+size > fi.Size() {
+		return io.ErrUnexpectedEOF
+	}
+
 	// https://www.man7.org/linux/man-pages/man2/ioctl_ficlonerange.2.html
 	// If src_length is zero, the ioctl reflinks to the end of the source file.
 	if srcOffset+size == fi.Size() {
@@ -51,20 +56,36 @@ func copyRangeIoctl(src, dst basicFile, srcOffset, dstOffset, size int64) error 
 
 	if srcOffset == 0 && dstOffset == 0 && size == 0 {
 		// Optimization for whole file copies.
-		_, _, errNo := syscall.Syscall(syscall.SYS_IOCTL, dst.Fd(), FICLONE, src.Fd())
+		var errNo syscall.Errno
+		_, err := withFileDescriptors(src, dst, func(srcFd, dstFd uintptr) (int, error) {
+			_, _, errNo = syscall.Syscall(syscall.SYS_IOCTL, dstFd, FICLONE, srcFd)
+			return 0, nil
+		})
+		// Failure in withFileDescriptors
+		if err != nil {
+			return err
+		}
 		if errNo != 0 {
 			return errNo
 		}
 		return nil
 	}
 
-	params := fileCloneRange{
-		srcFd:     int64(src.Fd()),
-		srcOffset: uint64(srcOffset),
-		srcLength: uint64(size),
-		dstOffset: uint64(dstOffset),
+	var errNo syscall.Errno
+	_, err = withFileDescriptors(src, dst, func(srcFd, dstFd uintptr) (int, error) {
+		params := fileCloneRange{
+			srcFd:     int64(srcFd),
+			srcOffset: uint64(srcOffset),
+			srcLength: uint64(size),
+			dstOffset: uint64(dstOffset),
+		}
+		_, _, errNo = syscall.Syscall(syscall.SYS_IOCTL, dstFd, FICLONERANGE, uintptr(unsafe.Pointer(&params)))
+		return 0, nil
+	})
+	// Failure in withFileDescriptors
+	if err != nil {
+		return err
 	}
-	_, _, errNo := syscall.Syscall(syscall.SYS_IOCTL, dst.Fd(), FICLONERANGE, uintptr(unsafe.Pointer(&params)))
 	if errNo != 0 {
 		return errNo
 	}

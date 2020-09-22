@@ -8,6 +8,9 @@ package db
 
 import (
 	"bytes"
+	"context"
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -305,6 +308,7 @@ func TestRepairSequence(t *testing.T) {
 		{Name: "missing", Blocks: genBlocks(3)},
 		{Name: "overwriting", Blocks: genBlocks(4)},
 		{Name: "inconsistent", Blocks: genBlocks(5)},
+		{Name: "inconsistentNotIndirected", Blocks: genBlocks(2)},
 	}
 	for i, f := range files {
 		files[i].Version = f.Version.Update(short)
@@ -321,7 +325,7 @@ func TestRepairSequence(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := trans.putFile(dk, f, false); err != nil {
+		if err := trans.putFile(dk, f); err != nil {
 			t.Fatal(err)
 		}
 		sk, err := trans.keyer.GenerateSequenceKey(nil, folder, seq)
@@ -366,10 +370,13 @@ func TestRepairSequence(t *testing.T) {
 	files[3].Sequence = seq
 	addFile(files[3], seq)
 
-	// Inconistent file
+	// Inconistent files
 	seq++
 	files[4].Sequence = 101
 	addFile(files[4], seq)
+	seq++
+	files[5].Sequence = 102
+	addFile(files[5], seq)
 
 	// And a sequence entry pointing at nothing because why not
 	sk, err = trans.keyer.GenerateSequenceKey(nil, folder, 100001)
@@ -632,4 +639,327 @@ func TestDropDuplicates(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestGCIndirect(t *testing.T) {
+	// Verify that the gcIndirect run actually removes block lists.
+
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+	meta := newMetadataTracker(db.keyer)
+
+	// Add three files with different block lists
+
+	files := []protocol.FileInfo{
+		{Name: "a", Blocks: genBlocks(100)},
+		{Name: "b", Blocks: genBlocks(200)},
+		{Name: "c", Blocks: genBlocks(300)},
+	}
+
+	db.updateLocalFiles([]byte("folder"), files, meta)
+
+	// Run a GC pass
+
+	db.gcIndirect(context.Background())
+
+	// Verify that we have three different block lists
+
+	n, err := numBlockLists(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != len(files) {
+		t.Fatal("expected each file to have a block list")
+	}
+
+	// Change the block lists for each file
+
+	for i := range files {
+		files[i].Version = files[i].Version.Update(42)
+		files[i].Blocks = genBlocks(len(files[i].Blocks) + 1)
+	}
+
+	db.updateLocalFiles([]byte("folder"), files, meta)
+
+	// Verify that we now have *six* different block lists
+
+	n, err = numBlockLists(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2*len(files) {
+		t.Fatal("expected both old and new block lists to exist")
+	}
+
+	// Run a GC pass
+
+	db.gcIndirect(context.Background())
+
+	// Verify that we now have just the three we need, again
+
+	n, err = numBlockLists(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != len(files) {
+		t.Fatal("expected GC to collect all but the needed ones")
+	}
+
+	// Double check the correctness by loading the block lists and comparing with what we stored
+
+	tr, err := db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal()
+	}
+	defer tr.Release()
+	for _, f := range files {
+		fi, ok, err := tr.getFile([]byte("folder"), protocol.LocalDeviceID[:], []byte(f.Name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !ok {
+			t.Fatal("mysteriously missing")
+		}
+		if len(fi.Blocks) != len(f.Blocks) {
+			t.Fatal("block list mismatch")
+		}
+		for i := range fi.Blocks {
+			if !bytes.Equal(fi.Blocks[i].Hash, f.Blocks[i].Hash) {
+				t.Fatal("hash mismatch")
+			}
+		}
+	}
+}
+
+func TestUpdateTo14(t *testing.T) {
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+
+	folderStr := "default"
+	folder := []byte(folderStr)
+	name := []byte("foo")
+	file := protocol.FileInfo{Name: string(name), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(blocksIndirectionCutoff - 1)}
+	file.BlocksHash = protocol.BlocksHash(file.Blocks)
+	fileWOBlocks := file
+	fileWOBlocks.Blocks = nil
+	meta := db.loadMetadataTracker(folderStr)
+
+	// Initally add the correct file the usual way, all good here.
+	if err := db.updateLocalFiles(folder, []protocol.FileInfo{file}, meta); err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate the previous bug, where .putFile could write a file info without
+	// blocks, even though the file has them (and thus a non-nil BlocksHash).
+	trans, err := db.newReadWriteTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trans.close()
+	key, err := db.keyer.GenerateDeviceFileKey(nil, folder, protocol.LocalDeviceID[:], name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fiBs := mustMarshal(&fileWOBlocks)
+	if err := trans.Put(key, fiBs); err != nil {
+		t.Fatal(err)
+	}
+	if err := trans.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	trans.close()
+
+	// Run migration, pretending were still on schema 13.
+	if err := (&schemaUpdater{db}).updateSchemaTo14(13); err != nil {
+		t.Fatal(err)
+	}
+
+	// checks
+	ro, err := db.newReadOnlyTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ro.close()
+	if f, ok, err := ro.getFileByKey(key); err != nil {
+		t.Fatal(err)
+	} else if !ok {
+		t.Error("file missing")
+	} else if !f.MustRescan() {
+		t.Error("file not marked as MustRescan")
+	}
+
+	if vl, err := ro.getGlobalVersions(nil, folder, name); err != nil {
+		t.Fatal(err)
+	} else if fv, ok := vl.GetGlobal(); !ok {
+		t.Error("missing global")
+	} else if !fv.IsInvalid() {
+		t.Error("global not marked as invalid")
+	}
+}
+
+func TestFlushRecursion(t *testing.T) {
+	// Verify that a commit hook can write to the transaction without
+	// causing another flush and thus recursion.
+
+	// Badger doesn't work like this.
+	if os.Getenv("USE_BADGER") != "" {
+		t.Skip("Not supported on Badger")
+	}
+
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+
+	// A commit hook that writes a small piece of data to the transaction.
+	hookFired := 0
+	hook := func(tx backend.WriteTransaction) error {
+		err := tx.Put([]byte(fmt.Sprintf("hook-key-%d", hookFired)), []byte(fmt.Sprintf("hook-value-%d", hookFired)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		hookFired++
+		return nil
+	}
+
+	// A transaction.
+	tx, err := db.NewWriteTransaction(hook)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Release()
+
+	// Write stuff until the transaction flushes, thus firing the hook.
+	i := 0
+	for hookFired == 0 {
+		err := tx.Put([]byte(fmt.Sprintf("key-%d", i)), []byte(fmt.Sprintf("value-%d", i)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		i++
+	}
+
+	// The hook should have fired precisely once.
+	if hookFired != 1 {
+		t.Error("expect one hook fire, not", hookFired)
+	}
+}
+
+func TestCheckLocalNeed(t *testing.T) {
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+
+	folderStr := "test"
+	fs := NewFileSet(folderStr, fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+
+	// Add files such that we are in sync for a and b, and need c and d.
+	files := []protocol.FileInfo{
+		{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}},
+		{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}},
+		{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}},
+		{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}},
+	}
+	fs.Update(protocol.LocalDeviceID, files)
+	files[2].Version = files[2].Version.Update(remoteDevice0.Short())
+	files[3].Version = files[2].Version.Update(remoteDevice0.Short())
+	fs.Update(remoteDevice0, files)
+
+	checkNeed := func() {
+		snap := fs.Snapshot()
+		defer snap.Release()
+		c := snap.NeedSize(protocol.LocalDeviceID)
+		if c.Files != 2 {
+			t.Errorf("Expected 2 needed files locally, got %v in meta", c.Files)
+		}
+		needed := make([]protocol.FileInfo, 0, 2)
+		snap.WithNeed(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
+			needed = append(needed, fi.(protocol.FileInfo))
+			return true
+		})
+		if l := len(needed); l != 2 {
+			t.Errorf("Expected 2 needed files locally, got %v in db", l)
+		} else if needed[0].Name != "c" || needed[1].Name != "d" {
+			t.Errorf("Expected files c and d to be needed, got %v and %v", needed[0].Name, needed[1].Name)
+		}
+	}
+
+	checkNeed()
+
+	trans, err := db.newReadWriteTransaction()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer trans.close()
+
+	// Add "b" to needed and remove "d"
+	folder := []byte(folderStr)
+	key, err := trans.keyer.GenerateNeedFileKey(nil, folder, []byte(files[1].Name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = trans.Put(key, nil); err != nil {
+		t.Fatal(err)
+	}
+	key, err = trans.keyer.GenerateNeedFileKey(nil, folder, []byte(files[3].Name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = trans.Delete(key); err != nil {
+		t.Fatal(err)
+	}
+	if err := trans.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	if repaired, err := db.checkLocalNeed(folder); err != nil {
+		t.Fatal(err)
+	} else if repaired != 2 {
+		t.Error("Expected 2 repaired local need items, got", repaired)
+	}
+
+	checkNeed()
+}
+
+func TestDuplicateNeedCount(t *testing.T) {
+	db := NewLowlevel(backend.OpenMemory())
+	defer db.Close()
+
+	folder := "test"
+	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, "")
+
+	fs := NewFileSet(folder, testFs, db)
+	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID), Sequence: 1}}
+	fs.Update(protocol.LocalDeviceID, files)
+	files[0].Version = files[0].Version.Update(remoteDevice0.Short())
+	fs.Update(remoteDevice0, files)
+
+	db.checkRepair()
+
+	fs = NewFileSet(folder, testFs, db)
+	found := false
+	for _, c := range fs.meta.counts.Counts {
+		if bytes.Equal(protocol.LocalDeviceID[:], c.DeviceID) && c.LocalFlags == needFlag {
+			if found {
+				t.Fatal("second need count for local device encountered")
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("no need count for local device encountered")
+	}
+}
+
+func numBlockLists(db *Lowlevel) (int, error) {
+	it, err := db.Backend.NewPrefixIterator([]byte{KeyTypeBlockList})
+	if err != nil {
+		return 0, err
+	}
+	defer it.Release()
+	n := 0
+	for it.Next() {
+		n++
+	}
+	if err := it.Error(); err != nil {
+		return 0, err
+	}
+	return n, nil
 }

@@ -178,13 +178,15 @@ var IsPermission = os.IsPermission
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
 
-func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
+type Option func(Filesystem)
+
+func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
 	var fs Filesystem
 	switch fsType {
 	case FilesystemTypeBasic:
-		fs = newBasicFilesystem(uri)
+		fs = newBasicFilesystem(uri, opts...)
 	case FilesystemTypeFake:
-		fs = newFakeFilesystem(uri)
+		fs = newFakeFilesystem(uri, opts...)
 	default:
 		l.Debugln("Unknown filesystem", fsType, uri)
 		fs = &errorFilesystem{
@@ -256,4 +258,20 @@ func Canonicalize(file string) (string, error) {
 	}
 
 	return file, nil
+}
+
+// unwrapFilesystem removes "wrapping" filesystems to expose the underlying filesystem.
+func unwrapFilesystem(fs Filesystem) Filesystem {
+	for {
+		switch sfs := fs.(type) {
+		case *logFilesystem:
+			fs = sfs.Filesystem
+		case *walkFilesystem:
+			fs = sfs.Filesystem
+		case *MtimeFS:
+			fs = sfs.Filesystem
+		default:
+			return sfs
+		}
+	}
 }

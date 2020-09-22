@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// +build go1.12
+// +build go1.12,!noquic
 
 package connections
 
@@ -170,7 +170,10 @@ func (t *quicListener) WANAddresses() []*url.URL {
 }
 
 func (t *quicListener) LANAddresses() []*url.URL {
-	return []*url.URL{t.uri}
+	addrs := []*url.URL{t.uri}
+	network := strings.Replace(t.uri.Scheme, "quic", "udp", -1)
+	addrs = append(addrs, getURLsForAllAdaptersIfUnspecified(network, t.uri)...)
+	return addrs
 }
 
 func (t *quicListener) String() string {

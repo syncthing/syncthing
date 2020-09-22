@@ -74,10 +74,6 @@ func (c *mockedConfig) AddOrUpdatePendingDevice(device protocol.DeviceID, name, 
 
 func (c *mockedConfig) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {}
 
-func (c *mockedConfig) MyName() string {
-	return ""
-}
-
 func (c *mockedConfig) ConfigPath() string {
 	return ""
 }

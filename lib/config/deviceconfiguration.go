@@ -13,26 +13,6 @@ import (
 	"github.com/syncthing/syncthing/lib/util"
 )
 
-type DeviceConfiguration struct {
-	DeviceID                 protocol.DeviceID    `xml:"id,attr" json:"deviceID"`
-	Name                     string               `xml:"name,attr,omitempty" json:"name"`
-	Addresses                []string             `xml:"address,omitempty" json:"addresses" default:"dynamic"`
-	Compression              protocol.Compression `xml:"compression,attr" json:"compression"`
-	CertName                 string               `xml:"certName,attr,omitempty" json:"certName"`
-	Introducer               bool                 `xml:"introducer,attr" json:"introducer"`
-	SkipIntroductionRemovals bool                 `xml:"skipIntroductionRemovals,attr" json:"skipIntroductionRemovals"`
-	IntroducedBy             protocol.DeviceID    `xml:"introducedBy,attr" json:"introducedBy"`
-	Paused                   bool                 `xml:"paused" json:"paused"`
-	AllowedNetworks          []string             `xml:"allowedNetwork,omitempty" json:"allowedNetworks"`
-	AutoAcceptFolders        bool                 `xml:"autoAcceptFolders" json:"autoAcceptFolders"`
-	MaxSendKbps              int                  `xml:"maxSendKbps" json:"maxSendKbps"`
-	MaxRecvKbps              int                  `xml:"maxRecvKbps" json:"maxRecvKbps"`
-	IgnoredFolders           []ObservedFolder     `xml:"ignoredFolder" json:"ignoredFolders"`
-	MaxRequestKiB            int                  `xml:"maxRequestKiB" json:"maxRequestKiB"`
-
-	DeprecatedPendingFolders []ObservedFolder `xml:"pendingFolder,omitempty" json:"-"`
-}
-
 func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfiguration {
 	d := DeviceConfiguration{
 		DeviceID: id,

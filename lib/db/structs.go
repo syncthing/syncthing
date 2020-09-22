@@ -4,14 +4,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate go run ../../script/protofmt.go structs.proto
-//go:generate protoc -I ../../ -I . --gogofast_out=Mlib/protocol/bep.proto=github.com/syncthing/syncthing/lib/protocol:. structs.proto
+//go:generate go run ../../proto/scripts/protofmt.go structs.proto
+//go:generate protoc -I ../../ -I ../../proto -I . --gogofast_out=Mlib/protocol/bep.proto=github.com/syncthing/syncthing/lib/protocol:. structs.proto
 
 package db
 
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -186,6 +187,33 @@ func (c Counts) TotalItems() int32 {
 	return c.Files + c.Directories + c.Symlinks + c.Deleted
 }
 
+func (c Counts) String() string {
+	dev, _ := protocol.DeviceIDFromBytes(c.DeviceID)
+	var flags strings.Builder
+	if c.LocalFlags&needFlag != 0 {
+		flags.WriteString("Need")
+	}
+	if c.LocalFlags&protocol.FlagLocalIgnored != 0 {
+		flags.WriteString("Ignored")
+	}
+	if c.LocalFlags&protocol.FlagLocalMustRescan != 0 {
+		flags.WriteString("Rescan")
+	}
+	if c.LocalFlags&protocol.FlagLocalReceiveOnly != 0 {
+		flags.WriteString("Recvonly")
+	}
+	if c.LocalFlags&protocol.FlagLocalUnsupported != 0 {
+		flags.WriteString("Unsupported")
+	}
+	if c.LocalFlags != 0 {
+		flags.WriteString(fmt.Sprintf("(%x)", c.LocalFlags))
+	}
+	if flags.Len() == 0 {
+		flags.WriteString("---")
+	}
+	return fmt.Sprintf("{Device:%v, Files:%d, Dirs:%d, Symlinks:%d, Del:%d, Bytes:%d, Seq:%d, Flags:%s}", dev, c.Files, c.Directories, c.Symlinks, c.Deleted, c.Bytes, c.Sequence, flags.String())
+}
+
 // Equal compares the numbers only, not sequence/dev/flags.
 func (c Counts) Equal(o Counts) bool {
 	return c.Files == o.Files && c.Directories == o.Directories && c.Symlinks == o.Symlinks && c.Deleted == o.Deleted && c.Bytes == o.Bytes
@@ -199,7 +227,7 @@ func (vl VersionList) String() string {
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		fmt.Fprintf(&b, "{%v, {", v.Version)
+		fmt.Fprintf(&b, "{Version:%v, Deleted:%v, Devices:{", v.Version, v.Deleted)
 		for j, dev := range v.Devices {
 			if j > 0 {
 				b.WriteString(", ")
@@ -207,7 +235,7 @@ func (vl VersionList) String() string {
 			copy(id[:], dev)
 			fmt.Fprint(&b, id.Short())
 		}
-		b.WriteString("}, {")
+		b.WriteString("}, Invalid:{")
 		for j, dev := range v.InvalidDevices {
 			if j > 0 {
 				b.WriteString(", ")
@@ -234,9 +262,10 @@ func (vl *VersionList) update(folder, device []byte, file protocol.FileIntf, t r
 
 	// Get the current global (before updating)
 	oldFV, haveOldGlobal := vl.GetGlobal()
+	oldFV = oldFV.copy()
 
 	// Remove ourselves first
-	removedFV, haveRemoved, _, err := vl.pop(folder, device, []byte(file.FileName()), t)
+	removedFV, haveRemoved, _, err := vl.pop(device, []byte(file.FileName()))
 	if err == nil {
 		// Find position and insert the file
 		err = vl.insert(folder, device, file, t)
@@ -286,10 +315,10 @@ func (vl *VersionList) insertAt(i int, v FileVersion) {
 	vl.RawVersions[i] = v
 }
 
-// pop returns the VersionList without the entry for the given device, as well
-// as the removed FileVersion, whether it was found/removed at all and whether
+// pop removes the given device from the VersionList and returns the FileVersion
+// before removing the device, whether it was found/removed at all and whether
 // the global changed in the process.
-func (vl *VersionList) pop(folder, device, name []byte, t readOnlyTransaction) (FileVersion, bool, bool, error) {
+func (vl *VersionList) pop(device, name []byte) (FileVersion, bool, bool, error) {
 	invDevice, i, j, ok := vl.findDevice(device)
 	if !ok {
 		return FileVersion{}, false, false, nil
@@ -302,6 +331,7 @@ func (vl *VersionList) pop(folder, device, name []byte, t readOnlyTransaction) (
 		return fv, true, globalPos == i, nil
 	}
 
+	oldFV := vl.RawVersions[i].copy()
 	if invDevice {
 		vl.RawVersions[i].InvalidDevices = popDeviceAt(vl.RawVersions[i].InvalidDevices, j)
 	} else {
@@ -310,9 +340,9 @@ func (vl *VersionList) pop(folder, device, name []byte, t readOnlyTransaction) (
 	// If the last valid device of the previous global was removed above,
 	// the next entry is now the global entry (unless all entries are invalid).
 	if len(vl.RawVersions[i].Devices) == 0 && globalPos == i {
-		return vl.RawVersions[i], true, globalPos == vl.findGlobal(), nil
+		return oldFV, true, globalPos == vl.findGlobal(), nil
 	}
-	return vl.RawVersions[i], true, false, nil
+	return oldFV, true, false, nil
 }
 
 // Get returns a FileVersion that contains the given device and whether it has
@@ -506,6 +536,14 @@ func (fv FileVersion) IsInvalid() bool {
 
 func (fv FileVersion) deviceCount() int {
 	return len(fv.Devices) + len(fv.InvalidDevices)
+}
+
+func (fv FileVersion) copy() FileVersion {
+	n := fv
+	n.Version = fv.Version.Copy()
+	n.Devices = append([][]byte{}, fv.Devices...)
+	n.InvalidDevices = append([][]byte{}, fv.InvalidDevices...)
+	return n
 }
 
 type fileList []protocol.FileInfo

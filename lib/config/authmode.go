@@ -6,13 +6,6 @@
 
 package config
 
-type AuthMode int
-
-const (
-	AuthModeStatic AuthMode = iota // default is static
-	AuthModeLDAP
-)
-
 func (t AuthMode) String() string {
 	switch t {
 	case AuthModeStatic:
