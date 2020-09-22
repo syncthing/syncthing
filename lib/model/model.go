@@ -2598,7 +2598,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	// Forget pending folder/device combinations that are now shared or ignored, plus
 	// any for our own device ID (should not happen, treat us like an unknown device)
-	forgetPending.UnknownDevice(to.MyID)
+	forgetPending.UnknownDevice(m.id)
 	m.db.CleanPendingFolders(forgetPending)
 
 	// Forget pending devices that are now ignored
@@ -2613,7 +2613,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 	// Make sure we don't keep our local device as pending (should not happen, treat
 	// us like a known device)
-	forgetPending.KnownDevice(to.MyID)
+	forgetPending.KnownDevice(m.id)
 	m.db.CleanPendingDevices(forgetPending)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
