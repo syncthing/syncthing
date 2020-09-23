@@ -188,14 +188,9 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			}
 		}()
 
-	loop:
 		for _, file := range filesToHash {
 			l.Debugln("real to hash:", file.Name)
-			select {
-			case realToHashChan <- file:
-			case <-ctx.Done():
-				break loop
-			}
+			realToHashChan <- file
 		}
 		close(realToHashChan)
 	}()
@@ -369,11 +364,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 
 	l.Debugln("to hash:", relPath, f)
 
-	select {
-	case toHashChan <- f:
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	toHashChan <- f
 
 	return nil
 }
