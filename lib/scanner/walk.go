@@ -188,6 +188,10 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			}
 		}()
 
+		// We do not abort on context here because the link between the
+		// filesystem walker and the hasher must not be interrupted, otherwise
+		// the hasher might close finishedChan (returned to caller) before
+		// the filesystem walker is done.
 		for _, file := range filesToHash {
 			l.Debugln("real to hash:", file.Name)
 			realToHashChan <- file
@@ -364,7 +368,11 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 
 	l.Debugln("to hash:", relPath, f)
 
-	toHashChan <- f
+	select {
+	case toHashChan <- f:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 
 	return nil
 }
