@@ -136,6 +136,8 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 
 func (ph *parallelHasher) closeWhenDone() {
 	ph.wg.Wait()
+	// In case the hasher aborted on context, wait for filesystem
+	// walking/progress routine to finish.
 	for range ph.inbox {
 	}
 	if ph.done != nil {
