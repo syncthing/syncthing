@@ -45,7 +45,7 @@ require (
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
 	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc
-	golang.org/x/sys v0.0.0-20200819171115-d785dc25833f
+	golang.org/x/sys v0.0.0-20200922070232-aee5d888a860
 	golang.org/x/text v0.3.3
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	google.golang.org/protobuf v1.25.0 // indirect
