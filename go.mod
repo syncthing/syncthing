@@ -24,6 +24,7 @@ require (
 	github.com/greatroar/blobloom v0.3.0
 	github.com/jackpal/gateway v1.0.6
 	github.com/jackpal/go-nat-pmp v1.0.2
+	github.com/julienschmidt/httprouter v1.2.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.2.0
