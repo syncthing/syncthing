@@ -44,12 +44,12 @@ type sharedPullerState struct {
 	pullNeeded        int             // Number of block pulls still pending
 	updated           time.Time       // Time when any of the counters above were last updated
 	closed            bool            // True if the file has been finalClosed.
-	available         []int32         // Indexes of the blocks that are available in the temporary file
+	available         []int           // Indexes of the blocks that are available in the temporary file
 	availableUpdated  time.Time       // Time when list of available blocks was last updated
 	mut               sync.RWMutex    // Protects the above
 }
 
-func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, tempName string, blocks []protocol.BlockInfo, reused []int32, ignorePerms, hasCurFile bool, curFile protocol.FileInfo, sparse bool, fsync bool) *sharedPullerState {
+func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, tempName string, blocks []protocol.BlockInfo, reused []int, ignorePerms, hasCurFile bool, curFile protocol.FileInfo, sparse bool, fsync bool) *sharedPullerState {
 	return &sharedPullerState{
 		file:             file,
 		fs:               fs,
@@ -244,7 +244,7 @@ func (s *sharedPullerState) copyDone(block protocol.BlockInfo) {
 	s.mut.Lock()
 	s.copyNeeded--
 	s.updated = time.Now()
-	s.available = append(s.available, int32(block.Offset/int64(s.file.BlockSize())))
+	s.available = append(s.available, int(block.Offset/int64(s.file.BlockSize())))
 	s.availableUpdated = time.Now()
 	l.Debugln("sharedPullerState", s.folder, s.file.Name, "copyNeeded ->", s.copyNeeded)
 	s.mut.Unlock()
@@ -280,7 +280,7 @@ func (s *sharedPullerState) pullDone(block protocol.BlockInfo) {
 	s.mut.Lock()
 	s.pullNeeded--
 	s.updated = time.Now()
-	s.available = append(s.available, int32(block.Offset/int64(s.file.BlockSize())))
+	s.available = append(s.available, int(block.Offset/int64(s.file.BlockSize())))
 	s.availableUpdated = time.Now()
 	l.Debugln("sharedPullerState", s.folder, s.file.Name, "pullNeeded done ->", s.pullNeeded)
 	s.mut.Unlock()
@@ -359,7 +359,7 @@ func (s *sharedPullerState) AvailableUpdated() time.Time {
 }
 
 // Available returns blocks available in the current temporary file
-func (s *sharedPullerState) Available() []int32 {
+func (s *sharedPullerState) Available() []int {
 	s.mut.RLock()
 	blocks := s.available
 	s.mut.RUnlock()

@@ -712,9 +712,9 @@ type FolderCompletion struct {
 	CompletionPct float64
 	GlobalBytes   int64
 	NeedBytes     int64
-	GlobalItems   int32
-	NeedItems     int32
-	NeedDeletes   int32
+	GlobalItems   int
+	NeedItems     int
+	NeedDeletes   int
 	Sequence      int64
 }
 
@@ -2430,7 +2430,7 @@ next:
 	}
 
 	for _, device := range cfg.Devices {
-		if m.deviceDownloads[device.DeviceID].Has(folder, file.Name, file.Version, int32(block.Offset/int64(file.BlockSize()))) {
+		if m.deviceDownloads[device.DeviceID].Has(folder, file.Name, file.Version, int(block.Offset/int64(file.BlockSize()))) {
 			availabilities = append(availabilities, Availability{ID: device.DeviceID, FromTemporary: true})
 		}
 	}
@@ -2633,7 +2633,7 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 		updates = append(updates, protocol.FileDownloadProgressUpdate{
 			Name:       file.Name,
 			Version:    file.Version,
-			UpdateType: protocol.UpdateTypeForget,
+			UpdateType: protocol.FileDownloadProgressUpdateTypeForget,
 		})
 	}
 	return updates

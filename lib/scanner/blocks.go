@@ -83,7 +83,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		thisHash, hashes = hashes[:hashLength], hashes[hashLength:]
 
 		b := protocol.BlockInfo{
-			Size:     int32(n),
+			Size:     int(n),
 			Offset:   offset,
 			Hash:     thisHash,
 			WeakHash: weakHf.Sum32(),
