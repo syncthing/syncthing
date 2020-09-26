@@ -260,6 +260,12 @@ func TestMarshalIndexMessage(t *testing.T) {
 			m1.Files = nil
 		}
 		for i, f := range m1.Files {
+			if len(f.BlocksHash) == 0 {
+				m1.Files[i].BlocksHash = nil
+			}
+			if len(f.VersionHash) == 0 {
+				m1.Files[i].VersionHash = nil
+			}
 			if len(f.Blocks) == 0 {
 				m1.Files[i].Blocks = nil
 			} else {
@@ -330,7 +336,13 @@ func TestMarshalClusterConfigMessage(t *testing.T) {
 			if len(m1.Folders[i].Devices) == 0 {
 				m1.Folders[i].Devices = nil
 			}
+			for j := range m1.Folders[i].Devices {
+				if len(m1.Folders[i].Devices[j].Addresses) == 0 {
+					m1.Folders[i].Devices[j].Addresses = nil
+				}
+			}
 		}
+
 		return testMarshal(t, "clusterconfig", &m1, &ClusterConfig{})
 	}
 
@@ -362,7 +374,10 @@ func TestMarshalFDPU(t *testing.T) {
 		if len(m1.Version.Counters) == 0 {
 			m1.Version.Counters = nil
 		}
-		return testMarshal(t, "close", &m1, &FileDownloadProgressUpdate{})
+		if len(m1.BlockIndexes) == 0 {
+			m1.BlockIndexes = nil
+		}
+		return testMarshal(t, "fdpu", &m1, &FileDownloadProgressUpdate{})
 	}
 
 	if err := quick.Check(f, quickCfg); err != nil {

@@ -52,7 +52,7 @@ func TurnOnProtoSizerAll(file *descriptor.FileDescriptorProto) {
 func TurnOffNullableForMessages(field *descriptor.FieldDescriptorProto) {
 	if !vanity.FieldHasBoolExtension(field, gogoproto.E_Nullable) {
 		_, hasCustomType := GetFieldStringExtension(field, gogoproto.E_Customtype)
-		if field.IsMessage() || hasCustomType {
+		if field.IsMessage() || hasCustomType || field.IsRepeated() || field.IsBytes() {
 			vanity.SetBoolFieldOption(gogoproto.E_Nullable, false)(field)
 		}
 	}
