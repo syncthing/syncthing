@@ -60,9 +60,9 @@ type Report struct {
 	DeviceUses struct {
 		Introducer       int `json:"introducer,omitempty" since:"2"`
 		CustomCertName   int `json:"customCertName,omitempty" since:"2"`
-		CompressAlways   int `json:"compressAlways,omitempty" since:"2"`
-		CompressMetadata int `json:"compressMetadata,omitempty" since:"2"`
-		CompressNever    int `json:"compressNever,omitempty" since:"2"`
+		CompressionAlways   int `json:"compressAlways,omitempty" since:"2"`
+		CompressionMetadata int `json:"compressMetadata,omitempty" since:"2"`
+		CompressionNever    int `json:"compressNever,omitempty" since:"2"`
 		DynamicAddr      int `json:"dynamicAddr,omitempty" since:"2"`
 		StaticAddr       int `json:"staticAddr,omitempty" since:"2"`
 	} `json:"deviceUses,omitempty" since:"2"`
@@ -211,8 +211,8 @@ func (r *Report) FieldPointers() []interface{} {
 		// V2
 		&r.URVersion, &r.NumCPU, &r.FolderUses.SendOnly, &r.FolderUses.IgnorePerms,
 		&r.FolderUses.IgnoreDelete, &r.FolderUses.AutoNormalize, &r.DeviceUses.Introducer,
-		&r.DeviceUses.CustomCertName, &r.DeviceUses.CompressAlways,
-		&r.DeviceUses.CompressMetadata, &r.DeviceUses.CompressNever,
+		&r.DeviceUses.CustomCertName, &r.DeviceUses.CompressionAlways,
+		&r.DeviceUses.CompressionMetadata, &r.DeviceUses.CompressionNever,
 		&r.DeviceUses.DynamicAddr, &r.DeviceUses.StaticAddr,
 		&r.Announce.GlobalEnabled, &r.Announce.LocalEnabled,
 		&r.Announce.DefaultServersDNS, &r.Announce.DefaultServersIP,
@@ -289,9 +289,9 @@ func (r *Report) FieldNames() []string {
 		"FolderAutoNormalize",
 		"DeviceIntroducer",
 		"DeviceCustomCertName",
-		"DeviceCompressAlways",
-		"DeviceCompressMetadata",
-		"DeviceCompressNever",
+		"DeviceCompressionAlways",
+		"DeviceCompressionMetadata",
+		"DeviceCompressionNever",
 		"DeviceDynamicAddr",
 		"DeviceStaticAddr",
 		"AnnounceGlobalEnabled",

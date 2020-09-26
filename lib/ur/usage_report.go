@@ -165,11 +165,11 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 		}
 		switch cfg.Compression {
 		case protocol.CompressionAlways:
-			report.DeviceUses.CompressAlways++
+			report.DeviceUses.CompressionAlways++
 		case protocol.CompressionMetadata:
-			report.DeviceUses.CompressMetadata++
+			report.DeviceUses.CompressionMetadata++
 		case protocol.CompressionNever:
-			report.DeviceUses.CompressNever++
+			report.DeviceUses.CompressionNever++
 		default:
 			l.Warnf("Unhandled versioning type for usage reports: %s", cfg.Compression)
 		}

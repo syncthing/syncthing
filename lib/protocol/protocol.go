@@ -499,7 +499,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (
 	case MessageCompressionNone:
 		// Nothing
 
-	case MessageCompressionLz4:
+	case MessageCompressionLZ4:
 		decomp, err := c.lz4Decompress(buf)
 		BufferPool.Put(buf)
 		if err != nil {
@@ -725,7 +725,7 @@ func (c *rawConnection) writeCompressedMessage(msg message) error {
 
 	hdr := Header{
 		Type:        c.typeOf(msg),
-		Compression: MessageCompressionLz4,
+		Compression: MessageCompressionLZ4,
 	}
 	hdrSize := hdr.ProtoSize()
 	if hdrSize > 1<<16-1 {

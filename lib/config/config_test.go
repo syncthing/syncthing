@@ -137,7 +137,7 @@ func TestDeviceConfig(t *testing.T) {
 				DeviceID:        device1,
 				Name:            "node one",
 				Addresses:       []string{"tcp://a"},
-				Compression:     protocol.CompressMetadata,
+				Compression:     protocol.CompressionMetadata,
 				AllowedNetworks: []string{},
 				IgnoredFolders:  []ObservedFolder{},
 				PendingFolders:  []ObservedFolder{},
@@ -146,7 +146,7 @@ func TestDeviceConfig(t *testing.T) {
 				DeviceID:        device4,
 				Name:            "node two",
 				Addresses:       []string{"tcp://b"},
-				Compression:     protocol.CompressMetadata,
+				Compression:     protocol.CompressionMetadata,
 				AllowedNetworks: []string{},
 				IgnoredFolders:  []ObservedFolder{},
 				PendingFolders:  []ObservedFolder{},
@@ -265,7 +265,7 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 			DeviceID:        device4,
 			Name:            name, // Set when auto created
 			Addresses:       []string{"dynamic"},
-			Compression:     protocol.CompressMetadata,
+			Compression:     protocol.CompressionMetadata,
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
@@ -289,7 +289,7 @@ func TestDeviceCompression(t *testing.T) {
 		device1: {
 			DeviceID:        device1,
 			Addresses:       []string{"dynamic"},
-			Compression:     protocol.CompressMetadata,
+			Compression:     protocol.CompressionMetadata,
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
@@ -297,7 +297,7 @@ func TestDeviceCompression(t *testing.T) {
 		device2: {
 			DeviceID:        device2,
 			Addresses:       []string{"dynamic"},
-			Compression:     protocol.CompressMetadata,
+			Compression:     protocol.CompressionMetadata,
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
@@ -305,7 +305,7 @@ func TestDeviceCompression(t *testing.T) {
 		device3: {
 			DeviceID:        device3,
 			Addresses:       []string{"dynamic"},
-			Compression:     protocol.CompressNever,
+			Compression:     protocol.CompressionNever,
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
@@ -314,7 +314,7 @@ func TestDeviceCompression(t *testing.T) {
 			DeviceID:        device4,
 			Name:            name, // Set when auto created
 			Addresses:       []string{"dynamic"},
-			Compression:     protocol.CompressMetadata,
+			Compression:     protocol.CompressionMetadata,
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
@@ -360,7 +360,7 @@ func TestDeviceAddressesStatic(t *testing.T) {
 			DeviceID:        device4,
 			Name:            name, // Set when auto created
 			Addresses:       []string{"dynamic"},
-			Compression:     protocol.CompressMetadata,
+			Compression:     protocol.CompressionMetadata,
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
