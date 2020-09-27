@@ -686,9 +686,9 @@ func getReport(db *sql.DB) map[string]interface{} {
 			inc(features["Device"]["v2"], "Custom certificate", rep.DeviceUses.CustomCertName)
 			inc(features["Device"]["v2"], "Introducer", rep.DeviceUses.Introducer)
 
-			add(featureGroups["Device"]["v2"], "Compress", "Always", rep.DeviceUses.CompressionAlways)
-			add(featureGroups["Device"]["v2"], "Compress", "Metadata", rep.DeviceUses.CompressionMetadata)
-			add(featureGroups["Device"]["v2"], "Compress", "Nothing", rep.DeviceUses.CompressionNever)
+			add(featureGroups["Device"]["v2"], "Compress", "Always", rep.DeviceUses.CompressAlways)
+			add(featureGroups["Device"]["v2"], "Compress", "Metadata", rep.DeviceUses.CompressMetadata)
+			add(featureGroups["Device"]["v2"], "Compress", "Nothing", rep.DeviceUses.CompressNever)
 
 			add(featureGroups["Device"]["v2"], "Addresses", "Dynamic", rep.DeviceUses.DynamicAddr)
 			add(featureGroups["Device"]["v2"], "Addresses", "Static", rep.DeviceUses.StaticAddr)
