@@ -9,6 +9,7 @@ package db
 import (
 	"time"
 
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -150,117 +151,106 @@ func (db *Lowlevel) deleteInvalidPendingFolder(key []byte) error {
 	return err
 }
 
-// decisionMap collects the information about what devices and folders can be pending, for
-// making decisions in CleanPendingFolders() and CleanPendingDevices(). It enumerates a
-// set of device IDs which should not be pending **devices**, but for which **folders**
-// can be pending.  For each device, specific folder IDs are enumerated for which the
-// device+folder combination should not be pending, although the device alone would allow.
-type decisionMap map[protocol.DeviceID]map[string]struct{}
 
-func NewCleanPendingDecisions() decisionMap {
-	return make(decisionMap)
+type PendingDeviceIterator interface {
+	backend.Iterator
+	NextValid() bool
+	DeviceID() protocol.DeviceID
+	Forget()
 }
 
-func (dl decisionMap) KnownDevice(device protocol.DeviceID) map[string]struct{} {
-	folders, ok := dl[device]
-	if !ok {
-		dl[device] = nil
-	}
-	return folders
+type PendingFolderIterator interface {
+	PendingDeviceIterator
+	FolderID() string
 }
 
-func (dl decisionMap) UnknownDevice(device protocol.DeviceID) {
-	delete(dl, device)
+type pendingDeviceIterator struct {
+	backend.Iterator
+
+	db       *Lowlevel
+	deviceID protocol.DeviceID
 }
 
-func (dl decisionMap) DropFolder(folder string, devices []protocol.DeviceID) {
-	for _, dev := range devices {
-		folders := dl.KnownDevice(dev)
-		if folders == nil {
-			folders = make(map[string]struct{})
-			dl[dev] = folders
-		}
-		folders[folder] = struct{}{}
-	}
+type pendingFolderIterator struct {
+	pendingDeviceIterator
+
+	folderID string
 }
 
-// shouldDropPendingDevice defines how the decisionMap is interpreted for pending devices
-func (dl decisionMap) shouldDropPendingDevice(key []byte, keyer keyer) bool {
-	keyDev := keyer.DeviceFromPendingDeviceKey(key)
-	deviceID, err := protocol.DeviceIDFromBytes(keyDev)
-	if err != nil {
-		l.Infof("Invalid pending device entry, deleting from database: %x", key)
-		return true
-	}
-	// Valid entries are looked up in the drop-list, invalid ones cleaned up
-	_, dropDevice := dl[deviceID]
-	if dropDevice {
-		l.Debugf("Removing marked pending device %v", deviceID)
-	}
-	return dropDevice
-}
+func (db *Lowlevel) NewPendingDeviceIterator() PendingDeviceIterator {
+	var res pendingDeviceIterator
 
-// shouldDropPendingFolder defines how the decisionMap is interpreted for pending folders,
-// which is different and more nested than for devices
-func (dl decisionMap) shouldDropPendingFolder(key []byte, keyer keyer) bool {
-	keyDev, ok := keyer.DeviceFromPendingFolderKey(key)
-	deviceID, err := protocol.DeviceIDFromBytes(keyDev)
-	if !ok || err != nil {
-		l.Infof("Invalid pending folder entry, deleting from database: %x", key)
-		return true
-	}
-	// Valid entries are looked up in the drop-list, invalid ones cleaned up
-	dropFolders, allowDevice := dl[deviceID]
-	// Check the associated set of folders if provided, otherwise drop.
-	if !allowDevice {
-		l.Debugf("Removing pending folder offered by %v", deviceID)
-		return true
-	}
-	if len(dropFolders) == 0 {
-		// Map is empty or nil, skip lookup
-		return false
-	}
-	folderID := keyer.FolderFromPendingFolderKey(key)
-	// Drop only mentioned folder IDs
-	_, dropFolder := dropFolders[string(folderID)]
-	if dropFolder {
-		l.Debugf("Removing marked pending folder %s for %v", folderID, deviceID)
-	}
-	return dropFolder
-}
-
-// CleanPendingDevices removes pending device entries according to the device IDs
-// enumerated in the decisionMap.
-func (db *Lowlevel) CleanPendingDevices(dropList decisionMap) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
 		l.Infof("Could not iterate through pending device entries for cleanup: %v", err)
-		return
+		return res
 	}
-	defer iter.Release()
-	for iter.Next() {
-		if dropList.shouldDropPendingDevice(iter.Key(), db.keyer) {
-			if err := db.Delete(iter.Key()); err != nil {
-				l.Warnf("Failed to remove pending device entry: %v", err)
-			}
-		}
-	}
+	res.Iterator = iter
+	res.db = db
+	return res
 }
 
-// CleanPendingFolders removes pending folder entries according to the device and folder
-// IDs enumerated in the decisionMap.
-func (db *Lowlevel) CleanPendingFolders(dropList decisionMap) {
+func (db *Lowlevel) NewPendingFolderIterator() PendingFolderIterator {
+	var res pendingFolderIterator
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
-		return
+		return res
 	}
-	defer iter.Release()
-	for iter.Next() {
-		if dropList.shouldDropPendingFolder(iter.Key(), db.keyer) {
-			if err := db.Delete(iter.Key()); err != nil {
-				l.Warnf("Failed to remove pending folder entry: %v", err)
-			}
+	res.Iterator = iter
+	res.db = db
+	return res
+}
+
+// NextValid discards invalid entries after logging a message.  That's the only possible
+// "repair" measure and appropriate for the importance of pending entries.  They will come
+// back soon if still relevant.
+func (iter pendingDeviceIterator) NextValid() bool {
+	for iter.Iterator.Next() {
+		keyDev := iter.db.keyer.DeviceFromPendingDeviceKey(iter.Key())
+		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
+		if err != nil {
+			l.Infof("Invalid pending device entry, deleting from database: %x", iter.Key())
+			iter.Forget()
+			continue
 		}
+		iter.deviceID = deviceID
+		return true
+	}
+	return false
+}
+
+// NextValid discards invalid entries after logging a message.  That's the only possible
+// "repair" measure and appropriate for the importance of pending entries.  They will come
+// back soon if still relevant.
+func (iter pendingFolderIterator) NextValid() bool {
+	for iter.Iterator.Next() {
+		keyDev, ok := iter.db.keyer.DeviceFromPendingFolderKey(iter.Key())
+		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
+		if !ok || err != nil {
+			l.Infof("Invalid pending folder entry, deleting from database: %x", iter.Key())
+			iter.Forget()
+			continue
+		}
+		iter.deviceID = deviceID
+		iter.folderID = string(iter.db.keyer.FolderFromPendingFolderKey(iter.Key()))
+		return true
+	}
+	return false
+}
+
+func (iter pendingDeviceIterator) DeviceID() protocol.DeviceID {
+	return iter.deviceID
+}
+
+func (iter pendingFolderIterator) FolderID() string {
+	return iter.folderID
+}
+
+func (iter pendingDeviceIterator) Forget() {
+	l.Debugf("Removing pending device / folder %v", iter.deviceID)
+	if err := iter.db.Delete(iter.Key()); err != nil {
+		l.Warnf("Failed to remove pending entry: %v", err)
+		return
 	}
 }

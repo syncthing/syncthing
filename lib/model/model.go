@@ -249,33 +249,15 @@ func (m *model) ServeBackground() {
 func (m *model) onServe() {
 	// Add and start folders
 	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
-	forgetPending := db.NewCleanPendingDecisions()
-	for _, folderCfg := range m.cfg.Folders() {
-		// Forget pending folder/device combinations that are now shared
-		forgetPending.DropFolder(folderCfg.ID, folderCfg.DeviceIDs())
+	for _, folderCfg := range m.cfg.FolderList() {
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
 		}
 		m.newFolder(folderCfg, cacheIgnoredFiles)
 	}
-	for deviceID, deviceCfg := range m.cfg.Devices() {
-		// Forget pending devices that are now added, along with their ignored folders
-		forgetPending.KnownDevice(deviceID)
-		for _, ignoredFolder := range deviceCfg.IgnoredFolders {
-			forgetPending.DropFolder(ignoredFolder.ID, []protocol.DeviceID{deviceID})
-		}
-	}
-	// Clean pending folder entries as collected above
-	m.db.CleanPendingFolders(forgetPending)
 
-	// Forget pending devices that are now ignored
-	for _, ignoredDevice := range m.cfg.IgnoredDevices() {
-		forgetPending.KnownDevice(ignoredDevice.ID)
-		// Associated pending folders have already been cleaned up by not listing
-		// in forgetPending before.
-	}
-	m.db.CleanPendingDevices(forgetPending)
+	m.cleanPending(m.cfg.RawCopy(), nil)
 
 	m.cfg.Subscribe(m)
 }
@@ -2455,10 +2437,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	fromFolders := mapFolders(from.Folders)
 	toFolders := mapFolders(to.Folders)
-	forgetPending := db.NewCleanPendingDecisions()
 	for folderID, cfg := range toFolders {
-		// Record shared devices of this folder to remove possibly pending entries
-		forgetPending.DropFolder(cfg.ID, cfg.DeviceIDs())
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
@@ -2471,18 +2450,14 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
+	removedFolders := make(map[string]bool)
 	for folderID, fromCfg := range fromFolders {
 		toCfg, ok := toFolders[folderID]
 		if !ok {
 			// The folder was removed.
 			m.removeFolder(fromCfg)
 			clusterConfigDevices = addDeviceIDsToMap(clusterConfigDevices, fromCfg.DeviceIDs())
-			// Forget pending folder device associations as well, assuming the
-			// folder is no longer of interest at all (but might become
-			// pending again).
-			for _, dev := range from.Devices {
-				forgetPending.DropFolder(folderID, []protocol.DeviceID{dev.DeviceID})
-			}
+			removedFolders[fromCfg.ID] = true
 			continue
 		}
 
@@ -2520,11 +2495,6 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	toDevices := to.DeviceMap()
 	closeDevices := make([]protocol.DeviceID, 0, len(to.Devices))
 	for deviceID, toCfg := range toDevices {
-		// Forget pending devices that are now added, along with their ignored folders
-		forgetPending.KnownDevice(deviceID)
-		for _, ignFolder := range toCfg.IgnoredFolders {
-			forgetPending.DropFolder(ignFolder.ID, []protocol.DeviceID{deviceID})
-		}
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
 			sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
@@ -2581,25 +2551,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 	m.pmut.RUnlock()
 
-	// Forget pending folder/device combinations that are now shared or ignored, plus
-	// any for our own device ID (should not happen, treat us like an unknown device)
-	forgetPending.UnknownDevice(m.id)
-	m.db.CleanPendingFolders(forgetPending)
-
-	// Forget pending devices that are now ignored
-	for _, ignDevice := range to.IgnoredDevices {
-		forgetPending.KnownDevice(ignDevice.ID)
-		// Associated pending folders have already been cleaned up by not listing
-		// these devices in forgetPending before.
-	}
-	// Forget stale pending devices which were just removed (should not happen)
-	for _, remDevice := range removedDevices {
-		forgetPending.KnownDevice(remDevice)
-	}
-	// Make sure we don't keep our local device as pending (should not happen, treat
-	// us like a known device)
-	forgetPending.KnownDevice(m.id)
-	m.db.CleanPendingDevices(forgetPending)
+	m.cleanPending(to, removedFolders)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
@@ -2613,6 +2565,60 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	return true
+}
+
+func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string]bool) {
+	// Cache to maps for easy lookups
+	ignoredDevices := make(map[protocol.DeviceID]bool, len(cfg.IgnoredDevices))
+	for _, dev := range cfg.IgnoredDevices {
+		ignoredDevices[dev.ID] = true
+	}
+	var existingDevices map[protocol.DeviceID]config.DeviceConfiguration
+	existingDevices = cfg.DeviceMap()
+	existingFolders := make(map[string]*config.FolderConfiguration, len(cfg.Folders))
+	for i := range cfg.Folders {
+		folder := &cfg.Folders[i]
+		existingFolders[folder.ID] = folder
+	}
+
+	fiter := m.db.NewPendingFolderIterator()
+	for fiter.NextValid() {
+		if _, ok := ignoredDevices[fiter.DeviceID()]; ok {
+			fiter.Forget()
+			continue
+		}
+		if dev, ok := existingDevices[fiter.DeviceID()]; !ok {
+			fiter.Forget()
+			continue
+		} else if dev.IgnoredFolder(fiter.FolderID()) {
+			fiter.Forget()
+			continue
+		} else if _, ok := removedFolders[fiter.FolderID()]; ok {
+			// Forget pending folder device associations for recently removed
+			// folders as well, assuming the folder is no longer of interest
+			// at all (but might become pending again).
+			fiter.Forget()
+			continue
+		}
+		if folder, ok := existingFolders[fiter.FolderID()]; ok {
+			if folder.SharedWith(fiter.DeviceID()) {
+				fiter.Forget()
+			}
+		}
+	}
+
+	diter := m.db.NewPendingDeviceIterator()
+	defer diter.Release()
+	for diter.NextValid() {
+		if _, ok := ignoredDevices[diter.DeviceID()]; ok {
+			diter.Forget()
+			continue
+		}
+		if _, ok := existingDevices[diter.DeviceID()]; ok {
+			diter.Forget()
+			continue
+		}
+	}
 }
 
 // checkFolderRunningLocked returns nil if the folder is up and running and a
