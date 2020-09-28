@@ -236,7 +236,6 @@ func (c *configHandler) registerGUI() {
 }
 
 func (c *configHandler) adjustConfig(w http.ResponseWriter, r *http.Request) {
-	l.Infoln("adjconf")
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	cfg, err := config.ReadJSON(r.Body, c.id)
@@ -251,7 +250,6 @@ func (c *configHandler) adjustConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	l.Infoln("here")
 	waiter, err := c.cfg.Replace(cfg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
