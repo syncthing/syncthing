@@ -7,15 +7,12 @@
 package fs
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 )
-
-var errNoHome = errors.New("no home directory found - set $HOME (or the platform equivalent)")
 
 func ExpandTilde(path string) (string, error) {
 	if path == "~" {
@@ -55,7 +52,7 @@ var windowsDisallowedCharacters = string([]rune{
 	31,
 })
 
-func WindowsInvalidFilename(name string) bool {
+func WindowsInvalidFilename(name string) error {
 	// None of the path components should end in space or period, or be a
 	// reserved name.
 	// (https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file)
@@ -66,19 +63,23 @@ func WindowsInvalidFilename(name string) bool {
 		switch part[len(part)-1] {
 		case ' ', '.':
 			// Names ending in space or period are not valid.
-			return true
+			return errInvalidFilenameWindowsSpacePeriod
 		}
-		switch part {
+		switch strings.ToUpper(part) {
 		case "CON", "PRN", "AUX", "NUL",
 			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
 			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
 			// These reserved names are not valid.
-			return true
+			return errInvalidFilenameWindowsReservedName
 		}
 	}
 
 	// The path must not contain any disallowed characters
-	return strings.ContainsAny(name, windowsDisallowedCharacters)
+	if strings.ContainsAny(name, windowsDisallowedCharacters) {
+		return errInvalidFilenameWindowsReservedChar
+	}
+
+	return nil
 }
 
 // IsParent compares paths purely lexicographically, meaning it returns false
