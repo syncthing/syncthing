@@ -53,14 +53,15 @@ var (
 		31,
 	})
 	windowsDisallowedNames = []string{"CON", "PRN", "AUX", "NUL",
-		"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-		"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+		"COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+		"LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 	}
 )
 
 func WindowsInvalidFilename(name string) error {
 	// None of the path components should end in space or period, or be a
-	// reserved name.
+	// reserved name. COM0 and LPT0 are missing from the Microsoft docs,
+	// but Windows Explorer treats them as invalid too.
 	// (https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file)
 	for _, part := range strings.Split(name, `\`) {
 		if len(part) == 0 {
