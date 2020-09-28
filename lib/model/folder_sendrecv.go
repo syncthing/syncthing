@@ -1558,7 +1558,37 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 			return err
 		}
 	} else if !fs.IsNotExist(err) {
-		return err
+		// If there's a case conflict, check if the conflicting files
+		// have the same content and "merge" (choose one, delete the other).
+		var caseErr *fs.ErrCaseConflict
+		if !errors.As(err, &caseErr) {
+			return err
+		}
+		// We can't deal with case conflict in parents (would have to check
+		// equality of the entire filesystem subtree).
+		if filepath.Dir(file.Name) != filepath.Dir(caseErr.Real) {
+			return err
+		}
+		// Check that the case conflict is up-to-date in db
+		stat, statErr := f.fs.Lstat(caseErr.Real)
+		if statErr != nil {
+			return statErr
+		}
+		other, ok := snap.Get(protocol.LocalDeviceID, caseErr.Real)
+		if scanErr := f.scanIfItemChanged(other.Name, stat, other, ok, scanChan); scanErr != nil {
+			return scanErr
+		}
+		if other.FileType() != file.FileType() || !other.BlocksEqual(file) {
+			return err
+		}
+		// Arbitrary but deterministic way of choosing one of the two names.
+		if other.Name > file.Name {
+			file.Name = other.Name
+		}
+		if err := f.inWritableDir(f.fs.Remove, other.Name); err != nil {
+			return err
+		}
+		scanChan <- other.Name // Scan the deletion
 	}
 
 	// Replace the original content with the new one. If it didn't work,

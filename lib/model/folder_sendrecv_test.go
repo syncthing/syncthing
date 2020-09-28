@@ -1097,6 +1097,7 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 
 	name := "foo"
 	contents := []byte("contents")
+	otherContents := []byte("other")
 	must(t, writeFile(ffs, name, contents, 0644))
 	must(t, f.scanSubdirs(nil))
 
@@ -1119,13 +1120,17 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 	remote := *(&cur)
 	remote.Version = protocol.Vector{}.Update(device1.Short())
 	remote.Name = strings.ToUpper(cur.Name)
+	var err error
+	remote.Blocks, err = scanner.Blocks(context.Background(), bytes.NewReader(otherContents), protocol.MinBlockSize, 0, nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
 	temp := fs.TempName(remote.Name)
-	must(t, writeFile(ffs, temp, contents, 0644))
+	must(t, writeFile(ffs, temp, otherContents, 0644))
 	scanChan := make(chan string, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	err := f.performFinish(remote, cur, hasCur, temp, snap, dbUpdateChan, scanChan)
-
+	err = f.performFinish(remote, cur, hasCur, temp, snap, dbUpdateChan, scanChan)
 	select {
 	case <-dbUpdateChan: // boring case sensitive filesystem
 		return
@@ -1133,10 +1138,35 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 		t.Error("no need to scan anything here")
 	default:
 	}
-
 	var caseErr *fs.ErrCaseConflict
 	if !errors.As(err, &caseErr) {
 		t.Error("Expected case conflict error, got", err)
+	}
+
+	// Try again with equal contents, expect no error
+	remote.Blocks = cur.Blocks
+	must(t, writeFile(ffs, name, contents, 0644))
+	must(t, f.scanSubdirs(nil))
+	must(t, writeFile(ffs, temp, contents, 0644))
+
+	if err := f.performFinish(remote, cur, hasCur, temp, snap, dbUpdateChan, scanChan); err != nil {
+		t.Error("Expected nil, got", err)
+	}
+	select {
+	case job := <-dbUpdateChan:
+		if job.file.Name != cur.Name {
+			t.Errorf("Expected db update for %v, got %v", cur.Name, job.file.Name)
+		}
+	default:
+		t.Error("Missing db update")
+	}
+	select {
+	case name := <-scanChan:
+		if name != remote.Name {
+			t.Errorf("Expected scan for %v, got %v", remote.Name, name)
+		}
+	default:
+		t.Error("Missing db update")
 	}
 }
 
