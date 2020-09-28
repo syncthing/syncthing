@@ -44,13 +44,19 @@ func getHomeDir() (string, error) {
 	return os.UserHomeDir()
 }
 
-var windowsDisallowedCharacters = string([]rune{
-	'<', '>', ':', '"', '|', '?', '*',
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-	21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-	31,
-})
+var (
+	windowsDisallowedCharacters = string([]rune{
+		'<', '>', ':', '"', '|', '?', '*',
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+		21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+		31,
+	})
+	windowsDisallowedNames = []string{"CON", "PRN", "AUX", "NUL",
+		"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+		"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+	}
+)
 
 func WindowsInvalidFilename(name string) error {
 	// None of the path components should end in space or period, or be a
@@ -65,12 +71,15 @@ func WindowsInvalidFilename(name string) error {
 			// Names ending in space or period are not valid.
 			return errInvalidFilenameWindowsSpacePeriod
 		}
-		switch strings.ToUpper(part) {
-		case "CON", "PRN", "AUX", "NUL",
-			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
-			// These reserved names are not valid.
-			return errInvalidFilenameWindowsReservedName
+		upperCased := strings.ToUpper(part)
+		for _, disallowed := range windowsDisallowedNames {
+			if upperCased == disallowed {
+				return errInvalidFilenameWindowsReservedName
+			}
+			if strings.HasPrefix(upperCased, disallowed+".") {
+				// nul.txt.jpg is also disallowed
+				return errInvalidFilenameWindowsReservedName
+			}
 		}
 	}
 
