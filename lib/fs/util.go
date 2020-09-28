@@ -7,18 +7,11 @@
 package fs
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-)
-
-var (
-	errInvalidSpacePeriod  = errors.New("name ends with space or period")
-	errInvalidReservedName = errors.New("name is reserved")
-	errInvalidReservedChar = errors.New("name contains reserved character")
 )
 
 func ExpandTilde(path string) (string, error) {
@@ -70,20 +63,20 @@ func WindowsInvalidFilename(name string) error {
 		switch part[len(part)-1] {
 		case ' ', '.':
 			// Names ending in space or period are not valid.
-			return fmt.Errorf("%w: %v", ErrInvalidFilename, errInvalidSpacePeriod)
+			return errInvalidFilenameWindowsSpacePeriod
 		}
-		switch part {
+		switch strings.ToUpper(part) {
 		case "CON", "PRN", "AUX", "NUL",
 			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
 			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
 			// These reserved names are not valid.
-			return fmt.Errorf("%w: %v", ErrInvalidFilename, errInvalidReservedName)
+			return errInvalidFilenameWindowsReservedName
 		}
 	}
 
 	// The path must not contain any disallowed characters
 	if strings.ContainsAny(name, windowsDisallowedCharacters) {
-		return fmt.Errorf("%w: %v", ErrInvalidFilename, errInvalidReservedChar)
+		return errInvalidFilenameWindowsReservedChar
 	}
 
 	return nil
