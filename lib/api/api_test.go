@@ -1289,7 +1289,7 @@ func TestConfigChanges(t *testing.T) {
 	dev1Path := "/rest/config/devices/" + dev1.String()
 
 	// Create device
-	mod(http.MethodPost, "/rest/config/devices", []config.DeviceConfiguration{{DeviceID: dev1}})
+	mod(http.MethodPut, "/rest/config/devices", []config.DeviceConfiguration{{DeviceID: dev1}})
 
 	// Check its there
 	get(dev1Path).Body.Close()
