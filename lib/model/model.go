@@ -147,7 +147,7 @@ type model struct {
 	conn                map[protocol.DeviceID]connections.Connection
 	connRequestLimiters map[protocol.DeviceID]*byteSemaphore
 	closed              map[protocol.DeviceID]chan struct{}
-	helloMessages       map[protocol.DeviceID]protocol.HelloResult
+	helloMessages       map[protocol.DeviceID]protocol.Hello
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
 	remotePausedFolders map[protocol.DeviceID][]string // deviceID -> folders
 
@@ -219,7 +219,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		conn:                make(map[protocol.DeviceID]connections.Connection),
 		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
-		helloMessages:       make(map[protocol.DeviceID]protocol.HelloResult),
+		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remotePausedFolders: make(map[protocol.DeviceID][]string),
 	}
@@ -1750,7 +1750,7 @@ func (m *model) SetIgnores(folder string, content []string) error {
 // OnHello is called when an device connects to us.
 // This allows us to extract some information from the Hello message
 // and add it to a list of known devices ahead of any checks.
-func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protocol.HelloResult) error {
+func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protocol.Hello) error {
 	if m.cfg.IgnoredDevice(remoteID) {
 		return errDeviceIgnored
 	}
@@ -1799,7 +1799,7 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
-func (m *model) AddConnection(conn connections.Connection, hello protocol.HelloResult) {
+func (m *model) AddConnection(conn connections.Connection, hello protocol.Hello) {
 	deviceID := conn.ID()
 	device, ok := m.cfg.Device(deviceID)
 	if !ok {
