@@ -126,7 +126,7 @@ func newState(cfg config.Configuration) *model {
 	m := setupModel(wcfg)
 
 	for _, dev := range cfg.Devices {
-		m.AddConnection(&fakeConnection{id: dev.DeviceID, model: m}, protocol.HelloResult{})
+		m.AddConnection(&fakeConnection{id: dev.DeviceID, model: m}, protocol.Hello{})
 	}
 
 	return m
@@ -254,7 +254,7 @@ func BenchmarkRequestOut(b *testing.B) {
 	for _, f := range files {
 		fc.addFile(f.Name, 0644, protocol.FileInfoTypeFile, []byte("some data to return"))
 	}
-	m.AddConnection(fc, protocol.HelloResult{})
+	m.AddConnection(fc, protocol.Hello{})
 	m.Index(device1, "default", files)
 
 	b.ResetTimer()
@@ -292,7 +292,7 @@ func BenchmarkRequestInSingleFile(b *testing.B) {
 }
 
 func TestDeviceRename(t *testing.T) {
-	hello := protocol.HelloResult{
+	hello := protocol.Hello{
 		ClientName:    "syncthing",
 		ClientVersion: "v0.9.4",
 	}
@@ -2313,9 +2313,9 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	defer cleanupModel(m)
 
 	conn1 := &fakeConnection{id: device1, model: m}
-	m.AddConnection(conn1, protocol.HelloResult{})
+	m.AddConnection(conn1, protocol.Hello{})
 	conn2 := &fakeConnection{id: device2, model: m}
-	m.AddConnection(conn2, protocol.HelloResult{})
+	m.AddConnection(conn2, protocol.Hello{})
 
 	m.ClusterConfig(device1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
@@ -3331,7 +3331,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
-	m.AddConnection(newFakeProtoConn(protocol.NewConnection(device1, br, nw, m, "testConn", protocol.CompressionNever)), protocol.HelloResult{})
+	m.AddConnection(newFakeProtoConn(protocol.NewConnection(device1, br, nw, m, "testConn", protocol.CompressNever)), protocol.Hello{})
 	m.pmut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.conn) == %v)", len(m.conn))
@@ -4001,8 +4001,8 @@ func testConfigChangeClosesConnections(t *testing.T, expectFirstClosed, expectSe
 
 	fc1 := &fakeConnection{id: device1, model: m}
 	fc2 := &fakeConnection{id: device2, model: m}
-	m.AddConnection(fc1, protocol.HelloResult{})
-	m.AddConnection(fc2, protocol.HelloResult{})
+	m.AddConnection(fc1, protocol.Hello{})
+	m.AddConnection(fc2, protocol.Hello{})
 
 	t.Log("Applying config change")
 

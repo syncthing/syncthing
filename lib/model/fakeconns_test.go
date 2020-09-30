@@ -196,7 +196,7 @@ func (f *fakeConnection) sendIndexUpdate() {
 
 func addFakeConn(m *model, dev protocol.DeviceID) *fakeConnection {
 	fc := &fakeConnection{id: dev, model: m}
-	m.AddConnection(fc, protocol.HelloResult{})
+	m.AddConnection(fc, protocol.Hello{})
 
 	m.ClusterConfig(dev, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
