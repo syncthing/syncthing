@@ -982,7 +982,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	conn, ok := m.conn[deviceID]
 	closed := m.closed[deviceID]
 	for _, token := range m.indexSenderTokens[deviceID] {
-		m.Remove(token)
+		m.RemoveAndWait(token, 0)
 	}
 	m.pmut.RUnlock()
 	if !ok {

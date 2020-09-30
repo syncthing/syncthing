@@ -3986,7 +3986,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	}
 }
 
-func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirstClosed, expectSecondClosed bool, pre func(config.Wrapper), fn func(config.Wrapper)) {
+func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSecond bool, pre func(config.Wrapper), fn func(config.Wrapper)) {
 	t.Helper()
 	wcfg, _ := tmpDefaultWrapper()
 	m := setupModel(wcfg)
@@ -4036,24 +4036,20 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirstClosed, exp
 
 	fn(wcfg)
 
-	var received1, received2 bool
-	select {
-	case <-cc1:
-		received1 = true
-	default:
+	timeout := time.NewTimer(time.Second)
+	if expectFirst {
+		select {
+		case <-cc1:
+		case <-timeout.C:
+			t.Errorf("timed out before receiving cluste rconfig for first device")
+		}
 	}
-	select {
-	case <-cc2:
-		received2 = true
-	default:
-	}
-
-	if expectFirstClosed != received1 {
-		t.Errorf("first connection state mismatch: %t (expected) != %t", expectFirstClosed, received1)
-	}
-
-	if expectSecondClosed != received2 {
-		t.Errorf("second connection state mismatch: %t (expected) != %t", expectSecondClosed, received2)
+	if expectSecond {
+		select {
+		case <-cc2:
+		case <-timeout.C:
+			t.Errorf("timed out before receiving cluste rconfig for second device")
+		}
 	}
 }
 
