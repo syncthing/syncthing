@@ -24,6 +24,8 @@ angular.module('syncthing.core')
         $scope.config = {};
         $scope.configInSync = true;
         $scope.connections = {};
+        $scope.webAddress = {};
+        $scope.webAddressPort = {}
         $scope.errors = [];
         $scope.model = {};
         $scope.myID = '';
@@ -521,6 +523,12 @@ angular.module('syncthing.core')
             console.log("recalcCompletion", device, $scope.completion[device]);
         }
 
+        function replaceAddressPort(address, newPort) {
+            if (address === "" || address === undefined) return address
+            var colonIndex = address.indexOf(":")
+            return address.substr(0, colonIndex + 1) + newPort
+        }
+
         function refreshCompletion(device, folder) {
             if (device === $scope.myID) {
                 return;
@@ -557,6 +565,14 @@ angular.module('syncthing.core')
                     if (!data.hasOwnProperty(id)) {
                         continue;
                     }
+                    var deviceSubId = id.substr(0, 6);
+                    var port = "8384";
+                    if (deviceSubId in $scope.webAddressPort) {
+                        port = $scope.webAddressPort[deviceSubId]
+                    }
+                    if (deviceSubId in $scope.webAddress) {
+                        $scope.webAddress[deviceSubId] = replaceAddressPort(data[id].address, port)
+                    }
                     try {
                         data[id].inbps = Math.max(0, (data[id].inBytesTotal - $scope.connections[id].inBytesTotal) / td);
                         data[id].outbps = Math.max(0, (data[id].outBytesTotal - $scope.connections[id].outBytesTotal) / td);
@@ -581,6 +597,27 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/system/config').success(function (data) {
                 updateLocalConfig(data);
                 console.log("refreshConfig", data);
+
+                //update web addres
+                for (var index in $scope.config.devices) {
+                    var device = $scope.config.devices[index];
+                    var subId = device.deviceID.substr(0, 6)
+                    if (device.webUi) {
+                        if (!(subId in $scope.webAddress)) {
+                            $scope.webAddress[subId] = ""
+                        } 
+                    } else {
+                        delete $scope.webAddress[subId]
+                    }
+                }
+
+                // set web address port
+                for (var index in $scope.config.devices) {
+                    var device = $scope.config.devices[index]
+                    if (device.webUi) {
+                        $scope.webAddressPort[device.deviceID.substr(0, 6)] = device.webUiPort
+                    }
+                }
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/system/config/insync').success(function (data) {
@@ -1248,6 +1285,12 @@ angular.module('syncthing.core')
                 }
             });
         };
+
+        $scope.goToRemoteDevice = function (subId) {
+            if ($scope.webAddress[subId] !== "") {
+                location.href = `http://${$scope.webAddress[subId]}`;
+            }
+        }
 
         $scope.saveConfig = function (callback) {
             var cfg = JSON.stringify($scope.config);
