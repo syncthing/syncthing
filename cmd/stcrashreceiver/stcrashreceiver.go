@@ -127,6 +127,7 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 			pkt, err := parseCrashReport(reportID, bs)
 			if err != nil {
 				log.Println("Failed to parse crash report:", err)
+				return
 			}
 			if err := sendReport(r.dsn, pkt, user); err != nil {
 				log.Println("Failed to send  crash report:", err)
