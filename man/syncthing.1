@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "Sep 17, 2020" "v1" "Syncthing"
+.TH "SYNCTHING" "1" "Sep 23, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -38,7 +38,8 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .ft C
 syncthing [\-audit] [\-auditfile=<file|\-|\-\->] [\-browser\-only] [device\-id]
           [\-generate=<dir>] [\-gui\-address=<address>] [\-gui\-apikey=<key>]
-          [\-home=<dir>] [\-logfile=<filename>] [\-logflags=<flags>]
+          [\-home=<dir> | \-config=<dir> \-data=<dir>]
+          [\-logfile=<filename>] [\-logflags=<flags>]
           [\-no\-browser] [\-no\-console] [\-no\-restart] [\-paths] [\-paused]
           [\-reset\-database] [\-reset\-deltas] [\-unpaused] [\-upgrade]
           [\-upgrade\-check] [\-upgrade\-to=<url>] [\-verbose] [\-version]
@@ -89,8 +90,22 @@ or file path (\fB/var/run/st.sock\fP, for UNIX sockets).
 .INDENT 0.0
 .TP
 .B \-home=<dir>
-Set configuration directory. The default configuration directory is
-\fB$HOME/.config/syncthing\fP (Unix\-like), \fB$HOME/Library/Application Support/Syncthing\fP (Mac) and \fB%LOCALAPPDATA%\eSyncthing\fP (Windows).
+Set common configuration and data directory. The default configuration
+directory is \fB$HOME/.config/syncthing\fP (Unix\-like),
+\fB$HOME/Library/Application Support/Syncthing\fP (Mac) and
+\fB%LOCALAPPDATA%\eSyncthing\fP (Windows).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-config=<dir>
+Set configuration directory. Alternative to \fB\-home\fP and must be used
+together with \fB\-data\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-data=<dir>
+Set data (e.g. database) directory. Alternative to \fB\-home\fP and must be used
+together with \fB\-config\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
