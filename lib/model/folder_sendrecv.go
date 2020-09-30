@@ -1583,12 +1583,21 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		}
 		// Arbitrary but deterministic way of choosing one of the two names.
 		if other.Name > file.Name {
-			file.Name = other.Name
+			// Pretend we synced the file and trigger a scan that
+			// will mark the file as deleted.
+			if err := f.inWritableDir(f.fs.Remove, tempName); err != nil {
+				return err
+			}
+			dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleFile}
+			scanChan <- file.Name
+			return nil
 		}
+		// Remove the conflicting file on disk and trigger a scan
+		// that will pick up the deletion.
 		if err := f.inWritableDir(f.fs.Remove, other.Name); err != nil {
 			return err
 		}
-		scanChan <- other.Name // Scan the deletion
+		scanChan <- other.Name
 	}
 
 	// Replace the original content with the new one. If it didn't work,

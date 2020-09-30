@@ -1095,7 +1095,7 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
 
-	name := "foo"
+	name := "Foo"
 	contents := []byte("contents")
 	otherContents := []byte("other")
 	must(t, writeFile(ffs, name, contents, 0644))
@@ -1117,14 +1117,16 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 		t.Fatal("file is missing")
 	}
 
+	remoteVersion := protocol.Vector{}.Update(device1.Short())
 	remote := *(&cur)
-	remote.Version = protocol.Vector{}.Update(device1.Short())
+	remote.Version = remoteVersion.Copy()
 	remote.Name = strings.ToUpper(cur.Name)
 	var err error
 	remote.Blocks, err = scanner.Blocks(context.Background(), bytes.NewReader(otherContents), protocol.MinBlockSize, 0, nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
+	remote.BlocksHash = protocol.BlocksHash(remote.Blocks)
 	temp := fs.TempName(remote.Name)
 	must(t, writeFile(ffs, temp, otherContents, 0644))
 	scanChan := make(chan string, 1)
@@ -1142,31 +1144,55 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 	if !errors.As(err, &caseErr) {
 		t.Error("Expected case conflict error, got", err)
 	}
+	must(t, ffs.Remove(temp))
 
-	// Try again with equal contents, expect no error
+	checkDBUpdate := func() {
+		t.Helper()
+		select {
+		case job := <-dbUpdateChan:
+			if job.jobType != dbUpdateHandleFile {
+				t.Errorf("Expected db update type %v, got %v", dbUpdateHandleFile, job.jobType)
+			}
+			if job.file.Name != remote.Name {
+				t.Errorf("Expected db update for %v, got %v", cur.Name, job.file.Name)
+			}
+		default:
+			t.Error("Missing db update")
+		}
+	}
+
+	// Same scenario with equal contents and remote "losing" case conflict
 	remote.Blocks = cur.Blocks
-	must(t, writeFile(ffs, name, contents, 0644))
-	must(t, f.scanSubdirs(nil))
+	remote.BlocksHash = cur.BlocksHash
 	must(t, writeFile(ffs, temp, contents, 0644))
-
 	if err := f.performFinish(remote, cur, hasCur, temp, snap, dbUpdateChan, scanChan); err != nil {
 		t.Error("Expected nil, got", err)
 	}
-	select {
-	case job := <-dbUpdateChan:
-		if job.file.Name != cur.Name {
-			t.Errorf("Expected db update for %v, got %v", cur.Name, job.file.Name)
-		}
-	default:
-		t.Error("Missing db update")
-	}
+	checkDBUpdate()
 	select {
 	case name := <-scanChan:
 		if name != remote.Name {
 			t.Errorf("Expected scan for %v, got %v", remote.Name, name)
 		}
 	default:
-		t.Error("Missing db update")
+		t.Error("Missing scan")
+	}
+
+	// Same scenario with equal contents and remote "winning" case conflict
+	remote.Name = strings.ToLower(cur.Name)
+	temp = fs.TempName(remote.Name)
+	must(t, writeFile(ffs, temp, contents, 0644))
+	if err := f.performFinish(remote, cur, hasCur, temp, snap, dbUpdateChan, scanChan); err != nil {
+		t.Error("Expected nil, got", err)
+	}
+	checkDBUpdate()
+	select {
+	case name := <-scanChan:
+		if name != cur.Name {
+			t.Errorf("Expected scan for %v, got %v", remote.Name, name)
+		}
+	default:
+		t.Error("Missing scan")
 	}
 }
 
