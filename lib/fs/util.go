@@ -7,15 +7,12 @@
 package fs
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 )
-
-var errNoHome = errors.New("no home directory found - set $HOME (or the platform equivalent)")
 
 func ExpandTilde(path string) (string, error) {
 	if path == "~" {
@@ -47,28 +44,52 @@ func getHomeDir() (string, error) {
 	return os.UserHomeDir()
 }
 
-var windowsDisallowedCharacters = string([]rune{
-	'<', '>', ':', '"', '|', '?', '*',
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-	21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-	31,
-})
+var (
+	windowsDisallowedCharacters = string([]rune{
+		'<', '>', ':', '"', '|', '?', '*',
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+		21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+		31,
+	})
+	windowsDisallowedNames = []string{"CON", "PRN", "AUX", "NUL",
+		"COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+		"LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+	}
+)
 
-func WindowsInvalidFilename(name string) bool {
-	// None of the path components should end in space
+func WindowsInvalidFilename(name string) error {
+	// None of the path components should end in space or period, or be a
+	// reserved name. COM0 and LPT0 are missing from the Microsoft docs,
+	// but Windows Explorer treats them as invalid too.
+	// (https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file)
 	for _, part := range strings.Split(name, `\`) {
 		if len(part) == 0 {
 			continue
 		}
-		if part[len(part)-1] == ' ' {
-			// Names ending in space are not valid.
-			return true
+		switch part[len(part)-1] {
+		case ' ', '.':
+			// Names ending in space or period are not valid.
+			return errInvalidFilenameWindowsSpacePeriod
+		}
+		upperCased := strings.ToUpper(part)
+		for _, disallowed := range windowsDisallowedNames {
+			if upperCased == disallowed {
+				return errInvalidFilenameWindowsReservedName
+			}
+			if strings.HasPrefix(upperCased, disallowed+".") {
+				// nul.txt.jpg is also disallowed
+				return errInvalidFilenameWindowsReservedName
+			}
 		}
 	}
 
 	// The path must not contain any disallowed characters
-	return strings.ContainsAny(name, windowsDisallowedCharacters)
+	if strings.ContainsAny(name, windowsDisallowedCharacters) {
+		return errInvalidFilenameWindowsReservedChar
+	}
+
+	return nil
 }
 
 // IsParent compares paths purely lexicographically, meaning it returns false

@@ -520,6 +520,11 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		}
 
 		if err := batch.flushIfFull(); err != nil {
+			// Prevent a race between the scan aborting due to context
+			// cancellation and releasing the snapshot in defer here.
+			scanCancel()
+			for range fchan {
+			}
 			return err
 		}
 
