@@ -235,7 +235,7 @@ func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
 	return false
 }
 
-func (f *FolderConfiguration) CheckAvailableSpace(req int64) error {
+func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
 	val := f.MinDiskFree.BaseValue()
 	if val <= 0 {
 		return nil

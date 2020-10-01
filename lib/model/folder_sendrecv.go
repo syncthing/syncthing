@@ -995,7 +995,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	tempName := fs.TempName(target.Name)
 
 	if f.versioner != nil {
-		err = f.CheckAvailableSpace(source.Size)
+		err = f.CheckAvailableSpace(uint64(source.Size))
 		if err == nil {
 			err = osutil.Copy(f.CopyRangeMethod, f.fs, f.fs, source.Name, tempName)
 			if err == nil {
@@ -1239,7 +1239,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	}
 
 	for state := range in {
-		if err := f.CheckAvailableSpace(state.file.Size); err != nil {
+		if err := f.CheckAvailableSpace(uint64(state.file.Size)); err != nil {
 			state.fail(err)
 			// Nothing more to do for this failed file, since it would use to much disk space
 			out <- state.sharedPullerState

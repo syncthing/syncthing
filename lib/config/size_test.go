@@ -94,7 +94,7 @@ func TestParseSize(t *testing.T) {
 
 func TestFormatSI(t *testing.T) {
 	cases := []struct {
-		bytes  int64
+		bytes  uint64
 		result string
 	}{
 		{

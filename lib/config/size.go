@@ -91,7 +91,7 @@ func CheckFreeSpace(req Size, usage fs.Usage) error {
 	return nil
 }
 
-func formatSI(b int64) string {
+func formatSI(b uint64) string {
 	switch {
 	case b < 1000:
 		return fmt.Sprintf("%d ", b)
