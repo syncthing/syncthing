@@ -245,11 +245,8 @@ func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
 	if err != nil {
 		return nil
 	}
-	usage.Free -= req
-	if usage.Free > 0 {
-		if err := CheckFreeSpace(f.MinDiskFree, usage); err == nil {
-			return nil
-		}
+	if !checkAvailableSpace(req, f.MinDiskFree, usage) {
+		return fmt.Errorf("insufficient space in %v %v", fs.Type(), fs.URI())
 	}
-	return fmt.Errorf("insufficient space in %v %v", fs.Type(), fs.URI())
+	return nil
 }
