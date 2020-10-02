@@ -149,9 +149,9 @@ func (m *mockedModel) DownloadProgress(deviceID protocol.DeviceID, folder string
 	return nil
 }
 
-func (m *mockedModel) AddConnection(conn connections.Connection, hello protocol.HelloResult) {}
+func (m *mockedModel) AddConnection(conn connections.Connection, hello protocol.Hello) {}
 
-func (m *mockedModel) OnHello(protocol.DeviceID, net.Addr, protocol.HelloResult) error {
+func (m *mockedModel) OnHello(protocol.DeviceID, net.Addr, protocol.Hello) error {
 	return nil
 }
 

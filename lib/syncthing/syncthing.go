@@ -240,9 +240,11 @@ func (a *App) startup() error {
 			l.Infoln("Detected upgrade from", prevVersion, "to", build.Version)
 		}
 
-		// Drop delta indexes in case we've changed random stuff we
-		// shouldn't have. We will resend our index on next connect.
-		db.DropDeltaIndexIDs(a.ll)
+		if a.cfg.Options().SendFullIndexOnUpgrade {
+			// Drop delta indexes in case we've changed random stuff we
+			// shouldn't have. We will resend our index on next connect.
+			db.DropDeltaIndexIDs(a.ll)
+		}
 	}
 
 	if build.Version != prevVersion {

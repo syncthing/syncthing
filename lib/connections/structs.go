@@ -202,9 +202,9 @@ type genericListener interface {
 
 type Model interface {
 	protocol.Model
-	AddConnection(conn Connection, hello protocol.HelloResult)
+	AddConnection(conn Connection, hello protocol.Hello)
 	Connection(remoteID protocol.DeviceID) (Connection, bool)
-	OnHello(protocol.DeviceID, net.Addr, protocol.HelloResult) error
+	OnHello(protocol.DeviceID, net.Addr, protocol.Hello) error
 	GetHello(protocol.DeviceID) protocol.HelloIntf
 }
 

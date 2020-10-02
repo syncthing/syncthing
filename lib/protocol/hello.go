@@ -16,14 +16,6 @@ type HelloIntf interface {
 	Marshal() ([]byte, error)
 }
 
-// The HelloResult is the non version specific interpretation of the other
-// side's Hello message.
-type HelloResult struct {
-	DeviceName    string
-	ClientName    string
-	ClientVersion string
-}
-
 var (
 	// ErrTooOldVersion is returned by ExchangeHello when the other side
 	// speaks an older, incompatible version of the protocol.
@@ -33,9 +25,9 @@ var (
 	ErrUnknownMagic = errors.New("the remote device speaks an unknown (newer?) version of the protocol")
 )
 
-func ExchangeHello(c io.ReadWriter, h HelloIntf) (HelloResult, error) {
+func ExchangeHello(c io.ReadWriter, h HelloIntf) (Hello, error) {
 	if err := writeHello(c, h); err != nil {
-		return HelloResult{}, err
+		return Hello{}, err
 	}
 	return readHello(c)
 }
@@ -51,41 +43,41 @@ func IsVersionMismatch(err error) bool {
 	}
 }
 
-func readHello(c io.Reader) (HelloResult, error) {
+func readHello(c io.Reader) (Hello, error) {
 	header := make([]byte, 4)
 	if _, err := io.ReadFull(c, header); err != nil {
-		return HelloResult{}, err
+		return Hello{}, err
 	}
 
 	switch binary.BigEndian.Uint32(header) {
 	case HelloMessageMagic:
 		// This is a v0.14 Hello message in proto format
 		if _, err := io.ReadFull(c, header[:2]); err != nil {
-			return HelloResult{}, err
+			return Hello{}, err
 		}
 		msgSize := binary.BigEndian.Uint16(header[:2])
 		if msgSize > 32767 {
-			return HelloResult{}, errors.New("hello message too big")
+			return Hello{}, errors.New("hello message too big")
 		}
 		buf := make([]byte, msgSize)
 		if _, err := io.ReadFull(c, buf); err != nil {
-			return HelloResult{}, err
+			return Hello{}, err
 		}
 
 		var hello Hello
 		if err := hello.Unmarshal(buf); err != nil {
-			return HelloResult{}, err
+			return Hello{}, err
 		}
-		return HelloResult(hello), nil
+		return Hello(hello), nil
 
 	case 0x00010001, 0x00010000, Version13HelloMagic:
 		// This is the first word of an older cluster config message or an
 		// old magic number. (Version 0, message ID 1, message type 0,
 		// compression enabled or disabled)
-		return HelloResult{}, ErrTooOldVersion
+		return Hello{}, ErrTooOldVersion
 	}
 
-	return HelloResult{}, ErrUnknownMagic
+	return Hello{}, ErrUnknownMagic
 }
 
 func writeHello(c io.Writer, h HelloIntf) error {

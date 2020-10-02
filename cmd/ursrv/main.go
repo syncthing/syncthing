@@ -28,6 +28,7 @@ import (
 
 	"github.com/oschwald/geoip2-golang"
 
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 )
 
@@ -921,7 +922,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 }
 
 var (
-	plusRe  = regexp.MustCompile(`\+.*$`)
+	plusRe  = regexp.MustCompile(`(\+.*|\.dev\..*)$`)
 	plusStr = "(+dev)"
 )
 
@@ -980,7 +981,9 @@ func (s *summary) MarshalJSON() ([]byte, error) {
 	for v := range s.versions {
 		versions = append(versions, v)
 	}
-	sort.Strings(versions)
+	sort.Slice(versions, func(a, b int) bool {
+		return upgrade.CompareVersions(versions[a], versions[b]) < 0
+	})
 
 	var filtered []string
 	for _, v := range versions {
