@@ -768,9 +768,9 @@
                       <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
                       <td class="text-right" ng-attr-title="{{deviceFolders(deviceCfg).map(folderLabel).join(', ')}}">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
                     </tr>
-                    <tr ng-if="webAddress[deviceCfg.deviceID.substr(0, 6)]">
-                      <th><span class="fas fa-fw fa-link"></span>&nbsp;<span translate>web address</span></th>
-                      <td class="text-right" ng-attr-title="{{webAddress[deviceCfg.deviceID.substr(0, 6)]}}"><a ng-click="goToRemoteDevice(deviceCfg.deviceID.substr(0, 6))">{{webAddress[deviceCfg.deviceID.substr(0, 6)]}}</a></td>
+                    <tr ng-if="idToWebAddress[deviceCfg.deviceID]">
+                      <th><span class="fas fa-fw fa-link"></span>&nbsp;<span translate>Web Address</span></th>
+                      <td class="text-right" ng-attr-title="{{idToWebAddress[deviceCfg.deviceID]}}"><a href="{{idToWebAddress[deviceCfg.deviceID]}}">{{idToWebAddress[deviceCfg.deviceID]}}</a></td>
                     </tr>
                   </tbody>
                 </table>
