@@ -77,6 +77,7 @@ func (h *failureHandler) serve(ctx context.Context) error {
 	var err error
 	var sub events.Subscription
 	timer := time.NewTimer(minDelay)
+	resetTimer := make(chan struct{})
 outer:
 	for {
 		select {
@@ -97,11 +98,12 @@ outer:
 			if stat, ok := h.buf[descr]; ok {
 				stat.last = e.Time
 				stat.count++
-			}
-			h.buf[descr] = &stat{
-				first: e.Time,
-				last:  e.Time,
-				count: 1,
+			} else {
+				h.buf[descr] = &stat{
+					first: e.Time,
+					last:  e.Time,
+					count: 1,
+				}
 			}
 		case <-timer.C:
 			reports := make([]FailureReport, 0, len(h.buf))
@@ -120,9 +122,14 @@ outer:
 				// Lets keep process events/configs while it might be timing out for a while
 				go func() {
 					sendFailureReports(ctx, reports, url)
-					timer.Reset(minDelay)
+					select {
+					case resetTimer <- struct{}{}:
+					case <-ctx.Done():
+					}
 				}()
 			}
+		case <-resetTimer:
+			timer.Reset(minDelay)
 		case <-ctx.Done():
 			break outer
 		}
