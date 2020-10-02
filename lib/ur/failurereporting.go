@@ -58,10 +58,10 @@ type failureHandler struct {
 	evLogger events.Logger
 	optsChan chan config.OptionsConfiguration
 	evChan   <-chan events.Event
-	buf      map[string]*stat
+	buf      map[string]*failureStat
 }
 
-type stat struct {
+type failureStat struct {
 	first, last time.Time
 	count       int
 }
@@ -99,7 +99,7 @@ outer:
 				stat.last = e.Time
 				stat.count++
 			} else {
-				h.buf[descr] = &stat{
+				h.buf[descr] = &failureStat{
 					first: e.Time,
 					last:  e.Time,
 					count: 1,
