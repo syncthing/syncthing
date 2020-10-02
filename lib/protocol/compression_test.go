@@ -9,21 +9,21 @@ func TestCompressionMarshal(t *testing.T) {
 		s string
 		c Compression
 	}{
-		{"true", CompressMetadata},
-		{"false", CompressNever},
-		{"never", CompressNever},
-		{"metadata", CompressMetadata},
-		{"always", CompressAlways},
-		{"whatever", CompressMetadata},
+		{"true", CompressionMetadata},
+		{"false", CompressionNever},
+		{"never", CompressionNever},
+		{"metadata", CompressionMetadata},
+		{"always", CompressionAlways},
+		{"whatever", CompressionMetadata},
 	}
 
 	mTestcases := []struct {
 		s string
 		c Compression
 	}{
-		{"never", CompressNever},
-		{"metadata", CompressMetadata},
-		{"always", CompressAlways},
+		{"never", CompressionNever},
+		{"metadata", CompressionMetadata},
+		{"always", CompressionAlways},
 	}
 
 	var c Compression

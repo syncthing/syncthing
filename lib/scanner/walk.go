@@ -350,7 +350,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	f, _ := CreateFileInfo(info, relPath, nil)
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
-	f.RawBlockSize = int32(blockSize)
+	f.RawBlockSize = blockSize
 
 	if hasCurFile {
 		if curFile.IsEquivalentOptional(f, w.ModTimeWindow, w.IgnorePerms, true, w.LocalFlags) {
@@ -611,7 +611,7 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (prot
 	}
 	f.Permissions = uint32(fi.Mode() & fs.ModePerm)
 	f.ModifiedS = fi.ModTime().Unix()
-	f.ModifiedNs = int32(fi.ModTime().Nanosecond())
+	f.ModifiedNs = fi.ModTime().Nanosecond()
 	if fi.IsDir() {
 		f.Type = protocol.FileInfoTypeDirectory
 		return f, nil

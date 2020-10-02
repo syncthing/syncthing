@@ -2,16 +2,8 @@ syntax = "proto3";
 
 package protocol;
 
+import "ext.proto";
 import "repos/protobuf/gogoproto/gogo.proto";
-
-option (gogoproto.goproto_getters_all) = false;
-option (gogoproto.sizer_all) = false;
-option (gogoproto.protosizer_all) = true;
-option (gogoproto.goproto_enum_stringer_all) = true;
-option (gogoproto.goproto_enum_prefix_all) = false;
-option (gogoproto.goproto_unkeyed_all) = false;
-option (gogoproto.goproto_unrecognized_all) = false;
-option (gogoproto.goproto_sizecache_all) = false;
 
 // --- Pre-auth ---
 
@@ -29,19 +21,19 @@ message Header {
 }
 
 enum MessageType {
-    CLUSTER_CONFIG    = 0 [(gogoproto.enumvalue_customname) = "messageTypeClusterConfig"];
-    INDEX             = 1 [(gogoproto.enumvalue_customname) = "messageTypeIndex"];
-    INDEX_UPDATE      = 2 [(gogoproto.enumvalue_customname) = "messageTypeIndexUpdate"];
-    REQUEST           = 3 [(gogoproto.enumvalue_customname) = "messageTypeRequest"];
-    RESPONSE          = 4 [(gogoproto.enumvalue_customname) = "messageTypeResponse"];
-    DOWNLOAD_PROGRESS = 5 [(gogoproto.enumvalue_customname) = "messageTypeDownloadProgress"];
-    PING              = 6 [(gogoproto.enumvalue_customname) = "messageTypePing"];
-    CLOSE             = 7 [(gogoproto.enumvalue_customname) = "messageTypeClose"];
+    MESSAGE_TYPE_CLUSTER_CONFIG    = 0;
+    MESSAGE_TYPE_INDEX             = 1;
+    MESSAGE_TYPE_INDEX_UPDATE      = 2;
+    MESSAGE_TYPE_REQUEST           = 3;
+    MESSAGE_TYPE_RESPONSE          = 4;
+    MESSAGE_TYPE_DOWNLOAD_PROGRESS = 5;
+    MESSAGE_TYPE_PING              = 6;
+    MESSAGE_TYPE_CLOSE             = 7;
 }
 
 enum MessageCompression {
-    NONE = 0 [(gogoproto.enumvalue_customname) = "MessageCompressionNone"];
-    LZ4  = 1 [(gogoproto.enumvalue_customname) = "MessageCompressionLZ4"];
+    MESSAGE_COMPRESSION_NONE = 0;
+    MESSAGE_COMPRESSION_LZ4  = 1 [(ext.enumgoname) = "MessageCompressionLZ4"];
 }
 
 // --- Actual messages ---
@@ -49,11 +41,11 @@ enum MessageCompression {
 // Cluster Config
 
 message ClusterConfig {
-    repeated Folder folders = 1 [(gogoproto.nullable) = false];
+    repeated Folder folders = 1;
 }
 
 message Folder {
-    string id                   = 1 [(gogoproto.customname) = "ID"];
+    string id                   = 1 [(ext.goname) = "ID"];
     string label                = 2;
     bool   read_only            = 3;
     bool   ignore_permissions   = 4;
@@ -61,37 +53,37 @@ message Folder {
     bool   disable_temp_indexes = 6;
     bool   paused               = 7;
 
-    repeated Device devices = 16 [(gogoproto.nullable) = false];
+    repeated Device devices = 16;
 }
 
 message Device {
-    bytes           id                         = 1 [(gogoproto.customname) = "ID", (gogoproto.customtype) = "DeviceID", (gogoproto.nullable) = false];
+    bytes           id                         = 1 [(ext.goname) = "ID", (ext.device_id) = true];
     string          name                       = 2;
     repeated string addresses                  = 3;
     Compression     compression                = 4;
     string          cert_name                  = 5;
     int64           max_sequence               = 6;
     bool            introducer                 = 7;
-    uint64          index_id                   = 8 [(gogoproto.customname) = "IndexID", (gogoproto.customtype) = "IndexID", (gogoproto.nullable) = false];
+    uint64          index_id                   = 8 [(ext.goname) = "IndexID", (ext.gotype) = "IndexID"];
     bool            skip_introduction_removals = 9;
 }
 
 enum Compression {
-    METADATA = 0 [(gogoproto.enumvalue_customname) = "CompressMetadata"];
-    NEVER    = 1 [(gogoproto.enumvalue_customname) = "CompressNever"];
-    ALWAYS   = 2 [(gogoproto.enumvalue_customname) = "CompressAlways"];
+    COMPRESSION_METADATA = 0;
+    COMPRESSION_NEVER    = 1;
+    COMPRESSION_ALWAYS   = 2;
 }
 
 // Index and Index Update
 
 message Index {
     string            folder = 1;
-    repeated FileInfo files  = 2 [(gogoproto.nullable) = false];
+    repeated FileInfo files  = 2;
 }
 
 message IndexUpdate {
     string            folder = 1;
-    repeated FileInfo files  = 2 [(gogoproto.nullable) = false];
+    repeated FileInfo files  = 2;
 }
 
 message FileInfo {
@@ -103,16 +95,16 @@ message FileInfo {
     string             name           = 1;
     int64              size           = 3;
     int64              modified_s     = 5;
-    uint64             modified_by    = 12 [(gogoproto.customtype) = "ShortID", (gogoproto.nullable) = false];
-    Vector             version        = 9 [(gogoproto.nullable) = false];
+    uint64             modified_by    = 12 [(ext.gotype) = "ShortID"];
+    Vector             version        = 9;
     int64              sequence       = 10;
-    repeated BlockInfo blocks         = 16 [(gogoproto.nullable) = false];
+    repeated BlockInfo blocks         = 16;
     string             symlink_target = 17;
     bytes              blocks_hash    = 18;
     FileInfoType       type           = 2;
     uint32             permissions    = 4;
     int32              modified_ns    = 11;
-    int32              block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
+    int32              block_size     = 13 [(ext.goname) = "RawBlockSize"];
 
     // The local_flags fields stores flags that are relevant to the local
     // host only. It is not part of the protocol, doesn't get sent or
@@ -124,16 +116,16 @@ message FileInfo {
     bytes version_hash = 1001;
 
     bool deleted        = 6;
-    bool invalid        = 7 [(gogoproto.customname) = "RawInvalid"];
+    bool invalid        = 7 [(ext.goname) = "RawInvalid"];
     bool no_permissions = 8;
 }
 
 enum FileInfoType {
-    FILE              = 0 [(gogoproto.enumvalue_customname) = "FileInfoTypeFile"];
-    DIRECTORY         = 1 [(gogoproto.enumvalue_customname) = "FileInfoTypeDirectory"];
-    SYMLINK_FILE      = 2 [(gogoproto.enumvalue_customname) = "FileInfoTypeDeprecatedSymlinkFile", deprecated = true];
-    SYMLINK_DIRECTORY = 3 [(gogoproto.enumvalue_customname) = "FileInfoTypeDeprecatedSymlinkDirectory", deprecated = true];
-    SYMLINK           = 4 [(gogoproto.enumvalue_customname) = "FileInfoTypeSymlink"];
+    FILE_INFO_TYPE_FILE              = 0;
+    FILE_INFO_TYPE_DIRECTORY         = 1;
+    FILE_INFO_TYPE_SYMLINK_FILE      = 2 [deprecated = true];
+    FILE_INFO_TYPE_SYMLINK_DIRECTORY = 3 [deprecated = true];
+    FILE_INFO_TYPE_SYMLINK           = 4;
 }
 
 message BlockInfo {
@@ -145,18 +137,18 @@ message BlockInfo {
 }
 
 message Vector {
-    repeated Counter counters = 1 [(gogoproto.nullable) = false];
+    repeated Counter counters = 1;
 }
 
 message Counter {
-    uint64 id    = 1 [(gogoproto.customname) = "ID", (gogoproto.customtype) = "ShortID", (gogoproto.nullable) = false];
+    uint64 id    = 1 [(ext.goname) = "ID", (ext.gotype) = "ShortID"];
     uint64 value = 2;
 }
 
 // Request
 
 message Request {
-    int32  id             = 1 [(gogoproto.customname) = "ID"];
+    int32  id             = 1 [(ext.goname) = "ID"];
     string folder         = 2;
     string name           = 3;
     int64  offset         = 4;
@@ -169,36 +161,36 @@ message Request {
 // Response
 
 message Response {
-    int32     id   = 1 [(gogoproto.customname) = "ID"];
+    int32     id   = 1 [(ext.goname) = "ID"];
     bytes     data = 2;
     ErrorCode code = 3;
 }
 
 enum ErrorCode {
-    NO_ERROR     = 0 [(gogoproto.enumvalue_customname) = "ErrorCodeNoError"];
-    GENERIC      = 1 [(gogoproto.enumvalue_customname) = "ErrorCodeGeneric"];
-    NO_SUCH_FILE = 2 [(gogoproto.enumvalue_customname) = "ErrorCodeNoSuchFile"];
-    INVALID_FILE = 3 [(gogoproto.enumvalue_customname) = "ErrorCodeInvalidFile"];
+    ERROR_CODE_NO_ERROR     = 0;
+    ERROR_CODE_GENERIC      = 1;
+    ERROR_CODE_NO_SUCH_FILE = 2;
+    ERROR_CODE_INVALID_FILE = 3;
 }
 
 // DownloadProgress
 
 message DownloadProgress {
     string                              folder  = 1;
-    repeated FileDownloadProgressUpdate updates = 2 [(gogoproto.nullable) = false];
+    repeated FileDownloadProgressUpdate updates = 2;
 }
 
 message FileDownloadProgressUpdate {
     FileDownloadProgressUpdateType update_type   = 1;
     string                         name          = 2;
-    Vector                         version       = 3 [(gogoproto.nullable) = false];
+    Vector                         version       = 3;
     repeated int32                 block_indexes = 4 [packed=false];
     int32                          block_size    = 5;
 }
 
 enum FileDownloadProgressUpdateType {
-    APPEND = 0 [(gogoproto.enumvalue_customname) = "UpdateTypeAppend"];
-    FORGET = 1 [(gogoproto.enumvalue_customname) = "UpdateTypeForget"];
+    FILE_DOWNLOAD_PROGRESS_UPDATE_TYPE_APPEND = 0;
+    FILE_DOWNLOAD_PROGRESS_UPDATE_TYPE_FORGET = 1;
 }
 
 // Ping

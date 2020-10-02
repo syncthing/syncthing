@@ -198,7 +198,7 @@ func (db *schemaUpdater) updateSchema0to1(_ int) error {
 			// probably can't happen
 			continue
 		}
-		if f.Type == protocol.FileInfoTypeDeprecatedSymlinkDirectory || f.Type == protocol.FileInfoTypeDeprecatedSymlinkFile {
+		if f.Type == protocol.FileInfoTypeSymlinkDirectory || f.Type == protocol.FileInfoTypeSymlinkFile {
 			f.Type = protocol.FileInfoTypeSymlink
 			bs, err := f.Marshal()
 			if err != nil {

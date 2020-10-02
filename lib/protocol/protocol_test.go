@@ -31,9 +31,9 @@ func TestPing(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, newTestModel(), "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c0 := NewConnection(c0ID, ar, bw, newTestModel(), "name", CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
 	c0.Start()
-	c1 := NewConnection(c1ID, br, aw, newTestModel(), "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c1 := NewConnection(c1ID, br, aw, newTestModel(), "name", CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
 	c1.Start()
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
@@ -55,9 +55,9 @@ func TestClose(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
 	c0.Start()
-	c1 := NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
+	c1 := NewConnection(c1ID, br, aw, m1, "name", CompressionAlways)
 	c1.Start()
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
@@ -97,7 +97,7 @@ func TestCloseOnBlockingSend(t *testing.T) {
 
 	m := newTestModel()
 
-	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
 	c.Start()
 
 	wg := sync.WaitGroup{}
@@ -147,9 +147,9 @@ func TestCloseRace(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := NewConnection(c0ID, ar, bw, m0, "c0", CompressNever).(wireFormatConnection).Connection.(*rawConnection)
+	c0 := NewConnection(c0ID, ar, bw, m0, "c0", CompressionNever).(wireFormatConnection).Connection.(*rawConnection)
 	c0.Start()
-	c1 := NewConnection(c1ID, br, aw, m1, "c1", CompressNever)
+	c1 := NewConnection(c1ID, br, aw, m1, "c1", CompressionNever)
 	c1.Start()
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
@@ -184,7 +184,7 @@ func TestCloseRace(t *testing.T) {
 func TestClusterConfigFirst(t *testing.T) {
 	m := newTestModel()
 
-	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.NoopRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.NoopRW{}, m, "name", CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
 	c.Start()
 
 	select {
@@ -234,7 +234,7 @@ func TestCloseTimeout(t *testing.T) {
 
 	m := newTestModel()
 
-	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
 	c.Start()
 
 	done := make(chan struct{})
@@ -260,6 +260,12 @@ func TestMarshalIndexMessage(t *testing.T) {
 			m1.Files = nil
 		}
 		for i, f := range m1.Files {
+			if len(f.BlocksHash) == 0 {
+				m1.Files[i].BlocksHash = nil
+			}
+			if len(f.VersionHash) == 0 {
+				m1.Files[i].VersionHash = nil
+			}
 			if len(f.Blocks) == 0 {
 				m1.Files[i].Blocks = nil
 			} else {
@@ -330,7 +336,13 @@ func TestMarshalClusterConfigMessage(t *testing.T) {
 			if len(m1.Folders[i].Devices) == 0 {
 				m1.Folders[i].Devices = nil
 			}
+			for j := range m1.Folders[i].Devices {
+				if len(m1.Folders[i].Devices[j].Addresses) == 0 {
+					m1.Folders[i].Devices[j].Addresses = nil
+				}
+			}
 		}
+
 		return testMarshal(t, "clusterconfig", &m1, &ClusterConfig{})
 	}
 
@@ -362,7 +374,10 @@ func TestMarshalFDPU(t *testing.T) {
 		if len(m1.Version.Counters) == 0 {
 			m1.Version.Counters = nil
 		}
-		return testMarshal(t, "close", &m1, &FileDownloadProgressUpdate{})
+		if len(m1.BlockIndexes) == 0 {
+			m1.BlockIndexes = nil
+		}
+		return testMarshal(t, "fdpu", &m1, &FileDownloadProgressUpdate{})
 	}
 
 	if err := quick.Check(f, quickCfg); err != nil {
@@ -831,7 +846,7 @@ func TestSha256OfEmptyBlock(t *testing.T) {
 func TestClusterConfigAfterClose(t *testing.T) {
 	m := newTestModel()
 
-	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.BlockingRW{}, m, "name", CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
 	c.Start()
 
 	c.internalClose(errManual)
@@ -853,7 +868,7 @@ func TestDispatcherToCloseDeadlock(t *testing.T) {
 	// Verify that we don't deadlock when calling Close() from within one of
 	// the model callbacks (ClusterConfig).
 	m := newTestModel()
-	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.NoopRW{}, m, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
+	c := NewConnection(c0ID, &testutils.BlockingRW{}, &testutils.NoopRW{}, m, "name", CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
 	m.ccFn = func(devID DeviceID, cc ClusterConfig) {
 		c.Close(errManual)
 	}

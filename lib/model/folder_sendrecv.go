@@ -1074,7 +1074,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 	populateOffsets(file.Blocks)
 
 	blocks := make([]protocol.BlockInfo, 0, len(file.Blocks))
-	reused := make([]int32, 0, len(file.Blocks))
+	reused := make([]int, 0, len(file.Blocks))
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
@@ -1103,7 +1103,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 			if !ok {
 				blocks = append(blocks, block)
 			} else {
-				reused = append(reused, int32(i))
+				reused = append(reused, i)
 			}
 		}
 

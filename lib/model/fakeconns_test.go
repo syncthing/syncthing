@@ -129,7 +129,7 @@ func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol
 			Permissions:  flags,
 			Version:      version,
 			Sequence:     time.Now().UnixNano(),
-			RawBlockSize: int32(blockSize),
+			RawBlockSize: blockSize,
 			Blocks:       blocks,
 		})
 	} else {
