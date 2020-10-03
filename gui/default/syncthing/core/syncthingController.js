@@ -621,9 +621,18 @@ angular.module('syncthing.core')
         }
 
         $scope.probeAddress = function (address) {
-            $http.head(address).success(function (data) {
-                console.log(data)
-            }).error($scope.emitHTTPError);
+            $http({
+                method: "OPTIONS",
+                url: address,
+                mode: "no-cors",
+                headers: {
+                    "Content-Type": "text/plain"
+                }
+            }).then(function (response) {
+                console.log(response);
+            }, function error(response) {
+                console.log(response);
+            })
         }
 
         $scope.refreshNeed = function (page, perpage) {

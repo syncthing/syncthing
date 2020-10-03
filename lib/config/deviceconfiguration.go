@@ -20,7 +20,7 @@ func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfigurati
 	}
 
 	util.SetDefaults(&d)
-	d.WebAddressPort = "8384"
+
 	d.prepare(nil)
 	return d
 }

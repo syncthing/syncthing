@@ -25,5 +25,5 @@ message DeviceConfiguration {
     repeated ObservedFolder pending_folders            = 15;
     int32                   max_request_kib            = 16 [(ext.goname) = "MaxRequestKiB", (ext.xml) = "maxRequestKiB", (ext.json) = "maxRequestKiB"];
     bool                    show_web_address           = 17;
-    string                  web_address_port           = 18;
+    string                  web_address_port           = 18 [(ext.default) = "8384"];
 }

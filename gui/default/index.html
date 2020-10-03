@@ -768,7 +768,7 @@
                       <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
                       <td class="text-right" ng-attr-title="{{deviceFolders(deviceCfg).map(folderLabel).join(', ')}}">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
                     </tr>
-                    <tr ng-if="idToWebAddress[deviceCfg.deviceID]">
+                    <tr ng-if="idToWebAddress[deviceCfg.deviceID] && idToWebAddress[deviceCfg.deviceID] !== ''">
                       <th><span class="fas fa-fw fa-link"></span>&nbsp;<span translate>Web Address</span></th>
                       <td class="text-right" ng-attr-title="{{idToWebAddress[deviceCfg.deviceID]}}"><a href="{{idToWebAddress[deviceCfg.deviceID]}}">{{idToWebAddress[deviceCfg.deviceID]}}</a></td>
                     </tr>
