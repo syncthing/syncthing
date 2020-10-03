@@ -153,12 +153,12 @@ type rawConnection struct {
 	cr *countingReader
 	cw *countingWriter
 
-	awaiting    map[int32]chan asyncResult
+	awaiting    map[int]chan asyncResult
 	awaitingMut sync.Mutex
 
 	idxMut sync.Mutex // ensures serialization of Index calls
 
-	nextID    int32
+	nextID    int
 	nextIDMut sync.Mutex
 
 	inbox                 chan message
@@ -213,7 +213,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		receiver:              nativeModel{receiver},
 		cr:                    cr,
 		cw:                    cw,
-		awaiting:              make(map[int32]chan asyncResult),
+		awaiting:              make(map[int]chan asyncResult),
 		inbox:                 make(chan message),
 		outbox:                make(chan asyncMessage),
 		closeBox:              make(chan asyncMessage),
@@ -301,7 +301,7 @@ func (c *rawConnection) Request(ctx context.Context, folder string, name string,
 		Folder:        folder,
 		Name:          name,
 		Offset:        offset,
-		Size:          int32(size),
+		Size:          size,
 		Hash:          hash,
 		WeakHash:      weakHash,
 		FromTemporary: fromTemporary,
@@ -322,11 +322,9 @@ func (c *rawConnection) Request(ctx context.Context, folder string, name string,
 }
 
 // ClusterConfig sends the cluster configuration message to the peer.
-// It must be called just once (as per BEP), otherwise it will panic.
 func (c *rawConnection) ClusterConfig(config ClusterConfig) {
 	select {
 	case c.clusterConfigBox <- &config:
-		close(c.clusterConfigBox)
 	case <-c.closed:
 	}
 }
@@ -386,13 +384,12 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 		switch msg := msg.(type) {
 		case *ClusterConfig:
 			l.Debugln("read ClusterConfig message")
-			if state != stateInitial {
-				return fmt.Errorf("protocol error: cluster config message in state %d", state)
+			if state == stateInitial {
+				state = stateReady
 			}
 			if err := c.receiver.ClusterConfig(c.id, *msg); err != nil {
 				return errors.Wrap(err, "receiver error")
 			}
-			state = stateReady
 
 		case *Index:
 			l.Debugln("read Index message")
@@ -625,7 +622,7 @@ func checkFilename(name string) error {
 }
 
 func (c *rawConnection) handleRequest(req Request) {
-	res, err := c.receiver.Request(c.id, req.Folder, req.Name, req.Size, req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
+	res, err := c.receiver.Request(c.id, req.Folder, req.Name, int32(req.Size), req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
 	if err != nil {
 		c.send(context.Background(), &Response{
 			ID:   req.ID,
@@ -683,6 +680,12 @@ func (c *rawConnection) writerLoop() {
 	}
 	for {
 		select {
+		case cc := <-c.clusterConfigBox:
+			err := c.writeMessage(cc)
+			if err != nil {
+				c.internalClose(err)
+				return
+			}
 		case hm := <-c.outbox:
 			err := c.writeMessage(hm.msg)
 			if hm.done != nil {
@@ -797,21 +800,21 @@ func (c *rawConnection) writeUncompressedMessage(msg message) error {
 func (c *rawConnection) typeOf(msg message) MessageType {
 	switch msg.(type) {
 	case *ClusterConfig:
-		return messageTypeClusterConfig
+		return MessageTypeClusterConfig
 	case *Index:
-		return messageTypeIndex
+		return MessageTypeIndex
 	case *IndexUpdate:
-		return messageTypeIndexUpdate
+		return MessageTypeIndexUpdate
 	case *Request:
-		return messageTypeRequest
+		return MessageTypeRequest
 	case *Response:
-		return messageTypeResponse
+		return MessageTypeResponse
 	case *DownloadProgress:
-		return messageTypeDownloadProgress
+		return MessageTypeDownloadProgress
 	case *Ping:
-		return messageTypePing
+		return MessageTypePing
 	case *Close:
-		return messageTypeClose
+		return MessageTypeClose
 	default:
 		panic("bug: unknown message type")
 	}
@@ -819,21 +822,21 @@ func (c *rawConnection) typeOf(msg message) MessageType {
 
 func (c *rawConnection) newMessage(t MessageType) (message, error) {
 	switch t {
-	case messageTypeClusterConfig:
+	case MessageTypeClusterConfig:
 		return new(ClusterConfig), nil
-	case messageTypeIndex:
+	case MessageTypeIndex:
 		return new(Index), nil
-	case messageTypeIndexUpdate:
+	case MessageTypeIndexUpdate:
 		return new(IndexUpdate), nil
-	case messageTypeRequest:
+	case MessageTypeRequest:
 		return new(Request), nil
-	case messageTypeResponse:
+	case MessageTypeResponse:
 		return new(Response), nil
-	case messageTypeDownloadProgress:
+	case MessageTypeDownloadProgress:
 		return new(DownloadProgress), nil
-	case messageTypePing:
+	case MessageTypePing:
 		return new(Ping), nil
-	case messageTypeClose:
+	case MessageTypeClose:
 		return new(Close), nil
 	default:
 		return nil, errUnknownMessage
@@ -842,14 +845,14 @@ func (c *rawConnection) newMessage(t MessageType) (message, error) {
 
 func (c *rawConnection) shouldCompressMessage(msg message) bool {
 	switch c.compression {
-	case CompressNever:
+	case CompressionNever:
 		return false
 
-	case CompressAlways:
+	case CompressionAlways:
 		// Use compression for large enough messages
 		return msg.ProtoSize() >= compressionThreshold
 
-	case CompressMetadata:
+	case CompressionMetadata:
 		_, isResponse := msg.(*Response)
 		// Compress if it's large enough and not a response message
 		return !isResponse && msg.ProtoSize() >= compressionThreshold

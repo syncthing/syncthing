@@ -4,9 +4,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate go run ../../proto/scripts/protofmt.go structs.proto
-//go:generate protoc -I ../../ -I ../../proto -I . --gogofast_out=Mlib/protocol/bep.proto=github.com/syncthing/syncthing/lib/protocol:. structs.proto
-
 package db
 
 import (
@@ -26,7 +23,7 @@ func (f FileInfoTruncated) String() string {
 	case protocol.FileInfoTypeFile:
 		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d}",
 			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize)
-	case protocol.FileInfoTypeSymlink, protocol.FileInfoTypeDeprecatedSymlinkDirectory, protocol.FileInfoTypeDeprecatedSymlinkFile:
+	case protocol.FileInfoTypeSymlink, protocol.FileInfoTypeSymlinkDirectory, protocol.FileInfoTypeSymlinkFile:
 		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q}",
 			f.Name, f.Type, f.Sequence, f.Version, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget)
 	default:
@@ -64,7 +61,7 @@ func (f FileInfoTruncated) IsDirectory() bool {
 
 func (f FileInfoTruncated) IsSymlink() bool {
 	switch f.Type {
-	case protocol.FileInfoTypeSymlink, protocol.FileInfoTypeDeprecatedSymlinkDirectory, protocol.FileInfoTypeDeprecatedSymlinkFile:
+	case protocol.FileInfoTypeSymlink, protocol.FileInfoTypeSymlinkDirectory, protocol.FileInfoTypeSymlinkFile:
 		return true
 	default:
 		return false
@@ -183,7 +180,7 @@ func (c Counts) Add(other Counts) Counts {
 	}
 }
 
-func (c Counts) TotalItems() int32 {
+func (c Counts) TotalItems() int {
 	return c.Files + c.Directories + c.Symlinks + c.Deleted
 }
 

@@ -91,8 +91,8 @@ func (fm FileMode) String() string {
 
 // Usage represents filesystem space usage
 type Usage struct {
-	Free  int64
-	Total int64
+	Free  uint64
+	Total uint64
 }
 
 type Matcher interface {

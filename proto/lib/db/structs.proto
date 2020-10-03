@@ -4,16 +4,10 @@ package db;
 
 import "repos/protobuf/gogoproto/gogo.proto";
 import "lib/protocol/bep.proto";
-
-option (gogoproto.goproto_getters_all) = false;
-option (gogoproto.sizer_all) = false;
-option (gogoproto.protosizer_all) = true;
-option (gogoproto.goproto_unkeyed_all) = false;
-option (gogoproto.goproto_unrecognized_all) = false;
-option (gogoproto.goproto_sizecache_all) = false;
+import "ext.proto";
 
 message FileVersion {
-    protocol.Vector version         = 1 [(gogoproto.nullable) = false];
+    protocol.Vector version         = 1;
     bool            deleted         = 2;
     repeated bytes  devices         = 3;
     repeated bytes  invalid_devices = 4;
@@ -21,7 +15,7 @@ message FileVersion {
 
 message VersionList {
     option (gogoproto.goproto_stringer) = false;
-    repeated FileVersion versions = 1 [(gogoproto.customname) = "RawVersions", (gogoproto.nullable) = false];
+    repeated FileVersion versions = 1 [(ext.goname) = "RawVersions"];
 }
 
 // Must be the same as FileInfo but without the blocks field
@@ -30,8 +24,8 @@ message FileInfoTruncated {
     string                name           = 1;
     int64                 size           = 3;
     int64                 modified_s     = 5;
-    uint64                modified_by    = 12 [(gogoproto.customtype) = "github.com/syncthing/syncthing/lib/protocol.ShortID", (gogoproto.nullable) = false];
-    protocol.Vector       version        = 9 [(gogoproto.nullable) = false];
+    uint64                modified_by    = 12 [(ext.gotype) = "github.com/syncthing/syncthing/lib/protocol.ShortID"];
+    protocol.Vector       version        = 9;
     int64                 sequence       = 10;
     // repeated BlockInfo Blocks         = 16
     string                symlink_target = 17;
@@ -39,20 +33,20 @@ message FileInfoTruncated {
     protocol.FileInfoType type           = 2;
     uint32                permissions    = 4;
     int32                 modified_ns    = 11;
-    int32                 block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
+    int32                 block_size     = 13 [(ext.goname) = "RawBlockSize"];
 
     // see bep.proto
     uint32 local_flags  = 1000;
     bytes  version_hash = 1001;
 
     bool deleted        = 6;
-    bool invalid        = 7 [(gogoproto.customname) = "RawInvalid"];
+    bool invalid        = 7 [(ext.goname) = "RawInvalid"];
     bool no_permissions = 8;
 }
 
 // BlockList is the structure used to store block lists
 message BlockList {
-    repeated protocol.BlockInfo Blocks = 1 [(gogoproto.nullable) = false];
+    repeated protocol.BlockInfo blocks = 1;
 }
 
 // IndirectionHashesOnly is used to only unmarshal the indirection hashes
@@ -66,23 +60,24 @@ message IndirectionHashesOnly {
 // counts and sequence. We also keep one for the global state of the folder.
 message Counts {
     option (gogoproto.goproto_stringer) = false;
+
     int32  files       = 1;
     int32  directories = 2;
     int32  symlinks    = 3;
     int32  deleted     = 4;
     int64  bytes       = 5;
     int64  sequence    = 6; // zero for the global state
-    bytes  deviceID    = 17; // device ID for remote devices, or special values for local/global
-    uint32 localFlags  = 18; // the local flag for this count bucket
+    bytes  device_id   = 17 [(ext.goname) = "DeviceID"]; // device ID for remote devices, or special values for local/global
+    uint32 local_flags = 18; // the local flag for this count bucket
 }
 
 message CountsSet {
-    repeated Counts counts  = 1  [(gogoproto.nullable) = false];
+    repeated Counts counts  = 1;
     int64           created = 2; // unix nanos
 }
 
 message FileVersionDeprecated {
-    protocol.Vector version = 1 [(gogoproto.nullable) = false];
+    protocol.Vector version = 1;
     bytes           device  = 2;
     bool            invalid = 3;
     bool            deleted = 4;
@@ -90,5 +85,5 @@ message FileVersionDeprecated {
 
 message VersionListDeprecated {
     option (gogoproto.goproto_stringer) = false;
-    repeated FileVersionDeprecated versions = 1 [(gogoproto.nullable) = false];
+    repeated FileVersionDeprecated versions = 1;
 }

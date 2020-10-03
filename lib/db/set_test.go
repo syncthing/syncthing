@@ -38,7 +38,7 @@ func genBlocks(n int) []protocol.BlockInfo {
 		for j := range h {
 			h[j] = byte(i + j)
 		}
-		b[i].Size = int32(i)
+		b[i].Size = i
 		b[i].Hash = h
 	}
 	return b
@@ -227,7 +227,8 @@ func TestGlobalSet(t *testing.T) {
 			t.Errorf("Global incorrect;\n A: %v !=\n E: %v", g, expectedGlobal)
 		}
 
-		globalFiles, globalDirectories, globalDeleted, globalBytes := int32(0), int32(0), int32(0), int64(0)
+		var globalFiles, globalDirectories, globalDeleted int
+		var globalBytes int64
 		for _, f := range g {
 			if f.IsInvalid() {
 				continue
@@ -263,7 +264,8 @@ func TestGlobalSet(t *testing.T) {
 			t.Errorf("Have incorrect (local);\n A: %v !=\n E: %v", h, localTot)
 		}
 
-		haveFiles, haveDirectories, haveDeleted, haveBytes := int32(0), int32(0), int32(0), int64(0)
+		var haveFiles, haveDirectories, haveDeleted int
+		var haveBytes int64
 		for _, f := range h {
 			if f.IsInvalid() {
 				continue

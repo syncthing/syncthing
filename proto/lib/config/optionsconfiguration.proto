@@ -55,6 +55,7 @@ message OptionsConfiguration {
     Tuning          database_tuning                          = 46 [(ext.restart) = true];
     int32           max_concurrent_incoming_request_kib      = 47 [(ext.goname) = "RawMaxCIRequestKiB", (ext.xml) = "maxConcurrentIncomingRequestKiB", (ext.json) = "maxConcurrentIncomingRequestKiB"];
     bool            announce_lan_addresses                   = 48 [(ext.goname)= "AnnounceLANAddresses", (ext.xml) = "announceLANAddresses", (ext.json) = "announceLANAddresses", (ext.default) = "true"];
+    bool            send_full_index_on_upgrade               = 49;
 
 
     // Legacy deprecated

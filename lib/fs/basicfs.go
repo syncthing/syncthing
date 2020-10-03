@@ -295,8 +295,8 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 		return Usage{}, err
 	}
 	return Usage{
-		Free:  int64(u.Free),
-		Total: int64(u.Total),
+		Free:  u.Free,
+		Total: u.Total,
 	}, nil
 }
 

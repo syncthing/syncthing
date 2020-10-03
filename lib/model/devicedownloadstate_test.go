@@ -17,16 +17,16 @@ func TestDeviceDownloadState(t *testing.T) {
 	v2 := (protocol.Vector{}).Update(1)
 
 	// file 1 version 1 part 1
-	f1v1p1 := protocol.FileDownloadProgressUpdate{UpdateType: protocol.UpdateTypeAppend, Name: "f1", Version: v1, BlockIndexes: []int32{0, 1, 2}}
-	f1v1p2 := protocol.FileDownloadProgressUpdate{UpdateType: protocol.UpdateTypeAppend, Name: "f1", Version: v1, BlockIndexes: []int32{3, 4, 5}}
-	f1v1del := protocol.FileDownloadProgressUpdate{UpdateType: protocol.UpdateTypeForget, Name: "f1", Version: v1, BlockIndexes: nil}
-	f1v2p1 := protocol.FileDownloadProgressUpdate{UpdateType: protocol.UpdateTypeAppend, Name: "f1", Version: v2, BlockIndexes: []int32{10, 11, 12}}
-	f1v2p2 := protocol.FileDownloadProgressUpdate{UpdateType: protocol.UpdateTypeAppend, Name: "f1", Version: v2, BlockIndexes: []int32{13, 14, 15}}
-	f1v2del := protocol.FileDownloadProgressUpdate{UpdateType: protocol.UpdateTypeForget, Name: "f1", Version: v2, BlockIndexes: nil}
+	f1v1p1 := protocol.FileDownloadProgressUpdate{UpdateType: protocol.FileDownloadProgressUpdateTypeAppend, Name: "f1", Version: v1, BlockIndexes: []int{0, 1, 2}}
+	f1v1p2 := protocol.FileDownloadProgressUpdate{UpdateType: protocol.FileDownloadProgressUpdateTypeAppend, Name: "f1", Version: v1, BlockIndexes: []int{3, 4, 5}}
+	f1v1del := protocol.FileDownloadProgressUpdate{UpdateType: protocol.FileDownloadProgressUpdateTypeForget, Name: "f1", Version: v1, BlockIndexes: nil}
+	f1v2p1 := protocol.FileDownloadProgressUpdate{UpdateType: protocol.FileDownloadProgressUpdateTypeAppend, Name: "f1", Version: v2, BlockIndexes: []int{10, 11, 12}}
+	f1v2p2 := protocol.FileDownloadProgressUpdate{UpdateType: protocol.FileDownloadProgressUpdateTypeAppend, Name: "f1", Version: v2, BlockIndexes: []int{13, 14, 15}}
+	f1v2del := protocol.FileDownloadProgressUpdate{UpdateType: protocol.FileDownloadProgressUpdateTypeForget, Name: "f1", Version: v2, BlockIndexes: nil}
 
-	f2v1p1 := protocol.FileDownloadProgressUpdate{UpdateType: protocol.UpdateTypeAppend, Name: "f2", Version: v1, BlockIndexes: []int32{20, 21, 22}}
-	f2v1p2 := protocol.FileDownloadProgressUpdate{UpdateType: protocol.UpdateTypeAppend, Name: "f2", Version: v1, BlockIndexes: []int32{23, 24, 25}}
-	f2v1del := protocol.FileDownloadProgressUpdate{UpdateType: protocol.UpdateTypeForget, Name: "f2", Version: v1, BlockIndexes: nil}
+	f2v1p1 := protocol.FileDownloadProgressUpdate{UpdateType: protocol.FileDownloadProgressUpdateTypeAppend, Name: "f2", Version: v1, BlockIndexes: []int{20, 21, 22}}
+	f2v1p2 := protocol.FileDownloadProgressUpdate{UpdateType: protocol.FileDownloadProgressUpdateTypeAppend, Name: "f2", Version: v1, BlockIndexes: []int{23, 24, 25}}
+	f2v1del := protocol.FileDownloadProgressUpdate{UpdateType: protocol.FileDownloadProgressUpdateTypeForget, Name: "f2", Version: v1, BlockIndexes: nil}
 
 	tests := []struct {
 		updates                  []protocol.FileDownloadProgressUpdate
