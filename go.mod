@@ -11,7 +11,7 @@ require (
 	github.com/certifi/gocertifi v0.0.0-20190905060710-a5e0173ced67 // indirect
 	github.com/chmduquesne/rollinghash v0.0.0-20180912150627-a60f8e7142b5
 	github.com/d4l3k/messagediff v1.2.1
-	github.com/dchest/siphash v1.2.1
+	github.com/dchest/siphash v1.2.2
 	github.com/dgraph-io/badger/v2 v2.0.3
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
 	github.com/getsentry/raven-go v0.2.0
