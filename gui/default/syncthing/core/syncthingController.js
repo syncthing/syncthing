@@ -25,7 +25,6 @@ angular.module('syncthing.core')
         $scope.configInSync = true;
         $scope.connections = {};
         $scope.idToWebAddress = {};
-        $scope.hasProbedMap = {}
         $scope.errors = [];
         $scope.model = {};
         $scope.myID = '';
@@ -573,7 +572,8 @@ angular.module('syncthing.core')
                         continue;
                     }
                     var port = $scope.findDevice(id).webAddressPort;
-                    if (id in $scope.idToWebAddress) {
+                    var isNotRelayConnection = !data[id].type.includes("relay");
+                    if (id in $scope.idToWebAddress && data[id].address !== "" && isNotRelayConnection) {
                         $scope.idToWebAddress[id] = `http://${replaceAddressPort(data[id].address, port)}`
                         $scope.probeAddress($scope.idToWebAddress[id])
                     }
@@ -621,18 +621,13 @@ angular.module('syncthing.core')
         }
 
         $scope.probeAddress = function (address) {
-            $http({
+            return $http({
                 method: "OPTIONS",
                 url: address,
-                mode: "no-cors",
                 headers: {
                     "Content-Type": "text/plain"
                 }
-            }).then(function (response) {
-                console.log(response);
-            }, function error(response) {
-                console.log(response);
-            })
+            }) >= 200;
         }
 
         $scope.refreshNeed = function (page, perpage) {
