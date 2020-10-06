@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -822,6 +823,7 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 	var fixed int
 	fixed, err = db.checkLocalNeed([]byte(folder))
 	if err != nil {
+		err = fmt.Errorf("checking local need: %w", err)
 		return nil
 	}
 	if fixed != 0 {
@@ -830,11 +832,13 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 
 	meta, err := db.recalcMeta(folder)
 	if err != nil {
+		err = fmt.Errorf("recalculating metadata: %w", err)
 		return nil
 	}
 
 	fixed, err = db.repairSequenceGCLocked(folder, meta)
 	if err != nil {
+		err = fmt.Errorf("repairing sequences: %w", err)
 		return nil
 	}
 	if fixed != 0 {
@@ -1094,7 +1098,7 @@ func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
 		f := fi.(FileInfoTruncated)
 		for !needDone && needName < f.Name {
 			repaired++
-			if err = t.Delete(dbi.Key()); err != nil {
+			if err = t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
 				return false
 			}
 			l.Debugln("check local need: removing", needName)
@@ -1121,7 +1125,7 @@ func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
 
 	for !needDone {
 		repaired++
-		if err := t.Delete(dbi.Key()); err != nil {
+		if err := t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
 			return 0, err
 		}
 		l.Debugln("check local need: removing", needName)
