@@ -25,6 +25,7 @@ angular.module('syncthing.core')
         $scope.configInSync = true;
         $scope.connections = {};
         $scope.idToWebAddress = {};
+        $scope.showRemoteGUI = false;
         $scope.errors = [];
         $scope.model = {};
         $scope.myID = '';
@@ -60,6 +61,7 @@ angular.module('syncthing.core')
 
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
+            $scope.showRemoteGUI = (window.localStorage["showRemoteGUI"] == "true")
         } catch (exception) { }
 
         $scope.folderDefaults = {
@@ -379,6 +381,8 @@ angular.module('syncthing.core')
             $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
             $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
 
+            $scope.config.gui["showRemoteGUI"] = $scope.showRemoteGUI;
+
             $scope.devices = $scope.config.devices;
             $scope.devices.forEach(function (deviceCfg) {
                 $scope.completion[deviceCfg.deviceID] = {
@@ -571,11 +575,13 @@ angular.module('syncthing.core')
                     if (!data.hasOwnProperty(id)) {
                         continue;
                     }
-                    var port = $scope.findDevice(id).webAddressPort;
+                    var port = $scope.findDevice(id).remoteGUIPort;
                     var isNotRelayConnection = !data[id].type.includes("relay");
-                    if (id in $scope.idToWebAddress && data[id].address !== "" && isNotRelayConnection) {
-                        $scope.idToWebAddress[id] = `http://${replaceAddressPort(data[id].address, port)}`
-                        $scope.probeAddress($scope.idToWebAddress[id])
+                    if ($scope.showRemoteGUI && data[id].address !== "" && isNotRelayConnection) {
+                        var newAddress = `http://${replaceAddressPort(data[id].address, port)}`
+                        if ($scope.idToWebAddress[id] !== newAddress && $scope.probeAddress(newAddress)) {
+                            $scope.idToWebAddress[id] = newAddress;
+                        }
                     }
                     try {
                         data[id].inbps = Math.max(0, (data[id].inBytesTotal - $scope.connections[id].inBytesTotal) / td);
@@ -601,18 +607,6 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/system/config').success(function (data) {
                 updateLocalConfig(data);
                 console.log("refreshConfig", data);
-
-                //update web addres
-                for (var index in $scope.config.devices) {
-                    var device = $scope.config.devices[index];
-                    if (device.showWebAddress) {
-                        if (!(device.deviceID in $scope.idToWebAddress)) {
-                            $scope.idToWebAddress[device.deviceID] = ""
-                        }
-                    } else {
-                        delete $scope.idToWebAddress[device.deviceID]
-                    }
-                }
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/system/config/insync').success(function (data) {
@@ -621,13 +615,14 @@ angular.module('syncthing.core')
         }
 
         $scope.probeAddress = function (address) {
-            return $http({
+            let response = $http({
                 method: "OPTIONS",
                 url: address,
                 headers: {
                     "Content-Type": "text/plain"
                 }
-            }) >= 200;
+            })
+            return response.status >= 200 && response.status < 300;
         }
 
         $scope.refreshNeed = function (page, perpage) {
@@ -1292,6 +1287,10 @@ angular.module('syncthing.core')
         };
 
         $scope.saveConfig = function (callback) {
+            // set local storage feature
+            localStorage.setItem("showRemoteGUI", $scope.config.gui.showRemoteGUI ? "true" : "false");
+            $scope.showRemoteGUI = $scope.config.gui.showRemoteGUI;
+
             var cfg = JSON.stringify($scope.config);
             var opts = {
                 headers: {
