@@ -865,11 +865,13 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			f.setWatchError(err, next)
 			// This error was previously a panic and should never occur, so generate
 			// a warning, but don't do it repetitively.
-			if !warnedOutside {
-				if _, ok := err.(*fs.ErrWatchEventOutsideRoot); ok {
+			var errOutside *fs.ErrWatchEventOutsideRoot
+			if errors.As(err, &errOutside) {
+				if !warnedOutside {
 					l.Warnln(err)
 					warnedOutside = true
 				}
+				f.evLogger.Log(events.Failure, "watching for changes encountered an event outside of the filesystem root")
 			}
 			aggrCancel()
 			errChan = nil

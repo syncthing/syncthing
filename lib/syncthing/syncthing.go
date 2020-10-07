@@ -133,6 +133,8 @@ func (a *App) Start() error {
 }
 
 func (a *App) startup() error {
+	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
+
 	a.mainService.Add(a.ll)
 
 	if a.opts.AuditWriter != nil {

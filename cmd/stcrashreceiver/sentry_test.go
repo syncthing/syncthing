@@ -64,7 +64,7 @@ func TestParseReport(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pkt, err := parseReport("1/2/345", bs)
+	pkt, err := parseCrashReport("1/2/345", bs)
 	if err != nil {
 		t.Fatal(err)
 	}
