@@ -128,8 +128,37 @@ func parseCrashReport(path string, report []byte) (*raven.Packet, error) {
 		"url": reportServer + path,
 	}
 	pkt.Interfaces = []raven.Interface{&trace}
+	pkt.Fingerprint = crashReportFingerprint(pkt.Message)
 
 	return pkt, nil
+}
+
+var (
+	indexRe          = regexp.MustCompile(`\[[-:0-9]+\]`)
+	sizeRe           = regexp.MustCompile(`(length|capacity) [0-9]+`)
+	ldbPosRe         = regexp.MustCompile(`(\(pos=)([0-9]+)\)`)
+	ldbChecksumRe    = regexp.MustCompile(`(want=0x)([a-z0-9]+)( got=0x)([a-z0-9]+)`)
+	ldbFileRe        = regexp.MustCompile(`(\[file=)([0-9]+)(\.ldb\])`)
+	ldbInternalKeyRe = regexp.MustCompile(`(internal key ")[^"]+(", len=)[0-9]+`)
+	ldbPathRe        = regexp.MustCompile(`(open|write|read) .+[\\/].+[\\/]index[^\\/]+[\\/][^\\/]+: `)
+)
+
+func crashReportFingerprint(message string) []string {
+	// Do not fingerprint on the stack in case of db corruption or fatal
+	// db io error - where it occurs doesn't matter.
+	orig := message
+	message = ldbPosRe.ReplaceAllString(message, "${1}x)")
+	message = ldbFileRe.ReplaceAllString(message, "${1}x${3}")
+	message = ldbChecksumRe.ReplaceAllString(message, "${1}X${3}X")
+	message = ldbInternalKeyRe.ReplaceAllString(message, "${1}x${2}x")
+	message = ldbPathRe.ReplaceAllString(message, "$1 x: ")
+	if message != orig {
+		return []string{message}
+	}
+
+	message = indexRe.ReplaceAllString(message, "[x]")
+	message = sizeRe.ReplaceAllString(message, "$1 x")
+	return []string{"{{ default }}", message}
 }
 
 // syncthing v1.1.4-rc.1+30-g6aaae618-dirty-crashrep "Erbium Earthworm" (go1.12.5 darwin-amd64) jb@kvin.kastelo.net 2019-05-23 16:08:14 UTC [foo, bar]
