@@ -158,6 +158,11 @@ func crashReportFingerprint(message string) []string {
 
 	message = indexRe.ReplaceAllString(message, "[x]")
 	message = sizeRe.ReplaceAllString(message, "$1 x")
+
+	// {{ default }} is what sentry uses as a fingerprint by default. While
+	// never specified, the docs point at this being some hash derived from the
+	// stack trace. Here we include the filtered panic message on top of that.
+	// https://docs.sentry.io/platforms/go/data-management/event-grouping/sdk-fingerprinting/#basic-example
 	return []string{"{{ default }}", message}
 }
 
