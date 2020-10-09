@@ -1973,6 +1973,7 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 					l.Warnln("Failed repairing sequence entries:", dbErr)
 					panic("Failed repairing sequence entries")
 				} else {
+					s.evLogger.Log(events.Failure, "detected and repaired non-increasing sequence")
 					l.Infof("Repaired %v sequence entries in database", fixed)
 				}
 			}()

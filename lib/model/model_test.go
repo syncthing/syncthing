@@ -1665,10 +1665,9 @@ func TestRWScanRecovery(t *testing.T) {
 }
 
 func TestGlobalDirectoryTree(t *testing.T) {
-	db := db.NewLowlevel(backend.OpenMemory())
-	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.ServeBackground()
-	defer cleanupModel(m)
+	w, fcfg := tmpDefaultWrapper()
+	m := setupModel(w)
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		typ := protocol.FileInfoTypeDirectory
@@ -1916,10 +1915,9 @@ func TestGlobalDirectoryTree(t *testing.T) {
 }
 
 func TestGlobalDirectorySelfFixing(t *testing.T) {
-	db := db.NewLowlevel(backend.OpenMemory())
-	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.ServeBackground()
-	defer cleanupModel(m)
+	w, fcfg := tmpDefaultWrapper()
+	m := setupModel(w)
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		typ := protocol.FileInfoTypeDirectory
