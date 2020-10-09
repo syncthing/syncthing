@@ -141,7 +141,7 @@ func TestDeviceConfig(t *testing.T) {
 				AllowedNetworks: []string{},
 				IgnoredFolders:  []ObservedFolder{},
 				PendingFolders:  []ObservedFolder{},
-				RemoteGUIPort:   "8384",
+				RemoteGUIPort:   "0",
 			},
 			{
 				DeviceID:        device4,
@@ -151,7 +151,7 @@ func TestDeviceConfig(t *testing.T) {
 				AllowedNetworks: []string{},
 				IgnoredFolders:  []ObservedFolder{},
 				PendingFolders:  []ObservedFolder{},
-				RemoteGUIPort:   "8384",
+				RemoteGUIPort:   "0",
 			},
 		}
 		expectedDeviceIDs := []protocol.DeviceID{device1, device4}
@@ -248,7 +248,7 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
-			RemoteGUIPort:   "8384",
+			RemoteGUIPort:   "0",
 		},
 		device2: {
 			DeviceID:        device2,
@@ -256,7 +256,7 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
-			RemoteGUIPort:   "8384",
+			RemoteGUIPort:   "0",
 		},
 		device3: {
 			DeviceID:        device3,
@@ -264,7 +264,7 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
-			RemoteGUIPort:   "8384",
+			RemoteGUIPort:   "0",
 		},
 		device4: {
 			DeviceID:        device4,
@@ -274,7 +274,7 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
-			RemoteGUIPort:   "8384",
+			RemoteGUIPort:   "0",
 		},
 	}
 
@@ -299,7 +299,7 @@ func TestDeviceCompression(t *testing.T) {
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
-			RemoteGUIPort:   "8384",
+			RemoteGUIPort:   "0",
 		},
 		device2: {
 			DeviceID:        device2,
@@ -308,7 +308,7 @@ func TestDeviceCompression(t *testing.T) {
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
-			RemoteGUIPort:   "8384",
+			RemoteGUIPort:   "0",
 		},
 		device3: {
 			DeviceID:        device3,
@@ -317,7 +317,7 @@ func TestDeviceCompression(t *testing.T) {
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
-			RemoteGUIPort:   "8384",
+			RemoteGUIPort:   "0",
 		},
 		device4: {
 			DeviceID:        device4,
@@ -327,7 +327,7 @@ func TestDeviceCompression(t *testing.T) {
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
-			RemoteGUIPort:   "8384",
+			RemoteGUIPort:   "0",
 		},
 	}
 
@@ -351,7 +351,7 @@ func TestDeviceAddressesStatic(t *testing.T) {
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
-			RemoteGUIPort:   "8384",
+			RemoteGUIPort:   "0",
 		},
 		device2: {
 			DeviceID:        device2,
@@ -359,7 +359,7 @@ func TestDeviceAddressesStatic(t *testing.T) {
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
-			RemoteGUIPort:   "8384",
+			RemoteGUIPort:   "0",
 		},
 		device3: {
 			DeviceID:        device3,
@@ -367,7 +367,7 @@ func TestDeviceAddressesStatic(t *testing.T) {
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
-			RemoteGUIPort:   "8384",
+			RemoteGUIPort:   "0",
 		},
 		device4: {
 			DeviceID:        device4,
@@ -377,7 +377,7 @@ func TestDeviceAddressesStatic(t *testing.T) {
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 			PendingFolders:  []ObservedFolder{},
-			RemoteGUIPort:   "8384",
+			RemoteGUIPort:   "0",
 		},
 	}
 
