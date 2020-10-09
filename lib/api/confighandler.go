@@ -1,4 +1,4 @@
-// Copyright (C) 2014 The Syncthing Authors.
+// Copyright (C) 2020 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -20,65 +20,38 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-const configBase = "/rest/config/"
-
-type configHandler struct {
+type configMuxBuilder struct {
 	*httprouter.Router
 	id  protocol.DeviceID
 	cfg config.Wrapper
 	mut sync.Mutex
 }
 
-func newConfigHandler(id protocol.DeviceID, cfg config.Wrapper) http.Handler {
-	c := &configHandler{
-		Router: httprouter.New(),
-		id:     id,
-		cfg:    cfg,
-		mut:    sync.NewMutex(),
-	}
-
-	c.registerConfig()
-	c.registerConfigInsync()
-	c.registerFolders()
-	c.registerDevices()
-	c.registerFolder()
-	c.registerDevice()
-	c.registerOptions()
-	c.registerLDAP()
-	c.registerGUI()
-
-	return c
-}
-
-func (c *configHandler) registerConfig() {
-	path := configBase
-	legacyPath := "/rest/system/config"
-
-	handler := func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+func (c *configMuxBuilder) registerConfig(path string) {
+	c.GET(path, func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 		sendJSON(w, c.cfg.RawCopy())
-	}
-	c.GET(path, handler)
-	c.GET(legacyPath, handler)
-
-	handler = func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	})
+	c.PUT(path, func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		c.adjustConfig(w, r)
-	}
-	c.PUT(legacyPath, handler)
-	c.POST(legacyPath, handler)
+	})
 }
 
-func (c *configHandler) registerConfigInsync() {
-	path := configBase + "insync"
-	legacyPath := "/rest/system/config/insync"
-	handler := func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+func (c *configMuxBuilder) registerConfigDeprecated(path string) {
+	c.GET(path, func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+		sendJSON(w, c.cfg.RawCopy())
+	})
+	c.POST(path, func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		c.adjustConfig(w, r)
+	})
+}
+
+func (c *configMuxBuilder) registerConfigInsync(path string) {
+	c.GET(path, func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 		sendJSON(w, map[string]bool{"configInSync": !c.cfg.RequiresRestart()})
-	}
-	c.GET(path, handler)
-	c.GET(legacyPath, handler)
+	})
 }
 
-func (c *configHandler) registerFolders() {
-	path := configBase + "folders"
+func (c *configMuxBuilder) registerFolders(path string) {
 	c.GET(path, func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 		sendJSON(w, c.cfg.FolderList())
 	})
@@ -99,8 +72,7 @@ func (c *configHandler) registerFolders() {
 	})
 }
 
-func (c *configHandler) registerDevices() {
-	path := configBase + "devices"
+func (c *configMuxBuilder) registerDevices(path string) {
 	c.GET(path, func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 		sendJSON(w, c.cfg.DeviceList())
 	})
@@ -121,8 +93,7 @@ func (c *configHandler) registerDevices() {
 	})
 }
 
-func (c *configHandler) registerFolder() {
-	path := configBase + "folders/:id"
+func (c *configMuxBuilder) registerFolder(path string) {
 	c.GET(path, func(w http.ResponseWriter, _ *http.Request, p httprouter.Params) {
 		folder, ok := c.cfg.Folder(p.ByName("id"))
 		if !ok {
@@ -153,8 +124,7 @@ func (c *configHandler) registerFolder() {
 	})
 }
 
-func (c *configHandler) registerDevice() {
-	path := configBase + "devices/:id"
+func (c *configMuxBuilder) registerDevice(path string) {
 	deviceFromParams := func(w http.ResponseWriter, p httprouter.Params) (config.DeviceConfiguration, bool) {
 		id, err := protocol.DeviceIDFromString(p.ByName("id"))
 		if err != nil {
@@ -196,8 +166,7 @@ func (c *configHandler) registerDevice() {
 	})
 }
 
-func (c *configHandler) registerOptions() {
-	path := configBase + "options"
+func (c *configMuxBuilder) registerOptions(path string) {
 	c.GET(path, func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 		sendJSON(w, c.cfg.Options())
 	})
@@ -209,8 +178,7 @@ func (c *configHandler) registerOptions() {
 	})
 }
 
-func (c *configHandler) registerLDAP() {
-	path := configBase + "ldap"
+func (c *configMuxBuilder) registerLDAP(path string) {
 	c.GET(path, func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 		sendJSON(w, c.cfg.LDAP())
 	})
@@ -222,8 +190,7 @@ func (c *configHandler) registerLDAP() {
 	})
 }
 
-func (c *configHandler) registerGUI() {
-	path := configBase + "gui"
+func (c *configMuxBuilder) registerGUI(path string) {
 	c.GET(path, func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 		sendJSON(w, c.cfg.GUI())
 	})
@@ -235,7 +202,7 @@ func (c *configHandler) registerGUI() {
 	})
 }
 
-func (c *configHandler) adjustConfig(w http.ResponseWriter, r *http.Request) {
+func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	cfg, err := config.ReadJSON(r.Body, c.id)
@@ -258,7 +225,7 @@ func (c *configHandler) adjustConfig(w http.ResponseWriter, r *http.Request) {
 	c.finish(w, waiter)
 }
 
-func (c *configHandler) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration) {
+func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	var waiter config.Waiter
@@ -273,7 +240,7 @@ func (c *configHandler) adjustFolder(w http.ResponseWriter, r *http.Request, fol
 	c.finish(w, waiter)
 }
 
-func (c *configHandler) adjustDevice(w http.ResponseWriter, r *http.Request, device config.DeviceConfiguration) {
+func (c *configMuxBuilder) adjustDevice(w http.ResponseWriter, r *http.Request, device config.DeviceConfiguration) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	var waiter config.Waiter
@@ -288,7 +255,7 @@ func (c *configHandler) adjustDevice(w http.ResponseWriter, r *http.Request, dev
 	c.finish(w, waiter)
 }
 
-func (c *configHandler) adjustOptions(w http.ResponseWriter, r *http.Request, opts config.OptionsConfiguration) {
+func (c *configMuxBuilder) adjustOptions(w http.ResponseWriter, r *http.Request, opts config.OptionsConfiguration) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	var waiter config.Waiter
@@ -303,7 +270,7 @@ func (c *configHandler) adjustOptions(w http.ResponseWriter, r *http.Request, op
 	c.finish(w, waiter)
 }
 
-func (c *configHandler) adjustGUI(w http.ResponseWriter, r *http.Request, newGUI config.GUIConfiguration) {
+func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, newGUI config.GUIConfiguration) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	oldGUI := c.cfg.GUI()
@@ -327,7 +294,7 @@ func (c *configHandler) adjustGUI(w http.ResponseWriter, r *http.Request, newGUI
 	c.finish(w, waiter)
 }
 
-func (c *configHandler) adjustLDAP(w http.ResponseWriter, r *http.Request, ldap config.LDAPConfiguration) {
+func (c *configMuxBuilder) adjustLDAP(w http.ResponseWriter, r *http.Request, ldap config.LDAPConfiguration) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	var waiter config.Waiter
@@ -360,7 +327,7 @@ func checkGUIPassword(from, to config.GUIConfiguration) (string, error) {
 	return string(hash), err
 }
 
-func (c *configHandler) finish(w http.ResponseWriter, waiter config.Waiter) {
+func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) {
 	waiter.Wait()
 	if err := c.cfg.Save(); err != nil {
 		l.Warnln("Saving config:", err)

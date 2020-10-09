@@ -268,7 +268,7 @@ angular.module('syncthing.core')
         $scope.$on(Events.CONFIG_SAVED, function (event, arg) {
             updateLocalConfig(arg.data);
 
-            $http.get(urlbase + '/system/config/insync').success(function (data) {
+            $http.get(urlbase + '/config/insync').success(function (data) {
                 $scope.configInSync = data.configInSync;
             }).error($scope.emitHTTPError);
         });
@@ -578,12 +578,12 @@ angular.module('syncthing.core')
         }
 
         function refreshConfig() {
-            $http.get(urlbase + '/system/config').success(function (data) {
+            $http.get(urlbase + '/config').success(function (data) {
                 updateLocalConfig(data);
                 console.log("refreshConfig", data);
             }).error($scope.emitHTTPError);
 
-            $http.get(urlbase + '/system/config/insync').success(function (data) {
+            $http.get(urlbase + '/config/insync').success(function (data) {
                 $scope.configInSync = data.configInSync;
             }).error($scope.emitHTTPError);
         }
@@ -1256,7 +1256,7 @@ angular.module('syncthing.core')
                     'Content-Type': 'application/json'
                 }
             };
-            $http.post(urlbase + '/system/config', cfg, opts).success(function () {
+            $http.put(urlbase + '/config', cfg, opts).success(function () {
                 refreshConfig();
 
                 if (callback) {
