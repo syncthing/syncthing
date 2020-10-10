@@ -45,7 +45,6 @@ func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
 	if len(cfg.AllowedNetworks) == 0 {
 		cfg.AllowedNetworks = []string{}
 	}
-	cfg.RemoteGUIPort = "0"
 
 	ignoredFolders := deduplicateObservedFoldersToMap(cfg.IgnoredFolders)
 	pendingFolders := deduplicateObservedFoldersToMap(cfg.PendingFolders)

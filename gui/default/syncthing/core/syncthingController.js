@@ -579,7 +579,8 @@ angular.module('syncthing.core')
                     var isNotRelayConnection = !data[id].type.includes("relay");
                     if ($scope.showRemoteGUI && data[id].address !== "" && isNotRelayConnection) {
                         var newAddress = `http://${replaceAddressPort(data[id].address, port)}`
-                        if ($scope.idToWebAddress[id] !== newAddress && $scope.probeAddress(newAddress)) {
+                        var machineExists = $scope.probeAddress(newAddress)
+                        if ($scope.idToWebAddress[id] !== newAddress && machineExists) {
                             $scope.idToWebAddress[id] = newAddress;
                         }
                     }
@@ -622,7 +623,7 @@ angular.module('syncthing.core')
                     "Content-Type": "text/plain"
                 }
             })
-            return response.status >= 200 && response.status < 300;
+            return response.status >= 200 && response.status < 300
         }
 
         $scope.refreshNeed = function (page, perpage) {
@@ -1291,6 +1292,7 @@ angular.module('syncthing.core')
             // set local storage feature
             localStorage.setItem("showRemoteGUI", $scope.config.gui.showRemoteGUI ? "true" : "false");
             $scope.showRemoteGUI = $scope.config.gui.showRemoteGUI;
+            delete $scope.config.gui.showRemoteGUI;
 
             var cfg = JSON.stringify($scope.config);
             var opts = {
@@ -1550,6 +1552,7 @@ angular.module('syncthing.core')
             }
 
             if (!done) {
+                deviceCfg.remoteGUIPort = "0"
                 $scope.devices.push(deviceCfg);
             }
 
