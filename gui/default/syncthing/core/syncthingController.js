@@ -572,6 +572,7 @@ angular.module('syncthing.core')
 
                 data = data.connections;
                 for (id in data) {
+                    $scope.idToWebAddress[id] = "";
                     if (!data.hasOwnProperty(id)) {
                         continue;
                     }

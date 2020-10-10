@@ -772,7 +772,7 @@
                       <th><span class="fas fa-fw fa-desktop"></span>&nbsp;<span translate>Web Address</span></th>
                       <td class="text-right" ng-attr-title="{{idToWebAddress[deviceCfg.deviceID]}}">
                         <a ng-if="idToWebAddress[deviceCfg.deviceID] != ''" href="{{idToWebAddress[deviceCfg.deviceID]}}">{{idToWebAddress[deviceCfg.deviceID]}}</a>
-                        <td ng-if="idToWebAddress[deviceCfg.deviceID] == ''" class="text-right">GUI: Unreachable</td>
+                        <p ng-if="idToWebAddress[deviceCfg.deviceID] == ''">GUI: Unreachable</p>
                       </td>
                     </tr>
                   </tbody>
