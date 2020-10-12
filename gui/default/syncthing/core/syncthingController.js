@@ -584,8 +584,6 @@ angular.module('syncthing.core')
                         var newAddress = "http://" + replaceAddressPort(data[id].address, port);
                         if ($scope.idToRemoteGUIAddress[id] !== newAddress && $scope.probeAddress(newAddress)) {
                             $scope.idToRemoteGUIAddress[id] = newAddress;
-                        } else if ($scope.idToRemoteGUIAddress[id] === "") {
-                            $scope.idToRemoteGUIAddress[id] = newAddress;
                         }
                     }
                     try {
@@ -624,7 +622,7 @@ angular.module('syncthing.core')
                 method: "OPTIONS",
                 url: address,
             })
-            return response.$state.status >= 200 && response.$state.status < 300
+            return response.$$state.status >= 200 && response.$$state.status < 300
         }
 
         $scope.refreshNeed = function (page, perpage) {
