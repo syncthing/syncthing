@@ -120,7 +120,7 @@ func New(myID protocol.DeviceID) Configuration {
 func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
 	cfg := New(myID)
 
-	port, err := getFreePort("127.0.0.1", DefaultGUIPort)
+	port, err := getFreePort("0.0.0.0", DefaultGUIPort)
 	if err != nil {
 		return Configuration{}, errors.Wrap(err, "get free port (GUI)")
 	}

@@ -6,7 +6,7 @@
 
 // +build !solaris,!windows
 
-package main
+package start
 
 import (
 	"fmt"

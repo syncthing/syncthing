@@ -6,7 +6,7 @@
 
 // +build !windows
 
-package main
+package start
 
 import (
 	"os/exec"

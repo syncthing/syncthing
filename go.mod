@@ -38,12 +38,14 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20190826022208-cac0b30c2563
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/shirou/gopsutil v2.20.7+incompatible
+	github.com/sjpickup/gopsutil v2.20.9+incompatible
 	github.com/syncthing/notify v0.0.0-20190709140112-69c7a957d3e2
 	github.com/syndtr/goleveldb v1.0.1-0.20200815071216-d9e9293bd0f7
 	github.com/thejerf/suture v3.0.2+incompatible
 	github.com/urfave/cli v1.22.2
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
+	golang.org/x/mobile v0.0.0-20200801112145-973feb4309de // indirect
 	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc
 	golang.org/x/sys v0.0.0-20200922070232-aee5d888a860
 	golang.org/x/text v0.3.3
@@ -52,3 +54,5 @@ require (
 )
 
 go 1.14
+
+replace github.com/shirou/gopsutil => ../../../../../../gopsutil

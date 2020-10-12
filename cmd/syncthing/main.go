@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package start
 
 import (
 	"bytes"
@@ -145,7 +145,7 @@ The following are valid values for the STTRACE variable:
 
 var (
 	// Environment options
-	innerProcess    = os.Getenv("STMONITORED") != ""
+	innerProcess    = true
 	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
 
 	upgradeCheckInterval = 5 * time.Minute
@@ -283,7 +283,7 @@ func setLocation(enum locations.BaseDirEnum, loc string) error {
 	return locations.SetBaseDir(enum, loc)
 }
 
-func main() {
+func StartSyncthing() {
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
 
