@@ -25,6 +25,7 @@ angular.module('syncthing.core')
         $scope.configInSync = true;
         $scope.connections = {};
         $scope.idToRemoteGUIAddress = {};
+        $scope.cacheGUIAddress = {}
         $scope.showRemoteGUI = false;
         $scope.errors = [];
         $scope.model = {};
@@ -582,7 +583,7 @@ angular.module('syncthing.core')
                     var isNotRelayConnection = !data[id].type.includes("relay");
                     if ($scope.showRemoteGUI && port !== "0" && isNotRelayConnection) {
                         var newAddress = "http://" + replaceAddressPort(data[id].address, port);
-                        if ($scope.idToRemoteGUIAddress[id] !== newAddress && $scope.probeAddress(newAddress)) {
+                        if ($scope.probeAddress(newAddress)) {
                             $scope.idToRemoteGUIAddress[id] = newAddress;
                         }
                     }
@@ -618,11 +619,15 @@ angular.module('syncthing.core')
         }
 
         $scope.probeAddress = function (address) {
+            if (address in $scope.cacheGUIAddress) {
+                return $scope.cacheGUIAddress[address]
+            }
             let response = $http({
                 method: "OPTIONS",
                 url: address,
             })
-            return response.$$state.status >= 200 && response.$$state.status < 300
+            $scope.cacheGUIAddress[address] = response.$$state.status >= 200 && response.$$state.status < 300;
+            return $scope.cacheGUIAddress[address];
         }
 
         $scope.refreshNeed = function (page, perpage) {
