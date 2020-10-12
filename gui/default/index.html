@@ -770,9 +770,9 @@
                     </tr>
                     <tr ng-if="findDevice(deviceCfg.deviceID).remoteGUIPort !== '0'">
                       <th><span class="fas fa-fw fa-desktop"></span>&nbsp;<span translate>Web Address</span></th>
-                      <td class="text-right" ng-attr-title="{{idToWebAddress[deviceCfg.deviceID]}}">
-                        <a ng-if="idToWebAddress[deviceCfg.deviceID] != ''" href="{{idToWebAddress[deviceCfg.deviceID]}}">{{idToWebAddress[deviceCfg.deviceID]}}</a>
-                        <p ng-if="idToWebAddress[deviceCfg.deviceID] == ''">GUI: Unreachable</p>
+                      <td class="text-right" ng-attr-title="{{idToRemoteGUIAddress[deviceCfg.deviceID]}}">
+                        <a ng-if="idToRemoteGUIAddress[deviceCfg.deviceID] != ''" href="{{idToRemoteGUIAddress[deviceCfg.deviceID]}}">{{idToRemoteGUIAddress[deviceCfg.deviceID]}}</a>
+                        <p ng-if="idToRemoteGUIAddress[deviceCfg.deviceID] == ''">Unreachable</p>
                       </td>
                     </tr>
                   </tbody>

@@ -24,7 +24,7 @@ angular.module('syncthing.core')
         $scope.config = {};
         $scope.configInSync = true;
         $scope.connections = {};
-        $scope.idToWebAddress = {};
+        $scope.idToRemoteGUIAddress = {};
         $scope.showRemoteGUI = false;
         $scope.errors = [];
         $scope.model = {};
@@ -527,16 +527,16 @@ angular.module('syncthing.core')
         }
 
         function replaceAddressPort(address, newPort) {
-            var lastColonIndex = 0
+            var lastColonIndex = address.length;
             for (var index = 0; index < address.length; index++) {
                 if (address[index] === ":") {
-                    var lastColonIndex = index
+                    var lastColonIndex = index;
                 }
             }
             if (newPort === "") {
-                return address.substr(0, lastColonIndex)
+                return address.substr(0, lastColonIndex);
             }
-            return address.substr(0, lastColonIndex + 1) + newPort
+            return address.substr(0, lastColonIndex) + ":" + newPort;
         }
 
         function refreshCompletion(device, folder) {
@@ -572,17 +572,20 @@ angular.module('syncthing.core')
 
                 data = data.connections;
                 for (id in data) {
-                    $scope.idToWebAddress[id] = "";
+                    if (!(id in $scope.idToRemoteGUIAddress)) {
+                        $scope.idToRemoteGUIAddress[id] = "";
+                    }
                     if (!data.hasOwnProperty(id)) {
                         continue;
                     }
                     var port = $scope.findDevice(id).remoteGUIPort;
                     var isNotRelayConnection = !data[id].type.includes("relay");
-                    if ($scope.showRemoteGUI && data[id].address !== "" && isNotRelayConnection) {
-                        var newAddress = `http://${replaceAddressPort(data[id].address, port)}`
-                        var machineExists = $scope.probeAddress(newAddress)
-                        if ($scope.idToWebAddress[id] !== newAddress && machineExists) {
-                            $scope.idToWebAddress[id] = newAddress;
+                    if ($scope.showRemoteGUI && port !== "0" && isNotRelayConnection) {
+                        var newAddress = "http://" + replaceAddressPort(data[id].address, port);
+                        if ($scope.idToRemoteGUIAddress[id] !== newAddress && $scope.probeAddress(newAddress)) {
+                            $scope.idToRemoteGUIAddress[id] = newAddress;
+                        } else if ($scope.idToRemoteGUIAddress[id] === "") {
+                            $scope.idToRemoteGUIAddress[id] = newAddress;
                         }
                     }
                     try {
@@ -620,11 +623,8 @@ angular.module('syncthing.core')
             let response = $http({
                 method: "OPTIONS",
                 url: address,
-                headers: {
-                    "Content-Type": "text/plain"
-                }
             })
-            return response.status >= 200 && response.status < 300
+            return response.$state.status >= 200 && response.$state.status < 300
         }
 
         $scope.refreshNeed = function (page, perpage) {
@@ -1291,7 +1291,7 @@ angular.module('syncthing.core')
 
         $scope.saveConfig = function (callback) {
             // set local storage feature
-            localStorage.setItem("showRemoteGUI", $scope.config.gui.showRemoteGUI ? "true" : "false");
+            window.localStorage.setItem("showRemoteGUI", $scope.config.gui.showRemoteGUI ? "true" : "false");
             $scope.showRemoteGUI = $scope.config.gui.showRemoteGUI;
             delete $scope.config.gui.showRemoteGUI;
 
