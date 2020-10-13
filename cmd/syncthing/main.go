@@ -283,7 +283,7 @@ func setLocation(enum locations.BaseDirEnum, loc string) error {
 	return locations.SetBaseDir(enum, loc)
 }
 
-func StartSyncthing() {
+func SyncthingMain() {
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
 
