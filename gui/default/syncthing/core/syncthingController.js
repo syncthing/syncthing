@@ -384,7 +384,6 @@ angular.module('syncthing.core')
             $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
 
             $scope.config.gui["showRemoteAddress"] = $scope.showRemoteAddress;
-
             $scope.devices = $scope.config.devices;
             $scope.devices.forEach(function (deviceCfg) {
                 $scope.completion[deviceCfg.deviceID] = {
@@ -572,11 +571,11 @@ angular.module('syncthing.core')
                 data = data.connections;
                 $scope.recentRemoteAddressCache = {};
                 for (id in data) {
-                    if (!(id in $scope.idToRemoteAddress)) {
-                        $scope.idToRemoteAddress[id] = "";
-                    }
                     if (!data.hasOwnProperty(id)) {
                         continue;
+                    }
+                    if (!(id in $scope.idToRemoteAddress)) {
+                        $scope.idToRemoteAddress[id] = "";
                     }
                     var port = $scope.findDevice(id).remoteAddressPort.toString();
                     var isNotRelayConnection = !data[id].type.includes("relay");
@@ -628,12 +627,12 @@ angular.module('syncthing.core')
         $scope.probeAddress = function (address) {
             $scope.recentRemoteAddressCache[address] = true;
             if (address in $scope.remoteAddressCache) {
-                return $scope.remoteAddressCache[address]
+                return $scope.remoteAddressCache[address];
             }
             let response = $http({
                 method: "OPTIONS",
                 url: address,
-            })
+            });
             $scope.remoteAddressCache[address] = response.$$state.status >= 200 && response.$$state.status < 300;
             return $scope.remoteAddressCache[address];
         }
