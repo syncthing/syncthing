@@ -768,11 +768,11 @@
                       <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
                       <td class="text-right" ng-attr-title="{{deviceFolders(deviceCfg).map(folderLabel).join(', ')}}">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
                     </tr>
-                    <tr ng-if="findDevice(deviceCfg.deviceID).remoteGUIPort > 0">
-                      <th><span class="fas fa-fw fa-desktop"></span>&nbsp;<span translate>Web Address</span></th>
-                      <td class="text-right" ng-attr-title="{{idToRemoteGUIAddress[deviceCfg.deviceID]}}">
-                        <a ng-if="idToRemoteGUIAddress[deviceCfg.deviceID] != ''" href="{{idToRemoteGUIAddress[deviceCfg.deviceID]}}">{{idToRemoteGUIAddress[deviceCfg.deviceID]}}</a>
-                        <p ng-if="idToRemoteGUIAddress[deviceCfg.deviceID] == ''">Unreachable</p>
+                    <tr ng-if="findDevice(deviceCfg.deviceID).remoteAddressPort > 0">
+                      <th><span class="fas fa-fw fa-desktop"></span>&nbsp;<span translate>Remote Address</span></th>
+                      <td class="text-right" ng-attr-title="{{idToRemoteAddress[deviceCfg.deviceID]}}">
+                        <a ng-if="idToRemoteAddress[deviceCfg.deviceID] != ''" href="{{idToRemoteAddress[deviceCfg.deviceID]}}">{{idToRemoteAddress[deviceCfg.deviceID]}}</a>
+                        <p ng-if="idToRemoteAddress[deviceCfg.deviceID] == ''">Unreachable</p>
                       </td>
                     </tr>
                   </tbody>

@@ -25,9 +25,9 @@ angular.module('syncthing.core')
         $scope.configInSync = true;
         $scope.connections = {};
         $scope.idToRemoteAddress = {};
-        $scope.cacheRemoteAddress = {};
-        $scope.recentlySeenAddressSet = Set();
-        $scope.showRemoteGUI = false;
+        $scope.remoteAddressCache = {};
+        $scope.recentRemoteAddressCache = {};
+        $scope.showRemoteAddress = false;
         $scope.errors = [];
         $scope.model = {};
         $scope.myID = '';
@@ -63,7 +63,7 @@ angular.module('syncthing.core')
 
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
-            $scope.showRemoteGUI = (window.localStorage["showRemoteGUI"] == "true")
+            $scope.showRemoteAddress = (window.localStorage["showRemoteAddress"] == "true");
         } catch (exception) { }
 
         $scope.folderDefaults = {
@@ -383,7 +383,7 @@ angular.module('syncthing.core')
             $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
             $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
 
-            $scope.config.gui["showRemoteGUI"] = $scope.showRemoteGUI;
+            $scope.config.gui["showRemoteAddress"] = $scope.showRemoteAddress;
 
             $scope.devices = $scope.config.devices;
             $scope.devices.forEach(function (deviceCfg) {
@@ -570,7 +570,7 @@ angular.module('syncthing.core')
                 $scope.connectionsTotal = data.total;
 
                 data = data.connections;
-                $scope.recentlySeenAddressSet = Set();
+                $scope.recentRemoteAddressCache = {};
                 for (id in data) {
                     if (!(id in $scope.idToRemoteAddress)) {
                         $scope.idToRemoteAddress[id] = "";
@@ -578,10 +578,10 @@ angular.module('syncthing.core')
                     if (!data.hasOwnProperty(id)) {
                         continue;
                     }
-                    let port = $scope.findDevice(id).remoteGUIPort.toString();
-                    let isNotRelayConnection = !data[id].type.includes("relay");
-                    if ($scope.showRemoteGUI && isNotRelayConnection) {
-                        let newAddress = "http://" + replaceAddressPort(data[id].address, port);
+                    var port = $scope.findDevice(id).remoteAddressPort.toString();
+                    var isNotRelayConnection = !data[id].type.includes("relay");
+                    if ($scope.showRemoteAddress && isNotRelayConnection && port !== "0") {
+                        var newAddress = "http://" + replaceAddressPort(data[id].address, port);
                         if ($scope.probeAddress(newAddress)) {
                             $scope.idToRemoteAddress[id] = newAddress;
                         }
@@ -598,9 +598,9 @@ angular.module('syncthing.core')
                 console.log("refreshConnections", data);
 
                 // Clean cache of addresses unseen
-                for (var address in $scope.cacheRemoteAddress) {
-                    if (!(address in $scope.recentlySeenAddressSet)) {
-                        delete $scope.cacheRemoteAddress[address]
+                for (var address in $scope.remoteAddressCache) {
+                    if (!(address in $scope.recentRemoteAddressCache)) {
+                        delete $scope.remoteAddressCache[address]
                     }
                 }
 
@@ -626,16 +626,16 @@ angular.module('syncthing.core')
         }
 
         $scope.probeAddress = function (address) {
-            if (address in $scope.cacheRemoteAddress) {
-                return $scope.cacheRemoteAddress[address]
+            $scope.recentRemoteAddressCache[address] = true;
+            if (address in $scope.remoteAddressCache) {
+                return $scope.remoteAddressCache[address]
             }
             let response = $http({
                 method: "OPTIONS",
                 url: address,
             })
-            $scope.recentlySeenAddressSet.add(address)
-            $scope.cacheRemoteAddress[address] = response.$$state.status >= 200 && response.$$state.status < 300;
-            return $scope.cacheRemoteAddress[address];
+            $scope.remoteAddressCache[address] = response.$$state.status >= 200 && response.$$state.status < 300;
+            return $scope.remoteAddressCache[address];
         }
 
         $scope.refreshNeed = function (page, perpage) {
@@ -1301,10 +1301,10 @@ angular.module('syncthing.core')
         };
 
         $scope.saveConfig = function (callback) {
-            // set local storage feature
-            window.localStorage.setItem("showRemoteGUI", $scope.config.gui.showRemoteGUI ? "true" : "false");
-            $scope.showRemoteGUI = $scope.config.gui.showRemoteGUI;
-            delete $scope.config.gui.showRemoteGUI;
+            // set local storage feature and delete from post request
+            window.localStorage.setItem("showRemoteAddress", $scope.config.gui.showRemoteAddress ? "true" : "false");
+            $scope.showRemoteAddress = $scope.config.gui.showRemoteAddress;
+            delete $scope.config.gui.showRemoteAddress;
 
             var cfg = JSON.stringify($scope.config);
             var opts = {

@@ -24,5 +24,5 @@ message DeviceConfiguration {
     repeated ObservedFolder ignored_folders            = 14;
     repeated ObservedFolder pending_folders            = 15;
     int32                   max_request_kib            = 16 [(ext.goname) = "MaxRequestKiB", (ext.xml) = "maxRequestKiB", (ext.json) = "maxRequestKiB"];
-    int32                   remote_gui_port            = 17 [(ext.goname) = "RemoteGUIPort", (ext.xml) = "remoteGUIPort", (ext.json) = "remoteGUIPort"];
+    int32                   remote_address_port        = 17 [(ext.goname) = "RemoteAddressPort", (ext.xml) = "remoteAddressPort", (ext.json) = "remoteAddressPort"];
 }
