@@ -2644,18 +2644,41 @@ func (m *model) checkFolderRunningLocked(folder string) error {
 
 // PendingDevices lists unknown devices that tried to connect.
 func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
-	return m.db.PendingDevices()
+	iter, err := m.db.NewPendingDeviceIterator()
+	if err != nil {
+		return nil, err
+	}
+	defer iter.Release()
+	res := make(map[protocol.DeviceID]db.ObservedDevice)
+	for iter.NextValid() {
+		res[iter.DeviceID()] = iter.Observed()
+	}
+	return res, nil
 }
 
 // PendingFolders lists folders that we don't yet share with the offering devices.  It
 // returns the entries grouped by folder and filters for a given device unless the
 // argument is specified as EmptyDeviceID.
 func (m *model) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error) {
+	var iter db.PendingFolderIterator
+	var err error
 	if device == protocol.EmptyDeviceID {
-		return m.db.PendingFolders()
+		iter, err = m.db.NewPendingFolderIterator()
 	} else {
-		return m.db.PendingFoldersForDevice(device)
+		iter, err = m.db.NewPendingFolderForDeviceIterator(device)
 	}
+	if err != nil {
+		return nil, err
+	}
+	defer iter.Release()
+	res := make(map[string]map[protocol.DeviceID]db.ObservedFolder)
+	for iter.NextValid() {
+		if _, ok := res[iter.FolderID()]; !ok {
+			res[iter.FolderID()] = make(map[protocol.DeviceID]db.ObservedFolder)
+		}
+		res[iter.FolderID()][iter.DeviceID()] = iter.Observed()
+	}
+	return res, nil
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given
