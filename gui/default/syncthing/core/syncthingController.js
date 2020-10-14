@@ -2447,7 +2447,11 @@ angular.module('syncthing.core')
                 'ppc64le': 'PowerPC (LE)'
             }[$scope.version.arch] || $scope.version.arch;
 
-            return $scope.version.version + ', ' + os + ' (' + arch + ')';
+            if ($scope.version.os === 'darwin' && $scope.version.arch === 'arm64') {
+                return $scope.version.version + ', iOS (' + arch + ')';
+            } else {
+                return $scope.version.version + ', ' + os + ' (' + arch + ')';
+            }
         };
 
         $scope.inputTypeFor = function (key, value) {
