@@ -8,6 +8,7 @@ package api
 
 import (
 	"github.com/syncthing/syncthing/lib/logger"
+	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 var (
@@ -15,7 +16,7 @@ var (
 )
 
 func shouldDebugHTTP() bool {
-	return l.ShouldDebug("api")
+	return l.ShouldDebug("api") || osutil.IsIOS()
 }
 
 func init() {

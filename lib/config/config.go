@@ -26,6 +26,7 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/util"
 )
 
@@ -124,7 +125,11 @@ func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
 	if err != nil {
 		return Configuration{}, errors.Wrap(err, "get free port (GUI)")
 	}
-	cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
+	if osutil.IsIOS() {
+		cfg.GUI.RawAddress = fmt.Sprintf("0.0.0.0:%d", port) // To allow browse from host Mac (FIXME)
+	} else {
+		cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
+	}
 
 	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
 	if err != nil {

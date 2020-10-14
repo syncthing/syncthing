@@ -11,6 +11,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
@@ -100,8 +102,9 @@ func (c GUIConfiguration) URL() string {
 	if strings.HasPrefix(u.Host, ":") {
 		// Empty host, i.e. ":port", use IPv4 localhost
 		u.Host = "127.0.0.1" + u.Host
-	} else if strings.HasPrefix(u.Host, "0.0.0.0:") {
+	} else if strings.HasPrefix(u.Host, "0.0.0.0:") && !osutil.IsIOS() {
 		// IPv4 all zeroes host, convert to IPv4 localhost
+		// Unless we are on iOS, keep it open to allow testing on host Mac (FIXME)
 		u.Host = "127.0.0.1" + u.Host[7:]
 	} else if strings.HasPrefix(u.Host, "[::]:") {
 		// IPv6 all zeroes host, convert to IPv6 localhost
