@@ -27,42 +27,6 @@ func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, add
 	return err
 }
 
-// PendingDevices drops any invalid entries from the database after a
-// warning log message, as a side-effect.  That's the only possible
-// "repair" measure and appropriate for the importance of pending
-// entries.  They will come back soon if still relevant.
-func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, error) {
-	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
-	if err != nil {
-		return nil, err
-	}
-	defer iter.Release()
-	res := make(map[protocol.DeviceID]ObservedDevice)
-	for iter.Next() {
-		bs, err := db.Get(iter.Key())
-		if err != nil {
-			return nil, err
-		}
-		var od ObservedDevice
-		keyDev := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
-		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
-		if err != nil {
-			goto deleteKey
-		}
-		if err := od.Unmarshal(bs); err != nil {
-			goto deleteKey
-		}
-		res[deviceID] = od
-		continue
-	deleteKey:
-		l.Infof("Invalid pending device entry, deleting from database: %x", iter.Key())
-		if err := db.Delete(iter.Key()); err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
 func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) error {
 	key, err := db.keyer.GeneratePendingFolderKey(nil, device[:], []byte(id))
 	if err == nil {
@@ -77,80 +41,6 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 	}
 	return err
 }
-
-// PendingFolders drops any invalid entries from the database as a side-effect.
-func (db *Lowlevel) PendingFolders() (map[string]map[protocol.DeviceID]ObservedFolder, error) {
-	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
-	if err != nil {
-		return nil, err
-	}
-	defer iter.Release()
-	res := make(map[string]map[protocol.DeviceID]ObservedFolder)
-	for iter.Next() {
-		keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key())
-		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
-		if !ok || err != nil {
-			if err := db.deleteInvalidPendingFolder(iter.Key()); err != nil {
-				return nil, err
-			}
-			continue
-		}
-		if err := db.collectPendingFolder(iter.Key(), deviceID, res); err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-// PendingFoldersForDevice drops any invalid entries from the database as a side-effect.
-func (db *Lowlevel) PendingFoldersForDevice(device protocol.DeviceID) (map[string]map[protocol.DeviceID]ObservedFolder, error) {
-	prefixKey, err := db.keyer.GeneratePendingFolderKey(nil, device[:], nil)
-	if err != nil {
-		return nil, err
-	}
-	iter, err := db.NewPrefixIterator(prefixKey)
-	if err != nil {
-		return nil, err
-	}
-	defer iter.Release()
-	res := make(map[string]map[protocol.DeviceID]ObservedFolder)
-	for iter.Next() {
-		if err := db.collectPendingFolder(iter.Key(), device, res); err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (db *Lowlevel) collectPendingFolder(key []byte, device protocol.DeviceID, res map[string]map[protocol.DeviceID]ObservedFolder) error {
-	bs, err := db.Get(key)
-	if err != nil {
-		return err
-	}
-	var of ObservedFolder
-	folderID := string(db.keyer.FolderFromPendingFolderKey(key))
-	if len(folderID) < 1 {
-		return db.deleteInvalidPendingFolder(key)
-	}
-	if err := of.Unmarshal(bs); err != nil {
-		return db.deleteInvalidPendingFolder(key)
-	}
-	if _, ok := res[folderID]; !ok {
-		res[folderID] = make(map[protocol.DeviceID]ObservedFolder)
-	}
-	res[folderID][device] = of
-	return nil
-}
-
-// deleteInvalidPendingFolder logs a warning message before dropping the given entry.
-// That's the only possible "repair" measure and appropriate for the importance of pending
-// entries.  They will come back soon if still relevant.
-func (db *Lowlevel) deleteInvalidPendingFolder(key []byte) error {
-	l.Infof("Invalid pending folder entry, deleting from database: %x", key)
-	err := db.Delete(key)
-	return err
-}
-
 
 // PendingDeviceIterator abstracts away the key handling and validation, yielding only
 // valid entries
