@@ -159,6 +159,7 @@ type PendingDeviceIterator interface {
 	NextValid() bool
 	Forget()
 	DeviceID() protocol.DeviceID
+	Observed() ObservedDevice
 }
 
 // PendingFolderIterator abstracts away the key handling and validation, yielding only
@@ -169,6 +170,7 @@ type PendingFolderIterator interface {
 	Forget()
 	DeviceID() protocol.DeviceID
 	FolderID() string
+	Observed() ObservedFolder
 }
 
 // pendingDeviceIterator caches the current entry's data after validation
@@ -177,6 +179,7 @@ type pendingDeviceIterator struct {
 
 	db       *Lowlevel
 	deviceID protocol.DeviceID
+	device   ObservedDevice
 }
 
 // pendingFolderIterator caches the current entry's data after validation.  Embeds a
@@ -185,6 +188,7 @@ type pendingFolderIterator struct {
 	pendingDeviceIterator
 
 	folderID string
+	folder   ObservedFolder
 }
 
 func (db *Lowlevel) NewPendingDeviceIterator() (PendingDeviceIterator, error) {
@@ -231,13 +235,22 @@ func (iter pendingDeviceIterator) NextValid() bool {
 	for iter.Iterator.Next() {
 		keyDev := iter.db.keyer.DeviceFromPendingDeviceKey(iter.Key())
 		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
+		var bs []byte
 		if err != nil {
-			l.Infof("Invalid pending device entry, deleting from database: %x", iter.Key())
-			iter.Forget()
-			continue
+			goto deleteKey
+		}
+		bs, err = iter.db.Get(iter.Key())
+		if err != nil {
+			goto deleteKey
+		}
+		if err := iter.device.Unmarshal(bs); err != nil {
+			goto deleteKey
 		}
 		iter.deviceID = deviceID
 		return true
+	deleteKey:
+		l.Infof("Invalid pending device entry, deleting from database: %x", iter.Key())
+		iter.Forget()
 	}
 	return false
 }
@@ -249,14 +262,26 @@ func (iter pendingFolderIterator) NextValid() bool {
 	for iter.Iterator.Next() {
 		keyDev, ok := iter.db.keyer.DeviceFromPendingFolderKey(iter.Key())
 		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
+		var bs []byte
 		if !ok || err != nil {
-			l.Infof("Invalid pending folder entry, deleting from database: %x", iter.Key())
-			iter.Forget()
-			continue
+			goto deleteKey
+		}
+		bs, err = iter.db.Get(iter.Key())
+		if err != nil {
+			goto deleteKey
+		}
+		if len(iter.FolderID()) < 1 {
+			goto deleteKey
+		}
+		if err := iter.folder.Unmarshal(bs); err != nil {
+			goto deleteKey
 		}
 		iter.deviceID = deviceID
 		iter.folderID = string(iter.db.keyer.FolderFromPendingFolderKey(iter.Key()))
 		return true
+	deleteKey:
+		l.Infof("Invalid pending folder entry, deleting from database: %x", iter.Key())
+		iter.Forget()
 	}
 	return false
 }
@@ -267,6 +292,14 @@ func (iter pendingDeviceIterator) DeviceID() protocol.DeviceID {
 
 func (iter pendingFolderIterator) FolderID() string {
 	return iter.folderID
+}
+
+func (iter pendingDeviceIterator) Observed() ObservedDevice {
+	return iter.device
+}
+
+func (iter pendingFolderIterator) Observed() ObservedFolder {
+	return iter.folder
 }
 
 func (iter pendingDeviceIterator) Forget() {
