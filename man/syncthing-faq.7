@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "Sep 23, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Oct 09, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -185,23 +185,12 @@ device\-ids
 .UNINDENT
 .SH WHAT IF THERE IS A CONFLICT?
 .sp
-Syncthing does recognize conflicts. When a file has been modified on two devices
-simultaneously and the content actually differs, one of the files will be
-renamed to \fB<filename>.sync\-conflict\-<date>\-<time>\-<modifiedBy>.<ext>\fP\&. The file with the
-older modification time will be marked as the conflicting file and thus be
-renamed. If the modification times are equal, the file originating from the
-device which has the larger value of the first 63 bits for its device ID will be
-marked as the conflicting file.
-If the conflict is between a modification and a deletion of the file, the
-modified file always wins and is resurrected without renaming on the
-device where it was deleted.
-.sp
-Beware that the \fB<filename>.sync\-conflict\-<date>\-<time>\-<modifiedBy>.<ext>\fP files are
-treated as normal files after they are created, so they are propagated between
-devices. We do this because the conflict is detected and resolved on one device,
-creating the \fBsync\-conflict\fP file, but it’s just as much of a conflict
-everywhere else and we don’t know which of the conflicting files is the “best”
-from the user point of view.
+\fBSEE ALSO:\fP
+.INDENT 0.0
+.INDENT 3.5
+conflict\-handling
+.UNINDENT
+.UNINDENT
 .SH HOW DO I SERVE A FOLDER FROM A READ ONLY FILESYSTEM?
 .sp
 Syncthing requires a “folder marker” to indicate that the folder is present
