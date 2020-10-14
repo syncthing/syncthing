@@ -177,29 +177,41 @@ type pendingFolderIterator struct {
 	folderID string
 }
 
-func (db *Lowlevel) NewPendingDeviceIterator() PendingDeviceIterator {
+func (db *Lowlevel) NewPendingDeviceIterator() (PendingDeviceIterator, error) {
 	var res pendingDeviceIterator
-
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
-		l.Infof("Could not iterate through pending device entries for cleanup: %v", err)
-		return res
+		l.Infof("Could not iterate through pending device entries: %v", err)
+		return res, err
 	}
 	res.Iterator = iter
 	res.db = db
-	return res
+	return res, nil
 }
 
-func (db *Lowlevel) NewPendingFolderIterator() PendingFolderIterator {
-	var res pendingFolderIterator
-	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
+func (db *Lowlevel) NewPendingFolderIterator() (PendingFolderIterator, error) {
+	prefixKey := []byte{KeyTypePendingFolder}
+	return db.createPendingFolderIterator(prefixKey)
+}
+
+func (db *Lowlevel) NewPendingFolderForDeviceIterator(device protocol.DeviceID) (PendingFolderIterator, error) {
+	prefixKey, err := db.keyer.GeneratePendingFolderKey(nil, device[:], nil)
 	if err != nil {
-		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
-		return res
+		return nil, err
+	}
+	return db.createPendingFolderIterator(prefixKey)
+}
+
+func (db *Lowlevel) createPendingFolderIterator(prefixKey []byte) (PendingFolderIterator, error) {
+	var res pendingFolderIterator
+	iter, err := db.NewPrefixIterator(prefixKey)
+	if err != nil {
+		l.Infof("Could not iterate through pending folder entries: %v", err)
+		return res, err
 	}
 	res.Iterator = iter
 	res.db = db
-	return res
+	return res, nil
 }
 
 // NextValid discards invalid entries after logging a message.  That's the only possible

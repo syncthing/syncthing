@@ -2581,41 +2581,44 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 		existingFolders[folder.ID] = folder
 	}
 
-	fiter := m.db.NewPendingFolderIterator()
-	for fiter.NextValid() {
-		if _, ok := ignoredDevices[fiter.DeviceID()]; ok {
-			fiter.Forget()
+	pendingFolder, err := m.db.NewPendingFolderIterator()
+	if err != nil {
+		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
+	}
+	for pendingFolder.NextValid() {
+		if _, ok := ignoredDevices[pendingFolder.DeviceID()]; ok {
+			pendingFolder.Forget()
 			continue
 		}
-		if dev, ok := existingDevices[fiter.DeviceID()]; !ok {
-			fiter.Forget()
+		if dev, ok := existingDevices[pendingFolder.DeviceID()]; !ok {
+			pendingFolder.Forget()
 			continue
-		} else if dev.IgnoredFolder(fiter.FolderID()) {
-			fiter.Forget()
+		} else if dev.IgnoredFolder(pendingFolder.FolderID()) {
+			pendingFolder.Forget()
 			continue
-		} else if _, ok := removedFolders[fiter.FolderID()]; ok {
+		} else if _, ok := removedFolders[pendingFolder.FolderID()]; ok {
 			// Forget pending folder device associations for recently removed
 			// folders as well, assuming the folder is no longer of interest
 			// at all (but might become pending again).
-			fiter.Forget()
+			pendingFolder.Forget()
 			continue
 		}
-		if folder, ok := existingFolders[fiter.FolderID()]; ok {
-			if folder.SharedWith(fiter.DeviceID()) {
-				fiter.Forget()
+		if folderCfg, ok := existingFolders[pendingFolder.FolderID()]; ok {
+			if folderCfg.SharedWith(pendingFolder.DeviceID()) {
+				pendingFolder.Forget()
 			}
 		}
 	}
 
-	diter := m.db.NewPendingDeviceIterator()
-	defer diter.Release()
-	for diter.NextValid() {
-		if _, ok := ignoredDevices[diter.DeviceID()]; ok {
-			diter.Forget()
+	pendingDevice, err := m.db.NewPendingDeviceIterator()
+	defer pendingDevice.Release()
+	for pendingDevice.NextValid() {
+		if _, ok := ignoredDevices[pendingDevice.DeviceID()]; ok {
+			pendingDevice.Forget()
 			continue
 		}
-		if _, ok := existingDevices[diter.DeviceID()]; ok {
-			diter.Forget()
+		if _, ok := existingDevices[pendingDevice.DeviceID()]; ok {
+			pendingDevice.Forget()
 			continue
 		}
 	}
