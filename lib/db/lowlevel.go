@@ -10,8 +10,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/dchest/siphash"
@@ -815,13 +817,14 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 	var err error
 	defer func() {
 		if err != nil && !backend.IsClosed(err) {
-			panic(err)
+			warnAndPanic(err)
 		}
 	}()
 
 	var fixed int
 	fixed, err = db.checkLocalNeed([]byte(folder))
 	if err != nil {
+		err = fmt.Errorf("checking local need: %w", err)
 		return nil
 	}
 	if fixed != 0 {
@@ -830,11 +833,13 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 
 	meta, err := db.recalcMeta(folder)
 	if err != nil {
+		err = fmt.Errorf("recalculating metadata: %w", err)
 		return nil
 	}
 
 	fixed, err = db.repairSequenceGCLocked(folder, meta)
 	if err != nil {
+		err = fmt.Errorf("repairing sequences: %w", err)
 		return nil
 	}
 	if fixed != 0 {
@@ -940,14 +945,14 @@ func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) bool {
 
 	t, err := db.newReadOnlyTransaction()
 	if err != nil {
-		panic(err)
+		warnAndPanic(err)
 	}
 	ok := true
 	if err := t.withHaveSequence([]byte(folder), curSeq+1, func(fi protocol.FileIntf) bool {
 		ok = false // we got something, which we should not have
 		return false
 	}); err != nil && !backend.IsClosed(err) {
-		panic(err)
+		warnAndPanic(err)
 	}
 	t.close()
 
@@ -1094,7 +1099,7 @@ func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
 		f := fi.(FileInfoTruncated)
 		for !needDone && needName < f.Name {
 			repaired++
-			if err = t.Delete(dbi.Key()); err != nil {
+			if err = t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
 				return false
 			}
 			l.Debugln("check local need: removing", needName)
@@ -1121,7 +1126,7 @@ func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
 
 	for !needDone {
 		repaired++
-		if err := t.Delete(dbi.Key()); err != nil {
+		if err := t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
 			return 0, err
 		}
 		l.Debugln("check local need: removing", needName)
@@ -1156,4 +1161,12 @@ func (db *Lowlevel) needsRepairPath() string {
 // being bumped.
 func unchanged(nf, ef protocol.FileIntf) bool {
 	return ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid() && ef.FileLocalFlags() == nf.FileLocalFlags()
+}
+
+var ldbPathRe = regexp.MustCompile(`(open|write|read) .+[\\/].+[\\/]index[^\\/]+[\\/][^\\/]+: `)
+
+func warnAndPanic(err error) {
+	l.Warnf("Fatal error: %v", err)
+	msg := ldbPathRe.ReplaceAllString(err.Error(), "$1 x: ")
+	panic(msg)
 }

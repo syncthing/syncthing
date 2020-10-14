@@ -9,20 +9,20 @@ const (
 )
 
 var compressionMarshal = map[Compression]string{
-	CompressNever:    "never",
-	CompressMetadata: "metadata",
-	CompressAlways:   "always",
+	CompressionNever:    "never",
+	CompressionMetadata: "metadata",
+	CompressionAlways:   "always",
 }
 
 var compressionUnmarshal = map[string]Compression{
 	// Legacy
-	"false": CompressNever,
-	"true":  CompressMetadata,
+	"false": CompressionNever,
+	"true":  CompressionMetadata,
 
 	// Current
-	"never":    CompressNever,
-	"metadata": CompressMetadata,
-	"always":   CompressAlways,
+	"never":    CompressionNever,
+	"metadata": CompressionMetadata,
+	"always":   CompressionAlways,
 }
 
 func (c Compression) GoString() string {

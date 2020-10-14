@@ -34,11 +34,11 @@ func main() {
 	vanity.ForEachFile(files, vanity.TurnOffGoUnrecognizedAll)
 	vanity.ForEachFile(files, vanity.TurnOffGoUnkeyedAll)
 	vanity.ForEachFile(files, vanity.TurnOffGoSizecacheAll)
-	vanity.ForEachFile(files, vanity.TurnOffGoEnumStringerAll)
+	vanity.ForEachFile(files, vanity.TurnOnMarshalerAll)
+	vanity.ForEachFile(files, vanity.TurnOnUnmarshalerAll)
 	vanity.ForEachEnumInFiles(files, HandleCustomEnumExtensions)
 	vanity.ForEachFile(files, SetPackagePrefix("github.com/syncthing/syncthing"))
-
-	vanity.ForEachMessageInFiles(files, HandleCustomExtensions)
+	vanity.ForEachFile(files, HandleFile)
 	vanity.ForEachFieldInFilesExcludingExtensions(files, TurnOffNullableForMessages)
 
 	resp := command.Generate(req)
@@ -204,88 +204,102 @@ func GetMessageBoolExtension(msg *descriptor.DescriptorProto, extension *proto.E
 	return *val, true
 }
 
-func HandleCustomExtensions(msg *descriptor.DescriptorProto) {
-	generateXmlTags := true
-	if generate, ok := GetMessageBoolExtension(msg, ext.E_XmlTags); ok {
-		generateXmlTags = generate
-	}
+func HandleFile(file *descriptor.FileDescriptorProto) {
+	vanity.ForEachMessageInFiles([]*descriptor.FileDescriptorProto{file}, HandleCustomExtensions(file))
+}
 
-	vanity.ForEachField([]*descriptor.DescriptorProto{msg}, func(field *descriptor.FieldDescriptorProto) {
-		if field.Options == nil {
-			field.Options = &descriptor.FieldOptions{}
-		}
-		deprecated := field.Options.Deprecated != nil && *field.Options.Deprecated == true
-
-		if field.Type != nil && *field.Type == descriptor.FieldDescriptorProto_TYPE_INT32 {
-			SetStringFieldOption(field, gogoproto.E_Casttype, "int")
+func HandleCustomExtensions(file *descriptor.FileDescriptorProto) func(msg *descriptor.DescriptorProto) {
+	return func(msg *descriptor.DescriptorProto) {
+		generateXmlTags := true
+		if generate, ok := GetMessageBoolExtension(msg, ext.E_XmlTags); ok {
+			generateXmlTags = generate
 		}
 
-		if field.TypeName != nil && *field.TypeName == ".google.protobuf.Timestamp" {
-			vanity.SetBoolFieldOption(gogoproto.E_Stdtime, true)(field)
-		}
-
-		if goName, ok := GetFieldStringExtension(field, ext.E_Goname); ok {
-			SetStringFieldOption(field, gogoproto.E_Customname, goName)
-		} else if deprecated {
-			SetStringFieldOption(field, gogoproto.E_Customname, "Deprecated"+toCamelCase(*field.Name, true))
-		}
-
-		if val, ok := GetFieldBooleanExtension(field, ext.E_DeviceId); ok && val {
-			SetStringFieldOption(field, gogoproto.E_Customtype, "github.com/syncthing/syncthing/lib/protocol.DeviceID")
-		}
-
-		if jsonValue, ok := GetFieldStringExtension(field, ext.E_Json); ok {
-			SetStringFieldOption(field, gogoproto.E_Jsontag, jsonValue)
-		} else if deprecated {
-			SetStringFieldOption(field, gogoproto.E_Jsontag, "-")
-		} else {
-			SetStringFieldOption(field, gogoproto.E_Jsontag, toCamelCase(*field.Name, false))
-		}
-
-		current := ""
-		if v, ok := GetFieldStringExtension(field, gogoproto.E_Moretags); ok {
-			current = v
-		}
-
-		if generateXmlTags {
-			if len(current) > 0 {
-				current += " "
+		vanity.ForEachField([]*descriptor.DescriptorProto{msg}, func(field *descriptor.FieldDescriptorProto) {
+			if field.Options == nil {
+				field.Options = &descriptor.FieldOptions{}
 			}
-			if xmlValue, ok := GetFieldStringExtension(field, ext.E_Xml); ok {
-				current += fmt.Sprintf(`xml:"%s"`, xmlValue)
+			deprecated := field.Options.Deprecated != nil && *field.Options.Deprecated == true
+
+			if field.Type != nil && *field.Type == descriptor.FieldDescriptorProto_TYPE_INT32 {
+				SetStringFieldOption(field, gogoproto.E_Casttype, "int")
+			}
+
+			if field.TypeName != nil && *field.TypeName == ".google.protobuf.Timestamp" {
+				vanity.SetBoolFieldOption(gogoproto.E_Stdtime, true)(field)
+			}
+
+			if goName, ok := GetFieldStringExtension(field, ext.E_Goname); ok {
+				SetStringFieldOption(field, gogoproto.E_Customname, goName)
+			} else if deprecated {
+				SetStringFieldOption(field, gogoproto.E_Customname, "Deprecated"+toCamelCase(*field.Name, true))
+			}
+
+			if goType, ok := GetFieldStringExtension(field, ext.E_Gotype); ok {
+				SetStringFieldOption(field, gogoproto.E_Customtype, goType)
+			}
+
+			if val, ok := GetFieldBooleanExtension(field, ext.E_DeviceId); ok && val {
+				if *file.Options.GoPackage != "github.com/syncthing/syncthing/lib/protocol" {
+					SetStringFieldOption(field, gogoproto.E_Customtype, "github.com/syncthing/syncthing/lib/protocol.DeviceID")
+				} else {
+					SetStringFieldOption(field, gogoproto.E_Customtype, "DeviceID")
+				}
+			}
+
+			if jsonValue, ok := GetFieldStringExtension(field, ext.E_Json); ok {
+				SetStringFieldOption(field, gogoproto.E_Jsontag, jsonValue)
+			} else if deprecated {
+				SetStringFieldOption(field, gogoproto.E_Jsontag, "-")
 			} else {
-				xmlValue = toCamelCase(*field.Name, false)
-				// XML dictates element name within the collection, not collection name, so trim plural suffix.
-				if field.IsRepeated() {
-					if strings.HasSuffix(xmlValue, "ses") {
-						// addresses -> address
-						xmlValue = strings.TrimSuffix(xmlValue, "es")
-					} else {
-						// devices -> device
-						xmlValue = strings.TrimSuffix(xmlValue, "s")
+				SetStringFieldOption(field, gogoproto.E_Jsontag, toCamelCase(*field.Name, false))
+			}
+
+			current := ""
+			if v, ok := GetFieldStringExtension(field, gogoproto.E_Moretags); ok {
+				current = v
+			}
+
+			if generateXmlTags {
+				if len(current) > 0 {
+					current += " "
+				}
+				if xmlValue, ok := GetFieldStringExtension(field, ext.E_Xml); ok {
+					current += fmt.Sprintf(`xml:"%s"`, xmlValue)
+				} else {
+					xmlValue = toCamelCase(*field.Name, false)
+					// XML dictates element name within the collection, not collection name, so trim plural suffix.
+					if field.IsRepeated() {
+						if strings.HasSuffix(xmlValue, "ses") {
+							// addresses -> address
+							xmlValue = strings.TrimSuffix(xmlValue, "es")
+						} else {
+							// devices -> device
+							xmlValue = strings.TrimSuffix(xmlValue, "s")
+						}
 					}
+					if deprecated {
+						xmlValue += ",omitempty"
+					}
+					current += fmt.Sprintf(`xml:"%s"`, xmlValue)
 				}
-				if deprecated {
-					xmlValue += ",omitempty"
+			}
+
+			if defaultValue, ok := GetFieldStringExtension(field, ext.E_Default); ok {
+				if len(current) > 0 {
+					current += " "
 				}
-				current += fmt.Sprintf(`xml:"%s"`, xmlValue)
+				current += fmt.Sprintf(`default:"%s"`, defaultValue)
 			}
-		}
 
-		if defaultValue, ok := GetFieldStringExtension(field, ext.E_Default); ok {
-			if len(current) > 0 {
-				current += " "
+			if restartValue, ok := GetFieldBooleanExtension(field, ext.E_Restart); ok {
+				if len(current) > 0 {
+					current += " "
+				}
+				current += fmt.Sprintf(`restart:"%t"`, restartValue)
 			}
-			current += fmt.Sprintf(`default:"%s"`, defaultValue)
-		}
 
-		if restartValue, ok := GetFieldBooleanExtension(field, ext.E_Restart); ok {
-			if len(current) > 0 {
-				current += " "
-			}
-			current += fmt.Sprintf(`restart:"%t"`, restartValue)
-		}
-
-		SetStringFieldOption(field, gogoproto.E_Moretags, current)
-	})
+			SetStringFieldOption(field, gogoproto.E_Moretags, current)
+		})
+	}
 }

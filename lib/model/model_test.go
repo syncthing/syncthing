@@ -126,7 +126,7 @@ func newState(cfg config.Configuration) *model {
 	m := setupModel(wcfg)
 
 	for _, dev := range cfg.Devices {
-		m.AddConnection(&fakeConnection{id: dev.DeviceID, model: m}, protocol.HelloResult{})
+		m.AddConnection(&fakeConnection{id: dev.DeviceID, model: m}, protocol.Hello{})
 	}
 
 	return m
@@ -254,7 +254,7 @@ func BenchmarkRequestOut(b *testing.B) {
 	for _, f := range files {
 		fc.addFile(f.Name, 0644, protocol.FileInfoTypeFile, []byte("some data to return"))
 	}
-	m.AddConnection(fc, protocol.HelloResult{})
+	m.AddConnection(fc, protocol.Hello{})
 	m.Index(device1, "default", files)
 
 	b.ResetTimer()
@@ -292,7 +292,7 @@ func BenchmarkRequestInSingleFile(b *testing.B) {
 }
 
 func TestDeviceRename(t *testing.T) {
-	hello := protocol.HelloResult{
+	hello := protocol.Hello{
 		ClientName:    "syncthing",
 		ClientVersion: "v0.9.4",
 	}
@@ -1665,10 +1665,9 @@ func TestRWScanRecovery(t *testing.T) {
 }
 
 func TestGlobalDirectoryTree(t *testing.T) {
-	db := db.NewLowlevel(backend.OpenMemory())
-	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.ServeBackground()
-	defer cleanupModel(m)
+	w, fcfg := tmpDefaultWrapper()
+	m := setupModel(w)
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		typ := protocol.FileInfoTypeDirectory
@@ -1916,10 +1915,9 @@ func TestGlobalDirectoryTree(t *testing.T) {
 }
 
 func TestGlobalDirectorySelfFixing(t *testing.T) {
-	db := db.NewLowlevel(backend.OpenMemory())
-	m := newModel(defaultCfgWrapper, myID, "syncthing", "dev", db, nil)
-	m.ServeBackground()
-	defer cleanupModel(m)
+	w, fcfg := tmpDefaultWrapper()
+	m := setupModel(w)
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		typ := protocol.FileInfoTypeDirectory
@@ -2313,9 +2311,9 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	defer cleanupModel(m)
 
 	conn1 := &fakeConnection{id: device1, model: m}
-	m.AddConnection(conn1, protocol.HelloResult{})
+	m.AddConnection(conn1, protocol.Hello{})
 	conn2 := &fakeConnection{id: device2, model: m}
-	m.AddConnection(conn2, protocol.HelloResult{})
+	m.AddConnection(conn2, protocol.Hello{})
 
 	m.ClusterConfig(device1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
@@ -3331,7 +3329,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 
 	br := &testutils.BlockingRW{}
 	nw := &testutils.NoopRW{}
-	m.AddConnection(newFakeProtoConn(protocol.NewConnection(device1, br, nw, m, "testConn", protocol.CompressNever)), protocol.HelloResult{})
+	m.AddConnection(newFakeProtoConn(protocol.NewConnection(device1, br, nw, m, "testConn", protocol.CompressionNever)), protocol.Hello{})
 	m.pmut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.conn) == %v)", len(m.conn))
@@ -3339,17 +3337,19 @@ func TestConnCloseOnRestart(t *testing.T) {
 	closed := m.closed[device1]
 	m.pmut.RUnlock()
 
-	newFcfg := fcfg.Copy()
-	newFcfg.Paused = true
+	waiter, err := w.RemoveDevice(device1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	done := make(chan struct{})
 	go func() {
-		m.restartFolder(fcfg, newFcfg, false)
+		waiter.Wait()
 		close(done)
 	}()
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
-		t.Fatal("Timed out before folder restart returned")
+		t.Fatal("Timed out before config took effect")
 	}
 	select {
 	case <-closed:
@@ -3845,8 +3845,8 @@ func TestScanRenameCaseOnly(t *testing.T) {
 	})
 }
 
-func TestConnectionTerminationOnFolderAdd(t *testing.T) {
-	testConfigChangeClosesConnections(t, false, true, nil, func(cfg config.Wrapper) {
+func TestClusterConfigOnFolderAdd(t *testing.T) {
+	testConfigChangeTriggersClusterConfigs(t, false, true, nil, func(cfg config.Wrapper) {
 		fcfg := testFolderConfigTmp()
 		fcfg.ID = "second"
 		fcfg.Label = "second"
@@ -3859,8 +3859,8 @@ func TestConnectionTerminationOnFolderAdd(t *testing.T) {
 	})
 }
 
-func TestConnectionTerminationOnFolderShare(t *testing.T) {
-	testConfigChangeClosesConnections(t, true, true, nil, func(cfg config.Wrapper) {
+func TestClusterConfigOnFolderShare(t *testing.T) {
+	testConfigChangeTriggersClusterConfigs(t, true, true, nil, func(cfg config.Wrapper) {
 		fcfg := cfg.FolderList()[0]
 		fcfg.Devices = []config.FolderDeviceConfiguration{{device2, protocol.EmptyDeviceID}}
 		if w, err := cfg.SetFolder(fcfg); err != nil {
@@ -3871,8 +3871,8 @@ func TestConnectionTerminationOnFolderShare(t *testing.T) {
 	})
 }
 
-func TestConnectionTerminationOnFolderUnshare(t *testing.T) {
-	testConfigChangeClosesConnections(t, true, false, nil, func(cfg config.Wrapper) {
+func TestClusterConfigOnFolderUnshare(t *testing.T) {
+	testConfigChangeTriggersClusterConfigs(t, true, false, nil, func(cfg config.Wrapper) {
 		fcfg := cfg.FolderList()[0]
 		fcfg.Devices = nil
 		if w, err := cfg.SetFolder(fcfg); err != nil {
@@ -3883,8 +3883,8 @@ func TestConnectionTerminationOnFolderUnshare(t *testing.T) {
 	})
 }
 
-func TestConnectionTerminationOnFolderRemove(t *testing.T) {
-	testConfigChangeClosesConnections(t, true, false, nil, func(cfg config.Wrapper) {
+func TestClusterConfigOnFolderRemove(t *testing.T) {
+	testConfigChangeTriggersClusterConfigs(t, true, false, nil, func(cfg config.Wrapper) {
 		rcfg := cfg.RawCopy()
 		rcfg.Folders = nil
 		if w, err := cfg.Replace(rcfg); err != nil {
@@ -3895,8 +3895,8 @@ func TestConnectionTerminationOnFolderRemove(t *testing.T) {
 	})
 }
 
-func TestConnectionTerminationOnFolderPause(t *testing.T) {
-	testConfigChangeClosesConnections(t, true, false, nil, func(cfg config.Wrapper) {
+func TestClusterConfigOnFolderPause(t *testing.T) {
+	testConfigChangeTriggersClusterConfigs(t, true, false, nil, func(cfg config.Wrapper) {
 		fcfg := cfg.FolderList()[0]
 		fcfg.Paused = true
 		if w, err := cfg.SetFolder(fcfg); err != nil {
@@ -3907,8 +3907,8 @@ func TestConnectionTerminationOnFolderPause(t *testing.T) {
 	})
 }
 
-func TestConnectionTerminationOnFolderUnpause(t *testing.T) {
-	testConfigChangeClosesConnections(t, true, false, func(cfg config.Wrapper) {
+func TestClusterConfigOnFolderUnpause(t *testing.T) {
+	testConfigChangeTriggersClusterConfigs(t, true, false, func(cfg config.Wrapper) {
 		fcfg := cfg.FolderList()[0]
 		fcfg.Paused = true
 		if w, err := cfg.SetFolder(fcfg); err != nil {
@@ -3984,7 +3984,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	}
 }
 
-func testConfigChangeClosesConnections(t *testing.T, expectFirstClosed, expectSecondClosed bool, pre func(config.Wrapper), fn func(config.Wrapper)) {
+func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSecond bool, pre func(config.Wrapper), fn func(config.Wrapper)) {
 	t.Helper()
 	wcfg, _ := tmpDefaultWrapper()
 	m := setupModel(wcfg)
@@ -3999,21 +3999,55 @@ func testConfigChangeClosesConnections(t *testing.T, expectFirstClosed, expectSe
 		pre(wcfg)
 	}
 
-	fc1 := &fakeConnection{id: device1, model: m}
-	fc2 := &fakeConnection{id: device2, model: m}
-	m.AddConnection(fc1, protocol.HelloResult{})
-	m.AddConnection(fc2, protocol.HelloResult{})
+	cc1 := make(chan struct{}, 1)
+	cc2 := make(chan struct{}, 1)
+	fc1 := &fakeConnection{
+		id:    device1,
+		model: m,
+		clusterConfigFn: func(_ protocol.ClusterConfig) {
+			cc1 <- struct{}{}
+		},
+	}
+	fc2 := &fakeConnection{
+		id:    device2,
+		model: m,
+		clusterConfigFn: func(_ protocol.ClusterConfig) {
+			cc2 <- struct{}{}
+		},
+	}
+	m.AddConnection(fc1, protocol.Hello{})
+	m.AddConnection(fc2, protocol.Hello{})
+
+	// Initial CCs
+	select {
+	case <-cc1:
+	default:
+		t.Fatal("missing initial CC from device1")
+	}
+	select {
+	case <-cc2:
+	default:
+		t.Fatal("missing initial CC from device2")
+	}
 
 	t.Log("Applying config change")
 
 	fn(wcfg)
 
-	if expectFirstClosed != fc1.closed {
-		t.Errorf("first connection state mismatch: %t (expected) != %t", expectFirstClosed, fc1.closed)
+	timeout := time.NewTimer(time.Second)
+	if expectFirst {
+		select {
+		case <-cc1:
+		case <-timeout.C:
+			t.Errorf("timed out before receiving cluste rconfig for first device")
+		}
 	}
-
-	if expectSecondClosed != fc2.closed {
-		t.Errorf("second connection state mismatch: %t (expected) != %t", expectSecondClosed, fc2.closed)
+	if expectSecond {
+		select {
+		case <-cc2:
+		case <-timeout.C:
+			t.Errorf("timed out before receiving cluste rconfig for second device")
+		}
 	}
 }
 

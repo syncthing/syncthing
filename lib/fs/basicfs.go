@@ -19,8 +19,11 @@ import (
 )
 
 var (
-	ErrInvalidFilename = errors.New("filename is invalid")
-	ErrNotRelative     = errors.New("not a relative path")
+	errInvalidFilenameEmpty               = errors.New("name is invalid, must not be empty")
+	errInvalidFilenameWindowsSpacePeriod  = errors.New("name is invalid, must not end in space or period on Windows")
+	errInvalidFilenameWindowsReservedName = errors.New("name is invalid, contains Windows reserved name (NUL, COM1, etc.)")
+	errInvalidFilenameWindowsReservedChar = errors.New("name is invalid, contains Windows reserved character (?, *, etc.)")
+	errNotRelative                        = errors.New("not a relative path")
 )
 
 func WithJunctionsAsDirs() Option {
@@ -95,7 +98,7 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 func rooted(rel, root string) (string, error) {
 	// The root must not be empty.
 	if root == "" {
-		return "", ErrInvalidFilename
+		return "", errInvalidFilenameEmpty
 	}
 
 	var err error
@@ -292,8 +295,8 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 		return Usage{}, err
 	}
 	return Usage{
-		Free:  int64(u.Free),
-		Total: int64(u.Total),
+		Free:  u.Free,
+		Total: u.Total,
 	}, nil
 }
 

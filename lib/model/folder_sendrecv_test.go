@@ -357,7 +357,7 @@ func TestWeakHash(t *testing.T) {
 		Blocks:     existing,
 		Size:       size,
 		ModifiedS:  info.ModTime().Unix(),
-		ModifiedNs: int32(info.ModTime().Nanosecond()),
+		ModifiedNs: info.ModTime().Nanosecond(),
 	}
 	desiredFile := protocol.FileInfo{
 		Name:      "weakhash",
