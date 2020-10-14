@@ -152,18 +152,26 @@ func (db *Lowlevel) deleteInvalidPendingFolder(key []byte) error {
 }
 
 
+// PendingDeviceIterator abstracts away the key handling and validation, yielding only
+// valid entries
 type PendingDeviceIterator interface {
 	backend.Iterator
 	NextValid() bool
-	DeviceID() protocol.DeviceID
 	Forget()
+	DeviceID() protocol.DeviceID
 }
 
+// PendingFolderIterator abstracts away the key handling and validation, yielding only
+// valid entries
 type PendingFolderIterator interface {
-	PendingDeviceIterator
+	backend.Iterator
+	NextValid() bool
+	Forget()
+	DeviceID() protocol.DeviceID
 	FolderID() string
 }
 
+// pendingDeviceIterator caches the current entry's data after validation
 type pendingDeviceIterator struct {
 	backend.Iterator
 
@@ -171,6 +179,8 @@ type pendingDeviceIterator struct {
 	deviceID protocol.DeviceID
 }
 
+// pendingFolderIterator caches the current entry's data after validation.  Embeds a
+// pendingDeviceIterator to reuse some common method implementations.
 type pendingFolderIterator struct {
 	pendingDeviceIterator
 
