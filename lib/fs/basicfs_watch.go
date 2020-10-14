@@ -5,7 +5,6 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
 // +build !solaris,!darwin solaris,cgo darwin,cgo
-// +build !ios
 
 package fs
 
