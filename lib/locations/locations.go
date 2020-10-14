@@ -60,7 +60,7 @@ func init() {
 		locationTemplates[Database] = strings.Replace(locationTemplates[Database], LevelDBDir, BadgerDir, 1)
 	}
 
-	userHome := userHomeDir()
+	userHome := "~"
 	config := defaultConfigDir(userHome)
 	baseDirs[UserHomeBaseDir] = userHome
 	baseDirs[ConfigBaseDir] = config
@@ -83,8 +83,19 @@ func SetBaseDir(baseDirName BaseDirEnum, path string) error {
 	return expandLocations()
 }
 
-func Get(location LocationEnum) string {
+func GetRelative(location LocationEnum) string {
 	return locations[location]
+}
+
+func Get(location LocationEnum) string {
+	relPath := locations[location]
+	var err error
+	var fullPath string
+	fullPath, err = fs.ExpandTilde(relPath)
+	if err != nil {
+		return relPath
+	}
+	return fullPath
 }
 
 func GetBaseDir(baseDir BaseDirEnum) string {
@@ -116,11 +127,6 @@ func expandLocations() error {
 	for key, dir := range locationTemplates {
 		for varName, value := range baseDirs {
 			dir = strings.Replace(dir, "${"+string(varName)+"}", value, -1)
-		}
-		var err error
-		dir, err = fs.ExpandTilde(dir)
-		if err != nil {
-			return err
 		}
 		newLocations[key] = filepath.Clean(dir)
 	}
@@ -192,16 +198,6 @@ func defaultDataDir(userHome, config string) string {
 		// data dirs, not user specific ones.
 		return config
 	}
-}
-
-// userHomeDir returns the user's home directory, or dies trying.
-func userHomeDir() string {
-	userHome, err := fs.ExpandTilde("~")
-	if err != nil {
-		fmt.Println(err)
-		panic("Failed to get user home dir")
-	}
-	return userHome
 }
 
 func GetTimestamped(key LocationEnum) string {
