@@ -127,8 +127,7 @@ func (iter *pendingDeviceIterator) NextValid() bool {
 		if err != nil {
 			goto deleteKey
 		}
-		bs, err = iter.db.Get(iter.Key())
-		if err != nil {
+		if bs, err = iter.db.Get(iter.Key()); err != nil {
 			goto deleteKey
 		}
 		if err := iter.device.Unmarshal(bs); err != nil {
@@ -155,12 +154,10 @@ func (iter *pendingFolderIterator) NextValid() bool {
 		if !ok || err != nil {
 			goto deleteKey
 		}
-		folderID = string(iter.db.keyer.FolderFromPendingFolderKey(iter.Key()))
-		if len(folderID) < 1 {
+		if folderID = string(iter.db.keyer.FolderFromPendingFolderKey(iter.Key())); len(folderID) < 1 {
 			goto deleteKey
 		}
-		bs, err = iter.db.Get(iter.Key())
-		if err != nil {
+		if bs, err = iter.db.Get(iter.Key()); err != nil {
 			goto deleteKey
 		}
 		if err := iter.folder.Unmarshal(bs); err != nil {
