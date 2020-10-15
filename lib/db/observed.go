@@ -43,9 +43,9 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 }
 
 // PendingDeviceIterator abstracts away the key handling and validation, yielding only
-// valid entries
+// valid entries.  Release() must be called on it when no longer needed.
 type PendingDeviceIterator interface {
-	backend.Iterator
+	Release()
 	NextValid() bool
 	Forget()
 	DeviceID() protocol.DeviceID
@@ -53,9 +53,9 @@ type PendingDeviceIterator interface {
 }
 
 // PendingFolderIterator abstracts away the key handling and validation, yielding only
-// valid entries
+// valid entries.  Release() must be called on it when no longer needed.
 type PendingFolderIterator interface {
-	backend.Iterator
+	Release()
 	NextValid() bool
 	Forget()
 	DeviceID() protocol.DeviceID
