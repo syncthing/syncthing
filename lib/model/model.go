@@ -2587,24 +2587,29 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 	}
 	for pendingFolder.NextValid() {
 		if _, ok := ignoredDevices[pendingFolder.DeviceID()]; ok {
+			l.Debugf("Discarding pending folder %v from ignored device %v", pendingFolder.FolderID(), pendingFolder.DeviceID())
 			pendingFolder.Forget()
 			continue
 		}
 		if dev, ok := existingDevices[pendingFolder.DeviceID()]; !ok {
+			l.Debugf("Discarding pending folder %v from unknown device %v", pendingFolder.FolderID(), pendingFolder.DeviceID())
 			pendingFolder.Forget()
 			continue
 		} else if dev.IgnoredFolder(pendingFolder.FolderID()) {
+			l.Debugf("Discarding now ignored pending folder %v for device %v", pendingFolder.FolderID(), pendingFolder.DeviceID())
 			pendingFolder.Forget()
 			continue
 		} else if _, ok := removedFolders[pendingFolder.FolderID()]; ok {
 			// Forget pending folder device associations for recently removed
 			// folders as well, assuming the folder is no longer of interest
 			// at all (but might become pending again).
+			l.Debugf("Discarding pending removed folder %v from device %v", pendingFolder.FolderID(), pendingFolder.DeviceID())
 			pendingFolder.Forget()
 			continue
 		}
 		if folderCfg, ok := existingFolders[pendingFolder.FolderID()]; ok {
 			if folderCfg.SharedWith(pendingFolder.DeviceID()) {
+				l.Debugf("Discarding now shared pending folder %v for device %v", pendingFolder.FolderID(), pendingFolder.DeviceID())
 				pendingFolder.Forget()
 			}
 		}
@@ -2614,10 +2619,12 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 	defer pendingDevice.Release()
 	for pendingDevice.NextValid() {
 		if _, ok := ignoredDevices[pendingDevice.DeviceID()]; ok {
+			l.Debugf("Discarding now ignored pending device %v", pendingDevice.DeviceID())
 			pendingDevice.Forget()
 			continue
 		}
 		if _, ok := existingDevices[pendingDevice.DeviceID()]; ok {
+			l.Debugf("Discarding now added pending device %v", pendingDevice.DeviceID())
 			pendingDevice.Forget()
 			continue
 		}
