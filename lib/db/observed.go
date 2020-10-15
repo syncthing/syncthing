@@ -84,15 +84,15 @@ type pendingFolderIterator struct {
 // NewPendingDeviceIterator allows to iterate over all pending device entries, including
 // automatic removal of invalid entries.
 func (db *Lowlevel) NewPendingDeviceIterator() (PendingDeviceIterator, error) {
-	var res pendingDeviceIterator
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
 		l.Infof("Could not iterate through pending device entries: %v", err)
-		return res, err
+		return nil, err
 	}
+	var res pendingDeviceIterator
 	res.Iterator = iter
 	res.db = db
-	return res, nil
+	return &res, nil
 }
 
 // NewPendingDeviceIterator allows to iterate over all pending folder entries, including
@@ -105,21 +105,21 @@ func (db *Lowlevel) NewPendingFolderIterator(device []byte) (PendingFolderIterat
 			return nil, err
 		}
 	}
-	var res pendingFolderIterator
 	iter, err := db.NewPrefixIterator(prefixKey)
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries: %v", err)
-		return res, err
+		return nil, err
 	}
+	var res pendingFolderIterator
 	res.Iterator = iter
 	res.db = db
-	return res, nil
+	return &res, nil
 }
 
 // NextValid discards invalid entries after logging a message.  That's the only possible
 // "repair" measure and appropriate for the importance of pending entries.  They will come
 // back soon if still relevant.
-func (iter pendingDeviceIterator) NextValid() bool {
+func (iter *pendingDeviceIterator) NextValid() bool {
 	for iter.Iterator.Next() {
 		keyDev := iter.db.keyer.DeviceFromPendingDeviceKey(iter.Key())
 		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
@@ -146,7 +146,7 @@ func (iter pendingDeviceIterator) NextValid() bool {
 // NextValid discards invalid entries after logging a message.  That's the only possible
 // "repair" measure and appropriate for the importance of pending entries.  They will come
 // back soon if still relevant.
-func (iter pendingFolderIterator) NextValid() bool {
+func (iter *pendingFolderIterator) NextValid() bool {
 	for iter.Iterator.Next() {
 		keyDev, ok := iter.db.keyer.DeviceFromPendingFolderKey(iter.Key())
 		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
@@ -191,7 +191,6 @@ func (iter pendingFolderIterator) Observed() ObservedFolder {
 }
 
 func (iter pendingDeviceIterator) Forget() {
-	l.Debugf("Removing pending device / folder %v", iter.deviceID)
 	if err := iter.db.Delete(iter.Key()); err != nil {
 		l.Warnf("Failed to remove pending entry: %v", err)
 		return
