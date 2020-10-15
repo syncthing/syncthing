@@ -29,15 +29,16 @@ func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, add
 
 func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) error {
 	key, err := db.keyer.GeneratePendingFolderKey(nil, device[:], []byte(id))
+	if err != nil {
+		return err
+	}
+	of := ObservedFolder{
+		Time:  time.Now().Round(time.Second),
+		Label: label,
+	}
+	bs, err := of.Marshal()
 	if err == nil {
-		of := ObservedFolder{
-			Time:  time.Now().Round(time.Second),
-			Label: label,
-		}
-		bs, err := of.Marshal()
-		if err == nil {
-			err = db.Put(key, bs)
-		}
+		err = db.Put(key, bs)
 	}
 	return err
 }
