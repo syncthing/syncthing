@@ -120,7 +120,7 @@ func (db *Lowlevel) NewPendingFolderIterator(device []byte) (PendingFolderIterat
 // "repair" measure and appropriate for the importance of pending entries.  They will come
 // back soon if still relevant.
 func (iter *pendingDeviceIterator) NextValid() bool {
-	for iter.Iterator.Next() {
+	for iter.Next() {
 		keyDev := iter.db.keyer.DeviceFromPendingDeviceKey(iter.Key())
 		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
 		var bs []byte
@@ -146,7 +146,7 @@ func (iter *pendingDeviceIterator) NextValid() bool {
 // "repair" measure and appropriate for the importance of pending entries.  They will come
 // back soon if still relevant.
 func (iter *pendingFolderIterator) NextValid() bool {
-	for iter.Iterator.Next() {
+	for iter.Next() {
 		keyDev, ok := iter.db.keyer.DeviceFromPendingFolderKey(iter.Key())
 		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
 		var folderID string
