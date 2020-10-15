@@ -150,22 +150,24 @@ func (iter *pendingFolderIterator) NextValid() bool {
 	for iter.Iterator.Next() {
 		keyDev, ok := iter.db.keyer.DeviceFromPendingFolderKey(iter.Key())
 		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
+		var folderID string
 		var bs []byte
 		if !ok || err != nil {
+			goto deleteKey
+		}
+		folderID = string(iter.db.keyer.FolderFromPendingFolderKey(iter.Key()))
+		if len(folderID) < 1 {
 			goto deleteKey
 		}
 		bs, err = iter.db.Get(iter.Key())
 		if err != nil {
 			goto deleteKey
 		}
-		if len(iter.FolderID()) < 1 {
-			goto deleteKey
-		}
 		if err := iter.folder.Unmarshal(bs); err != nil {
 			goto deleteKey
 		}
 		iter.deviceID = deviceID
-		iter.folderID = string(iter.db.keyer.FolderFromPendingFolderKey(iter.Key()))
+		iter.folderID = folderID
 		return true
 	deleteKey:
 		l.Infof("Invalid pending folder entry, deleting from database: %x", iter.Key())
