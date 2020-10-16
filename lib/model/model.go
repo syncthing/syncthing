@@ -2585,6 +2585,7 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
 	}
+	defer pendingFolder.Release()
 	for pendingFolder.NextValid() {
 		if _, ok := ignoredDevices[pendingFolder.DeviceID()]; ok {
 			l.Debugf("Discarding pending folder %v from ignored device %v", pendingFolder.FolderID(), pendingFolder.DeviceID())
