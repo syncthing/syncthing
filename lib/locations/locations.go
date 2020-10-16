@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 type LocationEnum string
@@ -45,14 +44,13 @@ const (
 	DataBaseDir     BaseDirEnum = "data"
 	// User's home directory, *not* -home flag
 	UserHomeBaseDir BaseDirEnum = "userHome"
-	DocsBaseDir     BaseDirEnum = "docs"
 
 	LevelDBDir = "index-v0.14.0.db"
 	BadgerDir  = "indexdb.badger"
 )
 
 // Platform dependent directories
-var baseDirs = make(map[BaseDirEnum]string, 4)
+var baseDirs = make(map[BaseDirEnum]string, 3)
 
 func init() {
 	if os.Getenv("USE_BADGER") != "" {
@@ -64,7 +62,6 @@ func init() {
 	config := defaultConfigDir(userHome)
 	baseDirs[UserHomeBaseDir] = userHome
 	baseDirs[ConfigBaseDir] = config
-	baseDirs[DocsBaseDir] = defaultDocsDir(userHome)
 	baseDirs[DataBaseDir] = defaultDataDir(userHome, config)
 
 	err := expandLocations()
@@ -115,7 +112,7 @@ var locationTemplates = map[LocationEnum]string{
 	PanicLog:      "${data}/panic-${timestamp}.log",
 	AuditLog:      "${data}/audit-${timestamp}.log",
 	GUIAssets:     "${config}/gui",
-	DefFolder:     "${docs}/Sync",
+	DefFolder:     "Sync",
 }
 
 var locations = make(map[LocationEnum]string)
@@ -154,14 +151,6 @@ func defaultConfigDir(userHome string) string {
 		}
 		return filepath.Join(userHome, ".config/syncthing")
 	}
-}
-
-func defaultDocsDir(userHome string) string {
-	if osutil.IsIOS() {
-		return filepath.Join(userHome, "Documents")
-	}
-
-	return userHome
 }
 
 // defaultDataDir returns the default data directory, which usually is the

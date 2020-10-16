@@ -41,6 +41,7 @@ import (
 	"github.com/syncthing/syncthing/lib/syncthing"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/util"
 
 	"github.com/pkg/errors"
 )
@@ -196,7 +197,7 @@ func defaultRuntimeOptions() RuntimeOptions {
 	options := RuntimeOptions{
 		Options: syncthing.Options{
 			AssetDir:    os.Getenv("STGUIASSETS"),
-			NoUpgrade:   os.Getenv("STNOUPGRADE") != "" || osutil.IsIOS(),
+			NoUpgrade:   os.Getenv("STNOUPGRADE") != "" || util.IsIOS(),
 			ProfilerURL: os.Getenv("STPROFILER"),
 		},
 		noRestart:    os.Getenv("STNORESTART") != "",
@@ -207,7 +208,7 @@ func defaultRuntimeOptions() RuntimeOptions {
 		logMaxFiles:  3,        // plus the current one
 	}
 
-	if os.Getenv("STTRACE") != "" || osutil.IsIOS() {
+	if os.Getenv("STTRACE") != "" || util.IsIOS() {
 		options.logFlags = logger.DebugFlags
 	}
 
@@ -239,7 +240,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash")
 	flag.BoolVar(&options.resetDatabase, "reset-database", false, "Reset the database, forcing a full rescan and resync")
 	flag.BoolVar(&options.ResetDeltaIdxs, "reset-deltas", false, "Reset delta index IDs, forcing a full index exchange")
-	flag.BoolVar(&options.doUpgrade, "upgrade", !osutil.IsIOS(), "Perform upgrade")
+	flag.BoolVar(&options.doUpgrade, "upgrade", !util.IsIOS(), "Perform upgrade")
 	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&options.showVersion, "version", false, "Show version")
 	flag.BoolVar(&options.showHelp, "help", false, "Show this help")
@@ -247,7 +248,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.showDeviceId, "device-id", false, "Show the device ID")
 	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
 	flag.BoolVar(&options.auditEnabled, "audit", false, "Write events to audit file")
-	flag.BoolVar(&options.Verbose, "verbose", osutil.IsIOS(), "Print verbose log output")
+	flag.BoolVar(&options.Verbose, "verbose", util.IsIOS(), "Print verbose log output")
 	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (see below).")

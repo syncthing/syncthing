@@ -14,6 +14,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 var (
@@ -54,6 +56,10 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	// in the test configs.
 	sep := string(filepath.Separator)
 	root = filepath.Dir(root + sep)
+
+	if util.IsIOS() && !filepath.IsAbs(root) && root[0] != '~' {
+		root = filepath.Join("~/Documents", root)
+	}
 
 	// Attempt tilde expansion; leave unchanged in case of error
 	if path, err := ExpandTilde(root); err == nil {
