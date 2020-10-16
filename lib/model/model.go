@@ -150,7 +150,7 @@ type model struct {
 	helloMessages       map[protocol.DeviceID]protocol.Hello
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
 	remotePausedFolders map[protocol.DeviceID][]string // deviceID -> folders
-	indexSenderTokens   map[protocol.DeviceID][]suture.ServiceToken
+	indexSenders        map[protocol.DeviceID]map[string]*indexSender
 
 	foldersRunning int32 // for testing only
 }
@@ -223,7 +223,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remotePausedFolders: make(map[protocol.DeviceID][]string),
-		indexSenderTokens:   make(map[protocol.DeviceID][]suture.ServiceToken),
+		indexSenders:        make(map[protocol.DeviceID]map[string]*indexSender),
 	}
 	for devID := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
@@ -405,7 +405,7 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 		m.RemoveAndWait(token, 0)
 	}
 
-	m.fmut.Lock()
+	m.lockBoth(false, false)
 
 	isPathUnique := true
 	for folderID, folderCfg := range m.folderCfgs {
@@ -421,7 +421,19 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 
 	m.cleanupFolderLocked(cfg)
 
+	for devID, indexSenders := range m.indexSenders {
+		if is, ok := indexSenders[cfg.ID]; ok {
+			m.RemoveAndWait(is.token, 0)
+			if len(indexSenders) == 1 {
+				delete(m.indexSenders, devID)
+			} else {
+				delete(m.indexSenders[devID], cfg.ID)
+			}
+		}
+	}
+
 	m.fmut.Unlock()
+	m.pmut.Unlock()
 
 	// Remove it from the database
 	db.DropFolder(m.db, cfg.ID)
@@ -465,21 +477,44 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 		m.RemoveAndWait(token, 0)
 	}
 
-	m.fmut.Lock()
-	defer m.fmut.Unlock()
+	m.lockBoth(false, true)
+	defer func() {
+		m.fmut.Unlock()
+		m.pmut.RUnlock()
+	}()
 
 	// Cache the (maybe) existing fset before it's removed by cleanupFolderLocked
 	fset := m.folderFiles[folder]
 
 	m.cleanupFolderLocked(from)
-	if !to.Paused {
-		if fset == nil {
+	if to.Paused {
+		for _, indexSenders := range m.indexSenders {
+			if is, ok := indexSenders[to.ID]; ok {
+				is.pause()
+			}
+		}
+	} else {
+		fsetNil := fset == nil
+		if fsetNil {
 			// Create a new fset. Might take a while and we do it under
 			// locking, but it's unsafe to create fset:s concurrently so
 			// that's the price we pay.
 			fset = db.NewFileSet(folder, to.Filesystem(), m.db)
 		}
 		m.addAndStartFolderLocked(to, fset, cacheIgnoredFiles)
+		if fsetNil || from.Paused {
+			for _, devID := range to.DeviceIDs() {
+				indexSenders, ok := m.indexSenders[devID]
+				if !ok {
+					continue
+				}
+				is, ok := indexSenders[to.ID]
+				if !ok {
+					continue
+				}
+				is.unpause(fset)
+			}
+		}
 	}
 
 	var infoMsg string
@@ -981,8 +1016,8 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	m.pmut.RLock()
 	conn, ok := m.conn[deviceID]
 	closed := m.closed[deviceID]
-	for _, token := range m.indexSenderTokens[deviceID] {
-		m.RemoveAndWait(token, 0)
+	for _, is := range m.indexSenders[deviceID] {
+		m.RemoveAndWait(is.token, 0)
 	}
 	m.pmut.RUnlock()
 	if !ok {
@@ -1016,7 +1051,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	var paused []string
-	indexSenderTokens := make([]suture.ServiceToken, 0, len(cm.Folders))
+	indexSenders := make(map[string]*indexSender, len(cm.Folders))
 	for _, folder := range cm.Folders {
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if !ok || !cfg.SharedWith(deviceID) {
@@ -1133,14 +1168,17 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			fset:         fs,
 			prevSequence: startSequence,
 			evLogger:     m.evLogger,
+			pauseChan:    make(chan struct{}),
+			unpauseChan:  make(chan *db.FileSet),
 		}
 		is.Service = util.AsService(is.serve, is.String())
-		indexSenderTokens = append(indexSenderTokens, m.Add(is))
+		is.token = m.Add(is)
+		indexSenders[folder.ID] = is
 	}
 
 	m.pmut.Lock()
 	m.remotePausedFolders[deviceID] = paused
-	m.indexSenderTokens[deviceID] = indexSenderTokens
+	m.indexSenders[deviceID] = indexSenders
 	m.pmut.Unlock()
 
 	// This breaks if we send multiple CM messages during the same connection.
@@ -1376,6 +1414,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	delete(m.remotePausedFolders, device)
 	closed := m.closed[device]
 	delete(m.closed, device)
+	delete(m.indexSenders, device)
 	m.pmut.Unlock()
 
 	m.progressEmitter.temporaryIndexUnsubscribe(conn)
@@ -1866,6 +1905,9 @@ type indexSender struct {
 	prevSequence int64
 	evLogger     events.Logger
 	connClosed   chan struct{}
+	token        suture.ServiceToken
+	pauseChan    chan struct{}
+	unpauseChan  chan *db.FileSet
 }
 
 func (s *indexSender) serve(ctx context.Context) {
@@ -1883,6 +1925,7 @@ func (s *indexSender) serve(ctx context.Context) {
 	sub := s.evLogger.Subscribe(events.LocalIndexUpdated | events.DeviceDisconnected)
 	defer sub.Unsubscribe()
 
+	paused := false
 	evChan := sub.C()
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
@@ -1908,12 +1951,18 @@ func (s *indexSender) serve(ctx context.Context) {
 				return
 			case <-evChan:
 			case <-ticker.C:
+			case <-s.pauseChan:
+				paused = true
+			case s.fset = <-s.unpauseChan:
+				paused = false
 			}
 
 			continue
 		}
 
-		err = s.sendIndexTo(ctx)
+		if !paused {
+			err = s.sendIndexTo(ctx)
+		}
 
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
@@ -1928,6 +1977,22 @@ func (s *indexSender) serve(ctx context.Context) {
 // returns true, as indexSender only terminates when a connection is
 // closed/has failed, in which case retrying doesn't help.
 func (s *indexSender) Complete() bool { return true }
+
+func (s *indexSender) unpause(fset *db.FileSet) {
+	select {
+	case <-s.connClosed:
+		return
+	case s.unpauseChan <- fset:
+	}
+}
+
+func (s *indexSender) pause() {
+	select {
+	case <-s.connClosed:
+		return
+	case s.pauseChan <- struct{}{}:
+	}
+}
 
 // sendIndexTo sends file infos with a sequence number higher than prevSequence and
 // returns the highest sent sequence number.
@@ -2354,12 +2419,11 @@ func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 }
 
 func (m *model) Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
-	// The slightly unusual locking sequence here is because we need to hold
+	// The slightly unusual locking here is because we need to hold
 	// pmut for the duration (as the value returned from foldersFiles can
-	// get heavily modified on Close()), but also must acquire fmut before
-	// pmut. (The locks can be *released* in any order.)
-	m.fmut.RLock()
-	m.pmut.RLock()
+	// get heavily modified on Close()), but also must acquire fmut, and
+	// acquiring both needs to happen in the same order all the time.
+	m.lockBoth(true, true)
 	defer m.pmut.RUnlock()
 
 	fs, ok := m.folderFiles[folder]
@@ -2570,6 +2634,22 @@ func (m *model) checkFolderRunningLocked(folder string) error {
 	}
 
 	return errFolderNotRunning
+}
+
+// lockBoth locks both fmut and pmut, thus ensuring that always happens in the
+// same order to prevent deadlocks. It doesn't matter in which order the locks
+// are released.
+func (m *model) lockBoth(fmutRead, pmutRead bool) {
+	if fmutRead {
+		m.fmut.RLock()
+	} else {
+		m.fmut.Lock()
+	}
+	if pmutRead {
+		m.pmut.RLock()
+	} else {
+		m.pmut.Lock()
+	}
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given
