@@ -6,7 +6,7 @@
 
 // +build !solaris,!windows
 
-package start
+package toplevel
 
 import (
 	"fmt"

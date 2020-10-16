@@ -6,7 +6,7 @@
 
 // +build windows
 
-package start
+package toplevel
 
 import "os/exec"
 
