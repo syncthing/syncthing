@@ -102,11 +102,17 @@ func New(myID protocol.DeviceID) Configuration {
 	var cfg Configuration
 	cfg.Version = CurrentVersion
 
-	cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
-
 	util.SetDefaults(&cfg)
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
+
+	if util.IsIOS() {
+		cfg.Options.URSeen = 999999 // maxint so we never send usage reports on iOS
+		cfg.Options.DefaultFolderPath = "Documents" // FIXME better to hide this
+		// FIXME Find better solution than blank user and password, but suppress this notification for now
+	} else {
+		cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
+	}
 
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
@@ -120,15 +126,11 @@ func New(myID protocol.DeviceID) Configuration {
 func NewWithFreePorts(myID protocol.DeviceID) (Configuration, error) {
 	cfg := New(myID)
 
-	port, err := getFreePort("0.0.0.0", DefaultGUIPort)
+	port, err := getFreePort("127.0.0.1", DefaultGUIPort)
 	if err != nil {
 		return Configuration{}, errors.Wrap(err, "get free port (GUI)")
 	}
-	if util.IsIOS() {
-		cfg.GUI.RawAddress = fmt.Sprintf("0.0.0.0:%d", port) // To allow browse from host Mac (FIXME)
-	} else {
-		cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
-	}
+	cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
 
 	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
 	if err != nil {
