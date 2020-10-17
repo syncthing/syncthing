@@ -817,7 +817,8 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 	var err error
 	defer func() {
 		if err != nil && !backend.IsClosed(err) {
-			warnAndPanic(err)
+			l.Warnf("Fatal error: %v", err)
+			obfuscateAndPanic(err)
 		}
 	}()
 
@@ -945,14 +946,16 @@ func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) bool {
 
 	t, err := db.newReadOnlyTransaction()
 	if err != nil {
-		warnAndPanic(err)
+		l.Warnf("Fatal error: %v", err)
+		obfuscateAndPanic(err)
 	}
 	ok := true
 	if err := t.withHaveSequence([]byte(folder), curSeq+1, func(fi protocol.FileIntf) bool {
 		ok = false // we got something, which we should not have
 		return false
 	}); err != nil && !backend.IsClosed(err) {
-		warnAndPanic(err)
+		l.Warnf("Fatal error: %v", err)
+		obfuscateAndPanic(err)
 	}
 	t.close()
 
@@ -1165,8 +1168,6 @@ func unchanged(nf, ef protocol.FileIntf) bool {
 
 var ldbPathRe = regexp.MustCompile(`(open|write|read) .+[\\/].+[\\/]index[^\\/]+[\\/][^\\/]+: `)
 
-func warnAndPanic(err error) {
-	l.Warnf("Fatal error: %v", err)
-	msg := ldbPathRe.ReplaceAllString(err.Error(), "$1 x: ")
-	panic(msg)
+func obfuscateAndPanic(err error) {
+	panic(ldbPathRe.ReplaceAllString(err.Error(), "$1 x: "))
 }
