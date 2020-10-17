@@ -9,12 +9,28 @@ package toplevel
 import (
 	"os"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/syncthing"
 )
 
+var (
+	// Injected by build script
+	Version = "unknown-dev"
+	Host    = "unknown"
+	User    = "unknown"
+	Stamp   = "0"
+	Tags    = ""
+)
+
 func SyncthingStart() {
+	build.Version = Version
+	build.Host    = Host
+	build.User    = User
+	build.Stamp   = Stamp
+	build.Tags    = Tags
+
 	options := RuntimeOptions{
 		Options: syncthing.Options{
 			AssetDir:    locations.Get(locations.GUIAssets),
