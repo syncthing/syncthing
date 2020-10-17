@@ -9,5 +9,5 @@
 package toplevel
 
 func main() {
-	os.Exit(SyncthingMain())
+	mainCmdline()
 }

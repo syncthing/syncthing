@@ -146,7 +146,7 @@ The following are valid values for the STTRACE variable:
 
 var (
 	// Environment options
-	innerProcess    = true
+	innerProcess    = os.Getenv("STMONITORED") != ""
 	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
 
 	upgradeCheckInterval = 5 * time.Minute
@@ -284,7 +284,7 @@ func setLocation(enum locations.BaseDirEnum, loc string) error {
 	return locations.SetBaseDir(enum, loc)
 }
 
-func SyncthingMain() {
+func mainCmdline() {
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
 
