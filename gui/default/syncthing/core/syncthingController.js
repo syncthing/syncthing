@@ -1418,19 +1418,23 @@ angular.module('syncthing.core')
             $scope.currentDevice._addressesStr = deviceCfg.addresses.join(', ');
 
             initShareEditing('device');
-            $scope.currentSharing.shared = $scope.deviceFolders($scope.currentDevice);
-            $scope.currentSharing.shared.forEach(function (folder) {
-                for (var i = 0; i < folder.devices.length; i++) {
-                    if (folder.devices[i].deviceID === deviceCfg.deviceID) {
-                        $scope.currentSharing.encryptionPasswords[folder.id] = folder.devices[i].encryptionPassword;
+            for (var folderID in $scope.folders) {
+                var found = false;
+                for (var i = 0; i < $scope.folders[folderID].devices.length; i++) {
+                    if ($scope.folders[folderID].devices[i].deviceID === deviceCfg.deviceID) {
+                        found = true;
                         break;
                     }
                 }
-                $scope.currentSharing.selected[folder.id] = true;
-            });
-            $scope.currentSharing.unrelated = $scope.folderList().filter(function (n) {
-                return !$scope.currentSharing.selected[n.id]
-            });
+                if (found) {
+                    $scope.currentSharing.encryptionPasswords[folderID] = $scope.folders[folderID].devices[i].encryptionPassword;
+                    $scope.currentSharing.shared.push($scope.folders[folderID]);
+                } else {
+                    $scope.currentSharing.unrelated.push($scope.folders[folderID]);
+                }
+                $scope.currentSharing.selected[folderID] = found;
+            }
+            $scope.currentSharing.shared = $scope.deviceFolders($scope.currentDevice);
 
             $scope.deviceEditor.$setPristine();
             $('#editDevice').modal();
@@ -1474,7 +1478,6 @@ angular.module('syncthing.core')
                         _addressesStr: 'dynamic',
                         compression: 'metadata',
                         introducer: false,
-                        selectedFolders: {},
                         pendingFolders: [],
                         ignoredFolders: []
                     };
