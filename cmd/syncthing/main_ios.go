@@ -7,8 +7,6 @@
 package toplevel
 
 import (
-	"os"
-
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
@@ -35,17 +33,18 @@ func SyncthingStart() int {
 	build.Stamp   = Stamp
 	build.Tags    = Tags
 
+	// The below is forked from main.go so needs to be maintained manually
 	options := RuntimeOptions{
 		Options: syncthing.Options{
 			AssetDir:    locations.Get(locations.GUIAssets),
-			NoUpgrade:   os.Getenv("STNOUPGRADE") != "",
-			ProfilerURL: os.Getenv("STPROFILER"),
+			NoUpgrade:   false,   // os.Getenv("STNOUPGRADE") != ""
+			ProfilerURL: "",      // os.Getenv("STPROFILER")
 			Verbose:     true,
 		},
-		noRestart:    os.Getenv("STNORESTART") != "",
-		cpuProfile:   os.Getenv("STCPUPROFILE") != "",
-		stRestarting: os.Getenv("STRESTART") != "",
-	  logFile:      "-",
+		noRestart:    false,    // os.Getenv("STNORESTART") != ""
+		cpuProfile:   false,    // os.Getenv("STCPUPROFILE") != ""
+		stRestarting: false,    // os.Getenv("STRESTART") != ""
+		logFile:      "-",
 		logFlags:     logger.DebugFlags,
 		logMaxSize:   10 << 20, // 10 MiB
 		logMaxFiles:  3,        // plus the current one
@@ -56,7 +55,7 @@ func SyncthingStart() int {
 	// Ensure that our home directory exists.
 	if err := ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
 		l.Warnln("Failure on home directory:", err)
-		os.Exit(syncthing.ExitError.AsInt())
+		return syncthing.ExitError.AsInt()
 	}
 
 	innerProcess = true
