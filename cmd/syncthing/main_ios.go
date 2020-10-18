@@ -7,6 +7,8 @@
 package toplevel
 
 import (
+	"os"
+
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/syncthing"
@@ -16,7 +18,7 @@ func SyncthingIsRunning() bool {
 	return runningApp != nil
 }
 
-func SyncthingStart() int {
+func SyncthingStart(guiAddress string) int {
 
 	// The below is forked from main.go so needs to be maintained manually
 	options := RuntimeOptions{
@@ -29,6 +31,7 @@ func SyncthingStart() int {
 		noRestart:    false,    // os.Getenv("STNORESTART") != ""
 		cpuProfile:   false,    // os.Getenv("STCPUPROFILE") != ""
 		stRestarting: false,    // os.Getenv("STRESTART") != ""
+		guiAddress:   guiAddress,
 		logFile:      "-",
 		logFlags:     logger.DebugFlags,
 		logMaxSize:   10 << 20, // 10 MiB
@@ -36,6 +39,11 @@ func SyncthingStart() int {
 	}
 
 	l.SetFlags(options.logFlags)
+
+	if options.guiAddress != "" {
+		// The config picks this up from the environment.
+		os.Setenv("STGUIADDRESS", options.guiAddress)
+	}
 
 	// Ensure that our home directory exists.
 	if err := ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
