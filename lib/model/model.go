@@ -2650,14 +2650,13 @@ func (m *model) checkFolderRunningLocked(folder string) error {
 
 // PendingDevices lists unknown devices that tried to connect.
 func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
-	iter, err := m.db.NewPendingDeviceIterator()
+	pendingDevices, err := m.db.PendingDevices()
 	if err != nil {
 		return nil, err
 	}
-	defer iter.Release()
 	res := make(map[protocol.DeviceID]db.ObservedDevice)
-	for iter.NextValid() {
-		res[iter.DeviceID()] = iter.Observed()
+	for _, pendingDevice := range pendingDevices {
+		res[pendingDevice.DeviceID] = pendingDevice.ObservedDevice
 	}
 	return res, nil
 }
@@ -2666,21 +2665,19 @@ func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error
 // returns the entries grouped by folder and filters for a given device unless the
 // argument is specified as EmptyDeviceID.
 func (m *model) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error) {
-	var deviceBytes []byte
-	if device != protocol.EmptyDeviceID {
-		deviceBytes = device[:]
-	}
-	iter, err := m.db.NewPendingFolderIterator(deviceBytes)
+	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
 		return nil, err
 	}
-	defer iter.Release()
 	res := make(map[string]map[protocol.DeviceID]db.ObservedFolder)
-	for iter.NextValid() {
-		if _, ok := res[iter.FolderID()]; !ok {
-			res[iter.FolderID()] = make(map[protocol.DeviceID]db.ObservedFolder)
+	for _, pendingFolder := range pendingFolders {
+		if pendingFolder.DeviceID != device {
+			continue
 		}
-		res[iter.FolderID()][iter.DeviceID()] = iter.Observed()
+		if _, ok := res[pendingFolder.FolderID]; !ok {
+			res[pendingFolder.FolderID] = make(map[protocol.DeviceID]db.ObservedFolder)
+		}
+		res[pendingFolder.FolderID][pendingFolder.DeviceID] = pendingFolder.ObservedFolder
 	}
 	return res, nil
 }
