@@ -7,19 +7,9 @@
 package toplevel
 
 import (
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/syncthing"
-)
-
-var (
-	// Injected by build script
-	Version = "unknown-dev"
-	Host    = "unknown"
-	User    = "unknown"
-	Stamp   = "0"
-	Tags    = ""
 )
 
 func SyncthingIsRunning() bool {
@@ -27,11 +17,6 @@ func SyncthingIsRunning() bool {
 }
 
 func SyncthingStart() int {
-	build.Version = Version
-	build.Host    = Host
-	build.User    = User
-	build.Stamp   = Stamp
-	build.Tags    = Tags
 
 	// The below is forked from main.go so needs to be maintained manually
 	options := RuntimeOptions{
