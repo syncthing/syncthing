@@ -47,7 +47,6 @@ type PendingDevice struct {
 func (db *Lowlevel) PendingDevices() ([]PendingDevice, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
-		l.Infof("Could not iterate through pending device entries: %v", err)
 		return nil, err
 	}
 	defer iter.Release()
@@ -115,7 +114,6 @@ type PendingFolder struct {
 func (db *Lowlevel) PendingFolders() ([]PendingFolder, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {
-		l.Infof("Could not iterate through pending folder entries: %v", err)
 		return nil, err
 	}
 	defer iter.Release()
