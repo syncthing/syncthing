@@ -51,16 +51,14 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 }
 
 // RemovePendingFolder removes entries for specific folder / device combinations
-func (db *Lowlevel) RemovePendingFolder(id string, devices []protocol.DeviceID) {
-	for _, dev := range devices {
-		key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), dev[:])
-		if err != nil {
-			continue
-		}
-		if err := db.Delete(key); err != nil {
-			l.Warnf("Failed to remove pending folder entry: %v", err)
+func (db *Lowlevel) RemovePendingFolder(id string, device protocol.DeviceID) {
+	key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), device[:])
+	if err == nil {
+		if err = db.Delete(key); err == nil {
+			return
 		}
 	}
+	l.Warnf("Failed to remove pending folder entry: %v", err)
 }
 
 // PendingDeviceIterator abstracts away the key handling and validation, yielding only
