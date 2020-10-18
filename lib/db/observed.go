@@ -93,8 +93,8 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 }
 
 // RemovePendingFolder removes entries for specific folder / device combinations
-func (db *Lowlevel) RemovePendingFolder(id string, device protocol.DeviceID) {
-	key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), device[:])
+func (db *Lowlevel) RemovePendingFolder(pf PendingFolder) {
+	key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(pf.FolderID), pf.DeviceID[:])
 	if err == nil {
 		if err = db.Delete(key); err == nil {
 			return

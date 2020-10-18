@@ -2588,29 +2588,29 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 	for _, pendingFolder := range pendingFolders {
 		if _, ok := ignoredDevices[pendingFolder.DeviceID]; ok {
 			l.Debugf("Discarding pending folder %v from ignored device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
-			m.db.RemovePendingFolder(pendingFolder.FolderID, pendingFolder.DeviceID)
+			m.db.RemovePendingFolder(pendingFolder)
 			continue
 		}
 		if dev, ok := existingDevices[pendingFolder.DeviceID]; !ok {
 			l.Debugf("Discarding pending folder %v from unknown device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
-			m.db.RemovePendingFolder(pendingFolder.FolderID, pendingFolder.DeviceID)
+			m.db.RemovePendingFolder(pendingFolder)
 			continue
 		} else if dev.IgnoredFolder(pendingFolder.FolderID) {
 			l.Debugf("Discarding now ignored pending folder %v for device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
-			m.db.RemovePendingFolder(pendingFolder.FolderID, pendingFolder.DeviceID)
+			m.db.RemovePendingFolder(pendingFolder)
 			continue
 		} else if _, ok := removedFolders[pendingFolder.FolderID]; ok {
 			// Forget pending folder device associations for recently removed
 			// folders as well, assuming the folder is no longer of interest
 			// at all (but might become pending again).
 			l.Debugf("Discarding pending removed folder %v from device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
-			m.db.RemovePendingFolder(pendingFolder.FolderID, pendingFolder.DeviceID)
+			m.db.RemovePendingFolder(pendingFolder)
 			continue
 		}
 		if folderCfg, ok := existingFolders[pendingFolder.FolderID]; ok {
 			if folderCfg.SharedWith(pendingFolder.DeviceID) {
 				l.Debugf("Discarding now shared pending folder %v for device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
-				m.db.RemovePendingFolder(pendingFolder.FolderID, pendingFolder.DeviceID)
+				m.db.RemovePendingFolder(pendingFolder)
 			}
 		}
 	}
