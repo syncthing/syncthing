@@ -8,6 +8,10 @@
 
 package toplevel
 
+import (
+	"os"
+)
+
 func main() {
-	mainCmdline()
+	os.exit(mainCmdline())
 }

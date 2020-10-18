@@ -24,7 +24,11 @@ var (
 	Tags    = ""
 )
 
-func SyncthingStart() {
+func SyncthingIsRunning() bool {
+	return runningApp != nil
+}
+
+func SyncthingStart() int {
 	build.Version = Version
 	build.Host    = Host
 	build.User    = User
@@ -57,6 +61,5 @@ func SyncthingStart() {
 
 	innerProcess = true
 
-	syncthingMain(options)
-	//mainCmdline()
+	return syncthingMain(options)
 }
