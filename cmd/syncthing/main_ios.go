@@ -20,6 +20,8 @@ func SyncthingIsRunning() bool {
 
 func SyncthingStart(guiAddress string) int {
 
+	// TODO Clear any unsupported environment variables
+
 	// The below is forked from main.go so needs to be maintained manually
 	options := RuntimeOptions{
 		Options: syncthing.Options{
