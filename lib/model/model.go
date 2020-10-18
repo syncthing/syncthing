@@ -2581,52 +2581,50 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 		existingFolders[folder.ID] = folder
 	}
 
-	pendingFolder, err := m.db.NewPendingFolderIterator(nil)
+	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
 	}
-	defer pendingFolder.Release()
-	for pendingFolder.NextValid() {
-		if _, ok := ignoredDevices[pendingFolder.DeviceID()]; ok {
-			l.Debugf("Discarding pending folder %v from ignored device %v", pendingFolder.FolderID(), pendingFolder.DeviceID())
-			m.db.RemovePendingFolder(pendingFolder.FolderID(), pendingFolder.DeviceID())
+	for _, pendingFolder := range pendingFolders {
+		if _, ok := ignoredDevices[pendingFolder.DeviceID]; ok {
+			l.Debugf("Discarding pending folder %v from ignored device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
+			m.db.RemovePendingFolder(pendingFolder.FolderID, pendingFolder.DeviceID)
 			continue
 		}
-		if dev, ok := existingDevices[pendingFolder.DeviceID()]; !ok {
-			l.Debugf("Discarding pending folder %v from unknown device %v", pendingFolder.FolderID(), pendingFolder.DeviceID())
-			m.db.RemovePendingFolder(pendingFolder.FolderID(), pendingFolder.DeviceID())
+		if dev, ok := existingDevices[pendingFolder.DeviceID]; !ok {
+			l.Debugf("Discarding pending folder %v from unknown device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
+			m.db.RemovePendingFolder(pendingFolder.FolderID, pendingFolder.DeviceID)
 			continue
-		} else if dev.IgnoredFolder(pendingFolder.FolderID()) {
-			l.Debugf("Discarding now ignored pending folder %v for device %v", pendingFolder.FolderID(), pendingFolder.DeviceID())
-			m.db.RemovePendingFolder(pendingFolder.FolderID(), pendingFolder.DeviceID())
+		} else if dev.IgnoredFolder(pendingFolder.FolderID) {
+			l.Debugf("Discarding now ignored pending folder %v for device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
+			m.db.RemovePendingFolder(pendingFolder.FolderID, pendingFolder.DeviceID)
 			continue
-		} else if _, ok := removedFolders[pendingFolder.FolderID()]; ok {
+		} else if _, ok := removedFolders[pendingFolder.FolderID]; ok {
 			// Forget pending folder device associations for recently removed
 			// folders as well, assuming the folder is no longer of interest
 			// at all (but might become pending again).
-			l.Debugf("Discarding pending removed folder %v from device %v", pendingFolder.FolderID(), pendingFolder.DeviceID())
-			m.db.RemovePendingFolder(pendingFolder.FolderID(), pendingFolder.DeviceID())
+			l.Debugf("Discarding pending removed folder %v from device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
+			m.db.RemovePendingFolder(pendingFolder.FolderID, pendingFolder.DeviceID)
 			continue
 		}
-		if folderCfg, ok := existingFolders[pendingFolder.FolderID()]; ok {
-			if folderCfg.SharedWith(pendingFolder.DeviceID()) {
-				l.Debugf("Discarding now shared pending folder %v for device %v", pendingFolder.FolderID(), pendingFolder.DeviceID())
-				m.db.RemovePendingFolder(pendingFolder.FolderID(), pendingFolder.DeviceID())
+		if folderCfg, ok := existingFolders[pendingFolder.FolderID]; ok {
+			if folderCfg.SharedWith(pendingFolder.DeviceID) {
+				l.Debugf("Discarding now shared pending folder %v for device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
+				m.db.RemovePendingFolder(pendingFolder.FolderID, pendingFolder.DeviceID)
 			}
 		}
 	}
 
-	pendingDevice, err := m.db.NewPendingDeviceIterator()
-	defer pendingDevice.Release()
-	for pendingDevice.NextValid() {
-		if _, ok := ignoredDevices[pendingDevice.DeviceID()]; ok {
-			l.Debugf("Discarding now ignored pending device %v", pendingDevice.DeviceID())
-			m.db.RemovePendingDevice(pendingDevice.DeviceID())
+	pendingDevices, err := m.db.PendingDevices()
+	for _, pendingDevice := range pendingDevices {
+		if _, ok := ignoredDevices[pendingDevice.DeviceID]; ok {
+			l.Debugf("Discarding now ignored pending device %v", pendingDevice.DeviceID)
+			m.db.RemovePendingDevice(pendingDevice.DeviceID)
 			continue
 		}
-		if _, ok := existingDevices[pendingDevice.DeviceID()]; ok {
-			l.Debugf("Discarding now added pending device %v", pendingDevice.DeviceID())
-			m.db.RemovePendingDevice(pendingDevice.DeviceID())
+		if _, ok := existingDevices[pendingDevice.DeviceID]; ok {
+			l.Debugf("Discarding now added pending device %v", pendingDevice.DeviceID)
+			m.db.RemovePendingDevice(pendingDevice.DeviceID)
 			continue
 		}
 	}
