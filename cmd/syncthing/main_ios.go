@@ -14,6 +14,13 @@ import (
 	"github.com/syncthing/syncthing/lib/syncthing"
 )
 
+type SyncthingDelegate interface {
+}
+
+var (
+	Delegate SyncthingDelegate
+)
+
 func SyncthingIsRunning() bool {
 	return runningApp != nil
 }

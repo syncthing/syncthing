@@ -585,6 +585,8 @@ func upgradeViaRest() error {
 }
 
 func syncthingMain(runtimeOptions RuntimeOptions) int {
+	runningApp = nil
+
 	// Set a log prefix similar to the ID we will have later on, or early log
 	// lines look ugly.
 	l.SetPrefix("[start] ")
