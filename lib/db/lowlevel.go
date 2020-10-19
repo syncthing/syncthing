@@ -457,7 +457,7 @@ func (db *Lowlevel) checkGlobals(folder []byte) error {
 	for dbi.Next() {
 		var vl VersionList
 		if err := vl.Unmarshal(dbi.Value()); err != nil || vl.Empty() {
-			if err := t.Delete(dbi.Key()); err != nil {
+			if err := t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
 				return err
 			}
 			continue
@@ -486,7 +486,7 @@ func (db *Lowlevel) checkGlobals(folder []byte) error {
 		}
 
 		if newVL.Empty() {
-			if err := t.Delete(dbi.Key()); err != nil {
+			if err := t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
 				return err
 			}
 		} else if changed {
@@ -880,7 +880,7 @@ func (db *Lowlevel) recalcMeta(folderStr string) (*metadataTracker, error) {
 
 	meta := newMetadataTracker(db.keyer)
 	if err := db.checkGlobals(folder); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("checking globals: %w", err)
 	}
 
 	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
