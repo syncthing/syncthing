@@ -149,8 +149,8 @@ type model struct {
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.Hello
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
-	remotePausedFolders map[protocol.DeviceID][]string // deviceID -> folders
-	indexSenders        map[protocol.DeviceID]map[string]*indexSender
+	remotePausedFolders map[protocol.DeviceID]map[string]struct{} // deviceID -> folders
+	indexSenderTokens   map[protocol.DeviceID]map[string]suture.ServiceToken
 
 	foldersRunning int32 // for testing only
 }
@@ -222,8 +222,8 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
-		remotePausedFolders: make(map[protocol.DeviceID][]string),
-		indexSenders:        make(map[protocol.DeviceID]map[string]*indexSender),
+		remotePausedFolders: make(map[protocol.DeviceID]map[string]struct{}),
+		indexSenderTokens:   make(map[protocol.DeviceID]map[string]suture.ServiceToken),
 	}
 	for devID := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
@@ -420,17 +420,7 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 	}
 
 	m.cleanupFolderLocked(cfg)
-
-	for devID, indexSenders := range m.indexSenders {
-		if is, ok := indexSenders[cfg.ID]; ok {
-			m.RemoveAndWait(is.token, 0)
-			if len(indexSenders) == 1 {
-				delete(m.indexSenders, devID)
-			} else {
-				delete(m.indexSenders[devID], cfg.ID)
-			}
-		}
-	}
+	m.stopIndexSendersForFolderLocked(cfg.ID)
 
 	m.fmut.Unlock()
 	m.pmut.Unlock()
@@ -448,6 +438,20 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	delete(m.folderRunners, cfg.ID)
 	delete(m.folderRunnerToken, cfg.ID)
 	delete(m.folderVersioners, cfg.ID)
+}
+
+// requires pmut lock
+func (m *model) stopIndexSendersForFolderLocked(id string) {
+	for devID, indexSenderTokens := range m.indexSenderTokens {
+		if token, ok := indexSenderTokens[id]; ok {
+			m.RemoveAndWait(token, 0)
+			if len(indexSenderTokens) == 1 {
+				delete(m.indexSenderTokens, devID)
+			} else {
+				delete(m.indexSenderTokens[devID], id)
+			}
+		}
+	}
 }
 
 func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) {
@@ -488,33 +492,15 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 
 	m.cleanupFolderLocked(from)
 	if to.Paused {
-		for _, indexSenders := range m.indexSenders {
-			if is, ok := indexSenders[to.ID]; ok {
-				is.pause()
-			}
-		}
+		m.stopIndexSendersForFolderLocked(to.ID)
 	} else {
-		fsetNil := fset == nil
-		if fsetNil {
+		if fset == nil {
 			// Create a new fset. Might take a while and we do it under
 			// locking, but it's unsafe to create fset:s concurrently so
 			// that's the price we pay.
 			fset = db.NewFileSet(folder, to.Filesystem(), m.db)
 		}
 		m.addAndStartFolderLocked(to, fset, cacheIgnoredFiles)
-		if fsetNil || from.Paused {
-			for _, devID := range to.DeviceIDs() {
-				indexSenders, ok := m.indexSenders[devID]
-				if !ok {
-					continue
-				}
-				is, ok := indexSenders[to.ID]
-				if !ok {
-					continue
-				}
-				is.unpause(fset)
-			}
-		}
 	}
 
 	var infoMsg string
@@ -1016,8 +1002,8 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	m.pmut.RLock()
 	conn, ok := m.conn[deviceID]
 	closed := m.closed[deviceID]
-	for _, is := range m.indexSenders[deviceID] {
-		m.RemoveAndWait(is.token, 0)
+	for _, token := range m.indexSenderTokens[deviceID] {
+		m.RemoveAndWait(token, 0)
 	}
 	m.pmut.RUnlock()
 	if !ok {
@@ -1050,8 +1036,9 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 	}
 
-	var paused []string
-	indexSenders := make(map[string]*indexSender, len(cm.Folders))
+	resendClusterConfig := false
+	var paused map[string]struct{}
+	indexSenderTokens := make(map[string]suture.ServiceToken, len(cm.Folders))
 	for _, folder := range cm.Folders {
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if !ok || !cfg.SharedWith(deviceID) {
@@ -1070,7 +1057,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			continue
 		}
 		if folder.Paused {
-			paused = append(paused, folder.ID)
+			paused[cfg.ID] = struct{}{}
 			continue
 		}
 		if cfg.Paused {
@@ -1083,6 +1070,16 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			// Shouldn't happen because !cfg.Paused, but might happen
 			// if the folder is about to be unpaused, but not yet.
 			continue
+		}
+
+		// Check if remote unpaused this folder
+		m.pmut.RLock()
+		pausedFolders, ok := m.remotePausedFolders[deviceID]
+		m.pmut.RUnlock()
+		if ok {
+			if _, ok := pausedFolders[folder.ID]; ok {
+				resendClusterConfig = true
+			}
 		}
 
 		if !folder.DisableTempIndexes {
@@ -1168,17 +1165,18 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			fset:         fs,
 			prevSequence: startSequence,
 			evLogger:     m.evLogger,
-			pauseChan:    make(chan struct{}),
-			unpauseChan:  make(chan *db.FileSet),
 		}
 		is.Service = util.AsService(is.serve, is.String())
-		is.token = m.Add(is)
-		indexSenders[folder.ID] = is
+		indexSenderTokens[folder.ID] = m.Add(is)
+	}
+
+	if resendClusterConfig {
+		go conn.ClusterConfig(m.generateClusterConfig(deviceID))
 	}
 
 	m.pmut.Lock()
 	m.remotePausedFolders[deviceID] = paused
-	m.indexSenders[deviceID] = indexSenders
+	m.indexSenderTokens[deviceID] = indexSenderTokens
 	m.pmut.Unlock()
 
 	// This breaks if we send multiple CM messages during the same connection.
@@ -1414,7 +1412,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	delete(m.remotePausedFolders, device)
 	closed := m.closed[device]
 	delete(m.closed, device)
-	delete(m.indexSenders, device)
+	delete(m.indexSenderTokens, device)
 	m.pmut.Unlock()
 
 	m.progressEmitter.temporaryIndexUnsubscribe(conn)
@@ -1905,9 +1903,6 @@ type indexSender struct {
 	prevSequence int64
 	evLogger     events.Logger
 	connClosed   chan struct{}
-	token        suture.ServiceToken
-	pauseChan    chan struct{}
-	unpauseChan  chan *db.FileSet
 }
 
 func (s *indexSender) serve(ctx context.Context) {
@@ -1925,7 +1920,6 @@ func (s *indexSender) serve(ctx context.Context) {
 	sub := s.evLogger.Subscribe(events.LocalIndexUpdated | events.DeviceDisconnected)
 	defer sub.Unsubscribe()
 
-	paused := false
 	evChan := sub.C()
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
@@ -1951,18 +1945,12 @@ func (s *indexSender) serve(ctx context.Context) {
 				return
 			case <-evChan:
 			case <-ticker.C:
-			case <-s.pauseChan:
-				paused = true
-			case s.fset = <-s.unpauseChan:
-				paused = false
 			}
 
 			continue
 		}
 
-		if !paused {
-			err = s.sendIndexTo(ctx)
-		}
+		err = s.sendIndexTo(ctx)
 
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
@@ -1977,22 +1965,6 @@ func (s *indexSender) serve(ctx context.Context) {
 // returns true, as indexSender only terminates when a connection is
 // closed/has failed, in which case retrying doesn't help.
 func (s *indexSender) Complete() bool { return true }
-
-func (s *indexSender) unpause(fset *db.FileSet) {
-	select {
-	case <-s.connClosed:
-		return
-	case s.unpauseChan <- fset:
-	}
-}
-
-func (s *indexSender) pause() {
-	select {
-	case <-s.connClosed:
-		return
-	case s.pauseChan <- struct{}{}:
-	}
-}
 
 // sendIndexTo sends file infos with a sequence number higher than prevSequence and
 // returns the highest sent sequence number.
@@ -2437,12 +2409,12 @@ func (m *model) Availability(folder string, file protocol.FileInfo, block protoc
 	var availabilities []Availability
 	snap := fs.Snapshot()
 	defer snap.Release()
-next:
 	for _, device := range snap.Availability(file.Name) {
-		for _, pausedFolder := range m.remotePausedFolders[device] {
-			if pausedFolder == folder {
-				continue next
-			}
+		if _, ok := m.remotePausedFolders[device]; !ok {
+			continue
+		}
+		if _, ok := m.remotePausedFolders[device][folder]; ok {
+			continue
 		}
 		_, ok := m.conn[device]
 		if ok {
