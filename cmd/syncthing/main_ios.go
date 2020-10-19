@@ -9,6 +9,7 @@ package toplevel
 import (
 	"os"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/syncthing"
@@ -28,18 +29,22 @@ func SyncthingIsRunning() bool {
 func SyncthingStart(guiAddress string) int {
 
 	// TODO Clear any unsupported environment variables
+	os.Setenv("STNOUPGRADE", "")
+	os.Setenv("STNORESTART", "")
+	os.Setenv("STCPUPROFILE", "")
+	os.Setenv("STRESTART", "")
 
 	// The below is forked from main.go so needs to be maintained manually
 	options := RuntimeOptions{
 		Options: syncthing.Options{
 			AssetDir:    locations.Get(locations.GUIAssets),
-			NoUpgrade:   false,   // os.Getenv("STNOUPGRADE") != ""
-			ProfilerURL: "",      // os.Getenv("STPROFILER")
+			NoUpgrade:   true,
+			ProfilerURL: "",
 			Verbose:     true,
 		},
-		noRestart:    false,    // os.Getenv("STNORESTART") != ""
-		cpuProfile:   false,    // os.Getenv("STCPUPROFILE") != ""
-		stRestarting: false,    // os.Getenv("STRESTART") != ""
+		noRestart:    false, // TODO check what this means
+		cpuProfile:   false,
+		stRestarting: false,
 		guiAddress:   guiAddress,
 		logFile:      "-",
 		logFlags:     logger.DebugFlags,
