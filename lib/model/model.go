@@ -405,7 +405,10 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 		m.RemoveAndWait(token, 0)
 	}
 
-	m.lockBoth(false, false)
+	// We need to hold both fmut and pmut and must acquire locks in the same
+	// order always. (The locks can be *released* in any order.)
+	m.fmut.Lock()
+	m.pmut.Lock()
 
 	isPathUnique := true
 	for folderID, folderCfg := range m.folderCfgs {
@@ -481,18 +484,19 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 		m.RemoveAndWait(token, 0)
 	}
 
-	m.lockBoth(false, true)
-	defer func() {
-		m.fmut.Unlock()
-		m.pmut.RUnlock()
-	}()
+	m.fmut.Lock()
+	defer m.fmut.Unlock()
 
 	// Cache the (maybe) existing fset before it's removed by cleanupFolderLocked
 	fset := m.folderFiles[folder]
 
 	m.cleanupFolderLocked(from)
 	if to.Paused {
+		// Care needs to be taken because we already hold fmut and the lock order
+		// must be the same everywhere. As fmut is acquired first, this is fine.
+		m.pmut.Lock()
 		m.stopIndexSendersForFolderLocked(to.ID)
+		m.pmut.Unlock()
 	} else {
 		if fset == nil {
 			// Create a new fset. Might take a while and we do it under
@@ -2391,11 +2395,12 @@ func (m *model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 }
 
 func (m *model) Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
-	// The slightly unusual locking here is because we need to hold
+	// The slightly unusual locking sequence here is because we need to hold
 	// pmut for the duration (as the value returned from foldersFiles can
-	// get heavily modified on Close()), but also must acquire fmut, and
-	// acquiring both needs to happen in the same order all the time.
-	m.lockBoth(true, true)
+	// get heavily modified on Close()), but also must acquire fmut before
+	// pmut. (The locks can be *released* in any order.)
+	m.fmut.RLock()
+	m.pmut.RLock()
 	defer m.pmut.RUnlock()
 
 	fs, ok := m.folderFiles[folder]
@@ -2606,22 +2611,6 @@ func (m *model) checkFolderRunningLocked(folder string) error {
 	}
 
 	return errFolderNotRunning
-}
-
-// lockBoth locks both fmut and pmut, thus ensuring that always happens in the
-// same order to prevent deadlocks. It doesn't matter in which order the locks
-// are released.
-func (m *model) lockBoth(fmutRead, pmutRead bool) {
-	if fmutRead {
-		m.fmut.RLock()
-	} else {
-		m.fmut.Lock()
-	}
-	if pmutRead {
-		m.pmut.RLock()
-	} else {
-		m.pmut.Lock()
-	}
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given
