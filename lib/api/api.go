@@ -59,6 +59,12 @@ import (
 // matches a bcrypt hash and not too much else
 var bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 
+var GetSuppressedSpec = ""
+var PostSuppressedSpec = ""
+
+var getSuppressedPaths []string
+var postSuppressedPaths []string
+
 const (
 	DefaultEventMask      = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
 	DiskEventMask         = events.LocalChangeDetected | events.RemoteChangeDetected
@@ -278,6 +284,9 @@ func (s *service) serve(ctx context.Context) {
 	getRestMux.HandleFunc("/rest/system/log", s.getSystemLog)                    // [since]
 	getRestMux.HandleFunc("/rest/system/log.txt", s.getSystemLogTxt)             // [since]
 
+	getSuppressedPaths = strings.Split(GetSuppressedSpec, ",")
+	l.Infoln("GET suppressed paths", getSuppressedPaths)
+
 	// The POST handlers
 	postRestMux := http.NewServeMux()
 	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
@@ -297,6 +306,9 @@ func (s *service) serve(ctx context.Context) {
 	postRestMux.HandleFunc("/rest/system/pause", s.makeDevicePauseHandler(true))   // [device]
 	postRestMux.HandleFunc("/rest/system/resume", s.makeDevicePauseHandler(false)) // [device]
 	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
+
+	postSuppressedPaths = strings.Split(PostSuppressedSpec, ",")
+	l.Infoln("POST suppressed paths", postSuppressedPaths)
 
 	// Debug endpoints, not for general use
 	debugMux := http.NewServeMux()
@@ -446,13 +458,33 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
+func listContainsString(s []string, e string) bool {
+  for _, a := range s {
+    if a == e {
+      return true
+    }
+  }
+  return false
+}
+
 func getPostHandler(get, post http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		l.Infoln("Handling", r.Method, r.URL.Path)
 		switch r.Method {
 		case "GET":
-			get.ServeHTTP(w, r)
+			if listContainsString(getSuppressedPaths, r.URL.Path) {
+				l.Infoln("Suppressed", r.Method, r.URL.Path)
+				http.Error(w, "Not found", http.StatusNotFound)
+			} else {
+				get.ServeHTTP(w, r)
+			}
 		case "POST":
-			post.ServeHTTP(w, r)
+			if listContainsString(postSuppressedPaths, r.URL.Path) {
+				l.Infoln("Suppressed", r.Method, r.URL.Path)
+				http.Error(w, "Not found", http.StatusNotFound)
+			} else {
+				post.ServeHTTP(w, r)
+			}
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
