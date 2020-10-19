@@ -52,3 +52,5 @@ require (
 go 1.14
 
 replace github.com/shirou/gopsutil => ../gopsutil
+
+replace github.com/syncthing/notify => ../notify
