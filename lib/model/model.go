@@ -1037,7 +1037,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 	}
 
-	var paused map[string]struct{}
+	paused := make(map[string]struct{}, len(cm.Folders))
 	for _, folder := range cm.Folders {
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if !ok || !cfg.SharedWith(deviceID) {
@@ -1072,7 +1072,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 		if !foundRemote {
 			l.Infof("Device %v sent cluster-config without the device info for the remote on folder %v", deviceID, folder.Description())
-			l.Infoln(deviceID, folder.Devices)
 			return errMissingRemoteInClusterConfig
 		}
 		if !foundLocal {

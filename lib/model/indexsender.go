@@ -106,7 +106,6 @@ func (s *indexSender) Complete() bool { return true }
 func (s *indexSender) resume(fset *db.FileSet) {
 	select {
 	case <-s.connClosed:
-		return
 	case s.resumeChan <- fset:
 	}
 }
@@ -114,7 +113,6 @@ func (s *indexSender) resume(fset *db.FileSet) {
 func (s *indexSender) pause() {
 	select {
 	case <-s.connClosed:
-		return
 	case s.pauseChan <- struct{}{}:
 	}
 }
@@ -237,8 +235,11 @@ func newIndexSenderRegistry(conn protocol.Connection, closed chan struct{}, sup 
 // If an index sender is already running, it will be stopped first.
 func (r *indexSenderRegistry) add(folder config.FolderConfiguration, fset *db.FileSet, local, remote protocol.Device) {
 	r.mut.Lock()
-	defer r.mut.Unlock()
+	r.addLocked(folder, fset, remote, local)
+	r.mut.Unlock()
+}
 
+func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset *db.FileSet, local, remote protocol.Device) {
 	if is, ok := r.indexSenders[folder.ID]; ok {
 		r.sup.RemoveAndWait(is.token, 0)
 		delete(r.indexSenders, folder.ID)
@@ -311,6 +312,8 @@ func (r *indexSenderRegistry) add(folder config.FolderConfiguration, fset *db.Fi
 		fset:         fset,
 		prevSequence: startSequence,
 		evLogger:     r.evLogger,
+		pauseChan:    make(chan struct{}),
+		resumeChan:   make(chan *db.FileSet),
 	}
 	is.Service = util.AsService(is.serve, is.String())
 	is.token = r.sup.Add(is)
@@ -363,7 +366,7 @@ func (r *indexSenderRegistry) resume(folder config.FolderConfiguration, fset *db
 	defer r.mut.Unlock()
 
 	if info, ok := r.startInfos[folder.ID]; ok {
-		r.add(folder, fset, info.local, info.remote)
+		r.addLocked(folder, fset, info.local, info.remote)
 		delete(r.startInfos, folder.ID)
 		return
 	}

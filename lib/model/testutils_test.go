@@ -248,3 +248,23 @@ func basicClusterConfig(local, remote protocol.DeviceID, folders ...string) prot
 	}
 	return cc
 }
+
+func localIndexUpdate(m *model, folder string, fs []protocol.FileInfo) {
+	m.fmut.RLock()
+	fset := m.folderFiles[folder]
+	m.fmut.RUnlock()
+
+	fset.Update(protocol.LocalDeviceID, fs)
+	seq := fset.Sequence(protocol.LocalDeviceID)
+	filenames := make([]string, len(fs))
+	for i, file := range fs {
+		filenames[i] = file.Name
+	}
+	m.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
+		"folder":    folder,
+		"items":     len(fs),
+		"filenames": filenames,
+		"sequence":  seq,
+		"version":   seq, // legacy for sequence
+	})
+}
