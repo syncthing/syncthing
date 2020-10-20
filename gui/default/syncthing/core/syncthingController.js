@@ -2455,7 +2455,35 @@ angular.module('syncthing.core')
         };
 
         $scope.inputTypeFor = function (key, value) {
-            if (key.substr(0, 1) === '_') {
+            if (key.substr(0, 1) === '_'
+                    // GUI
+                    || key === 'address'
+                    || key === 'apiKey'
+                    || key === 'authMode'
+                    || key === 'enabled'
+                    || key === 'insecureAdminAccess'
+                    || key === 'insecureAllowFrameLoading'
+                    || key === 'insecureSkipHostcheck'
+                    || key === 'password'
+                    || key === 'unixSocketPermissions'
+                    || key === 'useTLS'
+                    || key === 'user'
+                    // Options
+                    || key === 'autoUpgradeIntervalH'
+                    || key === 'crURL'
+                    || key === 'defaultFolderPath'
+                    || key === 'releasesURL'
+                    || key === 'restartOnWakeup'
+                    || key === 'setLowPriority'
+                    || key === 'upgradeToPreReleases'
+                    || key === 'urInitialDelay'
+                    || key === 'urPostInsecurely'
+                    || key === 'urSeen'
+                    || key === 'urURL'
+                    || key === 'urUniqueId'
+                    // Folders
+                    || key === 'path'
+                    ) {
                 return 'skip';
             }
             if (value === null) {
