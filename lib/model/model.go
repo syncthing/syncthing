@@ -1038,9 +1038,13 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	paused := make(map[string]struct{}, len(cm.Folders))
+	seenFolders := make(map[string]struct{}, len(cm.Folders))
 	for _, folder := range cm.Folders {
+		seenFolders[folder.ID] = struct{}{}
+
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if !ok || !cfg.SharedWith(deviceID) {
+			indexSenderRegistry.remove(folder.ID)
 			if deviceCfg.IgnoredFolder(folder.ID) {
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
@@ -1113,6 +1117,8 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 		m.fmut.RUnlock()
 	}
+
+	indexSenderRegistry.removeAllExcept(seenFolders)
 
 	m.pmut.Lock()
 	m.remotePausedFolders[deviceID] = paused

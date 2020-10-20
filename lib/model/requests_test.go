@@ -1184,7 +1184,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	localIndexUpdate(m, fcfg.ID, files)
 
 	// I don't see what to hook into to ensure an index update is not sent.
-	dur := 20 * time.Millisecond
+	dur := 50 * time.Millisecond
 	if !testing.Short() {
 		dur = 2 * time.Second
 	}
@@ -1248,5 +1248,21 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out before receiving index")
 	case <-indexChan:
+	}
+
+	// Folder removed on remote
+
+	cc = protocol.ClusterConfig{}
+	m.ClusterConfig(device1, cc)
+
+	seq++
+	files[0].Sequence = seq
+	files[0].Version = files[0].Version.Update(myID.Short())
+	localIndexUpdate(m, fcfg.ID, files)
+
+	select {
+	case <-time.After(dur):
+	case <-indexChan:
+		t.Error("Received index despite remote not having the folder")
 	}
 }

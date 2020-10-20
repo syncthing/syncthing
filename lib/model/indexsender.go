@@ -347,6 +347,25 @@ func (r *indexSenderRegistry) remove(folder string) {
 	delete(r.startInfos, folder)
 }
 
+// remove stops a running index sender or removes one pending to be started.
+// It is a noop if the folder isn't known.
+func (r *indexSenderRegistry) removeAllExcept(except map[string]struct{}) {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+
+	for folder, is := range r.indexSenders {
+		if _, ok := except[folder]; !ok {
+			r.sup.RemoveAndWait(is.token, 0)
+			delete(r.indexSenders, folder)
+		}
+	}
+	for folder := range r.indexSenders {
+		if _, ok := except[folder]; !ok {
+			delete(r.startInfos, folder)
+		}
+	}
+}
+
 // pause stops a running index sender.
 // It is a noop if the folder isn't known or has not been started yet.
 func (r *indexSenderRegistry) pause(folder string) {
