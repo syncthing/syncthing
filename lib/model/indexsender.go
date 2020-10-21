@@ -320,7 +320,7 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 	r.indexSenders[folder.ID] = is
 }
 
-// addPaused stores the given info to start an index sender ones resume is called
+// addPaused stores the given info to start an index sender once resume is called
 // for this folder.
 // If an index sender is already running, it will be stopped.
 func (r *indexSenderRegistry) addPaused(folder config.FolderConfiguration, local, remote protocol.Device) {
