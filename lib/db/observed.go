@@ -99,7 +99,7 @@ func (db *Lowlevel) RemovePendingFolder(id string, device []byte) {
 	} else {
 		iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 		if err != nil {
-			l.Infof("Could not iterate through pending folder entries: %v", err)
+			l.Warnf("Could not iterate through pending folder entries: %v", err)
 			return
 		}
 		defer iter.Release()

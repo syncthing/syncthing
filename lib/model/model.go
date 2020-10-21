@@ -2594,7 +2594,7 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 			m.db.RemovePendingFolder(folderID, nil)
 			continue
 		}
-		for deviceID, _ := range offers {
+		for deviceID := range offers {
 			if _, ok := ignoredDevices[deviceID]; ok {
 				l.Debugf("Discarding pending folder %v from ignored device %v", folderID, deviceID)
 				m.db.RemovePendingFolder(folderID, deviceID[:])
