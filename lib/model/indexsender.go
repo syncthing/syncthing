@@ -385,12 +385,15 @@ func (r *indexSenderRegistry) resume(folder config.FolderConfiguration, fset *db
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
+	is, isOk := r.indexSenders[folder.ID]
 	if info, ok := r.startInfos[folder.ID]; ok {
+		if isOk {
+			r.sup.RemoveAndWait(is.token, 0)
+			delete(r.indexSenders, folder.ID)
+		}
 		r.addLocked(folder, fset, info.local, info.remote)
 		delete(r.startInfos, folder.ID)
-		return
-	}
-	if is, ok := r.indexSenders[folder.ID]; ok {
+	} else if isOk {
 		is.resume(fset)
 	}
 }
