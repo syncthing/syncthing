@@ -2586,33 +2586,33 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
 	}
 	for folderID, offers := range pendingFolders {
+		if _, ok := removedFolders[folderID]; ok {
+			// Forget pending folder device associations for recently removed
+			// folders as well, assuming the folder is no longer of interest
+			// at all (but might become pending again).
+			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
+			m.db.RemovePendingFolder(folderID, nil)
+			continue
+		}
 		for deviceID, _ := range offers {
 			if _, ok := ignoredDevices[deviceID]; ok {
 				l.Debugf("Discarding pending folder %v from ignored device %v", folderID, deviceID)
-				m.db.RemovePendingFolder(folderID, deviceID)
+				m.db.RemovePendingFolder(folderID, deviceID[:])
 				continue
 			}
 			if dev, ok := existingDevices[deviceID]; !ok {
 				l.Debugf("Discarding pending folder %v from unknown device %v", folderID, deviceID)
-				m.db.RemovePendingFolder(folderID, deviceID)
+				m.db.RemovePendingFolder(folderID, deviceID[:])
 				continue
 			} else if dev.IgnoredFolder(folderID) {
 				l.Debugf("Discarding now ignored pending folder %v for device %v", folderID, deviceID)
-				m.db.RemovePendingFolder(folderID, deviceID)
-				continue
-			} else if _, ok := removedFolders[folderID]; ok {
-				// Forget pending folder device associations for recently
-				// removed folders as well, assuming the folder is no
-				// longer of interest at all (but might become pending
-				// again).
-				l.Debugf("Discarding pending removed folder %v from device %v", folderID, deviceID)
-				m.db.RemovePendingFolder(folderID, deviceID)
+				m.db.RemovePendingFolder(folderID, deviceID[:])
 				continue
 			}
 			if folderCfg, ok := existingFolders[folderID]; ok {
 				if folderCfg.SharedWith(deviceID) {
 					l.Debugf("Discarding now shared pending folder %v for device %v", folderID, deviceID)
-					m.db.RemovePendingFolder(folderID, deviceID)
+					m.db.RemovePendingFolder(folderID, deviceID[:])
 				}
 			}
 		}

@@ -85,15 +85,33 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 	return err
 }
 
-// RemovePendingFolder removes entries for specific folder / device combinations
-func (db *Lowlevel) RemovePendingFolder(id string, device protocol.DeviceID) {
-	key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), device[:])
-	if err == nil {
-		if err = db.Delete(key); err == nil {
+// RemovePendingFolder removes entries for specific folder / device combinations, or all
+// combinations matching just the folder ID, when given an empty device ID.
+func (db *Lowlevel) RemovePendingFolder(id string, device []byte) {
+	if len(device) > 0 {
+		key, err := db.keyer.GeneratePendingFolderKey(nil, device, []byte(id))
+		if err != nil {
 			return
 		}
+		if err := db.Delete(key); err != nil {
+			l.Warnf("Failed to remove pending folder entry: %v", err)
+		}
+	} else {
+		iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
+		if err != nil {
+			l.Infof("Could not iterate through pending folder entries: %v", err)
+			return
+		}
+		defer iter.Release()
+		for iter.Next() {
+			if id != string(db.keyer.FolderFromPendingFolderKey(iter.Key())) {
+				continue
+			}
+			if err := db.Delete(iter.Key()); err != nil {
+				l.Warnf("Failed to remove pending folder entry: %v", err)
+			}
+		}
 	}
-	l.Warnf("Failed to remove pending folder entry: %v", err)
 }
 
 // PendingFolders drops any invalid entries from the database as a side-effect.
