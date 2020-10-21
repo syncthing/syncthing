@@ -28,9 +28,13 @@ import (
 //   10-11: v1.6.0
 //   12-13: v1.7.0
 //   14: v1.9.0
+//
+// dbRepairVersion tracks necessary repairs (transitions) that do not change
+// the schema and thus put no limitations on downgrading (e.g. after bugfixes).
 const (
 	dbVersion             = 14
 	dbMinSyncthingVersion = "v1.9.0"
+	dbRepairVersion       = 1
 )
 
 var errFolderMissing = errors.New("folder present in global list but missing in keyer index")
@@ -46,6 +50,8 @@ func (e *databaseDowngradeError) Error() string {
 	return fmt.Sprintf("Syncthing %s required", e.minSyncthingVersion)
 }
 
+// UpdateSchema updates a possibly outdated database to the current schema and
+// also does repairs where necessary.
 func UpdateSchema(db *Lowlevel) error {
 	updater := &schemaUpdater{db}
 	return updater.updateSchema()
@@ -77,7 +83,12 @@ func (db *schemaUpdater) updateSchema() error {
 		return err
 	}
 
-	if prevVersion == dbVersion {
+	prevRepairVersion, _, err := miscDB.Int64("dbRepairVersion")
+	if err != nil {
+		return err
+	}
+
+	if prevVersion == dbVersion && prevRepairVersion == dbRepairVersion {
 		return nil
 	}
 
@@ -99,12 +110,37 @@ func (db *schemaUpdater) updateSchema() error {
 		{14, db.updateSchemaTo14},
 	}
 
+	// repair will be run when db is at schemaVersion
+	type repair struct {
+		repairVersion int64
+		schemaVersion int64
+		repair        func() error
+	}
+	var repairs = []repair{
+		{1, 14, db.repairToVersion1},
+	}
+
+	var nextRepairIndex int
+	currentSchemaVersion := prevVersion
 	for _, m := range migrations {
+		for _, r := range repairs[nextRepairIndex:] {
+			// Need to do schema upgrade first
+			if r.schemaVersion > currentSchemaVersion {
+				break
+			}
+			if prevRepairVersion < r.repairVersion && r.schemaVersion == currentSchemaVersion {
+				if err := r.repair(); err != nil {
+					return fmt.Errorf("failed running repair to version %v: %w", m.schemaVersion, err)
+				}
+			}
+			nextRepairIndex++
+		}
 		if prevVersion < m.schemaVersion {
 			l.Infof("Migrating database to schema version %d...", m.schemaVersion)
 			if err := m.migration(int(prevVersion)); err != nil {
 				return fmt.Errorf("failed migrating to version %v: %w", m.schemaVersion, err)
 			}
+			currentSchemaVersion = m.schemaVersion
 		}
 	}
 
@@ -112,6 +148,9 @@ func (db *schemaUpdater) updateSchema() error {
 		return err
 	}
 	if err := miscDB.PutString("dbMinSyncthingVersion", dbMinSyncthingVersion); err != nil {
+		return err
+	}
+	if err := miscDB.PutInt64("dbRepairVersion", dbRepairVersion); err != nil {
 		return err
 	}
 
@@ -1013,4 +1052,13 @@ func needDeprecated(global FileVersionDeprecated, haveLocal bool, localVersion p
 		return false
 	}
 	return true
+}
+
+func (db *schemaUpdater) repairToVersion1() error {
+	for _, folder := range db.ListFolders() {
+		if _, err := db.recalcMeta(folder); err != nil {
+			return err
+		}
+	}
+	return nil
 }
