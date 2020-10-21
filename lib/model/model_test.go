@@ -496,23 +496,16 @@ func TestIntroducer(t *testing.T) {
 			},
 		},
 	})
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID: "folder1",
-				Devices: []protocol.Device{
-					{
-						ID:                       device2,
-						Introducer:               true,
-						SkipIntroductionRemovals: true,
-					},
-				},
-			},
-		},
+	cc := basicClusterConfig(myID, device1, "folder1")
+	cc.Folders[0].Devices = append(cc.Folders[0].Devices, protocol.Device{
+		ID:                       device2,
+		Introducer:               true,
+		SkipIntroductionRemovals: true,
 	})
+	m.ClusterConfig(device1, cc)
 
 	if newDev, ok := m.cfg.Device(device2); !ok || !newDev.Introducer || !newDev.SkipIntroductionRemovals {
-		t.Error("devie 2 missing or wrong flags")
+		t.Error("device 2 missing or wrong flags")
 	}
 
 	if !contains(m.cfg.Folders()["folder1"], device2, device1) {
@@ -549,20 +542,13 @@ func TestIntroducer(t *testing.T) {
 			},
 		},
 	})
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID: "folder2",
-				Devices: []protocol.Device{
-					{
-						ID:                       device2,
-						Introducer:               true,
-						SkipIntroductionRemovals: true,
-					},
-				},
-			},
-		},
+	cc = basicClusterConfig(myID, device1, "folder2")
+	cc.Folders[0].Devices = append(cc.Folders[0].Devices, protocol.Device{
+		ID:                       device2,
+		Introducer:               true,
+		SkipIntroductionRemovals: true,
 	})
+	m.ClusterConfig(device1, cc)
 
 	// Should not get introducer, as it's already unset, and it's an existing device.
 	if newDev, ok := m.cfg.Device(device2); !ok || newDev.Introducer || newDev.SkipIntroductionRemovals {
@@ -703,20 +689,13 @@ func TestIntroducer(t *testing.T) {
 			},
 		},
 	})
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID: "folder2",
-				Devices: []protocol.Device{
-					{
-						ID:                       device2,
-						Introducer:               true,
-						SkipIntroductionRemovals: true,
-					},
-				},
-			},
-		},
+	cc = basicClusterConfig(myID, device1, "folder2")
+	cc.Folders[0].Devices = append(cc.Folders[0].Devices, protocol.Device{
+		ID:                       device2,
+		Introducer:               true,
+		SkipIntroductionRemovals: true,
 	})
+	m.ClusterConfig(device1, cc)
 
 	if _, ok := m.cfg.Device(device2); !ok {
 		t.Error("device 2 should not have been removed")
