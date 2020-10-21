@@ -29,12 +29,12 @@ import (
 //   12-13: v1.7.0
 //   14: v1.9.0
 //
-// dbRepairVersion tracks necessary repairs (transitions) that do not change
-// the schema and thus put no limitations on downgrading (e.g. after bugfixes).
+// dbMigrationVersion is for migrations that do not change the schema and thus
+// do not put restrictions on downgrades (e.g. for repairs after a bugfix).
 const (
 	dbVersion             = 14
+	dbMigrationVersion    = 15
 	dbMinSyncthingVersion = "v1.9.0"
-	dbRepairVersion       = 1
 )
 
 var errFolderMissing = errors.New("folder present in global list but missing in keyer index")
@@ -83,64 +83,41 @@ func (db *schemaUpdater) updateSchema() error {
 		return err
 	}
 
-	prevRepairVersion, _, err := miscDB.Int64("dbRepairVersion")
+	prevMigration, _, err := miscDB.Int64("dbMigrationVersion")
 	if err != nil {
 		return err
 	}
 
-	if prevVersion == dbVersion && prevRepairVersion == dbRepairVersion {
+	if prevVersion == dbVersion && prevMigration >= dbMigrationVersion {
 		return nil
 	}
 
 	type migration struct {
-		schemaVersion int64
-		migration     func(prevVersion int) error
+		schemaVersion    int64
+		migrationVersion int64
+		migration        func(prevSchema int) error
 	}
 	var migrations = []migration{
-		{1, db.updateSchema0to1},
-		{2, db.updateSchema1to2},
-		{3, db.updateSchema2to3},
-		{5, db.updateSchemaTo5},
-		{6, db.updateSchema5to6},
-		{7, db.updateSchema6to7},
-		{9, db.updateSchemaTo9},
-		{10, db.updateSchemaTo10},
-		{11, db.updateSchemaTo11},
-		{13, db.updateSchemaTo13},
-		{14, db.updateSchemaTo14},
+		{1, 1, db.updateSchema0to1},
+		{2, 2, db.updateSchema1to2},
+		{3, 3, db.updateSchema2to3},
+		{5, 5, db.updateSchemaTo5},
+		{6, 6, db.updateSchema5to6},
+		{7, 7, db.updateSchema6to7},
+		{9, 9, db.updateSchemaTo9},
+		{10, 10, db.updateSchemaTo10},
+		{11, 11, db.updateSchemaTo11},
+		{13, 13, db.updateSchemaTo13},
+		{14, 14, db.updateSchemaTo14},
+		{14, 15, db.migration15},
 	}
 
-	// repair will be run when db is at schemaVersion
-	type repair struct {
-		repairVersion int64
-		schemaVersion int64
-		repair        func() error
-	}
-	var repairs = []repair{
-		{1, 14, db.repairToVersion1},
-	}
-
-	var nextRepairIndex int
-	currentSchemaVersion := prevVersion
 	for _, m := range migrations {
-		for _, r := range repairs[nextRepairIndex:] {
-			// Need to do schema upgrade first
-			if r.schemaVersion > currentSchemaVersion {
-				break
-			}
-			if prevRepairVersion < r.repairVersion && r.schemaVersion == currentSchemaVersion {
-				if err := r.repair(); err != nil {
-					return fmt.Errorf("failed running repair to version %v: %w", m.schemaVersion, err)
-				}
-			}
-			nextRepairIndex++
-		}
-		if prevVersion < m.schemaVersion {
-			l.Infof("Migrating database to schema version %d...", m.schemaVersion)
+		if prevMigration < m.migrationVersion {
+			l.Infof("Running database migration %d...", m.migrationVersion)
 			if err := m.migration(int(prevVersion)); err != nil {
-				return fmt.Errorf("failed migrating to version %v: %w", m.schemaVersion, err)
+				return fmt.Errorf("failed to do migration %v: %w", m.migrationVersion, err)
 			}
-			currentSchemaVersion = m.schemaVersion
 		}
 	}
 
@@ -150,7 +127,7 @@ func (db *schemaUpdater) updateSchema() error {
 	if err := miscDB.PutString("dbMinSyncthingVersion", dbMinSyncthingVersion); err != nil {
 		return err
 	}
-	if err := miscDB.PutInt64("dbRepairVersion", dbRepairVersion); err != nil {
+	if err := miscDB.PutInt64("dbMigrationVersion", dbMigrationVersion); err != nil {
 		return err
 	}
 
@@ -788,6 +765,15 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 	return nil
 }
 
+func (db *schemaUpdater) migration15(_ int) error {
+	for _, folder := range db.ListFolders() {
+		if _, err := db.recalcMeta(folder); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (db *schemaUpdater) rewriteGlobals(t readWriteTransaction) error {
 	it, err := t.NewPrefixIterator([]byte{KeyTypeGlobal})
 	if err != nil {
@@ -1052,13 +1038,4 @@ func needDeprecated(global FileVersionDeprecated, haveLocal bool, localVersion p
 		return false
 	}
 	return true
-}
-
-func (db *schemaUpdater) repairToVersion1() error {
-	for _, folder := range db.ListFolders() {
-		if _, err := db.recalcMeta(folder); err != nil {
-			return err
-		}
-	}
-	return nil
 }
