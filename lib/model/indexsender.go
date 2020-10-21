@@ -347,7 +347,8 @@ func (r *indexSenderRegistry) remove(folder string) {
 	delete(r.startInfos, folder)
 }
 
-// remove stops a running index sender or removes one pending to be started.
+// removeAllExcept stops all running index senders and removes those pending to be started,
+// except mentioned ones.
 // It is a noop if the folder isn't known.
 func (r *indexSenderRegistry) removeAllExcept(except map[string]struct{}) {
 	r.mut.Lock()
