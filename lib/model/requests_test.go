@@ -1147,3 +1147,122 @@ func TestRequestLastFileProgress(t *testing.T) {
 		t.Fatal("Timed out before file was requested")
 	}
 }
+
+func TestRequestIndexSenderPause(t *testing.T) {
+	m, fc, fcfg := setupModelWithConnection()
+	tfs := fcfg.Filesystem()
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+
+	indexChan := make(chan []protocol.FileInfo)
+	fc.mut.Lock()
+	fc.indexFn = func(_ context.Context, folder string, fs []protocol.FileInfo) {
+		indexChan <- fs
+	}
+	fc.mut.Unlock()
+
+	var seq int64 = 1
+	files := []protocol.FileInfo{{Name: "foo", Size: 10, Version: protocol.Vector{}.Update(myID.Short()), Sequence: seq}}
+
+	// Both devices connected, noone paused
+	localIndexUpdate(m, fcfg.ID, files)
+	select {
+	case <-time.After(5 * time.Second):
+		l.Infoln("timeout")
+		t.Fatal("timed out before receiving index")
+	case <-indexChan:
+	}
+
+	// Remote paused
+
+	cc := basicClusterConfig(device1, myID, fcfg.ID)
+	cc.Folders[0].Paused = true
+	m.ClusterConfig(device1, cc)
+
+	seq++
+	files[0].Sequence = seq
+	files[0].Version = files[0].Version.Update(myID.Short())
+	localIndexUpdate(m, fcfg.ID, files)
+
+	// I don't see what to hook into to ensure an index update is not sent.
+	dur := 50 * time.Millisecond
+	if !testing.Short() {
+		dur = 2 * time.Second
+	}
+	select {
+	case <-time.After(dur):
+	case <-indexChan:
+		t.Error("Received index despite remote being paused")
+	}
+
+	// Remote unpaused
+
+	cc.Folders[0].Paused = false
+	m.ClusterConfig(device1, cc)
+	select {
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out before receiving index")
+	case <-indexChan:
+	}
+
+	// Local paused and resume
+
+	fcfg.Paused = true
+	waiter, _ := m.cfg.SetFolder(fcfg)
+	waiter.Wait()
+
+	fcfg.Paused = false
+	waiter, _ = m.cfg.SetFolder(fcfg)
+	waiter.Wait()
+
+	seq++
+	files[0].Sequence = seq
+	files[0].Version = files[0].Version.Update(myID.Short())
+	localIndexUpdate(m, fcfg.ID, files)
+	select {
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out before receiving index")
+	case <-indexChan:
+	}
+
+	// Local and remote paused, then first resume remote, then local
+
+	cc.Folders[0].Paused = true
+	m.ClusterConfig(device1, cc)
+
+	fcfg.Paused = true
+	waiter, _ = m.cfg.SetFolder(fcfg)
+	waiter.Wait()
+
+	cc.Folders[0].Paused = false
+	m.ClusterConfig(device1, cc)
+
+	fcfg.Paused = false
+	waiter, _ = m.cfg.SetFolder(fcfg)
+	waiter.Wait()
+
+	seq++
+	files[0].Sequence = seq
+	files[0].Version = files[0].Version.Update(myID.Short())
+	localIndexUpdate(m, fcfg.ID, files)
+	select {
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out before receiving index")
+	case <-indexChan:
+	}
+
+	// Folder removed on remote
+
+	cc = protocol.ClusterConfig{}
+	m.ClusterConfig(device1, cc)
+
+	seq++
+	files[0].Sequence = seq
+	files[0].Version = files[0].Version.Update(myID.Short())
+	localIndexUpdate(m, fcfg.ID, files)
+
+	select {
+	case <-time.After(dur):
+	case <-indexChan:
+		t.Error("Received index despite remote not having the folder")
+	}
+}

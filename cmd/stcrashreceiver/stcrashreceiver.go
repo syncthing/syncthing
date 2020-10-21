@@ -4,51 +4,20 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// Command stcrashreceiver is a trivial HTTP server that allows two things:
-//
-// - uploading files (crash reports) named like a SHA256 hash using a PUT request
-// - checking whether such file exists using a HEAD request
-//
-// Typically this should be deployed behind something that manages HTTPS.
 package main
 
 import (
 	"bytes"
 	"compress/gzip"
-	"flag"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
-
-	"github.com/syncthing/syncthing/lib/sha256"
 )
-
-const maxRequestSize = 1 << 20 // 1 MiB
-
-func main() {
-	dir := flag.String("dir", ".", "Directory to store reports in")
-	dsn := flag.String("dsn", "", "Sentry DSN")
-	listen := flag.String("listen", ":22039", "HTTP listen address")
-	flag.Parse()
-
-	cr := &crashReceiver{
-		dir: *dir,
-		dsn: *dsn,
-	}
-
-	log.SetOutput(os.Stdout)
-	if err := http.ListenAndServe(*listen, cr); err != nil {
-		log.Fatalln("HTTP serve:", err)
-	}
-}
 
 type crashReceiver struct {
 	dir string
@@ -155,8 +124,13 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 
 		go func() {
 			// There's no need for the client to have to wait for this part.
-			if err := sendReport(r.dsn, reportID, bs, user); err != nil {
-				log.Println("Failed to send report:", err)
+			pkt, err := parseCrashReport(reportID, bs)
+			if err != nil {
+				log.Println("Failed to parse crash report:", err)
+				return
+			}
+			if err := sendReport(r.dsn, pkt, user); err != nil {
+				log.Println("Failed to send  crash report:", err)
 			}
 		}()
 	}
@@ -165,21 +139,4 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 // 01234567890abcdef... => 01/23
 func (r *crashReceiver) dirFor(base string) string {
 	return filepath.Join(base[0:2], base[2:4])
-}
-
-// userIDFor returns a string we can use as the user ID for the purpose of
-// counting affected users. It's the truncated hash of a salt, the user
-// remote IP, and the current month.
-func userIDFor(req *http.Request) string {
-	addr := req.RemoteAddr
-	if fwd := req.Header.Get("x-forwarded-for"); fwd != "" {
-		addr = fwd
-	}
-	if host, _, err := net.SplitHostPort(addr); err == nil {
-		addr = host
-	}
-	now := time.Now().Format("200601")
-	salt := "stcrashreporter"
-	hash := sha256.Sum256([]byte(salt + addr + now))
-	return fmt.Sprintf("%x", hash[:8])
 }

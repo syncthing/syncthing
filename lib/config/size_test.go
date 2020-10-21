@@ -9,6 +9,7 @@ package config
 import (
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/util"
 )
 
@@ -66,6 +67,10 @@ func TestParseSize(t *testing.T) {
 		// The empty string is a valid zero
 		{"", true, 0, false},
 		{"  ", true, 0, false},
+		// Just numbers are fine too
+		{"0", true, 0, false},
+		{"3", true, 3, false},
+		{"34.3", true, 34.3, false},
 	}
 
 	for _, tc := range cases {
@@ -94,7 +99,7 @@ func TestParseSize(t *testing.T) {
 
 func TestFormatSI(t *testing.T) {
 	cases := []struct {
-		bytes  int64
+		bytes  uint64
 		result string
 	}{
 		{
@@ -127,6 +132,35 @@ func TestFormatSI(t *testing.T) {
 		res := formatSI(tc.bytes)
 		if res != tc.result {
 			t.Errorf("formatSI(%d) => %q, expected %q", tc.bytes, res, tc.result)
+		}
+	}
+}
+
+func TestCheckAvailableSize(t *testing.T) {
+	cases := []struct {
+		req, free, total uint64
+		minFree          string
+		ok               bool
+	}{
+		{10, 1e8, 1e9, "1%", true},
+		{1e4, 1e3, 1e9, "1%", false},
+		{1e2, 1e3, 1e9, "1%", false},
+		{1e9, 1 << 62, 1 << 63, "1%", true},
+		{10, 1e8, 1e9, "1M", true},
+		{1e4, 1e3, 1e9, "1M", false},
+		{1e2, 1e3, 1e9, "1M", false},
+		{1e9, 1 << 62, 1 << 63, "1M", true},
+	}
+
+	for _, tc := range cases {
+		minFree, err := ParseSize(tc.minFree)
+		if err != nil {
+			t.Errorf("Failed to parse %v: %v", tc.minFree, err)
+			continue
+		}
+		usage := fs.Usage{Free: tc.free, Total: tc.total}
+		if ok := checkAvailableSpace(tc.req, minFree, usage); ok != tc.ok {
+			t.Errorf("checkAvailableSpace(%v, %v, %v) == %v, expected %v", tc.req, minFree, usage, ok, tc.ok)
 		}
 	}
 }

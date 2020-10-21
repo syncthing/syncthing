@@ -501,7 +501,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			case !ok:
 			case gf.IsEquivalentOptional(fi, f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
 				// What we have locally is equivalent to the global file.
-				fi.Version = fi.Version.Merge(gf.Version)
+				fi.Version = gf.Version
 				fallthrough
 			case fi.IsDeleted() && (gf.IsReceiveOnlyChanged() || gf.IsDeleted()):
 				// Our item is deleted and the global item is our own
@@ -892,11 +892,13 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			f.setWatchError(err, next)
 			// This error was previously a panic and should never occur, so generate
 			// a warning, but don't do it repetitively.
-			if !warnedOutside {
-				if _, ok := err.(*fs.ErrWatchEventOutsideRoot); ok {
+			var errOutside *fs.ErrWatchEventOutsideRoot
+			if errors.As(err, &errOutside) {
+				if !warnedOutside {
 					l.Warnln(err)
 					warnedOutside = true
 				}
+				f.evLogger.Log(events.Failure, "watching for changes encountered an event outside of the filesystem root")
 			}
 			aggrCancel()
 			errChan = nil
