@@ -4142,6 +4142,46 @@ func TestCompletionEmptyGlobal(t *testing.T) {
 	}
 }
 
+func TestNeedMetaAfterIndexReset(t *testing.T) {
+	w, fcfg := tmpDefaultWrapper()
+	waiter, _ := w.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+	waiter.Wait()
+	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
+	waiter, _ = w.SetFolder(fcfg)
+	waiter.Wait()
+	m := setupModel(w)
+	defer cleanupModelAndRemoveDir(m, fcfg.Path)
+
+	var seq int64 = 1
+	files := []protocol.FileInfo{{Name: "foo", Size: 10, Version: protocol.Vector{}.Update(device1.Short()), Sequence: seq}}
+
+	// Start with two remotes having one file, then both deleting it, then
+	// only one adding it again.
+	m.Index(device1, fcfg.ID, files)
+	m.Index(device2, fcfg.ID, files)
+	seq++
+	files[0].SetDeleted(device2.Short())
+	files[0].Sequence = seq
+	m.IndexUpdate(device2, fcfg.ID, files)
+	m.IndexUpdate(device1, fcfg.ID, files)
+	seq++
+	files[0].Deleted = false
+	files[0].Size = 20
+	files[0].Version = files[0].Version.Update(device1.Short())
+	files[0].Sequence = seq
+	m.IndexUpdate(device1, fcfg.ID, files)
+
+	if comp := m.Completion(device2, fcfg.ID); comp.NeedItems != 1 {
+		t.Error("Expected one needed item for device2, got", comp.NeedItems)
+	}
+
+	// Pretend we had an index reset on device 1
+	m.Index(device1, fcfg.ID, files)
+	if comp := m.Completion(device2, fcfg.ID); comp.NeedItems != 1 {
+		t.Error("Expected one needed item for device2, got", comp.NeedItems)
+	}
+}
+
 func equalStringsInAnyOrder(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
