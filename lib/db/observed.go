@@ -33,23 +33,17 @@ func (db *Lowlevel) RemovePendingDevice(device protocol.DeviceID) {
 	}
 }
 
-// PendingDevice combines the DB key and value contents for passing around
-type PendingDevice struct {
-	DeviceID protocol.DeviceID
-	ObservedDevice
-}
-
 // PendingDevices drops any invalid entries from the database after a
 // warning log message, as a side-effect.  That's the only possible
 // "repair" measure and appropriate for the importance of pending
 // entries.  They will come back soon if still relevant.
-func (db *Lowlevel) PendingDevices() ([]PendingDevice, error) {
+func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
 		return nil, err
 	}
 	defer iter.Release()
-	var res []PendingDevice
+	res := make(map[protocol.DeviceID]ObservedDevice)
 	for iter.Next() {
 		keyDev := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
 		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
@@ -64,7 +58,7 @@ func (db *Lowlevel) PendingDevices() ([]PendingDevice, error) {
 		if err = od.Unmarshal(bs); err != nil {
 			goto deleteKey
 		}
-		res = append(res, PendingDevice{deviceID, od})
+		res[deviceID] = od
 		continue
 	deleteKey:
 		l.Infof("Invalid pending device entry, deleting from database: %x", iter.Key())
@@ -92,8 +86,8 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 }
 
 // RemovePendingFolder removes entries for specific folder / device combinations
-func (db *Lowlevel) RemovePendingFolder(pf PendingFolder) {
-	key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(pf.FolderID), pf.DeviceID[:])
+func (db *Lowlevel) RemovePendingFolder(id string, device protocol.DeviceID) {
+	key, err := db.keyer.GeneratePendingFolderKey(nil, []byte(id), device[:])
 	if err == nil {
 		if err = db.Delete(key); err == nil {
 			return
@@ -102,21 +96,14 @@ func (db *Lowlevel) RemovePendingFolder(pf PendingFolder) {
 	l.Warnf("Failed to remove pending folder entry: %v", err)
 }
 
-// PendingFolder combines the DB key and value contents for passing around
-type PendingFolder struct {
-	FolderID string
-	DeviceID protocol.DeviceID
-	ObservedFolder
-}
-
 // PendingFolders drops any invalid entries from the database as a side-effect.
-func (db *Lowlevel) PendingFolders() ([]PendingFolder, error) {
+func (db *Lowlevel) PendingFolders() (map[string]map[protocol.DeviceID]ObservedFolder, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingFolder})
 	if err != nil {
 		return nil, err
 	}
 	defer iter.Release()
-	var res []PendingFolder
+	res := make(map[string]map[protocol.DeviceID]ObservedFolder)
 	for iter.Next() {
 		keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key())
 		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
@@ -135,7 +122,10 @@ func (db *Lowlevel) PendingFolders() ([]PendingFolder, error) {
 		if err = of.Unmarshal(bs); err != nil {
 			goto deleteKey
 		}
-		res = append(res, PendingFolder{folderID, deviceID, of})
+		if _, ok := res[folderID]; !ok {
+			res[folderID] = make(map[protocol.DeviceID]ObservedFolder)
+		}
+		res[folderID][deviceID] = of
 		continue
 	deleteKey:
 		l.Infof("Invalid pending folder entry, deleting from database: %x", iter.Key())

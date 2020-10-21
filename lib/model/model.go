@@ -2585,46 +2585,49 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
 	}
-	for _, pendingFolder := range pendingFolders {
-		if _, ok := ignoredDevices[pendingFolder.DeviceID]; ok {
-			l.Debugf("Discarding pending folder %v from ignored device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
-			m.db.RemovePendingFolder(pendingFolder)
-			continue
-		}
-		if dev, ok := existingDevices[pendingFolder.DeviceID]; !ok {
-			l.Debugf("Discarding pending folder %v from unknown device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
-			m.db.RemovePendingFolder(pendingFolder)
-			continue
-		} else if dev.IgnoredFolder(pendingFolder.FolderID) {
-			l.Debugf("Discarding now ignored pending folder %v for device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
-			m.db.RemovePendingFolder(pendingFolder)
-			continue
-		} else if _, ok := removedFolders[pendingFolder.FolderID]; ok {
-			// Forget pending folder device associations for recently removed
-			// folders as well, assuming the folder is no longer of interest
-			// at all (but might become pending again).
-			l.Debugf("Discarding pending removed folder %v from device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
-			m.db.RemovePendingFolder(pendingFolder)
-			continue
-		}
-		if folderCfg, ok := existingFolders[pendingFolder.FolderID]; ok {
-			if folderCfg.SharedWith(pendingFolder.DeviceID) {
-				l.Debugf("Discarding now shared pending folder %v for device %v", pendingFolder.FolderID, pendingFolder.DeviceID)
-				m.db.RemovePendingFolder(pendingFolder)
+	for folderID, offers := range pendingFolders {
+		for deviceID, _ := range offers {
+			if _, ok := ignoredDevices[deviceID]; ok {
+				l.Debugf("Discarding pending folder %v from ignored device %v", folderID, deviceID)
+				m.db.RemovePendingFolder(folderID, deviceID)
+				continue
+			}
+			if dev, ok := existingDevices[deviceID]; !ok {
+				l.Debugf("Discarding pending folder %v from unknown device %v", folderID, deviceID)
+				m.db.RemovePendingFolder(folderID, deviceID)
+				continue
+			} else if dev.IgnoredFolder(folderID) {
+				l.Debugf("Discarding now ignored pending folder %v for device %v", folderID, deviceID)
+				m.db.RemovePendingFolder(folderID, deviceID)
+				continue
+			} else if _, ok := removedFolders[folderID]; ok {
+				// Forget pending folder device associations for recently
+				// removed folders as well, assuming the folder is no
+				// longer of interest at all (but might become pending
+				// again).
+				l.Debugf("Discarding pending removed folder %v from device %v", folderID, deviceID)
+				m.db.RemovePendingFolder(folderID, deviceID)
+				continue
+			}
+			if folderCfg, ok := existingFolders[folderID]; ok {
+				if folderCfg.SharedWith(deviceID) {
+					l.Debugf("Discarding now shared pending folder %v for device %v", folderID, deviceID)
+					m.db.RemovePendingFolder(folderID, deviceID)
+				}
 			}
 		}
 	}
 
 	pendingDevices, err := m.db.PendingDevices()
-	for _, pendingDevice := range pendingDevices {
-		if _, ok := ignoredDevices[pendingDevice.DeviceID]; ok {
-			l.Debugf("Discarding now ignored pending device %v", pendingDevice.DeviceID)
-			m.db.RemovePendingDevice(pendingDevice.DeviceID)
+	for deviceID := range pendingDevices {
+		if _, ok := ignoredDevices[deviceID]; ok {
+			l.Debugf("Discarding now ignored pending device %v", deviceID)
+			m.db.RemovePendingDevice(deviceID)
 			continue
 		}
-		if _, ok := existingDevices[pendingDevice.DeviceID]; ok {
-			l.Debugf("Discarding now added pending device %v", pendingDevice.DeviceID)
-			m.db.RemovePendingDevice(pendingDevice.DeviceID)
+		if _, ok := existingDevices[deviceID]; ok {
+			l.Debugf("Discarding now added pending device %v", deviceID)
+			m.db.RemovePendingDevice(deviceID)
 			continue
 		}
 	}
@@ -2650,36 +2653,14 @@ func (m *model) checkFolderRunningLocked(folder string) error {
 
 // PendingDevices lists unknown devices that tried to connect.
 func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
-	pendingDevices, err := m.db.PendingDevices()
-	if err != nil {
-		return nil, err
-	}
-	res := make(map[protocol.DeviceID]db.ObservedDevice)
-	for _, pendingDevice := range pendingDevices {
-		res[pendingDevice.DeviceID] = pendingDevice.ObservedDevice
-	}
-	return res, nil
+	return m.db.PendingDevices()
 }
 
 // PendingFolders lists folders that we don't yet share with the offering devices.  It
 // returns the entries grouped by folder and filters for a given device unless the
 // argument is specified as EmptyDeviceID.
 func (m *model) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error) {
-	pendingFolders, err := m.db.PendingFolders()
-	if err != nil {
-		return nil, err
-	}
-	res := make(map[string]map[protocol.DeviceID]db.ObservedFolder)
-	for _, pendingFolder := range pendingFolders {
-		if pendingFolder.DeviceID != device {
-			continue
-		}
-		if _, ok := res[pendingFolder.FolderID]; !ok {
-			res[pendingFolder.FolderID] = make(map[protocol.DeviceID]db.ObservedFolder)
-		}
-		res[pendingFolder.FolderID][pendingFolder.DeviceID] = pendingFolder.ObservedFolder
-	}
-	return res, nil
+	return m.db.PendingFolders()
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given
