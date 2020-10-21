@@ -87,6 +87,10 @@ func (db *schemaUpdater) updateSchema() error {
 	if err != nil {
 		return err
 	}
+	// Cover versions before adding `dbMigrationVersion` (== 0) and possible future weirdness.
+	if prevMigration < prevVersion {
+		prevMigration = prevVersion
+	}
 
 	if prevVersion == dbVersion && prevMigration >= dbMigrationVersion {
 		return nil
