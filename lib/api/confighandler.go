@@ -317,12 +317,13 @@ func (c *configMuxBuilder) adjustOptions(w http.ResponseWriter, r *http.Request,
 func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui config.GUIConfiguration) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
+	oldPassword := gui.Password
 	err := unmarshalTo(r.Body, &gui)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if gui.Password, err = checkGUIPassword(c.cfg.GUI().Password, gui.Password); err != nil {
+	if gui.Password, err = checkGUIPassword(oldPassword, gui.Password); err != nil {
 		l.Warnln("bcrypting password:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
