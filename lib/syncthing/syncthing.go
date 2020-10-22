@@ -41,6 +41,8 @@ import (
 	"github.com/syncthing/syncthing/lib/ur"
 )
 
+var M model.Model
+
 const (
 	bepProtocolName        = "bep/1.0"
 	tlsDefaultCommonName   = "syncthing"
@@ -255,6 +257,7 @@ func (a *App) startup() error {
 	}
 
 	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
+	M = m;
 
 	if a.opts.DeadlockTimeoutS > 0 {
 		m.StartDeadlockDetector(time.Duration(a.opts.DeadlockTimeoutS) * time.Second)
