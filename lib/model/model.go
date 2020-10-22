@@ -1090,7 +1090,10 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 
 		if cfg.Paused {
-			indexSenderRegistry.addPaused(cfg, localDeviceInfo, remoteDeviceInfo)
+			indexSenderRegistry.addPaused(cfg, &indexSenderStartInfo{
+				local:  localDeviceInfo,
+				remote: remoteDeviceInfo,
+			})
 			continue
 		}
 
@@ -1107,7 +1110,10 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
 		}
 
-		indexSenderRegistry.add(cfg, fs, localDeviceInfo, remoteDeviceInfo)
+		indexSenderRegistry.add(cfg, fs, &indexSenderStartInfo{
+			local:  localDeviceInfo,
+			remote: remoteDeviceInfo,
+		})
 
 		// We might already have files that we need to pull so let the
 		// folder runner know that it should recheck the index data.
