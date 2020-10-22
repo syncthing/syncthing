@@ -304,7 +304,9 @@ func (cfg *Configuration) clean() error {
 	}
 
 	// Upgrade configuration versions as appropriate
+	migrationsMut.Lock()
 	migrations.apply(cfg)
+	migrationsMut.Unlock()
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
