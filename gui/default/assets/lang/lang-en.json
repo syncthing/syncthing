@@ -1,5 +1,4 @@
 {
-   "": "",
    "A device with that ID is already added.": "A device with that ID is already added.",
    "A negative number of days doesn't make sense.": "A negative number of days doesn't make sense.",
    "A new major version may not be compatible with previous versions.": "A new major version may not be compatible with previous versions.",
@@ -157,7 +156,6 @@
    "Introduced By": "Introduced By",
    "Introducer": "Introducer",
    "Inversion of the given condition (i.e. do not exclude)": "Inversion of the given condition (i.e. do not exclude)",
-   "Items have been added to this folder which are not encrypted.": "Items have been added to this folder which are not encrypted.",
    "Keep Versions": "Keep Versions",
    "LDAP": "LDAP",
    "Largest First": "Largest First",
@@ -395,12 +393,9 @@
    "You should never add or change anything locally in a \"{%receiveEncrypted%}\" folder.": "You should never add or change anything locally in a \"{{receiveEncrypted}}\" folder.",
    "days": "days",
    "directories": "directories",
-   "enter password to encrypt data to be sent": "enter password to encrypt data to be sent",
    "files": "files",
    "full documentation": "full documentation",
    "items": "items",
-   "not shared": "not shared",
-   "received data is already encrypted": "received data is already encrypted",
    "seconds": "seconds",
    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wants to share folder \"{{folder}}\".",
    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
