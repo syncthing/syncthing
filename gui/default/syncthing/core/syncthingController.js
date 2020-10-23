@@ -265,7 +265,7 @@ angular.module('syncthing.core')
         $scope.$on(Events.CONFIG_SAVED, function (event, arg) {
             updateLocalConfig(arg.data);
 
-            $http.get(urlbase + '/system/config/insync').success(function (data) {
+            $http.get(urlbase + '/config/insync').success(function (data) {
                 $scope.configInSync = data.configInSync;
             }).error($scope.emitHTTPError);
         });
@@ -574,12 +574,12 @@ angular.module('syncthing.core')
         }
 
         function refreshConfig() {
-            $http.get(urlbase + '/system/config').success(function (data) {
+            $http.get(urlbase + '/config').success(function (data) {
                 updateLocalConfig(data);
                 console.log("refreshConfig", data);
             }).error($scope.emitHTTPError);
 
-            $http.get(urlbase + '/system/config/insync').success(function (data) {
+            $http.get(urlbase + '/config/insync').success(function (data) {
                 $scope.configInSync = data.configInSync;
             }).error($scope.emitHTTPError);
         }
@@ -1111,11 +1111,7 @@ angular.module('syncthing.core')
         };
 
         $scope.setDevicePause = function (device, pause) {
-            for (var id in $scope.devices) {
-                if (id == device) {
-                    $scope.devices[id].paused = pause;
-                }
-            };
+            $scope.devices[id].paused = pause;
             $scope.config.devices = $scope.deviceList();
             $scope.saveConfig();
         };
@@ -1258,7 +1254,7 @@ angular.module('syncthing.core')
                     'Content-Type': 'application/json'
                 }
             };
-            $http.post(urlbase + '/system/config', cfg, opts).success(function () {
+            $http.put(urlbase + '/config', cfg, opts).success(function () {
                 refreshConfig();
 
                 if (callback) {
@@ -1435,7 +1431,6 @@ angular.module('syncthing.core')
                 }
                 $scope.currentSharing.selected[folderID] = found;
             }
-            $scope.currentSharing.shared = $scope.deviceFolders($scope.currentDevice);
 
             $scope.deviceEditor.$setPristine();
             $('#editDevice').modal();
@@ -1459,15 +1454,12 @@ angular.module('syncthing.core')
             return $http.get(urlbase + '/system/discovery')
                 .success(function (registry) {
                     $scope.discovery = [];
-                    outer:
                     for (var id in registry) {
                         if ($scope.discovery.length === 5) {
                             break;
                         }
-                        for (var devID in $scope.devices) {
-                            if (devID === id) {
-                                continue outer;
-                            }
+                        if (id in $scope.devices) {
+                            continue
                         }
                         $scope.discovery.push(id);
                     }
@@ -1494,13 +1486,8 @@ angular.module('syncthing.core')
                 return;
             }
 
-            for (var id in $scope.devices) {
-                if (id === $scope.currentDevice.deviceID) {
-                    delete $scope.devices[id];
-                    break;
-                }
-            };
-            $scope.config.devices = deviceList($scope.devices);
+            delete $scope.devices[id];
+            $scope.config.devices = $scope.deviceList();
 
             for (var id in $scope.folders) {
                 $scope.folders[id].devices = $scope.folders[id].devices.filter(function (n) {
@@ -1972,12 +1959,9 @@ angular.module('syncthing.core')
             // Bump time
             pendingFolder.time = (new Date()).toISOString();
 
-            for (var id in $scope.devices) {
-                if (id == device) {
-                    $scope.devices[id].ignoredFolders.push(pendingFolder);
-                    $scope.saveConfig();
-                    return;
-                }
+            if (id in $scope.devices) {
+                $scope.devices[id].ignoredFolders.push(pendingFolder);
+                $scope.saveConfig();
             }
         };
 
@@ -1997,7 +1981,7 @@ angular.module('syncthing.core')
             $scope.folderList().forEach(function (folder) {
                 for (var i = 0; i < folder.devices.length; i++) {
                     if (folder.devices[i].deviceID === deviceCfg.deviceID) {
-                        folders.push(folder);
+                        folders.push(folder.id);
                         break;
                     }
                 }
@@ -2005,24 +1989,11 @@ angular.module('syncthing.core')
             return folders;
         };
 
-        $scope.folderLabel = function (folder) {
-            if (!folder) {
-                return folder;
+        $scope.folderLabel = function (folderID) {
+            if (!$scope.folders[folderID]) {
+                return folderID;
             }
-            var label, id;
-            var typ = typeof folder;
-            if (typ === 'string') {
-                if (!$scope.folders[folder]) {
-                    return folder;
-                }
-                label = $scope.folders[folder].label;
-                id = folder;
-            } else if (typ === 'object') {
-                label = folder.label;
-                id = folder.id;
-            } else {
-                return folder;
-            }
+            var label = $scope.folders[folderID].label;
             return label && label.length > 0 ? label : folderID;
         };
 
@@ -2307,12 +2278,12 @@ angular.module('syncthing.core')
             resetRemoteNeed();
             $scope.remoteNeedDevice = device;
             $scope.deviceFolders(device).forEach(function (folder) {
-                var comp = $scope.completion[device.deviceID][folder.id];
+                var comp = $scope.completion[device.deviceID][folder];
                 if (comp !== undefined && comp.needItems + comp.needDeletes === 0) {
                     return;
                 }
-                $scope.remoteNeedFolders.push(folder.id);
-                $scope.refreshRemoteNeed(folder.id, 1, 10);
+                $scope.remoteNeedFolders.push(folder);
+                $scope.refreshRemoteNeed(folder, 1, 10);
             });
             $('#remoteNeed').modal().one('hidden.bs.modal', function () {
                 resetRemoteNeed();

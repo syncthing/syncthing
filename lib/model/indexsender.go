@@ -241,13 +241,13 @@ func newIndexSenderRegistry(conn protocol.Connection, closed chan struct{}, sup 
 
 // add starts an index sender for given folder.
 // If an index sender is already running, it will be stopped first.
-func (r *indexSenderRegistry) add(folder config.FolderConfiguration, fset *db.FileSet, local, remote protocol.Device) {
+func (r *indexSenderRegistry) add(folder config.FolderConfiguration, fset *db.FileSet, startInfo *indexSenderStartInfo) {
 	r.mut.Lock()
-	r.addLocked(folder, fset, remote, local)
+	r.addLocked(folder, fset, startInfo)
 	r.mut.Unlock()
 }
 
-func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset *db.FileSet, local, remote protocol.Device) {
+func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset *db.FileSet, startInfo *indexSenderStartInfo) {
 	if is, ok := r.indexSenders[folder.ID]; ok {
 		r.sup.RemoveAndWait(is.token, 0)
 		delete(r.indexSenders, folder.ID)
@@ -264,11 +264,11 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 	// about us. Lets check to see if we can start sending index
 	// updates directly or need to send the index from start...
 
-	if local.IndexID == myIndexID {
+	if startInfo.local.IndexID == myIndexID {
 		// They say they've seen our index ID before, so we can
 		// send a delta update only.
 
-		if local.MaxSequence > mySequence {
+		if startInfo.local.MaxSequence > mySequence {
 			// Safety check. They claim to have more or newer
 			// index data than we have - either we have lost
 			// index data, or reset the index without resetting
@@ -278,15 +278,15 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 			l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", r.deviceID, folder.Description())
 			startSequence = 0
 		} else {
-			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", r.deviceID, folder.Description(), local.MaxSequence)
-			startSequence = local.MaxSequence
+			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", r.deviceID, folder.Description(), startInfo.local.MaxSequence)
+			startSequence = startInfo.local.MaxSequence
 		}
-	} else if local.IndexID != 0 {
+	} else if startInfo.local.IndexID != 0 {
 		// They say they've seen an index ID from us, but it's
 		// not the right one. Either they are confused or we
 		// must have reset our database since last talking to
 		// them. We'll start with a full index transfer.
-		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", r.deviceID, folder.Description(), local.IndexID, myIndexID)
+		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", r.deviceID, folder.Description(), startInfo.local.IndexID, myIndexID)
 		startSequence = 0
 	}
 
@@ -296,21 +296,21 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 	// completely new set.
 
 	theirIndexID := fset.IndexID(r.deviceID)
-	if remote.IndexID == 0 {
+	if startInfo.remote.IndexID == 0 {
 		// They're not announcing an index ID. This means they
 		// do not support delta indexes and we should clear any
 		// information we have from them before accepting their
 		// index, which will presumably be a full index.
 		fset.Drop(r.deviceID)
-	} else if remote.IndexID != theirIndexID {
+	} else if startInfo.remote.IndexID != theirIndexID {
 		// The index ID we have on file is not what they're
 		// announcing. They must have reset their database and
 		// will probably send us a full index. We drop any
 		// information we have and remember this new index ID
 		// instead.
-		l.Infof("Device %v folder %s has a new index ID (%v)", r.deviceID, folder.Description(), remote.IndexID)
+		l.Infof("Device %v folder %s has a new index ID (%v)", r.deviceID, folder.Description(), startInfo.remote.IndexID)
 		fset.Drop(r.deviceID)
-		fset.SetIndexID(r.deviceID, remote.IndexID)
+		fset.SetIndexID(r.deviceID, startInfo.remote.IndexID)
 	}
 
 	is := &indexSender{
@@ -331,7 +331,7 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 // addPaused stores the given info to start an index sender once resume is called
 // for this folder.
 // If an index sender is already running, it will be stopped.
-func (r *indexSenderRegistry) addPaused(folder config.FolderConfiguration, local, remote protocol.Device) {
+func (r *indexSenderRegistry) addPaused(folder config.FolderConfiguration, startInfo *indexSenderStartInfo) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
@@ -339,7 +339,7 @@ func (r *indexSenderRegistry) addPaused(folder config.FolderConfiguration, local
 		r.sup.RemoveAndWait(is.token, 0)
 		delete(r.indexSenders, folder.ID)
 	}
-	r.startInfos[folder.ID] = &indexSenderStartInfo{local, remote}
+	r.startInfos[folder.ID] = startInfo
 }
 
 // remove stops a running index sender or removes one pending to be started.
@@ -399,7 +399,7 @@ func (r *indexSenderRegistry) resume(folder config.FolderConfiguration, fset *db
 			r.sup.RemoveAndWait(is.token, 0)
 			delete(r.indexSenders, folder.ID)
 		}
-		r.addLocked(folder, fset, info.local, info.remote)
+		r.addLocked(folder, fset, info)
 		delete(r.startInfos, folder.ID)
 	} else if isOk {
 		is.resume(fset)

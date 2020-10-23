@@ -1172,7 +1172,10 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		ccDeviceLocal := ccDevicesLocal[folder.ID]
 
 		if cfg.Paused {
-			indexSenders.addPaused(cfg, ccDeviceLocal, ccDeviceRemote)
+			indexSenders.addPaused(cfg, &indexSenderStartInfo{
+				local:  ccDeviceLocal,
+				remote: ccDeviceRemote,
+			})
 			continue
 		}
 
@@ -1217,7 +1220,10 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
 		}
 
-		indexSenders.add(cfg, fs, ccDeviceLocal, ccDeviceRemote)
+		indexSenders.add(cfg, fs, &indexSenderStartInfo{
+			local:  ccDeviceLocal,
+			remote: ccDeviceRemote,
+		})
 
 		// We might already have files that we need to pull so let the
 		// folder runner know that it should recheck the index data.

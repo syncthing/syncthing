@@ -84,7 +84,7 @@ func (n DeviceID) Short() ShortID {
 	return ShortID(binary.BigEndian.Uint64(n[:]))
 }
 
-func (n *DeviceID) MarshalText() ([]byte, error) {
+func (n DeviceID) MarshalText() ([]byte, error) {
 	return []byte(n.String()), nil
 }
 
