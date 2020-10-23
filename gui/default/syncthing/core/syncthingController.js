@@ -638,6 +638,9 @@ angular.module('syncthing.core')
         }
 
         function pathJoin(base, name) {
+            if (base === "" || base === ".") {
+                return name;
+            }
             base = expandTilde(base);
             if (base[base.length - 1] !== $scope.system.pathSeparator) {
                 return base + $scope.system.pathSeparator + name;

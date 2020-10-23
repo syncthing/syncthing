@@ -966,7 +966,10 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	tilde, _ := fs.ExpandTilde("~")
+	tilde := "."
+	if !util.IsIOS() {
+		tilde, _ = fs.ExpandTilde("~")
+	}
 	res := make(map[string]interface{})
 	res["myID"] = s.id.String()
 	res["goroutines"] = runtime.NumGoroutine()

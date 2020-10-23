@@ -108,7 +108,7 @@ func New(myID protocol.DeviceID) Configuration {
 
 	if util.IsIOS() {
 		cfg.Options.URSeen = 999999 // maxint so we never send usage reports on iOS
-		cfg.Options.DefaultFolderPath = "Documents" // FIXME better to hide this
+		cfg.Options.DefaultFolderPath = "."
 		// FIXME Find better solution than blank user and password, but suppress this notification for now
 	} else {
 		cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
