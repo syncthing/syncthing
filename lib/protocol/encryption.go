@@ -118,7 +118,6 @@ func (e encryptedModel) DownloadProgress(deviceID DeviceID, folder string, updat
 }
 
 func (e encryptedModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) error {
-	// TODO: Filter/clean the incoming ClusterConfig?
 	return e.model.ClusterConfig(deviceID, config)
 }
 
@@ -203,7 +202,6 @@ func (e encryptedConnection) DownloadProgress(ctx context.Context, folder string
 }
 
 func (e encryptedConnection) ClusterConfig(config ClusterConfig) {
-	// TODO: Filter/clean the outgoing ClusterConfig?
 	e.conn.ClusterConfig(config)
 }
 
