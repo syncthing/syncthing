@@ -110,7 +110,7 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 	s := &service{
 		id:      id,
 		cfg:     cfg,
-		statics: newStaticsServer(cfg.GUI().Theme, assetDir),
+		statics: newStaticsServer(cfg.GUI().Theme, assetDir, strings.Contains(cfg.Options().FeatureFlags, "untrusted")),
 		model:   m,
 		eventSubs: map[events.EventType]events.BufferedSubscription{
 			DefaultEventMask: defaultSub,
@@ -455,6 +455,9 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 	if to.GUI.Theme != from.GUI.Theme {
 		s.statics.setTheme(to.GUI.Theme)
+	}
+	if untrusted := strings.Contains(to.Options.FeatureFlags, "untrusted"); untrusted != strings.Contains(from.Options.FeatureFlags, "untrusted") {
+		s.statics.setUntrusted(untrusted)
 	}
 
 	// Tell the serve loop to restart

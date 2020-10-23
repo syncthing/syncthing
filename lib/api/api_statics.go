@@ -30,15 +30,17 @@ type staticsServer struct {
 	mut             sync.RWMutex
 	theme           string
 	lastThemeChange time.Time
+	untrusted       bool
 }
 
-func newStaticsServer(theme, assetDir string) *staticsServer {
+func newStaticsServer(theme, assetDir string, untrusted bool) *staticsServer {
 	s := &staticsServer{
 		assetDir:        assetDir,
 		assets:          auto.Assets(),
 		mut:             sync.NewRWMutex(),
 		theme:           theme,
 		lastThemeChange: time.Now().UTC(),
+		untrusted:       untrusted,
 	}
 
 	seen := make(map[string]struct{})
@@ -88,6 +90,7 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	s.mut.RLock()
 	theme := s.theme
 	modificationTime := s.lastThemeChange
+	untrusted := s.untrusted
 	s.mut.RUnlock()
 
 	// If path starts with special prefix, get theme and file from path
@@ -105,44 +108,67 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for an override for the current theme.
-	if s.assetDir != "" {
-		p := filepath.Join(s.assetDir, theme, filepath.FromSlash(file))
-		if _, err := os.Stat(p); err == nil {
-			mtype := assets.MimeTypeForFile(file)
-			if len(mtype) != 0 {
-				w.Header().Set("Content-Type", mtype)
-			}
-			http.ServeFile(w, r, p)
-			return
-		}
+	if s.serveFromAssetDir(file, theme, w, r) {
+		return
 	}
 
 	// Check for a compiled in asset for the current theme.
-	as, ok := s.assets[theme+"/"+file]
-	if !ok {
+	if s.serveFromAssets(file, theme, modificationTime, w, r) {
+		return
+	}
+
+	// Check for an overriden asset for untrusted feature flag
+	if untrusted {
 		// Check for an overridden default asset.
-		if s.assetDir != "" {
-			p := filepath.Join(s.assetDir, config.DefaultTheme, filepath.FromSlash(file))
-			if _, err := os.Stat(p); err == nil {
-				mtype := assets.MimeTypeForFile(file)
-				if len(mtype) != 0 {
-					w.Header().Set("Content-Type", mtype)
-				}
-				http.ServeFile(w, r, p)
-				return
-			}
+		if s.serveFromAssetDir(file, config.DefaultTheme+"/untrusted", w, r) {
+			l.Infoln("serving", file, "from override untrusted")
+			return
 		}
 
 		// Check for a compiled in default asset.
-		as, ok = s.assets[config.DefaultTheme+"/"+file]
-		if !ok {
-			http.NotFound(w, r)
+		if s.serveFromAssets(file, config.DefaultTheme+"/untrusted", modificationTime, w, r) {
+			l.Infoln("serving", file, "from compiled untrusted")
 			return
 		}
 	}
 
+	// Check for an overridden default asset.
+	if s.serveFromAssetDir(file, config.DefaultTheme, w, r) {
+		return
+	}
+
+	// Check for a compiled in default asset.
+	if s.serveFromAssets(file, config.DefaultTheme, modificationTime, w, r) {
+		return
+	}
+
+	http.NotFound(w, r)
+}
+
+func (s *staticsServer) serveFromAssetDir(file, theme string, w http.ResponseWriter, r *http.Request) bool {
+	if s.assetDir == "" {
+		return false
+	}
+	p := filepath.Join(s.assetDir, theme, filepath.FromSlash(file))
+	if _, err := os.Stat(p); err != nil {
+		return false
+	}
+	mtype := assets.MimeTypeForFile(file)
+	if len(mtype) != 0 {
+		w.Header().Set("Content-Type", mtype)
+	}
+	http.ServeFile(w, r, p)
+	return true
+}
+
+func (s *staticsServer) serveFromAssets(file, theme string, modificationTime time.Time, w http.ResponseWriter, r *http.Request) bool {
+	as, ok := s.assets[theme+"/"+file]
+	if !ok {
+		return false
+	}
 	as.Modified = modificationTime
 	assets.Serve(w, r, as)
+	return true
 }
 
 func (s *staticsServer) serveThemes(w http.ResponseWriter, r *http.Request) {
@@ -155,6 +181,12 @@ func (s *staticsServer) setTheme(theme string) {
 	s.mut.Lock()
 	s.theme = theme
 	s.lastThemeChange = time.Now().UTC()
+	s.mut.Unlock()
+}
+
+func (s *staticsServer) setUntrusted(enabled bool) {
+	s.mut.Lock()
+	s.untrusted = enabled
 	s.mut.Unlock()
 }
 
