@@ -1,7 +1,7 @@
 <modal id="about" status="info" icon="far fa-heart" heading="{{'About' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
     <h1 class="text-center">
-      <img alt="Syncthing" src="assets/img/logo-horizontal.svg" style="max-width: 366px; vertical-align: -16px" />
+      <img alt="iSyncthing" src="assets/img/logo-horizontal.svg" style="max-width: 366px; vertical-align: -16px" />
       <br />
       <small>{{versionString()}}</small>
       <br />
@@ -10,11 +10,21 @@
     <p class="text-center">
       Build {{version.date | date:"yyyy-MM-dd"}}
       <span ng-if="version.tags">({{version.tags.join(", ")}})</span>
-      <br />
-      Copyright &copy; 2014-{{version.date | date:"yyyy"}} the Syncthing Authors.
+    </p>
+    <p class="text-center">
+			<b>iSyncthing</b> is an iOS app for Syncthing engine.
+		  <br />
+      iSyncthing is Copyright &copy; {{version.date | date:"yyyy"}} Pickup&nbsp;Infinity&nbsp;Limited.
+			All&nbsp;rights&nbsp;reserved.
     </p>
     <p class="text-center" translate>Syncthing is Free and Open Source Software licensed as MPL v2.0.</p>
-
+    <p class="text-center">
+		  Syncthing is Copyright &copy; 2014-{{version.date | date:"yyyy"}} the Syncthing Authors.
+    </p>
+    <p class="text-center">
+		  Modifications to Syncthing engine for iSyncthing are published at:
+			<a href="https://github.com/isyncthing/syncthing">isyncthing/syncthing</a>
+    </p>
     <hr />
     <h4 class="text-center" translate>The Syncthing Authors</h4>
     <div class="row">
