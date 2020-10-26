@@ -146,7 +146,7 @@ func (t *tcpListener) URI() *url.URL {
 }
 
 func (t *tcpListener) WANAddresses() []*url.URL {
-	uris := t.LANAddresses()
+	uris := []*url.URL{t.uri}
 	t.mut.RLock()
 	if t.mapping != nil {
 		addrs := t.mapping.ExternalAddresses()

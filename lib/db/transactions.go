@@ -859,7 +859,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device, file 
 			continue
 		}
 		if fv, have := fl.Get(dev[:]); Need(removedFV, have, fv.Version) {
-			meta.removeNeeded(deviceID, f)
+			meta.removeNeeded(dev, f)
 		}
 	}
 

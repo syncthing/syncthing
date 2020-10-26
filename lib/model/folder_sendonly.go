@@ -75,7 +75,6 @@ func (f *sendOnlyFolder) pull() bool {
 			return true
 		}
 
-		file.Version = file.Version.Merge(curFile.Version)
 		batch = append(batch, file)
 		batchSizeBytes += file.ProtoSize()
 		l.Debugln(f, "Merging versions of identical file", file)
