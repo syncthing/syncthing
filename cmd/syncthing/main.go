@@ -158,7 +158,7 @@ var (
 	errTooEarlyUpgradeCheck = fmt.Errorf("last upgrade check happened less than %v ago, skipping", upgradeCheckInterval)
 	errTooEarlyUpgrade      = fmt.Errorf("last upgrade happened less than %v ago, skipping", upgradeRetryInterval)
 
-	runningApp *syncthing.App = nil
+	RunningApp *syncthing.App = nil
 )
 
 type RuntimeOptions struct {
@@ -194,7 +194,7 @@ type RuntimeOptions struct {
 	allowNewerConfig bool
 }
 
-func defaultRuntimeOptions() RuntimeOptions {
+func DefaultRuntimeOptions() RuntimeOptions {
 	options := RuntimeOptions{
 		Options: syncthing.Options{
 			AssetDir:    os.Getenv("STGUIASSETS"),
@@ -227,7 +227,7 @@ func defaultRuntimeOptions() RuntimeOptions {
 }
 
 func parseCommandLineOptions() RuntimeOptions {
-	options := defaultRuntimeOptions()
+	options := DefaultRuntimeOptions()
 
 	flag.StringVar(&options.generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&options.guiAddress, "gui-address", options.guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
@@ -384,7 +384,7 @@ func mainCmdline() int {
 	}
 
 	// Ensure that our home directory exists.
-	if err := ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
+	if err := EnsureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
 		l.Warnln("Failure on home directory:", err)
 		return syncthing.ExitError.AsInt()
 	}
@@ -437,7 +437,7 @@ func mainCmdline() int {
 	}
 
 	if innerProcess {
-		return syncthingMain(options)
+		return SyncthingMain(options)
 	} else {
 		monitorMain(options)
 		return 0
@@ -465,7 +465,7 @@ func generate(generateDir string) error {
 		return err
 	}
 
-	if err := ensureDir(dir, 0700); err != nil {
+	if err := EnsureDir(dir, 0700); err != nil {
 		return err
 	}
 
@@ -584,8 +584,8 @@ func upgradeViaRest() error {
 	return err
 }
 
-func syncthingMain(runtimeOptions RuntimeOptions) int {
-	runningApp = nil
+func SyncthingMain(runtimeOptions RuntimeOptions) int {
+	RunningApp = nil
 
 	// Set a log prefix similar to the ID we will have later on, or early log
 	// lines look ugly.
@@ -713,7 +713,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) int {
 		return syncthing.ExitError.AsInt()
 	}
 
-	runningApp = app
+	RunningApp = app
 	defer clearRunningApp()
 
 	cleanConfigDirectory()
@@ -734,7 +734,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) int {
 }
 
 func clearRunningApp() {
-	runningApp = nil
+	RunningApp = nil
 }
 
 func setupSignalHandling(app *syncthing.App) {
@@ -805,7 +805,7 @@ func resetDB() error {
 	return os.RemoveAll(locations.Get(locations.Database))
 }
 
-func ensureDir(dir string, mode fs.FileMode) error {
+func EnsureDir(dir string, mode fs.FileMode) error {
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 	err := fs.MkdirAll(".", mode)
 	if err != nil {
