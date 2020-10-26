@@ -1466,7 +1466,7 @@ angular.module('syncthing.core')
                 return;
             }
 
-	    var id = $scope.currentDevice.deviceID
+            var id = $scope.currentDevice.deviceID
             delete $scope.devices[id];
             $scope.config.devices = $scope.deviceList();
 
