@@ -24,9 +24,9 @@ func (a *App) IsIdle() bool {
 		state, _, err := M.State(folder.ID)
 		if err == nil {
 			overallIdle = overallIdle && (state == "idle")
-			l.Infoln("IsIdle folder", folder.Label, "state", state)
+			// l.Infoln("IsIdle folder", folder.Label, "state", state)
 		} else {
-			l.Infoln("IsIdle folder", folder.Label, "error", err.Error())
+			// l.Infoln("IsIdle folder", folder.Label, "error", err.Error())
 		}
 	}
 
@@ -39,9 +39,8 @@ func (a *App) IsIdle() bool {
 		paused, _ := connection["paused"].(bool)
 		idle := !connected || paused || completion.CompletionPct >= 100.0
 		overallIdle = overallIdle && idle
-		l.Infoln("IsIdle device", device.Name, idle, "connected", connected, "paused", paused,"completion", completion.CompletionPct)
+		// l.Infoln("IsIdle device", device.Name, idle, "connected", connected, "paused", paused,"completion", completion.CompletionPct)
 	}
 
 	return overallIdle
 }
-

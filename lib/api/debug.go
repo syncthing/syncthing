@@ -8,7 +8,6 @@ package api
 
 import (
 	"github.com/syncthing/syncthing/lib/logger"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 var (
@@ -16,7 +15,7 @@ var (
 )
 
 func shouldDebugHTTP() bool {
-	return l.ShouldDebug("api") || util.IsIOS()
+	return l.ShouldDebug("api")
 }
 
 func init() {

@@ -285,7 +285,6 @@ func (s *service) serve(ctx context.Context) {
 	getRestMux.HandleFunc("/rest/system/log.txt", s.getSystemLogTxt)             // [since]
 
 	getSuppressedPaths = strings.Split(GetSuppressedSpec, ",")
-	l.Infoln("GET suppressed paths", getSuppressedPaths)
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
@@ -308,7 +307,6 @@ func (s *service) serve(ctx context.Context) {
 	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
 
 	postSuppressedPaths = strings.Split(PostSuppressedSpec, ",")
-	l.Infoln("POST suppressed paths", postSuppressedPaths)
 
 	// Debug endpoints, not for general use
 	debugMux := http.NewServeMux()
@@ -469,7 +467,6 @@ func listContainsString(s []string, e string) bool {
 
 func getPostHandler(get, post http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		l.Infoln("Handling", r.Method, r.URL.Path)
 		switch r.Method {
 		case "GET":
 			if listContainsString(getSuppressedPaths, r.URL.Path) {
@@ -967,7 +964,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	runtime.ReadMemStats(&m)
 
 	tilde := "."
-	if !util.IsIOS() {
+	if !build.IsIOS() {
 		tilde, _ = fs.ExpandTilde("~")
 	}
 	res := make(map[string]interface{})
