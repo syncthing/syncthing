@@ -1072,7 +1072,7 @@ angular.module('syncthing.core')
             }
 
             // enumerate notifications
-            if ($scope.openNoAuth || !$scope.configInSync || $scope.errorList().length > 0 || !online || $scope.pendingDevices.length > 0 || $scope.pendingFolders.length > 0) {
+            if ($scope.openNoAuth || !$scope.configInSync || $scope.errorList().length > 0 || !online || Object.keys($scope.pendingDevices).length > 0 || Object.keys($scope.pendingFolders).length > 0) {
                 notifyCount++;
             }
 
