@@ -76,10 +76,10 @@
                   <div class="col-md-4" ng-repeat="folder in folderList()">
                     <div class="checkbox">
                       <label ng-if="folder.label.length == 0">
-                        <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]">&nbsp;{{folder.id}}
+                        <input type="checkbox" ng-model="currentSharing.selected[folder.id]">&nbsp;{{folder.id}}
                       </label>
                       <label ng-if="folder.label.length != 0">
-                        <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]">&nbsp; <span tooltip data-original-title="{{folder.id}}">{{folder.label}}</span>
+                        <input type="checkbox" ng-model="currentSharing.selected[folder.id]">&nbsp; <span tooltip data-original-title="{{folder.id}}">{{folder.label}}</span>
                       </label>
                     </div>
                   </div>

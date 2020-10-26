@@ -311,7 +311,7 @@
     "The following items could not be synchronized.": "Die folgenden Elemente konnten nicht synchronisiert werden.",
     "The following items were changed locally.": "Die folgenden Elemente wurden lokal geändert.",
     "The interval must be a positive number of seconds.": "Das Intervall muss eine positive Zahl von Sekunden sein.",
-    "The interval, in seconds, for running cleanup in the versions directory. Zero to disable periodic cleaning.": "Das Interval, in Sekunden, zwischen den Bereinigungen im Versionen Verzeichnis. 0 um das regelmäßige Bereinigen zu deaktivieren.",
+    "The interval, in seconds, for running cleanup in the versions directory. Zero to disable periodic cleaning.": "Das Intervall, in Sekunden, zwischen den Bereinigungen im Versionsverzeichnis. 0 um das regelmäßige Bereinigen zu deaktivieren.",
     "The maximum age must be a number and cannot be blank.": "Das Höchstalter muss angegeben werden und eine Zahl sein.",
     "The maximum time to keep a version (in days, set to 0 to keep versions forever).": "Die längste Zeit, die alte Versionen vorgehalten werden (in Tagen) (0 um alte Versionen für immer zu behalten).",
     "The number of days must be a number and cannot be blank.": "Die Anzahl von Versionen muss eine Ganzzahl und darf nicht leer sein.",

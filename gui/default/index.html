@@ -204,10 +204,10 @@
               </div>
               <div class="panel-body">
                 <p>
-                  <span ng-if="pendingFolder.label.length == 0" translate translate-value-device="{{ deviceName(findDevice(device.deviceID)) }}" translate-value-folder="{{ pendingFolder.id }}">
+                  <span ng-if="pendingFolder.label.length == 0" translate translate-value-device="{{ deviceName(devices[device.deviceID]) }}" translate-value-folder="{{ pendingFolder.id }}">
                     {%device%} wants to share folder "{%folder%}".
                   </span>
-                  <span ng-if="pendingFolder.label.length != 0" translate translate-value-device="{{ deviceName(findDevice(device.deviceID)) }}" translate-value-folder="{{ pendingFolder.id }}" translate-value-folderlabel="{{ pendingFolder.label }}">
+                  <span ng-if="pendingFolder.label.length != 0" translate translate-value-device="{{ deviceName(devices[device.deviceID]) }}" translate-value-folder="{{ pendingFolder.id }}" translate-value-folderlabel="{{ pendingFolder.label }}">
                     {%device%} wants to share folder "{%folderlabel%}" ({%folder%}).
                   </span>
                   <span translate ng-if="folders[pendingFolder.id]">Share this folder?</span>
@@ -753,7 +753,7 @@
                     </tr>
                     <tr ng-if="deviceCfg.introducedBy">
                       <th><span class="far fa-fw fa-handshake-o"></span>&nbsp;<span translate>Introduced By</span></th>
-                      <td class="text-right">{{ deviceName(findDevice(deviceCfg.introducedBy)) || deviceCfg.introducedBy.substring(0, 5) }}</td>
+                      <td class="text-right">{{ deviceName(devices[deviceCfg.introducedBy]) || deviceCfg.introducedBy.substring(0, 5) }}</td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].clientVersion">
                       <th><span class="fas fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
