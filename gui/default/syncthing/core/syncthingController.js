@@ -2451,7 +2451,7 @@ angular.module('syncthing.core')
             }[$scope.version.arch] || $scope.version.arch;
 
             if ($scope.version.os === 'darwin' && $scope.version.arch === 'arm64') {
-                return $scope.version.version + ', iOS (' + arch + ')';
+                return $scope.version.version + ', iOS';
             } else {
                 return $scope.version.version + ', ' + os + ' (' + arch + ')';
             }
