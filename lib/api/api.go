@@ -500,7 +500,7 @@ func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 			// Add a generous access-control-allow-origin header for CORS requests
 			w.Header().Add("Access-Control-Allow-Origin", "*")
 			// Only GET/POST Methods are supported
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 			// Only these headers can be set
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
 			// The request is meant to be cached 10 minutes
