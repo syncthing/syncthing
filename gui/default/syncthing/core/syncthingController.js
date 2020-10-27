@@ -1927,8 +1927,10 @@ angular.module('syncthing.core')
             // Bump time
             pendingFolder.time = (new Date()).toISOString();
 
-            $scope.devices[id].ignoredFolders.push(pendingFolder);
-            $scope.saveConfig();
+            if (id in $scope.devices) {
+                $scope.devices[id].ignoredFolders.push(pendingFolder);
+                $scope.saveConfig();
+            }
         };
 
         $scope.sharesFolder = function (folderCfg) {
