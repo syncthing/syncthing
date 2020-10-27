@@ -153,6 +153,8 @@ func (c *configMuxBuilder) registerFolder(path string) {
 	})
 
 	c.Handle(http.MethodDelete, path, func(w http.ResponseWriter, _ *http.Request, p httprouter.Params) {
+		c.mut.Lock()
+		defer c.mut.Unlock()
 		waiter, err := c.cfg.RemoveFolder(p.ByName("id"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -194,6 +196,8 @@ func (c *configMuxBuilder) registerDevice(path string) {
 	})
 
 	c.Handle(http.MethodDelete, path, func(w http.ResponseWriter, _ *http.Request, p httprouter.Params) {
+		c.mut.Lock()
+		defer c.mut.Unlock()
 		id, err := protocol.DeviceIDFromString(p.ByName("id"))
 		waiter, err := c.cfg.RemoveDevice(id)
 		if err != nil {

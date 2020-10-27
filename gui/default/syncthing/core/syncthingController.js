@@ -1111,7 +1111,7 @@ angular.module('syncthing.core')
         };
 
         $scope.setDevicePause = function (device, pause) {
-            $scope.devices[id].paused = pause;
+            $scope.devices[device].paused = pause;
             $scope.config.devices = $scope.deviceList();
             $scope.saveConfig();
         };
@@ -1486,6 +1486,7 @@ angular.module('syncthing.core')
                 return;
             }
 
+            var id = $scope.currentDevice.deviceID
             delete $scope.devices[id];
             $scope.config.devices = $scope.deviceList();
 
