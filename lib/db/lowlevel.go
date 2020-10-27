@@ -457,7 +457,7 @@ func (db *Lowlevel) checkGlobals(folder []byte) error {
 	for dbi.Next() {
 		var vl VersionList
 		if err := vl.Unmarshal(dbi.Value()); err != nil || vl.Empty() {
-			if err := t.Delete(dbi.Key()); err != nil {
+			if err := t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
 				return err
 			}
 			continue
@@ -486,7 +486,7 @@ func (db *Lowlevel) checkGlobals(folder []byte) error {
 		}
 
 		if newVL.Empty() {
-			if err := t.Delete(dbi.Key()); err != nil {
+			if err := t.Delete(dbi.Key()); err != nil && !backend.IsNotFound(err) {
 				return err
 			}
 		} else if changed {
@@ -817,7 +817,8 @@ func (db *Lowlevel) getMetaAndCheck(folder string) *metadataTracker {
 	var err error
 	defer func() {
 		if err != nil && !backend.IsClosed(err) {
-			warnAndPanic(err)
+			l.Warnf("Fatal error: %v", err)
+			obfuscateAndPanic(err)
 		}
 	}()
 
@@ -880,7 +881,7 @@ func (db *Lowlevel) recalcMeta(folderStr string) (*metadataTracker, error) {
 
 	meta := newMetadataTracker(db.keyer)
 	if err := db.checkGlobals(folder); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("checking globals: %w", err)
 	}
 
 	t, err := db.newReadWriteTransaction(meta.CommitHook(folder))
@@ -945,14 +946,16 @@ func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) bool {
 
 	t, err := db.newReadOnlyTransaction()
 	if err != nil {
-		warnAndPanic(err)
+		l.Warnf("Fatal error: %v", err)
+		obfuscateAndPanic(err)
 	}
 	ok := true
 	if err := t.withHaveSequence([]byte(folder), curSeq+1, func(fi protocol.FileIntf) bool {
 		ok = false // we got something, which we should not have
 		return false
 	}); err != nil && !backend.IsClosed(err) {
-		warnAndPanic(err)
+		l.Warnf("Fatal error: %v", err)
+		obfuscateAndPanic(err)
 	}
 	t.close()
 
@@ -1165,8 +1168,6 @@ func unchanged(nf, ef protocol.FileIntf) bool {
 
 var ldbPathRe = regexp.MustCompile(`(open|write|read) .+[\\/].+[\\/]index[^\\/]+[\\/][^\\/]+: `)
 
-func warnAndPanic(err error) {
-	l.Warnf("Fatal error: %v", err)
-	msg := ldbPathRe.ReplaceAllString(err.Error(), "$1 x: ")
-	panic(msg)
+func obfuscateAndPanic(err error) {
+	panic(ldbPathRe.ReplaceAllString(err.Error(), "$1 x: "))
 }

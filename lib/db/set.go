@@ -531,5 +531,6 @@ func fatalError(err error, opStr string, db *Lowlevel) {
 			}
 		}
 	}
-	warnAndPanic(fmt.Errorf("%v: %w:", opStr, err))
+	l.Warnf("Fatal error: %v: %v", opStr, err)
+	obfuscateAndPanic(err)
 }

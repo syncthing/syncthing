@@ -46,7 +46,7 @@
         </div>
 
         <div id="folder-sharing" class="tab-pane">
-          <div class="form-group" ng-if="currentFolder.sharedDevices.length">
+          <div class="form-group" ng-if="currentSharing.shared.length">
             <label translate>Currently Shared With Devices</label>
             <p class="help-block">
               <span translate>Deselect devices to stop sharing this folder with.</span>&emsp;
@@ -54,16 +54,16 @@
                 <a href="#" ng-click="selectAllSharedDevices(false)" translate>Deselect All</a></small>
             </p>
             <div class="row">
-              <div class="col-md-4" ng-repeat="device in currentFolder.sharedDevices">
+              <div class="col-md-4" ng-repeat="device in currentSharing.shared">
                 <div class="checkbox">
                   <label>
-                    <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]" /> {{deviceName(device)}}
+                    <input type="checkbox" ng-model="currentSharing.selected[device.deviceID]" /> {{deviceName(device)}}
                   </label>
                 </div>
               </div>
             </div>
           </div>
-          <div class="form-group" ng-if="currentFolder.unrelatedDevices.length || otherDevices().length <= 0">
+          <div class="form-group" ng-if="currentSharing.unrelated.length || otherDevices().length <= 0">
             <label translate>Unshared Devices</label>
             <p class="help-block" ng-if="otherDevices().length > 0">
               <span translate>Select additional devices to share this folder with.</span>&emsp;
@@ -74,10 +74,10 @@
               <span translate>There are no devices to share this folder with.</span>
             </p>
             <div class="row">
-              <div class="col-md-4" ng-repeat="device in currentFolder.unrelatedDevices">
+              <div class="col-md-4" ng-repeat="device in currentSharing.unrelated">
                 <div class="checkbox">
                   <label>
-                    <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]" /> {{deviceName(device)}}
+                    <input type="checkbox" ng-model="currentSharing.selected[device.deviceID]" /> {{deviceName(device)}}
                   </label>
                 </div>
               </div>
