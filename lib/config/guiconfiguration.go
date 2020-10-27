@@ -85,6 +85,10 @@ func (c GUIConfiguration) UseTLS() bool {
 }
 
 func (c GUIConfiguration) URL() string {
+	if override := os.Getenv("STGUIADDRESS"); override != "" {
+		return override;
+	}
+
 	if strings.HasPrefix(c.RawAddress, "/") {
 		return "unix://" + c.RawAddress
 	}
