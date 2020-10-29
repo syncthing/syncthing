@@ -13,7 +13,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -59,7 +58,7 @@ func newCsrfManager(unique string, prefix string, apiKeyValidator apiKeyValidato
 
 func (m *csrfManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Allow requests carrying a valid API key
-	if build.IsIOS() || m.apiKeyValidator.IsValidAPIKey(r.Header.Get("X-API-Key")) {
+	if m.apiKeyValidator.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 		// Set the access-control-allow-origin header for CORS requests
 		// since a valid API key has been provided
 		w.Header().Add("Access-Control-Allow-Origin", "*")
