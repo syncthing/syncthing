@@ -62,6 +62,9 @@ angular.module('syncthing.core')
 
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
+        } catch (exception) { }
+
+        try {
             $scope.showRemoteGUI = (window.localStorage["showRemoteGUI"] == "true");
         } catch (exception) { }
 
@@ -379,16 +382,10 @@ angular.module('syncthing.core')
             $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
             $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
 
-<<<<<<< HEAD
             $scope.config.gui["showRemoteGUI"] = $scope.showRemoteGUI;
-            $scope.devices = $scope.config.devices;
-            $scope.devices.forEach(function (deviceCfg) {
-                $scope.completion[deviceCfg.deviceID] = {
-=======
             $scope.devices = deviceMap($scope.config.devices);
             for (var id in $scope.devices) {
                 $scope.completion[id] = {
->>>>>>> upstream/main
                     _total: 100,
                     _needBytes: 0,
                     _needItems: 0
@@ -576,17 +573,21 @@ angular.module('syncthing.core')
                     if (!data.hasOwnProperty(id)) {
                         continue;
                     }
+                    if (!(id in $scope.devices)) {
+                        // Avoid errors when called before first updateLocalConfig()
+                        continue;
+                    }
                     if (!(id in $scope.idToRemoteGUI)) {
                         $scope.idToRemoteGUI[id] = "";
                     }
-                    var port = $scope.findDevice(id).remoteGUIPort;
+                    var port = $scope.devices[id].remoteGUIPort;
                     var isNotRelayConnection = !data[id].type.includes("relay");
                     if ($scope.showRemoteGUI && isNotRelayConnection && port > 0) {
                         var newAddress = "http://" + replaceAddressPort(data[id].address, port);
                         if (newAddress in oldCache) {
                             newCache[newAddress] = oldCache[newAddress];
                         } else {
-                            newCache[newAddress] = $scope.probeAddress(newAddress);
+                            newCache[newAddress] = $scope.probeRemoteGUIAddress(id, newAddress);
                         }
                         if (newCache[newAddress] === true) {
                             $scope.idToRemoteGUI[id] = newAddress;
@@ -626,12 +627,17 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         }
 
-        $scope.probeAddress = function (address) {
-            let response = $http({
+        $scope.probeRemoteGUIAddress = function (deviceId, address) {
+            $http({
                 method: "OPTIONS",
                 url: address,
+            }).success(function (data) {
+                $scope.remoteGUICache[address] = true;
+                $scope.idToRemoteGUI[deviceId] = address;
+            }).error(function (err) {
+                $scope.remoteGUICache[address] = false;
+                $scope.idToRemoteGUI[deviceId] = "";
             });
-            return response.$$state.status >= 200 && response.$$state.status < 300;
         }
 
         $scope.refreshNeed = function (page, perpage) {
@@ -1982,8 +1988,8 @@ angular.module('syncthing.core')
             pendingFolder.time = (new Date()).toISOString();
 
             if (id in $scope.devices) {
-                    $scope.devices[id].ignoredFolders.push(pendingFolder);
-                    $scope.saveConfig();
+                $scope.devices[id].ignoredFolders.push(pendingFolder);
+                $scope.saveConfig();
             }
         };
 
