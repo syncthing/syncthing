@@ -28,8 +28,12 @@ import (
 //   10-11: v1.6.0
 //   12-13: v1.7.0
 //   14: v1.9.0
+//
+// dbMigrationVersion is for migrations that do not change the schema and thus
+// do not put restrictions on downgrades (e.g. for repairs after a bugfix).
 const (
 	dbVersion             = 14
+	dbMigrationVersion    = 15
 	dbMinSyncthingVersion = "v1.9.0"
 )
 
@@ -46,6 +50,8 @@ func (e *databaseDowngradeError) Error() string {
 	return fmt.Sprintf("Syncthing %s required", e.minSyncthingVersion)
 }
 
+// UpdateSchema updates a possibly outdated database to the current schema and
+// also does repairs where necessary.
 func UpdateSchema(db *Lowlevel) error {
 	updater := &schemaUpdater{db}
 	return updater.updateSchema()
@@ -77,33 +83,44 @@ func (db *schemaUpdater) updateSchema() error {
 		return err
 	}
 
-	if prevVersion == dbVersion {
+	prevMigration, _, err := miscDB.Int64("dbMigrationVersion")
+	if err != nil {
+		return err
+	}
+	// Cover versions before adding `dbMigrationVersion` (== 0) and possible future weirdness.
+	if prevMigration < prevVersion {
+		prevMigration = prevVersion
+	}
+
+	if prevVersion == dbVersion && prevMigration >= dbMigrationVersion {
 		return nil
 	}
 
 	type migration struct {
-		schemaVersion int64
-		migration     func(prevVersion int) error
+		schemaVersion    int64
+		migrationVersion int64
+		migration        func(prevSchema int) error
 	}
 	var migrations = []migration{
-		{1, db.updateSchema0to1},
-		{2, db.updateSchema1to2},
-		{3, db.updateSchema2to3},
-		{5, db.updateSchemaTo5},
-		{6, db.updateSchema5to6},
-		{7, db.updateSchema6to7},
-		{9, db.updateSchemaTo9},
-		{10, db.updateSchemaTo10},
-		{11, db.updateSchemaTo11},
-		{13, db.updateSchemaTo13},
-		{14, db.updateSchemaTo14},
+		{1, 1, db.updateSchema0to1},
+		{2, 2, db.updateSchema1to2},
+		{3, 3, db.updateSchema2to3},
+		{5, 5, db.updateSchemaTo5},
+		{6, 6, db.updateSchema5to6},
+		{7, 7, db.updateSchema6to7},
+		{9, 9, db.updateSchemaTo9},
+		{10, 10, db.updateSchemaTo10},
+		{11, 11, db.updateSchemaTo11},
+		{13, 13, db.updateSchemaTo13},
+		{14, 14, db.updateSchemaTo14},
+		{14, 15, db.migration15},
 	}
 
 	for _, m := range migrations {
-		if prevVersion < m.schemaVersion {
-			l.Infof("Migrating database to schema version %d...", m.schemaVersion)
+		if prevMigration < m.migrationVersion {
+			l.Infof("Running database migration %d...", m.migrationVersion)
 			if err := m.migration(int(prevVersion)); err != nil {
-				return fmt.Errorf("failed migrating to version %v: %w", m.schemaVersion, err)
+				return fmt.Errorf("failed to do migration %v: %w", m.migrationVersion, err)
 			}
 		}
 	}
@@ -112,6 +129,9 @@ func (db *schemaUpdater) updateSchema() error {
 		return err
 	}
 	if err := miscDB.PutString("dbMinSyncthingVersion", dbMinSyncthingVersion); err != nil {
+		return err
+	}
+	if err := miscDB.PutInt64("dbMigrationVersion", dbMigrationVersion); err != nil {
 		return err
 	}
 
@@ -746,6 +766,15 @@ func (db *schemaUpdater) updateSchemaTo14(_ int) error {
 		t.close()
 	}
 
+	return nil
+}
+
+func (db *schemaUpdater) migration15(_ int) error {
+	for _, folder := range db.ListFolders() {
+		if _, err := db.recalcMeta(folder); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

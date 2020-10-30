@@ -496,23 +496,16 @@ func TestIntroducer(t *testing.T) {
 			},
 		},
 	})
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID: "folder1",
-				Devices: []protocol.Device{
-					{
-						ID:                       device2,
-						Introducer:               true,
-						SkipIntroductionRemovals: true,
-					},
-				},
-			},
-		},
+	cc := basicClusterConfig(myID, device1, "folder1")
+	cc.Folders[0].Devices = append(cc.Folders[0].Devices, protocol.Device{
+		ID:                       device2,
+		Introducer:               true,
+		SkipIntroductionRemovals: true,
 	})
+	m.ClusterConfig(device1, cc)
 
 	if newDev, ok := m.cfg.Device(device2); !ok || !newDev.Introducer || !newDev.SkipIntroductionRemovals {
-		t.Error("devie 2 missing or wrong flags")
+		t.Error("device 2 missing or wrong flags")
 	}
 
 	if !contains(m.cfg.Folders()["folder1"], device2, device1) {
@@ -549,20 +542,13 @@ func TestIntroducer(t *testing.T) {
 			},
 		},
 	})
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID: "folder2",
-				Devices: []protocol.Device{
-					{
-						ID:                       device2,
-						Introducer:               true,
-						SkipIntroductionRemovals: true,
-					},
-				},
-			},
-		},
+	cc = basicClusterConfig(myID, device1, "folder2")
+	cc.Folders[0].Devices = append(cc.Folders[0].Devices, protocol.Device{
+		ID:                       device2,
+		Introducer:               true,
+		SkipIntroductionRemovals: true,
 	})
+	m.ClusterConfig(device1, cc)
 
 	// Should not get introducer, as it's already unset, and it's an existing device.
 	if newDev, ok := m.cfg.Device(device2); !ok || newDev.Introducer || newDev.SkipIntroductionRemovals {
@@ -703,20 +689,13 @@ func TestIntroducer(t *testing.T) {
 			},
 		},
 	})
-	m.ClusterConfig(device1, protocol.ClusterConfig{
-		Folders: []protocol.Folder{
-			{
-				ID: "folder2",
-				Devices: []protocol.Device{
-					{
-						ID:                       device2,
-						Introducer:               true,
-						SkipIntroductionRemovals: true,
-					},
-				},
-			},
-		},
+	cc = basicClusterConfig(myID, device1, "folder2")
+	cc.Folders[0].Devices = append(cc.Folders[0].Devices, protocol.Device{
+		ID:                       device2,
+		Introducer:               true,
+		SkipIntroductionRemovals: true,
 	})
+	m.ClusterConfig(device1, cc)
 
 	if _, ok := m.cfg.Device(device2); !ok {
 		t.Error("device 2 should not have been removed")
@@ -4139,6 +4118,46 @@ func TestCompletionEmptyGlobal(t *testing.T) {
 	comp := m.Completion(protocol.LocalDeviceID, fcfg.ID)
 	if comp.CompletionPct != 95 {
 		t.Error("Expected completion of 95%, got", comp.CompletionPct)
+	}
+}
+
+func TestNeedMetaAfterIndexReset(t *testing.T) {
+	w, fcfg := tmpDefaultWrapper()
+	waiter, _ := w.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+	waiter.Wait()
+	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
+	waiter, _ = w.SetFolder(fcfg)
+	waiter.Wait()
+	m := setupModel(w)
+	defer cleanupModelAndRemoveDir(m, fcfg.Path)
+
+	var seq int64 = 1
+	files := []protocol.FileInfo{{Name: "foo", Size: 10, Version: protocol.Vector{}.Update(device1.Short()), Sequence: seq}}
+
+	// Start with two remotes having one file, then both deleting it, then
+	// only one adding it again.
+	m.Index(device1, fcfg.ID, files)
+	m.Index(device2, fcfg.ID, files)
+	seq++
+	files[0].SetDeleted(device2.Short())
+	files[0].Sequence = seq
+	m.IndexUpdate(device2, fcfg.ID, files)
+	m.IndexUpdate(device1, fcfg.ID, files)
+	seq++
+	files[0].Deleted = false
+	files[0].Size = 20
+	files[0].Version = files[0].Version.Update(device1.Short())
+	files[0].Sequence = seq
+	m.IndexUpdate(device1, fcfg.ID, files)
+
+	if comp := m.Completion(device2, fcfg.ID); comp.NeedItems != 1 {
+		t.Error("Expected one needed item for device2, got", comp.NeedItems)
+	}
+
+	// Pretend we had an index reset on device 1
+	m.Index(device1, fcfg.ID, files)
+	if comp := m.Completion(device2, fcfg.ID); comp.NeedItems != 1 {
+		t.Error("Expected one needed item for device2, got", comp.NeedItems)
 	}
 }
 
