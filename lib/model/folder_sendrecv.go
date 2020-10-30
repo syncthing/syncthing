@@ -38,9 +38,6 @@ var (
 	blockStatsMut = sync.NewMutex()
 )
 
-// No matter what is configured, we won't exceed this amount of concurrent writes per folder.
-const maxConcurrentWritesLimit = 64
-
 func init() {
 	folderFactories[config.FolderTypeSendReceive] = newSendReceiveFolder
 }
@@ -142,6 +139,7 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 		fs:                 fs,
 		queue:              newJobQueue(),
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
+		writeLimiter:       newByteSemaphore(cfg.MaxConcurrentWrites),
 		pullErrorsMut:      sync.NewMutex(),
 	}
 	f.folder.puller = f
@@ -159,15 +157,6 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 	}
 	if blockSizeKiB := protocol.MaxBlockSize / 1024; f.PullerMaxPendingKiB < blockSizeKiB {
 		f.PullerMaxPendingKiB = blockSizeKiB
-	}
-
-	if cfg.MaxConcurrentWrites <= 0 {
-		f.writeLimiter = newByteSemaphore(2)
-	} else if cfg.MaxConcurrentWrites > maxConcurrentWritesLimit {
-		l.Infof("Configured MaxConcurrentWrites of %v too large, using %v instead on folder %v", cfg.MaxConcurrentWrites, maxConcurrentWritesLimit, f.Description())
-		f.writeLimiter = newByteSemaphore(maxConcurrentWritesLimit)
-	} else {
-		f.writeLimiter = newByteSemaphore(cfg.MaxConcurrentWrites)
 	}
 
 	return f
