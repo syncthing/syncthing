@@ -26,7 +26,7 @@ angular.module('syncthing.core')
         $scope.connections = {};
         $scope.idToRemoteGUI = {};
         $scope.remoteGUICache = {};
-        $scope.showRemoteGUI = false;
+        $scope.showRemoteGUI = true;
         $scope.errors = [];
         $scope.model = {};
         $scope.myID = '';
