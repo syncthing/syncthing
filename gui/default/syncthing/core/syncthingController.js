@@ -567,7 +567,6 @@ angular.module('syncthing.core')
                 $scope.connectionsTotal = data.total;
 
                 data = data.connections;
-                var currentAddresses = [];
                 for (id in data) {
                     if (!data.hasOwnProperty(id)) {
                         continue;
@@ -593,13 +592,6 @@ angular.module('syncthing.core')
                     } catch (e) {
                         data[id].inbps = 0;
                         data[id].outbps = 0;
-                    }
-                }
-                // Clean out stale addresses from probing results
-                for (var address in $scope.remoteGUICache) {
-                    console.log("clean test", address);
-                    if (!currentAddresses.includes(address)) {
-                        delete $scope.remoteGUICache[address];
                     }
                 }
                 $scope.connections = data;
@@ -632,9 +624,17 @@ angular.module('syncthing.core')
             }).success(function (data) {
                 $scope.remoteGUICache[address] = true;
                 $scope.idToRemoteGUI[deviceId] = address;
+            }).error(function () {
                 $scope.remoteGUICache[address] = false;
                 $scope.idToRemoteGUI[deviceId] = "";
             });
+        }
+
+        $scope.refreshNeed = function (page, perpage) {
+            if (!$scope.neededFolder) {
+                return;
+            }
+            var url = urlbase + "/db/need?folder=" + encodeURIComponent($scope.neededFolder);
             url += "&page=" + page;
             url += "&perpage=" + perpage;
             $http.get(url).success(function (data) {
