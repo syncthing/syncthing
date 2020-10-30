@@ -1967,8 +1967,10 @@ angular.module('syncthing.core')
 		time: (new Date()).toISOString()
 	    }
 
-            $scope.devices[id].ignoredFolders.push(ignoredFolder);
-            $scope.saveConfig();
+            if (id in $scope.devices) {
+                $scope.devices[id].ignoredFolders.push(ignoredFolder);
+                $scope.saveConfig();
+            }
         };
 
         $scope.sharesFolder = function (folderCfg) {
