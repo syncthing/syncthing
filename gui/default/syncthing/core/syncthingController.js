@@ -529,7 +529,7 @@ angular.module('syncthing.core')
             var lastColonIndex = address.length;
             for (var index = 0; index < address.length; index++) {
                 if (address[index] === ":") {
-                    var lastColonIndex = index;
+                    lastColonIndex = index;
                 }
             }
             return address.substr(0, lastColonIndex) + ":" + newPort.toString();
@@ -585,13 +585,8 @@ angular.module('syncthing.core')
                         var newAddress = "http://" + replaceAddressPort(data[id].address, port);
                         currentAddresses.push(newAddress);
                         if (!(newAddress in $scope.remoteGUICache)) {
+                            // No cached result, trigger a new port probing asynchronously
                             $scope.probeRemoteGUIAddress(id, newAddress);
-                        }
-                    }
-                    // Clean out stale addresses from probing results
-                    for (var address in $scope.remoteGUICache) {
-                        if (!currentAddresses.includes(address)) {
-                            delete $scope.remoteGUICache[address];
                         }
                     }
                     try {
@@ -600,6 +595,12 @@ angular.module('syncthing.core')
                     } catch (e) {
                         data[id].inbps = 0;
                         data[id].outbps = 0;
+                    }
+                }
+                // Clean out stale addresses from probing results
+                for (var address in $scope.remoteGUICache) {
+                    if (!currentAddresses.includes(address)) {
+                        delete $scope.remoteGUICache[address];
                     }
                 }
                 $scope.connections = data;
