@@ -302,7 +302,7 @@ func (s *service) serve(ctx context.Context) {
 		mut:    sync.NewMutex(),
 	}
 
-	configBuilder.registerConfig("/rest/config/")
+	configBuilder.registerConfig("/rest/config")
 	configBuilder.registerConfigInsync("/rest/config/insync")
 	configBuilder.registerFolders("/rest/config/folders")
 	configBuilder.registerDevices("/rest/config/devices")
@@ -503,8 +503,8 @@ func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 		if r.Method == "OPTIONS" {
 			// Add a generous access-control-allow-origin header for CORS requests
 			w.Header().Add("Access-Control-Allow-Origin", "*")
-			// Only GET/POST Methods are supported
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			// Only GET/POST/OPTIONS Methods are supported
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			// Only these headers can be set
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
 			// The request is meant to be cached 10 minutes
