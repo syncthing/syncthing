@@ -64,9 +64,9 @@ angular.module('syncthing.core')
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
         } catch (exception) { }
 
-        try {
+        if ("showRemoteGUI" in window.localStorage) {
             $scope.showRemoteGUI = (window.localStorage["showRemoteGUI"] == "true");
-        } catch (exception) { }
+        }
 
         $scope.folderDefaults = {
             devices: [],
