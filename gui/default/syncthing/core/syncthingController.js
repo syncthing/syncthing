@@ -2,6 +2,13 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
+    .config(
+    [
+        '$compileProvider',
+        function ($compileProvider) {
+            $compileProvider.imgSrcSanitizationWhitelist(/^\s*((https?|ftp|file|blob|unixs?):|data:image\/)/);
+        }
+    ])
     .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
