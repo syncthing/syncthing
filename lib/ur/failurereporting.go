@@ -57,7 +57,6 @@ type failureHandler struct {
 	cfg      config.Wrapper
 	evLogger events.Logger
 	optsChan chan config.OptionsConfiguration
-	evChan   <-chan events.Event
 	buf      map[string]*failureStat
 }
 
@@ -68,7 +67,10 @@ type failureStat struct {
 
 func (h *failureHandler) serve(ctx context.Context) error {
 	go func() {
-		h.optsChan <- h.cfg.Options()
+		select {
+		case h.optsChan <- h.cfg.Options():
+		case <-ctx.Done():
+		}
 	}()
 	h.cfg.Subscribe(h)
 	defer h.cfg.Unsubscribe(h)
@@ -76,6 +78,7 @@ func (h *failureHandler) serve(ctx context.Context) error {
 	var url string
 	var err error
 	var sub events.Subscription
+	var evChan <-chan events.Event
 	timer := time.NewTimer(minDelay)
 	resetTimer := make(chan struct{})
 outer:
@@ -86,14 +89,21 @@ outer:
 			if opts.URAccepted > 0 {
 				if sub == nil {
 					sub = h.evLogger.Subscribe(events.Failure)
-					h.evChan = sub.C()
+					evChan = sub.C()
 				}
 			} else if sub != nil {
 				sub.Unsubscribe()
 				sub = nil
+				evChan = nil
 			}
 			url = opts.CRURL + "/failure"
-		case e := <-h.evChan:
+		case e, ok := <-evChan:
+			if !ok {
+				// Just to be save - shouldn't ever happen, as
+				// evChan is set to nil when unsubscribing.
+				evChan = nil
+				continue
+			}
 			descr := e.Data.(string)
 			if stat, ok := h.buf[descr]; ok {
 				stat.last = e.Time
