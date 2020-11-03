@@ -26,9 +26,11 @@ var (
 	// When a specific failure first occurs, it is delayed by minDelay. If
 	// more of the same failures occurs those are further delayed and
 	// aggregated for maxDelay.
-	minDelay    = 10 * time.Second
-	maxDelay    = time.Minute
-	sendTimeout = time.Minute
+	minDelay             = 10 * time.Second
+	maxDelay             = time.Minute
+	sendTimeout          = time.Minute
+	evChanClosed         = "failure event channel closed"
+	invalidEventDataType = "failure event data is not a string"
 )
 
 type FailureReport struct {
@@ -101,20 +103,17 @@ outer:
 			if !ok {
 				// Just to be save - shouldn't ever happen, as
 				// evChan is set to nil when unsubscribing.
+				h.addReport(evChanClosed, time.Now())
 				evChan = nil
 				continue
 			}
-			descr := e.Data.(string)
-			if stat, ok := h.buf[descr]; ok {
-				stat.last = e.Time
-				stat.count++
-			} else {
-				h.buf[descr] = &failureStat{
-					first: e.Time,
-					last:  e.Time,
-					count: 1,
-				}
+			descr, ok := e.Data.(string)
+			if !ok {
+				// Same here, shouldn't ever happen.
+				h.addReport(invalidEventDataType, time.Now())
+				continue
 			}
+			h.addReport(descr, e.Time)
 		case <-timer.C:
 			reports := make([]FailureReport, 0, len(h.buf))
 			now := time.Now()
@@ -149,6 +148,19 @@ outer:
 		sub.Unsubscribe()
 	}
 	return err
+}
+
+func (h *failureHandler) addReport(descr string, evTime time.Time) {
+	if stat, ok := h.buf[descr]; ok {
+		stat.last = evTime
+		stat.count++
+		return
+	}
+	h.buf[descr] = &failureStat{
+		first: evTime,
+		last:  evTime,
+		count: 1,
+	}
 }
 
 func (h *failureHandler) VerifyConfiguration(_, _ config.Configuration) error {
