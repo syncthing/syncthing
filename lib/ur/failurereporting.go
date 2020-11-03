@@ -49,6 +49,7 @@ func NewFailureHandler(cfg config.Wrapper, evLogger events.Logger) FailureHandle
 		cfg:      cfg,
 		evLogger: evLogger,
 		optsChan: make(chan config.OptionsConfiguration),
+		buf:      make(map[string]*failureStat),
 	}
 	h.Service = util.AsServiceWithError(h.serve, h.String())
 	return h
