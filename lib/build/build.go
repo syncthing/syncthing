@@ -43,7 +43,6 @@ var (
 		"STHASHING",
 		"STNORESTART",
 		"STNOUPGRADE",
-		"USE_BADGER",
 	}
 )
 
