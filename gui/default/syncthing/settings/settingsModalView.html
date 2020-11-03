@@ -51,112 +51,10 @@
                 </div>
               </div>
             </div>
-            <div class="col-md-6">
-              <div class="form-group">
-                <label translate>API Key</label>
-                <div class="input-group">
-                  <input type="text" readonly class="text-monospace form-control" value="{{tmpGUI.apiKey || '-'}}" />
-                  <span class="input-group-btn">
-                    <button type="button" class="btn btn-default btn-secondary" ng-click="setAPIKey(tmpGUI)">
-                      <span class="fas fa-redo"></span>&nbsp;<span translate>Generate</span>
-                    </button>
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="col-md-6">
-              <div class="form-group">
-                <label translate for="urVersion">Anonymous Usage Reporting</label> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
-                <div ng-if="tmpOptions.upgrades != 'candidate' && !version.isCandidate">
-                  <select class="form-control" id="urVersion" ng-model="tmpOptions._urAcceptedStr">
-                    <option ng-repeat="n in urVersions()" value="{{n}}">{{'Version' | translate}} {{n}}</option>
-                    <!-- 1 does not exist, as we did not support incremental formats back then. -->
-                    <option value="0" translate>Undecided (will prompt)</option>
-                    <option value="-1" translate>Disabled</option>
-                  </select>
-                </div>
-                <p class="help-block" ng-if="tmpOptions.upgrades == 'candidate' || version.isCandidate"">
-                  <span translate>Usage reporting is always enabled for candidate releases.</span>
-                </p>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="form-group">
-                <label translate>Automatic upgrades</label>&emsp;<a href="https://docs.syncthing.net/users/releases.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
-                <select class="form-control" ng-model="tmpOptions.upgrades" ng-if="upgradeInfo">
-                  <option ng-if="!version.isCandidate" value="none" translate>No upgrades</option>
-                  <option value="stable" translate>Stable releases only</option>
-                  <option value="candidate" translate>Stable releases and release candidates</option>
-                </select>
-                <p class="help-block" ng-if="!upgradeInfo">
-                  <span translate>Unavailable/Disabled by administrator or maintainer</span>
-                </p>
-                <p class="help-block" ng-if="version.isCandidate && upgradeInfo"">
-                  <span translate>Automatic upgrades are always enabled for candidate releases.</span>
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="form-group">
-            <label translate for="urVersion">Default Folder Path</label>
-            <input id="DefaultFolderPath" class="form-control" type="text" ng-model="tmpOptions.defaultFolderPath" />
-            <p class="help-block">
-              <span translate translate-value-tilde="{{system.tilde}}">
-                Path where new auto accepted folders will be created, as well as the default suggested path when adding new folders via the UI. Tilde character (~) expands to {%tilde%}.
-              </span>
-            </p>
           </div>
         </div>
 
         <div id="settings-gui" class="tab-pane">
-          <div class="form-group" ng-class="{'has-error': settingsEditor.Address.$invalid && settingsEditor.Address.$dirty}">
-            <label translate for="Address">GUI Listen Address</label>&emsp;<a href="https://docs.syncthing.net/users/guilisten.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
-            <p class="text-warning" ng-show="system.guiAddressOverridden">
-              <span class="fas fa-exclamation-triangle"></span>
-              <span translate>The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.</span>
-            </p>
-            <input id="Address" name="Address" class="form-control" type="text" ng-model="tmpGUI.address" ng-pattern="/^(/.*)|(.*:0*((102[4-9])|(10[3-9][0-9])|(1[1-9][0-9][0-9])|([2-9][0-9][0-9][0-9])|([1-6]\d{4})))$/" />
-            <p class="help-block" ng-show="settingsEditor.Address.$invalid" translate>
-              Enter a non-privileged port number (1024 - 65535).
-            </p>
-          </div>
-          <div class="row">
-            <div class="col-md-6">
-              <div class="form-group">
-                <label translate for="User">GUI Authentication User</label>
-                <input id="User" class="form-control" type="text" ng-model="tmpGUI.user" />
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="form-group">
-                <label translate for="Password">GUI Authentication Password</label>
-                <input id="Password" class="form-control" type="password" ng-model="tmpGUI.password" ng-trim="false" />
-              </div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-md-6">
-              <div class="form-group">
-                <div class="checkbox">
-                  <label>
-                    <input id="UseTLS" type="checkbox" ng-model="tmpGUI.useTLS" /> <span translate>Use HTTPS for GUI</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="form-group">
-                <div class="checkbox">
-                  <label>
-                    <input id="StartBrowser" type="checkbox" ng-model="tmpOptions.startBrowser" /> <span translate>Start Browser</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
           <div class="row">
             <div class="col-md-6">
               <div class="form-group">
@@ -168,15 +66,6 @@
                 </select>
                 <p class="help-block" ng-if="themes.length < 2">
                   <span translate>Unavailable</span>
-                </p>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div ng-if="isUnixAddress(tmpGUI.address)" class="form-group" ng-class="{'has-error': settingsEditor.UnixSocketPermissions.$invalid && settingsEditor.UnixSocketPermissions.$dirty}">
-                <label translate>UNIX Permissions</label>
-                <input id="UnixSocketPermissions" name="UnixSocketPermissions" class="form-control" type="text" ng-model="tmpGUI.unixSocketPermissions" ng-pattern="/^0?[0-7]{0,3}$/" />
-                <p class="help-block" ng-show="settingsEditor.UnixSocketPermissions.$invalid" translate>
-                  Enter up to three octal digits.
                 </p>
               </div>
             </div>

@@ -2,6 +2,13 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
+    .config(
+    [
+        '$compileProvider',
+        function ($compileProvider) {
+            $compileProvider.imgSrcSanitizationWhitelist(/^\s*((https?|ftp|file|blob|unixs?):|data:image\/)/);
+        }
+    ])
     .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
@@ -638,6 +645,9 @@ angular.module('syncthing.core')
         }
 
         function pathJoin(base, name) {
+            if (base === "" || base === ".") {
+                return name;
+            }
             base = expandTilde(base);
             if (base[base.length - 1] !== $scope.system.pathSeparator) {
                 return base + $scope.system.pathSeparator + name;
@@ -2447,11 +2457,43 @@ angular.module('syncthing.core')
                 'ppc64le': 'PowerPC (LE)'
             }[$scope.version.arch] || $scope.version.arch;
 
-            return $scope.version.version + ', ' + os + ' (' + arch + ')';
+            if ($scope.version.os === 'darwin' && $scope.version.arch === 'arm64') {
+                return $scope.version.version + ', iOS';
+            } else {
+                return $scope.version.version + ', ' + os + ' (' + arch + ')';
+            }
         };
 
         $scope.inputTypeFor = function (key, value) {
-            if (key.substr(0, 1) === '_') {
+            if (key.substr(0, 1) === '_'
+                    // GUI
+                    || key === 'address'
+                    || key === 'apiKey'
+                    || key === 'authMode'
+                    || key === 'enabled'
+                    || key === 'insecureAdminAccess'
+                    || key === 'insecureAllowFrameLoading'
+                    || key === 'insecureSkipHostcheck'
+                    || key === 'password'
+                    || key === 'unixSocketPermissions'
+                    || key === 'useTLS'
+                    || key === 'user'
+                    // Options
+                    || key === 'autoUpgradeIntervalH'
+                    || key === 'crURL'
+                    || key === 'defaultFolderPath'
+                    || key === 'releasesURL'
+                    || key === 'restartOnWakeup'
+                    || key === 'setLowPriority'
+                    || key === 'upgradeToPreReleases'
+                    || key === 'urInitialDelay'
+                    || key === 'urPostInsecurely'
+                    || key === 'urSeen'
+                    || key === 'urURL'
+                    || key === 'urUniqueId'
+                    // Folders
+                    || key === 'path'
+                    ) {
                 return 'skip';
             }
             if (value === null) {

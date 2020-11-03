@@ -90,6 +90,7 @@ type App struct {
 	stopOnce    sync.Once
 	stop        chan struct{}
 	stopped     chan struct{}
+  M						model.Model
 }
 
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
@@ -104,6 +105,10 @@ func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, 
 	}
 	close(a.stopped) // Hasn't been started, so shouldn't block on Wait.
 	return a
+}
+
+func (a *App) GetCfg() config.Wrapper {
+	return a.cfg
 }
 
 // Start executes the app and returns once all the startup operations are done,
@@ -255,6 +260,7 @@ func (a *App) startup() error {
 	}
 
 	m := model.NewModel(a.cfg, a.myID, "syncthing", build.Version, a.ll, protectedFiles, a.evLogger)
+	a.M = m;
 
 	if a.opts.DeadlockTimeoutS > 0 {
 		m.StartDeadlockDetector(time.Duration(a.opts.DeadlockTimeoutS) * time.Second)

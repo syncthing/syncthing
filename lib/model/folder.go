@@ -936,7 +936,7 @@ func (f *folder) setError(err error) {
 
 	if err != nil {
 		if oldErr == nil {
-			l.Warnf("Error on folder %s: %v", f.Description(), err)
+			l.Warnf("Error on folder %s at %s: %v", f.Description(), f.FolderConfiguration.Path, err)
 		} else {
 			l.Infof("Error on folder %s changed: %q -> %q", f.Description(), oldErr, err)
 		}

@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package toplevel
 
 import (
 	"bytes"
@@ -157,6 +157,8 @@ var (
 	errConcurrentUpgrade    = errors.New("upgrade prevented by other running Syncthing instance")
 	errTooEarlyUpgradeCheck = fmt.Errorf("last upgrade check happened less than %v ago, skipping", upgradeCheckInterval)
 	errTooEarlyUpgrade      = fmt.Errorf("last upgrade happened less than %v ago, skipping", upgradeRetryInterval)
+
+	RunningApp *syncthing.App = nil
 )
 
 type RuntimeOptions struct {
@@ -192,7 +194,7 @@ type RuntimeOptions struct {
 	allowNewerConfig bool
 }
 
-func defaultRuntimeOptions() RuntimeOptions {
+func DefaultRuntimeOptions() RuntimeOptions {
 	options := RuntimeOptions{
 		Options: syncthing.Options{
 			AssetDir:    os.Getenv("STGUIASSETS"),
@@ -225,7 +227,7 @@ func defaultRuntimeOptions() RuntimeOptions {
 }
 
 func parseCommandLineOptions() RuntimeOptions {
-	options := defaultRuntimeOptions()
+	options := DefaultRuntimeOptions()
 
 	flag.StringVar(&options.generateDir, "generate", "", "Generate key and config in specified dir, then exit")
 	flag.StringVar(&options.guiAddress, "gui-address", options.guiAddress, "Override GUI address (e.g. \"http://192.0.2.42:8443\")")
@@ -283,7 +285,7 @@ func setLocation(enum locations.BaseDirEnum, loc string) error {
 	return locations.SetBaseDir(enum, loc)
 }
 
-func main() {
+func mainCmdline() int {
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
 
@@ -321,7 +323,7 @@ func main() {
 	}
 	if err != nil {
 		l.Warnln("Command line options:", err)
-		os.Exit(syncthing.ExitError.AsInt())
+		return syncthing.ExitError.AsInt()
 	}
 
 	if options.logFile == "default" || options.logFile == "" {
@@ -338,17 +340,17 @@ func main() {
 
 	if options.showVersion {
 		fmt.Println(build.LongVersion)
-		return
+		return 0
 	}
 
 	if options.showHelp {
 		flag.Usage()
-		return
+		return 0
 	}
 
 	if options.showPaths {
 		showPaths(options)
-		return
+		return 0
 	}
 
 	if options.showDeviceId {
@@ -358,51 +360,51 @@ func main() {
 		)
 		if err != nil {
 			l.Warnln("Error reading device ID:", err)
-			os.Exit(syncthing.ExitError.AsInt())
+			return syncthing.ExitError.AsInt()
 		}
 
 		fmt.Println(protocol.NewDeviceID(cert.Certificate[0]))
-		return
+		return 0
 	}
 
 	if options.browserOnly {
 		if err := openGUI(protocol.EmptyDeviceID); err != nil {
 			l.Warnln("Failed to open web UI:", err)
-			os.Exit(syncthing.ExitError.AsInt())
+			return syncthing.ExitError.AsInt()
 		}
-		return
+		return 0
 	}
 
 	if options.generateDir != "" {
 		if err := generate(options.generateDir); err != nil {
 			l.Warnln("Failed to generate config and keys:", err)
-			os.Exit(syncthing.ExitError.AsInt())
+			return syncthing.ExitError.AsInt()
 		}
-		return
+		return 0
 	}
 
 	// Ensure that our home directory exists.
-	if err := ensureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
+	if err := EnsureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
 		l.Warnln("Failure on home directory:", err)
-		os.Exit(syncthing.ExitError.AsInt())
+		return syncthing.ExitError.AsInt()
 	}
 
 	if options.upgradeTo != "" {
 		err := upgrade.ToURL(options.upgradeTo)
 		if err != nil {
 			l.Warnln("Error while Upgrading:", err)
-			os.Exit(syncthing.ExitError.AsInt())
+			return syncthing.ExitError.AsInt()
 		}
 		l.Infoln("Upgraded from", options.upgradeTo)
-		return
+		return 0
 	}
 
 	if options.doUpgradeCheck {
 		if _, err := checkUpgrade(); err != nil {
 			l.Warnln("Checking for upgrade:", err)
-			os.Exit(exitCodeForUpgrade(err))
+			return exitCodeForUpgrade(err)
 		}
-		return
+		return 0
 	}
 
 	if options.doUpgrade {
@@ -419,25 +421,26 @@ func main() {
 		}
 		if err != nil {
 			l.Warnln("Upgrade:", err)
-			os.Exit(exitCodeForUpgrade(err))
+			return exitCodeForUpgrade(err)
 		}
 		l.Infof("Upgraded to %q", release.Tag)
-		os.Exit(syncthing.ExitUpgrade.AsInt())
+		return syncthing.ExitUpgrade.AsInt()
 	}
 
 	if options.resetDatabase {
 		if err := resetDB(); err != nil {
 			l.Warnln("Resetting database:", err)
-			os.Exit(syncthing.ExitError.AsInt())
+			return syncthing.ExitError.AsInt()
 		}
 		l.Infoln("Successfully reset database - it will be rebuilt after next start.")
-		return
+		return 0
 	}
 
 	if innerProcess {
-		syncthingMain(options)
+		return SyncthingMain(options)
 	} else {
 		monitorMain(options)
+		return 0
 	}
 }
 
@@ -462,7 +465,7 @@ func generate(generateDir string) error {
 		return err
 	}
 
-	if err := ensureDir(dir, 0700); err != nil {
+	if err := EnsureDir(dir, 0700); err != nil {
 		return err
 	}
 
@@ -581,7 +584,9 @@ func upgradeViaRest() error {
 	return err
 }
 
-func syncthingMain(runtimeOptions RuntimeOptions) {
+func SyncthingMain(runtimeOptions RuntimeOptions) int {
+	RunningApp = nil
+
 	// Set a log prefix similar to the ID we will have later on, or early log
 	// lines look ugly.
 	l.SetPrefix("[start] ")
@@ -597,7 +602,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	)
 	if err != nil {
 		l.Warnln("Failed to load/generate certificate:", err)
-		os.Exit(1)
+		return 1
 	}
 
 	evLogger := events.NewLogger()
@@ -607,7 +612,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
-		os.Exit(syncthing.ExitError.AsInt())
+		return syncthing.ExitError.AsInt()
 	}
 
 	// Candidate builds should auto upgrade. Make sure the option is set,
@@ -631,7 +636,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	ldb, err := syncthing.OpenDBBackend(dbFile, cfg.Options().DatabaseTuning)
 	if err != nil {
 		l.Warnln("Error opening database:", err)
-		os.Exit(1)
+		return 1
 	}
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
@@ -653,7 +658,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			}
 		} else {
 			l.Infof("Upgraded to %q, exiting now.", release.Tag)
-			os.Exit(syncthing.ExitUpgrade.AsInt())
+			return syncthing.ExitUpgrade.AsInt()
 		}
 	}
 
@@ -694,19 +699,22 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
 			l.Warnln("Creating profile:", err)
-			os.Exit(syncthing.ExitError.AsInt())
+			return syncthing.ExitError.AsInt()
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
 			l.Warnln("Starting profile:", err)
-			os.Exit(syncthing.ExitError.AsInt())
+			return syncthing.ExitError.AsInt()
 		}
 	}
 
 	go standbyMonitor(app, cfg)
 
 	if err := app.Start(); err != nil {
-		os.Exit(syncthing.ExitError.AsInt())
+		return syncthing.ExitError.AsInt()
 	}
+
+	RunningApp = app
+	defer clearRunningApp()
 
 	cleanConfigDirectory()
 
@@ -722,7 +730,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		pprof.StopCPUProfile()
 	}
 
-	os.Exit(int(status))
+	return int(status)
+}
+
+func clearRunningApp() {
+	RunningApp = nil
 }
 
 func setupSignalHandling(app *syncthing.App) {
@@ -793,7 +805,7 @@ func resetDB() error {
 	return os.RemoveAll(locations.Get(locations.Database))
 }
 
-func ensureDir(dir string, mode fs.FileMode) error {
+func EnsureDir(dir string, mode fs.FileMode) error {
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 	err := fs.MkdirAll(".", mode)
 	if err != nil {

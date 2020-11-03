@@ -1,16 +1,17 @@
-// Copyright (C) 2016 The Syncthing Authors.
+// Copyright (C) 2020 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//+build go1.7
+// +build !ios
 
 package toplevel
 
-import "runtime/debug"
+import (
+	"os"
+)
 
-func init() {
-	// We want all (our) goroutines in panic traces.
-	debug.SetTraceback("all")
+func main() {
+	os.exit(mainCmdline())
 }
