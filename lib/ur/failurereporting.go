@@ -102,7 +102,7 @@ outer:
 			url = opts.CRURL + "/failure"
 		case e, ok := <-evChan:
 			if !ok {
-				// Just to be save - shouldn't ever happen, as
+				// Just to be safe - shouldn't ever happen, as
 				// evChan is set to nil when unsubscribing.
 				h.addReport(evChanClosed, time.Now())
 				evChan = nil
