@@ -33,7 +33,7 @@
     "Automatic upgrade now offers the choice between stable releases and release candidates.": "Le système de mise à jour automatique propose le choix entre versions stables et versions préliminaires.",
     "Automatic upgrades": "Mises à jour automatiques",
     "Automatic upgrades are always enabled for candidate releases.": "Les mises à jour automatiques sont toujours activées pour les versions préliminaires (-rc.N).",
-    "Automatically create or share folders that this device advertises at the default path.": "ATTENTION !!! Créer ou partager automatiquement dans le chemin par défaut les partages que cet appareil annonce.",
+    "Automatically create or share folders that this device advertises at the default path.": "ATTENTION, risque de sécurité/confidentialité !!! Créer ou partager automatiquement dans le chemin par défaut les partages auxquels cet appareil m'invite à participer. N'accordez ce privilège, éventuellement temporaire le temps de l'établissement, qu'à vos propres appareils.",
     "Available debug logging facilities:": "Outils de débogage disponibles :",
     "Be careful!": "Faites attention !",
     "Bugs": "Bugs",
