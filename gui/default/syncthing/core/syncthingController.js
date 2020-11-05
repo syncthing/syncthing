@@ -612,7 +612,7 @@ angular.module('syncthing.core')
                         // Copy cached probing result in the corner case of duplicate GUI
                         // addresses for different devices.  Which is useless, but
                         // possible when behind the same NAT router.
-                        if (newCache[newAddress]) {) {
+                        if (newCache[newAddress]) {
                             $scope.idToRemoteGUI[id] = newAddress;
                         } else {
                             $scope.idToRemoteGUI[id] = "";
