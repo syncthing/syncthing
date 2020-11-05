@@ -588,7 +588,7 @@ angular.module('syncthing.core')
                 $scope.idToRemoteGUI = {}
                 return
             }
-            var currentAddresses = {};
+            var newCache = {};
             for (var id in connections) {
                 if (!connections.hasOwnProperty(id)) {
                     continue;
@@ -604,19 +604,24 @@ angular.module('syncthing.core')
                 var isNotRelayConnection = !connections[id].type.includes("relay");
                 if (connections[id].address != "" && isNotRelayConnection && port > 0) {
                     var newAddress = "http://" + replaceAddressPort(connections[id].address, port);
-                    currentAddresses[newAddress] = true;
                     if (!(newAddress in $scope.remoteGUICache)) {
                         // No cached result, trigger a new port probing asynchronously
                         $scope.probeRemoteGUIAddress(id, newAddress);
+                    } else {
+                        newCache[newAddress] = $scope.remoteGUICache[newAddress];
+                        // Copy cached probing result in the corner case of duplicate GUI
+                        // addresses for different devices.  Which is useless, but
+                        // possible when behind the same NAT router.
+                        if (newCache[newAddress]) {) {
+                            $scope.idToRemoteGUI[id] = newAddress;
+                        } else {
+                            $scope.idToRemoteGUI[id] = "";
+                        }
                     }
                 }
             }
-            // Clean out stale addresses from probing results
-            for (var address in $scope.remoteGUICache) {
-                if (!(address in currentAddresses)) {
-                    delete $scope.remoteGUICache[address];
-                }
-            }
+            // Replace the cache to discard stale addresses
+            $scope.remoteGUICache = newCache;
             console.log("refreshRemoteGUI");
         }
 
