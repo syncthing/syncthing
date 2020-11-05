@@ -567,28 +567,7 @@ angular.module('syncthing.core')
                 $scope.connectionsTotal = data.total;
 
                 data = data.connections;
-                var currentAddresses = [];
                 for (id in data) {
-                    if (!data.hasOwnProperty(id)) {
-                        continue;
-                    }
-                    if (!(id in $scope.devices)) {
-                        // Avoid errors when called before first updateLocalConfig()
-                        continue;
-                    }
-                    if (!(id in $scope.idToRemoteGUI)) {
-                        $scope.idToRemoteGUI[id] = "";
-                    }
-                    var port = $scope.devices[id].remoteGUIPort;
-                    var isNotRelayConnection = !data[id].type.includes("relay");
-                    if ($scope.showRemoteGUI && data[id].address != "" && isNotRelayConnection && port > 0) {
-                        var newAddress = "http://" + replaceAddressPort(data[id].address, port);
-                        currentAddresses.push(newAddress);
-                        if (!(newAddress in $scope.remoteGUICache)) {
-                            // No cached result, trigger a new port probing asynchronously
-                            $scope.probeRemoteGUIAddress(id, newAddress);
-                        }
-                    }
                     try {
                         data[id].inbps = Math.max(0, (data[id].inBytesTotal - $scope.connections[id].inBytesTotal) / td);
                         data[id].outbps = Math.max(0, (data[id].outBytesTotal - $scope.connections[id].outBytesTotal) / td);
@@ -597,15 +576,44 @@ angular.module('syncthing.core')
                         data[id].outbps = 0;
                     }
                 }
-                // Clean out stale addresses from probing results
-                for (var address in $scope.remoteGUICache) {
-                    if (!currentAddresses.includes(address)) {
-                        delete $scope.remoteGUICache[address];
-                    }
-                }
                 $scope.connections = data;
                 console.log("refreshConnections", data);
+
+                refreshRemoteGUI(data);
             }).error($scope.emitHTTPError);
+        }
+
+        function refreshRemoteGUI(connections) {
+            var currentAddresses = [];
+            for (var id in connections) {
+                if (!connections.hasOwnProperty(id)) {
+                    continue;
+                }
+                if (!(id in $scope.devices)) {
+                    // Avoid errors when called before first updateLocalConfig()
+                    continue;
+                }
+                if (!(id in $scope.idToRemoteGUI)) {
+                    $scope.idToRemoteGUI[id] = "";
+                }
+                var port = $scope.devices[id].remoteGUIPort;
+                var isNotRelayConnection = !connections[id].type.includes("relay");
+                if ($scope.showRemoteGUI && connections[id].address != "" && isNotRelayConnection && port > 0) {
+                    var newAddress = "http://" + replaceAddressPort(connections[id].address, port);
+                    currentAddresses.push(newAddress);
+                    if (!(newAddress in $scope.remoteGUICache)) {
+                        // No cached result, trigger a new port probing asynchronously
+                        $scope.probeRemoteGUIAddress(id, newAddress);
+                    }
+                }
+            }
+            // Clean out stale addresses from probing results
+            for (var address in $scope.remoteGUICache) {
+                if (!currentAddresses.includes(address)) {
+                    delete $scope.remoteGUICache[address];
+                }
+            }
+            console.log("refreshRemoteGUI");
         }
 
         function refreshErrors() {
