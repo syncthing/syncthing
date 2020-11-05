@@ -588,7 +588,7 @@ angular.module('syncthing.core')
                 $scope.idToRemoteGUI = {}
                 return
             }
-            var currentAddresses = [];
+            var currentAddresses = {};
             for (var id in connections) {
                 if (!connections.hasOwnProperty(id)) {
                     continue;
@@ -604,7 +604,7 @@ angular.module('syncthing.core')
                 var isNotRelayConnection = !connections[id].type.includes("relay");
                 if (connections[id].address != "" && isNotRelayConnection && port > 0) {
                     var newAddress = "http://" + replaceAddressPort(connections[id].address, port);
-                    currentAddresses.push(newAddress);
+                    currentAddresses[newAddress] = true;
                     if (!(newAddress in $scope.remoteGUICache)) {
                         // No cached result, trigger a new port probing asynchronously
                         $scope.probeRemoteGUIAddress(id, newAddress);
@@ -613,7 +613,7 @@ angular.module('syncthing.core')
             }
             // Clean out stale addresses from probing results
             for (var address in $scope.remoteGUICache) {
-                if (!currentAddresses.includes(address)) {
+                if (!(address in currentAddresses)) {
                     delete $scope.remoteGUICache[address];
                 }
             }
