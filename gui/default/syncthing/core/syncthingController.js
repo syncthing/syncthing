@@ -646,7 +646,8 @@ angular.module('syncthing.core')
         $scope.probeRemoteGUIAddress = function (deviceId, address) {
             $http({
                 method: "OPTIONS",
-                url: address,
+                // Apply RFC6874 encoding for IPv6 link-local zone identifier
+                url: address.replace('%', '%25'),
             }).success(function (data) {
                 $scope.remoteGUICache[address] = true;
                 $scope.idToRemoteGUI[deviceId] = address;
