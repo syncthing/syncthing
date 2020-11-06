@@ -772,7 +772,7 @@
                       <th><span class="fas fa-fw fa-desktop"></span>&nbsp;<span translate>Remote GUI</span></th>
                       <td class="text-right" ng-attr-title="{{idToRemoteGUI[deviceCfg.deviceID]}}">
                         <a ng-if="idToRemoteGUI[deviceCfg.deviceID]" href="{{idToRemoteGUI[deviceCfg.deviceID]}}">{{idToRemoteGUI[deviceCfg.deviceID]}}</a>
-                        <p ng-if="!idToRemoteGUI[deviceCfg.deviceID]">Unreachable</p>
+                        <span ng-if="!idToRemoteGUI[deviceCfg.deviceID]">Unreachable</span>
                       </td>
                     </tr>
                   </tbody>
