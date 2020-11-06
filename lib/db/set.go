@@ -290,6 +290,18 @@ func (s *Snapshot) Availability(file string) []protocol.DeviceID {
 	return av
 }
 
+func (s *Snapshot) DebugGlobalVersions(file string) VersionList {
+	opStr := fmt.Sprintf("%s DebugGlobalVersions(%v)", s.folder, file)
+	l.Debugf(opStr)
+	vl, err := s.t.getGlobalVersions(nil, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
+	if backend.IsClosed(err) {
+		return VersionList{}
+	} else if err != nil {
+		s.fatalError(err, opStr)
+	}
+	return vl
+}
+
 func (s *Snapshot) Sequence(device protocol.DeviceID) int64 {
 	return s.meta.Counts(device, 0).Sequence
 }
