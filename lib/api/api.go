@@ -323,7 +323,7 @@ func (s *service) serve(ctx context.Context) {
 	debugMux.HandleFunc("/rest/debug/cpuprof", s.getCPUProf) // duration
 	debugMux.HandleFunc("/rest/debug/heapprof", s.getHeapProf)
 	debugMux.HandleFunc("/rest/debug/support", s.getSupportBundle)
-	restMux.Handler(http.MethodGet, "/rest/debug/", s.whenDebugging(debugMux))
+	restMux.Handler(http.MethodGet, "/rest/debug/*method", s.whenDebugging(debugMux))
 
 	// A handler that disables caching
 	noCacheRestMux := noCacheMiddleware(metricsMiddleware(restMux))
