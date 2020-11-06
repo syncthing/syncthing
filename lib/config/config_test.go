@@ -129,6 +129,7 @@ func TestDeviceConfig(t *testing.T) {
 				WeakHashThresholdPct: 25,
 				MarkerName:           DefaultMarkerName,
 				JunctionsAsDirs:      true,
+				MaxConcurrentWrites:  maxConcurrentWritesDefault,
 			},
 		}
 
