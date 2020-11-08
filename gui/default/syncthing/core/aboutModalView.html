@@ -1,7 +1,9 @@
 <modal id="about" status="info" icon="far fa-heart" heading="{{'About' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
     <h1 class="text-center">
-      <img alt="MobiusSync" src="assets/img/logo-horizontal.svg" style="max-width: 366px; vertical-align: -16px" />
+      <img alt="MobiusSync" src="assets/img/mobiussync-horizontal.png" style="max-width: 366px; vertical-align: -16px" />
+      <br />
+      <img alt="Syncthing" src="assets/img/logo-horizontal.svg" style="max-width: 366px; vertical-align: -16px" />
       <br />
       <small>{{versionString()}}</small>
       <br />
@@ -12,9 +14,9 @@
       <span ng-if="version.tags">({{version.tags.join(", ")}})</span>
     </p>
     <p class="text-center">
-			<b>Mobius Sync</b> is an iOS app for Syncthing engine.
+			<b>M&ouml;bius&nbsp;Sync</b> is an iOS app incorporating Syncthing engine.
 		  <br />
-      iSyncthing is Copyright &copy; {{version.date | date:"yyyy"}} Pickup&nbsp;Infinity&nbsp;Limited.
+      M&ouml;bius&nbsp;Sync is Copyright &copy; {{version.date | date:"yyyy"}} <a href="https://pickupinfinity.com">Pickup&nbsp;Infinity&nbsp;Limited</a>.
 			All&nbsp;rights&nbsp;reserved.
     </p>
     <p class="text-center" translate>Syncthing is Free and Open Source Software licensed as MPL v2.0.</p>
@@ -22,8 +24,8 @@
 		  Syncthing is Copyright &copy; 2014-{{version.date | date:"yyyy"}} the Syncthing Authors.
     </p>
     <p class="text-center">
-		  Modifications to Syncthing engine for iSyncthing are published at:
-			<a href="https://github.com/isyncthing/syncthing">isyncthing/syncthing</a>
+		  Modifications to Syncthing engine for M&ouml;bius&nbsp;Sync are published at:
+			<a href="https://github.com/MobiusSync/syncthing">MobiusSync/syncthing</a>
     </p>
     <hr />
     <h4 class="text-center" translate>The Syncthing Authors</h4>
@@ -34,7 +36,7 @@ Jakob Borg, Audrius Butkevicius, Simon Frei, Alexander Graf, Alexandre Viau, And
     </div>
     <hr />
 
-    <p translate>iSyncthing includes the following software or portions thereof:</p>
+    <p translate>M&ouml;bius&nbsp;Sync includes the following software or portions thereof:</p>
     <ul class="list-unstyled two-columns" id="copyright-notices">
       <li><a href="https://github.com/Kitura/BlueSocket">Kitura/BlueSocket</a>, Copyright &copy; 2017-2020 IBM Corporation and the Kitura project authors.</li>
     </ul>
