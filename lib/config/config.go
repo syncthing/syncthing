@@ -23,6 +23,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -102,11 +103,22 @@ func New(myID protocol.DeviceID) Configuration {
 	var cfg Configuration
 	cfg.Version = CurrentVersion
 
-	cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
+	if !build.IsIOS() {
+		// FIXME
+		cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
+	}
 
 	util.SetDefaults(&cfg)
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
+
+	if build.IsIOS() {
+		cfg.Options.URSeen = 999999 // maxint so we never send usage reports on iOS
+		cfg.Options.DefaultFolderPath = "."
+		// FIXME Find better solution than blank user and password, but suppress this notification for now
+	} else {
+		cfg.Options.UnackedNotificationIDs = []string{"authenticationUserAndPassword"}
+	}
 
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {

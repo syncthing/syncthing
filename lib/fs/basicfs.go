@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shirou/gopsutil/disk"
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 var (
@@ -56,6 +56,17 @@ func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	// in the test configs.
 	sep := string(filepath.Separator)
 	root = filepath.Dir(root + sep)
+
+	if build.IsIOS() && !filepath.IsAbs(root) && root[0] != '~' {
+	  newroot, err2 := rooted(root, "~/Documents")
+		if err2 == nil {
+		  root = newroot
+		} else {
+		  l.Warnln("Illegal folder", root, "-", err2)
+			// Cannot error from here so use an unwritable path that will fail later
+			root = "~/bad"
+		}
+	}
 
 	// Attempt tilde expansion; leave unchanged in case of error
 	if path, err := ExpandTilde(root); err == nil {
@@ -290,7 +301,7 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 	if err != nil {
 		return Usage{}, err
 	}
-	u, err := disk.Usage(name)
+	u, err := DiskUsage(name)
 	if err != nil {
 		return Usage{}, err
 	}
