@@ -593,9 +593,6 @@ angular.module('syncthing.core')
             }
             var newCache = {};
             for (var id in connections) {
-                if (!connections.hasOwnProperty(id)) {
-                    continue;
-                }
                 if (!(id in $scope.devices)) {
                     // Avoid errors when called before first updateLocalConfig()
                     continue;
