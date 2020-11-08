@@ -568,7 +568,7 @@ angular.module('syncthing.core')
 
                 data = data.connections;
                 for (id in data) {
-                    if (!connections.hasOwnProperty(id)) {
+                    if (!data.hasOwnProperty(id)) {
                         continue;
                     }
                     try {
