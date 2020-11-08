@@ -90,7 +90,7 @@ type App struct {
 	stopOnce    sync.Once
 	stop        chan struct{}
 	stopped     chan struct{}
-  M						model.Model
+	M           model.Model
 }
 
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
