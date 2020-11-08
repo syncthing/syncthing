@@ -623,7 +623,6 @@ angular.module('syncthing.core')
             }
             // Replace the cache to discard stale addresses
             $scope.remoteGUICache = newCache;
-            console.log("refreshRemoteGUI");
         }
 
         function refreshErrors() {
