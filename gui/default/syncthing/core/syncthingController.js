@@ -568,6 +568,9 @@ angular.module('syncthing.core')
 
                 data = data.connections;
                 for (id in data) {
+                    if (!connections.hasOwnProperty(id)) {
+                        continue;
+                    }
                     try {
                         data[id].inbps = Math.max(0, (data[id].inBytesTotal - $scope.connections[id].inBytesTotal) / td);
                         data[id].outbps = Math.max(0, (data[id].outBytesTotal - $scope.connections[id].outBytesTotal) / td);
