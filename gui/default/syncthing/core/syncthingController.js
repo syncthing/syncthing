@@ -597,26 +597,27 @@ angular.module('syncthing.core')
                     // Avoid errors when called before first updateLocalConfig()
                     continue;
                 }
-                if (!(id in $scope.idToRemoteGUI)) {
-                    $scope.idToRemoteGUI[id] = "";
-                }
                 var port = $scope.devices[id].remoteGUIPort;
-                var isNotRelayConnection = !connections[id].type.includes("relay");
-                if (connections[id].address != "" && isNotRelayConnection && port > 0) {
-                    var newAddress = "http://" + replaceAddressPort(connections[id].address, port);
-                    if (!(newAddress in $scope.remoteGUICache)) {
-                        // No cached result, trigger a new port probing asynchronously
-                        $scope.probeRemoteGUIAddress(id, newAddress);
+                if (port <= 0
+                    || !connections[id].address
+                    || connections[id].type.includes("relay")) {
+                    // Relay connections never work as desired here, nor incomplete addresses
+                    $scope.idToRemoteGUI[id] = "";
+                    continue;
+                }
+                var newAddress = "http://" + replaceAddressPort(connections[id].address, port);
+                if (!(newAddress in $scope.remoteGUICache)) {
+                    // No cached result, trigger a new port probing asynchronously
+                    $scope.probeRemoteGUIAddress(id, newAddress);
+                } else {
+                    newCache[newAddress] = $scope.remoteGUICache[newAddress];
+                    // Copy cached probing result in the corner case of duplicate GUI
+                    // addresses for different devices.  Which is useless, but
+                    // possible when behind the same NAT router.
+                    if (newCache[newAddress]) {
+                        $scope.idToRemoteGUI[id] = newAddress;
                     } else {
-                        newCache[newAddress] = $scope.remoteGUICache[newAddress];
-                        // Copy cached probing result in the corner case of duplicate GUI
-                        // addresses for different devices.  Which is useless, but
-                        // possible when behind the same NAT router.
-                        if (newCache[newAddress]) {
-                            $scope.idToRemoteGUI[id] = newAddress;
-                        } else {
-                            $scope.idToRemoteGUI[id] = "";
-                        }
+                        $scope.idToRemoteGUI[id] = "";
                     }
                 }
             }
