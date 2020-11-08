@@ -644,10 +644,13 @@ angular.module('syncthing.core')
         }
 
         $scope.probeRemoteGUIAddress = function (deviceId, address) {
+            // Strip off possible IPv6 link-local zone identifier, as Angular chokes on it
+            // with an (ugly, unjustified) console error message.
+            var urlAddress = address.replace(/%[a-zA-Z0-9_\.\-]*\]/, ']');
+            console.log(urlAddress);
             $http({
                 method: "OPTIONS",
-                // Apply RFC6874 encoding for IPv6 link-local zone identifier
-                url: address.replace('%', '%25'),
+                url: urlAddress,
             }).success(function (data) {
                 $scope.remoteGUICache[address] = true;
                 $scope.idToRemoteGUI[deviceId] = address;
