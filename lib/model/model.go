@@ -1330,11 +1330,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 			m.fmut.Unlock()
 			// We can only announce ourselfs once we have the token,
 			// thus we need to resend CCs now that we have it.
-			m.pmut.RLock()
-			for _, id := range fcfg.DeviceIDs() {
-				m.resendClusterConfigLocked(id)
-			}
-			m.pmut.RUnlock()
+			m.resendClusterConfig(fcfg.DeviceIDs())
 			return nil
 		}
 	}
@@ -1344,10 +1340,21 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	return nil
 }
 
-// Requires pmut readlock
-func (m *model) resendClusterConfigLocked(id protocol.DeviceID) {
-	if conn, ok := m.conn[id]; ok {
-		cm := m.generateClusterConfig(id)
+func (m *model) resendClusterConfig(ids []protocol.DeviceID) {
+	if len(ids) == 0 {
+		return
+	}
+	ccConns := make([]protocol.Connection, 0, len(ids))
+	m.pmut.RLock()
+	for _, id := range ids {
+		if conn, ok := m.conn[id]; ok {
+			ccConns = append(ccConns, conn)
+		}
+	}
+	m.pmut.RUnlock()
+	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
+	for _, conn := range ccConns {
+		cm := m.generateClusterConfig(conn.ID())
 		go conn.ClusterConfig(cm)
 	}
 }
@@ -2578,10 +2585,13 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			go conn.Close(errDeviceRemoved)
 		}
 	}
-	for id := range clusterConfigDevices {
-		m.resendClusterConfigLocked(id)
-	}
 	m.pmut.RUnlock()
+	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
+	ids := make([]protocol.DeviceID, 0, len(clusterConfigDevices))
+	for id := range clusterConfigDevices {
+		ids = append(ids, id)
+	}
+	m.resendClusterConfig(ids)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
