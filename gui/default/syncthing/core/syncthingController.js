@@ -647,7 +647,6 @@ angular.module('syncthing.core')
             // Strip off possible IPv6 link-local zone identifier, as Angular chokes on it
             // with an (ugly, unjustified) console error message.
             var urlAddress = address.replace(/%[a-zA-Z0-9_\.\-]*\]/, ']');
-            console.log(urlAddress);
             $http({
                 method: "OPTIONS",
                 url: urlAddress,
