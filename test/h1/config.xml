@@ -1,9 +1,8 @@
 <configuration version="32">
     <folder id="default" label="" path="s1/" type="sendreceive" rescanIntervalS="10" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <filesystemType>basic</filesystemType>
-        <device id="CJBIJBJ-GUXCT7Q-CJETAJE-KUTF4JV-UKGF5X5-LXU3GJZ-GLVZINO-NSKUMAA" introducedBy="" encryptionPassword="foo"></device>
-        <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" introducedBy="" encryptionPassword="bar"></device>
-        <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" introducedBy="" encryptionPassword="baz"></device>
+        <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" introducedBy=""></device>
+        <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" introducedBy=""></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" introducedBy=""></device>
         <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" introducedBy=""></device>
         <minDiskFree unit="%">1</minDiskFree>
@@ -35,7 +34,7 @@
     <folder id="¯\_(ツ)_/¯ Räksmörgås 动作 Адрес" label="" path="s12-1/" type="sendreceive" rescanIntervalS="10" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <filesystemType>basic</filesystemType>
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" introducedBy=""></device>
-        <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" introducedBy="" encryptionPassword="hello password"></device>
+        <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" introducedBy=""></device>
         <minDiskFree unit="%">1</minDiskFree>
         <versioning>
             <cleanupIntervalS>3600</cleanupIntervalS>
@@ -62,14 +61,6 @@
         <caseSensitiveFS>false</caseSensitiveFS>
         <junctionsAsDirs>true</junctionsAsDirs>
     </folder>
-    <device id="CJBIJBJ-GUXCT7Q-CJETAJE-KUTF4JV-UKGF5X5-LXU3GJZ-GLVZINO-NSKUMAA" name="DESKTOP-OM822EA" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
-        <address>dynamic</address>
-        <paused>false</paused>
-        <autoAcceptFolders>false</autoAcceptFolders>
-        <maxSendKbps>0</maxSendKbps>
-        <maxRecvKbps>0</maxRecvKbps>
-        <maxRequestKiB>0</maxRequestKiB>
-    </device>
     <device id="EJHMPAQ-OGCVORE-ISB4IS3-SYYVJXF-TKJGLTU-66DIQPF-GJ5D2GX-GQ3OWQK" name="s4" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22004</address>
         <paused>false</paused>

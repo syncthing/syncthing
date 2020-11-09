@@ -419,6 +419,9 @@ nextPendingDevice:
 			}
 		}
 	}
+	if cfg.Options.FeatureFlags == nil {
+		cfg.Options.FeatureFlags = []string{}
+	}
 
 	return nil
 }

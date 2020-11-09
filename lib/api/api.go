@@ -65,6 +65,7 @@ const (
 	EventSubBufferSize    = 1000
 	defaultEventTimeout   = time.Minute
 	httpsCertLifetimeDays = 820
+	featureFlagUntrusted  = "untrusted"
 )
 
 type service struct {
@@ -110,7 +111,7 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 	s := &service{
 		id:      id,
 		cfg:     cfg,
-		statics: newStaticsServer(cfg.GUI().Theme, assetDir, strings.Contains(cfg.Options().FeatureFlags, "untrusted")),
+		statics: newStaticsServer(cfg.GUI().Theme, assetDir, cfg.Options().FeatureFlag(featureFlagUntrusted)),
 		model:   m,
 		eventSubs: map[events.EventType]events.BufferedSubscription{
 			DefaultEventMask: defaultSub,
@@ -456,7 +457,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	if to.GUI.Theme != from.GUI.Theme {
 		s.statics.setTheme(to.GUI.Theme)
 	}
-	if untrusted := strings.Contains(to.Options.FeatureFlags, "untrusted"); untrusted != strings.Contains(from.Options.FeatureFlags, "untrusted") {
+	if untrusted := to.Options.FeatureFlag(featureFlagUntrusted); untrusted != from.Options.FeatureFlag(featureFlagUntrusted) {
 		s.statics.setUntrusted(untrusted)
 	}
 
