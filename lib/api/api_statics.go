@@ -62,6 +62,10 @@ func newStaticsServer(theme, assetDir string, untrusted bool) *staticsServer {
 		}
 	}
 
+	if untrusted {
+		l.Infoln(`Feature flag "untrusted":`, untrusted)
+	}
+
 	return s
 }
 
@@ -187,6 +191,7 @@ func (s *staticsServer) setTheme(theme string) {
 
 func (s *staticsServer) setUntrusted(enabled bool) {
 	s.mut.Lock()
+	l.Infoln(`Feature flag "untrusted":`, enabled)
 	s.untrusted = enabled
 	s.mut.Unlock()
 }
