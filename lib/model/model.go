@@ -1062,37 +1062,35 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	// Assemble the device information from the connected device about
 	// themselves and us for all folders.
-	ccDevicesRemote := make(map[string]protocol.Device, len(cm.Folders))
-	ccDevicesLocal := make(map[string]protocol.Device, len(cm.Folders))
+	ccDeviceInfos := make(map[string]*indexSenderStartInfo, len(cm.Folders))
 	for _, folder := range cm.Folders {
-		var foundRemote, foundLocal bool
+		info := &indexSenderStartInfo{}
 		for _, dev := range folder.Devices {
 			if dev.ID == m.id {
-				ccDevicesLocal[folder.ID] = dev
-				foundLocal = true
+				info.local = dev
 			} else if dev.ID == deviceID {
-				ccDevicesRemote[folder.ID] = dev
-				foundRemote = true
+				info.remote = dev
 			}
-			if foundRemote && foundLocal {
+			if info.local.ID != protocol.EmptyDeviceID && info.remote.ID != protocol.EmptyDeviceID {
 				break
 			}
 		}
-		if !foundRemote {
+		if info.remote.ID == protocol.EmptyDeviceID {
 			l.Infof("Device %v sent cluster-config without the device info for the remote on folder %v", deviceID, folder.Description())
 			return errMissingRemoteInClusterConfig
 		}
-		if !foundLocal {
+		if info.local.ID == protocol.EmptyDeviceID {
 			l.Infof("Device %v sent cluster-config without the device info for us locally on folder %v", deviceID, folder.Description())
 			return errMissingLocalInClusterConfig
 		}
+		ccDeviceInfos[folder.ID] = info
 	}
 
 	// Needs to happen outside of the fmut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
 		changedFolders := make([]config.FolderConfiguration, 0, len(cm.Folders))
 		for _, folder := range cm.Folders {
-			if fcfg, fchanged := m.handleAutoAccepts(deviceID, folder, ccDevicesRemote[folder.ID], ccDevicesLocal[folder.ID]); fchanged {
+			if fcfg, fchanged := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID]); fchanged {
 				changedFolders = append(changedFolders, fcfg)
 			}
 		}
@@ -1107,7 +1105,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 	}
 
-	changedHere, tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDevicesRemote, ccDevicesLocal, indexSenderRegistry)
+	changedHere, tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDeviceInfos, indexSenderRegistry)
 	if err != nil {
 		return err
 	}
@@ -1155,7 +1153,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	return nil
 }
 
-func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDevicesRemote, ccDevicesLocal map[string]protocol.Device, indexSenders *indexSenderRegistry) (bool, []string, map[string]struct{}, error) {
+func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) (bool, []string, map[string]struct{}, error) {
 	var changed bool
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
@@ -1186,37 +1184,14 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			continue
 		}
 
-		deviceInfos := &indexSenderStartInfo{}
-		for _, dev := range folder.Devices {
-			if dev.ID == m.id {
-				deviceInfos.local = dev
-			} else if dev.ID == deviceID {
-				deviceInfos.remote = dev
-			}
-			if deviceInfos.local.ID != protocol.EmptyDeviceID && deviceInfos.remote.ID != protocol.EmptyDeviceID {
-				break
-			}
-		}
-		if deviceInfos.remote.ID == protocol.EmptyDeviceID {
-			l.Infof("Device %v sent cluster-config without the device info for the remote on folder %v", deviceID, folder.Description())
-			return false, nil, nil, errMissingRemoteInClusterConfig
-		}
-		if deviceInfos.local.ID == protocol.EmptyDeviceID {
-			l.Infof("Device %v sent cluster-config without the device info for us locally on folder %v", deviceID, folder.Description())
-			return false, nil, nil, errMissingLocalInClusterConfig
-		}
-
 		if folder.Paused {
 			indexSenders.remove(folder.ID)
 			paused[cfg.ID] = struct{}{}
 			continue
 		}
 
-		ccDeviceRemote := ccDevicesRemote[folder.ID]
-		ccDeviceLocal := ccDevicesLocal[folder.ID]
-
 		if cfg.Paused {
-			indexSenders.addPaused(cfg, deviceInfos)
+			indexSenders.addPaused(cfg, ccDeviceInfos[folder.ID])
 			continue
 		}
 
@@ -1230,7 +1205,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			continue
 		}
 
-		if err := m.ccCheckEncryption(cfg, folderDevice, ccDeviceRemote, ccDeviceLocal, deviceCfg.Untrusted); err != nil {
+		if err := m.ccCheckEncryption(cfg, folderDevice, ccDeviceInfos[folder.ID], deviceCfg.Untrusted); err != nil {
 			sameError := false
 			if devs, ok := m.folderEncryptionFailures[folder.ID]; ok {
 				sameError = devs[deviceID] == err
@@ -1261,7 +1236,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
 		}
 
-		indexSenders.add(cfg, fs, deviceInfos)
+		indexSenders.add(cfg, fs, ccDeviceInfos[folder.ID])
 
 		// We might already have files that we need to pull so let the
 		// folder runner know that it should recheck the index data.
@@ -1277,9 +1252,9 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	return changed, tempIndexFolders, paused, nil
 }
 
-func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceRemote, ccDeviceLocal protocol.Device, deviceUntrusted bool) error {
-	hasTokenRemote := len(ccDeviceRemote.EncryptionPasswordToken) > 0
-	hasTokenLocal := len(ccDeviceLocal.EncryptionPasswordToken) > 0
+func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceInfos *indexSenderStartInfo, deviceUntrusted bool) error {
+	hasTokenRemote := len(ccDeviceInfos.remote.EncryptionPasswordToken) > 0
+	hasTokenLocal := len(ccDeviceInfos.local.EncryptionPasswordToken) > 0
 	isEncryptedRemote := folderDevice.EncryptionPassword != ""
 	isEncryptedLocal := fcfg.Type == config.FolderTypeReceiveEncrypted
 
@@ -1313,10 +1288,10 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 		passwordToken := protocol.PasswordToken(fcfg.ID, folderDevice.EncryptionPassword)
 		match := false
 		if hasTokenLocal {
-			match = bytes.Equal(passwordToken, ccDeviceLocal.EncryptionPasswordToken)
+			match = bytes.Equal(passwordToken, ccDeviceInfos.local.EncryptionPasswordToken)
 		} else {
 			// hasTokenRemote == true
-			match = bytes.Equal(passwordToken, ccDeviceRemote.EncryptionPasswordToken)
+			match = bytes.Equal(passwordToken, ccDeviceInfos.remote.EncryptionPasswordToken)
 		}
 		if !match {
 			return errEncryptionPassword
@@ -1328,10 +1303,10 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 
 	var ccToken []byte
 	if hasTokenLocal {
-		ccToken = ccDeviceLocal.EncryptionPasswordToken
+		ccToken = ccDeviceInfos.local.EncryptionPasswordToken
 	} else {
 		// hasTokenRemote == true
-		ccToken = ccDeviceRemote.EncryptionPasswordToken
+		ccToken = ccDeviceInfos.remote.EncryptionPasswordToken
 	}
 	m.fmut.RLock()
 	token, ok := m.folderEncryptionPasswordTokens[fcfg.ID]
@@ -1488,7 +1463,7 @@ func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
-func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceRemote, ccDeviceLocal protocol.Device) (config.FolderConfiguration, bool) {
+func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceInfos *indexSenderStartInfo) (config.FolderConfiguration, bool) {
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
@@ -1506,7 +1481,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 				DeviceID: deviceID,
 			})
 
-			if len(ccDeviceRemote.EncryptionPasswordToken) > 0 || len(ccDeviceLocal.EncryptionPasswordToken) > 0 {
+			if len(ccDeviceInfos.remote.EncryptionPasswordToken) > 0 || len(ccDeviceInfos.local.EncryptionPasswordToken) > 0 {
 				fcfg.Type = config.FolderTypeReceiveEncrypted
 			}
 
@@ -1523,12 +1498,12 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 			}
 		}
 		if cfg.Type == config.FolderTypeReceiveEncrypted {
-			if len(ccDeviceRemote.EncryptionPasswordToken) == 0 && len(ccDeviceLocal.EncryptionPasswordToken) == 0 {
+			if len(ccDeviceInfos.remote.EncryptionPasswordToken) == 0 && len(ccDeviceInfos.local.EncryptionPasswordToken) == 0 {
 				l.Infof("Failed to auto-accept device %s on existing folder %s as the remote wants to send us unencrypted data, but the folder type is receive-encrypted", folder.Description(), deviceID)
 				return config.FolderConfiguration{}, false
 			}
 		} else {
-			if len(ccDeviceRemote.EncryptionPasswordToken) > 0 || len(ccDeviceLocal.EncryptionPasswordToken) > 0 {
+			if len(ccDeviceInfos.remote.EncryptionPasswordToken) > 0 || len(ccDeviceInfos.local.EncryptionPasswordToken) > 0 {
 				l.Infof("Failed to auto-accept device %s on existing folder %s as the remote wants to send us encrypted data, but the folder type is not receive-encrypted", folder.Description(), deviceID)
 				return config.FolderConfiguration{}, false
 			}

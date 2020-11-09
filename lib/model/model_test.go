@@ -4302,15 +4302,18 @@ func TestCcCheckEncryption(t *testing.T) {
 		if tc.isEncryptedRemote {
 			dcfg.EncryptionPassword = pw
 		}
-		ccDevice := protocol.Device{ID: device1, EncryptionPasswordToken: tc.tokenRemote}
-		ccDeviceUs := protocol.Device{ID: myID, EncryptionPasswordToken: tc.tokenLocal}
-		err := m.ccCheckEncryption(tfcfg, dcfg, ccDevice, ccDeviceUs, false)
+
+		deviceInfos := &indexSenderStartInfo{
+			remote: protocol.Device{ID: device1, EncryptionPasswordToken: tc.tokenRemote},
+			local:  protocol.Device{ID: myID, EncryptionPasswordToken: tc.tokenLocal},
+		}
+		err := m.ccCheckEncryption(tfcfg, dcfg, deviceInfos, false)
 		if err != tc.expectedErr {
 			t.Errorf("Testcase %v: Expected error %v, got %v", i, tc.expectedErr, err)
 		}
 
 		if tc.expectedErr == nil {
-			err := m.ccCheckEncryption(tfcfg, dcfg, ccDevice, ccDeviceUs, true)
+			err := m.ccCheckEncryption(tfcfg, dcfg, deviceInfos, true)
 			if tc.isEncryptedRemote || tc.isEncryptedLocal {
 				if err != nil {
 					t.Errorf("Testcase %v: Expected no error, got %v", i, err)
@@ -4331,7 +4334,7 @@ func TestCcCheckEncryption(t *testing.T) {
 		} else {
 			dcfg.EncryptionPassword = "notAMatch"
 		}
-		err = m.ccCheckEncryption(tfcfg, dcfg, ccDevice, ccDeviceUs, false)
+		err = m.ccCheckEncryption(tfcfg, dcfg, deviceInfos, false)
 		if err != errEncryptionPassword {
 			t.Errorf("Testcase %v: Expected error %v, got %v", i, errEncryptionPassword, err)
 		}
