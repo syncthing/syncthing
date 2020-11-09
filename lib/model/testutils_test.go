@@ -49,6 +49,7 @@ func init() {
 	defaultCfg = defaultCfgWrapper.RawCopy()
 
 	defaultAutoAcceptCfg = config.Configuration{
+		Version: config.CurrentVersion,
 		Devices: []config.DeviceConfiguration{
 			{
 				DeviceID: myID, // self

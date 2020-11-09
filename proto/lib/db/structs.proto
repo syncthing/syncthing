@@ -30,6 +30,7 @@ message FileInfoTruncated {
     // repeated BlockInfo Blocks         = 16
     string                symlink_target = 17;
     bytes                 blocks_hash    = 18;
+    bytes                 encrypted      = 19;
     protocol.FileInfoType type           = 2;
     uint32                permissions    = 4;
     int32                 modified_ns    = 11;

@@ -236,13 +236,18 @@ func (f FolderConfiguration) RequiresRestartOnly() FolderConfiguration {
 	return copy
 }
 
-func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
+func (f *FolderConfiguration) Device(device protocol.DeviceID) (FolderDeviceConfiguration, bool) {
 	for _, dev := range f.Devices {
 		if dev.DeviceID == device {
-			return true
+			return dev, true
 		}
 	}
-	return false
+	return FolderDeviceConfiguration{}, false
+}
+
+func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
+	_, ok := f.Device(device)
+	return ok
 }
 
 func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {

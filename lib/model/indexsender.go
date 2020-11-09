@@ -23,15 +23,17 @@ import (
 
 type indexSender struct {
 	suture.Service
-	conn         protocol.Connection
-	folder       string
-	fset         *db.FileSet
-	prevSequence int64
-	evLogger     events.Logger
-	connClosed   chan struct{}
-	token        suture.ServiceToken
-	pauseChan    chan struct{}
-	resumeChan   chan *db.FileSet
+	conn                     protocol.Connection
+	folder                   string
+	folderIsReceiveEncrypted bool
+	dev                      string
+	fset                     *db.FileSet
+	prevSequence             int64
+	evLogger                 events.Logger
+	connClosed               chan struct{}
+	token                    suture.ServiceToken
+	pauseChan                chan struct{}
+	resumeChan               chan *db.FileSet
 }
 
 func (s *indexSender) serve(ctx context.Context) {
@@ -168,6 +170,13 @@ func (s *indexSender) sendIndexTo(ctx context.Context) error {
 		}
 
 		f = fi.(protocol.FileInfo)
+
+		// If this is a folder receiving encrypted files only, we
+		// mustn't ever send locally changed file infos. Those aren't
+		// encrypted and thus would be a protocol error at the remote.
+		if s.folderIsReceiveEncrypted && fi.IsReceiveOnlyChanged() {
+			return true
+		}
 
 		// Mark the file as invalid if any of the local bad stuff flags are set.
 		f.RawInvalid = f.IsInvalid()

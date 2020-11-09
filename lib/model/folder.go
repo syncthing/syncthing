@@ -459,7 +459,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	scanCtx, scanCancel := context.WithCancel(f.ctx)
 	defer scanCancel()
 	mtimefs := f.fset.MtimeFS()
-	fchan := scanner.Walk(scanCtx, scanner.Config{
+
+	scanConfig := scanner.Config{
 		Folder:                f.ID,
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
@@ -474,7 +475,13 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		LocalFlags:            f.localFlags,
 		ModTimeWindow:         f.modTimeWindow,
 		EventLogger:           f.evLogger,
-	})
+	}
+	var fchan chan scanner.ScanResult
+	if f.Type == config.FolderTypeReceiveEncrypted {
+		fchan = scanner.WalkWithoutHashing(scanCtx, scanConfig)
+	} else {
+		fchan = scanner.Walk(scanCtx, scanConfig)
+	}
 
 	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := f.getHealthErrorWithoutIgnores(); err != nil {
@@ -485,13 +492,19 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		return nil
 	})
 
+	// Schedule a pull after scanning, but only if we actually detected any
+	// changes.
+	changes := 0
+	defer func() {
+		if changes > 0 {
+			f.SchedulePull()
+		}
+	}()
+
 	var batchAppend func(protocol.FileInfo, *db.Snapshot)
 	// Resolve items which are identical with the global state.
-	if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
-		batchAppend = func(fi protocol.FileInfo, _ *db.Snapshot) {
-			batch.append(fi)
-		}
-	} else {
+	switch f.Type {
+	case config.FolderTypeReceiveOnly:
 		batchAppend = func(fi protocol.FileInfo, snap *db.Snapshot) {
 			switch gf, ok := snap.GetGlobal(fi.Name); {
 			case !ok:
@@ -509,16 +522,28 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			}
 			batch.append(fi)
 		}
-	}
-
-	// Schedule a pull after scanning, but only if we actually detected any
-	// changes.
-	changes := 0
-	defer func() {
-		if changes > 0 {
-			f.SchedulePull()
+	case config.FolderTypeReceiveEncrypted:
+		batchAppend = func(fi protocol.FileInfo, _ *db.Snapshot) {
+			// This is a "virtual" parent directory of encrypted files.
+			// We don't track it, but check if anything still exists
+			// within and delete it otherwise.
+			if fi.IsDirectory() && protocol.IsEncryptedParent(fi.Name) {
+				if names, err := mtimefs.DirNames(fi.Name); err == nil && len(names) == 0 {
+					mtimefs.Remove(fi.Name)
+				}
+				changes--
+				return
+			}
+			// Any local change must not be sent as index entry to
+			// remotes and show up as an error in the UI.
+			fi.LocalFlags = protocol.FlagLocalReceiveOnly
+			batch.append(fi)
 		}
-	}()
+	default:
+		batchAppend = func(fi protocol.FileInfo, _ *db.Snapshot) {
+			batch.append(fi)
+		}
+	}
 
 	f.clearScanErrors(subDirs)
 	alreadyUsed := make(map[string]struct{})
@@ -540,7 +565,9 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		batchAppend(res.File, snap)
 		changes++
 
-		if f.localFlags&protocol.FlagLocalReceiveOnly == 0 {
+		switch f.Type {
+		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
+		default:
 			if nf, ok := f.findRename(snap, mtimefs, res.File, alreadyUsed); ok {
 				batchAppend(nf, snap)
 				changes++
@@ -648,7 +675,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				l.Debugln("marking file as deleted", nf)
 				batchAppend(nf, snap)
 				changes++
-			case file.IsDeleted() && file.IsReceiveOnlyChanged() && f.localFlags&protocol.FlagLocalReceiveOnly != 0 && len(snap.Availability(file.Name)) == 0:
+			case file.IsDeleted() && file.IsReceiveOnlyChanged() && f.Type == config.FolderTypeReceiveOnly && len(snap.Availability(file.Name)) == 0:
 				file.Version = protocol.Vector{}
 				file.LocalFlags &^= protocol.FlagLocalReceiveOnly
 				l.Debugln("marking deleted item that doesn't exist anywhere as not receive-only", file)

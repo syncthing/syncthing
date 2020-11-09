@@ -80,7 +80,7 @@ func TestClose(t *testing.T) {
 	c0.Index(ctx, "default", nil)
 	c0.Index(ctx, "default", nil)
 
-	if _, err := c0.Request(ctx, "default", "foo", 0, 0, nil, 0, false); err == nil {
+	if _, err := c0.Request(ctx, "default", "foo", 0, 0, 0, nil, 0, false); err == nil {
 		t.Error("Request should return an error")
 	}
 }
@@ -279,6 +279,9 @@ func TestMarshalIndexMessage(t *testing.T) {
 			if len(f.Version.Counters) == 0 {
 				m1.Files[i].Version.Counters = nil
 			}
+			if len(f.Encrypted) == 0 {
+				m1.Files[i].Encrypted = nil
+			}
 		}
 
 		return testMarshal(t, "index", &m1, &Index{})
@@ -339,6 +342,9 @@ func TestMarshalClusterConfigMessage(t *testing.T) {
 			for j := range m1.Folders[i].Devices {
 				if len(m1.Folders[i].Devices[j].Addresses) == 0 {
 					m1.Folders[i].Devices[j].Addresses = nil
+				}
+				if len(m1.Folders[i].Devices[j].EncryptionPasswordToken) == 0 {
+					m1.Folders[i].Devices[j].EncryptionPasswordToken = nil
 				}
 			}
 		}
