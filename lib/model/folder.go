@@ -49,7 +49,8 @@ type folder struct {
 	fset          *db.FileSet
 	ignores       *ignore.Matcher
 	modTimeWindow time.Duration
-	ctx           context.Context
+	ctx           context.Context // used internally, only accessible on serve lifetime
+	done          chan struct{}   // used externally, accessible regardless of serve
 
 	scanInterval           time.Duration
 	scanTimer              *time.Timer
@@ -103,6 +104,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		fset:          fset,
 		ignores:       ignores,
 		modTimeWindow: cfg.ModTimeWindow(),
+		done:          make(chan struct{}),
 
 		scanInterval:           time.Duration(cfg.RescanIntervalS) * time.Second,
 		scanTimer:              time.NewTimer(0), // The first scan should be done immediately.
@@ -165,6 +167,7 @@ func (f *folder) serve(ctx context.Context) {
 	for {
 		select {
 		case <-f.ctx.Done():
+			close(f.done)
 			return
 
 		case <-f.pullScheduled:
@@ -218,7 +221,10 @@ func (f *folder) Override() {}
 func (f *folder) Revert() {}
 
 func (f *folder) DelayScan(next time.Duration) {
-	f.Delay(next)
+	select {
+	case f.scanDelay <- next:
+	case <-f.done:
+	}
 }
 
 func (f *folder) ignoresUpdated() {
@@ -258,8 +264,8 @@ func (f *folder) doInSync(fn func() error) error {
 	select {
 	case f.doInSyncChan <- req:
 		return <-req.err
-	case <-f.ctx.Done():
-		return f.ctx.Err()
+	case <-f.done:
+		return context.Canceled
 	}
 }
 
@@ -272,10 +278,6 @@ func (f *folder) Reschedule() {
 	interval := time.Duration(sleepNanos) * time.Nanosecond
 	l.Debugln(f, "next rescan in", interval)
 	f.scanTimer.Reset(interval)
-}
-
-func (f *folder) Delay(next time.Duration) {
-	f.scanDelay <- next
 }
 
 func (f *folder) getHealthErrorAndLoadIgnores() error {
@@ -952,7 +954,7 @@ func (f *folder) scanOnWatchErr() {
 	err := f.watchErr
 	f.watchMut.Unlock()
 	if err != nil {
-		f.Delay(0)
+		f.DelayScan(0)
 	}
 }
 
