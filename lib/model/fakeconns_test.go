@@ -83,7 +83,7 @@ func (f *fakeConnection) IndexUpdate(ctx context.Context, folder string, fs []pr
 	return nil
 }
 
-func (f *fakeConnection) Request(ctx context.Context, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (f *fakeConnection) Request(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 	if f.requestFn != nil {

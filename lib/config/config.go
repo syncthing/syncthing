@@ -419,6 +419,9 @@ nextPendingDevice:
 			}
 		}
 	}
+	if cfg.Options.FeatureFlags == nil {
+		cfg.Options.FeatureFlags = []string{}
+	}
 
 	return nil
 }
@@ -430,6 +433,22 @@ func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration 
 		m[dev.DeviceID] = dev
 	}
 	return m
+}
+
+// FolderPasswords returns the folder passwords set for this device, for
+// folders that have an encryption password set.
+func (cfg Configuration) FolderPasswords(device protocol.DeviceID) map[string]string {
+	res := make(map[string]string, len(cfg.Folders))
+nextFolder:
+	for _, folder := range cfg.Folders {
+		for _, dev := range folder.Devices {
+			if dev.DeviceID == device && dev.EncryptionPassword != "" {
+				res[folder.ID] = dev.EncryptionPassword
+				continue nextFolder
+			}
+		}
+	}
+	return res
 }
 
 func ensureDevicePresent(devices []FolderDeviceConfiguration, myID protocol.DeviceID) []FolderDeviceConfiguration {

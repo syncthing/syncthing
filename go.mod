@@ -30,6 +30,7 @@ require (
 	github.com/maruel/panicparse v1.5.1
 	github.com/mattn/go-isatty v0.0.12
 	github.com/minio/sha256-simd v0.1.1
+	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.4.0
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pkg/errors v0.9.1
@@ -37,7 +38,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/shirou/gopsutil v3.20.10+incompatible
-	github.com/syncthing/notify v0.0.0-20201101120444-a28a0bd0f5ee
+	github.com/syncthing/notify v0.0.0-20201109091751-9a0e44181151
 	github.com/syndtr/goleveldb v1.0.1-0.20200815071216-d9e9293bd0f7
 	github.com/thejerf/suture v4.0.0+incompatible
 	github.com/urfave/cli v1.22.4

@@ -1,0 +1,19 @@
+<modal id="delete-encryption-confirmation" status="danger" icon="fas fa-question-circle" heading="{{'Delete Unexpected Items' | translate}}" large="no" closeable="yes">
+  <div class="modal-body">
+    <p>
+      <span translate>Unexpected items have been found in this folder.</span></br>
+      <span translate translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">You should never add or change anything locally in a "{%receiveEncrypted%}" folder.</span>
+    </p>
+    <p translate>
+      Are you sure you want to permanently delete all these files?
+    </p>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-danger pull-left btn-sm" data-dismiss="modal" ng-click="revert(revertEncryptionFolder)">
+      <span class="fas fa-check"></span>&nbsp;<span translate>Yes</span>
+    </button>
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fas fa-times"></span>&nbsp;<span translate>No</span>
+    </button>
+  </div>
+</modal>
