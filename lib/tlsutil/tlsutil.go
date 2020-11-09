@@ -99,12 +99,15 @@ func NewCertificate(certFile, keyFile, commonName string, lifetimeDays int) (tls
 	notBefore := time.Now().Truncate(24 * time.Hour)
 	notAfter := notBefore.Add(time.Duration(lifetimeDays*24) * time.Hour)
 
-	// NOTE: update checkExpiry() appropriately if you add or change attributes
-	// in here, especially DNSNames or IPAddresses.
+	// NOTE: update lib/api.shouldRegenerateCertificate() appropriately if
+	// you add or change attributes in here, especially DNSNames or
+	// IPAddresses.
 	template := x509.Certificate{
 		SerialNumber: new(big.Int).SetUint64(rand.Uint64()),
 		Subject: pkix.Name{
-			CommonName: commonName,
+			CommonName:         commonName,
+			Organization:       []string{"Syncthing"},
+			OrganizationalUnit: []string{"Automatically Generated"},
 		},
 		DNSNames:              []string{commonName},
 		NotBefore:             notBefore,
