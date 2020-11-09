@@ -108,36 +108,37 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for an override for the current theme.
+	if untrusted && s.serveFromAssetDir(file, theme+"/untrusted", w, r) {
+		l.Debugln("serving", file, "from override untrusted")
+		return
+	}
 	if s.serveFromAssetDir(file, theme, w, r) {
 		return
 	}
 
 	// Check for a compiled in asset for the current theme.
+	if untrusted && s.serveFromAssets(file, theme+"/untrusted", modificationTime, w, r) {
+		l.Debugln("serving", file, "from compiled untrusted")
+		return
+	}
 	if s.serveFromAssets(file, theme, modificationTime, w, r) {
 		return
 	}
 
-	// Check for an overriden asset for untrusted feature flag
-	if untrusted {
-		// Check for an overridden default asset.
-		if s.serveFromAssetDir(file, config.DefaultTheme+"/untrusted", w, r) {
-			l.Infoln("serving", file, "from override untrusted")
-			return
-		}
-
-		// Check for a compiled in default asset.
-		if s.serveFromAssets(file, config.DefaultTheme+"/untrusted", modificationTime, w, r) {
-			l.Infoln("serving", file, "from compiled untrusted")
-			return
-		}
-	}
-
 	// Check for an overridden default asset.
+	if untrusted && s.serveFromAssetDir(file, config.DefaultTheme+"/untrusted", w, r) {
+		l.Debugln("serving", file, "from override untrusted")
+		return
+	}
 	if s.serveFromAssetDir(file, config.DefaultTheme, w, r) {
 		return
 	}
 
 	// Check for a compiled in default asset.
+	if untrusted && s.serveFromAssets(file, config.DefaultTheme+"/untrusted", modificationTime, w, r) {
+		l.Debugln("serving", file, "from compiled untrusted")
+		return
+	}
 	if s.serveFromAssets(file, config.DefaultTheme, modificationTime, w, r) {
 		return
 	}
