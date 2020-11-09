@@ -2375,13 +2375,18 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			go conn.Close(errDeviceRemoved)
 		}
 	}
+	ccConns := make([]protocol.Connection, 0, len(clusterConfigDevices))
 	for id := range clusterConfigDevices {
 		if conn, ok := m.conn[id]; ok {
-			cm := m.generateClusterConfig(conn.ID())
-			go conn.ClusterConfig(cm)
+			ccConns = append(ccConns, conn)
 		}
 	}
 	m.pmut.RUnlock()
+	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
+	for _, conn := range ccConns {
+		cm := m.generateClusterConfig(conn.ID())
+		go conn.ClusterConfig(cm)
+	}
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
