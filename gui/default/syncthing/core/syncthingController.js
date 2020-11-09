@@ -1927,8 +1927,8 @@ angular.module('syncthing.core')
             // Bump time
             pendingFolder.time = (new Date()).toISOString();
 
-            if (id in $scope.devices) {
-                $scope.devices[id].ignoredFolders.push(pendingFolder);
+            if (device in $scope.devices) {
+                $scope.devices[device].ignoredFolders.push(pendingFolder);
                 $scope.saveConfig();
             }
         };

@@ -26,7 +26,11 @@ var (
 	ErrMarkerMissing    = errors.New("folder marker missing (this indicates potential data loss, search docs/forum to get information about how to proceed)")
 )
 
-const DefaultMarkerName = ".stfolder"
+const (
+	DefaultMarkerName          = ".stfolder"
+	maxConcurrentWritesDefault = 2
+	maxConcurrentWritesLimit   = 64
+)
 
 func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
 	f := FolderConfiguration{
@@ -71,7 +75,7 @@ func (f FolderConfiguration) ModTimeWindow() time.Duration {
 		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil {
 			dur = 2 * time.Second
 			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: err == "%v"`, f.Path, err)
-		} else if usage.Fstype == "" || strings.Contains(strings.ToLower(usage.Fstype), "fat") {
+		} else if usage.Fstype == "" || strings.Contains(strings.ToLower(usage.Fstype), "fat") || strings.Contains(strings.ToLower(usage.Fstype), "msdos") {
 			dur = 2 * time.Second
 			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: usage.Fstype == "%v"`, f.Path, usage.Fstype)
 		} else {
@@ -205,6 +209,12 @@ func (f *FolderConfiguration) prepare() {
 
 	if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
+	}
+
+	if f.MaxConcurrentWrites <= 0 {
+		f.MaxConcurrentWrites = maxConcurrentWritesDefault
+	} else if f.MaxConcurrentWrites > maxConcurrentWritesLimit {
+		f.MaxConcurrentWrites = maxConcurrentWritesLimit
 	}
 }
 

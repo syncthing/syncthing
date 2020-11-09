@@ -128,9 +128,7 @@ type sendReceiveFolder struct {
 	blockPullReorderer blockPullReorderer
 	writeLimiter       *byteSemaphore
 
-	pullErrors     map[string]string // actual exposed pull errors
 	tempPullErrors map[string]string // pull errors that might be just transient
-	pullErrorsMut  sync.Mutex
 }
 
 func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem, evLogger events.Logger, ioLimiter *byteSemaphore) service {
@@ -140,7 +138,6 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 		queue:              newJobQueue(),
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
 		writeLimiter:       newByteSemaphore(cfg.MaxConcurrentWrites),
-		pullErrorsMut:      sync.NewMutex(),
 	}
 	f.folder.puller = f
 	f.folder.Service = util.AsService(f.serve, f.String())
@@ -177,9 +174,9 @@ func (f *sendReceiveFolder) pull() bool {
 
 	changed := 0
 
-	f.pullErrorsMut.Lock()
+	f.errorsMut.Lock()
 	f.pullErrors = nil
-	f.pullErrorsMut.Unlock()
+	f.errorsMut.Unlock()
 
 	for tries := 0; tries < maxPullerIterations; tries++ {
 		select {
@@ -204,14 +201,20 @@ func (f *sendReceiveFolder) pull() bool {
 		}
 	}
 
-	f.pullErrorsMut.Lock()
-	f.pullErrors = f.tempPullErrors
-	f.tempPullErrors = nil
-	for path, err := range f.pullErrors {
-		l.Infof("Puller (folder %s, item %q): %v", f.Description(), path, err)
+	f.errorsMut.Lock()
+	pullErrNum := len(f.tempPullErrors)
+	if pullErrNum > 0 {
+		f.pullErrors = make([]FileError, 0, len(f.tempPullErrors))
+		for path, err := range f.tempPullErrors {
+			l.Infof("Puller (folder %s, item %q): %v", f.Description(), path, err)
+			f.pullErrors = append(f.pullErrors, FileError{
+				Err:  err,
+				Path: path,
+			})
+		}
+		f.tempPullErrors = nil
 	}
-	pullErrNum := len(f.pullErrors)
-	f.pullErrorsMut.Unlock()
+	f.errorsMut.Unlock()
 
 	if pullErrNum > 0 {
 		l.Infof("%v: Failed to sync %v items", f.Description(), pullErrNum)
@@ -229,9 +232,9 @@ func (f *sendReceiveFolder) pull() bool {
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
 func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) int {
-	f.pullErrorsMut.Lock()
+	f.errorsMut.Lock()
 	f.tempPullErrors = make(map[string]string)
-	f.pullErrorsMut.Unlock()
+	f.errorsMut.Unlock()
 
 	snap := f.fset.Snapshot()
 	defer snap.Release()
@@ -1826,8 +1829,8 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 		return
 	}
 
-	f.pullErrorsMut.Lock()
-	defer f.pullErrorsMut.Unlock()
+	f.errorsMut.Lock()
+	defer f.errorsMut.Unlock()
 
 	// We might get more than one error report for a file (i.e. error on
 	// Write() followed by Close()); we keep the first error as that is
@@ -1843,19 +1846,6 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 	f.tempPullErrors[path] = errStr
 
 	l.Debugf("%v new error for %v: %v", f, path, err)
-}
-
-func (f *sendReceiveFolder) Errors() []FileError {
-	scanErrors := f.folder.Errors()
-	f.pullErrorsMut.Lock()
-	errors := make([]FileError, 0, len(f.pullErrors)+len(f.scanErrors))
-	for path, err := range f.pullErrors {
-		errors = append(errors, FileError{path, err})
-	}
-	f.pullErrorsMut.Unlock()
-	errors = append(errors, scanErrors...)
-	sort.Sort(fileErrorList(errors))
-	return errors
 }
 
 // deleteItemOnDisk deletes the file represented by old that is about to be replaced by new.

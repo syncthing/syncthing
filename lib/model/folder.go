@@ -55,14 +55,16 @@ type folder struct {
 	scanTimer              *time.Timer
 	scanDelay              chan time.Duration
 	initialScanFinished    chan struct{}
-	scanErrors             []FileError
-	scanErrorsMut          sync.Mutex
 	versionCleanupInterval time.Duration
 	versionCleanupTimer    *time.Timer
 
 	pullScheduled chan struct{}
 	pullPause     time.Duration
 	pullFailTimer *time.Timer
+
+	scanErrors []FileError
+	pullErrors []FileError
+	errorsMut  sync.Mutex
 
 	doInSyncChan chan syncRequest
 
@@ -106,11 +108,12 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 		scanTimer:              time.NewTimer(0), // The first scan should be done immediately.
 		scanDelay:              make(chan time.Duration),
 		initialScanFinished:    make(chan struct{}),
-		scanErrorsMut:          sync.NewMutex(),
 		versionCleanupInterval: time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second,
 		versionCleanupTimer:    time.NewTimer(time.Duration(cfg.Versioning.CleanupIntervalS) * time.Second),
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
+
+		errorsMut: sync.NewMutex(),
 
 		doInSyncChan: make(chan syncRequest),
 
@@ -333,6 +336,10 @@ func (f *folder) pull() (success bool) {
 	})
 	snap.Release()
 	if abort {
+		// Clears pull failures on items that were needed before, but aren't anymore.
+		f.errorsMut.Lock()
+		f.pullErrors = nil
+		f.errorsMut.Unlock()
 		return true
 	}
 
@@ -994,18 +1001,18 @@ func (f *folder) String() string {
 }
 
 func (f *folder) newScanError(path string, err error) {
-	f.scanErrorsMut.Lock()
+	f.errorsMut.Lock()
 	l.Infof("Scanner (folder %s, item %q): %v", f.Description(), path, err)
 	f.scanErrors = append(f.scanErrors, FileError{
 		Err:  err.Error(),
 		Path: path,
 	})
-	f.scanErrorsMut.Unlock()
+	f.errorsMut.Unlock()
 }
 
 func (f *folder) clearScanErrors(subDirs []string) {
-	f.scanErrorsMut.Lock()
-	defer f.scanErrorsMut.Unlock()
+	f.errorsMut.Lock()
+	defer f.errorsMut.Unlock()
 	if len(subDirs) == 0 {
 		f.scanErrors = nil
 		return
@@ -1024,9 +1031,14 @@ outer:
 }
 
 func (f *folder) Errors() []FileError {
-	f.scanErrorsMut.Lock()
-	defer f.scanErrorsMut.Unlock()
-	return append([]FileError{}, f.scanErrors...)
+	f.errorsMut.Lock()
+	defer f.errorsMut.Unlock()
+	scanLen := len(f.scanErrors)
+	errors := make([]FileError, scanLen+len(f.pullErrors))
+	copy(errors[:scanLen], f.scanErrors)
+	copy(errors[scanLen:], f.pullErrors)
+	sort.Sort(fileErrorList(errors))
+	return errors
 }
 
 // ScheduleForceRescan marks the file such that it gets rehashed on next scan, and schedules a scan.
