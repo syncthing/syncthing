@@ -24,6 +24,9 @@ angular.module('syncthing.core')
         $scope.config = {};
         $scope.configInSync = true;
         $scope.connections = {};
+        $scope.idToRemoteGUI = {};
+        $scope.remoteGUICache = {};
+        $scope.showRemoteGUI = true;
         $scope.errors = [];
         $scope.model = {};
         $scope.myID = '';
@@ -60,6 +63,10 @@ angular.module('syncthing.core')
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
         } catch (exception) { }
+
+        if ("showRemoteGUI" in window.localStorage) {
+            $scope.showRemoteGUI = (window.localStorage["showRemoteGUI"] == "true");
+        }
 
         $scope.folderDefaults = {
             devices: [],
@@ -375,6 +382,7 @@ angular.module('syncthing.core')
             $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
             $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
 
+            $scope.config.gui["showRemoteGUI"] = $scope.showRemoteGUI;
             $scope.devices = deviceMap($scope.config.devices);
             for (var id in $scope.devices) {
                 $scope.completion[id] = {
@@ -517,6 +525,16 @@ angular.module('syncthing.core')
             console.log("recalcCompletion", device, $scope.completion[device]);
         }
 
+        function replaceAddressPort(address, newPort) {
+            var lastColonIndex = address.length;
+            for (var index = 0; index < address.length; index++) {
+                if (address[index] === ":") {
+                    lastColonIndex = index;
+                }
+            }
+            return address.substr(0, lastColonIndex) + ":" + newPort.toString();
+        }
+
         function refreshCompletion(device, folder) {
             if (device === $scope.myID) {
                 return;
@@ -563,7 +581,48 @@ angular.module('syncthing.core')
                 }
                 $scope.connections = data;
                 console.log("refreshConnections", data);
+
+                refreshRemoteGUI(data);
             }).error($scope.emitHTTPError);
+        }
+
+        function refreshRemoteGUI(connections) {
+            if (!$scope.showRemoteGUI) {
+                $scope.idToRemoteGUI = {}
+                return
+            }
+            var newCache = {};
+            for (var id in connections) {
+                if (!(id in $scope.devices)) {
+                    // Avoid errors when called before first updateLocalConfig()
+                    continue;
+                }
+                var port = $scope.devices[id].remoteGUIPort;
+                if (port <= 0
+                    || !connections[id].address
+                    || connections[id].type.includes("relay")) {
+                    // Relay connections never work as desired here, nor incomplete addresses
+                    $scope.idToRemoteGUI[id] = "";
+                    continue;
+                }
+                var newAddress = "http://" + replaceAddressPort(connections[id].address, port);
+                if (!(newAddress in $scope.remoteGUICache)) {
+                    // No cached result, trigger a new port probing asynchronously
+                    $scope.probeRemoteGUIAddress(id, newAddress);
+                } else {
+                    newCache[newAddress] = $scope.remoteGUICache[newAddress];
+                    // Copy cached probing result in the corner case of duplicate GUI
+                    // addresses for different devices.  Which is useless, but
+                    // possible when behind the same NAT router.
+                    if (newCache[newAddress]) {
+                        $scope.idToRemoteGUI[id] = newAddress;
+                    } else {
+                        $scope.idToRemoteGUI[id] = "";
+                    }
+                }
+            }
+            // Replace the cache to discard stale addresses
+            $scope.remoteGUICache = newCache;
         }
 
         function refreshErrors() {
@@ -582,6 +641,22 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/config/insync').success(function (data) {
                 $scope.configInSync = data.configInSync;
             }).error($scope.emitHTTPError);
+        }
+
+        $scope.probeRemoteGUIAddress = function (deviceId, address) {
+            // Strip off possible IPv6 link-local zone identifier, as Angular chokes on it
+            // with an (ugly, unjustified) console error message.
+            var urlAddress = address.replace(/%[a-zA-Z0-9_\.\-]*\]/, ']');
+            $http({
+                method: "OPTIONS",
+                url: urlAddress,
+            }).success(function (data) {
+                $scope.remoteGUICache[address] = true;
+                $scope.idToRemoteGUI[deviceId] = address;
+            }).error(function (err) {
+                $scope.remoteGUICache[address] = false;
+                $scope.idToRemoteGUI[deviceId] = "";
+            });
         }
 
         $scope.refreshNeed = function (page, perpage) {
@@ -1242,6 +1317,11 @@ angular.module('syncthing.core')
         };
 
         $scope.saveConfig = function (callback) {
+            // set local storage feature and delete from post request
+            window.localStorage.setItem("showRemoteGUI", $scope.config.gui.showRemoteGUI ? "true" : "false");
+            $scope.showRemoteGUI = $scope.config.gui.showRemoteGUI;
+            delete $scope.config.gui.showRemoteGUI;
+
             var cfg = JSON.stringify($scope.config);
             var opts = {
                 headers: {
