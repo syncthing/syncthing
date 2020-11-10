@@ -1149,6 +1149,9 @@ func TestRequestLastFileProgress(t *testing.T) {
 }
 
 func TestRequestIndexSenderPause(t *testing.T) {
+	done := make(chan struct{})
+	defer close(done)
+
 	m, fc, fcfg := setupModelWithConnection()
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
@@ -1156,7 +1159,10 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	indexChan := make(chan []protocol.FileInfo)
 	fc.mut.Lock()
 	fc.indexFn = func(_ context.Context, folder string, fs []protocol.FileInfo) {
-		indexChan <- fs
+		select {
+		case indexChan <- fs:
+		case <-done:
+		}
 	}
 	fc.mut.Unlock()
 
@@ -1167,7 +1173,6 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	localIndexUpdate(m, fcfg.ID, files)
 	select {
 	case <-time.After(5 * time.Second):
-		l.Infoln("timeout")
 		t.Fatal("timed out before receiving index")
 	case <-indexChan:
 	}
