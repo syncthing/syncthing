@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/shirou/gopsutil/disk"
 )
 
 var (
@@ -301,7 +302,7 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 	if err != nil {
 		return Usage{}, err
 	}
-	u, err := DiskUsage(name)
+	u, err := disk.Usage(name)
 	if err != nil {
 		return Usage{}, err
 	}
