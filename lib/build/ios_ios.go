@@ -1,4 +1,4 @@
-// Copyright (C) 2016 The Syncthing Authors.
+// Copyright (C) 2020 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -6,11 +6,8 @@
 
 // +build ios
 
-package fs
+package build
 
-func DiskUsage(name string) (Usage, error) {
-	return Usage{
-		Free:  100, // FIXME
-		Total: 100, // FIXME
-	}, nil
+func IsIOS() bool {
+	return true
 }

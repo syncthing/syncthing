@@ -2438,6 +2438,7 @@ angular.module('syncthing.core')
             }
 
             var os = {
+                'ios': 'iOS',
                 'darwin': 'macOS',
                 'dragonfly': 'DragonFly BSD',
                 'freebsd': 'FreeBSD',
@@ -2457,11 +2458,7 @@ angular.module('syncthing.core')
                 'ppc64le': 'PowerPC (LE)'
             }[$scope.version.arch] || $scope.version.arch;
 
-            if ($scope.version.os === 'darwin' && $scope.version.arch === 'arm64') {
-                return $scope.version.version + ', iOS';
-            } else {
-                return $scope.version.version + ', ' + os + ' (' + arch + ')';
-            }
+            return $scope.version.version + ', ' + os + ' (' + arch + ')';
         };
 
         $scope.inputTypeFor = function (key, value) {
