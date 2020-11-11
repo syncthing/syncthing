@@ -1535,6 +1535,7 @@ angular.module('syncthing.core')
                         ignoredFolders: []
                     };
                     $scope.editingExisting = false;
+                    initShareEditing('device');
                     $scope.deviceEditor.$setPristine();
                     $('#editDevice').modal();
                 });
