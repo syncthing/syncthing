@@ -89,6 +89,11 @@ type puller interface {
 	pull() bool // true when successful and should not be retried
 }
 
+var (
+	externallyDisabledMut = sync.NewMutex()
+	ExternallyDisabled = false
+)
+
 func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore, ver versioner.Versioner) folder {
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
@@ -300,7 +305,20 @@ func (f *folder) getHealthErrorWithoutIgnores() error {
 		}
 	}
 
+	externallyDisabledMut.Lock()
+	disabled := ExternallyDisabled
+	externallyDisabledMut.Unlock()
+	if disabled {
+		return errDisabled
+	}
+
 	return nil
+}
+
+func SetExternallyDisabled(isDisabled bool) {
+	externallyDisabledMut.Lock()
+	ExternallyDisabled = isDisabled
+	externallyDisabledMut.Unlock()
 }
 
 func (f *folder) pull() (success bool) {
