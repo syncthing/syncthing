@@ -56,6 +56,7 @@ message OptionsConfiguration {
     int32           max_concurrent_incoming_request_kib      = 47 [(ext.goname) = "RawMaxCIRequestKiB", (ext.xml) = "maxConcurrentIncomingRequestKiB", (ext.json) = "maxConcurrentIncomingRequestKiB"];
     bool            announce_lan_addresses                   = 48 [(ext.goname)= "AnnounceLANAddresses", (ext.xml) = "announceLANAddresses", (ext.json) = "announceLANAddresses", (ext.default) = "true"];
     bool            send_full_index_on_upgrade               = 49;
+    repeated string feature_flags                            = 50;
 
 
     // Legacy deprecated

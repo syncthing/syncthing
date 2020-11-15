@@ -14,8 +14,9 @@ import "lib/fs/copyrangemethod.proto";
 import "ext.proto";
 
 message FolderDeviceConfiguration {
-    bytes device_id     = 1 [(ext.goname) = "DeviceID", (ext.xml) = "id,attr", (ext.json) = "deviceID", (ext.device_id) = true];
-    bytes introduced_by = 2 [(ext.xml) = "introducedBy,attr", (ext.device_id) = true];
+    bytes  device_id           = 1 [(ext.goname) = "DeviceID", (ext.xml) = "id,attr", (ext.json) = "deviceID", (ext.device_id) = true];
+    bytes  introduced_by       = 2 [(ext.xml) = "introducedBy,attr", (ext.device_id) = true];
+    string encryption_password = 3;
 }
 
 message FolderConfiguration {

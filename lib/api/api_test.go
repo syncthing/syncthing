@@ -404,6 +404,12 @@ func TestAPIServiceRequests(t *testing.T) {
 
 		// /rest/config
 		{
+			URL:    "/rest/config",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "",
+		},
+		{
 			URL:    "/rest/config/folders",
 			Code:   200,
 			Type:   "application/json",
@@ -1073,8 +1079,8 @@ func TestOptionsRequest(t *testing.T) {
 	if resp.Header.Get("Access-Control-Allow-Origin") != "*" {
 		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Origin: *' header")
 	}
-	if resp.Header.Get("Access-Control-Allow-Methods") != "GET, POST" {
-		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Methods: GET, POST' header")
+	if resp.Header.Get("Access-Control-Allow-Methods") != "GET, POST, PUT, PATCH, DELETE, OPTIONS" {
+		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS' header")
 	}
 	if resp.Header.Get("Access-Control-Allow-Headers") != "Content-Type, X-API-Key" {
 		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Headers: Content-Type, X-API-KEY' header")

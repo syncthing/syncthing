@@ -26,7 +26,11 @@ var (
 	ErrMarkerMissing    = errors.New("folder marker missing (this indicates potential data loss, search docs/forum to get information about how to proceed)")
 )
 
-const DefaultMarkerName = ".stfolder"
+const (
+	DefaultMarkerName          = ".stfolder"
+	maxConcurrentWritesDefault = 2
+	maxConcurrentWritesLimit   = 64
+)
 
 func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
 	f := FolderConfiguration{
@@ -206,6 +210,12 @@ func (f *FolderConfiguration) prepare() {
 	if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
 	}
+
+	if f.MaxConcurrentWrites <= 0 {
+		f.MaxConcurrentWrites = maxConcurrentWritesDefault
+	} else if f.MaxConcurrentWrites > maxConcurrentWritesLimit {
+		f.MaxConcurrentWrites = maxConcurrentWritesLimit
+	}
 }
 
 // RequiresRestartOnly returns a copy with only the attributes that require
@@ -226,13 +236,18 @@ func (f FolderConfiguration) RequiresRestartOnly() FolderConfiguration {
 	return copy
 }
 
-func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
+func (f *FolderConfiguration) Device(device protocol.DeviceID) (FolderDeviceConfiguration, bool) {
 	for _, dev := range f.Devices {
 		if dev.DeviceID == device {
-			return true
+			return dev, true
 		}
 	}
-	return false
+	return FolderDeviceConfiguration{}, false
+}
+
+func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
+	_, ok := f.Device(device)
+	return ok
 }
 
 func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {

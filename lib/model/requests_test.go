@@ -101,7 +101,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 	<-done
 
 	// Request a file by traversing the symlink
-	res, err := m.Request(device1, "default", "symlink/requests_test.go", 10, 0, nil, 0, false)
+	res, err := m.Request(device1, "default", "symlink/requests_test.go", 0, 10, 0, nil, 0, false)
 	if err == nil || res != nil {
 		t.Error("Managed to traverse symlink")
 	}
@@ -499,7 +499,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 		t.Fatalf("unexpected weak hash: %d != 103547413", f.Blocks[0].WeakHash)
 	}
 
-	res, err := m.Request(device1, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	res, err := m.Request(device1, "default", "foo", 0, int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -513,7 +513,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 
 	must(t, writeFile(tfs, "foo", payload, 0777))
 
-	_, err = m.Request(device1, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	_, err = m.Request(device1, "default", "foo", 0, int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err == nil {
 		t.Fatalf("expected failure")
 	}
@@ -1149,6 +1149,9 @@ func TestRequestLastFileProgress(t *testing.T) {
 }
 
 func TestRequestIndexSenderPause(t *testing.T) {
+	done := make(chan struct{})
+	defer close(done)
+
 	m, fc, fcfg := setupModelWithConnection()
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
@@ -1156,7 +1159,10 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	indexChan := make(chan []protocol.FileInfo)
 	fc.mut.Lock()
 	fc.indexFn = func(_ context.Context, folder string, fs []protocol.FileInfo) {
-		indexChan <- fs
+		select {
+		case indexChan <- fs:
+		case <-done:
+		}
 	}
 	fc.mut.Unlock()
 
@@ -1167,7 +1173,6 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	localIndexUpdate(m, fcfg.ID, files)
 	select {
 	case <-time.After(5 * time.Second):
-		l.Infoln("timeout")
 		t.Fatal("timed out before receiving index")
 	case <-indexChan:
 	}
