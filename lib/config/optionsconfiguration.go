@@ -127,7 +127,7 @@ func (opts OptionsConfiguration) MaxConcurrentIncomingRequestKiB() int {
 		return 0
 	}
 
-	if opts.RawMaxFolderConcurrency == 0 {
+	if opts.RawMaxCIRequestKiB == 0 {
 		// The default is 256 MiB
 		return 256 * 1024 // KiB
 	}
