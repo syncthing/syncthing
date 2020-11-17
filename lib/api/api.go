@@ -123,7 +123,7 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		configChanged:        make(chan struct{}),
 		startedOnce:          make(chan struct{}),
-		exitChan:             make(chan *util.FatalErr),
+		exitChan:             make(chan *util.FatalErr, 1),
 	}
 }
 
@@ -464,6 +464,14 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	s.configChanged <- struct{}{}
 
 	return true
+}
+
+func (s *service) fatal(err *util.FatalErr) {
+	// s.exitChan is 1-buffered and whoever is first gets handled.
+	select {
+	case s.exitChan <- err:
+	default:
+	}
 }
 
 func debugMiddleware(h http.Handler) http.Handler {
@@ -871,12 +879,10 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 func (s *service) postSystemRestart(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "restarting"}`, w)
 
-	go func() {
-		s.exitChan <- &util.FatalErr{
-			Err:    errors.New("restart initiated by rest API"),
-			Status: util.ExitRestart,
-		}
-	}()
+	s.fatal(&util.FatalErr{
+		Err:    errors.New("restart initiated by rest API"),
+		Status: util.ExitRestart,
+	})
 }
 
 func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
@@ -902,22 +908,18 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
 
-	go func() {
-		s.exitChan <- &util.FatalErr{
-			Err:    errors.New("restart after db reset initiated by rest API"),
-			Status: util.ExitRestart,
-		}
-	}()
+	s.fatal(&util.FatalErr{
+		Err:    errors.New("restart after db reset initiated by rest API"),
+		Status: util.ExitRestart,
+	})
 }
 
 func (s *service) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "shutting down"}`, w)
-	go func() {
-		s.exitChan <- &util.FatalErr{
-			Err:    errors.New("shutdown after db reset initiated by rest API"),
-			Status: util.ExitSuccess,
-		}
-	}()
+	s.fatal(&util.FatalErr{
+		Err:    errors.New("shutdown after db reset initiated by rest API"),
+		Status: util.ExitSuccess,
+	})
 }
 
 func (s *service) flushResponse(resp string, w http.ResponseWriter) {
@@ -1352,12 +1354,10 @@ func (s *service) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.flushResponse(`{"ok": "restarting"}`, w)
-		go func() {
-			s.exitChan <- &util.FatalErr{
-				Err:    errors.New("exit after upgrade initiated by rest API"),
-				Status: util.ExitUpgrade,
-			}
-		}()
+		s.fatal(&util.FatalErr{
+			Err:    errors.New("exit after upgrade initiated by rest API"),
+			Status: util.ExitUpgrade,
+		})
 	}
 }
 
