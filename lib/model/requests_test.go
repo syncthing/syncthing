@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -1269,5 +1271,52 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	case <-time.After(dur):
 	case <-indexChan:
 		t.Error("Received index despite remote not having the folder")
+	}
+}
+
+func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
+	done := make(chan struct{})
+	defer close(done)
+
+	ldb := db.NewLowlevel(backend.OpenMemory())
+	w, fcfg := tmpDefaultWrapper()
+	tfs := fcfg.Filesystem()
+	dir1 := "foo"
+	dir2 := "bar"
+
+	// Initialise db with an entry and then stop everything again
+	must(t, tfs.Mkdir(dir1, 0777))
+	m := newModel(w, myID, "syncthing", "dev", ldb, nil)
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+	m.ServeBackground()
+	m.ScanFolders()
+	m.cancel()
+	m.evCancel()
+	<-m.stopped
+
+	// Add connection (sends cluster config) before starting the new model
+	m = newModel(w, myID, "syncthing", "dev", ldb, nil)
+	defer cleanupModel(m)
+	fc := addFakeConn(m, device1)
+	indexChan := make(chan []protocol.FileInfo)
+	fc.mut.Lock()
+	fc.indexFn = func(_ context.Context, folder string, fs []protocol.FileInfo) {
+		select {
+		case indexChan <- fs:
+		case <-done:
+		}
+	}
+	fc.mut.Unlock()
+
+	m.ServeBackground()
+	<-m.started
+
+	// Check that an index is sent for the newly added item
+	must(t, tfs.Mkdir(dir2, 0777))
+	m.ScanFolders()
+	select {
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out before receiving index")
+	case <-indexChan:
 	}
 }
