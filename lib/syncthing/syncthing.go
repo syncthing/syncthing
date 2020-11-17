@@ -354,7 +354,8 @@ func (a *App) handleMainServiceError(err error) {
 	if err == nil || errors.Is(err, context.Canceled) {
 		return
 	}
-	if fatalErr, ok := err.(*util.FatalErr); ok {
+	var fatalErr *util.FatalErr
+	if errors.As(err, &fatalErr) {
 		a.exitStatus = fatalErr.Status
 		a.err = fatalErr.Err
 		return
