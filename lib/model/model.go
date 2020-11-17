@@ -551,23 +551,28 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
-	// In case this folder is new and was shared with us we already got a
-	// cluster config and wont necessarily get another soon - start sending
-	// indexes if connected.
-	if fset.Sequence(protocol.LocalDeviceID) == 0 {
-		m.pmut.RLock()
-		for _, id := range cfg.DeviceIDs() {
-			if is, ok := m.indexSenders[id]; ok {
-				if fset.Sequence(id) == 0 {
-					is.addNew(cfg, fset)
-				}
+	// Cluster configs might be received and processed before reaching this
+	// point, i.e. before the folder is started. If that's the case, start
+	// index senders here.
+	localSequenceZero := fset.Sequence(protocol.LocalDeviceID) == 0
+	m.pmut.RLock()
+	for _, id := range cfg.DeviceIDs() {
+		if is, ok := m.indexSenders[id]; ok {
+			if localSequenceZero && fset.Sequence(id) == 0 {
+				// In case this folder was shared to us and
+				// newly added, add a new index sender.
+				is.addNew(cfg, fset)
+			} else {
+				// For existing folders we stored the index data from
+				// the cluster config, so resume based on that - if
+				// we didn't get a cluster config yet, it's a noop.
+				is.resume(cfg, fset)
 			}
 		}
-		m.pmut.RUnlock()
 	}
+	m.pmut.RUnlock()
 
 	m.addAndStartFolderLocked(cfg, fset, cacheIgnoredFiles)
-
 }
 
 func (m *model) UsageReportingStats(report *contract.Report, version int, preview bool) {
@@ -1191,16 +1196,6 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			continue
 		}
 
-		m.fmut.RLock()
-		fs, ok := m.folderFiles[folder.ID]
-		m.fmut.RUnlock()
-		if !ok {
-			// Shouldn't happen because !cfg.Paused, but might happen
-			// if the folder is about to be unpaused, but not yet.
-			l.Debugln("ccH: no fset", folder.ID)
-			continue
-		}
-
 		if err := m.ccCheckEncryption(cfg, folderDevice, ccDeviceInfos[folder.ID], deviceCfg.Untrusted); err != nil {
 			sameError := false
 			if devs, ok := m.folderEncryptionFailures[folder.ID]; ok {
@@ -1230,6 +1225,17 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		if !folder.DisableTempIndexes {
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
+		}
+
+		m.fmut.RLock()
+		fs, ok := m.folderFiles[folder.ID]
+		m.fmut.RUnlock()
+		if !ok {
+			// Shouldn't happen because !cfg.Paused, but might happen
+			// if the folder is about to be unpaused, but not yet.
+			l.Debugln("ccH: no fset", folder.ID)
+			indexSenders.addPaused(cfg, ccDeviceInfos[folder.ID])
+			continue
 		}
 
 		indexSenders.add(cfg, fs, ccDeviceInfos[folder.ID])
