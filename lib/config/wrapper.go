@@ -55,6 +55,7 @@ func (noopWaiter) Wait() {}
 // notifications of changes to registered Handlers
 type Wrapper interface {
 	ConfigPath() string
+	MyID() protocol.DeviceID
 
 	RawCopy() Configuration
 	Replace(cfg Configuration) (Waiter, error)
@@ -97,6 +98,7 @@ type wrapper struct {
 	cfg      Configuration
 	path     string
 	evLogger events.Logger
+	myID     protocol.DeviceID
 
 	waiter Waiter // Latest ongoing config change
 	subs   []Committer
@@ -107,11 +109,12 @@ type wrapper struct {
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
 // disk.
-func Wrap(path string, cfg Configuration, evLogger events.Logger) Wrapper {
+func Wrap(path string, cfg Configuration, myID protocol.DeviceID, evLogger events.Logger) Wrapper {
 	w := &wrapper{
 		cfg:      cfg,
 		path:     path,
 		evLogger: evLogger,
+		myID:     myID,
 		waiter:   noopWaiter{}, // Noop until first config change
 		mut:      sync.NewMutex(),
 	}
@@ -132,11 +135,15 @@ func Load(path string, myID protocol.DeviceID, evLogger events.Logger) (Wrapper,
 		return nil, 0, err
 	}
 
-	return Wrap(path, cfg, evLogger), originalVersion, nil
+	return Wrap(path, cfg, myID, evLogger), originalVersion, nil
 }
 
 func (w *wrapper) ConfigPath() string {
 	return w.path
+}
+
+func (w *wrapper) MyID() protocol.DeviceID {
+	return w.myID
 }
 
 // Subscribe registers the given handler to be called on any future
@@ -184,7 +191,7 @@ func (w *wrapper) Replace(cfg Configuration) (Waiter, error) {
 func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {
 	from := w.cfg
 
-	if err := to.clean(); err != nil {
+	if err := to.prepare(w.myID); err != nil {
 		return noopWaiter{}, err
 	}
 

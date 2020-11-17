@@ -83,6 +83,10 @@ func SetDefaults(data interface{}) {
 			default:
 				panic(f.Type())
 			}
+		} else if f.CanSet() && f.Kind() == reflect.Struct && f.CanAddr() {
+			if addr := f.Addr(); addr.CanInterface() {
+				SetDefaults(addr.Interface())
+			}
 		}
 	}
 }
@@ -137,9 +141,22 @@ func UniqueTrimmedStrings(ss []string) []string {
 	return us
 }
 
+func FillNilExceptDeprecated(data interface{}) {
+	fillNil(data, true)
+}
+
 func FillNil(data interface{}) {
+	fillNil(data, false)
+}
+
+func fillNil(data interface{}, skipDeprecated bool) {
 	s := reflect.ValueOf(data).Elem()
+	t := s.Type()
 	for i := 0; i < s.NumField(); i++ {
+		if skipDeprecated && strings.HasPrefix(t.Field(i).Name, "Deprecated") {
+			continue
+		}
+
 		f := s.Field(i)
 
 		for f.Kind() == reflect.Ptr && f.IsZero() && f.CanSet() {
@@ -162,7 +179,7 @@ func FillNil(data interface{}) {
 
 			if f.Kind() == reflect.Struct && f.CanAddr() {
 				if addr := f.Addr(); addr.CanInterface() {
-					FillNil(addr.Interface())
+					fillNil(addr.Interface(), skipDeprecated)
 				}
 			}
 		}

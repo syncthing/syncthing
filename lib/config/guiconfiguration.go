@@ -11,6 +11,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
@@ -123,6 +125,12 @@ func (c GUIConfiguration) IsValidAPIKey(apiKey string) bool {
 
 	default:
 		return false
+	}
+}
+
+func (c *GUIConfiguration) prepare() {
+	if c.APIKey == "" {
+		c.APIKey = rand.String(32)
 	}
 }
 

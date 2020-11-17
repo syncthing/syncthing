@@ -113,7 +113,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 			RawUseTLS:  false,
 		},
 	}
-	w := config.Wrap("/dev/null", cfg, events.NoopLogger)
+	w := config.Wrap("/dev/null", cfg, protocol.LocalDeviceID, events.NoopLogger)
 
 	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false).(*service)
 	defer os.Remove(token)
@@ -1251,7 +1251,7 @@ func TestConfigChanges(t *testing.T) {
 		panic(err)
 	}
 	defer os.Remove(tmpFile.Name())
-	w := config.Wrap(tmpFile.Name(), cfg, events.NoopLogger)
+	w := config.Wrap(tmpFile.Name(), cfg, protocol.LocalDeviceID, events.NoopLogger)
 	tmpFile.Close()
 	baseURL, cancel, err := startHTTP(w)
 	if err != nil {

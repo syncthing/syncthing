@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func TestMain(m *testing.M) {
@@ -47,7 +48,7 @@ var (
 	}
 	defaultCfg = config.Wrap("", config.Configuration{
 		Folders: []config.FolderConfiguration{defaultFolderCfg},
-	}, events.NoopLogger)
+	}, protocol.LocalDeviceID, events.NoopLogger)
 )
 
 // Represents possibly multiple (different event types) expected paths from
