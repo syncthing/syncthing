@@ -178,7 +178,7 @@ func (c *folderSummaryService) listenForUpdates(ctx context.Context) error {
 		case ev := <-sub.C():
 			c.processUpdate(ev)
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 }
@@ -270,7 +270,7 @@ func (c *folderSummaryService) calculateSummaries(ctx context.Context) error {
 			for _, folder := range c.foldersToHandle() {
 				select {
 				case <-ctx.Done():
-					return nil
+					return ctx.Err()
 				default:
 				}
 				c.sendSummary(ctx, folder)
@@ -286,7 +286,7 @@ func (c *folderSummaryService) calculateSummaries(ctx context.Context) error {
 			c.sendSummary(ctx, folder)
 
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 }

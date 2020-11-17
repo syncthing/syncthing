@@ -119,7 +119,7 @@ func (s *Service) Serve(ctx context.Context) error {
 	disabled:
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case <-timer.C:
 		}
 
@@ -139,7 +139,7 @@ func (s *Service) Serve(ctx context.Context) error {
 			// Have we been asked to stop?
 			select {
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			default:
 			}
 

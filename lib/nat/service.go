@@ -88,7 +88,7 @@ func (s *Service) Serve(ctx context.Context) error {
 				mapping.clearAddresses()
 			}
 			s.mut.RUnlock()
-			return nil
+			return ctx.Err()
 		}
 		s.mut.RLock()
 		enabled := s.enabled
@@ -342,7 +342,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intPort, extPor
 	for i := 0; i < 10; i++ {
 		select {
 		case <-ctx.Done():
-			return Address{}, nil
+			return Address{}, ctx.Err()
 		default:
 		}
 

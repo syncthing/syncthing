@@ -119,7 +119,7 @@ func (t *relayListener) serve(ctx context.Context) error {
 			}
 
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 }

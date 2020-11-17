@@ -37,7 +37,7 @@ func (s *verboseService) Serve(ctx context.Context) error {
 				l.Verboseln(formatted)
 			}
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 }

@@ -57,7 +57,7 @@ func (s *indexSender) Serve(ctx context.Context) error {
 	for err == nil {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case <-s.connClosed:
 			return nil
 		default:
@@ -70,7 +70,7 @@ func (s *indexSender) Serve(ctx context.Context) error {
 		if s.fset.Sequence(protocol.LocalDeviceID) <= s.prevSequence {
 			select {
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			case <-s.connClosed:
 				return nil
 			case <-evChan:

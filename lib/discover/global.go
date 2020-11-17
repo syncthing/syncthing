@@ -193,7 +193,7 @@ func (c *globalClient) Serve(ctx context.Context) error {
 		// We're configured to not do announcements, only lookups. To maintain
 		// the same interface, we just pause here if Serve() is run.
 		<-ctx.Done()
-		return nil
+		return ctx.Err()
 	}
 
 	timer := time.NewTimer(5 * time.Second)
@@ -226,7 +226,7 @@ func (c *globalClient) Serve(ctx context.Context) error {
 			c.sendAnnouncement(ctx, timer)
 
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 }

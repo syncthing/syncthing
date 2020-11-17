@@ -201,7 +201,7 @@ func (s *service) handle(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case c = <-s.conns:
 		}
 
@@ -370,7 +370,7 @@ func (s *service) connect(ctx context.Context) error {
 		for _, deviceCfg := range cfg.Devices {
 			select {
 			case <-ctx.Done():
-				return nil
+				return ctx.Err()
 			default:
 			}
 
@@ -502,7 +502,7 @@ func (s *service) connect(ctx context.Context) error {
 		select {
 		case <-time.After(sleep):
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 	return nil

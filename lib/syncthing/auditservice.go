@@ -41,7 +41,7 @@ func (s *auditService) Serve(ctx context.Context) error {
 		case ev := <-sub.C():
 			enc.Encode(ev)
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 }

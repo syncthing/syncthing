@@ -364,7 +364,7 @@ func (s *Service) Serve(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case <-s.forceRun:
 			t.Reset(0)
 		case <-t.C:

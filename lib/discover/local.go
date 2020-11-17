@@ -148,7 +148,7 @@ func (c *localClient) sendLocalAnnouncements(ctx context.Context) error {
 		case <-c.localBcastTick:
 		case <-c.forcedBcastTick:
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 }
@@ -159,7 +159,7 @@ func (c *localClient) recvAnnouncements(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		default:
 		}
 
