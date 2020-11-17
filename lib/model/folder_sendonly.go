@@ -13,7 +13,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -30,7 +29,6 @@ func newSendOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, 
 		folder: newFolder(model, fset, ignores, cfg, evLogger, ioLimiter, nil),
 	}
 	f.folder.puller = f
-	f.folder.Service = util.AsService(f.serve, f.String())
 	return f
 }
 

@@ -9,6 +9,7 @@ package syncthing
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/api"
 	"github.com/syncthing/syncthing/lib/build"
@@ -39,6 +40,7 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 const (
@@ -48,20 +50,6 @@ const (
 	initialSystemLog       = 10
 	maxSystemLog           = 250
 	deviceCertLifetimeDays = 20 * 365
-)
-
-type ExitStatus int
-
-func (s ExitStatus) AsInt() int {
-	return int(s)
-}
-
-const (
-	ExitSuccess            ExitStatus = 0
-	ExitError              ExitStatus = 1
-	ExitNoUpgradeAvailable ExitStatus = 2
-	ExitRestart            ExitStatus = 3
-	ExitUpgrade            ExitStatus = 4
 )
 
 type Options struct {
@@ -78,18 +66,18 @@ type Options struct {
 }
 
 type App struct {
-	myID        protocol.DeviceID
-	mainService *suture.Supervisor
-	cfg         config.Wrapper
-	ll          *db.Lowlevel
-	evLogger    events.Logger
-	cert        tls.Certificate
-	opts        Options
-	exitStatus  ExitStatus
-	err         error
-	stopOnce    sync.Once
-	stop        chan struct{}
-	stopped     chan struct{}
+	myID              protocol.DeviceID
+	mainService       *suture.Supervisor
+	cfg               config.Wrapper
+	ll                *db.Lowlevel
+	evLogger          events.Logger
+	cert              tls.Certificate
+	opts              Options
+	exitStatus        util.ExitStatus
+	err               error
+	stopOnce          sync.Once
+	mainServiceCancel context.CancelFunc
+	stopped           chan struct{}
 }
 
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
@@ -99,7 +87,6 @@ func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, 
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,
-		stop:     make(chan struct{}),
 		stopped:  make(chan struct{}),
 	}
 	close(a.stopped) // Hasn't been started, so shouldn't block on Wait.
@@ -112,20 +99,20 @@ func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, 
 func (a *App) Start() error {
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
-	a.mainService = suture.New("main", suture.Spec{
-		Log: func(line string) {
-			l.Debugln(line)
-		},
-		PassThroughPanics: true,
-	})
+	spec := util.Spec()
+	spec.EventHook = func(e suture.Event) {
+		l.Debugln(e)
+	}
+	a.mainService = suture.New("main", spec)
 
 	// Start the supervisor and wait for it to stop to handle cleanup.
 	a.stopped = make(chan struct{})
-	a.mainService.ServeBackground()
-	go a.run()
+	ctx, cancel := context.WithCancel(context.Background())
+	a.mainServiceCancel = cancel
+	go a.run(ctx)
 
 	if err := a.startup(); err != nil {
-		a.stopWithErr(ExitError, err)
+		a.stopWithErr(util.ExitError, err)
 		return err
 	}
 
@@ -343,14 +330,9 @@ func (a *App) startup() error {
 	return nil
 }
 
-func (a *App) run() {
-	<-a.stop
-
-	if shouldDebug() {
-		l.Debugln("Services before stop:")
-		printServiceTree(os.Stdout, a.mainService, 0)
-	}
-	a.mainService.Stop()
+func (a *App) run(ctx context.Context) {
+	err := a.mainService.Serve(ctx)
+	a.handleMainServiceError(err)
 
 	done := make(chan struct{})
 	go func() {
@@ -368,9 +350,23 @@ func (a *App) run() {
 	close(a.stopped)
 }
 
+func (a *App) handleMainServiceError(err error) {
+	if err == nil || errors.Is(err, context.Canceled) {
+		return
+	}
+	var fatalErr *util.FatalErr
+	if errors.As(err, &fatalErr) {
+		a.exitStatus = fatalErr.Status
+		a.err = fatalErr.Err
+		return
+	}
+	a.err = err
+	a.exitStatus = util.ExitError
+}
+
 // Wait blocks until the app stops running. Also returns if the app hasn't been
 // started yet.
-func (a *App) Wait() ExitStatus {
+func (a *App) Wait() util.ExitStatus {
 	<-a.stopped
 	return a.exitStatus
 }
@@ -379,7 +375,7 @@ func (a *App) Wait() ExitStatus {
 // for the app to stop before returning.
 func (a *App) Error() error {
 	select {
-	case <-a.stop:
+	case <-a.stopped:
 		return a.err
 	default:
 	}
@@ -388,15 +384,19 @@ func (a *App) Error() error {
 
 // Stop stops the app and sets its exit status to given reason, unless the app
 // was already stopped before. In any case it returns the effective exit status.
-func (a *App) Stop(stopReason ExitStatus) ExitStatus {
+func (a *App) Stop(stopReason util.ExitStatus) util.ExitStatus {
 	return a.stopWithErr(stopReason, nil)
 }
 
-func (a *App) stopWithErr(stopReason ExitStatus, err error) ExitStatus {
+func (a *App) stopWithErr(stopReason util.ExitStatus, err error) util.ExitStatus {
 	a.stopOnce.Do(func() {
 		a.exitStatus = stopReason
 		a.err = err
-		close(a.stop)
+		if shouldDebug() {
+			l.Debugln("Services before stop:")
+			printServiceTree(os.Stdout, a.mainService, 0)
+		}
+		a.mainServiceCancel()
 	})
 	<-a.stopped
 	return a.exitStatus
@@ -416,7 +416,7 @@ func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscri
 	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID, a.evLogger)
 	a.mainService.Add(summaryService)
 
-	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, &controller{a}, a.opts.NoUpgrade)
+	apiSvc := api.New(a.myID, a.cfg, a.opts.AssetDir, tlsDefaultCommonName, m, defaultSub, diskSub, a.evLogger, discoverer, connectionsService, urService, summaryService, errors, systemLog, a.opts.NoUpgrade)
 	a.mainService.Add(apiSvc)
 
 	if err := apiSvc.WaitForStart(); err != nil {
@@ -438,21 +438,6 @@ func checkShortIDs(cfg config.Wrapper) error {
 		exists[shortID] = deviceID
 	}
 	return nil
-}
-
-// Implements api.Controller
-type controller struct{ *App }
-
-func (e *controller) Restart() {
-	e.Stop(ExitRestart)
-}
-
-func (e *controller) Shutdown() {
-	e.Stop(ExitSuccess)
-}
-
-func (e *controller) ExitUpgrading() {
-	e.Stop(ExitUpgrade)
 }
 
 type supervisor interface{ Services() []suture.Service }

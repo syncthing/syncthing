@@ -31,7 +31,7 @@ import (
 	_ "github.com/syncthing/syncthing/lib/upnp"
 
 	"github.com/pkg/errors"
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 	"golang.org/x/time/rate"
 )
 
@@ -132,13 +132,12 @@ type service struct {
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
+	spec := util.Spec()
+	spec.EventHook = func(e suture.Event) {
+		l.Infoln(e)
+	}
 	service := &service{
-		Supervisor: suture.New("connections.Service", suture.Spec{
-			Log: func(line string) {
-				l.Infoln(line)
-			},
-			PassThroughPanics: true,
-		}),
+		Supervisor:              suture.New("connections.Service", spec),
 		connectionStatusHandler: newConnectionStatusHandler(),
 
 		cfg:                  cfg,
@@ -162,8 +161,8 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		// due to config are done by removing and adding services, so are
 		// not subject to these limitations.
 		listenerSupervisor: suture.New("c.S.listenerSupervisor", suture.Spec{
-			Log: func(line string) {
-				l.Infoln(line)
+			EventHook: func(e suture.Event) {
+				l.Infoln(e)
 			},
 			FailureThreshold:  2,
 			FailureBackoff:    600 * time.Second,
@@ -189,21 +188,20 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 	service.Add(service.listenerSupervisor)
 	service.Add(service.natService)
 
+	util.OnSupervisorDone(service.Supervisor, func() {
+		service.cfg.Unsubscribe(service.limiter)
+		service.cfg.Unsubscribe(service)
+	})
+
 	return service
 }
 
-func (s *service) Stop() {
-	s.cfg.Unsubscribe(s.limiter)
-	s.cfg.Unsubscribe(s)
-	s.Supervisor.Stop()
-}
-
-func (s *service) handle(ctx context.Context) {
+func (s *service) handle(ctx context.Context) error {
 	var c internalConn
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case c = <-s.conns:
 		}
 
@@ -338,9 +336,10 @@ func (s *service) handle(ctx context.Context) {
 		s.model.AddConnection(modelConn, hello)
 		continue
 	}
+	return nil
 }
 
-func (s *service) connect(ctx context.Context) {
+func (s *service) connect(ctx context.Context) error {
 	nextDial := make(map[string]time.Time)
 
 	// Used as delay for the first few connection attempts, increases
@@ -371,7 +370,7 @@ func (s *service) connect(ctx context.Context) {
 		for _, deviceCfg := range cfg.Devices {
 			select {
 			case <-ctx.Done():
-				return
+				return ctx.Err()
 			default:
 			}
 
@@ -503,9 +502,10 @@ func (s *service) connect(ctx context.Context) {
 		select {
 		case <-time.After(sleep):
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		}
 	}
+	return nil
 }
 
 func (s *service) isLANHost(host string) bool {

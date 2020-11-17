@@ -33,7 +33,7 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	metrics "github.com/rcrowley/go-metrics"
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
 
 	"github.com/syncthing/syncthing/lib/build"
@@ -82,7 +82,6 @@ type service struct {
 	connectionsService   connections.Service
 	fss                  model.FolderSummaryService
 	urService            *ur.Service
-	contr                Controller
 	noUpgrade            bool
 	tlsDefaultCommonName string
 	configChanged        chan struct{} // signals intentional listener close due to config change
@@ -90,15 +89,10 @@ type service struct {
 	startedOnce          chan struct{} // the service has started successfully at least once
 	startupErr           error
 	listenerAddr         net.Addr
+	exitChan             chan *util.FatalErr
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
-}
-
-type Controller interface {
-	ExitUpgrading()
-	Restart()
-	Shutdown()
 }
 
 type Service interface {
@@ -107,8 +101,8 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, contr Controller, noUpgrade bool) Service {
-	s := &service{
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, noUpgrade bool) Service {
+	return &service{
 		id:      id,
 		cfg:     cfg,
 		statics: newStaticsServer(cfg.GUI().Theme, assetDir, cfg.Options().FeatureFlag(featureFlagUntrusted)),
@@ -125,14 +119,12 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		urService:            urService,
 		guiErrors:            errors,
 		systemLog:            systemLog,
-		contr:                contr,
 		noUpgrade:            noUpgrade,
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		configChanged:        make(chan struct{}),
 		startedOnce:          make(chan struct{}),
+		exitChan:             make(chan *util.FatalErr, 1),
 	}
-	s.Service = util.AsService(s.serve, s.String())
-	return s
 }
 
 func (s *service) WaitForStart() error {
@@ -211,7 +203,7 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 	fmt.Fprintf(w, "%s\n", bs)
 }
 
-func (s *service) serve(ctx context.Context) {
+func (s *service) Serve(ctx context.Context) error {
 	listener, err := s.getListener(s.cfg.GUI())
 	if err != nil {
 		select {
@@ -227,13 +219,13 @@ func (s *service) serve(ctx context.Context) {
 			s.startupErr = err
 			close(s.startedOnce)
 		}
-		return
+		return err
 	}
 
 	if listener == nil {
 		// Not much we can do here other than exit quickly. The supervisor
 		// will log an error at some point.
-		return
+		return nil
 	}
 
 	s.listenerAddr = listener.Addr()
@@ -410,6 +402,7 @@ func (s *service) serve(ctx context.Context) {
 
 	// Wait for stop, restart or error signals
 
+	err = nil
 	select {
 	case <-ctx.Done():
 		// Shutting down permanently
@@ -417,11 +410,14 @@ func (s *service) serve(ctx context.Context) {
 	case <-s.configChanged:
 		// Soft restart due to configuration change
 		l.Debugln("restarting (config changed)")
-	case <-serveError:
+	case err = <-s.exitChan:
+	case err = <-serveError:
 		// Restart due to listen/serve failure
 		l.Warnln("GUI/API:", err, "(restarting)")
 	}
 	srv.Close()
+
+	return err
 }
 
 // Complete implements suture.IsCompletable, which signifies to the supervisor
@@ -468,6 +464,14 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	s.configChanged <- struct{}{}
 
 	return true
+}
+
+func (s *service) fatal(err *util.FatalErr) {
+	// s.exitChan is 1-buffered and whoever is first gets handled.
+	select {
+	case s.exitChan <- err:
+	default:
+	}
 }
 
 func debugMiddleware(h http.Handler) http.Handler {
@@ -874,7 +878,11 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 
 func (s *service) postSystemRestart(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "restarting"}`, w)
-	go s.contr.Restart()
+
+	s.fatal(&util.FatalErr{
+		Err:    errors.New("restart initiated by rest API"),
+		Status: util.ExitRestart,
+	})
 }
 
 func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
@@ -900,12 +908,18 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
 
-	go s.contr.Restart()
+	s.fatal(&util.FatalErr{
+		Err:    errors.New("restart after db reset initiated by rest API"),
+		Status: util.ExitRestart,
+	})
 }
 
 func (s *service) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "shutting down"}`, w)
-	go s.contr.Shutdown()
+	s.fatal(&util.FatalErr{
+		Err:    errors.New("shutdown initiated by rest API"),
+		Status: util.ExitSuccess,
+	})
 }
 
 func (s *service) flushResponse(resp string, w http.ResponseWriter) {
@@ -1340,7 +1354,10 @@ func (s *service) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.flushResponse(`{"ok": "restarting"}`, w)
-		s.contr.ExitUpgrading()
+		s.fatal(&util.FatalErr{
+			Err:    errors.New("exit after upgrade initiated by rest API"),
+			Status: util.ExitUpgrade,
+		})
 	}
 }
 

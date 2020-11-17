@@ -207,7 +207,7 @@ func (f *tcpListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.C
 		natService: natService,
 		factory:    f,
 	}
-	l.ServiceWithError = util.AsServiceWithError(l.serve, l.String())
+	l.ServiceWithError = util.AsService(l.serve, l.String())
 	return l
 }
 

@@ -18,6 +18,8 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/protocol"
+
+	"github.com/thejerf/suture/v4"
 )
 
 // Connection is what we expose to the outside. It is a protocol.Connection
@@ -181,8 +183,7 @@ type ListenerAddresses struct {
 }
 
 type genericListener interface {
-	Serve()
-	Stop()
+	suture.Service
 	URI() *url.URL
 	// A given address can potentially be mutated by the listener.
 	// For example we bind to tcp://0.0.0.0, but that for example might return

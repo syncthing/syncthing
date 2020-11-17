@@ -22,7 +22,7 @@ import (
 	"unicode"
 
 	"github.com/pkg/errors"
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -36,6 +36,7 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -46,6 +47,7 @@ const (
 )
 
 type service interface {
+	suture.Service
 	BringToFront(string)
 	Override()
 	Revert()
@@ -53,8 +55,6 @@ type service interface {
 	SchedulePull()                                    // something relevant changed, we should try a pull
 	Jobs(page, perpage int) ([]string, []string, int) // In progress, Queued, skipped
 	Scan(subs []string) error
-	Serve()
-	Stop()
 	Errors() []FileError
 	WatchError() error
 	ScheduleForceRescan(path string)
@@ -154,7 +154,9 @@ type model struct {
 	remotePausedFolders map[protocol.DeviceID]map[string]struct{} // deviceID -> folders
 	indexSenders        map[protocol.DeviceID]*indexSenderRegistry
 
-	foldersRunning int32 // for testing only
+	// for testing only
+	foldersRunning int32
+	started        chan struct{}
 }
 
 type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem, events.Logger, *byteSemaphore) service
@@ -192,13 +194,12 @@ var (
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger) Model {
+	spec := util.Spec()
+	spec.EventHook = func(e suture.Event) {
+		l.Debugln(e)
+	}
 	m := &model{
-		Supervisor: suture.New("model", suture.Spec{
-			Log: func(line string) {
-				l.Debugln(line)
-			},
-			PassThroughPanics: true,
-		}),
+		Supervisor: suture.New("model", spec),
 
 		// constructor parameters
 		cfg:            cfg,
@@ -237,26 +238,20 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remotePausedFolders: make(map[protocol.DeviceID]map[string]struct{}),
 		indexSenders:        make(map[protocol.DeviceID]*indexSenderRegistry),
+
+		// for testing only
+		started: make(chan struct{}),
 	}
 	for devID := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
 	}
 	m.Add(m.progressEmitter)
+	m.Add(util.AsService(m.serve, m.String()))
 
 	return m
 }
 
-func (m *model) Serve() {
-	m.onServe()
-	m.Supervisor.Serve()
-}
-
-func (m *model) ServeBackground() {
-	m.onServe()
-	m.Supervisor.ServeBackground()
-}
-
-func (m *model) onServe() {
+func (m *model) serve(ctx context.Context) error {
 	// Add and start folders
 	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
 	for _, folderCfg := range m.cfg.Folders() {
@@ -267,11 +262,11 @@ func (m *model) onServe() {
 		m.newFolder(folderCfg, cacheIgnoredFiles)
 	}
 	m.cfg.Subscribe(m)
-}
 
-func (m *model) Stop() {
+	close(m.started)
+	<-ctx.Done()
+
 	m.cfg.Unsubscribe(m)
-	m.Supervisor.Stop()
 	m.pmut.RLock()
 	closed := make([]chan struct{}, 0, len(m.conn))
 	for id, conn := range m.conn {
@@ -282,6 +277,7 @@ func (m *model) Stop() {
 	for _, c := range closed {
 		<-c
 	}
+	return nil
 }
 
 // StartDeadlockDetector starts a deadlock detector on the models locks which
