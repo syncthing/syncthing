@@ -9,6 +9,7 @@ package syncthing
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -330,12 +331,8 @@ func (a *App) startup() error {
 }
 
 func (a *App) run(ctx context.Context) {
-	switch err := a.mainService.Serve(ctx); err {
-	case nil, context.Canceled:
-	default:
-		a.err = err
-		a.exitStatus = util.ExitError
-	}
+	err := a.mainService.Serve(ctx)
+	a.handleMainServiceError(err)
 
 	done := make(chan struct{})
 	go func() {
@@ -351,6 +348,19 @@ func (a *App) run(ctx context.Context) {
 	l.Infoln("Exiting")
 
 	close(a.stopped)
+}
+
+func (a *App) handleMainServiceError(err error) {
+	if err == nil || errors.Is(err, context.Canceled) {
+		return
+	}
+	if fatalErr, ok := err.(*util.FatalErr); ok {
+		a.exitStatus = fatalErr.Status
+		a.err = fatalErr.Err
+		return
+	}
+	a.err = err
+	a.exitStatus = util.ExitError
 }
 
 // Wait blocks until the app stops running. Also returns if the app hasn't been

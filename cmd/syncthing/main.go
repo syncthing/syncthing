@@ -721,6 +721,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	status := app.Wait()
 
+	if status == util.ExitError {
+		l.Warnln("Syncthing stopped with error:", app.Error())
+	}
+
 	if runtimeOptions.cpuProfile {
 		pprof.StopCPUProfile()
 	}

@@ -917,7 +917,7 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 func (s *service) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "shutting down"}`, w)
 	s.fatal(&util.FatalErr{
-		Err:    errors.New("shutdown after db reset initiated by rest API"),
+		Err:    errors.New("shutdown initiated by rest API"),
 		Status: util.ExitSuccess,
 	})
 }
