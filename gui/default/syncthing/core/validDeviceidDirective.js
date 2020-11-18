@@ -16,7 +16,7 @@ angular.module('syncthing.core')
                             }
                         });
                         //Prevents user from adding a duplicate ID
-                        if ($scope.devices.hasOwnProperty(viewValue)) {
+                        if (scope.devices.hasOwnProperty(viewValue)) {
                             ctrl.$setValidity('unique', false);
                         } else {
                             ctrl.$setValidity('unique', true);
