@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type indexSender struct {
@@ -34,11 +35,12 @@ type indexSender struct {
 	resumeChan               chan *db.FileSet
 }
 
-func (s *indexSender) Serve(ctx context.Context) error {
-	var err error
-
+func (s *indexSender) Serve(ctx context.Context) (err error) {
 	l.Debugf("Starting indexSender for %s to %s at %s (slv=%d)", s.folder, s.conn.ID(), s.conn, s.prevSequence)
-	defer l.Debugf("Exiting indexSender for %s to %s at %s: %v", s.folder, s.conn.ID(), s.conn, err)
+	defer func() {
+		err = util.NoRestartErr(err)
+		l.Debugf("Exiting indexSender for %s to %s at %s: %v", s.folder, s.conn.ID(), s.conn, err)
+	}()
 
 	// We need to send one index, regardless of whether there is something to send or not
 	err = s.sendIndexTo(ctx)
@@ -94,15 +96,8 @@ func (s *indexSender) Serve(ctx context.Context) error {
 		time.Sleep(250 * time.Millisecond)
 	}
 
-	return nil
+	return err
 }
-
-// Complete implements the suture.IsCompletable interface. When Serve terminates
-// before Stop is called, the supervisor will check for this method and if it
-// returns true removes the service instead of restarting it. Here it always
-// returns true, as indexSender only terminates when a connection is
-// closed/has failed, in which case retrying doesn't help.
-func (s *indexSender) Complete() bool { return true }
 
 func (s *indexSender) resume(fset *db.FileSet) {
 	select {
@@ -286,6 +281,8 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 		// them. We'll start with a full index transfer.
 		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", r.deviceID, folder.Description(), startInfo.local.IndexID, myIndexID)
 		startSequence = 0
+	} else {
+		l.Debugf("Device %v folder %s is not delta index compatible", r.deviceID, folder.Description())
 	}
 
 	// This is the other side's description of themselves. We
