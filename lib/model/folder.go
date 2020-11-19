@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"sort"
 	"sync/atomic"
@@ -91,7 +92,7 @@ type puller interface {
 
 var (
 	externallyDisabledMut = sync.NewMutex()
-	ExternallyDisabled = false
+	ExternallyDisabled = os.Getenv("STEXTDISABLED") != ""
 )
 
 func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *byteSemaphore, ver versioner.Versioner) folder {
