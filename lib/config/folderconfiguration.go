@@ -207,9 +207,6 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 		f.FSWatcherDelayS = 10
 	}
 
-	if f.Versioning.Params == nil {
-		f.Versioning.Params = make(map[string]string)
-	}
 	if f.Versioning.CleanupIntervalS > MaxRescanIntervalS {
 		f.Versioning.CleanupIntervalS = MaxRescanIntervalS
 	} else if f.Versioning.CleanupIntervalS < 0 {

@@ -177,9 +177,19 @@ func fillNil(data interface{}, skipDeprecated bool) {
 				}
 			}
 
-			if f.Kind() == reflect.Struct && f.CanAddr() {
-				if addr := f.Addr(); addr.CanInterface() {
-					fillNil(addr.Interface(), skipDeprecated)
+			switch f.Kind() {
+			case reflect.Slice:
+				if f.Type().Elem().Kind() != reflect.Struct {
+					continue
+				}
+				for i := 0; i < f.Len(); i++ {
+					fillNil(f.Index(i).Addr().Interface(), skipDeprecated)
+				}
+			case reflect.Struct:
+				if f.CanAddr() {
+					if addr := f.Addr(); addr.CanInterface() {
+						fillNil(addr.Interface(), skipDeprecated)
+					}
 				}
 			}
 		}
