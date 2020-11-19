@@ -9,6 +9,7 @@ package db
 import (
 	"time"
 
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -169,4 +170,136 @@ func (db *Lowlevel) PendingFoldersForDevice(device protocol.DeviceID) (map[strin
 		}
 	}
 	return res, nil
+}
+
+func (db *Lowlevel) AddOrUpdateCandidateLink(folder, label string, device, introducer protocol.DeviceID, meta *IntroducedDeviceDetails) error {
+	key, err := db.keyer.GenerateCandidateLinkKey(nil, introducer[:], []byte(folder), device[:])
+	if err != nil {
+		return err
+	}
+	link := ObservedCandidateLink{
+		Time:            time.Now().Round(time.Second),
+		IntroducerLabel: label,
+		CandidateMeta:   meta,
+	}
+	bs, err := link.Marshal()
+	if err != nil {
+		return err
+	}
+	return db.Put(key, bs)
+}
+
+// Details of a candidate device introduced through a specific folder:
+// "Introducer says Folder exists on device Candidate"
+type CandidateLink struct {
+	Introducer protocol.DeviceID
+	Folder     string
+	Candidate  protocol.DeviceID
+
+	// No embedded ObservedCandidateDevice needed, as this is sufficient for cleanup
+}
+
+// RemoveCandidateLink deletes a single entry, ideally retreived through CandidateLinks()
+func (db *Lowlevel) RemoveCandidateLink(cl CandidateLink) {
+	key, err := db.keyer.GenerateCandidateLinkKey(nil, cl.Introducer[:], []byte(cl.Folder), cl.Candidate[:])
+	if err != nil {
+		return
+	}
+	if err := db.Delete(key); err != nil {
+		l.Warnf("Failed to remove candidate link entry: %v", err)
+	}
+}
+
+// RemoveCandidateLinksForDevice deletes all entries related to a certain introducer and
+// common folder ID.
+func (db *Lowlevel) RemoveCandidateLinksForDevice(introducer protocol.DeviceID, folder string) {
+	//FIXME Method currently unused!  This would be useful for an introducer being
+	//FIXME completely removed, or a folder no longer shared with it.
+	prefixKey, err := db.keyer.GenerateCandidateLinkKey(nil, introducer[:], nil, nil)
+	if err != nil {
+		return
+	}
+	iter, err := db.NewPrefixIterator(prefixKey)
+	if err != nil {
+		l.Infof("Could not iterate through candidate link entries: %v", err)
+		return
+	}
+	defer iter.Release()
+	for iter.Next() {
+		if len(folder) > 0 {
+			keyFolder, ok := db.keyer.FolderFromCandidateLinkKey(iter.Key())
+			if ok && string(keyFolder) != folder {
+				// Skip if given folder ID does not match
+				continue
+			}
+		}
+		if err := db.Delete(iter.Key()); err != nil {
+			l.Warnf("Failed to remove candidate link entry: %v", err)
+		}
+	}
+}
+
+// CandidateLinks enumerates all entries as a flat list.  Invalid ones are dropped from
+// the database after a warning log message, as a side-effect.
+func (db *Lowlevel) CandidateLinks() ([]CandidateLink, error) {
+	iter, err := db.NewPrefixIterator([]byte{KeyTypeCandidateLink})
+	if err != nil {
+		return nil, err
+	}
+	defer iter.Release()
+	var res []CandidateLink
+	for iter.Next() {
+		_, candidateID, introducerID, folderID, ok, err := db.readCandidateLink(iter)
+		if err != nil {
+			// Fatal error, not just invalid (and already discarded) entry
+			return nil, err
+		} else if !ok {
+			continue
+		}
+		res = append(res, CandidateLink{
+			Introducer: introducerID,
+			Folder:     folderID,
+			Candidate:  candidateID,
+		})
+	}
+	return res, nil
+}
+
+// readCandidateLink drops any invalid entries from the database after a warning log
+// message, as a side-effect.  That's the only possible "repair" measure and appropriate
+// for the importance of such entries.  They will come back soon if still relevant.  For
+// such invalid entries, "valid" is returned false and the error value from the deletion
+// is passed on.
+func (db *Lowlevel) readCandidateLink(iter backend.Iterator) (ocl ObservedCandidateLink, candidateID, introducerID protocol.DeviceID, folderID string, valid bool, err error) {
+	var deleteCause string
+	keyDev, ok := db.keyer.IntroducerFromCandidateLinkKey(iter.Key())
+	introducerID, err = protocol.DeviceIDFromBytes(keyDev)
+	if !ok || err != nil {
+		deleteCause = "invalid introducer device ID"
+		goto deleteKey
+	}
+	if keyFolder, ok := db.keyer.FolderFromCandidateLinkKey(iter.Key()); !ok || len(keyFolder) < 1 {
+		deleteCause = "invalid folder ID"
+		goto deleteKey
+	} else {
+		folderID = string(keyFolder)
+	}
+	keyDev = db.keyer.DeviceFromCandidateLinkKey(iter.Key())
+	candidateID, err = protocol.DeviceIDFromBytes(keyDev)
+	if err != nil {
+		deleteCause = "invalid candidate device ID"
+		goto deleteKey
+	}
+	if err = ocl.Unmarshal(iter.Value()); err != nil {
+		deleteCause = "DB Unmarshal failed"
+		goto deleteKey
+	}
+	valid = true
+	return
+
+deleteKey:
+	l.Infof("Invalid candidate link entry (%v / %v), deleting from database: %x",
+		deleteCause, err, iter.Key())
+	err = db.Delete(iter.Key())
+	return
 }
