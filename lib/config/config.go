@@ -339,17 +339,6 @@ func (cfg *Configuration) prepareDevices(sharedFolders map[protocol.DeviceID][]s
 	}
 }
 
-func (cfg *Configuration) applyMigrations() {
-	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
-		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)
-	}
-
-	// Upgrade configuration versions as appropriate
-	migrationsMut.Lock()
-	migrations.apply(cfg)
-	migrationsMut.Unlock()
-}
-
 func (cfg *Configuration) prepareIgnoredDevices(existingDevices map[protocol.DeviceID]bool) map[protocol.DeviceID]bool {
 	// The list of ignored devices should not contain any devices that have
 	// been manually added to the config.
@@ -400,6 +389,17 @@ func (cfg *Configuration) removeDeprecatedProtocols() {
 			dev.Addresses = filterURLSchemePrefix(dev.Addresses, prefix)
 		}
 	}
+}
+
+func (cfg *Configuration) applyMigrations() {
+	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
+		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)
+	}
+
+	// Upgrade configuration versions as appropriate
+	migrationsMut.Lock()
+	migrations.apply(cfg)
+	migrationsMut.Unlock()
 }
 
 // DeviceMap returns a map of device ID to device configuration for the given configuration.
