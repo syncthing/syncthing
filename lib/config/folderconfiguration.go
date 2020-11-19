@@ -9,6 +9,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 )
 
@@ -24,6 +26,12 @@ var (
 	ErrPathNotDirectory = errors.New("folder path not a directory")
 	ErrPathMissing      = errors.New("folder path missing")
 	ErrMarkerMissing    = errors.New("folder marker missing (this indicates potential data loss, search docs/forum to get information about how to proceed)")
+	ErrDisabled         = errors.New("Syncthing has been disabled")
+)
+
+var (
+	externallyDisabledMut = sync.NewMutex()
+	ExternallyDisabled = os.Getenv("STEXTDISABLED") != ""
 )
 
 const DefaultMarkerName = ".stfolder"
@@ -235,7 +243,20 @@ func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
 	return false
 }
 
+func SetExternallyDisabled(isDisabled bool) {
+	externallyDisabledMut.Lock()
+	ExternallyDisabled = isDisabled
+	externallyDisabledMut.Unlock()
+}
+
 func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
+	externallyDisabledMut.Lock()
+	disabled := ExternallyDisabled
+	externallyDisabledMut.Unlock()
+	if disabled {
+		return ErrDisabled
+	}
+
 	val := f.MinDiskFree.BaseValue()
 	if val <= 0 {
 		return nil

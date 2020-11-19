@@ -176,6 +176,7 @@ var (
 	errStopped                      = errors.New("Syncthing is being stopped")
 	errMissingRemoteInClusterConfig = errors.New("remote device missing in cluster config")
 	errMissingLocalInClusterConfig  = errors.New("local device missing in cluster config")
+	errDisabled                     = errors.New("Syncthing has been disabled")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
