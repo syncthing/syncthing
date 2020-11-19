@@ -345,3 +345,98 @@ deleteKey:
 	err = db.Delete(iter.Key())
 	return
 }
+
+// Consolidated information about a candidate device, enough to add a connection to it
+type CandidateDevice struct {
+	CertName     string                                           `json:"certName,omitempty"`
+	Addresses    []string                                         `json:"addresses,omitempty"`
+	IntroducedBy map[protocol.DeviceID]candidateDeviceAttribution `json:"introducedBy"`
+}
+
+// Details which an introducer told us about a candidate device
+type candidateDeviceAttribution struct {
+	Time          time.Time         `json:"time"`
+	CommonFolders map[string]string `json:"commonFolders"`
+	SuggestedName string            `json:"suggestedName,omitempty"`
+}
+
+func (db *Lowlevel) CandidateDevices() (map[protocol.DeviceID]CandidateDevice, error) {
+	return db.CandidateDevicesForFolder("")
+}
+
+// CandidateDevicesForFolder returns the same information as CandidateLinks, but
+// aggregated by candidate device.  Given a non-empty folder ID, the results are filtered
+// to only include candidate devices already sharing that specific folder indirectly.
+// Invalid entries are dropped from the database after a warning log message, as a
+// side-effect.
+func (db *Lowlevel) CandidateDevicesForFolder(folder string) (map[protocol.DeviceID]CandidateDevice, error) {
+	iter, err := db.NewPrefixIterator([]byte{KeyTypeCandidateLink})
+	if err != nil {
+		return nil, err
+	}
+	defer iter.Release()
+	res := make(map[protocol.DeviceID]CandidateDevice)
+	for iter.Next() {
+		ocl, candidateID, introducerID, folderID, ok, err := db.readCandidateLink(iter)
+		if err != nil {
+			// Fatal error, not just invalid (and already discarded) entry
+			return nil, err
+		} else if !ok {
+			continue
+		}
+		if len(folder) > 0 && folderID != folder {
+			// Filter out links through folders not of interest
+			continue
+		}
+		cd, ok := res[candidateID]
+		if !ok {
+			cd = CandidateDevice{
+				Addresses:    []string{},
+				IntroducedBy: map[protocol.DeviceID]candidateDeviceAttribution{},
+			}
+		}
+		cd.mergeCandidateLink(ocl, folderID, introducerID)
+		res[candidateID] = cd
+	}
+	return res, nil
+}
+
+// mergeCandidateLink aggregates one recorded link's information onto the existing structure
+func (cd *CandidateDevice) mergeCandidateLink(observed ObservedCandidateLink, folder string, introducer protocol.DeviceID) {
+	attrib, ok := cd.IntroducedBy[introducer]
+	if !ok {
+		attrib = candidateDeviceAttribution{
+			CommonFolders: map[string]string{},
+		}
+	}
+	attrib.Time = observed.Time
+	attrib.CommonFolders[folder] = observed.IntroducerLabel
+	if observed.CandidateMeta != nil {
+		if cd.CertName != observed.CandidateMeta.CertName {
+			//FIXME warn?
+			cd.CertName = observed.CandidateMeta.CertName
+		}
+		cd.collectAddresses(observed.CandidateMeta.Addresses)
+		attrib.SuggestedName = observed.CandidateMeta.SuggestedName
+	}
+	cd.IntroducedBy[introducer] = attrib
+}
+
+// collectAddresses deduplicates addresses to try for contacting a candidate device later
+func (d *CandidateDevice) collectAddresses(addresses []string) {
+	if len(addresses) == 0 {
+		return
+	}
+	// Sort addresses into a map for deduplication
+	addressMap := make(map[string]struct{}, len(d.Addresses))
+	for _, s := range d.Addresses {
+		addressMap[s] = struct{}{}
+	}
+	for _, s := range addresses {
+		addressMap[s] = struct{}{}
+	}
+	d.Addresses = make([]string, 0, len(addressMap))
+	for a, _ := range addressMap {
+		d.Addresses = append(d.Addresses, a)
+	}
+}
