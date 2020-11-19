@@ -1275,9 +1275,6 @@ func TestRequestIndexSenderPause(t *testing.T) {
 }
 
 func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
-	done := make(chan struct{})
-	defer close(done)
-
 	ldb := db.NewLowlevel(backend.OpenMemory())
 	w, fcfg := tmpDefaultWrapper()
 	tfs := fcfg.Filesystem()
@@ -1294,11 +1291,14 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 	m.evCancel()
 	<-m.stopped
 
-	// Add connection (sends cluster config) before starting the new model
+	// Add connection (sends incoming cluster config) before starting the new model
 	m = newModel(w, myID, "syncthing", "dev", ldb, nil)
 	defer cleanupModel(m)
 	fc := addFakeConn(m, device1)
-	indexChan := make(chan []protocol.FileInfo)
+	done := make(chan struct{})
+	defer close(done) // Must be the last thing to be deferred, thus first to run.
+	indexChan := make(chan []protocol.FileInfo, 1)
+	ccChan := make(chan protocol.ClusterConfig, 1)
 	fc.mut.Lock()
 	fc.indexFn = func(_ context.Context, folder string, fs []protocol.FileInfo) {
 		select {
@@ -1306,16 +1306,30 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 		case <-done:
 		}
 	}
+	fc.clusterConfigFn = func(cc protocol.ClusterConfig) {
+		select {
+		case ccChan <- cc:
+		case <-done:
+		}
+	}
 	fc.mut.Unlock()
 
 	m.ServeBackground()
-	<-m.started
+
+	timeout := time.After(5 * time.Second)
+
+	// Check that cluster-config is resent after adding folders when starting model
+	select {
+	case <-timeout:
+		t.Fatal("timed out before receiving cluster-config")
+	case <-ccChan:
+	}
 
 	// Check that an index is sent for the newly added item
 	must(t, tfs.Mkdir(dir2, 0777))
 	m.ScanFolders()
 	select {
-	case <-time.After(5 * time.Second):
+	case <-timeout:
 		t.Fatal("timed out before receiving index")
 	case <-indexChan:
 	}

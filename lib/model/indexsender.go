@@ -242,12 +242,6 @@ func (r *indexSenderRegistry) add(folder config.FolderConfiguration, fset *db.Fi
 	r.mut.Unlock()
 }
 
-func (r *indexSenderRegistry) addNew(folder config.FolderConfiguration, fset *db.FileSet) {
-	r.mut.Lock()
-	r.startLocked(folder.ID, fset, 0)
-	r.mut.Unlock()
-}
-
 func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset *db.FileSet, startInfo *indexSenderStartInfo) {
 	myIndexID := fset.IndexID(protocol.LocalDeviceID)
 	mySequence := fset.Sequence(protocol.LocalDeviceID)
@@ -282,7 +276,7 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", r.deviceID, folder.Description(), startInfo.local.IndexID, myIndexID)
 		startSequence = 0
 	} else {
-		l.Debugf("Device %v folder %s is not delta index compatible", r.deviceID, folder.Description())
+		l.Debugf("Device %v folder %s has no index ID for us", r.deviceID, folder.Description())
 	}
 
 	// This is the other side's description of themselves. We
@@ -296,6 +290,7 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 		// do not support delta indexes and we should clear any
 		// information we have from them before accepting their
 		// index, which will presumably be a full index.
+		l.Debugf("Device %v folder %s does not announce an index ID", r.deviceID, folder.Description())
 		fset.Drop(r.deviceID)
 	} else if startInfo.remote.IndexID != theirIndexID {
 		// The index ID we have on file is not what they're
@@ -308,22 +303,18 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 		fset.SetIndexID(r.deviceID, startInfo.remote.IndexID)
 	}
 
-	r.startLocked(folder.ID, fset, startSequence)
-}
-
-func (r *indexSenderRegistry) startLocked(folderID string, fset *db.FileSet, startSequence int64) {
-	if is, ok := r.indexSenders[folderID]; ok {
+	if is, ok := r.indexSenders[folder.ID]; ok {
 		r.sup.RemoveAndWait(is.token, 0)
-		delete(r.indexSenders, folderID)
+		delete(r.indexSenders, folder.ID)
 	}
-	if _, ok := r.startInfos[folderID]; ok {
-		delete(r.startInfos, folderID)
+	if _, ok := r.startInfos[folder.ID]; ok {
+		delete(r.startInfos, folder.ID)
 	}
 
 	is := &indexSender{
 		conn:         r.conn,
 		connClosed:   r.closed,
-		folder:       folderID,
+		folder:       folder.ID,
 		fset:         fset,
 		prevSequence: startSequence,
 		evLogger:     r.evLogger,
@@ -331,13 +322,13 @@ func (r *indexSenderRegistry) startLocked(folderID string, fset *db.FileSet, sta
 		resumeChan:   make(chan *db.FileSet),
 	}
 	is.token = r.sup.Add(is)
-	r.indexSenders[folderID] = is
+	r.indexSenders[folder.ID] = is
 }
 
-// addPaused stores the given info to start an index sender once resume is called
+// addPending stores the given info to start an index sender once resume is called
 // for this folder.
 // If an index sender is already running, it will be stopped.
-func (r *indexSenderRegistry) addPaused(folder config.FolderConfiguration, startInfo *indexSenderStartInfo) {
+func (r *indexSenderRegistry) addPending(folder config.FolderConfiguration, startInfo *indexSenderStartInfo) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
