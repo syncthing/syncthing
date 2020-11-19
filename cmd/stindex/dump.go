@@ -140,7 +140,7 @@ func dump(ldb backend.Backend) {
 
 		case db.KeyTypePendingDevice:
 			device := "<invalid>"
-			dev, err := protocol.DeviceIDFromBytes(it.Key()[1:])
+			dev, err := protocol.DeviceIDFromBytes(key[1:])
 			if err == nil {
 				device = dev.String()
 			}
