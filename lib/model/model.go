@@ -2187,13 +2187,15 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			IgnorePermissions:  folderCfg.IgnorePerms,
 			IgnoreDelete:       folderCfg.IgnoreDelete,
 			DisableTempIndexes: folderCfg.DisableTempIndexes,
-			Paused:             folderCfg.Paused,
 		}
 
-		var fs *db.FileSet
-		if !folderCfg.Paused {
-			fs = m.folderFiles[folderCfg.ID]
-		}
+		fs := m.folderFiles[folderCfg.ID]
+
+		// Even if we aren't paused, if we haven't started the folder yet
+		// pretend we are. Otherwise the remote might get confused about
+		// the missing index info (and drop all the info). We will send
+		// another cluster config once the folder is started.
+		protocolFolder.Paused = folderCfg.Paused || fs == nil
 
 		for _, device := range folderCfg.Devices {
 			deviceCfg, _ := m.cfg.Device(device.DeviceID)
