@@ -2194,7 +2194,6 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 		// Even if we aren't paused, if we haven't started the folder yet
 		// pretend we are. Otherwise the remote might get confused about
 		// the missing index info (and drop all the info). We will send
-		// another cluster config once the folder is started We will send
 		// another cluster config once the folder is started.
 		protocolFolder.Paused = folderCfg.Paused || fs == nil
 
