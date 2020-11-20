@@ -139,8 +139,10 @@ func (c *configMuxBuilder) registerFolder(path string) {
 		sendJSON(w, folder)
 	})
 
+	setFn := c.cfg.SetFolder
+
 	c.Handle(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		c.adjustFolder(w, r, config.FolderConfiguration{})
+		c.adjustFolder(w, r, config.FolderConfiguration{}, setFn)
 	})
 
 	c.Handle(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -149,7 +151,7 @@ func (c *configMuxBuilder) registerFolder(path string) {
 			http.Error(w, "No folder with given ID", http.StatusNotFound)
 			return
 		}
-		c.adjustFolder(w, r, folder)
+		c.adjustFolder(w, r, folder, setFn)
 	})
 
 	c.Handle(http.MethodDelete, path, func(w http.ResponseWriter, _ *http.Request, p httprouter.Params) {
@@ -185,13 +187,15 @@ func (c *configMuxBuilder) registerDevice(path string) {
 		}
 	})
 
+	setFn := c.cfg.SetDevice
+
 	c.Handle(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		c.adjustDevice(w, r, config.DeviceConfiguration{})
+		c.adjustDevice(w, r, config.DeviceConfiguration{}, setFn)
 	})
 
 	c.Handle(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		if device, ok := deviceFromParams(w, p); ok {
-			c.adjustDevice(w, r, device)
+			c.adjustDevice(w, r, device, setFn)
 		}
 	})
 
@@ -205,6 +209,38 @@ func (c *configMuxBuilder) registerDevice(path string) {
 			return
 		}
 		c.finish(w, waiter)
+	})
+}
+
+func (c *configMuxBuilder) registerDefaultFolder(path string) {
+	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
+		sendJSON(w, c.cfg.DefaultFolder())
+	})
+
+	setFn := c.cfg.SetDefaultFolder
+
+	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
+		c.adjustFolder(w, r, config.FolderConfiguration{}, setFn)
+	})
+
+	c.HandlerFunc(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request) {
+		c.adjustFolder(w, r, c.cfg.DefaultFolder(), setFn)
+	})
+}
+
+func (c *configMuxBuilder) registerDefaultDevice(path string) {
+	c.HandlerFunc(http.MethodGet, path, func(w http.ResponseWriter, _ *http.Request) {
+		sendJSON(w, c.cfg.DefaultDevice())
+	})
+
+	setFn := c.cfg.SetDefaultDevice
+
+	c.HandlerFunc(http.MethodPut, path, func(w http.ResponseWriter, r *http.Request) {
+		c.adjustDevice(w, r, config.DeviceConfiguration{}, setFn)
+	})
+
+	c.HandlerFunc(http.MethodPatch, path, func(w http.ResponseWriter, r *http.Request) {
+		c.adjustDevice(w, r, c.cfg.DefaultDevice(), setFn)
 	})
 }
 
@@ -273,14 +309,14 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	c.finish(w, waiter)
 }
 
-func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration) {
+func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration, setFn func(config.FolderConfiguration) (config.Waiter, error)) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	if err := unmarshalTo(r.Body, &folder); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	waiter, err := c.cfg.SetFolder(folder)
+	waiter, err := setFn(folder)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -288,14 +324,14 @@ func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, 
 	c.finish(w, waiter)
 }
 
-func (c *configMuxBuilder) adjustDevice(w http.ResponseWriter, r *http.Request, device config.DeviceConfiguration) {
+func (c *configMuxBuilder) adjustDevice(w http.ResponseWriter, r *http.Request, device config.DeviceConfiguration, setFn func(config.DeviceConfiguration) (config.Waiter, error)) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	if err := unmarshalTo(r.Body, &device); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	waiter, err := c.cfg.SetDevice(device)
+	waiter, err := setFn(device)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -37,11 +37,12 @@ func init() {
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 
+	defaultCfgWrapper = createTmpWrapper(config.New(myID))
+
 	defaultFolderConfig = testFolderConfig("testdata")
 	defaultFs = defaultFolderConfig.Filesystem()
 
-	defaultCfgWrapper = createTmpWrapper(config.New(myID))
-	_, _ = defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
+	_, _ = defaultCfgWrapper.SetDevice(newDeviceConfiguration(defaultCfgWrapper, device1, "device1"))
 	_, _ = defaultCfgWrapper.SetFolder(defaultFolderConfig)
 	opts := defaultCfgWrapper.Options()
 	opts.KeepTemporariesH = 1
@@ -83,14 +84,14 @@ func testFolderConfigTmp() config.FolderConfiguration {
 }
 
 func testFolderConfig(path string) config.FolderConfiguration {
-	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, path)
+	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeBasic, path)
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg
 }
 
 func testFolderConfigFake() config.FolderConfiguration {
-	cfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true")
+	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true")
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg
@@ -295,4 +296,11 @@ func localIndexUpdate(m *testModel, folder string, fs []protocol.FileInfo) {
 		"sequence":  seq,
 		"version":   seq, // legacy for sequence
 	})
+}
+
+func newDeviceConfiguration(w config.Wrapper, id protocol.DeviceID, name string) config.DeviceConfiguration {
+	cfg := w.DefaultDevice()
+	cfg.DeviceID = id
+	cfg.Name = name
+	return cfg
 }

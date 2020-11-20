@@ -77,6 +77,8 @@ type Wrapper interface {
 	SetFolder(fld FolderConfiguration) (Waiter, error)
 	SetFolders(folders []FolderConfiguration) (Waiter, error)
 	FolderPasswords(device protocol.DeviceID) map[string]string
+	DefaultFolder() FolderConfiguration
+	SetDefaultFolder(FolderConfiguration) (Waiter, error)
 
 	Device(id protocol.DeviceID) (DeviceConfiguration, bool)
 	Devices() map[protocol.DeviceID]DeviceConfiguration
@@ -84,6 +86,8 @@ type Wrapper interface {
 	RemoveDevice(id protocol.DeviceID) (Waiter, error)
 	SetDevice(DeviceConfiguration) (Waiter, error)
 	SetDevices([]DeviceConfiguration) (Waiter, error)
+	DefaultDevice() DeviceConfiguration
+	SetDefaultDevice(DeviceConfiguration) (Waiter, error)
 
 	AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string)
 	AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID)
@@ -295,6 +299,19 @@ func (w *wrapper) RemoveDevice(id protocol.DeviceID) (Waiter, error) {
 	return noopWaiter{}, nil
 }
 
+func (w *wrapper) DefaultDevice() DeviceConfiguration {
+	return w.cfg.Defaults.Device.Copy()
+}
+
+func (w *wrapper) SetDefaultDevice(defaultDevice DeviceConfiguration) (Waiter, error) {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+
+	newCfg := w.cfg.Copy()
+	newCfg.Defaults.Device = defaultDevice
+	return w.replaceLocked(newCfg)
+}
+
 // Folders returns a map of folders. Folder structures should not be changed,
 // other than for the purpose of updating via SetFolder().
 func (w *wrapper) Folders() map[string]FolderConfiguration {
@@ -367,6 +384,19 @@ func (w *wrapper) FolderPasswords(device protocol.DeviceID) map[string]string {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	return w.cfg.FolderPasswords(device)
+}
+
+func (w *wrapper) DefaultFolder() FolderConfiguration {
+	return w.cfg.Defaults.Folder.Copy()
+}
+
+func (w *wrapper) SetDefaultFolder(defaultFolder FolderConfiguration) (Waiter, error) {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+
+	newCfg := w.cfg.Copy()
+	newCfg.Defaults.Folder = defaultFolder
+	return w.replaceLocked(newCfg)
 }
 
 // Options returns the current options configuration object.

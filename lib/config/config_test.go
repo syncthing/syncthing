@@ -37,52 +37,97 @@ func init() {
 }
 
 func TestDefaultValues(t *testing.T) {
-	expected := OptionsConfiguration{
-		RawListenAddresses:      []string{"default"},
-		RawGlobalAnnServers:     []string{"default"},
-		GlobalAnnEnabled:        true,
-		LocalAnnEnabled:         true,
-		LocalAnnPort:            21027,
-		LocalAnnMCAddr:          "[ff12::8384]:21027",
-		MaxSendKbps:             0,
-		MaxRecvKbps:             0,
-		ReconnectIntervalS:      60,
-		RelaysEnabled:           true,
-		RelayReconnectIntervalM: 10,
-		StartBrowser:            true,
-		NATEnabled:              true,
-		NATLeaseM:               60,
-		NATRenewalM:             30,
-		NATTimeoutS:             10,
-		RestartOnWakeup:         true,
-		AutoUpgradeIntervalH:    12,
-		KeepTemporariesH:        24,
-		CacheIgnoredFiles:       false,
-		ProgressUpdateIntervalS: 5,
-		LimitBandwidthInLan:     false,
-		MinHomeDiskFree:         Size{1, "%"},
-		URURL:                   "https://data.syncthing.net/newdata",
-		URInitialDelayS:         1800,
-		URPostInsecurely:        false,
-		ReleasesURL:             "https://upgrades.syncthing.net/meta.json",
-		AlwaysLocalNets:         []string{},
-		OverwriteRemoteDevNames: false,
-		TempIndexMinBlocks:      10,
-		UnackedNotificationIDs:  []string{"authenticationUserAndPassword"},
-		DefaultFolderPath:       "~",
-		SetLowPriority:          true,
-		CRURL:                   "https://crash.syncthing.net/newcrash",
-		CREnabled:               true,
-		StunKeepaliveStartS:     180,
-		StunKeepaliveMinS:       20,
-		RawStunServers:          []string{"default"},
-		AnnounceLANAddresses:    true,
-		FeatureFlags:            []string{},
+	size, err := ParseSize("1%")
+	if err != nil {
+		t.Fatal(err)
 	}
+	expected := Configuration{
+		Version: CurrentVersion,
+		Folders: []FolderConfiguration{},
+		Options: OptionsConfiguration{
+			RawListenAddresses:      []string{"default"},
+			RawGlobalAnnServers:     []string{"default"},
+			GlobalAnnEnabled:        true,
+			LocalAnnEnabled:         true,
+			LocalAnnPort:            21027,
+			LocalAnnMCAddr:          "[ff12::8384]:21027",
+			MaxSendKbps:             0,
+			MaxRecvKbps:             0,
+			ReconnectIntervalS:      60,
+			RelaysEnabled:           true,
+			RelayReconnectIntervalM: 10,
+			StartBrowser:            true,
+			NATEnabled:              true,
+			NATLeaseM:               60,
+			NATRenewalM:             30,
+			NATTimeoutS:             10,
+			RestartOnWakeup:         true,
+			AutoUpgradeIntervalH:    12,
+			KeepTemporariesH:        24,
+			CacheIgnoredFiles:       false,
+			ProgressUpdateIntervalS: 5,
+			LimitBandwidthInLan:     false,
+			MinHomeDiskFree:         Size{1, "%"},
+			URURL:                   "https://data.syncthing.net/newdata",
+			URInitialDelayS:         1800,
+			URPostInsecurely:        false,
+			ReleasesURL:             "https://upgrades.syncthing.net/meta.json",
+			AlwaysLocalNets:         []string{},
+			OverwriteRemoteDevNames: false,
+			TempIndexMinBlocks:      10,
+			UnackedNotificationIDs:  []string{"authenticationUserAndPassword"},
+			DefaultFolderPath:       "~",
+			SetLowPriority:          true,
+			CRURL:                   "https://crash.syncthing.net/newcrash",
+			CREnabled:               true,
+			StunKeepaliveStartS:     180,
+			StunKeepaliveMinS:       20,
+			RawStunServers:          []string{"default"},
+			AnnounceLANAddresses:    true,
+			FeatureFlags:            []string{},
+		},
+		Defaults: Defaults{
+			Folder: FolderConfiguration{
+				FilesystemType:   fs.FilesystemTypeBasic,
+				Path:             "",
+				Type:             FolderTypeSendReceive,
+				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}},
+				RescanIntervalS:  3600,
+				FSWatcherEnabled: true,
+				FSWatcherDelayS:  10,
+				IgnorePerms:      false,
+				AutoNormalize:    true,
+				MinDiskFree:      size,
+				Versioning: VersioningConfiguration{
+					CleanupIntervalS: 3600,
+					Params:           map[string]string{},
+				},
+				MaxConflicts:         10,
+				WeakHashThresholdPct: 25,
+				MarkerName:           ".stfolder",
+				MaxConcurrentWrites:  2,
+			},
+			Device: DeviceConfiguration{
+				Addresses:       []string{"dynamic"},
+				AllowedNetworks: []string{},
+				Compression:     protocol.CompressionMetadata,
+				IgnoredFolders:  []ObservedFolder{},
+
+				PendingFolders: []ObservedFolder{},
+			},
+		},
+		IgnoredDevices: []ObservedDevice{},
+		PendingDevices: []ObservedDevice{},
+	}
+	expected.Devices = []DeviceConfiguration{expected.Defaults.Device.Copy()}
+	expected.Devices[0].DeviceID = device1
+	expected.Devices[0].Name, _ = os.Hostname()
 
 	cfg := New(device1)
+	cfg.GUI = GUIConfiguration{}
+	cfg.LDAP = LDAPConfiguration{}
 
-	if diff, equal := messagediff.PrettyDiff(expected, cfg.Options); !equal {
+	if diff, equal := messagediff.PrettyDiff(expected, cfg); !equal {
 		t.Errorf("Default config differs. Diff:\n%s", diff)
 	}
 }
@@ -1155,13 +1200,29 @@ func TestMaxConcurrentFolders(t *testing.T) {
 	}
 }
 
+func adjustDeviceConfiguration(cfg *DeviceConfiguration, id protocol.DeviceID, name string) {
+	cfg.DeviceID = id
+	cfg.Name = name
+}
+
+func adjustFolderConfiguration(cfg *FolderConfiguration, id, label string, fsType fs.FilesystemType, path string) {
+	cfg.ID = id
+	cfg.Label = label
+	cfg.FilesystemType = fsType
+	cfg.Path = path
+}
+
 // defaultConfigAsMap returns a valid default config as a JSON-decoded
 // map[string]interface{}. This is useful to override random elements and
 // re-encode into JSON.
 func defaultConfigAsMap() map[string]interface{} {
 	cfg := New(device1)
-	cfg.Devices = append(cfg.Devices, NewDeviceConfiguration(device2, "name"))
-	cfg.Folders = append(cfg.Folders, NewFolderConfiguration(device1, "default", "default", fs.FilesystemTypeBasic, "/tmp"))
+	dev := cfg.Defaults.Device.Copy()
+	adjustDeviceConfiguration(&dev, device2, "name")
+	cfg.Devices = append(cfg.Devices, dev)
+	folder := cfg.Defaults.Folder.Copy()
+	adjustFolderConfiguration(&folder, "default", "default", fs.FilesystemTypeBasic, "/tmp")
+	cfg.Folders = append(cfg.Folders, folder)
 	bs, err := json.Marshal(cfg)
 	if err != nil {
 		// can't happen
@@ -1189,7 +1250,9 @@ func TestInternalVersioningConfiguration(t *testing.T) {
 	// reasonable.
 
 	cfg := New(device1)
-	cfg.Folders = append(cfg.Folders, NewFolderConfiguration(device1, "default", "default", fs.FilesystemTypeBasic, "/tmp"))
+	folder := cfg.Defaults.Folder.Copy()
+	adjustFolderConfiguration(&folder, "default", "default", fs.FilesystemTypeBasic, "/tmp")
+	cfg.Folders = append(cfg.Folders, folder)
 	cfg.Folders[0].Versioning = VersioningConfiguration{
 		Type:             "foo",
 		Params:           map[string]string{"bar": "baz"},

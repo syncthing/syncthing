@@ -1003,7 +1003,7 @@ func TestAutoAcceptNewFolderPremutationsNoPanic(t *testing.T) {
 				for _, dev2folder := range premutations {
 					cfg := defaultAutoAcceptCfg.Copy()
 					if localFolder.Label != "" {
-						fcfg := config.NewFolderConfiguration(myID, localFolder.ID, localFolder.Label, fs.FilesystemTypeBasic, localFolder.ID)
+						fcfg := newFolderConfiguration(defaultCfgWrapper, localFolder.ID, localFolder.Label, fs.FilesystemTypeBasic, localFolder.ID)
 						fcfg.Paused = localFolderPaused
 						cfg.Folders = append(cfg.Folders, fcfg)
 					}
@@ -1200,7 +1200,7 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 	defer os.RemoveAll(idOther)
 
 	tcfg := defaultAutoAcceptCfg.Copy()
-	fcfg := config.NewFolderConfiguration(myID, id, "", fs.FilesystemTypeBasic, idOther)
+	fcfg := newFolderConfiguration(defaultCfgWrapper, id, "", fs.FilesystemTypeBasic, idOther)
 	fcfg.Paused = true
 	// The order of devices here is wrong (cfg.clean() sorts them), which will cause the folder to restart.
 	// Because of the restart, folder gets removed from m.deviceFolder, which means that generateClusterConfig will not panic.
@@ -1247,7 +1247,7 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 	defer os.RemoveAll(idOther)
 
 	tcfg := defaultAutoAcceptCfg.Copy()
-	fcfg := config.NewFolderConfiguration(myID, id, "", fs.FilesystemTypeBasic, idOther)
+	fcfg := newFolderConfiguration(defaultCfgWrapper, id, "", fs.FilesystemTypeBasic, idOther)
 	fcfg.Paused = true
 	// The new folder is exactly the same as the one constructed by handleAutoAccept, which means
 	// the folder will not be restarted (even if it's paused), yet handleAutoAccept used to add the folder
@@ -2315,7 +2315,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 
 func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	wcfg := createTmpWrapper(defaultCfg)
-	wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+	wcfg.SetDevice(newDeviceConfiguration(wcfg, device2, "device2"))
 	fcfg := wcfg.FolderList()[0]
 	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 	wcfg.SetFolder(fcfg)
@@ -2511,7 +2511,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	t.Skip("broken, fails randomly, #3843")
 
 	wcfg := createTmpWrapper(defaultCfg)
-	wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+	wcfg.SetDevice(newDeviceConfiguration(wcfg, device2, "device2"))
 	fcfg := wcfg.FolderList()[0]
 	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 	wcfg.SetFolder(fcfg)
@@ -2876,7 +2876,7 @@ func TestVersionRestore(t *testing.T) {
 	must(t, err)
 	defer os.RemoveAll(dir)
 
-	fcfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, dir)
+	fcfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeBasic, dir)
 	fcfg.Versioning.Type = "simple"
 	fcfg.FSWatcherEnabled = false
 	filesystem := fcfg.Filesystem()
@@ -4010,7 +4010,7 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 	m := setupModel(wcfg)
 	defer cleanupModel(m)
 
-	_, err := wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+	_, err := wcfg.SetDevice(newDeviceConfiguration(wcfg, device2, "device2"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4078,7 +4078,7 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 func TestIssue6961(t *testing.T) {
 	wcfg, fcfg := tmpDefaultWrapper()
 	tfs := fcfg.Filesystem()
-	wcfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+	wcfg.SetDevice(newDeviceConfiguration(wcfg, device2, "device2"))
 	fcfg.Type = config.FolderTypeReceiveOnly
 	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 	wcfg.SetFolder(fcfg)
@@ -4164,7 +4164,7 @@ func TestCompletionEmptyGlobal(t *testing.T) {
 
 func TestNeedMetaAfterIndexReset(t *testing.T) {
 	w, fcfg := tmpDefaultWrapper()
-	waiter, _ := w.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+	waiter, _ := w.SetDevice(newDeviceConfiguration(w, device2, "device2"))
 	waiter.Wait()
 	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 	waiter, _ = w.SetFolder(fcfg)
