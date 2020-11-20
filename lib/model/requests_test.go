@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -1318,5 +1319,74 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out before receiving index")
 	case <-indexChan:
+	}
+}
+
+func TestRequestSendClusterConfigBeforeStart(t *testing.T) {
+	done := make(chan struct{})
+	defer close(done)
+
+	w, fcfg := tmpDefaultWrapper()
+	tfs := fcfg.Filesystem()
+	ldb := db.NewLowlevel(backend.OpenMemory())
+	m := newModel(w, myID, "syncthing", "dev", ldb, nil)
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+
+	ccChan := make(chan protocol.ClusterConfig)
+	fc := &fakeConnection{
+		id:    device1,
+		model: m,
+		clusterConfigFn: func(cc protocol.ClusterConfig) {
+			select {
+			case ccChan <- cc:
+			case <-done:
+			}
+		},
+	}
+
+	checkCC := func(cc protocol.ClusterConfig) error {
+		if l := len(cc.Folders); l != 1 {
+			return fmt.Errorf("Expected 1 folder in CC, got %v", l)
+		}
+		folder := cc.Folders[0]
+		if id := folder.ID; id != fcfg.ID {
+			return fmt.Errorf("Expected folder %v, got %v", fcfg.ID, id)
+		}
+		if l := len(folder.Devices); l != 2 {
+			return fmt.Errorf("Expected 2 devices in CC, got %v", l)
+		}
+		local := folder.Devices[1]
+		if local.ID != myID {
+			local = folder.Devices[0]
+		}
+		if !folder.Paused && local.IndexID == 0 {
+			return fmt.Errorf("Folder isn't paused, but index-id is zero")
+		}
+		return nil
+	}
+
+	// Add connection, which sends CC, before starting model/folders
+	go m.AddConnection(fc, protocol.Hello{})
+
+	timeout := time.After(5 * time.Second)
+	select {
+	case <-timeout:
+		t.Fatal("timed out before receiving cluster config")
+	case cc := <-ccChan:
+		if err := checkCC(cc); err != nil {
+			t.Error(err)
+		}
+	}
+
+	m.ServeBackground()
+	select {
+	case <-timeout:
+		t.Fatal("timed out before receiving cluster config")
+	case cc := <-ccChan:
+		if err := checkCC(cc); err != nil {
+			t.Error(err)
+		} else if cc.Folders[0].Paused {
+			t.Error("Folder is paused")
+		}
 	}
 }
