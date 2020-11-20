@@ -806,8 +806,8 @@
                         <th><span class="fas fa-fw fa-desktop"></span>&nbsp;<span translate>Remote GUI</span></th>
                         <td class="text-right" ng-attr-title="Port {{deviceCfg.remoteGUIPort}}">
                           <!-- Apply RFC6874 encoding for IPv6 link-local zone identifier -->
-                          <a ng-if="idToRemoteGUI[deviceCfg.deviceID]" href="{{idToRemoteGUI[deviceCfg.deviceID].replace('%', '%25')}}">{{idToRemoteGUI[deviceCfg.deviceID]}}</a>
-                          <span ng-if="!idToRemoteGUI[deviceCfg.deviceID]">Unreachable</span>
+                          <a ng-if="hasDeviceGUIAddr(deviceCfg)" href="{{deviceGUIAddr(deviceCfg).replace('%', '%25')}}">{{deviceGUIAddr(deviceCfg)}}</a>
+                          <span ng-if="!hasDeviceGUIAddr(deviceCfg)">Unreachable</span>
                         </td>
                       </tr>
                     </tbody>
