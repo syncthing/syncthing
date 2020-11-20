@@ -4341,6 +4341,34 @@ func TestCcCheckEncryption(t *testing.T) {
 	}
 }
 
+func TestCCFolderNotRunning(t *testing.T) {
+	// Create the folder, but don't start it.
+	w, fcfg := tmpDefaultWrapper()
+	tfs := fcfg.Filesystem()
+	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+
+	// A connection can happen before all the folders are started.
+	cc := m.generateClusterConfig(device1)
+	if l := len(cc.Folders); l != 1 {
+		t.Fatalf("Expected 1 folder in CC, got %v", l)
+	}
+	folder := cc.Folders[0]
+	if id := folder.ID; id != fcfg.ID {
+		t.Fatalf("Expected folder %v, got %v", fcfg.ID, id)
+	}
+	if l := len(folder.Devices); l != 2 {
+		t.Fatalf("Expected 2 devices in CC, got %v", l)
+	}
+	local := folder.Devices[1]
+	if local.ID != myID {
+		local = folder.Devices[0]
+	}
+	if !folder.Paused && local.IndexID == 0 {
+		t.Errorf("Folder isn't paused, but index-id is zero")
+	}
+}
+
 func equalStringsInAnyOrder(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
