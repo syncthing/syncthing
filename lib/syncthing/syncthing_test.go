@@ -37,7 +37,7 @@ func TestShortIDCheck(t *testing.T) {
 			{DeviceID: protocol.DeviceID{8, 16, 24, 32, 40, 48, 56, 0, 0}},
 			{DeviceID: protocol.DeviceID{8, 16, 24, 32, 40, 48, 56, 1, 1}}, // first 56 bits same, differ in the first 64 bits
 		},
-	}, events.NoopLogger)
+	}, protocol.LocalDeviceID, events.NoopLogger)
 	defer os.Remove(cfg.ConfigPath())
 
 	if err := checkShortIDs(cfg); err != nil {
@@ -49,7 +49,7 @@ func TestShortIDCheck(t *testing.T) {
 			{DeviceID: protocol.DeviceID{8, 16, 24, 32, 40, 48, 56, 64, 0}},
 			{DeviceID: protocol.DeviceID{8, 16, 24, 32, 40, 48, 56, 64, 1}}, // first 64 bits same
 		},
-	}, events.NoopLogger)
+	}, protocol.LocalDeviceID, events.NoopLogger)
 
 	if err := checkShortIDs(cfg); err == nil {
 		t.Error("Should have gotten an error")
@@ -76,7 +76,7 @@ func TestStartupFail(t *testing.T) {
 			{DeviceID: id},
 			{DeviceID: conflID},
 		},
-	}, events.NoopLogger)
+	}, protocol.LocalDeviceID, events.NoopLogger)
 	defer os.Remove(cfg.ConfigPath())
 
 	db := backend.OpenMemory()

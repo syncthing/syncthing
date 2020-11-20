@@ -142,6 +142,10 @@ func (c *mockedConfig) StunServers() []string {
 	return nil
 }
 
+func (c *mockedConfig) MyID() protocol.DeviceID {
+	return protocol.DeviceID{}
+}
+
 type noopWaiter struct{}
 
 func (noopWaiter) Wait() {}
