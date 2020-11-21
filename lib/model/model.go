@@ -257,16 +257,19 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 func (m *model) serve(ctx context.Context) error {
 	// Add and start folders
 	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
+	clusterConfigDevices := make(deviceIDSet, len(m.cfg.Devices()))
 	for _, folderCfg := range m.cfg.FolderList() {
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
 		}
 		m.newFolder(folderCfg, cacheIgnoredFiles)
+		clusterConfigDevices.add(folderCfg.DeviceIDs())
 	}
 
 	m.cleanPending(m.cfg.RawCopy(), nil)
 
+	m.resendClusterConfig(clusterConfigDevices.AsSlice())
 	m.cfg.Subscribe(m)
 
 	close(m.started)
@@ -525,13 +528,9 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 		// In case the folder was newly shared with us we already got a
 		// cluster config and wont necessarily get another soon - start
 		// sending indexes if connected.
-		isNew := !from.SharedWith(indexSenders.deviceID)
-		if isNew {
-			indexSenders.addNew(to, fset)
-		}
 		if to.Paused {
 			indexSenders.pause(to.ID)
-		} else if !isNew && (fsetNil || from.Paused) {
+		} else if !from.SharedWith(indexSenders.deviceID) || fsetNil || from.Paused {
 			indexSenders.resume(to, fset)
 		}
 	}
@@ -560,20 +559,10 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	// Cluster configs might be received and processed before reaching this
 	// point, i.e. before the folder is started. If that's the case, start
 	// index senders here.
-	localSequenceZero := fset.Sequence(protocol.LocalDeviceID) == 0
 	m.pmut.RLock()
 	for _, id := range cfg.DeviceIDs() {
 		if is, ok := m.indexSenders[id]; ok {
-			if localSequenceZero && fset.Sequence(id) == 0 {
-				// In case this folder was shared to us and
-				// newly added, add a new index sender.
-				is.addNew(cfg, fset)
-			} else {
-				// For existing folders we stored the index data from
-				// the cluster config, so resume based on that - if
-				// we didn't get a cluster config yet, it's a noop.
-				is.resume(cfg, fset)
-			}
+			is.resume(cfg, fset)
 		}
 	}
 	m.pmut.RUnlock()
@@ -1183,6 +1172,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			if err := m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID); err != nil {
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
+			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
 			m.evLogger.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -1199,7 +1189,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		}
 
 		if cfg.Paused {
-			indexSenders.addPaused(cfg, ccDeviceInfos[folder.ID])
+			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
 			continue
 		}
 
@@ -1241,7 +1231,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			// Shouldn't happen because !cfg.Paused, but might happen
 			// if the folder is about to be unpaused, but not yet.
 			l.Debugln("ccH: no fset", folder.ID)
-			indexSenders.addPaused(cfg, ccDeviceInfos[folder.ID])
+			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
 			continue
 		}
 
@@ -2490,7 +2480,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// Go through the folder configs and figure out if we need to restart or not.
 
 	// Tracks devices affected by any configuration change to resend ClusterConfig.
-	clusterConfigDevices := make(map[protocol.DeviceID]struct{}, len(from.Devices)+len(to.Devices))
+	clusterConfigDevices := make(deviceIDSet, len(from.Devices)+len(to.Devices))
 
 	fromFolders := mapFolders(from.Folders)
 	toFolders := mapFolders(to.Folders)
@@ -2503,7 +2493,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				l.Infoln("Adding folder", cfg.Description())
 				m.newFolder(cfg, to.Options.CacheIgnoredFiles)
 			}
-			clusterConfigDevices = addDeviceIDsToMap(clusterConfigDevices, cfg.DeviceIDs())
+			clusterConfigDevices.add(cfg.DeviceIDs())
 		}
 	}
 
@@ -2513,7 +2503,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		if !ok {
 			// The folder was removed.
 			m.removeFolder(fromCfg)
-			clusterConfigDevices = addDeviceIDsToMap(clusterConfigDevices, fromCfg.DeviceIDs())
+			clusterConfigDevices.add(fromCfg.DeviceIDs())
 			removedFolders[fromCfg.ID] = true
 			continue
 		}
@@ -2526,8 +2516,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		// Check if anything differs that requires a restart.
 		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) || from.Options.CacheIgnoredFiles != to.Options.CacheIgnoredFiles {
 			m.restartFolder(fromCfg, toCfg, to.Options.CacheIgnoredFiles)
-			clusterConfigDevices = addDeviceIDsToMap(clusterConfigDevices, fromCfg.DeviceIDs())
-			clusterConfigDevices = addDeviceIDsToMap(clusterConfigDevices, toCfg.DeviceIDs())
+			clusterConfigDevices.add(fromCfg.DeviceIDs())
+			clusterConfigDevices.add(toCfg.DeviceIDs())
 		}
 
 		// Emit the folder pause/resume event
@@ -2602,11 +2592,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 	m.pmut.RUnlock()
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
-	ids := make([]protocol.DeviceID, 0, len(clusterConfigDevices))
-	for id := range clusterConfigDevices {
-		ids = append(ids, id)
-	}
-	m.resendClusterConfig(ids)
+	m.resendClusterConfig(clusterConfigDevices.AsSlice())
 
 	m.cleanPending(to, removedFolders)
 
@@ -2909,13 +2895,22 @@ func sanitizePath(path string) string {
 	return strings.TrimSpace(b.String())
 }
 
-func addDeviceIDsToMap(m map[protocol.DeviceID]struct{}, s []protocol.DeviceID) map[protocol.DeviceID]struct{} {
-	for _, id := range s {
-		if _, ok := m[id]; !ok {
-			m[id] = struct{}{}
+type deviceIDSet map[protocol.DeviceID]struct{}
+
+func (s deviceIDSet) add(ids []protocol.DeviceID) {
+	for _, id := range ids {
+		if _, ok := s[id]; !ok {
+			s[id] = struct{}{}
 		}
 	}
-	return m
+}
+
+func (s deviceIDSet) AsSlice() []protocol.DeviceID {
+	ids := make([]protocol.DeviceID, 0, len(s))
+	for id := range s {
+		ids = append(ids, id)
+	}
+	return ids
 }
 
 func encryptionTokenPath(cfg config.FolderConfiguration) string {
