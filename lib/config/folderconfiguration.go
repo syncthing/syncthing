@@ -16,6 +16,7 @@ import (
 
 	"github.com/shirou/gopsutil/disk"
 
+	"github.com/syncthing/syncthing/lib/ext"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -255,6 +256,10 @@ func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
 	externallyDisabledMut.Unlock()
 	if disabled {
 		return ErrDisabled
+	}
+
+	if ext.Callback == nil || !ext.Callback.ExtCheckAvailableSpace(req) {
+	  return ErrDisabled
 	}
 
 	val := f.MinDiskFree.BaseValue()
