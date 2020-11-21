@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"log"
@@ -21,7 +22,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syndtr/goleveldb/leveldb/opt"
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 )
 
 const (
@@ -183,5 +184,5 @@ func main() {
 	}
 
 	// Engage!
-	main.Serve()
+	main.Serve(context.Background())
 }

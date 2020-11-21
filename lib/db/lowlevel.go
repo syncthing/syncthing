@@ -25,7 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 )
 
 const (
@@ -68,14 +68,13 @@ type Lowlevel struct {
 }
 
 func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
+	spec := util.Spec()
+	// Only log restarts in debug mode.
+	spec.EventHook = func(e suture.Event) {
+		l.Debugln(e)
+	}
 	db := &Lowlevel{
-		Supervisor: suture.New("db.Lowlevel", suture.Spec{
-			// Only log restarts in debug mode.
-			Log: func(line string) {
-				l.Debugln(line)
-			},
-			PassThroughPanics: true,
-		}),
+		Supervisor:         suture.New("db.Lowlevel", spec),
 		Backend:            backend,
 		folderIdx:          newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
 		deviceIdx:          newSmallIndex(backend, []byte{KeyTypeDeviceIdx}),
@@ -586,7 +585,7 @@ func (db *Lowlevel) dropPrefix(prefix []byte) error {
 	return t.Commit()
 }
 
-func (db *Lowlevel) gcRunner(ctx context.Context) {
+func (db *Lowlevel) gcRunner(ctx context.Context) error {
 	// Calculate the time for the next GC run. Even if we should run GC
 	// directly, give the system a while to get up and running and do other
 	// stuff first. (We might have migrations and stuff which would be
@@ -602,7 +601,7 @@ func (db *Lowlevel) gcRunner(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case <-t.C:
 			if err := db.gcIndirect(ctx); err != nil {
 				l.Warnln("Database indirection GC failed:", err)

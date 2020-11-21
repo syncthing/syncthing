@@ -74,6 +74,13 @@ func (s *FileSet) Drop(device protocol.DeviceID) {
 		// announced from the remote is newer than our current sequence
 		// number.
 		s.meta.resetAll(device)
+		// Also reset the index ID, as we do want a full index retransfer
+		// if we ever reconnect, regardless of if the index ID changed.
+		if err := s.db.setIndexID(device[:], []byte(s.folder), 0); backend.IsClosed(err) {
+			return
+		} else if err != nil {
+			fatalError(err, opStr, s.db)
+		}
 	}
 
 	t, err := s.db.newReadWriteTransaction()

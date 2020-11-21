@@ -12,47 +12,38 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/thejerf/suture"
-
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // The auditService subscribes to events and writes these in JSON format, one
 // event per line, to the specified writer.
 type auditService struct {
-	suture.Service
-	w   io.Writer // audit destination
-	sub events.Subscription
+	w        io.Writer // audit destination
+	evLogger events.Logger
 }
 
 func newAuditService(w io.Writer, evLogger events.Logger) *auditService {
-	s := &auditService{
-		w:   w,
-		sub: evLogger.Subscribe(events.AllEvents),
+	return &auditService{
+		w:        w,
+		evLogger: evLogger,
 	}
-	s.Service = util.AsService(s.serve, s.String())
-	return s
 }
 
 // serve runs the audit service.
-func (s *auditService) serve(ctx context.Context) {
+func (s *auditService) Serve(ctx context.Context) error {
+	sub := s.evLogger.Subscribe(events.AllEvents)
+	defer sub.Unsubscribe()
+
 	enc := json.NewEncoder(s.w)
 
 	for {
 		select {
-		case ev := <-s.sub.C():
+		case ev := <-sub.C():
 			enc.Encode(ev)
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		}
 	}
-}
-
-// Stop stops the audit service.
-func (s *auditService) Stop() {
-	s.Service.Stop()
-	s.sub.Unsubscribe()
 }
 
 func (s *auditService) String() string {

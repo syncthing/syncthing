@@ -31,12 +31,9 @@ import (
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
-
-	"github.com/thejerf/suture"
 )
 
 type folder struct {
-	suture.Service
 	stateTracker
 	config.FolderConfiguration
 	*stats.FolderStatisticsReference
@@ -135,7 +132,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 	return f
 }
 
-func (f *folder) serve(ctx context.Context) {
+func (f *folder) Serve(ctx context.Context) error {
 	atomic.AddInt32(&f.model.foldersRunning, 1)
 	defer atomic.AddInt32(&f.model.foldersRunning, -1)
 
@@ -168,7 +165,7 @@ func (f *folder) serve(ctx context.Context) {
 		select {
 		case <-f.ctx.Done():
 			close(f.done)
-			return
+			return nil
 
 		case <-f.pullScheduled:
 			f.pull()

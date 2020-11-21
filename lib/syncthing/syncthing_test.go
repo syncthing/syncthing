@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 func tempCfgFilename(t *testing.T) string {
@@ -86,7 +87,7 @@ func TestStartupFail(t *testing.T) {
 	}
 
 	done := make(chan struct{})
-	var waitE ExitStatus
+	var waitE util.ExitStatus
 	go func() {
 		waitE = app.Wait()
 		close(done)
@@ -98,8 +99,8 @@ func TestStartupFail(t *testing.T) {
 	case <-done:
 	}
 
-	if waitE != ExitError {
-		t.Errorf("Got exit status %v, expected %v", waitE, ExitError)
+	if waitE != util.ExitError {
+		t.Errorf("Got exit status %v, expected %v", waitE, util.ExitError)
 	}
 
 	if err = app.Error(); err != startErr {

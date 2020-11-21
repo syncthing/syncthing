@@ -532,7 +532,7 @@ func appendParameters(args []string, tags []string, pkgs ...string) []string {
 		// -gcflags to disable optimizations and inlining. Skip -ldflags
 		// because `Could not launch program: decoding dwarf section info at
 		// offset 0x0: too short` on 'dlv exec ...' see
-		// https://github.com/derekparker/delve/issues/79
+		// https://github.com/go-delve/delve/issues/79
 		args = append(args, "-gcflags", "-N -l")
 	}
 

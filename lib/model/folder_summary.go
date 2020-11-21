@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -52,9 +52,7 @@ type folderSummaryService struct {
 
 func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
 	service := &folderSummaryService{
-		Supervisor: suture.New("folderSummaryService", suture.Spec{
-			PassThroughPanics: true,
-		}),
+		Supervisor:      suture.New("folderSummaryService", util.Spec()),
 		cfg:             cfg,
 		model:           m,
 		id:              id,
@@ -169,7 +167,7 @@ func (c *folderSummaryService) OnEventRequest() {
 
 // listenForUpdates subscribes to the event bus and makes note of folders that
 // need their data recalculated.
-func (c *folderSummaryService) listenForUpdates(ctx context.Context) {
+func (c *folderSummaryService) listenForUpdates(ctx context.Context) error {
 	sub := c.evLogger.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged | events.DownloadProgress)
 	defer sub.Unsubscribe()
 
@@ -180,7 +178,7 @@ func (c *folderSummaryService) listenForUpdates(ctx context.Context) {
 		case ev := <-sub.C():
 			c.processUpdate(ev)
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		}
 	}
 }
@@ -261,7 +259,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 
 // calculateSummaries periodically recalculates folder summaries and
 // completion percentage, and sends the results on the event bus.
-func (c *folderSummaryService) calculateSummaries(ctx context.Context) {
+func (c *folderSummaryService) calculateSummaries(ctx context.Context) error {
 	const pumpInterval = 2 * time.Second
 	pump := time.NewTimer(pumpInterval)
 
@@ -272,7 +270,7 @@ func (c *folderSummaryService) calculateSummaries(ctx context.Context) {
 			for _, folder := range c.foldersToHandle() {
 				select {
 				case <-ctx.Done():
-					return
+					return ctx.Err()
 				default:
 				}
 				c.sendSummary(ctx, folder)
@@ -288,7 +286,7 @@ func (c *folderSummaryService) calculateSummaries(ctx context.Context) {
 			c.sendSummary(ctx, folder)
 
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		}
 	}
 }

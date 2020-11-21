@@ -20,7 +20,8 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -62,7 +63,7 @@ func main() {
 		}
 		log.Println("Created client")
 
-		go relay.Serve()
+		go relay.Serve(ctx)
 
 		recv := make(chan protocol.SessionInvitation)
 

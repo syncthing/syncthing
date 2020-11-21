@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -22,7 +22,6 @@ import (
 )
 
 type indexSender struct {
-	suture.Service
 	conn                     protocol.Connection
 	folder                   string
 	folderIsReceiveEncrypted bool
@@ -36,11 +35,12 @@ type indexSender struct {
 	resumeChan               chan *db.FileSet
 }
 
-func (s *indexSender) serve(ctx context.Context) {
-	var err error
-
+func (s *indexSender) Serve(ctx context.Context) (err error) {
 	l.Debugf("Starting indexSender for %s to %s at %s (slv=%d)", s.folder, s.conn.ID(), s.conn, s.prevSequence)
-	defer l.Debugf("Exiting indexSender for %s to %s at %s: %v", s.folder, s.conn.ID(), s.conn, err)
+	defer func() {
+		err = util.NoRestartErr(err)
+		l.Debugf("Exiting indexSender for %s to %s at %s: %v", s.folder, s.conn.ID(), s.conn, err)
+	}()
 
 	// We need to send one index, regardless of whether there is something to send or not
 	err = s.sendIndexTo(ctx)
@@ -59,9 +59,9 @@ func (s *indexSender) serve(ctx context.Context) {
 	for err == nil {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case <-s.connClosed:
-			return
+			return nil
 		default:
 		}
 
@@ -72,9 +72,9 @@ func (s *indexSender) serve(ctx context.Context) {
 		if s.fset.Sequence(protocol.LocalDeviceID) <= s.prevSequence {
 			select {
 			case <-ctx.Done():
-				return
+				return ctx.Err()
 			case <-s.connClosed:
-				return
+				return nil
 			case <-evChan:
 			case <-ticker.C:
 			case <-s.pauseChan:
@@ -95,14 +95,9 @@ func (s *indexSender) serve(ctx context.Context) {
 		// time to batch them up a little.
 		time.Sleep(250 * time.Millisecond)
 	}
-}
 
-// Complete implements the suture.IsCompletable interface. When Serve terminates
-// before Stop is called, the supervisor will check for this method and if it
-// returns true removes the service instead of restarting it. Here it always
-// returns true, as indexSender only terminates when a connection is
-// closed/has failed, in which case retrying doesn't help.
-func (s *indexSender) Complete() bool { return true }
+	return err
+}
 
 func (s *indexSender) resume(fset *db.FileSet) {
 	select {
@@ -286,6 +281,8 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 		// them. We'll start with a full index transfer.
 		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", r.deviceID, folder.Description(), startInfo.local.IndexID, myIndexID)
 		startSequence = 0
+	} else {
+		l.Debugf("Device %v folder %s is not delta index compatible", r.deviceID, folder.Description())
 	}
 
 	// This is the other side's description of themselves. We
@@ -333,7 +330,6 @@ func (r *indexSenderRegistry) startLocked(folderID string, fset *db.FileSet, sta
 		pauseChan:    make(chan struct{}),
 		resumeChan:   make(chan *db.FileSet),
 	}
-	is.Service = util.AsService(is.serve, is.String())
 	is.token = r.sup.Add(is)
 	r.indexSenders[folderID] = is
 }

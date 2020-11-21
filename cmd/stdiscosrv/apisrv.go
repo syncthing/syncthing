@@ -66,12 +66,12 @@ func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, 
 	}
 }
 
-func (s *apiSrv) Serve() {
+func (s *apiSrv) Serve(ctx context.Context) error {
 	if s.useHTTP {
 		listener, err := net.Listen("tcp", s.addr)
 		if err != nil {
 			log.Println("Listen:", err)
-			return
+			return err
 		}
 		s.listener = listener
 	} else {
@@ -93,7 +93,7 @@ func (s *apiSrv) Serve() {
 		tlsListener, err := tls.Listen("tcp", s.addr, tlsCfg)
 		if err != nil {
 			log.Println("Listen:", err)
-			return
+			return err
 		}
 		s.listener = tlsListener
 	}
@@ -107,9 +107,11 @@ func (s *apiSrv) Serve() {
 		MaxHeaderBytes: httpMaxHeaderBytes,
 	}
 
-	if err := srv.Serve(s.listener); err != nil {
+	err := srv.Serve(s.listener)
+	if err != nil {
 		log.Println("Serve:", err)
 	}
+	return err
 }
 
 var topCtx = context.Background()

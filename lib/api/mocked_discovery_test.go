@@ -17,11 +17,8 @@ type mockedCachingMux struct{}
 
 // from suture.Service
 
-func (m *mockedCachingMux) Serve() {
+func (m *mockedCachingMux) Serve(ctx context.Context) error {
 	select {}
-}
-
-func (m *mockedCachingMux) Stop() {
 }
 
 // from events.Finder

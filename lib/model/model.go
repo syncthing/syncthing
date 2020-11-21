@@ -22,7 +22,7 @@ import (
 	"unicode"
 
 	"github.com/pkg/errors"
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -36,6 +36,7 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -46,6 +47,7 @@ const (
 )
 
 type service interface {
+	suture.Service
 	BringToFront(string)
 	Override()
 	Revert()
@@ -53,8 +55,6 @@ type service interface {
 	SchedulePull()                                    // something relevant changed, we should try a pull
 	Jobs(page, perpage int) ([]string, []string, int) // In progress, Queued, skipped
 	Scan(subs []string) error
-	Serve()
-	Stop()
 	Errors() []FileError
 	WatchError() error
 	ScheduleForceRescan(path string)
@@ -157,7 +157,9 @@ type model struct {
 	remotePausedFolders map[protocol.DeviceID]map[string]struct{} // deviceID -> folders
 	indexSenders        map[protocol.DeviceID]*indexSenderRegistry
 
-	foldersRunning int32 // for testing only
+	// for testing only
+	foldersRunning int32
+	started        chan struct{}
 }
 
 type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem, events.Logger, *byteSemaphore) service
@@ -195,13 +197,12 @@ var (
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger) Model {
+	spec := util.Spec()
+	spec.EventHook = func(e suture.Event) {
+		l.Debugln(e)
+	}
 	m := &model{
-		Supervisor: suture.New("model", suture.Spec{
-			Log: func(line string) {
-				l.Debugln(line)
-			},
-			PassThroughPanics: true,
-		}),
+		Supervisor: suture.New("model", spec),
 
 		// constructor parameters
 		cfg:            cfg,
@@ -240,26 +241,20 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remotePausedFolders: make(map[protocol.DeviceID]map[string]struct{}),
 		indexSenders:        make(map[protocol.DeviceID]*indexSenderRegistry),
+
+		// for testing only
+		started: make(chan struct{}),
 	}
 	for devID := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
 	}
 	m.Add(m.progressEmitter)
+	m.Add(util.AsService(m.serve, m.String()))
 
 	return m
 }
 
-func (m *model) Serve() {
-	m.onServe()
-	m.Supervisor.Serve()
-}
-
-func (m *model) ServeBackground() {
-	m.onServe()
-	m.Supervisor.ServeBackground()
-}
-
-func (m *model) onServe() {
+func (m *model) serve(ctx context.Context) error {
 	// Add and start folders
 	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
 	for _, folderCfg := range m.cfg.FolderList() {
@@ -273,11 +268,11 @@ func (m *model) onServe() {
 	m.cleanPending(m.cfg.RawCopy(), nil)
 
 	m.cfg.Subscribe(m)
-}
 
-func (m *model) Stop() {
+	close(m.started)
+	<-ctx.Done()
+
 	m.cfg.Unsubscribe(m)
-	m.Supervisor.Stop()
 	m.pmut.RLock()
 	closed := make([]chan struct{}, 0, len(m.conn))
 	for id, conn := range m.conn {
@@ -288,6 +283,7 @@ func (m *model) Stop() {
 	for _, c := range closed {
 		<-c
 	}
+	return nil
 }
 
 // StartDeadlockDetector starts a deadlock detector on the models locks which
@@ -561,23 +557,28 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
 
-	// In case this folder is new and was shared with us we already got a
-	// cluster config and wont necessarily get another soon - start sending
-	// indexes if connected.
-	if fset.Sequence(protocol.LocalDeviceID) == 0 {
-		m.pmut.RLock()
-		for _, id := range cfg.DeviceIDs() {
-			if is, ok := m.indexSenders[id]; ok {
-				if fset.Sequence(id) == 0 {
-					is.addNew(cfg, fset)
-				}
+	// Cluster configs might be received and processed before reaching this
+	// point, i.e. before the folder is started. If that's the case, start
+	// index senders here.
+	localSequenceZero := fset.Sequence(protocol.LocalDeviceID) == 0
+	m.pmut.RLock()
+	for _, id := range cfg.DeviceIDs() {
+		if is, ok := m.indexSenders[id]; ok {
+			if localSequenceZero && fset.Sequence(id) == 0 {
+				// In case this folder was shared to us and
+				// newly added, add a new index sender.
+				is.addNew(cfg, fset)
+			} else {
+				// For existing folders we stored the index data from
+				// the cluster config, so resume based on that - if
+				// we didn't get a cluster config yet, it's a noop.
+				is.resume(cfg, fset)
 			}
 		}
-		m.pmut.RUnlock()
 	}
+	m.pmut.RUnlock()
 
 	m.addAndStartFolderLocked(cfg, fset, cacheIgnoredFiles)
-
 }
 
 func (m *model) UsageReportingStats(report *contract.Report, version int, preview bool) {
@@ -1202,16 +1203,6 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			continue
 		}
 
-		m.fmut.RLock()
-		fs, ok := m.folderFiles[folder.ID]
-		m.fmut.RUnlock()
-		if !ok {
-			// Shouldn't happen because !cfg.Paused, but might happen
-			// if the folder is about to be unpaused, but not yet.
-			l.Debugln("ccH: no fset", folder.ID)
-			continue
-		}
-
 		if err := m.ccCheckEncryption(cfg, folderDevice, ccDeviceInfos[folder.ID], deviceCfg.Untrusted); err != nil {
 			sameError := false
 			if devs, ok := m.folderEncryptionFailures[folder.ID]; ok {
@@ -1241,6 +1232,17 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		if !folder.DisableTempIndexes {
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
+		}
+
+		m.fmut.RLock()
+		fs, ok := m.folderFiles[folder.ID]
+		m.fmut.RUnlock()
+		if !ok {
+			// Shouldn't happen because !cfg.Paused, but might happen
+			// if the folder is about to be unpaused, but not yet.
+			l.Debugln("ccH: no fset", folder.ID)
+			indexSenders.addPaused(cfg, ccDeviceInfos[folder.ID])
+			continue
 		}
 
 		indexSenders.add(cfg, fs, ccDeviceInfos[folder.ID])
@@ -2193,13 +2195,15 @@ func (m *model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			IgnorePermissions:  folderCfg.IgnorePerms,
 			IgnoreDelete:       folderCfg.IgnoreDelete,
 			DisableTempIndexes: folderCfg.DisableTempIndexes,
-			Paused:             folderCfg.Paused,
 		}
 
-		var fs *db.FileSet
-		if !folderCfg.Paused {
-			fs = m.folderFiles[folderCfg.ID]
-		}
+		fs := m.folderFiles[folderCfg.ID]
+
+		// Even if we aren't paused, if we haven't started the folder yet
+		// pretend we are. Otherwise the remote might get confused about
+		// the missing index info (and drop all the info). We will send
+		// another cluster config once the folder is started.
+		protocolFolder.Paused = folderCfg.Paused || fs == nil
 
 		for _, device := range folderCfg.Devices {
 			deviceCfg, _ := m.cfg.Device(device.DeviceID)

@@ -25,7 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/util"
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 )
 
 type localClient struct {
@@ -52,9 +52,7 @@ const (
 
 func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogger events.Logger) (FinderService, error) {
 	c := &localClient{
-		Supervisor: suture.New("local", suture.Spec{
-			PassThroughPanics: true,
-		}),
+		Supervisor:      suture.New("local", util.Spec()),
 		myID:            id,
 		addrList:        addrList,
 		evLogger:        evLogger,
@@ -137,7 +135,7 @@ func (c *localClient) announcementPkt(instanceID int64, msg []byte) ([]byte, boo
 	return msg, true
 }
 
-func (c *localClient) sendLocalAnnouncements(ctx context.Context) {
+func (c *localClient) sendLocalAnnouncements(ctx context.Context) error {
 	var msg []byte
 	var ok bool
 	instanceID := rand.Int63()
@@ -150,18 +148,18 @@ func (c *localClient) sendLocalAnnouncements(ctx context.Context) {
 		case <-c.localBcastTick:
 		case <-c.forcedBcastTick:
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		}
 	}
 }
 
-func (c *localClient) recvAnnouncements(ctx context.Context) {
+func (c *localClient) recvAnnouncements(ctx context.Context) error {
 	b := c.beacon
 	warnedAbout := make(map[string]bool)
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		default:
 		}
 

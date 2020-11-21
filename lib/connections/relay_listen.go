@@ -53,8 +53,7 @@ func (t *relayListener) serve(ctx context.Context) error {
 
 	t.mut.Lock()
 	t.client = clnt
-	go clnt.Serve()
-	defer clnt.Stop()
+	go clnt.Serve(ctx)
 	t.mut.Unlock()
 
 	// Start with nil, so that we send a addresses changed notification as soon as we connect somewhere.
@@ -120,7 +119,7 @@ func (t *relayListener) serve(ctx context.Context) error {
 			}
 
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 }
@@ -185,7 +184,7 @@ func (f *relayListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls
 		conns:   conns,
 		factory: f,
 	}
-	t.ServiceWithError = util.AsServiceWithError(t.serve, t.String())
+	t.ServiceWithError = util.AsService(t.serve, t.String())
 	return t
 }
 

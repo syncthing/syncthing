@@ -120,11 +120,12 @@ func TestRelay(ctx context.Context, uri *url.URL, certs []tls.Certificate, sleep
 		close(invs)
 		return fmt.Errorf("creating client: %w", err)
 	}
-	go c.Serve()
-	defer func() {
-		c.Stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		c.Serve(ctx)
 		close(invs)
 	}()
+	defer cancel()
 
 	for i := 0; i < times; i++ {
 		_, err = GetInvitationFromRelay(ctx, uri, id, certs, timeout)
