@@ -27,7 +27,8 @@ var (
 	ErrPathNotDirectory = errors.New("folder path not a directory")
 	ErrPathMissing      = errors.New("folder path missing")
 	ErrMarkerMissing    = errors.New("folder marker missing (this indicates potential data loss, search docs/forum to get information about how to proceed)")
-	ErrDisabled         = errors.New("Syncthing has been disabled")
+	ErrExceedsFree      = errors.New("sync would exceed free usage allowance")
+	ErrDisabled         = errors.New("sync has been disabled")
 )
 
 var (
@@ -259,7 +260,7 @@ func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
 	}
 
 	if ext.Callback == nil || !ext.Callback.ExtCheckAvailableSpace(req) {
-	  return ErrDisabled
+	  return ErrExceedsFree
 	}
 
 	val := f.MinDiskFree.BaseValue()
