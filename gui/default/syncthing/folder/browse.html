@@ -1,0 +1,33 @@
+<!-- File browser -->
+
+<div ng-controller="BrowseController as BC">
+  <div class="panel panel-default">
+    <div class="panel-heading" style="white-space: nowrap; overflow: auto;">
+      <span ng-repeat="dir in BC.browse.pathParts">
+        <button class="btn btn-sm btn-default" ng-click="BC.navigate(BC.folder.id, dir.prefix)">
+          {{dir.name}}
+        </button>
+      </span>
+    </div>
+    <div class="panel-body">
+      <table class="table table-condensed table-striped table-auto">
+        <tbody>
+          <tr ng-repeat="file in BC.browse.list">
+            <th class="col-flex">
+              <div ng-if="file.isFile">
+                <span class="fas fa-fw fa-file-o"></span>&nbsp;{{file.name}}
+              </div>
+              <div ng-if="!file.isFile">
+                <a class="fill-parent" ng-click="BC.navigate(BC.folder.id, file.path)">
+                  <span class="fas fa-fw fa-folder"></span>&nbsp;{{file.name}}
+                </a>
+              </div>
+            </th>
+            <td class="col-fixed text-right"><span ng-if="file.isFile">{{file.modifiedAt.fromNow()}}</span></td>
+            <td class="col-fixed text-right"><span ng-if="file.isFile">{{file.size | binary}}B</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

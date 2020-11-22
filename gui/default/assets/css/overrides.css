@@ -87,6 +87,12 @@ ul+h5 {
     display: none !important;
 }
 
+.fill-parent {
+	display: block;
+	width: 100%;
+	height: 100%;
+}
+
 .table th {
     white-space: nowrap;
     font-weight: 400;
@@ -128,11 +134,11 @@ table.table-auto {
 	table-layout: auto;
 }
 
-table.table-auto th {
+table.table-auto .col-fixed {
 	width: 1px;
 }
 
-table.table-auto td {
+table.table-auto .col-flex {
     max-width: 0px;
 }
 

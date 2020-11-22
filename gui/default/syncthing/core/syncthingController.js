@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
+    .controller('SyncthingController', function ($scope, $http, $location, CurrentFolder, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
@@ -52,7 +52,7 @@ angular.module('syncthing.core')
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
-        $scope.currentFolder = {};
+        $scope.currentFolder = CurrentFolder;
         $scope.ignores = {
             text: '',
             error: null,
@@ -1780,7 +1780,10 @@ angular.module('syncthing.core')
 
         $scope.editFolder = function (folderCfg) {
             $scope.editingExisting = true;
-            $scope.currentFolder = angular.copy(folderCfg);
+            // Copy config into currentFolder instead of assigning a new object
+            // to currentFolder. This preserves the reference to CurrentFolder
+            // provider for other modules to use.
+            angular.copy(folderCfg, $scope.currentFolder);
             if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
             }
@@ -1869,7 +1872,7 @@ angular.module('syncthing.core')
         $scope.addFolder = function () {
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.editingExisting = false;
-                $scope.currentFolder = angular.copy($scope.folderDefaults);
+                angular.copy($scope.folderDefaults, $scope.currentFolder);
                 initShareEditing('folder');
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $scope.currentSharing.unrelated = $scope.otherDevices();
@@ -1882,7 +1885,7 @@ angular.module('syncthing.core')
 
         $scope.addFolderAndShare = function (folder, folderLabel, device) {
             $scope.editingExisting = false;
-            $scope.currentFolder = angular.copy($scope.folderDefaults);
+            angular.copy($scope.folderDefaults, $scope.currentFolder);
             $scope.currentFolder.id = folder;
             $scope.currentFolder.label = folderLabel;
             $scope.currentFolder.viewFlags = {
