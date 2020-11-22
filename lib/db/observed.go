@@ -440,3 +440,70 @@ func (d *CandidateDevice) collectAddresses(addresses []string) {
 		d.Addresses = append(d.Addresses, a)
 	}
 }
+
+// Consolidated information about candidate devices linked through a certain common folder
+type CandidateFolder map[protocol.DeviceID]candidateFolderDevice
+
+// Description of one candidate device, mainly who announced the link to our folder
+type candidateFolderDevice struct {
+	IntroducedBy map[protocol.DeviceID]candidateFolderAttribution `json:"introducedBy"`
+}
+
+// Details which an introducer told us about a candidate device
+type candidateFolderAttribution struct {
+	Time  time.Time `json:"time"`
+	Label string    `json:"label"`
+}
+
+func (db *Lowlevel) CandidateFolders() (map[string]CandidateFolder, error) {
+	return db.CandidateFoldersForDevice(protocol.EmptyDeviceID)
+}
+
+// CandidateFoldersForDevice returns the same information as CandidateLinks, but
+// aggregated by common folder.  The results are filtered to include only folders which
+// the given device is a candidate for, unless it is EmptyDeviceID.  Invalid entries are
+// dropped from the database after a warning log message, as a side-effect.
+func (db *Lowlevel) CandidateFoldersForDevice(device protocol.DeviceID) (map[string]CandidateFolder, error) {
+	iter, err := db.NewPrefixIterator([]byte{KeyTypeCandidateLink})
+	if err != nil {
+		return nil, err
+	}
+	defer iter.Release()
+	res := make(map[string]CandidateFolder)
+	for iter.Next() {
+		ocl, candidateID, introducerID, folderID, ok, err := db.readCandidateLink(iter)
+		if err != nil {
+			// Fatal error, not just invalid (and already discarded) entry
+			return nil, err
+		} else if !ok {
+			continue
+		}
+		if device != protocol.EmptyDeviceID && candidateID != device {
+			// Filter out links where the given device is no candidate
+			continue
+		}
+		cf, ok := res[folderID]
+		if !ok {
+			cf = make(CandidateFolder)
+		}
+		cf.mergeCandidateLink(ocl, candidateID, introducerID)
+		res[folderID] = cf
+		continue
+	}
+	return res, nil
+}
+
+// mergeCandidateLink aggregates one recorded link's information onto the existing structure
+func (cf *CandidateFolder) mergeCandidateLink(observed ObservedCandidateLink, candidate, introducer protocol.DeviceID) {
+	device, ok := (*cf)[candidate]
+	if !ok {
+		device = candidateFolderDevice{
+			IntroducedBy: map[protocol.DeviceID]candidateFolderAttribution{},
+		}
+	}
+	device.IntroducedBy[introducer] = candidateFolderAttribution{
+		Time:  observed.Time,
+		Label: observed.IntroducerLabel,
+	}
+	(*cf)[candidate] = device
+}
