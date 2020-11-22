@@ -12,7 +12,11 @@
     <div class="panel-body">
       <table class="table table-condensed table-striped table-auto">
         <tbody>
-          <tr ng-repeat="file in BC.browse.list">
+          <tr ng-repeat="file in BC.browse.list" ng-init="matches = BC.matchingPatterns(file)">
+            <td class="col-fixed">
+              <span ng-if="matches.length > 0 && !matches[0].isNegated"><span tooltip data-original-title="Ignored by {{matches[0].text}}"><span class="fas fa-fw fa-eye-slash"></span></span></span>
+              <span ng-if="matches.length > 0 && matches[0].isNegated"><span tooltip data-original-title="Included by {{matches[0].text}}"><span class="fas fa-fw fa-eye"></span></span></span>
+            </td>
             <th class="col-flex">
               <div ng-if="file.isFile">
                 <span class="fas fa-fw fa-file-o"></span>&nbsp;{{file.name}}
