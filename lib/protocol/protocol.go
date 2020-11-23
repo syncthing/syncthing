@@ -410,7 +410,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 				state = stateReady
 			}
 			if err := c.receiver.ClusterConfig(c.id, *msg); err != nil {
-				return errors.Wrap(err, "receiver error")
+				return fmt.Errorf("receiving cluster config: %w", err)
 			}
 
 		case *Index:
@@ -422,7 +422,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 				return errors.Wrap(err, "protocol error: index")
 			}
 			if err := c.handleIndex(*msg); err != nil {
-				return errors.Wrap(err, "receiver error")
+				return fmt.Errorf("receiving index: %w", err)
 			}
 			state = stateReady
 
@@ -435,7 +435,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 				return errors.Wrap(err, "protocol error: index update")
 			}
 			if err := c.handleIndexUpdate(*msg); err != nil {
-				return errors.Wrap(err, "receiver error")
+				return fmt.Errorf("receiving index update: %w", err)
 			}
 			state = stateReady
 
@@ -462,7 +462,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 				return fmt.Errorf("protocol error: response message in state %d", state)
 			}
 			if err := c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates); err != nil {
-				return errors.Wrap(err, "receiver error")
+				return fmt.Errorf("receiving download progress: %w", err)
 			}
 
 		case *Ping:
