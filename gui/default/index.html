@@ -506,6 +506,7 @@
                   <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Revert Local Changes</span>
                 </button>
                 <span class="pull-right">
+                  <!-- %OPENFOLDER% -->
                   <button ng-if="!folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, true)">
                     <span class="fas fa-pause"></span>&nbsp;<span translate>Pause</span>
                   </button>
@@ -528,6 +529,7 @@
           </div>
         </div>
         <span class="pull-right">
+          <!-- %OPENTOPFOLDER% -->
           <button type="button" class="btn btn-sm btn-default" ng-click="setAllFoldersPause(true)" ng-if="isAtleastOneFolderPausedStateSetTo(false)">
             <span class="fas fa-pause"></span>&nbsp;<span translate>Pause All</span>
           </button>
