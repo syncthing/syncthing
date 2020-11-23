@@ -33,8 +33,10 @@ func TestPing(t *testing.T) {
 
 	c0 := NewConnection(c0ID, ar, bw, newTestModel(), "name", CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
 	c0.Start()
+	defer closeAndWait(c0, ar, bw)
 	c1 := NewConnection(c1ID, br, aw, newTestModel(), "name", CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
 	c1.Start()
+	defer closeAndWait(c1, ar, bw)
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
 
@@ -57,8 +59,10 @@ func TestClose(t *testing.T) {
 
 	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressionAlways).(wireFormatConnection).Connection.(*rawConnection)
 	c0.Start()
+	defer closeAndWait(c0, ar, bw)
 	c1 := NewConnection(c1ID, br, aw, m1, "name", CompressionAlways)
 	c1.Start()
+	defer closeAndWait(c1, ar, bw)
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
 
@@ -149,8 +153,10 @@ func TestCloseRace(t *testing.T) {
 
 	c0 := NewConnection(c0ID, ar, bw, m0, "c0", CompressionNever).(wireFormatConnection).Connection.(*rawConnection)
 	c0.Start()
+	defer closeAndWait(c0, ar, bw)
 	c1 := NewConnection(c1ID, br, aw, m1, "c1", CompressionNever)
 	c1.Start()
+	defer closeAndWait(c1, ar, bw)
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
 
@@ -944,4 +950,19 @@ func TestIndexIDString(t *testing.T) {
 	if i.String() != "0x000000000000002A" {
 		t.Error(i.String())
 	}
+}
+
+func closeAndWait(c Connection, closers ...io.Closer) {
+	for _, closer := range closers {
+		closer.Close()
+	}
+	var raw *rawConnection
+	switch i := c.(type) {
+	case wireFormatConnection:
+		raw = i.Connection.(*rawConnection)
+	case *rawConnection:
+		raw = i
+	}
+	raw.internalClose(ErrClosed)
+	raw.loopWG.Wait()
 }
