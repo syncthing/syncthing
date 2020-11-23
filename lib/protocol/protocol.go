@@ -253,7 +253,7 @@ func (c *rawConnection) Start() {
 	go c.readerLoop()
 	go func() {
 		err := c.dispatcherLoop()
-		c.internalClose(err)
+		c.Close(err)
 	}()
 	go c.writerLoop()
 	go c.pingSender()
