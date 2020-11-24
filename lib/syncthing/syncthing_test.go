@@ -80,7 +80,10 @@ func TestStartupFail(t *testing.T) {
 	defer os.Remove(cfg.ConfigPath())
 
 	db := backend.OpenMemory()
-	app := New(cfg, db, events.NoopLogger, cert, Options{})
+	app, err := New(cfg, db, events.NoopLogger, cert, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	startErr := app.Start()
 	if startErr == nil {
 		t.Fatal("Expected an error from Start, got nil")

@@ -10,10 +10,11 @@ import (
 	"encoding/json"
 	"io"
 	"os"
-	// "testing"
+	"testing"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
-	// "github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	// "github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -69,6 +70,28 @@ func openJSONS(file string) (backend.Backend, error) {
 	return db, nil
 }
 
+func newLowlevel(t testing.TB, backend backend.Backend) *Lowlevel {
+	t.Helper()
+	ll, err := NewLowlevel(backend, events.NoopLogger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ll
+}
+
+func newLowlevelMemory(t testing.TB) *Lowlevel {
+	return newLowlevel(t, backend.OpenMemory())
+}
+
+func newFileSet(t testing.TB, folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
+	t.Helper()
+	fset, err := NewFileSet(folder, fs, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fset
+}
+
 // The following commented tests were used to generate jsons files to stdout for
 // future tests and are kept here for reference (reuse).
 
@@ -76,7 +99,7 @@ func openJSONS(file string) (backend.Backend, error) {
 // local and remote, in the format used in 0.14.48.
 // func TestGenerateIgnoredFilesDB(t *testing.T) {
 // 	db := OpenMemory()
-// 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+// 	fs := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 // 	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 // 		{ // invalid (ignored) file
 // 			Name:    "foo",
@@ -111,7 +134,7 @@ func openJSONS(file string) (backend.Backend, error) {
 // format used in 0.14.45.
 // func TestGenerateUpdate0to3DB(t *testing.T) {
 // 	db := OpenMemory()
-// 	fs := NewFileSet(update0to3Folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+// 	fs := newFileSet(t, update0to3Folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 // 	for devID, files := range haveUpdate0to3 {
 // 		fs.Update(devID, files)
 // 	}
@@ -119,14 +142,14 @@ func openJSONS(file string) (backend.Backend, error) {
 // }
 
 // func TestGenerateUpdateTo10(t *testing.T) {
-// 	db := NewLowlevel(backend.OpenMemory())
+// 	db := newLowlevelMemory(t)
 // 	defer db.Close()
 
 // 	if err := UpdateSchema(db); err != nil {
 // 		t.Fatal(err)
 // 	}
 
-// 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+// 	fs := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
 
 // 	files := []protocol.FileInfo{
 // 		{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Deleted: true, Sequence: 1},

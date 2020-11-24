@@ -11,7 +11,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -52,7 +52,7 @@ func TestEachFlagBit(t *testing.T) {
 func TestMetaDevices(t *testing.T) {
 	d1 := protocol.DeviceID{1}
 	d2 := protocol.DeviceID{2}
-	meta := newMetadataTracker(nil)
+	meta := newMetadataTracker(nil, events.NoopLogger)
 
 	meta.addFile(d1, protocol.FileInfo{Sequence: 1})
 	meta.addFile(d1, protocol.FileInfo{Sequence: 2, LocalFlags: 1})
@@ -85,7 +85,7 @@ func TestMetaDevices(t *testing.T) {
 
 func TestMetaSequences(t *testing.T) {
 	d1 := protocol.DeviceID{1}
-	meta := newMetadataTracker(nil)
+	meta := newMetadataTracker(nil, events.NoopLogger)
 
 	meta.addFile(d1, protocol.FileInfo{Sequence: 1})
 	meta.addFile(d1, protocol.FileInfo{Sequence: 2, RawInvalid: true})
@@ -105,11 +105,11 @@ func TestMetaSequences(t *testing.T) {
 }
 
 func TestRecalcMeta(t *testing.T) {
-	ldb := NewLowlevel(backend.OpenMemory())
+	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
 	// Add some files
-	s1 := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, "fake"), ldb)
+	s1 := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, "fake"), ldb)
 	files := []protocol.FileInfo{
 		{Name: "a", Size: 1000},
 		{Name: "b", Size: 2000},
@@ -161,7 +161,7 @@ func TestRecalcMeta(t *testing.T) {
 	}
 
 	// Create a new fileset, which will realize the inconsistency and recalculate
-	s2 := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, "fake"), ldb)
+	s2 := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, "fake"), ldb)
 
 	// Verify local/global size
 	snap = s2.Snapshot()

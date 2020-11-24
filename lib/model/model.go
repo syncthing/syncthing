@@ -130,6 +130,7 @@ type model struct {
 	// folderIOLimiter limits the number of concurrent I/O heavy operations,
 	// such as scans and pulls.
 	folderIOLimiter *byteSemaphore
+	fatalChan       chan error
 
 	// fields protected by fmut
 	fmut                           sync.RWMutex
@@ -216,6 +217,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		shortID:              id.Short(),
 		globalRequestLimiter: newByteSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
 		folderIOLimiter:      newByteSemaphore(cfg.Options().MaxFolderConcurrency()),
+		fatalChan:            make(chan error),
 
 		// fields protected by fmut
 		fmut:                           sync.NewRWMutex(),
@@ -252,7 +254,23 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 }
 
 func (m *model) serve(ctx context.Context) error {
-	// Add and start folders
+	m.initFolders()
+	m.cfg.Subscribe(m)
+	close(m.started)
+
+	var err error
+	select {
+	case <-ctx.Done():
+	case err = <-m.fatalChan:
+	}
+
+	m.cfg.Unsubscribe(m)
+	m.closeAllConnectionsAndWait()
+
+	return err
+}
+
+func (m *model) initFolders() {
 	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
 	clusterConfigDevices := make(deviceIDSet, len(m.cfg.Devices()))
 	for _, folderCfg := range m.cfg.Folders() {
@@ -260,16 +278,17 @@ func (m *model) serve(ctx context.Context) error {
 			folderCfg.CreateRoot()
 			continue
 		}
-		m.newFolder(folderCfg, cacheIgnoredFiles)
+		err := m.newFolder(folderCfg, cacheIgnoredFiles)
+		if err != nil {
+			m.fatal(err)
+			return
+		}
 		clusterConfigDevices.add(folderCfg.DeviceIDs())
 	}
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
-	m.cfg.Subscribe(m)
+}
 
-	close(m.started)
-	<-ctx.Done()
-
-	m.cfg.Unsubscribe(m)
+func (m *model) closeAllConnectionsAndWait() {
 	m.pmut.RLock()
 	closed := make([]chan struct{}, 0, len(m.conn))
 	for id, conn := range m.conn {
@@ -280,7 +299,16 @@ func (m *model) serve(ctx context.Context) error {
 	for _, c := range closed {
 		<-c
 	}
-	return nil
+}
+
+func (m *model) fatal(err error) {
+	select {
+	case m.fatalChan <- &util.FatalErr{
+		Err:    err,
+		Status: util.ExitError,
+	}:
+	default:
+	}
 }
 
 // StartDeadlockDetector starts a deadlock detector on the models locks which
@@ -465,7 +493,7 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	delete(m.folderVersioners, cfg.ID)
 }
 
-func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) {
+func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) error {
 	if len(to.ID) == 0 {
 		panic("bug: cannot restart empty folder ID")
 	}
@@ -505,7 +533,11 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 			// Create a new fset. Might take a while and we do it under
 			// locking, but it's unsafe to create fset:s concurrently so
 			// that's the price we pay.
-			fset = db.NewFileSet(folder, to.Filesystem(), m.db)
+			var err error
+			fset, err = db.NewFileSet(folder, to.Filesystem(), m.db)
+			if err != nil {
+				return fmt.Errorf("restarting folder: %w", err)
+			}
 		}
 		m.addAndStartFolderLocked(to, fset, cacheIgnoredFiles)
 	}
@@ -540,12 +572,17 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 		infoMsg = "Restarted"
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
+
+	return nil
 }
 
-func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool) {
+func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool) error {
 	// Creating the fileset can take a long time (metadata calculation) so
 	// we do it outside of the lock.
-	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
+	fset, err := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
+	if err != nil {
+		return fmt.Errorf("adding folder: %w", err)
+	}
 
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
@@ -562,6 +599,7 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	m.pmut.RUnlock()
 
 	m.addAndStartFolderLocked(cfg, fset, cacheIgnoredFiles)
+	return nil
 }
 
 func (m *model) UsageReportingStats(report *contract.Report, version int, preview bool) {
@@ -2483,7 +2521,10 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				l.Infoln("Paused folder", cfg.Description())
 			} else {
 				l.Infoln("Adding folder", cfg.Description())
-				m.newFolder(cfg, to.Options.CacheIgnoredFiles)
+				if err := m.newFolder(cfg, to.Options.CacheIgnoredFiles); err != nil {
+					m.fatal(err)
+					return true
+				}
 			}
 			clusterConfigDevices.add(cfg.DeviceIDs())
 		}
@@ -2505,7 +2546,10 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		// This folder exists on both sides. Settings might have changed.
 		// Check if anything differs that requires a restart.
 		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) || from.Options.CacheIgnoredFiles != to.Options.CacheIgnoredFiles {
-			m.restartFolder(fromCfg, toCfg, to.Options.CacheIgnoredFiles)
+			if err := m.restartFolder(fromCfg, toCfg, to.Options.CacheIgnoredFiles); err != nil {
+				m.fatal(err)
+				return true
+			}
 			clusterConfigDevices.add(fromCfg.DeviceIDs())
 			clusterConfigDevices.add(toCfg.DeviceIDs())
 		}

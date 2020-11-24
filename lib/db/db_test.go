@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -35,17 +36,17 @@ func TestIgnoredFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := NewLowlevel(ldb)
+	db := newLowlevel(t, ldb)
 	defer db.Close()
 	if err := UpdateSchema(db); err != nil {
 		t.Fatal(err)
 	}
 
-	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+	fs := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 
 	// The contents of the database are like this:
 	//
-	// 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+	// 	fs := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 	// 	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 	// 		{ // invalid (ignored) file
 	// 			Name:    "foo",
@@ -164,7 +165,7 @@ func TestUpdate0to3(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	db := NewLowlevel(ldb)
+	db := newLowlevel(t, ldb)
 	defer db.Close()
 	updater := schemaUpdater{db}
 
@@ -293,7 +294,7 @@ func TestUpdate0to3(t *testing.T) {
 
 // TestRepairSequence checks that a few hand-crafted messed-up sequence entries get fixed.
 func TestRepairSequence(t *testing.T) {
-	db := NewLowlevel(backend.OpenMemory())
+	db := newLowlevelMemory(t)
 	defer db.Close()
 
 	folderStr := "test"
@@ -397,7 +398,7 @@ func TestRepairSequence(t *testing.T) {
 	// Loading the metadata for the first time means a "re"calculation happens,
 	// along which the sequences get repaired too.
 	db.gcMut.RLock()
-	_ = db.loadMetadataTracker(folderStr)
+	_, err = db.loadMetadataTracker(folderStr)
 	db.gcMut.RUnlock()
 	if err != nil {
 		t.Fatal(err)
@@ -466,7 +467,7 @@ func TestRepairSequence(t *testing.T) {
 }
 
 func TestDowngrade(t *testing.T) {
-	db := NewLowlevel(backend.OpenMemory())
+	db := newLowlevelMemory(t)
 	defer db.Close()
 	// sets the min version etc
 	if err := UpdateSchema(db); err != nil {
@@ -491,10 +492,10 @@ func TestDowngrade(t *testing.T) {
 }
 
 func TestCheckGlobals(t *testing.T) {
-	db := NewLowlevel(backend.OpenMemory())
+	db := newLowlevelMemory(t)
 	defer db.Close()
 
-	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+	fs := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
 
 	// Add any file
 	name := "foo"
@@ -532,14 +533,17 @@ func TestUpdateTo10(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := NewLowlevel(ldb)
+	db := newLowlevel(t, ldb)
 	defer db.Close()
 
 	UpdateSchema(db)
 
 	folder := "test"
 
-	meta := db.getMetaAndCheck(folder)
+	meta, err := db.getMetaAndCheck(folder)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	empty := Counts{}
 
@@ -643,9 +647,9 @@ func TestDropDuplicates(t *testing.T) {
 func TestGCIndirect(t *testing.T) {
 	// Verify that the gcIndirect run actually removes block lists.
 
-	db := NewLowlevel(backend.OpenMemory())
+	db := newLowlevelMemory(t)
 	defer db.Close()
-	meta := newMetadataTracker(db.keyer)
+	meta := newMetadataTracker(db.keyer, events.NoopLogger)
 
 	// Add three files with different block lists
 
@@ -731,7 +735,7 @@ func TestGCIndirect(t *testing.T) {
 }
 
 func TestUpdateTo14(t *testing.T) {
-	db := NewLowlevel(backend.OpenMemory())
+	db := newLowlevelMemory(t)
 	defer db.Close()
 
 	folderStr := "default"
@@ -741,7 +745,10 @@ func TestUpdateTo14(t *testing.T) {
 	file.BlocksHash = protocol.BlocksHash(file.Blocks)
 	fileWOBlocks := file
 	fileWOBlocks.Blocks = nil
-	meta := db.loadMetadataTracker(folderStr)
+	meta, err := db.loadMetadataTracker(folderStr)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Initally add the correct file the usual way, all good here.
 	if err := db.updateLocalFiles(folder, []protocol.FileInfo{file}, meta); err != nil {
@@ -800,7 +807,7 @@ func TestFlushRecursion(t *testing.T) {
 	// Verify that a commit hook can write to the transaction without
 	// causing another flush and thus recursion.
 
-	db := NewLowlevel(backend.OpenMemory())
+	db := newLowlevelMemory(t)
 	defer db.Close()
 
 	// A commit hook that writes a small piece of data to the transaction.
@@ -838,11 +845,11 @@ func TestFlushRecursion(t *testing.T) {
 }
 
 func TestCheckLocalNeed(t *testing.T) {
-	db := NewLowlevel(backend.OpenMemory())
+	db := newLowlevelMemory(t)
 	defer db.Close()
 
 	folderStr := "test"
-	fs := NewFileSet(folderStr, fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
+	fs := newFileSet(t, folderStr, fs.NewFilesystem(fs.FilesystemTypeFake, ""), db)
 
 	// Add files such that we are in sync for a and b, and need c and d.
 	files := []protocol.FileInfo{
@@ -913,13 +920,13 @@ func TestCheckLocalNeed(t *testing.T) {
 }
 
 func TestDuplicateNeedCount(t *testing.T) {
-	db := NewLowlevel(backend.OpenMemory())
+	db := newLowlevelMemory(t)
 	defer db.Close()
 
 	folder := "test"
 	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, "")
 
-	fs := NewFileSet(folder, testFs, db)
+	fs := newFileSet(t, folder, testFs, db)
 	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID), Sequence: 1}}
 	fs.Update(protocol.LocalDeviceID, files)
 	files[0].Version = files[0].Version.Update(remoteDevice0.Short())
@@ -927,7 +934,7 @@ func TestDuplicateNeedCount(t *testing.T) {
 
 	db.checkRepair()
 
-	fs = NewFileSet(folder, testFs, db)
+	fs = newFileSet(t, folder, testFs, db)
 	found := false
 	for _, c := range fs.meta.counts.Counts {
 		if bytes.Equal(protocol.LocalDeviceID[:], c.DeviceID) && c.LocalFlags == needFlag {

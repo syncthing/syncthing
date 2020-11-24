@@ -8,12 +8,10 @@ package db
 
 import (
 	"testing"
-
-	"github.com/syncthing/syncthing/lib/db/backend"
 )
 
 func TestSmallIndex(t *testing.T) {
-	db := NewLowlevel(backend.OpenMemory())
+	db := newLowlevelMemory(t)
 	idx := newSmallIndex(db, []byte{12, 34})
 
 	// ID zero should be unallocated
