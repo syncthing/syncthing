@@ -815,12 +815,12 @@
                         <td class="text-right" ng-attr-title="{{deviceFolders(deviceCfg).map(folderLabel).join(', ')}}">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
                       </tr>
                       <tr ng-if="deviceCfg.remoteGUIPort > 0">
-			<th><span class="fas fa-fw fa-desktop"></span>&nbsp;<span translate>Remote GUI</span></th>
-			<td class="text-right" ng-attr-title="Port {{deviceCfg.remoteGUIPort}}">
+                        <th><span class="fas fa-fw fa-desktop"></span>&nbsp;<span translate>Remote GUI</span></th>
+                        <td class="text-right" ng-attr-title="Port {{deviceCfg.remoteGUIPort}}">
                           <!-- Apply RFC6874 encoding for IPv6 link-local zone identifier -->
-                          <a ng-if="idToRemoteGUI[deviceCfg.deviceID]" href="{{idToRemoteGUI[deviceCfg.deviceID].replace('%', '%25')}}">{{idToRemoteGUI[deviceCfg.deviceID]}}</a>
-                          <span ng-if="!idToRemoteGUI[deviceCfg.deviceID]">Unreachable</span>
-			</td>
+                          <a ng-if="hasRemoteGUIAddress(deviceCfg)" href="{{remoteGUIAddress(deviceCfg).replace('%', '%25')}}">{{remoteGUIAddress(deviceCfg)}}</a>
+                          <span translate ng-if="!hasRemoteGUIAddress(deviceCfg)">Unknown</span>
+                        </td>
                       </tr>
                     </tbody>
                   </table>
