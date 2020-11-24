@@ -887,13 +887,11 @@ angular.module('syncthing.core')
             if ($scope.hasFailedFiles(folderCfg.id)) {
                 return 'faileditems';
             }
-            if (folderInfo.receiveOnlyTotalItems) {
-                switch (folderCfg.type) {
-                case 'receiveonly':
-                    return 'localadditions';
-                case 'receiveencrypted':
-                    return 'localunencrypted';
-                }
+            if ($scope.hasReceiveOnlyChanged(folderCfg)) {
+                return 'localadditions';
+            }
+            if ($scope.hasReceiveEncryptedItems(folderCfg)) {
+                return 'localunencrypted';
             }
             if (folderCfg.devices.length <= 1) {
                 return 'unshared';
