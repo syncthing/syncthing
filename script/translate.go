@@ -35,7 +35,7 @@ func generalNode(n *html.Node, filename string) {
 	if n.Type == html.ElementNode {
 		if n.Data == "translate" { // for <translate>Text</translate>
 			translate = true
-		} else if n.Data == "style" {
+		} else if n.Data == "style" || n.Data == "noscript" {
 			return
 		} else {
 			for _, a := range n.Attr {
