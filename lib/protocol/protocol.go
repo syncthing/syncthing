@@ -491,7 +491,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 
 		case *Close:
 			l.Debugln("read Close message")
-			return errors.New(msg.Reason)
+			return fmt.Errorf("closed by remote: %v", msg.Reason)
 
 		default:
 			l.Debugf("read unknown message: %+T", msg)
