@@ -19,7 +19,6 @@ import (
 	"strings"
 	stdsync "sync"
 	"time"
-	"unicode"
 
 	"github.com/pkg/errors"
 	"github.com/thejerf/suture/v4"
@@ -1467,8 +1466,8 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
 		pathAlternatives := []string{
-			sanitizePath(folder.Label),
-			sanitizePath(folder.ID),
+			fs.SanitizePath(folder.Label),
+			fs.SanitizePath(folder.ID),
 		}
 		for _, path := range pathAlternatives {
 			if _, err := defaultPathFs.Lstat(path); !fs.IsNotExist(err) {
@@ -2749,42 +2748,6 @@ type syncMutexMap struct {
 func (m *syncMutexMap) Get(key string) sync.Mutex {
 	v, _ := m.inner.LoadOrStore(key, sync.NewMutex())
 	return v.(sync.Mutex)
-}
-
-// sanitizePath takes a string that might contain all kinds of special
-// characters and makes a valid, similar, path name out of it.
-//
-// Spans of invalid characters, whitespace and/or non-UTF-8 sequences are
-// replaced by a single space. The result is always UTF-8 and contains only
-// printable characters, as determined by unicode.IsPrint.
-//
-// Invalid characters are non-printing runes, things not allowed in file names
-// in Windows, and common shell metacharacters. Even if asterisks and pipes
-// and stuff are allowed on Unixes in general they might not be allowed by
-// the filesystem and may surprise the user and cause shell oddness. This
-// function is intended for file names we generate on behalf of the user,
-// and surprising them with odd shell characters in file names is unkind.
-//
-// We include whitespace in the invalid characters so that multiple
-// whitespace is collapsed to a single space. Additionally, whitespace at
-// either end is removed.
-func sanitizePath(path string) string {
-	var b strings.Builder
-
-	prev := ' '
-	for _, c := range path {
-		if !unicode.IsPrint(c) || c == unicode.ReplacementChar ||
-			strings.ContainsRune(`<>:"'/\|?*[]{};:!@$%&^#`, c) {
-			c = ' '
-		}
-
-		if !(c == ' ' && prev == ' ') {
-			b.WriteRune(c)
-		}
-		prev = c
-	}
-
-	return strings.TrimSpace(b.String())
 }
 
 type deviceIDSet map[protocol.DeviceID]struct{}
