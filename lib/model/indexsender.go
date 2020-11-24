@@ -312,14 +312,15 @@ func (r *indexSenderRegistry) addLocked(folder config.FolderConfiguration, fset 
 	}
 
 	is := &indexSender{
-		conn:         r.conn,
-		connClosed:   r.closed,
-		folder:       folder.ID,
-		fset:         fset,
-		prevSequence: startSequence,
-		evLogger:     r.evLogger,
-		pauseChan:    make(chan struct{}),
-		resumeChan:   make(chan *db.FileSet),
+		conn:                     r.conn,
+		connClosed:               r.closed,
+		folder:                   folder.ID,
+		folderIsReceiveEncrypted: folder.Type == config.FolderTypeReceiveEncrypted,
+		fset:                     fset,
+		prevSequence:             startSequence,
+		evLogger:                 r.evLogger,
+		pauseChan:                make(chan struct{}),
+		resumeChan:               make(chan *db.FileSet),
 	}
 	is.token = r.sup.Add(is)
 	r.indexSenders[folder.ID] = is
