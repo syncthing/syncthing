@@ -1082,7 +1082,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	changed := false
-	deviceCfg, ok := m.cfg.Devices()[deviceID]
+	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
 		l.Debugln("Device disappeared from config while processing cluster-config")
 		return errDeviceUnknown
@@ -1419,7 +1419,7 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 
 			foldersDevices.set(device.ID, folder.ID)
 
-			if _, ok := m.cfg.Devices()[device.ID]; !ok {
+			if _, ok := m.cfg.Device(device.ID); !ok {
 				// The device is currently unknown. Add it to the config.
 				devices[device.ID] = m.introduceDevice(device, introducerCfg)
 			} else if fcfg.SharedWith(device.ID) {
@@ -1872,7 +1872,7 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	m.fmut.RUnlock()
 
 	if !cfgOk {
-		cfg, cfgOk = m.cfg.Folders()[folder]
+		cfg, cfgOk = m.cfg.Folder(folder)
 		if !cfgOk {
 			return nil, nil, fmt.Errorf("folder %s does not exist", folder)
 		}
@@ -1899,7 +1899,7 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 }
 
 func (m *model) SetIgnores(folder string, content []string) error {
-	cfg, ok := m.cfg.Folders()[folder]
+	cfg, ok := m.cfg.Folder(folder)
 	if !ok {
 		return fmt.Errorf("folder %s does not exist", cfg.Description())
 	}
