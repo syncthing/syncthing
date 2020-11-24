@@ -1168,6 +1168,8 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	// for folders that we don't expect (unknown or not shared).
 	// Also, collect a list of folders we do share, and if he's interested in
 	// temporary indexes, subscribe the connection.
+	// Collect candidate devices that we have an indirect connection to
+	// because they have the same folder, but do not share it with us.
 
 	m.pmut.RLock()
 	indexSenderRegistry, ok := m.indexSenders[deviceID]
@@ -1286,10 +1288,13 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if ok {
+			m.ccHandleFolderCandidates(folder, deviceID, cfg)
 			folderDevice, ok = cfg.Device(deviceID)
 		}
 		if !ok {
 			indexSenders.remove(folder.ID)
+			// This folder is already offered to us from the remote device,
+			// suggest it to the user for approval unless previously ignored.
 			if deviceCfg.IgnoredFolder(folder.ID) {
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
@@ -1304,6 +1309,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				"device":      deviceID.String(),
 			})
 			l.Infof("Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
+			//FIXME should still collect candidate device entries below?
 			continue
 		}
 
@@ -1315,6 +1321,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		if cfg.Paused {
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
+			//FIXME should still parse the message and collect suggested device links??
 			continue
 		}
 
@@ -1374,6 +1381,50 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	indexSenders.removeAllExcept(seenFolders)
 
 	return tempIndexFolders, paused, nil
+}
+
+func (m *model) ccHandleFolderCandidates(folder protocol.Folder, introducer protocol.DeviceID, fcfg config.FolderConfiguration) {
+	// Note this is called only for folders we already share with the remote FIXME
+	for _, dev := range folder.Devices {
+		if dev.ID == m.id || dev.ID == introducer {
+			// This is the other side's description of themselves, or of what
+			// it knows about us.
+			continue
+		}
+		if _, ok := fcfg.Device(dev.ID); ok {
+			// Local folder is already shared with this device.
+			continue
+		}
+		var meta *db.IntroducedDeviceDetails
+		if knownDev, ok := m.cfg.Device(dev.ID); ok {
+			// This device is known to us and shares this folder, but not
+			// directly with us.  Remember it in order to possibly present a
+			// list of suggested devices for additional cluster connectivity.
+			l.Infof("Known device %s (%s) is not directly sharing common folder %s, marking as candidate",
+				dev.ID.Short(), knownDev.Name, folder.ID)
+			// Record as a candidate device, leaving out any details about it
+			// which we already know from our configuration entry.
+		} else if m.cfg.IgnoredDevice(dev.ID) {
+			// Device is deliberately ignored, so skip as candidate.
+			continue
+		} else {
+			// There is another device sharing this folder that we haven't
+			// heard of yet.  Remember it in order to possibly present a list
+			// of suggested devices for additional cluster connectivity.
+			l.Infof("Unknown device %v (%s) is a candidate for indirectly shared folder %s",
+				dev.ID, dev.Name, folder.ID)
+			// Record as a new candidate device, remembering all the details
+			// received from our known peer.
+			meta = &db.IntroducedDeviceDetails{
+				CertName:      dev.CertName,
+				Addresses:     dev.Addresses,
+				SuggestedName: dev.Name,
+			}
+		}
+		if err := m.db.AddOrUpdateCandidateLink(folder.ID, folder.Label, dev.ID, introducer, meta); err != nil {
+			l.Warnf("Failed to persist candidate link entry to database: %v", err)
+		}
+	}
 }
 
 func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceInfos *indexSenderStartInfo, deviceUntrusted bool) error {
