@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, CurrentFolder, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
+    .controller('SyncthingController', function ($scope, $http, $location, CurrentFolder, Ignores, Browse, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
@@ -53,11 +53,7 @@ angular.module('syncthing.core')
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
         $scope.currentFolder = CurrentFolder;
-        $scope.ignores = {
-            text: '',
-            error: null,
-            disabled: false,
-        };
+        $scope.ignores = Ignores.tempFolder();
         resetRemoteNeed();
 
         try {
@@ -749,16 +745,6 @@ angular.module('syncthing.core')
                 }
             }
         }
-
-        function saveIgnores(ignores, cb) {
-            $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id), {
-                ignore: ignores
-            }).success(function () {
-                if (cb) {
-                    cb();
-                }
-            });
-        };
 
         function initShareEditing(editing) {
             $scope.currentSharing = {};
@@ -1837,20 +1823,16 @@ angular.module('syncthing.core')
             }
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
-            $scope.ignores.text = 'Loading...';
-            $scope.ignores.error = null;
-            $scope.ignores.disabled = true;
-            $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
-                .success(function (data) {
-                    $scope.currentFolder.ignores = data.ignore || [];
-                    $scope.ignores.text = $scope.currentFolder.ignores.join('\n');
-                    $scope.ignores.error = data.error;
-                    $scope.ignores.disabled = false;
-                })
-                .error(function (err) {
-                    $scope.ignores.text = $translate.instant("Failed to load ignore patterns.");
-                    $scope.emitHTTPError(err);
-                });
+            $scope.ignores = Ignores.forFolder($scope.currentFolder.id);
+            $q.all([
+                Browse.refresh($scope.currentFolder.id),
+                Ignores.refresh($scope.currentFolder.id),
+            ]).then((responses) => {
+                $scope.currentFolder.ignores = responses[1].patterns.map(function(p) { return p.text; });
+            }).catch(function (err) {
+                $scope.ignores.error = $translate.instant("Failed to load ignore patterns.");
+                $scope.emitHTTPError(err);
+            });
 
             $scope.editFolderModal();
         };
@@ -1876,9 +1858,7 @@ angular.module('syncthing.core')
                 initShareEditing('folder');
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $scope.currentSharing.unrelated = $scope.otherDevices();
-                $scope.ignores.text = '';
-                $scope.ignores.error = null;
-                $scope.ignores.disabled = false;
+                $scope.ignores = Ignores.tempFolder();
                 $scope.editFolderModal();
             });
         };
@@ -1896,9 +1876,7 @@ angular.module('syncthing.core')
             $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
                 return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID]
             });
-            $scope.ignores.text = '';
-            $scope.ignores.error = null;
-            $scope.ignores.disabled = false;
+            $scope.ignores = Ignores.tempFolder();
             $scope.editFolderModal();
         };
 
@@ -1994,12 +1972,12 @@ angular.module('syncthing.core')
             $scope.config.folders = folderList($scope.folders);
 
             if (ignoresLoaded && $scope.editingExisting && ignores !== folderCfg.ignores) {
-                saveIgnores(ignores);
+                Ignores.save(folderCfg.id, ignores);
             };
 
             $scope.saveConfig(function () {
                 if (!$scope.editingExisting && ignores.length) {
-                    saveIgnores(ignores, function () {
+                    Ignores.save(folderCfg.id, ignores).then(function () {
                         $scope.setFolderPause(folderCfg.id, false);
                     });
                 }
