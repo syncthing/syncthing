@@ -415,7 +415,13 @@ func (s *service) Serve(ctx context.Context) error {
 		// Restart due to listen/serve failure
 		l.Warnln("GUI/API:", err, "(restarting)")
 	}
-	srv.Close()
+	// Give it a moment to shut down gracefully, e.g. if we are restarting
+	// due to a config change through the API, let that finish successfully.
+	timeout, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if err := srv.Shutdown(timeout); err == timeout.Err() {
+		srv.Close()
+	}
 
 	return err
 }
