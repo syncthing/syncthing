@@ -192,7 +192,7 @@ func (s *sharedPullerState) tempFileInWritableDir(_ string) error {
 		size := s.file.Size
 		// Trailer added to encrypted files
 		if len(s.file.Encrypted) > 0 {
-			size += int64(s.file.ProtoSize() + 4)
+			size += encryptionTrailerSize(s.file)
 		}
 		// Truncate sets the size of the file. This creates a sparse file or a
 		// space reservation, depending on the underlying filesystem.
@@ -346,8 +346,7 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 // folder from encrypted data we can extract this FileInfo from the end of
 // the file and regain the original metadata.
 func (s *sharedPullerState) finalizeEncrypted() error {
-	size := s.file.ProtoSize()
-	bs := make([]byte, 4+size)
+	bs := make([]byte, encryptionTrailerSize(s.file))
 	n, err := s.file.MarshalTo(bs)
 	if err != nil {
 		return err
@@ -364,9 +363,11 @@ func (s *sharedPullerState) finalizeEncrypted() error {
 		return err
 	}
 
-	s.file.Size += int64(len(bs))
-
 	return nil
+}
+
+func encryptionTrailerSize(file protocol.FileInfo) int64 {
+	return int64(file.ProtoSize()) + 4
 }
 
 // Progress returns the momentarily progress for the puller
