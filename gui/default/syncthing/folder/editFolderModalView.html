@@ -63,14 +63,14 @@
               </div>
             </div>
           </div>
-          <div class="form-group" ng-if="currentSharing.unrelated.length || otherDevices().length <= 0">
+          <div class="form-group" ng-if="currentSharing.unrelated.length || otherDevices().length == 0">
             <label translate>Unshared Devices</label>
             <p class="help-block" ng-if="otherDevices().length > 0">
               <span translate>Select additional devices to share this folder with.</span>&emsp;
               <small><a href="#" ng-click="selectAllUnrelatedDevices(true)" translate>Select All</a>&emsp;
                 <a href="#" ng-click="selectAllUnrelatedDevices(false)" translate>Deselect All</a></small>
             </p>
-            <p class="help-block" ng-if="otherDevices().length <= 0">
+            <p class="help-block" ng-if="otherDevices().length == 0">
               <span translate>There are no devices to share this folder with.</span>
             </p>
             <div class="row">
