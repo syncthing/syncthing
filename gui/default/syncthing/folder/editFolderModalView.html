@@ -35,7 +35,7 @@
               <option ng-repeat="directory in directoryList" value="{{ directory }}" />
             </datalist>
             <p class="help-block">
-              <span ng-if="folderEditor.folderPath.$valid || folderEditor.folderPath.$pristine"><span translate>Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.</br></span>
+              <span ng-if="folderEditor.folderPath.$valid || folderEditor.folderPath.$pristine"><span translate>Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.<br /></span>
               <span translate ng-if="folderEditor.folderPath.$error.required && folderEditor.folderPath.$dirty">The folder path cannot be blank.</span>
               <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" ng-if="folderPathErrors.isSub && folderPathErrors.otherLabel.length == 0">Warning, this path is a subdirectory of an existing folder "{%otherFolder%}".</span>
               <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" translate-value-other-folder-label="{{folderPathErrors.otherLabel}}" ng-if="folderPathErrors.isSub && folderPathErrors.otherLabel.length != 0">Warning, this path is a subdirectory of an existing folder "{%otherFolderLabel%}" ({%otherFolder%}).</span>
@@ -151,7 +151,7 @@
               <div class="input-group-addon" translate>seconds</div>
             </div>
             <p class="help-block">
-              <span translate ng-if="folderEditor.versioningCleanupIntervalS.$valid || folderEditor.versioningCleanupIntervalS.$pristine"class="help-block">The interval, in seconds, for running cleanup in the versions directory. Zero to disable periodic cleaning.</span>
+              <span translate ng-if="folderEditor.versioningCleanupIntervalS.$valid || folderEditor.versioningCleanupIntervalS.$pristine" class="help-block">The interval, in seconds, for running cleanup in the versions directory. Zero to disable periodic cleaning.</span>
               <span translate ng-if="folderEditor.versioningCleanupIntervalS.$error.required && folderEditor.versioningCleanupIntervalS.$dirty">The cleanup interval cannot be blank.</span>
               <span translate ng-if="folderEditor.versioningCleanupIntervalS.$error.min && folderEditor.versioningCleanupIntervalS.$dirty">The interval must be a positive number of seconds.</span>
             </p>
@@ -191,12 +191,12 @@
           <div class="row form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
             <div class="col-md-12">
               <label translate>Scanning</label>
-              &nbsp;<a href="https://docs.syncthing.net/users/syncing.html#scanning" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a></br>
+              &nbsp;<a href="https://docs.syncthing.net/users/syncing.html#scanning" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a><br />
 
               <div class="row">
                 <div class="col-md-6">
                   <label>
-                    <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="fsWatcherToggled()" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
+                    <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="fsWatcherToggled()" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}" />&nbsp;<span translate>Watch for Changes</span>
                   </label>
                   <p translate class="help-block">Watching for changes discovers most changes without periodic scanning.</p>
                 </div>

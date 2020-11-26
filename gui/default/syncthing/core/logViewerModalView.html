@@ -18,7 +18,7 @@
           <tbody>
             <tr ng-repeat="(name, data) in logging.facilities">
               <td>
-                <input type="checkbox" ng-model="data.enabled" ng-change="logging.onFacilityChange(name)" ng-disabled="data.enabled == null"> <span>{{ name }}</span>
+                <input type="checkbox" ng-model="data.enabled" ng-change="logging.onFacilityChange(name)" ng-disabled="data.enabled == null" /> <span>{{ name }}</span>
               </td>
               <td>{{ data.description }}</td>
             </tr>

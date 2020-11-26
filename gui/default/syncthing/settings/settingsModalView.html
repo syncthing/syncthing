@@ -78,7 +78,7 @@
                     <option value="-1" translate>Disabled</option>
                   </select>
                 </div>
-                <p class="help-block" ng-if="tmpOptions.upgrades == 'candidate' || version.isCandidate"">
+                <p class="help-block" ng-if="tmpOptions.upgrades == 'candidate' || version.isCandidate">
                   <span translate>Usage reporting is always enabled for candidate releases.</span>
                 </p>
               </div>
@@ -94,7 +94,7 @@
                 <p class="help-block" ng-if="!upgradeInfo">
                   <span translate>Unavailable/Disabled by administrator or maintainer</span>
                 </p>
-                <p class="help-block" ng-if="version.isCandidate && upgradeInfo"">
+                <p class="help-block" ng-if="version.isCandidate && upgradeInfo">
                   <span translate>Automatic upgrades are always enabled for candidate releases.</span>
                 </p>
               </div>

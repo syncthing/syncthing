@@ -44,7 +44,7 @@
               <div class="form-group">
                 <div class="checkbox">
                   <label>
-                    <input type="checkbox" ng-model="currentDevice.introducer">
+                    <input type="checkbox" ng-model="currentDevice.introducer" />
                     <span translate>Introducer</span>
                     <p translate class="help-block">Add devices from the introducer to our device list, for mutually shared folders.</p>
                   </label>
@@ -55,7 +55,7 @@
               <div class="form-group">
                 <div class="checkbox">
                   <label>
-                    <input type="checkbox" ng-model="currentDevice.autoAcceptFolders">
+                    <input type="checkbox" ng-model="currentDevice.autoAcceptFolders" />
                     <span translate>Auto Accept</span>
                     <p translate class="help-block">Automatically create or share folders that this device advertises at the default path.</p>
                   </label>
@@ -76,10 +76,10 @@
                   <div class="col-md-4" ng-repeat="folder in folderList()">
                     <div class="checkbox">
                       <label ng-if="folder.label.length == 0">
-                        <input type="checkbox" ng-model="currentSharing.selected[folder.id]">&nbsp;{{folder.id}}
+                        <input type="checkbox" ng-model="currentSharing.selected[folder.id]" />&nbsp;{{folder.id}}
                       </label>
                       <label ng-if="folder.label.length != 0">
-                        <input type="checkbox" ng-model="currentSharing.selected[folder.id]">&nbsp; <span tooltip data-original-title="{{folder.id}}">{{folder.label}}</span>
+                        <input type="checkbox" ng-model="currentSharing.selected[folder.id]" />&nbsp; <span tooltip data-original-title="{{folder.id}}">{{folder.label}}</span>
                       </label>
                     </div>
                   </div>
