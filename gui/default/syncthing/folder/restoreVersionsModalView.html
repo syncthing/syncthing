@@ -41,7 +41,7 @@
     </div>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#restore-versions-confirmation" ng-if="restoreVersions.versions" ng-disabled="restoreVersions.selectionCount() < 1">
+    <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#restore-versions-confirmation" ng-if="restoreVersions.versions" ng-disabled="1 > restoreVersions.selectionCount()">
       <span class="fas fa-check"></span>&nbsp;<span translate>Restore</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
