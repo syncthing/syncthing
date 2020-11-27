@@ -254,23 +254,26 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 }
 
 func (m *model) serve(ctx context.Context) error {
-	m.initFolders()
-	m.cfg.Subscribe(m)
-	close(m.started)
+	defer m.closeAllConnectionsAndWait()
 
-	var err error
-	select {
-	case <-ctx.Done():
-	case err = <-m.fatalChan:
+	if err := m.initFolders(); err != nil {
+		close(m.started)
+		return fatalErr(err)
 	}
 
-	m.cfg.Unsubscribe(m)
-	m.closeAllConnectionsAndWait()
+	m.cfg.Subscribe(m)
+	defer m.cfg.Unsubscribe(m)
+	close(m.started)
 
-	return err
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-m.fatalChan:
+		return err
+	}
 }
 
-func (m *model) initFolders() {
+func (m *model) initFolders() error {
 	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
 	clusterConfigDevices := make(deviceIDSet, len(m.cfg.Devices()))
 	for _, folderCfg := range m.cfg.Folders() {
@@ -280,12 +283,12 @@ func (m *model) initFolders() {
 		}
 		err := m.newFolder(folderCfg, cacheIgnoredFiles)
 		if err != nil {
-			m.fatal(err)
-			return
+			return err
 		}
 		clusterConfigDevices.add(folderCfg.DeviceIDs())
 	}
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
+	return nil
 }
 
 func (m *model) closeAllConnectionsAndWait() {
@@ -303,10 +306,7 @@ func (m *model) closeAllConnectionsAndWait() {
 
 func (m *model) fatal(err error) {
 	select {
-	case m.fatalChan <- &util.FatalErr{
-		Err:    err,
-		Status: util.ExitError,
-	}:
+	case m.fatalChan <- fatalErr(err):
 	default:
 	}
 }
@@ -536,7 +536,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 			var err error
 			fset, err = db.NewFileSet(folder, to.Filesystem(), m.db)
 			if err != nil {
-				return fmt.Errorf("restarting folder: %w", err)
+				return fmt.Errorf("restarting %v: %w", to.Description(), err)
 			}
 		}
 		m.addAndStartFolderLocked(to, fset, cacheIgnoredFiles)
@@ -581,7 +581,7 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	// we do it outside of the lock.
 	fset, err := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
 	if err != nil {
-		return fmt.Errorf("adding folder: %w", err)
+		return fmt.Errorf("adding %v: %w", cfg.Description(), err)
 	}
 
 	m.fmut.Lock()
@@ -2882,4 +2882,15 @@ func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
 		FolderID: cfg.ID,
 		Token:    token,
 	})
+}
+
+func fatalErr(err error) error {
+	var ferr *util.FatalErr
+	if errors.As(err, &ferr) {
+		return err
+	}
+	return &util.FatalErr{
+		Err:    err,
+		Status: util.ExitError,
+	}
 }
