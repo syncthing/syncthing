@@ -474,7 +474,7 @@
                               <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
                             </span>
                           </div>
-                          <div ng-if="0 >= folder.rescanIntervalS">
+                          <div ng-if="folder.rescanIntervalS <= 0">
                             <span ng-if="!folder.fsWatcherEnabled" tooltip data-original-title="{{'Disabled periodic scanning and disabled watching for changes' | translate}}">
                               <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
                               <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
@@ -517,7 +517,7 @@
                       <tr ng-if="folderStats[folder.id].lastScan">
                         <th><span class="far fa-fw fa-clock"></span>&nbsp;<span translate>Last Scan</span></th>
                         <td translate ng-if="folderStats[folder.id].lastScanDays >= 365" class="text-right">Never</td>
-                        <td ng-if="365 > folderStats[folder.id].lastScanDays" class="text-right">
+                        <td ng-if="folderStats[folder.id].lastScanDays < 365" class="text-right">
                           <span>{{folderStats[folder.id].lastScan | date:'yyyy-MM-dd HH:mm:ss'}}</span>
                         </td>
                       </tr>
@@ -551,7 +551,7 @@
                     <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type">
                       <span class="fas fa-undo"></span>&nbsp;<span translate>Versions</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="0 > ['idle', 'stopped', 'unshared', 'outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder))">
+                    <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder)) < 0">
                       <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-default" ng-click="editFolder(folder)">
@@ -796,7 +796,7 @@
                       <tr ng-if="!connections[deviceCfg.deviceID].connected">
                         <th><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
                         <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right">Never</td>
-                        <td ng-if="365 > deviceStats[deviceCfg.deviceID].lastSeenDays" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
+                        <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
                       </tr>
                       <tr ng-if="deviceFolders(deviceCfg).length > 0">
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
