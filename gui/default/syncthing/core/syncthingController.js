@@ -1439,16 +1439,16 @@ angular.module('syncthing.core')
         };
 
         $scope.selectAllSharedFolders = function (state) {
-            var devices = $scope.currentSharing.shared;
-            for (var i = 0; i < devices.length; i++) {
-                $scope.currentSharing.selected[devices[i].deviceID] = !!state;
+            var folders = $scope.currentSharing.shared;
+            for (var i = 0; i < folders.length; i++) {
+                $scope.currentSharing.selected[folders[i].id] = !!state;
             }
         };
 
         $scope.selectAllUnrelatedFolders = function (state) {
-            var devices = $scope.currentSharing.unrelated;
-            for (var i = 0; i < devices.length; i++) {
-                $scope.currentSharing.selected[devices[i].deviceID] = !!state;
+            var folders = $scope.currentSharing.unrelated;
+            for (var i = 0; i < folders.length; i++) {
+                $scope.currentSharing.selected[folders[i].id] = !!state;
             }
         };
 
