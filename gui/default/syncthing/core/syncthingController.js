@@ -1432,7 +1432,11 @@ angular.module('syncthing.core')
             initShareEditing('device');
             $scope.currentSharing.selected = {};
             $scope.deviceFolders($scope.currentDevice).forEach(function (folder) {
+                $scope.currentSharing.shared.push($scope.folders[folder]);
                 $scope.currentSharing.selected[folder] = true;
+            });
+            $scope.currentSharing.unrelated = $scope.folderList().filter(function (n) {
+                return !$scope.currentSharing.selected[n.id];
             });
             $scope.deviceEditor.$setPristine();
             $('#editDevice').modal();
@@ -1478,6 +1482,7 @@ angular.module('syncthing.core')
                     };
                     $scope.editingExisting = false;
                     initShareEditing('device');
+                    $scope.currentSharing.unrelated = $scope.folderList();
                     $scope.deviceEditor.$setPristine();
                     $('#editDevice').modal();
                 });
