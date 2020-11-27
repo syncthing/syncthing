@@ -754,7 +754,11 @@ func (s *service) getDBNeed(w http.ResponseWriter, r *http.Request) {
 
 	page, perpage := getPagingParams(qs)
 
-	progress, queued, rest := s.model.NeedFolderFiles(folder, page, perpage)
+	progress, queued, rest, err := s.model.NeedFolderFiles(folder, page, perpage)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
 
 	// Convert the struct to a more loose structure, and inject the size.
 	sendJSON(w, map[string]interface{}{
@@ -779,13 +783,12 @@ func (s *service) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
 
 	page, perpage := getPagingParams(qs)
 
-	snap, err := s.model.DBSnapshot(folder)
+	files, err := s.model.RemoteNeedFolderFiles(folder, deviceID, page, perpage)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	defer snap.Release()
-	files := snap.RemoteNeedFolderFiles(deviceID, page, perpage)
+
 	sendJSON(w, map[string]interface{}{
 		"files":   toJsonFileInfoSlice(files),
 		"page":    page,
@@ -800,13 +803,11 @@ func (s *service) getDBLocalChanged(w http.ResponseWriter, r *http.Request) {
 
 	page, perpage := getPagingParams(qs)
 
-	snap, err := s.model.DBSnapshot(folder)
+	files, err := s.model.LocalChangedFolderFiles(folder, page, perpage)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	defer snap.Release()
-	files := snap.LocalChangedFiles(page, perpage)
 
 	sendJSON(w, map[string]interface{}{
 		"files":   toJsonFileInfoSlice(files),

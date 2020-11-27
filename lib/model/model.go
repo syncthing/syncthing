@@ -90,7 +90,9 @@ type Model interface {
 	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error)
 
 	DBSnapshot(folder string) (*db.Snapshot, error)
-	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated)
+	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)
+	RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error)
+	LocalChangedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error)
 	FolderProgressBytesCompleted(folder string) int64
 
 	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool)
@@ -891,7 +893,7 @@ func (m *model) FolderProgressBytesCompleted(folder string) int64 {
 
 // NeedFolderFiles returns paginated list of currently needed files in
 // progress, queued, and to be queued on next puller iteration.
-func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
+func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error) {
 	m.fmut.RLock()
 	rf, rfOk := m.folderFiles[folder]
 	runner, runnerOk := m.folderRunners[folder]
@@ -899,7 +901,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	m.fmut.RUnlock()
 
 	if !rfOk {
-		return nil, nil, nil
+		return nil, nil, nil, errFolderMissing
 	}
 
 	snap := rf.Snapshot()
@@ -907,8 +909,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	var progress, queued, rest []db.FileInfoTruncated
 	var seen map[string]struct{}
 
-	skip := (page - 1) * perpage
-	get := perpage
+	p := newPager(page, perpage)
 
 	if runnerOk {
 		progressNames, queuedNames, skipped := runner.Jobs(page, perpage)
@@ -931,11 +932,11 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 			}
 		}
 
-		get -= len(seen)
-		if get == 0 {
-			return progress, queued, nil
+		p.get -= len(seen)
+		if p.get == 0 {
+			return progress, queued, nil, nil
 		}
-		skip -= skipped
+		p.toSkip -= skipped
 	}
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
@@ -944,19 +945,107 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 			return true
 		}
 
-		if skip > 0 {
-			skip--
+		if p.skip() {
 			return true
 		}
 		ft := f.(db.FileInfoTruncated)
 		if _, ok := seen[ft.Name]; !ok {
 			rest = append(rest, ft)
-			get--
+			p.get--
 		}
-		return get > 0
+		return p.get > 0
 	})
 
-	return progress, queued, rest
+	return progress, queued, rest, nil
+}
+
+// RemoteNeedFolderFiles returns paginated list of currently needed files in
+// progress, queued, and to be queued on next puller iteration, as well as the
+// total number of files currently needed.
+func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error) {
+	m.fmut.RLock()
+	rf, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+
+	if !ok {
+		return nil, errFolderMissing
+	}
+
+	snap := rf.Snapshot()
+	defer snap.Release()
+
+	files := make([]db.FileInfoTruncated, 0, perpage)
+	p := newPager(page, perpage)
+	snap.WithNeedTruncated(device, func(f protocol.FileIntf) bool {
+		if p.skip() {
+			return true
+		}
+		files = append(files, f.(db.FileInfoTruncated))
+		return !p.done()
+	})
+	return files, nil
+}
+
+func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
+	m.fmut.RLock()
+	rf, ok := m.folderFiles[folder]
+	cfg := m.folderCfgs[folder]
+	m.fmut.RUnlock()
+
+	if !ok {
+		return nil, errFolderMissing
+	}
+
+	snap := rf.Snapshot()
+	defer snap.Release()
+
+	if snap.ReceiveOnlyChangedSize().TotalItems() == 0 {
+		return nil, nil
+	}
+
+	p := newPager(page, perpage)
+	recvEnc := cfg.Type == config.FolderTypeReceiveEncrypted
+	files := make([]db.FileInfoTruncated, 0, perpage)
+
+	snap.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
+		if !f.IsReceiveOnlyChanged() || (recvEnc && f.IsDeleted()) {
+			return true
+		}
+		if p.skip() {
+			return true
+		}
+		ft := f.(db.FileInfoTruncated)
+		files = append(files, ft)
+		return !p.done()
+	})
+
+	return files, nil
+}
+
+type pager struct {
+	toSkip, get int
+}
+
+func newPager(page, perpage int) *pager {
+	return &pager{
+		toSkip: (page - 1) * perpage,
+		get:    perpage,
+	}
+}
+
+func (p *pager) skip() bool {
+	if p.toSkip == 0 {
+		return false
+	}
+	p.toSkip--
+	return true
+}
+
+func (p *pager) done() bool {
+	if p.get > 0 {
+		p.get--
+	}
+	return p.get == 0
 }
 
 // Index is called when a new device is connected and we receive their full index.
