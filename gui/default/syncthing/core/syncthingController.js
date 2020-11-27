@@ -1439,9 +1439,10 @@ angular.module('syncthing.core')
         };
 
         $scope.selectAllFolders = function (state) {
-            angular.forEach($scope.folders, function (_, id) {
+            var folders = $scope.folders;
+            for (var id in folders) {
                 $scope.currentSharing.selected[id] = !!state;
-            });
+            };
         };
 
         $scope.selectAllSharedFolders = function (state) {
