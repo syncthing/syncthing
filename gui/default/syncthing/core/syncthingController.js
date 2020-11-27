@@ -1530,17 +1530,22 @@ angular.module('syncthing.core')
                     }
 
                     if (!found) {
+                        // Add device to folder
                         $scope.folders[id].devices.push({
                             deviceID: deviceCfg.deviceID
                         });
                     }
                 } else {
+                    // Remove device from folder
                     $scope.folders[id].devices = $scope.folders[id].devices.filter(function (n) {
                         return n.deviceID !== deviceCfg.deviceID;
                     });
                 }
             }
 
+            delete $scope.currentSharing;
+
+            $scope.config.folders = folderList($scope.folders);
             $scope.saveConfig();
         };
 
