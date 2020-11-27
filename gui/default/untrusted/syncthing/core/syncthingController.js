@@ -1457,16 +1457,16 @@ angular.module('syncthing.core')
         };
 
         $scope.selectAllSharedFolders = function (state) {
-            var devices = $scope.currentSharing.shared;
-            for (var i = 0; i < devices.length; i++) {
-                $scope.currentSharing.selected[devices[i].deviceID] = !!state;
+            var folders = $scope.currentSharing.shared;
+            for (var i = 0; i < folders.length; i++) {
+                $scope.currentSharing.selected[folders[i].id] = !!state;
             }
         };
 
         $scope.selectAllUnrelatedFolders = function (state) {
-            var devices = $scope.currentSharing.unrelated;
-            for (var i = 0; i < devices.length; i++) {
-                $scope.currentSharing.selected[devices[i].deviceID] = !!state;
+            var folders = $scope.currentSharing.unrelated;
+            for (var i = 0; i < folders.length; i++) {
+                $scope.currentSharing.selected[folders[i].id] = !!state;
             }
         };
 
@@ -1496,6 +1496,7 @@ angular.module('syncthing.core')
                     };
                     $scope.editingExisting = false;
                     initShareEditing('device');
+                    $scope.currentSharing.unrelated = $scope.folderList();
                     $scope.deviceEditor.$setPristine();
                     $('#editDevice').modal();
                 });
@@ -1562,7 +1563,6 @@ angular.module('syncthing.core')
             delete $scope.currentSharing;
 
             $scope.config.folders = folderList($scope.folders);
-
             $scope.saveConfig();
         };
 
@@ -1981,8 +1981,8 @@ angular.module('syncthing.core')
             // Bump time
             pendingFolder.time = (new Date()).toISOString();
 
-            if (id in $scope.devices) {
-                $scope.devices[id].ignoredFolders.push(pendingFolder);
+            if (device in $scope.devices) {
+                $scope.devices[device].ignoredFolders.push(pendingFolder);
                 $scope.saveConfig();
             }
         };
