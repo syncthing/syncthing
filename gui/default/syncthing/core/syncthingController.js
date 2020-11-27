@@ -1438,15 +1438,9 @@ angular.module('syncthing.core')
             $('#editDevice').modal();
         };
 
-        $scope.selectAllFolders = function () {
+        $scope.selectAllFolders = function (state) {
             angular.forEach($scope.folders, function (_, id) {
-                $scope.currentSharing.selected[id] = true;
-            });
-        };
-
-        $scope.deSelectAllFolders = function () {
-            angular.forEach($scope.folders, function (_, id) {
-                $scope.currentSharing.selected[id] = false;
+                $scope.currentSharing.selected[id] = !!state;
             });
         };
 
