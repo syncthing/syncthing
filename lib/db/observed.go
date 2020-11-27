@@ -115,12 +115,12 @@ func (db *Lowlevel) RemovePendingFolder(id string, device []byte) {
 }
 
 // PendingFolders drops any invalid entries from the database as a side-effect.  The
-// returned results are filtered by the given device ID if it is non-empty.
-func (db *Lowlevel) PendingFolders(device []byte) (map[string]map[protocol.DeviceID]ObservedFolder, error) {
+// returned results are filtered by the given device ID unless it is EmptyDeviceID.
+func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]ObservedFolder, error) {
 	var err error
 	prefixKey := []byte{KeyTypePendingFolder}
-	if len(device) > 0 {
-		prefixKey, err = db.keyer.GeneratePendingFolderKey(nil, device, nil)
+	if device != protocol.EmptyDeviceID {
+		prefixKey, err = db.keyer.GeneratePendingFolderKey(nil, device[:], nil)
 		if err != nil {
 			return nil, err
 		}
