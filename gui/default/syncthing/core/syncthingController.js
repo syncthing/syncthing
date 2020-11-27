@@ -1430,10 +1430,9 @@ angular.module('syncthing.core')
             }
             $scope.currentDevice._addressesStr = deviceCfg.addresses.join(', ');
             initShareEditing('device');
-            $scope.currentSharing.selected = {};
-            $scope.deviceFolders($scope.currentDevice).forEach(function (folder) {
-                $scope.currentSharing.shared.push($scope.folders[folder]);
-                $scope.currentSharing.selected[folder] = true;
+            $scope.deviceFolders($scope.currentDevice).forEach(function (folderID) {
+                $scope.currentSharing.shared.push($scope.folders[folderID]);
+                $scope.currentSharing.selected[folderID] = true;
             });
             $scope.currentSharing.unrelated = $scope.folderList().filter(function (n) {
                 return !$scope.currentSharing.selected[n.id];
