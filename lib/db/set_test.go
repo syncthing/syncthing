@@ -1742,6 +1742,22 @@ func TestIgnoreLocalChanged(t *testing.T) {
 	}
 }
 
+// Dropping the index ID on Drop is bad, because Drop gets called when receiving
+// an Index (as opposed to an IndexUpdate), and we don't want to loose the index
+// ID when that happens.
+func TestNoIndexIDResetOnDrop(t *testing.T) {
+	ldb := db.NewLowlevel(backend.OpenMemory())
+	defer ldb.Close()
+
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+
+	s.SetIndexID(remoteDevice0, 1)
+	s.Drop(remoteDevice0)
+	if got := s.IndexID(remoteDevice0); got != 1 {
+		t.Errorf("Expected unchanged (%v), got %v", 1, got)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)

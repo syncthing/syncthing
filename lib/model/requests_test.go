@@ -1000,14 +1000,16 @@ func TestNeedFolderFiles(t *testing.T) {
 		t.Fatal("Timed out before receiving index")
 	}
 
-	progress, queued, rest := m.NeedFolderFiles(fcfg.ID, 1, 100)
+	progress, queued, rest, err := m.NeedFolderFiles(fcfg.ID, 1, 100)
+	must(t, err)
 	if got := len(progress) + len(queued) + len(rest); got != num {
 		t.Errorf("Got %v needed items, expected %v", got, num)
 	}
 
 	exp := 10
 	for page := 1; page < 3; page++ {
-		progress, queued, rest := m.NeedFolderFiles(fcfg.ID, page, exp)
+		progress, queued, rest, err := m.NeedFolderFiles(fcfg.ID, page, exp)
+		must(t, err)
 		if got := len(progress) + len(queued) + len(rest); got != exp {
 			t.Errorf("Got %v needed items on page %v, expected %v", got, page, exp)
 		}
@@ -1126,7 +1128,8 @@ func TestRequestLastFileProgress(t *testing.T) {
 	fc.mut.Lock()
 	fc.requestFn = func(_ context.Context, folder, name string, _ int64, _ int, _ []byte, _ bool) ([]byte, error) {
 		defer close(done)
-		progress, queued, rest := m.NeedFolderFiles(folder, 1, 10)
+		progress, queued, rest, err := m.NeedFolderFiles(folder, 1, 10)
+		must(t, err)
 		if len(queued)+len(rest) != 0 {
 			t.Error(`There should not be any queued or "rest" items`)
 		}
