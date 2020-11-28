@@ -1746,10 +1746,10 @@ func TestIgnoreLocalChanged(t *testing.T) {
 // an Index (as opposed to an IndexUpdate), and we don't want to loose the index
 // ID when that happens.
 func TestNoIndexIDResetOnDrop(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
+	ldb := newLowlevelMemory(t)
 	defer ldb.Close()
 
-	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+	s := newFileSet(t, "test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
 
 	s.SetIndexID(remoteDevice0, 1)
 	s.Drop(remoteDevice0)
