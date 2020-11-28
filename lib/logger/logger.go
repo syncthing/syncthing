@@ -68,6 +68,13 @@ type logger struct {
 // DefaultLogger logs to standard output with a time prefix.
 var DefaultLogger = New()
 
+func init() {
+	// Temporary (hopefully) workaround due to QUIC writing unconditionally
+	// to the default logger.
+	// https://github.com/syncthing/syncthing/issues/7146
+	log.SetOutput(ioutil.Discard)
+}
+
 func New() Logger {
 	if os.Getenv("LOGGER_DISCARD") != "" {
 		// Hack to completely disable logging, for example when running
