@@ -94,7 +94,7 @@ func inTranslate(n *html.Node, filename string) {
 }
 
 func translation(v string) {
-	v = strings.TrimSpace(v)
+	v = strings.TrimSpace(html.UnescapeString(v))
 	if _, ok := trans[v]; !ok {
 		av := strings.Replace(v, "{%", "{{", -1)
 		av = strings.Replace(av, "%}", "}}", -1)
