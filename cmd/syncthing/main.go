@@ -47,6 +47,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+func init() {
+	// Temporary (hopefully) workaround due to QUIC writing unconditionally
+	// to the default logger.
+	// https://github.com/syncthing/syncthing/issues/7146
+	log.SetOutput(ioutil.Discard)
+}
+
 const (
 	tlsDefaultCommonName   = "syncthing"
 	deviceCertLifetimeDays = 20 * 365
