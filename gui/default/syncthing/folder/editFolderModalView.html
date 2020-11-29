@@ -6,7 +6,6 @@
         <li><a data-toggle="tab" href="#folder-sharing"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
         <li><a data-toggle="tab" href="#folder-versioning"><span class="fas fa-copy"></span> <span translate>File Versioning</span></a></li>
         <li><a data-toggle="tab" href="#folder-ignores"><span class="fas fa-filter"></span> <span translate>Ignore Patterns</span></a></li>
-        <li><a data-toggle="tab" href="#folder-browse"><span class="fas fa-list"></span> <span translate>Browse</span></a></li>
         <li><a data-toggle="tab" href="#folder-advanced"><span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
       </ul>
       <div class="tab-content">
@@ -160,6 +159,7 @@
         </div>
 
         <div id="folder-ignores" class="tab-pane">
+          <ng-include src="'syncthing/folder/browse.html'"></ng-include>
           <p translate>Enter ignore patterns, one per line.</p>
           <div ng-class="{'has-error': ignores.error != null}">
             <textarea class="form-control" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled"></textarea>
@@ -186,14 +186,6 @@
           <hr />
           <span translate ng-show="editingExisting" translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span>
           <span translate ng-show="!editingExisting" translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Creating ignore patterns, overwriting an existing file at {%path%}.</span>
-        </div>
-
-        <div id="folder-browse" class="tab-pane">
-          <div class="row">
-            <div class="col-md-12" role="region">
-              <ng-include src="'syncthing/folder/browse.html'"></ng-include>
-            </div>
-          </div>
         </div>
 
         <div id="folder-advanced" class="tab-pane">
