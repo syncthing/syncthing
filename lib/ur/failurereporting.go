@@ -133,6 +133,8 @@ outer:
 					case <-ctx.Done():
 					}
 				}()
+			} else {
+				timer.Reset(minDelay)
 			}
 		case <-resetTimer:
 			timer.Reset(minDelay)

@@ -1002,14 +1002,16 @@ func TestNeedFolderFiles(t *testing.T) {
 		t.Fatal("Timed out before receiving index")
 	}
 
-	progress, queued, rest := m.NeedFolderFiles(fcfg.ID, 1, 100)
+	progress, queued, rest, err := m.NeedFolderFiles(fcfg.ID, 1, 100)
+	must(t, err)
 	if got := len(progress) + len(queued) + len(rest); got != num {
 		t.Errorf("Got %v needed items, expected %v", got, num)
 	}
 
 	exp := 10
 	for page := 1; page < 3; page++ {
-		progress, queued, rest := m.NeedFolderFiles(fcfg.ID, page, exp)
+		progress, queued, rest, err := m.NeedFolderFiles(fcfg.ID, page, exp)
+		must(t, err)
 		if got := len(progress) + len(queued) + len(rest); got != exp {
 			t.Errorf("Got %v needed items on page %v, expected %v", got, page, exp)
 		}
@@ -1128,7 +1130,8 @@ func TestRequestLastFileProgress(t *testing.T) {
 	fc.mut.Lock()
 	fc.requestFn = func(_ context.Context, folder, name string, _ int64, _ int, _ []byte, _ bool) ([]byte, error) {
 		defer close(done)
-		progress, queued, rest := m.NeedFolderFiles(folder, 1, 10)
+		progress, queued, rest, err := m.NeedFolderFiles(folder, 1, 10)
+		must(t, err)
 		if len(queued)+len(rest) != 0 {
 			t.Error(`There should not be any queued or "rest" items`)
 		}
@@ -1332,5 +1335,69 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 	case <-timeout:
 		t.Fatal("timed out before receiving index")
 	case <-indexChan:
+	}
+}
+
+func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
+	w, fcfg := tmpDefaultWrapper()
+	tfs := fcfg.Filesystem()
+	fcfg.Type = config.FolderTypeReceiveEncrypted
+	waiter, err := w.SetFolder(fcfg)
+	must(t, err)
+	waiter.Wait()
+
+	encToken := protocol.PasswordToken(fcfg.ID, "pw")
+	must(t, tfs.Mkdir(config.DefaultMarkerName, 0777))
+	must(t, writeEncryptionToken(encToken, fcfg))
+
+	m := setupModel(w)
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+
+	files := genFiles(2)
+	files[1].LocalFlags = protocol.FlagLocalReceiveOnly
+	m.fmut.RLock()
+	fset := m.folderFiles[fcfg.ID]
+	m.fmut.RUnlock()
+	fset.Update(protocol.LocalDeviceID, files)
+
+	indexChan := make(chan []protocol.FileInfo, 1)
+	done := make(chan struct{})
+	defer close(done)
+	fc := &fakeConnection{
+		id:    device1,
+		model: m,
+		indexFn: func(_ context.Context, _ string, fs []protocol.FileInfo) {
+			select {
+			case indexChan <- fs:
+			case <-done:
+			}
+		},
+	}
+	m.AddConnection(fc, protocol.Hello{})
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID: "default",
+				Devices: []protocol.Device{
+					{
+						ID:                      myID,
+						EncryptionPasswordToken: encToken,
+					},
+					{ID: device1},
+				},
+			},
+		},
+	})
+
+	select {
+	case fs := <-indexChan:
+		if len(fs) != 1 {
+			t.Error("Expected index with one file, got", fs)
+		}
+		if got := fs[0].Name; got != files[0].Name {
+			t.Errorf("Expected file %v, got %v", got, files[0].Name)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out before receiving index")
 	}
 }

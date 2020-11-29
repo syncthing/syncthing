@@ -542,6 +542,11 @@ func isEncryptedParentFromComponents(pathComponents []string) bool {
 		return false
 	} else if l == 2 && len(pathComponents[1]) != 2 {
 		return false
+	} else if l == 0 {
+		return false
 	}
-	return pathComponents[0][1:1+len(encryptedDirExtension)] == encryptedDirExtension
+	if len(pathComponents[0]) == 0 {
+		return false
+	}
+	return pathComponents[0][1:] == encryptedDirExtension
 }

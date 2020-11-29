@@ -95,3 +95,26 @@ func TestEnDecryptFileInfo(t *testing.T) {
 		t.Error("mismatch after decryption")
 	}
 }
+
+func TestIsEncryptedParent(t *testing.T) {
+	cases := []struct {
+		path string
+		is   bool
+	}{
+		{"", false},
+		{".", false},
+		{"/", false},
+		{"12" + encryptedDirExtension, false},
+		{"1" + encryptedDirExtension, true},
+		{"1" + encryptedDirExtension + "/b", false},
+		{"1" + encryptedDirExtension + "/bc", true},
+		{"1" + encryptedDirExtension + "/bcd", false},
+		{"1" + encryptedDirExtension + "/bc/foo", false},
+		{"1.12/22", false},
+	}
+	for _, tc := range cases {
+		if res := IsEncryptedParent(tc.path); res != tc.is {
+			t.Errorf("%v: got %v, expected %v", tc.path, res, tc.is)
+		}
+	}
+}

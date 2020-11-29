@@ -417,7 +417,13 @@ func (s *service) Serve(ctx context.Context) error {
 		// Restart due to listen/serve failure
 		l.Warnln("GUI/API:", err, "(restarting)")
 	}
-	srv.Close()
+	// Give it a moment to shut down gracefully, e.g. if we are restarting
+	// due to a config change through the API, let that finish successfully.
+	timeout, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if err := srv.Shutdown(timeout); err == timeout.Err() {
+		srv.Close()
+	}
 
 	return err
 }
@@ -777,7 +783,11 @@ func (s *service) getDBNeed(w http.ResponseWriter, r *http.Request) {
 
 	page, perpage := getPagingParams(qs)
 
-	progress, queued, rest := s.model.NeedFolderFiles(folder, page, perpage)
+	progress, queued, rest, err := s.model.NeedFolderFiles(folder, page, perpage)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
 
 	// Convert the struct to a more loose structure, and inject the size.
 	sendJSON(w, map[string]interface{}{
@@ -802,13 +812,12 @@ func (s *service) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
 
 	page, perpage := getPagingParams(qs)
 
-	snap, err := s.model.DBSnapshot(folder)
+	files, err := s.model.RemoteNeedFolderFiles(folder, deviceID, page, perpage)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	defer snap.Release()
-	files := snap.RemoteNeedFolderFiles(deviceID, page, perpage)
+
 	sendJSON(w, map[string]interface{}{
 		"files":   toJsonFileInfoSlice(files),
 		"page":    page,
@@ -823,13 +832,11 @@ func (s *service) getDBLocalChanged(w http.ResponseWriter, r *http.Request) {
 
 	page, perpage := getPagingParams(qs)
 
-	snap, err := s.model.DBSnapshot(folder)
+	files, err := s.model.LocalChangedFolderFiles(folder, page, perpage)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	defer snap.Release()
-	files := snap.LocalChangedFiles(page, perpage)
 
 	sendJSON(w, map[string]interface{}{
 		"files":   toJsonFileInfoSlice(files),

@@ -34,8 +34,16 @@ func (m *mockedModel) Override(folder string) {}
 
 func (m *mockedModel) Revert(folder string) {}
 
-func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
-	return nil, nil, nil
+func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error) {
+	return nil, nil, nil, nil
+}
+
+func (*mockedModel) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error) {
+	return nil, nil
+}
+
+func (*mockedModel) LocalChangedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
+	return nil, nil
 }
 
 func (m *mockedModel) FolderProgressBytesCompleted(_ string) int64 {
