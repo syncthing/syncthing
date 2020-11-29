@@ -2616,8 +2616,7 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 	for _, dev := range cfg.IgnoredDevices {
 		ignoredDevices[dev.ID] = true
 	}
-	var existingDevices map[protocol.DeviceID]config.DeviceConfiguration
-	existingDevices = cfg.DeviceMap()
+	existingDevices := cfg.DeviceMap()
 	existingFolders := make(map[string]*config.FolderConfiguration, len(cfg.Folders))
 	for i := range cfg.Folders {
 		folder := &cfg.Folders[i]
@@ -2638,11 +2637,6 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 			continue
 		}
 		for deviceID := range offers {
-			if _, ok := ignoredDevices[deviceID]; ok {
-				l.Debugf("Discarding pending folder %v from ignored device %v", folderID, deviceID)
-				m.db.RemovePendingFolder(folderID, deviceID[:])
-				continue
-			}
 			if dev, ok := existingDevices[deviceID]; !ok {
 				l.Debugf("Discarding pending folder %v from unknown device %v", folderID, deviceID)
 				m.db.RemovePendingFolder(folderID, deviceID[:])
