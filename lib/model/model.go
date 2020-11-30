@@ -1279,6 +1279,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 }
 
 func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) ([]string, map[string]struct{}, error) {
+	handleTime := time.Now()
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
 	paused := make(map[string]struct{}, len(folders))
@@ -1380,6 +1381,11 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 
 	indexSenders.removeAllExcept(seenFolders)
+	// All current candidate links were touched above, so discard any with older timestamps
+	_, err := m.db.RemoveCandidateLinksBeforeTime(deviceID, handleTime)
+	if err != nil {
+		l.Infof("Could not clean up candidate link entries: %v", err)
+	}
 
 	return tempIndexFolders, paused, nil
 }

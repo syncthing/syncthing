@@ -239,6 +239,48 @@ func (db *Lowlevel) RemoveCandidateLinksForDevice(introducer protocol.DeviceID, 
 	}
 }
 
+// RemoveCandidateLinksBeforeTime removes entries from a specific introducer device which
+// are older than a given timestamp or invalid.  It returns only the valid removed entries.
+func (db *Lowlevel) RemoveCandidateLinksBeforeTime(introducer protocol.DeviceID, oldest time.Time) ([]CandidateLink, error) {
+	prefixKey, err := db.keyer.GenerateCandidateLinkKey(nil, introducer[:], nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	iter, err := db.NewPrefixIterator(prefixKey)
+	if err != nil {
+		return nil, err
+	}
+	defer iter.Release()
+	oldest = oldest.Round(time.Second)
+	var res []CandidateLink
+	for iter.Next() {
+		var ocl ObservedCandidateLink
+		ocl, candidateID, introducerID, folderID, ok, err := db.readCandidateLink(iter)
+		if err != nil {
+			// Fatal error, not just invalid (and already discarded) entry
+			return nil, err
+		} else if !ok {
+			// Skip in the returned list, as likely invalid values anyway
+			continue
+		} else if ocl.Time.Before(oldest) {
+			l.Infof("Removing stale candidate link (device %v has folder %s) from introducer %s, last seen %v",
+				candidateID, folderID, introducerID.Short(), ocl.Time)
+		} else {
+			// Keep entries younger or equal to the given timestamp
+			continue
+		}
+		if err := db.Delete(iter.Key()); err != nil {
+			l.Warnf("Failed to remove candidate link entry: %v", err)
+		}
+		res = append(res, CandidateLink{
+			Introducer: introducer,
+			Folder:     folderID,
+			Candidate:  candidateID,
+		})
+	}
+	return res, nil
+}
+
 // CandidateLinks enumerates all entries as a flat list.  Invalid ones are dropped from
 // the database after a warning log message, as a side-effect.
 func (db *Lowlevel) CandidateLinks() ([]CandidateLink, error) {
