@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, CurrentFolder, Ignores, Browse, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
+    .controller('SyncthingController', function ($scope, $http, $location, CurrentFolder, Ignores, Browse, FileMatches, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
@@ -1828,6 +1828,7 @@ angular.module('syncthing.core')
                 Browse.refresh($scope.currentFolder.id),
                 Ignores.refresh($scope.currentFolder.id),
             ]).then((responses) => {
+                FileMatches.update($scope.currentFolder.id, responses[0].files, responses[1].patterns);
                 $scope.currentFolder.ignores = responses[1].patterns.map(function(p) { return p.text; });
             }).catch(function (err) {
                 $scope.ignores.error = $translate.instant("Failed to load ignore patterns.");

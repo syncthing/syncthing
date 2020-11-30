@@ -1,13 +1,10 @@
 describe('IgnoresService', function() {
     beforeEach(module('syncthing.folder'));
 
-    var $httpBackend, getIgnoresHandler;
-    var service;
+    var $httpBackend, service;
 
     beforeEach(inject(function($injector) {
         $httpBackend = $injector.get('$httpBackend');
-        getIgnoresHandler = $httpBackend.when('GET', /^rest\/db\/ignores/).respond({ ignore: [] });
-
         service = $injector.get('Ignores');
     }));
 
@@ -41,6 +38,46 @@ describe('IgnoresService', function() {
         });
     });
 
+    describe('addPattern', function() {
+        beforeEach(function () {
+            service.addPattern('default', '*');
+            service.addPattern('default', '/Backups');
+        });
+
+        it('inserts pattern at array start', function() {
+            service.addPattern('default', '!/Photos');
+            expect(service.forFolder('default').patterns[0].text).toEqual('!/Photos');
+        });
+
+        it('updates folder text', function() {
+            expect(service.forFolder('default').text).toEqual('/Backups\n*');
+            service.addPattern('default', '!/Photos');
+            expect(service.forFolder('default').text).toEqual('!/Photos\n/Backups\n*');
+        });
+    });
+
+    describe('removePattern', function() {
+        beforeEach(function () {
+            service.addPattern('default', '*');
+            service.addPattern('default', '/Backups');
+        });
+
+        it('removes pattern from array', function() {
+            service.removePattern('default', '/Backups');
+            expect(service.forFolder('default').patterns.map(function (p) { return p.text; })).not.toContain('/Backups');
+        });
+
+        it('does nothing when pattern is absent', function() {
+            service.removePattern('default', 'oh no');
+            expect(service.forFolder('default').patterns.length).toEqual(2);
+        });
+
+        it('updates folder text', function() {
+            service.removePattern('default', '*');
+            expect(service.forFolder('default').text).toEqual('/Backups');
+        });
+    });
+
     describe('save', function() {
         it('submits to the folder', function () {
             $httpBackend.expectPOST(
@@ -53,8 +90,14 @@ describe('IgnoresService', function() {
     });
 
     describe('refresh', function() {
+        var getIgnoresHandler;
+
+        beforeEach(function () {
+            getIgnoresHandler = $httpBackend.when('GET', /^rest\/db\/ignores/);
+        });
+
         it('fetches the folder', function() {
-            $httpBackend.expectGET('rest/db/ignores?folder=default');
+            $httpBackend.expectGET('rest/db/ignores?folder=default').respond({ ignore: [] });
             service.refresh('default');
             $httpBackend.flush();
         });

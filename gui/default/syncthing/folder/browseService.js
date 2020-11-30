@@ -10,7 +10,7 @@ angular.module('syncthing.folder')
             /*
             ['folderId']: {
                 pathParts: [],
-                list: [],
+                files: [],
             }
             */
         };
@@ -20,7 +20,7 @@ angular.module('syncthing.folder')
             if (!folder) {
                 folder = {
                     pathParts: [],
-                    list: [],
+                    files: [],
                 };
                 self.browse[folderId] = folder;
             }
@@ -51,7 +51,7 @@ angular.module('syncthing.folder')
             return $http.get('rest/db/browse', { params: params }).then(function (response) {
                 return {
                     pathParts: browsePath(folderId, cleanPrefix),
-                    list: browseList(response.data, cleanPrefix)
+                    files: browseList(response.data, cleanPrefix)
                 };
             });
         };

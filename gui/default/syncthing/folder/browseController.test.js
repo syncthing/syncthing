@@ -2,19 +2,18 @@ describe('BrowseController', function() {
     // Set up the module
     beforeEach(module('syncthing.folder'));
 
-    var $controller, $scope, $httpBackend, getIgnoresHandler, getBrowseHandler;
-    var controller, browseService, ignoresService;
+    var $controller, $scope, $httpBackend;
+    var controller, BrowseService, IgnoresService;
 
     // Inject angular bits
     beforeEach(inject(function($injector) {
         $httpBackend = $injector.get('$httpBackend');
         // Common controller init requests
         // Tests override these responses where necessary
-        getIgnoresHandler = $httpBackend.when('GET', /^rest\/db\/ignores/).respond({ ignore: [] });
-        getBrowseHandler = $httpBackend.when('GET', /^rest\/db\/browse/).respond({});
 
-        browseService = $injector.get('Browse');
-        ignoresService = $injector.get('Ignores');
+        BrowseService = $injector.get('Browse');
+        IgnoresService = $injector.get('Ignores');
+        fileMatchesService = $injector.get('FileMatches');
         $controller = $injector.get('$controller');
         $scope = $injector.get('$rootScope');
     }));
@@ -35,7 +34,7 @@ describe('BrowseController', function() {
         it('updates browse reference when initialized', function() {
             controller = $controller('BrowseController', { $scope: $scope, CurrentFolder: { id: 'default' } });
             $scope.$apply();
-            expect(controller.browse).toBe(browseService.forFolder('default'));
+            expect(controller.browse).toBe(BrowseService.forFolder('default'));
         });
 
         it('updates browse reference when current folder changes', function() {
@@ -44,182 +43,105 @@ describe('BrowseController', function() {
             $scope.$apply();
             folder.id = 'documents';
             $scope.$apply();
-            expect(controller.browse).toBe(browseService.forFolder('documents'));
+            expect(controller.browse).toBe(BrowseService.forFolder('documents'));
+        });
+    });
+
+    describe('toggle', function() {
+        var browseHandler;
+
+        beforeEach(function() {
+            $httpBackend.when('GET', /^rest\/db\/ignores/).respond({ ignore: [
+                '/Photos',
+                '!/Music',
+            ] });
+            browseHandler = $httpBackend.when('GET', /^rest\/db\/browse/).respond({
+                Backups: {},
+                Music: {},
+                Photos: {},
+            });
+            BrowseService.refresh('default');
+            compute();
+        });
+
+        function compute() {
+            IgnoresService.refresh('default');
+            controller = $controller('BrowseController', { $scope: $scope, CurrentFolder: { id: 'default' } });
+            $httpBackend.flush();
+            fileMatchesService.update(
+                'default',
+                BrowseService.forFolder('default').files,
+                IgnoresService.forFolder('default').patterns,
+            );
+        }
+
+        function matchFile(name) {
+            var match = fileMatchesService.forFolder('default').find(function(fm) { return fm.file.name === name; })
+            if (!match) {
+                throw 'No file match with name "' + name + '"';
+            }
+            return match;
+        }
+
+        it('removes a pattern for an ignored file', function() {
+            expect(matchFile('Photos').matches.length).toEqual(1);
+            controller.toggle(matchFile('Photos'));
+            expect(matchFile('Photos').matches.length).toEqual(0);
+        });
+
+        it('removes a pattern for an included file', function() {
+            expect(matchFile('Music').matches.length).toEqual(1);
+            controller.toggle(matchFile('Music'));
+            expect(matchFile('Music').matches.length).toEqual(0);
+        });
+
+        it('adds a pattern for a file', function() {
+            expect(matchFile('Backups').matches.length).toEqual(0);
+            controller.toggle(matchFile('Backups'));
+            expect(matchFile('Backups').matches.length).toEqual(1);
+        });
+
+        describe('child of ignored directory', function() {
+            beforeEach(function() {
+                browseHandler.respond({
+                    Raw: {},
+                });
+                BrowseService.refresh('default', 'Photos');
+                compute();
+            });
+
+            it('adds a pattern to include file', function() {
+                expect(matchFile('Raw').matches.length).toEqual(1);
+                controller.toggle(matchFile('Raw'));
+                expect(matchFile('Raw').matches.length).toEqual(2);
+                expect(matchFile('Raw').matches[0].isNegated).toBeTrue();
+            });
+        });
+
+        describe('child of included directory', function() {
+            beforeEach(function() {
+                browseHandler.respond({
+                    Phish: {},
+                });
+                BrowseService.refresh('default', 'Music');
+                compute();
+            });
+
+            it('adds a pattern to ignore file', function() {
+                expect(matchFile('Phish').matches.length).toEqual(1);
+                controller.toggle(matchFile('Phish'));
+                expect(matchFile('Phish').matches.length).toEqual(2);
+                expect(matchFile('Phish').matches[0].isNegated).toBeFalse();
+            });
         });
     });
 
     describe('navigate', function() {
         it('fetches the given folder and prefix', function() {
-            $httpBackend.expectGET('rest/db/browse?folder=chocolate&levels=0&prefix=factory%2Fsecrets');
+            $httpBackend.expectGET('rest/db/browse?folder=chocolate&levels=0&prefix=factory%2Fsecrets').respond({});
             controller = $controller('BrowseController', { $scope: $scope, CurrentFolder: { id: 'default' } });
             controller.navigate('chocolate', 'factory/secrets');
             $httpBackend.flush();
-        });
-    });
-
-    describe('matchingPatterns', function() {
-        beforeEach(function() {
-            getBrowseHandler.respond({
-                'Backups.zip': [],
-                Backups: {},
-                Documents: {},
-                'Photostudio.exe': [],
-                Photos: {},
-            });
-            browseService.refresh('default');
-        });
-
-        function findFile(name) {
-            var file = controller.browse.list.find(function(f) { return f.name === name; })
-            if (!file) {
-                throw 'No file with name "' + name + '" in scope';
-            }
-            return file;
-        }
-
-        it('applies the first matching rule', function() {
-            getIgnoresHandler.respond({ ignore: [
-                '/Backups',
-                '/Photos',
-                '!/Photos',
-                '*',
-            ] });
-            ignoresService.refresh('default');
-            controller = $controller('BrowseController', { $scope: $scope, CurrentFolder: { id: 'default' } });
-            $httpBackend.flush();
-            var matches = controller.matchingPatterns(findFile('Photos'));
-            expect(matches.length).toEqual(3);
-            expect(matches[0].text).toEqual('/Photos');
-        });
-
-        it('does not match advanced patterns', function() {
-            getIgnoresHandler.respond({ ignore: [
-                '/Backup?',
-                '/Backup*',
-                'Backups',
-            ] });
-            ignoresService.refresh('default');
-            controller = $controller('BrowseController', { $scope: $scope, CurrentFolder: { id: 'default' } });
-            $httpBackend.flush();
-            var matches = controller.matchingPatterns(findFile('Backups'));
-            expect(matches.length).toEqual(0);
-        });
-
-        describe('when directories are ignored', function() {
-            beforeEach(function() {
-                getIgnoresHandler.respond({ ignore: [
-                    '/Backups.zip/',
-                    '/Backups',
-                    '/Documents/',
-                    '!/Photos/Raw',
-                    '/Photos',
-                    '/Photostudio.exe',
-                ] });
-                ignoresService.refresh('default');
-                controller = $controller('BrowseController', { $scope: $scope, CurrentFolder: { id: 'default' } });
-                $httpBackend.flush();
-            });
-
-            it('matches files', function() {
-                var matches = controller.matchingPatterns(findFile('Photostudio.exe'));
-                expect(matches.length).toEqual(1);
-                expect(matches[0].text).toEqual('/Photostudio.exe');
-            });
-
-            it('does not match files to pattern with trailing slash', function() {
-                var matches = controller.matchingPatterns(findFile('Backups.zip'));
-                expect(matches.length).toEqual(0);
-            });
-
-            it('matches directories', function() {
-                var matches = controller.matchingPatterns(findFile('Backups'));
-                expect(matches.length).toEqual(1);
-                expect(matches[0].text).toEqual('/Backups');
-            });
-
-            it('does not match directories to pattern with trailing slash', function() {
-                var matches = controller.matchingPatterns(findFile('Documents'));
-                expect(matches.length).toEqual(0);
-            });
-
-            it('matches directory with more specific negated pattern', function() {
-                var matches = controller.matchingPatterns(findFile('Photos'));
-                expect(matches.length).toEqual(1);
-                expect(matches[0].text).toEqual('/Photos');
-                expect(matches[0].isNegated).toBeFalse();
-            });
-
-            describe('in subdirectory', function() {
-                beforeEach(function() {
-                    // Same ignore patterns, but viewing the "Backups" directory
-                    getBrowseHandler.respond({
-                        June2008: {},
-                    });
-                    controller.navigate('default', 'Backups');
-                    $httpBackend.flush();
-                });
-
-                it('matches by parent directory', function() {
-                    var matches = controller.matchingPatterns(findFile('June2008'));
-                    expect(matches.length).toEqual(1);
-                    expect(matches[0].text).toEqual('/Backups');
-                });
-            });
-
-            describe('in ignored subdirectory', function() {
-                beforeEach(function() {
-                    getBrowseHandler.respond({
-                        'Cat.jpg': [],
-                        'Rawr.jpg': [],
-                        Raw: {},
-                    });
-                    controller.navigate('default', 'Photos');
-                    $httpBackend.flush();
-                });
-
-                it('matches ignored files', function() {
-                    var matches = controller.matchingPatterns(findFile('Cat.jpg'));
-                    expect(matches.length).toEqual(1);
-                    expect(matches[0].text).toEqual('/Photos');
-                });
-
-                it('does not negate files with common prefix', function() {
-                    var matches = controller.matchingPatterns(findFile('Rawr.jpg'));
-                    expect(matches.length).toEqual(1);
-                    expect(matches[0].text).toEqual('/Photos');
-                });
-
-                it('matches negated subdirectory with more specific pattern', function() {
-                    var matches = controller.matchingPatterns(findFile('Raw'));
-                    expect(matches.length).toEqual(2);
-                    expect(matches[0].text).toEqual('!/Photos/Raw');
-                });
-            });
-        });
-
-        describe('with root ignored', function() {
-            beforeEach(function() {
-                getIgnoresHandler.respond({ ignore: [
-                    '!/Photos',
-                    '*',
-                ] });
-                ignoresService.refresh('default');
-                controller = $controller('BrowseController', { $scope: $scope, CurrentFolder: { id: 'default' } });
-                $httpBackend.flush();
-            });
-
-            it('matches root files and directories', function() {
-                ['Backups.zip', 'Backups'].forEach(function(file) {
-                    var matches = controller.matchingPatterns(findFile(file));
-                    expect(matches.length).toEqual(1);
-                });
-            });
-
-            it('matches negated directories', function() {
-                var matches = controller.matchingPatterns(findFile('Photos'));
-                expect(matches.length).toEqual(2);
-                expect(matches[0].isNegated).toBeTrue();
-            });
         });
     });
 });

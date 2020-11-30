@@ -30,7 +30,7 @@ describe('BrowseService', function() {
             $httpBackend.expectGET('rest/db/browse?folder=default&levels=0').respond({ Backups: {} });
             service.refresh('default');
             $httpBackend.flush();
-            expect(service.forFolder('default').list.length).toEqual(1);
+            expect(service.forFolder('default').files.length).toEqual(1);
         });
 
         it('fetches the given prefix', function() {
@@ -61,7 +61,7 @@ describe('BrowseService', function() {
                     $httpBackend.expectGET('rest/db/browse?folder=chocolate&levels=0');
                     service.refresh('chocolate');
                     $httpBackend.flush();
-                    expect(service.browse['chocolate'].list[0].name).toEqual('factory');
+                    expect(service.browse['chocolate'].files[0].name).toEqual('factory');
                 });
 
                 it('fetches the given prefix', function() {
@@ -77,35 +77,35 @@ describe('BrowseService', function() {
                 });
             });
 
-            describe('list', function() {
+            describe('files', function() {
                 it('returns an item for each file or directory', function() {
-                    expect(service.browse['default'].list.length).toEqual(2);
+                    expect(service.browse['default'].files.length).toEqual(2);
                 });
 
                 it('identifies files', function() {
-                    expect(service.browse['default'].list[0].isFile).toBeTrue();
+                    expect(service.browse['default'].files[0].isFile).toBeTrue();
                 });
 
                 it('identifies directories', function() {
-                    expect(service.browse['default'].list[1].isFile).toBeFalse();
+                    expect(service.browse['default'].files[1].isFile).toBeFalse();
                 });
 
                 it('populates name', function() {
-                    expect(service.browse['default'].list[0].name).toEqual('homework.txt');
-                    expect(service.browse['default'].list[1].name).toEqual('Photos');
+                    expect(service.browse['default'].files[0].name).toEqual('homework.txt');
+                    expect(service.browse['default'].files[1].name).toEqual('Photos');
                 });
 
                 it('populates file size and time', function() {
-                    expect(service.browse['default'].list[0].size).toEqual(130940928);
-                    expect(service.browse['default'].list[0].modifiedAt.format('YYYY MMMM D')).toEqual('2015 April 20');
+                    expect(service.browse['default'].files[0].size).toEqual(130940928);
+                    expect(service.browse['default'].files[0].modifiedAt.format('YYYY MMMM D')).toEqual('2015 April 20');
                 });
 
                 it('populates file path', function() {
-                    expect(service.browse['default'].list[0].path).toEqual('homework.txt');
+                    expect(service.browse['default'].files[0].path).toEqual('homework.txt');
                 });
 
                 it('populates directory path', function() {
-                    expect(service.browse['default'].list[1].path).toEqual('Photos');
+                    expect(service.browse['default'].files[1].path).toEqual('Photos');
                 });
 
                 it('populates path with parent directory', function() {
@@ -115,8 +115,8 @@ describe('BrowseService', function() {
                     });
                     service.refresh('default', 'Photos');
                     $httpBackend.flush();
-                    expect(service.browse['default'].list[0].path).toEqual('Photos/image.jpg');
-                    expect(service.browse['default'].list[1].path).toEqual('Photos/Raw');
+                    expect(service.browse['default'].files[0].path).toEqual('Photos/image.jpg');
+                    expect(service.browse['default'].files[1].path).toEqual('Photos/Raw');
                 });
 
                 it('does not duplicate slash in prefix', function() {
@@ -126,8 +126,8 @@ describe('BrowseService', function() {
                     });
                     service.refresh('default', 'Photos/');
                     $httpBackend.flush();
-                    expect(service.browse['default'].list[0].path).toEqual('Photos/image.jpg');
-                    expect(service.browse['default'].list[1].path).toEqual('Photos/Raw');
+                    expect(service.browse['default'].files[0].path).toEqual('Photos/image.jpg');
+                    expect(service.browse['default'].files[1].path).toEqual('Photos/Raw');
                 });
             });
 

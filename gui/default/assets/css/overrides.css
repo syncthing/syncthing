@@ -142,6 +142,10 @@ table.table-auto .col-flex {
     max-width: 0px;
 }
 
+.table-center > tbody > tr > th, .table-center > tbody > tr > td {
+    vertical-align: middle;
+}
+
 /* Wrap long file paths to prevent text overflow. See issue #6268. */
 .file-path {
     word-break: break-all;

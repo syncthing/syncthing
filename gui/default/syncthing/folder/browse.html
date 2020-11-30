@@ -10,25 +10,26 @@
       </span>
     </div>
     <div class="panel-body">
-      <table class="table table-condensed table-striped table-auto">
+      <table class="table table-condensed table-striped table-center table-auto">
         <tbody>
-          <tr ng-repeat="file in BC.browse.list" ng-init="matches = BC.matchingPatterns(file)">
+          <tr ng-repeat="fm in BC.fileMatches">
             <td class="col-fixed">
-              <span ng-if="matches.length > 0 && !matches[0].isNegated"><span tooltip data-original-title="Ignored by {{matches[0].text}}"><span class="fas fa-fw fa-eye-slash"></span></span></span>
-              <span ng-if="matches.length > 0 && matches[0].isNegated"><span tooltip data-original-title="Included by {{matches[0].text}}"><span class="fas fa-fw fa-eye"></span></span></span>
+              <button type="button" class="btn btn-xs btn-default" ng-click="BC.toggle(fm)">
+                <span ng-if="fm.matches.length > 0 && !fm.matches[0].isNegated"><span class="fas fa-fw fa-minus-circle"></span></span>
+                <span ng-if="fm.matches.length > 0 && fm.matches[0].isNegated"><span class="fas fa-fw fa-plus-circle"></span></span>
+                <span ng-if="fm.matches.length === 0"><span class="fas fa-fw fa-circle-o"></span></span>
+              </button>
             </td>
             <th class="col-flex">
-              <div ng-if="file.isFile">
-                <span class="fas fa-fw fa-file-o"></span>&nbsp;{{file.name}}
-              </div>
-              <div ng-if="!file.isFile">
-                <a class="fill-parent" ng-click="BC.navigate(BC.folder.id, file.path)">
-                  <span class="fas fa-fw fa-folder"></span>&nbsp;{{file.name}}
-                </a>
-              </div>
+              <span ng-if="fm.file.isFile">
+                <span class="fas fa-fw fa-file-o"></span>&nbsp;{{fm.file.name}}
+              </span>
+              <a ng-if="!fm.file.isFile" class="fill-parent" ng-click="BC.navigate(BC.folder.id, fm.file.path)">
+                <span class="fas fa-fw fa-folder"></span>&nbsp;{{fm.file.name}}
+              </a>
             </th>
-            <td class="col-fixed text-right"><span ng-if="file.isFile">{{file.modifiedAt.fromNow()}}</span></td>
-            <td class="col-fixed text-right"><span ng-if="file.isFile">{{file.size | binary}}B</span></td>
+            <td class="col-fixed text-right"><span ng-if="fm.file.isFile">{{fm.file.modifiedAt.fromNow()}}</span></td>
+            <td class="col-fixed text-right"><span ng-if="fm.file.isFile">{{fm.file.size | binary}}B</span></td>
           </tr>
         </tbody>
       </table>

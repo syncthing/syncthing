@@ -77,6 +77,23 @@ angular.module('syncthing.folder')
             );
         };
 
+        self.addPattern = function(folderId, text) {
+            var folder = self.forFolder(folderId);
+            folder.patterns.unshift(parsePattern(text));
+            folder.text = folder.patterns.map(function(r) { return r.text; }).join('\n');
+        };
+
+        self.removePattern = function(folderId, text) {
+            var folder = self.forFolder(folderId);
+            var index = folder.patterns.findIndex(function(pattern) {
+                return pattern.text === text;
+            });
+            if (index >= 0) {
+                folder.patterns.splice(index, 1);
+                folder.text = folder.patterns.map(function(r) { return r.text; }).join('\n');
+            }
+        };
+
         /*
          * private definitions
          */

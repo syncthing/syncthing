@@ -1,5 +1,11 @@
 angular.module('syncthing.folder')
-    .controller('BrowseController', function ($scope, CurrentFolder, Ignores, Browse) {
+    .controller('BrowseController', function (
+        $scope,
+        CurrentFolder,
+        Ignores,
+        Browse,
+        FileMatches,
+    ) {
         'use strict';
 
         // Bind methods directly to the controller so we can use controllerAs in template
@@ -10,39 +16,41 @@ angular.module('syncthing.folder')
         self.folder = CurrentFolder;
         // Reference to browse data for the current folder
         self.browse = undefined;
+        self.fileMatches = undefined;
 
         $scope.$watch(function() {
             return self.folder.id;
         }, function (newId) {
             if (newId) {
                 self.browse = Browse.forFolder(newId);
+                self.fileMatches = FileMatches.forFolder(newId);
             }
         });
 
-        /*
-         * Browse
-         */
-
-        self.navigate = function(folderId, prefix) {
-            Browse.refresh(folderId, prefix);
+        self.toggle = function(fileMatch) {
+            var absPath = '/' + fileMatch.file.path;
+            if (fileMatch.matches.length > 0) {
+                var match = fileMatch.matches[0];
+                if (absPath === match.path) {
+                    // match is exact match to this file, remove match from patterns
+                    Ignores.removePattern(self.folder.id, match.text);
+                } else {
+                    // match is parent directory of file
+                    // If the parent pattern is negated, add pattern ignoring this file
+                    var prefix = match.isNegated ? '' : '!';
+                    Ignores.addPattern(self.folder.id, prefix + absPath);
+                }
+            } else {
+                // Add a pattern to ignore this file
+                Ignores.addPattern(self.folder.id, absPath);
+            }
+            var folder = Ignores.forFolder(self.folder.id);
+            FileMatches.update(self.folder.id, self.browse.files, folder.patterns);
         };
 
-        self.matchingPatterns = function(file) {
-            return Ignores.forFolder(self.folder.id).patterns.filter(function(pattern) {
-                // Only consider patterns that match a simple path
-                if (!pattern.isSimple) return false;
-
-                var absPath = '/' + file.path;
-                if (absPath.indexOf(pattern.path) !== 0) return false;
-
-                // pattern ends with path separator, file is a child of the pattern path
-                if (pattern.path.charAt(pattern.path.length - 1) === '/') return true;
-
-                var suffix = absPath.slice(pattern.path.length);
-                // pattern is an exact match to file path
-                if (suffix.length === 0) return true;
-                // pattern is an exact match to a parent directory in the file path
-                return suffix.charAt(0) === '/';
+        self.navigate = function(folderId, prefix) {
+            Browse.refresh(folderId, prefix).then(function (response) {
+                FileMatches.update(folderId, response.files, Ignores.forFolder(folderId).patterns);
             });
-        }
+        };
     });
