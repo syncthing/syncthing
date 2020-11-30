@@ -294,6 +294,7 @@ func (m *model) initFolders() error {
 
 	ignoredDevices := observedDeviceSet(m.cfg.IgnoredDevices())
 	m.cleanPending(existingDevices, existingFolders, ignoredDevices, nil)
+	m.cleanCandidates(existingDevices, existingFolders, ignoredDevices, nil)
 
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
 	return nil
@@ -2778,6 +2779,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	ignoredDevices := observedDeviceSet(to.IgnoredDevices)
 	m.cleanPending(toDevices, toFolders, ignoredDevices, removedFolders)
+	m.cleanCandidates(toDevices, toFolders, ignoredDevices, removedFolders)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
@@ -2842,6 +2844,44 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			l.Debugf("Discarding now added pending device %v", deviceID)
 			m.db.RemovePendingDevice(deviceID)
 			continue
+		}
+	}
+}
+
+func (m *model) cleanCandidates(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]struct{}) {
+	candidates, err := m.db.CandidateLinks()
+	if err != nil {
+		l.Infof("Could not iterate through candidate link entries for cleanup: %v", err)
+		return
+	}
+	for _, cl := range candidates {
+		folderCfg, ok := existingFolders[cl.Folder]
+		if !ok {
+			l.Debugf("Discarding candidate through unknown folder %v", cl.Folder)
+			m.db.RemoveCandidateLink(cl)
+			continue
+		}
+		if !folderCfg.SharedWith(cl.Introducer) {
+			l.Debugf("Discarding candidate introduction from unrelated device %v", cl.Introducer)
+			m.db.RemoveCandidateLink(cl)
+			continue
+		}
+		if _, ok := ignoredDevices[cl.Candidate]; ok {
+			l.Debugf("Discarding ignored candidate device %v", cl.Candidate)
+			m.db.RemoveCandidateLink(cl)
+			continue
+		}
+		if folderCfg.SharedWith(cl.Candidate) {
+			l.Debugf("Discarding candidate already shared to %v", cl.Candidate)
+			m.db.RemoveCandidateLink(cl)
+			continue
+		}
+		if candidate, ok := existingDevices[cl.Candidate]; ok {
+			if candidate.IgnoredFolder(cl.Folder) {
+				l.Debugf("Discarding ignored candidate folder %v for device %v", cl.Folder, cl.Candidate)
+				m.db.RemoveCandidateLink(cl)
+				continue
+			}
 		}
 	}
 }
