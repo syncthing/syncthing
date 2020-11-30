@@ -439,8 +439,7 @@ func mainCmdline() int {
 	if innerProcess {
 		return SyncthingMain(options)
 	} else {
-		monitorMain(options)
-		return 0
+		return monitorMain(options)
 	}
 }
 
