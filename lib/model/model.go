@@ -2714,6 +2714,7 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
+		// Continue with pending devices below, loop is skipped.
 	}
 	for folderID, offers := range pendingFolders {
 		if _, ok := removedFolders[folderID]; ok {
@@ -2744,6 +2745,10 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 	}
 
 	pendingDevices, err := m.db.PendingDevices()
+	if err != nil {
+		l.Infof("Could not iterate through pending device entries for cleanup: %v", err)
+		return
+	}
 	for deviceID := range pendingDevices {
 		if _, ok := ignoredDevices[deviceID]; ok {
 			l.Debugf("Discarding now ignored pending device %v", deviceID)
