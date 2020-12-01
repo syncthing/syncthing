@@ -2721,23 +2721,23 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 			// folders as well, assuming the folder is no longer of interest
 			// at all (but might become pending again).
 			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
-			m.db.RemovePendingFolder(folderID, protocol.EmptyDeviceID)
+			m.db.RemovePendingFolder(folderID)
 			continue
 		}
 		for deviceID := range offers {
 			if dev, ok := existingDevices[deviceID]; !ok {
 				l.Debugf("Discarding pending folder %v from unknown device %v", folderID, deviceID)
-				m.db.RemovePendingFolder(folderID, deviceID)
+				m.db.RemovePendingFolderForDevice(folderID, deviceID)
 				continue
 			} else if dev.IgnoredFolder(folderID) {
 				l.Debugf("Discarding now ignored pending folder %v for device %v", folderID, deviceID)
-				m.db.RemovePendingFolder(folderID, deviceID)
+				m.db.RemovePendingFolderForDevice(folderID, deviceID)
 				continue
 			}
 			if folderCfg, ok := existingFolders[folderID]; ok {
 				if folderCfg.SharedWith(deviceID) {
 					l.Debugf("Discarding now shared pending folder %v for device %v", folderID, deviceID)
-					m.db.RemovePendingFolder(folderID, deviceID)
+					m.db.RemovePendingFolderForDevice(folderID, deviceID)
 				}
 			}
 		}
