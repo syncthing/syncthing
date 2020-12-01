@@ -2711,7 +2711,7 @@ func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string
 		existingFolders[folder.ID] = folder
 	}
 
-	pendingFolders, err := m.db.PendingFolders(protocol.EmptyDeviceID)
+	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
 	}
@@ -2785,7 +2785,7 @@ func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error
 // returns the entries grouped by folder and filters for a given device unless the
 // argument is specified as EmptyDeviceID.
 func (m *model) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error) {
-	return m.db.PendingFolders(device)
+	return m.db.PendingFoldersForDevice(device)
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given

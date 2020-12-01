@@ -33,10 +33,8 @@ func (db *Lowlevel) RemovePendingDevice(device protocol.DeviceID) {
 	}
 }
 
-// PendingDevices drops any invalid entries from the database after a
-// warning log message, as a side-effect.  That's the only possible
-// "repair" measure and appropriate for the importance of pending
-// entries.  They will come back soon if still relevant.
+// PendingDevices enumerates all entries.  Invalid ones are dropped from the database
+// after a warning log message, as a side-effect.
 func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, error) {
 	iter, err := db.NewPrefixIterator([]byte{KeyTypePendingDevice})
 	if err != nil {
@@ -61,6 +59,9 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 		res[deviceID] = od
 		continue
 	deleteKey:
+		// Deleting invalid entries is the only possible "repair" measure and
+		// appropriate for the importance of pending entries.  They will come back
+		// soon if still relevant.
 		l.Infof("Invalid pending device entry, deleting from database: %x", iter.Key())
 		if err := db.Delete(iter.Key()); err != nil {
 			return nil, err
@@ -114,9 +115,14 @@ func (db *Lowlevel) RemovePendingFolder(id string) {
 	}
 }
 
-// PendingFolders drops any invalid entries from the database as a side-effect.  The
-// returned results are filtered by the given device ID unless it is EmptyDeviceID.
-func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]ObservedFolder, error) {
+func (db *Lowlevel) PendingFolders() (map[string]map[protocol.DeviceID]ObservedFolder, error) {
+	return db.PendingFoldersForDevice(protocol.EmptyDeviceID)
+}
+
+// PendingFoldersForDevice enumerates only entries matching the given device ID, unless it
+// is EmptyDeviceID.  Invalid ones are dropped from the database after a warning log
+// message, as a side-effect.
+func (db *Lowlevel) PendingFoldersForDevice(device protocol.DeviceID) (map[string]map[protocol.DeviceID]ObservedFolder, error) {
 	var err error
 	prefixKey := []byte{KeyTypePendingFolder}
 	if device != protocol.EmptyDeviceID {
@@ -155,6 +161,9 @@ func (db *Lowlevel) PendingFolders(device protocol.DeviceID) (map[string]map[pro
 		res[folderID][deviceID] = of
 		continue
 	deleteKey:
+		// Deleting invalid entries is the only possible "repair" measure and
+		// appropriate for the importance of pending entries.  They will come back
+		// soon if still relevant.
 		l.Infof("Invalid pending folder entry, deleting from database: %x", iter.Key())
 		if err := db.Delete(iter.Key()); err != nil {
 			return nil, err
