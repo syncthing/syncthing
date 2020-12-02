@@ -2702,7 +2702,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices map[protocol.DeviceID]struct{}, removedFolders map[string]bool) {
+func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]bool) {
 	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
@@ -2805,9 +2805,8 @@ func mapDevices(devices []protocol.DeviceID) map[protocol.DeviceID]struct{} {
 	return m
 }
 
-// observedDeviceSet returns a set of device IDs.
-func observedDeviceSet(devices []config.ObservedDevice) map[protocol.DeviceID]struct{} {
-	res := make(map[protocol.DeviceID]struct{}, len(devices))
+func observedDeviceSet(devices []config.ObservedDevice) deviceIDSet {
+	res := make(deviceIDSet, len(devices))
 	for _, dev := range devices {
 		res[dev.ID] = struct{}{}
 	}
