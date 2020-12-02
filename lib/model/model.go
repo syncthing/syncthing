@@ -268,7 +268,10 @@ func (m *model) serve(ctx context.Context) error {
 		clusterConfigDevices.add(folderCfg.DeviceIDs())
 	}
 
-	m.cleanPending(m.cfg.RawCopy(), nil)
+	existingDevices := m.cfg.Devices()
+	existingFolders := m.cfg.Folders()
+	ignoredDevices := observedDeviceSet(m.cfg.IgnoredDevices())
+	m.cleanPending(existingDevices, existingFolders, ignoredDevices, nil)
 
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
 	m.cfg.Subscribe(m)
@@ -2682,7 +2685,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
 
-	m.cleanPending(to, removedFolders)
+	ignoredDevices := observedDeviceSet(to.IgnoredDevices)
+	m.cleanPending(toDevices, toFolders, ignoredDevices, removedFolders)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
@@ -2698,19 +2702,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (m *model) cleanPending(cfg config.Configuration, removedFolders map[string]bool) {
-	// Cache to maps for easy lookups
-	ignoredDevices := make(map[protocol.DeviceID]bool, len(cfg.IgnoredDevices))
-	for _, dev := range cfg.IgnoredDevices {
-		ignoredDevices[dev.ID] = true
-	}
-	existingDevices := cfg.DeviceMap()
-	existingFolders := make(map[string]*config.FolderConfiguration, len(cfg.Folders))
-	for i := range cfg.Folders {
-		folder := &cfg.Folders[i]
-		existingFolders[folder.ID] = folder
-	}
-
+func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices map[protocol.DeviceID]struct{}, removedFolders map[string]bool) {
 	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
@@ -2811,6 +2803,15 @@ func mapDevices(devices []protocol.DeviceID) map[protocol.DeviceID]struct{} {
 		m[dev] = struct{}{}
 	}
 	return m
+}
+
+// observedDeviceSet returns a set of device IDs.
+func observedDeviceSet(devices []config.ObservedDevice) map[protocol.DeviceID]struct{} {
+	res := make(map[protocol.DeviceID]struct{}, len(devices))
+	for _, dev := range devices {
+		res[dev.ID] = struct{}{}
+	}
+	return res
 }
 
 func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) error {
