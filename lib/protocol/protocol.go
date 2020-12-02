@@ -170,6 +170,8 @@ type rawConnection struct {
 	closeOnce             sync.Once
 	sendCloseOnce         sync.Once
 	compression           Compression
+
+	loopWG sync.WaitGroup // Need to ensure no leftover routines in testing
 }
 
 type asyncResult struct {
@@ -244,20 +246,35 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, rec
 		dispatcherLoopStopped: make(chan struct{}),
 		closed:                make(chan struct{}),
 		compression:           compress,
+		loopWG:                sync.WaitGroup{},
 	}
 }
 
 // Start creates the goroutines for sending and receiving of messages. It must
 // be called exactly once after creating a connection.
 func (c *rawConnection) Start() {
-	go c.readerLoop()
+	c.loopWG.Add(5)
+	go func() {
+		c.readerLoop()
+		c.loopWG.Done()
+	}()
 	go func() {
 		err := c.dispatcherLoop()
-		c.internalClose(err)
+		c.Close(err)
+		c.loopWG.Done()
 	}()
-	go c.writerLoop()
-	go c.pingSender()
-	go c.pingReceiver()
+	go func() {
+		c.writerLoop()
+		c.loopWG.Done()
+	}()
+	go func() {
+		c.pingSender()
+		c.loopWG.Done()
+	}()
+	go func() {
+		c.pingReceiver()
+		c.loopWG.Done()
+	}()
 	c.startTime = time.Now()
 }
 
@@ -410,7 +427,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 				state = stateReady
 			}
 			if err := c.receiver.ClusterConfig(c.id, *msg); err != nil {
-				return errors.Wrap(err, "receiver error")
+				return fmt.Errorf("receiving cluster config: %w", err)
 			}
 
 		case *Index:
@@ -422,7 +439,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 				return errors.Wrap(err, "protocol error: index")
 			}
 			if err := c.handleIndex(*msg); err != nil {
-				return errors.Wrap(err, "receiver error")
+				return fmt.Errorf("receiving index: %w", err)
 			}
 			state = stateReady
 
@@ -435,7 +452,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 				return errors.Wrap(err, "protocol error: index update")
 			}
 			if err := c.handleIndexUpdate(*msg); err != nil {
-				return errors.Wrap(err, "receiver error")
+				return fmt.Errorf("receiving index update: %w", err)
 			}
 			state = stateReady
 
@@ -462,7 +479,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 				return fmt.Errorf("protocol error: response message in state %d", state)
 			}
 			if err := c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates); err != nil {
-				return errors.Wrap(err, "receiver error")
+				return fmt.Errorf("receiving download progress: %w", err)
 			}
 
 		case *Ping:
@@ -474,7 +491,7 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 
 		case *Close:
 			l.Debugln("read Close message")
-			return errors.New(msg.Reason)
+			return fmt.Errorf("closed by remote: %v", msg.Reason)
 
 		default:
 			l.Debugf("read unknown message: %+T", msg)
