@@ -129,7 +129,7 @@ func (m *mockedModel) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice,
 	return nil, nil
 }
 
-func (m *mockedModel) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error) {
+func (m *mockedModel) PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error) {
 	return nil, nil
 }
 
