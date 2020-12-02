@@ -20,10 +20,10 @@ func (db *Lowlevel) AddOrUpdatePendingDevice(device protocol.DeviceID, name, add
 		Address: address,
 	}
 	bs, err := od.Marshal()
-	if err == nil {
-		err = db.Put(key, bs)
+	if err != nil {
+		return err
 	}
-	return err
+	return db.Put(key, bs)
 }
 
 func (db *Lowlevel) RemovePendingDevice(device protocol.DeviceID) {
@@ -80,10 +80,10 @@ func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.D
 		Label: label,
 	}
 	bs, err := of.Marshal()
-	if err == nil {
-		err = db.Put(key, bs)
+	if err != nil {
+		return err
 	}
-	return err
+	return db.Put(key, bs)
 }
 
 // RemovePendingFolderForDevice removes entries for specific folder / device combinations.
