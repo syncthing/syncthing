@@ -77,6 +77,15 @@ angular.module('syncthing.folder')
             );
         };
 
+        self.parseText = function(folderId) {
+            var folder = self.forFolder(folderId);
+            folder.patterns = folder.text
+                .split('\n')
+                .filter(function (line) { return line.length > 0; })
+                .map(parsePattern);
+            return folder.patterns;
+        };
+
         self.addPattern = function(folderId, text) {
             var folder = self.forFolder(folderId);
             folder.patterns.unshift(parsePattern(text));

@@ -89,6 +89,31 @@ describe('IgnoresService', function() {
         });
     });
 
+    describe('parseText', function() {
+        beforeEach(function () {
+            service.addPattern('default', '*');
+            service.addPattern('default', '/Backups');
+        });
+
+        it('updates patterns from text', function() {
+            service.forFolder('default').text = '/Photos\n/Backups';
+            service.parseText('default');
+            expect(service.forFolder('default').patterns.map(function(p) { return p.text; })).toEqual(['/Photos', '/Backups']);
+        });
+
+        it('ignores empty line', function() {
+            service.forFolder('default').text = '/Photos\n\n/Backups';
+            service.parseText('default');
+            expect(service.forFolder('default').patterns.map(function(p) { return p.text; })).toEqual(['/Photos', '/Backups']);
+        });
+
+        it('accepts empty text', function() {
+            service.forFolder('default').text = '';
+            service.parseText('default');
+            expect(service.forFolder('default').patterns).toEqual([]);
+        });
+    });
+
     describe('refresh', function() {
         var getIgnoresHandler;
 

@@ -161,8 +161,8 @@
         <div id="folder-ignores" class="tab-pane">
           <p>
             <div class="btn-group">
-              <label class="btn btn-default" ng-class="{active: !currentFolder.ignoreIsEditingAdvanced}">
-                <input type="radio" ng-model="currentFolder.ignoreIsEditingAdvanced" ng-value="false" />
+              <label class="btn btn-default" ng-class="{active: !currentFolder.ignoreIsEditingAdvanced, disabled: !currentFolder.ignoreIsBasic}">
+                <input type="radio" ng-model="currentFolder.ignoreIsEditingAdvanced" ng-value="false" ng-disabled="!currentFolder.ignoreIsBasic" />
                 <span class="fas fa-fw fa-folder-o"></span>&nbsp;<span>Basic</span>
               </label>
               <label class="btn btn-default" ng-class="{active: currentFolder.ignoreIsEditingAdvanced}">
@@ -175,7 +175,7 @@
           <div ng-if="currentFolder.ignoreIsEditingAdvanced">
             <p translate>Enter ignore patterns, one per line.</p>
             <div ng-class="{'has-error': ignores.error != null}">
-              <textarea class="form-control" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled"></textarea>
+              <textarea class="form-control" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled" ng-blur="parseIgnores()"></textarea>
               <p class="help-block" ng-if="ignores.error">
                 {{ignores.error}}
               </p>

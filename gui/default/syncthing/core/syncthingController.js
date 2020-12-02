@@ -1773,11 +1773,13 @@ angular.module('syncthing.core')
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
             $scope.ignores = Ignores.forFolder($scope.currentFolder.id);
-            $scope.currentFolder.ignoreIsEditingAdvanced = false;
+            $scope.currentFolder.ignoreIsEditingAdvanced = true;
             $q.all([
                 Browse.refresh($scope.currentFolder.id),
                 Ignores.refresh($scope.currentFolder.id),
             ]).then((responses) => {
+                $scope.currentFolder.ignoreIsBasic = responses[1].patterns.every(function (p) { return p.isSimple; });
+                $scope.currentFolder.ignoreIsEditingAdvanced = !$scope.currentFolder.ignoreIsBasic;
                 FileMatches.update($scope.currentFolder.id, responses[0].files, responses[1].patterns);
                 $scope.currentFolder.ignores = responses[1].patterns.map(function(p) { return p.text; });
             }).catch(function (err) {
@@ -1786,6 +1788,11 @@ angular.module('syncthing.core')
             });
 
             $scope.editFolderModal();
+        };
+
+        $scope.parseIgnores = function () {
+            var patterns = Ignores.parseText($scope.currentFolder.id);
+            $scope.currentFolder.ignoreIsBasic = patterns.every(function (p) { return p.isSimple; });
         };
 
         $scope.selectAllSharedDevices = function (state) {
