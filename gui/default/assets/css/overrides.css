@@ -232,6 +232,17 @@ button.panel-heading {
     border-radius: 0 !important;
 }
 
+/* Duplicate bootstrap rule that requires data-toggle="buttons" for these styles
+so we can use them without bootstrap JS trying to control the inputs */
+.btn-group > .btn input[type="radio"],
+.btn-group > .btn input[type="radio"],
+.btn-group > .btn input[type="checkbox"],
+.btn-group > .btn input[type="checkbox"] {
+    position: absolute;
+    clip: rect(0, 0, 0, 0);
+    pointer-events: none;
+}
+
 .panel-heading .panel-title-text {
     text-overflow: ellipsis;
     overflow: hidden;

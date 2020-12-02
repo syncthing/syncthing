@@ -1773,6 +1773,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
             $scope.ignores = Ignores.forFolder($scope.currentFolder.id);
+            $scope.currentFolder.ignoreIsEditingAdvanced = false;
             $q.all([
                 Browse.refresh($scope.currentFolder.id),
                 Ignores.refresh($scope.currentFolder.id),
