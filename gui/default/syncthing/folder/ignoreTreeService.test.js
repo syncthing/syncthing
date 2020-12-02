@@ -1,31 +1,23 @@
 describe('IgnoreTreeService', function() {
     beforeEach(module('syncthing.folder'));
-    beforeEach(module(function($provide) {
-        $provide.service('Browse', function () {
-            this.refresh = function(folderId) {
-                if (folderId === 'music') {
-                    return Promise.resolve({ files: [] })
-                } else {
-                    return Promise.resolve({ files: [
-                        { name: 'Backups', path: 'Backups', isFile: false },
-                        { name: 'file.txt', path: 'file.txt', isFile: true },
-                        { name: 'Photos', path: 'Photos', isFile: false },
-                    ] });
-                }
-            };
-        });
-    }));
 
-    var service, IgnoresService;
+    var service, BrowseService, IgnoresService;
+    var browseSpy;
 
     beforeEach(inject(function($injector) {
         service = $injector.get('IgnoreTree');
+        BrowseService = $injector.get('Browse');
         IgnoresService = $injector.get('Ignores');
     }));
     beforeEach(setup);
     afterEach(teardown);
 
     function setup() {
+        browseSpy = spyOn(BrowseService, 'refresh').and.returnValue(Promise.resolve({ files: [
+            { name: 'Backups', path: 'Backups', isFile: false },
+            { name: 'file.txt', path: 'file.txt', isFile: true },
+            { name: 'Photos', path: 'Photos', isFile: false },
+        ] }));
         // Prepare a table for fancytree to render into
         var table = $('<table>', { id: 'ignore-tree' }).append(
             $('<thead>').append(
@@ -67,6 +59,7 @@ describe('IgnoreTreeService', function() {
 
         it('reloads contents when tree exists', async function () {
             await loadTable('default');
+            browseSpy.and.returnValue(Promise.resolve({ files: [] }));
             await loadTable('music');
             expect($('table tbody tr').map((i, el) => $(el).text()).get()).toEqual([]);
         });

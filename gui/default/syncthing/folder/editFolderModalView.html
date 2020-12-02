@@ -190,7 +190,7 @@
           <div ng-if="currentFolder.ignoreIsEditingAdvanced">
             <p translate>Enter ignore patterns, one per line.</p>
             <div ng-class="{'has-error': ignores.error != null}">
-              <textarea class="form-control" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled" ng-blur="parseIgnores()"></textarea>
+              <textarea class="form-control" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled" ng-blur="parseIgnores(ignores.text)"></textarea>
               <p class="help-block" ng-if="ignores.error">
                 {{ignores.error}}
               </p>

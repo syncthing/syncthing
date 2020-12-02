@@ -60,11 +60,11 @@ angular.module('syncthing.folder')
             );
         };
 
-        self.parseText = function() {
-            if (self.data.text.length === 0) {
+        self.parseText = function(text) {
+            if (text.length === 0) {
                 self.data.patterns = [];
             } else {
-                self.data.patterns = self.data.text
+                self.data.patterns = text
                     .split('\n')
                     .map(parsePattern);
             }
@@ -78,6 +78,7 @@ angular.module('syncthing.folder')
             });
             self.data.patterns.splice(afterIndex + 1, 0, newPattern);
             self.data.text = self.data.patterns.map(function(r) { return r.text; }).join('\n');
+            return newPattern;
         };
 
         self.removePattern = function(text) {
@@ -85,9 +86,11 @@ angular.module('syncthing.folder')
                 return pattern.text === text;
             });
             if (index >= 0) {
-                self.data.patterns.splice(index, 1);
+                var oldPattern = self.data.patterns.splice(index, 1)[0];
                 self.data.text = self.data.patterns.map(function(r) { return r.text; }).join('\n');
+                return oldPattern;
             }
+            return null;
         };
 
         self.matchingPattern = function(file) {

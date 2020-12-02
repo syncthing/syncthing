@@ -1823,8 +1823,8 @@ angular.module('syncthing.core')
             $scope.editFolderModal();
         };
 
-        $scope.parseIgnores = function () {
-            var patterns = Ignores.parseText();
+        $scope.parseIgnores = function (text) {
+            var patterns = Ignores.parseText(text);
             $scope.currentFolder.ignoreIsBasic = patterns.every(function (p) { return p.isSimple; });
             IgnoreTree.update();
         };

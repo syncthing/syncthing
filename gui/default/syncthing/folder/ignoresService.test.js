@@ -109,20 +109,17 @@ describe('IgnoresService', function() {
         });
 
         it('updates patterns from text', function() {
-            service.data.text = '/Photos\n/Backups';
-            service.parseText();
+            service.parseText('/Photos\n/Backups');
             expect(service.data.patterns.map(function(p) { return p.text; })).toEqual(['/Photos', '/Backups']);
         });
 
         it('accepts empty line', function() {
-            service.data.text = '/Photos\n\n/Backups';
-            service.parseText();
+            service.parseText('/Photos\n\n/Backups');
             expect(service.data.patterns.map(function(p) { return p.text; })).toEqual(['/Photos', '', '/Backups']);
         });
 
         it('accepts empty text', function() {
-            service.data.text = '';
-            service.parseText();
+            service.parseText('');
             expect(service.data.patterns).toEqual([]);
         });
     });

@@ -17,9 +17,12 @@ module.exports = function(config) {
         'default/vendor/jquery/jquery-2.2.2.js',
         'default/vendor/fancytree/jquery.fancytree-all-deps.js',
         'default/vendor/angular/angular.js',
+        'default/vendor/angular/angular-translate.js',
         './node_modules/angular-mocks/angular-mocks.js',
         'default/syncthing/**/module.js',
         'default/syncthing/folder/!(*.test).js',
+        'default/syncthing/core/!(*.test).js',
+        'default/syncthing/app.js',
         'default/syncthing/**/*.test.js',
     ],
 
