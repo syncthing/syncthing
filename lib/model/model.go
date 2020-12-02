@@ -2588,14 +2588,14 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
-	removedFolders := make(map[string]bool)
+	removedFolders := make(map[string]struct{})
 	for folderID, fromCfg := range fromFolders {
 		toCfg, ok := toFolders[folderID]
 		if !ok {
 			// The folder was removed.
 			m.removeFolder(fromCfg)
 			clusterConfigDevices.add(fromCfg.DeviceIDs())
-			removedFolders[fromCfg.ID] = true
+			removedFolders[fromCfg.ID] = struct{}{}
 			continue
 		}
 
@@ -2702,7 +2702,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]bool) {
+func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]struct{}) {
 	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
