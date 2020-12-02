@@ -252,7 +252,7 @@ angular.module('syncthing.core')
             };
             console.log("rejected device:", arg.data.device, pendingDevice);
 
-	    $scope.pendingDevices[arg.data.device] = pendingDevice;
+            $scope.pendingDevices[arg.data.device] = pendingDevice;
         });
 
         $scope.$on(Events.FOLDER_REJECTED, function (event, arg) {
@@ -263,13 +263,13 @@ angular.module('syncthing.core')
             console.log("rejected folder", arg.data.folder, "from device:", arg.data.device, offeringDevice);
 
             var pendingFolder = $scope.pendingFolders[arg.data.folder];
-	    if (pendingFolder === undefined) {
+            if (pendingFolder === undefined) {
                 pendingFolder = {
-		    offeredBy: {}
-		};
-	    }
-	    pendingFolder.offeredBy[arg.data.device] = offeringDevice;
-	    $scope.pendingFolders[arg.data.folder] = pendingFolder;
+                    offeredBy: {}
+                };
+            }
+            pendingFolder.offeredBy[arg.data.device] = offeringDevice;
+            $scope.pendingFolders[arg.data.folder] = pendingFolder;
         });
 
         $scope.$on('ConfigLoaded', function () {
@@ -1991,11 +1991,11 @@ angular.module('syncthing.core')
 
         $scope.ignoreFolder = function (device, folderID, offeringDevice) {
             var ignoredFolder = {
-		id: folderID,
-		label: offeringDevice.label,
-		// Bump time
-		time: (new Date()).toISOString()
-	    }
+                id: folderID,
+                label: offeringDevice.label,
+                // Bump time
+                time: (new Date()).toISOString()
+            }
 
             if (id in $scope.devices) {
                 $scope.devices[id].ignoredFolders.push(ignoredFolder);
