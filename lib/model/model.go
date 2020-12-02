@@ -259,8 +259,9 @@ func (m *model) serve(ctx context.Context) error {
 	// Add and start folders
 	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
 	existingDevices := m.cfg.Devices()
+	existingFolders := m.cfg.Folders()
 	clusterConfigDevices := make(deviceIDSet, len(existingDevices))
-	for _, folderCfg := range m.cfg.FolderList() {
+	for _, folderCfg := range existingFolders {
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
@@ -269,7 +270,6 @@ func (m *model) serve(ctx context.Context) error {
 		clusterConfigDevices.add(folderCfg.DeviceIDs())
 	}
 
-	existingFolders := m.cfg.Folders()
 	ignoredDevices := observedDeviceSet(m.cfg.IgnoredDevices())
 	m.cleanPending(existingDevices, existingFolders, ignoredDevices, nil)
 
