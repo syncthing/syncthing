@@ -111,6 +111,42 @@ func (db *Lowlevel) RemovePendingFolder(id string) {
 	}
 }
 
+func (db *Lowlevel) ExpirePendingFolders(device protocol.DeviceID, oldest time.Time) (uint, error) {
+	prefixKey, err := db.keyer.GeneratePendingFolderKey(nil, device[:], nil)
+	if err != nil {
+		return 0, err
+	}
+	iter, err := db.NewPrefixIterator(prefixKey)
+	if err != nil {
+		return 0, err
+	}
+	defer iter.Release()
+	oldest = oldest.Round(time.Second)
+	var count uint
+	for iter.Next() {
+		var bs []byte
+		var of ObservedFolder
+		if bs, err = db.Get(iter.Key()); err != nil {
+			// Keep inaccessible entries
+			continue
+		} else if err = of.Unmarshal(bs); err != nil {
+			// Keep invalid entries
+			continue
+		} else if !of.Time.Before(oldest) {
+			// Keep entries younger or equal to the given timestamp
+			continue
+		}
+		if err := db.Delete(iter.Key()); err != nil {
+			l.Infof("Failed to remove pending folder entry: %v", err)
+		} else {
+			l.Infof("Removed stale pending folder %v from device %v, last seen %v",
+				of.Label, device, of.Time)
+		}
+		count += 1
+	}
+	return count, nil
+}
+
 // Consolidated information about a pending folder
 type PendingFolder struct {
 	OfferedBy map[protocol.DeviceID]ObservedFolder `json:"offeredBy"`
