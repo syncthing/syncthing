@@ -115,14 +115,19 @@ func (db *Lowlevel) RemovePendingFolder(id string) {
 	}
 }
 
-func (db *Lowlevel) PendingFolders() (map[string]map[protocol.DeviceID]ObservedFolder, error) {
+// Consolidated information about a pending folder
+type PendingFolder struct {
+	OfferedBy map[protocol.DeviceID]ObservedFolder `json:"offeredBy"`
+}
+
+func (db *Lowlevel) PendingFolders() (map[string]PendingFolder, error) {
 	return db.PendingFoldersForDevice(protocol.EmptyDeviceID)
 }
 
 // PendingFoldersForDevice enumerates only entries matching the given device ID, unless it
 // is EmptyDeviceID.  Invalid ones are dropped from the database after a warning log
 // message, as a side-effect.
-func (db *Lowlevel) PendingFoldersForDevice(device protocol.DeviceID) (map[string]map[protocol.DeviceID]ObservedFolder, error) {
+func (db *Lowlevel) PendingFoldersForDevice(device protocol.DeviceID) (map[string]PendingFolder, error) {
 	var err error
 	prefixKey := []byte{KeyTypePendingFolder}
 	if device != protocol.EmptyDeviceID {
@@ -136,7 +141,7 @@ func (db *Lowlevel) PendingFoldersForDevice(device protocol.DeviceID) (map[strin
 		return nil, err
 	}
 	defer iter.Release()
-	res := make(map[string]map[protocol.DeviceID]ObservedFolder)
+	res := make(map[string]PendingFolder)
 	for iter.Next() {
 		keyDev, ok := db.keyer.DeviceFromPendingFolderKey(iter.Key())
 		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
@@ -156,9 +161,11 @@ func (db *Lowlevel) PendingFoldersForDevice(device protocol.DeviceID) (map[strin
 			goto deleteKey
 		}
 		if _, ok := res[folderID]; !ok {
-			res[folderID] = make(map[protocol.DeviceID]ObservedFolder)
+			res[folderID] = PendingFolder{
+				OfferedBy: map[protocol.DeviceID]ObservedFolder{},
+			}
 		}
-		res[folderID][deviceID] = of
+		res[folderID].OfferedBy[deviceID] = of
 		continue
 	deleteKey:
 		// Deleting invalid entries is the only possible "repair" measure and

@@ -106,7 +106,7 @@ type Model interface {
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 
 	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error)
-	PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error)
+	PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error)
 
 	StartDeadlockDetector(timeout time.Duration)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
@@ -2708,7 +2708,7 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
 		// Continue with pending devices below, loop is skipped.
 	}
-	for folderID, offers := range pendingFolders {
+	for folderID, pf := range pendingFolders {
 		if _, ok := removedFolders[folderID]; ok {
 			// Forget pending folder device associations for recently removed
 			// folders as well, assuming the folder is no longer of interest
@@ -2717,7 +2717,7 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			m.db.RemovePendingFolder(folderID)
 			continue
 		}
-		for deviceID := range offers {
+		for deviceID := range pf.OfferedBy {
 			if dev, ok := existingDevices[deviceID]; !ok {
 				l.Debugf("Discarding pending folder %v from unknown device %v", folderID, deviceID)
 				m.db.RemovePendingFolderForDevice(folderID, deviceID)
@@ -2781,7 +2781,7 @@ func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error
 // PendingFolders lists folders that we don't yet share with the offering devices.  It
 // returns the entries grouped by folder and filters for a given device unless the
 // argument is specified as EmptyDeviceID.
-func (m *model) PendingFolders(device protocol.DeviceID) (map[string]map[protocol.DeviceID]db.ObservedFolder, error) {
+func (m *model) PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error) {
 	return m.db.PendingFoldersForDevice(device)
 }
 
