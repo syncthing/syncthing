@@ -1242,6 +1242,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) (bool, []string, map[string]struct{}, error) {
 	var changed bool
+	handleTime := time.Now()
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
 	paused := make(map[string]struct{}, len(folders))
@@ -1338,6 +1339,9 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 
 	indexSenders.removeAllExcept(seenFolders)
+	if _, err := m.db.ExpirePendingFolders(deviceID, handleTime); err != nil {
+		l.Infof("Could not clean up pending folder entries: %v", err)
+	}
 
 	return changed, tempIndexFolders, paused, nil
 }
