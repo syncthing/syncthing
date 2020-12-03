@@ -20,7 +20,7 @@ angular.module('syncthing.folder')
             var matches = files.map(function(file) {
                 return {
                     file: file,
-                    matches: matchingPatterns(file, patterns),
+                    match: matchingPattern(file, patterns),
                 };
             });
             var folder = self.forFolder(folderId);
@@ -32,8 +32,8 @@ angular.module('syncthing.folder')
          * private definitions
          */
 
-        function matchingPatterns(file, patterns) {
-            return patterns.filter(function(pattern) {
+        function matchingPattern(file, patterns) {
+            return patterns.find(function(pattern) {
                 // Only consider patterns that match a simple path
                 if (!pattern.isSimple) return false;
 

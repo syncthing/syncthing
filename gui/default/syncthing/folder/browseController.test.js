@@ -84,21 +84,21 @@ describe('BrowseController', function() {
         }
 
         it('removes a pattern for an ignored file', function() {
-            expect(matchFile('Photos').matches.length).toEqual(1);
+            expect(matchFile('Photos').match).toBeDefined();
             controller.toggle(matchFile('Photos'));
-            expect(matchFile('Photos').matches.length).toEqual(0);
+            expect(matchFile('Photos').match).toBeUndefined();
         });
 
         it('removes a pattern for an included file', function() {
-            expect(matchFile('Music').matches.length).toEqual(1);
+            expect(matchFile('Music').match).toBeDefined();
             controller.toggle(matchFile('Music'));
-            expect(matchFile('Music').matches.length).toEqual(0);
+            expect(matchFile('Music').match).toBeUndefined();
         });
 
         it('adds a pattern for a file', function() {
-            expect(matchFile('Backups').matches.length).toEqual(0);
+            expect(matchFile('Backups').match).toBeUndefined();
             controller.toggle(matchFile('Backups'));
-            expect(matchFile('Backups').matches.length).toEqual(1);
+            expect(matchFile('Backups').match).toBeDefined();
         });
 
         describe('child of ignored directory', function() {
@@ -111,10 +111,10 @@ describe('BrowseController', function() {
             });
 
             it('adds a pattern to include file', function() {
-                expect(matchFile('Raw').matches.length).toEqual(1);
+                expect(matchFile('Raw').match).toBeDefined();
                 controller.toggle(matchFile('Raw'));
-                expect(matchFile('Raw').matches.length).toEqual(2);
-                expect(matchFile('Raw').matches[0].isNegated).toBeTrue();
+                expect(matchFile('Raw').match).toBeDefined();
+                expect(matchFile('Raw').match.isNegated).toBeTrue();
             });
         });
 
@@ -128,10 +128,10 @@ describe('BrowseController', function() {
             });
 
             it('adds a pattern to ignore file', function() {
-                expect(matchFile('Phish').matches.length).toEqual(1);
+                expect(matchFile('Phish').match).toBeDefined();
                 controller.toggle(matchFile('Phish'));
-                expect(matchFile('Phish').matches.length).toEqual(2);
-                expect(matchFile('Phish').matches[0].isNegated).toBeFalse();
+                expect(matchFile('Phish').match).toBeDefined();
+                expect(matchFile('Phish').match.isNegated).toBeFalse();
             });
         });
     });

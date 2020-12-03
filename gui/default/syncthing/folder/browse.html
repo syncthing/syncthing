@@ -15,9 +15,9 @@
           <tr ng-repeat="fm in BC.fileMatches">
             <td class="col-fixed">
               <button type="button" class="btn btn-xs btn-default" ng-click="BC.toggle(fm)">
-                <span ng-if="fm.matches.length > 0 && !fm.matches[0].isNegated"><span class="fas fa-fw fa-minus-circle"></span></span>
-                <span ng-if="fm.matches.length > 0 && fm.matches[0].isNegated"><span class="fas fa-fw fa-plus-circle"></span></span>
-                <span ng-if="fm.matches.length === 0"><span class="fas fa-fw fa-circle-o"></span></span>
+                <span ng-if="fm.match && !fm.match.isNegated"><span class="fas fa-fw fa-minus-circle"></span></span>
+                <span ng-if="fm.match && fm.match.isNegated"><span class="fas fa-fw fa-plus-circle"></span></span>
+                <span ng-if="!fm.match"><span class="fas fa-fw fa-circle-o"></span></span>
               </button>
             </td>
             <th class="col-flex">

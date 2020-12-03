@@ -29,8 +29,8 @@ angular.module('syncthing.folder')
 
         self.toggle = function(fileMatch) {
             var absPath = '/' + fileMatch.file.path;
-            if (fileMatch.matches.length > 0) {
-                var match = fileMatch.matches[0];
+            if (fileMatch.match) {
+                var match = fileMatch.match;
                 if (absPath === match.path) {
                     // match is exact match to this file, remove match from patterns
                     Ignores.removePattern(self.folder.id, match.text);

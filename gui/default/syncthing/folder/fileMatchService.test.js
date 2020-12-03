@@ -65,14 +65,14 @@ describe('FileMatchesService', function() {
         });
 
         it('references ignore pattern', function() {
-            expect(matchFile('Backups').matches[0]).toBe(patterns[0]);
+            expect(matchFile('Backups').match).toBe(patterns[0]);
         });
 
         describe('matching', function() {
             it('applies the first matching rule', function() {
                 var match = matchFile('Photos');
-                expect(match.matches.length).toEqual(3);
-                expect(match.matches[0].text).toEqual('/Photos');
+                expect(match.match).toBeDefined();
+                expect(match.match.text).toEqual('/Photos');
             });
 
             describe('with advanced patterns', function() {
@@ -89,7 +89,7 @@ describe('FileMatchesService', function() {
 
                 it('does not match', function() {
                     var match = matchFile('Backups');
-                    expect(match.matches.length).toEqual(0);
+                    expect(match.match).toBeUndefined();
                 });
             });
 
@@ -110,31 +110,31 @@ describe('FileMatchesService', function() {
 
                 it('matches files', function() {
                     var match = matchFile('Photostudio.exe');
-                    expect(match.matches.length).toEqual(1);
-                    expect(match.matches[0].text).toEqual('/Photostudio.exe');
+                    expect(match.match).toBeDefined();
+                    expect(match.match.text).toEqual('/Photostudio.exe');
                 });
 
                 it('does not match files to pattern with trailing slash', function() {
                     var match = matchFile('Backups.zip');
-                    expect(match.matches.length).toEqual(0);
+                    expect(match.match).toBeUndefined();
                 });
 
                 it('matches directories', function() {
                     var match = matchFile('Backups');
-                    expect(match.matches.length).toEqual(1);
-                    expect(match.matches[0].text).toEqual('/Backups');
+                    expect(match.match).toBeDefined();
+                    expect(match.match.text).toEqual('/Backups');
                 });
 
                 it('does not match directories to pattern with trailing slash', function() {
                     var match = matchFile('Documents');
-                    expect(match.matches.length).toEqual(0);
+                    expect(match.match).toBeUndefined();
                 });
 
                 it('matches directory with more specific negated pattern', function() {
                     var match = matchFile('Photos');
-                    expect(match.matches.length).toEqual(1);
-                    expect(match.matches[0].text).toEqual('/Photos');
-                    expect(match.matches[0].isNegated).toBeFalse();
+                    expect(match.match).toBeDefined();
+                    expect(match.match.text).toEqual('/Photos');
+                    expect(match.match.isNegated).toBeFalse();
                 });
 
                 describe('in subdirectory', function() {
@@ -150,8 +150,8 @@ describe('FileMatchesService', function() {
 
                     it('matches by parent directory', function() {
                         var match = matchFile('June2008');
-                        expect(match.matches.length).toEqual(1);
-                        expect(match.matches[0].text).toEqual('/Backups');
+                        expect(match.match).toBeDefined();
+                        expect(match.match.text).toEqual('/Backups');
                     });
                 });
 
@@ -169,20 +169,20 @@ describe('FileMatchesService', function() {
 
                     it('matches ignored files', function() {
                         var match = matchFile('Cat.jpg');
-                        expect(match.matches.length).toEqual(1);
-                        expect(match.matches[0].text).toEqual('/Photos');
+                        expect(match.match).toBeDefined();
+                        expect(match.match.text).toEqual('/Photos');
                     });
 
                     it('does not negate files with common prefix', function() {
                         var match = matchFile('Rawr.jpg');
-                        expect(match.matches.length).toEqual(1);
-                        expect(match.matches[0].text).toEqual('/Photos');
+                        expect(match.match).toBeDefined();
+                        expect(match.match.text).toEqual('/Photos');
                     });
 
                     it('matches negated subdirectory with more specific pattern', function() {
                         var match = matchFile('Raw');
-                        expect(match.matches.length).toEqual(2);
-                        expect(match.matches[0].text).toEqual('!/Photos/Raw');
+                        expect(match.match).toBeDefined();
+                        expect(match.match.text).toEqual('!/Photos/Raw');
                     });
                 });
             });
@@ -201,14 +201,14 @@ describe('FileMatchesService', function() {
                 it('matches root files and directories', function() {
                     ['Backups.zip', 'Backups'].forEach(function(file) {
                         var match = matchFile(file);
-                        expect(match.matches.length).toEqual(1);
+                        expect(match.match).toBeDefined();
                     });
                 });
 
                 it('matches negated directories', function() {
                     var match = matchFile('Photos');
-                    expect(match.matches.length).toEqual(2);
-                    expect(match.matches[0].isNegated).toBeTrue();
+                    expect(match.match).toBeDefined();
+                    expect(match.match.isNegated).toBeTrue();
                 });
             });
         });

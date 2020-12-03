@@ -1793,6 +1793,7 @@ angular.module('syncthing.core')
         $scope.parseIgnores = function () {
             var patterns = Ignores.parseText($scope.currentFolder.id);
             $scope.currentFolder.ignoreIsBasic = patterns.every(function (p) { return p.isSimple; });
+            FileMatches.update($scope.currentFolder.id, Browse.forFolder($scope.currentFolder.id).files, patterns);
         };
 
         $scope.selectAllSharedDevices = function (state) {
