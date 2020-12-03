@@ -88,7 +88,11 @@ angular.module('syncthing.folder')
 
         self.addPattern = function(folderId, text) {
             var folder = self.forFolder(folderId);
-            folder.patterns.unshift(parsePattern(text));
+            var newPattern = parsePattern(text);
+            var afterIndex = findLastIndex(folder.patterns, function(pattern) {
+                return pattern.isSimple && newPattern.matchFunc(pattern.path);
+            });
+            folder.patterns.splice(afterIndex + 1, 0, newPattern);
             folder.text = folder.patterns.map(function(r) { return r.text; }).join('\n');
         };
 
@@ -127,6 +131,7 @@ angular.module('syncthing.folder')
                 isSimple: !hasPrefix && isSimple(path),
                 isNegated: prefixes['!'],
                 path: path,
+                matchFunc: prefixMatch,
             };
         };
 
@@ -170,5 +175,33 @@ angular.module('syncthing.folder')
             if (line.match(/[\*\?\[\]\{\}]/)) return false; // contains special character
 
             return true;
+        }
+
+        function findLastIndex(array, predicate) {
+            var i = array.length;
+            while (i--) {
+                if (predicate(array[i], i, array)) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        /*
+         * pattern matching functions
+         */
+
+        function prefixMatch(filePath) {
+            var patternPath = this.path
+            if (filePath.indexOf(patternPath) !== 0) return false;
+
+            // pattern ends with path separator, file is a child of the pattern path
+            if (patternPath.charAt(patternPath.length - 1) === '/') return true;
+
+            var suffix = filePath.slice(patternPath.length);
+            // pattern is an exact match to file path
+            if (suffix.length === 0) return true;
+            // pattern is an exact match to a parent directory in the file path
+            return suffix.charAt(0) === '/';
         }
     });

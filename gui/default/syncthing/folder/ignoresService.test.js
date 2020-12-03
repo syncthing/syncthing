@@ -40,7 +40,6 @@ describe('IgnoresService', function() {
 
     describe('addPattern', function() {
         beforeEach(function () {
-            service.addPattern('default', '*');
             service.addPattern('default', '/Backups');
         });
 
@@ -49,7 +48,29 @@ describe('IgnoresService', function() {
             expect(service.forFolder('default').patterns[0].text).toEqual('!/Photos');
         });
 
+        it('inserts after more specific patterns', function() {
+            service.addPattern('default', '/Photos/Raw');
+            service.addPattern('default', '/Photos/Landscapes');
+            service.addPattern('default', '!/Photos');
+            expect(service.forFolder('default').patterns[2].text).toEqual('!/Photos');
+        });
+
+        it('inserts before bare name matching prefix', function() {
+            service.addPattern('default', '/Photoshop');
+            service.addPattern('default', '/Photos/Raw');
+            service.addPattern('default', '!/Photos');
+            expect(service.forFolder('default').patterns[1].text).toEqual('!/Photos');
+        });
+
+        it('ignores advanced patterns when inserting', function() {
+            service.addPattern('default', '/Photos/**/folder.jpg');
+            service.addPattern('default', '/Photos/Raw');
+            service.addPattern('default', '!/Photos');
+            expect(service.forFolder('default').patterns[1].text).toEqual('!/Photos');
+        });
+
         it('updates folder text', function() {
+            service.addPattern('default', '*');
             expect(service.forFolder('default').text).toEqual('/Backups\n*');
             service.addPattern('default', '!/Photos');
             expect(service.forFolder('default').text).toEqual('!/Photos\n/Backups\n*');

@@ -38,16 +38,7 @@ angular.module('syncthing.folder')
                 if (!pattern.isSimple) return false;
 
                 var absPath = '/' + file.path;
-                if (absPath.indexOf(pattern.path) !== 0) return false;
-
-                // pattern ends with path separator, file is a child of the pattern path
-                if (pattern.path.charAt(pattern.path.length - 1) === '/') return true;
-
-                var suffix = absPath.slice(pattern.path.length);
-                // pattern is an exact match to file path
-                if (suffix.length === 0) return true;
-                // pattern is an exact match to a parent directory in the file path
-                return suffix.charAt(0) === '/';
+                return pattern.matchFunc(absPath);
             });
         }
     });
