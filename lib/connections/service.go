@@ -367,17 +367,20 @@ func (s *service) connect(ctx context.Context) error {
 		// Attempt to dial all devices that are unconnected or can be connection-upgraded
 		s.dialDevices(ctx, now, cfg, bestDialerPrio, nextDial, isInitialRampup)
 
+		// The sleep time is until the next dial scheduled in nextDial,
+		// clamped by stdConnectionLoopSleep as we don't want to sleep too
+		// long (config changes might happen).
 		sleep := filterAndFindSleepDuration(nextDial, now)
+
+		// .. unless we are un the initial rampup time, in which case we
+		// override the sleep interval for the first few passes through the
+		// loop.
 		if isInitialRampup {
-			// Override the sleep interval for the first few passes through
-			// the loop.
 			sleep = initialRampup
 			initialRampup *= 2
 		}
 
-		// The actual sleep time will have been the time until the next dial
-		// scheduled in nextDial, clamped by stdConnectionLoopSleep as we
-		// don't want to sleep too long (config changes might happen).
+		// ... while making sure not to loop to quickly either.
 		if sleep < minConnectionLoopSleep {
 			sleep = minConnectionLoopSleep
 		}
