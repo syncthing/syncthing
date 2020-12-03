@@ -161,7 +161,7 @@
         <div id="folder-ignores" class="tab-pane">
           <p>
             <div class="btn-group">
-              <label class="btn btn-default" ng-class="{active: !currentFolder.ignoreIsEditingAdvanced, disabled: !currentFolder.ignoreIsBasic}">
+              <label class="btn btn-default" ng-class="{active: !currentFolder.ignoreIsEditingAdvanced, disabled: !currentFolder.ignoreIsBasic}" ng-if="editingExisting">
                 <input type="radio" ng-model="currentFolder.ignoreIsEditingAdvanced" ng-value="false" ng-disabled="!currentFolder.ignoreIsBasic" />
                 <span class="fas fa-fw fa-folder-o"></span>&nbsp;<span>Basic</span>
               </label>

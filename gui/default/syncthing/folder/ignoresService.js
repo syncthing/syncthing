@@ -6,41 +6,25 @@ angular.module('syncthing.folder')
 
         // public definitions
 
-        // map of folder id to ignores state
-        self.ignores = {
-            /*
-            ['folderId']: {
-                // Text representation of ignore patterns. Updated when patterns
-                // are added or removed, but modifying `text`` does not update
-                // `patterns`.
-                text: '',
-                error: null,
-                disabled: false,
-                // Parsed ignore pattern objects. Order matters, first match is applied.
-                patterns: [
-                    {
-                        text: '/Photos', // original text of the ignore pattern
-                        isSimple: true, // whether the pattern is unambiguous and can be displayed by browser
-                        isNegated: false, // begins with !, matching files are included
-                        path: '/Photos', // path to the file or directory, stripped of prefix and used for matching
-                    }
-                ],
-            }
-            */
-        };
-
-        self.forFolder = function(folderId) {
-            var folder = self.ignores[folderId];
-            if (!folder) {
-                folder = {
-                    text: '',
-                    error: null,
-                    disabled: false,
-                    patterns: [],
-                };
-                self.ignores[folderId] = folder;
-            }
-            return folder;
+        self.data = {
+            // Text representation of ignore patterns. Updated when patterns
+            // are added or removed, but modifying `text`` does not update
+            // `patterns`.
+            text: '',
+            error: null,
+            disabled: false,
+            // Parsed ignore pattern objects. Order matters, first match is applied.
+            patterns: [
+                /*
+                {
+                    text: '/Photos', // original text of the ignore pattern
+                    isSimple: true, // whether the pattern is unambiguous and can be displayed by browser
+                    isNegated: false, // begins with !, matching files are included
+                    path: '/Photos', // path to the file or directory, stripped of prefix and used for matching
+                    matchFunc: function (filePath),
+                }
+                */
+            ],
         };
 
         // Temp folder is shaped like a folder, but is not persisted and not
@@ -55,17 +39,16 @@ angular.module('syncthing.folder')
         };
 
         self.refresh = function(folderId) {
-            var folder = self.forFolder(folderId);
-            folder.text = 'Loading...';
-            folder.error = null;
-            folder.disabled = true;
+            self.data.text = 'Loading...';
+            self.data.error = null;
+            self.data.disabled = true;
             return getIgnores(folderId).then(function (response) {
-                folder.text = response.map(function(r) { return r.text; }).join('\n');
-                folder.patterns = response;
-                folder.disabled = false;
-                return folder;
+                self.data.text = response.map(function(r) { return r.text; }).join('\n');
+                self.data.patterns = response;
+                self.data.disabled = false;
+                return self.data;
             }).catch(function (err) {
-                folder.text = '';
+                self.data.text = '';
                 throw err;
             });
         };
@@ -77,33 +60,30 @@ angular.module('syncthing.folder')
             );
         };
 
-        self.parseText = function(folderId) {
-            var folder = self.forFolder(folderId);
-            folder.patterns = folder.text
+        self.parseText = function() {
+            self.data.patterns = self.data.text
                 .split('\n')
                 .filter(function (line) { return line.length > 0; })
                 .map(parsePattern);
-            return folder.patterns;
+            return self.data.patterns;
         };
 
-        self.addPattern = function(folderId, text) {
-            var folder = self.forFolder(folderId);
+        self.addPattern = function(text) {
             var newPattern = parsePattern(text);
-            var afterIndex = findLastIndex(folder.patterns, function(pattern) {
+            var afterIndex = findLastIndex(self.data.patterns, function(pattern) {
                 return pattern.isSimple && newPattern.matchFunc(pattern.path);
             });
-            folder.patterns.splice(afterIndex + 1, 0, newPattern);
-            folder.text = folder.patterns.map(function(r) { return r.text; }).join('\n');
+            self.data.patterns.splice(afterIndex + 1, 0, newPattern);
+            self.data.text = self.data.patterns.map(function(r) { return r.text; }).join('\n');
         };
 
-        self.removePattern = function(folderId, text) {
-            var folder = self.forFolder(folderId);
-            var index = folder.patterns.findIndex(function(pattern) {
+        self.removePattern = function(text) {
+            var index = self.data.patterns.findIndex(function(pattern) {
                 return pattern.text === text;
             });
             if (index >= 0) {
-                folder.patterns.splice(index, 1);
-                folder.text = folder.patterns.map(function(r) { return r.text; }).join('\n');
+                self.data.patterns.splice(index, 1);
+                self.data.text = self.data.patterns.map(function(r) { return r.text; }).join('\n');
             }
         };
 

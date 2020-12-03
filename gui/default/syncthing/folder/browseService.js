@@ -6,32 +6,15 @@ angular.module('syncthing.folder')
 
         // public definitions
 
-        self.browse = {
-            /*
-            ['folderId']: {
-                pathParts: [],
-                files: [],
-            }
-            */
-        };
-
-        self.forFolder = function(folderId) {
-            var folder = self.browse[folderId];
-            if (!folder) {
-                folder = {
-                    pathParts: [],
-                    files: [],
-                };
-                self.browse[folderId] = folder;
-            }
-            return folder;
+        self.data = {
+            pathParts: [],
+            files: [],
         };
 
         self.refresh = function(folderId, prefix) {
-            var folder = self.forFolder(folderId);
             return getBrowse(folderId, prefix).then(function(response) {
-                angular.copy(response, folder);
-                return folder;
+                angular.copy(response, self.data);
+                return self.data;
             });
         };
 

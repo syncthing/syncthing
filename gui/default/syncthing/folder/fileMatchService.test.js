@@ -24,7 +24,7 @@ describe('FileMatchesService', function() {
         var files, patterns;
 
         function matchFile(name) {
-            var fileMatches = service.update('default', files, patterns);
+            var fileMatches = service.update(files, patterns);
             var match = fileMatches.find(function(fm) { return fm.file.name === name; })
             if (!match) {
                 throw 'No match with name "' + name + '"';
@@ -49,18 +49,18 @@ describe('FileMatchesService', function() {
             BrowseService.refresh('default');
             IgnoresService.refresh('default');
             $httpBackend.flush();
-            files = BrowseService.forFolder('default').files;
-            patterns = IgnoresService.forFolder('default').patterns;
+            files = BrowseService.data.files;
+            patterns = IgnoresService.data.patterns;
         });
 
         it('returns an item for each file', function() {
-            expect(service.update('default', files, patterns).length).toEqual(5);
+            expect(service.update(files, patterns).length).toEqual(5);
         });
 
         it('updates array with new contents', function() {
-            var folder = service.forFolder('default');
+            var folder = service.data;
             expect(folder.length).toEqual(0);
-            service.update('default', files, patterns);
+            service.update(files, patterns);
             expect(folder.length).toEqual(5);
         });
 
@@ -84,7 +84,7 @@ describe('FileMatchesService', function() {
                     ] });
                     IgnoresService.refresh('default');
                     $httpBackend.flush();
-                    patterns = IgnoresService.forFolder('default').patterns;
+                    patterns = IgnoresService.data.patterns;
                 });
 
                 it('does not match', function() {
@@ -105,7 +105,7 @@ describe('FileMatchesService', function() {
                     ] });
                     IgnoresService.refresh('default');
                     $httpBackend.flush();
-                    patterns = IgnoresService.forFolder('default').patterns;
+                    patterns = IgnoresService.data.patterns;
                 });
 
                 it('matches files', function() {
@@ -145,7 +145,7 @@ describe('FileMatchesService', function() {
                         });
                         BrowseService.refresh('default', 'Backups');
                         $httpBackend.flush();
-                        files = BrowseService.forFolder('default').files;
+                        files = BrowseService.data.files;
                     });
 
                     it('matches by parent directory', function() {
@@ -164,7 +164,7 @@ describe('FileMatchesService', function() {
                         });
                         BrowseService.refresh('default', 'Photos');
                         $httpBackend.flush();
-                        files = BrowseService.forFolder('default').files;
+                        files = BrowseService.data.files;
                     });
 
                     it('matches ignored files', function() {
@@ -195,7 +195,7 @@ describe('FileMatchesService', function() {
                     ] });
                     IgnoresService.refresh('default');
                     $httpBackend.flush();
-                    patterns = IgnoresService.forFolder('default').patterns;
+                    patterns = IgnoresService.data.patterns;
                 });
 
                 it('matches root files and directories', function() {

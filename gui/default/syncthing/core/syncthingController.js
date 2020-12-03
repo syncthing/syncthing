@@ -1772,7 +1772,7 @@ angular.module('syncthing.core')
             }
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
-            $scope.ignores = Ignores.forFolder($scope.currentFolder.id);
+            $scope.ignores = Ignores.data;
             $scope.currentFolder.ignoreIsEditingAdvanced = true;
             $q.all([
                 Browse.refresh($scope.currentFolder.id),
@@ -1780,7 +1780,7 @@ angular.module('syncthing.core')
             ]).then((responses) => {
                 $scope.currentFolder.ignoreIsBasic = responses[1].patterns.every(function (p) { return p.isSimple; });
                 $scope.currentFolder.ignoreIsEditingAdvanced = !$scope.currentFolder.ignoreIsBasic;
-                FileMatches.update($scope.currentFolder.id, responses[0].files, responses[1].patterns);
+                FileMatches.update(responses[0].files, responses[1].patterns);
                 $scope.currentFolder.ignores = responses[1].patterns.map(function(p) { return p.text; });
             }).catch(function (err) {
                 $scope.ignores.error = $translate.instant("Failed to load ignore patterns.");
@@ -1791,9 +1791,9 @@ angular.module('syncthing.core')
         };
 
         $scope.parseIgnores = function () {
-            var patterns = Ignores.parseText($scope.currentFolder.id);
+            var patterns = Ignores.parseText();
             $scope.currentFolder.ignoreIsBasic = patterns.every(function (p) { return p.isSimple; });
-            FileMatches.update($scope.currentFolder.id, Browse.forFolder($scope.currentFolder.id).files, patterns);
+            FileMatches.update(Browse.data.files, patterns);
         };
 
         $scope.selectAllSharedDevices = function (state) {
@@ -1818,6 +1818,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $scope.currentSharing.unrelated = $scope.otherDevices();
                 $scope.ignores = Ignores.tempFolder();
+                $scope.currentFolder.ignoreIsEditingAdvanced = true;
                 $scope.editFolderModal();
             });
         };
@@ -1836,6 +1837,7 @@ angular.module('syncthing.core')
                 return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID]
             });
             $scope.ignores = Ignores.tempFolder();
+            $scope.currentFolder.ignoreIsEditingAdvanced = true;
             $scope.editFolderModal();
         };
 

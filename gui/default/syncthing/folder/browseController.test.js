@@ -2,7 +2,7 @@ describe('BrowseController', function() {
     // Set up the module
     beforeEach(module('syncthing.folder'));
 
-    var $controller, $scope, $httpBackend;
+    var $controller, $httpBackend;
     var controller, BrowseService, IgnoresService;
 
     // Inject angular bits
@@ -15,36 +15,12 @@ describe('BrowseController', function() {
         IgnoresService = $injector.get('Ignores');
         fileMatchesService = $injector.get('FileMatches');
         $controller = $injector.get('$controller');
-        $scope = $injector.get('$rootScope');
     }));
 
     afterEach(function() {
         // Ensure requests are flushed and assertions met
         $httpBackend.verifyNoOutstandingExpectation();
         $httpBackend.verifyNoOutstandingRequest();
-    });
-
-    describe('CurrentFolder watch', function() {
-        it('does not set Browse reference when current folder is undefined', function() {
-            controller = $controller('BrowseController', { $scope: $scope, CurrentFolder: {} });
-            $scope.$apply();
-            expect(controller.browse).toBeUndefined();
-        });
-
-        it('updates browse reference when initialized', function() {
-            controller = $controller('BrowseController', { $scope: $scope, CurrentFolder: { id: 'default' } });
-            $scope.$apply();
-            expect(controller.browse).toBe(BrowseService.forFolder('default'));
-        });
-
-        it('updates browse reference when current folder changes', function() {
-            var folder = { id: 'default' };
-            controller = $controller('BrowseController', { $scope: $scope, CurrentFolder: folder });
-            $scope.$apply();
-            folder.id = 'documents';
-            $scope.$apply();
-            expect(controller.browse).toBe(BrowseService.forFolder('documents'));
-        });
     });
 
     describe('toggle', function() {
@@ -66,17 +42,16 @@ describe('BrowseController', function() {
 
         function compute() {
             IgnoresService.refresh('default');
-            controller = $controller('BrowseController', { $scope: $scope, CurrentFolder: { id: 'default' } });
+            controller = $controller('BrowseController', { CurrentFolder: { id: 'default' } });
             $httpBackend.flush();
             fileMatchesService.update(
-                'default',
-                BrowseService.forFolder('default').files,
-                IgnoresService.forFolder('default').patterns,
+                BrowseService.data.files,
+                IgnoresService.data.patterns,
             );
         }
 
         function matchFile(name) {
-            var match = fileMatchesService.forFolder('default').find(function(fm) { return fm.file.name === name; })
+            var match = fileMatchesService.data.find(function(fm) { return fm.file.name === name; })
             if (!match) {
                 throw 'No file match with name "' + name + '"';
             }
@@ -139,7 +114,7 @@ describe('BrowseController', function() {
     describe('navigate', function() {
         it('fetches the given folder and prefix', function() {
             $httpBackend.expectGET('rest/db/browse?folder=chocolate&levels=0&prefix=factory%2Fsecrets').respond({});
-            controller = $controller('BrowseController', { $scope: $scope, CurrentFolder: { id: 'default' } });
+            controller = $controller('BrowseController', { CurrentFolder: { id: 'default' } });
             controller.navigate('chocolate', 'factory/secrets');
             $httpBackend.flush();
         });

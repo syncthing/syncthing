@@ -5,27 +5,17 @@ angular.module('syncthing.folder')
         var self = this;
 
         // public definitions
-        self.matches = {};
+        self.data = [];
 
-        self.forFolder = function(folderId) {
-            var folder = self.matches[folderId];
-            if (!folder) {
-                folder = [];
-                self.matches[folderId] = folder;
-            }
-            return folder;
-        };
-
-        self.update = function(folderId, files, patterns) {
+        self.update = function(files, patterns) {
             var matches = files.map(function(file) {
                 return {
                     file: file,
                     match: matchingPattern(file, patterns),
                 };
             });
-            var folder = self.forFolder(folderId);
-            Array.prototype.splice.apply(folder, [0, folder.length].concat(matches));
-            return folder;
+            Array.prototype.splice.apply(self.data, [0, self.data.length].concat(matches));
+            return self.data;
         };
 
         /*

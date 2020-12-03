@@ -14,14 +14,6 @@ describe('IgnoresService', function() {
         $httpBackend.verifyNoOutstandingRequest();
     });
 
-    describe('forFolder', function() {
-        it('returns the same object for the same folder', function () {
-            var folderA = service.forFolder('default');
-            var folderB = service.forFolder('default');
-            expect(folderA).toBe(folderB);
-        });
-    });
-
     describe('tempFolder', function() {
         it('returns an object shaped like ignore state', function () {
             var temp = service.tempFolder();
@@ -40,62 +32,62 @@ describe('IgnoresService', function() {
 
     describe('addPattern', function() {
         beforeEach(function () {
-            service.addPattern('default', '/Backups');
+            service.addPattern('/Backups');
         });
 
         it('inserts pattern at array start', function() {
-            service.addPattern('default', '!/Photos');
-            expect(service.forFolder('default').patterns[0].text).toEqual('!/Photos');
+            service.addPattern('!/Photos');
+            expect(service.data.patterns[0].text).toEqual('!/Photos');
         });
 
         it('inserts after more specific patterns', function() {
-            service.addPattern('default', '/Photos/Raw');
-            service.addPattern('default', '/Photos/Landscapes');
-            service.addPattern('default', '!/Photos');
-            expect(service.forFolder('default').patterns[2].text).toEqual('!/Photos');
+            service.addPattern('/Photos/Raw');
+            service.addPattern('/Photos/Landscapes');
+            service.addPattern('!/Photos');
+            expect(service.data.patterns[2].text).toEqual('!/Photos');
         });
 
         it('inserts before bare name matching prefix', function() {
-            service.addPattern('default', '/Photoshop');
-            service.addPattern('default', '/Photos/Raw');
-            service.addPattern('default', '!/Photos');
-            expect(service.forFolder('default').patterns[1].text).toEqual('!/Photos');
+            service.addPattern('/Photoshop');
+            service.addPattern('/Photos/Raw');
+            service.addPattern('!/Photos');
+            expect(service.data.patterns[1].text).toEqual('!/Photos');
         });
 
         it('ignores advanced patterns when inserting', function() {
-            service.addPattern('default', '/Photos/**/folder.jpg');
-            service.addPattern('default', '/Photos/Raw');
-            service.addPattern('default', '!/Photos');
-            expect(service.forFolder('default').patterns[1].text).toEqual('!/Photos');
+            service.addPattern('/Photos/**/folder.jpg');
+            service.addPattern('/Photos/Raw');
+            service.addPattern('!/Photos');
+            expect(service.data.patterns[1].text).toEqual('!/Photos');
         });
 
         it('updates folder text', function() {
-            service.addPattern('default', '*');
-            expect(service.forFolder('default').text).toEqual('/Backups\n*');
-            service.addPattern('default', '!/Photos');
-            expect(service.forFolder('default').text).toEqual('!/Photos\n/Backups\n*');
+            service.addPattern('*');
+            expect(service.data.text).toEqual('/Backups\n*');
+            service.addPattern('!/Photos');
+            expect(service.data.text).toEqual('!/Photos\n/Backups\n*');
         });
     });
 
     describe('removePattern', function() {
         beforeEach(function () {
-            service.addPattern('default', '*');
-            service.addPattern('default', '/Backups');
+            service.addPattern('*');
+            service.addPattern('/Backups');
         });
 
         it('removes pattern from array', function() {
-            service.removePattern('default', '/Backups');
-            expect(service.forFolder('default').patterns.map(function (p) { return p.text; })).not.toContain('/Backups');
+            service.removePattern('/Backups');
+            expect(service.data.patterns.map(function (p) { return p.text; })).not.toContain('/Backups');
         });
 
         it('does nothing when pattern is absent', function() {
-            service.removePattern('default', 'oh no');
-            expect(service.forFolder('default').patterns.length).toEqual(2);
+            service.removePattern('oh no');
+            expect(service.data.patterns.length).toEqual(2);
         });
 
         it('updates folder text', function() {
-            service.removePattern('default', '*');
-            expect(service.forFolder('default').text).toEqual('/Backups');
+            service.removePattern('*');
+            expect(service.data.text).toEqual('/Backups');
         });
     });
 
@@ -112,26 +104,26 @@ describe('IgnoresService', function() {
 
     describe('parseText', function() {
         beforeEach(function () {
-            service.addPattern('default', '*');
-            service.addPattern('default', '/Backups');
+            service.addPattern('*');
+            service.addPattern('/Backups');
         });
 
         it('updates patterns from text', function() {
-            service.forFolder('default').text = '/Photos\n/Backups';
-            service.parseText('default');
-            expect(service.forFolder('default').patterns.map(function(p) { return p.text; })).toEqual(['/Photos', '/Backups']);
+            service.data.text = '/Photos\n/Backups';
+            service.parseText();
+            expect(service.data.patterns.map(function(p) { return p.text; })).toEqual(['/Photos', '/Backups']);
         });
 
         it('ignores empty line', function() {
-            service.forFolder('default').text = '/Photos\n\n/Backups';
-            service.parseText('default');
-            expect(service.forFolder('default').patterns.map(function(p) { return p.text; })).toEqual(['/Photos', '/Backups']);
+            service.data.text = '/Photos\n\n/Backups';
+            service.parseText();
+            expect(service.data.patterns.map(function(p) { return p.text; })).toEqual(['/Photos', '/Backups']);
         });
 
         it('accepts empty text', function() {
-            service.forFolder('default').text = '';
-            service.parseText('default');
-            expect(service.forFolder('default').patterns).toEqual([]);
+            service.data.text = '';
+            service.parseText();
+            expect(service.data.patterns).toEqual([]);
         });
     });
 
@@ -149,7 +141,7 @@ describe('IgnoresService', function() {
         });
 
         it('populates the folder data', function() {
-            var folder = service.forFolder('default');
+            var folder = service.data;
             getIgnoresHandler.respond({ ignore: ['/some-directory'] });
             service.refresh('default');
             $httpBackend.flush();
@@ -160,12 +152,12 @@ describe('IgnoresService', function() {
             getIgnoresHandler.respond({ ignore: null });
             service.refresh('default');
             $httpBackend.flush();
-            expect(service.forFolder('default').text).toEqual('');
-            expect(service.forFolder('default').patterns).toEqual([]);
+            expect(service.data.text).toEqual('');
+            expect(service.data.patterns).toEqual([]);
         });
 
         it('sets folder state while loading', function() {
-            var folder = service.forFolder('default');
+            var folder = service.data;
             getIgnoresHandler.respond({ ignore: ['/some-directory'] });
             service.refresh('default');
             expect(folder.disabled).toBeTrue();
@@ -181,7 +173,7 @@ describe('IgnoresService', function() {
                 // Initialize the controller, triggering http gets and populating data
                 service.refresh('default');
                 $httpBackend.flush();
-                return service.forFolder('default').patterns;
+                return service.data.patterns;
             }
 
             it('returns a pattern for each line', function() {
