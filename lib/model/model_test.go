@@ -4323,6 +4323,38 @@ func TestCCFolderNotRunning(t *testing.T) {
 	}
 }
 
+func TestPending(t *testing.T) {
+	w, _ := tmpDefaultWrapper()
+	m := setupModel(w)
+	defer cleanupModel(m)
+
+	pfolder := "pendingFolder"
+	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device1); err != nil {
+		t.Fatal(err)
+	}
+	deviceFolders, err := m.PendingFolders(device1)
+	if err != nil {
+		t.Fatal(err)
+	} else if devObs, ok := deviceFolders[pfolder]; !ok {
+		t.Errorf("folder %v not pending", pfolder)
+	} else if _, ok := devObs[device1]; !ok {
+		t.Errorf("folder %v not pending for device %v", pfolder, device1)
+	}
+	waiter, err := w.SetDevice(config.DeviceConfiguration{DeviceID: device2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+	deviceFolders, err = m.PendingFolders(device1)
+	if err != nil {
+		t.Fatal(err)
+	} else if devObs, ok := deviceFolders[pfolder]; !ok {
+		t.Errorf("folder %v not pending", pfolder)
+	} else if _, ok := devObs[device1]; !ok {
+		t.Errorf("folder %v not pending for device %v", pfolder, device1)
+	}
+}
+
 func equalStringsInAnyOrder(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
