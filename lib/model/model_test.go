@@ -4328,30 +4328,59 @@ func TestPendingFolder(t *testing.T) {
 	m := setupModel(w)
 	defer cleanupModel(m)
 
-	pfolder := "pendingFolder"
-	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device1); err != nil {
-		t.Fatal(err)
-	}
-	deviceFolders, err := m.PendingFolders(device1)
-	if err != nil {
-		t.Fatal(err)
-	} else if pf, ok := deviceFolders[pfolder]; !ok {
-		t.Errorf("folder %v not pending", pfolder)
-	} else if _, ok := pf.OfferedBy[device1]; !ok {
-		t.Errorf("folder %v not pending for device %v", pfolder, device1)
-	}
 	waiter, err := w.SetDevice(config.DeviceConfiguration{DeviceID: device2})
 	if err != nil {
 		t.Fatal(err)
 	}
 	waiter.Wait()
-	deviceFolders, err = m.PendingFolders(device1)
+	pfolder := "pendingFolder"
+	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device1); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device2); err != nil {
+		t.Fatal(err)
+	}
+	deviceFolders, err := m.PendingFolders(protocol.EmptyDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	} else if pf, ok := deviceFolders[pfolder]; !ok {
 		t.Errorf("folder %v not pending", pfolder)
 	} else if _, ok := pf.OfferedBy[device1]; !ok {
 		t.Errorf("folder %v not pending for device %v", pfolder, device1)
+	} else if _, ok := pf.OfferedBy[device2]; !ok {
+		t.Errorf("folder %v not pending for device %v", pfolder, device2)
+	}
+	deviceFolders, err = m.PendingFolders(device1)
+	if err != nil {
+		t.Fatal(err)
+	} else if pf, ok := deviceFolders[pfolder]; !ok {
+		t.Errorf("folder %v not pending when filtered", pfolder)
+	} else if _, ok := pf.OfferedBy[device1]; !ok {
+		t.Errorf("folder %v not pending for device %v when filtered", pfolder, device1)
+	} else if _, ok := pf.OfferedBy[device2]; ok {
+		t.Errorf("folder %v pending for device %v, but not filtered out", pfolder, device2)
+	}
+
+	waiter, err = w.RemoveDevice(device2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+	device3, _ := protocol.DeviceIDFromString("HHHHHHH-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
+	waiter, err = w.SetDevice(config.DeviceConfiguration{DeviceID: device3})
+	if err != nil {
+	 	t.Fatal(err)
+	}
+	waiter.Wait()
+	deviceFolders, err = m.PendingFolders(protocol.EmptyDeviceID)
+	if err != nil {
+		t.Fatal(err)
+	} else if pf, ok := deviceFolders[pfolder]; !ok {
+		t.Errorf("folder %v not pending", pfolder)
+	} else if _, ok := pf.OfferedBy[device2]; ok {
+		t.Errorf("folder %v pending for removed device %v", pfolder, device2)
+	} else if _, ok := pf.OfferedBy[device3]; ok {
+		t.Errorf("folder %v pending for unrelated device %v", pfolder, device3)
 	}
 }
 
