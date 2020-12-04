@@ -4333,10 +4333,7 @@ func TestPendingFolder(t *testing.T) {
 		t.Fatal(err)
 	}
 	waiter.Wait()
-	pfolder := "pendingFolder"
-	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device1); err != nil {
-		t.Fatal(err)
-	}
+	pfolder := "default"
 	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device2); err != nil {
 		t.Fatal(err)
 	}
@@ -4345,29 +4342,33 @@ func TestPendingFolder(t *testing.T) {
 		t.Fatal(err)
 	} else if pf, ok := deviceFolders[pfolder]; !ok {
 		t.Errorf("folder %v not pending", pfolder)
-	} else if _, ok := pf.OfferedBy[device1]; !ok {
-		t.Errorf("folder %v not pending for device %v", pfolder, device1)
 	} else if _, ok := pf.OfferedBy[device2]; !ok {
 		t.Errorf("folder %v not pending for device %v", pfolder, device2)
-	}
-	deviceFolders, err = m.PendingFolders(device1)
-	if err != nil {
-		t.Fatal(err)
-	} else if pf, ok := deviceFolders[pfolder]; !ok {
-		t.Errorf("folder %v not pending when filtered", pfolder)
-	} else if _, ok := pf.OfferedBy[device1]; !ok {
-		t.Errorf("folder %v not pending for device %v when filtered", pfolder, device1)
-	} else if _, ok := pf.OfferedBy[device2]; ok {
-		t.Errorf("folder %v pending for device %v, but not filtered out", pfolder, device2)
+	} else if len(pf.OfferedBy) > 1 {
+		t.Errorf("folder %v pending for too many devices %v", pfolder, pf.OfferedBy)
 	}
 
-	waiter, err = w.RemoveDevice(device2)
+	device3, err := protocol.DeviceIDFromString("AIBAEAQ-CAIBAEC-AQCAIBA-EAQCAIA-BAEAQCA-IBAEAQC-CAIBAEA-QCAIBA7")
+	waiter, err = w.SetDevice(config.DeviceConfiguration{DeviceID: device3})
 	if err != nil {
 		t.Fatal(err)
 	}
 	waiter.Wait()
-	device3, _ := protocol.DeviceIDFromString("HHHHHHH-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
-	waiter, err = w.SetDevice(config.DeviceConfiguration{DeviceID: device3})
+	if err := m.db.AddOrUpdatePendingFolder(pfolder, pfolder, device3); err != nil {
+		t.Fatal(err)
+	}
+	deviceFolders, err = m.PendingFolders(device2)
+	if err != nil {
+		t.Fatal(err)
+	} else if pf, ok := deviceFolders[pfolder]; !ok {
+		t.Errorf("folder %v not pending when filtered", pfolder)
+	} else if _, ok := pf.OfferedBy[device2]; !ok {
+		t.Errorf("folder %v not pending for device %v when filtered", pfolder, device2)
+	} else if _, ok := pf.OfferedBy[device3]; ok {
+		t.Errorf("folder %v pending for device %v, but not filtered out", pfolder, device3)
+	}
+
+	waiter, err = w.RemoveDevice(device3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4377,10 +4378,8 @@ func TestPendingFolder(t *testing.T) {
 		t.Fatal(err)
 	} else if pf, ok := deviceFolders[pfolder]; !ok {
 		t.Errorf("folder %v not pending", pfolder)
-	} else if _, ok := pf.OfferedBy[device2]; ok {
-		t.Errorf("folder %v pending for removed device %v", pfolder, device2)
 	} else if _, ok := pf.OfferedBy[device3]; ok {
-		t.Errorf("folder %v pending for unrelated device %v", pfolder, device3)
+		t.Errorf("folder %v pending for removed device %v", pfolder, device3)
 	}
 
 	waiter, err = w.RemoveFolder(pfolder)
@@ -4391,7 +4390,7 @@ func TestPendingFolder(t *testing.T) {
 	deviceFolders, err = m.PendingFolders(protocol.EmptyDeviceID)
 	if err != nil {
 		t.Fatal(err)
-	} else if len(deviceFolders) > 0 {
+	} else if _, ok := deviceFolders[pfolder]; ok {
 		t.Errorf("folder %v still pending after local removal", pfolder)
 	}
 }
