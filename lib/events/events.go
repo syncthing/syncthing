@@ -39,6 +39,7 @@ const (
 	ItemFinished
 	StateChanged
 	FolderRejected
+	FolderOfferCancelled
 	ConfigSaved
 	DownloadProgress
 	RemoteDownloadProgress
@@ -93,6 +94,8 @@ func (t EventType) String() string {
 		return "StateChanged"
 	case FolderRejected:
 		return "FolderRejected"
+	case FolderOfferCancelled:
+		return "FolderOfferCancelled"
 	case ConfigSaved:
 		return "ConfigSaved"
 	case DownloadProgress:
@@ -174,6 +177,8 @@ func UnmarshalEventType(s string) EventType {
 		return StateChanged
 	case "FolderRejected":
 		return FolderRejected
+	case "FolderOfferCancelled":
+		return FolderOfferCancelled
 	case "ConfigSaved":
 		return ConfigSaved
 	case "DownloadProgress":

@@ -66,6 +66,7 @@ angular.module('syncthing.core')
             DOWNLOAD_PROGRESS: 'DownloadProgress',   // Emitted during file downloads for each folder for each file
             FOLDER_COMPLETION: 'FolderCompletion',   //Emitted when the local or remote contents for a folder changes
             FOLDER_REJECTED: 'FolderRejected',   // Emitted when a device sends index information for a folder we do not have, or have but do not share with the device in question
+            FOLDER_OFFER_CANCELLED: 'FolderOfferCancelled',   // Emitted when one or more folders were previously marked pending from a device, but are no longer offered from that remote
             FOLDER_SUMMARY: 'FolderSummary',   // Emitted when folder contents have changed locally
             ITEM_FINISHED: 'ItemFinished',   // Generated when Syncthing ends synchronizing a file to a newer version
             ITEM_STARTED: 'ItemStarted',   // Generated when Syncthing begins synchronizing a file to a newer version

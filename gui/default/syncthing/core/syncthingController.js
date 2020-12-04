@@ -272,6 +272,11 @@ angular.module('syncthing.core')
             $scope.pendingFolders[arg.data.folder] = pendingFolder;
         });
 
+        $scope.$on(Events.FOLDER_OFFER_CANCELLED, function (event, arg) {
+            console.log("FolderOfferCancelled", arg);
+            refreshCluster();
+        });
+
         $scope.$on('ConfigLoaded', function () {
             if ($scope.config.options.urAccepted === 0) {
                 // If usage reporting has been neither accepted nor declined,

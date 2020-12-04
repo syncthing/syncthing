@@ -1339,8 +1339,13 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 
 	indexSenders.removeAllExcept(seenFolders)
-	if _, err := m.db.ExpirePendingFolders(deviceID, handleTime); err != nil {
+	if expired, err := m.db.ExpirePendingFolders(deviceID, handleTime); err != nil {
 		l.Infof("Could not clean up pending folder entries: %v", err)
+	} else if expired > 0 {
+		m.evLogger.Log(events.FolderOfferCancelled, map[string]interface{}{
+			"device": deviceID.String(),
+			"count":  expired,
+		})
 	}
 
 	return changed, tempIndexFolders, paused, nil
