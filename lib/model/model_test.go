@@ -4369,7 +4369,7 @@ func TestPendingFolder(t *testing.T) {
 	device3, _ := protocol.DeviceIDFromString("HHHHHHH-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 	waiter, err = w.SetDevice(config.DeviceConfiguration{DeviceID: device3})
 	if err != nil {
-	 	t.Fatal(err)
+		t.Fatal(err)
 	}
 	waiter.Wait()
 	deviceFolders, err = m.PendingFolders(protocol.EmptyDeviceID)
@@ -4381,6 +4381,18 @@ func TestPendingFolder(t *testing.T) {
 		t.Errorf("folder %v pending for removed device %v", pfolder, device2)
 	} else if _, ok := pf.OfferedBy[device3]; ok {
 		t.Errorf("folder %v pending for unrelated device %v", pfolder, device3)
+	}
+
+	waiter, err = w.RemoveFolder(pfolder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+	deviceFolders, err = m.PendingFolders(protocol.EmptyDeviceID)
+	if err != nil {
+		t.Fatal(err)
+	} else if len(deviceFolders) > 0 {
+		t.Errorf("folder %v still pending after local removal", pfolder)
 	}
 }
 
