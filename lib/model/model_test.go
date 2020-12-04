@@ -4323,7 +4323,7 @@ func TestCCFolderNotRunning(t *testing.T) {
 	}
 }
 
-func TestPending(t *testing.T) {
+func TestPendingFolder(t *testing.T) {
 	w, _ := tmpDefaultWrapper()
 	m := setupModel(w)
 	defer cleanupModel(m)
@@ -4335,9 +4335,9 @@ func TestPending(t *testing.T) {
 	deviceFolders, err := m.PendingFolders(device1)
 	if err != nil {
 		t.Fatal(err)
-	} else if devObs, ok := deviceFolders[pfolder]; !ok {
+	} else if pf, ok := deviceFolders[pfolder]; !ok {
 		t.Errorf("folder %v not pending", pfolder)
-	} else if _, ok := devObs[device1]; !ok {
+	} else if _, ok := pf.OfferedBy[device1]; !ok {
 		t.Errorf("folder %v not pending for device %v", pfolder, device1)
 	}
 	waiter, err := w.SetDevice(config.DeviceConfiguration{DeviceID: device2})
@@ -4348,9 +4348,9 @@ func TestPending(t *testing.T) {
 	deviceFolders, err = m.PendingFolders(device1)
 	if err != nil {
 		t.Fatal(err)
-	} else if devObs, ok := deviceFolders[pfolder]; !ok {
+	} else if pf, ok := deviceFolders[pfolder]; !ok {
 		t.Errorf("folder %v not pending", pfolder)
-	} else if _, ok := devObs[device1]; !ok {
+	} else if _, ok := pf.OfferedBy[device1]; !ok {
 		t.Errorf("folder %v not pending for device %v", pfolder, device1)
 	}
 }
