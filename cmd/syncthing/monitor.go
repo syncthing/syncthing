@@ -44,7 +44,7 @@ const (
 	panicUploadNoticeWait = 10 * time.Second
 )
 
-func monitorMain(runtimeOptions RuntimeOptions) {
+func monitorMain(runtimeOptions RuntimeOptions) int {
 	l.SetPrefix("[monitor] ")
 
 	var dst io.Writer = os.Stdout
@@ -99,7 +99,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 		if t := time.Since(restarts[0]); t < loopThreshold {
 			l.Warnf("%d restarts in %v; not retrying further", countRestarts, t)
-			os.Exit(syncthing.ExitError.AsInt())
+			return syncthing.ExitError.AsInt()
 		}
 
 		copy(restarts[0:], restarts[1:])
@@ -169,13 +169,13 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 		if err == nil {
 			// Successful exit indicates an intentional shutdown
-			os.Exit(syncthing.ExitSuccess.AsInt())
+			return syncthing.ExitSuccess.AsInt()
 		}
 
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			exitCode := exiterr.ExitCode()
 			if stopped || runtimeOptions.noRestart {
-				os.Exit(exitCode)
+				return exitCode
 			}
 			if exitCode == syncthing.ExitUpgrade.AsInt() {
 				// Restart the monitor process to release the .old
@@ -184,12 +184,12 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 				if err = restartMonitor(args); err != nil {
 					l.Warnln("Restart:", err)
 				}
-				os.Exit(exitCode)
+				return exitCode
 			}
 		}
 
 		if runtimeOptions.noRestart {
-			os.Exit(syncthing.ExitError.AsInt())
+			return syncthing.ExitError.AsInt()
 		}
 
 		l.Infoln("Syncthing exited:", err)
