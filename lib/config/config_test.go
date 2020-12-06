@@ -77,6 +77,7 @@ func TestDefaultValues(t *testing.T) {
 		StunKeepaliveMinS:       20,
 		RawStunServers:          []string{"default"},
 		AnnounceLANAddresses:    true,
+		FeatureFlags:            []string{},
 	}
 
 	cfg := New(device1)
@@ -129,6 +130,7 @@ func TestDeviceConfig(t *testing.T) {
 				WeakHashThresholdPct: 25,
 				MarkerName:           DefaultMarkerName,
 				JunctionsAsDirs:      true,
+				MaxConcurrentWrites:  maxConcurrentWritesDefault,
 			},
 		}
 
@@ -224,6 +226,7 @@ func TestOverriddenValues(t *testing.T) {
 		StunKeepaliveStartS:     9000,
 		StunKeepaliveMinS:       900,
 		RawStunServers:          []string{"foo"},
+		FeatureFlags:            []string{"feature"},
 	}
 
 	os.Unsetenv("STNOUPGRADE")

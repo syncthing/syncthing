@@ -64,6 +64,7 @@ type Wrapper interface {
 	GUI() GUIConfiguration
 	SetGUI(gui GUIConfiguration) (Waiter, error)
 	LDAP() LDAPConfiguration
+	SetLDAP(ldap LDAPConfiguration) (Waiter, error)
 
 	Options() OptionsConfiguration
 	SetOptions(opts OptionsConfiguration) (Waiter, error)
@@ -71,11 +72,14 @@ type Wrapper interface {
 	Folder(id string) (FolderConfiguration, bool)
 	Folders() map[string]FolderConfiguration
 	FolderList() []FolderConfiguration
+	RemoveFolder(id string) (Waiter, error)
 	SetFolder(fld FolderConfiguration) (Waiter, error)
 	SetFolders(folders []FolderConfiguration) (Waiter, error)
+	FolderPasswords(device protocol.DeviceID) map[string]string
 
 	Device(id protocol.DeviceID) (DeviceConfiguration, bool)
 	Devices() map[protocol.DeviceID]DeviceConfiguration
+	DeviceList() []DeviceConfiguration
 	RemoveDevice(id protocol.DeviceID) (Waiter, error)
 	SetDevice(DeviceConfiguration) (Waiter, error)
 	SetDevices([]DeviceConfiguration) (Waiter, error)
@@ -230,6 +234,13 @@ func (w *wrapper) Devices() map[protocol.DeviceID]DeviceConfiguration {
 	return deviceMap
 }
 
+// DeviceList returns a slice of devices.
+func (w *wrapper) DeviceList() []DeviceConfiguration {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.cfg.Copy().Devices
+}
+
 // SetDevices adds new devices to the configuration, or overwrites existing
 // devices with the same ID.
 func (w *wrapper) SetDevices(devs []DeviceConfiguration) (Waiter, error) {
@@ -327,6 +338,30 @@ func (w *wrapper) SetFolders(folders []FolderConfiguration) (Waiter, error) {
 	return w.replaceLocked(newCfg)
 }
 
+// RemoveFolder removes the folder from the configuration
+func (w *wrapper) RemoveFolder(id string) (Waiter, error) {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+
+	newCfg := w.cfg.Copy()
+	for i := range newCfg.Folders {
+		if newCfg.Folders[i].ID == id {
+			newCfg.Folders = append(newCfg.Folders[:i], newCfg.Folders[i+1:]...)
+			return w.replaceLocked(newCfg)
+		}
+	}
+
+	return noopWaiter{}, nil
+}
+
+// FolderPasswords returns the folder passwords set for this device, for
+// folders that have an encryption password set.
+func (w *wrapper) FolderPasswords(device protocol.DeviceID) map[string]string {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.cfg.FolderPasswords(device)
+}
+
 // Options returns the current options configuration object.
 func (w *wrapper) Options() OptionsConfiguration {
 	w.mut.Lock()
@@ -347,6 +382,14 @@ func (w *wrapper) LDAP() LDAPConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	return w.cfg.LDAP.Copy()
+}
+
+func (w *wrapper) SetLDAP(ldap LDAPConfiguration) (Waiter, error) {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	newCfg := w.cfg.Copy()
+	newCfg.LDAP = ldap.Copy()
+	return w.replaceLocked(newCfg)
 }
 
 // GUI returns the current GUI configuration object.

@@ -275,6 +275,12 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 		}
 		sort.Ints(report.FolderUsesV3.FsWatcherDelays)
 
+		for _, cfg := range s.cfg.Devices() {
+			if cfg.Untrusted {
+				report.DeviceUsesV3.Untrusted++
+			}
+		}
+
 		guiCfg := s.cfg.GUI()
 		// Anticipate multiple GUI configs in the future, hence store counts.
 		if guiCfg.Enabled {

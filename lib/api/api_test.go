@@ -40,7 +40,12 @@ import (
 var (
 	confDir = filepath.Join("testdata", "config")
 	token   = filepath.Join(confDir, "csrftokens.txt")
+	dev1    protocol.DeviceID
 )
+
+func init() {
+	dev1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
+}
 
 func TestMain(m *testing.M) {
 	orig := locations.GetBaseDir(locations.ConfigBaseDir)
@@ -396,6 +401,62 @@ func TestAPIServiceRequests(t *testing.T) {
 			Type:   "text/plain",
 			Prefix: "",
 		},
+
+		// /rest/config
+		{
+			URL:    "/rest/config",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "",
+		},
+		{
+			URL:    "/rest/config/folders",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "",
+		},
+		{
+			URL:    "/rest/config/folders/missing",
+			Code:   404,
+			Type:   "text/plain",
+			Prefix: "",
+		},
+		{
+			URL:    "/rest/config/devices",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "",
+		},
+		{
+			URL:    "/rest/config/devices/illegalid",
+			Code:   400,
+			Type:   "text/plain",
+			Prefix: "",
+		},
+		{
+			URL:    "/rest/config/devices/" + protocol.GlobalDeviceID.String(),
+			Code:   404,
+			Type:   "text/plain",
+			Prefix: "",
+		},
+		{
+			URL:    "/rest/config/options",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/config/gui",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
+		{
+			URL:    "/rest/config/ldap",
+			Code:   200,
+			Type:   "application/json",
+			Prefix: "{",
+		},
 	}
 
 	for _, tc := range cases {
@@ -520,7 +581,7 @@ func TestHTTPLogin(t *testing.T) {
 	}
 }
 
-func startHTTP(cfg *mockedConfig) (string, *suture.Supervisor, error) {
+func startHTTP(cfg config.Wrapper) (string, *suture.Supervisor, error) {
 	m := new(mockedModel)
 	assetDir := "../../gui"
 	eventSub := new(mockedEventSub)
@@ -552,7 +613,7 @@ func startHTTP(cfg *mockedConfig) (string, *suture.Supervisor, error) {
 		return "", nil, fmt.Errorf("weird address from API service: %w", err)
 	}
 
-	host, _, _ := net.SplitHostPort(cfg.gui.RawAddress)
+	host, _, _ := net.SplitHostPort(cfg.GUI().RawAddress)
 	if host == "" || host == "0.0.0.0" {
 		host = "127.0.0.1"
 	}
@@ -1018,8 +1079,8 @@ func TestOptionsRequest(t *testing.T) {
 	if resp.Header.Get("Access-Control-Allow-Origin") != "*" {
 		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Origin: *' header")
 	}
-	if resp.Header.Get("Access-Control-Allow-Methods") != "GET, POST" {
-		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Methods: GET, POST' header")
+	if resp.Header.Get("Access-Control-Allow-Methods") != "GET, POST, PUT, PATCH, DELETE, OPTIONS" {
+		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS' header")
 	}
 	if resp.Header.Get("Access-Control-Allow-Headers") != "Content-Type, X-API-Key" {
 		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Headers: Content-Type, X-API-KEY' header")
@@ -1171,6 +1232,127 @@ func TestShouldRegenerateCertificate(t *testing.T) {
 		if err := shouldRegenerateCertificate(crt); err == nil {
 			t.Error("expected expiry error")
 		}
+	}
+}
+
+func TestConfigChanges(t *testing.T) {
+	t.Parallel()
+
+	const testAPIKey = "foobarbaz"
+	cfg := config.Configuration{
+		GUI: config.GUIConfiguration{
+			RawAddress: "127.0.0.1:0",
+			RawUseTLS:  false,
+			APIKey:     testAPIKey,
+		},
+	}
+	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
+	if err != nil {
+		panic(err)
+	}
+	defer os.Remove(tmpFile.Name())
+	w := config.Wrap(tmpFile.Name(), cfg, events.NoopLogger)
+	tmpFile.Close()
+	baseURL, sup, err := startHTTP(w)
+	if err != nil {
+		t.Fatal("Unexpected error from getting base URL:", err)
+	}
+	defer sup.Stop()
+
+	cli := &http.Client{
+		Timeout: time.Second,
+	}
+
+	do := func(req *http.Request, status int) *http.Response {
+		t.Helper()
+		req.Header.Set("X-API-Key", testAPIKey)
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.StatusCode != status {
+			t.Errorf("Expected status %v, got %v", status, resp.StatusCode)
+		}
+		return resp
+	}
+
+	mod := func(method, path string, data interface{}) {
+		t.Helper()
+		bs, err := json.Marshal(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req, _ := http.NewRequest(method, baseURL+path, bytes.NewReader(bs))
+		do(req, http.StatusOK).Body.Close()
+	}
+
+	get := func(path string) *http.Response {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodGet, baseURL+path, nil)
+		return do(req, http.StatusOK)
+	}
+
+	dev1Path := "/rest/config/devices/" + dev1.String()
+
+	// Create device
+	mod(http.MethodPut, "/rest/config/devices", []config.DeviceConfiguration{{DeviceID: dev1}})
+
+	// Check its there
+	get(dev1Path).Body.Close()
+
+	// Modify just a single attribute
+	mod(http.MethodPatch, dev1Path, map[string]bool{"Paused": true})
+
+	// Check that attribute
+	resp := get(dev1Path)
+	var dev config.DeviceConfiguration
+	if err := unmarshalTo(resp.Body, &dev); err != nil {
+		t.Fatal(err)
+	}
+	if !dev.Paused {
+		t.Error("Expected device to be paused")
+	}
+
+	folder2Path := "/rest/config/folders/folder2"
+
+	// Create a folder and add another
+	mod(http.MethodPut, "/rest/config/folders", []config.FolderConfiguration{{ID: "folder1", Path: "folder1"}})
+	mod(http.MethodPut, folder2Path, config.FolderConfiguration{ID: "folder2", Path: "folder2"})
+
+	// Check they are there
+	get("/rest/config/folders/folder1").Body.Close()
+	get(folder2Path).Body.Close()
+
+	// Modify just a single attribute
+	mod(http.MethodPatch, folder2Path, map[string]bool{"Paused": true})
+
+	// Check that attribute
+	resp = get(folder2Path)
+	var folder config.FolderConfiguration
+	if err := unmarshalTo(resp.Body, &folder); err != nil {
+		t.Fatal(err)
+	}
+	if !dev.Paused {
+		t.Error("Expected folder to be paused")
+	}
+
+	// Delete folder2
+	req, _ := http.NewRequest(http.MethodDelete, baseURL+folder2Path, nil)
+	do(req, http.StatusOK)
+
+	// Check folder1 is still there and folder2 gone
+	get("/rest/config/folders/folder1").Body.Close()
+	req, _ = http.NewRequest(http.MethodGet, baseURL+folder2Path, nil)
+	do(req, http.StatusNotFound)
+
+	mod(http.MethodPatch, "/rest/config/options", map[string]int{"maxSendKbps": 50})
+	resp = get("/rest/config/options")
+	var opts config.OptionsConfiguration
+	if err := unmarshalTo(resp.Body, &opts); err != nil {
+		t.Fatal(err)
+	}
+	if opts.MaxSendKbps != 50 {
+		t.Error("Exepcted 50 for MaxSendKbps, got", opts.MaxSendKbps)
 	}
 }
 

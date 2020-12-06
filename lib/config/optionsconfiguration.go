@@ -147,3 +147,13 @@ func (opts OptionsConfiguration) MaxConcurrentIncomingRequestKiB() int {
 func (opts OptionsConfiguration) AutoUpgradeEnabled() bool {
 	return opts.AutoUpgradeIntervalH > 0
 }
+
+func (opts OptionsConfiguration) FeatureFlag(name string) bool {
+	for _, flag := range opts.FeatureFlags {
+		if flag == name {
+			return true
+		}
+	}
+
+	return false
+}

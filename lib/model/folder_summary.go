@@ -123,9 +123,9 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	}
 	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
 
-	if haveFcfg && fcfg.Type == config.FolderTypeReceiveOnly {
+	if haveFcfg && (fcfg.Type == config.FolderTypeReceiveOnly || fcfg.Type == config.FolderTypeReceiveEncrypted) {
 		// Add statistics for things that have changed locally in a receive
-		// only folder.
+		// only or receive encrypted folder.
 		res["receiveOnlyChangedFiles"] = ro.Files
 		res["receiveOnlyChangedDirectories"] = ro.Directories
 		res["receiveOnlyChangedSymlinks"] = ro.Symlinks

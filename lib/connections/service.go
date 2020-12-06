@@ -324,7 +324,13 @@ func (s *service) handle(ctx context.Context) {
 		isLAN := s.isLAN(c.RemoteAddr())
 		rd, wr := s.limiter.getLimiters(remoteID, c, isLAN)
 
-		protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
+		var protoConn protocol.Connection
+		passwords := s.cfg.FolderPasswords(remoteID)
+		if len(passwords) > 0 {
+			protoConn = protocol.NewEncryptedConnection(passwords, remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
+		} else {
+			protoConn = protocol.NewConnection(remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
+		}
 		modelConn := completeConn{c, protoConn}
 
 		l.Infof("Established secure connection to %s at %s", remoteID, c)

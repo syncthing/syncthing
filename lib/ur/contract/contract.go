@@ -131,6 +131,10 @@ type Report struct {
 		CaseSensitiveFS         int            `json:"caseSensitiveFS,omitempty" since:"3"`
 	} `json:"folderUsesV3,omitempty" since:"3"`
 
+	DeviceUsesV3 struct {
+		Untrusted int `json:"untrusted,omitempty" since:"3"`
+	} `json:"deviceUsesV3,omitempty" since:"3"`
+
 	GUIStats struct {
 		Enabled                   int            `json:"enabled,omitempty" since:"3"`
 		UseTLS                    int            `json:"useTLS,omitempty" since:"3"`

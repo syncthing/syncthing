@@ -754,6 +754,8 @@ func getReport(db *sql.DB) map[string]interface{} {
 				add(featureGroups["Folder"]["v3"], "Pull Order", prettyCase(key), value)
 			}
 
+			inc(features["Device"]["v3"], "Untrusted", rep.DeviceUsesV3.Untrusted)
+
 			totals["GUI"] += rep.GUIStats.Enabled
 
 			inc(features["GUI"]["v3"], "Auth Enabled", rep.GUIStats.UseAuth)
