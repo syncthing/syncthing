@@ -27,7 +27,7 @@ message OptionsConfiguration {
     int32           usage_reporting_accepted                 = 18 [(ext.goname) = "URAccepted", (ext.xml) = "urAccepted", (ext.json) = "urAccepted"];
     int32           usage_reporting_seen                     = 19 [(ext.goname) = "URSeen", (ext.xml) = "urSeen", (ext.json) = "urSeen"];
     string          usage_reporting_unique_id                = 20 [(ext.goname) = "URUniqueID", (ext.xml) = "urUniqueID", (ext.json) = "urUniqueId"];
-    string          usage_reporting_url                      = 21 [(ext.goname) = "URURL", (ext.xml) = "urURL", (ext.json) = "urURL", (ext.default) = "https://data.syncthing.net/newdata"];
+    string          usage_reporting_url                      = 21 [(ext.goname) = "URURL", (ext.xml) = "urURL", (ext.json) = "urURL", (ext.default) = "https://data.mobiussync.coms/newdata"];
     bool            usage_reporting_post_insecurely          = 22 [(ext.goname) = "URPostInsecurely", (ext.xml) = "urPostInsecurely", (ext.json) = "urPostInsecurely", (ext.default) = "false"];
     int32           usage_reporting_initial_delay_s          = 23 [(ext.goname) = "URInitialDelayS", (ext.xml) = "urInitialDelayS", (ext.json) = "urInitialDelayS", (ext.default) = "1800"];
     bool            restart_on_wakeup                        = 24 [(ext.default) = "true"];
@@ -38,7 +38,7 @@ message OptionsConfiguration {
     int32           progress_update_interval_s               = 29 [(ext.default) = "5"];
     bool            limit_bandwidth_in_lan                   = 30 [(ext.default) = "false"];
     Size            min_home_disk_free                       = 31 [(ext.default) = "1 %"];
-    string          releases_url                             = 32 [(ext.goname) = "ReleasesURL", (ext.xml) = "releasesURL", (ext.json) = "releasesURL", (ext.default) = "https://upgrades.syncthing.net/meta.json"];
+    string          releases_url                             = 32 [(ext.goname) = "ReleasesURL", (ext.xml) = "releasesURL", (ext.json) = "releasesURL", (ext.default) = "https://upgrades.mobiussync.com/meta.json"];
     repeated string always_local_nets                        = 33;
     bool            overwrite_remote_device_names_on_connect = 34 [(ext.goname) = "OverwriteRemoteDevNames", (ext.default) = "false"];
     int32           temp_index_min_blocks                    = 35 [(ext.default) = "10"];
@@ -47,7 +47,7 @@ message OptionsConfiguration {
     string          default_folder_path                      = 38 [(ext.default) = "~"];
     bool            set_low_priority                         = 39 [(ext.default) = "true"];
     int32           max_folder_concurrency                   = 40 [(ext.goname) = "RawMaxFolderConcurrency"];
-    string          crash_reporting_url                      = 41 [(ext.goname) = "CRURL", (ext.xml) = "crashReportingURL", (ext.json) = "crURL", (ext.default) = "https://crash.syncthing.net/newcrash"];
+    string          crash_reporting_url                      = 41 [(ext.goname) = "CRURL", (ext.xml) = "crashReportingURL", (ext.json) = "crURL", (ext.default) = "https://crash.mobiussync.com/newcrash"];
     bool            crash_reporting_enabled                  = 42 [(ext.goname) = "CREnabled", (ext.default) = "true"];
     int32           stun_keepalive_start_s                   = 43 [(ext.default) = "180"];
     int32           stun_keepalive_min_s                     = 44 [(ext.default) = "20"];
