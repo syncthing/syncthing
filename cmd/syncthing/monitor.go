@@ -44,7 +44,7 @@ const (
 	panicUploadNoticeWait = 10 * time.Second
 )
 
-func monitorMain(runtimeOptions RuntimeOptions) int {
+func MonitorMain(runtimeOptions RuntimeOptions) int {
 	l.SetPrefix("[monitor] ")
 
 	var dst io.Writer = os.Stdout
