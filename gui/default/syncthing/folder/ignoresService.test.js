@@ -316,4 +316,163 @@ describe('IgnoresService', function() {
             });
         });
     });
+
+    describe('matchingPattern', function() {
+        function matchFile(path) {
+            return service.matchingPattern({ path: path });
+        }
+
+        beforeEach(function() {
+            /* A directory like:
+             * Backups.zip
+             * Backups/
+             * Documents/
+             * Photostudio.exe
+             * Photos/
+             */
+            $httpBackend.expectGET('rest/db/ignores?folder=default').respond({ ignore: [
+                '/Backups',
+                '/Photos',
+                '!/Photos',
+                '*',
+            ] });
+            service.refresh('default');
+            $httpBackend.flush();
+        });
+
+        it('references ignore pattern', function() {
+            expect(matchFile('Backups')).toBe(service.data.patterns[0]);
+        });
+
+        describe('matching', function() {
+            it('applies the first matching rule', function() {
+                var match = matchFile('Photos');
+                expect(match).toBeDefined();
+                expect(match.text).toEqual('/Photos');
+            });
+
+            describe('with advanced patterns', function() {
+                beforeEach(function() {
+                    $httpBackend.expectGET('rest/db/ignores?folder=default').respond({ ignore: [
+                        '/Backup?',
+                        '/Backup*',
+                        'Backups',
+                    ] });
+                    service.refresh('default');
+                    $httpBackend.flush();
+                });
+
+                it('does not match', function() {
+                    var match = matchFile('Backups');
+                    expect(match).toBeUndefined();
+                });
+            });
+
+            describe('when directories are ignored', function() {
+                beforeEach(function() {
+                    $httpBackend.expectGET('rest/db/ignores?folder=default').respond({ ignore: [
+                        '/Backups.zip/',
+                        '/Backups',
+                        '/Documents/',
+                        '!/Photos/Raw',
+                        '/Photos',
+                        '/Photostudio.exe',
+                    ] });
+                    service.refresh('default');
+                    $httpBackend.flush();
+                });
+
+                it('matches files', function() {
+                    var match = matchFile('Photostudio.exe');
+                    expect(match).toBeDefined();
+                    expect(match.text).toEqual('/Photostudio.exe');
+                });
+
+                it('does not match files to pattern with trailing slash', function() {
+                    var match = matchFile('Backups.zip');
+                    expect(match).toBeUndefined();
+                });
+
+                it('matches directories', function() {
+                    var match = matchFile('Backups');
+                    expect(match).toBeDefined();
+                    expect(match.text).toEqual('/Backups');
+                });
+
+                it('does not match directories to pattern with trailing slash', function() {
+                    var match = matchFile('Documents');
+                    expect(match).toBeUndefined();
+                });
+
+                it('matches directory with more specific negated pattern', function() {
+                    var match = matchFile('Photos');
+                    expect(match).toBeDefined();
+                    expect(match.text).toEqual('/Photos');
+                    expect(match.isNegated).toBeFalse();
+                });
+
+                describe('in subdirectory', function() {
+                    /* A directory like:
+                     * Backups/June2008/
+                     */
+
+                    it('matches by parent directory', function() {
+                        var match = matchFile('Backups/June2008');
+                        expect(match).toBeDefined();
+                        expect(match.text).toEqual('/Backups');
+                    });
+                });
+
+                describe('in ignored subdirectory', function() {
+                    /* A directory like:
+                     * Photos/Cat.jpg
+                     * Photos/Rawr.jpg
+                     * Photos/Raw/
+                     */
+
+                    it('matches ignored files', function() {
+                        var match = matchFile('Photos/Cat.jpg');
+                        expect(match).toBeDefined();
+                        expect(match.text).toEqual('/Photos');
+                    });
+
+                    it('does not negate files with common prefix', function() {
+                        var match = matchFile('Photos/Rawr.jpg');
+                        expect(match).toBeDefined();
+                        expect(match.text).toEqual('/Photos');
+                    });
+
+                    it('matches negated subdirectory with more specific pattern', function() {
+                        var match = matchFile('Photos/Raw');
+                        expect(match).toBeDefined();
+                        expect(match.text).toEqual('!/Photos/Raw');
+                    });
+                });
+            });
+
+            describe('with root ignored', function() {
+                beforeEach(function() {
+                    $httpBackend.expectGET('rest/db/ignores?folder=default').respond({ ignore: [
+                        '!/Photos',
+                        '*',
+                    ] });
+                    service.refresh('default');
+                    $httpBackend.flush();
+                });
+
+                it('matches root files and directories', function() {
+                    ['Backups.zip', 'Backups'].forEach(function(file) {
+                        var match = matchFile(file);
+                        expect(match).toBeDefined();
+                    });
+                });
+
+                it('matches negated directories', function() {
+                    var match = matchFile('Photos');
+                    expect(match).toBeDefined();
+                    expect(match.isNegated).toBeTrue();
+                });
+            });
+        });
+    });
 });

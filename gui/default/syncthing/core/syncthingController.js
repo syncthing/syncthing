@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, CurrentFolder, Ignores, Browse, FileMatches, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
+    .controller('SyncthingController', function ($scope, $http, $location, Ignores, IgnoreTree, Browse, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
@@ -49,7 +49,7 @@ angular.module('syncthing.core')
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
-        $scope.currentFolder = CurrentFolder;
+        $scope.currentFolder = {};
         $scope.ignores = Ignores.tempFolder();
         resetRemoteNeed();
 
@@ -1715,10 +1715,7 @@ angular.module('syncthing.core')
 
         $scope.editFolder = function (folderCfg) {
             $scope.editingExisting = true;
-            // Copy config into currentFolder instead of assigning a new object
-            // to currentFolder. This preserves the reference to CurrentFolder
-            // provider for other modules to use.
-            angular.copy(folderCfg, $scope.currentFolder);
+            $scope.currentFolder = angular.copy(folderCfg);
             if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
             }
@@ -1774,14 +1771,11 @@ angular.module('syncthing.core')
 
             $scope.ignores = Ignores.data;
             $scope.currentFolder.ignoreIsEditingAdvanced = true;
-            $q.all([
-                Browse.refresh($scope.currentFolder.id),
-                Ignores.refresh($scope.currentFolder.id),
-            ]).then((responses) => {
-                $scope.currentFolder.ignoreIsBasic = responses[1].patterns.every(function (p) { return p.isSimple; });
+            Ignores.refresh($scope.currentFolder.id).then((response) => {
+                $scope.currentFolder.ignoreIsBasic = response.patterns.every(function (p) { return p.isSimple; });
                 $scope.currentFolder.ignoreIsEditingAdvanced = !$scope.currentFolder.ignoreIsBasic;
-                FileMatches.update(responses[0].files, responses[1].patterns);
-                $scope.currentFolder.ignores = responses[1].patterns.map(function(p) { return p.text; });
+                $scope.currentFolder.ignores = response.patterns.map(function(p) { return p.text; });
+                IgnoreTree.refresh($scope.currentFolder.id);
             }).catch(function (err) {
                 $scope.ignores.error = $translate.instant("Failed to load ignore patterns.");
                 $scope.emitHTTPError(err);
@@ -1793,7 +1787,7 @@ angular.module('syncthing.core')
         $scope.parseIgnores = function () {
             var patterns = Ignores.parseText();
             $scope.currentFolder.ignoreIsBasic = patterns.every(function (p) { return p.isSimple; });
-            FileMatches.update(Browse.data.files, patterns);
+            IgnoreTree.refresh($scope.currentFolder.id);
         };
 
         $scope.selectAllSharedDevices = function (state) {
@@ -1813,7 +1807,7 @@ angular.module('syncthing.core')
         $scope.addFolder = function () {
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.editingExisting = false;
-                angular.copy($scope.folderDefaults, $scope.currentFolder);
+                $scope.currentFolder = angular.copy($scope.folderDefaults);
                 initShareEditing('folder');
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $scope.currentSharing.unrelated = $scope.otherDevices();
@@ -1825,7 +1819,7 @@ angular.module('syncthing.core')
 
         $scope.addFolderAndShare = function (folder, folderLabel, device) {
             $scope.editingExisting = false;
-            angular.copy($scope.folderDefaults, $scope.currentFolder);
+            $scope.currentFolder = angular.copy($scope.folderDefaults);
             $scope.currentFolder.id = folder;
             $scope.currentFolder.label = folderLabel;
             $scope.currentFolder.viewFlags = {

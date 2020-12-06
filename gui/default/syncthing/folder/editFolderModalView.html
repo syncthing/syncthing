@@ -171,7 +171,22 @@
               </label>
             </div>
           </p>
-          <ng-include ng-if="!currentFolder.ignoreIsEditingAdvanced" src="'syncthing/folder/browse.html'"></ng-include>
+          <div ng-show="!currentFolder.ignoreIsEditingAdvanced">
+            <table id="ignore-tree" class="table table-condensed table-striped table-auto">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="col-fixed"></td>
+                  <td class="col-flex"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div ng-if="currentFolder.ignoreIsEditingAdvanced">
             <p translate>Enter ignore patterns, one per line.</p>
             <div ng-class="{'has-error': ignores.error != null}">

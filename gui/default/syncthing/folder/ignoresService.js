@@ -87,6 +87,16 @@ angular.module('syncthing.folder')
             }
         };
 
+        self.matchingPattern = function(file) {
+            return self.data.patterns.find(function(pattern) {
+                // Only consider patterns that match a simple path
+                if (!pattern.isSimple) return false;
+
+                var absPath = '/' + file.path;
+                return pattern.matchFunc(absPath);
+            });
+        }
+
         /*
          * private definitions
          */
