@@ -36,7 +36,11 @@ var (
 	ExternallyDisabled = os.Getenv("STEXTDISABLED") != ""
 )
 
-const DefaultMarkerName = ".stfolder"
+const (
+	DefaultMarkerName          = ".stfolder"
+	maxConcurrentWritesDefault = 2
+	maxConcurrentWritesLimit   = 64
+)
 
 func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
 	f := FolderConfiguration{
@@ -81,7 +85,7 @@ func (f FolderConfiguration) ModTimeWindow() time.Duration {
 		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil {
 			dur = 2 * time.Second
 			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: err == "%v"`, f.Path, err)
-		} else if usage.Fstype == "" || strings.Contains(strings.ToLower(usage.Fstype), "fat") {
+		} else if usage.Fstype == "" || strings.Contains(strings.ToLower(usage.Fstype), "fat") || strings.Contains(strings.ToLower(usage.Fstype), "msdos") {
 			dur = 2 * time.Second
 			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: usage.Fstype == "%v"`, f.Path, usage.Fstype)
 		} else {
@@ -216,6 +220,12 @@ func (f *FolderConfiguration) prepare() {
 	if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
 	}
+
+	if f.MaxConcurrentWrites <= 0 {
+		f.MaxConcurrentWrites = maxConcurrentWritesDefault
+	} else if f.MaxConcurrentWrites > maxConcurrentWritesLimit {
+		f.MaxConcurrentWrites = maxConcurrentWritesLimit
+	}
 }
 
 // RequiresRestartOnly returns a copy with only the attributes that require
@@ -236,13 +246,18 @@ func (f FolderConfiguration) RequiresRestartOnly() FolderConfiguration {
 	return copy
 }
 
-func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
+func (f *FolderConfiguration) Device(device protocol.DeviceID) (FolderDeviceConfiguration, bool) {
 	for _, dev := range f.Devices {
 		if dev.DeviceID == device {
-			return true
+			return dev, true
 		}
 	}
-	return false
+	return FolderDeviceConfiguration{}, false
+}
+
+func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
+	_, ok := f.Device(device)
+	return ok
 }
 
 func SetExternallyDisabled(isDisabled bool) {

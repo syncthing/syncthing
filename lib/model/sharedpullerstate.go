@@ -7,6 +7,7 @@
 package model
 
 import (
+	"encoding/binary"
 	"time"
 
 	"github.com/pkg/errors"
@@ -131,12 +132,16 @@ func (s *sharedPullerState) tempFile() (*lockedWriterAt, error) {
 		return s.writer, nil
 	}
 
-	if err := inWritableDir(s.tempFileInWritableDir, s.fs, s.tempName, s.ignorePerms); err != nil {
+	if err := s.addWriterLocked(); err != nil {
 		s.failLocked(err)
 		return nil, err
 	}
 
 	return s.writer, nil
+}
+
+func (s *sharedPullerState) addWriterLocked() error {
+	return inWritableDir(s.tempFileInWritableDir, s.fs, s.tempName, s.ignorePerms)
 }
 
 // tempFileInWritableDir should only be called from tempFile.
@@ -184,9 +189,14 @@ func (s *sharedPullerState) tempFileInWritableDir(_ string) error {
 	// Don't truncate symlink files, as that will mean that the path will
 	// contain a bunch of nulls.
 	if s.sparse && !s.file.IsSymlink() {
+		size := s.file.Size
+		// Trailer added to encrypted files
+		if len(s.file.Encrypted) > 0 {
+			size += int64(s.file.ProtoSize() + 4)
+		}
 		// Truncate sets the size of the file. This creates a sparse file or a
 		// space reservation, depending on the underlying filesystem.
-		if err := fd.Truncate(s.file.Size); err != nil {
+		if err := fd.Truncate(size); err != nil {
 			// The truncate call failed. That can happen in some cases when
 			// space reservation isn't possible or over some network
 			// filesystems... This generally doesn't matter.
@@ -305,6 +315,13 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 		return false, nil
 	}
 
+	if len(s.file.Encrypted) > 0 {
+		if err := s.finalizeEncrypted(); err != nil && s.err == nil {
+			// This is our error as we weren't errored before.
+			s.err = err
+		}
+	}
+
 	if s.writer != nil {
 		if err := s.writer.SyncClose(s.fsync); err != nil && s.err == nil {
 			// This is our error as we weren't errored before.
@@ -322,6 +339,34 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	s.fs.Unhide(s.tempName)
 
 	return true, s.err
+}
+
+// finalizeEncrypted adds a trailer to the encrypted file containing the
+// serialized FileInfo and the length of that FileInfo. When initializing a
+// folder from encrypted data we can extract this FileInfo from the end of
+// the file and regain the original metadata.
+func (s *sharedPullerState) finalizeEncrypted() error {
+	size := s.file.ProtoSize()
+	bs := make([]byte, 4+size)
+	n, err := s.file.MarshalTo(bs)
+	if err != nil {
+		return err
+	}
+	binary.BigEndian.PutUint32(bs[n:], uint32(n))
+	bs = bs[:n+4]
+
+	if s.writer == nil {
+		if err := s.addWriterLocked(); err != nil {
+			return err
+		}
+	}
+	if _, err := s.writer.WriteAt(bs, s.file.Size); err != nil {
+		return err
+	}
+
+	s.file.Size += int64(len(bs))
+
+	return nil
 }
 
 // Progress returns the momentarily progress for the puller

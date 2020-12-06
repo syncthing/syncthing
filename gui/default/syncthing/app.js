@@ -74,6 +74,15 @@ function deviceMap(l) {
     return m;
 }
 
+function deviceList(m) {
+    var l = [];
+    for (var id in m) {
+        l.push(m[id]);
+    }
+    l.sort(deviceCompare);
+    return l;
+}
+
 function folderMap(l) {
     var m = {};
     l.forEach(function (r) {

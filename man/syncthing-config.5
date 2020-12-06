@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Oct 19, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Nov 02, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -504,8 +504,7 @@ element:
 .INDENT 0.0
 .TP
 .B id
-The device ID. This must be written in canonical form, that is without any
-spaces or dashes. (mandatory)
+The device ID\&. (mandatory)
 .TP
 .B name
 A friendly name for the device. (optional)
@@ -995,7 +994,7 @@ as part of launching Syncthing, set this option to \fBfalse\fP\&.
 .UNINDENT
 .SS Listen Addresses
 .sp
-The following address types are accepted in sync protocol listen addresses. If you want Syncthing to listen on multiple addresses, you can have multiple \fB<listenAddress>\fP tags. The same is achieved in the GUI by entering several addresses separated by comma.
+The following address types are accepted in sync protocol listen addresses. If you want Syncthing to listen on multiple addresses, you can either: add multiple \fB<listenAddress>\fP tags in the configuration file or enter several addresses separated by commas in the GUI.
 .INDENT 0.0
 .TP
 .B Default listen addresses (\fBdefault\fP)

@@ -7,7 +7,8 @@ import "repos/protobuf/gogoproto/gogo.proto";
 enum FolderType {
     option (gogoproto.goproto_enum_stringer) = false;
 
-    FOLDER_TYPE_SEND_RECEIVE = 0;
-    FOLDER_TYPE_SEND_ONLY    = 1;
-    FOLDER_TYPE_RECEIVE_ONLY = 2;
+    FOLDER_TYPE_SEND_RECEIVE      = 0;
+    FOLDER_TYPE_SEND_ONLY         = 1;
+    FOLDER_TYPE_RECEIVE_ONLY      = 2;
+    FOLDER_TYPE_RECEIVE_ENCRYPTED = 3;
 }

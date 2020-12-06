@@ -53,11 +53,6 @@ const (
 var baseDirs = make(map[BaseDirEnum]string, 3)
 
 func init() {
-	if os.Getenv("USE_BADGER") != "" {
-		// XXX: Replace the leveldb name with the badger name.
-		locationTemplates[Database] = strings.Replace(locationTemplates[Database], LevelDBDir, BadgerDir, 1)
-	}
-
 	userHome := "~"
 	config := defaultConfigDir(userHome)
 	baseDirs[UserHomeBaseDir] = userHome

@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -800,11 +799,6 @@ func TestUpdateTo14(t *testing.T) {
 func TestFlushRecursion(t *testing.T) {
 	// Verify that a commit hook can write to the transaction without
 	// causing another flush and thus recursion.
-
-	// Badger doesn't work like this.
-	if os.Getenv("USE_BADGER") != "" {
-		t.Skip("Not supported on Badger")
-	}
 
 	db := NewLowlevel(backend.OpenMemory())
 	defer db.Close()

@@ -26,7 +26,9 @@ func TestMigrateCrashReporting(t *testing.T) {
 
 	for i, tc := range cases {
 		cfg := Configuration{Version: 28, Options: tc.opts}
+		migrationsMut.Lock()
 		migrations.apply(&cfg)
+		migrationsMut.Unlock()
 		if cfg.Options.CREnabled != tc.enabled {
 			t.Errorf("%d: unexpected result, CREnabled: %v != %v", i, cfg.Options.CREnabled, tc.enabled)
 		}

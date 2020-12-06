@@ -45,5 +45,6 @@
         <stunServer>foo</stunServer>
         <unackedNotificationID>asdfasdf</unackedNotificationID>
         <announceLANAddresses>false</announceLANAddresses>
+        <featureFlag>feature</featureFlag>
     </options>
 </configuration>

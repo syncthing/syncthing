@@ -21,7 +21,7 @@ ul+h5 {
     margin-top: 1.5em;
 }
 
-#content {
+.content {
     margin-bottom: 50px;
 }
 
@@ -420,4 +420,12 @@ ul.three-columns li, ul.two-columns li {
     .btn:not(.panel-heading) + .btn:not(.panel-heading) {
         margin-bottom: 1rem;
     }
+}
+
+.form-horizontal .form-group {
+    margin-bottom: 5px;
+}
+
+.form-horizontal {
+    margin-bottom: 10px;
 }

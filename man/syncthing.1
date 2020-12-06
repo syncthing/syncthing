@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "Oct 19, 2020" "v1" "Syncthing"
+.TH "SYNCTHING" "1" "Nov 02, 2020" "v1" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -64,7 +64,8 @@ Write events to timestamped file \fBaudit\-YYYYMMDD\-HHMMSS.log\fP\&.
 .INDENT 0.0
 .TP
 .B \-auditfile=<file|\-|\-\->
-Use specified file or stream (\fB"\-"\fP for stdout, \fB"\-\-"\fP for stderr) for audit events, rather than the timestamped default file name.
+Use specified file or stream (\fB"\-"\fP for stdout, \fB"\-\-"\fP for stderr) for
+audit events, rather than the timestamped default file name.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -110,7 +111,8 @@ together with \fB\-config\fP\&.
 .INDENT 0.0
 .TP
 .B \-logfile=<filename>
-Set destination filename for logging (use \fB"\-"\fP for stdout, which is the default option).
+Set destination filename for logging (use \fB"\-"\fP for stdout, which is the
+default option).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -147,12 +149,14 @@ Hide the console window. (On Windows only)
 .INDENT 0.0
 .TP
 .B \-no\-restart
-Disable the Syncthing monitor process which handles restarts for some configuration changes, upgrades, crashes and also log file writing (stdout is still written).
+Do not restart Syncthing when it exits. The monitor process will still run
+to handle crashes and writing to logfiles (if configured to).
 .UNINDENT
 .INDENT 0.0
 .TP
 .B \-paths
-Print the paths used for configuration, keys, database, GUI overrides, default sync folder and the log file.
+Print the paths used for configuration, keys, database, GUI overrides,
+default sync folder and the log file.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -222,11 +226,9 @@ Restarting
 Upgrading
 .UNINDENT
 .sp
-Some of these exit codes are only returned when running without a monitor
-process (with environment variable \fBSTNORESTART\fP set). Exit codes over 125 are
-usually returned by the shell/binary loader/default signal handler. Exit codes
-over 128+N on Unix usually represent the signal which caused the process to
-exit. For example, \fB128 + 9 (SIGKILL) = 137\fP\&.
+Exit codes over 125 are usually returned by the shell/binary loader/default
+signal handler. Exit codes over 128+N on Unix usually represent the signal which
+caused the process to exit. For example, \fB128 + 9 (SIGKILL) = 137\fP\&.
 .SH PROXIES
 .sp
 Syncthing can use a SOCKS, HTTP, or HTTPS proxy to talk to the outside
@@ -381,9 +383,7 @@ Don’t create a default folder when starting for the first time. This
 variable will be ignored anytime after the first run.
 .TP
 .B STNORESTART
-Equivalent to the \fB\-no\-restart\fP flag. Disable the Syncthing monitor
-process which handles restarts for some configuration changes, upgrades,
-crashes and also log file writing (stdout is still written).
+Equivalent to the \fB\-no\-restart\fP flag
 .TP
 .B STNOUPGRADE
 Disable automatic upgrades.

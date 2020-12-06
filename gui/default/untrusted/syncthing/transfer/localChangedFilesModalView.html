@@ -1,0 +1,35 @@
+<modal id="localChanged" status="{{localChangedType === 'receiveencrypted' ? 'warning' : 'info'}}" icon="fas fa-exclamation-circle" heading="{{localChangedHeading(localChangedType)}}" large="yes" closeable="yes">
+  <div class="modal-body" ng-switch="localChangedType">
+    <p ng-switch-when="receiveonly" translate>
+      The following items were changed locally.
+    </p>
+    <p ng-switch-when="receiveencrypted">
+      <span translate>The following unexpected items were found.</span>
+      <span translate translate-value-receive-encrypted="{{'Receive Encrypted' | translate}}">You should never add or change anything locally in a "{%receiveEncrypted%}" folder.</span>
+    </p>
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th translate>Path</th>
+          <th translate>Size</th>
+        </tr>
+      </thead>
+      <tr dir-paginate="file in localChanged.files | itemsPerPage: localChanged.perpage" current-page="localChanged.page" total-items="model[localChangedFolder].receiveOnlyTotalItems" pagination-id="localChanged">
+        <td class="file-path">{{file.name}}</td>
+        <td><span ng-hide="file.type == 'DIRECTORY'">{{file.size | binary}}B</span></td>
+      </tr>
+    </table>
+    <dir-pagination-controls on-page-change="refreshLocalChanged(newPageNumber, localChanged.perpage)" pagination-id="localChanged"></dir-pagination-controls>
+    <ul class="pagination pull-right">
+      <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: localChanged.perpage == option }">
+        <a href="#" ng-click="refreshLocalChanged(localChanged.page, option)">{{option}}</a>
+      </li>
+    </ul>
+    <div class="clearfix"></div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
+    </button>
+  </div>
+</modal>

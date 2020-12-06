@@ -24,4 +24,5 @@ message DeviceConfiguration {
     repeated ObservedFolder ignored_folders            = 14;
     repeated ObservedFolder pending_folders            = 15;
     int32                   max_request_kib            = 16 [(ext.goname) = "MaxRequestKiB", (ext.xml) = "maxRequestKiB", (ext.json) = "maxRequestKiB"];
+    bool                    untrusted                  = 17;
 }
