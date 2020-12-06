@@ -64,9 +64,9 @@ angular.module('syncthing.core')
         $scope.folderDefaults = {
             devices: [],
             type: "sendreceive",
-            rescanIntervalS: 3600,
+            rescanIntervalS: 60,
             fsWatcherDelayS: 10,
-            fsWatcherEnabled: true,
+            fsWatcherEnabled: false,
             minDiskFree: { value: 1, unit: "%" },
             maxConflicts: 10,
             fsync: true,
