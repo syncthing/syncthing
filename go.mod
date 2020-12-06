@@ -26,7 +26,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/lib/pq v1.8.0
-	github.com/lucas-clemente/quic-go v0.19.2
+	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/maruel/panicparse v1.5.1
 	github.com/mattn/go-isatty v0.0.12
 	github.com/minio/sha256-simd v0.1.1
