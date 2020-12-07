@@ -1473,15 +1473,34 @@ angular.module('syncthing.core')
                 $scope.currentSharing.shared.push($scope.folders[folderID]);
                 $scope.currentSharing.selected[folderID] = true;
             });
-            $scope.currentSharing.unrelated = $scope.folderList().filter(function (n) {
-                return !$scope.currentSharing.selected[n.id];
-            });
+            $http.get(urlbase + '/cluster/candidate/folders?device=' + encodeURIComponent(deviceCfg.deviceID))
+                .success(function (candidates) {
+                    for (var folderID in candidates) {
+                        var candidate = $scope.folders[folderID];
+                        candidate.introducedBy = candidates[folderID][deviceCfg.deviceID];
+                        $scope.currentSharing.suggested.push(candidate);
+                    }
+                })
+                .then(function (response) {
+                    var candidates = response.data;
+                    $scope.currentSharing.unrelated = $scope.folderList().filter(function (n) {
+                        return !$scope.currentSharing.selected[n.id]
+                            && !candidates.hasOwnProperty(n.id);
+                    });
+                });
             $scope.deviceEditor.$setPristine();
             $('#editDevice').modal();
         };
 
         $scope.selectAllSharedFolders = function (state) {
             var folders = $scope.currentSharing.shared;
+            for (var i = 0; i < folders.length; i++) {
+                $scope.currentSharing.selected[folders[i].id] = !!state;
+            }
+        };
+
+        $scope.selectAllSuggestedFolders = function (state) {
+            var folders = $scope.currentSharing.suggested;
             for (var i = 0; i < folders.length; i++) {
                 $scope.currentSharing.selected[folders[i].id] = !!state;
             }

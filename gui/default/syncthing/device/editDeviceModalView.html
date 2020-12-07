@@ -85,16 +85,33 @@
                   </div>
                 </div>
               </div>
-              <div class="form-group" ng-if="currentSharing.unrelated.length || folderList().length == 0">
+              <div class="form-group" ng-if="currentSharing.suggested.length || currentSharing.unrelated.length || folderList().length == 0">
                 <label translate for="folders">Unshared Folders</label>
                 <p class="help-block" ng-if="folderList().length > 0">
                   <span translate>Select additional folders to share with this device.</span>&emsp;
-                  <small><a href="#" ng-click="selectAllUnrelatedFolders(true)" translate>Select All</a>&emsp;
-                    <a href="#" ng-click="selectAllUnrelatedFolders(false)" translate>Deselect All</a></small>
+                  <small><a href="#" ng-click="selectAllSuggestedFolders(true); selectAllUnrelatedFolders(true)" translate>Select All</a>&emsp;
+                    <a href="#" ng-click="selectAllSuggestedFolders(false); selectAllUnrelatedFolders(false)" translate>Deselect All</a></small>
+                  <small ng-if="currentSharing.suggested.length">
+                    <br /><span translate>* Highlighted folders are already available to this device.</span>&emsp;
+                    <a href="#" ng-click="selectAllSuggestedFolders(true)" translate>Select Suggested</a>
+                  </small>
                 </p>
                 <p class="help-block" ng-if="folderList().length == 0">
                   <span translate>There are no folders to share with this device.</span>
                 </p>
+                <div class="row">
+                  <div class="col-md-4" ng-repeat="folder in currentSharing.suggested">
+                    <div class="checkbox">
+                      <label ng-if="folder.label.length == 0">
+                        <input type="checkbox" ng-model="currentSharing.selected[folder.id]">&nbsp;
+			<strong>{{folder.id}} *</strong>
+                      </label>
+                      <label ng-if="folder.label.length != 0">
+                        <input type="checkbox" ng-model="currentSharing.selected[folder.id]">&nbsp; <strong tooltip data-original-title="{{folder.id}}">{{folder.label}} *</strong>
+                      </label>
+                    </div>
+                  </div>
+                </div>
                 <div class="row">
                   <div class="col-md-4" ng-repeat="folder in currentSharing.unrelated">
                     <div class="checkbox">
