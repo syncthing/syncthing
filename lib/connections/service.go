@@ -41,8 +41,9 @@ var (
 )
 
 var (
-	errDisabled   = errors.New("disabled by configuration")
-	errDeprecated = errors.New("deprecated protocol")
+	errDisabled    = errors.New("disabled by configuration")
+	errDeprecated  = errors.New("deprecated protocol")
+	errNotIncluded = errors.New("not included in this build")
 )
 
 const (
@@ -449,6 +450,9 @@ func (s *service) connect(ctx context.Context) error {
 					continue
 				case errDeprecated:
 					l.Debugln("Dialer for", uri, "is deprecated")
+					continue
+				case errNotIncluded:
+					l.Debugln("Dialer for", uri, "is not included in this build")
 					continue
 				default:
 					l.Infof("Dialer for %v: %v", uri, err)
