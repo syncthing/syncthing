@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/relay/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/svcutil"
+	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/thejerf/suture/v4"
 )
