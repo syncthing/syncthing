@@ -131,6 +131,7 @@ type model struct {
 	// folderIOLimiter limits the number of concurrent I/O heavy operations,
 	// such as scans and pulls.
 	folderIOLimiter *byteSemaphore
+	started         chan struct{}
 
 	// fields protected by fmut
 	fmut                           sync.RWMutex
@@ -157,7 +158,6 @@ type model struct {
 
 	// for testing only
 	foldersRunning int32
-	started        chan struct{}
 }
 
 type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem, events.Logger, *byteSemaphore) service
@@ -217,6 +217,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		shortID:              id.Short(),
 		globalRequestLimiter: newByteSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
 		folderIOLimiter:      newByteSemaphore(cfg.Options().MaxFolderConcurrency()),
+		started:              make(chan struct{}),
 
 		// fields protected by fmut
 		fmut:                           sync.NewRWMutex(),
@@ -239,9 +240,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remotePausedFolders: make(map[protocol.DeviceID]map[string]struct{}),
 		indexSenders:        make(map[protocol.DeviceID]*indexSenderRegistry),
-
-		// for testing only
-		started: make(chan struct{}),
 	}
 	for devID := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
@@ -253,10 +251,22 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 }
 
 func (m *model) serve(ctx context.Context) error {
-	// Add and start folders
-	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
-	clusterConfigDevices := make(deviceIDSet, len(m.cfg.Devices()))
-	for _, folderCfg := range m.cfg.Folders() {
+	cfg := m.cfg.Subscribe(m)
+	m.initFolders(cfg)
+	close(m.started)
+
+	<-ctx.Done()
+
+	m.cfg.Unsubscribe(m)
+	m.closeAllConnectionsAndWait()
+
+	return ctx.Err()
+}
+
+func (m *model) initFolders(cfg config.Configuration) {
+	cacheIgnoredFiles := cfg.Options.CacheIgnoredFiles
+	clusterConfigDevices := make(deviceIDSet, len(cfg.Devices))
+	for _, folderCfg := range cfg.Folders {
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
@@ -265,12 +275,9 @@ func (m *model) serve(ctx context.Context) error {
 		clusterConfigDevices.add(folderCfg.DeviceIDs())
 	}
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
-	m.cfg.Subscribe(m)
+}
 
-	close(m.started)
-	<-ctx.Done()
-
-	m.cfg.Unsubscribe(m)
+func (m *model) closeAllConnectionsAndWait() {
 	m.pmut.RLock()
 	closed := make([]chan struct{}, 0, len(m.conn))
 	for id, conn := range m.conn {
@@ -281,7 +288,6 @@ func (m *model) serve(ctx context.Context) error {
 	for _, c := range closed {
 		<-c
 	}
-	return nil
 }
 
 // StartDeadlockDetector starts a deadlock detector on the models locks which
@@ -2556,6 +2562,9 @@ func (m *model) VerifyConfiguration(from, to config.Configuration) error {
 
 func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// TODO: This should not use reflect, and should take more care to try to handle stuff without restart.
+
+	// Delay processing config changes until after the initial setup
+	<-m.started
 
 	// Go through the folder configs and figure out if we need to restart or not.
 

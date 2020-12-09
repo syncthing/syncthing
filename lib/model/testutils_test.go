@@ -41,11 +41,14 @@ func init() {
 	defaultFs = defaultFolderConfig.Filesystem()
 
 	defaultCfgWrapper = createTmpWrapper(config.New(myID))
-	_, _ = defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
-	_, _ = defaultCfgWrapper.SetFolder(defaultFolderConfig)
+	waiter, _ := defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
+	waiter.Wait()
+	waiter, _ = defaultCfgWrapper.SetFolder(defaultFolderConfig)
+	waiter.Wait()
 	opts := defaultCfgWrapper.Options()
 	opts.KeepTemporariesH = 1
-	_, _ = defaultCfgWrapper.SetOptions(opts)
+	waiter, _ = defaultCfgWrapper.SetOptions(opts)
+	waiter.Wait()
 
 	defaultCfg = defaultCfgWrapper.RawCopy()
 

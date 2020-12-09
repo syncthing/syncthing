@@ -46,7 +46,9 @@ func (c *mockedConfig) Replace(cfg config.Configuration) (config.Waiter, error) 
 	return noopWaiter{}, nil
 }
 
-func (c *mockedConfig) Subscribe(cm config.Committer) {}
+func (c *mockedConfig) Subscribe(cm config.Committer) config.Configuration {
+	return config.Configuration{}
+}
 
 func (c *mockedConfig) Unsubscribe(cm config.Committer) {}
 

@@ -7,7 +7,9 @@
 package config
 
 import (
+	"math"
 	"os"
+	stdsync "sync"
 	"sync/atomic"
 	"time"
 
@@ -36,6 +38,10 @@ import (
 // false will result in a "restart needed" response to the API/user. Note that
 // the new configuration will still have been applied by those who were
 // capable of doing so.
+//
+// A Committer must take care not to hold any locks while changing the
+// configuration (e.g. calling Wrapper.SetFolder), that are also acquired in any
+// methods of the Committer interface.
 type Committer interface {
 	VerifyConfiguration(from, to Configuration) error
 	CommitConfiguration(from, to Configuration) (handled bool)
@@ -90,7 +96,7 @@ type Wrapper interface {
 	IgnoredDevice(id protocol.DeviceID) bool
 	IgnoredFolder(device protocol.DeviceID, folder string) bool
 
-	Subscribe(c Committer)
+	Subscribe(c Committer) Configuration
 	Unsubscribe(c Committer)
 }
 
@@ -104,6 +110,10 @@ type wrapper struct {
 	subs   []Committer
 	mut    sync.Mutex
 
+	currentCounter uint32
+	replaceCounter uint32
+	replaceCond    *stdsync.Cond
+
 	requiresRestart uint32 // an atomic bool
 }
 
@@ -111,12 +121,13 @@ type wrapper struct {
 // disk.
 func Wrap(path string, cfg Configuration, myID protocol.DeviceID, evLogger events.Logger) Wrapper {
 	w := &wrapper{
-		cfg:      cfg,
-		path:     path,
-		evLogger: evLogger,
-		myID:     myID,
-		waiter:   noopWaiter{}, // Noop until first config change
-		mut:      sync.NewMutex(),
+		cfg:         cfg,
+		path:        path,
+		evLogger:    evLogger,
+		myID:        myID,
+		waiter:      noopWaiter{}, // Noop until first config change
+		mut:         sync.NewMutex(),
+		replaceCond: stdsync.NewCond(&stdsync.Mutex{}),
 	}
 	return w
 }
@@ -147,11 +158,13 @@ func (w *wrapper) MyID() protocol.DeviceID {
 }
 
 // Subscribe registers the given handler to be called on any future
-// configuration changes.
-func (w *wrapper) Subscribe(c Committer) {
+// configuration changes. It returns the config that is in effect while
+// subscribing, that can be used for initial setup.
+func (w *wrapper) Subscribe(c Committer) Configuration {
 	w.mut.Lock()
+	defer w.mut.Unlock()
 	w.subs = append(w.subs, c)
-	w.mut.Unlock()
+	return w.cfg.Copy()
 }
 
 // Unsubscribe de-registers the given handler from any future calls to
@@ -183,9 +196,27 @@ func (w *wrapper) RawCopy() Configuration {
 
 // Replace swaps the current configuration object for the given one.
 func (w *wrapper) Replace(cfg Configuration) (Waiter, error) {
+	w.initChange()
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	return w.replaceLocked(cfg.Copy())
+}
+
+func (w *wrapper) initChange() {
+	w.replaceCond.L.Lock()
+
+	if w.replaceCounter == math.MaxUint32 {
+		w.replaceCounter = w.replaceCounter - w.currentCounter
+		w.currentCounter = 0
+	}
+	myCounter := w.replaceCounter
+	w.replaceCounter++
+
+	for myCounter > w.currentCounter {
+		w.replaceCond.Wait()
+	}
+
+	w.replaceCond.L.Unlock()
 }
 
 func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {
@@ -203,9 +234,17 @@ func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {
 		}
 	}
 
-	w.cfg = to
+	waiter := w.notifyListeners(from.Copy(), to.Copy())
+	go func() {
+		waiter.Wait()
+		w.replaceCond.L.Lock()
+		w.currentCounter++
+		w.replaceCond.L.Unlock()
+		w.replaceCond.Broadcast()
+	}()
 
-	w.waiter = w.notifyListeners(from.Copy(), to.Copy())
+	w.cfg = to
+	w.waiter = waiter
 
 	return w.waiter, nil
 }
@@ -251,6 +290,8 @@ func (w *wrapper) DeviceList() []DeviceConfiguration {
 // SetDevices adds new devices to the configuration, or overwrites existing
 // devices with the same ID.
 func (w *wrapper) SetDevices(devs []DeviceConfiguration) (Waiter, error) {
+	w.initChange()
+
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -281,6 +322,8 @@ func (w *wrapper) SetDevice(dev DeviceConfiguration) (Waiter, error) {
 
 // RemoveDevice removes the device from the configuration
 func (w *wrapper) RemoveDevice(id protocol.DeviceID) (Waiter, error) {
+	w.initChange()
+
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -323,6 +366,8 @@ func (w *wrapper) SetFolder(fld FolderConfiguration) (Waiter, error) {
 // SetFolders adds new folders to the configuration, or overwrites existing
 // folders with the same ID.
 func (w *wrapper) SetFolders(folders []FolderConfiguration) (Waiter, error) {
+	w.initChange()
+
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -347,6 +392,8 @@ func (w *wrapper) SetFolders(folders []FolderConfiguration) (Waiter, error) {
 
 // RemoveFolder removes the folder from the configuration
 func (w *wrapper) RemoveFolder(id string) (Waiter, error) {
+	w.initChange()
+
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -378,6 +425,8 @@ func (w *wrapper) Options() OptionsConfiguration {
 
 // SetOptions replaces the current options configuration object.
 func (w *wrapper) SetOptions(opts OptionsConfiguration) (Waiter, error) {
+	w.initChange()
+
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	newCfg := w.cfg.Copy()
@@ -392,6 +441,8 @@ func (w *wrapper) LDAP() LDAPConfiguration {
 }
 
 func (w *wrapper) SetLDAP(ldap LDAPConfiguration) (Waiter, error) {
+	w.initChange()
+
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	newCfg := w.cfg.Copy()
@@ -408,6 +459,8 @@ func (w *wrapper) GUI() GUIConfiguration {
 
 // SetGUI replaces the current GUI configuration object.
 func (w *wrapper) SetGUI(gui GUIConfiguration) (Waiter, error) {
+	w.initChange()
+
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	newCfg := w.cfg.Copy()
