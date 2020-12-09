@@ -43,7 +43,7 @@ var (
 var (
 	errDisabled    = errors.New("disabled by configuration")
 	errDeprecated  = errors.New("deprecated protocol")
-	errNotIncluded = errors.New("not included in this build")
+	errUnsupported = errors.New("unsupported protocol (disabled at build time)")
 )
 
 const (
@@ -337,7 +337,6 @@ func (s *service) handle(ctx context.Context) error {
 		s.model.AddConnection(modelConn, hello)
 		continue
 	}
-	return nil
 }
 
 func (s *service) connect(ctx context.Context) error {
@@ -442,17 +441,13 @@ func (s *service) connect(ctx context.Context) error {
 				if err != nil {
 					s.setConnectionStatus(addr, err)
 				}
-				switch err {
-				case nil:
+				switch {
+				case err == nil:
 					// all good
-				case errDisabled:
-					l.Debugln("Dialer for", uri, "is disabled")
-					continue
-				case errDeprecated:
-					l.Debugln("Dialer for", uri, "is deprecated")
-					continue
-				case errNotIncluded:
-					l.Debugln("Dialer for", uri, "is not included in this build")
+				case errors.Is(err, errDisabled),
+					errors.Is(err, errDeprecated),
+					errors.Is(err, errUnsupported):
+					l.Debugf("Dialer for %v: %v", uri, err)
 					continue
 				default:
 					l.Infof("Dialer for %v: %v", uri, err)
@@ -509,7 +504,6 @@ func (s *service) connect(ctx context.Context) error {
 			return ctx.Err()
 		}
 	}
-	return nil
 }
 
 func (s *service) isLANHost(host string) bool {
@@ -638,14 +632,13 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 		}
 
 		factory, err := getListenerFactory(to, uri)
-		switch err {
-		case nil:
+		switch {
+		case err == nil:
 			// all good
-		case errDisabled:
-			l.Debugln("Listener for", uri, "is disabled")
-			continue
-		case errDeprecated:
-			l.Debugln("Listener for", uri, "is deprecated")
+		case errors.Is(err, errDisabled),
+			errors.Is(err, errDeprecated),
+			errors.Is(err, errUnsupported):
+			l.Debugf("Listener for %v: %v", uri, err)
 			continue
 		default:
 			l.Infof("Listener for %v: %v", uri, err)
