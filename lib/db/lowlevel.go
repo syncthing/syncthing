@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture/v4"
@@ -68,7 +69,7 @@ type Lowlevel struct {
 }
 
 func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
-	spec := util.Spec()
+	spec := svcutil.Spec()
 	// Only log restarts in debug mode.
 	spec.EventHook = func(e suture.Event) {
 		l.Debugln(e)
@@ -86,7 +87,7 @@ func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 		opt(db)
 	}
 	db.keyer = newDefaultKeyer(db.folderIdx, db.deviceIdx)
-	db.Add(util.AsService(db.gcRunner, "db.Lowlevel/gcRunner"))
+	db.Add(svcutil.AsService(db.gcRunner, "db.Lowlevel/gcRunner"))
 	if path := db.needsRepairPath(); path != "" {
 		if _, err := os.Lstat(path); err == nil {
 			l.Infoln("Database was marked for repair - this may take a while")

@@ -11,14 +11,13 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/locations"
+	"github.com/syncthing/syncthing/lib/svcutil"
 
 	"github.com/thejerf/suture/v4"
 )
@@ -30,6 +29,7 @@ var (
 	minDelay             = 10 * time.Second
 	maxDelay             = time.Minute
 	sendTimeout          = time.Minute
+	finalSendTimeout     = svcutil.ServiceTimeout / 2
 	evChanClosed         = "failure event channel closed"
 	invalidEventDataType = "failure event data is not a string"
 )
@@ -67,20 +67,37 @@ type failureStat struct {
 }
 
 func (h *failureHandler) Serve(ctx context.Context) error {
+	go func() {
+		select {
+		case h.optsChan <- h.cfg.Options():
+		case <-ctx.Done():
+		}
+	}()
 	h.cfg.Subscribe(h)
 	defer h.cfg.Unsubscribe(h)
 
-	url, sub, evChan := h.applyOpts(h.cfg.Options(), nil)
-
-	h.handleOldFailureReports(ctx, url, sub != nil)
-
+	var url string
 	var err error
+	var sub events.Subscription
+	var evChan <-chan events.Event
 	timer := time.NewTimer(minDelay)
 	resetTimer := make(chan struct{})
-	for err == nil {
+outer:
+	for {
 		select {
 		case opts := <-h.optsChan:
-			url, sub, evChan = h.applyOpts(opts, sub)
+			// Sub nil checks just for safety - config updates can be racy.
+			if opts.URAccepted > 0 {
+				if sub == nil {
+					sub = h.evLogger.Subscribe(events.Failure)
+					evChan = sub.C()
+				}
+			} else if sub != nil {
+				sub.Unsubscribe()
+				sub = nil
+				evChan = nil
+			}
+			url = opts.CRURL + "/failure"
 		case e, ok := <-evChan:
 			if !ok {
 				// Just to be safe - shouldn't ever happen, as
@@ -108,19 +125,19 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 			if len(reports) > 0 {
 				// Lets keep process events/configs while it might be timing out for a while
 				go func() {
-					if err := sendFailureReports(ctx, reports, url); err != nil {
-						l.Infoln("Failed to send failure report:", err)
-					}
+					sendFailureReports(ctx, reports, url)
 					select {
 					case resetTimer <- struct{}{}:
 					case <-ctx.Done():
 					}
 				}()
+			} else {
+				timer.Reset(minDelay)
 			}
 		case <-resetTimer:
 			timer.Reset(minDelay)
 		case <-ctx.Done():
-			err = ctx.Err()
+			break outer
 		}
 	}
 
@@ -130,28 +147,11 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 		for descr, stat := range h.buf {
 			reports = append(reports, newFailureReport(descr, stat.count))
 		}
-		h.buf = make(map[string]*failureStat)
-		if err := writeFailures(locations.Get(locations.FailuresFile), reports); err != nil && !os.IsNotExist(err) {
-			l.Warnln("Failed to write failures to be sent later:", err)
-		}
+		timeout, cancel := context.WithTimeout(context.Background(), finalSendTimeout)
+		defer cancel()
+		sendFailureReports(timeout, reports, url)
 	}
-
 	return err
-}
-
-func (h *failureHandler) applyOpts(opts config.OptionsConfiguration, sub events.Subscription) (string, events.Subscription, <-chan events.Event) {
-	// Sub nil checks just for safety - config updates can be racy.
-	url := opts.CRURL + "/failure"
-	if opts.URAccepted > 0 {
-		if sub == nil {
-			sub = h.evLogger.Subscribe(events.Failure)
-		}
-		return url, sub, sub.C()
-	}
-	if sub != nil {
-		sub.Unsubscribe()
-	}
-	return url, nil, nil
 }
 
 func (h *failureHandler) addReport(descr string, evTime time.Time) {
@@ -165,56 +165,6 @@ func (h *failureHandler) addReport(descr string, evTime time.Time) {
 		last:  evTime,
 		count: 1,
 	}
-}
-
-func (h *failureHandler) handleOldFailureReports(ctx context.Context, url string, shouldReport bool) {
-	path := locations.Get(locations.FailuresFile)
-	if !shouldReport {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			l.Debugln("Failed to delete previous failures:", err)
-		}
-		return
-	}
-	reports, err := readFailures(path)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			l.Infoln("Failed to read previous failures:", err)
-		}
-		return
-	}
-	if err := sendFailureReports(ctx, reports, url); err != nil {
-		// Lets pretend they're new
-		now := time.Now()
-		for _, r := range reports {
-			h.buf[r.Description] = &failureStat{
-				first: now,
-				last:  now,
-				count: r.Count,
-			}
-		}
-	}
-}
-
-func readFailures(path string) ([]FailureReport, error) {
-	fd, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer fd.Close()
-	d := json.NewDecoder(fd)
-	var reports []FailureReport
-	err = d.Decode(&reports)
-	return reports, err
-}
-
-func writeFailures(path string, reports []FailureReport) error {
-	fd, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0666)
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-	e := json.NewEncoder(fd)
-	return e.Encode(reports)
 }
 
 func (h *failureHandler) VerifyConfiguration(_, _ config.Configuration) error {
@@ -232,7 +182,7 @@ func (h *failureHandler) String() string {
 	return "FailureHandler"
 }
 
-func sendFailureReports(ctx context.Context, reports []FailureReport, url string) error {
+func sendFailureReports(ctx context.Context, reports []FailureReport, url string) {
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(reports); err != nil {
 		panic(err)
@@ -249,16 +199,18 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 	defer reqCancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, &b)
 	if err != nil {
-		return err
+		l.Infoln("Failed to send failure report:", err)
+		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		l.Infoln("Failed to send failure report:", err)
+		return
 	}
 	resp.Body.Close()
-	return nil
+	return
 }
 
 func newFailureReport(descr string, count int) FailureReport {

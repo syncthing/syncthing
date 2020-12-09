@@ -87,7 +87,7 @@ func TestStartupFail(t *testing.T) {
 	}
 
 	done := make(chan struct{})
-	var waitE util.ExitStatus
+	var waitE svcutil.ExitStatus
 	go func() {
 		waitE = app.Wait()
 		close(done)
@@ -99,8 +99,8 @@ func TestStartupFail(t *testing.T) {
 	case <-done:
 	}
 
-	if waitE != util.ExitError {
-		t.Errorf("Got exit status %v, expected %v", waitE, util.ExitError)
+	if waitE != svcutil.ExitError {
+		t.Errorf("Got exit status %v, expected %v", waitE, svcutil.ExitError)
 	}
 
 	if err = app.Error(); err != startErr {

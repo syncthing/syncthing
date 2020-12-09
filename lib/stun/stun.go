@@ -16,6 +16,7 @@ import (
 	"github.com/ccding/go-stun/stun"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/util"
 )
 
@@ -111,7 +112,7 @@ func (s *Service) Serve(ctx context.Context) error {
 		s.setExternalAddress(nil, "")
 	}()
 
-	util.OnDone(ctx, func() { _ = s.stunConn.Close() })
+	svcutil.OnDone(ctx, func() { _ = s.stunConn.Close() })
 
 	timer := time.NewTimer(time.Millisecond)
 
