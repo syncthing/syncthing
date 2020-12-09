@@ -1353,7 +1353,26 @@ func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
 	m := setupModel(w)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
-	fc := &fakeConnection{id: device1, model: m}
+	files := genFiles(2)
+	files[1].LocalFlags = protocol.FlagLocalReceiveOnly
+	m.fmut.RLock()
+	fset := m.folderFiles[fcfg.ID]
+	m.fmut.RUnlock()
+	fset.Update(protocol.LocalDeviceID, files)
+
+	indexChan := make(chan []protocol.FileInfo, 1)
+	done := make(chan struct{})
+	defer close(done)
+	fc := &fakeConnection{
+		id:    device1,
+		model: m,
+		indexFn: func(_ context.Context, _ string, fs []protocol.FileInfo) {
+			select {
+			case indexChan <- fs:
+			case <-done:
+			}
+		},
+	}
 	m.AddConnection(fc, protocol.Hello{})
 	m.ClusterConfig(device1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
@@ -1369,25 +1388,6 @@ func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
 			},
 		},
 	})
-
-	indexChan := make(chan []protocol.FileInfo, 1)
-	done := make(chan struct{})
-	defer close(done)
-	fc.mut.Lock()
-	fc.indexFn = func(_ context.Context, _ string, fs []protocol.FileInfo) {
-		select {
-		case indexChan <- fs:
-		case <-done:
-		}
-	}
-	fc.mut.Unlock()
-
-	files := genFiles(2)
-	files[1].LocalFlags = protocol.FlagLocalReceiveOnly
-	m.fmut.RLock()
-	fset := m.folderFiles[fcfg.ID]
-	m.fmut.RUnlock()
-	fset.Update(protocol.LocalDeviceID, files)
 
 	select {
 	case fs := <-indexChan:

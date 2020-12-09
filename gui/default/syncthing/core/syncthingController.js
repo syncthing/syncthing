@@ -1094,7 +1094,7 @@ angular.module('syncthing.core')
             if (matches.length !== 1) {
                 return shortID;
             }
-            return matches[0].name;
+            return $scope.friendlyNameFromID(matches[0]);
         };
 
         $scope.friendlyNameFromID = function (deviceID) {
