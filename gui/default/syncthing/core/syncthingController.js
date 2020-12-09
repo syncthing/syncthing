@@ -1430,32 +1430,28 @@ angular.module('syncthing.core')
             }
             $scope.currentDevice._addressesStr = deviceCfg.addresses.join(', ');
             initShareEditing('device');
-            $scope.currentSharing.selected = {};
-            $scope.deviceFolders($scope.currentDevice).forEach(function (folder) {
-                $scope.currentSharing.selected[folder] = true;
+            $scope.deviceFolders($scope.currentDevice).forEach(function (folderID) {
+                $scope.currentSharing.shared.push($scope.folders[folderID]);
+                $scope.currentSharing.selected[folderID] = true;
+            });
+            $scope.currentSharing.unrelated = $scope.folderList().filter(function (n) {
+                return !$scope.currentSharing.selected[n.id];
             });
             $scope.deviceEditor.$setPristine();
             $('#editDevice').modal();
         };
 
-        $scope.selectAllFolders = function (state) {
-            var folders = $scope.folders;
-            for (var id in folders) {
-                $scope.currentSharing.selected[id] = !!state;
-            };
-        };
-
         $scope.selectAllSharedFolders = function (state) {
-            var devices = $scope.currentSharing.shared;
-            for (var i = 0; i < devices.length; i++) {
-                $scope.currentSharing.selected[devices[i].deviceID] = !!state;
+            var folders = $scope.currentSharing.shared;
+            for (var i = 0; i < folders.length; i++) {
+                $scope.currentSharing.selected[folders[i].id] = !!state;
             }
         };
 
         $scope.selectAllUnrelatedFolders = function (state) {
-            var devices = $scope.currentSharing.unrelated;
-            for (var i = 0; i < devices.length; i++) {
-                $scope.currentSharing.selected[devices[i].deviceID] = !!state;
+            var folders = $scope.currentSharing.unrelated;
+            for (var i = 0; i < folders.length; i++) {
+                $scope.currentSharing.selected[folders[i].id] = !!state;
             }
         };
 
@@ -1485,6 +1481,7 @@ angular.module('syncthing.core')
                     };
                     $scope.editingExisting = false;
                     initShareEditing('device');
+                    $scope.currentSharing.unrelated = $scope.folderList();
                     $scope.deviceEditor.$setPristine();
                     $('#editDevice').modal();
                 });
@@ -1533,17 +1530,22 @@ angular.module('syncthing.core')
                     }
 
                     if (!found) {
+                        // Add device to folder
                         $scope.folders[id].devices.push({
                             deviceID: deviceCfg.deviceID
                         });
                     }
                 } else {
+                    // Remove device from folder
                     $scope.folders[id].devices = $scope.folders[id].devices.filter(function (n) {
                         return n.deviceID !== deviceCfg.deviceID;
                     });
                 }
             }
 
+            delete $scope.currentSharing;
+
+            $scope.config.folders = folderList($scope.folders);
             $scope.saveConfig();
         };
 
