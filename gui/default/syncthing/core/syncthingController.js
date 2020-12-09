@@ -487,11 +487,11 @@ angular.module('syncthing.core')
         }
 
         function refreshCluster() {
-            $http.get(urlbase + '/cluster/pendingdevices').success(function (data) {
+            $http.get(urlbase + '/cluster/pending/devices').success(function (data) {
                 $scope.pendingDevices = data;
                 console.log("refreshCluster devices", data);
             }).error($scope.emitHTTPError);
-            $http.get(urlbase + '/cluster/pendingfolders').success(function (data) {
+            $http.get(urlbase + '/cluster/pending/folders').success(function (data) {
                 $scope.pendingFolders = data;
                 console.log("refreshCluster folders", data);
             }).error($scope.emitHTTPError);
