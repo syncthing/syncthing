@@ -259,7 +259,7 @@ func (m *model) serve(ctx context.Context) error {
 
 	if err := m.initFolders(); err != nil {
 		close(m.started)
-		return fatalErr(err)
+		return util.AsFatalErr(err, util.ExitError)
 	}
 
 	m.cfg.Subscribe(m)
@@ -270,7 +270,7 @@ func (m *model) serve(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	case err := <-m.fatalChan:
-		return err
+		return util.AsFatalErr(err, util.ExitError)
 	}
 }
 
@@ -307,7 +307,7 @@ func (m *model) closeAllConnectionsAndWait() {
 
 func (m *model) fatal(err error) {
 	select {
-	case m.fatalChan <- fatalErr(err):
+	case m.fatalChan <- err:
 	default:
 	}
 }
@@ -2934,15 +2934,4 @@ func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
 		FolderID: cfg.ID,
 		Token:    token,
 	})
-}
-
-func fatalErr(err error) error {
-	var ferr *util.FatalErr
-	if errors.As(err, &ferr) {
-		return err
-	}
-	return &util.FatalErr{
-		Err:    err,
-		Status: util.ExitError,
-	}
 }
