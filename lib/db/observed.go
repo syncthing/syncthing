@@ -45,15 +45,11 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 	for iter.Next() {
 		keyDev := db.keyer.DeviceFromPendingDeviceKey(iter.Key())
 		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
-		var bs []byte
 		var od ObservedDevice
 		if err != nil {
 			goto deleteKey
 		}
-		if bs, err = db.Get(iter.Key()); err != nil {
-			goto deleteKey
-		}
-		if err = od.Unmarshal(bs); err != nil {
+		if err = od.Unmarshal(iter.Value()); err != nil {
 			goto deleteKey
 		}
 		res[deviceID] = od
@@ -147,17 +143,13 @@ func (db *Lowlevel) PendingFoldersForDevice(device protocol.DeviceID) (map[strin
 		deviceID, err := protocol.DeviceIDFromBytes(keyDev)
 		var of ObservedFolder
 		var folderID string
-		var bs []byte
 		if !ok || err != nil {
 			goto deleteKey
 		}
 		if folderID = string(db.keyer.FolderFromPendingFolderKey(iter.Key())); len(folderID) < 1 {
 			goto deleteKey
 		}
-		if bs, err = db.Get(iter.Key()); err != nil {
-			goto deleteKey
-		}
-		if err = of.Unmarshal(bs); err != nil {
+		if err = of.Unmarshal(iter.Value()); err != nil {
 			goto deleteKey
 		}
 		if _, ok := res[folderID]; !ok {
