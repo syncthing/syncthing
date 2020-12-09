@@ -15,6 +15,10 @@ type invalidListener struct {
 }
 
 func (i invalidListener) Valid(_ config.Configuration) error {
+	if i.err == nil {
+		// fallback so we don't accidentally return nil
+		return errUnsupported
+	}
 	return i.err
 }
 
@@ -25,6 +29,10 @@ type invalidDialer struct {
 }
 
 func (i invalidDialer) Valid(_ config.Configuration) error {
+	if i.err == nil {
+		// fallback so we don't accidentally return nil
+		return errUnsupported
+	}
 	return i.err
 }
 
