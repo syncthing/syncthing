@@ -41,9 +41,15 @@ var (
 )
 
 var (
-	errDisabled    = errors.New("disabled by configuration")
-	errDeprecated  = errors.New("deprecated protocol")
-	errUnsupported = errors.New("unsupported protocol (disabled at build time)")
+	// Dialers and listeners return errUnsupported (or a wrapped variant)
+	// when they are intentionally out of service due to configuration,
+	// build, etc. This is not logged loudly.
+	errUnsupported = errors.New("unsupported protocol")
+
+	// These are specific explanations for errUnsupported.
+	errDisabled   = fmt.Errorf("%w: disabled by configuration", errUnsupported)
+	errDeprecated = fmt.Errorf("%w: deprecated", errUnsupported)
+	errNotInBuild = fmt.Errorf("%w: disabled at build time", errUnsupported)
 )
 
 const (
@@ -441,15 +447,10 @@ func (s *service) connect(ctx context.Context) error {
 				if err != nil {
 					s.setConnectionStatus(addr, err)
 				}
-				switch {
-				case err == nil:
-					// all good
-				case errors.Is(err, errDisabled),
-					errors.Is(err, errDeprecated),
-					errors.Is(err, errUnsupported):
+				if errors.Is(err, errUnsupported) {
 					l.Debugf("Dialer for %v: %v", uri, err)
 					continue
-				default:
+				} else if err != nil {
 					l.Infof("Dialer for %v: %v", uri, err)
 					continue
 				}
@@ -632,15 +633,10 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 		}
 
 		factory, err := getListenerFactory(to, uri)
-		switch {
-		case err == nil:
-			// all good
-		case errors.Is(err, errDisabled),
-			errors.Is(err, errDeprecated),
-			errors.Is(err, errUnsupported):
+		if errors.Is(err, errUnsupported) {
 			l.Debugf("Listener for %v: %v", uri, err)
 			continue
-		default:
+		} else if err != nil {
 			l.Infof("Listener for %v: %v", uri, err)
 			continue
 		}

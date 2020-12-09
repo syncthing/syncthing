@@ -10,7 +10,7 @@ package connections
 
 func init() {
 	for _, scheme := range []string{"quic", "quic4", "quic6"} {
-		listeners[scheme] = invalidListener{err: errUnsupported}
-		dialers[scheme] = invalidDialer{err: errUnsupported}
+		listeners[scheme] = invalidListener{err: errNotInBuild}
+		dialers[scheme] = invalidDialer{err: errNotInBuild}
 	}
 }
