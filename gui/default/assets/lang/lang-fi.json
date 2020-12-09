@@ -71,6 +71,7 @@
     "Device ID": "Laitteen ID",
     "Device Identification": "Laitteen tunniste",
     "Device Name": "Laitteen nimi",
+    "Device is untrusted, enter encryption password": "Device is untrusted, enter encryption password",
     "Device rate limits": "Laitteen siirtonopeuden rajoitus",
     "Device that last modified the item": "Laite, joka viimeisimmäksi muokkasi kohdetta",
     "Devices": "Laitteet",

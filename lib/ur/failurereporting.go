@@ -116,6 +116,8 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 					case <-ctx.Done():
 					}
 				}()
+			} else {
+				timer.Reset(minDelay)
 			}
 		case <-resetTimer:
 			timer.Reset(minDelay)

@@ -71,6 +71,7 @@
     "Device ID": "Gerätekennung",
     "Device Identification": "Geräteidentifikation",
     "Device Name": "Gerätename",
+    "Device is untrusted, enter encryption password": "Device is untrusted, enter encryption password",
     "Device rate limits": "Gerät Datenratelimit",
     "Device that last modified the item": "Gerät, das das Element zuletzt geändert hat",
     "Devices": "Geräte",
