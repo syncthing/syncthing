@@ -2447,12 +2447,18 @@ angular.module('syncthing.core')
             }[$scope.version.os] || $scope.version.os;
 
             var arch = {
-                '386': '32 bit',
-                'amd64': '64 bit',
-                'arm': 'ARM',
-                'arm64': 'AArch64',
-                'ppc64': 'PowerPC',
-                'ppc64le': 'PowerPC (LE)'
+                '386': '32-bit Intel/AMD',
+                'amd64': '64-bit Intel/AMD',
+                'arm': '32-bit ARM',
+                'arm64': '64-bit ARM',
+                'ppc64': '64-bit PowerPC',
+                'ppc64le': '64-bit PowerPC (LE)',
+                'mips': '32-bit MIPS',
+                'mipsle': '32-bit MIPS (LE)',
+                'mips64': '64-bit MIPS',
+                'mips64le': '64-bit MIPS (LE)',
+                'riscv64': '64-bit RISC-V',
+                's390x': '64-bit z/Architecture',
             }[$scope.version.arch] || $scope.version.arch;
 
             return $scope.version.version + ', ' + os + ' (' + arch + ')';
