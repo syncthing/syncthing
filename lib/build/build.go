@@ -88,7 +88,6 @@ func LongVersionFor(program string) string {
 	v := fmt.Sprintf(`%s %s "%s" (%s %s-%s) %s@%s %s`, program, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, User, Host, date)
 
 	if tags := TagsList(); len(tags) > 0 {
-		sort.Strings(tags)
 		v = fmt.Sprintf("%s [%s]", v, strings.Join(tags, ", "))
 	}
 	return v
@@ -99,7 +98,6 @@ func TagsList() []string {
 	if len(tags) == 1 && tags[0] == "" {
 		tags = tags[:0]
 	}
-
 	for _, envVar := range envTags {
 		if os.Getenv(envVar) != "" {
 			tags = append(tags, strings.ToLower(envVar))
