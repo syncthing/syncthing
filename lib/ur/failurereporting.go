@@ -65,37 +65,17 @@ type failureStat struct {
 }
 
 func (h *failureHandler) Serve(ctx context.Context) error {
-	go func() {
-		select {
-		case h.optsChan <- h.cfg.Options():
-		case <-ctx.Done():
-		}
-	}()
-	h.cfg.Subscribe(h)
+	cfg := h.cfg.Subscribe(h)
 	defer h.cfg.Unsubscribe(h)
+	url, sub, evChan := h.applyOpts(cfg.Options, nil)
 
-	var url string
 	var err error
-	var sub events.Subscription
-	var evChan <-chan events.Event
 	timer := time.NewTimer(minDelay)
 	resetTimer := make(chan struct{})
-outer:
-	for {
+	for err == nil {
 		select {
 		case opts := <-h.optsChan:
-			// Sub nil checks just for safety - config updates can be racy.
-			if opts.URAccepted > 0 {
-				if sub == nil {
-					sub = h.evLogger.Subscribe(events.Failure)
-					evChan = sub.C()
-				}
-			} else if sub != nil {
-				sub.Unsubscribe()
-				sub = nil
-				evChan = nil
-			}
-			url = opts.CRURL + "/failure"
+			url, sub, evChan = h.applyOpts(opts, sub)
 		case e, ok := <-evChan:
 			if !ok {
 				// Just to be safe - shouldn't ever happen, as
@@ -139,7 +119,7 @@ outer:
 		case <-resetTimer:
 			timer.Reset(minDelay)
 		case <-ctx.Done():
-			break outer
+			err = ctx.Err()
 		}
 	}
 
@@ -147,6 +127,21 @@ outer:
 		sub.Unsubscribe()
 	}
 	return err
+}
+
+func (h *failureHandler) applyOpts(opts config.OptionsConfiguration, sub events.Subscription) (string, events.Subscription, <-chan events.Event) {
+	// Sub nil checks just for safety - config updates can be racy.
+	url := opts.CRURL + "/failure"
+	if opts.URAccepted > 0 {
+		if sub == nil {
+			sub = h.evLogger.Subscribe(events.Failure)
+		}
+		return url, sub, sub.C()
+	}
+	if sub != nil {
+		sub.Unsubscribe()
+	}
+	return url, nil, nil
 }
 
 func (h *failureHandler) addReport(descr string, evTime time.Time) {
