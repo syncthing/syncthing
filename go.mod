@@ -38,7 +38,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/sasha-s/go-deadlock v0.2.0
 	github.com/shirou/gopsutil v3.20.10+incompatible
-	github.com/syncthing/notify v0.0.0-20201109091751-9a0e44181151
+	github.com/syncthing/notify v0.0.0-20201210100135-17de26665ddc
 	github.com/syndtr/goleveldb v1.0.1-0.20200815071216-d9e9293bd0f7
 	github.com/thejerf/suture/v4 v4.0.0
 	github.com/urfave/cli v1.22.4
