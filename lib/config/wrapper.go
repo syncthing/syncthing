@@ -18,7 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-const maxChanges = 100
+const maxChanges = 1000
 
 var errTooManyChanges = errors.New("too many concurrent config changes")
 
