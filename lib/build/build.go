@@ -87,18 +87,25 @@ func LongVersionFor(program string) string {
 	date := Date.UTC().Format("2006-01-02 15:04:05 MST")
 	v := fmt.Sprintf(`%s %s "%s" (%s %s-%s) %s@%s %s`, program, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, User, Host, date)
 
+	if tags := TagsList(); len(tags) > 0 {
+		sort.Strings(tags)
+		v = fmt.Sprintf("%s [%s]", v, strings.Join(tags, ", "))
+	}
+	return v
+}
+
+func TagsList() []string {
 	tags := strings.Split(Tags, ",")
 	if len(tags) == 1 && tags[0] == "" {
 		tags = tags[:0]
 	}
+
 	for _, envVar := range envTags {
 		if os.Getenv(envVar) != "" {
 			tags = append(tags, strings.ToLower(envVar))
 		}
 	}
-	if len(tags) > 0 {
-		sort.Strings(tags)
-		v = fmt.Sprintf("%s [%s]", v, strings.Join(tags, ", "))
-	}
-	return v
+
+	sort.Strings(tags)
+	return tags
 }

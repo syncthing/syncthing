@@ -643,7 +643,7 @@ func (s *service) getSystemVersion(w http.ResponseWriter, r *http.Request) {
 		"isCandidate": build.IsCandidate,
 		"isRelease":   build.IsRelease,
 		"date":        build.Date,
-		"tags":        build.Tags,
+		"tags":        build.TagsList(),
 		"stamp":       build.Stamp,
 		"user":        build.User,
 	})
