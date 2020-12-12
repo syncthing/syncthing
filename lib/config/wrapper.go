@@ -198,8 +198,9 @@ func (w *wrapper) RawCopy() Configuration {
 
 // Replace swaps the current configuration object for the given one.
 func (w *wrapper) Replace(cfg Configuration) (Waiter, error) {
+	cfg = cfg.Copy()
 	return w.replaceQueued(func() (Waiter, error) {
-		return w.replaceLocked(cfg.Copy())
+		return w.replaceLocked(cfg)
 	})
 }
 
@@ -229,13 +230,13 @@ func (w *wrapper) replaceQueued(changeLocked changeFunc) (Waiter, error) {
 func (w *wrapper) processQueueOne() {
 	var e changeEntry
 
-	w.queueMut.Lock()
 	select {
 	case e = <-w.queue:
 	default:
-		w.queueMut.Unlock()
 		return
 	}
+
+	w.queueMut.Lock()
 
 	w.mut.Lock()
 	waiter, err := e.changeLocked()
@@ -316,6 +317,9 @@ func (w *wrapper) DeviceList() []DeviceConfiguration {
 // SetDevices adds new devices to the configuration, or overwrites existing
 // devices with the same ID.
 func (w *wrapper) SetDevices(devs []DeviceConfiguration) (Waiter, error) {
+	for i := range devs {
+		devs[i] = devs[i].Copy()
+	}
 	return w.replaceQueued(func() (Waiter, error) {
 		newCfg := w.cfg.Copy()
 		var replaced bool
@@ -323,13 +327,13 @@ func (w *wrapper) SetDevices(devs []DeviceConfiguration) (Waiter, error) {
 			replaced = false
 			for newIndex := range newCfg.Devices {
 				if newCfg.Devices[newIndex].DeviceID == devs[oldIndex].DeviceID {
-					newCfg.Devices[newIndex] = devs[oldIndex].Copy()
+					newCfg.Devices[newIndex] = devs[oldIndex]
 					replaced = true
 					break
 				}
 			}
 			if !replaced {
-				newCfg.Devices = append(newCfg.Devices, devs[oldIndex].Copy())
+				newCfg.Devices = append(newCfg.Devices, devs[oldIndex])
 			}
 		}
 
@@ -386,6 +390,9 @@ func (w *wrapper) SetFolder(fld FolderConfiguration) (Waiter, error) {
 // SetFolders adds new folders to the configuration, or overwrites existing
 // folders with the same ID.
 func (w *wrapper) SetFolders(folders []FolderConfiguration) (Waiter, error) {
+	for i := range folders {
+		folders[i] = folders[i].Copy()
+	}
 	return w.replaceQueued(func() (Waiter, error) {
 		newCfg := w.cfg.Copy()
 
@@ -440,9 +447,10 @@ func (w *wrapper) Options() OptionsConfiguration {
 
 // SetOptions replaces the current options configuration object.
 func (w *wrapper) SetOptions(opts OptionsConfiguration) (Waiter, error) {
+	opts = opts.Copy()
 	return w.replaceQueued(func() (Waiter, error) {
 		newCfg := w.cfg.Copy()
-		newCfg.Options = opts.Copy()
+		newCfg.Options = opts
 		return w.replaceLocked(newCfg)
 	})
 }
@@ -454,9 +462,10 @@ func (w *wrapper) LDAP() LDAPConfiguration {
 }
 
 func (w *wrapper) SetLDAP(ldap LDAPConfiguration) (Waiter, error) {
+	ldap = ldap.Copy()
 	return w.replaceQueued(func() (Waiter, error) {
 		newCfg := w.cfg.Copy()
-		newCfg.LDAP = ldap.Copy()
+		newCfg.LDAP = ldap
 		return w.replaceLocked(newCfg)
 	})
 }
@@ -470,9 +479,10 @@ func (w *wrapper) GUI() GUIConfiguration {
 
 // SetGUI replaces the current GUI configuration object.
 func (w *wrapper) SetGUI(gui GUIConfiguration) (Waiter, error) {
+	gui = gui.Copy()
 	return w.replaceQueued(func() (Waiter, error) {
 		newCfg := w.cfg.Copy()
-		newCfg.GUI = gui.Copy()
+		newCfg.GUI = gui
 		return w.replaceLocked(newCfg)
 	})
 }
