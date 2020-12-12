@@ -9,7 +9,7 @@
     </h1>
     <p class="text-center">
       Build {{version.date | date:"yyyy-MM-dd"}}
-      <span ng-if="version.tags">({{version.tags.join(", ")}})</span>
+      <span ng-if="version.tags.length">({{version.tags.join(", ")}})</span>
       <br />
       Copyright &copy; 2014-{{version.date | date:"yyyy"}} the Syncthing Authors.
     </p>
