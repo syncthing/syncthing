@@ -2332,6 +2332,8 @@ angular.module('syncthing.core')
 
         $scope.advanced = function () {
             $scope.advancedConfig = angular.copy($scope.config);
+            $scope.advancedConfig.devices.sort(deviceCompare);
+            $scope.advancedConfig.folders.sort(folderCompare);
             $('#advanced').modal('show');
         };
 
