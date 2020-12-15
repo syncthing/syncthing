@@ -419,6 +419,7 @@ func DropFolder(db *Lowlevel, folder string) {
 		db.dropFolder,
 		db.dropMtimes,
 		db.dropFolderMeta,
+		db.dropFolderIndexIDs,
 		db.folderIdx.Delete,
 	}
 	for _, drop := range droppers {

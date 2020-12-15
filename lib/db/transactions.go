@@ -889,12 +889,19 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device, file 
 }
 
 func (t readWriteTransaction) deleteKeyPrefix(prefix []byte) error {
+	return t.deleteKeyPrefixMatching(prefix, func([]byte) bool { return true })
+}
+
+func (t readWriteTransaction) deleteKeyPrefixMatching(prefix []byte, match func(key []byte) bool) error {
 	dbi, err := t.NewPrefixIterator(prefix)
 	if err != nil {
 		return err
 	}
 	defer dbi.Release()
 	for dbi.Next() {
+		if !match(dbi.Key()) {
+			continue
+		}
 		if err := t.Delete(dbi.Key()); err != nil {
 			return err
 		}
