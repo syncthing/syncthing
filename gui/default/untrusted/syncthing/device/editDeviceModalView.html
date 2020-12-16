@@ -67,23 +67,26 @@
             <div class="form-horizontal" ng-if="currentSharing.shared.length">
               <label translate for="folders">Shared Folders</label>
               <p class="help-block">
-                <span translate>Select the folders to share with this device.</span>&emsp;
+                <span translate>Deselect folders to stop sharing with this device.</span>&emsp;
                 <small><a href="#" ng-click="selectAllSharedFolders(true)" translate>Select All</a>&emsp;
                   <a href="#" ng-click="selectAllSharedFolders(false)" translate>Deselect All</a></small>
               </p>
               <div class="form-group" ng-repeat="folder in currentSharing.shared">
-                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabel(folder.id)}}" folder-type="{{folder.type}}" untrusted="{{device.untrusted}}" />
+                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabel(folder.id)}}" folder-type="{{folder.type}}" untrusted="{{currentDevice.untrusted}}" />
               </div>
             </div>
             <div class="form-horizontal" ng-if="currentSharing.unrelated.length">
-              <label translate>Unshared Folders</label>
-              <p class="help-block">
+              <label translate for="folders">Unshared Folders</label>
+              <p class="help-block" ng-if="folderList().length > 0">
                 <span translate>Select additional folders to share with this device.</span>&emsp;
                 <small><a href="#" ng-click="selectAllUnrelatedFolders(true)" translate>Select All</a>&emsp;
                   <a href="#" ng-click="selectAllUnrelatedFolders(false)" translate>Deselect All</a></small>
               </p>
+              <p class="help-block" ng-if="folderList().length == 0">
+                <span translate>There are no folders to share with this device.</span>
+              </p>
               <div class="form-group" ng-repeat="folder in currentSharing.unrelated">
-                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabel(folder.id)}}" folder-type="{{folder.type}}" untrusted="{{device.untrusted}}" />
+                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabel(folder.id)}}" folder-type="{{folder.type}}" untrusted="{{currentDevice.untrusted}}" />
               </div>
             </div>
           </div>

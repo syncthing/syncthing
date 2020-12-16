@@ -17,18 +17,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-// List of all dbVersion to dbMinSyncthingVersion pairs for convenience
-//   0: v0.14.0
-//   1: v0.14.46
-//   2: v0.14.48
-//   3-5: v0.14.49
-//   6: v0.14.50
-//   7: v0.14.53
-//   8-9: v1.4.0
-//   10-11: v1.6.0
-//   12-13: v1.7.0
-//   14: v1.9.0
-//
 // dbMigrationVersion is for migrations that do not change the schema and thus
 // do not put restrictions on downgrades (e.g. for repairs after a bugfix).
 const (
@@ -36,6 +24,13 @@ const (
 	dbMigrationVersion    = 15
 	dbMinSyncthingVersion = "v1.9.0"
 )
+
+type migration struct {
+	schemaVersion       int64
+	migrationVersion    int64
+	minSyncthingVersion string
+	migration           func(prevSchema int) error
+}
 
 var errFolderMissing = errors.New("folder present in global list but missing in keyer index")
 
@@ -96,24 +91,19 @@ func (db *schemaUpdater) updateSchema() error {
 		return nil
 	}
 
-	type migration struct {
-		schemaVersion    int64
-		migrationVersion int64
-		migration        func(prevSchema int) error
-	}
-	var migrations = []migration{
-		{1, 1, db.updateSchema0to1},
-		{2, 2, db.updateSchema1to2},
-		{3, 3, db.updateSchema2to3},
-		{5, 5, db.updateSchemaTo5},
-		{6, 6, db.updateSchema5to6},
-		{7, 7, db.updateSchema6to7},
-		{9, 9, db.updateSchemaTo9},
-		{10, 10, db.updateSchemaTo10},
-		{11, 11, db.updateSchemaTo11},
-		{13, 13, db.updateSchemaTo13},
-		{14, 14, db.updateSchemaTo14},
-		{14, 15, db.migration15},
+	migrations := []migration{
+		{1, 1, "v0.14.0", db.updateSchema0to1},
+		{2, 2, "v0.14.46", db.updateSchema1to2},
+		{3, 3, "v0.14.48", db.updateSchema2to3},
+		{5, 5, "v0.14.49", db.updateSchemaTo5},
+		{6, 6, "v0.14.50", db.updateSchema5to6},
+		{7, 7, "v0.14.53", db.updateSchema6to7},
+		{9, 9, "v1.4.0", db.updateSchemaTo9},
+		{10, 10, "v1.6.0", db.updateSchemaTo10},
+		{11, 11, "v1.6.0", db.updateSchemaTo11},
+		{13, 13, "v1.7.0", db.updateSchemaTo13},
+		{14, 14, "v1.9.0", db.updateSchemaTo14},
+		{14, 15, "v1.9.0", db.migration15},
 	}
 
 	for _, m := range migrations {
@@ -122,21 +112,35 @@ func (db *schemaUpdater) updateSchema() error {
 			if err := m.migration(int(prevVersion)); err != nil {
 				return fmt.Errorf("failed to do migration %v: %w", m.migrationVersion, err)
 			}
+			if err := db.writeVersions(m, miscDB); err != nil {
+				return fmt.Errorf("failed to write versions after migration %v: %w", m.migrationVersion, err)
+			}
 		}
 	}
 
-	if err := miscDB.PutInt64("dbVersion", dbVersion); err != nil {
-		return err
-	}
-	if err := miscDB.PutString("dbMinSyncthingVersion", dbMinSyncthingVersion); err != nil {
-		return err
-	}
-	if err := miscDB.PutInt64("dbMigrationVersion", dbMigrationVersion); err != nil {
-		return err
+	if err := db.writeVersions(migration{
+		schemaVersion:       dbVersion,
+		migrationVersion:    dbMigrationVersion,
+		minSyncthingVersion: dbMinSyncthingVersion,
+	}, miscDB); err != nil {
+		return fmt.Errorf("failed to write versions after migrations: %w", err)
 	}
 
 	l.Infoln("Compacting database after migration...")
 	return db.Compact()
+}
+
+func (*schemaUpdater) writeVersions(m migration, miscDB *NamespacedKV) error {
+	if err := miscDB.PutInt64("dbVersion", m.schemaVersion); err != nil && err == nil {
+		return err
+	}
+	if err := miscDB.PutString("dbMinSyncthingVersion", m.minSyncthingVersion); err != nil && err == nil {
+		return err
+	}
+	if err := miscDB.PutInt64("dbMigrationVersion", m.migrationVersion); err != nil && err == nil {
+		return err
+	}
+	return nil
 }
 
 func (db *schemaUpdater) updateSchema0to1(_ int) error {

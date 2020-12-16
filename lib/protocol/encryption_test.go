@@ -11,6 +11,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 func TestEnDecryptName(t *testing.T) {
@@ -93,5 +95,33 @@ func TestEnDecryptFileInfo(t *testing.T) {
 	}
 	if !reflect.DeepEqual(fi, dec) {
 		t.Error("mismatch after decryption")
+	}
+}
+
+func TestIsEncryptedParent(t *testing.T) {
+	comp := rand.String(maxPathComponent)
+	cases := []struct {
+		path string
+		is   bool
+	}{
+		{"", false},
+		{".", false},
+		{"/", false},
+		{"12" + encryptedDirExtension, false},
+		{"1" + encryptedDirExtension, true},
+		{"1" + encryptedDirExtension + "/b", false},
+		{"1" + encryptedDirExtension + "/bc", true},
+		{"1" + encryptedDirExtension + "/bcd", false},
+		{"1" + encryptedDirExtension + "/bc/foo", false},
+		{"1.12/22", false},
+		{"1" + encryptedDirExtension + "/bc/" + comp, true},
+		{"1" + encryptedDirExtension + "/bc/" + comp + "/" + comp, true},
+		{"1" + encryptedDirExtension + "/bc/" + comp + "a", false},
+		{"1" + encryptedDirExtension + "/bc/" + comp + "/a/" + comp, false},
+	}
+	for _, tc := range cases {
+		if res := IsEncryptedParent(tc.path); res != tc.is {
+			t.Errorf("%v: got %v, expected %v", tc.path, res, tc.is)
+		}
 	}
 }

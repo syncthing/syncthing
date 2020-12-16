@@ -25,8 +25,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -3280,50 +3278,6 @@ func TestRequestLimit(t *testing.T) {
 	case <-returned:
 	case <-time.After(time.Second):
 		t.Fatalf("Second request did not return after first was done")
-	}
-}
-
-func TestSanitizePath(t *testing.T) {
-	cases := [][2]string{
-		{"", ""},
-		{"foo", "foo"},
-		{`\*/foo\?/bar[{!@$%^&*#()}]`, "foo bar ()"},
-		{"Räksmörgås", "Räksmörgås"},
-		{`Räk \/ smörgås`, "Räk smörgås"},
-		{"هذا هو *\x07?اسم الملف", "هذا هو اسم الملف"},
-		{`../foo.txt`, `.. foo.txt`},
-		{"  \t \n filename in  \t space\r", "filename in space"},
-		{"你\xff好", `你 好`},
-		{"\000 foo", "foo"},
-	}
-
-	for _, tc := range cases {
-		res := sanitizePath(tc[0])
-		if res != tc[1] {
-			t.Errorf("sanitizePath(%q) => %q, expected %q", tc[0], res, tc[1])
-		}
-	}
-}
-
-// Fuzz test: sanitizePath must always return strings of printable UTF-8
-// characters when fed random data.
-//
-// Note that space is considered printable, but other whitespace runes are not.
-func TestSanitizePathFuzz(t *testing.T) {
-	buf := make([]byte, 128)
-
-	for i := 0; i < 100; i++ {
-		rand.Read(buf)
-		path := sanitizePath(string(buf))
-		if !utf8.ValidString(path) {
-			t.Errorf("sanitizePath(%q) => %q, not valid UTF-8", buf, path)
-			continue
-		}
-		for _, c := range path {
-			if !unicode.IsPrint(c) {
-				t.Errorf("non-printable rune %q in sanitized path", c)
-			}
-		}
 	}
 }
 

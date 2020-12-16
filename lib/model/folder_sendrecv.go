@@ -1695,6 +1695,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 		return nil
 	}
 
+	recvEnc := f.Type == config.FolderTypeReceiveEncrypted
 loop:
 	for {
 		select {
@@ -1706,6 +1707,9 @@ loop:
 			switch job.jobType {
 			case dbUpdateHandleFile, dbUpdateShortcutFile:
 				changedDirs[filepath.Dir(job.file.Name)] = struct{}{}
+				if recvEnc {
+					job.file.Size += encryptionTrailerSize(job.file)
+				}
 			case dbUpdateHandleDir:
 				changedDirs[job.file.Name] = struct{}{}
 			case dbUpdateHandleSymlink, dbUpdateInvalidate:

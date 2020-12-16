@@ -15,8 +15,13 @@
         <input class="form-control input-sm" type="password" placeholder="{{'Received data is already encrypted' | translate}}" disabled />
       </span>
       <span ng-switch-default ng-switch="selected[id]">
-        <span ng-switch-when='true' ng-class="{'has-error': untrusted && !encryptionPasswords[id]}">
-          <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encryptionPasswords[id]" ng-required="untrusted" placeholder="{{'If untrusted, enter encryption password' | translate}}" />
+        <span ng-switch-when='true' ng-switch="untrusted">
+          <span ng-switch-when='true' ng-class="{'has-error': !encryptionPasswords[id]}">
+            <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encryptionPasswords[id]" required placeholder="{{'Device is untrusted, enter encryption password' | translate}}" />
+          </span>
+          <span ng-switch-default>
+            <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encryptionPasswords[id]" placeholder="{{'If untrusted, enter encryption password' | translate}}" />
+          </span>
         </span>
         <span ng-switch-default>
           <input class="form-control input-sm" type="password" placeholder="{{'Not shared' | translate}}" disabled />

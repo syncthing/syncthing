@@ -19,7 +19,6 @@ import (
 	"strings"
 	stdsync "sync"
 	"time"
-	"unicode"
 
 	"github.com/pkg/errors"
 	"github.com/thejerf/suture/v4"
@@ -91,7 +90,9 @@ type Model interface {
 	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error)
 
 	DBSnapshot(folder string) (*db.Snapshot, error)
-	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated)
+	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)
+	RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error)
+	LocalChangedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error)
 	FolderProgressBytesCompleted(folder string) int64
 
 	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool)
@@ -892,7 +893,7 @@ func (m *model) FolderProgressBytesCompleted(folder string) int64 {
 
 // NeedFolderFiles returns paginated list of currently needed files in
 // progress, queued, and to be queued on next puller iteration.
-func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
+func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error) {
 	m.fmut.RLock()
 	rf, rfOk := m.folderFiles[folder]
 	runner, runnerOk := m.folderRunners[folder]
@@ -900,7 +901,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	m.fmut.RUnlock()
 
 	if !rfOk {
-		return nil, nil, nil
+		return nil, nil, nil, errFolderMissing
 	}
 
 	snap := rf.Snapshot()
@@ -908,8 +909,7 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	var progress, queued, rest []db.FileInfoTruncated
 	var seen map[string]struct{}
 
-	skip := (page - 1) * perpage
-	get := perpage
+	p := newPager(page, perpage)
 
 	if runnerOk {
 		progressNames, queuedNames, skipped := runner.Jobs(page, perpage)
@@ -932,11 +932,11 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 			}
 		}
 
-		get -= len(seen)
-		if get == 0 {
-			return progress, queued, nil
+		p.get -= len(seen)
+		if p.get == 0 {
+			return progress, queued, nil, nil
 		}
-		skip -= skipped
+		p.toSkip -= skipped
 	}
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
@@ -945,19 +945,107 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 			return true
 		}
 
-		if skip > 0 {
-			skip--
+		if p.skip() {
 			return true
 		}
 		ft := f.(db.FileInfoTruncated)
 		if _, ok := seen[ft.Name]; !ok {
 			rest = append(rest, ft)
-			get--
+			p.get--
 		}
-		return get > 0
+		return p.get > 0
 	})
 
-	return progress, queued, rest
+	return progress, queued, rest, nil
+}
+
+// RemoteNeedFolderFiles returns paginated list of currently needed files in
+// progress, queued, and to be queued on next puller iteration, as well as the
+// total number of files currently needed.
+func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error) {
+	m.fmut.RLock()
+	rf, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+
+	if !ok {
+		return nil, errFolderMissing
+	}
+
+	snap := rf.Snapshot()
+	defer snap.Release()
+
+	files := make([]db.FileInfoTruncated, 0, perpage)
+	p := newPager(page, perpage)
+	snap.WithNeedTruncated(device, func(f protocol.FileIntf) bool {
+		if p.skip() {
+			return true
+		}
+		files = append(files, f.(db.FileInfoTruncated))
+		return !p.done()
+	})
+	return files, nil
+}
+
+func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
+	m.fmut.RLock()
+	rf, ok := m.folderFiles[folder]
+	cfg := m.folderCfgs[folder]
+	m.fmut.RUnlock()
+
+	if !ok {
+		return nil, errFolderMissing
+	}
+
+	snap := rf.Snapshot()
+	defer snap.Release()
+
+	if snap.ReceiveOnlyChangedSize().TotalItems() == 0 {
+		return nil, nil
+	}
+
+	p := newPager(page, perpage)
+	recvEnc := cfg.Type == config.FolderTypeReceiveEncrypted
+	files := make([]db.FileInfoTruncated, 0, perpage)
+
+	snap.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
+		if !f.IsReceiveOnlyChanged() || (recvEnc && f.IsDeleted()) {
+			return true
+		}
+		if p.skip() {
+			return true
+		}
+		ft := f.(db.FileInfoTruncated)
+		files = append(files, ft)
+		return !p.done()
+	})
+
+	return files, nil
+}
+
+type pager struct {
+	toSkip, get int
+}
+
+func newPager(page, perpage int) *pager {
+	return &pager{
+		toSkip: (page - 1) * perpage,
+		get:    perpage,
+	}
+}
+
+func (p *pager) skip() bool {
+	if p.toSkip == 0 {
+		return false
+	}
+	p.toSkip--
+	return true
+}
+
+func (p *pager) done() bool {
+	if p.get > 0 {
+		p.get--
+	}
+	return p.get == 0
 }
 
 // Index is called when a new device is connected and we receive their full index.
@@ -1044,7 +1132,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	changed := false
-	deviceCfg, ok := m.cfg.Devices()[deviceID]
+	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
 		l.Debugln("Device disappeared from config while processing cluster-config")
 		return errDeviceUnknown
@@ -1381,7 +1469,7 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 
 			foldersDevices.set(device.ID, folder.ID)
 
-			if _, ok := m.cfg.Devices()[device.ID]; !ok {
+			if _, ok := m.cfg.Device(device.ID); !ok {
 				// The device is currently unknown. Add it to the config.
 				devices[device.ID] = m.introduceDevice(device, introducerCfg)
 			} else if fcfg.SharedWith(device.ID) {
@@ -1467,8 +1555,8 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
 		pathAlternatives := []string{
-			sanitizePath(folder.Label),
-			sanitizePath(folder.ID),
+			fs.SanitizePath(folder.Label),
+			fs.SanitizePath(folder.ID),
 		}
 		for _, path := range pathAlternatives {
 			if _, err := defaultPathFs.Lstat(path); !fs.IsNotExist(err) {
@@ -1842,7 +1930,7 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	m.fmut.RUnlock()
 
 	if !cfgOk {
-		cfg, cfgOk = m.cfg.Folders()[folder]
+		cfg, cfgOk = m.cfg.Folder(folder)
 		if !cfgOk {
 			return nil, nil, fmt.Errorf("folder %s does not exist", folder)
 		}
@@ -1869,7 +1957,7 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 }
 
 func (m *model) SetIgnores(folder string, content []string) error {
-	cfg, ok := m.cfg.Folders()[folder]
+	cfg, ok := m.cfg.Folder(folder)
 	if !ok {
 		return fmt.Errorf("folder %s does not exist", cfg.Description())
 	}
@@ -2757,42 +2845,6 @@ type syncMutexMap struct {
 func (m *syncMutexMap) Get(key string) sync.Mutex {
 	v, _ := m.inner.LoadOrStore(key, sync.NewMutex())
 	return v.(sync.Mutex)
-}
-
-// sanitizePath takes a string that might contain all kinds of special
-// characters and makes a valid, similar, path name out of it.
-//
-// Spans of invalid characters, whitespace and/or non-UTF-8 sequences are
-// replaced by a single space. The result is always UTF-8 and contains only
-// printable characters, as determined by unicode.IsPrint.
-//
-// Invalid characters are non-printing runes, things not allowed in file names
-// in Windows, and common shell metacharacters. Even if asterisks and pipes
-// and stuff are allowed on Unixes in general they might not be allowed by
-// the filesystem and may surprise the user and cause shell oddness. This
-// function is intended for file names we generate on behalf of the user,
-// and surprising them with odd shell characters in file names is unkind.
-//
-// We include whitespace in the invalid characters so that multiple
-// whitespace is collapsed to a single space. Additionally, whitespace at
-// either end is removed.
-func sanitizePath(path string) string {
-	var b strings.Builder
-
-	prev := ' '
-	for _, c := range path {
-		if !unicode.IsPrint(c) || c == unicode.ReplacementChar ||
-			strings.ContainsRune(`<>:"'/\|?*[]{};:!@$%&^#`, c) {
-			c = ' '
-		}
-
-		if !(c == ' ' && prev == ' ') {
-			b.WriteRune(c)
-		}
-		prev = c
-	}
-
-	return strings.TrimSpace(b.String())
 }
 
 type deviceIDSet map[protocol.DeviceID]struct{}
