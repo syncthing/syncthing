@@ -390,8 +390,9 @@ func OnSupervisorDone(sup *suture.Supervisor, fn func()) {
 	sup.Add(&doneService{fn})
 }
 
-func Spec() suture.Spec {
+func Spec(eventHook suture.EventHook) suture.Spec {
 	return suture.Spec{
+		EventHook:                eventHook,
 		PassThroughPanics:        true,
 		DontPropagateTermination: false,
 	}

@@ -68,11 +68,8 @@ type Lowlevel struct {
 }
 
 func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
-	spec := util.Spec()
 	// Only log restarts in debug mode.
-	spec.EventHook = func(e suture.Event) {
-		l.Debugln(e)
-	}
+	spec := util.Spec(func(e suture.Event) { l.Debugln(e) })
 	db := &Lowlevel{
 		Supervisor:         suture.New("db.Lowlevel", spec),
 		Backend:            backend,
