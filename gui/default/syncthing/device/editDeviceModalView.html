@@ -1,14 +1,14 @@
-<modal id="editDevice" status="default" icon="{{editingExisting ? 'fas fa-pencil-alt' : 'fas fa-desktop'}}" heading="{{editingExisting ? 'Edit Device' : 'Add Device' | translate}} {{currentDevice.name}}" large="yes" closeable="yes">
+<modal id="editDevice" status="default" icon="{{editDeviceModalIcon()}}" heading="{{editDeviceModalTitle()}}" large="yes" closeable="yes">
   <div class="modal-body">
     <form role="form" name="deviceEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(deviceEditor)">
         <li class="active"><a data-toggle="tab" href="#device-general"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
-        <li><a data-toggle="tab" href="#device-sharing"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
+        <li ng-if="!editingDefaults"><a data-toggle="tab" href="#device-sharing"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
         <li><a data-toggle="tab" href="#device-advanced"><span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
       </ul>
       <div class="tab-content">
         <div id="device-general" class="tab-pane in active">
-          <div class="form-group" ng-class="{'has-error': deviceEditor.deviceID.$invalid && deviceEditor.deviceID.$dirty}" ng-init="loadFormIntoScope(deviceEditor)">
+          <div ng-if="!editingDefaults" class="form-group" ng-class="{'has-error': deviceEditor.deviceID.$invalid && deviceEditor.deviceID.$dirty}" ng-init="loadFormIntoScope(deviceEditor)">
             <label translate for="deviceID">Device ID</label>
             <div ng-if="!editingExisting">
               <input name="deviceID" id="deviceID" class="form-control text-monospace" type="text" ng-model="currentDevice.deviceID" required="" valid-deviceid list="discovery-list" aria-required="true" />
@@ -38,7 +38,7 @@
             <p translate ng-if="currentDevice.deviceID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.</p>
           </div>
         </div>
-        <div id="device-sharing" class="tab-pane">
+        <div ng-if="!editingDefaults" id="device-sharing" class="tab-pane">
           <div class="row">
             <div class="col-md-6">
               <div class="form-group">
@@ -164,13 +164,13 @@
     <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid">
       <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
     </button>
-    <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#idqr" ng-if="editingExisting || deviceEditor.deviceID.$valid">
+    <button ng-if="!editingDefaults" type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#idqr" ng-if="editingExisting || deviceEditor.deviceID.$valid">
       <span class="fas fa-qrcode"></span>&nbsp;<span translate>Show QR</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
       <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
-    <div ng-if="editingExisting" class="pull-left">
+    <div ng-if="editingExisting && !editingDefaults" class="pull-left">
       <button type="button" class="btn btn-warning btn-sm disabled" ng-if="willBeReintroducedBy" tooltip data-original-title="This device will be reintroduced by {{ willBeReintroducedBy }}">
         <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
       </button>
