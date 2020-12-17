@@ -1761,6 +1761,7 @@ angular.module('syncthing.core')
         };
 
         function editFolderModal() {
+            initVersioningEditing();
             $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal().one('shown.bs.tab', function (e) {
@@ -1804,6 +1805,10 @@ angular.module('syncthing.core')
                 $scope.currentFolder.path = '';
             }
             initShareEditing('folder');
+            editFolderModal();
+        }
+
+        function initVersioningEditing() {
             if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "trashcan") {
                 $scope.currentFolder.trashcanFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "trashcan";
@@ -1842,8 +1847,6 @@ angular.module('syncthing.core')
                 $scope.currentFolder.staggeredMaxAge = 365;
             }
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
-
-            editFolderModal();
         };
 
         $scope.editFolderExisting = function(folderCfg) {
