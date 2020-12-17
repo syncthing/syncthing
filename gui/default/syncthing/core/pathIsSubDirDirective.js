@@ -4,9 +4,6 @@ angular.module('syncthing.core')
             require: 'ngModel',
             link: function (scope, elm, attrs, ctrl) {
                 ctrl.$parsers.unshift(function (viewValue) {
-                    if (scope.editingDefaults) {
-                        return;
-                    }
                     // This function checks whether ydir is a subdirectory of xdir,
                     // e.g. it would return true if xdir = "/home/a", ydir = "/home/a/b".
                     function isSubDir(xdir, ydir) {

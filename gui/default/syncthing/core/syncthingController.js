@@ -1824,7 +1824,8 @@ angular.module('syncthing.core')
         $scope.editFolderDefaults = function() {
             $http.get(urlbase + '/config/defaults/folder')
                  .success(function (data) {
-                     $scope.currentFolder = data
+                     $scope.currentFolder = data;
+                     $scope.editingExisting = false;
                      $scope.editingDefaults = true;
                      editFolder()
                  })
@@ -1834,6 +1835,9 @@ angular.module('syncthing.core')
         function editFolder() {
             if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
+            } else if (!$scope.currentFolder.path) {
+                // undefined path leads to invalid input field
+                $scope.currentFolder.path = '';
             }
             initShareEditing('folder');
             if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "trashcan") {
