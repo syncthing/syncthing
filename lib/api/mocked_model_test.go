@@ -125,6 +125,14 @@ func (m *mockedModel) State(folder string) (string, time.Time, error) {
 func (m *mockedModel) UsageReportingStats(r *contract.Report, version int, preview bool) {
 }
 
+func (m *mockedModel) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
+	return nil, nil
+}
+
+func (m *mockedModel) PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error) {
+	return nil, nil
+}
+
 func (m *mockedModel) FolderErrors(folder string) ([]model.FileError, error) {
 	return nil, nil
 }

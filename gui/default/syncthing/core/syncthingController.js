@@ -38,6 +38,8 @@ angular.module('syncthing.core')
         $scope.upgradeInfo = null;
         $scope.deviceStats = {};
         $scope.folderStats = {};
+        $scope.pendingDevices = {};
+        $scope.pendingFolders = {};
         $scope.progress = {};
         $scope.version = {};
         $scope.needed = {}
@@ -232,6 +234,34 @@ angular.module('syncthing.core')
             }
         });
 
+        $scope.$on(Events.DEVICE_REJECTED, function (event, arg) {
+            var pendingDevice = {
+                time: arg.time,
+                name: arg.data.name,
+                address: arg.data.address
+            };
+            console.log("rejected device:", arg.data.device, pendingDevice);
+
+            $scope.pendingDevices[arg.data.device] = pendingDevice;
+        });
+
+        $scope.$on(Events.FOLDER_REJECTED, function (event, arg) {
+            var offeringDevice = {
+                time: arg.time,
+                label: arg.data.folderLabel
+            };
+            console.log("rejected folder", arg.data.folder, "from device:", arg.data.device, offeringDevice);
+
+            var pendingFolder = $scope.pendingFolders[arg.data.folder];
+            if (pendingFolder === undefined) {
+                pendingFolder = {
+                    offeredBy: {}
+                };
+            }
+            pendingFolder.offeredBy[arg.data.device] = offeringDevice;
+            $scope.pendingFolders[arg.data.folder] = pendingFolder;
+        });
+
         $scope.$on('ConfigLoaded', function () {
             if ($scope.config.options.urAccepted === 0) {
                 // If usage reporting has been neither accepted nor declined,
@@ -381,6 +411,7 @@ angular.module('syncthing.core')
                 });
             });
 
+            refreshCluster();
             refreshNoAuthWarning();
             setDefaultTheme();
 
@@ -445,6 +476,16 @@ angular.module('syncthing.core')
             }
         }
 
+        function refreshCluster() {
+            $http.get(urlbase + '/cluster/pending/devices').success(function (data) {
+                $scope.pendingDevices = data;
+                console.log("refreshCluster devices", data);
+            }).error($scope.emitHTTPError);
+            $http.get(urlbase + '/cluster/pending/folders').success(function (data) {
+                $scope.pendingFolders = data;
+                console.log("refreshCluster folders", data);
+            }).error($scope.emitHTTPError);
+        }
 
         function refreshDiscoveryCache() {
             $http.get(urlbase + '/system/discovery').success(function (data) {
@@ -1017,7 +1058,6 @@ angular.module('syncthing.core')
 
             // loop through all devices
             var deviceCount = 0;
-            var pendingFolders = 0;
             for (var id in $scope.devices) {
                 var status = $scope.deviceStatus({
                     deviceID: id
@@ -1033,14 +1073,11 @@ angular.module('syncthing.core')
                         deviceCount--;
                         break;
                 }
-                pendingFolders += $scope.devices[id].pendingFolders.length;
                 deviceCount++;
             }
 
             // enumerate notifications
-            if ($scope.openNoAuth || !$scope.configInSync || $scope.errorList().length > 0 || !online || (
-                !isEmptyObject($scope.config) && ($scope.config.pendingDevices.length > 0 || pendingFolders > 0)
-            )) {
+            if ($scope.openNoAuth || !$scope.configInSync || $scope.errorList().length > 0 || !online || Object.keys($scope.pendingDevices).length > 0 || Object.keys($scope.pendingFolders).length > 0) {
                 notifyCount++;
             }
 
@@ -1476,12 +1513,11 @@ angular.module('syncthing.core')
         };
 
         $scope.editDeviceDefaults = function () {
-            $http.get(urlbase + '/config/defaults/device')
-                 .then(function (data) {
-                     $scope.currentDevice = data;
-                     $scope.editingDefaults = true;
-                     editDeviceModal();
-                 }, $scope.emitHTTPError);
+            $http.get(urlbase + '/config/defaults/device').then(function (p) {
+                $scope.currentDevice = p.data;
+                $scope.editingDefaults = true;
+                editDeviceModal();
+            }, $scope.emitHTTPError);
         };
 
         $scope.selectAllSharedFolders = function (state) {
@@ -1522,7 +1558,7 @@ angular.module('syncthing.core')
                         initShareEditing('device');
                         $scope.currentSharing.unrelated = $scope.folderList();
                         editDeviceModal();
-                    }, scope.emitHTTPError);
+                    }, $scope.emitHTTPError);
                 });
         };
 
@@ -1593,11 +1629,12 @@ angular.module('syncthing.core')
             $scope.config.folders = folderList($scope.folders);
         };
 
-        $scope.ignoreDevice = function (pendingDevice) {
-            pendingDevice = angular.copy(pendingDevice);
+        $scope.ignoreDevice = function (deviceID, pendingDevice) {
+            var ignoredDevice = angular.copy(pendingDevice);
+            ignoredDevice.deviceID = deviceID;
             // Bump time
-            pendingDevice.time = (new Date()).toISOString();
-            $scope.config.remoteIgnoredDevices.push(pendingDevice);
+            ignoredDevice.time = (new Date()).toISOString();
+            $scope.config.remoteIgnoredDevices.push(ignoredDevice);
             $scope.saveConfig();
         };
 
@@ -2047,13 +2084,16 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.ignoreFolder = function (device, pendingFolder) {
-            pendingFolder = angular.copy(pendingFolder);
-            // Bump time
-            pendingFolder.time = (new Date()).toISOString();
+        $scope.ignoreFolder = function (device, folderID, offeringDevice) {
+            var ignoredFolder = {
+                id: folderID,
+                label: offeringDevice.label,
+                // Bump time
+                time: (new Date()).toISOString()
+            }
 
-            if (device in $scope.devices) {
-                $scope.devices[device].ignoredFolders.push(pendingFolder);
+            if (id in $scope.devices) {
+                $scope.devices[id].ignoredFolders.push(ignoredFolder);
                 $scope.saveConfig();
             }
         };

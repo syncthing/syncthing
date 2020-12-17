@@ -68,6 +68,12 @@ const (
 
 	// KeyTypeVersion <version hash> = Vector
 	KeyTypeVersion byte = 15
+
+	// KeyTypePendingFolder <int32 device ID> <folder ID as string> = ObservedFolder
+	KeyTypePendingFolder byte = 16
+
+	// KeyTypePendingDevice <device ID in wire format> = ObservedDevice
+	KeyTypePendingDevice byte = 17
 )
 
 type keyer interface {
@@ -108,6 +114,14 @@ type keyer interface {
 
 	// Version vectors
 	GenerateVersionKey(key []byte, hash []byte) versionKey
+
+	// Pending (unshared) folders and devices
+	GeneratePendingFolderKey(key, device, folder []byte) (pendingFolderKey, error)
+	FolderFromPendingFolderKey(key []byte) []byte
+	DeviceFromPendingFolderKey(key []byte) ([]byte, bool)
+
+	GeneratePendingDeviceKey(key, device []byte) pendingDeviceKey
+	DeviceFromPendingDeviceKey(key []byte) []byte
 }
 
 // defaultKeyer implements our key scheme. It needs folder and device
@@ -339,6 +353,41 @@ func (k defaultKeyer) GenerateVersionKey(key []byte, hash []byte) versionKey {
 
 func (k versionKey) Hash() []byte {
 	return k[keyPrefixLen:]
+}
+
+type pendingFolderKey []byte
+
+func (k defaultKeyer) GeneratePendingFolderKey(key, device, folder []byte) (pendingFolderKey, error) {
+	deviceID, err := k.deviceIdx.ID(device)
+	if err != nil {
+		return nil, err
+	}
+	key = resize(key, keyPrefixLen+keyDeviceLen+len(folder))
+	key[0] = KeyTypePendingFolder
+	binary.BigEndian.PutUint32(key[keyPrefixLen:], deviceID)
+	copy(key[keyPrefixLen+keyDeviceLen:], folder)
+	return key, nil
+}
+
+func (k defaultKeyer) FolderFromPendingFolderKey(key []byte) []byte {
+	return key[keyPrefixLen+keyDeviceLen:]
+}
+
+func (k defaultKeyer) DeviceFromPendingFolderKey(key []byte) ([]byte, bool) {
+	return k.deviceIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
+}
+
+type pendingDeviceKey []byte
+
+func (k defaultKeyer) GeneratePendingDeviceKey(key, device []byte) pendingDeviceKey {
+	key = resize(key, keyPrefixLen+len(device))
+	key[0] = KeyTypePendingDevice
+	copy(key[keyPrefixLen:], device)
+	return key
+}
+
+func (k defaultKeyer) DeviceFromPendingDeviceKey(key []byte) []byte {
+	return key[keyPrefixLen:]
 }
 
 // resize returns a byte slice of the specified size, reusing bs if possible

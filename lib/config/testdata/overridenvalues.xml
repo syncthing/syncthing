@@ -1,4 +1,4 @@
-<configuration version="33">
+<configuration version="34">
     <options>
         <listenAddress>tcp://:23000</listenAddress>
         <allowDelete>false</allowDelete>

@@ -9,7 +9,6 @@ package config
 import (
 	"os"
 	"sync/atomic"
-	"time"
 
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -89,8 +88,7 @@ type Wrapper interface {
 	DefaultDevice() DeviceConfiguration
 	SetDefaultDevice(DeviceConfiguration) (Waiter, error)
 
-	AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string)
-	AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID)
+	IgnoredDevices() []ObservedDevice
 	IgnoredDevice(id protocol.DeviceID) bool
 	IgnoredFolder(device protocol.DeviceID, folder string) bool
 
@@ -458,6 +456,15 @@ func (w *wrapper) IgnoredDevice(id protocol.DeviceID) bool {
 	return false
 }
 
+// IgnoredDevices returns a slice of ignored devices.
+func (w *wrapper) IgnoredDevices() []ObservedDevice {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	res := make([]ObservedDevice, len(w.cfg.IgnoredDevices))
+	copy(res, w.cfg.IgnoredDevices)
+	return res
+}
+
 // IgnoredFolder returns whether or not share attempts for the given
 // folder should be silently ignored.
 func (w *wrapper) IgnoredFolder(device protocol.DeviceID, folder string) bool {
@@ -524,50 +531,4 @@ func (w *wrapper) RequiresRestart() bool {
 
 func (w *wrapper) setRequiresRestart() {
 	atomic.StoreUint32(&w.requiresRestart, 1)
-}
-
-func (w *wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {
-	w.mut.Lock()
-	defer w.mut.Unlock()
-
-	for i := range w.cfg.PendingDevices {
-		if w.cfg.PendingDevices[i].ID == device {
-			w.cfg.PendingDevices[i].Time = time.Now().Round(time.Second)
-			w.cfg.PendingDevices[i].Name = name
-			w.cfg.PendingDevices[i].Address = address
-			return
-		}
-	}
-
-	w.cfg.PendingDevices = append(w.cfg.PendingDevices, ObservedDevice{
-		Time:    time.Now().Round(time.Second),
-		ID:      device,
-		Name:    name,
-		Address: address,
-	})
-}
-
-func (w *wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {
-	w.mut.Lock()
-	defer w.mut.Unlock()
-
-	for i := range w.cfg.Devices {
-		if w.cfg.Devices[i].DeviceID == device {
-			for j := range w.cfg.Devices[i].PendingFolders {
-				if w.cfg.Devices[i].PendingFolders[j].ID == id {
-					w.cfg.Devices[i].PendingFolders[j].Label = label
-					w.cfg.Devices[i].PendingFolders[j].Time = time.Now().Round(time.Second)
-					return
-				}
-			}
-			w.cfg.Devices[i].PendingFolders = append(w.cfg.Devices[i].PendingFolders, ObservedFolder{
-				Time:  time.Now().Round(time.Second),
-				ID:    id,
-				Label: label,
-			})
-			return
-		}
-	}
-
-	panic("bug: adding pending folder for non-existing device")
 }
