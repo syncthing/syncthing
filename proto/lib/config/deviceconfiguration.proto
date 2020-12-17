@@ -22,7 +22,7 @@ message DeviceConfiguration {
     int32                   max_send_kbps              = 12;
     int32                   max_recv_kbps              = 13;
     repeated ObservedFolder ignored_folders            = 14;
-    repeated ObservedFolder pending_folders            = 15;
+    repeated ObservedFolder pending_folders            = 15 [deprecated = true];
     int32                   max_request_kib            = 16 [(ext.goname) = "MaxRequestKiB", (ext.xml) = "maxRequestKiB", (ext.json) = "maxRequestKiB"];
     bool                    untrusted                  = 17;
     int32                   remote_gui_port            = 18 [(ext.goname) = "RemoteGUIPort", (ext.xml) = "remoteGUIPort", (ext.json) = "remoteGUIPort"];

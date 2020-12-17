@@ -105,6 +105,9 @@ type Model interface {
 	FolderStatistics() (map[string]stats.FolderStatistics, error)
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 
+	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error)
+	PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error)
+
 	StartDeadlockDetector(timeout time.Duration)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
 }
@@ -264,16 +267,19 @@ func (m *model) serve(ctx context.Context) error {
 }
 
 func (m *model) initFolders(cfg config.Configuration) {
-	cacheIgnoredFiles := cfg.Options.CacheIgnoredFiles
 	clusterConfigDevices := make(deviceIDSet, len(cfg.Devices))
 	for _, folderCfg := range cfg.Folders {
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
 		}
-		m.newFolder(folderCfg, cacheIgnoredFiles)
+		m.newFolder(folderCfg, cfg.Options.CacheIgnoredFiles)
 		clusterConfigDevices.add(folderCfg.DeviceIDs())
 	}
+
+	ignoredDevices := observedDeviceSet(m.cfg.IgnoredDevices())
+	m.cleanPending(cfg.DeviceMap(), cfg.FolderMap(), ignoredDevices, nil)
+
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
 }
 
@@ -1257,9 +1263,10 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
-			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
+			if err := m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID); err != nil {
+				l.Warnf("Failed to persist pending folder entry to database: %v", err)
+			}
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
-			changed = true
 			m.evLogger.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -1995,8 +2002,9 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 
 	cfg, ok := m.cfg.Device(remoteID)
 	if !ok {
-		m.cfg.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String())
-		_ = m.cfg.Save() // best effort
+		if err := m.db.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String()); err != nil {
+			l.Warnf("Failed to persist pending device entry to database: %v", err)
+		}
 		m.evLogger.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),
@@ -2586,12 +2594,14 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
+	removedFolders := make(map[string]struct{})
 	for folderID, fromCfg := range fromFolders {
 		toCfg, ok := toFolders[folderID]
 		if !ok {
 			// The folder was removed.
 			m.removeFolder(fromCfg)
 			clusterConfigDevices.add(fromCfg.DeviceIDs())
+			removedFolders[fromCfg.ID] = struct{}{}
 			continue
 		}
 
@@ -2656,6 +2666,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
+	// Clean up after removed devices
 	removedDevices := make([]protocol.DeviceID, 0, len(fromDevices))
 	m.fmut.Lock()
 	for deviceID := range fromDevices {
@@ -2680,6 +2691,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
 
+	ignoredDevices := observedDeviceSet(to.IgnoredDevices)
+	m.cleanPending(toDevices, toFolders, ignoredDevices, removedFolders)
+
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
 
@@ -2692,6 +2706,59 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	return true
+}
+
+func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]struct{}) {
+	pendingFolders, err := m.db.PendingFolders()
+	if err != nil {
+		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
+		// Continue with pending devices below, loop is skipped.
+	}
+	for folderID, pf := range pendingFolders {
+		if _, ok := removedFolders[folderID]; ok {
+			// Forget pending folder device associations for recently removed
+			// folders as well, assuming the folder is no longer of interest
+			// at all (but might become pending again).
+			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
+			m.db.RemovePendingFolder(folderID)
+			continue
+		}
+		for deviceID := range pf.OfferedBy {
+			if dev, ok := existingDevices[deviceID]; !ok {
+				l.Debugf("Discarding pending folder %v from unknown device %v", folderID, deviceID)
+				m.db.RemovePendingFolderForDevice(folderID, deviceID)
+				continue
+			} else if dev.IgnoredFolder(folderID) {
+				l.Debugf("Discarding now ignored pending folder %v for device %v", folderID, deviceID)
+				m.db.RemovePendingFolderForDevice(folderID, deviceID)
+				continue
+			}
+			if folderCfg, ok := existingFolders[folderID]; ok {
+				if folderCfg.SharedWith(deviceID) {
+					l.Debugf("Discarding now shared pending folder %v for device %v", folderID, deviceID)
+					m.db.RemovePendingFolderForDevice(folderID, deviceID)
+				}
+			}
+		}
+	}
+
+	pendingDevices, err := m.db.PendingDevices()
+	if err != nil {
+		l.Infof("Could not iterate through pending device entries for cleanup: %v", err)
+		return
+	}
+	for deviceID := range pendingDevices {
+		if _, ok := ignoredDevices[deviceID]; ok {
+			l.Debugf("Discarding now ignored pending device %v", deviceID)
+			m.db.RemovePendingDevice(deviceID)
+			continue
+		}
+		if _, ok := existingDevices[deviceID]; ok {
+			l.Debugf("Discarding now added pending device %v", deviceID)
+			m.db.RemovePendingDevice(deviceID)
+			continue
+		}
+	}
 }
 
 // checkFolderRunningLocked returns nil if the folder is up and running and a
@@ -2712,6 +2779,18 @@ func (m *model) checkFolderRunningLocked(folder string) error {
 	return errFolderNotRunning
 }
 
+// PendingDevices lists unknown devices that tried to connect.
+func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
+	return m.db.PendingDevices()
+}
+
+// PendingFolders lists folders that we don't yet share with the offering devices.  It
+// returns the entries grouped by folder and filters for a given device unless the
+// argument is specified as EmptyDeviceID.
+func (m *model) PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error) {
+	return m.db.PendingFoldersForDevice(device)
+}
+
 // mapFolders returns a map of folder ID to folder configuration for the given
 // slice of folder configurations.
 func mapFolders(folders []config.FolderConfiguration) map[string]config.FolderConfiguration {
@@ -2730,6 +2809,14 @@ func mapDevices(devices []protocol.DeviceID) map[protocol.DeviceID]struct{} {
 		m[dev] = struct{}{}
 	}
 	return m
+}
+
+func observedDeviceSet(devices []config.ObservedDevice) deviceIDSet {
+	res := make(deviceIDSet, len(devices))
+	for _, dev := range devices {
+		res[dev.ID] = struct{}{}
+	}
+	return res
 }
 
 func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) error {
