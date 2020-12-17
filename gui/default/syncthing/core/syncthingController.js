@@ -639,7 +639,7 @@ angular.module('syncthing.core')
         }
 
         function shouldSetDefaultFolderPath() {
-            return $scope.config.options && $scope.config.options.defaultFolderPath && !$scope.editingExisting && $scope.folderEditor.folderPath.$pristine
+            return $scope.config.options && $scope.config.defaults.folder.path && !$scope.editingExisting && $scope.folderEditor.folderPath.$pristine
         }
 
         function resetRemoteNeed() {
@@ -1726,14 +1726,14 @@ angular.module('syncthing.core')
             if (!newvalue || !shouldSetDefaultFolderPath()) {
                 return;
             }
-            $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newvalue);
+            $scope.currentFolder.path = pathJoin($scope.config.defaults.folder.path, newvalue);
         });
 
         $scope.$watch('currentFolder.id', function (newvalue) {
             if (!newvalue || !shouldSetDefaultFolderPath() || $scope.currentFolder.label) {
                 return;
             }
-            $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newvalue);
+            $scope.currentFolder.path = pathJoin($scope.config.defaults.folder.path, newvalue);
         });
 
         $scope.fsWatcherToggled = function () {

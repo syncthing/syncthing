@@ -1552,7 +1552,7 @@ func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 // AutoAcceptFolders set to true.
 func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceInfos *indexSenderStartInfo) (config.FolderConfiguration, bool) {
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
-		defaultPath := m.cfg.Options().DefaultFolderPath
+		defaultPath := m.cfg.DefaultFolder().Path
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
 		pathAlternatives := []string{
 			fs.SanitizePath(folder.Label),
