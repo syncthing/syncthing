@@ -1923,7 +1923,8 @@ angular.module('syncthing.core')
 
         $scope.addFolder = function () {
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
-                addFolderInit('', (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase()).then(editFolderModal);
+                var folderID = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
+                addFolderInit(folderID, '').then(editFolderModal);
             });
         };
 
