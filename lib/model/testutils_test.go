@@ -65,8 +65,10 @@ func init() {
 				AutoAcceptFolders: true,
 			},
 		},
-		Options: config.OptionsConfiguration{
-			DefaultFolderPath: ".",
+		Defaults: config.Defaults{
+			Folder: config.FolderConfiguration{
+				Path: ".",
+			},
 		},
 	}
 }

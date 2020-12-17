@@ -23,7 +23,7 @@ message FolderConfiguration {
     string                             id                         = 1 [(ext.goname) = "ID", (ext.xml) = "id,attr", (ext.nodefault) = true];
     string                             label                      = 2 [(ext.xml) = "label,attr", (ext.restart) = false];
     fs.FilesystemType                  filesystem_type            = 3;
-    string                             path                       = 4 [(ext.xml) = "path,attr", (ext.default) = "3600"];
+    string                             path                       = 4 [(ext.xml) = "path,attr", (ext.default) = "~"];
     FolderType                         type                       = 5 [(ext.xml) = "type,attr"];
     repeated FolderDeviceConfiguration devices                    = 6;
     int32                              rescan_interval_s          = 7 [(ext.xml) = "rescanIntervalS,attr", (ext.default) = "3600"];

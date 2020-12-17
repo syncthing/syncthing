@@ -27,7 +27,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
-		{32, migrateToConfigV33},
+		{33, migrateToConfigV33},
 		{32, migrateToConfigV32},
 		{31, migrateToConfigV31},
 		{30, migrateToConfigV30},

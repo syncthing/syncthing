@@ -76,7 +76,6 @@ func TestDefaultValues(t *testing.T) {
 			OverwriteRemoteDevNames: false,
 			TempIndexMinBlocks:      10,
 			UnackedNotificationIDs:  []string{"authenticationUserAndPassword"},
-			DefaultFolderPath:       "~",
 			SetLowPriority:          true,
 			CRURL:                   "https://crash.syncthing.net/newcrash",
 			CREnabled:               true,
@@ -89,7 +88,7 @@ func TestDefaultValues(t *testing.T) {
 		Defaults: Defaults{
 			Folder: FolderConfiguration{
 				FilesystemType:   fs.FilesystemTypeBasic,
-				Path:             "",
+				Path:             "~",
 				Type:             FolderTypeSendReceive,
 				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}},
 				RescanIntervalS:  3600,
@@ -264,7 +263,6 @@ func TestOverriddenValues(t *testing.T) {
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
 		UnackedNotificationIDs:  []string{"asdfasdf"},
-		DefaultFolderPath:       "/media/syncthing",
 		SetLowPriority:          false,
 		CRURL:                   "https://localhost/newcrash",
 		CREnabled:               false,
@@ -273,6 +271,7 @@ func TestOverriddenValues(t *testing.T) {
 		RawStunServers:          []string{"foo"},
 		FeatureFlags:            []string{"feature"},
 	}
+	expectedPath := "/media/syncthing"
 
 	os.Unsetenv("STNOUPGRADE")
 	cfg, err := load("testdata/overridenvalues.xml", device1)
@@ -282,6 +281,10 @@ func TestOverriddenValues(t *testing.T) {
 
 	if diff, equal := messagediff.PrettyDiff(expected, cfg.Options()); !equal {
 		t.Errorf("Overridden config differs. Diff:\n%s", diff)
+	}
+
+	if path := cfg.DefaultFolder().Path; path != expectedPath {
+		t.Errorf("Default folder path is %v, expected %v", path, expectedPath)
 	}
 }
 
