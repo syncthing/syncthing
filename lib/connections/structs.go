@@ -22,31 +22,6 @@ import (
 	"github.com/thejerf/suture/v4"
 )
 
-// Connection is what we expose to the outside. It is a protocol.Connection
-// that can be closed and has some metadata.
-type Connection interface {
-	protocol.Connection
-	Type() string
-	Transport() string
-	RemoteAddr() net.Addr
-	Priority() int
-	String() string
-	Crypto() string
-}
-
-// completeConn is the aggregation of an internalConn and the
-// protocol.Connection running on top of it. It implements the Connection
-// interface.
-type completeConn struct {
-	internalConn
-	protocol.Connection
-}
-
-func (c completeConn) Close(err error) {
-	c.Connection.Close(err)
-	c.internalConn.Close()
-}
-
 type tlsConn interface {
 	io.ReadWriteCloser
 	ConnectionState() tls.ConnectionState
@@ -107,12 +82,12 @@ func (t connType) Transport() string {
 	}
 }
 
-func (c internalConn) Close() {
+func (c internalConn) Close() error {
 	// *tls.Conn.Close() does more than it says on the tin. Specifically, it
 	// sends a TLS alert message, which might block forever if the
 	// connection is dead and we don't have a deadline set.
 	_ = c.SetWriteDeadline(time.Now().Add(250 * time.Millisecond))
-	_ = c.tlsConn.Close()
+	return c.tlsConn.Close()
 }
 
 func (c internalConn) Type() string {
@@ -203,8 +178,8 @@ type genericListener interface {
 
 type Model interface {
 	protocol.Model
-	AddConnection(conn Connection, hello protocol.Hello)
-	Connection(remoteID protocol.DeviceID) (Connection, bool)
+	AddConnection(conn protocol.Connection, hello protocol.Hello)
+	Connection(remoteID protocol.DeviceID) (protocol.Connection, bool)
 	OnHello(protocol.DeviceID, net.Addr, protocol.Hello) error
 	GetHello(protocol.DeviceID) protocol.HelloIntf
 }
