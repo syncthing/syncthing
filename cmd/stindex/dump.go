@@ -131,6 +131,23 @@ func dump(ldb backend.Backend) {
 				fmt.Printf(" V:%v\n", v)
 			}
 
+		case db.KeyTypePendingFolder:
+			device := binary.BigEndian.Uint32(key[1:])
+			folder := string(key[5:])
+			var of db.ObservedFolder
+			of.Unmarshal(it.Value())
+			fmt.Printf("[pendingFolder] D:%d F:%s V:%v\n", device, folder, of)
+
+		case db.KeyTypePendingDevice:
+			device := "<invalid>"
+			dev, err := protocol.DeviceIDFromBytes(key[1:])
+			if err == nil {
+				device = dev.String()
+			}
+			var od db.ObservedDevice
+			od.Unmarshal(it.Value())
+			fmt.Printf("[pendingDevice] D:%v V:%v\n", device, od)
+
 		default:
 			fmt.Printf("[??? %d]\n  %x\n  %x\n", key[0], key, it.Value())
 		}
