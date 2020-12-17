@@ -1513,17 +1513,16 @@ angular.module('syncthing.core')
                     }
                 })
                 .then(function () {
-                    $http.get(urlbase + '/config/defaults/device')
-                        .then(function (data) {
-                            $scope.currentDevice = data;
-                            $scope.currentDevice.name = name;
-                            $scope.currentDevice.deviceID = deviceID;
-                            $scope.editingExisting = false;
-                            $scope.editingDefaults = false;
-                            initShareEditing('device');
-                            $scope.currentSharing.unrelated = $scope.folderList();
-                            editDeviceModal();
-                        }, scope.emitHTTPError);
+                    $http.get(urlbase + '/config/defaults/device').then(function (p) {
+                        $scope.currentDevice = p.data;
+                        $scope.currentDevice.name = name;
+                        $scope.currentDevice.deviceID = deviceID;
+                        $scope.editingExisting = false;
+                        $scope.editingDefaults = false;
+                        initShareEditing('device');
+                        $scope.currentSharing.unrelated = $scope.folderList();
+                        editDeviceModal();
+                    }, scope.emitHTTPError);
                 });
         };
 
@@ -1913,23 +1912,22 @@ angular.module('syncthing.core')
         function addFolderInit(folderID, folderLabel) {
             $scope.editingExisting = false;
             $scope.editingDefaults = false;
-            return $http.get(urlbase + '/config/defaults/folder')
-                 .then(function(p) {
-                     $scope.currentFolder = p.data;
-                     for (var k in $scope.versioningDefaults) {
-                         $scope.currentFolder[k] = $scope.versioningDefaults[k];
-                     }
-                     $scope.currentFolder.id = folderID;
-                     $scope.currentFolder.label = folderLabel;
+            return $http.get(urlbase + '/config/defaults/folder').then(function(p) {
+                $scope.currentFolder = p.data;
+                for (var k in $scope.versioningDefaults) {
+                    $scope.currentFolder[k] = $scope.versioningDefaults[k];
+                }
+                $scope.currentFolder.id = folderID;
+                $scope.currentFolder.label = folderLabel;
 
-                     initShareEditing('folder');
-                     $scope.currentSharing.unrelated = $scope.currentSharing.shared;
-                     $scope.currentSharing.shared = [];
+                initShareEditing('folder');
+                $scope.currentSharing.unrelated = $scope.currentSharing.shared;
+                $scope.currentSharing.shared = [];
 
-                     $scope.ignores.text = '';
-                     $scope.ignores.error = null;
-                     $scope.ignores.disabled = false;
-                 }, $scope.emitHTTPError);
+                $scope.ignores.text = '';
+                $scope.ignores.error = null;
+                $scope.ignores.disabled = false;
+            }, $scope.emitHTTPError);
         }
 
         $scope.shareFolderWithDevice = function (folder, device) {

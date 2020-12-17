@@ -1538,8 +1538,8 @@ angular.module('syncthing.core')
                 })
                 .then(function () {
                     $http.get(urlbase + '/config/defaults/device')
-                        .then(function (data) {
-                            $scope.currentDevice = data;
+                        .then(function (p) {
+                            $scope.currentDevice = p.data;
                             $scope.currentDevice.name = name;
                             $scope.currentDevice.deviceID = deviceID;
                             $scope.editingExisting = false;
