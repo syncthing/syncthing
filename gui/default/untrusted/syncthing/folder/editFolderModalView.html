@@ -1,24 +1,24 @@
-<modal id="editFolder" status="default" icon="{{editingExisting ? 'fas fa-pencil-alt' : 'fas fa-folder'}}" heading="{{editingExisting ? 'Edit Folder' : 'Add Folder' | translate}} ({{folderLabel(currentFolder.id)}})" large="yes" closeable="yes">
+<modal id="editFolder" status="default" icon="{{editFolderModalIcon()}}" heading="{{editFolderModalTitle()}}" large="yes" closeable="yes">
   <div class="modal-body">
     <form role="form" name="folderEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
         <li class="active"><a data-toggle="tab" href="#folder-general"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
         <li><a data-toggle="tab" href="#folder-sharing"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
         <li><a data-toggle="tab" href="#folder-versioning"><span class="fas fa-copy"></span> <span translate>File Versioning</span></a></li>
-        <li><a data-toggle="tab" href="#folder-ignores"><span class="fas fa-filter"></span> <span translate>Ignore Patterns</span></a></li>
+        <li ng-if="!editingDefaults"><a data-toggle="tab" href="#folder-ignores"><span class="fas fa-filter"></span> <span translate>Ignore Patterns</span></a></li>
         <li><a data-toggle="tab" href="#folder-advanced"><span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
       </ul>
       <div class="tab-content">
 
         <div id="folder-general" class="tab-pane in active">
-          <div class="form-group" ng-class="{'has-error': folderEditor.folderLabel.$invalid && folderEditor.folderLabel.$dirty}">
+          <div class="form-group" ng-class="{'has-error': folderEditor.folderLabel.$invalid && folderEditor.folderLabel.$dirty && !editingDefaults}">
             <label for="folderLabel"><span translate>Folder Label</span></label>
             <input name="folderLabel" id="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" value="{{currentFolder.label}}" />
             <p class="help-block">
               <span translate ng-if="folderEditor.folderLabel.$valid || folderEditor.folderLabel.$pristine">Optional descriptive label for the folder. Can be different on each device.</span>
             </p>
           </div>
-          <div class="form-group" ng-class="{'has-error': folderEditor.folderID.$invalid && folderEditor.folderID.$dirty}">
+          <div ng-if="!editingDefaults" class="form-group" ng-class="{'has-error': folderEditor.folderID.$invalid && folderEditor.folderID.$dirty}">
             <label for="folderID"><span translate>Folder ID</span></label>
             <input name="folderID" ng-readonly="editingExisting || (!editingExisting && currentFolder.viewFlags.importFromOtherDevice)" id="folderID" class="form-control" type="text" ng-model="currentFolder.id" required="" aria-required="true" unique-folder value="{{currentFolder.id}}" />
             <p class="help-block">
@@ -28,15 +28,15 @@
               <span translate ng-show="!editingExisting">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</span>
             </p>
           </div>
-          <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty}">
+          <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty && !editingDefaults}">
             <label translate for="folderPath">Folder Path</label>
-            <input name="folderPath" ng-readonly="editingExisting" id="folderPath" class="form-control" type="text" ng-model="currentFolder.path" list="directory-list" required="" aria-required="true" path-is-sub-dir />
+            <input name="folderPath" ng-readonly="editingExisting && !editingDefaults" id="folderPath" class="form-control" type="text" ng-model="currentFolder.path" list="directory-list" ng-required="!editingDefaults" ng-aria-required="!editingDefaults" path-is-sub-dir />
             <datalist id="directory-list">
               <option ng-repeat="directory in directoryList" value="{{ directory }}" />
             </datalist>
             <p class="help-block">
               <span ng-if="folderEditor.folderPath.$valid || folderEditor.folderPath.$pristine"><span translate>Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.</br></span>
-              <span translate ng-if="folderEditor.folderPath.$error.required && folderEditor.folderPath.$dirty">The folder path cannot be blank.</span>
+              <span translate ng-if="folderEditor.folderPath.$error.required && folderEditor.folderPath.$dirty && !editingDefaults">The folder path cannot be blank.</span>
               <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" ng-if="folderPathErrors.isSub && folderPathErrors.otherLabel.length == 0">Warning, this path is a subdirectory of an existing folder "{%otherFolder%}".</span>
               <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" translate-value-other-folder-label="{{folderPathErrors.otherLabel}}" ng-if="folderPathErrors.isSub && folderPathErrors.otherLabel.length != 0">Warning, this path is a subdirectory of an existing folder "{%otherFolderLabel%}" ({%otherFolder%}).</span>
               <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" ng-if="folderPathErrors.isParent && folderPathErrors.otherLabel.length == 0">Warning, this path is a parent directory of an existing folder "{%otherFolder%}".</span>
@@ -146,7 +146,7 @@
           </div>
         </div>
 
-        <div id="folder-ignores" class="tab-pane">
+        <div ng-if="!editingDefaults" id="folder-ignores" class="tab-pane">
           <p translate>Enter ignore patterns, one per line.</p>
           <div ng-class="{'has-error': ignores.error != null}">
             <textarea class="form-control" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled"></textarea>
@@ -271,7 +271,7 @@
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
       <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
-    <button type="button" class="btn btn-warning pull-left btn-sm" data-toggle="modal" data-target="#remove-folder-confirmation" ng-if="editingExisting">
+    <button type="button" class="btn btn-warning pull-left btn-sm" data-toggle="modal" data-target="#remove-folder-confirmation" ng-if="editingExisting && !editingDefaults">
       <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
     </button>
   </div>
