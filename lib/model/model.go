@@ -2772,7 +2772,7 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	}
 	if removed > 0 {
 		m.evLogger.Log(events.ClusterPendingChanged, map[string]interface{}{
-			"count":  removed,
+			"count": removed,
 		})
 	}
 }
