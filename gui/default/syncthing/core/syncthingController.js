@@ -680,7 +680,7 @@ angular.module('syncthing.core')
         }
 
         function shouldSetDefaultFolderPath() {
-            return $scope.config.options && $scope.config.defaults.folder.path && !$scope.editingExisting && $scope.folderEditor.folderPath.$pristine
+            return $scope.config.options && $scope.config.defaults.folder.path && !$scope.editingExisting && $scope.folderEditor.folderPath.$pristine && !$scope.editingDefaults;
         }
 
         function resetRemoteNeed() {
