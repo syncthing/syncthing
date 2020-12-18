@@ -2713,6 +2713,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 }
 
 func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]struct{}) {
+	removed := 0
 	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
@@ -2725,22 +2726,26 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			// at all (but might become pending again).
 			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
 			m.db.RemovePendingFolder(folderID)
+			removed += 1
 			continue
 		}
 		for deviceID := range pf.OfferedBy {
 			if dev, ok := existingDevices[deviceID]; !ok {
 				l.Debugf("Discarding pending folder %v from unknown device %v", folderID, deviceID)
 				m.db.RemovePendingFolderForDevice(folderID, deviceID)
+				removed += 1
 				continue
 			} else if dev.IgnoredFolder(folderID) {
 				l.Debugf("Discarding now ignored pending folder %v for device %v", folderID, deviceID)
 				m.db.RemovePendingFolderForDevice(folderID, deviceID)
+				removed += 1
 				continue
 			}
 			if folderCfg, ok := existingFolders[folderID]; ok {
 				if folderCfg.SharedWith(deviceID) {
 					l.Debugf("Discarding now shared pending folder %v for device %v", folderID, deviceID)
 					m.db.RemovePendingFolderForDevice(folderID, deviceID)
+					removed += 1
 				}
 			}
 		}
@@ -2755,13 +2760,20 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 		if _, ok := ignoredDevices[deviceID]; ok {
 			l.Debugf("Discarding now ignored pending device %v", deviceID)
 			m.db.RemovePendingDevice(deviceID)
+			removed += 1
 			continue
 		}
 		if _, ok := existingDevices[deviceID]; ok {
 			l.Debugf("Discarding now added pending device %v", deviceID)
 			m.db.RemovePendingDevice(deviceID)
+			removed += 1
 			continue
 		}
+	}
+	if removed > 0 {
+		m.evLogger.Log(events.ClusterPendingChanged, map[string]interface{}{
+			"count":  removed,
+		})
 	}
 }
 
