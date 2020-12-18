@@ -272,8 +272,8 @@ angular.module('syncthing.core')
             $scope.pendingFolders[arg.data.folder] = pendingFolder;
         });
 
-        $scope.$on(Events.FOLDER_OFFER_CANCELLED, function (event, arg) {
-            console.log("FolderOfferCancelled", arg);
+        $scope.$on(Events.CLUSTER_PENDING_CHANGED, function (event, arg) {
+            console.log("ClusterPendingChanged", arg);
             refreshCluster();
         });
 
