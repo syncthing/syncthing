@@ -139,7 +139,7 @@ type service struct {
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
-	spec := util.Spec(func(e suture.Event) { l.Infoln(e) })
+	spec := util.SpecWithInfoLogger(l)
 	service := &service{
 		Supervisor:              suture.New("connections.Service", spec),
 		connectionStatusHandler: newConnectionStatusHandler(),

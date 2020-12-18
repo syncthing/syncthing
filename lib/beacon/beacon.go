@@ -45,7 +45,7 @@ type cast struct {
 // methods to get a functional implementation of Interface.
 func newCast(name string) *cast {
 	// Only log restarts in debug mode.
-	spec := util.Spec(func(e suture.Event) { l.Debugln(e) })
+	spec := util.SpecWithDebugLogger(l)
 	// Don't retry too frenetically: an error to open a socket or
 	// whatever is usually something that is either permanent or takes
 	// a while to get solved...
