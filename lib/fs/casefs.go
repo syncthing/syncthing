@@ -98,7 +98,9 @@ type caseFilesystem struct {
 // case-sensitive one. However it will add some overhead and thus shouldn't be
 // used if the filesystem is known to already behave case-sensitively.
 func NewCaseFilesystem(fs Filesystem) Filesystem {
-	return globalCaseFilesystemRegistry.get(fs)
+	return wrapFilesystem(fs, func(ifs Filesystem) Filesystem {
+		return globalCaseFilesystemRegistry.get(ifs)
+	})
 }
 
 func (f *caseFilesystem) Chmod(name string, mode FileMode) error {

@@ -381,7 +381,7 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 	}
 }
 
-func (s *FileSet) MtimeFS() *fs.MtimeFS {
+func (s *FileSet) MtimeFS() fs.Filesystem {
 	opStr := fmt.Sprintf("%s MtimeFS()", s.folder)
 	l.Debugf(opStr)
 	prefix, err := s.db.keyer.GenerateMtimesKey(nil, []byte(s.folder))
