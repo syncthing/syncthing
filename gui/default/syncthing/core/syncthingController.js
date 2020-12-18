@@ -1962,7 +1962,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder.label = folderLabel;
 
                 initShareEditing('folder');
-                $scope.currentSharing.unrelated = $scope.currentSharing.shared;
+                $scope.currentSharing.unrelated = $scope.currentSharing.unrelated.concat($scope.currentSharing.shared);
                 $scope.currentSharing.shared = [];
 
                 $scope.ignores.text = '';
