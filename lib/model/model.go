@@ -1339,7 +1339,8 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 
 	indexSenders.removeAllExcept(seenFolders)
-	if expired, err := m.db.ExpirePendingFolders(deviceID, handleTime); err != nil {
+	// All current pending folders were touched above, so discard any with older timestamps
+	if expired, err := m.db.RemovePendingFoldersBeforeTime(deviceID, handleTime); err != nil {
 		l.Infof("Could not clean up pending folder entries: %v", err)
 	} else if expired > 0 {
 		m.evLogger.Log(events.FolderOfferCancelled, map[string]interface{}{

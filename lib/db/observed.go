@@ -111,7 +111,7 @@ func (db *Lowlevel) RemovePendingFolder(id string) {
 	}
 }
 
-func (db *Lowlevel) ExpirePendingFolders(device protocol.DeviceID, oldest time.Time) (uint, error) {
+func (db *Lowlevel) RemovePendingFoldersBeforeTime(device protocol.DeviceID, oldest time.Time) (uint, error) {
 	prefixKey, err := db.keyer.GeneratePendingFolderKey(nil, device[:], nil)
 	if err != nil {
 		return 0, err
