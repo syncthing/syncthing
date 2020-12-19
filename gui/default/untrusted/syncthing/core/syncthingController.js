@@ -680,7 +680,7 @@ angular.module('syncthing.core')
         }
 
         function shouldSetDefaultFolderPath() {
-            return $scope.config.options && $scope.config.defaults.folder.path && !$scope.editingExisting && $scope.folderEditor.folderPath.$pristine && !$scope.editingDefaults;
+            return $scope.config.defaults.folder.path && !$scope.editingExisting && $scope.folderEditor.folderPath.$pristine && !$scope.editingDefaults;
         }
 
         function resetRemoteNeed() {
@@ -1953,21 +1953,26 @@ angular.module('syncthing.core')
         $scope.addFolder = function () {
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 var folderID = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
-                addFolderInit(folderID, '').then(editFolderModal);
+                addFolderInit(folderID).then(function() {
+                    // Triggers the watch that sets the path
+                    $scope.currentFolder.label = $scope.currentFolder.label;
+                    editFolderModal();
+                });
             });
         };
 
         $scope.addFolderAndShare = function (folderID, folderLabel, device) {
-            addFolderInit(folderID, folderLabel).then(function() {
+            addFolderInit(folderID).then(function() {
                 $scope.currentFolder.viewFlags = {
                     importFromOtherDevice: true
                 };
                 $scope.currentSharing.selected[device] = true;
+                $scope.currentFolder.label = folderLabel;
                 editFolderModal();
             });
         };
 
-        function addFolderInit(folderID, folderLabel) {
+        function addFolderInit(folderID) {
             $scope.editingExisting = false;
             $scope.editingDefaults = false;
             return $http.get(urlbase + '/config/defaults/folder').then(function(p) {
@@ -1976,7 +1981,6 @@ angular.module('syncthing.core')
                     $scope.currentFolder[k] = $scope.versioningDefaults[k];
                 }
                 $scope.currentFolder.id = folderID;
-                $scope.currentFolder.label = folderLabel;
 
                 initShareEditing('folder');
                 $scope.currentSharing.unrelated = $scope.currentSharing.unrelated.concat($scope.currentSharing.shared);
