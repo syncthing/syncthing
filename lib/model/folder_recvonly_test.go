@@ -393,9 +393,13 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 		return true
 	})
 	snap.Release()
-	m.Index(device1, "ro", files)
+	m.IndexUpdate(device1, "ro", files)
 
-	must(t, m.ScanFolder("ro"))
+	// Ensure the pull to resolve conflicts (content identical) happened
+	must(t, f.doInSync(func() error {
+		f.pull()
+		return nil
+	}))
 
 	size = receiveOnlyChangedSize(t, m, "ro")
 	if size.Files+size.Directories+size.Deleted != 0 {
