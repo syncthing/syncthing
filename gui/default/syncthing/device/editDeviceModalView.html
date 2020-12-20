@@ -37,6 +37,10 @@
             <p translate ng-if="currentDevice.deviceID == myID" class="help-block">Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.</p>
             <p translate ng-if="currentDevice.deviceID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.</p>
           </div>
+          <div class="form-group" ng-if="willBeReintroducedBy">
+            <label translate for="removal">Device Removal</label>
+              <p class="text-danger">When you remove this device, it might be automatically reintroduced by {{ willBeReintroducedBy }}.</p>
+          </div>
         </div>
         <div id="device-sharing" class="tab-pane">
           <div class="row">
@@ -110,6 +114,10 @@
               </div>
             </div>
           </div>
+          <div class="form-group" ng-if="willBeReintroducedBy">
+            <label translate for="removal">Device Removal</label>
+              <p class="text-danger">When you remove this device, it might be automatically reintroduced by {{ willBeReintroducedBy }}.</p>
+          </div>
         </div>
         <div id="device-advanced" class="tab-pane">
           <div class="row form-group">
@@ -156,6 +164,10 @@
               </div>
             </div>
           </div>
+          <div class="form-group" ng-if="willBeReintroducedBy">
+            <label translate for="removal">Device Removal</label>
+              <p class="text-danger">When you remove this device, it might be automatically reintroduced by {{ willBeReintroducedBy }}.</p>
+          </div>
         </div>
       </div>
     </form>
@@ -171,7 +183,7 @@
       <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
     <div ng-if="editingExisting" class="pull-left">
-      <button type="button" class="btn btn-warning btn-sm disabled" ng-if="willBeReintroducedBy" tooltip data-original-title="This device will be reintroduced by {{ willBeReintroducedBy }}">
+      <button type="button" class="btn btn-warning btn-sm" ng-if="willBeReintroducedBy" tooltip data-original-title="{{ willBeReintroducedBy }} might reintroduce this device.">
         <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
       </button>
       <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#remove-device-confirmation" ng-if="!willBeReintroducedBy">
