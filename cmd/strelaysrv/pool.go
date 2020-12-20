@@ -32,12 +32,21 @@ func poolHandler(pool string, uri *url.URL, mapping mapping, ownCert tls.Certifi
 			uriCopy.String(),
 		})
 
-		client := http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					Certificates: []tls.Certificate{ownCert},
+		poolUrl, err := url.Parse(pool)
+		if err != nil {
+			log.Printf("Could not parse pool url '%s': %v", pool, err)
+		}
+
+		client := http.DefaultClient
+		if poolUrl.Scheme == "https" {
+			// Sent our certificate in join request
+			client = &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						Certificates: []tls.Certificate{ownCert},
+					},
 				},
-			},
+			}
 		}
 
 		resp, err := client.Post(pool, "application/json", &b)
