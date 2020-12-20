@@ -122,6 +122,7 @@ angular.module('syncthing.core')
             refreshSystem();
             refreshDiscoveryCache();
             refreshConfig();
+            refreshCluster();
             refreshConnectionStats();
             refreshDeviceStats();
             refreshFolderStats();
