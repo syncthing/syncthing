@@ -139,8 +139,8 @@ func (db *Lowlevel) RemovePendingFoldersBeforeTime(device protocol.DeviceID, old
 		if err := db.Delete(iter.Key()); err != nil {
 			l.Warnf("Failed to remove pending folder entry: %v", err)
 		} else {
-			l.Infof("Removed stale pending folder %v from device %v, last seen %v",
-				of.Label, device, of.Time)
+			l.Infof("Removed stale pending folder %v from device %s, last seen %v",
+				of.Label, device.Short(), of.Time)
 		}
 		count += 1
 	}
