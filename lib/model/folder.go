@@ -392,6 +392,8 @@ func (f *folder) pull() (success bool) {
 }
 
 func (f *folder) scanSubdirs(subDirs []string) error {
+	l.Debugf("%v scanning", f)
+
 	oldHash := f.ignores.Hash()
 
 	err := f.getHealthErrorAndLoadIgnores()
@@ -493,6 +495,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// changes.
 	changes := 0
 	defer func() {
+		l.Debugf("%v finished scanning, detected %v changes", f, changes)
 		if changes > 0 {
 			f.SchedulePull()
 		}
@@ -508,6 +511,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 			case gf.IsEquivalentOptional(fi, f.modTimeWindow, false, false, protocol.FlagLocalReceiveOnly):
 				// What we have locally is equivalent to the global file.
 				fi.Version = gf.Version
+				l.Debugf("%v scanning: Merging identical locally changed item with global", f, fi)
 				fallthrough
 			case fi.IsDeleted() && (gf.IsReceiveOnlyChanged() || gf.IsDeleted()):
 				// Our item is deleted and the global item is our own
@@ -515,6 +519,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				// case we can't delete file infos, so we just
 				// pretend it is a normal deleted file (nobody
 				// cares about that).
+				l.Debugf("%v scanning: Marking item as not locally changed", f, fi)
 				fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 			}
 			batch.append(fi)
