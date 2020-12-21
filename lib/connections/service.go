@@ -1027,9 +1027,14 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	return nil
 }
 
+// The dialConnectionLimit is the lower of ConnectionLimitEnough and
+// ConnectionLimitMax, excepting zero which is unlimited.
 func dialConnectionLimit(opts config.OptionsConfiguration) int {
 	connectionLimit := opts.ConnectionLimitEnough
 	if connectionLimit == 0 || opts.ConnectionLimitMax != 0 && opts.ConnectionLimitMax < connectionLimit {
+		// It doesn't really make sense to set ConnectionLimitMax lower than
+		// ConnectionLimitEnough but someone might do it while experimenting
+		// and it's easy for us to do the right thing.
 		connectionLimit = opts.ConnectionLimitMax
 	}
 	return connectionLimit
