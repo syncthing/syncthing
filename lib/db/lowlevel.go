@@ -553,6 +553,26 @@ func (db *Lowlevel) setIndexID(device, folder []byte, id protocol.IndexID) error
 	return db.Put(key, bs)
 }
 
+func (db *Lowlevel) dropFolderIndexIDs(folder []byte) error {
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	if err := t.deleteKeyPrefixMatching([]byte{KeyTypeIndexID}, func(key []byte) bool {
+		keyFolder, ok := t.keyer.FolderFromIndexIDKey(key)
+		if !ok {
+			l.Debugf("Deleting IndexID with missing FolderIdx: %v", key)
+			return true
+		}
+		return bytes.Equal(keyFolder, folder)
+	}); err != nil {
+		return err
+	}
+	return t.Commit()
+}
+
 func (db *Lowlevel) dropMtimes(folder []byte) error {
 	key, err := db.keyer.GenerateMtimesKey(nil, folder)
 	if err != nil {
