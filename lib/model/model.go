@@ -2029,7 +2029,7 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 			l.Warnf("Failed to persist pending device entry to database: %v", err)
 		}
 		m.evLogger.Log(events.PendingDevicesChanged, map[string]map[string]string{
-			"added": map[string]string{
+			"added": {
 				"device":  remoteID.String(),
 				"name":    hello.DeviceName,
 				"address": addr.String(),
