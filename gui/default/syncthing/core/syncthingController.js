@@ -245,15 +245,31 @@ angular.module('syncthing.core')
             }
         });
 
-        $scope.$on(Events.DEVICE_REJECTED, function (event, arg) {
-            var pendingDevice = {
-                time: arg.time,
-                name: arg.data.name,
-                address: arg.data.address
-            };
-            console.log("rejected device:", arg.data.device, pendingDevice);
+        $scope.$on(Events.PENDING_DEVICES_CHANGED, function (event, arg) {
+            if (!(arg.data.added || arg.data.removed)) {
+                // Not enough information to update in place, just refresh it completely
+                refreshCluster();
+                return;
+            }
 
-            $scope.pendingDevices[arg.data.device] = pendingDevice;
+            if (arg.data.added) {
+                arg.data.added.forEach(function (rejected) {
+                    var pendingDevice = {
+                        time: arg.time,
+                        name: rejected.name,
+                        address: rejected.address
+                    };
+                    console.log("rejected device:", rejected.device, pendingDevice);
+                    $scope.pendingDevices[rejected.device] = pendingDevice;
+                });
+            }
+
+            if (arg.data.removed) {
+                arg.data.removed.forEach(function (dev) {
+                    console.log("no longer pending device:", dev);
+                    delete $scope.pendingDevices[dev];
+                });
+            }
         });
 
         $scope.$on(Events.FOLDER_REJECTED, function (event, arg) {

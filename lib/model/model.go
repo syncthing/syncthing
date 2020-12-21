@@ -2028,12 +2028,12 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		if err := m.db.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String()); err != nil {
 			l.Warnf("Failed to persist pending device entry to database: %v", err)
 		}
-		m.evLogger.Log(events.PendingDevicesChanged, map[string]map[string]string{
-			"added": {
+		m.evLogger.Log(events.PendingDevicesChanged, map[string][]interface{}{
+			"added": {map[string]string{
 				"device":  remoteID.String(),
 				"name":    hello.DeviceName,
 				"address": addr.String(),
-			},
+			}},
 		})
 		// DEPRECATED: Only for backwards compatibility, should be removed.
 		m.evLogger.Log(events.DeviceRejected, map[string]string{
