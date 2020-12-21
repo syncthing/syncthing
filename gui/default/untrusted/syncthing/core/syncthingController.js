@@ -2637,9 +2637,9 @@ angular.module('syncthing.core')
                 id: '@',
                 label: '@',
                 folderType: '@',
+                untrusted: '=',
             },
             link: function(scope, elem, attrs) {
-                scope.untrusted = attrs.untrusted === 'true';
                 var plain = false;
                 scope.togglePasswordVisibility = function() {
                     scope.plain = !scope.plain;
