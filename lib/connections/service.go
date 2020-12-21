@@ -41,10 +41,6 @@ var (
 	listeners = make(map[string]listenerFactory)
 )
 
-const (
-	worstDialerPriority = math.MaxInt32
-)
-
 var (
 	// Dialers and listeners return errUnsupported (or a wrapped variant)
 	// when they are intentionally out of service due to configuration,
@@ -63,6 +59,7 @@ const (
 	minConnectionReplaceAge = 10 * time.Second
 	minConnectionLoopSleep  = 5 * time.Second
 	stdConnectionLoopSleep  = time.Minute
+	worstDialerPriority     = math.MaxInt32
 )
 
 // From go/src/crypto/tls/cipher_suites.go
