@@ -150,7 +150,7 @@ type model struct {
 
 	// fields protected by pmut
 	pmut                sync.RWMutex
-	conn                map[protocol.DeviceID]connections.Connection
+	conn                map[protocol.DeviceID]protocol.Connection
 	connRequestLimiters map[protocol.DeviceID]*byteSemaphore
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.Hello
@@ -232,7 +232,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 
 		// fields protected by pmut
 		pmut:                sync.NewRWMutex(),
-		conn:                make(map[protocol.DeviceID]connections.Connection),
+		conn:                make(map[protocol.DeviceID]protocol.Connection),
 		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
@@ -1660,7 +1660,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 
 	m.progressEmitter.temporaryIndexUnsubscribe(conn)
 
-	l.Infof("Connection to %s at %s closed: %v", device, conn.Name(), err)
+	l.Infof("Connection to %s at %s closed: %v", device, conn, err)
 	m.evLogger.Log(events.DeviceDisconnected, map[string]string{
 		"id":    device.String(),
 		"error": err.Error(),
@@ -1912,7 +1912,7 @@ func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 }
 
 // Connection returns the current connection for device, and a boolean whether a connection was found.
-func (m *model) Connection(deviceID protocol.DeviceID) (connections.Connection, bool) {
+func (m *model) Connection(deviceID protocol.DeviceID) (protocol.Connection, bool) {
 	m.pmut.RLock()
 	cn, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
@@ -2039,7 +2039,7 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
-func (m *model) AddConnection(conn connections.Connection, hello protocol.Hello) {
+func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	deviceID := conn.ID()
 	device, ok := m.cfg.Device(deviceID)
 	if !ok {
