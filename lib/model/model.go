@@ -257,13 +257,14 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 func (m *model) serve(ctx context.Context) error {
 	defer m.closeAllConnectionsAndWait()
 
+	m.cfg.Subscribe(m)
+	defer m.cfg.Unsubscribe(m)
+
 	if err := m.initFolders(); err != nil {
 		close(m.started)
 		return util.AsFatalErr(err, util.ExitError)
 	}
 
-	m.cfg.Subscribe(m)
-	defer m.cfg.Unsubscribe(m)
 	close(m.started)
 
 	select {
