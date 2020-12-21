@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/thejerf/suture/v4"
@@ -404,8 +405,17 @@ func OnSupervisorDone(sup *suture.Supervisor, fn func()) {
 	sup.Add(&doneService{fn})
 }
 
-func Spec() suture.Spec {
+func SpecWithDebugLogger(l logger.Logger) suture.Spec {
+	return spec(func(e suture.Event) { l.Debugln(e) })
+}
+
+func SpecWithInfoLogger(l logger.Logger) suture.Spec {
+	return spec(func(e suture.Event) { l.Infoln(e) })
+}
+
+func spec(eventHook suture.EventHook) suture.Spec {
 	return suture.Spec{
+		EventHook:                eventHook,
 		PassThroughPanics:        true,
 		DontPropagateTermination: false,
 	}

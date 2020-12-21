@@ -1027,6 +1027,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 	defer cleanupModelAndRemoveDir(m, tmpDir)
 
 	folderIgnoresAlwaysReload(t, m, fcfg)
+	m.ScanFolders()
 
 	fc := addFakeConn(m, device1)
 	fc.folder = "default"

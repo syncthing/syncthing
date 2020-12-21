@@ -37,18 +37,32 @@ type FileSet struct {
 type Iterator func(f protocol.FileIntf) bool
 
 func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) (*FileSet, error) {
+	select {
+	case <-db.oneFileSetCreated:
+	default:
+		close(db.oneFileSetCreated)
+	}
 	meta, err := db.loadMetadataTracker(folder)
 	if err != nil {
 		db.handleFailure(err)
 		return nil, err
 	}
-	return &FileSet{
+	s := &FileSet{
 		folder:      folder,
 		fs:          fs,
 		db:          db,
 		meta:        meta,
 		updateMutex: sync.NewMutex(),
-	}, nil
+	}
+	if id := s.IndexID(protocol.LocalDeviceID); id == 0 {
+		// No index ID set yet. We create one now.
+		id = protocol.NewIndexID()
+		err := s.db.setIndexID(protocol.LocalDeviceID[:], []byte(s.folder), id)
+		if err != nil && !backend.IsClosed(err) {
+			fatalError(err, fmt.Sprintf("%s Creating new IndexID", s.folder), s.db)
+		}
+	}
+	return s, nil
 }
 
 func (s *FileSet) Drop(device protocol.DeviceID) {
@@ -360,16 +374,6 @@ func (s *FileSet) IndexID(device protocol.DeviceID) protocol.IndexID {
 	} else if err != nil {
 		fatalError(err, opStr, s.db)
 	}
-	if id == 0 && device == protocol.LocalDeviceID {
-		// No index ID set yet. We create one now.
-		id = protocol.NewIndexID()
-		err := s.db.setIndexID(device[:], []byte(s.folder), id)
-		if backend.IsClosed(err) {
-			return 0
-		} else if err != nil {
-			fatalError(err, opStr, s.db)
-		}
-	}
 	return id
 }
 
@@ -422,6 +426,7 @@ func DropFolder(db *Lowlevel, folder string) {
 		db.dropFolder,
 		db.dropMtimes,
 		db.dropFolderMeta,
+		db.dropFolderIndexIDs,
 		db.folderIdx.Delete,
 	}
 	for _, drop := range droppers {
@@ -435,7 +440,14 @@ func DropFolder(db *Lowlevel, folder string) {
 
 // DropDeltaIndexIDs removes all delta index IDs from the database.
 // This will cause a full index transmission on the next connection.
+// Must be called before using FileSets, i.e. before NewFileSet is called for
+// the first time.
 func DropDeltaIndexIDs(db *Lowlevel) {
+	select {
+	case <-db.oneFileSetCreated:
+		panic("DropDeltaIndexIDs must not be called after NewFileSet for the same Lowlevel")
+	default:
+	}
 	opStr := "DropDeltaIndexIDs"
 	l.Debugf(opStr)
 	dbi, err := db.NewPrefixIterator([]byte{KeyTypeIndexID})

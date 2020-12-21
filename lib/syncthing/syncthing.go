@@ -103,10 +103,7 @@ func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, 
 func (a *App) Start() error {
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
-	spec := util.Spec()
-	spec.EventHook = func(e suture.Event) {
-		l.Debugln(e)
-	}
+	spec := util.SpecWithDebugLogger(l)
 	a.mainService = suture.New("main", spec)
 
 	// Start the supervisor and wait for it to stop to handle cleanup.
