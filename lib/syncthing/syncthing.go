@@ -80,17 +80,21 @@ type App struct {
 	stopped           chan struct{}
 }
 
-func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {
+func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
+	ll, err := db.NewLowlevel(dbBackend, evLogger, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval))
+	if err != nil {
+		return nil, err
+	}
 	a := &App{
 		cfg:      cfg,
-		ll:       db.NewLowlevel(dbBackend, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval)),
+		ll:       ll,
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,
 		stopped:  make(chan struct{}),
 	}
 	close(a.stopped) // Hasn't been started, so shouldn't block on Wait.
-	return a
+	return a, nil
 }
 
 // Start executes the app and returns once all the startup operations are done,
@@ -99,10 +103,7 @@ func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, 
 func (a *App) Start() error {
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
-	spec := util.Spec()
-	spec.EventHook = func(e suture.Event) {
-		l.Debugln(e)
-	}
+	spec := util.SpecWithDebugLogger(l)
 	a.mainService = suture.New("main", spec)
 
 	// Start the supervisor and wait for it to stop to handle cleanup.

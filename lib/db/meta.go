@@ -9,10 +9,12 @@ package db
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/bits"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -28,8 +30,9 @@ type countsMap struct {
 type metadataTracker struct {
 	keyer keyer
 	countsMap
-	mut   sync.RWMutex
-	dirty bool
+	mut      sync.RWMutex
+	dirty    bool
+	evLogger events.Logger
 }
 
 type metaKey struct {
@@ -39,13 +42,14 @@ type metaKey struct {
 
 const needFlag uint32 = 1 << 31 // Last bit, as early ones are local flags
 
-func newMetadataTracker(keyer keyer) *metadataTracker {
+func newMetadataTracker(keyer keyer, evLogger events.Logger) *metadataTracker {
 	return &metadataTracker{
 		keyer: keyer,
 		mut:   sync.NewRWMutex(),
 		countsMap: countsMap{
 			indexes: make(map[metaKey]int),
 		},
+		evLogger: evLogger,
 	}
 }
 
@@ -296,18 +300,22 @@ func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flag uint32, f
 	// the created timestamp to zero. Next time we start up the metadata
 	// will be seen as infinitely old and recalculated from scratch.
 	if cp.Deleted < 0 {
+		m.evLogger.Log(events.Failure, fmt.Sprintf("meta deleted count for flag 0x%x dropped below zero", flag))
 		cp.Deleted = 0
 		m.counts.Created = 0
 	}
 	if cp.Files < 0 {
+		m.evLogger.Log(events.Failure, fmt.Sprintf("meta files count for flag 0x%x dropped below zero", flag))
 		cp.Files = 0
 		m.counts.Created = 0
 	}
 	if cp.Directories < 0 {
+		m.evLogger.Log(events.Failure, fmt.Sprintf("meta directories count for flag 0x%x dropped below zero", flag))
 		cp.Directories = 0
 		m.counts.Created = 0
 	}
 	if cp.Symlinks < 0 {
+		m.evLogger.Log(events.Failure, fmt.Sprintf("meta deleted count for flag 0x%x dropped below zero", flag))
 		cp.Symlinks = 0
 		m.counts.Created = 0
 	}
