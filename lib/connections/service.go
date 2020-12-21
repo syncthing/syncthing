@@ -480,16 +480,10 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 		if err != nil {
 			s.setConnectionStatus(addr, err)
 		}
-		switch err {
-		case nil:
-			// all good
-		case errDisabled:
-			l.Debugln("Dialer for", uri, "is disabled")
+		if errors.Is(err, errUnsupported) {
+			l.Debugf("Dialer for %v: %v", uri, err)
 			continue
-		case errDeprecated:
-			l.Debugln("Dialer for", uri, "is deprecated")
-			continue
-		default:
+		} else if err != nil {
 			l.Infof("Dialer for %v: %v", uri, err)
 			continue
 		}
