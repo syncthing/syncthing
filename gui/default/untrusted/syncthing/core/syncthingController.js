@@ -2018,8 +2018,8 @@ angular.module('syncthing.core')
                 time: (new Date()).toISOString()
             }
 
-            if (id in $scope.devices) {
-                $scope.devices[id].ignoredFolders.push(ignoredFolder);
+            if (device in $scope.devices) {
+                $scope.devices[device].ignoredFolders.push(ignoredFolder);
                 $scope.saveConfig();
             }
         };
