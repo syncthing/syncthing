@@ -1352,9 +1352,16 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		l.Infof("Could not clean up pending folder entries: %v", err)
 	}
 	if len(updatedPending) > 0 || len(expiredPending) > 0 {
+		expiredPendingList := make([]map[string]string, len(expiredPending))
+		for _, folderID := range expiredPending {
+			expiredPendingList = append(expiredPendingList, map[string]string{
+				"folder": folderID,
+				"device": deviceID.String(),
+			})
+		}
 		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
 			"added":   updatedPending,
-			"removed": expiredPending,
+			"removed": expiredPendingList,
 		})
 	}
 
