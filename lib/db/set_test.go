@@ -1757,6 +1757,32 @@ func TestNoIndexIDResetOnDrop(t *testing.T) {
 	}
 }
 
+func TestConcurrentIndexID(t *testing.T) {
+	done := make(chan struct{})
+	var ids [2]protocol.IndexID
+	setID := func(s *db.FileSet, i int) {
+		ids[i] = s.IndexID(protocol.LocalDeviceID)
+		done <- struct{}{}
+	}
+
+	max := 100
+	if testing.Short() {
+		max = 10
+	}
+	for i := 0; i < max; i++ {
+		ldb := db.NewLowlevel(backend.OpenMemory())
+		s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeFake, ""), ldb)
+		go setID(s, 0)
+		go setID(s, 1)
+		<-done
+		<-done
+		ldb.Close()
+		if ids[0] != ids[1] {
+			t.Fatalf("IDs differ after %v rounds", i)
+		}
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)

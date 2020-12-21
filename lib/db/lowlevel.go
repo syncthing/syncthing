@@ -65,6 +65,7 @@ type Lowlevel struct {
 	gcKeyCount         int
 	indirectGCInterval time.Duration
 	recheckInterval    time.Duration
+	oneFileSetCreated  chan struct{}
 }
 
 func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
@@ -78,6 +79,7 @@ func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 		gcMut:              sync.NewRWMutex(),
 		indirectGCInterval: indirectGCDefaultInterval,
 		recheckInterval:    recheckDefaultInterval,
+		oneFileSetCreated:  make(chan struct{}),
 	}
 	for _, opt := range opts {
 		opt(db)
