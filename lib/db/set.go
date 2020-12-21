@@ -13,9 +13,7 @@
 package db
 
 import (
-	"errors"
 	"fmt"
-	"os"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -38,17 +36,22 @@ type FileSet struct {
 // continue iteration, false to stop.
 type Iterator func(f protocol.FileIntf) bool
 
-func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
+func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) (*FileSet, error) {
 	select {
 	case <-db.oneFileSetCreated:
 	default:
 		close(db.oneFileSetCreated)
 	}
+	meta, err := db.loadMetadataTracker(folder)
+	if err != nil {
+		db.handleFailure(err)
+		return nil, err
+	}
 	s := &FileSet{
 		folder:      folder,
 		fs:          fs,
 		db:          db,
-		meta:        db.loadMetadataTracker(folder),
+		meta:        meta,
 		updateMutex: sync.NewMutex(),
 	}
 	if id := s.IndexID(protocol.LocalDeviceID); id == 0 {
@@ -59,7 +62,7 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Lowlevel) *FileSet {
 			fatalError(err, fmt.Sprintf("%s Creating new IndexID", s.folder), s.db)
 		}
 	}
-	return s
+	return s, nil
 }
 
 func (s *FileSet) Drop(device protocol.DeviceID) {
@@ -500,14 +503,7 @@ func nativeFileIterator(fn Iterator) Iterator {
 }
 
 func fatalError(err error, opStr string, db *Lowlevel) {
-	if errors.Is(err, errEntryFromGlobalMissing) || errors.Is(err, errEmptyGlobal) {
-		// Inconsistency error, mark db for repair on next start.
-		if path := db.needsRepairPath(); path != "" {
-			if fd, err := os.Create(path); err == nil {
-				fd.Close()
-			}
-		}
-	}
+	db.checkErrorForRepair(err)
 	l.Warnf("Fatal error: %v: %v", opStr, err)
-	obfuscateAndPanic(err)
+	panic(ldbPathRe.ReplaceAllString(err.Error(), "$1 x: "))
 }

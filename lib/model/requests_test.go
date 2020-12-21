@@ -20,8 +20,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -31,7 +29,7 @@ func TestRequestSimple(t *testing.T) {
 	// Verify that the model performs a request and creates a file based on
 	// an incoming index update.
 
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -74,7 +72,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 		return
 	}
 
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -117,7 +115,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 		return
 	}
 
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -176,7 +174,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 func TestRequestCreateTmpSymlink(t *testing.T) {
 	// Test that an update for a temporary file is invalidated
 
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -226,7 +224,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 
 	fcfg.Versioning = config.VersioningConfiguration{Type: "trashcan"}
 	w.SetFolder(fcfg)
-	m, fc := setupModelWithConnectionFromWrapper(w)
+	m, fc := setupModelWithConnectionFromWrapper(t, w)
 	defer cleanupModel(m)
 
 	// Create a temporary directory that we will use as target to see if
@@ -300,10 +298,10 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	fss := fcfg.Filesystem()
 	fcfg.Type = ft
 	w.SetFolder(fcfg)
-	m := setupModel(w)
+	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, fss.URI())
 
-	folderIgnoresAlwaysReload(m, fcfg)
+	folderIgnoresAlwaysReload(t, m, fcfg)
 
 	fc := addFakeConn(m, device1)
 	fc.folder = "default"
@@ -422,7 +420,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 }
 
 func TestIssue4841(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan []protocol.FileInfo)
@@ -466,7 +464,7 @@ func TestIssue4841(t *testing.T) {
 }
 
 func TestRescanIfHaveInvalidContent(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -532,7 +530,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 }
 
 func TestParentDeletion(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	testFs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, testFs.URI())
 
@@ -611,7 +609,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		t.Skip("windows specific test")
 	}
 
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan []protocol.FileInfo)
@@ -679,7 +677,7 @@ func equalContents(path string, contents []byte) error {
 }
 
 func TestRequestRemoteRenameChanged(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
@@ -814,7 +812,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 }
 
 func TestRequestRemoteRenameConflict(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
@@ -905,7 +903,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 }
 
 func TestRequestDeleteChanged(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -974,7 +972,7 @@ func TestRequestDeleteChanged(t *testing.T) {
 }
 
 func TestNeedFolderFiles(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
@@ -1023,12 +1021,12 @@ func TestNeedFolderFiles(t *testing.T) {
 // https://github.com/syncthing/syncthing/issues/6038
 func TestIgnoreDeleteUnignore(t *testing.T) {
 	w, fcfg := tmpDefaultWrapper()
-	m := setupModel(w)
+	m := setupModel(t, w)
 	fss := fcfg.Filesystem()
 	tmpDir := fss.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
 
-	folderIgnoresAlwaysReload(m, fcfg)
+	folderIgnoresAlwaysReload(t, m, fcfg)
 	m.ScanFolders()
 
 	fc := addFakeConn(m, device1)
@@ -1122,7 +1120,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 // TestRequestLastFileProgress checks that the last pulled file (here only) is registered
 // as in progress.
 func TestRequestLastFileProgress(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -1158,7 +1156,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	done := make(chan struct{})
 	defer close(done)
 
-	m, fc, fcfg := setupModelWithConnection()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -1279,7 +1277,6 @@ func TestRequestIndexSenderPause(t *testing.T) {
 }
 
 func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
-	ldb := db.NewLowlevel(backend.OpenMemory())
 	w, fcfg := tmpDefaultWrapper()
 	tfs := fcfg.Filesystem()
 	dir1 := "foo"
@@ -1287,16 +1284,19 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 
 	// Initialise db with an entry and then stop everything again
 	must(t, tfs.Mkdir(dir1, 0777))
-	m := newModel(w, myID, "syncthing", "dev", ldb, nil)
+	m := newModel(t, w, myID, "syncthing", "dev", nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 	m.ServeBackground()
 	m.ScanFolders()
 	m.cancel()
-	m.evCancel()
 	<-m.stopped
 
 	// Add connection (sends incoming cluster config) before starting the new model
-	m = newModel(w, myID, "syncthing", "dev", ldb, nil)
+	m = &testModel{
+		model:    NewModel(m.cfg, m.id, m.clientName, m.clientVersion, m.db, m.protectedFiles, m.evLogger).(*model),
+		evCancel: m.evCancel,
+		stopped:  make(chan struct{}),
+	}
 	defer cleanupModel(m)
 	fc := addFakeConn(m, device1)
 	done := make(chan struct{})
@@ -1351,7 +1351,7 @@ func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
 	must(t, tfs.Mkdir(config.DefaultMarkerName, 0777))
 	must(t, writeEncryptionToken(encToken, fcfg))
 
-	m := setupModel(w)
+	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	files := genFiles(2)

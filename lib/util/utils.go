@@ -8,6 +8,7 @@ package util
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -260,6 +261,19 @@ func AddressUnspecifiedLess(a, b net.Addr) bool {
 type FatalErr struct {
 	Err    error
 	Status ExitStatus
+}
+
+// AsFatalErr wraps the given error creating a FatalErr. If the given error
+// already is of type FatalErr, it is not wrapped again.
+func AsFatalErr(err error, status ExitStatus) *FatalErr {
+	var ferr *FatalErr
+	if errors.As(err, &ferr) {
+		return ferr
+	}
+	return &FatalErr{
+		Err:    err,
+		Status: status,
+	}
 }
 
 func (e *FatalErr) Error() string {
