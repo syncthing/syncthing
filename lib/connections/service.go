@@ -416,10 +416,7 @@ func (s *service) bestDialerPriority(cfg config.Configuration) int {
 
 func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Configuration, bestDialerPriority int, nextDialAt map[string]time.Time, initial bool) {
 	// Figure out current connection limits up front to see if there's any
-	// point in resolving devices and such at all. The connection limit is
-	// ConnectionLimitEnough, except if ConnectionLimitMax is set and
-	// happensto be lower (this is really a config error, but we can easily
-	// handle it).
+	// point in resolving devices and such at all.
 	allowAdditional := 0 // no limit
 	connectionLimit := dialConnectionLimit(cfg.Options)
 	if connectionLimit > 0 {
