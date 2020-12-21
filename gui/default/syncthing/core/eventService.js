@@ -61,12 +61,13 @@ angular.module('syncthing.core')
             DEVICE_DISCONNECTED: 'DeviceDisconnected',   // Generated each time a connection to a device has been terminated
             DEVICE_DISCOVERED: 'DeviceDiscovered',   // Emitted when a new device is discovered using local discovery
             DEVICE_REJECTED: 'DeviceRejected',   // Emitted when there is a connection from a device we are not configured to talk to
+            PENDING_DEVICES_CHANGED: 'PendingDevicesChanged',   // Emitted when some pending devices were added or removed
             DEVICE_PAUSED: 'DevicePaused',   // Emitted when a device has been paused
             DEVICE_RESUMED: 'DeviceResumed',   // Emitted when a device has been resumed
             DOWNLOAD_PROGRESS: 'DownloadProgress',   // Emitted during file downloads for each folder for each file
             FOLDER_COMPLETION: 'FolderCompletion',   //Emitted when the local or remote contents for a folder changes
             FOLDER_REJECTED: 'FolderRejected',   // Emitted when a device sends index information for a folder we do not have, or have but do not share with the device in question
-            CLUSTER_PENDING_CHANGED: 'ClusterPendingChanged',   // Emitted when some pending folders or devices were removed, like folders no longer offered from a remote device
+            PENDING_FOLDERS_CHANGED: 'PendingFoldersChanged',   // Emitted when some pending folders were added or removed, like folders no longer offered from a remote device
             FOLDER_SUMMARY: 'FolderSummary',   // Emitted when folder contents have changed locally
             ITEM_FINISHED: 'ItemFinished',   // Generated when Syncthing ends synchronizing a file to a newer version
             ITEM_STARTED: 'ItemStarted',   // Generated when Syncthing begins synchronizing a file to a newer version
