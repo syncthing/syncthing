@@ -146,6 +146,10 @@
         </div>
       </div>
     </form>
+    <div class="form-group" ng-if="willBeReintroducedBy">
+      <label translate for="removal">Device Removal</label>
+      <p class="text-danger">When you remove this device, it might be automatically reintroduced by {{ willBeReintroducedBy }}.</p>
+    </div>
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid">
