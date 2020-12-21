@@ -111,18 +111,18 @@ func (db *Lowlevel) RemovePendingFolder(id string) {
 	}
 }
 
-func (db *Lowlevel) RemovePendingFoldersBeforeTime(device protocol.DeviceID, oldest time.Time) (uint, error) {
+func (db *Lowlevel) RemovePendingFoldersBeforeTime(device protocol.DeviceID, oldest time.Time) ([]string, error) {
 	prefixKey, err := db.keyer.GeneratePendingFolderKey(nil, device[:], nil)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	iter, err := db.NewPrefixIterator(prefixKey)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer iter.Release()
 	oldest = oldest.Round(time.Second)
-	var count uint
+	var res []string
 	for iter.Next() {
 		var bs []byte
 		var of ObservedFolder
@@ -142,9 +142,10 @@ func (db *Lowlevel) RemovePendingFoldersBeforeTime(device protocol.DeviceID, old
 			l.Infof("Removed stale pending folder %v from device %s, last seen %v",
 				of.Label, device.Short(), of.Time)
 		}
-		count += 1
+		folderID := string(db.keyer.FolderFromPendingFolderKey(iter.Key()))
+		res = append(res, folderID)
 	}
-	return count, nil
+	return res, nil
 }
 
 // Consolidated information about a pending folder
