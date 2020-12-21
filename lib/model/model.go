@@ -193,6 +193,7 @@ var (
 	errEncryptionReceivedToken         = errors.New("resetting connection to send info on new encrypted folder (new cluster config)")
 	errMissingRemoteInClusterConfig    = errors.New("remote device missing in cluster config")
 	errMissingLocalInClusterConfig     = errors.New("local device missing in cluster config")
+	errConnLimitReached                = errors.New("connection limit reached")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -726,6 +727,13 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 		"type":          info.Type,
 		"crypto":        info.Crypto,
 	})
+}
+
+// NumConnections returns the current number of active connected devices.
+func (m *model) NumConnections() int {
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
+	return len(m.conn)
 }
 
 // ConnectionStats returns a map with connection statistics for each device.
@@ -2050,10 +2058,14 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		return errDevicePaused
 	}
 
-	if len(cfg.AllowedNetworks) > 0 {
-		if !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
-			return errNetworkNotAllowed
-		}
+	if len(cfg.AllowedNetworks) > 0 && !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
+		// The connection is not from an allowed network.
+		return errNetworkNotAllowed
+	}
+
+	if max := m.cfg.Options().ConnectionLimitMax; max > 0 && m.NumConnections() >= max {
+		// We're not allowed to accept any more connections.
+		return errConnLimitReached
 	}
 
 	return nil

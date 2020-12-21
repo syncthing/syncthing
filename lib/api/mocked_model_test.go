@@ -49,6 +49,10 @@ func (m *mockedModel) FolderProgressBytesCompleted(_ string) int64 {
 	return 0
 }
 
+func (m *mockedModel) NumConnections() int {
+	return 0
+}
+
 func (m *mockedModel) ConnectionStats() map[string]interface{} {
 	return nil
 }

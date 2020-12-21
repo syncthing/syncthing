@@ -24,6 +24,7 @@ import (
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 
@@ -414,6 +415,28 @@ func (s *service) bestDialerPriority(cfg config.Configuration) int {
 }
 
 func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Configuration, bestDialerPriority int, nextDialAt map[string]time.Time, initial bool) {
+	// Figure out current connection limits up front to see if there's any
+	// point in resolving devices and such at all. The connection limit is
+	// ConnectionLimitEnough, except if ConnectionLimitMax is set and
+	// happensto be lower (this is really a config error, but we can easily
+	// handle it).
+	allowAdditional := 0 // no limit
+	connectionLimit := dialConnectionLimit(cfg.Options)
+	if connectionLimit > 0 {
+		allowAdditional = connectionLimit - s.model.NumConnections()
+		if allowAdditional <= 0 {
+			// We're done here.
+			return
+		}
+	}
+
+	type dialQueueEntry struct {
+		id      protocol.DeviceID
+		targets []dialTarget
+	}
+
+	queue := make([]dialQueueEntry, 0, len(cfg.Devices))
+
 	for _, deviceCfg := range cfg.Devices {
 		// Don't attempt to connect to ourselves...
 		if deviceCfg.DeviceID == s.myID {
@@ -439,7 +462,23 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 		}
 
 		dialTargets := s.resolveDialTargets(ctx, now, cfg, deviceCfg, nextDialAt, initial, priorityCutoff)
-		if conn, ok := s.dialParallel(ctx, deviceCfg.DeviceID, dialTargets); ok {
+		if len(dialTargets) > 0 {
+			queue = append(queue, dialQueueEntry{deviceCfg.DeviceID, dialTargets})
+		}
+	}
+
+	// Shuffle the connection queue, so that if we only try a limited set of
+	// devices (or they in turn have limits and we're trying to load balance
+	// over several) it won't be the same ones in the same order every time.
+	rand.Shuffle(queue)
+
+	// Cut the queue down to the limit, if any.
+	if connectionLimit > 0 && len(queue) > allowAdditional {
+		queue = queue[:allowAdditional]
+	}
+
+	for _, entry := range queue {
+		if conn, ok := s.dialParallel(ctx, entry.id, entry.targets); ok {
 			s.conns <- conn
 		}
 	}
@@ -986,4 +1025,12 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	}
 
 	return nil
+}
+
+func dialConnectionLimit(opts config.OptionsConfiguration) int {
+	connectionLimit := opts.ConnectionLimitEnough
+	if connectionLimit == 0 || opts.ConnectionLimitMax != 0 && opts.ConnectionLimitMax < connectionLimit {
+		connectionLimit = opts.ConnectionLimitMax
+	}
+	return connectionLimit
 }

@@ -47,6 +47,14 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 			}
 		}
 	}
+
+	// Negative limits are meaningless, zero means unlimited.
+	if opts.ConnectionLimitEnough < 0 {
+		opts.ConnectionLimitEnough = 0
+	}
+	if opts.ConnectionLimitMax < 0 {
+		opts.ConnectionLimitMax = 0
+	}
 }
 
 // RequiresRestartOnly returns a copy with only the attributes that require

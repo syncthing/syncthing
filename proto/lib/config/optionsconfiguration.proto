@@ -58,6 +58,15 @@ message OptionsConfiguration {
     bool            send_full_index_on_upgrade               = 49;
     repeated string feature_flags                            = 50;
 
+    // The number of connections at which we stop trying to connect to more
+    // devices, zero meaning no limit. Does not affect incoming connections.
+    int32 connection_limit_enough = 51;
+
+    // The maximum number of connections which we will allow in total, zero
+    // meaning no limit. Affects incoming connections and prevents
+    // attempting outgoing connections.
+    int32 connection_limit_max = 52;
+
 
     // Legacy deprecated
     bool            upnp_enabled           = 9000 [deprecated = true, (ext.goname) = "DeprecatedUPnPEnabled"];
