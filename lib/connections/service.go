@@ -420,9 +420,10 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	allowAdditional := 0 // no limit
 	connectionLimit := dialConnectionLimit(cfg.Options)
 	if connectionLimit > 0 {
-		allowAdditional = connectionLimit - s.model.NumConnections()
+		current := s.model.NumConnections()
+		allowAdditional = connectionLimit - current
 		if allowAdditional <= 0 {
-			// We're done here.
+			l.Debugf("Skipping dial because we've reached the connection limit, current %d >= limit %d", current, connectionLimit)
 			return
 		}
 	}
@@ -471,6 +472,7 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 
 	// Cut the queue down to the limit, if any.
 	if connectionLimit > 0 && len(queue) > allowAdditional {
+		l.Debugf("Dialing %d devices out of %d because we've reached the connection limit (%d)", allowAdditional, len(queue), connectionLimit)
 		queue = queue[:allowAdditional]
 	}
 
