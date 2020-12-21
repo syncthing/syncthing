@@ -92,7 +92,7 @@ func (f *sendOnlyFolder) Override() {
 }
 
 func (f *sendOnlyFolder) override() {
-	l.Infof("Overriding global state on folder %v", f.Description)
+	l.Infoln("Overriding global state on folder", f.Description())
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)

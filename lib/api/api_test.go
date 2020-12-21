@@ -119,7 +119,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	defer os.Remove(token)
 	srv.started = make(chan string)
 
-	sup := suture.New("test", svcutil.Spec())
+	sup := suture.New("test", svcutil.SpecWithDebugLogger(l))
 	sup.Add(srv)
 	ctx, cancel := context.WithCancel(context.Background())
 	sup.ServeBackground(ctx)

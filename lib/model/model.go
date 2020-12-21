@@ -105,6 +105,9 @@ type Model interface {
 	FolderStatistics() (map[string]stats.FolderStatistics, error)
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 
+	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error)
+	PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error)
+
 	StartDeadlockDetector(timeout time.Duration)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
 }
@@ -147,7 +150,7 @@ type model struct {
 
 	// fields protected by pmut
 	pmut                sync.RWMutex
-	conn                map[protocol.DeviceID]connections.Connection
+	conn                map[protocol.DeviceID]protocol.Connection
 	connRequestLimiters map[protocol.DeviceID]*byteSemaphore
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.Hello
@@ -195,10 +198,7 @@ var (
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger) Model {
-	spec := svcutil.Spec()
-	spec.EventHook = func(e suture.Event) {
-		l.Debugln(e)
-	}
+	spec := svcutil.SpecWithDebugLogger(l)
 	m := &model{
 		Supervisor: suture.New("model", spec),
 
@@ -232,7 +232,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 
 		// fields protected by pmut
 		pmut:                sync.NewRWMutex(),
-		conn:                make(map[protocol.DeviceID]connections.Connection),
+		conn:                make(map[protocol.DeviceID]protocol.Connection),
 		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
@@ -255,8 +255,10 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 func (m *model) serve(ctx context.Context) error {
 	// Add and start folders
 	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
-	clusterConfigDevices := make(deviceIDSet, len(m.cfg.Devices()))
-	for _, folderCfg := range m.cfg.Folders() {
+	existingDevices := m.cfg.Devices()
+	existingFolders := m.cfg.Folders()
+	clusterConfigDevices := make(deviceIDSet, len(existingDevices))
+	for _, folderCfg := range existingFolders {
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
@@ -264,6 +266,10 @@ func (m *model) serve(ctx context.Context) error {
 		m.newFolder(folderCfg, cacheIgnoredFiles)
 		clusterConfigDevices.add(folderCfg.DeviceIDs())
 	}
+
+	ignoredDevices := observedDeviceSet(m.cfg.IgnoredDevices())
+	m.cleanPending(existingDevices, existingFolders, ignoredDevices, nil)
+
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
 	m.cfg.Subscribe(m)
 
@@ -1251,9 +1257,10 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
-			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
+			if err := m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID); err != nil {
+				l.Warnf("Failed to persist pending folder entry to database: %v", err)
+			}
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
-			changed = true
 			m.evLogger.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -1653,7 +1660,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 
 	m.progressEmitter.temporaryIndexUnsubscribe(conn)
 
-	l.Infof("Connection to %s at %s closed: %v", device, conn.Name(), err)
+	l.Infof("Connection to %s at %s closed: %v", device, conn, err)
 	m.evLogger.Log(events.DeviceDisconnected, map[string]string{
 		"id":    device.String(),
 		"error": err.Error(),
@@ -1905,7 +1912,7 @@ func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 }
 
 // Connection returns the current connection for device, and a boolean whether a connection was found.
-func (m *model) Connection(deviceID protocol.DeviceID) (connections.Connection, bool) {
+func (m *model) Connection(deviceID protocol.DeviceID) (protocol.Connection, bool) {
 	m.pmut.RLock()
 	cn, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
@@ -1989,8 +1996,9 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 
 	cfg, ok := m.cfg.Device(remoteID)
 	if !ok {
-		m.cfg.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String())
-		_ = m.cfg.Save() // best effort
+		if err := m.db.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String()); err != nil {
+			l.Warnf("Failed to persist pending device entry to database: %v", err)
+		}
 		m.evLogger.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),
@@ -2031,7 +2039,7 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
-func (m *model) AddConnection(conn connections.Connection, hello protocol.Hello) {
+func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	deviceID := conn.ID()
 	device, ok := m.cfg.Device(deviceID)
 	if !ok {
@@ -2577,12 +2585,14 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
+	removedFolders := make(map[string]struct{})
 	for folderID, fromCfg := range fromFolders {
 		toCfg, ok := toFolders[folderID]
 		if !ok {
 			// The folder was removed.
 			m.removeFolder(fromCfg)
 			clusterConfigDevices.add(fromCfg.DeviceIDs())
+			removedFolders[fromCfg.ID] = struct{}{}
 			continue
 		}
 
@@ -2647,6 +2657,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
+	// Clean up after removed devices
 	removedDevices := make([]protocol.DeviceID, 0, len(fromDevices))
 	m.fmut.Lock()
 	for deviceID := range fromDevices {
@@ -2671,6 +2682,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// Generating cluster-configs acquires fmut -> must happen outside of pmut.
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
 
+	ignoredDevices := observedDeviceSet(to.IgnoredDevices)
+	m.cleanPending(toDevices, toFolders, ignoredDevices, removedFolders)
+
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
 
@@ -2683,6 +2697,59 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	return true
+}
+
+func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]struct{}) {
+	pendingFolders, err := m.db.PendingFolders()
+	if err != nil {
+		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
+		// Continue with pending devices below, loop is skipped.
+	}
+	for folderID, pf := range pendingFolders {
+		if _, ok := removedFolders[folderID]; ok {
+			// Forget pending folder device associations for recently removed
+			// folders as well, assuming the folder is no longer of interest
+			// at all (but might become pending again).
+			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
+			m.db.RemovePendingFolder(folderID)
+			continue
+		}
+		for deviceID := range pf.OfferedBy {
+			if dev, ok := existingDevices[deviceID]; !ok {
+				l.Debugf("Discarding pending folder %v from unknown device %v", folderID, deviceID)
+				m.db.RemovePendingFolderForDevice(folderID, deviceID)
+				continue
+			} else if dev.IgnoredFolder(folderID) {
+				l.Debugf("Discarding now ignored pending folder %v for device %v", folderID, deviceID)
+				m.db.RemovePendingFolderForDevice(folderID, deviceID)
+				continue
+			}
+			if folderCfg, ok := existingFolders[folderID]; ok {
+				if folderCfg.SharedWith(deviceID) {
+					l.Debugf("Discarding now shared pending folder %v for device %v", folderID, deviceID)
+					m.db.RemovePendingFolderForDevice(folderID, deviceID)
+				}
+			}
+		}
+	}
+
+	pendingDevices, err := m.db.PendingDevices()
+	if err != nil {
+		l.Infof("Could not iterate through pending device entries for cleanup: %v", err)
+		return
+	}
+	for deviceID := range pendingDevices {
+		if _, ok := ignoredDevices[deviceID]; ok {
+			l.Debugf("Discarding now ignored pending device %v", deviceID)
+			m.db.RemovePendingDevice(deviceID)
+			continue
+		}
+		if _, ok := existingDevices[deviceID]; ok {
+			l.Debugf("Discarding now added pending device %v", deviceID)
+			m.db.RemovePendingDevice(deviceID)
+			continue
+		}
+	}
 }
 
 // checkFolderRunningLocked returns nil if the folder is up and running and a
@@ -2703,6 +2770,18 @@ func (m *model) checkFolderRunningLocked(folder string) error {
 	return errFolderNotRunning
 }
 
+// PendingDevices lists unknown devices that tried to connect.
+func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
+	return m.db.PendingDevices()
+}
+
+// PendingFolders lists folders that we don't yet share with the offering devices.  It
+// returns the entries grouped by folder and filters for a given device unless the
+// argument is specified as EmptyDeviceID.
+func (m *model) PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error) {
+	return m.db.PendingFoldersForDevice(device)
+}
+
 // mapFolders returns a map of folder ID to folder configuration for the given
 // slice of folder configurations.
 func mapFolders(folders []config.FolderConfiguration) map[string]config.FolderConfiguration {
@@ -2721,6 +2800,14 @@ func mapDevices(devices []protocol.DeviceID) map[protocol.DeviceID]struct{} {
 		m[dev] = struct{}{}
 	}
 	return m
+}
+
+func observedDeviceSet(devices []config.ObservedDevice) deviceIDSet {
+	res := make(deviceIDSet, len(devices))
+	for _, dev := range devices {
+		res[dev.ID] = struct{}{}
+	}
+	return res
 }
 
 func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) error {

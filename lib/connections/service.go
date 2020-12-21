@@ -42,8 +42,15 @@ var (
 )
 
 var (
-	errDisabled   = errors.New("disabled by configuration")
-	errDeprecated = errors.New("deprecated protocol")
+	// Dialers and listeners return errUnsupported (or a wrapped variant)
+	// when they are intentionally out of service due to configuration,
+	// build, etc. This is not logged loudly.
+	errUnsupported = errors.New("unsupported protocol")
+
+	// These are specific explanations for errUnsupported.
+	errDisabled   = fmt.Errorf("%w: disabled by configuration", errUnsupported)
+	errDeprecated = fmt.Errorf("%w: deprecated", errUnsupported)
+	errNotInBuild = fmt.Errorf("%w: disabled at build time", errUnsupported)
 )
 
 const (
@@ -133,10 +140,7 @@ type service struct {
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
-	spec := svcutil.Spec()
-	spec.EventHook = func(e suture.Event) {
-		l.Infoln(e)
-	}
+	spec := svcutil.SpecWithInfoLogger(l)
 	service := &service{
 		Supervisor:              suture.New("connections.Service", spec),
 		connectionStatusHandler: newConnectionStatusHandler(),
@@ -326,18 +330,16 @@ func (s *service) handle(ctx context.Context) error {
 		var protoConn protocol.Connection
 		passwords := s.cfg.FolderPasswords(remoteID)
 		if len(passwords) > 0 {
-			protoConn = protocol.NewEncryptedConnection(passwords, remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
+			protoConn = protocol.NewEncryptedConnection(passwords, remoteID, rd, wr, c, s.model, c, deviceCfg.Compression)
 		} else {
-			protoConn = protocol.NewConnection(remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
+			protoConn = protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression)
 		}
-		modelConn := completeConn{c, protoConn}
 
 		l.Infof("Established secure connection to %s at %s", remoteID, c)
 
-		s.model.AddConnection(modelConn, hello)
+		s.model.AddConnection(protoConn, hello)
 		continue
 	}
-	return nil
 }
 
 func (s *service) connect(ctx context.Context) error {
@@ -442,16 +444,10 @@ func (s *service) connect(ctx context.Context) error {
 				if err != nil {
 					s.setConnectionStatus(addr, err)
 				}
-				switch err {
-				case nil:
-					// all good
-				case errDisabled:
-					l.Debugln("Dialer for", uri, "is disabled")
+				if errors.Is(err, errUnsupported) {
+					l.Debugf("Dialer for %v: %v", uri, err)
 					continue
-				case errDeprecated:
-					l.Debugln("Dialer for", uri, "is deprecated")
-					continue
-				default:
+				} else if err != nil {
 					l.Infof("Dialer for %v: %v", uri, err)
 					continue
 				}
@@ -506,7 +502,6 @@ func (s *service) connect(ctx context.Context) error {
 			return ctx.Err()
 		}
 	}
-	return nil
 }
 
 func (s *service) isLANHost(host string) bool {
@@ -635,16 +630,10 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 		}
 
 		factory, err := getListenerFactory(to, uri)
-		switch err {
-		case nil:
-			// all good
-		case errDisabled:
-			l.Debugln("Listener for", uri, "is disabled")
+		if errors.Is(err, errUnsupported) {
+			l.Debugf("Listener for %v: %v", uri, err)
 			continue
-		case errDeprecated:
-			l.Debugln("Listener for", uri, "is deprecated")
-			continue
-		default:
+		} else if err != nil {
 			l.Infof("Listener for %v: %v", uri, err)
 			continue
 		}

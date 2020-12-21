@@ -66,14 +66,12 @@ type Lowlevel struct {
 	gcKeyCount         int
 	indirectGCInterval time.Duration
 	recheckInterval    time.Duration
+	oneFileSetCreated  chan struct{}
 }
 
 func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
-	spec := svcutil.Spec()
 	// Only log restarts in debug mode.
-	spec.EventHook = func(e suture.Event) {
-		l.Debugln(e)
-	}
+	spec := svcutil.SpecWithDebugLogger(l)
 	db := &Lowlevel{
 		Supervisor:         suture.New("db.Lowlevel", spec),
 		Backend:            backend,
@@ -82,6 +80,7 @@ func NewLowlevel(backend backend.Backend, opts ...Option) *Lowlevel {
 		gcMut:              sync.NewRWMutex(),
 		indirectGCInterval: indirectGCDefaultInterval,
 		recheckInterval:    recheckDefaultInterval,
+		oneFileSetCreated:  make(chan struct{}),
 	}
 	for _, opt := range opts {
 		opt(db)
@@ -555,6 +554,26 @@ func (db *Lowlevel) setIndexID(device, folder []byte, id protocol.IndexID) error
 		return err
 	}
 	return db.Put(key, bs)
+}
+
+func (db *Lowlevel) dropFolderIndexIDs(folder []byte) error {
+	t, err := db.newReadWriteTransaction()
+	if err != nil {
+		return err
+	}
+	defer t.close()
+
+	if err := t.deleteKeyPrefixMatching([]byte{KeyTypeIndexID}, func(key []byte) bool {
+		keyFolder, ok := t.keyer.FolderFromIndexIDKey(key)
+		if !ok {
+			l.Debugf("Deleting IndexID with missing FolderIdx: %v", key)
+			return true
+		}
+		return bytes.Equal(keyFolder, folder)
+	}); err != nil {
+		return err
+	}
+	return t.Commit()
 }
 
 func (db *Lowlevel) dropMtimes(folder []byte) error {

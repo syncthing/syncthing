@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/thejerf/suture/v4"
@@ -129,14 +130,6 @@ func (s *service) String() string {
 
 }
 
-// OnDone calls fn when ctx is cancelled.
-func OnDone(ctx context.Context, fn func()) {
-	go func() {
-		<-ctx.Done()
-		fn()
-	}()
-}
-
 type doneService struct {
 	fn func()
 }
@@ -152,8 +145,17 @@ func OnSupervisorDone(sup *suture.Supervisor, fn func()) {
 	sup.Add(&doneService{fn})
 }
 
-func Spec() suture.Spec {
+func SpecWithDebugLogger(l logger.Logger) suture.Spec {
+	return spec(func(e suture.Event) { l.Debugln(e) })
+}
+
+func SpecWithInfoLogger(l logger.Logger) suture.Spec {
+	return spec(func(e suture.Event) { l.Infoln(e) })
+}
+
+func spec(eventHook suture.EventHook) suture.Spec {
 	return suture.Spec{
+		EventHook:                eventHook,
 		Timeout:                  ServiceTimeout,
 		PassThroughPanics:        true,
 		DontPropagateTermination: false,
