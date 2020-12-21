@@ -127,20 +127,18 @@ func (db *Lowlevel) RemovePendingFoldersBeforeTime(device protocol.DeviceID, old
 		var bs []byte
 		var of ObservedFolder
 		if bs, err = db.Get(iter.Key()); err != nil {
-			// Keep inaccessible entries
-			continue
+			l.Infof("Invalid pending folder entry, deleting from database: %x", iter.Key())
 		} else if err = of.Unmarshal(bs); err != nil {
-			// Keep invalid entries
-			continue
-		} else if !of.Time.Before(oldest) {
+			l.Infof("Invalid pending folder entry, deleting from database: %x", iter.Key())
+		} else if of.Time.Before(oldest) {
+			l.Infof("Removing stale pending folder %v from device %s, last seen %v",
+				of.Label, device.Short(), of.Time)
+		} else {
 			// Keep entries younger or equal to the given timestamp
 			continue
 		}
 		if err := db.Delete(iter.Key()); err != nil {
 			l.Warnf("Failed to remove pending folder entry: %v", err)
-		} else {
-			l.Infof("Removed stale pending folder %v from device %s, last seen %v",
-				of.Label, device.Short(), of.Time)
 		}
 		folderID := string(db.keyer.FolderFromPendingFolderKey(iter.Key()))
 		res = append(res, folderID)
