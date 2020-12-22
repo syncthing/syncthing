@@ -99,14 +99,16 @@ func testFolderConfigFake() config.FolderConfiguration {
 	return cfg
 }
 
-func setupModelWithConnection() (*testModel, *fakeConnection, config.FolderConfiguration) {
+func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration) {
+	t.Helper()
 	w, fcfg := tmpDefaultWrapper()
-	m, fc := setupModelWithConnectionFromWrapper(w)
+	m, fc := setupModelWithConnectionFromWrapper(t, w)
 	return m, fc, fcfg
 }
 
-func setupModelWithConnectionFromWrapper(w config.Wrapper) (*testModel, *fakeConnection) {
-	m := setupModel(w)
+func setupModelWithConnectionFromWrapper(t testing.TB, w config.Wrapper) (*testModel, *fakeConnection) {
+	t.Helper()
+	m := setupModel(t, w)
 
 	fc := addFakeConn(m, device1)
 	fc.folder = "default"
@@ -116,9 +118,9 @@ func setupModelWithConnectionFromWrapper(w config.Wrapper) (*testModel, *fakeCon
 	return m, fc
 }
 
-func setupModel(w config.Wrapper) *testModel {
-	db := db.NewLowlevel(backend.OpenMemory())
-	m := newModel(w, myID, "syncthing", "dev", db, nil)
+func setupModel(t testing.TB, w config.Wrapper) *testModel {
+	t.Helper()
+	m := newModel(t, w, myID, "syncthing", "dev", nil)
 	m.ServeBackground()
 	<-m.started
 
@@ -134,8 +136,13 @@ type testModel struct {
 	stopped  chan struct{}
 }
 
-func newModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) *testModel {
+func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, protectedFiles []string) *testModel {
+	t.Helper()
 	evLogger := events.NewLogger()
+	ldb, err := db.NewLowlevel(backend.OpenMemory(), evLogger)
+	if err != nil {
+		t.Fatal(err)
+	}
 	m := NewModel(cfg, id, clientName, clientVersion, ldb, protectedFiles, evLogger).(*model)
 	ctx, cancel := context.WithCancel(context.Background())
 	go evLogger.Serve(ctx)
@@ -253,9 +260,10 @@ func dbSnapshot(t *testing.T, m Model, folder string) *db.Snapshot {
 // reloads when asked to, instead of checking file mtimes. This is
 // because we will be changing the files on disk often enough that the
 // mtimes will be unreliable to determine change status.
-func folderIgnoresAlwaysReload(m *testModel, fcfg config.FolderConfiguration) {
+func folderIgnoresAlwaysReload(t testing.TB, m *testModel, fcfg config.FolderConfiguration) {
+	t.Helper()
 	m.removeFolder(fcfg)
-	fset := db.NewFileSet(fcfg.ID, fcfg.Filesystem(), m.db)
+	fset := newFileSet(t, fcfg.ID, fcfg.Filesystem(), m.db)
 	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Lock()
 	m.addAndStartFolderLockedWithIgnores(fcfg, fset, ignores)
@@ -305,4 +313,13 @@ func newDeviceConfiguration(w config.Wrapper, id protocol.DeviceID, name string)
 	cfg.DeviceID = id
 	cfg.Name = name
 	return cfg
+}
+
+func newFileSet(t testing.TB, folder string, fs fs.Filesystem, ldb *db.Lowlevel) *db.FileSet {
+	t.Helper()
+	fset, err := db.NewFileSet(folder, fs, ldb)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fset
 }

@@ -12,6 +12,7 @@ import (
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -25,7 +26,8 @@ var (
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
 	backend.ReadTransaction
-	keyer keyer
+	keyer    keyer
+	evLogger events.Logger
 }
 
 func (db *Lowlevel) newReadOnlyTransaction() (readOnlyTransaction, error) {
@@ -36,6 +38,7 @@ func (db *Lowlevel) newReadOnlyTransaction() (readOnlyTransaction, error) {
 	return readOnlyTransaction{
 		ReadTransaction: tran,
 		keyer:           db.keyer,
+		evLogger:        db.evLogger,
 	}, nil
 }
 
@@ -800,6 +803,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device, file 
 
 	if !haveOldGlobal {
 		// Shouldn't ever happen, but doesn't hurt to handle.
+		t.evLogger.Log(events.Failure, "encountered empty global while removing item")
 		return keyBuf, t.Delete(gk)
 	}
 
@@ -889,12 +893,19 @@ func (t readWriteTransaction) removeFromGlobal(gk, keyBuf, folder, device, file 
 }
 
 func (t readWriteTransaction) deleteKeyPrefix(prefix []byte) error {
+	return t.deleteKeyPrefixMatching(prefix, func([]byte) bool { return true })
+}
+
+func (t readWriteTransaction) deleteKeyPrefixMatching(prefix []byte, match func(key []byte) bool) error {
 	dbi, err := t.NewPrefixIterator(prefix)
 	if err != nil {
 		return err
 	}
 	defer dbi.Release()
 	for dbi.Next() {
+		if !match(dbi.Key()) {
+			continue
+		}
 		if err := t.Delete(dbi.Key()); err != nil {
 			return err
 		}

@@ -9,13 +9,12 @@ package model
 import (
 	"bytes"
 	"context"
-	"net"
 	"sync"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/testutils"
 )
 
 type downloadProgressMessage struct {
@@ -24,7 +23,7 @@ type downloadProgressMessage struct {
 }
 
 type fakeConnection struct {
-	fakeUnderlyingConn
+	testutils.FakeConnectionInfo
 	id                       protocol.DeviceID
 	downloadProgressMessages []downloadProgressMessage
 	closed                   bool
@@ -218,51 +217,4 @@ func addFakeConn(m *testModel, dev protocol.DeviceID) *fakeConnection {
 	})
 
 	return fc
-}
-
-type fakeProtoConn struct {
-	protocol.Connection
-	fakeUnderlyingConn
-}
-
-func newFakeProtoConn(protoConn protocol.Connection) connections.Connection {
-	return &fakeProtoConn{Connection: protoConn}
-}
-
-// fakeUnderlyingConn implements the methods of connections.Connection that are
-// not implemented by protocol.Connection
-type fakeUnderlyingConn struct{}
-
-func (f *fakeUnderlyingConn) RemoteAddr() net.Addr {
-	return &fakeAddr{}
-}
-
-func (f *fakeUnderlyingConn) Type() string {
-	return "fake"
-}
-
-func (f *fakeUnderlyingConn) Crypto() string {
-	return "fake"
-}
-
-func (f *fakeUnderlyingConn) Transport() string {
-	return "fake"
-}
-
-func (f *fakeUnderlyingConn) Priority() int {
-	return 9000
-}
-
-func (f *fakeUnderlyingConn) String() string {
-	return ""
-}
-
-type fakeAddr struct{}
-
-func (fakeAddr) Network() string {
-	return "network"
-}
-
-func (fakeAddr) String() string {
-	return "address"
 }

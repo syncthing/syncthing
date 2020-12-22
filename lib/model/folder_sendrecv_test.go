@@ -90,10 +90,10 @@ func createFile(t *testing.T, name string, fs fs.Filesystem) protocol.FileInfo {
 }
 
 // Sets up a folder and model, but makes sure the services aren't actually running.
-func setupSendReceiveFolder(files ...protocol.FileInfo) (*testModel, *sendReceiveFolder) {
+func setupSendReceiveFolder(t testing.TB, files ...protocol.FileInfo) (*testModel, *sendReceiveFolder) {
 	w, fcfg := tmpDefaultWrapper()
 	// Initialise model and stop immediately.
-	model := setupModel(w)
+	model := setupModel(t, w)
 	model.cancel()
 	<-model.stopped
 	f := model.folderRunners[fcfg.ID].(*sendReceiveFolder)
@@ -128,7 +128,7 @@ func TestHandleFile(t *testing.T) {
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 
-	m, f := setupSendReceiveFolder(existingFile)
+	m, f := setupSendReceiveFolder(t, existingFile)
 	defer cleanupSRFolder(f, m)
 
 	copyChan := make(chan copyBlocksState, 1)
@@ -170,7 +170,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 
-	m, f := setupSendReceiveFolder(existingFile)
+	m, f := setupSendReceiveFolder(t, existingFile)
 	defer cleanupSRFolder(f, m)
 
 	if _, err := prepareTmpFile(f.Filesystem()); err != nil {
@@ -226,7 +226,7 @@ func TestCopierFinder(t *testing.T) {
 			requiredFile.Blocks = blocks[1:]
 			requiredFile.Name = "file2"
 
-			m, f := setupSendReceiveFolder(existingFile)
+			m, f := setupSendReceiveFolder(t, existingFile)
 			f.CopyRangeMethod = method
 
 			defer cleanupSRFolder(f, m)
@@ -307,7 +307,7 @@ func TestCopierFinder(t *testing.T) {
 
 func TestWeakHash(t *testing.T) {
 	// Setup the model/pull environment
-	model, fo := setupSendReceiveFolder()
+	model, fo := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(fo, model)
 	ffs := fo.Filesystem()
 
@@ -436,7 +436,7 @@ func TestCopierCleanup(t *testing.T) {
 	// Create a file
 	file := setupFile("test", []int{0})
 	file.Size = 1
-	m, f := setupSendReceiveFolder(file)
+	m, f := setupSendReceiveFolder(t, file)
 	defer cleanupSRFolder(f, m)
 
 	file.Blocks = []protocol.BlockInfo{blocks[1]}
@@ -469,7 +469,7 @@ func TestCopierCleanup(t *testing.T) {
 func TestDeregisterOnFailInCopy(t *testing.T) {
 	file := setupFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
 
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 
 	// Set up our evet subscription early
@@ -569,7 +569,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 func TestDeregisterOnFailInPull(t *testing.T) {
 	file := setupFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
 
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 
 	// Set up our evet subscription early
@@ -672,7 +672,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 }
 
 func TestIssue3164(t *testing.T) {
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
 	tmpDir := ffs.URI()
@@ -763,7 +763,7 @@ func TestDiffEmpty(t *testing.T) {
 // option is true and the permissions do not match between the file on disk and
 // in the db.
 func TestDeleteIgnorePerms(t *testing.T) {
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
 	f.IgnorePerms = true
@@ -801,7 +801,7 @@ func TestCopyOwner(t *testing.T) {
 	// Set up a folder with the CopyParentOwner bit and backed by a fake
 	// filesystem.
 
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 	f.folder.FolderConfiguration = newFolderConfiguration(m.cfg, f.ID, f.Label, fs.FilesystemTypeFake, "/TestCopyOwner")
 	f.folder.FolderConfiguration.CopyOwnershipFromParent = true
@@ -903,7 +903,7 @@ func TestCopyOwner(t *testing.T) {
 // TestSRConflictReplaceFileByDir checks that a conflict is created when an existing file
 // is replaced with a directory and versions are conflicting
 func TestSRConflictReplaceFileByDir(t *testing.T) {
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
 
@@ -935,7 +935,7 @@ func TestSRConflictReplaceFileByDir(t *testing.T) {
 // TestSRConflictReplaceFileByLink checks that a conflict is created when an existing file
 // is replaced with a link and versions are conflicting
 func TestSRConflictReplaceFileByLink(t *testing.T) {
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
 
@@ -968,7 +968,7 @@ func TestSRConflictReplaceFileByLink(t *testing.T) {
 // TestDeleteBehindSymlink checks that we don't delete or schedule a scan
 // when trying to delete a file behind a symlink.
 func TestDeleteBehindSymlink(t *testing.T) {
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
 
@@ -1019,7 +1019,7 @@ func TestDeleteBehindSymlink(t *testing.T) {
 
 // Reproduces https://github.com/syncthing/syncthing/issues/6559
 func TestPullCtxCancel(t *testing.T) {
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 
 	pullChan := make(chan pullBlockState)
@@ -1061,7 +1061,7 @@ func TestPullCtxCancel(t *testing.T) {
 }
 
 func TestPullDeleteUnscannedDir(t *testing.T) {
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
 
@@ -1090,7 +1090,7 @@ func TestPullDeleteUnscannedDir(t *testing.T) {
 }
 
 func TestPullCaseOnlyPerformFinish(t *testing.T) {
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
 
@@ -1151,7 +1151,7 @@ func TestPullCaseOnlySymlink(t *testing.T) {
 }
 
 func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 	ffs := f.Filesystem()
 
@@ -1206,7 +1206,7 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 }
 
 func TestPullTempFileCaseConflict(t *testing.T) {
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 
 	copyChan := make(chan copyBlocksState, 1)
@@ -1232,7 +1232,7 @@ func TestPullTempFileCaseConflict(t *testing.T) {
 }
 
 func TestPullCaseOnlyRename(t *testing.T) {
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 
 	// tempNameConfl := fs.TempName(confl)
@@ -1275,7 +1275,7 @@ func TestPullSymlinkOverExistingWindows(t *testing.T) {
 		t.Skip()
 	}
 
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 
 	name := "foo"
@@ -1315,7 +1315,7 @@ func TestPullSymlinkOverExistingWindows(t *testing.T) {
 }
 
 func TestPullDeleteCaseConflict(t *testing.T) {
-	m, f := setupSendReceiveFolder()
+	m, f := setupSendReceiveFolder(t)
 	defer cleanupSRFolder(f, m)
 
 	name := "foo"

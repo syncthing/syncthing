@@ -2115,8 +2115,8 @@ angular.module('syncthing.core')
                 time: (new Date()).toISOString()
             }
 
-            if (id in $scope.devices) {
-                $scope.devices[id].ignoredFolders.push(ignoredFolder);
+            if (device in $scope.devices) {
+                $scope.devices[device].ignoredFolders.push(ignoredFolder);
                 $scope.saveConfig();
             }
         };
@@ -2736,9 +2736,9 @@ angular.module('syncthing.core')
                 id: '@',
                 label: '@',
                 folderType: '@',
+                untrusted: '=',
             },
             link: function(scope, elem, attrs) {
-                scope.untrusted = attrs.untrusted === 'true';
                 var plain = false;
                 scope.togglePasswordVisibility = function() {
                     scope.plain = !scope.plain;
