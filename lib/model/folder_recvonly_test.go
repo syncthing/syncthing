@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -457,7 +455,7 @@ func setupROFolder(t *testing.T) (*testModel, *receiveOnlyFolder) {
 	cfg.Folders = []config.FolderConfiguration{fcfg}
 	w.Replace(cfg)
 
-	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
+	m := newModel(t, w, myID, "syncthing", "dev", nil)
 	m.ServeBackground()
 	<-m.started
 	must(t, m.ScanFolder("ro"))
