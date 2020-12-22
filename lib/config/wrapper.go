@@ -7,6 +7,7 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"os"
 	"sync/atomic"
@@ -59,8 +60,9 @@ type noopWaiter struct{}
 
 func (noopWaiter) Wait() {}
 
-// A Wrapper around a Configuration that manages loads, saves and published
-// notifications of changes to registered Handlers
+// Wrapper handles a Configuration, i.e. it provides methods to access, change
+// and save the config, and notifies registered subscribers (Committer) of
+// changes.
 type Wrapper interface {
 	ConfigPath() string
 	MyID() protocol.DeviceID
@@ -107,7 +109,6 @@ type wrapper struct {
 	evLogger events.Logger
 	myID     protocol.DeviceID
 	queue    chan changeEntry
-	queueMut sync.Mutex
 
 	waiter Waiter // Latest ongoing config change
 	subs   []Committer
@@ -118,6 +119,8 @@ type wrapper struct {
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
 // disk.
+// The returned Wrapper is a suture.Service, thus needs to be started (added to
+// a supervisor).
 func Wrap(path string, cfg Configuration, myID protocol.DeviceID, evLogger events.Logger) Wrapper {
 	w := &wrapper{
 		cfg:      cfg,
@@ -125,7 +128,6 @@ func Wrap(path string, cfg Configuration, myID protocol.DeviceID, evLogger event
 		evLogger: evLogger,
 		myID:     myID,
 		queue:    make(chan changeEntry, maxChanges),
-		queueMut: sync.NewMutex(),
 		waiter:   noopWaiter{}, // Noop until first config change
 		mut:      sync.NewMutex(),
 	}
@@ -134,6 +136,8 @@ func Wrap(path string, cfg Configuration, myID protocol.DeviceID, evLogger event
 
 // Load loads an existing file on disk and returns a new configuration
 // wrapper.
+// The returned Wrapper is a suture.Service, thus needs to be started (added to
+// a supervisor).
 func Load(path string, myID protocol.DeviceID, evLogger events.Logger) (Wrapper, int, error) {
 	fd, err := os.Open(path)
 	if err != nil {
@@ -212,44 +216,39 @@ func (w *wrapper) replaceQueued(changeLocked changeFunc) (Waiter, error) {
 	default:
 		return noopWaiter{}, errTooManyChanges
 	}
-	for {
-		// e.res is 1-buffered, thus it's guaranteed that when
-		// w.processQueueOne() returns, we either receive our result or
-		// processed someones elses change, thus need to retry.
-		w.processQueueOne()
-		select {
-		case res := <-e.res:
-			return res.w, res.err
-		default:
-		}
-	}
+	res := <-e.res
+	return res.w, res.err
 }
 
-func (w *wrapper) processQueueOne() {
+func (w *wrapper) Serve(ctx context.Context) error {
 	var e changeEntry
 
-	select {
-	case e = <-w.queue:
-	default:
-		return
+	for {
+		select {
+		case e = <-w.queue:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+
+		w.mut.Lock()
+		waiter, err := e.changeLocked()
+		w.mut.Unlock()
+
+		e.res <- changeResult{
+			w:   waiter,
+			err: err,
+		}
+		done := make(chan struct{})
+		go func() {
+			waiter.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
-
-	w.queueMut.Lock()
-
-	w.mut.Lock()
-	waiter, err := e.changeLocked()
-	w.mut.Unlock()
-	e.res <- changeResult{
-		w:   waiter,
-		err: err,
-	}
-
-	// Do not block the caller until the change is done, but do prevent more
-	// config changes until the change is done.
-	go func() {
-		waiter.Wait()
-		w.queueMut.Unlock()
-	}()
 }
 
 func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {

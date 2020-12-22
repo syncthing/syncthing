@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/thejerf/suture/v4"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
@@ -24,12 +26,13 @@ import (
 )
 
 var (
-	myID, device1, device2 protocol.DeviceID
-	defaultCfgWrapper      config.Wrapper
-	defaultFolderConfig    config.FolderConfiguration
-	defaultFs              fs.Filesystem
-	defaultCfg             config.Configuration
-	defaultAutoAcceptCfg   config.Configuration
+	myID, device1, device2  protocol.DeviceID
+	defaultCfgWrapper       config.Wrapper
+	defaultCfgWrapperCancel context.CancelFunc
+	defaultFolderConfig     config.FolderConfiguration
+	defaultFs               fs.Filesystem
+	defaultCfg              config.Configuration
+	defaultAutoAcceptCfg    config.Configuration
 )
 
 func init() {
@@ -40,7 +43,7 @@ func init() {
 	defaultFolderConfig = testFolderConfig("testdata")
 	defaultFs = defaultFolderConfig.Filesystem()
 
-	defaultCfgWrapper = createTmpWrapper(config.New(myID))
+	defaultCfgWrapper, defaultCfgWrapperCancel = createTmpWrapper(config.New(myID))
 	waiter, _ := defaultCfgWrapper.SetDevice(config.NewDeviceConfiguration(device1, "device1"))
 	waiter.Wait()
 	waiter, _ = defaultCfgWrapper.SetFolder(defaultFolderConfig)
@@ -73,11 +76,26 @@ func init() {
 	}
 }
 
-func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration) {
-	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
+func createTmpWrapper(cfg config.Configuration) (config.Wrapper, context.CancelFunc) {
+	tmpFile, err := ioutil.TempFile("", "syncthing-testConfig-")
+	if err != nil {
+		panic(err)
+	}
+	wrapper := config.Wrap(tmpFile.Name(), cfg, myID, events.NoopLogger)
+	tmpFile.Close()
+	if cfgService, ok := wrapper.(suture.Service); ok {
+		ctx, cancel := context.WithCancel(context.Background())
+		go cfgService.Serve(ctx)
+		return wrapper, cancel
+	}
+	return wrapper, func() {}
+}
+
+func tmpDefaultWrapper() (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
+	w, cancel := createTmpWrapper(defaultCfgWrapper.RawCopy())
 	fcfg := testFolderConfigTmp()
 	_, _ = w.SetFolder(fcfg)
-	return w, fcfg
+	return w, fcfg, cancel
 }
 
 func testFolderConfigTmp() config.FolderConfiguration {
@@ -99,11 +117,11 @@ func testFolderConfigFake() config.FolderConfiguration {
 	return cfg
 }
 
-func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration) {
+func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration, context.CancelFunc) {
 	t.Helper()
-	w, fcfg := tmpDefaultWrapper()
+	w, fcfg, cancel := tmpDefaultWrapper()
 	m, fc := setupModelWithConnectionFromWrapper(t, w)
-	return m, fc, fcfg
+	return m, fc, fcfg, cancel
 }
 
 func setupModelWithConnectionFromWrapper(t testing.TB, w config.Wrapper) (*testModel, *fakeConnection) {

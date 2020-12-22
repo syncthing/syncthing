@@ -60,8 +60,9 @@ func TestProgressEmitter(t *testing.T) {
 
 	w := evLogger.Subscribe(events.DownloadProgress)
 
-	c := createTmpWrapper(config.Configuration{})
+	c, cfgCancel := createTmpWrapper(config.Configuration{})
 	defer os.Remove(c.ConfigPath())
+	defer cfgCancel()
 	c.SetOptions(config.OptionsConfiguration{
 		ProgressUpdateIntervalS: 60, // irrelevant, but must be positive
 	})
@@ -109,8 +110,9 @@ func TestProgressEmitter(t *testing.T) {
 }
 
 func TestSendDownloadProgressMessages(t *testing.T) {
-	c := createTmpWrapper(config.Configuration{})
+	c, cfgCancel := createTmpWrapper(config.Configuration{})
 	defer os.Remove(c.ConfigPath())
+	defer cfgCancel()
 	c.SetOptions(config.OptionsConfiguration{
 		ProgressUpdateIntervalS: 60, // irrelevant, but must be positive
 		TempIndexMinBlocks:      10,

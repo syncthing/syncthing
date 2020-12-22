@@ -29,7 +29,8 @@ func TestRequestSimple(t *testing.T) {
 	// Verify that the model performs a request and creates a file based on
 	// an incoming index update.
 
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -72,7 +73,8 @@ func TestSymlinkTraversalRead(t *testing.T) {
 		return
 	}
 
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -115,7 +117,8 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 		return
 	}
 
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -174,7 +177,8 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 func TestRequestCreateTmpSymlink(t *testing.T) {
 	// Test that an update for a temporary file is invalidated
 
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -216,7 +220,8 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	// Sets up a folder with trashcan versioning and tries to use a
 	// deleted symlink to escape
 
-	w, fcfg := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper()
+	defer wCancel()
 	defer func() {
 		os.RemoveAll(fcfg.Filesystem().URI())
 		os.Remove(w.ConfigPath())
@@ -293,7 +298,8 @@ func TestPullInvalidIgnoredSR(t *testing.T) {
 
 // This test checks that (un-)ignored/invalid/deleted files are treated as expected.
 func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
-	w := createTmpWrapper(defaultCfgWrapper.RawCopy())
+	w, wCancel := createTmpWrapper(defaultCfgWrapper.RawCopy())
+	defer wCancel()
 	fcfg := testFolderConfigTmp()
 	fss := fcfg.Filesystem()
 	fcfg.Type = ft
@@ -420,7 +426,8 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 }
 
 func TestIssue4841(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan []protocol.FileInfo)
@@ -464,7 +471,8 @@ func TestIssue4841(t *testing.T) {
 }
 
 func TestRescanIfHaveInvalidContent(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -530,7 +538,8 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 }
 
 func TestParentDeletion(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	testFs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, testFs.URI())
 
@@ -609,7 +618,8 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		t.Skip("windows specific test")
 	}
 
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan []protocol.FileInfo)
@@ -677,7 +687,8 @@ func equalContents(path string, contents []byte) error {
 }
 
 func TestRequestRemoteRenameChanged(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
@@ -812,7 +823,8 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 }
 
 func TestRequestRemoteRenameConflict(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
@@ -903,7 +915,8 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 }
 
 func TestRequestDeleteChanged(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -972,7 +985,8 @@ func TestRequestDeleteChanged(t *testing.T) {
 }
 
 func TestNeedFolderFiles(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	tfs := fcfg.Filesystem()
 	tmpDir := tfs.URI()
 	defer cleanupModelAndRemoveDir(m, tmpDir)
@@ -1020,7 +1034,8 @@ func TestNeedFolderFiles(t *testing.T) {
 // propagated upon un-ignoring.
 // https://github.com/syncthing/syncthing/issues/6038
 func TestIgnoreDeleteUnignore(t *testing.T) {
-	w, fcfg := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper()
+	defer wCancel()
 	m := setupModel(t, w)
 	fss := fcfg.Filesystem()
 	tmpDir := fss.URI()
@@ -1120,7 +1135,8 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 // TestRequestLastFileProgress checks that the last pulled file (here only) is registered
 // as in progress.
 func TestRequestLastFileProgress(t *testing.T) {
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -1156,7 +1172,8 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	done := make(chan struct{})
 	defer close(done)
 
-	m, fc, fcfg := setupModelWithConnection(t)
+	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
+	defer wcfgCancel()
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -1277,7 +1294,8 @@ func TestRequestIndexSenderPause(t *testing.T) {
 }
 
 func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
-	w, fcfg := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper()
+	defer wCancel()
 	tfs := fcfg.Filesystem()
 	dir1 := "foo"
 	dir2 := "bar"
@@ -1340,7 +1358,8 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 }
 
 func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
-	w, fcfg := tmpDefaultWrapper()
+	w, fcfg, wCancel := tmpDefaultWrapper()
+	defer wCancel()
 	tfs := fcfg.Filesystem()
 	fcfg.Type = config.FolderTypeReceiveEncrypted
 	waiter, err := w.SetFolder(fcfg)

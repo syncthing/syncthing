@@ -25,7 +25,8 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	// Get us a model up and running
 
-	m, f := setupROFolder(t)
+	m, f, wcfgCancel := setupROFolder(t)
+	defer wcfgCancel()
 	ffs := f.Filesystem()
 	defer cleanupModel(m)
 
@@ -105,7 +106,8 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// Get us a model up and running
 
-	m, f := setupROFolder(t)
+	m, f, wcfgCancel := setupROFolder(t)
+	defer wcfgCancel()
 	ffs := f.Filesystem()
 	defer cleanupModel(m)
 
@@ -193,7 +195,8 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 func TestRecvOnlyUndoChanges(t *testing.T) {
 	// Get us a model up and running
 
-	m, f := setupROFolder(t)
+	m, f, wcfgCancel := setupROFolder(t)
+	defer wcfgCancel()
 	ffs := f.Filesystem()
 	defer cleanupModel(m)
 
@@ -261,7 +264,8 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 	// Get us a model up and running
 
-	m, f := setupROFolder(t)
+	m, f, wcfgCancel := setupROFolder(t)
+	defer wcfgCancel()
 	ffs := f.Filesystem()
 	defer cleanupModel(m)
 
@@ -324,7 +328,8 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	// Get us a model up and running
 
-	m, f := setupROFolder(t)
+	m, f, wcfgCancel := setupROFolder(t)
+	defer wcfgCancel()
 	ffs := f.Filesystem()
 	defer cleanupModel(m)
 
@@ -443,10 +448,10 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 	return knownFiles
 }
 
-func setupROFolder(t *testing.T) (*testModel, *receiveOnlyFolder) {
+func setupROFolder(t *testing.T) (*testModel, *receiveOnlyFolder, context.CancelFunc) {
 	t.Helper()
 
-	w := createTmpWrapper(defaultCfg)
+	w, cancel := createTmpWrapper(defaultCfg)
 	cfg := w.RawCopy()
 	fcfg := testFolderConfigFake()
 	fcfg.ID = "ro"
@@ -464,7 +469,7 @@ func setupROFolder(t *testing.T) (*testModel, *receiveOnlyFolder) {
 	defer m.fmut.RUnlock()
 	f := m.folderRunners["ro"].(*receiveOnlyFolder)
 
-	return m, f
+	return m, f, cancel
 }
 
 func writeFile(fs fs.Filesystem, filename string, data []byte, perm fs.FileMode) error {
