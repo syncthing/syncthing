@@ -2758,31 +2758,24 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 		for deviceID := range pf.OfferedBy {
 			if dev, ok := existingDevices[deviceID]; !ok {
 				l.Debugf("Discarding pending folder %v from unknown device %v", folderID, deviceID)
-				m.db.RemovePendingFolderForDevice(folderID, deviceID)
-				removedPendingFolders = append(removedPendingFolders, map[string]string{
-					"folder": folderID,
-					"device": deviceID.String(),
-				})
-				continue
+				goto removeFolderForDevice
 			} else if dev.IgnoredFolder(folderID) {
 				l.Debugf("Discarding now ignored pending folder %v for device %v", folderID, deviceID)
-				m.db.RemovePendingFolderForDevice(folderID, deviceID)
-				removedPendingFolders = append(removedPendingFolders, map[string]string{
-					"folder": folderID,
-					"device": deviceID.String(),
-				})
-				continue
+				goto removeFolderForDevice
 			}
 			if folderCfg, ok := existingFolders[folderID]; ok {
 				if folderCfg.SharedWith(deviceID) {
 					l.Debugf("Discarding now shared pending folder %v for device %v", folderID, deviceID)
-					m.db.RemovePendingFolderForDevice(folderID, deviceID)
-					removedPendingFolders = append(removedPendingFolders, map[string]string{
-						"folder": folderID,
-						"device": deviceID.String(),
-					})
+					goto removeFolderForDevice
 				}
 			}
+			continue
+		removeFolderForDevice:
+			m.db.RemovePendingFolderForDevice(folderID, deviceID)
+			removedPendingFolders = append(removedPendingFolders, map[string]string{
+				"folder": folderID,
+				"device": deviceID.String(),
+			})
 		}
 	}
 	if len(removedPendingFolders) > 0 {
@@ -2800,16 +2793,16 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	for deviceID := range pendingDevices {
 		if _, ok := ignoredDevices[deviceID]; ok {
 			l.Debugf("Discarding now ignored pending device %v", deviceID)
-			m.db.RemovePendingDevice(deviceID)
-			removedPendingDevices = append(removedPendingDevices, deviceID.String())
-			continue
+			goto removeDevice
 		}
 		if _, ok := existingDevices[deviceID]; ok {
 			l.Debugf("Discarding now added pending device %v", deviceID)
-			m.db.RemovePendingDevice(deviceID)
-			removedPendingDevices = append(removedPendingDevices, deviceID.String())
-			continue
+			goto removeDevice
 		}
+		continue
+	removeDevice:
+		m.db.RemovePendingDevice(deviceID)
+		removedPendingDevices = append(removedPendingDevices, deviceID.String())
 	}
 	if len(removedPendingDevices) > 0 {
 		m.evLogger.Log(events.PendingDevicesChanged, map[string]interface{}{
