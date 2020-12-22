@@ -14,8 +14,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -393,9 +391,13 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 		return true
 	})
 	snap.Release()
-	m.Index(device1, "ro", files)
+	m.IndexUpdate(device1, "ro", files)
 
-	must(t, m.ScanFolder("ro"))
+	// Ensure the pull to resolve conflicts (content identical) happened
+	must(t, f.doInSync(func() error {
+		f.pull()
+		return nil
+	}))
 
 	size = receiveOnlyChangedSize(t, m, "ro")
 	if size.Files+size.Directories+size.Deleted != 0 {
@@ -453,7 +455,7 @@ func setupROFolder(t *testing.T) (*testModel, *receiveOnlyFolder) {
 	cfg.Folders = []config.FolderConfiguration{fcfg}
 	w.Replace(cfg)
 
-	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
+	m := newModel(t, w, myID, "syncthing", "dev", nil)
 	m.ServeBackground()
 	<-m.started
 	must(t, m.ScanFolder("ro"))

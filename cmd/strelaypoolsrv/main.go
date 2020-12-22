@@ -6,9 +6,11 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"io"
 	"io/ioutil"
 	"log"
@@ -208,6 +210,7 @@ func main() {
 		tlsCfg := &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			MinVersion:   tls.VersionTLS10, // No SSLv3
+			ClientAuth:   tls.RequestClientCert,
 			CipherSuites: []uint16{
 				// No RC4
 				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -338,6 +341,12 @@ func handleGetRequest(rw http.ResponseWriter, r *http.Request) {
 }
 
 func handlePostRequest(w http.ResponseWriter, r *http.Request) {
+	var relayCert *x509.Certificate
+	if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
+		relayCert = r.TLS.PeerCertificates[0]
+		log.Printf("Got TLS cert from relay server")
+	}
+
 	var newRelay relay
 	err := json.NewDecoder(r.Body).Decode(&newRelay)
 	r.Body.Close()
@@ -357,6 +366,16 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+
+	if relayCert != nil {
+		advertisedId := uri.Query().Get("id")
+		idFromCert := protocol.NewDeviceID(relayCert.Raw).String()
+		if advertisedId != idFromCert {
+			log.Println("Warning: Relay server requested to join with an ID different from the join request, rejecting")
+			http.Error(w, "mismatched advertised id and join request cert", http.StatusBadRequest)
+			return
+		}
 	}
 
 	host, port, err := net.SplitHostPort(uri.Host)
@@ -379,7 +398,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	if ip == nil || ip.IsUnspecified() {
 		uri.Host = net.JoinHostPort(rhost, port)
 		newRelay.URL = uri.String()
-	} else if host != rhost {
+	} else if host != rhost && relayCert == nil {
 		if debug {
 			log.Println("IP address advertised does not match client IP address", r.RemoteAddr, uri)
 		}

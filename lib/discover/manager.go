@@ -47,7 +47,7 @@ type manager struct {
 
 func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister) Manager {
 	m := &manager{
-		Supervisor:    suture.New("discover.Manager", util.Spec()),
+		Supervisor:    suture.New("discover.Manager", util.SpecWithDebugLogger(l)),
 		myID:          myID,
 		cfg:           cfg,
 		cert:          cert,

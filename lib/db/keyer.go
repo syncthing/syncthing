@@ -102,6 +102,7 @@ type keyer interface {
 
 	// index IDs
 	GenerateIndexIDKey(key, device, folder []byte) (indexIDKey, error)
+	FolderFromIndexIDKey(key []byte) ([]byte, bool)
 
 	// Mtimes
 	GenerateMtimesKey(key, folder []byte) (mtimesKey, error)
@@ -301,6 +302,10 @@ func (k defaultKeyer) GenerateIndexIDKey(key, device, folder []byte) (indexIDKey
 	binary.BigEndian.PutUint32(key[keyPrefixLen:], deviceID)
 	binary.BigEndian.PutUint32(key[keyPrefixLen+keyDeviceLen:], folderID)
 	return key, nil
+}
+
+func (k defaultKeyer) FolderFromIndexIDKey(key []byte) ([]byte, bool) {
+	return k.folderIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen+keyDeviceLen:]))
 }
 
 type mtimesKey []byte

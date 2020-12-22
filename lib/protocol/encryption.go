@@ -128,6 +128,7 @@ func (e encryptedModel) Closed(conn Connection, err error) {
 // The encryptedConnection sits between the model and the encrypted device. It
 // encrypts outgoing metadata and decrypts incoming responses.
 type encryptedConnection struct {
+	ConnectionInfo
 	conn       Connection
 	folderKeys map[string]*[keySize]byte // folder ID -> key
 }
@@ -138,10 +139,6 @@ func (e encryptedConnection) Start() {
 
 func (e encryptedConnection) ID() DeviceID {
 	return e.conn.ID()
-}
-
-func (e encryptedConnection) Name() string {
-	return e.conn.Name()
 }
 
 func (e encryptedConnection) Index(ctx context.Context, folder string, files []FileInfo) error {

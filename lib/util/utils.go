@@ -8,6 +8,7 @@ package util
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/sync"
 
 	"github.com/thejerf/suture/v4"
@@ -261,6 +263,19 @@ type FatalErr struct {
 	Status ExitStatus
 }
 
+// AsFatalErr wraps the given error creating a FatalErr. If the given error
+// already is of type FatalErr, it is not wrapped again.
+func AsFatalErr(err error, status ExitStatus) *FatalErr {
+	var ferr *FatalErr
+	if errors.As(err, &ferr) {
+		return ferr
+	}
+	return &FatalErr{
+		Err:    err,
+		Status: status,
+	}
+}
+
 func (e *FatalErr) Error() string {
 	return e.Err.Error()
 }
@@ -390,8 +405,17 @@ func OnSupervisorDone(sup *suture.Supervisor, fn func()) {
 	sup.Add(&doneService{fn})
 }
 
-func Spec() suture.Spec {
+func SpecWithDebugLogger(l logger.Logger) suture.Spec {
+	return spec(func(e suture.Event) { l.Debugln(e) })
+}
+
+func SpecWithInfoLogger(l logger.Logger) suture.Spec {
+	return spec(func(e suture.Event) { l.Infoln(e) })
+}
+
+func spec(eventHook suture.EventHook) suture.Spec {
 	return suture.Spec{
+		EventHook:                eventHook,
 		PassThroughPanics:        true,
 		DontPropagateTermination: false,
 	}
