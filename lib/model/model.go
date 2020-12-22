@@ -33,9 +33,9 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -199,7 +199,7 @@ var (
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger) Model {
-	spec := util.SpecWithDebugLogger(l)
+	spec := svcutil.SpecWithDebugLogger(l)
 	m := &model{
 		Supervisor: suture.New("model", spec),
 
@@ -249,7 +249,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
 	}
 	m.Add(m.progressEmitter)
-	m.Add(util.AsService(m.serve, m.String()))
+	m.Add(svcutil.AsService(m.serve, m.String()))
 
 	return m
 }
@@ -262,7 +262,7 @@ func (m *model) serve(ctx context.Context) error {
 
 	if err := m.initFolders(); err != nil {
 		close(m.started)
-		return util.AsFatalErr(err, util.ExitError)
+		return svcutil.AsFatalErr(err, svcutil.ExitError)
 	}
 
 	close(m.started)
@@ -271,7 +271,7 @@ func (m *model) serve(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	case err := <-m.fatalChan:
-		return util.AsFatalErr(err, util.ExitError)
+		return svcutil.AsFatalErr(err, svcutil.ExitError)
 	}
 }
 
