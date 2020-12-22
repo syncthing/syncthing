@@ -28,7 +28,7 @@ const (
 	DeviceDiscovered
 	DeviceConnected
 	DeviceDisconnected
-	DeviceRejected
+	DeviceRejected // DEPRECATED, superseded by PendingDevicesChanged
 	PendingDevicesChanged
 	DevicePaused
 	DeviceResumed
@@ -39,7 +39,7 @@ const (
 	ItemStarted
 	ItemFinished
 	StateChanged
-	FolderRejected
+	FolderRejected // DEPRECATED, superseded by PendingFoldersChanged
 	PendingFoldersChanged
 	ConfigSaved
 	DownloadProgress
