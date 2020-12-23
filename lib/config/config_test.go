@@ -8,6 +8,7 @@ package config
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -95,7 +97,8 @@ func TestDeviceConfig(t *testing.T) {
 		}
 
 		os.RemoveAll(filepath.Join("testdata", DefaultMarkerName))
-		wr, err := load(cfgFile, device1)
+		wr, wrCancel, err := load(cfgFile, device1)
+		defer wrCancel()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -170,7 +173,8 @@ func TestDeviceConfig(t *testing.T) {
 }
 
 func TestNoListenAddresses(t *testing.T) {
-	cfg, err := load("testdata/nolistenaddress.xml", device1)
+	cfg, cfgCancel, err := load("testdata/nolistenaddress.xml", device1)
+	defer cfgCancel()
 	if err != nil {
 		t.Error(err)
 	}
@@ -228,7 +232,8 @@ func TestOverriddenValues(t *testing.T) {
 	}
 
 	os.Unsetenv("STNOUPGRADE")
-	cfg, err := load("testdata/overridenvalues.xml", device1)
+	cfg, cfgCancel, err := load("testdata/overridenvalues.xml", device1)
+	defer cfgCancel()
 	if err != nil {
 		t.Error(err)
 	}
@@ -269,7 +274,8 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 		},
 	}
 
-	cfg, err := load("testdata/deviceaddressesdynamic.xml", device4)
+	cfg, cfgCancel, err := load("testdata/deviceaddressesdynamic.xml", device4)
+	defer cfgCancel()
 	if err != nil {
 		t.Error(err)
 	}
@@ -314,7 +320,8 @@ func TestDeviceCompression(t *testing.T) {
 		},
 	}
 
-	cfg, err := load("testdata/devicecompression.xml", device4)
+	cfg, cfgCancel, err := load("testdata/devicecompression.xml", device4)
+	defer cfgCancel()
 	if err != nil {
 		t.Error(err)
 	}
@@ -356,7 +363,8 @@ func TestDeviceAddressesStatic(t *testing.T) {
 		},
 	}
 
-	cfg, err := load("testdata/deviceaddressesstatic.xml", device4)
+	cfg, cfgCancel, err := load("testdata/deviceaddressesstatic.xml", device4)
+	defer cfgCancel()
 	if err != nil {
 		t.Error(err)
 	}
@@ -368,7 +376,8 @@ func TestDeviceAddressesStatic(t *testing.T) {
 }
 
 func TestVersioningConfig(t *testing.T) {
-	cfg, err := load("testdata/versioningconfig.xml", device4)
+	cfg, cfgCancel, err := load("testdata/versioningconfig.xml", device4)
+	defer cfgCancel()
 	if err != nil {
 		t.Error(err)
 	}
@@ -395,7 +404,8 @@ func TestIssue1262(t *testing.T) {
 		t.Skipf("path gets converted to absolute as part of the filesystem initialization on linux")
 	}
 
-	cfg, err := load("testdata/issue-1262.xml", device4)
+	cfg, cfgCancel, err := load("testdata/issue-1262.xml", device4)
+	defer cfgCancel()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -409,7 +419,8 @@ func TestIssue1262(t *testing.T) {
 }
 
 func TestIssue1750(t *testing.T) {
-	cfg, err := load("testdata/issue-1750.xml", device4)
+	cfg, cfgCancel, err := load("testdata/issue-1750.xml", device4)
+	defer cfgCancel()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -512,7 +523,8 @@ func TestNewSaveLoad(t *testing.T) {
 	}
 
 	intCfg := New(device1)
-	cfg := wrap(path, intCfg, device1)
+	cfg, cfgCancel := wrap(path, intCfg, device1)
+	defer cfgCancel()
 
 	if exists(path) {
 		t.Error(path, "exists")
@@ -526,7 +538,8 @@ func TestNewSaveLoad(t *testing.T) {
 		t.Error(path, "does not exist")
 	}
 
-	cfg2, err := load(path, device1)
+	cfg2, cfg2Cancel, err := load(path, device1)
+	defer cfg2Cancel()
 	if err != nil {
 		t.Error(err)
 	}
@@ -553,7 +566,8 @@ func TestPrepare(t *testing.T) {
 }
 
 func TestCopy(t *testing.T) {
-	wrapper, err := load("testdata/example.xml", device1)
+	wrapper, wrapperCancel, err := load("testdata/example.xml", device1)
+	defer wrapperCancel()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -592,7 +606,8 @@ func TestCopy(t *testing.T) {
 }
 
 func TestPullOrder(t *testing.T) {
-	wrapper, err := load("testdata/pullorder.xml", device1)
+	wrapper, wrapperCancel, err := load("testdata/pullorder.xml", device1)
+	defer wrapperCancel()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -632,8 +647,9 @@ func TestPullOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrapper = wrap("testdata/pullorder.xml", cfg, device1)
-	folders = wrapper.Folders()
+	wrapper2, wrapper2Cancel := wrap("testdata/pullorder.xml", cfg, device1)
+	defer wrapper2Cancel()
+	folders = wrapper2.Folders()
 
 	for _, tc := range expected {
 		if actual := folders[tc.name].Order; actual != tc.order {
@@ -643,7 +659,8 @@ func TestPullOrder(t *testing.T) {
 }
 
 func TestLargeRescanInterval(t *testing.T) {
-	wrapper, err := load("testdata/largeinterval.xml", device1)
+	wrapper, wrapperCancel, err := load("testdata/largeinterval.xml", device1)
+	defer wrapperCancel()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -681,7 +698,8 @@ func TestGUIConfigURL(t *testing.T) {
 func TestDuplicateDevices(t *testing.T) {
 	// Duplicate devices should be removed
 
-	wrapper, err := load("testdata/dupdevices.xml", device1)
+	wrapper, wrapperCancel, err := load("testdata/dupdevices.xml", device1)
+	defer wrapperCancel()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -699,7 +717,8 @@ func TestDuplicateDevices(t *testing.T) {
 func TestDuplicateFolders(t *testing.T) {
 	// Duplicate folders are a loading error
 
-	_, err := load("testdata/dupfolders.xml", device1)
+	_, _Cancel, err := load("testdata/dupfolders.xml", device1)
+	defer _Cancel()
 	if err == nil || !strings.Contains(err.Error(), errFolderIDDuplicate.Error()) {
 		t.Fatal(`Expected error to mention "duplicate folder ID":`, err)
 	}
@@ -710,7 +729,8 @@ func TestEmptyFolderPaths(t *testing.T) {
 	// get messed up by the prepare steps (e.g., become the current dir or
 	// get a slash added so that it becomes the root directory or similar).
 
-	_, err := load("testdata/nopath.xml", device1)
+	_, _Cancel, err := load("testdata/nopath.xml", device1)
+	defer _Cancel()
 	if err == nil || !strings.Contains(err.Error(), errFolderPathEmpty.Error()) {
 		t.Fatal("Expected error due to empty folder path, got", err)
 	}
@@ -779,7 +799,8 @@ func TestIgnoredDevices(t *testing.T) {
 	// Verify that ignored devices that are also present in the
 	// configuration are not in fact ignored.
 
-	wrapper, err := load("testdata/ignoreddevices.xml", device1)
+	wrapper, wrapperCancel, err := load("testdata/ignoreddevices.xml", device1)
+	defer wrapperCancel()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -797,7 +818,8 @@ func TestIgnoredFolders(t *testing.T) {
 	// configuration are not in fact ignored.
 	// Also, verify that folders that are shared with a device are not ignored.
 
-	wrapper, err := load("testdata/ignoredfolders.xml", device1)
+	wrapper, wrapperCancel, err := load("testdata/ignoredfolders.xml", device1)
+	defer wrapperCancel()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -833,7 +855,8 @@ func TestIgnoredFolders(t *testing.T) {
 func TestGetDevice(t *testing.T) {
 	// Verify that the Device() call does the right thing
 
-	wrapper, err := load("testdata/ignoreddevices.xml", device1)
+	wrapper, wrapperCancel, err := load("testdata/ignoreddevices.xml", device1)
+	defer wrapperCancel()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -860,7 +883,8 @@ func TestGetDevice(t *testing.T) {
 }
 
 func TestSharesRemovedOnDeviceRemoval(t *testing.T) {
-	wrapper, err := load("testdata/example.xml", device1)
+	wrapper, wrapperCancel, err := load("testdata/example.xml", device1)
+	defer wrapperCancel()
 	if err != nil {
 		t.Errorf("Failed: %s", err)
 	}
@@ -946,7 +970,8 @@ func TestIssue4219(t *testing.T) {
 		t.Errorf("There should be three ignored folders, not %d", ignoredFolders)
 	}
 
-	w := wrap("/tmp/cfg", cfg, myID)
+	w, wCancel := wrap("/tmp/cfg", cfg, myID)
+	defer wCancel()
 	if !w.IgnoredFolder(device2, "t1") {
 		t.Error("Folder device2 t1 should be ignored")
 	}
@@ -1157,13 +1182,27 @@ func defaultConfigAsMap() map[string]interface{} {
 	return tmp
 }
 
-func load(path string, myID protocol.DeviceID) (Wrapper, error) {
+func load(path string, myID protocol.DeviceID) (Wrapper, context.CancelFunc, error) {
 	cfg, _, err := Load(path, myID, events.NoopLogger)
-	return cfg, err
+	if err != nil {
+		return nil, func() {}, err
+	}
+	return cfg, startWrapper(cfg), nil
 }
 
-func wrap(path string, cfg Configuration, myID protocol.DeviceID) Wrapper {
-	return Wrap(path, cfg, myID, events.NoopLogger)
+func wrap(path string, cfg Configuration, myID protocol.DeviceID) (Wrapper, context.CancelFunc) {
+	wrapper := Wrap(path, cfg, myID, events.NoopLogger)
+	return wrapper, startWrapper(wrapper)
+}
+
+func startWrapper(wrapper Wrapper) context.CancelFunc {
+	s, ok := wrapper.(suture.Service)
+	if !ok {
+		return func() {}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	go s.Serve(ctx)
+	return cancel
 }
 
 func TestInternalVersioningConfiguration(t *testing.T) {
