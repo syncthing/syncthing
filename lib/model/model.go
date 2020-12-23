@@ -1228,11 +1228,10 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 	}
 
-	changedHere, tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDeviceInfos, indexSenderRegistry)
+	tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDeviceInfos, indexSenderRegistry)
 	if err != nil {
 		return err
 	}
-	changed = changed || changedHere
 
 	m.pmut.Lock()
 	m.remotePausedFolders[deviceID] = paused
@@ -1276,8 +1275,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	return nil
 }
 
-func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) (bool, []string, map[string]struct{}, error) {
-	var changed bool
+func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) ([]string, map[string]struct{}, error) {
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
 	paused := make(map[string]struct{}, len(folders))
@@ -1335,7 +1333,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Warnln(msg)
 			}
 
-			return changed, tempIndexFolders, paused, err
+			return tempIndexFolders, paused, err
 		}
 		if devErrs, ok := m.folderEncryptionFailures[folder.ID]; ok {
 			if len(devErrs) == 1 {
@@ -1375,7 +1373,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 	indexSenders.removeAllExcept(seenFolders)
 
-	return changed, tempIndexFolders, paused, nil
+	return tempIndexFolders, paused, nil
 }
 
 func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceInfos *indexSenderStartInfo, deviceUntrusted bool) error {
