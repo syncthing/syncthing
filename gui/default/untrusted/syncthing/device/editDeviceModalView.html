@@ -148,7 +148,7 @@
     </form>
     <div class="form-group" ng-if="willBeReintroducedBy">
       <label translate for="removal">Device Removal</label>
-      <p class="text-danger">When you remove this device, it might be automatically reintroduced by {{ willBeReintroducedBy }}.</p>
+      <p class="text-danger" translate translate-value-introducer="{{ willBeReintroducedBy }}">When you remove this device, it might be automatically reintroduced by {%introducer%}.</p>
     </div>
   </div>
   <div class="modal-footer">
