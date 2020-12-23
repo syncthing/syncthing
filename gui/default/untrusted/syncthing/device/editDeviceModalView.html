@@ -148,7 +148,7 @@
     </form>
     <div class="form-group" ng-if="willBeReintroducedBy">
       <label translate for="removal">Device Removal</label>
-      <p class="text-danger" translate translate-value-introducer="{{ willBeReintroducedBy }}">When you remove this device, it might be automatically reintroduced by {%introducer%}.</p>
+      <p class="help-block" translate translate-value-introducer="{{ willBeReintroducedBy }}">When you remove this device, it might be automatically reintroduced by {%introducer%}.</p>
     </div>
   </div>
   <div class="modal-footer">
@@ -162,7 +162,7 @@
       <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
     <div ng-if="editingExisting" class="pull-left">
-      <button type="button" class="btn btn-warning btn-sm" ng-if="willBeReintroducedBy" tooltip data-original-title="{{ willBeReintroducedBy }} might reintroduce this device.">
+      <button type="button" class="btn btn-warning btn-sm" ng-if="willBeReintroducedBy" tooltip data-original-title="{{ willBeReintroducedBy }} {{'might reintroduce this device' | translate}}.">
         <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
       </button>
       <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#remove-device-confirmation" ng-if="!willBeReintroducedBy">
