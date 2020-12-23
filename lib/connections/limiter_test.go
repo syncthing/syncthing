@@ -32,31 +32,34 @@ func init() {
 }
 
 func initConfig() (config.Wrapper, context.CancelFunc) {
-	cfg := config.Wrap("/dev/null", config.New(device1), device1, events.NoopLogger)
+	wrapper := config.Wrap("/dev/null", config.New(device1), device1, events.NoopLogger)
 	dev1Conf = config.NewDeviceConfiguration(device1, "device1")
 	dev2Conf = config.NewDeviceConfiguration(device2, "device2")
 	dev3Conf = config.NewDeviceConfiguration(device3, "device3")
 	dev4Conf = config.NewDeviceConfiguration(device4, "device4")
 
 	var cancel context.CancelFunc = func() {}
-	if cfgService, ok := cfg.(suture.Service); ok {
+	if wrapperService, ok := wrapper.(suture.Service); ok {
 		var ctx context.Context
 		ctx, cancel = context.WithCancel(context.Background())
-		go cfgService.Serve(ctx)
+		go wrapperService.Serve(ctx)
 	}
 
 	dev2Conf.MaxRecvKbps = rand.Int() % 100000
 	dev2Conf.MaxSendKbps = rand.Int() % 100000
 
-	waiter, _ := cfg.SetDevices([]config.DeviceConfiguration{dev1Conf, dev2Conf, dev3Conf, dev4Conf})
+	waiter, _ := wrapper.Modify(func(cfg *config.Configuration) bool {
+		cfg.SetDevices([]config.DeviceConfiguration{dev1Conf, dev2Conf, dev3Conf, dev4Conf})
+		return true
+	})
 	waiter.Wait()
-	return cfg, cancel
+	return wrapper, cancel
 }
 
 func TestLimiterInit(t *testing.T) {
-	cfg, cfgCancel := initConfig()
-	defer cfgCancel()
-	lim := newLimiter(device1, cfg)
+	wrapper, wrapperCancel := initConfig()
+	defer wrapperCancel()
+	lim := newLimiter(device1, wrapper)
 
 	device2ReadLimit := dev2Conf.MaxRecvKbps
 	device2WriteLimit := dev2Conf.MaxSendKbps
@@ -80,9 +83,9 @@ func TestLimiterInit(t *testing.T) {
 }
 
 func TestSetDeviceLimits(t *testing.T) {
-	cfg, cfgCancel := initConfig()
-	defer cfgCancel()
-	lim := newLimiter(device1, cfg)
+	wrapper, wrapperCancel := initConfig()
+	defer wrapperCancel()
+	lim := newLimiter(device1, wrapper)
 
 	// should still be inf/inf because this is local device
 	dev1ReadLimit := rand.Int() % 100000
@@ -98,7 +101,10 @@ func TestSetDeviceLimits(t *testing.T) {
 	dev3ReadLimit := rand.Int() % 10000
 	dev3Conf.MaxRecvKbps = dev3ReadLimit
 
-	waiter, _ := cfg.SetDevices([]config.DeviceConfiguration{dev1Conf, dev2Conf, dev3Conf, dev4Conf})
+	waiter, _ := wrapper.Modify(func(cfg *config.Configuration) bool {
+		cfg.SetDevices([]config.DeviceConfiguration{dev1Conf, dev2Conf, dev3Conf, dev4Conf})
+		return true
+	})
 	waiter.Wait()
 
 	expectedR := map[protocol.DeviceID]*rate.Limiter{
@@ -119,11 +125,11 @@ func TestSetDeviceLimits(t *testing.T) {
 }
 
 func TestRemoveDevice(t *testing.T) {
-	cfg, cfgCancel := initConfig()
-	defer cfgCancel()
-	lim := newLimiter(device1, cfg)
+	wrapper, wrapperCancel := initConfig()
+	defer wrapperCancel()
+	lim := newLimiter(device1, wrapper)
 
-	waiter, _ := cfg.RemoveDevice(device3)
+	waiter, _ := wrapper.RemoveDevice(device3)
 	waiter.Wait()
 	expectedR := map[protocol.DeviceID]*rate.Limiter{
 		device2: rate.NewLimiter(rate.Limit(dev2Conf.MaxRecvKbps*1024), limiterBurstSize),
@@ -140,16 +146,19 @@ func TestRemoveDevice(t *testing.T) {
 }
 
 func TestAddDevice(t *testing.T) {
-	cfg, cfgCancel := initConfig()
-	defer cfgCancel()
-	lim := newLimiter(device1, cfg)
+	wrapper, wrapperCancel := initConfig()
+	defer wrapperCancel()
+	lim := newLimiter(device1, wrapper)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
 	addDevConf := config.NewDeviceConfiguration(addedDevice, "addedDevice")
 	addDevConf.MaxRecvKbps = 120
 	addDevConf.MaxSendKbps = 240
 
-	waiter, _ := cfg.SetDevice(addDevConf)
+	waiter, _ := wrapper.Modify(func(cfg *config.Configuration) bool {
+		cfg.SetDevice(addDevConf)
+		return true
+	})
 	waiter.Wait()
 
 	expectedR := map[protocol.DeviceID]*rate.Limiter{
@@ -172,18 +181,21 @@ func TestAddDevice(t *testing.T) {
 }
 
 func TestAddAndRemove(t *testing.T) {
-	cfg, cfgCancel := initConfig()
-	defer cfgCancel()
-	lim := newLimiter(device1, cfg)
+	wrapper, wrapperCancel := initConfig()
+	defer wrapperCancel()
+	lim := newLimiter(device1, wrapper)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
 	addDevConf := config.NewDeviceConfiguration(addedDevice, "addedDevice")
 	addDevConf.MaxRecvKbps = 120
 	addDevConf.MaxSendKbps = 240
 
-	waiter, _ := cfg.SetDevice(addDevConf)
+	waiter, _ := wrapper.Modify(func(cfg *config.Configuration) bool {
+		cfg.SetDevice(addDevConf)
+		return true
+	})
 	waiter.Wait()
-	waiter, _ = cfg.RemoveDevice(device3)
+	waiter, _ = wrapper.RemoveDevice(device3)
 	waiter.Wait()
 
 	expectedR := map[protocol.DeviceID]*rate.Limiter{

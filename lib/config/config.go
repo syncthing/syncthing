@@ -372,6 +372,15 @@ func (cfg *Configuration) applyMigrations() {
 	migrationsMut.Unlock()
 }
 
+func (cfg *Configuration) Device(id protocol.DeviceID) (DeviceConfiguration, int, bool) {
+	for i, device := range cfg.Devices {
+		if device.DeviceID == id {
+			return device, i, true
+		}
+	}
+	return DeviceConfiguration{}, 0, false
+}
+
 // DeviceMap returns a map of device ID to device configuration for the given configuration.
 func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration {
 	m := make(map[protocol.DeviceID]DeviceConfiguration, len(cfg.Devices))
@@ -379,6 +388,35 @@ func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration 
 		m[dev.DeviceID] = dev
 	}
 	return m
+}
+
+func (cfg *Configuration) SetDevice(device DeviceConfiguration) {
+	cfg.SetDevices([]DeviceConfiguration{device})
+}
+
+func (cfg *Configuration) SetDevices(devices []DeviceConfiguration) {
+	inds := make(map[protocol.DeviceID]int, len(cfg.Devices))
+	for i, device := range cfg.Devices {
+		inds[device.DeviceID] = i
+	}
+	filtered := devices[:0]
+	for _, device := range devices {
+		if i, ok := inds[device.DeviceID]; ok {
+			cfg.Devices[i] = device
+		} else {
+			filtered = append(filtered, device)
+		}
+	}
+	cfg.Devices = append(cfg.Devices, filtered...)
+}
+
+func (cfg *Configuration) Folder(id string) (FolderConfiguration, int, bool) {
+	for i, folder := range cfg.Folders {
+		if folder.ID == id {
+			return folder, i, true
+		}
+	}
+	return FolderConfiguration{}, 0, false
 }
 
 // FolderMap returns a map of folder ID to folder configuration for the given configuration.
@@ -404,6 +442,26 @@ nextFolder:
 		}
 	}
 	return res
+}
+
+func (cfg *Configuration) SetFolder(folder FolderConfiguration) {
+	cfg.SetFolders([]FolderConfiguration{folder})
+}
+
+func (cfg *Configuration) SetFolders(folders []FolderConfiguration) {
+	inds := make(map[string]int, len(cfg.Folders))
+	for i, folder := range cfg.Folders {
+		inds[folder.ID] = i
+	}
+	filtered := folders[:0]
+	for _, folder := range folders {
+		if i, ok := inds[folder.ID]; ok {
+			cfg.Folders[i] = folder
+		} else {
+			filtered = append(filtered, folder)
+		}
+	}
+	cfg.Folders = append(cfg.Folders, filtered...)
 }
 
 func ensureDevicePresent(devices []FolderDeviceConfiguration, myID protocol.DeviceID) []FolderDeviceConfiguration {

@@ -896,10 +896,7 @@ func TestSharesRemovedOnDeviceRemoval(t *testing.T) {
 		t.Error("Should have less devices")
 	}
 
-	_, err = wrapper.Replace(raw)
-	if err != nil {
-		t.Errorf("Failed: %s", err)
-	}
+	replace(t, wrapper, raw)
 
 	raw = wrapper.RawCopy()
 	if len(raw.Folders[0].Devices) > len(raw.Devices) {

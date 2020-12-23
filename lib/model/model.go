@@ -1206,21 +1206,35 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	// Needs to happen outside of the fmut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
-		changedFolders := make([]config.FolderConfiguration, 0, len(cm.Folders))
-		for _, folder := range cm.Folders {
-			if fcfg, fchanged := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID]); fchanged {
-				changedFolders = append(changedFolders, fcfg)
+		w, _ := m.cfg.Modify(func(cfg *config.Configuration) bool {
+			changedFcfg := make(map[string]config.FolderConfiguration)
+			haveFcfg := cfg.FolderMap()
+			for _, folder := range cm.Folders {
+				from, ok := haveFcfg[folder.ID]
+				if to, fchanged := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID], from, ok, cfg.Options.DefaultFolderPath); fchanged {
+					changedFcfg[folder.ID] = to
+				}
 			}
-		}
-		if len(changedFolders) > 0 {
-			// Need to wait for the waiter, as this calls CommitConfiguration,
-			// which sets up the folder and as we return from this call,
-			// ClusterConfig starts poking at m.folderFiles and other things
-			// that might not exist until the config is committed.
-			w, _ := m.cfg.SetFolders(changedFolders)
-			w.Wait()
+			if len(changedFcfg) == 0 {
+				return false
+			}
+			for i := range cfg.Folders {
+				if fcfg, ok := changedFcfg[cfg.Folders[i].ID]; ok {
+					cfg.Folders[i] = fcfg
+					delete(changedFcfg, cfg.Folders[i].ID)
+				}
+			}
+			for _, fcfg := range changedFcfg {
+				cfg.Folders = append(cfg.Folders, fcfg)
+			}
 			changed = true
-		}
+			return true
+		})
+		// Need to wait for the waiter, as this calls CommitConfiguration,
+		// which sets up the folder and as we return from this call,
+		// ClusterConfig starts poking at m.folderFiles and other things
+		// that might not exist until the config is committed.
+		w.Wait()
 	}
 
 	tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDeviceInfos, indexSenderRegistry)
@@ -1244,11 +1258,13 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	if deviceCfg.Introducer {
-		folders, devices, foldersDevices, introduced := m.handleIntroductions(deviceCfg, cm)
-		folders, devices, deintroduced := m.handleDeintroductions(deviceCfg, foldersDevices, folders, devices)
-		if introduced || deintroduced {
+		m.cfg.Modify(func(cfg *config.Configuration) bool {
+			folders, devices, foldersDevices, introduced := m.handleIntroductions(deviceCfg, cm, cfg.FolderMap(), cfg.DeviceMap())
+			folders, devices, deintroduced := m.handleDeintroductions(deviceCfg, foldersDevices, folders, devices)
+			if !introduced && !deintroduced {
+				return false
+			}
 			changed = true
-			cfg := m.cfg.RawCopy()
 			cfg.Folders = make([]config.FolderConfiguration, 0, len(folders))
 			for _, fcfg := range folders {
 				cfg.Folders = append(cfg.Folders, fcfg)
@@ -1257,8 +1273,8 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			for _, dcfg := range devices {
 				cfg.Devices = append(cfg.Devices, dcfg)
 			}
-			m.cfg.Replace(cfg)
-		}
+			return true
+		})
 	}
 
 	if changed {
@@ -1479,10 +1495,8 @@ func (m *model) resendClusterConfig(ids []protocol.DeviceID) {
 }
 
 // handleIntroductions handles adding devices/folders that are shared by an introducer device
-func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, folderDeviceSet, bool) {
+func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, folderDeviceSet, bool) {
 	changed := false
-	folders := m.cfg.Folders()
-	devices := m.cfg.Devices()
 
 	foldersDevices := make(folderDeviceSet)
 
@@ -1508,7 +1522,7 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 
 			foldersDevices.set(device.ID, folder.ID)
 
-			if _, ok := m.cfg.Device(device.ID); !ok {
+			if _, ok := devices[device.ID]; !ok {
 				// The device is currently unknown. Add it to the config.
 				devices[device.ID] = m.introduceDevice(device, introducerCfg)
 			} else if fcfg.SharedWith(device.ID) {
@@ -1589,9 +1603,8 @@ func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
-func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceInfos *indexSenderStartInfo) (config.FolderConfiguration, bool) {
-	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
-		defaultPath := m.cfg.Options().DefaultFolderPath
+func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceInfos *indexSenderStartInfo, cfg config.FolderConfiguration, haveCfg bool, defaultPath string) (config.FolderConfiguration, bool) {
+	if !haveCfg {
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
 		pathAlternatives := []string{
 			fs.SanitizePath(folder.Label),
@@ -2134,9 +2147,22 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	conn.ClusterConfig(cm)
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
-		device.Name = hello.DeviceName
-		m.cfg.SetDevice(device)
-		m.cfg.Save()
+		changed := false
+		m.cfg.Modify(func(cfg *config.Configuration) bool {
+			for i := range cfg.Devices {
+				if cfg.Devices[i].DeviceID == deviceID {
+					if cfg.Devices[i].Name == "" || cfg.Options.OverwriteRemoteDevNames {
+						cfg.Devices[i].Name = hello.DeviceName
+						changed = true
+					}
+					break
+				}
+			}
+			return changed
+		})
+		if changed {
+			m.cfg.Save()
+		}
 	}
 
 	m.deviceWasSeen(deviceID)

@@ -228,7 +228,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	}()
 
 	fcfg.Versioning = config.VersioningConfiguration{Type: "trashcan"}
-	w.SetFolder(fcfg)
+	setFolder(t, w, fcfg)
 	m, fc := setupModelWithConnectionFromWrapper(t, w)
 	defer cleanupModel(m)
 
@@ -303,7 +303,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	fcfg := testFolderConfigTmp()
 	fss := fcfg.Filesystem()
 	fcfg.Type = ft
-	w.SetFolder(fcfg)
+	setFolder(t, w, fcfg)
 	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, fss.URI())
 
@@ -1232,13 +1232,8 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	// Local paused and resume
 
-	fcfg.Paused = true
-	waiter, _ := m.cfg.SetFolder(fcfg)
-	waiter.Wait()
-
-	fcfg.Paused = false
-	waiter, _ = m.cfg.SetFolder(fcfg)
-	waiter.Wait()
+	pauseFolder(t, m.cfg, fcfg.ID, true)
+	pauseFolder(t, m.cfg, fcfg.ID, false)
 
 	seq++
 	files[0].Sequence = seq
@@ -1255,16 +1250,12 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	cc.Folders[0].Paused = true
 	m.ClusterConfig(device1, cc)
 
-	fcfg.Paused = true
-	waiter, _ = m.cfg.SetFolder(fcfg)
-	waiter.Wait()
+	pauseFolder(t, m.cfg, fcfg.ID, true)
 
 	cc.Folders[0].Paused = false
 	m.ClusterConfig(device1, cc)
 
-	fcfg.Paused = false
-	waiter, _ = m.cfg.SetFolder(fcfg)
-	waiter.Wait()
+	pauseFolder(t, m.cfg, fcfg.ID, false)
 
 	seq++
 	files[0].Sequence = seq
@@ -1362,9 +1353,7 @@ func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
 	defer wCancel()
 	tfs := fcfg.Filesystem()
 	fcfg.Type = config.FolderTypeReceiveEncrypted
-	waiter, err := w.SetFolder(fcfg)
-	must(t, err)
-	waiter.Wait()
+	setFolder(t, w, fcfg)
 
 	encToken := protocol.PasswordToken(fcfg.ID, "pw")
 	must(t, tfs.Mkdir(config.DefaultMarkerName, 0777))

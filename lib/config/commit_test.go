@@ -41,6 +41,18 @@ func (validationError) String() string {
 	return "validationError"
 }
 
+func replace(t testing.TB, w Wrapper, to Configuration) {
+	t.Helper()
+	waiter, err := w.Modify(func(cfg *Configuration) bool {
+		cfg = &to
+		return true
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waiter.Wait()
+}
+
 func TestReplaceCommit(t *testing.T) {
 	t.Skip("broken, fails randomly, #3834")
 
@@ -53,10 +65,7 @@ func TestReplaceCommit(t *testing.T) {
 	// Replace config. We should get back a clean response and the config
 	// should change.
 
-	_, err := w.Replace(Configuration{Version: 1})
-	if err != nil {
-		t.Fatal("Should not have a validation error:", err)
-	}
+	replace(t, w, Configuration{Version: 1})
 	if w.RequiresRestart() {
 		t.Fatal("Should not require restart")
 	}
@@ -70,11 +79,7 @@ func TestReplaceCommit(t *testing.T) {
 	sub0 := requiresRestart{committed: make(chan struct{}, 1)}
 	w.Subscribe(sub0)
 
-	_, err = w.Replace(Configuration{Version: 2})
-	if err != nil {
-		t.Fatal("Should not have a validation error:", err)
-	}
-
+	replace(t, w, Configuration{Version: 1})
 	<-sub0.committed
 	if !w.RequiresRestart() {
 		t.Fatal("Should require restart")
@@ -88,7 +93,10 @@ func TestReplaceCommit(t *testing.T) {
 
 	w.Subscribe(validationError{})
 
-	_, err = w.Replace(Configuration{Version: 3})
+	_, err := w.Modify(func(cfg *Configuration) bool {
+		cfg = &Configuration{Version: 3}
+		return true
+	})
 	if err == nil {
 		t.Fatal("Should have a validation error")
 	}

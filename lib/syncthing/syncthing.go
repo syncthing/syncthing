@@ -281,22 +281,27 @@ func (a *App) startup() error {
 	a.mainService.Add(discoveryManager)
 	a.mainService.Add(connectionsService)
 
-	// Candidate builds always run with usage reporting.
-
-	if opts := a.cfg.Options(); build.IsCandidate {
-		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
-		if opts.URAccepted != ur.Version {
-			opts.URAccepted = ur.Version
-			a.cfg.SetOptions(opts)
-			a.cfg.Save()
-			// Unique ID will be set and config saved below if necessary.
+	changed := false
+	a.cfg.Modify(func(cfg *config.Configuration) bool {
+		// Candidate builds always run with usage reporting.
+		if build.IsCandidate {
+			l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
+			if cfg.Options.URAccepted != ur.Version {
+				cfg.Options.URAccepted = ur.Version
+				changed = true
+				// Unique ID will be set and config saved below if necessary.
+			}
 		}
-	}
 
-	// If we are going to do usage reporting, ensure we have a valid unique ID.
-	if opts := a.cfg.Options(); opts.URAccepted > 0 && opts.URUniqueID == "" {
-		opts.URUniqueID = rand.String(8)
-		a.cfg.SetOptions(opts)
+		// If we are going to do usage reporting, ensure we have a valid unique ID.
+		if cfg.Options.URAccepted > 0 && cfg.Options.URUniqueID == "" {
+			cfg.Options.URUniqueID = rand.String(8)
+			changed = true
+		}
+
+		return changed
+	})
+	if changed {
 		a.cfg.Save()
 	}
 

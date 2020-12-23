@@ -607,7 +607,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	go evLogger.Serve(ctx)
 	defer cancel()
 
-	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
+	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(svcutil.ExitError.AsInt())
@@ -618,20 +618,26 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// environment variable is set.
 
 	if build.IsCandidate && !upgrade.DisabledByCompilation && !runtimeOptions.NoUpgrade {
-		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
-		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
-			opts.AutoUpgradeIntervalH = 12
-			// Set the option into the config as well, as the auto upgrade
-			// loop expects to read a valid interval from there.
-			cfg.SetOptions(opts)
-			cfg.Save()
+		changed := false
+		cfgWrapper.Modify(func(cfg *config.Configuration) bool {
+			l.Infoln("Automatic upgrade is always enabled for candidate releases.")
+			if cfg.Options.AutoUpgradeIntervalH == 0 || cfg.Options.AutoUpgradeIntervalH > 24 {
+				cfg.Options.AutoUpgradeIntervalH = 12
+				// Set the option into the config as well, as the auto upgrade
+				// loop expects to read a valid interval from there.
+				changed = true
+			}
+			// We don't tweak the user's choice of upgrading to pre-releases or
+			// not, as otherwise they cannot step off the candidate channel.
+			return changed
+		})
+		if changed {
+			cfgWrapper.Save()
 		}
-		// We don't tweak the user's choice of upgrading to pre-releases or
-		// not, as otherwise they cannot step off the candidate channel.
 	}
 
 	dbFile := locations.Get(locations.Database)
-	ldb, err := syncthing.OpenDBBackend(dbFile, cfg.Options().DatabaseTuning)
+	ldb, err := syncthing.OpenDBBackend(dbFile, cfgWrapper.Options().DatabaseTuning)
 	if err != nil {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)
@@ -642,7 +648,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// later after App is initialised.
 
 	autoUpgradePossible := autoUpgradePossible(runtimeOptions)
-	if autoUpgradePossible && cfg.Options().AutoUpgradeEnabled() {
+	if autoUpgradePossible && cfgWrapper.Options().AutoUpgradeEnabled() {
 		// try to do upgrade directly and log the error if relevant.
 		release, err := initialAutoUpgradeCheck(db.NewMiscDataNamespace(ldb))
 		if err == nil {
@@ -661,9 +667,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	if runtimeOptions.unpaused {
-		setPauseState(cfg, false)
+		setPauseState(cfgWrapper, false)
 	} else if runtimeOptions.paused {
-		setPauseState(cfg, true)
+		setPauseState(cfgWrapper, true)
 	}
 
 	appOpts := runtimeOptions.Options
@@ -681,14 +687,14 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		appOpts.DBIndirectGCInterval = dur
 	}
 
-	app, err := syncthing.New(cfg, ldb, evLogger, cert, appOpts)
+	app, err := syncthing.New(cfgWrapper, ldb, evLogger, cert, appOpts)
 	if err != nil {
 		l.Warnln("Failed to start Syncthing:", err)
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 
 	if autoUpgradePossible {
-		go autoUpgrade(cfg, app, evLogger)
+		go autoUpgrade(cfgWrapper, app, evLogger)
 	}
 
 	setupSignalHandling(app)
@@ -709,7 +715,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	go standbyMonitor(app, cfg)
+	go standbyMonitor(app, cfgWrapper)
 
 	if err := app.Start(); err != nil {
 		os.Exit(svcutil.ExitError.AsInt())
@@ -717,10 +723,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	cleanConfigDirectory()
 
-	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
+	if cfgWrapper.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
-		go func() { _ = openURL(cfg.GUI().URL()) }()
+		go func() { _ = openURL(cfgWrapper.GUI().URL()) }()
 	}
 
 	status := app.Wait()
@@ -988,15 +994,17 @@ func showPaths(options RuntimeOptions) {
 	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations.Get(locations.DefFolder))
 }
 
-func setPauseState(cfg config.Wrapper, paused bool) {
-	raw := cfg.RawCopy()
-	for i := range raw.Devices {
-		raw.Devices[i].Paused = paused
-	}
-	for i := range raw.Folders {
-		raw.Folders[i].Paused = paused
-	}
-	if _, err := cfg.Replace(raw); err != nil {
+func setPauseState(cfgWrapper config.Wrapper, paused bool) {
+	_, err := cfgWrapper.Modify(func(cfg *config.Configuration) bool {
+		for i := range cfg.Devices {
+			cfg.Devices[i].Paused = paused
+		}
+		for i := range cfg.Folders {
+			cfg.Folders[i].Paused = paused
+		}
+		return true
+	})
+	if err != nil {
 		l.Warnln("Cannot adjust paused state:", err)
 		os.Exit(svcutil.ExitError.AsInt())
 	}

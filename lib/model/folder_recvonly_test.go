@@ -458,7 +458,7 @@ func setupROFolder(t *testing.T) (*testModel, *receiveOnlyFolder, context.Cancel
 	fcfg.Label = "ro"
 	fcfg.Type = config.FolderTypeReceiveOnly
 	cfg.Folders = []config.FolderConfiguration{fcfg}
-	w.Replace(cfg)
+	replace(t, w, cfg)
 
 	m := newModel(t, w, myID, "syncthing", "dev", nil)
 	m.ServeBackground()
