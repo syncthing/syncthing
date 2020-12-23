@@ -17,6 +17,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/svcutil"
 
 	"github.com/thejerf/suture/v4"
 )
@@ -28,6 +29,7 @@ var (
 	minDelay             = 10 * time.Second
 	maxDelay             = time.Minute
 	sendTimeout          = time.Minute
+	finalSendTimeout     = svcutil.ServiceTimeout / 2
 	evChanClosed         = "failure event channel closed"
 	invalidEventDataType = "failure event data is not a string"
 )
@@ -96,11 +98,7 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 			now := time.Now()
 			for descr, stat := range h.buf {
 				if now.Sub(stat.last) > minDelay || now.Sub(stat.first) > maxDelay {
-					reports = append(reports, FailureReport{
-						Description: descr,
-						Count:       stat.count,
-						Version:     build.LongVersion,
-					})
+					reports = append(reports, newFailureReport(descr, stat.count))
 					delete(h.buf, descr)
 				}
 			}
@@ -125,6 +123,13 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 
 	if sub != nil {
 		sub.Unsubscribe()
+		reports := make([]FailureReport, 0, len(h.buf))
+		for descr, stat := range h.buf {
+			reports = append(reports, newFailureReport(descr, stat.count))
+		}
+		timeout, cancel := context.WithTimeout(context.Background(), finalSendTimeout)
+		defer cancel()
+		sendFailureReports(timeout, reports, url)
 	}
 	return err
 }
@@ -201,4 +206,12 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 	}
 	resp.Body.Close()
 	return
+}
+
+func newFailureReport(descr string, count int) FailureReport {
+	return FailureReport{
+		Description: descr,
+		Count:       count,
+		Version:     build.LongVersion,
+	}
 }

@@ -18,8 +18,8 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 const maxDurationSinceLastEventReq = time.Minute
@@ -52,7 +52,7 @@ type folderSummaryService struct {
 
 func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
 	service := &folderSummaryService{
-		Supervisor:      suture.New("folderSummaryService", util.SpecWithDebugLogger(l)),
+		Supervisor:      suture.New("folderSummaryService", svcutil.SpecWithDebugLogger(l)),
 		cfg:             cfg,
 		model:           m,
 		id:              id,
@@ -63,8 +63,8 @@ func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, 
 		lastEventReqMut: sync.NewMutex(),
 	}
 
-	service.Add(util.AsService(service.listenForUpdates, fmt.Sprintf("%s/listenForUpdates", service)))
-	service.Add(util.AsService(service.calculateSummaries, fmt.Sprintf("%s/calculateSummaries", service)))
+	service.Add(svcutil.AsService(service.listenForUpdates, fmt.Sprintf("%s/listenForUpdates", service)))
+	service.Add(svcutil.AsService(service.calculateSummaries, fmt.Sprintf("%s/calculateSummaries", service)))
 
 	return service
 }

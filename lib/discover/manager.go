@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 )
@@ -47,7 +48,7 @@ type manager struct {
 
 func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister) Manager {
 	m := &manager{
-		Supervisor:    suture.New("discover.Manager", util.SpecWithDebugLogger(l)),
+		Supervisor:    suture.New("discover.Manager", svcutil.SpecWithDebugLogger(l)),
 		myID:          myID,
 		cfg:           cfg,
 		cert:          cert,
@@ -57,7 +58,7 @@ func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate
 		finders: make(map[string]cachedFinder),
 		mut:     sync.NewRWMutex(),
 	}
-	m.Add(util.AsService(m.serve, m.String()))
+	m.Add(svcutil.AsService(m.serve, m.String()))
 	return m
 }
 

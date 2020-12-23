@@ -37,10 +37,10 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 const (
@@ -73,7 +73,7 @@ type App struct {
 	evLogger          events.Logger
 	cert              tls.Certificate
 	opts              Options
-	exitStatus        util.ExitStatus
+	exitStatus        svcutil.ExitStatus
 	err               error
 	stopOnce          sync.Once
 	mainServiceCancel context.CancelFunc
@@ -103,7 +103,7 @@ func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, 
 func (a *App) Start() error {
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
-	spec := util.SpecWithDebugLogger(l)
+	spec := svcutil.SpecWithDebugLogger(l)
 	a.mainService = suture.New("main", spec)
 
 	// Start the supervisor and wait for it to stop to handle cleanup.
@@ -113,7 +113,7 @@ func (a *App) Start() error {
 	go a.run(ctx)
 
 	if err := a.startup(); err != nil {
-		a.stopWithErr(util.ExitError, err)
+		a.stopWithErr(svcutil.ExitError, err)
 		return err
 	}
 
@@ -359,19 +359,19 @@ func (a *App) handleMainServiceError(err error) {
 	if err == nil || errors.Is(err, context.Canceled) {
 		return
 	}
-	var fatalErr *util.FatalErr
+	var fatalErr *svcutil.FatalErr
 	if errors.As(err, &fatalErr) {
 		a.exitStatus = fatalErr.Status
 		a.err = fatalErr.Err
 		return
 	}
 	a.err = err
-	a.exitStatus = util.ExitError
+	a.exitStatus = svcutil.ExitError
 }
 
 // Wait blocks until the app stops running. Also returns if the app hasn't been
 // started yet.
-func (a *App) Wait() util.ExitStatus {
+func (a *App) Wait() svcutil.ExitStatus {
 	<-a.stopped
 	return a.exitStatus
 }
@@ -389,11 +389,11 @@ func (a *App) Error() error {
 
 // Stop stops the app and sets its exit status to given reason, unless the app
 // was already stopped before. In any case it returns the effective exit status.
-func (a *App) Stop(stopReason util.ExitStatus) util.ExitStatus {
+func (a *App) Stop(stopReason svcutil.ExitStatus) svcutil.ExitStatus {
 	return a.stopWithErr(stopReason, nil)
 }
 
-func (a *App) stopWithErr(stopReason util.ExitStatus, err error) util.ExitStatus {
+func (a *App) stopWithErr(stopReason svcutil.ExitStatus, err error) svcutil.ExitStatus {
 	a.stopOnce.Do(func() {
 		a.exitStatus = stopReason
 		a.err = err
