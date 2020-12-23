@@ -17,41 +17,38 @@ type database interface {
 	Delete(key string) error
 }
 
-// The MtimeFS is a filesystem with nanosecond mtime precision, regardless
-// of what shenanigans the underlying filesystem gets up to. A nil MtimeFS
-// just does the underlying operations with no additions.
-type MtimeFS struct {
+type mtimeFS struct {
 	Filesystem
 	chtimes         func(string, time.Time, time.Time) error
 	db              database
 	caseInsensitive bool
 }
 
-type MtimeFSOption func(*MtimeFS)
+type MtimeFSOption func(*mtimeFS)
 
 func WithCaseInsensitivity(v bool) MtimeFSOption {
-	return func(f *MtimeFS) {
+	return func(f *mtimeFS) {
 		f.caseInsensitive = v
 	}
 }
 
-func NewMtimeFS(underlying Filesystem, db database, options ...MtimeFSOption) *MtimeFS {
-	f := &MtimeFS{
-		Filesystem: underlying,
-		chtimes:    underlying.Chtimes, // for mocking it out in the tests
-		db:         db,
-	}
-	for _, opt := range options {
-		opt(f)
-	}
-	return f
+// NewMtimeFS returns a filesystem with nanosecond mtime precision, regardless
+// of what shenanigans the underlying filesystem gets up to.
+func NewMtimeFS(fs Filesystem, db database, options ...MtimeFSOption) Filesystem {
+	return wrapFilesystem(fs, func(underlying Filesystem) Filesystem {
+		f := &mtimeFS{
+			Filesystem: underlying,
+			chtimes:    underlying.Chtimes, // for mocking it out in the tests
+			db:         db,
+		}
+		for _, opt := range options {
+			opt(f)
+		}
+		return f
+	})
 }
 
-func (f *MtimeFS) Chtimes(name string, atime, mtime time.Time) error {
-	if f == nil {
-		return f.chtimes(name, atime, mtime)
-	}
-
+func (f *mtimeFS) Chtimes(name string, atime, mtime time.Time) error {
 	// Do a normal Chtimes call, don't care if it succeeds or not.
 	f.chtimes(name, atime, mtime)
 
@@ -66,7 +63,7 @@ func (f *MtimeFS) Chtimes(name string, atime, mtime time.Time) error {
 	return nil
 }
 
-func (f *MtimeFS) Stat(name string) (FileInfo, error) {
+func (f *mtimeFS) Stat(name string) (FileInfo, error) {
 	info, err := f.Filesystem.Stat(name)
 	if err != nil {
 		return nil, err
@@ -86,7 +83,7 @@ func (f *MtimeFS) Stat(name string) (FileInfo, error) {
 	return info, nil
 }
 
-func (f *MtimeFS) Lstat(name string) (FileInfo, error) {
+func (f *mtimeFS) Lstat(name string) (FileInfo, error) {
 	info, err := f.Filesystem.Lstat(name)
 	if err != nil {
 		return nil, err
@@ -106,7 +103,7 @@ func (f *MtimeFS) Lstat(name string) (FileInfo, error) {
 	return info, nil
 }
 
-func (f *MtimeFS) Walk(root string, walkFn WalkFunc) error {
+func (f *mtimeFS) Walk(root string, walkFn WalkFunc) error {
 	return f.Filesystem.Walk(root, func(path string, info FileInfo, err error) error {
 		if info != nil {
 			real, virtual, loadErr := f.load(path)
@@ -125,7 +122,7 @@ func (f *MtimeFS) Walk(root string, walkFn WalkFunc) error {
 	})
 }
 
-func (f *MtimeFS) Create(name string) (File, error) {
+func (f *mtimeFS) Create(name string) (File, error) {
 	fd, err := f.Filesystem.Create(name)
 	if err != nil {
 		return nil, err
@@ -133,7 +130,7 @@ func (f *MtimeFS) Create(name string) (File, error) {
 	return mtimeFile{fd, f}, nil
 }
 
-func (f *MtimeFS) Open(name string) (File, error) {
+func (f *mtimeFS) Open(name string) (File, error) {
 	fd, err := f.Filesystem.Open(name)
 	if err != nil {
 		return nil, err
@@ -141,7 +138,7 @@ func (f *MtimeFS) Open(name string) (File, error) {
 	return mtimeFile{fd, f}, nil
 }
 
-func (f *MtimeFS) OpenFile(name string, flags int, mode FileMode) (File, error) {
+func (f *mtimeFS) OpenFile(name string, flags int, mode FileMode) (File, error) {
 	fd, err := f.Filesystem.OpenFile(name, flags, mode)
 	if err != nil {
 		return nil, err
@@ -152,7 +149,7 @@ func (f *MtimeFS) OpenFile(name string, flags int, mode FileMode) (File, error) 
 // "real" is the on disk timestamp
 // "virtual" is what want the timestamp to be
 
-func (f *MtimeFS) save(name string, real, virtual time.Time) {
+func (f *mtimeFS) save(name string, real, virtual time.Time) {
 	if f.caseInsensitive {
 		name = UnicodeLowercase(name)
 	}
@@ -172,7 +169,7 @@ func (f *MtimeFS) save(name string, real, virtual time.Time) {
 	f.db.PutBytes(name, bs)
 }
 
-func (f *MtimeFS) load(name string) (real, virtual time.Time, err error) {
+func (f *mtimeFS) load(name string) (real, virtual time.Time, err error) {
 	if f.caseInsensitive {
 		name = UnicodeLowercase(name)
 	}
@@ -205,7 +202,7 @@ func (m mtimeFileInfo) ModTime() time.Time {
 
 type mtimeFile struct {
 	File
-	fs *MtimeFS
+	fs *mtimeFS
 }
 
 func (f mtimeFile) Stat() (FileInfo, error) {

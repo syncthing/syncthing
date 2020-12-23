@@ -52,7 +52,7 @@ type caseFilesystemRegistry struct {
 	startCleaner sync.Once
 }
 
-func (r *caseFilesystemRegistry) get(fs Filesystem) *caseFilesystem {
+func (r *caseFilesystemRegistry) get(fs Filesystem) Filesystem {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 
@@ -98,7 +98,7 @@ type caseFilesystem struct {
 // case-sensitive one. However it will add some overhead and thus shouldn't be
 // used if the filesystem is known to already behave case-sensitively.
 func NewCaseFilesystem(fs Filesystem) Filesystem {
-	return globalCaseFilesystemRegistry.get(fs)
+	return wrapFilesystem(fs, globalCaseFilesystemRegistry.get)
 }
 
 func (f *caseFilesystem) Chmod(name string, mode FileMode) error {

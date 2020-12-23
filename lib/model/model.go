@@ -33,9 +33,9 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -134,6 +134,7 @@ type model struct {
 	// folderIOLimiter limits the number of concurrent I/O heavy operations,
 	// such as scans and pulls.
 	folderIOLimiter *byteSemaphore
+	fatalChan       chan error
 
 	// fields protected by fmut
 	fmut                           sync.RWMutex
@@ -150,7 +151,7 @@ type model struct {
 
 	// fields protected by pmut
 	pmut                sync.RWMutex
-	conn                map[protocol.DeviceID]connections.Connection
+	conn                map[protocol.DeviceID]protocol.Connection
 	connRequestLimiters map[protocol.DeviceID]*byteSemaphore
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.Hello
@@ -198,10 +199,7 @@ var (
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger) Model {
-	spec := util.Spec()
-	spec.EventHook = func(e suture.Event) {
-		l.Debugln(e)
-	}
+	spec := svcutil.SpecWithDebugLogger(l)
 	m := &model{
 		Supervisor: suture.New("model", spec),
 
@@ -220,6 +218,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		shortID:              id.Short(),
 		globalRequestLimiter: newByteSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
 		folderIOLimiter:      newByteSemaphore(cfg.Options().MaxFolderConcurrency()),
+		fatalChan:            make(chan error),
 
 		// fields protected by fmut
 		fmut:                           sync.NewRWMutex(),
@@ -235,7 +234,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 
 		// fields protected by pmut
 		pmut:                sync.NewRWMutex(),
-		conn:                make(map[protocol.DeviceID]connections.Connection),
+		conn:                make(map[protocol.DeviceID]protocol.Connection),
 		connRequestLimiters: make(map[protocol.DeviceID]*byteSemaphore),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.Hello),
@@ -250,13 +249,33 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
 	}
 	m.Add(m.progressEmitter)
-	m.Add(util.AsService(m.serve, m.String()))
+	m.Add(svcutil.AsService(m.serve, m.String()))
 
 	return m
 }
 
 func (m *model) serve(ctx context.Context) error {
-	// Add and start folders
+	defer m.closeAllConnectionsAndWait()
+
+	m.cfg.Subscribe(m)
+	defer m.cfg.Unsubscribe(m)
+
+	if err := m.initFolders(); err != nil {
+		close(m.started)
+		return svcutil.AsFatalErr(err, svcutil.ExitError)
+	}
+
+	close(m.started)
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-m.fatalChan:
+		return svcutil.AsFatalErr(err, svcutil.ExitError)
+	}
+}
+
+func (m *model) initFolders() error {
 	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
 	existingDevices := m.cfg.Devices()
 	existingFolders := m.cfg.Folders()
@@ -266,7 +285,10 @@ func (m *model) serve(ctx context.Context) error {
 			folderCfg.CreateRoot()
 			continue
 		}
-		m.newFolder(folderCfg, cacheIgnoredFiles)
+		err := m.newFolder(folderCfg, cacheIgnoredFiles)
+		if err != nil {
+			return err
+		}
 		clusterConfigDevices.add(folderCfg.DeviceIDs())
 	}
 
@@ -274,12 +296,10 @@ func (m *model) serve(ctx context.Context) error {
 	m.cleanPending(existingDevices, existingFolders, ignoredDevices, nil)
 
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
-	m.cfg.Subscribe(m)
+	return nil
+}
 
-	close(m.started)
-	<-ctx.Done()
-
-	m.cfg.Unsubscribe(m)
+func (m *model) closeAllConnectionsAndWait() {
 	m.pmut.RLock()
 	closed := make([]chan struct{}, 0, len(m.conn))
 	for id, conn := range m.conn {
@@ -290,7 +310,13 @@ func (m *model) serve(ctx context.Context) error {
 	for _, c := range closed {
 		<-c
 	}
-	return nil
+}
+
+func (m *model) fatal(err error) {
+	select {
+	case m.fatalChan <- err:
+	default:
+	}
 }
 
 // StartDeadlockDetector starts a deadlock detector on the models locks which
@@ -475,7 +501,7 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	delete(m.folderVersioners, cfg.ID)
 }
 
-func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) {
+func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) error {
 	if len(to.ID) == 0 {
 		panic("bug: cannot restart empty folder ID")
 	}
@@ -515,7 +541,11 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 			// Create a new fset. Might take a while and we do it under
 			// locking, but it's unsafe to create fset:s concurrently so
 			// that's the price we pay.
-			fset = db.NewFileSet(folder, to.Filesystem(), m.db)
+			var err error
+			fset, err = db.NewFileSet(folder, to.Filesystem(), m.db)
+			if err != nil {
+				return fmt.Errorf("restarting %v: %w", to.Description(), err)
+			}
 		}
 		m.addAndStartFolderLocked(to, fset, cacheIgnoredFiles)
 	}
@@ -550,12 +580,17 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 		infoMsg = "Restarted"
 	}
 	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
+
+	return nil
 }
 
-func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool) {
+func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool) error {
 	// Creating the fileset can take a long time (metadata calculation) so
 	// we do it outside of the lock.
-	fset := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
+	fset, err := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
+	if err != nil {
+		return fmt.Errorf("adding %v: %w", cfg.Description(), err)
+	}
 
 	m.fmut.Lock()
 	defer m.fmut.Unlock()
@@ -572,6 +607,7 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	m.pmut.RUnlock()
 
 	m.addAndStartFolderLocked(cfg, fset, cacheIgnoredFiles)
+	return nil
 }
 
 func (m *model) UsageReportingStats(report *contract.Report, version int, preview bool) {
@@ -1192,11 +1228,10 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 	}
 
-	changedHere, tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDeviceInfos, indexSenderRegistry)
+	tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDeviceInfos, indexSenderRegistry)
 	if err != nil {
 		return err
 	}
-	changed = changed || changedHere
 
 	m.pmut.Lock()
 	m.remotePausedFolders[deviceID] = paused
@@ -1240,8 +1275,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	return nil
 }
 
-func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) (bool, []string, map[string]struct{}, error) {
-	var changed bool
+func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) ([]string, map[string]struct{}, error) {
 	handleTime := time.Now()
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
@@ -1307,7 +1341,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Warnln(msg)
 			}
 
-			return changed, tempIndexFolders, paused, err
+			return tempIndexFolders, paused, err
 		}
 		if devErrs, ok := m.folderEncryptionFailures[folder.ID]; ok {
 			if len(devErrs) == 1 {
@@ -1365,7 +1399,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		})
 	}
 
-	return changed, tempIndexFolders, paused, nil
+	return tempIndexFolders, paused, nil
 }
 
 func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceInfos *indexSenderStartInfo, deviceUntrusted bool) error {
@@ -1689,7 +1723,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 
 	m.progressEmitter.temporaryIndexUnsubscribe(conn)
 
-	l.Infof("Connection to %s at %s closed: %v", device, conn.Name(), err)
+	l.Infof("Connection to %s at %s closed: %v", device, conn, err)
 	m.evLogger.Log(events.DeviceDisconnected, map[string]string{
 		"id":    device.String(),
 		"error": err.Error(),
@@ -1941,7 +1975,7 @@ func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 }
 
 // Connection returns the current connection for device, and a boolean whether a connection was found.
-func (m *model) Connection(deviceID protocol.DeviceID) (connections.Connection, bool) {
+func (m *model) Connection(deviceID protocol.DeviceID) (protocol.Connection, bool) {
 	m.pmut.RLock()
 	cn, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
@@ -2076,7 +2110,7 @@ func (m *model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
-func (m *model) AddConnection(conn connections.Connection, hello protocol.Hello) {
+func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	deviceID := conn.ID()
 	device, ok := m.cfg.Device(deviceID)
 	if !ok {
@@ -2616,7 +2650,10 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				l.Infoln("Paused folder", cfg.Description())
 			} else {
 				l.Infoln("Adding folder", cfg.Description())
-				m.newFolder(cfg, to.Options.CacheIgnoredFiles)
+				if err := m.newFolder(cfg, to.Options.CacheIgnoredFiles); err != nil {
+					m.fatal(err)
+					return true
+				}
 			}
 			clusterConfigDevices.add(cfg.DeviceIDs())
 		}
@@ -2640,7 +2677,10 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		// This folder exists on both sides. Settings might have changed.
 		// Check if anything differs that requires a restart.
 		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) || from.Options.CacheIgnoredFiles != to.Options.CacheIgnoredFiles {
-			m.restartFolder(fromCfg, toCfg, to.Options.CacheIgnoredFiles)
+			if err := m.restartFolder(fromCfg, toCfg, to.Options.CacheIgnoredFiles); err != nil {
+				m.fatal(err)
+				return true
+			}
 			clusterConfigDevices.add(fromCfg.DeviceIDs())
 			clusterConfigDevices.add(toCfg.DeviceIDs())
 		}

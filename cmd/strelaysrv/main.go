@@ -247,7 +247,7 @@ func main() {
 	for _, pool := range pools {
 		pool = strings.TrimSpace(pool)
 		if len(pool) > 0 {
-			go poolHandler(pool, uri, mapping)
+			go poolHandler(pool, uri, mapping, cert)
 		}
 	}
 
