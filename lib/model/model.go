@@ -107,6 +107,8 @@ type Model interface {
 
 	PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error)
 	PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error)
+	CandidateDevices(folder string) (map[protocol.DeviceID]db.CandidateDevice, error)
+	CandidateFolders(device protocol.DeviceID) (map[string]db.CandidateFolder, error)
 
 	StartDeadlockDetector(timeout time.Duration)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
@@ -2920,6 +2922,23 @@ func (m *model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error
 // argument is specified as EmptyDeviceID.
 func (m *model) PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error) {
 	return m.db.PendingFoldersForDevice(device)
+}
+
+// CandidateDevices lists devices that already have an indirect link over one or more
+// folders, through the introducing third parties.  For each candidate, the suggestion is
+// attributed to one or more introducing device IDs with the common folders IDs.  The
+// output is filtered for candidates having a specific folder ID if passed in non-empty.
+func (m *model) CandidateDevices(folder string) (map[protocol.DeviceID]db.CandidateDevice, error) {
+	return m.db.CandidateDevicesForFolder(folder)
+}
+
+// CandidateFolders lists devices that already have an indirect link over one or more
+// folders, through the introducing third parties.  For each candidate, the suggestion is
+// attributed to one or more introducing device IDs.  It returns the entries grouped by
+// common folder ID and filters for a given candidate device unless the argument is
+// specified as EmptyDeviceID.
+func (m *model) CandidateFolders(device protocol.DeviceID) (map[string]db.CandidateFolder, error) {
+	return m.db.CandidateFoldersForDevice(device)
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given

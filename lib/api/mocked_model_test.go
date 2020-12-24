@@ -132,6 +132,14 @@ func (m *mockedModel) PendingFolders(device protocol.DeviceID) (map[string]db.Pe
 	return nil, nil
 }
 
+func (m *mockedModel) CandidateDevices(folder string) (map[protocol.DeviceID]db.CandidateDevice, error) {
+	return nil, nil
+}
+
+func (m *mockedModel) CandidateFolders(device protocol.DeviceID) (map[string]db.CandidateFolder, error) {
+	return nil, nil
+}
+
 func (m *mockedModel) FolderErrors(folder string) ([]model.FileError, error) {
 	return nil, nil
 }
