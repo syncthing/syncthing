@@ -2824,7 +2824,7 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 		})
 	}
 
-	var removedPendingDevices []string
+	var removedPendingDevices []map[string]string
 	pendingDevices, err := m.db.PendingDevices()
 	if err != nil {
 		l.Infof("Could not iterate through pending device entries for cleanup: %v", err)
@@ -2842,7 +2842,9 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 		continue
 	removeDevice:
 		m.db.RemovePendingDevice(deviceID)
-		removedPendingDevices = append(removedPendingDevices, deviceID.String())
+		removedPendingDevices = append(removedPendingDevices, map[string]string{
+			"device": deviceID.String(),
+		})
 	}
 	if len(removedPendingDevices) > 0 {
 		m.evLogger.Log(events.PendingDevicesChanged, map[string]interface{}{

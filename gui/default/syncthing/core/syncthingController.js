@@ -266,8 +266,8 @@ angular.module('syncthing.core')
 
             if (arg.data.removed) {
                 arg.data.removed.forEach(function (dev) {
-                    console.log("no longer pending device:", dev);
-                    delete $scope.pendingDevices[dev];
+                    console.log("no longer pending device:", dev.device);
+                    delete $scope.pendingDevices[dev.device];
                 });
             }
         });
