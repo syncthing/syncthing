@@ -124,11 +124,8 @@ func (db *Lowlevel) RemovePendingFoldersBeforeTime(device protocol.DeviceID, old
 	oldest = oldest.Round(time.Second)
 	var res []string
 	for iter.Next() {
-		var bs []byte
 		var of ObservedFolder
-		if bs, err = db.Get(iter.Key()); err != nil {
-			l.Infof("Invalid pending folder entry, deleting from database: %x", iter.Key())
-		} else if err = of.Unmarshal(bs); err != nil {
+		if err = of.Unmarshal(iter.Value()); err != nil {
 			l.Infof("Invalid pending folder entry, deleting from database: %x", iter.Key())
 		} else if of.Time.Before(oldest) {
 			l.Infof("Removing stale pending folder %v from device %s, last seen %v",
