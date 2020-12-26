@@ -8,64 +8,56 @@ import "lib/config/size.proto";
 import "ext.proto";
 
 message OptionsConfiguration {
-    repeated string listen_addresses                         = 1 [(ext.goname) = "RawListenAddresses", (ext.default) = "default"];
-    repeated string global_discovery_servers                 = 2 [(ext.goname) = "RawGlobalAnnServers", (ext.xml) = "globalAnnounceServer", (ext.json) = "globalAnnounceServers", (ext.default) = "default"];
-    bool            global_discovery_enabled                 = 3 [(ext.goname) = "GlobalAnnEnabled", (ext.xml) = "globalAnnounceEnabled", (ext.json) = "globalAnnounceEnabled", (ext.default) = "true"];
-    bool            local_discovery_enabled                  = 4 [(ext.goname) = "LocalAnnEnabled", (ext.xml) = "localAnnounceEnabled", (ext.json) = "localAnnounceEnabled", (ext.default) = "true"];
-    int32           local_announce_port                      = 5 [(ext.goname) = "LocalAnnPort", (ext.xml) = "localAnnouncePort", (ext.json) = "localAnnouncePort", (ext.default) = "21027"];
-    string          local_announce_multicast_address         = 6 [(ext.goname) = "LocalAnnMCAddr", (ext.xml) = "localAnnounceMCAddr", (ext.json) = "localAnnounceMCAddr", (ext.default) = "[ff12::8384]:21027"];
-    int32           max_send_kbps                            = 7;
-    int32           max_recv_kbps                            = 8;
-    int32           reconnection_interval_s                  = 9 [(ext.goname) = "ReconnectIntervalS", (ext.default) = "60"];
-    bool            relays_enabled                           = 10 [(ext.default) = "true"];
-    int32           relays_reconnect_interval_m              = 11 [(ext.goname) = "RelayReconnectIntervalM", (ext.xml) = "relayReconnectIntervalM", (ext.json) = "relayReconnectIntervalM", (ext.default) = "10"];
-    bool            start_browser                            = 12 [(ext.default) = "true"];
-    bool            nat_traversal_enabled                    = 14 [(ext.goname) = "NATEnabled", (ext.xml) = "natEnabled", (ext.json) = "natEnabled", (ext.default) = "true"];
-    int32           nat_traversal_lease_m                    = 15 [(ext.goname) = "NATLeaseM", (ext.xml) = "natLeaseMinutes", (ext.json) = "natLeaseMinutes", (ext.default) = "60"];
-    int32           nat_traversal_renewal_m                  = 16 [(ext.goname) = "NATRenewalM", (ext.xml) = "natRenewalMinutes", (ext.json) = "natRenewalMinutes", (ext.default) = "30"];
-    int32           nat_traversal_timeout_s                  = 17 [(ext.goname) = "NATTimeoutS", (ext.xml) = "natTimeoutSeconds", (ext.json) = "natTimeoutSeconds", (ext.default) = "10"];
-    int32           usage_reporting_accepted                 = 18 [(ext.goname) = "URAccepted", (ext.xml) = "urAccepted", (ext.json) = "urAccepted"];
-    int32           usage_reporting_seen                     = 19 [(ext.goname) = "URSeen", (ext.xml) = "urSeen", (ext.json) = "urSeen"];
-    string          usage_reporting_unique_id                = 20 [(ext.goname) = "URUniqueID", (ext.xml) = "urUniqueID", (ext.json) = "urUniqueId"];
-    string          usage_reporting_url                      = 21 [(ext.goname) = "URURL", (ext.xml) = "urURL", (ext.json) = "urURL", (ext.default) = "https://data.syncthing.net/newdata"];
-    bool            usage_reporting_post_insecurely          = 22 [(ext.goname) = "URPostInsecurely", (ext.xml) = "urPostInsecurely", (ext.json) = "urPostInsecurely", (ext.default) = "false"];
-    int32           usage_reporting_initial_delay_s          = 23 [(ext.goname) = "URInitialDelayS", (ext.xml) = "urInitialDelayS", (ext.json) = "urInitialDelayS", (ext.default) = "1800"];
-    bool            restart_on_wakeup                        = 24 [(ext.default) = "true"];
-    int32           auto_upgrade_interval_h                  = 25 [(ext.default) = "12"];
-    bool            upgrade_to_pre_releases                  = 26;
-    int32           keep_temporaries_h                       = 27 [(ext.default) = "24"];
-    bool            cache_ignored_files                      = 28 [(ext.default) = "false"];
-    int32           progress_update_interval_s               = 29 [(ext.default) = "5"];
-    bool            limit_bandwidth_in_lan                   = 30 [(ext.default) = "false"];
-    Size            min_home_disk_free                       = 31 [(ext.default) = "1 %"];
-    string          releases_url                             = 32 [(ext.goname) = "ReleasesURL", (ext.xml) = "releasesURL", (ext.json) = "releasesURL", (ext.default) = "https://upgrades.syncthing.net/meta.json"];
-    repeated string always_local_nets                        = 33;
-    bool            overwrite_remote_device_names_on_connect = 34 [(ext.goname) = "OverwriteRemoteDevNames", (ext.default) = "false"];
-    int32           temp_index_min_blocks                    = 35 [(ext.default) = "10"];
-    repeated string unacked_notification_ids                 = 36 [(ext.goname) = "UnackedNotificationIDs", (ext.xml) = "unackedNotificationID", (ext.json) = "unackedNotificationIDs"];
-    int32           traffic_class                            = 37;
-    string          default_folder_path                      = 38 [(ext.default) = "~"];
-    bool            set_low_priority                         = 39 [(ext.default) = "true"];
-    int32           max_folder_concurrency                   = 40 [(ext.goname) = "RawMaxFolderConcurrency"];
-    string          crash_reporting_url                      = 41 [(ext.goname) = "CRURL", (ext.xml) = "crashReportingURL", (ext.json) = "crURL", (ext.default) = "https://crash.syncthing.net/newcrash"];
-    bool            crash_reporting_enabled                  = 42 [(ext.goname) = "CREnabled", (ext.default) = "true"];
-    int32           stun_keepalive_start_s                   = 43 [(ext.default) = "180"];
-    int32           stun_keepalive_min_s                     = 44 [(ext.default) = "20"];
-    repeated string stun_servers                             = 45 [(ext.goname) = "RawStunServers", (ext.default) = "default"];
-    Tuning          database_tuning                          = 46 [(ext.restart) = true];
-    int32           max_concurrent_incoming_request_kib      = 47 [(ext.goname) = "RawMaxCIRequestKiB", (ext.xml) = "maxConcurrentIncomingRequestKiB", (ext.json) = "maxConcurrentIncomingRequestKiB"];
-    bool            announce_lan_addresses                   = 48 [(ext.goname)= "AnnounceLANAddresses", (ext.xml) = "announceLANAddresses", (ext.json) = "announceLANAddresses", (ext.default) = "true"];
-    bool            send_full_index_on_upgrade               = 49;
-    repeated string feature_flags                            = 50;
-
-    // The number of connections at which we stop trying to connect to more
-    // devices, zero meaning no limit. Does not affect incoming connections.
-    int32 connection_limit_enough = 51;
-
-    // The maximum number of connections which we will allow in total, zero
-    // meaning no limit. Affects incoming connections and prevents
-    // attempting outgoing connections.
-    int32 connection_limit_max = 52;
+    repeated string  listen_addresses                         = 1 [(ext.goname) = "RawListenAddresses", (ext.default) = "default"];
+    repeated string  global_discovery_servers                 = 2 [(ext.goname) = "RawGlobalAnnServers", (ext.xml) = "globalAnnounceServer", (ext.json) = "globalAnnounceServers", (ext.default) = "default"];
+    bool             global_discovery_enabled                 = 3 [(ext.goname) = "GlobalAnnEnabled", (ext.xml) = "globalAnnounceEnabled", (ext.json) = "globalAnnounceEnabled", (ext.default) = "true"];
+    bool             local_discovery_enabled                  = 4 [(ext.goname) = "LocalAnnEnabled", (ext.xml) = "localAnnounceEnabled", (ext.json) = "localAnnounceEnabled", (ext.default) = "true"];
+    int32            local_announce_port                      = 5 [(ext.goname) = "LocalAnnPort", (ext.xml) = "localAnnouncePort", (ext.json) = "localAnnouncePort", (ext.default) = "21027"];
+    string           local_announce_multicast_address         = 6 [(ext.goname) = "LocalAnnMCAddr", (ext.xml) = "localAnnounceMCAddr", (ext.json) = "localAnnounceMCAddr", (ext.default) = "[ff12::8384]:21027"];
+    int32            max_send_kbps                            = 7;
+    int32            max_recv_kbps                            = 8;
+    int32            reconnection_interval_s                  = 9 [(ext.goname) = "ReconnectIntervalS", (ext.default) = "60"];
+    bool             relays_enabled                           = 10 [(ext.default) = "true"];
+    int32            relays_reconnect_interval_m              = 11 [(ext.goname) = "RelayReconnectIntervalM", (ext.xml) = "relayReconnectIntervalM", (ext.json) = "relayReconnectIntervalM", (ext.default) = "10"];
+    bool             start_browser                            = 12 [(ext.default) = "true"];
+    bool             nat_traversal_enabled                    = 14 [(ext.goname) = "NATEnabled", (ext.xml) = "natEnabled", (ext.json) = "natEnabled", (ext.default) = "true"];
+    int32            nat_traversal_lease_m                    = 15 [(ext.goname) = "NATLeaseM", (ext.xml) = "natLeaseMinutes", (ext.json) = "natLeaseMinutes", (ext.default) = "60"];
+    int32            nat_traversal_renewal_m                  = 16 [(ext.goname) = "NATRenewalM", (ext.xml) = "natRenewalMinutes", (ext.json) = "natRenewalMinutes", (ext.default) = "30"];
+    int32            nat_traversal_timeout_s                  = 17 [(ext.goname) = "NATTimeoutS", (ext.xml) = "natTimeoutSeconds", (ext.json) = "natTimeoutSeconds", (ext.default) = "10"];
+    int32            usage_reporting_accepted                 = 18 [(ext.goname) = "URAccepted", (ext.xml) = "urAccepted", (ext.json) = "urAccepted"];
+    int32            usage_reporting_seen                     = 19 [(ext.goname) = "URSeen", (ext.xml) = "urSeen", (ext.json) = "urSeen"];
+    string           usage_reporting_unique_id                = 20 [(ext.goname) = "URUniqueID", (ext.xml) = "urUniqueID", (ext.json) = "urUniqueId"];
+    string           usage_reporting_url                      = 21 [(ext.goname) = "URURL", (ext.xml) = "urURL", (ext.json) = "urURL", (ext.default) = "https://data.syncthing.net/newdata"];
+    bool             usage_reporting_post_insecurely          = 22 [(ext.goname) = "URPostInsecurely", (ext.xml) = "urPostInsecurely", (ext.json) = "urPostInsecurely", (ext.default) = "false"];
+    int32            usage_reporting_initial_delay_s          = 23 [(ext.goname) = "URInitialDelayS", (ext.xml) = "urInitialDelayS", (ext.json) = "urInitialDelayS", (ext.default) = "1800"];
+    bool             restart_on_wakeup                        = 24 [(ext.default) = "true"];
+    int32            auto_upgrade_interval_h                  = 25 [(ext.default) = "12"];
+    bool             upgrade_to_pre_releases                  = 26;
+    int32            keep_temporaries_h                       = 27 [(ext.default) = "24"];
+    bool             cache_ignored_files                      = 28 [(ext.default) = "false"];
+    int32            progress_update_interval_s               = 29 [(ext.default) = "5"];
+    bool             limit_bandwidth_in_lan                   = 30 [(ext.default) = "false"];
+    Size             min_home_disk_free                       = 31 [(ext.default) = "1 %"];
+    string           releases_url                             = 32 [(ext.goname) = "ReleasesURL", (ext.xml) = "releasesURL", (ext.json) = "releasesURL", (ext.default) = "https://upgrades.syncthing.net/meta.json"];
+    repeated string  always_local_nets                        = 33;
+    bool             overwrite_remote_device_names_on_connect = 34 [(ext.goname) = "OverwriteRemoteDevNames", (ext.default) = "false"];
+    int32            temp_index_min_blocks                    = 35 [(ext.default) = "10"];
+    repeated string  unacked_notification_ids                 = 36 [(ext.goname) = "UnackedNotificationIDs", (ext.xml) = "unackedNotificationID", (ext.json) = "unackedNotificationIDs"];
+    int32            traffic_class                            = 37;
+    string           default_folder_path                      = 38 [(ext.default) = "~"];
+    bool             set_low_priority                         = 39 [(ext.default) = "true"];
+    int32            max_folder_concurrency                   = 40 [(ext.goname) = "RawMaxFolderConcurrency"];
+    string           crash_reporting_url                      = 41 [(ext.goname) = "CRURL", (ext.xml) = "crashReportingURL", (ext.json) = "crURL", (ext.default) = "https://crash.syncthing.net/newcrash"];
+    bool             crash_reporting_enabled                  = 42 [(ext.goname) = "CREnabled", (ext.default) = "true"];
+    int32            stun_keepalive_start_s                   = 43 [(ext.default) = "180"];
+    int32            stun_keepalive_min_s                     = 44 [(ext.default) = "20"];
+    repeated string  stun_servers                             = 45 [(ext.goname) = "RawStunServers", (ext.default) = "default"];
+    Tuning           database_tuning                          = 46 [(ext.restart) = true];
+    int32            max_concurrent_incoming_request_kib      = 47 [(ext.goname) = "RawMaxCIRequestKiB", (ext.xml) = "maxConcurrentIncomingRequestKiB", (ext.json) = "maxConcurrentIncomingRequestKiB"];
+    bool             announce_lan_addresses                   = 48 [(ext.goname)= "AnnounceLANAddresses", (ext.xml) = "announceLANAddresses", (ext.json) = "announceLANAddresses", (ext.default) = "true"];
+    bool             send_full_index_on_upgrade               = 49;
+    repeated string  feature_flags                            = 50;
+    ConnectionLimits connection_limits                        = 51;
 
 
     // Legacy deprecated
@@ -76,4 +68,15 @@ message OptionsConfiguration {
     repeated string relay_servers          = 9004 [deprecated = true];
     double          min_home_disk_free_pct = 9005 [deprecated = true];
     int32           max_concurrent_scans   = 9006 [deprecated = true];
+}
+
+message ConnectionLimits {
+    // The number of connections at which we stop trying to connect to more
+    // devices, zero meaning no limit. Does not affect incoming connections.
+    int32 enough = 1;
+
+    // The maximum number of connections which we will allow in total, zero
+    // meaning no limit. Affects incoming connections and prevents
+    // attempting outgoing connections.
+    int32 max = 2;
 }

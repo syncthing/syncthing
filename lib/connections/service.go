@@ -61,6 +61,7 @@ const (
 	minConnectionLoopSleep  = 5 * time.Second
 	stdConnectionLoopSleep  = time.Minute
 	worstDialerPriority     = math.MaxInt32
+	recentlySeenCutoff      = 7 * 24 * time.Hour
 )
 
 // From go/src/crypto/tls/cipher_suites.go
@@ -418,7 +419,7 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	// Figure out current connection limits up front to see if there's any
 	// point in resolving devices and such at all.
 	allowAdditional := 0 // no limit
-	connectionLimit := dialConnectionLimit(cfg.Options)
+	connectionLimit := cfg.Options.ConnectionLimits.LowestLimit()
 	if connectionLimit > 0 {
 		current := s.model.NumConnections()
 		allowAdditional = connectionLimit - current
@@ -429,12 +430,16 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	}
 
 	type dialQueueEntry struct {
-		id      protocol.DeviceID
-		targets []dialTarget
+		id       protocol.DeviceID
+		lastSeen time.Time
+		targets  []dialTarget
 	}
 
-	queue := make([]dialQueueEntry, 0, len(cfg.Devices))
+	// Get device statistics for the last seen time of each device. This
+	// isn't critical, so ignore the potential error.
+	stats, _ := s.model.DeviceStatistics()
 
+	queue := make([]dialQueueEntry, 0, len(cfg.Devices))
 	for _, deviceCfg := range cfg.Devices {
 		// Don't attempt to connect to ourselves...
 		if deviceCfg.DeviceID == s.myID {
@@ -461,24 +466,48 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 
 		dialTargets := s.resolveDialTargets(ctx, now, cfg, deviceCfg, nextDialAt, initial, priorityCutoff)
 		if len(dialTargets) > 0 {
-			queue = append(queue, dialQueueEntry{deviceCfg.DeviceID, dialTargets})
+			queue = append(queue, dialQueueEntry{
+				id:       deviceCfg.DeviceID,
+				lastSeen: stats[deviceCfg.DeviceID.String()].LastSeen,
+				targets:  dialTargets,
+			})
 		}
 	}
 
-	// Shuffle the connection queue, so that if we only try a limited set of
-	// devices (or they in turn have limits and we're trying to load balance
-	// over several) it won't be the same ones in the same order every time.
-	rand.Shuffle(queue)
+	// Sort the queue with the most recently seen device at the head,
+	// increasing the likelihood of connecting to a device that we're
+	// already almost up to date with, index wise.
+	sort.Slice(queue, func(a, b int) bool {
+		return queue[a].lastSeen.After(queue[b].lastSeen)
+	})
 
-	// Cut the queue down to the limit, if any.
-	if connectionLimit > 0 && len(queue) > allowAdditional {
-		l.Debugf("Dialing %d devices out of %d because we've reached the connection limit (%d)", allowAdditional, len(queue), connectionLimit)
-		queue = queue[:allowAdditional]
+	// Shuffle the part of the connection queue that are devices we haven't
+	// connected to recently, so that if we only try a limited set of
+	// devices (or they in turn have limits and we're trying to load balance
+	// over several) and the usual ones are down it won't be the same ones
+	// in the same order every time.
+	idx := 0
+	cutoff := time.Now().Add(-recentlySeenCutoff)
+	for idx < len(queue) {
+		if queue[idx].lastSeen.Before(cutoff) {
+			break
+		}
+		idx++
+	}
+	if idx < len(queue)-1 {
+		rand.Shuffle(queue[idx:])
 	}
 
+	// Perform dials according to the queue, stopping when we've reached the
+	// allowed additional number of connections (if limited).
+	numConns := 0
 	for _, entry := range queue {
 		if conn, ok := s.dialParallel(ctx, entry.id, entry.targets); ok {
 			s.conns <- conn
+			numConns++
+			if allowAdditional > 0 && numConns >= allowAdditional {
+				break
+			}
 		}
 	}
 }
@@ -1024,17 +1053,4 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	}
 
 	return nil
-}
-
-// The dialConnectionLimit is the lower of ConnectionLimitEnough and
-// ConnectionLimitMax, excepting zero which is unlimited.
-func dialConnectionLimit(opts config.OptionsConfiguration) int {
-	connectionLimit := opts.ConnectionLimitEnough
-	if connectionLimit == 0 || opts.ConnectionLimitMax != 0 && opts.ConnectionLimitMax < connectionLimit {
-		// It doesn't really make sense to set ConnectionLimitMax lower than
-		// ConnectionLimitEnough but someone might do it while experimenting
-		// and it's easy for us to do the right thing.
-		connectionLimit = opts.ConnectionLimitMax
-	}
-	return connectionLimit
 }
