@@ -104,11 +104,7 @@ message ObservedDevice {
 message ObservedCandidateLink {
     google.protobuf.Timestamp time             = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];  // When was the ClusterConfig received?
     string                    introducer_label = 2;  // What label does this introducer give to the common folder? (Do we need this at all?)
-    IntroducedDeviceDetails   candidate_meta   = 3 [(gogoproto.nullable) = true];
-}
-
-message IntroducedDeviceDetails {
-    string          cert_name      = 1;
-    string          suggested_name = 2;  // By what name does this introducer know the candidate device?
-    repeated string addresses      = 3;
+    string                    cert_name        = 3;
+    string                    introducer_name  = 4;  // By what name does this introducer know the candidate device?
+    repeated string           addresses        = 5;
 }

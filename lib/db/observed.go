@@ -172,7 +172,7 @@ func (db *Lowlevel) PendingFoldersForDevice(device protocol.DeviceID) (map[strin
 	return res, nil
 }
 
-func (db *Lowlevel) AddOrUpdateCandidateLink(folder, label string, device, introducer protocol.DeviceID, meta *IntroducedDeviceDetails) error {
+func (db *Lowlevel) AddOrUpdateCandidateLink(folder, label string, device, introducer protocol.DeviceID, certName, name string, addresses []string) error {
 	key, err := db.keyer.GenerateCandidateLinkKey(nil, introducer[:], []byte(folder), device[:])
 	if err != nil {
 		return err
@@ -180,7 +180,9 @@ func (db *Lowlevel) AddOrUpdateCandidateLink(folder, label string, device, intro
 	link := ObservedCandidateLink{
 		Time:            time.Now().Round(time.Second),
 		IntroducerLabel: label,
-		CandidateMeta:   meta,
+		CertName:        certName,
+		IntroducerName:  name,
+		Addresses:       addresses,
 	}
 	bs, err := link.Marshal()
 	if err != nil {
@@ -411,14 +413,12 @@ func (cd *CandidateDevice) mergeCandidateLink(observed ObservedCandidateLink, fo
 	}
 	attrib.Time = observed.Time
 	attrib.CommonFolders[folder] = observed.IntroducerLabel
-	if observed.CandidateMeta != nil {
-		if cd.CertName != observed.CandidateMeta.CertName {
-			//FIXME warn?
-			cd.CertName = observed.CandidateMeta.CertName
-		}
-		cd.collectAddresses(observed.CandidateMeta.Addresses)
-		attrib.SuggestedName = observed.CandidateMeta.SuggestedName
+	if cd.CertName != observed.CertName {
+		//FIXME warn?
+		cd.CertName = observed.CertName
 	}
+	cd.collectAddresses(observed.Addresses)
+	attrib.SuggestedName = observed.IntroducerName
 	cd.IntroducedBy[introducer] = attrib
 }
 

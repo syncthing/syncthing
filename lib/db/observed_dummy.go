@@ -45,33 +45,32 @@ func (db *Lowlevel) CandidateLinksDummy() ([]CandidateLink, error) {
 }
 
 func (db *Lowlevel) CandidateLinksDummyData() {
-	l.Warnln(db.AddOrUpdateCandidateLink("cpkn4-57ysy", "Pics from Jane", testDev3, testDev4,
-		&IntroducedDeviceDetails{
-			CertName: "",
-			Addresses: []string{
-				"192.168.1.2:22000",
-				"[2a02:8070::ff34:1234::aabb]:22000",
-			},
-			SuggestedName: "Jane",
-		}))
+	l.Warnln(db.AddOrUpdateCandidateLink("cpkn4-57ysy", "Pics from Jane", testDev3, testDev4, "", "Jane", []string{
+		"tcp://192.168.1.2:22000",
+		"tcp://[2a02:8070::ff34:1234::aabb]:22000",
+	}))
 
-	l.Warnln(db.AddOrUpdateCandidateLink("cpkn4-57ysy", "Pics of J & J", testDev3, testDev5,
-		&IntroducedDeviceDetails{
-			CertName: "",
-			Addresses: []string{
-				"192.168.1.2:22000",
-				"[2a02:8070::ff34:1234::aabb]:22000",
-			},
-			SuggestedName: "Jane's Laptop",
-		}))
+	l.Warnln(db.AddOrUpdateCandidateLink("cpkn4-57ysy", "Pics of J & J", testDev3, testDev5, "", "Jane's Laptop", []string{
+		"tcp://janes.laptop.example.com:22000",
+		"tcp://[2a02:8070::ff34:1234::aabb]:22000",
+		"dynamic",
+	}))
 
-	l.Warnln(db.AddOrUpdateCandidateLink("cpkn4-57ysy", "Family pics", testDev6, testDev5, nil))
+	l.Warnln(db.AddOrUpdateCandidateLink("cpkn4-57ysy", "Family pics", testDev6, testDev5, "", "Joe's Laptop", []string{
+		"dynamic",
+	}))
 
-	l.Warnln(db.AddOrUpdateCandidateLink("abcde-fghij", "Mighty nice folder", testDev6, testDev5, nil))
+	l.Warnln(db.AddOrUpdateCandidateLink("abcde-fghij", "Mighty nice folder", testDev6, testDev5, "", "Joe's Laptop", []string{
+		"dynamic",
+	}))
 
-	l.Warnln(db.AddOrUpdateCandidateLink("cpkn4-57ysy", "Family pics", testDev6, testDev2, nil))
+	l.Warnln(db.AddOrUpdateCandidateLink("cpkn4-57ysy", "Family pics", testDev6, testDev2, "", "Joe", []string{
+		"dynamic",
+	}))
 
-	l.Warnln(db.AddOrUpdateCandidateLink("cpkn4-57ysy", "Pictures from Joe", testDev4, testDev5, nil))
+	l.Warnln(db.AddOrUpdateCandidateLink("cpkn4-57ysy", "Pictures from Joe", testDev4, testDev5, "", "Laptop", []string{
+		"dynamic",
+	}))
 }
 
 func (db *Lowlevel) CandidateDevicesDummy() (map[protocol.DeviceID]CandidateDevice, error) {

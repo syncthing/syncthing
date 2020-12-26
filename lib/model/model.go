@@ -1413,7 +1413,6 @@ func (m *model) ccHandleFolderCandidates(folder protocol.Folder, introducer prot
 			// Local folder is already shared with the candidate device.
 			continue
 		}
-		var meta *db.IntroducedDeviceDetails
 		if knownDev, ok := m.cfg.Device(dev.ID); ok {
 			if knownDev.IgnoredFolder(folder.ID) {
 				// Folder deliberately ignored from this candidate.
@@ -1424,8 +1423,6 @@ func (m *model) ccHandleFolderCandidates(folder protocol.Folder, introducer prot
 			// list of suggested devices for additional cluster connectivity.
 			l.Infof("Known device %s (%s) is not directly sharing common folder %s, marking as candidate",
 				dev.ID.Short(), knownDev.Name, folder.ID)
-			// Record as a candidate device, leaving out any details about it
-			// which we already know from our configuration entry.
 		} else if m.cfg.IgnoredDevice(dev.ID) {
 			// Device is deliberately ignored, so skip as candidate.
 			continue
@@ -1435,15 +1432,11 @@ func (m *model) ccHandleFolderCandidates(folder protocol.Folder, introducer prot
 			// of suggested devices for additional cluster connectivity.
 			l.Infof("Unknown device %v (%s) is a candidate for indirectly shared folder %s",
 				dev.ID, dev.Name, folder.ID)
-			// Record as a new candidate device, remembering all the details
-			// received from our known peer.
-			meta = &db.IntroducedDeviceDetails{
-				CertName:      dev.CertName,
-				Addresses:     dev.Addresses,
-				SuggestedName: dev.Name,
-			}
 		}
-		if err := m.db.AddOrUpdateCandidateLink(folder.ID, folder.Label, dev.ID, introducer, meta); err != nil {
+		// Record as a new candidate device, remembering all the details received
+		// from our known peer.
+		if err := m.db.AddOrUpdateCandidateLink(folder.ID, folder.Label, dev.ID, introducer,
+			dev.CertName, dev.Name, dev.Addresses); err != nil {
 			l.Warnf("Failed to persist candidate link entry to database: %v", err)
 		}
 	}
@@ -2942,7 +2935,19 @@ func (m *model) PendingFolders(device protocol.DeviceID) (map[string]db.PendingF
 // attributed to one or more introducing device IDs with the common folders IDs.  The
 // output is filtered for candidates having a specific folder ID if passed in non-empty.
 func (m *model) CandidateDevices(folder string) (map[protocol.DeviceID]db.CandidateDevice, error) {
-	return m.db.CandidateDevicesForFolder(folder)
+	res, err := m.db.CandidateDevicesForFolder(folder)
+	if err != nil {
+		return nil, err
+	}
+	for deviceID, candidate := range res {
+		if _, ok := m.cfg.Device(deviceID); ok {
+			// Omit connection details for already known devices
+			candidate.CertName = ""
+			candidate.Addresses = nil
+			res[deviceID] = candidate
+		}
+	}
+	return res, nil
 }
 
 // CandidateFolders lists devices that already have an indirect link over one or more
