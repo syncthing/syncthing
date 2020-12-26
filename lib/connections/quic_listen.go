@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// +build go1.12,!noquic
+// +build go1.14,!noquic,!go1.16
 
 package connections
 
@@ -24,7 +24,7 @@ import (
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/stun"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/svcutil"
 )
 
 func init() {
@@ -35,7 +35,7 @@ func init() {
 }
 
 type quicListener struct {
-	util.ServiceWithError
+	svcutil.ServiceWithError
 	nat atomic.Value
 
 	onAddressesChangedNotifier
@@ -205,7 +205,7 @@ func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.
 		conns:   conns,
 		factory: f,
 	}
-	l.ServiceWithError = util.AsService(l.serve, l.String())
+	l.ServiceWithError = svcutil.AsService(l.serve, l.String())
 	l.nat.Store(stun.NATUnknown)
 	return l
 }

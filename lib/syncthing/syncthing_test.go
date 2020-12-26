@@ -17,8 +17,8 @@ import (
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/tlsutil"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 func tempCfgFilename(t *testing.T) string {
@@ -80,14 +80,17 @@ func TestStartupFail(t *testing.T) {
 	defer os.Remove(cfg.ConfigPath())
 
 	db := backend.OpenMemory()
-	app := New(cfg, db, events.NoopLogger, cert, Options{})
+	app, err := New(cfg, db, events.NoopLogger, cert, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	startErr := app.Start()
 	if startErr == nil {
 		t.Fatal("Expected an error from Start, got nil")
 	}
 
 	done := make(chan struct{})
-	var waitE util.ExitStatus
+	var waitE svcutil.ExitStatus
 	go func() {
 		waitE = app.Wait()
 		close(done)
@@ -99,8 +102,8 @@ func TestStartupFail(t *testing.T) {
 	case <-done:
 	}
 
-	if waitE != util.ExitError {
-		t.Errorf("Got exit status %v, expected %v", waitE, util.ExitError)
+	if waitE != svcutil.ExitError {
+		t.Errorf("Got exit status %v, expected %v", waitE, svcutil.ExitError)
 	}
 
 	if err = app.Error(); err != startErr {

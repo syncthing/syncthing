@@ -27,7 +27,7 @@ func TestMtimeFS(t *testing.T) {
 	// a random time with nanosecond precision
 	testTime := time.Unix(1234567890, 123456789)
 
-	mtimefs := NewMtimeFS(newBasicFilesystem("."), make(mapStore))
+	mtimefs := newMtimeFS(newBasicFilesystem("."), make(mapStore))
 
 	// Do one Chtimes call that will go through to the normal filesystem
 	mtimefs.chtimes = os.Chtimes
@@ -90,7 +90,7 @@ func TestMtimeFSWalk(t *testing.T) {
 	defer func() { _ = os.RemoveAll(dir) }()
 
 	underlying := NewFilesystem(FilesystemTypeBasic, dir)
-	mtimefs := NewMtimeFS(underlying, make(mapStore))
+	mtimefs := newMtimeFS(underlying, make(mapStore))
 	mtimefs.chtimes = failChtimes
 
 	if err := ioutil.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0644); err != nil {
@@ -144,7 +144,7 @@ func TestMtimeFSOpen(t *testing.T) {
 	defer func() { _ = os.RemoveAll(dir) }()
 
 	underlying := NewFilesystem(FilesystemTypeBasic, dir)
-	mtimefs := NewMtimeFS(underlying, make(mapStore))
+	mtimefs := newMtimeFS(underlying, make(mapStore))
 	mtimefs.chtimes = failChtimes
 
 	if err := ioutil.WriteFile(filepath.Join(dir, "file"), []byte("hello"), 0644); err != nil {
@@ -196,7 +196,7 @@ func TestMtimeFSInsensitive(t *testing.T) {
 		t.Skip("need case insensitive FS")
 	}
 
-	theTest := func(t *testing.T, fs *MtimeFS, shouldSucceed bool) {
+	theTest := func(t *testing.T, fs *mtimeFS, shouldSucceed bool) {
 		os.RemoveAll("testdata")
 		defer os.RemoveAll("testdata")
 		os.Mkdir("testdata", 0755)
@@ -223,12 +223,12 @@ func TestMtimeFSInsensitive(t *testing.T) {
 
 	// The test should fail with a case sensitive mtimefs
 	t.Run("with case sensitive mtimefs", func(t *testing.T) {
-		theTest(t, NewMtimeFS(newBasicFilesystem("."), make(mapStore)), false)
+		theTest(t, newMtimeFS(newBasicFilesystem("."), make(mapStore)), false)
 	})
 
 	// And succeed with a case insensitive one.
 	t.Run("with case insensitive mtimefs", func(t *testing.T) {
-		theTest(t, NewMtimeFS(newBasicFilesystem("."), make(mapStore), WithCaseInsensitivity(true)), true)
+		theTest(t, newMtimeFS(newBasicFilesystem("."), make(mapStore), WithCaseInsensitivity(true)), true)
 	})
 }
 
@@ -260,4 +260,8 @@ func failChtimes(name string, mtime, atime time.Time) error {
 // asked for, and truncate the time to the closest hour.
 func evilChtimes(name string, mtime, atime time.Time) error {
 	return os.Chtimes(name, mtime.Add(300*time.Hour).Truncate(time.Hour), atime.Add(300*time.Hour).Truncate(time.Hour))
+}
+
+func newMtimeFS(fs Filesystem, db database, options ...MtimeFSOption) *mtimeFS {
+	return NewMtimeFS(fs, db, options...).(*mtimeFS)
 }

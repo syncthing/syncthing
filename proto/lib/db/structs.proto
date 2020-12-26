@@ -3,6 +3,7 @@ syntax = "proto3";
 package db;
 
 import "repos/protobuf/gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
 import "lib/protocol/bep.proto";
 import "ext.proto";
 
@@ -87,4 +88,15 @@ message FileVersionDeprecated {
 message VersionListDeprecated {
     option (gogoproto.goproto_stringer) = false;
     repeated FileVersionDeprecated versions = 1;
+}
+
+message ObservedFolder {
+    google.protobuf.Timestamp time  = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    string                    label = 2;
+}
+
+message ObservedDevice {
+    google.protobuf.Timestamp time    = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    string                    name    = 2;
+    string                    address = 3;
 }

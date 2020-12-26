@@ -8,29 +8,39 @@ package connections
 
 import "github.com/syncthing/syncthing/lib/config"
 
-// deprecatedListener is never valid
-type deprecatedListener struct {
+// invalidListener is never valid
+type invalidListener struct {
 	listenerFactory
+	err error
 }
 
-func (deprecatedListener) Valid(_ config.Configuration) error {
-	return errDeprecated
+func (i invalidListener) Valid(_ config.Configuration) error {
+	if i.err == nil {
+		// fallback so we don't accidentally return nil
+		return errUnsupported
+	}
+	return i.err
 }
 
-// deprecatedDialer is never valid
-type deprecatedDialer struct {
+// invalidDialer is never valid
+type invalidDialer struct {
 	dialerFactory
+	err error
 }
 
-func (deprecatedDialer) Valid(_ config.Configuration) error {
-	return errDeprecated
+func (i invalidDialer) Valid(_ config.Configuration) error {
+	if i.err == nil {
+		// fallback so we don't accidentally return nil
+		return errUnsupported
+	}
+	return i.err
 }
 
 func init() {
-	listeners["kcp"] = deprecatedListener{}
-	listeners["kcp4"] = deprecatedListener{}
-	listeners["kcp6"] = deprecatedListener{}
-	dialers["kcp"] = deprecatedDialer{}
-	dialers["kcp4"] = deprecatedDialer{}
-	dialers["kcp6"] = deprecatedDialer{}
+	listeners["kcp"] = invalidListener{err: errDeprecated}
+	listeners["kcp4"] = invalidListener{err: errDeprecated}
+	listeners["kcp6"] = invalidListener{err: errDeprecated}
+	dialers["kcp"] = invalidDialer{err: errDeprecated}
+	dialers["kcp4"] = invalidDialer{err: errDeprecated}
+	dialers["kcp6"] = invalidDialer{err: errDeprecated}
 }

@@ -33,8 +33,6 @@ func (cfg DeviceConfiguration) Copy() DeviceConfiguration {
 	copy(c.AllowedNetworks, cfg.AllowedNetworks)
 	c.IgnoredFolders = make([]ObservedFolder, len(cfg.IgnoredFolders))
 	copy(c.IgnoredFolders, cfg.IgnoredFolders)
-	c.PendingFolders = make([]ObservedFolder, len(cfg.PendingFolders))
-	copy(c.PendingFolders, cfg.PendingFolders)
 	return c
 }
 
@@ -47,19 +45,12 @@ func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
 	}
 
 	ignoredFolders := deduplicateObservedFoldersToMap(cfg.IgnoredFolders)
-	pendingFolders := deduplicateObservedFoldersToMap(cfg.PendingFolders)
-
-	for id := range ignoredFolders {
-		delete(pendingFolders, id)
-	}
 
 	for _, sharedFolder := range sharedFolders {
 		delete(ignoredFolders, sharedFolder)
-		delete(pendingFolders, sharedFolder)
 	}
 
 	cfg.IgnoredFolders = sortedObservedFolderSlice(ignoredFolders)
-	cfg.PendingFolders = sortedObservedFolderSlice(pendingFolders)
 }
 
 func (cfg *DeviceConfiguration) IgnoredFolder(folder string) bool {
