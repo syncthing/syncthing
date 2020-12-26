@@ -33,9 +33,9 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -200,7 +200,7 @@ var (
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string, evLogger events.Logger) Model {
-	spec := util.SpecWithDebugLogger(l)
+	spec := svcutil.SpecWithDebugLogger(l)
 	m := &model{
 		Supervisor: suture.New("model", spec),
 
@@ -250,7 +250,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
 	}
 	m.Add(m.progressEmitter)
-	m.Add(util.AsService(m.serve, m.String()))
+	m.Add(svcutil.AsService(m.serve, m.String()))
 
 	return m
 }
@@ -263,7 +263,7 @@ func (m *model) serve(ctx context.Context) error {
 
 	if err := m.initFolders(); err != nil {
 		close(m.started)
-		return util.AsFatalErr(err, util.ExitError)
+		return svcutil.AsFatalErr(err, svcutil.ExitError)
 	}
 
 	close(m.started)
@@ -272,7 +272,7 @@ func (m *model) serve(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	case err := <-m.fatalChan:
-		return util.AsFatalErr(err, util.ExitError)
+		return svcutil.AsFatalErr(err, svcutil.ExitError)
 	}
 }
 
@@ -1236,11 +1236,10 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 	}
 
-	changedHere, tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDeviceInfos, indexSenderRegistry)
+	tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDeviceInfos, indexSenderRegistry)
 	if err != nil {
 		return err
 	}
-	changed = changed || changedHere
 
 	m.pmut.Lock()
 	m.remotePausedFolders[deviceID] = paused
@@ -1284,8 +1283,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	return nil
 }
 
-func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) (bool, []string, map[string]struct{}, error) {
-	var changed bool
+func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) ([]string, map[string]struct{}, error) {
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
 	paused := make(map[string]struct{}, len(folders))
@@ -1343,7 +1341,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Warnln(msg)
 			}
 
-			return changed, tempIndexFolders, paused, err
+			return tempIndexFolders, paused, err
 		}
 		if devErrs, ok := m.folderEncryptionFailures[folder.ID]; ok {
 			if len(devErrs) == 1 {
@@ -1383,7 +1381,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 	indexSenders.removeAllExcept(seenFolders)
 
-	return changed, tempIndexFolders, paused, nil
+	return tempIndexFolders, paused, nil
 }
 
 func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice config.FolderDeviceConfiguration, ccDeviceInfos *indexSenderStartInfo, deviceUntrusted bool) error {

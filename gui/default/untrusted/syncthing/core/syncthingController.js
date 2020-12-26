@@ -1798,7 +1798,7 @@ angular.module('syncthing.core')
                 $scope.currentSharing.selected[n.deviceID] = true;
             });
             $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
-                return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID]
+                return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID];
             });
             if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "trashcan") {
                 $scope.currentFolder.trashcanFileVersioning = true;
@@ -1896,7 +1896,7 @@ angular.module('syncthing.core')
             initShareEditing('folder');
             $scope.currentSharing.selected[device] = true;
             $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
-                return n.deviceID !== $scope.myID && !$scope.currentSharing.selected[n.deviceID]
+                return n.deviceID !== $scope.myID;
             });
             $scope.ignores.text = '';
             $scope.ignores.error = null;
@@ -2018,8 +2018,8 @@ angular.module('syncthing.core')
                 time: (new Date()).toISOString()
             }
 
-            if (id in $scope.devices) {
-                $scope.devices[id].ignoredFolders.push(ignoredFolder);
+            if (device in $scope.devices) {
+                $scope.devices[device].ignoredFolders.push(ignoredFolder);
                 $scope.saveConfig();
             }
         };

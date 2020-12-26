@@ -25,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 
@@ -145,7 +146,7 @@ type service struct {
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger) Service {
-	spec := util.SpecWithInfoLogger(l)
+	spec := svcutil.SpecWithInfoLogger(l)
 	service := &service{
 		Supervisor:              suture.New("connections.Service", spec),
 		connectionStatusHandler: newConnectionStatusHandler(),
@@ -193,12 +194,12 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 	// the common handling regardless of whether the connection was
 	// incoming or outgoing.
 
-	service.Add(util.AsService(service.connect, fmt.Sprintf("%s/connect", service)))
-	service.Add(util.AsService(service.handle, fmt.Sprintf("%s/handle", service)))
+	service.Add(svcutil.AsService(service.connect, fmt.Sprintf("%s/connect", service)))
+	service.Add(svcutil.AsService(service.handle, fmt.Sprintf("%s/handle", service)))
 	service.Add(service.listenerSupervisor)
 	service.Add(service.natService)
 
-	util.OnSupervisorDone(service.Supervisor, func() {
+	svcutil.OnSupervisorDone(service.Supervisor, func() {
 		service.cfg.Unsubscribe(service.limiter)
 		service.cfg.Unsubscribe(service)
 	})
