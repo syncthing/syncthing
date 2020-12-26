@@ -11,36 +11,41 @@ angular.module('syncthing.folder')
         // public definitions
         self.tree = null;
 
-        // TODO: there is a bug with refresh
-        // Sometimes clear throws `Fancytree assertion failed: only init
-        // supported`. Always when calling from textarea blur, sometimes when
-        // opening modal for a different folder
         self.refresh = function(folderId) {
-            if (self.tree) self.tree.clear();
-            self.tree = $("#ignore-tree").fancytree({
-                extensions: ["table"],
-                checkbox: true,
-                selectMode: 2,
-                table: {
-                    indentation: 20,
-                    nodeColumnIdx: 1,
-                    checkboxColumnIdx: 0,
-                },
-                debugLevel: 2,
-                source: Browse.refresh(folderId).then(function(response) {
-                    return response.files.map(buildNode);
-                }),
-                lazyLoad: function (event, data) {
-                    var prefix = data.node.data.file.path;
-                    data.result = Browse.refresh(folderId, prefix).then(function(response) {
-                        return response.files.map(buildNode);
-                    });
-                },
-                select: function (event, data) {
-                    toggle(data.node);
-                },
-            }).fancytree("getTree");
+            var promise = Browse.refresh(folderId).then(function(response) {
+                return response.files.map(buildNode);
+            });
+
+            if (self.tree) {
+                self.tree.reload(promise);
+            } else {
+                self.tree = $("#ignore-tree").fancytree({
+                    extensions: ["table"],
+                    checkbox: true,
+                    selectMode: 2,
+                    table: {
+                        indentation: 20,
+                        nodeColumnIdx: 1,
+                        checkboxColumnIdx: 0,
+                    },
+                    debugLevel: 2,
+                    source: promise,
+                    lazyLoad: function (event, data) {
+                        var prefix = data.node.data.file.path;
+                        data.result = Browse.refresh(folderId, prefix).then(function(response) {
+                            return response.files.map(buildNode);
+                        });
+                    },
+                    select: function (event, data) {
+                        toggle(data.node);
+                    },
+                }).fancytree("getTree");
+            }
         }
+
+        self.update = function() {
+            if (self.tree) updateNodes(self.tree.rootNode.children)
+        };
 
         function buildNode(file) {
             var match = Ignores.matchingPattern(file);

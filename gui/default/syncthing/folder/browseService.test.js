@@ -87,11 +87,6 @@ describe('BrowseService', function() {
                     expect(service.data.files[1].name).toEqual('Photos');
                 });
 
-                it('populates file size and time', function() {
-                    expect(service.data.files[0].size).toEqual(130940928);
-                    expect(service.data.files[0].modifiedAt.format('YYYY MMMM D')).toEqual('2015 April 20');
-                });
-
                 it('populates file path', function() {
                     expect(service.data.files[0].path).toEqual('homework.txt');
                 });
@@ -120,36 +115,6 @@ describe('BrowseService', function() {
                     $httpBackend.flush();
                     expect(service.data.files[0].path).toEqual('Photos/image.jpg');
                     expect(service.data.files[1].path).toEqual('Photos/Raw');
-                });
-            });
-
-            describe('pathParts', function() {
-                it('represents root of folder with empty prefix', function() {
-                    service.refresh('default');
-                    $httpBackend.flush();
-                    expect(service.data.pathParts).toEqual([
-                        { name: 'default', prefix: '' },
-                    ]);
-                });
-
-                it('includes parent directories', function() {
-                    service.refresh('default', 'Photos/Raw');
-                    $httpBackend.flush();
-                    expect(service.data.pathParts).toEqual([
-                        { name: 'default', prefix: '' },
-                        { name: 'Photos', prefix: 'Photos' },
-                        { name: 'Raw', prefix: 'Photos/Raw' },
-                    ]);
-                });
-
-                it('does not include trailing slash in prefix', function() {
-                    service.refresh('default', 'Photos/Raw/');
-                    $httpBackend.flush();
-                    expect(service.data.pathParts).toEqual([
-                        { name: 'default', prefix: '' },
-                        { name: 'Photos', prefix: 'Photos' },
-                        { name: 'Raw', prefix: 'Photos/Raw' },
-                    ]);
                 });
             });
         });

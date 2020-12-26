@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function ($locationProvider) {
         $locationProvider.html5Mode({ enabled: true, requireBase: false }).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, Ignores, IgnoreTree, Browse, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
+    .controller('SyncthingController', function ($scope, $http, $location, Ignores, IgnoreTree, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
@@ -1826,7 +1826,7 @@ angular.module('syncthing.core')
         $scope.parseIgnores = function () {
             var patterns = Ignores.parseText();
             $scope.currentFolder.ignoreIsBasic = patterns.every(function (p) { return p.isSimple; });
-            IgnoreTree.refresh($scope.currentFolder.id);
+            IgnoreTree.update();
         };
 
         $scope.selectAllSharedDevices = function (state) {

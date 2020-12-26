@@ -7,7 +7,6 @@ angular.module('syncthing.folder')
         // public definitions
 
         self.data = {
-            pathParts: [],
             files: [],
         };
 
@@ -33,7 +32,6 @@ angular.module('syncthing.folder')
 
             return $http.get('rest/db/browse', { params: params }).then(function (response) {
                 return {
-                    pathParts: browsePath(folderId, cleanPrefix),
                     files: browseList(response.data, cleanPrefix)
                 };
             });
@@ -66,10 +64,6 @@ angular.module('syncthing.folder')
                     path: pathPrefix.concat([name]).join('/'),
                     isFile: isFile
                 };
-                if (isFile) {
-                    item.modifiedAt = moment(data[name][0]);
-                    item.size = data[name][1];
-                }
                 items.push(item);
             }
             return items;
