@@ -298,6 +298,8 @@ func (w *wrapper) RemoveDevice(id protocol.DeviceID) (Waiter, error) {
 }
 
 func (w *wrapper) DefaultDevice() DeviceConfiguration {
+	w.mut.Lock()
+	defer w.mut.Unlock()
 	return w.cfg.Defaults.Device.Copy()
 }
 
@@ -385,6 +387,8 @@ func (w *wrapper) FolderPasswords(device protocol.DeviceID) map[string]string {
 }
 
 func (w *wrapper) DefaultFolder() FolderConfiguration {
+	w.mut.Lock()
+	defer w.mut.Unlock()
 	return w.cfg.Defaults.Folder.Copy()
 }
 
