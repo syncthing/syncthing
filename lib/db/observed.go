@@ -111,6 +111,8 @@ func (db *Lowlevel) RemovePendingFolder(id string) {
 	}
 }
 
+// RemovePendingFoldersBeforeTime removes entries for a specific device which are older
+// than a given timestamp or invalid.  It returns all removed folder IDs.
 func (db *Lowlevel) RemovePendingFoldersBeforeTime(device protocol.DeviceID, oldest time.Time) ([]string, error) {
 	prefixKey, err := db.keyer.GeneratePendingFolderKey(nil, device[:], nil)
 	if err != nil {
