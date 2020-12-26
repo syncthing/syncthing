@@ -78,7 +78,7 @@
         <div id="folder-versioning" class="tab-pane">
           <div class="form-group">
             <label translate>File Versioning</label>&emsp;<a href="https://docs.syncthing.net/users/versioning.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
-            <select class="form-control" ng-model="currentFolder.fileVersioningSelector">
+            <select class="form-control" ng-model="currentFolder._guiVersioning.selector">
               <option value="none" translate>No File Versioning</option>
               <option value="trashcan" translate>Trash Can File Versioning</option>
               <option value="simple" translate>Simple File Versioning</option>
@@ -86,46 +86,46 @@
               <option value="external" translate>External File Versioning</option>
             </select>
           </div>
-          <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='trashcan' || currentFolder.fileVersioningSelector=='simple'" ng-class="{'has-error': folderEditor.trashcanClean.$invalid && folderEditor.trashcanClean.$dirty}">
+          <div class="form-group" ng-if="currentFolder._guiVersioning.selector=='trashcan' || currentFolder._guiVersioning.selectorector=='simple'" ng-class="{'has-error': folderEditor._guiVersioning.trashcanClean.$invalid && folderEditor._guiVersioning.trashcanClean.$dirty}">
             <p translate class="help-block">Files are moved to .stversions directory when replaced or deleted by Syncthing.</p>
             <label translate for="trashcanClean">Clean out after</label>
             <div class="input-group">
-              <input name="trashcanClean" id="trashcanClean" class="form-control text-right" type="number" ng-model="currentFolder.trashcanClean" required="" aria-required="true" min="0" />
+              <input name="trashcanClean" id="trashcanClean" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.trashcanClean" required="" aria-required="true" min="0" />
               <div class="input-group-addon" translate>days</div>
             </div>
             <p class="help-block">
-              <span translate ng-if="folderEditor.trashcanClean.$valid || folderEditor.trashcanClean.$pristine">The number of days to keep files in the trash can. Zero means forever.</span>
-              <span translate ng-if="folderEditor.trashcanClean.$error.required && folderEditor.trashcanClean.$dirty">The number of days must be a number and cannot be blank.</span>
-              <span translate ng-if="folderEditor.trashcanClean.$error.min && folderEditor.trashcanClean.$dirty">A negative number of days doesn't make sense.</span>
+              <span translate ng-if="folderEditor._guiVersioning.trashcanClean.$valid || folderEditor._guiVersioning.trashcanClean.$pristine">The number of days to keep files in the trash can. Zero means forever.</span>
+              <span translate ng-if="folderEditor._guiVersioning.trashcanClean.$error.required && folderEditor._guiVersioning.trashcanClean.$dirty">The number of days must be a number and cannot be blank.</span>
+              <span translate ng-if="folderEditor._guiVersioning.trashcanClean.$error.min && folderEditor._guiVersioning.trashcanClean.$dirty">A negative number of days doesn't make sense.</span>
             </p>
           </div>
-          <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='simple'" ng-class="{'has-error': folderEditor.simpleKeep.$invalid && folderEditor.simpleKeep.$dirty}">
+          <div class="form-group" ng-if="currentFolder._guiVersioning.selector=='simple'" ng-class="{'has-error': folderEditor._guiVersioning.simpleKeep.$invalid && folderEditor._guiVersioning.simpleKeep.$dirty}">
             <p translate class="help-block">Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.</p>
             <label translate for="simpleKeep">Keep Versions</label>
-            <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentFolder.simpleKeep" required="" aria-required="true" min="1" />
+            <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentFolder._guiVersioning.simpleKeep" required="" aria-required="true" min="1" />
             <p class="help-block">
-              <span translate ng-if="folderEditor.simpleKeep.$valid || folderEditor.simpleKeep.$pristine">The number of old versions to keep, per file.</span>
-              <span translate ng-if="folderEditor.simpleKeep.$error.required && folderEditor.simpleKeep.$dirty">The number of versions must be a number and cannot be blank.</span>
-              <span translate ng-if="folderEditor.simpleKeep.$error.min && folderEditor.simpleKeep.$dirty">You must keep at least one version.</span>
+              <span translate ng-if="folderEditor._guiVersioning.simpleKeep.$valid || folderEditor._guiVersioning.simpleKeep.$pristine">The number of old versions to keep, per file.</span>
+              <span translate ng-if="folderEditor._guiVersioning.simpleKeep.$error.required && folderEditor._guiVersioning.simpleKeep.$dirty">The number of versions must be a number and cannot be blank.</span>
+              <span translate ng-if="folderEditor._guiVersioning.simpleKeep.$error.min && folderEditor._guiVersioning.simpleKeep.$dirty">You must keep at least one version.</span>
             </p>
           </div>
-          <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='staggered'" ng-class="{'has-error': folderEditor.staggeredMaxAge.$invalid && folderEditor.staggeredMaxAge.$dirty}">
+          <div class="form-group" ng-if="currentFolder._guiVersioning.selector=='staggered'" ng-class="{'has-error': folderEditor._guiVersioning.staggeredMaxAge.$invalid && folderEditor._guiVersioning.staggeredMaxAge.$dirty}">
             <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
             <p translate class="help-block">The following intervals are used: for the first hour a version is kept every 30 seconds, for the first day a version is kept every hour, for the first 30 days a version is kept every day, until the maximum age a version is kept every week.</p>
             <label translate for="staggeredMaxAge">Maximum Age</label>
-            <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control" type="number" ng-model="currentFolder.staggeredMaxAge" required="" aria-required="true" min="0" />
+            <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control" type="number" ng-model="currentFolder._guiVersioning.staggeredMaxAge" required="" aria-required="true" min="0" />
             <p class="help-block">
-              <span translate ng-if="folderEditor.staggeredMaxAge.$valid || folderEditor.staggeredMaxAge.$pristine">The maximum time to keep a version (in days, set to 0 to keep versions forever).</span>
-              <span translate ng-if="folderEditor.staggeredMaxAge.$error.required && folderEditor.staggeredMaxAge.$dirty">The maximum age must be a number and cannot be blank.</span>
-              <span translate ng-if="folderEditor.staggeredMaxAge.$error.min && folderEditor.staggeredMaxAge.$dirty">A negative number of days doesn't make sense.</span>
+              <span translate ng-if="folderEditor._guiVersioning.staggeredMaxAge.$valid || folderEditor._guiVersioning.staggeredMaxAge.$pristine">The maximum time to keep a version (in days, set to 0 to keep versions forever).</span>
+              <span translate ng-if="folderEditor._guiVersioning.staggeredMaxAge.$error.required && folderEditor._guiVersioning.staggeredMaxAge.$dirty">The maximum age must be a number and cannot be blank.</span>
+              <span translate ng-if="folderEditor._guiVersioning.staggeredMaxAge.$error.min && folderEditor._guiVersioning.staggeredMaxAge.$dirty">A negative number of days doesn't make sense.</span>
             </p>
           </div>
-          <div class="form-group" ng-if="currentFolder.fileVersioningSelector == 'staggered'">
+          <div class="form-group" ng-if="currentFolder._guiVersioning.selector == 'staggered'">
             <label translate for="staggeredVersionsPath">Versions Path</label>
-            <input name="staggeredVersionsPath" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentFolder.staggeredVersionsPath" />
+            <input name="staggeredVersionsPath" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentFolder._guiVersioning.staggeredVersionsPath" />
             <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions directory in the shared folder).</p>
           </div>
-          <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='external'" ng-class="{'has-error': folderEditor.externalCommand.$invalid && folderEditor.externalCommand.$dirty}">
+          <div class="form-group" ng-if="currentFolder._guiVersioning.selector=='external'" ng-class="{'has-error': folderEditor.externalCommand.$invalid && folderEditor.externalCommand.$dirty}">
             <p translate class="help-block">An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.</p>
             <label translate for="externalCommand">Command</label>
             <input name="externalCommand" id="externalCommand" class="form-control" type="text" ng-model="currentFolder.externalCommand" required="" aria-required="true" />
@@ -134,16 +134,16 @@
               <span translate ng-if="folderEditor.externalCommand.$error.required && folderEditor.externalCommand.$dirty">The path cannot be blank.</span>
             </p>
           </div>
-          <div class="form-group" ng-if="currentFolder.fileVersioningSelector != 'none'" ng-class="{'has-error': folderEditor.versioningCleanupIntervalS.$invalid && folderEditor.versioningCleanupIntervalS.$dirty}">
+          <div class="form-group" ng-if="currentFolder._guiVersioning.selector != 'none'" ng-class="{'has-error': folderEditor._guiVersioning.cleanupIntervalS.$invalid && folderEditor._guiVersioning.cleanupIntervalS.$dirty}">
             <label translate for="versioningCleanupIntervalS">Cleanup Interval</label>
             <div class="input-group">
-              <input name="versioningCleanupIntervalS" id="versioningCleanupIntervalS" class="form-control text-right" type="number" ng-model="currentFolder.versioningCleanupIntervalS" required="" min="0" max="31536000" aria-required="true" />
+              <input name="versioningCleanupIntervalS" id="versioningCleanupIntervalS" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.cleanupIntervalS" required="" min="0" max="31536000" aria-required="true" />
               <div class="input-group-addon" translate>seconds</div>
             </div>
             <p class="help-block">
-              <span translate ng-if="folderEditor.versioningCleanupIntervalS.$valid || folderEditor.versioningCleanupIntervalS.$pristine"class="help-block">The interval, in seconds, for running cleanup in the versions directory. Zero to disable periodic cleaning.</span>
-              <span translate ng-if="folderEditor.versioningCleanupIntervalS.$error.required && folderEditor.versioningCleanupIntervalS.$dirty">The cleanup interval cannot be blank.</span>
-              <span translate ng-if="folderEditor.versioningCleanupIntervalS.$error.min && folderEditor.versioningCleanupIntervalS.$dirty">The interval must be a positive number of seconds.</span>
+              <span translate ng-if="folderEditor._guiVersioning.cleanupIntervalS.$valid || folderEditor._guiVersioning.cleanupIntervalS.$pristine"class="help-block">The interval, in seconds, for running cleanup in the versions directory. Zero to disable periodic cleaning.</span>
+              <span translate ng-if="folderEditor._guiVersioning.cleanupIntervalS.$error.required && folderEditor._guiVersioning.cleanupIntervalS.$dirty">The cleanup interval cannot be blank.</span>
+              <span translate ng-if="folderEditor._guiVersioning.cleanupIntervalS.$error.min && folderEditor._guiVersioning.cleanupIntervalS.$dirty">The interval must be a positive number of seconds.</span>
             </p>
           </div>
         </div>
