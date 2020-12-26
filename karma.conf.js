@@ -15,6 +15,8 @@ module.exports = function(config) {
     // before files that depend on them.
     files: [
         'gui/default/vendor/moment/moment.js',
+        'gui/default/vendor/jquery/jquery-2.2.2.js',
+        'gui/default/vendor/fancytree/jquery.fancytree-all-deps.js',
         'gui/default/vendor/angular/angular.js',
         './node_modules/angular-mocks/angular-mocks.js',
         'gui/default/syncthing/**/module.js',
