@@ -18,7 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/svcutil"
 )
 
 type indexSender struct {
@@ -38,7 +38,7 @@ type indexSender struct {
 func (s *indexSender) Serve(ctx context.Context) (err error) {
 	l.Debugf("Starting indexSender for %s to %s at %s (slv=%d)", s.folder, s.conn.ID(), s.conn, s.prevSequence)
 	defer func() {
-		err = util.NoRestartErr(err)
+		err = svcutil.NoRestartErr(err)
 		l.Debugf("Exiting indexSender for %s to %s at %s: %v", s.folder, s.conn.ID(), s.conn, err)
 	}()
 

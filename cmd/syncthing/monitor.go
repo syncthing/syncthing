@@ -25,8 +25,8 @@ import (
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 var (
@@ -99,7 +99,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 		if t := time.Since(restarts[0]); t < loopThreshold {
 			l.Warnf("%d restarts in %v; not retrying further", countRestarts, t)
-			os.Exit(util.ExitError.AsInt())
+			os.Exit(svcutil.ExitError.AsInt())
 		}
 
 		copy(restarts[0:], restarts[1:])
@@ -169,7 +169,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 		if err == nil {
 			// Successful exit indicates an intentional shutdown
-			os.Exit(util.ExitSuccess.AsInt())
+			os.Exit(svcutil.ExitSuccess.AsInt())
 		}
 
 		if exiterr, ok := err.(*exec.ExitError); ok {
@@ -177,7 +177,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			if stopped || runtimeOptions.noRestart {
 				os.Exit(exitCode)
 			}
-			if exitCode == util.ExitUpgrade.AsInt() {
+			if exitCode == svcutil.ExitUpgrade.AsInt() {
 				// Restart the monitor process to release the .old
 				// binary as part of the upgrade process.
 				l.Infoln("Restarting monitor...")
@@ -189,7 +189,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 		}
 
 		if runtimeOptions.noRestart {
-			os.Exit(util.ExitError.AsInt())
+			os.Exit(svcutil.ExitError.AsInt())
 		}
 
 		l.Infoln("Syncthing exited:", err)

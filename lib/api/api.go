@@ -49,11 +49,11 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // matches a bcrypt hash and not too much else
@@ -89,7 +89,7 @@ type service struct {
 	startedOnce          chan struct{} // the service has started successfully at least once
 	startupErr           error
 	listenerAddr         net.Addr
-	exitChan             chan *util.FatalErr
+	exitChan             chan *svcutil.FatalErr
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -123,7 +123,7 @@ func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonNam
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		configChanged:        make(chan struct{}),
 		startedOnce:          make(chan struct{}),
-		exitChan:             make(chan *util.FatalErr, 1),
+		exitChan:             make(chan *svcutil.FatalErr, 1),
 	}
 }
 
@@ -476,7 +476,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (s *service) fatal(err *util.FatalErr) {
+func (s *service) fatal(err *svcutil.FatalErr) {
 	// s.exitChan is 1-buffered and whoever is first gets handled.
 	select {
 	case s.exitChan <- err:
@@ -917,9 +917,9 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 func (s *service) postSystemRestart(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "restarting"}`, w)
 
-	s.fatal(&util.FatalErr{
+	s.fatal(&svcutil.FatalErr{
 		Err:    errors.New("restart initiated by rest API"),
-		Status: util.ExitRestart,
+		Status: svcutil.ExitRestart,
 	})
 }
 
@@ -946,17 +946,17 @@ func (s *service) postSystemReset(w http.ResponseWriter, r *http.Request) {
 		s.flushResponse(`{"ok": "resetting folder `+folder+`"}`, w)
 	}
 
-	s.fatal(&util.FatalErr{
+	s.fatal(&svcutil.FatalErr{
 		Err:    errors.New("restart after db reset initiated by rest API"),
-		Status: util.ExitRestart,
+		Status: svcutil.ExitRestart,
 	})
 }
 
 func (s *service) postSystemShutdown(w http.ResponseWriter, r *http.Request) {
 	s.flushResponse(`{"ok": "shutting down"}`, w)
-	s.fatal(&util.FatalErr{
+	s.fatal(&svcutil.FatalErr{
 		Err:    errors.New("shutdown initiated by rest API"),
-		Status: util.ExitSuccess,
+		Status: svcutil.ExitSuccess,
 	})
 }
 
@@ -1392,9 +1392,9 @@ func (s *service) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.flushResponse(`{"ok": "restarting"}`, w)
-		s.fatal(&util.FatalErr{
+		s.fatal(&svcutil.FatalErr{
 			Err:    errors.New("exit after upgrade initiated by rest API"),
-			Status: util.ExitUpgrade,
+			Status: svcutil.ExitUpgrade,
 		})
 	}
 }
