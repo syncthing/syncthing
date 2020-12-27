@@ -1878,76 +1878,8 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 		return err
 	}
 
-	files, _ := f.mtimefs.DirNames(dir)
-
-	toBeDeleted := make([]string, 0, len(files))
-
-	var hasIgnored, hasKnown, hasToBeScanned, hasReceiveOnlyChanged bool
-
-	for _, dirFile := range files {
-		fullDirFile := filepath.Join(dir, dirFile)
-		switch {
-		case fs.IsTemporary(dirFile) || f.ignores.Match(fullDirFile).IsDeletable():
-			toBeDeleted = append(toBeDeleted, fullDirFile)
-			continue
-		case f.ignores != nil && f.ignores.Match(fullDirFile).IsIgnored():
-			hasIgnored = true
-			continue
-		}
-		cf, ok := snap.Get(protocol.LocalDeviceID, fullDirFile)
-		switch {
-		case !ok || cf.IsDeleted():
-			// Something appeared in the dir that we either are not
-			// aware of at all or that we think should be deleted
-			// -> schedule scan.
-			scanChan <- fullDirFile
-			hasToBeScanned = true
-			continue
-		case ok && f.Type == config.FolderTypeReceiveOnly && cf.IsReceiveOnlyChanged():
-			hasReceiveOnlyChanged = true
-			continue
-		}
-		info, err := f.mtimefs.Lstat(fullDirFile)
-		var diskFile protocol.FileInfo
-		if err == nil {
-			diskFile, err = scanner.CreateFileInfo(info, fullDirFile, f.mtimefs)
-		}
-		if err != nil {
-			// Lets just assume the file has changed.
-			scanChan <- fullDirFile
-			hasToBeScanned = true
-			continue
-		}
-		if !cf.IsEquivalentOptional(diskFile, f.modTimeWindow, f.IgnorePerms, true, protocol.LocalAllFlags) {
-			// File on disk changed compared to what we have in db
-			// -> schedule scan.
-			scanChan <- fullDirFile
-			hasToBeScanned = true
-			continue
-		}
-		// Dir contains file that is valid according to db and
-		// not ignored -> something weird is going on
-		hasKnown = true
-	}
-
-	if hasToBeScanned {
-		return errDirHasToBeScanned
-	}
-	if hasIgnored {
-		return errDirHasIgnored
-	}
-	if hasReceiveOnlyChanged {
-		// Pretend we deleted the directory. It will be resurrected as a
-		// receive-only changed item on scan.
-		scanChan <- dir
-		return nil
-	}
-	if hasKnown {
-		return errDirNotEmpty
-	}
-
-	for _, del := range toBeDeleted {
-		f.mtimefs.RemoveAll(del)
+	if err := f.deleteDirOnDiskHandleChildren(dir, snap, scanChan); err != nil {
+		return err
 	}
 
 	err := f.inWritableDir(f.mtimefs.Remove, dir)
@@ -1964,6 +1896,99 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 	}
 
 	return err
+}
+
+func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.Snapshot, scanChan chan<- string) error {
+	var dirsToDelete []string
+	var hasIgnored, hasKnown, hasToBeScanned, hasReceiveOnlyChanged bool
+	var delErr error
+
+	err := f.mtimefs.Walk(dir, func(path string, info fs.FileInfo, err error) error {
+		if path == dir {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		switch match := f.ignores.Match(path); {
+		case match.IsDeletable():
+			if info.IsDir() {
+				dirsToDelete = append(dirsToDelete, path)
+				return nil
+			}
+			fallthrough
+		case fs.IsTemporary(path):
+			if err := f.mtimefs.Remove(path); err != nil && delErr == nil {
+				delErr = err
+			}
+			return nil
+		case match.IsIgnored():
+			hasIgnored = true
+			return nil
+		}
+		cf, ok := snap.Get(protocol.LocalDeviceID, path)
+		switch {
+		case !ok || cf.IsDeleted():
+			// Something appeared in the dir that we either are not
+			// aware of at all or that we think should be deleted
+			// -> schedule scan.
+			scanChan <- path
+			hasToBeScanned = true
+			return nil
+		case ok && f.Type == config.FolderTypeReceiveOnly && cf.IsReceiveOnlyChanged():
+			hasReceiveOnlyChanged = true
+			return nil
+		}
+		diskFile, err := scanner.CreateFileInfo(info, path, f.mtimefs)
+		if err != nil {
+			// Lets just assume the file has changed.
+			scanChan <- path
+			hasToBeScanned = true
+			return nil
+		}
+		if !cf.IsEquivalentOptional(diskFile, f.modTimeWindow, f.IgnorePerms, true, protocol.LocalAllFlags) {
+			// File on disk changed compared to what we have in db
+			// -> schedule scan.
+			scanChan <- path
+			hasToBeScanned = true
+			return nil
+		}
+		// Dir contains file that is valid according to db and
+		// not ignored -> something weird is going on
+		hasKnown = true
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	for i := range dirsToDelete {
+		if err := f.mtimefs.Remove(dirsToDelete[len(dirsToDelete)-1-i]); err != nil && delErr == nil {
+			delErr = err
+		}
+	}
+
+	// "Error precedence":
+	// Something changed on disk, check that and maybe all else gets resolved
+	if hasToBeScanned {
+		return errDirHasToBeScanned
+	}
+	// Ignored files will never be touched, i.e. this will keep failing until
+	// user acts.
+	if hasIgnored {
+		return errDirHasIgnored
+	}
+	if hasReceiveOnlyChanged {
+		// Pretend we deleted the directory. It will be resurrected as a
+		// receive-only changed item on scan.
+		scanChan <- dir
+		return nil
+	}
+	if hasKnown {
+		return errDirNotEmpty
+	}
+	// All good, except maybe failing to remove a (?d) ignored item
+	return delErr
 }
 
 // scanIfItemChanged schedules the given file for scanning and returns errModified
