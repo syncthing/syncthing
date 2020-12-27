@@ -163,11 +163,11 @@
             <div class="btn-group">
               <label class="btn btn-default" ng-class="{active: !currentFolder.ignoreIsEditingAdvanced, disabled: !currentFolder.ignoreIsBasic}" ng-if="editingExisting">
                 <input type="radio" ng-model="currentFolder.ignoreIsEditingAdvanced" ng-value="false" ng-disabled="!currentFolder.ignoreIsBasic" />
-                <span class="fas fa-fw fa-folder-o"></span>&nbsp;<span>Basic</span>
+                <span translate class="fas fa-fw fa-folder-o"></span>&nbsp;<span>Basic</span>
               </label>
               <label class="btn btn-default" ng-class="{active: currentFolder.ignoreIsEditingAdvanced}">
                 <input type="radio" ng-model="currentFolder.ignoreIsEditingAdvanced" ng-value="true" />
-                <span class="fas fa-fw fa-code"></span>&nbsp;<span>Advanced</span>
+                <span translate class="fas fa-fw fa-code"></span>&nbsp;<span>Advanced</span>
               </label>
             </div>
           </p>
