@@ -1301,9 +1301,9 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			}
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
 			updatedPending = append(updatedPending, map[string]string{
-				"folderID":      folder.ID,
+				"folderID":    folder.ID,
 				"folderLabel": folder.Label,
-				"deviceID":      deviceID.String(),
+				"deviceID":    deviceID.String(),
 			})
 			// DEPRECATED: Only for backwards compatibility, should be removed.
 			m.evLogger.Log(events.FolderRejected, map[string]string{
@@ -2064,9 +2064,9 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		}
 		m.evLogger.Log(events.PendingDevicesChanged, map[string][]interface{}{
 			"added": {map[string]string{
-				"deviceID":  remoteID.String(),
-				"name":    hello.DeviceName,
-				"address": addr.String(),
+				"deviceID": remoteID.String(),
+				"name":     hello.DeviceName,
+				"address":  addr.String(),
 			}},
 		})
 		// DEPRECATED: Only for backwards compatibility, should be removed.
