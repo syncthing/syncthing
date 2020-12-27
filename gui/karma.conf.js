@@ -14,13 +14,13 @@ module.exports = function(config) {
     // Loaded in order, so we ensure each part of the syncthing app is loaded
     // before files that depend on them.
     files: [
-        'gui/default/vendor/jquery/jquery-2.2.2.js',
-        'gui/default/vendor/fancytree/jquery.fancytree-all-deps.js',
-        'gui/default/vendor/angular/angular.js',
+        'default/vendor/jquery/jquery-2.2.2.js',
+        'default/vendor/fancytree/jquery.fancytree-all-deps.js',
+        'default/vendor/angular/angular.js',
         './node_modules/angular-mocks/angular-mocks.js',
-        'gui/default/syncthing/**/module.js',
-        'gui/default/syncthing/folder/!(*.test).js',
-        'gui/default/syncthing/**/*.test.js',
+        'default/syncthing/**/module.js',
+        'default/syncthing/folder/!(*.test).js',
+        'default/syncthing/**/*.test.js',
     ],
 
     // list of files / patterns to exclude
