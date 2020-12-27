@@ -14,7 +14,6 @@ module.exports = function(config) {
     // Loaded in order, so we ensure each part of the syncthing app is loaded
     // before files that depend on them.
     files: [
-        'gui/default/vendor/moment/moment.js',
         'gui/default/vendor/jquery/jquery-2.2.2.js',
         'gui/default/vendor/fancytree/jquery.fancytree-all-deps.js',
         'gui/default/vendor/angular/angular.js',

@@ -114,10 +114,10 @@ describe('IgnoresService', function() {
             expect(service.data.patterns.map(function(p) { return p.text; })).toEqual(['/Photos', '/Backups']);
         });
 
-        it('ignores empty line', function() {
+        it('accepts empty line', function() {
             service.data.text = '/Photos\n\n/Backups';
             service.parseText();
-            expect(service.data.patterns.map(function(p) { return p.text; })).toEqual(['/Photos', '/Backups']);
+            expect(service.data.patterns.map(function(p) { return p.text; })).toEqual(['/Photos', '', '/Backups']);
         });
 
         it('accepts empty text', function() {
@@ -214,6 +214,16 @@ describe('IgnoresService', function() {
                     var patterns = mockIgnores(['/IMPORTANT\\*\\*FILES', '/mustache pics :\\{', '/Square\\[shaped\\]Images']);
                     expect(patterns.every(isSimple)).toBeTrue();
                 });
+
+                it('with whitespace', function() {
+                    var patterns = mockIgnores([' ', '', '\n']);
+                    expect(patterns.every(isSimple)).toBeTrue();
+                });
+
+                it('with comment', function() {
+                    var patterns = mockIgnores(['// Backups are too big']);
+                    expect(patterns.every(isSimple)).toBeTrue();
+                });
             });
 
             describe('identifies advanced patterns', function() {
@@ -238,23 +248,13 @@ describe('IgnoresService', function() {
                     expect(patterns.every(isAdvanced)).toBeTrue();
                 });
 
-                it('by empty line', function() {
-                    var patterns = mockIgnores(['', '(?i)']);
-                    expect(patterns.every(isAdvanced)).toBeTrue();
-                });
-
                 it('by (?d)(?i) prefixes', function() {
-                    var patterns = mockIgnores(['(?i)/Backups', '(?d)/Backups']);
+                    var patterns = mockIgnores(['(?i)/Backups', '(?d)/Backups', '(?i)']);
                     expect(patterns.every(isAdvanced)).toBeTrue();
                 });
 
                 it('by * wildcard', function() {
                     var patterns = mockIgnores(['/Back*ups', '/Backups*', '/Photos/**/Raw', '**/Photos']);
-                    expect(patterns.every(isAdvanced)).toBeTrue();
-                });
-
-                it('by // comment', function() {
-                    var patterns = mockIgnores(['// Backups are too big']);
                     expect(patterns.every(isAdvanced)).toBeTrue();
                 });
 
