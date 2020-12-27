@@ -1,3 +1,9 @@
+// Copyright (C) 2020 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
+
 // Only for development testing, will be removed.
 
 package db
@@ -70,9 +76,9 @@ func (db *Lowlevel) CandidateLinksDummyData() {
 
 func (db *Lowlevel) CandidateDevicesDummy() (map[protocol.DeviceID]CandidateDevice, error) {
 	res := map[protocol.DeviceID]CandidateDevice{
-		testDev3: CandidateDevice{
+		testDev3: {
 			IntroducedBy: map[protocol.DeviceID]candidateDeviceAttribution{
-				testDev5: candidateDeviceAttribution{
+				testDev5: {
 					// Should be the same for all folders, as they were all
 					// mentioned in the most recent ClusterConfig
 					Time: time.Date(2020, 3, 18, 11, 43, 7, 0, time.Local),
@@ -82,7 +88,7 @@ func (db *Lowlevel) CandidateDevicesDummy() (map[protocol.DeviceID]CandidateDevi
 					// Only if the device ID is not known locally:
 					SuggestedName: "Jane's Laptop",
 				},
-				testDev4: candidateDeviceAttribution{
+				testDev4: {
 					Time: time.Date(2020, 3, 1, 10, 12, 13, 0, time.Local),
 					CommonFolders: map[string]string{
 						"cpkn4-57ysy": "Pics from Jane",
@@ -97,16 +103,16 @@ func (db *Lowlevel) CandidateDevicesDummy() (map[protocol.DeviceID]CandidateDevi
 				"[2a02:8070::ff34:1234::aabb]:22000",
 			},
 		},
-		testDev6: CandidateDevice{
+		testDev6: {
 			IntroducedBy: map[protocol.DeviceID]candidateDeviceAttribution{
-				testDev5: candidateDeviceAttribution{
+				testDev5: {
 					Time: time.Date(2020, 3, 18, 11, 43, 7, 0, time.Local),
 					CommonFolders: map[string]string{
 						"cpkn4-57ysy": "Family pics",
 						"abcde-fghij": "Mighty nice folder",
 					},
 				},
-				testDev2: candidateDeviceAttribution{
+				testDev2: {
 					Time: time.Date(2020, 2, 22, 14, 56, 0, 0, time.Local),
 					CommonFolders: map[string]string{
 						"cpkn4-57ysy": "Family pics",
@@ -114,9 +120,9 @@ func (db *Lowlevel) CandidateDevicesDummy() (map[protocol.DeviceID]CandidateDevi
 				},
 			},
 		},
-		testDev4: CandidateDevice{
+		testDev4: {
 			IntroducedBy: map[protocol.DeviceID]candidateDeviceAttribution{
-				testDev5: candidateDeviceAttribution{
+				testDev5: {
 					Time: time.Date(2020, 3, 18, 11, 43, 7, 0, time.Local),
 					CommonFolders: map[string]string{
 						"cpkn4-57ysy": "Pictures from Joe",
@@ -130,32 +136,32 @@ func (db *Lowlevel) CandidateDevicesDummy() (map[protocol.DeviceID]CandidateDevi
 
 func (db *Lowlevel) CandidateFoldersDummy() (map[string]CandidateFolder, error) {
 	res := map[string]CandidateFolder{
-		"abcde-fghij": CandidateFolder{
-			testDev6: candidateFolderDevice{
+		"abcde-fghij": {
+			testDev6: {
 				IntroducedBy: map[protocol.DeviceID]candidateFolderAttribution{
-					testDev5: candidateFolderAttribution{
+					testDev5: {
 						Time:  time.Date(2020, 3, 18, 11, 43, 7, 0, time.Local),
 						Label: "Mighty nice folder",
 					},
 				},
 			},
 		},
-		"cpkn4-57ysy": CandidateFolder{
-			testDev4: candidateFolderDevice{
+		"cpkn4-57ysy": {
+			testDev4: {
 				IntroducedBy: map[protocol.DeviceID]candidateFolderAttribution{
-					testDev5: candidateFolderAttribution{
+					testDev5: {
 						Time:  time.Date(2020, 3, 18, 11, 43, 7, 0, time.Local),
 						Label: "Pictures from Joe",
 					},
 				},
 			},
-			testDev6: candidateFolderDevice{
+			testDev6: {
 				IntroducedBy: map[protocol.DeviceID]candidateFolderAttribution{
-					testDev5: candidateFolderAttribution{
+					testDev5: {
 						Time:  time.Date(2020, 3, 18, 11, 43, 7, 0, time.Local),
 						Label: "Family pics",
 					},
-					testDev2: candidateFolderAttribution{
+					testDev2: {
 						Time:  time.Date(2020, 11, 22, 14, 56, 0, 0, time.Local),
 						Label: "Family pics",
 					},
