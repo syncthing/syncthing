@@ -259,15 +259,15 @@ angular.module('syncthing.core')
                         name: rejected.name,
                         address: rejected.address
                     };
-                    console.log("rejected device:", rejected.device, pendingDevice);
-                    $scope.pendingDevices[rejected.device] = pendingDevice;
+                    console.log("rejected device:", rejected.deviceID, pendingDevice);
+                    $scope.pendingDevices[rejected.deviceID] = pendingDevice;
                 });
             }
 
             if (arg.data.removed) {
                 arg.data.removed.forEach(function (dev) {
-                    console.log("no longer pending device:", dev.device);
-                    delete $scope.pendingDevices[dev.device];
+                    console.log("no longer pending device:", dev.deviceID);
+                    delete $scope.pendingDevices[dev.deviceID];
                 });
             }
         });
@@ -285,26 +285,26 @@ angular.module('syncthing.core')
                         time: arg.time,
                         label: rejected.folderLabel
                     };
-                    console.log("rejected folder", rejected.folder, "from device:", rejected.device, offeringDevice);
+                    console.log("rejected folder", rejected.folderID, "from device:", rejected.deviceID, offeringDevice);
 
-                    var pendingFolder = $scope.pendingFolders[rejected.folder];
+                    var pendingFolder = $scope.pendingFolders[rejected.folderID];
                     if (pendingFolder === undefined) {
                         pendingFolder = {
                             offeredBy: {}
                         };
                     }
-                    pendingFolder.offeredBy[rejected.device] = offeringDevice;
-                    $scope.pendingFolders[rejected.folder] = pendingFolder;
+                    pendingFolder.offeredBy[rejected.deviceID] = offeringDevice;
+                    $scope.pendingFolders[rejected.folderID] = pendingFolder;
                 });
             }
 
             if (arg.data.removed) {
                 arg.data.removed.forEach(function (folderDev) {
-                    console.log("no longer pending folder", folderDev.folder, "from device:", folderDev.device);
-                    if (folderDev.device === undefined) {
-                        delete $scope.pendingFolders[folderDev.folder];
-                    } else if ($scope.pendingFolders[folderDev.folder]) {
-                        delete $scope.pendingFolders[folderDev.folder].offeredBy[folderDev.device];
+                    console.log("no longer pending folder", folderDev.folderID, "from device:", folderDev.deviceID);
+                    if (folderDev.deviceID === undefined) {
+                        delete $scope.pendingFolders[folderDev.folderID];
+                    } else if ($scope.pendingFolders[folderDev.folderID]) {
+                        delete $scope.pendingFolders[folderDev.folderID].offeredBy[folderDev.deviceID];
                     }
                 });
             }

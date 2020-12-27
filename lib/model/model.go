@@ -1301,9 +1301,9 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			}
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
 			updatedPending = append(updatedPending, map[string]string{
-				"folder":      folder.ID,
+				"folderID":      folder.ID,
 				"folderLabel": folder.Label,
-				"device":      deviceID.String(),
+				"deviceID":      deviceID.String(),
 			})
 			// DEPRECATED: Only for backwards compatibility, should be removed.
 			m.evLogger.Log(events.FolderRejected, map[string]string{
@@ -1389,8 +1389,8 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		expiredPendingList := make([]map[string]string, len(expiredPending))
 		for i, folderID := range expiredPending {
 			expiredPendingList[i] = map[string]string{
-				"folder": folderID,
-				"device": deviceID.String(),
+				"folderID": folderID,
+				"deviceID": deviceID.String(),
 			}
 		}
 		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
@@ -2064,7 +2064,7 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		}
 		m.evLogger.Log(events.PendingDevicesChanged, map[string][]interface{}{
 			"added": {map[string]string{
-				"device":  remoteID.String(),
+				"deviceID":  remoteID.String(),
 				"name":    hello.DeviceName,
 				"address": addr.String(),
 			}},
@@ -2791,7 +2791,7 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
 			m.db.RemovePendingFolder(folderID)
 			removedPendingFolders = append(removedPendingFolders, map[string]string{
-				"folder": folderID,
+				"folderID": folderID,
 			})
 			continue
 		}
@@ -2813,8 +2813,8 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 		removeFolderForDevice:
 			m.db.RemovePendingFolderForDevice(folderID, deviceID)
 			removedPendingFolders = append(removedPendingFolders, map[string]string{
-				"folder": folderID,
-				"device": deviceID.String(),
+				"folderID": folderID,
+				"deviceID": deviceID.String(),
 			})
 		}
 	}
@@ -2843,7 +2843,7 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	removeDevice:
 		m.db.RemovePendingDevice(deviceID)
 		removedPendingDevices = append(removedPendingDevices, map[string]string{
-			"device": deviceID.String(),
+			"deviceID": deviceID.String(),
 		})
 	}
 	if len(removedPendingDevices) > 0 {
