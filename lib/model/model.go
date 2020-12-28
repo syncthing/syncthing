@@ -1397,6 +1397,12 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 func (m *model) ccHandleFolderCandidates(folder protocol.Folder, introducer protocol.DeviceID, fcfg config.FolderConfiguration) {
 	// Note this is called for locally known folders the introducer shares with us,
 	// but we don't necessarily offer them to the introducer yet.
+	if !fcfg.SharedWith(introducer) {
+		// Folder is offered from the introducer, but pending locally.  Do not use
+		// any announced devices as candidates, as we cannot know if the folder is
+		// really accessible to them.
+		return
+	}
 	for _, dev := range folder.Devices {
 		if dev.ID == m.id || dev.ID == introducer {
 			// This is the other side's description of themselves, or of what
@@ -1409,6 +1415,10 @@ func (m *model) ccHandleFolderCandidates(folder protocol.Folder, introducer prot
 		}
 		var meta *db.IntroducedDeviceDetails
 		if knownDev, ok := m.cfg.Device(dev.ID); ok {
+			if knownDev.IgnoredFolder(folder.ID) {
+				// Folder deliberately ignored from this candidate.
+				continue
+			}
 			// This device is known to us and shares this folder, but not
 			// directly with us.  Remember it in order to possibly present a
 			// list of suggested devices for additional cluster connectivity.
