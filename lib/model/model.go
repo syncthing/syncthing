@@ -296,7 +296,7 @@ func (m *model) initFolders() error {
 
 	ignoredDevices := observedDeviceSet(m.cfg.IgnoredDevices())
 	m.cleanPending(existingDevices, existingFolders, ignoredDevices, nil)
-	m.cleanCandidates(existingDevices, existingFolders, ignoredDevices, nil)
+	m.cleanCandidates(existingDevices, existingFolders, ignoredDevices)
 
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
 	return nil
@@ -1297,8 +1297,8 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		}
 		if !ok {
 			indexSenders.remove(folder.ID)
-			// This folder is already offered to us from the remote device,
-			// suggest it to the user for approval unless previously ignored.
+			// This folder is offered to us from the remote device, suggest it
+			// to the user for approval unless previously ignored.
 			if deviceCfg.IgnoredFolder(folder.ID) {
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
@@ -1313,7 +1313,10 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				"device":      deviceID.String(),
 			})
 			l.Infof("Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
-			//FIXME should still collect candidate device entries below?
+			//FIXME Should still collect candidate device entries?  Might help
+			// to decide whether the offer should be accepted, if the user
+			// sees who else has this folder.  Problem: Folder ID not yet in
+			// the DB!
 			continue
 		}
 
@@ -1325,7 +1328,6 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		if cfg.Paused {
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
-			//FIXME should still parse the message and collect suggested device links??
 			continue
 		}
 
@@ -1393,15 +1395,16 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 }
 
 func (m *model) ccHandleFolderCandidates(folder protocol.Folder, introducer protocol.DeviceID, fcfg config.FolderConfiguration) {
-	// Note this is called only for folders we already share with the remote FIXME
+	// Note this is called for locally known folders the introducer shares with us,
+	// but we don't necessarily offer them to the introducer yet.
 	for _, dev := range folder.Devices {
 		if dev.ID == m.id || dev.ID == introducer {
 			// This is the other side's description of themselves, or of what
 			// it knows about us.
 			continue
 		}
-		if _, ok := fcfg.Device(dev.ID); ok {
-			// Local folder is already shared with this device.
+		if fcfg.SharedWith(dev.ID) {
+			// Local folder is already shared with the candidate device.
 			continue
 		}
 		var meta *db.IntroducedDeviceDetails
@@ -2787,7 +2790,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	ignoredDevices := observedDeviceSet(to.IgnoredDevices)
 	m.cleanPending(toDevices, toFolders, ignoredDevices, removedFolders)
-	m.cleanCandidates(toDevices, toFolders, ignoredDevices, removedFolders)
+	m.cleanCandidates(toDevices, toFolders, ignoredDevices)
 
 	m.globalRequestLimiter.setCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.setCapacity(to.Options.MaxFolderConcurrency())
@@ -2856,7 +2859,7 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	}
 }
 
-func (m *model) cleanCandidates(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]struct{}) {
+func (m *model) cleanCandidates(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet) {
 	candidates, err := m.db.CandidateLinks()
 	if err != nil {
 		l.Infof("Could not iterate through candidate link entries for cleanup: %v", err)
@@ -2865,7 +2868,7 @@ func (m *model) cleanCandidates(existingDevices map[protocol.DeviceID]config.Dev
 	for _, cl := range candidates {
 		folderCfg, ok := existingFolders[cl.Folder]
 		if !ok {
-			l.Debugf("Discarding candidate through unknown folder %v", cl.Folder)
+			l.Debugf("Discarding candidate through unknown folder %s", cl.Folder)
 			m.db.RemoveCandidateLink(cl)
 			continue
 		}

@@ -238,7 +238,7 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// The GET handlers
 	restMux.HandlerFunc(http.MethodGet, "/rest/cluster/candidate/devices", s.getCandidateDevices) // [folder]
-	restMux.HandlerFunc(http.MethodGet, "/rest/cluster/candidate/folders", s.getCandidateFolders) // device
+	restMux.HandlerFunc(http.MethodGet, "/rest/cluster/candidate/folders", s.getCandidateFolders) // [device]
 	restMux.HandlerFunc(http.MethodGet, "/rest/cluster/pending/devices", s.getPendingDevices)     // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/cluster/pending/folders", s.getPendingFolders)     // [device]
 	restMux.HandlerFunc(http.MethodGet, "/rest/db/completion", s.getDBCompletion)                 // [device] [folder]

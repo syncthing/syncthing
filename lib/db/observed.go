@@ -340,7 +340,7 @@ func (db *Lowlevel) readCandidateLink(iter backend.Iterator) (ocl ObservedCandid
 	return
 
 deleteKey:
-	l.Infof("Invalid candidate link entry (%v / %v), deleting from database: %x",
+	l.Infof("Invalid candidate link entry (%s / %v), deleting from database: %x",
 		deleteCause, err, iter.Key())
 	err = db.Delete(iter.Key())
 	return
@@ -484,11 +484,10 @@ func (db *Lowlevel) CandidateFoldersForDevice(device protocol.DeviceID) (map[str
 		}
 		cf, ok := res[folderID]
 		if !ok {
-			cf = make(CandidateFolder)
+			cf = CandidateFolder{}
 		}
 		cf.mergeCandidateLink(ocl, candidateID, introducerID)
 		res[folderID] = cf
-		continue
 	}
 	return res, nil
 }
