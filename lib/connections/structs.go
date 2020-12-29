@@ -35,8 +35,9 @@ type tlsConn interface {
 // came from (type, priority).
 type internalConn struct {
 	tlsConn
-	connType connType
-	priority int
+	connType      connType
+	priority      int
+	establishedAt time.Time
 }
 
 type connType int
@@ -82,6 +83,15 @@ func (t connType) Transport() string {
 	}
 }
 
+func newInternalConn(tc tlsConn, connType connType, priority int) internalConn {
+	return internalConn{
+		tlsConn:       tc,
+		connType:      connType,
+		priority:      priority,
+		establishedAt: time.Now(),
+	}
+}
+
 func (c internalConn) Close() error {
 	// *tls.Conn.Close() does more than it says on the tin. Specifically, it
 	// sends a TLS alert message, which might block forever if the
@@ -117,6 +127,10 @@ func (c internalConn) Transport() string {
 		return transport + "4"
 	}
 	return transport + "6"
+}
+
+func (c internalConn) EstablishedAt() time.Time {
+	return c.establishedAt
 }
 
 func (c internalConn) String() string {
