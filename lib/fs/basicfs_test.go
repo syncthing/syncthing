@@ -121,6 +121,10 @@ func TestChmodDir(t *testing.T) {
 	if err := os.Mkdir(path, mode); err != nil {
 		t.Error(err)
 	}
+	// On UNIX, Mkdir will subtract the umask, so force desired mode explicitly
+	if err := os.Chmod(path, mode); err != nil {
+		t.Error(err)
+	}
 
 	if stat, err := os.Stat(path); err != nil || stat.Mode()&os.ModePerm != mode {
 		t.Errorf("wrong perm: %t %#o", err == nil, stat.Mode()&os.ModePerm)
