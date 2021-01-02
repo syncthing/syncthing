@@ -11,6 +11,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -1347,6 +1348,32 @@ func TestPullDeleteCaseConflict(t *testing.T) {
 	case <-dbUpdateChan:
 	default:
 		t.Error("Missing db update for dir")
+	}
+}
+
+func TestPullDeleteIgnoreChildDir(t *testing.T) {
+	m, f := setupSendReceiveFolder(t)
+	defer cleanupSRFolder(f, m)
+
+	parent := "parent"
+	del := "ignored"
+	child := "keep"
+	matcher := ignore.New(f.mtimefs)
+	must(t, matcher.Parse(bytes.NewBufferString(fmt.Sprintf(`
+!%v
+(?d)%v
+`, child, del)), ""))
+	f.ignores = matcher
+
+	must(t, f.mtimefs.Mkdir(parent, 0777))
+	must(t, f.mtimefs.Mkdir(filepath.Join(parent, del), 0777))
+	must(t, f.mtimefs.Mkdir(filepath.Join(parent, del, child), 0777))
+
+	scanChan := make(chan string, 2)
+
+	err := f.deleteDirOnDisk(parent, f.fset.Snapshot(), scanChan)
+	if err == nil {
+		t.Error("no error")
 	}
 }
 
