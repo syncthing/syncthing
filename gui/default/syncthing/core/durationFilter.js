@@ -11,7 +11,7 @@ angular.module('syncthing.core')
         'use strict';
 
         var SECONDS_IN = { "d": 86400, "h": 3600, "m": 60, "s": 1 };
-        return function (input, precision) {
+        return function (input, precision, zero) {
             var result = "";
             if (!precision) {
                 precision = "s";
@@ -25,7 +25,13 @@ angular.module('syncthing.core')
                 }
 
                 if (precision == k) {
-                    return result ? result : "<1" + k;
+                    if (result) {
+                        return result
+                    } else if (zero) {
+                        return zero
+                    } else {
+                        return "<1" + k;
+                    }
                 } else {
                     input %= SECONDS_IN[k];
                 }
