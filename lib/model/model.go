@@ -164,7 +164,7 @@ type model struct {
 	started        chan struct{}
 }
 
-type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem, events.Logger, *byteSemaphore) service
+type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *byteSemaphore) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory)
@@ -384,8 +384,6 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		}
 	}
 
-	ffs := fset.MtimeFS()
-
 	if cfg.Type == config.FolderTypeReceiveEncrypted {
 		if encryptionToken, err := readEncryptionToken(cfg); err == nil {
 			m.folderEncryptionPasswordTokens[folder] = encryptionToken
@@ -395,6 +393,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	}
 
 	// These are our metadata files, and they should always be hidden.
+	ffs := cfg.Filesystem()
 	_ = ffs.Hide(config.DefaultMarkerName)
 	_ = ffs.Hide(".stversions")
 	_ = ffs.Hide(".stignore")
@@ -409,7 +408,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	}
 	m.folderVersioners[folder] = ver
 
-	p := folderFactory(m, fset, ignores, cfg, ver, ffs, m.evLogger, m.folderIOLimiter)
+	p := folderFactory(m, fset, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
 
 	m.folderRunners[folder] = p
 
