@@ -12,7 +12,7 @@ angular.module('syncthing.folder')
 
         self.refresh = function(folderId, prefix) {
             return getBrowse(folderId, prefix).then(function(response) {
-                angular.copy(response, self.data);
+                self.data.files = response;
                 return self.data;
             });
         };
@@ -22,38 +22,17 @@ angular.module('syncthing.folder')
          */
 
         function getBrowse(folderId, prefix) {
-            var params = { folder: folderId, levels: 0 };
-            var cleanPrefix = '';
-            if (prefix) {
-                // Ensure functions receive a nice clean prefix to combine with paths
-                cleanPrefix = prefix.replace(/\/+$/g, '');
-                params.prefix = cleanPrefix;
-            }
-
+            var params = { folder: folderId, levels: 0, prefix: prefix };
             return $http.get('rest/db/browse', { params: params }).then(function (response) {
-                return {
-                    files: browseList(response.data, cleanPrefix)
-                };
+                return browseList(response.data, prefix);
             });
         };
 
-        function browsePath(folderId, prefix) {
-            // Always include a part for the folder root
-            var parts = [{ name: folderId, prefix: '' }];
-            var prefixAcc = '';
-            prefix.split('/').forEach(function (part) {
-                if (part) {
-                    parts.push({ name: part, prefix: prefixAcc + part });
-                    prefixAcc = prefixAcc + part + '/'
-                }
-            });
-            return parts;
-        }
-
         function browseList(data, prefix) {
             var pathPrefix = []
-            if (prefix.length > 0) {
-                pathPrefix.push(prefix);
+            if (prefix) {
+                // Strip trailing slash from prefix to combine with paths
+                pathPrefix.push(prefix.replace(/\/+$/g, ''));
             }
 
             var items = [];

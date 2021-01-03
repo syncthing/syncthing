@@ -26,14 +26,8 @@ describe('BrowseService', function() {
         });
 
         it('fetches the given prefix', function() {
-            $httpBackend.expectGET('rest/db/browse?folder=chocolate&levels=0&prefix=factory%2Fsecrets');
-            service.refresh('chocolate', 'factory/secrets');
-            $httpBackend.flush();
-        });
-
-        it('strips trailing slashes from prefix', function() {
-            $httpBackend.expectGET('rest/db/browse?folder=chocolate&levels=0&prefix=factory');
-            service.refresh('chocolate', 'factory/');
+            $httpBackend.expectGET('rest/db/browse?folder=chocolate&levels=0&prefix=factory%2Fsecrets%2F');
+            service.refresh('chocolate', 'factory/secrets/');
             $httpBackend.flush();
         });
 
@@ -45,28 +39,6 @@ describe('BrowseService', function() {
                 });
                 service.refresh('default');
                 $httpBackend.flush();
-            });
-
-            describe('refresh', function() {
-                it('fetches the given folder', function() {
-                    getBrowseHandler.respond({ factory: {} });
-                    $httpBackend.expectGET('rest/db/browse?folder=chocolate&levels=0');
-                    service.refresh('chocolate');
-                    $httpBackend.flush();
-                    expect(service.data.files[0].name).toEqual('factory');
-                });
-
-                it('fetches the given prefix', function() {
-                    $httpBackend.expectGET('rest/db/browse?folder=chocolate&levels=0&prefix=factory%2Fsecrets');
-                    service.refresh('chocolate', 'factory/secrets');
-                    $httpBackend.flush();
-                });
-
-                it('strips trailing slashes from prefix', function() {
-                    $httpBackend.expectGET('rest/db/browse?folder=chocolate&levels=0&prefix=factory');
-                    service.refresh('chocolate', 'factory/');
-                    $httpBackend.flush();
-                });
             });
 
             describe('files', function() {

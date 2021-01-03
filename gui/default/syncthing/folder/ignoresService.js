@@ -117,7 +117,7 @@ angular.module('syncthing.folder')
         }
 
         function parsePattern(line) {
-            var stripResult = stripPrefix(line.trim());
+            var stripResult = splitPrefix(line.trim());
             var prefixes = stripResult[0];
             var hasPrefix = prefixes['(?i)'] || prefixes['(?d)'];
             var path = toPath(stripResult[1]);
@@ -133,17 +133,17 @@ angular.module('syncthing.folder')
         };
 
         // Adapted from lib/ignore/ignore.go@parseLine
-        function stripPrefix(line) {
+        function splitPrefix(line) {
             var seenPrefix = { '!': false, '(?i)': false, '(?d)': false };
 
-            var found;
-            while (found !== null) {
-                found = null;
+            var found = true;
+            while (found === true) {
+                found = false;
                 for (var prefix in seenPrefix) {
-                    if (line.indexOf(prefix) === 0 && !seenPrefix[prefix]) {
+                    if (!seenPrefix[prefix] && line.indexOf(prefix) === 0) {
                         seenPrefix[prefix] = true;
                         line = line.slice(prefix.length);
-                        found = prefix;
+                        found = true;
                         break;
                     }
                 }
