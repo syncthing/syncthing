@@ -11,6 +11,7 @@ import (
 	"errors"
 	"os"
 	"sync/atomic"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -18,7 +19,10 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-const maxModifications = 1000
+const (
+	maxModifications = 1000
+	minSaveInterval  = 5 * time.Second
+)
 
 var errTooManyModifications = errors.New("too many concurrent config modifications")
 
@@ -221,11 +225,19 @@ func (w *wrapper) modifyQueued(modifyFunc ModifyFunction) (Waiter, error) {
 }
 
 func (w *wrapper) Serve(ctx context.Context) error {
-	var e modifyEntry
+	defer w.serveSave()
 
+	var e modifyEntry
+	saveTimer := time.NewTimer(0)
+	<-saveTimer.C
+	saveTimerRunning := false
 	for {
 		select {
 		case e = <-w.queue:
+		case <-saveTimer.C:
+			w.serveSave()
+			saveTimerRunning = false
+			continue
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -251,9 +263,19 @@ func (w *wrapper) Serve(ctx context.Context) error {
 		}()
 		select {
 		case <-done:
+			if !saveTimerRunning {
+				saveTimer.Reset(minSaveInterval)
+				saveTimerRunning = true
+			}
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+	}
+}
+
+func (w *wrapper) serveSave() {
+	if err := w.Save(); err != nil {
+		l.Warnln("Failed to save config:", err)
 	}
 }
 

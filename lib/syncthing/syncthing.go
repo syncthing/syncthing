@@ -281,8 +281,8 @@ func (a *App) startup() error {
 	a.mainService.Add(discoveryManager)
 	a.mainService.Add(connectionsService)
 
-	changed := false
 	a.cfg.Modify(func(cfg *config.Configuration) bool {
+		changed := false
 		// Candidate builds always run with usage reporting.
 		if build.IsCandidate {
 			l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
@@ -301,9 +301,6 @@ func (a *App) startup() error {
 
 		return changed
 	})
-	if changed {
-		a.cfg.Save()
-	}
 
 	usageReportingSvc := ur.New(a.cfg, m, connectionsService, a.opts.NoUpgrade)
 	a.mainService.Add(usageReportingSvc)

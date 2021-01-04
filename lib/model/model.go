@@ -1171,7 +1171,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		panic("bug: ClusterConfig called on closed or nonexistent connection")
 	}
 
-	changed := false
 	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
 		l.Debugln("Device disappeared from config while processing cluster-config")
@@ -1211,7 +1210,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			haveFcfg := cfg.FolderMap()
 			for _, folder := range cm.Folders {
 				from, ok := haveFcfg[folder.ID]
-				if to, fchanged := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID], from, ok, cfg.Options.DefaultFolderPath); fchanged {
+				if to, changed := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID], from, ok, cfg.Options.DefaultFolderPath); changed {
 					changedFcfg[folder.ID] = to
 				}
 			}
@@ -1227,7 +1226,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			for _, fcfg := range changedFcfg {
 				cfg.Folders = append(cfg.Folders, fcfg)
 			}
-			changed = true
 			return true
 		})
 		// Need to wait for the waiter, as this calls CommitConfiguration,
@@ -1264,7 +1262,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			if !introduced && !deintroduced {
 				return false
 			}
-			changed = true
 			cfg.Folders = make([]config.FolderConfiguration, 0, len(folders))
 			for _, fcfg := range folders {
 				cfg.Folders = append(cfg.Folders, fcfg)
@@ -1275,12 +1272,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 			return true
 		})
-	}
-
-	if changed {
-		if err := m.cfg.Save(); err != nil {
-			l.Warnln("Failed to save config", err)
-		}
 	}
 
 	return nil
@@ -2147,22 +2138,18 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	conn.ClusterConfig(cm)
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
-		changed := false
 		m.cfg.Modify(func(cfg *config.Configuration) bool {
 			for i := range cfg.Devices {
 				if cfg.Devices[i].DeviceID == deviceID {
 					if cfg.Devices[i].Name == "" || cfg.Options.OverwriteRemoteDevNames {
 						cfg.Devices[i].Name = hello.DeviceName
-						changed = true
+						return true
 					}
-					break
+					return false
 				}
 			}
-			return changed
+			return false
 		})
-		if changed {
-			m.cfg.Save()
-		}
 	}
 
 	m.deviceWasSeen(deviceID)
