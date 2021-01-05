@@ -420,7 +420,7 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	// Figure out current connection limits up front to see if there's any
 	// point in resolving devices and such at all.
 	allowAdditional := 0 // no limit
-	connectionLimit := cfg.Options.ConnectionLimits.LowestLimit()
+	connectionLimit := cfg.Options.LowestConnectionLimit()
 	if connectionLimit > 0 {
 		current := s.model.NumConnections()
 		allowAdditional = connectionLimit - current

@@ -2061,7 +2061,7 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		return errNetworkNotAllowed
 	}
 
-	if max := m.cfg.Options().ConnectionLimits.Max; max > 0 && m.NumConnections() >= max {
+	if max := m.cfg.Options().ConnectionLimitMax; max > 0 && m.NumConnections() >= max {
 		// We're not allowed to accept any more connections.
 		return errConnLimitReached
 	}
