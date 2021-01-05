@@ -137,7 +137,7 @@ func (t *tcpListener) serve(ctx context.Context) error {
 			continue
 		}
 
-		t.conns <- internalConn{tc, connTypeTCPServer, tcpPriority}
+		t.conns <- newInternalConn(tc, connTypeTCPServer, tcpPriority)
 	}
 }
 

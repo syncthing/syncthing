@@ -246,7 +246,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		started: make(chan struct{}),
 	}
 	for devID := range cfg.Devices() {
-		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
+		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
 	}
 	m.Add(m.progressEmitter)
 	m.Add(svcutil.AsService(m.serve, m.String()))
@@ -1684,6 +1684,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 		m.pmut.Unlock()
 		return
 	}
+
 	delete(m.conn, device)
 	delete(m.connRequestLimiters, device)
 	delete(m.helloMessages, device)
@@ -1695,6 +1696,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	m.pmut.Unlock()
 
 	m.progressEmitter.temporaryIndexUnsubscribe(conn)
+	m.deviceDidClose(device, time.Since(conn.EstablishedAt()))
 
 	l.Infof("Connection to %s at %s closed: %v", device, conn, err)
 	m.evLogger.Log(events.DeviceDisconnected, map[string]string{
@@ -2175,7 +2177,16 @@ func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 	sr, ok := m.deviceStatRefs[deviceID]
 	m.fmut.RUnlock()
 	if ok {
-		sr.WasSeen()
+		_ = sr.WasSeen()
+	}
+}
+
+func (m *model) deviceDidClose(deviceID protocol.DeviceID, duration time.Duration) {
+	m.fmut.RLock()
+	sr, ok := m.deviceStatRefs[deviceID]
+	m.fmut.RUnlock()
+	if ok {
+		_ = sr.LastConnectionDuration(duration)
 	}
 }
 
@@ -2674,7 +2685,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	for deviceID, toCfg := range toDevices {
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
-			sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
+			sr := stats.NewDeviceStatisticsReference(m.db, deviceID)
 			m.fmut.Lock()
 			m.deviceStatRefs[deviceID] = sr
 			m.fmut.Unlock()

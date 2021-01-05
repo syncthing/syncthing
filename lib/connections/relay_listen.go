@@ -105,7 +105,7 @@ func (t *relayListener) serve(ctx context.Context) error {
 				continue
 			}
 
-			t.conns <- internalConn{tc, connTypeRelayServer, relayPriority}
+			t.conns <- newInternalConn(tc, connTypeRelayServer, relayPriority)
 
 		// Poor mans notifier that informs the connection service that the
 		// relay URI has changed. This can only happen when we connect to a
