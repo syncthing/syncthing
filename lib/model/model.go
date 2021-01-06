@@ -2941,22 +2941,39 @@ func (m *model) CandidateDevices(folder string) (map[protocol.DeviceID]db.Candid
 	}
 	for deviceID, candidate := range res {
 		if _, ok := m.cfg.Device(deviceID); ok {
-			// Omit connection details for already known devices
+			// Omit connection details and suggested names for already known devices
 			candidate.CertName = ""
 			candidate.Addresses = nil
+			for introducerID, attrib := range candidate.IntroducedBy {
+				attrib.SuggestedName = ""
+				candidate.IntroducedBy[introducerID] = attrib
+			}
 			res[deviceID] = candidate
 		}
 	}
 	return res, nil
 }
 
-// CandidateFolders lists devices that already have an indirect link over one or more
-// folders, through the introducing third parties.  For each candidate, the suggestion is
-// attributed to one or more introducing device IDs.  It returns the entries grouped by
-// common folder ID and filters for a given candidate device unless the argument is
-// specified as EmptyDeviceID.
+// CandidateFolders lists folders where other known devices already have an indirect link,
+// through the introducing third parties.  For each candidate folder-device combination,
+// the suggestion is attributed to one or more introducing device IDs.  It returns the
+// entries grouped by common folder ID and filters for a given candidate device unless the
+// argument is specified as EmptyDeviceID.
 func (m *model) CandidateFolders(device protocol.DeviceID) (map[string]db.CandidateFolder, error) {
-	return m.db.CandidateFoldersForDevice(device)
+	res, err := m.db.CandidateFoldersForDevice(device)
+	if err != nil {
+		return nil, err
+	}
+	for folderID, candidates := range res {
+		for deviceID := range candidates {
+			if _, ok := m.cfg.Device(deviceID); !ok {
+				// Omit unknown devices
+				delete(candidates, deviceID)
+			}
+		}
+		res[folderID] = candidates
+	}
+	return res, nil
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given
