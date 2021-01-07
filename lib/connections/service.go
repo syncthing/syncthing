@@ -24,7 +24,6 @@ import (
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
@@ -56,13 +55,14 @@ var (
 )
 
 const (
-	perDeviceWarningIntv    = 15 * time.Minute
-	tlsHandshakeTimeout     = 10 * time.Second
-	minConnectionReplaceAge = 10 * time.Second
-	minConnectionLoopSleep  = 5 * time.Second
-	stdConnectionLoopSleep  = time.Minute
-	worstDialerPriority     = math.MaxInt32
-	recentlySeenCutoff      = 7 * 24 * time.Hour
+	perDeviceWarningIntv          = 15 * time.Minute
+	tlsHandshakeTimeout           = 10 * time.Second
+	minConnectionReplaceAge       = 10 * time.Second
+	minConnectionLoopSleep        = 5 * time.Second
+	stdConnectionLoopSleep        = time.Minute
+	worstDialerPriority           = math.MaxInt32
+	recentlySeenCutoff            = 7 * 24 * time.Hour
+	shortLivedConnectionThreshold = 5 * time.Second
 )
 
 // From go/src/crypto/tls/cipher_suites.go
@@ -430,17 +430,11 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 		}
 	}
 
-	type dialQueueEntry struct {
-		id       protocol.DeviceID
-		lastSeen time.Time
-		targets  []dialTarget
-	}
-
 	// Get device statistics for the last seen time of each device. This
 	// isn't critical, so ignore the potential error.
 	stats, _ := s.model.DeviceStatistics()
 
-	queue := make([]dialQueueEntry, 0, len(cfg.Devices))
+	queue := make(dialQueue, 0, len(cfg.Devices))
 	for _, deviceCfg := range cfg.Devices {
 		// Don't attempt to connect to ourselves...
 		if deviceCfg.DeviceID == s.myID {
@@ -468,36 +462,21 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 		dialTargets := s.resolveDialTargets(ctx, now, cfg, deviceCfg, nextDialAt, initial, priorityCutoff)
 		if len(dialTargets) > 0 {
 			queue = append(queue, dialQueueEntry{
-				id:       deviceCfg.DeviceID,
-				lastSeen: stats[deviceCfg.DeviceID.String()].LastSeen,
-				targets:  dialTargets,
+				id:         deviceCfg.DeviceID,
+				lastSeen:   stats[deviceCfg.DeviceID.String()].LastSeen,
+				shortLived: stats[deviceCfg.DeviceID.String()].LastConnectionDurationS < shortLivedConnectionThreshold.Seconds(),
+				targets:    dialTargets,
 			})
 		}
 	}
 
-	// Sort the queue with the most recently seen device at the head,
-	// increasing the likelihood of connecting to a device that we're
-	// already almost up to date with, index wise.
-	sort.Slice(queue, func(a, b int) bool {
-		return queue[a].lastSeen.After(queue[b].lastSeen)
-	})
-
-	// Shuffle the part of the connection queue that are devices we haven't
-	// connected to recently, so that if we only try a limited set of
-	// devices (or they in turn have limits and we're trying to load balance
-	// over several) and the usual ones are down it won't be the same ones
-	// in the same order every time.
-	idx := 0
-	cutoff := time.Now().Add(-recentlySeenCutoff)
-	for idx < len(queue) {
-		if queue[idx].lastSeen.Before(cutoff) {
-			break
-		}
-		idx++
-	}
-	if idx < len(queue)-1 {
-		rand.Shuffle(queue[idx:])
-	}
+	// Sort the queue in an order we think will be useful (most recent
+	// first, deprioriting unstable devices, randomizing those we haven't
+	// seen in a long while). If we don't do connection limiting the sorting
+	// doesn't have much effect, but it may result in getting up and running
+	// quicker if only a subset of configured devices are actually reachable
+	// (by prioritizing those that were reachable recently).
+	dialQueue.Sort(queue)
 
 	// Perform dials according to the queue, stopping when we've reached the
 	// allowed additional number of connections (if limited).
