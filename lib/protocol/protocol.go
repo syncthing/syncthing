@@ -152,6 +152,7 @@ type ConnectionInfo interface {
 	Priority() int
 	String() string
 	Crypto() string
+	EstablishedAt() time.Time
 }
 
 type rawConnection struct {

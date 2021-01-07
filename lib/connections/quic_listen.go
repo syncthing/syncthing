@@ -150,7 +150,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 			continue
 		}
 
-		t.conns <- internalConn{&quicTlsConn{session, stream, nil}, connTypeQUICServer, quicPriority}
+		t.conns <- newInternalConn(&quicTlsConn{session, stream, nil}, connTypeQUICServer, quicPriority)
 	}
 }
 
