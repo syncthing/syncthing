@@ -18,6 +18,7 @@ func memorySize() int64 {
 	if err != nil {
 		return 0
 	}
+	defer f.Close()
 
 	s := bufio.NewScanner(f)
 	if !s.Scan() {
