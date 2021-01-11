@@ -198,7 +198,7 @@ type Model interface {
 	Connection(remoteID protocol.DeviceID) (protocol.Connection, bool)
 	OnHello(protocol.DeviceID, net.Addr, protocol.Hello) error
 	GetHello(protocol.DeviceID) protocol.HelloIntf
-	DeviceStatistics() (map[string]stats.DeviceStatistics, error)
+	DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error)
 }
 
 type onAddressesChangedNotifier struct {

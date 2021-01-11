@@ -101,7 +101,7 @@ type Model interface {
 
 	Completion(device protocol.DeviceID, folder string) FolderCompletion
 	ConnectionStats() map[string]interface{}
-	DeviceStatistics() (map[string]stats.DeviceStatistics, error)
+	DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error)
 	FolderStatistics() (map[string]stats.FolderStatistics, error)
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 
@@ -781,16 +781,16 @@ func (m *model) ConnectionStats() map[string]interface{} {
 }
 
 // DeviceStatistics returns statistics about each device
-func (m *model) DeviceStatistics() (map[string]stats.DeviceStatistics, error) {
+func (m *model) DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
-	res := make(map[string]stats.DeviceStatistics, len(m.deviceStatRefs))
+	res := make(map[protocol.DeviceID]stats.DeviceStatistics, len(m.deviceStatRefs))
 	for id, sr := range m.deviceStatRefs {
 		stats, err := sr.GetStatistics()
 		if err != nil {
 			return nil, err
 		}
-		res[id.String()] = stats
+		res[id] = stats
 	}
 	return res, nil
 }

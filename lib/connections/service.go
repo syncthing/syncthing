@@ -463,8 +463,8 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 		if len(dialTargets) > 0 {
 			queue = append(queue, dialQueueEntry{
 				id:         deviceCfg.DeviceID,
-				lastSeen:   stats[deviceCfg.DeviceID.String()].LastSeen,
-				shortLived: stats[deviceCfg.DeviceID.String()].LastConnectionDurationS < shortLivedConnectionThreshold.Seconds(),
+				lastSeen:   stats[deviceCfg.DeviceID].LastSeen,
+				shortLived: stats[deviceCfg.DeviceID].LastConnectionDurationS < shortLivedConnectionThreshold.Seconds(),
 				targets:    dialTargets,
 			})
 		}
