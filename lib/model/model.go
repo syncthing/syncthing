@@ -101,7 +101,7 @@ type Model interface {
 
 	Completion(device protocol.DeviceID, folder string) FolderCompletion
 	ConnectionStats() map[string]interface{}
-	DeviceStatistics() (map[string]stats.DeviceStatistics, error)
+	DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error)
 	FolderStatistics() (map[string]stats.FolderStatistics, error)
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 
@@ -193,6 +193,7 @@ var (
 	errEncryptionReceivedToken         = errors.New("resetting connection to send info on new encrypted folder (new cluster config)")
 	errMissingRemoteInClusterConfig    = errors.New("remote device missing in cluster config")
 	errMissingLocalInClusterConfig     = errors.New("local device missing in cluster config")
+	errConnLimitReached                = errors.New("connection limit reached")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -727,6 +728,13 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// NumConnections returns the current number of active connected devices.
+func (m *model) NumConnections() int {
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
+	return len(m.conn)
+}
+
 // ConnectionStats returns a map with connection statistics for each device.
 func (m *model) ConnectionStats() map[string]interface{} {
 	m.pmut.RLock()
@@ -773,16 +781,16 @@ func (m *model) ConnectionStats() map[string]interface{} {
 }
 
 // DeviceStatistics returns statistics about each device
-func (m *model) DeviceStatistics() (map[string]stats.DeviceStatistics, error) {
+func (m *model) DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
-	res := make(map[string]stats.DeviceStatistics, len(m.deviceStatRefs))
+	res := make(map[protocol.DeviceID]stats.DeviceStatistics, len(m.deviceStatRefs))
 	for id, sr := range m.deviceStatRefs {
 		stats, err := sr.GetStatistics()
 		if err != nil {
 			return nil, err
 		}
-		res[id.String()] = stats
+		res[id] = stats
 	}
 	return res, nil
 }
@@ -2049,10 +2057,14 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		return errDevicePaused
 	}
 
-	if len(cfg.AllowedNetworks) > 0 {
-		if !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
-			return errNetworkNotAllowed
-		}
+	if len(cfg.AllowedNetworks) > 0 && !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
+		// The connection is not from an allowed network.
+		return errNetworkNotAllowed
+	}
+
+	if max := m.cfg.Options().ConnectionLimitMax; max > 0 && m.NumConnections() >= max {
+		// We're not allowed to accept any more connections.
+		return errConnLimitReached
 	}
 
 	return nil

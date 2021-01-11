@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/stats"
 
 	"github.com/thejerf/suture/v4"
 )
@@ -193,9 +194,11 @@ type genericListener interface {
 type Model interface {
 	protocol.Model
 	AddConnection(conn protocol.Connection, hello protocol.Hello)
+	NumConnections() int
 	Connection(remoteID protocol.DeviceID) (protocol.Connection, bool)
 	OnHello(protocol.DeviceID, net.Addr, protocol.Hello) error
 	GetHello(protocol.DeviceID) protocol.HelloIntf
+	DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error)
 }
 
 type onAddressesChangedNotifier struct {
