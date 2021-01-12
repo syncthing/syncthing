@@ -80,7 +80,11 @@ func (m *mockedModel) Availability(folder string, file protocol.FileInfo, block 
 	return nil
 }
 
-func (m *mockedModel) GetIgnores(folder string) ([]string, []string, error) {
+func (m *mockedModel) LoadIgnores(folder string) ([]string, []string, error) {
+	return nil, nil, nil
+}
+
+func (m *mockedModel) CurrentIgnores(folder string) ([]string, []string, error) {
 	return nil, nil, nil
 }
 

@@ -83,7 +83,8 @@ type Model interface {
 	Override(folder string)
 	Revert(folder string)
 	BringToFront(folder, file string)
-	GetIgnores(folder string) ([]string, []string, error)
+	LoadIgnores(folder string) ([]string, []string, error)
+	CurrentIgnores(folder string) ([]string, []string, error)
 	SetIgnores(folder string, content []string) error
 
 	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
@@ -648,7 +649,7 @@ func (m *model) UsageReportingStats(report *contract.Report, version int, previe
 		// Ignore stats
 		var seenPrefix [3]bool
 		for folder := range m.cfg.Folders() {
-			lines, _, err := m.GetIgnores(folder)
+			lines, _, err := m.CurrentIgnores(folder)
 			if err != nil {
 				continue
 			}
@@ -1971,7 +1972,9 @@ func (m *model) Connection(deviceID protocol.DeviceID) (protocol.Connection, boo
 	return cn, ok
 }
 
-func (m *model) GetIgnores(folder string) ([]string, []string, error) {
+// LoadIgnores loads or refreshes the ignore patterns from disk, if the
+// folder is healthy, and returns the refreshed lines and patterns.
+func (m *model) LoadIgnores(folder string) ([]string, []string, error) {
 	m.fmut.RLock()
 	cfg, cfgOk := m.folderCfgs[folder]
 	ignores, ignoresOk := m.folderIgnores[folder]
@@ -1990,7 +1993,7 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	}
 
 	if !ignoresOk {
-		ignores = ignore.New(fs.NewFilesystem(cfg.FilesystemType, cfg.Path))
+		ignores = ignore.New(cfg.Filesystem())
 	}
 
 	err := ignores.Load(".stignore")
@@ -2002,6 +2005,27 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	// Return lines and patterns, which may have some meaning even when err
 	// != nil, depending on the specific error.
 	return ignores.Lines(), ignores.Patterns(), err
+}
+
+// CurrentIgnores returns the currently loaded set of ignore patterns,
+// whichever it may be. No attempt is made to load or refresh ignore
+// patterns from disk.
+func (m *model) CurrentIgnores(folder string) ([]string, []string, error) {
+	m.fmut.RLock()
+	_, cfgOk := m.folderCfgs[folder]
+	ignores, ignoresOk := m.folderIgnores[folder]
+	m.fmut.RUnlock()
+
+	if !cfgOk {
+		return nil, nil, fmt.Errorf("folder %s does not exist", folder)
+	}
+
+	if !ignoresOk {
+		// Empty ignore patterns
+		return []string{}, []string{}, nil
+	}
+
+	return ignores.Lines(), ignores.Patterns(), nil
 }
 
 func (m *model) SetIgnores(folder string, content []string) error {
