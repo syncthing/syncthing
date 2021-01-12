@@ -1790,13 +1790,6 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 		return nil, protocol.ErrInvalid
 	}
 
-	folderFs := folderCfg.Filesystem()
-
-	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
-		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
-		return nil, protocol.ErrNoSuchFile
-	}
-
 	// Restrict parallel requests by connection/device
 
 	m.pmut.RLock()
@@ -1813,6 +1806,16 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 			res.Close()
 		}
 	}()
+
+	// Grab the FS after limiting, as it causes I/O and we want to minimize
+	// the race time between the symlink check and the read.
+
+	folderFs := folderCfg.Filesystem()
+
+	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
+		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrNoSuchFile
+	}
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
