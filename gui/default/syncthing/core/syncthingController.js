@@ -1212,6 +1212,10 @@ angular.module('syncthing.core')
                     $scope.logging.entries = [];
                 });
             },
+            close: function () {
+                $('#logViewer').modal('hide');
+                $scope.logging.paused = false;
+            },
             onFacilityChange: function (facility) {
                 var enabled = $scope.logging.facilities[facility].enabled;
                 // Disable checkboxes while we're in flight.
