@@ -122,7 +122,7 @@ angular.module('syncthing.folder')
             var prefixes = stripResult[0];
             var hasPrefix = prefixes['(?i)'] || prefixes['(?d)'];
             var path = toPath(stripResult[1]);
-            var matchFunc = !hasPrefix && matcher(path);
+            var matchFunc = !hasPrefix && chooseMatcher(path);
 
             return {
                 text: line,
@@ -153,24 +153,40 @@ angular.module('syncthing.folder')
             return [seenPrefix, line];
         }
 
-        // Infer a path from wildcards that can be used to match a file by
-        // prefix (for simple patterns)
+        // Infer a path from wildcards that might be used to match a file path
+        // by prefix (for simple patterns)
+        // The changes made to the path make it more specific than the original
+        // pattern. It is useful for prefix matcher. Should a glob matcher be
+        // added this path should not be used to match because it does not
+        // represent the complete pattern. The most common effect of the changes
+        // is matching patterns like `*`, `**`, or `/*` without a special case
         function toPath(line) {
-            line = line.replace(/^\*+/, '/$&');
-            // Trim wildcards after final separator for simpler path match
+            // Add a leading slash when the pattern begins with wildcards
+            // because a pattern beginning with * or ** will match entries at
+            // the root (as well as those in child directories)
+            line = line.replace(/^\*+/, '/$&'); // `$&` inserts the matched substring
+
+            // Trim trailing wildcards after separator because child paths would
+            // already be prefixed by this path
             line = line.replace(/\/\*+$/, '/');
             return line;
         }
 
-        // Return a function that can be applied to match the pattern
-        function matcher(line) {
+        // Inspect the pattern to determine if it is simple enough to match,
+        // then return a function that can be applied to match a path.
+        function chooseMatcher(line) {
             if (line.length === 0) return neverMatch;
             if (line.indexOf('//') === 0) return neverMatch; // comment
             if (line.indexOf('/') !== 0) return null; // not a root line
             if (line.length > 1 && line.charAt(line.length - 1) === '/') return null; // trailing slash
 
-            line = line.replaceAll(/\\[\*\?\[\]\{\}]/g, '') // remove properly escaped characters for this evaluation
-            if (line.match(/[\*\?\[\]\{\}]/)) return null; // contains special character
+            line = line.replaceAll(/\\[\*\?\[\]\{\}]/g, '') // remove properly escaped glob characters
+            if (line.match(/[\*\?\[\]\{\}]/)) {
+                // The pattern contains a special character. The pattern is a
+                // glob, too complex for us to handle in the UI. Return no
+                // matcher function indicating we cannot match it.
+                return null;
+            }
 
             return prefixMatch;
         }

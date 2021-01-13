@@ -31,7 +31,7 @@ angular.module('syncthing.folder')
                     debugLevel: 2,
                     source: promise,
                     lazyLoad: function (event, data) {
-                        var prefix = data.node.data.file.path;
+                        var prefix = data.node.data.entry.path;
                         data.result = Browse.refresh(folderId, prefix).then(function(response) {
                             return response.files.map(buildNode);
                         });
@@ -47,24 +47,24 @@ angular.module('syncthing.folder')
             if (self.tree) updateNodes(self.tree.rootNode.children)
         };
 
-        function buildNode(file) {
-            var match = Ignores.matchingPattern(file);
+        function buildNode(entry) {
+            var match = Ignores.matchingPattern(entry);
 
             return {
                 // Fancytree keys
-                title: file.name,
+                title: entry.name,
                 selected: (!match || match.isNegated),
-                key: file.path,
-                lazy: !file.isFile,
-                folder: !file.isFile,
+                key: entry.path,
+                lazy: !entry.isFile,
+                folder: !entry.isFile,
                 // Data keys
-                file: file,
+                entry: entry,
                 match: match,
             };
         };
 
         function toggle(node) {
-            var absPath = '/' + node.data.file.path;
+            var absPath = '/' + node.data.entry.path;
             if (node.data.match) {
                 var match = node.data.match;
                 if (absPath === match.path) {
@@ -88,7 +88,7 @@ angular.module('syncthing.folder')
             if (!Array.isArray(nodes)) return;
 
             nodes.forEach(function(node) {
-                var match = Ignores.matchingPattern(node.data.file);
+                var match = Ignores.matchingPattern(node.data.entry);
                 node.data.match = match;
                 node.selected = (!match || match.isNegated);
 
