@@ -1425,7 +1425,7 @@ func changeIgnores(t *testing.T, m *testModel, expected []string) {
 		return true
 	}
 
-	ignores, _, err := m.GetIgnores("default")
+	ignores, _, err := m.LoadIgnores("default")
 	if err != nil {
 		t.Error(err)
 	}
@@ -1441,7 +1441,7 @@ func changeIgnores(t *testing.T, m *testModel, expected []string) {
 		t.Error(err)
 	}
 
-	ignores2, _, err := m.GetIgnores("default")
+	ignores2, _, err := m.LoadIgnores("default")
 	if err != nil {
 		t.Error(err)
 	}
@@ -1461,7 +1461,7 @@ func changeIgnores(t *testing.T, m *testModel, expected []string) {
 		t.Error(err)
 	}
 
-	ignores, _, err = m.GetIgnores("default")
+	ignores, _, err = m.LoadIgnores("default")
 	if err != nil {
 		t.Error(err)
 	}
@@ -1492,7 +1492,7 @@ func TestIgnores(t *testing.T) {
 
 	changeIgnores(t, m, expected)
 
-	_, _, err := m.GetIgnores("doesnotexist")
+	_, _, err := m.LoadIgnores("doesnotexist")
 	if err == nil {
 		t.Error("No error")
 	}
@@ -1510,7 +1510,7 @@ func TestIgnores(t *testing.T) {
 	m.folderIgnores[fcfg.ID] = ignores
 	m.fmut.Unlock()
 
-	_, _, err = m.GetIgnores("fresh")
+	_, _, err = m.LoadIgnores("fresh")
 	if err == nil {
 		t.Error("No error")
 	}
@@ -3420,7 +3420,7 @@ func TestDeviceWasSeen(t *testing.T) {
 	if err != nil {
 		t.Error("Unexpected error:", err)
 	}
-	entry := stats[device1.String()]
+	entry := stats[device1]
 	if time.Since(entry.LastSeen) > time.Second {
 		t.Error("device should have been seen now")
 	}

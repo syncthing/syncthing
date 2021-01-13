@@ -142,7 +142,7 @@ func (c *folderSummaryService) Summary(folder string) (map[string]interface{}, e
 	res["version"] = ourSeq + remoteSeq  // legacy
 	res["sequence"] = ourSeq + remoteSeq // new name
 
-	ignorePatterns, _, _ := c.model.GetIgnores(folder)
+	ignorePatterns, _, _ := c.model.CurrentIgnores(folder)
 	res["ignorePatterns"] = false
 	for _, line := range ignorePatterns {
 		if len(line) > 0 && !strings.HasPrefix(line, "//") {

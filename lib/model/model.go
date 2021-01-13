@@ -83,7 +83,8 @@ type Model interface {
 	Override(folder string)
 	Revert(folder string)
 	BringToFront(folder, file string)
-	GetIgnores(folder string) ([]string, []string, error)
+	LoadIgnores(folder string) ([]string, []string, error)
+	CurrentIgnores(folder string) ([]string, []string, error)
 	SetIgnores(folder string, content []string) error
 
 	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
@@ -101,7 +102,7 @@ type Model interface {
 
 	Completion(device protocol.DeviceID, folder string) FolderCompletion
 	ConnectionStats() map[string]interface{}
-	DeviceStatistics() (map[string]stats.DeviceStatistics, error)
+	DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error)
 	FolderStatistics() (map[string]stats.FolderStatistics, error)
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 
@@ -193,6 +194,7 @@ var (
 	errEncryptionReceivedToken         = errors.New("resetting connection to send info on new encrypted folder (new cluster config)")
 	errMissingRemoteInClusterConfig    = errors.New("remote device missing in cluster config")
 	errMissingLocalInClusterConfig     = errors.New("local device missing in cluster config")
+	errConnLimitReached                = errors.New("connection limit reached")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -244,7 +246,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		indexSenders:        make(map[protocol.DeviceID]*indexSenderRegistry),
 	}
 	for devID := range cfg.Devices() {
-		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
+		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
 	}
 	m.Add(m.progressEmitter)
 	m.Add(svcutil.AsService(m.serve, m.String()))
@@ -642,7 +644,7 @@ func (m *model) UsageReportingStats(report *contract.Report, version int, previe
 		// Ignore stats
 		var seenPrefix [3]bool
 		for folder := range m.cfg.Folders() {
-			lines, _, err := m.GetIgnores(folder)
+			lines, _, err := m.CurrentIgnores(folder)
 			if err != nil {
 				continue
 			}
@@ -722,6 +724,13 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// NumConnections returns the current number of active connected devices.
+func (m *model) NumConnections() int {
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
+	return len(m.conn)
+}
+
 // ConnectionStats returns a map with connection statistics for each device.
 func (m *model) ConnectionStats() map[string]interface{} {
 	m.pmut.RLock()
@@ -768,16 +777,16 @@ func (m *model) ConnectionStats() map[string]interface{} {
 }
 
 // DeviceStatistics returns statistics about each device
-func (m *model) DeviceStatistics() (map[string]stats.DeviceStatistics, error) {
+func (m *model) DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
-	res := make(map[string]stats.DeviceStatistics, len(m.deviceStatRefs))
+	res := make(map[protocol.DeviceID]stats.DeviceStatistics, len(m.deviceStatRefs))
 	for id, sr := range m.deviceStatRefs {
 		stats, err := sr.GetStatistics()
 		if err != nil {
 			return nil, err
 		}
-		res[id.String()] = stats
+		res[id] = stats
 	}
 	return res, nil
 }
@@ -1683,6 +1692,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 		m.pmut.Unlock()
 		return
 	}
+
 	delete(m.conn, device)
 	delete(m.connRequestLimiters, device)
 	delete(m.helloMessages, device)
@@ -1694,6 +1704,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	m.pmut.Unlock()
 
 	m.progressEmitter.temporaryIndexUnsubscribe(conn)
+	m.deviceDidClose(device, time.Since(conn.EstablishedAt()))
 
 	l.Infof("Connection to %s at %s closed: %v", device, conn, err)
 	m.evLogger.Log(events.DeviceDisconnected, map[string]string{
@@ -1779,13 +1790,6 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 		return nil, protocol.ErrInvalid
 	}
 
-	folderFs := folderCfg.Filesystem()
-
-	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
-		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
-		return nil, protocol.ErrNoSuchFile
-	}
-
 	// Restrict parallel requests by connection/device
 
 	m.pmut.RLock()
@@ -1802,6 +1806,16 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 			res.Close()
 		}
 	}()
+
+	// Grab the FS after limiting, as it causes I/O and we want to minimize
+	// the race time between the symlink check and the read.
+
+	folderFs := folderCfg.Filesystem()
+
+	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
+		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrNoSuchFile
+	}
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
@@ -1957,7 +1971,9 @@ func (m *model) Connection(deviceID protocol.DeviceID) (protocol.Connection, boo
 	return cn, ok
 }
 
-func (m *model) GetIgnores(folder string) ([]string, []string, error) {
+// LoadIgnores loads or refreshes the ignore patterns from disk, if the
+// folder is healthy, and returns the refreshed lines and patterns.
+func (m *model) LoadIgnores(folder string) ([]string, []string, error) {
 	m.fmut.RLock()
 	cfg, cfgOk := m.folderCfgs[folder]
 	ignores, ignoresOk := m.folderIgnores[folder]
@@ -1976,7 +1992,7 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	}
 
 	if !ignoresOk {
-		ignores = ignore.New(fs.NewFilesystem(cfg.FilesystemType, cfg.Path))
+		ignores = ignore.New(cfg.Filesystem())
 	}
 
 	err := ignores.Load(".stignore")
@@ -1988,6 +2004,27 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	// Return lines and patterns, which may have some meaning even when err
 	// != nil, depending on the specific error.
 	return ignores.Lines(), ignores.Patterns(), err
+}
+
+// CurrentIgnores returns the currently loaded set of ignore patterns,
+// whichever it may be. No attempt is made to load or refresh ignore
+// patterns from disk.
+func (m *model) CurrentIgnores(folder string) ([]string, []string, error) {
+	m.fmut.RLock()
+	_, cfgOk := m.folderCfgs[folder]
+	ignores, ignoresOk := m.folderIgnores[folder]
+	m.fmut.RUnlock()
+
+	if !cfgOk {
+		return nil, nil, fmt.Errorf("folder %s does not exist", folder)
+	}
+
+	if !ignoresOk {
+		// Empty ignore patterns
+		return []string{}, []string{}, nil
+	}
+
+	return ignores.Lines(), ignores.Patterns(), nil
 }
 
 func (m *model) SetIgnores(folder string, content []string) error {
@@ -2046,10 +2083,14 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		return errDevicePaused
 	}
 
-	if len(cfg.AllowedNetworks) > 0 {
-		if !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
-			return errNetworkNotAllowed
-		}
+	if len(cfg.AllowedNetworks) > 0 && !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
+		// The connection is not from an allowed network.
+		return errNetworkNotAllowed
+	}
+
+	if max := m.cfg.Options().ConnectionLimitMax; max > 0 && m.NumConnections() >= max {
+		// We're not allowed to accept any more connections.
+		return errConnLimitReached
 	}
 
 	return nil
@@ -2183,7 +2224,16 @@ func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 	sr, ok := m.deviceStatRefs[deviceID]
 	m.fmut.RUnlock()
 	if ok {
-		sr.WasSeen()
+		_ = sr.WasSeen()
+	}
+}
+
+func (m *model) deviceDidClose(deviceID protocol.DeviceID, duration time.Duration) {
+	m.fmut.RLock()
+	sr, ok := m.deviceStatRefs[deviceID]
+	m.fmut.RUnlock()
+	if ok {
+		_ = sr.LastConnectionDuration(duration)
 	}
 }
 
@@ -2685,7 +2735,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	for deviceID, toCfg := range toDevices {
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
-			sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
+			sr := stats.NewDeviceStatisticsReference(m.db, deviceID)
 			m.fmut.Lock()
 			m.deviceStatRefs[deviceID] = sr
 			m.fmut.Unlock()

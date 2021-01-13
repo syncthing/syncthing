@@ -47,6 +47,14 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 			}
 		}
 	}
+
+	// Negative limits are meaningless, zero means unlimited.
+	if opts.ConnectionLimitEnough < 0 {
+		opts.ConnectionLimitEnough = 0
+	}
+	if opts.ConnectionLimitMax < 0 {
+		opts.ConnectionLimitMax = 0
+	}
 }
 
 // RequiresRestartOnly returns a copy with only the attributes that require
@@ -177,4 +185,18 @@ func (opts OptionsConfiguration) FeatureFlag(name string) bool {
 	}
 
 	return false
+}
+
+// LowestConnectionLimit is the lower of ConnectionLimitEnough or
+// ConnectionLimitMax, or whichever of them is actually set if only one of
+// them is set. It's the point where we should stop dialling.
+func (opts OptionsConfiguration) LowestConnectionLimit() int {
+	limit := opts.ConnectionLimitEnough
+	if limit == 0 || (opts.ConnectionLimitMax != 0 && opts.ConnectionLimitMax < limit) {
+		// It doesn't really make sense to set Max lower than Enough but
+		// someone might do it while experimenting and it's easy for us to
+		// do the right thing.
+		limit = opts.ConnectionLimitMax
+	}
+	return limit
 }

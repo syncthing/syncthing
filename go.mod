@@ -17,7 +17,6 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
-	github.com/golang/protobuf v1.4.3
 	github.com/greatroar/blobloom v0.5.0
 	github.com/jackpal/gateway v1.0.6
 	github.com/jackpal/go-nat-pmp v1.0.2
@@ -46,6 +45,7 @@ require (
 	golang.org/x/sys v0.0.0-20201101102859-da207088b7d1
 	golang.org/x/text v0.3.4
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+	google.golang.org/protobuf v1.23.0
 )
 
 go 1.14

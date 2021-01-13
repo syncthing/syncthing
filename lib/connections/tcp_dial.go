@@ -57,7 +57,7 @@ func (d *tcpDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL)
 		return internalConn{}, err
 	}
 
-	return internalConn{tc, connTypeTCPClient, tcpPriority}, nil
+	return newInternalConn(tc, connTypeTCPClient, tcpPriority), nil
 }
 
 type tcpDialerFactory struct{}

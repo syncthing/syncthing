@@ -1217,7 +1217,7 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 
 	folder := qs.Get("folder")
 
-	lines, patterns, err := s.model.GetIgnores(folder)
+	lines, patterns, err := s.model.LoadIgnores(folder)
 	if err != nil && !ignore.IsParseError(err) {
 		http.Error(w, err.Error(), 500)
 		return
