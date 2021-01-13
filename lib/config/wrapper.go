@@ -256,6 +256,12 @@ func (w *wrapper) Serve(ctx context.Context) error {
 			w:   waiter,
 			err: err,
 		}
+
+		if !saveTimerRunning {
+			saveTimer.Reset(minSaveInterval)
+			saveTimerRunning = true
+		}
+
 		done := make(chan struct{})
 		go func() {
 			waiter.Wait()
@@ -263,10 +269,6 @@ func (w *wrapper) Serve(ctx context.Context) error {
 		}()
 		select {
 		case <-done:
-			if !saveTimerRunning {
-				saveTimer.Reset(minSaveInterval)
-				saveTimerRunning = true
-			}
 		case <-ctx.Done():
 			return ctx.Err()
 		}
