@@ -58,14 +58,6 @@ describe('SyncthingController', function() {
             // check for changes when it's time to save the folder.
             expect($scope.currentFolder.ignores).toEqual(['/Backups', '*']);
         });
-
-        it('sets error text when ignore fetch fails', async function () {
-            ignoresSpy.and.returnValue(Promise.reject())
-            $scope.editFolder({ id: 'default', path: '/var/sync', devices: [] });
-            await Promise.resolve();
-            await Promise.resolve();
-            expect($scope.ignores.error).toMatch(/Failed/);
-        });
     });
 
     describe('parseIgnores', function() {

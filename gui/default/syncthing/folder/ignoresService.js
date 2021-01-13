@@ -48,8 +48,9 @@ angular.module('syncthing.folder')
                 self.data.disabled = false;
                 return self.data;
             }).catch(function (err) {
+                self.data.error = err;
                 self.data.text = '';
-                throw err;
+                return Promise.reject(err);
             });
         };
 

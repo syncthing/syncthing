@@ -131,6 +131,14 @@ describe('IgnoresService', function() {
             getIgnoresHandler = $httpBackend.when('GET', /^rest\/db\/ignores/);
         });
 
+        it('sets error and text when ignore fetch fails', function () {
+            $httpBackend.expectGET('rest/db/ignores?folder=default').respond(500);
+            service.refresh('default').catch(() => {});
+            $httpBackend.flush();
+            expect(service.data.text).toEqual('');
+            expect(service.data.error.status).toEqual(500);
+        });
+
         it('fetches the folder', function() {
             $httpBackend.expectGET('rest/db/ignores?folder=default').respond({ ignore: [] });
             service.refresh('default');
