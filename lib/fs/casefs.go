@@ -84,11 +84,23 @@ func (r *caseFilesystemRegistry) get(fs Filesystem) Filesystem {
 
 func (r *caseFilesystemRegistry) cleaner() {
 	for range time.NewTicker(time.Minute).C {
+		// We need to not hold this lock for a long time, as it blocks
+		// creating new filesystems in get(), which is needed to do things
+		// like add new folders. The (*caseFs).dropCache() method can take
+		// an arbitrarily long time to kick in because it in turn waits for
+		// locks held by things performing I/O. So we can't call that from
+		// within the loop.
+
 		r.mut.RLock()
+		toProcess := make([]*caseFilesystem, 0, len(r.fss))
 		for _, caseFs := range r.fss {
-			caseFs.dropCache()
+			toProcess = append(toProcess, caseFs)
 		}
 		r.mut.RUnlock()
+
+		for _, caseFs := range toProcess {
+			caseFs.dropCache()
+		}
 	}
 }
 
