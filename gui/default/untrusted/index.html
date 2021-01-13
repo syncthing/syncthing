@@ -582,7 +582,7 @@
             <button type="button" class="btn btn-sm btn-default" ng-click="setAllFoldersPause(false)" ng-if="isAtleastOneFolderPausedStateSetTo(true)">
               <span class="fas fa-play"></span>&nbsp;<span translate>Resume All</span>
             </button>
-            <button type="button" class="btn btn-sm btn-default" ng-click="rescanAllFolders()">
+            <button type="button" class="btn btn-sm btn-default"   ng-click="rescanAllFolders()" ng-disabled="!isAtleastOneFolderPausedStateSetTo(false)">
               <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan All</span>
             </button>
             <button type="button" class="btn btn-sm btn-default" ng-click="addFolder()">
