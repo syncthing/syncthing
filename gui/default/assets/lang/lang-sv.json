@@ -297,7 +297,7 @@
     "Stores and syncs only encrypted data. Folders on all connected devices need to be set up with the same password or be of type \"{%receiveEncrypted%}\" too.": "Lagrar och synkroniserar endast krypterade data. Mappar på alla anslutna enheter måste ställas in med samma lösenord eller vara av typen \"{{receiveEncrypted}}\".",
     "Support": "Support",
     "Support Bundle": "Support Bundle",
-    "Sync Protocol Listen Addresses": "Lyssnaradresser för synkroniseringsprotokollet",
+    "Sync Protocol Listen Addresses": "Lyssnaradresser för synkroniseringsprotokoll",
     "Syncing": "Synkroniserar",
     "Syncthing has been shut down.": "Syncthing har stängts.",
     "Syncthing includes the following software or portions thereof:": "Syncthing innehåller följande mjukvarupaket eller delar av dem:",

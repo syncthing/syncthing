@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/stats"
 
 	"github.com/thejerf/suture/v4"
 )
@@ -35,8 +36,9 @@ type tlsConn interface {
 // came from (type, priority).
 type internalConn struct {
 	tlsConn
-	connType connType
-	priority int
+	connType      connType
+	priority      int
+	establishedAt time.Time
 }
 
 type connType int
@@ -82,6 +84,15 @@ func (t connType) Transport() string {
 	}
 }
 
+func newInternalConn(tc tlsConn, connType connType, priority int) internalConn {
+	return internalConn{
+		tlsConn:       tc,
+		connType:      connType,
+		priority:      priority,
+		establishedAt: time.Now(),
+	}
+}
+
 func (c internalConn) Close() error {
 	// *tls.Conn.Close() does more than it says on the tin. Specifically, it
 	// sends a TLS alert message, which might block forever if the
@@ -117,6 +128,10 @@ func (c internalConn) Transport() string {
 		return transport + "4"
 	}
 	return transport + "6"
+}
+
+func (c internalConn) EstablishedAt() time.Time {
+	return c.establishedAt
 }
 
 func (c internalConn) String() string {
@@ -179,9 +194,11 @@ type genericListener interface {
 type Model interface {
 	protocol.Model
 	AddConnection(conn protocol.Connection, hello protocol.Hello)
+	NumConnections() int
 	Connection(remoteID protocol.DeviceID) (protocol.Connection, bool)
 	OnHello(protocol.DeviceID, net.Addr, protocol.Hello) error
 	GetHello(protocol.DeviceID) protocol.HelloIntf
+	DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error)
 }
 
 type onAddressesChangedNotifier struct {

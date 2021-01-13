@@ -55,12 +55,14 @@ var (
 )
 
 const (
-	perDeviceWarningIntv    = 15 * time.Minute
-	tlsHandshakeTimeout     = 10 * time.Second
-	minConnectionReplaceAge = 10 * time.Second
-	minConnectionLoopSleep  = 5 * time.Second
-	stdConnectionLoopSleep  = time.Minute
-	worstDialerPriority     = math.MaxInt32
+	perDeviceWarningIntv          = 15 * time.Minute
+	tlsHandshakeTimeout           = 10 * time.Second
+	minConnectionReplaceAge       = 10 * time.Second
+	minConnectionLoopSleep        = 5 * time.Second
+	stdConnectionLoopSleep        = time.Minute
+	worstDialerPriority           = math.MaxInt32
+	recentlySeenCutoff            = 7 * 24 * time.Hour
+	shortLivedConnectionThreshold = 5 * time.Second
 )
 
 // From go/src/crypto/tls/cipher_suites.go
@@ -415,6 +417,24 @@ func (s *service) bestDialerPriority(cfg config.Configuration) int {
 }
 
 func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Configuration, bestDialerPriority int, nextDialAt map[string]time.Time, initial bool) {
+	// Figure out current connection limits up front to see if there's any
+	// point in resolving devices and such at all.
+	allowAdditional := 0 // no limit
+	connectionLimit := cfg.Options.LowestConnectionLimit()
+	if connectionLimit > 0 {
+		current := s.model.NumConnections()
+		allowAdditional = connectionLimit - current
+		if allowAdditional <= 0 {
+			l.Debugf("Skipping dial because we've reached the connection limit, current %d >= limit %d", current, connectionLimit)
+			return
+		}
+	}
+
+	// Get device statistics for the last seen time of each device. This
+	// isn't critical, so ignore the potential error.
+	stats, _ := s.model.DeviceStatistics()
+
+	queue := make(dialQueue, 0, len(cfg.Devices))
 	for _, deviceCfg := range cfg.Devices {
 		// Don't attempt to connect to ourselves...
 		if deviceCfg.DeviceID == s.myID {
@@ -440,8 +460,34 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 		}
 
 		dialTargets := s.resolveDialTargets(ctx, now, cfg, deviceCfg, nextDialAt, initial, priorityCutoff)
-		if conn, ok := s.dialParallel(ctx, deviceCfg.DeviceID, dialTargets); ok {
+		if len(dialTargets) > 0 {
+			queue = append(queue, dialQueueEntry{
+				id:         deviceCfg.DeviceID,
+				lastSeen:   stats[deviceCfg.DeviceID].LastSeen,
+				shortLived: stats[deviceCfg.DeviceID].LastConnectionDurationS < shortLivedConnectionThreshold.Seconds(),
+				targets:    dialTargets,
+			})
+		}
+	}
+
+	// Sort the queue in an order we think will be useful (most recent
+	// first, deprioriting unstable devices, randomizing those we haven't
+	// seen in a long while). If we don't do connection limiting the sorting
+	// doesn't have much effect, but it may result in getting up and running
+	// quicker if only a subset of configured devices are actually reachable
+	// (by prioritizing those that were reachable recently).
+	dialQueue.Sort(queue)
+
+	// Perform dials according to the queue, stopping when we've reached the
+	// allowed additional number of connections (if limited).
+	numConns := 0
+	for _, entry := range queue {
+		if conn, ok := s.dialParallel(ctx, entry.id, entry.targets); ok {
 			s.conns <- conn
+			numConns++
+			if allowAdditional > 0 && numConns >= allowAdditional {
+				break
+			}
 		}
 	}
 }
