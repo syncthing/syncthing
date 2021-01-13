@@ -1198,6 +1198,7 @@ angular.module('syncthing.core')
                 }).error($scope.emitHTTPError);
             },
             show: function () {
+                $scope.logging.paused = false;
                 $scope.logging.refreshFacilities();
                 $scope.logging.timer = $timeout($scope.logging.fetch);
                 var textArea = $('#logViewerText');
@@ -1211,10 +1212,6 @@ angular.module('syncthing.core')
                     $scope.logging.timer = null;
                     $scope.logging.entries = [];
                 });
-            },
-            close: function () {
-                $('#logViewer').modal('hide');
-                $scope.logging.paused = false;
             },
             onFacilityChange: function (facility) {
                 var enabled = $scope.logging.facilities[facility].enabled;
