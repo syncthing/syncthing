@@ -370,44 +370,72 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 		return out, nil
 	}
 
-	r.mut.Lock()
-	defer r.mut.Unlock()
+	r.mut.RLock()
+	defer r.mut.RUnlock()
 
 	node := r.root
-	for _, comp := range strings.Split(name, string(PathSeparator)) {
-		if node.dirNames == nil || node.expires.Before(time.Now()) {
-			// Haven't called DirNames yet, or the node has expired
+	pathComponents := strings.Split(name, string(PathSeparator))
+	lastIndex := len(pathComponents) - 1
 
-			var err error
-			node.dirNames, err = r.fs.DirNames(out)
-			if err != nil {
-				return "", err
-			}
-
-			node.dirNamesLower = make([]string, len(node.dirNames))
-			for i, n := range node.dirNames {
-				node.dirNamesLower[i] = UnicodeLowercase(n)
-			}
-
-			node.expires = time.Now().Add(caseCacheTimeout)
-			node.child = nil
+	var err error
+	for _, comp := range pathComponents[:lastIndex] {
+		node, out, err = r.getChildNodeRLocked(node, out, comp, false)
+		if err != nil {
+			return "", err
 		}
+	}
 
-		// If we don't already have a correct cached child, try to find it.
-		if node.child == nil || node.child.name != comp {
-			// Actually loop dirNames to search for a match.
-			n, err := findCaseInsensitiveMatch(comp, node.dirNames, node.dirNamesLower)
-			if err != nil {
-				return "", err
-			}
-			node.child = &caseNode{name: n}
-		}
-
-		node = node.child
-		out = filepath.Join(out, node.name)
+	_, out, err = r.getChildNodeRLocked(node, out, pathComponents[lastIndex], true)
+	if err != nil {
+		return "", err
 	}
 
 	return out, nil
+}
+
+func (r *defaultRealCaser) getChildNodeRLocked(node *caseNode, path, childName string, leaf bool) (*caseNode, string, error) {
+	var err error
+
+	if node.dirNames == nil || node.expires.Before(time.Now()) {
+		// Haven't called DirNames yet, or the node has expired
+
+		r.mut.RUnlock()
+		r.mut.Lock()
+
+		node.dirNames, err = r.fs.DirNames(path)
+		if err != nil {
+			return nil, "", err
+		}
+
+		node.dirNamesLower = make([]string, len(node.dirNames))
+		for i, n := range node.dirNames {
+			node.dirNamesLower[i] = UnicodeLowercase(n)
+		}
+
+		node.expires = time.Now().Add(caseCacheTimeout)
+		node.child = nil
+
+		r.mut.Unlock()
+		r.mut.RLock()
+	}
+
+	// If we don't already have a correct cached child, try to find it.
+	if node.child == nil || node.child.name != childName {
+		// Actually loop dirNames to search for a match.
+		childName, err = findCaseInsensitiveMatch(childName, node.dirNames, node.dirNamesLower)
+		if err != nil {
+			return nil, "", err
+		}
+		if !leaf {
+			r.mut.RUnlock()
+			r.mut.Lock()
+			node.child = &caseNode{name: childName}
+			r.mut.Unlock()
+			r.mut.RLock()
+		}
+	}
+
+	return node.child, filepath.Join(path, childName), nil
 }
 
 func (r *defaultRealCaser) dropCache() {
