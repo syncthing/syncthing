@@ -1403,30 +1403,29 @@ func (s *service) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 
 		var msg string
 		var status int
-		_, err := s.cfg.Modify(func(cfg *config.Configuration) bool {
+		_, err := s.cfg.Modify(func(cfg *config.Configuration) {
 			if deviceStr == "" {
 				for i := range cfg.Devices {
 					cfg.Devices[i].Paused = paused
 				}
-				return true
+				return
 			}
 
 			device, err := protocol.DeviceIDFromString(deviceStr)
 			if err != nil {
 				msg = err.Error()
 				status = 500
-				return false
+				return
 			}
 
 			_, i, ok := cfg.Device(device)
 			if !ok {
 				msg = "not found"
 				status = http.StatusNotFound
-				return false
+				return
 			}
 
 			cfg.Devices[i].Paused = paused
-			return true
 		})
 
 		if msg != "" {

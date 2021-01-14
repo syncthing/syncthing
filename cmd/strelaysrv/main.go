@@ -186,11 +186,10 @@ func main() {
 	}
 
 	wrapper := config.Wrap("config", config.New(id), id, events.NoopLogger)
-	wrapper.Modify(func(cfg *config.Configuration) bool {
+	wrapper.Modify(func(cfg *config.Configuration) {
 		cfg.Options.NATLeaseM = natLease
 		cfg.Options.NATRenewalM = natRenewal
 		cfg.Options.NATTimeoutS = natTimeout
-		return true
 	})
 	natSvc := nat.NewService(id, wrapper)
 	mapping := mapping{natSvc.NewMapping(nat.TCP, addr.IP, addr.Port)}

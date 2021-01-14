@@ -43,9 +43,8 @@ func (validationError) String() string {
 
 func replace(t testing.TB, w Wrapper, to Configuration) {
 	t.Helper()
-	waiter, err := w.Modify(func(cfg *Configuration) bool {
+	waiter, err := w.Modify(func(cfg *Configuration) {
 		cfg = &to
-		return true
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -93,9 +92,8 @@ func TestReplaceCommit(t *testing.T) {
 
 	w.Subscribe(validationError{})
 
-	_, err := w.Modify(func(cfg *Configuration) bool {
+	_, err := w.Modify(func(cfg *Configuration) {
 		cfg = &Configuration{Version: 3}
-		return true
 	})
 	if err == nil {
 		t.Fatal("Should have a validation error")

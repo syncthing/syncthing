@@ -63,9 +63,8 @@ func TestProgressEmitter(t *testing.T) {
 	c, cfgCancel := createTmpWrapper(config.Configuration{})
 	defer os.Remove(c.ConfigPath())
 	defer cfgCancel()
-	waiter, err := c.Modify(func(cfg *config.Configuration) bool {
+	waiter, err := c.Modify(func(cfg *config.Configuration) {
 		cfg.Options.ProgressUpdateIntervalS = 60 // irrelevant, but must be positive
-		return true
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -118,10 +117,9 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	c, cfgCancel := createTmpWrapper(config.Configuration{})
 	defer os.Remove(c.ConfigPath())
 	defer cfgCancel()
-	waiter, err := c.Modify(func(cfg *config.Configuration) bool {
+	waiter, err := c.Modify(func(cfg *config.Configuration) {
 		cfg.Options.ProgressUpdateIntervalS = 60 // irrelevant, but must be positive
 		cfg.Options.TempIndexMinBlocks = 10
-		return true
 	})
 	if err != nil {
 		t.Fatal(err)

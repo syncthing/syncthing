@@ -48,9 +48,8 @@ func initConfig() (config.Wrapper, context.CancelFunc) {
 	dev2Conf.MaxRecvKbps = rand.Int() % 100000
 	dev2Conf.MaxSendKbps = rand.Int() % 100000
 
-	waiter, _ := wrapper.Modify(func(cfg *config.Configuration) bool {
+	waiter, _ := wrapper.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevices([]config.DeviceConfiguration{dev1Conf, dev2Conf, dev3Conf, dev4Conf})
-		return true
 	})
 	waiter.Wait()
 	return wrapper, cancel
@@ -101,9 +100,8 @@ func TestSetDeviceLimits(t *testing.T) {
 	dev3ReadLimit := rand.Int() % 10000
 	dev3Conf.MaxRecvKbps = dev3ReadLimit
 
-	waiter, _ := wrapper.Modify(func(cfg *config.Configuration) bool {
+	waiter, _ := wrapper.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevices([]config.DeviceConfiguration{dev1Conf, dev2Conf, dev3Conf, dev4Conf})
-		return true
 	})
 	waiter.Wait()
 
@@ -155,9 +153,8 @@ func TestAddDevice(t *testing.T) {
 	addDevConf.MaxRecvKbps = 120
 	addDevConf.MaxSendKbps = 240
 
-	waiter, _ := wrapper.Modify(func(cfg *config.Configuration) bool {
+	waiter, _ := wrapper.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevice(addDevConf)
-		return true
 	})
 	waiter.Wait()
 
@@ -190,9 +187,8 @@ func TestAddAndRemove(t *testing.T) {
 	addDevConf.MaxRecvKbps = 120
 	addDevConf.MaxSendKbps = 240
 
-	waiter, _ := wrapper.Modify(func(cfg *config.Configuration) bool {
+	waiter, _ := wrapper.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevice(addDevConf)
-		return true
 	})
 	waiter.Wait()
 	waiter, _ = wrapper.RemoveDevice(device3)

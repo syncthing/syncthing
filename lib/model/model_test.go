@@ -367,9 +367,8 @@ func TestDeviceRename(t *testing.T) {
 
 	m.Closed(conn, protocol.ErrTimeout)
 
-	waiter, err := cfg.Modify(func(cfg *config.Configuration) bool {
+	waiter, err := cfg.Modify(func(cfg *config.Configuration) {
 		cfg.Options.OverwriteRemoteDevNames = true
-		return true
 	})
 	must(t, err)
 	waiter.Wait()
@@ -3189,11 +3188,10 @@ func TestParentOfUnignored(t *testing.T) {
 func TestFolderRestartZombies(t *testing.T) {
 	wrapper, cancel := createTmpWrapper(defaultCfg.Copy())
 	defer cancel()
-	waiter, err := wrapper.Modify(func(cfg *config.Configuration) bool {
+	waiter, err := wrapper.Modify(func(cfg *config.Configuration) {
 		cfg.Options.RawMaxFolderConcurrency = -1
 		_, i, _ := cfg.Folder("default")
 		cfg.Folders[i].FilesystemType = fs.FilesystemTypeFake
-		return true
 	})
 	must(t, err)
 	waiter.Wait()
@@ -3239,10 +3237,9 @@ func TestFolderRestartZombies(t *testing.T) {
 func TestRequestLimit(t *testing.T) {
 	wrapper, cancel := createTmpWrapper(defaultCfg.Copy())
 	defer cancel()
-	waiter, err := wrapper.Modify(func(cfg *config.Configuration) bool {
+	waiter, err := wrapper.Modify(func(cfg *config.Configuration) {
 		_, i, _ := cfg.Device(device1)
 		cfg.Devices[i].MaxRequestKiB = 1
-		return true
 	})
 	must(t, err)
 	waiter.Wait()
@@ -4001,12 +3998,11 @@ func TestIssue6961(t *testing.T) {
 	wcfg, fcfg, wcfgCancel := tmpDefaultWrapper()
 	defer wcfgCancel()
 	tfs := fcfg.Filesystem()
-	waiter, err := wcfg.Modify(func(cfg *config.Configuration) bool {
+	waiter, err := wcfg.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
 		fcfg.Type = config.FolderTypeReceiveOnly
 		fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 		cfg.SetFolder(fcfg)
-		return true
 	})
 	must(t, err)
 	waiter.Wait()

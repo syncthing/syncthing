@@ -1213,7 +1213,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	// Needs to happen outside of the fmut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
-		w, _ := m.cfg.Modify(func(cfg *config.Configuration) bool {
+		w, _ := m.cfg.Modify(func(cfg *config.Configuration) {
 			changedFcfg := make(map[string]config.FolderConfiguration)
 			haveFcfg := cfg.FolderMap()
 			for _, folder := range cm.Folders {
@@ -1223,7 +1223,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				}
 			}
 			if len(changedFcfg) == 0 {
-				return false
+				return
 			}
 			for i := range cfg.Folders {
 				if fcfg, ok := changedFcfg[cfg.Folders[i].ID]; ok {
@@ -1234,7 +1234,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			for _, fcfg := range changedFcfg {
 				cfg.Folders = append(cfg.Folders, fcfg)
 			}
-			return true
 		})
 		// Need to wait for the waiter, as this calls CommitConfiguration,
 		// which sets up the folder and as we return from this call,
@@ -1264,11 +1263,11 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	if deviceCfg.Introducer {
-		m.cfg.Modify(func(cfg *config.Configuration) bool {
+		m.cfg.Modify(func(cfg *config.Configuration) {
 			folders, devices, foldersDevices, introduced := m.handleIntroductions(deviceCfg, cm, cfg.FolderMap(), cfg.DeviceMap())
 			folders, devices, deintroduced := m.handleDeintroductions(deviceCfg, foldersDevices, folders, devices)
 			if !introduced && !deintroduced {
-				return false
+				return
 			}
 			cfg.Folders = make([]config.FolderConfiguration, 0, len(folders))
 			for _, fcfg := range folders {
@@ -1278,7 +1277,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			for _, dcfg := range devices {
 				cfg.Devices = append(cfg.Devices, dcfg)
 			}
-			return true
 		})
 	}
 
@@ -2178,17 +2176,15 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	conn.ClusterConfig(cm)
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
-		m.cfg.Modify(func(cfg *config.Configuration) bool {
+		m.cfg.Modify(func(cfg *config.Configuration) {
 			for i := range cfg.Devices {
 				if cfg.Devices[i].DeviceID == deviceID {
 					if cfg.Devices[i].Name == "" || cfg.Options.OverwriteRemoteDevNames {
 						cfg.Devices[i].Name = hello.DeviceName
-						return true
 					}
-					return false
+					return
 				}
 			}
-			return false
 		})
 	}
 

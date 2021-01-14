@@ -618,22 +618,16 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// environment variable is set.
 
 	if build.IsCandidate && !upgrade.DisabledByCompilation && !runtimeOptions.NoUpgrade {
-		changed := false
-		cfgWrapper.Modify(func(cfg *config.Configuration) bool {
+		cfgWrapper.Modify(func(cfg *config.Configuration) {
 			l.Infoln("Automatic upgrade is always enabled for candidate releases.")
 			if cfg.Options.AutoUpgradeIntervalH == 0 || cfg.Options.AutoUpgradeIntervalH > 24 {
 				cfg.Options.AutoUpgradeIntervalH = 12
 				// Set the option into the config as well, as the auto upgrade
 				// loop expects to read a valid interval from there.
-				changed = true
 			}
 			// We don't tweak the user's choice of upgrading to pre-releases or
 			// not, as otherwise they cannot step off the candidate channel.
-			return changed
 		})
-		if changed {
-			cfgWrapper.Save()
-		}
 	}
 
 	dbFile := locations.Get(locations.Database)
@@ -995,14 +989,13 @@ func showPaths(options RuntimeOptions) {
 }
 
 func setPauseState(cfgWrapper config.Wrapper, paused bool) {
-	_, err := cfgWrapper.Modify(func(cfg *config.Configuration) bool {
+	_, err := cfgWrapper.Modify(func(cfg *config.Configuration) {
 		for i := range cfg.Devices {
 			cfg.Devices[i].Paused = paused
 		}
 		for i := range cfg.Folders {
 			cfg.Folders[i].Paused = paused
 		}
-		return true
 	})
 	if err != nil {
 		l.Warnln("Cannot adjust paused state:", err)

@@ -62,9 +62,8 @@ func (c *configMuxBuilder) registerFolders(path string) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) bool {
+		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 			cfg.SetFolders(folders)
-			return true
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -89,9 +88,8 @@ func (c *configMuxBuilder) registerDevices(path string) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) bool {
+		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 			cfg.SetDevices(devices)
-			return true
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -106,9 +104,8 @@ func (c *configMuxBuilder) registerDevices(path string) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) bool {
+		waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 			cfg.SetDevice(device)
-			return true
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -245,15 +242,14 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	}
 	var errMsg string
 	var status int
-	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) bool {
+	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		if to.GUI.Password, err = checkGUIPassword(cfg.GUI.Password, to.GUI.Password); err != nil {
 			l.Warnln("bcrypting password:", err)
 			errMsg = err.Error()
 			status = http.StatusInternalServerError
-			return false
+			return
 		}
 		*cfg = to
-		return true
 	})
 	if errMsg != "" {
 		http.Error(w, errMsg, status)
@@ -269,9 +265,8 @@ func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) bool {
+	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		cfg.SetFolder(folder)
-		return true
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -285,9 +280,8 @@ func (c *configMuxBuilder) adjustDevice(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) bool {
+	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevice(device)
-		return true
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -301,9 +295,8 @@ func (c *configMuxBuilder) adjustOptions(w http.ResponseWriter, r *http.Request,
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) bool {
+	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		cfg.Options = opts
-		return true
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -321,15 +314,14 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 	}
 	var errMsg string
 	var status int
-	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) bool {
+	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		if gui.Password, err = checkGUIPassword(oldPassword, gui.Password); err != nil {
 			l.Warnln("bcrypting password:", err)
 			errMsg = err.Error()
 			status = http.StatusInternalServerError
-			return false
+			return
 		}
 		cfg.GUI = gui
-		return true
 	})
 	if errMsg != "" {
 		http.Error(w, errMsg, status)
@@ -345,9 +337,8 @@ func (c *configMuxBuilder) adjustLDAP(w http.ResponseWriter, r *http.Request, ld
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) bool {
+	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		cfg.LDAP = ldap
-		return true
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

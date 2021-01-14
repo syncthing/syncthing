@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"reflect"
 	"sync/atomic"
 	"time"
 
@@ -65,18 +66,15 @@ type noopWaiter struct{}
 func (noopWaiter) Wait() {}
 
 // ModifyFunction gets a pointer to a copy of the currently active configuration
-// for modification. When it returns true, the modified config will be committed,
-// otherwise the modification will be aborted.
-type ModifyFunction func(*Configuration) bool
+// for modification.
+type ModifyFunction func(*Configuration)
 
 // Wrapper handles a Configuration, i.e. it provides methods to access, change
 // and save the config, and notifies registered subscribers (Committer) of
 // changes.
 //
 // Modify allows changing the currently active configuration through the given
-// ModifyFunction. If it returns true, the changed config takes effect,
-// otherwise it will be discarded (and modify returns without an error and a
-// noop-waiter). It can be called concurrently: All calls will be queued and
+// ModifyFunction. It can be called concurrently: All calls will be queued and
 // called in order.
 type Wrapper interface {
 	ConfigPath() string
@@ -245,10 +243,18 @@ func (w *wrapper) Serve(ctx context.Context) error {
 		var waiter Waiter = noopWaiter{}
 		var err error
 
+		// Let the caller modify the config.
+		to := w.RawCopy()
+		e.modifyFunc(&to)
+
+		// Check if the config was actually changed at all.
 		w.mut.Lock()
-		to := w.cfg.Copy()
-		if e.modifyFunc(&to) {
+		if !reflect.DeepEqual(w.cfg, to) {
 			waiter, err = w.replaceLocked(to)
+			if !saveTimerRunning {
+				saveTimer.Reset(minSaveInterval)
+				saveTimerRunning = true
+			}
 		}
 		w.mut.Unlock()
 
@@ -257,11 +263,8 @@ func (w *wrapper) Serve(ctx context.Context) error {
 			err: err,
 		}
 
-		if !saveTimerRunning {
-			saveTimer.Reset(minSaveInterval)
-			saveTimerRunning = true
-		}
-
+		// Wait for all subscriber to handle the config change before continuing
+		// to process the next change.
 		done := make(chan struct{})
 		go func() {
 			waiter.Wait()
@@ -343,13 +346,10 @@ func (w *wrapper) DeviceList() []DeviceConfiguration {
 
 // RemoveDevice removes the device from the configuration
 func (w *wrapper) RemoveDevice(id protocol.DeviceID) (Waiter, error) {
-	return w.modifyQueued(func(cfg *Configuration) bool {
-		_, i, ok := cfg.Device(id)
-		if !ok {
-			return false
+	return w.modifyQueued(func(cfg *Configuration) {
+		if _, i, ok := cfg.Device(id); ok {
+			cfg.Devices = append(cfg.Devices[:i], cfg.Devices[i+1:]...)
 		}
-		cfg.Devices = append(cfg.Devices[:i], cfg.Devices[i+1:]...)
-		return true
 	})
 }
 
@@ -373,13 +373,10 @@ func (w *wrapper) FolderList() []FolderConfiguration {
 
 // RemoveFolder removes the folder from the configuration
 func (w *wrapper) RemoveFolder(id string) (Waiter, error) {
-	return w.modifyQueued(func(cfg *Configuration) bool {
-		_, i, ok := cfg.Folder(id)
-		if !ok {
-			return false
+	return w.modifyQueued(func(cfg *Configuration) {
+		if _, i, ok := cfg.Folder(id); ok {
+			cfg.Folders = append(cfg.Folders[:i], cfg.Folders[i+1:]...)
 		}
-		cfg.Folders = append(cfg.Folders[:i], cfg.Folders[i+1:]...)
-		return true
 	})
 }
 
