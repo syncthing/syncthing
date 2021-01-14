@@ -13,12 +13,14 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 const (
 	// How long to consider cached dirnames valid
-	caseCacheTimeout = time.Second
+	caseCacheTimeout    = time.Second
+	caseCacheMaxEntries = 4 << 10
 )
 
 type ErrCaseConflict struct {
@@ -351,111 +353,101 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 }
 
 type defaultRealCaser struct {
-	fs   Filesystem
-	root *caseNode
-	mut  sync.RWMutex
+	fs         Filesystem
+	root       *caseNode
+	mut        sync.RWMutex
+	numEntries int32
 }
 
 func newDefaultRealCaser(fs Filesystem) *defaultRealCaser {
 	caser := &defaultRealCaser{
 		fs:   fs,
-		root: &caseNode{name: "."},
+		root: &caseNode{},
 	}
 	return caser
 }
 
 func (r *defaultRealCaser) realCase(name string) (string, error) {
-	out := "."
-	if name == out {
-		return out, nil
+	realName := "."
+	if name == realName {
+		return realName, nil
 	}
 
 	r.mut.RLock()
-	defer r.mut.RUnlock()
+	defer func() {
+		r.mut.RUnlock()
+		if atomic.LoadInt32(&r.numEntries) > caseCacheMaxEntries {
+			r.dropCache()
+		}
+	}()
 
 	node := r.root
 	for _, comp := range strings.Split(name, string(PathSeparator)) {
-		// Shallow copy, so that we can replace members without write-lock
-		// and thus need to acquire it once only.
-		newNode := *node
-		changed := false
+		expired := false
+		if node != nil && node.expires.Before(time.Now()) {
+			atomic.AddInt32(&r.numEntries, int32(-len(node.children)))
+			expired = true
+		}
 
-		if node.dirNames == nil || node.expires.Before(time.Now()) {
+		if expired || node.children == nil {
 			// Haven't called DirNames yet, or the node has expired
 
-			var err error
-			newNode.dirNames, err = r.fs.DirNames(out)
+			dirNames, err := r.fs.DirNames(realName)
 			if err != nil {
 				return "", err
 			}
 
-			newNode.dirNamesLower = make([]string, len(newNode.dirNames))
-			for i, n := range newNode.dirNames {
-				newNode.dirNamesLower[i] = UnicodeLowercase(n)
+			r.mut.RUnlock()
+			r.mut.Lock()
+			num := len(dirNames)
+			node.children = make(map[string]*caseNode, num)
+			node.lowerToReal = make(map[string]string, num)
+			lastLower := ""
+			for _, n := range dirNames {
+				node.children[n] = &caseNode{}
+				lower := UnicodeLowercase(n)
+				if lower != lastLower {
+					node.lowerToReal[lower] = n
+					lastLower = n
+				}
 			}
+			node.expires = time.Now().Add(caseCacheTimeout)
+			r.mut.Unlock()
+			r.mut.RLock()
 
-			newNode.expires = time.Now().Add(caseCacheTimeout)
-
-			changed = true
+			atomic.AddInt32(&r.numEntries, int32(num))
 		}
 
 		// If we don't already have a correct cached child, try to find it.
-		if newNode.child == nil || newNode.child.name != comp {
-			// Actually loop dirNames to search for a match.
-			n, err := findCaseInsensitiveMatch(comp, newNode.dirNames, newNode.dirNamesLower)
-			if err != nil {
-				return "", err
+		child, ok := node.children[comp]
+		if !ok {
+			comp, ok = node.lowerToReal[UnicodeLowercase(comp)]
+			if !ok {
+				return "", ErrNotExist
 			}
-			newNode.child = &caseNode{name: n}
-			changed = true
+			child = node.children[comp]
 		}
 
-		if changed {
-			r.mut.RUnlock()
-			r.mut.Lock()
-			*node = newNode
-			r.mut.Unlock()
-			r.mut.RLock()
-		}
-
-		node = node.child
-		out = filepath.Join(out, node.name)
+		node = child
+		realName = filepath.Join(realName, comp)
 	}
 
-	return out, nil
+	return realName, nil
 }
 
 func (r *defaultRealCaser) dropCache() {
 	r.mut.Lock()
-	r.root = &caseNode{name: "."}
+	r.root = &caseNode{}
+	atomic.StoreInt32(&r.numEntries, 0)
 	r.mut.Unlock()
 }
 
-// Both name and the key to children are "Real", case resolved names of the path
+// The keys to children are "real", case resolved names of the path
 // component this node represents (i.e. containing no path separator).
-// The key to results is also a path component, but as given to RealCase, not
-// case resolved.
+// lowerToReal is a map of lowercase path components (as in UnicodeLowercase)
+// to their corresponding "real", case resolved names.
 type caseNode struct {
-	name          string
-	expires       time.Time
-	dirNames      []string
-	dirNamesLower []string
-	child         *caseNode
-}
-
-func findCaseInsensitiveMatch(name string, names, namesLower []string) (string, error) {
-	lower := UnicodeLowercase(name)
-	candidate := ""
-	for i, n := range names {
-		if n == name {
-			return n, nil
-		}
-		if candidate == "" && namesLower[i] == lower {
-			candidate = n
-		}
-	}
-	if candidate == "" {
-		return "", ErrNotExist
-	}
-	return candidate, nil
+	expires     time.Time
+	lowerToReal map[string]string
+	children    map[string]*caseNode
 }
