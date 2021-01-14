@@ -981,6 +981,7 @@ func (f *folder) setError(err error) {
 		}
 	} else {
 		l.Infoln("Cleared error on folder", f.Description())
+		f.SchedulePull()
 	}
 
 	if f.FSWatcherEnabled {
