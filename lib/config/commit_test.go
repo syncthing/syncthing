@@ -44,7 +44,7 @@ func (validationError) String() string {
 func replace(t testing.TB, w Wrapper, to Configuration) {
 	t.Helper()
 	waiter, err := w.Modify(func(cfg *Configuration) {
-		cfg = &to
+		*cfg = to
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -53,8 +53,6 @@ func replace(t testing.TB, w Wrapper, to Configuration) {
 }
 
 func TestReplaceCommit(t *testing.T) {
-	t.Skip("broken, fails randomly, #3834")
-
 	w := wrap("/dev/null", Configuration{Version: 0}, device1)
 	defer w.stop()
 	if w.RawCopy().Version != 0 {
@@ -93,7 +91,7 @@ func TestReplaceCommit(t *testing.T) {
 	w.Subscribe(validationError{})
 
 	_, err := w.Modify(func(cfg *Configuration) {
-		cfg = &Configuration{Version: 3}
+		*cfg = Configuration{Version: 3}
 	})
 	if err == nil {
 		t.Fatal("Should have a validation error")
