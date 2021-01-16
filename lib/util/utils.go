@@ -119,16 +119,14 @@ func CopyMatchingTag(from interface{}, to interface{}, tag string, shouldCopy fu
 	}
 }
 
-// UniqueTrimmedStrings returns a list on unique strings, trimming at the same time.
+// UniqueTrimmedStrings returns a list of all unique strings in ss,
+// in the order in which they first appear in ss, after trimming away
+// leading and trailing spaces.
 func UniqueTrimmedStrings(ss []string) []string {
-	// Trim all first
-	for i, v := range ss {
-		ss[i] = strings.Trim(v, " ")
-	}
-
 	var m = make(map[string]struct{}, len(ss))
 	var us = make([]string, 0, len(ss))
 	for _, v := range ss {
+		v = strings.Trim(v, " ")
 		if _, ok := m[v]; ok {
 			continue
 		}
