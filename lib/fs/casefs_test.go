@@ -163,7 +163,7 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 	b.Run("rawfs", func(b *testing.B) {
 		fakefs := unwrapFilesystem(fsys).(*fakefs)
 		fakefs.resetCounters()
-		benchmarkWalkFakeFS(b, fsys, paths)
+		benchmarkWalkFakeFS(b, fsys, paths, 0, "")
 		fakefs.reportMetricsPerOp(b)
 		fakefs.reportMetricsPer(b, entries, "entry")
 		b.ReportAllocs()
@@ -176,14 +176,37 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 		}
 		fakefs := unwrapFilesystem(fsys).(*fakefs)
 		fakefs.resetCounters()
-		benchmarkWalkFakeFS(b, casefs, paths)
+		benchmarkWalkFakeFS(b, casefs, paths, 0, "")
+		fakefs.reportMetricsPerOp(b)
+		fakefs.reportMetricsPer(b, entries, "entry")
+		b.ReportAllocs()
+	})
+	var otherOpPath string
+	sep := string(PathSeparator)
+	longest := 0
+	for _, p := range paths {
+		if length := len(strings.Split(p, sep)); length > longest {
+			otherOpPath = p
+			longest = length
+		}
+	}
+	otherOpEvery := 1000
+	b.Run(fmt.Sprintf("casefs-otherOpEvery%v", otherOpEvery), func(b *testing.B) {
+		// Construct the casefs manually or it will get cached and the benchmark is invalid.
+		casefs := &caseFilesystem{
+			Filesystem: fsys,
+			realCaser:  newDefaultRealCaser(fsys),
+		}
+		fakefs := unwrapFilesystem(fsys).(*fakefs)
+		fakefs.resetCounters()
+		benchmarkWalkFakeFS(b, casefs, paths, otherOpEvery, otherOpPath)
 		fakefs.reportMetricsPerOp(b)
 		fakefs.reportMetricsPer(b, entries, "entry")
 		b.ReportAllocs()
 	})
 }
 
-func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem, paths []string) {
+func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem, paths []string, otherOpEvery int, otherOpPath string) {
 	// Simulate a scanner pass over the filesystem. First walk it to
 	// discover all names, then stat each name individually to check if it's
 	// been deleted or not (pretending that they all existed in the
@@ -194,7 +217,7 @@ func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem, paths []string) {
 	t0 := time.Now()
 
 	for i := 0; i < b.N; i++ {
-		if err := doubleWalkFS(fsys, paths); err != nil {
+		if err := doubleWalkFSWithOtherOps(fsys, paths, otherOpEvery, otherOpPath); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -250,15 +273,39 @@ func TestStressCaseFS(t *testing.T) {
 }
 
 func doubleWalkFS(fsys Filesystem, paths []string) error {
+	return doubleWalkFSWithOtherOps(fsys, paths, 0, "")
+}
+
+func doubleWalkFSWithOtherOps(fsys Filesystem, paths []string, otherOpEvery int, otherOpPath string) error {
+	i := 0
 	if err := fsys.Walk("/", func(path string, info FileInfo, err error) error {
+		i++
+		if otherOpEvery != 0 && i%otherOpEvery == 0 {
+			// l.Infoln("AAA", otherOpPath)
+			if _, err := fsys.Lstat(otherOpPath); err != nil {
+				return err
+			}
+		}
+		// l.Infoln("CCC", path)
 		return err
 	}); err != nil {
 		return err
 	}
 
 	for _, p := range paths {
-		if _, err := fsys.Lstat(p); err != nil {
-			return err
+		for p != "." {
+			i++
+			if otherOpEvery != 0 && i%otherOpEvery == 0 {
+				if _, err := fsys.Lstat(otherOpPath); err != nil {
+					// l.Infoln("AAA", otherOpPath)
+					return err
+				}
+			}
+			// l.Infoln("CCC", p)
+			if _, err := fsys.Lstat(p); err != nil {
+				return err
+			}
+			p = filepath.Dir(p)
 		}
 	}
 	return nil
