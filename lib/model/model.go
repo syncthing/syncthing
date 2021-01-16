@@ -83,7 +83,8 @@ type Model interface {
 	Override(folder string)
 	Revert(folder string)
 	BringToFront(folder, file string)
-	GetIgnores(folder string) ([]string, []string, error)
+	LoadIgnores(folder string) ([]string, []string, error)
+	CurrentIgnores(folder string) ([]string, []string, error)
 	SetIgnores(folder string, content []string) error
 
 	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
@@ -101,7 +102,7 @@ type Model interface {
 
 	Completion(device protocol.DeviceID, folder string) FolderCompletion
 	ConnectionStats() map[string]interface{}
-	DeviceStatistics() (map[string]stats.DeviceStatistics, error)
+	DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error)
 	FolderStatistics() (map[string]stats.FolderStatistics, error)
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 
@@ -135,6 +136,7 @@ type model struct {
 	// such as scans and pulls.
 	folderIOLimiter *byteSemaphore
 	fatalChan       chan error
+	started         chan struct{}
 
 	// fields protected by fmut
 	fmut                           sync.RWMutex
@@ -161,10 +163,9 @@ type model struct {
 
 	// for testing only
 	foldersRunning int32
-	started        chan struct{}
 }
 
-type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, fs.Filesystem, events.Logger, *byteSemaphore) service
+type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *byteSemaphore) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory)
@@ -193,6 +194,7 @@ var (
 	errEncryptionReceivedToken         = errors.New("resetting connection to send info on new encrypted folder (new cluster config)")
 	errMissingRemoteInClusterConfig    = errors.New("remote device missing in cluster config")
 	errMissingLocalInClusterConfig     = errors.New("local device missing in cluster config")
+	errConnLimitReached                = errors.New("connection limit reached")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -219,6 +221,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		globalRequestLimiter: newByteSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
 		folderIOLimiter:      newByteSemaphore(cfg.Options().MaxFolderConcurrency()),
 		fatalChan:            make(chan error),
+		started:              make(chan struct{}),
 
 		// fields protected by fmut
 		fmut:                           sync.NewRWMutex(),
@@ -241,12 +244,9 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remotePausedFolders: make(map[protocol.DeviceID]map[string]struct{}),
 		indexSenders:        make(map[protocol.DeviceID]*indexSenderRegistry),
-
-		// for testing only
-		started: make(chan struct{}),
 	}
 	for devID := range cfg.Devices() {
-		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID.String())
+		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
 	}
 	m.Add(m.progressEmitter)
 	m.Add(svcutil.AsService(m.serve, m.String()))
@@ -257,10 +257,10 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 func (m *model) serve(ctx context.Context) error {
 	defer m.closeAllConnectionsAndWait()
 
-	m.cfg.Subscribe(m)
+	cfg := m.cfg.Subscribe(m)
 	defer m.cfg.Unsubscribe(m)
 
-	if err := m.initFolders(); err != nil {
+	if err := m.initFolders(cfg); err != nil {
 		close(m.started)
 		return svcutil.AsFatalErr(err, svcutil.ExitError)
 	}
@@ -275,17 +275,14 @@ func (m *model) serve(ctx context.Context) error {
 	}
 }
 
-func (m *model) initFolders() error {
-	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
-	existingDevices := m.cfg.Devices()
-	existingFolders := m.cfg.Folders()
-	clusterConfigDevices := make(deviceIDSet, len(existingDevices))
-	for _, folderCfg := range existingFolders {
+func (m *model) initFolders(cfg config.Configuration) error {
+	clusterConfigDevices := make(deviceIDSet, len(cfg.Devices))
+	for _, folderCfg := range cfg.Folders {
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
 		}
-		err := m.newFolder(folderCfg, cacheIgnoredFiles)
+		err := m.newFolder(folderCfg, cfg.Options.CacheIgnoredFiles)
 		if err != nil {
 			return err
 		}
@@ -293,7 +290,7 @@ func (m *model) initFolders() error {
 	}
 
 	ignoredDevices := observedDeviceSet(m.cfg.IgnoredDevices())
-	m.cleanPending(existingDevices, existingFolders, ignoredDevices, nil)
+	m.cleanPending(cfg.DeviceMap(), cfg.FolderMap(), ignoredDevices, nil)
 
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
 	return nil
@@ -384,8 +381,6 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		}
 	}
 
-	ffs := fset.MtimeFS()
-
 	if cfg.Type == config.FolderTypeReceiveEncrypted {
 		if encryptionToken, err := readEncryptionToken(cfg); err == nil {
 			m.folderEncryptionPasswordTokens[folder] = encryptionToken
@@ -395,6 +390,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	}
 
 	// These are our metadata files, and they should always be hidden.
+	ffs := cfg.Filesystem()
 	_ = ffs.Hide(config.DefaultMarkerName)
 	_ = ffs.Hide(".stversions")
 	_ = ffs.Hide(".stignore")
@@ -409,7 +405,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	}
 	m.folderVersioners[folder] = ver
 
-	p := folderFactory(m, fset, ignores, cfg, ver, ffs, m.evLogger, m.folderIOLimiter)
+	p := folderFactory(m, fset, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
 
 	m.folderRunners[folder] = p
 
@@ -648,7 +644,7 @@ func (m *model) UsageReportingStats(report *contract.Report, version int, previe
 		// Ignore stats
 		var seenPrefix [3]bool
 		for folder := range m.cfg.Folders() {
-			lines, _, err := m.GetIgnores(folder)
+			lines, _, err := m.CurrentIgnores(folder)
 			if err != nil {
 				continue
 			}
@@ -728,6 +724,13 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// NumConnections returns the current number of active connected devices.
+func (m *model) NumConnections() int {
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
+	return len(m.conn)
+}
+
 // ConnectionStats returns a map with connection statistics for each device.
 func (m *model) ConnectionStats() map[string]interface{} {
 	m.pmut.RLock()
@@ -774,16 +777,16 @@ func (m *model) ConnectionStats() map[string]interface{} {
 }
 
 // DeviceStatistics returns statistics about each device
-func (m *model) DeviceStatistics() (map[string]stats.DeviceStatistics, error) {
+func (m *model) DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
-	res := make(map[string]stats.DeviceStatistics, len(m.deviceStatRefs))
+	res := make(map[protocol.DeviceID]stats.DeviceStatistics, len(m.deviceStatRefs))
 	for id, sr := range m.deviceStatRefs {
 		stats, err := sr.GetStatistics()
 		if err != nil {
 			return nil, err
 		}
-		res[id.String()] = stats
+		res[id] = stats
 	}
 	return res, nil
 }
@@ -1176,7 +1179,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		panic("bug: ClusterConfig called on closed or nonexistent connection")
 	}
 
-	changed := false
 	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
 		l.Debugln("Device disappeared from config while processing cluster-config")
@@ -1211,21 +1213,33 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	// Needs to happen outside of the fmut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
-		changedFolders := make([]config.FolderConfiguration, 0, len(cm.Folders))
-		for _, folder := range cm.Folders {
-			if fcfg, fchanged := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID]); fchanged {
-				changedFolders = append(changedFolders, fcfg)
+		w, _ := m.cfg.Modify(func(cfg *config.Configuration) {
+			changedFcfg := make(map[string]config.FolderConfiguration)
+			haveFcfg := cfg.FolderMap()
+			for _, folder := range cm.Folders {
+				from, ok := haveFcfg[folder.ID]
+				if to, changed := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID], from, ok, cfg.Defaults.Folder.Path); changed {
+					changedFcfg[folder.ID] = to
+				}
 			}
-		}
-		if len(changedFolders) > 0 {
-			// Need to wait for the waiter, as this calls CommitConfiguration,
-			// which sets up the folder and as we return from this call,
-			// ClusterConfig starts poking at m.folderFiles and other things
-			// that might not exist until the config is committed.
-			w, _ := m.cfg.SetFolders(changedFolders)
-			w.Wait()
-			changed = true
-		}
+			if len(changedFcfg) == 0 {
+				return
+			}
+			for i := range cfg.Folders {
+				if fcfg, ok := changedFcfg[cfg.Folders[i].ID]; ok {
+					cfg.Folders[i] = fcfg
+					delete(changedFcfg, cfg.Folders[i].ID)
+				}
+			}
+			for _, fcfg := range changedFcfg {
+				cfg.Folders = append(cfg.Folders, fcfg)
+			}
+		})
+		// Need to wait for the waiter, as this calls CommitConfiguration,
+		// which sets up the folder and as we return from this call,
+		// ClusterConfig starts poking at m.folderFiles and other things
+		// that might not exist until the config is committed.
+		w.Wait()
 	}
 
 	tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDeviceInfos, indexSenderRegistry)
@@ -1249,11 +1263,12 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	if deviceCfg.Introducer {
-		folders, devices, foldersDevices, introduced := m.handleIntroductions(deviceCfg, cm)
-		folders, devices, deintroduced := m.handleDeintroductions(deviceCfg, foldersDevices, folders, devices)
-		if introduced || deintroduced {
-			changed = true
-			cfg := m.cfg.RawCopy()
+		m.cfg.Modify(func(cfg *config.Configuration) {
+			folders, devices, foldersDevices, introduced := m.handleIntroductions(deviceCfg, cm, cfg.FolderMap(), cfg.DeviceMap())
+			folders, devices, deintroduced := m.handleDeintroductions(deviceCfg, foldersDevices, folders, devices)
+			if !introduced && !deintroduced {
+				return
+			}
 			cfg.Folders = make([]config.FolderConfiguration, 0, len(folders))
 			for _, fcfg := range folders {
 				cfg.Folders = append(cfg.Folders, fcfg)
@@ -1262,14 +1277,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			for _, dcfg := range devices {
 				cfg.Devices = append(cfg.Devices, dcfg)
 			}
-			m.cfg.Replace(cfg)
-		}
-	}
-
-	if changed {
-		if err := m.cfg.Save(); err != nil {
-			l.Warnln("Failed to save config", err)
-		}
+		})
 	}
 
 	return nil
@@ -1484,10 +1492,8 @@ func (m *model) resendClusterConfig(ids []protocol.DeviceID) {
 }
 
 // handleIntroductions handles adding devices/folders that are shared by an introducer device
-func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, folderDeviceSet, bool) {
+func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, folderDeviceSet, bool) {
 	changed := false
-	folders := m.cfg.Folders()
-	devices := m.cfg.Devices()
 
 	foldersDevices := make(folderDeviceSet)
 
@@ -1513,7 +1519,7 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 
 			foldersDevices.set(device.ID, folder.ID)
 
-			if _, ok := m.cfg.Device(device.ID); !ok {
+			if _, ok := devices[device.ID]; !ok {
 				// The device is currently unknown. Add it to the config.
 				devices[device.ID] = m.introduceDevice(device, introducerCfg)
 			} else if fcfg.SharedWith(device.ID) {
@@ -1594,9 +1600,8 @@ func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
-func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceInfos *indexSenderStartInfo) (config.FolderConfiguration, bool) {
-	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
-		defaultPath := m.cfg.DefaultFolder().Path
+func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceInfos *indexSenderStartInfo, cfg config.FolderConfiguration, haveCfg bool, defaultPath string) (config.FolderConfiguration, bool) {
+	if !haveCfg {
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
 		pathAlternatives := []string{
 			fs.SanitizePath(folder.Label),
@@ -1693,6 +1698,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 		m.pmut.Unlock()
 		return
 	}
+
 	delete(m.conn, device)
 	delete(m.connRequestLimiters, device)
 	delete(m.helloMessages, device)
@@ -1704,6 +1710,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	m.pmut.Unlock()
 
 	m.progressEmitter.temporaryIndexUnsubscribe(conn)
+	m.deviceDidClose(device, time.Since(conn.EstablishedAt()))
 
 	l.Infof("Connection to %s at %s closed: %v", device, conn, err)
 	m.evLogger.Log(events.DeviceDisconnected, map[string]string{
@@ -1789,13 +1796,6 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 		return nil, protocol.ErrInvalid
 	}
 
-	folderFs := folderCfg.Filesystem()
-
-	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
-		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
-		return nil, protocol.ErrNoSuchFile
-	}
-
 	// Restrict parallel requests by connection/device
 
 	m.pmut.RLock()
@@ -1812,6 +1812,16 @@ func (m *model) Request(deviceID protocol.DeviceID, folder, name string, blockNo
 			res.Close()
 		}
 	}()
+
+	// Grab the FS after limiting, as it causes I/O and we want to minimize
+	// the race time between the symlink check and the read.
+
+	folderFs := folderCfg.Filesystem()
+
+	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
+		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrNoSuchFile
+	}
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
@@ -1967,7 +1977,9 @@ func (m *model) Connection(deviceID protocol.DeviceID) (protocol.Connection, boo
 	return cn, ok
 }
 
-func (m *model) GetIgnores(folder string) ([]string, []string, error) {
+// LoadIgnores loads or refreshes the ignore patterns from disk, if the
+// folder is healthy, and returns the refreshed lines and patterns.
+func (m *model) LoadIgnores(folder string) ([]string, []string, error) {
 	m.fmut.RLock()
 	cfg, cfgOk := m.folderCfgs[folder]
 	ignores, ignoresOk := m.folderIgnores[folder]
@@ -1986,7 +1998,7 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	}
 
 	if !ignoresOk {
-		ignores = ignore.New(fs.NewFilesystem(cfg.FilesystemType, cfg.Path))
+		ignores = ignore.New(cfg.Filesystem())
 	}
 
 	err := ignores.Load(".stignore")
@@ -1998,6 +2010,27 @@ func (m *model) GetIgnores(folder string) ([]string, []string, error) {
 	// Return lines and patterns, which may have some meaning even when err
 	// != nil, depending on the specific error.
 	return ignores.Lines(), ignores.Patterns(), err
+}
+
+// CurrentIgnores returns the currently loaded set of ignore patterns,
+// whichever it may be. No attempt is made to load or refresh ignore
+// patterns from disk.
+func (m *model) CurrentIgnores(folder string) ([]string, []string, error) {
+	m.fmut.RLock()
+	_, cfgOk := m.folderCfgs[folder]
+	ignores, ignoresOk := m.folderIgnores[folder]
+	m.fmut.RUnlock()
+
+	if !cfgOk {
+		return nil, nil, fmt.Errorf("folder %s does not exist", folder)
+	}
+
+	if !ignoresOk {
+		// Empty ignore patterns
+		return []string{}, []string{}, nil
+	}
+
+	return ignores.Lines(), ignores.Patterns(), nil
 }
 
 func (m *model) SetIgnores(folder string, content []string) error {
@@ -2056,10 +2089,14 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		return errDevicePaused
 	}
 
-	if len(cfg.AllowedNetworks) > 0 {
-		if !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
-			return errNetworkNotAllowed
-		}
+	if len(cfg.AllowedNetworks) > 0 && !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
+		// The connection is not from an allowed network.
+		return errNetworkNotAllowed
+	}
+
+	if max := m.cfg.Options().ConnectionLimitMax; max > 0 && m.NumConnections() >= max {
+		// We're not allowed to accept any more connections.
+		return errConnLimitReached
 	}
 
 	return nil
@@ -2147,9 +2184,16 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	conn.ClusterConfig(cm)
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
-		device.Name = hello.DeviceName
-		m.cfg.SetDevice(device)
-		m.cfg.Save()
+		m.cfg.Modify(func(cfg *config.Configuration) {
+			for i := range cfg.Devices {
+				if cfg.Devices[i].DeviceID == deviceID {
+					if cfg.Devices[i].Name == "" || cfg.Options.OverwriteRemoteDevNames {
+						cfg.Devices[i].Name = hello.DeviceName
+					}
+					return
+				}
+			}
+		})
 	}
 
 	m.deviceWasSeen(deviceID)
@@ -2184,7 +2228,16 @@ func (m *model) deviceWasSeen(deviceID protocol.DeviceID) {
 	sr, ok := m.deviceStatRefs[deviceID]
 	m.fmut.RUnlock()
 	if ok {
-		sr.WasSeen()
+		_ = sr.WasSeen()
+	}
+}
+
+func (m *model) deviceDidClose(deviceID protocol.DeviceID, duration time.Duration) {
+	m.fmut.RLock()
+	sr, ok := m.deviceStatRefs[deviceID]
+	m.fmut.RUnlock()
+	if ok {
+		_ = sr.LastConnectionDuration(duration)
 	}
 }
 
@@ -2610,6 +2663,9 @@ func (m *model) VerifyConfiguration(from, to config.Configuration) error {
 func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// TODO: This should not use reflect, and should take more care to try to handle stuff without restart.
 
+	// Delay processing config changes until after the initial setup
+	<-m.started
+
 	// Go through the folder configs and figure out if we need to restart or not.
 
 	// Tracks devices affected by any configuration change to resend ClusterConfig.
@@ -2683,7 +2739,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	for deviceID, toCfg := range toDevices {
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
-			sr := stats.NewDeviceStatisticsReference(m.db, deviceID.String())
+			sr := stats.NewDeviceStatisticsReference(m.db, deviceID)
 			m.fmut.Lock()
 			m.deviceStatRefs[deviceID] = sr
 			m.fmut.Unlock()

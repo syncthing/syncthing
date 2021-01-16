@@ -1203,6 +1203,7 @@ angular.module('syncthing.core')
                 }).error($scope.emitHTTPError);
             },
             show: function () {
+                $scope.logging.paused = false;
                 $scope.logging.refreshFacilities();
                 $scope.logging.timer = $timeout($scope.logging.fetch);
                 var textArea = $('#logViewerText');

@@ -158,10 +158,7 @@
       <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
     <div ng-if="editingExisting && !editingDefaults" class="pull-left">
-      <button type="button" class="btn btn-warning btn-sm disabled" ng-if="willBeReintroducedBy" tooltip data-original-title="This device will be reintroduced by {{ willBeReintroducedBy }}">
-        <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
-      </button>
-      <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#remove-device-confirmation" ng-if="!willBeReintroducedBy">
+      <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#remove-device-confirmation">
         <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
       </button>
     </div>

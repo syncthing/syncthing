@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net"
 	"sync"
+	"time"
 )
 
 var ErrClosed = errors.New("closed")
@@ -88,6 +89,10 @@ func (f *FakeConnectionInfo) Priority() int {
 
 func (f *FakeConnectionInfo) String() string {
 	return ""
+}
+
+func (f *FakeConnectionInfo) EstablishedAt() time.Time {
+	return time.Time{}
 }
 
 type FakeAddr struct{}

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Dec 05, 2020" "v1" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Jan 11, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -165,13 +165,6 @@ Returns the current configuration.
       "maxSendKbps": 0,
       "maxRecvKbps": 0,
       "ignoredFolders": [],
-      "pendingFolders": [
-        {
-          "time": "2019\-06\-05T10:21:22+02:00",
-          "id": "cpkn4\-57ysy",
-          "label": "SomeonesFolder"
-        }
-      ],
       "maxRequestKiB": 0
     }
   ],
@@ -252,8 +245,7 @@ Returns the current configuration.
     "databaseTuning": "auto",
     "maxConcurrentIncomingRequestKiB": 0
   },
-  "remoteIgnoredDevices": [],
-  "pendingDevices": []
+  "remoteIgnoredDevices": []
 }
 .ft P
 .fi
@@ -729,6 +721,72 @@ and \fBPATCH\fP replaces only the given child objects.
 .sp
 \fBGET\fP returns the respective object, \fBPUT\fP replaces the entire object and
 \fBPATCH\fP replaces only the given child objects.
+.SH CLUSTER ENDPOINTS
+.sp
+Concerns the mesh network structure.
+.SS GET /rest/cluster/pending/devices
+.sp
+New in version 1.13.0.
+
+.sp
+Lists remote devices which have tried to connect, but are not yet
+configured in our instance.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2": {
+    "time": "2020\-03\-18T11:43:07Z",
+    "name": "Friend Joe",
+    "address": "192.168.1.2:22000"
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS GET /rest/cluster/pending/folders
+.sp
+New in version 1.13.0.
+
+.sp
+Lists folders which remote devices have offered to us, but are not yet
+shared from our instance to them.  Takes the optional \fBdevice\fP
+parameter to only return folders offered by a specific remote device.
+Other offering devices are also omitted from the result.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "cpkn4\-57ysy": {
+    "offeredBy": {
+      "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2": {
+        "time": "2020\-03\-18T11:43:07Z",
+        "label": "Joe\(aqs folder"
+      },
+      "DOVII4U\-SQEEESM\-VZ2CVTC\-CJM4YN5\-QNV7DCU\-5U3ASRL\-YVFG6TH\-W5DV5AA": {
+        "time": "2020\-03\-01T10:12:13Z",
+        "label": "Jane\(aqs and Joe\(aqs folder"
+      }
+    }
+  },
+  "abcde\-fghij": {
+    "offeredBy": {
+      "P56IOI7\-MZJNU2Y\-IQGDREY\-DM2MGTI\-MGL3BXN\-PQ6W5BM\-TBBZ4TJ\-XZWICQ2": {
+        "time": "2020\-03\-18T11:43:07Z",
+        "label": "MyPics"
+      }
+    }
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SH DATABASE ENDPOINTS
 .SS GET /rest/db/browse
 .sp
