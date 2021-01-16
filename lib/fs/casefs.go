@@ -355,7 +355,7 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 
 type defaultRealCaser struct {
 	fs    Filesystem
-	cache *lru.TwoQueueCache
+	cache caseCache
 }
 
 func newDefaultRealCaser(fs Filesystem) *defaultRealCaser {
@@ -365,8 +365,10 @@ func newDefaultRealCaser(fs Filesystem) *defaultRealCaser {
 		panic(err)
 	}
 	caser := &defaultRealCaser{
-		fs:    fs,
-		cache: cache,
+		fs: fs,
+		cache: caseCache{
+			TwoQueueCache: cache,
+		},
 	}
 	return caser
 }
@@ -377,31 +379,25 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 		return realName, nil
 	}
 
-	var node *caseNode
 	for _, comp := range strings.Split(name, string(PathSeparator)) {
-		// Check cache
-		v, ok := r.cache.Get(realName)
-		if ok {
-			node = v.(*caseNode)
-			if node.expires.Before(time.Now()) {
-				r.cache.Remove(realName)
-				ok = false
-			}
-		}
+		node := r.cache.getExpireAdd(realName)
 
-		if !ok {
-			// Haven't called DirNames yet, or the node has expired
+		// This is a pre-filled 1-buffered chan: The first one to arrive here
+		// populates the node. Everyone else stays blocked until filling
+		// finished and the chan gets closed.
+		_, ok := <-node.fillChan
+		if ok {
+			// Haven't called DirNames yet
 
 			dirNames, err := r.fs.DirNames(realName)
 			if err != nil {
+				node.fillChan <- struct{}{}
 				return "", err
 			}
 
 			num := len(dirNames)
-			node = &caseNode{
-				children:    make(map[string]struct{}, num),
-				lowerToReal: make(map[string]string, num),
-			}
+			node.children = make(map[string]struct{}, num)
+			node.lowerToReal = make(map[string]string, num)
 			lastLower := ""
 			for _, n := range dirNames {
 				node.children[n] = struct{}{}
@@ -412,8 +408,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 				}
 			}
 
-			node.expires = time.Now().Add(caseCacheTimeout)
-			r.cache.Add(realName, node)
+			close(node.fillChan)
 		}
 
 		// Try to find a direct or case match
@@ -434,12 +429,50 @@ func (r *defaultRealCaser) dropCache() {
 	r.cache.Purge()
 }
 
+func newCaseNode() *caseNode {
+	n := &caseNode{
+		fillChan: make(chan struct{}, 1),
+		expires:  time.Now().Add(caseCacheTimeout),
+	}
+	n.fillChan <- struct{}{}
+	return n
+}
+
 // The keys to children are "real", case resolved names of the path
 // component this node represents (i.e. containing no path separator).
 // lowerToReal is a map of lowercase path components (as in UnicodeLowercase)
 // to their corresponding "real", case resolved names.
+// fillChan facilitates populating the maps once only without locking
+// (potentially slow FS operations): It is a one-buffered chan that gets closed
+// once the maps are populated. It gets populated by the routine that receives
+// the buffered token from it.
 type caseNode struct {
 	expires     time.Time
 	lowerToReal map[string]string
 	children    map[string]struct{}
+	fillChan    chan struct{}
+}
+
+type caseCache struct {
+	*lru.TwoQueueCache
+	mut sync.Mutex
+}
+
+// getExpireAdd gets an entry for the given key. If no entry exists, or it is
+// expired a new one is created and added to the cache.
+func (c *caseCache) getExpireAdd(key string) *caseNode {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	v, ok := c.Get(key)
+	if !ok {
+		node := newCaseNode()
+		c.Add(key, node)
+		return node
+	}
+	node := v.(*caseNode)
+	if node.expires.Before(time.Now()) {
+		node = newCaseNode()
+		c.Add(key, node)
+	}
+	return node
 }
