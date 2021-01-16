@@ -370,37 +370,52 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 		return out, nil
 	}
 
-	r.mut.Lock()
-	defer r.mut.Unlock()
+	r.mut.RLock()
+	defer r.mut.RUnlock()
 
 	node := r.root
 	for _, comp := range strings.Split(name, string(PathSeparator)) {
+		// Shallow copy, so that we can replace members without write-lock
+		// and thus need to acquire it once only.
+		newNode := *node
+		changed := false
+
 		if node.dirNames == nil || node.expires.Before(time.Now()) {
 			// Haven't called DirNames yet, or the node has expired
 
 			var err error
-			node.dirNames, err = r.fs.DirNames(out)
+			newNode.dirNames, err = r.fs.DirNames(out)
 			if err != nil {
 				return "", err
 			}
 
-			node.dirNamesLower = make([]string, len(node.dirNames))
-			for i, n := range node.dirNames {
-				node.dirNamesLower[i] = UnicodeLowercase(n)
+			newNode.dirNamesLower = make([]string, len(newNode.dirNames))
+			for i, n := range newNode.dirNames {
+				newNode.dirNamesLower[i] = UnicodeLowercase(n)
 			}
 
-			node.expires = time.Now().Add(caseCacheTimeout)
-			node.child = nil
+			newNode.expires = time.Now().Add(caseCacheTimeout)
+
+			changed = true
 		}
 
 		// If we don't already have a correct cached child, try to find it.
-		if node.child == nil || node.child.name != comp {
+		if newNode.child == nil || newNode.child.name != comp {
 			// Actually loop dirNames to search for a match.
-			n, err := findCaseInsensitiveMatch(comp, node.dirNames, node.dirNamesLower)
+			n, err := findCaseInsensitiveMatch(comp, newNode.dirNames, newNode.dirNamesLower)
 			if err != nil {
 				return "", err
 			}
-			node.child = &caseNode{name: n}
+			newNode.child = &caseNode{name: n}
+			changed = true
+		}
+
+		if changed {
+			r.mut.RUnlock()
+			r.mut.Lock()
+			*node = newNode
+			r.mut.Unlock()
+			r.mut.RLock()
 		}
 
 		node = node.child
