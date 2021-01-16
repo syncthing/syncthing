@@ -45,6 +45,7 @@ import (
 	"github.com/syncthing/syncthing/lib/upgrade"
 
 	"github.com/pkg/errors"
+	"github.com/thejerf/suture/v4"
 )
 
 const (
@@ -602,15 +603,25 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		os.Exit(1)
 	}
 
-	evLogger := events.NewLogger()
 	ctx, cancel := context.WithCancel(context.Background())
-	go evLogger.Serve(ctx)
 	defer cancel()
+
+	// earlyService is a supervisor that runs the services needed for or
+	// before app startup; the event logger, and the config service.
+	spec := svcutil.SpecWithDebugLogger(l)
+	earlyService := suture.New("early", spec)
+	earlyService.ServeBackground(ctx)
+
+	evLogger := events.NewLogger()
+	earlyService.Add(evLogger)
 
 	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(svcutil.ExitError.AsInt())
+	}
+	if cfgService, ok := cfgWrapper.(suture.Service); ok {
+		earlyService.Add(cfgService)
 	}
 
 	// Candidate builds should auto upgrade. Make sure the option is set,
