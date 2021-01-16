@@ -65,7 +65,7 @@ angular.module('syncthing.core')
         } catch (exception) { }
 
         $scope.versioningDefaults = {
-            fileVersioningSelector: "none",
+            selector: "none",
             trashcanClean: 0,
             versioningCleanupIntervalS: 3600,
             simpleKeep: 5,
@@ -1870,29 +1870,30 @@ angular.module('syncthing.core')
                 return;
             }
 
+            var currentVersioning = $scope.currentFolder.versioning;
+
+            $scope.currentFolder._guiVersioning.cleanupIntervalS = +currentVersioning.cleanupIntervalS;
+
             // Apply parameters currently in use
-            switch ($scope.currentFolder.versioning.type) {
+            switch (currentVersioning.type) {
             case "trashcan":
                 $scope.currentFolder._guiVersioning.selector = "trashcan";
-                $scope.currentFolder._guiVersioning.trashcanClean = +$scope.currentFolder.versioning.params.cleanoutDays;
-                $scope.currentFolder._guiVersioning.cleanupIntervalS = +$scope.currentFolder.versioning.cleanupIntervalS;
+                $scope.currentFolder._guiVersioning.trashcanClean = +currentVersioning.params.cleanoutDays;
                 break;
             case "simple":
                 $scope.currentFolder._guiVersioning.selector = "simple";
-                $scope.currentFolder._guiVersioning.simpleKeep = +$scope.currentFolder.versioning.params.keep;
-                $scope.currentFolder._guiVersioning.cleanupIntervalS = +$scope.currentFolder.versioning.cleanupIntervalS;
-                $scope.currentFolder._guiVersioning.trashcanClean = +$scope.currentFolder.versioning.params.cleanoutDays;
+                $scope.currentFolder._guiVersioning.simpleKeep = +currentVersioning.params.keep;
+                $scope.currentFolder._guiVersioning.trashcanClean = +currentVersioning.params.cleanoutDays;
                 break;
             case "staggered":
                 $scope.currentFolder._guiVersioning.selector = "staggered";
-                $scope.currentFolder._guiVersioning.staggeredMaxAge = Math.floor(+$scope.currentFolder.versioning.params.maxAge / 86400);
-                $scope.currentFolder._guiVersioning.staggeredCleanInterval = +$scope.currentFolder.versioning.params.cleanInterval;
-                $scope.currentFolder._guiVersioning.staggeredVersionsPath = $scope.currentFolder.versioning.params.versionsPath;
-                $scope.currentFolder._guiVersioning.cleanupIntervalS = +$scope.currentFolder.versioning.cleanupIntervalS;
+                $scope.currentFolder._guiVersioning.staggeredMaxAge = Math.floor(+currentVersioning.params.maxAge / 86400);
+                $scope.currentFolder._guiVersioning.staggeredCleanInterval = +currentVersioning.params.cleanInterval;
+                $scope.currentFolder._guiVersioning.staggeredVersionsPath = currentVersioning.params.versionsPath;
                 break;
             case "external":
                 $scope.currentFolder._guiVersioning.selector = "external";
-                $scope.currentFolder.externalCommand = $scope.currentFolder.versioning.params.command;
+                $scope.currentFolder.externalCommand = currentVersioning.params.command;
                 break;
             }
         };
