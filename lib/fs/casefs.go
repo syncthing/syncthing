@@ -13,14 +13,15 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru"
 )
 
 const (
 	// How long to consider cached dirnames valid
-	caseCacheTimeout    = time.Second
-	caseCacheMaxEntries = 4 << 10
+	caseCacheTimeout   = time.Second
+	caseCacheItemLimit = 4 << 10
 )
 
 type ErrCaseConflict struct {
@@ -353,16 +354,19 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 }
 
 type defaultRealCaser struct {
-	fs         Filesystem
-	root       *caseNode
-	mut        sync.RWMutex
-	numEntries int32
+	fs    Filesystem
+	cache *lru.TwoQueueCache
 }
 
 func newDefaultRealCaser(fs Filesystem) *defaultRealCaser {
+	cache, err := lru.New2Q(caseCacheItemLimit)
+	// New2Q only errors if given invalid parameters, which we don't.
+	if err != nil {
+		panic(err)
+	}
 	caser := &defaultRealCaser{
-		fs:   fs,
-		root: &caseNode{},
+		fs:    fs,
+		cache: cache,
 	}
 	return caser
 }
@@ -373,23 +377,19 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 		return realName, nil
 	}
 
-	r.mut.RLock()
-	defer func() {
-		r.mut.RUnlock()
-		if atomic.LoadInt32(&r.numEntries) > caseCacheMaxEntries {
-			r.dropCache()
-		}
-	}()
-
-	node := r.root
+	var node *caseNode
 	for _, comp := range strings.Split(name, string(PathSeparator)) {
-		expired := false
-		if node != nil && node.expires.Before(time.Now()) {
-			atomic.AddInt32(&r.numEntries, int32(-len(node.children)))
-			expired = true
+		// Check cache
+		v, ok := r.cache.Get(realName)
+		if ok {
+			node = v.(*caseNode)
+			if node.expires.Before(time.Now()) {
+				r.cache.Remove(realName)
+				ok = false
+			}
 		}
 
-		if expired || node.children == nil {
+		if !ok {
 			// Haven't called DirNames yet, or the node has expired
 
 			dirNames, err := r.fs.DirNames(realName)
@@ -397,38 +397,33 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 				return "", err
 			}
 
-			r.mut.RUnlock()
-			r.mut.Lock()
 			num := len(dirNames)
-			node.children = make(map[string]*caseNode, num)
-			node.lowerToReal = make(map[string]string, num)
+			node = &caseNode{
+				children:    make(map[string]struct{}, num),
+				lowerToReal: make(map[string]string, num),
+			}
 			lastLower := ""
 			for _, n := range dirNames {
-				node.children[n] = &caseNode{}
+				node.children[n] = struct{}{}
 				lower := UnicodeLowercase(n)
 				if lower != lastLower {
 					node.lowerToReal[lower] = n
 					lastLower = n
 				}
 			}
-			node.expires = time.Now().Add(caseCacheTimeout)
-			r.mut.Unlock()
-			r.mut.RLock()
 
-			atomic.AddInt32(&r.numEntries, int32(num))
+			node.expires = time.Now().Add(caseCacheTimeout)
+			r.cache.Add(realName, node)
 		}
 
-		// If we don't already have a correct cached child, try to find it.
-		child, ok := node.children[comp]
-		if !ok {
+		// Try to find a direct or case match
+		if _, ok = node.children[comp]; !ok {
 			comp, ok = node.lowerToReal[UnicodeLowercase(comp)]
 			if !ok {
 				return "", ErrNotExist
 			}
-			child = node.children[comp]
 		}
 
-		node = child
 		realName = filepath.Join(realName, comp)
 	}
 
@@ -436,10 +431,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 }
 
 func (r *defaultRealCaser) dropCache() {
-	r.mut.Lock()
-	r.root = &caseNode{}
-	atomic.StoreInt32(&r.numEntries, 0)
-	r.mut.Unlock()
+	r.cache.Purge()
 }
 
 // The keys to children are "real", case resolved names of the path
@@ -449,5 +441,5 @@ func (r *defaultRealCaser) dropCache() {
 type caseNode struct {
 	expires     time.Time
 	lowerToReal map[string]string
-	children    map[string]*caseNode
+	children    map[string]struct{}
 }
