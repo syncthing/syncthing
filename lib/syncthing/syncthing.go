@@ -121,10 +121,6 @@ func (a *App) Start() error {
 }
 
 func (a *App) startup() error {
-	if cfgService, ok := a.cfg.(suture.Service); ok {
-		a.mainService.Add(cfgService)
-	}
-
 	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
 
 	a.mainService.Add(a.ll)
