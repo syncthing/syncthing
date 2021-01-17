@@ -74,20 +74,42 @@ angular.module('syncthing.folder')
 
         self.addPattern = function(text) {
             var newPattern = parsePattern(text);
+
+            // Find the last pattern more specific than newPattern. Because
+            // the first matching pattern is applied to a file, we need to
+            // insert newPattern in a position that doesn't override existing
+            // patterns.
             var afterIndex = findLastIndex(self.data.patterns, function(pattern) {
-                return pattern.isSimple && newPattern.isSimple && newPattern.matchFunc(pattern.path);
+                return patternMoreSpecificThan(pattern, newPattern);
             });
             self.data.patterns.splice(afterIndex + 1, 0, newPattern);
+
+            // Remove any more specific patterns so the new pattern has the intended effect.
+            for (var i = afterIndex; i >= 0; i--) {
+                if (patternMoreSpecificThan(self.data.patterns[i], newPattern)) {
+                    self.data.patterns.splice(i, 1);
+                }
+            }
+
+            // Update text to reflect pattern changes.
             self.data.text = self.data.patterns.map(function(r) { return r.text; }).join('\n');
             return newPattern;
         };
 
         self.removePattern = function(text) {
+            // Find the pattern with the specified text
             var index = self.data.patterns.findIndex(function(pattern) {
                 return pattern.text === text;
             });
             if (index >= 0) {
                 var oldPattern = self.data.patterns.splice(index, 1)[0];
+
+                for (var i = index - 1; i >= 0; i--) {
+                    if (patternMoreSpecificThan(self.data.patterns[i], oldPattern)) {
+                        self.data.patterns.splice(i, 1);
+                    }
+                }
+
                 self.data.text = self.data.patterns.map(function(r) { return r.text; }).join('\n');
                 return oldPattern;
             }
@@ -199,6 +221,14 @@ angular.module('syncthing.folder')
                 }
             }
             return -1;
+        }
+
+        // Here we abuse matchFunc by using it to match another
+        // pattern's path. The comparison assumes both patterns are
+        // simple with a prefixMatch type, so if support for glob
+        // patterns is added this will need a different approach.
+        function patternMoreSpecificThan(patternA, patternB) {
+            return patternB.isSimple && patternA.isSimple && patternB.matchFunc(patternA.path)
         }
 
         /*

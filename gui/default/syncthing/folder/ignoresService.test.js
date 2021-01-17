@@ -40,32 +40,28 @@ describe('IgnoresService', function() {
             expect(service.data.patterns[0].text).toEqual('!/Photos');
         });
 
-        it('inserts after more specific patterns', function() {
+        it('collapses more specific patterns', function() {
             service.addPattern('/Photos/Raw');
-            service.addPattern('/Photos/Landscapes');
-            service.addPattern('!/Photos');
-            expect(service.data.patterns[2].text).toEqual('!/Photos');
+            service.addPattern('!/Photos/Raw/Landscapes');
+            service.addPattern('/Photos');
+            expect(service.data.patterns.map(p => p.text)).toEqual(['/Photos', '/Backups']);
         });
 
         it('inserts before bare name matching prefix', function() {
             service.addPattern('/Photoshop');
-            service.addPattern('/Photos/Raw');
             service.addPattern('!/Photos');
-            expect(service.data.patterns[1].text).toEqual('!/Photos');
+            expect(service.data.patterns.map(p => p.text)).toEqual(['!/Photos', '/Photoshop', '/Backups']);
         });
 
         it('ignores advanced patterns when inserting', function() {
             service.addPattern('/Photos/**/folder.jpg');
-            service.addPattern('/Photos/Raw');
-            service.addPattern('!/Photos');
-            expect(service.data.patterns[1].text).toEqual('!/Photos');
+            service.addPattern('/Photos');
+            expect(service.data.patterns[0].text).toEqual('/Photos');
         });
 
         it('updates folder text', function() {
-            service.addPattern('*');
-            expect(service.data.text).toEqual('/Backups\n*');
             service.addPattern('!/Photos');
-            expect(service.data.text).toEqual('!/Photos\n/Backups\n*');
+            expect(service.data.text).toEqual('!/Photos\n/Backups');
         });
     });
 
@@ -77,7 +73,7 @@ describe('IgnoresService', function() {
 
         it('removes pattern from array', function() {
             service.removePattern('/Backups');
-            expect(service.data.patterns.map(function (p) { return p.text; })).not.toContain('/Backups');
+            expect(service.data.patterns.map(p => p.text)).toEqual(['*']);
         });
 
         it('does nothing when pattern is absent', function() {
@@ -85,9 +81,16 @@ describe('IgnoresService', function() {
             expect(service.data.patterns.length).toEqual(2);
         });
 
+        it('collapses more specific patterns', function() {
+            service.addPattern('!/Backups/June');
+            service.addPattern('/Backups/June/Images');
+            service.removePattern('!/Backups/June');
+            expect(service.data.patterns.map(p => p.text)).toEqual(['/Backups', '*']);
+        });
+
         it('updates folder text', function() {
-            service.removePattern('*');
-            expect(service.data.text).toEqual('/Backups');
+            service.removePattern('/Backups');
+            expect(service.data.text).toEqual('*');
         });
     });
 
