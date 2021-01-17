@@ -48,25 +48,35 @@ type fskey struct {
 // their cache every now and then.
 type caseFilesystemRegistry struct {
 	fss          map[fskey]*caseFilesystem
-	mut          sync.Mutex
+	mut          sync.RWMutex
 	startCleaner sync.Once
 }
 
 func (r *caseFilesystemRegistry) get(fs Filesystem) Filesystem {
-	r.mut.Lock()
-	defer r.mut.Unlock()
-
 	k := fskey{fs.Type(), fs.URI()}
+
+	// Use double locking when getting a caseFs. In the common case it will
+	// already exist and we take the read lock fast path. If it doesn't, we
+	// take a write lock and try again.
+
+	r.mut.RLock()
 	caseFs, ok := r.fss[k]
+	r.mut.RUnlock()
+
 	if !ok {
-		caseFs = &caseFilesystem{
-			Filesystem: fs,
-			realCaser:  newDefaultRealCaser(fs),
+		r.mut.Lock()
+		caseFs, ok = r.fss[k]
+		if !ok {
+			caseFs = &caseFilesystem{
+				Filesystem: fs,
+				realCaser:  newDefaultRealCaser(fs),
+			}
+			r.fss[k] = caseFs
+			r.startCleaner.Do(func() {
+				go r.cleaner()
+			})
 		}
-		r.fss[k] = caseFs
-		r.startCleaner.Do(func() {
-			go r.cleaner()
-		})
+		r.mut.Unlock()
 	}
 
 	return caseFs
@@ -74,11 +84,23 @@ func (r *caseFilesystemRegistry) get(fs Filesystem) Filesystem {
 
 func (r *caseFilesystemRegistry) cleaner() {
 	for range time.NewTicker(time.Minute).C {
-		r.mut.Lock()
+		// We need to not hold this lock for a long time, as it blocks
+		// creating new filesystems in get(), which is needed to do things
+		// like add new folders. The (*caseFs).dropCache() method can take
+		// an arbitrarily long time to kick in because it in turn waits for
+		// locks held by things performing I/O. So we can't call that from
+		// within the loop.
+
+		r.mut.RLock()
+		toProcess := make([]*caseFilesystem, 0, len(r.fss))
 		for _, caseFs := range r.fss {
+			toProcess = append(toProcess, caseFs)
+		}
+		r.mut.RUnlock()
+
+		for _, caseFs := range toProcess {
 			caseFs.dropCache()
 		}
-		r.mut.Unlock()
 	}
 }
 

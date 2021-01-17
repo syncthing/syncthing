@@ -63,7 +63,7 @@ func (d *relayDialer) Dial(ctx context.Context, id protocol.DeviceID, uri *url.U
 		return internalConn{}, err
 	}
 
-	return internalConn{tc, connTypeRelayClient, relayPriority}, nil
+	return newInternalConn(tc, connTypeRelayClient, relayPriority), nil
 }
 
 type relayDialerFactory struct{}
