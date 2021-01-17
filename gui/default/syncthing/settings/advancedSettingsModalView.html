@@ -18,8 +18,8 @@
               <div ng-repeat="(key, value) in advancedConfig.gui" ng-init="type = inputTypeFor(key, value)" ng-if="type != 'skip'" class="form-group">
                 <label for="guiInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
                 <div class="col-sm-8">
-                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="advancedConfig.gui[key]" ng-list />
-                  <input ng-if="inputTypeFor(key, value) != 'list'" id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.gui[key]" />
+                  <input ng-if="inputTypeFor(key, value) == 'list'" id="guiInput{{$index}}" class="form-control" type="text" ng-model="advancedConfig.gui[key]" ng-list />
+                  <input ng-if="inputTypeFor(key, value) != 'list'" id="guiInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.gui[key]" />
                 </div>
               </div>
             </form>
@@ -78,10 +78,10 @@
           <div class="panel-body">
             <form class="form-horizontal" role="form">
               <div ng-repeat="(key, value) in folder" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
-                <label for="folder{{$index}}Input{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
+                <label for="folder{{$parent.$parent.$index}}Input{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
                 <div class="col-sm-8">
-                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="folder[key]" ng-list />
-                  <input ng-if="inputTypeFor(key, value) != 'list'" id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="folder[key]" />
+                  <input ng-if="inputTypeFor(key, value) == 'list'" id="folder{{$parent.$parent.$parent.$index}}Input{{$index}}" class="form-control" type="text" ng-model="folder[key]" ng-list />
+                  <input ng-if="inputTypeFor(key, value) != 'list'" id="folder{{$parent.$parent.$parent.$index}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="folder[key]" />
                 </div>
               </div>
             </form>
@@ -90,7 +90,7 @@
       </div>
 
       <div class="panel panel-default" ng-repeat="device in advancedConfig.devices">
-        <div class="panel-heading" role="tab" id="device{{$index}}Heading" data-toggle="collapse" data-parent="#advancedAccordion" href="#device{{$index}}Config" aria-expanded="false" aria-controls="folder{{$index}}Config" style="cursor: pointer;">
+        <div class="panel-heading" role="tab" id="device{{$index}}Heading" data-toggle="collapse" data-parent="#advancedAccordion" href="#device{{$index}}Config" aria-expanded="false" aria-controls="device{{$index}}Config" style="cursor: pointer;">
           <h4 class="panel-title" tabindex="0">
             <span translate>Device</span> "{{deviceName(device)}}"
           </h4>
@@ -99,10 +99,10 @@
           <div class="panel-body">
             <form class="form-horizontal" role="form">
               <div ng-repeat="(key, value) in device" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
-                <label for="device{{$index}}Input{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
+                <label for="device{{$parent.$parent.$index}}Input{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
                 <div class="col-sm-8">
-                  <input ng-if="inputTypeFor(key, value) == 'list'" id="optionsInput{{$index}}" class="form-control" type="text" ng-model="device[key]" ng-list />
-                  <input ng-if="inputTypeFor(key, value) != 'list'" id="optionsInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="device[key]" />
+                  <input ng-if="inputTypeFor(key, value) == 'list'" id="device{{$parent.$parent.$parent.$index}}Input{{$index}}" class="form-control" type="text" ng-model="device[key]" ng-list />
+                  <input ng-if="inputTypeFor(key, value) != 'list'" id="device{{$parent.$parent.$parent.$index}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="device[key]" />
                 </div>
               </div>
             </form>
