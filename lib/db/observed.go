@@ -212,35 +212,6 @@ func (db *Lowlevel) RemoveCandidateLink(cl CandidateLink) {
 	}
 }
 
-// RemoveCandidateLinksForDevice deletes all entries related to a certain introducer and
-// common folder ID.
-func (db *Lowlevel) RemoveCandidateLinksForDevice(introducer protocol.DeviceID, folder string) {
-	//FIXME Method currently unused!  This would be useful for an introducer being
-	//FIXME completely removed, or a folder no longer shared with it.
-	prefixKey, err := db.keyer.GenerateCandidateLinkKey(nil, introducer[:], nil, nil)
-	if err != nil {
-		return
-	}
-	iter, err := db.NewPrefixIterator(prefixKey)
-	if err != nil {
-		l.Infof("Could not iterate through candidate link entries: %v", err)
-		return
-	}
-	defer iter.Release()
-	for iter.Next() {
-		if len(folder) > 0 {
-			keyFolder, ok := db.keyer.FolderFromCandidateLinkKey(iter.Key())
-			if ok && string(keyFolder) != folder {
-				// Skip if given folder ID does not match
-				continue
-			}
-		}
-		if err := db.Delete(iter.Key()); err != nil {
-			l.Warnf("Failed to remove candidate link entry: %v", err)
-		}
-	}
-}
-
 // RemoveCandidateLinksBeforeTime removes entries from a specific introducer device which
 // are older than a given timestamp or invalid.  It returns only the valid removed entries.
 func (db *Lowlevel) RemoveCandidateLinksBeforeTime(introducer protocol.DeviceID, oldest time.Time) ([]CandidateLink, error) {
