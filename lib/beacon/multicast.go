@@ -56,7 +56,7 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 		select {
 		case bs = <-inbox:
 		case <-doneCtx.Done():
-			return nil
+			return doneCtx.Err()
 		}
 
 		intfs, err := net.Interfaces()
@@ -87,7 +87,7 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 
 			select {
 			case <-doneCtx.Done():
-				return nil
+				return doneCtx.Err()
 			default:
 			}
 		}
@@ -144,7 +144,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 	for {
 		select {
 		case <-doneCtx.Done():
-			return nil
+			return doneCtx.Err()
 		default:
 		}
 		n, _, addr, err := pconn.ReadFrom(bs)

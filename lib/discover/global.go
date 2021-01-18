@@ -21,16 +21,12 @@ import (
 	stdsync "sync"
 	"time"
 
-	"github.com/thejerf/suture"
-
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 type globalClient struct {
-	suture.Service
 	server         string
 	addrList       AddressLister
 	announceClient httpClient
@@ -133,7 +129,6 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 		noLookup:       opts.noLookup,
 		evLogger:       evLogger,
 	}
-	cl.Service = util.AsService(cl.serve, cl.String())
 	if !opts.noAnnounce {
 		// If we are supposed to annonce, it's an error until we've done so.
 		cl.setError(errors.New("not announced"))
@@ -193,12 +188,12 @@ func (c *globalClient) String() string {
 	return "global@" + c.server
 }
 
-func (c *globalClient) serve(ctx context.Context) {
+func (c *globalClient) Serve(ctx context.Context) error {
 	if c.noAnnounce {
 		// We're configured to not do announcements, only lookups. To maintain
 		// the same interface, we just pause here if Serve() is run.
 		<-ctx.Done()
-		return
+		return ctx.Err()
 	}
 
 	timer := time.NewTimer(5 * time.Second)
@@ -231,7 +226,7 @@ func (c *globalClient) serve(ctx context.Context) {
 			c.sendAnnouncement(ctx, timer)
 
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		}
 	}
 }

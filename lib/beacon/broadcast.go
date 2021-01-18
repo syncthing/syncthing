@@ -41,7 +41,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 		select {
 		case bs = <-inbox:
 		case <-doneCtx.Done():
-			return nil
+			return doneCtx.Err()
 		}
 
 		intfs, err := net.Interfaces()
@@ -138,7 +138,7 @@ func readBroadcasts(ctx context.Context, outbox chan<- recv, port int) error {
 		select {
 		case outbox <- recv{c, addr}:
 		case <-doneCtx.Done():
-			return nil
+			return doneCtx.Err()
 		default:
 			l.Debugln("dropping message")
 		}

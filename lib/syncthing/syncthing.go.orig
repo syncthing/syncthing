@@ -66,6 +66,34 @@ type Options struct {
 }
 
 type App struct {
+<<<<<<< HEAD
+	myID        protocol.DeviceID
+	mainService *suture.Supervisor
+	cfg         config.Wrapper
+	ll          *db.Lowlevel
+	evLogger    events.Logger
+	cert        tls.Certificate
+	opts        Options
+	exitStatus  ExitStatus
+	err         error
+	stopOnce    sync.Once
+	stop        chan struct{}
+	stopped     chan struct{}
+	M           model.Model
+||||||| b16cc72f
+	myID        protocol.DeviceID
+	mainService *suture.Supervisor
+	cfg         config.Wrapper
+	ll          *db.Lowlevel
+	evLogger    events.Logger
+	cert        tls.Certificate
+	opts        Options
+	exitStatus  ExitStatus
+	err         error
+	stopOnce    sync.Once
+	stop        chan struct{}
+	stopped     chan struct{}
+=======
 	myID              protocol.DeviceID
 	mainService       *suture.Supervisor
 	cfg               config.Wrapper
@@ -78,7 +106,7 @@ type App struct {
 	stopOnce          sync.Once
 	mainServiceCancel context.CancelFunc
 	stopped           chan struct{}
-	M                 model.Model
+>>>>>>> v1.12.1
 }
 
 func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) *App {

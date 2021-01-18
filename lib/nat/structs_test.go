@@ -64,7 +64,7 @@ func TestMappingClearAddresses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := config.Wrap(tmpFile.Name(), config.Configuration{}, events.NoopLogger)
+	w := config.Wrap(tmpFile.Name(), config.Configuration{}, protocol.LocalDeviceID, events.NoopLogger)
 	defer os.RemoveAll(tmpFile.Name())
 	tmpFile.Close()
 

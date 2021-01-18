@@ -811,13 +811,11 @@ angular.module('syncthing.core')
             if ($scope.hasFailedFiles(folderCfg.id)) {
                 return 'faileditems';
             }
-            if (folderInfo.receiveOnlyTotalItems) {
-                switch (folderCfg.type) {
-                case 'receiveonly':
-                    return 'localadditions';
-                case 'receiveencrypted':
-                    return 'localunencrypted';
-                }
+            if ($scope.hasReceiveOnlyChanged(folderCfg)) {
+                return 'localadditions';
+            }
+            if ($scope.hasReceiveEncryptedItems(folderCfg)) {
+                return 'localunencrypted';
             }
             if (folderCfg.devices.length <= 1) {
                 return 'unshared';
@@ -1070,6 +1068,28 @@ angular.module('syncthing.core')
             }
             return '?';
         };
+
+        $scope.hasRemoteGUIAddress = function (deviceCfg) {
+            if (!deviceCfg.remoteGUIPort)
+                return false;
+            var conn = $scope.connections[deviceCfg.deviceID];
+            return conn && conn.connected && conn.address && conn.type.indexOf('Relay') == -1;
+        };
+
+        $scope.remoteGUIAddress = function (deviceCfg) {
+            // Assume hasRemoteGUIAddress is true or we would not be here
+            var conn = $scope.connections[deviceCfg.deviceID];
+            return 'http://' + replaceAddressPort(conn.address, deviceCfg.remoteGUIPort);
+        };
+
+        function replaceAddressPort(address, newPort) {
+            for (var index = address.length - 1; index >= 0; index--) {
+                if (address[index] === ":") {
+                    return address.substr(0, index) + ":" + newPort.toString();
+                }
+            }
+            return address;
+        }
 
         $scope.friendlyNameFromShort = function (shortID) {
             var matches = Object.keys($scope.devices).filter(function (id) {

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -53,7 +54,7 @@ func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.
 
 	util.SetDefaults(&f)
 
-	f.prepare()
+	f.prepare(myID, nil)
 	return f
 }
 
@@ -192,7 +193,19 @@ func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 	return deviceIDs
 }
 
-func (f *FolderConfiguration) prepare() {
+func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices map[protocol.DeviceID]bool) {
+	// Ensure that
+	// - any loose devices are not present in the wrong places
+	// - there are no duplicate devices
+	// - we are part of the devices
+	f.Devices = ensureExistingDevices(f.Devices, existingDevices)
+	f.Devices = ensureNoDuplicateFolderDevices(f.Devices)
+	f.Devices = ensureDevicePresent(f.Devices, myID)
+
+	sort.Slice(f.Devices, func(a, b int) bool {
+		return f.Devices[a].DeviceID.Compare(f.Devices[b].DeviceID) == -1
+	})
+
 	if f.RescanIntervalS > MaxRescanIntervalS {
 		f.RescanIntervalS = MaxRescanIntervalS
 	} else if f.RescanIntervalS < 0 {
@@ -204,9 +217,6 @@ func (f *FolderConfiguration) prepare() {
 		f.FSWatcherDelayS = 10
 	}
 
-	if f.Versioning.Params == nil {
-		f.Versioning.Params = make(map[string]string)
-	}
 	if f.Versioning.CleanupIntervalS > MaxRescanIntervalS {
 		f.Versioning.CleanupIntervalS = MaxRescanIntervalS
 	} else if f.Versioning.CleanupIntervalS < 0 {

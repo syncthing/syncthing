@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 )
 
 // A Finder provides lookup services of some kind.

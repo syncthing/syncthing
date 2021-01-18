@@ -72,7 +72,7 @@
                   <a href="#" ng-click="selectAllSharedFolders(false)" translate>Deselect All</a></small>
               </p>
               <div class="form-group" ng-repeat="folder in currentSharing.shared">
-                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabel(folder.id)}}" folder-type="{{folder.type}}" untrusted="{{device.untrusted}}" />
+                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabel(folder.id)}}" folder-type="{{folder.type}}" untrusted="{{currentDevice.untrusted}}" />
               </div>
             </div>
             <div class="form-horizontal" ng-if="currentSharing.unrelated.length">
@@ -83,7 +83,7 @@
                   <a href="#" ng-click="selectAllUnrelatedFolders(false)" translate>Deselect All</a></small>
               </p>
               <div class="form-group" ng-repeat="folder in currentSharing.unrelated">
-                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabel(folder.id)}}" folder-type="{{folder.type}}" untrusted="{{device.untrusted}}" />
+                <share-template selected="currentSharing.selected" encryption-passwords="currentSharing.encryptionPasswords" id="{{folder.id}}" label="{{folderLabel(folder.id)}}" folder-type="{{folder.type}}" untrusted="{{currentDevice.untrusted}}" />
               </div>
             </div>
           </div>

@@ -325,7 +325,13 @@ func mainCmdline() int {
 	}
 	if err != nil {
 		l.Warnln("Command line options:", err)
-		return util.ExitError.AsInt()
+<<<<<<< HEAD
+		return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+		os.Exit(syncthing.ExitError.AsInt())
+=======
+		os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 	}
 
 	if options.logFile == "default" || options.logFile == "" {
@@ -362,7 +368,13 @@ func mainCmdline() int {
 		)
 		if err != nil {
 			l.Warnln("Error reading device ID:", err)
-			return util.ExitError.AsInt()
+<<<<<<< HEAD
+			return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+			os.Exit(syncthing.ExitError.AsInt())
+=======
+			os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 		}
 
 		fmt.Println(protocol.NewDeviceID(cert.Certificate[0]))
@@ -372,7 +384,13 @@ func mainCmdline() int {
 	if options.browserOnly {
 		if err := openGUI(protocol.EmptyDeviceID); err != nil {
 			l.Warnln("Failed to open web UI:", err)
-			return util.ExitError.AsInt()
+<<<<<<< HEAD
+			return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+			os.Exit(syncthing.ExitError.AsInt())
+=======
+			os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 		}
 		return 0
 	}
@@ -380,7 +398,13 @@ func mainCmdline() int {
 	if options.generateDir != "" {
 		if err := generate(options.generateDir); err != nil {
 			l.Warnln("Failed to generate config and keys:", err)
-			return util.ExitError.AsInt()
+<<<<<<< HEAD
+			return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+			os.Exit(syncthing.ExitError.AsInt())
+=======
+			os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 		}
 		return 0
 	}
@@ -388,14 +412,26 @@ func mainCmdline() int {
 	// Ensure that our home directory exists.
 	if err := EnsureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0700); err != nil {
 		l.Warnln("Failure on home directory:", err)
-		return util.ExitError.AsInt()
+<<<<<<< HEAD
+		return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+		os.Exit(syncthing.ExitError.AsInt())
+=======
+		os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 	}
 
 	if options.upgradeTo != "" {
 		err := upgrade.ToURL(options.upgradeTo)
 		if err != nil {
 			l.Warnln("Error while Upgrading:", err)
-			return util.ExitError.AsInt()
+<<<<<<< HEAD
+			return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+			os.Exit(syncthing.ExitError.AsInt())
+=======
+			os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 		}
 		l.Infoln("Upgraded from", options.upgradeTo)
 		return 0
@@ -426,13 +462,25 @@ func mainCmdline() int {
 			return exitCodeForUpgrade(err)
 		}
 		l.Infof("Upgraded to %q", release.Tag)
-		return util.ExitUpgrade.AsInt()
+<<<<<<< HEAD
+		return syncthing.ExitUpgrade.AsInt()
+||||||| b16cc72f
+		os.Exit(syncthing.ExitUpgrade.AsInt())
+=======
+		os.Exit(util.ExitUpgrade.AsInt())
+>>>>>>> v1.12.1
 	}
 
 	if options.resetDatabase {
 		if err := resetDB(); err != nil {
 			l.Warnln("Resetting database:", err)
-			return util.ExitError.AsInt()
+<<<<<<< HEAD
+			return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+			os.Exit(syncthing.ExitError.AsInt())
+=======
+			os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 		}
 		l.Infoln("Successfully reset database - it will be rebuilt after next start.")
 		return 0
@@ -614,7 +662,13 @@ func SyncthingMain(runtimeOptions RuntimeOptions) int {
 	cfg, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, runtimeOptions.allowNewerConfig, noDefaultFolder)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
-		return util.ExitError.AsInt()
+<<<<<<< HEAD
+		return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+		os.Exit(syncthing.ExitError.AsInt())
+=======
+		os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 	}
 
 	// Candidate builds should auto upgrade. Make sure the option is set,
@@ -660,7 +714,13 @@ func SyncthingMain(runtimeOptions RuntimeOptions) int {
 			}
 		} else {
 			l.Infof("Upgraded to %q, exiting now.", release.Tag)
-			return util.ExitUpgrade.AsInt()
+<<<<<<< HEAD
+			return syncthing.ExitUpgrade.AsInt()
+||||||| b16cc72f
+			os.Exit(syncthing.ExitUpgrade.AsInt())
+=======
+			os.Exit(util.ExitUpgrade.AsInt())
+>>>>>>> v1.12.1
 		}
 	}
 
@@ -701,18 +761,36 @@ func SyncthingMain(runtimeOptions RuntimeOptions) int {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
 			l.Warnln("Creating profile:", err)
-			return util.ExitError.AsInt()
+<<<<<<< HEAD
+			return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+			os.Exit(syncthing.ExitError.AsInt())
+=======
+			os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
 			l.Warnln("Starting profile:", err)
-			return util.ExitError.AsInt()
+<<<<<<< HEAD
+			return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+			os.Exit(syncthing.ExitError.AsInt())
+=======
+			os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 		}
 	}
 
 	go standbyMonitor(app, cfg)
 
 	if err := app.Start(); err != nil {
-		return util.ExitError.AsInt()
+<<<<<<< HEAD
+		return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+		os.Exit(syncthing.ExitError.AsInt())
+=======
+		os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 	}
 
 	RunningApp = app

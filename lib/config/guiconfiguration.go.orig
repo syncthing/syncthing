@@ -11,8 +11,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+<<<<<<< HEAD
+
 	"github.com/syncthing/syncthing/lib/build"
+||||||| b16cc72f
+=======
+
 	"github.com/syncthing/syncthing/lib/rand"
+>>>>>>> v1.12.1
 )
 
 func (c GUIConfiguration) IsAuthEnabled() bool {

@@ -30,7 +30,7 @@ func init() {
 }
 
 func initConfig() config.Wrapper {
-	cfg := config.Wrap("/dev/null", config.New(device1), events.NoopLogger)
+	cfg := config.Wrap("/dev/null", config.New(device1), device1, events.NoopLogger)
 	dev1Conf = config.NewDeviceConfiguration(device1, "device1")
 	dev2Conf = config.NewDeviceConfiguration(device2, "device2")
 	dev3Conf = config.NewDeviceConfiguration(device3, "device3")

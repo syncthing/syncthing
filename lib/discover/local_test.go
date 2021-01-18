@@ -8,6 +8,7 @@ package discover
 
 import (
 	"bytes"
+	"context"
 	"net"
 	"testing"
 
@@ -20,8 +21,9 @@ func TestLocalInstanceID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go c.Serve()
-	defer c.Stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	go c.Serve(ctx)
+	defer cancel()
 
 	lc := c.(*localClient)
 

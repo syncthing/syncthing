@@ -26,7 +26,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/lib/pq v1.8.0
-	github.com/lucas-clemente/quic-go v0.18.1
+	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/maruel/panicparse v1.5.1
 	github.com/mattn/go-isatty v0.0.12
 	github.com/minio/sha256-simd v0.1.1
@@ -40,7 +40,7 @@ require (
 	github.com/shirou/gopsutil v3.20.10+incompatible
 	github.com/syncthing/notify v0.0.0-20201109091751-9a0e44181151
 	github.com/syndtr/goleveldb v1.0.1-0.20200815071216-d9e9293bd0f7
-	github.com/thejerf/suture v4.0.0+incompatible
+	github.com/thejerf/suture/v4 v4.0.0
 	github.com/urfave/cli v1.22.4
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897

@@ -11,18 +11,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/thejerf/suture"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 type ProgressEmitter struct {
-	suture.Service
-
 	cfg                config.Wrapper
 	registry           map[string]map[string]*sharedPullerState // folder: name: puller
 	interval           time.Duration
@@ -60,7 +55,6 @@ func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmi
 		evLogger:           evLogger,
 		mut:                sync.NewMutex(),
 	}
-	t.Service = util.AsService(t.serve, t.String())
 
 	t.CommitConfiguration(config.Configuration{}, cfg.RawCopy())
 
@@ -69,7 +63,7 @@ func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmi
 
 // serve starts the progress emitter which starts emitting DownloadProgress
 // events as the progress happens.
-func (t *ProgressEmitter) serve(ctx context.Context) {
+func (t *ProgressEmitter) Serve(ctx context.Context) error {
 	t.cfg.Subscribe(t)
 	defer t.cfg.Unsubscribe(t)
 
@@ -79,7 +73,7 @@ func (t *ProgressEmitter) serve(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			l.Debugln("progress emitter: stopping")
-			return
+			return nil
 		case <-t.timer.C:
 			t.mut.Lock()
 			l.Debugln("progress emitter: timer - looking after", len(t.registry))
