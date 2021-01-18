@@ -278,22 +278,18 @@ func main() {
 }
 
 func runCommand(cmd string, target target) {
+	var tags []string
+	if noupgrade {
+		tags = []string{"noupgrade"}
+	}
+	tags = append(tags, strings.Fields(extraTags)...)
+
 	switch cmd {
 	case "install":
-		var tags []string
-		if noupgrade {
-			tags = []string{"noupgrade"}
-		}
-		tags = append(tags, strings.Fields(extraTags)...)
 		install(target, tags)
 		metalintShort()
 
 	case "build":
-		var tags []string
-		if noupgrade {
-			tags = []string{"noupgrade"}
-		}
-		tags = append(tags, strings.Fields(extraTags)...)
 		build(target, tags)
 
 	case "test":
@@ -321,10 +317,10 @@ func runCommand(cmd string, target target) {
 		transifex()
 
 	case "tar":
-		buildTar(target)
+		buildTar(target, tags)
 
 	case "zip":
-		buildZip(target)
+		buildZip(target, tags)
 
 	case "deb":
 		buildDeb(target)
@@ -532,21 +528,22 @@ func appendParameters(args []string, tags []string, pkgs ...string) []string {
 		// -gcflags to disable optimizations and inlining. Skip -ldflags
 		// because `Could not launch program: decoding dwarf section info at
 		// offset 0x0: too short` on 'dlv exec ...' see
-		// https://github.com/derekparker/delve/issues/79
+		// https://github.com/go-delve/delve/issues/79
 		args = append(args, "-gcflags", "-N -l")
 	}
 
 	return append(args, pkgs...)
 }
 
-func buildTar(target target) {
+func buildTar(target target, tags []string) {
 	name := archiveName(target)
 	filename := name + ".tar.gz"
 
-	var tags []string
-	if noupgrade {
-		tags = []string{"noupgrade"}
-		name += "-noupgrade"
+	for _, tag := range tags {
+		if tag == "noupgrade" {
+			name += "-noupgrade"
+			break
+		}
 	}
 
 	build(target, tags)
@@ -562,14 +559,15 @@ func buildTar(target target) {
 	fmt.Println(filename)
 }
 
-func buildZip(target target) {
+func buildZip(target target, tags []string) {
 	name := archiveName(target)
 	filename := name + ".zip"
 
-	var tags []string
-	if noupgrade {
-		tags = []string{"noupgrade"}
-		name += "-noupgrade"
+	for _, tag := range tags {
+		if tag == "noupgrade" {
+			name += "-noupgrade"
+			break
+		}
 	}
 
 	build(target, tags)

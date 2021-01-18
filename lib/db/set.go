@@ -290,6 +290,18 @@ func (s *Snapshot) Availability(file string) []protocol.DeviceID {
 	return av
 }
 
+func (s *Snapshot) DebugGlobalVersions(file string) VersionList {
+	opStr := fmt.Sprintf("%s DebugGlobalVersions(%v)", s.folder, file)
+	l.Debugf(opStr)
+	vl, err := s.t.getGlobalVersions(nil, []byte(s.folder), []byte(osutil.NormalizedFilename(file)))
+	if backend.IsClosed(err) {
+		return VersionList{}
+	} else if err != nil {
+		s.fatalError(err, opStr)
+	}
+	return vl
+}
+
 func (s *Snapshot) Sequence(device protocol.DeviceID) int64 {
 	return s.meta.Counts(device, 0).Sequence
 }
@@ -322,53 +334,6 @@ func (s *Snapshot) GlobalSize() Counts {
 
 func (s *Snapshot) NeedSize(device protocol.DeviceID) Counts {
 	return s.meta.Counts(device, needFlag)
-}
-
-// LocalChangedFiles returns a paginated list of files that were changed locally.
-func (s *Snapshot) LocalChangedFiles(page, perpage int) []FileInfoTruncated {
-	if s.ReceiveOnlyChangedSize().TotalItems() == 0 {
-		return nil
-	}
-
-	files := make([]FileInfoTruncated, 0, perpage)
-
-	skip := (page - 1) * perpage
-	get := perpage
-
-	s.WithHaveTruncated(protocol.LocalDeviceID, func(f protocol.FileIntf) bool {
-		if !f.IsReceiveOnlyChanged() {
-			return true
-		}
-		if skip > 0 {
-			skip--
-			return true
-		}
-		ft := f.(FileInfoTruncated)
-		files = append(files, ft)
-		get--
-		return get > 0
-	})
-
-	return files
-}
-
-// RemoteNeedFolderFiles returns paginated list of currently needed files in
-// progress, queued, and to be queued on next puller iteration, as well as the
-// total number of files currently needed.
-func (s *Snapshot) RemoteNeedFolderFiles(device protocol.DeviceID, page, perpage int) []FileInfoTruncated {
-	files := make([]FileInfoTruncated, 0, perpage)
-	skip := (page - 1) * perpage
-	get := perpage
-	s.WithNeedTruncated(device, func(f protocol.FileIntf) bool {
-		if skip > 0 {
-			skip--
-			return true
-		}
-		files = append(files, f.(FileInfoTruncated))
-		get--
-		return get > 0
-	})
-	return files
 }
 
 func (s *Snapshot) WithBlocksHash(hash []byte, fn Iterator) {

@@ -69,7 +69,8 @@ func TestWalkSub(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := testConfig()
+	cfg, cancel := testConfig()
+	defer cancel()
 	cfg.Subs = []string{"dir2"}
 	cfg.Matcher = ignores
 	fchan := Walk(context.TODO(), cfg)
@@ -103,7 +104,8 @@ func TestWalk(t *testing.T) {
 	}
 	t.Log(ignores)
 
-	cfg := testConfig()
+	cfg, cancel := testConfig()
+	defer cancel()
 	cfg.Matcher = ignores
 	fchan := Walk(context.TODO(), cfg)
 
@@ -487,7 +489,8 @@ func TestWalkReceiveOnly(t *testing.T) {
 }
 
 func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.Matcher, localFlags uint32) []protocol.FileInfo {
-	cfg := testConfig()
+	cfg, cancel := testConfig()
+	defer cancel()
 	cfg.Filesystem = fs
 	cfg.Subs = []string{dir}
 	cfg.AutoNormalize = true
@@ -596,7 +599,8 @@ func TestStopWalk(t *testing.T) {
 
 	const numHashers = 4
 	ctx, cancel := context.WithCancel(context.Background())
-	cfg := testConfig()
+	cfg, cfgCancel := testConfig()
+	defer cfgCancel()
 	cfg.Filesystem = fs
 	cfg.Hashers = numHashers
 	cfg.ProgressTickIntervalS = -1 // Don't attempt to build the full list of files before starting to scan...
@@ -725,7 +729,8 @@ func TestIssue4841(t *testing.T) {
 	}
 	fd.Close()
 
-	cfg := testConfig()
+	cfg, cancel := testConfig()
+	defer cancel()
 	cfg.Filesystem = fs
 	cfg.AutoNormalize = true
 	cfg.CurrentFiler = fakeCurrentFiler{"foo": {
@@ -761,7 +766,8 @@ func TestNotExistingError(t *testing.T) {
 		t.Fatalf("Lstat returned error %v, while nothing should exist there.", err)
 	}
 
-	cfg := testConfig()
+	cfg, cancel := testConfig()
+	defer cancel()
 	cfg.Subs = []string{sub}
 	fchan := Walk(context.TODO(), cfg)
 	for f := range fchan {
@@ -891,12 +897,13 @@ func (fcf fakeCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 	return f, ok
 }
 
-func testConfig() Config {
+func testConfig() (Config, context.CancelFunc) {
 	evLogger := events.NewLogger()
-	go evLogger.Serve()
+	ctx, cancel := context.WithCancel(context.Background())
+	go evLogger.Serve(ctx)
 	return Config{
 		Filesystem:  testFs,
 		Hashers:     2,
 		EventLogger: evLogger,
-	}
+	}, cancel
 }

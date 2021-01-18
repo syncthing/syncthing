@@ -130,7 +130,7 @@ func (r *crashReceiver) servePut(reportID, fullPath string, w http.ResponseWrite
 				return
 			}
 			if err := sendReport(r.dsn, pkt, user); err != nil {
-				log.Println("Failed to send  crash report:", err)
+				log.Println("Failed to send crash report:", err)
 			}
 		}()
 	}

@@ -8,6 +8,7 @@ package syncthing
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -18,8 +19,9 @@ import (
 func TestAuditService(t *testing.T) {
 	buf := new(bytes.Buffer)
 	evLogger := events.NewLogger()
-	go evLogger.Serve()
-	defer evLogger.Stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	go evLogger.Serve(ctx)
+	defer cancel()
 	sub := evLogger.Subscribe(events.AllEvents)
 	defer sub.Unsubscribe()
 
@@ -28,8 +30,16 @@ func TestAuditService(t *testing.T) {
 	// Make sure the event goes through before creating the service
 	<-sub.C()
 
+	auditCtx, auditCancel := context.WithCancel(context.Background())
 	service := newAuditService(buf, evLogger)
-	go service.Serve()
+	done := make(chan struct{})
+	go func() {
+		service.Serve(auditCtx)
+		close(done)
+	}()
+
+	// Subscription needs to happen in service.Serve
+	time.Sleep(10 * time.Millisecond)
 
 	// Event that should end up in the audit log
 	evLogger.Log(events.ConfigSaved, "the second event")
@@ -37,7 +47,8 @@ func TestAuditService(t *testing.T) {
 	// We need to give the events time to arrive, since the channels are buffered etc.
 	time.Sleep(10 * time.Millisecond)
 
-	service.Stop()
+	auditCancel()
+	<-done
 
 	// This event should not be logged, since we have stopped.
 	evLogger.Log(events.ConfigSaved, "the third event")

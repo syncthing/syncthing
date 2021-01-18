@@ -7,8 +7,11 @@
 package fs
 
 import (
+	"math/rand"
 	"runtime"
 	"testing"
+	"unicode"
+	"unicode/utf8"
 )
 
 func TestCommonPrefix(t *testing.T) {
@@ -67,6 +70,50 @@ func TestWindowsInvalidFilename(t *testing.T) {
 		err := WindowsInvalidFilename(tc.name)
 		if err != tc.err {
 			t.Errorf("For %q, got %v, expected %v", tc.name, err, tc.err)
+		}
+	}
+}
+
+func TestSanitizePath(t *testing.T) {
+	cases := [][2]string{
+		{"", ""},
+		{"foo", "foo"},
+		{`\*/foo\?/bar[{!@$%^&*#()}]`, "foo bar ()"},
+		{"Räksmörgås", "Räksmörgås"},
+		{`Räk \/ smörgås`, "Räk smörgås"},
+		{"هذا هو *\x07?اسم الملف", "هذا هو اسم الملف"},
+		{`../foo.txt`, `.. foo.txt`},
+		{"  \t \n filename in  \t space\r", "filename in space"},
+		{"你\xff好", `你 好`},
+		{"\000 foo", "foo"},
+	}
+
+	for _, tc := range cases {
+		res := SanitizePath(tc[0])
+		if res != tc[1] {
+			t.Errorf("SanitizePath(%q) => %q, expected %q", tc[0], res, tc[1])
+		}
+	}
+}
+
+// Fuzz test: SanitizePath must always return strings of printable UTF-8
+// characters when fed random data.
+//
+// Note that space is considered printable, but other whitespace runes are not.
+func TestSanitizePathFuzz(t *testing.T) {
+	buf := make([]byte, 128)
+
+	for i := 0; i < 100; i++ {
+		rand.Read(buf)
+		path := SanitizePath(string(buf))
+		if !utf8.ValidString(path) {
+			t.Errorf("SanitizePath(%q) => %q, not valid UTF-8", buf, path)
+			continue
+		}
+		for _, c := range path {
+			if !unicode.IsPrint(c) {
+				t.Errorf("non-printable rune %q in sanitized path", c)
+			}
 		}
 	}
 }

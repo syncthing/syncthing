@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -184,7 +185,7 @@ func main() {
 		log.Println("ID:", id)
 	}
 
-	wrapper := config.Wrap("config", config.New(id), events.NoopLogger)
+	wrapper := config.Wrap("config", config.New(id), id, events.NoopLogger)
 	wrapper.SetOptions(config.OptionsConfiguration{
 		NATLeaseM:   natLease,
 		NATRenewalM: natRenewal,
@@ -194,7 +195,9 @@ func main() {
 	mapping := mapping{natSvc.NewMapping(nat.TCP, addr.IP, addr.Port)}
 
 	if natEnabled {
-		go natSvc.Serve()
+		ctx, cancel := context.WithCancel(context.Background())
+		go natSvc.Serve(ctx)
+		defer cancel()
 		found := make(chan struct{})
 		mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
 			select {

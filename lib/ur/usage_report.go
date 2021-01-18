@@ -29,9 +29,6 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur/contract"
-	"github.com/syncthing/syncthing/lib/util"
-
-	"github.com/thejerf/suture"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
@@ -42,7 +39,6 @@ const Version = 3
 var StartTime = time.Now()
 
 type Service struct {
-	suture.Service
 	cfg                config.Wrapper
 	model              model.Model
 	connectionsService connections.Service
@@ -51,15 +47,13 @@ type Service struct {
 }
 
 func New(cfg config.Wrapper, m model.Model, connectionsService connections.Service, noUpgrade bool) *Service {
-	svc := &Service{
+	return &Service{
 		cfg:                cfg,
 		model:              m,
 		connectionsService: connectionsService,
 		noUpgrade:          noUpgrade,
 		forceRun:           make(chan struct{}, 1), // Buffered to prevent locking
 	}
-	svc.Service = util.AsService(svc.serve, svc.String())
-	return svc
 }
 
 // ReportData returns the data to be sent in a usage report with the currently
@@ -362,7 +356,7 @@ func (s *Service) sendUsageReport(ctx context.Context) error {
 	return nil
 }
 
-func (s *Service) serve(ctx context.Context) {
+func (s *Service) Serve(ctx context.Context) error {
 	s.cfg.Subscribe(s)
 	defer s.cfg.Unsubscribe(s)
 
@@ -370,7 +364,7 @@ func (s *Service) serve(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case <-s.forceRun:
 			t.Reset(0)
 		case <-t.C:

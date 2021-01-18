@@ -526,7 +526,7 @@ func TestNewSaveLoad(t *testing.T) {
 	}
 
 	intCfg := New(device1)
-	cfg := wrap(path, intCfg)
+	cfg := wrap(path, intCfg, device1)
 
 	if exists(path) {
 		t.Error(path, "exists")
@@ -646,7 +646,7 @@ func TestPullOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wrapper = wrap("testdata/pullorder.xml", cfg)
+	wrapper = wrap("testdata/pullorder.xml", cfg, device1)
 	folders = wrapper.Folders()
 
 	for _, tc := range expected {
@@ -941,7 +941,8 @@ func TestIssue4219(t *testing.T) {
 		]
 	}`))
 
-	cfg, err := ReadJSON(r, protocol.LocalDeviceID)
+	myID := protocol.LocalDeviceID
+	cfg, err := ReadJSON(r, myID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -959,7 +960,7 @@ func TestIssue4219(t *testing.T) {
 		t.Errorf("There should be three ignored folders, not %d", ignoredFolders)
 	}
 
-	w := wrap("/tmp/cfg", cfg)
+	w := wrap("/tmp/cfg", cfg, myID)
 	if !w.IgnoredFolder(device2, "t1") {
 		t.Error("Folder device2 t1 should be ignored")
 	}
@@ -1119,12 +1120,16 @@ func TestRemoveDeviceWithEmptyID(t *testing.T) {
 		},
 	}
 
-	cfg.clean()
+	cfg.prepare(device1)
 
-	if len(cfg.Devices) != 0 {
+	if len(cfg.Devices) != 1 {
+		t.Error("Expected one device")
+	} else if cfg.Devices[0].DeviceID != device1 {
 		t.Error("Expected device with empty ID to be removed from config:", cfg.Devices)
 	}
-	if len(cfg.Folders[0].Devices) != 0 {
+	if len(cfg.Folders[0].Devices) != 1 {
+		t.Error("Expected one device in folder")
+	} else if cfg.Folders[0].Devices[0].DeviceID != device1 {
 		t.Error("Expected device with empty ID to be removed from folder")
 	}
 }
@@ -1175,8 +1180,8 @@ func load(path string, myID protocol.DeviceID) (Wrapper, error) {
 	return cfg, err
 }
 
-func wrap(path string, cfg Configuration) Wrapper {
-	return Wrap(path, cfg, events.NoopLogger)
+func wrap(path string, cfg Configuration, myID protocol.DeviceID) Wrapper {
+	return Wrap(path, cfg, myID, events.NoopLogger)
 }
 
 func TestInternalVersioningConfiguration(t *testing.T) {

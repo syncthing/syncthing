@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -20,8 +21,9 @@ func TestDatabaseGetSet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go db.Serve()
-	defer db.Stop()
+	ctx, cancel := context.WithCancel(context.Background())
+	go db.Serve(ctx)
+	defer cancel()
 
 	// Check missing record
 

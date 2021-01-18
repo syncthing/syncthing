@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/binary"
 	"fmt"
@@ -32,7 +33,6 @@ type replicationSender struct {
 	cert       tls.Certificate // our certificate
 	allowedIDs []protocol.DeviceID
 	outbox     chan ReplicationRecord
-	stop       chan struct{}
 }
 
 func newReplicationSender(dst string, cert tls.Certificate, allowedIDs []protocol.DeviceID) *replicationSender {
@@ -41,11 +41,10 @@ func newReplicationSender(dst string, cert tls.Certificate, allowedIDs []protoco
 		cert:       cert,
 		allowedIDs: allowedIDs,
 		outbox:     make(chan ReplicationRecord, replicationOutboxSize),
-		stop:       make(chan struct{}),
 	}
 }
 
-func (s *replicationSender) Serve() {
+func (s *replicationSender) Serve(ctx context.Context) error {
 	// Sleep a little at startup. Peers often restart at the same time, and
 	// this avoid the service failing and entering backoff state
 	// unnecessarily, while also reducing the reconnect rate to something
@@ -62,7 +61,7 @@ func (s *replicationSender) Serve() {
 	conn, err := tls.Dial("tcp", s.dst, tlsCfg)
 	if err != nil {
 		log.Println("Replication connect:", err)
-		return
+		return err
 	}
 	defer func() {
 		conn.SetWriteDeadline(time.Now().Add(time.Second))
@@ -73,13 +72,13 @@ func (s *replicationSender) Serve() {
 	remoteID, err := deviceID(conn)
 	if err != nil {
 		log.Println("Replication connect:", err)
-		return
+		return err
 	}
 
 	// Verify it's in the set of allowed device IDs.
 	if !deviceIDIn(remoteID, s.allowedIDs) {
 		log.Println("Replication connect: unexpected device ID:", remoteID)
-		return
+		return err
 	}
 
 	heartBeatTicker := time.NewTicker(replicationHeartbeatInterval)
@@ -122,18 +121,14 @@ func (s *replicationSender) Serve() {
 				replicationSendsTotal.WithLabelValues("error").Inc()
 				log.Println("Replication write:", err)
 				// Yes, we are loosing the replication event here.
-				return
+				return err
 			}
 			replicationSendsTotal.WithLabelValues("success").Inc()
 
-		case <-s.stop:
-			return
+		case <-ctx.Done():
+			return nil
 		}
 	}
-}
-
-func (s *replicationSender) Stop() {
-	close(s.stop)
 }
 
 func (s *replicationSender) String() string {
@@ -172,7 +167,6 @@ type replicationListener struct {
 	cert       tls.Certificate
 	allowedIDs []protocol.DeviceID
 	db         database
-	stop       chan struct{}
 }
 
 func newReplicationListener(addr string, cert tls.Certificate, allowedIDs []protocol.DeviceID, db database) *replicationListener {
@@ -181,11 +175,10 @@ func newReplicationListener(addr string, cert tls.Certificate, allowedIDs []prot
 		cert:       cert,
 		allowedIDs: allowedIDs,
 		db:         db,
-		stop:       make(chan struct{}),
 	}
 }
 
-func (l *replicationListener) Serve() {
+func (l *replicationListener) Serve(ctx context.Context) error {
 	tlsCfg := &tls.Config{
 		Certificates:       []tls.Certificate{l.cert},
 		ClientAuth:         tls.RequestClientCert,
@@ -196,14 +189,14 @@ func (l *replicationListener) Serve() {
 	lst, err := tls.Listen("tcp", l.addr, tlsCfg)
 	if err != nil {
 		log.Println("Replication listen:", err)
-		return
+		return err
 	}
 	defer lst.Close()
 
 	for {
 		select {
-		case <-l.stop:
-			return
+		case <-ctx.Done():
+			return nil
 		default:
 		}
 
@@ -211,7 +204,7 @@ func (l *replicationListener) Serve() {
 		conn, err := lst.Accept()
 		if err != nil {
 			log.Println("Replication accept:", err)
-			return
+			return err
 		}
 
 		// Figure out the other side device ID
@@ -231,19 +224,15 @@ func (l *replicationListener) Serve() {
 			continue
 		}
 
-		go l.handle(conn)
+		go l.handle(ctx, conn)
 	}
-}
-
-func (l *replicationListener) Stop() {
-	close(l.stop)
 }
 
 func (l *replicationListener) String() string {
 	return fmt.Sprintf("replicationListener(%q)", l.addr)
 }
 
-func (l *replicationListener) handle(conn net.Conn) {
+func (l *replicationListener) handle(ctx context.Context, conn net.Conn) {
 	defer func() {
 		conn.SetWriteDeadline(time.Now().Add(time.Second))
 		conn.Close()
@@ -253,7 +242,7 @@ func (l *replicationListener) handle(conn net.Conn) {
 
 	for {
 		select {
-		case <-l.stop:
+		case <-ctx.Done():
 			return
 		default:
 		}
