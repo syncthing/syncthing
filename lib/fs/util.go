@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"unicode"
 )
 
 func ExpandTilde(path string) (string, error) {
@@ -86,15 +87,8 @@ func WindowsInvalidFilename(name string) error {
 			// Names ending in space or period are not valid.
 			return errInvalidFilenameWindowsSpacePeriod
 		}
-		upperCased := strings.ToUpper(part)
-		for _, disallowed := range windowsDisallowedNames {
-			if upperCased == disallowed {
-				return errInvalidFilenameWindowsReservedName
-			}
-			if strings.HasPrefix(upperCased, disallowed+".") {
-				// nul.txt.jpg is also disallowed
-				return errInvalidFilenameWindowsReservedName
-			}
+		if windowsIsReserved(part) {
+			return errInvalidFilenameWindowsReservedName
 		}
 	}
 
@@ -104,6 +98,63 @@ func WindowsInvalidFilename(name string) error {
 	}
 
 	return nil
+}
+
+// SanitizePath takes a string that might contain all kinds of special
+// characters and makes a valid, similar, path name out of it.
+//
+// Spans of invalid characters, whitespace and/or non-UTF-8 sequences are
+// replaced by a single space. The result is always UTF-8 and contains only
+// printable characters, as determined by unicode.IsPrint.
+//
+// Invalid characters are non-printing runes, things not allowed in file names
+// in Windows, and common shell metacharacters. Even if asterisks and pipes
+// and stuff are allowed on Unixes in general they might not be allowed by
+// the filesystem and may surprise the user and cause shell oddness. This
+// function is intended for file names we generate on behalf of the user,
+// and surprising them with odd shell characters in file names is unkind.
+//
+// We include whitespace in the invalid characters so that multiple
+// whitespace is collapsed to a single space. Additionally, whitespace at
+// either end is removed.
+//
+// If the result is a name disallowed on windows, a hyphen is prepended.
+func SanitizePath(path string) string {
+	var b strings.Builder
+
+	disallowed := `<>:"'/\|?*[]{};:!@$%&^#` + windowsDisallowedCharacters
+	prev := ' '
+	for _, c := range path {
+		if !unicode.IsPrint(c) || c == unicode.ReplacementChar ||
+			strings.ContainsRune(disallowed, c) {
+			c = ' '
+		}
+
+		if !(c == ' ' && prev == ' ') {
+			b.WriteRune(c)
+		}
+		prev = c
+	}
+
+	path = strings.TrimSpace(b.String())
+	if windowsIsReserved(path) {
+		path = "-" + path
+	}
+	return path
+}
+
+func windowsIsReserved(part string) bool {
+	upperCased := strings.ToUpper(part)
+	for _, disallowed := range windowsDisallowedNames {
+		if upperCased == disallowed {
+			return true
+		}
+		if strings.HasPrefix(upperCased, disallowed+".") {
+			// nul.txt.jpg is also disallowed
+			return true
+		}
+	}
+	return false
 }
 
 // IsParent compares paths purely lexicographically, meaning it returns false

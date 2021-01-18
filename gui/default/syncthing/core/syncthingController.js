@@ -1075,6 +1075,28 @@ angular.module('syncthing.core')
             return '?';
         };
 
+        $scope.hasRemoteGUIAddress = function (deviceCfg) {
+            if (!deviceCfg.remoteGUIPort)
+                return false;
+            var conn = $scope.connections[deviceCfg.deviceID];
+            return conn && conn.connected && conn.address && conn.type.indexOf('Relay') == -1;
+        };
+
+        $scope.remoteGUIAddress = function (deviceCfg) {
+            // Assume hasRemoteGUIAddress is true or we would not be here
+            var conn = $scope.connections[deviceCfg.deviceID];
+            return 'http://' + replaceAddressPort(conn.address, deviceCfg.remoteGUIPort);
+        };
+
+        function replaceAddressPort(address, newPort) {
+            for (var index = address.length - 1; index >= 0; index--) {
+                if (address[index] === ":") {
+                    return address.substr(0, index) + ":" + newPort.toString();
+                }
+            }
+            return address;
+        }
+
         $scope.friendlyNameFromShort = function (shortID) {
             var matches = Object.keys($scope.devices).filter(function (id) {
                 return id.substr(0, 7) === shortID;

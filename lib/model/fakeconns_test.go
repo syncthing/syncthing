@@ -31,7 +31,7 @@ type fakeConnection struct {
 	files                    []protocol.FileInfo
 	fileData                 map[string][]byte
 	folder                   string
-	model                    *model
+	model                    *testModel
 	indexFn                  func(context.Context, string, []protocol.FileInfo)
 	requestFn                func(ctx context.Context, folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
 	closeFn                  func(error)
@@ -201,7 +201,7 @@ func (f *fakeConnection) sendIndexUpdate() {
 	f.model.IndexUpdate(f.id, f.folder, f.files)
 }
 
-func addFakeConn(m *model, dev protocol.DeviceID) *fakeConnection {
+func addFakeConn(m *testModel, dev protocol.DeviceID) *fakeConnection {
 	fc := &fakeConnection{id: dev, model: m}
 	m.AddConnection(fc, protocol.Hello{})
 

@@ -13,7 +13,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 )
 
 type relayClientFactory func(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) RelayClient
@@ -61,7 +61,7 @@ func newCommonClient(invitations chan protocol.SessionInvitation, serve func(con
 		defer c.cleanup()
 		return serve(ctx)
 	}
-	c.ServiceWithError = util.AsServiceWithError(newServe, creator)
+	c.ServiceWithError = util.AsService(newServe, creator)
 	if c.invitations == nil {
 		c.closeInvitationsOnFinish = true
 		c.invitations = make(chan protocol.SessionInvitation)

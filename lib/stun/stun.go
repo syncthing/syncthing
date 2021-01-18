@@ -14,7 +14,6 @@ import (
 
 	"github.com/AudriusButkevicius/pfilter"
 	"github.com/ccding/go-stun/stun"
-	"github.com/thejerf/suture"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/util"
@@ -60,8 +59,6 @@ type Subscriber interface {
 }
 
 type Service struct {
-	suture.Service
-
 	name       string
 	cfg        config.Wrapper
 	subscriber Subscriber
@@ -105,20 +102,16 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) (*Servi
 		natType: NATUnknown,
 		addr:    nil,
 	}
-	s.Service = util.AsService(s.serve, s.String())
 	return s, otherDataConn
 }
 
-func (s *Service) Stop() {
-	_ = s.stunConn.Close()
-	s.Service.Stop()
-}
-
-func (s *Service) serve(ctx context.Context) {
+func (s *Service) Serve(ctx context.Context) error {
 	defer func() {
 		s.setNATType(NATUnknown)
 		s.setExternalAddress(nil, "")
 	}()
+
+	util.OnDone(ctx, func() { _ = s.stunConn.Close() })
 
 	timer := time.NewTimer(time.Millisecond)
 
@@ -126,7 +119,7 @@ func (s *Service) serve(ctx context.Context) {
 	disabled:
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case <-timer.C:
 		}
 
@@ -146,7 +139,7 @@ func (s *Service) serve(ctx context.Context) {
 			// Have we been asked to stop?
 			select {
 			case <-ctx.Done():
-				return
+				return ctx.Err()
 			default:
 			}
 
@@ -203,7 +196,6 @@ func (s *Service) runStunForServer(ctx context.Context, addr string) {
 	}
 
 	s.setNATType(natType)
-	s.setExternalAddress(extAddr, addr)
 	l.Debugf("%s detected NAT type: %s via %s", s, natType, addr)
 
 	// We can't punch through this one, so no point doing keepalives
@@ -212,6 +204,8 @@ func (s *Service) runStunForServer(ctx context.Context, addr string) {
 		l.Debugf("%s cannot punch %s, skipping", s, natType)
 		return
 	}
+
+	s.setExternalAddress(extAddr, addr)
 
 	s.stunKeepAlive(ctx, addr, extAddr)
 }

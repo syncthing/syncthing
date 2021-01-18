@@ -441,7 +441,7 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 	return knownFiles
 }
 
-func setupROFolder(t *testing.T) (*model, *receiveOnlyFolder) {
+func setupROFolder(t *testing.T) (*testModel, *receiveOnlyFolder) {
 	t.Helper()
 
 	w := createTmpWrapper(defaultCfg)
@@ -455,6 +455,7 @@ func setupROFolder(t *testing.T) (*model, *receiveOnlyFolder) {
 
 	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
 	m.ServeBackground()
+	<-m.started
 	must(t, m.ScanFolder("ro"))
 
 	m.fmut.RLock()

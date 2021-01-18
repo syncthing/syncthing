@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -1000,14 +1002,16 @@ func TestNeedFolderFiles(t *testing.T) {
 		t.Fatal("Timed out before receiving index")
 	}
 
-	progress, queued, rest := m.NeedFolderFiles(fcfg.ID, 1, 100)
+	progress, queued, rest, err := m.NeedFolderFiles(fcfg.ID, 1, 100)
+	must(t, err)
 	if got := len(progress) + len(queued) + len(rest); got != num {
 		t.Errorf("Got %v needed items, expected %v", got, num)
 	}
 
 	exp := 10
 	for page := 1; page < 3; page++ {
-		progress, queued, rest := m.NeedFolderFiles(fcfg.ID, page, exp)
+		progress, queued, rest, err := m.NeedFolderFiles(fcfg.ID, page, exp)
+		must(t, err)
 		if got := len(progress) + len(queued) + len(rest); got != exp {
 			t.Errorf("Got %v needed items on page %v, expected %v", got, page, exp)
 		}
@@ -1126,7 +1130,8 @@ func TestRequestLastFileProgress(t *testing.T) {
 	fc.mut.Lock()
 	fc.requestFn = func(_ context.Context, folder, name string, _ int64, _ int, _ []byte, _ bool) ([]byte, error) {
 		defer close(done)
-		progress, queued, rest := m.NeedFolderFiles(folder, 1, 10)
+		progress, queued, rest, err := m.NeedFolderFiles(folder, 1, 10)
+		must(t, err)
 		if len(queued)+len(rest) != 0 {
 			t.Error(`There should not be any queued or "rest" items`)
 		}
@@ -1149,6 +1154,9 @@ func TestRequestLastFileProgress(t *testing.T) {
 }
 
 func TestRequestIndexSenderPause(t *testing.T) {
+	done := make(chan struct{})
+	defer close(done)
+
 	m, fc, fcfg := setupModelWithConnection()
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
@@ -1156,7 +1164,10 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	indexChan := make(chan []protocol.FileInfo)
 	fc.mut.Lock()
 	fc.indexFn = func(_ context.Context, folder string, fs []protocol.FileInfo) {
-		indexChan <- fs
+		select {
+		case indexChan <- fs:
+		case <-done:
+		}
 	}
 	fc.mut.Unlock()
 
@@ -1167,7 +1178,6 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	localIndexUpdate(m, fcfg.ID, files)
 	select {
 	case <-time.After(5 * time.Second):
-		l.Infoln("timeout")
 		t.Fatal("timed out before receiving index")
 	case <-indexChan:
 	}
@@ -1264,5 +1274,130 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	case <-time.After(dur):
 	case <-indexChan:
 		t.Error("Received index despite remote not having the folder")
+	}
+}
+
+func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
+	ldb := db.NewLowlevel(backend.OpenMemory())
+	w, fcfg := tmpDefaultWrapper()
+	tfs := fcfg.Filesystem()
+	dir1 := "foo"
+	dir2 := "bar"
+
+	// Initialise db with an entry and then stop everything again
+	must(t, tfs.Mkdir(dir1, 0777))
+	m := newModel(w, myID, "syncthing", "dev", ldb, nil)
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+	m.ServeBackground()
+	m.ScanFolders()
+	m.cancel()
+	m.evCancel()
+	<-m.stopped
+
+	// Add connection (sends incoming cluster config) before starting the new model
+	m = newModel(w, myID, "syncthing", "dev", ldb, nil)
+	defer cleanupModel(m)
+	fc := addFakeConn(m, device1)
+	done := make(chan struct{})
+	defer close(done) // Must be the last thing to be deferred, thus first to run.
+	indexChan := make(chan []protocol.FileInfo, 1)
+	ccChan := make(chan protocol.ClusterConfig, 1)
+	fc.mut.Lock()
+	fc.indexFn = func(_ context.Context, folder string, fs []protocol.FileInfo) {
+		select {
+		case indexChan <- fs:
+		case <-done:
+		}
+	}
+	fc.clusterConfigFn = func(cc protocol.ClusterConfig) {
+		select {
+		case ccChan <- cc:
+		case <-done:
+		}
+	}
+	fc.mut.Unlock()
+
+	m.ServeBackground()
+
+	timeout := time.After(5 * time.Second)
+
+	// Check that cluster-config is resent after adding folders when starting model
+	select {
+	case <-timeout:
+		t.Fatal("timed out before receiving cluster-config")
+	case <-ccChan:
+	}
+
+	// Check that an index is sent for the newly added item
+	must(t, tfs.Mkdir(dir2, 0777))
+	m.ScanFolders()
+	select {
+	case <-timeout:
+		t.Fatal("timed out before receiving index")
+	case <-indexChan:
+	}
+}
+
+func TestRequestReceiveEncryptedLocalNoSend(t *testing.T) {
+	w, fcfg := tmpDefaultWrapper()
+	tfs := fcfg.Filesystem()
+	fcfg.Type = config.FolderTypeReceiveEncrypted
+	waiter, err := w.SetFolder(fcfg)
+	must(t, err)
+	waiter.Wait()
+
+	encToken := protocol.PasswordToken(fcfg.ID, "pw")
+	must(t, tfs.Mkdir(config.DefaultMarkerName, 0777))
+	must(t, writeEncryptionToken(encToken, fcfg))
+
+	m := setupModel(w)
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+
+	files := genFiles(2)
+	files[1].LocalFlags = protocol.FlagLocalReceiveOnly
+	m.fmut.RLock()
+	fset := m.folderFiles[fcfg.ID]
+	m.fmut.RUnlock()
+	fset.Update(protocol.LocalDeviceID, files)
+
+	indexChan := make(chan []protocol.FileInfo, 1)
+	done := make(chan struct{})
+	defer close(done)
+	fc := &fakeConnection{
+		id:    device1,
+		model: m,
+		indexFn: func(_ context.Context, _ string, fs []protocol.FileInfo) {
+			select {
+			case indexChan <- fs:
+			case <-done:
+			}
+		},
+	}
+	m.AddConnection(fc, protocol.Hello{})
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID: "default",
+				Devices: []protocol.Device{
+					{
+						ID:                      myID,
+						EncryptionPasswordToken: encToken,
+					},
+					{ID: device1},
+				},
+			},
+		},
+	})
+
+	select {
+	case fs := <-indexChan:
+		if len(fs) != 1 {
+			t.Error("Expected index with one file, got", fs)
+		}
+		if got := fs[0].Name; got != files[0].Name {
+			t.Errorf("Expected file %v, got %v", got, files[0].Name)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out before receiving index")
 	}
 }

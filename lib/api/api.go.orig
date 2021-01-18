@@ -482,14 +482,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (s *service) fatal(err *util.FatalErr) {
-	// s.exitChan is 1-buffered and whoever is first gets handled.
-	select {
-	case s.exitChan <- err:
-	default:
-	}
-}
-
+<<<<<<< HEAD
 func listContainsString(s []string, e string) bool {
   for _, a := range s {
     if a == e {
@@ -522,6 +515,17 @@ func getPostHandler(get, post http.Handler) http.Handler {
 	})
 }
 
+||||||| b16cc72f
+=======
+func (s *service) fatal(err *util.FatalErr) {
+	// s.exitChan is 1-buffered and whoever is first gets handled.
+	select {
+	case s.exitChan <- err:
+	default:
+	}
+}
+
+>>>>>>> v1.12.1
 func debugMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t0 := time.Now()

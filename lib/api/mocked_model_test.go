@@ -7,6 +7,7 @@
 package api
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -33,8 +34,16 @@ func (m *mockedModel) Override(folder string) {}
 
 func (m *mockedModel) Revert(folder string) {}
 
-func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
-	return nil, nil, nil
+func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error) {
+	return nil, nil, nil, nil
+}
+
+func (*mockedModel) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]db.FileInfoTruncated, error) {
+	return nil, nil
+}
+
+func (*mockedModel) LocalChangedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
+	return nil, nil
 }
 
 func (m *mockedModel) FolderProgressBytesCompleted(_ string) int64 {
@@ -124,8 +133,7 @@ func (m *mockedModel) WatchError(folder string) error {
 	return nil
 }
 
-func (m *mockedModel) Serve() {}
-func (m *mockedModel) Stop()  {}
+func (m *mockedModel) Serve(ctx context.Context) error { return nil }
 
 func (m *mockedModel) Index(deviceID protocol.DeviceID, folder string, files []protocol.FileInfo) error {
 	return nil
@@ -167,9 +175,7 @@ func (m *mockedModel) DBSnapshot(_ string) (*db.Snapshot, error) {
 
 type mockedFolderSummaryService struct{}
 
-func (m *mockedFolderSummaryService) Serve() {}
-
-func (m *mockedFolderSummaryService) Stop() {}
+func (m *mockedFolderSummaryService) Serve(context.Context) error { return nil }
 
 func (m *mockedFolderSummaryService) Summary(folder string) (map[string]interface{}, error) {
 	return map[string]interface{}{"mocked": true}, nil

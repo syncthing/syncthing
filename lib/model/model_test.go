@@ -25,8 +25,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
@@ -115,12 +113,12 @@ func createTmpWrapper(cfg config.Configuration) config.Wrapper {
 	if err != nil {
 		panic(err)
 	}
-	wrapper := config.Wrap(tmpFile.Name(), cfg, events.NoopLogger)
+	wrapper := config.Wrap(tmpFile.Name(), cfg, myID, events.NoopLogger)
 	tmpFile.Close()
 	return wrapper
 }
 
-func newState(cfg config.Configuration) *model {
+func newState(cfg config.Configuration) *testModel {
 	wcfg := createTmpWrapper(cfg)
 
 	m := setupModel(wcfg)
@@ -331,7 +329,7 @@ func TestDeviceRename(t *testing.T) {
 			DeviceID: device1,
 		},
 	}
-	cfg := config.Wrap("testdata/tmpconfig.xml", rawCfg, events.NoopLogger)
+	cfg := config.Wrap("testdata/tmpconfig.xml", rawCfg, device1, events.NoopLogger)
 
 	db := db.NewLowlevel(backend.OpenMemory())
 	m := newModel(cfg, myID, "syncthing", "dev", db, nil)
@@ -1396,7 +1394,7 @@ func TestAutoAcceptEnc(t *testing.T) {
 	}
 }
 
-func changeIgnores(t *testing.T, m *model, expected []string) {
+func changeIgnores(t *testing.T, m *testModel, expected []string) {
 	arrEqual := func(a, b []string) bool {
 		if len(a) != len(b) {
 			return false
@@ -3283,50 +3281,6 @@ func TestRequestLimit(t *testing.T) {
 	}
 }
 
-func TestSanitizePath(t *testing.T) {
-	cases := [][2]string{
-		{"", ""},
-		{"foo", "foo"},
-		{`\*/foo\?/bar[{!@$%^&*#()}]`, "foo bar ()"},
-		{"Räksmörgås", "Räksmörgås"},
-		{`Räk \/ smörgås`, "Räk smörgås"},
-		{"هذا هو *\x07?اسم الملف", "هذا هو اسم الملف"},
-		{`../foo.txt`, `.. foo.txt`},
-		{"  \t \n filename in  \t space\r", "filename in space"},
-		{"你\xff好", `你 好`},
-		{"\000 foo", "foo"},
-	}
-
-	for _, tc := range cases {
-		res := sanitizePath(tc[0])
-		if res != tc[1] {
-			t.Errorf("sanitizePath(%q) => %q, expected %q", tc[0], res, tc[1])
-		}
-	}
-}
-
-// Fuzz test: sanitizePath must always return strings of printable UTF-8
-// characters when fed random data.
-//
-// Note that space is considered printable, but other whitespace runes are not.
-func TestSanitizePathFuzz(t *testing.T) {
-	buf := make([]byte, 128)
-
-	for i := 0; i < 100; i++ {
-		rand.Read(buf)
-		path := sanitizePath(string(buf))
-		if !utf8.ValidString(path) {
-			t.Errorf("sanitizePath(%q) => %q, not valid UTF-8", buf, path)
-			continue
-		}
-		for _, c := range path {
-			if !unicode.IsPrint(c) {
-				t.Errorf("non-printable rune %q in sanitized path", c)
-			}
-		}
-	}
-}
-
 // TestConnCloseOnRestart checks that there is no deadlock when calling Close
 // on a protocol connection that has a blocking reader (blocking writer can't
 // be done as the test requires clusterconfigs to go through).
@@ -4205,7 +4159,7 @@ func TestNeedMetaAfterIndexReset(t *testing.T) {
 func TestCcCheckEncryption(t *testing.T) {
 	w, fcfg := tmpDefaultWrapper()
 	m := setupModel(w)
-	m.Stop()
+	m.cancel()
 	defer cleanupModel(m)
 
 	pw := "foo"
@@ -4338,6 +4292,34 @@ func TestCcCheckEncryption(t *testing.T) {
 		if err != errEncryptionPassword {
 			t.Errorf("Testcase %v: Expected error %v, got %v", i, errEncryptionPassword, err)
 		}
+	}
+}
+
+func TestCCFolderNotRunning(t *testing.T) {
+	// Create the folder, but don't start it.
+	w, fcfg := tmpDefaultWrapper()
+	tfs := fcfg.Filesystem()
+	m := newModel(w, myID, "syncthing", "dev", db.NewLowlevel(backend.OpenMemory()), nil)
+	defer cleanupModelAndRemoveDir(m, tfs.URI())
+
+	// A connection can happen before all the folders are started.
+	cc := m.generateClusterConfig(device1)
+	if l := len(cc.Folders); l != 1 {
+		t.Fatalf("Expected 1 folder in CC, got %v", l)
+	}
+	folder := cc.Folders[0]
+	if id := folder.ID; id != fcfg.ID {
+		t.Fatalf("Expected folder %v, got %v", fcfg.ID, id)
+	}
+	if l := len(folder.Devices); l != 2 {
+		t.Fatalf("Expected 2 devices in CC, got %v", l)
+	}
+	local := folder.Devices[1]
+	if local.ID != myID {
+		local = folder.Devices[0]
+	}
+	if !folder.Paused && local.IndexID == 0 {
+		t.Errorf("Folder isn't paused, but index-id is zero")
 	}
 }
 

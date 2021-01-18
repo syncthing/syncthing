@@ -99,7 +99,13 @@ func MonitorMain(runtimeOptions RuntimeOptions) int {
 
 		if t := time.Since(restarts[0]); t < loopThreshold {
 			l.Warnf("%d restarts in %v; not retrying further", countRestarts, t)
-			return util.ExitError.AsInt()
+<<<<<<< HEAD
+			return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+			os.Exit(syncthing.ExitError.AsInt())
+=======
+			os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 		}
 
 		copy(restarts[0:], restarts[1:])
@@ -169,7 +175,13 @@ func MonitorMain(runtimeOptions RuntimeOptions) int {
 
 		if err == nil {
 			// Successful exit indicates an intentional shutdown
-			return util.ExitSuccess.AsInt()
+<<<<<<< HEAD
+			return syncthing.ExitSuccess.AsInt()
+||||||| b16cc72f
+			os.Exit(syncthing.ExitSuccess.AsInt())
+=======
+			os.Exit(util.ExitSuccess.AsInt())
+>>>>>>> v1.12.1
 		}
 
 		if exiterr, ok := err.(*exec.ExitError); ok {
@@ -189,7 +201,13 @@ func MonitorMain(runtimeOptions RuntimeOptions) int {
 		}
 
 		if runtimeOptions.noRestart {
-			return util.ExitError.AsInt()
+<<<<<<< HEAD
+			return syncthing.ExitError.AsInt()
+||||||| b16cc72f
+			os.Exit(syncthing.ExitError.AsInt())
+=======
+			os.Exit(util.ExitError.AsInt())
+>>>>>>> v1.12.1
 		}
 
 		l.Infoln("Syncthing exited:", err)

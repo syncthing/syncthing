@@ -93,7 +93,7 @@ func (c *dynamicClient) serve(ctx context.Context) error {
 			c.client = client
 			c.mut.Unlock()
 
-			c.client.Serve()
+			c.client.Serve(ctx)
 
 			c.mut.Lock()
 			c.client = nil
@@ -102,15 +102,6 @@ func (c *dynamicClient) serve(ctx context.Context) error {
 	}
 	l.Debugln(c, "could not find a connectable relay")
 	return errors.New("could not find a connectable relay")
-}
-
-func (c *dynamicClient) Stop() {
-	c.mut.RLock()
-	if c.client != nil {
-		c.client.Stop()
-	}
-	c.mut.RUnlock()
-	c.commonClient.Stop()
 }
 
 func (c *dynamicClient) Error() error {

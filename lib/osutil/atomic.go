@@ -83,10 +83,8 @@ func (w *AtomicWriter) Close() error {
 	// Try to not leave temp file around, but ignore error.
 	defer w.fs.Remove(w.next.Name())
 
-	if err := w.next.Sync(); err != nil {
-		w.err = err
-		return err
-	}
+	// sync() isn't supported everywhere, our best effort will suffice.
+	_ = w.next.Sync()
 
 	if err := w.next.Close(); err != nil {
 		w.err = err

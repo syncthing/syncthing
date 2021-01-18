@@ -7,6 +7,7 @@
 package events
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -27,10 +28,16 @@ func TestNewLogger(t *testing.T) {
 	}
 }
 
-func TestSubscriber(t *testing.T) {
+func setupLogger() (Logger, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
 	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	go l.Serve(ctx)
+	return l, cancel
+}
+
+func TestSubscriber(t *testing.T) {
+	l, cancel := setupLogger()
+	defer cancel()
 
 	s := l.Subscribe(0)
 	defer s.Unsubscribe()
@@ -40,9 +47,8 @@ func TestSubscriber(t *testing.T) {
 }
 
 func TestTimeout(t *testing.T) {
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	s := l.Subscribe(0)
 	defer s.Unsubscribe()
@@ -53,9 +59,8 @@ func TestTimeout(t *testing.T) {
 }
 
 func TestEventBeforeSubscribe(t *testing.T) {
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	l.Log(DeviceConnected, "foo")
 	s := l.Subscribe(0)
@@ -68,9 +73,8 @@ func TestEventBeforeSubscribe(t *testing.T) {
 }
 
 func TestEventAfterSubscribe(t *testing.T) {
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	s := l.Subscribe(AllEvents)
 	defer s.Unsubscribe()
@@ -95,9 +99,8 @@ func TestEventAfterSubscribe(t *testing.T) {
 }
 
 func TestEventAfterSubscribeIgnoreMask(t *testing.T) {
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	s := l.Subscribe(DeviceDisconnected)
 	defer s.Unsubscribe()
@@ -110,9 +113,8 @@ func TestEventAfterSubscribeIgnoreMask(t *testing.T) {
 }
 
 func TestBufferOverflow(t *testing.T) {
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	s := l.Subscribe(AllEvents)
 	defer s.Unsubscribe()
@@ -135,9 +137,8 @@ func TestBufferOverflow(t *testing.T) {
 }
 
 func TestUnsubscribe(t *testing.T) {
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	s := l.Subscribe(AllEvents)
 	l.Log(DeviceConnected, "foo")
@@ -157,9 +158,8 @@ func TestUnsubscribe(t *testing.T) {
 }
 
 func TestGlobalIDs(t *testing.T) {
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	s := l.Subscribe(AllEvents)
 	defer s.Unsubscribe()
@@ -189,9 +189,8 @@ func TestGlobalIDs(t *testing.T) {
 }
 
 func TestSubscriptionIDs(t *testing.T) {
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	s := l.Subscribe(DeviceConnected)
 	defer s.Unsubscribe()
@@ -231,9 +230,8 @@ func TestSubscriptionIDs(t *testing.T) {
 }
 
 func TestBufferedSub(t *testing.T) {
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	s := l.Subscribe(AllEvents)
 	defer s.Unsubscribe()
@@ -262,9 +260,8 @@ func TestBufferedSub(t *testing.T) {
 }
 
 func BenchmarkBufferedSub(b *testing.B) {
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	s := l.Subscribe(AllEvents)
 	defer s.Unsubscribe()
@@ -318,9 +315,8 @@ func BenchmarkBufferedSub(b *testing.B) {
 }
 
 func TestSinceUsesSubscriptionId(t *testing.T) {
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	s := l.Subscribe(DeviceConnected)
 	defer s.Unsubscribe()
@@ -375,9 +371,8 @@ func TestUnsubscribeContention(t *testing.T) {
 		senders   = 1000
 	)
 
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	// Start listeners. These will poll until the stop channel is closed,
 	// then exit and unsubscribe.
@@ -444,9 +439,8 @@ func TestUnsubscribeContention(t *testing.T) {
 }
 
 func BenchmarkLogEvent(b *testing.B) {
-	l := NewLogger()
-	defer l.Stop()
-	go l.Serve()
+	l, cancel := setupLogger()
+	defer cancel()
 
 	s := l.Subscribe(AllEvents)
 	defer s.Unsubscribe()

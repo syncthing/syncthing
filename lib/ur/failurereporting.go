@@ -17,9 +17,8 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/util"
 
-	"github.com/thejerf/suture"
+	"github.com/thejerf/suture/v4"
 )
 
 var (
@@ -45,18 +44,15 @@ type FailureHandler interface {
 }
 
 func NewFailureHandler(cfg config.Wrapper, evLogger events.Logger) FailureHandler {
-	h := &failureHandler{
+	return &failureHandler{
 		cfg:      cfg,
 		evLogger: evLogger,
 		optsChan: make(chan config.OptionsConfiguration),
 		buf:      make(map[string]*failureStat),
 	}
-	h.Service = util.AsServiceWithError(h.serve, h.String())
-	return h
 }
 
 type failureHandler struct {
-	suture.Service
 	cfg      config.Wrapper
 	evLogger events.Logger
 	optsChan chan config.OptionsConfiguration
@@ -68,7 +64,7 @@ type failureStat struct {
 	count       int
 }
 
-func (h *failureHandler) serve(ctx context.Context) error {
+func (h *failureHandler) Serve(ctx context.Context) error {
 	go func() {
 		select {
 		case h.optsChan <- h.cfg.Options():
@@ -137,6 +133,8 @@ outer:
 					case <-ctx.Done():
 					}
 				}()
+			} else {
+				timer.Reset(minDelay)
 			}
 		case <-resetTimer:
 			timer.Reset(minDelay)

@@ -10,47 +10,36 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/thejerf/suture"
-
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // The verbose logging service subscribes to events and prints these in
 // verbose format to the console using INFO level.
 type verboseService struct {
-	suture.Service
-	sub events.Subscription
+	evLogger events.Logger
 }
 
 func newVerboseService(evLogger events.Logger) *verboseService {
-	s := &verboseService{
-		sub: evLogger.Subscribe(events.AllEvents),
+	return &verboseService{
+		evLogger: evLogger,
 	}
-	s.Service = util.AsService(s.serve, s.String())
-	return s
 }
 
 // serve runs the verbose logging service.
-func (s *verboseService) serve(ctx context.Context) {
+func (s *verboseService) Serve(ctx context.Context) error {
+	sub := s.evLogger.Subscribe(events.AllEvents)
+	defer sub.Unsubscribe()
 	for {
 		select {
-		case ev := <-s.sub.C():
+		case ev := <-sub.C():
 			formatted := s.formatEvent(ev)
 			if formatted != "" {
 				l.Verboseln(formatted)
 			}
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		}
 	}
-}
-
-// Stop stops the verbose logging service.
-func (s *verboseService) Stop() {
-	s.Service.Stop()
-	s.sub.Unsubscribe()
-
 }
 
 func (s *verboseService) formatEvent(ev events.Event) string {

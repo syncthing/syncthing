@@ -29,7 +29,6 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
 )
@@ -141,7 +140,6 @@ func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matche
 		writeLimiter:       newByteSemaphore(cfg.MaxConcurrentWrites),
 	}
 	f.folder.puller = f
-	f.folder.Service = util.AsService(f.serve, f.String())
 
 	if f.Copiers == 0 {
 		f.Copiers = defaultCopiers
@@ -1712,6 +1710,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 		return nil
 	}
 
+	recvEnc := f.Type == config.FolderTypeReceiveEncrypted
 loop:
 	for {
 		select {
@@ -1723,6 +1722,9 @@ loop:
 			switch job.jobType {
 			case dbUpdateHandleFile, dbUpdateShortcutFile:
 				changedDirs[filepath.Dir(job.file.Name)] = struct{}{}
+				if recvEnc {
+					job.file.Size += encryptionTrailerSize(job.file)
+				}
 			case dbUpdateHandleDir:
 				changedDirs[job.file.Name] = struct{}{}
 			case dbUpdateHandleSymlink, dbUpdateInvalidate:
