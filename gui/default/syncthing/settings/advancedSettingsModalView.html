@@ -65,8 +65,8 @@
         </div>
       </div>
 
-      <div class="panel panel-default" ng-repeat="folder in advancedConfig.folders">
-        <div class="panel-heading" role="tab" id="folder{{$index}}Heading" data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{$index}}Config" aria-expanded="false" aria-controls="folder{{$index}}Config" style="cursor: pointer;">
+      <div class="panel panel-default" ng-repeat="folder in advancedConfig.folders" ng-init="folderIndex = $index">
+        <div class="panel-heading" role="tab" id="folder{{folderIndex}}Heading" data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{folderIndex}}Config" aria-expanded="false" aria-controls="folder{{folderIndex}}Config" style="cursor: pointer;">
           <h4 ng-if="folder.label.length == 0" class="panel-title" tabindex="0">
             <span translate>Folder</span> "{{folder.id}}"
           </h4>
@@ -74,14 +74,14 @@
             <span translate>Folder</span> "{{folder.label}}" ({{folder.id}})
           </h4>
         </div>
-        <div id="folder{{$index}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="folder{{$index}}Heading">
+        <div id="folder{{folderIndex}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="folder{{folderIndex}}Heading">
           <div class="panel-body">
             <form class="form-horizontal" role="form">
-              <div ng-repeat="(key, value) in folder" ng-init="folderIndex = folder{{$index}} ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
-                <label for="folder{{$folderIndex}}Input{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
+              <div ng-repeat="(key, value) in folder" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                <label for="folder{{folderIndex}}Input{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
                 <div class="col-sm-8">
-                  <input ng-if="inputTypeFor(key, value) == 'list'" id="folder{{$folderIndex}}Input{{$index}}" class="form-control" type="text" ng-model="folder[key]" ng-list />
-                  <input ng-if="inputTypeFor(key, value) != 'list'" id="folder{{$folderIndex}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="folder[key]" />
+                  <input ng-if="inputTypeFor(key, value) == 'list'" id="folder{{folderIndex}}Input{{$index}}" class="form-control" type="text" ng-model="folder[key]" ng-list />
+                  <input ng-if="inputTypeFor(key, value) != 'list'" id="folder{{folderIndex}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="folder[key]" />
                 </div>
               </div>
             </form>
@@ -89,20 +89,20 @@
         </div>
       </div>
 
-      <div class="panel panel-default" ng-repeat="device in advancedConfig.devices">
-        <div class="panel-heading" role="tab" id="device{{$index}}Heading" data-toggle="collapse" data-parent="#advancedAccordion" href="#device{{$index}}Config" aria-expanded="false" aria-controls="device{{$index}}Config" style="cursor: pointer;">
+      <div class="panel panel-default" ng-repeat="device in advancedConfig.devices" ng-init="deviceIndex = $index">
+        <div class="panel-heading" role="tab" id="device{{deviceIndex}}Heading" data-toggle="collapse" data-parent="#advancedAccordion" href="#device{{deviceIndex}}Config" aria-expanded="false" aria-controls="device{{deviceIndex}}Config" style="cursor: pointer;">
           <h4 class="panel-title" tabindex="0">
             <span translate>Device</span> "{{deviceName(device)}}"
           </h4>
         </div>
-        <div id="device{{$index}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="device{{$index}}Heading">
+        <div id="device{{deviceIndex}}Config" class="panel-collapse collapse" role="tabpanel" aria-labelledby="device{{deviceIndex}}Heading">
           <div class="panel-body">
             <form class="form-horizontal" role="form">
-              <div ng-repeat="(key, value) in device" ng-init="deviceIndex = device{{$index}}" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
-                <label for="device{{$deviceIndex}}Input{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
+              <div ng-repeat="(key, value) in device" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                <label for="device{{deviceIndex}}Input{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
                 <div class="col-sm-8">
-                  <input ng-if="inputTypeFor(key, value) == 'list'" id="device{{$deviceIndex}}Input{{$index}}" class="form-control" type="text" ng-model="device[key]" ng-list />
-                  <input ng-if="inputTypeFor(key, value) != 'list'" id="device{{$deviceIndex}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="device[key]" />
+                  <input ng-if="inputTypeFor(key, value) == 'list'" id="device{{deviceIndex}}Input{{$index}}" class="form-control" type="text" ng-model="device[key]" ng-list />
+                  <input ng-if="inputTypeFor(key, value) != 'list'" id="device{{deviceIndex}}Input{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="device[key]" />
                 </div>
               </div>
             </form>
