@@ -402,5 +402,6 @@
     "items": "pozycji",
     "seconds": "seconds",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} chce udostępnić folder \"{{folder}}\"",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} chce udostępnić folder \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} chce udostępnić folder \"{{folderlabel}}\" ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }

@@ -402,5 +402,6 @@
     "items": "objekt",
     "seconds": "sekunder",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} vill dela mapp \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} vill dela mapp \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} vill dela mapp \"{{folderlabel}}\" ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} kan återinföra denna enhet."
 }

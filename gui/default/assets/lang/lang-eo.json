@@ -402,5 +402,6 @@
     "items": "eroj",
     "seconds": "seconds",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} volas komunigi dosierujon \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} volas komunigi dosierujon \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} volas komunigi dosierujon \"{{folderlabel}}\" ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }

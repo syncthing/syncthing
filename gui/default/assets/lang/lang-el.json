@@ -402,5 +402,6 @@
     "items": "εγγραφές",
     "seconds": "δευτερόλεπτα",
     "{%device%} wants to share folder \"{%folder%}\".": "Η συσκευή {{device}} θέλει να μοιράσει τον φάκελο «{{folder}}».",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "Η συσκευή {{device}} επιθυμεί να διαμοιράσει τον φάκελο \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "Η συσκευή {{device}} επιθυμεί να διαμοιράσει τον φάκελο \"{{folderlabel}}\" ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }

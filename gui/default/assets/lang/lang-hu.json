@@ -402,5 +402,6 @@
     "items": "elem",
     "seconds": "másodperc",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} szeretné megosztani a mappát: „{{folder}}”.",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} szeretné megosztani a mappát: „{{folderlabel}}” ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} szeretné megosztani a mappát: „{{folderlabel}}” ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} újra bevezetheti ezt az eszközt."
 }

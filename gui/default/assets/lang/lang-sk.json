@@ -402,5 +402,6 @@
     "items": "položiek",
     "seconds": "sekúnd",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} chce zdieľať adresár \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} chce zdieľať adresár \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} chce zdieľať adresár \"{{folderlabel}}\" ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }

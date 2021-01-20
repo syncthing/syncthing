@@ -402,5 +402,6 @@
     "items": "įrašai",
     "seconds": "sek.",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} nori dalintis aplanku \"{{folder}}\"",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} nori dalintis aplanku \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} nori dalintis aplanku \"{{folderlabel}}\" ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }
