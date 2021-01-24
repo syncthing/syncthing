@@ -15,8 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/thejerf/suture/v4"
 )
 
 type defaultParser interface {
@@ -250,48 +248,6 @@ func AddressUnspecifiedLess(a, b net.Addr) bool {
 		return len(a.Network()) < len(b.Network())
 	}
 	return aIsUnspecified
-}
-
-type FatalErr struct {
-	Err    error
-	Status ExitStatus
-}
-
-func (e *FatalErr) Error() string {
-	return e.Err.Error()
-}
-
-func (e *FatalErr) Unwrap() error {
-	return e.Err
-}
-
-func (e *FatalErr) Is(target error) bool {
-	return target == suture.ErrTerminateSupervisorTree
-}
-
-// NoRestartErr wraps the given error err (which may be nil) to make sure that
-// `errors.Is(err, suture.ErrDoNotRestart) == true`.
-func NoRestartErr(err error) error {
-	if err == nil {
-		return suture.ErrDoNotRestart
-	}
-	return &noRestartErr{err}
-}
-
-type noRestartErr struct {
-	err error
-}
-
-func (e *noRestartErr) Error() string {
-	return e.err.Error()
-}
-
-func (e *noRestartErr) Unwrap() error {
-	return e.err
-}
-
-func (e *noRestartErr) Is(target error) bool {
-	return target == suture.ErrDoNotRestart
 }
 
 type ExitStatus int
