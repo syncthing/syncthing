@@ -109,9 +109,8 @@ func (s *Service) Serve(ctx context.Context) error {
 	defer func() {
 		s.setNATType(NATUnknown)
 		s.setExternalAddress(nil, "")
+		_ = s.stunConn.Close()
 	}()
-
-	util.OnDone(ctx, func() { _ = s.stunConn.Close() })
 
 	timer := time.NewTimer(time.Millisecond)
 
