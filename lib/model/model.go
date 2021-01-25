@@ -1419,7 +1419,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		})
 	}
 	// All current candidate links were touched above, so discard any with older timestamps
-	_, err := m.db.RemoveCandidateLinksBeforeTime(deviceID, handleTime)
+	_, err = m.db.RemoveCandidateLinksBeforeTime(deviceID, handleTime)
 	if err != nil {
 		l.Infof("Could not clean up candidate link entries: %v", err)
 	}
