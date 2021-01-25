@@ -122,6 +122,7 @@ angular.module('syncthing.core')
             refreshSystem();
             refreshDiscoveryCache();
             refreshConfig();
+            refreshCluster();
             refreshConnectionStats();
             refreshDeviceStats();
             refreshFolderStats();
@@ -244,32 +245,69 @@ angular.module('syncthing.core')
             }
         });
 
-        $scope.$on(Events.DEVICE_REJECTED, function (event, arg) {
-            var pendingDevice = {
-                time: arg.time,
-                name: arg.data.name,
-                address: arg.data.address
-            };
-            console.log("rejected device:", arg.data.device, pendingDevice);
+        $scope.$on(Events.PENDING_DEVICES_CHANGED, function (event, arg) {
+            if (!(arg.data.added || arg.data.removed)) {
+                // Not enough information to update in place, just refresh it completely
+                refreshCluster();
+                return;
+            }
 
-            $scope.pendingDevices[arg.data.device] = pendingDevice;
+            if (arg.data.added) {
+                arg.data.added.forEach(function (rejected) {
+                    var pendingDevice = {
+                        time: arg.time,
+                        name: rejected.name,
+                        address: rejected.address
+                    };
+                    console.log("rejected device:", rejected.deviceID, pendingDevice);
+                    $scope.pendingDevices[rejected.deviceID] = pendingDevice;
+                });
+            }
+
+            if (arg.data.removed) {
+                arg.data.removed.forEach(function (dev) {
+                    console.log("no longer pending device:", dev.deviceID);
+                    delete $scope.pendingDevices[dev.deviceID];
+                });
+            }
         });
 
-        $scope.$on(Events.FOLDER_REJECTED, function (event, arg) {
-            var offeringDevice = {
-                time: arg.time,
-                label: arg.data.folderLabel
-            };
-            console.log("rejected folder", arg.data.folder, "from device:", arg.data.device, offeringDevice);
-
-            var pendingFolder = $scope.pendingFolders[arg.data.folder];
-            if (pendingFolder === undefined) {
-                pendingFolder = {
-                    offeredBy: {}
-                };
+        $scope.$on(Events.PENDING_FOLDERS_CHANGED, function (event, arg) {
+            if (!(arg.data.added || arg.data.removed)) {
+                // Not enough information to update in place, just refresh it completely
+                refreshCluster();
+                return;
             }
-            pendingFolder.offeredBy[arg.data.device] = offeringDevice;
-            $scope.pendingFolders[arg.data.folder] = pendingFolder;
+
+            if (arg.data.added) {
+                arg.data.added.forEach(function (rejected) {
+                    var offeringDevice = {
+                        time: arg.time,
+                        label: rejected.folderLabel
+                    };
+                    console.log("rejected folder", rejected.folderID, "from device:", rejected.deviceID, offeringDevice);
+
+                    var pendingFolder = $scope.pendingFolders[rejected.folderID];
+                    if (pendingFolder === undefined) {
+                        pendingFolder = {
+                            offeredBy: {}
+                        };
+                    }
+                    pendingFolder.offeredBy[rejected.deviceID] = offeringDevice;
+                    $scope.pendingFolders[rejected.folderID] = pendingFolder;
+                });
+            }
+
+            if (arg.data.removed) {
+                arg.data.removed.forEach(function (folderDev) {
+                    console.log("no longer pending folder", folderDev.folderID, "from device:", folderDev.deviceID);
+                    if (folderDev.deviceID === undefined) {
+                        delete $scope.pendingFolders[folderDev.folderID];
+                    } else if ($scope.pendingFolders[folderDev.folderID]) {
+                        delete $scope.pendingFolders[folderDev.folderID].offeredBy[folderDev.deviceID];
+                    }
+                });
+            }
         });
 
         $scope.$on('ConfigLoaded', function () {
@@ -421,7 +459,6 @@ angular.module('syncthing.core')
                 });
             });
 
-            refreshCluster();
             refreshNoAuthWarning();
             setDefaultTheme();
 
