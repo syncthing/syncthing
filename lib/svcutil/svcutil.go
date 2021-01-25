@@ -144,19 +144,17 @@ func (s *service) String() string {
 
 }
 
-type doneService struct {
-	fn func()
-}
+type doneService func()
 
-func (s *doneService) Serve(ctx context.Context) error {
+func (fn doneService) Serve(ctx context.Context) error {
 	<-ctx.Done()
-	s.fn()
+	fn()
 	return nil
 }
 
 // OnSupervisorDone calls fn when sup is done.
 func OnSupervisorDone(sup *suture.Supervisor, fn func()) {
-	sup.Add(&doneService{fn})
+	sup.Add(doneService(fn))
 }
 
 func SpecWithDebugLogger(l logger.Logger) suture.Spec {
