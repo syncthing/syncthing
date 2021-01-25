@@ -402,5 +402,6 @@
     "items": "kohteet",
     "seconds": "seconds",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} haluaa jakaa kansion \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} haluaa jakaa kansion \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} haluaa jakaa kansion \"{{folderlabel}}\" ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }

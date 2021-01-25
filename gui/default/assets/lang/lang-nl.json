@@ -402,5 +402,6 @@
     "items": "items",
     "seconds": "seconden",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wil map \"{{folder}}\" delen.",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wil map \"{{folderlabel}}\" ({{folder}}) delen."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wil map \"{{folderlabel}}\" ({{folder}}) delen.",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} kan dit apparaat mogelijk opnieuw introduceren."
 }

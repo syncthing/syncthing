@@ -28,7 +28,8 @@ const (
 	DeviceDiscovered
 	DeviceConnected
 	DeviceDisconnected
-	DeviceRejected
+	DeviceRejected // DEPRECATED, superseded by PendingDevicesChanged
+	PendingDevicesChanged
 	DevicePaused
 	DeviceResumed
 	LocalChangeDetected
@@ -38,7 +39,8 @@ const (
 	ItemStarted
 	ItemFinished
 	StateChanged
-	FolderRejected
+	FolderRejected // DEPRECATED, superseded by PendingFoldersChanged
+	PendingFoldersChanged
 	ConfigSaved
 	DownloadProgress
 	RemoteDownloadProgress
@@ -77,6 +79,8 @@ func (t EventType) String() string {
 		return "DeviceDisconnected"
 	case DeviceRejected:
 		return "DeviceRejected"
+	case PendingDevicesChanged:
+		return "PendingDevicesChanged"
 	case LocalChangeDetected:
 		return "LocalChangeDetected"
 	case RemoteChangeDetected:
@@ -93,6 +97,8 @@ func (t EventType) String() string {
 		return "StateChanged"
 	case FolderRejected:
 		return "FolderRejected"
+	case PendingFoldersChanged:
+		return "PendingFoldersChanged"
 	case ConfigSaved:
 		return "ConfigSaved"
 	case DownloadProgress:
@@ -158,6 +164,8 @@ func UnmarshalEventType(s string) EventType {
 		return DeviceDisconnected
 	case "DeviceRejected":
 		return DeviceRejected
+	case "PendingDevicesChanged":
+		return PendingDevicesChanged
 	case "LocalChangeDetected":
 		return LocalChangeDetected
 	case "RemoteChangeDetected":
@@ -174,6 +182,8 @@ func UnmarshalEventType(s string) EventType {
 		return StateChanged
 	case "FolderRejected":
 		return FolderRejected
+	case "PendingFoldersChanged":
+		return PendingFoldersChanged
 	case "ConfigSaved":
 		return ConfigSaved
 	case "DownloadProgress":

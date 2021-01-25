@@ -402,5 +402,6 @@
     "items": "항목",
     "seconds": "초",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 에서 폴더  \\\"{{folder}}\\\" 를 공유하길 원합니다.",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 에서 폴더 \"{{folderLabel}}\" ({{folder}})를 공유하길 원합니다."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 에서 폴더 \"{{folderLabel}}\" ({{folder}})를 공유하길 원합니다.",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }

@@ -402,5 +402,6 @@
     "items": "Elementuak",
     "seconds": "segunduak",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}}k \"{{folder}}\" partekatze hontan gomitatzen zaitu.",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}}k  \"{{folderlabel}}\" ({{folder}}) hontan gomitatzen zaitu."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}}k  \"{{folderlabel}}\" ({{folder}}) hontan gomitatzen zaitu.",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} -ek gailu hau birsar lezake."
 }

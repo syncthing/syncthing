@@ -402,5 +402,6 @@
     "items": "елементи",
     "seconds": "секунд",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} хоче поділитися директорією \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} хоче поділитися директорією \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} хоче поділитися директорією \"{{folderLabel}}\" ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }

@@ -112,6 +112,42 @@ func (db *Lowlevel) RemovePendingFolder(id string) {
 	}
 }
 
+// RemovePendingFoldersBeforeTime removes entries for a specific device which are older
+// than a given timestamp or invalid.  It returns only the valid removed folder IDs.
+func (db *Lowlevel) RemovePendingFoldersBeforeTime(device protocol.DeviceID, oldest time.Time) ([]string, error) {
+	prefixKey, err := db.keyer.GeneratePendingFolderKey(nil, device[:], nil)
+	if err != nil {
+		return nil, err
+	}
+	iter, err := db.NewPrefixIterator(prefixKey)
+	if err != nil {
+		return nil, err
+	}
+	defer iter.Release()
+	oldest = oldest.Round(time.Second)
+	var res []string
+	for iter.Next() {
+		var of ObservedFolder
+		var folderID string
+		if err = of.Unmarshal(iter.Value()); err != nil {
+			l.Infof("Invalid pending folder entry, deleting from database: %x", iter.Key())
+		} else if of.Time.Before(oldest) {
+			folderID = string(db.keyer.FolderFromPendingFolderKey(iter.Key()))
+			l.Infof("Removing stale pending folder %s (%s) from device %s, last seen %v",
+				folderID, of.Label, device.Short(), of.Time)
+		} else {
+			// Keep entries younger or equal to the given timestamp
+			continue
+		}
+		if err := db.Delete(iter.Key()); err != nil {
+			l.Warnf("Failed to remove pending folder entry: %v", err)
+		} else if len(folderID) > 0 {
+			res = append(res, folderID)
+		}
+	}
+	return res, nil
+}
+
 // Consolidated information about a pending folder
 type PendingFolder struct {
 	OfferedBy map[protocol.DeviceID]ObservedFolder `json:"offeredBy"`

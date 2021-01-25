@@ -402,5 +402,6 @@
     "items": "elementer",
     "seconds": "seconds",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} ønsker å dele mappa \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} ønsker å dele mappa \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} ønsker å dele mappa \"{{folderlabel}}\" ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }
