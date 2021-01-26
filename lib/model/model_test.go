@@ -1713,8 +1713,23 @@ func TestGlobalDirectoryTree(t *testing.T) {
 			Size:      0xa,
 		}
 	}
-
-	filedata := []interface{}{time.Unix(0x666, 0), 0xa}
+	f := func(name string) *TreeEntry {
+		return &TreeEntry{
+			Name:    name,
+			ModTime: time.Unix(0x666, 0),
+			Size:    0xa,
+			Type:    protocol.FileInfoTypeFile,
+		}
+	}
+	d := func(name string, entries ...*TreeEntry) *TreeEntry {
+		return &TreeEntry{
+			Name:     name,
+			ModTime:  time.Unix(0x666, 0),
+			Size:     128,
+			Type:     protocol.FileInfoTypeDirectory,
+			Children: entries,
+		}
+	}
 
 	testdata := []protocol.FileInfo{
 		b(false, "another"),
@@ -1739,43 +1754,43 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		b(false, "some", "directory", "with", "a"),
 		b(true, "some", "directory", "with", "a", "file"),
 
-		b(true, "rootfile"),
+		b(true, "zzrootfile"),
 	}
-	expectedResult := map[string]interface{}{
-		"another": map[string]interface{}{
-			"directory": map[string]interface{}{
-				"afile": filedata,
-				"with": map[string]interface{}{
-					"a": map[string]interface{}{
-						"file": filedata,
-					},
-					"file": filedata,
-				},
-			},
-			"file": filedata,
-		},
-		"other": map[string]interface{}{
-			"rand": map[string]interface{}{},
-			"random": map[string]interface{}{
-				"dir":  map[string]interface{}{},
-				"dirx": map[string]interface{}{},
-			},
-			"randomx": map[string]interface{}{},
-		},
-		"some": map[string]interface{}{
-			"directory": map[string]interface{}{
-				"with": map[string]interface{}{
-					"a": map[string]interface{}{
-						"file": filedata,
-					},
-				},
-			},
-		},
-		"rootfile": filedata,
+	expectedResult := []*TreeEntry{
+		d("another",
+			d("directory",
+				f("afile"),
+				d("with",
+					d("a",
+						f("file"),
+					),
+					f("file"),
+				),
+			),
+			f("file"),
+		),
+		d("other",
+			d("rand"),
+			d("random",
+				d("dir"),
+				d("dirx"),
+			),
+			d("randomx"),
+		),
+		d("some",
+			d("directory",
+				d("with",
+					d("a",
+						f("file"),
+					),
+				),
+			),
+		),
+		f("zzrootfile"),
 	}
 
 	mm := func(data interface{}) string {
-		bytes, err := json.Marshal(data)
+		bytes, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			panic(err)
 		}
@@ -1787,42 +1802,42 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	result := m.GlobalDirectoryTree("default", "", -1, false)
 
 	if mm(result) != mm(expectedResult) {
-		t.Errorf("Does not match:\n%#v\n%#v", result, expectedResult)
+		t.Errorf("Does not match:\n%s\n============\n%s", mm(result), mm(expectedResult))
 	}
 
 	result = m.GlobalDirectoryTree("default", "another", -1, false)
 
-	if mm(result) != mm(expectedResult["another"]) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult["another"]))
+	if mm(result) != mm(findByName(expectedResult, "another").Children) {
+		t.Errorf("Does not match:\n%s\n============\n%s", mm(result), mm(findByName(expectedResult, "another").Children))
 	}
 
 	result = m.GlobalDirectoryTree("default", "", 0, false)
-	currentResult := map[string]interface{}{
-		"another":  map[string]interface{}{},
-		"other":    map[string]interface{}{},
-		"some":     map[string]interface{}{},
-		"rootfile": filedata,
+	currentResult := []*TreeEntry{
+		d("another"),
+		d("other"),
+		d("some"),
+		f("zzrootfile"),
 	}
 
 	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
+		t.Errorf("Does not match:\n%s\n============\n%s", mm(result), mm(currentResult))
 	}
 
 	result = m.GlobalDirectoryTree("default", "", 1, false)
-	currentResult = map[string]interface{}{
-		"another": map[string]interface{}{
-			"directory": map[string]interface{}{},
-			"file":      filedata,
-		},
-		"other": map[string]interface{}{
-			"rand":    map[string]interface{}{},
-			"random":  map[string]interface{}{},
-			"randomx": map[string]interface{}{},
-		},
-		"some": map[string]interface{}{
-			"directory": map[string]interface{}{},
-		},
-		"rootfile": filedata,
+	currentResult = []*TreeEntry{
+		d("another",
+			d("directory"),
+			f("file"),
+		),
+		d("other",
+			d("rand"),
+			d("random"),
+			d("randomx"),
+		),
+		d("some",
+			d("directory"),
+		),
+		f("zzrootfile"),
 	}
 
 	if mm(result) != mm(currentResult) {
@@ -1830,29 +1845,29 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	result = m.GlobalDirectoryTree("default", "", -1, true)
-	currentResult = map[string]interface{}{
-		"another": map[string]interface{}{
-			"directory": map[string]interface{}{
-				"with": map[string]interface{}{
-					"a": map[string]interface{}{},
-				},
-			},
-		},
-		"other": map[string]interface{}{
-			"rand": map[string]interface{}{},
-			"random": map[string]interface{}{
-				"dir":  map[string]interface{}{},
-				"dirx": map[string]interface{}{},
-			},
-			"randomx": map[string]interface{}{},
-		},
-		"some": map[string]interface{}{
-			"directory": map[string]interface{}{
-				"with": map[string]interface{}{
-					"a": map[string]interface{}{},
-				},
-			},
-		},
+	currentResult = []*TreeEntry{
+		d("another",
+			d("directory",
+				d("with",
+					d("a"),
+				),
+			),
+		),
+		d("other",
+			d("rand"),
+			d("random",
+				d("dir"),
+				d("dirx"),
+			),
+			d("randomx"),
+		),
+		d("some",
+			d("directory",
+				d("with",
+					d("a"),
+				),
+			),
+		),
 	}
 
 	if mm(result) != mm(currentResult) {
@@ -1860,18 +1875,18 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	result = m.GlobalDirectoryTree("default", "", 1, true)
-	currentResult = map[string]interface{}{
-		"another": map[string]interface{}{
-			"directory": map[string]interface{}{},
-		},
-		"other": map[string]interface{}{
-			"rand":    map[string]interface{}{},
-			"random":  map[string]interface{}{},
-			"randomx": map[string]interface{}{},
-		},
-		"some": map[string]interface{}{
-			"directory": map[string]interface{}{},
-		},
+	currentResult = []*TreeEntry{
+		d("another",
+			d("directory"),
+		),
+		d("other",
+			d("rand"),
+			d("random"),
+			d("randomx"),
+		),
+		d("some",
+			d("directory"),
+		),
 	}
 
 	if mm(result) != mm(currentResult) {
@@ -1879,9 +1894,9 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	result = m.GlobalDirectoryTree("default", "another", 0, false)
-	currentResult = map[string]interface{}{
-		"directory": map[string]interface{}{},
-		"file":      filedata,
+	currentResult = []*TreeEntry{
+		d("directory"),
+		f("file"),
 	}
 
 	if mm(result) != mm(currentResult) {
@@ -1889,8 +1904,8 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	result = m.GlobalDirectoryTree("default", "some/directory", 0, false)
-	currentResult = map[string]interface{}{
-		"with": map[string]interface{}{},
+	currentResult = []*TreeEntry{
+		d("with"),
 	}
 
 	if mm(result) != mm(currentResult) {
@@ -1898,10 +1913,10 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	result = m.GlobalDirectoryTree("default", "some/directory", 1, false)
-	currentResult = map[string]interface{}{
-		"with": map[string]interface{}{
-			"a": map[string]interface{}{},
-		},
+	currentResult = []*TreeEntry{
+		d("with",
+			d("a"),
+		),
 	}
 
 	if mm(result) != mm(currentResult) {
@@ -1909,12 +1924,12 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	result = m.GlobalDirectoryTree("default", "some/directory", 2, false)
-	currentResult = map[string]interface{}{
-		"with": map[string]interface{}{
-			"a": map[string]interface{}{
-				"file": filedata,
-			},
-		},
+	currentResult = []*TreeEntry{
+		d("with",
+			d("a",
+				f("file"),
+			),
+		),
 	}
 
 	if mm(result) != mm(currentResult) {
@@ -1922,12 +1937,12 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	}
 
 	result = m.GlobalDirectoryTree("default", "another", -1, true)
-	currentResult = map[string]interface{}{
-		"directory": map[string]interface{}{
-			"with": map[string]interface{}{
-				"a": map[string]interface{}{},
-			},
-		},
+	currentResult = []*TreeEntry{
+		d("directory",
+			d("with",
+				d("a"),
+			),
+		),
 	}
 
 	if mm(result) != mm(currentResult) {
@@ -1936,144 +1951,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 
 	// No prefix matching!
 	result = m.GlobalDirectoryTree("default", "som", -1, false)
-	currentResult = map[string]interface{}{}
-
-	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
-	}
-}
-
-func TestGlobalDirectorySelfFixing(t *testing.T) {
-	w, fcfg, wCancel := tmpDefaultWrapper()
-	defer wCancel()
-	m := setupModel(t, w)
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
-
-	b := func(isfile bool, path ...string) protocol.FileInfo {
-		typ := protocol.FileInfoTypeDirectory
-		blocks := []protocol.BlockInfo{}
-		if isfile {
-			typ = protocol.FileInfoTypeFile
-			blocks = []protocol.BlockInfo{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}}
-		}
-		return protocol.FileInfo{
-			Name:      filepath.Join(path...),
-			Type:      typ,
-			ModifiedS: 0x666,
-			Blocks:    blocks,
-			Size:      0xa,
-		}
-	}
-
-	filedata := []interface{}{time.Unix(0x666, 0).Format(time.RFC3339), 0xa}
-
-	testdata := []protocol.FileInfo{
-		b(true, "another", "directory", "afile"),
-		b(true, "another", "directory", "with", "a", "file"),
-		b(true, "another", "directory", "with", "file"),
-
-		b(false, "other", "random", "dirx"),
-		b(false, "other", "randomx"),
-
-		b(false, "some", "directory", "with", "x"),
-		b(true, "some", "directory", "with", "a", "file"),
-
-		b(false, "this", "is", "a", "deep", "invalid", "directory"),
-
-		b(true, "xthis", "is", "a", "deep", "invalid", "file"),
-	}
-	expectedResult := map[string]interface{}{
-		"another": map[string]interface{}{
-			"directory": map[string]interface{}{
-				"afile": filedata,
-				"with": map[string]interface{}{
-					"a": map[string]interface{}{
-						"file": filedata,
-					},
-					"file": filedata,
-				},
-			},
-		},
-		"other": map[string]interface{}{
-			"random": map[string]interface{}{
-				"dirx": map[string]interface{}{},
-			},
-			"randomx": map[string]interface{}{},
-		},
-		"some": map[string]interface{}{
-			"directory": map[string]interface{}{
-				"with": map[string]interface{}{
-					"a": map[string]interface{}{
-						"file": filedata,
-					},
-					"x": map[string]interface{}{},
-				},
-			},
-		},
-		"this": map[string]interface{}{
-			"is": map[string]interface{}{
-				"a": map[string]interface{}{
-					"deep": map[string]interface{}{
-						"invalid": map[string]interface{}{
-							"directory": map[string]interface{}{},
-						},
-					},
-				},
-			},
-		},
-		"xthis": map[string]interface{}{
-			"is": map[string]interface{}{
-				"a": map[string]interface{}{
-					"deep": map[string]interface{}{
-						"invalid": map[string]interface{}{
-							"file": filedata,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	mm := func(data interface{}) string {
-		bytes, err := json.Marshal(data)
-		if err != nil {
-			panic(err)
-		}
-		return string(bytes)
-	}
-
-	m.Index(device1, "default", testdata)
-
-	result := m.GlobalDirectoryTree("default", "", -1, false)
-
-	if mm(result) != mm(expectedResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(expectedResult))
-	}
-
-	result = m.GlobalDirectoryTree("default", "xthis/is/a/deep", -1, false)
-	currentResult := map[string]interface{}{
-		"invalid": map[string]interface{}{
-			"file": filedata,
-		},
-	}
-
-	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
-	}
-
-	result = m.GlobalDirectoryTree("default", "xthis/is/a/deep", -1, true)
-	currentResult = map[string]interface{}{
-		"invalid": map[string]interface{}{},
-	}
-
-	if mm(result) != mm(currentResult) {
-		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))
-	}
-
-	// !!! This is actually BAD, because we don't have enough level allowance
-	// to accept this file, hence the tree is left unbuilt !!!
-	result = m.GlobalDirectoryTree("default", "xthis", 1, false)
-	currentResult = map[string]interface{}{}
+	currentResult = []*TreeEntry{}
 
 	if mm(result) != mm(currentResult) {
 		t.Errorf("Does not match:\n%s\n%s", mm(result), mm(currentResult))

@@ -21,7 +21,7 @@ import (
 
 type mockedModel struct{}
 
-func (m *mockedModel) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{} {
+func (m *mockedModel) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) []*model.TreeEntry {
 	return nil
 }
 
