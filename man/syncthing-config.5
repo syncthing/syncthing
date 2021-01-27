@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Jan 14, 2021" "v1" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Jan 25, 2021" "v1" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -45,11 +45,16 @@ $HOME/Library/Application Support/Syncthing
 .UNINDENT
 .SH DESCRIPTION
 .sp
-Syncthing uses a single directory to store configuration, crypto keys
-and index caches. The location defaults to \fB$HOME/.config/syncthing\fP
+New in version 1.5.0: Database and config can now be set separately. Previously the database was
+always located in the same directory as the config.
+
+.sp
+Syncthing uses a single directory to store configuration and crypto keys.
+Syncthing also has a database, which is often stored in this directory too.
+The config location defaults to \fB$HOME/.config/syncthing\fP
 (Unix\-like), \fB$HOME/Library/Application Support/Syncthing\fP (Mac),
 or \fB%LOCALAPPDATA%/Syncthing\fP (Windows). It can be changed at runtime
-using the \fB\-home\fP flag. In this directory the following files are
+using the \fB\-config\fP flag. In this directory the following files are
 located:
 .INDENT 0.0
 .TP
@@ -64,13 +69,34 @@ device ID. The key must be kept private.
 The certificate and key for HTTPS GUI connections. These may be replaced
 with a custom certificate for HTTPS as desired.
 .TP
-.B \fBindex\-\fP\fI*\fP\fB\&.db\fP
-A directory holding the database with metadata and hashes of the files
-currently on disk and available from peers.
-.TP
 .B \fBcsrftokens.txt\fP
 A list of recently issued CSRF tokens (for protection against browser cross
 site request forgery).
+.UNINDENT
+.sp
+The database is stored either in the same directory as the config (usually the
+default), but may also be located in one of the following directories (Unix\-like
+platforms only):
+.INDENT 0.0
+.IP \(bu 2
+If a database exists in the old default location, that location is
+still used.
+.IP \(bu 2
+If \fB$XDG_DATA_HOME\fP is set, use \fB$XDG_DATA_HOME/syncthing\fP\&.
+.IP \(bu 2
+If \fB~/.local/share/syncthing\fP exists, use that location.
+.IP \(bu 2
+Use the old default location (same as config).
+.UNINDENT
+.sp
+The location of the database can be changed using the \fB\-data\fP flag. The
+\fB\-home\fP flag sets both config and database locations at the same time.
+The database contains the following files:
+.INDENT 0.0
+.TP
+.B \fBindex\-\fP\fI*\fP\fB\&.db\fP
+A directory holding the database with metadata and hashes of the files
+currently on disk and available from peers.
 .UNINDENT
 .SH CONFIG FILE FORMAT
 .sp
