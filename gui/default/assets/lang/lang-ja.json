@@ -402,5 +402,6 @@
     "items": "項目",
     "seconds": "seconds",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} がフォルダー \"{{folder}}\" を共有するよう求めています。",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} がフォルダー「{{folderlabel}}」 ({{folder}}) を共有するよう求めています。"
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} がフォルダー「{{folderlabel}}」 ({{folder}}) を共有するよう求めています。",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }

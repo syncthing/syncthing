@@ -402,5 +402,6 @@
     "items": "itens",
     "seconds": "segundos",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quer partilhar a pasta \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} quer partilhar a pasta \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} quer partilhar a pasta \"{{folderlabel}}\" ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} poderá reintroduzir este dispositivo"
 }

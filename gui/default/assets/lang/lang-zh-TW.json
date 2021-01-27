@@ -402,5 +402,6 @@
     "items": "個項目",
     "seconds": "seconds",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 想要分享資料夾 \"{{folder}}\"。",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要分享資料夾 \"{{folderlabel}}\" ({{folder}})。"
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要分享資料夾 \"{{folderlabel}}\" ({{folder}})。",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }

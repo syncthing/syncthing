@@ -402,5 +402,6 @@
     "items": "élément(s)",
     "seconds": "secondes",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} vous invite au partage \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} vous invite au partage \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} vous invite au partage \"{{folderlabel}}\" ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} pourrait ré-enrôler cet appareil."
 }

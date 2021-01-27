@@ -1284,10 +1284,12 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 }
 
 func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) ([]string, map[string]struct{}, error) {
+	handleTime := time.Now()
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
 	paused := make(map[string]struct{}, len(folders))
 	seenFolders := make(map[string]struct{}, len(folders))
+	updatedPending := make([]map[string]string, 0, len(folders))
 	deviceID := deviceCfg.DeviceID
 	for _, folder := range folders {
 		seenFolders[folder.ID] = struct{}{}
@@ -1306,6 +1308,12 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
+			updatedPending = append(updatedPending, map[string]string{
+				"folderID":    folder.ID,
+				"folderLabel": folder.Label,
+				"deviceID":    deviceID.String(),
+			})
+			// DEPRECATED: Only for backwards compatibility, should be removed.
 			m.evLogger.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -1380,6 +1388,24 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 
 	indexSenders.removeAllExcept(seenFolders)
+	// All current pending folders were touched above, so discard any with older timestamps
+	expiredPending, err := m.db.RemovePendingFoldersBeforeTime(deviceID, handleTime)
+	if err != nil {
+		l.Infof("Could not clean up pending folder entries: %v", err)
+	}
+	if len(updatedPending) > 0 || len(expiredPending) > 0 {
+		expiredPendingList := make([]map[string]string, len(expiredPending))
+		for i, folderID := range expiredPending {
+			expiredPendingList[i] = map[string]string{
+				"folderID": folderID,
+				"deviceID": deviceID.String(),
+			}
+		}
+		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
+			"added":   updatedPending,
+			"removed": expiredPendingList,
+		})
+	}
 
 	return tempIndexFolders, paused, nil
 }
@@ -2069,6 +2095,14 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		if err := m.db.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String()); err != nil {
 			l.Warnf("Failed to persist pending device entry to database: %v", err)
 		}
+		m.evLogger.Log(events.PendingDevicesChanged, map[string][]interface{}{
+			"added": {map[string]string{
+				"deviceID": remoteID.String(),
+				"name":     hello.DeviceName,
+				"address":  addr.String(),
+			}},
+		})
+		// DEPRECATED: Only for backwards compatibility, should be removed.
 		m.evLogger.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),
@@ -2799,6 +2833,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 }
 
 func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]struct{}) {
+	var removedPendingFolders []map[string]string
 	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
@@ -2811,27 +2846,41 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			// at all (but might become pending again).
 			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
 			m.db.RemovePendingFolder(folderID)
+			removedPendingFolders = append(removedPendingFolders, map[string]string{
+				"folderID": folderID,
+			})
 			continue
 		}
 		for deviceID := range pf.OfferedBy {
 			if dev, ok := existingDevices[deviceID]; !ok {
 				l.Debugf("Discarding pending folder %v from unknown device %v", folderID, deviceID)
-				m.db.RemovePendingFolderForDevice(folderID, deviceID)
-				continue
+				goto removeFolderForDevice
 			} else if dev.IgnoredFolder(folderID) {
 				l.Debugf("Discarding now ignored pending folder %v for device %v", folderID, deviceID)
-				m.db.RemovePendingFolderForDevice(folderID, deviceID)
-				continue
+				goto removeFolderForDevice
 			}
 			if folderCfg, ok := existingFolders[folderID]; ok {
 				if folderCfg.SharedWith(deviceID) {
 					l.Debugf("Discarding now shared pending folder %v for device %v", folderID, deviceID)
-					m.db.RemovePendingFolderForDevice(folderID, deviceID)
+					goto removeFolderForDevice
 				}
 			}
+			continue
+		removeFolderForDevice:
+			m.db.RemovePendingFolderForDevice(folderID, deviceID)
+			removedPendingFolders = append(removedPendingFolders, map[string]string{
+				"folderID": folderID,
+				"deviceID": deviceID.String(),
+			})
 		}
 	}
+	if len(removedPendingFolders) > 0 {
+		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
+			"removed": removedPendingFolders,
+		})
+	}
 
+	var removedPendingDevices []map[string]string
 	pendingDevices, err := m.db.PendingDevices()
 	if err != nil {
 		l.Infof("Could not iterate through pending device entries for cleanup: %v", err)
@@ -2840,14 +2889,23 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	for deviceID := range pendingDevices {
 		if _, ok := ignoredDevices[deviceID]; ok {
 			l.Debugf("Discarding now ignored pending device %v", deviceID)
-			m.db.RemovePendingDevice(deviceID)
-			continue
+			goto removeDevice
 		}
 		if _, ok := existingDevices[deviceID]; ok {
 			l.Debugf("Discarding now added pending device %v", deviceID)
-			m.db.RemovePendingDevice(deviceID)
-			continue
+			goto removeDevice
 		}
+		continue
+	removeDevice:
+		m.db.RemovePendingDevice(deviceID)
+		removedPendingDevices = append(removedPendingDevices, map[string]string{
+			"deviceID": deviceID.String(),
+		})
+	}
+	if len(removedPendingDevices) > 0 {
+		m.evLogger.Log(events.PendingDevicesChanged, map[string]interface{}{
+			"removed": removedPendingDevices,
+		})
 	}
 }
 
