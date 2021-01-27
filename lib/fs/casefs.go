@@ -382,17 +382,12 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 	for _, comp := range strings.Split(name, string(PathSeparator)) {
 		node := r.cache.getExpireAdd(realName)
 
-		// This is a pre-filled 1-buffered chan: The first one to arrive here
-		// populates the node. Everyone else stays blocked until filling
-		// finished and the chan gets closed.
-		_, ok := <-node.fillChan
-		if ok {
-			// Haven't called DirNames yet
-
+		node.once.Do(func() {
 			dirNames, err := r.fs.DirNames(realName)
 			if err != nil {
-				node.fillChan <- struct{}{}
-				return "", err
+				r.cache.Remove(realName)
+				node.err = err
+				return
 			}
 
 			num := len(dirNames)
@@ -407,12 +402,13 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 					lastLower = n
 				}
 			}
-
-			close(node.fillChan)
+		})
+		if node.err != nil {
+			return "", node.err
 		}
 
 		// Try to find a direct or case match
-		if _, ok = node.children[comp]; !ok {
+		if _, ok := node.children[comp]; !ok {
 			comp, ok = node.lowerToReal[UnicodeLowercase(comp)]
 			if !ok {
 				return "", ErrNotExist
@@ -430,27 +426,24 @@ func (r *defaultRealCaser) dropCache() {
 }
 
 func newCaseNode() *caseNode {
-	n := &caseNode{
-		fillChan: make(chan struct{}, 1),
-		expires:  time.Now().Add(caseCacheTimeout),
+	return &caseNode{
+		expires: time.Now().Add(caseCacheTimeout),
 	}
-	n.fillChan <- struct{}{}
-	return n
 }
 
 // The keys to children are "real", case resolved names of the path
 // component this node represents (i.e. containing no path separator).
 // lowerToReal is a map of lowercase path components (as in UnicodeLowercase)
 // to their corresponding "real", case resolved names.
-// fillChan facilitates populating the maps once only without locking
-// (potentially slow FS operations): It is a one-buffered chan that gets closed
-// once the maps are populated. It gets populated by the routine that receives
-// the buffered token from it.
+// A node is created empty and populated using once. If an error occurs the node
+// is removed from cache and the error stored in err, such that anyone that
+// already got the node doesn't try to access the nil maps.
 type caseNode struct {
 	expires     time.Time
 	lowerToReal map[string]string
 	children    map[string]struct{}
-	fillChan    chan struct{}
+	once        sync.Once
+	err         error
 }
 
 type caseCache struct {
