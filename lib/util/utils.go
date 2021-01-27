@@ -250,14 +250,6 @@ func AddressUnspecifiedLess(a, b net.Addr) bool {
 	return aIsUnspecified
 }
 
-// OnDone calls fn when ctx is cancelled.
-func OnDone(ctx context.Context, fn func()) {
-	go func() {
-		<-ctx.Done()
-		fn()
-	}()
-}
-
 func CallWithContext(ctx context.Context, fn func() error) error {
 	var err error
 	done := make(chan struct{})

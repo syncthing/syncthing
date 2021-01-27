@@ -111,7 +111,12 @@ func (s *Service) Serve(ctx context.Context) error {
 		s.setExternalAddress(nil, "")
 	}()
 
-	util.OnDone(ctx, func() { _ = s.stunConn.Close() })
+	// Closing s.stunConn unblocks operations that use the connection
+	// (Discover, Keepalive) and might otherwise block us from returning.
+	go func() {
+		<-ctx.Done()
+		_ = s.stunConn.Close()
+	}()
 
 	timer := time.NewTimer(time.Millisecond)
 
