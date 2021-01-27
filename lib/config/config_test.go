@@ -509,7 +509,7 @@ func TestFolderCheckPath(t *testing.T) {
 		}
 
 		if err := cfg.CheckPath(); testcase.err != err {
-			t.Errorf("unexpected error in case %s: %s != %s", testcase.path, err, testcase.err)
+			t.Errorf("unexpected error in case %s: %s != %v", testcase.path, err, testcase.err)
 		}
 	}
 }
