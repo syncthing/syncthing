@@ -93,11 +93,10 @@ type ServiceWithError interface {
 	suture.Service
 	fmt.Stringer
 	Error() error
-	SetError(error)
 }
 
 // AsService wraps the given function to implement suture.Service. In addition
-// it keeps track of the returned error and allows querying and setting that error.
+// it keeps track of the returned error and allows querying that error.
 func AsService(fn func(ctx context.Context) error, creator string) ServiceWithError {
 	return &service{
 		creator: creator,
@@ -131,12 +130,6 @@ func (s *service) Error() error {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	return s.err
-}
-
-func (s *service) SetError(err error) {
-	s.mut.Lock()
-	s.err = err
-	s.mut.Unlock()
 }
 
 func (s *service) String() string {
