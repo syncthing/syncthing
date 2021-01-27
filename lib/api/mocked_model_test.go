@@ -21,8 +21,8 @@ import (
 
 type mockedModel struct{}
 
-func (m *mockedModel) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) []*model.TreeEntry {
-	return nil
+func (m *mockedModel) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*model.TreeEntry, error) {
+	return nil, nil
 }
 
 func (m *mockedModel) Completion(device protocol.DeviceID, folder string) model.FolderCompletion {

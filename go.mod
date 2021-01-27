@@ -37,6 +37,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.20.11
 	github.com/syncthing/notify v0.0.0-20201210100135-17de26665ddc
 	github.com/syndtr/goleveldb v1.0.1-0.20200815071216-d9e9293bd0f7
+	github.com/thejerf/suture v4.0.0+incompatible
 	github.com/thejerf/suture/v4 v4.0.0
 	github.com/urfave/cli v1.22.4
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0

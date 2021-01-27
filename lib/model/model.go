@@ -110,7 +110,7 @@ type Model interface {
 	PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error)
 
 	StartDeadlockDetector(timeout time.Duration)
-	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) []*TreeEntry
+	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error)
 }
 
 type model struct {
@@ -2527,16 +2527,15 @@ func findByName(slice []*TreeEntry, name string) *TreeEntry {
 	return nil
 }
 
-func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) []*TreeEntry {
+func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error) {
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
 	if !ok {
-		return nil
+		return nil, errFolderMissing
 	}
 
 	root := &TreeEntry{
-		Name:     "ROOT",
 		Children: make([]*TreeEntry, 0),
 	}
 	sep := string(filepath.Separator)
@@ -2548,6 +2547,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 
 	snap := files.Snapshot()
 	defer snap.Release()
+	var err error
 	snap.WithPrefixedGlobalTruncated(prefix, func(fi protocol.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 
@@ -2570,7 +2570,8 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 			for _, path := range strings.Split(dir, sep) {
 				child := findByName(parent.Children, path)
 				if child == nil {
-					panic(fmt.Errorf("could not find child '%s' for path '%s' in parent '%s'", path, f.Name, parent.Name))
+					err = fmt.Errorf("could not find child '%s' for path '%s' in parent '%s'", path, f.Name, parent.Name)
+					return false
 				}
 				parent = child
 			}
@@ -2589,8 +2590,11 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 
 		return true
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return root.Children
+	return root.Children, nil
 }
 
 func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {
