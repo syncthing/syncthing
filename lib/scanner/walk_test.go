@@ -551,7 +551,7 @@ func (l testfileList) String() string {
 var initOnce sync.Once
 
 const (
-	testdataSize = 17 << 20
+	testdataSize = 17<<20 + 1
 	testdataName = "_random.data"
 )
 

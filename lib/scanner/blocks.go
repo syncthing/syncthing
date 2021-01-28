@@ -30,7 +30,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 	}
 
 	hf := sha256.New()
-	hashLength := hf.Size()
+	const hashLength = sha256.Size
 
 	var weakHf hash.Hash32 = noopHash{}
 	var multiHf io.Writer = hf
@@ -48,7 +48,11 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		// Allocate contiguous blocks for the BlockInfo structures and their
 		// hashes once and for all, and stick to the specified size.
 		r = io.LimitReader(r, sizehint)
-		numBlocks := int(sizehint / int64(blocksize))
+		numBlocks := sizehint / int64(blocksize)
+		remainder := sizehint % int64(blocksize)
+		if remainder != 0 {
+			numBlocks++
+		}
 		blocks = make([]protocol.BlockInfo, 0, numBlocks)
 		hashes = make([]byte, 0, hashLength*numBlocks)
 	}
