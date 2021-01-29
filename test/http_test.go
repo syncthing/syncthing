@@ -264,5 +264,5 @@ func BenchmarkAPI_db_status(b *testing.B) {
 }
 
 func BenchmarkAPI_db_browse_dirsOnly(b *testing.B) {
-	benchmarkURL(b, "/rest/db/browse?folder=default&dirsOnly=true")
+	benchmarkURL(b, "/rest/db/browse?folder=default&dirsonly=true")
 }
