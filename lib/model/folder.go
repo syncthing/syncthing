@@ -549,7 +549,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}
 
 	f.clearScanErrors(subDirs)
-	alreadyUsed := make(map[string]struct{})
+	alreadyUsedOrExisting := make(map[string]struct{})
 	for res := range fchan {
 		if res.Err != nil {
 			f.newScanError(res.Path, res.Err)
@@ -571,7 +571,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		switch f.Type {
 		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
 		default:
-			if nf, ok := f.findRename(snap, res.File, alreadyUsed); ok {
+			if nf, ok := f.findRename(snap, res.File, alreadyUsedOrExisting); ok {
 				batchAppend(nf, snap)
 				changes++
 			}
@@ -581,6 +581,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	if err := batch.flush(); err != nil {
 		return err
 	}
+
+	// Might have grown large, isn't used anymore and this function may keep
+	// running for some time.
+	alreadyUsedOrExisting = nil
 
 	if len(subDirs) == 0 {
 		// If we have no specific subdirectories to traverse, set it to one
@@ -728,7 +732,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	return nil
 }
 
-func (f *folder) findRename(snap *db.Snapshot, file protocol.FileInfo, alreadyUsed map[string]struct{}) (protocol.FileInfo, bool) {
+func (f *folder) findRename(snap *db.Snapshot, file protocol.FileInfo, alreadyUsedOrExisting map[string]struct{}) (protocol.FileInfo, bool) {
 	if len(file.Blocks) == 0 || file.Size == 0 {
 		return protocol.FileInfo{}, false
 	}
@@ -745,7 +749,12 @@ func (f *folder) findRename(snap *db.Snapshot, file protocol.FileInfo, alreadyUs
 		default:
 		}
 
-		if _, ok := alreadyUsed[fi.Name]; ok {
+		if fi.Name == file.Name {
+			alreadyUsedOrExisting[fi.Name] = struct{}{}
+			return true
+		}
+
+		if _, ok := alreadyUsedOrExisting[fi.Name]; ok {
 			return true
 		}
 
@@ -764,11 +773,11 @@ func (f *folder) findRename(snap *db.Snapshot, file protocol.FileInfo, alreadyUs
 			return true
 		}
 
+		alreadyUsedOrExisting[fi.Name] = struct{}{}
+
 		if !osutil.IsDeleted(f.mtimefs, fi.Name) {
 			return true
 		}
-
-		alreadyUsed[fi.Name] = struct{}{}
 
 		nf = fi
 		nf.SetDeleted(f.shortID)
