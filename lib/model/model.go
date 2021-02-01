@@ -136,6 +136,7 @@ type model struct {
 	// such as scans and pulls.
 	folderIOLimiter *byteSemaphore
 	fatalChan       chan error
+	started         chan struct{}
 
 	// fields protected by fmut
 	fmut                           sync.RWMutex
@@ -162,7 +163,6 @@ type model struct {
 
 	// for testing only
 	foldersRunning int32
-	started        chan struct{}
 }
 
 type folderFactory func(*model, *db.FileSet, *ignore.Matcher, config.FolderConfiguration, versioner.Versioner, events.Logger, *byteSemaphore) service
@@ -221,6 +221,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		globalRequestLimiter: newByteSemaphore(1024 * cfg.Options().MaxConcurrentIncomingRequestKiB()),
 		folderIOLimiter:      newByteSemaphore(cfg.Options().MaxFolderConcurrency()),
 		fatalChan:            make(chan error),
+		started:              make(chan struct{}),
 
 		// fields protected by fmut
 		fmut:                           sync.NewRWMutex(),
@@ -243,9 +244,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
 		remotePausedFolders: make(map[protocol.DeviceID]map[string]struct{}),
 		indexSenders:        make(map[protocol.DeviceID]*indexSenderRegistry),
-
-		// for testing only
-		started: make(chan struct{}),
 	}
 	for devID := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
@@ -259,10 +257,10 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, clientName, clientVersio
 func (m *model) serve(ctx context.Context) error {
 	defer m.closeAllConnectionsAndWait()
 
-	m.cfg.Subscribe(m)
+	cfg := m.cfg.Subscribe(m)
 	defer m.cfg.Unsubscribe(m)
 
-	if err := m.initFolders(); err != nil {
+	if err := m.initFolders(cfg); err != nil {
 		close(m.started)
 		return svcutil.AsFatalErr(err, svcutil.ExitError)
 	}
@@ -277,17 +275,14 @@ func (m *model) serve(ctx context.Context) error {
 	}
 }
 
-func (m *model) initFolders() error {
-	cacheIgnoredFiles := m.cfg.Options().CacheIgnoredFiles
-	existingDevices := m.cfg.Devices()
-	existingFolders := m.cfg.Folders()
-	clusterConfigDevices := make(deviceIDSet, len(existingDevices))
-	for _, folderCfg := range existingFolders {
+func (m *model) initFolders(cfg config.Configuration) error {
+	clusterConfigDevices := make(deviceIDSet, len(cfg.Devices))
+	for _, folderCfg := range cfg.Folders {
 		if folderCfg.Paused {
 			folderCfg.CreateRoot()
 			continue
 		}
-		err := m.newFolder(folderCfg, cacheIgnoredFiles)
+		err := m.newFolder(folderCfg, cfg.Options.CacheIgnoredFiles)
 		if err != nil {
 			return err
 		}
@@ -295,7 +290,7 @@ func (m *model) initFolders() error {
 	}
 
 	ignoredDevices := observedDeviceSet(m.cfg.IgnoredDevices())
-	m.cleanPending(existingDevices, existingFolders, ignoredDevices, nil)
+	m.cleanPending(cfg.DeviceMap(), cfg.FolderMap(), ignoredDevices, nil)
 
 	m.resendClusterConfig(clusterConfigDevices.AsSlice())
 	return nil
@@ -1184,7 +1179,6 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		panic("bug: ClusterConfig called on closed or nonexistent connection")
 	}
 
-	changed := false
 	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
 		l.Debugln("Device disappeared from config while processing cluster-config")
@@ -1219,21 +1213,33 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	// Needs to happen outside of the fmut, as can cause CommitConfiguration
 	if deviceCfg.AutoAcceptFolders {
-		changedFolders := make([]config.FolderConfiguration, 0, len(cm.Folders))
-		for _, folder := range cm.Folders {
-			if fcfg, fchanged := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID]); fchanged {
-				changedFolders = append(changedFolders, fcfg)
+		w, _ := m.cfg.Modify(func(cfg *config.Configuration) {
+			changedFcfg := make(map[string]config.FolderConfiguration)
+			haveFcfg := cfg.FolderMap()
+			for _, folder := range cm.Folders {
+				from, ok := haveFcfg[folder.ID]
+				if to, changed := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID], from, ok, cfg.Options.DefaultFolderPath); changed {
+					changedFcfg[folder.ID] = to
+				}
 			}
-		}
-		if len(changedFolders) > 0 {
-			// Need to wait for the waiter, as this calls CommitConfiguration,
-			// which sets up the folder and as we return from this call,
-			// ClusterConfig starts poking at m.folderFiles and other things
-			// that might not exist until the config is committed.
-			w, _ := m.cfg.SetFolders(changedFolders)
-			w.Wait()
-			changed = true
-		}
+			if len(changedFcfg) == 0 {
+				return
+			}
+			for i := range cfg.Folders {
+				if fcfg, ok := changedFcfg[cfg.Folders[i].ID]; ok {
+					cfg.Folders[i] = fcfg
+					delete(changedFcfg, cfg.Folders[i].ID)
+				}
+			}
+			for _, fcfg := range changedFcfg {
+				cfg.Folders = append(cfg.Folders, fcfg)
+			}
+		})
+		// Need to wait for the waiter, as this calls CommitConfiguration,
+		// which sets up the folder and as we return from this call,
+		// ClusterConfig starts poking at m.folderFiles and other things
+		// that might not exist until the config is committed.
+		w.Wait()
 	}
 
 	tempIndexFolders, paused, err := m.ccHandleFolders(cm.Folders, deviceCfg, ccDeviceInfos, indexSenderRegistry)
@@ -1257,11 +1263,12 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	if deviceCfg.Introducer {
-		folders, devices, foldersDevices, introduced := m.handleIntroductions(deviceCfg, cm)
-		folders, devices, deintroduced := m.handleDeintroductions(deviceCfg, foldersDevices, folders, devices)
-		if introduced || deintroduced {
-			changed = true
-			cfg := m.cfg.RawCopy()
+		m.cfg.Modify(func(cfg *config.Configuration) {
+			folders, devices, foldersDevices, introduced := m.handleIntroductions(deviceCfg, cm, cfg.FolderMap(), cfg.DeviceMap())
+			folders, devices, deintroduced := m.handleDeintroductions(deviceCfg, foldersDevices, folders, devices)
+			if !introduced && !deintroduced {
+				return
+			}
 			cfg.Folders = make([]config.FolderConfiguration, 0, len(folders))
 			for _, fcfg := range folders {
 				cfg.Folders = append(cfg.Folders, fcfg)
@@ -1270,24 +1277,19 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			for _, dcfg := range devices {
 				cfg.Devices = append(cfg.Devices, dcfg)
 			}
-			m.cfg.Replace(cfg)
-		}
-	}
-
-	if changed {
-		if err := m.cfg.Save(); err != nil {
-			l.Warnln("Failed to save config", err)
-		}
+		})
 	}
 
 	return nil
 }
 
 func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.DeviceConfiguration, ccDeviceInfos map[string]*indexSenderStartInfo, indexSenders *indexSenderRegistry) ([]string, map[string]struct{}, error) {
+	handleTime := time.Now()
 	var folderDevice config.FolderDeviceConfiguration
 	tempIndexFolders := make([]string, 0, len(folders))
 	paused := make(map[string]struct{}, len(folders))
 	seenFolders := make(map[string]struct{}, len(folders))
+	updatedPending := make([]map[string]string, 0, len(folders))
 	deviceID := deviceCfg.DeviceID
 	for _, folder := range folders {
 		seenFolders[folder.ID] = struct{}{}
@@ -1306,6 +1308,12 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
+			updatedPending = append(updatedPending, map[string]string{
+				"folderID":    folder.ID,
+				"folderLabel": folder.Label,
+				"deviceID":    deviceID.String(),
+			})
+			// DEPRECATED: Only for backwards compatibility, should be removed.
 			m.evLogger.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -1380,6 +1388,24 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	}
 
 	indexSenders.removeAllExcept(seenFolders)
+	// All current pending folders were touched above, so discard any with older timestamps
+	expiredPending, err := m.db.RemovePendingFoldersBeforeTime(deviceID, handleTime)
+	if err != nil {
+		l.Infof("Could not clean up pending folder entries: %v", err)
+	}
+	if len(updatedPending) > 0 || len(expiredPending) > 0 {
+		expiredPendingList := make([]map[string]string, len(expiredPending))
+		for i, folderID := range expiredPending {
+			expiredPendingList[i] = map[string]string{
+				"folderID": folderID,
+				"deviceID": deviceID.String(),
+			}
+		}
+		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
+			"added":   updatedPending,
+			"removed": expiredPendingList,
+		})
+	}
 
 	return tempIndexFolders, paused, nil
 }
@@ -1492,10 +1518,8 @@ func (m *model) resendClusterConfig(ids []protocol.DeviceID) {
 }
 
 // handleIntroductions handles adding devices/folders that are shared by an introducer device
-func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, folderDeviceSet, bool) {
+func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig, folders map[string]config.FolderConfiguration, devices map[protocol.DeviceID]config.DeviceConfiguration) (map[string]config.FolderConfiguration, map[protocol.DeviceID]config.DeviceConfiguration, folderDeviceSet, bool) {
 	changed := false
-	folders := m.cfg.Folders()
-	devices := m.cfg.Devices()
 
 	foldersDevices := make(folderDeviceSet)
 
@@ -1521,7 +1545,7 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 
 			foldersDevices.set(device.ID, folder.ID)
 
-			if _, ok := m.cfg.Device(device.ID); !ok {
+			if _, ok := devices[device.ID]; !ok {
 				// The device is currently unknown. Add it to the config.
 				devices[device.ID] = m.introduceDevice(device, introducerCfg)
 			} else if fcfg.SharedWith(device.ID) {
@@ -1602,9 +1626,8 @@ func (m *model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
-func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceInfos *indexSenderStartInfo) (config.FolderConfiguration, bool) {
-	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
-		defaultPath := m.cfg.Options().DefaultFolderPath
+func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Folder, ccDeviceInfos *indexSenderStartInfo, cfg config.FolderConfiguration, haveCfg bool, defaultPath string) (config.FolderConfiguration, bool) {
+	if !haveCfg {
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
 		pathAlternatives := []string{
 			fs.SanitizePath(folder.Label),
@@ -2072,6 +2095,14 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		if err := m.db.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String()); err != nil {
 			l.Warnf("Failed to persist pending device entry to database: %v", err)
 		}
+		m.evLogger.Log(events.PendingDevicesChanged, map[string][]interface{}{
+			"added": {map[string]string{
+				"deviceID": remoteID.String(),
+				"name":     hello.DeviceName,
+				"address":  addr.String(),
+			}},
+		})
+		// DEPRECATED: Only for backwards compatibility, should be removed.
 		m.evLogger.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),
@@ -2179,9 +2210,16 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	conn.ClusterConfig(cm)
 
 	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
-		device.Name = hello.DeviceName
-		m.cfg.SetDevice(device)
-		m.cfg.Save()
+		m.cfg.Modify(func(cfg *config.Configuration) {
+			for i := range cfg.Devices {
+				if cfg.Devices[i].DeviceID == deviceID {
+					if cfg.Devices[i].Name == "" || cfg.Options.OverwriteRemoteDevNames {
+						cfg.Devices[i].Name = hello.DeviceName
+					}
+					return
+				}
+			}
+		})
 	}
 
 	m.deviceWasSeen(deviceID)
@@ -2651,6 +2689,9 @@ func (m *model) VerifyConfiguration(from, to config.Configuration) error {
 func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	// TODO: This should not use reflect, and should take more care to try to handle stuff without restart.
 
+	// Delay processing config changes until after the initial setup
+	<-m.started
+
 	// Go through the folder configs and figure out if we need to restart or not.
 
 	// Tracks devices affected by any configuration change to resend ClusterConfig.
@@ -2792,6 +2833,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 }
 
 func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.DeviceConfiguration, existingFolders map[string]config.FolderConfiguration, ignoredDevices deviceIDSet, removedFolders map[string]struct{}) {
+	var removedPendingFolders []map[string]string
 	pendingFolders, err := m.db.PendingFolders()
 	if err != nil {
 		l.Infof("Could not iterate through pending folder entries for cleanup: %v", err)
@@ -2804,27 +2846,41 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			// at all (but might become pending again).
 			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
 			m.db.RemovePendingFolder(folderID)
+			removedPendingFolders = append(removedPendingFolders, map[string]string{
+				"folderID": folderID,
+			})
 			continue
 		}
 		for deviceID := range pf.OfferedBy {
 			if dev, ok := existingDevices[deviceID]; !ok {
 				l.Debugf("Discarding pending folder %v from unknown device %v", folderID, deviceID)
-				m.db.RemovePendingFolderForDevice(folderID, deviceID)
-				continue
+				goto removeFolderForDevice
 			} else if dev.IgnoredFolder(folderID) {
 				l.Debugf("Discarding now ignored pending folder %v for device %v", folderID, deviceID)
-				m.db.RemovePendingFolderForDevice(folderID, deviceID)
-				continue
+				goto removeFolderForDevice
 			}
 			if folderCfg, ok := existingFolders[folderID]; ok {
 				if folderCfg.SharedWith(deviceID) {
 					l.Debugf("Discarding now shared pending folder %v for device %v", folderID, deviceID)
-					m.db.RemovePendingFolderForDevice(folderID, deviceID)
+					goto removeFolderForDevice
 				}
 			}
+			continue
+		removeFolderForDevice:
+			m.db.RemovePendingFolderForDevice(folderID, deviceID)
+			removedPendingFolders = append(removedPendingFolders, map[string]string{
+				"folderID": folderID,
+				"deviceID": deviceID.String(),
+			})
 		}
 	}
+	if len(removedPendingFolders) > 0 {
+		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
+			"removed": removedPendingFolders,
+		})
+	}
 
+	var removedPendingDevices []map[string]string
 	pendingDevices, err := m.db.PendingDevices()
 	if err != nil {
 		l.Infof("Could not iterate through pending device entries for cleanup: %v", err)
@@ -2833,14 +2889,23 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	for deviceID := range pendingDevices {
 		if _, ok := ignoredDevices[deviceID]; ok {
 			l.Debugf("Discarding now ignored pending device %v", deviceID)
-			m.db.RemovePendingDevice(deviceID)
-			continue
+			goto removeDevice
 		}
 		if _, ok := existingDevices[deviceID]; ok {
 			l.Debugf("Discarding now added pending device %v", deviceID)
-			m.db.RemovePendingDevice(deviceID)
-			continue
+			goto removeDevice
 		}
+		continue
+	removeDevice:
+		m.db.RemovePendingDevice(deviceID)
+		removedPendingDevices = append(removedPendingDevices, map[string]string{
+			"deviceID": deviceID.String(),
+		})
+	}
+	if len(removedPendingDevices) > 0 {
+		m.evLogger.Log(events.PendingDevicesChanged, map[string]interface{}{
+			"removed": removedPendingDevices,
+		})
 	}
 }
 

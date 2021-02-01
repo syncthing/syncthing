@@ -41,6 +41,12 @@ ul+h5 {
     float: none; /* issue #1197 */
 }
 
+#advancedAccordion input.form-control[type="checkbox"] {
+    box-shadow: none;
+    margin: 0;
+    width: auto;
+}
+
 .popover {
     max-width: none;
     min-width: 250px;

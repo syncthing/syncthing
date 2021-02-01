@@ -402,5 +402,6 @@
     "items": "öğe",
     "seconds": "saniye",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}}, \"{{folder}}\" klasörünü paylaşmak istiyor.",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}}, \"{{folderlabel}}\" ({{folder}}) klasörünü paylaşmak istiyor."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}}, \"{{folderlabel}}\" ({{folder}}) klasörünü paylaşmak istiyor.",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} bu cihazı yeniden tanıtabilir."
 }

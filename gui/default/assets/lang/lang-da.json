@@ -326,7 +326,7 @@
     "The following items were changed locally.": "De følgende filer er ændret lokalt.",
     "The following unexpected items were found.": "Følgende ikke-forventet emner blev fundet.",
     "The interval must be a positive number of seconds.": "Intervallet skal være et positivt antal sekunder.",
-    "The interval, in seconds, for running cleanup in the versions directory. Zero to disable periodic cleaning.": "The interval, in seconds, for running cleanup in the versions directory. Zero to disable periodic cleaning.",
+    "The interval, in seconds, for running cleanup in the versions directory. Zero to disable periodic cleaning.": "Interval i sekunder for kørsel af oprydning i versionskatalog. Nul vil deaktivere periodisk rengøring.",
     "The maximum age must be a number and cannot be blank.": "Maksimal alder skal være et tal og feltet må ikke være tomt.",
     "The maximum time to keep a version (in days, set to 0 to keep versions forever).": "Den maksimale tid, en version skal gemmes (i dage; sæt lig med 0 for at beholde gamle versioner for altid).",
     "The number of days must be a number and cannot be blank.": "Antallet af dage skal være et tal og feltet må ikke være tomt.",
@@ -402,5 +402,6 @@
     "items": "filer",
     "seconds": "sekunder",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} ønsker at dele mappen “{{folder}}”.",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} ønsker at dele mappen “{{folderlabel}}” ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} ønsker at dele mappen “{{folderlabel}}” ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }

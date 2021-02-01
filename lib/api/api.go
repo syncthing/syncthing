@@ -294,7 +294,6 @@ func (s *service) Serve(ctx context.Context) error {
 		Router: restMux,
 		id:     s.id,
 		cfg:    s.cfg,
-		mut:    sync.NewMutex(),
 	}
 
 	configBuilder.registerConfig("/rest/config")
@@ -1402,31 +1401,36 @@ func (s *service) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 		var qs = r.URL.Query()
 		var deviceStr = qs.Get("device")
 
-		var cfgs []config.DeviceConfiguration
-
-		if deviceStr == "" {
-			for _, cfg := range s.cfg.Devices() {
-				cfg.Paused = paused
-				cfgs = append(cfgs, cfg)
+		var msg string
+		var status int
+		_, err := s.cfg.Modify(func(cfg *config.Configuration) {
+			if deviceStr == "" {
+				for i := range cfg.Devices {
+					cfg.Devices[i].Paused = paused
+				}
+				return
 			}
-		} else {
+
 			device, err := protocol.DeviceIDFromString(deviceStr)
 			if err != nil {
-				http.Error(w, err.Error(), 500)
+				msg = err.Error()
+				status = 500
 				return
 			}
 
-			cfg, ok := s.cfg.Devices()[device]
+			_, i, ok := cfg.Device(device)
 			if !ok {
-				http.Error(w, "not found", http.StatusNotFound)
+				msg = "not found"
+				status = http.StatusNotFound
 				return
 			}
 
-			cfg.Paused = paused
-			cfgs = append(cfgs, cfg)
-		}
+			cfg.Devices[i].Paused = paused
+		})
 
-		if _, err := s.cfg.SetDevices(cfgs); err != nil {
+		if msg != "" {
+			http.Error(w, msg, status)
+		} else if err != nil {
 			http.Error(w, err.Error(), 500)
 		}
 	}

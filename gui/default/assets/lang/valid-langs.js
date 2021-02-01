@@ -1,1 +1,1 @@
-var validLangs = ["bg","ca@valencia","cs","da","de","el","en","en-AU","en-GB","eo","es","es-ES","eu","fi","fr","fy","hu","it","ja","ko-KR","lt","nb","nl","pl","pt-BR","pt-PT","ru","sk","sv","tr","uk","zh-CN","zh-TW"]
+var validLangs = ["bg","ca@valencia","cs","da","de","el","en","en-AU","en-GB","eo","es","es-ES","eu","fi","fr","fy","hu","it","ja","ko-KR","lt","nb","nl","pl","pt-BR","pt-PT","ru","sk","sv","tr","uk","zh-CN","zh-HK","zh-TW"]

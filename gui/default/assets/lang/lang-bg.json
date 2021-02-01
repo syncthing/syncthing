@@ -402,5 +402,6 @@
     "items": "елемента",
     "seconds": "seconds",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} желае да сподели папката \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} желае да сподели папката \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} желае да сподели папката \"{{folderlabel}}\" ({{folder}}).",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }

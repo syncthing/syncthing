@@ -25,7 +25,7 @@
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "外部命令接管了版本控制。该外部命令必须自行从共享文件夹中删除该文件。如果此应用程序的路径包含空格，应该用半角引号括起来。",
     "Anonymous Usage Reporting": "匿名使用报告",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "匿名使用情况的报告格式已经变更。是否要迁移到新的格式？",
-    "Are you sure you want to permanently delete all these files?": "Are you sure you want to permanently delete all these files?",
+    "Are you sure you want to permanently delete all these files?": "确认要永久删除这些文件吗？",
     "Are you sure you want to remove device {%name%}?": "您确定要移除设备 {{name}} 吗？",
     "Are you sure you want to remove folder {%label%}?": "您确定要移除文件夹 {{label}} 吗？",
     "Are you sure you want to restore {%count%} files?": "您确定要恢复这 {{count}} 个文件吗？",
@@ -72,7 +72,7 @@
     "Device ID": "设备 ID",
     "Device Identification": "设备标识",
     "Device Name": "设备名",
-    "Device is untrusted, enter encryption password": "Device is untrusted, enter encryption password",
+    "Device is untrusted, enter encryption password": "设备不可信，请输入加密密码",
     "Device rate limits": "设备速率限制",
     "Device that last modified the item": "最近修改该项的设备",
     "Devices": "设备",
@@ -402,5 +402,6 @@
     "items": "条目",
     "seconds": "秒",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 想将 “{{folder}}” 文件夹共享给您。",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要共享 \"{{folderlabel}}\" ({{folder}}) 文件夹给您。"
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要共享 \"{{folderlabel}}\" ({{folder}}) 文件夹给您。",
+    "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} might reintroduce this device."
 }
