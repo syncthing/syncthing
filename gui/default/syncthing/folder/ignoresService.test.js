@@ -280,6 +280,11 @@ describe('IgnoresService', function() {
                     var patterns = mockIgnores(['/Backups/{June,July}2009']);
                     expect(patterns.every(isAdvanced)).toBeTrue();
                 });
+
+                it('by #include command', function() {
+                    var patterns = mockIgnores(['#include patterns.txt']);
+                    expect(patterns.every(isAdvanced)).toBeTrue();
+                });
             });
 
             describe('path', function() {
