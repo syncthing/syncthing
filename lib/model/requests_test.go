@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -368,12 +369,15 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 
 	done = make(chan struct{})
 	expected := map[string]struct{}{ign: {}, ignExisting: {}}
+	var expectedMut sync.Mutex
 	// The indexes will normally arrive in one update, but it is possible
 	// that they arrive in separate ones.
 	fc.mut.Lock()
 	fc.indexFn = func(_ context.Context, folder string, fs []protocol.FileInfo) {
+		expectedMut.Lock()
 		for _, f := range fs {
-			if _, ok := expected[f.Name]; !ok {
+			_, ok := expected[f.Name]
+			if !ok {
 				t.Errorf("Unexpected file %v was updated in index", f.Name)
 				continue
 			}
@@ -406,6 +410,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 		if len(expected) == 0 {
 			close(done)
 		}
+		expectedMut.Unlock()
 	}
 	// Make sure pulling doesn't interfere, as index updates are racy and
 	// thus we cannot distinguish between scan and pull results.
@@ -420,7 +425,9 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 
 	select {
 	case <-time.After(5 * time.Second):
+		expectedMut.Lock()
 		t.Fatal("timed out before receiving index updates for all existing files, missing", expected)
+		expectedMut.Unlock()
 	case <-done:
 	}
 }
@@ -463,10 +470,14 @@ func TestIssue4841(t *testing.T) {
 		t.Fatal("Failed scanning:", err)
 	}
 
-	f := checkReceived(<-received)
-
-	if !f.Version.Equal(protocol.Vector{}) {
-		t.Errorf("Got Version == %v, expected empty version", f.Version)
+	select {
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	case r := <-received:
+		f := checkReceived(r)
+		if !f.Version.Equal(protocol.Vector{}) {
+			t.Errorf("Got Version == %v, expected empty version", f.Version)
+		}
 	}
 }
 
@@ -1179,10 +1190,11 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	indexChan := make(chan []protocol.FileInfo)
 	fc.mut.Lock()
-	fc.indexFn = func(_ context.Context, folder string, fs []protocol.FileInfo) {
+	fc.indexFn = func(ctx context.Context, folder string, fs []protocol.FileInfo) {
 		select {
 		case indexChan <- fs:
 		case <-done:
+		case <-ctx.Done():
 		}
 	}
 	fc.mut.Unlock()
