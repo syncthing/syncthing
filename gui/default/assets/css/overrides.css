@@ -128,11 +128,13 @@ table.table-auto {
 	table-layout: auto;
 }
 
-table.table-auto .col-fixed {
-	width: 1px;
+table.table-auto th, table.table-auto .col-fixed {
+    width: 1px;
+    max-width: none;
 }
 
-table.table-auto .col-flex {
+table.table-auto td, table.table-auto .col-flex {
+    width: unset;
     max-width: 0px;
 }
 
