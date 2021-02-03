@@ -1,6 +1,6 @@
 {
-    "A device with that ID is already added.": "您已添加過相同 ID 的設備",
-    "A negative number of days doesn't make sense.": "負數天數沒有意義。",
+    "A device with that ID is already added.": "您已添加過擁有相同 ID 的設備",
+    "A negative number of days doesn't make sense.": "負數天數不符合邏輯。",
     "A new major version may not be compatible with previous versions.": "重大更新可能與之前的版本之間無法兼容",
     "API Key": "API Key",
     "About": "關於",
