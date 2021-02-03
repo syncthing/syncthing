@@ -6,6 +6,8 @@ angular.module('syncthing.folder')
 
         // public definitions
 
+        self.TYPE_DIRECTORY = 'FILE_INFO_TYPE_DIRECTORY'
+        self.TYPE_FILE = 'FILE_INFO_TYPE_FILE'
         self.data = {
             files: [],
         };
@@ -35,16 +37,13 @@ angular.module('syncthing.folder')
                 pathPrefix.push(prefix.replace(/\/+$/g, ''));
             }
 
-            var items = [];
-            for (var name in data) {
-                var isFile = Array.isArray(data[name]);
-                var item = {
-                    name: name,
-                    path: pathPrefix.concat([name]).join('/'),
-                    isFile: isFile
+            if (!Array.isArray(data)) throw 'Expected rest/db/browse response to be array';
+            return data.map(function (entry) {
+                return {
+                    name: entry.name,
+                    path: pathPrefix.concat([entry.name]).join('/'),
+                    isFile: entry.type !== self.TYPE_DIRECTORY
                 };
-                items.push(item);
-            }
-            return items;
+            });
         };
     });

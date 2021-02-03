@@ -6,7 +6,7 @@ describe('BrowseService', function() {
 
     beforeEach(inject(function($injector) {
         $httpBackend = $injector.get('$httpBackend');
-        getBrowseHandler = $httpBackend.when('GET', /^rest\/db\/browse/).respond({});
+        getBrowseHandler = $httpBackend.when('GET', /^rest\/db\/browse/).respond([]);
 
         service = $injector.get('Browse');
     }));
@@ -19,7 +19,7 @@ describe('BrowseService', function() {
 
     describe('refresh', function() {
         it('fetches data for the folder', function() {
-            $httpBackend.expectGET('rest/db/browse?folder=default&levels=0').respond({ Backups: {} });
+            $httpBackend.expectGET('rest/db/browse?folder=default&levels=0').respond([{ name: 'Backups', type: service.TYPE_DIRECTORY }]);
             service.refresh('default');
             $httpBackend.flush();
             expect(service.data.files.length).toEqual(1);
@@ -33,10 +33,10 @@ describe('BrowseService', function() {
 
         describe('browse', function() {
             beforeEach(function() {
-                getBrowseHandler.respond({
-                    'homework.txt': ['2015-04-20T22:20:45+09:00', 130940928],
-                    Photos: {},
-                });
+                getBrowseHandler.respond([
+                    { name: 'homework.txt', type: service.TYPE_FILE, modTime: '2020-11-10T22:43:23.042914005Z', size: 130940928 },
+                    { name: 'Photos', type: service.TYPE_DIRECTORY, modTime: '2020-12-26T23:36:52.065269756Z', size: 128 },
+                ]);
                 service.refresh('default');
                 $httpBackend.flush();
             });
@@ -68,10 +68,10 @@ describe('BrowseService', function() {
                 });
 
                 it('populates path with parent directory', function() {
-                    getBrowseHandler.respond({
-                        'image.jpg': ['2020-03-15T08:40:45+09:00', 82904],
-                        Raw: {},
-                    });
+                    getBrowseHandler.respond([
+                        { name: 'image.jpg', type: service.TYPE_FILE },
+                        { name: 'Raw', type: service.TYPE_DIRECTORY },
+                    ]);
                     service.refresh('default', 'Photos');
                     $httpBackend.flush();
                     expect(service.data.files[0].path).toEqual('Photos/image.jpg');
@@ -79,10 +79,10 @@ describe('BrowseService', function() {
                 });
 
                 it('does not duplicate slash in prefix', function() {
-                    getBrowseHandler.respond({
-                        'image.jpg': ['2020-03-15T08:40:45+09:00', 82904],
-                        Raw: {},
-                    });
+                    getBrowseHandler.respond([
+                        { name: 'image.jpg', type: service.TYPE_FILE },
+                        { name: 'Raw', type: service.TYPE_DIRECTORY },
+                    ]);
                     service.refresh('default', 'Photos/');
                     $httpBackend.flush();
                     expect(service.data.files[0].path).toEqual('Photos/image.jpg');
