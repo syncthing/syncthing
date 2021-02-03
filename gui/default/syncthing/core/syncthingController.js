@@ -2019,7 +2019,11 @@ angular.module('syncthing.core')
             $scope.folders[folderCfg.id] = folderCfg;
             $scope.config.folders = folderList($scope.folders);
 
-            if (ignoresLoaded && $scope.editingExisting && ignores !== folderCfg.ignores) {
+            function arrayEquals(a, b) {
+              return a.length === b.length && a.every(function(v, i) { return v === b[i] });
+            }
+
+            if (ignoresLoaded && $scope.editingExisting && !arrayEquals(ignores, folderCfg.ignores)) {
                 saveIgnores(ignores);
             };
 
