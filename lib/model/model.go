@@ -110,7 +110,7 @@ type Model interface {
 	PendingFolders(device protocol.DeviceID) (map[string]db.PendingFolder, error)
 
 	StartDeadlockDetector(timeout time.Duration)
-	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
+	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error)
 }
 
 type model struct {
@@ -2510,15 +2510,34 @@ func (m *model) Revert(folder string) {
 	runner.Revert()
 }
 
-func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{} {
+type TreeEntry struct {
+	Name     string                `json:"name"`
+	ModTime  time.Time             `json:"modTime"`
+	Size     int64                 `json:"size"`
+	Type     protocol.FileInfoType `json:"type"`
+	Children []*TreeEntry          `json:"children,omitempty"`
+}
+
+func findByName(slice []*TreeEntry, name string) *TreeEntry {
+	for _, child := range slice {
+		if child.Name == name {
+			return child
+		}
+	}
+	return nil
+}
+
+func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error) {
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
 	if !ok {
-		return nil
+		return nil, errFolderMissing
 	}
 
-	output := make(map[string]interface{})
+	root := &TreeEntry{
+		Children: make([]*TreeEntry, 0),
+	}
 	sep := string(filepath.Separator)
 	prefix = osutil.NativeFilename(prefix)
 
@@ -2528,6 +2547,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 
 	snap := files.Snapshot()
 	defer snap.Release()
+	var err error
 	snap.WithPrefixedGlobalTruncated(prefix, func(fi protocol.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 
@@ -2538,42 +2558,43 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 
 		f.Name = strings.Replace(f.Name, prefix, "", 1)
 
-		var dir, base string
-		if f.IsDirectory() && !f.IsSymlink() {
-			dir = f.Name
-		} else {
-			dir = filepath.Dir(f.Name)
-			base = filepath.Base(f.Name)
-		}
+		dir := filepath.Dir(f.Name)
+		base := filepath.Base(f.Name)
 
 		if levels > -1 && strings.Count(f.Name, sep) > levels {
 			return true
 		}
 
-		last := output
+		parent := root
 		if dir != "." {
 			for _, path := range strings.Split(dir, sep) {
-				directory, ok := last[path]
-				if !ok {
-					newdir := make(map[string]interface{})
-					last[path] = newdir
-					last = newdir
-				} else {
-					last = directory.(map[string]interface{})
+				child := findByName(parent.Children, path)
+				if child == nil {
+					err = fmt.Errorf("could not find child '%s' for path '%s' in parent '%s'", path, f.Name, parent.Name)
+					return false
 				}
+				parent = child
 			}
 		}
 
-		if !dirsonly && base != "" {
-			last[base] = []interface{}{
-				f.ModTime(), f.FileSize(),
-			}
+		if dirsOnly && !f.IsDirectory() {
+			return true
 		}
+
+		parent.Children = append(parent.Children, &TreeEntry{
+			Name:    base,
+			Type:    f.Type,
+			ModTime: f.ModTime(),
+			Size:    f.FileSize(),
+		})
 
 		return true
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return output
+	return root.Children, nil
 }
 
 func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {

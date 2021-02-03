@@ -710,14 +710,19 @@ func (s *service) getDBBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	prefix := qs.Get("prefix")
-	dirsonly := qs.Get("dirsonly") != ""
+	dirsOnly := qs.Get("dirsonly") != ""
 
 	levels, err := strconv.Atoi(qs.Get("levels"))
 	if err != nil {
 		levels = -1
 	}
+	result, err := s.model.GlobalDirectoryTree(folder, prefix, levels, dirsOnly)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	sendJSON(w, s.model.GlobalDirectoryTree(folder, prefix, levels, dirsonly))
+	sendJSON(w, result)
 }
 
 func (s *service) getDBCompletion(w http.ResponseWriter, r *http.Request) {

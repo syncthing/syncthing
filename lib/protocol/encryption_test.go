@@ -82,13 +82,30 @@ func TestEnDecryptFileInfo(t *testing.T) {
 		ModifiedS:   8080,
 		Blocks: []BlockInfo{
 			{
-				Size: 45,
-				Hash: []byte{1, 2, 3},
+				Offset: 0,
+				Size:   45,
+				Hash:   []byte{1, 2, 3},
+			},
+			{
+				Offset: 45,
+				Size:   45,
+				Hash:   []byte{1, 2, 3},
 			},
 		},
 	}
 
 	enc := encryptFileInfo(fi, &key)
+	if bytes.Equal(enc.Blocks[0].Hash, enc.Blocks[1].Hash) {
+		t.Error("block hashes should not repeat when on different offsets")
+	}
+	again := encryptFileInfo(fi, &key)
+	if !bytes.Equal(enc.Blocks[0].Hash, again.Blocks[0].Hash) {
+		t.Error("block hashes should remain stable (0)")
+	}
+	if !bytes.Equal(enc.Blocks[1].Hash, again.Blocks[1].Hash) {
+		t.Error("block hashes should remain stable (1)")
+	}
+
 	dec, err := DecryptFileInfo(enc, &key)
 	if err != nil {
 		t.Error(err)

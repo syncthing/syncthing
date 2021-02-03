@@ -5,6 +5,7 @@ package protocol
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime"
@@ -393,4 +394,21 @@ func VectorHash(v Vector) []byte {
 		}
 	}
 	return h.Sum(nil)
+}
+
+func (x *FileInfoType) MarshalJSON() ([]byte, error) {
+	return json.Marshal(x.String())
+}
+
+func (x *FileInfoType) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	n, ok := FileInfoType_value[s]
+	if !ok {
+		return errors.New("invalid value: " + s)
+	}
+	*x = FileInfoType(n)
+	return nil
 }
