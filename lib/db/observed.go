@@ -66,14 +66,15 @@ func (db *Lowlevel) PendingDevices() (map[protocol.DeviceID]ObservedDevice, erro
 	return res, nil
 }
 
-func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) error {
+func (db *Lowlevel) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID, receiveEncrypted bool) error {
 	key, err := db.keyer.GeneratePendingFolderKey(nil, device[:], []byte(id))
 	if err != nil {
 		return err
 	}
 	of := ObservedFolder{
-		Time:  time.Now().Round(time.Second),
-		Label: label,
+		Time:             time.Now().Round(time.Second),
+		Label:            label,
+		ReceiveEncrypted: receiveEncrypted,
 	}
 	bs, err := of.Marshal()
 	if err != nil {

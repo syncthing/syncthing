@@ -1933,6 +1933,13 @@ angular.module('syncthing.core')
             $scope.currentFolder.viewFlags = {
                 importFromOtherDevice: true
             };
+            var pendingFolder = $scope.pendingFolders[folder];
+            for (var k in pendingFolder.offeredBy) {
+                if (pendingFolder.offeredBy[k].receiveEncrypted) {
+                    $scope.currentFolder.type = "receiveencrypted";
+                    break;
+                }
+            }
             initShareEditing('folder');
             $scope.currentSharing.selected[device] = true;
             $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {

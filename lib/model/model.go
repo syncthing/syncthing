@@ -1304,7 +1304,8 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
-			if err := m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID); err != nil {
+			recvEnc := len(ccDeviceInfos[folder.ID].local.EncryptionPasswordToken) > 0
+			if err := m.db.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID, recvEnc); err != nil {
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
