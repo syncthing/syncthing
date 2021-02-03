@@ -1850,10 +1850,10 @@ angular.module('syncthing.core')
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
             $scope.ignores = Ignores.data;
-            $scope.currentFolder.ignoreIsEditingAdvanced = true;
+            $scope.currentFolder._ignoreIsEditingAdvanced = true;
             Ignores.refresh($scope.currentFolder.id).then((response) => {
-                $scope.currentFolder.ignoreIsBasic = response.patterns.every(function (p) { return p.isSimple; });
-                $scope.currentFolder.ignoreIsEditingAdvanced = !$scope.currentFolder.ignoreIsBasic;
+                $scope.currentFolder._ignoreIsBasic = response.patterns.every(function (p) { return p.isSimple; });
+                $scope.currentFolder._ignoreIsEditingAdvanced = !$scope.currentFolder._ignoreIsBasic;
                 $scope.currentFolder.ignores = response.patterns.map(function(p) { return p.text; });
                 IgnoreTree.refresh($scope.currentFolder.id);
             }).catch(function (err) {
@@ -1865,7 +1865,7 @@ angular.module('syncthing.core')
 
         $scope.parseIgnores = function (text) {
             var patterns = Ignores.parseText(text);
-            $scope.currentFolder.ignoreIsBasic = patterns.every(function (p) { return p.isSimple; });
+            $scope.currentFolder._ignoreIsBasic = patterns.every(function (p) { return p.isSimple; });
             IgnoreTree.update();
         };
 
@@ -1891,7 +1891,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $scope.currentSharing.unrelated = $scope.otherDevices();
                 $scope.ignores = Ignores.tempFolder();
-                $scope.currentFolder.ignoreIsEditingAdvanced = true;
+                $scope.currentFolder._ignoreIsEditingAdvanced = true;
                 $scope.editFolderModal();
             });
         };
@@ -1910,7 +1910,7 @@ angular.module('syncthing.core')
                 return n.deviceID !== $scope.myID;
             });
             $scope.ignores = Ignores.tempFolder();
-            $scope.currentFolder.ignoreIsEditingAdvanced = true;
+            $scope.currentFolder._ignoreIsEditingAdvanced = true;
             $scope.editFolderModal();
         };
 

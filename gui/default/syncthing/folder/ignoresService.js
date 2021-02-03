@@ -7,9 +7,9 @@ angular.module('syncthing.folder')
         // public definitions
 
         self.data = {
-            // Text representation of ignore patterns. Updated when patterns
-            // are added or removed, but modifying `text`` does not update
-            // `patterns`.
+            // Text representation of ignore patterns. `text` is updated when
+            // patterns are added or removed, but `parseTest` must be called
+            // to update `patterns` after modifying `text`.
             text: '',
             error: null,
             disabled: false,
@@ -186,7 +186,7 @@ angular.module('syncthing.folder')
             // Add a leading slash when the pattern begins with wildcards
             // because a pattern beginning with * or ** will match entries at
             // the root (as well as those in child directories)
-            line = line.replace(/^\*+/, '/$&'); // `$&` inserts the matched substring
+            line = line.replace(/^\*+/, '/$&'); // `$&` inserts the matched substring, a series of wildcards
 
             // Trim trailing wildcards after separator because child paths would
             // already be prefixed by this path

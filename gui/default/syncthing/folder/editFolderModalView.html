@@ -161,17 +161,17 @@
         <div id="folder-ignores" class="tab-pane">
           <p>
             <div class="btn-group">
-              <label class="btn btn-default" ng-class="{active: !currentFolder.ignoreIsEditingAdvanced, disabled: !currentFolder.ignoreIsBasic}" ng-if="editingExisting">
-                <input type="radio" ng-model="currentFolder.ignoreIsEditingAdvanced" ng-value="false" ng-disabled="!currentFolder.ignoreIsBasic" />
+              <label class="btn btn-default" ng-class="{active: !currentFolder._ignoreIsEditingAdvanced, disabled: !currentFolder._ignoreIsBasic}" ng-if="editingExisting">
+                <input type="radio" ng-model="currentFolder._ignoreIsEditingAdvanced" ng-value="false" ng-disabled="!currentFolder._ignoreIsBasic" />
                 <span translate class="fas fa-fw fa-folder-o"></span>&nbsp;<span>Basic</span>
               </label>
-              <label class="btn btn-default" ng-class="{active: currentFolder.ignoreIsEditingAdvanced}">
-                <input type="radio" ng-model="currentFolder.ignoreIsEditingAdvanced" ng-value="true" />
+              <label class="btn btn-default" ng-class="{active: currentFolder._ignoreIsEditingAdvanced}">
+                <input type="radio" ng-model="currentFolder._ignoreIsEditingAdvanced" ng-value="true" />
                 <span translate class="fas fa-fw fa-code"></span>&nbsp;<span>Advanced</span>
               </label>
             </div>
           </p>
-          <div ng-show="!currentFolder.ignoreIsEditingAdvanced">
+          <div ng-show="!currentFolder._ignoreIsEditingAdvanced">
             <table id="ignore-tree" class="table table-condensed table-striped table-auto">
               <thead>
                 <tr>
@@ -187,7 +187,7 @@
               </tbody>
             </table>
           </div>
-          <div ng-if="currentFolder.ignoreIsEditingAdvanced">
+          <div ng-if="currentFolder._ignoreIsEditingAdvanced">
             <p translate>Enter ignore patterns, one per line.</p>
             <div ng-class="{'has-error': ignores.error != null}">
               <textarea class="form-control" rows="5" ng-model="ignores.text" ng-disabled="ignores.disabled" ng-blur="parseIgnores(ignores.text)"></textarea>
