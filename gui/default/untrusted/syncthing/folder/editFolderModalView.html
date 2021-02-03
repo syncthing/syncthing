@@ -3,9 +3,9 @@
     <form role="form" name="folderEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
         <li class="active"><a data-toggle="tab" href="#folder-general"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
-        <li><a data-toggle="tab" href="#folder-sharing"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
-        <li><a data-toggle="tab" href="#folder-versioning"><span class="fas fa-copy"></span> <span translate>File Versioning</span></a></li>
-        <li><a data-toggle="tab" href="#folder-ignores"><span class="fas fa-filter"></span> <span translate>Ignore Patterns</span></a></li>
+        <li><a data-toggle="tab" href="#folder-sharing"><span class="fas fa-share-alt"></span><span translate>Sharing</span></a></li>
+        <li ng-class="{'disabled': currentFolder._recvEnc}"><a ng-attr-data-toggle="{{ currentFolder._recvEnc ? undefined : 'tab'}}" href="{{currentFolder._recvEnc ? '#' : '#folder-ignoresng'}}"><span class="fas fa-copy"></span> <span translate>File Versioning</span></a></li>
+        <li ng-class="{'disabled': currentFolder._recvEnc}"><a ng-attr-data-toggle="{{ currentFolder._recvEnc ? undefined : 'tab'}}" href="{{currentFolder._recvEnc ? '#' : '#folder-ignores'}}"><span class="fas fa-filter"></span> <span translate>Ignore Patterns</span></a></li>
         <li><a data-toggle="tab" href="#folder-advanced"><span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
       </ul>
       <div class="tab-content">
@@ -16,6 +16,7 @@
             <input name="folderLabel" id="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" value="{{currentFolder.label}}" />
             <p class="help-block">
               <span translate ng-if="folderEditor.folderLabel.$valid || folderEditor.folderLabel.$pristine">Optional descriptive label for the folder. Can be different on each device.</span>
+              {{currentFolder.type}} {{currentFolder.type === 'receiveencrypted'}}
             </p>
           </div>
           <div class="form-group" ng-class="{'has-error': folderEditor.folderID.$invalid && folderEditor.folderID.$dirty}">
@@ -253,7 +254,7 @@
             </div>
             <div class="col-md-6 form-group">
               <label>
-                <input type="checkbox" ng-model="currentFolder.ignorePerms" /> <span translate>Ignore Permissions</span>
+                <input type="checkbox" ng-disabled="currentFolder._recvEnc" ng-model="currentFolder.ignorePerms" /> <span translate>Ignore Permissions</span>
               </label>
               <p translate class="help-block">
                 Disables comparing and syncing file permissions. Useful on systems with nonexistent or custom permissions (e.g. FAT, exFAT, Synology, Android).

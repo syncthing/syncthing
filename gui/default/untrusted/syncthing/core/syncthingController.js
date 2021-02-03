@@ -1805,6 +1805,7 @@ angular.module('syncthing.core')
         };
 
         $scope.editFolderModal = function () {
+            $scope.currentFolder._recvEnc = $scope.currentFolder.type === 'receiveencrypted';
             $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal().one('shown.bs.tab', function (e) {
@@ -1911,43 +1912,48 @@ angular.module('syncthing.core')
             }
         };
 
+        function addFolderInit(recvEnc) {
+            $scope.editingExisting = false;
+            $scope.currentFolder = angular.copy($scope.folderDefaults);
+            if (recvEnc) {
+                $scope.currentFolder.type = "receiveencrypted";
+                $scope.currentFolder.ignorePerms = true;
+                delete $scope.currentFolder.versioning;
+            }
+            initShareEditing('folder');
+            $scope.ignores.text = '';
+            $scope.ignores.error = null;
+            $scope.ignores.disabled = false;
+        }
+
         $scope.addFolder = function () {
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
-                $scope.editingExisting = false;
-                $scope.currentFolder = angular.copy($scope.folderDefaults);
-                initShareEditing('folder');
+                addFolderInit(false);
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $scope.currentSharing.unrelated = $scope.otherDevices();
-                $scope.ignores.text = '';
-                $scope.ignores.error = null;
-                $scope.ignores.disabled = false;
                 $scope.editFolderModal();
             });
         };
 
         $scope.addFolderAndShare = function (folder, folderLabel, device) {
-            $scope.editingExisting = false;
-            $scope.currentFolder = angular.copy($scope.folderDefaults);
+            var pendingFolder = $scope.pendingFolders[folder];
+            var recvEnc = false;
+            for (var k in pendingFolder.offeredBy) {
+                if (pendingFolder.offeredBy[k].receiveEncrypted) {
+                    recvEnc = "receiveencrypted";
+                    break;
+                }
+            }
+            addFolderInit(recvEnc);
             $scope.currentFolder.id = folder;
             $scope.currentFolder.label = folderLabel;
             $scope.currentFolder.viewFlags = {
                 importFromOtherDevice: true
             };
-            var pendingFolder = $scope.pendingFolders[folder];
-            for (var k in pendingFolder.offeredBy) {
-                if (pendingFolder.offeredBy[k].receiveEncrypted) {
-                    $scope.currentFolder.type = "receiveencrypted";
-                    break;
-                }
-            }
-            initShareEditing('folder');
             $scope.currentSharing.selected[device] = true;
             $scope.currentSharing.unrelated = $scope.deviceList().filter(function (n) {
                 return n.deviceID !== $scope.myID;
             });
-            $scope.ignores.text = '';
-            $scope.ignores.error = null;
-            $scope.ignores.disabled = false;
             $scope.editFolderModal();
         };
 
