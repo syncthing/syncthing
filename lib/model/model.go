@@ -1218,7 +1218,7 @@ func (m *model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			haveFcfg := cfg.FolderMap()
 			for _, folder := range cm.Folders {
 				from, ok := haveFcfg[folder.ID]
-				if to, changed := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID], from, ok, cfg.Options.DefaultFolderPath); changed {
+				if to, changed := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID], from, ok, cfg.Defaults.Folder.Path); changed {
 					changedFcfg[folder.ID] = to
 				}
 			}
@@ -1638,7 +1638,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 				continue
 			}
 
-			fcfg := config.NewFolderConfiguration(m.id, folder.ID, folder.Label, fs.FilesystemTypeBasic, filepath.Join(defaultPath, path))
+			fcfg := newFolderConfiguration(m.cfg, folder.ID, folder.Label, fs.FilesystemTypeBasic, filepath.Join(defaultPath, path))
 			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
 				DeviceID: deviceID,
 			})
@@ -1678,6 +1678,15 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 	}
 }
 
+func (m *model) newFolderConfiguration(id, label string, fsType fs.FilesystemType, path string) config.FolderConfiguration {
+	fcfg := m.cfg.DefaultFolder()
+	fcfg.ID = id
+	fcfg.Label = label
+	fcfg.FilesystemType = fsType
+	fcfg.Path = path
+	return fcfg
+}
+
 func (m *model) introduceDevice(device protocol.Device, introducerCfg config.DeviceConfiguration) config.DeviceConfiguration {
 	addresses := []string{"dynamic"}
 	for _, addr := range device.Addresses {
@@ -1687,14 +1696,13 @@ func (m *model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 	}
 
 	l.Infof("Adding device %v to config (vouched for by introducer %v)", device.ID, introducerCfg.DeviceID)
-	newDeviceCfg := config.DeviceConfiguration{
-		DeviceID:     device.ID,
-		Name:         device.Name,
-		Compression:  introducerCfg.Compression,
-		Addresses:    addresses,
-		CertName:     device.CertName,
-		IntroducedBy: introducerCfg.DeviceID,
-	}
+	newDeviceCfg := m.cfg.DefaultDevice()
+	newDeviceCfg.DeviceID = device.ID
+	newDeviceCfg.Name = device.Name
+	newDeviceCfg.Compression = introducerCfg.Compression
+	newDeviceCfg.Addresses = addresses
+	newDeviceCfg.CertName = device.CertName
+	newDeviceCfg.IntroducedBy = introducerCfg.DeviceID
 
 	// The introducers' introducers are also our introducers.
 	if device.Introducer {
@@ -3155,4 +3163,13 @@ func writeEncryptionToken(token []byte, cfg config.FolderConfiguration) error {
 		FolderID: cfg.ID,
 		Token:    token,
 	})
+}
+
+func newFolderConfiguration(w config.Wrapper, id, label string, fsType fs.FilesystemType, path string) config.FolderConfiguration {
+	fcfg := w.DefaultFolder()
+	fcfg.ID = id
+	fcfg.Label = label
+	fcfg.FilesystemType = fsType
+	fcfg.Path = path
+	return fcfg
 }

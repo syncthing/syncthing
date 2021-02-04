@@ -1006,7 +1006,7 @@ func TestAutoAcceptNewFolderPremutationsNoPanic(t *testing.T) {
 				for _, dev2folder := range premutations {
 					cfg := defaultAutoAcceptCfg.Copy()
 					if localFolder.Label != "" {
-						fcfg := config.NewFolderConfiguration(myID, localFolder.ID, localFolder.Label, fs.FilesystemTypeBasic, localFolder.ID)
+						fcfg := newFolderConfiguration(defaultCfgWrapper, localFolder.ID, localFolder.Label, fs.FilesystemTypeBasic, localFolder.ID)
 						fcfg.Paused = localFolderPaused
 						cfg.Folders = append(cfg.Folders, fcfg)
 					}
@@ -1211,7 +1211,7 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 	defer os.RemoveAll(idOther)
 
 	tcfg := defaultAutoAcceptCfg.Copy()
-	fcfg := config.NewFolderConfiguration(myID, id, "", fs.FilesystemTypeBasic, idOther)
+	fcfg := newFolderConfiguration(defaultCfgWrapper, id, "", fs.FilesystemTypeBasic, idOther)
 	fcfg.Paused = true
 	// The order of devices here is wrong (cfg.clean() sorts them), which will cause the folder to restart.
 	// Because of the restart, folder gets removed from m.deviceFolder, which means that generateClusterConfig will not panic.
@@ -1259,7 +1259,7 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 	defer os.RemoveAll(idOther)
 
 	tcfg := defaultAutoAcceptCfg.Copy()
-	fcfg := config.NewFolderConfiguration(myID, id, "", fs.FilesystemTypeBasic, idOther)
+	fcfg := newFolderConfiguration(defaultCfgWrapper, id, "", fs.FilesystemTypeBasic, idOther)
 	fcfg.Paused = true
 	// The new folder is exactly the same as the one constructed by handleAutoAccept, which means
 	// the folder will not be restarted (even if it's paused), yet handleAutoAccept used to add the folder
@@ -2749,7 +2749,7 @@ func TestVersionRestore(t *testing.T) {
 	must(t, err)
 	defer os.RemoveAll(dir)
 
-	fcfg := config.NewFolderConfiguration(myID, "default", "default", fs.FilesystemTypeBasic, dir)
+	fcfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeBasic, dir)
 	fcfg.Versioning.Type = "simple"
 	fcfg.FSWatcherEnabled = false
 	filesystem := fcfg.Filesystem()
@@ -3810,7 +3810,7 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
 
-	setDevice(t, wcfg, config.NewDeviceConfiguration(device2, "device2"))
+	setDevice(t, wcfg, newDeviceConfiguration(wcfg.DefaultDevice(), device2, "device2"))
 
 	if pre != nil {
 		pre(wcfg)
@@ -3877,7 +3877,7 @@ func TestIssue6961(t *testing.T) {
 	defer wcfgCancel()
 	tfs := fcfg.Filesystem()
 	waiter, err := wcfg.Modify(func(cfg *config.Configuration) {
-		cfg.SetDevice(config.NewDeviceConfiguration(device2, "device2"))
+		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device2, "device2"))
 		fcfg.Type = config.FolderTypeReceiveOnly
 		fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 		cfg.SetFolder(fcfg)

@@ -91,7 +91,6 @@ func (c *mockedConfig) RemoveFolder(id string) (config.Waiter, error) {
 func (c *mockedConfig) FolderPasswords(device protocol.DeviceID) map[string]string {
 	return nil
 }
-
 func (c *mockedConfig) Device(id protocol.DeviceID) (config.DeviceConfiguration, bool) {
 	return config.DeviceConfiguration{}, false
 }
@@ -110,6 +109,22 @@ func (c *mockedConfig) IgnoredDevices() []config.ObservedDevice {
 
 func (c *mockedConfig) IgnoredFolder(device protocol.DeviceID, folder string) bool {
 	return false
+}
+
+func (c *mockedConfig) DefaultFolder() config.FolderConfiguration {
+	return config.FolderConfiguration{}
+}
+
+func (c *mockedConfig) SetDefaultFolder(config.FolderConfiguration) (config.Waiter, error) {
+	return noopWaiter{}, nil
+}
+
+func (c *mockedConfig) DefaultDevice() config.DeviceConfiguration {
+	return config.DeviceConfiguration{}
+}
+
+func (c *mockedConfig) SetDefaultDevice(config.DeviceConfiguration) (config.Waiter, error) {
+	return noopWaiter{}, nil
 }
 
 func (c *mockedConfig) GlobalDiscoveryServers() []string {

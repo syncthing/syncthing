@@ -27,6 +27,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{34, migrateToConfigV34},
 		{33, migrateToConfigV33},
 		{32, migrateToConfigV32},
 		{31, migrateToConfigV31},
@@ -90,6 +91,11 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV34(cfg *Configuration) {
+	cfg.Defaults.Folder.Path = cfg.Options.DeprecatedDefaultFolderPath
+	cfg.Options.DeprecatedDefaultFolderPath = ""
 }
 
 func migrateToConfigV33(cfg *Configuration) {

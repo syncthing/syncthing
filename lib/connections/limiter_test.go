@@ -31,12 +31,19 @@ func init() {
 	device4, _ = protocol.DeviceIDFromString("P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2")
 }
 
+func newDeviceConfiguration(w config.Wrapper, id protocol.DeviceID, name string) config.DeviceConfiguration {
+	cfg := w.DefaultDevice()
+	cfg.DeviceID = id
+	cfg.Name = name
+	return cfg
+}
+
 func initConfig() (config.Wrapper, context.CancelFunc) {
 	wrapper := config.Wrap("/dev/null", config.New(device1), device1, events.NoopLogger)
-	dev1Conf = config.NewDeviceConfiguration(device1, "device1")
-	dev2Conf = config.NewDeviceConfiguration(device2, "device2")
-	dev3Conf = config.NewDeviceConfiguration(device3, "device3")
-	dev4Conf = config.NewDeviceConfiguration(device4, "device4")
+	dev1Conf = newDeviceConfiguration(wrapper, device1, "device1")
+	dev2Conf = newDeviceConfiguration(wrapper, device2, "device2")
+	dev3Conf = newDeviceConfiguration(wrapper, device3, "device3")
+	dev4Conf = newDeviceConfiguration(wrapper, device4, "device4")
 
 	var cancel context.CancelFunc = func() {}
 	if wrapperService, ok := wrapper.(suture.Service); ok {
@@ -149,7 +156,7 @@ func TestAddDevice(t *testing.T) {
 	lim := newLimiter(device1, wrapper)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
-	addDevConf := config.NewDeviceConfiguration(addedDevice, "addedDevice")
+	addDevConf := newDeviceConfiguration(wrapper, addedDevice, "addedDevice")
 	addDevConf.MaxRecvKbps = 120
 	addDevConf.MaxSendKbps = 240
 
@@ -183,7 +190,7 @@ func TestAddAndRemove(t *testing.T) {
 	lim := newLimiter(device1, wrapper)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
-	addDevConf := config.NewDeviceConfiguration(addedDevice, "addedDevice")
+	addDevConf := newDeviceConfiguration(wrapper, addedDevice, "addedDevice")
 	addDevConf.MaxRecvKbps = 120
 	addDevConf.MaxSendKbps = 240
 

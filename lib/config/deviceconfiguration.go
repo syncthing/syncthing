@@ -8,22 +8,7 @@ package config
 
 import (
 	"sort"
-
-	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/util"
 )
-
-func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfiguration {
-	d := DeviceConfiguration{
-		DeviceID: id,
-		Name:     name,
-	}
-
-	util.SetDefaults(&d)
-
-	d.prepare(nil)
-	return d
-}
 
 func (cfg DeviceConfiguration) Copy() DeviceConfiguration {
 	c := cfg
@@ -39,9 +24,6 @@ func (cfg DeviceConfiguration) Copy() DeviceConfiguration {
 func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
 	if len(cfg.Addresses) == 0 || len(cfg.Addresses) == 1 && cfg.Addresses[0] == "" {
 		cfg.Addresses = []string{"dynamic"}
-	}
-	if len(cfg.AllowedNetworks) == 0 {
-		cfg.AllowedNetworks = []string{}
 	}
 
 	ignoredFolders := deduplicateObservedFoldersToMap(cfg.IgnoredFolders)
