@@ -513,8 +513,10 @@ func TestCheckGlobals(t *testing.T) {
 	}
 
 	// Clean up global entry of the now missing file
-	if err := db.checkGlobals([]byte(fs.folder)); err != nil {
+	if repaired, err := db.checkGlobals([]byte(fs.folder)); err != nil {
 		t.Fatal(err)
+	} else if repaired != 1 {
+		t.Error("Expected 1 repaired global item, got", repaired)
 	}
 
 	// Check that the global entry is gone
