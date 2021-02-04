@@ -58,7 +58,7 @@ const (
 
 const (
 	extraUsage = `
-The -logflags value is a sum of the following:
+The --logflags value is a sum of the following:
 
    1  Date
    2  Time
