@@ -211,6 +211,10 @@ func main() {
 	case len(args) == 0:
 		// Empty command line is equivalent to just calling serve
 		args = []string{"serve"}
+	case args[0] == "-help":
+		// For consistency, we consider this equivalent with --help even
+		// though kong would otherwise consider it a bad flag.
+		args[0] = "--help"
 	case args[0] == "-h", args[0] == "--help":
 		// Top level request for help, let it pass as-is to be handled by
 		// kong to list commands.
