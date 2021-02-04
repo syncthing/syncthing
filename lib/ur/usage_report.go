@@ -71,6 +71,7 @@ func (s *Service) ReportDataPreview(ctx context.Context, urVersion int) (*contra
 
 func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (*contract.Report, error) {
 	opts := s.cfg.Options()
+	defaultFolder := s.cfg.DefaultFolder()
 
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
@@ -212,7 +213,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 		report.CacheIgnoredFiles = opts.CacheIgnoredFiles
 		report.OverwriteRemoteDeviceNames = opts.OverwriteRemoteDevNames
 		report.ProgressEmitterEnabled = opts.ProgressUpdateIntervalS > -1
-		report.CustomDefaultFolderPath = opts.DefaultFolderPath != "~"
+		report.CustomDefaultFolderPath = defaultFolder.Path != "~"
 		report.CustomTrafficClass = opts.TrafficClass != 0
 		report.CustomTempIndexMinBlocks = opts.TempIndexMinBlocks != 10
 		report.TemporariesDisabled = opts.KeepTemporariesH == 0

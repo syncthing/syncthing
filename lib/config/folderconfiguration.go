@@ -33,21 +33,6 @@ const (
 	maxConcurrentWritesLimit   = 64
 )
 
-func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
-	f := FolderConfiguration{
-		ID:             id,
-		Label:          label,
-		Devices:        []FolderDeviceConfiguration{{DeviceID: myID}},
-		FilesystemType: fsType,
-		Path:           path,
-	}
-
-	util.SetDefaults(&f)
-
-	f.prepare(myID, nil)
-	return f
-}
-
 func (f FolderConfiguration) Copy() FolderConfiguration {
 	c := f
 	c.Devices = make([]FolderDeviceConfiguration, len(f.Devices))
