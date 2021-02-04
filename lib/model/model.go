@@ -282,7 +282,7 @@ func (m *model) initFolders(cfg config.Configuration) error {
 			folderCfg.CreateRoot()
 			continue
 		}
-		err := m.newFolder(folderCfg, cfg.Options.CacheIgnoredFiles)
+		err := m.newFolder(folderCfg)
 		if err != nil {
 			return err
 		}
@@ -327,8 +327,8 @@ func (m *model) StartDeadlockDetector(timeout time.Duration) {
 }
 
 // Need to hold lock on m.fmut when calling this.
-func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet, cacheIgnoredFiles bool) {
-	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(cacheIgnoredFiles))
+func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, fset *db.FileSet) {
+	ignores := ignore.New(cfg.Filesystem())
 	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 		l.Warnln("Loading ignores:", err)
 	}
@@ -497,7 +497,7 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	delete(m.folderVersioners, cfg.ID)
 }
 
-func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) error {
+func (m *model) restartFolder(from, to config.FolderConfiguration) error {
 	if len(to.ID) == 0 {
 		panic("bug: cannot restart empty folder ID")
 	}
@@ -543,7 +543,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 				return fmt.Errorf("restarting %v: %w", to.Description(), err)
 			}
 		}
-		m.addAndStartFolderLocked(to, fset, cacheIgnoredFiles)
+		m.addAndStartFolderLocked(to, fset)
 	}
 
 	// Care needs to be taken because we already hold fmut and the lock order
@@ -580,7 +580,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	return nil
 }
 
-func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool) error {
+func (m *model) newFolder(cfg config.FolderConfiguration) error {
 	// Creating the fileset can take a long time (metadata calculation) so
 	// we do it outside of the lock.
 	fset, err := db.NewFileSet(cfg.ID, cfg.Filesystem(), m.db)
@@ -602,7 +602,7 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	}
 	m.pmut.RUnlock()
 
-	m.addAndStartFolderLocked(cfg, fset, cacheIgnoredFiles)
+	m.addAndStartFolderLocked(cfg, fset)
 	return nil
 }
 
@@ -2727,7 +2727,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				l.Infoln("Paused folder", cfg.Description())
 			} else {
 				l.Infoln("Adding folder", cfg.Description())
-				if err := m.newFolder(cfg, to.Options.CacheIgnoredFiles); err != nil {
+				if err := m.newFolder(cfg); err != nil {
 					m.fatal(err)
 					return true
 				}
@@ -2753,8 +2753,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 		// This folder exists on both sides. Settings might have changed.
 		// Check if anything differs that requires a restart.
-		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) || from.Options.CacheIgnoredFiles != to.Options.CacheIgnoredFiles {
-			if err := m.restartFolder(fromCfg, toCfg, to.Options.CacheIgnoredFiles); err != nil {
+		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) {
+			if err := m.restartFolder(fromCfg, toCfg); err != nil {
 				m.fatal(err)
 				return true
 			}

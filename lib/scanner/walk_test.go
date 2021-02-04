@@ -680,7 +680,7 @@ func TestRecurseInclude(t *testing.T) {
 	!ffile
 	*
 	`
-	ignores := ignore.New(testFs, ignore.WithCache(true))
+	ignores := ignore.New(testFs)
 	if err := ignores.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
 		t.Fatal(err)
 	}
@@ -791,7 +791,7 @@ func TestSkipIgnoredDirs(t *testing.T) {
 
 	w := &walker{}
 
-	pats := ignore.New(fss, ignore.WithCache(true))
+	pats := ignore.New(fss)
 
 	stignore := `
 	/foo/ign*
@@ -824,7 +824,7 @@ func TestIncludedSubdir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pats := ignore.New(fss, ignore.WithCache(true))
+	pats := ignore.New(fss)
 
 	stignore := `
 	!/foo/bar
