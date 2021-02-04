@@ -250,7 +250,7 @@
                 </div>
                 <div class="panel-footer clearfix">
                   <div class="pull-right">
-                    <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(folderID, offeringDevice.label, deviceID)" ng-if="!folders[folderID]">
+                    <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(folderID, pendingFolder, deviceID)" ng-if="!folders[folderID]">
                       <span class="fas fa-check"></span>&nbsp;<span translate>Add</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(folderID, deviceID)" ng-if="folders[folderID]">

@@ -16,7 +16,6 @@
             <input name="folderLabel" id="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" value="{{currentFolder.label}}" />
             <p class="help-block">
               <span translate ng-if="folderEditor.folderLabel.$valid || folderEditor.folderLabel.$pristine">Optional descriptive label for the folder. Can be different on each device.</span>
-              {{currentFolder.type}} {{currentFolder.type === 'receiveencrypted'}}
             </p>
           </div>
           <div class="form-group" ng-class="{'has-error': folderEditor.folderID.$invalid && folderEditor.folderID.$dirty}">

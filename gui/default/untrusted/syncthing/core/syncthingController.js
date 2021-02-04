@@ -1935,8 +1935,7 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.addFolderAndShare = function (folder, folderLabel, device) {
-            var pendingFolder = $scope.pendingFolders[folder];
+        $scope.addFolderAndShare = function (folderID, pendingFolder, device) {
             var recvEnc = false;
             for (var k in pendingFolder.offeredBy) {
                 if (pendingFolder.offeredBy[k].receiveEncrypted) {
@@ -1945,8 +1944,8 @@ angular.module('syncthing.core')
                 }
             }
             addFolderInit(recvEnc);
-            $scope.currentFolder.id = folder;
-            $scope.currentFolder.label = folderLabel;
+            $scope.currentFolder.id = folderID;
+            $scope.currentFolder.label = pendingFolder.offeredBy[device].label;
             $scope.currentFolder.viewFlags = {
                 importFromOtherDevice: true
             };
