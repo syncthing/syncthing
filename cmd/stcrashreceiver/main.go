@@ -47,7 +47,7 @@ func main() {
 	mux.Handle("/", cr)
 
 	if *dsn != "" {
-		mux.HandleFunc("/failure", handleFailureFn(*dsn))
+		mux.HandleFunc("/newcrash/failure", handleFailureFn(*dsn))
 	}
 
 	log.SetOutput(os.Stdout)
