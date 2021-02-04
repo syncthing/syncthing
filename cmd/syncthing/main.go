@@ -170,7 +170,7 @@ type serveOptions struct {
 	DebugDBRecheckInterval    time.Duration `env:"STRECHECKDBEVERY" help:"Database metadata recalculation interval"`
 	DebugDeadlockTimeout      int           `placeholder:"SECONDS" env:"STDEADLOCKTIMEOUT" help:"Used for debugging internal deadlocks"`
 	DebugGUIAssetsDir         string        `placeholder:"PATH" help:"Directory to load GUI assets from" env:"STGUIASSETS"`
-	DebugHeapProfiler         bool          `env:"STHEAPPROFILE" help:"Write heap profiles to heap-$pid-$timestamp.pprof each time heap usage increases"`
+	DebugHeapProfile          bool          `env:"STHEAPPROFILE" help:"Write heap profiles to heap-$pid-$timestamp.pprof each time heap usage increases"`
 	DebugNetworkProfilerURL   string        `placeholder:"URL" env:"STPROFILER" help:"Network profiler listen URL"`
 	DebugPerfStats            bool          `env:"STPERFSTATS" help:"Write running performance statistics to perf-$pid.csv (Unix only)"`
 	DebugResetDatabase        bool          `name:"reset-database" help:"Reset the database, forcing a full rescan and resync"`
@@ -550,7 +550,7 @@ func syncthingMain(options serveOptions) {
 	if options.DebugBlockProfiler {
 		startBlockProfiler()
 	}
-	if options.DebugHeapProfiler {
+	if options.DebugHeapProfile {
 		startHeapProfiler()
 	}
 	if options.DebugPerfStats {
