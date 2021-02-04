@@ -44,12 +44,12 @@ const (
 	panicUploadNoticeWait = 10 * time.Second
 )
 
-func monitorMain(runtimeOptions RuntimeOptions) {
+func monitorMain(runtimeOptions serveOptions) {
 	l.SetPrefix("[monitor] ")
 
 	var dst io.Writer = os.Stdout
 
-	logFile := runtimeOptions.logFile
+	logFile := runtimeOptions.LogFile
 	if logFile != "-" {
 		if expanded, err := fs.ExpandTilde(logFile); err == nil {
 			logFile = expanded
@@ -59,8 +59,8 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 		open := func(name string) (io.WriteCloser, error) {
 			return newAutoclosedFile(name, logFileAutoCloseDelay, logFileMaxOpenTime)
 		}
-		if runtimeOptions.logMaxSize > 0 {
-			fileDst, err = newRotatedFile(logFile, open, int64(runtimeOptions.logMaxSize), runtimeOptions.logMaxFiles)
+		if runtimeOptions.LogMaxSize > 0 {
+			fileDst, err = newRotatedFile(logFile, open, int64(runtimeOptions.LogMaxSize), runtimeOptions.LogMaxFiles)
 		} else {
 			fileDst, err = open(logFile)
 		}
@@ -174,7 +174,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			exitCode := exiterr.ExitCode()
-			if stopped || runtimeOptions.noRestart {
+			if stopped || runtimeOptions.NoRestart {
 				os.Exit(exitCode)
 			}
 			if exitCode == svcutil.ExitUpgrade.AsInt() {
@@ -188,7 +188,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 			}
 		}
 
-		if runtimeOptions.noRestart {
+		if runtimeOptions.NoRestart {
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
@@ -563,7 +563,7 @@ func childEnv() []string {
 // panicUploadMaxWait uploading panics...
 func maybeReportPanics() {
 	// Try to get a config to see if/where panics should be reported.
-	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger)
+	cfg, err := loadOrDefaultConfig(protocol.EmptyDeviceID, events.NoopLogger, true)
 	if err != nil {
 		l.Warnln("Couldn't load config; not reporting crash")
 		return

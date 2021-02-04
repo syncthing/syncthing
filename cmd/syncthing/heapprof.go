@@ -11,24 +11,17 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
-	"strconv"
 	"syscall"
 	"time"
 )
 
-func init() {
-	if innerProcess && os.Getenv("STHEAPPROFILE") != "" {
-		rate := 1
-		if i, err := strconv.Atoi(os.Getenv("STHEAPPROFILE")); err == nil {
-			rate = i
-		}
-		l.Debugln("Starting heap profiling")
-		go func() {
-			err := saveHeapProfiles(rate) // Only returns on error
-			l.Warnln("Heap profiler failed:", err)
-			panic("Heap profiler failed")
-		}()
-	}
+func startHeapProfiler() {
+	l.Debugln("Starting heap profiling")
+	go func() {
+		err := saveHeapProfiles(1) // Only returns on error
+		l.Warnln("Heap profiler failed:", err)
+		panic("Heap profiler failed")
+	}()
 }
 
 func saveHeapProfiles(rate int) error {
