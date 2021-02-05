@@ -58,11 +58,11 @@ func (c *CLI) Run() error {
 			log.Println("No --folder-id given and couldn't read folder token")
 			return fmt.Errorf("getting folder ID: %w", err)
 		}
-		c.FolderID = folderID
-	}
 
-	if c.Verbose {
-		log.Println("Folder ID:", c.FolderID)
+		c.FolderID = folderID
+		if c.Verbose {
+			log.Println("Found folder ID:", c.FolderID)
+		}
 	}
 
 	c.folderKey = protocol.KeyFromPassword(c.FolderID, c.Password)
