@@ -1289,7 +1289,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	tempIndexFolders := make([]string, 0, len(folders))
 	paused := make(map[string]struct{}, len(folders))
 	seenFolders := make(map[string]struct{}, len(folders))
-	updatedPending := make([]map[string]string, 0, len(folders))
+	updatedPending := make([]updatedPendingFolder, 0, len(folders))
 	deviceID := deviceCfg.DeviceID
 	for _, folder := range folders {
 		seenFolders[folder.ID] = struct{}{}
@@ -1309,10 +1309,11 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
 			indexSenders.addPending(cfg, ccDeviceInfos[folder.ID])
-			updatedPending = append(updatedPending, map[string]string{
-				"folderID":    folder.ID,
-				"folderLabel": folder.Label,
-				"deviceID":    deviceID.String(),
+			updatedPending = append(updatedPending, updatedPendingFolder{
+				FolderID:         folder.ID,
+				FolderLabel:      folder.Label,
+				DeviceID:         deviceID,
+				ReceiveEncrypted: recvEnc,
 			})
 			// DEPRECATED: Only for backwards compatibility, should be removed.
 			m.evLogger.Log(events.FolderRejected, map[string]string{
@@ -3177,4 +3178,11 @@ func newFolderConfiguration(w config.Wrapper, id, label string, fsType fs.Filesy
 	fcfg.FilesystemType = fsType
 	fcfg.Path = path
 	return fcfg
+}
+
+type updatedPendingFolder struct {
+	FolderID         string            `json:"folderID"`
+	FolderLabel      string            `json:"folderLabel"`
+	DeviceID         protocol.DeviceID `json:"deviceID"`
+	ReceiveEncrypted bool              `json:"receiveEncrypted"`
 }

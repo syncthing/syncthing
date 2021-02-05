@@ -198,7 +198,7 @@
               <div class="row">
                 <div class="col-md-6">
                   <label>
-                    <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="fsWatcherToggled()" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
+                    <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="setFSWatcherIntervalDefault()" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
                   </label>
                   <p translate class="help-block">Watching for changes discovers most changes without periodic scanning.</p>
                 </div>

@@ -214,8 +214,6 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 
 	if f.Type == FolderTypeReceiveEncrypted {
 		f.IgnorePerms = true
-		f.Versioning.Type = ""
-		f.Versioning.Params = nil
 	}
 }
 

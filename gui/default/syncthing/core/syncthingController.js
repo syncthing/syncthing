@@ -51,6 +51,7 @@ angular.module('syncthing.core')
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
+        $scope.currentSharing = {};
         $scope.currentFolder = {};
         $scope.currentDevice = {};
         $scope.ignores = {
@@ -271,11 +272,12 @@ angular.module('syncthing.core')
 
             if (arg.data.added) {
                 arg.data.added.forEach(function (rejected) {
-                    var offeringDevice = {
+                    var observedFolder = {
                         time: arg.time,
-                        label: rejected.folderLabel
+                        label: rejected.folderLabel,
+                        receiveEncrypted: rejected.receiveEncrypted,
                     };
-                    console.log("rejected folder", rejected.folderID, "from device:", rejected.deviceID, offeringDevice);
+                    console.log("rejected folder", rejected.folderID, "from device:", rejected.deviceID, observedFolder);
 
                     var pendingFolder = $scope.pendingFolders[rejected.folderID];
                     if (pendingFolder === undefined) {
@@ -283,7 +285,7 @@ angular.module('syncthing.core')
                             offeredBy: {}
                         };
                     }
-                    pendingFolder.offeredBy[rejected.deviceID] = offeringDevice;
+                    pendingFolder.offeredBy[rejected.deviceID] = observedFolder;
                     $scope.pendingFolders[rejected.folderID] = pendingFolder;
                 });
             }
@@ -1811,12 +1813,18 @@ angular.module('syncthing.core')
             $scope.currentFolder.path = pathJoin($scope.config.defaults.folder.path, newvalue);
         });
 
-        $scope.fsWatcherToggled = function () {
-            if ($scope.currentFolder.fsWatcherEnabled) {
-                $scope.currentFolder.rescanIntervalS = 3600;
-            } else {
-                $scope.currentFolder.rescanIntervalS = 60;
+        $scope.setFSWatcherIntervalDefault = function () {
+            var defaultRescanIntervals = [60, 3600];
+            if (defaultRescanIntervals .indexOf($scope.currentFolder.rescanIntervalS) >= 0) {
+                return;
             }
+            var idx;
+            if ($scope.currentFolder.fsWatcherEnabled) {
+                idx = 1;
+            } else {
+                idx = 0;
+            }
+            $scope.currentFolder.rescanIntervalS = defaultRescanIntervals[idx];
         };
 
         $scope.loadFormIntoScope = function (form) {
