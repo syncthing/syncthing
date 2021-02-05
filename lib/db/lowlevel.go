@@ -1202,7 +1202,7 @@ func unchanged(nf, ef protocol.FileIntf) bool {
 func (db *Lowlevel) handleFailure(err error) {
 	db.checkErrorForRepair(err)
 	if shouldReportFailure(err) {
-		db.evLogger.Log(events.Failure, err)
+		db.evLogger.Log(events.Failure, err.Error())
 	}
 }
 
