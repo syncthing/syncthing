@@ -272,12 +272,12 @@ angular.module('syncthing.core')
 
             if (arg.data.added) {
                 arg.data.added.forEach(function (rejected) {
-                    var observedFolder = {
+                    var offeringDevice = {
                         time: arg.time,
                         label: rejected.folderLabel,
                         receiveEncrypted: rejected.receiveEncrypted,
                     };
-                    console.log("rejected folder", rejected.folderID, "from device:", rejected.deviceID, observedFolder);
+                    console.log("rejected folder", rejected.folderID, "from device:", rejected.deviceID, offeringDevice);
 
                     var pendingFolder = $scope.pendingFolders[rejected.folderID];
                     if (pendingFolder === undefined) {
@@ -285,7 +285,7 @@ angular.module('syncthing.core')
                             offeredBy: {}
                         };
                     }
-                    pendingFolder.offeredBy[rejected.deviceID] = observedFolder;
+                    pendingFolder.offeredBy[rejected.deviceID] = offeringDevice;
                     $scope.pendingFolders[rejected.folderID] = pendingFolder;
                 });
             }
@@ -1815,7 +1815,7 @@ angular.module('syncthing.core')
 
         $scope.setFSWatcherIntervalDefault = function () {
             var defaultRescanIntervals = [60, 3600];
-            if (defaultRescanIntervals .indexOf($scope.currentFolder.rescanIntervalS) >= 0) {
+            if (defaultRescanIntervals.indexOf($scope.currentFolder.rescanIntervalS) === -1) {
                 return;
             }
             var idx;
