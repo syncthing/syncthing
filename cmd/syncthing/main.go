@@ -164,15 +164,15 @@ type serveOptions struct {
 	Version          bool   `help:"Show version"`
 
 	// Debug options below
-	DebugBlockProfiler        bool          `env:"STBLOCKPROFILE" help:"Write block profiles to block-$pid-$timestamp.pprof every 20 seconds"`
-	DebugCPUProfile           bool          `help:"Write a CPU profile to cpu-$pid.pprof on exit" env:"CPUPROFILE"`
 	DebugDBIndirectGCInterval time.Duration `env:"STGCINDIRECTEVERY" help:"Database indirection GC interval"`
 	DebugDBRecheckInterval    time.Duration `env:"STRECHECKDBEVERY" help:"Database metadata recalculation interval"`
 	DebugDeadlockTimeout      int           `placeholder:"SECONDS" env:"STDEADLOCKTIMEOUT" help:"Used for debugging internal deadlocks"`
 	DebugGUIAssetsDir         string        `placeholder:"PATH" help:"Directory to load GUI assets from" env:"STGUIASSETS"`
-	DebugHeapProfile          bool          `env:"STHEAPPROFILE" help:"Write heap profiles to heap-$pid-$timestamp.pprof each time heap usage increases"`
-	DebugNetworkProfilerURL   string        `placeholder:"URL" env:"STPROFILER" help:"Network profiler listen URL"`
 	DebugPerfStats            bool          `env:"STPERFSTATS" help:"Write running performance statistics to perf-$pid.csv (Unix only)"`
+	DebugProfileBlock         bool          `env:"STBLOCKPROFILE" help:"Write block profiles to block-$pid-$timestamp.pprof every 20 seconds"`
+	DebugProfileCPU           bool          `help:"Write a CPU profile to cpu-$pid.pprof on exit" env:"CPUPROFILE"`
+	DebugProfileHeap          bool          `env:"STHEAPPROFILE" help:"Write heap profiles to heap-$pid-$timestamp.pprof each time heap usage increases"`
+	DebugProfilerListen       string        `placeholder:"ADDR" env:"STPROFILER" help:"Network profiler listen address"`
 	DebugResetDatabase        bool          `name:"reset-database" help:"Reset the database, forcing a full rescan and resync"`
 	DebugResetDeltaIdxs       bool          `name:"reset-deltas" help:"Reset delta index IDs, forcing a full index exchange"`
 
@@ -547,10 +547,10 @@ func upgradeViaRest() error {
 }
 
 func syncthingMain(options serveOptions) {
-	if options.DebugBlockProfiler {
+	if options.DebugProfileBlock {
 		startBlockProfiler()
 	}
-	if options.DebugHeapProfile {
+	if options.DebugProfileHeap {
 		startHeapProfiler()
 	}
 	if options.DebugPerfStats {
@@ -653,7 +653,7 @@ func syncthingMain(options serveOptions) {
 		AssetDir:             options.DebugGUIAssetsDir,
 		DeadlockTimeoutS:     options.DebugDeadlockTimeout,
 		NoUpgrade:            options.NoUpgrade,
-		ProfilerURL:          options.DebugNetworkProfilerURL,
+		ProfilerAddr:         options.DebugProfilerListen,
 		ResetDeltaIdxs:       options.DebugResetDeltaIdxs,
 		Verbose:              options.Verbose,
 		DBRecheckInterval:    options.DebugDBRecheckInterval,
@@ -689,7 +689,7 @@ func syncthingMain(options serveOptions) {
 		runtime.GOMAXPROCS(runtime.NumCPU())
 	}
 
-	if options.DebugCPUProfile {
+	if options.DebugProfileCPU {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
 			l.Warnln("Creating profile:", err)
@@ -721,7 +721,7 @@ func syncthingMain(options serveOptions) {
 		l.Warnln("Syncthing stopped with error:", app.Error())
 	}
 
-	if options.DebugCPUProfile {
+	if options.DebugProfileCPU {
 		pprof.StopCPUProfile()
 	}
 
