@@ -194,7 +194,7 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 
 	reqCtx, reqCancel := context.WithTimeout(ctx, sendTimeout)
 	defer reqCancel()
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodPut, url, &b)
+	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, url, &b)
 	if err != nil {
 		l.Infoln("Failed to send failure report:", err)
 		return
