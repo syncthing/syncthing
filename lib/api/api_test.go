@@ -1265,7 +1265,7 @@ func TestConfigChanges(t *testing.T) {
 	defer cancel()
 
 	cli := &http.Client{
-		Timeout: time.Second,
+		Timeout: time.Minute,
 	}
 
 	do := func(req *http.Request, status int) *http.Response {
