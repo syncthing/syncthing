@@ -89,21 +89,21 @@ func (c *CLI) walk() error {
 			return nil
 		}
 
-		return c.withContinue(path, c.process(srcFs, dstFs, path))
+		return c.withContinue(c.process(srcFs, dstFs, path))
 	})
 }
 
 // If --continue was set we just mention the error and return nil to
 // continue processing.
-func (c *CLI) withContinue(path string, err error) error {
+func (c *CLI) withContinue(err error) error {
 	if err == nil {
 		return nil
 	}
 	if c.Continue {
-		log.Printf("Skipping %s: %v", path, err)
+		log.Println("Warning:", err)
 		return nil
 	}
-	return fmt.Errorf("processing %s: %w", path, err)
+	return err
 }
 
 // getFolderID returns the folder ID found in the encrypted token, or an
@@ -138,12 +138,12 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 
 	encFi, err := c.loadEncryptedFileInfo(encFd)
 	if err != nil {
-		return fmt.Errorf("loading metadata trailer: %w", err)
+		return fmt.Errorf("%s: loading metadata trailer: %w", path, err)
 	}
 
 	plainFi, err := protocol.DecryptFileInfo(*encFi, c.folderKey)
 	if err != nil {
-		return fmt.Errorf("decrypting metadata: %w", err)
+		return fmt.Errorf("%s: decrypting metadata: %w", path, err)
 	}
 
 	if c.Verbose {
@@ -153,17 +153,17 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 	var plainFd fs.File
 	if dstFs != nil {
 		if err := dstFs.MkdirAll(filepath.Dir(plainFi.Name), 0700); err != nil {
-			return err
+			return fmt.Errorf("%s: %w", plainFi.Name, err)
 		}
 
 		plainFd, err = dstFs.Create(plainFi.Name)
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", plainFi.Name, err)
 		}
 	}
 
 	if err := c.decryptFile(encFi, &plainFi, encFd, plainFd); err != nil {
-		return err
+		return fmt.Errorf("%s: %w", plainFi.Name, err)
 	} else if c.Verbose {
 		log.Printf("Data verified for %q", plainFi.Name)
 	}
@@ -188,19 +188,35 @@ func (c *CLI) decryptFile(encFi *protocol.FileInfo, plainFi *protocol.FileInfo, 
 		// Read the encrypted block
 		buf := make([]byte, encBlock.Size)
 		if _, err := src.ReadAt(buf, encBlock.Offset); err != nil {
-			return err
+			return fmt.Errorf("encrypted block %d (%d bytes): %w", i, encBlock.Size, err)
 		}
 
 		// Decrypt it
 		dec, err := protocol.DecryptBytes(buf, fileKey)
 		if err != nil {
-			return err
+			return fmt.Errorf("encrypted block %d (%d bytes): %w", i, encBlock.Size, err)
+		}
+
+		// Verify the block against the expected plaintext
+		plainBlock := plainFi.Blocks[i]
+		if i == len(plainFi.Blocks)-1 && len(dec) > plainBlock.Size {
+			// The last block might be padded, which is fine (we skip the padding)
+			dec = dec[:plainBlock.Size]
+		} else if len(dec) != plainBlock.Size {
+			return fmt.Errorf("plaintext block %d size mismatch, actual %d != expected %d", i, len(dec), plainBlock.Size)
 		}
 
 		// Verify the hash against the plaintext block info
-		plainBlock := plainFi.Blocks[i]
 		if !scanner.Validate(dec, plainBlock.Hash, 0) {
-			return fmt.Errorf("block %d failed validation after decryption", i)
+			// The block decrypted correctly but fails the hash check. This
+			// is odd and unexpected, but it it's still a valid block from
+			// the source. The file might have changed while we pulled it?
+			err := fmt.Errorf("plaintext block %d (%d bytes) failed validation after decryption", i, plainBlock.Size)
+			if c.Continue {
+				log.Printf("Warning: %s: %v", plainFi.Name, err)
+			} else {
+				return err
+			}
 		}
 
 		// Write it to the destination, unless we're just verifying.
