@@ -25,7 +25,7 @@ import (
 type CLI struct {
 	Path       string `arg:"" required:"1" help:"Path to encrypted folder"`
 	To         string `xor:"mode" placeholder:"PATH" help:"Destination directory, when decrypting"`
-	VerifyOnly bool   `xor:"mode" help:"Don't store decrypted files, only verify the hashes"`
+	VerifyOnly bool   `xor:"mode" help:"Don't write decrypted files to disk (but verify plaintext hashes)"`
 	Password   string `help:"Folder password for decryption / verification" env:"FOLDER_PASSWORD"`
 	FolderID   string `help:"Folder ID of the encrypted folder, if it cannot be determined automatically"`
 	Continue   bool   `help:"Continue processing next file in case of error, instead of aborting"`
