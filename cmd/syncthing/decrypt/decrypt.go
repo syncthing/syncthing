@@ -16,20 +16,21 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 )
 
 type CLI struct {
-	Path      string `arg:"" required:"1" help:"Path to encrypted folder"`
-	To        string `xor:"mode" placeholder:"PATH" help:"Destination directory, when decrypting"`
-	Verify    bool   `xor:"mode" help:"Don't decrypt, just verify that the files are valid"`
-	Password  string `help:"Folder password for decryption / verification" env:"FOLDER_PASSWORD"`
-	FolderID  string `help:"Folder ID of the encrypted folder, if it cannot be determined automatically"`
-	Continue  bool   `help:"Continue processing next file in case of error, instead of aborting"`
-	Verbose   bool   `help:"Show verbose progress information"`
-	TokenPath string `placeholder:"PATH" help:"Path to the token file within the folder (used to determine folder ID)"`
+	Path       string `arg:"" required:"1" help:"Path to encrypted folder"`
+	To         string `xor:"mode" placeholder:"PATH" help:"Destination directory, when decrypting"`
+	VerifyOnly bool   `xor:"mode" help:"Don't store decrypted files, only verify the hashes"`
+	Password   string `help:"Folder password for decryption / verification" env:"FOLDER_PASSWORD"`
+	FolderID   string `help:"Folder ID of the encrypted folder, if it cannot be determined automatically"`
+	Continue   bool   `help:"Continue processing next file in case of error, instead of aborting"`
+	Verbose    bool   `help:"Show verbose progress information"`
+	TokenPath  string `placeholder:"PATH" help:"Path to the token file within the folder (used to determine folder ID)"`
 
 	folderKey *[32]byte
 }
@@ -42,13 +43,13 @@ type storedEncryptionToken struct {
 func (c *CLI) Run() error {
 	log.SetFlags(0)
 
-	if c.To == "" && !c.Verify {
+	if c.To == "" && !c.VerifyOnly {
 		return fmt.Errorf("must set --to or --verify")
 	}
 
 	if c.TokenPath == "" {
 		// This is a bit long to show as default in --help
-		c.TokenPath = ".stfolder/syncthing-encryption_password_token"
+		c.TokenPath = filepath.Join(config.DefaultMarkerName, config.EncryptionTokenName)
 	}
 
 	if c.FolderID == "" {
@@ -160,6 +161,7 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 		if err != nil {
 			return fmt.Errorf("%s: %w", plainFi.Name, err)
 		}
+		defer plainFd.Close() // also closed explicitly in the return
 	}
 
 	if err := c.decryptFile(encFi, &plainFi, encFd, plainFd); err != nil {
@@ -252,10 +254,10 @@ func (c *CLI) loadEncryptedFileInfo(fd fs.File) (*protocol.FileInfo, error) {
 		return nil, err
 	}
 
-	var plainFi protocol.FileInfo
-	if err := plainFi.Unmarshal(trailer); err != nil {
+	var encFi protocol.FileInfo
+	if err := encFi.Unmarshal(trailer); err != nil {
 		return nil, err
 	}
 
-	return &plainFi, nil
+	return &encFi, nil
 }
