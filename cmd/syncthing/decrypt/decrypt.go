@@ -165,6 +165,13 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 	}
 
 	if err := c.decryptFile(encFi, &plainFi, encFd, plainFd); err != nil {
+		// Decrypting the file failed, leaving it in an inconsistent state.
+		// Delete it. Even --continue currently doesn't mean "leave broken
+		// stuff in place", it just means "try the next file instead of
+		// aborting".
+		if plainFd != nil {
+			_ = dstFs.Remove(plainFd.Name())
+		}
 		return fmt.Errorf("%s: %w", plainFi.Name, err)
 	} else if c.Verbose {
 		log.Printf("Data verified for %q", plainFi.Name)
