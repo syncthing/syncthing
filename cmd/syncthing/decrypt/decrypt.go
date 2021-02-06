@@ -197,7 +197,7 @@ func (c *CLI) decryptFile(encFi *protocol.FileInfo, plainFi *protocol.FileInfo, 
 			return fmt.Errorf("encrypted block %d (%d bytes): %w", i, encBlock.Size, err)
 		}
 
-		// Verify the block against the expected plaintext
+		// Verify the block size against the expected plaintext
 		plainBlock := plainFi.Blocks[i]
 		if i == len(plainFi.Blocks)-1 && len(dec) > plainBlock.Size {
 			// The last block might be padded, which is fine (we skip the padding)
